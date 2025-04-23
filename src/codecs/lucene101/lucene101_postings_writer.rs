@@ -14,6 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::borrow::Cow;
+use std::default::Default;
+use std::rc::Rc;
+
 use crate::codecs::block_term_state::BlockTermStateEnum;
 use crate::codecs::competitive_impact_accumulator::CompetitiveImpactAccumulator;
 use crate::codecs::lucene101::for_delta_util::ForDeltaUtil;
@@ -43,11 +47,9 @@ use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::SliceCopyOps;
-use std::borrow::Cow;
-use std::default::Default;
-use std::rc::Rc;
 
-/// Writer for [`Lucene101PostingsFormat`](crate::codecs::lucene101::lucene101_postings_format)
+/// Writer for
+/// [`Lucene101PostingsFormat`](crate::codecs::lucene101::lucene101_postings_format)
 pub struct Lucene101PostingsWriter<O, T, N, AV>
 where
     O: IndexOutput,
@@ -105,15 +107,17 @@ where
     max_impact_num_bytes_at_level0: i32,
     max_num_impacts_at_level1: i32,
     max_impact_num_bytes_at_level1: i32,
-    /// Scratch output that we use to be able to prepend the encoded length, e.g. impacts.
+    /// Scratch output that we use to be able to prepend the encoded length,
+    /// e.g. impacts.
     scratch_output: ByteBuffersDataOutput,
-    /// Output for a single block. This is useful to be able to prepend skip data before each block,
-    /// which can only be computed once the block is encoded. The content is then typically copied to
+    /// Output for a single block. This is useful to be able to prepend skip
+    /// data before each block, which can only be computed once the block
+    /// is encoded. The content is then typically copied to
     /// [`level1Output`].
     level0_output: ByteBuffersDataOutput,
-    /// Output for groups of 32 blocks. This is useful to prepend skip data for these 32 blocks, which
-    /// can only be done once we have encoded these 32 blocks. The content is then typically copied to
-    /// [`docCount`].
+    /// Output for groups of 32 blocks. This is useful to prepend skip data for
+    /// these 32 blocks, which can only be done once we have encoded these
+    /// 32 blocks. The content is then typically copied to [`docCount`].
     level1_output: ByteBuffersDataOutput,
 }
 #[allow(unused)]
@@ -140,8 +144,7 @@ where
         );
 
         let mut directory = state.directory.lock();
-        let mut meta_out =
-            directory.create_output(&meta_file, &state.context)?;
+        let mut meta_out = directory.create_output(&meta_file, &state.context)?;
         let mut doc_out = directory.create_output(&doc_file, &state.context)?;
         CodecUtil::write_index_header(
             &mut meta_out,
@@ -176,8 +179,7 @@ where
                 &state.segment_suffix,
                 Lucene101PostingsFormat::POS_EXTENSION,
             );
-            let mut pos_out_opt =
-                directory.create_output(&pos_file, &state.context)?;
+            let mut pos_out_opt = directory.create_output(&pos_file, &state.context)?;
             CodecUtil::write_index_header(
                 &mut pos_out_opt,
                 Lucene101PostingsFormat::POS_CODEC,
@@ -190,27 +192,21 @@ where
 
             if state.field_infos.has_payloads() {
                 payload_bytes = vec![0; 128];
-                payload_length_buffer =
-                    vec![0; Lucene101PostingsFormat::BLOCK_SIZE];
+                payload_length_buffer = vec![0; Lucene101PostingsFormat::BLOCK_SIZE];
             }
 
             if state.field_infos.has_offsets() {
-                offset_start_delta_buffer =
-                    vec![0; Lucene101PostingsFormat::BLOCK_SIZE];
-                offset_length_buffer =
-                    vec![0; Lucene101PostingsFormat::BLOCK_SIZE];
+                offset_start_delta_buffer = vec![0; Lucene101PostingsFormat::BLOCK_SIZE];
+                offset_length_buffer = vec![0; Lucene101PostingsFormat::BLOCK_SIZE];
             }
 
-            if state.field_infos.has_payloads()
-                || state.field_infos.has_offsets()
-            {
+            if state.field_infos.has_payloads() || state.field_infos.has_offsets() {
                 let pay_file = IndexFileNames::segment_file_name(
                     &state.segment_info.name,
                     &state.segment_suffix,
                     Lucene101PostingsFormat::PAY_EXTENSION,
                 );
-                let mut pay_out_opt =
-                    directory.create_output(&pay_file, &state.context)?;
+                let mut pay_out_opt = directory.create_output(&pay_file, &state.context)?;
                 CodecUtil::write_index_header(
                     &mut pay_out_opt,
                     Lucene101PostingsFormat::PAY_CODEC,
@@ -261,8 +257,7 @@ where
             field_has_norms: false,
             norms: None,
             level0_freq_norm_accumulator: CompetitiveImpactAccumulator::new(),
-            level1_competitive_freq_norm_accumulator:
-                CompetitiveImpactAccumulator::new(),
+            level1_competitive_freq_norm_accumulator: CompetitiveImpactAccumulator::new(),
             max_num_impacts_at_level0: 0,
             max_impact_num_bytes_at_level0: 0,
             max_num_impacts_at_level1: 0,
@@ -275,8 +270,7 @@ where
     fn flush_doc_block(&mut self, finish_term: bool) -> Result<()> {
         debug_assert!(self.doc_buffer_upto != 0);
 
-        if (self.doc_buffer_upto as usize) < Lucene101PostingsFormat::BLOCK_SIZE
-        {
+        if (self.doc_buffer_upto as usize) < Lucene101PostingsFormat::BLOCK_SIZE {
             debug_assert!(finish_term);
             PostingsUtil::write_vint_block(
                 &mut self.level0_output,
@@ -294,15 +288,11 @@ where
                 if n > self.max_num_impacts_at_level0 {
                     self.max_num_impacts_at_level0 = n;
                 }
-                lucene101_pw_util::write_impacts(
-                    &impacts,
-                    &mut self.scratch_output,
-                )?;
+                lucene101_pw_util::write_impacts(&impacts, &mut self.scratch_output)?;
                 debug_assert!(self.level0_output.size() == 0);
                 let scratch_len = self.scratch_output.size();
                 if scratch_len > self.max_impact_num_bytes_at_level0 as i64 {
-                    self.max_impact_num_bytes_at_level0 =
-                        scratch_len.try_into()?;
+                    self.max_impact_num_bytes_at_level0 = scratch_len.try_into()?;
                 }
                 self.level0_output.write_vlong(scratch_len)?;
                 self.scratch_output.copy_to(&mut self.level0_output)?;
@@ -310,46 +300,37 @@ where
 
                 if self.base.write_positions {
                     let pos_out = self.pos_out.as_ref().unwrap();
-                    self.level0_output.write_vlong(
-                        pos_out.get_file_pointer() - self.level0_last_pos_fp,
-                    )?;
                     self.level0_output
-                        .write_byte(self.pos_buffer_upto as u8)?;
+                        .write_vlong(pos_out.get_file_pointer() - self.level0_last_pos_fp)?;
+                    self.level0_output.write_byte(self.pos_buffer_upto as u8)?;
                     self.level0_last_pos_fp = pos_out.get_file_pointer();
 
                     if self.base.write_offsets || self.base.write_payloads {
                         let pay_out = self.pay_out.as_ref().unwrap();
-                        self.level0_output.write_vlong(
-                            pay_out.get_file_pointer()
-                                - self.level0_last_pay_fp,
-                        )?;
                         self.level0_output
-                            .write_vint(self.payload_byte_upto)?;
+                            .write_vlong(pay_out.get_file_pointer() - self.level0_last_pay_fp)?;
+                        self.level0_output.write_vint(self.payload_byte_upto)?;
                         self.level0_last_pay_fp = pay_out.get_file_pointer();
                     }
                 }
             }
 
             let mut num_skip_bytes = self.level0_output.size();
-            self.for_delta_util.encode_deltas(
-                &mut self.doc_delta_buffer,
-                &mut self.level0_output,
-            )?;
+            self.for_delta_util
+                .encode_deltas(&mut self.doc_delta_buffer, &mut self.level0_output)?;
             if self.base.write_freqs {
                 self.pfor_util
                     .encode(&mut self.freq_buffer, &mut self.level0_output)?;
             }
-            // docID - lastBlockDocID is at least 128, so it can never fit a single byte with a vint
-            // Even if we subtracted 128, only extremely dense blocks would be eligible to a single byte
+            // docID - lastBlockDocID is at least 128, so it can never fit a
+            // single byte with a vint Even if we subtracted 128,
+            // only extremely dense blocks would be eligible to a single byte
             // so let's go with 2 bytes right away
             lucene101_pw_util::write_vint15(
                 &mut self.scratch_output,
                 self.doc_id - self.level0_last_doc_id,
             )?;
-            lucene101_pw_util::write_vlong15(
-                &mut self.scratch_output,
-                self.level0_output.size(),
-            )?;
+            lucene101_pw_util::write_vlong15(&mut self.scratch_output, self.level0_output.size())?;
             num_skip_bytes += self.scratch_output.size();
 
             self.level1_output.write_vlong(num_skip_bytes)?;
@@ -393,14 +374,10 @@ where
             if n > self.max_num_impacts_at_level1 {
                 self.max_num_impacts_at_level1 = n;
             }
-            lucene101_pw_util::write_impacts(
-                &impacts,
-                &mut self.scratch_output,
-            )?;
+            lucene101_pw_util::write_impacts(&impacts, &mut self.scratch_output)?;
             let num_impact_bytes = self.scratch_output.size();
             if num_impact_bytes > self.max_impact_num_bytes_at_level1 as i64 {
-                self.max_impact_num_bytes_at_level1 =
-                    num_impact_bytes.try_into()?;
+                self.max_impact_num_bytes_at_level1 = num_impact_bytes.try_into()?;
             }
             if self.base.write_positions {
                 let pos_fp = self.pos_out.as_ref().unwrap().get_file_pointer();
@@ -409,8 +386,7 @@ where
                 self.scratch_output.write_byte(self.pos_buffer_upto as u8)?;
                 self.level1_last_pos_fp = pos_fp;
                 if self.base.write_offsets || self.base.write_payloads {
-                    let pay_fp =
-                        self.pay_out.as_ref().unwrap().get_file_pointer();
+                    let pay_fp = self.pay_out.as_ref().unwrap().get_file_pointer();
                     self.scratch_output
                         .write_vlong(pay_fp - self.level1_last_pay_fp)?;
                     self.scratch_output.write_vint(self.payload_byte_upto)?;
@@ -424,23 +400,20 @@ where
             level1_end = self.doc_out.get_file_pointer() + level1_len;
             // There are at most 128 impacts, that require at most 2 bytes each
             debug_assert!(self.scratch_output.size() <= i16::MAX as i64);
-            // Like impacts plus a few vlongs, still way under the max short value
+            // Like impacts plus a few vlongs, still way under the max short
+            // value
             debug_assert!(
-                (self.scratch_output.size() + BitUtil::SHORT_BYTES as i64)
-                    <= i16::MAX as i64
+                (self.scratch_output.size() + BitUtil::SHORT_BYTES as i64) <= i16::MAX as i64
             );
-            self.doc_out.write_short(
-                (self.scratch_output.size() + BitUtil::SHORT_BYTES as i64)
-                    as i16,
-            )?;
+            self.doc_out
+                .write_short((self.scratch_output.size() + BitUtil::SHORT_BYTES as i64) as i16)?;
             self.doc_out
                 .write_short(self.scratch_output.size() as i16)?;
             self.scratch_output.copy_to(&mut self.doc_out)?;
             self.scratch_output.reset();
         } else {
             self.doc_out.write_vlong(self.level1_output.size())?;
-            level1_end =
-                self.doc_out.get_file_pointer() + self.level1_output.size();
+            level1_end = self.doc_out.get_file_pointer() + self.level1_output.size();
         }
 
         self.level1_output.copy_to(&mut self.doc_out)?;
@@ -492,8 +465,7 @@ where
         self.close();
     }
 }
-impl<O, T, N, AV> PostingsWriterBase<T, N, AV>
-    for Lucene101PostingsWriter<O, T, N, AV>
+impl<O, T, N, AV> PostingsWriterBase<T, N, AV> for Lucene101PostingsWriter<O, T, N, AV>
 where
     O: IndexOutput,
     T: TermsEnum<AV>,
@@ -556,19 +528,15 @@ where
             && state.singleton_doc_id != -1
             && state.doc_start_fp == self.last_state.doc_start_fp
         {
-            // With runs of rare values such as ID fields, the increment of pointers in the docs file is
-            // often 0.
-            // Furthermore some ID schemes like auto-increment IDs or Flake IDs are monotonic, so we
-            // encode the delta
+            // With runs of rare values such as ID fields, the increment of
+            // pointers in the docs file is often 0.
+            // Furthermore some ID schemes like auto-increment IDs or Flake IDs
+            // are monotonic, so we encode the delta
             // between consecutive doc IDs to save space.
-            let delta = (state.singleton_doc_id
-                - self.last_state.singleton_doc_id)
-                as i64;
+            let delta = (state.singleton_doc_id - self.last_state.singleton_doc_id) as i64;
             out.write_vlong((BitUtil::zig_zag_encode_i64(delta) << 1) | 1)?;
         } else {
-            out.write_vlong(
-                (state.doc_start_fp - self.last_state.doc_start_fp) << 1,
-            )?;
+            out.write_vlong((state.doc_start_fp - self.last_state.doc_start_fp) << 1)?;
             if state.singleton_doc_id != -1 {
                 out.write_vint(state.singleton_doc_id)?;
             }
@@ -577,9 +545,7 @@ where
         if self.base.write_positions {
             out.write_vlong(state.pos_start_fp - self.last_state.pos_start_fp)?;
             if self.base.write_payloads || self.base.write_offsets {
-                out.write_vlong(
-                    state.pay_start_fp - self.last_state.pay_start_fp,
-                )?;
+                out.write_vlong(state.pay_start_fp - self.last_state.pay_start_fp)?;
             }
             if state.last_pos_block_offset != -1 {
                 out.write_vlong(state.last_pos_block_offset)?;
@@ -596,8 +562,7 @@ where
         self.field_has_norms = field_info.has_norms();
     }
 }
-impl<O, T, N, AV> PushPostingsWriterBaseAbstract<N>
-    for Lucene101PostingsWriter<O, T, N, AV>
+impl<O, T, N, AV> PushPostingsWriterBaseAbstract<N> for Lucene101PostingsWriter<O, T, N, AV>
 where
     O: IndexOutput,
     T: TermsEnum<AV>,
@@ -616,8 +581,7 @@ where
                 self.level0_last_pos_fp = self.pos_start_fp;
                 self.level1_last_pos_fp = self.pos_start_fp;
                 if self.base.write_payloads || self.base.write_offsets {
-                    let pay_fp =
-                        self.pay_out.as_ref().unwrap().get_file_pointer();
+                    let pay_fp = self.pay_out.as_ref().unwrap().get_file_pointer();
                     self.pay_start_fp = pay_fp;
                     self.level0_last_pay_fp = pay_fp;
                     self.level1_last_pay_fp = pay_fp;
@@ -654,22 +618,19 @@ where
         };
 
         let last_pos_block_offset = if self.base.write_positions {
-            // totalTermFreq is just total number of positions(or payloads, or offsets)
-            // associated with current term.
+            // totalTermFreq is just total number of positions(or payloads, or
+            // offsets) associated with current term.
             debug_assert!(state.base.total_term_freq != -1);
-            let offset = if state.base.total_term_freq as usize
-                > Lucene101PostingsFormat::BLOCK_SIZE
-            {
-                // record file offset for last pos in last block
-                self.pos_out.as_ref().unwrap().get_file_pointer()
-                    - self.pos_start_fp
-            } else {
-                -1
-            };
+            let offset =
+                if state.base.total_term_freq as usize > Lucene101PostingsFormat::BLOCK_SIZE {
+                    // record file offset for last pos in last block
+                    self.pos_out.as_ref().unwrap().get_file_pointer() - self.pos_start_fp
+                } else {
+                    -1
+                };
             if self.pos_buffer_upto > 0 {
                 debug_assert!(
-                    (self.pos_buffer_upto as usize)
-                        < Lucene101PostingsFormat::BLOCK_SIZE
+                    (self.pos_buffer_upto as usize) < Lucene101PostingsFormat::BLOCK_SIZE
                 );
                 // TODO: should we send offsets/payloads to
                 // .pay...?  seems wasteful (have to store extra
@@ -716,10 +677,7 @@ where
                     }
                 }
                 if self.base.write_payloads {
-                    debug_assert_eq!(
-                        payload_bytes_read_upto,
-                        self.payload_byte_upto
-                    );
+                    debug_assert_eq!(payload_bytes_read_upto, self.payload_byte_upto);
                     self.payload_byte_upto = 0;
                 }
             }
@@ -742,8 +700,7 @@ where
     }
 
     fn start_doc(&mut self, doc_id: i32, term_doc_freq: i32) -> Result<()> {
-        if self.doc_buffer_upto as usize == Lucene101PostingsFormat::BLOCK_SIZE
-        {
+        if self.doc_buffer_upto as usize == Lucene101PostingsFormat::BLOCK_SIZE {
             self.flush_doc_block(false)?;
             self.doc_buffer_upto = 0;
         }
@@ -768,8 +725,7 @@ where
 
         if self.base.write_freqs {
             let norm = if self.field_has_norms {
-                let found =
-                    self.norms.as_mut().unwrap().advance_exact(doc_id)?;
+                let found = self.norms.as_mut().unwrap().advance_exact(doc_id)?;
                 if !found {
                     1
                 } else {
@@ -819,9 +775,7 @@ where
             let len_i32: i32 = len.try_into()?;
             self.payload_length_buffer[idx] = len_i32;
             if len > 0 {
-                if self.payload_byte_upto as usize + len
-                    > self.payload_bytes.len()
-                {
+                if self.payload_byte_upto as usize + len > self.payload_bytes.len() {
                     ArrayUtil::grow_with_len(
                         &mut self.payload_bytes,
                         (self.payload_byte_upto + len_i32) as usize,
@@ -840,8 +794,7 @@ where
         if self.base.write_offsets {
             debug_assert!(start_offset >= self.last_start_offset);
             debug_assert!(end_offset >= start_offset);
-            self.offset_start_delta_buffer[idx] =
-                start_offset - self.last_start_offset;
+            self.offset_start_delta_buffer[idx] = start_offset - self.last_start_offset;
             self.offset_length_buffer[idx] = end_offset - start_offset;
             self.last_start_offset = start_offset;
         }
@@ -849,8 +802,7 @@ where
         self.pos_buffer_upto += 1;
         self.last_position = position;
 
-        if self.pos_buffer_upto as usize == Lucene101PostingsFormat::BLOCK_SIZE
-        {
+        if self.pos_buffer_upto as usize == Lucene101PostingsFormat::BLOCK_SIZE {
             let po = self.pos_out.as_mut().unwrap();
             self.pfor_util.encode(&mut self.pos_delta_buffer, po)?;
             if self.base.write_payloads {
@@ -858,11 +810,7 @@ where
                 self.pfor_util
                     .encode(&mut self.payload_length_buffer, pay_out)?;
                 pay_out.write_vint(self.payload_byte_upto)?;
-                pay_out.write_bytes_range(
-                    &self.payload_bytes,
-                    0,
-                    self.payload_byte_upto,
-                )?;
+                pay_out.write_bytes_range(&self.payload_bytes, 0, self.payload_byte_upto)?;
                 self.payload_byte_upto = 0;
             }
             if self.base.write_offsets {
@@ -891,22 +839,17 @@ pub mod lucene101_pw_util {
     use crate::store::DataOutput;
     use crate::util::error::lucene_error::Result;
 
-    /// Special vints that are encoded on 2 bytes if they require 15 bits or less.
-    /// VInt becomes especially slow when the number of bytes is variable, so this
-    /// special layout helps in the case when the number likely requires 15 bits or less.
-    pub(crate) fn write_vint15(
-        out: &mut impl DataOutput,
-        v: i32,
-    ) -> Result<()> {
+    /// Special vints that are encoded on 2 bytes if they require 15 bits or
+    /// less. VInt becomes especially slow when the number of bytes is
+    /// variable, so this special layout helps in the case when the number
+    /// likely requires 15 bits or less.
+    pub(crate) fn write_vint15(out: &mut impl DataOutput, v: i32) -> Result<()> {
         debug_assert!(v >= 0);
         write_vlong15(out, v as i64)
     }
 
     /// @see [`write_vint15`]
-    pub(crate) fn write_vlong15(
-        out: &mut impl DataOutput,
-        v: i64,
-    ) -> Result<()> {
+    pub(crate) fn write_vlong15(out: &mut impl DataOutput, v: i64) -> Result<()> {
         debug_assert!(v >= 0);
         if v & !0x7FFF == 0 {
             out.write_short(v as i16)?;
@@ -917,10 +860,7 @@ pub mod lucene101_pw_util {
         }
         Ok(())
     }
-    pub(crate) fn write_impacts(
-        impacts: &[Impact],
-        out: &mut impl DataOutput,
-    ) -> Result<()> {
+    pub(crate) fn write_impacts(impacts: &[Impact], out: &mut impl DataOutput) -> Result<()> {
         let mut previous = Impact { freq: 0, norm: 0 };
         for impact in impacts {
             debug_assert!(impact.freq > previous.freq);
@@ -928,7 +868,8 @@ pub mod lucene101_pw_util {
             let freq_delta = impact.freq - previous.freq - 1;
             let norm_delta = impact.norm - previous.norm - 1;
             if norm_delta == 0 {
-                // most of time, norm only increases by 1, so we can fold everything in a single byte
+                // most of time, norm only increases by 1, so we can fold
+                // everything in a single byte
                 out.write_vint(freq_delta << 1)?;
             } else {
                 out.write_vint((freq_delta << 1) | 1)?;

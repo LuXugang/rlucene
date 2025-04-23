@@ -19,13 +19,15 @@ use crate::index::merge_state::DocMap;
 pub struct IndexWriter;
 
 impl IndexWriter {
-    /// Maximum number of documents. In Java Lucene, We subtract 128 to ensure it's well below the typical JVM's
-    /// `ArrayUtil.MAX_ARRAY_LENGTH` and avoid potential overflow issues across JVM implementations.
+    /// Maximum number of documents. In Java Lucene, We subtract 128 to ensure
+    /// it's well below the typical JVM's `ArrayUtil.MAX_ARRAY_LENGTH` and
+    /// avoid potential overflow issues across JVM implementations.
     /// In Rust Lucene, we keep the same value for consistency.
     pub const MAX_DOCS: i32 = i32::MAX - 128;
     /// Maximum value for the token position in an indexed field.
     pub const MAX_POSITION: i32 = i32::MAX - 128;
-    /// A variable that holds the actual maximum number of documents, which can be adjusted for testing purposes.
+    /// A variable that holds the actual maximum number of documents, which can
+    /// be adjusted for testing purposes.
     pub const ACTUAL_MAX_DOCS: i32 = Self::MAX_DOCS;
     pub fn set_live_commit_data(&self) {}
 

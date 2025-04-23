@@ -14,11 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::index::sort::Sort;
+use derive_getters::Getters;
 
+use crate::index::sort::Sort;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::version::{Version, LATEST};
-use derive_getters::Getters;
 
 #[derive(Getters)]
 pub struct LeafMetaData {
@@ -54,8 +54,7 @@ impl LeafMetaData {
         }
         if created_version_major >= 7 && min_version.is_none() {
             return Err(LuceneError::illegal_argument(
-                "min_version must be set when created_version_major is >= 7"
-                    .to_string(),
+                "min_version must be set when created_version_major is >= 7".to_string(),
             ));
         }
 

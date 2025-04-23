@@ -14,13 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-/// Controls how [`LeafFieldComparator`](crate::search::leaf_field_comparator::LeafFieldComparator) skips documents.
+/// Controls how
+/// [`LeafFieldComparator`](crate::search::leaf_field_comparator::LeafFieldComparator)
+/// skips documents.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Pruning {
     /// Not allowed to skip documents.
     None,
-    /// Allowed to skip documents that compare strictly better than the top value,
-    /// or strictly worse than the bottom value.
+    /// Allowed to skip documents that compare strictly better than the top
+    /// value, or strictly worse than the bottom value.
     GreaterThan,
     /// Allowed to skip documents that compare better than the top value,
     /// or worse than or equal to the bottom value.

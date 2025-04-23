@@ -14,15 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use crate::store::{DataOutput, IndexInput};
 use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fst_impl::fst_reader::FstReader;
 use crate::util::fst_impl::reverse_random_access_reader::ReverseRandomAccessReader;
-use std::cell::RefCell;
-use std::rc::Rc;
-/// Provides off heap storage of finite state machine (FST), using underlying index input instead of
-///  byte store on heap
+/// Provides off heap storage of finite state machine (FST), using underlying
+/// index input instead of  byte store on heap
 pub struct OffHeapFSTStore<I>
 where
     I: IndexInput,

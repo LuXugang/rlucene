@@ -22,8 +22,8 @@ use crate::util::math_util::MathUtil;
 ///
 /// See [`MultiLevelSkipListWriter`](crate::codecs::multi_level_skip_list_writer) for details on how multi‑level skip lists are encoded.
 ///
-/// Implementors must provide the `read_skip_data(&mut self, level: i32, input: &mut I)`
-/// method to define the actual format of the skip data.
+/// Implementors must provide the `read_skip_data(&mut self, level: i32, input:
+/// &mut I)` method to define the actual format of the skip data.
 #[allow(dead_code)]
 pub struct MultiLevelSkipListReader<I>
 where
@@ -38,8 +38,9 @@ where
     doc_count: i32,
 
     /// skipStream for each level.
-    // TODO: if IndexInput impl Default , we could use Default for padding when we need take ownership in `#load_skip_levels`
-    // then there no need wrap with `Option`
+    // TODO: if IndexInput impl Default , we could use Default for padding when
+    // we need take ownership in `#load_skip_levels` then there no need
+    // wrap with `Option`
     skip_stream: Vec<Option<I>>,
 
     /// The start pointer of each skip level.
@@ -48,8 +49,8 @@ where
     /// skipInterval of each level.
     skip_interval: Vec<i32>,
 
-    /// Number of docs skipped per level. It's possible for some values to overflow a signed int, but
-    /// this has been accounted for.
+    /// Number of docs skipped per level. It's possible for some values to
+    /// overflow a signed int, but this has been accounted for.
     num_skipped: Vec<i32>,
 
     /// Doc id of current skip entry per level.
@@ -67,8 +68,8 @@ where
     skip_multiplier: i32,
 }
 impl<I: IndexInput> MultiLevelSkipListReader<I> {
-    /// Creates a new `MultiLevelSkipListReader` with the given skip stream, maximum skip levels,
-    /// base skip interval, and skip multiplier.
+    /// Creates a new `MultiLevelSkipListReader` with the given skip stream,
+    /// maximum skip levels, base skip interval, and skip multiplier.
     pub fn new(
         first_skip_stream: I,
         max_skip_levels: usize,
@@ -100,7 +101,8 @@ impl<I: IndexInput> MultiLevelSkipListReader<I> {
         }
     }
 
-    /// Returns the id of the doc to which the last call of [`skip_to`](Self::skip_to) has skipped.
+    /// Returns the id of the doc to which the last call of
+    /// [`skip_to`](Self::skip_to) has skipped.
     pub fn doc(&self) -> i32 {
         self.last_doc
     }
@@ -116,8 +118,7 @@ impl<I: IndexInput> MultiLevelSkipListReader<I> {
         // walk up the levels until highest level is found that has a skip
         // for this target
         let mut level = 0;
-        while level < (self.number_of_skip_levels) - 1
-            && target > self.skip_doc[level as usize + 1]
+        while level < (self.number_of_skip_levels) - 1 && target > self.skip_doc[level as usize + 1]
         {
             level += 1;
         }
@@ -132,10 +133,7 @@ impl<I: IndexInput> MultiLevelSkipListReader<I> {
                 // no more skips on this level, go down one level
                 if level > 0 {
                     let lower = (level - 1) as usize;
-                    let fp = self.skip_stream[lower]
-                        .as_ref()
-                        .unwrap()
-                        .get_file_pointer();
+                    let fp = self.skip_stream[lower].as_ref().unwrap().get_file_pointer();
                     if self.last_child_pointer > fp {
                         self.seek_child(lower)?;
                     }
@@ -154,8 +152,7 @@ impl<I: IndexInput> MultiLevelSkipListReader<I> {
         // skip list entry
         self.set_last_skip_data(level);
 
-        self.num_skipped[level] =
-            self.num_skipped[level].wrapping_add(self.skip_interval[level]);
+        self.num_skipped[level] = self.num_skipped[level].wrapping_add(self.skip_interval[level]);
         // numSkipped may overflow a signed int, so compare as unsigned.
         if (self.num_skipped[level] as u32) > (self.doc_count as u32) {
             // this skip list is exhausted
@@ -167,8 +164,7 @@ impl<I: IndexInput> MultiLevelSkipListReader<I> {
         }
 
         // read next skip data
-        let delta = base
-            .read_skip_data(level, self.skip_stream[level].as_mut().unwrap())?;
+        let delta = base.read_skip_data(level, self.skip_stream[level].as_mut().unwrap())?;
         self.skip_doc[level] = self.skip_doc[level].wrapping_add(delta);
 
         if level != 0 {
@@ -184,9 +180,7 @@ impl<I: IndexInput> MultiLevelSkipListReader<I> {
         self.skip_pointer[0] = skip_pointer;
         self.doc_count = df;
         debug_assert!(
-            skip_pointer >= 0
-                && skip_pointer
-                    <= self.skip_stream[0].as_ref().unwrap().length(),
+            skip_pointer >= 0 && skip_pointer <= self.skip_stream[0].as_ref().unwrap().length(),
             "invalid skip pointer: {}, length={}",
             skip_pointer,
             self.skip_stream[0].as_ref().unwrap().length()
@@ -222,7 +216,8 @@ impl<I: IndexInput> MultiLevelSkipListReader<I> {
             let length = self.read_level_length(&mut stream0)?;
             // the start pointer of the current level
             self.skip_pointer[i] = stream0.get_file_pointer();
-            // clone this stream, it is already at the start of the current level
+            // clone this stream, it is already at the start of the current
+            // level
             self.skip_stream[i] = Some(stream0.try_clone()?);
             // move base stream beyond the current level
             stream0.seek(stream0.get_file_pointer() + length)?;
@@ -233,21 +228,23 @@ impl<I: IndexInput> MultiLevelSkipListReader<I> {
         self.skip_stream[0] = Some(stream0);
         Ok(())
     }
-    /// read the length of the current level written via [`MultiLevelSkipListWriter::writeLevelLength`](crate::codecs::multi_level_skip_list_writer::MultiLevelSkipListWriter::write_level_length).
+    /// read the length of the current level written via
+    /// [`MultiLevelSkipListWriter::writeLevelLength`](crate::codecs::multi_level_skip_list_writer::MultiLevelSkipListWriter::write_level_length).
+    ///
     ///
     /// Parameters:
     /// - `skipStream`: the IndexInput the length shall be read from
     ///
     /// Returns:
     /// - level length
-    fn read_level_length(
-        &mut self,
-        skip_stream: &mut impl IndexInput,
-    ) -> Result<i64> {
+    fn read_level_length(&mut self, skip_stream: &mut impl IndexInput) -> Result<i64> {
         skip_stream.read_vlong()
     }
 
-    /// read the child pointer written via [`MultiLevelSkipListWriter::writeChildPointer(long, DataOutput)`](crate::codecs::multi_level_skip_list_writer::MultiLevelSkipListWriter::write_child_pointer).
+    /// read the child pointer written via
+    /// [`MultiLevelSkipListWriter::writeChildPointer(long,
+    /// DataOutput)`](crate::codecs::multi_level_skip_list_writer::MultiLevelSkipListWriter::write_child_pointer).
+    ///
     ///
     /// Parameters:
     /// - `skipStream`: the IndexInput the child pointer shall be read from
@@ -272,8 +269,7 @@ where
     fn seek_child(&mut self, level: usize) -> Result<()> {
         let stream = self.skip_stream[level].as_mut().unwrap();
         stream.seek(self.last_child_pointer)?;
-        self.num_skipped[level] =
-            self.num_skipped[level + 1] - self.skip_interval[level + 1];
+        self.num_skipped[level] = self.num_skipped[level + 1] - self.skip_interval[level + 1];
         self.skip_doc[level] = self.last_doc;
         if level > 0 {
             self.child_pointer[level] =
@@ -294,11 +290,7 @@ pub(crate) trait MultiLevelSkipListReaderBase {
     /// Subclasses must implement the actual skip data encoding in this method.
     ///
     /// Parameters:
-    /// - `level`: the level skip data shall be read from  
+    /// - `level`: the level skip data shall be read from
     /// - `skipStream`: the skip stream to read from
-    fn read_skip_data(
-        &mut self,
-        level: usize,
-        skip_stream: &mut impl IndexInput,
-    ) -> Result<i32>;
+    fn read_skip_data(&mut self, level: usize, skip_stream: &mut impl IndexInput) -> Result<i32>;
 }

@@ -51,7 +51,8 @@ impl BKDConfig {
     /// - `num_index_dims` must be between 1 and `MAX_INDEX_DIMS` (inclusive).
     /// - `num_index_dims` cannot exceed `num_dims`.
     /// - `bytes_per_dim` must be greater than 0.
-    /// - `max_points_in_leaf_node` must be greater than 0 and less than or equal to `MAX_ARRAY_LENGTH`.
+    /// - `max_points_in_leaf_node` must be greater than 0 and less than or
+    ///   equal to `MAX_ARRAY_LENGTH`.
     pub fn new(
         num_dims: i32,
         num_index_dims: i32,
@@ -93,8 +94,8 @@ impl BKDConfig {
         //TODO: Implement ArrayUtil::MAX_ARRAY_LENGTH
         // if max_points_in_leaf_node > ArrayUtil::MAX_ARRAY_LENGTH {
         //     return Err(LuceneError::illegal_argument(format!(
-        //         "max_points_in_leaf_node must be <= MAX_ARRAY_LENGTH (= {}); got {}",
-        //         ArrayUtil::MAX_ARRAY_LENGTH,
+        //         "max_points_in_leaf_node must be <= MAX_ARRAY_LENGTH (= {});
+        // got {}",         ArrayUtil::MAX_ARRAY_LENGTH,
         //         max_points_in_leaf_node
         //     )));
         // }
@@ -116,7 +117,8 @@ impl BKDConfig {
         self.num_index_dims * self.bytes_per_dim
     }
 
-    /// Returns `(num_dims * bytes_per_dim) + size_of::<i32>()` (packed_bytes_length plus document ID size).
+    /// Returns `(num_dims * bytes_per_dim) + size_of::<i32>()`
+    /// (packed_bytes_length plus document ID size).
     pub fn bytes_per_doc(&self) -> i32 {
         self.packed_bytes_length() + BitUtil::INT_BYTES as i32
     }
@@ -129,8 +131,7 @@ mod tests {
     struct TestBKDConfig;
     #[test]
     fn test_invalid_num_dims() {
-        let result =
-            BKDConfig::new(0, 0, 8, BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE);
+        let result = BKDConfig::new(0, 0, 8, BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE);
         assert!(result.is_err());
         if let Err(err) = result {
             let err_msg = format!("{:?}", err);
@@ -143,42 +144,28 @@ mod tests {
     #[test]
     fn test_invalid_num_indexed_dims() {
         {
-            let result = BKDConfig::new(
-                1,
-                0,
-                8,
-                BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE,
-            );
+            let result = BKDConfig::new(1, 0, 8, BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE);
             assert!(result.is_err());
             if let Err(err) = result {
                 let err_msg = format!("{:?}", err);
                 assert!(
                     err_msg.contains("num_index_dims must be 1 .. ")
-                        && err_msg
-                            .contains(&BKDConfig::MAX_INDEX_DIMS.to_string())
+                        && err_msg.contains(&BKDConfig::MAX_INDEX_DIMS.to_string())
                 );
             }
         }
         {
-            let result = BKDConfig::new(
-                1,
-                2,
-                8,
-                BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE,
-            );
+            let result = BKDConfig::new(1, 2, 8, BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE);
             assert!(result.is_err());
             if let Err(err) = result {
                 let err_msg = format!("{:?}", err);
-                assert!(
-                    err_msg.contains("num_index_dims cannot exceed num_dims")
-                );
+                assert!(err_msg.contains("num_index_dims cannot exceed num_dims"));
             }
         }
     }
     #[test]
     fn test_invalid_bytes_per_dim() {
-        let result =
-            BKDConfig::new(1, 1, 0, BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE);
+        let result = BKDConfig::new(1, 1, 0, BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE);
         assert!(result.is_err());
         if let Err(err) = result {
             let err_msg = format!("{:?}", err);
@@ -198,13 +185,13 @@ mod tests {
         }
         {
             // TODO:
-            // let result = BKDConfig::new(1, 1, 8, ArrayUtil::MAX_ARRAY_LENGTH + 1);
-            // assert!(result.is_err());
+            // let result = BKDConfig::new(1, 1, 8, ArrayUtil::MAX_ARRAY_LENGTH
+            // + 1); assert!(result.is_err());
             // if let Err(err) = result {
             //     let err_msg = format!("{:?}", err);
             //     assert!(
-            //         err_msg.contains("max_points_in_leaf_node must be <= ArrayUtil::MAX_ARRAY_LENGTH")
-            //     );
+            //         err_msg.contains("max_points_in_leaf_node must be <=
+            // ArrayUtil::MAX_ARRAY_LENGTH")     );
             // }
         }
     }

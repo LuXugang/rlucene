@@ -14,13 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::index::segment_info::SegmentInfo;
+use std::sync::Arc;
 
+use parking_lot::Mutex;
+
+use crate::index::segment_info::SegmentInfo;
 use crate::store::directory::Directory;
 use crate::store::IOContext;
 use crate::util::error::lucene_error::Result;
-use parking_lot::Mutex;
-use std::sync::Arc;
 
 /// Expert: Controls the format of the [`SegmentInfo`] (segment metadata file).
 ///
@@ -54,7 +55,8 @@ pub trait SegmentInfoFormat {
 
     /// Write [`SegmentInfo`] data.
     ///
-    /// The codec must add its SegmentInfo filename(s) to `info` before doing I/O.
+    /// The codec must add its SegmentInfo filename(s) to `info` before doing
+    /// I/O.
     fn write<D>(
         &self,
         directory: &mut impl Directory,

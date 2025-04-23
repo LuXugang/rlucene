@@ -16,12 +16,14 @@
  */
 use crate::util::error::lucene_error::{LuceneError, Result};
 
-/// An implementation of a selection algorithm, i.e., computing the k-th greatest value from a collection.
+/// An implementation of a selection algorithm, i.e., computing the k-th
+/// greatest value from a collection.
 pub trait Selector {
-    /// Reorder elements so that the element at position `k` is the same as if all elements were
-    /// sorted and all other elements are partitioned around it:
-    /// `[from, k)` only contains elements that are less than or equal to `k`,
-    /// and `(k, to)` only contains elements that are greater than or equal to `k`.
+    /// Reorder elements so that the element at position `k` is the same as if
+    /// all elements were sorted and all other elements are partitioned
+    /// around it: `[from, k)` only contains elements that are less than or
+    /// equal to `k`, and `(k, to)` only contains elements that are greater
+    /// than or equal to `k`.
     fn select(&mut self, _from: i32, _to: i32, _k: i32) -> Result<()> {
         Err(LuceneError::need_implemented("select() is not implemented"))
     }

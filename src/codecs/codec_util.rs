@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::cmp::Ordering;
+
 use crate::index::BytesRef;
 use crate::store::buffered_checksum_index_input::BufferedChecksumIndexInput;
 use crate::store::check_sum_index_input::ChecksumIndexInput;
@@ -23,11 +25,11 @@ use crate::store::{DataInput, IndexOutput};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::version::MIN_SUPPORTED_MAJOR;
 use crate::util::StringHelper;
-use std::cmp::Ordering;
 
 /// Utility struct for reading and writing versioned headers.
 ///
-/// Writing codec headers is useful to ensure that a file is in the format you expect it to be.
+/// Writing codec headers is useful to ensure that a file is in the format you
+/// expect it to be.
 ///
 /// # Experimental
 /// This is an experimental API and may be subject to change in future versions.
@@ -37,44 +39,42 @@ impl CodecUtil {
     pub const CODEC_MAGIC: i32 = 0x3fd76c17;
     /// Constant to identify the start of a codec footer.
     pub const FOOTER_MAGIC: i32 = !Self::CODEC_MAGIC;
-    /// Writes a codec header, which records both a string to identify the file and a version number.
-    /// This header can be parsed and validated with [`check_header`](CodecUtil::check_header).
+    /// Writes a codec header, which records both a string to identify the file
+    /// and a version number. This header can be parsed and validated with
+    /// [`check_header`](CodecUtil::check_header).
     ///
     /// # Format
     /// `CodecHeader -> Magic, CodecName, Version`
     ///
-    /// - **Magic**:  
-    ///   A `i32` (written using `write_int`). This identifies the start of the header.  
-    ///   It is always [`CodecUtil::CODEC_MAGIC`].
+    /// - **Magic**:   A `i32` (written using `write_int`). This identifies the
+    ///   start of the header.   It is always [`CodecUtil::CODEC_MAGIC`].
     ///
-    /// - **CodecName**:  
-    ///   A string (written using `write_string`). This is a string to identify this file.
+    /// - **CodecName**:   A string (written using `write_string`). This is a
+    ///   string to identify this file.
     ///
-    /// - **Version**:  
-    ///   A `i32` (written using `write_int`). Records the version of the file.
+    /// - **Version**:   A `i32` (written using `write_int`). Records the
+    ///   version of the file.
     ///
     /// # Note
-    /// The length of a codec header depends only on the name of the codec. This length can be computed
-    /// at any time with [`header_length`](CodecUtil::header_length).
+    /// The length of a codec header depends only on the name of the codec. This
+    /// length can be computed at any time with
+    /// [`header_length`](CodecUtil::header_length).
     ///
     /// # Parameters
     /// - `out`: The output stream to write to.
-    /// - `codec`: A string to identify this file. It should be simple ASCII and less than 128 characters
-    ///   in length.
+    /// - `codec`: A string to identify this file. It should be simple ASCII and
+    ///   less than 128 characters in length.
     /// - `Version`: The version number.
     ///
     /// # Errors
     /// - `IoError`: If there is an I/O error writing to the underlying medium.
-    /// - `IllegalArgumentError`: If the codec name is not simple ASCII or is more than 127 characters in length.
+    /// - `IllegalArgumentError`: If the codec name is not simple ASCII or is
+    ///   more than 127 characters in length.
     ///
     /// # See Also
     /// - [`check_header`](CodecUtil::check_header)
     /// - [`header_length`](CodecUtil::header_length)
-    pub fn write_header(
-        out: &mut impl DataOutput,
-        codec: &str,
-        version: i32,
-    ) -> Result<()> {
+    pub fn write_header(out: &mut impl DataOutput, codec: &str, version: i32) -> Result<()> {
         let bytes: BytesRef<Vec<u8>> = BytesRef::from_string(codec);
         if bytes.length != codec.len() || bytes.length >= 128 {
             return Err(LuceneError::illegal_argument(format!(
@@ -88,35 +88,38 @@ impl CodecUtil {
         Ok(())
     }
 
-    /// Writes a codec header, which records both a string to identify the file and a version number.
-    /// This header can be parsed and validated with [`check_header`](CodecUtil::check_header).
+    /// Writes a codec header, which records both a string to identify the file
+    /// and a version number. This header can be parsed and validated with
+    /// [`check_header`](CodecUtil::check_header).
     ///
     /// # Format
     /// `CodecHeader -> Magic, CodecName, Version`
     ///
-    /// - **Magic**:  
-    ///   A `i32` (written using `write_int`). This identifies the start of the header.
-    ///   It is always [`CodecUtil::CODEC_MAGIC`].
+    /// - **Magic**:   A `i32` (written using `write_int`). This identifies the
+    ///   start of the header. It is always [`CodecUtil::CODEC_MAGIC`].
     ///
-    /// - **CodecName**:  
-    ///   A string (written using `write_string`). This is a string to identify this file.
+    /// - **CodecName**:   A string (written using `write_string`). This is a
+    ///   string to identify this file.
     ///
-    /// - **Version**:  
-    ///   A `i32` (written using `write_int`). Records the version of the file.
+    /// - **Version**:   A `i32` (written using `write_int`). Records the
+    ///   version of the file.
     ///
     /// # Note
-    /// The length of a codec header depends only on the name of the codec. This length can be computed
-    /// at any time with [`header_length`](CodecUtil::header_length).
+    /// The length of a codec header depends only on the name of the codec. This
+    /// length can be computed at any time with
+    /// [`header_length`](CodecUtil::header_length).
     ///
     /// # Parameters
     /// - `out`: The output stream.
-    /// - `codec`: A string to identify this file. It should be simple ASCII and less than 128 characters
-    ///   in length.
+    /// - `codec`: A string to identify this file. It should be simple ASCII and
+    ///   less than 128 characters in length.
     /// - `Version`: The version number.
     ///
     /// # Errors
-    /// - Returns an error if there is an I/O error writing to the underlying medium.
-    /// - Returns an error if the codec name is not simple ASCII or exceeds 127 characters in length.
+    /// - Returns an error if there is an I/O error writing to the underlying
+    ///   medium.
+    /// - Returns an error if the codec name is not simple ASCII or exceeds 127
+    ///   characters in length.
     ///
     /// # See Also
     /// - [`check_header`](CodecUtil::check_header)
@@ -176,32 +179,36 @@ impl CodecUtil {
     /// - [`write_index_header`](CodecUtil::write_index_header)
     pub fn index_header_length(codec: &str, suffix: &str) -> i32 {
         debug_assert!(suffix.len() <= i32::MAX as usize);
-        Self::header_length(codec)
-            + StringHelper::ID_LENGTH
-            + 1
-            + (suffix.len() as i32)
+        Self::header_length(codec) + StringHelper::ID_LENGTH + 1 + (suffix.len() as i32)
     }
-    /// Reads and validates a header previously written with [`write_header`](CodecUtil::write_header).
+    /// Reads and validates a header previously written with
+    /// [`write_header`](CodecUtil::write_header).
     ///
-    /// When reading a file, supply the expected `codec` and an expected version range
-    /// (`min_version` to `max_version`).
+    /// When reading a file, supply the expected `codec` and an expected version
+    /// range (`min_version` to `max_version`).
     ///
     /// # Parameters
-    /// - `input`: The input stream, positioned at the point where the header was previously written.
-    ///   Typically, this is located at the beginning of the file.
+    /// - `input`: The input stream, positioned at the point where the header
+    ///   was previously written. Typically, this is located at the beginning of
+    ///   the file.
     /// - `codec`: The expected codec name.
     /// - `min_version`: The minimum supported version number.
     /// - `Max_version`: The maximum supported version number.
     ///
     /// # Returns
-    /// The actual version found if a valid header is found that matches `codec`, with an actual version
-    /// satisfying `min_version <= actual <= max_version`. Otherwise, an error is returned.
+    /// The actual version found if a valid header is found that matches
+    /// `codec`, with an actual version satisfying `min_version <= actual <=
+    /// max_version`. Otherwise, an error is returned.
     ///
     /// # Errors
-    /// - `CorruptIndexError`: If the first four bytes are not [`CodecUtil::CODEC_MAGIC`] or if the codec does not match `codec`.
-    /// - `IndexFormatTooOldError`: If the actual version is less than `min_version`.
-    /// - `IndexFormatTooNewError`: If the actual version is greater than `max_version`.
-    /// - `IoError`: If there is an I/O error reading from the underlying medium.
+    /// - `CorruptIndexError`: If the first four bytes are not
+    ///   [`CodecUtil::CODEC_MAGIC`] or if the codec does not match `codec`.
+    /// - `IndexFormatTooOldError`: If the actual version is less than
+    ///   `min_version`.
+    /// - `IndexFormatTooNewError`: If the actual version is greater than
+    ///   `max_version`.
+    /// - `IoError`: If there is an I/O error reading from the underlying
+    ///   medium.
     ///
     /// # See Also
     /// - [`write_header`](CodecUtil::write_header)
@@ -221,8 +228,9 @@ impl CodecUtil {
         }
         Self::check_header_no_magic(data_input, codec, min_version, max_version)
     }
-    /// Similar to [`check_header`](CodecUtil::check_header), except this version assumes the first `i32`
-    /// has already been read and validated from the input.
+    /// Similar to [`check_header`](CodecUtil::check_header), except this
+    /// version assumes the first `i32` has already been read and validated
+    /// from the input.
     ///
     /// # See Also
     /// - [`check_header`](CodecUtil::check_header)
@@ -251,14 +259,16 @@ impl CodecUtil {
         }
         Ok(actual_version)
     }
-    /// Reads and validates a header previously written with [`write_index_header`](CodecUtil::write_index_header).
+    /// Reads and validates a header previously written with
+    /// [`write_index_header`](CodecUtil::write_index_header).
     ///
-    /// When reading a file, supply the expected `codec`, expected version range (`min_version` to
-    /// `max_version`), object ID, and suffix.
+    /// When reading a file, supply the expected `codec`, expected version range
+    /// (`min_version` to `max_version`), object ID, and suffix.
     ///
     /// # Parameters
-    /// - `input`: The input stream, positioned at the point where the header was previously written.
-    ///   Typically, this is located at the beginning of the file.
+    /// - `input`: The input stream, positioned at the point where the header
+    ///   was previously written. Typically, this is located at the beginning of
+    ///   the file.
     /// - `codec`: The expected codec name.
     /// - `min_version`: The minimum supported version number.
     /// - `max_version`: The maximum supported version number.
@@ -266,15 +276,20 @@ impl CodecUtil {
     /// - `Expected_suffix`: The expected auxiliary suffix for this file.
     ///
     /// # Returns
-    /// The actual version found, if a valid header is present that matches `codec`, `expected_id`, and
-    /// `expected_suffix`, with a version satisfying `min_version <= actual <= max_version`.
+    /// The actual version found, if a valid header is present that matches
+    /// `codec`, `expected_id`, and `expected_suffix`, with a version
+    /// satisfying `min_version <= actual <= max_version`.
     ///
     /// # Errors
-    /// - `CorruptIndexError`: If the first four bytes are not [`CodecUtil::CODEC_MAGIC`], the codec does not match
-    ///   `codec`, or `expected_id` or `expected_suffix` do not match.
-    /// - `IndexFormatTooOldError`: If the actual version is less than `min_version`.
-    /// - `IndexFormatTooNewError`: If the actual version is greater than `max_version`.
-    /// - `IoError`: If there is an I/O error reading from the underlying medium.
+    /// - `CorruptIndexError`: If the first four bytes are not
+    ///   [`CodecUtil::CODEC_MAGIC`], the codec does not match `codec`, or
+    ///   `expected_id` or `expected_suffix` do not match.
+    /// - `IndexFormatTooOldError`: If the actual version is less than
+    ///   `min_version`.
+    /// - `IndexFormatTooNewError`: If the actual version is greater than
+    ///   `max_version`.
+    /// - `IoError`: If there is an I/O error reading from the underlying
+    ///   medium.
     ///
     /// # See Also
     /// - [`write_index_header`](CodecUtil::write_index_header)
@@ -286,38 +301,39 @@ impl CodecUtil {
         expected_id: &[u8],
         expected_suffix: &str,
     ) -> Result<i32> {
-        let version =
-            Self::check_header(data_input, codec, min_version, max_version)?;
+        let version = Self::check_header(data_input, codec, min_version, max_version)?;
         Self::check_index_header_id(data_input, expected_id)?;
         Self::check_index_header_suffix(data_input, expected_suffix)?;
         Ok(version)
     }
 
-    /// Expert: verifies that the incoming [`IndexInput`] has an index header and that its segment ID
-    /// matches the expected one, and then copies that index header into the provided [`DataOutput`].
-    /// This is useful when building compound files.
+    /// Expert: verifies that the incoming [`IndexInput`] has an index header
+    /// and that its segment ID matches the expected one, and then copies
+    /// that index header into the provided [`DataOutput`]. This is useful
+    /// when building compound files.
     ///
     /// # Parameters
-    /// - `input`: The input stream, positioned at the point where the index header was previously written.
-    ///   Typically, this is located at the beginning of the file.
+    /// - `input`: The input stream, positioned at the point where the index
+    ///   header was previously written. Typically, this is located at the
+    ///   beginning of the file.
     /// - `output`: The output stream, where the header will be copied to.
     /// - `expected_id`: The expected segment ID.
     ///
     /// # Errors
-    /// - `CorruptIndexError`: If the first four bytes are not [`CodecUtil::CODEC_MAGIC`] or if the `expected_id`
-    ///   does not match.
-    /// - `IoError`: If there is an I/O error reading from the underlying medium.
+    /// - `CorruptIndexError`: If the first four bytes are not
+    ///   [`CodecUtil::CODEC_MAGIC`] or if the `expected_id` does not match.
+    /// - `IoError`: If there is an I/O error reading from the underlying
+    ///   medium.
     ///
     /// # Internal
-    /// This is an internal API and is intended for use within Lucene-like systems.
+    /// This is an internal API and is intended for use within Lucene-like
+    /// systems.
     pub fn verify_and_copy_index_header(
         data_in: &mut impl IndexInput,
         data_out: &mut impl DataOutput,
         expected_id: &[u8],
     ) -> Result<()> {
-        if data_in.length()
-            < (Self::footer_length() + Self::header_length("")) as i64
-        {
+        if data_in.length() < (Self::footer_length() + Self::header_length("")) as i64 {
             return Err(LuceneError::corrupt_index(format!(
                 "compound sub-files must have a valid codec header and footer: file is too small ({} bytes): (resource={})",
                 data_in.length(),data_in
@@ -348,10 +364,9 @@ impl CodecUtil {
     /// Retrieves the full index header from the provided [`IndexInput`].
     ///
     /// # Errors
-    /// - `CorruptIndexError`: If the file does not appear to be a valid index file.
-    pub fn read_index_header(
-        data_input: &mut impl IndexInput,
-    ) -> Result<Vec<u8>> {
+    /// - `CorruptIndexError`: If the file does not appear to be a valid index
+    ///   file.
+    pub fn read_index_header(data_input: &mut impl IndexInput) -> Result<Vec<u8>> {
         // TODO: 跟Java版本确认下 要不要seek(0)
         // data_input.seek(0)?;
         let actual_header = Self::read_be_int(data_input)?;
@@ -364,14 +379,10 @@ impl CodecUtil {
         }
         let codec = data_input.read_string()?;
         Self::read_be_int(data_input)?;
-        data_input.seek(
-            data_input.get_file_pointer() + StringHelper::ID_LENGTH as i64,
-        )?;
+        data_input.seek(data_input.get_file_pointer() + StringHelper::ID_LENGTH as i64)?;
         let suffix_length = data_input.read_byte()?;
-        let bytes_len = Self::header_length(&codec)
-            + StringHelper::ID_LENGTH
-            + 1
-            + suffix_length as i32;
+        let bytes_len =
+            Self::header_length(&codec) + StringHelper::ID_LENGTH + 1 + suffix_length as i32;
 
         let mut bytes: Vec<u8> = vec![0u8; bytes_len as usize];
         data_input.seek(0)?;
@@ -433,23 +444,23 @@ impl CodecUtil {
         }
         Ok(())
     }
-    /// Writes a codec footer, which records both a checksum algorithm ID and a checksum.
-    /// This footer can be parsed and validated with [`check_footer`](CodecUtil::check_footer).
+    /// Writes a codec footer, which records both a checksum algorithm ID and a
+    /// checksum. This footer can be parsed and validated with
+    /// [`check_footer`](CodecUtil::check_footer).
     ///
     /// # Format
     /// `CodecFooter -> Magic, AlgorithmID, Checksum`
     ///
-    /// - **Magic**:  
-    ///   A `i32` (written using `write_int`). This identifies the start of the footer.  
-    ///   It is always [`CodecUtil::FOOTER_MAGIC`].
+    /// - **Magic**:   A `i32` (written using `write_int`). This identifies the
+    ///   start of the footer.   It is always [`CodecUtil::FOOTER_MAGIC`].
     ///
-    /// - **AlgorithmID**:  
-    ///   A `i32` (written using `write_int`). This indicates the checksum algorithm used.  
-    ///   Currently, this is always 0 for zlib-crc32.
+    /// - **AlgorithmID**:   A `i32` (written using `write_int`). This indicates
+    ///   the checksum algorithm used.   Currently, this is always 0 for
+    ///   zlib-crc32.
     ///
-    /// - **Checksum**:  
-    ///   A `u64` (written using `write_long`). The actual checksum value for all previous bytes in the stream,  
-    ///   including the bytes from Magic and AlgorithmID.
+    /// - **Checksum**:   A `u64` (written using `write_long`). The actual
+    ///   checksum value for all previous bytes in the stream,   including the
+    ///   bytes from Magic and AlgorithmID.
     ///
     /// # Parameters
     /// - `out`: The output stream to write to.
@@ -474,17 +485,17 @@ impl CodecUtil {
         16
     }
 
-    /// Validates the codec footer previously written by [`write_footer`](CodecUtil::write_footer).
+    /// Validates the codec footer previously written by
+    /// [`write_footer`](CodecUtil::write_footer).
     ///
     /// # Returns
     /// The actual checksum value.
     ///
     /// # Errors
-    /// - `IoError`: If the footer is invalid, the checksum does not match, or the input is not properly
-    ///   positioned before the footer at the end of the stream.
-    pub fn check_footer(
-        checksum_in: &mut impl ChecksumIndexInput,
-    ) -> Result<i64> {
+    /// - `IoError`: If the footer is invalid, the checksum does not match, or
+    ///   the input is not properly positioned before the footer at the end of
+    ///   the stream.
+    pub fn check_footer(checksum_in: &mut impl ChecksumIndexInput) -> Result<i64> {
         Self::validate_footer(checksum_in)?;
         let actual_checksum = checksum_in.get_checksum();
         let expected_checksum = Self::read_crc(checksum_in)?;
@@ -497,35 +508,42 @@ impl CodecUtil {
         Ok(actual_checksum)
     }
 
-    /// Validates the codec footer previously written by [`write_footer`](CodecUtil::write_footer), optionally handling
+    /// Validates the codec footer previously written by
+    /// [`write_footer`](CodecUtil::write_footer), optionally handling
     /// an unexpected exception that has already occurred.
     ///
-    /// When a `prior_exception` is provided, this method will add a suppressed exception indicating
-    /// whether the checksum for the stream passes, fails, or cannot be computed, and rethrow it.
-    /// Otherwise, it behaves the same as [`check_footer`](CodecUtil::check_footer).
+    /// When a `prior_exception` is provided, this method will add a suppressed
+    /// exception indicating whether the checksum for the stream passes,
+    /// fails, or cannot be computed, and rethrow it. Otherwise, it behaves
+    /// the same as [`check_footer`](CodecUtil::check_footer).
     ///
     /// # Parameters
     /// - `input`: The input stream to validate.
-    /// - `prior_exception`: An optional previously occurred exception to handle.
+    /// - `prior_exception`: An optional previously occurred exception to
+    ///   handle.
     ///
     /// # Errors
-    /// - `IoError`: If the footer is invalid, the checksum does not match, or the input is not
-    ///   properly positioned before the footer at the end of the stream.
-    /// - `PriorException`: If a prior exception is provided and rethrown after adding supplemental information.
-    // TODO:Implemented a naive error propagation mechanism; we may use this error#[source] to standardize error nesting.
+    /// - `IoError`: If the footer is invalid, the checksum does not match, or
+    ///   the input is not properly positioned before the footer at the end of
+    ///   the stream.
+    /// - `PriorException`: If a prior exception is provided and rethrown after
+    ///   adding supplemental information.
+    // TODO:Implemented a naive error propagation mechanism; we may use this
+    // error#[source] to standardize error nesting.
     pub fn check_footer_with_error(
         checksum_in: &mut impl ChecksumIndexInput,
         prior_error: &mut LuceneError,
     ) -> LuceneError {
-        // If we have evidence of corruption, then we return the corruption as the
-        // main exception and the prior exception gets suppressed. Otherwise, we
-        // return the prior exception with a suppressed exception that notifies
-        // the user that checksums matched.
+        // If we have evidence of corruption, then we return the corruption as
+        // the main exception and the prior exception gets suppressed.
+        // Otherwise, we return the prior exception with a suppressed
+        // exception that notifies the user that checksums matched.
         let error = prior_error.to_string();
         let mut error_message: String = "".to_string();
         let remaining = checksum_in.length() - checksum_in.get_file_pointer();
         if remaining < Self::footer_length() as i64 {
-            // corruption caused us to read into the checksum footer already: we can't proceed
+            // corruption caused us to read into the checksum footer already: we
+            // can't proceed
             error_message = format!( "{} cause by checksum status indeterminate: remaining={}, ; please run check index for more details: {} ",
                                      error,
                                      remaining,
@@ -533,10 +551,8 @@ impl CodecUtil {
             );
         } else {
             // otherwise, skip any unread bytes.
-            let result = DataInput::skip_bytes(
-                checksum_in,
-                remaining - Self::footer_length() as i64,
-            );
+            let result =
+                DataInput::skip_bytes(checksum_in, remaining - Self::footer_length() as i64);
             if result.is_err() {
                 error_message = format!(
                     "{} cause by: checksum status indeterminate: unexpected exception: {} {}",
@@ -556,11 +572,11 @@ impl CodecUtil {
                     );
                 } else {
                     let checksum = result.unwrap();
-                    // If the index format is too old and no corruption, do not add a checksum
-                    // matching message since this may tend to unnecessarily alarm people who
+                    // If the index format is too old and no corruption, do not
+                    // add a checksum matching message since
+                    // this may tend to unnecessarily alarm people who
                     // see "JVM bug" in their logs
-                    if !matches!(prior_error, LuceneError::IndexFormatTooOld(_))
-                    {
+                    if !matches!(prior_error, LuceneError::IndexFormatTooOld(_)) {
                         error_message= format!(
                             "checksum passed ({}). possibly transient resource issue, or a Lucene : {}, cause by: {}",
                             checksum,
@@ -574,7 +590,8 @@ impl CodecUtil {
         LuceneError::corrupt_index(error_message)
     }
 
-    /// Returns (but does not validate) the checksum previously written by [`check_footer`](CodecUtil::check_footer).
+    /// Returns (but does not validate) the checksum previously written by
+    /// [`check_footer`](CodecUtil::check_footer).
     ///
     /// # Returns
     /// The actual checksum value.
@@ -595,7 +612,8 @@ impl CodecUtil {
         Self::read_crc(input)
     }
 
-    /// Returns (but does not validate) the checksum previously written by [`check_footer`](CodecUtil::check_footer).
+    /// Returns (but does not validate) the checksum previously written by
+    /// [`check_footer`](CodecUtil::check_footer).
     ///
     /// # Returns
     /// The actual checksum value.
@@ -608,8 +626,7 @@ impl CodecUtil {
     ) -> Result<i64> {
         if expected_length < Self::footer_length() as i64 {
             return Err(LuceneError::illegal_argument(
-                "expectedLength cannot be less than the footer length"
-                    .to_string(),
+                "expectedLength cannot be less than the footer length".to_string(),
             ));
         }
         match input.length().cmp(&expected_length) {
@@ -675,11 +692,13 @@ impl CodecUtil {
         Ok(())
     }
 
-    /// Clones the provided input, reads all bytes from the file, and calls [`check_footer`](CodecUtil::check_footer).
+    /// Clones the provided input, reads all bytes from the file, and calls
+    /// [`check_footer`](CodecUtil::check_footer).
     ///
     /// # Note
     /// This method may be slow, as it must process the entire file.  
-    /// If you just need to extract the checksum value, call [`retrieve_checksum`](CodecUtil::retrieve_checksum).
+    /// If you just need to extract the checksum value, call
+    /// [`retrieve_checksum`](CodecUtil::retrieve_checksum).
     pub fn checksum_entire_file(input: &mut impl IndexInput) -> Result<i64> {
         let mut clone = input.try_clone()?;
         clone.seek(0)?;
@@ -704,7 +723,8 @@ impl CodecUtil {
     /// Reads the CRC32 value as a 64-bit integer from the input.
     ///
     /// # Errors
-    /// - `CorruptIndexError`: If the CRC is formatted incorrectly (wrong bits set).
+    /// - `CorruptIndexError`: If the CRC is formatted incorrectly (wrong bits
+    ///   set).
     /// - `IoError`: If an I/O error occurs.
     pub fn read_crc(input: &mut impl IndexInput) -> Result<i64> {
         let value = Self::read_be_long(input)?;
@@ -720,7 +740,8 @@ impl CodecUtil {
     /// Writes the CRC32 value as a 64-bit integer to the output.
     ///
     /// # Errors
-    /// - `IllegalStateError`: If the CRC is formatted incorrectly (wrong bits set).
+    /// - `IllegalStateError`: If the CRC is formatted incorrectly (wrong bits
+    ///   set).
     /// - `IoError`: If an I/O error occurs.
     pub fn write_crc(out: &mut impl IndexOutput) -> Result<()> {
         let value = out.get_checksum();
@@ -780,18 +801,18 @@ impl CodecUtil {
 
 #[cfg(test)]
 mod tests {
+    use std::fmt::{Display, Formatter};
+    use std::sync::atomic::AtomicI64;
+
     use crate::codecs::CodecUtil;
     use crate::store::buffered_checksum_index_input::BufferedChecksumIndexInput;
     use crate::store::index_input::IndexInput;
     use crate::store::{
-        ByteBuffersDataOutput, ByteBuffersIndexInput, ByteBuffersIndexOutput,
-        DataInput, DataOutput, IndexOutput,
+        ByteBuffersDataOutput, ByteBuffersIndexInput, ByteBuffersIndexOutput, DataInput,
+        DataOutput, IndexOutput,
     };
-
     use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::StringHelper;
-    use std::fmt::{Display, Formatter};
-    use std::sync::atomic::AtomicI64;
 
     #[allow(dead_code)] // for quick search
     struct TestCodecUtil;
@@ -800,14 +821,12 @@ mod tests {
     fn test_header_length() -> Result<()> {
         let mut out = ByteBuffersDataOutput::new();
         {
-            let mut output =
-                ByteBuffersIndexOutput::new(&mut out, "temp", "temp");
+            let mut output = ByteBuffersIndexOutput::new(&mut out, "temp", "temp");
             CodecUtil::write_header(&mut output, "FooBar", 5)?;
             output.write_string("this is the data")?;
         }
 
-        let mut input =
-            ByteBuffersIndexInput::new(out.get_data_input(), "temp");
+        let mut input = ByteBuffersIndexInput::new(out.get_data_input(), "temp");
         input.seek(CodecUtil::header_length("FooBar") as i64)?;
         assert_eq!(input.read_string()?, "this is the data");
         Ok(())
@@ -818,8 +837,7 @@ mod tests {
         let too_long: String = "a".repeat(128);
 
         let mut output = ByteBuffersDataOutput::new();
-        let mut output =
-            ByteBuffersIndexOutput::new(&mut output, "temp", "temp");
+        let mut output = ByteBuffersIndexOutput::new(&mut output, "temp", "temp");
 
         let result = CodecUtil::write_header(&mut output, &too_long, 5);
         assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
@@ -842,8 +860,7 @@ mod tests {
     fn test_read_header_wrong_magic() -> Result<()> {
         let mut output = ByteBuffersDataOutput::new();
         {
-            let mut index_output =
-                ByteBuffersIndexOutput::new(&mut output, "temp", "temp");
+            let mut index_output = ByteBuffersIndexOutput::new(&mut output, "temp", "temp");
             index_output.write_int(1234)?;
         }
 
@@ -860,33 +877,32 @@ mod tests {
     fn test_checksum_entire_file() -> Result<()> {
         let mut output = ByteBuffersDataOutput::new();
         {
-            let mut index_output =
-                ByteBuffersIndexOutput::new(&mut output, "temp", "temp");
+            let mut index_output = ByteBuffersIndexOutput::new(&mut output, "temp", "temp");
             CodecUtil::write_header(&mut index_output, "FooBar", 5)?;
             index_output.write_string("this is the data")?;
             CodecUtil::write_footer(&mut index_output)?;
         }
 
-        let mut input_data =
-            ByteBuffersIndexInput::new(output.get_data_input(), "temp");
+        let mut input_data = ByteBuffersIndexInput::new(output.get_data_input(), "temp");
         CodecUtil::checksum_entire_file(&mut input_data)?;
         Ok(())
     }
     #[test]
-    // TODO:This test does not reflect the nested error; it needs to be improved.
+    // TODO:This test does not reflect the nested error; it needs to be
+    // improved.
     fn test_check_footer_valid() -> Result<()> {
         let mut out = ByteBuffersDataOutput::new();
         {
-            let mut output =
-                ByteBuffersIndexOutput::new(&mut out, "temp", "temp");
+            let mut output = ByteBuffersIndexOutput::new(&mut out, "temp", "temp");
             CodecUtil::write_header(&mut output, "FooBar", 5)?;
             output.write_string("this is the data")?;
             CodecUtil::write_footer(&mut output)?;
         }
 
-        let mut input = BufferedChecksumIndexInput::new(
-            ByteBuffersIndexInput::new(out.get_data_input(), "temp"),
-        );
+        let mut input = BufferedChecksumIndexInput::new(ByteBuffersIndexInput::new(
+            out.get_data_input(),
+            "temp",
+        ));
         let mut mine = LuceneError::illegal_argument("fake exception");
         let result = CodecUtil::check_footer_with_error(&mut input, &mut mine);
         assert!(result.to_string().contains("checksum passed"));
@@ -894,20 +910,21 @@ mod tests {
     }
 
     #[test]
-    // TODO:This test does not reflect the nested error; it needs to be improved.
+    // TODO:This test does not reflect the nested error; it needs to be
+    // improved.
     fn test_check_footer_valid_at_footer() -> Result<()> {
         let mut out = ByteBuffersDataOutput::new();
         {
-            let mut output =
-                ByteBuffersIndexOutput::new(&mut out, "temp", "temp");
+            let mut output = ByteBuffersIndexOutput::new(&mut out, "temp", "temp");
             CodecUtil::write_header(&mut output, "FooBar", 5)?;
             output.write_string("this is the data")?;
             CodecUtil::write_footer(&mut output)?;
         }
 
-        let mut input = BufferedChecksumIndexInput::new(
-            ByteBuffersIndexInput::new(out.get_data_input(), "temp"),
-        );
+        let mut input = BufferedChecksumIndexInput::new(ByteBuffersIndexInput::new(
+            out.get_data_input(),
+            "temp",
+        ));
         CodecUtil::check_header(&mut input, "FooBar", 5, 5)?;
         let read_data = input.read_string()?;
         assert_eq!(read_data, "this is the data");
@@ -919,20 +936,21 @@ mod tests {
         Ok(())
     }
     #[test]
-    // TODO: This test does not fully reflect the nested error; it needs to be improved.
+    // TODO: This test does not fully reflect the nested error; it needs to be
+    // improved.
     fn test_check_footer_valid_past_footer() -> Result<()> {
         let mut out = ByteBuffersDataOutput::new();
         {
-            let mut output =
-                ByteBuffersIndexOutput::new(&mut out, "temp", "temp");
+            let mut output = ByteBuffersIndexOutput::new(&mut out, "temp", "temp");
             CodecUtil::write_header(&mut output, "FooBar", 5)?;
             output.write_string("this is the data")?;
             CodecUtil::write_footer(&mut output)?;
         }
 
-        let mut input = BufferedChecksumIndexInput::new(
-            ByteBuffersIndexInput::new(out.get_data_input(), "temp"),
-        );
+        let mut input = BufferedChecksumIndexInput::new(ByteBuffersIndexInput::new(
+            out.get_data_input(),
+            "temp",
+        ));
 
         CodecUtil::check_header(&mut input, "FooBar", 5, 5)?;
         let read_data = input.read_string()?;
@@ -950,21 +968,23 @@ mod tests {
         Ok(())
     }
     #[test]
-    // TODO: This test does not fully reflect the nested error; it needs to be improved.
+    // TODO: This test does not fully reflect the nested error; it needs to be
+    // improved.
     fn test_check_footer_invalid() -> Result<()> {
         let mut out = ByteBuffersDataOutput::new();
         {
-            let mut output =
-                ByteBuffersIndexOutput::new(&mut out, "temp", "temp");
+            let mut output = ByteBuffersIndexOutput::new(&mut out, "temp", "temp");
             CodecUtil::write_header(&mut output, "FooBar", 5)?;
             output.write_string("this is the data")?;
             CodecUtil::write_be_int(&mut output, CodecUtil::FOOTER_MAGIC)?;
             CodecUtil::write_be_int(&mut output, 0)?;
-            CodecUtil::write_be_long(&mut output, 1234567)?; // write a bogus checksum
+            CodecUtil::write_be_long(&mut output, 1234567)?; // write a bogus
+                                                             // checksum
         }
-        let mut input = BufferedChecksumIndexInput::new(
-            ByteBuffersIndexInput::new(out.get_data_input(), "temp"),
-        );
+        let mut input = BufferedChecksumIndexInput::new(ByteBuffersIndexInput::new(
+            out.get_data_input(),
+            "temp",
+        ));
         CodecUtil::check_header(&mut input, "FooBar", 5, 5)?;
         let read_data = input.read_string()?;
         assert_eq!(read_data, "this is the data");
@@ -979,20 +999,12 @@ mod tests {
     fn test_segment_header_length() -> Result<()> {
         let mut out = ByteBuffersDataOutput::new();
         {
-            let mut output =
-                ByteBuffersIndexOutput::new(&mut out, "temp", "temp");
+            let mut output = ByteBuffersIndexOutput::new(&mut out, "temp", "temp");
             let id = StringHelper::random_id();
-            CodecUtil::write_index_header(
-                &mut output,
-                "FooBar",
-                5,
-                &id,
-                "xyz",
-            )?;
+            CodecUtil::write_index_header(&mut output, "FooBar", 5, &id, "xyz")?;
             output.write_string("this is the data")?;
         }
-        let mut input =
-            ByteBuffersIndexInput::new(out.get_data_input(), "temp");
+        let mut input = ByteBuffersIndexInput::new(out.get_data_input(), "temp");
 
         input.seek(CodecUtil::index_header_length("FooBar", "xyz") as i64)?;
 
@@ -1023,27 +1035,12 @@ mod tests {
         let mut out = ByteBuffersDataOutput::new();
         let id = StringHelper::random_id();
         {
-            let mut output =
-                ByteBuffersIndexOutput::new(&mut out, "temp", "temp");
-            CodecUtil::write_index_header(
-                &mut output,
-                "foobar",
-                5,
-                &id,
-                &just_long_enough,
-            )?;
+            let mut output = ByteBuffersIndexOutput::new(&mut out, "temp", "temp");
+            CodecUtil::write_index_header(&mut output, "foobar", 5, &id, &just_long_enough)?;
         }
 
-        let mut input =
-            ByteBuffersIndexInput::new(out.get_data_input(), "temp");
-        CodecUtil::check_index_header(
-            &mut input,
-            "foobar",
-            5,
-            5,
-            &id,
-            &just_long_enough,
-        )?;
+        let mut input = ByteBuffersIndexInput::new(out.get_data_input(), "temp");
+        CodecUtil::check_index_header(&mut input, "foobar", 5, 5, &id, &just_long_enough)?;
 
         assert_eq!(input.get_file_pointer(), input.length());
         assert_eq!(
@@ -1073,8 +1070,7 @@ mod tests {
     fn test_read_bogus_crc() -> Result<()> {
         let mut out = ByteBuffersDataOutput::new();
         {
-            let mut output =
-                ByteBuffersIndexOutput::new(&mut out, "temp", "temp");
+            let mut output = ByteBuffersIndexOutput::new(&mut out, "temp", "temp");
 
             CodecUtil::write_be_long(&mut output, -1_i64)?; // bad
             CodecUtil::write_be_long(&mut output, 1_i64 << 32)?; // bad
@@ -1082,9 +1078,10 @@ mod tests {
             CodecUtil::write_be_long(&mut output, (1_i64 << 32) - 1)?; // ok
         }
 
-        let mut input = BufferedChecksumIndexInput::new(
-            ByteBuffersIndexInput::new(out.get_data_input(), "temp"),
-        );
+        let mut input = BufferedChecksumIndexInput::new(ByteBuffersIndexInput::new(
+            out.get_data_input(),
+            "temp",
+        ));
 
         for _ in 0..3 {
             let result = CodecUtil::read_crc(&mut input);
@@ -1119,21 +1116,20 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(result, Err(LuceneError::IllegalState(_))));
 
-        fake_checksum
-            .store((1 << 32) - 1, std::sync::atomic::Ordering::Relaxed); // ok
+        fake_checksum.store((1 << 32) - 1, std::sync::atomic::Ordering::Relaxed); // ok
         let result = CodecUtil::write_crc(&mut fake_output);
         assert!(result.is_ok());
 
         Ok(())
     }
     #[test]
-    // TODO: This test does not fully reflect the nested error; it needs to be improved.
+    // TODO: This test does not fully reflect the nested error; it needs to be
+    // improved.
     fn test_truncated_file_throws_corrupt_index_exception() -> Result<()> {
         let mut out = ByteBuffersDataOutput::new();
         let _output = ByteBuffersIndexOutput::new(&mut out, "temp", "temp");
 
-        let mut input =
-            ByteBuffersIndexInput::new(out.get_data_input(), "temp");
+        let mut input = ByteBuffersIndexInput::new(out.get_data_input(), "temp");
 
         let result = CodecUtil::checksum_entire_file(&mut input);
         assert!(matches!(result, Err(LuceneError::CorruptIndex(_))));
@@ -1159,10 +1155,7 @@ mod tests {
         fake_checksum: &'a AtomicI64,
     }
     impl<'a> FakeOutput<'a> {
-        fn new(
-            output: ByteBuffersIndexOutput<'a>,
-            fake_checksum: &'a AtomicI64,
-        ) -> Self {
+        fn new(output: ByteBuffersIndexOutput<'a>, fake_checksum: &'a AtomicI64) -> Self {
             FakeOutput {
                 output,
                 fake_checksum,
@@ -1175,12 +1168,7 @@ mod tests {
             self.output.write_byte(b)
         }
 
-        fn write_bytes_range(
-            &mut self,
-            b: &[u8],
-            offset: i32,
-            length: i32,
-        ) -> Result<()> {
+        fn write_bytes_range(&mut self, b: &[u8], offset: i32, length: i32) -> Result<()> {
             self.output.write_bytes_range(b, offset, length)
         }
     }

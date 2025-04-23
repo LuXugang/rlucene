@@ -25,12 +25,7 @@ impl DataOutput for DummyDataOutput {
         ))
     }
 
-    fn write_bytes_range(
-        &mut self,
-        _b: &[u8],
-        _offset: i32,
-        _length: i32,
-    ) -> Result<()> {
+    fn write_bytes_range(&mut self, _b: &[u8], _offset: i32, _length: i32) -> Result<()> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))

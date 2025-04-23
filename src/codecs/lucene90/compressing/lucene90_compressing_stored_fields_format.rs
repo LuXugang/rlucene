@@ -14,6 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt;
+use std::rc::Rc;
+use std::sync::Arc;
+
+use parking_lot::Mutex;
+
 use crate::codecs::compressing::lucene90_compressing_stored_fields_reader::Lucene90CompressingStoredFieldsReader;
 use crate::codecs::compressing::lucene90_compressing_stored_fields_writer::Lucene90CompressingStoredFieldsWriter;
 use crate::codecs::compression::compression_mode::CompressionModeEnum;
@@ -27,19 +33,16 @@ use crate::store::IOContext;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::error::lucene_error::Result;
 use crate::util::packed::direct_monotonic_writer::direct_monotonic_writer_util;
-use parking_lot::Mutex;
-use std::fmt;
-use std::rc::Rc;
-use std::sync::Arc;
 
-/// A [`StoredFieldsFormat`] that compresses documents in chunks in order to improve the
-/// compression ratio.
+/// A [`StoredFieldsFormat`] that compresses documents in chunks in order to
+/// improve the compression ratio.
 ///
-/// For a chunk size of *chunkSize* bytes, this [`StoredFieldsFormat`] does not support documents
-/// larger than (`2^31 - chunkSize`) bytes.
+/// For a chunk size of *chunkSize* bytes, this [`StoredFieldsFormat`] does not
+/// support documents larger than (`2^31 - chunkSize`) bytes.
 ///
-/// For optimal performance, you should use a [`MergePolicy`](crate::index::merge_policy::MergePolicy) that returns segments that have
-/// the biggest byte size first.
+/// For optimal performance, you should use a
+/// [`MergePolicy`](crate::index::merge_policy::MergePolicy) that returns
+/// segments that have the biggest byte size first.
 pub struct Lucene90CompressingStoredFieldsFormat {
     format_name: String,
     segment_suffix: String,
@@ -49,7 +52,8 @@ pub struct Lucene90CompressingStoredFieldsFormat {
     block_shift: i32,
 }
 impl Lucene90CompressingStoredFieldsFormat {
-    /// Create a new [`Lucene90CompressingStoredFieldsFormat`] with an empty segment suffix.
+    /// Create a new [`Lucene90CompressingStoredFieldsFormat`] with an empty
+    /// segment suffix.
     pub fn new(
         format_name: &str,
         compression_mode: CompressionModeEnum,
@@ -68,28 +72,39 @@ impl Lucene90CompressingStoredFieldsFormat {
     }
     /// Create a new [`Lucene90CompressingStoredFieldsFormat`].
     ///
-    /// - `format_name` is the name of the format. This name will be used in the file
-    ///   formats to perform [`CodecUtil::check_index_header`](crate::codecs::codec_util::CodecUtil::check_index_header) header checks.
-    /// - `segment_suffix` is the segment suffix. This suffix is added to the result file
-    ///   name only if it's not the empty string.
-    /// - The `compression_mode` parameter allows you to choose between compression
-    ///   algorithms that have various compression and decompression speeds so that you can pick the one
-    ///   that best fits your indexing and searching throughput. You should never instantiate two
-    ///   [`Lucene90CompressingStoredFieldsFormat`]s that have the same name but different [`CompressionMode`](crate::codecs::compression::compression_mode::CompressionMode)s.
-    /// - `chunk_size` is the minimum byte size of a chunk of documents. A value of `1`
-    ///   can make sense if there is redundancy across fields.
-    /// - `max_docs_per_chunk` is an upper bound on how many docs may be stored in a single chunk.
-    ///   This is to bound the CPU costs for highly compressible data.
+    /// - `format_name` is the name of the format. This name will be used in the
+    ///   file formats to perform
+    ///   [`CodecUtil::check_index_header`](crate::codecs::codec_util::CodecUtil::check_index_header)
+    ///   header checks.
+    /// - `segment_suffix` is the segment suffix. This suffix is added to the
+    ///   result file name only if it's not the empty string.
+    /// - The `compression_mode` parameter allows you to choose between
+    ///   compression algorithms that have various compression and decompression
+    ///   speeds so that you can pick the one that best fits your indexing and
+    ///   searching throughput. You should never instantiate two
+    ///   [`Lucene90CompressingStoredFieldsFormat`]s that have the same name but
+    ///   different [`CompressionMode`](crate::codecs::compression::compression_mode::CompressionMode)s.
+    /// - `chunk_size` is the minimum byte size of a chunk of documents. A value
+    ///   of `1` can make sense if there is redundancy across fields.
+    /// - `max_docs_per_chunk` is an upper bound on how many docs may be stored
+    ///   in a single chunk. This is to bound the CPU costs for highly
+    ///   compressible data.
     ///
-    /// Higher values of `chunk_size` should improve the compression ratio but will
-    /// require more memory at indexing time and might make document loading a little slower
-    /// (depending on the size of your OS cache compared to the size of your index).
+    /// Higher values of `chunk_size` should improve the compression ratio but
+    /// will require more memory at indexing time and might make document
+    /// loading a little slower (depending on the size of your OS cache
+    /// compared to the size of your index).
     ///
     /// - `format_name`: the name of the [`StoredFieldsFormat`]
-    /// - `compression_mode`: the [`CompressionMode`](crate::codecs::compression::compression_mode::CompressionMode) to use
-    /// - `chunk_size`: the minimum number of bytes of a single chunk of stored documents
-    /// - `max_docs_per_chunk`: the maximum number of documents in a single chunk
-    /// - `block_shift`: the log in base 2 of number of chunks to store in an index block
+    /// - `compression_mode`: the
+    ///   [`CompressionMode`](crate::codecs::compression::compression_mode::CompressionMode)
+    ///   to use
+    /// - `chunk_size`: the minimum number of bytes of a single chunk of stored
+    ///   documents
+    /// - `max_docs_per_chunk`: the maximum number of documents in a single
+    ///   chunk
+    /// - `block_shift`: the log in base 2 of number of chunks to store in an
+    ///   index block
     ///
     /// See [`CompressionMode`](crate::codecs::compression::compression_mode::CompressionMode).
     pub fn new_with_suffix(

@@ -14,6 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::collections::HashSet;
+use std::fmt::Display;
+use std::sync::Arc;
+
+use parking_lot::Mutex;
+
 use crate::index::IndexFileNames;
 use crate::store::buffered_checksum_index_input::BufferedChecksumIndexInput;
 use crate::store::data_output::DataOutput;
@@ -21,20 +27,18 @@ use crate::store::index_input::IndexInput;
 use crate::store::lock::Lock;
 use crate::store::{IOContext, IndexOutput};
 use crate::util::error::lucene_error::Result;
-use parking_lot::Mutex;
-use std::collections::HashSet;
-use std::fmt::Display;
-use std::sync::Arc;
 
 /// A `Directory` provides an abstraction layer for storing a list of files.
 /// A directory contains only files (no subfolder hierarchy).
 ///
 /// # Implementation Notes
 /// Implementing types must comply with the following:
-/// - A file in a directory can be created `create_output`, appended to, and then closed.
-///   A file open for writing may not be available for read access until the corresponding [`IndexOutput`] is closed.
-/// - Once a file is created, it must only be opened for input `open_input` or deleted `delete_file`.
-///   Calling `create_output` on an existing file must return an error similar to `FileAlreadyExistsError`.
+/// - A file in a directory can be created `create_output`, appended to, and
+///   then closed. A file open for writing may not be available for read access
+///   until the corresponding [`IndexOutput`] is closed.
+/// - Once a file is created, it must only be opened for input `open_input` or
+///   deleted `delete_file`. Calling `create_output` on an existing file must
+///   return an error similar to `FileAlreadyExistsError`.
 ///
 /// # Note
 /// If your application requires external synchronization,
@@ -47,8 +51,8 @@ use std::sync::Arc;
 /// [`ByteBuffersDirectory`](crate::store::byte_buffers_directory::ByteBuffersDirectory)
 /// [`FilterDirectory`](crate::store::filter_directory::FilterDirectory)
 pub trait Directory: Display + Sized {
-    /// Returns the names of all files stored in this directory. The output must be sorted
-    /// in UTF-8 order (using `str::cmp` for comparison).
+    /// Returns the names of all files stored in this directory. The output must
+    /// be sorted in UTF-8 order (using `str::cmp` for comparison).
     ///
     /// # Errors
     /// Returns an `std::io::Error` in case of an I/O error.
@@ -56,7 +60,8 @@ pub trait Directory: Display + Sized {
     /// Removes an existing file in the directory.
     ///
     /// # Errors
-    /// This method must return an error if `name` points to a non-existing file:
+    /// This method must return an error if `name` points to a non-existing
+    /// file:
     /// - [`std::io::ErrorKind::NotFound`] for non-existing files.
     ///
     /// Returns an `std::io::Error` in case of other I/O errors.
@@ -68,7 +73,8 @@ pub trait Directory: Display + Sized {
     /// Returns the byte length of a file in the directory.
     ///
     /// # Errors
-    /// This method must return an error if `name` points to a non-existing file:
+    /// This method must return an error if `name` points to a non-existing
+    /// file:
     /// - [`std::io::ErrorKind::NotFound`] for non-existing files.
     ///
     /// Returns an `std::io::Error` in case of other I/O errors.
@@ -76,8 +82,8 @@ pub trait Directory: Display + Sized {
     /// # Arguments
     /// * `name` - The name of an existing file.
     fn file_length(&self, name: &str) -> Result<i64>;
-    /// Creates a new, empty file in the directory and returns an `IndexOutput` instance for
-    /// appending data to this file.
+    /// Creates a new, empty file in the directory and returns an `IndexOutput`
+    /// instance for appending data to this file.
     ///
     /// # Errors
     /// This method must return an error if the file already exists:
@@ -87,17 +93,14 @@ pub trait Directory: Display + Sized {
     ///
     /// # Arguments
     /// * `name` - The name of the file to create.
-    fn create_output(
-        &mut self,
-        name: &str,
-        context: &IOContext,
-    ) -> Result<Self::IndexOutputType>;
+    fn create_output(&mut self, name: &str, context: &IOContext) -> Result<Self::IndexOutputType>;
 
-    /// Creates a new, empty, temporary file in the directory and returns an `IndexOutput` instance
-    /// for appending data to this file.
+    /// Creates a new, empty, temporary file in the directory and returns an
+    /// `IndexOutput` instance for appending data to this file.
     ///
-    /// The temporary file name (accessible via `IndexOutput::get_name`) will start with `prefix`,
-    /// end with `suffix`, and have a reserved file extension `.tmp`.
+    /// The temporary file name (accessible via `IndexOutput::get_name`) will
+    /// start with `prefix`, end with `suffix`, and have a reserved file
+    /// extension `.tmp`.
     ///
     /// # Arguments
     /// * `prefix` - The prefix for the temporary file name.
@@ -109,25 +112,30 @@ pub trait Directory: Display + Sized {
         suffix: &str,
         context: &IOContext,
     ) -> Result<Self::IndexOutputType>;
-    /// Ensures that any writings to these files are moved to stable storage (made durable).
+    /// Ensures that any writings to these files are moved to stable storage
+    /// (made durable).
     ///
-    /// Lucene uses this to properly commit changes to the index, preventing corruption in case of a
-    /// machine or OS crash.
+    /// Lucene uses this to properly commit changes to the index, preventing
+    /// corruption in case of a machine or OS crash.
     ///
     /// # See Also
     /// [`sync_metadata`](Directory::sync_metadata)
     fn sync(&mut self, names: &[&str]) -> Result<()>;
-    /// Ensures that directory metadata, such as recent file renames, are moved to stable storage.
+    /// Ensures that directory metadata, such as recent file renames, are moved
+    /// to stable storage.
     ///
     /// # See Also
     /// [`sync`](Directory::sync)
     fn sync_metadata(&mut self) -> Result<()>;
-    /// Renames `source` file to `dest` file where `dest` must not already exist in the directory.
+    /// Renames `source` file to `dest` file where `dest` must not already exist
+    /// in the directory.
     ///
-    /// It is permitted for this operation to not be truly atomic, meaning both `source` and `dest`
-    /// could temporarily be visible in the list of files. However, the implementation must ensure that
-    /// the content of `dest` appears as the entire `source` atomically. Once `dest` is visible for
-    /// readers, the entire content of the previous `source` must be visible.
+    /// It is permitted for this operation to not be truly atomic, meaning both
+    /// `source` and `dest` could temporarily be visible in the list of
+    /// files. However, the implementation must ensure that the content of
+    /// `dest` appears as the entire `source` atomically. Once `dest` is visible
+    /// for readers, the entire content of the previous `source` must be
+    /// visible.
     ///
     /// This method is used by `IndexWriter` to publish commits.
     ///
@@ -139,7 +147,8 @@ pub trait Directory: Display + Sized {
     /// Opens a stream for reading an existing file.
     ///
     /// # Errors
-    /// This method must return an error if `name` points to a non-existing file:
+    /// This method must return an error if `name` points to a non-existing
+    /// file:
     /// - [`std::io::ErrorKind::NotFound`] for non-existing files.
     ///
     /// Returns an `std::io::Error` in case of other I/O errors.
@@ -147,16 +156,13 @@ pub trait Directory: Display + Sized {
     /// # Arguments
     /// * `name` - The name of an existing file.
     type IndexInputType: IndexInput;
-    fn open_input(
-        &self,
-        name: &str,
-        context: &IOContext,
-    ) -> Result<Self::IndexInputType>;
+    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInputType>;
 
     /// Opens a checksum-computing stream for reading an existing file.
     ///
     /// # Errors
-    /// This method must return an error if `name` points to a non-existing file:
+    /// This method must return an error if `name` points to a non-existing
+    /// file:
     /// - [`std::io::ErrorKind::NotFound`] for non-existing files.
     ///
     /// Returns an `std::io::Error` in case of other I/O errors.
@@ -175,15 +181,17 @@ pub trait Directory: Display + Sized {
     /// Acquires and returns a `Lock` for a file with the given name.
     ///
     /// # Errors
-    /// - Returns a `LockObtainFailedException` (optional specific exception) if the lock could not be
-    ///   obtained because it is currently held elsewhere.
-    /// - Returns an `std::io::Error` if any I/O error occurs attempting to gain the lock.
+    /// - Returns a `LockObtainFailedException` (optional specific exception) if
+    ///   the lock could not be obtained because it is currently held elsewhere.
+    /// - Returns an `std::io::Error` if any I/O error occurs attempting to gain
+    ///   the lock.
     ///
     /// # Arguments
     /// * `name` - The name of the lock file.
     fn obtain_lock(&mut self, name: &str) -> Result<impl Lock>;
-    /// Copies an existing `src` file from directory `from` to a non-existent file `dest` in this directory.
-    /// The given `IOContext` is only used for opening the destination file.
+    /// Copies an existing `src` file from directory `from` to a non-existent
+    /// file `dest` in this directory. The given `IOContext` is only used
+    /// for opening the destination file.
     ///
     /// # Arguments
     /// * `src` - The source file to copy.
@@ -201,8 +209,7 @@ pub trait Directory: Display + Sized {
 
         let result = (|| -> Result<()> {
             let dir = from.lock();
-            let mut is =
-                dir.open_input(src, &IOContext::read_once_io_context()?)?;
+            let mut is = dir.open_input(src, &IOContext::read_once_io_context()?)?;
             let mut os = self.create_output(dest, context)?;
             let length = IndexInput::length(&is);
             os.copy_bytes(&mut is, length)?;
@@ -235,8 +242,8 @@ pub trait Directory: Display + Sized {
     }
 }
 
-/// Creates a file name for a temporary file. The name will start with `prefix`, end with
-/// `suffix`, and have a reserved file extension `.tmp`.
+/// Creates a file name for a temporary file. The name will start with `prefix`,
+/// end with `suffix`, and have a reserved file extension `.tmp`.
 ///
 /// # See Also
 /// [`create_temp_output`](Directory)

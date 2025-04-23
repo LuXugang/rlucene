@@ -23,8 +23,8 @@ use crate::util::error::lucene_error::Result;
 
 /// Exposes a multi-valued view over a single-valued instance.
 ///
-/// This can be used if you want to have one multi-valued implementation that works for both
-/// single-valued and multi-valued types.
+/// This can be used if you want to have one multi-valued implementation that
+/// works for both single-valued and multi-valued types.
 pub struct SingletonSortedNumericDocValues<N>
 where
     N: NumericDocValues,

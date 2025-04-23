@@ -14,6 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::borrow::Cow;
+use std::rc::Rc;
+
 use crate::codecs::block_term_state::BlockTermStateEnum;
 use crate::codecs::norms_producer::NormsProducer;
 use crate::codecs::push_postings_writer_base::PushPostingsWriterBaseAbstract;
@@ -26,36 +29,32 @@ use crate::store::{DataOutput, IndexOutput};
 use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::Result;
 use crate::util::fixed_bit_set::FixedBitSet;
-use std::borrow::Cow;
-use std::rc::Rc;
 
-/// Trait that plugs into term dictionaries, such as [`Lucene90BlockTreeTermsWriter`](crate::codecs::lucene90::lucene90_block_trree_terms_writer::Lucene90BlockTreeTermsWriter), and
-/// handles writing postings.
+/// Trait that plugs into term dictionaries, such as
+/// [`Lucene90BlockTreeTermsWriter`](crate::codecs::lucene90::lucene90_block_trree_terms_writer::Lucene90BlockTreeTermsWriter),
+/// and handles writing postings.
 ///
 /// See also:
 /// - [`PostingsReaderBase`](crate::codecs::postings_reader_base::PostingsReaderBase)
 // TODO: find a better name; this defines the API that the
 // terms dict impls use to talk to a postings impl.
 // TermsDict + PostingsReader/WriterBase == FieldsProducer/Consumer
-pub trait PostingsWriterBase<
-    T: TermsEnum<AV>,
-    N: NormsProducer,
-    AV: AccessVec<u8>,
->
-{
-    /// Called once after startup, before any terms have been added. Implementations typically write a
-    /// header to the provided `termsOut`.
+pub trait PostingsWriterBase<T: TermsEnum<AV>, N: NormsProducer, AV: AccessVec<u8>> {
+    /// Called once after startup, before any terms have been added.
+    /// Implementations typically write a header to the provided `termsOut`.
     fn init<D: Directory>(
         &mut self,
         terms_out: &mut impl IndexOutput,
         state: &SegmentWriteState<D>,
     ) -> Result<()>;
 
-    /// Write all postings for one term; use the provided [`TermsEnum`] to pull a
-    /// [`PostingsEnum`](crate::index::postings_enum::PostingsEnum). This method should not re-position the `terms_enum`! It is already
-    /// positioned on the term that should be written. This method must set the bit in the
-    /// provided [`FixedBitSet`] for every docID written. If no docs were written, this method
-    /// should return `None`, and the terms dict will skip the term.
+    /// Write all postings for one term; use the provided [`TermsEnum`] to pull
+    /// a [`PostingsEnum`](crate::index::postings_enum::PostingsEnum). This
+    /// method should not re-position the `terms_enum`! It is already
+    /// positioned on the term that should be written. This method must set the
+    /// bit in the provided [`FixedBitSet`] for every docID written. If no
+    /// docs were written, this method should return `None`, and the terms
+    /// dict will skip the term.
     fn write_term(
         &mut self,
         term: &BytesRef<Vec<u8>>,
@@ -65,9 +64,10 @@ pub trait PostingsWriterBase<
         sub: &mut impl PushPostingsWriterBaseAbstract<N>,
     ) -> Result<Option<BlockTermStateEnum>>;
 
-    /// Encode metadata as `&[i64]` and `&[u8]`. `absolute` controls whether the current term is delta
-    /// encoded according to the latest term. Usually elements in `longs` are file pointers, so each
-    /// one always increases when a new term is consumed. `out` is used to write generic bytes,
+    /// Encode metadata as `&[i64]` and `&[u8]`. `absolute` controls whether the
+    /// current term is delta encoded according to the latest term. Usually
+    /// elements in `longs` are file pointers, so each one always increases
+    /// when a new term is consumed. `out` is used to write generic bytes,
     /// which are not monotonic.
     fn encode_term(
         &mut self,

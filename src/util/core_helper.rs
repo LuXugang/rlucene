@@ -14,18 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::lucene_error::{LuceneError, Result};
 use std::cmp::Ordering;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::num::Wrapping;
 
+use crate::util::error::lucene_error::{LuceneError, Result};
+
 pub struct CoreHelper;
 impl CoreHelper {
-    pub fn check_from_index_size(
-        from_index: i32,
-        size: i32,
-        length: i32,
-    ) -> Result<i32> {
+    pub fn check_from_index_size(from_index: i32, size: i32, length: i32) -> Result<i32> {
         if from_index < 0 || size < 0 || length < 0 {
             Err(LuceneError::array_index_out_of_bounds(format!(
                 "from_index: {}, size: {}, and length {} must be non-negative",
@@ -41,8 +38,7 @@ impl CoreHelper {
         }
     }
     pub fn miss_match(prior: &[u8], current: &[u8]) -> i32 {
-        let miss_match =
-            prior.iter().zip(current.iter()).position(|(a, b)| a != b);
+        let miss_match = prior.iter().zip(current.iter()).position(|(a, b)| a != b);
 
         match miss_match {
             Some(miss_match) => {
@@ -103,8 +99,8 @@ pub trait OptionTakeExt<T> {
     /// Takes the inner `T` out of the `Option`, leaving `None` in its place,
     /// then calls the provided closure `f` on a mutable reference to that `T`.
     ///
-    /// - If the `Option` was `Some(val)`, runs `f(&mut val)`, restores `Some(val)`,
-    ///   and returns the closure’s `Result<R>`.
+    /// - If the `Option` was `Some(val)`, runs `f(&mut val)`, restores
+    ///   `Some(val)`, and returns the closure’s `Result<R>`.
     /// - If the `Option` was `None`, returns an `Err` with a
     ///   `LuceneError::illegal_state("Option was None".to_string())`.
     ///
@@ -112,26 +108,21 @@ pub trait OptionTakeExt<T> {
     ///
     /// Returns `Err(LuceneError::illegal_state)` if the `Option` is empty,
     /// or propagates any `Err` returned by the closure.
-    fn take_do_return<R>(
-        &mut self,
-        f: impl FnOnce(&mut T) -> Result<R>,
-    ) -> Result<R>;
+    fn take_do_return<R>(&mut self, f: impl FnOnce(&mut T) -> Result<R>) -> Result<R>;
 }
 
 impl<T> OptionTakeExt<T> for Option<T> {
     /// Implementation of `take_do` for all `Option<T>`.
     ///
-    /// 1. Calls `self.take()` to extract the value (or return an error if `None`).
+    /// 1. Calls `self.take()` to extract the value (or return an error if
+    ///    `None`).
     /// 2. Runs the user-provided closure on a mutable reference to the value.
     /// 3. Restores the value back into `self` regardless of success or failure.
     /// 4. Returns the `Result<R>` produced by the closure.
-    fn take_do_return<R>(
-        &mut self,
-        f: impl FnOnce(&mut T) -> Result<R>,
-    ) -> Result<R> {
-        let mut val = self.take().ok_or_else(|| {
-            LuceneError::illegal_state("Option was None".to_string())
-        })?;
+    fn take_do_return<R>(&mut self, f: impl FnOnce(&mut T) -> Result<R>) -> Result<R> {
+        let mut val = self
+            .take()
+            .ok_or_else(|| LuceneError::illegal_state("Option was None".to_string()))?;
         let res = f(&mut val);
         *self = Some(val);
         res
@@ -140,12 +131,14 @@ impl<T> OptionTakeExt<T> for Option<T> {
 
 /// Converts a signed integer to `usize` with overflow checking.
 ///
-/// This trait ensures safe conversion from signed integers (`i16`, `i32`, `i64`)
-/// to `usize`, explicitly rejecting negative values to prevent unintended behavior.
+/// This trait ensures safe conversion from signed integers (`i16`, `i32`,
+/// `i64`) to `usize`, explicitly rejecting negative values to prevent
+/// unintended behavior.
 ///
-/// **Important:** In Rust, casting a negative value using `as` (e.g., `-1_i32 as usize`)
-/// will not panic. Instead, it wraps around and produces a large `usize` value
-/// (e.g., `usize::MAX` on most platforms). This trait avoids that risk by returning an error.
+/// **Important:** In Rust, casting a negative value using `as` (e.g., `-1_i32
+/// as usize`) will not panic. Instead, it wraps around and produces a large
+/// `usize` value (e.g., `usize::MAX` on most platforms). This trait avoids that
+/// risk by returning an error.
 ///
 /// # Examples
 ///
@@ -173,7 +166,8 @@ impl<T> OptionTakeExt<T> for Option<T> {
 /// - [`TryFrom<i32> for usize`](https://doc.rust-lang.org/std/convert/trait.TryFrom.html)
 /// - [`as` casting pitfalls](https://doc.rust-lang.org/reference/expressions/operator-expr.html#type-cast-expressions)
 pub trait ToUsizeExact {
-    /// Performs a checked conversion to `usize`, returning an error if the value is negative.
+    /// Performs a checked conversion to `usize`, returning an error if the
+    /// value is negative.
     fn to_usize_exact(self) -> Result<usize>;
 }
 

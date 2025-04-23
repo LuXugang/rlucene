@@ -14,10 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::{Display, Formatter};
+
 use crate::store::simple_fs_lock::SimpleFSLock;
 use crate::store::NativeFSLock;
 use crate::util::error::lucene_error::Result;
-use std::fmt::{Display, Formatter};
 
 /// An interprocess mutex lock.
 ///
@@ -35,9 +36,10 @@ use std::fmt::{Display, Formatter};
 /// # Note
 /// This is an internal API.
 pub trait Lock: Display {
-    /// Best effort check that this lock is still valid. Locks could become invalidated externally for
-    /// a number of reasons, such as if a user deletes the lock file manually or when a network
-    /// filesystem is in use.
+    /// Best effort check that this lock is still valid. Locks could become
+    /// invalidated externally for a number of reasons, such as if a user
+    /// deletes the lock file manually or when a network filesystem is in
+    /// use.
     ///
     /// # Errors
     /// Returns an `LuceneError` if the lock is no longer valid.

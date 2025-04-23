@@ -125,8 +125,7 @@ impl StoredFieldsInts {
         while k < (count - Self::BLOCK_SIZE_MINUS_ONE as i32) {
             let step = (offset + k) as usize;
             for i in 0..64 {
-                let l = ((values[step + i] as i64) << 32)
-                    | (values[step + 64 + i] as i64);
+                let l = ((values[step + i] as i64) << 32) | (values[step + 64 + i] as i64);
                 out.write_long(l)?;
             }
             k += Self::BLOCK_SIZE as i32;
@@ -250,16 +249,15 @@ impl StoredFieldsInts {
 }
 #[cfg(test)]
 mod tests {
+    use rand::rngs::StdRng;
+    use rand::Rng;
+
     use crate::codecs::compressing::stored_fields_ints::StoredFieldsInts;
     use crate::store::directory::Directory;
     use crate::store::{DataOutput, IOContext, IndexInput, IndexOutput};
-    use crate::test::util::lucene_test_case::{
-        at_least, new_directory, random,
-    };
+    use crate::test::util::lucene_test_case::{at_least, new_directory, random};
     use crate::test::util::test_util::TestUtil;
     use crate::util::error::lucene_error::Result;
-    use rand::rngs::StdRng;
-    use rand::Rng;
 
     #[allow(dead_code)] // for quick search
     struct TestStoredFieldsInt;
@@ -294,15 +292,10 @@ mod tests {
         Ok(())
     }
 
-    fn test(
-        random: &mut StdRng,
-        dir: &mut impl Directory,
-        ints: &[i32],
-    ) -> Result<()> {
+    fn test(random: &mut StdRng, dir: &mut impl Directory, ints: &[i32]) -> Result<()> {
         let len;
         {
-            let mut out =
-                dir.create_output("tmp", &IOContext::default_io_context()?)?;
+            let mut out = dir.create_output("tmp", &IOContext::default_io_context()?)?;
             StoredFieldsInts::write_ints(ints, 0, ints.len() as i32, &mut out)?;
             len = out.get_file_pointer();
             if random.random_bool(0.5) {
@@ -311,16 +304,10 @@ mod tests {
         }
 
         {
-            let mut input =
-                dir.open_input("tmp", &IOContext::read_once_io_context()?)?;
+            let mut input = dir.open_input("tmp", &IOContext::read_once_io_context()?)?;
             let offset = random.random_range(0..=4);
             let mut read = vec![0i64; ints.len() + offset];
-            StoredFieldsInts::read_ints(
-                &mut input,
-                ints.len() as i32,
-                &mut read,
-                offset as i32,
-            )?;
+            StoredFieldsInts::read_ints(&mut input, ints.len() as i32, &mut read, offset as i32)?;
 
             let read_ints: Vec<i32> = read[offset..offset + ints.len()]
                 .iter()

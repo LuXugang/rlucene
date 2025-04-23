@@ -14,13 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::rc::Rc;
+
 use crate::search::doc_id_set::DocIdSet;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::util::accountable::Accountable;
 use crate::util::bits::Bits;
 use crate::util::error::lucene_error::Result;
-use std::rc::Rc;
 
 #[allow(unused)]
 const BASE_RAM_BYTES_USED: i64 = 0;
@@ -151,21 +152,22 @@ impl<D: DocIdSetIterator> DocIdSetIterator for NotDocDocIdSetIterator<D> {
 }
 #[cfg(test)]
 mod tests {
+    use std::cmp::Reverse;
+    use std::collections::BinaryHeap;
+
+    use rand::rngs::StdRng;
+
     use crate::search::doc_id_set::{DocIdSet, EmptyDocIdSet};
     use crate::test::util::base_doc_id_set_test_case::{
         BaseDocIdSetTestCase, BaseDocIdSetTestCaseSupperImpl,
     };
     use crate::test::util::lucene_test_case::random;
-
     use crate::util::bit_doc_id_set::BitDocIdSet;
     use crate::util::bit_set::BitSet;
     use crate::util::bits::Bits;
     use crate::util::error::lucene_error::Result;
     use crate::util::fixed_bit_set::FixedBitSet;
     use crate::util::not_doc_id_set::NotDocIdSet;
-    use rand::rngs::StdRng;
-    use std::cmp::Reverse;
-    use std::collections::BinaryHeap;
 
     struct TestNotDocIdSet;
     impl BaseDocIdSetTestCase for TestNotDocIdSet {
@@ -194,9 +196,7 @@ mod tests {
             for i in 0..num_bits {
                 assert_eq!(ds1.contains(i as usize), bits.get(i));
             }
-            BaseDocIdSetTestCaseSupperImpl::assert_equals(
-                self, random, num_bits, ds1, ds2,
-            )
+            BaseDocIdSetTestCaseSupperImpl::assert_equals(self, random, num_bits, ds1, ds2)
         }
     }
 
@@ -235,12 +235,11 @@ mod tests {
     #[test]
     fn test_bits() {
         assert!(NotDocIdSet::new(3, EmptyDocIdSet).bits().is_none());
-        assert!(NotDocIdSet::new(
-            3,
-            BitDocIdSet::new(Some(FixedBitSet::new(3))).unwrap()
-        )
-        .bits()
-        .is_some());
+        assert!(
+            NotDocIdSet::new(3, BitDocIdSet::new(Some(FixedBitSet::new(3))).unwrap())
+                .bits()
+                .is_some()
+        );
     }
     struct Buffer {
         array: Vec<i32>,

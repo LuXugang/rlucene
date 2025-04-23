@@ -14,12 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::collections::HashSet;
+use std::fmt::{Display, Formatter};
+
 use crate::store::directory::Directory;
 use crate::store::lock::Lock;
 use crate::store::IOContext;
 use crate::util::error::lucene_error::Result;
-use std::collections::HashSet;
-use std::fmt::{Display, Formatter};
 /// Directory implementation that delegates calls to another directory.
 ///
 /// This struct can be used to add limitations on top of an existing
@@ -29,8 +30,9 @@ use std::fmt::{Display, Formatter};
 ///
 /// However, if you plan to write your own [`Directory`] implementation,
 /// you should consider extending directly [`Directory`] or
-/// [`BaseDirectory`](crate::store::base_directory::BaseDirectory) rather than trying to reuse functionality of
-/// existing [`Directory`]s by wrapping this one.
+/// [`BaseDirectory`](crate::store::base_directory::BaseDirectory) rather than
+/// trying to reuse functionality of existing [`Directory`]s by wrapping this
+/// one.
 pub struct FilterDirectory<D>
 where
     D: Directory,
@@ -74,11 +76,7 @@ where
         self.delegate.file_length(name)
     }
 
-    fn create_output(
-        &mut self,
-        name: &str,
-        context: &IOContext,
-    ) -> Result<Self::IndexOutputType> {
+    fn create_output(&mut self, name: &str, context: &IOContext) -> Result<Self::IndexOutputType> {
         self.delegate.create_output(name, context)
     }
 
@@ -107,11 +105,7 @@ where
 
     type IndexInputType = D::IndexInputType;
 
-    fn open_input(
-        &self,
-        name: &str,
-        context: &IOContext,
-    ) -> Result<Self::IndexInputType> {
+    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInputType> {
         self.delegate.open_input(name, context)
     }
 

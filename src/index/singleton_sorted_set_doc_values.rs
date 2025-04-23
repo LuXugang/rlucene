@@ -14,23 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::borrow::Cow;
+use std::marker::PhantomData;
+
 use crate::index::doc_values_iterator::DocValuesIterator;
+use crate::index::dummy::dummy_terms_enum::DummyTermsEnum;
 use crate::index::sorted_doc_values::SortedDocValues;
 use crate::index::sorted_set_doc_values::SortedSetDocValues;
-
-use crate::index::dummy::dummy_terms_enum::DummyTermsEnum;
 use crate::index::BytesRef;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use std::borrow::Cow;
-use std::marker::PhantomData;
 
 /// Exposes a multi-valued iterator view over a single-valued iterator.
 ///
-/// This can be used if you want to have one multi-valued implementation that works for both
-/// single-valued and multi-valued types.
+/// This can be used if you want to have one multi-valued implementation that
+/// works for both single-valued and multi-valued types.
 pub struct SingletonSortedSetDocValues<S, AV>
 where
     S: SortedDocValues<AV>,

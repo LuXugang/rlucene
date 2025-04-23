@@ -14,22 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::parse::Parse;
-use crate::util::error::{
-    AlreadyClosedError, ArrayIndexOutOfBoundsError, BufferAllocationError,
-    CorruptIndexError, Eof, IllegalArgumentError, IllegalStateError,
-    IndexFormatTooNewError, IndexFormatTooOldError, IndexNotFound,
-    LockAlreadyHeldError, LockHeldByOtherError, MaxBytesLengthExceededError,
-    MergeAbortedError, MergeError, NeedImplementedError, NotFoundError,
-    NotImplementedError, NumberFormatError, NumberOverflow, UnreachableError,
-    UnsupportedOperationError,
-};
-use crate::util::VersionError;
 use std::fmt;
 use std::io::Error;
 use std::num::TryFromIntError;
 use std::string::FromUtf8Error;
+
 use thiserror::Error;
+
+use crate::util::error::parse::Parse;
+use crate::util::error::{
+    AlreadyClosedError, ArrayIndexOutOfBoundsError, BufferAllocationError, CorruptIndexError, Eof,
+    IllegalArgumentError, IllegalStateError, IndexFormatTooNewError, IndexFormatTooOldError,
+    IndexNotFound, LockAlreadyHeldError, LockHeldByOtherError, MaxBytesLengthExceededError,
+    MergeAbortedError, MergeError, NeedImplementedError, NotFoundError, NotImplementedError,
+    NumberFormatError, NumberOverflow, UnreachableError, UnsupportedOperationError,
+};
+use crate::util::VersionError;
 
 #[derive(Debug, Error)]
 pub enum LuceneError {

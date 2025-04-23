@@ -33,10 +33,7 @@ impl<'a, T, C> ArrayIntroSorter<'a, T, C>
 where
     C: Comparator<T>,
 {
-    pub fn new(
-        arr: &'a mut Vec<T>,
-        comparator: C,
-    ) -> ArrayIntroSorter<'a, T, C> {
+    pub fn new(arr: &'a mut Vec<T>, comparator: C) -> ArrayIntroSorter<'a, T, C> {
         ArrayIntroSorter {
             arr,
             comparator,
@@ -83,15 +80,15 @@ where
     }
 }
 
-impl<T, C: Comparator<T>> IntroSorter for ArrayIntroSorter<'_, T, C> where T: Ord
-{}
+impl<T, C: Comparator<T>> IntroSorter for ArrayIntroSorter<'_, T, C> where T: Ord {}
 
 #[cfg(test)]
 mod tests {
+    use rand::rngs::StdRng;
+
     use crate::test::util::base_sort_test_case::{BaseSortTestCase, Entry};
     use crate::test::util::lucene_test_case::random;
     use crate::util::{ArrayIntroSorter, Comparator, NaturalOrder, Sorter};
-    use rand::rngs::StdRng;
 
     const STABLE: bool = false;
 
@@ -113,11 +110,7 @@ mod tests {
     where
         T: Ord,
     {
-        fn new_sorter(
-            &self,
-            _random: &mut StdRng,
-            arr: &mut Vec<Entry>,
-        ) -> impl Sorter {
+        fn new_sorter(&self, _random: &mut StdRng, arr: &mut Vec<Entry>) -> impl Sorter {
             ArrayIntroSorter::new(arr, NaturalOrder::new())
         }
 

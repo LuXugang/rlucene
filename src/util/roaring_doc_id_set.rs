@@ -14,18 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::rc::Rc;
+
 use crate::search::doc_id_set::DocIdSet;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::{DocIdSetIterator, EmptyDISI};
 use crate::util::accountable::Accountable;
 use crate::util::bit_doc_id_set::BitDocIdSet;
+use crate::util::bit_set_iterator::BitSetIterator;
 use crate::util::bits::MatchNoBits;
 use crate::util::error::lucene_error::Result;
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::not_doc_id_set::{NotDocDocIdSetIterator, NotDocIdSet};
-
-use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-use crate::util::bit_set_iterator::BitSetIterator;
-use std::rc::Rc;
 
 // Number of documents in a block
 const BLOCK_SIZE: i32 = 1 << 16;
@@ -36,9 +36,10 @@ const MAX_ARRAY_LENGTH: i32 = 1 << 12;
 const BASE_RAM_BYTES_USED: i64 = 0;
 /// [`DocIdSet`] implementation inspired by [roaringbitmap.org](http://roaringbitmap.org/)
 ///
-/// The space is divided into blocks of `2^16` bits, and each block is encoded independently. In each
-/// block, if fewer than `2^12` bits are set, documents are simply stored in a `Vec<i16>`. If more than
-/// `2^16 - 2^12` bits are set, the inverse of the set is encoded in a simple `Vec<i16>`. Otherwise,
+/// The space is divided into blocks of `2^16` bits, and each block is encoded
+/// independently. In each block, if fewer than `2^12` bits are set, documents
+/// are simply stored in a `Vec<i16>`. If more than `2^16 - 2^12` bits are set,
+/// the inverse of the set is encoded in a simple `Vec<i16>`. Otherwise,
 /// a [`FixedBitSet`] is used.
 ///
 /// # Note
@@ -95,8 +96,7 @@ pub mod builder {
     use crate::util::fixed_bit_set::FixedBitSet;
     use crate::util::not_doc_id_set::NotDocIdSet;
     use crate::util::roaring_doc_id_set::{
-        DocIdSetEnum, RoaringDocIdSet, ShortArrayDocIdSet, BLOCK_SIZE,
-        MAX_ARRAY_LENGTH,
+        DocIdSetEnum, RoaringDocIdSet, ShortArrayDocIdSet, BLOCK_SIZE, MAX_ARRAY_LENGTH,
     };
 
     pub struct Builder {
@@ -106,16 +106,16 @@ pub mod builder {
         last_doc_id: i32,
         current_block: i32,
         current_block_cardinality: i32,
-        // We start by filling the buffer and when it's full we copy the content of
-        // the buffer to the FixedBitSet and put further documents in that bitset
+        // We start by filling the buffer and when it's full we copy the
+        // content of the buffer to the FixedBitSet and put further
+        // documents in that bitset
         buffer: Vec<i16>,
         dense_buffer: FixedBitSet,
     }
 
     impl Builder {
         pub fn new(max_doc: i32) -> Builder {
-            let buffer: Vec<i16> =
-                Vec::with_capacity(MAX_ARRAY_LENGTH as usize);
+            let buffer: Vec<i16> = Vec::with_capacity(MAX_ARRAY_LENGTH as usize);
             let sets_length = (max_doc + (1 << 16) - 1) >> 16;
             let mut sets = Vec::with_capacity(sets_length as usize);
             // not want to impl Copy of DocIdSetEnum
@@ -133,7 +133,8 @@ pub mod builder {
                 dense_buffer: FixedBitSet::new(0),
             }
         }
-        /// Add a new doc-id to this builder. NOTE: doc ids must be added in order.
+        /// Add a new doc-id to this builder. NOTE: doc ids must be added in
+        /// order.
         pub fn add(&mut self, doc_id: i32) -> Result<()> {
             if doc_id <= self.last_doc_id {
                 return Err(LuceneError::illegal_argument(format!(
@@ -148,13 +149,13 @@ pub mod builder {
             }
 
             if self.current_block_cardinality < MAX_ARRAY_LENGTH {
-                // self.buffer[self.current_block_cardinality as usize] = doc_id as i16;
+                // self.buffer[self.current_block_cardinality as usize] = doc_id
+                // as i16;
                 self.buffer.push(doc_id as i16);
             } else {
                 if self.dense_buffer.length() == 0 {
                     // the buffer is full, let's move to a fixed bit set
-                    let num_bits =
-                        std::cmp::min(1 << 16, self.max_doc - (block << 16));
+                    let num_bits = std::cmp::min(1 << 16, self.max_doc - (block << 16));
                     self.dense_buffer = FixedBitSet::new(num_bits);
                     for i in 0..self.buffer.len() {
                         self.dense_buffer.set(self.buffer[i] as i32 & 0xFFFF);
@@ -167,10 +168,7 @@ pub mod builder {
             Ok(())
         }
         /// Add the content of the provided DocIdSetIterator.
-        pub fn add_disi<T: DocIdSetIterator>(
-            &mut self,
-            mut disi: T,
-        ) -> Result<()> {
+        pub fn add_disi<T: DocIdSetIterator>(&mut self, mut disi: T) -> Result<()> {
             let mut doc = disi.next_doc()?;
             while doc != NO_MORE_DOCS {
                 let _ = self.add(doc);
@@ -180,10 +178,7 @@ pub mod builder {
         }
         pub fn build(&mut self) -> RoaringDocIdSet {
             let _ = self.flush();
-            RoaringDocIdSet::new(
-                std::mem::take(&mut self.sets),
-                self.cardinality,
-            )
+            RoaringDocIdSet::new(std::mem::take(&mut self.sets), self.cardinality)
         }
         fn flush(&mut self) -> Result<()> {
             debug_assert!(self.current_block_cardinality <= BLOCK_SIZE);
@@ -191,10 +186,9 @@ pub mod builder {
                 // use sparse encoding
                 debug_assert_eq!(self.dense_buffer.length(), 0);
                 if self.current_block_cardinality > 0 {
-                    let sparse =
-                        Some(DocIdSetEnum::Sparse(ShortArrayDocIdSet::new(
-                            std::mem::take(&mut self.buffer),
-                        )));
+                    let sparse = Some(DocIdSetEnum::Sparse(ShortArrayDocIdSet::new(
+                        std::mem::take(&mut self.buffer),
+                    )));
                     debug_assert!(self.buffer.is_empty());
                     self.sets[self.current_block as usize] = sparse;
                 }
@@ -205,31 +199,26 @@ pub mod builder {
                     self.current_block_cardinality
                 );
                 if self.dense_buffer.length() == BLOCK_SIZE
-                    && BLOCK_SIZE - self.current_block_cardinality
-                        < MAX_ARRAY_LENGTH
+                    && BLOCK_SIZE - self.current_block_cardinality < MAX_ARRAY_LENGTH
                 {
-                    let capacity =
-                        (BLOCK_SIZE - self.current_block_cardinality) as usize;
+                    let capacity = (BLOCK_SIZE - self.current_block_cardinality) as usize;
                     let mut excluded_docs: Vec<i16> = vec![0; capacity];
                     self.dense_buffer.flip_range(0, self.dense_buffer.length());
                     let mut excluded_doc = -1;
                     for excluded_doc_ref in excluded_docs.iter_mut() {
-                        excluded_doc =
-                            self.dense_buffer.next_set_bit(excluded_doc + 1);
+                        excluded_doc = self.dense_buffer.next_set_bit(excluded_doc + 1);
                         assert_ne!(excluded_doc, NO_MORE_DOCS);
                         *excluded_doc_ref = excluded_doc as i16;
                     }
 
                     debug_assert!(
                         excluded_doc + 1 == self.dense_buffer.length()
-                            || self.dense_buffer.next_set_bit(excluded_doc + 1)
-                                == NO_MORE_DOCS
+                            || self.dense_buffer.next_set_bit(excluded_doc + 1) == NO_MORE_DOCS
                     );
-                    let dense: Option<DocIdSetEnum> =
-                        Some(DocIdSetEnum::Dense(NotDocIdSet::new(
-                            BLOCK_SIZE,
-                            ShortArrayDocIdSet::new(excluded_docs),
-                        )));
+                    let dense: Option<DocIdSetEnum> = Some(DocIdSetEnum::Dense(NotDocIdSet::new(
+                        BLOCK_SIZE,
+                        ShortArrayDocIdSet::new(excluded_docs),
+                    )));
                     self.buffer.clear();
                     self.sets[self.current_block as usize] = dense;
                 } else {
@@ -238,8 +227,7 @@ pub mod builder {
                         self.current_block_cardinality as i64,
                     )?;
 
-                    let medium: Option<DocIdSetEnum> =
-                        Some(DocIdSetEnum::Medium(result));
+                    let medium: Option<DocIdSetEnum> = Some(DocIdSetEnum::Medium(result));
                     self.buffer.clear();
                     self.sets[self.current_block as usize] = medium;
                 }
@@ -354,10 +342,7 @@ pub struct Iterator<'a> {
     cardinality: i64,
 }
 impl<'a> Iterator<'a> {
-    fn new(
-        doc_id_sets: &'a Vec<Option<DocIdSetEnum>>,
-        cardinality: i64,
-    ) -> Self {
+    fn new(doc_id_sets: &'a Vec<Option<DocIdSetEnum>>, cardinality: i64) -> Self {
         let set_length = doc_id_sets.len();
         Iterator {
             block: -1,
@@ -451,15 +436,9 @@ impl DocIdSet for DocIdSetEnum {
 
     fn iterator(&self) -> Option<Self::DISIType<'_>> {
         match self {
-            DocIdSetEnum::Sparse(s) => {
-                Some(DocIdSetIteratorEnum::Sparse(s.iterator()?))
-            },
-            DocIdSetEnum::Medium(m) => {
-                Some(DocIdSetIteratorEnum::Medium(m.iterator()?))
-            },
-            DocIdSetEnum::Dense(d) => {
-                Some(DocIdSetIteratorEnum::Dense(d.iterator()?))
-            },
+            DocIdSetEnum::Sparse(s) => Some(DocIdSetIteratorEnum::Sparse(s.iterator()?)),
+            DocIdSetEnum::Medium(m) => Some(DocIdSetIteratorEnum::Medium(m.iterator()?)),
+            DocIdSetEnum::Dense(d) => Some(DocIdSetIteratorEnum::Dense(d.iterator()?)),
         }
     }
 
@@ -516,15 +495,15 @@ impl DocIdSetIterator for DocIdSetIteratorEnum<'_> {
 
 #[cfg(test)]
 mod tests {
+    use rand::prelude::StdRng;
+
     use crate::search::doc_id_set::DocIdSet;
     use crate::test::util::base_doc_id_set_test_case::{
         BaseDocIdSetTestCase, BaseDocIdSetTestCaseSupperImpl,
     };
     use crate::test::util::lucene_test_case::random;
-
     use crate::util::error::lucene_error::Result;
     use crate::util::roaring_doc_id_set::builder::Builder;
-    use rand::prelude::StdRng;
 
     struct TestRoaringDocIdSet;
     #[test]
@@ -574,9 +553,7 @@ mod tests {
             ds1: &bit_set::BitSet,
             ds2: impl DocIdSet,
         ) -> Result<()> {
-            BaseDocIdSetTestCaseSupperImpl::assert_equals(
-                self, random, num_bits, ds1, ds2,
-            )
+            BaseDocIdSetTestCaseSupperImpl::assert_equals(self, random, num_bits, ds1, ds2)
         }
     }
     impl BaseDocIdSetTestCaseSupperImpl for TestRoaringDocIdSet {}

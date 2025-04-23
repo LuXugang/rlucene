@@ -14,11 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::path::Path;
+
 use crate::store::lock::FSLockEnum;
 use crate::store::lock_factory::LockFactory;
 use crate::store::NativeFSLockFactory;
 use crate::util::error::lucene_error::Result;
-use std::path::Path;
 
 /// Base struct for file-system-based locking implementation.
 /// This struct is explicitly checking that
@@ -27,12 +28,9 @@ use std::path::Path;
 pub trait FSLockFactory: LockFactory {
     /// Returns the default locking implementation for this platform.
     ///
-    /// This method always returns [`native_fs_lock_factory`](NativeFSLockFactory).
-    fn obtain_lock(
-        &self,
-        directory: &Path,
-        lock_name: &str,
-    ) -> Result<FSLockEnum> {
+    /// This method always returns
+    /// [`native_fs_lock_factory`](NativeFSLockFactory).
+    fn obtain_lock(&self, directory: &Path, lock_name: &str) -> Result<FSLockEnum> {
         self.obtain_fs_lock(directory, lock_name)
     }
 
@@ -43,11 +41,7 @@ pub trait FSLockFactory: LockFactory {
     ///
     /// # Note
     /// Implement this method to define how the lock should be acquired.
-    fn obtain_fs_lock(
-        &self,
-        directory: &Path,
-        lock_name: &str,
-    ) -> Result<FSLockEnum>;
+    fn obtain_fs_lock(&self, directory: &Path, lock_name: &str) -> Result<FSLockEnum>;
 }
 #[allow(unused)]
 pub(crate) fn get_default() -> impl FSLockFactory {

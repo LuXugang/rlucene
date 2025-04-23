@@ -14,10 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::io::{BufWriter, Write};
+
+use byteorder::WriteBytesExt;
+
 use crate::store::data_output::DataOutput;
 use crate::util::error::lucene_error::Result;
-use byteorder::WriteBytesExt;
-use std::io::{BufWriter, Write};
 /// A [`DataOutput`] wrapping a plain [`OutputStream`](Write).
 pub struct OutputStreamDataOutput<W: Write> {
     pub os: BufWriter<W>,
@@ -34,12 +36,7 @@ impl<W: Write> DataOutput for OutputStreamDataOutput<W> {
         Ok(self.os.write_u8(b)?)
     }
 
-    fn write_bytes_range(
-        &mut self,
-        b: &[u8],
-        offset: i32,
-        length: i32,
-    ) -> Result<()> {
+    fn write_bytes_range(&mut self, b: &[u8], offset: i32, length: i32) -> Result<()> {
         let end = offset + length;
         Ok(self.os.write_all(&b[offset as usize..end as usize])?)
     }

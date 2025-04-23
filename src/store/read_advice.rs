@@ -18,22 +18,25 @@ use std::env;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ReadAdvice {
-    ///  Normal behavior. Data is expected to be read mostly sequentially. The system is expected to
-    /// cache the hottest pages.
+    ///  Normal behavior. Data is expected to be read mostly sequentially. The
+    /// system is expected to cache the hottest pages.
     Normal,
-    ///Data is expected to be read in a random-access fashion, either by `IndexInput#seek(i64)`
-    ///seeking often and reading relatively i16 sequences of bytes at once, or by reading data
-    ///through the `RandomAccessInput` abstraction in random order.
+    ///Data is expected to be read in a random-access fashion, either by
+    /// `IndexInput#seek(i64)` seeking often and reading relatively i16
+    /// sequences of bytes at once, or by reading data through the
+    /// `RandomAccessInput` abstraction in random order.
     Random,
-    /// Data is expected to be read sequentially with very little seeking at most. The system may read
-    /// ahead aggressively and free pages soon after they are accessed.
+    /// Data is expected to be read sequentially with very little seeking at
+    /// most. The system may read ahead aggressively and free pages soon
+    /// after they are accessed.
     Sequential,
     ///
-    ///Data is treated as random-access memory in practice. `Directory` implementations may
-    ///explicitly load the content of the file in memory, or provide hints to the system so that it
-    ///loads the content of the file into the page cache at open time. This should only be used on
-    ///very small files that can be expected to fit in RAM with very high confidence.
-    ///
+    ///Data is treated as random-access memory in practice. `Directory`
+    /// implementations may explicitly load the content of the file in
+    /// memory, or provide hints to the system so that it loads the content
+    /// of the file into the page cache at open time. This should only be used
+    /// on very small files that can be expected to fit in RAM with very
+    /// high confidence.
     RandomPreload,
 }
 

@@ -19,9 +19,7 @@ use crate::index::index_options::IndexOptions;
 use crate::index::parallel_postings_array::{
     ParallelPostingsArray, PostingsArrayBase, PostingsArrayEnum,
 };
-use crate::index::terms_hash_per_field::{
-    TermsHashPerField, TermsHashPerFieldBase,
-};
+use crate::index::terms_hash_per_field::{TermsHashPerField, TermsHashPerFieldBase};
 use crate::util::array_util::ArrayUtil;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::Result;
@@ -38,13 +36,8 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
         self.new_term(term_id, doc_id)
     }
 
-    fn position_stream_slice(
-        &mut self,
-        term_id: i32,
-        doc_id: i32,
-    ) -> Result<i32> {
-        let term_id =
-            self.parent_per_field.position_stream_slice(term_id, doc_id);
+    fn position_stream_slice(&mut self, term_id: i32, doc_id: i32) -> Result<i32> {
+        let term_id = self.parent_per_field.position_stream_slice(term_id, doc_id);
         self.add_term(term_id, doc_id)?;
         Ok(term_id)
     }
@@ -68,21 +61,18 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
 
 pub(crate) struct FreqProxPostingsArray {
     pub(crate) size: i32,
-    pub(crate) term_freqs: Option<Vec<i32>>, // # times this term occurs in the current doc
+    pub(crate) term_freqs: Option<Vec<i32>>, /* # times this term occurs in
+                                              * the current doc */
     pub(crate) last_doc_ids: Vec<i32>, // Last docID where this term occurred
     pub(crate) last_doc_codes: Vec<i32>, // Code for prior doc
-    last_positions: Option<Vec<i32>>,  // Last position where this term occurred
+    last_positions: Option<Vec<i32>>,  /* Last position where this term
+                                        * occurred */
     last_offsets: Option<Vec<i32>>, // Last endOffset where this term occurred
     pub(crate) parent_postings_array: ParallelPostingsArray,
 }
 impl FreqProxPostingsArray {
     // Constructor for FreqProxPostingsArray
-    pub(crate) fn new(
-        size: i32,
-        write_freqs: bool,
-        write_prox: bool,
-        write_offsets: bool,
-    ) -> Self {
+    pub(crate) fn new(size: i32, write_freqs: bool, write_prox: bool, write_offsets: bool) -> Self {
         let vec_size = size as usize;
         let mut term_freqs = None;
         if write_freqs {
@@ -114,8 +104,7 @@ impl FreqProxPostingsArray {
 impl PostingsArrayBase for FreqProxPostingsArray {
     fn bytes_per_posting(&self) -> i32 {
         let i32_bytes = BitUtil::INT_BYTES as i32;
-        let mut bytes =
-            ParallelPostingsArray::BYTES_PER_POSTING + 2 * i32_bytes;
+        let mut bytes = ParallelPostingsArray::BYTES_PER_POSTING + 2 * i32_bytes;
 
         if self.last_positions.is_some() {
             bytes += i32_bytes;
@@ -136,16 +125,10 @@ impl PostingsArrayBase for FreqProxPostingsArray {
         ArrayUtil::grow_exact(&mut self.last_doc_ids, new_size)?;
         ArrayUtil::grow_exact(&mut self.last_doc_codes, new_size)?;
         if self.last_positions.is_some() {
-            ArrayUtil::grow_exact(
-                self.last_positions.as_mut().unwrap(),
-                new_size,
-            )?;
+            ArrayUtil::grow_exact(self.last_positions.as_mut().unwrap(), new_size)?;
         }
         if self.last_offsets.is_some() {
-            ArrayUtil::grow_exact(
-                self.last_offsets.as_mut().unwrap(),
-                new_size,
-            )?;
+            ArrayUtil::grow_exact(self.last_offsets.as_mut().unwrap(), new_size)?;
         }
         if self.term_freqs.is_some() {
             ArrayUtil::grow_exact(self.term_freqs.as_mut().unwrap(), new_size)?;

@@ -14,10 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::index::BytesRef;
-use crate::util::error::lucene_error::{LuceneError, Result};
 use std::fmt;
 use std::sync::Arc;
+
+use crate::index::BytesRef;
+use crate::util::error::lucene_error::{LuceneError, Result};
 
 /// Abstraction around a stored value.
 ///
@@ -165,10 +166,7 @@ impl StoredValue {
     }
 
     /// Set a binary value.
-    pub fn set_binary_value(
-        &mut self,
-        value: Arc<BytesRef<Vec<u8>>>,
-    ) -> Result<()> {
+    pub fn set_binary_value(&mut self, value: Arc<BytesRef<Vec<u8>>>) -> Result<()> {
         if let StoredValue::Binary(ref mut v) = self {
             *v = value;
             Ok(())

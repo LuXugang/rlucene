@@ -47,8 +47,8 @@ impl Decoder for BulkOperationPacked16 {
         iterations: i32,
     ) {
         for _ in 0..iterations {
-            values[values_offset] = ((blocks[blocks_offset] as i64) << 8)
-                | (blocks[blocks_offset + 1] as i64);
+            values[values_offset] =
+                ((blocks[blocks_offset] as i64) << 8) | (blocks[blocks_offset + 1] as i64);
             blocks_offset += 2;
             values_offset += 1;
         }
@@ -81,8 +81,8 @@ impl Decoder for BulkOperationPacked16 {
         iterations: i32,
     ) {
         for _ in 0..iterations {
-            values[values_offset] = ((blocks[blocks_offset] as i32) << 8)
-                | (blocks[blocks_offset + 1] as i32);
+            values[values_offset] =
+                ((blocks[blocks_offset] as i32) << 8) | (blocks[blocks_offset + 1] as i32);
             blocks_offset += 2;
             values_offset += 1;
         }

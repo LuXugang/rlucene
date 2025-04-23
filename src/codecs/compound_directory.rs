@@ -14,6 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::collections::HashSet;
+use std::fmt::{Display, Formatter};
+
 use crate::codecs::compound_directory_enum::CompoundDirectoryEnum;
 use crate::store::directory::Directory;
 use crate::store::dummy::dummy_index_output::DummyIndexOutput;
@@ -21,8 +24,6 @@ use crate::store::dummy::dummy_lock::DummyLock;
 use crate::store::lock::Lock;
 use crate::store::{IOContext, IndexInput};
 use crate::util::error::lucene_error::{LuceneError, Result};
-use std::collections::HashSet;
-use std::fmt::{Display, Formatter};
 /// A read-only [`Directory`] that provides a view over a compound file.
 ///
 /// # See Also
@@ -111,11 +112,7 @@ where
 
     type IndexInputType = <D::IndexInputType as IndexInput>::Slice;
 
-    fn open_input(
-        &self,
-        name: &str,
-        context: &IOContext,
-    ) -> Result<Self::IndexInputType> {
+    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInputType> {
         self.sub_compound_dir.open_input(name, context)
     }
 
@@ -134,7 +131,7 @@ pub trait CompoundDirectoryBase {
     /// Checks the consistency of this directory.
     ///
     /// # Note
-    /// This operation may be costly in terms of I/O. For example, it might compute checksum values
-    /// against large data files.
+    /// This operation may be costly in terms of I/O. For example, it might
+    /// compute checksum values against large data files.
     fn check_integrity(&mut self) -> Result<()>;
 }

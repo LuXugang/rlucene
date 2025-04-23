@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::Display;
+
 use crate::codecs::doc_values_consumer::DocValuesConsumer;
 use crate::codecs::doc_values_producer::DocValuesProducer;
 use crate::index::segment_read_state::SegmentReadState;
@@ -21,7 +23,6 @@ use crate::index::segment_write_state::SegmentWriteState;
 use crate::store::directory::Directory;
 use crate::store::{IndexInput, IndexOutput};
 use crate::util::error::lucene_error::Result;
-use std::fmt::Display;
 
 /// Encodes/decodes per-document values.
 pub trait DocValuesFormat: Display {
@@ -37,11 +38,13 @@ pub trait DocValuesFormat: Display {
     type DocValuesProducer<T: IndexInput>: DocValuesProducer<Vec<u8>>;
     /// Returns a [`DocValuesProducer`] to read docvalues from the index.
     ///
-    /// NOTE: By the time this call returns, it must hold open any files it will need to use;
-    /// otherwise, those files may be deleted. Additionally, required files may be deleted during
-    /// the execution of this call before there is a chance to open them. Under these circumstances,
-    /// an io error should be returned by the implementation. IOExceptions are expected and
-    /// will automatically cause a retry of the segment opening logic with the newly revised segments.
+    /// NOTE: By the time this call returns, it must hold open any files it will
+    /// need to use; otherwise, those files may be deleted. Additionally,
+    /// required files may be deleted during the execution of this call
+    /// before there is a chance to open them. Under these circumstances, an
+    /// io error should be returned by the implementation. IOExceptions are
+    /// expected and will automatically cause a retry of the segment opening
+    /// logic with the newly revised segments.
     fn fields_producer<D>(
         &self,
         state: &SegmentReadState<D>,

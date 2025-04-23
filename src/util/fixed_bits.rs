@@ -35,7 +35,8 @@ impl Bits for FixedBits<'_> {
         );
         let i = index >> 6;
         // signed shift will keep a negative index and force an
-        // array-index-out-of-bounds-exception, removing the need for an explicit check.
+        // array-index-out-of-bounds-exception, removing the need for an
+        // explicit check.
         let bit_mask = 1_u64 << (index % 64);
         debug_assert!(bit_mask <= i64::MAX as u64);
         (bit_mask as i64 & self.bits[i as usize]) != 0

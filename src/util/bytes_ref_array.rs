@@ -14,6 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::borrow::Cow;
+use std::marker::PhantomData;
+use std::sync::Arc;
+
 use crate::index::{BytesRef, BytesRefBuilder};
 use crate::util::access::{Access, AccessVec};
 use crate::util::accountable::Accountable;
@@ -23,17 +27,13 @@ use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::sortable_bytes_ref_array::SortableBytesRefArray;
 use crate::util::{
-    ByteBlockPool, BytesRefComparator, Comparator, Counter, CounterEnum,
-    CounterEnumBorrow, CounterEnumLock, MSBRadixSorterBase, SliceCopyOps,
-    Sorter, StableStringSorter, StableStringSorterBase, StringSorter,
-    StringSorterBase,
+    ByteBlockPool, BytesRefComparator, Comparator, Counter, CounterEnum, CounterEnumBorrow,
+    CounterEnumLock, MSBRadixSorterBase, SliceCopyOps, Sorter, StableStringSorter,
+    StableStringSorterBase, StringSorter, StringSorterBase,
 };
-use std::borrow::Cow;
-use std::marker::PhantomData;
-use std::sync::Arc;
 
-/// A simple append-only random-access array that stores full copies of the appended
-/// bytes in a [`ByteBlockPool`].
+/// A simple append-only random-access array that stores full copies of the
+/// appended bytes in a [`ByteBlockPool`].
 ///
 /// # Note
 /// This struct is **not thread-safe!**
@@ -61,8 +61,7 @@ macro_rules! impl_bytes_ref_array {
         impl BytesRefArray<$enum_ty> {
             #[doc = $doc]
             pub fn $method(byte_used: $enum_ty) -> Result<$ret> {
-                let allocator =
-                    AllocatorByteEnum::DA(DirectAllocatorByte::new());
+                let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
                 let pool = ByteBlockPool::$pool_ctor(allocator);
                 BytesRefArray::new_impl(pool, byte_used)
             }
@@ -88,10 +87,7 @@ impl<A> BytesRefArray<A>
 where
     A: Access<CounterEnum>,
 {
-    fn new_impl(
-        mut pool: ByteBlockPool<A>,
-        byte_used: A,
-    ) -> Result<BytesRefArray<A>> {
+    fn new_impl(mut pool: ByteBlockPool<A>, byte_used: A) -> Result<BytesRefArray<A>> {
         pool.next_buffer()?;
         let offsets = Vec::new();
         byte_used.access_mut(|b| b.add_and_get(BitUtil::INT_BYTES as i64));
@@ -106,15 +102,16 @@ where
     /// Returns the nth element of this [`BytesRefArray`].
     ///
     /// # Parameters
-    /// - `spare`: A mutable reference to a [`BytesRefBuilder`] instance used as a buffer.
+    /// - `spare`: A mutable reference to a [`BytesRefBuilder`] instance used as
+    ///   a buffer.
     /// - `index`: The index of the element to retrieve.
     ///
     /// # Returns
     /// The nth element of this [`BytesRefArray`] as a [`BytesRef`].
     ///
     /// # Errors
-    /// Returns [`LuceneError::array_index_out_of_bounds`] if the index is invalid.
-    ///
+    /// Returns [`LuceneError::array_index_out_of_bounds`] if the index is
+    /// invalid.
     pub fn get(
         &self,
         spare: &mut BytesRefBuilder<Vec<u8>>,
@@ -147,9 +144,9 @@ where
         Ok(std::mem::take(spare.bytes_ref()))
     }
 
-    /// Used only by the sorting function below to set a [`BytesRef`] with the specified slice,
-    /// avoiding copying bytes in the common case when the slice is contained in a single block
-    /// in the byte block pool.
+    /// Used only by the sorting function below to set a [`BytesRef`] with the
+    /// specified slice, avoiding copying bytes in the common case when the
+    /// slice is contained in a single block in the byte block pool.
     fn set_bytes_ref<AV: AccessVec<u8>>(
         &self,
         spare: &mut BytesRefBuilder<AV>,
@@ -175,17 +172,18 @@ where
         Ok(())
     }
 
-    /// Returns a [`SortState`] representing the order of elements in this array.
-    /// This is a non-destructive operation.
+    /// Returns a [`SortState`] representing the order of elements in this
+    /// array. This is a non-destructive operation.
     ///
     /// # Parameters
-    /// - `comp`: The comparator to compare [`BytesRef`]s. A radix sort optimization is available
-    ///   if the comparator implements [`BytesRefComparator`].
+    /// - `comp`: The comparator to compare [`BytesRef`]s. A radix sort
+    ///   optimization is available if the comparator implements
+    ///   [`BytesRefComparator`].
     /// - `stable`: Indicates if the sort needs to be stable.
     ///
     /// # Returns
-    /// A [`SortState`] that can be used in [`BytesRefArray::iterator_with_state`] with the given sort state.
-    ///
+    /// A [`SortState`] that can be used in
+    /// [`BytesRefArray::iterator_with_state`] with the given sort state.
     pub fn sort(
         &mut self,
         comp: impl BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
@@ -200,8 +198,7 @@ where
                 bytes_ref_array: self,
             };
             let stable_string_sorter = StableStringSorter::new(delegate_sorter);
-            let mut string_sorter =
-                StringSorter::new(stable_string_sorter, comp);
+            let mut string_sorter = StringSorter::new(stable_string_sorter, comp);
             string_sorter.sort(0, size)?;
         } else {
             let delegate_sorter = StringSorterImpl {
@@ -217,11 +214,12 @@ where
         self.iterator_with_state(Arc::from(SortState::new(None)))
     }
     /// Returns an [`IndexedBytesRefIteratorImpl`] with point-in-time semantics.
-    /// The iterator provides access to all [`BytesRef`] instances appended so far.
+    /// The iterator provides access to all [`BytesRef`] instances appended so
+    /// far.
     ///
     /// # Parameters
-    /// - `sort_state`:  the iterator will iterate the byte values
-    ///   in the order defined by the `sort_state`.
+    /// - `sort_state`:  the iterator will iterate the byte values in the order
+    ///   defined by the `sort_state`.
     ///
     /// # Note
     /// - This is a non-destructive operation.
@@ -265,19 +263,22 @@ where
         self.last_element = 0;
         self.current_offset = 0;
         self.offsets.clear();
-        self.pool.reset(false, true) // no need to 0 fill the buffers we control the allocator
+        self.pool.reset(false, true) // no need to 0 fill the buffers we control
+                                     // the allocator
     }
 
     fn size(&self) -> i32 {
         self.last_element
     }
 
-    /// Returns a [`BytesRefIterator`] with point-in-time semantics. The iterator provides access
-    /// to all [`BytesRef`] instances appended so far.
+    /// Returns a [`BytesRefIterator`] with point-in-time semantics. The
+    /// iterator provides access to all [`BytesRef`] instances appended so
+    /// far.
     ///
     /// # Parameters
-    /// - `comp`: An optional [`Comparator`] to specify the order of iteration. the iterator
-    ///   will iterate the byte values in the order specified by the comparator.
+    /// - `comp`: An optional [`Comparator`] to specify the order of iteration.
+    ///   the iterator will iterate the byte values in the order specified by
+    ///   the comparator.
     ///
     /// # Note
     /// - This is a non-destructive operation.
@@ -358,11 +359,8 @@ where
             } else {
                 self.sort_state.indices.as_ref().unwrap()[self.pos as usize]
             };
-            self.bytes_ref_array.set_bytes_ref(
-                &mut self.spare,
-                &mut result,
-                self.ord,
-            )?;
+            self.bytes_ref_array
+                .set_bytes_ref(&mut self.spare, &mut result, self.ord)?;
             Ok(Some(Cow::Owned(result)))
         } else {
             Ok(None)
@@ -380,12 +378,13 @@ where
 }
 
 pub trait IndexedBytesRefIterator {
-    /// Returns the ordinal position of the element that was returned in the latest call to [`next`](BytesRefIterator::next).
+    /// Returns the ordinal position of the element that was returned in the
+    /// latest call to [`next`](BytesRefIterator::next).
     ///
     /// # Warning
-    /// This method must not be called if [`next`](BytesRefIterator::next) has not been called yet, or if the last call to
+    /// This method must not be called if [`next`](BytesRefIterator::next) has
+    /// not been called yet, or if the last call to
     /// [`next`](BytesRefIterator::next) returned `None`.
-    ///
     fn ord(&self) -> i32;
 }
 
@@ -417,11 +416,8 @@ where
         result: &mut BytesRef<Vec<u8>>,
         i: i32,
     ) -> Result<()> {
-        self.bytes_ref_array.set_bytes_ref(
-            builder,
-            result,
-            self.ordered_entries[i as usize],
-        )
+        self.bytes_ref_array
+            .set_bytes_ref(builder, result, self.ordered_entries[i as usize])
     }
 }
 
@@ -437,10 +433,7 @@ where
             .copy_from(&self.tmp[i as usize..j as usize], i as usize);
     }
 }
-impl<A> MSBRadixSorterBase for StableStringSorterImpl<'_, A> where
-    A: Access<CounterEnum>
-{
-}
+impl<A> MSBRadixSorterBase for StableStringSorterImpl<'_, A> where A: Access<CounterEnum> {}
 
 struct StringSorterImpl<'a, A>
 where
@@ -468,29 +461,25 @@ where
         result: &mut BytesRef<Vec<u8>>,
         i: i32,
     ) -> Result<()> {
-        self.bytes_ref_array.set_bytes_ref(
-            builder,
-            result,
-            self.ordered_entries[i as usize],
-        )
+        self.bytes_ref_array
+            .set_bytes_ref(builder, result, self.ordered_entries[i as usize])
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::cell::RefCell;
+    use std::rc::Rc;
+    use std::sync::Arc;
+
+    use rand::Rng;
+
     use crate::index::{BytesRef, BytesRefBuilder};
     use crate::test::util::lucene_test_case::{at_least, random};
     use crate::test::util::test_util::TestUtil;
     use crate::util::bytes_ref_iterator::BytesRefIterator;
     use crate::util::error::lucene_error::Result;
-    use crate::util::{
-        BytesRefArray, CounterEnum, Natural, NaturalOrder,
-        SortableBytesRefArray,
-    };
-    use rand::Rng;
-    use std::cell::RefCell;
-    use std::rc::Rc;
-    use std::sync::Arc;
+    use crate::util::{BytesRefArray, CounterEnum, Natural, NaturalOrder, SortableBytesRefArray};
 
     #[allow(dead_code)] // for quick search
     struct TestBytesRefArray;
@@ -576,13 +565,9 @@ mod tests {
                 string_list.push(random_realistic_unicode_string);
             }
 
-            string_list
-                .sort_by(|a, b| TestUtil::string_codepoint_comparator(a, b));
+            string_list.sort_by(|a, b| TestUtil::string_codepoint_comparator(a, b));
             {
-                let mut iter1 = SortableBytesRefArray::iterator(
-                    &mut list,
-                    Natural::default(),
-                )?;
+                let mut iter1 = SortableBytesRefArray::iterator(&mut list, Natural::default())?;
 
                 let mut i = 0;
                 while let Some(next) = iter1.next()? {
@@ -602,10 +587,7 @@ mod tests {
                 );
             }
 
-            let mut iter2 = SortableBytesRefArray::iterator(
-                &mut list,
-                NaturalOrder::default(),
-            )?;
+            let mut iter2 = SortableBytesRefArray::iterator(&mut list, NaturalOrder::default())?;
             let mut i = 0;
             while let Some(next) = iter2.next()? {
                 assert_eq!(
@@ -645,9 +627,7 @@ mod tests {
 
             let mut values = Vec::new();
             for _ in 0..20 {
-                values.push(TestUtil::random_realistic_unicode_string(
-                    &mut random,
-                ));
+                values.push(TestUtil::random_realistic_unicode_string(&mut random));
             }
 
             let mut spare = BytesRefBuilder::new();
@@ -660,8 +640,7 @@ mod tests {
                 string_list.push(random_realistic_unicode_string);
             }
 
-            string_list
-                .sort_by(|a, b| TestUtil::string_codepoint_comparator(a, b));
+            string_list.sort_by(|a, b| TestUtil::string_codepoint_comparator(a, b));
 
             let sort_state = if random.random_bool(0.5) {
                 list.sort(NaturalOrder::default(), true)?
@@ -685,12 +664,7 @@ mod tests {
                 if let Some(last_ref) = &last {
                     if next == *last_ref {
                         let ord = iter.ord();
-                        assert!(
-                            ord > last_ord,
-                            "sort not stable: {} <= {}",
-                            ord,
-                            last_ord
-                        );
+                        assert!(ord > last_ord, "sort not stable: {} <= {}", ord, last_ord);
                     }
                 }
 

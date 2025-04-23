@@ -118,8 +118,9 @@ where
 
     /// Replaces the content of this builder with the provided bytes.
     ///
-    /// This is equivalent to calling [`clear`](BytesRefBuilder::clear) and then [`append`](BytesRefBuilder::append_with_range) with the specified `Vec<u8>`
-    /// and range parameters (`start` and `end`).
+    /// This is equivalent to calling [`clear`](BytesRefBuilder::clear) and then
+    /// [`append`](BytesRefBuilder::append_with_range) with the specified
+    /// `Vec<u8>` and range parameters (`start` and `end`).
     ///
     /// # Parameters
     /// - `bytes`: The byte vector to replace the current content.
@@ -160,8 +161,9 @@ where
         self.bytes_ref.offset = 0;
     }
 
-    /// Return a BytesRef that points to the internal content of this builder. Any update to
-    ///  the content of this builder might invalidate the provided bytes_ref and vice versa.
+    /// Return a BytesRef that points to the internal content of this builder.
+    /// Any update to  the content of this builder might invalidate the
+    /// provided bytes_ref and vice versa.
     pub fn get_bytes_ref(&mut self) -> &mut BytesRef<AV> {
         debug_assert_eq!(
             self.bytes_ref.offset, 0,
@@ -176,8 +178,6 @@ where
     }
     /// Build a new BytesRef that has the same content as this buffer.
     pub fn get_bytes_ref_copy(&mut self) -> BytesRef<AV> {
-        BytesRef::from_bytes(
-            self.bytes_ref.bytes.slice_clone(0, self.bytes_ref.length),
-        )
+        BytesRef::from_bytes(self.bytes_ref.bytes.slice_clone(0, self.bytes_ref.length))
     }
 }

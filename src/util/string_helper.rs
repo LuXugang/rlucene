@@ -14,6 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::env;
+use std::fmt::Write;
+use std::hash::{DefaultHasher, Hash, Hasher};
+use std::time::SystemTime;
+
+use once_cell::sync::Lazy;
+use rand::Rng;
+
 use crate::index::BytesRef;
 use crate::util::access::AccessVec;
 use crate::util::bit_util::BitUtil;
@@ -21,12 +29,6 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::ints_ref::IntsRef;
 use crate::util::CoreHelper;
 use crate::with_other;
-use once_cell::sync::Lazy;
-use rand::Rng;
-use std::env;
-use std::fmt::Write;
-use std::hash::{DefaultHasher, Hash, Hasher};
-use std::time::SystemTime;
 
 /// Methods for manipulating strings.
 ///
@@ -34,8 +36,9 @@ use std::time::SystemTime;
 /// This is an internal API.
 pub struct StringHelper;
 impl StringHelper {
-    /// Compares two [`BytesRef`], element by element, and returns the number of elements common to
-    /// both arrays (from the start of each). This method assumes `currentTerm` comes after `priorTerm`.
+    /// Compares two [`BytesRef`], element by element, and returns the number of
+    /// elements common to both arrays (from the start of each). This method
+    /// assumes `currentTerm` comes after `priorTerm`.
     ///
     /// # Arguments
     ///
@@ -54,10 +57,9 @@ impl StringHelper {
             current_term.bytes,
             |prior_term_bytes, current_term_bytes| {
                 let mismatch = CoreHelper::miss_match(
-                    &prior_term_bytes[prior_term.offset
-                        ..(prior_term.offset + prior_term.length)],
-                    &current_term_bytes[current_term.offset
-                        ..(current_term.offset + current_term.length)],
+                    &prior_term_bytes[prior_term.offset..(prior_term.offset + prior_term.length)],
+                    &current_term_bytes
+                        [current_term.offset..(current_term.offset + current_term.length)],
                 );
 
                 if mismatch < 0 {
@@ -70,8 +72,8 @@ impl StringHelper {
             }
         )
     }
-    /// Returns the length of `current_term` needed for use as a sort key so that
-    /// `BytesRef::compare_to()` still returns the same result.
+    /// Returns the length of `current_term` needed for use as a sort key so
+    /// that `BytesRef::compare_to()` still returns the same result.
     /// This method assumes `current_term` comes after `prior_term`.
     ///
     /// # Arguments
@@ -90,7 +92,8 @@ impl StringHelper {
         Ok(difference + 1)
     }
 
-    /// Returns `true` if the given `ref` starts with the given `prefix`. Otherwise returns `false`.
+    /// Returns `true` if the given `ref` starts with the given `prefix`.
+    /// Otherwise returns `false`.
     ///
     /// # Arguments
     ///
@@ -100,20 +103,17 @@ impl StringHelper {
     /// # Returns
     ///
     /// `true` if `ref_bytes` starts with the given `prefix`, otherwise `false`.
-    pub fn starts_with_byte_array(
-        ref_bytes: &[u8],
-        prefix: &BytesRef<Vec<u8>>,
-    ) -> bool {
+    pub fn starts_with_byte_array(ref_bytes: &[u8], prefix: &BytesRef<Vec<u8>>) -> bool {
         // Not long enough to start with the prefix
         if ref_bytes.len() < prefix.length {
             return false;
         }
         let ref_slice = &ref_bytes[0..prefix.length];
-        let prefix_slice =
-            &prefix.bytes[prefix.offset..(prefix.offset + prefix.length)];
+        let prefix_slice = &prefix.bytes[prefix.offset..(prefix.offset + prefix.length)];
         ref_slice == prefix_slice
     }
-    /// Returns `true` if the given `ref` starts with the given `prefix`. Otherwise returns `false`.
+    /// Returns `true` if the given `ref` starts with the given `prefix`.
+    /// Otherwise returns `false`.
     ///
     /// # Arguments
     ///
@@ -123,10 +123,7 @@ impl StringHelper {
     /// # Returns
     ///
     /// `true` if `ref_bytes` starts with the given `prefix`, otherwise `false`.
-    pub fn starts_with_byte_ref(
-        ref_bytes: &BytesRef<Vec<u8>>,
-        prefix: &BytesRef<Vec<u8>>,
-    ) -> bool {
+    pub fn starts_with_byte_ref(ref_bytes: &BytesRef<Vec<u8>>, prefix: &BytesRef<Vec<u8>>) -> bool {
         Self::starts_with(
             &ref_bytes.bytes,
             ref_bytes.offset,
@@ -151,13 +148,13 @@ impl StringHelper {
 
         // Check if the prefix matches
         let ref_slice = &ref_bytes[ref_offset..(ref_offset + prefix_length)];
-        let prefix_slice =
-            &prefix[prefix_offset..(prefix_offset + prefix_length)];
+        let prefix_slice = &prefix[prefix_offset..(prefix_offset + prefix_length)];
 
         ref_slice == prefix_slice
     }
 
-    /// Returns `true` if the `ref` ends with the given `suffix`. Otherwise returns `false`.
+    /// Returns `true` if the `ref` ends with the given `suffix`. Otherwise
+    /// returns `false`.
     ///
     /// # Arguments
     ///
@@ -167,31 +164,22 @@ impl StringHelper {
     /// # Returns
     ///
     /// `True` if `ref` ends with the given `suffix`, otherwise `false`.
-    pub fn ends_with(
-        ref_bytes: &BytesRef<Vec<u8>>,
-        suffix: &BytesRef<Vec<u8>>,
-    ) -> bool {
+    pub fn ends_with(ref_bytes: &BytesRef<Vec<u8>>, suffix: &BytesRef<Vec<u8>>) -> bool {
         // Not long enough to start with the suffix
         if ref_bytes.length < suffix.length {
             return false;
         }
         let start_at = ref_bytes.length - suffix.length;
 
-        let ref_slice = &ref_bytes.bytes[ref_bytes.offset + start_at
-            ..(ref_bytes.offset + start_at + suffix.length)];
-        let suffix_slice =
-            &suffix.bytes[suffix.offset..(suffix.offset + suffix.length)];
+        let ref_slice = &ref_bytes.bytes
+            [ref_bytes.offset + start_at..(ref_bytes.offset + start_at + suffix.length)];
+        let suffix_slice = &suffix.bytes[suffix.offset..(suffix.offset + suffix.length)];
         ref_slice == suffix_slice
     }
 
     /// Returns the MurmurHash3_x86_32 hash.
     /// Original source/tests at <https://github.com/yonik/java_util>
-    pub fn murmurhash3_x86_32_with_byte(
-        data: &[u8],
-        offset: usize,
-        len: usize,
-        seed: i32,
-    ) -> i32 {
+    pub fn murmurhash3_x86_32_with_byte(data: &[u8], offset: usize, len: usize, seed: i32) -> i32 {
         let c1: i32 = 0xcc9e2d51u32 as i32;
         let c2: i32 = 0x1b873593u32 as i32;
 
@@ -261,12 +249,7 @@ impl StringHelper {
         AV: AccessVec<u8>,
     {
         bytes.bytes.access(|bytes_ref| {
-            Self::murmurhash3_x86_32_with_byte(
-                bytes_ref,
-                bytes.offset,
-                bytes.length,
-                seed,
-            )
+            Self::murmurhash3_x86_32_with_byte(bytes_ref, bytes.offset, bytes.length, seed)
         })
     }
 
@@ -277,9 +260,9 @@ impl StringHelper {
     }
     /// Helper method to render an ID as a string for debugging.
     ///
-    /// Returns the string `"null"` if the ID is `None`. Otherwise, returns a string
-    /// representation for debugging. Never throws an exception. The returned string may indicate if
-    /// the ID is definitely invalid.
+    /// Returns the string `"null"` if the ID is `None`. Otherwise, returns a
+    /// string representation for debugging. Never throws an exception. The
+    /// returned string may indicate if the ID is definitely invalid.
     pub fn id_to_string(id: Option<&[u8]>) -> String {
         if let Some(id) = id {
             let big_int = num_bigint::BigUint::from_bytes_be(id);
@@ -298,12 +281,12 @@ impl StringHelper {
         unimplemented!()
     }
 }
-/// A constant seed used for hashing, intended to prevent hash key collision attacks and ensure
-/// reproducibility of test failures if needed.
+/// A constant seed used for hashing, intended to prevent hash key collision
+/// attacks and ensure reproducibility of test failures if needed.
 ///
-/// This seed is based on a system property `tests.seed` if present, or the current system time
-/// if not. It's used as a seed for the MurmurHash3 algorithm to ensure a different salt/seed for
-/// each run.
+/// This seed is based on a system property `tests.seed` if present, or the
+/// current system time if not. It's used as a seed for the MurmurHash3
+/// algorithm to ensure a different salt/seed for each run.
 pub static GOOD_FAST_HASH_SEED: Lazy<i32> = Lazy::new(|| {
     if let Ok(prop) = env::var("tests.seed") {
         // If the system property `tests.seed` is set, use it as the seed.
@@ -311,7 +294,8 @@ pub static GOOD_FAST_HASH_SEED: Lazy<i32> = Lazy::new(|| {
         prop.hash(&mut hasher);
         hasher.finish() as i32
     } else {
-        // Otherwise, fall back to using the current system time in milliseconds.
+        // Otherwise, fall back to using the current system time in
+        // milliseconds.
         SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
@@ -323,7 +307,6 @@ pub static GOOD_FAST_HASH_SEED: Lazy<i32> = Lazy::new(|| {
 mod tests {
     use crate::test::util::lucene_test_case::new_bytes_ref_from_string;
     use crate::test::util::lucene_test_case::random;
-
     use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::StringHelper;
 
@@ -423,17 +406,11 @@ mod tests {
         let mut random = random();
         // Hashes computed using murmur3_32 from https://code.google.com/p/pyfasthash
         assert_eq!(
-            StringHelper::murmurhash3_x86_32(
-                &new_bytes_ref_from_string(&mut random, "foo")?,
-                0
-            ),
+            StringHelper::murmurhash3_x86_32(&new_bytes_ref_from_string(&mut random, "foo")?, 0),
             0xf6a5c420u32 as i32
         );
         assert_eq!(
-            StringHelper::murmurhash3_x86_32(
-                &new_bytes_ref_from_string(&mut random, "foo")?,
-                16
-            ),
+            StringHelper::murmurhash3_x86_32(&new_bytes_ref_from_string(&mut random, "foo")?, 16),
             0xcd018ef6u32 as i32
         );
         assert_eq!(

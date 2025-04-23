@@ -14,12 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::Display;
+
 use crate::index::doc_values_type::DocValuesType;
 use crate::index::term::Term;
 use crate::index::BytesRef;
 use crate::store::DataOutput;
 use crate::util::error::lucene_error::Result;
-use std::fmt::Display;
 
 /// An in-place update to a DocValues field.
 #[derive(Clone)]
@@ -27,8 +28,8 @@ pub struct DocValuesUpdate {
     pub(crate) doc_values_type: DocValuesType,
     pub term: Term,
     pub field: String,
-    // used in BufferedDeletes to apply this update only to a slice of docs. It's initialized to
-    // BufferedUpdates.MAX_INT
+    // used in BufferedDeletes to apply this update only to a slice of docs.
+    // It's initialized to BufferedUpdates.MAX_INT
     // since it's safe and most often used this way we save object creations.
     pub doc_id_up_to: i32,
     pub has_value: bool,
@@ -65,10 +66,7 @@ impl DocValuesUpdate {
         unimplemented!("Not used in Java Lucene, so we did not implement it")
     }
     #[cfg(feature = "test_only")]
-    pub fn prepare_for_apply(
-        &mut self,
-        doc_id_upto: i32,
-    ) -> Option<DocValuesUpdate> {
+    pub fn prepare_for_apply(&mut self, doc_id_upto: i32) -> Option<DocValuesUpdate> {
         if doc_id_upto == self.doc_id_up_to {
             return None;
         }
@@ -100,10 +98,7 @@ pub trait DocValuesUpdateBase {
     }
     fn value_to_string(&self) -> String;
 
-    fn write_to<D: DataOutput>(
-        &self,
-        _bytes: &mut BytesRef<Vec<u8>>,
-    ) -> Result<()> {
+    fn write_to<D: DataOutput>(&self, _bytes: &mut BytesRef<Vec<u8>>) -> Result<()> {
         unimplemented!("Not used in Java Lucene, so we did not implement it")
     }
     fn has_value(&self) -> bool;
@@ -140,9 +135,7 @@ impl DocValuesUpdateBase for BinaryDocValuesUpdate {
 
     #[cfg(feature = "test_only")]
     fn prepare_for_apply(&mut self) -> DocValuesUpdateEnum {
-        DocValuesUpdateEnum::Binary(BinaryDocValuesUpdate::new(
-            self.value.clone(),
-        ))
+        DocValuesUpdateEnum::Binary(BinaryDocValuesUpdate::new(self.value.clone()))
     }
 }
 #[derive(Clone)]

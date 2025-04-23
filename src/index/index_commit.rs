@@ -14,9 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::store::directory::Directory;
-use parking_lot::Mutex;
 use std::sync::Arc;
+
+use parking_lot::Mutex;
+
+use crate::store::directory::Directory;
 
 pub trait IndexCommit {
     fn get_directory<D>(&self) -> Arc<Mutex<D>>

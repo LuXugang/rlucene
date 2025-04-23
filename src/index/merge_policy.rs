@@ -31,8 +31,8 @@ pub enum PauseReason {
     /// Other reason.
     Other,
 }
-/// Progress and state for an executing merge. This struct encapsulates the logic to pause and
-/// resume the merge thread or to abort the merge entirely.
+/// Progress and state for an executing merge. This struct encapsulates the
+/// logic to pause and resume the merge thread or to abort the merge entirely.
 #[allow(unused)]
 pub struct OneMergeProgress {
     pause_lock: Mutex<()>,
@@ -40,8 +40,9 @@ pub struct OneMergeProgress {
     /// Pause times (in nanoseconds) for each [`PauseReason`](PauseReason).
     pause_times: PauseTimes,
     aborted: AtomicBool,
-    /// This field is for sanity-check purposes only. Only the same thread that invoked `OneMerge#mergeInit()` is permitted to be calling `pauseNanos`. This is always verified
-    /// at runtime.
+    /// This field is for sanity-check purposes only. Only the same thread that
+    /// invoked `OneMerge#mergeInit()` is permitted to be calling `pauseNanos`.
+    /// This is always verified at runtime.
     owner: Mutex<Option<ThreadId>>,
 }
 
@@ -60,7 +61,8 @@ impl OneMergeProgress {
         Arc::new(Self {
             pause_lock: Mutex::new(()),
             pausing: Condvar::new(),
-            // Place all the pause reasons in there immediately so that we can simply update values.
+            // Place all the pause reasons in there immediately so that we can
+            // simply update values.
             pause_times: PauseTimes::default(),
             aborted: AtomicBool::new(false),
             owner: Mutex::new(None),
@@ -76,23 +78,23 @@ impl OneMergeProgress {
         self.aborted.load(Ordering::Relaxed)
     }
 
-    /// Pauses the calling thread for at least `pause_nanos` nanoseconds unless the merge is aborted
-    /// or the external condition returns `false`, in which case control returns immediately.
+    /// Pauses the calling thread for at least `pause_nanos` nanoseconds unless
+    /// the merge is aborted or the external condition returns `false`, in
+    /// which case control returns immediately.
     ///
-    /// The external condition is required so that other threads can terminate the pausing
-    /// immediately before `pause_nanos` expires. We can't rely on just `Condvar::wait_timeout_while()` alone
-    /// because it can return due to spurious wakeups too.
+    /// The external condition is required so that other threads can terminate
+    /// the pausing immediately before `pause_nanos` expires. We can't rely
+    /// on just `Condvar::wait_timeout_while()` alone because it can return
+    /// due to spurious wakeups too.
     ///
     /// # Arguments
-    /// - `condition`: The pause condition that should return `false` if immediate return from this
-    ///   method is needed. Other threads can wake up any sleeping thread by calling [`wakeup()`](OneMergeProgress::wakeup),
-    ///   but the thread may sleep for the remainder of the requested time if this condition remains `true`.
-    pub fn pause_nanos<F>(
-        &self,
-        pause_nanos: u64,
-        reason: PauseReason,
-        condition: F,
-    ) where
+    /// - `condition`: The pause condition that should return `false` if
+    ///   immediate return from this method is needed. Other threads can wake up
+    ///   any sleeping thread by calling [`wakeup()`](OneMergeProgress::wakeup),
+    ///   but the thread may sleep for the remainder of the requested time if
+    ///   this condition remains `true`.
+    pub fn pause_nanos<F>(&self, pause_nanos: u64, reason: PauseReason, condition: F)
+    where
         F: Fn() -> bool,
     {
         let owner = self.owner.lock().unwrap();
@@ -122,18 +124,13 @@ impl OneMergeProgress {
 
     fn add_pause_time(&self, reason: PauseReason, nanos: u64) {
         match reason {
-            PauseReason::Stopped => {
-                self.pause_times.stopped.fetch_add(nanos, Ordering::Relaxed)
-            },
-            PauseReason::Paused => {
-                self.pause_times.paused.fetch_add(nanos, Ordering::Relaxed)
-            },
-            PauseReason::Other => {
-                self.pause_times.other.fetch_add(nanos, Ordering::Relaxed)
-            },
+            PauseReason::Stopped => self.pause_times.stopped.fetch_add(nanos, Ordering::Relaxed),
+            PauseReason::Paused => self.pause_times.paused.fetch_add(nanos, Ordering::Relaxed),
+            PauseReason::Other => self.pause_times.other.fetch_add(nanos, Ordering::Relaxed),
         };
     }
-    /// Request a wakeup for any threads stalled in [`pauseNanos`](OneMergeProgress::pause_nanos).
+    /// Request a wakeup for any threads stalled in
+    /// [`pauseNanos`](OneMergeProgress::pause_nanos).
     pub fn wakeup(&self) {
         let _lock = self.pause_lock.lock().unwrap();
         self.pausing.notify_all();

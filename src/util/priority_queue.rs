@@ -14,17 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::lucene_error::{LuceneError, Result};
 use std::iter::repeat_with;
 use std::mem;
 
-/// A priority queue maintains a partial ordering of its elements such that the least element can
-/// always be found in constant time. `put()` and `pop()` operations require `O(log(size))` time, but the `remove()`
-/// operation is implemented with a linear cost.
+use crate::util::error::lucene_error::{LuceneError, Result};
+
+/// A priority queue maintains a partial ordering of its elements such that the
+/// least element can always be found in constant time. `put()` and `pop()`
+/// operations require `O(log(size))` time, but the `remove()` operation is
+/// implemented with a linear cost.
 ///
 /// # Note
-/// This struct pre-allocates an array of length `max_size + 1` and pre-fills it with elements if instantiated via the
-/// [`PriorityQueue::with_sentinel_object`](#method.with_sentinel_object) constructor.
+/// This struct pre-allocates an array of length `max_size + 1` and pre-fills it
+/// with elements if instantiated via the
+/// [`PriorityQueue::with_sentinel_object`](#method.with_sentinel_object)
+/// constructor.
 ///
 /// # Note
 /// Iteration order is not specified.
@@ -46,9 +50,11 @@ where
     C: Compare<T>,
     T: Default + PartialEq,
 {
-    /// Removes an existing element currently stored in the priority queue. The cost is linear with the size
-    /// of the queue. (A specialization of the priority queue that tracks element positions would provide a
-    /// constant remove time, but the trade-off would be extra cost to all additions/insertions.)
+    /// Removes an existing element currently stored in the priority queue. The
+    /// cost is linear with the size of the queue. (A specialization of the
+    /// priority queue that tracks element positions would provide a
+    /// constant remove time, but the trade-off would be extra cost to all
+    /// additions/insertions.)
     pub fn remove(&mut self, element: &T) -> bool {
         if let Some(i) = (1..=self.size).next() {
             if self.heap[i] == *element {
@@ -75,20 +81,22 @@ where
     pub fn get_compare(&self) -> &C {
         &self.compare
     }
-    /// Creates a priority queue that is pre-filled with sentinel objects, so that the code which uses
-    /// that queue can always assume it's full and only change the top without attempting to insert any
-    /// new object.
+    /// Creates a priority queue that is pre-filled with sentinel objects, so
+    /// that the code which uses that queue can always assume it's full and
+    /// only change the top without attempting to insert any new object.
     ///
     /// # Description
-    /// Those sentinel values should always compare worse than any non-sentinel value (i.e.,
-    /// [`lessThan`](Compare::less_than) should always favor the non-sentinel values).
+    /// Those sentinel values should always compare worse than any non-sentinel
+    /// value (i.e., [`lessThan`](Compare::less_than) should always favor
+    /// the non-sentinel values).
     ///
-    /// By default, the supplier returns `None`, which means the queue will not be filled with
-    /// sentinel values. Otherwise, the value returned will be used to pre-populate the queue.
+    /// By default, the supplier returns `None`, which means the queue will not
+    /// be filled with sentinel values. Otherwise, the value returned will
+    /// be used to pre-populate the queue.
     ///
     /// # Usage
-    /// If this method is extended to return a non-None value, the following usage pattern is
-    /// recommended:
+    /// If this method is extended to return a non-None value, the following
+    /// usage pattern is recommended:
     ///
     /// ```text
     /// let mut pq: MyQueue<MyObject> = MyQueue::new(num_hits);
@@ -101,10 +109,12 @@ where
     /// ```
     ///
     /// # Note
-    /// The given supplier will be called `max_size` times, relying on a new object to be returned
-    /// and will not check if it's `None` again. Therefore, you should ensure any call to this method
-    /// creates a new instance and behaves consistently, e.g., it cannot return `None` if it previously
-    /// returned a non-null value, and all returned instances must be comparable using [`lessThan`](Compare::less_than).
+    /// The given supplier will be called `max_size` times, relying on a new
+    /// object to be returned and will not check if it's `None` again.
+    /// Therefore, you should ensure any call to this method creates a new
+    /// instance and behaves consistently, e.g., it cannot return `None` if it
+    /// previously returned a non-null value, and all returned instances
+    /// must be comparable using [`lessThan`](Compare::less_than).
     pub fn with_sentinel_object<F>(
         max_size: i32,
         sentinel_object_supplier: F,
@@ -133,11 +143,10 @@ where
         heap.resize_with(heap_size, Default::default);
         if let Some(sentinel) = sentinel_object_supplier() {
             heap[1] = sentinel;
-            for (i, value) in
-                repeat_with(|| sentinel_object_supplier().unwrap())
-                    .take(heap_size)
-                    .enumerate()
-                    .skip(2)
+            for (i, value) in repeat_with(|| sentinel_object_supplier().unwrap())
+                .take(heap_size)
+                .enumerate()
+                .skip(2)
             {
                 heap[i] = value;
             }
@@ -161,12 +170,13 @@ where
         Self::with_sentinel_object(max_size, || None, compare)
     }
 
-    /// Adds all elements of the collection into the queue. This method should be preferred over
-    /// calling [`add`](#method.add) in a loop if all elements are known in advance, as it builds the queue
-    /// faster.
+    /// Adds all elements of the collection into the queue. This method should
+    /// be preferred over calling [`add`](#method.add) in a loop if all
+    /// elements are known in advance, as it builds the queue faster.
     ///
     /// # Errors
-    /// If one tries to add more objects than the `max_size` passed in the constructor, an
+    /// If one tries to add more objects than the `max_size` passed in the
+    /// constructor, an
     /// [`ArrayIndexOutOfBoundsError`](crate::util::error::ArrayIndexOutOfBoundsError) is thrown.
     pub fn add_all(&mut self, elements: Vec<T>) -> Result<()> {
         if (self.size + elements.len()) > self.max_size {
@@ -177,7 +187,8 @@ where
             )));
         }
         // Heap with size S always takes first S elements of the array,
-        // and thus it's safe to fill array further - no actual non-sentinel value will be overwritten.
+        // and thus it's safe to fill array further - no actual non-sentinel
+        // value will be overwritten.
         for element in elements.into_iter() {
             self.heap[self.size + 1] = element;
             self.size += 1;
@@ -190,8 +201,10 @@ where
         Ok(())
     }
 
-    /// Adds an object to a priority queue in `O(log(size))` time. If more objects are added than the
-    /// `max_size` initialized, an [`ArrayIndexOutOfBoundsError`](crate::util::error::ArrayIndexOutOfBoundsError) is thrown.
+    /// Adds an object to a priority queue in `O(log(size))` time. If more
+    /// objects are added than the `max_size` initialized, an
+    /// [`ArrayIndexOutOfBoundsError`](crate::util::error::ArrayIndexOutOfBoundsError)
+    /// is thrown.
     ///
     /// # Returns
     /// The new 'top' element in the queue.
@@ -203,17 +216,18 @@ where
         &self.heap[1]
     }
 
-    /// Adds an object to a priority queue in `O(log(size))` time. It returns the object (if any) that was
-    /// dropped off the heap because it was full. This can be the given parameter (if it is smaller than the
-    /// full heap's minimum and couldn't be added), or another object that was previously the smallest value
-    /// in the heap and now has been replaced by a larger one, or `None` if the queue wasn't yet full with `max_size` elements.
+    /// Adds an object to a priority queue in `O(log(size))` time. It returns
+    /// the object (if any) that was dropped off the heap because it was
+    /// full. This can be the given parameter (if it is smaller than the
+    /// full heap's minimum and couldn't be added), or another object that was
+    /// previously the smallest value in the heap and now has been replaced
+    /// by a larger one, or `None` if the queue wasn't yet full with `max_size`
+    /// elements.
     pub fn insert_with_overflow(&mut self, element: T) -> Option<T> {
         if self.size < self.max_size {
             self.add(element);
             None
-        } else if self.size > 0
-            && self.compare.less_than(&self.heap[1], &element)
-        {
+        } else if self.size > 0 && self.compare.less_than(&self.heap[1], &element) {
             let ret = mem::replace(&mut self.heap[1], element);
             self.update_top();
             Some(ret)
@@ -230,12 +244,14 @@ where
         &mut self.heap[1]
     }
 
-    /// Removes and returns the least element of the PriorityQueue in log(size) time.
+    /// Removes and returns the least element of the PriorityQueue in log(size)
+    /// time.
     pub fn pop(&mut self) -> Option<T> {
         if self.size > 0 {
             self.heap.swap(1, self.size);
             let result = self.heap.remove(self.size);
-            // With size as a sentinel value, we add an invalid value to prevent the length of the Vec from changing
+            // With size as a sentinel value, we add an invalid value to prevent
+            // the length of the Vec from changing
             self.heap.push(T::default());
             self.size -= 1;
             self.down_heap(1);
@@ -245,8 +261,8 @@ where
         }
     }
 
-    /// Should be called when the object at the top changes values. It's still `O(log(n))` in the worst case,
-    /// but it's at least twice as fast to:
+    /// Should be called when the object at the top changes values. It's still
+    /// `O(log(n))` in the worst case, but it's at least twice as fast to:
     ///
     /// ```text
     /// pq.top().change();
@@ -304,8 +320,7 @@ where
             let mut j = i * 2;
             let k = j + 1;
 
-            if k <= size && self.compare.less_than(&self.heap[k], &self.heap[j])
-            {
+            if k <= size && self.compare.less_than(&self.heap[k], &self.heap[j]) {
                 j = k;
             }
 
@@ -332,8 +347,9 @@ where
     }
 }
 
-/// Each call can start iterating over the elements in the priority queue from the beginning.
-/// The access order is not sorted; if a sorted order is required, you can directly use [`pop`](PriorityQueue::pop).
+/// Each call can start iterating over the elements in the priority queue from
+/// the beginning. The access order is not sorted; if a sorted order is
+/// required, you can directly use [`pop`](PriorityQueue::pop).
 pub struct PriorityQueueIterator<'a, T, C>
 where
     C: Compare<T>,
@@ -366,7 +382,8 @@ where
 }
 
 pub trait Compare<T> {
-    /// Determines the ordering of objects in this priority queue. Subclasses must define this method.
+    /// Determines the ordering of objects in this priority queue. Subclasses
+    /// must define this method.
     ///
     /// # Arguments
     /// * `a` - The first object to compare.
@@ -379,11 +396,13 @@ pub trait Compare<T> {
 
 #[cfg(test)]
 mod tests {
+    use std::fmt::Debug;
+
+    use rand::Rng;
+
     use crate::test::util::lucene_test_case::{at_least, random};
     use crate::test::util::test_util::TestUtil;
     use crate::util::priority_queue::{Compare, PriorityQueue};
-    use rand::Rng;
-    use std::fmt::Debug;
 
     #[allow(dead_code)] // for quick search
     struct TestPriorityQueue {}
@@ -600,12 +619,10 @@ mod tests {
                 }
             }
             let new_least = pq.top();
-            if last_least.is_some()
-                && *new_least != new_entry
-                && *new_least != last_least.unwrap()
+            if last_least.is_some() && *new_least != new_entry && *new_least != last_least.unwrap()
             {
-                // If there has been a change of least entry and it wasn't our new
-                // addition we expect the scores to increase
+                // If there has been a change of least entry and it wasn't our
+                // new addition we expect the scores to increase
                 assert!(*new_least <= new_entry);
                 assert!(*new_least >= last_least.unwrap());
             }
@@ -614,8 +631,7 @@ mod tests {
         // Try many random additions to existing entries - we should always see
         // increasing scores in the lowest entry in the PQ
         for _i in 0..500000 {
-            let element =
-                (random.random::<f32>() * ((sds.len() - 1) as f32)) as i32;
+            let element = (random.random::<f32>() * ((sds.len() - 1) as f32)) as i32;
             let object_to_remove = sds[element as usize];
             assert_eq!(sds.remove(element as usize), object_to_remove);
             assert!(pq.remove(&object_to_remove));
@@ -629,8 +645,9 @@ mod tests {
                 && last_least.is_some()
                 && *new_least != new_entry
             {
-                // If there has been a change of least entry and it wasn't our new
-                // addition or the loss of our randomly removed entry we expect the
+                // If there has been a change of least entry and it wasn't our
+                // new addition or the loss of our randomly
+                // removed entry we expect the
                 // scores to increase
                 assert!(*new_least <= new_entry);
                 assert!(*new_least >= last_least.unwrap());
@@ -668,19 +685,18 @@ mod tests {
     fn test_iterator_random() {
         let mut random = random();
         let max_size: usize = TestUtil::next_int(&mut random, 1, 20) as usize;
-        let mut queue =
-            PriorityQueue::new(max_size as i32, I32Compare).unwrap();
+        let mut queue = PriorityQueue::new(max_size as i32, I32Compare).unwrap();
         let iters: usize = at_least(&mut random, 100) as usize;
         let mut expected: Vec<i32> = Vec::new();
         for _i in 0..iters {
             if queue.size() == 0 || (queue.size() < max_size) {
-                // if queue.size() == 0 || (queue.size() < max_size && random.random::<bool>()) {
+                // if queue.size() == 0 || (queue.size() < max_size &&
+                // random.random::<bool>()) {
                 let value: i32 = random.random_range(0..=10);
                 queue.add(value);
                 expected.push(value);
             } else {
-                let pos =
-                    expected.iter().position(|&x| x == queue.pop().unwrap());
+                let pos = expected.iter().position(|&x| x == queue.pop().unwrap());
                 assert_ne!(pos, None);
                 expected.remove(pos.unwrap());
             }
@@ -726,9 +742,7 @@ mod tests {
         let heap = pq.heap();
         for i in 1..=size {
             let parent = i >> 1;
-            if parent > 1
-                && !pq.get_compare().less_than(&heap[parent], &heap[i])
-            {
+            if parent > 1 && !pq.get_compare().less_than(&heap[parent], &heap[i]) {
                 assert_eq!(&heap[parent], &heap[i]);
             }
         }

@@ -18,9 +18,7 @@ use crate::document::fields::Fields;
 use crate::index::parallel_postings_array::{
     ParallelPostingsArray, PostingsArrayBase, PostingsArrayEnum,
 };
-use crate::index::terms_hash_per_field::{
-    TermsHashPerField, TermsHashPerFieldBase,
-};
+use crate::index::terms_hash_per_field::{TermsHashPerField, TermsHashPerFieldBase};
 use crate::util::array_util::ArrayUtil;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::Result;
@@ -41,13 +39,8 @@ impl TermsHashPerFieldBase for TermVectorsConsumerPerField {
         self.new_term(term_id, doc_id)
     }
 
-    fn position_stream_slice(
-        &mut self,
-        term_id: i32,
-        doc_id: i32,
-    ) -> Result<i32> {
-        let term_id =
-            self.parent_per_field.position_stream_slice(term_id, doc_id);
+    fn position_stream_slice(&mut self, term_id: i32, doc_id: i32) -> Result<i32> {
+        let term_id = self.parent_per_field.position_stream_slice(term_id, doc_id);
         self.add_term(term_id, doc_id)?;
         Ok(term_id)
     }
@@ -70,8 +63,8 @@ impl TermsHashPerFieldBase for TermVectorsConsumerPerField {
 }
 pub(crate) struct TermVectorsPostingsArray {
     pub(crate) size: i32,
-    freqs: Vec<i32>, // How many times this term occurred in the current doc
-    last_offsets: Vec<i32>, // Last offset we saw
+    freqs: Vec<i32>,          // How many times this term occurred in the current doc
+    last_offsets: Vec<i32>,   // Last offset we saw
     last_positions: Vec<i32>, // Last position where this term occurred
     pub(crate) parent_postings_array: ParallelPostingsArray,
 }
@@ -93,8 +86,7 @@ impl TermVectorsPostingsArray {
 
 impl PostingsArrayBase for TermVectorsPostingsArray {
     fn bytes_per_posting(&self) -> i32 {
-        self.parent_postings_array.bytes_per_posting()
-            + 3 * BitUtil::INT_BYTES as i32
+        self.parent_postings_array.bytes_per_posting() + 3 * BitUtil::INT_BYTES as i32
     }
     fn copy_to(&mut self, new_size: i32) -> Result<()> {
         self.parent_postings_array.copy_to(new_size)?;

@@ -14,13 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::index::merge_state::{DocMap, DocMapEnum};
+use std::cell::RefCell;
+use std::rc::Rc;
 
+use crate::index::merge_state::{DocMap, DocMapEnum};
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::priority_queue::{Compare, PriorityQueue};
-use std::cell::RefCell;
-use std::rc::Rc;
 
 /// Reuse API, currently only used by postings during merge
 pub trait DocIDMerger<S>
@@ -38,12 +38,11 @@ where
 }
 #[allow(unused)]
 pub mod doc_id_merger_util {
-    use crate::index::{
-        DocIDMergerEnum, SequentialDocIDMerger, SortedDocIDMerger, Sub, SubBase,
-    };
-    use crate::util::error::lucene_error::Result;
     use std::cell::RefCell;
     use std::rc::Rc;
+
+    use crate::index::{DocIDMergerEnum, SequentialDocIDMerger, SortedDocIDMerger, Sub, SubBase};
+    use crate::util::error::lucene_error::Result;
 
     /// Construct this from the provided subs, specifying the maximum sub count.
     fn of_with_max_count<S: SubBase + Default>(
@@ -121,8 +120,7 @@ where
                 return Ok(None);
             }
 
-            self.current =
-                Some(Rc::clone(&self.subs[self.next_index as usize]));
+            self.current = Some(Rc::clone(&self.subs[self.next_index as usize]));
             self.next_index += 1;
         }
     }
@@ -175,8 +173,9 @@ where
         for sub in &self.subs {
             if first {
                 let mut sub_mut = sub.borrow_mut();
-                // by setting mappedDocID = -1, this entry is guaranteed to be the top of the queue
-                // so the first call to next() will advance it
+                // by setting mappedDocID = -1, this entry is guaranteed to be
+                // the top of the queue so the first call to
+                // next() will advance it
                 sub_mut.mapped_doc_id = -1;
                 self.current = Some(Rc::clone(sub));
                 first = false;
@@ -189,7 +188,8 @@ where
                 if next_mapped_doc != NO_MORE_DOCS {
                     self.queue.add(sub.clone());
                 }
-            } // else all docs in this sub were deleted; do not add it to the queue!
+            } // else all docs in this sub were deleted; do not add it to the
+              // queue!
         }
 
         self.set_queue_min_doc_id();
@@ -206,8 +206,9 @@ where
         };
 
         if next_doc < self.queue_min_doc_id {
-            // This should be the common case when index sorting is either disabled, or enabled on a
-            // low-cardinality field, or enabled on a field that correlates with index order.
+            // This should be the common case when index sorting is either
+            // disabled, or enabled on a low-cardinality field, or
+            // enabled on a field that correlates with index order.
             return Ok(self.current.clone());
         }
 
@@ -218,10 +219,7 @@ where
                 self.current = self.queue.pop();
             }
         } else if self.queue.size() > 0 {
-            debug_assert!(
-                self.queue_min_doc_id
-                    == self.queue.top().borrow().mapped_doc_id
-            );
+            debug_assert!(self.queue_min_doc_id == self.queue.top().borrow().mapped_doc_id);
             debug_assert!(next_doc > self.queue_min_doc_id);
             let new_current = self.queue.top().clone();
             self.queue
@@ -279,8 +277,8 @@ where
             mapped_doc_id: 0,
         }
     }
-    /// Like `next_doc()` but skips over unmapped docs and returns the next mapped doc ID,
-    /// or `DocIdSetIterator::NO_MORE_DOCS` when exhausted.
+    /// Like `next_doc()` but skips over unmapped docs and returns the next
+    /// mapped doc ID, or `DocIdSetIterator::NO_MORE_DOCS` when exhausted.
     /// This method sets `mapped_doc_id` as a side effect.
     fn next_mapped_doc(&mut self) -> Result<i32> {
         loop {
@@ -309,21 +307,21 @@ impl<S> Compare<Rc<RefCell<Sub<S>>>> for SubCompare
 where
     S: SubBase + Default,
 {
-    fn less_than(
-        &self,
-        a: &Rc<RefCell<Sub<S>>>,
-        b: &Rc<RefCell<Sub<S>>>,
-    ) -> bool {
+    fn less_than(&self, a: &Rc<RefCell<Sub<S>>>, b: &Rc<RefCell<Sub<S>>>) -> bool {
         debug_assert!(a.borrow().mapped_doc_id != b.borrow().mapped_doc_id);
         a.borrow().mapped_doc_id < b.borrow().mapped_doc_id
     }
 }
 #[cfg(test)]
 pub mod tests {
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    use rand::Rng;
+
     use crate::index::doc_id_merger::{DocIDMerger, Sub, SubBase};
     use crate::index::doc_id_merger_util::of;
     use crate::index::merge_state::{DocMap, DocMapEnum};
-
     use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::test::util::lucene_test_case::random;
     use crate::test::util::test_util::TestUtil;
@@ -331,9 +329,6 @@ pub mod tests {
     use crate::util::bits::Bits;
     use crate::util::error::lucene_error::Result;
     use crate::util::fixed_bit_set::FixedBitSet;
-    use rand::Rng;
-    use std::cell::RefCell;
-    use std::rc::Rc;
 
     #[allow(dead_code)] // for quick search
     struct TestDocIDMerger;
@@ -346,11 +341,7 @@ pub mod tests {
     }
 
     impl TestSubUnsorted {
-        pub fn new(
-            doc_map: Rc<DocMapEnum>,
-            max_doc: i32,
-            value_start: i32,
-        ) -> Self {
+        pub fn new(doc_map: Rc<DocMapEnum>, max_doc: i32, value_start: i32) -> Self {
             Self {
                 doc_id: -1,
                 value_start,
@@ -473,9 +464,7 @@ pub mod tests {
     impl DocMap for DocMapMock2 {
         fn get(&self, doc_id: i32) -> i32 {
             let mapped = self.doc_map[doc_id as usize];
-            if self.live_docs.is_none()
-                || self.live_docs.as_ref().unwrap().get(mapped)
-            {
+            if self.live_docs.is_none() || self.live_docs.as_ref().unwrap().get(mapped) {
                 mapped
             } else {
                 -1
@@ -522,8 +511,7 @@ pub mod tests {
         if random.random_bool(0.5) {
             let mut bitset = FixedBitSet::new(tot_doc_count);
             bitset.set_with_range(0, tot_doc_count);
-            let delete_attempts =
-                TestUtil::next_int(&mut random, 1, tot_doc_count);
+            let delete_attempts = TestUtil::next_int(&mut random, 1, tot_doc_count);
             for _ in 0..delete_attempts {
                 bitset.clear_with_index(random.random_range(0..tot_doc_count));
             }
@@ -556,11 +544,7 @@ pub mod tests {
             if let Some(ref live) = live_docs {
                 count = live.next_set_bit(count);
             }
-            assert_eq!(
-                count, sub.mapped_doc_id,
-                "doc mismatch at count {}",
-                count
-            );
+            assert_eq!(count, sub.mapped_doc_id, "doc mismatch at count {}", count);
             count += 1;
         }
 

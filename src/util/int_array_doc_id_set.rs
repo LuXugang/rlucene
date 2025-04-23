@@ -14,14 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::rc::Rc;
+
 use crate::search::doc_id_set::DocIdSet;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::util::accountable::Accountable;
 use crate::util::bits::MatchNoBits;
-
-use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use std::rc::Rc;
 
 // TODO
 #[allow(unused)]
@@ -38,8 +38,9 @@ pub struct IntArrayDocIdSet {
 /// Builds an `IntArrayDocIdSet` from an `i32` array and its length.
 ///
 /// # Arguments
-/// * `docs` - A docs array whose length must be greater than the `len` parameter. The array needs to be
-///   sorted from 0 (inclusive) to `len` (exclusive), and the `len`-th doc in `docs` must be
+/// * `docs` - A docs array whose length must be greater than the `len`
+///   parameter. The array needs to be sorted from 0 (inclusive) to `len`
+///   (exclusive), and the `len`-th doc in `docs` must be
 ///   [`DocIdSetIterator::NO_MORE_DOCS`](NO_MORE_DOCS).
 /// * `len` - The valid docs length in the array.
 impl IntArrayDocIdSet {
@@ -92,10 +93,7 @@ pub struct IntArrayDocIdSetIterator<'a> {
     doc: i32,
 }
 impl<'a> IntArrayDocIdSetIterator<'a> {
-    pub fn new(
-        docs: &'a Vec<i32>,
-        length: i32,
-    ) -> IntArrayDocIdSetIterator<'a> {
+    pub fn new(docs: &'a Vec<i32>, length: i32) -> IntArrayDocIdSetIterator<'a> {
         IntArrayDocIdSetIterator {
             docs,
             length,
@@ -117,7 +115,8 @@ impl DocIdSetIterator for IntArrayDocIdSetIterator<'_> {
 
     fn advance(&mut self, _target: i32) -> Result<i32> {
         let mut bound = 1;
-        // given that we use this for small arrays only, this is very unlikely to overflow
+        // given that we use this for small arrays only, this is very unlikely
+        // to overflow
         while (self.i + bound < self.length)
             && (self.docs[self.i as usize + bound as usize] < _target)
         {
@@ -141,17 +140,16 @@ impl DocIdSetIterator for IntArrayDocIdSetIterator<'_> {
 
 #[cfg(test)]
 mod tests {
-    use crate::search::doc_id_set::DocIdSet;
+    use rand::rngs::StdRng;
 
+    use crate::search::doc_id_set::DocIdSet;
+    use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::test::util::base_doc_id_set_test_case::{
         BaseDocIdSetTestCase, BaseDocIdSetTestCaseSupperImpl,
     };
     use crate::test::util::lucene_test_case::random;
-
-    use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::util::error::lucene_error::Result;
     use crate::util::int_array_doc_id_set::IntArrayDocIdSet;
-    use rand::rngs::StdRng;
 
     struct TestIntArrayDocIdSet;
     impl BaseDocIdSetTestCase for TestIntArrayDocIdSet {
@@ -175,9 +173,7 @@ mod tests {
             ds1: &bit_set::BitSet,
             ds2: impl DocIdSet,
         ) -> Result<()> {
-            BaseDocIdSetTestCaseSupperImpl::assert_equals(
-                self, random, num_bits, ds1, ds2,
-            )
+            BaseDocIdSetTestCaseSupperImpl::assert_equals(self, random, num_bits, ds1, ds2)
         }
     }
     #[test]

@@ -14,23 +14,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::collections::{HashMap, HashSet};
+
 use crate::index::BytesRef;
 use crate::store::data_input::DataInput;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::group_vint_util::GroupVIntUtil;
-use std::collections::{HashMap, HashSet};
 
-/// Abstract base trait for performing write operations on Lucene's low-level data types.
+/// Abstract base trait for performing write operations on Lucene's low-level
+/// data types.
 ///
 /// # Note
-/// `DataOutput` is not thread-safe as it maintains internal state (e.g., file position),
-/// and therefore should only be used from a single thread.
+/// `DataOutput` is not thread-safe as it maintains internal state (e.g., file
+/// position), and therefore should only be used from a single thread.
 pub trait DataOutput: Sized {
     /// Writes a single byte.
     ///
-    /// The most primitive data type is an eight-bit byte. Files are accessed as sequences of bytes.
-    /// All other data types are defined as sequences of bytes, making file formats byte-order independent.
+    /// The most primitive data type is an eight-bit byte. Files are accessed as
+    /// sequences of bytes. All other data types are defined as sequences of
+    /// bytes, making file formats byte-order independent.
     ///
     /// # See Also
     /// [`IndexInput::read_byte`](DataInput::read_byte)
@@ -56,12 +59,7 @@ pub trait DataOutput: Sized {
     ///
     /// # See Also
     /// [`DataInput::read_bytes`].
-    fn write_bytes_range(
-        &mut self,
-        b: &[u8],
-        offset: i32,
-        length: i32,
-    ) -> Result<()>;
+    fn write_bytes_range(&mut self, b: &[u8], offset: i32, length: i32) -> Result<()>;
 
     /// Writes an `int` as four bytes (little-endian byte order).
     ///
@@ -87,13 +85,15 @@ pub trait DataOutput: Sized {
         Ok(())
     }
 
-    /// Writes an `int` in a variable-length format. Writes between one and five bytes, with smaller
-    /// values taking fewer bytes. Negative numbers are supported but should be avoided.
+    /// Writes an `int` in a variable-length format. Writes between one and five
+    /// bytes, with smaller values taking fewer bytes. Negative numbers are
+    /// supported but should be avoided.
     ///
     /// # Format
-    /// VByte is a variable-length format for positive integers, where the high-order bit of each byte
-    /// indicates whether more bytes remain to be read. The low-order seven bits are appended as
-    /// increasingly more significant bits in the resulting integer value.
+    /// VByte is a variable-length format for positive integers, where the
+    /// high-order bit of each byte indicates whether more bytes remain to
+    /// be read. The low-order seven bits are appended as increasingly more
+    /// significant bits in the resulting integer value.
     /// - Values from 0 to 127 are stored in a single byte.
     /// - Values from 128 to 16,383 are stored in two bytes, and so on.
     ///
@@ -111,11 +111,12 @@ pub trait DataOutput: Sized {
     /// This format provides compression while remaining efficient to decode.
     ///
     /// # Arguments
-    /// * `i` - The integer to write. Smaller values take fewer bytes. Negative numbers are supported
-    ///   but should be avoided.
+    /// * `i` - The integer to write. Smaller values take fewer bytes. Negative
+    ///   numbers are supported but should be avoided.
     ///
     /// # Errors
-    /// Returns an `IOError` if there is an error writing to the underlying medium.
+    /// Returns an `IOError` if there is an error writing to the underlying
+    /// medium.
     ///
     /// # See Also
     /// [`DataInput::read_vint`]
@@ -131,8 +132,8 @@ pub trait DataOutput: Sized {
 
     /// Writes a [`zig-zag`](BitUtil::zig_zag_encode_i32)-encoded
     /// [`write_vint`](#method.write_vint) variable-length integer.
-    /// This is typically useful for writing small signed integers and is equivalent to calling
-    /// `write_vint(BitUtil::zig_zag_encode(i))`.
+    /// This is typically useful for writing small signed integers and is
+    /// equivalent to calling `write_vint(BitUtil::zig_zag_encode(i))`.
     ///
     /// # See Also
     /// [`DataInput::read_zint`]
@@ -151,8 +152,9 @@ pub trait DataOutput: Sized {
         Ok(())
     }
 
-    /// Writes a `long` in a variable-length format. Writes between one and nine bytes, with smaller
-    /// values taking fewer bytes. Negative numbers are not supported.
+    /// Writes a `long` in a variable-length format. Writes between one and nine
+    /// bytes, with smaller values taking fewer bytes. Negative numbers are
+    /// not supported.
     ///
     /// # Format
     /// The format is described further in [`DataOutput::write_vint`]).
@@ -162,9 +164,7 @@ pub trait DataOutput: Sized {
     fn write_vlong(&mut self, i: i64) -> Result<()> {
         if i < 0 {
             return Err(LuceneError::illegal_argument(
-                "cannot write negative vLong (got: ".to_string()
-                    + &i.to_string()
-                    + ")",
+                "cannot write negative vLong (got: ".to_string() + &i.to_string() + ")",
             ));
         }
         self.write_signed_vlong(i)?;
@@ -182,7 +182,8 @@ pub trait DataOutput: Sized {
     }
     /// Writes a [`zig-zag`](BitUtil::zig_zag_encode_i64)-encoded
     /// [`write_vlong`](#method.write_vlong) variable-length `long`.
-    /// Writes between one and ten bytes. This is typically useful for writing small signed integers.
+    /// Writes between one and ten bytes. This is typically useful for writing
+    /// small signed integers.
     ///
     /// # See Also
     /// [`DataInput::read_zlong`]
@@ -192,7 +193,8 @@ pub trait DataOutput: Sized {
 
     /// Writes a [`zig-zag`](BitUtil::zig_zag_encode_i64)-encoded
     /// [`write_vlong`](#method.write_vlong) variable-length `long`.
-    /// Writes between one and ten bytes. This is typically useful for writing small signed integers.
+    /// Writes between one and ten bytes. This is typically useful for writing
+    /// small signed integers.
     ///
     /// # See Also
     /// [`DataInput::read_zlong`]
@@ -205,11 +207,7 @@ pub trait DataOutput: Sized {
     }
 
     /// Copy numBytes bytes from input to ourselves.
-    fn copy_bytes(
-        &mut self,
-        input: &mut impl DataInput,
-        num_bytes: i64,
-    ) -> Result<()> {
+    fn copy_bytes(&mut self, input: &mut impl DataInput, num_bytes: i64) -> Result<()> {
         let mut buffer = vec![0u8; COPY_BUFFER_SIZE as usize];
         let mut left = num_bytes;
         while left > 0 {
@@ -227,15 +225,13 @@ pub trait DataOutput: Sized {
     }
     /// Writes a `HashMap<String, String>`.
     ///
-    /// First, the size is written as a [`write_vint`](#method.write_vint), followed by each key-value
-    /// pair written as two consecutive [`write_string`](#method.write_string) calls.
+    /// First, the size is written as a [`write_vint`](#method.write_vint),
+    /// followed by each key-value pair written as two consecutive
+    /// [`write_string`](#method.write_string) calls.
     ///
     /// # Arguments
     /// * `map` - The input map.
-    fn write_map_of_strings(
-        &mut self,
-        map: &HashMap<String, String>,
-    ) -> Result<()> {
+    fn write_map_of_strings(&mut self, map: &HashMap<String, String>) -> Result<()> {
         self.write_vint(map.len() as i32)?;
         for (key, value) in map.iter() {
             self.write_string(key)?;
@@ -246,12 +242,12 @@ pub trait DataOutput: Sized {
 
     /// Writes a `HashSet<String>`.
     ///
-    /// First, the size is written as a [`write_vint`](#method.write_vint), followed by each value
-    /// written as a [`write_string`](#method.write_string).
+    /// First, the size is written as a [`write_vint`](#method.write_vint),
+    /// followed by each value written as a
+    /// [`write_string`](#method.write_string).
     ///
     /// # Arguments
     /// * `set` - The input set.
-    ///
     fn write_set_of_strings(&mut self, set: &HashSet<String>) -> Result<()> {
         self.write_vint(set.len() as i32)?;
         for value in set.iter() {
@@ -259,10 +255,11 @@ pub trait DataOutput: Sized {
         }
         Ok(())
     }
-    /// Encodes integers using group-varint encoding. Tail values that do not fit into a group
-    /// are encoded using [`write_vint`](#method.write_vint).
-    /// Note: A `long[]` is used because it aligns with posting requirements,
-    /// but all longs are actually expected to be integers.
+    /// Encodes integers using group-varint encoding. Tail values that do not
+    /// fit into a group are encoded using
+    /// [`write_vint`](#method.write_vint). Note: A `long[]` is used because
+    /// it aligns with posting requirements, but all longs are actually
+    /// expected to be integers.
     ///
     /// # Arguments
     /// * `values` - The values to write.
@@ -270,26 +267,17 @@ pub trait DataOutput: Sized {
     ///
     /// # Note
     /// This is an experimental API.
-    fn write_group_vints_i64(
-        &mut self,
-        values: &mut [i64],
-        limit: i32,
-    ) -> Result<()> {
-        let mut group_vint_bytes: Vec<u8> =
-            vec![0; GroupVIntUtil::MAX_LENGTH_PER_GROUP];
-        GroupVIntUtil::write_group_vints_i64(
-            self,
-            &mut group_vint_bytes,
-            values,
-            limit,
-        )?;
+    fn write_group_vints_i64(&mut self, values: &mut [i64], limit: i32) -> Result<()> {
+        let mut group_vint_bytes: Vec<u8> = vec![0; GroupVIntUtil::MAX_LENGTH_PER_GROUP];
+        GroupVIntUtil::write_group_vints_i64(self, &mut group_vint_bytes, values, limit)?;
         Ok(())
     }
 
-    /// Encodes integers using group-varint encoding. Tail values that do not fit into a group
-    /// are encoded using [`write_vint`](#method.write_vint).
-    /// Note: A `long[]` is used because it aligns with posting requirements,
-    /// but all longs are actually expected to be integers.
+    /// Encodes integers using group-varint encoding. Tail values that do not
+    /// fit into a group are encoded using
+    /// [`write_vint`](#method.write_vint). Note: A `long[]` is used because
+    /// it aligns with posting requirements, but all longs are actually
+    /// expected to be integers.
     ///
     /// # Arguments
     /// * `values` - The values to write.
@@ -297,19 +285,9 @@ pub trait DataOutput: Sized {
     ///
     /// # Note
     /// This is an experimental API.
-    fn write_group_vints_i32(
-        &mut self,
-        values: &mut [i32],
-        limit: i32,
-    ) -> Result<()> {
-        let mut group_vint_bytes: Vec<u8> =
-            vec![0; GroupVIntUtil::MAX_LENGTH_PER_GROUP];
-        GroupVIntUtil::write_group_vints_i32(
-            self,
-            &mut group_vint_bytes,
-            values,
-            limit,
-        )?;
+    fn write_group_vints_i32(&mut self, values: &mut [i32], limit: i32) -> Result<()> {
+        let mut group_vint_bytes: Vec<u8> = vec![0; GroupVIntUtil::MAX_LENGTH_PER_GROUP];
+        GroupVIntUtil::write_group_vints_i32(self, &mut group_vint_bytes, values, limit)?;
         Ok(())
     }
 }

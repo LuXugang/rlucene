@@ -22,8 +22,8 @@ use crate::util::group_vint_util::GroupVIntUtil;
 pub(crate) struct PostingsUtil;
 #[allow(unused)]
 impl PostingsUtil {
-    /// Read values that have been written using variable-length encoding and group-varint encoding
-    /// instead of bit-packing.
+    /// Read values that have been written using variable-length encoding and
+    /// group-varint encoding instead of bit-packing.
     pub(crate) fn read_vint_block(
         doc_in: &mut impl IndexInput,
         doc_buffer: &mut [i32],
@@ -49,7 +49,8 @@ impl PostingsUtil {
         }
         Ok(())
     }
-    /// Write freq buffer with variable-length encoding and doc buffer with group-varint encoding.
+    /// Write freq buffer with variable-length encoding and doc buffer with
+    /// group-varint encoding.
     pub(crate) fn write_vint_block(
         doc_out: &mut impl DataOutput,
         doc_buffer: &mut [i32],
@@ -59,8 +60,7 @@ impl PostingsUtil {
     ) -> Result<()> {
         if write_freqs {
             for i in 0..num as usize {
-                doc_buffer[i] = (doc_buffer[i] << 1)
-                    | if freq_buffer[i] == 1 { 1 } else { 0 };
+                doc_buffer[i] = (doc_buffer[i] << 1) | if freq_buffer[i] == 1 { 1 } else { 0 };
             }
         }
         doc_out.write_group_vints_i32(doc_buffer, num)?;
@@ -79,14 +79,15 @@ impl PostingsUtil {
 }
 #[cfg(test)]
 mod tests {
+    use rand::rngs::StdRng;
+    use rand::Rng;
+
     use crate::codecs::lucene101::for_util::ForUtil;
     use crate::codecs::lucene101::postings_util::PostingsUtil;
     use crate::store::directory::Directory;
     use crate::store::IOContext;
     use crate::test::util::lucene_test_case::{new_directory, random};
     use crate::util::error::lucene_error::Result;
-    use rand::rngs::StdRng;
-    use rand::Rng;
 
     // checks for bug described in https://github.com/apache/lucene/issues/13373
     #[allow(dead_code)] // for quick search
@@ -100,10 +101,7 @@ mod tests {
         do_test_integer_overflow(&mut random, random_size2)?;
         Ok(())
     }
-    fn do_test_integer_overflow(
-        random: &mut StdRng,
-        size: usize,
-    ) -> Result<()> {
+    fn do_test_integer_overflow(random: &mut StdRng, size: usize) -> Result<()> {
         let mut doc_delta_buffer = vec![0i32; size];
         let freq_buffer = vec![0i32; size];
 
@@ -113,8 +111,7 @@ mod tests {
         // TODO: ByteBuffersDirectory not Implemented
         let mut dir = new_directory(random)?;
         {
-            let mut out =
-                dir.create_output("test", &IOContext::default_io_context()?)?;
+            let mut out = dir.create_output("test", &IOContext::default_io_context()?)?;
             PostingsUtil::write_vint_block(
                 &mut out,
                 &mut doc_delta_buffer,
@@ -128,8 +125,7 @@ mod tests {
         let mut restored_freqs = vec![0i32; size];
 
         {
-            let mut input =
-                dir.open_input("test", &IOContext::default_io_context()?)?;
+            let mut input = dir.open_input("test", &IOContext::default_io_context()?)?;
             PostingsUtil::read_vint_block(
                 &mut input,
                 &mut restored_docs,

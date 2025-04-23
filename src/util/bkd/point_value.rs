@@ -14,10 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::bkd::heap_point_write::HeapPointValue;
-use crate::util::bkd::offline_point_reader::OfflinePointValue;
 use std::cell::RefCell;
 use std::rc::Rc;
+
+use crate::util::bkd::heap_point_write::HeapPointValue;
+use crate::util::bkd::offline_point_reader::OfflinePointValue;
 
 /// Represents a dimensional point value written in the BKD tree.
 #[allow(unused)]
@@ -31,7 +32,8 @@ pub(crate) trait PointValue {
     /// Returns the docID.
     fn doc_id(&self) -> i32;
 
-    /// Returns the byte representation of the packed value together with the docID.
+    /// Returns the byte representation of the packed value together with the
+    /// docID.
     fn packed_value_doc_id_bytes(&self) -> (Rc<RefCell<Vec<u8>>>, i32, i32);
 }
 
@@ -65,9 +67,7 @@ impl PointValue for PointValueEnum {
     fn packed_value_doc_id_bytes(&self) -> (Rc<RefCell<Vec<u8>>>, i32, i32) {
         match self {
             PointValueEnum::Heap(heap) => heap.packed_value_doc_id_bytes(),
-            PointValueEnum::Offline(offline) => {
-                offline.packed_value_doc_id_bytes()
-            },
+            PointValueEnum::Offline(offline) => offline.packed_value_doc_id_bytes(),
         }
     }
 }

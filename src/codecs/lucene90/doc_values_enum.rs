@@ -16,28 +16,26 @@
  */
 pub mod doc_values {
 
+    use std::borrow::Cow;
+
     use crate::codecs::lucene90_doc_values_enums::Lucene90SortedSetDocValuesEnum;
-
     use crate::index::doc_values_iterator::DocValuesIterator;
-
-    use crate::index::sorted_set_doc_values::SortedSetDocValues;
-
     use crate::index::dummy::dummy_terms_enum::DummyTermsEnum;
+    use crate::index::sorted_set_doc_values::SortedSetDocValues;
     use crate::index::BytesRef;
     use crate::search::doc_id_set_iterator::DocIdSetIterator;
-
     use crate::store::IndexInput;
-
     use crate::util::error::lucene_error::Result;
-    use std::borrow::Cow;
 
     pub enum SortedSetDocValuesEnum<I>
     where
         I: IndexInput,
     {
         // SingletonSortedSetDocValues wraps a SortedDocValuesEnum.
-        // To prevent mutual inclusion between variants of SortedSetDocValuesEnum and SortedDocValuesEnum,
-        // the other variants are encapsulated using SortedSetDocValuesWrapper.
+        // To prevent mutual inclusion between variants of
+        // SortedSetDocValuesEnum and SortedDocValuesEnum,
+        // the other variants are encapsulated using
+        // SortedSetDocValuesWrapper.
         Lucene90(Lucene90SortedSetDocValuesEnum<I>),
     }
 
@@ -85,9 +83,7 @@ pub mod doc_values {
 }
 
 pub mod norms {
-    use crate::codecs::lucene90_norms_producer::{
-        DenseNormsIterator, SparseNormsIterator,
-    };
+    use crate::codecs::lucene90_norms_producer::{DenseNormsIterator, SparseNormsIterator};
     use crate::index::doc_values::EmptyNumeric;
     use crate::index::doc_values_iterator::DocValuesIterator;
     use crate::index::numeric_doc_values::NumericDocValues;
@@ -109,15 +105,9 @@ pub mod norms {
     {
         fn advance_exact(&mut self, target: i32) -> Result<bool> {
             match self {
-                Lucene90NormNumericDocValuesEnum::Dense(dense) => {
-                    dense.advance_exact(target)
-                },
-                Lucene90NormNumericDocValuesEnum::Sparse(sparse) => {
-                    sparse.advance_exact(target)
-                },
-                Lucene90NormNumericDocValuesEnum::Empty(empty) => {
-                    empty.advance_exact(target)
-                },
+                Lucene90NormNumericDocValuesEnum::Dense(dense) => dense.advance_exact(target),
+                Lucene90NormNumericDocValuesEnum::Sparse(sparse) => sparse.advance_exact(target),
+                Lucene90NormNumericDocValuesEnum::Empty(empty) => empty.advance_exact(target),
             }
         }
     }
@@ -128,66 +118,40 @@ pub mod norms {
     {
         fn doc_id(&self) -> i32 {
             match self {
-                Lucene90NormNumericDocValuesEnum::Dense(dense) => {
-                    dense.doc_id()
-                },
-                Lucene90NormNumericDocValuesEnum::Sparse(sparse) => {
-                    sparse.doc_id()
-                },
-                Lucene90NormNumericDocValuesEnum::Empty(empty) => {
-                    empty.doc_id()
-                },
+                Lucene90NormNumericDocValuesEnum::Dense(dense) => dense.doc_id(),
+                Lucene90NormNumericDocValuesEnum::Sparse(sparse) => sparse.doc_id(),
+                Lucene90NormNumericDocValuesEnum::Empty(empty) => empty.doc_id(),
             }
         }
 
         fn next_doc(&mut self) -> Result<i32> {
             match self {
-                Lucene90NormNumericDocValuesEnum::Dense(dense) => {
-                    dense.next_doc()
-                },
-                Lucene90NormNumericDocValuesEnum::Sparse(sparse) => {
-                    sparse.next_doc()
-                },
-                Lucene90NormNumericDocValuesEnum::Empty(empty) => {
-                    empty.next_doc()
-                },
+                Lucene90NormNumericDocValuesEnum::Dense(dense) => dense.next_doc(),
+                Lucene90NormNumericDocValuesEnum::Sparse(sparse) => sparse.next_doc(),
+                Lucene90NormNumericDocValuesEnum::Empty(empty) => empty.next_doc(),
             }
         }
 
         fn advance(&mut self, target: i32) -> Result<i32> {
             match self {
-                Lucene90NormNumericDocValuesEnum::Dense(dense) => {
-                    dense.advance(target)
-                },
-                Lucene90NormNumericDocValuesEnum::Sparse(sparse) => {
-                    sparse.advance(target)
-                },
-                Lucene90NormNumericDocValuesEnum::Empty(empty) => {
-                    empty.advance(target)
-                },
+                Lucene90NormNumericDocValuesEnum::Dense(dense) => dense.advance(target),
+                Lucene90NormNumericDocValuesEnum::Sparse(sparse) => sparse.advance(target),
+                Lucene90NormNumericDocValuesEnum::Empty(empty) => empty.advance(target),
             }
         }
 
         fn slow_advance(&mut self, target: i32) -> Result<i32> {
             match self {
-                Lucene90NormNumericDocValuesEnum::Dense(dense) => {
-                    dense.slow_advance(target)
-                },
-                Lucene90NormNumericDocValuesEnum::Sparse(sparse) => {
-                    sparse.slow_advance(target)
-                },
-                Lucene90NormNumericDocValuesEnum::Empty(empty) => {
-                    empty.slow_advance(target)
-                },
+                Lucene90NormNumericDocValuesEnum::Dense(dense) => dense.slow_advance(target),
+                Lucene90NormNumericDocValuesEnum::Sparse(sparse) => sparse.slow_advance(target),
+                Lucene90NormNumericDocValuesEnum::Empty(empty) => empty.slow_advance(target),
             }
         }
 
         fn cost(&self) -> Result<i64> {
             match self {
                 Lucene90NormNumericDocValuesEnum::Dense(dense) => dense.cost(),
-                Lucene90NormNumericDocValuesEnum::Sparse(sparse) => {
-                    sparse.cost()
-                },
+                Lucene90NormNumericDocValuesEnum::Sparse(sparse) => sparse.cost(),
                 Lucene90NormNumericDocValuesEnum::Empty(empty) => empty.cost(),
             }
         }
@@ -199,15 +163,9 @@ pub mod norms {
     {
         fn long_value(&mut self) -> Result<i64> {
             match self {
-                Lucene90NormNumericDocValuesEnum::Dense(dense) => {
-                    dense.long_value()
-                },
-                Lucene90NormNumericDocValuesEnum::Sparse(sparse) => {
-                    sparse.long_value()
-                },
-                Lucene90NormNumericDocValuesEnum::Empty(empty) => {
-                    empty.long_value()
-                },
+                Lucene90NormNumericDocValuesEnum::Dense(dense) => dense.long_value(),
+                Lucene90NormNumericDocValuesEnum::Sparse(sparse) => sparse.long_value(),
+                Lucene90NormNumericDocValuesEnum::Empty(empty) => empty.long_value(),
             }
         }
     }

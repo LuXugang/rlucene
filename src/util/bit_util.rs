@@ -34,8 +34,7 @@ impl BitUtil {
         );
 
         unsafe {
-            let raw_value =
-                std::ptr::read_unaligned(bytes.as_ptr().add(pos) as *const i16);
+            let raw_value = std::ptr::read_unaligned(bytes.as_ptr().add(pos) as *const i16);
             i16::from_be(raw_value)
         }
     }
@@ -46,12 +45,7 @@ impl BitUtil {
     }
 
     #[cfg(target_endian = "little")]
-    pub fn set_i16_be_with_len(
-        bytes: &mut [u8],
-        pos: usize,
-        value: i16,
-        len: usize,
-    ) {
+    pub fn set_i16_be_with_len(bytes: &mut [u8], pos: usize, value: i16, len: usize) {
         debug_assert!(
             pos + len <= bytes.len(),
             "Index out of bounds: pos={} len={} bytes.len()={}",
@@ -89,12 +83,7 @@ impl BitUtil {
     }
 
     #[cfg(target_endian = "little")]
-    pub fn set_i16_le_with_len(
-        bytes: &mut [u8],
-        pos: usize,
-        value: i16,
-        len: usize,
-    ) {
+    pub fn set_i16_le_with_len(bytes: &mut [u8], pos: usize, value: i16, len: usize) {
         debug_assert!(
             pos + len <= bytes.len(),
             "Index out of bounds: pos={} len={} bytes.len()={}",
@@ -120,14 +109,10 @@ impl BitUtil {
 
     // i32 big_endian
     pub fn get_i32_be(bytes: &[u8], pos: usize) -> i32 {
-        debug_assert!(
-            pos + Self::INT_BYTES <= bytes.len(),
-            "Index out of bounds"
-        );
+        debug_assert!(pos + Self::INT_BYTES <= bytes.len(), "Index out of bounds");
 
         unsafe {
-            let raw_value =
-                std::ptr::read_unaligned(bytes.as_ptr().add(pos) as *const i32);
+            let raw_value = std::ptr::read_unaligned(bytes.as_ptr().add(pos) as *const i32);
             i32::from_be(raw_value)
         }
     }
@@ -137,12 +122,7 @@ impl BitUtil {
     }
 
     #[cfg(target_endian = "little")]
-    pub fn set_i32_be_with_len(
-        bytes: &mut [u8],
-        pos: usize,
-        value: i32,
-        len: usize,
-    ) {
+    pub fn set_i32_be_with_len(bytes: &mut [u8], pos: usize, value: i32, len: usize) {
         debug_assert!(
             pos + len <= bytes.len(),
             "Index out of bounds: pos={} len={} bytes.len()={}",
@@ -167,10 +147,7 @@ impl BitUtil {
     // i32 little_endian
     #[cfg(target_endian = "little")]
     pub fn get_i32_le(bytes: &[u8], pos: usize) -> i32 {
-        debug_assert!(
-            pos + Self::INT_BYTES <= bytes.len(),
-            "Index out of bounds"
-        );
+        debug_assert!(pos + Self::INT_BYTES <= bytes.len(), "Index out of bounds");
 
         unsafe { ptr::read_unaligned(bytes.as_ptr().add(pos) as *const i32) }
     }
@@ -180,12 +157,7 @@ impl BitUtil {
         Self::set_i32_le_with_len(bytes, pos, value, Self::INT_BYTES);
     }
     #[cfg(target_endian = "little")]
-    pub fn set_i32_le_with_len(
-        bytes: &mut [u8],
-        pos: usize,
-        value: i32,
-        len: usize,
-    ) {
+    pub fn set_i32_le_with_len(bytes: &mut [u8], pos: usize, value: i32, len: usize) {
         debug_assert!(
             pos + len <= bytes.len(),
             "Index out of bounds: pos={} len={} bytes.len()={}",
@@ -210,14 +182,10 @@ impl BitUtil {
 
     // i64 big_endian
     pub fn get_i64_be(bytes: &[u8], pos: usize) -> i64 {
-        debug_assert!(
-            pos + Self::LONG_BYTES <= bytes.len(),
-            "Index out of bounds"
-        );
+        debug_assert!(pos + Self::LONG_BYTES <= bytes.len(), "Index out of bounds");
 
         unsafe {
-            let raw_value =
-                std::ptr::read_unaligned(bytes.as_ptr().add(pos) as *const i64);
+            let raw_value = std::ptr::read_unaligned(bytes.as_ptr().add(pos) as *const i64);
             i64::from_be(raw_value)
         }
     }
@@ -226,12 +194,7 @@ impl BitUtil {
         Self::set_i64_be_with_len(bytes, pos, value, Self::LONG_BYTES);
     }
 
-    pub fn set_i64_be_with_len(
-        bytes: &mut [u8],
-        pos: usize,
-        value: i64,
-        len: usize,
-    ) {
+    pub fn set_i64_be_with_len(bytes: &mut [u8], pos: usize, value: i64, len: usize) {
         debug_assert!(
             pos + len <= bytes.len(),
             "Index out of bounds: pos={} len={} bytes.len()={}",
@@ -257,10 +220,7 @@ impl BitUtil {
     // i64 little_endian
     #[cfg(target_endian = "little")]
     pub fn get_i64_le(bytes: &[u8], pos: usize) -> i64 {
-        debug_assert!(
-            pos + Self::LONG_BYTES <= bytes.len(),
-            "Index out of bounds"
-        );
+        debug_assert!(pos + Self::LONG_BYTES <= bytes.len(), "Index out of bounds");
 
         unsafe { ptr::read_unaligned(bytes.as_ptr().add(pos) as *const i64) }
     }
@@ -272,12 +232,7 @@ impl BitUtil {
     }
 
     #[cfg(target_endian = "little")]
-    pub fn set_i64_le_with_len(
-        bytes: &mut [u8],
-        pos: usize,
-        value: i64,
-        len: usize,
-    ) {
+    pub fn set_i64_le_with_len(bytes: &mut [u8], pos: usize, value: i64, len: usize) {
         debug_assert!(
             pos + len <= bytes.len(),
             "Index out of bounds: pos={} len={} bytes.len()={}",
@@ -301,7 +256,8 @@ impl BitUtil {
         }
     }
 
-    /// Returns the next highest power of two, or the current value if it's already a power of two or zero.
+    /// Returns the next highest power of two, or the current value if it's
+    /// already a power of two or zero.
     pub fn next_highest_power_of_two_with_i32(mut v: i32) -> i32 {
         v -= 1;
         v |= v >> 1;
@@ -311,7 +267,8 @@ impl BitUtil {
         v |= v >> 16;
         v + 1
     }
-    /// Returns the next highest power of two, or the current value if it's already a power of two or zero.
+    /// Returns the next highest power of two, or the current value if it's
+    /// already a power of two or zero.
     pub fn next_highest_power_of_two_with_i64(mut v: i64) -> i64 {
         v -= 1;
         v |= v >> 1;

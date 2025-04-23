@@ -14,9 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::{Debug, Display, Formatter};
+
 use crate::index::term_state::{TermState, TermStateEnum};
 use crate::util::error::lucene_error::{LuceneError, Result};
-use std::fmt::{Debug, Display, Formatter};
 #[derive(Debug, Clone)]
 pub struct DummyTermState;
 impl Display for DummyTermState {

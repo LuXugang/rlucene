@@ -23,8 +23,9 @@ use crate::util::info_stream::InfoStream;
 /// Computes which segments have identical field name to number mappings,
 /// which allows stored fields and term vectors in this codec to be bulk-merged.
 pub struct MatchingReaders {
-    /// [`SegmentReader`](crate::index::segment_reader::SegmentReader)'s that have identical field name/number mapping,
-    /// so their stored fields and term vectors may be bulk merged.
+    /// [`SegmentReader`](crate::index::segment_reader::SegmentReader)'s that
+    /// have identical field name/number mapping, so their stored fields
+    /// and term vectors may be bulk merged.
     pub matching_readers: Vec<bool>,
 
     /// How many `matching_readers` are set.
@@ -43,9 +44,7 @@ impl MatchingReaders {
         let mut matching_readers = vec![false; num_readers];
         let mut matched_count: i32 = 0;
 
-        'next_reader: for (i, field_infos) in
-            merge_state.field_infos.iter().enumerate()
-        {
+        'next_reader: for (i, field_infos) in merge_state.field_infos.iter().enumerate() {
             for fi in &**field_infos {
                 match merge_state
                     .merge_field_infos
@@ -71,10 +70,7 @@ impl MatchingReaders {
         if matched_count as usize != num_readers {
             info_stream.message(
                 "SM",
-                &format!(
-                    "{} non-bulk merges",
-                    num_readers as i32 - matched_count
-                ),
+                &format!("{} non-bulk merges", num_readers as i32 - matched_count),
             );
         }
 

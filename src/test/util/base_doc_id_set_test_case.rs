@@ -14,17 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use rand::prelude::StdRng;
+use rand::Rng;
+
 use crate::search::doc_id_set::DocIdSet;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::test::util::base_bit_set_test_case::random_set;
 use crate::test::util::lucene_test_case::is_night_mode;
-
-use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::test::util::test_util::TestUtil;
 use crate::util::bits::Bits;
 use crate::util::error::lucene_error::Result;
-use rand::prelude::StdRng;
-use rand::Rng;
 
 pub trait BaseDocIdSetTestCase {
     fn copy_of(&self, bs: &bit_set::BitSet, length: i32) -> impl DocIdSet;
@@ -157,11 +157,8 @@ pub trait BaseDocIdSetTestCaseSupperImpl {
                     } else {
                         std::cmp::max(num_bits / 8, 1)
                     };
-                    let target = docs[index]
-                        + 1
-                        + random.random_range(0..=skip_length) as usize;
-                    if let Some(i) = docs.iter().position(|&doc| doc == target)
-                    {
+                    let target = docs[index] + 1 + random.random_range(0..=skip_length) as usize;
+                    if let Some(i) = docs.iter().position(|&doc| doc == target) {
                         index = i + 1;
                         _doc = target
                     } else {

@@ -14,8 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::lucene_error::{LuceneError, Result};
 use std::io::Cursor;
+
+use crate::util::error::lucene_error::{LuceneError, Result};
 pub trait ReadableCursorExt {
     /// Returns the remaining bytes in the buffer from the current position.
     fn remain(&self) -> u64;
@@ -24,14 +25,16 @@ pub trait ReadableCursorExt {
     ///
     /// # Arguments
     /// * `position` - The current position in the buffer.
-    /// * `limit` - The effective limit up to which remaining bytes are calculated.
+    /// * `limit` - The effective limit up to which remaining bytes are
+    ///   calculated.
     fn remain_between(&self, position: u64, limit: u64) -> u64;
 
-    /// Reads data from the cursor's buffer to the destination slice, starting at the current position.
-    fn read_to(&mut self, dest: &mut [u8], offset: i32, len: i32)
-        -> Result<()>;
+    /// Reads data from the cursor's buffer to the destination slice, starting
+    /// at the current position.
+    fn read_to(&mut self, dest: &mut [u8], offset: i32, len: i32) -> Result<()>;
 
-    /// Reads data from a specific position in the cursor into the destination buffer.
+    /// Reads data from a specific position in the cursor into the destination
+    /// buffer.
     fn read_to_buffer(
         &self,
         dest: &mut [u8],
@@ -45,7 +48,8 @@ pub trait WritableCursorExt: ReadableCursorExt {
     /// Writes the entire slice of data into the cursor's buffer.
     fn write_from_slice(&mut self, src: &[u8]) -> Result<()>;
 
-    /// Writes data from the source slice into the cursor's buffer, starting from the given offset.
+    /// Writes data from the source slice into the cursor's buffer, starting
+    /// from the given offset.
     fn write_from(&mut self, src: &[u8], offset: i32, len: i32) -> Result<()>;
 }
 impl<T> ReadableCursorExt for Cursor<T>
@@ -53,10 +57,7 @@ where
     T: AsRef<[u8]>,
 {
     fn remain(&self) -> u64 {
-        self.remain_between(
-            self.position(),
-            self.get_ref().as_ref().len() as u64,
-        )
+        self.remain_between(self.position(), self.get_ref().as_ref().len() as u64)
     }
 
     fn remain_between(&self, position: u64, limit: u64) -> u64 {
@@ -72,12 +73,7 @@ where
         limit.saturating_sub(position)
     }
 
-    fn read_to(
-        &mut self,
-        dest: &mut [u8],
-        offset: i32,
-        len: i32,
-    ) -> Result<()> {
+    fn read_to(&mut self, dest: &mut [u8], offset: i32, len: i32) -> Result<()> {
         let position = self.position();
         perform_read(
             self.get_ref().as_ref(),

@@ -14,11 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use crate::util::bkd::point_reader::PointReader;
 use crate::util::bkd::point_value::{PointValue, PointValueEnum};
 use crate::util::error::lucene_error::Result;
-use std::cell::RefCell;
-use std::rc::Rc;
 
 pub struct HeapPointReader {
     points: Option<Rc<RefCell<PointValueEnum>>>,

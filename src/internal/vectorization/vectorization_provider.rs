@@ -17,10 +17,11 @@
 #[allow(dead_code)]
 pub struct VectorizationProvider;
 pub mod vectorization_provider_util {
-    use crate::internal::vectorization::posting_decoding_util::PostingDecodingUtil;
-    use crate::store::IndexInput;
     use std::cell::RefCell;
     use std::rc::Rc;
+
+    use crate::internal::vectorization::posting_decoding_util::PostingDecodingUtil;
+    use crate::store::IndexInput;
 
     pub fn new_posting_decoding_util<I: IndexInput>(
         input: Rc<RefCell<I>>,

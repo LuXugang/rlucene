@@ -16,8 +16,8 @@
  */
 use strum_macros::{EnumCount, FromRepr};
 
-/// DocValues types. Note that DocValues is strongly typed, so a field cannot have different types
-/// across different documents.
+/// DocValues types. Note that DocValues is strongly typed, so a field cannot
+/// have different types across different documents.
 #[derive(Debug, PartialEq, Eq, Clone, Copy, FromRepr, Hash, EnumCount)]
 #[repr(u8)]
 pub enum DocValuesType {
@@ -26,19 +26,23 @@ pub enum DocValuesType {
     /// A per-document Number.
     Numeric,
     /// A per-document byte[].
-    /// Values may be larger than 32,766 bytes, but different codecs may enforce
-    /// their own limits.
+    /// Values may be larger than 32,766 bytes, but different codecs may
+    /// enforce their own limits.
     Binary,
-    /// A pre-sorted byte[]. Fields with this type only store distinct byte values and store an
-    /// additional offset pointer per document to dereference the shared byte[]. The stored byte[] is
-    /// presorted and allows access via document id, ordinal, and by-value. Values must be <= 32,766 bytes.
+    /// A pre-sorted byte[]. Fields with this type only store distinct byte
+    /// values and store an additional offset pointer per document to
+    /// dereference the shared byte[]. The stored byte[] is presorted and
+    /// allows access via document id, ordinal, and by-value. Values must be <=
+    /// 32,766 bytes.
     Sorted,
-    /// A pre-sorted Number[]. Fields with this type store numeric values in sorted order according to
-    /// `i64::cmp`.
+    /// A pre-sorted Number[]. Fields with this type store numeric values in
+    /// sorted order according to `i64::cmp`.
     SortedNumeric,
-    /// A pre-sorted Set of byte[]. Fields with this type only store distinct byte values and store
-    /// additional offset pointers per document to dereference the shared byte[]. The stored byte[] is
-    /// presorted and allows access via document id, ordinal, and by-value. Values must be <= 32,766 bytes.
+    /// A pre-sorted Set of byte[]. Fields with this type only store distinct
+    /// byte values and store additional offset pointers per document to
+    /// dereference the shared byte[]. The stored byte[] is presorted and
+    /// allows access via document id, ordinal, and by-value. Values must be <=
+    /// 32,766 bytes.
     SortedSet,
 }
 /// Use Default for padding

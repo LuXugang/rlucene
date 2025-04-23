@@ -14,6 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::{Display, Formatter};
+use std::io::Cursor;
+use std::sync::Arc;
+
 use crate::analysis::analyzer::Analyzer;
 use crate::analysis::dummy::dummy_token_stream::DummyTokenStream;
 use crate::analysis::token_stream::TokenStream;
@@ -28,9 +32,6 @@ use crate::index::indexable_field::IndexableField;
 use crate::index::BytesRef;
 use crate::util::error::lucene_error::Result;
 use crate::util::number::Number;
-use std::fmt::{Display, Formatter};
-use std::io::Cursor;
-use std::sync::Arc;
 
 pub enum Fields {
     Field(Field),

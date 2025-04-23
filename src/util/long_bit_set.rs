@@ -14,36 +14,39 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::hash::Hash;
+
 use crate::util::accountable::Accountable;
 use crate::util::array_util::ArrayUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use std::hash::Hash;
-/// BitSet of fixed length (`numBits`), backed by accessible ([`get_bits`](LongBitSet::get_bits)) `&[i64]`,
-/// accessed with a `long` index. Use it only if you intend to store more than 2.1B bits,
-/// otherwise you should use [`FixedBitSet`](crate::util::fixed_bit_set::FixedBitSet).
+/// BitSet of fixed length (`numBits`), backed by accessible
+/// ([`get_bits`](LongBitSet::get_bits)) `&[i64]`, accessed with a `long` index.
+/// Use it only if you intend to store more than 2.1B bits, otherwise you should
+/// use [`FixedBitSet`](crate::util::fixed_bit_set::FixedBitSet).
 #[derive(Debug)]
 pub struct LongBitSet {
     bits: Vec<i64>, // Array of longs holding the bits
     num_bits: i64,  // The number of bits in use
-    num_words: i32, // The exact number of longs needed to hold numBits (<= bits.length)
+    num_words: i32, /* The exact number of longs needed to hold numBits (<=
+                     * bits.length) */
 }
 impl LongBitSet {
     pub const MAX_NUM_BITS: i64 = 64 * ArrayUtil::MAX_ARRAY_LENGTH as i64;
-    /// If the given [`LongBitSet`] is large enough to hold `num_bits + 1`, returns the given bitset,
-    /// otherwise returns a new [`LongBitSet`] which can hold the requested number of bits.
+    /// If the given [`LongBitSet`] is large enough to hold `num_bits + 1`,
+    /// returns the given bitset, otherwise returns a new [`LongBitSet`]
+    /// which can hold the requested number of bits.
     ///
-    /// **NOTE:** the returned bitset reuses the underlying `long[]` of the given `bits` if possible.
-    /// Also, calling [`length()`](LongBitSet::length) on the returned bitset may return a value greater than `num_bits`.
+    /// **NOTE:** the returned bitset reuses the underlying `long[]` of the
+    /// given `bits` if possible. Also, calling
+    /// [`length()`](LongBitSet::length) on the returned bitset may return a
+    /// value greater than `num_bits`.
     pub fn ensure_capacity(bits: &mut LongBitSet, num_bits: i64) -> Result<()> {
         if num_bits < bits.num_bits {
         } else {
             let num_words = Self::bits2words(num_bits)?;
             let length = bits.bits.len();
             if num_words as usize >= length {
-                ArrayUtil::grow_with_len(
-                    &mut bits.bits,
-                    (num_words + 1) as usize,
-                );
+                ArrayUtil::grow_with_len(&mut bits.bits, (num_words + 1) as usize);
             }
             debug_assert!(bits.bits.len() <= i32::MAX as usize);
             bits.num_bits = (bits.bits.len() as i64) << 6;
@@ -62,8 +65,8 @@ impl LongBitSet {
         }
         Ok((((num_bits - 1) >> 6) + 1) as i32)
     }
-    /// Creates a new [`LongBitSet`]. The internally allocated `[i64]` will be exactly the size
-    /// needed to accommodate the `numBits` specified.
+    /// Creates a new [`LongBitSet`]. The internally allocated `[i64]` will be
+    /// exactly the size needed to accommodate the `numBits` specified.
     ///
     /// # Arguments
     /// * `num_bits` - the number of bits needed
@@ -76,13 +79,14 @@ impl LongBitSet {
             num_words,
         })
     }
-    /// Creates a new [`LongBitSet`] using the provided `long[]` array as backing store.  
-    /// The `stored_bits` array must be large enough to accommodate the `num_bits` specified,  
-    /// but may be larger. In that case the 'extra' or 'ghost' bits must be clear  
-    /// (or they may provoke spurious side-effects).
+    /// Creates a new [`LongBitSet`] using the provided `long[]` array as
+    /// backing store. The `stored_bits` array must be large enough to
+    /// accommodate the `num_bits` specified, but may be larger. In that
+    /// case the 'extra' or 'ghost' bits must be clear (or they may provoke
+    /// spurious side-effects).
     ///
     /// # Arguments
-    /// * `stored_bits` - the array to use as backing store  
+    /// * `stored_bits` - the array to use as backing store
     /// * `num_bits` - the number of bits actually needed
     pub fn from_bits(stored_bits: Vec<i64>, num_bits: i64) -> Result<Self> {
         let num_words = Self::bits2words(num_bits)?;
@@ -102,8 +106,9 @@ impl LongBitSet {
         Ok(bitset)
     }
     /**
-     * Checks if the bits past numBits are clear. Some methods rely on this implicit assumption:
-     * search for "Depends on the ghost bits being clear!"
+     * Checks if the bits past numBits are clear. Some methods rely on this
+     * implicit assumption: search for "Depends on the ghost bits being
+     * clear!"
      *
      * return true if the bits past numBits are clear.
      */
@@ -154,7 +159,8 @@ impl LongBitSet {
         );
         let i = (index >> 6) as usize;
         // signed shift will keep a negative index and force an
-        // array-index-out-of-bounds-exception, removing the need for an explicit check.
+        // array-index-out-of-bounds-exception, removing the need for an
+        // explicit check.
         let bitmask = 1i64 << index;
         (self.bits[i] & bitmask) != 0
     }
@@ -258,8 +264,7 @@ impl LongBitSet {
         let mut word = self.bits[i as usize] << (63 - sub_index);
 
         if word != 0 {
-            return (i << 6) as i64 + sub_index as i64
-                - word.leading_zeros() as i64;
+            return (i << 6) as i64 + sub_index as i64 - word.leading_zeros() as i64;
         }
 
         i -= 1;
@@ -338,7 +343,8 @@ impl LongBitSet {
     }
     /// Scans the backing store to check if all bits are clear.
     ///
-    /// The method is deliberately not called "is_empty" to emphasize it is not low cost.
+    /// The method is deliberately not called "is_empty" to emphasize it is not
+    /// low cost.
     ///
     /// This depends on the ghost bits being clear!
     #[allow(unused)]
@@ -519,19 +525,17 @@ impl Hash for LongBitSet {
 
 #[cfg(test)]
 mod tests {
-    use crate::test::util::id_set_common::{
-        clear_range, flip_bit, flip_bit_range, set_range,
-    };
-    use crate::test::util::lucene_test_case::{
-        at_least, is_night_mode, random, random_multiplier,
-    };
-    use crate::test::util::test_util::TestUtil;
-    use crate::util::error::lucene_error::{LuceneError, Result};
-    use crate::util::long_bit_set::LongBitSet;
+    use std::hash::{DefaultHasher, Hash, Hasher};
+
     use bit_set::BitSet;
     use rand::rngs::StdRng;
     use rand::Rng;
-    use std::hash::{DefaultHasher, Hash, Hasher};
+
+    use crate::test::util::id_set_common::{clear_range, flip_bit, flip_bit_range, set_range};
+    use crate::test::util::lucene_test_case::{at_least, is_night_mode, random, random_multiplier};
+    use crate::test::util::test_util::TestUtil;
+    use crate::util::error::lucene_error::{LuceneError, Result};
+    use crate::util::long_bit_set::LongBitSet;
 
     #[allow(dead_code)] // for quick search
     struct TestLongBitSet;
@@ -596,12 +600,7 @@ mod tests {
             }
         }
     }
-    fn do_random_sets(
-        max_size: i32,
-        iter: i32,
-        _mode: i32,
-        random: &mut StdRng,
-    ) -> Result<()> {
+    fn do_random_sets(max_size: i32, iter: i32, _mode: i32, random: &mut StdRng) -> Result<()> {
         let mut a0: Option<BitSet> = None;
         let mut b0: Option<LongBitSet> = None;
 
@@ -646,8 +645,7 @@ mod tests {
 
             // Flip range
             let from_index = random.random_range(0..(sz / 2 + 1));
-            let to_index =
-                from_index + random.random_range(0..(sz - from_index + 1));
+            let to_index = from_index + random.random_range(0..(sz - from_index + 1));
             let mut aa = a.clone();
             flip_bit_range(&mut aa, from_index, to_index);
             let mut bb = b.clone();
@@ -655,8 +653,7 @@ mod tests {
 
             // Clear range
             let from_index = random.random_range(0..(sz / 2 + 1));
-            let to_index =
-                from_index + random.random_range(0..(sz - from_index + 1));
+            let to_index = from_index + random.random_range(0..(sz - from_index + 1));
             let mut aa = a.clone();
             clear_range(&mut aa, from_index, to_index);
             let mut bb = b.clone();
@@ -667,8 +664,7 @@ mod tests {
 
             // Set range
             let from_index = random.random_range(0..(sz / 2 + 1));
-            let to_index =
-                from_index + random.random_range(0..(sz - from_index + 1));
+            let to_index = from_index + random.random_range(0..(sz - from_index + 1));
             let mut aa = a.clone();
             set_range(&mut aa, from_index, to_index);
             let mut bb = b.clone();
@@ -713,8 +709,8 @@ mod tests {
         }
         Ok(())
     }
-    // large enough to flush obvious bugs, small enough to run in <.5 sec as part of a
-    // larger testsuite.
+    // large enough to flush obvious bugs, small enough to run in <.5 sec as
+    // part of a larger testsuite.
     #[test]
     fn test_small() -> Result<()> {
         let mut random = random();
@@ -815,11 +811,7 @@ mod tests {
         }
         Ok(())
     }
-    fn make_long_bitset(
-        random: &mut StdRng,
-        a: &Vec<i32>,
-        num_bits: i32,
-    ) -> Result<LongBitSet> {
+    fn make_long_bitset(random: &mut StdRng, a: &Vec<i32>, num_bits: i32) -> Result<LongBitSet> {
         let mut bs: LongBitSet;
         if random.random_bool(0.5) {
             let bits_2_words = LongBitSet::bits2words(num_bits as i64)?;
@@ -843,11 +835,7 @@ mod tests {
         bs
     }
 
-    fn check_prev_set_bit_array(
-        random: &mut StdRng,
-        a: Vec<i32>,
-        num_bits: i32,
-    ) -> Result<()> {
+    fn check_prev_set_bit_array(random: &mut StdRng, a: Vec<i32>, num_bits: i32) -> Result<()> {
         let obs = make_long_bitset(random, &a, num_bits)?;
         let bs = make_bitset(&a);
         do_prev_set_bit(random, &bs, &obs);
@@ -864,11 +852,7 @@ mod tests {
         Ok(())
     }
 
-    fn check_next_set_bit_array(
-        random: &mut StdRng,
-        a: Vec<i32>,
-        num_bits: i32,
-    ) -> Result<()> {
+    fn check_next_set_bit_array(random: &mut StdRng, a: Vec<i32>, num_bits: i32) -> Result<()> {
         let obs = make_long_bitset(random, &a, num_bits)?;
         let bs = make_bitset(&a);
         do_next_set_bit(&bs, &obs);

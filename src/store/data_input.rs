@@ -14,17 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::collections::{HashMap, HashSet};
+use std::fmt::Display;
+
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::Result;
 use crate::util::group_vint_util::GroupVIntUtil;
 use crate::util::CoreHelper;
-use std::collections::{HashMap, HashSet};
-use std::fmt::Display;
 
 /// Base trait for performing read operations on Lucene's low-level data types.
 ///
 /// # Note
-/// [`DataInput`] is not thread-safe as it maintains internal state (e.g., file position).
+/// [`DataInput`] is not thread-safe as it maintains internal state (e.g., file
+/// position).
 pub trait DataInput: Sized + Display {
     /// Reads and returns a single byte.
     ///
@@ -40,11 +42,11 @@ pub trait DataInput: Sized + Display {
     ///
     /// # See Also
     /// [`DataOutput::write_bytes_range`](crate::store::data_output::DataOutput::write_bytes_range)
-    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32)
-        -> Result<()>;
-    /// Reads a specified number of bytes into an array at the specified offset, with control over
-    /// whether the read should be buffered. Callers who have their own buffer should pass `false`
-    /// for `use_buffer`. Currently, only `BufferedIndexInput` respects this parameter.
+    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()>;
+    /// Reads a specified number of bytes into an array at the specified offset,
+    /// with control over whether the read should be buffered. Callers who
+    /// have their own buffer should pass `false` for `use_buffer`.
+    /// Currently, only `BufferedIndexInput` respects this parameter.
     ///
     /// # Arguments
     /// * `b` - The array to read bytes into.
@@ -102,18 +104,17 @@ pub trait DataInput: Sized + Display {
     fn read_group_vint(&mut self, dst: &mut [i32], offset: i32) -> Result<()> {
         self.default_read_group_vint(dst, offset)
     }
-    fn default_read_group_vint(
-        &mut self,
-        dst: &mut [i32],
-        offset: i32,
-    ) -> Result<()> {
+    fn default_read_group_vint(&mut self, dst: &mut [i32], offset: i32) -> Result<()> {
         GroupVIntUtil::read_group_vint_i32(self, dst, offset)
     }
-    /// Reads an `int` stored in a variable-length format. Reads between one and five bytes,
-    /// with smaller values taking fewer bytes. Negative numbers are supported but should be avoided.
+    /// Reads an `int` stored in a variable-length format. Reads between one and
+    /// five bytes, with smaller values taking fewer bytes. Negative numbers
+    /// are supported but should be avoided.
     ///
     /// # Format
-    /// The format is described further in [`DataOutput::write_vint`](crate::store::data_output::DataOutput::write_vint).
+    /// The format is described further in
+    /// [`DataOutput::write_vint`](crate::store::data_output::DataOutput::write_vint).
+    ///
     ///
     /// # See Also
     /// [`DataOutput::write_vint`](crate::store::data_output::DataOutput::write_vint)
@@ -156,12 +157,7 @@ pub trait DataInput: Sized + Display {
     ///
     /// # Note
     /// This is an experimental API.
-    fn read_longs(
-        &mut self,
-        dst: &mut [i64],
-        offset: i32,
-        len: i32,
-    ) -> Result<()> {
+    fn read_longs(&mut self, dst: &mut [i64], offset: i32, len: i32) -> Result<()> {
         debug_assert!(dst.len() <= i32::MAX as usize);
         CoreHelper::check_from_index_size(offset, len, dst.len() as i32)?;
         let mut i = 0;
@@ -171,18 +167,14 @@ pub trait DataInput: Sized + Display {
         }
         Ok(())
     }
-    /// Reads a specified number of `int` values into an array at the specified offset.
+    /// Reads a specified number of `int` values into an array at the specified
+    /// offset.
     ///
     /// # Arguments
     /// * `dst` - The array to read values into.
     /// * `offset` - The offset in the array to start storing `int` values.
     /// * `length` - The number of `int` values to read.
-    fn read_ints(
-        &mut self,
-        dst: &mut [i32],
-        offset: i32,
-        len: i32,
-    ) -> Result<()> {
+    fn read_ints(&mut self, dst: &mut [i32], offset: i32, len: i32) -> Result<()> {
         debug_assert!(dst.len() <= i32::MAX as usize);
         CoreHelper::check_from_index_size(offset, len, dst.len() as i32)?;
         let mut i = 0;
@@ -193,34 +185,32 @@ pub trait DataInput: Sized + Display {
         Ok(())
     }
 
-    /// Reads a specified number of `float` values into an array at the specified offset.
+    /// Reads a specified number of `float` values into an array at the
+    /// specified offset.
     ///
     /// # Arguments
     /// * `floats` - The array to read values into.
     /// * `offset` - The offset in the array to start storing `float` values.
     /// * `len` - The number of `float` values to read.
-    fn read_floats(
-        &mut self,
-        dst: &mut [f32],
-        offset: i32,
-        len: i32,
-    ) -> Result<()> {
+    fn read_floats(&mut self, dst: &mut [f32], offset: i32, len: i32) -> Result<()> {
         debug_assert!(dst.len() <= i32::MAX as usize);
         CoreHelper::check_from_index_size(offset, len, dst.len() as i32)?;
         let mut i = 0;
         while i < len {
-            dst[(i + offset) as usize] =
-                f32::from_bits(self.read_int()? as u32);
+            dst[(i + offset) as usize] = f32::from_bits(self.read_int()? as u32);
             i += 1;
         }
         Ok(())
     }
 
-    /// Reads a `long` stored in a variable-length format. Reads between one and nine bytes,
-    /// with smaller values taking fewer bytes. Negative numbers are not supported.
+    /// Reads a `long` stored in a variable-length format. Reads between one and
+    /// nine bytes, with smaller values taking fewer bytes. Negative numbers
+    /// are not supported.
     ///
     /// # Format
-    /// The format is described further in [`DataOutput::write_vint`](crate::store::data_output::DataOutput::write_vint).
+    /// The format is described further in
+    /// [`DataOutput::write_vint`](crate::store::data_output::DataOutput::write_vint).
+    ///
     ///
     /// # See Also
     /// [`DataOutput::write_vlong`](crate::store::data_output::DataOutput::write_vlong)
@@ -236,7 +226,8 @@ pub trait DataInput: Sized + Display {
         Ok(i)
     }
     /// Reads a [`zig-zag`](BitUtil::zig_zag_decode_i64)-encoded
-    /// [`read_vlong`](#method.read_vlong) variable-length integer. Reads between one and ten bytes.
+    /// [`read_vlong`](#method.read_vlong) variable-length integer. Reads
+    /// between one and ten bytes.
     ///
     /// # See Also
     /// [`DataOutput::write_zlong`](crate::store::data_output::DataOutput::write_zlong)
@@ -265,18 +256,22 @@ pub trait DataInput: Sized + Display {
     ///
     /// # Behavior in Rust
     ///
-    /// Rust does not have built-in "unmodifiable" collections like Java's `Collections.unmodifiableSet()`.
-    /// Instead, the immutability of a collection is enforced through ownership and borrowing rules:
+    /// Rust does not have built-in "unmodifiable" collections like Java's
+    /// `Collections.unmodifiableSet()`. Instead, the immutability of a
+    /// collection is enforced through ownership and borrowing rules:
     ///
-    /// - By returning an immutable reference to the collection, it cannot be modified by the caller.
-    /// - To ensure the collection is truly immutable, it is typically wrapped in an `Arc` or `Rc`
-    ///   if shared ownership is required, preventing mutation while still allowing access.
+    /// - By returning an immutable reference to the collection, it cannot be
+    ///   modified by the caller.
+    /// - To ensure the collection is truly immutable, it is typically wrapped
+    ///   in an `Arc` or `Rc` if shared ownership is required, preventing
+    ///   mutation while still allowing access.
     ///
     /// In this implementation:
     /// - For a count of `0`, an empty `HashSet` is returned.
     /// - For a count of `1`, a SINGLETON `HashSet` is created.
     /// - For larger sets, a `HashSet` is created and populated.
-    /// - Ownership is transferred to the caller, and immutability is guaranteed by not exposing mutable references.
+    /// - Ownership is transferred to the caller, and immutability is guaranteed
+    ///   by not exposing mutable references.
     fn read_map_of_strings(&mut self) -> Result<HashMap<String, String>> {
         let count = self.read_vint()?;
 
@@ -287,8 +282,7 @@ pub trait DataInput: Sized + Display {
             map.insert(self.read_string()?, self.read_string()?);
             return Ok(map);
         } else {
-            let mut map: HashMap<String, String> =
-                HashMap::with_capacity(count as usize);
+            let mut map: HashMap<String, String> = HashMap::with_capacity(count as usize);
             for _ in 0..count {
                 map.insert(self.read_string()?, self.read_string()?);
             }
@@ -298,22 +292,27 @@ pub trait DataInput: Sized + Display {
     /// Reads a `HashSet<String>` previously written with
     /// [`DataOutput::write_set_of_strings`](crate::store::data_output::DataOutput::write_set_of_strings).
     ///
-    /// Reads a set of strings from the input. The set is immutable in the context of the caller.
+    /// Reads a set of strings from the input. The set is immutable in the
+    /// context of the caller.
     ///
     /// # Behavior in Rust
     ///
-    /// Rust does not have built-in "unmodifiable" collections like Java's `Collections.unmodifiableSet()`.
-    /// Instead, the immutability of a collection is enforced through ownership and borrowing rules:
+    /// Rust does not have built-in "unmodifiable" collections like Java's
+    /// `Collections.unmodifiableSet()`. Instead, the immutability of a
+    /// collection is enforced through ownership and borrowing rules:
     ///
-    /// - By returning an immutable reference to the collection, it cannot be modified by the caller.
-    /// - To ensure the collection is truly immutable, it is typically wrapped in an `Arc` or `Rc`
-    ///   if shared ownership is required, preventing mutation while still allowing access.
+    /// - By returning an immutable reference to the collection, it cannot be
+    ///   modified by the caller.
+    /// - To ensure the collection is truly immutable, it is typically wrapped
+    ///   in an `Arc` or `Rc` if shared ownership is required, preventing
+    ///   mutation while still allowing access.
     ///
     /// In this implementation:
     /// - For a count of `0`, an empty `HashSet` is returned.
     /// - For a count of `1`, a SINGLETON `HashSet` is created.
     /// - For larger sets, a `HashSet` is created and populated.
-    /// - Ownership is transferred to the caller, and immutability is guaranteed by not exposing mutable references.
+    /// - Ownership is transferred to the caller, and immutability is guaranteed
+    ///   by not exposing mutable references.
     fn read_set_of_strings(&mut self) -> Result<HashSet<String>> {
         let count = self.read_vint()?;
         if count == 0 {
@@ -330,13 +329,15 @@ pub trait DataInput: Sized + Display {
             Ok(set)
         }
     }
-    /// Skips over `num_bytes` bytes. This method may skip bytes in whatever way is most optimal,
-    /// and may not behave the same as reading the skipped bytes.
+    /// Skips over `num_bytes` bytes. This method may skip bytes in whatever way
+    /// is most optimal, and may not behave the same as reading the skipped
+    /// bytes.
     fn skip_bytes(&mut self, num_bytes: i64) -> Result<()>;
 
-    /// To determine at compile time whether the current struct implements the IndexInput trait.
-    /// In Java Lucene, could cast to IndexInput, though this is possible in Rust but needs dyn.
-    /// We do not accept any dyn things
+    /// To determine at compile time whether the current struct implements the
+    /// IndexInput trait. In Java Lucene, could cast to IndexInput, though
+    /// this is possible in Rust but needs dyn. We do not accept any dyn
+    /// things
     //TODO: is there a better way to do this?
     fn is_index_input(&self) -> bool {
         false

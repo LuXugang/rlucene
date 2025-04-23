@@ -15,9 +15,10 @@
  * limitations under the License.
  */
 
+use std::cmp::{max, min};
+
 use crate::util::error::lucene_error::Result;
 use crate::util::{sorter, Sorter};
-use std::cmp::{max, min};
 
 const MIN_RUN: i32 = 32;
 const THRESHOLD: i32 = 64;
@@ -27,14 +28,18 @@ const MIN_GALLOP: i32 = 7;
 /// [`Sorter`] implementation based on the [TimSort](http://svn.python.org/projects/python/trunk/Objects/listsort.txt) algorithm. It
 /// sorts small arrays with a binary sort.
 ///
-/// This algorithm is stable and is especially good at sorting partially-sorted arrays.
+/// This algorithm is stable and is especially good at sorting partially-sorted
+/// arrays.
 ///
 /// # Note
 /// There are a few differences with the original implementation:
-/// - The extra amount of memory to perform merges is configurable. This allows small merges to be very fast,
-///   while large merges will be performed in-place (slightly slower). You can ensure that the fast merge routine
-///   will always be used by having `max_temp_slots` equal to half the length of the slice of data to sort.
-/// - Only the fast merge routine can gallop (the one that doesn't run in-place), and it only gallops on the longest slice.
+/// - The extra amount of memory to perform merges is configurable. This allows
+///   small merges to be very fast, while large merges will be performed
+///   in-place (slightly slower). You can ensure that the fast merge routine
+///   will always be used by having `max_temp_slots` equal to half the length of
+///   the slice of data to sort.
+/// - Only the fast merge routine can gallop (the one that doesn't run
+///   in-place), and it only gallops on the longest slice.
 ///
 /// # Note
 /// This is an internal API.
@@ -90,7 +95,8 @@ impl<T: Sorter + TimSorterBase> TimSorter<T> {
             self.run_ends[(self.stack_size) as usize] + len;
         self.stack_size += 1;
     }
-    // Compute the length of the next run, make the run sorted and return its length.
+    // Compute the length of the next run, make the run sorted and return its
+    // length.
     fn next_run(&mut self) -> Result<i32> {
         let run_base = self.run_end(0);
         debug_assert!(run_base < self.to);
@@ -465,12 +471,13 @@ pub trait TimSorterBase {
 
 #[cfg(test)]
 mod tests {
+    use rand::rngs::StdRng;
+
     use crate::test::util::base_sort_test_case::{BaseSortTestCase, Entry};
     use crate::test::util::lucene_test_case::random;
     use crate::test::util::test_util::TestUtil;
     use crate::util::array_tim_sorter::ArrayTimSorter;
     use crate::util::{Comparator, NaturalOrder, Sorter, TimSorter};
-    use rand::rngs::StdRng;
 
     struct TestTimSorter<T, C> {
         _marker: std::marker::PhantomData<(T, C)>,
@@ -484,18 +491,11 @@ mod tests {
         }
     }
 
-    impl<T: Default + Clone, C: Comparator<T>> BaseSortTestCase
-        for TestTimSorter<T, C>
-    {
-        fn new_sorter(
-            &self,
-            random: &mut StdRng,
-            arr: &mut Vec<Entry>,
-        ) -> impl Sorter {
+    impl<T: Default + Clone, C: Comparator<T>> BaseSortTestCase for TestTimSorter<T, C> {
+        fn new_sorter(&self, random: &mut StdRng, arr: &mut Vec<Entry>) -> impl Sorter {
             let arr_len = arr.len();
             let max_temp_slots = TestUtil::next_int(random, 0, arr_len as i32);
-            let array_tim_sorter =
-                ArrayTimSorter::new(arr, NaturalOrder::new(), arr_len as i32);
+            let array_tim_sorter = ArrayTimSorter::new(arr, NaturalOrder::new(), arr_len as i32);
             TimSorter::new(max_temp_slots, array_tim_sorter)
         }
 

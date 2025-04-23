@@ -37,11 +37,7 @@ impl PForUtil {
         arr.iter().skip(1).all(|&v| v == arr[0])
     }
     /// Encode 128 integers from `ints` into `out`.
-    pub(crate) fn encode<O: DataOutput>(
-        &mut self,
-        ints: &mut [i32],
-        out: &mut O,
-    ) -> Result<()> {
+    pub(crate) fn encode<O: DataOutput>(&mut self, ints: &mut [i32], out: &mut O) -> Result<()> {
         let mut top = LongHeap::new(Self::MAX_EXCEPTIONS as i32 + 1)?;
         for &v in &ints[..=Self::MAX_EXCEPTIONS] {
             top.push(v as i64);
@@ -60,11 +56,10 @@ impl PForUtil {
         }
 
         let max_bits_required = PackedInts::bits_required(max)?;
-        // We store the patch on a byte, so we can't decrease the number of bits required by more than 8
-        let patched_bits_required = std::cmp::max(
-            PackedInts::bits_required(top_value)?,
-            max_bits_required - 8,
-        );
+        // We store the patch on a byte, so we can't decrease the number of bits
+        // required by more than 8
+        let patched_bits_required =
+            std::cmp::max(PackedInts::bits_required(top_value)?, max_bits_required - 8);
 
         let mut num_exceptions = 0;
         let max_unpatched_value = (1i64 << patched_bits_required) - 1;
@@ -77,8 +72,7 @@ impl PForUtil {
         let mut exceptions = vec![0u8; num_exceptions * 2];
         if num_exceptions > 0 {
             let mut exception_count = 0;
-            for (i, v) in ints.iter_mut().enumerate().take(ForUtil::BLOCK_SIZE)
-            {
+            for (i, v) in ints.iter_mut().enumerate().take(ForUtil::BLOCK_SIZE) {
                 if *v as i64 > max_unpatched_value {
                     exceptions[exception_count * 2] = i as u8;
                     exceptions[exception_count * 2 + 1] =
@@ -92,15 +86,13 @@ impl PForUtil {
 
         if Self::all_equal(ints) && max_bits_required <= 8 {
             for i in 0..num_exceptions {
-                exceptions[2 * i + 1] = ((exceptions[2 * i + 1] as i32)
-                    << patched_bits_required as i32)
-                    as u8;
+                exceptions[2 * i + 1] =
+                    ((exceptions[2 * i + 1] as i32) << patched_bits_required as i32) as u8;
             }
             out.write_byte((num_exceptions << 5) as u8)?;
             out.write_vint(ints[0])?;
         } else {
-            let token =
-                (num_exceptions << 5) | (patched_bits_required as usize);
+            let token = (num_exceptions << 5) | (patched_bits_required as usize);
             out.write_byte(token as u8)?;
             self.for_util.encode(ints, patched_bits_required, out)?;
         }
@@ -147,8 +139,7 @@ impl PForUtil {
             input.read_vlong()?;
             input.skip_bytes((num_exceptions << 1) as i64)?;
         } else {
-            let skip =
-                (ForUtil::num_bytes(bits_per_value)) + (num_exceptions << 1);
+            let skip = (ForUtil::num_bytes(bits_per_value)) + (num_exceptions << 1);
             input.skip_bytes(skip as i64)?;
         }
 
@@ -158,6 +149,12 @@ impl PForUtil {
 
 #[cfg(test)]
 mod tests {
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    use rand::rngs::StdRng;
+    use rand::Rng;
+
     use crate::codecs::lucene101::for_util::ForUtil;
     use crate::codecs::lucene101::pfor_util::PForUtil;
     use crate::internal::vectorization::posting_decoding_util::PostingDecodingUtil;
@@ -167,10 +164,6 @@ mod tests {
     use crate::test::util::test_util::TestUtil;
     use crate::util::error::lucene_error::Result;
     use crate::util::packed::PackedInts;
-    use rand::rngs::StdRng;
-    use rand::Rng;
-    use std::cell::RefCell;
-    use std::rc::Rc;
     #[allow(dead_code)] // for quick search
     struct TestPForUtil;
 
@@ -202,8 +195,7 @@ mod tests {
             pfor_util.decode(&mut pdu, &mut restored)?;
             let restored_ints: Vec<i32> = restored.to_vec();
 
-            let expected =
-                &values[i * ForUtil::BLOCK_SIZE..(i + 1) * ForUtil::BLOCK_SIZE];
+            let expected = &values[i * ForUtil::BLOCK_SIZE..(i + 1) * ForUtil::BLOCK_SIZE];
             assert_eq!(
                 restored_ints,
                 expected.to_vec(),
@@ -215,19 +207,14 @@ mod tests {
         assert_eq!(end_pointer, input.borrow().get_file_pointer());
         Ok(())
     }
-    fn create_test_data(
-        iterations: usize,
-        max_bpv: i32,
-        random: &mut StdRng,
-    ) -> Vec<i32> {
+    fn create_test_data(iterations: usize, max_bpv: i32, random: &mut StdRng) -> Vec<i32> {
         assert!(max_bpv > 0 && max_bpv <= 31);
         let mut values = vec![0i32; iterations * ForUtil::BLOCK_SIZE];
         for i in 0..iterations {
             let bpv = TestUtil::next_int(random, 0, max_bpv);
             for j in 0..ForUtil::BLOCK_SIZE {
                 let idx = i * ForUtil::BLOCK_SIZE + j;
-                values[idx] =
-                    random.random_range(0..=PackedInts::max_value(bpv) as i32);
+                values[idx] = random.random_range(0..=PackedInts::max_value(bpv) as i32);
                 if random.random_range(0..100) == 0 {
                     let extra = if random.random_range(0..10) == 0 {
                         TestUtil::next_int(random, 9, 16)
@@ -235,9 +222,7 @@ mod tests {
                         TestUtil::next_int(random, 1, 8)
                     };
                     let exception_bpv = (bpv + extra).min(max_bpv);
-                    values[idx] |= random
-                        .random_range(0..(1 << (exception_bpv - bpv)))
-                        << bpv;
+                    values[idx] |= random.random_range(0..(1 << (exception_bpv - bpv))) << bpv;
                 }
             }
         }
@@ -248,8 +233,7 @@ mod tests {
         values: &[i32],
         dir: &mut impl Directory,
     ) -> Result<i64> {
-        let mut out =
-            dir.create_output("test.bin", &IOContext::default_io_context()?)?;
+        let mut out = dir.create_output("test.bin", &IOContext::default_io_context()?)?;
         let mut pfor_util = PForUtil::new();
 
         for i in 0..iterations {

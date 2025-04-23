@@ -23,8 +23,9 @@ pub trait Bits {
     /// Returns the value of the bit at the specified `index`.
     ///
     /// # Arguments
-    /// * `index` - The index should be non-negative and less than the length of the bitset. Passing negative
-    ///   or out-of-bounds values results in undefined behavior—**just don't do it!**
+    /// * `index` - The index should be non-negative and less than the length of
+    ///   the bitset. Passing negative or out-of-bounds values results in
+    ///   undefined behavior—**just don't do it!**
     ///
     /// # Returns
     /// `true` if the bit is set, `false` otherwise.

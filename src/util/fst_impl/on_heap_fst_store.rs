@@ -14,32 +14,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::{Display, Formatter};
+
 use crate::store::{DataInput, DataOutput};
 use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fst_impl::fst::BytesReader;
 use crate::util::fst_impl::fst_compiler::fst_compiler_util;
 use crate::util::fst_impl::fst_reader::FstReader;
-use crate::util::fst_impl::read_write_data_output::{
-    BytesReaderEnum, ReadWriteDataOutput,
-};
+use crate::util::fst_impl::read_write_data_output::{BytesReaderEnum, ReadWriteDataOutput};
 use crate::util::fst_impl::reverse_bytes_reader::ReverseBytesReader;
-use std::fmt::{Display, Formatter};
 
-/// Provides storage of finite state machine (FST), using byte array or byte store allocated on heap.
+/// Provides storage of finite state machine (FST), using byte array or byte
+/// store allocated on heap.
 pub struct OnHeapFSTStore {
-    /// A [`ReadWriteDataOutput`], used during reading when the FST is very large (more than 1 GB).
-    /// If the FST is less than 1 GB then bytesArray is set instead.
+    /// A [`ReadWriteDataOutput`], used during reading when the FST is very
+    /// large (more than 1 GB). If the FST is less than 1 GB then
+    /// bytesArray is set instead.
     data_output: Option<ReadWriteDataOutput>,
     ///  Used at read time when the FST fits into a single byte array.
     bytes_array: Option<Vec<u8>>,
 }
 impl OnHeapFSTStore {
-    pub fn new(
-        max_block_bits: i32,
-        input: &mut impl DataInput,
-        num_bytes: i64,
-    ) -> Result<Self> {
+    pub fn new(max_block_bits: i32, input: &mut impl DataInput, num_bytes: i64) -> Result<Self> {
         if !(1..=30).contains(&max_block_bits) {
             return Err(LuceneError::illegal_argument(format!(
                 "max_block_bits should be in 1..=30; got {}",
@@ -49,8 +46,7 @@ impl OnHeapFSTStore {
 
         if num_bytes > (1_i64 << max_block_bits) {
             // FST is big: we need multiple pages
-            let mut data_output =
-                fst_compiler_util::get_on_heap_reader_writer(max_block_bits)?;
+            let mut data_output = fst_compiler_util::get_on_heap_reader_writer(max_block_bits)?;
             data_output.copy_bytes(input, num_bytes)?;
             data_output.freeze()?;
             Ok(Self {
@@ -128,19 +124,10 @@ impl DataInput for FstBytesReaderEnum {
         }
     }
 
-    fn read_bytes(
-        &mut self,
-        b: &mut [u8],
-        offset: i32,
-        len: i32,
-    ) -> Result<()> {
+    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()> {
         match self {
-            FstBytesReaderEnum::Reverse(reader) => {
-                reader.read_bytes(b, offset, len)
-            },
-            FstBytesReaderEnum::Bytes(reader) => {
-                reader.read_bytes(b, offset, len)
-            },
+            FstBytesReaderEnum::Reverse(reader) => reader.read_bytes(b, offset, len),
+            FstBytesReaderEnum::Bytes(reader) => reader.read_bytes(b, offset, len),
         }
     }
 

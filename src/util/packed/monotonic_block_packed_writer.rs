@@ -23,9 +23,10 @@ use crate::util::packed::monotonic_block_packed_reader::expected;
 use crate::util::packed::PackedInts;
 /// A writer for large monotonically increasing sequences of positive longs.
 ///
-/// The sequence is divided into fixed-size blocks, and for each block, values are modeled after a
-/// linear function `f(x) = A * x + B`. The block encodes deltas from the expected values computed
-/// from this function using as few bits as possible.
+/// The sequence is divided into fixed-size blocks, and for each block, values
+/// are modeled after a linear function `f(x) = A * x + B`. The block encodes
+/// deltas from the expected values computed from this function using as few
+/// bits as possible.
 ///
 /// # Format
 ///
@@ -34,13 +35,16 @@ use crate::util::packed::PackedInts;
 /// - `Block`: `<Header, (Ints)>`
 /// - `Header`: `<B, A, BitsPerValue>`
 ///   - `B`: The `B` from `f(x) = A * x + B` encoded using
-///     [`BitUtil::zig_zag_encode_i64`](crate::util::bit_util::BitUtil::zig_zag_encode_i64) with [`DataOutput::write_vlong`].
-///   - `A`: The `A` from `f(x) = A * x + B` encoded using
-///     [`f32::to_bits`] and written as a 4-byte integer with [`DataOutput::write_int`].
-///   - `BitsPerValue`: A variable-length integer written with [`DataOutput::write_vint`].
-/// - `Ints`: If `BitsPerValue` is `0`, then there is nothing to read, and all values perfectly
-///   match the result of the function. Otherwise, these are the packed deltas from the expected
-///   values (computed from the function) using exactly `BitsPerValue` bits per value.
+///     [`BitUtil::zig_zag_encode_i64`](crate::util::bit_util::BitUtil::zig_zag_encode_i64)
+///     with [`DataOutput::write_vlong`].
+///   - `A`: The `A` from `f(x) = A * x + B` encoded using [`f32::to_bits`] and
+///     written as a 4-byte integer with [`DataOutput::write_int`].
+///   - `BitsPerValue`: A variable-length integer written with
+///     [`DataOutput::write_vint`].
+/// - `Ints`: If `BitsPerValue` is `0`, then there is nothing to read, and all
+///   values perfectly match the result of the function. Otherwise, these are
+///   the packed deltas from the expected values (computed from the function)
+///   using exactly `BitsPerValue` bits per value.
 ///
 /// # See Also
 /// - [`MonotonicBlockPackedReader`](crate::util::packed::monotonic_block_packed_reader::MonotonicBlockPackedReader)
@@ -65,9 +69,7 @@ impl AbstractBlockPackedWriterBase for MonotonicBlockPackedWriter {
 
         let mut min = values[0];
         // adjust min so that all deltas will be positive
-        for (i, &actual) in
-            values.iter().enumerate().skip(1).take(*off as usize - 1)
-        {
+        for (i, &actual) in values.iter().enumerate().skip(1).take(*off as usize - 1) {
             debug_assert!(i <= i32::MAX as usize);
             let expected = expected(min, avg, i as i32);
             if expected > actual {

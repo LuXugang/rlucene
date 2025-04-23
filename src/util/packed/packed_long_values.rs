@@ -41,7 +41,8 @@ const MIN_PAGE_SIZE: i32 = 64;
 const MAX_PAGE_SIZE: i32 = 1 << 20;
 impl PackedLongValues {
     pub const DEFAULT_PAGE_SIZE: i32 = 256;
-    /// Return a new [`PackedLongValuesBuilder`] that will compress efficiently positive integers.
+    /// Return a new [`PackedLongValuesBuilder`] that will compress efficiently
+    /// positive integers.
     pub fn packed_long_values_builder(
         page_size: i32,
         acceptable_overhead_ratio: f32,
@@ -52,13 +53,11 @@ impl PackedLongValues {
     pub fn packed_long_values_builder_default(
         acceptable_overhead_ratio: f32,
     ) -> Result<PackedLongValuesBuilder> {
-        Self::packed_long_values_builder(
-            Self::DEFAULT_PAGE_SIZE,
-            acceptable_overhead_ratio,
-        )
+        Self::packed_long_values_builder(Self::DEFAULT_PAGE_SIZE, acceptable_overhead_ratio)
     }
 
-    /// Return a new `DeltaPackedLongValuesBuilder` that will compress efficiently integers that are close to each other.
+    /// Return a new `DeltaPackedLongValuesBuilder` that will compress
+    /// efficiently integers that are close to each other.
     pub fn delta_packed_long_values_builder(
         page_size: i32,
         acceptable_overhead_ratio: f32,
@@ -75,20 +74,17 @@ impl PackedLongValues {
     pub fn delta_packed_long_values_builder_default(
         acceptable_overhead_ratio: f32,
     ) -> Result<PackedLongValuesBuilder> {
-        Self::delta_packed_long_values_builder(
-            Self::DEFAULT_PAGE_SIZE,
-            acceptable_overhead_ratio,
-        )
+        Self::delta_packed_long_values_builder(Self::DEFAULT_PAGE_SIZE, acceptable_overhead_ratio)
     }
 
-    /// Return a new [`MonotonicLongValuesBuilder`] that will compress efficiently integers that would be a monotonic function of their index.
+    /// Return a new [`MonotonicLongValuesBuilder`] that will compress
+    /// efficiently integers that would be a monotonic function of their index.
     pub fn monotonic_long_values_builder(
         page_size: i32,
         acceptable_overhead_ratio: f32,
     ) -> Result<PackedLongValuesBuilder> {
         let sub_builder = MonotonicLongValuesBuilder::new();
-        let sub_delta_builder =
-            DeltaPackedLongValuesBuilder::with_sub_builder(Some(sub_builder));
+        let sub_delta_builder = DeltaPackedLongValuesBuilder::with_sub_builder(Some(sub_builder));
         PackedLongValuesBuilder::with_sub_builder(
             page_size,
             acceptable_overhead_ratio,
@@ -126,12 +122,7 @@ impl PackedLongValues {
         self.size
     }
 
-    fn decode_block(
-        &mut self,
-        block: i32,
-        dest: &mut [i64],
-        _count: i32,
-    ) -> Result<i32> {
+    fn decode_block(&mut self, block: i32, dest: &mut [i64], _count: i32) -> Result<i32> {
         let vals = &mut self.values[block as usize];
         let size = vals.size();
         let mut k = 0;
@@ -144,12 +135,7 @@ impl PackedLongValues {
         }
     }
 
-    fn get_value(
-        &mut self,
-        block: i32,
-        element: i32,
-        _value: i64,
-    ) -> Result<i64> {
+    fn get_value(&mut self, block: i32, element: i32, _value: i64) -> Result<i64> {
         let value = if self.sub_long_values.is_some() {
             self.sub_long_values
                 .as_mut()
@@ -202,10 +188,7 @@ impl PackedLongValuesBuilder {
     // TODO
     #[allow(dead_code)]
     const BASE_RAM_BYTES_USED: i64 = 0;
-    pub fn new(
-        page_size: i32,
-        acceptable_overhead_ratio: f32,
-    ) -> Result<PackedLongValuesBuilder> {
+    pub fn new(page_size: i32, acceptable_overhead_ratio: f32) -> Result<PackedLongValuesBuilder> {
         Self::with_sub_builder(page_size, acceptable_overhead_ratio, None)
     }
     pub(crate) fn with_sub_builder(
@@ -213,11 +196,7 @@ impl PackedLongValuesBuilder {
         acceptable_overhead_ratio: f32,
         sub_packed_long_values_builder: Option<DeltaPackedLongValuesBuilder>,
     ) -> Result<PackedLongValuesBuilder> {
-        let page_shift = PackedInts::check_block_size(
-            page_size,
-            MIN_PAGE_SIZE,
-            MAX_PAGE_SIZE,
-        )?;
+        let page_shift = PackedInts::check_block_size(page_size, MIN_PAGE_SIZE, MAX_PAGE_SIZE)?;
         let page_mask = page_size - 1;
         let pending = Some(vec![0; page_size as usize]);
         let mut values = Vec::new();
@@ -239,8 +218,8 @@ impl PackedLongValuesBuilder {
             sub_builder: sub_packed_long_values_builder,
         })
     }
-    /// Build a [`PackedLongValues`] instance that contains values that have been added to this
-    /// builder. This operation is destructive.
+    /// Build a [`PackedLongValues`] instance that contains values that have
+    /// been added to this builder. This operation is destructive.
     pub fn build(mut self) -> Result<PackedLongValues> {
         self.finish()?;
         // TODO
@@ -248,8 +227,7 @@ impl PackedLongValuesBuilder {
         let mut values = std::mem::take(&mut self.values);
         let _ = values.split_off(self.values_off as usize);
         if self.sub_builder.is_some() {
-            let sub =
-                self.sub_builder.take().unwrap().build(self.values_off)?;
+            let sub = self.sub_builder.take().unwrap().build(self.values_off)?;
             return Ok(PackedLongValues::new(
                 self.page_shift,
                 self.page_mask,
@@ -270,15 +248,14 @@ impl PackedLongValuesBuilder {
     }
     pub fn add(&mut self, l: i64) -> Result<&mut Self> {
         if self.pending.is_none() {
-            return Err(LuceneError::illegal_state(
-                "Cannot be reused after build()",
-            ));
+            return Err(LuceneError::illegal_state("Cannot be reused after build()"));
         }
 
         if self.pending_off as usize == self.pending.as_ref().unwrap().len() {
             let current_value_len = self.values.len();
             if current_value_len == self.values_off as usize {
-                // Not consistent with the Java version implementation, we increase by half of the current length
+                // Not consistent with the Java version implementation, we
+                // increase by half of the current length
                 let new_length = current_value_len + current_value_len / 2;
                 debug_assert!(new_length <= i32::MAX as usize);
                 self.grow(new_length as i32)?;
@@ -352,8 +329,7 @@ impl PackedLongValuesBuilder {
         // Build a new packed reader
         if min_value == 0 && max_value == 0 {
             let reader = NullReader::new(num_values);
-            self.values[block as usize] =
-                PackedIntsReadEnum::NullReader(reader);
+            self.values[block as usize] = PackedIntsReadEnum::NullReader(reader);
             Ok(())
         } else {
             let bits_required = if min_value < 0 {
@@ -362,18 +338,14 @@ impl PackedLongValuesBuilder {
                 PackedInts::bits_required(max_value)?
             };
 
-            let mut mutable = PackedInts::get_mutable(
-                num_values,
-                bits_required,
-                acceptable_overhead_ratio,
-            )?;
+            let mut mutable =
+                PackedInts::get_mutable(num_values, bits_required, acceptable_overhead_ratio)?;
             let mut i = 0;
             while i < num_values {
                 i += mutable.set_bulk(i, values, i, num_values - i)?;
             }
 
-            self.values[block as usize] =
-                PackedIntsReadEnum::PackedReader(mutable);
+            self.values[block as usize] = PackedIntsReadEnum::PackedReader(mutable);
             Ok(())
         }
     }
@@ -424,11 +396,9 @@ impl<'a> PackedLongValuesIterator<'a> {
         if (self.v_off as usize) >= self.packed_long_values.values.len() {
             self.current_count = 0;
         } else {
-            self.current_count = self.packed_long_values.decode_block(
-                self.v_off,
-                &mut self.current_values,
-                0,
-            )?;
+            self.current_count =
+                self.packed_long_values
+                    .decode_block(self.v_off, &mut self.current_values, 0)?;
             debug_assert!(self.current_count > 0);
         }
         Ok(())

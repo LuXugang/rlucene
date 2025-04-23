@@ -16,7 +16,8 @@
  */
 /// A runnable automaton accepting byte array as input
 pub trait ByteRunnable {
-    /// Returns the state obtained by reading the given byte from the given state.
+    /// Returns the state obtained by reading the given byte from the given
+    /// state.
     ///
     /// Returns -1 if not obtaining any such state.
     ///

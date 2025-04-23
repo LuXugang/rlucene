@@ -14,10 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::store::IndexInput;
-use crate::util::error::lucene_error::Result;
 use std::cell::RefCell;
 use std::rc::Rc;
+
+use crate::store::IndexInput;
+use crate::util::error::lucene_error::Result;
 /// Utility struct to decode postings.
 pub struct PostingDecodingUtil<I: IndexInput> {
     /// The wrapper {@link IndexInput}.
@@ -58,8 +59,7 @@ impl<I: IndexInput> PostingDecodingUtil<I> {
                 let shift = b_shift - j * dec;
                 if shift > 0 {
                     b_and_c[count * j as usize + i] =
-                        ((b_and_c[c_index + i] as u64) >> shift) as i32
-                            & b_mask;
+                        ((b_and_c[c_index + i] as u64) >> shift) as i32 & b_mask;
                 }
             }
             b_and_c[c_index + i] &= c_mask;
@@ -88,8 +88,7 @@ impl<I: IndexInput> PostingDecodingUtil<I> {
             for j in 0..=max_iter {
                 let shift = b_shift - j * dec;
                 if shift > 0 {
-                    b[count * j as usize + i] =
-                        ((c[c_index + i] as u64) >> shift) as i32 & b_mask;
+                    b[count * j as usize + i] = ((c[c_index + i] as u64) >> shift) as i32 & b_mask;
                 }
             }
             c[c_index + i] &= c_mask;

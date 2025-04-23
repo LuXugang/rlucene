@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::index::BytesRef;
-
 use crate::util::error::lucene_error::Result;
 use crate::util::{BytesRefComparator, Comparator};
 
@@ -26,7 +25,8 @@ pub trait SortableBytesRefArray<'a> {
     fn clear(&mut self);
     /// Returns the number of values appended so far
     fn size(&self) -> i32;
-    /// Sort all values by the provided comparator and return an iterator over the sorted values */
+    /// Sort all values by the provided comparator and return an iterator over
+    /// the sorted values */
     type Iter;
     fn iterator(
         &'a mut self,

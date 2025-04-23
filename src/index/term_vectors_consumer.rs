@@ -24,10 +24,7 @@ impl TermsHashBase for TermVectorsConsumer {
         todo!()
     }
 
-    fn set_term_byte_pool(
-        &mut self,
-        _term_byte_pool: Option<ByteBlockPoolBorrow>,
-    ) {
+    fn set_term_byte_pool(&mut self, _term_byte_pool: Option<ByteBlockPoolBorrow>) {
         todo!()
     }
 }

@@ -14,34 +14,36 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::access::AccessVec;
-use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::{Comparator, ToInt};
-use crate::with_other;
 use std::cmp::Ordering;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
-/// A generic, slice-like reference over an integer array with offset and length.
+
+use crate::util::access::AccessVec;
+use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::{Comparator, ToInt};
+use crate::with_other;
+/// A generic, slice-like reference over an integer array with offset and
+/// length.
 ///
-/// `IntsRef<AV>` provides a flexible abstraction for referencing a sub-slice of integers,
-/// where `AV` is a container implementing [`AccessVec<i32>`].
+/// `IntsRef<AV>` provides a flexible abstraction for referencing a sub-slice of
+/// integers, where `AV` is a container implementing [`AccessVec<i32>`].
 ///
 /// This design supports different memory access models:
 ///
-/// - **Single-threaded, shared ownership:**  
-///   Use `Rc<RefCell<Vec<i32>>>` as the `AV` type. This allows multiple parts of the program
-///   to mutate the same underlying data safely in a single-threaded context.
+/// - **Single-threaded, shared ownership:**   Use `Rc<RefCell<Vec<i32>>>` as
+///   the `AV` type. This allows multiple parts of the program to mutate the
+///   same underlying data safely in a single-threaded context.
 ///
-/// - **Multi-threaded, synchronized access:**  
-///   Use `Arc<Mutex<Vec<i32>>>` for safe concurrent access and mutation across threads.
+/// - **Multi-threaded, synchronized access:**   Use `Arc<Mutex<Vec<i32>>>` for
+///   safe concurrent access and mutation across threads.
 ///
-/// - **No sharing / performance-focused:**  
-///   Use plain `Vec<i32>` if the data is owned locally and doesn’t need to be shared.
-///   This offers the best performance with no synchronization overhead.
+/// - **No sharing / performance-focused:**   Use plain `Vec<i32>` if the data
+///   is owned locally and doesn’t need to be shared. This offers the best
+///   performance with no synchronization overhead.
 ///
-/// The generic `AccessVec` trait provides a unified interface for all three modes,
-/// abstracting over access, mutation, cloning, and construction.
+/// The generic `AccessVec` trait provides a unified interface for all three
+/// modes, abstracting over access, mutation, cloning, and construction.
 /// Represents int[], as a slice (offset + length) into an existing int[].
 #[derive(Debug)]
 pub struct IntsRef<AV: AccessVec<i32>> {
@@ -139,16 +141,17 @@ where
     }
     pub fn ints_equals(&self, other: &IntsRef<AV>) -> Result<bool> {
         with_other!(self.ints, other.ints, |ints_bytes, other_bytes| {
-            let self_slice = &ints_bytes
-                [self.offset as usize..(self.offset + self.length) as usize];
-            let other_slice = &other_bytes
-                [other.offset as usize..(other.offset + other.length) as usize];
+            let self_slice =
+                &ints_bytes[self.offset as usize..(self.offset + self.length) as usize];
+            let other_slice =
+                &other_bytes[other.offset as usize..(other.offset + other.length) as usize];
             Ok(self_slice == other_slice)
         })
     }
     /// Creates a new IntsRef that points to a copy of the ints from `other`
     ///
-    /// The returned IntsRef will have a length of `other.length` and an offset of zero.
+    /// The returned IntsRef will have a length of `other.length` and an offset
+    /// of zero.
     pub fn deep_copy_of(other: &IntsRef<AV>) -> Self {
         let ints = other
             .ints
@@ -164,8 +167,9 @@ impl<AV> Clone for IntsRef<AV>
 where
     AV: AccessVec<i32>,
 {
-    /// Returns a shallow clone of this instance (the underlying ints are **not** copied
-    /// and will be shared by both the returned object and this object).
+    /// Returns a shallow clone of this instance (the underlying ints are
+    /// **not** copied and will be shared by both the returned object and
+    /// this object).
     fn clone(&self) -> Self {
         IntsRef {
             ints: self.ints.clone(),
@@ -188,10 +192,10 @@ where
 {
     fn cmp(&self, other: &Self) -> Ordering {
         with_other!(self.ints, other.ints, |ints_bytes, other_bytes| {
-            let self_slice = &ints_bytes
-                [self.offset as usize..(self.offset + self.length) as usize];
-            let other_slice = &other_bytes
-                [other.offset as usize..(other.offset + other.length) as usize];
+            let self_slice =
+                &ints_bytes[self.offset as usize..(self.offset + self.length) as usize];
+            let other_slice =
+                &other_bytes[other.offset as usize..(other.offset + other.length) as usize];
             self_slice.cmp(other_slice)
         })
     }
@@ -212,8 +216,7 @@ where
 {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.ints.access(|ints| {
-            let slice = &ints
-                [self.offset as usize..(self.offset + self.length) as usize];
+            let slice = &ints[self.offset as usize..(self.offset + self.length) as usize];
             slice.hash(state);
         });
     }
@@ -226,10 +229,8 @@ where
 
     fn compare(&self, a: &IntsRef<AV>, b: &IntsRef<AV>) -> Result<i32> {
         with_other!(a.ints, b.ints, |a_bytes, b_bytes| {
-            let a_slice =
-                &a_bytes[a.offset as usize..(a.offset + a.length) as usize];
-            let b_slice =
-                &b_bytes[a.offset as usize..(a.offset + a.length) as usize];
+            let a_slice = &a_bytes[a.offset as usize..(a.offset + a.length) as usize];
+            let b_slice = &b_bytes[a.offset as usize..(a.offset + a.length) as usize];
             Ok(a_slice.cmp(b_slice).to_int())
         })
     }
@@ -240,8 +241,7 @@ where
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         self.ints.access(|ints| {
-            let slice = &ints
-                [self.offset as usize..(self.offset + self.length) as usize];
+            let slice = &ints[self.offset as usize..(self.offset + self.length) as usize];
             write!(f, "[")?;
             for (i, v) in slice.iter().enumerate() {
                 if i > 0 {

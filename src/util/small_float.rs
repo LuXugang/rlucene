@@ -14,10 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use once_cell::sync::Lazy;
+
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::error::lucene_error::Result;
-
-use once_cell::sync::Lazy;
 
 pub struct SmallFloat;
 impl SmallFloat {
@@ -57,8 +57,8 @@ impl SmallFloat {
     }
     /// Converts an 8-bit float to a 32-bit float.
     pub fn byte_to_float(b: u8, num_mantissa_bits: i32, zero_exp: i32) -> f32 {
-        // on Java1.5 & 1.6 JVMs, prebuilding a decoding array and doing a lookup
-        // is only a little bit faster (anywhere from 0% to 7%)
+        // on Java1.5 & 1.6 JVMs, prebuilding a decoding array and doing a
+        // lookup is only a little bit faster (anywhere from 0% to 7%)
         if b == 0 {
             return 0.0f32;
         }
@@ -92,7 +92,8 @@ impl SmallFloat {
         f32::from_bits(bits as u32)
     }
 
-    /// Float-like encoding for positive longs that preserves ordering and 4 significant bits.
+    /// Float-like encoding for positive longs that preserves ordering and 4
+    /// significant bits.
     pub fn long_to_int4(i: i64) -> Result<i32> {
         if i < 0 {
             return Err(LuceneError::illegal_argument(format!(
@@ -110,7 +111,8 @@ impl SmallFloat {
             let mut encoded = ((i as u64 >> shift) as i64).try_into()?;
             // only keep the 5 most significant bits
             encoded &= 0x07;
-            // encode the shift, adding 1 because 0 is reserved for subnormal values
+            // encode the shift, adding 1 because 0 is reserved for subnormal
+            // values
             encoded |= (shift + 1) << 3;
             Ok(encoded)
         }
@@ -141,9 +143,7 @@ impl SmallFloat {
         if i < *NUM_FREE_VALUES {
             Ok(i as u8)
         } else {
-            Ok((*NUM_FREE_VALUES
-                + Self::long_to_int4((i - *NUM_FREE_VALUES) as i64)?)
-                as u8)
+            Ok((*NUM_FREE_VALUES + Self::long_to_int4((i - *NUM_FREE_VALUES) as i64)?) as u8)
         }
     }
 
@@ -153,16 +153,14 @@ impl SmallFloat {
         if i < *NUM_FREE_VALUES {
             Ok(i)
         } else {
-            let v = (*NUM_FREE_VALUES as i64
-                + Self::int4_to_long(i - *NUM_FREE_VALUES))
-            .try_into()?;
+            let v =
+                (*NUM_FREE_VALUES as i64 + Self::int4_to_long(i - *NUM_FREE_VALUES)).try_into()?;
             Ok(v)
         }
     }
 }
 
-static MAX_INT4: Lazy<i32> =
-    Lazy::new(|| SmallFloat::long_to_int4(i32::MAX as i64).unwrap());
+static MAX_INT4: Lazy<i32> = Lazy::new(|| SmallFloat::long_to_int4(i32::MAX as i64).unwrap());
 static NUM_FREE_VALUES: Lazy<i32> = Lazy::new(|| 255 - *MAX_INT4);
 
 #[cfg(test)]
@@ -256,9 +254,10 @@ mod tests {
             );
         }
     }
+    use rand::Rng;
+
     use crate::test::util::lucene_test_case::{at_least, random};
     use crate::test::util::test_util::TestUtil;
-    use rand::Rng;
 
     #[test]
     fn test_float_to_byte() {
@@ -323,8 +322,7 @@ mod tests {
             } else {
                 l
             };
-            let round_trip =
-                SmallFloat::int4_to_long(SmallFloat::long_to_int4(l)?);
+            let round_trip = SmallFloat::int4_to_long(SmallFloat::long_to_int4(l)?);
             assert_eq!(
                 expected, round_trip,
                 "expected={}, got={}, input={}",

@@ -88,23 +88,20 @@ impl IndexSorter for IndexSortEnum {
 }
 #[cfg(test)]
 mod tests {
-    use crate::index::{BytesRef, BytesRefBuilder};
-    use crate::test::util::common_method::assert_vecs_equal;
-
-    use crate::util::bytes_ref_comparator::{BytesRefComparator, Natural};
     use rand::rngs::StdRng;
     use rand::{Rng, RngCore};
 
+    use crate::index::{BytesRef, BytesRefBuilder};
+    use crate::test::util::common_method::assert_vecs_equal;
     use crate::test::util::lucene_test_case::{at_least, random};
     use crate::test::util::test_util::TestUtil;
     use crate::util::access::AccessVec;
+    use crate::util::bytes_ref_comparator::{BytesRefComparator, Natural};
     use crate::util::error::lucene_error::Result;
-    use crate::util::stable_string_sorter::{
-        StableStringSorter, StableStringSorterBase,
-    };
+    use crate::util::stable_string_sorter::{StableStringSorter, StableStringSorterBase};
     use crate::util::{
-        Comparator, MSBRadixSorterBase, NaturalOrder, SliceCopyOps, Sorter,
-        StringSorter, StringSorterBase,
+        Comparator, MSBRadixSorterBase, NaturalOrder, SliceCopyOps, Sorter, StringSorter,
+        StringSorterBase,
     };
 
     #[allow(dead_code)] // for quick search
@@ -151,8 +148,7 @@ mod tests {
             refs: &mut actual,
         };
         let string_sorter = StableStringSorter::new(delegate_sorter);
-        let mut stable_string_sorter =
-            StringSorter::new(string_sorter, comparator);
+        let mut stable_string_sorter = StringSorter::new(string_sorter, comparator);
         stable_string_sorter.sort(0, len as i32)?;
         // `actual` is not sorted, but `ord` is sorted
         assert_vecs_equal(&actual_before_sorted, &actual);
@@ -180,26 +176,22 @@ mod tests {
     fn test_empty() -> Result<()> {
         let mut random = random();
         let len = random.random_range(0..5);
-        let refs: Vec<BytesRef<Vec<u8>>> =
-            (0..len).map(|_| BytesRef::default()).collect();
+        let refs: Vec<BytesRef<Vec<u8>>> = (0..len).map(|_| BytesRef::default()).collect();
         test(refs, 0)
     }
 
     #[test]
     fn test_one_value() -> Result<()> {
         let mut random = random();
-        let bytes =
-            BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
+        let bytes = BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
         test(vec![bytes], 1)
     }
 
     #[test]
     fn test_two_values() -> Result<()> {
         let mut random = random();
-        let bytes1 =
-            BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
-        let bytes2 =
-            BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
+        let bytes1 = BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
+        let bytes2 = BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
         test(vec![bytes1, bytes2], 2)
     }
 
@@ -215,8 +207,7 @@ mod tests {
         let mut bytes: Vec<BytesRef<Vec<u8>>> =
             Vec::with_capacity(len + random.random_range(0..50));
         for _ in 0..len {
-            let mut b =
-                vec![0u8; common_prefix_len + random.random_range(0..max_len)];
+            let mut b = vec![0u8; common_prefix_len + random.random_range(0..max_len)];
             random.fill_bytes(&mut b[common_prefix_len..]);
             b.copy_from(&common_prefix, 0);
             bytes.push(BytesRef::from_bytes(b));
@@ -247,8 +238,7 @@ mod tests {
         let mut random = random();
         let num_iters = at_least(&mut random, 3) as i32;
         for _ in 0..num_iters {
-            let shared_prefix_len =
-                TestUtil::next_int(&mut random, 1, 30) as usize;
+            let shared_prefix_len = TestUtil::next_int(&mut random, 1, 30) as usize;
             test_random_impl(shared_prefix_len, 10, &mut random)?;
         }
         Ok(())
@@ -258,8 +248,7 @@ mod tests {
         let mut random = random();
         let num_iters = at_least(&mut random, 3) as i32;
         for _ in 0..num_iters {
-            let shared_prefix_len =
-                TestUtil::next_int(&mut random, 1, 30) as usize;
+            let shared_prefix_len = TestUtil::next_int(&mut random, 1, 30) as usize;
             test_random_impl(shared_prefix_len, 2, &mut random)?;
         }
         Ok(())

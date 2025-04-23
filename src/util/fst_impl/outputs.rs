@@ -14,17 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::store::{DataInput, DataOutput};
-use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs;
 use std::fmt::Display;
 use std::hash::Hash;
 
-/// Represents the outputs for an FST, providing the basic algebra required for building and
-/// traversing the FST.
+use crate::store::{DataInput, DataOutput};
+use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs;
+
+/// Represents the outputs for an FST, providing the basic algebra required for
+/// building and traversing the FST.
 ///
-/// Note that any operation that returns `NO_OUTPUT` must return the same SINGLETON object from
-/// [`get_no_output`](Outputs::get_no_output).
+/// Note that any operation that returns `NO_OUTPUT` must return the same
+/// SINGLETON object from [`get_no_output`](Outputs::get_no_output).
 ///
 /// # lucene.experimental
 pub trait Outputs<T>: Display + Clone
@@ -50,18 +51,15 @@ where
 
     /// Encode a final node output value into a `Write` stream.
     /// By default this just calls [`write`].
-    fn write_final_output(
-        &self,
-        output: &T,
-        out: &mut impl DataOutput,
-    ) -> Result<()> {
+    fn write_final_output(&self, output: &T, out: &mut impl DataOutput) -> Result<()> {
         self.write(output, out)
     }
 
     /// Decode an output value previously written with [`write`].
     fn read(&self, input: &mut impl DataInput) -> Result<T>;
 
-    /// Skip the output; defaults to just calling [`read`] and discarding the result.
+    /// Skip the output; defaults to just calling [`read`] and discarding the
+    /// result.
     fn skip_output(&self, input: &mut impl DataInput) -> Result<()> {
         let _ = self.read(input)?;
         Ok(())
@@ -74,14 +72,16 @@ where
     }
 
     /// Skip the output previously written with [`write_final_output`];
-    /// defaults to just calling [`read_final_output`] and discarding the result.
+    /// defaults to just calling [`read_final_output`] and discarding the
+    /// result.
     fn skip_final_output(&self, input: &mut impl DataInput) -> Result<()> {
         self.skip_output(input)?;
         Ok(())
     }
 
-    /// NOTE: this output is compared with pointer equality (`==`), so you must ensure that
-    /// all methods return the same SINGLETON object if it's really no output.
+    /// NOTE: this output is compared with pointer equality (`==`), so you must
+    /// ensure that all methods return the same SINGLETON object if it's
+    /// really no output.
     fn get_no_output(&self) -> T;
 
     fn output_to_string(&self, output: &T) -> String;

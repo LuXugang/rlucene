@@ -20,7 +20,8 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 /// `DataOutput` backed by a byte array.
 ///
 /// # Warning
-/// This struct omits most low-level checks, so be sure to test thoroughly with assertions enabled.
+/// This struct omits most low-level checks, so be sure to test thoroughly with
+/// assertions enabled.
 ///
 /// # Note
 /// This is an experimental API.
@@ -94,12 +95,7 @@ impl DataOutput for ByteArrayDataOutput {
         Ok(())
     }
 
-    fn write_bytes_range(
-        &mut self,
-        b: &[u8],
-        offset: i32,
-        length: i32,
-    ) -> Result<()> {
+    fn write_bytes_range(&mut self, b: &[u8], offset: i32, length: i32) -> Result<()> {
         debug_assert!(
             self.pos + length <= self.limit,
             "Write exceeds the allowed limit: pos={}, length={}, limit={}",
@@ -124,8 +120,7 @@ impl DataOutput for ByteArrayDataOutput {
 
         debug_assert!(
             {
-                let dst_start =
-                    self.bytes.as_mut_ptr() as usize + self.pos as usize;
+                let dst_start = self.bytes.as_mut_ptr() as usize + self.pos as usize;
                 let dst_end = dst_start + length as usize;
                 let src_start = b.as_ptr() as usize + offset as usize;
                 let src_end = src_start + length as usize;

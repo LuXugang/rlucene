@@ -14,11 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt;
+use std::fmt::Display;
+
 use crate::search::sort_field::SortField;
 use crate::search::sort_field_enum::SortFieldEnum;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use std::fmt;
-use std::fmt::Display;
 
 #[derive(Clone)]
 pub struct Sort {
@@ -40,8 +41,8 @@ impl Sort {
 impl Sort {
     /// Sorts by computed relevance.
     ///
-    /// This is the same sort criteria as calling `IndexSearcher::search` without a sort criteria,
-    /// only with slightly more overhead.
+    /// This is the same sort criteria as calling `IndexSearcher::search`
+    /// without a sort criteria, only with slightly more overhead.
     pub fn new() -> Result<Self> {
         let sort_field = SortFieldEnum::Sorter(SortField::get_field_score()?);
         Self::with_fields(vec![sort_field])
@@ -49,9 +50,10 @@ impl Sort {
 
     /// Sets the sort to the given criteria in succession.
     ///
-    /// The first `SortField` is checked first, but if it produces a tie, then the second `SortField`
-    /// is used to break the tie, and so on. Finally, if there is still a tie after all `SortField`s
-    /// are checked, the internal Lucene doc ID is used to break it.
+    /// The first `SortField` is checked first, but if it produces a tie, then
+    /// the second `SortField` is used to break the tie, and so on. Finally,
+    /// if there is still a tie after all `SortField`s are checked, the
+    /// internal Lucene doc ID is used to break it.
     ///
     /// # Arguments
     /// - `fields`: A vector of `SortField` to define the sorting order.
@@ -59,8 +61,9 @@ impl Sort {
     /// # Errors
     /// Returns an error if the provided `fields` vector is empty.
     /// # Note
-    /// You could use [`push_sort_fields`](crate::search::sort_field_enum::SortFieldVecExt::push_sort_fields) to init SortFieldEnum vector.
-    /// # Example
+    /// You could use
+    /// [`push_sort_fields`](crate::search::sort_field_enum::SortFieldVecExt::push_sort_fields)
+    /// to init SortFieldEnum vector. # Example
     /// ```rust
     /// use rlucene::index::sort::Sort;
     /// use rlucene::search::sort_field::{SortField, SortFieldType};

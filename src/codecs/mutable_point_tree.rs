@@ -18,9 +18,7 @@ use crate::index::point_values::{IntersectVisitor, PointTree};
 use crate::index::point_values_writer::MutableSortingPointValues;
 use crate::index::BytesRef;
 #[cfg(test)]
-use crate::test::util::bkd::test_bkd::{
-    MutablePointTreeMock1, MutablePointTreeMock2,
-};
+use crate::test::util::bkd::test_bkd::{MutablePointTreeMock1, MutablePointTreeMock2};
 #[cfg(test)]
 use crate::util::bkd::mutable_point_tree_reader_utils::tests::DummyPointsReader;
 use crate::util::error::lucene_error::Result;
@@ -28,7 +26,8 @@ use crate::util::error::lucene_error::Result;
 /// One leaf [PointTree] whose order of points can be changed.
 /// This trait is useful for codecs to optimize flush.
 pub trait MutablePointTree: PointTree {
-    /// Set `packed_value` with a reference to the packed bytes of the i-th value.
+    /// Set `packed_value` with a reference to the packed bytes of the i-th
+    /// value.
     fn get_value(&self, i: i32, packed_value: &mut BytesRef<Vec<u8>>);
 
     /// Get the k-th byte of the i-th value.
@@ -43,7 +42,8 @@ pub trait MutablePointTree: PointTree {
     /// Save the i-th value into the j-th position in temporary storage.
     fn save(&mut self, i: i32, j: i32);
 
-    /// Restore values between i-th and j-th (excluding) in temporary storage into original storage.
+    /// Restore values between i-th and j-th (excluding) in temporary storage
+    /// into original storage.
     fn restore(&mut self, i: i32, j: i32);
 }
 
@@ -66,20 +66,12 @@ impl MutablePointTree for MutablePointTreeEnum {
     fn get_value(&self, i: i32, packed_value: &mut BytesRef<Vec<u8>>) {
         match self {
             #[cfg(test)]
-            MutablePointTreeEnum::Dummy(reader) => {
-                reader.get_value(i, packed_value)
-            },
+            MutablePointTreeEnum::Dummy(reader) => reader.get_value(i, packed_value),
             #[cfg(test)]
-            MutablePointTreeEnum::Mock1(reader) => {
-                reader.get_value(i, packed_value)
-            },
+            MutablePointTreeEnum::Mock1(reader) => reader.get_value(i, packed_value),
             #[cfg(test)]
-            MutablePointTreeEnum::Mock2(reader) => {
-                reader.get_value(i, packed_value)
-            },
-            MutablePointTreeEnum::MutableSorting(reader) => {
-                reader.get_value(i, packed_value)
-            },
+            MutablePointTreeEnum::Mock2(reader) => reader.get_value(i, packed_value),
+            MutablePointTreeEnum::MutableSorting(reader) => reader.get_value(i, packed_value),
         }
     }
 
@@ -91,9 +83,7 @@ impl MutablePointTree for MutablePointTreeEnum {
             MutablePointTreeEnum::Mock1(reader) => reader.get_byte_at(i, k),
             #[cfg(test)]
             MutablePointTreeEnum::Mock2(reader) => reader.get_byte_at(i, k),
-            MutablePointTreeEnum::MutableSorting(reader) => {
-                reader.get_byte_at(i, k)
-            },
+            MutablePointTreeEnum::MutableSorting(reader) => reader.get_byte_at(i, k),
         }
     }
 
@@ -105,9 +95,7 @@ impl MutablePointTree for MutablePointTreeEnum {
             MutablePointTreeEnum::Mock1(reader) => reader.get_doc_id(i),
             #[cfg(test)]
             MutablePointTreeEnum::Mock2(reader) => reader.get_doc_id(i),
-            MutablePointTreeEnum::MutableSorting(reader) => {
-                reader.get_doc_id(i)
-            },
+            MutablePointTreeEnum::MutableSorting(reader) => reader.get_doc_id(i),
         }
     }
 
@@ -143,9 +131,7 @@ impl MutablePointTree for MutablePointTreeEnum {
             MutablePointTreeEnum::Mock1(reader) => reader.restore(i, j),
             #[cfg(test)]
             MutablePointTreeEnum::Mock2(reader) => reader.restore(i, j),
-            MutablePointTreeEnum::MutableSorting(reader) => {
-                reader.restore(i, j)
-            },
+            MutablePointTreeEnum::MutableSorting(reader) => reader.restore(i, j),
         }
     }
 }
@@ -159,9 +145,7 @@ impl PointTree for MutablePointTreeEnum {
             MutablePointTreeEnum::Mock1(reader) => reader.move_to_child(),
             #[cfg(test)]
             MutablePointTreeEnum::Mock2(reader) => reader.move_to_child(),
-            MutablePointTreeEnum::MutableSorting(reader) => {
-                reader.move_to_child()
-            },
+            MutablePointTreeEnum::MutableSorting(reader) => reader.move_to_child(),
         }
     }
 
@@ -173,9 +157,7 @@ impl PointTree for MutablePointTreeEnum {
             MutablePointTreeEnum::Mock1(reader) => reader.move_to_sibling(),
             #[cfg(test)]
             MutablePointTreeEnum::Mock2(reader) => reader.move_to_sibling(),
-            MutablePointTreeEnum::MutableSorting(reader) => {
-                reader.move_to_sibling()
-            },
+            MutablePointTreeEnum::MutableSorting(reader) => reader.move_to_sibling(),
         }
     }
 
@@ -187,49 +169,31 @@ impl PointTree for MutablePointTreeEnum {
             MutablePointTreeEnum::Mock1(reader) => reader.move_to_parent(),
             #[cfg(test)]
             MutablePointTreeEnum::Mock2(reader) => reader.move_to_parent(),
-            MutablePointTreeEnum::MutableSorting(reader) => {
-                reader.move_to_parent()
-            },
+            MutablePointTreeEnum::MutableSorting(reader) => reader.move_to_parent(),
         }
     }
 
     fn get_min_packed_value(&self) -> Result<&[u8]> {
         match self {
             #[cfg(test)]
-            MutablePointTreeEnum::Dummy(reader) => {
-                reader.get_min_packed_value()
-            },
+            MutablePointTreeEnum::Dummy(reader) => reader.get_min_packed_value(),
             #[cfg(test)]
-            MutablePointTreeEnum::Mock1(reader) => {
-                reader.get_min_packed_value()
-            },
+            MutablePointTreeEnum::Mock1(reader) => reader.get_min_packed_value(),
             #[cfg(test)]
-            MutablePointTreeEnum::Mock2(reader) => {
-                reader.get_min_packed_value()
-            },
-            MutablePointTreeEnum::MutableSorting(reader) => {
-                reader.get_min_packed_value()
-            },
+            MutablePointTreeEnum::Mock2(reader) => reader.get_min_packed_value(),
+            MutablePointTreeEnum::MutableSorting(reader) => reader.get_min_packed_value(),
         }
     }
 
     fn get_max_packed_value(&self) -> Result<&[u8]> {
         match self {
             #[cfg(test)]
-            MutablePointTreeEnum::Dummy(reader) => {
-                reader.get_max_packed_value()
-            },
+            MutablePointTreeEnum::Dummy(reader) => reader.get_max_packed_value(),
             #[cfg(test)]
-            MutablePointTreeEnum::Mock1(reader) => {
-                reader.get_max_packed_value()
-            },
+            MutablePointTreeEnum::Mock1(reader) => reader.get_max_packed_value(),
             #[cfg(test)]
-            MutablePointTreeEnum::Mock2(reader) => {
-                reader.get_max_packed_value()
-            },
-            MutablePointTreeEnum::MutableSorting(reader) => {
-                reader.get_max_packed_value()
-            },
+            MutablePointTreeEnum::Mock2(reader) => reader.get_max_packed_value(),
+            MutablePointTreeEnum::MutableSorting(reader) => reader.get_max_packed_value(),
         }
     }
 
@@ -245,49 +209,27 @@ impl PointTree for MutablePointTreeEnum {
         }
     }
 
-    fn visit_doc_ids(
-        &mut self,
-        _visitor: &mut impl IntersectVisitor,
-    ) -> Result<()> {
+    fn visit_doc_ids(&mut self, _visitor: &mut impl IntersectVisitor) -> Result<()> {
         match self {
             #[cfg(test)]
-            MutablePointTreeEnum::Dummy(reader) => {
-                reader.visit_doc_ids(_visitor)
-            },
+            MutablePointTreeEnum::Dummy(reader) => reader.visit_doc_ids(_visitor),
             #[cfg(test)]
-            MutablePointTreeEnum::Mock1(reader) => {
-                reader.visit_doc_ids(_visitor)
-            },
+            MutablePointTreeEnum::Mock1(reader) => reader.visit_doc_ids(_visitor),
             #[cfg(test)]
-            MutablePointTreeEnum::Mock2(reader) => {
-                reader.visit_doc_ids(_visitor)
-            },
-            MutablePointTreeEnum::MutableSorting(reader) => {
-                reader.visit_doc_ids(_visitor)
-            },
+            MutablePointTreeEnum::Mock2(reader) => reader.visit_doc_ids(_visitor),
+            MutablePointTreeEnum::MutableSorting(reader) => reader.visit_doc_ids(_visitor),
         }
     }
 
-    fn visit_doc_values(
-        &mut self,
-        _visitor: &mut impl IntersectVisitor,
-    ) -> Result<()> {
+    fn visit_doc_values(&mut self, _visitor: &mut impl IntersectVisitor) -> Result<()> {
         match self {
             #[cfg(test)]
-            MutablePointTreeEnum::Dummy(reader) => {
-                reader.visit_doc_values(_visitor)
-            },
+            MutablePointTreeEnum::Dummy(reader) => reader.visit_doc_values(_visitor),
             #[cfg(test)]
-            MutablePointTreeEnum::Mock1(reader) => {
-                reader.visit_doc_values(_visitor)
-            },
+            MutablePointTreeEnum::Mock1(reader) => reader.visit_doc_values(_visitor),
             #[cfg(test)]
-            MutablePointTreeEnum::Mock2(reader) => {
-                reader.visit_doc_values(_visitor)
-            },
-            MutablePointTreeEnum::MutableSorting(reader) => {
-                reader.visit_doc_values(_visitor)
-            },
+            MutablePointTreeEnum::Mock2(reader) => reader.visit_doc_values(_visitor),
+            MutablePointTreeEnum::MutableSorting(reader) => reader.visit_doc_values(_visitor),
         }
     }
 }

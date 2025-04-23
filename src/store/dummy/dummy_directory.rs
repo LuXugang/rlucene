@@ -14,14 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::collections::HashSet;
+use std::fmt::{Display, Formatter};
+
 use crate::store::directory::Directory;
 use crate::store::dummy::dummy_index_input::DummyIndexInput;
 use crate::store::dummy::dummy_index_output::DummyIndexOutput;
 use crate::store::dummy::dummy_lock::DummyLock;
 use crate::store::IOContext;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use std::collections::HashSet;
-use std::fmt::{Display, Formatter};
 
 pub struct DummyDirectory;
 impl Display for DummyDirectory {
@@ -49,11 +50,7 @@ impl Directory for DummyDirectory {
         ))
     }
     #[allow(refining_impl_trait)]
-    fn create_output(
-        &mut self,
-        _name: &str,
-        _context: &IOContext,
-    ) -> Result<DummyIndexOutput> {
+    fn create_output(&mut self, _name: &str, _context: &IOContext) -> Result<DummyIndexOutput> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))
@@ -91,11 +88,7 @@ impl Directory for DummyDirectory {
 
     type IndexInputType = DummyIndexInput;
 
-    fn open_input(
-        &self,
-        _name: &str,
-        _context: &IOContext,
-    ) -> Result<Self::IndexInputType> {
+    fn open_input(&self, _name: &str, _context: &IOContext) -> Result<Self::IndexInputType> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))

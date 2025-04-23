@@ -14,10 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::rc::Rc;
+
 use crate::index::doc_id_merger::SubBase;
 use crate::index::merge_state::DocMapEnum;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use std::rc::Rc;
 pub struct DummySubBase;
 impl SubBase for DummySubBase {
     fn next_doc(&mut self) -> Result<i32> {

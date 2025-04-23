@@ -14,21 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::cell::RefCell;
+use std::fmt::{Display, Formatter};
+use std::rc::Rc;
+
+use once_cell::sync::Lazy;
+
 use crate::index::BytesRef;
 use crate::store::{DataInput, DataOutput};
 use crate::util::error::lucene_error::Result;
 use crate::util::fst_impl::outputs::Outputs;
 use crate::util::{CoreHelper, SliceCopyOps, StringHelper};
-use once_cell::sync::Lazy;
-use std::cell::RefCell;
-use std::fmt::{Display, Formatter};
-use std::rc::Rc;
 
 thread_local! {
     static NO_OUTPUT: Rc<BytesRef<Rc<RefCell<Vec<u8>>>>> = Rc::new(BytesRef::default());
 }
-pub static SINGLETON: Lazy<ByteSequenceOutputs> =
-    Lazy::new(|| ByteSequenceOutputs);
+pub static SINGLETON: Lazy<ByteSequenceOutputs> = Lazy::new(|| ByteSequenceOutputs);
 /// An FST Outputs implementation where each output is a sequence of bytes.
 ///
 /// lucene.experimental
@@ -52,10 +53,8 @@ impl Outputs<Rc<BytesRef<Rc<RefCell<Vec<u8>>>>>> for ByteSequenceOutputs {
         output2: &Rc<BytesRef<Rc<RefCell<Vec<u8>>>>>,
     ) -> Rc<BytesRef<Rc<RefCell<Vec<u8>>>>> {
         let mismatch_pos = CoreHelper::miss_match(
-            &output1.bytes.borrow()
-                [output1.offset..(output1.offset + output1.length)],
-            &output2.bytes.borrow()
-                [output2.offset..(output2.offset + output2.length)],
+            &output1.bytes.borrow()[output1.offset..(output1.offset + output1.length)],
+            &output2.bytes.borrow()[output2.offset..(output2.offset + output2.length)],
         );
 
         if mismatch_pos == 0 {
@@ -129,13 +128,11 @@ impl Outputs<Rc<BytesRef<Rc<RefCell<Vec<u8>>>>>> for ByteSequenceOutputs {
         debug_assert!(output.length > 0);
         let mut buf = Vec::with_capacity(prefix.length + output.length);
         buf.copy_from(
-            &prefix.bytes.borrow()
-                [prefix.offset..(prefix.offset + prefix.length)],
+            &prefix.bytes.borrow()[prefix.offset..(prefix.offset + prefix.length)],
             0,
         );
         buf.copy_from(
-            &output.bytes.borrow()
-                [output.offset..(output.offset + output.length)],
+            &output.bytes.borrow()[output.offset..(output.offset + output.length)],
             prefix.length,
         );
         Rc::new(BytesRef::from_slice(
@@ -158,10 +155,7 @@ impl Outputs<Rc<BytesRef<Rc<RefCell<Vec<u8>>>>>> for ByteSequenceOutputs {
         )
     }
 
-    fn read(
-        &self,
-        input: &mut impl DataInput,
-    ) -> Result<Rc<BytesRef<Rc<RefCell<Vec<u8>>>>>> {
+    fn read(&self, input: &mut impl DataInput) -> Result<Rc<BytesRef<Rc<RefCell<Vec<u8>>>>>> {
         let len = input.read_vint()?;
         if len == 0 {
             Ok(NO_OUTPUT.with(|rc| rc.clone()))
@@ -188,17 +182,11 @@ impl Outputs<Rc<BytesRef<Rc<RefCell<Vec<u8>>>>>> for ByteSequenceOutputs {
         NO_OUTPUT.with(|rc| rc.clone())
     }
 
-    fn output_to_string(
-        &self,
-        output: &Rc<BytesRef<Rc<RefCell<Vec<u8>>>>>,
-    ) -> String {
+    fn output_to_string(&self, output: &Rc<BytesRef<Rc<RefCell<Vec<u8>>>>>) -> String {
         output.to_string()
     }
 
-    fn ram_bytes_used(
-        &self,
-        _output: &Rc<BytesRef<Rc<RefCell<Vec<u8>>>>>,
-    ) -> i64 {
+    fn ram_bytes_used(&self, _output: &Rc<BytesRef<Rc<RefCell<Vec<u8>>>>>) -> i64 {
         // TODO
         0
     }

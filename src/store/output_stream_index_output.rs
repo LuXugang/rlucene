@@ -14,17 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::{Display, Formatter};
+use std::io::{BufWriter, Write};
+
+use byteorder::{LittleEndian, WriteBytesExt};
+use crc32fast::Hasher;
+
 use crate::store::data_output::DataOutput;
 use crate::store::index_output::IndexOutput;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 
-use byteorder::{LittleEndian, WriteBytesExt};
-use crc32fast::Hasher;
-use std::fmt::{Display, Formatter};
-use std::io::{BufWriter, Write};
-
-/// Implementation struct for buffered [`IndexOutput`] that writes to an [`OutputStream`](Write).
+/// Implementation struct for buffered [`IndexOutput`] that writes to an
+/// [`OutputStream`](Write).
 pub struct OutputStreamIndexOutput<W>
 where
     W: Write,
@@ -41,11 +43,12 @@ where
     /// Creates a new [`OutputStreamIndexOutput`] with the given buffer size.
     ///
     /// # Arguments
-    /// * `buffer_size` - The buffer size in bytes used to buffer writes internally.
+    /// * `buffer_size` - The buffer size in bytes used to buffer writes
+    ///   internally.
     ///
     /// # Errors
-    /// Returns an `IllegalArgumentError` if the given buffer size is less than [`BitUtil::LONG_BYTES`].
-    ///
+    /// Returns an `IllegalArgumentError` if the given buffer size is less than
+    /// [`BitUtil::LONG_BYTES`].
     pub fn new(
         resource_description: &str,
         name: &str,
@@ -78,12 +81,7 @@ where
         self.os.write_u8(b)
     }
 
-    fn write_bytes_range(
-        &mut self,
-        b: &[u8],
-        offset: i32,
-        length: i32,
-    ) -> Result<()> {
+    fn write_bytes_range(&mut self, b: &[u8], offset: i32, length: i32) -> Result<()> {
         let end = offset + length;
         self.bytes_written += length as i64;
         self.os.write_bytes(&b[offset as usize..end as usize])
@@ -151,8 +149,8 @@ impl<W: Write> XBufferedOutputStream<W> {
         self.checksum
     }
 
-    //TODO: If frequent checksum calculations become a bottleneck, we might consider
-    // caching a batch of data and then calculating the checksum.
+    //TODO: If frequent checksum calculations become a bottleneck, we might
+    // consider caching a batch of data and then calculating the checksum.
     fn update_checksum(&mut self, buf: &[u8]) {
         self.hasher.update(buf);
     }
@@ -191,12 +189,14 @@ impl<W: Write> XBufferedOutputStream<W> {
 
 #[cfg(test)]
 mod tests {
+    use std::io::Cursor;
+
+    use byteorder::{LittleEndian, ReadBytesExt};
+
     use crate::store::data_output::DataOutput;
     use crate::store::index_output::IndexOutput;
     use crate::store::output_stream_index_output::OutputStreamIndexOutput;
     use crate::util::error::lucene_error::Result;
-    use byteorder::{LittleEndian, ReadBytesExt};
-    use std::io::Cursor;
 
     #[allow(dead_code)] // for quick search
     struct TestOutputStreamIndexOutput;
@@ -214,8 +214,7 @@ mod tests {
 
         let mut buffer = Vec::new();
         {
-            let mut out =
-                OutputStreamIndexOutput::new("test", "test", &mut buffer, 12)?;
+            let mut out = OutputStreamIndexOutput::new("test", "test", &mut buffer, 12)?;
             let mut hasher = Hasher::new();
             for i in 0..offset {
                 out.write_byte(i as u8)?;
@@ -258,12 +257,7 @@ mod tests {
         let large_data: Vec<u8> = (0..16).collect();
         let mut buffer = Vec::new();
         {
-            let mut out = OutputStreamIndexOutput::new(
-                "test",
-                "test",
-                &mut buffer,
-                buffer_size,
-            )?;
+            let mut out = OutputStreamIndexOutput::new("test", "test", &mut buffer, buffer_size)?;
 
             let mut hasher = Hasher::new();
 
@@ -289,8 +283,7 @@ mod tests {
         let mut buffer = Vec::new();
         let combined_data: Vec<u8>;
         {
-            let mut out =
-                OutputStreamIndexOutput::new("test", "test", &mut buffer, 8)?;
+            let mut out = OutputStreamIndexOutput::new("test", "test", &mut buffer, 8)?;
 
             let data1 = b"Hello";
             let data2 = b"World";

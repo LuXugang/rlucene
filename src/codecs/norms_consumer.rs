@@ -14,6 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use crate::codecs::doc_values_enum::norms::Lucene90NormNumericDocValuesEnum;
 use crate::codecs::lucene90_norms_consumer::Lucene90NormsConsumer;
 use crate::codecs::norms_producer::NormsProducer;
@@ -21,16 +24,12 @@ use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::field_info::FieldInfo;
 use crate::index::merge_state::{DocMapEnum, MergeState};
 use crate::index::numeric_doc_values::NumericDocValues;
-use crate::index::{
-    doc_id_merger_util, DocIDMerger, DocIDMergerEnum, Sub, SubBase,
-};
+use crate::index::{doc_id_merger_util, DocIDMerger, DocIDMergerEnum, Sub, SubBase};
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::{IndexInput, IndexOutput};
 use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use std::cell::RefCell;
-use std::rc::Rc;
 
 /// Consumes normalization values.
 ///
@@ -39,10 +38,12 @@ use std::rc::Rc;
 ///
 /// # Lifecycle
 ///
-/// 1. `NormsConsumer` is created by [`NormsFormat::norms_consumer`](crate::codecs::norms_format::NormsFormat::norms_consumer).
-/// 2. [`add_norms_field`](NormsConsumer::add_norms_field) is called for each field with normalization values.
-///    The API is *pull*-based rather than *push*-based; the implementation is free
-///    to iterate over the values multiple times.
+/// 1. `NormsConsumer` is created by
+///    [`NormsFormat::norms_consumer`](crate::codecs::norms_format::NormsFormat::norms_consumer).
+/// 2. [`add_norms_field`](NormsConsumer::add_norms_field) is called for each
+///    field with normalization values. The API is *pull*-based rather than
+///    *push*-based; the implementation is free to iterate over the values
+///    multiple times.
 /// 3. After all fields are added, the consumer is closed.
 pub trait NormsConsumer {
     /// Writes normalization values for a field.
@@ -60,10 +61,12 @@ pub trait NormsConsumer {
     ) -> Result<()>;
     /// Merges in the fields from the readers in `merge_state`.
     ///
-    /// The default implementation calls [`merge_norms_field`](NormsConsumer::merge_norms_field) for each field,
+    /// The default implementation calls
+    /// [`merge_norms_field`](NormsConsumer::merge_norms_field) for each field,
     /// filling segments with missing norms for the field with zeros.
     ///
-    /// Implementations can override this method for more sophisticated merging (e.g. bulk-byte copying).
+    /// Implementations can override this method for more sophisticated merging
+    /// (e.g. bulk-byte copying).
     fn merge<I>(&mut self, merge_state: &mut MergeState<I>) -> Result<()>
     where
         I: IndexInput,
@@ -82,7 +85,8 @@ pub trait NormsConsumer {
     }
     /// Merges the norms from `to_merge`.
     ///
-    /// The default implementation calls [`add_norms_field`](NormsConsumer::add_norms_field), passing an iterator
+    /// The default implementation calls
+    /// [`add_norms_field`](NormsConsumer::add_norms_field), passing an iterator
     /// that merges and filters deleted documents on the fly.
     fn merge_norms_field<I>(
         &mut self,
@@ -96,7 +100,8 @@ pub trait NormsConsumer {
             merge_field_info: merge_field_info.clone(),
             merge_state,
         };
-        // TODO: try to share code with default merge of DVConsumer by passing MatchAllBits ?
+        // TODO: try to share code with default merge of DVConsumer by passing
+        // MatchAllBits ?
         self.add_norms_field(merge_field_info, &mut norms_producer)?;
         Ok(())
     }
@@ -115,43 +120,37 @@ where
 {
     type NumericDocValues = NumericDocValuesMerge<I>;
 
-    fn get_norms(
-        &mut self,
-        field_info: &Rc<FieldInfo>,
-    ) -> Result<Self::NumericDocValues> {
+    fn get_norms(&mut self, field_info: &Rc<FieldInfo>) -> Result<Self::NumericDocValues> {
         if Rc::ptr_eq(field_info, &self.merge_field_info) {
             return Err(LuceneError::illegal_argument("wrong fieldInfo"));
         }
 
         let mut subs = vec![];
         debug_assert!(
-            self.merge_state.doc_maps.len()
-                == self.merge_state.doc_values_producers.len()
+            self.merge_state.doc_maps.len() == self.merge_state.doc_values_producers.len()
         );
         for i in 0..self.merge_state.doc_values_producers.len() {
             let mut norms: Option<Lucene90NormNumericDocValuesEnum<I>> = None;
             let norms_producer_opt = &mut self.merge_state.norms_producers[i];
             if let Some(norms_producer) = norms_producer_opt {
-                let reader_field_info = self.merge_state.field_infos[i]
-                    .field_info_by_name(&self.merge_field_info.name);
+                let reader_field_info =
+                    self.merge_state.field_infos[i].field_info_by_name(&self.merge_field_info.name);
                 if let Some(reader_field_info) = &reader_field_info {
                     if reader_field_info.has_norms() {
-                        norms =
-                            Some(norms_producer.get_norms(reader_field_info)?);
+                        norms = Some(norms_producer.get_norms(reader_field_info)?);
                     }
                 }
             }
 
             if let Some(norms) = norms {
                 let doc_map = self.merge_state.doc_maps[i].clone();
-                subs.push(Rc::new(RefCell::new(Sub::new(
-                    NumericDocValuesSub::new(doc_map, norms),
-                ))));
+                subs.push(Rc::new(RefCell::new(Sub::new(NumericDocValuesSub::new(
+                    doc_map, norms,
+                )))));
             }
         }
 
-        let doc_id_merger =
-            doc_id_merger_util::of(subs, self.merge_state.needs_index_sort)?;
+        let doc_id_merger = doc_id_merger_util::of(subs, self.merge_state.needs_index_sort)?;
         Ok(NumericDocValuesMerge {
             doc_id: -1,
             current: None,
@@ -247,10 +246,7 @@ impl<I> NumericDocValuesSub<I>
 where
     I: IndexInput,
 {
-    fn new(
-        doc_map: Rc<DocMapEnum>,
-        values: Lucene90NormNumericDocValuesEnum<I>,
-    ) -> Self {
+    fn new(doc_map: Rc<DocMapEnum>, values: Lucene90NormNumericDocValuesEnum<I>) -> Self {
         debug_assert!(values.doc_id() == -1);
         NumericDocValuesSub { values, doc_map }
     }

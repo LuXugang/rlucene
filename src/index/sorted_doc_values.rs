@@ -14,28 +14,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::borrow::Cow;
+
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::terms_enum::TermsEnum;
-
 use crate::index::BytesRef;
 use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::ToInt;
-use std::borrow::Cow;
 
-/// A per-document `byte[]` with presorted values. This is fundamentally an iterator over the `int`
-/// ord values per document, with random access APIs to resolve an `int` ord to `BytesRef`.
+/// A per-document `byte[]` with presorted values. This is fundamentally an
+/// iterator over the `int` ord values per document, with random access APIs to
+/// resolve an `int` ord to `BytesRef`.
 ///
-/// Per-document values in a `SortedDocValues` are deduplicated, dereferenced, and sorted into a
-/// dictionary of unique values. A pointer to the dictionary value (ordinal) can be retrieved for
-/// each document. Ordinals are dense and in increasing sorted order.
+/// Per-document values in a `SortedDocValues` are deduplicated, dereferenced,
+/// and sorted into a dictionary of unique values. A pointer to the dictionary
+/// value (ordinal) can be retrieved for each document. Ordinals are dense and
+/// in increasing sorted order.
 pub trait SortedDocValues<AV>: DocValuesIterator
 where
     AV: AccessVec<u8>,
 {
     /// Returns the ordinal for the current docID.
     ///
-    /// This method must only be called after `advance_exact(doc_id)` returns `true`.
+    /// This method must only be called after `advance_exact(doc_id)` returns
+    /// `true`.
     ///
     /// # Returns
     /// A dense ordinal (starts at 0, then increments in sorted order).
@@ -65,7 +68,8 @@ where
             "this method is not implemented",
         ))
     }
-    /// If `key` exists, returns its ordinal, else returns `-insertion_point - 1`, like `Arrays.binarySearch`.
+    /// If `key` exists, returns its ordinal, else returns `-insertion_point -
+    /// 1`, like `Arrays.binarySearch`.
     ///
     /// # Arguments
     /// * `key` - Key to look up
@@ -91,8 +95,10 @@ where
         Ok(-(low + 1)) // key not found
     }
     type TermsEnum: TermsEnum<AV>;
-    /// Returns a [`TermsEnum`](crate::index::terms_enum::TermsEnum) over the values.
-    /// The enum supports [`TermsEnum::ord()`](crate::index::terms_enum::TermsEnum::ord) and [`TermsEnum::seek_exact_with_ord()`](crate::index::terms_enum::TermsEnum::seek_exact_with_ord).
+    /// Returns a [`TermsEnum`](crate::index::terms_enum::TermsEnum) over the
+    /// values. The enum supports
+    /// [`TermsEnum::ord()`](crate::index::terms_enum::TermsEnum::ord) and
+    /// [`TermsEnum::seek_exact_with_ord()`](crate::index::terms_enum::TermsEnum::seek_exact_with_ord).
     fn terms_enum(&mut self) -> Result<Self::TermsEnum> {
         Err(LuceneError::not_implemented(""))
     }

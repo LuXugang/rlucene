@@ -14,16 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use crate::store::random_access_input::RandomAccessInput;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::long_values::{LongValues, Zeroes};
 use crate::util::packed::direct_monotonic_reader::direct_monotonic::Meta;
 use crate::util::packed::direct_reader::{DirectPackedEnum, DirectReader};
 
-use std::cell::RefCell;
-use std::rc::Rc;
-
-/// Retrieves an instance previously written by [`DirectMonotonicWriter`](crate::util::packed::direct_monotonic_writer::DirectMonotonicWriter).
+/// Retrieves an instance previously written by
+/// [`DirectMonotonicWriter`](crate::util::packed::direct_monotonic_writer::DirectMonotonicWriter).
+///
 ///
 /// # See also
 /// `DirectMonotonicWriter`
@@ -62,8 +64,7 @@ pub mod direct_monotonic_reader_util {
             meta.offsets[i] = meta_in.read_long()?;
             let bpv = meta_in.read_byte()?;
             meta.bpvs[i] = bpv;
-            all_values_zero =
-                all_values_zero && (min == 0) && (avg_int == 0) && (bpv == 0);
+            all_values_zero = all_values_zero && (min == 0) && (avg_int == 0) && (bpv == 0);
         }
         if all_values_zero {
             Ok(Meta::single_zero_block())
@@ -85,10 +86,7 @@ where
         bpvs: Vec<u8>,
     ) -> Result<Self> {
         let readers_len = readers.len();
-        if readers_len != mins.len()
-            || readers_len != avgs.len()
-            || readers_len != bpvs.len()
-        {
+        if readers_len != mins.len() || readers_len != avgs.len() || readers_len != bpvs.len() {
             return Err(LuceneError::illegal_argument(String::from(
                 "Mismatched array lengths",
             )));
@@ -104,16 +102,14 @@ where
         })
     }
 
-    /// Get lower/upper bounds for the value at a given index without hitting the direct reader.
+    /// Get lower/upper bounds for the value at a given index without hitting
+    /// the direct reader.
     fn get_bounds(&self, index: i64) -> Result<[i64; 2]> {
-        let block: i32 =
-            (((index as u64) >> self.block_shift) as i64).try_into()?;
+        let block: i32 = (((index as u64) >> self.block_shift) as i64).try_into()?;
         let block = block as usize;
         let block_index = index & self.block_mask;
-        let lower_bound = self.mins[block]
-            + ((self.avgs[block] * (block_index as f32)) as i64);
-        let upper_bound =
-            lower_bound + ((1i64 << (self.bpvs[block] as u32)) - 1);
+        let lower_bound = self.mins[block] + ((self.avgs[block] * (block_index as f32)) as i64);
+        let upper_bound = lower_bound + ((1i64 << (self.bpvs[block] as u32)) - 1);
         if self.bpvs[block] == 64 || upper_bound < lower_bound {
             Ok([i64::MIN, i64::MAX])
         } else {
@@ -121,12 +117,7 @@ where
         }
     }
 
-    pub fn binary_search(
-        &mut self,
-        from_index: i64,
-        to_index: i64,
-        key: i64,
-    ) -> Result<i64> {
+    pub fn binary_search(&mut self, from_index: i64, to_index: i64, key: i64) -> Result<i64> {
         if from_index < 0 || from_index > to_index {
             return Err(LuceneError::illegal_argument(format!(
                 "fromIndex={}, toIndex={}",
@@ -137,8 +128,9 @@ where
         let mut hi = to_index - 1;
         while lo <= hi {
             let mid = (lo + hi) >> 1;
-            // Try to run as many iterations of the binary search as possible without
-            // hitting the direct readers, since they might hit a page fault.
+            // Try to run as many iterations of the binary search as possible
+            // without hitting the direct readers, since they might
+            // hit a page fault.
             let bounds = self.get_bounds(mid)?;
             if bounds[1] < key {
                 lo = mid + 1;
@@ -175,14 +167,12 @@ where
                 && i < meta.num_blocks - 1// we only know the number of values for the last block
                 && meta.block_shift >= DirectReader::MERGE_BUFFER_SHIFT
             {
-                readers.push(
-                    DirectReader::get_merge_instance_with_base_offset(
-                        data.clone(),
-                        bpv as i32,
-                        meta.offsets[i],
-                        1i64 << meta.block_shift,
-                    ),
-                );
+                readers.push(DirectReader::get_merge_instance_with_base_offset(
+                    data.clone(),
+                    bpv as i32,
+                    meta.offsets[i],
+                    1i64 << meta.block_shift,
+                ));
             } else {
                 readers.push(DirectReader::get_instance_with_offset(
                     data.clone(),
@@ -208,15 +198,14 @@ where
         let block = ((index as u64) >> self.block_shift) as usize;
         let block_index = index & self.block_mask;
         let delta = self.readers[block].get(block_index)?;
-        Ok(self.mins[block]
-            + ((self.avgs[block] * (block_index as f32)) as i64)
-            + delta)
+        Ok(self.mins[block] + ((self.avgs[block] * (block_index as f32)) as i64) + delta)
     }
 }
 pub mod direct_monotonic {
 
-    /// In-memory metadata that needs to be kept around for [`DirectMonotonicReader`](crate::util::packed::direct_monotonic_reader::DirectMonotonicReader) to read data
-    /// from disk.
+    /// In-memory metadata that needs to be kept around for
+    /// [`DirectMonotonicReader`](crate::util::packed::direct_monotonic_reader::DirectMonotonicReader)
+    /// to read data from disk.
     #[derive(Clone)]
     pub struct Meta {
         pub block_shift: i32,
@@ -244,7 +233,8 @@ pub mod direct_monotonic {
             }
         }
 
-        /// Unlike Java Lucene, here we return a new object with identical properties.
+        /// Unlike Java Lucene, here we return a new object with identical
+        /// properties.
         pub fn single_zero_block() -> Self {
             Meta::new(1, 63)
         }

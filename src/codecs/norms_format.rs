@@ -37,14 +37,16 @@ pub trait NormsFormat {
     /// Returns a [`NormsProducer`](crate::codecs::norms_producer::NormsProducer) to read norms from the index.
     ///
     /// # Notes
-    /// - By the time this call returns, it **must hold open** any files it will need to use.
-    ///   Otherwise, those files may be deleted by the time they are accessed.
+    /// - By the time this call returns, it **must hold open** any files it will
+    ///   need to use. Otherwise, those files may be deleted by the time they
+    ///   are accessed.
     ///
-    /// - Additionally, required files might be deleted **during the execution** of this call,
-    ///   before there's a chance to open them. In such cases, implementations **must return an error**.
+    /// - Additionally, required files might be deleted **during the execution**
+    ///   of this call, before there's a chance to open them. In such cases,
+    ///   implementations **must return an error**.
     ///
-    /// - I/O errors are expected and will automatically trigger a retry of segment opening
-    ///   logic using the newly revised segments.
+    /// - I/O errors are expected and will automatically trigger a retry of
+    ///   segment opening logic using the newly revised segments.
     fn norms_producer<D>(
         &self,
         state: &SegmentReadState<D>,

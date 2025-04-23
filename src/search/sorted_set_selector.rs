@@ -14,29 +14,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::borrow::Cow;
+
 use crate::codecs::doc_values_enum::doc_values::SortedSetDocValuesEnum;
 use crate::codecs::lucene90_doc_values_enums::Lucene90SortedSetDocValuesEnum;
+use crate::codecs::lucene90_doc_values_producer::{BaseSortedDocValues, BaseSortedSetDocValues};
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::dummy::dummy_terms_enum::DummyTermsEnum;
 use crate::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
 use crate::index::sorted_doc_values::SortedDocValues;
 use crate::index::sorted_set_doc_values::SortedSetDocValues;
-
-use crate::codecs::lucene90_doc_values_producer::{
-    BaseSortedDocValues, BaseSortedSetDocValues,
-};
 use crate::index::BytesRef;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::IndexInput;
 use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use std::borrow::Cow;
 
 /// Selects a value from the document's set to use as the representative value.
 pub struct SortedSetSelector;
 impl SortedSetSelector {
-    /// Wraps a multi-valued SortedSetDocValues as a single-valued view, using the specified selector.
+    /// Wraps a multi-valued SortedSetDocValues as a single-valued view, using
+    /// the specified selector.
     pub fn wrap<I>(
         mut sorted_set: SortedSetDocValuesEnum<I>,
         selector: SortedSetSelectorType,
@@ -64,14 +63,10 @@ impl SortedSetSelector {
                             SortedDocValuesWrapEnum::Max(MaxValue::new(base))
                         },
                         SortedSetSelectorType::MiddleMin => {
-                            SortedDocValuesWrapEnum::MiddleMin(
-                                MiddleMinValue::new(base),
-                            )
+                            SortedDocValuesWrapEnum::MiddleMin(MiddleMinValue::new(base))
                         },
                         SortedSetSelectorType::MiddleMax => {
-                            SortedDocValuesWrapEnum::MiddleMax(
-                                MiddleMaxValue::new(base),
-                            )
+                            SortedDocValuesWrapEnum::MiddleMax(MiddleMaxValue::new(base))
                         },
                     };
                     Ok(wrapped)
@@ -84,8 +79,9 @@ impl SortedSetSelector {
 ///
 /// # Limitations
 /// - Fields containing `i32::MAX` or more unique values are unsupported.
-/// - Selectors other than [`SortedSetSelectorType::Min`] require optional codec support. However, several
-///   codecs provided by Lucene, including the current default codec, support this.
+/// - Selectors other than [`SortedSetSelectorType::Min`] require optional codec
+///   support. However, several codecs provided by Lucene, including the current
+///   default codec, support this.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SortedSetSelectorType {
     /// Selects the minimum value in the set.
@@ -94,11 +90,13 @@ pub enum SortedSetSelectorType {
     Max,
     /// Selects the middle value in the set.
     ///
-    /// If the set has an even number of values, the lower of the middle two is chosen.
+    /// If the set has an even number of values, the lower of the middle two is
+    /// chosen.
     MiddleMin,
     /// Selects the middle value in the set.
     ///
-    /// If the set has an even number of values, the higher of the middle two is chosen.
+    /// If the set has an even number of values, the higher of the middle two
+    /// is chosen.
     MiddleMax,
 }
 /// Wraps a SortedSetDocValues and returns the first ordinal (min)
@@ -273,7 +271,8 @@ where
 
     type TermsEnum = DummyTermsEnum;
 }
-/// Wraps a SortedSetDocValues and returns the middle ordinal (or min of the two)
+/// Wraps a SortedSetDocValues and returns the middle ordinal (or min of the
+/// two)
 pub struct MiddleMinValue<I>
 where
     I: IndexInput,
@@ -362,7 +361,8 @@ where
     }
     type TermsEnum = DummyTermsEnum;
 }
-/// Wraps a SortedSetDocValues and returns the middle ordinal (or max of the two)
+/// Wraps a SortedSetDocValues and returns the middle ordinal (or max of the
+/// two)
 pub struct MiddleMaxValue<I>
 where
     I: IndexInput,
@@ -456,9 +456,7 @@ pub enum SortedDocValuesWrapEnum<I>
 where
     I: IndexInput,
 {
-    Lucene90Singleton(
-        SingletonSortedSetDocValues<BaseSortedDocValues<I>, Vec<u8>>,
-    ),
+    Lucene90Singleton(SingletonSortedSetDocValues<BaseSortedDocValues<I>, Vec<u8>>),
     Min(MinValue<I>),
     Max(MaxValue<I>),
     MiddleMin(MiddleMinValue<I>),
@@ -478,12 +476,8 @@ where
             },
             SortedDocValuesWrapEnum::Min(inner) => inner.advance_exact(target),
             SortedDocValuesWrapEnum::Max(inner) => inner.advance_exact(target),
-            SortedDocValuesWrapEnum::MiddleMin(inner) => {
-                inner.advance_exact(target)
-            },
-            SortedDocValuesWrapEnum::MiddleMax(inner) => {
-                inner.advance_exact(target)
-            },
+            SortedDocValuesWrapEnum::MiddleMin(inner) => inner.advance_exact(target),
+            SortedDocValuesWrapEnum::MiddleMax(inner) => inner.advance_exact(target),
         }
     }
 }
@@ -556,12 +550,8 @@ where
             },
             SortedDocValuesWrapEnum::Min(inner) => inner.get_value_count(),
             SortedDocValuesWrapEnum::Max(inner) => inner.get_value_count(),
-            SortedDocValuesWrapEnum::MiddleMin(inner) => {
-                inner.get_value_count()
-            },
-            SortedDocValuesWrapEnum::MiddleMax(inner) => {
-                inner.get_value_count()
-            },
+            SortedDocValuesWrapEnum::MiddleMin(inner) => inner.get_value_count(),
+            SortedDocValuesWrapEnum::MiddleMax(inner) => inner.get_value_count(),
         }
     }
 

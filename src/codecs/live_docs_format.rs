@@ -14,13 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::index::segment_commit_info::SegmentCommitInfo;
+use std::collections::HashSet;
 
+use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::store::directory::Directory;
 use crate::store::IOContext;
 use crate::util::bits::Bits;
 use crate::util::error::lucene_error::Result;
-use std::collections::HashSet;
 
 /// Format for live/deleted documents
 pub trait LiveDocsFormat {
@@ -42,8 +42,10 @@ pub trait LiveDocsFormat {
     where
         D: Directory;
 
-    /// Persist live docs bits. Use [`SegmentCommitInfo#getNextDelGen`](SegmentCommitInfo::get_next_write_del_gen) to determine the generation
-    /// of the deletes file you should write to.
+    /// Persist live docs bits. Use
+    /// [`SegmentCommitInfo#
+    /// getNextDelGen`](SegmentCommitInfo::get_next_write_del_gen) to determine
+    /// the generation of the deletes file you should write to.
     fn write_live_docs<D>(
         &self,
         bits: &impl Bits,
@@ -55,12 +57,9 @@ pub trait LiveDocsFormat {
     where
         D: Directory;
 
-    /// Records all files in use by this [`SegmentCommitInfo`] into the files argument.
-    fn files<D>(
-        &self,
-        info: &SegmentCommitInfo<D>,
-        files: &mut HashSet<String>,
-    ) -> Result<()>
+    /// Records all files in use by this [`SegmentCommitInfo`] into the files
+    /// argument.
+    fn files<D>(&self, info: &SegmentCommitInfo<D>, files: &mut HashSet<String>) -> Result<()>
     where
         D: Directory;
 }

@@ -14,21 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::index::doc_values_iterator::DocValuesIterator;
-use crate::index::sorted_doc_values::SortedDocValues;
+use std::borrow::Cow;
 
+use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::dummy::dummy_terms_enum::DummyTermsEnum;
+use crate::index::sorted_doc_values::SortedDocValues;
 use crate::index::BytesRef;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::Result;
-use std::borrow::Cow;
 
 pub struct DummySortedDocValues<AV>
 where
     AV: AccessVec<u8>,
 {
-    // In a real implementation, this would contain the necessary fields and methods
+    // In a real implementation, this would contain the necessary fields and
+    // methods
     _phantom: std::marker::PhantomData<AV>,
 }
 

@@ -14,6 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::sync::Arc;
+
+use parking_lot::Mutex;
+
 use crate::codecs::segment_info_format::SegmentInfoFormat;
 use crate::codecs::CodecUtil;
 use crate::index::index_sorter::IndexSorter;
@@ -21,44 +25,55 @@ use crate::index::segment_info::{seg_info, SegmentInfo};
 use crate::index::sort::Sort;
 use crate::index::sort_field_provider::{for_name, write, SortFieldProvider};
 use crate::index::IndexFileNames;
-
 use crate::search::sort_field::SortFiledBase;
 use crate::store::directory::Directory;
 use crate::store::{DataInput, DataOutput, IOContext};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::Version;
-use parking_lot::Mutex;
-use std::sync::Arc;
 
 /// Lucene 9.9 Segment info format.
 ///
 /// # Files
 ///
-/// - `.si`: Header, SegVersion, SegSize, IsCompoundFile, Diagnostics, Files, Attributes, IndexSort, Footer
+/// - `.si`: Header, SegVersion, SegSize, IsCompoundFile, Diagnostics, Files,
+///   Attributes, IndexSort, Footer
 ///
 /// # Data Types
 ///
-/// - **Header** --> [`CodecUtil::write_index_header`](CodecUtil::write_index_header)
+/// - **Header** -->
+///   [`CodecUtil::write_index_header`](CodecUtil::write_index_header)
 /// - **SegSize** --> [`DataOutput::write_int`] (Int32)
 /// - **SegVersion** --> [`DataOutput::write_string`] (String)
 /// - **SegMinVersion** --> [`DataOutput::write_string`] (String)
 /// - **Files** --> [`DataOutput::write_set_of_strings`] (Set\<String>)
-/// - **Diagnostics**, **Attributes** --> [`DataOutput::write_map_of_strings`] (Map<String, String>)
+/// - **Diagnostics**, **Attributes** --> [`DataOutput::write_map_of_strings`]
+///   (Map<String, String>)
 /// - **IsCompoundFile** --> [`DataOutput::write_byte`] (Int8)
 /// - **HasBlocks** --> [`DataOutput::write_byte`] (Int8)
-/// - **IndexSort** --> [`DataOutput::write_vint`] (Int32) count, followed by `count` SortField
-/// - **SortField** --> [`DataOutput::write_string`] (String) sort struct, followed by a per-sort byte stream
-///   (see [`SortFieldProvider::read_sort_field`])
+/// - **IndexSort** --> [`DataOutput::write_vint`] (Int32) count, followed by
+///   `count` SortField
+/// - **SortField** --> [`DataOutput::write_string`] (String) sort struct,
+///   followed by a per-sort byte stream (see
+///   [`SortFieldProvider::read_sort_field`])
 /// - **Footer** --> [`CodecUtil::write_footer`](CodecUtil::write_footer)
 ///
 /// # Field Descriptions
 ///
 /// - **SegVersion**: The code version that created the segment.
-/// - **SegMinVersion**: The minimum code version that contributed documents to the segment.
+/// - **SegMinVersion**: The minimum code version that contributed documents to
+///   the segment.
 /// - **SegSize**: The number of documents contained in the segment index.
-/// - **IsCompoundFile**: Records whether the segment is written as a compound file or not. If this is `-1`, the segment is not a compound file. If it is `1`, the segment is a compound file.
-/// - **HasBlocks**: Records whether the segment contains documents written as a block and guarantees consecutive document IDs for all documents in the block.
-/// - **Diagnostics Map**: Privately written by [`IndexWriter`](crate::index::index_writer::IndexWriter), as debugging aid, for each segment it creates. It includes metadata like the current Lucene version, OS, Java version, why the segment was created (merge, flush, addIndexes), etc.
+/// - **IsCompoundFile**: Records whether the segment is written as a compound
+///   file or not. If this is `-1`, the segment is not a compound file. If it is
+///   `1`, the segment is a compound file.
+/// - **HasBlocks**: Records whether the segment contains documents written as a
+///   block and guarantees consecutive document IDs for all documents in the
+///   block.
+/// - **Diagnostics Map**: Privately written by
+///   [`IndexWriter`](crate::index::index_writer::IndexWriter), as debugging
+///   aid, for each segment it creates. It includes metadata like the current
+///   Lucene version, OS, Java version, why the segment was created (merge,
+///   flush, addIndexes), etc.
 /// - **Files**: A list of files referred to by this segment.
 ///
 /// # See Also
@@ -126,8 +141,7 @@ impl Lucene99SegmentInfoFormat {
         let num_sort_fields = input.read_vint()?;
         let index_sort = match num_sort_fields.cmp(&0) {
             std::cmp::Ordering::Greater => {
-                let mut sort_fields =
-                    Vec::with_capacity(num_sort_fields as usize);
+                let mut sort_fields = Vec::with_capacity(num_sort_fields as usize);
                 for _ in 0..num_sort_fields {
                     let name = input.read_string()?;
                     let sort_field = for_name(&name).read_sort_field(input)?;
@@ -160,10 +174,7 @@ impl Lucene99SegmentInfoFormat {
         si.set_files(files);
         Ok(si)
     }
-    fn write_segment_info<D>(
-        output: &mut impl DataOutput,
-        si: &SegmentInfo<D>,
-    ) -> Result<()>
+    fn write_segment_info<D>(output: &mut impl DataOutput, si: &SegmentInfo<D>) -> Result<()>
     where
         D: Directory,
     {
@@ -180,7 +191,8 @@ impl Lucene99SegmentInfoFormat {
         output.write_int(version.minor)?;
         output.write_int(version.bug_fix)?;
 
-        // Write the min Lucene version that contributed docs to the segment, since 7.0
+        // Write the min Lucene version that contributed docs to the segment,
+        // since 7.0
         if let Some(min_version) = si.get_min_version() {
             output.write_byte(1)?;
             output.write_int(min_version.major)?;
@@ -258,8 +270,7 @@ impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
     where
         D: Directory,
     {
-        let file_name =
-            IndexFileNames::segment_file_name(segment, "", SI_EXTENSION);
+        let file_name = IndexFileNames::segment_file_name(segment, "", SI_EXTENSION);
         let directory = dir.lock();
         let mut input = directory.open_checksum_input(&file_name)?;
 
@@ -277,12 +288,8 @@ impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
                 );
                 match check_result {
                     Ok(_) => {
-                        match Self::parse_segment_info(
-                            dir.clone(),
-                            &mut input,
-                            segment,
-                            segment_id,
-                        ) {
+                        match Self::parse_segment_info(dir.clone(), &mut input, segment, segment_id)
+                        {
                             Ok(parsed_info) => {
                                 si = Some(parsed_info);
                                 Ok(())
@@ -306,10 +313,7 @@ impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
         }
 
         si.ok_or_else(|| {
-            LuceneError::corrupt_index(format!(
-                "Failed to parse segment info for {}",
-                segment
-            ))
+            LuceneError::corrupt_index(format!("Failed to parse segment info for {}", segment))
         })
     }
 
@@ -322,8 +326,7 @@ impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
     where
         D: Directory,
     {
-        let file_name =
-            IndexFileNames::segment_file_name(&si.name, "", SI_EXTENSION);
+        let file_name = IndexFileNames::segment_file_name(&si.name, "", SI_EXTENSION);
         let mut output = dir.create_output(&file_name, io_context)?;
         si.add_file(file_name.clone())?;
         CodecUtil::write_index_header(
@@ -344,7 +347,6 @@ mod tests {
     use crate::test::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
     use crate::test::index::base_segment_info_format_test_case::BaseSegmentInfoFormatTestCase;
     use crate::test::util::lucene_test_case::random;
-
     use crate::util::error::lucene_error::Result;
     use crate::util::{Version, LATEST};
 

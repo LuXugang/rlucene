@@ -14,6 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use crate::codecs::CodecUtil;
 use crate::store::directory::Directory;
 use crate::store::{DataOutput, IOContext, IndexOutput};
@@ -23,8 +26,6 @@ use crate::util::bkd::point_reader::PointReaderEnum;
 use crate::util::bkd::point_value::{PointValue, PointValueEnum};
 use crate::util::bkd::point_writer::PointWriter;
 use crate::util::error::lucene_error::Result;
-use std::cell::RefCell;
-use std::rc::Rc;
 
 /// Writes points to disk in a fixed-width format.
 pub struct OfflinePointWriter<D>
@@ -152,10 +153,7 @@ where
         Ok(())
     }
 
-    fn append_point_value(
-        &mut self,
-        point_value: &PointValueEnum,
-    ) -> Result<()> {
+    fn append_point_value(&mut self, point_value: &PointValueEnum) -> Result<()> {
         debug_assert!(!self.closed, "Point writer is already closed");
         let (value, offset, length) = point_value.packed_value_doc_id_bytes();
         assert_eq!(
@@ -165,11 +163,10 @@ where
             self.config.bytes_per_doc(),
             length
         );
-        self.out.as_mut().unwrap().write_bytes_range(
-            value.borrow().as_slice(),
-            offset,
-            length,
-        )?;
+        self.out
+            .as_mut()
+            .unwrap()
+            .write_bytes_range(value.borrow().as_slice(), offset, length)?;
         self.count += 1;
         debug_assert!(
             self.expected_count == 0 || self.count <= self.expected_count,
@@ -182,15 +179,10 @@ where
 
     type Dir = D;
 
-    fn get_reader(
-        &self,
-        start: i64,
-        length: i64,
-    ) -> Result<PointReaderEnum<Self::Dir>> {
+    fn get_reader(&self, start: i64, length: i64) -> Result<PointReaderEnum<Self::Dir>> {
         let buffer = Rc::new(RefCell::new(vec![
             0u8;
-            self.config.bytes_per_doc()
-                as usize
+            self.config.bytes_per_doc() as usize
         ]));
         self.get_reader_with_buffer(start, length, buffer)
     }

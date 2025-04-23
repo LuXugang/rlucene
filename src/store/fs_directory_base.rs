@@ -14,18 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::store::index_input::IndexInput;
-use crate::store::IOContext;
-use crate::util::error::lucene_error::Result;
 use std::fmt::Display;
 use std::path::Path;
 
+use crate::store::index_input::IndexInput;
+use crate::store::IOContext;
+use crate::util::error::lucene_error::Result;
+
 pub trait FSDirectoryBase: Display {
     type Output: IndexInput;
-    fn open_input(
-        &self,
-        name: &str,
-        context: &IOContext,
-        path: &Path,
-    ) -> Result<Self::Output>;
+    fn open_input(&self, name: &str, context: &IOContext, path: &Path) -> Result<Self::Output>;
 }

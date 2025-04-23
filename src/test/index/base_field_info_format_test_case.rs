@@ -14,6 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::cell::RefCell;
+use std::collections::{HashMap, HashSet};
+use std::rc::Rc;
+use std::sync::Arc;
+
+use parking_lot::Mutex;
+use rand::rngs::StdRng;
+use rand::Rng;
+use strum::EnumCount;
+
 use crate::codecs::field_infos_format::FieldInfosFormat;
 use crate::codecs::{get_default_code, Codec};
 use crate::document::field_type::FieldType;
@@ -33,18 +43,9 @@ use crate::test::util::index_package_access::{
     FieldInfosBuilder, IndexPackageAccess, IndexPackageAccessImpl,
 };
 use crate::test::util::lucene_test_case::{at_least, new_directory};
-use std::cell::RefCell;
-
 use crate::test::util::test_util::TestUtil;
 use crate::util::error::lucene_error::Result;
 use crate::util::{StringHelper, LATEST};
-use parking_lot::Mutex;
-use rand::rngs::StdRng;
-use rand::Rng;
-use std::collections::{HashMap, HashSet};
-use std::rc::Rc;
-use std::sync::Arc;
-use strum::EnumCount;
 
 pub trait BaseFieldInfoFormatTestCase {
     fn support_doc_values_skip_index(&self) -> bool {
@@ -101,18 +102,12 @@ pub trait BaseFieldInfoFormatTestCase {
         Ok(())
     }
 
-    fn test_exception_on_create_output(
-        &self,
-        _random: &mut StdRng,
-    ) -> Result<()> {
+    fn test_exception_on_create_output(&self, _random: &mut StdRng) -> Result<()> {
         // TODO
         // no necessary to implement
         Ok(())
     }
-    fn test_exception_on_close_output(
-        &self,
-        _random: &mut StdRng,
-    ) -> Result<()> {
+    fn test_exception_on_close_output(&self, _random: &mut StdRng) -> Result<()> {
         // TODO
         // no necessary to implement
         Ok(())
@@ -122,10 +117,7 @@ pub trait BaseFieldInfoFormatTestCase {
         // no necessary to implement
         Ok(())
     }
-    fn test_exception_on_close_input(
-        &self,
-        _random: &mut StdRng,
-    ) -> Result<()> {
+    fn test_exception_on_close_input(&self, _random: &mut StdRng) -> Result<()> {
         // TODO
         // no necessary to implement
         Ok(())
@@ -160,8 +152,8 @@ pub trait BaseFieldInfoFormatTestCase {
         // Create a new FieldInfos builder.
         let soft_deletes_field_clone = soft_deletes_field.clone();
         let parent_field_clone = parent_field.clone();
-        let mut builder = IndexPackageAccessImpl
-            .new_field_infos_builder(soft_deletes_field, parent_field)?;
+        let mut builder =
+            IndexPackageAccessImpl.new_field_infos_builder(soft_deletes_field, parent_field)?;
 
         for field in field_names {
             // Generate a random field type for this field.
@@ -174,9 +166,7 @@ pub trait BaseFieldInfoFormatTestCase {
             if field_type.index_options() != &IndexOptions::None {
                 store_term_vectors = field_type.store_term_vectors();
                 omit_norms = field_type.omit_norms();
-                if field_type.index_options()
-                    >= &IndexOptions::DocsAndFreqsAndPositions
-                {
+                if field_type.index_options() >= &IndexOptions::DocsAndFreqsAndPositions {
                     store_payloads = random.random_bool(0.5);
                 }
             }
@@ -256,52 +246,34 @@ pub trait BaseFieldInfoFormatTestCase {
         1024
     }
 
-    fn random_field_type(
-        &self,
-        random: &mut StdRng,
-        field_name: &str,
-    ) -> Result<FieldType> {
+    fn random_field_type(&self, random: &mut StdRng, field_name: &str) -> Result<FieldType> {
         let mut field_type = FieldType::new();
 
         if random.random_bool(0.5) {
             field_type.set_index_options(
-                IndexOptions::from_repr(
-                    random.random_range(0..IndexOptions::COUNT) as u8,
-                )
-                .unwrap(),
+                IndexOptions::from_repr(random.random_range(0..IndexOptions::COUNT) as u8).unwrap(),
             )?;
             field_type.set_omit_norms(random.random_bool(0.5))?;
 
             if random.random_bool(0.5) {
                 field_type.set_store_term_vectors(true)?;
-                if field_type.index_options()
-                    >= &IndexOptions::DocsAndFreqsAndPositions
-                {
-                    field_type.set_store_term_vector_positions(
-                        random.random_bool(0.5),
-                    )?;
-                    field_type.set_store_term_vector_offsets(
-                        random.random_bool(0.5),
-                    )?;
+                if field_type.index_options() >= &IndexOptions::DocsAndFreqsAndPositions {
+                    field_type.set_store_term_vector_positions(random.random_bool(0.5))?;
+                    field_type.set_store_term_vector_offsets(random.random_bool(0.5))?;
                     if field_type.store_term_vector_positions() {
-                        field_type.set_store_term_vector_payloads(
-                            random.random_bool(0.5),
-                        )?;
+                        field_type.set_store_term_vector_payloads(random.random_bool(0.5))?;
                     }
                 }
             }
         }
 
         if random.random_bool(0.5) {
-            let current = DocValuesType::from_repr(
-                random.random_range(0..DocValuesType::COUNT) as u8,
-            )
-            .unwrap();
+            let current =
+                DocValuesType::from_repr(random.random_range(0..DocValuesType::COUNT) as u8)
+                    .unwrap();
             field_type.set_doc_values_type(
-                DocValuesType::from_repr(
-                    random.random_range(0..DocValuesType::COUNT) as u8,
-                )
-                .unwrap(),
+                DocValuesType::from_repr(random.random_range(0..DocValuesType::COUNT) as u8)
+                    .unwrap(),
             )?;
             if current == DocValuesType::Numeric
                 || current == DocValuesType::SortedNumeric
@@ -319,64 +291,41 @@ pub trait BaseFieldInfoFormatTestCase {
         }
 
         if random.random_bool(0.5) {
-            let dimension =
-                1 + random.random_range(0..point_values_util::MAX_DIMENSIONS);
-            let index_dimension = 1 + random.random_range(
-                0..std::cmp::min(
-                    dimension,
-                    point_values_util::MAX_INDEX_DIMENSIONS,
-                ),
-            );
-            let dimension_num_bytes =
-                1 + random.random_range(0..point_values_util::MAX_NUM_BYTES);
-            field_type.set_dimensions_all(
-                dimension,
-                index_dimension,
-                dimension_num_bytes,
-            )?;
+            let dimension = 1 + random.random_range(0..point_values_util::MAX_DIMENSIONS);
+            let index_dimension = 1 + random
+                .random_range(0..std::cmp::min(dimension, point_values_util::MAX_INDEX_DIMENSIONS));
+            let dimension_num_bytes = 1 + random.random_range(0..point_values_util::MAX_NUM_BYTES);
+            field_type.set_dimensions_all(dimension, index_dimension, dimension_num_bytes)?;
         }
 
-        if random.random_bool(0.5)
-            && Self::get_vectors_max_dimensions(field_name) > 0
-        {
+        if random.random_bool(0.5) && Self::get_vectors_max_dimensions(field_name) > 0 {
             let max_dims = Self::get_vectors_max_dimensions(field_name);
             let dimension = 1 + random.random_range(0..max_dims);
             let similarity_function = VectorSimilarityFunction::from_repr(
                 random.random_range(0..VectorSimilarityFunction::COUNT) as u8,
             )
             .unwrap();
-            let encoding = VectorEncoding::from_repr(
-                random.random_range(0..VectorEncoding::COUNT) as u8,
-            )
-            .unwrap();
-            field_type.set_vector_attributes(
-                dimension,
-                encoding,
-                similarity_function,
-            )?;
+            let encoding =
+                VectorEncoding::from_repr(random.random_range(0..VectorEncoding::COUNT) as u8)
+                    .unwrap();
+            field_type.set_vector_attributes(dimension, encoding, similarity_function)?;
         }
 
         Ok(field_type)
     }
-    /// Hook to add any codec attributes to fieldinfo instances added in this test.
+    /// Hook to add any codec attributes to fieldinfo instances added in this
+    /// test.
     fn add_attributes(_fi: &FieldInfo) {}
     /// Asserts equality for the entirety of FieldInfos
-    fn assert_field_infos_equals(
-        expected: &FieldInfos,
-        actual: &FieldInfos,
-    ) -> Result<()> {
+    fn assert_field_infos_equals(expected: &FieldInfos, actual: &FieldInfos) -> Result<()> {
         assert_eq!(expected.size(), actual.size());
 
         for expected_field in expected.iter() {
-            let actual_field =
-                actual.field_info_by_number(expected_field.number)?;
+            let actual_field = actual.field_info_by_number(expected_field.number)?;
             match actual_field {
                 None => unreachable!("should be Some"),
                 Some(actual_field) => {
-                    Self::assert_field_info_equals(
-                        expected_field,
-                        &actual_field,
-                    );
+                    Self::assert_field_info_equals(expected_field, &actual_field);
                 },
             }
         }
@@ -387,10 +336,7 @@ pub trait BaseFieldInfoFormatTestCase {
     fn assert_field_info_equals(expected: &FieldInfo, actual: &FieldInfo) {
         assert_eq!(expected.number, actual.number);
         assert_eq!(expected.name, actual.name);
-        assert_eq!(
-            expected.get_doc_values_type(),
-            actual.get_doc_values_type()
-        );
+        assert_eq!(expected.get_doc_values_type(), actual.get_doc_values_type());
         assert_eq!(
             expected.doc_values_skip_index_type(),
             actual.doc_values_skip_index_type()

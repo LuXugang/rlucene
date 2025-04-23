@@ -14,14 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::rc::Rc;
+use std::sync::Arc;
+
+use parking_lot::Mutex;
+
 use crate::codecs::compressing::lucene90_compressing_stored_fields_format::Lucene90CompressingStoredFieldsFormat;
-use crate::codecs::compression::compression_mode::{
-    CompressionModeEnum, DeflateCompressionMode,
-};
+use crate::codecs::compression::compression_mode::{CompressionModeEnum, DeflateCompressionMode};
 use crate::codecs::lz4_with_preset_dict_compression_mode::LZ4WithPresetDictCompressionMode;
-use crate::codecs::stored_fields_format::{
-    StoredFieldsFormat, StoredFieldsFormatEnum,
-};
+use crate::codecs::stored_fields_format::{StoredFieldsFormat, StoredFieldsFormatEnum};
 use crate::codecs::stored_fields_reader::StoredFieldsReaderEnum;
 use crate::codecs::stored_fields_writer::StoredFieldsWriterEnum;
 use crate::index::field_infos::FieldInfos;
@@ -29,24 +30,22 @@ use crate::index::segment_info::SegmentInfo;
 use crate::store::directory::Directory;
 use crate::store::IOContext;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use parking_lot::Mutex;
-use std::rc::Rc;
-use std::sync::Arc;
 
 /// Lucene 9.0 stored fields format.
 ///
 /// # Principle
 ///
-/// This [`StoredFieldsFormat`] compresses blocks of documents in order to improve the compression
-/// ratio compared to document-level compression. It uses the [LZ4](http://code.google.com/p/lz4/)
-/// compression algorithm by default in 8KB blocks and shared dictionaries, which is fast to
-/// compress and very fast to decompress data. Although the default compression method that is used
-/// ([`Mode::BestSpeed`]) focuses more on speed than on compression ratio, it should provide
-/// interesting compression ratios for redundant inputs (such as log files, HTML or plain text).
-/// For higher compression, you can choose ([`Mode::BestCompression`]), which uses the
-/// [DEFLATE](http://en.wikipedia.org/wiki/DEFLATE) algorithm with 48KB blocks and shared
-/// dictionaries for a better ratio at the expense of slower performance. These two options can be
-/// configured like this:
+/// This [`StoredFieldsFormat`] compresses blocks of documents in order to
+/// improve the compression ratio compared to document-level compression. It uses the [LZ4](http://code.google.com/p/lz4/)
+/// compression algorithm by default in 8KB blocks and shared dictionaries,
+/// which is fast to compress and very fast to decompress data. Although the
+/// default compression method that is used ([`Mode::BestSpeed`]) focuses more
+/// on speed than on compression ratio, it should provide interesting
+/// compression ratios for redundant inputs (such as log files, HTML or plain
+/// text). For higher compression, you can choose ([`Mode::BestCompression`]),
+/// which uses the [DEFLATE](http://en.wikipedia.org/wiki/DEFLATE) algorithm with 48KB blocks and shared
+/// dictionaries for a better ratio at the expense of slower performance. These
+/// two options can be configured like this:
 ///
 /// ```java
 /// // the default: for high performance
@@ -66,27 +65,34 @@ use std::sync::Arc;
 ///    buffer using the [LZ4 compression format](https://github.com/lz4/lz4).
 ///
 ///    **Notes:**
-///    - When at least one document in a chunk is large enough so that the chunk is larger than
-///      80KB, the chunk will actually be compressed in several LZ4 blocks of 8KB. This allows
-///      [`StoredFieldVisitor`](crate::index::stored_field_visitor::StoredFieldVisitor)s which are only interested in the first fields of a document to not
-///      have to decompress 10MB of data if the document is 10MB, but only 8-16KB (may cross the block).
-///    - Given that the original lengths are written in the metadata of the chunk, the decompressor
-///      can leverage this information to stop decoding as soon as enough data has been decompressed.
-///    - In case documents are incompressible, the overhead of the compression format is less than 0.5%.
+///    - When at least one document in a chunk is large enough so that the chunk
+///      is larger than 80KB, the chunk will actually be compressed in several
+///      LZ4 blocks of 8KB. This allows
+///      [`StoredFieldVisitor`](crate::index::stored_field_visitor::StoredFieldVisitor)s
+///      which are only interested in the first fields of a document to not have
+///      to decompress 10MB of data if the document is 10MB, but only 8-16KB
+///      (may cross the block).
+///    - Given that the original lengths are written in the metadata of the
+///      chunk, the decompressor can leverage this information to stop decoding
+///      as soon as enough data has been decompressed.
+///    - In case documents are incompressible, the overhead of the compression
+///      format is less than 0.5%.
 ///
-/// 2. A fields index file (extension `.fdx`). This file stores two [`DirectMonotonicWriter`](crate::util::packed::direct_monotonic_writer::DirectMonotonicWriter) monotonic
-///    arrays, one for the first doc IDs of each block of compressed documents, and another one for
-///    the corresponding offsets on disk. At search time, the array containing doc IDs is
-///    binary-searched in order to find the block that contains the expected doc ID, and the
-///    associated offset on disk is retrieved from the second array.
+/// 2. A fields index file (extension `.fdx`). This file stores two
+///    [`DirectMonotonicWriter`](crate::util::packed::direct_monotonic_writer::DirectMonotonicWriter)
+///    monotonic arrays, one for the first doc IDs of each block of compressed
+///    documents, and another one for the corresponding offsets on disk. At
+///    search time, the array containing doc IDs is binary-searched in order to
+///    find the block that contains the expected doc ID, and the associated
+///    offset on disk is retrieved from the second array.
 ///
-/// 3. A fields meta file (extension `.fdm`). This file stores metadata about the monotonic arrays
-///    stored in the index file.
+/// 3. A fields meta file (extension `.fdm`). This file stores metadata about
+///    the monotonic arrays stored in the index file.
 ///
 /// # Known limitations
 ///
-/// This [`StoredFieldsFormat`] does not support individual documents larger than
-/// `(2^31 - 2^14)` bytes.
+/// This [`StoredFieldsFormat`] does not support individual documents larger
+/// than `(2^31 - 2^14)` bytes.
 ///
 /// @lucene.experimental
 pub struct Lucene90StoredFieldsFormat {
@@ -116,10 +122,7 @@ impl Lucene90StoredFieldsFormat {
         Self { mode }
     }
 
-    fn stored_fields_format_impl(
-        &self,
-        mode: &Mode,
-    ) -> Result<StoredFieldsFormatEnum> {
+    fn stored_fields_format_impl(&self, mode: &Mode) -> Result<StoredFieldsFormatEnum> {
         match mode {
             Mode::BestSpeed => Ok(StoredFieldsFormatEnum::Lucene90Compressing(
                 Lucene90CompressingStoredFieldsFormat::new(
@@ -130,17 +133,15 @@ impl Lucene90StoredFieldsFormat {
                     10,
                 )?,
             )),
-            Mode::BestCompression => {
-                Ok(StoredFieldsFormatEnum::Lucene90Compressing(
-                    Lucene90CompressingStoredFieldsFormat::new(
-                        "Lucene90StoredFieldsHighData",
-                        BEST_COMPRESSION_MODE.clone(),
-                        Self::BEST_COMPRESSION_BLOCK_LENGTH as i32,
-                        4096,
-                        10,
-                    )?,
-                ))
-            },
+            Mode::BestCompression => Ok(StoredFieldsFormatEnum::Lucene90Compressing(
+                Lucene90CompressingStoredFieldsFormat::new(
+                    "Lucene90StoredFieldsHighData",
+                    BEST_COMPRESSION_MODE.clone(),
+                    Self::BEST_COMPRESSION_BLOCK_LENGTH as i32,
+                    4096,
+                    10,
+                )?,
+            )),
         }
     }
 }
@@ -179,10 +180,8 @@ impl StoredFieldsFormat for Lucene90StoredFieldsFormat {
     where
         D: Directory,
     {
-        let previous = segment_info.put_attribute(
-            Self::MODE_KEY.to_string(),
-            self.mode.name().to_string(),
-        );
+        let previous =
+            segment_info.put_attribute(Self::MODE_KEY.to_string(), self.mode.name().to_string());
 
         if let Some(prev) = previous {
             if prev != *self.mode.name() {

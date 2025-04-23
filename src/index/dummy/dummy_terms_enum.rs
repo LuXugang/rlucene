@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::borrow::Cow;
+
 use crate::index::dummy::dummy_impacts_enum::DummyImpactsEnum;
 use crate::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::index::postings_enum::PostingsEnum;
@@ -24,7 +26,6 @@ use crate::util::access::AccessVec;
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use std::borrow::Cow;
 
 pub struct DummyTermsEnum {
     atts: AttributeSource,
@@ -74,11 +75,7 @@ where
         ))
     }
 
-    fn seek_exact_with_state(
-        &mut self,
-        term: &BytesRef<AV>,
-        state: &TermStateEnum,
-    ) -> Result<()> {
+    fn seek_exact_with_state(&mut self, term: &BytesRef<AV>, state: &TermStateEnum) -> Result<()> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))

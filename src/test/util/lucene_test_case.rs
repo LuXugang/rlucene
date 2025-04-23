@@ -14,33 +14,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt;
+
+use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
+use tempfile::TempDir;
+
 use crate::index::BytesRef;
 use crate::store::directory::Directory;
 use crate::store::flush_info::FlushInfo;
 use crate::store::merge_info::MergeInfo;
 use crate::store::nio_fs_directory::NIOFSDirectory;
 use crate::store::{
-    FSDirectory, IOContext, NativeFSLockFactory, IO_CONTEXT_DEFAULT,
-    IO_CONTEXT_READ_ONCE,
+    FSDirectory, IOContext, NativeFSLockFactory, IO_CONTEXT_DEFAULT, IO_CONTEXT_READ_ONCE,
 };
-use crate::test::util::lucene_test_case::EnvConfig::{
-    Multiplier, NightMode, TestSeed,
-};
-
+use crate::test::util::lucene_test_case::EnvConfig::{Multiplier, NightMode, TestSeed};
 use crate::test::util::test_util::TestUtil;
 use crate::util::error::lucene_error::Result;
 use crate::util::SliceCopyOps;
-use rand::rngs::StdRng;
-use rand::{Rng, SeedableRng};
-use std::fmt;
-use tempfile::TempDir;
 
 #[allow(dead_code)] // for quick search
 pub struct LuceneTestCase;
-/// Describes the currently supported environment variables used to control Lucene tests.
+/// Describes the currently supported environment variables used to control
+/// Lucene tests.
 ///
-/// Each variant corresponds to an environment variable that configures specific behaviors of the tests.
-/// For example, environment variables can be used to control the test mode, random number generator seed, etc.
+/// Each variant corresponds to an environment variable that configures specific
+/// behaviors of the tests. For example, environment variables can be used to
+/// control the test mode, random number generator seed, etc.
 #[derive(Debug, Clone, Copy)]
 pub enum EnvConfig {
     NightMode,
@@ -76,8 +76,8 @@ fn default_random_multiplier() -> i32 {
 }
 /// Returns a number of at least `i`
 ///
-/// The actual number returned will be influenced by whether `TEST_NIGHTLY` is active and
-/// `RANDOM_MULTIPLIER`, but also with some random fudge.
+/// The actual number returned will be influenced by whether `TEST_NIGHTLY` is
+/// active and `RANDOM_MULTIPLIER`, but also with some random fudge.
 pub(crate) fn at_least(random: &mut StdRng, i: i32) -> i32 {
     let min = i * random_multiplier();
     let max = min + (min / 2);
@@ -91,7 +91,8 @@ pub(crate) fn rarely(random: &mut StdRng) -> bool {
     random.random_range(0..100) >= min
 }
 
-// TODO: When we have implemented multiple directories, we need to select one randomly. Currently, we choose NIOFSDirectory.
+// TODO: When we have implemented multiple directories, we need to select one
+// randomly. Currently, we choose NIOFSDirectory.
 pub(crate) fn new_directory(
     _random: &mut StdRng,
 ) -> Result<FSDirectory<NativeFSLockFactory, NIOFSDirectory>> {
@@ -118,21 +119,25 @@ pub(crate) fn new_io_context_with_default(
     let size = random.random_range(0..512) * random_num_docs as i64;
 
     if let Some(flush_info) = &old_context.flush_info {
-        // Always return at least the estimatedSegmentSize of the incoming IOContext
+        // Always return at least the estimatedSegmentSize of the incoming
+        // IOContext
         Ok(IOContext::with_flush(FlushInfo::new(
             random_num_docs,
             size.max(flush_info.get_estimated_segment_size()),
         ))?)
     } else if let Some(merge_info) = &old_context.merge_info {
-        // Always return at least the estimatedMergeBytes of the incoming IOContext
+        // Always return at least the estimatedMergeBytes of the incoming
+        // IOContext
         return IOContext::with_merge(MergeInfo::new(
             random_num_docs,
             size.max(merge_info.get_estimated_merge_bytes()),
-            random.random_bool(0.5), // Randomly decide if it's an external merge
+            random.random_bool(0.5), /* Randomly decide if it's an external
+                                      * merge */
             random.random_range(1..=100),
         ));
     } else {
-        // Make a totally random IOContext, except READONCE which has semantic implications
+        // Make a totally random IOContext, except READONCE which has semantic
+        // implications
         let context_type = random.random_range(0..3);
         match context_type {
             0 => Ok(IOContext::default_io_context()?),
@@ -150,10 +155,7 @@ pub(crate) fn new_io_context_with_default(
         }
     }
 }
-pub(crate) fn slow_file_exists(
-    dir: &impl Directory,
-    name: &str,
-) -> Result<bool> {
+pub(crate) fn slow_file_exists(dir: &impl Directory, name: &str) -> Result<bool> {
     let result = dir.open_input(name, &IOContext::default_io_context()?);
     match result {
         Ok(_) => Ok(true),
@@ -163,16 +165,14 @@ pub(crate) fn slow_file_exists(
 /// Creates a `BytesRef` holding UTF-8 bytes for the incoming string,
 /// that sometimes uses a non-zero offset and non-zero end-padding to
 /// tickle latent bugs that fail to look at `BytesRef.offset`.
-pub(crate) fn new_bytes_ref_from_string(
-    random: &mut StdRng,
-    s: &str,
-) -> Result<BytesRef<Vec<u8>>> {
+pub(crate) fn new_bytes_ref_from_string(random: &mut StdRng, s: &str) -> Result<BytesRef<Vec<u8>>> {
     let bytes = s.as_bytes();
     new_bytes_ref(random, bytes, 0, bytes.len() as i32)
 }
 
-/// Creates a copy of the incoming `BytesRef` that sometimes uses a non-zero offset,
-/// and non-zero end-padding, to tickle latent bugs that fail to look at `BytesRef.offset`.
+/// Creates a copy of the incoming `BytesRef` that sometimes uses a non-zero
+/// offset, and non-zero end-padding, to tickle latent bugs that fail to look at
+/// `BytesRef.offset`.
 #[allow(unused)]
 pub(crate) fn new_bytes_ref_from_bytes_ref(
     random: &mut StdRng,
@@ -182,8 +182,9 @@ pub(crate) fn new_bytes_ref_from_bytes_ref(
     new_bytes_ref(random, &b.bytes, b.offset as i32, b.length as i32)
 }
 
-/// Creates a random `BytesRef` from the incoming bytes, sometimes using a non-zero offset,
-/// and non-zero end-padding, to tickle latent bugs that fail to look at `BytesRef.offset`.
+/// Creates a random `BytesRef` from the incoming bytes, sometimes using a
+/// non-zero offset, and non-zero end-padding, to tickle latent bugs that fail
+/// to look at `BytesRef.offset`.
 #[allow(unused)]
 pub(crate) fn new_bytes_ref_from_bytes(
     random: &mut StdRng,
@@ -192,18 +193,18 @@ pub(crate) fn new_bytes_ref_from_bytes(
     new_bytes_ref(random, bytes_in, 0, bytes_in.len() as i32)
 }
 
-/// Creates a random empty `BytesRef` that sometimes uses a non-zero offset, and non-zero
-/// end-padding, to tickle latent bugs that fail to look at `BytesRef.offset`.
+/// Creates a random empty `BytesRef` that sometimes uses a non-zero offset, and
+/// non-zero end-padding, to tickle latent bugs that fail to look at
+/// `BytesRef.offset`.
 #[allow(unused)]
-pub(crate) fn new_bytes_ref_empty(
-    random: &mut StdRng,
-) -> Result<BytesRef<Vec<u8>>> {
-    new_bytes_ref(random, &[], 0, 0) // Calling the existing `new_bytes_ref` function
+pub(crate) fn new_bytes_ref_empty(random: &mut StdRng) -> Result<BytesRef<Vec<u8>>> {
+    new_bytes_ref(random, &[], 0, 0) // Calling the existing `new_bytes_ref`
+                                     // function
 }
 
-/// Creates a random empty `BytesRef`, with at least the requested length of bytes free,
-/// that sometimes uses a non-zero offset and non-zero end-padding to tickle latent bugs
-/// that fail to look at `BytesRef.offset`.
+/// Creates a random empty `BytesRef`, with at least the requested length of
+/// bytes free, that sometimes uses a non-zero offset and non-zero end-padding
+/// to tickle latent bugs that fail to look at `BytesRef.offset`.
 #[allow(unused)]
 pub(crate) fn new_bytes_ref_with_length(
     byte_length: i32,
@@ -213,8 +214,9 @@ pub(crate) fn new_bytes_ref_with_length(
     new_bytes_ref(random, &bytes_in, 0, byte_length)
 }
 
-/// Creates a copy of the incoming bytes slice that sometimes uses a non-zero {@code offset}, and
-/// non-zero end-padding, to tickle latent bugs that fail to look at {@code BytesRef.offset}.
+/// Creates a copy of the incoming bytes slice that sometimes uses a non-zero
+/// {@code offset}, and non-zero end-padding, to tickle latent bugs that fail to
+/// look at {@code BytesRef.offset}.
 pub(crate) fn new_bytes_ref(
     random: &mut StdRng,
     bytes_in: &[u8],
@@ -257,12 +259,7 @@ pub(crate) fn new_bytes_ref(
     assert!(it.is_valid()?);
 
     if random.random_range(1..=17) == 7 {
-        return new_bytes_ref(
-            random,
-            &it.bytes,
-            it.offset as i32,
-            it.length as i32,
-        );
+        return new_bytes_ref(random, &it.bytes, it.offset as i32, it.length as i32);
     };
     Ok(it)
 }
@@ -279,10 +276,7 @@ pub(crate) fn get_seed_from_env() -> u64 {
             println!("Using Global Seed from environment: '{}'", seed);
             return seed;
         } else {
-            println!(
-                "Environment variable tests.seed is invalid: '{}'",
-                seed_str
-            );
+            println!("Environment variable tests.seed is invalid: '{}'", seed_str);
         }
     }
 

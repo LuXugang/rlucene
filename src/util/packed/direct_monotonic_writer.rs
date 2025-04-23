@@ -18,9 +18,10 @@ use crate::store::IndexOutput;
 use crate::util::array_util::ArrayUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::packed::direct_writer::{direct_writer_util, DirectWriter};
-/// Write monotonically-increasing sequences of integers. This writer splits data into blocks and
-/// then for each block, computes the average slope, the minimum value, and encodes only the delta
-/// from the expected value using a `DirectWriter`.
+/// Write monotonically-increasing sequences of integers. This writer splits
+/// data into blocks and then for each block, computes the average slope, the
+/// minimum value, and encodes only the delta from the expected value using a
+/// `DirectWriter`.
 ///
 /// # See also
 /// `DirectMonotonicReader`
@@ -112,8 +113,7 @@ where
         debug_assert!(self.buffer_size != 0);
 
         let avg_inc = {
-            let numerator =
-                self.buffer[(self.buffer_size - 1) as usize] - self.buffer[0];
+            let numerator = self.buffer[(self.buffer_size - 1) as usize] - self.buffer[0];
             let denominator = std::cmp::max(1, self.buffer_size - 1) as f64;
             (numerator as f64 / denominator) as f32
         };
@@ -128,27 +128,22 @@ where
         let mut max_delta = 0;
         for i in 0..(self.buffer_size as usize) {
             self.buffer[i] -= min;
-            // use | will change nothing when it comes to computing required bits
-            // but has the benefit of working fine with negative values too
-            // (in case of overflow)
+            // use | will change nothing when it comes to computing required
+            // bits but has the benefit of working fine with
+            // negative values too (in case of overflow)
             max_delta |= self.buffer[i];
         }
 
         self.meta.write_long(min)?;
         self.meta.write_int(avg_inc.to_bits() as i32)?;
-        self.meta.write_long(
-            self.data.get_file_pointer() - self.base_data_pointer,
-        )?;
+        self.meta
+            .write_long(self.data.get_file_pointer() - self.base_data_pointer)?;
         if max_delta == 0 {
             self.meta.write_byte(0)?;
         } else {
-            let bits_required =
-                direct_writer_util::unsigned_bits_required(max_delta);
-            let mut writer = DirectWriter::get_instance(
-                self.data,
-                self.buffer_size as i64,
-                bits_required,
-            )?;
+            let bits_required = direct_writer_util::unsigned_bits_required(max_delta);
+            let mut writer =
+                DirectWriter::get_instance(self.data, self.buffer_size as i64, bits_required)?;
             for i in 0..(self.buffer_size as usize) {
                 writer.add(self.buffer[i])?;
             }
@@ -158,7 +153,8 @@ where
         self.buffer_size = 0;
         Ok(())
     }
-    /// Write a new value. Note that data might not be stored until [`finish()`](DirectMonotonicWriter::finish) is called.
+    /// Write a new value. Note that data might not be stored until
+    /// [`finish()`](DirectMonotonicWriter::finish) is called.
     ///
     /// # Errors
     /// - Returns an error if values are not provided in order.
@@ -178,7 +174,8 @@ where
         self.count += 1;
         Ok(())
     }
-    /// This must be called exactly once after all values have been added using [`add(i64)`](DirectMonotonicWriter::add).
+    /// This must be called exactly once after all values have been added using
+    /// [`add(i64)`](DirectMonotonicWriter::add).
     pub fn finish(&mut self) -> Result<()> {
         if self.count != self.num_values {
             return Err(LuceneError::illegal_state(format!(
@@ -197,9 +194,9 @@ where
         self.finished = true;
         Ok(())
     }
-    /// Returns an instance suitable for encoding `num_values` into monotonic blocks of
-    /// 2<sup>`block_shift`</sup> values. Metadata will be written to `meta_out` and actual
-    /// data to `data_out`.
+    /// Returns an instance suitable for encoding `num_values` into monotonic
+    /// blocks of 2<sup>`block_shift`</sup> values. Metadata will be written
+    /// to `meta_out` and actual data to `data_out`.
     pub fn get_instance(
         meta_out: &'a mut I1,
         data_out: &'a mut I2,

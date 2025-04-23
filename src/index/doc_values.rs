@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::borrow::Cow;
+
 use crate::index::binary_doc_values::BinaryDocValues;
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::dummy::dummy_terms_enum::DummyTermsEnum;
@@ -28,41 +30,37 @@ use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::Result;
-use std::borrow::Cow;
 
 pub struct DocValues;
 impl DocValues {
     /// Returns a multi-valued view over the provided NumericDocValues.
-    pub fn singleton_numeric<N>(
-        dv: N,
-    ) -> Result<SingletonSortedNumericDocValues<N>>
+    pub fn singleton_numeric<N>(dv: N) -> Result<SingletonSortedNumericDocValues<N>>
     where
         N: NumericDocValues,
     {
         SingletonSortedNumericDocValues::new(dv)
     }
     /// Returns a multi-valued view over the provided SortedDocValues.
-    pub fn singleton_sorted<S, AV>(
-        dv: S,
-    ) -> Result<SingletonSortedSetDocValues<S, AV>>
+    pub fn singleton_sorted<S, AV>(dv: S) -> Result<SingletonSortedSetDocValues<S, AV>>
     where
         S: SortedDocValues<AV>,
         AV: AccessVec<u8>,
     {
         SingletonSortedSetDocValues::new(dv)
     }
-    /// An empty SortedNumericDocValues which returns zero values for every document.
-    pub fn empty_sorted_numeric(
-    ) -> Result<SingletonSortedNumericDocValues<EmptyNumeric>> {
+    /// An empty SortedNumericDocValues which returns zero values for every
+    /// document.
+    pub fn empty_sorted_numeric() -> Result<SingletonSortedNumericDocValues<EmptyNumeric>> {
         Self::singleton_numeric(EmptyNumeric::new())
     }
-    /// An empty SortedDocValues which returns empty [`BytesRef`] for every document.
-    pub fn empty_sorted_set(
-    ) -> Result<SingletonSortedSetDocValues<EmptySorted, Vec<u8>>> {
+    /// An empty SortedDocValues which returns empty [`BytesRef`] for every
+    /// document.
+    pub fn empty_sorted_set() -> Result<SingletonSortedSetDocValues<EmptySorted, Vec<u8>>> {
         Self::singleton_sorted(EmptySorted::new())
     }
 
-    /// Returns a single-valued view of the SortedSetDocValues, if it was previously wrapped with
+    /// Returns a single-valued view of the SortedSetDocValues, if it was
+    /// previously wrapped with
     /// [`singleton_sorted`](DocValues::singleton_sorted), or null.
     pub fn unwrap_singleton_sorted_set_doc_values<I, AV, S>(
         dv: &impl SortedSetDocValues<AV>,
@@ -73,7 +71,8 @@ impl DocValues {
     {
         todo!()
     }
-    /// Returns a single-valued view of the SortedNumericDocValues, if it was previously wrapped with
+    /// Returns a single-valued view of the SortedNumericDocValues, if it was
+    /// previously wrapped with
     /// [`singleton_numeric`](DocValues::singleton_numeric), or null.
     pub fn unwrap_singleton_sorted_numeric_doc_values<N>(
         dv: &mut impl SortedNumericDocValues,
@@ -190,7 +189,8 @@ impl NumericDocValues for EmptyNumeric {
     }
 }
 
-/// An empty SortedDocValues which returns empty [`BytesRef`] for every document.
+/// An empty SortedDocValues which returns empty [`BytesRef`] for every
+/// document.
 pub struct EmptySorted {
     doc: i32,
     empty: BytesRef<Vec<u8>>,

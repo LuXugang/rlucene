@@ -14,12 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::dummy::dummy_counter::DummyCounter;
-use parking_lot::Mutex;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::atomic::AtomicI64;
 use std::sync::Arc;
+
+use parking_lot::Mutex;
+
+use crate::util::dummy::dummy_counter::DummyCounter;
 
 pub trait Counter {
     /// Adds the given delta to the counter's current value.
@@ -96,7 +98,8 @@ impl CounterEnum {
     /// Returns a new counter.
     ///
     /// # Arguments
-    /// * `thread_safe` - `true` if the returned counter can be used by multiple threads concurrently.
+    /// * `thread_safe` - `true` if the returned counter can be used by multiple
+    ///   threads concurrently.
     ///
     /// # Returns
     /// A new counter.

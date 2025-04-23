@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use once_cell::sync::Lazy;
+
 use crate::codecs::compound_format::CompoundFormat;
 use crate::codecs::doc_values_format::DocValuesFormat;
 use crate::codecs::field_infos_format::FieldInfosFormat;
@@ -22,7 +24,6 @@ use crate::codecs::lucene101_codec::Lucene101Codec;
 use crate::codecs::norms_format::NormsFormat;
 use crate::codecs::segment_info_format::SegmentInfoFormat;
 use crate::codecs::stored_fields_format::StoredFieldsFormat;
-use once_cell::sync::Lazy;
 
 pub static LATEST_CODEC: Lazy<Lucene101Codec> = Lazy::new(|| Lucene101Codec);
 pub trait Codec {

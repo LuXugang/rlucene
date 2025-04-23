@@ -14,16 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::lucene_error::{LuceneError, Result};
 use std::cell::RefCell;
 use std::rc::Rc;
+
+use crate::util::error::lucene_error::{LuceneError, Result};
 /// # Internal
 /// A pool for int blocks similar to `ByteBlockPool`.
 pub struct IntBlockPool {
-    /// array of buffers currently used in the pool. Buffers are allocated if needed don't modify this
-    /// outside of this struct
+    /// array of buffers currently used in the pool. Buffers are allocated if
+    /// needed don't modify this outside of this struct
     buffers: Vec<Vec<i32>>,
-    /// index into the buffers array pointing to the current buffer used as the head.
+    /// index into the buffers array pointing to the current buffer used as the
+    /// head.
     pub(crate) buffer_upto: i32,
     /// Pointer to the current position in head buffer.
     pub(crate) int_upto: i32,
@@ -46,9 +48,9 @@ impl IntBlockPool {
     ///
     /// See `IntBlockPool::next_buffer()` for more details.
     pub fn new() -> Self {
-        let allocator = Rc::new(RefCell::new(AllocatorIntEnum::DA(
-            DirectAllocatorI32::new(),
-        )));
+        let allocator = Rc::new(RefCell::new(
+            AllocatorIntEnum::DA(DirectAllocatorI32::new()),
+        ));
         Self::with_allocator(allocator)
     }
     /// Creates a new `IntBlockPool` with the given `Allocator`.
@@ -63,15 +65,19 @@ impl IntBlockPool {
             allocator,
         }
     }
-    /// Expert: Resets the pool to its initial state, while optionally reusing the first buffer.
-    /// Buffers that are not reused are reclaimed by `ByteBlockPool::Allocator::recycleByteBlocks(byte[][], int, int)`.
-    /// Buffers can be filled with zeros before recycling them. This is useful if a slice pool works on top of this int pool
-    /// and relies on the buffers being filled with zeros to find the non-zero end of slices.
+    /// Expert: Resets the pool to its initial state, while optionally reusing
+    /// the first buffer. Buffers that are not reused are reclaimed by
+    /// `ByteBlockPool::Allocator::recycleByteBlocks(byte[][], int, int)`.
+    /// Buffers can be filled with zeros before recycling them. This is useful
+    /// if a slice pool works on top of this int pool and relies on the
+    /// buffers being filled with zeros to find the non-zero end of slices.
     ///
     /// # Parameters
     /// - `zero_fill_buffers`: if `true`, the buffers are filled with `0`.
-    /// - `reuse_first`: if `true`, the first buffer will be reused and calling `IntBlockPool::nextBuffer()` is not needed after reset
-    ///   if the block pool was used before, i.e., `IntBlockPool::next_buffer()` was called before.
+    /// - `reuse_first`: if `true`, the first buffer will be reused and calling
+    ///   `IntBlockPool::nextBuffer()` is not needed after reset if the block
+    ///   pool was used before, i.e., `IntBlockPool::next_buffer()` was called
+    ///   before.
     pub fn reset(&mut self, zero_fill_buffers: bool, reuse_first: bool) {
         if self.buffer_upto != -1 {
             if zero_fill_buffers {
@@ -102,8 +108,9 @@ impl IntBlockPool {
             }
         }
     }
-    /// Advances the pool to its next buffer. This method should be called once after the constructor
-    /// to initialize the pool. In contrast to the constructor, a `IntBlockPool::reset(boolean, boolean)`
+    /// Advances the pool to its next buffer. This method should be called once
+    /// after the constructor to initialize the pool. In contrast to the
+    /// constructor, a `IntBlockPool::reset(boolean, boolean)`
     /// call will advance the pool to its first buffer immediately.
     pub fn next_buffer(&mut self) -> Result<()> {
         if self.buffer_upto + 1 == self.buffers.len() as i32 {
@@ -130,12 +137,7 @@ impl IntBlockPool {
 
 /// Abstract trait for allocating and freeing byte blocks.
 pub trait AllocatorI32 {
-    fn recycle_byte_blocks(
-        &mut self,
-        blocks: &[Vec<i32>],
-        start: i32,
-        end: i32,
-    );
+    fn recycle_byte_blocks(&mut self, blocks: &[Vec<i32>], start: i32, end: i32);
     fn get_byte_block(&mut self) -> Vec<i32>;
     fn get_block_size(&self) -> i32;
 }
@@ -160,13 +162,7 @@ impl DirectAllocatorI32 {
 }
 
 impl AllocatorI32 for DirectAllocatorI32 {
-    fn recycle_byte_blocks(
-        &mut self,
-        _blocks: &[Vec<i32>],
-        _start: i32,
-        _end: i32,
-    ) {
-    }
+    fn recycle_byte_blocks(&mut self, _blocks: &[Vec<i32>], _start: i32, _end: i32) {}
 
     fn get_byte_block(&mut self) -> Vec<i32> {
         vec![0; self.block_size as usize]
@@ -180,16 +176,9 @@ pub enum AllocatorIntEnum {
     DA(DirectAllocatorI32),
 }
 impl AllocatorI32 for AllocatorIntEnum {
-    fn recycle_byte_blocks(
-        &mut self,
-        blocks: &[Vec<i32>],
-        start: i32,
-        end: i32,
-    ) {
+    fn recycle_byte_blocks(&mut self, blocks: &[Vec<i32>], start: i32, end: i32) {
         match self {
-            AllocatorIntEnum::DA(da) => {
-                da.recycle_byte_blocks(blocks, start, end)
-            },
+            AllocatorIntEnum::DA(da) => da.recycle_byte_blocks(blocks, start, end),
         }
     }
 
@@ -208,25 +197,26 @@ impl AllocatorI32 for AllocatorIntEnum {
 
 #[cfg(test)]
 mod tests {
-    use crate::test::util::lucene_test_case::random;
-    use crate::util::error::lucene_error::{LuceneError, Result};
-    use crate::util::int_block_pool::{
-        AllocatorIntEnum, DirectAllocatorI32, IntBlockPool,
-    };
-    use rand::Rng;
     use std::cell::RefCell;
     use std::rc::Rc;
+
+    use rand::Rng;
+
+    use crate::test::util::lucene_test_case::random;
+    use crate::util::error::lucene_error::{LuceneError, Result};
+    use crate::util::int_block_pool::{AllocatorIntEnum, DirectAllocatorI32, IntBlockPool};
 
     #[test]
     fn test_write_read_reset() -> Result<()> {
         let mut random = random();
-        let allocator = Rc::new(RefCell::new(AllocatorIntEnum::DA(
-            DirectAllocatorI32::new(),
-        )));
+        let allocator = Rc::new(RefCell::new(
+            AllocatorIntEnum::DA(DirectAllocatorI32::new()),
+        ));
         let mut pool = IntBlockPool::with_allocator(allocator);
         pool.next_buffer()?;
 
-        // Write <count> consecutive ints to the buffer, possibly allocating a new buffer
+        // Write <count> consecutive ints to the buffer, possibly allocating a
+        // new buffer
         let count = random.random_range(0..2 * IntBlockPool::INT_BLOCK_SIZE);
         for i in 0..count {
             if pool.int_upto == IntBlockPool::INT_BLOCK_SIZE {
@@ -247,7 +237,8 @@ mod tests {
             );
         }
 
-        // Reset without filling with zeros and check that the first buffer still has the ints
+        // Reset without filling with zeros and check that the first buffer
+        // still has the ints
         let count = count.min(IntBlockPool::INT_BLOCK_SIZE);
         pool.reset(false, true);
         for i in 0..count {
@@ -264,9 +255,9 @@ mod tests {
     }
     #[test]
     fn test_too_many_allocs() -> Result<()> {
-        let allocator = Rc::new(RefCell::new(AllocatorIntEnum::DA(
-            DirectAllocatorI32::new(),
-        )));
+        let allocator = Rc::new(RefCell::new(
+            AllocatorIntEnum::DA(DirectAllocatorI32::new()),
+        ));
         let mut pool = IntBlockPool::with_allocator(allocator);
         pool.next_buffer()?;
 
@@ -278,9 +269,7 @@ mod tests {
         })();
 
         assert!(matches!(result, Err(LuceneError::NumberOverflow(_))));
-        assert!(
-            pool.int_offset + IntBlockPool::INT_BLOCK_SIZE < pool.int_offset
-        );
+        assert!(pool.int_offset + IntBlockPool::INT_BLOCK_SIZE < pool.int_offset);
 
         Ok(())
     }

@@ -14,16 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::{Display, Formatter};
+
 use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::{LuceneError, Result};
-
 use crate::util::packed::bulk_operation::bulk_operation_util;
 use crate::util::packed::format_behavior::PackedSingleBlockImpl;
 use crate::util::packed::mutable_packed64_enum::MutablePacked64Enum;
-use crate::util::packed::{
-    Decoder, Encoder, Format, Mutable, MutableImpl, PackedInts, Reader,
-};
-use std::fmt::{Display, Formatter};
+use crate::util::packed::{Decoder, Encoder, Format, Mutable, MutableImpl, PackedInts, Reader};
 
 pub(crate) struct Packed64SingleBlock<T>
 where
@@ -35,8 +33,7 @@ where
     sub_reader: T,
 }
 /// Checks if the given `bits_per_value` is supported.
-const SUPPORTED_BITS_PER_VALUE: [i32; 14] =
-    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 16, 21, 32];
+const SUPPORTED_BITS_PER_VALUE: [i32; 14] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 16, 21, 32];
 pub fn is_supported(bits_per_value: i32) -> bool {
     SUPPORTED_BITS_PER_VALUE
         .binary_search(&{ bits_per_value })
@@ -56,11 +53,7 @@ where
                 1
             }
     }
-    pub(crate) fn new(
-        bits_per_value: i32,
-        value_count: i32,
-        sub_reader: T,
-    ) -> Self {
+    pub(crate) fn new(bits_per_value: i32, value_count: i32, sub_reader: T) -> Self {
         debug_assert!(
             bits_per_value > 0 && bits_per_value <= 64,
             "bitsPerValue must be > 0 and <= 64"
@@ -71,8 +64,7 @@ where
             bits_per_value
         );
         let values_per_block = 64 / bits_per_value;
-        let required_capacity =
-            Self::required_capacity(value_count, values_per_block);
+        let required_capacity = Self::required_capacity(value_count, values_per_block);
         Self {
             blocks: vec![0; required_capacity as usize],
             value_count,
@@ -115,8 +107,7 @@ where
                 if len == 0 {
                     return Ok(index - original_index);
                 }
-                arr[off as usize] =
-                    self.sub_reader.get(index, &mut self.blocks);
+                arr[off as usize] = self.sub_reader.get(index, &mut self.blocks);
                 off += 1;
                 index += 1;
                 len -= 1;
@@ -163,7 +154,8 @@ where
             // Stay at the block boundary
             Ok(index - original_index)
         } else {
-            // No progress so far => already at a block boundary but no full block to get
+            // No progress so far => already at a block boundary but no full
+            // block to get
             debug_assert_eq!(index, original_index, "Index mismatch");
             self.default_get_bulk(index, arr, off, len)
         }
@@ -173,134 +165,89 @@ where
         self.value_count
     }
 }
-pub(crate) fn create(
-    value_count: i32,
-    bits_per_value: i32,
-) -> Result<MutablePacked64Enum> {
+pub(crate) fn create(value_count: i32, bits_per_value: i32) -> Result<MutablePacked64Enum> {
     match bits_per_value {
         1 => {
-            let sub_reader = Packed64SingleBlock::new(
-                bits_per_value,
-                value_count,
-                Packed64SingleBlock1 {},
-            );
+            let sub_reader =
+                Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock1 {});
             let reader = MutableImpl::new(sub_reader);
             Ok(MutablePacked64Enum::P64SingleBlock1(reader))
         },
         2 => {
-            let sub_reader = Packed64SingleBlock::new(
-                bits_per_value,
-                value_count,
-                Packed64SingleBlock2 {},
-            );
+            let sub_reader =
+                Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock2 {});
             let reader = MutableImpl::new(sub_reader);
             Ok(MutablePacked64Enum::P64SingleBlock2(reader))
         },
         3 => {
-            let sub_reader = Packed64SingleBlock::new(
-                bits_per_value,
-                value_count,
-                Packed64SingleBlock3 {},
-            );
+            let sub_reader =
+                Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock3 {});
             let reader = MutableImpl::new(sub_reader);
             Ok(MutablePacked64Enum::P64SingleBlock3(reader))
         },
         4 => {
-            let sub_reader = Packed64SingleBlock::new(
-                bits_per_value,
-                value_count,
-                Packed64SingleBlock4 {},
-            );
+            let sub_reader =
+                Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock4 {});
             let reader = MutableImpl::new(sub_reader);
             Ok(MutablePacked64Enum::P64SingleBlock4(reader))
         },
         5 => {
-            let sub_reader = Packed64SingleBlock::new(
-                bits_per_value,
-                value_count,
-                Packed64SingleBlock5 {},
-            );
+            let sub_reader =
+                Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock5 {});
             let reader = MutableImpl::new(sub_reader);
             Ok(MutablePacked64Enum::P64SingleBlock5(reader))
         },
         6 => {
-            let sub_reader = Packed64SingleBlock::new(
-                bits_per_value,
-                value_count,
-                Packed64SingleBlock6 {},
-            );
+            let sub_reader =
+                Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock6 {});
             let reader = MutableImpl::new(sub_reader);
             Ok(MutablePacked64Enum::P64SingleBlock6(reader))
         },
         7 => {
-            let sub_reader = Packed64SingleBlock::new(
-                bits_per_value,
-                value_count,
-                Packed64SingleBlock7 {},
-            );
+            let sub_reader =
+                Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock7 {});
             let reader = MutableImpl::new(sub_reader);
             Ok(MutablePacked64Enum::P64SingleBlock7(reader))
         },
         8 => {
-            let sub_reader = Packed64SingleBlock::new(
-                bits_per_value,
-                value_count,
-                Packed64SingleBlock8 {},
-            );
+            let sub_reader =
+                Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock8 {});
             let reader = MutableImpl::new(sub_reader);
             Ok(MutablePacked64Enum::P64SingleBlock8(reader))
         },
         9 => {
-            let sub_reader = Packed64SingleBlock::new(
-                bits_per_value,
-                value_count,
-                Packed64SingleBlock9 {},
-            );
+            let sub_reader =
+                Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock9 {});
             let reader = MutableImpl::new(sub_reader);
             Ok(MutablePacked64Enum::P64SingleBlock9(reader))
         },
         10 => {
-            let sub_reader = Packed64SingleBlock::new(
-                bits_per_value,
-                value_count,
-                Packed64SingleBlock10 {},
-            );
+            let sub_reader =
+                Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock10 {});
             let reader = MutableImpl::new(sub_reader);
             Ok(MutablePacked64Enum::P64SingleBlock10(reader))
         },
         12 => {
-            let sub_reader = Packed64SingleBlock::new(
-                bits_per_value,
-                value_count,
-                Packed64SingleBlock12 {},
-            );
+            let sub_reader =
+                Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock12 {});
             let reader = MutableImpl::new(sub_reader);
             Ok(MutablePacked64Enum::P64SingleBlock12(reader))
         },
         16 => {
-            let sub_reader = Packed64SingleBlock::new(
-                bits_per_value,
-                value_count,
-                Packed64SingleBlock16 {},
-            );
+            let sub_reader =
+                Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock16 {});
             let reader = MutableImpl::new(sub_reader);
             Ok(MutablePacked64Enum::P64SingleBlock16(reader))
         },
         21 => {
-            let sub_reader = Packed64SingleBlock::new(
-                bits_per_value,
-                value_count,
-                Packed64SingleBlock21 {},
-            );
+            let sub_reader =
+                Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock21 {});
             let reader = MutableImpl::new(sub_reader);
             Ok(MutablePacked64Enum::P64SingleBlock21(reader))
         },
         32 => {
-            let sub_reader = Packed64SingleBlock::new(
-                bits_per_value,
-                value_count,
-                Packed64SingleBlock32 {},
-            );
+            let sub_reader =
+                Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock32 {});
             let reader = MutableImpl::new(sub_reader);
             Ok(MutablePacked64Enum::P64SingleBlock32(reader))
         },
@@ -347,13 +294,7 @@ where
         Ok(())
     }
 
-    fn set_bulk(
-        &mut self,
-        mut index: i32,
-        arr: &[i64],
-        mut off: i32,
-        mut len: i32,
-    ) -> Result<i32> {
+    fn set_bulk(&mut self, mut index: i32, arr: &[i64], mut off: i32, mut len: i32) -> Result<i32> {
         debug_assert!(len > 0, "len must be > 0 (got {})", len);
         debug_assert!(index < self.value_count, "index out of bounds");
         len = len.min(self.value_count - index);
@@ -395,11 +336,7 @@ where
             Format::PackedSingleBlock(PackedSingleBlockImpl::new(1)),
             self.bits_per_value,
         );
-        debug_assert_eq!(
-            Decoder::long_block_count(op),
-            1,
-            "longBlockCount mismatch"
-        );
+        debug_assert_eq!(Decoder::long_block_count(op), 1, "longBlockCount mismatch");
         debug_assert_eq!(
             Decoder::long_value_count(op),
             values_per_block,
@@ -425,18 +362,14 @@ where
             // Stay at the block boundary
             Ok(index - original_index)
         } else {
-            // No progress so far => already at a block boundary but no full block to set
+            // No progress so far => already at a block boundary but no full
+            // block to set
             debug_assert_eq!(index, original_index, "Index mismatch");
             self.default_set_bulk(index, arr, off, len)
         }
     }
 
-    fn fill(
-        &mut self,
-        mut from_index: i32,
-        to_index: i32,
-        val: i64,
-    ) -> Result<()> {
+    fn fill(&mut self, mut from_index: i32, to_index: i32, val: i64) -> Result<()> {
         debug_assert!(from_index <= to_index, "from_index must be <= to_index");
         debug_assert!(
             PackedInts::unsigned_bits_required(val) <= self.bits_per_value,
@@ -502,8 +435,7 @@ impl Packed64SingleBlockBase for Packed64SingleBlock1 {
         let o = index >> 6;
         let b = index & 63;
         let shift = b;
-        blocks[o as usize] =
-            (blocks[o as usize] & !(1 << shift)) | ((value as u64) << shift);
+        blocks[o as usize] = (blocks[o as usize] & !(1 << shift)) | ((value as u64) << shift);
     }
 }
 #[allow(dead_code)]
@@ -520,8 +452,7 @@ impl Packed64SingleBlockBase for Packed64SingleBlock2 {
         let o = index >> 5;
         let b = index & 31;
         let shift = b << 1;
-        blocks[o as usize] =
-            (blocks[o as usize] & !(3 << shift)) | ((value as u64) << shift);
+        blocks[o as usize] = (blocks[o as usize] & !(3 << shift)) | ((value as u64) << shift);
     }
 }
 #[allow(dead_code)]
@@ -538,8 +469,7 @@ impl Packed64SingleBlockBase for Packed64SingleBlock3 {
         let o = index / 21;
         let b = index % 21;
         let shift = b * 3;
-        blocks[o as usize] =
-            (blocks[o as usize] & !(7 << shift)) | ((value as u64) << shift);
+        blocks[o as usize] = (blocks[o as usize] & !(7 << shift)) | ((value as u64) << shift);
     }
 }
 #[allow(dead_code)]
@@ -556,8 +486,7 @@ impl Packed64SingleBlockBase for Packed64SingleBlock4 {
         let o = index >> 4;
         let b = index & 15;
         let shift = b << 2;
-        blocks[o as usize] =
-            (blocks[o as usize] & !(15 << shift)) | ((value as u64) << shift);
+        blocks[o as usize] = (blocks[o as usize] & !(15 << shift)) | ((value as u64) << shift);
     }
 }
 #[allow(dead_code)]
@@ -574,8 +503,7 @@ impl Packed64SingleBlockBase for Packed64SingleBlock5 {
         let o = index / 12;
         let b = index % 12;
         let shift = b * 5;
-        blocks[o as usize] =
-            (blocks[o as usize] & !(31 << shift)) | ((value as u64) << shift);
+        blocks[o as usize] = (blocks[o as usize] & !(31 << shift)) | ((value as u64) << shift);
     }
 }
 #[allow(dead_code)]
@@ -592,8 +520,7 @@ impl Packed64SingleBlockBase for Packed64SingleBlock6 {
         let o = index / 10;
         let b = index % 10;
         let shift = b * 6;
-        blocks[o as usize] =
-            (blocks[o as usize] & !(63 << shift)) | ((value as u64) << shift);
+        blocks[o as usize] = (blocks[o as usize] & !(63 << shift)) | ((value as u64) << shift);
     }
 }
 #[allow(dead_code)]
@@ -610,8 +537,7 @@ impl Packed64SingleBlockBase for Packed64SingleBlock7 {
         let o = index / 9;
         let b = index % 9;
         let shift = b * 7;
-        blocks[o as usize] =
-            (blocks[o as usize] & !(127 << shift)) | ((value as u64) << shift);
+        blocks[o as usize] = (blocks[o as usize] & !(127 << shift)) | ((value as u64) << shift);
     }
 }
 #[allow(dead_code)]
@@ -628,8 +554,7 @@ impl Packed64SingleBlockBase for Packed64SingleBlock8 {
         let o = index >> 3;
         let b = index & 7;
         let shift = b << 3;
-        blocks[o as usize] =
-            (blocks[o as usize] & !(255 << shift)) | ((value as u64) << shift);
+        blocks[o as usize] = (blocks[o as usize] & !(255 << shift)) | ((value as u64) << shift);
     }
 }
 #[allow(dead_code)]
@@ -646,8 +571,7 @@ impl Packed64SingleBlockBase for Packed64SingleBlock9 {
         let o = index / 7;
         let b = index % 7;
         let shift = b * 9;
-        blocks[o as usize] =
-            (blocks[o as usize] & !(511 << shift)) | ((value as u64) << shift);
+        blocks[o as usize] = (blocks[o as usize] & !(511 << shift)) | ((value as u64) << shift);
     }
 }
 #[allow(dead_code)]
@@ -664,8 +588,7 @@ impl Packed64SingleBlockBase for Packed64SingleBlock10 {
         let o = index / 6;
         let b = index % 6;
         let shift = b * 10;
-        blocks[o as usize] =
-            (blocks[o as usize] & !(1023 << shift)) | ((value as u64) << shift);
+        blocks[o as usize] = (blocks[o as usize] & !(1023 << shift)) | ((value as u64) << shift);
     }
 }
 #[allow(dead_code)]
@@ -682,8 +605,7 @@ impl Packed64SingleBlockBase for Packed64SingleBlock12 {
         let o = index / 5;
         let b = index % 5;
         let shift = b * 12;
-        blocks[o as usize] =
-            (blocks[o as usize] & !(4095 << shift)) | ((value as u64) << shift);
+        blocks[o as usize] = (blocks[o as usize] & !(4095 << shift)) | ((value as u64) << shift);
     }
 }
 #[allow(dead_code)]
@@ -700,8 +622,7 @@ impl Packed64SingleBlockBase for Packed64SingleBlock16 {
         let o = index >> 2;
         let b = index & 3;
         let shift = b << 4;
-        blocks[o as usize] = (blocks[o as usize] & !(65535 << shift))
-            | ((value as u64) << shift);
+        blocks[o as usize] = (blocks[o as usize] & !(65535 << shift)) | ((value as u64) << shift);
     }
 }
 #[allow(dead_code)]
@@ -718,8 +639,7 @@ impl Packed64SingleBlockBase for Packed64SingleBlock21 {
         let o = index / 3;
         let b = index % 3;
         let shift = b * 21;
-        blocks[o as usize] = (blocks[o as usize] & !(2097151 << shift))
-            | ((value as u64) << shift);
+        blocks[o as usize] = (blocks[o as usize] & !(2097151 << shift)) | ((value as u64) << shift);
     }
 }
 #[allow(dead_code)]
@@ -736,8 +656,8 @@ impl Packed64SingleBlockBase for Packed64SingleBlock32 {
         let o = index >> 1;
         let b = index & 1;
         let shift = b << 5;
-        blocks[o as usize] = (blocks[o as usize] & !(4294967295 << shift))
-            | ((value as u64) << shift);
+        blocks[o as usize] =
+            (blocks[o as usize] & !(4294967295 << shift)) | ((value as u64) << shift);
     }
 }
 

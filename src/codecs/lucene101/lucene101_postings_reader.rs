@@ -14,6 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::cell::RefCell;
+use std::ptr;
+use std::rc::Rc;
+
+use once_cell::sync::Lazy;
+
 use crate::codecs::block_term_state::BlockTermStateEnum;
 use crate::codecs::lucene101::for_delta_util::ForDeltaUtil;
 use crate::codecs::lucene101::for_util::ForUtil;
@@ -30,9 +36,7 @@ use crate::index::impacts::Impacts;
 use crate::index::impacts_enum::ImpactsEnum;
 use crate::index::impacts_source::ImpactsSource;
 use crate::index::index_options::IndexOptions;
-use crate::index::postings_enum::{
-    postings_enum_util, PostingsEnum, PostingsEnums,
-};
+use crate::index::postings_enum::{postings_enum_util, PostingsEnum, PostingsEnums};
 use crate::index::segment_read_state::SegmentReadState;
 use crate::index::terms_enum::TermsEnum;
 use crate::index::{BytesRef, IndexFileNames};
@@ -46,10 +50,6 @@ use crate::util::array_util::ArrayUtil;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::{SliceCopyOps, ToUsizeExact};
-use once_cell::sync::Lazy;
-use std::cell::RefCell;
-use std::ptr;
-use std::rc::Rc;
 
 pub struct Lucene101PostingsReader<I>
 where
@@ -86,8 +86,7 @@ where
         let mut expected_pay_file_length = 0;
         let mut meta_in_opt = None;
         let result = (|| {
-            let meta_in =
-                state.directory.lock().open_checksum_input(&meta_name)?;
+            let meta_in = state.directory.lock().open_checksum_input(&meta_name)?;
             meta_in_opt = Some(meta_in);
             if let Some(ref mut meta_in) = meta_in_opt {
                 version = CodecUtil::check_index_header(
@@ -132,17 +131,18 @@ where
                 };
             },
         }
-        // NOTE: these data files are too costly to verify checksum against all the bytes on open,
-        // but for now we at least verify proper structure of the checksum footer: which looks
-        // for FOOTER_MAGIC + algorithmID. This is cheap and can detect some forms of corruption
-        // such as file truncation.
+        // NOTE: these data files are too costly to verify checksum against all
+        // the bytes on open, but for now we at least verify proper
+        // structure of the checksum footer: which looks
+        // for FOOTER_MAGIC + algorithmID. This is cheap and can detect some
+        // forms of corruption such as file truncation.
         let doc_name = IndexFileNames::segment_file_name(
             &state.segment_info.name,
             &state.segment_suffix,
             Lucene101PostingsFormat::DOC_EXTENSION,
         );
-        // Postings have a forward-only access pattern, so pass ReadAdvice.NORMAL to perform
-        // readahead.
+        // Postings have a forward-only access pattern, so pass
+        // ReadAdvice.NORMAL to perform readahead.
         let mut doc_in = state.directory.lock().open_input(
             &doc_name,
             &state.context.with_read_advice(ReadAdvice::Normal)?,
@@ -155,10 +155,7 @@ where
             &state.segment_info.get_id(),
             &state.segment_suffix,
         )?;
-        CodecUtil::retrieve_checksum_with_expected(
-            &mut doc_in,
-            expected_doc_file_length,
-        )?;
+        CodecUtil::retrieve_checksum_with_expected(&mut doc_in, expected_doc_file_length)?;
 
         let mut pos_in_opt: Option<I> = None;
         let mut pay_in_opt: Option<I> = None;
@@ -180,15 +177,10 @@ where
                 &state.segment_info.get_id(),
                 &state.segment_suffix,
             )?;
-            CodecUtil::retrieve_checksum_with_expected(
-                &mut pos_in,
-                expected_pos_file_length,
-            )?;
+            CodecUtil::retrieve_checksum_with_expected(&mut pos_in, expected_pos_file_length)?;
             pos_in_opt = Some(pos_in);
 
-            if state.field_infos.has_payloads()
-                || state.field_infos.has_offsets()
-            {
+            if state.field_infos.has_payloads() || state.field_infos.has_offsets() {
                 let pay_name = IndexFileNames::segment_file_name(
                     &state.segment_info.name,
                     &state.segment_suffix,
@@ -206,10 +198,7 @@ where
                     &state.segment_info.get_id(),
                     &state.segment_suffix,
                 )?;
-                CodecUtil::retrieve_checksum_with_expected(
-                    &mut pay,
-                    expected_pay_file_length,
-                )?;
+                CodecUtil::retrieve_checksum_with_expected(&mut pay, expected_pay_file_length)?;
                 pay_in_opt = Some(pay);
             }
         }
@@ -229,11 +218,7 @@ impl<I> PostingsReaderBase<I> for Lucene101PostingsReader<I>
 where
     I: IndexInput,
 {
-    fn init<D>(
-        &mut self,
-        terms_in: &mut impl IndexInput,
-        state: &SegmentReadState<D>,
-    ) -> Result<()>
+    fn init<D>(&mut self, terms_in: &mut impl IndexInput, state: &SegmentReadState<D>) -> Result<()>
     where
         D: Directory,
     {
@@ -298,13 +283,10 @@ where
             term_state.singleton_doc_id += delta as i32;
         }
 
-        if *field_info.get_index_options()
-            >= IndexOptions::DocsAndFreqsAndPositions
-        {
+        if *field_info.get_index_options() >= IndexOptions::DocsAndFreqsAndPositions {
             term_state.pos_start_fp += input.read_vlong()?;
 
-            if *field_info.get_index_options()
-                >= IndexOptions::DocsAndFreqsAndPositionsAndOffsets
+            if *field_info.get_index_options() >= IndexOptions::DocsAndFreqsAndPositionsAndOffsets
                 || field_info.has_payloads()
             {
                 term_state.pay_start_fp += input.read_vlong()?;
@@ -325,16 +307,9 @@ where
         reuse: Option<&mut PostingsEnums<I>>,
         flags: i32,
     ) -> Result<Option<PostingsEnums<I>>> {
-        let reuse_enum =
-            reuse.ok_or_else(|| LuceneError::illegal_state("reuse is None"))?;
+        let reuse_enum = reuse.ok_or_else(|| LuceneError::illegal_state("reuse is None"))?;
         if let PostingsEnums::Block(ref mut everything_enum) = reuse_enum {
-            if everything_enum.can_reuse(
-                &self.doc_in,
-                field_info,
-                flags,
-                false,
-                self,
-            ) {
+            if everything_enum.can_reuse(&self.doc_in, field_info, flags, false, self) {
                 return Ok(None);
             }
         }
@@ -362,8 +337,7 @@ where
     ) -> Result<Self::ImpactsEnum> {
         match state {
             BlockTermStateEnum::Int(ref term_state) => {
-                let mut block =
-                    BlockPostingsEnum::new(field_info, flags, true, self)?;
+                let mut block = BlockPostingsEnum::new(field_info, flags, true, self)?;
                 block.reset(term_state, flags, self)?;
                 Ok(block)
             },
@@ -418,7 +392,8 @@ where
     doc_in_util: Option<PostingDecodingUtil<I>>,
 
     freq_buffer: [i32; ForUtil::BLOCK_SIZE],
-    // TODO:To be safe, pos/payload/offset were not allocated on the stack. Is this really necessary?
+    // TODO:To be safe, pos/payload/offset were not allocated on the stack. Is
+    // this really necessary?
     pos_delta_buffer: Vec<i32>,
     payload_length_buffer: Vec<i32>,
     payload_bytes: Vec<u8>,
@@ -500,32 +475,18 @@ where
         let options = *field_info.get_index_options();
         let index_has_freq = options >= IndexOptions::DocsAndFreqs;
         let index_has_pos = options >= IndexOptions::DocsAndFreqsAndPositions;
-        let index_has_offsets =
-            options >= IndexOptions::DocsAndFreqsAndPositionsAndOffsets;
+        let index_has_offsets = options >= IndexOptions::DocsAndFreqsAndPositionsAndOffsets;
         let index_has_payloads = field_info.has_payloads();
-        let index_has_offsets_or_payloads =
-            index_has_offsets || index_has_payloads;
+        let index_has_offsets_or_payloads = index_has_offsets || index_has_payloads;
 
         let needs_freq = index_has_freq
-            && postings_enum_util::feature_requested(
-                flags,
-                postings_enum_util::FREQS,
-            );
+            && postings_enum_util::feature_requested(flags, postings_enum_util::FREQS);
         let needs_pos = index_has_pos
-            && postings_enum_util::feature_requested(
-                flags,
-                postings_enum_util::POSITIONS,
-            );
+            && postings_enum_util::feature_requested(flags, postings_enum_util::POSITIONS);
         let needs_offsets = index_has_offsets
-            && postings_enum_util::feature_requested(
-                flags,
-                postings_enum_util::OFFSETS,
-            );
+            && postings_enum_util::feature_requested(flags, postings_enum_util::OFFSETS);
         let needs_payloads = index_has_payloads
-            && postings_enum_util::feature_requested(
-                flags,
-                postings_enum_util::PAYLOADS,
-            );
+            && postings_enum_util::feature_requested(flags, postings_enum_util::PAYLOADS);
         let needs_offsets_or_payloads = needs_offsets || needs_payloads;
         let needs_docs_and_freqs_only = !needs_pos && !needs_impacts;
 
@@ -534,85 +495,68 @@ where
             freq_buffer = [1; ForUtil::BLOCK_SIZE];
         }
 
-        let (
-            level0_serialized_impacts,
-            level1_serialized_impacts,
-            level0_impacts,
-            level1_impacts,
-        ) = if needs_freq && needs_impacts {
-            (
-                Some(BytesRef::with_capacity(
-                    reader.max_impact_num_bytes_at_level0 as usize,
-                )),
-                Some(BytesRef::with_capacity(
-                    reader.max_impact_num_bytes_at_level1 as usize,
-                )),
-                MutableImpactList::with_capacity(
-                    reader.max_num_impacts_at_level0.to_usize_exact()?,
-                ),
-                MutableImpactList::with_capacity(
-                    reader.max_num_impacts_at_level1.to_usize_exact()?,
-                ),
-            )
-        } else {
-            (
-                None,
-                None,
-                MutableImpactList::default(),
-                MutableImpactList::default(),
-            )
-        };
+        let (level0_serialized_impacts, level1_serialized_impacts, level0_impacts, level1_impacts) =
+            if needs_freq && needs_impacts {
+                (
+                    Some(BytesRef::with_capacity(
+                        reader.max_impact_num_bytes_at_level0 as usize,
+                    )),
+                    Some(BytesRef::with_capacity(
+                        reader.max_impact_num_bytes_at_level1 as usize,
+                    )),
+                    MutableImpactList::with_capacity(
+                        reader.max_num_impacts_at_level0.to_usize_exact()?,
+                    ),
+                    MutableImpactList::with_capacity(
+                        reader.max_num_impacts_at_level1.to_usize_exact()?,
+                    ),
+                )
+            } else {
+                (
+                    None,
+                    None,
+                    MutableImpactList::default(),
+                    MutableImpactList::default(),
+                )
+            };
 
         let (pos_in, pos_in_util, pos_delta_buffer) = if needs_pos {
-            let pi = Rc::new(RefCell::new(
-                reader.pos_in.as_ref().unwrap().try_clone()?,
-            ));
-            let util = vectorization_provider_util::new_posting_decoding_util(
-                pi.clone(),
-            );
+            let pi = Rc::new(RefCell::new(reader.pos_in.as_ref().unwrap().try_clone()?));
+            let util = vectorization_provider_util::new_posting_decoding_util(pi.clone());
             (Some(pi), Some(util), vec![0; ForUtil::BLOCK_SIZE])
         } else {
             (None, None, vec![])
         };
 
         let (pay_in, pay_in_util) = if needs_offsets_or_payloads {
-            let pi = Rc::new(RefCell::new(
-                reader.pay_in.as_ref().unwrap().try_clone()?,
-            ));
-            let util = vectorization_provider_util::new_posting_decoding_util(
-                pi.clone(),
-            );
+            let pi = Rc::new(RefCell::new(reader.pay_in.as_ref().unwrap().try_clone()?));
+            let util = vectorization_provider_util::new_posting_decoding_util(pi.clone());
             (Some(pi), Some(util))
         } else {
             (None, None)
         };
 
-        let (
-            offset_start_delta_buffer,
-            offset_length_buffer,
-            start_offset,
-            end_offset,
-        ) = if needs_offsets {
-            (
-                vec![0; ForUtil::BLOCK_SIZE],
-                vec![0; ForUtil::BLOCK_SIZE],
-                0,
-                0,
-            )
-        } else {
-            (vec![], vec![], -1, -1)
-        };
-
-        let (payload_length_buffer, payload_bytes, payload) =
-            if index_has_payloads {
+        let (offset_start_delta_buffer, offset_length_buffer, start_offset, end_offset) =
+            if needs_offsets {
                 (
                     vec![0; ForUtil::BLOCK_SIZE],
-                    vec![0; 128],
-                    Some(BytesRef::new()),
+                    vec![0; ForUtil::BLOCK_SIZE],
+                    0,
+                    0,
                 )
             } else {
-                (vec![], vec![], None)
+                (vec![], vec![], -1, -1)
             };
+
+        let (payload_length_buffer, payload_bytes, payload) = if index_has_payloads {
+            (
+                vec![0; ForUtil::BLOCK_SIZE],
+                vec![0; 128],
+                Some(BytesRef::new()),
+            )
+        } else {
+            (vec![], vec![], None)
+        };
 
         Ok(BlockPostingsEnum {
             for_delta_util: None,
@@ -719,11 +663,9 @@ where
         if self.doc_freq > 1 {
             if self.doc_in.is_none() {
                 let doc_in = Rc::new(RefCell::new(reader.doc_in.try_clone()?));
-                self.doc_in_util = Some(
-                    vectorization_provider_util::new_posting_decoding_util(
-                        doc_in.clone(),
-                    ),
-                );
+                self.doc_in_util = Some(vectorization_provider_util::new_posting_decoding_util(
+                    doc_in.clone(),
+                ));
             }
             lucene101_pr_util::prefetch_postings(
                 &mut *self.doc_in.as_mut().unwrap().borrow_mut(),
@@ -731,9 +673,7 @@ where
             )?;
         }
 
-        if self.for_delta_util.is_none()
-            && (self.doc_freq as usize) >= ForUtil::BLOCK_SIZE
-        {
+        if self.for_delta_util.is_none() && (self.doc_freq as usize) >= ForUtil::BLOCK_SIZE {
             self.for_delta_util = Some(ForDeltaUtil::new());
         }
         self.total_term_freq = if self.index_has_freq {
@@ -763,8 +703,7 @@ where
         self.level0_pay_end_fp = pay_term_start_fp;
         self.pos_pending_count = 0;
         self.payload_byte_upto = 0;
-        self.last_pos_block_fp = if term_state.base.total_term_freq as usize
-            <= ForUtil::BLOCK_SIZE
+        self.last_pos_block_fp = if term_state.base.total_term_freq as usize <= ForUtil::BLOCK_SIZE
         {
             if term_state.base.total_term_freq as usize == ForUtil::BLOCK_SIZE {
                 -1
@@ -830,8 +769,7 @@ where
 
     fn refill_remainder(&mut self) -> Result<()> {
         debug_assert!(
-            self.doc_count_left >= 0
-                && (self.doc_count_left as usize) < ForUtil::BLOCK_SIZE
+            self.doc_count_left >= 0 && (self.doc_count_left as usize) < ForUtil::BLOCK_SIZE
         );
 
         if self.doc_freq == 1 {
@@ -865,10 +803,7 @@ where
         self.prev_doc_id = self.doc_buffer[ForUtil::BLOCK_SIZE - 1];
         self.doc_buffer_upto = 0;
         self.pos_doc_buffer_upto = 0;
-        debug_assert_eq!(
-            self.doc_buffer[self.doc_buffer_size as usize],
-            NO_MORE_DOCS
-        );
+        debug_assert_eq!(self.doc_buffer[self.doc_buffer_size as usize], NO_MORE_DOCS);
         Ok(())
     }
     fn refill_docs(&mut self) -> Result<()> {
@@ -892,8 +827,7 @@ where
             self.level0_block_pay_upto = self.level1_block_pay_upto;
 
             self.doc_count_left = self.doc_freq - self.level1_doc_count_upto;
-            self.level1_doc_count_upto +=
-                Lucene101PostingsFormat::LEVEL1_NUM_DOCS;
+            self.level1_doc_count_upto += Lucene101PostingsFormat::LEVEL1_NUM_DOCS;
 
             if self.doc_count_left < Lucene101PostingsFormat::LEVEL1_NUM_DOCS {
                 self.level1_last_doc_id = NO_MORE_DOCS;
@@ -905,24 +839,15 @@ where
             self.level1_doc_end_fp = delta + doc_in.get_file_pointer();
 
             if self.index_has_freq {
-                let skip1_end_fp =
-                    doc_in.read_short()? as i64 + doc_in.get_file_pointer();
+                let skip1_end_fp = doc_in.read_short()? as i64 + doc_in.get_file_pointer();
                 let num_impact_bytes = doc_in.read_short()? as i32;
 
                 if self.needs_impacts && self.level1_last_doc_id >= target {
-                    let byte_ref =
-                        self.level1_serialized_impacts.as_mut().unwrap();
-                    doc_in.read_bytes(
-                        &mut byte_ref.bytes,
-                        0,
-                        num_impact_bytes,
-                    )?;
+                    let byte_ref = self.level1_serialized_impacts.as_mut().unwrap();
+                    doc_in.read_bytes(&mut byte_ref.bytes, 0, num_impact_bytes)?;
                     byte_ref.length = num_impact_bytes as usize;
                 } else {
-                    IndexInput::skip_bytes(
-                        &mut *doc_in,
-                        num_impact_bytes as i64,
-                    )?;
+                    IndexInput::skip_bytes(&mut *doc_in, num_impact_bytes as i64)?;
                 }
 
                 if self.index_has_pos {
@@ -951,9 +876,7 @@ where
                 self.pos_pending_count = self.level0_block_pos_upto;
                 if let Some(ref pay_in) = self.pay_in {
                     let mut pay_in = pay_in.borrow_mut();
-                    debug_assert!(
-                        self.level0_pay_end_fp >= pay_in.get_file_pointer()
-                    );
+                    debug_assert!(self.level0_pay_end_fp >= pay_in.get_file_pointer());
                     pay_in.seek(self.level0_pay_end_fp)?;
                     self.payload_byte_upto = self.level0_block_pay_upto;
                 }
@@ -975,26 +898,16 @@ where
                 let doc_delta = lucene101_pr_util::read_vint15(&mut *doc_in)?;
                 self.level0_last_doc_id += doc_delta;
 
-                let block_length =
-                    lucene101_pr_util::read_vlong15(&mut *doc_in)?;
-                self.level0_doc_end_fp =
-                    doc_in.get_file_pointer() + block_length;
+                let block_length = lucene101_pr_util::read_vlong15(&mut *doc_in)?;
+                self.level0_doc_end_fp = doc_in.get_file_pointer() + block_length;
                 if self.index_has_freq {
                     let num_impact_bytes = doc_in.read_vint()?;
                     if self.needs_impacts {
-                        let bi =
-                            self.level0_serialized_impacts.as_mut().unwrap();
-                        doc_in.read_bytes(
-                            &mut bi.bytes,
-                            0,
-                            num_impact_bytes,
-                        )?;
+                        let bi = self.level0_serialized_impacts.as_mut().unwrap();
+                        doc_in.read_bytes(&mut bi.bytes, 0, num_impact_bytes)?;
                         bi.length = num_impact_bytes as usize;
                     } else {
-                        IndexInput::skip_bytes(
-                            &mut *doc_in,
-                            num_impact_bytes as i64,
-                        )?;
+                        IndexInput::skip_bytes(&mut *doc_in, num_impact_bytes as i64)?;
                     }
 
                     if self.index_has_pos {
@@ -1022,9 +935,7 @@ where
         // Now advance level 0 skip data
         self.prev_doc_id = self.level0_last_doc_id;
 
-        if self.needs_docs_and_freqs_only
-            && (self.doc_count_left as usize) >= ForUtil::BLOCK_SIZE
-        {
+        if self.needs_docs_and_freqs_only && (self.doc_count_left as usize) >= ForUtil::BLOCK_SIZE {
             // Optimize the common path for exhaustive evaluation
             {
                 let mut doc_in = self.doc_in.as_ref().unwrap().borrow_mut();
@@ -1040,7 +951,8 @@ where
     }
     #[allow(dead_code)]
     fn read_level0_pos_data(&mut self) -> Result<()> {
-        // Due to Rust's borrowing rules, we wrote this logic directly at the call site.
+        // Due to Rust's borrowing rules, we wrote this logic directly at the
+        // call site.
         Ok(())
     }
     fn seek_pos_data(
@@ -1050,10 +962,11 @@ where
         pay_fp: i64,
         pay_upto: i32,
     ) -> Result<()> {
-        // If nextBlockPosFP is less than the current FP, it means that the block of positions for
-        // the first docs of the next block are already decoded. In this case we just accumulate
-        // frequencies into posPendingCount instead of seeking backwards and decoding the same pos
-        // block again.
+        // If nextBlockPosFP is less than the current FP, it means that the
+        // block of positions for the first docs of the next block are
+        // already decoded. In this case we just accumulate frequencies
+        // into posPendingCount instead of seeking backwards and decoding the
+        // same pos block again.
         let mut pos_in = self.pos_in.as_mut().unwrap().borrow_mut();
         if pos_fp >= pos_in.get_file_pointer() {
             pos_in.seek(pos_fp)?;
@@ -1061,9 +974,7 @@ where
             // needs payloads or offsets
             if let Some(ref pay_rc) = self.pay_in {
                 let mut pay_in = pay_rc.borrow_mut();
-                debug_assert!(
-                    self.level0_pay_end_fp >= pay_in.get_file_pointer()
-                );
+                debug_assert!(self.level0_pay_end_fp >= pay_in.get_file_pointer());
                 pay_in.seek(pay_fp)?;
                 self.payload_byte_upto = pay_upto;
             }
@@ -1078,12 +989,7 @@ where
         Ok(())
     }
     fn skip_level0_to(&mut self, target: i32) -> Result<()> {
-        let (mut pos_fp, mut pos_upto, mut pay_fp, mut pay_upto): (
-            i64,
-            i32,
-            i64,
-            i32,
-        );
+        let (mut pos_fp, mut pos_upto, mut pay_fp, mut pay_upto): (i64, i32, i64, i32);
         {
             let mut doc_in = self.doc_in.as_ref().unwrap().borrow_mut();
             loop {
@@ -1097,14 +1003,11 @@ where
                 if (self.doc_count_left as usize) >= ForUtil::BLOCK_SIZE {
                     let num_skip_bytes = doc_in.read_vlong()?;
                     let skip0_end = doc_in.get_file_pointer() + num_skip_bytes;
-                    let doc_delta =
-                        lucene101_pr_util::read_vint15(&mut *doc_in)?;
+                    let doc_delta = lucene101_pr_util::read_vint15(&mut *doc_in)?;
                     self.level0_last_doc_id += doc_delta;
                     let found = target <= self.level0_last_doc_id;
-                    let block_length =
-                        lucene101_pr_util::read_vlong15(&mut *doc_in)?;
-                    self.level0_doc_end_fp =
-                        doc_in.get_file_pointer() + block_length;
+                    let block_length = lucene101_pr_util::read_vlong15(&mut *doc_in)?;
+                    self.level0_doc_end_fp = doc_in.get_file_pointer() + block_length;
 
                     if self.index_has_freq {
                         if !found && !self.needs_pos {
@@ -1112,33 +1015,19 @@ where
                         } else {
                             let num_impact_bytes = doc_in.read_vint()?;
                             if self.needs_impacts && found {
-                                let bytes = self
-                                    .level0_serialized_impacts
-                                    .as_mut()
-                                    .unwrap();
-                                doc_in.read_bytes(
-                                    &mut bytes.bytes,
-                                    0,
-                                    num_impact_bytes,
-                                )?;
+                                let bytes = self.level0_serialized_impacts.as_mut().unwrap();
+                                doc_in.read_bytes(&mut bytes.bytes, 0, num_impact_bytes)?;
                                 bytes.length = num_impact_bytes as usize;
                             } else {
-                                IndexInput::skip_bytes(
-                                    &mut *doc_in,
-                                    num_impact_bytes as i64,
-                                )?;
+                                IndexInput::skip_bytes(&mut *doc_in, num_impact_bytes as i64)?;
                             }
                             if self.needs_pos {
                                 // self.read_level0_pos_data()?;
-                                self.level0_pos_end_fp +=
-                                    doc_in.read_vlong()?;
-                                self.level0_block_pos_upto =
-                                    doc_in.read_byte()? as i32;
+                                self.level0_pos_end_fp += doc_in.read_vlong()?;
+                                self.level0_block_pos_upto = doc_in.read_byte()? as i32;
                                 if self.index_has_offsets_or_payloads {
-                                    self.level0_pay_end_fp +=
-                                        doc_in.read_vlong()?;
-                                    self.level0_block_pay_upto =
-                                        doc_in.read_vint()?;
+                                    self.level0_pay_end_fp += doc_in.read_vlong()?;
+                                    self.level0_block_pay_upto = doc_in.read_vint()?;
                                 }
                             } else {
                                 doc_in.seek(skip0_end)?;
@@ -1195,9 +1084,7 @@ where
             {
                 let mut pos_in = self.pos_in.as_ref().unwrap().borrow_mut();
                 while to_skip >= ForUtil::BLOCK_SIZE as i32 {
-                    debug_assert!(
-                        pos_in.get_file_pointer() != self.last_pos_block_fp
-                    );
+                    debug_assert!(pos_in.get_file_pointer() != self.last_pos_block_fp);
                     PForUtil::skip(&mut *pos_in)?;
 
                     if let Some(ref pay_rc) = self.pay_in {
@@ -1235,8 +1122,7 @@ where
         Ok(())
     }
     fn refill_last_position_block(&mut self) -> Result<()> {
-        let count =
-            (self.total_term_freq % ForUtil::BLOCK_SIZE as i64) as usize;
+        let count = (self.total_term_freq % ForUtil::BLOCK_SIZE as i64) as usize;
         let mut payload_length = 0;
         let mut offset_length = 0;
         self.payload_byte_upto = 0;
@@ -1256,10 +1142,7 @@ where
                     if payload_length != 0 {
                         let need = self.payload_byte_upto + payload_length;
                         if need as usize > self.payload_bytes.len() {
-                            ArrayUtil::grow_with_len(
-                                &mut self.payload_bytes,
-                                need as usize,
-                            );
+                            ArrayUtil::grow_with_len(&mut self.payload_bytes, need as usize);
                         }
 
                         pos_in.read_bytes(
@@ -1270,10 +1153,7 @@ where
                         self.payload_byte_upto += payload_length;
                     }
                 } else {
-                    IndexInput::skip_bytes(
-                        &mut *pos_in,
-                        payload_length as i64,
-                    )?;
+                    IndexInput::skip_bytes(&mut *pos_in, payload_length as i64)?;
                 }
             } else {
                 self.pos_delta_buffer[i] = code;
@@ -1286,8 +1166,7 @@ where
                 }
 
                 if !self.offset_start_delta_buffer.is_empty() {
-                    self.offset_start_delta_buffer[i] =
-                        ((delta_code as u32) >> 1) as i32;
+                    self.offset_start_delta_buffer[i] = ((delta_code as u32) >> 1) as i32;
                     self.offset_length_buffer[i] = offset_length;
                 }
             }
@@ -1305,13 +1184,9 @@ where
                     .unwrap()
                     .decode(pay_in_util, &mut self.payload_length_buffer)?;
 
-                let num_bytes =
-                    self.pay_in.as_ref().unwrap().borrow_mut().read_vint()?;
+                let num_bytes = self.pay_in.as_ref().unwrap().borrow_mut().read_vint()?;
                 if num_bytes as usize > self.payload_bytes.len() {
-                    ArrayUtil::grow_with_len(
-                        &mut self.payload_bytes,
-                        num_bytes as usize,
-                    );
+                    ArrayUtil::grow_with_len(&mut self.payload_bytes, num_bytes as usize);
                 }
 
                 self.pay_in.as_ref().unwrap().borrow_mut().read_bytes(
@@ -1320,8 +1195,8 @@ where
                     num_bytes,
                 )?;
             } else if let Some(ref pay_in_rc) = self.pay_in {
-                // this works, because when writing a vint block we always force the first length to be
-                // written
+                // this works, because when writing a vint block we always force
+                // the first length to be written
                 let mut pay_in = pay_in_rc.borrow_mut();
                 PForUtil::skip(&mut *pay_in)?;
                 let num_bytes = pay_in.read_vint()?;
@@ -1335,13 +1210,11 @@ where
             if self.needs_offsets {
                 let pay_in_util = self.pay_in_util.as_mut().unwrap();
                 let pfor_util = self.pfor_util.as_mut().unwrap();
-                pfor_util
-                    .decode(pay_in_util, &mut self.offset_start_delta_buffer)?;
-                pfor_util
-                    .decode(pay_in_util, &mut self.offset_length_buffer)?;
+                pfor_util.decode(pay_in_util, &mut self.offset_start_delta_buffer)?;
+                pfor_util.decode(pay_in_util, &mut self.offset_length_buffer)?;
             } else if let Some(ref pay_in_rc) = self.pay_in {
-                // this works, because when writing a vint block we always force the first length to be
-                // written
+                // this works, because when writing a vint block we always force
+                // the first length to be written
                 let mut pay_in = pay_in_rc.borrow_mut();
                 PForUtil::skip(&mut *pay_in)?;
                 PForUtil::skip(&mut *pay_in)?;
@@ -1390,8 +1263,7 @@ where
     }
     fn accumulate_payload_and_offsets(&mut self) {
         if self.needs_payloads {
-            self.payload_length =
-                self.payload_length_buffer[self.pos_buffer_upto as usize];
+            self.payload_length = self.payload_length_buffer[self.pos_buffer_upto as usize];
             let payload = self.payload.as_mut().unwrap();
             payload.offset = self.payload_byte_upto as usize;
             payload.length = self.payload_length as usize;
@@ -1402,10 +1274,8 @@ where
 
         if self.needs_offsets {
             let pos = self.pos_buffer_upto as usize;
-            self.start_offset =
-                self.last_start_offset + self.offset_start_delta_buffer[pos];
-            self.end_offset =
-                self.start_offset + self.offset_length_buffer[pos];
+            self.start_offset = self.last_start_offset + self.offset_start_delta_buffer[pos];
+            self.end_offset = self.start_offset + self.offset_length_buffer[pos];
             self.last_start_offset = self.start_offset;
         }
     }
@@ -1419,10 +1289,10 @@ where
         if self.freq_fp != -1 {
             let mut doc_in = self.doc_in.as_ref().unwrap().borrow_mut();
             doc_in.seek(self.freq_fp)?;
-            self.pfor_util.as_mut().unwrap().decode(
-                self.doc_in_util.as_mut().unwrap(),
-                &mut self.freq_buffer,
-            )?;
+            self.pfor_util
+                .as_mut()
+                .unwrap()
+                .decode(self.doc_in_util.as_mut().unwrap(), &mut self.freq_buffer)?;
             self.freq_fp = -1;
         }
         Ok(self.freq_buffer[(self.doc_buffer_upto - 1) as usize])
@@ -1536,12 +1406,12 @@ where
             // advance level 0 skip data
             self.do_advance_shallow(target)?;
 
-            // If we are on the last doc ID of a block and we are advancing on the doc ID just beyond
-            // this block, then we decode the block. This may not be necessary, but this helps avoid
-            // having to check whether we are in a block that is not decoded yet in `next_doc`.
-            if self.doc_buffer_upto == ForUtil::BLOCK_SIZE as i32
-                && target == self.doc + 1
-            {
+            // If we are on the last doc ID of a block and we are advancing on
+            // the doc ID just beyond this block, then we decode the
+            // block. This may not be necessary, but this helps avoid
+            // having to check whether we are in a block that is not decoded yet
+            // in `next_doc`.
+            if self.doc_buffer_upto == ForUtil::BLOCK_SIZE as i32 && target == self.doc + 1 {
                 self.refill_docs()?;
                 self.needs_refilling = false;
             } else {
@@ -1587,8 +1457,7 @@ where
     I: IndexInput,
 {
     fn num_levels(&self) -> i32 {
-        if !self.impacts_enum.index_has_freq
-            || self.impacts_enum.level1_last_doc_id == NO_MORE_DOCS
+        if !self.impacts_enum.index_has_freq || self.impacts_enum.level1_last_doc_id == NO_MORE_DOCS
         {
             1
         } else {
@@ -1610,11 +1479,8 @@ where
 
     fn get_impacts(&mut self, level: i32) -> Result<&[Impact]> {
         if self.impacts_enum.index_has_freq {
-            if level == 0
-                && self.impacts_enum.level0_last_doc_id != NO_MORE_DOCS
-            {
-                let mut v =
-                    self.impacts_enum.level0_serialized_impacts.take().unwrap();
+            if level == 0 && self.impacts_enum.level0_last_doc_id != NO_MORE_DOCS {
+                let mut v = self.impacts_enum.level0_serialized_impacts.take().unwrap();
                 let (impact, bytes) = ImpactsImpl::<I>::read_impacts(
                     // take ownership
                     std::mem::take(&mut v.bytes),
@@ -1625,8 +1491,7 @@ where
                 self.impacts_enum.level0_serialized_impacts = Some(v);
                 Ok(impact)
             } else {
-                let mut v =
-                    self.impacts_enum.level1_serialized_impacts.take().unwrap();
+                let mut v = self.impacts_enum.level1_serialized_impacts.take().unwrap();
                 let (impact, bytes) = ImpactsImpl::<I>::read_impacts(
                     // take ownership
                     std::mem::take(&mut v.bytes),
@@ -1714,14 +1579,17 @@ pub mod lucene101_pr_util {
     ) -> Result<()> {
         debug_assert!(state.base.doc_freq > 1);
         if doc_in.get_file_pointer() != state.doc_start_fp {
-            // Don't prefetch if the input is already positioned at the right offset, which suggests that
-            // the caller is streaming the entire inverted index (e.g. for merging), let the read-ahead
-            // logic do its work instead. Note that this heuristic doesn't work for terms that have skip
-            // data, since skip data is stored after the last term, but handling all terms that have <128
+            // Don't prefetch if the input is already positioned at the right
+            // offset, which suggests that the caller is streaming
+            // the entire inverted index (e.g. for merging), let the read-ahead
+            // logic do its work instead. Note that this heuristic doesn't work
+            // for terms that have skip data, since skip data is
+            // stored after the last term, but handling all terms that have <128
             // docs is a good start already.
             doc_in.prefetch(state.doc_start_fp, 1)?;
         }
-        // Note: we don't prefetch positions or offsets, which are less likely to be needed.
+        // Note: we don't prefetch positions or offsets, which are less likely
+        // to be needed.
         Ok(())
     }
 }
@@ -1749,9 +1617,9 @@ impl MutableImpactList {
         self.length
     }
 }
-// Dummy impacts, composed of the maximum possible term frequency and the lowest possible
-// (unsigned) norm value. This is typically used on tail blocks, which don't actually record
-// impacts as the storage overhead would not be worth any query evaluation speedup, since there's
-// less than 128 docs left to evaluate anyway.
-static DUMMY_IMPACTS: Lazy<Vec<Impact>> =
-    Lazy::new(|| vec![Impact::new(i32::MAX, 1)]);
+// Dummy impacts, composed of the maximum possible term frequency and the lowest
+// possible (unsigned) norm value. This is typically used on tail blocks, which
+// don't actually record impacts as the storage overhead would not be worth any
+// query evaluation speedup, since there's less than 128 docs left to evaluate
+// anyway.
+static DUMMY_IMPACTS: Lazy<Vec<Impact>> = Lazy::new(|| vec![Impact::new(i32::MAX, 1)]);

@@ -14,44 +14,45 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::{Display, Formatter};
+use std::num::ParseIntError;
+
+use once_cell::sync::Lazy;
+use regex::Regex;
+use thiserror::Error;
+
 use crate::util::error::parse::Parse;
 use crate::util::error::{IllegalArgumentError, IllegalStateError};
 use crate::util::strict_string_tokenizer::StrictStringTokenizer;
-use once_cell::sync::Lazy;
-use regex::Regex;
-use std::fmt::{Display, Formatter};
-use std::num::ParseIntError;
-use thiserror::Error;
 
-pub static LUCENE_10_0_0: Lazy<Version> =
-    Lazy::new(|| Version::new(10, 0, 0).unwrap());
+pub static LUCENE_10_0_0: Lazy<Version> = Lazy::new(|| Version::new(10, 0, 0).unwrap());
 
 /// Match settings and bugs in Lucene's 10.1.0 release.
-pub static LUCENE_10_1_0: Lazy<Version> =
-    Lazy::new(|| Version::new(10, 1, 0).unwrap());
+pub static LUCENE_10_1_0: Lazy<Version> = Lazy::new(|| Version::new(10, 1, 0).unwrap());
 
 /// Match settings and bugs in Lucene's 11.0.0 release.
-pub static LUCENE_11_0_0: Lazy<Version> =
-    Lazy::new(|| Version::new(11, 0, 0).unwrap());
+pub static LUCENE_11_0_0: Lazy<Version> = Lazy::new(|| Version::new(11, 0, 0).unwrap());
 
 /// # Warning
-/// If you use this setting, and then upgrade to a newer release of Lucene, sizable
-/// changes may happen. If backwards compatibility is important, you should instead explicitly
-/// specify an actual version.
+/// If you use this setting, and then upgrade to a newer release of Lucene,
+/// sizable changes may happen. If backwards compatibility is important, you
+/// should instead explicitly specify an actual version.
 ///
-/// If you use this constant, you may need to **re-index all of your documents** when
-/// upgrading Lucene, as the way text is indexed may have changed. Additionally, you may need to
-/// **re-test your entire application** to ensure it behaves as expected, as some defaults may
-/// have changed and may break functionality in your application.
+/// If you use this constant, you may need to **re-index all of your documents**
+/// when upgrading Lucene, as the way text is indexed may have changed.
+/// Additionally, you may need to **re-test your entire application** to ensure
+/// it behaves as expected, as some defaults may have changed and may break
+/// functionality in your application.
 pub static LATEST: Lazy<Version> = Lazy::new(|| LUCENE_11_0_0.clone());
 pub static LUCENE_CURRENT: Lazy<Version> = Lazy::new(|| LATEST.clone());
 pub static MIN_SUPPORTED_MAJOR: Lazy<i32> = Lazy::new(|| LATEST.major - 1);
-/// Used by certain classes to match version compatibility across releases of Lucene.
+/// Used by certain classes to match version compatibility across releases of
+/// Lucene.
 ///
 /// # Warning
 /// When changing the version parameter that you supply to components in Lucene,
-/// do not simply change the version at search-time, but instead also adjust your indexing code to
-/// match, and re-index.
+/// do not simply change the version at search-time, but instead also adjust
+/// your indexing code to match, and re-index.
 #[derive(Clone, PartialEq, Eq, Ord, PartialOrd, Debug, Hash)]
 pub struct Version {
     /// Major version, the difference between stable and trunk.
@@ -65,11 +66,7 @@ pub struct Version {
     encoded_value: i32,
 }
 impl Version {
-    fn new(
-        major: i32,
-        minor: i32,
-        bug_fix: i32,
-    ) -> Result<Version, IllegalArgumentError> {
+    fn new(major: i32, minor: i32, bug_fix: i32) -> Result<Version, IllegalArgumentError> {
         Version::with_prerelease(major, minor, bug_fix, 0)
     }
     fn with_prerelease(
@@ -78,8 +75,8 @@ impl Version {
         bug_fix: i32,
         prerelease: i32,
     ) -> Result<Version, IllegalArgumentError> {
-        // NOTE: do not enforce major version so we remain future proof, except to
-        // make sure it fits in the 8 bits we encode it into:
+        // NOTE: do not enforce major version so we remain future proof, except
+        // to make sure it fits in the 8 bits we encode it into:
         if !(0..=255).contains(&major) {
             return Err(IllegalArgumentError::new(format!(
                 "Illegal major version: {}",
@@ -107,8 +104,7 @@ impl Version {
         if prerelease != 0 && (minor != 0 || bug_fix != 0) {
             return Err(IllegalArgumentError::new(format!("Prerelease version only supported with major release (got prerelease: {}, minor: {}, bug_fix: {})", prerelease, minor, bug_fix)));
         }
-        let encoded_value =
-            (major << 18) | (minor << 10) | (bug_fix << 2) | prerelease;
+        let encoded_value = (major << 18) | (minor << 10) | (bug_fix << 2) | prerelease;
         debug_assert!(Self::encoded_is_valid(
             major,
             minor,
@@ -124,14 +120,16 @@ impl Version {
             encoded_value,
         })
     }
-    /// Returns true if this version is the same or after the version from the argument.
+    /// Returns true if this version is the same or after the version from the
+    /// argument.
     pub fn on_or_after(&self, other: &Version) -> bool {
         self.encoded_value >= other.encoded_value
     }
     /// Parses a version number of the form `"major.minor.bugfix.prerelease"`.
     ///
     /// The `.bugfix` and `.prerelease` parts are optional. Note that this is
-    /// forwards compatible: the parsed version does not have to exist as a constant.
+    /// forwards compatible: the parsed version does not have to exist as a
+    /// constant.
     ///
     /// # Note
     /// This is an internal API.
@@ -234,8 +232,8 @@ impl Version {
     }
     /// Parses the given version number as a constant or dot-based version.
     ///
-    /// This method allows using `"LUCENE_X_Y"` constant names, or version numbers in the
-    /// format `"x.y.z"`.
+    /// This method allows using `"LUCENE_X_Y"` constant names, or version
+    /// numbers in the format `"x.y.z"`.
     ///
     /// # Note
     /// This is an internal API.
@@ -255,8 +253,7 @@ impl Version {
 
                 for (pattern, replacement) in patterns.iter() {
                     let re = Regex::new(pattern).unwrap();
-                    version =
-                        re.replace_all(&version, *replacement).to_string();
+                    version = re.replace_all(&version, *replacement).to_string();
                 }
 
                 // Try parsing the modified version string
@@ -336,16 +333,10 @@ impl VersionError {
     pub fn parse_error_with_pos(msg: impl Into<String>, position: i32) -> Self {
         VersionError::Parse(Parse::new(msg, position))
     }
-    pub fn parse_error_with_error(
-        msg: impl Into<String>,
-        error: IllegalArgumentError,
-    ) -> Self {
+    pub fn parse_error_with_error(msg: impl Into<String>, error: IllegalArgumentError) -> Self {
         VersionError::Parse(Parse::with_error(msg, Option::from(error)))
     }
-    pub fn parse_int_error(
-        input: impl Into<String>,
-        source: ParseIntError,
-    ) -> Self {
+    pub fn parse_int_error(input: impl Into<String>, source: ParseIntError) -> Self {
         VersionError::ParseIntError {
             message: input.into(),
             source,
@@ -361,15 +352,15 @@ fn get_package_implementation_version() {
 
 #[cfg(test)]
 mod tests {
-    use crate::test::util::lucene_test_case::random;
+    use std::hash::{DefaultHasher, Hash, Hasher};
 
+    use rand::Rng;
+
+    use crate::test::util::lucene_test_case::random;
     use crate::util::error::lucene_error::Result;
     use crate::util::{
-        Version, LATEST, LUCENE_10_0_0, LUCENE_10_1_0, LUCENE_11_0_0,
-        LUCENE_CURRENT,
+        Version, LATEST, LUCENE_10_0_0, LUCENE_10_1_0, LUCENE_11_0_0, LUCENE_CURRENT,
     };
-    use rand::Rng;
-    use std::hash::{DefaultHasher, Hash, Hasher};
 
     #[allow(dead_code)] // for quick search
     struct TestVersion;
@@ -511,8 +502,7 @@ mod tests {
     fn test_forwards_compatibility() -> Result<()> {
         assert!(Version::parse("11.10.20")?.on_or_after(&LUCENE_11_0_0));
         assert!(Version::parse("10.10.20")?.on_or_after(&LUCENE_10_0_0));
-        assert!(Version::parse("9.10.20")?
-            .on_or_after(&Version::from_bits(9, 0, 0)?));
+        assert!(Version::parse("9.10.20")?.on_or_after(&Version::from_bits(9, 0, 0)?));
         Ok(())
     }
     #[test]

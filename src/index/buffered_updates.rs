@@ -14,6 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::cell::RefCell;
+use std::collections::hash_map::Entry::{Occupied, Vacant};
+use std::collections::{HashMap, HashSet};
+use std::fmt;
+use std::rc::Rc;
+use std::sync::atomic::AtomicI32;
+use std::sync::Arc;
+
+use parking_lot::Mutex;
+
 use crate::index::doc_values_update::DocValuesUpdate;
 use crate::index::field_updates_buffer::FieldUpdatesBuffer;
 use crate::index::term::Term;
@@ -24,42 +34,35 @@ use crate::index::BytesRef;
 use crate::search::query::Query;
 use crate::util::access::Access;
 use crate::util::accountable::Accountable;
-use crate::util::allocator_byte::{
-    AllocatorByteEnum, DirectTrackingAllocatorByte,
-};
+use crate::util::allocator_byte::{AllocatorByteEnum, DirectTrackingAllocatorByte};
 use crate::util::array_util::ArrayUtil;
 use crate::util::bytes_ref_hash::{
-    BytesRefHash, BytesStartArrayEnum, BytesStartArrayEnumBorrow,
-    BytesStartArrayEnumLock, DirectBytesStartArray,
+    BytesRefHash, BytesStartArrayEnum, BytesStartArrayEnumBorrow, BytesStartArrayEnumLock,
+    DirectBytesStartArray,
 };
 use crate::util::error::lucene_error::Result;
 use crate::util::{
-    ByteBlockPool, ByteBlockPoolBorrow, ByteBlockPoolLock, Counter,
-    CounterEnum, CounterEnumBorrow, CounterEnumLock,
+    ByteBlockPool, ByteBlockPoolBorrow, ByteBlockPoolLock, Counter, CounterEnum, CounterEnumBorrow,
+    CounterEnumLock,
 };
-use parking_lot::Mutex;
-use std::cell::RefCell;
-use std::collections::hash_map::Entry::{Occupied, Vacant};
-use std::collections::{HashMap, HashSet};
-use std::fmt;
-use std::rc::Rc;
-use std::sync::atomic::AtomicI32;
-use std::sync::Arc;
 
 //TODO
 #[allow(unused)]
 const BYTES_PER_DEL_QUERY: i64 = 0;
 
-/// Holds buffered deletes and updates, including deletions by docID, term, or query for a single segment.
+/// Holds buffered deletes and updates, including deletions by docID, term, or
+/// query for a single segment.
 ///
-/// This structure is used to manage buffered pending deletes and updates that apply to the
-/// segment to be flushed. Once this deletes and updates are pushed (during a flush in
-/// `DocumentsWriter`), they are converted into a `FrozenBufferedUpdates` instance and
-/// forwarded to the `BufferedUpdatesStream`.
+/// This structure is used to manage buffered pending deletes and updates that
+/// apply to the segment to be flushed. Once this deletes and updates are pushed
+/// (during a flush in `DocumentsWriter`), they are converted into a
+/// `FrozenBufferedUpdates` instance and forwarded to the
+/// `BufferedUpdatesStream`.
 ///
 /// # Note
-/// - Instances of this structure are accessed either via a private instance on `DocumentWriterPerThread`,
-///   or through synchronized code in the `DocumentsWriterDeleteQueue`.
+/// - Instances of this structure are accessed either via a private instance on
+///   `DocumentWriterPerThread`, or through synchronized code in the
+///   `DocumentsWriterDeleteQueue`.
 #[allow(dead_code)]
 pub(crate) struct BufferedUpdates<Q, C, B, A, P>
 where
@@ -100,9 +103,7 @@ where
             delete_queries: HashMap::new(),
             field_updates: HashMap::new(),
             bytes_used: Arc::new(Mutex::new(CounterEnum::new_counter(true))),
-            field_updates_bytes_used: Arc::new(Mutex::new(
-                CounterEnum::new_counter(true),
-            )),
+            field_updates_bytes_used: Arc::new(Mutex::new(CounterEnum::new_counter(true))),
             verbose_deletes: false,
             gen: 0,
             segment_name,
@@ -174,11 +175,7 @@ where
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         Ok(())
     }
-    pub(crate) fn add_term(
-        &mut self,
-        term: &Term,
-        doc_id_upto: i32,
-    ) -> Result<()> {
+    pub(crate) fn add_term(&mut self, term: &Term, doc_id_upto: i32) -> Result<()> {
         let current = self.delete_terms.get(term);
         if current != -1 && doc_id_upto < current {
             // Only record the new number if it's greater than the
@@ -208,9 +205,7 @@ where
             delete_queries: HashMap::new(),
             field_updates: HashMap::new(),
             bytes_used: Rc::new(RefCell::new(CounterEnum::new_counter(true))),
-            field_updates_bytes_used: Rc::new(RefCell::new(
-                CounterEnum::new_counter(true),
-            )),
+            field_updates_bytes_used: Rc::new(RefCell::new(CounterEnum::new_counter(true))),
             verbose_deletes: false,
             gen: 0,
             segment_name,
@@ -233,10 +228,9 @@ where
             .insert(query.clone(), doc_id_upto)
             .is_none()
         {
-            let mut bytes_used_guard =
-                self.bytes_used.access_mut(|bytes_used| {
-                    bytes_used.add_and_get(BYTES_PER_DEL_QUERY)
-                });
+            let mut bytes_used_guard = self
+                .bytes_used
+                .access_mut(|bytes_used| bytes_used.add_and_get(BYTES_PER_DEL_QUERY));
         }
     }
     pub(crate) fn clear_delete_terms(&mut self) {
@@ -312,10 +306,7 @@ where
                 ));
             }
             if !self.delete_queries.is_empty() {
-                s.push_str(&format!(
-                    " {} deleted queries",
-                    self.delete_queries.len()
-                ));
+                s.push_str(&format!(" {} deleted queries", self.delete_queries.len()));
             }
             if self
                 .num_field_updates
@@ -381,27 +372,20 @@ macro_rules! impl_deleted_terms {
         impl $Type {
             pub(crate) fn $new_fn() -> Self {
                 let bytes_used = $bytes_wrap(CounterEnum::new_counter(false));
-                let allocator = AllocatorByteEnum::DTA(
-                    DirectTrackingAllocatorByte::new(bytes_used.clone()),
-                );
+                let allocator =
+                    AllocatorByteEnum::DTA(DirectTrackingAllocatorByte::new(bytes_used.clone()));
                 let pool = $pool_wrap(ByteBlockPool::$pool_ctor(allocator));
                 Self::new_impl(pool, bytes_used)
             }
-            pub(crate) fn $put_fn(
-                &mut self,
-                term: &Term,
-                value: i32,
-            ) -> Result<()> {
+            pub(crate) fn $put_fn(&mut self, term: &Term, value: i32) -> Result<()> {
                 let hash = match self.delete_terms.entry(term.field.clone()) {
                     Vacant(vacant) => {
                         // TODO: memory calculation not implemented
                         self.bytes_used.access_mut(|bytes_used| {
                             let _ = bytes_used.add_and_get(0);
                         });
-                        let new_map = BytesRefIntMap::$map_ctor(
-                            self.pool.clone(),
-                            self.bytes_used.clone(),
-                        );
+                        let new_map =
+                            BytesRefIntMap::$map_ctor(self.pool.clone(), self.bytes_used.clone());
                         vacant.insert(new_map)
                     },
                     Occupied(occupied) => occupied.into_mut(),
@@ -465,7 +449,8 @@ where
     }
     /// Gets the newest document ID of the deleted term.
     ///
-    /// Returns the newest document ID if the term exists, otherwise returns `-1`.
+    /// Returns the newest document ID if the term exists, otherwise returns
+    /// `-1`.
     pub(crate) fn get(&self, term: &Term) -> i32 {
         if let Some(hash) = self.delete_terms.get(&term.field) {
             hash.get(&term.bytes)
@@ -504,7 +489,8 @@ where
 
     /// Consume all terms in a sorted order.
     ///
-    /// Note: This is a destructive operation as it calls `BytesRefHash::sort()`.
+    /// Note: This is a destructive operation as it calls
+    /// `BytesRefHash::sort()`.
     #[allow(clippy::type_complexity)]
     pub(crate) fn for_each_ordered<F>(&mut self, mut consumer: F) -> Result<()>
     where
@@ -693,17 +679,18 @@ where
 }
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+    use std::sync::Arc;
+
+    use rand::{Rng, RngCore};
+
     use crate::index::buffered_updates::{BufferedUpdates, DeletedTerms};
     use crate::index::term::Term;
     use crate::index::BytesRef;
     use crate::search::term_query::TermQuery;
     use crate::test::util::lucene_test_case::{at_least, random};
-
     use crate::util::accountable::Accountable;
     use crate::util::error::lucene_error::Result;
-    use rand::{Rng, RngCore};
-    use std::collections::HashMap;
-    use std::sync::Arc;
 
     #[allow(dead_code)] // for quick search
     pub struct TestBufferedUpdates;
@@ -725,8 +712,7 @@ mod tests {
                 random.random_range(0..100000)
             };
             let value = format!("{}", random.random_range(0..100));
-            let term =
-                Term::new("id".to_string(), BytesRef::from_string(&value));
+            let term = Term::new("id".to_string(), BytesRef::from_string(&value));
             bu.add_query(Arc::new(TermQuery::new(term.clone())), doc_id_upto);
         }
 
@@ -738,8 +724,7 @@ mod tests {
                 random.random_range(0..100000)
             };
             let value = format!("{}", random.random_range(0..100));
-            let term =
-                Term::new("id".to_string(), BytesRef::from_string(&value));
+            let term = Term::new("id".to_string(), BytesRef::from_string(&value));
             bu.add_term(&term, doc_id_upto)?;
         }
 
@@ -790,8 +775,7 @@ mod tests {
                 random.fill_bytes(&mut bytes);
 
                 let field = &fields[random.random_range(0..fields.len())];
-                let term =
-                    Term::new(field.clone(), BytesRef::from_bytes(bytes));
+                let term = Term::new(field.clone(), BytesRef::from_bytes(bytes));
                 let value = random.random_range(0..10_000_000);
 
                 expected.insert(term.clone(), value);
@@ -806,9 +790,7 @@ mod tests {
 
             let mut expected_sorted: Vec<(Term, i32)> = expected
                 .iter()
-                .map(|(term, doc_id)| {
-                    (Term::new(term.field.clone(), term.bytes.clone()), *doc_id)
-                })
+                .map(|(term, doc_id)| (Term::new(term.field.clone(), term.bytes.clone()), *doc_id))
                 .collect();
             expected_sorted.sort_by_key(|entry| entry.0.clone());
 

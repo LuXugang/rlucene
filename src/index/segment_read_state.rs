@@ -14,13 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::rc::Rc;
+use std::sync::Arc;
+
+use parking_lot::Mutex;
+
 use crate::index::field_infos::FieldInfos;
 use crate::index::segment_info::SegmentInfo;
 use crate::store::directory::Directory;
 use crate::store::IOContext;
-use parking_lot::Mutex;
-use std::rc::Rc;
-use std::sync::Arc;
 
 /// Holder struct for common parameters used during read.
 ///
@@ -76,11 +78,9 @@ where
         }
     }
 
-    /// Creates a copy of an existing SegmentReadState with a different segment suffix.
-    pub fn copy_with_suffix(
-        other: &SegmentReadState<D>,
-        segment_suffix: &str,
-    ) -> Self {
+    /// Creates a copy of an existing SegmentReadState with a different segment
+    /// suffix.
+    pub fn copy_with_suffix(other: &SegmentReadState<D>, segment_suffix: &str) -> Self {
         Self {
             directory: Arc::clone(&other.directory),
             segment_info: other.segment_info.clone(),

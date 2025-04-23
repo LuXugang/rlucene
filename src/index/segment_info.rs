@@ -14,22 +14,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::index::sort::Sort;
-use crate::index::{IndexFileNames, CODEC_FILE_PATTERN};
 use std::cell::RefCell;
-
-use crate::store::directory::Directory;
-use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::version::Version;
-use crate::util::StringHelper;
-use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 use std::sync::Arc;
 
-/// Information about a segment such as its name, directory, and files related to the segment.
+use parking_lot::Mutex;
+
+use crate::index::sort::Sort;
+use crate::index::{IndexFileNames, CODEC_FILE_PATTERN};
+use crate::store::directory::Directory;
+use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::version::Version;
+use crate::util::StringHelper;
+
+/// Information about a segment such as its name, directory, and files related
+/// to the segment.
 ///
 /// # Experimental
 /// This API is experimental and may change in future releases.
@@ -45,22 +47,22 @@ where
     is_compound_file: bool,
     /// Id that uniquely identifies this segment.
     id: Vec<u8>,
-    // Diff to Java Lucene: We need to ensure that there is only one Codec in the index,
-    // Therefore, we do not need to explicitly define the Codec in the SegmentInfo.
-    // pub(crate) codec: Option<Lucene101Codec>,
+    // Diff to Java Lucene: We need to ensure that there is only one Codec in
+    // the index, Therefore, we do not need to explicitly define the Codec
+    // in the SegmentInfo. pub(crate) codec: Option<Lucene101Codec>,
     diagnostics: HashMap<String, String>,
     attributes: Arc<Mutex<HashMap<String, String>>>,
     index_sort: Option<Sort>,
     /// Tracks the Lucene version this segment was created with, since 3.1.
-    /// Null indicates an older than 3.0 index, and it's used to detect a too-old index.
-    /// The format expected is "x.y" - "2.x" for pre-3.0 indexes (or null), and
-    /// specific versions afterward ("3.0.0", "3.1.0" etc.).
-    /// See `Version` for details.
+    /// Null indicates an older than 3.0 index, and it's used to detect a
+    /// too-old index. The format expected is "x.y" - "2.x" for pre-3.0
+    /// indexes (or null), and specific versions afterward ("3.0.0",
+    /// "3.1.0" etc.). See `Version` for details.
     pub(crate) version: Option<Version>,
     /// Tracks the minimum version that contributed documents to a segment.
     /// For flush segments, that is the version that wrote it.
-    /// For merged segments, this is the minimum `min_version` of all the segments that have been merged
-    /// into this segment.
+    /// For merged segments, this is the minimum `min_version` of all the
+    /// segments that have been merged into this segment.
     pub(crate) min_version: Option<Version>,
     has_blocks: bool,
     set_files: Option<Rc<RefCell<HashSet<String>>>>,
@@ -81,10 +83,12 @@ where
     ///
     /// * `dir` - Directory where this segment resides.
     /// * `version` - The Lucene version this segment was created with.
-    /// * `min_version` - The minimum version that contributed documents to this segment.
+    /// * `min_version` - The minimum version that contributed documents to this
+    ///   segment.
     /// * `name` - Unique segment name.
     /// * `max_doc` - Number of documents in the segment.
-    /// * `is_compound_file` - Indicates if this segment uses a compound file format.
+    /// * `is_compound_file` - Indicates if this segment uses a compound file
+    ///   format.
     /// * `has_blocks` - Indicates if the segment has blocks.
     /// * `codec` - The codec used to encode/decode this segment.
     /// * `diagnostics` - Diagnostic information related to the segment.
@@ -136,15 +140,17 @@ impl<D> SegmentInfo<D>
 where
     D: Directory,
 {
-    /// Sets the diagnostics map. The given map is cloned to ensure immutability.
+    /// Sets the diagnostics map. The given map is cloned to ensure
+    /// immutability.
     pub fn set_diagnostics(&mut self, diagnostics: HashMap<String, String>) {
         self.diagnostics = diagnostics;
     }
 
     /// Adds or modifies this segment's diagnostics.
     ///
-    /// Entries in the given map whose keys are not present in the current diagnostics are added.
-    /// Otherwise, existing entries are modified with the given map's value.
+    /// Entries in the given map whose keys are not present in the current
+    /// diagnostics are added. Otherwise, existing entries are modified with
+    /// the given map's value.
     ///
     /// # Arguments
     /// * `diagnostics` - The additional diagnostics to be added or modified.
@@ -163,11 +169,13 @@ where
     ///
     /// # Arguments
     ///
-    /// * `is_compound_file` - `true` if this is a compound file; otherwise, `false`.
+    /// * `is_compound_file` - `true` if this is a compound file; otherwise,
+    ///   `false`.
     pub fn set_use_compound_file(&mut self, is_compound_file: bool) {
         self.is_compound_file = is_compound_file;
     }
-    /// Returns `true` if this segment is stored as a compound file; otherwise, `false`.
+    /// Returns `true` if this segment is stored as a compound file; otherwise,
+    /// `false`.
     pub fn get_use_compound_file(&self) -> bool {
         self.is_compound_file
     }
@@ -180,7 +188,8 @@ where
         self.has_blocks
     }
 
-    /// Sets the `has_blocks` property to `true`. This setting is viral and can't be unset.
+    /// Sets the `has_blocks` property to `true`. This setting is viral and
+    /// can't be unset.
     pub fn set_has_blocks(&mut self) {
         self.has_blocks = true;
     }
@@ -200,7 +209,8 @@ where
     //     &self.codec
     // }
 
-    /// Returns the number of documents in this segment (deletions are not taken into account)
+    /// Returns the number of documents in this segment (deletions are not taken
+    /// into account)
     pub fn max_doc(&self) -> Result<i32> {
         if self.max_doc.is_none() {
             return Err(LuceneError::illegal_argument(
@@ -242,7 +252,8 @@ where
     pub fn set_files(&mut self, files: HashSet<String>) {
         self.set_files = Some(Rc::new(RefCell::new(files)));
     }
-    /// Converts this segment information into a formatted string with deletions count.
+    /// Converts this segment information into a formatted string with deletions
+    /// count.
     ///
     /// # Arguments
     ///
@@ -257,7 +268,9 @@ where
     /// - `c`: Indicates the compound file format (`C` if not compound).
     /// - `45`: Number of documents in the segment.
     /// - `/4`: Number of deletions (only present if deletions exist).
-    /// - `[sorter=<long: "timestamp">!]`: Indicates the segment is sorted by the `timestamp` field in descending order (optional, omitted for unsorted segments).
+    /// - `[sorter=<long: "timestamp">!]`: Indicates the segment is sorted by
+    ///   the `timestamp` field in descending order (optional, omitted for
+    ///   unsorted segments).
     pub fn to_string(&self, del_count: i32) -> String {
         let mut s = String::new();
         s.push_str(&self.name);
@@ -309,8 +322,8 @@ where
         self.version.as_ref()
     }
 
-    /// Returns the minimum Lucene version that contributed documents to this segment, or `None`
-    /// if it is unknown.
+    /// Returns the minimum Lucene version that contributed documents to this
+    /// segment, or `None` if it is unknown.
     pub fn get_min_version(&self) -> Option<&Version> {
         self.min_version.as_ref()
     }
@@ -376,26 +389,28 @@ where
     }
     /// Puts a codec attribute value.
     ///
-    /// This is a key-value mapping for the field that the codec can use to store additional
-    /// metadata, and will be available to the codec when reading the segment via `get_attribute`.
+    /// This is a key-value mapping for the field that the codec can use to
+    /// store additional metadata, and will be available to the codec when
+    /// reading the segment via `get_attribute`.
     ///
-    /// If a value already exists for the field, it will be replaced with the new value. This method
-    /// ensures thread safety by making a copy-on-write for every attribute change.
+    /// If a value already exists for the field, it will be replaced with the
+    /// new value. This method ensures thread safety by making a
+    /// copy-on-write for every attribute change.
     pub fn put_attribute(&self, key: String, value: String) -> Option<String> {
-        // This needs to be thread-safe because multiple threads may be updating (different) attributes
-        // at the same time due to concurrent merging, plus some threads may be calling toString() on
+        // This needs to be thread-safe because multiple threads may be updating
+        // (different) attributes at the same time due to concurrent
+        // merging, plus some threads may be calling toString() on
         // segment info while other threads are updating attributes.
         let mut attributes = self.attributes.lock();
         attributes.insert(key, value)
     }
     /// Returns the internal codec attributes map.
-    pub fn get_attributes(
-        &self,
-    ) -> Result<Arc<Mutex<HashMap<String, String>>>> {
+    pub fn get_attributes(&self) -> Result<Arc<Mutex<HashMap<String, String>>>> {
         Ok(self.attributes.clone())
     }
 
-    /// Returns the sort order of this segment, or None if the index has no sort.
+    /// Returns the sort order of this segment, or None if the index has no
+    /// sort.
     pub fn get_index_sort(&self) -> Option<&Sort> {
         self.index_sort.as_ref()
     }

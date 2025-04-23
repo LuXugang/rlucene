@@ -14,14 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::cell::RefCell;
+use std::rc::Rc;
+
+use rand::rngs::StdRng;
+use rand::Rng;
+
 use crate::store::directory::Directory;
 use crate::store::dummy::dummy_index_output::DummyIndexOutput;
 use crate::store::index_output::IndexOutput;
 use crate::store::{IOContext, IndexInput};
 use crate::test::util::lucene_test_case::{at_least, new_directory, random};
-use std::cell::RefCell;
-use std::rc::Rc;
-
 use crate::test::util::test_util::TestUtil;
 use crate::util::array_util::ArrayUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -33,9 +36,6 @@ use crate::util::packed::direct_monotonic_writer::{
     direct_monotonic_writer_util, DirectMonotonicWriter,
 };
 
-use rand::rngs::StdRng;
-use rand::Rng;
-
 #[allow(dead_code)] // for quick search
 pub struct TestDirectMonotonic;
 
@@ -43,32 +43,17 @@ pub struct TestDirectMonotonic;
 fn test_validation() {
     let mut meta_out = DummyIndexOutput;
     let mut data_out = DummyIndexOutput;
-    let result = DirectMonotonicWriter::get_instance(
-        &mut meta_out,
-        &mut data_out,
-        -1,
-        10,
-    );
+    let result = DirectMonotonicWriter::get_instance(&mut meta_out, &mut data_out, -1, 10);
     assert!(
         matches!(result, Err(LuceneError::IllegalArgument(msg)) if "numValues can't be negative, got -1".eq(&msg.message))
     );
 
-    let result = DirectMonotonicWriter::get_instance(
-        &mut meta_out,
-        &mut data_out,
-        10,
-        1,
-    );
+    let result = DirectMonotonicWriter::get_instance(&mut meta_out, &mut data_out, 10, 1);
     assert!(
         matches!(result, Err(LuceneError::IllegalArgument(msg)) if "blockShift must be in [2-22], got 1".eq(&msg.message))
     );
 
-    let result = DirectMonotonicWriter::get_instance(
-        &mut meta_out,
-        &mut data_out,
-        1 << 40,
-        5,
-    );
+    let result = DirectMonotonicWriter::get_instance(&mut meta_out, &mut data_out, 1 << 40, 5);
     assert!(
         matches!(result, Err(LuceneError::IllegalArgument(msg)) if format!("blockShift is too low for the provided number of values: blockShift=5, numValues=1099511627776, MAX_ARRAY_LENGTH={}",ArrayUtil::MAX_ARRAY_LENGTH).eq(&msg.message))
     );
@@ -85,32 +70,19 @@ pub fn test_empty() -> Result<()> {
 
     let data_length;
     {
-        let mut meta_out =
-            dir.create_output("meta", &IOContext::default_io_context()?)?;
-        let mut data_out =
-            dir.create_output("data", &IOContext::default_io_context()?)?;
-        let mut writer = DirectMonotonicWriter::get_instance(
-            &mut meta_out,
-            &mut data_out,
-            0,
-            block_shift,
-        )?;
+        let mut meta_out = dir.create_output("meta", &IOContext::default_io_context()?)?;
+        let mut data_out = dir.create_output("data", &IOContext::default_io_context()?)?;
+        let mut writer =
+            DirectMonotonicWriter::get_instance(&mut meta_out, &mut data_out, 0, block_shift)?;
         writer.finish()?;
         data_length = data_out.get_file_pointer();
     }
 
     {
-        let mut meta_in =
-            dir.open_input("meta", &IOContext::read_once_io_context()?)?;
-        let data_in =
-            dir.open_input("data", &IOContext::default_io_context()?)?;
-        let meta = direct_monotonic_reader_util::load_meta(
-            &mut meta_in,
-            0,
-            block_shift,
-        )?;
-        let slice =
-            Rc::new(RefCell::new(data_in.random_access_slice(0, data_length)?));
+        let mut meta_in = dir.open_input("meta", &IOContext::read_once_io_context()?)?;
+        let data_in = dir.open_input("data", &IOContext::default_io_context()?)?;
+        let meta = direct_monotonic_reader_util::load_meta(&mut meta_in, 0, block_shift)?;
+        let slice = Rc::new(RefCell::new(data_in.random_access_slice(0, data_length)?));
         DirectMonotonicReader::get_instance(&meta, slice)?;
     }
     Ok(())
@@ -126,10 +98,8 @@ pub fn test_simple() -> Result<()> {
 
     let data_length;
     {
-        let mut meta_out =
-            dir.create_output("meta", &IOContext::default_io_context()?)?;
-        let mut data_out =
-            dir.create_output("data", &IOContext::default_io_context()?)?;
+        let mut meta_out = dir.create_output("meta", &IOContext::default_io_context()?)?;
+        let mut data_out = dir.create_output("data", &IOContext::default_io_context()?)?;
         let mut writer = DirectMonotonicWriter::get_instance(
             &mut meta_out,
             &mut data_out,
@@ -144,17 +114,11 @@ pub fn test_simple() -> Result<()> {
     }
 
     {
-        let mut meta_in =
-            dir.open_input("meta", &IOContext::read_once_io_context()?)?;
-        let data_in =
-            dir.open_input("data", &IOContext::default_io_context()?)?;
-        let meta = direct_monotonic_reader_util::load_meta(
-            &mut meta_in,
-            num_values as i64,
-            block_shift,
-        )?;
-        let slice =
-            Rc::new(RefCell::new(data_in.random_access_slice(0, data_length)?));
+        let mut meta_in = dir.open_input("meta", &IOContext::read_once_io_context()?)?;
+        let data_in = dir.open_input("data", &IOContext::default_io_context()?)?;
+        let meta =
+            direct_monotonic_reader_util::load_meta(&mut meta_in, num_values as i64, block_shift)?;
+        let slice = Rc::new(RefCell::new(data_in.random_access_slice(0, data_length)?));
         let mut values = DirectMonotonicReader::get_instance(&meta, slice)?;
         for (i, &v) in actual_values.iter().enumerate() {
             assert_eq!(v, values.get(i as i64)?);
@@ -177,15 +141,12 @@ pub fn test_constant_slope() -> Result<()> {
     let upper = random.random_range(0..20);
     let inc = random.random_range(0..1 << upper);
 
-    let actual_values: Vec<i64> =
-        (0..num_values).map(|i| min + inc * i as i64).collect();
+    let actual_values: Vec<i64> = (0..num_values).map(|i| min + inc * i as i64).collect();
 
     let data_length;
     {
-        let mut meta_out =
-            dir.create_output("meta", &IOContext::default_io_context()?)?;
-        let mut data_out =
-            dir.create_output("data", &IOContext::default_io_context()?)?;
+        let mut meta_out = dir.create_output("meta", &IOContext::default_io_context()?)?;
+        let mut data_out = dir.create_output("data", &IOContext::default_io_context()?)?;
         let mut writer = DirectMonotonicWriter::get_instance(
             &mut meta_out,
             &mut data_out,
@@ -200,17 +161,11 @@ pub fn test_constant_slope() -> Result<()> {
     }
 
     {
-        let mut meta_in =
-            dir.open_input("meta", &IOContext::read_once_io_context()?)?;
-        let data_in =
-            dir.open_input("data", &IOContext::default_io_context()?)?;
-        let meta = direct_monotonic_reader_util::load_meta(
-            &mut meta_in,
-            num_values as i64,
-            block_shift,
-        )?;
-        let slice =
-            Rc::new(RefCell::new(data_in.random_access_slice(0, data_length)?));
+        let mut meta_in = dir.open_input("meta", &IOContext::read_once_io_context()?)?;
+        let data_in = dir.open_input("data", &IOContext::default_io_context()?)?;
+        let meta =
+            direct_monotonic_reader_util::load_meta(&mut meta_in, num_values as i64, block_shift)?;
+        let slice = Rc::new(RefCell::new(data_in.random_access_slice(0, data_length)?));
         let mut values = DirectMonotonicReader::get_instance(&meta, slice)?;
         for (i, &v) in actual_values.iter().enumerate() {
             assert_eq!(v, values.get(i as i64)?);
@@ -234,10 +189,8 @@ pub fn test_zero_values_small_blob_shift() -> Result<()> {
 
     let data_length;
     {
-        let mut meta_out =
-            dir.create_output("meta", &IOContext::default_io_context()?)?;
-        let mut data_out =
-            dir.create_output("data", &IOContext::default_io_context()?)?;
+        let mut meta_out = dir.create_output("meta", &IOContext::default_io_context()?)?;
+        let mut data_out = dir.create_output("data", &IOContext::default_io_context()?)?;
         let mut writer = DirectMonotonicWriter::get_instance(
             &mut meta_out,
             &mut data_out,
@@ -252,19 +205,13 @@ pub fn test_zero_values_small_blob_shift() -> Result<()> {
     }
 
     {
-        let mut meta_in =
-            dir.open_input("meta", &IOContext::read_once_io_context()?)?;
-        let data_in =
-            dir.open_input("data", &IOContext::default_io_context()?)?;
-        let meta = direct_monotonic_reader_util::load_meta(
-            &mut meta_in,
-            num_values as i64,
-            block_shift,
-        )?;
+        let mut meta_in = dir.open_input("meta", &IOContext::read_once_io_context()?)?;
+        let data_in = dir.open_input("data", &IOContext::default_io_context()?)?;
+        let meta =
+            direct_monotonic_reader_util::load_meta(&mut meta_in, num_values as i64, block_shift)?;
         assert_eq!(meta_in.length(), meta_in.get_file_pointer());
         meta_in.seek(0)?;
-        let slice =
-            Rc::new(RefCell::new(data_in.random_access_slice(0, data_length)?));
+        let slice = Rc::new(RefCell::new(data_in.random_access_slice(0, data_length)?));
         let mut values = DirectMonotonicReader::get_instance(&meta, slice)?;
         for _ in 0..num_values {
             assert_eq!(0, values.get(0)?);
@@ -298,8 +245,7 @@ fn do_test_random(random: &mut StdRng, merging: bool) -> Result<()> {
         let num_values = if random.random_bool(0.5) {
             TestUtil::next_int(random, 1, max_num_values)
         } else {
-            let num_blocks =
-                TestUtil::next_int(random, 0, max_num_values >> block_shift);
+            let num_blocks = TestUtil::next_int(random, 0, max_num_values >> block_shift);
             TestUtil::next_int(random, 0, num_blocks) << block_shift
         };
 
@@ -317,10 +263,8 @@ fn do_test_random(random: &mut StdRng, merging: bool) -> Result<()> {
 
         let data_length;
         {
-            let mut meta_out =
-                dir.create_output("meta", &IOContext::default_io_context()?)?;
-            let mut data_out =
-                dir.create_output("data", &IOContext::default_io_context()?)?;
+            let mut meta_out = dir.create_output("meta", &IOContext::default_io_context()?)?;
+            let mut data_out = dir.create_output("data", &IOContext::default_io_context()?)?;
             let mut writer = DirectMonotonicWriter::get_instance(
                 &mut meta_out,
                 &mut data_out,
@@ -335,21 +279,16 @@ fn do_test_random(random: &mut StdRng, merging: bool) -> Result<()> {
         }
 
         {
-            let mut meta_in =
-                dir.open_input("meta", &IOContext::read_once_io_context()?)?;
-            let data_in =
-                dir.open_input("data", &IOContext::default_io_context()?)?;
+            let mut meta_in = dir.open_input("meta", &IOContext::read_once_io_context()?)?;
+            let data_in = dir.open_input("data", &IOContext::default_io_context()?)?;
             let meta = direct_monotonic_reader_util::load_meta(
                 &mut meta_in,
                 num_values as i64,
                 block_shift,
             )?;
-            let slice = Rc::new(RefCell::new(
-                data_in.random_access_slice(0, data_length)?,
-            ));
-            let mut values = DirectMonotonicReader::get_instance_with_merging(
-                &meta, slice, merging,
-            )?;
+            let slice = Rc::new(RefCell::new(data_in.random_access_slice(0, data_length)?));
+            let mut values =
+                DirectMonotonicReader::get_instance_with_merging(&meta, slice, merging)?;
             for (i, &v) in actual_values.iter().enumerate() {
                 assert_eq!(v, values.get(i as i64)?);
             }
@@ -403,10 +342,8 @@ fn do_test_monotonic_binary_search_against_long_array(
     block_shift: i32,
 ) -> Result<()> {
     {
-        let mut meta_out =
-            dir.create_output("meta", &IOContext::default_io_context()?)?;
-        let mut data_out =
-            dir.create_output("data", &IOContext::default_io_context()?)?;
+        let mut meta_out = dir.create_output("meta", &IOContext::default_io_context()?)?;
+        let mut data_out = dir.create_output("data", &IOContext::default_io_context()?)?;
         let mut writer = DirectMonotonicWriter::get_instance(
             &mut meta_out,
             &mut data_out,
@@ -420,20 +357,14 @@ fn do_test_monotonic_binary_search_against_long_array(
     }
 
     {
-        let mut meta_in =
-            dir.open_input("meta", &IOContext::read_once_io_context()?)?;
-        let data_in =
-            dir.open_input("data", &IOContext::default_io_context()?)?;
-        let meta = direct_monotonic_reader_util::load_meta(
-            &mut meta_in,
-            array.len() as i64,
-            block_shift,
-        )?;
+        let mut meta_in = dir.open_input("meta", &IOContext::read_once_io_context()?)?;
+        let data_in = dir.open_input("data", &IOContext::default_io_context()?)?;
+        let meta =
+            direct_monotonic_reader_util::load_meta(&mut meta_in, array.len() as i64, block_shift)?;
         let slice = Rc::new(RefCell::new(
             data_in.random_access_slice(0, dir.file_length("data")?)?,
         ));
-        let mut reader =
-            DirectMonotonicReader::get_instance(&meta, slice.clone())?;
+        let mut reader = DirectMonotonicReader::get_instance(&meta, slice.clone())?;
 
         if array.is_empty() {
             assert_eq!(-1, reader.binary_search(0, array.len() as i64, 42)?);
@@ -447,21 +378,13 @@ fn do_test_monotonic_binary_search_against_long_array(
             if array[0] != i64::MIN {
                 assert_eq!(
                     -1,
-                    reader.binary_search(
-                        0,
-                        array.len() as i64,
-                        array[0] - 1
-                    )?
+                    reader.binary_search(0, array.len() as i64, array[0] - 1)?
                 );
             }
             if array[array.len() - 1] != i64::MAX {
                 assert_eq!(
                     -1 - array.len() as i64,
-                    reader.binary_search(
-                        0,
-                        array.len() as i64,
-                        array[array.len() - 1] + 1
-                    )?
+                    reader.binary_search(0, array.len() as i64, array[array.len() - 1] + 1)?
                 );
             }
             if array.len() <= 2 {
@@ -474,22 +397,12 @@ fn do_test_monotonic_binary_search_against_long_array(
                         } else {
                             array[i + 1] - 1
                         };
-                        let index = reader.binary_search(
-                            0,
-                            array.len() as i64,
-                            intermediate,
-                        )?;
+                        let index = reader.binary_search(0, array.len() as i64, intermediate)?;
                         assert!(index < 0);
                         let insertion_point: i32 = (-1 - index).try_into()?;
-                        assert!(
-                            insertion_point > 0
-                                && (insertion_point as usize) < array.len()
-                        );
+                        assert!(insertion_point > 0 && (insertion_point as usize) < array.len());
                         assert!(array[insertion_point as usize] > intermediate);
-                        assert!(
-                            array[(insertion_point - 1) as usize]
-                                < intermediate
-                        );
+                        assert!(array[(insertion_point - 1) as usize] < intermediate);
                     }
                 }
             }

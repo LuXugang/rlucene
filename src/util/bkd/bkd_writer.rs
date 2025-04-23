@@ -14,9 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::codecs::mutable_point_tree::{
-    MutablePointTree, MutablePointTreeEnum,
-};
+use std::cell::RefCell;
+use std::rc::Rc;
+
+use crate::codecs::mutable_point_tree::{MutablePointTree, MutablePointTreeEnum};
 use crate::codecs::CodecUtil;
 use crate::index::merge_state::{DocMap, DocMapEnum};
 use crate::index::point_values::{
@@ -25,16 +26,12 @@ use crate::index::point_values::{
 use crate::index::{BytesRef, BytesRefBuilder};
 use crate::store::directory::Directory;
 use crate::store::{ByteBuffersDataOutput, DataOutput, IndexOutput};
-use crate::util::array_util::{
-    ArrayUtil, ByteArrayComparator, ByteArrayComparatorEnum,
-};
+use crate::util::array_util::{ArrayUtil, ByteArrayComparator, ByteArrayComparatorEnum};
 use crate::util::bit_set::BitSet;
 use crate::util::bit_util::BitUtil;
 use crate::util::bkd::bkd_config::BKDConfig;
 use crate::util::bkd::bkd_radix_selector::{BKDRadixSelector, PathSlice};
-use crate::util::bkd::bkd_util::{
-    BKDUtil, ByteArrayPredicate, ByteArrayPredicateEnum,
-};
+use crate::util::bkd::bkd_util::{BKDUtil, ByteArrayPredicate, ByteArrayPredicateEnum};
 use crate::util::bkd::doc_ids_writer::DocIdsWriter;
 use crate::util::bkd::heap_point_write::HeapPointWriter;
 use crate::util::bkd::mutable_point_tree_reader_utils::MutablePointTreeReaderUtils;
@@ -47,33 +44,37 @@ use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::numeric_utils::NumericUtils;
 use crate::util::priority_queue::{Compare, PriorityQueue};
 use crate::util::{SliceCopyOps, ToInt};
-use std::cell::RefCell;
-use std::rc::Rc;
 // TODO
-//   - allow variable length `byte[]` (across docs and dims), but this is quite a bit more complex
-//   - we could also index "auto-prefix terms" here, and use better compression, and maybe only use
-//     for the "fully contained" case so we'd only index docIDs
-//   - the index could be efficiently encoded as an FST, so we don't have wasteful
-//     (monotonic) `long[]` leafBlockFPs; or we could use `MonotonicLongValues` ... but then
-//     the index is already quite small: 60M OSM points --> 1.1 MB with 128 points per leaf,
-//     and you can reduce that by putting more points per leaf
-//   - we could use threads while building; the higher nodes are very parallelizable
+//   - allow variable length `byte[]` (across docs and dims), but this is quite
+//     a bit more complex
+//   - we could also index "auto-prefix terms" here, and use better compression,
+//     and maybe only use for the "fully contained" case so we'd only index
+//     docIDs
+//   - the index could be efficiently encoded as an FST, so we don't have
+//     wasteful (monotonic) `long[]` leafBlockFPs; or we could use
+//     `MonotonicLongValues` ... but then the index is already quite small: 60M
+//     OSM points --> 1.1 MB with 128 points per leaf, and you can reduce that
+//     by putting more points per leaf
+//   - we could use threads while building; the higher nodes are very
+//     parallelizable
 
-/// Recursively builds a block KD-tree to assign all incoming points in N-dim space to
-/// smaller and smaller N-dim rectangles (cells) until the number of points in a given
-/// rectangle is <= `config.max_points_in_leaf_node()`. The tree is partially balanced,
-/// which means the leaf nodes will have the requested `config.max_points_in_leaf_node()`
-/// except one that might have less. Leaf nodes may straddle the two bottom levels of
-/// the binary tree. Values that fall exactly on a cell boundary may be in either cell.
+/// Recursively builds a block KD-tree to assign all incoming points in N-dim
+/// space to smaller and smaller N-dim rectangles (cells) until the number of
+/// points in a given rectangle is <= `config.max_points_in_leaf_node()`. The
+/// tree is partially balanced, which means the leaf nodes will have the
+/// requested `config.max_points_in_leaf_node()` except one that might have
+/// less. Leaf nodes may straddle the two bottom levels of the binary tree.
+/// Values that fall exactly on a cell boundary may be in either cell.
 ///
-/// The number of dimensions can be 1 to 8, but every `byte[]` value is fixed length.
+/// The number of dimensions can be 1 to 8, but every `byte[]` value is fixed
+/// length.
 ///
-/// This consumes heap during writing: it allocates a `Vec<i64>` (`num_leaves` size),
-/// a `Vec<u8>` (`num_leaves * (1 + config.bytes_per_dim)`) and then uses up to the
-/// specified `max_mb_sort_in_heap` heap space for writing.
+/// This consumes heap during writing: it allocates a `Vec<i64>` (`num_leaves`
+/// size), a `Vec<u8>` (`num_leaves * (1 + config.bytes_per_dim)`) and then uses
+/// up to the specified `max_mb_sort_in_heap` heap space for writing.
 ///
-/// **NOTE**: This can write at most `i32::MAX * config.max_points_in_leaf_node / config.bytes_per_dim`
-/// total points.
+/// **NOTE**: This can write at most `i32::MAX * config.max_points_in_leaf_node
+/// / config.bytes_per_dim` total points.
 #[allow(unused)]
 pub struct BKDWriter<D>
 where
@@ -100,7 +101,8 @@ where
     /// Maximum per-dim values, packed.
     max_packed_value: Vec<u8>,
     point_count: i64,
-    /// An upper bound on how many points the caller will add (includes deletions).
+    /// An upper bound on how many points the caller will add (includes
+    /// deletions).
     total_point_count: i64,
     equals_predicate: ByteArrayPredicateEnum,
     max_doc: i32,
@@ -115,7 +117,8 @@ pub mod bkd_writer_util {
     pub const VERSION_LOW_CARDINALITY_LEAVES: i32 = 7;
     pub const VERSION_META_FILE: i32 = 9;
     pub const VERSION_CURRENT: i32 = VERSION_META_FILE;
-    /// Number of splits before we compute the exact bounding box of an inner node.
+    /// Number of splits before we compute the exact bounding box of an inner
+    /// node.
     pub(super) const SPLITS_BEFORE_EXACT_BOUNDS: i32 = 4;
     /// Default maximum heap to use, before spilling to (slower) disk.
     pub const DEFAULT_MAX_MB_SORT_IN_HEAP: f32 = 16.0;
@@ -137,14 +140,12 @@ where
 
         let bytes_per_dim = config.bytes_per_dim as usize;
         let packed_bytes_length = config.packed_bytes_length() as usize;
-        let packed_index_bytes_length =
-            config.packed_index_bytes_length() as usize;
+        let packed_index_bytes_length = config.packed_index_bytes_length() as usize;
         //TODO: TrackingDirectoryWrapper实现后来修改这里
         // let temp_dir = TrackingDirectoryWrapper::new(temp_dir);
         let comparator = ArrayUtil::get_unsigned_comparator(bytes_per_dim);
         let equals_predicate = BKDUtil::get_equals_predicate(bytes_per_dim);
-        let common_prefix_comparator =
-            BKDUtil::get_prefix_length_comparator(bytes_per_dim);
+        let common_prefix_comparator = BKDUtil::get_prefix_length_comparator(bytes_per_dim);
         let docs_seen = FixedBitSet::new(max_doc);
 
         let scratch_diff = vec![0u8; config.bytes_per_dim as usize];
@@ -155,11 +156,11 @@ where
         let max_packed_value = vec![0u8; packed_index_bytes_length];
 
         // Maximum number of points we hold in memory at any time
-        let max_points_sort_in_heap = ((max_mb_sort_in_heap * 1024.0 * 1024.0)
-            / config.bytes_per_doc() as f64)
-            as i32;
+        let max_points_sort_in_heap =
+            ((max_mb_sort_in_heap * 1024.0 * 1024.0) / config.bytes_per_doc() as f64) as i32;
         let doc_ids_writer = DocIdsWriter::new(config.max_points_in_leaf_node);
-        // Finally, we must be able to hold at least the leaf node in heap during build:
+        // Finally, we must be able to hold at least the leaf node in heap
+        // during build:
         if max_points_sort_in_heap < config.max_points_in_leaf_node {
             return Err(LuceneError::illegal_argument(format!(
                 "maxMBSortInHeap={} only allows for maxPointsSortInHeap={}, but this is less than maxPointsInLeafNode={}; \
@@ -195,10 +196,7 @@ where
             doc_ids_writer,
         })
     }
-    fn verify_params(
-        max_mb_sort_in_heap: f64,
-        total_point_count: i64,
-    ) -> Result<()> {
+    fn verify_params(max_mb_sort_in_heap: f64, total_point_count: i64) -> Result<()> {
         if max_mb_sort_in_heap < 0.0 {
             return Err(LuceneError::illegal_argument(format!(
                 "maxMBSortInHeap must be >= 0.0 (got: {})",
@@ -219,7 +217,8 @@ where
             "Point writer is already initialized"
         );
 
-        // Total point count is an estimation but the final point count must be equal or lower to that number.
+        // Total point count is an estimation but the final point count must be
+        // equal or lower to that number.
         if self.total_point_count > self.max_points_sort_in_heap as i64 {
             let writer = OfflinePointWriter::new(
                 self.config.clone(),
@@ -230,11 +229,10 @@ where
             )?;
             self.point_writer = Some(PointWriterEnum::Offline(writer));
         } else {
-            self.point_writer =
-                Some(PointWriterEnum::Heap(HeapPointWriter::new(
-                    self.config.clone(),
-                    self.total_point_count.try_into()?,
-                )));
+            self.point_writer = Some(PointWriterEnum::Heap(HeapPointWriter::new(
+                self.config.clone(),
+                self.total_point_count.try_into()?,
+            )));
         }
 
         Ok(())
@@ -265,17 +263,13 @@ where
             let bytes_per_dim = self.config.bytes_per_dim as usize;
             for dim in 0..self.config.num_index_dims as usize {
                 let offset = dim * bytes_per_dim;
-                if self.comparator.compare(
-                    packed_value,
-                    offset,
-                    &self.min_packed_value,
-                    offset,
-                ) < 0
+                if self
+                    .comparator
+                    .compare(packed_value, offset, &self.min_packed_value, offset)
+                    < 0
                 {
-                    self.min_packed_value.copy_from(
-                        &packed_value[offset..offset + bytes_per_dim],
-                        offset,
-                    );
+                    self.min_packed_value
+                        .copy_from(&packed_value[offset..offset + bytes_per_dim], offset);
                 } else if self.comparator.compare(
                     packed_value,
                     offset,
@@ -283,10 +277,8 @@ where
                     offset,
                 ) > 0
                 {
-                    self.max_packed_value.copy_from(
-                        &packed_value[offset..offset + bytes_per_dim],
-                        offset,
-                    );
+                    self.max_packed_value
+                        .copy_from(&packed_value[offset..offset + bytes_per_dim], offset);
                 }
             }
         }
@@ -298,10 +290,10 @@ where
         self.docs_seen.set(doc_id);
         Ok(())
     }
-    /// Write a field from a `MutablePointTree`. This way of writing points is faster than
-    /// regular writes with `BKDWriter::add` since there is opportunity for reordering points
-    /// before writing them to disk. This method does not use transient disk in order to reorder
-    /// points.
+    /// Write a field from a `MutablePointTree`. This way of writing points is
+    /// faster than regular writes with `BKDWriter::add` since there is
+    /// opportunity for reordering points before writing them to disk. This
+    /// method does not use transient disk in order to reorder points.
     pub fn write_field(
         &mut self,
         data_out: Rc<RefCell<D::IndexOutputType>>,
@@ -345,29 +337,24 @@ where
             let offset = self.scratch_bytes_ref1.offset;
             for dim in 0..self.config.num_index_dims {
                 let start_offset = (dim * self.config.bytes_per_dim) as usize;
-                let end_offset =
-                    start_offset + self.config.bytes_per_dim as usize;
+                let end_offset = start_offset + self.config.bytes_per_dim as usize;
 
-                if self.scratch_bytes_ref1.bytes
-                    [offset + start_offset..offset + end_offset]
+                if self.scratch_bytes_ref1.bytes[offset + start_offset..offset + end_offset]
                     .cmp(&min_packed_value[start_offset..end_offset])
                     .to_int()
                     < 0
                 {
                     min_packed_value.copy_from(
-                        &self.scratch_bytes_ref1.bytes
-                            [offset + start_offset..offset + end_offset],
+                        &self.scratch_bytes_ref1.bytes[offset + start_offset..offset + end_offset],
                         start_offset,
                     );
-                } else if self.scratch_bytes_ref1.bytes
-                    [offset + start_offset..offset + end_offset]
+                } else if self.scratch_bytes_ref1.bytes[offset + start_offset..offset + end_offset]
                     .cmp(&max_packed_value[start_offset..end_offset])
                     .to_int()
                     > 0
                 {
                     max_packed_value.copy_from(
-                        &self.scratch_bytes_ref1.bytes
-                            [offset + start_offset..offset + end_offset],
+                        &self.scratch_bytes_ref1.bytes[offset + start_offset..offset + end_offset],
                         start_offset,
                     );
                 }
@@ -391,9 +378,7 @@ where
 
         // Catch user silliness:
         if self.finished {
-            return Err(LuceneError::illegal_state(
-                "already finished".to_string(),
-            ));
+            return Err(LuceneError::illegal_state("already finished".to_string()));
         }
 
         // Mark that we already finished:
@@ -405,17 +390,14 @@ where
             return Ok(None);
         }
 
-        let num_leaves = ((self.point_count
-            + self.config.max_points_in_leaf_node as i64
-            - 1)
+        let num_leaves = ((self.point_count + self.config.max_points_in_leaf_node as i64 - 1)
             / self.config.max_points_in_leaf_node as i64)
             .try_into()?;
         let num_splits = num_leaves - 1;
 
         self.check_max_leaf_node_count(num_leaves as usize)?;
 
-        let mut split_packed_values =
-            vec![0u8; (num_splits * self.config.bytes_per_dim) as usize];
+        let mut split_packed_values = vec![0u8; (num_splits * self.config.bytes_per_dim) as usize];
         let mut split_dimension_values = vec![0u8; num_splits as usize];
         let mut leaf_block_fps = vec![0i64; num_leaves as usize];
 
@@ -462,11 +444,8 @@ where
             "parent_splits should be all zeros at the end"
         );
 
-        let split_packed_values = BytesRef::from_slice(
-            split_packed_values,
-            self.config.bytes_per_dim as usize,
-            0,
-        );
+        let split_packed_values =
+            BytesRef::from_slice(split_packed_values, self.config.bytes_per_dim as usize, 0);
 
         self.make_writer(
             split_packed_values,
@@ -486,13 +465,7 @@ where
     ) -> Result<Option<IORunnable>> {
         let mut reader = reader.borrow_mut();
         let size = reader.size()?.try_into()?;
-        MutablePointTreeReaderUtils::sort(
-            &self.config,
-            self.max_doc,
-            &mut reader,
-            0,
-            size,
-        )?;
+        MutablePointTreeReaderUtils::sort(&self.config, self.max_doc, &mut reader, 0, size)?;
 
         let one_dim_writer = OneDimensionBKDWriter::new(data_out, self)?;
         let mut intersect_visitor = IntersectVisitorImpl { one_dim_writer };
@@ -500,8 +473,9 @@ where
         intersect_visitor.one_dim_writer.finish()
     }
     /// More efficient bulk-add for incoming `PointValuesBase`s.
-    /// This does a merge sort of the already sorted values and currently only works when num_dims==1.
-    /// This returns `None` if all documents containing dimensional values were deleted.
+    /// This does a merge sort of the already sorted values and currently only
+    /// works when num_dims==1. This returns `None` if all documents
+    /// containing dimensional values were deleted.
     pub fn merge<S>(
         &mut self,
         _meta_out: Rc<RefCell<D::IndexOutputType>>,
@@ -514,10 +488,7 @@ where
         S: PointValuesBase,
     {
         let readers_len = readers.len();
-        debug_assert!(
-            doc_maps.is_none()
-                || readers_len == doc_maps.as_ref().unwrap().len()
-        );
+        debug_assert!(doc_maps.is_none() || readers_len == doc_maps.as_ref().unwrap().len());
         debug_assert!(readers_len <= i32::MAX as usize);
         let mut queue = PriorityQueue::new(
             readers_len as i32,
@@ -525,10 +496,7 @@ where
         )?;
 
         for (i, mut point_values) in readers.into_iter().enumerate() {
-            debug_assert_eq!(
-                point_values.get_num_dimensions()?,
-                self.config.num_dims
-            );
+            debug_assert_eq!(point_values.get_num_dimensions()?, self.config.num_dims);
             assert_eq!(
                 point_values.get_bytes_per_dimension()?,
                 self.config.bytes_per_dim
@@ -544,8 +512,7 @@ where
             }
         }
 
-        let mut one_dim_writer =
-            OneDimensionBKDWriter::new(data_out.clone(), self)?;
+        let mut one_dim_writer = OneDimensionBKDWriter::new(data_out.clone(), self)?;
 
         while queue.size() != 0 {
             let reader = queue.top();
@@ -580,8 +547,7 @@ where
         // we should always place unbalanced leaf nodes on the left
         debug_assert!(
             num_left_leaf_nodes >= num_leaves - num_left_leaf_nodes
-                && num_left_leaf_nodes
-                    <= 2 * (num_leaves - num_left_leaf_nodes)
+                && num_left_leaf_nodes <= 2 * (num_leaves - num_left_leaf_nodes)
         );
 
         num_left_leaf_nodes
@@ -598,17 +564,15 @@ where
         }
         Ok(())
     }
-    /// Writes the BKD tree to the provided `IndexOutput`s and returns an `IORunnable`
-    /// that writes the index of the tree if at least one point has been added,
-    /// or `None` otherwise.
+    /// Writes the BKD tree to the provided `IndexOutput`s and returns an
+    /// `IORunnable` that writes the index of the tree if at least one point
+    /// has been added, or `None` otherwise.
     pub fn finish(
         &mut self,
         data_out: Rc<RefCell<D::IndexOutputType>>,
     ) -> Result<Option<IORunnable>> {
         if self.finished {
-            return Err(LuceneError::illegal_state(
-                "already finished".to_string(),
-            ));
+            return Err(LuceneError::illegal_state("already finished".to_string()));
         }
 
         if self.point_count == 0 {
@@ -625,8 +589,7 @@ where
             self.point_count,
         );
 
-        let max_points_in_leaf_node =
-            self.config.max_points_in_leaf_node as i64;
+        let max_points_in_leaf_node = self.config.max_points_in_leaf_node as i64;
         let num_leaves = ((self.point_count + max_points_in_leaf_node - 1)
             / max_points_in_leaf_node)
             .try_into()?;
@@ -635,29 +598,31 @@ where
         debug_assert!(num_leaves >= 0);
         self.check_max_leaf_node_count(num_leaves as usize)?;
 
-        // NOTE: we could save the `1+` here, to use a bit less heap at search time, but then we'd need
-        // a somewhat costly check at each step of the recursion to recompute the split dim:
+        // NOTE: we could save the `1+` here, to use a bit less heap at search
+        // time, but then we'd need a somewhat costly check at each step
+        // of the recursion to recompute the split dim:
 
         // Indexed by nodeID, but first (root) nodeID is 1.
-        // We do `1+` because the lead byte at each recursion says which dim we split on.
-        let mut split_packed_values =
-            vec![0u8; (num_splits * self.config.bytes_per_dim) as usize];
+        // We do `1+` because the lead byte at each recursion says which dim we
+        // split on.
+        let mut split_packed_values = vec![0u8; (num_splits * self.config.bytes_per_dim) as usize];
         let mut split_dimension_values = vec![0u8; num_splits as usize];
 
-        // +1 because leaf count is power of 2 (e.g. 8), and innerNodeCount is power of 2 minus 1 (e.g. 7)
+        // +1 because leaf count is power of 2 (e.g. 8), and innerNodeCount is
+        // power of 2 minus 1 (e.g. 7)
         let mut leaf_block_fps = vec![0i64; num_leaves as usize];
 
         // Make sure the math above "worked":
         debug_assert!(
-            self.point_count / num_leaves as i64
-                <= self.config.max_points_in_leaf_node as i64,
+            self.point_count / num_leaves as i64 <= self.config.max_points_in_leaf_node as i64,
             "point_count={} numLeaves={} config.maxPointsInLeafNode()={}",
             self.point_count,
             num_leaves,
             self.config.max_points_in_leaf_node
         );
 
-        // We re-use the selector so we do not need to create an object every time.
+        // We re-use the selector so we do not need to create an object every
+        // time.
         let mut radix_selector = BKDRadixSelector::new(
             self.config.clone(),
             self.max_points_sort_in_heap,
@@ -669,8 +634,7 @@ where
         let mut success = false;
 
         let result = (|| -> Result<()> {
-            let mut parent_splits =
-                vec![0i32; self.config.num_index_dims as usize];
+            let mut parent_splits = vec![0i32; self.config.num_index_dims as usize];
             self.build(
                 0,
                 num_leaves,
@@ -707,11 +671,8 @@ where
 
         self.scratch_bytes_ref1.bytes = split_packed_values.clone();
         self.scratch_bytes_ref1.length = self.config.bytes_per_dim as usize;
-        let split_packed_values = BytesRef::from_slice(
-            split_packed_values,
-            self.config.bytes_per_dim as usize,
-            0,
-        );
+        let split_packed_values =
+            BytesRef::from_slice(split_packed_values, self.config.bytes_per_dim as usize, 0);
 
         self.make_writer(
             split_packed_values,
@@ -728,36 +689,30 @@ where
         leaf_block_fps: Vec<i64>,
         data_start_fp: i64,
     ) -> Result<Option<IORunnable>> {
-        let leaf_nodes =
-            BKDTreeLeafNodesEnum::MultiDimensions(BKDTreeLeafNodesImpl {
-                scratch_bytes_ref1: split_packed_values,
-                leaf_block_fps,
-                split_dimension_values,
-                bytes_per_dim: self.config.bytes_per_dim,
-            });
+        let leaf_nodes = BKDTreeLeafNodesEnum::MultiDimensions(BKDTreeLeafNodesImpl {
+            scratch_bytes_ref1: split_packed_values,
+            leaf_block_fps,
+            split_dimension_values,
+            bytes_per_dim: self.config.bytes_per_dim,
+        });
         Ok(Option::from(IORunnable {
             leaf_nodes,
             count_per_leaf: self.config.max_points_in_leaf_node,
             data_start_fp,
         }))
     }
-    /// Packs the two arrays, representing a semi-balanced binary tree, into a compact byte[]
-    /// structure.
+    /// Packs the two arrays, representing a semi-balanced binary tree, into a
+    /// compact byte[] structure.
     fn pack_index(&self, leaf_nodes: &BKDTreeLeafNodesEnum) -> Result<Vec<u8>> {
         // Reused while packing the index
-        let mut write_buffer =
-            ByteBuffersDataOutput::with_resettable_instance();
+        let mut write_buffer = ByteBuffersDataOutput::with_resettable_instance();
 
         // This is the "file" we append the byte[] to:
         let mut blocks: Vec<Option<Vec<u8>>> = Vec::new();
-        let mut last_split_values = vec![
-            0u8;
-            (self.config.bytes_per_dim * self.config.num_index_dims)
-                as usize
-        ];
+        let mut last_split_values =
+            vec![0u8; (self.config.bytes_per_dim * self.config.num_index_dims) as usize];
 
-        let mut negative_deltas =
-            vec![false; self.config.num_index_dims as usize];
+        let mut negative_deltas = vec![false; self.config.num_index_dims as usize];
         let total_size = self.recurse_pack_index(
             &mut write_buffer,
             leaf_nodes,
@@ -786,7 +741,8 @@ where
         Ok(index)
     }
 
-    /// Appends the current contents of writeBuffer as another block on the growing in-memory file.
+    /// Appends the current contents of writeBuffer as another block on the
+    /// growing in-memory file.
     fn append_block(
         &self,
         write_buffer: &mut ByteBuffersDataOutput,
@@ -799,8 +755,8 @@ where
         write_buffer.reset();
         block_len
     }
-    /// lastSplitValues is per-dimension split value previously seen; we use this to prefix-code the
-    /// split byte[] on each inner node
+    /// lastSplitValues is per-dimension split value previously seen; we use
+    /// this to prefix-code the split byte[] on each inner node
     #[allow(clippy::too_many_arguments)]
     fn recurse_pack_index(
         &self,
@@ -816,13 +772,10 @@ where
     ) -> Result<i32> {
         if num_leaves == 1 {
             if is_left {
-                debug_assert!(
-                    leaf_nodes.get_leaf_lp(leaves_offset) - min_block_fp == 0
-                );
+                debug_assert!(leaf_nodes.get_leaf_lp(leaves_offset) - min_block_fp == 0);
                 Ok(0)
             } else {
-                let delta =
-                    leaf_nodes.get_leaf_lp(leaves_offset) - min_block_fp;
+                let delta = leaf_nodes.get_leaf_lp(leaves_offset) - min_block_fp;
                 debug_assert!(
                     leaf_nodes.num_leaves() == num_leaves || delta > 0,
                     "expected delta > 0; got numLeaves = {} and delta={}",
@@ -835,10 +788,9 @@ where
         } else {
             let left_block_fp;
             if is_left {
-                // The left tree's left most leaf block FP is always the minimal FP:
-                debug_assert!(
-                    leaf_nodes.get_leaf_lp(leaves_offset) == min_block_fp
-                );
+                // The left tree's left most leaf block FP is always the minimal
+                // FP:
+                debug_assert!(leaf_nodes.get_leaf_lp(leaves_offset) == min_block_fp);
                 left_block_fp = min_block_fp;
             } else {
                 left_block_fp = leaf_nodes.get_leaf_lp(leaves_offset);
@@ -857,8 +809,7 @@ where
             let split_offset = right_offset - 1;
 
             let split_dim = leaf_nodes.get_split_dimension(split_offset);
-            let (split_bytes, split_offset, _) =
-                leaf_nodes.get_split_value(split_offset);
+            let (split_bytes, split_offset, _) = leaf_nodes.get_split_value(split_offset);
             let address = split_offset;
 
             let prefix = self.common_prefix_comparator.compare(
@@ -870,9 +821,8 @@ where
 
             let first_diff_byte_delta = if prefix < self.config.bytes_per_dim {
                 let diff = (split_bytes[(address + prefix) as usize] as i32)
-                    - (last_split_values[(split_dim * self.config.bytes_per_dim
-                        + prefix)
-                        as usize] as i32);
+                    - (last_split_values[(split_dim * self.config.bytes_per_dim + prefix) as usize]
+                        as i32);
                 if negative_deltas[split_dim as usize] {
                     debug_assert!(diff < 0);
                     -diff
@@ -883,10 +833,9 @@ where
             } else {
                 0
             };
-            // pack the prefix, splitDim and delta first diff byte into a single vInt:
-            let code = (first_diff_byte_delta
-                * (1 + self.config.bytes_per_dim)
-                + prefix)
+            // pack the prefix, splitDim and delta first diff byte into a single
+            // vInt:
+            let code = (first_diff_byte_delta * (1 + self.config.bytes_per_dim) + prefix)
                 * self.config.num_index_dims
                 + split_dim;
 
@@ -896,26 +845,21 @@ where
             let mut sav_split_value = vec![0u8; suffix as usize];
 
             if suffix > 1 {
-                write_buffer.write_bytes_range(
-                    split_bytes,
-                    address + prefix + 1,
-                    suffix - 1,
-                )?;
+                write_buffer.write_bytes_range(split_bytes, address + prefix + 1, suffix - 1)?;
             }
 
             let cmp = last_split_values.to_vec();
-            let last_split_values_start =
-                (split_dim * self.config.bytes_per_dim + prefix) as usize;
+            let last_split_values_start = (split_dim * self.config.bytes_per_dim + prefix) as usize;
             sav_split_value.copy_from(
-                &last_split_values[last_split_values_start
-                    ..last_split_values_start + suffix as usize],
+                &last_split_values
+                    [last_split_values_start..last_split_values_start + suffix as usize],
                 0,
             );
-            // copy our split value into lastSplitValues for our children to prefix-code against
+            // copy our split value into lastSplitValues for our children to
+            // prefix-code against
             let split_bytes_start = (address + prefix) as usize;
             last_split_values.copy_from(
-                &split_bytes
-                    [split_bytes_start..split_bytes_start + suffix as usize],
+                &split_bytes[split_bytes_start..split_bytes_start + suffix as usize],
                 last_split_values_start,
             );
 
@@ -942,11 +886,7 @@ where
             if num_left_leaf_nodes != 1 {
                 write_buffer.write_vint(left_num_bytes)?;
             } else {
-                debug_assert!(
-                    left_num_bytes == 0,
-                    "leftNumBytes={}",
-                    left_num_bytes
-                );
+                debug_assert!(left_num_bytes == 0, "leftNumBytes={}", left_num_bytes);
             }
 
             let bytes2 = write_buffer.try_get_array_ownership();
@@ -971,19 +911,12 @@ where
 
             negative_deltas[split_dim as usize] = sav_negative_delta;
 
-            let start =
-                (split_dim * self.config.bytes_per_dim + prefix) as usize;
-            last_split_values
-                .copy_from(&sav_split_value[..suffix as usize], start);
+            let start = (split_dim * self.config.bytes_per_dim + prefix) as usize;
+            last_split_values.copy_from(&sav_split_value[..suffix as usize], start);
 
             debug_assert!(last_split_values == &cmp[..]);
 
-            Ok(
-                num_bytes
-                    + bytes2_len as i32
-                    + left_num_bytes
-                    + right_num_bytes,
-            )
+            Ok(num_bytes + bytes2_len as i32 + left_num_bytes + right_num_bytes)
         }
     }
     pub fn write_index(
@@ -993,12 +926,7 @@ where
         data: &IORunnable,
     ) -> Result<()> {
         let packed_index = self.pack_index(&data.leaf_nodes)?;
-        self.write_index_with_packed_index(
-            meta_out,
-            index_out,
-            &packed_index,
-            data,
-        )
+        self.write_index_with_packed_index(meta_out, index_out, &packed_index, data)
     }
     pub fn write_index_with_packed_index(
         &self,
@@ -1007,8 +935,8 @@ where
         packed_index: &[u8],
         data: &IORunnable,
     ) -> Result<()> {
-        // If metaOut and indexOut are the same file, we account for the fact that
-        // writing a long makes the index start 8 bytes later.
+        // If metaOut and indexOut are the same file, we account for the fact
+        // that writing a long makes the index start 8 bytes later.
         let index_start_offset = if Rc::ptr_eq(&meta_out, &index_out) {
             BitUtil::LONG_BYTES as i64
         } else {
@@ -1054,11 +982,9 @@ where
         meta_out
             .borrow_mut()
             .write_long(file_pointer + index_start_offset)?;
-        index_out.borrow_mut().write_bytes_range(
-            packed_index,
-            0,
-            packed_index_len,
-        )?;
+        index_out
+            .borrow_mut()
+            .write_bytes_range(packed_index, 0, packed_index_len)?;
 
         Ok(())
     }
@@ -1096,19 +1022,16 @@ where
             out.write_byte(-1i8 as u8)?;
         } else {
             debug_assert!(
-                self.common_prefix_lengths[sorted_dim as usize]
-                    < self.config.bytes_per_dim
+                self.common_prefix_lengths[sorted_dim as usize] < self.config.bytes_per_dim
             );
 
-            // estimate if storing the values with cardinality is cheaper than storing all values.
-            let compressed_byte_offset = (sorted_dim
-                * self.config.bytes_per_dim
+            // estimate if storing the values with cardinality is cheaper than
+            // storing all values.
+            let compressed_byte_offset = (sorted_dim * self.config.bytes_per_dim
                 + self.common_prefix_lengths[sorted_dim as usize])
                 as usize;
 
-            let (high_cardinality_cost, low_cardinality_cost) = if count
-                == leaf_cardinality
-            {
+            let (high_cardinality_cost, low_cardinality_cost) = if count == leaf_cardinality {
                 // all values in this block are different
                 (0, 1)
             } else {
@@ -1116,7 +1039,8 @@ where
                 let mut num_run_lens = 0;
                 let mut i = 0;
                 while i < count {
-                    // do run-length compression on the byte at compressed_byte_offset
+                    // do run-length compression on the byte at
+                    // compressed_byte_offset
                     let run_len = Self::run_len(
                         packed_values,
                         i,
@@ -1134,19 +1058,15 @@ where
                     + 2 * num_run_lens;
 
                 // +1 is the byte needed for storing the cardinality
-                let low_cardinality_cost = leaf_cardinality
-                    * (self.config.packed_bytes_length() - prefix_len_sum + 1);
+                let low_cardinality_cost =
+                    leaf_cardinality * (self.config.packed_bytes_length() - prefix_len_sum + 1);
 
                 (high_cardinality_cost, low_cardinality_cost)
             };
 
             if low_cardinality_cost <= high_cardinality_cost {
                 out.write_byte(-2i8 as u8)?;
-                self.write_low_cardinality_leaf_block_packed_values(
-                    out,
-                    count,
-                    packed_values,
-                )?;
+                self.write_low_cardinality_leaf_block_packed_values(out, count, packed_values)?;
             } else {
                 out.write_byte(sorted_dim as u8)?;
                 self.write_high_cardinality_leaf_block_packed_values(
@@ -1175,8 +1095,8 @@ where
 
         let (bytes_ref, offset, length) = packed_values(0)?;
         self.scratch.copy_from(
-            &bytes_ref.borrow()[offset as usize
-                ..(offset + self.config.packed_bytes_length()) as usize],
+            &bytes_ref.borrow()
+                [offset as usize..(offset + self.config.packed_bytes_length()) as usize],
             0,
         );
 
@@ -1195,16 +1115,13 @@ where
                     for j in 0..self.config.num_dims {
                         out.write_bytes_range(
                             &self.scratch,
-                            j * self.config.bytes_per_dim
-                                + self.common_prefix_lengths[j as usize],
-                            self.config.bytes_per_dim
-                                - self.common_prefix_lengths[j as usize],
+                            j * self.config.bytes_per_dim + self.common_prefix_lengths[j as usize],
+                            self.config.bytes_per_dim - self.common_prefix_lengths[j as usize],
                         )?;
                     }
                     self.scratch.copy_from(
                         &bytes_ref.borrow()[offset as usize
-                            ..(offset + self.config.packed_bytes_length())
-                                as usize],
+                            ..(offset + self.config.packed_bytes_length()) as usize],
                         0,
                     );
                     cardinality = 1;
@@ -1219,10 +1136,8 @@ where
         for i in 0..self.config.num_dims {
             out.write_bytes_range(
                 &self.scratch,
-                i * self.config.bytes_per_dim
-                    + self.common_prefix_lengths[i as usize],
-                self.config.bytes_per_dim
-                    - self.common_prefix_lengths[i as usize],
+                i * self.config.bytes_per_dim + self.common_prefix_lengths[i as usize],
+                self.config.bytes_per_dim - self.common_prefix_lengths[i as usize],
             )?;
         }
 
@@ -1257,18 +1172,12 @@ where
             debug_assert!(run_len <= 0xff);
 
             let (bytes_ref, offset, _) = packed_values(i)?;
-            let prefix_byte =
-                bytes_ref.borrow()[offset as usize + compressed_byte_offset];
+            let prefix_byte = bytes_ref.borrow()[offset as usize + compressed_byte_offset];
 
             out.write_byte(prefix_byte)?;
             out.write_byte(run_len as u8)?;
 
-            self.write_leaf_block_packed_values_range(
-                out,
-                i,
-                i + run_len,
-                packed_values,
-            )?;
+            self.write_leaf_block_packed_values_range(out, i, i + run_len, packed_values)?;
             i += run_len;
             debug_assert!(i <= count);
         }
@@ -1286,8 +1195,7 @@ where
     {
         for dim in 0..self.config.num_index_dims {
             let common_prefix_length = self.common_prefix_lengths[dim as usize];
-            let suffix_length =
-                self.config.bytes_per_dim - common_prefix_length;
+            let suffix_length = self.config.bytes_per_dim - common_prefix_length;
 
             if suffix_length > 0 {
                 let (min, max) = self.compute_min_max(
@@ -1297,22 +1205,14 @@ where
                     suffix_length,
                 )?;
 
-                out.write_bytes_range(
-                    &min.bytes,
-                    min.offset as i32,
-                    min.length as i32,
-                )?;
-                out.write_bytes_range(
-                    &max.bytes,
-                    max.offset as i32,
-                    max.length as i32,
-                )?;
+                out.write_bytes_range(&min.bytes, min.offset as i32, min.length as i32)?;
+                out.write_bytes_range(&max.bytes, max.offset as i32, max.length as i32)?;
             }
         }
         Ok(())
     }
-    /// Return an array that contains the min and max values for the [offset, offset+length] interval
-    /// of the given {@link BytesRef}s.
+    /// Return an array that contains the min and max values for the [offset,
+    /// offset+length] interval of the given {@link BytesRef}s.
     fn compute_min_max<F>(
         &self,
         count: i32,
@@ -1328,22 +1228,13 @@ where
         let mut min: BytesRefBuilder<Vec<u8>> = BytesRefBuilder::new();
         let mut max: BytesRefBuilder<Vec<u8>> = BytesRefBuilder::new();
         let bytes = bytes_ref.borrow();
-        min.copy_bytes_with_vec(
-            &bytes,
-            (first_offset + offset) as usize,
-            length as usize,
-        );
-        max.copy_bytes_with_vec(
-            &bytes,
-            (first_offset + offset) as usize,
-            length as usize,
-        );
+        min.copy_bytes_with_vec(&bytes, (first_offset + offset) as usize, length as usize);
+        max.copy_bytes_with_vec(&bytes, (first_offset + offset) as usize, length as usize);
 
         let length_usize = length as usize;
         let offset_usize = offset as usize;
         for i in 1..count {
-            let (bytes_ref, candidate_offset, _candidate_length) =
-                packed_values(i)?;
+            let (bytes_ref, candidate_offset, _candidate_length) = packed_values(i)?;
             let candidate_offset_usize = candidate_offset as usize;
             let candidate_bytes = bytes_ref.borrow();
             if min.bytes_ref().bytes[0..length_usize]
@@ -1402,12 +1293,7 @@ where
         Ok(())
     }
 
-    fn run_len<F>(
-        packed_values: &mut F,
-        start: i32,
-        end: i32,
-        byte_offset: usize,
-    ) -> Result<i32>
+    fn run_len<F>(packed_values: &mut F, start: i32, end: i32, byte_offset: usize) -> Result<i32>
     where
         F: FnMut(i32) -> PackedValueResult,
     {
@@ -1430,20 +1316,16 @@ where
         packed_value: &[u8],
     ) -> Result<()> {
         let num_dims = self.config.num_dims as usize;
-        for (dim, &prefix) in common_prefixes.iter().enumerate().take(num_dims)
-        {
+        for (dim, &prefix) in common_prefixes.iter().enumerate().take(num_dims) {
             out.write_vint(prefix)?;
-            out.write_bytes_range(
-                packed_value,
-                dim as i32 * self.config.bytes_per_dim,
-                prefix,
-            )?;
+            out.write_bytes_range(packed_value, dim as i32 * self.config.bytes_per_dim, prefix)?;
         }
         Ok(())
     }
 
-    /// Called on exception, to check whether the checksum is also corrupt in this source, and add that
-    /// information (checksum matched or didn't) as a suppressed exception.
+    /// Called on exception, to check whether the checksum is also corrupt in
+    /// this source, and add that information (checksum matched or didn't)
+    /// as a suppressed exception.
     fn verify_checksum(
         &self,
         _prior_exception: &LuceneError,
@@ -1457,7 +1339,8 @@ where
     /// # Arguments
     /// * `min_packed_value` - The min values for all dimensions.
     /// * `max_packed_value` - The max values for all dimensions.
-    /// * `parent_splits` - How many times each dimension has been split on the parent levels.
+    /// * `parent_splits` - How many times each dimension has been split on the
+    ///   parent levels.
     ///
     /// # Returns
     /// The dimension to split.
@@ -1467,9 +1350,10 @@ where
         max_packed_value: &[u8],
         parent_splits: &[i32],
     ) -> Result<i32> {
-        // First look at whether there is a dimension that has split less than 2x less than
-        // the dim that has most splits, and return it if there is such a dimension and it
-        // does not only have equal values. This helps ensure all dimensions are indexed.
+        // First look at whether there is a dimension that has split less than
+        // 2x less than the dim that has most splits, and return it if
+        // there is such a dimension and it does not only have equal
+        // values. This helps ensure all dimensions are indexed.
         let mut max_num_splits = 0;
         for num_splits in parent_splits {
             max_num_splits = std::cmp::max(max_num_splits, *num_splits);
@@ -1482,12 +1366,10 @@ where
         {
             let offset = dim * self.config.bytes_per_dim as usize;
             if split_count < max_num_splits / 2
-                && self.comparator.compare(
-                    min_packed_value,
-                    offset,
-                    max_packed_value,
-                    offset,
-                ) != 0
+                && self
+                    .comparator
+                    .compare(min_packed_value, offset, max_packed_value, offset)
+                    != 0
             {
                 return Ok(dim as i32);
             }
@@ -1505,27 +1387,21 @@ where
                 &mut self.scratch_diff,
             )?;
             if split_dim == -1
-                || self.comparator.compare(
-                    &self.scratch_diff,
-                    0,
-                    &self.scratch,
-                    0,
-                ) > 0
+                || self
+                    .comparator
+                    .compare(&self.scratch_diff, 0, &self.scratch, 0)
+                    > 0
             {
-                self.scratch.copy_from(
-                    &self.scratch_diff[0..self.config.bytes_per_dim as usize],
-                    0,
-                );
+                self.scratch
+                    .copy_from(&self.scratch_diff[0..self.config.bytes_per_dim as usize], 0);
                 split_dim = dim;
             }
         }
         Ok(split_dim)
     }
-    /// Pull a partition back into heap once the point count is low enough while recursing.
-    fn switch_to_heap(
-        &self,
-        source: &mut PointWriterEnum<D>,
-    ) -> Result<PointWriterEnum<D>> {
+    /// Pull a partition back into heap once the point count is low enough while
+    /// recursing.
+    fn switch_to_heap(&self, source: &mut PointWriterEnum<D>) -> Result<PointWriterEnum<D>> {
         let source_count = source.count();
         let count = source_count.try_into()?;
         let mut reader = source.get_reader(0, source_count)?;
@@ -1548,8 +1424,9 @@ where
         Ok(PointWriterEnum::Heap(writer))
     }
 
-    /// Recursively reorders the provided reader and writes the bkd-tree on the fly; this method is used
-    /// when we are writing a new segment directly from IndexWriter's indexing buffer (MutablePointsReader).
+    /// Recursively reorders the provided reader and writes the bkd-tree on the
+    /// fly; this method is used when we are writing a new segment directly
+    /// from IndexWriter's indexing buffer (MutablePointsReader).
     #[allow(clippy::too_many_arguments)]
     fn build_with_reader(
         &mut self,
@@ -1583,8 +1460,7 @@ where
                     reader_ref.get_value(i, &mut self.scratch_bytes_ref2);
                     for dim in 0..self.config.num_dims {
                         let offset = (dim * self.config.bytes_per_dim) as usize;
-                        let dimension_prefix_length =
-                            self.common_prefix_lengths[dim as usize];
+                        let dimension_prefix_length = self.common_prefix_lengths[dim as usize];
                         self.common_prefix_lengths[dim as usize] = self
                             .common_prefix_comparator
                             .compare(
@@ -1597,12 +1473,11 @@ where
                     }
                 }
 
-                // Find the dimension that has the least number of unique bytes at commonPrefixLengths[dim]
+                // Find the dimension that has the least number of unique bytes
+                // at commonPrefixLengths[dim]
                 let mut used_bytes = vec![None; self.config.num_dims as usize];
                 for dim in 0..self.config.num_dims {
-                    if self.common_prefix_lengths[dim as usize]
-                        < self.config.bytes_per_dim
-                    {
+                    if self.common_prefix_lengths[dim as usize] < self.config.bytes_per_dim {
                         used_bytes[dim as usize] = Some(FixedBitSet::new(256));
                     }
                 }
@@ -1666,26 +1541,19 @@ where
 
                 // Write doc IDs
                 for i in from..to {
-                    spare_doc_ids[(i - from) as usize] =
-                        reader_ref.get_doc_id(i);
+                    spare_doc_ids[(i - from) as usize] = reader_ref.get_doc_id(i);
                 }
                 self.write_leaf_block_docs(out, spare_doc_ids, 0, count)?;
 
                 // Write the common prefixes:
                 reader_ref.get_value(from, &mut self.scratch_bytes_ref1);
                 self.scratch.copy_from(
-                    &self.scratch_bytes_ref1.bytes[self
-                        .scratch_bytes_ref1
-                        .offset
+                    &self.scratch_bytes_ref1.bytes[self.scratch_bytes_ref1.offset
                         ..self.scratch_bytes_ref1.offset
                             + self.config.packed_bytes_length() as usize],
                     0,
                 );
-                self.write_common_prefixes(
-                    out,
-                    &self.common_prefix_lengths,
-                    &self.scratch,
-                )?;
+                self.write_common_prefixes(out, &self.common_prefix_lengths, &self.scratch)?;
             }
             // Write the full values:
             let reader = reader.clone();
@@ -1724,10 +1592,10 @@ where
             let split_dim = if self.config.num_index_dims == 1 {
                 0
             } else {
-                // for dimensions > 2 we recompute the bounds for the current inner node to help the
-                // algorithm choose best
-                // split dimensions. Because it is an expensive operation, the frequency we recompute the
-                // bounds is given
+                // for dimensions > 2 we recompute the bounds for the current
+                // inner node to help the algorithm choose best
+                // split dimensions. Because it is an expensive operation, the
+                // frequency we recompute the bounds is given
                 // by SPLITS_BEFORE_EXACT_BOUNDS.
                 if num_leaves != leaf_block_fps.len() as i32
                     && self.config.num_index_dims > 2
@@ -1749,8 +1617,7 @@ where
             // How many leaves will be in the left tree:
             let num_left_leaf_nodes = self.get_num_left_leaf_nodes(num_leaves);
             // How many points will be in the left tree:
-            let mid = from
-                + num_left_leaf_nodes * self.config.max_points_in_leaf_node;
+            let mid = from + num_left_leaf_nodes * self.config.max_points_in_leaf_node;
 
             let common_prefix_len = self.common_prefix_comparator.compare(
                 min_packed_value,
@@ -1777,11 +1644,10 @@ where
             let address = (split_offset * self.config.bytes_per_dim) as usize;
             split_dimension_values[split_offset as usize] = split_dim as u8;
             reader.borrow().get_value(mid, &mut self.scratch_bytes_ref1);
-            let start = self.scratch_bytes_ref1.offset
-                + (split_dim * self.config.bytes_per_dim) as usize;
+            let start =
+                self.scratch_bytes_ref1.offset + (split_dim * self.config.bytes_per_dim) as usize;
             split_packed_values.copy_from(
-                &self.scratch_bytes_ref1.bytes
-                    [start..start + self.config.bytes_per_dim as usize],
+                &self.scratch_bytes_ref1.bytes[start..start + self.config.bytes_per_dim as usize],
                 address,
             );
 
@@ -1796,14 +1662,12 @@ where
                 self.config.packed_index_bytes_length() as usize,
             );
 
-            let start = self.scratch_bytes_ref1.offset
-                + (split_dim * self.config.bytes_per_dim) as usize;
+            let start =
+                self.scratch_bytes_ref1.offset + (split_dim * self.config.bytes_per_dim) as usize;
             let end = start + self.config.bytes_per_dim as usize;
             let offset = (split_dim * self.config.bytes_per_dim) as usize;
-            min_split_packed_value
-                .copy_from(&self.scratch_bytes_ref1.bytes[start..end], offset);
-            max_split_packed_value
-                .copy_from(&self.scratch_bytes_ref1.bytes[start..end], offset);
+            min_split_packed_value.copy_from(&self.scratch_bytes_ref1.bytes[start..end], offset);
+            max_split_packed_value.copy_from(&self.scratch_bytes_ref1.bytes[start..end], offset);
             // recurse
             parent_splits[split_dim as usize] += 1;
             self.build_with_reader(
@@ -1848,8 +1712,7 @@ where
         min_packed_value: &mut [u8],
         max_packed_value: &mut [u8],
     ) -> Result<()> {
-        let mut reader =
-            slice.writer.borrow().get_reader(slice.start, slice.count)?;
+        let mut reader = slice.writer.borrow().get_reader(slice.start, slice.count)?;
 
         if !reader.next()? {
             return Ok(());
@@ -1858,15 +1721,13 @@ where
             let point_value = reader.point_value();
             let (value, offset, _length) = point_value.borrow().packed_value();
             min_packed_value.copy_from(
-                &value.borrow()[offset as usize
-                    ..(offset + self.config.packed_index_bytes_length())
-                        as usize],
+                &value.borrow()
+                    [offset as usize..(offset + self.config.packed_index_bytes_length()) as usize],
                 0,
             );
             max_packed_value.copy_from(
-                &value.borrow()[offset as usize
-                    ..(offset + self.config.packed_index_bytes_length())
-                        as usize],
+                &value.borrow()
+                    [offset as usize..(offset + self.config.packed_index_bytes_length()) as usize],
                 0,
             );
         }
@@ -1885,9 +1746,7 @@ where
                 {
                     min_packed_value.copy_from(
                         &value.borrow()[offset as usize + start_offset
-                            ..offset as usize
-                                + start_offset
-                                + self.config.bytes_per_dim as usize],
+                            ..offset as usize + start_offset + self.config.bytes_per_dim as usize],
                         start_offset,
                     );
                 } else if self.comparator.compare(
@@ -1899,9 +1758,7 @@ where
                 {
                     max_packed_value.copy_from(
                         &value.borrow()[offset as usize + start_offset
-                            ..offset as usize
-                                + start_offset
-                                + self.config.bytes_per_dim as usize],
+                            ..offset as usize + start_offset + self.config.bytes_per_dim as usize],
                         start_offset,
                     );
                 }
@@ -1910,8 +1767,9 @@ where
 
         Ok(())
     }
-    /// The point writer contains the data that is going to be splitted using radix selection. /* This
-    /// method is used when we are merging previously written segments, in the numDims > 1 case.
+    /// The point writer contains the data that is going to be splitted using
+    /// radix selection. /* This method is used when we are merging
+    /// previously written segments, in the numDims > 1 case.
     #[allow(clippy::too_many_arguments)]
     fn build(
         &mut self,
@@ -1949,42 +1807,33 @@ where
                 PointWriterEnum::Heap(ref mut heap_source) => {
                     self.compute_common_prefix_length(heap_source, from, to);
                     let mut sorted_dim_cardinality = i32::MAX;
-                    let mut used_bytes =
-                        vec![None; self.config.num_dims as usize];
+                    let mut used_bytes = vec![None; self.config.num_dims as usize];
 
                     for dim in 0..self.config.num_dims {
-                        if self.common_prefix_lengths[dim as usize]
-                            < self.config.bytes_per_dim
-                        {
-                            used_bytes[dim as usize] =
-                                Some(FixedBitSet::new(256));
+                        if self.common_prefix_lengths[dim as usize] < self.config.bytes_per_dim {
+                            used_bytes[dim as usize] = Some(FixedBitSet::new(256));
                         }
                     }
 
                     for dim in 0..self.config.num_dims {
                         let prefix = self.common_prefix_lengths[dim as usize];
                         if prefix < self.config.bytes_per_dim {
-                            let offset =
-                                (dim * self.config.bytes_per_dim) as usize;
+                            let offset = (dim * self.config.bytes_per_dim) as usize;
                             for i in from..to {
                                 let (bytes, bytes_offset, _) = heap_source
                                     .get_packed_value_slice(i)
                                     .borrow()
                                     .packed_value();
-                                let bucket = bytes.borrow()[bytes_offset
-                                    as usize
-                                    + offset
-                                    + prefix as usize]
+                                let bucket = bytes.borrow()
+                                    [bytes_offset as usize + offset + prefix as usize]
                                     as usize;
                                 used_bytes[dim as usize]
                                     .as_mut()
                                     .unwrap()
                                     .set(bucket as i32);
                             }
-                            let cardinality = used_bytes[dim as usize]
-                                .as_ref()
-                                .unwrap()
-                                .cardinality();
+                            let cardinality =
+                                used_bytes[dim as usize].as_ref().unwrap().cardinality();
                             if cardinality < sorted_dim_cardinality {
                                 sorted_dim = dim;
                                 sorted_dim_cardinality = cardinality;
@@ -2007,13 +1856,9 @@ where
             let count = to - from;
             match &mut *heap_source.borrow_mut() {
                 PointWriterEnum::Heap(ref mut heap_source) => {
-                    leaf_cardinality = heap_source.compute_cardinality(
-                        from,
-                        to,
-                        &self.common_prefix_lengths,
-                    );
-                    leaf_block_fps[leaves_offset as usize] =
-                        out.get_file_pointer();
+                    leaf_cardinality =
+                        heap_source.compute_cardinality(from, to, &self.common_prefix_lengths);
+                    leaf_block_fps[leaves_offset as usize] = out.get_file_pointer();
 
                     debug_assert!(count > 0);
                     debug_assert!(count <= spare_doc_ids.len() as i32);
@@ -2029,19 +1874,14 @@ where
 
             self.write_leaf_block_docs(out, spare_doc_ids, 0, count)?;
 
-            self.write_common_prefixes(
-                out,
-                &self.common_prefix_lengths,
-                &self.scratch,
-            )?;
+            self.write_common_prefixes(out, &self.common_prefix_lengths, &self.scratch)?;
 
             let heap_source = heap_source.clone();
             let mut packed_values = move |i: i32| -> PackedValueResult {
                 let mut point_writer = heap_source.borrow_mut();
                 match &mut *point_writer {
                     PointWriterEnum::Heap(heap) => {
-                        let point_value_ref =
-                            heap.get_packed_value_slice(from + i);
+                        let point_value_ref = heap.get_packed_value_slice(from + i);
                         let point_value = point_value_ref.borrow();
                         Ok(point_value.packed_value())
                     },
@@ -2079,11 +1919,7 @@ where
                         % bkd_writer_util::SPLITS_BEFORE_EXACT_BOUNDS
                         == 0
                 {
-                    self.compute_packed_value_bounds(
-                        points,
-                        min_packed_value,
-                        max_packed_value,
-                    )?;
+                    self.compute_packed_value_bounds(points, min_packed_value, max_packed_value)?;
                 }
                 self.split(min_packed_value, max_packed_value, parent_splits)?
             };
@@ -2091,8 +1927,8 @@ where
             debug_assert!(num_leaves as usize <= leaf_block_fps.len());
 
             let num_left_leaf_nodes = self.get_num_left_leaf_nodes(num_leaves);
-            let left_count = num_left_leaf_nodes as i64
-                * self.config.max_points_in_leaf_node as i64;
+            let left_count =
+                num_left_leaf_nodes as i64 * self.config.max_points_in_leaf_node as i64;
 
             let mut slices: Vec<PathSlice<D>> = Vec::with_capacity(2);
 
@@ -2116,39 +1952,29 @@ where
             let right_offset = leaves_offset + num_left_leaf_nodes;
             let split_value_offset = right_offset - 1;
 
-            split_dimension_values[split_value_offset as usize] =
-                split_dim as u8;
-            let address =
-                (split_value_offset * self.config.bytes_per_dim) as usize;
-            split_packed_values.copy_from(
-                &split_value[0..self.config.bytes_per_dim as usize],
-                address,
-            );
+            split_dimension_values[split_value_offset as usize] = split_dim as u8;
+            let address = (split_value_offset * self.config.bytes_per_dim) as usize;
+            split_packed_values
+                .copy_from(&split_value[0..self.config.bytes_per_dim as usize], address);
 
             let mut min_split_packed_value =
                 vec![0u8; self.config.packed_index_bytes_length() as usize];
             min_split_packed_value.copy_from(
-                &min_packed_value
-                    [0..self.config.packed_index_bytes_length() as usize],
+                &min_packed_value[0..self.config.packed_index_bytes_length() as usize],
                 0,
             );
             let mut max_split_packed_value =
                 vec![0u8; self.config.packed_index_bytes_length() as usize];
             max_split_packed_value.copy_from(
-                &max_packed_value
-                    [0..self.config.packed_index_bytes_length() as usize],
+                &max_packed_value[0..self.config.packed_index_bytes_length() as usize],
                 0,
             );
 
             let start = (split_dim * self.config.bytes_per_dim) as usize;
-            min_split_packed_value.copy_from(
-                &split_value[0..self.config.bytes_per_dim as usize],
-                start,
-            );
-            max_split_packed_value.copy_from(
-                &split_value[0..self.config.bytes_per_dim as usize],
-                start,
-            );
+            min_split_packed_value
+                .copy_from(&split_value[0..self.config.bytes_per_dim as usize], start);
+            max_split_packed_value
+                .copy_from(&split_value[0..self.config.bytes_per_dim as usize], start);
 
             parent_splits[split_dim as usize] += 1;
 
@@ -2202,12 +2028,10 @@ where
             let (bytes, offset, _) = value.packed_value();
 
             for dim in 0..self.config.num_dims {
-                let src_offset =
-                    (offset + dim * self.config.bytes_per_dim) as usize;
+                let src_offset = (offset + dim * self.config.bytes_per_dim) as usize;
                 let dst_offset = (dim * self.config.bytes_per_dim) as usize;
                 self.scratch.copy_from(
-                    &bytes.borrow()[src_offset
-                        ..src_offset + self.config.bytes_per_dim as usize],
+                    &bytes.borrow()[src_offset..src_offset + self.config.bytes_per_dim as usize],
                     dst_offset,
                 );
             }
@@ -2220,8 +2044,8 @@ where
 
             for dim in 0..self.config.num_dims {
                 if self.common_prefix_lengths[dim as usize] != 0 {
-                    self.common_prefix_lengths[dim as usize] = self
-                        .common_prefix_lengths[dim as usize]
+                    self.common_prefix_lengths[dim as usize] = self.common_prefix_lengths
+                        [dim as usize]
                         .min(self.common_prefix_comparator.compare(
                             &self.scratch,
                             (dim * self.config.bytes_per_dim) as usize,
@@ -2234,9 +2058,7 @@ where
     }
     pub fn close(&mut self) -> Result<()> {
         self.finished = true;
-        if let Some(PointWriterEnum::Offline(ref mut offline_point_writer)) =
-            self.point_writer
-        {
+        if let Some(PointWriterEnum::Offline(ref mut offline_point_writer)) = self.point_writer {
             if let Some(out) = offline_point_writer.out.take() {
                 self.temp_dir.borrow_mut().delete_file(out.get_name())?;
             }
@@ -2288,9 +2110,7 @@ where
 
         // Catch user silliness:
         if bkd_writer.finished {
-            return Err(LuceneError::illegal_state(
-                "already finished".to_string(),
-            ));
+            return Err(LuceneError::illegal_state("already finished".to_string()));
         }
 
         // Mark that we already finished:
@@ -2299,14 +2119,11 @@ where
         let data_start_fp = data_out.borrow().get_file_pointer();
         let leaf_values = vec![
             0u8;
-            (bkd_writer.config.max_points_in_leaf_node
-                * bkd_writer.config.packed_bytes_length())
+            (bkd_writer.config.max_points_in_leaf_node * bkd_writer.config.packed_bytes_length())
                 as usize
         ];
-        let leaf_docs =
-            vec![0i32; bkd_writer.config.max_points_in_leaf_node as usize];
-        let last_packed_value =
-            vec![0u8; bkd_writer.config.packed_bytes_length() as usize];
+        let leaf_docs = vec![0i32; bkd_writer.config.max_points_in_leaf_node as usize];
+        let last_packed_value = vec![0u8; bkd_writer.config.packed_bytes_length() as usize];
 
         Ok(OneDimensionBKDWriter {
             data_out,
@@ -2338,8 +2155,7 @@ where
         if self.leaf_count == 0
             || !self.bkd_writer.equals_predicate.test(
                 &self.leaf_values,
-                ((self.leaf_count - 1) * self.bkd_writer.config.bytes_per_dim)
-                    as usize,
+                ((self.leaf_count - 1) * self.bkd_writer.config.bytes_per_dim) as usize,
                 packed_value,
                 0,
             )
@@ -2347,9 +2163,7 @@ where
             self.leaf_cardinality += 1;
         }
 
-        let offset = (self.leaf_count
-            * self.bkd_writer.config.packed_bytes_length())
-            as usize;
+        let offset = (self.leaf_count * self.bkd_writer.config.packed_bytes_length()) as usize;
         let length = self.bkd_writer.config.packed_bytes_length() as usize;
         self.leaf_values.copy_from(&packed_value[0..length], offset);
 
@@ -2357,9 +2171,7 @@ where
         // docsSeen.set(doc_id);
         self.leaf_count += 1;
 
-        if self.value_count + self.leaf_count as i64
-            > self.bkd_writer.total_point_count
-        {
+        if self.value_count + self.leaf_count as i64 > self.bkd_writer.total_point_count {
             return Err(LuceneError::illegal_state(format!(
                 "totalPointCount={} was passed when we were created, but we just hit {} values",
                 self.bkd_writer.total_point_count,
@@ -2389,22 +2201,18 @@ where
             return Ok(None);
         }
         self.bkd_writer.point_count = self.value_count;
-        // self.bkd_writer.scratch_bytes_ref1.length = self.bkd_writer.config.bytes_per_dim;
-        // self.bkd_writer.scratch_bytes_ref1.offset = 0;
+        // self.bkd_writer.scratch_bytes_ref1.length =
+        // self.bkd_writer.config.bytes_per_dim; self.bkd_writer.
+        // scratch_bytes_ref1.offset = 0;
 
-        debug_assert!(
-            self.leaf_block_start_values.len() + 1 == self.leaf_block_fps.len()
-        );
+        debug_assert!(self.leaf_block_start_values.len() + 1 == self.leaf_block_fps.len());
 
-        let leaf_nodes =
-            BKDTreeLeafNodesEnum::OneDimension(BKDTreeLeafNodesOneDimension {
-                leaf_block_fps: std::mem::take(&mut self.leaf_block_fps),
-                offset: 0,
-                length: self.bkd_writer.config.bytes_per_dim,
-                leaf_block_start_values: std::mem::take(
-                    &mut self.leaf_block_start_values,
-                ),
-            });
+        let leaf_nodes = BKDTreeLeafNodesEnum::OneDimension(BKDTreeLeafNodesOneDimension {
+            leaf_block_fps: std::mem::take(&mut self.leaf_block_fps),
+            offset: 0,
+            length: self.bkd_writer.config.bytes_per_dim,
+            leaf_block_start_values: std::mem::take(&mut self.leaf_block_start_values),
+        });
         Ok(Option::from(IORunnable {
             leaf_nodes,
             count_per_leaf: self.bkd_writer.config.max_points_in_leaf_node,
@@ -2413,13 +2221,11 @@ where
     }
     fn write_leaf_block(&mut self, leaf_cardinality: i32) -> Result<()> {
         debug_assert!(self.leaf_count != 0);
-        let packed_index_bytes_length =
-            self.bkd_writer.config.packed_index_bytes_length() as usize;
+        let packed_index_bytes_length = self.bkd_writer.config.packed_index_bytes_length() as usize;
         if self.value_count == 0 {
-            self.bkd_writer.min_packed_value.copy_from(
-                &self.leaf_values[0..(packed_index_bytes_length)],
-                0,
-            );
+            self.bkd_writer
+                .min_packed_value
+                .copy_from(&self.leaf_values[0..(packed_index_bytes_length)], 0);
         }
         let start = (self.leaf_count - 1) as usize * packed_index_bytes_length;
         self.bkd_writer.max_packed_value.copy_from(
@@ -2429,11 +2235,10 @@ where
         self.value_count += self.leaf_count as i64;
 
         if !self.leaf_block_fps.is_empty() {
-            // Save the first (minimum) value in each leaf block except the first, to build the split
-            // value index in the end:
-            self.leaf_block_start_values.push(
-                self.leaf_values[0..(packed_index_bytes_length)].to_vec(),
-            );
+            // Save the first (minimum) value in each leaf block except the
+            // first, to build the split value index in the end:
+            self.leaf_block_start_values
+                .push(self.leaf_values[0..(packed_index_bytes_length)].to_vec());
         }
         self.leaf_block_fps
             .push(self.data_out.borrow().get_file_pointer());
@@ -2487,8 +2292,7 @@ where
             &self.leaf_values[((self.leaf_count - 1)
                 * self.bkd_writer.config.packed_index_bytes_length())
                 as usize
-                ..((self.leaf_count)
-                    * self.bkd_writer.config.packed_index_bytes_length())
+                ..((self.leaf_count) * self.bkd_writer.config.packed_index_bytes_length())
                     as usize],
             &mut packed_values,
             &self.leaf_docs,
@@ -2520,8 +2324,7 @@ fn values_in_order_and_bounds<F>(
 where
     F: FnMut(i32) -> PackedValueResult,
 {
-    let mut last_packed_value =
-        vec![0u8; config.packed_bytes_length() as usize];
+    let mut last_packed_value = vec![0u8; config.packed_bytes_length() as usize];
     let mut last_doc = -1;
     for i in 0..count {
         let (bytes_ref, offset, length) = values(i)?;
@@ -2564,12 +2367,10 @@ fn value_in_order(
 ) -> bool {
     let dim_offset = (sorted_dim * config.bytes_per_dim) as usize;
     if ord > 0 {
-        let mut cmp = last_packed_value
-            [dim_offset..dim_offset + config.bytes_per_dim as usize]
+        let mut cmp = last_packed_value[dim_offset..dim_offset + config.bytes_per_dim as usize]
             .cmp(
                 &packed_value[packed_value_offset as usize + dim_offset
-                    ..(packed_value_offset + config.bytes_per_dim) as usize
-                        + dim_offset],
+                    ..(packed_value_offset + config.bytes_per_dim) as usize + dim_offset],
             )
             .to_int();
         if cmp > 0 {
@@ -2589,11 +2390,9 @@ fn value_in_order(
             cmp = last_packed_value[config.packed_index_bytes_length() as usize
                 ..config.packed_bytes_length() as usize]
                 .cmp(
-                    &packed_value[(packed_value_offset
-                        + config.packed_index_bytes_length())
+                    &packed_value[(packed_value_offset + config.packed_index_bytes_length())
                         as usize
-                        ..(packed_value_offset + config.packed_bytes_length())
-                            as usize],
+                        ..(packed_value_offset + config.packed_bytes_length()) as usize],
                 )
                 .to_int();
 
@@ -2640,20 +2439,14 @@ fn value_in_bounds(
         let start = bytes_offset as usize + offset;
         let end = start + config.bytes_per_dim as usize;
         if bytes[start..end]
-            .cmp(
-                &min_packed_value
-                    [offset..offset + config.bytes_per_dim as usize],
-            )
+            .cmp(&min_packed_value[offset..offset + config.bytes_per_dim as usize])
             .to_int()
             < 0
         {
             return false;
         }
         if bytes[start..end]
-            .cmp(
-                &max_packed_value
-                    [offset..offset + config.bytes_per_dim as usize],
-            )
+            .cmp(&max_packed_value[offset..offset + config.bytes_per_dim as usize])
             .to_int()
             > 0
         {
@@ -2673,12 +2466,8 @@ struct MergeReader<S: PointValuesBase> {
 }
 
 impl<S: PointValuesBase> MergeReader<S> {
-    fn new(
-        point_values: &mut PointValues<S>,
-        doc_map: Option<Rc<DocMapEnum>>,
-    ) -> Result<Self> {
-        let packed_bytes_length = (point_values.get_bytes_per_dimension()?
-            as usize)
+    fn new(point_values: &mut PointValues<S>, doc_map: Option<Rc<DocMapEnum>>) -> Result<Self> {
+        let packed_bytes_length = (point_values.get_bytes_per_dimension()? as usize)
             * (point_values.get_num_dimensions()? as usize);
         let mut point_tree = point_values.get_point_tree()?;
         let mut merge_intersects_visitor = MergeIntersectsVisitor {
@@ -2705,13 +2494,9 @@ impl<S: PointValuesBase> MergeReader<S> {
     }
     pub fn next(&mut self) -> Result<bool> {
         loop {
-            if self.doc_block_upto
-                == self.merge_intersects_visitor.docs_in_block as usize
-            {
+            if self.doc_block_upto == self.merge_intersects_visitor.docs_in_block as usize {
                 if !self.collect_next_leaf()? {
-                    debug_assert!(
-                        self.merge_intersects_visitor.docs_in_block == 0
-                    );
+                    debug_assert!(self.merge_intersects_visitor.docs_in_block == 0);
                     return Ok(false);
                 }
                 debug_assert!(self.merge_intersects_visitor.docs_in_block > 0);
@@ -2733,10 +2518,8 @@ impl<S: PointValuesBase> MergeReader<S> {
                 self.doc_id = mapped_doc_id;
                 let start = index * self.packed_bytes_length;
                 let end = start + self.packed_bytes_length;
-                self.packed_value.copy_from(
-                    &self.merge_intersects_visitor.packed_values[start..end],
-                    0,
-                );
+                self.packed_value
+                    .copy_from(&self.merge_intersects_visitor.packed_values[start..end], 0);
                 return Ok(true);
             }
         }
@@ -2751,9 +2534,7 @@ impl<S: PointValuesBase> MergeReader<S> {
                     if point_tree.move_to_sibling()? {
                         // Move to first child of this node and collect docs
                         while point_tree.move_to_child()? {}
-                        point_tree.visit_doc_values(
-                            &mut self.merge_intersects_visitor,
-                        )?;
+                        point_tree.visit_doc_values(&mut self.merge_intersects_visitor)?;
                         return Ok(true);
                     }
                     if !point_tree.move_to_parent()? {
@@ -2809,11 +2590,7 @@ impl IntersectVisitor for MergeIntersectsVisitor {
         Err(LuceneError::unsupported_operation(""))
     }
 
-    fn visit_with_packed_value(
-        &mut self,
-        doc_id: i32,
-        packed_value: &[u8],
-    ) -> Result<()> {
+    fn visit_with_packed_value(&mut self, doc_id: i32, packed_value: &[u8]) -> Result<()> {
         self.packed_values.copy_from(
             &packed_value[..self.packed_bytes_length as usize],
             (self.docs_in_block * self.packed_bytes_length) as usize,
@@ -2823,11 +2600,7 @@ impl IntersectVisitor for MergeIntersectsVisitor {
         Ok(())
     }
 
-    fn compare(
-        &mut self,
-        _min_packed_value: &[u8],
-        _max_packed_value: &[u8],
-    ) -> Result<Relation> {
+    fn compare(&mut self, _min_packed_value: &[u8], _max_packed_value: &[u8]) -> Result<Relation> {
         Ok(Relation::CellCrossesQuery)
     }
 
@@ -2835,9 +2608,8 @@ impl IntersectVisitor for MergeIntersectsVisitor {
         debug_assert_eq!(self.docs_in_block, 0);
         if self.doc_ids.len() < count as usize {
             ArrayUtil::grow_i32(&mut self.doc_ids, count as usize)?;
-            let packed_values_size: i32 = (self.doc_ids.len()
-                * self.packed_bytes_length as usize)
-                .try_into()?;
+            let packed_values_size: i32 =
+                (self.doc_ids.len() * self.packed_bytes_length as usize).try_into()?;
             // TODO:
             // if packed_values_size > ArrayUtil::MAX_ARRAY_LENGTH {
             //     return Err(LuceneError::illegal_state(format!(
@@ -2846,10 +2618,7 @@ impl IntersectVisitor for MergeIntersectsVisitor {
             //         packed_values_size
             //     )));
             // }
-            ArrayUtil::grow_exact(
-                &mut self.packed_values,
-                packed_values_size as usize,
-            )?;
+            ArrayUtil::grow_exact(&mut self.packed_values, packed_values_size as usize)?;
         }
         Ok(())
     }
@@ -2872,9 +2641,9 @@ where
 {
     fn less_than(&self, a: &MergeReader<S>, b: &MergeReader<S>) -> bool {
         debug_assert!(!std::ptr::eq(a, b));
-        let cmp =
-            self.comparator
-                .compare(&a.packed_value, 0, &b.packed_value, 0);
+        let cmp = self
+            .comparator
+            .compare(&a.packed_value, 0, &b.packed_value, 0);
 
         if cmp < 0 {
             true
@@ -2892,16 +2661,17 @@ trait BKDTreeLeafNodes {
     /// number of leaf nodes
     fn num_leaves(&self) -> i32;
 
-    /// pointer to the leaf node previously written. Leaves are order from left to right, so leaf at
-    /// `index` 0 is the leftmost leaf and the leaf at `num_leaves()` - 1 is the rightmost
+    /// pointer to the leaf node previously written. Leaves are order from left
+    /// to right, so leaf at `index` 0 is the leftmost leaf and the leaf at
+    /// `num_leaves()` - 1 is the rightmost
     fn get_leaf_lp(&self, index: i32) -> i64;
 
-    /// split value between two leaves. The split value at position n corresponds to the leaves at (n
-    /// -1) and n.
+    /// split value between two leaves. The split value at position n
+    /// corresponds to the leaves at (n -1) and n.
     fn get_split_value(&self, index: i32) -> (&[u8], i32, i32);
 
-    /// split dimension between two leaves. The split dimension at position n corresponds to the
-    /// leaves at (n -1) and n.
+    /// split dimension between two leaves. The split dimension at position n
+    /// corresponds to the leaves at (n -1) and n.
     fn get_split_dimension(&self, index: i32) -> i32;
 }
 struct BKDTreeLeafNodesOneDimension {
@@ -2974,31 +2744,21 @@ impl BKDTreeLeafNodes for BKDTreeLeafNodesEnum {
     fn get_leaf_lp(&self, index: i32) -> i64 {
         match self {
             BKDTreeLeafNodesEnum::OneDimension(leaf) => leaf.get_leaf_lp(index),
-            BKDTreeLeafNodesEnum::MultiDimensions(leaf) => {
-                leaf.get_leaf_lp(index)
-            },
+            BKDTreeLeafNodesEnum::MultiDimensions(leaf) => leaf.get_leaf_lp(index),
         }
     }
 
     fn get_split_value(&self, index: i32) -> (&[u8], i32, i32) {
         match self {
-            BKDTreeLeafNodesEnum::OneDimension(leaf) => {
-                leaf.get_split_value(index)
-            },
-            BKDTreeLeafNodesEnum::MultiDimensions(leaf) => {
-                leaf.get_split_value(index)
-            },
+            BKDTreeLeafNodesEnum::OneDimension(leaf) => leaf.get_split_value(index),
+            BKDTreeLeafNodesEnum::MultiDimensions(leaf) => leaf.get_split_value(index),
         }
     }
 
     fn get_split_dimension(&self, index: i32) -> i32 {
         match self {
-            BKDTreeLeafNodesEnum::OneDimension(leaf) => {
-                leaf.get_split_dimension(index)
-            },
-            BKDTreeLeafNodesEnum::MultiDimensions(leaf) => {
-                leaf.get_split_dimension(index)
-            },
+            BKDTreeLeafNodesEnum::OneDimension(leaf) => leaf.get_split_dimension(index),
+            BKDTreeLeafNodesEnum::MultiDimensions(leaf) => leaf.get_split_dimension(index),
         }
     }
 }
@@ -3023,19 +2783,11 @@ where
         Err(LuceneError::illegal_argument(""))
     }
 
-    fn visit_with_packed_value(
-        &mut self,
-        doc_id: i32,
-        packed_value: &[u8],
-    ) -> Result<()> {
+    fn visit_with_packed_value(&mut self, doc_id: i32, packed_value: &[u8]) -> Result<()> {
         self.one_dim_writer.add(packed_value, doc_id)
     }
 
-    fn compare(
-        &mut self,
-        _min_packed_value: &[u8],
-        _max_packed_value: &[u8],
-    ) -> Result<Relation> {
+    fn compare(&mut self, _min_packed_value: &[u8], _max_packed_value: &[u8]) -> Result<Relation> {
         Ok(Relation::CellCrossesQuery)
     }
 }

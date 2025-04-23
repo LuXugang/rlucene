@@ -18,11 +18,15 @@ use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::util::error::lucene_error::Result;
 /// A list of per-document numeric values, sorted according to i64's cmp.
 pub trait SortedNumericDocValues: DocValuesIterator {
-    /// Iterates to the next value in the current document. Do not call this more than
-    /// [`doc_value_count`](SortedNumericDocValues::doc_value_count) times for the document.
+    /// Iterates to the next value in the current document. Do not call this
+    /// more than
+    /// [`doc_value_count`](SortedNumericDocValues::doc_value_count) times for
+    /// the document.
     fn next_value(&mut self) -> Result<i64>;
 
-    /// Retrieves the number of values for the current document. This must always be greater than zero.
-    /// It is illegal to call this method after [`advance_exact(int)`](DocValuesIterator::advance_exact) returned `false`.
+    /// Retrieves the number of values for the current document. This must
+    /// always be greater than zero. It is illegal to call this method after
+    /// [`advance_exact(int)`](DocValuesIterator::advance_exact) returned
+    /// `false`.
     fn doc_value_count(&mut self) -> Result<i32>;
 }

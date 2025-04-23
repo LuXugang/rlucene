@@ -14,11 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use once_cell::sync::Lazy;
-use parking_lot::Mutex;
 use std::sync::Arc;
 
-/// Debugging API for Lucene classes such as [`IndexWriter`](crate::index::index_writer::IndexWriter)
+use once_cell::sync::Lazy;
+use parking_lot::Mutex;
+
+/// Debugging API for Lucene classes such as
+/// [`IndexWriter`](crate::index::index_writer::IndexWriter)
 /// and [`SegmentInfos`](crate::index::segment_infos::SegmentInfos).
 pub trait InfoStream: Send + Sync {
     /// Prints a message.
@@ -74,9 +76,7 @@ pub enum InfoStreamEnum {
 impl InfoStream for InfoStreamEnum {
     fn message(&mut self, component: &str, message: &str) {
         match self {
-            InfoStreamEnum::NoOutput(output) => {
-                output.message(component, message)
-            },
+            InfoStreamEnum::NoOutput(output) => output.message(component, message),
         }
     }
 

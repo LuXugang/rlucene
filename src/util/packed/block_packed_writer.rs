@@ -18,17 +18,18 @@ use crate::store::DataOutput;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::Result;
 use crate::util::packed::abstract_block_packed_writer::{
-    write_values, write_vlong, AbstractBlockPackedWriterBase, BPV_SHIFT,
-    MIN_VALUE_EQUALS_0,
+    write_values, write_vlong, AbstractBlockPackedWriterBase, BPV_SHIFT, MIN_VALUE_EQUALS_0,
 };
 use crate::util::packed::PackedInts;
 
 /// A writer for large sequences of longs.
 ///
-/// The sequence is divided into fixed-size blocks, and for each block, the difference between each
-/// value and the minimum value of the block is encoded using as few bits as possible. Memory usage
-/// of this struct is proportional to the block size. Each block has an overhead between 1 and 10
-/// bytes to store the minimum value and the number of bits per value of the block.
+/// The sequence is divided into fixed-size blocks, and for each block, the
+/// difference between each value and the minimum value of the block is encoded
+/// using as few bits as possible. Memory usage of this struct is proportional
+/// to the block size. Each block has an overhead between 1 and 10
+/// bytes to store the minimum value and the number of bits per value of the
+/// block.
 ///
 /// # Format
 ///
@@ -36,14 +37,14 @@ use crate::util::packed::PackedInts;
 /// - `BlockCount`: ⌈ValueCount / BlockSize⌉
 /// - `Block`: `<Header, (Ints)>`
 /// - `Header`: `<Token, (MinValue)>`
-/// - `Token`: A single byte, where the first 7 bits are the number of bits per value
-///   (`bits_per_value`). If the 8th bit is 1, then `MinValue` is `0`, otherwise `MinValue` needs to
-///   be decoded.
-/// - `MinValue`: A ZigZag-encoded variable-length long whose value is added to every integer
-///   in the block to restore the original values.
-/// - `Ints`: If `bits_per_value` is `0`, then all integers are equal to `MinValue`. Otherwise:
-///   `BlockSize` integers are stored as packed integers using exactly `bits_per_value` bits
-///   per value.
+/// - `Token`: A single byte, where the first 7 bits are the number of bits per
+///   value (`bits_per_value`). If the 8th bit is 1, then `MinValue` is `0`,
+///   otherwise `MinValue` needs to be decoded.
+/// - `MinValue`: A ZigZag-encoded variable-length long whose value is added to
+///   every integer in the block to restore the original values.
+/// - `Ints`: If `bits_per_value` is `0`, then all integers are equal to
+///   `MinValue`. Otherwise: `BlockSize` integers are stored as packed integers
+///   using exactly `bits_per_value` bits per value.
 ///
 /// # See Also
 /// - [`BlockPackedReaderIterator`](crate::util::packed::block_packed_reader_iterator::BlockPackedReaderIterator)

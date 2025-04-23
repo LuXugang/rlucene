@@ -18,14 +18,14 @@ use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::util::error::lucene_error::Result;
 
 pub trait DocValuesIterator: DocIdSetIterator {
-    /// Advances the iterator to exactly `target` and returns whether `target` has a value.
+    /// Advances the iterator to exactly `target` and returns whether `target`
+    /// has a value.
     ///
     /// # Parameters
-    /// - `target`: The target document ID to advance to.
-    ///   `Target` must be greater than or equal to
-    ///   the current document ID ([`doc_id()`](DocIdSetIterator::doc_id))
-    ///   and must be a valid document ID (i.e., `target >= 0`
-    ///   and `target < max_doc`).
+    /// - `target`: The target document ID to advance to. `Target` must be
+    ///   greater than or equal to the current document ID
+    ///   ([`doc_id()`](DocIdSetIterator::doc_id)) and must be a valid document
+    ///   ID (i.e., `target >= 0` and `target < max_doc`).
     ///
     /// # Returns
     /// `true` if `target` has a value, otherwise returns `false`.
@@ -34,8 +34,6 @@ pub trait DocValuesIterator: DocIdSetIterator {
     /// After this method returns, [`doc_id()`](DocIdSetIterator::doc_id)
     /// will return the value of `target`.
     fn advance_exact(&mut self, _target: i32) -> Result<bool> {
-        unimplemented!(
-            "advance_exact needs to be implemented if you need to use it"
-        )
+        unimplemented!("advance_exact needs to be implemented if you need to use it")
     }
 }

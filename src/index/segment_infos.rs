@@ -14,6 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::collections::{HashMap, HashSet};
+use std::fmt;
+use std::io::Write;
+use std::rc::Rc;
+use std::sync::Arc;
+
+use once_cell::sync::Lazy;
+use parking_lot::Mutex;
+
 use crate::codecs::lucene101_codec::Lucene101Codec;
 use crate::codecs::segment_info_format::SegmentInfoFormat;
 use crate::codecs::{get_default_code, Codec, CodecUtil, LATEST_CODEC};
@@ -21,80 +30,89 @@ use crate::index::index_commit::{DummyIndexCommit, IndexCommit};
 use crate::index::index_writer::IndexWriter;
 use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::index::IndexFileNames;
-
 use crate::store::check_sum_index_input::ChecksumIndexInput;
 use crate::store::directory::Directory;
 use crate::store::{DataInput, IndexOutput, IO_CONTEXT_DEFAULT};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::output_enum::OutputEnum;
-use crate::util::{
-    IOUtils, StringHelper, Version, LATEST, MIN_SUPPORTED_MAJOR,
-};
-use once_cell::sync::Lazy;
-use parking_lot::Mutex;
-use std::collections::{HashMap, HashSet};
-use std::fmt;
-use std::io::Write;
-use std::rc::Rc;
-use std::sync::Arc;
+use crate::util::{IOUtils, StringHelper, Version, LATEST, MIN_SUPPORTED_MAJOR};
 
-static INFO_STREAM: Lazy<Mutex<Option<Arc<Mutex<OutputEnum>>>>> =
-    Lazy::new(|| Mutex::new(None));
+static INFO_STREAM: Lazy<Mutex<Option<Arc<Mutex<OutputEnum>>>>> = Lazy::new(|| Mutex::new(None));
 
-/// A collection of `SegmentInfo` objects with methods for operating on those segments
-/// in relation to the file system.
+/// A collection of `SegmentInfo` objects with methods for operating on those
+/// segments in relation to the file system.
 ///
-/// The active segments in the index are stored in the segment info file, `segments_N`.
-/// There may be one or more `segments_N` files in the index; however, the one with the
-/// largest generation is the active one (when older `segments_N` files are present it's
-/// because they temporarily cannot be deleted, or a custom
-/// [`IndexDeletionPolicy`](crate::index::index_deletion_policy) is in use). This file lists each segment
-/// by name and has details about the codec and generation of deletes.
+/// The active segments in the index are stored in the segment info file,
+/// `segments_N`. There may be one or more `segments_N` files in the index;
+/// however, the one with the largest generation is the active one (when older
+/// `segments_N` files are present it's because they temporarily cannot be
+/// deleted, or a custom
+/// [`IndexDeletionPolicy`](crate::index::index_deletion_policy) is in use).
+/// This file lists each segment by name and has details about the codec and
+/// generation of deletes.
 ///
 /// Files:
 ///
 /// - `segments_N`: Header, LuceneVersion, Version, NameCounter, SegCount,
-///   MinSegmentLuceneVersion, `<SegName, SegID, SegCodec, DelGen, DeletionCount,
-///   FieldInfosGen, DocValuesGen, UpdatesFiles><sup>SegCount</sup>, CommitUserData, Footer
+///   MinSegmentLuceneVersion, `<SegName, SegID, SegCodec, DelGen,
+///   DeletionCount, FieldInfosGen, DocValuesGen,
+///   UpdatesFiles><sup>SegCount</sup>, CommitUserData, Footer
 ///
 /// Data types:
 ///
 /// - `Header` -> [`IndexHeader`](CodecUtil::write_index_header)
 /// - `LuceneVersion` -> Which Lucene code [`Version`] was used for this commit,
-///   written as three [`DataOutput::writeVInt`](crate::store::data_output::DataOutput::write_vint): major, minor, bugfix
-/// - `MinSegmentLuceneVersion` -> Lucene code [`Version`] of the oldest segment,
-///   written as three [`DataOutput::writeVInt`](crate::store::data_output::DataOutput::write_vint): major, minor, bugfix;
-///   this is only written only if there's at least one segment
-/// - `NameCounter`, `SegCount`, `DeletionCount` -> [`DataOutput::writeInt`](crate::store::data_output::DataOutput::write_int)
-/// - `Generation`, `Version`, `DelGen`, `Checksum`, `FieldInfosGen`, `DocValuesGen` ->
+///   written as three
+///   [`DataOutput::writeVInt`](crate::store::data_output::DataOutput::write_vint):
+///   major, minor, bugfix
+/// - `MinSegmentLuceneVersion` -> Lucene code [`Version`] of the oldest
+///   segment, written as three
+///   [`DataOutput::writeVInt`](crate::store::data_output::DataOutput::write_vint):
+///   major, minor, bugfix; this is only written only if there's at least one
+///   segment
+/// - `NameCounter`, `SegCount`, `DeletionCount` ->
+///   [`DataOutput::writeInt`](crate::store::data_output::DataOutput::write_int)
+/// - `Generation`, `Version`, `DelGen`, `Checksum`, `FieldInfosGen`,
+///   `DocValuesGen` ->
 ///   [`DataOutput::writeLong`](crate::store::data_output::DataOutput::write_long)
-/// - `SegID` -> [`DataOutput::writeByte`](crate::store::data_output::DataOutput::write_byte)
-/// - `SegName`, `SegCodec` -> [`DataOutput::writeString`](crate::store::data_output::DataOutput::write_string)
-/// - `CommitUserData` -> [`DataOutput::writeMapOfStrings`](crate::store::data_output::DataOutput::write_map_of_strings)
-/// - `UpdatesFiles` -> Map<[`DataOutput::writeInt`](crate::store::data_output::DataOutput::write_int), [`DataOutput::writeSetOfStrings`](crate::store::data_output::DataOutput::write_set_of_strings)>
+/// - `SegID` ->
+///   [`DataOutput::writeByte`](crate::store::data_output::DataOutput::write_byte)
+/// - `SegName`, `SegCodec` ->
+///   [`DataOutput::writeString`](crate::store::data_output::DataOutput::write_string)
+/// - `CommitUserData` ->
+///   [`DataOutput::writeMapOfStrings`](crate::store::data_output::DataOutput::write_map_of_strings)
+/// - `UpdatesFiles` ->
+///   Map<[`DataOutput::writeInt`](crate::store::data_output::DataOutput::write_int),
+///   [`DataOutput::writeSetOfStrings`](crate::store::data_output::DataOutput::write_set_of_strings)>
 /// - `Footer` -> [`CodecUtil::writeFooter`](CodecUtil::write_footer)
 ///
 /// Field Descriptions:
 ///
-/// - `Version` counts how often the index has been changed by adding or deleting documents.
+/// - `Version` counts how often the index has been changed by adding or
+///   deleting documents.
 /// - `NameCounter` is used to generate names for new segment files.
-/// - `SegName` is the name of the segment, and is used as the file name prefix for all
-///   of the files that compose the segment's index.
-/// - `DelGen` is the generation count of the delete file. If this is `-1`, there are no
-///   deletes. Anything above zero means there are deletes stored by
-///   [`LiveDocsFormat`](crate::codecs::live_docs_format).
+/// - `SegName` is the name of the segment, and is used as the file name prefix
+///   for all of the files that compose the segment's index.
+/// - `DelGen` is the generation count of the delete file. If this is `-1`,
+///   there are no deletes. Anything above zero means there are deletes stored
+///   by [`LiveDocsFormat`](crate::codecs::live_docs_format).
 /// - `DeletionCount` records the number of deleted documents in this segment.
-/// - `SegCodec` is the [`Codec::getName`](Codec::get_name) of the Codec that encoded this segment.
+/// - `SegCodec` is the [`Codec::getName`](Codec::get_name) of the Codec that
+///   encoded this segment.
 /// - `SegID` is the identifier of the Codec that encoded this segment.
-/// - `CommitUserData` stores an optional user-supplied opaque `Map<String,String>` that was
-///   passed to [`IndexWriter::setLiveCommitData`](IndexWriter::set_live_commit_data).
-/// - `FieldInfosGen` is the generation count of the fieldInfos file. If this is `-1`,
-///   there are no updates to the fieldInfos in that segment. Anything above zero means
-///   there are updates to fieldInfos stored by [`FieldInfosFormat`](crate::codecs::field_infos_format::FieldInfosFormat).
-/// - `DocValuesGen` is the generation count of the updatable DocValues. If this is `-1`,
-///   there are no updates to DocValues in that segment. Anything above zero means there
-///   are updates to DocValues stored by [`DocValuesFormat`](crate::codecs::doc_values_format::DocValuesFormat).
-/// - `UpdatesFiles` stores the set of files that were updated in that segment per field.
+/// - `CommitUserData` stores an optional user-supplied opaque
+///   `Map<String,String>` that was passed to
+///   [`IndexWriter::setLiveCommitData`](IndexWriter::set_live_commit_data).
+/// - `FieldInfosGen` is the generation count of the fieldInfos file. If this is
+///   `-1`, there are no updates to the fieldInfos in that segment. Anything
+///   above zero means there are updates to fieldInfos stored by
+///   [`FieldInfosFormat`](crate::codecs::field_infos_format::FieldInfosFormat).
+/// - `DocValuesGen` is the generation count of the updatable DocValues. If this
+///   is `-1`, there are no updates to DocValues in that segment. Anything above
+///   zero means there are updates to DocValues stored by
+///   [`DocValuesFormat`](crate::codecs::doc_values_format::DocValuesFormat).
+/// - `UpdatesFiles` stores the set of files that were updated in that segment
+///   per field.
 ///
 /// # Note
 /// This module is experimental and subject to change.
@@ -110,7 +128,8 @@ where
     pub generation: i64,
     /// Generation of the "segments_N" file we last successfully read or wrote.
     pub last_generation: i64,
-    /// Opaque `HashMap<String, String>` that user can specify during `IndexWriter.commit`.
+    /// Opaque `HashMap<String, String>` that user can specify during
+    /// `IndexWriter.commit`.
     pub user_data: HashMap<String, String>,
     /// List of `SegmentCommitInfo` objects.
     pub segments: Vec<SegmentCommitInfo<D>>,
@@ -118,7 +137,8 @@ where
     pub id: Option<Vec<u8>>,
     /// Which Lucene version wrote this commit?
     pub lucene_version: Option<Version>,
-    /// Version of the oldest segment in the index, or `None` if there are no segments.
+    /// Version of the oldest segment in the index, or `None` if there are no
+    /// segments.
     pub min_segment_lucene_version: Option<Version>,
     /// The Lucene version major that was used to create the index.
     pub index_created_version_major: i32,
@@ -143,8 +163,8 @@ where
     /// Sole constructor.
     ///
     /// # Arguments
-    /// - `index_created_version_major`: The Lucene version major at index creation time,
-    ///   or 6 if the index was created before 7.0.
+    /// - `index_created_version_major`: The Lucene version major at index
+    ///   creation time, or 6 if the index was created before 7.0.
     pub fn new(index_created_version_major: i32) -> Result<SegmentInfos<D>> {
         if index_created_version_major > LATEST.major {
             return Err(LuceneError::illegal_argument(format!(
@@ -187,7 +207,8 @@ where
         )
     }
 
-    /// Returns the generation of the next pending `segments_N` that will be written.
+    /// Returns the generation of the next pending `segments_N` that will be
+    /// written.
     pub fn get_next_pending_generation(&self) -> i64 {
         if self.generation == -1 {
             1
@@ -196,11 +217,13 @@ where
         }
     }
 
-    /// Since Lucene 5.0, every commit (`segments_N`) writes a unique id. This will return that id.
+    /// Since Lucene 5.0, every commit (`segments_N`) writes a unique id. This
+    /// will return that id.
     pub fn get_id(&self) -> Option<Vec<u8>> {
         self.id.clone()
     }
-    /// Read a particular `segmentFileName`. This may throw an error if a commit is in process.
+    /// Read a particular `segmentFileName`. This may throw an error if a commit
+    /// is in process.
     ///
     /// # Arguments
     ///
@@ -211,16 +234,11 @@ where
     ///
     /// - Returns `LuceneError::CorruptIndex` if the index is corrupt.
     /// - Returns `LuceneError` for any low-level IO error.
-    ///
     pub fn read_commit(
         directory: Arc<Mutex<D>>,
         segment_file_name: &str,
     ) -> Result<SegmentsFileEnum<D>> {
-        Self::read_commit_with_file_min_version(
-            directory,
-            segment_file_name,
-            *MIN_SUPPORTED_MAJOR,
-        )
+        Self::read_commit_with_file_min_version(directory, segment_file_name, *MIN_SUPPORTED_MAJOR)
     }
 
     /// Reads a particular `segmentFileName`, as long as the commits
@@ -271,12 +289,7 @@ where
         input: &mut impl ChecksumIndexInput,
         generation: i64,
     ) -> Result<Self> {
-        Self::read_commit_impl(
-            directory,
-            input,
-            generation,
-            *MIN_SUPPORTED_MAJOR,
-        )
+        Self::read_commit_impl(directory, input, generation, *MIN_SUPPORTED_MAJOR)
     }
     /// Read the commit from the provided [`ChecksumIndexInput`].
     pub fn read_commit_impl(
@@ -304,16 +317,10 @@ where
         let id_len = id.len();
         debug_assert!(id_len <= i32::MAX as usize);
         input.read_bytes(&mut id, 0, id_len as i32)?;
-        CodecUtil::check_index_header_suffix(
-            input,
-            &format!("{:x}", generation),
-        )?;
+        CodecUtil::check_index_header_suffix(input, &format!("{:x}", generation))?;
 
-        let lucene_version = Version::from_bits(
-            input.read_vint()?,
-            input.read_vint()?,
-            input.read_vint()?,
-        )?;
+        let lucene_version =
+            Version::from_bits(input.read_vint()?, input.read_vint()?, input.read_vint()?)?;
 
         let index_created_version = input.read_vint()?;
         debug_assert!(index_created_version >= 0);
@@ -342,9 +349,7 @@ where
         infos.generation = generation;
         infos.last_generation = generation;
         infos.lucene_version = Some(lucene_version);
-        if let Err(e) =
-            Self::parse_segment_infos(directory, input, &mut infos, format)
-        {
+        if let Err(e) = Self::parse_segment_infos(directory, input, &mut infos, format) {
             prior_error = Some(e);
         }
 
@@ -438,8 +443,7 @@ where
             let sci_id = if format > segment_infos_util::VERSION_74 {
                 match input.read_byte()? {
                     1 => {
-                        let mut id =
-                            vec![0u8; StringHelper::ID_LENGTH as usize];
+                        let mut id = vec![0u8; StringHelper::ID_LENGTH as usize];
                         let id_len = id.len();
                         debug_assert!(id_len <= i32::MAX as usize);
                         input.read_bytes(&mut id, 0, id_len as i32)?;
@@ -475,9 +479,7 @@ where
                 }
             }
             if infos.index_created_version_major >= 7 {
-                if info.get_version().as_ref().unwrap().major
-                    < infos.index_created_version_major
-                {
+                if info.get_version().as_ref().unwrap().major < infos.index_created_version_major {
                     return Err(LuceneError::corrupt_index(format!(
                         "segments file recorded indexCreatedVersionMajor={} but segment={} has older version={} (resource={})",
                         infos.index_created_version_major,
@@ -512,10 +514,7 @@ where
             } else {
                 let mut map = HashMap::new();
                 for _ in 0..num_dv_fields {
-                    map.insert(
-                        CodecUtil::read_be_int(input)?,
-                        input.read_set_of_strings()?,
-                    );
+                    map.insert(CodecUtil::read_be_int(input)?, input.read_set_of_strings()?);
                 }
                 map
             };
@@ -547,18 +546,14 @@ where
         debug_assert!(LATEST_CODEC.get_name() == codec.get_name());
         Ok(codec)
     }
-    /// Find the latest commit (`segments_N` file) and load all `SegmentCommitInfo`s.
-    pub fn read_latest_commit(
-        directory: Arc<Mutex<D>>,
-    ) -> Result<SegmentsFileEnum<D>> {
-        Self::read_latest_commit_with_min_version(
-            directory,
-            *MIN_SUPPORTED_MAJOR,
-        )
+    /// Find the latest commit (`segments_N` file) and load all
+    /// `SegmentCommitInfo`s.
+    pub fn read_latest_commit(directory: Arc<Mutex<D>>) -> Result<SegmentsFileEnum<D>> {
+        Self::read_latest_commit_with_min_version(directory, *MIN_SUPPORTED_MAJOR)
     }
 
-    /// Find the latest commit (`segments_N` file) with a minimum supported major version
-    /// and load all `SegmentCommitInfo`s.
+    /// Find the latest commit (`segments_N` file) with a minimum supported
+    /// major version and load all `SegmentCommitInfo`s.
     pub fn read_latest_commit_with_min_version(
         directory: Arc<Mutex<D>>,
         min_supported_major_version: i32,
@@ -570,10 +565,7 @@ where
         find_segments_file.run()
     }
 
-    fn write_with_directory(
-        &mut self,
-        directory: &mut impl Directory,
-    ) -> Result<()> {
+    fn write_with_directory(&mut self, directory: &mut impl Directory) -> Result<()> {
         let next_generation = self.get_next_pending_generation();
         let segment_file_name_wrap = IndexFileNames::file_name_from_generation(
             IndexFileNames::PENDING_SEGMENTS,
@@ -590,10 +582,8 @@ where
         {
             let result = (|| {
                 {
-                    let mut segn_output = Some(directory.create_output(
-                        &segment_file_name,
-                        &IO_CONTEXT_DEFAULT,
-                    )?);
+                    let mut segn_output =
+                        Some(directory.create_output(&segment_file_name, &IO_CONTEXT_DEFAULT)?);
                     if let Some(ref mut output) = segn_output {
                         self.write(output)?;
                     }
@@ -604,10 +594,7 @@ where
             })();
             if let Err(e) = result {
                 // Try not to leave a truncated segments_N file in the index
-                IOUtils::delete_files_ignoring_exceptions(
-                    directory,
-                    &[segment_file_name],
-                );
+                IOUtils::delete_files_ignoring_exceptions(directory, &[segment_file_name]);
                 return Err(e);
             }
         }
@@ -622,7 +609,8 @@ where
     ///
     /// # Errors
     ///
-    /// Returns a `LuceneError` if there is an issue writing the segment information.
+    /// Returns a `LuceneError` if there is an issue writing the segment
+    /// information.
     pub fn write(&self, out: &mut impl IndexOutput) -> Result<()> {
         CodecUtil::write_index_header(
             out,
@@ -642,8 +630,9 @@ where
 
         if self.size() > 0 {
             let mut min_segment_version: Option<Version> = None;
-            // We do a separate loop up front so we can write the minSegmentVersion before
-            // any SegmentInfo; this makes it cleaner to throw IndexFormatTooOldExc at read time:
+            // We do a separate loop up front so we can write the
+            // minSegmentVersion before any SegmentInfo; this makes
+            // it cleaner to throw IndexFormatTooOldExc at read time:
             for si_per_commit in &self.segments {
                 let segment_version = si_per_commit.info.version.clone();
                 debug_assert!(segment_version.is_some());
@@ -664,8 +653,7 @@ where
         }
         for si_per_commit in &self.segments {
             let si = &si_per_commit.info;
-            if self.index_created_version_major >= 7 && si.min_version.is_none()
-            {
+            if self.index_created_version_major >= 7 && si.min_version.is_none() {
                 return Err(LuceneError::illegal_state(format!(
                     "Segments must record minVersion if they have been created on or after Lucene 7: {}",
                     si.name
@@ -779,11 +767,9 @@ where
         self.generation = other.generation;
     }
 
-    /// Carry over generation numbers, and version/counter, from another `SegmentInfos`.
-    pub fn update_generation_version_and_counter(
-        &mut self,
-        other: &SegmentInfos<D>,
-    ) {
+    /// Carry over generation numbers, and version/counter, from another
+    /// `SegmentInfos`.
+    pub fn update_generation_version_and_counter(&mut self, other: &SegmentInfos<D>) {
         self.update_generation(other);
         self.version = other.version;
         self.counter = other.counter;
@@ -815,23 +801,22 @@ where
                 "",
                 self.generation,
             ) {
-                // Suppress, so we keep throwing the original exception in our caller
-                IOUtils::delete_files_ignoring_exceptions(
-                    directory,
-                    &[pending],
-                );
+                // Suppress, so we keep throwing the original exception in our
+                // caller
+                IOUtils::delete_files_ignoring_exceptions(directory, &[pending]);
             }
         }
     }
-    /// Call this to start a commit. This writes the new segments file, but writes an invalid checksum
-    /// at the end, so that it is not visible to readers. Once this is called, you must call [`finish_commit`](SegmentInfos::finish_commit)
-    /// to complete the commit or [`rollback_commit`](SegmentInfos::rollback_commit) to abort it.
+    /// Call this to start a commit. This writes the new segments file, but
+    /// writes an invalid checksum at the end, so that it is not visible to
+    /// readers. Once this is called, you must call
+    /// [`finish_commit`](SegmentInfos::finish_commit) to complete the
+    /// commit or [`rollback_commit`](SegmentInfos::rollback_commit) to abort
+    /// it.
     ///
-    /// Note: [`changed()`](SegmentInfos::changed) should be called prior to this method if changes have been made to this [`SegmentInfos`] instance.
-    pub fn prepare_commit(
-        &mut self,
-        directory: &mut impl Directory,
-    ) -> Result<()> {
+    /// Note: [`changed()`](SegmentInfos::changed) should be called prior to
+    /// this method if changes have been made to this [`SegmentInfos`] instance.
+    pub fn prepare_commit(&mut self, directory: &mut impl Directory) -> Result<()> {
         if self.pending_commit {
             return Err(LuceneError::illegal_state(
                 "prepare_commit was already called".to_string(),
@@ -842,11 +827,9 @@ where
         Ok(())
     }
 
-    /// Returns all file names referenced by `SegmentInfo`. The returned collection is recomputed on each invocation.
-    pub fn files(
-        &self,
-        include_segments_file: bool,
-    ) -> Result<HashSet<String>> {
+    /// Returns all file names referenced by `SegmentInfo`. The returned
+    /// collection is recomputed on each invocation.
+    pub fn files(&self, include_segments_file: bool) -> Result<HashSet<String>> {
         let mut files = HashSet::new();
         if include_segments_file {
             if let Some(segment_file_name) = self.get_segments_file_name() {
@@ -859,10 +842,7 @@ where
         Ok(files)
     }
     /// Returns the committed `segments_N` filename.
-    pub fn finish_commit(
-        &mut self,
-        directory: &mut impl Directory,
-    ) -> Result<String> {
+    pub fn finish_commit(&mut self, directory: &mut impl Directory) -> Result<String> {
         if !self.pending_commit {
             return Err(LuceneError::illegal_state(
                 "prepare_commit was not called".to_string(),
@@ -878,9 +858,7 @@ where
                 self.generation,
             )
             .ok_or_else(|| {
-                LuceneError::illegal_state(
-                    "Failed to generate source file name.".to_string(),
-                )
+                LuceneError::illegal_state("Failed to generate source file name.".to_string())
             })?;
             let dest = IndexFileNames::file_name_from_generation(
                 IndexFileNames::SEGMENTS,
@@ -888,9 +866,7 @@ where
                 self.generation,
             )
             .ok_or_else(|| {
-                LuceneError::illegal_state(
-                    "Failed to generate destination file name.".to_string(),
-                )
+                LuceneError::illegal_state("Failed to generate destination file name.".to_string())
             })?;
             directory.rename(&src, &dest)?;
             directory.sync_metadata()?;
@@ -906,16 +882,19 @@ where
             },
             Err(e) => {
                 if !success_rename_and_sync {
-                    // Attempt to roll back the commit if renaming or syncing failed
+                    // Attempt to roll back the commit if renaming or syncing
+                    // failed
                     self.rollback_commit(directory);
                 }
                 Err(e)
             },
         }
     }
-    /// Writes and syncs to the Directory, taking care to remove the segment file on exception.
+    /// Writes and syncs to the Directory, taking care to remove the segment
+    /// file on exception.
     ///
-    /// Note: [`changed()`](SegmentInfos::changed) should be called prior to this method if changes have been made to this [`SegmentInfos`] instance.
+    /// Note: [`changed()`](SegmentInfos::changed) should be called prior to
+    /// this method if changes have been made to this [`SegmentInfos`] instance.
     pub fn commit(&mut self, dir: &mut impl Directory) -> Result<()> {
         self.prepare_commit(dir)?;
         self.finish_commit(dir)?;
@@ -943,14 +922,16 @@ where
         }
     }
 
-    /// Replaces all segments in this instance, but keeps generation, version, counter so that future commits remain write-once.
+    /// Replaces all segments in this instance, but keeps generation, version,
+    /// counter so that future commits remain write-once.
     pub fn replace(&mut self, other: Self) {
         self.rollback_segment_infos(other.segments);
         self.last_generation = other.last_generation;
         self.user_data = other.user_data.clone();
     }
 
-    /// Returns the sum of all segment's `max_docs`. Note that this does not include deletions.
+    /// Returns the sum of all segment's `max_docs`. Note that this does not
+    /// include deletions.
     pub fn total_max_doc(&self) -> Result<i64> {
         let mut count: i64 = 0;
         for segment_commit_info in &self.segments {
@@ -966,7 +947,8 @@ where
         self.version += 1;
     }
 
-    /// Set the version to a new value. The new version must be greater than or equal to the current version.
+    /// Set the version to a new value. The new version must be greater than or
+    /// equal to the current version.
     pub fn set_version(&mut self, new_version: i64) -> Result<()> {
         if new_version < self.version {
             return Err(LuceneError::illegal_argument(format!(
@@ -977,22 +959,23 @@ where
         self.version = new_version;
         Ok(())
     }
-    // /// Applies all changes caused by committing a merge to this `SegmentInfos`.
-    // pub fn apply_merge_changes(
+    // /// Applies all changes caused by committing a merge to this
+    // `SegmentInfos`. pub fn apply_merge_changes(
     //     &mut self,
     //     merge: &MergePolicy<D, W>,
     //     drop_segment: bool,
     // ) -> Result<()> {
-    //     if self.index_created_version_major >= 7 && merge.info.info.min_version.is_none() {
-    //         return Err(LuceneError::illegal_argument(
-    //             "All segments must record the minVersion for indices created on or after Lucene 7"
+    //     if self.index_created_version_major >= 7 &&
+    // merge.info.info.min_version.is_none() {         return
+    // Err(LuceneError::illegal_argument(             "All segments must
+    // record the minVersion for indices created on or after Lucene 7"
     //                 .to_string(),
     //         ));
     //     }
     //
-    //     let merged_away: HashSet<_> = merge.segments.iter().cloned().collect();
-    //     let mut inserted = false;
-    //     let mut new_seg_idx = 0;
+    //     let merged_away: HashSet<_> =
+    // merge.segments.iter().cloned().collect();     let mut inserted =
+    // false;     let mut new_seg_idx = 0;
     //
     //     for seg_idx in 0..self.segments.len() {
     //         debug_assert!(seg_idx >= new_seg_idx);
@@ -1012,16 +995,14 @@ where
     //     // Remove duplicate segments from the list
     //     self.segments.truncate(new_seg_idx);
     //
-    //     // If we didn't insert the new segment, check if we should add it to the beginning
-    //     if !inserted && !drop_segment {
+    //     // If we didn't insert the new segment, check if we should add it to
+    // the beginning     if !inserted && !drop_segment {
     //         self.segments.insert(0, merge.info.clone());
     //     }
     //
     //     Ok(())
     // }
-    pub fn create_backup_segment_infos(
-        &self,
-    ) -> Result<Vec<SegmentCommitInfo<D>>> {
+    pub fn create_backup_segment_infos(&self) -> Result<Vec<SegmentCommitInfo<D>>> {
         let mut backup_list = Vec::with_capacity(self.segments.len());
         for segment_commit_info in &self.segments {
             // debug_assert!(
@@ -1043,7 +1024,8 @@ where
         self.segments.iter()
     }
 
-    /// Returns all contained segments as a non-mutable reference to the internal vector.
+    /// Returns all contained segments as a non-mutable reference to the
+    /// internal vector.
     pub fn as_list(&self) -> &[SegmentCommitInfo<D>] {
         &self.segments
     }
@@ -1057,9 +1039,7 @@ where
 
     /// Appends the provided `SegmentCommitInfo` to the `segments` list.
     pub fn add(&mut self, si: SegmentCommitInfo<D>) -> Result<()> {
-        if self.index_created_version_major >= 7
-            && si.info.min_version.is_none()
-        {
+        if self.index_created_version_major >= 7 && si.info.min_version.is_none() {
             return Err(LuceneError::illegal_argument(format!(
                 "All segments must record the minVersion for indices created on or after Lucene 7, but minVersion is missing for segment: {}",
                 si
@@ -1070,10 +1050,7 @@ where
     }
 
     /// Appends the provided [`SegmentCommitInfo`]s.
-    pub fn add_all(
-        &mut self,
-        sis: impl IntoIterator<Item = SegmentCommitInfo<D>>,
-    ) -> Result<()> {
+    pub fn add_all(&mut self, sis: impl IntoIterator<Item = SegmentCommitInfo<D>>) -> Result<()> {
         for si in sis {
             self.add(si)?;
         }
@@ -1134,14 +1111,15 @@ where
         self.lucene_version.as_ref()
     }
 
-    /// Returns the `Version` of the oldest segment, or `None` if there are no segments.
+    /// Returns the `Version` of the oldest segment, or `None` if there are no
+    /// segments.
     pub fn get_min_segment_lucene_version(&self) -> Option<&Version> {
         self.min_segment_lucene_version.as_ref()
     }
 
     /// Returns the version major that was used to initially create the index.
-    /// This version is set when the index is first created and then never changes.
-    /// Older indices report 6 as the creation version.
+    /// This version is set when the index is first created and then never
+    /// changes. Older indices report 6 as the creation version.
     pub fn get_index_created_version_major(&self) -> i32 {
         self.index_created_version_major
     }
@@ -1187,20 +1165,16 @@ where
     pub fn run(&self) -> Result<SegmentsFileEnum<D>> {
         self.run_with_commit(None::<DummyIndexCommit>)
     }
-    pub fn run_with_commit(
-        &self,
-        commit: Option<impl IndexCommit>,
-    ) -> Result<SegmentsFileEnum<D>> {
+    pub fn run_with_commit(&self, commit: Option<impl IndexCommit>) -> Result<SegmentsFileEnum<D>> {
         if let Some(commit) = commit {
             if !Arc::ptr_eq(&self.directory, &commit.get_directory()) {
                 return Err(LuceneError::illegal_state(
                     "The specified commit does not match the specified Directory".to_string(),
                 ));
             }
-            return self.sub.do_body(
-                self.directory.clone(),
-                &commit.get_segments_file_name(),
-            );
+            return self
+                .sub
+                .do_body(self.directory.clone(), &commit.get_segments_file_name());
         }
 
         let mut last_gen: i64;
@@ -1242,27 +1216,17 @@ where
                 )));
             } else if gen > last_gen {
                 let segment_file_name =
-                    IndexFileNames::file_name_from_generation(
-                        IndexFileNames::SEGMENTS,
-                        "",
-                        gen,
-                    )
-                    .ok_or_else(|| {
-                        LuceneError::illegal_state(
-                            "Failed to generate segment file name.".to_string(),
-                        )
-                    })?;
-                match self
-                    .sub
-                    .do_body(self.directory.clone(), &segment_file_name)
-                {
+                    IndexFileNames::file_name_from_generation(IndexFileNames::SEGMENTS, "", gen)
+                        .ok_or_else(|| {
+                            LuceneError::illegal_state(
+                                "Failed to generate segment file name.".to_string(),
+                            )
+                        })?;
+                match self.sub.do_body(self.directory.clone(), &segment_file_name) {
                     Ok(result) => {
                         if get_info_stream()?.is_some() {
-                            message(&format!(
-                                "success on {}",
-                                segment_file_name
-                            ))
-                            .unwrap_or_default();
+                            message(&format!("success on {}", segment_file_name))
+                                .unwrap_or_default();
                         }
                         return Ok(result);
                     },
@@ -1285,8 +1249,7 @@ where
             } else {
                 return Err(exc.unwrap_or_else(|| {
                     LuceneError::illegal_state(
-                        "Unexpected error during FindSegmentsFile::run"
-                            .to_string(),
+                        "Unexpected error during FindSegmentsFile::run".to_string(),
                     )
                 }));
             }
@@ -1326,7 +1289,8 @@ pub fn set_info_stream(output: OutputEnum) -> Result<()> {
     Ok(())
 }
 
-/// Returns the current global INFO_STREAM as an `Option<Arc<Mutex<OutputEnum>>>`.
+/// Returns the current global INFO_STREAM as an
+/// `Option<Arc<Mutex<OutputEnum>>>`.
 pub fn get_info_stream() -> Result<Option<Arc<Mutex<OutputEnum>>>> {
     let info_stream = INFO_STREAM.lock();
     Ok(info_stream.clone())
@@ -1339,9 +1303,8 @@ pub fn message(msg: &str) -> Result<()> {
 
     if let Some(ref stream) = *info_stream {
         let mut stream = stream.lock();
-        writeln!(stream, "SIS: {}", msg).map_err(|e| {
-            LuceneError::io_with_path("Failed to acquire lock".to_string(), e)
-        })?;
+        writeln!(stream, "SIS: {}", msg)
+            .map_err(|e| LuceneError::io_with_path("Failed to acquire lock".to_string(), e))?;
     }
 
     Ok(())
@@ -1366,7 +1329,8 @@ impl FindSegmentsFileBase for FindSegmentsFileImpl {
     }
 }
 
-/// Get the generation of the most recent commit to the list of index files (N in the segments_N file).
+/// Get the generation of the most recent commit to the list of index files (N
+/// in the segments_N file).
 ///
 /// # Arguments
 /// - `files`: A slice of file names to check.
@@ -1387,17 +1351,14 @@ pub fn get_last_commit_generation(files: &[String]) -> Result<i64> {
 }
 
 /// Get the generation of the most recent commit to the index in this directory.
-pub fn get_last_commit_generation_from_directory<D: Directory>(
-    directory: &D,
-) -> Result<i64> {
+pub fn get_last_commit_generation_from_directory<D: Directory>(directory: &D) -> Result<i64> {
     let files = directory.list_all()?;
     get_last_commit_generation(&files)
 }
 
-/// Get the filename of the segments_N file for the most recent commit in the list of index files.
-pub fn get_last_commit_segments_file_name(
-    files: &[String],
-) -> Result<Option<String>> {
+/// Get the filename of the segments_N file for the most recent commit in the
+/// list of index files.
+pub fn get_last_commit_segments_file_name(files: &[String]) -> Result<Option<String>> {
     let last_gen = get_last_commit_generation(files)?;
     Ok(IndexFileNames::file_name_from_generation(
         IndexFileNames::SEGMENTS,
@@ -1406,7 +1367,8 @@ pub fn get_last_commit_segments_file_name(
     ))
 }
 
-/// Get the filename of the segments_N file for the most recent commit to the index in this Directory.
+/// Get the filename of the segments_N file for the most recent commit to the
+/// index in this Directory.
 pub fn get_last_commit_segments_file_name_from_directory<D: Directory>(
     directory: &D,
 ) -> Result<Option<String>> {
@@ -1445,6 +1407,13 @@ pub fn generation_from_segments_file_name(file_name: &str) -> Result<i64> {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::{HashMap, HashSet};
+    use std::rc::Rc;
+    use std::sync::Arc;
+
+    use parking_lot::Mutex;
+    use rand::Rng;
+
     use crate::codecs::segment_info_format::SegmentInfoFormat;
     use crate::codecs::{get_default_code, Codec, CodecUtil};
     use crate::index::segment_commit_info::SegmentCommitInfo;
@@ -1453,19 +1422,13 @@ mod tests {
     use crate::index::sort::Sort;
     use crate::index::IndexFileNames;
     use crate::store::directory::Directory;
+    use crate::store::dummy::dummy_directory::DummyDirectory;
     use crate::store::{DataInput, DataOutput, IOContext, IndexInput};
     use crate::test::util::lucene_test_case::new_directory;
     use crate::test::util::lucene_test_case::random;
-
-    use crate::store::dummy::dummy_directory::DummyDirectory;
     use crate::test::util::test_util::TestUtil;
     use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::{StringHelper, LATEST, LUCENE_10_0_0, LUCENE_11_0_0};
-    use parking_lot::Mutex;
-    use rand::Rng;
-    use std::collections::{HashMap, HashSet};
-    use std::rc::Rc;
-    use std::sync::Arc;
 
     #[allow(dead_code)] // for quick search
     pub struct TestSegmentInfos;
@@ -1499,8 +1462,7 @@ mod tests {
         let directory = Arc::new(Mutex::new(new_directory(&mut random)?));
         let mut sis = SegmentInfos::new(LATEST.major)?;
         sis.commit(&mut *directory.lock())?;
-        let result = SegmentInfos::read_latest_commit(directory.clone())?
-            .into_segment_infos();
+        let result = SegmentInfos::read_latest_commit(directory.clone())?.into_segment_infos();
         assert!(result.is_some());
         sis = result.unwrap();
         assert!(sis.get_min_segment_lucene_version().is_none());
@@ -1532,11 +1494,9 @@ mod tests {
             None,
         )?;
         info.set_files(HashSet::new());
-        codec.segment_info_format().write(
-            &mut *directory.lock(),
-            &mut info,
-            &io_context,
-        )?;
+        codec
+            .segment_info_format()
+            .write(&mut *directory.lock(), &mut info, &io_context)?;
 
         let commit_info = SegmentCommitInfo::new(
             Rc::new(info),
@@ -1551,18 +1511,14 @@ mod tests {
         sis.add(commit_info)?;
         sis.commit(&mut *directory.lock())?;
 
-        let result = SegmentInfos::read_latest_commit(directory.clone())?
-            .into_segment_infos();
+        let result = SegmentInfos::read_latest_commit(directory.clone())?.into_segment_infos();
         assert!(result.is_some());
         sis = result.unwrap();
         assert_eq!(
             *sis.get_min_segment_lucene_version().unwrap(),
             (*LUCENE_11_0_0).clone()
         );
-        assert_eq!(
-            *sis.get_commit_lucene_version().unwrap(),
-            (*LATEST).clone()
-        );
+        assert_eq!(*sis.get_commit_lucene_version().unwrap(), (*LATEST).clone());
 
         Ok(())
     }
@@ -1591,11 +1547,9 @@ mod tests {
             None,
         )?;
         info_0.set_files(HashSet::new());
-        codec.segment_info_format().write(
-            &mut *directory.lock(),
-            &mut info_0,
-            &io_context,
-        )?;
+        codec
+            .segment_info_format()
+            .write(&mut *directory.lock(), &mut info_0, &io_context)?;
 
         let commit_info_0 = SegmentCommitInfo::new(
             Rc::new(info_0),
@@ -1623,11 +1577,9 @@ mod tests {
             None,
         )?;
         info_1.set_files(HashSet::new());
-        codec.segment_info_format().write(
-            &mut *directory.lock(),
-            &mut info_1,
-            &io_context,
-        )?;
+        codec
+            .segment_info_format()
+            .write(&mut *directory.lock(), &mut info_1, &io_context)?;
 
         let commit_info_1 = SegmentCommitInfo::new(
             Rc::new(info_1),
@@ -1645,8 +1597,7 @@ mod tests {
         let commit_info_id_1 = sis.info(1).unwrap().get_id().clone();
 
         // Read back the latest commit
-        let result = SegmentInfos::read_latest_commit(directory.clone())?
-            .into_segment_infos();
+        let result = SegmentInfos::read_latest_commit(directory.clone())?.into_segment_infos();
         assert!(result.is_some());
         sis = result.unwrap();
 
@@ -1655,27 +1606,16 @@ mod tests {
             *sis.get_min_segment_lucene_version().unwrap(),
             (*LUCENE_11_0_0).clone()
         );
-        assert_eq!(
-            *sis.get_commit_lucene_version().unwrap(),
-            (*LATEST).clone()
-        );
+        assert_eq!(*sis.get_commit_lucene_version().unwrap(), (*LATEST).clone());
         let actual1 = sis.info(0).unwrap().get_id();
         let actual2 = sis.info(1).unwrap().get_id();
         assert_eq!(
-            StringHelper::id_to_string(Option::from(
-                commit_info_id_0.as_ref().unwrap().as_slice()
-            )),
-            StringHelper::id_to_string(Option::from(
-                actual1.as_ref().unwrap().as_slice()
-            ))
+            StringHelper::id_to_string(Option::from(commit_info_id_0.as_ref().unwrap().as_slice())),
+            StringHelper::id_to_string(Option::from(actual1.as_ref().unwrap().as_slice()))
         );
         assert_eq!(
-            StringHelper::id_to_string(Option::from(
-                commit_info_id_1.as_ref().unwrap().as_slice()
-            )),
-            StringHelper::id_to_string(Option::from(
-                actual2.as_ref().unwrap().as_slice()
-            ))
+            StringHelper::id_to_string(Option::from(commit_info_id_1.as_ref().unwrap().as_slice())),
+            StringHelper::id_to_string(Option::from(actual2.as_ref().unwrap().as_slice()))
         );
 
         Ok(())
@@ -1808,15 +1748,8 @@ mod tests {
             Some(Sort::get_index_order()?),
         )?;
 
-        let mut commit_info = SegmentCommitInfo::new(
-            Rc::new(info),
-            0,
-            0,
-            -1,
-            -1,
-            -1,
-            Some(Vec::from(id)),
-        )?;
+        let mut commit_info =
+            SegmentCommitInfo::new(Rc::new(info), 0, 0, -1, -1, -1, Some(Vec::from(id)))?;
         assert_eq!(
             StringHelper::id_to_string(Some(id.as_slice())),
             StringHelper::id_to_string(commit_info.get_id().as_deref())
@@ -1888,11 +1821,9 @@ mod tests {
             None,
         )?;
         info_0.set_files(HashSet::new());
-        codec.segment_info_format().write(
-            &mut *dir.lock(),
-            &mut info_0,
-            &io_context,
-        )?;
+        codec
+            .segment_info_format()
+            .write(&mut *dir.lock(), &mut info_0, &io_context)?;
         let commit_info_0 = SegmentCommitInfo::new(
             Rc::new(info_0),
             0,
@@ -1919,11 +1850,9 @@ mod tests {
             None,
         )?;
         info_1.set_files(HashSet::new());
-        codec.segment_info_format().write(
-            &mut *dir.lock(),
-            &mut info_1,
-            &io_context,
-        )?;
+        codec
+            .segment_info_format()
+            .write(&mut *dir.lock(), &mut info_1, &io_context)?;
         let commit_info_1 = SegmentCommitInfo::new(
             Rc::new(info_1),
             0,
@@ -1947,17 +1876,11 @@ mod tests {
             for file in directory.list_all()? {
                 if file.starts_with(IndexFileNames::SEGMENTS) {
                     {
-                        let mut input =
-                            directory.open_input(&file, &io_context)?;
-                        let mut output = corrupt_directory
-                            .create_output(&file, &io_context)?;
+                        let mut input = directory.open_input(&file, &io_context)?;
+                        let mut output = corrupt_directory.create_output(&file, &io_context)?;
 
                         let mut input_length = IndexInput::length(&input);
-                        let corrupt_index = TestUtil::next_long(
-                            &mut random,
-                            0,
-                            input_length - 1,
-                        );
+                        let corrupt_index = TestUtil::next_long(&mut random, 0, input_length - 1);
                         output.copy_bytes(&mut input, corrupt_index)?;
 
                         let byte = DataInput::read_byte(&mut input)?;
@@ -1966,13 +1889,9 @@ mod tests {
                         output.write_byte(corrupt_byte)?;
                         input_length = IndexInput::length(&input);
                         let file_pointer = input.get_file_pointer();
-                        output.copy_bytes(
-                            &mut input,
-                            input_length - file_pointer,
-                        )?;
+                        output.copy_bytes(&mut input, input_length - file_pointer)?;
                     }
-                    let mut input =
-                        corrupt_directory.open_input(&file, &io_context)?;
+                    let mut input = corrupt_directory.open_input(&file, &io_context)?;
                     match CodecUtil::checksum_entire_file(&mut input) {
                         Ok(_) => {
                             if cfg!(feature = "test_log_verbose") {
@@ -1989,12 +1908,7 @@ mod tests {
                     }
                     corrupt = true;
                 } else if file.eq("extra0") {
-                    corrupt_directory.copy_from(
-                        dir.clone(),
-                        &file,
-                        &file,
-                        &io_context,
-                    )?;
+                    corrupt_directory.copy_from(dir.clone(), &file, &file, &io_context)?;
                 }
             }
         }

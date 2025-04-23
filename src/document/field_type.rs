@@ -14,6 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::collections::HashMap;
+use std::fmt;
+use std::hash::{Hash, Hasher};
+use std::sync::Arc;
+
+use parking_lot::Mutex;
+
 use crate::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::index::doc_values_type::DocValuesType;
 use crate::index::index_options::IndexOptions;
@@ -22,11 +29,6 @@ use crate::index::point_values::point_values_util;
 use crate::index::vector_encoding::VectorEncoding;
 use crate::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use parking_lot::Mutex;
-use std::collections::HashMap;
-use std::fmt;
-use std::hash::{Hash, Hasher};
-use std::sync::Arc;
 
 /// Describes the properties of a field.
 #[derive(Clone, Debug)]
@@ -82,7 +84,8 @@ impl FieldType {
         }
     }
 
-    /// Creates a new mutable FieldType with all of the properties from `ref_field`.
+    /// Creates a new mutable FieldType with all of the properties from
+    /// `ref_field`.
     pub fn from_ref(ref_field: &impl IndexableFieldType) -> Result<Self> {
         // Copy attributes if available; otherwise use an empty map.
         let attributes = {
@@ -100,8 +103,7 @@ impl FieldType {
             tokenized: ref_field.tokenized(),
             store_term_vectors: ref_field.store_term_vectors(),
             store_term_vector_offsets: ref_field.store_term_vector_offsets(),
-            store_term_vector_positions: ref_field
-                .store_term_vector_positions(),
+            store_term_vector_positions: ref_field.store_term_vector_positions(),
             store_term_vector_payloads: ref_field.store_term_vector_payloads(),
             omit_norms: ref_field.omit_norms(),
             index_options: *ref_field.index_options(),
@@ -128,8 +130,8 @@ impl FieldType {
         Ok(())
     }
     /// Prevents future changes.
-    /// It is recommended that this is called once the FieldType's properties have been set,
-    /// to prevent unintentional state changes.
+    /// It is recommended that this is called once the FieldType's properties
+    /// have been set, to prevent unintentional state changes.
     pub fn freeze(&mut self) {
         self.frozen = true;
     }
@@ -145,7 +147,8 @@ impl FieldType {
         Ok(())
     }
 
-    /// Set to true to tokenize this field's contents via the configured Analyzer.
+    /// Set to true to tokenize this field's contents via the configured
+    /// Analyzer.
     ///
     /// # Error
     ///
@@ -166,7 +169,8 @@ impl FieldType {
         self.store_term_vectors = value;
         Ok(())
     }
-    /// Set to true to also store token character offsets into the term vector for this field.
+    /// Set to true to also store token character offsets into the term vector
+    /// for this field.
     ///
     /// # Error
     ///
@@ -177,28 +181,24 @@ impl FieldType {
         Ok(())
     }
 
-    /// Set to true to also store token positions into the term vector for this field.
+    /// Set to true to also store token positions into the term vector for this
+    /// field.
     ///
     /// # Error
     ///
     /// Error if this FieldType is frozen against future modifications.
-    pub fn set_store_term_vector_positions(
-        &mut self,
-        value: bool,
-    ) -> Result<()> {
+    pub fn set_store_term_vector_positions(&mut self, value: bool) -> Result<()> {
         self.check_if_frozen()?;
         self.store_term_vector_positions = value;
         Ok(())
     }
-    /// Set to true to also store token payloads into the term vector for this field.
+    /// Set to true to also store token payloads into the term vector for this
+    /// field.
     ///
     /// # Error
     ///
     /// Error if this FieldType is frozen against future modifications.
-    pub fn set_store_term_vector_payloads(
-        &mut self,
-        value: bool,
-    ) -> Result<()> {
+    pub fn set_store_term_vector_payloads(&mut self, value: bool) -> Result<()> {
         self.check_if_frozen()?;
         self.store_term_vector_payloads = value;
         Ok(())
@@ -217,7 +217,8 @@ impl FieldType {
     ///
     /// # Error
     ///
-    /// Error if this FieldType is frozen against future modifications or if the provided value is invalid.
+    /// Error if this FieldType is frozen against future modifications or if the
+    /// provided value is invalid.
     pub fn set_index_options(&mut self, value: IndexOptions) -> Result<()> {
         self.check_if_frozen()?;
         self.index_options = value;
@@ -225,16 +226,8 @@ impl FieldType {
     }
 
     /// Enables points indexing.
-    pub fn set_dimensions(
-        &mut self,
-        dimension_count: i32,
-        dimension_num_bytes: i32,
-    ) -> Result<()> {
-        self.set_dimensions_all(
-            dimension_count,
-            dimension_count,
-            dimension_num_bytes,
-        )
+    pub fn set_dimensions(&mut self, dimension_count: i32, dimension_num_bytes: i32) -> Result<()> {
+        self.set_dimensions_all(dimension_count, dimension_count, dimension_num_bytes)
     }
 
     /// Enables points indexing with selectable dimension indexing.
@@ -321,7 +314,8 @@ impl FieldType {
         Ok(())
     }
 
-    /// Enables vector indexing, with the specified number of dimensions and distance function.
+    /// Enables vector indexing, with the specified number of dimensions and
+    /// distance function.
     pub fn set_vector_attributes(
         &mut self,
         num_dimensions: i32,
@@ -343,14 +337,12 @@ impl FieldType {
 
     /// Puts an attribute value.
     ///
-    /// This is a key-value mapping for the field that the codec can use to store additional metadata.
+    /// This is a key-value mapping for the field that the codec can use to
+    /// store additional metadata.
     ///
-    /// If a value already exists for the field, it will be replaced with the new value.
-    pub fn put_attribute(
-        &mut self,
-        key: String,
-        value: String,
-    ) -> Result<Option<String>> {
+    /// If a value already exists for the field, it will be replaced with the
+    /// new value.
+    pub fn put_attribute(&mut self, key: String, value: String) -> Result<Option<String>> {
         self.check_if_frozen()?;
         let mut attrs = self.attributes.lock();
         Ok(attrs.insert(key, value))
@@ -360,18 +352,17 @@ impl FieldType {
     ///
     /// # Error
     ///
-    /// Error if this FieldType is frozen against future modifications or if the provided type is invalid.
-    pub fn set_doc_values_type(
-        &mut self,
-        doc_values_type: DocValuesType,
-    ) -> Result<()> {
+    /// Error if this FieldType is frozen against future modifications or if the
+    /// provided type is invalid.
+    pub fn set_doc_values_type(&mut self, doc_values_type: DocValuesType) -> Result<()> {
         self.check_if_frozen()?;
         self.doc_values_type = doc_values_type;
         Ok(())
     }
     /// Sets whether to enable a skip index for doc values on this field.
     ///
-    /// This is typically useful on fields that are part of the index sort, or that correlate with fields that are part of the index sort,
+    /// This is typically useful on fields that are part of the index sort, or
+    /// that correlate with fields that are part of the index sort,
     /// so that values can be expected to be clustered in the doc ID space.
     pub fn set_doc_values_skip_index_type(
         &mut self,
@@ -394,22 +385,26 @@ impl IndexableFieldType for FieldType {
         self.tokenized
     }
 
-    /// Returns true if this field's indexed form should also be stored into term vectors.
+    /// Returns true if this field's indexed form should also be stored into
+    /// term vectors.
     fn store_term_vectors(&self) -> bool {
         self.store_term_vectors
     }
 
-    /// Returns true if this field's token character offsets should also be stored into term vectors.
+    /// Returns true if this field's token character offsets should also be
+    /// stored into term vectors.
     fn store_term_vector_offsets(&self) -> bool {
         self.store_term_vector_offsets
     }
 
-    /// Returns true if this field's token positions should also be stored into term vectors.
+    /// Returns true if this field's token positions should also be stored into
+    /// term vectors.
     fn store_term_vector_positions(&self) -> bool {
         self.store_term_vector_positions
     }
 
-    /// Returns true if this field's token payloads should also be stored into term vectors.
+    /// Returns true if this field's token payloads should also be stored into
+    /// term vectors.
     fn store_term_vector_payloads(&self) -> bool {
         self.store_term_vector_payloads
     }
@@ -419,12 +414,14 @@ impl IndexableFieldType for FieldType {
         self.omit_norms
     }
 
-    /// Returns the IndexOptions, describing what should be recorded into the inverted index.
+    /// Returns the IndexOptions, describing what should be recorded into the
+    /// inverted index.
     fn index_options(&self) -> &IndexOptions {
         &self.index_options
     }
 
-    /// Returns the DocValuesType (the default is DocValuesType::None, meaning no docValues).
+    /// Returns the DocValuesType (the default is DocValuesType::None, meaning
+    /// no docValues).
     fn doc_values_type(&self) -> &DocValuesType {
         &self.doc_values_type
     }
@@ -477,10 +474,8 @@ impl PartialEq for FieldType {
             && self.index_options == other.index_options
             && self.omit_norms == other.omit_norms
             && self.store_term_vector_offsets == other.store_term_vector_offsets
-            && self.store_term_vector_payloads
-                == other.store_term_vector_payloads
-            && self.store_term_vector_positions
-                == other.store_term_vector_positions
+            && self.store_term_vector_payloads == other.store_term_vector_payloads
+            && self.store_term_vector_positions == other.store_term_vector_positions
             && self.store_term_vectors == other.store_term_vectors
             && self.stored == other.stored
             && self.tokenized == other.tokenized
@@ -569,6 +564,11 @@ impl fmt::Display for FieldType {
 }
 #[cfg(test)]
 mod tests {
+    use std::hash::{DefaultHasher, Hash, Hasher};
+
+    use rand::rngs::StdRng;
+    use rand::Rng;
+
     use crate::document::field_type::FieldType;
     use crate::index::doc_values_type::DocValuesType;
     use crate::index::index_options::IndexOptions;
@@ -578,9 +578,6 @@ mod tests {
     use crate::index::vector_similarity_function::VectorSimilarityFunction;
     use crate::test::util::lucene_test_case::random;
     use crate::util::error::lucene_error::{LuceneError, Result};
-    use rand::rngs::StdRng;
-    use rand::Rng;
-    use std::hash::{DefaultHasher, Hash, Hasher};
 
     #[allow(dead_code)] // for quick search
     struct TestFieldType;

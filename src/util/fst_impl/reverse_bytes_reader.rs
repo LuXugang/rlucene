@@ -14,10 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::{Display, Formatter};
+
 use crate::store::DataInput;
 use crate::util::error::lucene_error::Result;
 use crate::util::fst_impl::fst::BytesReader;
-use std::fmt::{Display, Formatter};
 
 /// Reads in reverse from a single byte array.
 pub struct ReverseBytesReader {
@@ -38,12 +39,7 @@ impl DataInput for ReverseBytesReader {
         Ok(b)
     }
 
-    fn read_bytes(
-        &mut self,
-        b: &mut [u8],
-        offset: i32,
-        len: i32,
-    ) -> Result<()> {
+    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()> {
         let offset = offset as usize;
         for i in 0..len as usize {
             b[offset + i] = self.bytes[self.pos as usize];

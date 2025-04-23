@@ -48,11 +48,7 @@ where
     pub fn new(fst: FST<T, O, F>) -> Result<Self> {
         let mut current = BytesRc::with_capacity(10);
         current.offset = 1;
-        let result_input = BytesRc::from_vec(
-            current.bytes.clone(),
-            current.offset,
-            current.length,
-        );
+        let result_input = BytesRc::from_vec(current.bytes.clone(), current.offset, current.length);
         let base = FSTEnum::new(fst)?;
         Ok(Self {
             current,
@@ -74,10 +70,7 @@ where
         self.set_result()
     }
 
-    pub fn seek_ceil(
-        &mut self,
-        target: BytesRc,
-    ) -> Result<Option<&InputOutput<T, BytesRc>>> {
+    pub fn seek_ceil(&mut self, target: BytesRc) -> Result<Option<&InputOutput<T, BytesRc>>> {
         self.target = target;
         match self.base.take() {
             Some(mut base) => {
@@ -85,19 +78,12 @@ where
                 base.do_seek_ceil(self)?;
                 self.base = Some(base);
             },
-            None => {
-                return Err(LuceneError::illegal_state(
-                    "base is None".to_string(),
-                ))
-            },
+            None => return Err(LuceneError::illegal_state("base is None".to_string())),
         }
         self.set_result()
     }
 
-    pub fn seek_floor(
-        &mut self,
-        target: BytesRc,
-    ) -> Result<Option<&InputOutput<T, BytesRc>>> {
+    pub fn seek_floor(&mut self, target: BytesRc) -> Result<Option<&InputOutput<T, BytesRc>>> {
         self.target = target;
         match self.base.take() {
             Some(mut base) => {
@@ -105,28 +91,18 @@ where
                 base.do_seek_floor(self)?;
                 self.base = Some(base);
             },
-            None => {
-                return Err(LuceneError::illegal_state(
-                    "base is None".to_string(),
-                ))
-            },
+            None => return Err(LuceneError::illegal_state("base is None".to_string())),
         }
         self.set_result()
     }
 
-    pub fn seek_exact(
-        &mut self,
-        target: BytesRc,
-    ) -> Result<Option<&InputOutput<T, BytesRc>>> {
+    pub fn seek_exact(&mut self, target: BytesRc) -> Result<Option<&InputOutput<T, BytesRc>>> {
         self.target = target;
         match self.base.take() {
             Some(mut base) => {
                 base.target_length = self.target.length;
                 if base.do_seek_exact(self)? {
-                    debug_assert_eq!(
-                        base.upto,
-                        1 + self.target.length as usize
-                    );
+                    debug_assert_eq!(base.upto, 1 + self.target.length as usize);
                     self.base = Some(base);
                     self.set_result()
                 } else {
@@ -161,18 +137,17 @@ where
             if base.upto - 1 == self.target.length as usize {
                 Ok(fst_util::END_LABEL)
             } else {
-                Ok(self.target.bytes.borrow()
-                    [self.target.offset as usize + base.upto - 1]
-                    as i32
-                    & 0xFF)
+                Ok(
+                    self.target.bytes.borrow()[self.target.offset as usize + base.upto - 1] as i32
+                        & 0xFF,
+                )
             }
         })
     }
 
     fn get_current_label(&mut self) -> Result<i32> {
-        self.base.take_do_return(|base| {
-            Ok(self.current.bytes.borrow()[base.upto] as i32 & 0xFF)
-        })
+        self.base
+            .take_do_return(|base| Ok(self.current.bytes.borrow()[base.upto] as i32 & 0xFF))
     }
 
     fn set_current_label(&mut self, label: i32) -> Result<()> {
@@ -184,10 +159,7 @@ where
 
     fn grow(&mut self) -> Result<()> {
         self.base.take_do_return(|base| {
-            ArrayUtil::grow_with_len(
-                &mut *self.current.bytes.borrow_mut(),
-                base.upto + 1,
-            );
+            ArrayUtil::grow_with_len(&mut *self.current.bytes.borrow_mut(), base.upto + 1);
             Ok(())
         })
     }

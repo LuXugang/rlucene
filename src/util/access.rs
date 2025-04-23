@@ -14,26 +14,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::array_util::ArrayUtil;
-use crate::util::SliceCopyOps;
-use parking_lot::{Mutex, MutexGuard};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 
+use parking_lot::{Mutex, MutexGuard};
+
+use crate::util::array_util::ArrayUtil;
+use crate::util::SliceCopyOps;
+
 /// Provides a unified interface for accessing shared data, abstracting over
-/// single-threaded (`Rc<RefCell<T>>`) and multi-threaded (`Arc<Mutex<T>>`) containers.
+/// single-threaded (`Rc<RefCell<T>>`) and multi-threaded (`Arc<Mutex<T>>`)
+/// containers.
 ///
-/// This trait allows the caller to interact with the wrapped value through immutable or mutable
-/// closures, without needing to know whether the underlying implementation uses `RefCell` or `Mutex`.
+/// This trait allows the caller to interact with the wrapped value through
+/// immutable or mutable closures, without needing to know whether the
+/// underlying implementation uses `RefCell` or `Mutex`.
 ///
 /// ### Use Case
-/// This trait is especially useful when you have components or fields that may be used in either
-/// single-threaded or multi-threaded contexts. By defining them in terms of `Access<T>`, you can:
+/// This trait is especially useful when you have components or fields that may
+/// be used in either single-threaded or multi-threaded contexts. By defining
+/// them in terms of `Access<T>`, you can:
 ///
-/// - Use `Rc<RefCell<T>>` in single-threaded mode for better performance (no locking).
+/// - Use `Rc<RefCell<T>>` in single-threaded mode for better performance (no
+///   locking).
 /// - Use `Arc<Mutex<T>>` in multi-threaded mode for thread-safe access.
-/// - Write common logic that doesn’t care about the underlying synchronization strategy.
+/// - Write common logic that doesn’t care about the underlying synchronization
+///   strategy.
 ///
 /// ### Example
 /// ```rust

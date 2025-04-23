@@ -14,9 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::io::Cursor;
+
 use crate::store::{BufferedIndexInput, BufferedIndexInputBase};
 use crate::util::error::lucene_error::{LuceneError, Result};
-use std::io::Cursor;
 
 pub struct DummyBufferedIndexInputBase;
 
@@ -49,12 +50,7 @@ impl BufferedIndexInputBase for DummyBufferedIndexInputBase {
 
     type Slice = BufferedIndexInput<DummyBufferedIndexInputBase>;
 
-    fn slice(
-        &self,
-        _slice_description: &str,
-        _offset: i64,
-        _length: i64,
-    ) -> Result<Self::Slice> {
+    fn slice(&self, _slice_description: &str, _offset: i64, _length: i64) -> Result<Self::Slice> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))

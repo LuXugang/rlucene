@@ -14,6 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::sync::Arc;
+
+use parking_lot::Mutex;
+
 use crate::codecs::CodecUtil;
 use crate::index::IndexFileNames;
 use crate::store::directory::Directory;
@@ -21,8 +25,6 @@ use crate::store::{DataInput, DataOutput, IOContext, IndexOutput};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::packed::direct_monotonic_writer::DirectMonotonicWriter;
 use crate::util::IOUtils;
-use parking_lot::Mutex;
-use std::sync::Arc;
 
 #[allow(unused)]
 pub(crate) struct FieldsIndexWriter<D>
@@ -37,8 +39,9 @@ where
     id: Vec<u8>,
     block_shift: i32,
     io_context: IOContext,
-    // Using Option to wrap the IndexOutput makes it easier to release the resource,
-    // which avoids the need to implement the IndexOutput's Default trait.
+    // Using Option to wrap the IndexOutput makes it easier to release the
+    // resource, which avoids the need to implement the IndexOutput's
+    // Default trait.
     docs_out: Option<D::IndexOutputType>,
     file_pointers_out: Option<D::IndexOutputType>,
     total_docs: i32,
@@ -67,11 +70,8 @@ where
         io_context: IOContext,
     ) -> Result<Self> {
         let mut dir_guard = dir.lock();
-        let mut docs_out = dir_guard.create_temp_output(
-            name,
-            &format!("{}-doc_ids", codec_name),
-            &io_context,
-        )?;
+        let mut docs_out =
+            dir_guard.create_temp_output(name, &format!("{}-doc_ids", codec_name), &io_context)?;
         CodecUtil::write_header(
             &mut docs_out,
             &format!("{}Docs", codec_name),
@@ -106,11 +106,7 @@ where
             previous_fp: 0,
         })
     }
-    pub(crate) fn write_index(
-        &mut self,
-        num_docs: i32,
-        start_pointer: i64,
-    ) -> Result<()> {
+    pub(crate) fn write_index(&mut self, num_docs: i32, start_pointer: i64) -> Result<()> {
         debug_assert!(start_pointer >= self.previous_fp);
         debug_assert!(self.docs_out.is_some());
         debug_assert!(self.file_pointers_out.is_some());
@@ -140,8 +136,7 @@ where
 
         CodecUtil::write_footer(self.docs_out.as_mut().unwrap())?;
         CodecUtil::write_footer(self.docs_out.as_mut().unwrap())?;
-        let docs_out_file_name =
-            self.docs_out.as_ref().unwrap().get_name().to_string();
+        let docs_out_file_name = self.docs_out.as_ref().unwrap().get_name().to_string();
         let file_pointers_out_file_name = self
             .file_pointers_out
             .as_ref()
@@ -153,11 +148,7 @@ where
 
         let mut dir = self.dir.lock();
         let mut data_out = dir.create_output(
-            &IndexFileNames::segment_file_name(
-                &self.name,
-                &self.suffix,
-                &self.extension,
-            ),
+            &IndexFileNames::segment_file_name(&self.name, &self.suffix, &self.extension),
             &self.io_context,
         )?;
         CodecUtil::write_index_header(
@@ -199,9 +190,7 @@ where
                 docs.finish()?;
 
                 if doc != self.total_docs as i64 {
-                    return Err(LuceneError::corrupt_index(
-                        "Docs don't add up".to_string(),
-                    ));
+                    return Err(LuceneError::corrupt_index("Docs don't add up".to_string()));
                 }
                 Ok(())
             })();
@@ -210,10 +199,7 @@ where
             }
 
             if let Some(e) = prior_e.as_mut() {
-                return Err(CodecUtil::check_footer_with_error(
-                    &mut docs_in,
-                    e,
-                ));
+                return Err(CodecUtil::check_footer_with_error(&mut docs_in, e));
             } else {
                 CodecUtil::check_footer(&mut docs_in)?;
             }
@@ -221,8 +207,7 @@ where
         dir.delete_file(&docs_out_file_name)?;
         meta_out.write_long(data_out.get_file_pointer())?;
         {
-            let mut file_pointers_in =
-                dir.open_checksum_input(&file_pointers_out_file_name)?;
+            let mut file_pointers_in = dir.open_checksum_input(&file_pointers_out_file_name)?;
             let mut prior_e = None;
             let result = (|| {
                 CodecUtil::check_header(
@@ -256,10 +241,7 @@ where
                 prior_e = Some(e);
             }
             if let Some(e) = prior_e.as_mut() {
-                return Err(CodecUtil::check_footer_with_error(
-                    &mut file_pointers_in,
-                    e,
-                ));
+                return Err(CodecUtil::check_footer_with_error(&mut file_pointers_in, e));
             } else {
                 CodecUtil::check_footer(&mut file_pointers_in)?;
             }

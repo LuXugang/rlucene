@@ -14,13 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::store::fs_lock_factory::FSLockFactory;
-use crate::store::lock::{FSLockEnum, Lock};
-use crate::store::lock_factory::LockFactory;
-use crate::util::error::lucene_error::{LuceneError, Result};
-use chrono::{DateTime, Utc};
-use fs2::FileExt;
-use parking_lot::Mutex;
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use std::fs;
@@ -29,35 +22,51 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
 use std::time::SystemTime;
 
-/// Implements [`lock_factory`](crate::store::lock_factory) using native OS file locks.
+use chrono::{DateTime, Utc};
+use fs2::FileExt;
+use parking_lot::Mutex;
+
+use crate::store::fs_lock_factory::FSLockFactory;
+use crate::store::lock::{FSLockEnum, Lock};
+use crate::store::lock_factory::LockFactory;
+use crate::util::error::lucene_error::{LuceneError, Result};
+
+/// Implements [`lock_factory`](crate::store::lock_factory) using native OS file
+/// locks.
 ///
 /// # Note
-/// - This `lock_factory` relies on `std::fs` and native OS file locking APIs. Any issues with these
-///   APIs may cause locking to fail. For example, in certain NFS environments, native file locks
-///   might fail (allowing locks to be acquired twice incorrectly), whereas
-///   [`simple_fs_lock_factory`](crate::store::simple_fs_lock_factory) works correctly
-///   in those environments.
+/// - This `lock_factory` relies on `std::fs` and native OS file locking APIs.
+///   Any issues with these APIs may cause locking to fail. For example, in
+///   certain NFS environments, native file locks might fail (allowing locks to
+///   be acquired twice incorrectly), whereas
+///   [`simple_fs_lock_factory`](crate::store::simple_fs_lock_factory) works
+///   correctly in those environments.
 /// - For NFS-based access to an index, it is recommended to try
-///   [`simple_fs_lock_factory`](crate::store::simple_fs_lock_factory) first and handle its
-///   limitation: a lock file may remain if the process exits abnormally.
+///   [`simple_fs_lock_factory`](crate::store::simple_fs_lock_factory) first and
+///   handle its limitation: a lock file may remain if the process exits
+///   abnormally.
 ///
 /// # Advantages
-/// The primary advantage of `native_fs_lock_factory` is that locks (but not the lock files themselves)
-/// will be properly released by the operating system if the process exits abnormally.
+/// The primary advantage of `native_fs_lock_factory` is that locks (but not the
+/// lock files themselves) will be properly released by the operating system if
+/// the process exits abnormally.
 ///
 /// # Lock File Behavior
-/// Unlike [`simple_fs_lock_factory`](crate::store::simple_fs_lock_factory), leftover lock
-/// files in the filesystem are acceptable because the OS will release the locks even if the files
-/// remain. This implementation will not actively remove these lock files, so they might be visible,
-/// but this does not mean the index is locked.
+/// Unlike [`simple_fs_lock_factory`](crate::store::simple_fs_lock_factory),
+/// leftover lock files in the filesystem are acceptable because the OS will
+/// release the locks even if the files remain. This implementation will not
+/// actively remove these lock files, so they might be visible, but this does
+/// not mean the index is locked.
 ///
 /// # Implementation Change Warning
 /// Special care is required when changing the locking implementation:
-/// - Ensure no writer is currently writing to the index before making changes, as this could corrupt the index.
+/// - Ensure no writer is currently writing to the index before making changes,
+///   as this could corrupt the index.
 /// - Apply the `lock_factory` change across all instances using the index.
 /// - Clean up leftover lock files before starting the new configuration.
 ///
-/// Different locking implementations are not compatible and cannot work together.
+/// Different locking implementations are not compatible and cannot work
+/// together.
 ///
 /// # See Also
 /// - [`lock_factory`](crate::store::lock_factory)
@@ -92,19 +101,15 @@ impl Display for NativeFSLockFactory {
 }
 
 impl FSLockFactory for NativeFSLockFactory {
-    fn obtain_fs_lock(
-        &self,
-        dir: &Path,
-        lock_name: &str,
-    ) -> Result<FSLockEnum> {
-        fs::create_dir_all(dir).map_err(|e| {
-            LuceneError::io_with_path(dir.to_string_lossy().to_string(), e)
-        })?;
+    fn obtain_fs_lock(&self, dir: &Path, lock_name: &str) -> Result<FSLockEnum> {
+        fs::create_dir_all(dir)
+            .map_err(|e| LuceneError::io_with_path(dir.to_string_lossy().to_string(), e))?;
 
         let lock_file = dir.join(lock_name);
 
         // we must create the file to have a truly canonical path.
-        // if it's already created, we don't care. if it cant be created, it will fail below.
+        // if it's already created, we don't care. if it cant be created, it
+        // will fail below.
         let file = OpenOptions::new()
             .write(true)
             .create_new(true)
@@ -121,12 +126,9 @@ impl FSLockFactory for NativeFSLockFactory {
                 }
             })?;
 
-        let real_path = lock_file.canonicalize().map_err(|e| {
-            LuceneError::io_with_path(
-                lock_file.to_string_lossy().to_string(),
-                e,
-            )
-        })?;
+        let real_path = lock_file
+            .canonicalize()
+            .map_err(|e| LuceneError::io_with_path(lock_file.to_string_lossy().to_string(), e))?;
         let real_path_str = real_path.to_string_lossy().to_string();
 
         let mut lock_held = self.lock_held.lock();
@@ -188,9 +190,7 @@ impl NativeFSLock {
             || "unknown".to_string(),
             |time| match time.duration_since(SystemTime::UNIX_EPOCH) {
                 Ok(duration) => {
-                    let datetime = DateTime::<Utc>::from(
-                        SystemTime::UNIX_EPOCH + duration,
-                    );
+                    let datetime = DateTime::<Utc>::from(SystemTime::UNIX_EPOCH + duration);
                     datetime.format("%Y-%m-%d %H:%M:%S").to_string()
                 },
                 Err(_) => "invalid time".to_string(),
@@ -224,8 +224,7 @@ impl Lock for NativeFSLock {
     ///   - The lock file size is not 0.
     ///   - The lock file has been deleted or is inaccessible.
     fn ensure_valid(&self) -> Result<()> {
-        let lock_held =
-            LOCK_HELD.get_or_init(|| Arc::new(Mutex::new(HashSet::new())));
+        let lock_held = LOCK_HELD.get_or_init(|| Arc::new(Mutex::new(HashSet::new())));
         let lock_held = lock_held.lock();
         if !lock_held.contains(&self.path.to_string_lossy().to_string()) {
             return Err(LuceneError::illegal_state(format!(

@@ -52,14 +52,7 @@ where
         }
     }
 
-    fn select(
-        &mut self,
-        from: i32,
-        to: i32,
-        k: i32,
-        d: i32,
-        l: i32,
-    ) -> Result<()> {
+    fn select(&mut self, from: i32, to: i32, k: i32, d: i32, l: i32) -> Result<()> {
         if to - from <= Self::LENGTH_THRESHOLD || l > Self::LEVEL_THRESHOLD {
             self.sub_selector
                 .get_fallback_selector(d, self.max_length)
@@ -73,32 +66,21 @@ where
     /// `d` the character number to compare
     ///
     /// `l` the level of recursion
-    pub fn radix_select(
-        &mut self,
-        from: i32,
-        to: i32,
-        k: i32,
-        d: i32,
-        l: i32,
-    ) -> Result<()> {
+    pub fn radix_select(&mut self, from: i32, to: i32, k: i32, d: i32, l: i32) -> Result<()> {
         self.histogram.fill(0);
 
         let common_prefix_length =
             self.compute_common_prefix_length_and_build_histogram(from, to, d);
         if common_prefix_length > 0 {
-            // if there are no more chars to compare or if all entries fell into the
-            // first bucket (which means strings are shorter than d) then we are done
-            // otherwise recurse
-            if d + common_prefix_length < self.max_length
-                && self.histogram[0] < to - from
-            {
+            // if there are no more chars to compare or if all entries fell into
+            // the first bucket (which means strings are shorter
+            // than d) then we are done otherwise recurse
+            if d + common_prefix_length < self.max_length && self.histogram[0] < to - from {
                 self.radix_select(from, to, k, d + common_prefix_length, l)?;
             }
             return Ok(());
         }
-        debug_assert!(
-            self.assert_histogram(common_prefix_length, &self.histogram)
-        );
+        debug_assert!(self.assert_histogram(common_prefix_length, &self.histogram));
 
         let mut bucket_from = from;
         for bucket in 0..Self::HISTOGRAM_SIZE as i32 {
@@ -106,7 +88,8 @@ where
             if bucket_to > k {
                 self.partition(from, to, bucket, bucket_from, bucket_to, d)?;
                 if bucket != 0 && d + 1 < self.max_length {
-                    // all elements in bucket 0 are equal so we only need to recurse if bucket != 0
+                    // all elements in bucket 0 are equal so we only need to
+                    // recurse if bucket != 0
                     self.select(bucket_from, bucket_to, k, d + 1, l + 1)?;
                 }
                 return Ok(());
@@ -117,11 +100,7 @@ where
     }
 
     // only used from assert
-    fn assert_histogram(
-        &self,
-        common_prefix_length: i32,
-        histogram: &[i32],
-    ) -> bool {
+    fn assert_histogram(&self, common_prefix_length: i32, histogram: &[i32]) -> bool {
         let mut number_of_unique_bytes = 0;
         for &freq in histogram.iter() {
             if freq > 0 {
@@ -136,21 +115,21 @@ where
         true
     }
 
-    /** Return a number for the k-th character between 0 and {@link #HISTOGRAM_SIZE}. */
+    /** Return a number for the k-th character between 0 and {@link
+     * #HISTOGRAM_SIZE}. */
     fn get_bucket(&self, i: i32, k: i32) -> i32 {
         self.sub_selector.byte_at(i, k) + 1
     }
 
-    /// Build a histogram of the number of values per `get_bucket(int, int)` and return a
-    /// common prefix length for all visited values.
+    /// Build a histogram of the number of values per `get_bucket(int, int)` and
+    /// return a common prefix length for all visited values.
     fn compute_common_prefix_length_and_build_histogram(
         &mut self,
         from: i32,
         to: i32,
         k: i32,
     ) -> i32 {
-        let common_prefix_length =
-            self.compute_initial_common_prefix_length(from, k);
+        let common_prefix_length = self.compute_initial_common_prefix_length(from, k);
         self.compute_common_prefix_length_and_build_histogram_part1(
             from,
             to,
@@ -159,11 +138,7 @@ where
         )
     }
 
-    fn compute_initial_common_prefix_length(
-        &mut self,
-        from: i32,
-        k: i32,
-    ) -> i32 {
+    fn compute_initial_common_prefix_length(&mut self, from: i32, k: i32) -> i32 {
         let common_prefix = &mut self.common_prefix;
         let mut common_prefix_length =
             std::cmp::min(common_prefix.len() as i32, self.max_length - k);
@@ -198,8 +173,7 @@ where
                 if b != common_prefix[j as usize] {
                     common_prefix_length = j;
                     if common_prefix_length == 0 {
-                        self.histogram[(common_prefix[0] + 1) as usize] =
-                            i - from;
+                        self.histogram[(common_prefix[0] + 1) as usize] = i - from;
                         self.histogram[(b + 1) as usize] = 1;
                         break 'outer;
                     }
@@ -235,8 +209,8 @@ where
         common_prefix_length
     }
 
-    /// Build an histogram of the k-th characters of values occurring between offsets `from` and
-    /// `to`, using `get_bucket`.
+    /// Build an histogram of the k-th characters of values occurring between
+    /// offsets `from` and `to`, using `get_bucket`.
     fn build_histogram(&mut self, from: i32, to: i32, k: i32) {
         for i in from..to {
             let index = self.get_bucket(i, k) as usize;
@@ -308,18 +282,15 @@ where
 }
 
 pub trait RadixSelectorBase: Selector {
-    /// Return the k-th byte of the entry at index `i`, or `-1\ if its length is less than
-    /// or equal to `k`. This may only be called with a value of `k` between `0`
-    /// included and `maxLength` excluded.
+    /// Return the k-th byte of the entry at index `i`, or `-1\ if its length is
+    /// less than or equal to `k`. This may only be called with a value of
+    /// `k` between `0` included and `maxLength` excluded.
     fn byte_at(&self, i: i32, k: i32) -> i32;
-    /// Get a fall-back selector which may assume that the first `d` bytes of all compared
-    /// strings are equal. This fallback selector is used when the range becomes narrow or when the
-    /// maximum level of recursion has been exceeded.
-    fn get_fallback_selector(
-        &mut self,
-        d: i32,
-        max_length: i32,
-    ) -> impl Selector
+    /// Get a fall-back selector which may assume that the first `d` bytes of
+    /// all compared strings are equal. This fallback selector is used when
+    /// the range becomes narrow or when the maximum level of recursion has
+    /// been exceeded.
+    fn get_fallback_selector(&mut self, d: i32, max_length: i32) -> impl Selector
     where
         Self: Sized,
     {
@@ -403,15 +374,17 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::cmp::{min, Ordering};
+
+    use rand::rngs::StdRng;
+    use rand::{Rng, RngCore};
+
     use crate::index::BytesRef;
     use crate::test::util::lucene_test_case::random;
     use crate::test::util::test_util::TestUtil;
     use crate::util::error::lucene_error::Result;
     use crate::util::radix_selector::{RadixSelector, RadixSelectorBase};
     use crate::util::selector::Selector;
-    use rand::rngs::StdRng;
-    use rand::{Rng, RngCore};
-    use std::cmp::{min, Ordering};
 
     #[allow(dead_code)] // for quick search
     struct TestRadixSelector;
@@ -463,8 +436,7 @@ mod tests {
         let shared_prefix_length =
             min(arr[0].length as i32, TestUtil::next_int(random, 1, max_len));
         for i in 1..arr.len() {
-            let copy_len =
-                min(shared_prefix_length, arr[i].length as i32) as usize;
+            let copy_len = min(shared_prefix_length, arr[i].length as i32) as usize;
             let offset_1 = arr[i].offset;
             let offset_2 = arr[0].offset;
             arr[i]

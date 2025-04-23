@@ -14,6 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::collections::{HashMap, HashSet};
+use std::fmt::{Display, Formatter};
+
 use crate::codecs::compound_directory::CompoundDirectoryBase;
 use crate::codecs::lucene90::lucene90_compound_format::Lucene90CompoundFormat;
 use crate::codecs::CodecUtil;
@@ -24,16 +27,15 @@ use crate::store::dummy::dummy_lock::DummyLock;
 use crate::store::lock::Lock;
 use crate::store::{IOContext, IndexInput, ReadAdvice, IO_CONTEXT_DEFAULT};
 use crate::util::error::lucene_error::{LuceneError, Result};
-use std::collections::{HashMap, HashSet};
-use std::fmt::{Display, Formatter};
 
 /// Offset/Length for a slice inside of a compound file
 pub struct FileEntry {
     pub offset: i64,
     pub length: i64,
 }
-/// Provides access to a compound stream. This struct implements a directory but is limited to
-/// read-only operations. Any directory methods that attempt to modify data will return an error.
+/// Provides access to a compound stream. This struct implements a directory but
+/// is limited to read-only operations. Any directory methods that attempt to
+/// modify data will return an error.
 ///
 /// # Note
 /// This API is experimental and may change in future versions.
@@ -65,8 +67,7 @@ where
             Lucene90CompoundFormat::ENTRIES_EXTENSION,
         );
 
-        let (version, entries) =
-            Self::read_entries(&si.get_id(), directory, &entries_file_name)?;
+        let (version, entries) = Self::read_entries(&si.get_id(), directory, &entries_file_name)?;
 
         let mut handle = directory.open_input(
             &data_file_name,
@@ -78,10 +79,7 @@ where
             .map(|e| e.offset + e.length)
             .max()
             .unwrap_or_else(|| {
-                CodecUtil::index_header_length(
-                    Lucene90CompoundFormat::DATA_CODEC,
-                    "",
-                ) as i64
+                CodecUtil::index_header_length(Lucene90CompoundFormat::DATA_CODEC, "") as i64
             })
             + CodecUtil::footer_length() as i64;
 
@@ -93,13 +91,14 @@ where
             &si.get_id(),
             "",
         )?;
-        // NOTE: data file is too costly to verify checksum against all the bytes on open,
-        // but for now we at least verify proper structure of the checksum footer: which looks
-        // for FOOTER_MAGIC + algorithmID. This is cheap and can detect some forms of corruption
-        // such as file truncation.
+        // NOTE: data file is too costly to verify checksum against all the
+        // bytes on open, but for now we at least verify proper
+        // structure of the checksum footer: which looks
+        // for FOOTER_MAGIC + algorithmID. This is cheap and can detect some
+        // forms of corruption such as file truncation.
         let _ = CodecUtil::retrieve_checksum(&mut handle)?;
-        // We also validate length, because e.g. if you strip 16 bytes off the .cfs we otherwise
-        // would not detect it:
+        // We also validate length, because e.g. if you strip 16 bytes off the
+        // .cfs we otherwise would not detect it:
         let length = IndexInput::length(&handle);
         if length != expected_length {
             return Err(LuceneError::corrupt_index(format!(
@@ -122,8 +121,7 @@ where
         directory: &mut D,
         entries_file_name: &str,
     ) -> Result<(i32, HashMap<String, FileEntry>)> {
-        let mut entries_stream =
-            directory.open_checksum_input(entries_file_name)?;
+        let mut entries_stream = directory.open_checksum_input(entries_file_name)?;
         let result = (|| {
             let version = CodecUtil::check_index_header(
                 &mut entries_stream,
@@ -148,9 +146,7 @@ where
             )),
         }
     }
-    fn read_mapping(
-        entries_stream: &mut impl IndexInput,
-    ) -> Result<HashMap<String, FileEntry>> {
+    fn read_mapping(entries_stream: &mut impl IndexInput) -> Result<HashMap<String, FileEntry>> {
         let num_entries = entries_stream.read_vint()?;
         let mut mapping = HashMap::with_capacity(num_entries as usize);
         for _ in 0..num_entries {
@@ -192,9 +188,10 @@ where
     /// Returns the length of a file in the directory.
     fn file_length(&self, name: &str) -> Result<i64> {
         let stripped_name = IndexFileNames::strip_segment_name(name);
-        let entry = self.entries.get(stripped_name).ok_or_else(|| {
-            LuceneError::not_found(format!("{} not found", name))
-        })?;
+        let entry = self
+            .entries
+            .get(stripped_name)
+            .ok_or_else(|| LuceneError::not_found(format!("{} not found", name)))?;
         Ok(entry.length)
     }
 
@@ -244,11 +241,7 @@ where
 
     type IndexInputType = <D::IndexInputType as IndexInput>::Slice;
 
-    fn open_input(
-        &self,
-        name: &str,
-        context: &IOContext,
-    ) -> Result<Self::IndexInputType> {
+    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInputType> {
         let id = IndexFileNames::strip_segment_name(name);
         let entry = match self.entries.get(id) {
             Some(entry) => entry,

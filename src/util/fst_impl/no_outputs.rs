@@ -14,10 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::{Display, Formatter};
+
 use crate::store::{DataInput, DataOutput};
 use crate::util::error::lucene_error::Result;
 use crate::util::fst_impl::outputs::{Outputs, OutputsBound};
-use std::fmt::{Display, Formatter};
 
 pub struct NoOutputs;
 impl NoOutputs {

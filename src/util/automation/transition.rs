@@ -16,8 +16,10 @@
  */
 use crate::util::accountable::Accountable;
 
-/// Holds one transition from an automaton. This is typically used temporarily when iterating
-/// through transitions via [`TransitionAccessor::init_transition`](crate::util::automation::transition_accessor::TransitionAccessor::init_transition) and [`TransitionAccessor::get_next_transition`](crate::util::automation::transition_accessor::TransitionAccessor::get_next_transition).
+/// Holds one transition from an automaton. This is typically used temporarily
+/// when iterating through transitions via
+/// [`TransitionAccessor::init_transition`](crate::util::automation::transition_accessor::TransitionAccessor::init_transition)
+/// and [`TransitionAccessor::get_next_transition`](crate::util::automation::transition_accessor::TransitionAccessor::get_next_transition).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Transition {
     /// Source state.
@@ -29,7 +31,8 @@ pub struct Transition {
     /// Maximum accepted label (inclusive).
     pub max: i32,
     /// Remembers where we are in the iteration; initialized to -1 to provoke
-    /// an error if `get_next_transition` is called without first `init_transition`.
+    /// an error if `get_next_transition` is called without first
+    /// `init_transition`.
     pub transition_upto: i32,
 }
 /// Static estimation of bytes used by a `Transition` instance.
@@ -37,7 +40,8 @@ pub struct Transition {
 pub const BYTES_USED: usize = std::mem::size_of::<Transition>();
 
 impl Default for Transition {
-    /// Creates a `Transition` with zeroed fields and `transition_upto` set to -1.
+    /// Creates a `Transition` with zeroed fields and `transition_upto` set to
+    /// -1.
     fn default() -> Self {
         Transition {
             source: 0,
@@ -61,10 +65,7 @@ impl std::fmt::Display for Transition {
         write!(
             f,
             "{} --> {} {}-{}",
-            self.source,
-            self.dest,
-            self.min as u8 as char,
-            self.max as u8 as char
+            self.source, self.dest, self.min as u8 as char, self.max as u8 as char
         )
     }
 }

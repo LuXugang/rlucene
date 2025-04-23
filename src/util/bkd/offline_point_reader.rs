@@ -14,6 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use crate::codecs::CodecUtil;
 use crate::store::buffered_checksum_index_input::BufferedChecksumIndexInput;
 use crate::store::directory::Directory;
@@ -23,15 +26,14 @@ use crate::util::bkd::bkd_config::BKDConfig;
 use crate::util::bkd::point_reader::PointReader;
 use crate::util::bkd::point_value::{PointValue, PointValueEnum};
 use crate::util::error::lucene_error::{LuceneError, Result};
-use std::cell::RefCell;
-use std::rc::Rc;
 
 pub struct OfflinePointReader<D>
 where
     D: Directory,
 {
     count_left: i64,
-    // TODO:Perhaps we can use an enum here to encapsulate BufferedChecksumIndexInput and other types of Input
+    // TODO:Perhaps we can use an enum here to encapsulate
+    // BufferedChecksumIndexInput and other types of Input
     input: Option<D::IndexInputType>,
     check_sum_input: Option<BufferedChecksumIndexInput<D::IndexInputType>>,
     on_heap_buffer: Rc<RefCell<Vec<u8>>>,
@@ -83,22 +85,19 @@ where
         }
 
         debug_assert!(reusable_buffer_len <= i32::MAX as usize);
-        let max_point_on_heap =
-            reusable_buffer_len as i32 / config.bytes_per_doc();
+        let max_point_on_heap = reusable_buffer_len as i32 / config.bytes_per_doc();
         let name = temp_file_name.to_string();
         let seek_fp = start * bytes_per_doc;
         let (check_sum_input, input) = if start == 0
             && (length * bytes_per_doc == file_length - footer_length)
         {
-            let mut check_sum_input =
-                temp_dir.borrow_mut().open_checksum_input(temp_file_name)?;
+            let mut check_sum_input = temp_dir.borrow_mut().open_checksum_input(temp_file_name)?;
             IndexInput::seek(&mut check_sum_input, seek_fp)?;
             (Some(check_sum_input), None)
         } else {
-            let mut input = temp_dir.borrow_mut().open_input(
-                temp_file_name,
-                &IOContext::read_once_io_context()?,
-            )?;
+            let mut input = temp_dir
+                .borrow_mut()
+                .open_input(temp_file_name, &IOContext::read_once_io_context()?)?;
             input.seek(seek_fp)?;
             (None, Some(input))
         };
@@ -138,15 +137,13 @@ where
                 read_len = self.max_point_on_heap * bytes_per_doc;
                 if self.check_sum_input.is_some() {
                     self.check_sum_input.as_mut().unwrap().read_bytes(
-                        &mut self.on_heap_buffer.borrow_mut()
-                            [0..read_len as usize],
+                        &mut self.on_heap_buffer.borrow_mut()[0..read_len as usize],
                         0,
                         read_len,
                     )?;
                 } else {
                     self.input.as_mut().unwrap().read_bytes(
-                        &mut self.on_heap_buffer.borrow_mut()
-                            [0..read_len as usize],
+                        &mut self.on_heap_buffer.borrow_mut()[0..read_len as usize],
                         0,
                         read_len,
                     )?;
@@ -157,15 +154,13 @@ where
                 read_len = self.count_left as i32 * bytes_per_doc;
                 if self.check_sum_input.is_some() {
                     self.check_sum_input.as_mut().unwrap().read_bytes(
-                        &mut self.on_heap_buffer.borrow_mut()
-                            [0..read_len as usize],
+                        &mut self.on_heap_buffer.borrow_mut()[0..read_len as usize],
                         0,
                         read_len,
                     )?;
                 } else {
                     self.input.as_mut().unwrap().read_bytes(
-                        &mut self.on_heap_buffer.borrow_mut()
-                            [0..read_len as usize],
+                        &mut self.on_heap_buffer.borrow_mut()[0..read_len as usize],
                         0,
                         read_len,
                     )?;
@@ -199,14 +194,9 @@ where
     D: Directory,
 {
     fn drop(&mut self) {
-        if self.count_left == 0
-            && self.check_sum_input.is_some()
-            && !self.checked
-        {
+        if self.count_left == 0 && self.check_sum_input.is_some() && !self.checked {
             self.checked = true;
-            match CodecUtil::check_footer(
-                self.check_sum_input.as_mut().unwrap(),
-            ) {
+            match CodecUtil::check_footer(self.check_sum_input.as_mut().unwrap()) {
                 Ok(_) => {},
                 Err(e) => {
                     eprintln!("Failed to check footer: {:?}", e);

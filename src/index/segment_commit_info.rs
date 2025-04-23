@@ -14,17 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::collections::{HashMap, HashSet};
+use std::rc::Rc;
+use std::sync::atomic::{AtomicI64, Ordering};
+
 use crate::codecs::codec::Codec;
 use crate::codecs::live_docs_format::LiveDocsFormat;
 use crate::codecs::LATEST_CODEC;
 use crate::index::segment_info::SegmentInfo;
-
 use crate::store::directory::Directory;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::StringHelper;
-use std::collections::{HashMap, HashSet};
-use std::rc::Rc;
-use std::sync::atomic::{AtomicI64, Ordering};
 
 pub struct SegmentCommitInfo<D>
 where
@@ -39,25 +39,30 @@ where
     /// How many deleted docs in the segment.
     pub del_count: i32,
 
-    /// How many soft-deleted docs in the segment that are not also hard-deleted.
+    /// How many soft-deleted docs in the segment that are not also
+    /// hard-deleted.
     pub soft_del_count: i32,
 
-    /// Generation number of the live docs file (-1 if there are no deletes yet).
+    /// Generation number of the live docs file (-1 if there are no deletes
+    /// yet).
     pub del_gen: i64,
 
-    /// Normally 1 + del_gen, unless an exception was hit on the last attempt to write.
+    /// Normally 1 + del_gen, unless an exception was hit on the last attempt
+    /// to write.
     pub next_write_del_gen: i64,
 
     /// Generation number of the FieldInfos (-1 if there are no updates).
     pub field_infos_gen: i64,
 
-    /// Normally 1 + field_infos_gen, unless an exception was hit on the last attempt to write.
+    /// Normally 1 + field_infos_gen, unless an exception was hit on the last
+    /// attempt to write.
     pub next_write_field_infos_gen: i64,
 
     /// Generation number of the DocValues (-1 if there are no updates).
     pub doc_values_gen: i64,
 
-    /// Normally 1 + doc_values_gen, unless an exception was hit on the last attempt to write.
+    /// Normally 1 + doc_values_gen, unless an exception was hit on the last
+    /// attempt to write.
     pub next_write_doc_values_gen: i64,
 
     /// Track the per-field DocValues update files.
@@ -69,7 +74,8 @@ where
     /// Size of the segment in bytes (-1 of unknown).
     pub size_in_bytes: AtomicI64,
 
-    /// Used in memory by IndexWriter to track buffered deletes. Not persisted to disk.
+    /// Used in memory by IndexWriter to track buffered deletes. Not persisted
+    /// to disk.
     pub buffered_deletes_gen: i64,
 }
 impl<D> SegmentCommitInfo<D>
@@ -81,10 +87,13 @@ where
     /// # Arguments
     /// - `info`: The `SegmentInfo` that this wraps.
     /// - `del_count`: Number of deleted documents in this segment.
-    /// - `Soft_del_count`: Number of soft-deleted documents not also hard-deleted.
+    /// - `Soft_del_count`: Number of soft-deleted documents not also
+    ///   hard-deleted.
     /// - `del_gen`: Deletion generation number (used to name deletion files).
-    /// - `field_infos_gen`: FieldInfos generation number (used to name field-infos files).
-    /// - `Doc_values_gen`: DocValues generation number (used to name doc-values updates files).
+    /// - `field_infos_gen`: FieldInfos generation number (used to name
+    ///   field-infos files).
+    /// - `Doc_values_gen`: DocValues generation number (used to name doc-values
+    ///   updates files).
     /// - `ID`: ID that uniquely identifies this segment commit.
     pub fn new(
         info: Rc<SegmentInfo<D>>,
@@ -96,9 +105,7 @@ where
         id: Option<Vec<u8>>,
     ) -> Result<Self> {
         // Validate the ID length
-        if id.is_some()
-            && id.as_ref().unwrap().len() != StringHelper::ID_LENGTH as usize
-        {
+        if id.is_some() && id.as_ref().unwrap().len() != StringHelper::ID_LENGTH as usize {
             return Err(LuceneError::illegal_argument(format!(
                 "Invalid ID: {:?}",
                 id.unwrap()
@@ -131,13 +138,12 @@ where
         })
     }
     /// Returns a reference to the per-field DocValues updates files.
-    pub fn get_doc_values_updates_files(
-        &self,
-    ) -> &HashMap<i32, HashSet<String>> {
+    pub fn get_doc_values_updates_files(&self) -> &HashMap<i32, HashSet<String>> {
         &self.dv_updates_files
     }
 
-    /// Sets the DocValues updates file names, per field number. Does not deeply clone the map.
+    /// Sets the DocValues updates file names, per field number. Does not deeply
+    /// clone the map.
     pub fn set_doc_values_updates_files(
         &mut self,
         dv_updates_files: HashMap<i32, HashSet<String>>,
@@ -157,10 +163,7 @@ where
     }
 
     /// Sets the FieldInfos file names.
-    pub fn set_field_infos_files(
-        &mut self,
-        field_infos_files: HashSet<String>,
-    ) {
+    pub fn set_field_infos_files(&mut self, field_infos_files: HashSet<String>) {
         self.field_infos_files.clear();
         for file in field_infos_files {
             self.field_infos_files
@@ -175,8 +178,8 @@ where
         self.generation_advanced();
     }
 
-    /// Called if there was an exception while writing deletes, so that we don't try to write to the
-    /// same file more than once.
+    /// Called if there was an exception while writing deletes, so that we don't
+    /// try to write to the same file more than once.
     pub fn advance_next_write_del_gen(&mut self) {
         self.next_write_del_gen += 1;
     }
@@ -198,8 +201,9 @@ where
         self.generation_advanced();
     }
 
-    /// Called if there was an exception while writing a new generation of FieldInfos,
-    /// so that we don't try to write to the same file more than once.
+    /// Called if there was an exception while writing a new generation of
+    /// FieldInfos, so that we don't try to write to the same file more than
+    /// once.
     pub fn advance_next_write_field_infos_gen(&mut self) {
         self.next_write_field_infos_gen += 1;
     }
@@ -221,8 +225,9 @@ where
         self.generation_advanced();
     }
 
-    /// Called if there was an exception while writing a new generation of DocValues,
-    /// so that we don't try to write to the same file more than once.
+    /// Called if there was an exception while writing a new generation of
+    /// DocValues, so that we don't try to write to the same file more than
+    /// once.
     pub fn advance_next_write_doc_values_gen(&mut self) {
         self.next_write_doc_values_gen += 1;
     }
@@ -258,8 +263,9 @@ where
         let files = self.info.files()?;
         let mut files: HashSet<String> = files.borrow().clone();
         // TODO we could rely on TrackingDir.getCreatedFiles() (like we do for
-        // updates) and then maybe even be able to remove LiveDocsFormat.files().
-        // Must separately add any live docs files:
+        // updates) and then maybe even be able to remove
+        // LiveDocsFormat.files(). Must separately add any live docs
+        // files:
         if self.has_deletions() {
             // debug_assert!(self.info.codec.is_some());
             LATEST_CODEC.live_docs_format().files(self, &mut files)?;
@@ -294,7 +300,8 @@ where
     pub fn has_deletions(&self) -> bool {
         self.del_gen != -1
     }
-    /// Returns `true` if there are any field updates for the segment in this commit.
+    /// Returns `true` if there are any field updates for the segment in this
+    /// commit.
     pub fn has_field_updates(&self) -> bool {
         self.field_infos_gen != -1
     }
@@ -304,7 +311,8 @@ where
         self.next_write_field_infos_gen
     }
 
-    /// Returns the generation number of the field infos file, or `-1` if there are no field updates yet.
+    /// Returns the generation number of the field infos file, or `-1` if there
+    /// are no field updates yet.
     pub fn get_field_infos_gen(&self) -> i64 {
         self.field_infos_gen
     }
@@ -314,7 +322,8 @@ where
         self.next_write_doc_values_gen
     }
 
-    /// Returns the generation number of the DocValues file or `-1` if there are no doc-values updates yet.
+    /// Returns the generation number of the DocValues file or `-1` if there are
+    /// no doc-values updates yet.
     pub fn get_doc_values_gen(&self) -> i64 {
         self.doc_values_gen
     }
@@ -324,7 +333,8 @@ where
         self.next_write_del_gen
     }
 
-    /// Returns the generation number of the live docs file or `-1` if there are no deletes yet.
+    /// Returns the generation number of the live docs file or `-1` if there are
+    /// no deletes yet.
     pub fn get_del_gen(&self) -> i64 {
         self.del_gen
     }
@@ -380,14 +390,8 @@ where
         Ok(())
     }
     /// Returns a description of this segment.
-    pub fn to_string_with_pending_del_count(
-        &self,
-        pending_del_count: i32,
-    ) -> String {
-        let mut s = SegmentInfo::to_string(
-            &self.info,
-            self.del_count + pending_del_count,
-        );
+    pub fn to_string_with_pending_del_count(&self, pending_del_count: i32) -> String {
+        let mut s = SegmentInfo::to_string(&self.info, self.del_count + pending_del_count);
 
         if self.del_gen != -1 {
             s.push_str(&format!(":delGen={}", self.del_gen));
@@ -404,19 +408,14 @@ where
         if self.id.is_some() {
             s.push_str(&format!(
                 " :id={}",
-                StringHelper::id_to_string(Option::from(
-                    self.id.as_ref().unwrap().as_slice()
-                ))
+                StringHelper::id_to_string(Option::from(self.id.as_ref().unwrap().as_slice()))
             ));
         }
         s
     }
     /// Returns the number of deleted documents in the segment.
     /// If `include_soft_deletes` is `true`, it includes soft-deleted documents.
-    pub fn get_del_count_with_soft_deletes(
-        &self,
-        include_soft_deletes: bool,
-    ) -> i32 {
+    pub fn get_del_count_with_soft_deletes(&self, include_soft_deletes: bool) -> i32 {
         if include_soft_deletes {
             self.get_del_count() + self.get_soft_del_count()
         } else {
@@ -424,7 +423,8 @@ where
         }
     }
 
-    /// Advances the generation, resetting `size_in_bytes` and generating a new `id`.
+    /// Advances the generation, resetting `size_in_bytes` and generating a new
+    /// `id`.
     pub fn generation_advanced(&mut self) {
         self.size_in_bytes.store(-1, Ordering::SeqCst);
         self.id = Option::from(Vec::from(StringHelper::random_id()));
@@ -476,9 +476,7 @@ where
             next_write_doc_values_gen: self.next_write_doc_values_gen,
             dv_updates_files: cloned_dv_updates_files,
             field_infos_files: self.field_infos_files.clone(),
-            size_in_bytes: AtomicI64::new(
-                self.size_in_bytes.load(Ordering::SeqCst),
-            ),
+            size_in_bytes: AtomicI64::new(self.size_in_bytes.load(Ordering::SeqCst)),
             buffered_deletes_gen: self.buffered_deletes_gen,
         }
     }

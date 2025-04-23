@@ -14,6 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::rc::Rc;
+use std::sync::Arc;
+
+use parking_lot::Mutex;
+
 use crate::codecs::doc_values_producer::DocValuesProducerEnum;
 use crate::codecs::norms_producer::NormsProducerEnum;
 use crate::codecs::stored_fields_reader::StoredFieldsReaderEnum;
@@ -29,9 +34,6 @@ use crate::store::IndexInput;
 use crate::test::util::bkd::test_bkd::DocMapMock;
 use crate::util::bits::BitsEnum;
 use crate::util::info_stream::InfoStreamEnum;
-use parking_lot::Mutex;
-use std::rc::Rc;
-use std::sync::Arc;
 
 pub struct MergeState<I>
 where

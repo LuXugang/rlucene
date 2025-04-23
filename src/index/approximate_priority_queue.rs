@@ -15,15 +15,17 @@
  * limitations under the License.
  */
 use std::vec::Vec;
-/// An approximate priority queue, which attempts to poll items by decreasing log of the weight,
-/// though exact ordering is not guaranteed. This struct doesn't support null elements.
+/// An approximate priority queue, which attempts to poll items by decreasing
+/// log of the weight, though exact ordering is not guaranteed. This struct
+/// doesn't support null elements.
 pub(crate) struct ApproximatePriorityQueue<T> {
     /// Indexes between 0 and 63 are sparsely populated, and indexes that are
     /// greater than or equal to 64 are densely populated
     /// Items close to the beginning of this list are more likely to have a
     /// higher weight.
     slots: Vec<Option<T>>,
-    /// A bitset where ones indicate that the corresponding index in `slots` is taken.
+    /// A bitset where ones indicate that the corresponding index in `slots` is
+    /// taken.
     used_slots: i64,
 }
 #[allow(unused)]
@@ -38,12 +40,13 @@ impl<T: PartialEq> ApproximatePriorityQueue<T> {
     }
     /// Add an entry to this queue that has the provided weight.
     pub(crate) fn add(&mut self, entry: T, weight: i64) {
-        // The expected slot of an item is the number of leading zeros of its weight,
-        // ie. the larger the weight, the closer an item is to the start of the array.
+        // The expected slot of an item is the number of leading zeros of its
+        // weight, ie. the larger the weight, the closer an item is to
+        // the start of the array.
         let expected_slot = weight.leading_zeros() as usize;
         // If the slot is already taken, we look for the next one that is free.
-        // The above bitwise operation is equivalent to looping over slots until finding one that is
-        // free.
+        // The above bitwise operation is equivalent to looping over slots until
+        // finding one that is free.
         let free_slots = !self.used_slots as u64;
         let offset = (free_slots >> expected_slot).trailing_zeros() as usize;
         let destination_slot = expected_slot + offset;
@@ -56,9 +59,10 @@ impl<T: PartialEq> ApproximatePriorityQueue<T> {
             self.slots.push(Some(entry));
         }
     }
-    /// Return an entry matching the predicate. This will usually be one of the available entries that
-    /// have the highest weight, though this is not guaranteed. This method returns {@code null} if no
-    /// free entries are available.
+    /// Return an entry matching the predicate. This will usually be one of the
+    /// available entries that have the highest weight, though this is not
+    /// guaranteed. This method returns {@code null} if no free entries are
+    /// available.
     pub(crate) fn poll<F>(&mut self, predicate: F) -> Option<T>
     where
         F: Fn(&T) -> bool,
@@ -66,8 +70,8 @@ impl<T: PartialEq> ApproximatePriorityQueue<T> {
         // Look at indexes 0..63 first, which are sparsely populated.
         let mut next_slot = 0;
         while next_slot < i64::BITS as usize {
-            let next_used_slot = next_slot
-                + (self.used_slots >> next_slot).trailing_zeros() as usize;
+            let next_used_slot =
+                next_slot + (self.used_slots >> next_slot).trailing_zeros() as usize;
             if next_used_slot >= i64::BITS as usize {
                 break;
             }
@@ -83,8 +87,8 @@ impl<T: PartialEq> ApproximatePriorityQueue<T> {
         // Then look at indexes 64.. which are densely populated.
         // Poll in descending order so that if the number of indexing threads
         // decreases, we keep using the same entry over and over again.
-        // Resizing operations are also less costly on lists when items are closer
-        // to the end of the list.
+        // Resizing operations are also less costly on lists when items are
+        // closer to the end of the list.
         for i in (i64::BITS as usize..self.slots.len()).rev() {
             if let Some(ref entry) = self.slots[i] {
                 if predicate(entry) {

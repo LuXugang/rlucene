@@ -14,12 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::collections::HashMap;
+use std::fmt::{Display, Formatter};
+
+use crc32fast::Hasher;
+
 use crate::store::data_output::DataOutput;
 use crate::store::{ByteBuffersDataOutput, DataInput, IndexOutput};
 use crate::util::error::lucene_error::Result;
-use crc32fast::Hasher;
-use std::collections::HashMap;
-use std::fmt::{Display, Formatter};
 
 /// An [`IndexOutput`] writing to a [`ByteBuffersDataOutput`]
 pub struct ByteBuffersIndexOutput<'a> {
@@ -67,12 +69,7 @@ impl DataOutput for ByteBuffersIndexOutput<'_> {
         self.delegate.write_bytes_with_len(b, len)
     }
 
-    fn write_bytes_range(
-        &mut self,
-        b: &[u8],
-        offset: i32,
-        length: i32,
-    ) -> Result<()> {
+    fn write_bytes_range(&mut self, b: &[u8], offset: i32, length: i32) -> Result<()> {
         self.delegate.write_bytes_range(b, offset, length)
     }
 
@@ -92,18 +89,11 @@ impl DataOutput for ByteBuffersIndexOutput<'_> {
         self.delegate.write_string(s)
     }
 
-    fn copy_bytes(
-        &mut self,
-        input: &mut impl DataInput,
-        num_bytes: i64,
-    ) -> Result<()> {
+    fn copy_bytes(&mut self, input: &mut impl DataInput, num_bytes: i64) -> Result<()> {
         self.delegate.copy_bytes(input, num_bytes)
     }
 
-    fn write_map_of_strings(
-        &mut self,
-        map: &HashMap<String, String>,
-    ) -> Result<()> {
+    fn write_map_of_strings(&mut self, map: &HashMap<String, String>) -> Result<()> {
         self.delegate.write_map_of_strings(map)
     }
 }
@@ -125,12 +115,14 @@ impl IndexOutput for ByteBuffersIndexOutput<'_> {
             self.checksum.reset();
             let (length, mut data) = self.delegate.to_buffer_list_ref();
             if let Some(last_block) = data.pop() {
-                //  block length was limited by ByteBuffersDataOutput#LIMIT_MAX_BITS_PER_BLOCK
+                //  block length was limited by
+                // ByteBuffersDataOutput#LIMIT_MAX_BITS_PER_BLOCK
                 debug_assert!(last_block.get_ref().len() <= u32::MAX as usize);
                 let mut last_block_len = length;
                 for block in data {
-                    //Each block has the same data length except for the last block.
-                    // Therefore, we need to use last_block_len to get the data length
+                    //Each block has the same data length except for the last
+                    // block. Therefore, we need to use
+                    // last_block_len to get the data length
                     // of the last block.
                     last_block_len -= block.get_ref().len() as i64;
                     self.checksum.update(block.get_ref());

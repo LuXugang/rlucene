@@ -14,17 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::Display;
+use std::hash::{Hash, Hasher};
+
 use crate::index::index_sorter::{IndexSortEnum, StringSorter};
 use crate::index::sort_field_provider::SortFieldProvider;
-use crate::search::sort_field::{
-    MissingValueEnum, SortField, SortFieldType, SortFiledBase,
-};
+use crate::search::sort_field::{MissingValueEnum, SortField, SortFieldType, SortFiledBase};
 use crate::search::sort_field_enum::SortFieldEnum;
 use crate::search::sorted_set_selector::SortedSetSelectorType;
 use crate::store::{DataInput, DataOutput};
 use crate::util::error::lucene_error::{LuceneError, Result};
-use std::fmt::Display;
-use std::hash::{Hash, Hasher};
 
 #[derive(Clone)]
 pub struct SortedSetSortField {
@@ -32,7 +31,8 @@ pub struct SortedSetSortField {
     parent_sort: SortField,
 }
 impl SortedSetSortField {
-    /// Creates a sort, possibly in reverse, by the minimum value in the set for the document.
+    /// Creates a sort, possibly in reverse, by the minimum value in the set for
+    /// the document.
     ///
     /// # Arguments
     ///
@@ -42,33 +42,31 @@ impl SortedSetSortField {
         Self::with_selector(field, reverse, SortedSetSelectorType::Min)
     }
 
-    /// Creates a sort, possibly in reverse, specifying how the sort value from the document's set is selected.
+    /// Creates a sort, possibly in reverse, specifying how the sort value from
+    /// the document's set is selected.
     ///
     /// # Arguments
     ///
     /// * `field` - Name of the field to sort by.
     /// * `reverse` - `true` if natural order should be reversed.
-    /// * `selector` - Custom selector type for choosing the sort value from the set.
+    /// * `selector` - Custom selector type for choosing the sort value from the
+    ///   set.
     /// # Note
-    /// selectors other than [`SortedSetSelectorType#Min`](SortedSetSelectorType::Min) require optional codec support.
+    /// selectors other than
+    /// [`SortedSetSelectorType#Min`](SortedSetSelectorType::Min) require
+    /// optional codec support.
     pub fn with_selector(
         field: String,
         reverse: bool,
         selector: SortedSetSelectorType,
     ) -> Result<Self> {
-        let sort_field = SortField::with_reverse(
-            Some(field),
-            SortFieldType::Custom,
-            reverse,
-        )?;
+        let sort_field = SortField::with_reverse(Some(field), SortFieldType::Custom, reverse)?;
         Ok(SortedSetSortField {
             selector,
             parent_sort: sort_field,
         })
     }
-    fn read_selector_type(
-        data_input: &mut impl DataInput,
-    ) -> Result<SortedSetSelectorType> {
+    fn read_selector_type(data_input: &mut impl DataInput) -> Result<SortedSetSelectorType> {
         let selector_type = data_input.read_int()?;
 
         match selector_type {
@@ -102,15 +100,12 @@ impl Display for SortedSetSortField {
     }
 }
 impl SortFiledBase for SortedSetSortField {
-    fn set_missing_value(
-        &mut self,
-        missing_value: Option<MissingValueEnum>,
-    ) -> Result<()> {
+    fn set_missing_value(&mut self, missing_value: Option<MissingValueEnum>) -> Result<()> {
         match missing_value {
             Some(MissingValueEnum::StringFirst) | Some(MissingValueEnum::StringLast) => {
                 self.parent_sort.missing_value = missing_value;
                 Ok(())
-            }
+            },
             _ => Err(LuceneError::illegal_argument(
                 "For SORTED_SET type, missing value must be either STRING_FIRST or STRING_LAST"
                     .to_string(),
@@ -150,10 +145,7 @@ impl SetProvider {
     pub const NAME: &'static str = "SortedSetSortField";
 }
 impl SortFieldProvider for SetProvider {
-    fn read_sort_field(
-        &self,
-        data_input: &mut impl DataInput,
-    ) -> Result<SortFieldEnum> {
+    fn read_sort_field(&self, data_input: &mut impl DataInput) -> Result<SortFieldEnum> {
         let field_name = data_input.read_string()?;
         let reverse = data_input.read_int()? == 1;
         let selector = SortedSetSortField::read_selector_type(data_input)?;
@@ -162,10 +154,8 @@ impl SortFieldProvider for SetProvider {
 
         let value = data_input.read_int()?;
         match value {
-            1 => sorted_set_sort_field
-                .set_missing_value(Some(MissingValueEnum::StringFirst))?,
-            2 => sorted_set_sort_field
-                .set_missing_value(Some(MissingValueEnum::StringLast))?,
+            1 => sorted_set_sort_field.set_missing_value(Some(MissingValueEnum::StringFirst))?,
+            2 => sorted_set_sort_field.set_missing_value(Some(MissingValueEnum::StringLast))?,
             _ => {
                 debug_assert!(value == 0);
             },
@@ -173,11 +163,7 @@ impl SortFieldProvider for SetProvider {
         Ok(SortFieldEnum::SortedSet(sorted_set_sort_field))
     }
 
-    fn write_sort_field(
-        &self,
-        sf: &SortFieldEnum,
-        output: &mut impl DataOutput,
-    ) -> Result<()> {
+    fn write_sort_field(&self, sf: &SortFieldEnum, output: &mut impl DataOutput) -> Result<()> {
         sf.serialize(output)
     }
 }

@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::{Display, Formatter};
+
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::DataInput;
 use crate::util::error::lucene_error;
@@ -23,7 +25,6 @@ use crate::util::fst_impl::fst::BytesReader;
 use crate::util::fst_impl::read_write_data_output::BytesReaderImpl;
 use crate::util::fst_impl::reverse_bytes_reader::ReverseBytesReader;
 use crate::util::fst_impl::reverse_random_access_reader::ReverseRandomAccessReader;
-use std::fmt::{Display, Formatter};
 
 #[allow(unused)]
 pub(crate) enum BytesReaderEnum<R>
@@ -46,12 +47,7 @@ impl DataInput for DummyBytesReader {
         ))
     }
 
-    fn read_bytes(
-        &mut self,
-        _b: &mut [u8],
-        _offset: i32,
-        _len: i32,
-    ) -> lucene_error::Result<()> {
+    fn read_bytes(&mut self, _b: &mut [u8], _offset: i32, _len: i32) -> lucene_error::Result<()> {
         Err(LuceneError::unsupported_operation(
             "DummyBytesReader does not support reading bytes".to_string(),
         ))

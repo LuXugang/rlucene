@@ -14,12 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::collections::HashMap;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex,
+};
+
 use crate::index::buffered_updates::MTBufferedUpdates;
 use crate::index::buffered_updates_stream::SegmentState;
 use crate::index::field_updates_buffer::FieldUpdatesBuffer;
-use crate::index::prefix_coded_terms::{
-    PrefixCodedTerms, PrefixCodedTermsBuilder,
-};
+use crate::index::prefix_coded_terms::{PrefixCodedTerms, PrefixCodedTermsBuilder};
 use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::search::query::Query;
 use crate::store::directory::Directory;
@@ -27,11 +31,6 @@ use crate::util::access::Access;
 use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::info_stream::{InfoStream, InfoStreamEnum};
-use std::collections::HashMap;
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc, Mutex,
-};
 
 #[allow(unused)]
 pub(crate) struct FrozenBufferedUpdates<D, Q, I>
@@ -61,9 +60,10 @@ where
     Q: Query,
     I: Access<InfoStreamEnum>,
 {
-    // NOTE: we now apply this frozen packet immediately on creation, yet this process is heavy, and runs
-    // in multiple threads, and this compression is sizable (~8.3% of the original size), so it's important
-    //we run this before applying the deletes/updates.
+    // NOTE: we now apply this frozen packet immediately on creation, yet this
+    // process is heavy, and runs in multiple threads, and this compression
+    // is sizable (~8.3% of the original size), so it's important
+    // we run this before applying the deletes/updates.
     // Query we often undercount (say 24 bytes), plus int.
     const BYTES_PER_DEL_QUERY: i32 = 0;
 
@@ -92,16 +92,16 @@ where
             }
             (queries, limits)
         };
-        // TODO if a Term affects multiple fields, we could keep the updates key'd by Term
-        // so that it maps to all fields it affects, sorted by their docUpto, and traverse
-        // that Term only once, applying the update to all fields that still need to be
+        // TODO if a Term affects multiple fields, we could keep the updates
+        // key'd by Term so that it maps to all fields it affects,
+        // sorted by their docUpto, and traverse that Term only once,
+        // applying the update to all fields that still need to be
         // updated.
         for value in updates.field_updates.values_mut() {
             value.finish()?
         }
         let field_updates = std::mem::take(&mut updates.field_updates);
-        let field_updates_count =
-            updates.num_field_updates.load(Ordering::Relaxed);
+        let field_updates_count = updates.num_field_updates.load(Ordering::Relaxed);
 
         // TODO: memory calculation not implemented
         let bytes_used = 0;
@@ -144,7 +144,8 @@ where
         })
     }
 
-    /// Returns `true` if this buffered updates instance has already been applied.
+    /// Returns `true` if this buffered updates instance has already been
+    /// applied.
     pub(crate) fn is_applied(&self) -> bool {
         assert!(
             self.apply_lock.try_lock().is_err(),

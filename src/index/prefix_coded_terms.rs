@@ -14,6 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::borrow::Cow;
+use std::cmp::Ordering;
+use std::hash::{Hash, Hasher};
+use std::io::Cursor;
+
 use crate::index::field_term_iterator::FieldTermIterator;
 use crate::index::term::Term;
 use crate::index::{BytesRef, BytesRefBuilder};
@@ -25,13 +30,10 @@ use crate::util::accountable::Accountable;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::StringHelper;
-use std::borrow::Cow;
-use std::cmp::Ordering;
-use std::hash::{Hash, Hasher};
-use std::io::Cursor;
 
-/// Prefix codes term instances (prefixes are shared). This is expected to be faster to build than an
-/// FST and might also be more compact if there are no common suffixes.
+/// Prefix codes term instances (prefixes are shared). This is expected to be
+/// faster to build than an FST and might also be more compact if there are no
+/// common suffixes.
 ///
 /// # Lucene Internal
 #[derive(Debug)]
@@ -45,11 +47,7 @@ pub struct PrefixCodedTerms {
 }
 
 impl PrefixCodedTerms {
-    pub fn new(
-        content: Vec<Cursor<Vec<u8>>>,
-        content_len: i64,
-        size: i64,
-    ) -> Self {
+    pub fn new(content: Vec<Cursor<Vec<u8>>>, content_len: i64, size: i64) -> Self {
         debug_assert!(!content.is_empty());
         PrefixCodedTerms {
             content,
@@ -148,11 +146,7 @@ impl PrefixCodedTermsBuilder {
         self.add(term.field.to_string(), &term.bytes)
     }
     /// Add a term. This fully consumes the incoming [`BytesRef`].
-    pub fn add(
-        &mut self,
-        field: String,
-        bytes: &BytesRef<Vec<u8>>,
-    ) -> Result<()> {
+    pub fn add(&mut self, field: String, bytes: &BytesRef<Vec<u8>>) -> Result<()> {
         debug_assert!(
             self.last_term == Term::from_empty("".to_string())
                 || Term::new(field.clone(), bytes.clone()).cmp(&self.last_term)
@@ -162,8 +156,7 @@ impl PrefixCodedTermsBuilder {
         let prefix: i32;
         if self.size > 0 && field == self.last_term.field {
             // Same field as the last term
-            prefix =
-                StringHelper::bytes_difference(&self.last_term.bytes, bytes)?;
+            prefix = StringHelper::bytes_difference(&self.last_term.bytes, bytes)?;
             self.output.write_vint(prefix << 1)?;
         } else {
             // Field change
@@ -176,8 +169,7 @@ impl PrefixCodedTermsBuilder {
         let prefix = prefix as usize;
         self.output.write_vint(suffix)?;
         self.output.write_bytes_range(
-            &bytes.bytes[(bytes.offset + prefix)
-                ..(bytes.offset + prefix + suffix as usize)],
+            &bytes.bytes[(bytes.offset + prefix)..(bytes.offset + prefix + suffix as usize)],
             0,
             suffix,
         )?;
@@ -266,8 +258,8 @@ impl<AV> FieldTermIterator<AV> for TermIterator<'_, AV>
 where
     AV: AccessVec<u8>,
 {
-    /// Returns current field. This method should not be called after iteration is done. Note that
-    /// you may use == to detect a change in field.
+    /// Returns current field. This method should not be called after iteration
+    /// is done. Note that you may use == to detect a change in field.
     fn field(&self) -> &str {
         &self.field
     }
@@ -280,17 +272,15 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeSet;
+
     use crate::index::field_term_iterator::FieldTermIterator;
-    use crate::index::prefix_coded_terms::{
-        PrefixCodedTermsBuilder, TermIterator,
-    };
+    use crate::index::prefix_coded_terms::{PrefixCodedTermsBuilder, TermIterator};
     use crate::index::term::Term;
     use crate::test::util::lucene_test_case::{at_least, random};
-
     use crate::test::util::test_util::TestUtil;
     use crate::util::bytes_ref_iterator::BytesRefIterator;
     use crate::util::error::lucene_error::Result;
-    use std::collections::BTreeSet;
 
     #[allow(dead_code)] // for quick search
     pub struct TestPrefixCodedTerms;
@@ -325,10 +315,8 @@ mod tests {
         let nterms = at_least(&mut random, 10_000);
 
         for _ in 0..nterms {
-            let field =
-                TestUtil::random_unicode_string_with_length(&mut random, 2);
-            let text =
-                TestUtil::random_unicode_string_with_length(&mut random, 0);
+            let field = TestUtil::random_unicode_string_with_length(&mut random, 2);
+            let text = TestUtil::random_unicode_string_with_length(&mut random, 0);
             let term = Term::from_text(field, &text);
             terms.insert(term);
         }

@@ -16,21 +16,17 @@
  */
 use crate::util::error::lucene_error::Result;
 
-/// Random Access Index API. Unlike [`IndexInput`](crate::store::IndexInput), this has no concept of file position; all
-/// reads are absolute. However, like `IndexInput`, it is only intended for use by a single thread.
+/// Random Access Index API. Unlike [`IndexInput`](crate::store::IndexInput),
+/// this has no concept of file position; all reads are absolute. However, like
+/// `IndexInput`, it is only intended for use by a single thread.
 pub trait RandomAccessInput {
     /// The number of bytes in the file.
     fn length(&self) -> i64;
     /// Reads a byte at the given position in the file
     fn read_byte(&mut self, pos: i64) -> Result<u8>;
-    /// Reads a specified number of bytes starting at a given position into an array at the specified offset.
-    fn read_bytes(
-        &mut self,
-        pos: i64,
-        buf: &mut [u8],
-        offset: i32,
-        len: i32,
-    ) -> Result<()> {
+    /// Reads a specified number of bytes starting at a given position into an
+    /// array at the specified offset.
+    fn read_bytes(&mut self, pos: i64, buf: &mut [u8], offset: i32, len: i32) -> Result<()> {
         for i in 0..len {
             buf[(offset + i) as usize] = self.read_byte(pos + i as i64)?;
         }

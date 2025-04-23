@@ -29,13 +29,19 @@ use crate::util::CoreHelper;
 pub struct DocIdsWriter {
     scratch: Vec<i32>,
     scratch_longs: LongsRef,
-    /// IntsRef to be used to iterate over the scratch buffer. A single instance is reused to avoid
-    /// re-allocating the object. The ints and length fields need to be reset each use.
+    /// IntsRef to be used to iterate over the scratch buffer. A single
+    /// instance is reused to avoid re-allocating the object. The ints and
+    /// length fields need to be reset each use.
     ///
-    /// The main reason for existing is to be able to call the [`IntersectVisitor#visit_with_ints_ref`](crate::index::point_values::IntersectVisitor::visit_with_ints_ref) method
-    /// rather than the [`IntersectVisitor#visit(int)`](crate::index::point_values::IntersectVisitor::visit)
-    /// method. This seems to make a difference in performance, probably due to fewer virtual calls
-    /// then happening (once per read call rather than once per doc).
+    /// The main reason for existing is to be able to call the
+    /// [`IntersectVisitor#
+    /// visit_with_ints_ref`](crate::index::point_values::IntersectVisitor::visit_with_ints_ref)
+    /// method rather than the
+    /// [`IntersectVisitor#
+    /// visit(int)`](crate::index::point_values::IntersectVisitor::visit)
+    /// method. This seems to make a difference in performance, probably due to
+    /// fewer virtual calls then happening (once per read call rather than
+    /// once per doc).
     scratch_ints_ref: IntsRef<Vec<i32>>,
     /// used to init a new scratch
     max_points_in_leaf: usize,
@@ -53,7 +59,8 @@ impl DocIdsWriter {
     pub fn new(max_points_in_leaf: i32) -> Self {
         let mut scratch_ints_ref = IntsRef::default();
         {
-            // This is here to not rely on the default constructor of IntsRef to set offset to 0
+            // This is here to not rely on the default constructor of IntsRef to
+            // set offset to 0
             scratch_ints_ref.offset = 0;
         }
         let max_points_in_leaf = max_points_in_leaf as usize;
@@ -71,8 +78,8 @@ impl DocIdsWriter {
         count: i32,
         out: &mut impl DataOutput,
     ) -> Result<()> {
-        // docs can be sorted either when all docs in a block have the same value
-        // or when a segment is sorted
+        // docs can be sorted either when all docs in a block have the same
+        // value or when a segment is sorted
         let mut strictly_sorted = true;
         let mut min = doc_ids[0];
         let mut max = doc_ids[0];
@@ -95,15 +102,11 @@ impl DocIdsWriter {
                 out.write_vint(doc_ids[start_index])?;
                 return Ok(());
             } else if min2max <= ((count) << 4) {
-                debug_assert!(
-                    min2max > count,
-                    "min2max: {}, count: {}",
-                    min2max,
-                    count
-                );
-                // Only trigger bitset optimization when max - min + 1 <= 16 * count in order to avoid
-                // expanding too much storage.
-                // A field with lower cardinality will have higher probability to trigger this optimization.
+                debug_assert!(min2max > count, "min2max: {}, count: {}", min2max, count);
+                // Only trigger bitset optimization when max - min + 1 <= 16 *
+                // count in order to avoid expanding too much
+                // storage. A field with lower cardinality will
+                // have higher probability to trigger this optimization.
                 out.write_byte(DocIdsWriter::BITSET_IDS as u8)?;
                 Self::write_ids_as_bit_set(doc_ids, start, count, out)?;
                 return Ok(());
@@ -161,9 +164,7 @@ impl DocIdsWriter {
             }
 
             while i < count_index {
-                out.write_short(
-                    ((doc_ids[start_index + i] as u32) >> 8) as i16,
-                )?;
+                out.write_short(((doc_ids[start_index + i] as u32) >> 8) as i16)?;
                 out.write_byte(doc_ids[start_index + i] as u8)?;
                 i += 1;
             }
@@ -232,20 +233,12 @@ impl DocIdsWriter {
     ) -> Result<()> {
         let bpv = input.read_byte()? as i8;
         match bpv {
-            DocIdsWriter::CONTINUOUS_IDS => {
-                Self::read_continuous_ids(input, count, doc_ids)
-            },
-            DocIdsWriter::BITSET_IDS => {
-                self.read_bit_set(input, count, doc_ids)
-            },
-            DocIdsWriter::DELTA_BPV_16 => {
-                Self::read_delta16(input, count, doc_ids)
-            },
+            DocIdsWriter::CONTINUOUS_IDS => Self::read_continuous_ids(input, count, doc_ids),
+            DocIdsWriter::BITSET_IDS => self.read_bit_set(input, count, doc_ids),
+            DocIdsWriter::DELTA_BPV_16 => Self::read_delta16(input, count, doc_ids),
             DocIdsWriter::BPV_24 => Self::read_ints24(input, count, doc_ids),
             DocIdsWriter::BPV_32 => Self::read_ints32(input, count, doc_ids),
-            DocIdsWriter::LEGACY_DELTA_VINT => {
-                Self::read_legacy_delta_vints(input, count, doc_ids)
-            },
+            DocIdsWriter::LEGACY_DELTA_VINT => Self::read_legacy_delta_vints(input, count, doc_ids),
             _ => Err(LuceneError::illegal_state(format!(
                 "Unsupported number of bits per value: {}",
                 bpv
@@ -260,10 +253,9 @@ impl DocIdsWriter {
         let offset_words = input.read_vint()?;
         let long_len = input.read_vint()?;
         let long_len_index = long_len as usize;
-        if let Some(new_array) = ArrayUtil::grow_no_copy(
-            &self.scratch_longs.longs,
-            long_len as usize,
-        ) {
+        if let Some(new_array) =
+            ArrayUtil::grow_no_copy(&self.scratch_longs.longs, long_len as usize)
+        {
             self.scratch_longs.longs = new_array
         }
         input.read_longs(&mut self.scratch_longs.longs, 0, long_len)?;
@@ -324,11 +316,7 @@ impl DocIdsWriter {
         Ok(())
     }
 
-    fn read_delta16(
-        input: &mut impl IndexInput,
-        count: i32,
-        doc_ids: &mut [i32],
-    ) -> Result<()> {
+    fn read_delta16(input: &mut impl IndexInput, count: i32, doc_ids: &mut [i32]) -> Result<()> {
         let min = input.read_vint()?;
         let half_len = (count as usize) >> 1;
         input.read_ints(doc_ids, 0, half_len as i32)?;
@@ -338,17 +326,12 @@ impl DocIdsWriter {
             doc_ids[half_len + i] = (l & 0xffff) + min;
         }
         if count & 1 == 1 {
-            doc_ids[count as usize - 1] =
-                (input.read_short()? as u16 as i32) + min;
+            doc_ids[count as usize - 1] = (input.read_short()? as u16 as i32) + min;
         }
         Ok(())
     }
 
-    fn read_ints24(
-        input: &mut impl IndexInput,
-        count: i32,
-        doc_ids: &mut [i32],
-    ) -> Result<()> {
+    fn read_ints24(input: &mut impl IndexInput, count: i32, doc_ids: &mut [i32]) -> Result<()> {
         let mut i = 0;
         let count_usize = count as usize;
         while i < count_usize.saturating_sub(7) {
@@ -357,29 +340,23 @@ impl DocIdsWriter {
             let l3 = input.read_long()? as u64;
             doc_ids[i] = (l1 >> 40) as i32;
             doc_ids[i + 1] = ((l1 >> 16) & 0xffffff) as i32;
-            doc_ids[i + 2] =
-                (((l1 & 0xffff) << 8) | ((l2 >> 56) & 0xff)) as i32;
+            doc_ids[i + 2] = (((l1 & 0xffff) << 8) | ((l2 >> 56) & 0xff)) as i32;
             doc_ids[i + 3] = ((l2 >> 32) & 0xffffff) as i32;
             doc_ids[i + 4] = ((l2 >> 8) & 0xffffff) as i32;
-            doc_ids[i + 5] =
-                (((l2 & 0xff) << 16) | ((l3 >> 48) & 0xffff)) as i32;
+            doc_ids[i + 5] = (((l2 & 0xff) << 16) | ((l3 >> 48) & 0xffff)) as i32;
             doc_ids[i + 6] = ((l3 >> 24) & 0xffffff) as i32;
             doc_ids[i + 7] = (l3 & 0xffffff) as i32;
             i += 8;
         }
         while i < count_usize {
-            doc_ids[i] = ((input.read_short()? as u16 as i32) << 8)
-                | ((input.read_byte()? as i32) & 0xff);
+            doc_ids[i] =
+                ((input.read_short()? as u16 as i32) << 8) | ((input.read_byte()? as i32) & 0xff);
             i += 1;
         }
         Ok(())
     }
 
-    fn read_ints32(
-        input: &mut impl IndexInput,
-        count: i32,
-        doc_ids: &mut [i32],
-    ) -> Result<()> {
+    fn read_ints32(input: &mut impl IndexInput, count: i32, doc_ids: &mut [i32]) -> Result<()> {
         input.read_ints(doc_ids, 0, count)?;
         Ok(())
     }
@@ -394,22 +371,12 @@ impl DocIdsWriter {
             DocIdsWriter::CONTINUOUS_IDS => {
                 Self::read_continuous_ids_with_visitor(input, count, visitor)
             },
-            DocIdsWriter::BITSET_IDS => {
-                self.read_bit_set_with_visitor(input, count, visitor)
-            },
-            DocIdsWriter::DELTA_BPV_16 => {
-                self.read_delta16_with_visitor(input, count, visitor)
-            },
-            DocIdsWriter::BPV_24 => {
-                Self::read_ints24_with_visitor(input, count, visitor)
-            },
-            DocIdsWriter::BPV_32 => {
-                self.read_ints32_with_visitor(input, count, visitor)
-            },
+            DocIdsWriter::BITSET_IDS => self.read_bit_set_with_visitor(input, count, visitor),
+            DocIdsWriter::DELTA_BPV_16 => self.read_delta16_with_visitor(input, count, visitor),
+            DocIdsWriter::BPV_24 => Self::read_ints24_with_visitor(input, count, visitor),
+            DocIdsWriter::BPV_32 => self.read_ints32_with_visitor(input, count, visitor),
             DocIdsWriter::LEGACY_DELTA_VINT => {
-                Self::read_legacy_delta_vints_with_visitor(
-                    input, count, visitor,
-                )
+                Self::read_legacy_delta_vints_with_visitor(input, count, visitor)
             },
             _ => Err(LuceneError::illegal_state(format!(
                 "Unsupported number of bits per value: {}",
@@ -439,8 +406,7 @@ impl DocIdsWriter {
         let num_bits = count + extra;
         let mut bit_set = FixedBitSet::new(num_bits);
         bit_set.set_with_range(extra, num_bits);
-        let mut disi =
-            DocBaseBitSetIterator::new(bit_set, count as i64, offset)?;
+        let mut disi = DocBaseBitSetIterator::new(bit_set, count as i64, offset)?;
         visitor.visit_with_iterator(&mut disi)?;
         Ok(())
     }
@@ -464,9 +430,7 @@ impl DocIdsWriter {
     ) -> Result<()> {
         Self::read_delta16(input, count, &mut self.scratch)?;
         self.scratch_ints_ref.ints =
-            CoreHelper::take_and_reset(&mut self.scratch, |_| {
-                vec![0; self.max_points_in_leaf]
-            });
+            CoreHelper::take_and_reset(&mut self.scratch, |_| vec![0; self.max_points_in_leaf]);
 
         self.scratch_ints_ref.length = count;
         visitor.visit_with_ints_ref(&self.scratch_ints_ref)?;
@@ -485,12 +449,10 @@ impl DocIdsWriter {
             let l3 = input.read_long()? as u64;
             visitor.visit((l1 >> 40) as i32)?;
             visitor.visit(((l1 >> 16) & 0xffffff) as i32)?;
-            visitor
-                .visit((((l1 & 0xffff) << 8) | ((l2 >> 56) & 0xff)) as i32)?;
+            visitor.visit((((l1 & 0xffff) << 8) | ((l2 >> 56) & 0xff)) as i32)?;
             visitor.visit(((l2 >> 32) & 0xffffff) as i32)?;
             visitor.visit(((l2 >> 8) & 0xffffff) as i32)?;
-            visitor
-                .visit((((l2 & 0xff) << 16) | ((l3 >> 48) & 0xffff)) as i32)?;
+            visitor.visit((((l2 & 0xff) << 16) | ((l3 >> 48) & 0xffff)) as i32)?;
             visitor.visit(((l3 >> 24) & 0xffffff) as i32)?;
             visitor.visit((l3 & 0xffffff) as i32)?;
             i += 8;
@@ -511,9 +473,7 @@ impl DocIdsWriter {
     ) -> Result<()> {
         input.read_ints(&mut self.scratch, 0, count)?;
         self.scratch_ints_ref.ints =
-            CoreHelper::take_and_reset(&mut self.scratch, |old| {
-                vec![0; old.len()]
-            });
+            CoreHelper::take_and_reset(&mut self.scratch, |old| vec![0; old.len()]);
 
         self.scratch_ints_ref.length = count;
         visitor.visit_with_ints_ref(&self.scratch_ints_ref)?;
@@ -523,18 +483,18 @@ impl DocIdsWriter {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+
+    use rand::rngs::StdRng;
+    use rand::Rng;
+
     use crate::index::point_values::{IntersectVisitor, Relation};
     use crate::store::directory::Directory;
     use crate::store::{DataOutput, IOContext, IndexInput, IndexOutput};
-    use crate::test::util::lucene_test_case::{
-        at_least, new_directory, random,
-    };
+    use crate::test::util::lucene_test_case::{at_least, new_directory, random};
     use crate::test::util::test_util::TestUtil;
     use crate::util::bkd::doc_ids_writer::DocIdsWriter;
     use crate::util::error::lucene_error::{LuceneError, Result};
-    use rand::rngs::StdRng;
-    use rand::Rng;
-    use std::collections::HashSet;
 
     #[allow(dead_code)] // for quick search
     struct TestDocIdsWriter;
@@ -585,8 +545,7 @@ mod tests {
             let min = random.random_range(0..1000);
             let bpv = TestUtil::next_int(&mut random, 1, 16);
             for doc_id in doc_ids.iter_mut().take(len) {
-                *doc_id =
-                    min + TestUtil::next_int(&mut random, 0, (1 << bpv) - 1);
+                *doc_id = min + TestUtil::next_int(&mut random, 0, (1 << bpv) - 1);
             }
             test(&mut random, &mut dir, &doc_ids)?;
         }
@@ -628,52 +587,32 @@ mod tests {
         Ok(())
     }
 
-    fn test(
-        random: &mut StdRng,
-        dir: &mut impl Directory,
-        ints: &[i32],
-    ) -> Result<()> {
+    fn test(random: &mut StdRng, dir: &mut impl Directory, ints: &[i32]) -> Result<()> {
         let len: i64;
         let mut doc_ids_writer = DocIdsWriter::new(ints.len() as i32);
         {
-            let mut out =
-                dir.create_output("tmp", &IOContext::default_io_context()?)?;
-            doc_ids_writer.write_doc_ids(
-                ints,
-                0,
-                ints.len() as i32,
-                &mut out,
-            )?;
+            let mut out = dir.create_output("tmp", &IOContext::default_io_context()?)?;
+            doc_ids_writer.write_doc_ids(ints, 0, ints.len() as i32, &mut out)?;
             len = out.get_file_pointer();
             if random.random_bool(0.5) {
                 out.write_long(0)?;
             }
         }
         {
-            let mut input =
-                dir.open_input("tmp", &IOContext::read_once_io_context()?)?;
+            let mut input = dir.open_input("tmp", &IOContext::read_once_io_context()?)?;
             let mut read = vec![0; ints.len()];
-            doc_ids_writer.read_ints(
-                &mut input,
-                ints.len() as i32,
-                &mut read,
-            )?;
+            doc_ids_writer.read_ints(&mut input, ints.len() as i32, &mut read)?;
             assert_eq!(ints, &read[..]);
             assert_eq!(len, input.get_file_pointer());
         }
         {
-            let mut input =
-                dir.open_input("tmp", &IOContext::read_once_io_context()?)?;
+            let mut input = dir.open_input("tmp", &IOContext::read_once_io_context()?)?;
             let mut read = vec![0; ints.len()];
             let mut visitor = IntersectVisitorMock {
                 i: 0,
                 read: &mut read,
             };
-            doc_ids_writer.read_ints_with_visitor(
-                &mut input,
-                ints.len() as i32,
-                &mut visitor,
-            )?;
+            doc_ids_writer.read_ints_with_visitor(&mut input, ints.len() as i32, &mut visitor)?;
             assert_eq!(ints, &read[..]);
             assert_eq!(len, input.get_file_pointer());
         }
@@ -698,11 +637,7 @@ mod tests {
             Ok(())
         }
 
-        fn visit_with_packed_value(
-            &mut self,
-            _doc_id: i32,
-            _packed_value: &[u8],
-        ) -> Result<()> {
+        fn visit_with_packed_value(&mut self, _doc_id: i32, _packed_value: &[u8]) -> Result<()> {
             Err(LuceneError::unsupported_operation(""))
         }
 

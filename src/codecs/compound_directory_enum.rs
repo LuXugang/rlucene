@@ -14,14 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::collections::HashSet;
+use std::fmt::{Display, Formatter};
+
 use crate::codecs::compound_directory::CompoundDirectoryBase;
 use crate::codecs::lucene90::lucene90_compound_reader::Lucene90CompoundReader;
 use crate::store::directory::Directory;
 use crate::store::lock::Lock;
 use crate::store::{IOContext, IndexInput};
 use crate::util::error::lucene_error::Result;
-use std::collections::HashSet;
-use std::fmt::{Display, Formatter};
 
 pub enum CompoundDirectoryEnum<D>
 where
@@ -65,15 +66,9 @@ where
         }
     }
 
-    fn create_output(
-        &mut self,
-        name: &str,
-        context: &IOContext,
-    ) -> Result<Self::IndexOutputType> {
+    fn create_output(&mut self, name: &str, context: &IOContext) -> Result<Self::IndexOutputType> {
         match self {
-            CompoundDirectoryEnum::Lucene90(reader) => {
-                reader.create_output(name, context)
-            },
+            CompoundDirectoryEnum::Lucene90(reader) => reader.create_output(name, context),
         }
     }
 
@@ -106,23 +101,15 @@ where
 
     fn rename(&mut self, source: &str, dest: &str) -> Result<()> {
         match self {
-            CompoundDirectoryEnum::Lucene90(reader) => {
-                reader.rename(source, dest)
-            },
+            CompoundDirectoryEnum::Lucene90(reader) => reader.rename(source, dest),
         }
     }
 
     type IndexInputType = <D::IndexInputType as IndexInput>::Slice;
 
-    fn open_input(
-        &self,
-        name: &str,
-        context: &IOContext,
-    ) -> Result<Self::IndexInputType> {
+    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInputType> {
         match self {
-            CompoundDirectoryEnum::Lucene90(reader) => {
-                reader.open_input(name, context)
-            },
+            CompoundDirectoryEnum::Lucene90(reader) => reader.open_input(name, context),
         }
     }
 
@@ -134,9 +121,7 @@ where
 
     fn get_pending_deletions(&mut self) -> Result<HashSet<String>> {
         match self {
-            CompoundDirectoryEnum::Lucene90(reader) => {
-                reader.get_pending_deletions()
-            },
+            CompoundDirectoryEnum::Lucene90(reader) => reader.get_pending_deletions(),
         }
     }
 }

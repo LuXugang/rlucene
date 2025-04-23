@@ -49,8 +49,7 @@ impl Decoder for BulkOperationPacked8 {
         iterations: i32,
     ) {
         for _ in 0..iterations {
-            values[values_offset] =
-                (blocks[blocks_offset] as u64 & 0xFF) as i64;
+            values[values_offset] = (blocks[blocks_offset] as u64 & 0xFF) as i64;
             blocks_offset += 1;
             values_offset += 1;
         }

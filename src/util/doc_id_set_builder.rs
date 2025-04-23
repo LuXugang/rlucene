@@ -14,24 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::rc::Rc;
+
 use crate::search::doc_id_set::DocIdSet;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::util::accountable::Accountable;
 use crate::util::bit_doc_id_set::BitDocIdSet;
 use crate::util::bit_set::BitSet;
 use crate::util::bit_set_iterator::BitSetIterator;
-
 use crate::util::error::lucene_error::Result;
 use crate::util::fixed_bit_set::FixedBitSet;
-use crate::util::int_array_doc_id_set::{
-    IntArrayDocIdSet, IntArrayDocIdSetIterator,
-};
+use crate::util::int_array_doc_id_set::{IntArrayDocIdSet, IntArrayDocIdSetIterator};
 
-use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-use std::rc::Rc;
-
-/// A builder of [`DocIdSet`]s. Initially, it uses a sparse structure to gather documents,
-/// and then upgrades to a non-sparse bit set once enough hits match.
+/// A builder of [`DocIdSet`]s. Initially, it uses a sparse structure to gather
+/// documents, and then upgrades to a non-sparse bit set once enough hits match.
 ///
 ///
 /// # Note
@@ -53,15 +50,11 @@ impl DocIdSetBuilder {
         Self::with_count(max_doc, -1, -1)
     }
 
-    pub fn with_count(
-        max_doc: i32,
-        doc_count: i32,
-        value_count: i64,
-    ) -> DocIdSetBuilder {
+    pub fn with_count(max_doc: i32, doc_count: i32, value_count: i64) -> DocIdSetBuilder {
         let multi_valued = doc_count < 0 || doc_count as i64 != value_count;
         let num_values_per_doc = if doc_count <= 0 || value_count < 0 {
-            // assume one value per doc, this means the cost will be overestimated
-            // if the docs are actually multi-valued
+            // assume one value per doc, this means the cost will be
+            // overestimated if the docs are actually multi-valued
             1f64
         } else {
             // otherwise compute from index stats
@@ -75,8 +68,8 @@ impl DocIdSetBuilder {
         );
         // For ridiculously small sets, we'll just use a sorted int[]
         // maxDoc >>> 7 is a good value if you want to save memory, lower values
-        // such as maxDoc >>> 11 should provide faster building but at the expense
-        // of using a full bitset even for quite sparse data
+        // such as maxDoc >>> 11 should provide faster building but at the
+        // expense of using a full bitset even for quite sparse data
         Self {
             max_doc,
             multi_valued,
@@ -87,10 +80,7 @@ impl DocIdSetBuilder {
             counter: 0,
         }
     }
-    pub fn add_disi<D: DocIdSetIterator>(
-        &mut self,
-        mut iter: impl DocIdSetIterator,
-    ) -> Result<()> {
+    pub fn add_disi<D: DocIdSetIterator>(&mut self, mut iter: impl DocIdSetIterator) -> Result<()> {
         let cost = std::cmp::min(iter.cost()?, i32::MAX as i64);
         self.grow(cost as i32);
         if self.bit_set.is_some() {
@@ -145,8 +135,7 @@ impl DocIdSetBuilder {
         if self.bit_set.is_some() {
             debug_assert!(self.counter >= 0);
             let cost = (self.counter as f64 / self.num_values_per_doc).round();
-            let result =
-                BitDocIdSet::with_cost(self.bit_set.take(), cost as i64)?;
+            let result = BitDocIdSet::with_cost(self.bit_set.take(), cost as i64)?;
             Ok(DocIdSetBuilderEnum::BitDoc(result))
         } else {
             self.buffer.sort();
@@ -157,10 +146,7 @@ impl DocIdSetBuilder {
             }
             self.buffer.push(NO_MORE_DOCS);
             let l = self.buffer.len() - 1;
-            let result = IntArrayDocIdSet::new(
-                std::mem::take(&mut self.buffer),
-                l as i32,
-            )?;
+            let result = IntArrayDocIdSet::new(std::mem::take(&mut self.buffer), l as i32)?;
             Ok(DocIdSetBuilderEnum::IntArray(result))
         }
     }
@@ -195,9 +181,7 @@ impl DocIdSet for DocIdSetBuilderEnum {
 
     fn iterator(&self) -> Option<Self::DISIType<'_>> {
         match self {
-            DocIdSetBuilderEnum::BitDoc(m) => {
-                Some(DocIdSetBuilderIterator::BitSet(m.iterator()?))
-            },
+            DocIdSetBuilderEnum::BitDoc(m) => Some(DocIdSetBuilderIterator::BitSet(m.iterator()?)),
             DocIdSetBuilderEnum::IntArray(m) => {
                 Some(DocIdSetBuilderIterator::IntArray(m.iterator()?))
             },
@@ -208,9 +192,7 @@ impl DocIdSet for DocIdSetBuilderEnum {
 
     fn bits(&self) -> Option<Rc<Self::BitType>> {
         match self {
-            DocIdSetBuilderEnum::BitDoc(bit_doc_id_set) => {
-                Some(bit_doc_id_set.bits().unwrap())
-            },
+            DocIdSetBuilderEnum::BitDoc(bit_doc_id_set) => Some(bit_doc_id_set.bits().unwrap()),
             DocIdSetBuilderEnum::IntArray(_) => None,
         }
     }
@@ -230,20 +212,14 @@ impl DocIdSetIterator for DocIdSetBuilderIterator<'_> {
     fn next_doc(&mut self) -> Result<i32> {
         match self {
             DocIdSetBuilderIterator::BitSet(bit_set) => bit_set.next_doc(),
-            DocIdSetBuilderIterator::IntArray(int_array) => {
-                int_array.next_doc()
-            },
+            DocIdSetBuilderIterator::IntArray(int_array) => int_array.next_doc(),
         }
     }
 
     fn advance(&mut self, _target: i32) -> Result<i32> {
         match self {
-            DocIdSetBuilderIterator::BitSet(bit_set) => {
-                bit_set.advance(_target)
-            },
-            DocIdSetBuilderIterator::IntArray(int_array) => {
-                int_array.advance(_target)
-            },
+            DocIdSetBuilderIterator::BitSet(bit_set) => bit_set.advance(_target),
+            DocIdSetBuilderIterator::IntArray(int_array) => int_array.advance(_target),
         }
     }
 
@@ -257,11 +233,12 @@ impl DocIdSetIterator for DocIdSetBuilderIterator<'_> {
 
 #[cfg(test)]
 mod tests {
+    use rand::Rng;
+
     use crate::search::doc_id_set::DocIdSet;
+    use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::search::doc_id_set_iterator::{DocIdSetIterator, Range};
     use crate::test::util::lucene_test_case::{is_night_mode, random, rarely};
-
-    use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::test::util::test_util::TestUtil;
     use crate::util::bit_doc_id_set::BitDocIdSet;
     use crate::util::bit_set::BitSet;
@@ -274,7 +251,6 @@ mod tests {
     use crate::util::fixed_bit_set::FixedBitSet;
     use crate::util::int_array_doc_id_set::IntArrayDocIdSet;
     use crate::util::roaring_doc_id_set::builder::Builder;
-    use rand::Rng;
 
     #[allow(dead_code)] // for quick search
     struct TestDocIdSetBuilder {}
@@ -413,8 +389,7 @@ mod tests {
                     c += 1
                 }
             }
-            let mut array =
-                vec![0; num_docs as usize + random.random_range(0..100)];
+            let mut array = vec![0; num_docs as usize + random.random_range(0..100)];
             let mut it = BitSetIterator::new(&docs, 0)?;
             let mut j = 0;
             let mut doc = it.next_doc()?;
@@ -439,11 +414,7 @@ mod tests {
             // add docs out of order
             let mut builder = DocIdSetBuilder::new(max_doc);
             for j in 0..array.len() {
-                let l = TestUtil::next_int(
-                    &mut random,
-                    1,
-                    (array.len() - j) as i32,
-                );
+                let l = TestUtil::next_int(&mut random, 1, (array.len() - j) as i32);
                 let mut k = 0;
                 let mut budget = 0;
                 while k < l {
@@ -478,7 +449,8 @@ mod tests {
                 docs.set(doc);
             }
             expected.or(&docs);
-            // We provide a cost of 0 here to make sure the builder can deal with wrong costs
+            // We provide a cost of 0 here to make sure the builder can deal
+            // with wrong costs
             let bit_doc_id_set = BitSetIterator::new(&docs, 0)?;
             builder.add_disi::<DocIdSetBuilderIterator>(bit_doc_id_set)?;
         }
@@ -499,8 +471,7 @@ mod tests {
         // single-valued points
         let mut doc_count = 42;
         let mut value_count = 42;
-        let mut builder =
-            DocIdSetBuilder::with_count(100, doc_count, value_count);
+        let mut builder = DocIdSetBuilder::with_count(100, doc_count, value_count);
         assert_eq!(1f64 - builder.get_num_values_per_doc(), 0f64);
         assert!(!builder.get_multi_valued());
         builder.grow(2);

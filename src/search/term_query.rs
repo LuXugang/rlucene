@@ -14,9 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::Display;
+
 use crate::index::term::Term;
 use crate::search::query::Query;
-use std::fmt::Display;
 
 #[derive(Eq, Hash, PartialEq)]
 pub struct TermQuery {

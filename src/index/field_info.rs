@@ -14,6 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::cell::RefCell;
+use std::cmp::Ordering;
+use std::collections::HashMap;
+use std::rc::Rc;
+
 use crate::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::index::doc_values_type::DocValuesType;
 use crate::index::index_options::IndexOptions;
@@ -21,14 +26,11 @@ use crate::index::point_values::point_values_util;
 use crate::index::vector_encoding::VectorEncoding;
 use crate::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use std::cell::RefCell;
-use std::cmp::Ordering;
-use std::collections::HashMap;
-use std::rc::Rc;
 
-///  Access to the Field Info file that describes document fields and whether or not they are indexed.
-///  Each segment has a separate Field Info file. Objects of this struct are thread-safe for multiple
-///  readers, but only one thread can be adding documents at a time, with no other reader or writer
+///  Access to the Field Info file that describes document fields and whether or
+/// not they are indexed.  Each segment has a separate Field Info file. Objects
+/// of this struct are thread-safe for multiple  readers, but only one thread
+/// can be adding documents at a time, with no other reader or writer
 ///  threads accessing this object.
 /// # Note
 /// FieldInfo Implement trait Default for padding using
@@ -47,7 +49,8 @@ pub struct FieldInfo {
     index_options: IndexOptions,
     pub(crate) properties: Rc<RefCell<Properties>>,
     dv_gen: i64,
-    ///  If both of these are positive it means this field indexed points (see [`PointsFormat`](crate::codecs::points_format::PointsFormat)).
+    ///  If both of these are positive it means this field indexed points (see
+    /// [`PointsFormat`](crate::codecs::points_format::PointsFormat)).
     point_dimension_count: i32,
     point_index_dimension_count: i32,
     point_num_bytes: i32,
@@ -61,7 +64,8 @@ pub struct FieldInfo {
 }
 pub struct Properties {
     pub(crate) attributes: Rc<RefCell<HashMap<String, String>>>,
-    store_payloads: bool, // whether this field stores payloads together with term positions
+    store_payloads: bool, /* whether this field stores payloads together
+                           * with term positions */
 }
 /// For padding using
 impl Default for Properties {
@@ -98,12 +102,12 @@ impl FieldInfo {
     ) -> Self {
         let doc_values_type = doc_values;
 
-        let (store_term_vector, store_payloads, omit_norms) =
-            if index_options != IndexOptions::None {
-                (store_term_vector, store_payloads, omit_norms)
-            } else {
-                (false, false, false)
-            };
+        let (store_term_vector, store_payloads, omit_norms) = if index_options != IndexOptions::None
+        {
+            (store_term_vector, store_payloads, omit_norms)
+        } else {
+            (false, false, false)
+        };
         let properties = Rc::new(RefCell::new(Properties {
             attributes,
             store_payloads,
@@ -214,9 +218,7 @@ impl FieldInfo {
                 self.point_dimension_count, self.name
             )));
         }
-        if self.point_index_dimension_count != 0
-            && self.point_dimension_count == 0
-        {
+        if self.point_index_dimension_count != 0 && self.point_dimension_count == 0 {
             return Err(LuceneError::illegal_argument(format!(
                 "pointIndexDimensionCount must be 0 when pointDimensionCount=0 (field: '{}')",
                 self.name
@@ -253,18 +255,10 @@ impl FieldInfo {
     pub fn verify_same_schema(&self, other: &FieldInfo) -> Result<()> {
         let field_name = &self.name;
 
-        Self::verify_same_index_options(
-            field_name,
-            &self.index_options,
-            &other.index_options,
-        )?;
+        Self::verify_same_index_options(field_name, &self.index_options, &other.index_options)?;
 
         if self.index_options != IndexOptions::None {
-            Self::verify_same_omit_norms(
-                field_name,
-                self.omit_norms,
-                other.omit_norms,
-            )?;
+            Self::verify_same_omit_norms(field_name, self.omit_norms, other.omit_norms)?;
             Self::verify_same_store_term_vectors(
                 field_name,
                 self.store_term_vector,
@@ -420,7 +414,8 @@ impl FieldInfo {
         Ok(())
     }
 
-    /// Record that this field is indexed with points, with the specified number of dimensions and bytes per dimension.
+    /// Record that this field is indexed with points, with the specified number
+    /// of dimensions and bytes per dimension.
     pub fn set_point_dimensions(
         &mut self,
         dimension_count: i32,
@@ -457,9 +452,7 @@ impl FieldInfo {
                 point_values_util::MAX_NUM_BYTES , num_bytes, self.name
             )));
         }
-        if self.point_dimension_count != 0
-            && self.point_dimension_count != dimension_count
-        {
+        if self.point_dimension_count != 0 && self.point_dimension_count != dimension_count {
             return Err(LuceneError::illegal_argument(format!(
                 "cannot change point dimension count from {} to {} for field=\"{}\"",
                 self.point_dimension_count, dimension_count, self.name
@@ -516,11 +509,9 @@ impl FieldInfo {
         &self.vector_similarity_function
     }
 
-    /// Record that this field is indexed with docvalues, with the specified type
-    pub fn set_doc_values_type(
-        &mut self,
-        doc_values_type: DocValuesType,
-    ) -> Result<()> {
+    /// Record that this field is indexed with docvalues, with the specified
+    /// type
+    pub fn set_doc_values_type(&mut self, doc_values_type: DocValuesType) -> Result<()> {
         if self.doc_values_type != DocValuesType::None
             && doc_values_type != DocValuesType::None
             && self.doc_values_type != doc_values_type
@@ -535,7 +526,8 @@ impl FieldInfo {
         Ok(())
     }
 
-    /// Returns IndexOptions for the field, or IndexOptions.None if the field is not indexed
+    /// Returns IndexOptions for the field, or IndexOptions.None if the field is
+    /// not indexed
     pub fn get_index_options(&self) -> &IndexOptions {
         &self.index_options
     }
@@ -550,7 +542,8 @@ impl FieldInfo {
         self.number
     }
 
-    /// Returns DocValuesType of the docValues; this is DocValuesType.None if the field has no docvalues.
+    /// Returns DocValuesType of the docValues; this is DocValuesType.None if
+    /// the field has no docvalues.
     pub fn get_doc_values_type(&self) -> &DocValuesType {
         &self.doc_values_type
     }
@@ -567,7 +560,8 @@ impl FieldInfo {
         Ok(())
     }
 
-    /// Returns the docValues generation of this field, or -1 if no docValues updates exist for it.
+    /// Returns the docValues generation of this field, or -1 if no docValues
+    /// updates exist for it.
     pub fn get_doc_values_gen(&self) -> i64 {
         self.dv_gen
     }
@@ -638,12 +632,14 @@ impl FieldInfo {
 
     /// Puts a codec attribute value.
     ///
-    /// This is a key-value mapping for the field that the codec can use to store additional
-    /// metadata, and will be available to the codec when reading the segment via `getAttribute(String)`.
+    /// This is a key-value mapping for the field that the codec can use to
+    /// store additional metadata, and will be available to the codec when
+    /// reading the segment via `getAttribute(String)`.
     ///
-    /// If a value already exists for the key in the field, it will be replaced with the new value.
-    /// If the value of the attributes for the same field is changed between documents, the behavior
-    /// after merge is undefined.
+    /// If a value already exists for the key in the field, it will be replaced
+    /// with the new value. If the value of the attributes for the same
+    /// field is changed between documents, the behavior after merge is
+    /// undefined.
     pub fn put_attribute(&self, key: String, value: String) -> Option<String> {
         let properties = self.properties.borrow();
         let mut attributes = properties.attributes.borrow_mut();
@@ -656,12 +652,14 @@ impl FieldInfo {
         properties.attributes.clone()
     }
 
-    /// Returns true if this field is configured and used as the soft-deletes field.
+    /// Returns true if this field is configured and used as the soft-deletes
+    /// field.
     pub fn is_soft_deletes_field(&self) -> bool {
         self.soft_deletes_field
     }
 
-    /// Returns true if this field is configured and used as the parent document field.
+    /// Returns true if this field is configured and used as the parent document
+    /// field.
     pub fn is_parent_field(&self) -> bool {
         self.is_parent_field
     }

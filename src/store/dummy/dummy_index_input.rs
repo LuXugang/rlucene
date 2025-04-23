@@ -14,10 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::{Display, Formatter};
+
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{DataInput, IndexInput};
 use crate::util::error::lucene_error::{LuceneError, Result};
-use std::fmt::{Display, Formatter};
 
 pub struct DummyIndexInput;
 
@@ -28,12 +29,7 @@ impl DataInput for DummyIndexInput {
         ))
     }
 
-    fn read_bytes(
-        &mut self,
-        _b: &mut [u8],
-        _offset: i32,
-        _len: i32,
-    ) -> Result<()> {
+    fn read_bytes(&mut self, _b: &mut [u8], _offset: i32, _len: i32) -> Result<()> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))
@@ -91,11 +87,7 @@ impl IndexInput for DummyIndexInput {
 
     type RandomAccessSlice = DummyIndexInput;
 
-    fn random_access_slice(
-        &self,
-        _offset: i64,
-        _length: i64,
-    ) -> Result<DummyIndexInput> {
+    fn random_access_slice(&self, _offset: i64, _length: i64) -> Result<DummyIndexInput> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))

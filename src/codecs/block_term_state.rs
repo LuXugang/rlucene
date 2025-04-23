@@ -14,15 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::{Display, Formatter};
+
 use crate::codecs::lucene101::lucene101_postings_format::IntBlockTermState;
 use crate::index::ord_term_state::OrdTermState;
 use crate::index::term_state::{TermState, TermStateEnum};
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::error::lucene_error::Result;
-use std::fmt::{Display, Formatter};
 
-/// Holds all state required for [`PostingsReaderBase`](crate::codecs::postings_reader_base::PostingsReaderBase) to produce a
-/// [`PostingsEnum`](crate::index::postings_enum::PostingsEnum) without re-seeking the terms dict.
+/// Holds all state required for
+/// [`PostingsReaderBase`](crate::codecs::postings_reader_base::PostingsReaderBase)
+/// to produce a [`PostingsEnum`](crate::index::postings_enum::PostingsEnum)
+/// without re-seeking the terms dict.
 #[derive(Default, Clone)]
 pub struct BlockTermState {
     /// how many docs have this term

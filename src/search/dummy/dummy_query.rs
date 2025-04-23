@@ -14,8 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::search::query::Query;
 use std::fmt::Display;
+
+use crate::search::query::Query;
 
 #[derive(Eq, Hash, PartialEq)]
 pub struct DummyQuery {}

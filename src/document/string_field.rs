@@ -14,6 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::{Display, Formatter};
+use std::sync::Arc;
+
+use once_cell::sync::Lazy;
+
 use crate::analysis::analyzer::Analyzer;
 use crate::analysis::token_stream::TokenStream;
 use crate::document::field::{Field, FieldBase, Store};
@@ -26,9 +31,6 @@ use crate::index::indexable_field::IndexableField;
 use crate::index::BytesRef;
 use crate::util::error::lucene_error::Result;
 use crate::util::number::Number;
-use once_cell::sync::Lazy;
-use std::fmt::{Display, Formatter};
-use std::sync::Arc;
 
 /// Indexed, not tokenized, omits norms, indexes DOCS_ONLY, not stored.
 static TYPE_NOT_STORED: Lazy<Arc<FieldType>> = Lazy::new(|| {
@@ -56,9 +58,11 @@ static TYPE_STORED: Lazy<Arc<FieldType>> = Lazy::new(|| {
     ft.freeze();
     Arc::new(ft)
 });
-/// A field that is indexed but not tokenized: the entire string value is indexed as a single token.
-/// For example, this might be used for a `country` field or an `id` field.
-/// If sorting on this field is required, add a [`SortedDocValuesField`](crate::document::sorted_doc_values_field::SortedDocValuesField) separately to the document.
+/// A field that is indexed but not tokenized: the entire string value is
+/// indexed as a single token. For example, this might be used for a `country`
+/// field or an `id` field. If sorting on this field is required, add a
+/// [`SortedDocValuesField`](crate::document::sorted_doc_values_field::SortedDocValuesField)
+/// separately to the document.
 pub struct StringField {
     parent_field: Field,
     binary_value: Arc<BytesRef<Vec<u8>>>,
@@ -66,7 +70,8 @@ pub struct StringField {
 }
 #[allow(unused)]
 impl StringField {
-    /// Creates a new textual `StringField`, indexing the provided string value as a single token.
+    /// Creates a new textual `StringField`, indexing the provided string value
+    /// as a single token.
     ///
     /// # Parameters
     /// - `name`: Field name.
@@ -80,8 +85,7 @@ impl StringField {
             Arc::clone(&TYPE_NOT_STORED)
         };
         let value_str = Arc::new(value.to_string());
-        let parent_field =
-            Field::with_string(name, value_str.clone(), field_type.clone())?;
+        let parent_field = Field::with_string(name, value_str.clone(), field_type.clone())?;
         let binary_value = Arc::new(BytesRef::from_string(value));
         let stored_value = if store {
             None
@@ -94,26 +98,23 @@ impl StringField {
             stored_value,
         })
     }
-    /// Creates a new binary `StringField`, indexing the provided binary (`BytesRef`) value as a single token.
+    /// Creates a new binary `StringField`, indexing the provided binary
+    /// (`BytesRef`) value as a single token.
     ///
     /// # Parameters
     /// - `name`: Field name.
-    /// - `value`: `BytesRef` value. The provided value is **not cloned**, so it must not be modified
-    ///   until the document(s) holding it have been indexed.
+    /// - `value`: `BytesRef` value. The provided value is **not cloned**, so it
+    ///   must not be modified until the document(s) holding it have been
+    ///   indexed.
     /// - `stored`: `Store::Yes` if the content should also be stored.
-    pub fn with_bytes_ref(
-        name: &str,
-        value: Arc<BytesRef<Vec<u8>>>,
-        store: Store,
-    ) -> Result<Self> {
+    pub fn with_bytes_ref(name: &str, value: Arc<BytesRef<Vec<u8>>>, store: Store) -> Result<Self> {
         let store = store.into();
         let field_type = if store {
             Arc::clone(&TYPE_STORED)
         } else {
             Arc::clone(&TYPE_NOT_STORED)
         };
-        let parent_field =
-            Field::with_bytes_ref(name, value.clone(), field_type.clone())?;
+        let parent_field = Field::with_bytes_ref(name, value.clone(), field_type.clone())?;
         let stored_value = if store {
             None
         } else {

@@ -14,15 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::{Comparator, ToInt};
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
 
+use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::{Comparator, ToInt};
+
 /// Represents a slice (offset + length) into an existing `Vec<u64>`.
 ///
-/// The `longs` member should never be `None`; use an empty vector (`Vec::new()`) if necessary.
+/// The `longs` member should never be `None`; use an empty vector
+/// (`Vec::new()`) if necessary.
 #[derive(Debug, Eq)]
 pub struct LongsRef {
     /// The contents of the LongsRef. Should never be `None`.
@@ -62,7 +64,8 @@ impl LongsRef {
         }
     }
 
-    /// This instance will directly reference the given `Vec<u64>` without making a copy.
+    /// This instance will directly reference the given `Vec<u64>` without
+    /// making a copy.
     ///
     /// # Arguments
     ///
@@ -70,18 +73,18 @@ impl LongsRef {
     /// * `offset` - The offset where valid longs start.
     /// * `length` - The number of valid longs.
     pub fn from_slice(mut longs: Vec<i64>, offset: i32, length: i32) -> Self {
-        debug_assert!(
-            Self::is_valid(longs.as_mut_slice(), offset, length).unwrap()
-        );
+        debug_assert!(Self::is_valid(longs.as_mut_slice(), offset, length).unwrap());
         Self {
             longs,
             offset,
             length,
         }
     }
-    /// Creates a new `LongsRef` that points to a copy of the longs from `other`.
+    /// Creates a new `LongsRef` that points to a copy of the longs from
+    /// `other`.
     ///
-    /// The returned `LongsRef` will have a length of `other.length` and an offset of zero.
+    /// The returned `LongsRef` will have a length of `other.length` and an
+    /// offset of zero.
     ///
     /// # Arguments
     ///
@@ -96,9 +99,8 @@ impl LongsRef {
                 "Offset and length exceed vector bounds",
             ));
         }
-        let copied_longs = other.longs
-            [other.offset as usize..(other.offset + other.length) as usize]
-            .to_vec();
+        let copied_longs =
+            other.longs[other.offset as usize..(other.offset + other.length) as usize].to_vec();
 
         Ok(LongsRef {
             longs: copied_longs,
@@ -161,8 +163,7 @@ impl LongsRef {
                 && (other.offset + other.length) as usize <= other.longs.len()
         );
         self.longs[self.offset as usize..(self.offset + self.length) as usize]
-            == other.longs
-                [other.offset as usize..(other.offset + other.length) as usize]
+            == other.longs[other.offset as usize..(other.offset + other.length) as usize]
     }
 }
 
@@ -225,10 +226,8 @@ impl Comparator<LongsRef> for LongsRefComparator {
     /// * Zero if `a == b`.
     /// * A positive integer if `a > b`.
     fn compare(&self, a: &LongsRef, b: &LongsRef) -> Result<i32> {
-        let a_slice =
-            &a.longs[a.offset as usize..(a.offset + a.length) as usize];
-        let b_slice =
-            &b.longs[b.offset as usize..(b.offset + b.length) as usize];
+        let a_slice = &a.longs[a.offset as usize..(a.offset + a.length) as usize];
+        let b_slice = &b.longs[b.offset as usize..(b.offset + b.length) as usize];
         Ok(a_slice.cmp(b_slice).to_int())
     }
 }

@@ -14,15 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::{Display, Formatter};
+
 use crate::codecs::block_term_state::BlockTermState;
 use crate::codecs::lucene101::lucene101_postings_format::IntBlockTermState;
 use crate::index::base_terms_enum::TermStateImpl1;
 use crate::index::dummy::dummy_term_state_type::DummyTermState;
 use crate::index::ord_term_state::OrdTermState;
 use crate::util::error::lucene_error::Result;
-use std::fmt::{Display, Formatter};
 
-/// Encapsulates all required internal state to position the associated [`TermsEnum`](crate::index::terms_enum::TermsEnum) without re-seeking.
+/// Encapsulates all required internal state to position the associated
+/// [`TermsEnum`](crate::index::terms_enum::TermsEnum) without re-seeking.
 pub trait TermState: Display + Clone {
     /// Copies the content of the given `TermState` to this instance.
     fn copy_from(&mut self, other: &TermStateEnum) -> Result<()>;

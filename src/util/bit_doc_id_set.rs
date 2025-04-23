@@ -14,12 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::rc::Rc;
+
 use crate::search::doc_id_set::DocIdSet;
 use crate::util::accountable::Accountable;
 use crate::util::bit_set::BitSet;
 use crate::util::bit_set_iterator::BitSetIterator;
-use std::rc::Rc;
-
 use crate::util::error::lucene_error::{LuceneError, Result};
 
 //TODO
@@ -49,8 +49,8 @@ impl<T: BitSet> BitDocIdSet<T> {
             cost,
         })
     }
-    /// Same as [`BitDocIdSet`] but uses the set's [`BitSet::approximate_cardinality`]
-    /// as a cost.
+    /// Same as [`BitDocIdSet`] but uses the set's
+    /// [`BitSet::approximate_cardinality`] as a cost.
     pub fn new(set: Option<T>) -> Result<BitDocIdSet<T>> {
         let cost = set.as_ref().unwrap().approximate_cardinality();
         Self::with_cost(set, cost as i64)
@@ -87,17 +87,17 @@ where
 
 #[cfg(test)]
 mod tests {
+    use rand::prelude::StdRng;
+
     use crate::search::doc_id_set::DocIdSet;
     use crate::test::util::base_doc_id_set_test_case::{
         BaseDocIdSetTestCase, BaseDocIdSetTestCaseSupperImpl,
     };
     use crate::test::util::lucene_test_case::random;
-
     use crate::util::bit_doc_id_set::BitDocIdSet;
     use crate::util::bit_set::BitSet;
     use crate::util::error::lucene_error::Result;
     use crate::util::fixed_bit_set::FixedBitSet;
-    use rand::prelude::StdRng;
 
     impl BaseDocIdSetTestCase for TestFixedBitDocIdSet {
         fn copy_of(&self, bs: &bit_set::BitSet, length: i32) -> impl DocIdSet {
@@ -118,9 +118,7 @@ mod tests {
             ds1: &bit_set::BitSet,
             ds2: impl DocIdSet,
         ) -> Result<()> {
-            BaseDocIdSetTestCaseSupperImpl::assert_equals(
-                self, random, num_bits, ds1, ds2,
-            )
+            BaseDocIdSetTestCaseSupperImpl::assert_equals(self, random, num_bits, ds1, ds2)
         }
     }
 

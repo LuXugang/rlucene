@@ -31,12 +31,7 @@ impl MonotonicLongValues {
     pub(crate) fn new(averages: Vec<f32>) -> Self {
         Self { averages }
     }
-    pub(crate) fn decode_block(
-        &mut self,
-        block: i32,
-        dest: &mut [i64],
-        count: i32,
-    ) -> Result<i32> {
+    pub(crate) fn decode_block(&mut self, block: i32, dest: &mut [i64], count: i32) -> Result<i32> {
         let average = self.averages[block as usize];
         for (i, item) in dest.iter_mut().enumerate().take(count as usize) {
             debug_assert!(i <= i32::MAX as usize);
@@ -45,12 +40,7 @@ impl MonotonicLongValues {
         Ok(count)
     }
 
-    pub(crate) fn get_value(
-        &mut self,
-        block: i32,
-        element: i32,
-        value: u64,
-    ) -> Result<i64> {
+    pub(crate) fn get_value(&mut self, block: i32, element: i32, value: u64) -> Result<i64> {
         Ok(expected(
             value as i64,
             self.averages[block as usize],
@@ -80,10 +70,7 @@ impl MonotonicLongValuesBuilder {
         }
     }
 
-    pub(crate) fn build(
-        mut self,
-        values_off: i32,
-    ) -> Result<MonotonicLongValues> {
+    pub(crate) fn build(mut self, values_off: i32) -> Result<MonotonicLongValues> {
         let _ = self.averages.split_off(values_off as usize);
 
         // TODO
@@ -97,22 +84,14 @@ impl MonotonicLongValuesBuilder {
         Self::BASE_RAM_BYTES_USED
     }
 
-    pub(crate) fn pack(
-        &mut self,
-        values: &mut [i64],
-        num_values: i32,
-        block: i32,
-    ) -> Result<()> {
+    pub(crate) fn pack(&mut self, values: &mut [i64], num_values: i32, block: i32) -> Result<()> {
         let average = if num_values == 1 {
             0.0
         } else {
-            (values[num_values as usize - 1] - values[0]) as f32
-                / (num_values - 1) as f32
+            (values[num_values as usize - 1] - values[0]) as f32 / (num_values - 1) as f32
         };
 
-        for (i, value) in
-            values.iter_mut().enumerate().take(num_values as usize)
-        {
+        for (i, value) in values.iter_mut().enumerate().take(num_values as usize) {
             debug_assert!(i <= i32::MAX as usize);
             *value -= expected(0, average, i as i32);
         }

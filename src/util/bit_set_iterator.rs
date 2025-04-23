@@ -14,14 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::util::bit_set::BitSet;
+use std::any::TypeId;
 
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::util::bit_set::BitSet;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::sparse_fixed_bit_set::SparseFixedBitSet;
-use std::any::TypeId;
 
 /// A [`DocIdSetIterator`] which iterates over set bits in a bit set.
 ///
@@ -61,10 +61,7 @@ impl<'a, T: BitSet> BitSetIterator<'a, T> {
         self.doc = doc_id;
     }
     #[allow(unused)]
-    fn equal_disi_type<
-        T1: DocIdSetIterator + 'static,
-        T2: DocIdSetIterator + 'static,
-    >(
+    fn equal_disi_type<T1: DocIdSetIterator + 'static, T2: DocIdSetIterator + 'static>(
         _it1: &T1,
         _it2: &T2,
     ) -> bool {
@@ -86,7 +83,8 @@ impl<'a, T: BitSet> BitSetIterator<'a, T> {
     }
 
     // todo
-    /// If the provided iterator wraps a [`FixedBitSet`], returns it, otherwise returns `None`.
+    /// If the provided iterator wraps a [`FixedBitSet`], returns it, otherwise
+    /// returns `None`.
     pub fn get_fixed_bit_set_or_null<B: BitSet>(
         iterator: impl DocIdSetIterator + 'static,
     ) -> Option<FixedBitSet> {
@@ -94,7 +92,8 @@ impl<'a, T: BitSet> BitSetIterator<'a, T> {
     }
 
     // todo
-    /// If the provided iterator wraps a [`SparseFixedBitSet`] returns it, otherwise returns `None`.
+    /// If the provided iterator wraps a [`SparseFixedBitSet`] returns it,
+    /// otherwise returns `None`.
     pub fn get_sparse_fixed_bit_set_or_null<B: BitSet>(
         iterator: impl DocIdSetIterator + 'static,
     ) -> Option<SparseFixedBitSet> {

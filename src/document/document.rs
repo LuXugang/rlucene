@@ -14,23 +14,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::document::fields::Fields;
-use crate::index::indexable_field::IndexableField;
-use crate::index::BytesRef;
-use crate::util::error::lucene_error::Result;
 use std::fmt;
 use std::sync::Arc;
 use std::vec::IntoIter;
 
+use crate::document::fields::Fields;
+use crate::index::indexable_field::IndexableField;
+use crate::index::BytesRef;
+use crate::util::error::lucene_error::Result;
+
 /// Documents are the unit of indexing and search.
 ///
-/// A Document is a set of fields. Each field has a name and a textual value. A field may be
+/// A Document is a set of fields. Each field has a name and a textual value. A
+/// field may be
 /// [`IndexableFieldType::stored`](crate::index::indexable_field_type::IndexableFieldType::stored) with the document, in which case it is returned with search hits
-/// on the document. Thus each document should typically contain one or more stored fields which
-/// uniquely identify it.
+/// on the document. Thus each document should typically contain one or more
+/// stored fields which uniquely identify it.
 ///
-/// Note that fields which are *not* [`IndexableFieldType::stored`](crate::index::indexable_field_type::IndexableFieldType::stored) are *not* available in documents
-/// retrieved from the index, e.g. with [`ScoreDoc::doc`](crate::search::score_doc::ScoreDoc) or [`StoredFields::document(i32)`](crate::index::stored_fields::StoredFields::document).
+/// Note that fields which are *not*
+/// [`IndexableFieldType::stored`](crate::index::indexable_field_type::IndexableFieldType::stored)
+/// are *not* available in documents retrieved from the index, e.g. with
+/// [`ScoreDoc::doc`](crate::search::score_doc::ScoreDoc) or
+/// [`StoredFields::document(i32)`](crate::index::stored_fields::StoredFields::document).
 pub struct Document {
     fields: Vec<Fields>,
 }
@@ -45,54 +50,54 @@ impl Document {
     pub fn new() -> Self {
         Document { fields: Vec::new() }
     }
-    /// Adds a field to a document. Several fields may be added with the same name. In this case, if
-    /// the fields are indexed, their text is treated as though appended for the purposes of search.
+    /// Adds a field to a document. Several fields may be added with the same
+    /// name. In this case, if the fields are indexed, their text is treated
+    /// as though appended for the purposes of search.
     ///
-    /// Note that `add` like the `removeField(s)` methods only makes sense prior to adding a document
-    /// to an index. These methods cannot be used to change the content of an existing index! In order
-    /// to achieve this, a document has to be deleted from an index and a new changed version of that
-    /// document has to be added.
+    /// Note that `add` like the `removeField(s)` methods only makes sense prior
+    /// to adding a document to an index. These methods cannot be used to
+    /// change the content of an existing index! In order to achieve this, a
+    /// document has to be deleted from an index and a new changed version of
+    /// that document has to be added.
     pub fn add(&mut self, field: impl Into<Fields>) {
         self.fields.push(field.into());
     }
-    /// Removes the field with the specified name from the document. If multiple fields exist with this
-    /// name, this method removes the first field that has been added. If there is no field with the
-    /// specified name, the document remains unchanged.
+    /// Removes the field with the specified name from the document. If multiple
+    /// fields exist with this name, this method removes the first field
+    /// that has been added. If there is no field with the specified name,
+    /// the document remains unchanged.
     ///
-    /// Note that the `removeField(s)` methods, like the `add` method, only make sense prior to adding a
-    /// document to an index. These methods cannot be used to change the content of an existing index!
-    /// In order to achieve this, a document has to be deleted from an index and a new changed version
-    /// of that document has to be added.
+    /// Note that the `removeField(s)` methods, like the `add` method, only make
+    /// sense prior to adding a document to an index. These methods cannot
+    /// be used to change the content of an existing index! In order to
+    /// achieve this, a document has to be deleted from an index and a new
+    /// changed version of that document has to be added.
     pub fn remove_field(&mut self, name: &str) {
-        if let Some(index) =
-            self.fields.iter().position(|field| field.name() == name)
-        {
+        if let Some(index) = self.fields.iter().position(|field| field.name() == name) {
             self.fields.remove(index);
         }
     }
-    /// Removes all fields with the given name from the document. If there is no field with the
-    /// specified name, the document remains unchanged.
+    /// Removes all fields with the given name from the document. If there is no
+    /// field with the specified name, the document remains unchanged.
     ///
-    /// Note that the `removeField(s)` methods, like the `add` method, only make sense prior to adding a
-    /// document to an index. These methods cannot be used to change the content of an existing index!
-    /// In order to achieve this, a document has to be deleted from an index and a new changed version
-    /// of that document has to be added.
+    /// Note that the `removeField(s)` methods, like the `add` method, only make
+    /// sense prior to adding a document to an index. These methods cannot
+    /// be used to change the content of an existing index! In order to
+    /// achieve this, a document has to be deleted from an index and a new
+    /// changed version of that document has to be added.
     pub fn remove_fields(&mut self, name: &str) {
         self.fields.retain(|field| field.name() != name);
     }
-    /// Returns an array of byte arrays for the fields that have the name specified as the method
-    /// parameter. This method returns an empty array when there are no matching fields. It never
-    /// returns `None`.
+    /// Returns an array of byte arrays for the fields that have the name
+    /// specified as the method parameter. This method returns an empty
+    /// array when there are no matching fields. It never returns `None`.
     ///
     /// # Parameters
     /// - `name`: the name of the field
     ///
     /// # Returns
     /// A `Vec<Arc<BytesRef>>` of binary field values.
-    pub fn get_binary_values(
-        &self,
-        name: &str,
-    ) -> Result<Vec<Arc<BytesRef<Vec<u8>>>>> {
+    pub fn get_binary_values(&self, name: &str) -> Result<Vec<Arc<BytesRef<Vec<u8>>>>> {
         let mut result = Vec::new();
 
         for field in &self.fields {
@@ -106,19 +111,18 @@ impl Document {
         }
         Ok(result)
     }
-    /// Returns an array of bytes for the first (or only) field that has the name specified as the
-    /// method parameter. This method will return `None` if no binary fields with the specified name
-    /// are available. There may be non-binary fields with the same name.
+    /// Returns an array of bytes for the first (or only) field that has the
+    /// name specified as the method parameter. This method will return
+    /// `None` if no binary fields with the specified name are available.
+    /// There may be non-binary fields with the same name.
     ///
     /// # Parameters
     /// - `name`: the name of the field.
     ///
     /// # Returns
-    /// A `Option<Arc<BytesRef>>` containing the binary field value, or `None` if no matching field is found.
-    pub fn get_binary_value(
-        &self,
-        name: &str,
-    ) -> Result<Option<Arc<BytesRef<Vec<u8>>>>> {
+    /// A `Option<Arc<BytesRef>>` containing the binary field value, or `None`
+    /// if no matching field is found.
+    pub fn get_binary_value(&self, name: &str) -> Result<Option<Arc<BytesRef<Vec<u8>>>>> {
         for field in &self.fields {
             if field.name() == name {
                 return match field.binary_value() {
@@ -130,8 +134,9 @@ impl Document {
         }
         Ok(None)
     }
-    /// Returns a field with the given name if any exist in this document, or `None`. If multiple fields
-    /// exist with this name, this method returns the first value added.
+    /// Returns a field with the given name if any exist in this document, or
+    /// `None`. If multiple fields exist with this name, this method returns
+    /// the first value added.
     ///
     /// # Parameters
     /// - `name`: the name of the field.
@@ -142,8 +147,9 @@ impl Document {
         self.fields.iter().find(|field| field.name() == name)
     }
 
-    /// Returns an array of `IndexableField`s with the given name. This method returns an empty
-    /// array when there are no matching fields. It never returns `None`.
+    /// Returns an array of `IndexableField`s with the given name. This method
+    /// returns an empty array when there are no matching fields. It never
+    /// returns `None`.
     ///
     /// # Parameters
     /// - `name`: the name of the field.
@@ -160,24 +166,26 @@ impl Document {
     /// Returns a `Vec<Arc>` containing all the fields in a document.
     ///
     /// # Note
-    /// Fields that are not stored are not available in documents retrieved from the index,
-    /// e.g., when using `StoredFields::document(int)`.
+    /// Fields that are not stored are not available in documents retrieved from
+    /// the index, e.g., when using `StoredFields::document(int)`.
     ///
     /// # Returns
     /// An immutable `Vec<Arc>` containing all fields in the document.
     pub fn get_fields(&self) -> &[Fields] {
         &self.fields
     }
-    /// Returns an array of values of the field specified by the `name`. This method returns an empty
-    /// array when there are no matching fields. It never returns `None`. For a numeric `StoredField`,
-    /// it returns the string representation of the number. To get the actual numeric field instances,
-    /// use `getFields`.
+    /// Returns an array of values of the field specified by the `name`. This
+    /// method returns an empty array when there are no matching fields. It
+    /// never returns `None`. For a numeric `StoredField`, it returns the
+    /// string representation of the number. To get the actual numeric field
+    /// instances, use `getFields`.
     ///
     /// # Parameters
     /// - `name`: the name of the field.
     ///
     /// # Returns
-    /// A `Vec<Arc<String>`, which is an empty vector if no matching fields are found.
+    /// A `Vec<Arc<String>`, which is an empty vector if no matching fields are
+    /// found.
     pub fn get_values(&self, name: &str) -> Result<Vec<Arc<String>>> {
         let mut result = Vec::new();
         for field in &self.fields {
@@ -191,16 +199,19 @@ impl Document {
         }
         Ok(result)
     }
-    /// Returns the string value of the field with the given name if any exist in this document, or `None`.
-    /// If multiple fields exist with this name, this method returns the first value added. If only binary
-    /// fields with this name exist, returns `None`. For a numeric `StoredField`, it returns the string
-    /// value of the number. To get the actual numeric field instance, use `getField`.
+    /// Returns the string value of the field with the given name if any exist
+    /// in this document, or `None`. If multiple fields exist with this
+    /// name, this method returns the first value added. If only binary
+    /// fields with this name exist, returns `None`. For a numeric
+    /// `StoredField`, it returns the string value of the number. To get the
+    /// actual numeric field instance, use `getField`.
     ///
     /// # Parameters
     /// - `name`: the name of the field.
     ///
     /// # Returns
-    /// An `Option<Arc<String>>`,  `None` means no string value is found (e.g., for binary fields).
+    /// An `Option<Arc<String>>`,  `None` means no string value is found (e.g.,
+    /// for binary fields).
     pub fn get(&self, name: &str) -> Result<Option<Arc<String>>> {
         for field in &self.fields {
             if field.name() == name {
@@ -243,6 +254,8 @@ impl IntoIterator for Document {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use crate::document::document::Document;
     use crate::document::field::{Field, Store};
     use crate::document::field_type::FieldType;
@@ -252,23 +265,20 @@ mod tests {
     use crate::index::index_options::IndexOptions;
     use crate::index::indexable_field::IndexableField;
     use crate::index::indexable_field_type::IndexableFieldType;
-
     use crate::util::error::lucene_error::Result;
-    use std::sync::Arc;
 
     #[allow(dead_code)]
     struct TestDocument; // for quick search
 
-    /// Tests the [`Document::remove_field`] method for a brand-new `Document` that has not been indexed yet.
+    /// Tests the [`Document::remove_field`] method for a brand-new `Document`
+    /// that has not been indexed yet.
     ///
     /// # Errors
     /// - Returns an error if an exception occurs during execution.
     #[test]
     fn test_binary_field() -> Result<()> {
-        let binary_val =
-            "this text will be stored as a byte array in the index";
-        let binary_val2 =
-            "this text will be also stored as a byte array in the index";
+        let binary_val = "this text will be stored as a byte array in the index";
+        let binary_val2 = "this text will be also stored as a byte array in the index";
 
         let mut doc = Document::new();
 
@@ -276,24 +286,14 @@ mod tests {
         ft.set_stored(true)?;
         let ft_arc = Arc::new(ft);
 
-        let string_fld = Field::with_string(
-            "string",
-            Arc::new(binary_val.to_string()),
-            ft_arc.clone(),
-        )?;
-        let binary_fld =
-            StoredField::with_binary("binary", binary_val.as_bytes().to_vec())?;
-        let binary_fld2 = StoredField::with_binary(
-            "binary",
-            binary_val2.as_bytes().to_vec(),
-        )?;
+        let string_fld =
+            Field::with_string("string", Arc::new(binary_val.to_string()), ft_arc.clone())?;
+        let binary_fld = StoredField::with_binary("binary", binary_val.as_bytes().to_vec())?;
+        let binary_fld2 = StoredField::with_binary("binary", binary_val2.as_bytes().to_vec())?;
 
         assert!(binary_fld.binary_value()?.is_some());
         assert!(string_fld.field_type().stored());
-        assert_eq!(
-            binary_fld.field_type().index_options(),
-            &IndexOptions::None
-        );
+        assert_eq!(binary_fld.field_type().index_options(), &IndexOptions::None);
         doc.add(binary_fld);
         doc.add(string_fld);
 
@@ -335,7 +335,8 @@ mod tests {
         assert_eq!(doc.get_fields().len(), 0);
         Ok(())
     }
-    /// Tests the [`Document::remove_field`] method for a brand-new `Document` that has not been indexed yet.
+    /// Tests the [`Document::remove_field`] method for a brand-new `Document`
+    /// that has not been indexed yet.
     ///
     /// # Errors
     /// - Returns an error if an exception occurs.
@@ -411,18 +412,15 @@ mod tests {
         let doc = make_document_with_fields()?;
 
         let keyword_values = doc.get_values("keyword")?;
-        let keyword_str: Vec<&str> =
-            keyword_values.iter().map(|s| s.as_str()).collect();
+        let keyword_str: Vec<&str> = keyword_values.iter().map(|s| s.as_str()).collect();
         assert_eq!(keyword_str, vec!["test1", "test2"]);
 
         let text_values = doc.get_values("text")?;
-        let text_str: Vec<&str> =
-            text_values.iter().map(|s| s.as_str()).collect();
+        let text_str: Vec<&str> = text_values.iter().map(|s| s.as_str()).collect();
         assert_eq!(text_str, vec!["test1", "test2"]);
 
         let unindexed_values = doc.get_values("unindexed")?;
-        let unindexed_str: Vec<&str> =
-            unindexed_values.iter().map(|s| s.as_str()).collect();
+        let unindexed_str: Vec<&str> = unindexed_values.iter().map(|s| s.as_str()).collect();
         assert_eq!(unindexed_str, vec!["test1", "test2"]);
 
         let nope_values = doc.get_values("nope")?;
@@ -442,8 +440,7 @@ mod tests {
         stored.set_stored(true)?;
         let stored = Arc::new(stored);
         let mut indexed_not_tokenized = FieldType::new();
-        indexed_not_tokenized
-            .set_index_options(IndexOptions::DocsAndFreqsAndPositions)?;
+        indexed_not_tokenized.set_index_options(IndexOptions::DocsAndFreqsAndPositions)?;
         indexed_not_tokenized.set_tokenized(false)?;
         let indexed_not_tokenized = Arc::new(indexed_not_tokenized);
         doc.add(StringField::with_string("keyword", "test1", Store::Yes)?);

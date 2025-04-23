@@ -14,13 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::index::impact::Impact;
 use std::collections::BTreeSet;
 
-/// This struct accumulates the (freq, norm) pairs that may produce competitive scores.
+use crate::index::impact::Impact;
+
+/// This struct accumulates the (freq, norm) pairs that may produce competitive
+/// scores.
 pub struct CompetitiveImpactAccumulator {
-    /// We speed up accumulation for common norm values with this array that maps
-    /// norm values in -128..127 to the maximum frequency observed for these norm values.
+    /// We speed up accumulation for common norm values with this array that
+    /// maps norm values in -128..127 to the maximum frequency observed for
+    /// these norm values.
     pub max_freqs: [i32; 256],
     /// Stores competitive (freq, norm) pairs for norm values that fall
     /// outside of -128..127. It is always empty with the default similarity,
@@ -43,8 +46,8 @@ impl CompetitiveImpactAccumulator {
         debug_assert!(self.assert_consistent());
     }
 
-    /// Accumulate a (freq,norm) pair.updating this structure if there is no equivalent or more
-    /// competitive entry already.
+    /// Accumulate a (freq,norm) pair.updating this structure if there is no
+    /// equivalent or more competitive entry already.
     pub fn add(&mut self, freq: i32, norm: i64) {
         if (i8::MIN as i64..=i8::MAX as i64).contains(&norm) {
             let idx = (norm as i8) as u8 as usize;
@@ -120,9 +123,7 @@ impl CompetitiveImpactAccumulator {
         let mut prev_freq = 0;
         let mut prev_norm = 0u64;
         for imp in &self.other_freq_norm_pairs {
-            debug_assert!(
-                imp.norm < i8::MIN as i64 || imp.norm > i8::MAX as i64
-            );
+            debug_assert!(imp.norm < i8::MIN as i64 || imp.norm > i8::MAX as i64);
             debug_assert!(prev_freq < imp.freq);
             debug_assert!(prev_norm < imp.norm as u64);
             prev_freq = imp.freq;

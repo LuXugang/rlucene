@@ -14,9 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::{Display, Formatter};
+
 use crate::store::{DataOutput, IndexOutput};
 use crate::util::error::lucene_error::Result;
-use std::fmt::{Display, Formatter};
 
 pub struct DummyIndexOutput;
 
@@ -25,12 +26,7 @@ impl DataOutput for DummyIndexOutput {
         unreachable!(" this method should never be called")
     }
 
-    fn write_bytes_range(
-        &mut self,
-        _b: &[u8],
-        _offset: i32,
-        _length: i32,
-    ) -> Result<()> {
+    fn write_bytes_range(&mut self, _b: &[u8], _offset: i32, _length: i32) -> Result<()> {
         unreachable!(" this method should never be called")
     }
 }

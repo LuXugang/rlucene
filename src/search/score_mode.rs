@@ -49,9 +49,7 @@ impl ScoreMode {
             | ScoreMode::CompleteNoScores { needs_scores, .. }
             | ScoreMode::TopScores { needs_scores, .. }
             | ScoreMode::TopDocs { needs_scores, .. }
-            | ScoreMode::TopDocsWithScores { needs_scores, .. } => {
-                *needs_scores
-            },
+            | ScoreMode::TopDocsWithScores { needs_scores, .. } => *needs_scores,
         }
     }
 
@@ -61,9 +59,7 @@ impl ScoreMode {
             | ScoreMode::CompleteNoScores { is_exhaustive, .. }
             | ScoreMode::TopScores { is_exhaustive, .. }
             | ScoreMode::TopDocs { is_exhaustive, .. }
-            | ScoreMode::TopDocsWithScores { is_exhaustive, .. } => {
-                *is_exhaustive
-            },
+            | ScoreMode::TopDocsWithScores { is_exhaustive, .. } => *is_exhaustive,
         }
     }
 }

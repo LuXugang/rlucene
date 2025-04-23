@@ -14,13 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::codecs::mutable_point_tree::{
-    MutablePointTree, MutablePointTreeEnum,
-};
+use std::cell::RefCell;
+use std::rc::Rc;
+
+use crate::codecs::mutable_point_tree::{MutablePointTree, MutablePointTreeEnum};
 use crate::index::BytesRef;
-use crate::util::array_util::{
-    ArrayUtil, ByteArrayComparator, ByteArrayComparatorEnum,
-};
+use crate::util::array_util::{ArrayUtil, ByteArrayComparator, ByteArrayComparatorEnum};
 use crate::util::bkd::bkd_config::BKDConfig;
 use crate::util::error::lucene_error::Result;
 use crate::util::intro_sorter::IntroSorter;
@@ -28,18 +27,16 @@ use crate::util::packed::PackedInts;
 use crate::util::radix_selector::{RadixSelector, RadixSelectorBase};
 use crate::util::selector::Selector;
 use crate::util::{
-    IntroSelector, IntroSelectorBase, IntroSelectorBaseDefault, MSBRadixSorter,
-    MSBRadixSorterBase, Sorter, StableMSBRadixSorter, StableMSBRadixSorterBase,
-    ToInt,
+    IntroSelector, IntroSelectorBase, IntroSelectorBaseDefault, MSBRadixSorter, MSBRadixSorterBase,
+    Sorter, StableMSBRadixSorter, StableMSBRadixSorterBase, ToInt,
 };
-use std::cell::RefCell;
-use std::rc::Rc;
 
 /// Utility APIs for sorting and partitioning buffered points.
 pub struct MutablePointTreeReaderUtils;
 
 impl MutablePointTreeReaderUtils {
-    /// Sort the given [`MutablePointTree`] based on its packed value then doc ID.
+    /// Sort the given [`MutablePointTree`] based on its packed value then doc
+    /// ID.
     pub fn sort(
         config: &BKDConfig,
         max_doc: i32,
@@ -58,25 +55,23 @@ impl MutablePointTreeReaderUtils {
             prev_doc = doc;
         }
 
-        // No need to tie break on doc IDs if already sorted by doc ID, since we use a stable sort.
-        // This should be a common situation as IndexWriter accumulates data in doc ID order when
+        // No need to tie break on doc IDs if already sorted by doc ID, since we
+        // use a stable sort. This should be a common situation as
+        // IndexWriter accumulates data in doc ID order when
         // index sorting is not enabled.
         let bits_per_doc_id = if sorted_by_doc_id {
             0
         } else {
             PackedInts::bits_required((max_doc - 1) as i64)?
         };
-        let max_length =
-            config.packed_bytes_length() + (bits_per_doc_id + 7) / 8;
+        let max_length = config.packed_bytes_length() + (bits_per_doc_id + 7) / 8;
         let delegate_sorter = StableMSBRadixSorterImpl {
             reader,
             config: Rc::new(config.clone()),
             bits_per_doc_id,
         };
-        let stable_msb_radix_sorter =
-            StableMSBRadixSorter::new(delegate_sorter, max_length);
-        let mut sorter =
-            MSBRadixSorter::new(max_length, stable_msb_radix_sorter);
+        let stable_msb_radix_sorter = StableMSBRadixSorter::new(delegate_sorter, max_length);
+        let mut sorter = MSBRadixSorter::new(max_length, stable_msb_radix_sorter);
         sorter.sort(from, to)
     }
 
@@ -93,11 +88,10 @@ impl MutablePointTreeReaderUtils {
         _scratch2: &mut BytesRef<Vec<u8>>,
     ) -> Result<()> {
         // Get an unsigned comparator for the byte arrays.
-        let comparator =
-            ArrayUtil::get_unsigned_comparator(config.bytes_per_dim as usize);
+        let comparator = ArrayUtil::get_unsigned_comparator(config.bytes_per_dim as usize);
         let start = sorted_dim * config.bytes_per_dim;
-        // No need for a fancy radix sort here, this is called on the leaves only so
-        // there are not many values to sort.
+        // No need for a fancy radix sort here, this is called on the leaves
+        // only so there are not many values to sort.
         let mut intro_sorter = IntroSorterImpl {
             reader,
             config: Rc::new(config.clone()),
@@ -110,8 +104,9 @@ impl MutablePointTreeReaderUtils {
         intro_sorter.sort(from, to)?;
         Ok(())
     }
-    /// Partition points around `mid`. All values on the left must be less than or equal to it
-    /// and all values on the right must be greater than or equal to it.
+    /// Partition points around `mid`. All values on the left must be less than
+    /// or equal to it and all values on the right must be greater than or
+    /// equal to it.
     #[allow(clippy::too_many_arguments)]
     pub fn partition(
         config: &BKDConfig,
@@ -127,9 +122,8 @@ impl MutablePointTreeReaderUtils {
     ) -> Result<()> {
         let dim_offset = split_dim * config.bytes_per_dim + common_prefix_len;
         let dim_cmp_bytes = config.bytes_per_dim - common_prefix_len;
-        let data_cmp_bytes = (config.num_dims - config.num_index_dims)
-            * config.bytes_per_dim
-            + dim_cmp_bytes;
+        let data_cmp_bytes =
+            (config.num_dims - config.num_index_dims) * config.bytes_per_dim + dim_cmp_bytes;
         let bits_per_doc_id = PackedInts::bits_required((max_doc - 1) as i64)?;
         let max_length = data_cmp_bytes + ((bits_per_doc_id + 7) / 8);
 
@@ -158,13 +152,9 @@ impl MSBRadixSorterBase for StableMSBRadixSorterImpl<'_> {
         if k < self.config.packed_bytes_length() {
             Ok(self.reader.get_byte_at(i, k) as i32)
         } else {
-            let shift = self.bits_per_doc_id
-                - ((k - self.config.packed_bytes_length() + 1) << 3);
+            let shift = self.bits_per_doc_id - ((k - self.config.packed_bytes_length() + 1) << 3);
             let effective_shift = std::cmp::max(0, shift) as u32;
-            Ok(
-                ((self.reader.get_doc_id(i) as u32 >> effective_shift) & 0xff)
-                    as i32,
-            )
+            Ok(((self.reader.get_doc_id(i) as u32 >> effective_shift) & 0xff) as i32)
         }
     }
 }
@@ -223,19 +213,16 @@ impl Sorter for IntroSorterImpl<'_> {
         );
 
         if cmp == 0 {
-            let pivot_index_start = self.pivot.offset
-                + self.config.packed_index_bytes_length() as usize;
-            let pivot_index_end =
-                self.pivot.offset + self.config.packed_bytes_length() as usize;
-            let scratch_index_start = self.scratch2.offset
-                + self.config.packed_index_bytes_length() as usize;
-            let scratch_index_end = self.scratch2.offset
-                + self.config.packed_bytes_length() as usize;
+            let pivot_index_start =
+                self.pivot.offset + self.config.packed_index_bytes_length() as usize;
+            let pivot_index_end = self.pivot.offset + self.config.packed_bytes_length() as usize;
+            let scratch_index_start =
+                self.scratch2.offset + self.config.packed_index_bytes_length() as usize;
+            let scratch_index_end =
+                self.scratch2.offset + self.config.packed_bytes_length() as usize;
 
-            let pivot_slice =
-                &self.pivot.bytes[pivot_index_start..pivot_index_end];
-            let scratch_slice =
-                &self.scratch2.bytes[scratch_index_start..scratch_index_end];
+            let pivot_slice = &self.pivot.bytes[pivot_index_start..pivot_index_end];
+            let scratch_slice = &self.scratch2.bytes[scratch_index_start..scratch_index_end];
 
             let cmp = pivot_slice.cmp(scratch_slice).to_int();
             return if cmp == 0 {
@@ -280,22 +267,16 @@ impl RadixSelectorBase for RadixSelectorImpl {
         } else if k < self.data_cmp_bytes {
             reader.get_byte_at(
                 i,
-                self.config.packed_index_bytes_length() + k
-                    - self.dim_cmp_bytes,
+                self.config.packed_index_bytes_length() + k - self.dim_cmp_bytes,
             ) as i32
         } else {
-            let shift =
-                self.bits_per_doc_id - ((k - self.data_cmp_bytes + 1) << 3);
+            let shift = self.bits_per_doc_id - ((k - self.data_cmp_bytes + 1) << 3);
             let effective_shift = std::cmp::max(0, shift) as u32;
             ((reader.get_doc_id(i) as u32 >> effective_shift) & 0xff) as i32
         }
     }
 
-    fn get_fallback_selector(
-        &mut self,
-        k: i32,
-        _max_length: i32,
-    ) -> impl Selector
+    fn get_fallback_selector(&mut self, k: i32, _max_length: i32) -> impl Selector
     where
         Self: Sized,
     {
@@ -306,9 +287,7 @@ impl RadixSelectorBase for RadixSelectorImpl {
             self.config.packed_index_bytes_length() + k - self.dim_cmp_bytes
         };
         let data_end = self.config.num_dims * self.config.bytes_per_dim;
-        let dim_comparator = ArrayUtil::get_unsigned_comparator(
-            self.config.bytes_per_dim as usize,
-        );
+        let dim_comparator = ArrayUtil::get_unsigned_comparator(self.config.bytes_per_dim as usize);
 
         let sub_selector = IntroSelectorImpl {
             dim_cmp_bytes: self.dim_cmp_bytes,
@@ -364,11 +343,9 @@ impl IntroSelectorBaseDefault for IntroSelectorImpl {
         }
         if self.k < self.data_cmp_bytes {
             reader.get_value(j, &mut self.scratch2);
-            let pivot_slice = &self.pivot.bytes[self.pivot.offset
-                + self.data_start as usize
+            let pivot_slice = &self.pivot.bytes[self.pivot.offset + self.data_start as usize
                 ..self.pivot.offset + self.data_end as usize];
-            let scratch_slice = &self.scratch2.bytes[self.scratch2.offset
-                + self.data_start as usize
+            let scratch_slice = &self.scratch2.bytes[self.scratch2.offset + self.data_start as usize
                 ..self.scratch2.offset + self.data_end as usize];
             let cmp = pivot_slice.cmp(scratch_slice).to_int();
             if cmp != 0 {
@@ -390,9 +367,14 @@ impl IntroSelectorBase for IntroSelectorImpl {}
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use crate::codecs::mutable_point_tree::{
-        MutablePointTree, MutablePointTreeEnum,
-    };
+    use std::cell::RefCell;
+    use std::fmt;
+    use std::rc::Rc;
+
+    use rand::rngs::StdRng;
+    use rand::{Rng, RngCore};
+
+    use crate::codecs::mutable_point_tree::{MutablePointTree, MutablePointTreeEnum};
     use crate::index::point_values::PointTree;
     use crate::index::BytesRef;
     use crate::test::util::lucene_test_case::random;
@@ -401,11 +383,6 @@ pub(crate) mod tests {
     use crate::util::bkd::mutable_point_tree_reader_utils::MutablePointTreeReaderUtils;
     use crate::util::error::lucene_error::Result;
     use crate::util::{SliceCopyOps, ToInt};
-    use rand::rngs::StdRng;
-    use rand::{Rng, RngCore};
-    use std::cell::RefCell;
-    use std::fmt;
-    use std::rc::Rc;
 
     #[allow(dead_code)] // for quick search
     struct TestMutablePointTreeReaderUtils;
@@ -427,10 +404,7 @@ pub(crate) mod tests {
         Ok(())
     }
 
-    fn do_test_sort(
-        random: &mut StdRng,
-        is_doc_id_incremental: bool,
-    ) -> Result<()> {
+    fn do_test_sort(random: &mut StdRng, is_doc_id_incremental: bool) -> Result<()> {
         let bytes_per_dim = TestUtil::next_int(random, 1, 16);
         let end = 1 << random.random_range(0..30);
         let max_doc = TestUtil::next_int(random, 1, end);
@@ -448,15 +422,8 @@ pub(crate) mod tests {
             &mut common_prefix_lengths,
             is_doc_id_incremental,
         );
-        let mut reader =
-            MutablePointTreeEnum::Dummy(DummyPointsReader::new(&points));
-        MutablePointTreeReaderUtils::sort(
-            &config,
-            max_doc,
-            &mut reader,
-            0,
-            points.len() as i32,
-        )?;
+        let mut reader = MutablePointTreeEnum::Dummy(DummyPointsReader::new(&points));
+        MutablePointTreeReaderUtils::sort(&config, max_doc, &mut reader, 0, points.len() as i32)?;
         let mut sorted_points = points.clone();
         sorted_points.sort_by(|o1, o2| {
             let cmp = o1.packed_value.cmp(&o2.packed_value);
@@ -472,13 +439,8 @@ pub(crate) mod tests {
                 assert_eq!(sorted_points.len(), reader.points.len());
 
                 let mut prev_point: Option<&Point> = None;
-                for (sorted_point, reader_point) in
-                    sorted_points.iter().zip(reader.points.iter())
-                {
-                    assert_eq!(
-                        sorted_point.packed_value,
-                        reader_point.packed_value
-                    );
+                for (sorted_point, reader_point) in sorted_points.iter().zip(reader.points.iter()) {
+                    assert_eq!(sorted_point.packed_value, reader_point.packed_value);
                     if let Some(prev) = prev_point {
                         if reader_point.packed_value == prev.packed_value {
                             assert!(
@@ -517,8 +479,7 @@ pub(crate) mod tests {
             false,
         );
         let sorted_dim = random.random_range(0..config.num_index_dims);
-        let mut reader =
-            MutablePointTreeEnum::Dummy(DummyPointsReader::new(&points));
+        let mut reader = MutablePointTreeEnum::Dummy(DummyPointsReader::new(&points));
         MutablePointTreeReaderUtils::sort_by_dim(
             &config,
             sorted_dim,
@@ -536,13 +497,10 @@ pub(crate) mod tests {
                     let previous_value = &reader.points[i - 1].packed_value;
                     let current_value = &reader.points[i].packed_value;
 
-                    let dim_start_prev =
-                        previous_value.offset + offset as usize;
-                    let dim_end_prev =
-                        dim_start_prev + config.bytes_per_dim as usize;
+                    let dim_start_prev = previous_value.offset + offset as usize;
+                    let dim_end_prev = dim_start_prev + config.bytes_per_dim as usize;
                     let dim_start_curr = current_value.offset + offset as usize;
-                    let dim_end_curr =
-                        dim_start_curr + config.bytes_per_dim as usize;
+                    let dim_end_curr = dim_start_curr + config.bytes_per_dim as usize;
 
                     let mut cmp = compare_unsigned(
                         &previous_value.bytes[dim_start_prev..dim_end_prev],
@@ -550,29 +508,20 @@ pub(crate) mod tests {
                     );
 
                     if cmp == 0 {
-                        let data_dim_offset =
-                            config.packed_index_bytes_length();
-                        let data_dims_length = (config.num_dims
-                            - config.num_index_dims)
-                            * config.bytes_per_dim;
-                        let data_start_prev =
-                            previous_value.offset + data_dim_offset as usize;
-                        let data_end_prev =
-                            data_start_prev + data_dims_length as usize;
-                        let data_start_curr =
-                            current_value.offset + data_dim_offset as usize;
-                        let data_end_curr =
-                            data_start_curr + data_dims_length as usize;
+                        let data_dim_offset = config.packed_index_bytes_length();
+                        let data_dims_length =
+                            (config.num_dims - config.num_index_dims) * config.bytes_per_dim;
+                        let data_start_prev = previous_value.offset + data_dim_offset as usize;
+                        let data_end_prev = data_start_prev + data_dims_length as usize;
+                        let data_start_curr = current_value.offset + data_dim_offset as usize;
+                        let data_end_curr = data_start_curr + data_dims_length as usize;
 
                         cmp = compare_unsigned(
-                            &previous_value.bytes
-                                [data_start_prev..data_end_prev],
-                            &current_value.bytes
-                                [data_start_curr..data_end_curr],
+                            &previous_value.bytes[data_start_prev..data_end_prev],
+                            &current_value.bytes[data_start_curr..data_end_curr],
                         );
                         if cmp == 0 {
-                            cmp =
-                                reader.points[i - 1].doc - reader.points[i].doc;
+                            cmp = reader.points[i - 1].doc - reader.points[i].doc;
                         }
                     }
                     assert!(cmp <= 0);
@@ -631,59 +580,40 @@ pub(crate) mod tests {
                 for i in 0..(points.len() as i32) {
                     let value = &reader.points[i as usize].packed_value;
                     let dim_start = value.offset + offset as usize;
-                    let dim_end =
-                        value.offset + (offset + config.bytes_per_dim) as usize;
+                    let dim_end = value.offset + (offset + config.bytes_per_dim) as usize;
                     let pivot_dim_start = pivot_value.offset + offset as usize;
-                    let pivot_dim_end = pivot_value.offset
-                        + (offset + config.bytes_per_dim) as usize;
+                    let pivot_dim_end =
+                        pivot_value.offset + (offset + config.bytes_per_dim) as usize;
 
                     let mut cmp = compare_unsigned(
                         &value.bytes[dim_start..dim_end],
                         &pivot_value.bytes[pivot_dim_start..pivot_dim_end],
                     );
                     if cmp == 0 {
-                        let data_dim_offset =
-                            config.packed_index_bytes_length();
-                        let data_dims_length = (config.num_dims
-                            - config.num_index_dims)
-                            * config.bytes_per_dim;
-                        let data_start =
-                            value.offset + data_dim_offset as usize;
+                        let data_dim_offset = config.packed_index_bytes_length();
+                        let data_dims_length =
+                            (config.num_dims - config.num_index_dims) * config.bytes_per_dim;
+                        let data_start = value.offset + data_dim_offset as usize;
                         let data_end = data_start + data_dims_length as usize;
-                        let pivot_data_start =
-                            pivot_value.offset + data_dim_offset as usize;
-                        let pivot_data_end =
-                            pivot_data_start + data_dims_length as usize;
+                        let pivot_data_start = pivot_value.offset + data_dim_offset as usize;
+                        let pivot_data_end = pivot_data_start + data_dims_length as usize;
                         cmp = compare_unsigned(
                             &value.bytes[data_start..data_end],
-                            &pivot_value.bytes
-                                [pivot_data_start..pivot_data_end],
+                            &pivot_value.bytes[pivot_data_start..pivot_data_end],
                         );
                         if cmp == 0 {
-                            cmp =
-                                reader.points[i as usize].doc - pivot_point.doc;
+                            cmp = reader.points[i as usize].doc - pivot_point.doc;
                         }
                     }
                     match i.cmp(&pivot) {
                         std::cmp::Ordering::Less => {
-                            assert!(
-                                cmp <= 0,
-                                "Expected cmp <= 0 for i < pivot, got {}",
-                                cmp
-                            );
+                            assert!(cmp <= 0, "Expected cmp <= 0 for i < pivot, got {}", cmp);
                         },
                         std::cmp::Ordering::Greater => {
-                            assert!(
-                                cmp >= 0,
-                                "Expected cmp >= 0 for i > pivot, got {}",
-                                cmp
-                            );
+                            assert!(cmp >= 0, "Expected cmp >= 0 for i > pivot, got {}", cmp);
                         },
                         std::cmp::Ordering::Equal => {
-                            assert_eq!(
-                                cmp, 0,
-                                "Expected cmp == 0 for the pivot index"
-                            );
+                            assert_eq!(cmp, 0, "Expected cmp == 0 for the pivot index");
                         },
                     }
                 }
@@ -698,10 +628,8 @@ pub(crate) mod tests {
     }
 
     fn create_random_config(random: &mut StdRng) -> Result<BKDConfig> {
-        let num_index_dims =
-            TestUtil::next_int(random, 1, BKDConfig::MAX_INDEX_DIMS);
-        let num_dims =
-            TestUtil::next_int(random, num_index_dims, BKDConfig::MAX_DIMS);
+        let num_index_dims = TestUtil::next_int(random, 1, BKDConfig::MAX_INDEX_DIMS);
+        let num_dims = TestUtil::next_int(random, num_index_dims, BKDConfig::MAX_DIMS);
         let bytes_per_dim = TestUtil::next_int(random, 1, 16);
         let max_points_in_leaf_node = TestUtil::next_int(random, 50, 2000);
         BKDConfig::new(
@@ -723,8 +651,7 @@ pub(crate) mod tests {
         let mut points: Vec<Point> = Vec::with_capacity(num_points as usize);
         if random.random_range(0..10) != 0 {
             for i in 0..num_points {
-                let mut value =
-                    vec![0u8; config.packed_bytes_length() as usize];
+                let mut value = vec![0u8; config.packed_bytes_length() as usize];
                 random.fill_bytes(&mut value);
                 let doc = if is_doc_id_incremental {
                     i.min(max_doc - 1)
@@ -733,16 +660,15 @@ pub(crate) mod tests {
                 };
                 points.push(Point::new(random, &value, doc));
             }
-            common_prefix_lengths.iter_mut().for_each(|prefix| {
-                *prefix = TestUtil::next_int(random, 0, config.bytes_per_dim)
-            });
+            common_prefix_lengths
+                .iter_mut()
+                .for_each(|prefix| *prefix = TestUtil::next_int(random, 0, config.bytes_per_dim));
 
             let first_value = points[0].packed_value.clone();
             for point in points.iter_mut().skip(1) {
                 for dim in 0..config.num_dims {
                     let offset = (dim * config.bytes_per_dim) as usize;
-                    let prefix_len =
-                        common_prefix_lengths[dim as usize] as usize;
+                    let prefix_len = common_prefix_lengths[dim as usize] as usize;
                     let src_start = first_value.offset + offset;
                     let dst_start = point.packed_value.offset + offset;
                     point.packed_value.bytes.copy_from(
@@ -753,15 +679,13 @@ pub(crate) mod tests {
             }
         } else {
             let num_data_dims = config.num_dims - config.num_index_dims;
-            let mut index_dims =
-                vec![0u8; config.packed_index_bytes_length() as usize];
+            let mut index_dims = vec![0u8; config.packed_index_bytes_length() as usize];
             random.fill_bytes(&mut index_dims);
             let data_dims_len = (num_data_dims * config.bytes_per_dim) as usize;
             let mut data_dims = vec![0u8; data_dims_len];
 
             for i in 0..num_points {
-                let mut value =
-                    vec![0u8; config.packed_bytes_length() as usize];
+                let mut value = vec![0u8; config.packed_bytes_length() as usize];
                 value.copy_from(&index_dims, 0);
                 random.fill_bytes(&mut data_dims);
                 let start = config.packed_index_bytes_length() as usize;
@@ -778,20 +702,15 @@ pub(crate) mod tests {
                 .take(config.num_index_dims as usize)
                 .for_each(|prefix| *prefix = config.bytes_per_dim);
 
-            common_prefix_lengths
-                [config.num_index_dims as usize..config.num_dims as usize]
+            common_prefix_lengths[config.num_index_dims as usize..config.num_dims as usize]
                 .iter_mut()
-                .for_each(|prefix| {
-                    *prefix =
-                        TestUtil::next_int(random, 0, config.bytes_per_dim)
-                });
+                .for_each(|prefix| *prefix = TestUtil::next_int(random, 0, config.bytes_per_dim));
 
             let first_value = points[0].packed_value.clone();
             for point in points.iter_mut().skip(1) {
                 for dim in config.num_index_dims..config.num_dims {
                     let offset = (dim * config.bytes_per_dim) as usize;
-                    let prefix_len =
-                        common_prefix_lengths[dim as usize] as usize;
+                    let prefix_len = common_prefix_lengths[dim as usize] as usize;
                     let src_start = first_value.offset + offset;
                     let dst_start = point.packed_value.offset + offset;
                     point.packed_value.bytes.copy_from(

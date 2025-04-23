@@ -19,40 +19,31 @@ use crate::util::packed::Format;
 
 pub trait FormatBehavior {
     fn get_id(&self) -> u32;
-    /// Computes how many byte blocks are needed to store `values` values of size `bits_per_value`.
-    fn byte_count(
-        &self,
-        packed_ints_version: i32,
-        value_count: i32,
-        bits_per_value: i32,
-    ) -> i64 {
+    /// Computes how many byte blocks are needed to store `values` values of
+    /// size `bits_per_value`.
+    fn byte_count(&self, packed_ints_version: i32, value_count: i32, bits_per_value: i32) -> i64 {
         debug_assert!(
             (0..=64).contains(&bits_per_value),
             "bits_per_value must be between 0 and 64"
         );
-        self.long_count(packed_ints_version, value_count, bits_per_value) as i64
-            * 8
+        self.long_count(packed_ints_version, value_count, bits_per_value) as i64 * 8
     }
-    /// * Computes how many long blocks are needed to store `values` values of size `bitsPerValue`.
-    fn long_count(
-        &self,
-        packed_ints_version: i32,
-        value_count: i32,
-        bits_per_value: i32,
-    ) -> i32 {
+    /// * Computes how many long blocks are needed to store `values` values of
+    ///   size `bitsPerValue`.
+    fn long_count(&self, packed_ints_version: i32, value_count: i32, bits_per_value: i32) -> i32 {
         debug_assert!(
             (0..=64).contains(&bits_per_value),
             "bits_per_value must be between 0 and 64"
         );
-        let byte_count =
-            self.byte_count(packed_ints_version, value_count, bits_per_value);
+        let byte_count = self.byte_count(packed_ints_version, value_count, bits_per_value);
         debug_assert!(
             byte_count < 8 * (i32::MAX as i64),
             "Computed byte count exceeds maximum long block count"
         );
         ((byte_count + 7) >> 3) as i32
     }
-    /// Tests whether the provided number of bits per value is supported by the format.
+    /// Tests whether the provided number of bits per value is supported by the
+    /// format.
     fn is_supported(&self, bits_per_value: i32) -> bool {
         (1..=64).contains(&bits_per_value)
     }
@@ -87,12 +78,7 @@ impl FormatBehavior for PackedImpl {
         self.id
     }
 
-    fn byte_count(
-        &self,
-        _packed_ints_version: i32,
-        value_count: i32,
-        bits_per_value: i32,
-    ) -> i64 {
+    fn byte_count(&self, _packed_ints_version: i32, value_count: i32, bits_per_value: i32) -> i64 {
         ((value_count as f64 * bits_per_value as f64) / 8f64).ceil() as i64
     }
 }
@@ -110,12 +96,7 @@ impl FormatBehavior for PackedSingleBlockImpl {
         self.id
     }
 
-    fn long_count(
-        &self,
-        _packed_ints_version: i32,
-        value_count: i32,
-        bits_per_value: i32,
-    ) -> i32 {
+    fn long_count(&self, _packed_ints_version: i32, value_count: i32, bits_per_value: i32) -> i32 {
         let values_per_block = 64 / bits_per_value;
         (value_count as f64 / values_per_block as f64).ceil() as i32
     }
@@ -139,32 +120,18 @@ impl FormatBehavior for Format {
         }
     }
 
-    fn byte_count(
-        &self,
-        packed_ints_version: i32,
-        value_count: i32,
-        bits_per_value: i32,
-    ) -> i64 {
+    fn byte_count(&self, packed_ints_version: i32, value_count: i32, bits_per_value: i32) -> i64 {
         match self {
-            Format::Packed(p) => {
-                p.byte_count(packed_ints_version, value_count, bits_per_value)
-            },
+            Format::Packed(p) => p.byte_count(packed_ints_version, value_count, bits_per_value),
             Format::PackedSingleBlock(p) => {
                 p.byte_count(packed_ints_version, value_count, bits_per_value)
             },
         }
     }
 
-    fn long_count(
-        &self,
-        packed_ints_version: i32,
-        value_count: i32,
-        bits_per_value: i32,
-    ) -> i32 {
+    fn long_count(&self, packed_ints_version: i32, value_count: i32, bits_per_value: i32) -> i32 {
         match self {
-            Format::Packed(p) => {
-                p.long_count(packed_ints_version, value_count, bits_per_value)
-            },
+            Format::Packed(p) => p.long_count(packed_ints_version, value_count, bits_per_value),
             Format::PackedSingleBlock(p) => {
                 p.long_count(packed_ints_version, value_count, bits_per_value)
             },
@@ -181,9 +148,7 @@ impl FormatBehavior for Format {
     fn overhead_per_value(&self, bits_per_value: i32) -> f32 {
         match self {
             Format::Packed(p) => p.overhead_per_value(bits_per_value),
-            Format::PackedSingleBlock(p) => {
-                p.overhead_per_value(bits_per_value)
-            },
+            Format::PackedSingleBlock(p) => p.overhead_per_value(bits_per_value),
         }
     }
 

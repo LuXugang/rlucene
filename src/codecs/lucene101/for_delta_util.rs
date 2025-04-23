@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use once_cell::sync::Lazy;
+
 use crate::codecs::lucene101::for_util::ForUtil;
 use crate::codecs::lucene101::pfor_util::PForUtil;
 use crate::internal::vectorization::posting_decoding_util::PostingDecodingUtil;
@@ -21,10 +23,8 @@ use crate::store::{DataOutput, IndexInput};
 use crate::util::error::lucene_error::Result;
 use crate::util::packed::PackedInts;
 use crate::util::SliceCopyOps;
-use once_cell::sync::Lazy;
 
-static IDENTITY_PLUS_ONE: Lazy<Vec<i32>> =
-    Lazy::new(|| (1..=ForUtil::BLOCK_SIZE as i32).collect());
+static IDENTITY_PLUS_ONE: Lazy<Vec<i32>> = Lazy::new(|| (1..=ForUtil::BLOCK_SIZE as i32).collect());
 
 /// Inspired from <https://fulmicoton.com/posts/bitpacking/>
 /// Encodes multiple integers in a long to get SIMD-like speedups.
@@ -58,8 +58,9 @@ impl ForDeltaUtil {
         }
     }
     fn prefix_sum8(arr: &mut [i32], base: i32) {
-        // When the number of bits per value is 4 or less, we can sum up all values in a block without
-        // risking overflowing an 8-bits integer. This allows computing the prefix sum by summing up 4
+        // When the number of bits per value is 4 or less, we can sum up all
+        // values in a block without risking overflowing an 8-bits
+        // integer. This allows computing the prefix sum by summing up 4
         // values at once.
         Self::inner_prefix_sum8(arr);
         ForUtil::expand8(arr);
@@ -78,8 +79,9 @@ impl ForDeltaUtil {
     }
 
     fn prefix_sum16(arr: &mut [i32], base: i32) {
-        // When the number of bits per value is 11 or less, we can sum up all values in a block without
-        // risking overflowing a 16-bits integer. This allows computing the prefix sum by summing up 4
+        // When the number of bits per value is 11 or less, we can sum up all
+        // values in a block without risking overflowing a 16-bits
+        // integer. This allows computing the prefix sum by summing up 4
         // values at once.
         Self::inner_prefix_sum16(arr);
         ForUtil::expand16(arr);
@@ -199,13 +201,10 @@ impl ForDeltaUtil {
         arr[62] += arr[61];
         arr[63] += arr[62];
     }
-    /// Encode deltas of a strictly monotonically increasing sequence of integers. The provided
-    /// ints are expected to be deltas between consecutive values.
-    pub fn encode_deltas(
-        &mut self,
-        ints: &mut [i32],
-        out: &mut impl DataOutput,
-    ) -> Result<()> {
+    /// Encode deltas of a strictly monotonically increasing sequence of
+    /// integers. The provided ints are expected to be deltas between
+    /// consecutive values.
+    pub fn encode_deltas(&mut self, ints: &mut [i32], out: &mut impl DataOutput) -> Result<()> {
         if ints[0] == 1 && PForUtil::all_equal(ints) {
             out.write_byte(0)?;
         } else {
@@ -228,18 +227,13 @@ impl ForDeltaUtil {
                 32
             };
 
-            ForUtil::encode_with_tmp(
-                ints,
-                bits_per_value,
-                primitive_size,
-                out,
-                &mut self.tmp,
-            )?;
+            ForUtil::encode_with_tmp(ints, bits_per_value, primitive_size, out, &mut self.tmp)?;
         }
 
         Ok(())
     }
-    /// Decode deltas, compute the prefix sum and add `base` to all decoded ints.
+    /// Decode deltas, compute the prefix sum and add `base` to all decoded
+    /// ints.
     pub(crate) fn decode_and_prefix_sum<I: IndexInput>(
         &mut self,
         pdu: &mut PostingDecodingUtil<I>,
@@ -250,12 +244,7 @@ impl ForDeltaUtil {
         if bits_per_value == 0 {
             Self::prefix_sum_of_ones(ints, base);
         } else {
-            self.decode_and_prefix_sum_with_bits(
-                bits_per_value,
-                pdu,
-                base,
-                ints,
-            )?;
+            self.decode_and_prefix_sum_with_bits(bits_per_value, pdu, base, ints)?;
         }
         Ok(())
     }
@@ -343,15 +332,7 @@ impl ForDeltaUtil {
         pdu: &mut PostingDecodingUtil<I>,
         ints: &mut [i32],
     ) -> Result<()> {
-        pdu.split_ints_same(
-            16,
-            ints,
-            12,
-            4,
-            ForUtil::MASK16_4,
-            48,
-            ForUtil::MASK16_4,
-        )
+        pdu.split_ints_same(16, ints, 12, 4, ForUtil::MASK16_4, 48, ForUtil::MASK16_4)
     }
     fn decode_5_to_16<I: IndexInput>(
         pdu: &mut PostingDecodingUtil<I>,
@@ -419,16 +400,7 @@ impl ForDeltaUtil {
         tmp: &mut [i32],
         ints: &mut [i32],
     ) -> Result<()> {
-        pdu.split_ints_diff(
-            28,
-            ints,
-            9,
-            7,
-            ForUtil::MASK16_7,
-            tmp,
-            0,
-            ForUtil::MASK16_2,
-        )?;
+        pdu.split_ints_diff(28, ints, 9, 7, ForUtil::MASK16_7, tmp, 0, ForUtil::MASK16_2)?;
         let mut tmp_idx = 0;
         let mut ints_idx = 56;
         for _ in 0..4 {
@@ -453,15 +425,7 @@ impl ForDeltaUtil {
         pdu: &mut PostingDecodingUtil<I>,
         ints: &mut [i32],
     ) -> Result<()> {
-        pdu.split_ints_same(
-            32,
-            ints,
-            8,
-            8,
-            ForUtil::MASK16_8,
-            32,
-            ForUtil::MASK16_8,
-        )
+        pdu.split_ints_same(32, ints, 8, 8, ForUtil::MASK16_8, 32, ForUtil::MASK16_8)
     }
     fn decode_11_to_32<I: IndexInput>(
         pdu: &mut PostingDecodingUtil<I>,
@@ -694,19 +658,16 @@ impl ForDeltaUtil {
         pdu: &mut PostingDecodingUtil<I>,
         ints: &mut [i32],
     ) -> Result<()> {
-        pdu.split_ints_same(
-            64,
-            ints,
-            16,
-            16,
-            ForUtil::MASK32_16,
-            64,
-            ForUtil::MASK32_16,
-        )
+        pdu.split_ints_same(64, ints, 16, 16, ForUtil::MASK32_16, 64, ForUtil::MASK32_16)
     }
 }
 #[cfg(test)]
 mod tests {
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    use rand::Rng;
+
     use crate::codecs::lucene101::for_delta_util::ForDeltaUtil;
     use crate::codecs::lucene101::for_util::ForUtil;
     use crate::internal::vectorization::posting_decoding_util::PostingDecodingUtil;
@@ -716,9 +677,6 @@ mod tests {
     use crate::test::util::test_util::TestUtil;
     use crate::util::error::lucene_error::Result;
     use crate::util::packed::PackedInts;
-    use rand::Rng;
-    use std::cell::RefCell;
-    use std::rc::Rc;
     #[allow(dead_code)]
     struct TestForDeltaUtil;
     #[test]
@@ -741,8 +699,7 @@ mod tests {
 
         // encode
         {
-            let mut out =
-                d.create_output("test.bin", &IOContext::default_io_context()?)?;
+            let mut out = d.create_output("test.bin", &IOContext::default_io_context()?)?;
             let mut for_delta_util = ForDeltaUtil::new();
 
             for i in 0..iterations {
@@ -757,10 +714,9 @@ mod tests {
 
         // decode
         {
-            let input = Rc::new(RefCell::new(d.open_input(
-                "test.bin",
-                &IOContext::read_once_io_context()?,
-            )?));
+            let input = Rc::new(RefCell::new(
+                d.open_input("test.bin", &IOContext::read_once_io_context()?)?,
+            ));
             // TODO: VECTORIZATION_PROVIDER not Implemented
             let mut pdu = PostingDecodingUtil::new(input.clone());
             let mut for_delta_util = ForDeltaUtil::new();
@@ -768,11 +724,7 @@ mod tests {
             for i in 0..iterations {
                 let base = 0i32;
                 let mut restored = vec![0i32; ForUtil::BLOCK_SIZE];
-                for_delta_util.decode_and_prefix_sum(
-                    &mut pdu,
-                    base,
-                    &mut restored,
-                )?;
+                for_delta_util.decode_and_prefix_sum(&mut pdu, base, &mut restored)?;
 
                 let mut expected = vec![0i32; ForUtil::BLOCK_SIZE];
                 for j in 0..ForUtil::BLOCK_SIZE {

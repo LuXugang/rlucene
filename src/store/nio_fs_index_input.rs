@@ -14,15 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::store::index_input::get_full_slice_description;
-use crate::store::{
-    buffered_index_input_util, BufferedIndexInput, BufferedIndexInputBase,
-};
-use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::ReadableCursorExt;
 use std::fmt::{Display, Formatter};
 use std::fs::File;
 use std::io::{Cursor, Read, Seek, SeekFrom};
+
+use crate::store::index_input::get_full_slice_description;
+use crate::store::{buffered_index_input_util, BufferedIndexInput, BufferedIndexInputBase};
+use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::ReadableCursorExt;
 
 const CHUNK_SIZE: usize = 16384;
 pub struct NIOFSIndexInput {
@@ -97,38 +96,47 @@ impl BufferedIndexInputBase for NIOFSIndexInput {
         Ok(())
     }
 
-    /// Reads data from the file into the provided buffer, ensuring that the data is read
-    /// in chunks of a configurable size and does not exceed the file's defined bounds.
+    /// Reads data from the file into the provided buffer, ensuring that the
+    /// data is read in chunks of a configurable size and does not exceed
+    /// the file's defined bounds.
     ///
     /// # Arguments
     ///
-    /// * `buffer` - A mutable reference to a `Cursor<Vec<u8>>`, which acts as the target buffer for
-    ///   storing the data. The position of the cursor is updated after each read to reflect
-    ///   the amount of data written.
-    /// * `len` - The number of bytes to read from the file. This must not exceed the buffer's remaining
-    /// * `file_pointer` - The initial position in the file from which to start reading.
+    /// * `buffer` - A mutable reference to a `Cursor<Vec<u8>>`, which acts as
+    ///   the target buffer for storing the data. The position of the cursor is
+    ///   updated after each read to reflect the amount of data written.
+    /// * `len` - The number of bytes to read from the file. This must not
+    ///   exceed the buffer's remaining
+    /// * `file_pointer` - The initial position in the file from which to start
+    ///   reading.
     ///
     /// # Errors
     ///
     /// This method returns a `LuceneError` in the following cases:
     ///
-    /// * [`LuceneError::Eof`] - If the requested read range exceeds the file's bounds or if the file
-    ///   unexpectedly reaches EOF during a read.
-    /// * [`LuceneError::Io`] - For general I/O errors encountered while reading or seeking the file.
+    /// * [`LuceneError::Eof`] - If the requested read range exceeds the file's
+    ///   bounds or if the file unexpectedly reaches EOF during a read.
+    /// * [`LuceneError::Io`] - For general I/O errors encountered while reading
+    ///   or seeking the file.
     ///
     /// # Details
     ///
-    /// This method reads data from the file in chunks of up to `CHUNK_SIZE` bytes to optimize
-    /// performance for large reads. Each chunk is written into the buffer starting at the cursor's
-    /// current position, and the cursor's position is incremented accordingly. The method ensures
+    /// This method reads data from the file in chunks of up to `CHUNK_SIZE`
+    /// bytes to optimize performance for large reads. Each chunk is written
+    /// into the buffer starting at the cursor's current position, and the
+    /// cursor's position is incremented accordingly. The method ensures
     /// that:
     ///
-    /// 1. The file's read position (`file_pointer`) is correctly advanced for each chunk.
-    /// 2. The buffer is not overrun, with proper validation of its capacity before writing.
-    /// 3. The read length is fully consumed or an appropriate error is returned.
+    /// 1. The file's read position (`file_pointer`) is correctly advanced for
+    ///    each chunk.
+    /// 2. The buffer is not overrun, with proper validation of its capacity
+    ///    before writing.
+    /// 3. The read length is fully consumed or an appropriate error is
+    ///    returned.
     ///
-    /// The file pointer (`pos`) is adjusted dynamically during the read process, and the method uses
-    /// `seek` to position the file pointer correctly for each chunk.
+    /// The file pointer (`pos`) is adjusted dynamically during the read
+    /// process, and the method uses `seek` to position the file pointer
+    /// correctly for each chunk.
     fn read_internal(
         &mut self,
         buffer: &mut Cursor<Vec<u8>>,
@@ -161,8 +169,7 @@ impl BufferedIndexInputBase for NIOFSIndexInput {
             let buffer_end = buffer_start + to_read;
             let buffer_slice = &mut buffer.get_mut()[buffer_start..buffer_end];
 
-            let bytes_read =
-                self.file.read(buffer_slice).map_err(LuceneError::io)?;
+            let bytes_read = self.file.read(buffer_slice).map_err(LuceneError::io)?;
 
             if bytes_read == 0 {
                 return Err(LuceneError::eof(format!(
@@ -190,12 +197,7 @@ impl BufferedIndexInputBase for NIOFSIndexInput {
 
     type Slice = BufferedIndexInput<NIOFSIndexInput>;
 
-    fn slice(
-        &self,
-        slice_description: &str,
-        offset: i64,
-        length: i64,
-    ) -> Result<Self::Slice> {
+    fn slice(&self, slice_description: &str, offset: i64, length: i64) -> Result<Self::Slice> {
         if offset < 0 || length < 0 || offset + length > self.length() {
             return Err(LuceneError::illegal_argument(format!(
                 "slice() {} out of bounds: offset={}, length={}, fileLength={}: {}",
@@ -209,18 +211,15 @@ impl BufferedIndexInputBase for NIOFSIndexInput {
 
         let resource_desc = get_full_slice_description(slice_description);
         let sub_index_input = NIOFSIndexInput::with_range(
-            // Clone the file handle to create a new `File` instance pointing to the same file resource.
+            // Clone the file handle to create a new `File` instance pointing
+            // to the same file resource.
             self.file.try_clone().map_err(LuceneError::io)?,
             self.off + offset,
             length,
             &resource_desc,
             self.buffer_size,
         );
-        BufferedIndexInput::with_buffer_size(
-            sub_index_input,
-            &resource_desc,
-            self.buffer_size,
-        )
+        BufferedIndexInput::with_buffer_size(sub_index_input, &resource_desc, self.buffer_size)
     }
     fn length(&self) -> i64 {
         self.end - self.off

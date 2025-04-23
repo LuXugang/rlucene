@@ -14,18 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use rand::rngs::ThreadRng;
+use rand::Rng;
+
 use crate::util::error::lucene_error::Result;
 use crate::util::intro_sorter::SINGLE_MEDIAN_THRESHOLD;
 use crate::util::selector::Selector;
-use rand::rngs::ThreadRng;
-use rand::Rng;
-/// Adaptive selection algorithm based on the introspective quick select algorithm.
-/// The quick select algorithm uses an interpolation variant of Tukey's ninther median-of-medians for pivot,
-/// and Bentley-McIlroy 3-way partitioning. For the introspective protection, it shuffles the sub-range
-/// if the max recursive depth is exceeded.
+/// Adaptive selection algorithm based on the introspective quick select
+/// algorithm. The quick select algorithm uses an interpolation variant of
+/// Tukey's ninther median-of-medians for pivot, and Bentley-McIlroy 3-way
+/// partitioning. For the introspective protection, it shuffles the sub-range if
+/// the max recursive depth is exceeded.
 ///
-/// This selection algorithm is fast on most data shapes, especially on nearly sorted data, or
-/// when `k` is close to the boundaries. It runs in linear time on average.
+/// This selection algorithm is fast on most data shapes, especially on nearly
+/// sorted data, or when `k` is close to the boundaries. It runs in linear time
+/// on average.
 ///
 /// # Internal
 /// This method is intended for internal use in the library.
@@ -46,27 +49,25 @@ where
             sub_selector,
         }
     }
-    pub fn select(
-        &mut self,
-        mut from: i32,
-        mut to: i32,
-        k: i32,
-        mut max_depth: i32,
-    ) -> Result<()> {
-        // This code is inspired from IntroSorter#sort, adapted to loop on a single partition.
+    pub fn select(&mut self, mut from: i32, mut to: i32, k: i32, mut max_depth: i32) -> Result<()> {
+        // This code is inspired from IntroSorter#sort, adapted to loop on a
+        // single partition.
 
-        // For efficiency, we must enter the loop with at least 4 entries to be able to skip
-        // some boundary tests during the 3-way partitioning.
+        // For efficiency, we must enter the loop with at least 4 entries to be
+        // able to skip some boundary tests during the 3-way
+        // partitioning.
         let mut size;
 
-        // Ensure the loop enters with at least 4 entries to skip boundary checks.
+        // Ensure the loop enters with at least 4 entries to skip boundary
+        // checks.
         while {
             size = to - from;
             size > 3
         } {
             max_depth -= 1;
             if max_depth == -1 {
-                // Max recursion depth exceeded: shuffle (only once) and continue.
+                // Max recursion depth exceeded: shuffle (only once) and
+                // continue.
                 self.shuffle(from, to)?;
             }
 
@@ -76,30 +77,30 @@ where
             let pivot;
 
             if size <= SINGLE_MEDIAN_THRESHOLD {
-                // Select the pivot with a single median around the middle element.
-                // Do not take the median between [from, mid, last] because it hurts performance
-                // if the order is descending in conjunction with the 3-way partitioning.
+                // Select the pivot with a single median around the middle
+                // element. Do not take the median between
+                // [from, mid, last] because it hurts performance
+                // if the order is descending in conjunction with the 3-way
+                // partitioning.
                 let range = size >> 2;
                 pivot = self.median(mid - range, mid, mid + range);
             } else {
-                // Select the pivot with a variant of the Tukey's ninther median of medians.
-                // If k is close to the boundaries, select either the lowest or highest median (this variant
+                // Select the pivot with a variant of the Tukey's ninther median
+                // of medians. If k is close to the boundaries,
+                // select either the lowest or highest median (this variant
                 // is inspired from the interpolation search).
                 let range = size >> 3;
                 let double_range = range << 1;
-                let median_first =
-                    self.median(from, from + range, from + double_range);
+                let median_first = self.median(from, from + range, from + double_range);
                 let median_middle = self.median(mid - range, mid, mid + range);
-                let median_last =
-                    self.median(last - double_range, last - range, last);
+                let median_last = self.median(last - double_range, last - range, last);
                 if k - from < range {
                     // k is close to 'from': select the lowest median.
                     pivot = self.min(median_first, median_middle, median_last);
                 } else if to - k <= range {
                     pivot = self.max(median_first, median_middle, median_last);
                 } else {
-                    pivot =
-                        self.median(median_first, median_middle, median_last);
+                    pivot = self.median(median_first, median_middle, median_last);
                 }
             }
             // Bentley-McIlroy 3-way partitioning
@@ -163,15 +164,11 @@ where
                 return Ok(());
             }
         }
-        // Sort the final tiny range (3 entries or less) with a very specialized sort.
+        // Sort the final tiny range (3 entries or less) with a very specialized
+        // sort.
         match size {
             2 => {
-                if IntroSelectorBase::compare(
-                    &mut self.sub_selector,
-                    from,
-                    from + 1,
-                ) > 0
-                {
+                if IntroSelectorBase::compare(&mut self.sub_selector, from, from + 1) > 0 {
                     self.sub_selector.swap(from, from + 1)?;
                 }
             },
@@ -183,7 +180,8 @@ where
         Ok(())
     }
 
-    /// Returns the index of the min element among three elements at provided indices.
+    /// Returns the index of the min element among three elements at provided
+    /// indices.
     pub fn min(&mut self, i: i32, j: i32, k: i32) -> i32 {
         if IntroSelectorBase::compare(&mut self.sub_selector, i, j) <= 0 {
             if IntroSelectorBase::compare(&mut self.sub_selector, i, k) <= 0 {
@@ -191,15 +189,15 @@ where
             } else {
                 k
             }
-        } else if IntroSelectorBase::compare(&mut self.sub_selector, j, k) <= 0
-        {
+        } else if IntroSelectorBase::compare(&mut self.sub_selector, j, k) <= 0 {
             j
         } else {
             k
         }
     }
 
-    /// Returns the index of the max element among three elements at provided indices.
+    /// Returns the index of the max element among three elements at provided
+    /// indices.
     pub fn max(&mut self, i: i32, j: i32, k: i32) -> i32 {
         if IntroSelectorBase::compare(&mut self.sub_selector, i, j) <= 0 {
             if IntroSelectorBase::compare(&mut self.sub_selector, j, k) < 0 {
@@ -219,9 +217,7 @@ where
             if IntroSelectorBase::compare(&mut self.sub_selector, j, k) <= 0 {
                 return j;
             }
-            return if IntroSelectorBase::compare(&mut self.sub_selector, i, k)
-                < 0
-            {
+            return if IntroSelectorBase::compare(&mut self.sub_selector, i, k) < 0 {
                 k
             } else {
                 i
@@ -236,36 +232,31 @@ where
             k
         }
     }
-    /// Sorts 3 entries starting at from (inclusive). This specialized method is more efficient than
-    /// calling `insertionSort(int, int)`.
+    /// Sorts 3 entries starting at from (inclusive). This specialized method is
+    /// more efficient than calling `insertionSort(int, int)`.
     pub fn sort3(&mut self, from: i32) -> Result<()> {
         let mid = from + 1;
         let last = from + 2;
 
         if IntroSelectorBase::compare(&mut self.sub_selector, from, mid) <= 0 {
-            if IntroSelectorBase::compare(&mut self.sub_selector, mid, last) > 0
-            {
+            if IntroSelectorBase::compare(&mut self.sub_selector, mid, last) > 0 {
                 self.sub_selector.swap(mid, last)?;
-                if IntroSelectorBase::compare(&mut self.sub_selector, from, mid)
-                    > 0
-                {
+                if IntroSelectorBase::compare(&mut self.sub_selector, from, mid) > 0 {
                     self.sub_selector.swap(from, mid)?;
                 }
             }
-        } else if IntroSelectorBase::compare(&mut self.sub_selector, mid, last)
-            >= 0
-        {
+        } else if IntroSelectorBase::compare(&mut self.sub_selector, mid, last) >= 0 {
             self.sub_selector.swap(from, last)?;
         } else {
             self.sub_selector.swap(from, mid)?;
-            if IntroSelectorBase::compare(&mut self.sub_selector, mid, last) > 0
-            {
+            if IntroSelectorBase::compare(&mut self.sub_selector, mid, last) > 0 {
                 self.sub_selector.swap(mid, last)?;
             }
         }
         Ok(())
     }
-    /// Shuffles the entries between from (inclusive) and to (exclusive) with Durstenfeld's algorithm.
+    /// Shuffles the entries between from (inclusive) and to (exclusive) with
+    /// Durstenfeld's algorithm.
     pub fn shuffle(&mut self, from: i32, to: i32) -> Result<()> {
         if self.random.is_none() {
             self.random = Some(rand::rng());
@@ -311,15 +302,14 @@ pub trait IntroSelectorBaseDefault {
 
 #[cfg(test)]
 mod tests {
+    use rand::rngs::StdRng;
+    use rand::Rng;
+
     use crate::test::util::lucene_test_case::random;
     use crate::test::util::test_util::TestUtil;
     use crate::util::error::lucene_error::Result;
     use crate::util::selector::Selector;
-    use crate::util::{
-        IntroSelector, IntroSelectorBase, IntroSelectorBaseDefault, ToInt,
-    };
-    use rand::rngs::StdRng;
-    use rand::Rng;
+    use crate::util::{IntroSelector, IntroSelectorBase, IntroSelectorBaseDefault, ToInt};
 
     #[allow(dead_code)] // for quick search
     pub struct TestIntroSelector;
@@ -359,13 +349,7 @@ mod tests {
         if random.random_bool(0.5) {
             Selector::select(&mut selector, from, to, k)?;
         } else {
-            IntroSelector::select(
-                &mut selector,
-                from,
-                to,
-                k,
-                random.random_range(0..3),
-            )?;
+            IntroSelector::select(&mut selector, from, to, k, random.random_range(0..3))?;
         }
         assert_eq!(expected[k as usize], actual[k as usize]);
         for i in 0..actual.len() {

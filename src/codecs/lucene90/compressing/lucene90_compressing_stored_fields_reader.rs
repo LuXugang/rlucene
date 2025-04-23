@@ -14,6 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::cell::RefCell;
+use std::clone::Clone;
+use std::cmp::min;
+use std::fmt::{Display, Formatter};
+use std::rc::Rc;
+
 use crate::codecs::compressing::lucene90_compressing_stored_fields_writer::{
     lucene90_csfw_util, TYPE_BITS, TYPE_MASK,
 };
@@ -24,9 +30,7 @@ use crate::codecs::compression::compression_mode::{
 use crate::codecs::compression::decompressor::Decompressor;
 use crate::codecs::lucene90::fields_index::{FieldsIndex, FieldsIndexEnum};
 use crate::codecs::lucene90::fields_index_reader::FieldsIndexReader;
-use crate::codecs::stored_fields_reader::{
-    StoredFieldsReader, StoredFieldsReaderEnum,
-};
+use crate::codecs::stored_fields_reader::{StoredFieldsReader, StoredFieldsReaderEnum};
 use crate::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::codecs::CodecUtil;
 use crate::index::field_info::FieldInfo;
@@ -36,22 +40,16 @@ use crate::index::stored_field_visitor::{Status, StoredFieldVisitor};
 use crate::index::stored_fields::StoredFields;
 use crate::index::{BytesRef, IndexFileNames};
 use crate::store::directory::Directory;
-use crate::store::{
-    ByteArrayDataInput, DataInput, IOContext, IndexInput, ReadAdvice,
-};
+use crate::store::{ByteArrayDataInput, DataInput, IOContext, IndexInput, ReadAdvice};
 use crate::util::array_util::ArrayUtil;
 use crate::util::clone::TryClone as OtherClone;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::{CoreHelper, SliceCopyOps};
-use std::cell::RefCell;
-use std::clone::Clone;
-use std::cmp::min;
-use std::fmt::{Display, Formatter};
-use std::rc::Rc;
 
 const PREFETCH_CACHE_SIZE: usize = 1 << 4;
 const PREFETCH_CACHE_MASK: usize = PREFETCH_CACHE_SIZE - 1;
-/// [`StoredFieldsReader`] implementation for [`Lucene90CompressingStoredFieldsFormat`](crate::codecs::lucene90::compressing::lucene90_compressing_stored_fields_format::Lucene90CompressingStoredFieldsFormat).
+/// [`StoredFieldsReader`] implementation for
+/// [`Lucene90CompressingStoredFieldsFormat`](crate::codecs::lucene90::compressing::lucene90_compressing_stored_fields_format::Lucene90CompressingStoredFieldsFormat).
 pub struct Lucene90CompressingStoredFieldsReader<I>
 where
     I: IndexInput,
@@ -73,9 +71,11 @@ where
     num_dirty_chunks: i64,
     // cumulative number of docs in incomplete chunks
     num_dirty_docs: i64,
-    // Cache of recently prefetched block IDs. This helps reduce chances of prefetching the same block
-    // multiple times, which is otherwise likely due to index sorting or recursive graph bisection
-    // clustering similar documents together. NOTE: this cache must be small since it's fully scanned.
+    // Cache of recently prefetched block IDs. This helps reduce chances of
+    // prefetching the same block multiple times, which is otherwise likely
+    // due to index sorting or recursive graph bisection clustering similar
+    // documents together. NOTE: this cache must be small since it's fully
+    // scanned.
     prefetched_block_id_cache: [i64; PREFETCH_CACHE_SIZE],
     prefetched_block_id_cache_index: usize,
     closed: bool,
@@ -87,8 +87,8 @@ pub mod lucene90_csfr_util {
     use crate::util::error::lucene_error::LuceneError;
     use crate::util::error::lucene_error::Result;
 
-    /// Reads a float in a variable-length format. Reads between one and five bytes.
-    /// Small integral values typically take fewer bytes.
+    /// Reads a float in a variable-length format. Reads between one and five
+    /// bytes. Small integral values typically take fewer bytes.
     pub fn read_zfloat(input: &mut impl DataInput) -> Result<f32> {
         let b = input.read_byte()? as i32;
         if b == 0xFF {
@@ -107,8 +107,8 @@ pub mod lucene90_csfr_util {
             Ok(f32::from_bits(bits as u32))
         }
     }
-    /// Reads a double in a variable-length format. Reads between one and nine bytes.
-    /// Small integral values typically take fewer bytes.
+    /// Reads a double in a variable-length format. Reads between one and nine
+    /// bytes. Small integral values typically take fewer bytes.
     pub fn read_zdouble(input: &mut impl DataInput) -> Result<f64> {
         let b = input.read_byte()? as i32;
         if b == 0xFF {
@@ -132,8 +132,8 @@ pub mod lucene90_csfr_util {
             Ok(f64::from_bits(bits))
         }
     }
-    /// Reads a long in a variable-length format. Reads between one and nine bytes.
-    /// Small values typically take fewer bytes.
+    /// Reads a long in a variable-length format. Reads between one and nine
+    /// bytes. Small values typically take fewer bytes.
     pub fn read_tlong(input: &mut impl DataInput) -> Result<i64> {
         let header = input.read_byte()? as i32;
 
@@ -146,9 +146,7 @@ pub mod lucene90_csfr_util {
         let mut l = BitUtil::zig_zag_decode_i64(bits as u64);
 
         match header & lucene90_csfw_util::DAY_ENCODING {
-            lucene90_csfw_util::SECOND_ENCODING => {
-                l *= lucene90_csfw_util::SECOND
-            },
+            lucene90_csfw_util::SECOND_ENCODING => l *= lucene90_csfw_util::SECOND,
             lucene90_csfw_util::HOUR_ENCODING => l *= lucene90_csfw_util::HOUR,
             lucene90_csfw_util::DAY_ENCODING => l *= lucene90_csfw_util::DAY,
             0 => {},
@@ -215,8 +213,7 @@ where
             )?;
 
             debug_assert_eq!(
-                CodecUtil::index_header_length(format_name, segment_suffix)
-                    as i64,
+                CodecUtil::index_header_length(format_name, segment_suffix) as i64,
                 fields_stream.get_file_pointer()
             );
 
@@ -242,10 +239,11 @@ where
             let prefetched_block_id_cache = [-1i64; PREFETCH_CACHE_SIZE];
 
             let merging = false;
-            // NOTE: data file is too costly to verify checksum against all the bytes on open,
-            // but for now we at least verify proper structure of the checksum footer: which looks
-            // for FOOTER_MAGIC + algorithmID. This is cheap and can detect some forms of corruption
-            // such as file truncation.
+            // NOTE: data file is too costly to verify checksum against all the
+            // bytes on open, but for now we at least verify proper
+            // structure of the checksum footer: which looks
+            // for FOOTER_MAGIC + algorithmID. This is cheap and can detect some
+            // forms of corruption such as file truncation.
             CodecUtil::retrieve_checksum(&mut fields_stream)?;
             let fields_stream = Rc::new(RefCell::new(fields_stream));
             let state = BlockState::new(
@@ -367,8 +365,9 @@ where
         }
     }
     /// # Note
-    /// `indexReader` and `fieldsStream` will automatically release resource in Rust Lucene,
-    /// but we still keep this method for compatibility with Java Lucene.
+    /// `indexReader` and `fieldsStream` will automatically release resource in
+    /// Rust Lucene, but we still keep this method for compatibility with
+    /// Java Lucene.
     pub fn close(&mut self) {
         if !self.closed {
             self.closed = true;
@@ -442,10 +441,7 @@ where
         }
         Ok(())
     }
-    pub(crate) fn serialized_document(
-        &mut self,
-        doc_id: i32,
-    ) -> Result<SerializedDocument<I>> {
+    pub(crate) fn serialized_document(&mut self, doc_id: i32) -> Result<SerializedDocument<I>> {
         if !self.state.contains(doc_id) {
             let pointer = self.index_reader.get_start_pointer(doc_id)?;
             self.fields_stream.borrow_mut().seek(pointer)?;
@@ -538,8 +534,7 @@ where
             }
         }
 
-        let block_start_pointer =
-            self.index_reader.get_block_start_pointer(block_id)?;
+        let block_start_pointer = self.index_reader.get_block_start_pointer(block_id)?;
         let block_length = self.index_reader.get_block_length(block_id)?;
 
         self.fields_stream
@@ -547,8 +542,7 @@ where
             .prefetch(block_start_pointer, block_length)?;
 
         self.prefetched_block_id_cache
-            [self.prefetched_block_id_cache_index & PREFETCH_CACHE_MASK] =
-            block_id;
+            [self.prefetched_block_id_cache_index & PREFETCH_CACHE_MASK] = block_id;
         self.prefetched_block_id_cache_index += 1;
 
         Ok(())
@@ -564,8 +558,7 @@ where
         let mut doc = self.serialized_document(doc_id)?;
         for field_idx in 0..doc.num_stored_fields {
             let info_and_bits = doc.input.read_vlong()?;
-            let field_number =
-                ((info_and_bits as u64 >> *TYPE_BITS) as i64) as i32;
+            let field_number = ((info_and_bits as u64 >> *TYPE_BITS) as i64) as i32;
             let field_info = field_infos.field_info_by_number(field_number)?;
             let bits = (info_and_bits & *TYPE_MASK) as i32;
 
@@ -587,7 +580,8 @@ where
                             )?;
                         },
                         Status::No => {
-                            // don't skipField on last field value; treat like STOP
+                            // don't skipField on last field value; treat like
+                            // STOP
                             if field_idx == doc.num_stored_fields - 1 {
                                 return Ok(());
                             }
@@ -625,8 +619,7 @@ where
         )))
     }
 }
-impl<I> crate::util::clone::TryClone
-    for Lucene90CompressingStoredFieldsReader<I>
+impl<I> crate::util::clone::TryClone for Lucene90CompressingStoredFieldsReader<I>
 where
     I: IndexInput,
 {
@@ -694,7 +687,8 @@ where
     fn contains(&self, doc_id: i32) -> bool {
         doc_id >= self.doc_base && doc_id < self.doc_base + self.chunk_docs
     }
-    /// Reset this block so that it stores state for the block that contains the given doc id.
+    /// Reset this block so that it stores state for the block that contains the
+    /// given doc id.
     fn reset(&mut self, doc_id: i32, num_docs: i32) -> Result<()> {
         let result: Result<()> = (|| {
             self.do_reset(doc_id, num_docs)?;
@@ -719,8 +713,7 @@ where
         let token = stream.read_vint()?;
         self.chunk_docs = ((token as u32) >> 2) as i32;
 
-        if !self.contains(doc_id) || self.doc_base + self.chunk_docs > num_docs
-        {
+        if !self.contains(doc_id) || self.doc_base + self.chunk_docs > num_docs {
             return Err(LuceneError::corrupt_index(format!(
                 "Corrupted: docID={}, docBase={}, chunkDocs={}, numDocs={} (resource={})",
                 doc_id, self.doc_base, self.chunk_docs, num_docs, stream
@@ -730,10 +723,7 @@ where
         self.sliced = (token & 1) != 0;
 
         ArrayUtil::grow_no_copy(&self.offsets, self.chunk_docs as usize + 1);
-        ArrayUtil::grow_no_copy(
-            &self.num_stored_fields,
-            self.chunk_docs as usize,
-        );
+        ArrayUtil::grow_no_copy(&self.num_stored_fields, self.chunk_docs as usize);
 
         if self.chunk_docs == 1 {
             self.num_stored_fields[0] = stream.read_vint()? as i64;
@@ -748,17 +738,13 @@ where
             )?;
             // The stream encodes the length of each document and we decode
             // it into a list of monotonically increasing offsets
-            StoredFieldsInts::read_ints(
-                &mut *stream,
-                self.chunk_docs,
-                &mut self.offsets,
-                1,
-            )?;
+            StoredFieldsInts::read_ints(&mut *stream, self.chunk_docs, &mut self.offsets, 1)?;
 
             for i in 0..self.chunk_docs as usize {
                 self.offsets[i + 1] += self.offsets[i];
             }
-            // Additional validation: only the empty document has a serialized length of 0
+            // Additional validation: only the empty document has a serialized
+            // length of 0
             for i in 0..self.chunk_docs as usize {
                 let len = self.offsets[i + 1] - self.offsets[i];
                 let stored_fields = self.num_stored_fields[i];
@@ -774,20 +760,16 @@ where
         self.start_pointer = stream.get_file_pointer();
 
         if self.merging {
-            let total_length =
-                self.offsets[self.chunk_docs as usize].try_into()?;
+            let total_length = self.offsets[self.chunk_docs as usize].try_into()?;
             // decompress eagerly
             if self.sliced {
-                if let (Some(spare), Some(bytes)) =
-                    (&mut self.spare, &mut self.bytes)
-                {
+                if let (Some(spare), Some(bytes)) = (&mut self.spare, &mut self.bytes) {
                     bytes.offset = 0;
                     bytes.length = 0;
 
                     let mut decompressed = 0;
                     while decompressed < total_length {
-                        let to_decompress =
-                            min(total_length - decompressed, self.chunk_size);
+                        let to_decompress = min(total_length - decompressed, self.chunk_size);
                         self.decompressor.decompress(
                             &mut *stream,
                             to_decompress,
@@ -799,8 +781,7 @@ where
                         let new_len = bytes.length + spare.length;
                         ArrayUtil::grow_with_len(&mut bytes.bytes, new_len);
                         bytes.bytes.copy_from(
-                            &spare.bytes
-                                [spare.offset..(spare.offset + spare.length)],
+                            &spare.bytes[spare.offset..(spare.offset + spare.length)],
                             bytes.length,
                         );
                         bytes.length = new_len;
@@ -808,13 +789,8 @@ where
                     }
                 }
             } else if let Some(bytes) = &mut self.bytes {
-                self.decompressor.decompress(
-                    &mut *stream,
-                    total_length,
-                    0,
-                    total_length,
-                    bytes,
-                )?;
+                self.decompressor
+                    .decompress(&mut *stream, total_length, 0, total_length, bytes)?;
                 if bytes.length != total_length as usize {
                     return Err(LuceneError::corrupt_index(format!(
                         "Corrupted: expected chunk size = {}, got {} (resource={})",
@@ -834,19 +810,16 @@ where
 
         let index = (doc_id - self.doc_base) as usize;
         let offset = self.offsets[index].try_into()?;
-        let length =
-            (self.offsets[index + 1] - self.offsets[index]).try_into()?;
+        let length = (self.offsets[index + 1] - self.offsets[index]).try_into()?;
         let total_length = self.offsets[self.chunk_docs as usize].try_into()?;
         let num_stored_fields = self.num_stored_fields[index].try_into()?;
 
         let mut bytes = if self.merging {
             match self.bytes {
-                Some(ref mut bytes) => {
-                    CoreHelper::take_and_reset(bytes, |bytes| {
-                        let vec = vec![0; bytes.bytes.len()];
-                        BytesRef::from_slice(vec, 0, 0)
-                    })
-                },
+                Some(ref mut bytes) => CoreHelper::take_and_reset(bytes, |bytes| {
+                    let vec = vec![0; bytes.bytes.len()];
+                    BytesRef::from_slice(vec, 0, 0)
+                }),
                 None => {
                     return Err(LuceneError::illegal_state(
                         "bytes is None, but merging is true",
@@ -909,7 +882,8 @@ where
     }
 }
 
-/// A serialized document. You need to decode its input to get an actual `Document`.
+/// A serialized document. You need to decode its input to get an actual
+/// `Document`.
 pub struct SerializedDocument<'a, I>
 where
     I: IndexInput,
@@ -928,11 +902,7 @@ impl<'a, I> SerializedDocument<'a, I>
 where
     I: IndexInput,
 {
-    fn new(
-        input: DataInputEnum<'a, I>,
-        length: i32,
-        num_stored_fields: i32,
-    ) -> Self {
+    fn new(input: DataInputEnum<'a, I>, length: i32, num_stored_fields: i32) -> Self {
         SerializedDocument {
             input,
             length,
@@ -980,8 +950,7 @@ where
             return Err(LuceneError::eof(""));
         }
 
-        let to_decompress =
-            std::cmp::min(self.length - self.decompressed, self.chunk_size);
+        let to_decompress = std::cmp::min(self.length - self.decompressed, self.chunk_size);
         self.decompressor.decompress(
             &mut *self.fields_stream.borrow_mut(),
             to_decompress,
@@ -1017,18 +986,12 @@ where
         Ok(b)
     }
 
-    fn read_bytes(
-        &mut self,
-        b: &mut [u8],
-        offset: i32,
-        len: i32,
-    ) -> Result<()> {
+    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()> {
         let mut len = len as usize;
         let mut offset = offset as usize;
         while len > self.bytes.length {
             b.copy_from(
-                &self.bytes.bytes[self.bytes.offset
-                    ..(self.bytes.offset + self.bytes.length)],
+                &self.bytes.bytes[self.bytes.offset..(self.bytes.offset + self.bytes.length)],
                 offset,
             );
             len -= self.bytes.length;
@@ -1093,27 +1056,16 @@ where
         }
     }
 
-    fn read_bytes(
-        &mut self,
-        b: &mut [u8],
-        offset: i32,
-        len: i32,
-    ) -> Result<()> {
+    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()> {
         match self {
-            DataInputEnum::ByteArray(data_input) => {
-                data_input.read_bytes(b, offset, len)
-            },
-            DataInputEnum::Impl(data_input) => {
-                data_input.read_bytes(b, offset, len)
-            },
+            DataInputEnum::ByteArray(data_input) => data_input.read_bytes(b, offset, len),
+            DataInputEnum::Impl(data_input) => data_input.read_bytes(b, offset, len),
         }
     }
 
     fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
         match self {
-            DataInputEnum::ByteArray(data_input) => {
-                data_input.skip_bytes(num_bytes)
-            },
+            DataInputEnum::ByteArray(data_input) => data_input.skip_bytes(num_bytes),
             DataInputEnum::Impl(data_input) => data_input.skip_bytes(num_bytes),
         }
     }

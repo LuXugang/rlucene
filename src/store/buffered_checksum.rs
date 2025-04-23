@@ -17,7 +17,8 @@
 use crate::store::Checksum;
 use crate::util::SliceCopyOps;
 
-/// Wraps another [`Checksum`] with an internal buffer to speed up checksum calculations.
+/// Wraps another [`Checksum`] with an internal buffer to speed up checksum
+/// calculations.
 pub struct BufferedChecksum<T: Checksum> {
     buffer: Vec<u8>,
     upto: i32,
@@ -65,11 +66,8 @@ impl<T: Checksum> Checksum for BufferedChecksum<T> {
 
         if len >= self.buffer.len() {
             self.flush();
-            self.checksum.update_bytes(
-                &bytes[offset..offset + len],
-                0,
-                len as i32,
-            );
+            self.checksum
+                .update_bytes(&bytes[offset..offset + len], 0, len as i32);
         } else {
             if self.upto as usize + len > self.buffer.len() {
                 self.flush();
@@ -93,9 +91,10 @@ impl<T: Checksum> Checksum for BufferedChecksum<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::store::{BufferedChecksum, Checksum, HasherChecksum};
     use crc32fast::Hasher;
     use rand::Rng;
+
+    use crate::store::{BufferedChecksum, Checksum, HasherChecksum};
 
     #[allow(dead_code)] // for quick search
     struct TestBufferedChecksum {}
@@ -106,8 +105,7 @@ mod tests {
         crc.update(&[2]);
         crc.update(&[3]);
 
-        let mut buffered =
-            BufferedChecksum::new(HasherChecksum::new(Hasher::new()));
+        let mut buffered = BufferedChecksum::new(HasherChecksum::new(Hasher::new()));
         buffered.update(1);
         buffered.update(2);
         buffered.update(3);
@@ -118,8 +116,7 @@ mod tests {
     #[test]
     fn test_random() {
         let mut raw_crc = Hasher::new();
-        let mut buffered =
-            BufferedChecksum::new(HasherChecksum::new(Hasher::new()));
+        let mut buffered = BufferedChecksum::new(HasherChecksum::new(Hasher::new()));
 
         let mut rng = rand::rng();
         let iterations = 10000;
@@ -143,10 +140,7 @@ mod tests {
                     buffered.reset();
                 },
                 3 => {
-                    assert_eq!(
-                        buffered.get_value(),
-                        raw_crc.clone().finalize() as i64
-                    );
+                    assert_eq!(buffered.get_value(), raw_crc.clone().finalize() as i64);
                 },
                 _ => unreachable!(),
             }

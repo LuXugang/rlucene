@@ -19,31 +19,23 @@ use strum_macros::{EnumCount, FromRepr};
 /// Controls how much information is stored in the postings lists.
 ///
 /// # Experimental
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    Ord,
-    PartialOrd,
-    FromRepr,
-    Hash,
-    EnumCount,
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, FromRepr, Hash, EnumCount)]
 #[repr(u8)]
 pub enum IndexOptions {
     /// Not indexed
     None,
     /// Only documents are indexed: term frequencies and positions are omitted.
-    /// Phrase and other positional queries on the field will throw an exception,
-    /// and scoring will behave as if any term in the document appears only once.
+    /// Phrase and other positional queries on the field will throw an
+    /// exception, and scoring will behave as if any term in the document
+    /// appears only once.
     DOCS,
     /// Only documents and term frequencies are indexed: positions are omitted.
-    /// This enables normal scoring, but Phrase and other positional queries will throw an Error.
+    /// This enables normal scoring, but Phrase and other positional queries
+    /// will throw an Error.
     DocsAndFreqs,
     /// Indexes documents, frequencies, and positions.
-    /// This is the typical default for full-text search: full scoring is enabled, and positional queries are supported.
+    /// This is the typical default for full-text search: full scoring is
+    /// enabled, and positional queries are supported.
     DocsAndFreqsAndPositions,
     /// Indexes documents, frequencies, positions, and offsets.
     /// Character offsets are encoded alongside the positions.

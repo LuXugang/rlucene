@@ -14,28 +14,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::{Debug, Display, Formatter};
+
+use crate::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::index::impacts_enum::ImpactsEnumEnum;
 use crate::index::postings_enum::PostingsEnum;
 use crate::index::term_state::{TermState, TermStateEnum};
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
-
-use crate::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::index::BytesRef;
 use crate::util::access::AccessVec;
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use std::fmt::{Debug, Display, Formatter};
 
 /// A base `TermsEnum` that provides default implementations for:
 ///
 /// - [`attributes()`](BaseTermsEnum::attributes)
 /// - [`term_state()`](BaseTermsEnum::term_state)
 /// - [`seek_exact(&BytesRef)`](BaseTermsEnum::seek_exact)
-/// - [`seek_exact_with_state(&BytesRef, &TermState)`](BaseTermsEnum::seek_exact_with_state)
+/// - [`seek_exact_with_state(&BytesRef,
+///   &TermState)`](BaseTermsEnum::seek_exact_with_state)
 ///
-/// In some cases, the default implementation may be slow and consume large amounts of memory,
-/// so subclasses SHOULD provide their own implementation if possible.
+/// In some cases, the default implementation may be slow and consume large
+/// amounts of memory, so subclasses SHOULD provide their own implementation if
+/// possible.
 pub struct BaseTermsEnum {
     atts: AttributeSource,
 }
@@ -60,7 +62,8 @@ where
     AV: AccessVec<u8>,
 {
     fn attributes(&self) -> Result<&AttributeSource> {
-        // TODO: 参考BaseTermsEnum中prepare_seek_exact方法 来选择使用父或子的实现
+        // TODO: 参考BaseTermsEnum中prepare_seek_exact方法
+        // 来选择使用父或子的实现
         Ok(&self.atts)
     }
 
@@ -72,11 +75,7 @@ where
         Err(LuceneError::need_implemented(""))
     }
 
-    fn seek_exact_with_state(
-        &mut self,
-        term: &BytesRef<AV>,
-        state: &TermStateEnum,
-    ) -> Result<()> {
+    fn seek_exact_with_state(&mut self, term: &BytesRef<AV>, state: &TermStateEnum) -> Result<()> {
         if !self.seek_exact(term)? {
             return Err(LuceneError::illegal_argument(format!(
                 "term= {} does not exist",

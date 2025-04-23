@@ -16,6 +16,9 @@
  */
 // TODO: how to handle versioning here...?
 
+use std::fmt::Display;
+use std::sync::Arc;
+
 use crate::analysis::analyzer::Analyzer;
 use crate::analysis::token_stream::TokenStream;
 use crate::document::fields::{ReaderEnum, TokenStreamEnum};
@@ -25,11 +28,9 @@ use crate::index::indexable_field_type::IndexableFieldType;
 use crate::index::BytesRef;
 use crate::util::error::lucene_error::Result;
 use crate::util::number::Number;
-use std::fmt::Display;
-use std::sync::Arc;
 
-/// Represents a single field for indexing. IndexWriter consumes `Iterable<IndexableField>` as a
-/// document.
+/// Represents a single field for indexing. IndexWriter consumes
+/// `Iterable<IndexableField>` as a document.
 ///
 /// @lucene.experimental
 pub trait IndexableField: Display {
@@ -39,19 +40,22 @@ pub trait IndexableField: Display {
     /// {@link IndexableFieldType} describing the properties of this field.
     type FieldType: IndexableFieldType;
     fn field_type(&self) -> &Self::FieldType;
-    /// Creates the TokenStream used for indexing this field. If appropriate, implementations should
-    /// use the given Analyzer to create the TokenStreams.
+    /// Creates the TokenStream used for indexing this field. If appropriate,
+    /// implementations should use the given Analyzer to create the
+    /// TokenStreams.
     ///
-    /// * `analyzer` - Analyzer that should be used to create the TokenStreams from
-    /// * `reuse` - TokenStream for a previous instance of this field **name**. This allows custom
-    ///   field types (like StringField and NumericField) that do not use the analyzer to still have
-    ///   good performance. Note: the passed-in type may be inappropriate, for example if you mix up
-    ///   different types of Fields for the same field name. So it's the responsibility of the
-    ///   implementation to check.
+    /// * `analyzer` - Analyzer that should be used to create the TokenStreams
+    ///   from
+    /// * `reuse` - TokenStream for a previous instance of this field **name**.
+    ///   This allows custom field types (like StringField and NumericField)
+    ///   that do not use the analyzer to still have good performance. Note: the
+    ///   passed-in type may be inappropriate, for example if you mix up
+    ///   different types of Fields for the same field name. So it's the
+    ///   responsibility of the implementation to check.
     ///
     /// # Returns
-    /// TokenStream value for indexing the document. Should always return a non-null value if
-    /// the field is to be indexed.
+    /// TokenStream value for indexing the document. Should always return a
+    /// non-null value if the field is to be indexed.
     fn token_stream(
         &self,
         _analyzer: Option<&impl Analyzer>,
@@ -73,12 +77,12 @@ pub trait IndexableField: Display {
     /// Non-null if this field has a numeric value.
     fn numeric_value(&self) -> Result<Option<Number>>;
 
-    /// Stored value. This method is called to populate stored fields and must return a non-null value
-    /// if the field stored.
+    /// Stored value. This method is called to populate stored fields and must
+    /// return a non-null value if the field stored.
     fn stored_value(&self) -> Result<Option<StoredValue>>;
 
-    /// Describes how this field should be inverted. This must return a non-null value if the field
-    /// indexes terms and postings.
+    /// Describes how this field should be inverted. This must return a non-null
+    /// value if the field indexes terms and postings.
     fn invertable_type(&self) -> Result<&InvertableType>;
 }
 

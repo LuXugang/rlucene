@@ -14,16 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::{Display, Formatter};
+use std::io::Cursor;
+
 use crate::store::{ByteBuffersDataOutput, DataInput, DataOutput};
 use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fst_impl::fst::BytesReader;
 use crate::util::fst_impl::fst_reader::FstReader;
 use crate::util::fst_impl::reverse_bytes_reader::ReverseBytesReader;
-use std::fmt::{Display, Formatter};
-use std::io::Cursor;
-/// An adapter class to use [`ByteBuffersDataOutput`] as a [`FSTReader`](FstReader). It allows the FST
-/// to be readable immediately after writing
+/// An adapter class to use [`ByteBuffersDataOutput`] as a
+/// [`FSTReader`](FstReader). It allows the FST to be readable immediately after
+/// writing
 pub struct ReadWriteDataOutput {
     pub data_output: ByteBuffersDataOutput,
     pub block_bits: i32,
@@ -74,8 +76,7 @@ impl FstReader for ReadWriteDataOutput {
             ));
         }
         let byte_buffers = self.byte_buffers.take().unwrap();
-        let mut data: Vec<Vec<u8>> =
-            byte_buffers.into_iter().map(|b| b.into_inner()).collect();
+        let mut data: Vec<Vec<u8>> = byte_buffers.into_iter().map(|b| b.into_inner()).collect();
         if data.len() == 1 {
             Ok(BytesReaderEnum::ReverseBytes(ReverseBytesReader::new(
                 std::mem::take(&mut data[0]),
@@ -100,12 +101,7 @@ impl DataOutput for ReadWriteDataOutput {
         DataOutput::write_byte(&mut self.data_output, b)
     }
 
-    fn write_bytes_range(
-        &mut self,
-        b: &[u8],
-        offset: i32,
-        length: i32,
-    ) -> Result<()> {
+    fn write_bytes_range(&mut self, b: &[u8], offset: i32, length: i32) -> Result<()> {
         debug_assert!(!self.frozen);
         self.data_output.write_bytes_range(b, offset, length)
     }
@@ -146,18 +142,12 @@ impl DataInput for BytesReaderImpl {
             self.next_buffer -= 1;
             self.next_read = self.block_size - 1;
         }
-        let byte =
-            &self.byte_buffers[self.current as usize][self.next_read as usize];
+        let byte = &self.byte_buffers[self.current as usize][self.next_read as usize];
         self.next_read -= 1;
         Ok(*byte)
     }
 
-    fn read_bytes(
-        &mut self,
-        b: &mut [u8],
-        offset: i32,
-        len: i32,
-    ) -> Result<()> {
+    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()> {
         for i in 0..len {
             b[(offset + i) as usize] = self.read_byte()?;
         }
@@ -215,26 +205,17 @@ impl DataInput for BytesReaderEnum {
         }
     }
 
-    fn read_bytes(
-        &mut self,
-        b: &mut [u8],
-        offset: i32,
-        len: i32,
-    ) -> Result<()> {
+    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()> {
         match self {
             BytesReaderEnum::Impl(reader) => reader.read_bytes(b, offset, len),
-            BytesReaderEnum::ReverseBytes(reader) => {
-                reader.read_bytes(b, offset, len)
-            },
+            BytesReaderEnum::ReverseBytes(reader) => reader.read_bytes(b, offset, len),
         }
     }
 
     fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
         match self {
             BytesReaderEnum::Impl(reader) => reader.skip_bytes(num_bytes),
-            BytesReaderEnum::ReverseBytes(reader) => {
-                reader.skip_bytes(num_bytes)
-            },
+            BytesReaderEnum::ReverseBytes(reader) => reader.skip_bytes(num_bytes),
         }
     }
 }

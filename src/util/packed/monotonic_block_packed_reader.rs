@@ -14,22 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::Display;
+
 use crate::store::IndexInput;
 use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::long_values::{LongValues, Zeroes};
-use crate::util::packed::abstract_block_packed_writer::{
-    MAX_BLOCK_SIZE, MIN_BLOCK_SIZE,
-};
+use crate::util::packed::abstract_block_packed_writer::{MAX_BLOCK_SIZE, MIN_BLOCK_SIZE};
 use crate::util::packed::{Format, FormatBehavior, PackedImpl, PackedInts};
 use crate::util::ram_usage_estimator::RamUsageEstimator;
-
-use std::fmt::Display;
 
 const BLOCK_SIZE: i32 = u8::BITS as i32; // #bits in a block
 const BLOCK_BITS: i32 = 3; //The #bits representing BLOCK_SIZE
 const MOD_MASK: i32 = BLOCK_SIZE - 1; //  x % BLOCK_SIZE
-/// Provides random access to a stream written with [`MonotonicBlockPackedWriter`](crate::util::packed::monotonic_block_packed_writer::MonotonicBlockPackedWriter).
+/// Provides random access to a stream written with
+/// [`MonotonicBlockPackedWriter`](crate::util::packed::monotonic_block_packed_writer::MonotonicBlockPackedWriter).
+///
 ///
 /// # Internal
 /// This is an internal structure for efficient monotonic block-packed reading.
@@ -59,17 +59,12 @@ impl MonotonicBlockPackedReader {
         block_size: i32,
         value_count: i64,
     ) -> Result<Self> {
-        let block_shift = PackedInts::check_block_size(
-            block_size,
-            MIN_BLOCK_SIZE,
-            MAX_BLOCK_SIZE,
-        )?;
+        let block_shift = PackedInts::check_block_size(block_size, MIN_BLOCK_SIZE, MAX_BLOCK_SIZE)?;
         let block_mask = (block_size - 1) as u32;
         let num_blocks = PackedInts::num_blocks(value_count, block_size)?;
         let mut min_values = vec![0; num_blocks as usize];
         let mut averages = vec![0.0; num_blocks as usize];
-        let mut sub_readers =
-            vec![LongValuesEnum::ZeroesLongValues(Zeroes); num_blocks as usize];
+        let mut sub_readers = vec![LongValuesEnum::ZeroesLongValues(Zeroes); num_blocks as usize];
         let mut sum_bpv: i64 = 0;
         let mut total_byte_count = 0;
         for i in 0..num_blocks as usize {
@@ -102,13 +97,12 @@ impl MonotonicBlockPackedReader {
                 input.read_bytes(&mut blocks, 0, byte_count as i32)?;
                 let mask_right = (1u64 << bits_per_value) - 1;
                 let bpv_minus_block_size = bits_per_value - BLOCK_SIZE;
-                sub_readers[i] =
-                    LongValuesEnum::Monotonic(MonotonicLongValues {
-                        bits_per_values: bits_per_value,
-                        bpv_minus_block_size,
-                        blocks,
-                        mask_right,
-                    });
+                sub_readers[i] = LongValuesEnum::Monotonic(MonotonicLongValues {
+                    bits_per_values: bits_per_value,
+                    bpv_minus_block_size,
+                    blocks,
+                    mask_right,
+                });
             }
         }
 
@@ -145,24 +139,20 @@ impl LongValues for MonotonicLongValues {
         let major_bit_pos = index * self.bits_per_values as i64;
         // The offset of the first block in the backing byte-array
         let mut block_offset = (major_bit_pos >> BLOCK_BITS) as usize;
-        let mut end_bits = (major_bit_pos & MOD_MASK as i64)
-            + self.bpv_minus_block_size as i64;
+        let mut end_bits = (major_bit_pos & MOD_MASK as i64) + self.bpv_minus_block_size as i64;
         if end_bits <= 0 {
             // Single block
-            return Ok(((self.blocks[block_offset] as u64 >> -end_bits)
-                & self.mask_right) as i64);
+            return Ok(((self.blocks[block_offset] as u64 >> -end_bits) & self.mask_right) as i64);
         }
         // Multiple blocks
-        let mut value =
-            ((self.blocks[block_offset] as u64) << end_bits) & self.mask_right;
+        let mut value = ((self.blocks[block_offset] as u64) << end_bits) & self.mask_right;
         block_offset += 1;
         while end_bits > BLOCK_SIZE as i64 {
             end_bits -= BLOCK_SIZE as i64;
             value |= (self.blocks[block_offset] as u64) << end_bits;
             block_offset += 1;
         }
-        value |= (self.blocks[block_offset] as u64)
-            >> (BLOCK_SIZE as i64 - end_bits);
+        value |= (self.blocks[block_offset] as u64) >> (BLOCK_SIZE as i64 - end_bits);
         Ok(value as i64)
     }
 }
@@ -176,8 +166,7 @@ impl LongValues for MonotonicBlockPackedReader {
         );
         let block = (index >> self.block_shift) as usize;
         let idx = index & self.block_mask as i64;
-        let expected_value =
-            expected(self.min_values[block], self.averages[block], idx as i32);
+        let expected_value = expected(self.min_values[block], self.averages[block], idx as i32);
         let sub_reader_value = self.sub_readers[block].get(idx)?;
 
         Ok(expected_value + sub_reader_value)

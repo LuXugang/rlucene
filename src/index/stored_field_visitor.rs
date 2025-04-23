@@ -14,25 +14,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::rc::Rc;
+
 use crate::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::index::field_info::FieldInfo;
 use crate::store::DataInput;
 use crate::util::error::lucene_error::Result;
-use std::rc::Rc;
 
-/// Expert: provides a low-level means of accessing the stored field values in an index.
+/// Expert: provides a low-level means of accessing the stored field values in
+/// an index.
 ///
 /// # NOTE
 /// a `StoredFieldVisitor` implementation should not try to load or visit other
-/// stored documents in the same reader because the implementation of stored fields for most
-/// codecs is not reentrant and you will see strange exceptions as a result.
+/// stored documents in the same reader because the implementation of stored
+/// fields for most codecs is not reentrant and you will see strange exceptions
+/// as a result.
 ///
 /// See [`DocumentStoredFieldVisitor`](crate::document::document_stored_field_visitor::DocumentStoredFieldVisitor), which is a `StoredFieldVisitor` that builds the [`Document`](crate::document::document::Document)
 /// containing all stored fields.
 pub trait StoredFieldVisitor {
     /// Expert: Process a binary field directly from the DataInput.
-    /// Implementors of this method must read `length` bytes from the given `DataInput`.
-    /// Default implementation reads into a byte array and delegates to `binary_field`.
+    /// Implementors of this method must read `length` bytes from the given
+    /// `DataInput`. Default implementation reads into a byte array and
+    /// delegates to `binary_field`.
     fn binary_field_with_input(
         &mut self,
         field_info: Rc<FieldInfo>,
@@ -119,8 +123,10 @@ pub trait StoredFieldVisitor {
 pub enum Status {
     /// YES: the field should be visited.
     Yes,
-    /// NO: don't visit this field, but continue processing fields for this document.
+    /// NO: don't visit this field, but continue processing fields for this
+    /// document.
     No,
-    /// STOP: don't visit this field and stop processing any other fields for this document.
+    /// STOP: don't visit this field and stop processing any other fields for
+    /// this document.
     Stop,
 }

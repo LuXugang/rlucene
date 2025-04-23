@@ -14,11 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::{Display, Formatter};
+
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::DataInput;
 use crate::util::error::lucene_error::Result;
 use crate::util::fst_impl::fst::BytesReader;
-use std::fmt::{Display, Formatter};
 
 /// Implements reverse read from a RandomAccessInput.
 pub struct ReverseRandomAccessReader<R>
@@ -48,12 +49,7 @@ where
         Ok(b)
     }
 
-    fn read_bytes(
-        &mut self,
-        b: &mut [u8],
-        offset: i32,
-        len: i32,
-    ) -> Result<()> {
+    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()> {
         let offset = offset as usize;
         let len = len as usize;
         let mut i = offset;

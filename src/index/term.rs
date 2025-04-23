@@ -14,13 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::index::{BytesRef, BytesRefBuilder};
-use crate::util::accountable::Accountable;
-use crate::util::error::lucene_error::Result;
 use std::cmp::Ordering;
 use std::fmt;
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
+
+use crate::index::{BytesRef, BytesRefBuilder};
+use crate::util::accountable::Accountable;
+use crate::util::error::lucene_error::Result;
 
 #[derive(Clone, Debug)]
 pub struct Term {
@@ -48,27 +49,29 @@ impl Term {
         Self::new(fld, BytesRef::from_string(text))
     }
 
-    /// Constructs a Term with the given field and empty text. This serves two purposes: 1) reuse of a
-    /// Term with the same field. 2) pattern for a query.
+    /// Constructs a Term with the given field and empty text. This serves two
+    /// purposes: 1) reuse of a Term with the same field. 2) pattern for a
+    /// query.
     ///
     /// Fld field's name
     pub fn from_empty(fld: String) -> Self {
         Term::new(fld, BytesRef::default())
     }
-    /// Returns the field of this term. The field indicates the part of a document which this term came
-    /// from.
+    /// Returns the field of this term. The field indicates the part of a
+    /// document which this term came from.
     pub fn field(&self) -> &str {
         &self.field
     }
 
-    /// Returns a human-readable form of the term text. If the term is not valid UTF-8,
-    /// the raw bytes will be printed instead.
+    /// Returns a human-readable form of the term text. If the term is not valid
+    /// UTF-8, the raw bytes will be printed instead.
     pub fn get_string(term_text: &BytesRef<Vec<u8>>) -> Result<String> {
         term_text.utf8_to_string()
     }
 
-    /// Returns the text of this term. In the case of words, this is simply the text of the word. In
-    /// the case of dates and other types, this is an encoding of the object as a string.
+    /// Returns the text of this term. In the case of words, this is simply the
+    /// text of the word. In the case of dates and other types, this is an
+    /// encoding of the object as a string.
     pub fn text(&self) -> Result<String> {
         Self::get_string(&self.bytes)
     }

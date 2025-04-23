@@ -14,15 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::borrow::Cow;
+
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::dummy::dummy_terms_enum::DummyTermsEnum;
 use crate::index::sorted_set_doc_values::SortedSetDocValues;
-
 use crate::index::BytesRef;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::Result;
-use std::borrow::Cow;
 
 pub struct DummySortedSetDocValues;
 

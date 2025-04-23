@@ -14,10 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::codecs::live_docs_format::LiveDocsFormat;
-use crate::index::segment_commit_info::SegmentCommitInfo;
+use std::collections::HashSet;
 
+use num_bigint::BigInt;
+
+use crate::codecs::live_docs_format::LiveDocsFormat;
 use crate::codecs::CodecUtil;
+use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::index::IndexFileNames;
 use crate::store::directory::Directory;
 use crate::store::{IOContext, IndexInput, IndexOutput};
@@ -25,19 +28,21 @@ use crate::util::bit_set::BitSet;
 use crate::util::bits::Bits;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
-use num_bigint::BigInt;
-use std::collections::HashSet;
 
 /// Lucene 9.0 live docs format
 ///
-/// The `.liv` file is optional, and only exists when a segment contains deletions.
+/// The `.liv` file is optional, and only exists when a segment contains
+/// deletions.
 ///
-/// Although per-segment, this file is maintained exterior to compound segment files.
+/// Although per-segment, this file is maintained exterior to compound segment
+/// files.
 ///
 /// Deletions (`.liv`) -> `IndexHeader`, `Generation`, `Bits`
 ///
-/// - `SegmentHeader` -> [`CodecUtil::write_index_header`](CodecUtil::write_index_header)
-/// - `Bits` -> <[`Int64`](crate::store::data_output::DataOutput::write_long)> <sup>LongCount</sup>
+/// - `SegmentHeader` ->
+///   [`CodecUtil::write_index_header`](CodecUtil::write_index_header)
+/// - `Bits` -> <[`Int64`](crate::store::data_output::DataOutput::write_long)>
+///   <sup>LongCount</sup>
 ///
 /// [`CodecUtil::write_index_header`](CodecUtil::write_index_header)
 /// [`DataOutput::write_long`](crate::store::data_output::DataOutput::write_long)
@@ -64,19 +69,13 @@ impl Lucene90LiveDocsFormat {
     pub fn new() -> Lucene90LiveDocsFormat {
         Lucene90LiveDocsFormat {}
     }
-    fn read_fixed_bit_set(
-        input: &mut impl IndexInput,
-        length: i32,
-    ) -> Result<FixedBitSet> {
+    fn read_fixed_bit_set(input: &mut impl IndexInput, length: i32) -> Result<FixedBitSet> {
         let num_words = FixedBitSet::bits2words(length);
         let mut data = vec![0i64; num_words as usize];
         input.read_longs(&mut data, 0, num_words)?;
         FixedBitSet::with_capacity(data, length)
     }
-    fn write_bits(
-        output: &mut impl IndexOutput,
-        bits: &impl Bits,
-    ) -> Result<i32> {
+    fn write_bits(output: &mut impl IndexOutput, bits: &impl Bits) -> Result<i32> {
         let mut del_count = 0;
         let long_count = FixedBitSet::bits2words(bits.length());
         for i in 0..long_count {
@@ -144,9 +143,7 @@ impl LiveDocsFormat for Lucene90LiveDocsFormat {
                 CodecUtil::check_footer(&mut input)?;
                 result
             },
-            Err(mut e) => {
-                Err(CodecUtil::check_footer_with_error(&mut input, &mut e))
-            },
+            Err(mut e) => Err(CodecUtil::check_footer_with_error(&mut input, &mut e)),
         }
     }
 
@@ -170,8 +167,7 @@ impl LiveDocsFormat for Lucene90LiveDocsFormat {
         debug_assert!(name.is_some());
         let del_count: i32;
         {
-            let mut output = directory
-                .create_output(name.as_ref().unwrap().as_str(), context)?;
+            let mut output = directory.create_output(name.as_ref().unwrap().as_str(), context)?;
             CodecUtil::write_index_header(
                 &mut output,
                 Lucene90LiveDocsFormat::CODEC_NAME,
@@ -197,11 +193,7 @@ impl LiveDocsFormat for Lucene90LiveDocsFormat {
         Ok(())
     }
 
-    fn files<D>(
-        &self,
-        info: &SegmentCommitInfo<D>,
-        files: &mut HashSet<String>,
-    ) -> Result<()>
+    fn files<D>(&self, info: &SegmentCommitInfo<D>, files: &mut HashSet<String>) -> Result<()>
     where
         D: Directory,
     {

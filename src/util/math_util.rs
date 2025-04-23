@@ -68,8 +68,8 @@ impl MathUtil {
     ///
     /// # Notes
     /// - A GCD must be positive, but `2^64` cannot be expressed as an `i64`,
-    ///   although it is the GCD of `i64::MIN` and `0`, as well as `i64::MIN` and `i64::MIN`.
-    ///   In these two cases, this method returns `i64::MIN`.
+    ///   although it is the GCD of `i64::MIN` and `0`, as well as `i64::MIN`
+    ///   and `i64::MIN`. In these two cases, this method returns `i64::MIN`.
     pub fn gcd(mut a: i64, mut b: i64) -> i64 {
         a = a.abs();
         b = b.abs();
@@ -114,12 +114,13 @@ impl MathUtil {
         0f64
     }
 
-    /// Returns a relative error bound for the sum of `num_values` positive doubles
-    /// computed using recursive summation.
+    /// Returns a relative error bound for the sum of `num_values` positive
+    /// doubles computed using recursive summation.
     ///
     /// # Notes
     /// - This only works if all values are positive.
-    /// - Uses formula 3.5 from Higham (1993), "The accuracy of floating point summation".
+    /// - Uses formula 3.5 from Higham (1993), "The accuracy of floating point
+    ///   summation".
     pub fn sum_relative_error_bound(num_values: i32) -> f64 {
         if num_values <= 1 {
             return 0.0;
@@ -129,8 +130,8 @@ impl MathUtil {
         (num_values - 1) as f64 * u
     }
 
-    /// Returns the maximum possible sum across `num_values` non-negative doubles,
-    /// assuming one sum yielded `sum`.
+    /// Returns the maximum possible sum across `num_values` non-negative
+    /// doubles, assuming one sum yielded `sum`.
     pub fn sum_upper_bound(sum: f64, num_values: i32) -> f64 {
         if num_values <= 2 {
             return sum;
@@ -142,8 +143,6 @@ impl MathUtil {
 }
 #[cfg(test)]
 mod tests {
-    use crate::test::util::lucene_test_case::{at_least, random};
-    use crate::util::math_util::MathUtil;
     use num_bigint::BigInt;
     use num_integer::Integer;
     use num_traits::{FromPrimitive, ToPrimitive};
@@ -151,10 +150,14 @@ mod tests {
     use rand::rngs::StdRng;
     use rand::Rng;
 
+    use crate::test::util::lucene_test_case::{at_least, random};
+    use crate::util::math_util::MathUtil;
+
     /// List of prime numbers.
     const PRIMES: [i64; 10] = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29];
 
-    /// Generates a random `i64` value following the logic in the original Java function.
+    /// Generates a random `i64` value following the logic in the original Java
+    /// function.
     fn random_long(random: &mut StdRng) -> i64 {
         if random.random_bool(0.5) {
             let mut l = 1;

@@ -14,13 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::rc::Rc;
+
 use crate::codecs::doc_values_enum::norms::Lucene90NormNumericDocValuesEnum;
 use crate::codecs::lucene90_norms_producer::Lucene90NormsProducer;
 use crate::index::field_info::FieldInfo;
 use crate::index::numeric_doc_values::NumericDocValues;
 use crate::store::IndexInput;
 use crate::util::error::lucene_error::Result;
-use std::rc::Rc;
 
 /// A trait that produces field normalization values.
 pub trait NormsProducer {
@@ -31,10 +32,7 @@ pub trait NormsProducer {
     /// it will only be used by a single thread.
     ///
     /// Behavior is undefined if the given field does not have norms enabled.
-    fn get_norms(
-        &mut self,
-        field: &Rc<FieldInfo>,
-    ) -> Result<Self::NumericDocValues>;
+    fn get_norms(&mut self, field: &Rc<FieldInfo>) -> Result<Self::NumericDocValues>;
 
     /// Checks consistency of this producer.
     ///
@@ -54,8 +52,8 @@ pub trait NormsProducer {
     // /// By default, this method returns `None`, which indicates that no new
     // /// `NormsProducerEnum` is required for merging, and the current instance
     // /// should be used directly during merge operations.
-    // fn get_merge_instance<I,AV>(&self) -> Result<Option<Self::NormsProducer<'_, I, AV>>>
-    // where
+    // fn get_merge_instance<I,AV>(&self) ->
+    // Result<Option<Self::NormsProducer<'_, I, AV>>> where
     //     I: IndexInput,
     //     AV: AccessVec<u8>,
     // {
@@ -75,10 +73,7 @@ where
 {
     type NumericDocValues = Lucene90NormNumericDocValuesEnum<I>;
 
-    fn get_norms(
-        &mut self,
-        field: &Rc<FieldInfo>,
-    ) -> Result<Lucene90NormNumericDocValuesEnum<I>> {
+    fn get_norms(&mut self, field: &Rc<FieldInfo>) -> Result<Lucene90NormNumericDocValuesEnum<I>> {
         match self {
             NormsProducerEnum::Lucene90(producer) => producer.get_norms(field),
         }
@@ -96,8 +91,8 @@ where
     //     I: 'a,
     //     AV1: 'a;
     //
-    // fn get_merge_instance<T>(&self) -> Result<Option<Self::NormsProducer<'_, I>>> {
-    //     match self {
+    // fn get_merge_instance<T>(&self) -> Result<Option<Self::NormsProducer<'_,
+    // I>>> {     match self {
     //         NormsProducerEnum::Lucene90(producer) => {
     //             let merge_instance = producer.get_merge_instance::<I>()?;
     //             if merge_instance.is_none() {

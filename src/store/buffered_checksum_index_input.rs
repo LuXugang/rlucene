@@ -14,15 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::{Display, Formatter};
+
+use crc32fast::Hasher;
+
 use crate::store::check_sum_index_input::ChecksumIndexInput;
 use crate::store::dummy::dummy_index_input::DummyIndexInput;
 use crate::store::index_input::IndexInput;
 use crate::store::{BufferedChecksum, Checksum, DataInput, HasherChecksum};
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crc32fast::Hasher;
-use std::fmt::{Display, Formatter};
 
-/// Simple implementation of [`ChecksumIndexInput`] that wraps another input and delegates calls.
+/// Simple implementation of [`ChecksumIndexInput`] that wraps another input and
+/// delegates calls.
 pub struct BufferedChecksumIndexInput<T: IndexInput> {
     main: T,
     digest: BufferedChecksum<HasherChecksum>,
@@ -66,12 +69,7 @@ where
     }
 
     type Slice = DummyIndexInput;
-    fn slice(
-        &self,
-        _slice_description: &str,
-        _offset: i64,
-        _length: i64,
-    ) -> Result<Self::Slice> {
+    fn slice(&self, _slice_description: &str, _offset: i64, _length: i64) -> Result<Self::Slice> {
         Err(LuceneError::unsupported_operation(
             "BufferedChecksumIndexInput does not support slicing",
         ))
@@ -79,11 +77,7 @@ where
 
     type RandomAccessSlice = DummyIndexInput;
 
-    fn random_access_slice(
-        &self,
-        _offset: i64,
-        _length: i64,
-    ) -> Result<DummyIndexInput> {
+    fn random_access_slice(&self, _offset: i64, _length: i64) -> Result<DummyIndexInput> {
         Err(LuceneError::unsupported_operation(
             "BufferedChecksumIndexInput does not support random access slicing",
         ))
@@ -101,12 +95,7 @@ where
         Ok(b)
     }
 
-    fn read_bytes(
-        &mut self,
-        b: &mut [u8],
-        offset: i32,
-        len: i32,
-    ) -> Result<()> {
+    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()> {
         self.main.read_bytes(b, offset, len)?;
         self.digest.update_bytes(b, offset, len);
         Ok(())

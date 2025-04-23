@@ -14,11 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::{Display, Formatter};
+use std::hash::Hash;
+
 use crate::search::field_comparator::FieldComparator;
 use crate::search::pruning::Pruning;
 use crate::util::error::lucene_error::Result;
-use std::fmt::{Display, Formatter};
-use std::hash::Hash;
 
 /// Provides a [`FieldComparator`]
 /// for custom field sorting.
@@ -38,7 +39,8 @@ pub trait FieldComparatorSource: Display + Clone {
     /// A new [`FieldComparator`] instance.
     ///
     /// # Errors
-    /// Returns an error if the comparator could not be created due to I/O issues or invalid parameters.
+    /// Returns an error if the comparator could not be created due to I/O
+    /// issues or invalid parameters.
     fn new_comparator<F: FieldComparator>(
         &self,
         field_name: &str,

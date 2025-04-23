@@ -14,17 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::{Display, Formatter};
+
 use crate::store::DataInput;
 use crate::util::access::Access;
 use crate::util::error::lucene_error::Result;
 use crate::util::fst_impl::fst::BytesReader;
 use crate::util::ByteBlockPoolBorrow;
-use std::fmt::{Display, Formatter};
 
 /// Reads in reverse from a ByteBlockPool.
 pub struct ByteBlockPoolReverseBytesReader {
     buf: ByteBlockPoolBorrow,
-    // the difference between the FST node address and the hash table copied node address
+    // the difference between the FST node address and the hash table copied
+    // node address
     pos_delta: i64,
     pos: i64,
 }
@@ -49,12 +51,7 @@ impl DataInput for ByteBlockPoolReverseBytesReader {
         Ok(b)
     }
 
-    fn read_bytes(
-        &mut self,
-        b: &mut [u8],
-        offset: i32,
-        len: i32,
-    ) -> Result<()> {
+    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()> {
         let offset = offset as usize;
         let len = len as usize;
         self.buf.access_mut(|buf| {

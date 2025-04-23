@@ -14,6 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt;
+use std::sync::Arc;
+
 use crate::analysis::analyzer::Analyzer;
 use crate::analysis::token_stream::TokenStream;
 use crate::document::field::{Field, FieldBase, Store};
@@ -25,14 +28,14 @@ use crate::index::indexable_field::IndexableField;
 use crate::index::BytesRef;
 use crate::util::error::lucene_error::Result;
 use crate::util::number::Number;
-use std::fmt;
-use std::sync::Arc;
 
 pub mod text {
+    use std::sync::Arc;
+
+    use once_cell::sync::Lazy;
+
     use crate::document::field_type::FieldType;
     use crate::index::index_options::IndexOptions;
-    use once_cell::sync::Lazy;
-    use std::sync::Arc;
 
     /// Indexed, tokenized, not stored.
     pub(crate) static TYPE_NOT_STORED: Lazy<Arc<FieldType>> = Lazy::new(|| {
@@ -59,7 +62,8 @@ pub mod text {
 }
 
 /// A field that is indexed and tokenized, without term vectors.
-/// For example, this would be used on a `body` field that contains the bulk of a document's text.
+/// For example, this would be used on a `body` field that contains the bulk of
+/// a document's text.
 pub struct TextField {
     parent_field: Field,
     stored_value: Option<StoredValue>,
@@ -74,11 +78,7 @@ impl TextField {
     /// - `reader`: `ReaderEnum` value.
     pub fn with_reader(name: &str, reader: ReaderEnum) -> Result<Self> {
         let name_arc = Arc::new(name.to_string());
-        let parent_field = Field::with_reader(
-            name,
-            reader,
-            Arc::clone(&text::TYPE_NOT_STORED),
-        )?;
+        let parent_field = Field::with_reader(name, reader, Arc::clone(&text::TYPE_NOT_STORED))?;
         Ok(Self {
             parent_field,
             stored_value: None,
@@ -98,8 +98,7 @@ impl TextField {
         } else {
             Arc::clone(&text::TYPE_NOT_STORED)
         };
-        let parent_field =
-            Field::with_string(name, value_str.clone(), field_type.clone())?;
+        let parent_field = Field::with_string(name, value_str.clone(), field_type.clone())?;
         let stored_value = if store {
             Some(StoredValue::new_string(value_str))
         } else {
@@ -115,15 +114,9 @@ impl TextField {
     /// # Parameters
     /// - `name`: Field name.
     /// - `stream`: `TokenStream` value.
-    pub fn with_token_stream(
-        name: &str,
-        stream: TokenStreamEnum,
-    ) -> Result<Self> {
-        let parent_field = Field::with_token_stream(
-            name,
-            stream,
-            Arc::clone(&text::TYPE_NOT_STORED),
-        )?;
+    pub fn with_token_stream(name: &str, stream: TokenStreamEnum) -> Result<Self> {
+        let parent_field =
+            Field::with_token_stream(name, stream, Arc::clone(&text::TYPE_NOT_STORED))?;
         Ok(Self {
             parent_field,
             stored_value: None,

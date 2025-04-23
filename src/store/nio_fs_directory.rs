@@ -14,21 +14,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::store::fs_directory_base::FSDirectoryBase;
-use crate::store::nio_fs_index_input::NIOFSIndexInput;
-use crate::store::{BufferedIndexInput, IOContext};
-use crate::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::{Display, Formatter};
 use std::fs::File;
 use std::path::Path;
 
-/// An implementation of [`FSDirectory`](crate::store::fs_directory::FSDirectory)that uses `std::fs::File` for positional reads,
-/// allowing multiple threads to read from the same file without synchronization.
+use crate::store::fs_directory_base::FSDirectoryBase;
+use crate::store::nio_fs_index_input::NIOFSIndexInput;
+use crate::store::{BufferedIndexInput, IOContext};
+use crate::util::error::lucene_error::{LuceneError, Result};
+
+/// An implementation of
+/// [`FSDirectory`](crate::store::fs_directory::FSDirectory)that uses
+/// `std::fs::File` for positional reads, allowing multiple threads to read from
+/// the same file without synchronization.
 ///
 /// # Read and Write Modes
 ///
-/// This struct uses `std::fs::File` for reading, enabling thread-safe concurrent reads. Writing
-/// is achieved using [`OutputStreamIndexOutput`](crate::store::output_stream_index_output).
+/// This struct uses `std::fs::File` for reading, enabling thread-safe
+/// concurrent reads. Writing is achieved using
+/// [`OutputStreamIndexOutput`](crate::store::output_stream_index_output).
 pub struct NIOFSDirectory;
 
 impl Default for NIOFSDirectory {
@@ -49,15 +53,12 @@ impl Display for NIOFSDirectory {
     }
 }
 
-/// this method should only be called in [`FSDirectory::open_input`](crate::store::fs_directory::FSDirectory), which will first check whether file could be read
+/// this method should only be called in
+/// [`FSDirectory::open_input`](crate::store::fs_directory::FSDirectory), which
+/// will first check whether file could be read
 impl FSDirectoryBase for NIOFSDirectory {
     type Output = BufferedIndexInput<NIOFSIndexInput>;
-    fn open_input(
-        &self,
-        name: &str,
-        context: &IOContext,
-        path: &Path,
-    ) -> Result<Self::Output> {
+    fn open_input(&self, name: &str, context: &IOContext, path: &Path) -> Result<Self::Output> {
         let file_path = path.join(name);
         let file_name = file_path.to_string_lossy().to_string();
         let file = match File::open(file_path) {
@@ -66,28 +67,23 @@ impl FSDirectoryBase for NIOFSDirectory {
                 return Err(LuceneError::io_with_path(file_name, err));
             },
         };
-        let resource_desc =
-            format!("NIOFSIndexInput(path=\"{}\")", path.display());
+        let resource_desc = format!("NIOFSIndexInput(path=\"{}\")", path.display());
         // let resource_desc_string = resource_desc.to_string();
         let index_input = NIOFSIndexInput::new(file, &resource_desc);
-        BufferedIndexInput::with_io_context(
-            index_input,
-            &resource_desc,
-            context,
-        )
+        BufferedIndexInput::with_io_context(index_input, &resource_desc, context)
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use crate::store::nio_fs_directory::NIOFSDirectory;
     use crate::store::nio_fs_index_input::NIOFSIndexInput;
     use crate::store::{BufferedIndexInput, FSDirectory, NativeFSLockFactory};
     use crate::test::store::base_directory_test_case::BaseDirectoryTestCase;
     use crate::test::util::lucene_test_case::random;
-
     use crate::util::error::lucene_error::Result;
-    use std::path::PathBuf;
 
     #[allow(dead_code)] // for quick search
     struct TestNIOFSDirectory;

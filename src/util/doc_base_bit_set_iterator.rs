@@ -18,13 +18,12 @@ use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::util::bit_set::BitSet;
 use crate::util::bits::Bits;
-
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
 
 /// A [`DocIdSetIterator`] like
-/// [`BitSetIterator`](crate::util::bit_set_iterator::BitSetIterator) but has a doc base in order to avoid
-/// storing previous 0s.
+/// [`BitSetIterator`](crate::util::bit_set_iterator::BitSetIterator) but has a
+/// doc base in order to avoid storing previous 0s.
 pub struct DocBaseBitSetIterator {
     bits: FixedBitSet,
     length: i32,
@@ -34,11 +33,7 @@ pub struct DocBaseBitSetIterator {
 }
 
 impl DocBaseBitSetIterator {
-    pub fn new(
-        bits: FixedBitSet,
-        cost: i64,
-        doc_base: i32,
-    ) -> Result<DocBaseBitSetIterator> {
+    pub fn new(bits: FixedBitSet, cost: i64, doc_base: i32) -> Result<DocBaseBitSetIterator> {
         if cost < 0 {
             return Err(LuceneError::illegal_argument(format!(
                 "cost must be >= 0, got {}",

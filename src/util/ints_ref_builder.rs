@@ -98,35 +98,32 @@ where
 
     /// Grows the reference array to at least `new_length`.
     ///
-    /// In general, this should not be used directly, as it does not take offset into account.
+    /// In general, this should not be used directly, as it does not take offset
+    /// into account.
     pub fn grow(&mut self, new_length: i32) {
-        self.ints_ref.ints.access_mut(|ints_bytes| {
-            ArrayUtil::grow_with_len(ints_bytes, new_length as usize)
-        })
+        self.ints_ref
+            .ints
+            .access_mut(|ints_bytes| ArrayUtil::grow_with_len(ints_bytes, new_length as usize))
     }
 
-    /// Grows the reference array to at least `new_length`, without copying original data.
+    /// Grows the reference array to at least `new_length`, without copying
+    /// original data.
     pub fn grow_no_copy(&mut self, new_length: i32) {
-        let v = self.ints_ref.ints.access_mut(|ints_bytes| {
-            ArrayUtil::grow_no_copy(ints_bytes, new_length as usize)
-        });
+        let v = self
+            .ints_ref
+            .ints
+            .access_mut(|ints_bytes| ArrayUtil::grow_no_copy(ints_bytes, new_length as usize));
         if let Some(v) = v {
             self.ints_ref.ints = AV::from_vec(v);
         }
     }
 
     /// Copies the given slice into this instance.
-    pub fn copy_ints(
-        &mut self,
-        other: &[i32],
-        other_offset: i32,
-        other_length: i32,
-    ) {
+    pub fn copy_ints(&mut self, other: &[i32], other_offset: i32, other_length: i32) {
         self.grow_no_copy(other_length);
         self.ints_ref.ints.access_mut(|ints_bytes| {
             ints_bytes.copy_from(
-                &other[other_offset as usize
-                    ..(other_offset + other_length) as usize],
+                &other[other_offset as usize..(other_offset + other_length) as usize],
                 0,
             );
             self.ints_ref.length = other_length;
@@ -134,9 +131,8 @@ where
     }
     /// Copies the given [`IntsRef`] into this instance.
     pub fn copy_ints_ref(&mut self, ints: &IntsRef<AV>) {
-        ints.ints.access(|ints_bytes| {
-            self.copy_ints(ints_bytes, ints.offset, ints.length)
-        })
+        ints.ints
+            .access(|ints_bytes| self.copy_ints(ints_bytes, ints.offset, ints.length))
     }
 
     /// Copies the given UTF-8 bytes into this builder.

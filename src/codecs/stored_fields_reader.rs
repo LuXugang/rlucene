@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::collections::HashSet;
+
 use crate::codecs::compressing::lucene90_compressing_stored_fields_reader::Lucene90CompressingStoredFieldsReader;
 use crate::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::document::document::Document;
@@ -22,23 +24,24 @@ use crate::index::stored_fields::StoredFields;
 use crate::store::IndexInput;
 use crate::util::clone::TryClone;
 use crate::util::error::lucene_error::Result;
-use std::collections::HashSet;
 
 /// Codec API for reading stored fields.
 ///
-/// You need to implement [`document(int, StoredFieldVisitor)`](StoredFields::document_with_visitor) to read the stored fields for
-/// a document, implement `clone()`(creating clones of any IndexInputs used, etc)
+/// You need to implement [`document(int,
+/// StoredFieldVisitor)`](StoredFields::document_with_visitor) to read the
+/// stored fields for a document, implement `clone()`(creating clones of any
+/// IndexInputs used, etc)
 pub trait StoredFieldsReader<I>: StoredFields + TryClone
 where
     I: IndexInput,
 {
     /// Checks consistency of this reader.
     ///
-    /// Note that this may be costly in terms of I/O, e.g. may involve computing a checksum value
-    /// against large data files.
+    /// Note that this may be costly in terms of I/O, e.g. may involve computing
+    /// a checksum value against large data files.
     fn check_integrity(&mut self) -> Result<()>;
-    /// Returns an instance optimized for merging. This instance may only be cloned
-    /// # Note
+    /// Returns an instance optimized for merging. This instance may only be
+    /// cloned # Note
     /// Returning None means returning itself.
     fn get_merge_instance(&self) -> Result<Option<StoredFieldsReaderEnum<I>>> {
         Ok(None)
@@ -62,15 +65,9 @@ where
         }
     }
 
-    fn document(
-        &mut self,
-        doc_id: i32,
-        writer: &mut impl StoredFieldsWriter,
-    ) -> Result<Document> {
+    fn document(&mut self, doc_id: i32, writer: &mut impl StoredFieldsWriter) -> Result<Document> {
         match self {
-            StoredFieldsReaderEnum::Lucene90(reader) => {
-                reader.document(doc_id, writer)
-            },
+            StoredFieldsReaderEnum::Lucene90(reader) => reader.document(doc_id, writer),
         }
     }
 
@@ -123,17 +120,13 @@ where
 {
     fn check_integrity(&mut self) -> Result<()> {
         match self {
-            StoredFieldsReaderEnum::Lucene90(reader) => {
-                reader.check_integrity()
-            },
+            StoredFieldsReaderEnum::Lucene90(reader) => reader.check_integrity(),
         }
     }
 
     fn get_merge_instance(&self) -> Result<Option<StoredFieldsReaderEnum<I>>> {
         match self {
-            StoredFieldsReaderEnum::Lucene90(reader) => {
-                reader.get_merge_instance()
-            },
+            StoredFieldsReaderEnum::Lucene90(reader) => reader.get_merge_instance(),
         }
     }
 }

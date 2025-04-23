@@ -20,13 +20,16 @@ use strum_macros::{EnumCount, FromRepr};
 #[repr(u8)]
 pub enum VectorEncoding {
     /**
-     * Encodes vector using 8 bits of precision per sample. Values provided with higher precision (e.g.,
-     * queries provided as float) *must* be in the range [-128, 127]. NOTE: this can enable significant
-     * storage savings and faster searches, at the cost of some possible loss of precision.
+     * Encodes vector using 8 bits of precision per sample. Values provided
+     * with higher precision (e.g., queries provided as float) *must*
+     * be in the range [-128, 127]. NOTE: this can enable significant
+     * storage savings and faster searches, at the cost of some possible
+     * loss of precision.
      */
     BYTE(i32),
 
-    /// Encodes vector using 32 bits of precision per sample in IEEE floating point format.
+    /// Encodes vector using 32 bits of precision per sample in IEEE floating
+    /// point format.
     FLOAT32(i32),
 }
 

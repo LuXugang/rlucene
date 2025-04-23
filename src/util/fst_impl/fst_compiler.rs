@@ -14,6 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::cell::RefCell;
+use std::fmt::{Display, Formatter};
+use std::marker::PhantomData;
+use std::rc::Rc;
+
 use crate::store::directory::Directory;
 use crate::store::{ByteArrayDataOutput, DataOutput};
 use crate::util::accountable::Accountable;
@@ -26,20 +31,15 @@ use crate::util::fst_impl::fst_reader::FstReader;
 use crate::util::fst_impl::growable_byte_array_data_output::GrowableByteArrayDataOutput;
 use crate::util::fst_impl::node_hash::NodeHash;
 use crate::util::fst_impl::outputs::{Outputs, OutputsBound};
-use crate::util::fst_impl::read_write_data_output::{
-    BytesReaderEnum, ReadWriteDataOutput,
-};
+use crate::util::fst_impl::read_write_data_output::{BytesReaderEnum, ReadWriteDataOutput};
 use crate::util::ints_ref::IntsRef;
 use crate::util::ints_ref_builder::IntsRefBuilder;
 use crate::util::SliceCopyOps;
-use std::cell::RefCell;
-use std::fmt::{Display, Formatter};
-use std::marker::PhantomData;
-use std::rc::Rc;
 
-/// Builds a minimal FST (maps an `IntsRef` term to an arbitrary output) from pre-sorted terms with
-/// outputs. The FST becomes an FSA if you use `NoOutputs`. The FST is written on-the-fly into a
-/// compact serialized format byte array, which can be saved to / loaded from a `Directory` or used
+/// Builds a minimal FST (maps an `IntsRef` term to an arbitrary output) from
+/// pre-sorted terms with outputs. The FST becomes an FSA if you use
+/// `NoOutputs`. The FST is written on-the-fly into a compact serialized format
+/// byte array, which can be saved to / loaded from a `Directory` or used
 /// directly for traversal. The FST is always finite (no cycles).
 ///
 ///
@@ -47,21 +47,22 @@ use std::rc::Rc;
 /// <http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.24.3698>
 ///
 ///
-/// The parameterized type `T` is the output type. See the subclasses of [`Outputs`].
+/// The parameterized type `T` is the output type. See the subclasses of
+/// [`Outputs`].
 ///
 ///
-/// FSTs larger than 2.1GB are now possible (as of Lucene 4.2). FSTs containing more than 2.1B
-/// nodes are also now possible, however they cannot be packed.
+/// FSTs larger than 2.1GB are now possible (as of Lucene 4.2). FSTs containing
+/// more than 2.1B nodes are also now possible, however they cannot be packed.
 ///
 ///
 /// It now supports 3 different workflows:
 ///
 /// - Build FST and use it immediately entirely in RAM and then discard it
-/// - Build FST and use it immediately entirely in RAM and also save it to other `DataOutput`, and
-///   load it later and use it
-/// - Build FST but stream it immediately to disk (except the `FSTMetaData`, to be saved at the
-///   end). In order to use it, you need to construct the corresponding `DataInput` and use the FST
-///   constructor to read it.
+/// - Build FST and use it immediately entirely in RAM and also save it to other
+///   `DataOutput`, and load it later and use it
+/// - Build FST but stream it immediately to disk (except the `FSTMetaData`, to
+///   be saved at the end). In order to use it, you need to construct the
+///   corresponding `DataInput` and use the FST constructor to read it.
 pub(crate) struct FSTCompiler<T, O, D>
 where
     T: OutputsBound,
@@ -141,7 +142,8 @@ where
 
         Ok((CompiledNode { node }, node_in))
     }
-    /// Minimizes and compiles the suffix path of the previous input from `prefix_len_plus1` to the end.
+    /// Minimizes and compiles the suffix path of the previous input from
+    /// `prefix_len_plus1` to the end.
     fn freeze_tail(&mut self, prefix_len_plus1: i32) -> Result<()> {
         let (len, down_to) = {
             let inner = self.inner.borrow();
@@ -182,18 +184,17 @@ where
 
         Ok(())
     }
-    /// Add the next input/output pair. The provided input must be sorted after the previous one
-    /// according to [`IntsRef::cmp`]. It's also OK to add the same input twice in a row with
-    /// different outputs, as long as [`Outputs`] implements the [`Outputs::merge`] method. Note
-    /// that input is fully consumed after this method returns (so the caller is free to reuse), but
-    /// output is not. So if your outputs are changeable (e.g. [`ByteSequenceOutputs`](crate::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs) or
+    /// Add the next input/output pair. The provided input must be sorted after
+    /// the previous one according to [`IntsRef::cmp`]. It's also OK to add
+    /// the same input twice in a row with different outputs, as long as
+    /// [`Outputs`] implements the [`Outputs::merge`] method. Note
+    /// that input is fully consumed after this method returns (so the caller is
+    /// free to reuse), but output is not. So if your outputs are changeable
+    /// (e.g. [`ByteSequenceOutputs`](crate::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs)
+    /// or
     /// [`IntSequenceOutputs`](crate::util::fst_impl::int_sequence_outputs::IntSequenceOutputs)), then you cannot reuse them across calls.
     #[allow(unused)]
-    pub(crate) fn add(
-        &mut self,
-        input: &IntsRef<Vec<i32>>,
-        mut output: T,
-    ) -> Result<()> {
+    pub(crate) fn add(&mut self, input: &IntsRef<Vec<i32>>, mut output: T) -> Result<()> {
         let ints = &input.ints;
         let prefix_len_plus1;
         {
@@ -204,8 +205,7 @@ where
             }
 
             debug_assert!(
-                inner.last_input.len() == 0
-                    || *input >= *inner.last_input.get(),
+                inner.last_input.len() == 0 || *input >= *inner.last_input.get(),
                 "inputs are added out of order lastInput={:?} vs input={:?}",
                 inner.last_input.get(),
                 input
@@ -227,9 +227,7 @@ where
             let mut pos1 = 0;
             let mut pos2 = input.offset;
             let pos1_stop = inner.last_input.len().min(input.length);
-            while pos1 < pos1_stop
-                && inner.last_input.int_at(pos1)? == ints[pos2 as usize]
-            {
+            while pos1 < pos1_stop && inner.last_input.int_at(pos1)? == ints[pos2 as usize] {
                 pos1 += 1;
                 pos2 += 1;
             }
@@ -241,8 +239,7 @@ where
                 ArrayUtil::grow_with_len(&mut self.frontier, old_len + 1);
                 debug_assert!(self.frontier.len() <= i32::MAX as usize);
                 for i in old_len..self.frontier.len() {
-                    self.frontier[i] =
-                        Some(UnCompiledNode::new(self.inner.clone(), i as i32));
+                    self.frontier[i] = Some(UnCompiledNode::new(self.inner.clone(), i as i32));
                 }
             }
         }
@@ -257,8 +254,7 @@ where
         for idx in prefix_len_plus1..=input.length as usize {
             let label = ints[offset + idx - 1];
             // TODO: 这里先抛出所有权 看看有没有问题
-            let un_compiled =
-                NodeEnum::UnCompiledNode(self.frontier[idx].take().unwrap());
+            let un_compiled = NodeEnum::UnCompiledNode(self.frontier[idx].take().unwrap());
             self.frontier[idx - 1]
                 .as_mut()
                 .unwrap()
@@ -286,8 +282,7 @@ where
 
             let common_output_prefix;
             if std::ptr::eq(&last_output, &inner.no_output) {
-                common_output_prefix =
-                    inner.fst.outputs.common(&output, &last_output);
+                common_output_prefix = inner.fst.outputs.common(&output, &last_output);
                 debug_assert!(inner.valid_output(&common_output_prefix));
 
                 let word_suffix = inner
@@ -310,14 +305,11 @@ where
             debug_assert!(inner.valid_output(&output));
         }
 
-        if inner.last_input.len() == input.length
-            && prefix_len_plus1 == input.length as usize + 1
-        {
+        if inner.last_input.len() == input.length && prefix_len_plus1 == input.length as usize + 1 {
             // same input more than 1 time in a row, mapping to
             // multiple outputs
             let last_node = self.frontier[offset].as_mut().unwrap();
-            last_node.output =
-                inner.fst.outputs.merge(&last_node.output, &output)?;
+            last_node.output = inner.fst.outputs.merge(&last_node.output, &output)?;
         } else {
             // this new arc is private to this new input; set its
             // arc output to the leftover output:
@@ -332,21 +324,25 @@ where
         self.inner.borrow_mut().last_input.copy_ints_ref(input);
         Ok(())
     }
-    /// Returns the metadata of the final FST. NOTE: this will return null if nothing is accepted by
-    /// the FST themselves.
+    /// Returns the metadata of the final FST. NOTE: this will return null if
+    /// nothing is accepted by the FST themselves.
     ///
     /// To create the FST, you need to:
     ///
-    /// - If a FSTReader DataOutput was used, such as the one returned by [`getOnHeapReaderWriter`](fst_compiler_util::get_on_heap_reader_writer)
+    /// - If a FSTReader DataOutput was used, such as the one returned by
+    ///   [`getOnHeapReaderWriter`](fst_compiler_util::get_on_heap_reader_writer)
     ///
     /// ```text
     ///     fstMetadata = fstCompiler.compile();
     ///     fst = FST.fromFSTReader(fstMetadata, fstCompiler.getFSTReader());
     /// ```
     ///
-    /// - If a non-FSTReader DataOutput was used, such as [`IndexOutput`](crate::store::index_output::IndexOutput),
-    ///   you need to first create the corresponding [`DataInput`](crate::store::data_input::DataInput), such as
-    ///   [`IndexInput`](crate::store::data_input::DataInput) then pass it to the FST construct
+    /// - If a non-FSTReader DataOutput was used, such as
+    ///   [`IndexOutput`](crate::store::index_output::IndexOutput), you need to
+    ///   first create the corresponding
+    ///   [`DataInput`](crate::store::data_input::DataInput), such as
+    ///   [`IndexInput`](crate::store::data_input::DataInput) then pass it to
+    ///   the FST construct
     pub fn compile(
         &mut self,
         _frontier: &mut [UnCompiledNode<T, O, D>],
@@ -370,7 +366,8 @@ where
                 // return null for completely empty FST which accepts nothing
                 return Ok(None);
             } else {
-                // we haven't written the padding byte so far, but the FST is still valid
+                // we haven't written the padding byte so far, but the FST is
+                // still valid
                 self.inner.borrow_mut().write_padding_byte()?;
             }
         }
@@ -388,31 +385,32 @@ pub mod fst_compiler_util {
     /// Maximum oversizing factor allowed for direct addressing.
     pub(crate) const DIRECT_ADDRESSING_MAX_OVERSIZING_FACTOR: f32 = 1.0;
 
-    /// Minimum depth at which fixed-length arcs are considered for shallow nodes.
+    /// Minimum depth at which fixed-length arcs are considered for shallow
+    /// nodes.
     ///
     /// See [`FSTCompiler::should_expand_node_with_fixed_length_arcs`](crate::util::fst_impl::fst_compiler::FSTCompilerInner::should_expand_node_with_fixed_length_arcs)..
     pub(crate) const FIXED_LENGTH_ARC_SHALLOW_DEPTH: i32 = 3;
 
-    /// Minimum number of arcs required to consider fixed-length arcs at shallow depth.
+    /// Minimum number of arcs required to consider fixed-length arcs at shallow
+    /// depth.
     ///
     /// See [`FSTCompiler::should_expand_node_with_fixed_length_arcs`](crate::util::fst_impl::fst_compiler::FSTCompilerInner::should_expand_node_with_fixed_length_arcs)..
     pub(crate) const FIXED_LENGTH_ARC_SHALLOW_NUM_ARCS: i32 = 5;
 
-    /// Minimum number of arcs required to consider fixed-length arcs at deep depth.
+    /// Minimum number of arcs required to consider fixed-length arcs at deep
+    /// depth.
     ///
     /// See [`FSTCompiler::should_expand_node_with_fixed_length_arcs`](crate::util::fst_impl::fst_compiler::FSTCompilerInner::should_expand_node_with_fixed_length_arcs).
     pub(crate) const FIXED_LENGTH_ARC_DEEP_NUM_ARCS: i32 = 10;
 
-    /// Maximum oversizing factor allowed for direct addressing compared to binary search when
-    /// expansion credits allow the oversizing. This factor prevents expansions that are obviously
-    /// too costly even if there are sufficient credits.
+    /// Maximum oversizing factor allowed for direct addressing compared to
+    /// binary search when expansion credits allow the oversizing. This
+    /// factor prevents expansions that are obviously too costly even if
+    /// there are sufficient credits.
     ///
     /// See [`FSTCompiler::should_expand_node_with_direct_addressing`](crate::util::fst_impl::fst_compiler::FSTCompilerInner::should_expand_node_with_direct_addressing).
-    pub(super) const DIRECT_ADDRESSING_MAX_OVERSIZE_WITH_CREDIT_FACTOR: f32 =
-        1.66;
-    pub fn get_on_heap_reader_writer(
-        block_bits: i32,
-    ) -> Result<ReadWriteDataOutput> {
+    pub(super) const DIRECT_ADDRESSING_MAX_OVERSIZE_WITH_CREDIT_FACTOR: f32 = 1.66;
+    pub fn get_on_heap_reader_writer(block_bits: i32) -> Result<ReadWriteDataOutput> {
         Ok(ReadWriteDataOutput::new(block_bits))
     }
 }
@@ -484,8 +482,7 @@ where
 
         let null_fst_reader = NullFSTReader; // assume you implemented Default
         let no_output = outputs.get_no_output();
-        let fst_meta =
-            FSTMetadata::new(input_type, outputs, None, -1, version, 0);
+        let fst_meta = FSTMetadata::new(input_type, outputs, None, -1, version, 0);
         let fst = FST::new(fst_meta, NullFSTReader);
 
         Ok(FSTCompilerInner {
@@ -514,10 +511,7 @@ where
     }
     // serializes new node by appending its bytes to the end
     // of the current byte[]
-    pub(crate) fn add_node(
-        &mut self,
-        node_in: &UnCompiledNode<T, O, D>,
-    ) -> Result<i64> {
+    pub(crate) fn add_node(&mut self, node_in: &UnCompiledNode<T, O, D>) -> Result<i64> {
         if node_in.num_arcs == 0 {
             return Ok(if node_in.is_final {
                 fst_util::FINAL_END_NODE
@@ -528,15 +522,9 @@ where
         // reset the scratch writer to prepare for new write
         self.scratch_bytes.set_position(0);
 
-        let do_fixed_length_arcs =
-            self.should_expand_node_with_fixed_length_arcs(node_in);
-        if do_fixed_length_arcs
-            && self.num_bytes_per_arc.len() < node_in.num_arcs as usize
-        {
-            let new_len = ArrayUtil::oversize(
-                node_in.num_arcs as usize,
-                BitUtil::INT_BYTES,
-            );
+        let do_fixed_length_arcs = self.should_expand_node_with_fixed_length_arcs(node_in);
+        if do_fixed_length_arcs && self.num_bytes_per_arc.len() < node_in.num_arcs as usize {
+            let new_len = ArrayUtil::oversize(node_in.num_arcs as usize, BitUtil::INT_BYTES);
             self.num_bytes_per_arc = vec![0; new_len];
             self.num_label_bytes_per_arc = vec![0; new_len];
         }
@@ -562,9 +550,7 @@ where
                         flags |= fst_util::BIT_LAST_ARC as i32;
                     }
 
-                    if self.last_frozen_node == target.node
-                        && !do_fixed_length_arcs
-                    {
+                    if self.last_frozen_node == target.node && !do_fixed_length_arcs {
                         // TODO: for better perf (but more RAM used) we
                         // could avoid this except when arc is "near" the
                         // last arc:
@@ -573,15 +559,11 @@ where
 
                     if arc.is_final {
                         flags |= fst_util::BIT_FINAL_ARC as i32;
-                        if std::ptr::eq(&arc.next_final_output, &self.no_output)
-                        {
+                        if std::ptr::eq(&arc.next_final_output, &self.no_output) {
                             flags |= fst_util::BIT_ARC_HAS_FINAL_OUTPUT as i32;
                         }
                     } else {
-                        debug_assert!(std::ptr::eq(
-                            &arc.next_final_output,
-                            &self.no_output
-                        ));
+                        debug_assert!(std::ptr::eq(&arc.next_final_output, &self.no_output));
                     }
 
                     let target_has_arcs = target.node > 0;
@@ -607,39 +589,32 @@ where
                     }
 
                     if std::ptr::eq(&arc.next_final_output, &self.no_output) {
-                        self.fst.outputs.write_final_output(
-                            &arc.next_final_output,
-                            &mut self.scratch_bytes,
-                        )?;
+                        self.fst
+                            .outputs
+                            .write_final_output(&arc.next_final_output, &mut self.scratch_bytes)?;
                     }
 
-                    if target_has_arcs
-                        && (flags & fst_util::BIT_TARGET_NEXT as i32) == 0
-                    {
+                    if target_has_arcs && (flags & fst_util::BIT_TARGET_NEXT as i32) == 0 {
                         self.scratch_bytes.write_vlong(target.node)?;
                     }
 
                     if do_fixed_length_arcs {
-                        let num_arc_bytes =
-                            self.scratch_bytes.get_position() - last_arc_start;
+                        let num_arc_bytes = self.scratch_bytes.get_position() - last_arc_start;
                         self.num_bytes_per_arc[arc_idx] = num_arc_bytes;
                         self.num_label_bytes_per_arc[arc_idx] = num_label_bytes;
                         last_arc_start = self.scratch_bytes.get_position();
-                        max_bytes_per_arc =
-                            max_bytes_per_arc.max(num_arc_bytes);
+                        max_bytes_per_arc = max_bytes_per_arc.max(num_arc_bytes);
                         max_bytes_per_arc_without_label =
-                            max_bytes_per_arc_without_label
-                                .max(num_arc_bytes - num_label_bytes);
+                            max_bytes_per_arc_without_label.max(num_arc_bytes - num_label_bytes);
                     }
                 },
                 NodeEnum::UnCompiledNode(_) => {
-                    return Err(LuceneError::illegal_state(
-                        "should be compiled",
-                    ));
+                    return Err(LuceneError::illegal_state("should be compiled"));
                 },
             }
         }
-        // TODO: try to avoid wasteful cases: disable doFixedLengthArcs in that case
+        // TODO: try to avoid wasteful cases: disable doFixedLengthArcs in that
+        // case
         /*
          *
          * LUCENE-4682: what is a fair heuristic here?
@@ -660,14 +635,10 @@ where
         */
         if do_fixed_length_arcs {
             debug_assert!(max_bytes_per_arc > 0);
-            let label_range = node_in.arcs[last_arc as usize].label
-                - node_in.arcs[0].label
-                + 1;
+            let label_range = node_in.arcs[last_arc as usize].label - node_in.arcs[0].label + 1;
             debug_assert!(label_range > 0);
             let continuous_label = label_range == node_in.num_arcs;
-            if continuous_label
-                && self.version >= fst_util::VERSION_CONTINUOUS_ARCS
-            {
+            if continuous_label && self.version >= fst_util::VERSION_CONTINUOUS_ARCS {
                 self.write_node_for_direct_addressing_or_continuous(
                     node_in,
                     max_bytes_per_arc_without_label,
@@ -708,8 +679,9 @@ where
         Ok(self.num_bytes_written - 1)
     }
     /// Get the respective [`DataOutputEnum`]. To call this method, you need
-    /// to use the default `DataOutput` or [`get_on_heap_reader_writer`](fst_compiler_util::get_on_heap_reader_writer), otherwise an
-    /// error will be thrown.
+    /// to use the default `DataOutput` or
+    /// [`get_on_heap_reader_writer`](fst_compiler_util::get_on_heap_reader_writer),
+    /// otherwise an error will be thrown.
     #[allow(unused)]
     fn get_fst_reader(&mut self) -> Result<&mut DataOutputEnum<D>> {
         let is_fst_reader = match self.data_output {
@@ -736,8 +708,8 @@ where
     pub fn get_arc_count(&self) -> i64 {
         self.arc_count
     }
-    /// Write the padding byte, ensure no node gets address 0 which is reserved to mean the stop state
-    /// w/ no arcs
+    /// Write the padding byte, ensure no node gets address 0 which is reserved
+    /// to mean the stop state w/ no arcs
     fn write_padding_byte(&mut self) -> Result<()> {
         debug_assert!(self.padding_byte_pending);
         self.data_output.write_byte(0)?;
@@ -763,31 +735,28 @@ where
         Ok(())
     }
 
-    /// Returns whether the given node should be expanded with fixed length arcs. Nodes will be
-    /// expanded depending on their depth (distance from the root node) and their number of arcs.
+    /// Returns whether the given node should be expanded with fixed length
+    /// arcs. Nodes will be expanded depending on their depth (distance from
+    /// the root node) and their number of arcs.
     ///
     ///
-    /// Nodes with fixed length arcs use more space, because they encode all arcs with a fixed
-    /// number of bytes, but they allow either binary search or direct addressing on the arcs (instead
-    /// of linear scan) on lookup by arc label.
-    fn should_expand_node_with_fixed_length_arcs(
-        &self,
-        node: &UnCompiledNode<T, O, D>,
-    ) -> bool {
+    /// Nodes with fixed length arcs use more space, because they encode all
+    /// arcs with a fixed number of bytes, but they allow either binary
+    /// search or direct addressing on the arcs (instead of linear scan) on
+    /// lookup by arc label.
+    fn should_expand_node_with_fixed_length_arcs(&self, node: &UnCompiledNode<T, O, D>) -> bool {
         self.allow_fixed_length_arcs
-            && ((node.depth
-                <= fst_compiler_util::FIXED_LENGTH_ARC_SHALLOW_DEPTH
-                && node.num_arcs
-                    >= fst_compiler_util::FIXED_LENGTH_ARC_SHALLOW_NUM_ARCS)
-                || node.num_arcs
-                    >= fst_compiler_util::FIXED_LENGTH_ARC_DEEP_NUM_ARCS)
+            && ((node.depth <= fst_compiler_util::FIXED_LENGTH_ARC_SHALLOW_DEPTH
+                && node.num_arcs >= fst_compiler_util::FIXED_LENGTH_ARC_SHALLOW_NUM_ARCS)
+                || node.num_arcs >= fst_compiler_util::FIXED_LENGTH_ARC_DEEP_NUM_ARCS)
     }
-    /// Returns whether the given node should be expanded with direct addressing instead of binary
-    /// search.
+    /// Returns whether the given node should be expanded with direct addressing
+    /// instead of binary search.
     ///
     ///
-    /// Prefer direct addressing for performance if it does not oversize binary search byte size too
-    /// much, so that the arcs can be directly addressed by label.
+    /// Prefer direct addressing for performance if it does not oversize binary
+    /// search byte size too much, so that the arcs can be directly
+    /// addressed by label.
     ///
     ///
     /// # See also
@@ -802,25 +771,27 @@ where
     ) -> bool {
         // Anticipate precisely the size of the encodings.
         let size_for_binary_search = num_bytes_per_arc * node_in.num_arcs;
-        let size_for_direct_addressing =
-            fst_util::get_num_presence_bytes(label_range)
-                + self.num_label_bytes_per_arc[0]
-                + max_bytes_per_arc_without_label * node_in.num_arcs;
+        let size_for_direct_addressing = fst_util::get_num_presence_bytes(label_range)
+            + self.num_label_bytes_per_arc[0]
+            + max_bytes_per_arc_without_label * node_in.num_arcs;
 
         // Determine the allowed oversize compared to binary search.
-        // This is defined by a parameter of FST Builder (default 1: no oversize).
+        // This is defined by a parameter of FST Builder (default 1: no
+        // oversize).
         let allowed_oversize = (size_for_binary_search as f32
             * self.get_direct_addressing_max_oversizing_factor())
             as i32;
         let expansion_cost = size_for_direct_addressing - allowed_oversize;
 
         // Select direct addressing if either:
-        // - Direct addressing size is smaller than binary search.
-        //   In this case, increment the credit by the reduced size (to use it later).
-        // - Direct addressing size is larger than binary search, but the positive credit allows the
-        //   oversizing. In this case, decrement the credit by the oversize.
+        // - Direct addressing size is smaller than binary search. In this case,
+        //   increment the credit by the reduced size (to use it later).
+        // - Direct addressing size is larger than binary search, but the positive
+        //   credit allows the oversizing. In this case, decrement the credit by the
+        //   oversize.
         // In addition, do not try to oversize to a clearly too large node size
-        // (this is the DIRECT_ADDRESSING_MAX_OVERSIZE_WITH_CREDIT_FACTOR parameter).
+        // (this is the DIRECT_ADDRESSING_MAX_OVERSIZE_WITH_CREDIT_FACTOR
+        // parameter).
         if expansion_cost == 0
             || (self.direct_addressing_expansion_credit >= expansion_cost as i64
                 && size_for_direct_addressing
@@ -840,8 +811,9 @@ where
         max_bytes_per_arc: i32,
     ) -> Result<()> {
         // Build the header in a buffer.
-        // It is a false/special arc which is in fact a node header with node flags followed by node
-        // metadata.        self.fixed_length_arcs_buffer.reset_position();
+        // It is a false/special arc which is in fact a node header with node
+        // flags followed by node metadata.
+        // self.fixed_length_arcs_buffer.reset_position();
         self.fixed_length_arcs_buffer
             .write_byte(fst_util::ARCS_FOR_BINARY_SEARCH)?;
         self.fixed_length_arcs_buffer.write_vint(node_in.num_arcs)?;
@@ -877,8 +849,7 @@ where
                         arc_len,
                         node_in.num_arcs
                     );
-                    scratch_bytes
-                        .copy_within(src_pos..src_pos + arc_len, dest_pos);
+                    scratch_bytes.copy_within(src_pos..src_pos + arc_len, dest_pos);
                 }
             }
         }
@@ -891,7 +862,8 @@ where
 
         Ok(())
     }
-    /// Reverse the scratch bytes in place. This operation does not affect `scratch_bytes.get_position()`.
+    /// Reverse the scratch bytes in place. This operation does not affect
+    /// `scratch_bytes.get_position()`.
     fn reverse_scratch_bytes(&mut self) {
         let pos = self.scratch_bytes.get_position() as usize;
         let bytes = self.scratch_bytes.get_bytes();
@@ -901,8 +873,8 @@ where
             bytes.swap(i, j);
         }
     }
-    /// Write bytes from a source `byte[]` to the scratch bytes. The written bytes must fit within what
-    /// was already written in the scratch bytes.
+    /// Write bytes from a source `byte[]` to the scratch bytes. The written
+    /// bytes must fit within what was already written in the scratch bytes.
     ///
     ///
     /// This operation does not affect `scratch_bytes.get_position()`.
@@ -910,18 +882,12 @@ where
     ///
     /// # Arguments
     ///
-    /// * `dest_pos` - the position in the scratch bytes  
-    /// * `bytes` - the source byte array  
-    /// * `offset` - the offset inside the source byte array  
+    /// * `dest_pos` - the position in the scratch bytes
+    /// * `bytes` - the source byte array
+    /// * `offset` - the offset inside the source byte array
     /// * `length` - the number of bytes to write
     #[allow(dead_code)]
-    fn write_scratch_bytes(
-        &mut self,
-        _dest_pos: i32,
-        _bytes: &[u8],
-        _offset: i32,
-        _length: i32,
-    ) {
+    fn write_scratch_bytes(&mut self, _dest_pos: i32, _bytes: &[u8], _offset: i32, _length: i32) {
         // Not Implement in Rust Lucene
     }
     fn write_node_for_direct_addressing_or_continuous(
@@ -932,10 +898,11 @@ where
         continuous: bool,
     ) -> Result<()> {
         // Expand the arcs backwards in a buffer because we remove the labels.
-        // So the obtained arcs might occupy less space. This is the reason why this
-        // whole method is more complex.
-        // Drop the label bytes since we can infer the label based on the arc index,
-        // the presence bits, and the first label. Keep the first label.
+        // So the obtained arcs might occupy less space. This is the reason why
+        // this whole method is more complex.
+        // Drop the label bytes since we can infer the label based on the arc
+        // index, the presence bits, and the first label. Keep the first
+        // label.
         let header_max_len = 11;
         let num_presence_bytes = if continuous {
             0
@@ -944,11 +911,10 @@ where
         };
 
         let mut src_pos = self.scratch_bytes.get_position();
-        let total_arc_bytes = self.num_label_bytes_per_arc[0]
-            + node_in.num_arcs * max_bytes_per_arc_without_label;
+        let total_arc_bytes =
+            self.num_label_bytes_per_arc[0] + node_in.num_arcs * max_bytes_per_arc_without_label;
 
-        let mut buffer_offset =
-            header_max_len + num_presence_bytes + total_arc_bytes;
+        let mut buffer_offset = header_max_len + num_presence_bytes + total_arc_bytes;
         self.fixed_length_arcs_buffer
             .ensure_capacity(buffer_offset)?;
         let buffer = self.fixed_length_arcs_buffer.get_bytes();
@@ -963,23 +929,15 @@ where
             // Skip the label, copy the remaining.
             let remaining_len = src_arc_len - 1 - label_len;
             if remaining_len != 0 {
-                self.scratch_bytes.write_to(
-                    src_pos + 1,
-                    buffer,
-                    buffer_offset,
-                    label_len,
-                );
+                self.scratch_bytes
+                    .write_to(src_pos + 1, buffer, buffer_offset, label_len);
             }
 
             // Copy label for first arc only
             if arc_idx == 0 {
                 buffer_offset -= label_len;
-                self.scratch_bytes.write_to(
-                    src_pos + 1,
-                    buffer,
-                    buffer_offset,
-                    label_len,
-                );
+                self.scratch_bytes
+                    .write_to(src_pos + 1, buffer, buffer_offset, label_len);
             }
         }
 
@@ -989,8 +947,8 @@ where
             "buffer_offset mismatch"
         );
         // Build the header in the buffer.
-        // It is a false/special arc which is in fact a node header with node flags followed by node
-        // metadata.
+        // It is a false/special arc which is in fact a node header with node
+        // flags followed by node metadata.
         // Write header
         self.fixed_length_arcs_buffer.reset_position()?;
         self.fixed_length_arcs_buffer.write_byte(if continuous {
@@ -1033,10 +991,7 @@ where
         Ok(())
     }
 
-    fn write_presence_bits(
-        &mut self,
-        node_in: &UnCompiledNode<T, O, D>,
-    ) -> Result<()> {
+    fn write_presence_bits(&mut self, node_in: &UnCompiledNode<T, O, D>) -> Result<()> {
         let mut presence_bits: u8 = 1; // The first arc is always present.
         let mut presence_index = 0;
         let mut previous_label = node_in.arcs[0].label;
@@ -1051,7 +1006,8 @@ where
                 presence_bits = 0;
                 presence_index -= byte_size;
             }
-            // Set the bit at presenceIndex to flag that the corresponding arc is present.
+            // Set the bit at presenceIndex to flag that the corresponding arc
+            // is present.
             presence_bits |= 1 << presence_index;
             previous_label = label;
         }
@@ -1071,16 +1027,13 @@ where
         match self.fst.metadata {
             Some(ref mut metadata) => {
                 if let Some(existing) = &mut metadata.empty_output {
-                    metadata.empty_output =
-                        Some(self.fst.outputs.merge(&existing.clone(), &v)?);
+                    metadata.empty_output = Some(self.fst.outputs.merge(&existing.clone(), &v)?);
                 } else {
                     metadata.empty_output = Some(v);
                 }
             },
             None => {
-                return Err(LuceneError::illegal_state(
-                    "FSTCompiler's metadata is None",
-                ));
+                return Err(LuceneError::illegal_state("FSTCompiler's metadata is None"));
             },
         }
         Ok(())
@@ -1094,9 +1047,7 @@ where
                     return Err(LuceneError::illegal_state("already finished"));
                 }
 
-                if new_start_node == fst_util::FINAL_END_NODE
-                    && metadata.empty_output.is_some()
-                {
+                if new_start_node == fst_util::FINAL_END_NODE && metadata.empty_output.is_some() {
                     new_start_node = 0;
                 }
 
@@ -1114,9 +1065,7 @@ where
                 }
             },
             None => {
-                return Err(LuceneError::illegal_state(
-                    "FSTCompiler's metadata is None",
-                ));
+                return Err(LuceneError::illegal_state("FSTCompiler's metadata is None"));
             },
         }
 
@@ -1137,8 +1086,8 @@ where
         self.num_bytes_written
     }
 }
-/// This class is used for FST backed by non-FSTReader DataOutput. It does not allow getting the
-/// reverse BytesReader nor writing to a DataOutput.
+/// This class is used for FST backed by non-FSTReader DataOutput. It does not
+/// allow getting the reverse BytesReader nor writing to a DataOutput.
 pub(crate) struct NullFSTReader;
 #[allow(unused)]
 impl Accountable for NullFSTReader {
@@ -1189,12 +1138,16 @@ where
 {
     /// Creates a new [`Builder`] with the given input type and outputs.
     ///
-    /// - `input_type`: The input type (transition labels). Can be any variant of [`InputType`].
-    ///   Shorter types consume less memory. Strings (character sequences) are typically represented
-    ///   using [`InputType::Byte4`] for full Unicode codepoints.
+    /// - `input_type`: The input type (transition labels). Can be any variant
+    ///   of [`InputType`]. Shorter types consume less memory. Strings
+    ///   (character sequences) are typically represented using
+    ///   [`InputType::Byte4`] for full Unicode codepoints.
     ///
-    /// - `outputs`: The output type for each input sequence. Applies only when building an FST.
-    ///   For FSA, use [`NoOutputs::singleton()`](crate::util::fst_impl::no_outputs::NoOutputs::get_singleton) and [`NoOutputs::no_output()`](crate::util::fst_impl::no_outputs::NoOutputs::get_no_output) as the singleton output.
+    /// - `outputs`: The output type for each input sequence. Applies only when
+    ///   building an FST. For FSA, use
+    ///   [`NoOutputs::singleton()`](crate::util::fst_impl::no_outputs::NoOutputs::get_singleton)
+    ///   and [`NoOutputs::no_output()`](crate::util::fst_impl::no_outputs::NoOutputs::get_no_output)
+    ///   as the singleton output.
     pub fn new(input_type: InputType, outputs: O) -> Self {
         Self {
             input_type,
@@ -1208,20 +1161,24 @@ where
             phantom: Default::default(),
         }
     }
-    /// Sets the approximate maximum amount of RAM (in MB) to use for holding the suffix cache.
+    /// Sets the approximate maximum amount of RAM (in MB) to use for holding
+    /// the suffix cache.
     ///
-    /// This cache enables the FST to share common suffixes. Passing `f64::INFINITY` keeps all
-    /// suffixes, resulting in an exactly minimal FST. The actual memory usage in that case will be
-    /// bounded by the number of unique suffixes.
+    /// This cache enables the FST to share common suffixes. Passing
+    /// `f64::INFINITY` keeps all suffixes, resulting in an exactly minimal
+    /// FST. The actual memory usage in that case will be bounded by the
+    /// number of unique suffixes.
     ///
-    /// If a smaller value is passed, the least recently used suffixes are discarded, reducing
-    /// suffix sharing and producing a non-minimal FST. The larger the limit, the closer the result
-    /// will be to the minimal FST, with diminishing returns.
+    /// If a smaller value is passed, the least recently used suffixes are
+    /// discarded, reducing suffix sharing and producing a non-minimal FST.
+    /// The larger the limit, the closer the result will be to the minimal
+    /// FST, with diminishing returns.
     ///
-    /// Pass `0.0` to disable suffix sharing entirely (may result in a substantially larger FST).
+    /// Pass `0.0` to disable suffix sharing entirely (may result in a
+    /// substantially larger FST).
     ///
-    /// Note: this is an approximate limit. The implementation uses hash tables to map suffixes and
-    /// estimates overhead from unused slots.
+    /// Note: this is an approximate limit. The implementation uses hash tables
+    /// to map suffixes and estimates overhead from unused slots.
     ///
     /// Default: `32.0`
     pub fn suffix_ram_limit_mb(mut self, mb: f64) -> Result<Self> {
@@ -1235,7 +1192,8 @@ where
         Ok(self)
     }
 
-    /// Controls whether fixed-length arc optimization (binary search or direct addressing) is enabled.
+    /// Controls whether fixed-length arc optimization (binary search or direct
+    /// addressing) is enabled.
     ///
     /// Disabling this makes the resulting FST smaller but slower to traverse.
     ///
@@ -1245,11 +1203,13 @@ where
         self
     }
 
-    /// Set the [`DataOutput`] which is used for low-level writing of FST. If you want the FST to
-    /// be immediately readable, you need to use [`fst_compiler_util::get_on_heap_reader_writer`].
+    /// Set the [`DataOutput`] which is used for low-level writing of FST. If
+    /// you want the FST to be immediately readable, you need to use
+    /// [`fst_compiler_util::get_on_heap_reader_writer`].
     ///
-    /// Otherwise you need to construct the corresponding [`DataInput`](crate::store::data_input::DataInput)
-    /// and use the FST constructor to read it.
+    /// Otherwise you need to construct the corresponding
+    /// [`DataInput`](crate::store::data_input::DataInput) and use the FST
+    /// constructor to read it.
     ///
     /// # Arguments
     ///
@@ -1266,30 +1226,27 @@ where
         self.data_output = Some(data_output);
         self
     }
-    /// Overrides the default maximum oversizing of fixed array allowed to enable direct
-    /// addressing of arcs instead of binary search.
+    /// Overrides the default maximum oversizing of fixed array allowed to
+    /// enable direct addressing of arcs instead of binary search.
     ///
-    /// Setting this factor to a negative value (e.g. `-1`) effectively disables direct addressing,
-    /// only binary search nodes will be created.
+    /// Setting this factor to a negative value (e.g. `-1`) effectively disables
+    /// direct addressing, only binary search nodes will be created.
     ///
-    /// This factor does not determine whether to encode a node with a list of variable length
-    /// arcs or with fixed length arcs. It only determines the effective encoding of a node that is
-    /// already known to be encoded with fixed length arcs.
+    /// This factor does not determine whether to encode a node with a list of
+    /// variable length arcs or with fixed length arcs. It only determines
+    /// the effective encoding of a node that is already known to be encoded
+    /// with fixed length arcs.
     ///
     ///
     /// Default = `1`.
 
-    pub fn with_direct_addressing_max_oversizing_factor(
-        mut self,
-        factor: f32,
-    ) -> Self {
+    pub fn with_direct_addressing_max_oversizing_factor(mut self, factor: f32) -> Self {
         self.direct_addressing_max_oversizing_factor = factor;
         self
     }
     ///  Expert: Set the codec version.
     pub fn with_version(mut self, version: i32) -> Result<Self> {
-        if (fst_util::VERSION_90..=fst_util::VERSION_CURRENT).contains(&version)
-        {
+        if (fst_util::VERSION_90..=fst_util::VERSION_CURRENT).contains(&version) {
             return Err(LuceneError::illegal_argument(format!(
                 "Version must be in range [{} - {}]; got: {}",
                 fst_util::VERSION_90,
@@ -1360,9 +1317,7 @@ where
 
     fn get_reverse_bytes_reader(&mut self) -> Result<Self::FstBytesReader> {
         match self {
-            DataOutputEnum::FromDir(_) => {
-                Err(LuceneError::unsupported_operation("".to_string()))
-            },
+            DataOutputEnum::FromDir(_) => Err(LuceneError::unsupported_operation("".to_string())),
             DataOutputEnum::ReadWriter(ref mut rw) => {
                 let reader = rw.get_reverse_bytes_reader()?;
                 Ok(reader)
@@ -1372,9 +1327,7 @@ where
 
     fn write_to(&mut self, out: &mut impl DataOutput) -> Result<()> {
         match self {
-            DataOutputEnum::FromDir(_) => {
-                Err(LuceneError::unsupported_operation("".to_string()))
-            },
+            DataOutputEnum::FromDir(_) => Err(LuceneError::unsupported_operation("".to_string())),
             DataOutputEnum::ReadWriter(ref mut rw) => rw.write_to(out),
         }
     }
@@ -1390,19 +1343,12 @@ where
         }
     }
 
-    fn write_bytes_range(
-        &mut self,
-        b: &[u8],
-        offset: i32,
-        length: i32,
-    ) -> Result<()> {
+    fn write_bytes_range(&mut self, b: &[u8], offset: i32, length: i32) -> Result<()> {
         match self {
             DataOutputEnum::FromDir(data_output) => {
                 data_output.write_bytes_range(b, offset, length)
             },
-            DataOutputEnum::ReadWriter(ref mut rw) => {
-                rw.write_bytes_range(b, offset, length)
-            },
+            DataOutputEnum::ReadWriter(ref mut rw) => rw.write_bytes_range(b, offset, length),
         }
     }
 }
@@ -1485,8 +1431,8 @@ where
     pub num_arcs: i32,
     pub arcs: Vec<Arc<T, O, D>>,
     // TODO: instead of recording is_final/output on the node,
-    // maybe we should use -1 arc to mean "end" (like we do when reading the FST).
-    // Would simplify much code here...
+    // maybe we should use -1 arc to mean "end" (like we do when reading the
+    // FST). Would simplify much code here...
     pub output: T,
     pub is_final: bool,
 
@@ -1502,12 +1448,10 @@ where
     /// Creates a new uncompiled node.
     ///
     /// # Parameters
-    /// - `depth`: The node's depth starting from the automaton root.
-    ///   Needed for LUCENE-2934 (node expansion based on conditions other than the fanout size).
-    pub(crate) fn new(
-        owner: Rc<RefCell<FSTCompilerInner<T, O, D>>>,
-        depth: i32,
-    ) -> Self {
+    /// - `depth`: The node's depth starting from the automaton root. Needed for
+    ///   LUCENE-2934 (node expansion based on conditions other than the fanout
+    ///   size).
+    pub(crate) fn new(owner: Rc<RefCell<FSTCompilerInner<T, O, D>>>, depth: i32) -> Self {
         let mut arcs = Vec::with_capacity(1);
         arcs.push(Arc::default());
 
@@ -1537,21 +1481,14 @@ where
 
     pub(crate) fn get_last_output(&self, label_to_match: i32) -> T {
         debug_assert!(self.num_arcs > 0);
-        debug_assert!(
-            self.arcs[self.num_arcs as usize - 1].label == label_to_match
-        );
+        debug_assert!(self.arcs[self.num_arcs as usize - 1].label == label_to_match);
         self.arcs[self.num_arcs as usize - 1].output.clone()
     }
 
-    pub(crate) fn add_arc(
-        &mut self,
-        label: i32,
-        target: NodeEnum<T, O, D>,
-    ) -> Result<()> {
+    pub(crate) fn add_arc(&mut self, label: i32, target: NodeEnum<T, O, D>) -> Result<()> {
         debug_assert!(label >= 0);
         debug_assert!(
-            self.num_arcs == 0
-                || label > self.arcs[self.num_arcs as usize - 1].label,
+            self.num_arcs == 0 || label > self.arcs[self.num_arcs as usize - 1].label,
             "arc[numArcs-1].label={} new label={} numArcs={}",
             self.arcs[self.num_arcs as usize - 1].label,
             label,
@@ -1590,11 +1527,7 @@ where
         arc.is_final = is_final;
     }
 
-    pub(crate) fn set_last_output(
-        &mut self,
-        label_to_match: i32,
-        new_output: T,
-    ) {
+    pub(crate) fn set_last_output(&mut self, label_to_match: i32, new_output: T) {
         debug_assert!(self.owner.borrow().valid_output(&new_output));
         debug_assert!(self.num_arcs > 0);
         let arc = &mut self.arcs[self.num_arcs as usize - 1];
@@ -1608,8 +1541,7 @@ where
         let owner = self.owner.borrow();
 
         for i in 0..self.num_arcs as usize {
-            let new_output =
-                owner.fst.outputs.add(output_prefix, &self.arcs[i].output);
+            let new_output = owner.fst.outputs.add(output_prefix, &self.arcs[i].output);
             debug_assert!(owner.valid_output(&new_output));
             self.arcs[i].output = new_output;
         }
@@ -1632,14 +1564,16 @@ where
     }
 }
 
-/// Reusable buffer for building nodes with fixed length arcs (binary search or direct addressing).
+/// Reusable buffer for building nodes with fixed length arcs (binary search or
+/// direct addressing).
 pub(crate) struct FixedLengthArcsBuffer {
     bado: ByteArrayDataOutput,
 }
 impl FixedLengthArcsBuffer {
     pub(crate) fn new() -> Self {
-        // Initial capacity is the max length required for the header of a node with fixed length arcs:
-        // header(byte) + numArcs(vint) + numBytes(vint)
+        // Initial capacity is the max length required for the header of a node
+        // with fixed length arcs: header(byte) + numArcs(vint) +
+        // numBytes(vint)
         let bytes = vec![0u8; 11];
         let bado = ByteArrayDataOutput::with_bytes(bytes);
         Self { bado }

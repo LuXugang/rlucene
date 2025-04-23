@@ -14,13 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use rand::Rng;
+
 use crate::store::data_output::DataOutput;
 use crate::store::{align_offset, IndexOutput, OutputStreamIndexOutput};
 use crate::test::util::lucene_test_case::{random, random_multiplier};
-
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::Result;
-use rand::Rng;
 
 #[allow(dead_code)]
 struct TestIndexOutputAlignment;
@@ -79,8 +79,7 @@ fn test_output_alignment() -> Result<()> {
 pub fn run_test_output_alignment(alignment: i32) -> Result<()> {
     let mut random = random();
     let mut buffer = Vec::new();
-    let mut out =
-        OutputStreamIndexOutput::new("test", "test", &mut buffer, 8192)?;
+    let mut out = OutputStreamIndexOutput::new("test", "test", &mut buffer, 8192)?;
 
     for _ in 0..(10 * random_multiplier()) {
         let length = random.random_range(0..32);

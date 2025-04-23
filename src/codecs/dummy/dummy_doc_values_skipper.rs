@@ -18,10 +18,7 @@ use crate::index::doc_values_skipper::DocValuesSkipper;
 
 pub struct DummyDocValuesSkipper;
 impl DocValuesSkipper for DummyDocValuesSkipper {
-    fn advance(
-        &mut self,
-        target: i32,
-    ) -> crate::util::error::lucene_error::Result<()> {
+    fn advance(&mut self, target: i32) -> crate::util::error::lucene_error::Result<()> {
         todo!()
     }
 

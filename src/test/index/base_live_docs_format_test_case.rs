@@ -14,6 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::collections::HashMap;
+use std::rc::Rc;
+use std::sync::Arc;
+
+use parking_lot::Mutex;
+use rand::rngs::StdRng;
+use rand::Rng;
+
 use crate::codecs::live_docs_format::LiveDocsFormat;
 use crate::codecs::{Codec, LATEST_CODEC};
 use crate::index::index_writer::IndexWriter;
@@ -21,19 +29,12 @@ use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::index::segment_info::SegmentInfo;
 use crate::store::IOContext;
 use crate::test::util::lucene_test_case::new_directory;
-
 use crate::test::util::test_util::TestUtil;
 use crate::util::bit_set::BitSet;
 use crate::util::bits::Bits;
 use crate::util::error::lucene_error::Result;
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::{StringHelper, LATEST};
-use parking_lot::Mutex;
-use rand::rngs::StdRng;
-use rand::Rng;
-use std::collections::HashMap;
-use std::rc::Rc;
-use std::sync::Arc;
 
 pub trait BaseLiveDocsFormatTestCase {
     fn test_dense_live_docs(&self, random: &mut StdRng) -> Result<()> {

@@ -17,15 +17,17 @@
 use once_cell::sync::Lazy;
 use regex::Regex;
 
-/// This struct contains useful constants representing filenames and extensions used by Lucene, as
-/// well as convenience methods for querying whether a file name matches an extension
-/// ([`matches_extension`](IndexFileNames::matches_extension)), as well as generating file names from a
-/// segment name, generation, and extension
+/// This struct contains useful constants representing filenames and extensions
+/// used by Lucene, as well as convenience methods for querying whether a file
+/// name matches an extension
+/// ([`matches_extension`](IndexFileNames::matches_extension)), as well as
+/// generating file names from a segment name, generation, and extension
 /// ([`file_name_from_generation`](IndexFileNames::file_name_from_generation),
 /// [`segment_file_name`](IndexFileNames::segment_file_name)).
 ///
 /// # Note
-/// Extensions used by codecs are not listed here. You must interact with the [`Codec`](crate::codecs::Codec) directly.
+/// Extensions used by codecs are not listed here. You must interact with the
+/// [`Codec`](crate::codecs::Codec) directly.
 ///
 /// # Note
 /// This is an internal API.
@@ -37,8 +39,9 @@ impl IndexFileNames {
     /// Name of a pending index segment file
     pub const PENDING_SEGMENTS: &'static str = "pending_segments";
     /// Computes the full file name from `base`, `extension`, and `generation`.
-    /// If the generation is `-1`, the file name is `None`. If it's `0`, the file name is `<base>.<ext>`.
-    /// If it's greater than `0`, the file name is `<base>_<gen>.<ext>`.
+    /// If the generation is `-1`, the file name is `None`. If it's `0`, the
+    /// file name is `<base>.<ext>`. If it's greater than `0`, the file name
+    /// is `<base>_<gen>.<ext>`.
     ///
     /// # Note
     /// `.ext` is added to the name only if `ext` is not an empty string.
@@ -47,11 +50,7 @@ impl IndexFileNames {
     /// * `base` - Main part of the file name.
     /// * `ext` - Extension of the filename.
     /// * `gen` - Generation.
-    pub fn file_name_from_generation(
-        base: &str,
-        ext: &str,
-        gen: i64,
-    ) -> Option<String> {
+    pub fn file_name_from_generation(base: &str, ext: &str, gen: i64) -> Option<String> {
         if gen == -1 {
             return None;
         }
@@ -72,32 +71,27 @@ impl IndexFileNames {
             Option::from(res)
         }
     }
-    /// Returns a file name that includes the given `segment_name`, your own custom `name`, and `extension`.
-    /// The format of the filename is: `<segment_name>_<name>.<ext>`.
+    /// Returns a file name that includes the given `segment_name`, your own
+    /// custom `name`, and `extension`. The format of the filename is:
+    /// `<segment_name>_<name>.<ext>`.
     ///
     /// # Note
     /// - `.ext` is added to the result file name only if `ext` is not empty.
-    /// - `_segment_suffix` is added to the result file name only if it's not the empty string.
-    /// - All custom files should be named using this method, or otherwise some structures may fail to handle them properly
-    ///   (such as if they are added to compound files).
+    /// - `_segment_suffix` is added to the result file name only if it's not
+    ///   the empty string.
+    /// - All custom files should be named using this method, or otherwise some
+    ///   structures may fail to handle them properly (such as if they are added
+    ///   to compound files).
     ///
     /// # Arguments
     /// * `segment_name` - The segment name.
     /// * `name` - The custom name.
     /// * `ext` - The file extension.
-    pub fn segment_file_name(
-        segment_name: &str,
-        segment_suffix: &str,
-        ext: &str,
-    ) -> String {
+    pub fn segment_file_name(segment_name: &str, segment_suffix: &str, ext: &str) -> String {
         if !ext.is_empty() || !segment_suffix.is_empty() {
-            debug_assert!(
-                !ext.starts_with('.'),
-                "Extension should not start with '.'"
-            );
-            let mut sb = String::with_capacity(
-                segment_name.len() + 2 + segment_suffix.len() + ext.len(),
-            );
+            debug_assert!(!ext.starts_with('.'), "Extension should not start with '.'");
+            let mut sb =
+                String::with_capacity(segment_name.len() + 2 + segment_suffix.len() + ext.len());
             sb.push_str(segment_name);
             if !segment_suffix.is_empty() {
                 sb.push('_');
@@ -113,11 +107,11 @@ impl IndexFileNames {
         }
     }
 
-    /// Returns true if the given filename ends with the given extension. One should provide a
-    /// `pure` extension, without '.'.
+    /// Returns true if the given filename ends with the given extension. One
+    /// should provide a `pure` extension, without '.'.
     pub fn matches_extension(filename: &str, ext: &str) -> bool {
-        // It doesn't make a difference whether we allocate a StringBuilder ourselves
-        // or not, since there's only 1 '+' operator.
+        // It doesn't make a difference whether we allocate a StringBuilder
+        // ourselves or not, since there's only 1 '+' operator.
         filename.ends_with(&format!(".{}", ext))
     }
     /// locates the boundary of the segment name, or -1 */
@@ -132,13 +126,15 @@ impl IndexFileNames {
         }
     }
 
-    /// Strips the segment name out of the given file name. If you used [`segment_file_name`](#method.segment_file_name) or
-    /// [`file_name_from_generation`](#method.file_name_from_generation) to create your files, this method simply removes whatever
-    /// comes before the first `.` or the second `_` (excluding both).
+    /// Strips the segment name out of the given file name. If you used
+    /// [`segment_file_name`](#method.segment_file_name) or
+    /// [`file_name_from_generation`](#method.file_name_from_generation) to
+    /// create your files, this method simply removes whatever comes before
+    /// the first `.` or the second `_` (excluding both).
     ///
     /// # Returns
-    /// The filename with the segment name removed, or the given filename if it does not
-    /// contain a `.` and `_`.
+    /// The filename with the segment name removed, or the given filename if it
+    /// does not contain a `.` and `_`.
     pub fn strip_segment_name(filename: &str) -> &str {
         let idx = IndexFileNames::index_of_segment_name(filename);
         if idx != -1 {
@@ -148,12 +144,10 @@ impl IndexFileNames {
         }
     }
 
-    /// Returns the generation from this file name, or 0 if there is no generation.
+    /// Returns the generation from this file name, or 0 if there is no
+    /// generation.
     pub fn parse_generation(filename: &str) -> u64 {
-        debug_assert!(
-            filename.starts_with('_'),
-            "Filename must start with '_'"
-        );
+        debug_assert!(filename.starts_with('_'), "Filename must start with '_'");
 
         let stripped = IndexFileNames::strip_extension(filename);
         let parts: Vec<&str> = stripped[1..].split('_').collect();
@@ -172,7 +166,8 @@ impl IndexFileNames {
     /// Parses the segment name out of the given file name.
     ///
     /// # Returns
-    /// The segment name only, or the filename if it does not contain a `.` and `_`.
+    /// The segment name only, or the filename if it does not contain a `.` and
+    /// `_`.
     pub fn parse_segment_name(filename: &str) -> &str {
         let idx = IndexFileNames::index_of_segment_name(filename);
         if idx != -1 {
@@ -181,7 +176,8 @@ impl IndexFileNames {
             filename
         }
     }
-    /// Removes the extension (anything after the first '.'), otherwise returns the original filename.
+    /// Removes the extension (anything after the first '.'), otherwise returns
+    /// the original filename.
     pub fn strip_extension(filename: &str) -> &str {
         if let Some(idx) = filename.find('.') {
             &filename[..idx]
@@ -190,8 +186,8 @@ impl IndexFileNames {
         }
     }
 
-    /// Return the extension (anything after the first '.'), or null if there is no '.' in the file
-    /// name.
+    /// Return the extension (anything after the first '.'), or null if there is
+    /// no '.' in the file name.
     pub fn get_extension(filename: &str) -> Option<&str> {
         if let Some(idx) = filename.find('.') {
             Some(&filename[idx + 1..])

@@ -21,23 +21,31 @@ use crate::store::IndexInput;
 use crate::util::error::lucene_error::Result;
 
 /// Iterates through the postings.
-/// NOTE: you must first call [`next_doc`](DocIdSetIterator::next_doc) before using any of the per-doc methods.
+/// NOTE: you must first call [`next_doc`](DocIdSetIterator::next_doc) before
+/// using any of the per-doc methods.
 pub trait PostingsEnum: DocIdSetIterator {
-    /// Returns term frequency in the current document, or 1 if the field was indexed with [`DOCS`](crate::index::index_options::IndexOptions::DOCS) only.
-    ///  Do not call this before [`nextDoc`](DocIdSetIterator::next_doc) is first called, nor after
-    /// [`nextDoc`](DocIdSetIterator::next_doc) returns [`DocIdSetIterator#NO_MORE_DOCS`](crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS)
+    /// Returns term frequency in the current document, or 1 if the field was
+    /// indexed with [`DOCS`](crate::index::index_options::IndexOptions::DOCS)
+    /// only.  Do not call this before
+    /// [`nextDoc`](DocIdSetIterator::next_doc) is first called, nor after
+    /// [`nextDoc`](DocIdSetIterator::next_doc) returns
+    /// [`DocIdSetIterator#
+    /// NO_MORE_DOCS`](crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS)
     ///
-    /// NOTE: if this enum was obtained with `NONE`, the result of this method is undefined.
+    /// NOTE: if this enum was obtained with `NONE`, the result of this method
+    /// is undefined.
     fn freq(&mut self) -> Result<i32>;
 
     /// Returns the next position, or -1 if positions were not indexed.
     /// Calling this more than [`freq()`](Self::freq) times is undefined.
     fn next_position(&mut self) -> Result<i32>;
 
-    /// Returns start offset for the current position, or -1 if offsets were not indexed.
+    /// Returns start offset for the current position, or -1 if offsets were not
+    /// indexed.
     fn start_offset(&self) -> Result<i32>;
 
-    /// Returns end offset for the current position, or -1 if offsets were not indexed.
+    /// Returns end offset for the current position, or -1 if offsets were not
+    /// indexed.
     fn end_offset(&self) -> Result<i32>;
 
     /// Returns the payload at this position, or None if no payload was indexed.

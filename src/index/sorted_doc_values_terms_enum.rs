@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 
-/// Implements a [`TermsEnum`](TermsEnum) wrapping a provided [`SortedDocValues`](SortedDocValues).
+/// Implements a [`TermsEnum`](TermsEnum) wrapping a provided
+/// [`SortedDocValues`](SortedDocValues).
 pub struct SortedDocValuesTermsEnum;
 // where
 //     I: IndexInput,
@@ -110,8 +111,8 @@ pub struct SortedDocValuesTermsEnum;
 //     }
 //
 //     fn seek_exact_with_ord(&mut self, ord: i64) -> Result<()> {
-//         debug_assert!(ord >= 0 && ord < self.values.get_value_count()? as i64);
-//         self.current_ord = ord as i32;
+//         debug_assert!(ord >= 0 && ord < self.values.get_value_count()? as
+// i64);         self.current_ord = ord as i32;
 //         match self.values.lookup_ord(self.current_ord)? {
 //             Cow::Owned(bytes) => {
 //                 self.bytes = bytes;
@@ -123,12 +124,12 @@ pub struct SortedDocValuesTermsEnum;
 //         Ok(())
 //     }
 //
-//     fn seek_exact_with_state(&mut self, _term: &BytesRef<AV>, state: &TermStateEnum) -> Result<()> {
-//         debug_assert!({ matches!(state, TermStateEnum::Ord(_)) });
-//         match state {
-//             TermStateEnum::Ord(ord_term_state) => self.seek_exact_with_ord(ord_term_state.ord)?,
-//             _ => return Err(LuceneError::illegal_state("state should be OrdTermState")),
-//         }
+//     fn seek_exact_with_state(&mut self, _term: &BytesRef<AV>, state:
+// &TermStateEnum) -> Result<()> {         debug_assert!({ matches!(state,
+// TermStateEnum::Ord(_)) });         match state {
+//             TermStateEnum::Ord(ord_term_state) =>
+// self.seek_exact_with_ord(ord_term_state.ord)?,             _ => return
+// Err(LuceneError::illegal_state("state should be OrdTermState")),         }
 //         Ok(())
 //     }
 //

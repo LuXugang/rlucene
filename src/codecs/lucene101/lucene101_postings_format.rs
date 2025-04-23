@@ -14,16 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::{Display, Formatter};
+
 use crate::codecs::block_term_state::BlockTermState;
 use crate::codecs::lucene101::for_util::ForUtil;
 use crate::index::term_state::{TermState, TermStateEnum};
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::error::lucene_error::Result;
-use std::fmt::{Display, Formatter};
 
 pub struct Lucene101PostingsFormat;
 impl Lucene101PostingsFormat {
-    /// Filename extension for some small metadata about how postings are encoded.
+    /// Filename extension for some small metadata about how postings are
+    /// encoded.
     pub const META_EXTENSION: &'static str = "psm";
     /// Filename extension for document number, frequencies, and skip data.
     /// See chapter: [Frequencies and Skip Data]
@@ -47,8 +49,7 @@ impl Lucene101PostingsFormat {
     pub const LEVEL1_FACTOR: i32 = 32;
 
     /// Total number of docs covered by level 1 skip data: 32 * 128 = 4,096
-    pub const LEVEL1_NUM_DOCS: i32 =
-        Self::LEVEL1_FACTOR * Self::BLOCK_SIZE as i32;
+    pub const LEVEL1_NUM_DOCS: i32 = Self::LEVEL1_FACTOR * Self::BLOCK_SIZE as i32;
 
     pub const LEVEL1_MASK: i32 = Self::LEVEL1_NUM_DOCS - 1;
 
@@ -62,34 +63,43 @@ impl Lucene101PostingsFormat {
     pub(crate) const VERSION_CURRENT: i32 = Self::VERSION_START;
 }
 
-/// Holds all state required for [`Lucene101PostingsReader`](crate::codecs::lucene101::lucene101_postings_reader)
-/// to produce a [`PostingsEnum`](crate::index::postings_enum::PostingsEnum) without re-seeking the terms dict.
+/// Holds all state required for
+/// [`Lucene101PostingsReader`](crate::codecs::lucene101::lucene101_postings_reader)
+/// to produce a [`PostingsEnum`](crate::index::postings_enum::PostingsEnum)
+/// without re-seeking the terms dict.
 #[derive(Default, Clone)]
 pub struct IntBlockTermState {
-    /// file pointer to the start of the doc ids enumeration, in [`DOC_EXTENSION`](Lucene101PostingsFormat::DOC_EXTENSION) file
+    /// file pointer to the start of the doc ids enumeration, in
+    /// [`DOC_EXTENSION`](Lucene101PostingsFormat::DOC_EXTENSION) file
     pub doc_start_fp: i64,
 
-    /// file pointer to the start of the positions enumeration, in [`POS_EXTENSION`](Lucene101PostingsFormat::POS_EXTENSION) file
+    /// file pointer to the start of the positions enumeration, in
+    /// [`POS_EXTENSION`](Lucene101PostingsFormat::POS_EXTENSION) file
     pub pos_start_fp: i64,
 
-    /// file pointer to the start of the payloads enumeration, in [`PAY_EXTENSION`](Lucene101PostingsFormat::PAY_EXTENSION) file
+    /// file pointer to the start of the payloads enumeration, in
+    /// [`PAY_EXTENSION`](Lucene101PostingsFormat::PAY_EXTENSION) file
     pub pay_start_fp: i64,
 
     /**
-     * file offset for the last position in the last block, if there are more than [`BLOCK_SIZE`](crate::codecs::lucene101)
-     * positions; otherwise -1
+     * file offset for the last position in the last block, if there are
+     * more than [`BLOCK_SIZE`](crate::codecs::lucene101) positions;
+     * otherwise -1
      *
-     * One might think to use total term frequency to track how many positions are left to read
-     * as we decode the blocks, and decode the last block differently when num_left_positions < BLOCK_SIZE.
-     * Unfortunately this won't work since the tracking will be messed up when we skip
-     * blocks as the skipper will only tell us new position offset (start of block) and number of
-     * positions to skip for that block, without telling us how many positions it has skipped.
+     * One might think to use total term frequency to track how many
+     * positions are left to read as we decode the blocks, and decode
+     * the last block differently when num_left_positions < BLOCK_SIZE.
+     * Unfortunately this won't work since the tracking will be messed up
+     * when we skip blocks as the skipper will only tell us new
+     * position offset (start of block) and number of positions to skip
+     * for that block, without telling us how many positions it has
+     * skipped.
      */
     pub last_pos_block_offset: i64,
 
     /**
-     * docid when there is a single pulsed posting, otherwise -1. freq is always implicitly
-     * totalTermFreq in this case.
+     * docid when there is a single pulsed posting, otherwise -1. freq is
+     * always implicitly totalTermFreq in this case.
      */
     pub singleton_doc_id: i32,
 
@@ -133,22 +143,19 @@ impl TermState for IntBlockTermState {
 
 #[cfg(test)]
 mod tests {
+    use rand::Rng;
+
     use crate::codecs::competitive_impact_accumulator::CompetitiveImpactAccumulator;
     use crate::codecs::lucene101::lucene101_postings_reader::{
         lucene101_pr_util, MutableImpactList,
     };
     use crate::codecs::lucene101::lucene101_postings_writer::lucene101_pw_util;
     use crate::index::impact::Impact;
-
     use crate::store::directory::Directory;
-    use crate::store::{
-        ByteArrayDataInput, ByteArrayDataOutput, DataInput, IOContext,
-        IndexInput,
-    };
+    use crate::store::{ByteArrayDataInput, ByteArrayDataOutput, DataInput, IOContext, IndexInput};
     use crate::test::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
     use crate::test::util::lucene_test_case::{new_directory, random};
     use crate::util::error::lucene_error::Result;
-    use rand::Rng;
 
     struct TestLucene101PostingsFormat;
     impl BaseIndexFileFormatTestCase for TestLucene101PostingsFormat {
@@ -172,9 +179,7 @@ mod tests {
     fn test_vlong15() -> Result<()> {
         // buffer size should accommodate the largest encoded value
         let mut out = ByteArrayDataOutput::with_bytes(vec![0u8; 9]);
-        for &i in
-            &[0i64, 1, 127, 128, 32_767, 32_768, i32::MAX as i64, i64::MAX]
-        {
+        for &i in &[0i64, 1, 127, 128, 32_767, 32_768, i32::MAX as i64, i64::MAX] {
             out.reset()?;
             lucene101_pw_util::write_vlong15(&mut out, i)?;
             let mut inp = ByteArrayDataInput::with_bytes(out.bytes.clone());
@@ -241,27 +246,18 @@ mod tests {
         }
         let mut dir = new_directory(&mut random)?;
         {
-            let mut out =
-                dir.create_output("foo", &IOContext::default_io_context()?)?;
-            lucene101_pw_util::write_impacts(
-                &acc.get_competitive_freq_norm_pairs(),
-                &mut out,
-            )?;
+            let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
+            lucene101_pw_util::write_impacts(&acc.get_competitive_freq_norm_pairs(), &mut out)?;
         }
-        let mut input =
-            dir.open_input("foo", &IOContext::default_io_context()?)?;
+        let mut input = dir.open_input("foo", &IOContext::default_io_context()?)?;
         let len = input.length();
         let mut buffer = vec![0u8; len as usize];
         input.read_bytes(&mut buffer, 0, len as i32)?;
 
         let mut data_in = ByteArrayDataInput::with_bytes(buffer);
-        let mut mutable_impacts_list = MutableImpactList::with_capacity(
-            impacts.len() + random.random_range(0..3),
-        );
-        let impacts2 = lucene101_pr_util::read_impacts(
-            &mut data_in,
-            &mut mutable_impacts_list,
-        )?;
+        let mut mutable_impacts_list =
+            MutableImpactList::with_capacity(impacts.len() + random.random_range(0..3));
+        let impacts2 = lucene101_pr_util::read_impacts(&mut data_in, &mut mutable_impacts_list)?;
 
         assert_eq!(impacts2, impacts);
         Ok(())

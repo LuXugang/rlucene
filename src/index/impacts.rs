@@ -21,27 +21,29 @@ use crate::util::error::lucene_error::Result;
 pub trait Impacts {
     /// Return the number of levels on which we have impacts.
     ///
-    /// The returned value is always greater than 0 and may not always be the same,
-    /// even on a single postings list, depending on the current doc ID.
+    /// The returned value is always greater than 0 and may not always be the
+    /// same, even on a single postings list, depending on the current doc
+    /// ID.
     fn num_levels(&self) -> i32;
 
-    /// Return the maximum inclusive doc ID until which the list of impacts returned
-    /// by `get_impacts(level)` is valid.
+    /// Return the maximum inclusive doc ID until which the list of impacts
+    /// returned by `get_impacts(level)` is valid.
     ///
     /// This is a non-decreasing function of `level`.
     fn get_doc_id_up_to(&self, level: i32) -> i32;
 
     /// Return impacts on the given level.
     ///
-    /// These impacts are sorted by increasing frequency and increasing unsigned norm,
-    /// and only valid until the doc ID returned by `get_doc_id_up_to(level)` (inclusive).
+    /// These impacts are sorted by increasing frequency and increasing unsigned
+    /// norm, and only valid until the doc ID returned by
+    /// `get_doc_id_up_to(level)` (inclusive).
     ///
-    /// The returned list is never empty and should behave like `RandomAccess` if it contains
-    /// more than one element.
+    /// The returned list is never empty and should behave like `RandomAccess`
+    /// if it contains more than one element.
     ///
-    /// NOTE: There is no guarantee that these impacts actually appear in postings,
-    /// only that they trigger scores that are greater than or equal to the impacts
-    /// that actually appear in postings.
+    /// NOTE: There is no guarantee that these impacts actually appear in
+    /// postings, only that they trigger scores that are greater than or
+    /// equal to the impacts that actually appear in postings.
     fn get_impacts(&mut self, level: i32) -> Result<&[Impact]>;
 }
 

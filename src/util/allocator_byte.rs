@@ -14,14 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::access::Access;
-use crate::util::{ByteBlockPool, Counter, CounterEnum};
-use parking_lot::Mutex;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 
-/// A simple `Allocator` that never recycles, but tracks how much total RAM is in use. */
+use parking_lot::Mutex;
+
+use crate::util::access::Access;
+use crate::util::{ByteBlockPool, Counter, CounterEnum};
+
+/// A simple `Allocator` that never recycles, but tracks how much total RAM is
+/// in use. */
 pub struct DirectTrackingAllocatorByte<C: Access<CounterEnum>> {
     block_size: i32,
     pub(crate) byte_used: C,
@@ -37,21 +40,15 @@ impl<C: Access<CounterEnum>> DirectTrackingAllocatorByte<C> {
 }
 
 impl<C: Access<CounterEnum>> AllocatorByte for DirectTrackingAllocatorByte<C> {
-    fn recycle_byte_blocks(
-        &mut self,
-        _blocks: &[Vec<u8>],
-        start: i32,
-        end: i32,
-    ) {
+    fn recycle_byte_blocks(&mut self, _blocks: &[Vec<u8>], start: i32, end: i32) {
         let delta = -(end - start) as i64 * self.block_size as i64;
         self.byte_used
             .access_mut(|byte_used| byte_used.add_and_get(delta));
     }
 
     fn get_byte_block(&mut self) -> Vec<u8> {
-        self.byte_used.access_mut(|byte_used| {
-            byte_used.add_and_get(self.block_size as i64)
-        });
+        self.byte_used
+            .access_mut(|byte_used| byte_used.add_and_get(self.block_size as i64));
         vec![0; self.block_size as usize]
     }
 
@@ -87,13 +84,7 @@ impl DirectAllocatorByte {
 }
 
 impl AllocatorByte for DirectAllocatorByte {
-    fn recycle_byte_blocks(
-        &mut self,
-        _blocks: &[Vec<u8>],
-        _start: i32,
-        _end: i32,
-    ) {
-    }
+    fn recycle_byte_blocks(&mut self, _blocks: &[Vec<u8>], _start: i32, _end: i32) {}
 
     fn get_byte_block(&mut self) -> Vec<u8> {
         vec![0; self.block_size as usize]
@@ -118,24 +109,13 @@ where
     pub fn get_used(&self) -> i64 {
         match self {
             AllocatorByteEnum::DA(_da) => 0,
-            AllocatorByteEnum::DTA(dta) => {
-                dta.byte_used.access_mut(|byte_used| byte_used.get())
-            },
+            AllocatorByteEnum::DTA(dta) => dta.byte_used.access_mut(|byte_used| byte_used.get()),
         }
     }
-    pub fn recycle_byte_blocks(
-        &mut self,
-        blocks: &[Vec<u8>],
-        start: i32,
-        end: i32,
-    ) {
+    pub fn recycle_byte_blocks(&mut self, blocks: &[Vec<u8>], start: i32, end: i32) {
         match self {
-            AllocatorByteEnum::DA(da) => {
-                da.recycle_byte_blocks(blocks, start, end)
-            },
-            AllocatorByteEnum::DTA(dta) => {
-                dta.recycle_byte_blocks(blocks, start, end)
-            },
+            AllocatorByteEnum::DA(da) => da.recycle_byte_blocks(blocks, start, end),
+            AllocatorByteEnum::DTA(dta) => dta.recycle_byte_blocks(blocks, start, end),
         }
     }
     pub fn get_block_size(&self) -> i32 {
@@ -177,12 +157,7 @@ where
         Rc::new(RefCell::new(allocator))
     }
 
-    fn recycle_byte_blocks(
-        &mut self,
-        blocks: &[Vec<u8>],
-        start: i32,
-        end: i32,
-    ) {
+    fn recycle_byte_blocks(&mut self, blocks: &[Vec<u8>], start: i32, end: i32) {
         self.borrow_mut().recycle_byte_blocks(blocks, start, end)
     }
 
@@ -208,12 +183,7 @@ where
         Arc::new(Mutex::new(allocator))
     }
 
-    fn recycle_byte_blocks(
-        &mut self,
-        blocks: &[Vec<u8>],
-        start: i32,
-        end: i32,
-    ) {
+    fn recycle_byte_blocks(&mut self, blocks: &[Vec<u8>], start: i32, end: i32) {
         self.lock().recycle_byte_blocks(blocks, start, end)
     }
 

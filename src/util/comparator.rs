@@ -32,8 +32,9 @@ pub trait Comparator<T> {
 
     /// Unwraps the result of [`compare`] and panics if an error occurs.
     ///
-    /// This is a convenience method for use cases where failure is not expected,
-    /// which is the common case for most statically defined comparators.
+    /// This is a convenience method for use cases where failure is not
+    /// expected, which is the common case for most statically defined
+    /// comparators.
     ///
     /// # Panics
     ///
@@ -130,7 +131,8 @@ where
 /// # NOTE
 /// The purpose of implementing BytesRefComparator is to
 /// allow it to be passed as the same parameter alongside other types
-/// that also implement BytesRefComparator, distinguishing its type by the TYPE constant.
+/// that also implement BytesRefComparator, distinguishing its type by the TYPE
+/// constant.
 impl BytesRefComparator for NaturalOrder<BytesRef<Vec<u8>>> {}
 
 pub const COMPARATOR_TYPE: &str = "Comparator";

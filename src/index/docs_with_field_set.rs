@@ -14,16 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::rc::Rc;
+
 use crate::search::doc_id_set::DocIdSet;
-use crate::search::doc_id_set_iterator::{
-    AllDocIdSetIterator, DocIdSetIterator,
-};
+use crate::search::doc_id_set_iterator::{AllDocIdSetIterator, DocIdSetIterator};
 use crate::util::accountable::Accountable;
 use crate::util::bit_set::BitSet;
 use crate::util::bit_set_iterator::BitSetIterator;
 use crate::util::bits::{Bits, MatchNoBits};
-use std::rc::Rc;
-
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
 
@@ -132,8 +130,7 @@ impl<T: BitSet> DocIdSet for DocsWithFieldSet<T> {
         if self.set.length() != 0 {
             debug_assert!(self.cardinality > 0);
             Some(DocsWithFieldSetEnum::Sparse(
-                BitSetIterator::new(&self.set, self.cardinality as i64)
-                    .unwrap(),
+                BitSetIterator::new(&self.set, self.cardinality as i64).unwrap(),
             ))
         } else {
             Some(DocsWithFieldSetEnum::Dense(AllDocIdSetIterator::new(
@@ -151,15 +148,15 @@ impl<T: BitSet> DocIdSet for DocsWithFieldSet<T> {
 
 #[cfg(test)]
 mod tests {
+    use rand::Rng;
+
     use crate::index::docs_with_field_set::DocsWithFieldSet;
     use crate::search::doc_id_set::DocIdSet;
+    use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::search::doc_id_set_iterator::DocIdSetIterator;
     use crate::test::util::lucene_test_case::random;
-
-    use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::test::util::test_util::TestUtil;
     use crate::util::error::lucene_error::Result;
-    use rand::Rng;
 
     #[allow(dead_code)] // for quick search
     struct TestDocsWithFieldSet {}

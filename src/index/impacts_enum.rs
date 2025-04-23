@@ -21,7 +21,8 @@ use crate::index::BytesRef;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::util::error::lucene_error::Result;
 
-/// Extension of `PostingsEnum` which also provides information about upcoming impacts.
+/// Extension of `PostingsEnum` which also provides information about upcoming
+/// impacts.
 pub trait ImpactsEnum: PostingsEnum + ImpactsSource {}
 
 pub enum ImpactsEnumEnum {}

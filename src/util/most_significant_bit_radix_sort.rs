@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::index::BytesRefBuilder;
-
 use crate::util::error::lucene_error::Result;
 use crate::util::intro_sorter::IntroSorter;
 use crate::util::{check_range, Sorter};
@@ -51,8 +50,7 @@ where
     /// # Parameters
     /// - `max_length`: The maximum length of keys. Pass `i32::MAX` if unknown.
     pub fn new(max_length: i32, delegate_sorter: T) -> Self {
-        let histograms: Vec<Vec<i32>> =
-            (0..LEVEL_THRESHOLD).map(|_| Vec::new()).collect();
+        let histograms: Vec<Vec<i32>> = (0..LEVEL_THRESHOLD).map(|_| Vec::new()).collect();
         Self {
             histograms,
             end_offsets: vec![0; HISTOGRAM_SIZE],
@@ -61,13 +59,7 @@ where
             delegate_sorter,
         }
     }
-    pub fn sort_impl(
-        &mut self,
-        from: i32,
-        to: i32,
-        k: i32,
-        l: i32,
-    ) -> Result<()> {
+    pub fn sort_impl(&mut self, from: i32, to: i32, k: i32, l: i32) -> Result<()> {
         if self.should_fallback(from, to, l) {
             self.get_fallback_sorter(k).sort(from, to)
         } else {
@@ -80,12 +72,7 @@ where
     /// Computes the initial common prefix length for the given range.
     ///
     /// This method has been split to avoid platform-specific issues.
-    ///
-    fn compute_initial_common_prefix_length(
-        &mut self,
-        from: i32,
-        k: i32,
-    ) -> Result<i32> {
+    fn compute_initial_common_prefix_length(&mut self, from: i32, k: i32) -> Result<i32> {
         let common_prefix = &mut self.common_prefix;
         let mut common_prefix_length =
             std::cmp::min(common_prefix.len(), (self.max_length - k) as usize);
@@ -115,24 +102,16 @@ where
     ) -> Result<i32> {
         if i < to {
             debug_assert!(common_prefix_length == 0);
-            self.build_histogram(
-                self.common_prefix[0] + 1,
-                i - from,
-                i,
-                to,
-                k,
-                l,
-            )?;
+            self.build_histogram(self.common_prefix[0] + 1, i - from, i, to, k, l)?;
         } else {
             debug_assert!(common_prefix_length > 0);
-            self.histograms[l as usize][(self.common_prefix[0] + 1) as usize] =
-                to - from;
+            self.histograms[l as usize][(self.common_prefix[0] + 1) as usize] = to - from;
         }
 
         Ok(common_prefix_length)
     }
-    /// Build a histogram of the k-th characters of values occurring between offsets `from` and `to`,
-    /// using the `get_bucket` method.
+    /// Build a histogram of the k-th characters of values occurring between
+    /// offsets `from` and `to`, using the `get_bucket` method.
     fn build_histogram(
         &mut self,
         prefix_common_bucket: i32,
@@ -193,8 +172,7 @@ where
         k: i32,
         l: i32,
     ) -> Result<i32> {
-        let common_prefix_length =
-            self.compute_initial_common_prefix_length(from, k)?;
+        let common_prefix_length = self.compute_initial_common_prefix_length(from, k)?;
         self.compute_common_prefix_length_and_build_histogram_part1(
             from,
             to,
@@ -205,17 +183,15 @@ where
     }
     fn sum_histogram(histogram: &mut [i32], end_offsets: &mut [i32]) {
         let mut accum = 0;
-        for (hist, end_offset) in
-            histogram.iter_mut().zip(end_offsets.iter_mut())
-        {
+        for (hist, end_offset) in histogram.iter_mut().zip(end_offsets.iter_mut()) {
             let count = *hist;
             *hist = accum;
             accum += count;
             *end_offset = accum;
         }
     }
-    /// Reorder based on start/end offsets for each bucket. When this method returns, `start_offsets`
-    /// and `end_offsets` are equal.
+    /// Reorder based on start/end offsets for each bucket. When this method
+    /// returns, `start_offsets` and `end_offsets` are equal.
     ///
     /// # Parameters
     /// - `from`: The starting index (inclusive).
@@ -248,13 +224,13 @@ where
         }
 
         // Compute the common prefix length and build the histogram
-        let common_prefix_length = self
-            .compute_common_prefix_length_and_build_histogram(from, to, k, l)?;
+        let common_prefix_length =
+            self.compute_common_prefix_length_and_build_histogram(from, to, k, l)?;
 
         if common_prefix_length > 0 {
-            // if there are no more chars to compare or if all entries fell into the
-            // first bucket (which means strings are shorter than k) then we are done
-            // otherwise recurse
+            // if there are no more chars to compare or if all entries fell into
+            // the first bucket (which means strings are shorter
+            // than k) then we are done otherwise recurse
             if k + common_prefix_length < self.max_length
                 && self.histograms[l as usize][0] < (to - from)
             {
@@ -270,10 +246,7 @@ where
         ));
 
         // Prepare start and end offsets
-        Self::sum_histogram(
-            &mut self.histograms[l as usize],
-            &mut self.end_offsets,
-        );
+        Self::sum_histogram(&mut self.histograms[l as usize], &mut self.end_offsets);
 
         // Reorder the range
         self.reorder(from, to, l, k)?;
@@ -302,8 +275,7 @@ where
 
     /// Always returns `true` if the assertions pass.
     fn assert_histogram(common_prefix_length: i32, histogram: &[i32]) -> bool {
-        let number_of_unique_bytes =
-            histogram.iter().filter(|&&freq| freq > 0).count();
+        let number_of_unique_bytes = histogram.iter().filter(|&&freq| freq > 0).count();
 
         if number_of_unique_bytes == 1 {
             debug_assert!(common_prefix_length >= 1);
@@ -414,24 +386,25 @@ where
     }
 }
 
-impl<T> IntroSorter for MSBRadixIntroSorterImpl<'_, T> where
-    T: Sorter + MSBRadixSorterBase
-{
-}
+impl<T> IntroSorter for MSBRadixIntroSorterImpl<'_, T> where T: Sorter + MSBRadixSorterBase {}
 
 pub trait MSBRadixSorterBase: Sorter {
-    /// Returns the k-th byte of the entry at the given index `i`, or `-1` if its length is less than
-    /// or equal to `k`.
+    /// Returns the k-th byte of the entry at the given index `i`, or `-1` if
+    /// its length is less than or equal to `k`.
     ///
     /// # Parameters
-    /// - `i`: The index of the entry, which must be between `0` (inclusive) and `max_length` (exclusive).
+    /// - `i`: The index of the entry, which must be between `0` (inclusive) and
+    ///   `max_length` (exclusive).
     /// - `k`: The position of the byte to retrieve within the entry.
     ///
     /// # Returns
-    /// The k-th byte of the entry at index `i` as an `i32`, or `-1` if the entry's length is less than or equal to `k`.
+    /// The k-th byte of the entry at index `i` as an `i32`, or `-1` if the
+    /// entry's length is less than or equal to `k`.
     ///
     /// # Note
-    /// In Rust, this method might return a signed integer (`i32`) to accommodate the `-1` case, which differs from Java's default integer handling.
+    /// In Rust, this method might return a signed integer (`i32`) to
+    /// accommodate the `-1` case, which differs from Java's default integer
+    /// handling.
     fn byte_at(&mut self, _i: i32, _k: i32) -> Result<i32> {
         unimplemented!("byte_at() must be implemented if it need to be used")
     }
@@ -448,8 +421,8 @@ pub trait MSBRadixSorterBase: Sorter {
         }
     }
 
-    /// Reorder based on start/end offsets for each bucket. When this method returns, `start_offsets`
-    /// and `end_offsets` are equal.
+    /// Reorder based on start/end offsets for each bucket. When this method
+    /// returns, `start_offsets` and `end_offsets` are equal.
     ///
     /// # Parameters
     /// - `from`: The starting index (inclusive).
@@ -507,28 +480,22 @@ pub trait MSBRadixSorterBase: Sorter {
 }
 #[cfg(test)]
 mod tests {
-    use crate::index::{BytesRef, BytesRefBuilder};
+    use std::collections::{BTreeSet, HashSet};
+
     use rand::rngs::StdRng;
     use rand::{Rng, RngCore};
 
+    use crate::index::{BytesRef, BytesRefBuilder};
     use crate::test::util::common_method::assert_vecs_equal;
     use crate::test::util::lucene_test_case::{at_least, random};
-
     use crate::test::util::test_util::TestUtil;
     use crate::util::error::lucene_error::Result;
-    use crate::util::{
-        MSBRadixSorter, MSBRadixSorterBase, SliceCopyOps, Sorter,
-    };
-    use std::collections::{BTreeSet, HashSet};
+    use crate::util::{MSBRadixSorter, MSBRadixSorterBase, SliceCopyOps, Sorter};
 
     #[allow(dead_code)] // for quick search
     struct TestMSBRadixSorter;
 
-    fn test(
-        refs: &mut [BytesRef<Vec<u8>>],
-        len: usize,
-        random: &mut StdRng,
-    ) -> Result<()> {
+    fn test(refs: &mut [BytesRef<Vec<u8>>], len: usize, random: &mut StdRng) -> Result<()> {
         let mut expected: Vec<BytesRef<Vec<u8>>> = refs[..len].to_vec();
         expected.sort();
 
@@ -544,23 +511,17 @@ mod tests {
         }
 
         let final_max_length = max_length;
-        let delegate_sorter =
-            MSBRadixSorterImpl::new(final_max_length, refs[..len].to_vec());
-        let mut msb_radix_sorter =
-            MSBRadixSorter::new(max_length, delegate_sorter);
+        let delegate_sorter = MSBRadixSorterImpl::new(final_max_length, refs[..len].to_vec());
+        let mut msb_radix_sorter = MSBRadixSorter::new(max_length, delegate_sorter);
         msb_radix_sorter.sort(0, len as i32)?;
 
-        assert_vecs_equal(
-            &expected,
-            &msb_radix_sorter.get_delegate_sorter().refs,
-        );
+        assert_vecs_equal(&expected, &msb_radix_sorter.get_delegate_sorter().refs);
         Ok(())
     }
     #[test]
     fn test_empty() -> Result<()> {
         let mut random = random();
-        let mut refs: Vec<BytesRef<Vec<u8>>> =
-            vec![BytesRef::default(); random.random_range(0..5)];
+        let mut refs: Vec<BytesRef<Vec<u8>>> = vec![BytesRef::default(); random.random_range(0..5)];
         assert!(test(&mut refs, 0, &mut random).is_ok());
         test(&mut refs, 0, &mut random)
     }
@@ -568,8 +529,7 @@ mod tests {
     fn test_one_value() -> Result<()> {
         let mut random = random();
 
-        let bytes =
-            BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
+        let bytes = BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
         let mut refs = vec![bytes];
         test(&mut refs, 1, &mut random)
     }
@@ -577,31 +537,21 @@ mod tests {
     fn test_two_values() -> Result<()> {
         let mut random = random();
 
-        let bytes1 =
-            BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
-        let bytes2 =
-            BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
+        let bytes1 = BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
+        let bytes2 = BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
         let mut refs = vec![bytes1, bytes2];
 
         test(&mut refs, 2, &mut random)
     }
 
-    fn test_random_impl(
-        common_prefix_len: usize,
-        max_len: i32,
-        random: &mut StdRng,
-    ) -> Result<()> {
+    fn test_random_impl(common_prefix_len: usize, max_len: i32, random: &mut StdRng) -> Result<()> {
         let mut common_prefix = vec![0u8; common_prefix_len];
         random.fill_bytes(&mut common_prefix);
         let len = random.random_range(0..10000);
         let mut bytes: Vec<BytesRef<Vec<u8>>> =
             Vec::with_capacity(len + random.random_range(0..50));
         for _ in 0..len {
-            let mut b = vec![
-                0u8;
-                common_prefix_len
-                    + random.random_range(0..max_len) as usize
-            ];
+            let mut b = vec![0u8; common_prefix_len + random.random_range(0..max_len) as usize];
             random.fill_bytes(&mut b[common_prefix_len..]);
 
             b.copy_from(&common_prefix, 0);

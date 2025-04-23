@@ -14,10 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::borrow::Cow;
+
 use crate::codecs::lucene90_doc_values_producer::{
-    BaseSortedDocValues, BaseSortedSetDocValues, DenseBinaryDocValues,
-    DenseNumericDocValues, DenseSortedNumericDocValues,
-    SpareSortedNumericDocValues, SparseBinaryDocValues, SparseNumericDocValues,
+    BaseSortedDocValues, BaseSortedSetDocValues, DenseBinaryDocValues, DenseNumericDocValues,
+    DenseSortedNumericDocValues, SpareSortedNumericDocValues, SparseBinaryDocValues,
+    SparseNumericDocValues,
 };
 use crate::index::binary_doc_values::BinaryDocValues;
 use crate::index::doc_values::{EmptyBinary, EmptyNumeric};
@@ -29,12 +31,10 @@ use crate::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
 use crate::index::sorted_doc_values::SortedDocValues;
 use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::index::sorted_set_doc_values::SortedSetDocValues;
-
 use crate::index::BytesRef;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::IndexInput;
 use crate::util::error::lucene_error::Result;
-use std::borrow::Cow;
 
 // 1. NumericDocValues
 pub enum Lucene90NumericDocValuesEnums<I>
@@ -53,9 +53,7 @@ where
     fn advance_exact(&mut self, _target: i32) -> Result<bool> {
         match self {
             Lucene90NumericDocValuesEnums::Dense(d) => d.advance_exact(_target),
-            Lucene90NumericDocValuesEnums::Sparse(s) => {
-                s.advance_exact(_target)
-            },
+            Lucene90NumericDocValuesEnums::Sparse(s) => s.advance_exact(_target),
             Lucene90NumericDocValuesEnums::Empty(e) => e.advance_exact(_target),
         }
     }
@@ -117,9 +115,7 @@ where
 {
     Dense(DenseSortedNumericDocValues<I>),
     Sparse(SpareSortedNumericDocValues<I>),
-    Singleton(
-        SingletonSortedNumericDocValues<Lucene90NumericDocValuesEnums<I>>,
-    ),
+    Singleton(SingletonSortedNumericDocValues<Lucene90NumericDocValuesEnums<I>>),
     Empty(SingletonSortedNumericDocValues<EmptyNumeric>),
 }
 
@@ -129,18 +125,10 @@ where
 {
     fn advance_exact(&mut self, _target: i32) -> Result<bool> {
         match self {
-            Lucene90SortedNumericDocValuesEnums::Dense(d) => {
-                d.advance_exact(_target)
-            },
-            Lucene90SortedNumericDocValuesEnums::Sparse(s) => {
-                s.advance_exact(_target)
-            },
-            Lucene90SortedNumericDocValuesEnums::Singleton(s) => {
-                s.advance_exact(_target)
-            },
-            Lucene90SortedNumericDocValuesEnums::Empty(s) => {
-                s.advance_exact(_target)
-            },
+            Lucene90SortedNumericDocValuesEnums::Dense(d) => d.advance_exact(_target),
+            Lucene90SortedNumericDocValuesEnums::Sparse(s) => s.advance_exact(_target),
+            Lucene90SortedNumericDocValuesEnums::Singleton(s) => s.advance_exact(_target),
+            Lucene90SortedNumericDocValuesEnums::Empty(s) => s.advance_exact(_target),
         }
     }
 }
@@ -169,12 +157,8 @@ where
     fn advance(&mut self, _target: i32) -> Result<i32> {
         match self {
             Lucene90SortedNumericDocValuesEnums::Dense(d) => d.advance(_target),
-            Lucene90SortedNumericDocValuesEnums::Sparse(s) => {
-                s.advance(_target)
-            },
-            Lucene90SortedNumericDocValuesEnums::Singleton(s) => {
-                s.advance(_target)
-            },
+            Lucene90SortedNumericDocValuesEnums::Sparse(s) => s.advance(_target),
+            Lucene90SortedNumericDocValuesEnums::Singleton(s) => s.advance(_target),
             Lucene90SortedNumericDocValuesEnums::Empty(s) => s.advance(_target),
         }
     }
@@ -204,18 +188,10 @@ where
 
     fn doc_value_count(&mut self) -> Result<i32> {
         match self {
-            Lucene90SortedNumericDocValuesEnums::Dense(d) => {
-                d.doc_value_count()
-            },
-            Lucene90SortedNumericDocValuesEnums::Sparse(s) => {
-                s.doc_value_count()
-            },
-            Lucene90SortedNumericDocValuesEnums::Singleton(s) => {
-                s.doc_value_count()
-            },
-            Lucene90SortedNumericDocValuesEnums::Empty(s) => {
-                s.doc_value_count()
-            },
+            Lucene90SortedNumericDocValuesEnums::Dense(d) => d.doc_value_count(),
+            Lucene90SortedNumericDocValuesEnums::Sparse(s) => s.doc_value_count(),
+            Lucene90SortedNumericDocValuesEnums::Singleton(s) => s.doc_value_count(),
+            Lucene90SortedNumericDocValuesEnums::Empty(s) => s.doc_value_count(),
         }
     }
 }
@@ -235,9 +211,7 @@ where
 {
     fn advance_exact(&mut self, _target: i32) -> Result<bool> {
         match self {
-            Lucene90SortedSetDocValuesEnum::Singleton(s) => {
-                s.advance_exact(_target)
-            },
+            Lucene90SortedSetDocValuesEnum::Singleton(s) => s.advance_exact(_target),
             Lucene90SortedSetDocValuesEnum::Base(b) => b.advance_exact(_target),
         }
     }

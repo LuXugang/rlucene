@@ -14,25 +14,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::access::AccessVec;
-use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::{StringHelper, GOOD_FAST_HASH_SEED};
-use crate::with_other;
 use std::cmp::Ordering;
 use std::fmt::Display;
 use std::hash::Hash;
 
-/// Represents a `&[u8]` as a slice (offset + length) into an existing byte array.
-/// The `bytes` member should never be `None`;
+use crate::util::access::AccessVec;
+use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::{StringHelper, GOOD_FAST_HASH_SEED};
+use crate::with_other;
+
+/// Represents a `&[u8]` as a slice (offset + length) into an existing byte
+/// array. The `bytes` member should never be `None`;
 ///
 /// # Important Note
 /// To convert them to a Rust `String` (which is UTF-8), use `utf8_to_string`.
-/// Using code like `String::from_utf8_lossy(&bytes[offset.offset+length])` is the correct way to handle this.
-/// Avoid constructing strings incorrectly, as it may result in wrong results.
+/// Using code like `String::from_utf8_lossy(&bytes[offset.offset+length])` is
+/// the correct way to handle this. Avoid constructing strings incorrectly, as
+/// it may result in wrong results.
 ///
 /// # Sorting
-/// This struct implements `Ord`. The underlying byte arrays are sorted lexicographically, treating elements as unsigned.
-/// This is identical to Unicode codepoint order.
+/// This struct implements `Ord`. The underlying byte arrays are sorted
+/// lexicographically, treating elements as unsigned. This is identical to
+/// Unicode codepoint order.
 #[derive(Debug, Default)]
 pub struct BytesRef<AV>
 where
@@ -90,27 +93,24 @@ where
         }
     }
 
-    /// Expert: compares the bytes against another BytesRef, returning true if the bytes are equal.
+    /// Expert: compares the bytes against another BytesRef, returning true if
+    /// the bytes are equal.
     ///
     /// # Arguments
     /// * `other` - Another BytesRef
     pub fn bytes_equals(&self, other: &BytesRef<AV>) -> bool {
         with_other!(self.bytes, other.bytes, |ints_bytes, other_bytes| {
-            let self_slice =
-                &ints_bytes[self.offset..(self.offset + self.length)];
-            let other_slice =
-                &other_bytes[other.offset..(other.offset + other.length)];
+            let self_slice = &ints_bytes[self.offset..(self.offset + self.length)];
+            let other_slice = &other_bytes[other.offset..(other.offset + other.length)];
             self_slice == other_slice
         })
     }
     /// Interprets the stored bytes as UTF-8, returning the resulting string.
     pub fn utf8_to_string(&self) -> Result<String> {
         self.bytes.access(|bytes| {
-            std::str::from_utf8(
-                &bytes[self.offset..(self.offset + self.length)],
-            )
-            .map(|s| s.to_owned())
-            .map_err(LuceneError::Utf8Error)
+            std::str::from_utf8(&bytes[self.offset..(self.offset + self.length)])
+                .map(|s| s.to_owned())
+                .map_err(LuceneError::Utf8Error)
         })
     }
     pub fn deep_copy_of(other: &BytesRef<AV>) -> Self {
@@ -120,7 +120,8 @@ where
             other.length,
         )
     }
-    /// Performs internal consistency checks. Always returns `true` (or throws `IllegalStateError`).
+    /// Performs internal consistency checks. Always returns `true` (or throws
+    /// `IllegalStateError`).
     pub fn is_valid(&self) -> Result<bool> {
         if self.length > self.bytes.len() {
             return Err(LuceneError::illegal_state(format!(
@@ -222,13 +223,15 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::ptr;
+
+    use rand::distr::Alphanumeric;
+    use rand::Rng;
+
     use crate::index::BytesRef;
     use crate::test::util::lucene_test_case::random;
     use crate::test::util::test_util::TestUtil;
     use crate::util::error::lucene_error::Result;
-    use rand::distr::Alphanumeric;
-    use rand::Rng;
-    use std::ptr;
 
     #[allow(dead_code)] // for quick search
     struct TestBytesRef {}
@@ -266,8 +269,7 @@ mod tests {
                 .take(length)
                 .map(char::from)
                 .collect::<String>();
-            let s2: String =
-                BytesRef::<Vec<u8>>::from_string(&s).utf8_to_string()?;
+            let s2: String = BytesRef::<Vec<u8>>::from_string(&s).utf8_to_string()?;
             assert_eq!(s, s2);
         }
         let s = TestUtil::random_unicode_string(&mut random);

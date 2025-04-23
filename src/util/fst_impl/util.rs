@@ -14,6 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt;
+use std::fmt::Display;
+use std::hash::Hash;
+
 use crate::index::BytesRef;
 use crate::util::error::lucene_error::Result;
 use crate::util::fst_impl::fst::{Arc, InputType, FST};
@@ -21,17 +25,12 @@ use crate::util::fst_impl::fst_reader::FstReader;
 use crate::util::fst_impl::outputs::{Outputs, OutputsBound};
 use crate::util::ints_ref::IntsRef;
 use crate::util::ints_ref_builder::IntsRefBuilder;
-use std::fmt;
-use std::fmt::Display;
-use std::hash::Hash;
 
 pub struct Util;
 impl Util {
-    /// Looks up the output for this input, or null if the input is not accepted.
-    pub fn get<T, O, F>(
-        fst: &mut FST<T, O, F>,
-        input: &IntsRef<Vec<i32>>,
-    ) -> Result<Option<T>>
+    /// Looks up the output for this input, or null if the input is not
+    /// accepted.
+    pub fn get<T, O, F>(fst: &mut FST<T, O, F>, input: &IntsRef<Vec<i32>>) -> Result<Option<T>>
     where
         T: OutputsBound,
         O: Outputs<T>,
@@ -44,12 +43,7 @@ impl Util {
 
         for i in 0..input.length as usize {
             let label = input.ints[input.offset as usize + i];
-            let found = fst.find_target_arc(
-                label,
-                &arc.clone(),
-                &mut arc,
-                &mut fst_reader,
-            )?;
+            let found = fst.find_target_arc(label, &arc.clone(), &mut arc, &mut fst_reader)?;
             if found.is_none() {
                 return Ok(None);
             }
@@ -57,14 +51,14 @@ impl Util {
         }
 
         if arc.is_final() {
-            let final_output =
-                fst.outputs.add(&output, &arc.next_final_output());
+            let final_output = fst.outputs.add(&output, &arc.next_final_output());
             Ok(Some(final_output))
         } else {
             Ok(None)
         }
     }
-    /// Looks up the output for this input, or `None` if the input is not accepted.
+    /// Looks up the output for this input, or `None` if the input is not
+    /// accepted.
     pub fn get_bytes<T, O, F>(
         fst: &mut FST<T, O, F>,
         input: &BytesRef<Vec<u8>>,
@@ -83,12 +77,7 @@ impl Util {
 
         for i in 0..input.length {
             let label = input.bytes[input.offset + i] as i32;
-            let found = fst.find_target_arc(
-                label,
-                &arc.clone(),
-                &mut arc,
-                &mut fst_reader,
-            )?;
+            let found = fst.find_target_arc(label, &arc.clone(), &mut arc, &mut fst_reader)?;
             if found.is_none() {
                 return Ok(None);
             }
@@ -96,8 +85,7 @@ impl Util {
         }
 
         if arc.is_final() {
-            let final_output =
-                fst.outputs.add(&output, &arc.next_final_output());
+            let final_output = fst.outputs.add(&output, &arc.next_final_output());
             Ok(Some(final_output))
         } else {
             Ok(None)
@@ -129,8 +117,8 @@ where
     pub input: IntsRefBuilder<Vec<i32>>,
     pub boost: f32,
     pub context: String,
-    // Custom int payload for consumers; the NRT suggester uses this to record if this path has
-    // already enumerated a surface form
+    // Custom int payload for consumers; the NRT suggester uses this to record
+    // if this path has already enumerated a surface form
     pub payload: i32,
 }
 

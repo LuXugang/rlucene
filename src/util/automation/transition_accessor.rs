@@ -18,8 +18,9 @@ use crate::util::automation::transition::Transition;
 
 /// Interface accessing the transitions of an automaton.
 pub trait TransitionAccessor {
-    /// Initialize the provided `Transition` to iterate through all transitions leaving the specified
-    /// state. Returns the number of transitions leaving this state.
+    /// Initialize the provided `Transition` to iterate through all transitions
+    /// leaving the specified state. Returns the number of transitions
+    /// leaving this state.
     fn init_transition(&self, state: i32, t: &mut Transition) -> i32;
 
     /// Advance the provided `Transition` to the next transition.
@@ -28,6 +29,7 @@ pub trait TransitionAccessor {
     /// How many transitions this state has.
     fn get_num_transitions(&self, state: i32) -> i32;
 
-    /// Fill the provided `Transition` with the index‑th transition leaving the specified state.
+    /// Fill the provided `Transition` with the index‑th transition leaving the
+    /// specified state.
     fn get_transition(&self, state: i32, index: i32, t: &mut Transition);
 }

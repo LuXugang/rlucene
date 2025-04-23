@@ -14,6 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::{Display, Formatter};
+
+use once_cell::sync::Lazy;
+
 use crate::codecs::doc_values_format::DocValuesFormat;
 use crate::codecs::lucene90_doc_values_consumer::Lucene90DocValuesConsumer;
 use crate::codecs::lucene90_doc_values_producer::Lucene90DocValuesProducer;
@@ -22,96 +26,112 @@ use crate::index::segment_write_state::SegmentWriteState;
 use crate::store::directory::Directory;
 use crate::store::{IndexInput, IndexOutput};
 use crate::util::error::lucene_error::{LuceneError, Result};
-use once_cell::sync::Lazy;
-use std::fmt::{Display, Formatter};
 
 /// Lucene 9.0 DocValues format.
 ///
-/// Documents that have a value for the field are encoded in a way that it is always possible to
-/// know the ordinal of the current document in the set of documents that have a value. For instance,
-/// say the set of documents that have a value for the field is <code>{1, 5, 6, 11}</code>. When the
-/// iterator is on <code>6</code>, it knows that this is the 3rd item of the set. This way, values
-/// can be stored densely and accessed based on their index at search time. If all documents in a
-/// segment have a value for the field, the index is the same as the doc ID, so this case is encoded
-/// implicitly and is very fast at query time. On the other hand if some documents are missing a
-/// value for the field then the set of documents that have a value is encoded into blocks. All doc
-/// IDs that share the same upper 16 bits are encoded into the same block with the following
-/// strategies:
+/// Documents that have a value for the field are encoded in a way that it is
+/// always possible to know the ordinal of the current document in the set of
+/// documents that have a value. For instance, say the set of documents that
+/// have a value for the field is <code>{1, 5, 6, 11}</code>. When the
+/// iterator is on <code>6</code>, it knows that this is the 3rd item of the
+/// set. This way, values can be stored densely and accessed based on their
+/// index at search time. If all documents in a segment have a value for the
+/// field, the index is the same as the doc ID, so this case is encoded
+/// implicitly and is very fast at query time. On the other hand if some
+/// documents are missing a value for the field then the set of documents that
+/// have a value is encoded into blocks. All doc IDs that share the same upper
+/// 16 bits are encoded into the same block with the following strategies:
 ///
-/// - SPARSE: This strategy is used when a block contains at most 4095 documents. The lower 16
-///   bits of doc IDs are stored as [`DataOutput::write_short`](crate::store::DataOutput::write_short) while the upper 16 bits are given by the block ID.
-/// - DENSE: This strategy is used when a block contains between 4096 and 65535 documents. The
-///   lower bits of doc IDs are stored in a bit set. Advancing < 512 documents is performed
-///   using `trailing_zeros` operations while the index is computed
-///   by accumulating the `bitCount` of the visited longs. Advancing
-///   \>= 512 documents is performed by skipping to the start of the needed 512 document
-///   sub-block and iterating to the specific document within that block. The index for the
-///   sub-block that is skipped to is retrieved from a rank-table positioned before the bit set.
-///   The rank-table holds the origo index numbers for all 512 documents sub-blocks, represented
-///   as an unsigned short for each 128 blocks.
+/// - SPARSE: This strategy is used when a block contains at most 4095
+///   documents. The lower 16 bits of doc IDs are stored as
+///   [`DataOutput::write_short`](crate::store::DataOutput::write_short) while
+///   the upper 16 bits are given by the block ID.
+/// - DENSE: This strategy is used when a block contains between 4096 and 65535
+///   documents. The lower bits of doc IDs are stored in a bit set. Advancing <
+///   512 documents is performed using `trailing_zeros` operations while the
+///   index is computed by accumulating the `bitCount` of the visited longs.
+///   Advancing \>= 512 documents is performed by skipping to the start of the
+///   needed 512 document sub-block and iterating to the specific document
+///   within that block. The index for the sub-block that is skipped to is
+///   retrieved from a rank-table positioned before the bit set. The rank-table
+///   holds the origo index numbers for all 512 documents sub-blocks,
+///   represented as an unsigned short for each 128 blocks.
 /// - ALL: This strategy is used when a block contains exactly 65536 documents, meaning that the
 ///   block is full. In that case doc IDs do not need to be stored explicitly. This is typically
 ///   faster than both SPARSE and DENSE which is a reason why it is preferable to have all
 ///   documents that have a value for a field using contiguous doc IDs, for instance by using
 ///   [`IndexWriterConfig::set_index_sort`](crate::index::index_writer_config::IndexWriterConfig::set_index_sort) with a sort.
 ///
-/// Skipping blocks to arrive at a wanted document is either done on an iterative basis or by
-/// using the jump-table stored at the end of the chain of blocks. The jump-table holds the offset as
-/// well as the index for all blocks, packed in a single long per block.
+/// Skipping blocks to arrive at a wanted document is either done on an
+/// iterative basis or by using the jump-table stored at the end of the chain of
+/// blocks. The jump-table holds the offset as well as the index for all blocks,
+/// packed in a single long per block.
 ///
-/// Then the five per-document value types (Numeric,Binary,Sorted,SortedSet,SortedNumeric) are
-/// encoded using the following strategies:
+/// Then the five per-document value types
+/// (Numeric,Binary,Sorted,SortedSet,SortedNumeric) are encoded using the
+/// following strategies:
 ///
 /// [`DocValuesType::NUMERIC`](crate::index::doc_values_type::DocValuesType::Numeric):
 ///
-/// - Delta-compressed: per-document integers written as deltas from the minimum value,
-///   compressed with bitpacking. For more information, see [`DirectWriter`](crate::util::packed::direct_writer::DirectWriter).
-/// - Table-compressed: when the number of unique values is very small (< 256), and when there
-///   are unused "gaps" in the range of values used (such as [`SmallFloat`](crate::util::small_float::SmallFloat)), a lookup table
-///   is written instead. Each per-document entry is instead the ordinal to this table, and those
-///   ordinals are compressed with bitpacking ([`DirectWriter`](crate::util::packed::direct_writer::DirectWriter)).
-/// - GCD-compressed: when all numbers share a common divisor, such as dates, the greatest common
-///   denominator (GCD) is computed, and quotients are stored using Delta-compressed Numerics.
-/// - Monotonic-compressed: when all numbers are monotonically increasing offsets, they are
-///   written as blocks of bitpacked integers, encoding the deviation from the expected delta.
-/// - Const-compressed: when there is only one possible value, no per-document data is needed and
-///   this value is encoded alone.
+/// - Delta-compressed: per-document integers written as deltas from the minimum
+///   value, compressed with bitpacking. For more information, see
+///   [`DirectWriter`](crate::util::packed::direct_writer::DirectWriter).
+/// - Table-compressed: when the number of unique values is very small (< 256),
+///   and when there are unused "gaps" in the range of values used (such as
+///   [`SmallFloat`](crate::util::small_float::SmallFloat)), a lookup table is
+///   written instead. Each per-document entry is instead the ordinal to this
+///   table, and those ordinals are compressed with bitpacking
+///   ([`DirectWriter`](crate::util::packed::direct_writer::DirectWriter)).
+/// - GCD-compressed: when all numbers share a common divisor, such as dates,
+///   the greatest common denominator (GCD) is computed, and quotients are
+///   stored using Delta-compressed Numerics.
+/// - Monotonic-compressed: when all numbers are monotonically increasing
+///   offsets, they are written as blocks of bitpacked integers, encoding the
+///   deviation from the expected delta.
+/// - Const-compressed: when there is only one possible value, no per-document
+///   data is needed and this value is encoded alone.
 ///
-/// Depending on calculated gains, the numbers might be split into blocks of 16384 values. In that
-/// case, a jump-table with block offsets is appended to the blocks for O(1) access to the needed
-/// block.
+/// Depending on calculated gains, the numbers might be split into blocks of
+/// 16384 values. In that case, a jump-table with block offsets is appended to
+/// the blocks for O(1) access to the needed block.
 ///
 /// [`DocValuesType::BINARY`](crate::index::doc_values_type::DocValuesType::Binary):
 ///
-/// - Fixed-width Binary: one large concatenated `byte[]` is written, along with the fixed length.
-///   Each document's value can be addressed directly with multiplication (`docID * length`).
-/// - Variable-width Binary: one large concatenated `byte[]` is written, along with end addresses
-///   for each document. The addresses are written as Monotonic-compressed numerics.
-/// - Prefix-compressed Binary: values are written in chunks of 16, with the first value written
-///   completely and other values sharing prefixes. Chunk addresses are written as
-///   Monotonic-compressed numerics. A reverse lookup index is written from a portion of every
-///   1024th term.
+/// - Fixed-width Binary: one large concatenated `byte[]` is written, along with
+///   the fixed length. Each document's value can be addressed directly with
+///   multiplication (`docID * length`).
+/// - Variable-width Binary: one large concatenated `byte[]` is written, along
+///   with end addresses for each document. The addresses are written as
+///   Monotonic-compressed numerics.
+/// - Prefix-compressed Binary: values are written in chunks of 16, with the
+///   first value written completely and other values sharing prefixes. Chunk
+///   addresses are written as Monotonic-compressed numerics. A reverse lookup
+///   index is written from a portion of every 1024th term.
 ///
 /// [`DocValuesType::SORTED`](crate::index::doc_values_type::DocValuesType::Sorted):
 ///
-/// - Sorted: a mapping of ordinals to deduplicated terms is written as Prefix-compressed Binary,
-///   along with the per-document ordinals written using one of the numeric strategies above.
+/// - Sorted: a mapping of ordinals to deduplicated terms is written as
+///   Prefix-compressed Binary, along with the per-document ordinals written
+///   using one of the numeric strategies above.
 ///
 /// [`DocValuesType::SORTED_SET`](crate::index::doc_values_type::DocValuesType::SortedSet):
 ///
-/// - Single: if all documents have 0 or 1 value, then data are written like SORTED.
-/// - SortedSet: a mapping of ordinals to deduplicated terms is written as Binary, an ordinal
-///   list and per-document index into this list are written using the numeric strategies above.
+/// - Single: if all documents have 0 or 1 value, then data are written like
+///   SORTED.
+/// - SortedSet: a mapping of ordinals to deduplicated terms is written as
+///   Binary, an ordinal list and per-document index into this list are written
+///   using the numeric strategies above.
 ///
 /// [`DocValuesType::SORTED_NUMERIC`](crate::index::doc_values_type::DocValuesType::SortedNumeric):
 ///
-/// - Single: if all documents have 0 or 1 value, then data are written like NUMERIC.
-/// - SortedNumeric: a value list and per-document index into this list are written using the
-///   numeric strategies above.
+/// - Single: if all documents have 0 or 1 value, then data are written like
+///   NUMERIC.
+/// - SortedNumeric: a value list and per-document index into this list are
+///   written using the numeric strategies above.
 ///
 /// # Files:
 ///
-/// - `.dvd`: DocValues data  
+/// - `.dvd`: DocValues data
 /// - `.dvm`: DocValues metadata
 pub struct Lucene90DocValuesFormat {
     skip_index_interval_size: i32,
@@ -139,16 +159,12 @@ impl Lucene90DocValuesFormat {
     pub const NUMERIC_BLOCK_SIZE: i32 = 1 << Self::NUMERIC_BLOCK_SHIFT;
 
     pub const TERMS_DICT_BLOCK_LZ4_SHIFT: i32 = 6;
-    pub const TERMS_DICT_BLOCK_LZ4_SIZE: i32 =
-        1 << Self::TERMS_DICT_BLOCK_LZ4_SHIFT;
-    pub const TERMS_DICT_BLOCK_LZ4_MASK: i32 =
-        Self::TERMS_DICT_BLOCK_LZ4_SIZE - 1;
+    pub const TERMS_DICT_BLOCK_LZ4_SIZE: i32 = 1 << Self::TERMS_DICT_BLOCK_LZ4_SHIFT;
+    pub const TERMS_DICT_BLOCK_LZ4_MASK: i32 = Self::TERMS_DICT_BLOCK_LZ4_SIZE - 1;
 
     pub const TERMS_DICT_REVERSE_INDEX_SHIFT: i32 = 10;
-    pub const TERMS_DICT_REVERSE_INDEX_SIZE: i32 =
-        1 << Self::TERMS_DICT_REVERSE_INDEX_SHIFT;
-    pub const TERMS_DICT_REVERSE_INDEX_MASK: i32 =
-        Self::TERMS_DICT_REVERSE_INDEX_SIZE - 1;
+    pub const TERMS_DICT_REVERSE_INDEX_SIZE: i32 = 1 << Self::TERMS_DICT_REVERSE_INDEX_SHIFT;
+    pub const TERMS_DICT_REVERSE_INDEX_MASK: i32 = Self::TERMS_DICT_REVERSE_INDEX_SIZE - 1;
 
     /// Number of documents in an interval
     pub const DEFAULT_SKIP_INDEX_INTERVAL_SIZE: i32 = 4096;
@@ -160,7 +176,8 @@ impl Lucene90DocValuesFormat {
     ///   * 4 bytes: number of documents
     pub const SKIP_INDEX_INTERVAL_BYTES: i64 = 29;
 
-    /// Number of intervals represented as a shift to create a new level, this is 1 << 3 == 8 intervals.
+    /// Number of intervals represented as a shift to create a new level, this
+    /// is 1 << 3 == 8 intervals.
     pub const SKIP_INDEX_LEVEL_SHIFT: i32 = 3;
 
     /// Max number of levels
@@ -169,13 +186,9 @@ impl Lucene90DocValuesFormat {
     pub const SKIP_INDEX_MAX_LEVEL: usize = 4;
 
     pub fn new() -> Result<Self> {
-        Self::new_with_skip_index_interval_size(
-            Self::DEFAULT_SKIP_INDEX_INTERVAL_SIZE,
-        )
+        Self::new_with_skip_index_interval_size(Self::DEFAULT_SKIP_INDEX_INTERVAL_SIZE)
     }
-    pub fn new_with_skip_index_interval_size(
-        skip_index_interval_size: i32,
-    ) -> Result<Self> {
+    pub fn new_with_skip_index_interval_size(skip_index_interval_size: i32) -> Result<Self> {
         if skip_index_interval_size < 2 {
             return Err(LuceneError::illegal_argument(format!(
                 "skip_index_interval_size must be > 1, got [{}]",
@@ -244,27 +257,25 @@ impl DocValuesFormat for Lucene90DocValuesFormat {
         )
     }
 }
-/// Number of bytes to skip when skipping a level. It does not take into account the
-/// current interval that is being read.
+/// Number of bytes to skip when skipping a level. It does not take into account
+/// the current interval that is being read.
 pub static SKIP_INDEX_JUMP_LENGTH_PER_LEVEL: Lazy<
     [i64; Lucene90DocValuesFormat::SKIP_INDEX_MAX_LEVEL],
 > = Lazy::new(|| {
     let mut arr = [0i64; Lucene90DocValuesFormat::SKIP_INDEX_MAX_LEVEL];
-    // Size of the interval minus read bytes (1 byte for level and 4 bytes for maxDocID)
+    // Size of the interval minus read bytes (1 byte for level and 4 bytes for
+    // maxDocID)
     arr[0] = Lucene90DocValuesFormat::SKIP_INDEX_INTERVAL_BYTES - 5;
     for level in 1..Lucene90DocValuesFormat::SKIP_INDEX_MAX_LEVEL {
         // Jump from previous level
         arr[level] = arr[level - 1];
         // Nodes added by new level
-        arr[level] += (1
-            << (level as i32 * Lucene90DocValuesFormat::SKIP_INDEX_LEVEL_SHIFT))
+        arr[level] += (1 << (level as i32 * Lucene90DocValuesFormat::SKIP_INDEX_LEVEL_SHIFT))
             as i64
             * Lucene90DocValuesFormat::SKIP_INDEX_INTERVAL_BYTES;
         // Remove the byte levels added in the previous level
-        arr[level] -= (1
-            << ((level as i32 - 1)
-                * Lucene90DocValuesFormat::SKIP_INDEX_LEVEL_SHIFT))
-            as i64;
+        arr[level] -=
+            (1 << ((level as i32 - 1) * Lucene90DocValuesFormat::SKIP_INDEX_LEVEL_SHIFT)) as i64;
     }
     arr
 });

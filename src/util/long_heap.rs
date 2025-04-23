@@ -17,12 +17,13 @@
 use crate::util::array_util::ArrayUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 /// A min heap that stores `i64` values.
-/// This is a primitive priority queue that maintains a partial ordering of elements
-/// such that the smallest element can always be found in constant time.
+/// This is a primitive priority queue that maintains a partial ordering of
+/// elements such that the smallest element can always be found in constant
+/// time.
 ///
 /// `push()` and `pop()` require O(log(n)) time complexity.
-/// This heap supports both unbounded growth (via `push()`) and bounded-size insertion
-/// (via `insert_with_overflow()`).
+/// This heap supports both unbounded growth (via `push()`) and bounded-size
+/// insertion (via `insert_with_overflow()`).
 ///
 /// The heap is 1-based internally: index 0 is unused.
 pub struct LongHeap {
@@ -36,11 +37,13 @@ impl LongHeap {
     ///
     /// # Arguments
     ///
-    /// * `max_size` - The maximum size of the heap. Must be > 0 and < ArrayUtil::MAX_ARRAY_LENGTH.
+    /// * `max_size` - The maximum size of the heap. Must be > 0 and <
+    ///   ArrayUtil::MAX_ARRAY_LENGTH.
     ///
     /// # Errors
     ///
-    /// Returns `Err` if `max_size` is invalid to prevent confusing out-of-memory errors.
+    /// Returns `Err` if `max_size` is invalid to prevent confusing
+    /// out-of-memory errors.
     pub fn new(max_size: i32) -> Result<Self> {
         // TODO
         // if max_size < 1 || max_size >= ArrayUtil::MAX_ARRAY_LENGTH {
@@ -61,8 +64,8 @@ impl LongHeap {
             size: 0,
         })
     }
-    /// Adds a value in O(log(n)) time. Grows unbounded as needed to accommodate new values.
-    /// Returns the new top element.
+    /// Adds a value in O(log(n)) time. Grows unbounded as needed to accommodate
+    /// new values. Returns the new top element.
     pub fn push(&mut self, element: i64) -> i64 {
         self.size += 1;
         if self.size == self.heap.len() {
@@ -74,8 +77,8 @@ impl LongHeap {
         self.up_heap(self.size);
         self.heap[1]
     }
-    /// Adds a value in O(log(n)) time. If the number of values would exceed `max_size`,
-    /// the least value is discarded.
+    /// Adds a value in O(log(n)) time. If the number of values would exceed
+    /// `max_size`, the least value is discarded.
     ///
     /// Returns whether the value was added.
     pub fn insert_with_overflow(&mut self, value: i64) -> bool {
@@ -187,10 +190,10 @@ impl LongHeap {
 
 #[cfg(test)]
 mod tests {
-    use crate::test::util::lucene_test_case::random;
     use rand::rngs::StdRng;
     use rand::Rng;
 
+    use crate::test::util::lucene_test_case::random;
     use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::long_heap::LongHeap;
     #[allow(dead_code)]

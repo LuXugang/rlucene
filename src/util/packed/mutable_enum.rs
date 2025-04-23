@@ -14,12 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::Display;
+
 use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::Result;
 use crate::util::packed::growable_writer::GrowableWriter;
 use crate::util::packed::mutable_packed64_enum::MutablePacked64Enum;
 use crate::util::packed::{DummyMutable, Mutable, Reader};
-use std::fmt::Display;
 
 pub(crate) enum MutableEnum {
     Packed(MutablePacked64Enum),
@@ -53,13 +54,7 @@ impl Reader for MutableEnum {
         }
     }
 
-    fn get_bulk(
-        &mut self,
-        index: i32,
-        arr: &mut [i64],
-        off: i32,
-        len: i32,
-    ) -> Result<i32> {
+    fn get_bulk(&mut self, index: i32, arr: &mut [i64], off: i32, len: i32) -> Result<i32> {
         match self {
             MutableEnum::Packed(op) => op.get_bulk(index, arr, off, len),
             MutableEnum::GrowableW(op) => op.get_bulk(index, arr, off, len),
@@ -92,13 +87,7 @@ impl Mutable for MutableEnum {
         }
     }
 
-    fn set_bulk(
-        &mut self,
-        index: i32,
-        arr: &[i64],
-        off: i32,
-        len: i32,
-    ) -> Result<i32> {
+    fn set_bulk(&mut self, index: i32, arr: &[i64], off: i32, len: i32) -> Result<i32> {
         match self {
             MutableEnum::Packed(op) => op.set_bulk(index, arr, off, len),
             MutableEnum::GrowableW(op) => op.set_bulk(index, arr, off, len),

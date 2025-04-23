@@ -14,13 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::any::type_name;
+use std::fmt::{Display, Formatter};
+
 use crate::store::data_input::DataInput;
 use crate::util::access::AccessVec;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::Result;
 use crate::util::SliceCopyOps;
-use std::any::type_name;
-use std::fmt::{Display, Formatter};
 
 #[derive(Default)]
 /// `DataInput` backed by a byte array.
@@ -48,10 +49,7 @@ where
 
     pub fn with_bytes(bytes: AV) -> Self {
         let len = bytes.len();
-        debug_assert!(
-            len <= i32::MAX as usize,
-            "bytes length exceeds u32 range"
-        );
+        debug_assert!(len <= i32::MAX as usize, "bytes length exceeds u32 range");
         Self::with_range(bytes, 0, len as i32)
     }
     pub fn with_range(bytes: AV, offset: i32, length: i32) -> Self {
@@ -62,10 +60,7 @@ where
 
     pub fn reset(&mut self, bytes: AV) {
         let len = bytes.len();
-        debug_assert!(
-            len <= i32::MAX as usize,
-            "bytes length exceeds u32 range"
-        );
+        debug_assert!(len <= i32::MAX as usize, "bytes length exceeds u32 range");
         self.reset_with_range(bytes, 0, len as i32);
     }
     pub fn reset_with_range(&mut self, bytes: AV, offset: i32, length: i32) {
@@ -118,12 +113,7 @@ where
         })
     }
 
-    fn read_bytes(
-        &mut self,
-        b: &mut [u8],
-        offset: i32,
-        len: i32,
-    ) -> Result<()> {
+    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()> {
         self.bytes.access(|bytes| {
             b.copy_from(
                 &bytes[self.pos as usize..(self.pos + len) as usize],
@@ -167,8 +157,9 @@ where
 
 #[cfg(test)]
 mod tests {
-    use byteorder::{LittleEndian, ReadBytesExt};
     use std::io::Cursor;
+
+    use byteorder::{LittleEndian, ReadBytesExt};
 
     use crate::store::data_input::DataInput;
     use crate::store::data_output::DataOutput;

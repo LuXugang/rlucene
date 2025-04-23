@@ -14,6 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::collections::HashSet;
+use std::rc::Rc;
+
 use crate::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::document::document::Document;
 use crate::document::field_type::FieldType;
@@ -22,15 +25,15 @@ use crate::document::text_field::text;
 use crate::index::field_info::FieldInfo;
 use crate::index::stored_field_visitor::{Status, StoredFieldVisitor};
 use crate::util::error::lucene_error::Result;
-use std::collections::HashSet;
-use std::rc::Rc;
 
 /// A [`StoredFieldVisitor`] that creates a [`Document`] from stored fields.
 ///
-/// This visitor supports loading all stored fields, or only specific requested fields
-/// provided from a `Set`.
+/// This visitor supports loading all stored fields, or only specific requested
+/// fields provided from a `Set`.
 ///
-/// This is used by [`StoredFields::document`](crate::index::stored_fields::StoredFields::document) to load a document.
+/// This is used by
+/// [`StoredFields::document`](crate::index::stored_fields::StoredFields::document)
+/// to load a document.
 pub struct DocumentStoredFieldVisitor<'a> {
     doc: Document,
     fields_to_add: Option<&'a HashSet<String>>,
