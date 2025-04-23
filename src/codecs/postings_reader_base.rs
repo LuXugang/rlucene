@@ -28,7 +28,7 @@ use crate::util::error::lucene_error::Result;
 /// The core terms dictionaries (BlockTermsReader, BlockTreeTermsReader)
 /// interact with a single instance of this class to manage creation of
 /// [`PostingsEnum`](crate::index::postings_enum::PostingsEnum) and
-/// [`ImpactsEnum`](crate::index::impacts_enum::ImpactsEnum) instances. It
+/// [`ImpactsEnum`] instances. It
 /// provides an IndexInput (`termsIn`) where this class may read any previously
 /// stored data that it had written in its corresponding
 /// [`PostingsWriterBase`](crate::codecs::postings_writer_base::PostingsWriterBase) at indexing time.

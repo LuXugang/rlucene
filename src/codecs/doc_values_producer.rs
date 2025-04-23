@@ -50,18 +50,20 @@ where
         Err(LuceneError::need_implemented(""))
     }
     type BinaryDocValues: BinaryDocValues;
-    /// Returns [`BinaryDocValues`](crate::index::binary_doc_values::BinaryDocValues) for this field. The returned instance need not be thread-safe:
-    /// it will only be used by a single thread. The behavior is undefined if
-    /// the doc values type of the given field is not
+    /// Returns [`BinaryDocValues`] for this field. The returned instance need
+    /// not be thread-safe: it will only be used by a single thread. The
+    /// behavior is undefined if the doc values type of the given field is
+    /// not
     /// [`DocValuesType::BINARY`](crate::index::doc_values_type::DocValuesType::Binary).
     /// The return value is never `null`.
     fn get_binary(&mut self, _field: &Rc<FieldInfo>) -> Result<Self::BinaryDocValues> {
         Err(LuceneError::need_implemented(""))
     }
     type SortedDocValues: SortedDocValues<AV>;
-    /// Returns [`SortedDocValues`](crate::index::sorted_doc_values::SortedDocValues) for this field. The returned instance need not be thread-safe:
-    /// it will only be used by a single thread. The behavior is undefined if
-    /// the doc values type of the given field is not
+    /// Returns [`SortedDocValues`] for this field. The returned instance need
+    /// not be thread-safe: it will only be used by a single thread. The
+    /// behavior is undefined if the doc values type of the given field is
+    /// not
     /// [`DocValuesType::SORTED`](crate::index::doc_values_type::DocValuesType::Sorted).
     /// The return value is never `null`.
     fn get_sorted(&mut self, _field: &Rc<FieldInfo>) -> Result<Self::SortedDocValues> {
@@ -81,18 +83,19 @@ where
     }
 
     type SortedSetDocValues: SortedSetDocValues<AV>;
-    /// Returns [`SortedSetDocValues`](crate::index::sorted_set_doc_values::SortedSetDocValues) for this field. The returned instance need not be
-    /// thread-safe: it will only be used by a single thread. The behavior is
-    /// undefined if the doc values type of the given field is not
+    /// Returns [`SortedSetDocValues`] for this field. The returned instance
+    /// need not be thread-safe: it will only be used by a single thread.
+    /// The behavior is undefined if the doc values type of the given field
+    /// is not
     /// [`DocValuesType::SORTED_SET`](crate::index::doc_values_type::DocValuesType::SortedSet).
     /// The return value is never `null`.
     fn get_sorted_set(&mut self, _field: &Rc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
         Err(LuceneError::need_implemented(""))
     }
     type DocValuesSkipper: DocValuesSkipper;
-    /// Returns a [`DocValuesSkipper`](crate::index::doc_values_skipper::DocValuesSkipper) for this field. The returned instance need not be
-    /// thread-safe: it will only be used by a single thread. The return value
-    /// is undefined if
+    /// Returns a [`DocValuesSkipper`] for this field. The returned instance
+    /// need not be thread-safe: it will only be used by a single thread.
+    /// The return value is undefined if
     /// [`FieldInfo::doc_values_skip_index_type()`](FieldInfo::doc_values_skip_index_type) returns
     /// [`DocValuesSkipIndexType::NONE`](crate::index::doc_values_skip_index_type::DocValuesSkipIndexType::None).
     fn get_skipper(&mut self, _field: &Rc<FieldInfo>) -> Result<Self::DocValuesSkipper> {
