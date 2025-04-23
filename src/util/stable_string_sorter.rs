@@ -16,7 +16,6 @@
  */
 use crate::index::{BytesRef, BytesRefBuilder};
 
-use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::Result;
 use crate::util::{
     BytesRefComparator, Comparator, MSBRadixSorter, MSBRadixSorterBase,

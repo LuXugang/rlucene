@@ -1,5 +1,10 @@
+# Maximum line width in characters; lines longer than this will be wrapped.
 max_width = 80
+# Use spaces instead of tabs for indentation.
 hard_tabs = false
+# Sort and reorder `use` statements alphabetically.
 reorder_imports = true
+# Add a trailing comma to the last arm of multi-line `match` expressions.
 match_block_trailing_comma = true
-edition = "2021"
+# Specify the Rust edition for formatting
+edition = "2024"

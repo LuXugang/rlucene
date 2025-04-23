@@ -171,11 +171,11 @@ impl StringHelper {
         ref_bytes: &BytesRef<Vec<u8>>,
         suffix: &BytesRef<Vec<u8>>,
     ) -> bool {
-        let start_at = ref_bytes.length - suffix.length;
         // Not long enough to start with the suffix
-        if start_at < 0 {
+        if ref_bytes.length < suffix.length {
             return false;
         }
+        let start_at = ref_bytes.length - suffix.length;
 
         let ref_slice = &ref_bytes.bytes[ref_bytes.offset + start_at
             ..(ref_bytes.offset + start_at + suffix.length)];

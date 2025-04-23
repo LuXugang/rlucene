@@ -118,7 +118,6 @@ where
                 );
                 term.offset = 0;
                 term.length = length as usize;
-                debug_assert!(term.length >= 0);
             };
         })
     }
