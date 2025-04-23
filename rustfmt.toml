@@ -6,10 +6,15 @@ hard_tabs = false
 reorder_imports = true
 # Add a trailing comma to the last arm of multi-line `match` expressions.
 match_block_trailing_comma = true
-# Specify the Rust edition for formatting
+# Specify the Rust edition for formatting.
 edition = "2024"
-group_imports = "StdExternalCrate" # 按标准库/外部库/本地分组
-wrap_comments = true       # 自动换行长注释
-trailing_comma = "Vertical" # 多行结构尾部逗号对齐
-newline_style= "Unix" # 换行符风格
-merge_derives=true
+# Group imports by standard library, external crates, and local modules.
+group_imports = "StdExternalCrate"
+# Automatically wrap long comments.
+wrap_comments = true
+# Use vertical trailing commas in multi-line structures.
+trailing_comma = "Vertical"
+# Use Unix-style line endings.
+newline_style = "Unix"
+# Merge multiple `derive` attributes into a single annotation.
+merge_derives = true
