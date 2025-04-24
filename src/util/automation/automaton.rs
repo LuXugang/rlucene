@@ -25,14 +25,43 @@ use crate::util::automation::transition::Transition;
 use crate::util::automation::transition_accessor::TransitionAccessor;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::{SliceCopyOps, Sorter};
-
+/// Struct representing an automaton and all its states and transitions. States
+/// are integers and must be created using
+/// [`create_state`](Automaton::create_state). Mark a state as an accept state
+/// using [`set_accept`](Automaton::set_accept). Add transitions using
+/// [`add_transition`](Automaton::add_transition).
+///
+/// Each state must have all of its transitions added at once; if this is too
+/// restrictive, use [`Builder`](Builder) instead. State `0` is always the
+/// initial state.
+///
+/// Once a state is finished—either because you've started adding transitions to
+/// another state or you call [`finish_state`](Automaton::finish_state)—then
+/// that state's transitions are:
+/// - sorted (by min, then max, then dest)
+/// - and reduced (transitions with adjacent labels going to the same
+///   destination are combined).
 pub struct Automaton {
+    /// Index into the `Vec<i32>` state array where we next write; this
+    /// increments by 2 for each added state because we pack a pointer to
+    /// the transitions array and a count of how many transitions
+    /// leave the state.
     next_state: i32,
+    /// Index into the `Vec<i32>` transitions array where we next write; this
+    /// increments by 3 for each added transition because we pack `min`,
+    /// `max`, and `dest` in sequence.
     next_transition: i32,
+    /// The current state to which we are adding transitions. The caller must
+    /// add all transitions for this state before moving on to another
+    /// state.
     cur_state: i32,
+    /// Index in the transitions array where this state's outgoing transitions
+    /// are stored, or `-1` if this state has not added any transitions yet.
+    /// Followed by the number of transitions.
     states: Vec<i32>,
     is_accept: BitSet,
     transitions: Vec<i32>,
+    /// True if no state has two transitions leaving with the same label.
     deterministic: bool,
 }
 
@@ -40,7 +69,12 @@ impl Automaton {
     pub fn new() -> Self {
         Self::with_capacity(2, 2)
     }
-
+    /// Constructor which creates an automaton with enough space for the given
+    /// number of states and transitions.
+    ///
+    /// Parameters:
+    /// - `num_states`: Number of states
+    /// - `num_transitions`: Number of transitions
     pub fn with_capacity(num_states: usize, num_transitions: usize) -> Self {
         Automaton {
             next_state: 0,
@@ -59,7 +93,7 @@ impl Automaton {
         self.next_state += 2;
         state
     }
-
+    /// Set or clear this state as an accept state.
     pub fn set_accept(&mut self, state: usize, accept: bool) {
         debug_assert!(
             (0..self.get_num_states() as usize).contains(&state),
@@ -72,6 +106,8 @@ impl Automaton {
             self.is_accept.remove(state);
         }
     }
+    /// Convenience method to get all transitions for all states. This is
+    /// object-heavy; it's better to iterate state by state instead.
     pub fn get_sorted_transitions(&self) -> Vec<Vec<Transition>> {
         let num_states = self.get_num_states();
         let mut result = Vec::with_capacity(num_states as usize);
@@ -87,18 +123,21 @@ impl Automaton {
         }
         result
     }
-
+    /// Returns accept states. If the bit is set, then that state is an accept
+    /// state.
     pub(crate) fn get_accept_states(&mut self) -> &mut BitSet {
         &mut self.is_accept
     }
+    /// Returns `true` if this state is an accept state.
     pub fn is_accept(&self, state: i32) -> bool {
         self.is_accept.contains(state as usize)
     }
-
+    /// Add a new transition with `min = max = label`.
     pub fn add_transition_label(&mut self, source: i32, dest: i32, label: i32) {
         self.add_transition(source, dest, label, label);
     }
-
+    /// Add a new transition with the specified `source`, `dest`, `min`, and
+    /// `max`.
     pub fn add_transition(&mut self, source: i32, dest: i32, min: i32, max: i32) -> Result<()> {
         debug_assert!(self.next_transition % 3 == 0);
         let bounds = self.next_state / 2;
@@ -132,7 +171,10 @@ impl Automaton {
         self.states[2 * source as usize + 1] += 1;
         Ok(())
     }
-
+    /// Add a [virtual] epsilon transition between `source` and `dest`.
+    /// The destination state must already have all transitions added,
+    /// because this method simply copies those same transitions over to the
+    /// source.
     pub fn add_epsilon(&mut self, source: i32, dest: i32) {
         let mut t = Transition::default();
         let count = self.init_transition(dest, &mut t);
@@ -144,7 +186,9 @@ impl Automaton {
             self.set_accept(source as usize, true);
         }
     }
-    pub fn copy_from(&mut self, other: &mut Automaton) {
+    /// Copies over all states and transitions from another automaton.  
+    /// The state numbers are sequentially assigned (appended).
+    pub fn copy(&mut self, other: &mut Automaton) {
         // Bulk copy and fix up state pointers
         let state_offset = self.get_num_states();
         let total_states = self.next_state + other.next_state;
@@ -194,6 +238,7 @@ impl Automaton {
             self.deterministic = false;
         }
     }
+    /// Freezes the last state, sorting and reducing its transitions.
     fn finish_current_state(&mut self) -> Result<()> {
         let state = self.cur_state as usize;
         let num_transitions = self.states[2 * state + 1];
@@ -281,20 +326,26 @@ impl Automaton {
         }
         Ok(())
     }
+    /// Returns `true` if this automaton is deterministic (for every state there
+    /// is only one transition for each label).
     pub fn is_deterministic(&self) -> bool {
         self.deterministic
     }
+    /// Finishes the current state; call this once you are done adding
+    /// transitions for a state. This is automatically called when you start
+    /// adding transitions to a new source state, but for the last state you
+    /// add, you need to call this method manually.
     pub fn finish_state(&mut self) {
         if self.cur_state != -1 {
             self.finish_current_state();
             self.cur_state = -1;
         }
     }
-
+    /// Returns how many states this automaton has.
     pub fn get_num_states(&self) -> i32 {
         self.next_state / 2
     }
-
+    /// Returns how many transitions this automaton has.
     pub fn get_num_transitions(&self) -> i32 {
         self.next_transition / 3
     }
@@ -339,7 +390,7 @@ impl Automaton {
             false
         }
     }
-
+    /// Returns sorted array of all interval start points.
     pub fn get_start_points(&self) -> Vec<i32> {
         let mut pointset = HashSet::new();
         pointset.insert(0);
@@ -363,9 +414,35 @@ impl Automaton {
         points.sort();
         points
     }
+    /// Performs lookup in transitions, assuming determinism.
+    ///
+    /// Parameters:
+    /// - `state`: starting state
+    /// - `label`: codepoint to look up
+    ///
+    /// Returns:
+    /// - destination state, or `-1` if no matching outgoing transition
     pub fn step(&self, state: i32, label: i32) -> i32 {
         self.next_impl(state, 0, label, None)
     }
+    /// Looks for the next transition that matches the provided label, assuming
+    /// determinism.
+    ///
+    /// This method is similar to [`step(state, label)`](Automaton::step), but
+    /// is used more efficiently when iterating over multiple transitions
+    /// from the same source state. It keeps the latest reached transition
+    /// index in `transition.transition_upto`, so the next call to this method
+    /// can continue from there instead of restarting from the first
+    /// transition.
+    ///
+    /// Parameters:
+    /// - `transition`: The transition to start the lookup from (inclusive,
+    ///   using its `source` and `transition_upto`). It is updated with the
+    ///   matched transition; or with `dest = -1` if no match.
+    /// - `label`: The codepoint to look up.
+    ///
+    /// Returns:
+    /// - The destination state, or `-1` if no matching outgoing transition.
     pub fn next(&self, transition: &mut Transition, label: i32) -> i32 {
         self.next_impl(
             transition.source,
@@ -374,6 +451,19 @@ impl Automaton {
             Some(transition),
         )
     }
+    /// Looks for the next transition that matches the provided label, assuming
+    /// determinism.
+    ///
+    /// Parameters:
+    /// - `state`: The source state
+    /// - `from_transition_index`: The transition index to start the lookup from
+    ///   (inclusive); negative values are interpreted as `0`
+    /// - `label`: The codepoint to look up
+    /// - `transition`: The output transition to update with the matching
+    ///   transition, or `None` for no update
+    ///
+    /// Returns:
+    /// - The destination state, or `-1` if no matching outgoing transition.
     fn next_impl(
         &self,
         state: i32,
@@ -470,12 +560,16 @@ impl TransitionAccessor for Automaton {
         t.max = self.transitions[offset + 2];
     }
 }
+
 impl Accountable for Automaton {
     fn ram_bytes_used(&self) -> Result<i64> {
         todo!()
     }
 }
-
+/// Records new states and transitions, and then [`finish`](Builder::finish)
+/// creates the [`Automaton`]. Use this when you cannot create the automaton
+/// directly because it's too restrictive to have to add all transitions leaving
+/// each state at once.
 pub struct Builder {
     next_state: i32,
     is_accept: BitSet,
@@ -486,6 +580,12 @@ impl Builder {
     pub fn new() -> Self {
         Self::with_capacity(16, 16)
     }
+    /// Constructor which creates a builder with enough space for the given
+    /// number of states and transitions.
+    ///
+    /// Parameters:
+    /// - `num_states`: Number of states
+    /// - `num_transitions`: Number of transitions
     pub fn with_capacity(num_states: usize, num_transitions: usize) -> Self {
         let is_accept = BitSet::with_capacity(num_states);
         let transitions = vec![0; num_transitions * 4];
@@ -533,6 +633,8 @@ impl Builder {
             self.set_accept(source, true);
         }
     }
+    /// Compiles all added states and transitions into a new [`Automaton`] and
+    /// returns it.
     pub fn finish(&mut self) -> Result<Automaton> {
         let num_states = self.next_state;
         let num_transitions = self.transitions.len() / 4;
@@ -688,6 +790,8 @@ impl Sorter for InPlaceMergeSorterImpl<'_> {
         Ok(())
     }
 }
+/// Sorts transitions by minimum label (ascending), then maximum label
+/// (ascending), then destination (ascending).
 pub struct MinMaxDestSorter<'a> {
     transitions: &'a mut [i32],
 }
@@ -740,6 +844,8 @@ impl Sorter for MinMaxDestSorter<'_> {
         self.swap_one(i_start + 2, j_start + 2)
     }
 }
+/// Sorts transitions by destination (ascending), then by minimum label
+/// (ascending), then by maximum label (ascending).
 pub struct DestMinMaxSorter<'a> {
     transitions: &'a mut [i32],
 }
