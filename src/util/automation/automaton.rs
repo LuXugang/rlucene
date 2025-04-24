@@ -24,7 +24,9 @@ use crate::util::array_util::ArrayUtil;
 use crate::util::automation::transition::Transition;
 use crate::util::automation::transition_accessor::TransitionAccessor;
 use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::in_place_merge_sorter::InPlaceMergeSorter;
 use crate::util::{SliceCopyOps, Sorter};
+
 /// Struct representing an automaton and all its states and transitions. States
 /// are integers and must be created using
 /// [`create_state`](Automaton::create_state). Mark a state as an accept state
@@ -80,7 +82,7 @@ impl Automaton {
             next_state: 0,
             next_transition: 0,
             cur_state: -1,
-            states: vec![-1; num_states * 2],
+            states: vec![0; num_states * 2],
             is_accept: BitSet::with_capacity(num_states),
             transitions: vec![0; num_transitions * 3],
             deterministic: false,
@@ -152,7 +154,7 @@ impl Automaton {
             }
             self.cur_state = source;
             let source = source as usize;
-            if self.states[2 * source] == -1 {
+            if self.states[2 * source] != -1 {
                 return Err(LuceneError::illegal_state(format!(
                     "from state ({}) already had transitions added",
                     source
@@ -247,9 +249,10 @@ impl Automaton {
         let offset = self.states[2 * state];
         let start = offset / 3;
         // sort by dest, then min, then max
-        let mut sort = MinMaxDestSorter {
+        let sub = DestMinMaxSorter {
             transitions: &mut self.transitions,
         };
+        let mut sort = InPlaceMergeSorter::new(sub);
         sort.sort(start, start + num_transitions)?;
 
         // merge adjacent transitions
@@ -307,9 +310,10 @@ impl Automaton {
         self.states[2 * state + 1] = upto as i32;
 
         // Sort transitions by min/max/dest:
-        let mut sort = MinMaxDestSorter {
+        let sub = MinMaxDestSorter {
             transitions: &mut self.transitions,
         };
+        let mut sort = InPlaceMergeSorter::new(sub);
         sort.sort(start, start + upto as i32)?;
 
         // check determinism
@@ -644,9 +648,10 @@ impl Builder {
             a.create_state();
             a.set_accept(state, self.is_accept(state));
         }
-        let mut sort = InPlaceMergeSorterImpl {
+        let mut sub = InPlaceMergeSorterImpl {
             transitions: &mut self.transitions,
         };
+        let mut sort = InPlaceMergeSorter::new(sub);
         debug_assert!(num_transitions.to_i32().is_some());
         sort.sort(0, num_transitions as i32)?;
         let mut upto = 0;
@@ -895,5 +900,78 @@ impl Sorter for DestMinMaxSorter<'_> {
         self.swap_one(i_start, j_start)?;
         self.swap_one(i_start + 1, j_start + 1)?;
         self.swap_one(i_start + 2, j_start + 2)
+    }
+}
+#[cfg(test)]
+mod tests {
+    use crate::util::automation::automaton::Automaton;
+    use crate::util::automation::transition::Transition;
+    use crate::util::automation::transition_accessor::TransitionAccessor;
+    use crate::util::error::lucene_error::Result;
+
+    #[test]
+    fn test_basic() -> Result<()> {
+        let mut a = Automaton::new();
+        let start = a.create_state();
+        let x = a.create_state();
+        let y = a.create_state();
+        let end = a.create_state();
+        a.set_accept(end as usize, true);
+
+        a.add_transition(start, x, 'a' as i32, 'a' as i32)?;
+        a.add_transition(start, end, 'd' as i32, 'd' as i32)?;
+        a.add_transition(x, y, 'b' as i32, 'b' as i32)?;
+        a.add_transition(y, end, 'c' as i32, 'c' as i32)?;
+
+        a.finish_state();
+        Ok(())
+    }
+    #[test]
+    fn test_reduce_basic() -> Result<()> {
+        let mut a = Automaton::new();
+        let start = a.create_state();
+        let end = a.create_state();
+        a.set_accept(end as usize, true);
+
+        // Should collapse to a-b:
+        a.add_transition(start, end, 'a' as i32, 'a' as i32)?;
+        a.add_transition(start, end, 'b' as i32, 'b' as i32)?;
+        // Should collapse to m-m:
+        a.add_transition(start, end, 'm' as i32, 'm' as i32)?;
+        // Should collapse to x-y:
+        a.add_transition(start, end, 'x' as i32, 'x' as i32)?;
+        a.add_transition(start, end, 'y' as i32, 'y' as i32)?;
+
+        a.finish_state();
+
+        assert_eq!(3, a.get_num_transitions_with_state(start));
+
+        let mut scratch = Transition::default();
+        a.init_transition(start, &mut scratch);
+        a.get_next_transition(&mut scratch);
+        assert_eq!('a' as i32, scratch.min);
+        assert_eq!('b' as i32, scratch.max);
+
+        a.get_next_transition(&mut scratch);
+        assert_eq!('m' as i32, scratch.min);
+        assert_eq!('m' as i32, scratch.max);
+
+        a.get_next_transition(&mut scratch);
+        assert_eq!('x' as i32, scratch.min);
+        assert_eq!('y' as i32, scratch.max);
+
+        Ok(())
+    }
+
+    #[test]
+    #[should_panic(expected = "from state")]
+    fn test_invalid_add_transition() {
+        let mut a = Automaton::new();
+        let s1 = a.create_state();
+        let s2 = a.create_state();
+        a.add_transition(s1, s2, 'a' as i32, 'a' as i32).unwrap();
+        a.add_transition(s2, s2, 'a' as i32, 'a' as i32).unwrap();
+        // This should panic because transitions on s1 were already added
+        a.add_transition(s1, s2, 'b' as i32, 'b' as i32).unwrap();
     }
 }
