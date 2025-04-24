@@ -59,11 +59,7 @@ impl DocValuesSkipper for DummyDocValuesSkipper {
         todo!()
     }
 
-    fn advance_by_range(
-        &mut self,
-        _min_value: i64,
-        _max_value: i64,
-    ) -> Result<()> {
+    fn advance_by_range(&mut self, _min_value: i64, _max_value: i64) -> Result<()> {
         todo!()
     }
 }

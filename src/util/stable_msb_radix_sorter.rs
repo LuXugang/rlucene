@@ -16,7 +16,9 @@
  */
 
 use crate::util::error::lucene_error::Result;
-use crate::util::{check_range, sorter_util, MSBRadixSorterBase, SliceCopyOps, Sorter, HISTOGRAM_SIZE};
+use crate::util::{
+    check_range, sorter_util, MSBRadixSorterBase, SliceCopyOps, Sorter, HISTOGRAM_SIZE,
+};
 
 pub struct StableMSBRadixSorter<T>
 where

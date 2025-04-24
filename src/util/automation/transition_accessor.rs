@@ -27,7 +27,7 @@ pub trait TransitionAccessor {
     fn get_next_transition(&self, t: &mut Transition);
 
     /// How many transitions this state has.
-    fn get_num_transitions(&self, state: i32) -> i32;
+    fn get_num_transitions_with_state(&self, state: i32) -> i32;
 
     /// Fill the provided `Transition` with the index‑th transition leaving the
     /// specified state.

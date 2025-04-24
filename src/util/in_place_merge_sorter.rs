@@ -14,12 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::{check_range, sorter_util, Sorter};
 use crate::util::error::lucene_error::Result;
+use crate::util::{check_range, sorter_util, Sorter};
 
-pub struct InPlaceMergeSorter;
-impl InPlaceMergeSorter {
-    fn merge_sort(&mut self, from: i32, to: i32) ->Result<()> {
+pub struct InPlaceMergeSorter<S>
+where
+    S: Sorter,
+{
+    sub: S,
+}
+impl<S> InPlaceMergeSorter<S>
+where
+    S: Sorter,
+{
+    fn merge_sort(&mut self, from: i32, to: i32) -> Result<()> {
         if to - from < sorter_util::BINARY_SORT_THRESHOLD {
             self.binary_sort(from, to)
         } else {
@@ -28,12 +36,22 @@ impl InPlaceMergeSorter {
             self.merge_sort(mid, to)?;
             self.merge_in_place(from, mid, to)
         }
-    } 
+    }
 }
-impl Sorter for InPlaceMergeSorter {
-    fn sort(&mut self, from: i32, to: i32) ->Result<()> {
+impl<S> Sorter for InPlaceMergeSorter<S>
+where
+    S: Sorter,
+{
+    fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
+        self.sub.compare(i, j)
+    }
+
+    fn swap(&mut self, i: i32, j: i32) -> Result<()> {
+        self.sub.swap(i, j)
+    }
+
+    fn sort(&mut self, from: i32, to: i32) -> Result<()> {
         check_range(from, to)?;
         self.merge_sort(from, to)
     }
-    
 }

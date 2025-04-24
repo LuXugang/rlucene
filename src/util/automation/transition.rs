@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::util::accountable::Accountable;
+use crate::util::error::lucene_error::Result;
 
 /// Holds one transition from an automaton. This is typically used temporarily
 /// when iterating through transitions via
@@ -54,7 +55,7 @@ impl Default for Transition {
 }
 
 impl Accountable for Transition {
-    fn ram_bytes_used(&self) -> crate::util::error::lucene_error::Result<i64> {
+    fn ram_bytes_used(&self) -> Result<i64> {
         Ok(BYTES_USED as i64)
     }
 }

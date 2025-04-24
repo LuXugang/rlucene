@@ -34,7 +34,6 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 /// # Note
 /// This is an internal API.
 pub trait Sorter {
-    
     /// Compare entries found in slots i and j
     fn compare(&mut self, _i: i32, _j: i32) -> Result<i32> {
         Err(LuceneError::illegal_state(
@@ -331,8 +330,8 @@ pub fn check_range(from: i32, to: i32) -> Result<()> {
     }
     Ok(())
 }
-pub mod sorter_util{
+pub mod sorter_util {
     pub(crate) const BINARY_SORT_THRESHOLD: i32 = 20;
     // Below this size threshold, the sub-range is sorted using Insertion sort.
-    pub(crate) const INSERTION_SORT_THRESHOLD: i32 = 16; 
+    pub(crate) const INSERTION_SORT_THRESHOLD: i32 = 16;
 }
