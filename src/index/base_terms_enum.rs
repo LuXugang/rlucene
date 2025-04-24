@@ -62,20 +62,18 @@ where
     AV: AccessVec<u8>,
 {
     fn attributes(&self) -> Result<&AttributeSource> {
-        // TODO: 参考BaseTermsEnum中prepare_seek_exact方法
-        // 来选择使用父或子的实现
         Ok(&self.atts)
     }
 
-    fn seek_ceil(&mut self, term: &BytesRef<AV>) -> Result<SeekStatus> {
+    fn seek_ceil(&mut self, _term: &BytesRef<AV>) -> Result<SeekStatus> {
         Err(LuceneError::need_implemented(""))
     }
 
-    fn seek_exact_with_ord(&mut self, ord: i64) -> Result<()> {
+    fn seek_exact_with_ord(&mut self, _ord: i64) -> Result<()> {
         Err(LuceneError::need_implemented(""))
     }
 
-    fn seek_exact_with_state(&mut self, term: &BytesRef<AV>, state: &TermStateEnum) -> Result<()> {
+    fn seek_exact_with_state(&mut self, term: &BytesRef<AV>, _state: &TermStateEnum) -> Result<()> {
         if !self.seek_exact(term)? {
             return Err(LuceneError::illegal_argument(format!(
                 "term= {} does not exist",
