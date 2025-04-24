@@ -28,7 +28,6 @@ use crate::index::BytesRef;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::IndexInput;
-use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::{LuceneError, Result};
 
 /// Selects a value from the document's set to use as the representative value.

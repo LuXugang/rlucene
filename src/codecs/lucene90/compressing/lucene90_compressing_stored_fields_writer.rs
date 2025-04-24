@@ -46,7 +46,6 @@ use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{
     ByteBuffersDataOutput, DataInput, DataOutput, IOContext, IndexInput, IndexOutput,
 };
-use crate::util::access::AccessVec;
 use crate::util::accountable::Accountable;
 use crate::util::array_util::ArrayUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};

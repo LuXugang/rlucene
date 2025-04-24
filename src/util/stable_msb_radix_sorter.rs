@@ -16,7 +16,7 @@
  */
 
 use crate::util::error::lucene_error::Result;
-use crate::util::{check_range, MSBRadixSorterBase, SliceCopyOps, Sorter, HISTOGRAM_SIZE};
+use crate::util::{check_range, sorter_util, MSBRadixSorterBase, SliceCopyOps, Sorter, HISTOGRAM_SIZE};
 
 pub struct StableMSBRadixSorter<T>
 where
@@ -106,7 +106,7 @@ where
     T: Sorter + StableMSBRadixSorterBase,
 {
     fn merge_sort(&mut self, from: i32, to: i32) -> Result<()> {
-        if to - from < Self::BINARY_SORT_THRESHOLD {
+        if to - from < sorter_util::BINARY_SORT_THRESHOLD {
             self.binary_sort(from, to)
         } else {
             let mid = (from + to) / 2;

@@ -25,7 +25,7 @@ use crate::index::terms_hash_per_field::{
     MTPostingsArrayWrapper, PostingsArrayWrapper, PostingsBytesStartArray, STPostingsArrayWrapper,
 };
 use crate::index::{BytesRef, BytesRefBuilder};
-use crate::util::access::{Access, AccessVec};
+use crate::util::access::{Access};
 use crate::util::accountable::Accountable;
 use crate::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
 use crate::util::array_util::ArrayUtil;

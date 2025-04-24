@@ -16,7 +16,6 @@
  */
 use crate::index::merge_state::MergeState;
 use crate::store::IndexInput;
-use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::Result;
 use crate::util::info_stream::InfoStream;
 

@@ -38,7 +38,6 @@ use crate::index::impacts_source::ImpactsSource;
 use crate::index::index_options::IndexOptions;
 use crate::index::postings_enum::{postings_enum_util, PostingsEnum, PostingsEnums};
 use crate::index::segment_read_state::SegmentReadState;
-use crate::index::terms_enum::TermsEnum;
 use crate::index::{BytesRef, IndexFileNames};
 use crate::internal::vectorization::posting_decoding_util::PostingDecodingUtil;
 use crate::internal::vectorization::vectorization_provider::vectorization_provider_util;

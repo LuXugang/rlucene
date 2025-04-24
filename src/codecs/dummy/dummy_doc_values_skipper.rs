@@ -15,10 +15,11 @@
  * limitations under the License.
  */
 use crate::index::doc_values_skipper::DocValuesSkipper;
+use crate::util::error::lucene_error::Result;
 
 pub struct DummyDocValuesSkipper;
 impl DocValuesSkipper for DummyDocValuesSkipper {
-    fn advance(&mut self, target: i32) -> crate::util::error::lucene_error::Result<()> {
+    fn advance(&mut self, _target: i32) -> Result<()> {
         todo!()
     }
 
@@ -26,23 +27,23 @@ impl DocValuesSkipper for DummyDocValuesSkipper {
         todo!()
     }
 
-    fn min_doc_id(&self, level: i32) -> i32 {
+    fn min_doc_id(&self, _level: i32) -> i32 {
         todo!()
     }
 
-    fn max_doc_id(&self, level: i32) -> i32 {
+    fn max_doc_id(&self, _level: i32) -> i32 {
         todo!()
     }
 
-    fn min_value(&self, level: i32) -> i64 {
+    fn min_value(&self, _level: i32) -> i64 {
         todo!()
     }
 
-    fn max_value(&self, level: i32) -> i64 {
+    fn max_value(&self, _level: i32) -> i64 {
         todo!()
     }
 
-    fn doc_count_level(&self, level: i32) -> i32 {
+    fn doc_count_level(&self, _level: i32) -> i32 {
         todo!()
     }
 
@@ -60,9 +61,9 @@ impl DocValuesSkipper for DummyDocValuesSkipper {
 
     fn advance_by_range(
         &mut self,
-        min_value: i64,
-        max_value: i64,
-    ) -> crate::util::error::lucene_error::Result<()> {
+        _min_value: i64,
+        _max_value: i64,
+    ) -> Result<()> {
         todo!()
     }
 }
