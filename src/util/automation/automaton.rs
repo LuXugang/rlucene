@@ -25,7 +25,7 @@ use crate::util::automation::transition::Transition;
 use crate::util::automation::transition_accessor::TransitionAccessor;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::in_place_merge_sorter::InPlaceMergeSorter;
-use crate::util::{SliceCopyOps, Sorter};
+use crate::util::{BitSetExt, SliceCopyOps, Sorter};
 
 /// Struct representing an automaton and all its states and transitions. States
 /// are integers and must be created using
@@ -127,16 +127,16 @@ impl Automaton {
     }
     /// Returns accept states. If the bit is set, then that state is an accept
     /// state.
-    pub(crate) fn get_accept_states(&mut self) -> &mut BitSet {
-        &mut self.is_accept
+    pub(crate) fn get_accept_states(&self) -> &BitSet {
+        &self.is_accept
     }
     /// Returns `true` if this state is an accept state.
     pub fn is_accept(&self, state: i32) -> bool {
         self.is_accept.contains(state as usize)
     }
     /// Add a new transition with `min = max = label`.
-    pub fn add_transition_label(&mut self, source: i32, dest: i32, label: i32) {
-        self.add_transition(source, dest, label, label);
+    pub fn add_transition_label(&mut self, source: i32, dest: i32, label: i32) -> Result<()> {
+        self.add_transition(source, dest, label, label)
     }
     /// Add a new transition with the specified `source`, `dest`, `min`, and
     /// `max`.
@@ -177,20 +177,21 @@ impl Automaton {
     /// The destination state must already have all transitions added,
     /// because this method simply copies those same transitions over to the
     /// source.
-    pub fn add_epsilon(&mut self, source: i32, dest: i32) {
+    pub fn add_epsilon(&mut self, source: i32, dest: i32) -> Result<()> {
         let mut t = Transition::default();
         let count = self.init_transition(dest, &mut t);
         for _ in 0..count {
             self.get_next_transition(&mut t);
-            self.add_transition(source, t.min, t.max, t.dest);
+            self.add_transition(source, t.min, t.max, t.dest)?;
         }
         if self.is_accept(dest) {
             self.set_accept(source as usize, true);
         }
+        Ok(())
     }
     /// Copies over all states and transitions from another automaton.  
     /// The state numbers are sequentially assigned (appended).
-    pub fn copy(&mut self, other: &mut Automaton) {
+    pub fn copy(&mut self, other: &Automaton) {
         // Bulk copy and fix up state pointers
         let state_offset = self.get_num_states();
         let total_states = self.next_state + other.next_state;
@@ -212,13 +213,13 @@ impl Automaton {
         let other_num_states = other.get_num_states();
         let other_accept_states = other.get_accept_states();
         let mut state = 0;
-        while state < other_num_states as usize {
-            if let Some(next) = other_accept_states.iter().find(|&i| i >= state) {
-                self.set_accept(state_offset as usize + next, true);
-                state = next + 1;
-            } else {
+        while state < other_num_states {
+            state = other_accept_states.next_set_bit(state as usize);
+            if state == -1 {
                 break;
             }
+            self.set_accept((state_offset + state) as usize, true);
+            state += 1;
         }
 
         // Bulk copy and fix up transition destinations
@@ -339,11 +340,12 @@ impl Automaton {
     /// transitions for a state. This is automatically called when you start
     /// adding transitions to a new source state, but for the last state you
     /// add, you need to call this method manually.
-    pub fn finish_state(&mut self) {
+    pub fn finish_state(&mut self) -> Result<()> {
         if self.cur_state != -1 {
-            self.finish_current_state();
+            self.finish_current_state()?;
             self.cur_state = -1;
         }
+        Ok(())
     }
     /// Returns how many states this automaton has.
     pub fn get_num_states(&self) -> i32 {
@@ -648,7 +650,7 @@ impl Builder {
             a.create_state();
             a.set_accept(state, self.is_accept(state));
         }
-        let mut sub = InPlaceMergeSorterImpl {
+        let sub = InPlaceMergeSorterImpl {
             transitions: &mut self.transitions,
         };
         let mut sort = InPlaceMergeSorter::new(sub);
@@ -665,7 +667,7 @@ impl Builder {
             upto += 4;
         }
 
-        a.finish_state();
+        a.finish_state()?;
         Ok(a)
     }
     /// Create a new state
@@ -923,7 +925,7 @@ mod tests {
         a.add_transition(x, y, 'b' as i32, 'b' as i32)?;
         a.add_transition(y, end, 'c' as i32, 'c' as i32)?;
 
-        a.finish_state();
+        a.finish_state()?;
         Ok(())
     }
     #[test]
@@ -942,7 +944,7 @@ mod tests {
         a.add_transition(start, end, 'x' as i32, 'x' as i32)?;
         a.add_transition(start, end, 'y' as i32, 'y' as i32)?;
 
-        a.finish_state();
+        a.finish_state()?;
 
         assert_eq!(3, a.get_num_transitions_with_state(start));
 

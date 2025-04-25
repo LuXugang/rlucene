@@ -17,7 +17,9 @@
 use std::cmp::Ordering;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::num::Wrapping;
+
 use bit_set::BitSet;
+
 use crate::util::error::lucene_error::{LuceneError, Result};
 
 pub struct CoreHelper;
@@ -191,13 +193,12 @@ macro_rules! impl_to_usize_exact {
 
 impl_to_usize_exact!(i16, i32, i64);
 
-
-pub trait BitSetExt{
-   fn next_set_bit(&self, from:usize) -> i32;
+pub trait BitSetExt {
+    fn next_set_bit(&self, from: usize) -> i32;
 }
 impl BitSetExt for BitSet {
-    fn next_set_bit(&self, from:usize) -> i32 {
-        match self.iter().find(|&bit| bit >= from ) {
+    fn next_set_bit(&self, from: usize) -> i32 {
+        match self.iter().find(|&bit| bit >= from) {
             Some(bit) => bit as i32,
             None => -1,
         }

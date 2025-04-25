@@ -14,10 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod automata;
-pub mod automaton;
-pub mod byte_runnable;
-pub mod operations;
-pub mod run_automaton;
-pub mod transition;
-mod transition_accessor;
+use crate::util::automation::automaton::Automaton;
+use crate::util::error::lucene_error::Result;
+
+pub struct Automata;
+impl Automata {
+    pub fn make_empty() -> Result<Automaton> {
+        let mut a = Automaton::new();
+        a.finish_state()?;
+        Ok(a)
+    }
+    pub fn make_empty_string() -> Result<Automaton> {
+        let mut a = Automaton::new();
+        a.create_state();
+        a.set_accept(0, true);
+        Ok(a)
+    }
+}
