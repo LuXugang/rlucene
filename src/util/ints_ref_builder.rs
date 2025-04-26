@@ -151,6 +151,9 @@ where
         );
         &self.ints_ref
     }
+    pub fn get_owner(&mut self) -> IntsRef<AV> {
+        std::mem::take(&mut self.ints_ref)
+    }
 
     /// Builds a new [`IntsRef`] that has the same content as this builder.
     pub fn to_ints_ref(&self) -> IntsRef<AV> {

@@ -197,6 +197,7 @@ pub trait BitSetExt {
     fn next_set_bit(&self, from: usize) -> i32;
 }
 impl BitSetExt for BitSet {
+    // TODO: this method Need optimization
     fn next_set_bit(&self, from: usize) -> i32 {
         match self.iter().find(|&bit| bit >= from) {
             Some(bit) => bit as i32,

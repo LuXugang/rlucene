@@ -14,16 +14,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::collections::{HashSet, VecDeque};
+use std::cmp::Ordering;
+use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
+use std::fmt;
+use std::fmt::Display;
 use std::rc::Rc;
 
 use bit_set::BitSet;
 
+use crate::index::{BytesRef, BytesRefBuilder};
+use crate::internal::hppc::bit_mixer::BitMixer;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::util::access::AccessVec;
+use crate::util::array_util::ArrayUtil;
 use crate::util::automation::automata::Automata;
 use crate::util::automation::automaton::{Automaton, Builder};
+use crate::util::automation::frozen_int_set::FrozenIntSet;
+use crate::util::automation::state_pair::StatePair;
+use crate::util::automation::state_set::StateSet;
 use crate::util::automation::transition::Transition;
 use crate::util::automation::transition_accessor::TransitionAccessor;
-use crate::util::error::lucene_error::Result;
+use crate::util::automation::IntSet::IntSet;
+use crate::util::bit_set::BitSet as OtherBitSet;
+use crate::util::bits::Bits;
+use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::fixed_bit_set::FixedBitSet;
+use crate::util::ints_ref::IntsRef;
+use crate::util::ints_ref_builder::IntsRefBuilder;
 use crate::util::BitSetExt;
 
 pub struct Operations;
@@ -95,7 +112,7 @@ impl Operations {
                                 break;
                             }
                         } else {
-                            result.set_accept((state_offset + s) as usize, true);
+                            result.set_accept(state_offset + s, true);
                             break;
                         }
                     }
@@ -270,6 +287,103 @@ impl Operations {
         }
         result
     }
+    pub(crate) fn complement(
+        a: &Rc<Automaton>,
+        determinize_work_limit: usize,
+    ) -> Result<Rc<Automaton>> {
+        let mut a = Operations::totalize(&Operations::determinize(a, determinize_work_limit)?)?;
+
+        let num_states = a.get_num_states();
+        for p in 0..num_states {
+            let is_accept = a.is_accept(p);
+            a.set_accept(p, !is_accept);
+        }
+
+        let a = Operations::remove_dead_states(Rc::new(a))?;
+        Ok(a)
+    }
+    pub fn minus(
+        a1: &Rc<Automaton>,
+        a2: &Rc<Automaton>,
+        determinize_work_limit: usize,
+    ) -> Result<Rc<Automaton>> {
+        if Operations::is_empty(a1) || std::ptr::eq(a1, a2) {
+            return Ok(Rc::from(Automata::make_empty()?));
+        }
+
+        if Operations::is_empty(a2) {
+            return Ok(a1.clone());
+        }
+
+        let complement_a2 = Operations::complement(a2, determinize_work_limit)?;
+        Operations::intersection(a1, &complement_a2)
+    }
+
+    pub(crate) fn intersection(a1: &Rc<Automaton>, a2: &Rc<Automaton>) -> Result<Rc<Automaton>> {
+        if std::ptr::eq(a1, a2) {
+            return Ok(a1.clone());
+        }
+        if a1.get_num_states() == 0 {
+            return Ok(a1.clone());
+        }
+        if a2.get_num_states() == 0 {
+            return Ok(a2.clone());
+        }
+
+        let transitions1 = a1.get_sorted_transitions();
+        let transitions2 = a2.get_sorted_transitions();
+        let mut c = Automaton::new();
+        c.create_state();
+
+        let mut worklist = VecDeque::new();
+        let mut newstates = HashMap::new();
+
+        let p = Rc::new(StatePair::new_with_s(0, 0, 0));
+        worklist.push_back(p.clone());
+        newstates.insert(p.clone(), p.clone());
+
+        while let Some(p) = worklist.pop_front() {
+            c.set_accept(p.s, a1.is_accept(p.s1) && a2.is_accept(p.s2));
+
+            let t1 = &transitions1[p.s1 as usize];
+            let t2 = &transitions2[p.s2 as usize];
+
+            let mut n1 = 0;
+            let mut b2 = 0;
+
+            while n1 < t1.len() {
+                while b2 < t2.len() && t2[b2].max < t1[n1].min {
+                    b2 += 1;
+                }
+                let mut n2 = b2;
+                while n2 < t2.len() && t1[n1].max >= t2[n2].min {
+                    if t2[n2].max >= t1[n1].min {
+                        let mut q = StatePair::new(t1[n1].dest, t2[n2].dest);
+                        let r = match newstates.get(&q) {
+                            Some(r) => r.clone(),
+                            None => {
+                                q.s = c.create_state();
+                                let q = Rc::new(q);
+                                worklist.push_back(q.clone());
+                                newstates.insert(q.clone(), q.clone());
+                                q
+                            },
+                        };
+
+                        let min = t1[n1].min.max(t2[n2].min);
+                        let max = t1[n1].max.min(t2[n2].max);
+
+                        c.add_transition(p.s, r.s, min, max)?;
+                    }
+                    n2 += 1;
+                }
+                n1 += 1;
+            }
+        }
+
+        c.finish_state()?;
+        Operations::remove_dead_states(Rc::new(c))
+    }
 
     pub fn has_dead_states(a: &Automaton) -> Result<bool> {
         let live_states = Operations::get_live_states(a)?;
@@ -283,6 +397,263 @@ impl Operations {
             live_states
         );
         Ok(num_live < num_states as usize)
+    }
+    pub fn has_dead_states_from_initial(a: &Automaton) -> Result<bool> {
+        let mut reachable_from_initial = Operations::get_live_states_from_initial(a);
+        let reachable_from_accept = Operations::get_live_states_to_accept(a)?;
+
+        reachable_from_initial.difference_with(&reachable_from_accept);
+
+        Ok(!reachable_from_initial.is_empty())
+    }
+    #[allow(unused)]
+    pub fn has_dead_states_to_accept(a: &Automaton) -> Result<bool> {
+        let reachable_from_initial = Operations::get_live_states_from_initial(a);
+        let mut reachable_from_accept = Operations::get_live_states_to_accept(a)?;
+        reachable_from_accept.difference_with(&reachable_from_initial);
+        Ok(!reachable_from_accept.is_empty())
+    }
+    pub fn union(a1: &Automaton, a2: &Automaton) -> Result<Rc<Automaton>> {
+        Operations::union_list(&[a1, a2])
+    }
+
+    pub fn union_list(list: &[&Automaton]) -> Result<Rc<Automaton>> {
+        let mut result = Automaton::new();
+        // Create initial state:
+        result.create_state();
+
+        // Copy over all automata
+        for a in list {
+            result.copy(a);
+        }
+
+        // Add epsilon transitions from new initial state
+        let mut state_offset = 1;
+        for a in list {
+            if a.get_num_states() == 0 {
+                continue;
+            }
+            result.add_epsilon(0, state_offset)?;
+            state_offset += a.get_num_states();
+        }
+
+        result.finish_state()?;
+        Operations::remove_dead_states(Rc::from(result))
+    }
+
+    pub fn determinize(a: &Rc<Automaton>, work_limit: usize) -> Result<Rc<Automaton>> {
+        if a.is_deterministic() || a.get_num_states() <= 1 {
+            return Ok(a.clone());
+        }
+
+        let mut b = Builder::new();
+
+        let mut initialset =
+            FrozenIntSet::new(Rc::new(vec![0]), BitMixer::mix_i32(0) as i64 + 1, 0);
+
+        b.create_state();
+
+        let mut worklist = VecDeque::new();
+        let mut newstate = HashMap::new();
+
+        let frozen_int_set_hash = initialset.long_hash_code();
+        worklist.push_back(initialset);
+        b.set_accept(0, a.is_accept(0));
+        newstate.insert(frozen_int_set_hash, 0);
+
+        let mut points = PointTransitionSet::new();
+        let mut states_set = StateSet::new(5);
+
+        let mut t = Transition::default();
+
+        let mut effort_spent: u64 = 0;
+        let effort_limit: u64 = (work_limit as u64) * 10;
+
+        while let Some(mut s) = worklist.pop_front() {
+            effort_spent += s.get_array().len() as u64;
+            if effort_spent >= effort_limit {
+                todo!()
+                // return Err(LuceneError::too_complex_to_determinize("Automaton
+                // determinization effort limit exceeded".to_string()));
+            }
+
+            // Collate outgoing transitions:
+            for &s0 in s.get_array().iter() {
+                let num_transitions = a.get_num_transitions_with_state(s0);
+                a.init_transition(s0, &mut t);
+                for _ in 0..num_transitions {
+                    a.get_next_transition(&mut t);
+                    points.add(&t);
+                }
+            }
+
+            if points.count == 0 {
+                continue;
+            }
+
+            points.sort()?;
+
+            let mut last_point = -1;
+            let mut acc_count = 0;
+            let r = s.state;
+
+            for point_transitions in points.iter_mut() {
+                let point = point_transitions.point;
+                if states_set.size() > 0 {
+                    debug_assert!(last_point != -1);
+                    let q = match newstate.get(&states_set.long_hash_code()) {
+                        Some(q) => {
+                            debug_assert_eq!(
+                                acc_count > 0,
+                                b.is_accept(*q),
+                                "accCount={} vs existing accept={}",
+                                acc_count,
+                                b.is_accept(*q)
+                            );
+                            *q
+                        },
+                        None => {
+                            let q = b.create_state();
+                            let mut p = states_set.freeze(q);
+                            let hash = p.long_hash_code();
+                            worklist.push_back(p);
+                            b.set_accept(q, acc_count > 0);
+                            newstate.insert(hash, q);
+                            q
+                        },
+                    };
+
+                    b.add_transition(r, q, last_point, point - 1);
+                }
+                {
+                    let ends = &mut point_transitions.ends;
+                    let transitions = &ends.transitions;
+                    let limit = ends.next;
+                    for j in (0..limit).step_by(3) {
+                        let dest = transitions[j];
+                        states_set.decr(dest)?;
+                        if a.is_accept(dest) {
+                            acc_count -= 1;
+                        }
+                    }
+                    ends.next = 0;
+                }
+
+                // 处理 start transitions
+                {
+                    let start = &mut point_transitions.starts;
+                    let transitions = &start.transitions;
+                    let limit = start.next;
+                    for j in (0..limit).step_by(3) {
+                        let dest = transitions[j];
+                        states_set.incr(dest);
+                        if a.is_accept(dest) {
+                            acc_count += 1;
+                        }
+                    }
+                    last_point = point;
+                    start.next = 0;
+                }
+            }
+            points.reset();
+            debug_assert_eq!(states_set.size(), 0);
+        }
+        let result = b.finish()?;
+        debug_assert!(result.is_deterministic());
+        Ok(Rc::new(result))
+    }
+
+    pub(crate) fn is_empty(a: &Automaton) -> bool {
+        if a.get_num_states() == 0 {
+            return true;
+        }
+        if !a.is_accept(0) && a.get_num_transitions_with_state(0) == 0 {
+            // Common case: just one initial state
+            return true;
+        }
+
+        if a.is_accept(0) {
+            // Apparently common case: it accepts the damned empty string
+            return false;
+        }
+
+        let mut work_list = VecDeque::new();
+        let mut seen = BitSet::with_capacity(a.get_num_states() as usize);
+        work_list.push_back(0);
+        seen.insert(0);
+
+        let mut t = Transition::default();
+
+        while let Some(state) = work_list.pop_front() {
+            if a.is_accept(state) {
+                return false;
+            }
+
+            let count = a.init_transition(state, &mut t);
+            for _ in 0..count {
+                a.get_next_transition(&mut t);
+                if !seen.contains(t.dest as usize) {
+                    work_list.push_back(t.dest);
+                    seen.insert(t.dest as usize);
+                }
+            }
+        }
+
+        true
+    }
+    pub(crate) fn is_total(a: &Automaton) -> Result<bool> {
+        Operations::is_total_with_range(a, char::MIN as i32, char::MAX as i32)
+    }
+
+    pub(crate) fn is_total_with_range(
+        a: &Automaton,
+        min_alphabet: i32,
+        max_alphabet: i32,
+    ) -> Result<bool> {
+        let states = Operations::get_live_states(a)?;
+        let mut spare = Transition::default();
+        let mut seen_states = 0;
+
+        let mut state = states.next_set_bit(0);
+        while state >= 0 {
+            if !a.is_accept(state) {
+                return Ok(false);
+            }
+            let mut previous_label = min_alphabet - 1;
+            for t_index in 0..a.get_num_transitions_with_state(state) {
+                a.get_transition(state, t_index, &mut spare);
+                if spare.min > previous_label + 1 {
+                    return Ok(false);
+                }
+                previous_label = spare.max;
+            }
+
+            if previous_label < max_alphabet {
+                return Ok(false);
+            }
+
+            if state == i32::MAX {
+                break;
+            }
+
+            seen_states += 1;
+            state = states.next_set_bit(state as usize + 1);
+        }
+        Ok(seen_states > 0)
+    }
+    #[allow(unused)]
+    #[cfg(feature = "unused")]
+    pub(crate) fn run_str(_a: &Automaton, _s: &str) -> bool {
+        true
+    }
+
+    #[allow(unused)]
+    #[cfg(feature = "unused")]
+    pub(crate) fn run_ints_ref<AV>(_a: &Automaton, _s: &IntsRef<AV>) -> bool
+    where
+        AV: AccessVec<i32>,
+    {
+        true
     }
 
     pub fn get_live_states(a: &Automaton) -> Result<BitSet> {
@@ -373,7 +744,7 @@ impl Operations {
             if live_set.contains(i) {
                 let s = result.create_state();
                 map[i] = s;
-                result.set_accept(s as usize, a.is_accept(i as i32));
+                result.set_accept(s, a.is_accept(i as i32));
             }
         }
 
@@ -394,5 +765,498 @@ impl Operations {
         result.finish_state()?;
         debug_assert!(!Operations::has_dead_states(&result)?);
         Ok(Rc::new(result))
+    }
+
+    pub(crate) fn get_common_prefix(a: &Automaton) -> Result<String> {
+        if Operations::has_dead_states_from_initial(a)? {
+            return Err(LuceneError::illegal_argument(
+                "input automaton has dead states".to_string(),
+            ));
+        }
+
+        if Operations::is_empty(a) {
+            return Ok("".to_string());
+        }
+
+        let mut builder = String::new();
+        let mut scratch = Transition::default();
+        let capacity = a.get_num_states();
+        let mut visited = FixedBitSet::new(capacity);
+        let mut current = FixedBitSet::new(capacity);
+        let mut next = FixedBitSet::new(capacity);
+        current.set(0); // start with initial state
+        'algorithm: loop {
+            let mut label: i32 = -1;
+            let mut state = current.next_set_bit(0);
+            // do a pass, stepping all current paths forward once
+            while state != NO_MORE_DOCS {
+                visited.set(state);
+
+                if a.is_accept(state) {
+                    break 'algorithm;
+                }
+
+                for t_idx in 0..a.get_num_transitions_with_state(state) {
+                    a.get_transition(state, t_idx, &mut scratch);
+                    if label == -1 {
+                        label = scratch.min;
+                    }
+                    // either a range of labels, or label that doesn't match all the other paths
+                    // this round
+                    if scratch.min != scratch.max || scratch.min != label {
+                        break 'algorithm;
+                    }
+                    next.set(scratch.dest);
+                }
+
+                if state + 1 >= (current.length()) {
+                    state = NO_MORE_DOCS
+                } else {
+                    state = current.next_set_bit(state + 1)
+                }
+            }
+
+            debug_assert!(
+                label != -1,
+                "we should not get here since we checked no dead-end states up front!?"
+            );
+
+            // add this label to prefix
+            builder.push(char::from_u32(label as u32).unwrap());
+
+            // swap current and next
+            std::mem::swap(&mut current, &mut next);
+            next.clear();
+        }
+
+        Ok(builder)
+    }
+    pub(crate) fn get_common_prefix_bytes_ref(a: &Automaton) -> Result<BytesRef<Vec<u8>>> {
+        let prefix = Operations::get_common_prefix(a)?;
+        let mut builder: BytesRefBuilder<Vec<u8>> = BytesRefBuilder::new();
+        for ch in prefix.chars() {
+            if ch as u32 > 255 {
+                return Err(LuceneError::illegal_state(
+                    "automaton is not binary".to_string(),
+                ));
+            }
+            builder.append_byte(ch as u8);
+        }
+
+        Ok(builder.get_bytes())
+    }
+    pub(crate) fn get_singleton(a: &Automaton) -> Result<Option<IntsRef<Vec<i32>>>> {
+        if !a.is_deterministic() {
+            return Err(LuceneError::illegal_argument(
+                "input automaton must be deterministic".to_string(),
+            ));
+        }
+
+        let mut builder = IntsRefBuilder::new();
+        let mut visited = HashSet::new();
+        let mut s = 0;
+        let mut t = Transition::default();
+        loop {
+            visited.insert(s);
+            if !a.is_accept(s) {
+                if a.get_num_transitions_with_state(s) == 1 {
+                    a.get_transition(s, 0, &mut t);
+                    if t.min == t.max && !visited.contains(&t.dest) {
+                        builder.append(t.min);
+                        s = t.dest;
+                        continue;
+                    }
+                }
+            } else if a.get_num_transitions_with_state(s) == 0 {
+                return Ok(Some(builder.get_owner()));
+            }
+
+            // Automaton accepts more than one string
+            return Ok(None);
+        }
+    }
+    pub fn get_common_suffix_bytes_ref(a: &Automaton) -> Result<BytesRef<Vec<u8>>> {
+        let r = Operations::remove_dead_states(Rc::new(Operations::reverse(a)?))?;
+        let mut bytes_ref = Operations::get_common_prefix_bytes_ref(&r)?;
+        Operations::reverse_bytes(&mut bytes_ref);
+        Ok(bytes_ref)
+    }
+
+    fn reverse_bytes(ref_bytes: &mut BytesRef<Vec<u8>>) {
+        if ref_bytes.length <= 1 {
+            return;
+        }
+        let bytes = &mut ref_bytes.bytes;
+        let offset = ref_bytes.offset;
+        let length = ref_bytes.length;
+        let num = length / 2;
+        let mut i = offset;
+        while i < offset + num {
+            bytes.swap(i, offset * 2 + length - i - 1);
+            i += 1;
+        }
+    }
+    pub(crate) fn reverse(a: &Automaton) -> Result<Automaton> {
+        Operations::reverse_with_initial_states(a, None)
+    }
+
+    pub(crate) fn reverse_with_initial_states(
+        a: &Automaton,
+        mut initial_states: Option<&mut HashSet<i32>>,
+    ) -> Result<Automaton> {
+        if Operations::is_empty(a) {
+            return Ok(Automaton::new());
+        }
+
+        let num_states = a.get_num_states();
+
+        let mut builder = Builder::new();
+
+        builder.create_state(); // New initial state
+
+        for _ in 0..num_states {
+            builder.create_state();
+        }
+
+        // Old initial state (0) becomes accept state (index 1)
+        builder.set_accept(1, true);
+
+        let mut t = Transition::default();
+        for s in 0..num_states {
+            let num_transitions = a.get_num_transitions_with_state(s);
+            a.init_transition(s, &mut t);
+            for _ in 0..num_transitions {
+                a.get_next_transition(&mut t);
+                builder.add_transition(t.dest + 1, s + 1, t.min, t.max);
+            }
+        }
+
+        let mut result = builder.finish()?;
+
+        let accept_states = a.get_accept_states();
+        let mut s = accept_states.next_set_bit(0);
+        while s < num_states && s != -1 {
+            result.add_epsilon(0, s + 1)?;
+            if initial_states.is_some() {
+                initial_states.as_mut().unwrap().insert(s + 1);
+            }
+            s += 1;
+            s = accept_states.next_set_bit(s as usize);
+        }
+
+        result.finish_state()?;
+
+        Ok(result)
+    }
+
+    pub(crate) fn totalize(a: &Rc<Automaton>) -> Result<Automaton> {
+        let mut result = Automaton::new();
+
+        let num_states = a.get_num_states();
+        for i in 0..num_states {
+            result.create_state();
+            result.set_accept(i, a.is_accept(i));
+        }
+
+        let dead_state = result.create_state();
+        result.add_transition(dead_state, dead_state, char::MIN as i32, char::MAX as i32)?;
+
+        let mut t = Transition::default();
+
+        for i in 0..num_states {
+            let mut maxi = char::MIN as i32;
+            let count = a.init_transition(i, &mut t);
+
+            for _ in 0..count {
+                a.get_next_transition(&mut t);
+                result.add_transition(i, t.dest, t.min, t.max)?;
+
+                if t.min > maxi {
+                    result.add_transition(i, dead_state, maxi, t.min - 1)?;
+                }
+                if t.max + 1 > maxi {
+                    maxi = t.max + 1;
+                }
+            }
+
+            if maxi <= char::MAX as i32 {
+                result.add_transition(i, dead_state, maxi, char::MAX as i32)?;
+            }
+        }
+
+        result.finish_state()?;
+        Ok(result)
+    }
+    pub(crate) fn topo_sort_states_full(a: &Automaton) -> Result<Vec<usize>> {
+        if a.get_num_states() == 0 {
+            return Ok(Vec::new());
+        }
+
+        let num_states = a.get_num_states();
+        let mut states = Vec::with_capacity(num_states as usize);
+        let upto = Operations::topo_sort_states(a, &mut states)?;
+
+        if upto < states.len() {
+            states.truncate(upto);
+        }
+        states.reverse();
+        Ok(states)
+    }
+
+    pub fn topo_sort_states(a: &Automaton, states: &mut Vec<usize>) -> Result<usize> {
+        let num_states = a.get_num_states() as usize;
+        let mut on_stack = BitSet::with_capacity(num_states);
+        let mut visited = BitSet::with_capacity(num_states);
+        let mut stack = Vec::new();
+        stack.push(0); // Assume initial state is 0
+        let mut upto = 0;
+        let mut t = Transition::default();
+
+        while let Some(&state) = stack.last() {
+            let count = a.init_transition(state, &mut t);
+            let mut pushed = false;
+
+            for _ in 0..count {
+                a.get_next_transition(&mut t);
+                if !visited.contains(t.dest as usize) {
+                    visited.insert(t.dest as usize);
+                    stack.push(t.dest);
+                    on_stack.insert(state as usize);
+                    pushed = true;
+                    break;
+                } else if on_stack.contains(t.dest as usize) {
+                    return Err(LuceneError::illegal_argument(
+                        "input automaton has a cycle".to_string(),
+                    ));
+                }
+            }
+            // If we haven't pushed any new state onto the stack, we're done with this state
+            let state = state as usize;
+            if !pushed {
+                // remove the node from the current recursion stack
+                on_stack.remove(state);
+                stack.pop();
+                states[upto] = state;
+                upto += 1;
+            }
+        }
+        Ok(upto)
+    }
+}
+#[derive(Default, Clone)]
+pub(crate) struct TransitionList {
+    // dest, min, max
+    transitions: Vec<i32>,
+    next: usize,
+}
+
+impl TransitionList {
+    pub(crate) fn new() -> Self {
+        TransitionList {
+            transitions: Vec::with_capacity(3),
+            next: 0,
+        }
+    }
+
+    pub(crate) fn add(&mut self, t: &Transition) {
+        if self.transitions.len() < self.next + 3 {
+            ArrayUtil::grow_with_len(&mut self.transitions, self.next + 3)
+        }
+
+        self.transitions[self.next] = t.dest;
+        self.transitions[self.next + 1] = t.min;
+        self.transitions[self.next + 2] = t.max;
+        self.next += 3;
+    }
+}
+
+#[derive(Default, Clone)]
+pub(crate) struct PointTransitions {
+    pub(crate) point: i32,
+    pub(crate) ends: TransitionList,
+    pub(crate) starts: TransitionList,
+}
+
+impl PointTransitions {
+    pub(crate) fn new(point: i32) -> Self {
+        PointTransitions {
+            point,
+            ends: TransitionList::new(),
+            starts: TransitionList::new(),
+        }
+    }
+
+    pub(crate) fn reset(&mut self, point: i32) {
+        self.point = point;
+        self.ends.next = 0;
+        self.starts.next = 0;
+    }
+}
+impl PartialEq for PointTransitions {
+    fn eq(&self, other: &Self) -> bool {
+        self.point == other.point
+    }
+}
+
+impl Eq for PointTransitions {}
+
+impl PartialOrd for PointTransitions {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for PointTransitions {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.point.cmp(&other.point)
+    }
+}
+
+impl std::hash::Hash for PointTransitions {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.point.hash(state);
+    }
+}
+
+const HASHMAP_CUTOVER: usize = 30;
+pub(crate) struct PointTransitionSet {
+    count: usize,
+    points: Vec<PointTransitions>,
+    map: BTreeMap<i32, PointTransitions>,
+    use_hash: bool,
+}
+
+impl PointTransitionSet {
+    pub(crate) fn new() -> Self {
+        PointTransitionSet {
+            count: 0,
+            points: Vec::with_capacity(5),
+            map: BTreeMap::new(),
+            use_hash: false,
+        }
+    }
+
+    fn find(&mut self, point: i32) -> &mut PointTransitions {
+        if self.use_hash {
+            let entry = self.map.entry(point).or_insert_with(|| {
+                let mut pt = PointTransitions::new(point);
+                pt.reset(point);
+                pt
+            });
+            entry.reset(point);
+            entry
+        } else {
+            for i in 0..self.count {
+                if self.points[i].point == point {
+                    return &mut self.points[i];
+                }
+            }
+
+            if self.count == self.points.len() {
+                // TODO：oversize's bytes_per_element not specific
+                let new_len = ArrayUtil::oversize(1 + self.count, 4);
+                ArrayUtil::grow_with_len(&mut self.points, new_len);
+            }
+
+            let mut p = PointTransitions::new(point);
+            p.reset(point);
+            self.points[self.count] = p;
+            self.count += 1;
+
+            if self.count == HASHMAP_CUTOVER {
+                for i in 0..self.count {
+                    let pt = std::mem::take(&mut self.points[i]);
+                    self.map.insert(pt.point, pt);
+                }
+                self.use_hash = true;
+                self.map.get_mut(&point).unwrap()
+            } else {
+                &mut self.points[self.count - 1]
+            }
+        }
+    }
+
+    pub(crate) fn add(&mut self, t: &Transition) {
+        self.find(t.min).starts.add(t);
+        self.find(t.max + 1).ends.add(t);
+    }
+
+    pub(crate) fn reset(&mut self) {
+        if self.use_hash {
+            self.map.clear();
+            self.use_hash = false;
+        }
+        self.count = 0;
+    }
+
+    pub(crate) fn sort(&mut self) -> Result<()> {
+        if !self.use_hash && self.count > 1 {
+            ArrayUtil::tim_sort_with_range(&mut self.points, 0, self.count as i32)?;
+        }
+        Ok(())
+    }
+    pub(crate) fn iter_mut(&mut self) -> PointTransitionSetIterMut<'_> {
+        if self.use_hash {
+            PointTransitionSetIterMut::Map(self.map.values_mut())
+        } else {
+            PointTransitionSetIterMut::Vec(self.points[..self.count].iter_mut())
+        }
+    }
+}
+
+impl Display for PointTransitionSet {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut first = true;
+
+        if self.use_hash {
+            let mut entries: Vec<_> = self.map.values().collect();
+            entries.sort_unstable_by_key(|pt| pt.point);
+
+            for pt in entries {
+                if !first {
+                    write!(f, " ")?;
+                }
+                write!(
+                    f,
+                    "{}:{},,{}",
+                    pt.point,
+                    pt.starts.next / 3,
+                    pt.ends.next / 3
+                )?;
+                first = false;
+            }
+        } else {
+            for i in 0..self.count {
+                let pt = &self.points[i];
+                if !first {
+                    write!(f, " ")?;
+                }
+                write!(
+                    f,
+                    "{}:{},,{}",
+                    pt.point,
+                    pt.starts.next / 3,
+                    pt.ends.next / 3
+                )?;
+                first = false;
+            }
+        }
+
+        Ok(())
+    }
+}
+pub(crate) enum PointTransitionSetIterMut<'a> {
+    Vec(std::slice::IterMut<'a, PointTransitions>),
+    Map(std::collections::btree_map::ValuesMut<'a, i32, PointTransitions>),
+}
+
+impl<'a> Iterator for PointTransitionSetIterMut<'a> {
+    type Item = &'a mut PointTransitions;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            PointTransitionSetIterMut::Vec(iter) => iter.next(),
+            PointTransitionSetIterMut::Map(iter) => iter.next(),
+        }
     }
 }

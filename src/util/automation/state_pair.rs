@@ -16,53 +16,44 @@
  */
 use std::fmt;
 use std::hash::{Hash, Hasher};
-use std::rc::Rc;
 
-use crate::util::automation::IntSet::IntSet;
-
-#[derive(Eq)]
-pub(crate) struct FrozenIntSet {
-    values: Rc<Vec<i32>>,
-    pub(crate) state: i32,
-    hash_code: i64,
+#[derive(Clone, Debug)]
+/// Pair of states
+pub(crate) struct StatePair {
+    pub(crate) s1: i32,
+    pub(crate) s2: i32,
+    // only mike knows what it does (do not expose)
+    pub(crate) s: i32,
 }
 
-impl FrozenIntSet {
-    pub(crate) fn new(values: Rc<Vec<i32>>, hash_code: i64, state: i32) -> Self {
-        FrozenIntSet {
-            values,
-            hash_code,
-            state,
-        }
+impl StatePair {
+    pub(crate) fn new_with_s(s: i32, s1: i32, s2: i32) -> Self {
+        StatePair { s1, s2, s }
+    }
+
+    /// Constructs a new state pair.
+    pub(crate) fn new(s1: i32, s2: i32) -> Self {
+        StatePair { s1, s2, s: -1 }
     }
 }
 
-impl PartialEq for FrozenIntSet {
+impl PartialEq for StatePair {
     fn eq(&self, other: &Self) -> bool {
-        self.hash_code == other.hash_code && *self.values == *other.values
-    }
-}
-impl IntSet for FrozenIntSet {
-    fn get_array(&mut self) -> &Rc<Vec<i32>> {
-        &self.values
-    }
-
-    fn size(&self) -> usize {
-        self.values.len()
-    }
-
-    fn long_hash_code(&mut self) -> i64 {
-        self.hash_code
+        self.s1 == other.s1 && self.s2 == other.s2
     }
 }
 
-impl fmt::Display for FrozenIntSet {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:?}", self.values)
-    }
-}
-impl Hash for FrozenIntSet {
+impl Eq for StatePair {}
+
+impl Hash for StatePair {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.hash_code.hash(state);
+        self.s1.hash(state);
+        self.s2.hash(state);
+    }
+}
+
+impl fmt::Display for StatePair {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "StatePair(s1={} s2={})", self.s1, self.s2)
     }
 }

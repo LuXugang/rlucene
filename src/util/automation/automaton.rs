@@ -96,16 +96,16 @@ impl Automaton {
         state
     }
     /// Set or clear this state as an accept state.
-    pub fn set_accept(&mut self, state: usize, accept: bool) {
+    pub fn set_accept(&mut self, state: i32, accept: bool) {
         debug_assert!(
-            (0..self.get_num_states() as usize).contains(&state),
+            (0..self.get_num_states() as usize).contains(&(state as usize)),
             "state {} out of bounds",
             state
         );
         if accept {
-            self.is_accept.insert(state);
+            self.is_accept.insert(state as usize);
         } else {
-            self.is_accept.remove(state);
+            self.is_accept.remove(state as usize);
         }
     }
     /// Convenience method to get all transitions for all states. This is
@@ -185,7 +185,7 @@ impl Automaton {
             self.add_transition(source, t.min, t.max, t.dest)?;
         }
         if self.is_accept(dest) {
-            self.set_accept(source as usize, true);
+            self.set_accept(source, true);
         }
         Ok(())
     }
@@ -218,7 +218,7 @@ impl Automaton {
             if state == -1 {
                 break;
             }
-            self.set_accept((state_offset + state) as usize, true);
+            self.set_accept(state_offset + state, true);
             state += 1;
         }
 
@@ -635,7 +635,7 @@ impl Builder {
             }
             upto += 4;
         }
-        if self.is_accept(dest as usize) {
+        if self.is_accept(dest) {
             self.set_accept(source, true);
         }
     }
@@ -646,7 +646,7 @@ impl Builder {
         let num_transitions = self.transitions.len() / 4;
         let mut a = Automaton::with_capacity(num_states as usize, num_transitions);
 
-        for state in 0..num_states as usize {
+        for state in 0..num_states {
             a.create_state();
             a.set_accept(state, self.is_accept(state));
         }
@@ -692,8 +692,8 @@ impl Builder {
     }
 
     /// Returns true if this state is an accept state.
-    pub fn is_accept(&self, state: usize) -> bool {
-        self.is_accept.contains(state)
+    pub fn is_accept(&self, state: i32) -> bool {
+        self.is_accept.contains(state as usize)
     }
 
     /// How many states this automaton has.
@@ -918,7 +918,7 @@ mod tests {
         let x = a.create_state();
         let y = a.create_state();
         let end = a.create_state();
-        a.set_accept(end as usize, true);
+        a.set_accept(end, true);
 
         a.add_transition(start, x, 'a' as i32, 'a' as i32)?;
         a.add_transition(start, end, 'd' as i32, 'd' as i32)?;
@@ -933,7 +933,7 @@ mod tests {
         let mut a = Automaton::new();
         let start = a.create_state();
         let end = a.create_state();
-        a.set_accept(end as usize, true);
+        a.set_accept(end, true);
 
         // Should collapse to a-b:
         a.add_transition(start, end, 'a' as i32, 'a' as i32)?;

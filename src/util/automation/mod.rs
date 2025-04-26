@@ -21,6 +21,7 @@ pub mod byte_runnable;
 mod frozen_int_set;
 pub mod operations;
 pub mod run_automaton;
+mod state_pair;
 mod state_set;
 pub mod transition;
 mod transition_accessor;

@@ -26,6 +26,7 @@ use crate::util::error::lucene_error::Result;
 
 /// A thin wrapper mapping states to reference counts.
 /// When a state's count drops to zero, it is removed.
+#[derive(Eq)]
 pub(crate) struct StateSet {
     inner: HashMap<i32, i32>,
     hash_code: i64,
@@ -92,7 +93,7 @@ impl IntSet for StateSet {
         }
 
         let mut array: Vec<i32> = self.inner.keys().copied().collect();
-        array.sort_unstable();
+        array.sort();
 
         self.array_cache = Rc::new(array);
         self.array_updated = true;
