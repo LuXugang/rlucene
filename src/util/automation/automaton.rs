@@ -91,7 +91,7 @@ impl Automaton {
             states: vec![0; num_states * 2],
             is_accept: BitSet::with_capacity(num_states),
             transitions: vec![0; num_transitions * 3],
-            deterministic: false,
+            deterministic: true,
         }
     }
     pub fn create_state(&mut self) -> i32 {
@@ -170,13 +170,13 @@ impl Automaton {
             self.states[2 * source] = self.next_transition;
         }
 
-        let tp = self.next_transition as usize;
-        self.transitions[tp] = dest;
-        self.transitions[tp + 1] = min;
-        self.transitions[tp + 2] = max;
+        let next_transition = self.next_transition as usize;
+        self.transitions[next_transition] = dest;
+        self.transitions[next_transition + 1] = min;
+        self.transitions[next_transition + 2] = max;
         self.next_transition += 3;
         // Increment transition count for this state
-        self.states[2 * source as usize + 1] += 1;
+        self.states[2 * self.cur_state as usize + 1] += 1;
         Ok(())
     }
     /// Add a [virtual] epsilon transition between `source` and `dest`.
@@ -188,7 +188,7 @@ impl Automaton {
         let count = self.init_transition(dest, &mut t);
         for _ in 0..count {
             self.get_next_transition(&mut t);
-            self.add_transition(source, t.min, t.max, t.dest)?;
+            self.add_transition(source, t.dest, t.max, t.max)?;
         }
         if self.is_accept(dest) {
             self.set_accept(source, true);
@@ -659,8 +659,8 @@ impl Builder {
     /// returns it.
     pub fn finish(&mut self) -> Result<Automaton> {
         let num_states = self.next_state;
-        let num_transitions = self.transitions.len() / 4;
-        let mut a = Automaton::with_capacity(num_states as usize, num_transitions);
+        let num_transitions = self.next_transition / 4;
+        let mut a = Automaton::with_capacity(num_states as usize, num_transitions as usize);
 
         for state in 0..num_states {
             a.create_state();
@@ -671,7 +671,7 @@ impl Builder {
         };
         let mut sort = InPlaceMergeSorter::new(sub);
         debug_assert!(num_transitions.to_i32().is_some());
-        sort.sort(0, num_transitions as i32)?;
+        sort.sort(0, num_transitions)?;
         let mut upto = 0;
         while upto < self.next_transition as usize {
             a.add_transition(
@@ -922,10 +922,15 @@ impl Sorter for DestMinMaxSorter<'_> {
 }
 #[cfg(test)]
 mod tests {
+    use std::rc::Rc;
+
+    use crate::test::util::automaton::automaton_test_util::AutomatonTestUtil;
+    use crate::util::automation::automata::Automata;
     use crate::util::automation::automaton::Automaton;
+    use crate::util::automation::operations::Operations;
     use crate::util::automation::transition::Transition;
     use crate::util::automation::transition_accessor::TransitionAccessor;
-    use crate::util::error::lucene_error::Result;
+    use crate::util::error::lucene_error::{LuceneError, Result};
     #[allow(dead_code)] // for quick search
     struct TestAutomaton;
 
@@ -980,6 +985,229 @@ mod tests {
         assert_eq!('x' as i32, scratch.min);
         assert_eq!('y' as i32, scratch.max);
 
+        Ok(())
+    }
+    #[test]
+    fn test_same_language() -> Result<()> {
+        let a1 = Rc::new(Automata::make_string("foobar")?);
+        let a2 = Operations::remove_dead_states(Rc::new(Operations::concatenate(
+            Rc::new(Automata::make_string("foo")?),
+            Rc::new(Automata::make_string("bar")?),
+        )?))?;
+        assert!(AutomatonTestUtil::same_language(&a1, &a2)?);
+        Ok(())
+    }
+    #[test]
+    fn test_common_prefix_string() -> Result<()> {
+        let a = Operations::concatenate(
+            Rc::new(Automata::make_string("foobar")?),
+            Rc::new(Automata::make_any_string()?),
+        )?;
+
+        let prefix = Operations::get_common_prefix(&a)?;
+        assert_eq!(prefix, "foobar");
+
+        Ok(())
+    }
+    #[test]
+    fn test_common_prefix_empty() -> Result<()> {
+        let a = Automata::make_empty()?;
+        let prefix = Operations::get_common_prefix(&a)?;
+        assert_eq!(prefix, "");
+        Ok(())
+    }
+
+    #[test]
+    fn test_common_prefix_empty_string() -> Result<()> {
+        let a = Automata::make_empty_string()?;
+        let prefix = Operations::get_common_prefix(&a)?;
+        assert_eq!(prefix, "");
+        Ok(())
+    }
+
+    #[test]
+    fn test_common_prefix_any() -> Result<()> {
+        let a = Automata::make_any_string()?;
+        let prefix = Operations::get_common_prefix(&a)?;
+        assert_eq!(prefix, "");
+        Ok(())
+    }
+
+    #[test]
+    fn test_common_prefix_range() -> Result<()> {
+        let a = Automata::make_char_range('a' as i32, 'b' as i32)?;
+        let prefix = Operations::get_common_prefix(&a)?;
+        assert_eq!(prefix, "");
+        Ok(())
+    }
+    #[test]
+    fn test_alternatives() -> Result<()> {
+        let a = Automata::make_char('a' as i32)?;
+        let c = Automata::make_char('c' as i32)?;
+        let union = Operations::union(&a, &c)?;
+        let prefix = Operations::get_common_prefix(&union)?;
+        assert_eq!(prefix, "");
+        Ok(())
+    }
+
+    #[test]
+    fn test_common_prefix_leading_wildcard() -> Result<()> {
+        let a = Operations::concatenate(
+            Rc::new(Automata::make_any_char()?),
+            Rc::new(Automata::make_string("boo")?),
+        )?;
+        let prefix = Operations::get_common_prefix(&a)?;
+        assert_eq!(prefix, "");
+        Ok(())
+    }
+
+    #[test]
+    fn test_common_prefix_trailing_wildcard() -> Result<()> {
+        let a = Operations::concatenate(
+            Rc::new(Automata::make_string("boo")?),
+            Rc::new(Automata::make_any_char()?),
+        )?;
+        let prefix = Operations::get_common_prefix(&a)?;
+        assert_eq!(prefix, "boo");
+        Ok(())
+    }
+
+    #[test]
+    fn test_common_prefix_leading_kleen_star() -> Result<()> {
+        let a = Operations::concatenate(
+            Rc::new(Automata::make_any_string()?),
+            Rc::new(Automata::make_string("boo")?),
+        )?;
+        let prefix = Operations::get_common_prefix(&a)?;
+        assert_eq!(prefix, "");
+        Ok(())
+    }
+
+    #[test]
+    fn test_common_prefix_trailing_kleen_star() -> Result<()> {
+        let a = Operations::concatenate(
+            Rc::new(Automata::make_string("boo")?),
+            Rc::new(Automata::make_any_string()?),
+        )?;
+        let prefix = Operations::get_common_prefix(&a)?;
+        assert_eq!(prefix, "boo");
+        Ok(())
+    }
+    #[test]
+    fn test_common_prefix_dead_states() -> Result<()> {
+        let a = Operations::concatenate(
+            Rc::new(Automata::make_any_string()?),
+            Rc::new(Automata::make_string("boo")?),
+        )?;
+
+        // reverse twice to create dead states
+        let with_dead_states = Operations::reverse(&Operations::reverse(&a)?)?;
+
+        let result = Operations::get_common_prefix(&with_dead_states);
+        assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .eq("input automaton has dead states"));
+
+        Ok(())
+    }
+    #[test]
+    fn test_common_prefix_remove_dead_states() -> Result<()> {
+        let a = Operations::concatenate(
+            Rc::new(Automata::make_any_string()?),
+            Rc::new(Automata::make_string("boo")?),
+        )?;
+
+        // reverse twice to create dead states
+        let with_dead_states = Operations::reverse(&Operations::reverse(&a)?)?;
+
+        // now remove the dead states
+        let without_dead_states = Operations::remove_dead_states(Rc::new(with_dead_states))?;
+
+        let prefix = Operations::get_common_prefix(&without_dead_states)?;
+        assert_eq!(prefix, "");
+
+        Ok(())
+    }
+    #[test]
+    fn test_common_prefix_optional() -> Result<()> {
+        let mut a = Automaton::new();
+        let init = a.create_state();
+        let fini = a.create_state();
+        a.set_accept(init, true);
+        a.set_accept(fini, true);
+        a.add_transition(init, fini, 'm' as i32, 'm' as i32)?;
+        a.add_transition(fini, fini, 'm' as i32, 'm' as i32)?;
+        a.finish_state()?;
+
+        let prefix = Operations::get_common_prefix(&a)?;
+        assert_eq!(prefix, "");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_common_prefix_nfa() -> Result<()> {
+        let mut a = Automaton::new();
+        let init = a.create_state();
+        let medial = a.create_state();
+        let fini = a.create_state();
+        a.set_accept(fini, true);
+        a.add_transition(init, medial, 'm' as i32, 'm' as i32)?;
+        a.add_transition(init, fini, 'm' as i32, 'm' as i32)?;
+        a.add_transition(medial, fini, 'o' as i32, 'o' as i32)?;
+        a.finish_state()?;
+
+        let prefix = Operations::get_common_prefix(&a)?;
+        assert_eq!(prefix, "m");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_common_prefix_nfa_infinite() -> Result<()> {
+        let mut a = Automaton::new();
+        let init = a.create_state();
+        let medial = a.create_state();
+        let fini = a.create_state();
+        a.set_accept(fini, true);
+        a.add_transition(init, medial, 'm' as i32, 'm' as i32)?;
+        a.add_transition(init, fini, 'm' as i32, 'm' as i32)?;
+        a.add_transition(medial, fini, 'm' as i32, 'm' as i32)?;
+        a.add_transition(fini, fini, 'm' as i32, 'm' as i32)?;
+        a.finish_state()?;
+
+        let prefix = Operations::get_common_prefix(&a)?;
+        assert_eq!(prefix, "m");
+
+        Ok(())
+    }
+    #[test]
+    fn test_common_prefix_unicode() -> Result<()> {
+        let a = Operations::concatenate(
+            Rc::new(Automata::make_string("boo😂😂😂")?),
+            Rc::new(Automata::make_any_char()?),
+        )?;
+        let prefix = Operations::get_common_prefix(&a)?;
+        assert_eq!(prefix, "boo😂😂😂");
+        Ok(())
+    }
+
+    #[test]
+    fn test_concatenate1() -> Result<()> {
+        let a = Operations::concatenate(
+            Rc::new(Automata::make_string("m")?),
+            Rc::new(Automata::make_any_string()?),
+        )?;
+        assert!(Operations::run_str(&a, "m"));
+        assert!(Operations::run_str(&a, "me"));
+        assert!(Operations::run_str(&a, "me too"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_concatenate2() -> Result<()> {
         Ok(())
     }
 

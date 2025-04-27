@@ -499,25 +499,10 @@ impl Automata {
         let mut a = Automaton::new();
         let mut last_state = a.create_state();
 
-        let mut i = 0;
-        let s_bytes = s.as_bytes();
-        while i < s.len() {
-            let (cp, size) = match std::str::from_utf8(&s_bytes[i..])
-                .ok()
-                .and_then(|s| s.chars().next().map(|ch| (ch as i32, ch.len_utf8())))
-            {
-                Some(t) => t,
-                None => {
-                    return Err(LuceneError::illegal_argument(
-                        "invalid UTF-8 string".to_string(),
-                    ));
-                },
-            };
-
+        for ch in s.chars() {
             let state = a.create_state();
-            a.add_transition_label(last_state, state, cp)?;
+            a.add_transition_label(last_state, state, ch as i32)?;
             last_state = state;
-            i += size;
         }
 
         a.set_accept(last_state, true);
@@ -525,7 +510,6 @@ impl Automata {
 
         debug_assert!(a.is_deterministic());
         debug_assert!(!Operations::has_dead_states(&a)?);
-
         Ok(a)
     }
 

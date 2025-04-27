@@ -49,7 +49,6 @@ impl Operations {
     /// Default maximum effort that [`Operations::determinize`] should spend
     /// before giving up and throwing
     /// [`TooComplexToDeterminizeError`](crate::util::error::TooComplexToDeterminizeError).
-    ///
     pub const DEFAULT_DETERMINIZE_WORK_LIMIT: i32 = 10000;
     /// Returns an automaton that accepts the concatenation of the languages of
     /// the given automata.
