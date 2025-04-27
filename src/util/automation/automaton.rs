@@ -1208,6 +1208,26 @@ mod tests {
 
     #[test]
     fn test_concatenate2() -> Result<()> {
+        let a = Operations::concatenate_with_list(&[
+            Rc::new(Automata::make_string("m")?),
+            Rc::new(Automata::make_any_string()?),
+            Rc::new(Automata::make_string("n")?),
+            Rc::new(Automata::make_any_string()?),
+        ])?;
+        let a = Operations::determinize(
+            &Rc::new(a),
+            Operations::DEFAULT_DETERMINIZE_WORK_LIMIT as usize,
+        )?;
+
+        assert!(Operations::run_str(&a, "mn"));
+        assert!(Operations::run_str(&a, "mone"));
+        assert!(!Operations::run_str(&a, "m"));
+        assert!(!AutomatonTestUtil::is_finite(&a)?);
+
+        Ok(())
+    }
+    #[test]
+    fn test_union1() -> Result<()> {
         Ok(())
     }
 

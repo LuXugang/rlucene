@@ -40,16 +40,18 @@ impl StateSet {
         StateSet {
             inner: HashMap::with_capacity(capacity),
             hash_code: 0,
-            hash_updated: false,
-            array_updated: false,
+            hash_updated: true,
+            array_updated: true,
             array_cache: Rc::new(Vec::new()),
         }
     }
 
     /// Add the state into this set, increasing its reference count by 1.
     pub(crate) fn incr(&mut self, state: i32) {
-        self.inner.insert(state, 1);
-        self.key_changed()
+        let updated_value = self.inner.entry(state).and_modify(|v| *v += 1).or_insert(1);
+        if *updated_value == 1 {
+            self.key_changed()
+        }
     }
 
     /// Decrease the reference count of the state.

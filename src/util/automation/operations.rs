@@ -625,7 +625,6 @@ impl Operations {
                     ends.next = 0;
                 }
 
-                // 处理 start transitions
                 {
                     let start = &mut point_transitions.starts;
                     let transitions = &start.transitions;

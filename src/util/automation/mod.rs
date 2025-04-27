@@ -26,4 +26,4 @@ pub mod state_pair;
 mod state_set;
 mod strings_to_automaton;
 pub mod transition;
-mod transition_accessor;
+pub(crate) mod transition_accessor;

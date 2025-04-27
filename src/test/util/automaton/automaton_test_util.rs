@@ -17,14 +17,68 @@
 use std::collections::{HashSet, VecDeque};
 use std::rc::Rc;
 
+use bit_set::BitSet;
+
 use crate::util::automation::automaton::Automaton;
 use crate::util::automation::operations::Operations;
 use crate::util::automation::state_pair::StatePair;
+use crate::util::automation::transition::Transition;
+use crate::util::automation::transition_accessor::TransitionAccessor;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::error::lucene_error::Result;
 
 pub struct AutomatonTestUtil;
 impl AutomatonTestUtil {
+    const MAX_RECURSION_LEVEL: usize = 1000;
+    /// Returns `true` if the language of this automaton is finite.
+    /// The automaton must not have any dead states.
+    pub(crate) fn is_finite(a: &Automaton) -> Result<bool> {
+        if a.get_num_states() == 0 {
+            return Ok(true);
+        }
+        let mut scratch = Transition::default();
+        let mut path = BitSet::with_capacity(a.get_num_states() as usize);
+        let mut visited = BitSet::with_capacity(a.get_num_states() as usize);
+        Self::is_finite_inner(&mut scratch, a, 0, &mut path, &mut visited, 0)
+    }
+
+    /// Checks whether there is a loop containing the given state.
+    /// (This is sufficient since there are never transitions to dead states.)
+    pub(crate) fn is_finite_inner(
+        scratch: &mut Transition,
+        a: &Automaton,
+        state: i32,
+        path: &mut BitSet,
+        visited: &mut BitSet,
+        level: usize,
+    ) -> Result<bool> {
+        if level > Self::MAX_RECURSION_LEVEL {
+            return Err(LuceneError::illegal_argument(format!(
+                "input automaton is too large: level={}",
+                level
+            )));
+        }
+
+        path.insert(state as usize);
+        let num_transitions = a.init_transition(state, scratch);
+        let state = state as usize;
+
+        for _ in 0..num_transitions {
+            a.get_next_transition(scratch);
+            let dest = scratch.dest;
+            if path.contains(dest as usize)
+                || (!visited.contains(dest as usize)
+                    && !Self::is_finite_inner(scratch, a, dest, path, visited, level + 1)?)
+            {
+                return Ok(false);
+            }
+        }
+
+        path.remove(state);
+        visited.insert(state);
+        Ok(true)
+    }
+
     /// Returns `true` if these two automata accept exactly the same language.
     /// This is a costly computation!
     ///
