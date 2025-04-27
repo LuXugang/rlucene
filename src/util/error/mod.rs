@@ -65,3 +65,4 @@ message_error!(MergeError);
 message_error!(MergeAbortedError);
 message_error!(AlreadyClosedError);
 message_error!(VersionError);
+message_error!(TooComplexToDeterminizeError);

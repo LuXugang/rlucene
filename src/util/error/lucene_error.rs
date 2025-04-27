@@ -27,7 +27,8 @@ use crate::util::error::{
     IllegalArgumentError, IllegalStateError, IndexFormatTooNewError, IndexFormatTooOldError,
     IndexNotFound, LockAlreadyHeldError, LockHeldByOtherError, MaxBytesLengthExceededError,
     MergeAbortedError, MergeError, NeedImplementedError, NotFoundError, NotImplementedError,
-    NumberFormatError, NumberOverflow, UnreachableError, UnsupportedOperationError,
+    NumberFormatError, NumberOverflow, TooComplexToDeterminizeError, UnreachableError,
+    UnsupportedOperationError,
 };
 use crate::util::VersionError;
 
@@ -97,6 +98,8 @@ pub enum LuceneError {
     Unreachable(#[from] UnreachableError),
     #[error("{0}")]
     Parse(#[from] Parse),
+    #[error("{0}")]
+    TooComplexToDeterminize(#[from] TooComplexToDeterminizeError),
 }
 macro_rules! error_ctor {
     ($fn_name:ident, $variant:ident, $error_type:ty) => {
@@ -167,6 +170,11 @@ impl LuceneError {
     error_ctor!(already_closed, AlreadyClosed, AlreadyClosedError);
     error_ctor!(not_implemented, NotImplemented, NotImplementedError);
     error_ctor!(unreachable, Unreachable, UnreachableError);
+    error_ctor!(
+        too_complex_to_determinize,
+        TooComplexToDeterminize,
+        TooComplexToDeterminizeError
+    );
 }
 
 pub type Result<T> = core::result::Result<T, LuceneError>;

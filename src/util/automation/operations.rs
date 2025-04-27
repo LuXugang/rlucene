@@ -559,9 +559,7 @@ impl Operations {
         while let Some(mut s) = worklist.pop_front() {
             effort_spent += s.get_array().len() as u64;
             if effort_spent >= effort_limit {
-                todo!()
-                // return Err(LuceneError::too_complex_to_determinize("Automaton
-                // determinization effort limit exceeded".to_string()));
+                return Err(LuceneError::too_complex_to_determinize(format!("Determinizing automaton with {}, states and {} transitions would require more than {} effort.",a.get_num_states(), a.get_num_transitions(), work_limit)));
             }
 
             // Collate outgoing transitions:
