@@ -19,6 +19,7 @@ pub mod automaton;
 pub mod byte_runnable;
 mod frozen_int_set;
 mod int_set;
+mod minimization_operation;
 pub mod operations;
 pub mod run_automaton;
 pub mod state_pair;

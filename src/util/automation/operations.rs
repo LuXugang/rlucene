@@ -45,6 +45,7 @@ use crate::util::BitSetExt;
 
 pub struct Operations;
 impl Operations {
+    pub const DEFAULT_DETERMINIZE_WORK_LIMIT: i32 = 10000;
     pub fn concatenate(a1: Rc<Automaton>, a2: Rc<Automaton>) -> Result<Automaton> {
         Operations::concatenate_with_list(&[a1, a2])
     }
@@ -230,6 +231,7 @@ impl Operations {
 
         Operations::remove_dead_states(Rc::new(builder.finish()?))
     }
+    // TODO：这里不需要使用Rc
     pub fn repeat_count(a: Rc<Automaton>, count: i32) -> Result<Rc<Automaton>> {
         if count == 0 {
             return Operations::repeat(a);
