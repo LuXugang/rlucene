@@ -47,7 +47,9 @@ use crate::util::BitSetExt;
 pub struct Operations;
 impl Operations {
     /// Default maximum effort that [`Operations::determinize`] should spend
-    /// before giving up and throwing [`TooComplexToDeterminizeError`].
+    /// before giving up and throwing
+    /// [`TooComplexToDeterminizeError`](crate::util::error::TooComplexToDeterminizeError).
+    ///
     pub const DEFAULT_DETERMINIZE_WORK_LIMIT: i32 = 10000;
     /// Returns an automaton that accepts the concatenation of the languages of
     /// the given automata.
@@ -526,7 +528,7 @@ impl Operations {
     ///   specify.
     ///
     /// Errors:
-    /// - Returns [`TooComplexToDeterminizeError`] if determinizing requires
+    /// - Returns [`TooComplexToDeterminizeError`](crate::util::error::TooComplexToDeterminizeError) if determinizing requires
     ///   more than `work_limit` units of effort.
     pub fn determinize(a: &Rc<Automaton>, work_limit: usize) -> Result<Rc<Automaton>> {
         if a.is_deterministic() || a.get_num_states() <= 1 {
