@@ -43,13 +43,23 @@ use crate::util::ints_ref::IntsRef;
 use crate::util::ints_ref_builder::IntsRefBuilder;
 use crate::util::BitSetExt;
 
+/// Automata operations.
 pub struct Operations;
 impl Operations {
+    /// Default maximum effort that [`Operations::determinize`] should spend
+    /// before giving up and throwing [`TooComplexToDeterminizeError`].
     pub const DEFAULT_DETERMINIZE_WORK_LIMIT: i32 = 10000;
+    /// Returns an automaton that accepts the concatenation of the languages of
+    /// the given automata.
+    ///
+    /// Complexity: linear in the total number of states.
     pub fn concatenate(a1: Rc<Automaton>, a2: Rc<Automaton>) -> Result<Automaton> {
         Operations::concatenate_with_list(&[a1, a2])
     }
-
+    /// Returns an automaton that accepts the concatenation of the languages of
+    /// the given automata.
+    ///
+    /// Complexity: linear in the total number of states.
     pub fn concatenate_with_list(list: &[Rc<Automaton>]) -> Result<Automaton> {
         let mut result = Automaton::new();
         // First pass: create all states
@@ -129,6 +139,10 @@ impl Operations {
         result.finish_state()?;
         Ok(result)
     }
+    /// Returns an automaton that accepts the union of the empty string and the
+    /// language of the given automaton. This may create a dead state.
+    ///
+    /// Complexity: linear in the number of states.
     pub fn optional(mut a: Automaton) -> Result<Automaton> {
         // If the initial state already accepts, return as is
         if a.is_accept(0) {
@@ -169,6 +183,11 @@ impl Operations {
         result.finish_state()?;
         Ok(result)
     }
+    /// Returns an automaton that accepts the Kleene star (zero or more
+    /// concatenated repetitions) of the language of the given automaton.
+    /// Never modifies the input automaton language.
+    ///
+    /// Complexity: linear in the number of states.
     pub fn repeat(a: Rc<Automaton>) -> Result<Rc<Automaton>> {
         if a.get_num_states() == 0 {
             // Repeating the empty automata will still only accept the empty automata.
@@ -231,6 +250,10 @@ impl Operations {
 
         Operations::remove_dead_states(Rc::new(builder.finish()?))
     }
+    /// Returns an automaton that accepts `min` or more concatenated repetitions
+    /// of the language of the given automaton.
+    ///
+    /// Complexity: linear in the number of states and in `min`.
     // TODO：这里不需要使用Rc
     pub fn repeat_count(a: Rc<Automaton>, count: i32) -> Result<Rc<Automaton>> {
         if count == 0 {
@@ -245,6 +268,10 @@ impl Operations {
 
         Ok(Rc::new(Operations::concatenate_with_list(&automata)?))
     }
+    /// Returns an automaton that accepts between `min` and `max` (inclusive)
+    /// concatenated repetitions of the language of the given automaton.
+    ///
+    /// Complexity: linear in the number of states, `min`, and `max`.
     pub fn repeat_min_max(a: Rc<Automaton>, min: i32, max: i32) -> Result<Rc<Automaton>> {
         if min > max {
             return Ok(Rc::new(Automata::make_empty()?));
@@ -289,6 +316,18 @@ impl Operations {
         }
         result
     }
+    /// Returns a (deterministic) automaton that accepts the complement of the
+    /// language of the given automaton.
+    ///
+    /// Complexity: linear in the number of states if already deterministic, and
+    /// exponential otherwise.
+    ///
+    /// Parameters:
+    /// - `determinize_work_limit`: Maximum effort to spend determinizing the
+    ///   automaton. Set higher to allow more complex queries and lower to
+    ///   prevent memory exhaustion.
+    ///   [`DEFAULT_DETERMINIZE_WORK_LIMIT`](Self::DEFAULT_DETERMINIZE_WORK_LIMIT)
+    ///   is a good starting default.
     pub(crate) fn complement(
         a: &Rc<Automaton>,
         determinize_work_limit: usize,
@@ -304,6 +343,23 @@ impl Operations {
         let a = Operations::remove_dead_states(Rc::new(a))?;
         Ok(a)
     }
+    /// Returns a (deterministic) automaton that accepts the intersection of the
+    /// language of `a1` and the complement of the language of `a2`.
+    /// As a side-effect, the automata may be determinized if not already
+    /// deterministic.
+    ///
+    /// Complexity: quadratic in the number of states if `a2` is already
+    /// deterministic, and exponential in the number of `a2`'s states
+    /// otherwise.
+    ///
+    /// Parameters:
+    /// - `a1`: The initial automaton
+    /// - `a2`: The automaton to subtract
+    /// - `determinize_work_limit`: Maximum effort to spend determinizing the
+    ///   automaton. Set higher to allow more complex queries and lower to
+    ///   prevent memory exhaustion.
+    ///   [`DEFAULT_DETERMINIZE_WORK_LIMIT`](Self::DEFAULT_DETERMINIZE_WORK_LIMIT)
+    ///   is a good starting default.
     pub fn minus(
         a1: &Rc<Automaton>,
         a2: &Rc<Automaton>,
@@ -320,7 +376,10 @@ impl Operations {
         let complement_a2 = Operations::complement(a2, determinize_work_limit)?;
         Operations::intersection(a1, &complement_a2)
     }
-
+    /// Returns an automaton that accepts the intersection of the languages of
+    /// the given automata. Never modifies the input automata languages.
+    ///
+    /// Complexity: quadratic in the number of states.
     pub(crate) fn intersection(a1: &Rc<Automaton>, a2: &Rc<Automaton>) -> Result<Rc<Automaton>> {
         if std::ptr::eq(a1, a2) {
             return Ok(a1.clone());
@@ -386,7 +445,10 @@ impl Operations {
         c.finish_state()?;
         Operations::remove_dead_states(Rc::new(c))
     }
-
+    /// Returns `true` if this automaton has any states that cannot be reached
+    /// from the initial state or cannot reach an accept state.
+    ///
+    /// Cost: O(num_transitions + num_states).
     pub fn has_dead_states(a: &Automaton) -> Result<bool> {
         let live_states = Operations::get_live_states(a)?;
         let num_live = live_states.len();
@@ -400,6 +462,7 @@ impl Operations {
         );
         Ok(num_live < num_states as usize)
     }
+    ///  Returns true if there are dead states reachable from an initial state.
     pub fn has_dead_states_from_initial(a: &Automaton) -> Result<bool> {
         let mut reachable_from_initial = Operations::get_live_states_from_initial(a);
         let reachable_from_accept = Operations::get_live_states_to_accept(a)?;
@@ -408,6 +471,7 @@ impl Operations {
 
         Ok(!reachable_from_initial.is_empty())
     }
+    /// Returns true if there are dead states that reach an accept state.
     #[allow(unused)]
     pub fn has_dead_states_to_accept(a: &Automaton) -> Result<bool> {
         let reachable_from_initial = Operations::get_live_states_from_initial(a);
@@ -415,10 +479,17 @@ impl Operations {
         reachable_from_accept.difference_with(&reachable_from_initial);
         Ok(!reachable_from_accept.is_empty())
     }
+    /// Returns an automaton that accepts the union of the languages of the
+    /// given automata.
+    ///
+    /// Complexity: linear in the number of states.
     pub fn union(a1: &Automaton, a2: &Automaton) -> Result<Rc<Automaton>> {
         Operations::union_list(&[a1, a2])
     }
-
+    /// Returns an automaton that accepts the union of the languages of the
+    /// given automata.
+    ///
+    /// Complexity: linear in the number of states.
     pub fn union_list(list: &[&Automaton]) -> Result<Rc<Automaton>> {
         let mut result = Automaton::new();
         // Create initial state:
@@ -442,7 +513,21 @@ impl Operations {
         result.finish_state()?;
         Operations::remove_dead_states(Rc::from(result))
     }
-
+    /// Determinizes the given automaton.
+    ///
+    /// Worst case complexity: exponential in the number of states.
+    ///
+    /// Parameters:
+    /// - `work_limit`: Maximum amount of "work" that the powerset construction
+    ///   will spend before returning an error. Higher numbers allow this
+    ///   operation to consume more memory and CPU but allow more complex
+    ///   automata. [`DEFAULT_DETERMINIZE_WORK_LIMIT`](Self::DEFAULT_DETERMINIZE_WORK_LIMIT)
+    ///   is a good starting default if you don't otherwise know what to
+    ///   specify.
+    ///
+    /// Errors:
+    /// - Returns [`TooComplexToDeterminizeError`] if determinizing requires
+    ///   more than `work_limit` units of effort.
     pub fn determinize(a: &Rc<Automaton>, work_limit: usize) -> Result<Rc<Automaton>> {
         if a.is_deterministic() || a.get_num_states() <= 1 {
             return Ok(a.clone());
@@ -564,7 +649,7 @@ impl Operations {
         debug_assert!(result.is_deterministic());
         Ok(Rc::new(result))
     }
-
+    /// Returns true if the given automaton accepts no strings.
     pub(crate) fn is_empty(a: &Automaton) -> bool {
         if a.get_num_states() == 0 {
             return true;
@@ -603,10 +688,22 @@ impl Operations {
 
         true
     }
+    /// Returns `true` if the given automaton accepts all strings.
+    ///
+    /// The automaton must be deterministic, otherwise this method may return
+    /// `false`.
+    ///
+    /// Complexity: linear in the number of states and transitions.
     pub(crate) fn is_total(a: &Automaton) -> Result<bool> {
         Operations::is_total_with_range(a, char::MIN as i32, char::MAX as i32)
     }
-
+    /// Returns `true` if the given automaton accepts all strings for the
+    /// specified min/max range of the alphabet.
+    ///
+    /// The automaton must be deterministic, otherwise this method may return
+    /// `false`.
+    ///
+    /// Complexity: linear in the number of states and transitions.
     pub(crate) fn is_total_with_range(
         a: &Automaton,
         min_alphabet: i32,
@@ -643,26 +740,65 @@ impl Operations {
         }
         Ok(seen_states > 0)
     }
+    /// Returns `true` if the given string is accepted by the automaton. The
+    /// input must be deterministic.
+    ///
+    /// Complexity: linear in the length of the string.
+    ///
+    /// **Note:** For full performance, use the
+    /// [`RunAutomaton`](crate::util::automation::run_automaton::RunAutomaton)
+    /// class.
     #[allow(unused)]
-    #[cfg(feature = "unused")]
-    pub(crate) fn run_str(_a: &Automaton, _s: &str) -> bool {
-        true
+    pub(crate) fn run_str(a: &Automaton, s: &str) -> bool {
+        debug_assert!(a.is_deterministic());
+
+        let mut state = 0;
+        let mut chars = s.chars().peekable();
+        while let Some(c) = chars.peek() {
+            let cp = *c as u32 as i32;
+            let next_state = a.step(state, cp);
+            if next_state == -1 {
+                return false;
+            }
+            state = next_state;
+            chars.next();
+        }
+
+        a.is_accept(state)
     }
 
+    /// Returns `true` if the given string (expressed as Unicode codepoints) is
+    /// accepted by the automaton. The input must be deterministic.
+    ///
+    /// Complexity: linear in the length of the string.
+    ///
+    /// **Note:** For full performance, use the
+    /// [`RunAutomaton`](crate::util::automation::run_automaton::RunAutomaton)
+    /// class.
     #[allow(unused)]
-    #[cfg(feature = "unused")]
-    pub(crate) fn run_ints_ref<AV>(_a: &Automaton, _s: &IntsRef<AV>) -> bool
-    where
-        AV: AccessVec<i32>,
-    {
-        true
-    }
+    pub(crate) fn run_ints_ref(a: &Automaton, s: &IntsRef<Vec<i32>>) -> bool {
+        debug_assert!(a.is_deterministic());
 
+        let mut state = 0;
+        for i in 0..s.length {
+            let label = s.ints[(s.offset + i) as usize];
+            let next_state = a.step(state, label);
+            if next_state == -1 {
+                return false;
+            }
+            state = next_state;
+        }
+        a.is_accept(state)
+    }
+    /// Returns the set of live states.
+    /// A state is considered "live" if an accept state is reachable from it
+    /// and if it is reachable from the initial state.
     pub fn get_live_states(a: &Automaton) -> Result<BitSet> {
         let mut live = Operations::get_live_states_from_initial(a);
         live.intersect_with(&Operations::get_live_states_to_accept(a)?);
         Ok(live)
     }
+    /// Returns a bitset marking states reachable from the initial state.
     pub fn get_live_states_from_initial(a: &Automaton) -> BitSet {
         let num_states = a.get_num_states();
         let mut live = BitSet::with_capacity(num_states as usize);
@@ -687,6 +823,7 @@ impl Operations {
         }
         live
     }
+    /// Returns a bitset marking states that can reach an accept state.
     fn get_live_states_to_accept(a: &Automaton) -> Result<BitSet> {
         let num_states = a.get_num_states();
         // build reversed automaton
@@ -732,6 +869,9 @@ impl Operations {
         }
         Ok(live)
     }
+    /// Removes transitions to dead states.
+    /// A state is considered "dead" if it is not reachable from the initial
+    /// state or if no accept state is reachable from it.
     pub fn remove_dead_states(a: Rc<Automaton>) -> Result<Rc<Automaton>> {
         let num_states = a.get_num_states() as usize;
         let live_set = Operations::get_live_states(&a)?;
@@ -768,7 +908,17 @@ impl Operations {
         debug_assert!(!Operations::has_dead_states(&result)?);
         Ok(Rc::new(result))
     }
-
+    /// Returns the longest string that is a prefix of all accepted strings and
+    /// visits each state at most once. The automaton must not have dead
+    /// states.
+    ///
+    /// Errors:
+    /// - Returns an error if the automaton has dead states reachable from the
+    ///   initial state.
+    ///
+    /// Returns:
+    /// - The common prefix, which can be an empty (length 0) `String` (never
+    ///   `None`).
     pub(crate) fn get_common_prefix(a: &Automaton) -> Result<String> {
         if Operations::has_dead_states_from_initial(a)? {
             return Err(LuceneError::illegal_argument(
@@ -833,6 +983,13 @@ impl Operations {
 
         Ok(builder)
     }
+    /// Returns the longest [`BytesRef`] that is a prefix of all accepted
+    /// strings and visits each state at most once.
+    ///
+    /// Returns:
+    /// - The common prefix, which can be an empty (length 0) [`BytesRef`]
+    ///   (never `None`), and might possibly include a UTF-8 fragment of a full
+    ///   Unicode character.
     pub(crate) fn get_common_prefix_bytes_ref(a: &Automaton) -> Result<BytesRef<Vec<u8>>> {
         let prefix = Operations::get_common_prefix(a)?;
         let mut builder: BytesRefBuilder<Vec<u8>> = BytesRefBuilder::new();
@@ -847,6 +1004,8 @@ impl Operations {
 
         Ok(builder.get_bytes())
     }
+    /// If this automaton accepts a single input, returns it. Otherwise, returns
+    /// `None`. The automaton must be deterministic.
     pub(crate) fn get_singleton(a: &Automaton) -> Result<Option<IntsRef<Vec<i32>>>> {
         if !a.is_deterministic() {
             return Err(LuceneError::illegal_argument(
@@ -877,6 +1036,15 @@ impl Operations {
             return Ok(None);
         }
     }
+    /// Returns the longest [`BytesRef`] that is a suffix of all accepted
+    /// strings.
+    ///
+    /// Worst case complexity: quadratic with the number of states and
+    /// transitions.
+    ///
+    /// Returns:
+    /// - The common suffix, which can be an empty (length 0) [`BytesRef`]
+    ///   (never `None`).
     pub fn get_common_suffix_bytes_ref(a: &Automaton) -> Result<BytesRef<Vec<u8>>> {
         let r = Operations::remove_dead_states(Rc::new(Operations::reverse(a)?))?;
         let mut bytes_ref = Operations::get_common_prefix_bytes_ref(&r)?;
@@ -898,10 +1066,11 @@ impl Operations {
             i += 1;
         }
     }
+    /// Returns an automaton accepting the reverse language.
     pub(crate) fn reverse(a: &Automaton) -> Result<Automaton> {
         Operations::reverse_with_initial_states(a, None)
     }
-
+    /// Reverses the automaton, returning the new initial states.
     pub(crate) fn reverse_with_initial_states(
         a: &Automaton,
         mut initial_states: Option<&mut HashSet<i32>>,
@@ -950,7 +1119,9 @@ impl Operations {
 
         Ok(result)
     }
-
+    /// Returns a new automaton accepting the same language, with added
+    /// transitions to a dead state so that from every state and every label
+    /// there is a transition.
     pub(crate) fn totalize(a: &Rc<Automaton>) -> Result<Automaton> {
         let mut result = Automaton::new();
 
@@ -989,6 +1160,31 @@ impl Operations {
         result.finish_state()?;
         Ok(result)
     }
+    /// Returns the topological sort of all states reachable from the initial
+    /// state.
+    ///
+    /// This method assumes that the automaton does not contain cycles, and will
+    /// throw an error if a cycle is detected. The CPU cost is
+    /// O(num_transitions), and the implementation is non-recursive, so it
+    /// will not exhaust the stack for automatons matching long strings.
+    /// If there are dead states in the automaton, they will be removed from the
+    /// returned array.
+    ///
+    /// Note: This method uses a deque to iterate the states, which could
+    /// potentially consume a lot of heap space for some automatons.
+    /// Specifically, automatons with a deep level of states (i.e., a large
+    /// number of transitions from the initial state to the final state) may
+    /// particularly contribute to high memory usage. The memory consumption
+    /// of this method can be considered as O(N), where N is the depth of the
+    /// automaton (the maximum number of transitions from the initial state to
+    /// any state). However, as this method detects cycles, it will never
+    /// attempt to use infinite RAM.
+    ///
+    /// Parameters:
+    /// - `a`: The automaton to be sorted
+    ///
+    /// Returns:
+    /// - The topologically sorted array of state IDs.
     pub(crate) fn topo_sort_states_full(a: &Automaton) -> Result<Vec<usize>> {
         if a.get_num_states() == 0 {
             return Ok(Vec::new());
@@ -1004,7 +1200,17 @@ impl Operations {
         states.reverse();
         Ok(states)
     }
-
+    /// Performs a topological sort on the states of the given automaton.
+    ///
+    /// Parameters:
+    /// - `a`: The automaton whose states are to be topologically sorted
+    /// - `states`: An array (`&mut [i32]`) which stores the states
+    ///
+    /// Returns:
+    /// - The number of states in the final sorted list.
+    ///
+    /// Errors:
+    /// - Returns an error if the input automaton has a cycle.
     pub fn topo_sort_states(a: &Automaton, states: &mut Vec<usize>) -> Result<usize> {
         let num_states = a.get_num_states() as usize;
         let mut on_stack = BitSet::with_capacity(num_states);
