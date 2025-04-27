@@ -17,11 +17,17 @@
 use crate::index::BytesRef;
 use crate::util::automation::automaton::{Automaton, Builder};
 use crate::util::automation::operations::Operations;
+use crate::util::automation::strings_to_automaton::StringsToAutomaton;
+use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::{StringHelper, ToInt};
 
+/// Construction of basic automata.
 pub struct Automata;
 impl Automata {
+    /// [`make_string_union`](Self::make_string_union) limits terms to this
+    /// maximum length to ensure the stack doesn't overflow while building,
+    /// since the algorithm currently relies on recursion.
     pub const MAX_STRING_UNION_TERM_LENGTH: i32 = 1000;
     /// Returns a new (deterministic) automaton with the empty language.
     pub fn make_empty() -> Result<Automaton> {
@@ -114,7 +120,8 @@ impl Automata {
         a.finish_state()?;
         Ok(a)
     }
-
+    /// Constructs sub-automaton corresponding to decimal numbers of length
+    /// x.substring(n).length().
     fn any_of_right_length(builder: &mut Builder, x: &str, n: usize) -> Result<i32> {
         let s = builder.create_state();
         if x.len() == n {
@@ -125,6 +132,8 @@ impl Automata {
         }
         Ok(s)
     }
+    /// Constructs a sub-automaton corresponding to decimal numbers of value at
+    /// least `x[n..]` and length `x[n..].len()`.
     fn at_least(
         builder: &mut Builder,
         x: &str,
@@ -149,7 +158,8 @@ impl Automata {
         }
         Ok(s)
     }
-
+    /// Constructs a sub-automaton corresponding to decimal numbers of value at
+    /// most `x[n..]` and length `x[n..].len()`.
     fn at_most(builder: &mut Builder, x: &str, n: usize) -> Result<i32> {
         let s = builder.create_state();
         if x.len() == n {
@@ -165,6 +175,9 @@ impl Automata {
         }
         Ok(s)
     }
+    /// Constructs a sub-automaton corresponding to decimal numbers of value
+    /// between `x[n..]` and `y[n..]`, and of length `x[n..].len()` (which
+    /// must be equal to `y[n..].len()`).
     pub(crate) fn between(
         builder: &mut Builder,
         x: &str,
@@ -207,6 +220,15 @@ impl Automata {
         }
         true
     }
+    /// Creates a new deterministic, minimal automaton accepting all binary
+    /// terms in the specified interval.
+    ///
+    /// Note that unlike [`make_decimal_interval`](Self::make_decimal_interval),
+    /// the returned automaton is infinite, because terms behave like
+    /// floating point numbers leading with a decimal point.
+    ///
+    /// However, in the special case where `min == max`, and both are inclusive,
+    /// the automaton will be finite and accept exactly one term.
     pub fn make_binary_interval(
         mut min: Option<BytesRef<Vec<u8>>>,
         mut min_inclusive: bool,
@@ -411,6 +433,20 @@ impl Automata {
 
         Ok(a)
     }
+    /// Returns a new automaton that accepts strings representing decimal (base
+    /// 10) non-negative integers in the given interval.
+    ///
+    /// Parameters:
+    /// - `min`: minimal value of the interval
+    /// - `max`: maximal value of the interval (both endpoints are included in
+    ///   the interval)
+    /// - `digits`: if greater than `0`, use a fixed number of digits (strings
+    ///   must be prefixed by `0`s to obtain the right length); otherwise, the
+    ///   number of digits is not fixed (any number of leading `0`s is accepted)
+    ///
+    /// Errors:
+    /// - Returns an error if `min > max` or if numbers in the interval cannot
+    ///   be expressed with the given fixed number of digits.
     pub fn make_decimal_interval(min: i32, max: i32, digits: i32) -> Result<Automaton> {
         let mut x = min.to_string();
         let mut y = max.to_string();
@@ -532,5 +568,85 @@ impl Automata {
         a.set_accept(s, true);
         a.finish_state()?;
         Ok(a)
+    }
+    /// Returns a new (deterministic and minimal) automaton that accepts the
+    /// union of the given collection of [`BytesRef`]s representing UTF-8
+    /// encoded strings.
+    ///
+    /// Parameters:
+    /// - `utf8_strings`: The input strings, UTF-8 encoded. The collection must
+    ///   be in sorted order.
+    ///
+    /// Returns:
+    /// - An [`Automaton`] accepting all input strings. The resulting automaton
+    ///   is codepoint-based (full Unicode codepoints on transitions).
+    pub fn make_string_union<I>(utf8_strings: I) -> Result<Automaton>
+    where
+        I: IntoIterator<Item = BytesRef<Vec<u8>>>,
+    {
+        let mut iter = utf8_strings.into_iter();
+        if iter.next().is_none() {
+            Automata::make_empty()
+        } else {
+            StringsToAutomaton::build(iter, false)
+        }
+    }
+    /// Returns a new (deterministic and minimal) automaton that accepts the
+    /// union of the given collection of [`BytesRef`]s representing UTF-8
+    /// encoded strings.
+    ///
+    /// Parameters:
+    /// - `utf8_strings`: The input strings, UTF-8 encoded. The collection must
+    ///   be in sorted order.
+    ///
+    /// Returns:
+    /// - An [`Automaton`] accepting all input strings. The resulting automaton
+    ///   is codepoint-based (full Unicode codepoints on transitions).
+    pub fn make_binary_string_union<I>(utf8_strings: I) -> Result<Automaton>
+    where
+        I: IntoIterator<Item = BytesRef<Vec<u8>>>,
+    {
+        let mut iter = utf8_strings.into_iter();
+        if iter.next().is_none() {
+            Automata::make_empty()
+        } else {
+            StringsToAutomaton::build(iter, true)
+        }
+    }
+
+    /// Returns a new (deterministic and minimal) automaton that accepts the
+    /// union of the given iterator of [`BytesRef`]s representing UTF-8
+    /// encoded strings.
+    ///
+    /// Parameters:
+    /// - `utf8_strings`: The input strings, UTF-8 encoded. The iterator must be
+    ///   in sorted order.
+    ///
+    /// Returns:
+    /// - An [`Automaton`] accepting all input strings. The resulting automaton
+    ///   is codepoint-based (full Unicode codepoints on transitions).
+    pub(crate) fn make_string_union_from_iter<I>(utf8_strings: I) -> Result<Automaton>
+    where
+        I: BytesRefIterator<Vec<u8>>,
+    {
+        StringsToAutomaton::build_from_iterator(utf8_strings, false)
+    }
+    /// Returns a new (deterministic and minimal) automaton that accepts the
+    /// union of the given iterator of [`BytesRef`]s representing UTF-8
+    /// encoded strings. The resulting automaton will be built in a binary
+    /// representation.
+    ///
+    /// Parameters:
+    /// - `utf8_strings`: The input strings, UTF-8 encoded. The iterator must be
+    ///   in sorted order.
+    ///
+    /// Returns:
+    /// - An [`Automaton`] accepting all input strings. The resulting automaton
+    ///   is binary-based (UTF-8 encoded byte transition labels).
+    pub fn make_binary_string_union_from_iter<I>(utf8_strings: I) -> Result<Automaton>
+    where
+        I: BytesRefIterator<Vec<u8>>,
+    {
+        StringsToAutomaton::build_from_iterator(utf8_strings, true)
     }
 }
