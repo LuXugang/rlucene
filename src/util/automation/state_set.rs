@@ -20,7 +20,7 @@ use std::rc::Rc;
 
 use crate::internal::hppc::bit_mixer::BitMixer;
 use crate::util::automation::frozen_int_set::FrozenIntSet;
-use crate::util::automation::IntSet::IntSet;
+use crate::util::automation::int_set::IntSet;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::error::lucene_error::Result;
 

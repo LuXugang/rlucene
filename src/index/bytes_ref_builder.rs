@@ -24,7 +24,7 @@ pub struct BytesRefBuilder<AV>
 where
     AV: AccessVec<u8>,
 {
-    bytes_ref: BytesRef<AV>,
+    pub(crate) bytes_ref: BytesRef<AV>,
 }
 impl<AV> Default for BytesRefBuilder<AV>
 where

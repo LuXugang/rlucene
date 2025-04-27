@@ -67,6 +67,12 @@ pub struct Automaton {
     deterministic: bool,
 }
 
+impl Default for Automaton {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Automaton {
     pub fn new() -> Self {
         Self::with_capacity(2, 2)
@@ -582,6 +588,12 @@ pub struct Builder {
     transitions: Vec<i32>,
     next_transition: i32,
 }
+impl Default for Builder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Builder {
     pub fn new() -> Self {
         Self::with_capacity(16, 16)
@@ -601,6 +613,10 @@ impl Builder {
             transitions,
             next_transition: 0,
         }
+    }
+    /// Add a new transition with min = max = label.
+    pub fn add_transition_label(&mut self, source: i32, dest: i32, label: i32) {
+        self.add_transition(source, dest, label, label)
     }
     /// Add a new transition with the specified source, dest, min, max.
     pub fn add_transition(&mut self, source: i32, dest: i32, min: i32, max: i32) {
@@ -910,6 +926,8 @@ mod tests {
     use crate::util::automation::transition::Transition;
     use crate::util::automation::transition_accessor::TransitionAccessor;
     use crate::util::error::lucene_error::Result;
+    #[allow(dead_code)] // for quick search
+    struct TestAutomaton;
 
     #[test]
     fn test_basic() -> Result<()> {

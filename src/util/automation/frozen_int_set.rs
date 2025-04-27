@@ -18,7 +18,7 @@ use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
-use crate::util::automation::IntSet::IntSet;
+use crate::util::automation::int_set::IntSet;
 
 #[derive(Eq)]
 pub(crate) struct FrozenIntSet {

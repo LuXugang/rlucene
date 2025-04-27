@@ -63,7 +63,7 @@ impl StringsToAutomaton {
             },
             None => {
                 let mut builder = BytesRefBuilder::new();
-                builder.copy_bytes_with_ref(&current);
+                builder.copy_bytes_with_ref(current);
                 self.previous = Some(builder);
             },
         }
@@ -347,6 +347,70 @@ impl std::hash::Hash for State {
         self.labels.hash(state);
         for s in &self.states {
             (Rc::as_ptr(s) as *const () as usize).hash(state);
+        }
+    }
+}
+#[cfg(test)]
+mod tests {
+    use std::borrow::Cow;
+    use std::rc::Rc;
+
+    use rand::rngs::StdRng;
+    use rand::Rng;
+
+    use crate::index::BytesRef;
+    use crate::test::util::automaton::automaton_test_util::AutomatonTestUtil;
+    use crate::util::automation::automaton::Automaton;
+    use crate::util::automation::strings_to_automaton::StringsToAutomaton;
+    use crate::util::bytes_ref_iterator::BytesRefIterator;
+    use crate::util::error::lucene_error::Result;
+
+    #[allow(dead_code)] // for quick search
+    struct TestStringsToAutomaton;
+
+    fn assert_same_automaton(a: &Rc<Automaton>, b: &Rc<Automaton>) -> Result<()> {
+        assert_eq!(a.get_num_states(), b.get_num_states());
+        assert_eq!(a.get_num_transitions(), b.get_num_transitions());
+        assert!(AutomatonTestUtil::same_language(a, b)?);
+        Ok(())
+    }
+
+    fn basic_terms() -> Vec<BytesRef<Vec<u8>>> {
+        vec![
+            BytesRef::from_string("dog"),
+            BytesRef::from_string("day"),
+            BytesRef::from_string("dad"),
+            BytesRef::from_string("cats"),
+            BytesRef::from_string("cat"),
+        ]
+    }
+
+    fn build(
+        random: &mut StdRng,
+        terms: Vec<BytesRef<Vec<u8>>>,
+        as_binary: bool,
+    ) -> Result<Automaton> {
+        if random.random_bool(0.5) {
+            StringsToAutomaton::build(terms, as_binary)
+        } else {
+            StringsToAutomaton::build_from_iterator(
+                TermIterator {
+                    it: terms.into_iter(),
+                },
+                as_binary,
+            )
+        }
+    }
+
+    struct TermIterator {
+        it: std::vec::IntoIter<BytesRef<Vec<u8>>>,
+    }
+    impl BytesRefIterator<Vec<u8>> for TermIterator {
+        fn next(&mut self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
+            match self.it.next() {
+                Some(b) => Ok(Some(Cow::Owned(b))),
+                None => Ok(None),
+            }
         }
     }
 }

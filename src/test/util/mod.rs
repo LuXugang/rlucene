@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+pub(crate) mod automaton;
 pub(crate) mod base_bit_set_test_case;
 pub(crate) mod base_doc_id_set_test_case;
 pub(crate) mod base_sort_test_case;

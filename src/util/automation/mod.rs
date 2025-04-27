@@ -14,14 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-mod IntSet;
 pub mod automata;
 pub mod automaton;
 pub mod byte_runnable;
 mod frozen_int_set;
+mod int_set;
 pub mod operations;
 pub mod run_automaton;
-mod state_pair;
+pub mod state_pair;
 mod state_set;
+mod strings_to_automaton;
 pub mod transition;
 mod transition_accessor;
