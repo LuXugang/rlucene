@@ -1,0 +1,105 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+use crate::util::error::lucene_error::LuceneError;
+
+pub struct UnicodeUtil;
+impl UnicodeUtil {
+    pub(crate) fn code_point_at<'a>(
+        utf8: &[u8],
+        pos: usize,
+        reuse: &'a mut UTF8CodePoint,
+    ) -> Result<&'a mut UTF8CodePoint, LuceneError> {
+        if pos >= utf8.len() {
+            return Err(LuceneError::illegal_argument(format!(
+                "Position {} out of bounds for utf8 array of length {}",
+                pos,
+                utf8.len()
+            )));
+        }
+
+        let lead_byte = utf8[pos] as usize;
+        let num_bytes = UTF8_CODE_LENGTH[lead_byte];
+
+        if num_bytes == i32::MIN {
+            return Err(LuceneError::illegal_argument(format!(
+                "Invalid UTF8 header byte: 0x{:X}",
+                lead_byte
+            )));
+        }
+
+        reuse.num_bytes = num_bytes as usize;
+
+        let mut v: i32;
+        match num_bytes {
+            1 => {
+                reuse.code_point = lead_byte as i32;
+                return Ok(reuse);
+            },
+            2 => v = (lead_byte & 0b0001_1111) as i32,
+            3 => v = (lead_byte & 0b0000_1111) as i32,
+            4 => v = (lead_byte & 0b0000_0111) as i32,
+            _ => {
+                return Err(LuceneError::illegal_argument(format!(
+                    "Invalid UTF8 header byte: 0x{:X}",
+                    lead_byte
+                )));
+            },
+        }
+
+        let limit = pos + reuse.num_bytes;
+        let mut i = pos + 1;
+        while i < limit {
+            if i >= utf8.len() {
+                return Err(LuceneError::illegal_argument(
+                    "UTF-8 sequence truncated".to_string(),
+                ));
+            }
+            v = (v << 6) | ((utf8[i] & 0b0011_1111) as i32);
+            i += 1;
+        }
+        reuse.code_point = v;
+
+        Ok(reuse)
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub struct UTF8CodePoint {
+    pub code_point: i32,
+    pub num_bytes: usize,
+}
+pub(crate) static UTF8_CODE_LENGTH: [i32; 248] = {
+    const V: i32 = i32::MIN;
+    [
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0x00
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0x10
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0x20
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0x30
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0x40
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0x50
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0x60
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0x70
+        V, V, V, V, V, V, V, V, V, V, V, V, V, V, V, V, // 0x80
+        V, V, V, V, V, V, V, V, V, V, V, V, V, V, V, V, // 0x90
+        V, V, V, V, V, V, V, V, V, V, V, V, V, V, V, V, // 0xA0
+        V, V, V, V, V, V, V, V, V, V, V, V, V, V, V, V, // 0xB0
+        2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, // 0xC0
+        2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, // 0xD0
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, // 0xE0
+        4, 4, 4, 4, 4, 4, 4, 4,
+    ]
+};
