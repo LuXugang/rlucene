@@ -43,6 +43,7 @@ use crate::util::{BitSetExt, SliceCopyOps, Sorter};
 /// - sorted (by min, then max, then dest)
 /// - and reduced (transitions with adjacent labels going to the same
 ///   destination are combined).
+#[derive(Debug)]
 pub struct Automaton {
     /// Index into the `Vec<i32>` state array where we next write; this
     /// increments by 2 for each added state because we pack a pointer to

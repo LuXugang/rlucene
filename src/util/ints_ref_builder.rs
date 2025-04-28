@@ -26,7 +26,7 @@ use crate::util::SliceCopyOps;
 /// Internal utility used during FST construction.
 ///
 /// # Lucene internal
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct IntsRefBuilder<AV>
 where
     AV: AccessVec<i32>,

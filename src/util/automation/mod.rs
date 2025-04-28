@@ -17,6 +17,7 @@
 pub mod automata;
 pub mod automaton;
 pub mod byte_runnable;
+mod finite_strings_iterator;
 mod frozen_int_set;
 mod int_set;
 mod minimization_operation;
