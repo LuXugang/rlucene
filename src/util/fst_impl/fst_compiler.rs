@@ -148,7 +148,7 @@ where
         let (len, down_to) = {
             let inner = self.inner.borrow();
             (
-                inner.last_input.len() as usize,
+                inner.last_input.length() as usize,
                 prefix_len_plus1.max(1) as usize,
             )
         };
@@ -205,7 +205,7 @@ where
             }
 
             debug_assert!(
-                inner.last_input.len() == 0 || *input >= *inner.last_input.get(),
+                inner.last_input.length() == 0 || *input >= *inner.last_input.get(),
                 "inputs are added out of order lastInput={:?} vs input={:?}",
                 inner.last_input.get(),
                 input
@@ -226,7 +226,7 @@ where
             // Compare shared prefix length
             let mut pos1 = 0;
             let mut pos2 = input.offset;
-            let pos1_stop = inner.last_input.len().min(input.length);
+            let pos1_stop = inner.last_input.length().min(input.length);
             while pos1 < pos1_stop && inner.last_input.int_at(pos1)? == ints[pos2 as usize] {
                 pos1 += 1;
                 pos2 += 1;
@@ -264,7 +264,7 @@ where
         let inner = self.inner.borrow();
         {
             let last_node = self.frontier[offset].as_mut().unwrap();
-            if inner.last_input.len() != input.length
+            if inner.last_input.length() != input.length
                 || prefix_len_plus1 != input.length as usize + 1
             {
                 last_node.is_final = true;
@@ -305,7 +305,7 @@ where
             debug_assert!(inner.valid_output(&output));
         }
 
-        if inner.last_input.len() == input.length && prefix_len_plus1 == input.length as usize + 1 {
+        if inner.last_input.length() == input.length && prefix_len_plus1 == input.length as usize + 1 {
             // same input more than 1 time in a row, mapping to
             // multiple outputs
             let last_node = self.frontier[offset].as_mut().unwrap();

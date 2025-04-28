@@ -58,7 +58,7 @@ where
     }
 
     /// Returns the number of ints in this buffer.
-    pub fn len(&self) -> i32 {
+    pub fn length(&self) -> i32 {
         self.ints_ref.length
     }
 
