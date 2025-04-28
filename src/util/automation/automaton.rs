@@ -408,18 +408,20 @@ impl Automaton {
         let mut pointset = HashSet::new();
         pointset.insert(0);
 
-        for s in 0..self.next_state as usize {
-            let base_idx = s * 2;
-            let mut trans = self.states[base_idx] as usize;
-            let limit = trans + 3 * (self.states[base_idx + 1] as usize);
-            while trans < limit {
-                let min = self.transitions[trans + 1];
-                let max = self.transitions[trans + 2];
+        for i in (0..self.next_state as usize).step_by(2) {
+            let trans = self.states[i] as usize;
+            let num_transitions = self.states[i + 1] as usize;
+            let mut trans_idx = trans;
+            let limit = trans + 3 * num_transitions;
+
+            while trans_idx < limit {
+                let min = self.transitions[trans_idx + 1];
+                let max = self.transitions[trans_idx + 2];
                 pointset.insert(min);
                 if max < 0x10FFFF {
                     pointset.insert(max + 1);
                 }
-                trans += 3;
+                trans_idx += 3;
             }
         }
 
@@ -1045,7 +1047,7 @@ mod tests {
     fn test_alternatives() -> Result<()> {
         let a = Automata::make_char('a' as i32)?;
         let c = Automata::make_char('c' as i32)?;
-        let union = Operations::union(&a, &c)?;
+        let union = Operations::union(a, c)?;
         let prefix = Operations::get_common_prefix(&union)?;
         assert_eq!(prefix, "");
         Ok(())

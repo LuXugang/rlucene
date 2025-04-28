@@ -17,7 +17,7 @@
 use num_bigint::BigInt;
 use num_traits::{FromPrimitive, ToPrimitive};
 use rand::rngs::StdRng;
-use rand::{Rng, RngCore};
+use rand::{random_range, Rng, RngCore};
 
 pub struct TestUtil;
 const BLOCK_STARTS: &[u32] = &[
@@ -195,6 +195,35 @@ impl TestUtil {
                     buffer.push(random.random_range(0xE000..=0xFFFF) as u16);
                 },
                 _ => unreachable!(),
+            }
+        }
+    }
+    pub fn random_fixed_length_unicode_string_with_chars(
+        random: &mut StdRng,
+        chars: &mut [u16],
+        offset: usize,
+        length: usize,
+    ) {
+        let mut i = offset;
+        let end = offset + length;
+        while i < end {
+            let t = random.random_range(0..5);
+            if t == 0 && i < end - 1 {
+                chars[i] = random_range(0xd800..0xdbff);
+                chars[i + 1] = random_range(0xdc00..0xdfff);
+                i += 2;
+            } else if t <= 1 {
+                chars[i] = random.random_range(0x00..=0x7f);
+                i += 1;
+            } else if t == 2 {
+                chars[i] = random_range(0x80..0x7ff);
+                i += 1;
+            } else if t == 3 {
+                chars[i] = random_range(0x800..0xd7ff);
+                i += 1;
+            } else if t == 4 {
+                chars[i] = random_range(0xe000..0xffff);
+                i += 1;
             }
         }
     }

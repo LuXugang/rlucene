@@ -182,10 +182,8 @@ impl MinimizationOperations {
                     split.remove(s);
                 }
                 splitblock[j].clear();
-
                 k1 = refine.next_set_bit(j + 1);
             }
-
             refine.clear();
         }
 

@@ -19,6 +19,7 @@ use std::fmt::Display;
 use std::hash::Hash;
 
 use crate::index::BytesRef;
+use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::Result;
 use crate::util::fst_impl::fst::{Arc, InputType, FST};
 use crate::util::fst_impl::fst_reader::FstReader;
@@ -91,7 +92,37 @@ impl Util {
             Ok(None)
         }
     }
+    /// Decodes the Unicode codepoints from the provided `char[]` and places
+    /// them into the provided scratch `IntsRef`, which must not be `None`,
+    /// and returns it.
+    pub fn get_utf32<AV: AccessVec<i32>>(
+        s: &str,
+        offset: usize,
+        length: usize,
+        scratch: &mut IntsRefBuilder<AV>,
+    ) {
+        let mut int_idx = 0;
+        for c in s[offset..offset + length].chars() {
+            scratch.grow(int_idx + 1);
+            scratch.set_int_at(int_idx, c as i32);
+            int_idx += 1;
+        }
+        scratch.set_length(int_idx);
+    }
 
+    pub fn get_ints_ref<AV1: AccessVec<u8>, AV2: AccessVec<i32>>(
+        input: &BytesRef<AV1>,
+        scratch: &mut IntsRefBuilder<AV2>,
+    ) {
+        scratch.grow_no_copy(input.length as i32);
+        for i in 0..input.length {
+            input.bytes.access(|bytes| {
+                let byte = bytes[input.offset + i];
+                scratch.set_int_at(i as i32, byte as i32);
+            })
+        }
+        scratch.set_length(input.length as i32);
+    }
     pub fn binary_search<T, O, F>(
         _fst: &mut FST<T, O, F>,
         _arc: &Arc<T>,

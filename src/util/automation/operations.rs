@@ -484,14 +484,14 @@ impl Operations {
     /// given automata.
     ///
     /// Complexity: linear in the number of states.
-    pub fn union(a1: &Automaton, a2: &Automaton) -> Result<Rc<Automaton>> {
+    pub fn union(a1: Automaton, a2: Automaton) -> Result<Rc<Automaton>> {
         Operations::union_list(&[a1, a2])
     }
     /// Returns an automaton that accepts the union of the languages of the
     /// given automata.
     ///
     /// Complexity: linear in the number of states.
-    pub fn union_list(list: &[&Automaton]) -> Result<Rc<Automaton>> {
+    pub fn union_list(list: &[Automaton]) -> Result<Rc<Automaton>> {
         let mut result = Automaton::new();
         // Create initial state:
         result.create_state();
@@ -1463,6 +1463,41 @@ impl<'a> Iterator for PointTransitionSetIterMut<'a> {
         match self {
             PointTransitionSetIterMut::Vec(iter) => iter.next(),
             PointTransitionSetIterMut::Map(iter) => iter.next(),
+        }
+    }
+}
+#[cfg(test)]
+pub(crate) mod tests {
+    use std::collections::HashSet;
+
+    use crate::util::automation::automaton::Automaton;
+    use crate::util::automation::finite_strings_iterator::FiniteStringsIterator;
+    use crate::util::error::lucene_error::Result;
+    use crate::util::ints_ref::IntsRef;
+    pub(crate) struct TestOperations;
+    impl TestOperations {
+        /// Returns the set of all accepted strings.
+        ///
+        /// This method exists primarily to ease testing.
+        /// For production code, directly use [`FiniteStringsIterator`] instead.
+        ///
+        /// See also:
+        /// - [`FiniteStringsIterator`]
+        pub fn get_finite_strings_automaton<'a>(
+            a: &'a Automaton,
+        ) -> Result<HashSet<IntsRef<Vec<i32>>>> {
+            let mut iter = FiniteStringsIterator::new_with_start_end(a, 0, -1);
+            Self::get_finite_strings(&mut iter)
+        }
+        /// Get all finite strings of an iterator.
+        pub fn get_finite_strings(
+            iterator: &mut FiniteStringsIterator,
+        ) -> Result<HashSet<IntsRef<Vec<i32>>>> {
+            let mut result = HashSet::new();
+            while let Some(finite_string) = iterator.next()? {
+                result.insert(IntsRef::deep_copy_of(&finite_string));
+            }
+            Ok(result)
         }
     }
 }

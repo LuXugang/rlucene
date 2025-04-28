@@ -26,10 +26,74 @@ use crate::util::automation::transition::Transition;
 use crate::util::automation::transition_accessor::TransitionAccessor;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::error::lucene_error::Result;
+use crate::util::ints_ref::IntsRef;
+use crate::util::ints_ref_builder::IntsRefBuilder;
 
 pub struct AutomatonTestUtil;
 impl AutomatonTestUtil {
     const MAX_RECURSION_LEVEL: usize = 1000;
+    /// Simple, original implementation of `get_finite_strings`.
+    ///
+    /// Returns the set of accepted strings, assuming that at most `limit`
+    /// strings are accepted. If more than `limit` strings are accepted, the
+    /// first `limit` strings found are returned. If `limit < 0`, then the
+    /// limit is considered infinite.
+    ///
+    /// This implementation is recursive: it uses one stack frame for each
+    /// character in the returned strings (i.e., the maximum is the maximum
+    /// length of the returned strings).
+    pub fn get_finite_strings_recursive(a: &Automaton, limit: i32) -> HashSet<IntsRef<Vec<i32>>> {
+        let mut strings = HashSet::new();
+        let mut path_states = HashSet::new();
+        let mut path = IntsRefBuilder::new();
+
+        if !Self::get_finite_strings(a, 0, &mut path_states, &mut strings, &mut path, limit) {
+            return strings;
+        }
+        strings
+    }
+    /// Returns the strings that can be produced from the given state,
+    /// or `false` if more than `limit` strings are found.
+    ///
+    /// A `limit` less than `0` means "infinite".
+    fn get_finite_strings(
+        a: &Automaton,
+        s: i32,
+        path_states: &mut HashSet<i32>,
+        strings: &mut HashSet<IntsRef<Vec<i32>>>,
+        path: &mut IntsRefBuilder<Vec<i32>>,
+        limit: i32,
+    ) -> bool {
+        path_states.insert(s);
+
+        let mut t = Transition::default();
+        let count = a.init_transition(s, &mut t);
+
+        for _ in 0..count {
+            a.get_next_transition(&mut t);
+            if path_states.contains(&t.dest) {
+                return false;
+            }
+            for label in t.min..=t.max {
+                path.append(label);
+
+                if a.is_accept(t.dest) {
+                    strings.insert(path.to_ints_ref());
+                    if limit >= 0 && strings.len() > limit as usize {
+                        return false;
+                    }
+                }
+
+                if !Self::get_finite_strings(a, t.dest, path_states, strings, path, limit) {
+                    return false;
+                }
+                path.set_length(path.length() - 1);
+            }
+        }
+
+        path_states.remove(&s);
+        true
+    }
     /// Returns `true` if the language of this automaton is finite.
     /// The automaton must not have any dead states.
     pub(crate) fn is_finite(a: &Automaton) -> Result<bool> {

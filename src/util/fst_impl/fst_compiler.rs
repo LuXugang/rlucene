@@ -305,7 +305,9 @@ where
             debug_assert!(inner.valid_output(&output));
         }
 
-        if inner.last_input.length() == input.length && prefix_len_plus1 == input.length as usize + 1 {
+        if inner.last_input.length() == input.length
+            && prefix_len_plus1 == input.length as usize + 1
+        {
             // same input more than 1 time in a row, mapping to
             // multiple outputs
             let last_node = self.frontier[offset].as_mut().unwrap();
