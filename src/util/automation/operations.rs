@@ -49,7 +49,7 @@ impl Operations {
     /// Default maximum effort that [`Operations::determinize`] should spend
     /// before giving up and throwing
     /// [`TooComplexToDeterminizeError`](crate::util::error::TooComplexToDeterminizeError).
-    pub const DEFAULT_DETERMINIZE_WORK_LIMIT: i32 = 10000;
+    pub const DEFAULT_DETERMINIZE_WORK_LIMIT: usize = 10000;
     /// Returns an automaton that accepts the concatenation of the languages of
     /// the given automata.
     ///
@@ -144,10 +144,10 @@ impl Operations {
     /// language of the given automaton. This may create a dead state.
     ///
     /// Complexity: linear in the number of states.
-    pub fn optional(mut a: Automaton) -> Result<Automaton> {
+    pub fn optional(a: &Rc<Automaton>) -> Result<Rc<Automaton>> {
         // If the initial state already accepts, return as is
         if a.is_accept(0) {
-            return Ok(a);
+            return Ok(a.clone());
         }
 
         // Check for any transition back to the initial state
@@ -167,37 +167,37 @@ impl Operations {
         // If no transitions to initial, just mark initial as accept
         if !has_transitions_to_initial {
             let mut result = Automaton::new();
-            result.copy(&mut a);
+            result.copy(a);
             if result.get_num_states() == 0 {
                 result.create_state();
             }
             result.set_accept(0, true);
-            return Ok(result);
+            return Ok(Rc::new(result));
         }
         let mut result = Automaton::new();
         result.create_state();
         result.set_accept(0, true);
         if a.get_num_states() > 0 {
-            result.copy(&mut a);
+            result.copy(a);
             result.add_epsilon(0, 1)?;
         }
         result.finish_state()?;
-        Ok(result)
+        Ok(Rc::new(result))
     }
     /// Returns an automaton that accepts the Kleene star (zero or more
     /// concatenated repetitions) of the language of the given automaton.
     /// Never modifies the input automaton language.
     ///
     /// Complexity: linear in the number of states.
-    pub fn repeat(a: Rc<Automaton>) -> Result<Rc<Automaton>> {
+    pub fn repeat(a: &Rc<Automaton>) -> Result<Rc<Automaton>> {
         if a.get_num_states() == 0 {
             // Repeating the empty automata will still only accept the empty automata.
-            return Ok(a);
+            return Ok(a.clone());
         }
 
         // If state 0 is the only accept state, and it already repeats itself
-        if a.is_accept(0) && Operations::get_live_states_to_accept(&a)?.len() == 1 {
-            return Ok(a);
+        if a.is_accept(0) && Operations::get_live_states_to_accept(a)?.len() == 1 {
+            return Ok(a.clone());
         }
 
         let mut builder = Builder::new();
@@ -249,14 +249,14 @@ impl Operations {
             }
         }
 
-        Operations::remove_dead_states(Rc::new(builder.finish()?))
+        Operations::remove_dead_states(&Rc::new(builder.finish()?))
     }
     /// Returns an automaton that accepts `min` or more concatenated repetitions
     /// of the language of the given automaton.
     ///
     /// Complexity: linear in the number of states and in `min`.
-    // TODO：这里不需要使用Rc
-    pub fn repeat_count(a: Rc<Automaton>, count: i32) -> Result<Rc<Automaton>> {
+    // TODO：这里需要使用Rc吗
+    pub fn repeat_count(a: &Rc<Automaton>, count: i32) -> Result<Rc<Automaton>> {
         if count == 0 {
             return Operations::repeat(a);
         }
@@ -273,22 +273,22 @@ impl Operations {
     /// concatenated repetitions of the language of the given automaton.
     ///
     /// Complexity: linear in the number of states, `min`, and `max`.
-    pub fn repeat_min_max(a: Rc<Automaton>, min: i32, max: i32) -> Result<Rc<Automaton>> {
+    pub fn repeat_min_max(a: &Automaton, min: i32, max: i32) -> Result<Automaton> {
         if min > max {
-            return Ok(Rc::new(Automata::make_empty()?));
+            return Automata::make_empty();
         }
 
         let b: Rc<Automaton> = if min == 0 {
             Rc::new(Automata::make_empty_string()?)
         } else if min == 1 {
             let mut base = Automaton::new();
-            base.copy(&a);
+            base.copy(a);
             Rc::new(base)
         } else {
             let min = min as usize;
             let mut reps = Vec::with_capacity(min);
             for _ in 0..min {
-                reps.push(a.clone());
+                reps.push(Rc::new(a.clone()));
             }
             Rc::new(Operations::concatenate_with_list(&reps)?)
         };
@@ -299,14 +299,14 @@ impl Operations {
 
         for _ in min..max {
             let offset = builder.get_num_states();
-            builder.copy(&a);
+            builder.copy(a);
             for s in prev_accept.iter() {
                 builder.add_epsilon(*s, offset);
             }
-            prev_accept = Operations::get_set(&a, offset);
+            prev_accept = Operations::get_set(a, offset);
         }
 
-        Ok(Rc::new(builder.finish()?))
+        builder.finish()
     }
     fn get_set(a: &Automaton, offset: i32) -> HashSet<i32> {
         let mut result = HashSet::new();
@@ -333,7 +333,8 @@ impl Operations {
         a: &Rc<Automaton>,
         determinize_work_limit: usize,
     ) -> Result<Rc<Automaton>> {
-        let mut a = Operations::totalize(&Operations::determinize(a, determinize_work_limit)?)?;
+        let v = Operations::determinize(a, determinize_work_limit)?;
+        let mut a = Operations::totalize(&v)?;
 
         let num_states = a.get_num_states();
         for p in 0..num_states {
@@ -341,7 +342,7 @@ impl Operations {
             a.set_accept(p, !is_accept);
         }
 
-        let a = Operations::remove_dead_states(Rc::new(a))?;
+        let a = Operations::remove_dead_states(&Rc::new(a))?;
         Ok(a)
     }
     /// Returns a (deterministic) automaton that accepts the intersection of the
@@ -444,7 +445,7 @@ impl Operations {
         }
 
         c.finish_state()?;
-        Operations::remove_dead_states(Rc::new(c))
+        Operations::remove_dead_states(&Rc::new(c))
     }
     /// Returns `true` if this automaton has any states that cannot be reached
     /// from the initial state or cannot reach an accept state.
@@ -512,7 +513,7 @@ impl Operations {
         }
 
         result.finish_state()?;
-        Operations::remove_dead_states(Rc::from(result))
+        Operations::remove_dead_states(&Rc::from(result))
     }
     /// Determinizes the given automaton.
     ///
@@ -870,11 +871,11 @@ impl Operations {
     /// Removes transitions to dead states.
     /// A state is considered "dead" if it is not reachable from the initial
     /// state or if no accept state is reachable from it.
-    pub fn remove_dead_states(a: Rc<Automaton>) -> Result<Rc<Automaton>> {
+    pub fn remove_dead_states(a: &Rc<Automaton>) -> Result<Rc<Automaton>> {
         let num_states = a.get_num_states() as usize;
-        let live_set = Operations::get_live_states(&a)?;
+        let live_set = Operations::get_live_states(a)?;
         if live_set.len() == num_states {
-            return Ok(a);
+            return Ok(a.clone());
         }
 
         let mut map = vec![0; num_states];
@@ -1044,7 +1045,7 @@ impl Operations {
     /// - The common suffix, which can be an empty (length 0) [`BytesRef`]
     ///   (never `None`).
     pub fn get_common_suffix_bytes_ref(a: &Automaton) -> Result<BytesRef<Vec<u8>>> {
-        let r = Operations::remove_dead_states(Rc::new(Operations::reverse(a)?))?;
+        let r = Operations::remove_dead_states(&Rc::new(Operations::reverse(a)?))?;
         let mut bytes_ref = Operations::get_common_prefix_bytes_ref(&r)?;
         Operations::reverse_bytes(&mut bytes_ref);
         Ok(bytes_ref)
@@ -1120,7 +1121,7 @@ impl Operations {
     /// Returns a new automaton accepting the same language, with added
     /// transitions to a dead state so that from every state and every label
     /// there is a transition.
-    pub(crate) fn totalize(a: &Rc<Automaton>) -> Result<Automaton> {
+    pub(crate) fn totalize(a: &Automaton) -> Result<Automaton> {
         let mut result = Automaton::new();
 
         let num_states = a.get_num_states();
@@ -1209,7 +1210,7 @@ impl Operations {
     ///
     /// Errors:
     /// - Returns an error if the input automaton has a cycle.
-    pub fn topo_sort_states(a: &Automaton, states: &mut Vec<usize>) -> Result<usize> {
+    pub fn topo_sort_states(a: &Automaton, states: &mut [usize]) -> Result<usize> {
         let num_states = a.get_num_states() as usize;
         let mut on_stack = BitSet::with_capacity(num_states);
         let mut visited = BitSet::with_capacity(num_states);

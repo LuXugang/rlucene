@@ -115,14 +115,11 @@ impl StringsToAutomaton {
     /// binary-sorted. Creates an [`Automaton`] with either UTF-8 codepoints
     /// as transition labels or binary (compiled) transition labels based on
     /// `as_binary`.
-    pub(crate) fn build<I>(input: I, as_binary: bool) -> Result<Automaton>
-    where
-        I: IntoIterator<Item = BytesRef<Vec<u8>>>,
-    {
+    pub(crate) fn build(input: &[BytesRef<Vec<u8>>], as_binary: bool) -> Result<Automaton> {
         let mut builder = StringsToAutomaton::new();
 
         for b in input {
-            builder.add(&b, as_binary)?;
+            builder.add(b, as_binary)?;
         }
 
         builder.complete_and_convert()
@@ -132,10 +129,10 @@ impl StringsToAutomaton {
     /// binary-sorted. Creates an [`Automaton`] with either UTF-8 codepoints
     /// as transition labels or binary (compiled) transition labels based on
     /// `as_binary`.
-    pub(crate) fn build_from_iterator<I>(mut input: I, as_binary: bool) -> Result<Automaton>
-    where
-        I: BytesRefIterator<Vec<u8>>,
-    {
+    pub(crate) fn build_from_iterator(
+        input: &mut impl BytesRefIterator<Vec<u8>>,
+        as_binary: bool,
+    ) -> Result<Automaton> {
         let mut builder = StringsToAutomaton::new();
 
         while let Some(b) = input.next()? {
@@ -391,10 +388,10 @@ mod tests {
         as_binary: bool,
     ) -> Result<Automaton> {
         if random.random_bool(0.5) {
-            StringsToAutomaton::build(terms, as_binary)
+            StringsToAutomaton::build(terms.as_slice(), as_binary)
         } else {
             StringsToAutomaton::build_from_iterator(
-                TermIterator {
+                &mut TermIterator {
                     it: terms.into_iter(),
                 },
                 as_binary,

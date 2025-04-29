@@ -260,7 +260,7 @@ mod tests {
         for _ in 0..num_strings {
             // let s = TestUtil::random_simple_string_with_length(&mut random, 1, 200);
             let s = "ggmbkbndbhbixcmycgnuzkqnoxwttltukszhbgfxbkpcqrfdiawlljpqvopzroglk";
-            Util::get_utf32(s, 0, s.len(), &mut scratch);
+            Util::get_utf32_with_slice(s, 0, s.len(), &mut scratch);
             if strings.insert(scratch.to_ints_ref()) {
                 automata.push(Automata::make_string(s)?);
                 if cfg!(feature = "test_log_verbose") {
@@ -285,7 +285,7 @@ mod tests {
             if cfg!(feature = "test_log_verbose") {
                 println!("TEST: a.removeDeadStates");
             }
-            a = Operations::remove_dead_states(a)?;
+            a = Operations::remove_dead_states(&a)?;
         }
 
         let iterator = FiniteStringsIterator::new(&a);
@@ -379,10 +379,10 @@ mod tests {
         assert_eq!(actual.len(), 2);
 
         let mut scratch = IntsRefBuilder::new();
-        Util::get_utf32(&big_string1, 0, big_string1.len(), &mut scratch);
+        Util::get_utf32_with_slice(&big_string1, 0, big_string1.len(), &mut scratch);
         assert!(actual.contains(scratch.get()));
 
-        Util::get_utf32(&big_string2, 0, big_string2.len(), &mut scratch);
+        Util::get_utf32_with_slice(&big_string2, 0, big_string2.len(), &mut scratch);
         assert!(actual.contains(scratch.get()));
 
         Ok(())
@@ -402,7 +402,7 @@ mod tests {
         assert_eq!(actual.len(), 1);
 
         let mut scratch = IntsRefBuilder::new();
-        Util::get_utf32("foobar", 0, 6, &mut scratch);
+        Util::get_utf32_with_slice("foobar", 0, 6, &mut scratch);
         assert!(actual.contains(scratch.get()));
 
         Ok(())

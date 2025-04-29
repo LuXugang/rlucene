@@ -92,10 +92,14 @@ impl Util {
             Ok(None)
         }
     }
+    pub fn get_utf32<AV: AccessVec<i32>>(s: &str, scratch: &mut IntsRefBuilder<AV>) {
+        let len = s.len();
+        Self::get_utf32_with_slice(s, 0, len, scratch);
+    }
     /// Decodes the Unicode codepoints from the provided `char[]` and places
     /// them into the provided scratch `IntsRef`, which must not be `None`,
     /// and returns it.
-    pub fn get_utf32<AV: AccessVec<i32>>(
+    pub fn get_utf32_with_slice<AV: AccessVec<i32>>(
         s: &str,
         offset: usize,
         length: usize,

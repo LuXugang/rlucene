@@ -42,13 +42,13 @@ impl MinimizationOperations {
     ///   as a decent default if you don't otherwise know what to specify.
     pub(crate) fn minimize(
         a: &Rc<Automaton>,
-        determinize_work_limit: i32,
+        determinize_work_limit: usize,
     ) -> Result<Rc<Automaton>> {
         if a.get_num_states() == 0 || (!a.is_accept(0) && a.get_num_transitions_with_state(0) == 0)
         {
             return Ok(Rc::from(Automaton::new()));
         }
-        let mut a = Operations::determinize(a, determinize_work_limit as usize)?;
+        let mut a = Operations::determinize(a, determinize_work_limit)?;
 
         if a.get_num_transitions_with_state(0) == 1 {
             let mut t = Transition::default();
@@ -119,7 +119,6 @@ impl MinimizationOperations {
         }
 
         let mut k = 2;
-        let iii = 0;
         while let Some(ip) = pending.pop_front() {
             let p = ip.0;
             let x = ip.1;
@@ -219,7 +218,7 @@ impl MinimizationOperations {
         }
 
         result.finish_state()?;
-        Operations::remove_dead_states(Rc::new(result))
+        Operations::remove_dead_states(&Rc::new(result))
     }
 }
 

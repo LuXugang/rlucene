@@ -31,7 +31,11 @@ use crate::util::ints_ref_builder::IntsRefBuilder;
 
 pub struct AutomatonTestUtil;
 impl AutomatonTestUtil {
-    const MAX_RECURSION_LEVEL: usize = 1000;
+    /// Default maximum number of states that {@link Operations#determinize}
+    /// should create.
+    pub const DEFAULT_MAX_DETERMINIZED_STATES: usize = 1000000;
+    ///  Maximum level of recursion allowed in recursive operations.
+    pub const MAX_RECURSION_LEVEL: usize = 1000;
     /// Simple, original implementation of `get_finite_strings`.
     ///
     /// Returns the set of accepted strings, assuming that at most `limit`

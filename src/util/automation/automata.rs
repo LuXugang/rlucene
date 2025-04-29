@@ -564,15 +564,11 @@ impl Automata {
     /// Returns:
     /// - An [`Automaton`] accepting all input strings. The resulting automaton
     ///   is codepoint-based (full Unicode codepoints on transitions).
-    pub fn make_string_union<I>(utf8_strings: I) -> Result<Automaton>
-    where
-        I: IntoIterator<Item = BytesRef<Vec<u8>>>,
-    {
-        let mut iter = utf8_strings.into_iter();
-        if iter.next().is_none() {
+    pub fn make_string_union(utf8_strings: &[BytesRef<Vec<u8>>]) -> Result<Automaton> {
+        if utf8_strings.is_empty() {
             Automata::make_empty()
         } else {
-            StringsToAutomaton::build(iter, false)
+            StringsToAutomaton::build(utf8_strings, false)
         }
     }
     /// Returns a new (deterministic and minimal) automaton that accepts the
@@ -586,18 +582,13 @@ impl Automata {
     /// Returns:
     /// - An [`Automaton`] accepting all input strings. The resulting automaton
     ///   is codepoint-based (full Unicode codepoints on transitions).
-    pub fn make_binary_string_union<I>(utf8_strings: I) -> Result<Automaton>
-    where
-        I: IntoIterator<Item = BytesRef<Vec<u8>>>,
-    {
-        let mut iter = utf8_strings.into_iter();
-        if iter.next().is_none() {
+    pub fn make_binary_string_union(utf8_strings: &[BytesRef<Vec<u8>>]) -> Result<Automaton> {
+        if utf8_strings.is_empty() {
             Automata::make_empty()
         } else {
-            StringsToAutomaton::build(iter, true)
+            StringsToAutomaton::build(utf8_strings, true)
         }
     }
-
     /// Returns a new (deterministic and minimal) automaton that accepts the
     /// union of the given iterator of [`BytesRef`]s representing UTF-8
     /// encoded strings.
@@ -609,10 +600,9 @@ impl Automata {
     /// Returns:
     /// - An [`Automaton`] accepting all input strings. The resulting automaton
     ///   is codepoint-based (full Unicode codepoints on transitions).
-    pub(crate) fn make_string_union_from_iter<I>(utf8_strings: I) -> Result<Automaton>
-    where
-        I: BytesRefIterator<Vec<u8>>,
-    {
+    pub(crate) fn make_string_union_from_iter(
+        utf8_strings: &mut impl BytesRefIterator<Vec<u8>>,
+    ) -> Result<Automaton> {
         StringsToAutomaton::build_from_iterator(utf8_strings, false)
     }
     /// Returns a new (deterministic and minimal) automaton that accepts the
@@ -627,10 +617,9 @@ impl Automata {
     /// Returns:
     /// - An [`Automaton`] accepting all input strings. The resulting automaton
     ///   is binary-based (UTF-8 encoded byte transition labels).
-    pub fn make_binary_string_union_from_iter<I>(utf8_strings: I) -> Result<Automaton>
-    where
-        I: BytesRefIterator<Vec<u8>>,
-    {
+    pub fn make_binary_string_union_from_iter(
+        utf8_strings: &mut impl BytesRefIterator<Vec<u8>>,
+    ) -> Result<Automaton> {
         StringsToAutomaton::build_from_iterator(utf8_strings, true)
     }
 }
