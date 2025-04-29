@@ -1471,11 +1471,15 @@ impl<'a> Iterator for PointTransitionSetIterMut<'a> {
 pub(crate) mod tests {
     use std::collections::HashSet;
 
+    use rand::rngs::StdRng;
+    use rand::Rng;
+
     use crate::util::automation::automaton::Automaton;
     use crate::util::automation::finite_strings_iterator::FiniteStringsIterator;
     use crate::util::error::lucene_error::Result;
     use crate::util::ints_ref::IntsRef;
     pub(crate) struct TestOperations;
+
     impl TestOperations {
         /// Returns the set of all accepted strings.
         ///
@@ -1498,5 +1502,99 @@ pub(crate) mod tests {
             }
             Ok(result)
         }
+    }
+    // #[test]
+    // fn test_string_union() -> Result<()> {
+    //     let mut random = random();
+    //     // let count = random.random_range(0..1000);
+    //     let count = 1;
+    //     let mut strings = Vec::with_capacity(count);
+    //     for _ in 0..count {
+    //         // let s = TestUtil::random_unicode_string(&mut random);
+    //         let s = "abcdefghijklmabcdefghijklmnabcdefghijklmnabcdefghijklmnn";
+    //         strings.push(BytesRef::from_string(&s));
+    //     }
+    //     strings.sort();
+    //
+    //     let union = Automata::make_string_union(&strings)?;
+    //     assert!(union.is_deterministic());
+    //     assert!(!Operations::has_dead_states_from_initial(&union)?);
+    //
+    //     let naive_union = naive_union(strings.as_slice())?;
+    //     assert!(naive_union.is_deterministic());
+    //     assert!(!Operations::has_dead_states_from_initial(&naive_union)?);
+    //
+    //     assert!(AutomatonTestUtil::same_language(
+    //         &Rc::new(union),
+    //         &naive_union
+    //     )?);
+    //
+    //     Ok(())
+    // }
+    // fn naive_union(strings: &[BytesRef<Vec<u8>>]) -> Result<Rc<Automaton>> {
+    //     let mut automata = Vec::with_capacity(strings.len());
+    //
+    //     for bref in strings {
+    //         let s = bref.utf8_to_string()?;
+    //         automata.push(Automata::make_string(&s)?);
+    //     }
+    //
+    //     let union = Operations::union_list(&automata)?;
+    //     let det = Operations::determinize(
+    //         &union,
+    //         Operations::DEFAULT_DETERMINIZE_WORK_LIMIT,
+    //     )?;
+    //     Ok(det)
+    // }
+
+    /// This method creates a random [`Automaton`] by generating states at
+    /// multiple levels. At each level, a random number of states are
+    /// created, and transitions are added between the states of the current
+    /// and the previous level randomly. If the `has_cycle` parameter is
+    /// `true`, a transition is added from the first state of the last level
+    /// back to the initial state to create a cycle in the automaton.
+    ///
+    /// Parameters:
+    /// - `has_cycle`: If `true`, the generated automaton will contain a cycle;
+    ///   if `false`, it won't.
+    ///
+    /// Returns:
+    /// - A randomly generated [`Automaton`] instance.
+    fn generate_random_automaton(has_cycle: bool, random: &mut StdRng) -> Result<Automaton> {
+        let mut a = Automaton::new();
+        let mut last_level_states = vec![];
+        let initial_state = a.create_state();
+        let max_level = random.random_range(4..10);
+        last_level_states.push(initial_state);
+
+        for _level in 1..max_level {
+            let num_states = random.random_range(3..10);
+            let mut next_level_states = vec![];
+
+            for _ in 0..num_states {
+                let next_state = a.create_state();
+                next_level_states.push(next_state);
+            }
+
+            for &last_state in &last_level_states {
+                for &next_state in &next_level_states {
+                    // if hasCycle is enabled, we will always add a transition, so we could make
+                    // sure the generated Automaton has a cycle.
+                    if has_cycle || random.random_range(0..7) >= 1 {
+                        a.add_transition_label(last_state, next_state, random.random_range(0..10))?;
+                    }
+                }
+            }
+
+            last_level_states = next_level_states;
+        }
+
+        if has_cycle {
+            let last_state = last_level_states[0];
+            a.add_transition_label(last_state, initial_state, random.random_range(0..10))?;
+        }
+
+        a.finish_state()?;
+        Ok(a)
     }
 }

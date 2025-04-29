@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use std::collections::HashSet;
+use std::fmt;
 
 use bit_set::BitSet;
 use num_traits::ToPrimitive;
@@ -525,6 +526,13 @@ impl Automaton {
             tr.transition_upto = low;
         }
         dest_state
+    }
+    pub fn append_char_string(c: i32, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if (0x21..=0x7e).contains(&c) && c != '\\' as i32 && c != '"' as i32 {
+            write!(f, "{}", char::from_u32(c as u32).unwrap_or('?'))
+        } else {
+            write!(f, "\\\\U{:08X}", c)
+        }
     }
 }
 impl TransitionAccessor for Automaton {
@@ -1243,7 +1251,7 @@ mod tests {
         let a1 = Automata::make_string("foobar")?;
         let a2 = Automata::make_string("barbaz")?;
 
-        let union = Operations::union_list(&vec![a1, a2])?;
+        let union = Operations::union_list(&[a1, a2])?;
         let det = Operations::determinize(&union, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
 
         assert!(Operations::run_str(&det, "foobar"));
@@ -1282,7 +1290,7 @@ mod tests {
         let a1 = Automata::make_string("foobar")?;
         let a2 = Automata::make_string("boobar")?;
 
-        let union = Operations::union_list(&vec![a1, a2])?;
+        let union = Operations::union_list(&[a1, a2])?;
         let a_min =
             MinimizationOperations::minimize(&union, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
 
@@ -1702,7 +1710,7 @@ mod tests {
         let a2 = Rc::new(Automata::make_string("baz")?);
         assert!(a2.is_deterministic());
 
-        let concat = Operations::concatenate_with_list(&vec![a1, a2])?;
+        let concat = Operations::concatenate_with_list(&[a1, a2])?;
         assert!(concat.is_deterministic());
 
         Ok(())
@@ -1712,7 +1720,7 @@ mod tests {
         let a1 = Rc::new(Automata::make_string("x")?);
         let a2 = Rc::new(Automata::make_string("y")?);
 
-        let a = Rc::new(Operations::concatenate_with_list(&vec![a1, a2])?);
+        let a = Rc::new(Operations::concatenate_with_list(&[a1, a2])?);
         assert_eq!(a.get_num_states(), 4);
 
         let a = Operations::remove_dead_states(&a)?;

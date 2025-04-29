@@ -14,3 +14,195 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt;
+use std::hash::{Hash, Hasher};
+
+use crate::util::accountable::Accountable;
+use crate::util::automation::automaton::Automaton;
+use crate::util::automation::transition::Transition;
+use crate::util::bit_set::BitSet;
+use crate::util::bits::Bits;
+use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
+use crate::util::fixed_bit_set::FixedBitSet;
+/// Finite-state automaton with fast run operation. The initial state is always
+/// 0.
+pub struct RunAutomaton {
+    automaton: Automaton,
+    alphabet_size: usize,
+    size: i32,
+    accept: FixedBitSet,
+    transitions: Vec<i32>, // transitions[state * points.len() + get_char_class(c)]
+    points: Vec<i32>,
+    classmap: Vec<usize>,
+}
+
+impl RunAutomaton {
+    /// Constructs a new [`RunAutomaton`] from a deterministic [`Automaton`].
+    ///
+    /// Parameters:
+    /// - `a`: an automaton
+    ///
+    /// Errors:
+    /// - Returns an error if the automaton is not deterministic.
+    pub fn new(automaton: Automaton, alphabet_size: usize) -> Result<Self> {
+        if !automaton.is_deterministic() {
+            return Err(LuceneError::illegal_argument(
+                "Automaton must be deterministic",
+            ));
+        }
+
+        let points = automaton.get_start_points();
+        let size = std::cmp::max(1, automaton.get_num_states());
+        let mut accept = FixedBitSet::new(size);
+        let mut transitions = vec![-1; size as usize * points.len()];
+
+        let mut transition = Transition::default();
+        for n in 0..size {
+            if automaton.is_accept(n) {
+                accept.set(n);
+            }
+            transition.source = n;
+            transition.transition_upto = -1;
+
+            for (c_idx, &point) in points.iter().enumerate() {
+                let dest = automaton.next(&mut transition, point);
+                debug_assert!(dest == -1 || dest < size);
+                transitions[n as usize * points.len() + c_idx] = dest;
+            }
+        }
+
+        let mut classmap = vec![0; alphabet_size.min(256)];
+        let mut i = 0;
+        for j in 0..classmap.len() {
+            if i + 1 < points.len() && j as i32 == points[i + 1] {
+                i += 1;
+            }
+            classmap[j] = i;
+        }
+
+        Ok(Self {
+            automaton,
+            alphabet_size,
+            size,
+            accept,
+            transitions,
+            points,
+            classmap,
+        })
+    }
+    /// Returns number of states in automaton.
+    pub fn size(&self) -> i32 {
+        self.size
+    }
+
+    /// Returns the acceptance status for the given state.
+    ///
+    /// Parameters:
+    /// - `state`: The state to check
+    ///
+    /// Returns:
+    /// - `true` if the state is an accept state, otherwise `false`.
+    pub fn is_accept(&self, state: i32) -> bool {
+        self.accept.get(state)
+    }
+
+    #[allow(unused)]
+    /// Returns array of codepoint class interval start points. The array should
+    /// not be modified by the caller.
+    pub fn char_intervals(&self) -> &[i32] {
+        self.points.as_slice()
+    }
+    /// Gets character class of given codepoint
+    fn get_char_class(&self, c: i32) -> usize {
+        let mut a = 0;
+        let mut b = self.points.len();
+        while b - a > 1 {
+            let d = (a + b) / 2;
+            if self.points[d] > c {
+                b = d;
+            } else if self.points[d] < c {
+                a = d;
+            } else {
+                return d;
+            }
+        }
+        a
+    }
+    /// Returns the state obtained by reading the given character from the given
+    /// state. Returns `-1` if no such state can be obtained.
+    ///
+    /// (If the original [`Automaton`] had no dead states, then `-1` is returned
+    /// here if and only if a dead state would be entered in an equivalent
+    /// automaton with a total transition function.)
+    pub fn step(&self, state: usize, c: usize) -> i32 {
+        debug_assert!(c < self.alphabet_size);
+        let class = if c >= self.classmap.len() {
+            self.get_char_class(c as i32)
+        } else {
+            self.classmap[c]
+        };
+        self.transitions[state * self.points.len() + class]
+    }
+}
+impl fmt::Display for RunAutomaton {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "initial state: 0")?;
+        for i in 0..self.size {
+            write!(f, "state {}", i)?;
+            if self.accept.get(i) {
+                writeln!(f, " [accept]:")?;
+            } else {
+                writeln!(f, " [reject]:")?;
+            }
+
+            for j in 0..self.points.len() {
+                let k = self.transitions[i as usize * self.points.len() + j];
+                if k != -1 {
+                    let min = self.points[j];
+                    let max = if j + 1 < self.points.len() {
+                        self.points[j + 1] - 1
+                    } else {
+                        self.alphabet_size as i32
+                    };
+
+                    write!(f, " ")?;
+                    Automaton::append_char_string(min, f)?;
+                    if min != max {
+                        write!(f, "-")?;
+                        Automaton::append_char_string(max, f)?;
+                    }
+                    writeln!(f, " -> {}", k)?;
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+impl Accountable for RunAutomaton {
+    fn ram_bytes_used(&self) -> Result<i64> {
+        // memory calculation not Implement
+        Ok(0)
+    }
+}
+impl Hash for RunAutomaton {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.alphabet_size.hash(state);
+        self.size.hash(state);
+        self.points.hash(state);
+    }
+}
+use std::cmp::PartialEq;
+
+impl PartialEq for RunAutomaton {
+    fn eq(&self, other: &Self) -> bool {
+        self.alphabet_size == other.alphabet_size
+            && self.size == other.size
+            && self.points == other.points
+            && self.accept == other.accept
+            && self.transitions == other.transitions
+    }
+}
+
+impl Eq for RunAutomaton {}
