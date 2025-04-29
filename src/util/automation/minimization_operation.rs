@@ -94,11 +94,15 @@ impl MinimizationOperations {
                 for &q in &partition[j] {
                     if !reverse[q][x].is_empty() {
                         let state_list = &mut active[j][x];
+                        if j == 1 && x == 7 {
+                            print!("");
+                        }
                         // size == -1 means empty
                         if state_list.size == -1 {
                             *state_list = StateList::new();
                         }
                         active2[q][x] = Some(state_list.add(q as i32));
+                        print!("");
                     }
                 }
             }
@@ -115,6 +119,7 @@ impl MinimizationOperations {
         }
 
         let mut k = 2;
+        let iii = 0;
         while let Some(ip) = pending.pop_front() {
             let p = ip.0;
             let x = ip.1;
@@ -153,7 +158,7 @@ impl MinimizationOperations {
                             if let Some(sn) = &active2[s][c] {
                                 let sl_ptr = sn.borrow().sl;
                                 if std::ptr::eq(sl_ptr, &active[j][c]) {
-                                    sn.borrow_mut().remove();
+                                    StateListNode::remove(sn);
                                     if active[k][c].size == -1 {
                                         active[k][c] = StateList::new();
                                     }
@@ -272,27 +277,32 @@ impl StateList {
 #[derive(Debug)]
 pub(crate) struct StateListNode {
     pub(crate) q: i32,
+    // TODO: memory leak risk?
     pub(crate) next: Option<Rc<RefCell<StateListNode>>>,
     pub(crate) prev: Option<Rc<RefCell<StateListNode>>>,
     sl: *mut StateList,
 }
 impl StateListNode {
-    pub(crate) fn remove(&mut self) {
+    pub fn remove(this_rc: &Rc<RefCell<StateListNode>>) {
+        let mut this = this_rc.borrow_mut();
+
         unsafe {
-            let sl = &mut *self.sl;
-
+            let sl = &mut *this.sl;
             sl.size -= 1;
-
-            if let Some(prev) = self.prev.take() {
-                prev.borrow_mut().next = self.next.clone();
-            } else {
-                sl.first = self.next.clone();
+            if let Some(first) = &sl.first {
+                if Rc::ptr_eq(first, this_rc) {
+                    sl.first = this.next.clone();
+                } else if let Some(prev) = &this.prev {
+                    prev.borrow_mut().next = this.next.clone();
+                }
             }
 
-            if let Some(next) = self.next.take() {
-                next.borrow_mut().prev = self.prev.clone();
-            } else {
-                sl.last = self.prev.clone();
+            if let Some(last) = &sl.last {
+                if Rc::ptr_eq(last, this_rc) {
+                    sl.last = this.prev.clone();
+                } else if let Some(next) = &this.next {
+                    next.borrow_mut().prev = this.prev.clone();
+                }
             }
         }
     }

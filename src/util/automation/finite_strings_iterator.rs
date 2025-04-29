@@ -108,9 +108,9 @@ impl<'a> FiniteStringsIterator<'a> {
             let node = &mut self.nodes[depth as usize - 1];
 
             // Get next label leaving current node
-            let label = node.next_label(&self.a);
+            let label = node.next_label(self.a);
             if label != -1 {
-                self.string.set_int_at((depth - 1) as i32, label);
+                self.string.set_int_at(depth - 1, label);
 
                 let to = node.to;
                 if self.a.get_num_transitions_with_state(to) != 0 && to != self.end_state {
@@ -123,10 +123,10 @@ impl<'a> FiniteStringsIterator<'a> {
                     self.path_states.insert(to as usize);
                     // Push node onto stack:
                     self.grow_stack(depth as usize)?;
-                    self.nodes[depth as usize].reset_state(&self.a, to);
+                    self.nodes[depth as usize].reset_state(self.a, to);
                     depth += 1;
-                    self.string.set_length(depth as i32);
-                    self.string.grow(depth as i32);
+                    self.string.set_length(depth);
+                    self.string.grow(depth);
                 } else if self.end_state == to || self.a.is_accept(to) {
                     // This transition leads to an accept state, so we save the current string:
                     return Ok(Some(Cow::Borrowed(self.string.get())));
@@ -138,7 +138,7 @@ impl<'a> FiniteStringsIterator<'a> {
                 self.path_states.remove(state as usize);
 
                 depth -= 1;
-                self.string.set_length(depth as i32);
+                self.string.set_length(depth);
 
                 if self.a.is_accept(state) {
                     // This transition leads to an accept state, so we save the current string:
@@ -224,13 +224,12 @@ impl PathNode {
 #[cfg(test)]
 mod tests {
     use std::collections::HashSet;
-    use std::rc::Rc;
 
     use rand::Rng;
 
     use crate::index::BytesRef;
     use crate::test::util::automaton::automaton_test_util::AutomatonTestUtil;
-    use crate::test::util::lucene_test_case::{at_least, random};
+    use crate::test::util::lucene_test_case::random;
     use crate::test::util::test_util::TestUtil;
     use crate::util::automation::automata::Automata;
     use crate::util::automation::automaton::Automaton;
@@ -261,9 +260,9 @@ mod tests {
         for _ in 0..num_strings {
             // let s = TestUtil::random_simple_string_with_length(&mut random, 1, 200);
             let s = "ggmbkbndbhbixcmycgnuzkqnoxwttltukszhbgfxbkpcqrfdiawlljpqvopzroglk";
-            Util::get_utf32(&s, 0, s.len(), &mut scratch);
+            Util::get_utf32(s, 0, s.len(), &mut scratch);
             if strings.insert(scratch.to_ints_ref()) {
-                automata.push(Automata::make_string(&s)?);
+                automata.push(Automata::make_string(s)?);
                 if cfg!(feature = "test_log_verbose") {
                     println!("  add string={}", s);
                 }
@@ -272,22 +271,22 @@ mod tests {
 
         let mut a = Operations::union_list(&automata)?;
 
-        // if random.random_bool(0.5) {
-        a = MinimizationOperations::minimize(&a, 1_000_000)?;
-        //     if cfg!(feature = "test_log_verbose") {
-        //         println!("TEST: a.minimize numStates={}", a.get_num_states());
-        //     }
-        // } else if random.random_bool(0.5) {
-        //     if cfg!(feature = "test_log_verbose") {
-        //         println!("TEST: a.determinize");
-        //     }
-        //     a = Operations::determinize(&a, 1_000_000)?;
-        // } else if random.random_bool(0.5) {
-        //     if cfg!(feature = "test_log_verbose") {
-        //         println!("TEST: a.removeDeadStates");
-        //     }
-        //     a = Operations::remove_dead_states(a)?;
-        // }
+        if random.random_bool(0.5) {
+            a = MinimizationOperations::minimize(&a, 1_000_000)?;
+            if cfg!(feature = "test_log_verbose") {
+                println!("TEST: a.minimize numStates={}", a.get_num_states());
+            }
+        } else if random.random_bool(0.5) {
+            if cfg!(feature = "test_log_verbose") {
+                println!("TEST: a.determinize");
+            }
+            a = Operations::determinize(&a, 1_000_000)?;
+        } else if random.random_bool(0.5) {
+            if cfg!(feature = "test_log_verbose") {
+                println!("TEST: a.removeDeadStates");
+            }
+            a = Operations::remove_dead_states(a)?;
+        }
 
         let iterator = FiniteStringsIterator::new(&a);
         let actual = get_finite_strings(iterator)?;
@@ -340,11 +339,11 @@ mod tests {
         assert_eq!(actual.len(), 2);
 
         let mut dog = IntsRefBuilder::new();
-        Util::get_ints_ref(&BytesRef::<Vec<u8>>::from_string(&"dog"), &mut dog);
+        Util::get_ints_ref(&BytesRef::<Vec<u8>>::from_string("dog"), &mut dog);
         assert!(actual.contains(dog.get()));
 
         let mut duck = IntsRefBuilder::new();
-        Util::get_ints_ref(&BytesRef::<Vec<u8>>::from_string(&"duck"), &mut duck);
+        Util::get_ints_ref(&BytesRef::<Vec<u8>>::from_string("duck"), &mut duck);
         assert!(actual.contains(duck.get()));
 
         Ok(())

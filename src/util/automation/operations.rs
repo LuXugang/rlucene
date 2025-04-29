@@ -1483,9 +1483,7 @@ pub(crate) mod tests {
         ///
         /// See also:
         /// - [`FiniteStringsIterator`]
-        pub fn get_finite_strings_automaton<'a>(
-            a: &'a Automaton,
-        ) -> Result<HashSet<IntsRef<Vec<i32>>>> {
+        pub fn get_finite_strings_automaton(a: &Automaton) -> Result<HashSet<IntsRef<Vec<i32>>>> {
             let mut iter = FiniteStringsIterator::new_with_start_end(a, 0, -1);
             Self::get_finite_strings(&mut iter)
         }
