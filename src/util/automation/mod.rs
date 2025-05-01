@@ -28,3 +28,4 @@ mod state_set;
 mod strings_to_automaton;
 pub mod transition;
 pub(crate) mod transition_accessor;
+mod utf32_to_utf8;
