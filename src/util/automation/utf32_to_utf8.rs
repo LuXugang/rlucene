@@ -29,6 +29,11 @@ pub struct UTF32ToUTF8 {
     tmp_utf8b: UTF8Sequence,
     utf8: Builder,
 }
+impl Default for UTF32ToUTF8 {
+    fn default() -> Self {
+        UTF32ToUTF8::new()
+    }
+}
 
 impl UTF32ToUTF8 {
     const START_CODES: [i32; 4] = [0, 128, 2048, 65536];
