@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::{HashSet, VecDeque};
 use std::rc::Rc;
@@ -40,24 +41,24 @@ impl MinimizationOperations {
     ///   prevent memory exhaustion. Use
     ///   [`Operations::DEFAULT_DETERMINIZE_WORK_LIMIT`](Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)
     ///   as a decent default if you don't otherwise know what to specify.
-    pub(crate) fn minimize(
-        a: &Rc<Automaton>,
-        determinize_work_limit: usize,
-    ) -> Result<Rc<Automaton>> {
+    pub(crate) fn minimize(a: &Automaton, determinize_work_limit: usize) -> Result<Cow<Automaton>> {
         if a.get_num_states() == 0 || (!a.is_accept(0) && a.get_num_transitions_with_state(0) == 0)
         {
-            return Ok(Rc::from(Automaton::new()));
+            return Ok(Cow::Owned(Automaton::new()));
         }
-        let mut a = Operations::determinize(a, determinize_work_limit)?;
+        let a1 = Operations::determinize(a, determinize_work_limit)?;
 
-        if a.get_num_transitions_with_state(0) == 1 {
+        if a1.get_num_transitions_with_state(0) == 1 {
             let mut t = Transition::default();
             a.get_transition(0, 0, &mut t);
             if t.dest == 0 && t.min == char::MIN as i32 && t.max == char::MAX as i32 {
-                return Ok(a);
+                match a1 {
+                    Cow::Borrowed(_) => return Ok(Cow::Borrowed(a)),
+                    Cow::Owned(o) => return Ok(Cow::Owned(o)),
+                }
             }
         }
-        a = Rc::new(Operations::totalize(&a)?);
+        let a = Operations::totalize(&a1)?;
 
         let sigma = a.get_start_points();
         let sigma_len = sigma.len();
@@ -218,7 +219,10 @@ impl MinimizationOperations {
         }
 
         result.finish_state()?;
-        Operations::remove_dead_states(&Rc::new(result))
+        match Operations::remove_dead_states(&result)? {
+            Cow::Borrowed(_) => Ok(Cow::Owned(result)),
+            Cow::Owned(o) => Ok(Cow::Owned(o)),
+        }
     }
 }
 

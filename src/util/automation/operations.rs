@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::fmt;
@@ -25,7 +26,6 @@ use bit_set::BitSet;
 use crate::index::{BytesRef, BytesRefBuilder};
 use crate::internal::hppc::bit_mixer::BitMixer;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-use crate::util::access::AccessVec;
 use crate::util::array_util::ArrayUtil;
 use crate::util::automation::automata::Automata;
 use crate::util::automation::automaton::{Automaton, Builder};
@@ -54,14 +54,14 @@ impl Operations {
     /// the given automata.
     ///
     /// Complexity: linear in the total number of states.
-    pub fn concatenate(a1: Rc<Automaton>, a2: Rc<Automaton>) -> Result<Automaton> {
+    pub fn concatenate(a1: &Automaton, a2: &Automaton) -> Result<Automaton> {
         Operations::concatenate_with_list(&[a1, a2])
     }
     /// Returns an automaton that accepts the concatenation of the languages of
     /// the given automata.
     ///
     /// Complexity: linear in the total number of states.
-    pub fn concatenate_with_list(list: &[Rc<Automaton>]) -> Result<Automaton> {
+    pub fn concatenate_with_list(list: &[&Automaton]) -> Result<Automaton> {
         let mut result = Automaton::new();
         // First pass: create all states
         for a in list {
@@ -144,10 +144,10 @@ impl Operations {
     /// language of the given automaton. This may create a dead state.
     ///
     /// Complexity: linear in the number of states.
-    pub fn optional(a: &Rc<Automaton>) -> Result<Rc<Automaton>> {
+    pub fn optional(a: &Automaton) -> Result<Cow<Automaton>> {
         // If the initial state already accepts, return as is
         if a.is_accept(0) {
-            return Ok(a.clone());
+            return Ok(Cow::Borrowed(a));
         }
 
         // Check for any transition back to the initial state
@@ -172,7 +172,7 @@ impl Operations {
                 result.create_state();
             }
             result.set_accept(0, true);
-            return Ok(Rc::new(result));
+            return Ok(Cow::Owned(result));
         }
         let mut result = Automaton::new();
         result.create_state();
@@ -182,22 +182,22 @@ impl Operations {
             result.add_epsilon(0, 1)?;
         }
         result.finish_state()?;
-        Ok(Rc::new(result))
+        Ok(Cow::Owned(result))
     }
     /// Returns an automaton that accepts the Kleene star (zero or more
     /// concatenated repetitions) of the language of the given automaton.
     /// Never modifies the input automaton language.
     ///
     /// Complexity: linear in the number of states.
-    pub fn repeat(a: &Rc<Automaton>) -> Result<Rc<Automaton>> {
+    pub fn repeat(a: &Automaton) -> Result<Cow<Automaton>> {
         if a.get_num_states() == 0 {
             // Repeating the empty automata will still only accept the empty automata.
-            return Ok(a.clone());
+            return Ok(Cow::Borrowed(a));
         }
 
         // If state 0 is the only accept state, and it already repeats itself
         if a.is_accept(0) && Operations::get_live_states_to_accept(a)?.len() == 1 {
-            return Ok(a.clone());
+            return Ok(Cow::Borrowed(a));
         }
 
         let mut builder = Builder::new();
@@ -248,26 +248,30 @@ impl Operations {
                 }
             }
         }
-
-        Operations::remove_dead_states(&Rc::new(builder.finish()?))
+        let automaton = builder.finish()?;
+        let v = Operations::remove_dead_states(a)?;
+        match v {
+            Cow::Borrowed(_) => Ok(Cow::Owned(automaton)),
+            Cow::Owned(o) => Ok(Cow::Owned(o)),
+        }
     }
     /// Returns an automaton that accepts `min` or more concatenated repetitions
     /// of the language of the given automaton.
     ///
     /// Complexity: linear in the number of states and in `min`.
-    // TODO：这里需要使用Rc吗
-    pub fn repeat_count(a: &Rc<Automaton>, count: i32) -> Result<Rc<Automaton>> {
+    pub fn repeat_count(a: &Automaton, count: i32) -> Result<Cow<Automaton>> {
         if count == 0 {
             return Operations::repeat(a);
         }
 
         let mut automata = Vec::with_capacity(count as usize + 1);
         for _ in 0..count {
-            automata.push(a.clone());
+            automata.push(a);
         }
-        automata.push(Operations::repeat(a)?);
+        let v = Operations::repeat(a)?;
+        automata.push(&v);
 
-        Ok(Rc::new(Operations::concatenate_with_list(&automata)?))
+        Ok(Cow::Owned(Operations::concatenate_with_list(&automata)?))
     }
     /// Returns an automaton that accepts between `min` and `max` (inclusive)
     /// concatenated repetitions of the language of the given automaton.
@@ -278,19 +282,19 @@ impl Operations {
             return Automata::make_empty();
         }
 
-        let b: Rc<Automaton> = if min == 0 {
-            Rc::new(Automata::make_empty_string()?)
+        let b = if min == 0 {
+            Automata::make_empty_string()?
         } else if min == 1 {
             let mut base = Automaton::new();
             base.copy(a);
-            Rc::new(base)
+            base
         } else {
             let min = min as usize;
             let mut reps = Vec::with_capacity(min);
             for _ in 0..min {
-                reps.push(Rc::new(a.clone()));
+                reps.push(a);
             }
-            Rc::new(Operations::concatenate_with_list(&reps)?)
+            Operations::concatenate_with_list(&reps)?
         };
 
         let mut prev_accept = Operations::get_set(&b, 0);
@@ -329,10 +333,7 @@ impl Operations {
     ///   prevent memory exhaustion.
     ///   [`DEFAULT_DETERMINIZE_WORK_LIMIT`](Self::DEFAULT_DETERMINIZE_WORK_LIMIT)
     ///   is a good starting default.
-    pub(crate) fn complement(
-        a: &Rc<Automaton>,
-        determinize_work_limit: usize,
-    ) -> Result<Rc<Automaton>> {
+    pub(crate) fn complement(a: &Automaton, determinize_work_limit: usize) -> Result<Automaton> {
         let v = Operations::determinize(a, determinize_work_limit)?;
         let mut a = Operations::totalize(&v)?;
 
@@ -342,8 +343,10 @@ impl Operations {
             a.set_accept(p, !is_accept);
         }
 
-        let a = Operations::remove_dead_states(&Rc::new(a))?;
-        Ok(a)
+        match Operations::remove_dead_states(&a)? {
+            Cow::Borrowed(_) => Ok(a),
+            Cow::Owned(o) => Ok(o),
+        }
     }
     /// Returns a (deterministic) automaton that accepts the intersection of the
     /// language of `a1` and the complement of the language of `a2`.
@@ -362,35 +365,41 @@ impl Operations {
     ///   prevent memory exhaustion.
     ///   [`DEFAULT_DETERMINIZE_WORK_LIMIT`](Self::DEFAULT_DETERMINIZE_WORK_LIMIT)
     ///   is a good starting default.
-    pub fn minus(
-        a1: &Rc<Automaton>,
-        a2: &Rc<Automaton>,
+    pub fn minus<'a>(
+        a1: &'a Automaton,
+        a2: &'a Automaton,
         determinize_work_limit: usize,
-    ) -> Result<Rc<Automaton>> {
+    ) -> Result<Cow<'a, Automaton>> {
         if Operations::is_empty(a1) || std::ptr::eq(a1, a2) {
-            return Ok(Rc::from(Automata::make_empty()?));
+            return Ok(Cow::Owned(Automata::make_empty()?));
         }
-
         if Operations::is_empty(a2) {
-            return Ok(a1.clone());
+            return Ok(Cow::Borrowed(a1));
         }
-
         let complement_a2 = Operations::complement(a2, determinize_work_limit)?;
-        Operations::intersection(a1, &complement_a2)
+
+        match Operations::intersection(a1, &complement_a2)? {
+            Cow::Borrowed(v) if std::ptr::eq(v, &complement_a2) => Ok(Cow::Owned(complement_a2)),
+            Cow::Owned(o) => Ok(Cow::Owned(o)),
+            _ => Ok(Cow::Borrowed(a1)),
+        }
     }
     /// Returns an automaton that accepts the intersection of the languages of
     /// the given automata. Never modifies the input automata languages.
     ///
     /// Complexity: quadratic in the number of states.
-    pub(crate) fn intersection(a1: &Rc<Automaton>, a2: &Rc<Automaton>) -> Result<Rc<Automaton>> {
+    pub(crate) fn intersection<'a>(
+        a1: &'a Automaton,
+        a2: &'a Automaton,
+    ) -> Result<Cow<'a, Automaton>> {
         if std::ptr::eq(a1, a2) {
-            return Ok(a1.clone());
+            return Ok(Cow::Borrowed(a1));
         }
         if a1.get_num_states() == 0 {
-            return Ok(a1.clone());
+            return Ok(Cow::Borrowed(a1));
         }
         if a2.get_num_states() == 0 {
-            return Ok(a2.clone());
+            return Ok(Cow::Borrowed(a2));
         }
 
         let transitions1 = a1.get_sorted_transitions();
@@ -445,7 +454,10 @@ impl Operations {
         }
 
         c.finish_state()?;
-        Operations::remove_dead_states(&Rc::new(c))
+        match Operations::remove_dead_states(&c)? {
+            Cow::Borrowed(_) => Ok(Cow::Owned(c)),
+            Cow::Owned(o) => Ok(Cow::Owned(o)),
+        }
     }
     /// Returns `true` if this automaton has any states that cannot be reached
     /// from the initial state or cannot reach an accept state.
@@ -485,14 +497,14 @@ impl Operations {
     /// given automata.
     ///
     /// Complexity: linear in the number of states.
-    pub fn union(a1: Automaton, a2: Automaton) -> Result<Rc<Automaton>> {
+    pub fn union(a1: &Automaton, a2: &Automaton) -> Result<Automaton> {
         Operations::union_list(&[a1, a2])
     }
     /// Returns an automaton that accepts the union of the languages of the
     /// given automata.
     ///
     /// Complexity: linear in the number of states.
-    pub fn union_list(list: &[Automaton]) -> Result<Rc<Automaton>> {
+    pub fn union_list(list: &[&Automaton]) -> Result<Automaton> {
         let mut result = Automaton::new();
         // Create initial state:
         result.create_state();
@@ -513,7 +525,10 @@ impl Operations {
         }
 
         result.finish_state()?;
-        Operations::remove_dead_states(&Rc::from(result))
+        match Operations::remove_dead_states(&result)? {
+            Cow::Borrowed(_) => Ok(result),
+            Cow::Owned(o) => Ok(o),
+        }
     }
     /// Determinizes the given automaton.
     ///
@@ -530,9 +545,9 @@ impl Operations {
     /// Errors:
     /// - Returns [`TooComplexToDeterminizeError`](crate::util::error::TooComplexToDeterminizeError) if determinizing requires
     ///   more than `work_limit` units of effort.
-    pub fn determinize(a: &Rc<Automaton>, work_limit: usize) -> Result<Rc<Automaton>> {
+    pub fn determinize(a: &Automaton, work_limit: usize) -> Result<Cow<Automaton>> {
         if a.is_deterministic() || a.get_num_states() <= 1 {
-            return Ok(a.clone());
+            return Ok(Cow::Borrowed(a));
         }
 
         let mut b = Builder::new();
@@ -646,7 +661,7 @@ impl Operations {
         }
         let result = b.finish()?;
         debug_assert!(result.is_deterministic());
-        Ok(Rc::new(result))
+        Ok(Cow::Owned(result))
     }
     /// Returns true if the given automaton accepts no strings.
     pub(crate) fn is_empty(a: &Automaton) -> bool {
@@ -871,11 +886,11 @@ impl Operations {
     /// Removes transitions to dead states.
     /// A state is considered "dead" if it is not reachable from the initial
     /// state or if no accept state is reachable from it.
-    pub fn remove_dead_states(a: &Rc<Automaton>) -> Result<Rc<Automaton>> {
+    pub fn remove_dead_states(a: &Automaton) -> Result<Cow<Automaton>> {
         let num_states = a.get_num_states() as usize;
         let live_set = Operations::get_live_states(a)?;
         if live_set.len() == num_states {
-            return Ok(a.clone());
+            return Ok(Cow::Borrowed(a));
         }
 
         let mut map = vec![0; num_states];
@@ -905,7 +920,7 @@ impl Operations {
 
         result.finish_state()?;
         debug_assert!(!Operations::has_dead_states(&result)?);
-        Ok(Rc::new(result))
+        Ok(Cow::Owned(result))
     }
     /// Returns the longest string that is a prefix of all accepted strings and
     /// visits each state at most once. The automaton must not have dead
@@ -1045,7 +1060,8 @@ impl Operations {
     /// - The common suffix, which can be an empty (length 0) [`BytesRef`]
     ///   (never `None`).
     pub fn get_common_suffix_bytes_ref(a: &Automaton) -> Result<BytesRef<Vec<u8>>> {
-        let r = Operations::remove_dead_states(&Rc::new(Operations::reverse(a)?))?;
+        let v = Operations::reverse(a)?;
+        let r = Operations::remove_dead_states(&v)?;
         let mut bytes_ref = Operations::get_common_prefix_bytes_ref(&r)?;
         Operations::reverse_bytes(&mut bytes_ref);
         Ok(bytes_ref)

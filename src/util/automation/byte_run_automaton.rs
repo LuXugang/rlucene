@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::rc::Rc;
+use std::borrow::Cow;
 
 use crate::util::automation::automaton::Automaton;
 use crate::util::automation::operations::Operations;
@@ -33,11 +33,7 @@ impl ByteRunAutomaton {
     /// Errors:
     /// - Returns an error if the automaton is not deterministic.
     pub fn new_with_bool(a: Automaton, is_binary: bool) -> Result<Self> {
-        let automaton = if is_binary {
-            a
-        } else {
-            Rc::try_unwrap(Self::convert(a)?).expect("only one strong reference")
-        };
+        let automaton = if is_binary { a } else { Self::convert(a)? };
 
         Ok(ByteRunAutomaton {
             base: RunAutomaton::new(automaton, 256)?,
@@ -52,11 +48,14 @@ impl ByteRunAutomaton {
         Self::new_with_bool(a, false)
     }
 
-    fn convert(a: Automaton) -> Result<Rc<Automaton>> {
+    fn convert(a: Automaton) -> Result<Automaton> {
         if !a.is_deterministic() {
             panic!("Automaton must be deterministic");
         }
         let converted = UTF32ToUTF8::default().convert(a)?;
-        Operations::determinize(&Rc::new(converted), i32::MAX as usize)
+        match Operations::determinize(&converted, i32::MAX as usize)? {
+            Cow::Borrowed(v) => Ok(converted),
+            Cow::Owned(v) => Ok(v),
+        }
     }
 }

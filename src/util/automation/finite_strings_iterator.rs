@@ -223,6 +223,7 @@ impl PathNode {
 }
 #[cfg(test)]
 mod tests {
+    use std::borrow::Cow;
     use std::collections::HashSet;
 
     use rand::Rng;
@@ -254,39 +255,41 @@ mod tests {
         }
 
         let mut strings = HashSet::new();
-        let mut automata = Vec::new();
+        let mut string_list = Vec::new();
         let mut scratch = IntsRefBuilder::new();
 
         for _ in 0..num_strings {
-            // let s = TestUtil::random_simple_string_with_length(&mut random, 1, 200);
-            let s = "ggmbkbndbhbixcmycgnuzkqnoxwttltukszhbgfxbkpcqrfdiawlljpqvopzroglk";
-            Util::get_utf32_with_slice(s, 0, s.len(), &mut scratch);
+            let s = TestUtil::random_simple_string_with_length(&mut random, 1, 200);
+            Util::get_utf32_with_slice(&s, 0, s.len(), &mut scratch);
             if strings.insert(scratch.to_ints_ref()) {
-                automata.push(Automata::make_string(s)?);
+                string_list.push(Automata::make_string(&s)?);
                 if cfg!(feature = "test_log_verbose") {
                     println!("  add string={}", s);
                 }
             }
         }
+        let refs: Vec<&Automaton> = string_list.iter().collect();
+        let a = Operations::union_list(&refs)?;
 
-        let mut a = Operations::union_list(&automata)?;
-
-        if random.random_bool(0.5) {
-            a = MinimizationOperations::minimize(&a, 1_000_000)?;
+        let a = if random.random_bool(0.5) {
+            let v = MinimizationOperations::minimize(&a, 1_000_000)?;
             if cfg!(feature = "test_log_verbose") {
                 println!("TEST: a.minimize numStates={}", a.get_num_states());
             }
+            v
         } else if random.random_bool(0.5) {
             if cfg!(feature = "test_log_verbose") {
                 println!("TEST: a.determinize");
             }
-            a = Operations::determinize(&a, 1_000_000)?;
+            Operations::determinize(&a, 1_000_000)?
         } else if random.random_bool(0.5) {
             if cfg!(feature = "test_log_verbose") {
                 println!("TEST: a.removeDeadStates");
             }
-            a = Operations::remove_dead_states(&a)?;
-        }
+            Operations::remove_dead_states(&a)?
+        } else {
+            Cow::Owned(a)
+        };
 
         let iterator = FiniteStringsIterator::new(&a);
         let actual = get_finite_strings(iterator)?;
@@ -328,8 +331,8 @@ mod tests {
     #[test]
     fn test_finite_strings_basic() -> Result<()> {
         let a = Operations::union(
-            Automata::make_string("dog")?,
-            Automata::make_string("duck")?,
+            &Automata::make_string("dog")?,
+            &Automata::make_string("duck")?,
         )?;
         let a = MinimizationOperations::minimize(&a, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
         let iterator = FiniteStringsIterator::new(&a);
@@ -370,8 +373,8 @@ mod tests {
         let big_string2 = String::from_utf16(&chars).unwrap();
 
         let a = Operations::union(
-            Automata::make_string(&big_string1)?,
-            Automata::make_string(&big_string2)?,
+            &Automata::make_string(&big_string1)?,
+            &Automata::make_string(&big_string2)?,
         )?;
 
         let iterator = FiniteStringsIterator::new(&a);
@@ -410,8 +413,8 @@ mod tests {
 
     #[test]
     fn test_short_accept() -> Result<()> {
-        let mut a = Operations::union(Automata::make_string("x")?, Automata::make_string("xy")?)?;
-        a = MinimizationOperations::minimize(&a, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
+        let a = Operations::union(&Automata::make_string("x")?, &Automata::make_string("xy")?)?;
+        let a = MinimizationOperations::minimize(&a, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
 
         let iterator = FiniteStringsIterator::new(&a);
         let actual = get_finite_strings(iterator)?;

@@ -151,7 +151,7 @@ impl AutomatonTestUtil {
     /// This is a costly computation!
     ///
     /// Both automata must be determinized and have no dead states.
-    pub(crate) fn same_language(a1: &Rc<Automaton>, a2: &Rc<Automaton>) -> Result<bool> {
+    pub(crate) fn same_language(a1: &Automaton, a2: &Automaton) -> Result<bool> {
         if std::ptr::eq(a1, a2) {
             return Ok(true);
         }
@@ -163,7 +163,7 @@ impl AutomatonTestUtil {
     /// states.
     ///
     /// Complexity: quadratic in the number of states.
-    pub(crate) fn subset_of(a1: &Rc<Automaton>, a2: &Rc<Automaton>) -> Result<bool> {
+    pub(crate) fn subset_of(a1: &Automaton, a2: &Automaton) -> Result<bool> {
         if !a1.is_deterministic() {
             return Err(LuceneError::illegal_argument(
                 "a1 must be deterministic".to_string(),

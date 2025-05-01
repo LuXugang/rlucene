@@ -933,8 +933,8 @@ impl Sorter for DestMinMaxSorter<'_> {
 }
 #[cfg(test)]
 mod tests {
+    use std::borrow::Cow;
     use std::collections::HashSet;
-    use std::rc::Rc;
 
     use rand::rngs::StdRng;
     use rand::Rng;
@@ -1012,19 +1012,20 @@ mod tests {
     }
     #[test]
     fn test_same_language() -> Result<()> {
-        let a1 = Rc::new(Automata::make_string("foobar")?);
-        let a2 = Operations::remove_dead_states(&Rc::new(Operations::concatenate(
-            Rc::new(Automata::make_string("foo")?),
-            Rc::new(Automata::make_string("bar")?),
-        )?))?;
+        let a1 = Automata::make_string("foobar")?;
+        let v = Operations::concatenate(
+            &Automata::make_string("foo")?,
+            &Automata::make_string("bar")?,
+        )?;
+        let a2 = Operations::remove_dead_states(&v)?;
         assert!(AutomatonTestUtil::same_language(&a1, &a2)?);
         Ok(())
     }
     #[test]
     fn test_common_prefix_string() -> Result<()> {
         let a = Operations::concatenate(
-            Rc::new(Automata::make_string("foobar")?),
-            Rc::new(Automata::make_any_string()?),
+            &Automata::make_string("foobar")?,
+            &Automata::make_any_string()?,
         )?;
 
         let prefix = Operations::get_common_prefix(&a)?;
@@ -1067,7 +1068,7 @@ mod tests {
     fn test_alternatives() -> Result<()> {
         let a = Automata::make_char('a' as i32)?;
         let c = Automata::make_char('c' as i32)?;
-        let union = Operations::union(a, c)?;
+        let union = Operations::union(&a, &c)?;
         let prefix = Operations::get_common_prefix(&union)?;
         assert_eq!(prefix, "");
         Ok(())
@@ -1075,10 +1076,8 @@ mod tests {
 
     #[test]
     fn test_common_prefix_leading_wildcard() -> Result<()> {
-        let a = Operations::concatenate(
-            Rc::new(Automata::make_any_char()?),
-            Rc::new(Automata::make_string("boo")?),
-        )?;
+        let a =
+            Operations::concatenate(&Automata::make_any_char()?, &Automata::make_string("boo")?)?;
         let prefix = Operations::get_common_prefix(&a)?;
         assert_eq!(prefix, "");
         Ok(())
@@ -1086,10 +1085,8 @@ mod tests {
 
     #[test]
     fn test_common_prefix_trailing_wildcard() -> Result<()> {
-        let a = Operations::concatenate(
-            Rc::new(Automata::make_string("boo")?),
-            Rc::new(Automata::make_any_char()?),
-        )?;
+        let a =
+            Operations::concatenate(&Automata::make_string("boo")?, &Automata::make_any_char()?)?;
         let prefix = Operations::get_common_prefix(&a)?;
         assert_eq!(prefix, "boo");
         Ok(())
@@ -1098,8 +1095,8 @@ mod tests {
     #[test]
     fn test_common_prefix_leading_kleen_star() -> Result<()> {
         let a = Operations::concatenate(
-            Rc::new(Automata::make_any_string()?),
-            Rc::new(Automata::make_string("boo")?),
+            &Automata::make_any_string()?,
+            &Automata::make_string("boo")?,
         )?;
         let prefix = Operations::get_common_prefix(&a)?;
         assert_eq!(prefix, "");
@@ -1109,8 +1106,8 @@ mod tests {
     #[test]
     fn test_common_prefix_trailing_kleen_star() -> Result<()> {
         let a = Operations::concatenate(
-            Rc::new(Automata::make_string("boo")?),
-            Rc::new(Automata::make_any_string()?),
+            &Automata::make_string("boo")?,
+            &Automata::make_any_string()?,
         )?;
         let prefix = Operations::get_common_prefix(&a)?;
         assert_eq!(prefix, "boo");
@@ -1119,8 +1116,8 @@ mod tests {
     #[test]
     fn test_common_prefix_dead_states() -> Result<()> {
         let a = Operations::concatenate(
-            Rc::new(Automata::make_any_string()?),
-            Rc::new(Automata::make_string("boo")?),
+            &Automata::make_any_string()?,
+            &Automata::make_string("boo")?,
         )?;
 
         // reverse twice to create dead states
@@ -1138,15 +1135,15 @@ mod tests {
     #[test]
     fn test_common_prefix_remove_dead_states() -> Result<()> {
         let a = Operations::concatenate(
-            Rc::new(Automata::make_any_string()?),
-            Rc::new(Automata::make_string("boo")?),
+            &Automata::make_any_string()?,
+            &Automata::make_string("boo")?,
         )?;
 
         // reverse twice to create dead states
         let with_dead_states = Operations::reverse(&Operations::reverse(&a)?)?;
 
         // now remove the dead states
-        let without_dead_states = Operations::remove_dead_states(&Rc::new(with_dead_states))?;
+        let without_dead_states = Operations::remove_dead_states(&with_dead_states)?;
 
         let prefix = Operations::get_common_prefix(&without_dead_states)?;
         assert_eq!(prefix, "");
@@ -1209,8 +1206,8 @@ mod tests {
     #[test]
     fn test_common_prefix_unicode() -> Result<()> {
         let a = Operations::concatenate(
-            Rc::new(Automata::make_string("boo😂😂😂")?),
-            Rc::new(Automata::make_any_char()?),
+            &Automata::make_string("boo😂😂😂")?,
+            &Automata::make_any_char()?,
         )?;
         let prefix = Operations::get_common_prefix(&a)?;
         assert_eq!(prefix, "boo😂😂😂");
@@ -1219,10 +1216,8 @@ mod tests {
 
     #[test]
     fn test_concatenate1() -> Result<()> {
-        let a = Operations::concatenate(
-            Rc::new(Automata::make_string("m")?),
-            Rc::new(Automata::make_any_string()?),
-        )?;
+        let a =
+            Operations::concatenate(&Automata::make_string("m")?, &Automata::make_any_string()?)?;
         assert!(Operations::run_str(&a, "m"));
         assert!(Operations::run_str(&a, "me"));
         assert!(Operations::run_str(&a, "me too"));
@@ -1232,12 +1227,12 @@ mod tests {
     #[test]
     fn test_concatenate2() -> Result<()> {
         let a = Operations::concatenate_with_list(&[
-            Rc::new(Automata::make_string("m")?),
-            Rc::new(Automata::make_any_string()?),
-            Rc::new(Automata::make_string("n")?),
-            Rc::new(Automata::make_any_string()?),
+            &Automata::make_string("m")?,
+            &Automata::make_any_string()?,
+            &Automata::make_string("n")?,
+            &Automata::make_any_string()?,
         ])?;
-        let a = Operations::determinize(&Rc::new(a), Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
+        let a = Operations::determinize(&a, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
 
         assert!(Operations::run_str(&a, "mn"));
         assert!(Operations::run_str(&a, "mone"));
@@ -1251,13 +1246,13 @@ mod tests {
         let a1 = Automata::make_string("foobar")?;
         let a2 = Automata::make_string("barbaz")?;
 
-        let union = Operations::union_list(&[a1, a2])?;
+        let union = Operations::union_list(&[&a1, &a2])?;
         let det = Operations::determinize(&union, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
 
         assert!(Operations::run_str(&det, "foobar"));
         assert!(Operations::run_str(&det, "barbaz"));
 
-        assert_matches(det, &["foobar", "barbaz"])?;
+        assert_matches(&det, &["foobar", "barbaz"])?;
         Ok(())
     }
     #[test]
@@ -1266,19 +1261,19 @@ mod tests {
         let a2 = Automata::make_string("")?;
         let a3 = Automata::make_string("barbaz")?;
 
-        let union = Operations::union_list(&vec![a1, a2, a3])?;
+        let union = Operations::union_list(&[&a1, &a2, &a3])?;
         let det = Operations::determinize(&union, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
 
         assert!(Operations::run_str(&det, "foobar"));
         assert!(Operations::run_str(&det, "barbaz"));
         assert!(Operations::run_str(&det, ""));
 
-        assert_matches(det, &["", "foobar", "barbaz"])?;
+        assert_matches(&det, &["", "foobar", "barbaz"])?;
         Ok(())
     }
     #[test]
     fn test_minimize_simple() -> Result<()> {
-        let a = Rc::new(Automata::make_string("foobar")?);
+        let a = Automata::make_string("foobar")?;
         let a_min =
             MinimizationOperations::minimize(&a, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
 
@@ -1290,7 +1285,7 @@ mod tests {
         let a1 = Automata::make_string("foobar")?;
         let a2 = Automata::make_string("boobar")?;
 
-        let union = Operations::union_list(&[a1, a2])?;
+        let union = Operations::union_list(&[&a1, &a2])?;
         let a_min =
             MinimizationOperations::minimize(&union, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
 
@@ -1303,9 +1298,9 @@ mod tests {
 
     #[test]
     fn test_reverse() -> Result<()> {
-        let a = Rc::new(Automata::make_string("foobar")?);
+        let a = Automata::make_string("foobar")?;
         let ra = Operations::reverse(&a)?;
-        let ra_rev = Rc::new(Operations::reverse(&ra)?);
+        let ra_rev = Operations::reverse(&ra)?;
         let a2 = Operations::determinize(&ra_rev, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
 
         assert!(AutomatonTestUtil::same_language(&a, &a2)?);
@@ -1314,9 +1309,9 @@ mod tests {
 
     #[test]
     fn test_optional() -> Result<()> {
-        let a = Rc::new(Automata::make_string("foobar")?);
-        let mut a2 = Operations::optional(&a)?;
-        a2 = Operations::determinize(&a2, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
+        let a = Automata::make_string("foobar")?;
+        let a2 = Operations::optional(&a)?;
+        let a2 = Operations::determinize(&a2, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
 
         assert!(Operations::run_str(&a, "foobar"));
         assert!(!Operations::run_str(&a, ""));
@@ -1327,7 +1322,7 @@ mod tests {
 
     #[test]
     fn test_repeat_any() -> Result<()> {
-        let a = Rc::new(Automata::make_string("zee")?);
+        let a = Automata::make_string("zee")?;
         let repeated = Operations::repeat(&a)?;
         let a2 = Operations::determinize(&repeated, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
 
@@ -1339,7 +1334,7 @@ mod tests {
     }
     #[test]
     fn test_repeat_min() -> Result<()> {
-        let a = Rc::new(Automata::make_string("zee")?);
+        let a = Automata::make_string("zee")?;
         let repeated = Operations::repeat_count(&a, 2)?;
         let a2 = Operations::determinize(&repeated, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
 
@@ -1352,8 +1347,8 @@ mod tests {
 
     #[test]
     fn test_repeat_min_max1() -> Result<()> {
-        let a = Rc::new(Automata::make_string("zee")?);
-        let repeated = Rc::new(Operations::repeat_min_max(&a, 0, 2)?);
+        let a = Automata::make_string("zee")?;
+        let repeated = Operations::repeat_min_max(&a, 0, 2)?;
         let a2 = Operations::determinize(&repeated, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
 
         assert!(Operations::run_str(&a2, ""));
@@ -1365,8 +1360,8 @@ mod tests {
 
     #[test]
     fn test_repeat_min_max2() -> Result<()> {
-        let a = Rc::new(Automata::make_string("zee")?);
-        let repeated = Rc::new(Operations::repeat_min_max(&a, 2, 4)?);
+        let a = Automata::make_string("zee")?;
+        let repeated = Operations::repeat_min_max(&a, 2, 4)?;
         let a2 = Operations::determinize(&repeated, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
 
         assert!(!Operations::run_str(&a2, ""));
@@ -1379,7 +1374,7 @@ mod tests {
     }
     #[test]
     fn test_complement() -> Result<()> {
-        let a = Rc::new(Automata::make_string("zee")?);
+        let a = Automata::make_string("zee")?;
         let comp = Operations::complement(&a, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
         let a2 = Operations::determinize(&comp, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
 
@@ -1392,7 +1387,7 @@ mod tests {
 
     #[test]
     fn test_interval() -> Result<()> {
-        let interval = Rc::new(Automata::make_decimal_interval(17, 100, 3)?);
+        let interval = Automata::make_decimal_interval(17, 100, 3)?;
         let a = Operations::determinize(&interval, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
 
         assert!(!Operations::run_str(&a, ""));
@@ -1435,10 +1430,8 @@ mod tests {
 
     #[test]
     fn test_common_suffix_trailing_wildcard() -> Result<()> {
-        let a = Operations::concatenate(
-            Rc::new(Automata::make_string("boo")?),
-            Rc::new(Automata::make_any_char()?),
-        )?;
+        let a =
+            Operations::concatenate(&Automata::make_string("boo")?, &Automata::make_any_char()?)?;
         let suffix = Operations::get_common_suffix_bytes_ref(&a)?;
         assert_eq!(suffix, BytesRef::new());
         Ok(())
@@ -1447,8 +1440,8 @@ mod tests {
     #[test]
     fn test_common_suffix_leading_kleen_star() -> Result<()> {
         let a = Operations::concatenate(
-            Rc::new(Automata::make_any_string()?),
-            Rc::new(Automata::make_string("boo")?),
+            &Automata::make_any_string()?,
+            &Automata::make_string("boo")?,
         )?;
         let suffix = Operations::get_common_suffix_bytes_ref(&a)?;
         assert_eq!(suffix, BytesRef::from_string("boo"));
@@ -1458,8 +1451,8 @@ mod tests {
     #[test]
     fn test_common_suffix_trailing_kleen_star() -> Result<()> {
         let a = Operations::concatenate(
-            Rc::new(Automata::make_string("boo")?),
-            Rc::new(Automata::make_any_string()?),
+            &Automata::make_string("boo")?,
+            &Automata::make_any_string()?,
         )?;
         let suffix = Operations::get_common_suffix_bytes_ref(&a)?;
         assert_eq!(suffix, BytesRef::new());
@@ -1483,7 +1476,7 @@ mod tests {
     }
     #[test]
     fn test_any_string_empty_string() -> Result<()> {
-        let any = Rc::new(Automata::make_any_string()?);
+        let any = Automata::make_any_string()?;
         let a = Operations::determinize(&any, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
         assert!(Operations::run_str(&a, ""));
         Ok(())
@@ -1499,7 +1492,7 @@ mod tests {
 
     #[test]
     fn test_remove_dead_transitions_empty() -> Result<()> {
-        let a = Rc::new(Automata::make_empty()?);
+        let a = Automata::make_empty()?;
         let a2 = Operations::remove_dead_states(&a)?;
         assert!(Operations::is_empty(&a2));
         Ok(())
@@ -1539,10 +1532,8 @@ mod tests {
         assert!(!Operations::is_total(&a)?);
 
         a.set_accept(init, true);
-        let minimized = MinimizationOperations::minimize(
-            &Rc::new(a),
-            Operations::DEFAULT_DETERMINIZE_WORK_LIMIT,
-        )?;
+        let minimized =
+            MinimizationOperations::minimize(&a, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
         assert!(Operations::is_total(&minimized)?);
 
         Ok(())
@@ -1556,10 +1547,7 @@ mod tests {
         a.add_transition_label(init, fini, 'a' as i32)?;
         a.finish_state()?;
 
-        let a = MinimizationOperations::minimize(
-            &Rc::new(a),
-            Operations::DEFAULT_DETERMINIZE_WORK_LIMIT,
-        )?;
+        let a = MinimizationOperations::minimize(&a, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
         assert_eq!(a.get_num_states(), 0);
         Ok(())
     }
@@ -1570,46 +1558,48 @@ mod tests {
         let a2 = Automata::make_string("boobar")?;
         let a3 = Automata::make_string("beebar")?;
 
-        let mut a = Operations::union_list(&vec![a1, a2, a3])?;
+        let a = Operations::union_list(&[&a1, &a2, &a3])?;
 
-        if random.random_bool(0.5) {
-            a = Operations::determinize(&a, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
+        let a = if random.random_bool(0.5) {
+            Operations::determinize(&a, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?
         } else if random.random_bool(0.5) {
-            a = MinimizationOperations::minimize(&a, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
-        }
+            MinimizationOperations::minimize(&a, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?
+        } else {
+            Cow::Owned(a)
+        };
 
-        assert_matches(a.clone(), &["foobar", "beebar", "boobar"])?;
+        assert_matches(&a, &["foobar", "beebar", "boobar"])?;
 
-        let a2 = Rc::new(Automata::make_string("boobar")?);
-        let mut a4 = Operations::minus(&a, &a2, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
-        a4 = Operations::determinize(&a4, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
+        let a2 = Automata::make_string("boobar")?;
+        let a4 = Operations::minus(&a, &a2, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
+        let a4 = Operations::determinize(&a4, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
 
         assert!(Operations::run_str(&a4, "foobar"));
         assert!(!Operations::run_str(&a4, "boobar"));
         assert!(Operations::run_str(&a4, "beebar"));
-        assert_matches(a4.clone(), &["foobar", "beebar"])?;
-        let a1 = Rc::new(Automata::make_string("foobar")?);
-        a4 = Operations::minus(&a4, &a1, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
-        a4 = Operations::determinize(&a4, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
+        assert_matches(&a4, &["foobar", "beebar"])?;
+        let a1 = Automata::make_string("foobar")?;
+        let a4 = Operations::minus(&a4, &a1, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
+        let a4 = Operations::determinize(&a4, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
 
         assert!(!Operations::run_str(&a4, "foobar"));
         assert!(!Operations::run_str(&a4, "boobar"));
         assert!(Operations::run_str(&a4, "beebar"));
-        assert_matches(a4.clone(), &["beebar"])?;
-        let a3 = Rc::new(Automata::make_string("beebar")?);
-        a4 = Operations::minus(&a4, &a3, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
-        a4 = Operations::determinize(&a4, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
+        assert_matches(&a4, &["beebar"])?;
+        let a3 = Automata::make_string("beebar")?;
+        let a4 = Operations::minus(&a4, &a3, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
+        let a4 = Operations::determinize(&a4, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
 
         assert!(!Operations::run_str(&a4, "foobar"));
         assert!(!Operations::run_str(&a4, "boobar"));
         assert!(!Operations::run_str(&a4, "beebar"));
-        assert_matches(a4, &[])?;
+        assert_matches(&a4, &[])?;
 
         Ok(())
     }
     #[test]
     fn test_one_interval() -> Result<()> {
-        let a = Rc::new(Automata::make_decimal_interval(999, 1032, 0)?);
+        let a = Automata::make_decimal_interval(999, 1032, 0)?;
         let a = Operations::determinize(&a, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
 
         assert!(Operations::run_str(&a, "0999"));
@@ -1620,7 +1610,7 @@ mod tests {
 
     #[test]
     fn test_another_interval() -> Result<()> {
-        let a = Rc::new(Automata::make_decimal_interval(1, 2, 0)?);
+        let a = Automata::make_decimal_interval(1, 2, 0)?;
         let a = Operations::determinize(&a, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
 
         assert!(Operations::run_str(&a, "01"));
@@ -1648,14 +1638,13 @@ mod tests {
 
             let prefix = "0".repeat(digits as usize);
 
-            let mut a = Rc::new(Automata::make_decimal_interval(min, max, digits)?);
-            a = Operations::determinize(&a, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
-            if random.random_bool(0.5) {
-                a = MinimizationOperations::minimize(
-                    &a,
-                    Operations::DEFAULT_DETERMINIZE_WORK_LIMIT,
-                )?;
-            }
+            let a = Automata::make_decimal_interval(min, max, digits)?;
+            let a = Operations::determinize(&a, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
+            let a = if random.random_bool(0.5) {
+                MinimizationOperations::minimize(&a, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?
+            } else {
+                a
+            };
 
             let mut mins = min.to_string();
             let mut maxs = max.to_string();
@@ -1686,7 +1675,7 @@ mod tests {
         Ok(())
     }
 
-    fn assert_matches(a: Rc<Automaton>, strings: &[&str]) -> Result<()> {
+    fn assert_matches(a: &Automaton, strings: &[&str]) -> Result<()> {
         let mut expected = HashSet::new();
         let mut scratch = IntsRefBuilder::new();
 
@@ -1695,7 +1684,7 @@ mod tests {
             let v = scratch.get_owner();
             expected.insert(v);
         }
-        let det = Operations::determinize(&a, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
+        let det = Operations::determinize(a, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
         let actual = TestOperations::get_finite_strings_automaton(&det)
             .expect("Failed to get finite strings");
 
@@ -1704,23 +1693,23 @@ mod tests {
     }
     #[test]
     fn test_concatenate_preserves_det() -> Result<()> {
-        let a1 = Rc::new(Automata::make_string("foobar")?);
+        let a1 = Automata::make_string("foobar")?;
         assert!(a1.is_deterministic());
 
-        let a2 = Rc::new(Automata::make_string("baz")?);
+        let a2 = Automata::make_string("baz")?;
         assert!(a2.is_deterministic());
 
-        let concat = Operations::concatenate_with_list(&[a1, a2])?;
+        let concat = Operations::concatenate_with_list(&[&a1, &a2])?;
         assert!(concat.is_deterministic());
 
         Ok(())
     }
     #[test]
     fn test_remove_dead_states() -> Result<()> {
-        let a1 = Rc::new(Automata::make_string("x")?);
-        let a2 = Rc::new(Automata::make_string("y")?);
+        let a1 = Automata::make_string("x")?;
+        let a2 = Automata::make_string("y")?;
 
-        let a = Rc::new(Operations::concatenate_with_list(&[a1, a2])?);
+        let a = Operations::concatenate_with_list(&[&a1, &a2])?;
         assert_eq!(a.get_num_states(), 4);
 
         let a = Operations::remove_dead_states(&a)?;
@@ -1735,7 +1724,7 @@ mod tests {
         a.finish_state()?;
         assert!(Operations::is_empty(&a));
 
-        let a2 = Operations::remove_dead_states(&Rc::new(a))?;
+        let a2 = Operations::remove_dead_states(&a)?;
         assert!(Operations::is_empty(&a2));
 
         Ok(())
@@ -1747,7 +1736,7 @@ mod tests {
         a.finish_state()?;
         assert!(Operations::is_empty(&a));
 
-        let a2 = Operations::remove_dead_states(&Rc::new(a))?;
+        let a2 = Operations::remove_dead_states(&a)?;
         assert!(Operations::is_empty(&a2));
 
         Ok(())
@@ -1760,24 +1749,18 @@ mod tests {
         let fini = a.create_state();
         a.add_transition_label(init, fini, 'a' as i32)?;
 
-        let a2 = Operations::remove_dead_states(&Rc::new(a))?;
+        let a2 = Operations::remove_dead_states(&a)?;
         assert_eq!(a2.get_num_states(), 0);
 
         Ok(())
     }
     #[test]
     fn test_concat_empty() -> Result<()> {
-        let a = Operations::concatenate(
-            Rc::new(Automata::make_empty()?),
-            Rc::new(Automata::make_string("foo")?),
-        )?;
+        let a = Operations::concatenate(&Automata::make_empty()?, &Automata::make_string("foo")?)?;
         let strings = TestOperations::get_finite_strings_automaton(&a)?;
         assert!(strings.is_empty());
 
-        let a = Operations::concatenate(
-            Rc::new(Automata::make_string("foo")?),
-            Rc::new(Automata::make_empty()?),
-        )?;
+        let a = Operations::concatenate(&Automata::make_string("foo")?, &Automata::make_empty()?)?;
         let strings = TestOperations::get_finite_strings_automaton(&a)?;
         assert!(strings.is_empty());
 
@@ -1815,45 +1798,42 @@ mod tests {
         a2.add_transition_label(0, state, 'a' as i32)?;
         a2.finish_state()?;
 
-        let a_removed = Operations::remove_dead_states(&Rc::new(a))?;
-        let a2_removed = Operations::remove_dead_states(&Rc::new(a2))?;
+        let a_removed = Operations::remove_dead_states(&a)?;
+        let a2_removed = Operations::remove_dead_states(&a2)?;
 
         assert!(AutomatonTestUtil::same_language(&a_removed, &a2_removed)?);
         Ok(())
     }
 
-    fn random_no_op(a: Rc<Automaton>, random: &mut StdRng) -> Result<Rc<Automaton>> {
+    fn random_no_op<'a>(a: &'a Automaton, random: &mut StdRng) -> Result<Cow<'a, Automaton>> {
         match random.random_range(0..7) {
-            0 => Ok(Operations::determinize(&a, i32::MAX as usize)?),
+            0 => Ok(Operations::determinize(a, i32::MAX as usize)?),
             1 => {
                 if a.get_num_states() < 100 {
                     Ok(MinimizationOperations::minimize(
-                        &a,
+                        a,
                         Operations::DEFAULT_DETERMINIZE_WORK_LIMIT,
                     )?)
                 } else {
-                    Ok(a.clone())
+                    Ok(Cow::Borrowed(a))
                 }
             },
-            2 => Ok(Operations::remove_dead_states(&a)?),
+            2 => Ok(Operations::remove_dead_states(a)?),
             3 => {
                 // reverse -> randomNoOp -> reverse
-                let a0 = Rc::new(Operations::reverse(&a)?);
-                let a1 = random_no_op(a0, random)?;
-                Ok(Rc::new(Operations::reverse(&a1)?))
+                let a0 = Operations::reverse(a)?;
+                let a1 = random_no_op(&a0, random)?;
+                Ok(Cow::Owned(Operations::reverse(&a1)?))
             },
-            4 => Ok(Rc::new(Operations::concatenate(
+            4 => Ok(Cow::Owned(Operations::concatenate(
                 a,
-                Rc::new(Automata::make_empty_string()?),
+                &Automata::make_empty_string()?,
             )?)),
             5 => {
                 // union with empty automaton
-                Ok(Operations::union(
-                    Rc::unwrap_or_clone(a),
-                    Automata::make_empty()?,
-                )?)
+                Ok(Cow::Owned(Operations::union(a, &Automata::make_empty()?)?))
             },
-            6 => Ok(a),
+            6 => Ok(Cow::Borrowed(a)),
             _ => unreachable!(),
         }
     }
@@ -1865,19 +1845,19 @@ mod tests {
         }
         false
     }
-    fn union_terms(terms: &[BytesRef<Vec<u8>>], rng: &mut StdRng) -> Result<Rc<Automaton>> {
+    fn union_terms(terms: &[BytesRef<Vec<u8>>], rng: &mut StdRng) -> Result<Automaton> {
         let a = if rng.random_bool(0.5) || has_massive_term(terms) {
-            let mut automata = Vec::new();
-            for term in terms {
-                automata.push(Automata::make_string(&term.utf8_to_string()?)?);
-            }
-            Operations::union_list(&automata)?
+            let owned_automata: Vec<Automaton> = terms
+                .iter()
+                .map(|term| Automata::make_string(&term.utf8_to_string()?))
+                .collect::<Result<Vec<_>>>()?;
+            let refs: Vec<&Automaton> = owned_automata.iter().collect();
+            Operations::union_list(&refs)?
         } else {
             let mut terms_list = terms.to_vec();
             terms_list.sort();
-            Rc::from(Automata::make_string_union(&terms_list)?)
+            Automata::make_string_union(&terms_list)?
         };
-
-        random_no_op(a, rng)
+        Ok(random_no_op(&a, rng)?.into_owned())
     }
 }
