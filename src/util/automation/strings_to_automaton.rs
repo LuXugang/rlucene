@@ -16,6 +16,7 @@
  */
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::hash::{DefaultHasher, Hash, Hasher};
 use std::rc::Rc;
 
 use crate::index::{BytesRef, BytesRefBuilder};
@@ -40,7 +41,7 @@ use crate::util::unicode_util::{UTF8CodePoint, UnicodeUtil};
 /// - [`Automata::make_binary_string_union_iter`](Automaton::make_binary_string_union_iter)
 pub(crate) struct StringsToAutomaton {
     /// A "registry" for state interning.
-    pub(crate) state_registry: HashMap<usize, Rc<RefCell<State>>>,
+    pub(crate) state_registry: Option<HashMap<u64, Rc<RefCell<State>>>>,
     /// Root automaton state.
     pub(crate) root: Rc<RefCell<State>>,
     /// Used for input order checking (only through assertions right now)
@@ -50,7 +51,7 @@ pub(crate) struct StringsToAutomaton {
 impl StringsToAutomaton {
     pub(crate) fn new() -> Self {
         StringsToAutomaton {
-            state_registry: HashMap::new(),
+            state_registry: None,
             root: Rc::new(RefCell::new(State::new())),
             previous: None,
         }
@@ -94,17 +95,15 @@ impl StringsToAutomaton {
     /// Called after adding all terms. Performs final minimization and converts
     /// to a standard [`Automaton`] instance.
     fn complete_and_convert(&mut self) -> Result<Automaton> {
-        if self.state_registry.is_empty() {
-            return Err(LuceneError::illegal_state(
-                "state_registry is already consumed".to_string(),
-            ));
+        if self.state_registry.is_none() {
+            return Err(LuceneError::illegal_state("".to_string()));
         }
 
         if self.root.borrow().has_children() {
             self.replace_or_register(self.root.clone())?;
         }
 
-        self.state_registry.clear();
+        self.state_registry = None;
 
         let mut builder = Builder::new();
         Self::convert(&mut builder, &self.root, &mut HashMap::new())?;
@@ -151,7 +150,7 @@ impl StringsToAutomaton {
             )));
         }
 
-        if self.state_registry.is_empty() {
+        if self.state_registry.is_some() {
             return Err(LuceneError::illegal_state(
                 "Automaton already built.".to_string(),
             ));
@@ -230,11 +229,17 @@ impl StringsToAutomaton {
         if child.borrow().has_children() {
             self.replace_or_register(child.clone())?;
         }
-        let addr = Rc::as_ptr(&child) as usize;
-        if let Some(registered) = self.state_registry.get(&addr) {
+        let state_borrow = state.borrow();
+        let mut hasher = DefaultHasher::new();
+        state_borrow.hash(&mut hasher);
+        let hash_value = hasher.finish();
+        if let Some(registered) = self.state_registry.as_ref().unwrap().get(&hash_value) {
             state.borrow_mut().replace_last_child(Rc::clone(registered));
         } else {
-            self.state_registry.insert(addr, Rc::clone(&child));
+            self.state_registry
+                .as_mut()
+                .unwrap()
+                .insert(hash_value, Rc::clone(&child));
         }
         Ok(())
     }
