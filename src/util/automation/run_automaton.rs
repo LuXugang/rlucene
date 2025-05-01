@@ -135,14 +135,14 @@ impl RunAutomaton {
     /// (If the original [`Automaton`] had no dead states, then `-1` is returned
     /// here if and only if a dead state would be entered in an equivalent
     /// automaton with a total transition function.)
-    pub fn step(&self, state: usize, c: usize) -> i32 {
-        debug_assert!(c < self.alphabet_size);
-        let class = if c >= self.classmap.len() {
-            self.get_char_class(c as i32)
+    pub fn step(&self, state: i32, c: i32) -> i32 {
+        debug_assert!((c as usize) < self.alphabet_size);
+        let class = if c as usize >= self.classmap.len() {
+            self.get_char_class(c)
         } else {
-            self.classmap[c]
+            self.classmap[c as usize]
         };
-        self.transitions[state * self.points.len() + class]
+        self.transitions[state as usize * self.points.len() + class]
     }
 }
 impl fmt::Display for RunAutomaton {

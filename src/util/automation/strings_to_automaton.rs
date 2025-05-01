@@ -355,7 +355,6 @@ impl std::hash::Hash for State {
 #[cfg(test)]
 mod tests {
     use std::borrow::Cow;
-    use std::rc::Rc;
 
     use rand::rngs::StdRng;
     use rand::Rng;
@@ -363,6 +362,8 @@ mod tests {
     use crate::index::BytesRef;
     use crate::test::util::automaton::automaton_test_util::AutomatonTestUtil;
     use crate::util::automation::automaton::Automaton;
+    use crate::util::automation::minimization_operation::MinimizationOperations;
+    use crate::util::automation::operations::Operations;
     use crate::util::automation::strings_to_automaton::StringsToAutomaton;
     use crate::util::bytes_ref_iterator::BytesRefIterator;
     use crate::util::error::lucene_error::Result;
@@ -370,7 +371,13 @@ mod tests {
     #[allow(dead_code)] // for quick search
     struct TestStringsToAutomaton;
 
-    fn assert_same_automaton(a: &Rc<Automaton>, b: &Rc<Automaton>) -> Result<()> {
+    fn check_minimized(a: &Automaton) -> Result<()> {
+        let minimized =
+            MinimizationOperations::minimize(a, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
+        assert_same_automaton(&minimized, a)?;
+        Ok(())
+    }
+    fn assert_same_automaton(a: &Automaton, b: &Automaton) -> Result<()> {
         assert_eq!(a.get_num_states(), b.get_num_states());
         assert_eq!(a.get_num_transitions(), b.get_num_transitions());
         assert!(AutomatonTestUtil::same_language(a, b)?);

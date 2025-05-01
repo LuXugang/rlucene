@@ -49,7 +49,7 @@ impl CharacterRunAutomaton {
         for result in iter {
             match result {
                 Ok(ch) => {
-                    state = self.base.step(state as usize, ch as usize);
+                    state = self.base.step(state, ch as i32);
                     if state == -1 {
                         return false;
                     }

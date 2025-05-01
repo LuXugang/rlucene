@@ -17,6 +17,7 @@
 use std::borrow::Cow;
 
 use crate::util::automation::automaton::Automaton;
+use crate::util::automation::byte_runnable::ByteRunnable;
 use crate::util::automation::operations::Operations;
 use crate::util::automation::run_automaton::RunAutomaton;
 use crate::util::automation::utf32_to_utf8::UTF32ToUTF8;
@@ -57,5 +58,18 @@ impl ByteRunAutomaton {
             Cow::Borrowed(v) => Ok(converted),
             Cow::Owned(v) => Ok(v),
         }
+    }
+}
+impl ByteRunnable for ByteRunAutomaton {
+    fn step(&self, state: i32, c: i32) -> i32 {
+        self.base.step(state, c)
+    }
+
+    fn is_accept(&self, state: i32) -> bool {
+        self.base.is_accept(state)
+    }
+
+    fn get_size(&self) -> i32 {
+        self.base.size()
     }
 }
