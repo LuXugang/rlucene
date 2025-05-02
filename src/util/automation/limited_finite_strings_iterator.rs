@@ -23,10 +23,20 @@ use crate::util::automation::finite_strings_iterator::{
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::error::lucene_error::Result;
 use crate::util::ints_ref::IntsRef;
-
+/// [`FiniteStringsIterator`] that limits the number of iterated accepted
+/// strings. If more than `limit` strings are accepted, only the first `limit`
+/// strings found are returned.
+///
+/// If the [`Automaton`] has cycles, this iterator may return an error,
+/// though this is not guaranteed.
+///
+/// Be aware that the iteration order is implementation dependent and may change
+/// across releases.
 #[derive(Debug)]
 pub struct LimitedFiniteStringsIterator<'a> {
+    /// Maximum number of finite strings to create.
     limit: i32,
+    /// Number of generated finite strings.
     count: i32,
     base: FiniteStringsIterator<'a>,
 }
