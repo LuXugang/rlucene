@@ -51,7 +51,7 @@ pub(crate) struct StringsToAutomaton {
 impl StringsToAutomaton {
     pub(crate) fn new() -> Self {
         StringsToAutomaton {
-            state_registry: None,
+            state_registry: Some(HashMap::new()),
             root: Rc::new(RefCell::new(State::new())),
             previous: None,
         }
@@ -81,13 +81,14 @@ impl StringsToAutomaton {
         }
 
         let converted = a.create_state();
-        a.set_accept(converted, s.borrow().is_final);
+        let s = s.borrow_mut();
+        a.set_accept(converted, s.is_final);
 
         visited.insert(addr, converted);
 
-        for (i, target) in s.borrow_mut().states.iter().enumerate() {
+        for (i, target) in s.states.iter().enumerate() {
             let v = Self::convert(a, target, visited)?;
-            a.add_transition_label(converted, v, s.borrow().labels[i]);
+            a.add_transition_label(converted, v, s.labels[i]);
         }
 
         Ok(converted)
@@ -150,11 +151,7 @@ impl StringsToAutomaton {
             )));
         }
 
-        if self.state_registry.is_some() {
-            return Err(LuceneError::illegal_state(
-                "Automaton already built.".to_string(),
-            ));
-        }
+        debug_assert!(self.state_registry.is_some(), "Automaton already built.");
 
         if let Some(prev) = &mut self.previous {
             if prev.bytes_ref.cmp(current) == std::cmp::Ordering::Greater {

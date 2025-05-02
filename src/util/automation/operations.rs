@@ -1490,8 +1490,14 @@ pub(crate) mod tests {
     use rand::rngs::StdRng;
     use rand::Rng;
 
+    use crate::index::BytesRef;
+    use crate::test::util::automaton::automaton_test_util::AutomatonTestUtil;
+    use crate::test::util::lucene_test_case::random;
+    use crate::test::util::test_util::TestUtil;
+    use crate::util::automation::automata::Automata;
     use crate::util::automation::automaton::Automaton;
     use crate::util::automation::finite_strings_iterator::FiniteStringsIterator;
+    use crate::util::automation::operations::Operations;
     use crate::util::error::lucene_error::Result;
     use crate::util::ints_ref::IntsRef;
     pub(crate) struct TestOperations;
@@ -1519,49 +1525,41 @@ pub(crate) mod tests {
             Ok(result)
         }
     }
-    // #[test]
-    // fn test_string_union() -> Result<()> {
-    //     let mut random = random();
-    //     // let count = random.random_range(0..1000);
-    //     let count = 1;
-    //     let mut strings = Vec::with_capacity(count);
-    //     for _ in 0..count {
-    //         // let s = TestUtil::random_unicode_string(&mut random);
-    //         let s = "abcdefghijklmabcdefghijklmnabcdefghijklmnabcdefghijklmnn";
-    //         strings.push(BytesRef::from_string(&s));
-    //     }
-    //     strings.sort();
-    //
-    //     let union = Automata::make_string_union(&strings)?;
-    //     assert!(union.is_deterministic());
-    //     assert!(!Operations::has_dead_states_from_initial(&union)?);
-    //
-    //     let naive_union = naive_union(strings.as_slice())?;
-    //     assert!(naive_union.is_deterministic());
-    //     assert!(!Operations::has_dead_states_from_initial(&naive_union)?);
-    //
-    //     assert!(AutomatonTestUtil::same_language(
-    //         &Rc::new(union),
-    //         &naive_union
-    //     )?);
-    //
-    //     Ok(())
-    // }
-    // fn naive_union(strings: &[BytesRef<Vec<u8>>]) -> Result<Rc<Automaton>> {
-    //     let mut automata = Vec::with_capacity(strings.len());
-    //
-    //     for bref in strings {
-    //         let s = bref.utf8_to_string()?;
-    //         automata.push(Automata::make_string(&s)?);
-    //     }
-    //
-    //     let union = Operations::union_list(&automata)?;
-    //     let det = Operations::determinize(
-    //         &union,
-    //         Operations::DEFAULT_DETERMINIZE_WORK_LIMIT,
-    //     )?;
-    //     Ok(det)
-    // }
+    #[test]
+    fn test_string_union() -> Result<()> {
+        let mut random = random();
+        let count = random.random_range(1..1000);
+        let mut strings = Vec::with_capacity(count);
+        for i in 0..count {
+            let s = TestUtil::random_unicode_string(&mut random);
+            strings.push(BytesRef::from_string(&s));
+        }
+        strings.sort();
+
+        let union = Automata::make_string_union(&strings)?;
+        assert!(union.is_deterministic());
+        assert!(!Operations::has_dead_states_from_initial(&union)?);
+
+        let naive_union = naive_union(strings.as_slice())?;
+        assert!(naive_union.is_deterministic());
+        assert!(!Operations::has_dead_states_from_initial(&naive_union)?);
+
+        assert!(AutomatonTestUtil::same_language(&union, &naive_union)?);
+
+        Ok(())
+    }
+    fn naive_union(strings: &[BytesRef<Vec<u8>>]) -> Result<Automaton> {
+        let mut string_list = vec![];
+
+        for bref in strings {
+            let s = bref.utf8_to_string()?;
+            string_list.push(Automata::make_string(&s)?);
+        }
+        let automata: Vec<&Automaton> = string_list.iter().collect();
+        let union = Operations::union_list(&automata)?;
+        let det = Operations::determinize(&union, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
+        Ok(det.into_owned())
+    }
 
     /// This method creates a random [`Automaton`] by generating states at
     /// multiple levels. At each level, a random number of states are
