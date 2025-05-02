@@ -22,9 +22,9 @@ use crate::util::automation::int_set::IntSet;
 
 #[derive(Eq)]
 pub(crate) struct FrozenIntSet {
-    values: Rc<Vec<i32>>,
+    pub(crate) values: Rc<Vec<i32>>,
     pub(crate) state: i32,
-    hash_code: i64,
+    pub(crate) hash_code: i64,
 }
 
 impl FrozenIntSet {

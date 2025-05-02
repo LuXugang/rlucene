@@ -253,7 +253,7 @@ impl Automaton {
     fn finish_current_state(&mut self) -> Result<()> {
         let state = self.cur_state as usize;
         let num_transitions = self.states[2 * state + 1];
-        assert!(num_transitions > 0, "no transitions to finish");
+        debug_assert!(num_transitions > 0, "no transitions to finish");
 
         let offset = self.states[2 * state];
         let start = offset / 3;
@@ -1685,8 +1685,8 @@ mod tests {
             expected.insert(v);
         }
         let det = Operations::determinize(a, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
-        let actual = TestOperations::get_finite_strings_automaton(&det)
-            .expect("Failed to get finite strings");
+        let actual =
+            TestOperations::get_finite_strings(&det).expect("Failed to get finite strings");
 
         assert_eq!(expected, actual);
         Ok(())
@@ -1757,11 +1757,11 @@ mod tests {
     #[test]
     fn test_concat_empty() -> Result<()> {
         let a = Operations::concatenate(&Automata::make_empty()?, &Automata::make_string("foo")?)?;
-        let strings = TestOperations::get_finite_strings_automaton(&a)?;
+        let strings = TestOperations::get_finite_strings(&a)?;
         assert!(strings.is_empty());
 
         let a = Operations::concatenate(&Automata::make_string("foo")?, &Automata::make_empty()?)?;
-        let strings = TestOperations::get_finite_strings_automaton(&a)?;
+        let strings = TestOperations::get_finite_strings(&a)?;
         assert!(strings.is_empty());
 
         Ok(())

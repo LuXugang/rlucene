@@ -145,3 +145,27 @@ impl Hash for StateSet {
         }
     }
 }
+
+#[derive(Eq)]
+pub(crate) struct StateSetHashKey {
+    long_hash_code: i64,
+    value: Rc<Vec<i32>>,
+}
+impl StateSetHashKey {
+    pub(crate) fn new(long_hash_code: i64, value: Rc<Vec<i32>>) -> Self {
+        StateSetHashKey {
+            long_hash_code,
+            value,
+        }
+    }
+}
+impl PartialEq for StateSetHashKey {
+    fn eq(&self, other: &Self) -> bool {
+        self.long_hash_code == other.long_hash_code && *self.value == *other.value
+    }
+}
+impl Hash for StateSetHashKey {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.long_hash_code.hash(state);
+    }
+}

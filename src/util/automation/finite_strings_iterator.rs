@@ -326,8 +326,8 @@ pub(crate) mod tests {
                     println!(
                         "  i={} string={} actual={}",
                         i,
-                        intsref_to_ascii_string(&x[i]),
-                        intsref_to_ascii_string(&y[i])
+                        to_ascii_string(&x[i]),
+                        to_ascii_string(&y[i])
                     );
                 }
             }
@@ -448,7 +448,7 @@ pub(crate) mod tests {
         a.add_transition(start, end, 'a' as i32, 'a' as i32)?;
         a.finish_state()?;
 
-        let accepted = TestOperations::get_finite_strings_automaton(&a)?;
+        let accepted = TestOperations::get_finite_strings(&a)?;
 
         assert_eq!(accepted.len(), 1);
 
@@ -490,7 +490,7 @@ pub(crate) mod tests {
     }
 
     /// Only handles ASCII (for this test helper).
-    fn intsref_to_ascii_string(ints: &IntsRef<Vec<i32>>) -> String {
+    fn to_ascii_string(ints: &IntsRef<Vec<i32>>) -> String {
         let mut bytes = Vec::with_capacity(ints.length as usize);
         for i in 0..ints.length as usize {
             bytes.push(ints.ints[(ints.offset as usize) + i] as u8);
