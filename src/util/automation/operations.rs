@@ -1496,7 +1496,9 @@ pub(crate) mod tests {
     use crate::test::util::test_util::TestUtil;
     use crate::util::automation::automata::Automata;
     use crate::util::automation::automaton::Automaton;
-    use crate::util::automation::finite_strings_iterator::FiniteStringsIterator;
+    use crate::util::automation::finite_strings_iterator::{
+        FiniteStringsIterator, FiniteStringsIteratorBase,
+    };
     use crate::util::automation::operations::Operations;
     use crate::util::error::lucene_error::Result;
     use crate::util::ints_ref::IntsRef;
@@ -1511,12 +1513,12 @@ pub(crate) mod tests {
         /// See also:
         /// - [`FiniteStringsIterator`]
         pub fn get_finite_strings_automaton(a: &Automaton) -> Result<HashSet<IntsRef<Vec<i32>>>> {
-            let mut iter = FiniteStringsIterator::new_with_start_end(a, 0, -1);
-            Self::get_finite_strings(&mut iter)
+            let iter = FiniteStringsIterator::new_with_start_end(a, 0, -1);
+            Self::get_finite_strings(iter)
         }
         /// Get all finite strings of an iterator.
         pub fn get_finite_strings(
-            iterator: &mut FiniteStringsIterator,
+            mut iterator: impl FiniteStringsIteratorBase,
         ) -> Result<HashSet<IntsRef<Vec<i32>>>> {
             let mut result = HashSet::new();
             while let Some(finite_string) = iterator.next()? {

@@ -14,11 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::borrow::Cow;
 use std::collections::{HashSet, VecDeque};
 use std::rc::Rc;
 
 use bit_set::BitSet;
+use rand::rngs::StdRng;
+use rand::Rng;
 
+use crate::test::util::test_util::TestUtil;
+use crate::util::automation::automata::Automata;
 use crate::util::automation::automaton::Automaton;
 use crate::util::automation::operations::Operations;
 use crate::util::automation::state_pair::StatePair;
@@ -36,6 +41,27 @@ impl AutomatonTestUtil {
     pub const DEFAULT_MAX_DETERMINIZED_STATES: usize = 1000000;
     ///  Maximum level of recursion allowed in recursive operations.
     pub const MAX_RECURSION_LEVEL: usize = 1000;
+    pub fn random_single_automaton(random: &mut StdRng) -> Result<Automaton> {
+        // TODO: RegExp not Implement
+        let s = TestUtil::random_realistic_unicode_string_with_length(random, 100);
+        Automata::make_string(&s)
+    }
+
+    /// return a random NFA/DFA for testing
+    pub fn random_automaton(random: &mut StdRng) -> Result<Cow<Automaton>> {
+        let a1 = AutomatonTestUtil::random_single_automaton(random)?;
+        let a2 = AutomatonTestUtil::random_single_automaton(random)?;
+
+        match random.random_range(0..4) {
+            0 => Ok(Cow::Owned(Operations::concatenate(&a1, &a2)?)),
+            1 => Ok(Cow::Owned(Operations::union(&a1, &a2)?)),
+            2 => Ok(Cow::Owned(Operations::intersection(&a1, &a2)?.into_owned())),
+            _ => Ok(Cow::Owned(
+                Operations::minus(&a1, &a2, Self::DEFAULT_MAX_DETERMINIZED_STATES)?.into_owned(),
+            )),
+        }
+    }
+
     /// Simple, original implementation of `get_finite_strings`.
     ///
     /// Returns the set of accepted strings, assuming that at most `limit`

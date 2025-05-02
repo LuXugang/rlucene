@@ -36,6 +36,7 @@ use crate::util::ints_ref_builder::IntsRefBuilder;
 ///
 /// If the automaton is not determinized, then it is possible this iterator will
 /// return duplicates.
+#[derive(Debug)]
 pub struct FiniteStringsIterator<'a> {
     /// Automaton to create finite string from.
     a: &'a Automaton,
@@ -88,14 +89,20 @@ impl<'a> FiniteStringsIterator<'a> {
             emit_empty_string,
         }
     }
-    /// Generates the next finite string.
-    ///
-    /// The return value is only valid until the next call of this method!
-    ///
-    /// Returns:
-    /// - The next finite string, or `None` if no more finite strings are
-    ///   available.
-    pub fn next(&mut self) -> Result<Option<Cow<IntsRef<Vec<i32>>>>> {
+
+    /// Grow path stack, if required.
+    fn grow_stack(&mut self, depth: usize) -> Result<()> {
+        if self.nodes.len() == depth {
+            let min_target_size = self.nodes.len() + 1;
+            // TODO: _bytes_per_element `4` currently is a padding value
+            let new_len = ArrayUtil::oversize(min_target_size, 4);
+            ArrayUtil::grow_exact(&mut self.nodes, new_len)?;
+        }
+        Ok(())
+    }
+}
+impl FiniteStringsIteratorBase for FiniteStringsIterator<'_> {
+    fn next(&mut self) -> Result<Option<Cow<IntsRef<Vec<i32>>>>> {
         // Special case the empty string, as usual:
         if self.emit_empty_string {
             self.emit_empty_string = false;
@@ -150,16 +157,16 @@ impl<'a> FiniteStringsIterator<'a> {
         // Finished iteration.
         Ok(None)
     }
-    /// Grow path stack, if required.
-    fn grow_stack(&mut self, depth: usize) -> Result<()> {
-        if self.nodes.len() == depth {
-            let min_target_size = self.nodes.len() + 1;
-            // TODO: _bytes_per_element `4` currently is a padding value
-            let new_len = ArrayUtil::oversize(min_target_size, 4);
-            ArrayUtil::grow_exact(&mut self.nodes, new_len)?;
-        }
-        Ok(())
-    }
+}
+pub(crate) trait FiniteStringsIteratorBase {
+    /// Generates the next finite string.
+    ///
+    /// The return value is only valid until the next call of this method!
+    ///
+    /// Returns:
+    /// - The next finite string, or `None` if no more finite strings are
+    ///   available.
+    fn next(&mut self) -> Result<Option<Cow<IntsRef<Vec<i32>>>>>;
 }
 
 #[derive(Debug)]
@@ -222,7 +229,7 @@ impl PathNode {
     }
 }
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use std::borrow::Cow;
     use std::collections::HashSet;
 
@@ -234,7 +241,9 @@ mod tests {
     use crate::test::util::test_util::TestUtil;
     use crate::util::automation::automata::Automata;
     use crate::util::automation::automaton::Automaton;
-    use crate::util::automation::finite_strings_iterator::FiniteStringsIterator;
+    use crate::util::automation::finite_strings_iterator::{
+        FiniteStringsIterator, FiniteStringsIteratorBase,
+    };
     use crate::util::automation::minimization_operation::MinimizationOperations;
     use crate::util::automation::operations::tests::TestOperations;
     use crate::util::automation::operations::Operations;
@@ -291,8 +300,8 @@ mod tests {
             Cow::Owned(a)
         };
 
-        let iterator = FiniteStringsIterator::new(&a);
-        let actual = get_finite_strings(iterator)?;
+        let mut iterator = FiniteStringsIterator::new(&a);
+        let actual = get_finite_strings(&mut iterator)?;
         assert_finite_strings_recursive(&a, actual.clone());
 
         let actual_set: HashSet<_> = actual.into_iter().collect();
@@ -335,8 +344,8 @@ mod tests {
             &Automata::make_string("duck")?,
         )?;
         let a = MinimizationOperations::minimize(&a, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
-        let iterator = FiniteStringsIterator::new(&a);
-        let actual = get_finite_strings(iterator)?;
+        let mut iterator = FiniteStringsIterator::new(&a);
+        let actual = get_finite_strings(&mut iterator)?;
 
         assert_finite_strings_recursive(&a, actual.clone());
         assert_eq!(actual.len(), 2);
@@ -377,8 +386,8 @@ mod tests {
             &Automata::make_string(&big_string2)?,
         )?;
 
-        let iterator = FiniteStringsIterator::new(&a);
-        let actual = get_finite_strings(iterator)?;
+        let mut iterator = FiniteStringsIterator::new(&a);
+        let actual = get_finite_strings(&mut iterator)?;
         assert_eq!(actual.len(), 2);
 
         let mut scratch = IntsRefBuilder::new();
@@ -400,8 +409,8 @@ mod tests {
     #[test]
     fn test_singleton_no_limit() -> Result<()> {
         let a = Automata::make_string("foobar")?;
-        let iterator = FiniteStringsIterator::new(&a);
-        let actual = get_finite_strings(iterator)?;
+        let mut iterator = FiniteStringsIterator::new(&a);
+        let actual = get_finite_strings(&mut iterator)?;
         assert_eq!(actual.len(), 1);
 
         let mut scratch = IntsRefBuilder::new();
@@ -416,8 +425,8 @@ mod tests {
         let a = Operations::union(&Automata::make_string("x")?, &Automata::make_string("xy")?)?;
         let a = MinimizationOperations::minimize(&a, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
 
-        let iterator = FiniteStringsIterator::new(&a);
-        let actual = get_finite_strings(iterator)?;
+        let mut iterator = FiniteStringsIterator::new(&a);
+        let actual = get_finite_strings(&mut iterator)?;
         assert_eq!(actual.len(), 2);
 
         let mut x = IntsRefBuilder::new();
@@ -452,7 +461,7 @@ mod tests {
 
     /// All strings generated by the iterator.
     pub(crate) fn get_finite_strings(
-        mut iterator: FiniteStringsIterator,
+        iterator: &mut impl FiniteStringsIteratorBase,
     ) -> Result<Vec<IntsRef<Vec<i32>>>> {
         let mut result = Vec::new();
         while let Some(finite_string) = iterator.next()? {
