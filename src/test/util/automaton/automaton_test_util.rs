@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 use std::borrow::Cow;
-use std::collections::{HashSet, VecDeque};
+use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
+use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
 use bit_set::BitSet;
@@ -24,7 +25,7 @@ use rand::Rng;
 
 use crate::test::util::test_util::TestUtil;
 use crate::util::automation::automata::Automata;
-use crate::util::automation::automaton::Automaton;
+use crate::util::automation::automaton::{Automaton, Builder};
 use crate::util::automation::operations::Operations;
 use crate::util::automation::state_pair::StatePair;
 use crate::util::automation::transition::Transition;
@@ -43,7 +44,8 @@ impl AutomatonTestUtil {
     pub const MAX_RECURSION_LEVEL: usize = 1000;
     pub fn random_single_automaton(random: &mut StdRng) -> Result<Automaton> {
         // TODO: RegExp not Implement
-        let s = TestUtil::random_realistic_unicode_string_with_length(random, 100);
+        let len = random.random_range(10..50);
+        let s = TestUtil::random_realistic_unicode_string_with_length(random, len);
         Automata::make_string(&s)
     }
 
@@ -59,6 +61,126 @@ impl AutomatonTestUtil {
             _ => Ok(Cow::Owned(
                 Operations::minus(&a1, &a2, Self::DEFAULT_MAX_DETERMINIZED_STATES)?.into_owned(),
             )),
+        }
+    }
+    /**
+     * below are original, unoptimized implementations of DFA operations for
+     * testing. These are from brics automaton, full license (BSD)
+     * below:
+     */
+
+    /*
+     * dk.brics.automaton
+     *
+     * Copyright (c) 2001-2009 Anders Moeller
+     * All rights reserved.
+     *
+     * Redistribution and use in source and binary forms, with or without
+     * modification, are permitted provided that the following conditions
+     * are met:
+     * 1. Redistributions of source code must retain the above copyright notice, this list of
+     *    conditions and the following disclaimer.
+     * 2. Redistributions in binary form must reproduce the above copyright notice, this list of
+     *    conditions and the following disclaimer in the documentation and/or other materials
+     *    provided with the distribution.
+     * 3. The name of the author may not be used to endorse or promote products derived from this
+     *    software without specific prior written permission.
+     *
+     * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
+     * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+     * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+     * IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
+     * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+     * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+     * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+     * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+     * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+     * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+     */
+    /// Simple, original brics implementation of Brzozowski minimize()
+    pub fn minimize_simple(a: &Automaton) -> Result<Cow<Automaton>> {
+        let mut initial_set = BTreeSet::new();
+        let v = Operations::reverse_with_initial_states(a, Option::from(&mut initial_set))?;
+        let a = Self::determinize_simple_with_set(&v, Rc::new(initial_set.clone()))?;
+
+        initial_set.clear();
+        let v = Operations::reverse_with_initial_states(&a, Option::from(&mut initial_set))?;
+        match Self::determinize_simple_with_set(&v, Rc::new(initial_set))? {
+            Cow::Borrowed(_) => Ok(Cow::Owned(v)),
+            Cow::Owned(o) => Ok(Cow::Owned(o)),
+        }
+    }
+    /// Simple, original brics implementation of determinize()
+    pub fn determinize_simple(a: &Automaton) -> Result<Cow<Automaton>> {
+        let mut initial_set = BTreeSet::new();
+        initial_set.insert(0);
+        Self::determinize_simple_with_set(a, Rc::new(initial_set))
+    }
+    /// Simple, original brics implementation of determinize() Determinizes the
+    /// given automaton using  the given set of initial states.
+    pub fn determinize_simple_with_set(
+        a: &Automaton,
+        initial_set: Rc<BTreeSet<i32>>,
+    ) -> Result<Cow<Automaton>> {
+        if a.get_num_states() == 0 {
+            return Ok(Cow::Borrowed(a));
+        }
+
+        let points = a.get_start_points();
+        let mut sets: HashMap<Rc<BTreeSet<i32>>, Rc<BTreeSet<i32>>> = HashMap::new();
+        let mut worklist: VecDeque<Rc<BTreeSet<i32>>> = VecDeque::new();
+        let mut newstate: HashMap<Rc<BTreeSet<i32>>, i32> = HashMap::new();
+
+        sets.insert(initial_set.clone(), initial_set.clone());
+        worklist.push_back(initial_set.clone());
+
+        let mut result = Builder::default();
+        result.create_state();
+        newstate.insert(initial_set.clone(), 0);
+
+        let mut t = Transition::default();
+
+        while let Some(s) = worklist.pop_front() {
+            let r = *newstate.get(&s).unwrap();
+            if s.iter().any(|&q| a.is_accept(q)) {
+                result.set_accept(r, true);
+            }
+            for n in 0..points.len() {
+                let mut p = BTreeSet::new();
+
+                for &q in s.iter() {
+                    let count = a.init_transition(q, &mut t);
+                    for _ in 0..count {
+                        a.get_next_transition(&mut t);
+                        if t.min <= points[n] && points[n] <= t.max {
+                            p.insert(t.dest);
+                        }
+                    }
+                }
+                let p = Rc::new(p);
+
+                if !sets.contains_key(&p) {
+                    sets.insert(p.clone(), p.clone());
+                    worklist.push_back(p.clone());
+                    let new_state = result.create_state();
+                    newstate.insert(p.clone(), new_state);
+                }
+                let q = *newstate.get(&p).unwrap();
+                let min = points[n];
+                let max = if n + 1 < points.len() {
+                    points[n + 1] - 1
+                } else {
+                    char::MAX as i32
+                };
+
+                result.add_transition(r, q, min, max);
+            }
+        }
+
+        let automaton = result.finish()?;
+        match Operations::remove_dead_states(&automaton)? {
+            Cow::Borrowed(_) => Ok(Cow::Owned(automaton)),
+            Cow::Owned(o) => Ok(Cow::Owned(o)),
         }
     }
 
@@ -264,5 +386,16 @@ impl AutomatonTestUtil {
         }
 
         Ok(true)
+    }
+}
+#[derive(Eq, PartialEq, Clone)]
+struct HashSetAsKey {
+    set: Rc<BTreeSet<i32>>,
+}
+impl Hash for HashSetAsKey {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        for i in self.set.iter() {
+            i.hash(state);
+        }
     }
 }

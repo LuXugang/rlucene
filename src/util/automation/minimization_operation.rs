@@ -310,3 +310,74 @@ impl StateListNode {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::test::util::automaton::automaton_test_util::AutomatonTestUtil;
+    use crate::test::util::lucene_test_case::{at_least, random};
+    use crate::util::automation::minimization_operation::MinimizationOperations;
+    use crate::util::automation::operations::Operations;
+    use crate::util::automation::transition_accessor::TransitionAccessor;
+    use crate::util::error::lucene_error::Result;
+    #[allow(dead_code)] // for quick search
+    /// This test builds some randomish NFA/DFA and minimizes them.
+    struct TestMinimize;
+    /// the minimal and non-minimal are compared to ensure they are the same.
+    #[test]
+    fn test_basic() -> Result<()> {
+        let mut random = random();
+        let num = at_least(&mut random, 200);
+
+        for _ in 0..num {
+            let a = AutomatonTestUtil::random_automaton(&mut random)?;
+            let v = Operations::remove_dead_states(&a)?;
+            let la = Operations::determinize(&v, i32::MAX as usize)?;
+            let lb = MinimizationOperations::minimize(&a, i32::MAX as usize)?;
+            assert!(AutomatonTestUtil::same_language(&la, &lb)?);
+        }
+
+        Ok(())
+    }
+    #[test]
+    fn test() -> Result<()> {
+        for i in 0..10 {
+            test_against_brzozowski()?;
+        }
+        Ok(())
+    }
+    ///  compare minimized against minimized with a slower, simple impl. we
+    /// check not only that they are  the same, but that
+    /// #states/#transitions are the same.
+    #[test]
+    fn test_against_brzozowski() -> Result<()> {
+        let mut random = random();
+        let num = at_least(&mut random, 200);
+
+        for _ in 0..num {
+            let a = AutomatonTestUtil::random_automaton(&mut random)?;
+            let a = AutomatonTestUtil::minimize_simple(&a)?;
+
+            let b = MinimizationOperations::minimize(&a, i32::MAX as usize)?;
+            assert!(AutomatonTestUtil::same_language(&a, &b)?);
+            assert_eq!(a.get_num_states(), b.get_num_states());
+
+            let num_states = a.get_num_states();
+            let sum1: i32 = (0..num_states)
+                .map(|s| a.get_num_transitions_with_state(s))
+                .sum();
+            let sum2: i32 = (0..num_states)
+                .map(|s| b.get_num_transitions_with_state(s))
+                .sum();
+
+            assert_eq!(sum1, sum2);
+        }
+
+        Ok(())
+    }
+    #[test]
+    #[ignore]
+    fn test_minimize_huge() -> Result<()> {
+        // TODO: RegExp not Implement
+        Ok(())
+    }
+}

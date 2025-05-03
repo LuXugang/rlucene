@@ -16,7 +16,7 @@
  */
 use std::borrow::Cow;
 use std::cmp::Ordering;
-use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
 use std::fmt;
 use std::fmt::Display;
 use std::rc::Rc;
@@ -1095,7 +1095,7 @@ impl Operations {
     /// Reverses the automaton, returning the new initial states.
     pub(crate) fn reverse_with_initial_states(
         a: &Automaton,
-        mut initial_states: Option<&mut HashSet<i32>>,
+        mut initial_states: Option<&mut BTreeSet<i32>>,
     ) -> Result<Automaton> {
         if Operations::is_empty(a) {
             return Ok(Automaton::new());
