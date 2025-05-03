@@ -934,14 +934,18 @@ impl Sorter for DestMinMaxSorter<'_> {
 #[cfg(test)]
 mod tests {
     use std::borrow::Cow;
-    use std::collections::HashSet;
+    use std::collections::{BTreeSet, HashSet};
 
     use rand::rngs::StdRng;
-    use rand::Rng;
+    use rand::{Rng, SeedableRng};
 
-    use crate::index::BytesRef;
-    use crate::test::util::automaton::automaton_test_util::AutomatonTestUtil;
-    use crate::test::util::lucene_test_case::{at_least, random};
+    use crate::index::{BytesRef, BytesRefBuilder};
+    use crate::test::util::automaton::automaton_test_util::{
+        AutomatonTestUtil, RandomAcceptedStrings,
+    };
+    use crate::test::util::lucene_test_case::{
+        at_least, new_bytes_ref_empty, new_bytes_ref_from_string, random,
+    };
     use crate::test::util::test_util::TestUtil;
     use crate::util::automation::automata::Automata;
     use crate::util::automation::automaton::Automaton;
@@ -950,9 +954,12 @@ mod tests {
     use crate::util::automation::operations::Operations;
     use crate::util::automation::transition::Transition;
     use crate::util::automation::transition_accessor::TransitionAccessor;
+    use crate::util::automation::utf32_to_utf8::UTF32ToUTF8;
     use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::fst_impl::util::Util;
+    use crate::util::ints_ref::IntsRef;
     use crate::util::ints_ref_builder::IntsRefBuilder;
+    use crate::util::unicode_util::UnicodeUtil;
 
     #[allow(dead_code)] // for quick search
     struct TestAutomaton;
@@ -1461,17 +1468,72 @@ mod tests {
 
     #[test]
     fn test_common_suffix_unicode() -> Result<()> {
-        // no needed in Rust Lucene
+        let a = Operations::concatenate(
+            &Automata::make_any_string()?,
+            &Automata::make_string("boo😂😂😂")?,
+        )?;
+
+        let binary = UTF32ToUTF8::default().convert(&a)?;
+        let suffix = Operations::get_common_suffix_bytes_ref(&binary)?;
+
+        assert_eq!(BytesRef::from_string("boo😂😂😂"), suffix);
         Ok(())
     }
     #[test]
     fn test_reverse_random1() -> Result<()> {
-        // TODO: RegExp not Implement
+        let mut random = random();
+        let iters = at_least(&mut random, 100);
+
+        for _ in 0..iters {
+            let a = AutomatonTestUtil::random_automaton(&mut random)?;
+            let ra = Operations::reverse(&a)?;
+            let rra = Operations::reverse(&ra)?;
+
+            let v = Operations::remove_dead_states(&a)?;
+            let orig = Operations::determinize(&v, i32::MAX as usize)?;
+            let v = Operations::remove_dead_states(&rra)?;
+            let reversed = Operations::determinize(&v, i32::MAX as usize)?;
+
+            assert!(AutomatonTestUtil::same_language(&orig, &reversed)?);
+        }
+
         Ok(())
     }
     #[test]
     fn test_reverse_random2() -> Result<()> {
-        // TODO: RegExp not Implement
+        let mut random = random();
+        let iters = at_least(&mut random, 100);
+
+        for _ in 0..iters {
+            let bool = random.random_bool(0.5);
+            let seed: u64 = random.random();
+            let mut a = AutomatonTestUtil::random_automaton(&mut random)?;
+            if bool {
+                if let Cow::Owned(o) = Operations::remove_dead_states(&a)? {
+                    a = Cow::Owned(o)
+                }
+            }
+
+            let ra = Operations::reverse(&a)?;
+            let rda = Operations::determinize(&ra, i32::MAX as usize)?;
+
+            if Operations::is_empty(&a) {
+                assert!(Operations::is_empty(&rda));
+                continue;
+            }
+
+            let ras = RandomAcceptedStrings::new(&a)?;
+            for _ in 0..20 {
+                let mut random1 = StdRng::seed_from_u64(seed);
+                // Find string accepted by original automaton
+                let s = ras.get_random_accepted_string(&mut random1)?;
+                let reversed: Vec<i32> = s.iter().copied().rev().collect();
+                let len = reversed.len();
+                let ints_ref = IntsRef::from_slice(reversed, 0, len as i32);
+                assert!(Operations::run_ints_ref(&rda, &ints_ref));
+            }
+        }
+
         Ok(())
     }
     #[test]
@@ -1859,5 +1921,464 @@ mod tests {
             Automata::make_string_union(&terms_list)?
         };
         Ok(random_no_op(&a, rng)?.into_owned())
+    }
+    fn get_random_string(random: &mut StdRng) -> String {
+        TestUtil::random_realistic_unicode_string(random)
+    }
+    #[test]
+    fn test_random_finite() -> Result<()> {
+        let mut random = random();
+        let num_terms = at_least(&mut random, 10);
+        let iters = at_least(&mut random, 100);
+
+        let mut terms: BTreeSet<BytesRef<Vec<u8>>> = BTreeSet::new();
+        while terms.len() < num_terms as usize {
+            terms.insert(BytesRef::from_string(&get_random_string(&mut random)));
+        }
+
+        let mut a = Cow::Owned(union_terms(
+            &terms.iter().cloned().collect::<Vec<_>>(),
+            &mut random,
+        )?);
+        assert_same(&terms.iter().cloned().collect::<Vec<_>>(), &a, &mut random)?;
+
+        for _ in 0..iters {
+            match random.random_range(0..15) {
+                0 => {
+                    let string = get_random_string(&mut random);
+                    let prefix = new_bytes_ref_from_string(&mut random, &string)?;
+                    let mut new_terms = BTreeSet::new();
+                    for t in &terms {
+                        let mut b = BytesRefBuilder::new();
+                        b.copy_bytes_with_ref(&prefix);
+                        b.append_ref(t);
+                        new_terms.insert(b.get_bytes_ref_copy());
+                    }
+                    terms = new_terms;
+                    let was_deterministic1 = a.is_deterministic();
+                    a = Cow::Owned(Operations::concatenate(
+                        &Automata::make_string(&prefix.utf8_to_string()?)?,
+                        &a,
+                    )?);
+                    assert_eq!(was_deterministic1, a.is_deterministic());
+                },
+                1 => {
+                    let v = get_random_string(&mut random);
+                    let suffix = new_bytes_ref_from_string(&mut random, &v)?;
+                    let mut new_terms = BTreeSet::new();
+                    for t in &terms {
+                        let mut b = BytesRefBuilder::new();
+                        b.copy_bytes_with_ref(t);
+                        b.append_ref(&suffix);
+                        new_terms.insert(b.get_bytes_ref_copy());
+                    }
+                    terms = new_terms;
+                    a = Cow::Owned(Operations::concatenate(
+                        &a,
+                        &Automata::make_string(&suffix.utf8_to_string()?)?,
+                    )?);
+                },
+                2 => {
+                    if let Cow::Owned(a2) = Operations::determinize(&a, i32::MAX as usize)? {
+                        a = Cow::Owned(a2);
+                    }
+                    assert!(a.is_deterministic());
+                },
+                3 => {
+                    if a.get_num_states() < 100 {
+                        if let Cow::Owned(a2) = MinimizationOperations::minimize(
+                            &a,
+                            Operations::DEFAULT_DETERMINIZE_WORK_LIMIT,
+                        )? {
+                            a = Cow::Owned(a2);
+                            assert!(a.is_deterministic());
+                        }
+                    }
+                },
+                4 => {
+                    let mut new_terms = BTreeSet::new();
+                    let num_new = random.random_range(0..5);
+                    while new_terms.len() < num_new {
+                        new_terms.insert(BytesRef::from_string(&get_random_string(&mut random)));
+                    }
+                    let mut combined = terms.clone();
+                    combined.extend(new_terms.iter().cloned());
+                    let a2 =
+                        union_terms(&new_terms.iter().cloned().collect::<Vec<_>>(), &mut random)?;
+                    terms = combined;
+                    a = Cow::Owned(Operations::union(&a, &a2)?);
+                },
+                5 => {
+                    if let Cow::Owned(a2) = Operations::optional(&a)? {
+                        a = Cow::Owned(a2);
+                    }
+                    terms.insert(new_bytes_ref_empty(&mut random)?);
+                },
+                6 => {
+                    if !terms.is_empty() {
+                        let v = Operations::remove_dead_states(&a)?;
+                        let ras = RandomAcceptedStrings::new(&v)?;
+                        let mut to_remove = BTreeSet::new();
+                        let num_to_remove =
+                            TestUtil::next_int(&mut random, 1, terms.len().div_ceil(2) as i32);
+                        while to_remove.len() < num_to_remove as usize {
+                            let ints = ras.get_random_accepted_string(&mut random)?;
+                            let len = ints.len();
+                            let s = new_bytes_ref_from_string(
+                                &mut random,
+                                &UnicodeUtil::new_string(&ints, 0, len)?,
+                            )?;
+                            if !to_remove.contains(&s) {
+                                to_remove.insert(s);
+                            }
+                        }
+                        for t in &to_remove {
+                            let removed = terms.remove(t);
+                            assert!(removed)
+                        }
+                        let a2 = union_terms(
+                            &to_remove.iter().cloned().collect::<Vec<_>>(),
+                            &mut random,
+                        )?;
+                        if let Cow::Owned(o) = Operations::minus(&a, &a2, i32::MAX as usize)? {
+                            a = Cow::Owned(o);
+                        }
+                    }
+                },
+                7 => {
+                    // minus infinite
+                    let count = TestUtil::next_int(&mut random, 1, 5);
+                    let mut prefixes = HashSet::new();
+                    while prefixes.len() < count as usize {
+                        let prefix = random.random_range(0..128);
+                        prefixes.insert(prefix);
+                    }
+
+                    if cfg!(feature = "test_log_verbose") {
+                        println!("  op=minus infinite prefixes={:?}", prefixes);
+                    }
+
+                    let mut as_ = vec![];
+
+                    for &prefix in &prefixes {
+                        let mut a2 = Automaton::new();
+                        let init = a2.create_state();
+                        let state = a2.create_state();
+                        a2.add_transition_label(init, state, prefix)?;
+                        a2.set_accept(state, true);
+                        a2.add_transition(state, state, char::MIN as i32, char::MAX as i32)?;
+                        a2.finish_state()?;
+                        as_.push(a2);
+                        terms.retain(|t| {
+                            if t.length > 0 {
+                                let first_byte = t.bytes[t.offset] as i32;
+                                first_byte != prefix
+                            } else {
+                                true
+                            }
+                        });
+                    }
+
+                    let refs: Vec<&Automaton> = as_.iter().collect();
+                    let v = Operations::union_list(&refs)?;
+                    let a2 = random_no_op(&v, &mut random)?;
+                    if let Cow::Owned(o) =
+                        Operations::minus(&a, &a2, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?
+                    {
+                        a = Cow::Owned(o);
+                    }
+                },
+                8 => {
+                    let count = TestUtil::next_int(&mut random, 10, 20);
+                    if cfg!(feature = "test_log_verbose") {
+                        println!("  op=intersect infinite count={}", count);
+                    }
+
+                    let mut prefixes = HashSet::new();
+                    while prefixes.len() < count as usize {
+                        let prefix = random.random_range(0..128);
+                        prefixes.insert(prefix);
+                    }
+
+                    if cfg!(feature = "test_log_verbose") {
+                        println!("  prefixes={:?}", prefixes);
+                    }
+
+                    let mut as_ = vec![];
+
+                    for &prefix in &prefixes {
+                        let mut a2 = Automaton::new();
+                        let init = a2.create_state();
+                        let state = a2.create_state();
+                        a2.add_transition_label(init, state, prefix)?;
+                        a2.set_accept(state, true);
+                        a2.add_transition(state, state, char::MIN as i32, char::MAX as i32)?;
+                        a2.finish_state()?;
+                        as_.push(a2);
+                    }
+
+                    let refs: Vec<&Automaton> = as_.iter().collect();
+                    let mut a2 = Cow::Owned(Operations::union_list(&refs)?);
+                    if random.random_bool(0.5) {
+                        if let Cow::Owned(o) = Operations::determinize(
+                            &a2,
+                            Operations::DEFAULT_DETERMINIZE_WORK_LIMIT,
+                        )? {
+                            a2 = Cow::Owned(o);
+                        }
+                    } else if random.random_bool(0.5) {
+                        if let Cow::Owned(o) = MinimizationOperations::minimize(
+                            &a2,
+                            Operations::DEFAULT_DETERMINIZE_WORK_LIMIT,
+                        )? {
+                            a2 = Cow::Owned(o);
+                        }
+                    }
+
+                    if let Cow::Owned(o) = Operations::intersection(&a, &a2)? {
+                        a = Cow::Owned(o);
+                    }
+
+                    terms.retain(|t| {
+                        if t.length == 0 {
+                            false
+                        } else {
+                            let first_byte = t.bytes[t.offset] as i32;
+                            prefixes.contains(&first_byte)
+                        }
+                    });
+                },
+
+                9 => {
+                    a = Cow::Owned(Operations::reverse(&a)?);
+                    let mut reversed_terms = BTreeSet::new();
+                    for t in &terms {
+                        let rev = t.utf8_to_string()?.chars().rev().collect::<String>();
+                        reversed_terms.insert(new_bytes_ref_from_string(&mut random, &rev)?);
+                    }
+                    terms = reversed_terms;
+                },
+                10 => {
+                    if let Cow::Owned(o) = random_no_op(&a, &mut random)? {
+                        a = Cow::Owned(o);
+                    }
+                },
+                11 => {
+                    let min = random.random_range(0..1000);
+                    let max = min + random.random_range(0..50);
+                    let digits = max.to_string().len();
+
+                    if cfg!(feature = "test_log_verbose") {
+                        println!(
+                            "  op=union interval min={} max={} digits={}",
+                            min, max, digits
+                        );
+                    }
+
+                    let interval_automaton =
+                        Automata::make_decimal_interval(min, max, digits as i32)?;
+                    a = Cow::Owned(Operations::union(&a, &interval_automaton)?);
+
+                    let prefix = "0".repeat(digits);
+                    for i in min..=max {
+                        let mut s = i.to_string();
+                        if s.len() < digits {
+                            s = format!("{}{}", &prefix[s.len()..], s);
+                        }
+                        terms.insert(new_bytes_ref_from_string(&mut random, &s)?);
+                    }
+                },
+                12 => {
+                    let v = Automata::make_empty_string()?;
+                    if let Cow::Owned(o) =
+                        Operations::minus(&a, &v, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?
+                    {
+                        a = Cow::Owned(o)
+                    }
+                    terms.remove(&new_bytes_ref_empty(&mut random)?);
+                },
+                13 => {
+                    a = Cow::Owned(Operations::union(&a, &Automata::make_empty_string()?)?);
+                    terms.insert(new_bytes_ref_empty(&mut random)?);
+                },
+                14 => {
+                    if terms.len() <= (num_terms * 3) as usize {
+                        if cfg!(feature = "test_log_verbose") {
+                            println!("  op=concat finite automaton");
+                        }
+
+                        let count = if random.random_bool(0.5) { 2 } else { 3 };
+                        let mut add_terms = BTreeSet::new();
+                        while add_terms.len() < count {
+                            let s = get_random_string(&mut random);
+                            add_terms.insert(new_bytes_ref_from_string(&mut random, &s)?);
+                        }
+
+                        if cfg!(feature = "test_log_verbose") {
+                            for term in &add_terms {
+                                println!("    term={:?}", term);
+                            }
+                        }
+
+                        let add_vec: Vec<_> = add_terms.iter().cloned().collect();
+                        let a2 = union_terms(&add_vec, &mut random)?;
+                        let a2 = random_no_op(&a2, &mut random)?;
+
+                        let mut new_terms = BTreeSet::new();
+                        let mut new_term = BytesRefBuilder::new();
+
+                        if random.random_bool(0.5) {
+                            // suffix
+                            if cfg!(feature = "test_log_verbose") {
+                                println!("  do suffix");
+                            }
+                            a = Cow::Owned(Operations::concatenate(&a, &a2)?);
+
+                            for t in &terms {
+                                for s in &add_terms {
+                                    new_term.copy_bytes_with_ref(t);
+                                    new_term.append_ref(s);
+                                    new_terms.insert(new_term.get_bytes_ref_copy());
+                                }
+                            }
+                        } else {
+                            // prefix
+                            if cfg!(feature = "test_log_verbose") {
+                                println!("  do prefix");
+                            }
+                            a = Cow::Owned(Operations::concatenate(&a2, &a)?);
+
+                            for s in &add_terms {
+                                for t in &terms {
+                                    new_term.copy_bytes_with_ref(s);
+                                    new_term.append_ref(t);
+                                    new_terms.insert(new_term.get_bytes_ref_copy());
+                                }
+                            }
+                        }
+
+                        terms = new_terms;
+                    }
+                },
+
+                _ => {}, // others omitted for brevity
+            }
+            assert_same(&terms.iter().cloned().collect::<Vec<_>>(), &a, &mut random)?;
+            let left = AutomatonTestUtil::is_deterministic_slow(&a);
+            let right = a.is_deterministic();
+            assert_eq!(left, right);
+            if random.random_range(0..10) == 7 {
+                a = Cow::Owned(verify_topo_sort(&a)?)
+            }
+        }
+        assert_same(&terms.iter().cloned().collect::<Vec<_>>(), &a, &mut random)?;
+
+        Ok(())
+    }
+    /// Runs topo sort, verifies transitions then only "go forwards", and builds
+    /// and returns new automaton with those remapped toposorted states.
+    pub fn verify_topo_sort(a: &Automaton) -> Result<Automaton> {
+        let sorted = Operations::topo_sort_states(a)?;
+        // This can be < if we removed dead states:
+        assert!(sorted.len() <= a.get_num_states() as usize);
+
+        let mut a2 = Automaton::new();
+        let mut state_map = vec![-1; a.get_num_states() as usize];
+        let mut t = Transition::default();
+
+        for &state in &sorted {
+            let new_state = a2.create_state();
+            let accept = a.is_accept(state);
+            a2.set_accept(new_state, accept);
+            assert_eq!(state_map[state as usize], -1);
+            state_map[state as usize] = new_state;
+        }
+        // 2nd pass: add new transitions
+        for &state in &sorted {
+            let count = a.init_transition(state, &mut t);
+            for _ in 0..count {
+                a.get_next_transition(&mut t);
+                assert!(state_map[t.dest as usize] > state_map[state as usize]);
+                a2.add_transition(
+                    state_map[state as usize],
+                    state_map[t.dest as usize],
+                    t.min,
+                    t.max,
+                )?;
+            }
+        }
+
+        a2.finish_state()?;
+        Ok(a2)
+    }
+
+    pub fn assert_same(
+        terms: &[BytesRef<Vec<u8>>],
+        a: &Automaton,
+        random: &mut StdRng,
+    ) -> Result<()> {
+        assert!(AutomatonTestUtil::is_finite(a)?);
+        assert!(!Operations::is_total(a)?);
+
+        let det_a = Operations::determinize(a, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
+
+        // Make sure all terms are accepted:
+        let mut scratch: IntsRefBuilder<Vec<i32>> = IntsRefBuilder::new();
+        for term in terms {
+            Util::get_ints_ref(term, &mut scratch);
+            let s = term.utf8_to_string()?;
+            assert!(
+                Operations::run_str(&det_a, &s),
+                "failed to accept term={}",
+                s
+            );
+        }
+
+        // Use getFiniteStrings:
+        let mut expected = HashSet::new();
+        for term in terms {
+            let mut ints_ref = IntsRefBuilder::new();
+            let s = term.utf8_to_string()?;
+            Util::get_utf32(&s, &mut ints_ref);
+            expected.insert(ints_ref.to_ints_ref());
+        }
+        let actual = TestOperations::get_finite_strings(a)?;
+
+        if expected != actual {
+            println!("FAILED: ");
+            for term in &expected {
+                if !actual.contains(term) {
+                    println!("  term={:?} should be accepted but isn't", term);
+                }
+            }
+            for term in &actual {
+                if !expected.contains(term) {
+                    println!("  term={:?} is accepted but should not be", term);
+                }
+            }
+            unreachable!("mismatch");
+        }
+        // check same language via determinized unionTerms
+        let v0 = &union_terms(terms, random)?;
+        let v1 = Operations::determinize(v0, i32::MAX as usize)?;
+        let a2 = Operations::remove_dead_states(&v1)?;
+        let v0 = Operations::determinize(a, i32::MAX as usize)?;
+        let a3 = Operations::remove_dead_states(&v0)?;
+        assert!(AutomatonTestUtil::same_language(&a2, &a3)?);
+
+        // check in UTF8 space
+        let v = UTF32ToUTF8::default().convert(a)?;
+        let utf8 = random_no_op(&v, random)?;
+
+        let mut expected2 = HashSet::new();
+        for term in terms {
+            let mut ints_ref = IntsRefBuilder::new();
+            Util::get_ints_ref(term, &mut ints_ref);
+            expected2.insert(ints_ref.to_ints_ref());
+        }
+
+        assert_eq!(expected2, TestOperations::get_finite_strings(&utf8)?);
+
+        Ok(())
     }
 }

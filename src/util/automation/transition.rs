@@ -21,7 +21,7 @@ use crate::util::error::lucene_error::Result;
 /// when iterating through transitions via
 /// [`TransitionAccessor::init_transition`](crate::util::automation::transition_accessor::TransitionAccessor::init_transition)
 /// and [`TransitionAccessor::get_next_transition`](crate::util::automation::transition_accessor::TransitionAccessor::get_next_transition).
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Transition {
     /// Source state.
     pub source: i32,

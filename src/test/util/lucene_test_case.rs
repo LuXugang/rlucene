@@ -173,7 +173,6 @@ pub(crate) fn new_bytes_ref_from_string(random: &mut StdRng, s: &str) -> Result<
 /// Creates a copy of the incoming `BytesRef` that sometimes uses a non-zero
 /// offset, and non-zero end-padding, to tickle latent bugs that fail to look at
 /// `BytesRef.offset`.
-#[allow(unused)]
 pub(crate) fn new_bytes_ref_from_bytes_ref(
     random: &mut StdRng,
     b: &BytesRef<Vec<u8>>,
@@ -185,7 +184,6 @@ pub(crate) fn new_bytes_ref_from_bytes_ref(
 /// Creates a random `BytesRef` from the incoming bytes, sometimes using a
 /// non-zero offset, and non-zero end-padding, to tickle latent bugs that fail
 /// to look at `BytesRef.offset`.
-#[allow(unused)]
 pub(crate) fn new_bytes_ref_from_bytes(
     random: &mut StdRng,
     bytes_in: &[u8],
@@ -196,7 +194,6 @@ pub(crate) fn new_bytes_ref_from_bytes(
 /// Creates a random empty `BytesRef` that sometimes uses a non-zero offset, and
 /// non-zero end-padding, to tickle latent bugs that fail to look at
 /// `BytesRef.offset`.
-#[allow(unused)]
 pub(crate) fn new_bytes_ref_empty(random: &mut StdRng) -> Result<BytesRef<Vec<u8>>> {
     new_bytes_ref(random, &[], 0, 0) // Calling the existing `new_bytes_ref`
                                      // function
@@ -205,7 +202,6 @@ pub(crate) fn new_bytes_ref_empty(random: &mut StdRng) -> Result<BytesRef<Vec<u8
 /// Creates a random empty `BytesRef`, with at least the requested length of
 /// bytes free, that sometimes uses a non-zero offset and non-zero end-padding
 /// to tickle latent bugs that fail to look at `BytesRef.offset`.
-#[allow(unused)]
 pub(crate) fn new_bytes_ref_with_length(
     byte_length: i32,
     random: &mut StdRng,

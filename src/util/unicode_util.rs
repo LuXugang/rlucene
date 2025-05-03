@@ -18,6 +18,11 @@ use crate::util::error::lucene_error::LuceneError;
 
 pub struct UnicodeUtil;
 impl UnicodeUtil {
+    pub(crate) const UNI_SUR_HIGH_START: i32 = 0xD800;
+    pub(crate) const UNI_SUR_HIGH_END: i32 = 0xDBFF;
+    pub(crate) const UNI_SUR_LOW_START: i32 = 0xDC00;
+    pub(crate) const UNI_SUR_LOW_END: i32 = 0xDFFF;
+
     pub(crate) fn code_point_at<'a>(
         utf8: &[u8],
         pos: usize,
@@ -74,6 +79,37 @@ impl UnicodeUtil {
         reuse.code_point = v;
 
         Ok(reuse)
+    }
+    pub fn new_string(
+        code_points: &[i32],
+        offset: usize,
+        count: usize,
+    ) -> Result<String, LuceneError> {
+        if offset + count > code_points.len() {
+            return Err(LuceneError::illegal_argument(
+                "offset + count out of bounds",
+            ));
+        }
+
+        let mut result = String::with_capacity(count);
+
+        for &cp in &code_points[offset..offset + count] {
+            if !(0..=0x10FFFF).contains(&cp) {
+                return Err(LuceneError::illegal_argument(format!(
+                    "Invalid code point: {cp}"
+                )));
+            }
+
+            if let Some(c) = std::char::from_u32(cp as u32) {
+                result.push(c);
+            } else {
+                return Err(LuceneError::illegal_argument(format!(
+                    "Invalid Unicode scalar value: {cp}"
+                )));
+            }
+        }
+
+        Ok(result)
     }
 }
 

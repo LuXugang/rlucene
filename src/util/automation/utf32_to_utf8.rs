@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::borrow::Cow;
 
 use crate::util::automation::automaton::{Automaton, Builder};
 use crate::util::automation::transition::Transition;
@@ -228,9 +229,9 @@ impl UTF32ToUTF8 {
     /// The incoming automaton need not be deterministic.
     /// Note that the returned automaton will not generally be deterministic,
     /// so you must determinize it if that's required.
-    pub fn convert(&mut self, utf32: Automaton) -> Result<Automaton> {
+    pub fn convert<'a>(&mut self, utf32: &'a Automaton) -> Result<Cow<'a, Automaton>> {
         if utf32.get_num_states() == 0 {
-            return Ok(utf32);
+            return Ok(Cow::Borrowed(utf32));
         }
 
         let mut map = vec![-1; utf32.get_num_states() as usize];
@@ -270,8 +271,7 @@ impl UTF32ToUTF8 {
                 self.convert_one_edge(current_utf8, dest_utf8, scratch.min, scratch.max);
             }
         }
-
-        self.utf8.finish()
+        Ok(Cow::Owned(self.utf8.finish()?))
     }
 }
 

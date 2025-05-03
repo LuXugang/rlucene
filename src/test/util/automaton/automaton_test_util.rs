@@ -20,6 +20,7 @@ use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
 use bit_set::BitSet;
+use rand::prelude::IndexedRandom;
 use rand::rngs::StdRng;
 use rand::Rng;
 
@@ -34,6 +35,7 @@ use crate::util::error::lucene_error::LuceneError;
 use crate::util::error::lucene_error::Result;
 use crate::util::ints_ref::IntsRef;
 use crate::util::ints_ref_builder::IntsRefBuilder;
+use crate::util::unicode_util::UnicodeUtil;
 
 pub struct AutomatonTestUtil;
 impl AutomatonTestUtil {
@@ -42,6 +44,57 @@ impl AutomatonTestUtil {
     pub const DEFAULT_MAX_DETERMINIZED_STATES: usize = 1000000;
     ///  Maximum level of recursion allowed in recursive operations.
     pub const MAX_RECURSION_LEVEL: usize = 1000;
+    /// picks a random int code point, avoiding surrogates; throws
+    /// IllegalArgumentException if this transition only accepts surrogates
+    fn get_random_codepoint(rng: &mut StdRng, min: i32, max: i32) -> Result<i32> {
+        let code = if max < UnicodeUtil::UNI_SUR_HIGH_START || min > UnicodeUtil::UNI_SUR_LOW_END {
+            // Entire range is outside surrogates
+            rng.random_range(min..=max)
+        } else if min >= UnicodeUtil::UNI_SUR_HIGH_START {
+            if max > UnicodeUtil::UNI_SUR_LOW_END {
+                // Range is after surrogates
+                rng.random_range(UnicodeUtil::UNI_SUR_LOW_END + 1..=max)
+            } else {
+                return Err(LuceneError::illegal_argument(format!(
+                    "transition accepts only surrogates: min={} max={}",
+                    min, max
+                )));
+            }
+        } else if max <= UnicodeUtil::UNI_SUR_LOW_END {
+            if min < UnicodeUtil::UNI_SUR_HIGH_START {
+                // Range is before surrogates
+                rng.random_range(min..UnicodeUtil::UNI_SUR_HIGH_START)
+            } else {
+                return Err(LuceneError::illegal_argument(format!(
+                    "transition accepts only surrogates: min={} max={}",
+                    min, max
+                )));
+            }
+        } else {
+            // Range spans surrogates; we skip the surrogate block
+            let gap1 = UnicodeUtil::UNI_SUR_HIGH_START - min;
+            let gap2 = max - UnicodeUtil::UNI_SUR_LOW_END;
+            let c = rng.random_range(0..gap1 + gap2 + 1);
+            if c < gap1 {
+                min + c
+            } else {
+                UnicodeUtil::UNI_SUR_LOW_END + (c - gap1) + 1
+            }
+        };
+
+        assert!(
+            code >= min
+                && code <= max
+                && !(UnicodeUtil::UNI_SUR_HIGH_START..=UnicodeUtil::UNI_SUR_LOW_END)
+                    .contains(&code),
+            "code={} min={} max={}",
+            code,
+            min,
+            max
+        );
+        Ok(code)
+    }
+
     pub fn random_single_automaton(random: &mut StdRng) -> Result<Automaton> {
         // TODO: RegExp not Implement
         let len = random.random_range(10..50);
@@ -294,6 +347,26 @@ impl AutomatonTestUtil {
         visited.insert(state);
         Ok(true)
     }
+    /// Returns true if the automaton is deterministic.
+    pub fn is_deterministic_slow(a: &Automaton) -> bool {
+        let mut t = Transition::default();
+        let num_states = a.get_num_states();
+        for s in 0..num_states {
+            let count = a.init_transition(s, &mut t);
+            let mut last_max = -1;
+            for _ in 0..count {
+                a.get_next_transition(&mut t);
+                if t.min <= last_max {
+                    assert!(!a.is_deterministic());
+                    return false;
+                }
+                last_max = t.max;
+            }
+        }
+
+        assert!(!a.is_deterministic());
+        true
+    }
 
     /// Returns `true` if these two automata accept exactly the same language.
     /// This is a costly computation!
@@ -322,8 +395,8 @@ impl AutomatonTestUtil {
                 "a2 must be deterministic".to_string(),
             ));
         }
-        debug_assert!(!Operations::has_dead_states_from_initial(a1)?);
-        debug_assert!(!Operations::has_dead_states_from_initial(a2)?);
+        assert!(!Operations::has_dead_states_from_initial(a1)?);
+        assert!(!Operations::has_dead_states_from_initial(a2)?);
 
         if a1.get_num_states() == 0 {
             return Ok(true);
@@ -398,4 +471,114 @@ impl Hash for HashSetAsKey {
             i.hash(state);
         }
     }
+}
+pub struct RandomAcceptedStrings<'a> {
+    leads_to_accept: HashMap<Transition, bool>,
+    a: &'a Automaton,
+    transitions: Vec<Vec<Transition>>,
+}
+impl<'a> RandomAcceptedStrings<'a> {
+    pub fn new(a: &'a Automaton) -> Result<Self> {
+        if a.get_num_states() == 0 {
+            return Err(LuceneError::illegal_argument(
+                "this automaton accepts nothing",
+            ));
+        }
+
+        let transitions = a.get_sorted_transitions();
+
+        let mut leads_to_accept = HashMap::new();
+        let mut all_arriving: HashMap<i32, Vec<ArrivingTransition>> = HashMap::new();
+
+        let mut q = VecDeque::new();
+        let mut seen = HashSet::new();
+        // reverse map the transitions, so we can quickly look
+        // up all arriving transitions to a given state
+        for (s, trans) in transitions.iter().enumerate() {
+            for t in trans {
+                let tl = all_arriving.get_mut(&t.dest);
+                match tl {
+                    Some(v) => v.push(ArrivingTransition {
+                        from: s as i32,
+                        t: t.clone(),
+                    }),
+                    None => {
+                        let tl_new = vec![];
+                        all_arriving.insert(t.dest, tl_new);
+                    },
+                }
+            }
+
+            if a.is_accept(s as i32) {
+                q.push_back(s as i32);
+                seen.insert(s as i32);
+            }
+        }
+        // Breadth-first search, from accept states,
+        // backwards:
+        while let Some(s) = q.pop_front() {
+            if let Some(arriving) = all_arriving.get(&s) {
+                for at in arriving {
+                    let from = at.from;
+                    if !seen.contains(&from) {
+                        q.push_back(from);
+                        seen.insert(from);
+                        leads_to_accept.insert(at.t.clone(), true);
+                    }
+                }
+            }
+        }
+
+        Ok(Self {
+            leads_to_accept,
+            a,
+            transitions,
+        })
+    }
+    pub(crate) fn get_random_accepted_string(&self, random: &mut StdRng) -> Result<Vec<i32>> {
+        let mut codepoints = Vec::new();
+        let mut s = 0;
+
+        loop {
+            if self.a.is_accept(s) {
+                if self.a.get_num_transitions_with_state(s) == 0 {
+                    break;
+                } else if random.random_bool(0.5) {
+                    break;
+                }
+            }
+
+            let transitions = &self.transitions[s as usize];
+            if transitions.is_empty() {
+                return Err(LuceneError::illegal_state("this automaton has dead states"));
+            }
+
+            let cheat = random.random_bool(0.5);
+            let t = if cheat {
+                let to_accept: Vec<&Transition> = transitions
+                    .iter()
+                    .filter(|t| self.leads_to_accept.contains_key(*t))
+                    .collect();
+
+                if to_accept.is_empty() {
+                    transitions.choose(random).unwrap()
+                } else {
+                    *to_accept.choose(random).unwrap()
+                }
+            } else {
+                transitions.choose(random).unwrap()
+            };
+
+            let codepoint = AutomatonTestUtil::get_random_codepoint(random, t.min, t.max)?;
+            codepoints.push(codepoint);
+            s = t.dest;
+        }
+
+        Ok(codepoints)
+    }
+}
+
+struct ArrivingTransition {
+    from: i32,
+    t: Transition,
 }
