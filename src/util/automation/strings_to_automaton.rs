@@ -41,7 +41,7 @@ use crate::util::unicode_util::{UTF8CodePoint, UnicodeUtil};
 /// - [`Automata::make_binary_string_union_iter`](Automaton::make_binary_string_union_iter)
 pub(crate) struct StringsToAutomaton {
     /// A "registry" for state interning.
-    pub(crate) state_registry: Option<HashMap<u64, Rc<RefCell<State>>>>,
+    pub(crate) state_registry: Option<HashMap<StateKey, Rc<RefCell<State>>>>,
     /// Root automaton state.
     pub(crate) root: Rc<RefCell<State>>,
     /// Used for input order checking (only through assertions right now)
@@ -73,18 +73,24 @@ impl StringsToAutomaton {
     fn convert(
         a: &mut Builder,
         s: &Rc<RefCell<State>>,
-        visited: &mut HashMap<usize, i32>,
+        visited: &mut HashMap<StateKey, i32>,
     ) -> Result<i32> {
-        let addr = Rc::as_ptr(s) as usize;
-        if let Some(&converted) = visited.get(&addr) {
+        let key = StateKey{
+            state: Rc::clone(s),
+        };
+
+        if let Some(&converted) = visited.get(&key) {
             return Ok(converted);
         }
 
         let converted = a.create_state();
-        let s = s.borrow_mut();
-        a.set_accept(converted, s.is_final);
+        {
+            let s = s.borrow();
+            a.set_accept(converted, s.is_final);
+        }
 
-        visited.insert(addr, converted);
+        visited.insert(key, converted);
+        let s = s.borrow();
 
         for (i, target) in s.states.iter().enumerate() {
             let v = Self::convert(a, target, visited)?;
@@ -100,8 +106,10 @@ impl StringsToAutomaton {
             return Err(LuceneError::illegal_state("".to_string()));
         }
 
-        if self.root.borrow().has_children() {
-            self.replace_or_register(self.root.clone())?;
+        {
+            if self.root.borrow().has_children() {
+                self.replace_or_register(self.root.clone())?;
+            }
         }
 
         self.state_registry = None;
@@ -226,17 +234,18 @@ impl StringsToAutomaton {
         if child.borrow().has_children() {
             self.replace_or_register(child.clone())?;
         }
-        let state_borrow = state.borrow();
-        let mut hasher = DefaultHasher::new();
-        state_borrow.hash(&mut hasher);
-        let hash_value = hasher.finish();
-        if let Some(registered) = self.state_registry.as_ref().unwrap().get(&hash_value) {
+        let state_key = StateKey {
+            state: Rc::clone(&state),
+        };
+        if let Some(registered) = self.state_registry.as_ref().unwrap().get(&state_key) {
             state.borrow_mut().replace_last_child(Rc::clone(registered));
         } else {
-            self.state_registry
-                .as_mut()
-                .unwrap()
-                .insert(hash_value, Rc::clone(&child));
+            self.state_registry.as_mut().unwrap().insert(
+                StateKey {
+                    state: Rc::clone(&child),
+                },
+                Rc::clone(&child),
+            );
         }
         Ok(())
     }
@@ -323,7 +332,12 @@ impl State {
         a1.iter().zip(a2.iter()).all(|(a, b)| Rc::ptr_eq(a, b))
     }
 }
-impl PartialEq for State {
+
+#[derive(Clone)]
+struct StateKey {
+    state: Rc<RefCell<State>>,
+}
+impl PartialEq for StateKey {
     /// Two states are equal if:
     ///
     /// - They have an identical number of outgoing transitions, labeled with
@@ -331,33 +345,45 @@ impl PartialEq for State {
     /// - Corresponding outgoing transitions lead to the same states (to states
     ///   with an identical right-language)
     fn eq(&self, other: &Self) -> bool {
-        self.is_final == other.is_final
-            && self.labels == other.labels
-            && self.states.len() == other.states.len()
-            && State::reference_equals(&self.states, &other.states)
+        let state = self.state.borrow();
+        let other = other.state.borrow();
+        state.is_final == other.is_final
+            && state.labels == other.labels
+            && state.states.len() == other.states.len()
+            && State::reference_equals(&state.states, &other.states)
     }
 }
 
-impl Eq for State {}
+impl Eq for StateKey {}
 
-impl std::hash::Hash for State {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.is_final.hash(state);
-        self.labels.hash(state);
-        for s in &self.states {
-            (Rc::as_ptr(s) as *const () as usize).hash(state);
+impl Hash for StateKey {
+    fn hash<H: Hasher>(&self, hasher: &mut H) {
+        let sb = self.state.borrow();
+        let mut h: usize = if sb.is_final { 1 } else { 0 };
+        h ^= h.wrapping_mul(31).wrapping_add(sb.labels.len());
+        for &c in &sb.labels {
+            h ^= h.wrapping_mul(31).wrapping_add(c as usize);
         }
+        for rc in &sb.states {
+            h ^= Rc::as_ptr(rc) as usize;
+        }
+        h.hash(hasher);
     }
 }
 #[cfg(test)]
 mod tests {
     use std::borrow::Cow;
+    use std::collections::BTreeSet;
 
     use rand::rngs::StdRng;
     use rand::Rng;
 
+    use crate::index::vector_encoding::VectorEncoding::BYTE;
     use crate::index::BytesRef;
     use crate::test::util::automaton::automaton_test_util::AutomatonTestUtil;
+    use crate::test::util::lucene_test_case::{is_night_mode, new_bytes_ref_from_string, random};
+    use crate::test::util::test_util::TestUtil;
+    use crate::util::automation::automata::Automata;
     use crate::util::automation::automaton::Automaton;
     use crate::util::automation::minimization_operation::MinimizationOperations;
     use crate::util::automation::operations::Operations;
@@ -367,6 +393,43 @@ mod tests {
 
     #[allow(dead_code)] // for quick search
     struct TestStringsToAutomaton;
+    #[test]
+    fn test_random_minimized() -> Result<()> {
+        let mut random = random();
+        let iters = if is_night_mode() { 20 } else { 5 };
+
+        for _ in 0..iters {
+            let build_binary = false;
+            let size = 2;
+
+            let mut terms = Vec::new();
+            let mut automaton_list = vec![];
+
+            for _ in 0..size {
+                if build_binary {
+                    let t = TestUtil::random_binary_term_with_len(&mut random, 8);
+                    automaton_list.push(Automata::make_binary(&t)?);
+                    terms.push(t);
+                } else {
+                    let s = TestUtil::random_realistic_unicode_string_with_length(&mut random, 8);
+                    let t = new_bytes_ref_from_string(&mut random, &s)?;
+                    automaton_list.push(Automata::make_string(&s)?);
+                    terms.push(t);
+                }
+            }
+
+            let a = Operations::union_list(&automaton_list.iter().collect::<Vec<_>>())?;
+            let expected =
+                MinimizationOperations::minimize(&a, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
+
+            terms.sort_unstable();
+            let actual = build(&mut random, terms, build_binary)?;
+
+            assert_same_automaton(&expected, &actual)?;
+        }
+
+        Ok(())
+    }
 
     fn check_minimized(a: &Automaton) -> Result<()> {
         let minimized =
