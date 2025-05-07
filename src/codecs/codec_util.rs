@@ -1147,8 +1147,9 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "wait_other_impl")]
-    fn test_retrieve_checksum() {}
+    fn test_retrieve_checksum() {
+        // TODO: newDirectory not Implement
+    }
 
     struct FakeOutput<'a> {
         output: ByteBuffersIndexOutput<'a>,

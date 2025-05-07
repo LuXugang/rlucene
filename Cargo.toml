@@ -31,13 +31,11 @@ num-integer="0.1.46"
 overflow-checks = false
 
 [features]
-default= ["test_only", "not_required_in_rust_lucene", "wait_other_impl","unused"]
+default= ["test_only", "not_required_in_rust_lucene"]
 test_only = []
 not_required_in_rust_lucene = []
-wait_other_impl = []
 test_log_verbose = []
 nightly = []
-unused = []
 [workspace]
 members = [
     ".",
