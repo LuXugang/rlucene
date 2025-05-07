@@ -16,3 +16,4 @@
  */
 pub mod automaton_test_util;
 pub mod minimization_operation;
+mod test_determinism;
