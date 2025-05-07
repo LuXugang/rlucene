@@ -121,7 +121,6 @@ impl AutomatonTestUtil {
      * testing. These are from brics automaton, full license (BSD)
      * below:
      */
-
     /*
      * dk.brics.automaton
      *

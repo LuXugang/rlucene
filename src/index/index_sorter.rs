@@ -95,7 +95,6 @@ mod tests {
     use crate::test::util::common_method::assert_vecs_equal;
     use crate::test::util::lucene_test_case::{at_least, random};
     use crate::test::util::test_util::TestUtil;
-    use crate::util::access::AccessVec;
     use crate::util::bytes_ref_comparator::{BytesRefComparator, Natural};
     use crate::util::error::lucene_error::Result;
     use crate::util::stable_string_sorter::{StableStringSorter, StableStringSorterBase};

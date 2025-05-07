@@ -211,9 +211,8 @@ impl Automaton {
 
         let next_state = self.next_state as usize;
         for i in (0..other.next_state as usize).step_by(2) {
-            let idx = next_state + i;
-            if self.states[idx] != -1 {
-                self.states[idx] += self.next_transition;
+            if self.states[next_state + i] != -1 {
+                self.states[next_state + i] += self.next_transition;
             }
         }
         self.next_state += other.next_state;
@@ -230,7 +229,7 @@ impl Automaton {
             state += 1;
         }
 
-        // Bulk copy and fix up transition destinations
+        // Bulk copy and then fixup dest for each transition:
         let len = self.next_transition + other.next_transition;
         ArrayUtil::grow_with_len(&mut self.transitions, len as usize);
         self.transitions.copy_from(
@@ -240,8 +239,7 @@ impl Automaton {
 
         let next_transition = self.next_transition as usize;
         for i in (0..other.next_transition as usize).step_by(3) {
-            let idx = next_transition + i;
-            self.transitions[idx] += state_offset;
+            self.transitions[next_transition + i] += state_offset;
         }
         self.next_transition += other.next_transition;
 
@@ -936,6 +934,7 @@ mod tests {
     use std::borrow::Cow;
     use std::collections::{BTreeSet, HashSet};
 
+    use rand::prelude::SliceRandom;
     use rand::rngs::StdRng;
     use rand::{Rng, SeedableRng};
 
@@ -948,7 +947,7 @@ mod tests {
     };
     use crate::test::util::test_util::TestUtil;
     use crate::util::automation::automata::Automata;
-    use crate::util::automation::automaton::Automaton;
+    use crate::util::automation::automaton::{Automaton, Builder};
     use crate::util::automation::minimization_operation::MinimizationOperations;
     use crate::util::automation::operations::tests::TestOperations;
     use crate::util::automation::operations::Operations;
@@ -1447,12 +1446,13 @@ mod tests {
 
     #[test]
     fn test_common_suffix_leading_kleen_star() -> Result<()> {
+        let mut random = random();
         let a = Operations::concatenate(
             &Automata::make_any_string()?,
             &Automata::make_string("boo")?,
         )?;
         let suffix = Operations::get_common_suffix_bytes_ref(&a)?;
-        assert_eq!(suffix, BytesRef::from_string("boo"));
+        assert_eq!(suffix, new_bytes_ref_from_string(&mut random, "boo")?);
         Ok(())
     }
 
@@ -1469,6 +1469,7 @@ mod tests {
 
     #[test]
     fn test_common_suffix_unicode() -> Result<()> {
+        let mut random = random();
         let a = Operations::concatenate(
             &Automata::make_any_string()?,
             &Automata::make_string("boo😂😂😂")?,
@@ -1477,7 +1478,7 @@ mod tests {
         let binary = UTF32ToUTF8::default().convert(&a)?;
         let suffix = Operations::get_common_suffix_bytes_ref(&binary)?;
 
-        assert_eq!(BytesRef::from_string("boo😂😂😂"), suffix);
+        assert_eq!(new_bytes_ref_from_string(&mut random, "boo😂😂😂")?, suffix);
         Ok(())
     }
     #[test]
@@ -1573,7 +1574,44 @@ mod tests {
     }
     #[test]
     fn test_builder_random() -> Result<()> {
-        // TODO: RegExp not Implement
+        let mut random = random();
+        let iters = at_least(&mut random, 100);
+
+        for _ in 0..iters {
+            let seed: u64 = random.random();
+            let mut random1 = StdRng::seed_from_u64(seed);
+            let a = AutomatonTestUtil::random_automaton(&mut random)?;
+
+            let mut all_trans = vec![];
+            let num_states = a.get_num_states();
+            for s in 0..num_states {
+                let count = a.get_num_transitions_with_state(s);
+                for i in 0..count {
+                    let mut t = Transition::default();
+                    a.get_transition(s, i, &mut t);
+                    all_trans.push(t);
+                }
+            }
+
+            let mut builder = Builder::new();
+            for i in 0..num_states {
+                let s = builder.create_state();
+                builder.set_accept(s, a.is_accept(i));
+            }
+
+            all_trans.shuffle(&mut random1);
+            for t in all_trans {
+                builder.add_transition(t.source, t.dest, t.min, t.max);
+            }
+
+            let v1 = Operations::remove_dead_states(&a)?;
+            let a1 = Operations::determinize(&v1, usize::MAX)?;
+            let b = builder.finish()?;
+            let v2 = Operations::remove_dead_states(&b)?;
+            let a2 = Operations::determinize(&v2, usize::MAX)?;
+            assert!(AutomatonTestUtil::same_language(&a1, &a2)?);
+        }
+
         Ok(())
     }
     #[test]
@@ -1869,37 +1907,36 @@ mod tests {
     }
 
     fn random_no_op<'a>(a: &'a Automaton, random: &mut StdRng) -> Result<Cow<'a, Automaton>> {
-        Operations::determinize(a, i32::MAX as usize)
-        // match random.random_range(0..7) {
-        //     0 => Ok(Operations::determinize(a, i32::MAX as usize)?),
-        //     1 => {
-        //         if a.get_num_states() < 100 {
-        //             Ok(MinimizationOperations::minimize(
-        //                 a,
-        //                 Operations::DEFAULT_DETERMINIZE_WORK_LIMIT,
-        //             )?)
-        //         } else {
-        //             Ok(Cow::Borrowed(a))
-        //         }
-        //     },
-        //     2 => Ok(Operations::remove_dead_states(a)?),
-        //     3 => {
-        //         // reverse -> randomNoOp -> reverse
-        //         let a0 = Operations::reverse(a)?;
-        //         let a1 = random_no_op(&a0, random)?;
-        //         Ok(Cow::Owned(Operations::reverse(&a1)?))
-        //     },
-        //     4 => Ok(Cow::Owned(Operations::concatenate(
-        //         a,
-        //         &Automata::make_empty_string()?,
-        //     )?)),
-        //     5 => {
-        //         // union with empty automaton
-        //         Ok(Cow::Owned(Operations::union(a,
-        // &Automata::make_empty()?)?))     },
-        //     6 => Ok(Cow::Borrowed(a)),
-        //     _ => unreachable!(),
-        // }
+        match random.random_range(0..7) {
+            0 => Ok(Operations::determinize(a, i32::MAX as usize)?),
+            1 => {
+                if a.get_num_states() < 100 {
+                    Ok(MinimizationOperations::minimize(
+                        a,
+                        Operations::DEFAULT_DETERMINIZE_WORK_LIMIT,
+                    )?)
+                } else {
+                    Ok(Cow::Borrowed(a))
+                }
+            },
+            2 => Ok(Operations::remove_dead_states(a)?),
+            3 => {
+                // reverse -> randomNoOp -> reverse
+                let a0 = Operations::reverse(a)?;
+                let a1 = random_no_op(&a0, random)?;
+                Ok(Cow::Owned(Operations::reverse(&a1)?))
+            },
+            4 => Ok(Cow::Owned(Operations::concatenate(
+                a,
+                &Automata::make_empty_string()?,
+            )?)),
+            5 => {
+                // union with empty automaton
+                Ok(Cow::Owned(Operations::union(a, &Automata::make_empty()?)?))
+            },
+            6 => Ok(Cow::Borrowed(a)),
+            _ => unreachable!(),
+        }
     }
     fn has_massive_term(terms: &[BytesRef<Vec<u8>>]) -> bool {
         for term in terms {
@@ -1910,49 +1947,33 @@ mod tests {
         false
     }
     fn union_terms(terms: &[BytesRef<Vec<u8>>], rng: &mut StdRng) -> Result<Automaton> {
-        // let a = if rng.random_bool(0.5) || has_massive_term(terms) {
-        //     let owned_automata: Vec<Automaton> = terms
-        //         .iter()
-        //         .map(|term| Automata::make_string(&term.utf8_to_string()?))
-        //         .collect::<Result<Vec<_>>>()?;
-        //     let refs: Vec<&Automaton> = owned_automata.iter().collect();
-        //     Operations::union_list(&refs)?
-        // } else {
-        //     let mut terms_list = terms.to_vec();
-        //     terms_list.sort();
-        //     Automata::make_string_union(&terms_list)?
-        // };
-        // Ok(random_no_op(&a, rng)?.into_owned())
-
-        let mut terms_list = terms.to_vec();
-        terms_list.sort();
-        Automata::make_string_union(&terms_list)
-
-        // let owned_automata: Vec<Automaton> = terms
-        //         .iter()
-        //         .map(|term| Automata::make_string(&term.utf8_to_string()?))
-        //         .collect::<Result<Vec<_>>>()?;
-        //     let refs: Vec<&Automaton> = owned_automata.iter().collect();
-        //  let a =    Operations::union_list(&refs)?;
-        // Ok(random_no_op(&a, rng)?.into_owned())
+        let a = if rng.random_bool(0.5) || has_massive_term(terms) {
+            let owned_automata: Vec<Automaton> = terms
+                .iter()
+                .map(|term| Automata::make_string(&term.utf8_to_string()?))
+                .collect::<Result<Vec<_>>>()?;
+            let refs: Vec<&Automaton> = owned_automata.iter().collect();
+            Operations::union_list(&refs)?
+        } else {
+            let mut terms_list = terms.to_vec();
+            terms_list.sort();
+            Automata::make_string_union(&terms_list)?
+        };
+        Ok(random_no_op(&a, rng)?.into_owned())
     }
     fn get_random_string(random: &mut StdRng) -> String {
         TestUtil::random_realistic_unicode_string(random)
     }
-
     #[test]
     fn test_random_finite() -> Result<()> {
         let mut random = random();
         let num_terms = at_least(&mut random, 10);
-        // let num_terms = 15;
-        // let iters = at_least(&mut random, 100);
-        let iters = 1;
+        let iters = at_least(&mut random, 100);
 
         let mut terms: BTreeSet<BytesRef<Vec<u8>>> = BTreeSet::new();
         while terms.len() < num_terms as usize {
-            terms.insert(BytesRef::from_string(&get_random_string(&mut random)));
-            // terms.insert(new_bytes_ref_from_string(&mut random,
-            // &get_random_string(&mut random))?);
+            let s = get_random_string(&mut random);
+            terms.insert(new_bytes_ref_from_string(&mut random, &s)?);
         }
 
         let mut a = Cow::Owned(union_terms(
@@ -1963,12 +1984,6 @@ mod tests {
 
         for _ in 0..iters {
             match random.random_range(0..15) {
-                // match random.random_range(14..15) {
-                // match random.random_range(11..12) {
-                //     match random.random_range(4..5) {
-                // match random.random_range(0..1) {
-                // match random.random_range(1..2) {
-                // match random.random_range(2..3) {
                 0 => {
                     let string = get_random_string(&mut random);
                     let prefix = new_bytes_ref_from_string(&mut random, &string)?;
@@ -2024,7 +2039,8 @@ mod tests {
                     let mut new_terms = BTreeSet::new();
                     let num_new = random.random_range(0..5);
                     while new_terms.len() < num_new {
-                        new_terms.insert(BytesRef::from_string(&get_random_string(&mut random)));
+                        let s = get_random_string(&mut random);
+                        new_terms.insert(new_bytes_ref_from_string(&mut random, &s)?);
                     }
                     let mut combined = terms.clone();
                     combined.extend(new_terms.iter().cloned());
@@ -2236,8 +2252,7 @@ mod tests {
                         let mut add_terms = BTreeSet::new();
                         while add_terms.len() < count {
                             let s = get_random_string(&mut random);
-                            // add_terms.insert(new_bytes_ref_from_string(&mut random, &s)?);
-                            add_terms.insert(BytesRef::from_string(&s));
+                            add_terms.insert(new_bytes_ref_from_string(&mut random, &s)?);
                         }
 
                         if cfg!(feature = "test_log_verbose") {
@@ -2429,7 +2444,6 @@ mod tests {
         }
         Ok(a)
     }
-    #[test]
     #[test]
     fn test_make_binary_interval_finite_cases_basic() -> Result<()> {
         let zeros = vec![0u8; 3];

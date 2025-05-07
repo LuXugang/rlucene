@@ -18,7 +18,7 @@ use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
 use std::fmt;
-use std::fmt::Display;
+use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 
 use bit_set::BitSet;
@@ -602,8 +602,8 @@ impl Operations {
             let mut acc_count = 0;
             let r = s.state;
 
-            for point_transitions in points.iter_mut() {
-                let point = point_transitions.point;
+            for i in 0..points.count {
+                let point = points.points[i].point;
                 if states_set.size() > 0 {
                     debug_assert!(last_point != -1);
                     let key = StateSetHashKey::new(
@@ -635,7 +635,7 @@ impl Operations {
                     b.add_transition(r, q, last_point, point - 1);
                 }
                 {
-                    let ends = &mut point_transitions.ends;
+                    let ends = &mut points.points[i].ends;
                     let transitions = &ends.transitions;
                     let limit = ends.next;
                     for j in (0..limit).step_by(3) {
@@ -649,7 +649,7 @@ impl Operations {
                 }
 
                 {
-                    let start = &mut point_transitions.starts;
+                    let start = &mut points.points[i].starts;
                     let transitions = &start.transitions;
                     let limit = start.next;
                     for j in (0..limit).step_by(3) {
@@ -913,8 +913,8 @@ impl Operations {
         let mut t = Transition::default();
         for i in 0..num_states {
             if live_set.contains(i) {
-                let count = a.init_transition(i as i32, &mut t) as usize;
-                for _ in 0..count {
+                let num_transitions = a.init_transition(i as i32, &mut t) as usize;
+                for _ in 0..num_transitions {
                     a.get_next_transition(&mut t);
                     let d = t.dest as usize;
                     if live_set.contains(d) {
@@ -1350,7 +1350,7 @@ const HASHMAP_CUTOVER: usize = 30;
 pub(crate) struct PointTransitionSet {
     count: usize,
     points: Vec<PointTransitions>,
-    map: BTreeMap<i32, PointTransitions>,
+    map: BTreeMap<i32, usize>,
     use_hash: bool,
 }
 
@@ -1363,16 +1363,26 @@ impl PointTransitionSet {
             use_hash: false,
         }
     }
-
-    fn find(&mut self, point: i32) -> &mut PointTransitions {
+    fn next(&mut self, point: i32) -> usize {
+        if self.count == self.points.len() {
+            // TODO：oversize's bytes_per_element not specific
+            let new_len = ArrayUtil::oversize(1 + self.count, 4);
+            ArrayUtil::grow_with_len(&mut self.points, new_len);
+        }
+        let points0 = &mut self.points[self.count];
+        points0.reset(point);
+        self.count += 1;
+        self.count - 1
+    }
+    pub fn find(&mut self, point: i32) -> &mut PointTransitions {
         if self.use_hash {
-            let entry = self.map.entry(point).or_insert_with(|| {
-                let mut pt = PointTransitions::new(point);
-                pt.reset(point);
-                pt
-            });
-            entry.reset(point);
-            entry
+            if !self.map.contains_key(&point) {
+                let p = self.next(point);
+                self.map.insert(point, p);
+                return &mut self.points[p];
+            }
+            let v = self.map.get(&point).unwrap();
+            &mut self.points[*v]
         } else {
             for i in 0..self.count {
                 if self.points[i].point == point {
@@ -1380,36 +1390,19 @@ impl PointTransitionSet {
                 }
             }
 
-            if self.count == self.points.len() {
-                // TODO：oversize's bytes_per_element not specific
-                let new_len = ArrayUtil::oversize(1 + self.count, 4);
-                ArrayUtil::grow_with_len(&mut self.points, new_len);
-            }
-
-            let mut p = PointTransitions::new(point);
-            p.reset(point);
-            self.points[self.count] = p;
-            self.count += 1;
-
+            let p = self.next(point);
             if self.count == HASHMAP_CUTOVER {
+                debug_assert!(self.map.is_empty());
                 for i in 0..self.count {
-                    let pt = std::mem::take(&mut self.points[i]);
-                    self.map.insert(pt.point, pt);
+                    self.map.insert(self.points[i].point, i);
                 }
                 self.use_hash = true;
-                self.map.get_mut(&point).unwrap()
-            } else {
-                &mut self.points[self.count - 1]
             }
+            &mut self.points[p]
         }
     }
 
-    pub(crate) fn add(&mut self, t: &Transition) {
-        self.find(t.min).starts.add(t);
-        self.find(t.max + 1).ends.add(t);
-    }
-
-    pub(crate) fn reset(&mut self) {
+    pub fn reset(&mut self) {
         if self.use_hash {
             self.map.clear();
             self.use_hash = false;
@@ -1417,75 +1410,34 @@ impl PointTransitionSet {
         self.count = 0;
     }
 
-    pub(crate) fn sort(&mut self) -> Result<()> {
-        if !self.use_hash && self.count > 1 {
+    pub fn sort(&mut self) -> Result<()> {
+        if self.count > 1 {
             ArrayUtil::tim_sort_with_range(&mut self.points, 0, self.count as i32)?;
         }
         Ok(())
     }
-    pub(crate) fn iter_mut(&mut self) -> PointTransitionSetIterMut<'_> {
-        if self.use_hash {
-            PointTransitionSetIterMut::Map(self.map.values_mut())
-        } else {
-            PointTransitionSetIterMut::Vec(self.points[..self.count].iter_mut())
-        }
+    pub fn add(&mut self, t: &Transition) {
+        self.find(t.min).starts.add(t);
+        self.find(t.max + 1).ends.add(t);
     }
 }
 
 impl Display for PointTransitionSet {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut first = true;
-
-        if self.use_hash {
-            let mut entries: Vec<_> = self.map.values().collect();
-            entries.sort_unstable_by_key(|pt| pt.point);
-
-            for pt in entries {
-                if !first {
-                    write!(f, " ")?;
-                }
-                write!(
-                    f,
-                    "{}:{},,{}",
-                    pt.point,
-                    pt.starts.next / 3,
-                    pt.ends.next / 3
-                )?;
-                first = false;
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        for i in 0..self.count {
+            if i > 0 {
+                write!(f, " ")?;
             }
-        } else {
-            for i in 0..self.count {
-                let pt = &self.points[i];
-                if !first {
-                    write!(f, " ")?;
-                }
-                write!(
-                    f,
-                    "{}:{},,{}",
-                    pt.point,
-                    pt.starts.next / 3,
-                    pt.ends.next / 3
-                )?;
-                first = false;
-            }
+            let pt = &self.points[i];
+            write!(
+                f,
+                "{}:{},{}",
+                pt.point,
+                pt.starts.next / 3,
+                pt.ends.next / 3
+            )?;
         }
-
         Ok(())
-    }
-}
-pub(crate) enum PointTransitionSetIterMut<'a> {
-    Vec(std::slice::IterMut<'a, PointTransitions>),
-    Map(std::collections::btree_map::ValuesMut<'a, i32, PointTransitions>),
-}
-
-impl<'a> Iterator for PointTransitionSetIterMut<'a> {
-    type Item = &'a mut PointTransitions;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self {
-            PointTransitionSetIterMut::Vec(iter) => iter.next(),
-            PointTransitionSetIterMut::Map(iter) => iter.next(),
-        }
     }
 }
 #[cfg(test)]
@@ -1554,33 +1506,26 @@ pub(crate) mod tests {
         }
     }
     #[test]
-    fn test() -> Result<()> {
-        for i in 0..10000 {
-            test_string_union()?;
-        }
-        Ok(())
-    }
-    #[test]
     fn test_string_union() -> Result<()> {
-        // TODO: 这个测试没有通过
-        // let mut random = random();
-        // let count = random.random_range(1..1000);
-        // let mut strings = Vec::with_capacity(count);
-        // for i in 0..count {
-        //     let s = TestUtil::random_unicode_string(&mut random);
-        //     strings.push(BytesRef::from_string(&s));
-        // }
-        // strings.sort();
-        //
-        // let union = Automata::make_string_union(&strings)?;
-        // assert!(union.is_deterministic());
-        // assert!(!Operations::has_dead_states_from_initial(&union)?);
-        //
-        // let naive_union = naive_union(strings.as_slice())?;
-        // assert!(naive_union.is_deterministic());
-        // assert!(!Operations::has_dead_states_from_initial(&naive_union)?);
-        //
-        // assert!(AutomatonTestUtil::same_language(&union, &naive_union)?);
+        let mut random = random();
+        let count = random.random_range(1..1000);
+        // let count = 21;
+        let mut strings = Vec::with_capacity(count);
+        for _ in 0..count {
+            let s = TestUtil::random_unicode_string(&mut random);
+            strings.push(BytesRef::from_string(&s));
+        }
+        strings.sort();
+
+        let union = Automata::make_string_union(&strings)?;
+        assert!(union.is_deterministic());
+        assert!(!Operations::has_dead_states_from_initial(&union)?);
+
+        let naive_union = naive_union(strings.as_slice())?;
+        assert!(naive_union.is_deterministic());
+        assert!(!Operations::has_dead_states_from_initial(&naive_union)?);
+
+        assert!(AutomatonTestUtil::same_language(&union, &naive_union)?);
 
         Ok(())
     }
