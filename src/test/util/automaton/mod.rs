@@ -15,3 +15,4 @@
  * limitations under the License.
  */
 pub mod automaton_test_util;
+pub mod minimization_operation;

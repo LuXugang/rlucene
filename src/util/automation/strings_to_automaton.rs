@@ -379,11 +379,11 @@ mod tests {
 
     use crate::index::BytesRef;
     use crate::test::util::automaton::automaton_test_util::AutomatonTestUtil;
+    use crate::test::util::automaton::minimization_operation::MinimizationOperations;
     use crate::test::util::lucene_test_case::{is_night_mode, new_bytes_ref_from_string, random};
     use crate::test::util::test_util::TestUtil;
     use crate::util::automation::automata::Automata;
     use crate::util::automation::automaton::Automaton;
-    use crate::util::automation::minimization_operation::MinimizationOperations;
     use crate::util::automation::operations::Operations;
     use crate::util::automation::strings_to_automaton::StringsToAutomaton;
     use crate::util::bytes_ref_iterator::BytesRefIterator;

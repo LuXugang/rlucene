@@ -237,6 +237,7 @@ pub(crate) mod tests {
 
     use crate::index::BytesRef;
     use crate::test::util::automaton::automaton_test_util::AutomatonTestUtil;
+    use crate::test::util::automaton::minimization_operation::MinimizationOperations;
     use crate::test::util::lucene_test_case::random;
     use crate::test::util::test_util::TestUtil;
     use crate::util::automation::automata::Automata;
@@ -244,7 +245,6 @@ pub(crate) mod tests {
     use crate::util::automation::finite_strings_iterator::{
         FiniteStringsIterator, FiniteStringsIteratorBase,
     };
-    use crate::util::automation::minimization_operation::MinimizationOperations;
     use crate::util::automation::operations::tests::TestOperations;
     use crate::util::automation::operations::Operations;
     use crate::util::error::lucene_error::Result;

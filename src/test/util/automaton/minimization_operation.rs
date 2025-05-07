@@ -21,7 +21,6 @@ use std::rc::Rc;
 
 use bit_set::BitSet;
 
-use crate::util::access::AccessVec;
 use crate::util::automation::automaton::Automaton;
 use crate::util::automation::operations::Operations;
 use crate::util::automation::transition::Transition;
@@ -314,8 +313,8 @@ impl StateListNode {
 #[cfg(test)]
 mod tests {
     use crate::test::util::automaton::automaton_test_util::AutomatonTestUtil;
+    use crate::test::util::automaton::minimization_operation::MinimizationOperations;
     use crate::test::util::lucene_test_case::{at_least, random};
-    use crate::util::automation::minimization_operation::MinimizationOperations;
     use crate::util::automation::operations::Operations;
     use crate::util::automation::transition_accessor::TransitionAccessor;
     use crate::util::error::lucene_error::Result;
@@ -336,13 +335,6 @@ mod tests {
             assert!(AutomatonTestUtil::same_language(&la, &lb)?);
         }
 
-        Ok(())
-    }
-    #[test]
-    fn test() -> Result<()> {
-        for i in 0..10 {
-            test_against_brzozowski()?;
-        }
         Ok(())
     }
     ///  compare minimized against minimized with a slower, simple impl. we
