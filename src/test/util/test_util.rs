@@ -14,10 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use num_bigint::BigInt;
 use num_traits::{FromPrimitive, ToPrimitive};
 use rand::rngs::StdRng;
 use rand::{random_range, Rng, RngCore};
+
+use crate::index::BytesRef;
+use crate::util::access::AccessVec;
 
 pub struct TestUtil;
 const BLOCK_STARTS: &[u32] = &[
@@ -129,10 +133,10 @@ impl TestUtil {
         random: &mut StdRng,
         max_length: i32,
     ) -> String {
-        Self::random_realistic_unicode_string_impl(random, 0, max_length)
+        Self::random_realistic_unicode_string_range(random, 0, max_length)
     }
 
-    pub fn random_realistic_unicode_string_impl(
+    pub fn random_realistic_unicode_string_range(
         rng: &mut StdRng,
         min_length: i32,
         max_length: i32,
@@ -226,5 +230,23 @@ impl TestUtil {
                 i += 1;
             }
         }
+    }
+    /// Returns a random binary term.
+    pub fn random_binary_term<AV: AccessVec<u8>>(rng: &mut StdRng) -> BytesRef<AV> {
+        let len = rng.random_range(0..15);
+        Self::random_binary_term_with_len(rng, len)
+    }
+
+    ///  Returns a random binary with a given length
+    pub fn random_binary_term_with_len<AV: AccessVec<u8>>(
+        random: &mut StdRng,
+        length: usize,
+    ) -> BytesRef<AV> {
+        let mut bytes = vec![0u8; length];
+        random.fill(&mut bytes[..]);
+        let v = AV::from_vec(bytes);
+        let mut b = BytesRef::from_bytes(v);
+        b.length = length;
+        b
     }
 }

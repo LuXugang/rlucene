@@ -300,7 +300,7 @@ impl Automata {
                 let mut last_state = a.create_state();
                 for i in 0..min.length {
                     let state = a.create_state();
-                    let label = min.bytes[i] as i32;
+                    let label = min.bytes[min.offset + i] as i32;
                     a.add_transition_label(last_state, state, label)?;
                     last_state = state;
                 }
@@ -330,15 +330,15 @@ impl Automata {
 
         let mut equal_prefix = true;
         let mut last_state = start_state;
-        let first_max_state = -1;
+        let mut first_max_state = -1;
         let mut shared_prefix_length = 0;
 
         for i in 0..min.length {
-            let min_label = min.bytes[i] as i32;
+            let min_label = min.bytes[min.offset + i] as i32;
 
             let max_label = if let Some(max_ref) = max_ref {
                 if equal_prefix && i < max_ref.length {
-                    max_ref.bytes[i] as i32
+                    max_ref.bytes[max_ref.offset + i] as i32
                 } else {
                     -1
                 }
@@ -372,7 +372,7 @@ impl Automata {
                     }
 
                     if max_inclusive || i < max_ref.as_ref().unwrap().length - 1 {
-                        let first_max_state = a.create_state();
+                        first_max_state = a.create_state();
                         if i < max_ref.as_ref().unwrap().length - 1 {
                             a.set_accept(first_max_state, true);
                         }
@@ -408,7 +408,7 @@ impl Automata {
             }
 
             for i in shared_prefix_length..max_ref.length {
-                let max_label = max_ref.bytes[i] as i32;
+                let max_label = max_ref.bytes[max_ref.offset + i] as i32;
                 if max_label > 0 {
                     a.add_transition(last_state, sink_state, 0, max_label - 1)?;
                 }

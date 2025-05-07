@@ -26,7 +26,6 @@ use crate::util::error::lucene_error::Result;
 
 /// A thin wrapper mapping states to reference counts.
 /// When a state's count drops to zero, it is removed.
-#[derive(Eq)]
 pub(crate) struct StateSet {
     inner: HashMap<i32, i32>,
     hash_code: i64,
@@ -118,31 +117,6 @@ impl IntSet for StateSet {
         self.hash_code = hash;
         self.hash_updated = true;
         self.hash_code
-    }
-}
-impl PartialEq for StateSet {
-    fn eq(&self, other: &Self) -> bool {
-        let this = self as *const _ as *mut Self;
-        let other = other as *const _ as *mut Self;
-
-        unsafe {
-            let this_array = (*this).get_array();
-            let other_array = (*other).get_array();
-            let this_hash = (*this).long_hash_code();
-            let other_hash = (*other).long_hash_code();
-
-            this_hash == other_hash && **this_array == **other_array
-        }
-    }
-}
-impl Hash for StateSet {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        let this = self as *const _ as *mut Self;
-
-        unsafe {
-            let hash_code = (*this).long_hash_code();
-            hash_code.hash(state);
-        }
     }
 }
 

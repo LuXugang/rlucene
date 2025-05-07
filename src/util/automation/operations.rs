@@ -61,10 +61,10 @@ impl Operations {
     /// the given automata.
     ///
     /// Complexity: linear in the total number of states.
-    pub fn concatenate_with_list(list: &[&Automaton]) -> Result<Automaton> {
+    pub fn concatenate_with_list(l: &[&Automaton]) -> Result<Automaton> {
         let mut result = Automaton::new();
         // First pass: create all states
-        for a in list {
+        for a in l {
             if a.get_num_states() == 0 {
                 result.finish_state()?;
                 return Ok(result);
@@ -79,11 +79,11 @@ impl Operations {
         // start of the next
         let mut state_offset = 0;
         let mut t = Transition::default();
-        for i in 0..list.len() {
-            let a = &list[i];
+        for i in 0..l.len() {
+            let a = &l[i];
             let num_states = a.get_num_states();
-            let next_a = if i + 1 < list.len() {
-                Some(&list[i + 1])
+            let next_a = if i + 1 < l.len() {
+                Some(&l[i + 1])
             } else {
                 None
             };
@@ -114,8 +114,8 @@ impl Operations {
                             }
                             if fa.is_accept(0) {
                                 follow_offset += fa.get_num_states();
-                                if upto + 1 < list.len() {
-                                    follow_a = Some(&list[upto + 1]);
+                                if upto + 1 < l.len() {
+                                    follow_a = Some(&l[upto + 1]);
                                 } else {
                                     follow_a = None;
                                 }
@@ -504,19 +504,19 @@ impl Operations {
     /// given automata.
     ///
     /// Complexity: linear in the number of states.
-    pub fn union_list(list: &[&Automaton]) -> Result<Automaton> {
+    pub fn union_list(l: &[&Automaton]) -> Result<Automaton> {
         let mut result = Automaton::new();
         // Create initial state:
         result.create_state();
 
         // Copy over all automata
-        for a in list {
+        for a in l {
             result.copy(a);
         }
 
         // Add epsilon transitions from new initial state
         let mut state_offset = 1;
-        for a in list {
+        for a in l {
             if a.get_num_states() == 0 {
                 continue;
             }
@@ -562,7 +562,7 @@ impl Operations {
 
         let frozen_int_set_hash = initialset.long_hash_code();
         newstate.insert(
-            StateSetHashKey::new(frozen_int_set_hash, initialset.values.clone()),
+            StateSetHashKey::new(frozen_int_set_hash, initialset.get_array().clone()),
             0,
         );
         worklist.push_back(initialset);
@@ -623,8 +623,8 @@ impl Operations {
                         },
                         None => {
                             let q = b.create_state();
-                            let p = states_set.freeze(q);
-                            let key = StateSetHashKey::new(p.hash_code, p.values.clone());
+                            let mut p = states_set.freeze(q);
+                            let key = StateSetHashKey::new(p.hash_code, p.get_array().clone());
                             worklist.push_back(p);
                             b.set_accept(q, acc_count > 0);
                             newstate.insert(key, q);
@@ -796,7 +796,6 @@ impl Operations {
     /// **Note:** For full performance, use the
     /// [`RunAutomaton`](crate::util::automation::run_automaton::RunAutomaton)
     /// class.
-    #[allow(unused)]
     pub(crate) fn run_ints_ref(a: &Automaton, s: &IntsRef<Vec<i32>>) -> bool {
         debug_assert!(a.is_deterministic());
 
@@ -1553,6 +1552,13 @@ pub(crate) mod tests {
             }
             Ok(result)
         }
+    }
+    #[test]
+    fn test() -> Result<()> {
+        for i in 0..10000 {
+            test_string_union()?;
+        }
+        Ok(())
     }
     #[test]
     fn test_string_union() -> Result<()> {

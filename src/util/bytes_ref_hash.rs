@@ -1313,7 +1313,7 @@ mod tests {
                 let mut hash_guard = hash.lock();
                 for _ in 0..num_strings {
                     let str_value =
-                        TestUtil::random_realistic_unicode_string_impl(&mut random, 1, 1000);
+                        TestUtil::random_realistic_unicode_string_range(&mut random, 1, 1000);
                     hash_guard.add(&BytesRef::from_string(&str_value))?;
                     strings.lock().push(str_value);
                 }

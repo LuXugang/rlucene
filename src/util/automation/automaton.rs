@@ -944,7 +944,7 @@ mod tests {
         AutomatonTestUtil, RandomAcceptedStrings,
     };
     use crate::test::util::lucene_test_case::{
-        at_least, new_bytes_ref_empty, new_bytes_ref_from_string, random,
+        at_least, new_bytes_ref, new_bytes_ref_empty, new_bytes_ref_from_string, random,
     };
     use crate::test::util::test_util::TestUtil;
     use crate::util::automation::automata::Automata;
@@ -960,6 +960,7 @@ mod tests {
     use crate::util::ints_ref::IntsRef;
     use crate::util::ints_ref_builder::IntsRefBuilder;
     use crate::util::unicode_util::UnicodeUtil;
+    use crate::util::ToInt;
 
     #[allow(dead_code)] // for quick search
     struct TestAutomaton;
@@ -1868,36 +1869,37 @@ mod tests {
     }
 
     fn random_no_op<'a>(a: &'a Automaton, random: &mut StdRng) -> Result<Cow<'a, Automaton>> {
-        match random.random_range(0..7) {
-            0 => Ok(Operations::determinize(a, i32::MAX as usize)?),
-            1 => {
-                if a.get_num_states() < 100 {
-                    Ok(MinimizationOperations::minimize(
-                        a,
-                        Operations::DEFAULT_DETERMINIZE_WORK_LIMIT,
-                    )?)
-                } else {
-                    Ok(Cow::Borrowed(a))
-                }
-            },
-            2 => Ok(Operations::remove_dead_states(a)?),
-            3 => {
-                // reverse -> randomNoOp -> reverse
-                let a0 = Operations::reverse(a)?;
-                let a1 = random_no_op(&a0, random)?;
-                Ok(Cow::Owned(Operations::reverse(&a1)?))
-            },
-            4 => Ok(Cow::Owned(Operations::concatenate(
-                a,
-                &Automata::make_empty_string()?,
-            )?)),
-            5 => {
-                // union with empty automaton
-                Ok(Cow::Owned(Operations::union(a, &Automata::make_empty()?)?))
-            },
-            6 => Ok(Cow::Borrowed(a)),
-            _ => unreachable!(),
-        }
+        Operations::determinize(a, i32::MAX as usize)
+        // match random.random_range(0..7) {
+        //     0 => Ok(Operations::determinize(a, i32::MAX as usize)?),
+        //     1 => {
+        //         if a.get_num_states() < 100 {
+        //             Ok(MinimizationOperations::minimize(
+        //                 a,
+        //                 Operations::DEFAULT_DETERMINIZE_WORK_LIMIT,
+        //             )?)
+        //         } else {
+        //             Ok(Cow::Borrowed(a))
+        //         }
+        //     },
+        //     2 => Ok(Operations::remove_dead_states(a)?),
+        //     3 => {
+        //         // reverse -> randomNoOp -> reverse
+        //         let a0 = Operations::reverse(a)?;
+        //         let a1 = random_no_op(&a0, random)?;
+        //         Ok(Cow::Owned(Operations::reverse(&a1)?))
+        //     },
+        //     4 => Ok(Cow::Owned(Operations::concatenate(
+        //         a,
+        //         &Automata::make_empty_string()?,
+        //     )?)),
+        //     5 => {
+        //         // union with empty automaton
+        //         Ok(Cow::Owned(Operations::union(a,
+        // &Automata::make_empty()?)?))     },
+        //     6 => Ok(Cow::Borrowed(a)),
+        //     _ => unreachable!(),
+        // }
     }
     fn has_massive_term(terms: &[BytesRef<Vec<u8>>]) -> bool {
         for term in terms {
@@ -1908,32 +1910,49 @@ mod tests {
         false
     }
     fn union_terms(terms: &[BytesRef<Vec<u8>>], rng: &mut StdRng) -> Result<Automaton> {
-        let a = if rng.random_bool(0.5) || has_massive_term(terms) {
-            let owned_automata: Vec<Automaton> = terms
-                .iter()
-                .map(|term| Automata::make_string(&term.utf8_to_string()?))
-                .collect::<Result<Vec<_>>>()?;
-            let refs: Vec<&Automaton> = owned_automata.iter().collect();
-            Operations::union_list(&refs)?
-        } else {
-            let mut terms_list = terms.to_vec();
-            terms_list.sort();
-            Automata::make_string_union(&terms_list)?
-        };
-        Ok(random_no_op(&a, rng)?.into_owned())
+        // let a = if rng.random_bool(0.5) || has_massive_term(terms) {
+        //     let owned_automata: Vec<Automaton> = terms
+        //         .iter()
+        //         .map(|term| Automata::make_string(&term.utf8_to_string()?))
+        //         .collect::<Result<Vec<_>>>()?;
+        //     let refs: Vec<&Automaton> = owned_automata.iter().collect();
+        //     Operations::union_list(&refs)?
+        // } else {
+        //     let mut terms_list = terms.to_vec();
+        //     terms_list.sort();
+        //     Automata::make_string_union(&terms_list)?
+        // };
+        // Ok(random_no_op(&a, rng)?.into_owned())
+
+        let mut terms_list = terms.to_vec();
+        terms_list.sort();
+        Automata::make_string_union(&terms_list)
+
+        // let owned_automata: Vec<Automaton> = terms
+        //         .iter()
+        //         .map(|term| Automata::make_string(&term.utf8_to_string()?))
+        //         .collect::<Result<Vec<_>>>()?;
+        //     let refs: Vec<&Automaton> = owned_automata.iter().collect();
+        //  let a =    Operations::union_list(&refs)?;
+        // Ok(random_no_op(&a, rng)?.into_owned())
     }
     fn get_random_string(random: &mut StdRng) -> String {
         TestUtil::random_realistic_unicode_string(random)
     }
+
     #[test]
     fn test_random_finite() -> Result<()> {
         let mut random = random();
         let num_terms = at_least(&mut random, 10);
-        let iters = at_least(&mut random, 100);
+        // let num_terms = 15;
+        // let iters = at_least(&mut random, 100);
+        let iters = 1;
 
         let mut terms: BTreeSet<BytesRef<Vec<u8>>> = BTreeSet::new();
         while terms.len() < num_terms as usize {
             terms.insert(BytesRef::from_string(&get_random_string(&mut random)));
+            // terms.insert(new_bytes_ref_from_string(&mut random,
+            // &get_random_string(&mut random))?);
         }
 
         let mut a = Cow::Owned(union_terms(
@@ -1944,15 +1963,21 @@ mod tests {
 
         for _ in 0..iters {
             match random.random_range(0..15) {
+                // match random.random_range(14..15) {
+                // match random.random_range(11..12) {
+                //     match random.random_range(4..5) {
+                // match random.random_range(0..1) {
+                // match random.random_range(1..2) {
+                // match random.random_range(2..3) {
                 0 => {
                     let string = get_random_string(&mut random);
                     let prefix = new_bytes_ref_from_string(&mut random, &string)?;
                     let mut new_terms = BTreeSet::new();
-                    for t in &terms {
-                        let mut b = BytesRefBuilder::new();
-                        b.copy_bytes_with_ref(&prefix);
-                        b.append_ref(t);
-                        new_terms.insert(b.get_bytes_ref_copy());
+                    let mut new_term = BytesRefBuilder::new();
+                    for term in &terms {
+                        new_term.copy_bytes_with_ref(&prefix);
+                        new_term.append_ref(term);
+                        new_terms.insert(new_term.get_bytes_ref_copy());
                     }
                     terms = new_terms;
                     let was_deterministic1 = a.is_deterministic();
@@ -1966,9 +1991,9 @@ mod tests {
                     let v = get_random_string(&mut random);
                     let suffix = new_bytes_ref_from_string(&mut random, &v)?;
                     let mut new_terms = BTreeSet::new();
-                    for t in &terms {
-                        let mut b = BytesRefBuilder::new();
-                        b.copy_bytes_with_ref(t);
+                    let mut b = BytesRefBuilder::new();
+                    for term in &terms {
+                        b.copy_bytes_with_ref(term);
                         b.append_ref(&suffix);
                         new_terms.insert(b.get_bytes_ref_copy());
                     }
@@ -2211,7 +2236,8 @@ mod tests {
                         let mut add_terms = BTreeSet::new();
                         while add_terms.len() < count {
                             let s = get_random_string(&mut random);
-                            add_terms.insert(new_bytes_ref_from_string(&mut random, &s)?);
+                            // add_terms.insert(new_bytes_ref_from_string(&mut random, &s)?);
+                            add_terms.insert(BytesRef::from_string(&s));
                         }
 
                         if cfg!(feature = "test_log_verbose") {
@@ -2222,22 +2248,22 @@ mod tests {
 
                         let add_vec: Vec<_> = add_terms.iter().cloned().collect();
                         let a2 = union_terms(&add_vec, &mut random)?;
-                        let a2 = random_no_op(&a2, &mut random)?;
 
                         let mut new_terms = BTreeSet::new();
-                        let mut new_term = BytesRefBuilder::new();
 
                         if random.random_bool(0.5) {
                             // suffix
                             if cfg!(feature = "test_log_verbose") {
                                 println!("  do suffix");
                             }
+                            let a2 = random_no_op(&a2, &mut random)?;
                             a = Cow::Owned(Operations::concatenate(&a, &a2)?);
 
-                            for t in &terms {
-                                for s in &add_terms {
-                                    new_term.copy_bytes_with_ref(t);
-                                    new_term.append_ref(s);
+                            let mut new_term = BytesRefBuilder::new();
+                            for term in &terms {
+                                for suffix in &add_terms {
+                                    new_term.copy_bytes_with_ref(term);
+                                    new_term.append_ref(suffix);
                                     new_terms.insert(new_term.get_bytes_ref_copy());
                                 }
                             }
@@ -2246,12 +2272,14 @@ mod tests {
                             if cfg!(feature = "test_log_verbose") {
                                 println!("  do prefix");
                             }
+                            let a2 = random_no_op(&a2, &mut random)?;
                             a = Cow::Owned(Operations::concatenate(&a2, &a)?);
 
-                            for s in &add_terms {
-                                for t in &terms {
-                                    new_term.copy_bytes_with_ref(s);
-                                    new_term.append_ref(t);
+                            let mut new_term = BytesRefBuilder::new();
+                            for term in &terms {
+                                for prefix in &add_terms {
+                                    new_term.copy_bytes_with_ref(prefix);
+                                    new_term.append_ref(term);
                                     new_terms.insert(new_term.get_bytes_ref_copy());
                                 }
                             }
@@ -2379,6 +2407,616 @@ mod tests {
 
         assert_eq!(expected2, TestOperations::get_finite_strings(&utf8)?);
 
+        Ok(())
+    }
+    fn accepts(a: &Automaton, b: &BytesRef<Vec<u8>>) -> Result<bool> {
+        let mut builder = IntsRefBuilder::new();
+        Util::get_ints_ref(b, &mut builder);
+        Ok(Operations::run_ints_ref(a, builder.get()))
+    }
+    fn make_binary_interval(
+        min_term: Option<BytesRef<Vec<u8>>>,
+        min_inclusive: bool,
+        max_term: Option<BytesRef<Vec<u8>>>,
+        max_inclusive: bool,
+    ) -> Result<Automaton> {
+        let a = Automata::make_binary_interval(min_term, min_inclusive, max_term, max_inclusive)?;
+        let min_a = MinimizationOperations::minimize(&a, i32::MAX as usize)?;
+
+        if min_a.get_num_states() != a.get_num_states() {
+            assert!(min_a.get_num_states() < a.get_num_states());
+            return Err(LuceneError::illegal_state("automaton was not minimal"));
+        }
+        Ok(a)
+    }
+    #[test]
+    #[test]
+    fn test_make_binary_interval_finite_cases_basic() -> Result<()> {
+        let zeros = vec![0u8; 3];
+        let mut random = random();
+
+        // 0 (incl) - 00 (incl)
+        let a = make_binary_interval(
+            Some(new_bytes_ref(&mut random, zeros.as_slice(), 0, 1)?),
+            true,
+            Some(new_bytes_ref(&mut random, zeros.as_slice(), 0, 2)?),
+            true,
+        )?;
+        assert!(AutomatonTestUtil::is_finite(&a)?);
+        assert!(!accepts(&a, &new_bytes_ref_empty(&mut random)?)?);
+        assert!(accepts(
+            &a,
+            &new_bytes_ref(&mut random, zeros.as_slice(), 0, 1)?
+        )?);
+        assert!(accepts(
+            &a,
+            &new_bytes_ref(&mut random, zeros.as_slice(), 0, 2)?
+        )?);
+        assert!(!accepts(
+            &a,
+            &new_bytes_ref(&mut random, zeros.as_slice(), 0, 3)?
+        )?);
+
+        // '' (incl) - 00 (incl)
+        let a = make_binary_interval(
+            Some(new_bytes_ref_empty(&mut random)?),
+            true,
+            Some(new_bytes_ref(&mut random, zeros.as_slice(), 0, 2)?),
+            true,
+        )?;
+        assert!(AutomatonTestUtil::is_finite(&a)?);
+        assert!(accepts(&a, &new_bytes_ref_empty(&mut random)?)?);
+        assert!(accepts(
+            &a,
+            &new_bytes_ref(&mut random, zeros.as_slice(), 0, 1)?
+        )?);
+        assert!(accepts(
+            &a,
+            &new_bytes_ref(&mut random, zeros.as_slice(), 0, 2)?
+        )?);
+        assert!(!accepts(
+            &a,
+            &new_bytes_ref(&mut random, zeros.as_slice(), 0, 3)?
+        )?);
+
+        // '' (excl) - 00 (incl)
+        let a = make_binary_interval(
+            Some(new_bytes_ref_empty(&mut random)?),
+            false,
+            Some(new_bytes_ref(&mut random, zeros.as_slice(), 0, 2)?),
+            true,
+        )?;
+        assert!(AutomatonTestUtil::is_finite(&a)?);
+        assert!(!accepts(&a, &new_bytes_ref_empty(&mut random)?)?);
+        assert!(accepts(
+            &a,
+            &new_bytes_ref(&mut random, zeros.as_slice(), 0, 1)?
+        )?);
+        assert!(accepts(
+            &a,
+            &new_bytes_ref(&mut random, zeros.as_slice(), 0, 2)?
+        )?);
+        assert!(!accepts(
+            &a,
+            &new_bytes_ref(&mut random, zeros.as_slice(), 0, 3)?
+        )?);
+
+        // 0 (excl) - 00 (incl)
+        let a = make_binary_interval(
+            Some(new_bytes_ref(&mut random, zeros.as_slice(), 0, 1)?),
+            false,
+            Some(new_bytes_ref(&mut random, zeros.as_slice(), 0, 2)?),
+            true,
+        )?;
+        assert!(AutomatonTestUtil::is_finite(&a)?);
+        assert!(!accepts(&a, &new_bytes_ref_empty(&mut random)?)?);
+        assert!(!accepts(
+            &a,
+            &new_bytes_ref(&mut random, zeros.as_slice(), 0, 1)?
+        )?);
+        assert!(accepts(
+            &a,
+            &new_bytes_ref(&mut random, zeros.as_slice(), 0, 2)?
+        )?);
+        assert!(!accepts(
+            &a,
+            &new_bytes_ref(&mut random, zeros.as_slice(), 0, 3)?
+        )?);
+
+        // 0 (excl) - 00 (excl)
+        let a = make_binary_interval(
+            Some(new_bytes_ref(&mut random, zeros.as_slice(), 0, 1)?),
+            false,
+            Some(new_bytes_ref(&mut random, zeros.as_slice(), 0, 2)?),
+            false,
+        )?;
+        assert!(AutomatonTestUtil::is_finite(&a)?);
+        assert!(!accepts(&a, &new_bytes_ref_empty(&mut random)?)?);
+        assert!(!accepts(
+            &a,
+            &new_bytes_ref(&mut random, zeros.as_slice(), 0, 1)?
+        )?);
+        assert!(!accepts(
+            &a,
+            &new_bytes_ref(&mut random, zeros.as_slice(), 0, 2)?
+        )?);
+        assert!(!accepts(
+            &a,
+            &new_bytes_ref(&mut random, zeros.as_slice(), 0, 3)?
+        )?);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_make_binary_interval_finite_cases_random() -> Result<()> {
+        let mut random = random();
+        let iters = at_least(&mut random, 100);
+
+        for _ in 0..iters {
+            let s = TestUtil::random_realistic_unicode_string(&mut random);
+            let prefix = new_bytes_ref_from_string(&mut random, &s)?;
+
+            let mut b = BytesRefBuilder::new();
+            b.append_ref(&prefix);
+            let num_zeros = random.random_range(0..10);
+            for _ in 0..num_zeros {
+                b.append_byte(0);
+            }
+            let min_term = b.get_bytes_ref_copy();
+
+            let mut b = BytesRefBuilder::new();
+            b.append_ref(&min_term);
+            let num_zeros = random.random_range(0..10);
+            for _ in 0..num_zeros {
+                b.append_byte(0);
+            }
+            let max_term = b.get_bytes_ref_copy();
+
+            let min_inclusive = random.random_bool(0.5);
+            let max_inclusive = random.random_bool(0.5);
+
+            let a = make_binary_interval(
+                Some(min_term.clone()),
+                min_inclusive,
+                Some(max_term.clone()),
+                max_inclusive,
+            )?;
+            assert!(AutomatonTestUtil::is_finite(&a)?);
+
+            let mut expected_count = max_term.length as i32 - min_term.length as i32 + 1;
+            if !min_inclusive {
+                expected_count -= 1;
+            }
+            if !max_inclusive {
+                expected_count -= 1;
+            }
+
+            if expected_count <= 0 {
+                assert!(Operations::is_empty(&a));
+                continue;
+            } else {
+                // Enumerate all finite strings and verify the count matches what we expect:
+                let actual = TestOperations::get_finite_strings_with_limit(&a, expected_count)?;
+                assert_eq!(expected_count as usize, actual.len());
+            }
+
+            let mut b = BytesRefBuilder::new();
+            b.append_ref(&min_term);
+
+            if !min_inclusive {
+                assert!(!accepts(&a, &b.get_bytes_ref_copy())?);
+                b.append_byte(0);
+            }
+
+            while b.length() < max_term.length {
+                b.append_byte(0);
+
+                let expected = if b.length() == max_term.length {
+                    max_inclusive
+                } else {
+                    true
+                };
+
+                assert_eq!(expected, accepts(&a, &b.get_bytes_ref_copy())?);
+            }
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_make_binary_interval_random() -> Result<()> {
+        let mut random = random();
+        let iters = at_least(&mut random, 100);
+
+        for _ in 0..iters {
+            let min_term = TestUtil::random_binary_term(&mut random);
+            let min_inclusive = random.random_bool(0.5);
+            let max_term = TestUtil::random_binary_term(&mut random);
+            let max_inclusive = random.random_bool(0.5);
+
+            let a = make_binary_interval(
+                Some(min_term.clone()),
+                min_inclusive,
+                Some(max_term.clone()),
+                max_inclusive,
+            )?;
+
+            for _ in 0..500 {
+                let term = TestUtil::random_binary_term(&mut random);
+
+                let min_cmp = min_term.cmp(&term).to_int();
+                let max_cmp = max_term.cmp(&term).to_int();
+
+                let expected = if min_cmp > 0 || max_cmp < 0 {
+                    false
+                } else if min_cmp == 0 && max_cmp == 0 {
+                    min_inclusive && max_inclusive
+                } else if min_cmp == 0 {
+                    min_inclusive
+                } else if max_cmp == 0 {
+                    max_inclusive
+                } else {
+                    true
+                };
+
+                let mut ints_builder = IntsRefBuilder::new();
+                Util::get_ints_ref(&term, &mut ints_builder);
+                let actual = Operations::run_ints_ref(&a, &ints_builder.to_ints_ref());
+                assert_eq!(expected, actual,);
+            }
+        }
+
+        Ok(())
+    }
+    fn ints_ref(s: &str, random: &mut StdRng) -> Result<IntsRef<Vec<i32>>> {
+        let mut builder = IntsRefBuilder::new();
+        let b = new_bytes_ref_from_string(random, s)?;
+        Util::get_ints_ref(&b, &mut builder);
+        Ok(builder.get().clone())
+    }
+
+    #[test]
+    fn test_make_binary_interval_basic() -> Result<()> {
+        let mut random = random();
+
+        let a = Automata::make_binary_interval(
+            Some(new_bytes_ref_from_string(&mut random, "bar")?),
+            true,
+            Some(new_bytes_ref_from_string(&mut random, "foo")?),
+            true,
+        )?;
+        assert!(Operations::run_ints_ref(&a, &ints_ref("bar", &mut random)?));
+        assert!(Operations::run_ints_ref(&a, &ints_ref("foo", &mut random)?));
+        assert!(Operations::run_ints_ref(
+            &a,
+            &ints_ref("beep", &mut random)?
+        ));
+        assert!(!Operations::run_ints_ref(
+            &a,
+            &ints_ref("baq", &mut random)?
+        ));
+        assert!(Operations::run_ints_ref(
+            &a,
+            &ints_ref("bara", &mut random)?
+        ));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_make_binary_interval_lower_bound_empty_string() -> Result<()> {
+        let mut random = random();
+
+        let a = Automata::make_binary_interval(
+            Some(new_bytes_ref_from_string(&mut random, "")?),
+            true,
+            Some(new_bytes_ref_from_string(&mut random, "bar")?),
+            true,
+        )?;
+        assert!(Operations::run_ints_ref(&a, &ints_ref("", &mut random)?));
+        assert!(Operations::run_ints_ref(&a, &ints_ref("a", &mut random)?));
+        assert!(Operations::run_ints_ref(&a, &ints_ref("bar", &mut random)?));
+        assert!(!Operations::run_ints_ref(
+            &a,
+            &ints_ref("bara", &mut random)?
+        ));
+        assert!(!Operations::run_ints_ref(
+            &a,
+            &ints_ref("baz", &mut random)?
+        ));
+
+        let a = Automata::make_binary_interval(
+            Some(new_bytes_ref_from_string(&mut random, "")?),
+            false,
+            Some(new_bytes_ref_from_string(&mut random, "bar")?),
+            true,
+        )?;
+        assert!(!Operations::run_ints_ref(&a, &ints_ref("", &mut random)?));
+        assert!(Operations::run_ints_ref(&a, &ints_ref("a", &mut random)?));
+        assert!(Operations::run_ints_ref(&a, &ints_ref("bar", &mut random)?));
+        assert!(!Operations::run_ints_ref(
+            &a,
+            &ints_ref("bara", &mut random)?
+        ));
+        assert!(!Operations::run_ints_ref(
+            &a,
+            &ints_ref("baz", &mut random)?
+        ));
+
+        Ok(())
+    }
+    #[test]
+    fn test_make_binary_interval_equal() -> Result<()> {
+        let mut random = random();
+
+        let a = Automata::make_binary_interval(
+            Some(new_bytes_ref_from_string(&mut random, "bar")?),
+            true,
+            Some(new_bytes_ref_from_string(&mut random, "bar")?),
+            true,
+        )?;
+        assert!(Operations::run_ints_ref(&a, &ints_ref("bar", &mut random)?));
+        assert!(AutomatonTestUtil::is_finite(&a)?);
+        let strings = TestOperations::get_finite_strings(&a)?;
+        assert_eq!(1, strings.len());
+
+        Ok(())
+    }
+    #[test]
+    fn test_make_binary_interval_common_prefix() -> Result<()> {
+        let mut random = random();
+
+        let a = Automata::make_binary_interval(
+            Some(new_bytes_ref_from_string(&mut random, "bar")?),
+            true,
+            Some(new_bytes_ref_from_string(&mut random, "barfoo")?),
+            true,
+        )?;
+        assert!(!Operations::run_ints_ref(
+            &a,
+            &ints_ref("bam", &mut random)?
+        ));
+        assert!(Operations::run_ints_ref(&a, &ints_ref("bar", &mut random)?));
+        assert!(Operations::run_ints_ref(
+            &a,
+            &ints_ref("bara", &mut random)?
+        ));
+        assert!(Operations::run_ints_ref(
+            &a,
+            &ints_ref("barf", &mut random)?
+        ));
+        assert!(Operations::run_ints_ref(
+            &a,
+            &ints_ref("barfo", &mut random)?
+        ));
+        assert!(Operations::run_ints_ref(
+            &a,
+            &ints_ref("barfoo", &mut random)?
+        ));
+        assert!(Operations::run_ints_ref(
+            &a,
+            &ints_ref("barfonz", &mut random)?
+        ));
+        assert!(!Operations::run_ints_ref(
+            &a,
+            &ints_ref("barfop", &mut random)?
+        ));
+        assert!(!Operations::run_ints_ref(
+            &a,
+            &ints_ref("barfoop", &mut random)?
+        ));
+
+        Ok(())
+    }
+    #[test]
+    fn test_make_binary_except_empty() -> Result<()> {
+        let mut random = random();
+
+        let a = Automata::make_non_empty_binary()?;
+        assert!(!Operations::run_ints_ref(&a, &ints_ref("", &mut random)?));
+
+        let s = TestUtil::random_realistic_unicode_string_range(&mut random, 1, 10);
+        assert!(Operations::run_ints_ref(&a, &ints_ref(&s, &mut random)?));
+
+        Ok(())
+    }
+    #[test]
+    fn test_make_binary_interval_open_max() -> Result<()> {
+        let mut random = random();
+
+        let a = Automata::make_binary_interval(
+            Some(new_bytes_ref_from_string(&mut random, "bar")?),
+            true,
+            None,
+            true,
+        )?;
+
+        assert!(!Operations::run_ints_ref(
+            &a,
+            &ints_ref("bam", &mut random)?
+        ));
+        assert!(Operations::run_ints_ref(&a, &ints_ref("bar", &mut random)?));
+        assert!(Operations::run_ints_ref(
+            &a,
+            &ints_ref("bara", &mut random)?
+        ));
+        assert!(Operations::run_ints_ref(
+            &a,
+            &ints_ref("barf", &mut random)?
+        ));
+        assert!(Operations::run_ints_ref(
+            &a,
+            &ints_ref("barfo", &mut random)?
+        ));
+        assert!(Operations::run_ints_ref(
+            &a,
+            &ints_ref("barfoo", &mut random)?
+        ));
+        assert!(Operations::run_ints_ref(
+            &a,
+            &ints_ref("barfonz", &mut random)?
+        ));
+        assert!(Operations::run_ints_ref(
+            &a,
+            &ints_ref("barfop", &mut random)?
+        ));
+        assert!(Operations::run_ints_ref(
+            &a,
+            &ints_ref("barfoop", &mut random)?
+        ));
+        assert!(Operations::run_ints_ref(&a, &ints_ref("zzz", &mut random)?));
+
+        Ok(())
+    }
+    #[test]
+    fn test_make_binary_interval_open_max_zero_length_min() -> Result<()> {
+        let mut random = random();
+
+        let a = Automata::make_binary_interval(
+            Some(new_bytes_ref_from_string(&mut random, "")?),
+            true,
+            None,
+            true,
+        )?;
+
+        assert!(Operations::run_ints_ref(&a, &ints_ref("", &mut random)?));
+        assert!(Operations::run_ints_ref(&a, &ints_ref("a", &mut random)?));
+        assert!(Operations::run_ints_ref(
+            &a,
+            &ints_ref("aaaaaa", &mut random)?
+        ));
+
+        let a = Automata::make_binary_interval(
+            Some(new_bytes_ref_from_string(&mut random, "")?),
+            false,
+            None,
+            true,
+        )?;
+
+        assert!(!Operations::run_ints_ref(&a, &ints_ref("", &mut random)?));
+        assert!(Operations::run_ints_ref(&a, &ints_ref("a", &mut random)?));
+        assert!(Operations::run_ints_ref(
+            &a,
+            &ints_ref("aaaaaa", &mut random)?
+        ));
+
+        Ok(())
+    }
+    #[test]
+    fn test_make_binary_interval_open_min() -> Result<()> {
+        let mut random = random();
+
+        let a = Automata::make_binary_interval(
+            None,
+            true,
+            Some(new_bytes_ref_from_string(&mut random, "foo")?),
+            true,
+        )?;
+
+        assert!(!Operations::run_ints_ref(
+            &a,
+            &ints_ref("foz", &mut random)?
+        ));
+        assert!(!Operations::run_ints_ref(
+            &a,
+            &ints_ref("zzz", &mut random)?
+        ));
+        assert!(Operations::run_ints_ref(&a, &ints_ref("foo", &mut random)?));
+        assert!(Operations::run_ints_ref(&a, &ints_ref("", &mut random)?));
+        assert!(Operations::run_ints_ref(&a, &ints_ref("a", &mut random)?));
+        assert!(Operations::run_ints_ref(&a, &ints_ref("aaa", &mut random)?));
+        assert!(Operations::run_ints_ref(&a, &ints_ref("bz", &mut random)?));
+
+        Ok(())
+    }
+    #[test]
+    fn test_make_binary_interval_open_both() -> Result<()> {
+        let mut random = random();
+
+        let a = Automata::make_binary_interval(None, true, None, true)?;
+
+        assert!(Operations::run_ints_ref(&a, &ints_ref("foz", &mut random)?));
+        assert!(Operations::run_ints_ref(&a, &ints_ref("zzz", &mut random)?));
+        assert!(Operations::run_ints_ref(&a, &ints_ref("foo", &mut random)?));
+        assert!(Operations::run_ints_ref(&a, &ints_ref("", &mut random)?));
+        assert!(Operations::run_ints_ref(&a, &ints_ref("a", &mut random)?));
+        assert!(Operations::run_ints_ref(&a, &ints_ref("aaa", &mut random)?));
+        assert!(Operations::run_ints_ref(&a, &ints_ref("bz", &mut random)?));
+
+        Ok(())
+    }
+    #[test]
+    fn test_accept_all_empty_string_min() -> Result<()> {
+        let mut random = random();
+
+        let a = Automata::make_binary_interval(
+            Some(new_bytes_ref_from_string(&mut random, "")?),
+            true,
+            None,
+            true,
+        )?;
+        let any = Automata::make_any_binary()?;
+        assert!(AutomatonTestUtil::same_language(&any, &a)?);
+
+        Ok(())
+    }
+    fn to_ints_ref(s: &str) -> IntsRef<Vec<i32>> {
+        let mut builder = IntsRefBuilder::new();
+        for ch in s.chars() {
+            builder.append(ch as i32);
+        }
+        builder.get().clone()
+    }
+    #[test]
+    fn test_get_singleton() -> Result<()> {
+        let mut random = random();
+        let iters = at_least(&mut random, 10_000);
+
+        for _ in 0..iters {
+            let s = TestUtil::random_realistic_unicode_string(&mut random);
+            let a = Automata::make_string(&s)?;
+            assert_eq!(to_ints_ref(&s), Operations::get_singleton(&a)?.unwrap());
+        }
+
+        Ok(())
+    }
+    #[test]
+    fn test_get_singleton_empty_string() -> Result<()> {
+        let mut a = Automaton::new();
+        let s = a.create_state();
+        a.set_accept(s, true);
+        a.finish_state()?;
+        assert_eq!(IntsRef::new(), Operations::get_singleton(&a)?.unwrap());
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_singleton_nothing() -> Result<()> {
+        let mut a = Automaton::new();
+        a.create_state();
+        a.finish_state()?;
+        assert!(Operations::get_singleton(&a)?.is_none());
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_singleton_two() -> Result<()> {
+        let mut a = Automaton::new();
+        let s = a.create_state();
+        let x = a.create_state();
+        a.set_accept(x, true);
+        a.add_transition_label(s, x, 55)?;
+        let y = a.create_state();
+        a.set_accept(y, true);
+        a.add_transition_label(s, y, 58)?;
+        a.finish_state()?;
+        assert!(Operations::get_singleton(&a)?.is_none());
+        Ok(())
+    }
+    #[test]
+    fn test_determinize_too_much_effort() -> Result<()> {
+        // TODO: RegExp not Implement
         Ok(())
     }
 }

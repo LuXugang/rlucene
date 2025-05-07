@@ -16,7 +16,7 @@
  */
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::hash::{DefaultHasher, Hash, Hasher};
+use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
 use crate::index::{BytesRef, BytesRefBuilder};
@@ -75,7 +75,7 @@ impl StringsToAutomaton {
         s: &Rc<RefCell<State>>,
         visited: &mut HashMap<StateKey, i32>,
     ) -> Result<i32> {
-        let key = StateKey{
+        let key = StateKey {
             state: Rc::clone(s),
         };
 
@@ -114,9 +114,9 @@ impl StringsToAutomaton {
 
         self.state_registry = None;
 
-        let mut builder = Builder::new();
-        Self::convert(&mut builder, &self.root, &mut HashMap::new())?;
-        builder.finish()
+        let mut a = Builder::new();
+        Self::convert(&mut a, &self.root, &mut HashMap::new())?;
+        a.finish()
     }
     /// Builds a minimal, deterministic automaton from a sorted list of
     /// [`BytesRef`] representing strings in UTF-8. These strings must be
@@ -373,12 +373,10 @@ impl Hash for StateKey {
 #[cfg(test)]
 mod tests {
     use std::borrow::Cow;
-    use std::collections::BTreeSet;
 
     use rand::rngs::StdRng;
     use rand::Rng;
 
-    use crate::index::vector_encoding::VectorEncoding::BYTE;
     use crate::index::BytesRef;
     use crate::test::util::automaton::automaton_test_util::AutomatonTestUtil;
     use crate::test::util::lucene_test_case::{is_night_mode, new_bytes_ref_from_string, random};

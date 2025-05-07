@@ -51,7 +51,7 @@ where
 
     /// Return the number of bytes in this buffer.
     pub fn length(&self) -> usize {
-        self.bytes_ref.bytes.len()
+        self.bytes_ref.length
     }
 
     /// Set the length.

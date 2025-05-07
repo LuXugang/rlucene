@@ -330,10 +330,9 @@ impl AutomatonTestUtil {
 
         path.insert(state as usize);
         let num_transitions = a.init_transition(state, scratch);
-        let state = state as usize;
 
-        for _ in 0..num_transitions {
-            a.get_next_transition(scratch);
+        for t in 0..num_transitions {
+            a.get_transition(state, t, scratch);
             let dest = scratch.dest;
             if path.contains(dest as usize)
                 || (!visited.contains(dest as usize)
@@ -343,8 +342,8 @@ impl AutomatonTestUtil {
             }
         }
 
-        path.remove(state);
-        visited.insert(state);
+        path.remove(state as usize);
+        visited.insert(state as usize);
         Ok(true)
     }
     /// Returns true if the automaton is deterministic.
@@ -364,7 +363,7 @@ impl AutomatonTestUtil {
             }
         }
 
-        assert!(!a.is_deterministic());
+        assert!(a.is_deterministic());
         true
     }
 
