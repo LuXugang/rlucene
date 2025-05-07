@@ -16,7 +16,7 @@
  */
 pub mod automata;
 pub mod automaton;
-mod byte_run_automaton;
+pub mod byte_run_automaton;
 pub mod byte_runnable;
 mod character_run_automaton;
 mod finite_strings_iterator;
