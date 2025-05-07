@@ -16,5 +16,5 @@
  */
 pub mod automaton_test_util;
 pub mod minimization_operation;
-mod test_Determinize_lexicon;
 mod test_determinism;
+mod test_determinize_lexicon;
