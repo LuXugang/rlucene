@@ -97,19 +97,19 @@ impl MathUtil {
     }
 
     /// Calculates the inverse hyperbolic sine (`asinh`) of a `f64` value.
-    #[cfg(feature = "unused")]
+    #[allow(dead_code)]
     pub fn asinh(_a: f64) -> f64 {
         0f64
     }
 
     /// Calculates the inverse hyperbolic cosine (`acosh`) of a `f64` value.
-    #[cfg(feature = "unused")]
+    #[allow(dead_code)]
     pub fn acosh(_a: f64) -> f64 {
         0f64
     }
 
     /// Calculates the inverse hyperbolic tangent (`atanh`) of a `f64` value.
-    #[cfg(feature = "unused")]
+    #[allow(dead_code)]
     pub fn atanh(_a: f64) -> f64 {
         0f64
     }
