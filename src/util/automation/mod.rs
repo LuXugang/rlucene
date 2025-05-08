@@ -23,6 +23,7 @@ mod finite_strings_iterator;
 mod frozen_int_set;
 mod int_set;
 mod limited_finite_strings_iterator;
+mod nfa_run_automaton;
 pub mod operations;
 pub mod run_automaton;
 pub mod state_pair;

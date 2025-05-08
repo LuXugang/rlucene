@@ -1274,8 +1274,8 @@ impl Operations {
 #[derive(Default, Clone)]
 pub(crate) struct TransitionList {
     // dest, min, max
-    transitions: Vec<i32>,
-    next: usize,
+    pub(crate) transitions: Vec<i32>,
+    pub(crate) next: usize,
 }
 
 impl TransitionList {
@@ -1348,8 +1348,8 @@ impl std::hash::Hash for PointTransitions {
 
 const HASHMAP_CUTOVER: usize = 30;
 pub(crate) struct PointTransitionSet {
-    count: usize,
-    points: Vec<PointTransitions>,
+    pub(crate) count: usize,
+    pub(crate) points: Vec<PointTransitions>,
     map: BTreeMap<i32, usize>,
     use_hash: bool,
 }
