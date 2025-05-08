@@ -36,8 +36,6 @@ use crate::util::error::lucene_error::Result;
 /// **Note:** The current implementation is **not thread-safe**.
 ///
 /// Implemented based on: <https://swtch.com/~rsc/regexp/regexp1.html>
-///
-/// @lucene.internal
 pub struct NFARunAutomaton {
     automaton: Automaton,
     points: Vec<i32>,
@@ -429,11 +427,13 @@ impl TransitionAccessor for NFARunAutomaton {
     }
 
     fn get_num_transitions_with_state(&self, state: i32) -> i32 {
+        // TODO: 这里需要等优化Sorter的trait方法返回值不使用Result后 再来优化
         self.determinize(state as usize).expect("should not failed");
         self.dstates.borrow()[state as usize].outgoing_transitions
     }
 
     fn get_transition(&self, state: i32, index: i32, t: &mut Transition) {
+        // TODO: 这里需要等优化Sorter的trait方法返回值不使用Result后 再来优化
         self.determinize(state as usize).expect("should not failed");
 
         let transitions = &self.dstates.borrow()[state as usize].transitions;
