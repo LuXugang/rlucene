@@ -29,7 +29,15 @@ use crate::util::automation::state_set::StateSet;
 use crate::util::automation::transition::Transition;
 use crate::util::automation::transition_accessor::TransitionAccessor;
 use crate::util::error::lucene_error::Result;
-
+/// A [`RunAutomaton`](crate::util::automation::run_automaton::RunAutomaton)
+/// that does not require a precomputed DFA. It will lazily determinize
+/// on-demand, memorizing the DFA states that have been explored.
+///
+/// **Note:** The current implementation is **not thread-safe**.
+///
+/// Implemented based on: <https://swtch.com/~rsc/regexp/regexp1.html>
+///
+/// @lucene.internal
 pub struct NFARunAutomaton {
     automaton: Automaton,
     points: Vec<i32>,
@@ -80,6 +88,14 @@ impl NFARunAutomaton {
 
         automaton_instance
     }
+    /// Runs through a given codepoint array and returns whether it is accepted
+    /// by the automaton. This should only be used in tests.
+    ///
+    /// Parameters:
+    /// - `s`: A string represented by an array of Unicode codepoints (`i32`)
+    ///
+    /// Returns:
+    /// - `true` if the input is accepted; `false` otherwise.
     fn run(&self, input: &[i32]) -> bool {
         let mut p = 0;
         for &c in input {
@@ -91,12 +107,18 @@ impl NFARunAutomaton {
 
         self.dstates.borrow()[p as usize].is_accept
     }
-
+    /// From an existing DFA state, steps to the next DFA state given character
+    /// `c`.
+    ///
+    /// If the transition was previously computed, this operation will use the
+    /// cached result; otherwise, it will call [`Self::step_with_index`] to
+    /// compute the next state and then cache it.
     fn step_with_dstate_index(&self, dstate_index: usize, c: i32) -> i32 {
         let char_class = self.get_char_class(c);
         self.next_state(char_class, dstate_index)
     }
-
+    /// return the ordinal of given DFA state, generate a new ordinal if the
+    /// given DFA state is a new one
     fn find_dstate(&self, dstate: Option<DState>) -> i32 {
         let mut dstates = self.dstates.borrow_mut();
         let mut state = self.state.borrow_mut();
@@ -125,6 +147,7 @@ impl NFARunAutomaton {
             None => Self::MISSING,
         }
     }
+    /// Gets character class of given codepoint
     pub(crate) fn get_char_class(&self, c: i32) -> usize {
         debug_assert!(c < self.alphabet_size);
 
@@ -196,6 +219,8 @@ impl NFARunAutomaton {
         }
         dstate.transitions[char_class]
     }
+    ///  given a list of NFA states and a character c, compute the output list
+    /// of NFA state which is wrapped as a DFA state
     fn step_with_index(&self, c: i32, index: usize) -> Option<DState> {
         let mut states_set = self.states_set.borrow_mut();
         states_set.reset();
@@ -348,6 +373,16 @@ impl NFARunAutomaton {
     }
 }
 impl ByteRunnable for NFARunAutomaton {
+    /// For a given state and an incoming character (codepoint), returns the
+    /// next state.
+    ///
+    /// Parameters:
+    /// - `state`: The incoming state. It should either be `0` or a state
+    ///   previously returned by this function.
+    /// - `c`: The Unicode codepoint to transition on
+    ///
+    /// Returns:
+    /// - The next state, or [`Self::MISSING`] if the transition doesn't exist.
     fn step(&self, state: i32, c: i32) -> i32 {
         debug_assert!(self.dstates.borrow().get(state as usize).is_some());
         self.step_with_dstate_index(state as usize, c)
