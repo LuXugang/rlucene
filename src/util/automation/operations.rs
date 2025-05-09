@@ -504,6 +504,7 @@ impl Operations {
     /// given automata.
     ///
     /// Complexity: linear in the number of states.
+    // TODO: 可以改成`l: &[Automaton]`
     pub fn union_list(l: &[&Automaton]) -> Result<Automaton> {
         let mut result = Automaton::new();
         // Create initial state:

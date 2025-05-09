@@ -26,6 +26,7 @@ mod int_set;
 mod limited_finite_strings_iterator;
 mod nfa_run_automaton;
 pub mod operations;
+mod reg_exp;
 pub mod run_automaton;
 pub mod state_pair;
 mod state_set;
