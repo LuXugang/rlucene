@@ -24,14 +24,90 @@ use crate::util::automation::automaton_provider::{AutomatonProvider, EmptyAutoma
 use crate::util::automation::operations::Operations;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::error::lucene_error::Result;
-
+/// Regular Expression extension to [`Automaton`].
+///
+/// Regular expressions are built from the following abstract syntax:
+///
+/// ```text
+/// regexp         ::= unionexp
+///
+/// unionexp       ::= interexp '|' unionexp          (union)
+///                 |  interexp
+///
+/// interexp       ::= concatexp '&' interexp         (intersection) [OPTIONAL]
+///                 |  concatexp
+///
+/// concatexp      ::= repeatexp concatexp            (concatenation)
+///                 |  repeatexp
+///
+/// repeatexp      ::= repeatexp '?'                  (zero or one occurrence)
+///                 |  repeatexp '*'                  (zero or more occurrences)
+///                 |  repeatexp '+'                  (one or more occurrences)
+///                 |  repeatexp '{n}'                (n occurrences)
+///                 |  repeatexp '{n,}'               (n or more occurrences)
+///                 |  repeatexp '{n,m}'              (n to m occurrences, inclusive)
+///                 |  complexp
+///
+/// complexp       ::= charclassexp
+///                 |  simpleexp
+///
+/// charclassexp   ::= '[' charclasses ']'            (character class)
+///                 |  '[^' charclasses ']'           (negated character class)
+///                 |  simpleexp
+///
+/// charclasses    ::= charclass charclasses
+///                 |  charclass
+///
+/// charclass      ::= charexp '-' charexp            (character range, inclusive)
+///                 |  charexp
+///
+/// simpleexp      ::= charexp
+///                 |  '.'                            (any single character)
+///                 |  '#'                            (empty language) [OPTIONAL]
+///                 |  '@'                            (any string) [OPTIONAL]
+///                 |  "\"" <Unicode string> "\""     (a string)
+///                 |  "()"                           (the empty string)
+///                 |  '(' unionexp ')'               (precedence override)
+///                 |  '<' identifier '>'             (named automaton) [OPTIONAL]
+///                 |  '<n-m>'                        (numerical interval) [OPTIONAL]
+///
+/// charexp        ::= <Unicode character>            (a single non-reserved character)
+///                 |  \d                             (a digit [0-9])
+///                 |  \D                             (a non-digit [^0-9])
+///                 |  \s                             (whitespace [ \t\n\r])
+///                 |  \S                             (non-whitespace)
+///                 |  \w                             (a word character [a-zA-Z_0-9])
+///                 |  \W                             (a non-word character [^\w])
+///                 |  \\<Unicode character>          (an escaped character)
+/// ```
+///
+/// Productions marked [OPTIONAL] are only allowed if specified by the syntax
+/// flags passed to the [`RegExp`] constructor.
+///
+/// Reserved characters used in the enabled syntax must be escaped with
+/// backslash (`\`) or double-quotes (`"..."`). This escaping is also required
+/// inside character classes.
+///
+/// Be aware that dash (`-`) has a special meaning in `charclass` expressions.
+///
+/// An identifier is a string not containing right angle bracket (`>`) or dash
+/// (`-`).
+///
+/// Numerical intervals are specified by non-negative decimal integers and
+/// include both end points. If `n` and `m` have the same number of digits, then
+/// the conforming strings must have that length (i.e., prefixed by zeroes).
 pub struct RegExp {
     // ----- Immutable parsed state -----
+    /// The type of expression
     pub kind: RegExpKind,
+    /// Child expressions held by a container type expression
     pub exp1: Option<Box<RegExp>>,
     pub exp2: Option<Box<RegExp>>,
+    /// String expression
     pub s: String,
+    /// Character expression
     pub c: i32,
+    /// Limits for repeatable type expressions
     pub min: i32,
     pub max: i32,
     pub digits: i32,
@@ -210,17 +286,34 @@ impl RegExp {
             pos: 0,
         }
     }
+    /// Constructs a new [`Automaton`] from this [`RegExp`].
+    /// Same as calling `to_automaton_with_map` (with an empty automaton map).
     pub fn to_automaton(&self) -> Result<Automaton> {
         self.to_automaton_impl(&HashMap::new(), &EmptyAutomatonProvider)
     }
-
+    /// Constructs a new [`Automaton`] from this [`RegExp`].
+    ///
+    /// Parameters:
+    /// - `automata`: A map from automaton identifiers to [`Automaton`]
+    ///   instances.
+    ///
+    /// Errors:
+    /// - Returns an error if this regular expression uses a named identifier
+    ///   that does not exist in the automaton map.
     pub fn to_automaton_with_map(
         &self,
         automata: &HashMap<String, Automaton>,
     ) -> Result<Automaton> {
         self.to_automaton_impl(automata, &EmptyAutomatonProvider)
     }
-
+    /// Constructs a new [`Automaton`] from this [`RegExp`].
+    ///
+    /// Parameters:
+    /// - `automaton_provider`: Provider of automata for named identifiers
+    ///
+    /// Errors:
+    /// - Returns an error if this regular expression uses a named identifier
+    ///   that is not available from the automaton provider.
     pub fn to_automaton_with_provider(
         &self,
         provider: &impl AutomatonProvider,
@@ -438,7 +531,7 @@ impl RegExp {
         }
         Ok(())
     }
-
+    /// The string that was used to construct the regex. Compare to toString.
     pub fn get_original_string(&self) -> &str {
         &self.original_string
     }
@@ -557,6 +650,7 @@ impl RegExp {
             },
         }
     }
+    /// Like to string, but more verbose (shows the higherchy more clearly).
     pub fn to_string_tree(&self) -> String {
         let mut b = String::new();
         self.to_string_tree_with_string(&mut b, "");
@@ -669,6 +763,8 @@ impl RegExp {
             },
         }
     }
+    /// Returns set of automaton identifiers that occur in this regular
+    /// expression.
     pub fn get_identifiers_set(&self) -> HashSet<String> {
         let mut set = HashSet::new();
         self.get_identifiers(&mut set);
@@ -784,6 +880,10 @@ impl RegExp {
     fn make_complement(flags: i32, exp: RegExp) -> Self {
         RegExp::new_container_node(flags, RegExpKind::Complement, Some(exp), None)
     }
+    /// Creates a node that will compute the complement of an arbitrary
+    /// expression.
+    ///
+    /// @deprecated Will be removed in Lucene 11
     #[deprecated(note = "Will be removed in Lucene 11")]
     fn make_deprecated_complement(flags: i32, exp: RegExp) -> RegExp {
         RegExp::new_container_node(flags, RegExpKind::DeprecatedComplement, Some(exp), None)
@@ -1198,12 +1298,14 @@ impl RegExp {
     }
 }
 impl fmt::Display for RegExp {
+    /// Constructs string from parsed regular expression.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut s = String::new();
         self.to_string_builder(&mut s);
         write!(f, "{}", s)
     }
 }
+/// The type of expression represented by a RegExp node.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum RegExpKind {
     /// The union of two expressions
@@ -1244,7 +1346,8 @@ pub enum RegExpKind {
     #[deprecated(note = "Will be removed in Lucene 11")]
     DeprecatedComplement,
 }
-
+/// Custom functional interface for supplying methods with the signature:
+/// `RegExp(int int1, RegExp exp1, RegExp exp2)`
 trait MakeRegexGroup {
     fn get(&self, int1: i32, exp1: RegExp, exp2: RegExp) -> RegExp;
 }
