@@ -544,9 +544,9 @@ impl Automata {
         let mut a = Automaton::new();
         a.create_state();
         let mut s = 0;
-        for i in offset..offset + length {
+        for &label in &word[offset..offset + length] {
             let s2 = a.create_state();
-            a.add_transition_label(s, s2, word[i])?;
+            a.add_transition_label(s, s2, label)?;
             s = s2;
         }
         a.set_accept(s, true);

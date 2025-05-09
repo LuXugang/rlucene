@@ -506,22 +506,22 @@ impl AutomatonTestUtil {
                 let mut min1 = t1[n1].min;
                 let mut max1 = t1[n1].max;
 
-                for n2 in b2..t2.len() {
-                    if t1[n1].max < t2[n2].min {
+                for t2n in &t2[b2..] {
+                    if t1[n1].max < t2n.min {
                         break;
                     }
-                    if t2[n2].min > min1 {
+                    if t2n.min > min1 {
                         return Ok(false);
                     }
 
-                    if t2[n2].max < char::MAX as i32 {
-                        min1 = t2[n2].max + 1;
+                    if t2n.max < char::MAX as i32 {
+                        min1 = t2n.max + 1;
                     } else {
                         min1 = char::MAX as i32;
                         max1 = char::MIN as i32;
                     }
 
-                    let q = Rc::new(StatePair::new(t1[n1].dest, t2[n2].dest));
+                    let q = Rc::new(StatePair::new(t1[n1].dest, t2n.dest));
                     if visited.insert(q.clone()) {
                         worklist.push_back(q);
                     }
@@ -583,11 +583,11 @@ impl<'a> RandomAcceptedStrings<'a> {
                         t: t.clone(),
                     }),
                     None => {
-                        let mut tl_new = vec![];
-                        tl_new.push(ArrivingTransition {
+                        let tl_new = vec![ArrivingTransition {
                             from: s,
                             t: t.clone(),
-                        });
+                        }];
+
                         all_arriving.insert(t.dest, tl_new);
                     },
                 }
@@ -625,12 +625,10 @@ impl<'a> RandomAcceptedStrings<'a> {
         let mut s = 0;
 
         loop {
-            if self.a.is_accept(s) {
-                if self.a.get_num_transitions_with_state(s) == 0 {
-                    break;
-                } else if random.random_bool(0.5) {
-                    break;
-                }
+            if self.a.is_accept(s)
+                && (self.a.get_num_transitions_with_state(s) == 0 || random.random_bool(0.5))
+            {
+                break;
             }
 
             let transitions = &self.transitions[s as usize];

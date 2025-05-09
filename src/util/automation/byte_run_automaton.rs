@@ -34,11 +34,14 @@ impl ByteRunAutomaton {
     /// Errors:
     /// - Returns an error if the automaton is not deterministic.
     pub fn new_with_bool(a: Automaton, is_binary: bool) -> Result<Self> {
-        let a = match Self::convert(&a)? {
-            Cow::Borrowed(_) => a,
-            Cow::Owned(o) => o,
+        let automaton = if is_binary {
+            a
+        } else {
+            match Self::convert(&a)? {
+                Cow::Borrowed(_) => a,
+                Cow::Owned(o) => o,
+            }
         };
-        let automaton = if is_binary { a } else { a };
 
         Ok(ByteRunAutomaton {
             base: RunAutomaton::new(automaton, 256)?,

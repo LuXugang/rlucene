@@ -903,8 +903,8 @@ impl Operations {
         let mut map = vec![0; num_states];
         let mut result = Automaton::new();
 
-        for i in 0..num_states {
-            if live_set.contains(i) {
+        for (i, is_live) in (0..num_states).zip((0..num_states).map(|i| live_set.contains(i))) {
+            if is_live {
                 let s = result.create_state();
                 map[i] = s;
                 result.set_accept(s, a.is_accept(i as i32));
@@ -1791,9 +1791,9 @@ pub(crate) mod tests {
         a.finish_state()?;
         Ok(a)
     }
-    fn assert_same<'a>(cow: &Cow<'a, Automaton>, expected: &'a Automaton) {
+    fn assert_same<'a>(cow: Cow<'a, Automaton>, expected: &'a Automaton) {
         match cow {
-            Cow::Borrowed(b) => assert!(ptr::eq(*b, expected)),
+            Cow::Borrowed(b) => assert!(ptr::eq(b, expected)),
             Cow::Owned(_) => unreachable!(),
         }
     }
@@ -1801,11 +1801,11 @@ pub(crate) mod tests {
     fn test_repeat() -> Result<()> {
         let empty_language = Automata::make_empty()?;
         let r = Operations::repeat(&empty_language)?;
-        assert_same(&r, &empty_language);
+        assert_same(r, &empty_language);
 
         let empty_string = Automata::make_empty_string()?;
         let r = Operations::repeat(&empty_string)?;
-        assert_same(&r, &empty_string);
+        assert_same(r, &empty_string);
 
         let a = Automata::make_char('a' as i32)?;
         let mut as_ = Automaton::new();
@@ -1816,7 +1816,7 @@ pub(crate) mod tests {
         let r = Operations::repeat(&a)?;
         assert!(AutomatonTestUtil::same_language(&as_, &r)?);
         let r = Operations::repeat(&as_)?;
-        assert_same(&r, &as_);
+        assert_same(r, &as_);
 
         let mut a_or_empty = Automaton::new();
         a_or_empty.create_state();
@@ -1839,7 +1839,7 @@ pub(crate) mod tests {
         let r = Operations::repeat(&ab)?;
         assert!(AutomatonTestUtil::same_language(&abs, &r)?);
         let r = Operations::repeat(&abs)?;
-        assert_same(&r, &abs);
+        assert_same(r, &abs);
 
         let abs_then_c = Operations::concatenate(&abs, &Automata::make_char('c' as i32)?)?;
         let mut abs_then_cs = Automaton::new();
@@ -1858,7 +1858,7 @@ pub(crate) mod tests {
         let r = Operations::repeat(&abs_then_c)?;
         assert!(AutomatonTestUtil::same_language(&abs_then_cs, &r)?);
         let r = Operations::repeat(&abs_then_cs)?;
-        assert_same(&r, &abs_then_cs);
+        assert_same(r, &abs_then_cs);
 
         let mut a_or_ab = Automaton::new();
         a_or_ab.create_state();
@@ -1952,7 +1952,7 @@ pub(crate) mod tests {
         assert!(AutomatonTestUtil::same_language(&r, &optional_a)?);
 
         let r = Operations::optional(&optional_a)?;
-        assert_same(&r, &optional_a);
+        assert_same(r, &optional_a);
 
         // Now test an automaton that has a transition to state 0. a(ba)*
         let mut a = Automaton::new();
@@ -1981,7 +1981,7 @@ pub(crate) mod tests {
         assert!(AutomatonTestUtil::same_language(&r, &optional_a)?);
 
         let r = Operations::optional(&optional_a)?;
-        assert_same(&r, &optional_a);
+        assert_same(r, &optional_a);
 
         Ok(())
     }

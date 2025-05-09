@@ -74,11 +74,11 @@ impl RunAutomaton {
 
         let mut classmap = vec![0; alphabet_size.min(256)];
         let mut i = 0;
-        for j in 0..classmap.len() {
+        for (j, class) in classmap.iter_mut().enumerate() {
             if i + 1 < points.len() && j as i32 == points[i + 1] {
                 i += 1;
             }
-            classmap[j] = i;
+            *class = i;
         }
 
         Ok(Self {

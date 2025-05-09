@@ -76,18 +76,18 @@ impl MinimizationOperations {
         let mut refine2 = BitSet::with_capacity(states_len);
 
         let mut transition = Transition::default();
-        for q in 0..states_len {
-            let j = if a.is_accept(q as i32) { 0 } else { 1 };
+        for (q, is_accept) in (0..states_len).zip((0..states_len).map(|q| a.is_accept(q as i32))) {
+            let j = if is_accept { 0 } else { 1 };
             partition[j].insert(q);
             block[q] = j;
             transition.source = q as i32;
             transition.transition_upto = -1;
-            for x in 0..sigma_len {
-                let next = a.next(&mut transition, sigma[x]);
-                let r = &mut reverse[next as usize];
-                r[x].push(q);
+            for (x, &sym) in sigma.iter().enumerate().take(sigma_len) {
+                let next = a.next(&mut transition, sym);
+                reverse[next as usize][x].push(q);
             }
         }
+
         // initialize active sets
         for j in 0..=1 {
             for x in 0..sigma_len {
@@ -199,18 +199,18 @@ impl MinimizationOperations {
 
         result.create_state();
 
-        for n in 0..k {
-            let is_initial = partition[n].contains(&0);
+        for (n, states) in partition.iter().take(k).enumerate() {
+            let is_initial = states.contains(&0);
             let new_state = if is_initial { 0 } else { result.create_state() };
-            for &q in &partition[n] {
+            for &q in states {
                 state_map[q] = new_state;
                 result.set_accept(new_state, a.is_accept(q as i32));
                 state_rep[new_state as usize] = q as i32;
             }
         }
 
-        for n in 0..k {
-            let num_transitions = a.init_transition(state_rep[n] as i32, &mut t);
+        for (n, &rep_state) in state_rep.iter().take(k).enumerate() {
+            let num_transitions = a.init_transition(rep_state, &mut t);
             for _ in 0..num_transitions {
                 a.get_next_transition(&mut t);
                 result.add_transition(n as i32, state_map[t.dest as usize], t.min, t.max)?;

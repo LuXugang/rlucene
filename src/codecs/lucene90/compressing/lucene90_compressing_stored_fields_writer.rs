@@ -206,12 +206,13 @@ pub mod lucene90_csfw_util {
     ///   - 11 - multiple of 86400000 (day)
     ///
     ///   Then the next bit is a continuation bit, indicating whether more bytes
-    /// need to be read,   and the last 5 bits are the lower bits of the
-    /// encoded value. In order to reconstruct the   value, you need to
-    /// combine the 5 lower bits of the header with a vLong in the next bytes
+    ///   need to be read,   and the last 5 bits are the lower bits of the
+    ///   encoded value. In order to reconstruct the   value, you need to
+    ///   combine the 5 lower bits of the header with a vLong in the next bytes
     ///   (if the continuation bit is set to 1). Then
-    /// [`BitUtil::zig_zag_decode`](BitUtil::zig_zag_decode_i64) it and finally
-    ///   multiply by the multiple corresponding to the compression scheme.
+    ///   [`BitUtil::zig_zag_decode`](BitUtil::zig_zag_decode_i64) it and
+    /// finally   multiply by the multiple corresponding to the compression
+    /// scheme.
     ///
     /// - Bytes --> Potential additional bytes to read depending on the header.
     // T for "timestamp"

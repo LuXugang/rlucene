@@ -59,13 +59,15 @@ impl NFARunAutomaton {
         let points = automaton.get_start_points();
         let classmap_len = std::cmp::min(256, alphabet_size) as usize;
         let mut classmap = vec![0; classmap_len];
+        let i = 0;
         let mut i = 0;
-        for j in 0..classmap_len {
+        for (j, class) in classmap.iter_mut().enumerate() {
             if i + 1 < points.len() && j as i32 == points[i + 1] {
                 i += 1;
             }
-            classmap[j] = i;
+            *class = i;
         }
+
         let state = State {
             dstate_to_ord: HashMap::new(),
             transition_set: PointTransitionSet::new(),
