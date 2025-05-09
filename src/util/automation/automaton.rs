@@ -554,6 +554,7 @@ impl TransitionAccessor for Automaton {
         );
         // Make sure transitions are in fact sorted:
         debug_assert!(self.transition_sorted(t));
+        debug_assert!(t.transition_upto >= 0);
         let base = t.transition_upto as usize;
         t.dest = self.transitions[base];
         t.min = self.transitions[base + 1];

@@ -61,53 +61,32 @@ impl AutomatonTestUtil {
     }
     fn random_regexp_string(random: &mut StdRng) -> String {
         let end = random.random_range(0..20);
-        if end == 0 {
-            return String::new();
-        }
-
-        let mut buffer = String::with_capacity(end);
-
-        let regex_chars = ['.', '?', '*', '+', '(', ')', '-', '[', ']', '|'];
+        let mut result = String::with_capacity(end * 2);
+        let specials = ['.', '?', '*', '+', '(', ')', '-', '[', ']', '|'];
 
         let mut i = 0;
         while i < end {
             let t = random.random_range(0..15);
-            match t {
-                0 if i < end - 1 => {
-                    // surrogate pair (U+D800 ~ U+DBFF) + (U+DC00 ~ U+DFFF)
-                    let high = random.random_range(0xD800..=0xDBFF);
-                    let low = random.random_range(0xDC00..=0xDFFF);
-                    buffer.push(std::char::from_u32(high).unwrap_or('\u{FFFD}'));
-                    buffer.push(std::char::from_u32(low).unwrap_or('\u{FFFD}'));
-                    i += 2;
-                },
-                1 => {
-                    buffer.push(random.random_range(0x00..=0x7F) as u8 as char);
+            if t == 0 && i < end - 1 {
+                let codepoint = random.random_range(0x10000..=0x10FFFF);
+                if let Some(ch) = std::char::from_u32(codepoint) {
+                    result.push(ch);
                     i += 1;
-                },
-                2 => {
-                    let c = random.random_range(0x80..0x800);
-                    buffer.push(std::char::from_u32(c).unwrap_or('\u{FFFD}'));
-                    i += 1;
-                },
-                3 => {
-                    let c = random.random_range(0x800..0xD800);
-                    buffer.push(std::char::from_u32(c).unwrap_or('\u{FFFD}'));
-                    i += 1;
-                },
-                4 => {
-                    let c = random.random_range(0xE000..=0xFFFF);
-                    buffer.push(std::char::from_u32(c).unwrap_or('\u{FFFD}'));
-                    i += 1;
-                },
-                5..=14 => {
-                    buffer.push(regex_chars[(t - 5) % regex_chars.len()]);
-                    i += 1;
-                },
-                _ => {},
+                }
+            } else if t <= 1 {
+                result.push(char::from_u32(random.random_range(0x00..0x80)).unwrap());
+            } else if t == 2 {
+                result.push(char::from_u32(random.random_range(0x80..0x800)).unwrap());
+            } else if t == 3 {
+                result.push(char::from_u32(random.random_range(0x800..0xD800)).unwrap());
+            } else if t == 4 {
+                result.push(char::from_u32(random.random_range(0xE000..=0xFFFF)).unwrap());
+            } else {
+                result.push(specials[t - 5]);
             }
+            i += 1;
         }
-        buffer
+        result
     }
     /// picks a random int code point, avoiding surrogates; throws
     /// IllegalArgumentException if this transition only accepts surrogates

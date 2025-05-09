@@ -41,6 +41,8 @@ pub struct NFARunAutomaton {
     points: Vec<i32>,
     alphabet_size: i32,
     classmap: Vec<usize>, // map from char number to class
+    // Due to trait `TransitionAccessor`'s method is not mutable,so the methods of NFARunAutomaton
+    // needs not mutable too, so using RefCell to make the necessary fields internally mutable.
     dstates: RefCell<Vec<DState>>,
     state: RefCell<State>,
     states_set: RefCell<StateSet>, // reusable
@@ -84,7 +86,11 @@ impl NFARunAutomaton {
         };
 
         let initial_state = DState::new(Rc::new(vec![0]), &automaton_instance);
-        automaton_instance.find_dstate(Some(initial_state));
+        {
+            let mut dstate = automaton_instance.dstates.borrow_mut();
+            let mut state = automaton_instance.state.borrow_mut();
+            automaton_instance.find_dstate(Some(initial_state), &mut dstate, &mut state);
+        }
 
         automaton_instance
     }
@@ -119,9 +125,12 @@ impl NFARunAutomaton {
     }
     /// return the ordinal of given DFA state, generate a new ordinal if the
     /// given DFA state is a new one
-    fn find_dstate(&self, dstate: Option<DState>) -> i32 {
-        let mut dstates = self.dstates.borrow_mut();
-        let mut state = self.state.borrow_mut();
+    fn find_dstate(
+        &self,
+        dstate: Option<DState>,
+        dstates: &mut Vec<DState>,
+        state: &mut State,
+    ) -> i32 {
         match dstate {
             Some(dstate) => {
                 let dstate_key = DStateKey {
@@ -134,10 +143,9 @@ impl NFARunAutomaton {
                 debug_assert!(state.dstate_to_ord.len() <= i32::MAX as usize);
                 let ord = state.dstate_to_ord.len();
                 state.dstate_to_ord.insert(dstate_key, ord as i32);
-                debug_assert!(ord >= dstates.len() || dstates.get(ord).is_none());
 
                 if ord >= dstates.len() {
-                    ArrayUtil::grow_with_len(&mut dstates, ord + 1);
+                    ArrayUtil::grow_with_len(dstates, ord + 1);
                 }
 
                 dstates[ord] = dstate;
@@ -184,16 +192,22 @@ impl NFARunAutomaton {
         }
     }
     fn next_state(&self, char_class: usize, index: usize) -> i32 {
-        let dstate = &mut self.dstates.borrow_mut()[index];
-        debug_assert!(char_class < dstate.transitions.len());
-        if dstate.transitions[char_class] == NFARunAutomaton::NOT_COMPUTED {
+        let v = {
+            let mut dstates = self.dstates.borrow_mut();
+            let dstate = &mut dstates[index];
+            debug_assert!(char_class < dstate.transitions.len());
+            dstate.transitions[char_class]
+        };
+        if v == NFARunAutomaton::NOT_COMPUTED {
             let next_dstate = self.step_with_index(self.points[char_class], index);
-            let ord = self.find_dstate(next_dstate);
+            let mut dstates = self.dstates.borrow_mut();
+            let ord = self.find_dstate(next_dstate, &mut dstates, &mut self.state.borrow_mut());
+            let dstate = &mut dstates[index];
             dstate.assign_transition(char_class, ord);
             // we could potentially update more than one char classes
             if let Some(minimal_transition) = dstate.minimal_transition.take() {
                 let mut cls = char_class;
-                while self.points[cls - 1] >= minimal_transition.min {
+                while cls > 0 && self.points[cls - 1] >= minimal_transition.min {
                     cls -= 1;
                     debug_assert!(
                         dstate.transitions[cls] == NFARunAutomaton::NOT_COMPUTED
@@ -217,7 +231,7 @@ impl NFARunAutomaton {
                 }
             }
         }
-        dstate.transitions[char_class]
+        self.dstates.borrow_mut()[index].transitions[char_class]
     }
     ///  given a list of NFA states and a character c, compute the output list
     /// of NFA state which is wrapped as a DFA state
@@ -266,51 +280,56 @@ impl NFARunAutomaton {
         Some(DState::new(states_set.get_array().clone(), self))
     }
     fn determinize(&self, index: usize) -> Result<()> {
-        let dstate = &mut self.dstates.borrow_mut()[index];
-        let mut state = self.state.borrow_mut();
-        if dstate.computed_transitions == dstate.transitions.len() as i32 {
-            return Ok(());
-        }
-        state.transition_set.reset();
-
-        for &nfa_state in dstate.nfa_states.iter() {
-            let num_transitions = self
-                .automaton
-                .init_transition(nfa_state, &mut dstate.step_transition);
-            for _ in 0..num_transitions {
-                self.automaton
-                    .get_next_transition(&mut dstate.step_transition);
-                state.transition_set.add(&dstate.step_transition);
-            }
-        }
-
         {
-            if state.transition_set.count == 0 {
-                dstate.transitions.fill(NFARunAutomaton::MISSING);
-                dstate.computed_transitions = dstate.transitions.len() as i32;
+            let mut state = self.state.borrow_mut();
+            let mut dstates = self.dstates.borrow_mut();
+            let dstate = &mut dstates[index];
+            if dstate.computed_transitions == dstate.transitions.len() as i32 {
                 return Ok(());
             }
-        }
+            state.transition_set.reset();
 
-        state.transition_set.sort()?;
+            for &nfa_state in dstate.nfa_states.iter() {
+                let num_transitions = self
+                    .automaton
+                    .init_transition(nfa_state, &mut dstate.step_transition);
+                for _ in 0..num_transitions {
+                    self.automaton
+                        .get_next_transition(&mut dstate.step_transition);
+                    state.transition_set.add(&dstate.step_transition);
+                }
+            }
+
+            {
+                if state.transition_set.count == 0 {
+                    dstate.transitions.fill(NFARunAutomaton::MISSING);
+                    dstate.computed_transitions = dstate.transitions.len() as i32;
+                    return Ok(());
+                }
+            }
+            state.transition_set.sort()?;
+        }
         let mut states_set = self.states_set.borrow_mut();
         states_set.reset();
-
         let mut last_point = -1;
         let mut char_class = 0;
 
-        for i in 0..state.transition_set.count {
-            let point = state.transition_set.points[i].point;
+        let count = self.state.borrow().transition_set.count;
+        for i in 0..count {
+            let point = self.state.borrow().transition_set.points[i].point;
 
             if states_set.size() > 0 {
                 debug_assert_ne!(last_point, -1);
 
                 let v = states_set.get_array().clone();
                 let new_dstate = DState::new(v, self);
-                let ord = self.find_dstate(Some(new_dstate));
+                let mut dstates = self.dstates.borrow_mut();
+                let ord =
+                    self.find_dstate(Some(new_dstate), &mut dstates, &mut self.state.borrow_mut());
+                let dstate = &mut dstates[index];
 
                 while self.points[char_class] < last_point {
-                    dstate.assign_transition(char_class, last_point);
+                    dstate.assign_transition(char_class, Self::MISSING);
                     char_class += 1;
                 }
 
@@ -321,7 +340,7 @@ impl NFARunAutomaton {
                         dstate.transitions[char_class] == NFARunAutomaton::NOT_COMPUTED
                             || dstate.transitions[char_class] == ord
                     );
-                    dstate.assign_transition(char_class, last_point);
+                    dstate.assign_transition(char_class, ord);
                     char_class += 1;
                 }
 
@@ -333,6 +352,7 @@ impl NFARunAutomaton {
 
             // process transitions that end on this point
             // (closes an overlapping interval)
+            let mut state = self.state.borrow_mut();
             let ends = &mut state.transition_set.points[i].ends;
             let limit = ends.next;
             for j in (0..limit).step_by(3) {
@@ -353,6 +373,8 @@ impl NFARunAutomaton {
             last_point = point;
             starts.next = 0;
         }
+        let mut dstates = self.dstates.borrow_mut();
+        let dstate = &mut dstates[index];
         debug_assert_eq!(states_set.size(), 0);
         debug_assert!(dstate.computed_transitions >= char_class as i32);
         // it's also possible that some transitions after the charClass has already
@@ -406,9 +428,7 @@ impl TransitionAccessor for NFARunAutomaton {
     }
 
     fn get_next_transition(&self, t: &mut Transition) {
-        debug_assert!(
-            t.transition_upto >= -1 && (t.transition_upto as usize) < self.points.len() - 1
-        );
+        debug_assert!(t.transition_upto >= -1 && t.transition_upto < self.points.len() as i32 - 1);
         let transitions = &self.dstates.borrow()[t.source as usize].transitions;
         loop {
             // this shouldn't throw AIOOBE as long as this function is only called
@@ -444,7 +464,7 @@ impl TransitionAccessor for NFARunAutomaton {
         t.transition_upto = -1;
         t.source = state;
 
-        while outgoing_transitions < index && (t.transition_upto as usize) < self.points.len() - 1 {
+        while outgoing_transitions < index && (t.transition_upto) < self.points.len() as i32 - 1 {
             t.transition_upto += 1;
             let idx = t.transition_upto as usize;
             if transitions[idx] != Self::MISSING {
@@ -538,5 +558,178 @@ impl Eq for DStateKey {}
 impl Hash for DStateKey {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.hash_code.hash(state);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashSet;
+
+    use rand::rngs::StdRng;
+    use rand::Rng;
+
+    use crate::test::util::automaton::automaton_test_util::{
+        AutomatonTestUtil, RandomAcceptedStrings,
+    };
+    use crate::test::util::lucene_test_case::random;
+    use crate::util::automation::automaton::Automaton;
+    use crate::util::automation::nfa_run_automaton::NFARunAutomaton;
+    use crate::util::automation::operations::Operations;
+    use crate::util::automation::reg_exp::RegExp;
+    use crate::util::automation::transition::Transition;
+    use crate::util::automation::transition_accessor::TransitionAccessor;
+    use crate::util::error::lucene_error::Result;
+    use crate::util::ints_ref::IntsRef;
+    #[test]
+    fn test_ram_usage_estimation() -> Result<()> {
+        // TODO: memory calculate not implemented
+        Ok(())
+    }
+    #[test]
+    fn test_with_random_regex() -> Result<()> {
+        let mut random = random();
+
+        for _ in 0..100 {
+            let regexp_str = AutomatonTestUtil::random_regexp(&mut random)?;
+            let re = RegExp::from_str_with_flags(&regexp_str, RegExp::NONE)?;
+            let nfa = re.to_automaton()?;
+
+            if nfa.is_deterministic() {
+                continue;
+            }
+
+            let dfa = Operations::determinize(&nfa, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
+            let candidate = NFARunAutomaton::new(nfa.clone());
+
+            let generator = match RandomAcceptedStrings::new(&dfa) {
+                Ok(g) => g,
+                Err(_) => continue, /* sometimes the automaton accept nothing and throw this
+                                     * exception */
+            };
+
+            for _ in 0..20 {
+                // test order of accepted strings and random (likely rejected) strings
+                // alternatively to make sure caching system works correctly
+                if random.random_bool(0.5) {
+                    test_accepted_string(&re, &generator, &candidate, 10)?;
+                    test_random_string(&re, &dfa, &candidate, 10)?;
+                } else {
+                    test_random_string(&re, &dfa, &candidate, 10)?;
+                    test_accepted_string(&re, &generator, &candidate, 10)?;
+                }
+            }
+        }
+
+        Ok(())
+    }
+    #[test]
+    fn test_random_access_transition() -> Result<()> {
+        let mut random = random();
+        let s = AutomatonTestUtil::random_regexp(&mut random)?;
+        let mut nfa = RegExp::from_str_with_flags(&s, RegExp::NONE)?.to_automaton()?;
+        let mut i = 0;
+        while nfa.is_deterministic() {
+            i += 1;
+            let s = AutomatonTestUtil::random_regexp(&mut random)?;
+            nfa = RegExp::from_str_with_flags(&s, RegExp::NONE)?.to_automaton()?;
+        }
+
+        let mut run_automaton1 = NFARunAutomaton::new(nfa.clone());
+        let mut run_automaton2 = NFARunAutomaton::new(nfa);
+
+        let mut visited = HashSet::new();
+        assert_random_access_transition(
+            &mut random,
+            &mut run_automaton1,
+            &mut run_automaton2,
+            0,
+            &mut visited,
+        )?;
+
+        Ok(())
+    }
+
+    fn assert_random_access_transition(
+        random: &mut StdRng,
+        automaton1: &mut NFARunAutomaton,
+        automaton2: &mut NFARunAutomaton,
+        state: i32,
+        visited: &mut HashSet<i32>,
+    ) -> Result<()> {
+        if !visited.insert(state) {
+            return Ok(());
+        }
+
+        let mut t1 = Transition::default();
+        let mut t2 = Transition::default();
+
+        automaton1.init_transition(state, &mut t1);
+        if random.random_bool(0.5) {
+            automaton2.init_transition(state, &mut t2);
+        }
+
+        let num_transitions = automaton2.get_num_transitions_with_state(state);
+        for i in 0..num_transitions {
+            automaton1.get_next_transition(&mut t1);
+            automaton2.get_transition(state, i, &mut t2);
+
+            assert_eq!(format!("{:?}", t1), format!("{:?}", t2));
+
+            assert_random_access_transition(random, automaton1, automaton2, t1.dest, visited)?;
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_random_automaton_query() -> Result<()> {
+        // TODO: IndexWriter not Implement
+        Ok(())
+    }
+
+    fn test_accepted_string(
+        reg_exp: &RegExp,
+        random_string_gen: &RandomAcceptedStrings,
+        candidate: &NFARunAutomaton,
+        repeat: usize,
+    ) -> Result<()> {
+        let mut random = random();
+
+        for _ in 0..repeat {
+            let accepted_string = random_string_gen.get_random_accepted_string(&mut random)?;
+            assert!(
+                candidate.run(&accepted_string),
+                "regExp: {} testString: {:?}",
+                reg_exp,
+                accepted_string
+            );
+        }
+
+        Ok(())
+    }
+
+    fn test_random_string(
+        reg_exp: &RegExp,
+        dfa: &Automaton,
+        candidate: &NFARunAutomaton,
+        repeat: usize,
+    ) -> Result<()> {
+        let mut random = random();
+
+        for _ in 0..repeat {
+            let len = random.random_range(0..50);
+            let random_string: Vec<i32> = (0..len)
+                .map(|_| random.random_range(0..=char::MAX as i32))
+                .collect();
+
+            let s = format!("{:?}", random_string);
+            let actual = candidate.run(&random_string);
+            let expected =
+                Operations::run_ints_ref(dfa, &IntsRef::from_slice(random_string, 0, len));
+
+            assert_eq!(expected, actual, "regExp: {} testString: {:?}", reg_exp, s);
+        }
+
+        Ok(())
     }
 }
