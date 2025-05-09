@@ -247,7 +247,8 @@ pub(crate) mod tests {
     };
     use crate::util::automation::operations::tests::TestOperations;
     use crate::util::automation::operations::Operations;
-    use crate::util::error::lucene_error::Result;
+    use crate::util::automation::reg_exp::RegExp;
+    use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::fst_impl::util::Util;
     use crate::util::ints_ref::IntsRef;
     use crate::util::ints_ref_builder::IntsRefBuilder;
@@ -401,9 +402,14 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn test_with_cycle() -> Result<()> {
-        // todo: RegExp not Implemented
-        Ok(())
+    fn test_with_cycle() {
+        let result = (|| {
+            let a = RegExp::from_str_with_flags("abc.*", RegExp::NONE)?.to_automaton()?;
+            let mut iterator = FiniteStringsIterator::new(&a);
+            get_finite_strings(&mut iterator)?;
+            Ok::<(), LuceneError>(())
+        })();
+        assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
     }
 
     #[test]

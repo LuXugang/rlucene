@@ -951,6 +951,7 @@ mod tests {
     use crate::util::automation::automaton::{Automaton, Builder};
     use crate::util::automation::operations::tests::TestOperations;
     use crate::util::automation::operations::Operations;
+    use crate::util::automation::reg_exp::RegExp;
     use crate::util::automation::transition::Transition;
     use crate::util::automation::transition_accessor::TransitionAccessor;
     use crate::util::automation::utf32_to_utf8::UTF32ToUTF8;
@@ -3029,8 +3030,27 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test_determinize_too_much_effort() -> Result<()> {
-        // TODO: RegExp not Implement
-        Ok(())
+    fn test_determinize_too_much_effort() {
+        // make sure determinize properly aborts, relatively quickly, for this regexp:
+        let result = (|| {
+            let a = RegExp::from_str("(.*a){2000}")?.to_automaton()?;
+            Operations::determinize(&a, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
+            Ok::<(), LuceneError>(())
+        })();
+        assert!(matches!(
+            result,
+            Err(LuceneError::TooComplexToDeterminize(_))
+        ));
+
+        let result = (|| {
+            let a = RegExp::from_str("(.*a){2000}")?.to_automaton()?;
+            let rev = Operations::reverse(&a)?;
+            Operations::determinize(&rev, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
+            Ok::<(), LuceneError>(())
+        })();
+        assert!(matches!(
+            result,
+            Err(LuceneError::TooComplexToDeterminize(_))
+        ));
     }
 }

@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/// Not thorough, but tries to test determinism correctness somewhat randomly,
+/// by determinizing a huge random lexicon.
 #[allow(dead_code)]
 struct TestDeterminizeLexicon;
 #[cfg(test)]

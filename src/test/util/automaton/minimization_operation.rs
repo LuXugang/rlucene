@@ -316,6 +316,7 @@ mod tests {
     use crate::test::util::automaton::minimization_operation::MinimizationOperations;
     use crate::test::util::lucene_test_case::{at_least, random};
     use crate::util::automation::operations::Operations;
+    use crate::util::automation::reg_exp::RegExp;
     use crate::util::automation::transition_accessor::TransitionAccessor;
     use crate::util::error::lucene_error::Result;
     #[allow(dead_code)] // for quick search
@@ -369,7 +370,9 @@ mod tests {
     #[test]
     #[ignore]
     fn test_minimize_huge() -> Result<()> {
-        // TODO: RegExp not Implement
+        let a = RegExp::parse("+-*(A|.....|BC)*]", RegExp::NONE, 0)?.to_automaton()?;
+        let b = MinimizationOperations::minimize(&a, 1_000_000)?;
+        assert!(b.is_deterministic());
         Ok(())
     }
 }

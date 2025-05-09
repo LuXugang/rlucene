@@ -106,7 +106,6 @@ mod tests {
             // guaranteed to detect cycles when you have a limit
             // assertTrue(AutomatonTestUtil.isFinite(a));
             if result.is_err() {
-                // TODO: 没能验证这个assert 需要等待RegExp实现
                 assert!(!AutomatonTestUtil::is_finite(&a)?);
             }
         }

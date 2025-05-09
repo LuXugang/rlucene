@@ -24,10 +24,9 @@ use rand::prelude::IndexedRandom;
 use rand::rngs::StdRng;
 use rand::Rng;
 
-use crate::test::util::test_util::TestUtil;
-use crate::util::automation::automata::Automata;
 use crate::util::automation::automaton::{Automaton, Builder};
 use crate::util::automation::operations::Operations;
+use crate::util::automation::reg_exp::RegExp;
 use crate::util::automation::state_pair::StatePair;
 use crate::util::automation::transition::Transition;
 use crate::util::automation::transition_accessor::TransitionAccessor;
@@ -36,7 +35,11 @@ use crate::util::error::lucene_error::Result;
 use crate::util::ints_ref::IntsRef;
 use crate::util::ints_ref_builder::IntsRefBuilder;
 use crate::util::unicode_util::UnicodeUtil;
-
+/// Utilities for testing automata.
+///
+/// Capable of generating random regular expressions and automata,
+/// and also provides a number of very basic, unoptimized (*slow)
+/// implementations for testing.
 pub struct AutomatonTestUtil;
 impl AutomatonTestUtil {
     /// Default maximum number of states that {@link Operations#determinize}
@@ -44,16 +47,78 @@ impl AutomatonTestUtil {
     pub const DEFAULT_MAX_DETERMINIZED_STATES: usize = 1000000;
     ///  Maximum level of recursion allowed in recursive operations.
     pub const MAX_RECURSION_LEVEL: usize = 1000;
+    pub(crate) fn random_regexp(random: &mut StdRng) -> Result<String> {
+        loop {
+            let regexp = Self::random_regexp_string(random);
+            if !UnicodeUtil::valid_utf16_string(regexp.as_str()) {
+                continue;
+            }
+            let result = RegExp::parse(&regexp, RegExp::NONE, 0);
+            if result.is_ok() {
+                return Ok(regexp);
+            }
+        }
+    }
+    fn random_regexp_string(random: &mut StdRng) -> String {
+        let end = random.random_range(0..20);
+        if end == 0 {
+            return String::new();
+        }
+
+        let mut buffer = String::with_capacity(end);
+
+        let regex_chars = ['.', '?', '*', '+', '(', ')', '-', '[', ']', '|'];
+
+        let mut i = 0;
+        while i < end {
+            let t = random.random_range(0..15);
+            match t {
+                0 if i < end - 1 => {
+                    // surrogate pair (U+D800 ~ U+DBFF) + (U+DC00 ~ U+DFFF)
+                    let high = random.random_range(0xD800..=0xDBFF);
+                    let low = random.random_range(0xDC00..=0xDFFF);
+                    buffer.push(std::char::from_u32(high).unwrap_or('\u{FFFD}'));
+                    buffer.push(std::char::from_u32(low).unwrap_or('\u{FFFD}'));
+                    i += 2;
+                },
+                1 => {
+                    buffer.push(random.random_range(0x00..=0x7F) as u8 as char);
+                    i += 1;
+                },
+                2 => {
+                    let c = random.random_range(0x80..0x800);
+                    buffer.push(std::char::from_u32(c).unwrap_or('\u{FFFD}'));
+                    i += 1;
+                },
+                3 => {
+                    let c = random.random_range(0x800..0xD800);
+                    buffer.push(std::char::from_u32(c).unwrap_or('\u{FFFD}'));
+                    i += 1;
+                },
+                4 => {
+                    let c = random.random_range(0xE000..=0xFFFF);
+                    buffer.push(std::char::from_u32(c).unwrap_or('\u{FFFD}'));
+                    i += 1;
+                },
+                5..=14 => {
+                    buffer.push(regex_chars[(t - 5) % regex_chars.len()]);
+                    i += 1;
+                },
+                _ => {},
+            }
+        }
+        buffer
+    }
     /// picks a random int code point, avoiding surrogates; throws
     /// IllegalArgumentException if this transition only accepts surrogates
-    fn get_random_codepoint(rng: &mut StdRng, min: i32, max: i32) -> Result<i32> {
+    fn get_random_codepoint(random: &mut StdRng, min: i32, max: i32) -> Result<i32> {
         let code = if max < UnicodeUtil::UNI_SUR_HIGH_START || min > UnicodeUtil::UNI_SUR_LOW_END {
             // Entire range is outside surrogates
-            rng.random_range(min..=max)
+            random.random_range(min..=max)
         } else if min >= UnicodeUtil::UNI_SUR_HIGH_START {
             if max > UnicodeUtil::UNI_SUR_LOW_END {
                 // Range is after surrogates
-                rng.random_range(UnicodeUtil::UNI_SUR_LOW_END + 1..=max)
+                random.random_range(UnicodeUtil::UNI_SUR_LOW_END + 1..=max)
             } else {
                 return Err(LuceneError::illegal_argument(format!(
                     "transition accepts only surrogates: min={} max={}",
@@ -63,7 +128,7 @@ impl AutomatonTestUtil {
         } else if max <= UnicodeUtil::UNI_SUR_LOW_END {
             if min < UnicodeUtil::UNI_SUR_HIGH_START {
                 // Range is before surrogates
-                rng.random_range(min..UnicodeUtil::UNI_SUR_HIGH_START)
+                random.random_range(min..UnicodeUtil::UNI_SUR_HIGH_START)
             } else {
                 return Err(LuceneError::illegal_argument(format!(
                     "transition accepts only surrogates: min={} max={}",
@@ -74,7 +139,7 @@ impl AutomatonTestUtil {
             // Range spans surrogates; we skip the surrogate block
             let gap1 = UnicodeUtil::UNI_SUR_HIGH_START - min;
             let gap2 = max - UnicodeUtil::UNI_SUR_LOW_END;
-            let c = rng.random_range(0..gap1 + gap2 + 1);
+            let c = random.random_range(0..gap1 + gap2);
             if c < gap1 {
                 min + c
             } else {
@@ -96,10 +161,22 @@ impl AutomatonTestUtil {
     }
 
     pub fn random_single_automaton(random: &mut StdRng) -> Result<Automaton> {
-        // TODO: RegExp not Implement
-        let len = random.random_range(10..50);
-        let s = TestUtil::random_realistic_unicode_string_with_length(random, len);
-        Automata::make_string(&s)
+        loop {
+            let pattern = AutomatonTestUtil::random_regexp(random)?;
+            match RegExp::from_str_with_flags(&pattern, RegExp::NONE)
+                .and_then(|r| r.to_automaton())
+                .and_then(|a| {
+                    if random.random_bool(0.5) {
+                        Operations::complement(&a, Self::DEFAULT_MAX_DETERMINIZED_STATES)
+                    } else {
+                        Ok(a)
+                    }
+                }) {
+                Ok(a) => return Ok(a),
+                Err(LuceneError::TooComplexToDeterminize(_)) => continue,
+                Err(e) => return Err(e),
+            }
+        }
     }
 
     /// return a random NFA/DFA for testing
@@ -470,6 +547,10 @@ impl Hash for HashSetAsKey {
         }
     }
 }
+/// Allows retrieving random strings accepted by an [`Automaton`].
+///
+/// Once created, call [`RandomAcceptedStrings::get_random_accepted_string`] to
+/// get a new string (in UTF-32 codepoints).
 pub struct RandomAcceptedStrings<'a> {
     leads_to_accept: HashMap<Transition, bool>,
     a: &'a Automaton,
@@ -492,26 +573,32 @@ impl<'a> RandomAcceptedStrings<'a> {
         let mut seen = HashSet::new();
         // reverse map the transitions, so we can quickly look
         // up all arriving transitions to a given state
-        for (s, trans) in transitions.iter().enumerate() {
-            for t in trans {
+        let num_states = a.get_num_states();
+        for s in 0..num_states {
+            for t in &transitions[s as usize] {
                 let tl = all_arriving.get_mut(&t.dest);
                 match tl {
                     Some(v) => v.push(ArrivingTransition {
-                        from: s as i32,
+                        from: s,
                         t: t.clone(),
                     }),
                     None => {
-                        let tl_new = vec![];
+                        let mut tl_new = vec![];
+                        tl_new.push(ArrivingTransition {
+                            from: s,
+                            t: t.clone(),
+                        });
                         all_arriving.insert(t.dest, tl_new);
                     },
                 }
             }
 
-            if a.is_accept(s as i32) {
-                q.push_back(s as i32);
-                seen.insert(s as i32);
+            if a.is_accept(s) {
+                q.push_back(s);
+                seen.insert(s);
             }
         }
+
         // Breadth-first search, from accept states,
         // backwards:
         while let Some(s) = q.pop_front() {

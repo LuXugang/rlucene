@@ -1451,7 +1451,9 @@ pub(crate) mod tests {
     use rand::Rng;
 
     use crate::index::BytesRef;
-    use crate::test::util::automaton::automaton_test_util::AutomatonTestUtil;
+    use crate::test::util::automaton::automaton_test_util::{
+        AutomatonTestUtil, RandomAcceptedStrings,
+    };
     use crate::test::util::lucene_test_case::{at_least, random};
     use crate::test::util::test_util::TestUtil;
     use crate::util::automation::automata::Automata;
@@ -1461,10 +1463,13 @@ pub(crate) mod tests {
     };
     use crate::util::automation::limited_finite_strings_iterator::LimitedFiniteStringsIterator;
     use crate::util::automation::operations::Operations;
+    use crate::util::automation::reg_exp::RegExp;
     use crate::util::automation::transition::Transition;
     use crate::util::automation::transition_accessor::TransitionAccessor;
     use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::ints_ref::IntsRef;
+    use crate::util::unicode_util::UnicodeUtil;
+
     pub(crate) struct TestOperations;
 
     impl TestOperations {
@@ -1620,10 +1625,28 @@ pub(crate) mod tests {
 
         Ok(())
     }
-
     #[test]
     fn test_get_random_accepted_string() -> Result<()> {
-        // TODO: RegExp not Implement
+        let mut random = random();
+
+        for _ in 0..at_least(&mut random, 100) {
+            let pattern = AutomatonTestUtil::random_regexp(&mut random)?;
+            let re = RegExp::from_str_with_flags(&pattern, RegExp::NONE)?;
+            let v = re.to_automaton()?;
+            let a = Operations::determinize(&v, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
+            assert!(!Operations::is_empty(&a));
+
+            let rx = RandomAcceptedStrings::new(&a)?;
+            for _ in 0..at_least(&mut random, 100) {
+                let acc = rx.get_random_accepted_string(&mut random)?;
+                let s = UnicodeUtil::new_string(acc.as_ref(), 0, acc.len())?;
+                assert!(
+                    Operations::run_str(&a, &s),
+                    "Automaton failed to accept string generated from: {pattern}"
+                );
+            }
+        }
+
         Ok(())
     }
     #[test]
