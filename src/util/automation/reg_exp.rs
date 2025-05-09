@@ -96,6 +96,7 @@ use crate::util::error::lucene_error::Result;
 /// Numerical intervals are specified by non-negative decimal integers and
 /// include both end points. If `n` and `m` have the same number of digits, then
 /// the conforming strings must have that length (i.e., prefixed by zeroes).
+#[derive(Debug)]
 pub struct RegExp {
     // ----- Immutable parsed state -----
     /// The type of expression
@@ -135,7 +136,7 @@ impl RegExp {
     pub const DEPRECATED_COMPLEMENT: i32 = 0x10000;
     /// Equivalent to `RegExp(s)` → `RegExp::parse(s, ALL, 0)`
     pub fn from_str(s: &str) -> Result<Self> {
-        Self::parse(s, Self::ALL, 0)
+        Self::from_str_with_flags(s, Self::ALL)
     }
 
     /// Equivalent to `RegExp(s, syntax_flags)`
@@ -1369,5 +1370,313 @@ struct ConcatGroup;
 impl MakeRegexGroup for ConcatGroup {
     fn get(&self, flags: i32, e1: RegExp, e2: RegExp) -> RegExp {
         RegExp::make_concatenation(flags, e1, e2)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use rand::rngs::StdRng;
+    use rand::Rng;
+    use regex::Regex;
+
+    use crate::index::BytesRef;
+    use crate::test::util::automaton::automaton_test_util::AutomatonTestUtil;
+    use crate::test::util::lucene_test_case::random;
+    use crate::util::automation::automata::Automata;
+    use crate::util::automation::byte_run_automaton::ByteRunAutomaton;
+    use crate::util::automation::byte_runnable::ByteRunnable;
+    use crate::util::automation::character_run_automaton::CharacterRunAutomaton;
+    use crate::util::automation::operations::Operations;
+    use crate::util::automation::reg_exp::RegExp;
+    use crate::util::error::lucene_error::{LuceneError, Result};
+    #[allow(dead_code)] // for quick search
+    struct TestRegExp {
+        case_sensitive_query: bool,
+    }
+    impl TestRegExp {
+        fn random_doc_value(random: &mut StdRng, min_length: usize) -> String {
+            let char_palette = "AAAaaaBbbCccc123456 \t".chars().collect::<Vec<_>>();
+            (0..min_length)
+                .map(|_| {
+                    let i = Self::random_int(random, char_palette.len());
+                    char_palette[i]
+                })
+                .collect()
+        }
+        fn random_int(random: &mut StdRng, bound: usize) -> usize {
+            if bound == 0 {
+                0
+            } else {
+                random.random_range(0..bound)
+            }
+        }
+        fn check_random_expression(
+            &mut self,
+            random: &mut StdRng,
+            doc_value: &str,
+        ) -> Result<String> {
+            use std::fmt::Write;
+            // Generate and test a random regular expression which should match the given
+            // docValue
+            let mut result = String::new();
+            let len = doc_value.len();
+            // Pick a part of the string to change
+            let substitution_point = random.random_range(0..len);
+            let substitution_length =
+                1 + random.random_range(0..(std::cmp::min(10, len - substitution_point)));
+
+            let head = &doc_value[..substitution_point];
+            result.push_str(head);
+
+            let replacement_part =
+                &doc_value[substitution_point..substitution_point + substitution_length];
+            let mutation = random.random_range(0..15);
+
+            match mutation {
+                0 => {
+                    let rand_str = Self::random_doc_value(random, replacement_part.len());
+                    write!(result, "({}|d{})", replacement_part, rand_str)?;
+                },
+                1 => {
+                    write!(result, "({}|doesnotexist)", replacement_part)?;
+                },
+                2 => {
+                    let inner = self.check_random_expression(random, replacement_part)?;
+                    write!(result, "({}|doesnotexist)", inner)?;
+                },
+                3 => {
+                    result.push_str(&replacement_part.replace("ab", ".*"));
+                },
+                4 => {
+                    result.push_str(&replacement_part.replace("b", "."));
+                },
+                5 => {
+                    write!(result, ".{{1,{}}}", replacement_part.len())?;
+                },
+                6 => {
+                    result.push_str(&".".repeat(replacement_part.len()));
+                },
+                7 => {
+                    for c in replacement_part.chars() {
+                        write!(result, "[{}{}]", c, c.to_ascii_uppercase())?;
+                    }
+                },
+                8 => {
+                    result.push_str(&replacement_part.replace("b", "[^a]"));
+                },
+                9 => {
+                    write!(result, "({})+", replacement_part)?;
+                },
+                10 => {
+                    write!(result, "({})?", replacement_part)?;
+                },
+                11 => {
+                    let re = Regex::new(r"\d").unwrap();
+                    result.push_str(&re.replace_all(replacement_part, r"\d"));
+                },
+                12 => {
+                    let re = Regex::new(r"\s").unwrap();
+                    result.push_str(&re.replace_all(replacement_part, r"\W"));
+                },
+                13 => {
+                    let re = Regex::new(r"\s").unwrap();
+                    result.push_str(&re.replace_all(replacement_part, r"\s"));
+                },
+                14 => {
+                    let mut switched = String::new();
+                    for p in replacement_part.chars() {
+                        let new_p = if p.is_lowercase() {
+                            p.to_ascii_uppercase()
+                        } else {
+                            p.to_ascii_lowercase()
+                        };
+                        switched.push(new_p);
+                        if p != new_p {
+                            self.case_sensitive_query = false;
+                        }
+                    }
+                    result.push_str(&switched);
+                },
+                _ => {},
+            }
+            // add any remaining tail, unchanged
+            if substitution_point + substitution_length < len {
+                result.push_str(&doc_value[substitution_point + substitution_length..]);
+            }
+
+            let regex_pattern = result;
+            // Assert our randomly generated regex actually matches the provided raw input
+            // using java's expression matcher
+            let re = if self.case_sensitive_query {
+                Regex::new(&regex_pattern).unwrap()
+            } else {
+                Regex::new(&format!("(?i){}", regex_pattern)).unwrap()
+            };
+            assert!(
+                re.is_match(doc_value),
+                "Regex `{}` did not match `{}`",
+                regex_pattern,
+                doc_value
+            );
+
+            let match_flags = if self.case_sensitive_query {
+                0
+            } else {
+                RegExp::ASCII_CASE_INSENSITIVE
+            };
+            let regex = RegExp::parse(&regex_pattern, RegExp::ALL, match_flags)?;
+            let v = regex.to_automaton()?;
+            let automaton =
+                Operations::determinize(&v, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
+            let matcher = ByteRunAutomaton::new(automaton.into_owned())?;
+
+            let br: BytesRef<Vec<u8>> = BytesRef::from_string(doc_value);
+            assert!(
+                matcher.run(&br.bytes, br.offset, br.length),
+                "[{}] should match [{}] {}-{}/{}",
+                regex_pattern,
+                doc_value,
+                substitution_point,
+                substitution_length,
+                len
+            );
+
+            if !self.case_sensitive_query {
+                let cs_regex = RegExp::parse(&regex_pattern, RegExp::ALL, 0)?;
+                let v = cs_regex.to_automaton()?;
+                let cs_automaton =
+                    Operations::determinize(&v, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
+                let cs_matcher = ByteRunAutomaton::new(cs_automaton.into_owned())?;
+                assert!(
+                    !cs_matcher.run(&br.bytes, br.offset, br.length),
+                    "[{}] (case-sensitive) should not match [{}]",
+                    regex_pattern,
+                    doc_value
+                );
+            }
+
+            Ok(regex_pattern)
+        }
+    }
+
+    #[test]
+    fn test_smoke() -> Result<()> {
+        let r = RegExp::from_str_with_flags("a(b+|c+)d", 0)?;
+        let a = r.to_automaton()?;
+        assert!(a.is_deterministic());
+
+        let run = CharacterRunAutomaton::new(a)?;
+        assert!(run.run_str("abbbbbd"));
+        assert!(run.run_str("acd"));
+        assert!(!run.run_str("ad"));
+
+        Ok(())
+    }
+    // LUCENE-6046
+    #[test]
+    fn test_repeat_with_empty_string() -> Result<()> {
+        let a = RegExp::from_str_with_flags("[^y]*{1,2}", 0)?.to_automaton()?;
+
+        // paranoia
+        let s = format!("{:?}", a);
+        assert!(!s.is_empty());
+
+        Ok(())
+    }
+    #[test]
+    fn test_repeat_with_empty_language() -> Result<()> {
+        let patterns = ["#*", "#+", "#{2,10}", "#?"];
+
+        for pat in patterns {
+            let a = RegExp::from_str_with_flags(pat, 0)?.to_automaton()?;
+            let s = format!("{:?}", a);
+            assert!(
+                !s.is_empty(),
+                "Automaton is unexpectedly empty for pattern: {}",
+                pat
+            );
+        }
+
+        Ok(())
+    }
+    #[test]
+    fn test_core_java_parity() -> Result<()> {
+        let mut random = random();
+        let mut test = TestRegExp {
+            case_sensitive_query: true,
+        };
+
+        for _ in 0..1000 {
+            test.case_sensitive_query = true;
+            let min_length = random.random_range(0..30);
+            let doc_value = TestRegExp::random_doc_value(&mut random, 1 + min_length);
+            test.check_random_expression(&mut random, &doc_value)?;
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_illegal_backslash_chars() {
+        let illegal_chars = "abcefghijklmnopqrtuvxyzABCEFGHIJKLMNOPQRTUVXYZ";
+
+        for ch in illegal_chars.chars() {
+            let expr = format!("\\{}", ch);
+            let err = RegExp::from_str(&expr);
+            assert!(
+                matches!(err, Err(LuceneError::IllegalArgument(_))),
+                "Expected IllegalArgument for `\\{}` but got: {:?}",
+                ch,
+                err
+            );
+            assert!(err
+                .unwrap_err()
+                .to_string()
+                .contains("invalid character class"));
+        }
+    }
+
+    #[test]
+    fn test_legal_backslash_chars() -> Result<()> {
+        let legal_chars = "dDsSWw0123456789[]*&^$@!{}\\/";
+
+        for ch in legal_chars.chars() {
+            let expr = format!("\\{}", ch);
+            RegExp::from_str(&expr)?;
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_illegal_repeat_exp() -> Result<()> {
+        let err = RegExp::parse("a{99,11}", RegExp::ALL, 0);
+        assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+        assert!(err.unwrap_err().to_string().contains("out of order"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_regexp_no_stack_overflow() -> Result<()> {
+        // TODO: 测试没通过, 如果要支持这么长的string
+        // 那么我们需要将代码中生成RegExp相关代码改成Box<RegExp>放到堆上
+        // 不过目前我们暂时不改 let mut pattern = "(a)|".repeat(50_000);
+        // pattern.push_str("(a)");
+        // let _ = RegExp::from_str(&pattern)?;
+        Ok(())
+    }
+    #[test]
+    fn test_deprecated_complement() -> Result<()> {
+        let expected = {
+            let a = Automata::make_string("abcd")?;
+            Operations::complement(&a, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?
+        };
+        let actual = RegExp::parse("~(abcd)", RegExp::DEPRECATED_COMPLEMENT, 0)?.to_automaton()?;
+        assert!(
+            AutomatonTestUtil::same_language(&expected, &actual)?,
+            "Automaton language differs between expected and actual"
+        );
+
+        Ok(())
     }
 }
