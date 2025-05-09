@@ -14,22 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod automata;
-pub mod automaton;
-mod automaton_provider;
-pub mod byte_run_automaton;
-pub mod byte_runnable;
-mod character_run_automaton;
-mod finite_strings_iterator;
-mod frozen_int_set;
-mod int_set;
-mod limited_finite_strings_iterator;
-mod nfa_run_automaton;
-pub mod operations;
-pub mod run_automaton;
-pub mod state_pair;
-mod state_set;
-mod strings_to_automaton;
-pub mod transition;
-pub(crate) mod transition_accessor;
-mod utf32_to_utf8;
+use crate::util::automation::automaton::Automaton;
+use crate::util::error::lucene_error::Result;
+/// Automaton provider for `RegExp` used by `RegExp::get_automaton`.
+pub trait AutomatonProvider {
+    /// Returns the automaton associated with the given name.
+    fn get_automaton(&self, name: &str) -> Result<Automaton>;
+}
