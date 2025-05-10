@@ -334,7 +334,7 @@ impl State {
 }
 
 #[derive(Clone)]
-struct StateKey {
+pub(crate) struct StateKey {
     state: Rc<RefCell<State>>,
 }
 impl PartialEq for StateKey {
@@ -373,24 +373,59 @@ impl Hash for StateKey {
 #[cfg(test)]
 mod tests {
     use std::borrow::Cow;
+    use std::collections::HashSet;
 
     use rand::rngs::StdRng;
     use rand::Rng;
 
-    use crate::index::BytesRef;
+    use crate::index::{BytesRef, BytesRefBuilder};
     use crate::test::util::automaton::automaton_test_util::AutomatonTestUtil;
     use crate::test::util::automaton::minimization_operation::MinimizationOperations;
-    use crate::test::util::lucene_test_case::{is_night_mode, new_bytes_ref_from_string, random};
+    use crate::test::util::lucene_test_case::{
+        is_night_mode, new_bytes_ref_from_bytes_ref, new_bytes_ref_from_string, random,
+    };
     use crate::test::util::test_util::TestUtil;
+    use crate::util::array_util::ArrayUtil;
     use crate::util::automation::automata::Automata;
     use crate::util::automation::automaton::Automaton;
+    use crate::util::automation::byte_runnable::ByteRunnable;
+    use crate::util::automation::compiled_automaton::CompiledAutomaton;
+    use crate::util::automation::finite_strings_iterator::{
+        FiniteStringsIterator, FiniteStringsIteratorBase,
+    };
     use crate::util::automation::operations::Operations;
     use crate::util::automation::strings_to_automaton::StringsToAutomaton;
     use crate::util::bytes_ref_iterator::BytesRefIterator;
-    use crate::util::error::lucene_error::Result;
+    use crate::util::error::lucene_error::{LuceneError, Result};
+    use crate::util::fst_impl::util::Util;
 
     #[allow(dead_code)] // for quick search
     struct TestStringsToAutomaton;
+    #[test]
+    fn test_basic() -> Result<()> {
+        let mut terms = basic_terms();
+        terms.sort();
+
+        let mut random = random();
+        let a = build(&mut random, terms.clone(), false)?;
+        check_automaton(&terms, a.clone(), false)?;
+        check_minimized(&a)?;
+
+        Ok(())
+    }
+    #[test]
+    fn test_basic_binary() -> Result<()> {
+        let mut terms = basic_terms();
+        terms.sort();
+
+        let mut random = random();
+        let a = build(&mut random, terms.clone(), true)?;
+        check_automaton(&terms, a.clone(), true)?;
+        check_minimized(&a)?;
+
+        Ok(())
+    }
+
     #[test]
     fn test_random_minimized() -> Result<()> {
         let mut random = random();
@@ -424,6 +459,103 @@ mod tests {
             let actual = build(&mut random, terms, build_binary)?;
 
             assert_same_automaton(&expected, &actual)?;
+        }
+
+        Ok(())
+    }
+    #[test]
+    fn test_random_unicode_only() -> Result<()> {
+        let mut random = random();
+        test_random(&mut random, false)
+    }
+
+    #[test]
+    fn test_random_binary() -> Result<()> {
+        let mut random = random();
+        test_random(&mut random, true)
+    }
+    #[test]
+    fn test_large_terms() -> Result<()> {
+        let mut random = random();
+        let b10k = vec![b'a'; 10_000];
+
+        let result = build(&mut random, vec![BytesRef::from_bytes(b10k.clone())], false);
+        assert!(
+            matches!(result, Err(LuceneError::IllegalArgument(msg)) if msg.message.starts_with(
+                &format!(
+                    "This builder doesn't allow terms that are larger than {} UTF-8 bytes",
+                    Automata::MAX_STRING_UNION_TERM_LENGTH
+                )
+            ))
+        );
+
+        let b1k = ArrayUtil::copy_of_sub_array(&b10k, 0, 1000);
+        build(&mut random, vec![BytesRef::from_bytes(b1k)], false)?; // should not panic
+
+        Ok(())
+    }
+
+    fn test_random(random: &mut StdRng, allow_binary: bool) -> Result<()> {
+        let iters = if is_night_mode() { 50 } else { 10 };
+
+        for _ in 0..iters {
+            let size = random.random_range(500..2000);
+            let mut terms = HashSet::with_capacity(size);
+
+            while terms.len() < size {
+                if allow_binary && random.random_range(0..10) < 2 {
+                    // Sometimes random bytes term that isn't necessarily valid unicode
+                    let v = TestUtil::random_binary_term(random);
+                    terms.insert(new_bytes_ref_from_bytes_ref(random, &v)?);
+                } else {
+                    let s = TestUtil::random_realistic_unicode_string(random);
+                    terms.insert(new_bytes_ref_from_string(random, &s)?);
+                }
+            }
+
+            let mut sorted: Vec<_> = terms.into_iter().collect();
+            sorted.sort();
+
+            let a = build(random, sorted.clone(), allow_binary)?;
+            check_automaton(&sorted, a, allow_binary)?;
+        }
+
+        Ok(())
+    }
+
+    fn check_automaton(
+        expected: &[BytesRef<Vec<u8>>],
+        a: Automaton,
+        is_binary: bool,
+    ) -> Result<()> {
+        let c = CompiledAutomaton::new_with_binary(a, true, false, is_binary)?;
+        let run_automaton = c.run_automaton.as_ref().unwrap();
+
+        // Make sure every expected term is accepted
+        for t in expected {
+            let readable = if is_binary {
+                format!("{:?}", t.bytes)
+            } else {
+                t.utf8_to_string()?
+            };
+
+            assert!(
+                run_automaton.run(&t.bytes, t.offset, t.length),
+                "{} should be found but wasn't",
+                readable
+            );
+        }
+
+        // Make sure every term produced by the automaton is expected
+        let mut scratch = BytesRefBuilder::new();
+        let mut it = FiniteStringsIterator::new(&c.run_automaton.as_ref().unwrap().base.automaton);
+        while let Some(r) = it.next()? {
+            let t = Util::get_bytes_ref(&r, &mut scratch)?;
+            assert!(
+                expected.iter().any(|x| x == &t),
+                "Unexpected term found: {:?}",
+                t.utf8_to_string()?
+            );
         }
 
         Ok(())

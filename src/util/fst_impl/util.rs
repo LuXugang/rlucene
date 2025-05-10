@@ -18,7 +18,7 @@ use std::fmt;
 use std::fmt::Display;
 use std::hash::Hash;
 
-use crate::index::BytesRef;
+use crate::index::{BytesRef, BytesRefBuilder};
 use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::Result;
 use crate::util::fst_impl::fst::{Arc, InputType, FST};
@@ -113,7 +113,8 @@ impl Util {
         }
         scratch.set_length(int_idx);
     }
-
+    /// Just takes unsigned byte values from the BytesRef and converts into an
+    /// IntsRef.
     pub fn get_ints_ref<AV1: AccessVec<u8>, AV2: AccessVec<i32>>(
         input: &BytesRef<AV1>,
         scratch: &mut IntsRefBuilder<AV2>,
@@ -127,6 +128,24 @@ impl Util {
         }
         scratch.set_length(input.length as i32);
     }
+    /// Just converts IntsRef to BytesRef; you must ensure the int values fit
+    /// into a byte.
+    pub fn get_bytes_ref<AV1: AccessVec<i32>, AV2: AccessVec<u8>>(
+        input: &IntsRef<AV1>,
+        scratch: &mut BytesRefBuilder<AV2>,
+    ) -> Result<BytesRef<AV2>> {
+        scratch.grow(input.length as usize);
+        for i in 0..input.length as usize {
+            input.ints.access(|v| {
+                let value = v[i + input.offset as usize];
+                debug_assert!(value >= u8::MIN as i32 && value <= u8::MAX as i32);
+                scratch.set_byte_at(i, value as u8);
+            })
+        }
+        scratch.set_length(input.length as usize);
+        Ok(scratch.get_bytes_owner())
+    }
+
     pub fn binary_search<T, O, F>(
         _fst: &mut FST<T, O, F>,
         _arc: &Arc<T>,
