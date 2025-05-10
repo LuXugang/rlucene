@@ -14,6 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::util::automation::byte_run_automaton::ByteRunAutomaton;
+use crate::util::automation::nfa_run_automaton::NFARunAutomaton;
+
 /// A runnable automaton accepting byte array as input
 pub trait ByteRunnable {
     /// Returns the state obtained by reading the given byte from the given
@@ -65,5 +68,39 @@ pub trait ByteRunnable {
             }
         }
         self.is_accept(p)
+    }
+}
+
+pub enum ByteRunnableEnum {
+    Byte(ByteRunAutomaton),
+    NFA(NFARunAutomaton),
+}
+impl ByteRunnable for ByteRunnableEnum {
+    fn step(&self, state: i32, c: i32) -> i32 {
+        match self {
+            ByteRunnableEnum::Byte(bra) => bra.step(state, c),
+            ByteRunnableEnum::NFA(nfa) => nfa.step(state, c),
+        }
+    }
+
+    fn is_accept(&self, state: i32) -> bool {
+        match self {
+            ByteRunnableEnum::Byte(bra) => bra.is_accept(state),
+            ByteRunnableEnum::NFA(nfa) => nfa.is_accept(state),
+        }
+    }
+
+    fn get_size(&self) -> i32 {
+        match self {
+            ByteRunnableEnum::Byte(bra) => bra.get_size(),
+            ByteRunnableEnum::NFA(nfa) => nfa.get_size(),
+        }
+    }
+
+    fn run(&self, s: &[u8], offset: usize, length: usize) -> bool {
+        match self {
+            ByteRunnableEnum::Byte(bra) => bra.run(s, offset, length),
+            ByteRunnableEnum::NFA(nfa) => nfa.run(s, offset, length),
+        }
     }
 }

@@ -275,10 +275,31 @@ impl StringHelper {
             "(null)".to_string()
         }
     }
-    pub fn ints_ref_to_bytes_ref<AW: AccessVec<i32>>(
-        _ints: IntsRef<AW>,
+    /// Converts each `i32` in the incoming [`IntsRef`] to a `u8` in the
+    /// returned [`BytesRef`].
+    ///
+    /// Throws an [`IllegalArgument`] if any int value is out of bounds for a
+    /// byte.
+    pub fn ints_ref_to_bytes_ref<AV: AccessVec<i32>>(
+        ints: &IntsRef<AV>,
     ) -> Result<BytesRef<Vec<u8>>> {
-        unimplemented!()
+        let mut bytes = Vec::with_capacity(ints.length as usize);
+        for i in 0..ints.length {
+            ints.ints.access(|v| {
+                let x = v[(ints.offset + i) as usize];
+                if !(0..=255).contains(&x) {
+                    return Err(LuceneError::illegal_argument(format!(
+                        "int at pos={} with value={} is out-of-bounds for byte",
+                        i, x
+                    )));
+                }
+                bytes.push(x as u8);
+                // Help the compiler infer types.
+                Ok::<(), LuceneError>(())
+            })?;
+        }
+
+        Ok(BytesRef::from_bytes(bytes))
     }
 }
 /// A constant seed used for hashing, intended to prevent hash key collision

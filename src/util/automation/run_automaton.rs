@@ -28,7 +28,7 @@ use crate::util::fixed_bit_set::FixedBitSet;
 /// Finite-state automaton with fast run operation. The initial state is always
 /// 0.
 pub struct RunAutomaton {
-    automaton: Automaton,
+    pub(crate) automaton: Automaton,
     alphabet_size: usize,
     size: i32,
     accept: FixedBitSet,

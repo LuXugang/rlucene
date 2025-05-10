@@ -37,7 +37,7 @@ use crate::util::error::lucene_error::Result;
 ///
 /// Implemented based on: <https://swtch.com/~rsc/regexp/regexp1.html>
 pub struct NFARunAutomaton {
-    automaton: Automaton,
+    pub(crate) automaton: Automaton,
     points: Vec<i32>,
     alphabet_size: i32,
     classmap: Vec<usize>, // map from char number to class

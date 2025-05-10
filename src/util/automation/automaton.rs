@@ -3030,6 +3030,7 @@ mod tests {
         assert!(Operations::get_singleton(&a)?.is_none());
         Ok(())
     }
+    // LUCENE-9981
     #[test]
     fn test_determinize_too_much_effort() {
         // make sure determinize properly aborts, relatively quickly, for this regexp:
