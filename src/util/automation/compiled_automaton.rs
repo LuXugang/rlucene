@@ -323,7 +323,7 @@ impl CompiledAutomaton {
         let mut stack = Vec::with_capacity(input.length);
 
         loop {
-            let label = input.bytes[input.offset + idx] as i32;
+            let mut label = input.bytes[input.offset + idx] as i32;
             let mut next_state = run_automaton.step(state, label);
 
             if idx == input.length - 1 {
@@ -357,6 +357,7 @@ impl CompiledAutomaton {
                             } else {
                                 state = stack.pop().unwrap();
                                 idx -= 1;
+                                label = input.bytes[input.offset + idx] as i32;
                             }
                         } else {
                             break;
@@ -411,4 +412,190 @@ pub enum AutomatonType {
     Single,
     /// Catch-all for any other automata.
     Normal,
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashSet;
+
+    use rand::prelude::StdRng;
+    use rand::Rng;
+
+    use crate::index::{BytesRef, BytesRefBuilder};
+    use crate::test::util::lucene_test_case::{at_least, random, random_multiplier};
+    use crate::test::util::test_util::TestUtil;
+    use crate::util::automation::automata::Automata;
+    use crate::util::automation::automaton::Automaton;
+    use crate::util::automation::compiled_automaton::{AutomatonType, CompiledAutomaton};
+    use crate::util::automation::operations::Operations;
+    use crate::util::error::lucene_error::Result;
+    fn build(_determinize_work_limit: i32, strings: &[&str]) -> Result<CompiledAutomaton> {
+        let mut terms: Vec<BytesRef<Vec<u8>>> =
+            strings.iter().map(|s| BytesRef::from_string(s)).collect();
+
+        terms.sort();
+        let a = Automata::make_string_union(&terms)?;
+        CompiledAutomaton::new_with_binary(a, true, false, false)
+    }
+    fn test_floor(c: &mut CompiledAutomaton, input: &str, expected: Option<&str>) -> Result<()> {
+        let b = BytesRef::from_string(input);
+        let mut builder = BytesRefBuilder::default();
+
+        let result = c.floor(&b, &mut builder)?;
+
+        match expected {
+            None => {
+                assert!(result.is_none(), "Expected None, got {:?}", result);
+            },
+            Some(expected_str) => {
+                let result = result.expect("Expected Some(BytesRef), got None");
+                let expected_bytes = BytesRef::from_string(expected_str);
+                assert_eq!(
+                    result, expected_bytes,
+                    "actual={:?} vs expected={} (input={})",
+                    result, expected_str, input
+                );
+            },
+        }
+
+        Ok(())
+    }
+    fn test_terms(random: &mut StdRng, determinize_work_limit: i32, terms: &[&str]) -> Result<()> {
+        let mut compiled = build(determinize_work_limit, terms)?;
+        let mut term_bytes: Vec<BytesRef<Vec<u8>>> =
+            terms.iter().map(|s| BytesRef::from_string(s)).collect();
+        term_bytes.sort();
+
+        if cfg!(feature = "test_log_verbose") {
+            println!("\nTEST: terms in unicode order");
+            for t in &term_bytes {
+                println!("  {}", t.utf8_to_string()?);
+            }
+        }
+
+        for _ in 0..(100 * random_multiplier() as usize) {
+            let s = if random.random_range(0..10) == 1 {
+                terms[random.random_range(0..terms.len())].to_string()
+            } else {
+                random_string(random)
+            };
+
+            if cfg!(feature = "test_log_verbose") {
+                println!("\nTEST: floor({s})");
+            }
+
+            let key = BytesRef::from_string(&s);
+            let mut expected: Option<String> = None;
+
+            match term_bytes.binary_search(&key) {
+                Ok(_) => {
+                    expected = Some(s.clone());
+                },
+                Err(insert_pos) => {
+                    if insert_pos > 0 {
+                        expected = Some(term_bytes[insert_pos - 1].utf8_to_string()?);
+                    }
+                },
+            }
+
+            if cfg!(feature = "test_log_verbose") {
+                println!("  expected={:?}", expected);
+            }
+
+            test_floor(&mut compiled, &s, expected.as_deref())?;
+        }
+
+        Ok(())
+    }
+    #[test]
+    fn test() -> Result<()> {
+        for i in 0..100 {
+            test_random()?;
+        }
+        Ok(())
+    }
+    #[test]
+    fn test_random() -> Result<()> {
+        let mut random = random();
+        let num_terms = at_least(&mut random, 400);
+        let mut terms = HashSet::new();
+
+        while terms.len() < num_terms as usize {
+            terms.insert(random_string(&mut random));
+        }
+        let term_vec: Vec<&str> = terms.iter().map(|s| s.as_str()).collect();
+
+        test_terms(&mut random, num_terms * 100, &term_vec)?;
+
+        Ok(())
+    }
+
+    fn random_string(random: &mut StdRng) -> String {
+        TestUtil::random_realistic_unicode_string(random)
+    }
+    #[test]
+    fn test_basic() -> Result<()> {
+        let mut compiled = build(
+            Operations::DEFAULT_DETERMINIZE_WORK_LIMIT as i32,
+            &["fob", "foo", "goo"],
+        )?;
+
+        test_floor(&mut compiled, "goo", Some("goo"))?;
+        test_floor(&mut compiled, "ga", Some("foo"))?;
+        test_floor(&mut compiled, "g", Some("foo"))?;
+        test_floor(&mut compiled, "foc", Some("fob"))?;
+        test_floor(&mut compiled, "foz", Some("foo"))?;
+        test_floor(&mut compiled, "f", None)?;
+        test_floor(&mut compiled, "", None)?;
+        test_floor(&mut compiled, "aa", None)?;
+        test_floor(&mut compiled, "zzz", Some("goo"))?;
+
+        Ok(())
+    }
+    // LUCENE-6367
+    #[test]
+    fn test_binary_all() -> Result<()> {
+        let mut a = Automaton::new();
+        let state = a.create_state();
+        a.set_accept(state, true);
+        a.add_transition(state, state, 0, 0xff)?;
+        a.finish_state()?;
+
+        let ca = CompiledAutomaton::new_with_binary(a, false, true, true)?;
+
+        assert_eq!(ca.automaton_type, AutomatonType::All);
+        Ok(())
+    }
+    // LUCENE-6367
+    #[test]
+    fn test_unicode_all() -> Result<()> {
+        let mut a = Automaton::new();
+        let state = a.create_state();
+        a.set_accept(state, true);
+        a.add_transition(state, state, 0, char::MAX as i32)?;
+        a.finish_state()?;
+
+        let ca = CompiledAutomaton::new_with_binary(a, false, true, false)?;
+        assert_eq!(ca.automaton_type, AutomatonType::All);
+
+        Ok(())
+    }
+    // LUCENE-6367
+    #[test]
+    fn test_binary_singleton() -> Result<()> {
+        let a = Automata::make_string("foobar")?;
+        let ca = CompiledAutomaton::new_with_binary(a, true, true, true)?;
+        assert_eq!(ca.automaton_type, AutomatonType::Single);
+        Ok(())
+    }
+    // LUCENE-6367
+    #[test]
+    fn test_unicode_singleton() -> Result<()> {
+        let mut random = random();
+        let s = TestUtil::random_realistic_unicode_string(&mut random);
+        let a = Automata::make_string(&s)?;
+        let ca = CompiledAutomaton::new_with_binary(a, true, true, false)?;
+        assert_eq!(ca.automaton_type, AutomatonType::Single);
+        Ok(())
+    }
 }
