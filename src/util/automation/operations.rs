@@ -1023,7 +1023,7 @@ impl Operations {
             builder.append_byte(ch as u8);
         }
 
-        Ok(builder.get_bytes())
+        Ok(builder.get_bytes_owner())
     }
     /// If this automaton accepts a single input, returns it. Otherwise, returns
     /// `None`. The automaton must be deterministic.

@@ -1265,7 +1265,7 @@ where
                 )
             }
         }
-        Ok((min.get_bytes(), max.get_bytes()))
+        Ok((min.get_bytes_owner(), max.get_bytes_owner()))
     }
     fn write_leaf_block_packed_values_range<F>(
         &self,

@@ -173,7 +173,7 @@ where
     }
     /// # Note
     /// This method should be only called with BytesRef<Vec<u8>>
-    pub fn get_bytes(&mut self) -> BytesRef<AV> {
+    pub fn get_bytes_owner(&mut self) -> BytesRef<AV> {
         std::mem::take(&mut self.bytes_ref)
     }
     /// Build a new BytesRef that has the same content as this buffer.
