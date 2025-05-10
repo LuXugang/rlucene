@@ -580,6 +580,8 @@ mod tests {
     use crate::util::automation::transition_accessor::TransitionAccessor;
     use crate::util::error::lucene_error::Result;
     use crate::util::ints_ref::IntsRef;
+    #[allow(dead_code)] // for quick search
+    struct TestNFARunAutomaton;
     #[test]
     fn test_ram_usage_estimation() -> Result<()> {
         // TODO: memory calculate not implemented
