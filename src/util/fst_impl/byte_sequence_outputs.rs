@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cell::RefCell;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 
@@ -27,7 +26,7 @@ use crate::util::fst_impl::outputs::Outputs;
 use crate::util::{CoreHelper, SliceCopyOps, StringHelper};
 
 thread_local! {
-    static NO_OUTPUT: Rc<BytesRef<Rc<RefCell<Vec<u8>>>>> = Rc::new(BytesRef::default());
+    static NO_OUTPUT:BytesRef<Rc<Vec<u8>>> = BytesRef::default();
 }
 pub static SINGLETON: Lazy<ByteSequenceOutputs> = Lazy::new(|| ByteSequenceOutputs);
 /// An FST Outputs implementation where each output is a sequence of bytes.
@@ -38,6 +37,10 @@ impl ByteSequenceOutputs {
     pub fn get() -> &'static ByteSequenceOutputs {
         &SINGLETON
     }
+    // compare: same bytes reference, same offset, same length
+    pub fn equals(a: &BytesRef<Rc<Vec<u8>>>, b: &BytesRef<Rc<Vec<u8>>>) -> bool {
+        Rc::ptr_eq(&a.bytes, &b.bytes) && a.offset == b.offset && a.length == b.length
+    }
 }
 
 impl Clone for ByteSequenceOutputs {
@@ -46,15 +49,15 @@ impl Clone for ByteSequenceOutputs {
     }
 }
 
-impl Outputs<Rc<BytesRef<Rc<RefCell<Vec<u8>>>>>> for ByteSequenceOutputs {
+impl Outputs<BytesRef<Rc<Vec<u8>>>> for ByteSequenceOutputs {
     fn common(
         &self,
-        output1: &Rc<BytesRef<Rc<RefCell<Vec<u8>>>>>,
-        output2: &Rc<BytesRef<Rc<RefCell<Vec<u8>>>>>,
-    ) -> Rc<BytesRef<Rc<RefCell<Vec<u8>>>>> {
+        output1: &BytesRef<Rc<Vec<u8>>>,
+        output2: &BytesRef<Rc<Vec<u8>>>,
+    ) -> BytesRef<Rc<Vec<u8>>> {
         let mismatch_pos = CoreHelper::miss_match(
-            &output1.bytes.borrow()[output1.offset..(output1.offset + output1.length)],
-            &output2.bytes.borrow()[output2.offset..(output2.offset + output2.length)],
+            &output1.bytes[output1.offset..(output1.offset + output1.length)],
+            &output2.bytes[output2.offset..(output2.offset + output2.length)],
         );
 
         if mismatch_pos == 0 {
@@ -68,29 +71,25 @@ impl Outputs<Rc<BytesRef<Rc<RefCell<Vec<u8>>>>>> for ByteSequenceOutputs {
             output2.clone()
             // output2 is a prefix of output1
         } else {
-            Rc::new(BytesRef::from_slice(
-                output1.bytes.clone(),
-                output1.offset,
-                mismatch_pos as usize,
-            ))
+            BytesRef::from_slice(output1.bytes.clone(), output1.offset, mismatch_pos as usize)
         }
     }
 
     fn subtract(
         &self,
-        output: &Rc<BytesRef<Rc<RefCell<Vec<u8>>>>>,
-        inc: &Rc<BytesRef<Rc<RefCell<Vec<u8>>>>>,
-    ) -> Rc<BytesRef<Rc<RefCell<Vec<u8>>>>> {
-        if Rc::ptr_eq(inc, &NO_OUTPUT.with(|rc| rc.clone())) {
+        output: &BytesRef<Rc<Vec<u8>>>,
+        inc: &BytesRef<Rc<Vec<u8>>>,
+    ) -> BytesRef<Rc<Vec<u8>>> {
+        if ByteSequenceOutputs::equals(inc, &NO_OUTPUT.with(|rc| rc.clone())) {
             // no prefix removed
             return output.clone();
         }
 
         debug_assert!(StringHelper::starts_with(
-            &output.bytes.borrow(),
+            &output.bytes,
             output.offset,
             output.length,
-            &inc.bytes.borrow(),
+            &inc.bytes,
             inc.offset,
             inc.length
         ));
@@ -104,69 +103,53 @@ impl Outputs<Rc<BytesRef<Rc<RefCell<Vec<u8>>>>>> for ByteSequenceOutputs {
                 output.length
             );
             debug_assert!(inc.length > 0);
-            Rc::new(BytesRef::from_slice(
+            BytesRef::from_slice(
                 output.bytes.clone(),
                 output.offset + inc.length,
                 output.length - inc.length,
-            ))
+            )
         }
     }
 
     fn add(
         &self,
-        prefix: &Rc<BytesRef<Rc<RefCell<Vec<u8>>>>>,
-        output: &Rc<BytesRef<Rc<RefCell<Vec<u8>>>>>,
-    ) -> Rc<BytesRef<Rc<RefCell<Vec<u8>>>>> {
+        prefix: &BytesRef<Rc<Vec<u8>>>,
+        output: &BytesRef<Rc<Vec<u8>>>,
+    ) -> BytesRef<Rc<Vec<u8>>> {
         let no_output_clone = NO_OUTPUT.with(|rc| rc.clone());
-        if Rc::ptr_eq(prefix, &no_output_clone) {
+        if ByteSequenceOutputs::equals(prefix, &no_output_clone) {
             return output.clone();
         }
-        if Rc::ptr_eq(output, &no_output_clone) {
+        if ByteSequenceOutputs::equals(output, &no_output_clone) {
             return prefix.clone();
         }
         debug_assert!(prefix.length > 0);
         debug_assert!(output.length > 0);
         let mut buf = Vec::with_capacity(prefix.length + output.length);
         buf.copy_from(
-            &prefix.bytes.borrow()[prefix.offset..(prefix.offset + prefix.length)],
+            &prefix.bytes[prefix.offset..(prefix.offset + prefix.length)],
             0,
         );
         buf.copy_from(
-            &output.bytes.borrow()[output.offset..(output.offset + output.length)],
+            &output.bytes[output.offset..(output.offset + output.length)],
             prefix.length,
         );
-        Rc::new(BytesRef::from_slice(
-            Rc::new(RefCell::new(buf)),
-            0,
-            prefix.length + output.length,
-        ))
+        BytesRef::from_slice(Rc::new(buf), 0, prefix.length + output.length)
     }
 
-    fn write(
-        &self,
-        output: &Rc<BytesRef<Rc<RefCell<Vec<u8>>>>>,
-        out: &mut impl DataOutput,
-    ) -> Result<()> {
+    fn write(&self, output: &BytesRef<Rc<Vec<u8>>>, out: &mut impl DataOutput) -> Result<()> {
         out.write_vint(output.length as i32)?;
-        out.write_bytes_range(
-            &output.bytes.borrow(),
-            output.offset as i32,
-            output.length as i32,
-        )
+        out.write_bytes_range(&output.bytes, output.offset as i32, output.length as i32)
     }
 
-    fn read(&self, input: &mut impl DataInput) -> Result<Rc<BytesRef<Rc<RefCell<Vec<u8>>>>>> {
+    fn read(&self, input: &mut impl DataInput) -> Result<BytesRef<Rc<Vec<u8>>>> {
         let len = input.read_vint()?;
         if len == 0 {
             Ok(NO_OUTPUT.with(|rc| rc.clone()))
         } else {
             let mut output = vec![0u8; len as usize];
             input.read_bytes(&mut output, 0, len)?;
-            Ok(Rc::new(BytesRef::from_slice(
-                Rc::new(RefCell::new(output)),
-                0,
-                len as usize,
-            )))
+            Ok(BytesRef::from_slice(Rc::new(output), 0, len as usize))
         }
     }
 
@@ -178,15 +161,15 @@ impl Outputs<Rc<BytesRef<Rc<RefCell<Vec<u8>>>>>> for ByteSequenceOutputs {
         Ok(())
     }
 
-    fn get_no_output(&self) -> Rc<BytesRef<Rc<RefCell<Vec<u8>>>>> {
+    fn get_no_output(&self) -> BytesRef<Rc<Vec<u8>>> {
         NO_OUTPUT.with(|rc| rc.clone())
     }
 
-    fn output_to_string(&self, output: &Rc<BytesRef<Rc<RefCell<Vec<u8>>>>>) -> String {
+    fn output_to_string(&self, output: &BytesRef<Rc<Vec<u8>>>) -> String {
         output.to_string()
     }
 
-    fn ram_bytes_used(&self, _output: &Rc<BytesRef<Rc<RefCell<Vec<u8>>>>>) -> i64 {
+    fn ram_bytes_used(&self, _output: &BytesRef<Rc<Vec<u8>>>) -> i64 {
         // TODO
         0
     }

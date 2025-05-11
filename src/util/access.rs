@@ -179,6 +179,53 @@ where
     }
 }
 
+impl<T> AccessVec<T> for Rc<Vec<T>>
+where
+    T: Clone + Default,
+{
+    fn access<F, R>(&self, f: F) -> R
+    where
+        F: FnOnce(&Vec<T>) -> R,
+    {
+        f(self)
+    }
+
+    fn access_mut<F, R>(&mut self, _f: F) -> R
+    where
+        F: FnOnce(&mut Vec<T>) -> R,
+    {
+        panic!("access_mut is not supported for Rc<Vec<T>>");
+    }
+
+    fn slice_clone(&self, offset: usize, length: usize) -> Self {
+        let slice = &self[offset..offset + length];
+        Rc::new(slice.to_vec())
+    }
+
+    fn len(&self) -> usize {
+        self.len()
+    }
+
+    fn is_empty(&self) -> bool {
+        self.is_empty()
+    }
+
+    fn new() -> Self {
+        Rc::new(Vec::new())
+    }
+
+    fn with_capacity(_capacity: usize) -> Self {
+        Rc::new(Vec::new()) // Rc<Vec<T>> can't preallocate meaningfully
+    }
+
+    fn from_vec(v: Vec<T>) -> Self {
+        Rc::new(v)
+    }
+
+    fn copy(&mut self, _src: &[T], _offset: usize) {
+        panic!("copy is not supported for Rc<Vec<T>>");
+    }
+}
 impl<T> AccessVec<T> for Rc<RefCell<Vec<T>>>
 where
     T: Clone + Default,

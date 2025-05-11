@@ -40,7 +40,7 @@ use crate::util::fst_impl::off_heap_fst_store::OffHeapFSTStore;
 use crate::util::ToInt;
 
 /// BlockTree's implementation of [`Terms`].
-#[allow(clippy::type_complexity)]
+// #[allow(clippy::type_complexity)]
 pub struct FieldReader<I, P>
 where
     I: IndexInput,
@@ -52,12 +52,11 @@ where
     pub(crate) sum_doc_freq: i64,
     pub(crate) doc_count: i32,
     pub(crate) root_block_fp: i64,
-    pub(crate) root_code: Rc<BytesRef<Rc<RefCell<Vec<u8>>>>>,
+    pub(crate) root_code: BytesRef<Rc<Vec<u8>>>,
     pub(crate) min_term: BytesRef<Vec<u8>>,
     pub(crate) max_term: BytesRef<Vec<u8>>,
     pub(crate) parent: Rc<RefCell<TermsReader<I, P>>>,
-    pub(crate) index:
-        Option<FST<Rc<BytesRef<Rc<RefCell<Vec<u8>>>>>, ByteSequenceOutputs, OffHeapFSTStore<I>>>,
+    pub(crate) index: Option<FST<BytesRef<Rc<Vec<u8>>>, ByteSequenceOutputs, OffHeapFSTStore<I>>>,
 }
 impl<I, P> FieldReader<I, P>
 where
@@ -97,7 +96,7 @@ where
             // init with padding value
             root_block_fp: 0,
             // init with padding value
-            root_code: Rc::new(BytesRef::new()),
+            root_code: BytesRef::new(),
             min_term,
             max_term,
             index: Some(index),
@@ -112,20 +111,20 @@ where
         v.root_block_fp = root_fp;
         // ownership from ByteArrayDataInput
         let root_code = BytesRef {
-            bytes: Rc::new(RefCell::new(input.bytes)),
+            bytes: Rc::new(input.bytes),
             offset: root_code.offset,
             length: root_code.length,
         };
         // Get empty output and adjust rootCode
         let root_code_final = match empty_output {
             Some(empty_output) => {
-                if root_code.bytes_equals(&*empty_output) {
+                if root_code.bytes_equals(&empty_output) {
                     empty_output
                 } else {
-                    Rc::new(root_code)
+                    root_code
                 }
             },
-            None => Rc::new(root_code),
+            None => root_code,
         };
         v.root_code = root_code_final;
         Ok(v)

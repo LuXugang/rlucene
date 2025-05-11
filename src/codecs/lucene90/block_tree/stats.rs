@@ -71,7 +71,6 @@ pub struct Stats {
 
     /// Total number of bytes used to store term stats (not including
     /// [`PostingsReaderBase`](crate::codecs::postings_reader_base::PostingsReaderBase)).
-    ///
     pub total_block_stats_bytes: i64,
 
     /// Total bytes stored by
@@ -112,11 +111,9 @@ impl Stats {
     }
     pub(crate) fn finish(&self) {
         debug_assert_eq!(
-            self.start_block_count,
-            self.end_block_count,
+            self.start_block_count, self.end_block_count,
             "startBlockCount={} endBlockCount={}",
-            self.start_block_count,
-            self.end_block_count
+            self.start_block_count, self.end_block_count
         );
 
         debug_assert_eq!(
