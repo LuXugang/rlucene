@@ -252,7 +252,7 @@ pub(crate) mod tests {
     use crate::util::fst_impl::util::Util;
     use crate::util::ints_ref::IntsRef;
     use crate::util::ints_ref_builder::IntsRefBuilder;
-
+    /// Test for FiniteStringsIterator.
     #[allow(dead_code)] // for quick search
     struct TestFiniteStringsIterator;
     #[test]
@@ -338,6 +338,7 @@ pub(crate) mod tests {
         Ok(())
     }
 
+    /// Basic test for getFiniteStrings
     #[test]
     fn test_finite_strings_basic() -> Result<()> {
         let a = Operations::union(

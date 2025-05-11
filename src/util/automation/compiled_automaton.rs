@@ -429,6 +429,8 @@ mod tests {
     use crate::util::automation::compiled_automaton::{AutomatonType, CompiledAutomaton};
     use crate::util::automation::operations::Operations;
     use crate::util::error::lucene_error::Result;
+    #[allow(dead_code)] // for quick search
+    struct TestCompiledAutomaton;
     fn build(_determinize_work_limit: i32, strings: &[&str]) -> Result<CompiledAutomaton> {
         let mut terms: Vec<BytesRef<Vec<u8>>> =
             strings.iter().map(|s| BytesRef::from_string(s)).collect();
