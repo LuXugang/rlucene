@@ -16,11 +16,14 @@
  */
 use std::borrow::Cow;
 
+use crate::index::automaton_terms_enum::AutomatonTermsEnum;
+use crate::index::filtered_terms_enum::FilteredTermsEnum;
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::index::{BytesRef, BytesRefBuilder};
 use crate::util::access::AccessVec;
+use crate::util::automation::compiled_automaton::{AutomatonType, CompiledAutomaton};
 use crate::util::bytes_ref_iterator::BytesRefIterator;
-use crate::util::error::lucene_error::Result;
+use crate::util::error::lucene_error::{LuceneError, Result};
 
 /// Trait representing base term statistics and access.
 pub trait Terms<AV: AccessVec<u8>> {
@@ -41,6 +44,42 @@ pub trait Terms<AV: AccessVec<u8>> {
     /// Returns an iterator that will step through all terms. This method will
     /// not return None.
     fn iterator(&self) -> Self::TermsEnum;
+    /// Returns a [`TermsEnum`] that iterates over all terms and documents
+    /// accepted by the given [`CompiledAutomaton`].
+    ///
+    /// If `start_term` is provided, the returned enum will only return terms
+    /// strictly greater than `start_term`, but you must still call `next()`
+    /// first to advance to the first term. The provided `start_term` must
+    /// be accepted by the automaton.
+    ///
+    /// This is an expert-level, low-level API that only works for
+    /// [`AutomatonType::NORMAL`] compiled automata. To handle any type of
+    /// compiled automaton, use
+    /// [`CompiledAutomaton::get_terms_enum`](CompiledAutomaton::get_terms_enum)
+    /// instead.
+    ///
+    /// **Note**: The returned `TermsEnum` does **not** support seeking.
+    fn intersect(
+        &self,
+        compiled: &mut CompiledAutomaton,
+        start_term: Option<BytesRef<Vec<u8>>>,
+    ) -> Result<FilteredTermsEnum<Self::TermsEnum, Vec<u8>, AutomatonTermsEnum>>
+    where
+        <Self as Terms<AV>>::TermsEnum: TermsEnum<Vec<u8>>,
+    {
+        if compiled.automaton_type != AutomatonType::Normal {
+            return Err(LuceneError::illegal_argument(
+                "please use CompiledAutomaton.get_terms_enum instead",
+            ));
+        }
+        let ters_enum = self.iterator();
+        let automaton_terms_enum = if start_term.is_none() {
+            AutomatonTermsEnum::new(compiled)?
+        } else {
+            AutomatonTermsEnum::new_with_start_term(compiled, start_term)?
+        };
+        Ok(FilteredTermsEnum::new(ters_enum, automaton_terms_enum))
+    }
     /// Returns the number of terms for this field, or `-1` if this measure
     /// isn't stored by the codec.
     ///

@@ -62,9 +62,16 @@ pub struct AutomatonTermsEnum {
     linear_upper_bound: BytesRef<Vec<u8>>,
     transition: Transition,
     saved_states: IntsRefBuilder<Vec<i32>>,
+    start_term: Option<BytesRef<Vec<u8>>>,
 }
 impl AutomatonTermsEnum {
     pub fn new(compiled: &mut CompiledAutomaton) -> Result<Self> {
+        Self::new_with_start_term(compiled, None)
+    }
+    pub fn new_with_start_term(
+        compiled: &mut CompiledAutomaton,
+        start_term: Option<BytesRef<Vec<u8>>>,
+    ) -> Result<Self> {
         if compiled.automaton_type != AutomatonType::Normal {
             return Err(LuceneError::illegal_argument(
                 "please use CompiledAutomaton.get_terms_enum instead",
@@ -91,8 +98,10 @@ impl AutomatonTermsEnum {
             linear_upper_bound: BytesRef::new(),
             transition: Transition::default(),
             saved_states: IntsRefBuilder::new(),
+            start_term,
         })
     }
+
     /// Records the given state has been visited.
     fn set_visited(&mut self, state: i32) {
         debug_assert!(state >= 0);
@@ -382,10 +391,15 @@ impl FilteredTermsEnumBase<Vec<u8>> for AutomatonTermsEnum {
         if let Some(t) = term {
             self.seek_bytes_ref.copy_bytes_with_ref(t);
         } else {
-            debug_assert_eq!(self.seek_bytes_ref.length(), 0);
-            // return the empty term, as it's valid
-            if self.byte_runnable.is_accept(0) {
-                return Ok(Some(self.seek_bytes_ref.get_bytes_owner()));
+            match self.start_term {
+                Some(ref t) => self.seek_bytes_ref.copy_bytes_with_ref(t),
+                None => {
+                    debug_assert_eq!(self.seek_bytes_ref.length(), 0);
+                    // return the empty term, as it's valid
+                    if self.byte_runnable.is_accept(0) {
+                        return Ok(Some(self.seek_bytes_ref.get_bytes_owner()));
+                    }
+                },
             }
         }
 
