@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
 
 pub struct UnicodeUtil;
 impl UnicodeUtil {
@@ -56,7 +57,7 @@ impl UnicodeUtil {
         utf8: &[u8],
         pos: usize,
         reuse: &'a mut UTF8CodePoint,
-    ) -> Result<&'a mut UTF8CodePoint, LuceneError> {
+    ) -> Result<&'a mut UTF8CodePoint> {
         if pos >= utf8.len() {
             return Err(LuceneError::illegal_argument(format!(
                 "Position {} out of bounds for utf8 array of length {}",
@@ -113,7 +114,7 @@ impl UnicodeUtil {
         code_points: &[i32],
         offset: usize,
         count: usize,
-    ) -> Result<String, LuceneError> {
+    ) -> Result<String> {
         if offset + count > code_points.len() {
             return Err(LuceneError::illegal_argument(
                 "offset + count out of bounds",
@@ -139,6 +140,16 @@ impl UnicodeUtil {
         }
 
         Ok(result)
+    }
+    /// Returns the maximum number of utf8 bytes required to encode
+    pub fn max_utf8_length(code:i32) -> Result<usize> {
+        match code {
+            0x0000..=0x007F => Ok(1),    // ASCII
+            0x0080..=0x07FF => Ok(2),    // 2-byte UTF-8
+            0x0800..=0xFFFF => Ok(3),    // 3-byte UTF-8
+            0x10000..=0x10FFFF => Ok(4), // 4-byte UTF-8
+            _ => Err(LuceneError::illegal_argument("Invalid Unicode code point")),
+        }
     }
 }
 

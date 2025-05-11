@@ -400,18 +400,13 @@ mod tests {
     use crate::util::fst_impl::util::Util;
     use crate::util::ints_ref_builder::IntsRefBuilder;
     use crate::util::unicode_util::UnicodeUtil;
-
+    #[allow(dead_code)] // for quick search
+    struct TestUTF32ToUTF8;
     const MAX_UNICODE: i32 = 0x10FFFF;
     fn matches(a: &ByteRunAutomaton, code: i32) -> Result<bool> {
         let ch = std::char::from_u32(code as u32)
             .ok_or_else(|| LuceneError::illegal_argument("Invalid Unicode code point"))?;
-        let len: usize = match code {
-            0x0000..=0x007F => Ok(1),    // ASCII
-            0x0080..=0x07FF => Ok(2),    // 2-byte UTF-8
-            0x0800..=0xFFFF => Ok(3),    // 3-byte UTF-8
-            0x10000..=0x10FFFF => Ok(4), // 4-byte UTF-8
-            _ => Err(LuceneError::illegal_argument("Invalid Unicode code point")),
-        }? as usize;
+        let len= UnicodeUtil::max_utf8_length(code)?;
         let mut buf = vec![0; len];
         let _ = ch.encode_utf8(&mut buf);
         Ok(a.run(buf.as_slice(), 0, len))
