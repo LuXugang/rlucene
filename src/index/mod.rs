@@ -21,6 +21,7 @@ pub use bytes_ref::*;
 pub mod bytes_ref_builder;
 pub use bytes_ref_builder::*;
 pub(crate) mod approximate_priority_queue;
+mod automaton_terms_enum;
 pub mod base_terms_enum;
 pub mod binary_doc_values;
 pub(crate) mod binary_doc_values_field_updates;
