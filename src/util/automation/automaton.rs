@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 use std::fmt;
 
 use bit_set::BitSet;
@@ -404,29 +404,24 @@ impl Automaton {
     }
     /// Returns sorted array of all interval start points.
     pub fn get_start_points(&self) -> Vec<i32> {
-        let mut pointset = HashSet::new();
+        let mut pointset = BTreeSet::new();
         pointset.insert(0);
 
-        for i in (0..self.next_state as usize).step_by(2) {
-            let trans = self.states[i] as usize;
-            let num_transitions = self.states[i + 1] as usize;
-            let mut trans_idx = trans;
-            let limit = trans + 3 * num_transitions;
+        for s in (0..self.next_state as usize).step_by(2) {
+            let mut trans = self.states[s] as usize;
+            let limit = trans + 3 * self.states[s + 1] as usize;
 
-            while trans_idx < limit {
-                let min = self.transitions[trans_idx + 1];
-                let max = self.transitions[trans_idx + 2];
+            while trans < limit {
+                let min = self.transitions[trans + 1];
+                let max = self.transitions[trans + 2];
                 pointset.insert(min);
-                if max < 0x10FFFF {
+                if max < char::MAX as i32 {
                     pointset.insert(max + 1);
                 }
-                trans_idx += 3;
+                trans += 3;
             }
         }
-
-        let mut points: Vec<i32> = pointset.into_iter().collect();
-        points.sort();
-        points
+        pointset.into_iter().collect()
     }
     /// Performs lookup in transitions, assuming determinism.
     ///
