@@ -22,8 +22,6 @@ mod fields_index;
 mod fields_index_reader;
 mod fields_index_writer;
 pub mod indexed_disi;
-mod lucene90_block_tree_terms_reader;
-pub mod lucene90_block_trree_terms_writer;
 pub mod lucene90_compound_format;
 pub mod lucene90_compound_reader;
 pub mod lucene90_doc_values_consumer;

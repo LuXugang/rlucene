@@ -19,7 +19,9 @@ use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
 
-use crate::codecs::lucene90::lucene90_block_tree_terms_reader::{lucene90_bttr_util, TermsReader};
+use crate::codecs::lucene90::block_tree::lucene90_block_tree_terms_reader::{
+    lucene90_bttr_util, TermsReader,
+};
 use crate::codecs::postings_reader_base::PostingsReaderBase;
 use crate::index::automaton_terms_enum::AutomatonTermsEnum;
 use crate::index::dummy::dummy_terms_enum::DummyTermsEnum;
