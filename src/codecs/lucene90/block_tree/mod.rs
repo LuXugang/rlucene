@@ -18,3 +18,4 @@ mod compression_algorithm;
 pub mod field_reader;
 mod lucene90_block_tree_terms_reader;
 pub mod lucene90_block_trree_terms_writer;
+mod stats;
