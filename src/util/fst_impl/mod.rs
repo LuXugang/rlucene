@@ -16,7 +16,7 @@
  */
 pub mod bit_table_util;
 pub mod byte_block_pool_reverse_bytes_reader;
-mod byte_sequence_outputs;
+pub mod byte_sequence_outputs;
 mod bytes_rc;
 mod bytes_ref_fst_enum;
 mod dummy;

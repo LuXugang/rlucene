@@ -122,7 +122,7 @@ pub trait Terms<AV: AccessVec<u8>> {
     /// Note that, like other term measures, this does **not** take deleted
     /// documents into account. Returns `None` when there are no terms.
     fn get_min<'a>(
-        &self,
+        &'a self,
         iterator: &'a mut impl TermsEnum<AV>,
     ) -> Result<Option<Cow<'a, BytesRef<AV>>>> {
         iterator.next()
@@ -132,7 +132,7 @@ pub trait Terms<AV: AccessVec<u8>> {
     /// Note that, like other term measures, this does **not** take deleted
     /// documents into account. Returns `None` when there are no terms.
     fn get_max<'a>(
-        &self,
+        &'a self,
         iterator: &'a mut impl TermsEnum<AV>,
     ) -> Result<Option<Cow<'a, BytesRef<AV>>>> {
         let size = self.size()?;

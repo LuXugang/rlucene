@@ -14,8 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::collections::HashMap;
 use std::rc::Rc;
 
+use crate::codecs::lucene90::block_tree::field_reader::FieldReader;
 use crate::codecs::postings_reader_base::PostingsReaderBase;
 use crate::index::field_infos::FieldInfos;
 use crate::store::IndexInput;
@@ -25,11 +27,51 @@ where
     I: IndexInput,
     P: PostingsReaderBase<I>,
 {
+    terms_reader: TermsReader<I, P>,
+    field_reader: FieldMapWrapper<I, P>,
+}
+pub struct FieldMapWrapper<I, P>
+where
+    I: IndexInput,
+    P: PostingsReaderBase<I>,
+{
+    field_map: HashMap<i32, FieldReader<I, P>>,
+}
+pub struct TermsReader<I, P>
+where
+    I: IndexInput,
+    P: PostingsReaderBase<I>,
+{
     terms_in: I,
     index_in: I,
     postings_reader: P,
     field_infos: Rc<FieldInfos>,
     field_list: Vec<String>,
-    segment: String,
-    version: i32,
+    pub(crate) segment: String,
+    pub(crate) version: i32,
+}
+pub mod lucene90_bttr_util {
+    pub(crate) const OUTPUT_FLAGS_NUM_BITS: i32 = 2;
+    pub(crate) const OUTPUT_FLAGS_MASK: i32 = 0x3;
+    pub(crate) const OUTPUT_FLAG_IS_FLOOR: i32 = 0x1;
+    pub(crate) const OUTPUT_FLAG_HAS_TERMS: i32 = 0x2;
+
+    /// Extension of terms file
+    pub(crate) const TERMS_EXTENSION: &str = "tim";
+    pub(crate) const TERMS_CODEC_NAME: &str = "BlockTreeTermsDict";
+    /// Initial terms format
+    pub const VERSION_START: i32 = 0;
+    /// Version that encodes output as MSB VLong for better FST sharing
+    /// (GITHUB#12620)
+    pub const VERSION_MSB_VLONG_OUTPUT: i32 = 1;
+    /// Version that specializes arc store for continuous label in FST
+    pub const VERSION_FST_CONTINUOUS_ARCS: i32 = 2;
+    /// Current terms format version
+    pub const VERSION_CURRENT: i32 = VERSION_FST_CONTINUOUS_ARCS;
+    /// Extension of terms index file
+    pub(crate) const TERMS_INDEX_EXTENSION: &str = "tip";
+    pub(crate) const TERMS_INDEX_CODEC_NAME: &str = "BlockTreeTermsIndex";
+    /// Extension of terms meta file
+    pub(crate) const TERMS_META_EXTENSION: &str = "tmd";
+    pub(crate) const TERMS_META_CODEC_NAME: &str = "BlockTreeTermsMeta";
 }
