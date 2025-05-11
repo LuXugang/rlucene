@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+mod compression_algorithm;
 pub mod field_reader;
 mod lucene90_block_tree_terms_reader;
 pub mod lucene90_block_trree_terms_writer;
