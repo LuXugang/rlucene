@@ -106,7 +106,6 @@ where
             } else {
                 match self.tenum.next()? {
                     Some(term) => {
-                        // TODO: if we want to avoid data copy, should use BytesRef<Rc<ReCell<u8>>>?
                         self.actual_term = term.into_owned();
                     },
                     None => return Ok(None),

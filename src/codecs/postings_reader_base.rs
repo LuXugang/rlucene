@@ -51,6 +51,7 @@ where
         D: Directory;
 
     /// Return a newly created empty `TermState`.
+    // TODO: 这里是不是应该返回关联类型
     fn new_term_state(&mut self) -> Result<BlockTermStateEnum>;
 
     /// Actually decode metadata for next term

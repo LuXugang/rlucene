@@ -44,13 +44,19 @@ where
 {
     terms_in: I,
     index_in: I,
-    postings_reader: P,
+    pub(crate) postings_reader: P,
     field_infos: Rc<FieldInfos>,
     field_list: Vec<String>,
     pub(crate) segment: String,
     pub(crate) version: i32,
 }
 pub mod lucene90_bttr_util {
+    use std::rc::Rc;
+
+    use crate::index::BytesRef;
+    use crate::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs;
+    use crate::util::fst_impl::outputs::Outputs;
+
     pub(crate) const OUTPUT_FLAGS_NUM_BITS: i32 = 2;
     pub(crate) const OUTPUT_FLAGS_MASK: i32 = 0x3;
     pub(crate) const OUTPUT_FLAG_IS_FLOOR: i32 = 0x1;
@@ -74,4 +80,7 @@ pub mod lucene90_bttr_util {
     /// Extension of terms meta file
     pub(crate) const TERMS_META_EXTENSION: &str = "tmd";
     pub(crate) const TERMS_META_CODEC_NAME: &str = "BlockTreeTermsMeta";
+    thread_local! {
+        pub(crate) static NO_OUTPUT:BytesRef<Rc<Vec<u8>>> ={let v = ByteSequenceOutputs::get(); v.get_no_output()};
+    }
 }
