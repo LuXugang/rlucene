@@ -406,7 +406,7 @@ mod tests {
     fn matches(a: &ByteRunAutomaton, code: i32) -> Result<bool> {
         let ch = std::char::from_u32(code as u32)
             .ok_or_else(|| LuceneError::illegal_argument("Invalid Unicode code point"))?;
-        let len= UnicodeUtil::max_utf8_length(code)?;
+        let len = UnicodeUtil::max_utf8_length(code)?;
         let mut buf = vec![0; len];
         let _ = ch.encode_utf8(&mut buf);
         Ok(a.run(buf.as_slice(), 0, len))

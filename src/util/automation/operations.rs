@@ -2001,8 +2001,8 @@ pub(crate) mod tests {
 
         Ok(())
     }
-    // This is the original implementation of Operations#optional, before we improved it to generate
-    // simpler automata in some common cases.
+    // This is the original implementation of Operations#optional, before we
+    // improved it to generate simpler automata in some common cases.
     fn naive_optional(a: &Automaton) -> Result<Automaton> {
         let mut result = Automaton::new();
         result.create_state();

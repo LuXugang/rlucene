@@ -139,7 +139,7 @@ mod tests {
     use crate::index::term::Term;
 
     #[allow(dead_code)] // for quick search
-    pub struct TestTerm;
+    struct TestTerm;
     #[test]
     fn test_equals() {
         let base = Term::from_text("same".to_string(), "same");

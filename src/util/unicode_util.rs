@@ -110,11 +110,7 @@ impl UnicodeUtil {
 
         Ok(reuse)
     }
-    pub fn new_string(
-        code_points: &[i32],
-        offset: usize,
-        count: usize,
-    ) -> Result<String> {
+    pub fn new_string(code_points: &[i32], offset: usize, count: usize) -> Result<String> {
         if offset + count > code_points.len() {
             return Err(LuceneError::illegal_argument(
                 "offset + count out of bounds",
@@ -142,7 +138,7 @@ impl UnicodeUtil {
         Ok(result)
     }
     /// Returns the maximum number of utf8 bytes required to encode
-    pub fn max_utf8_length(code:i32) -> Result<usize> {
+    pub fn max_utf8_length(code: i32) -> Result<usize> {
         match code {
             0x0000..=0x007F => Ok(1),    // ASCII
             0x0080..=0x07FF => Ok(2),    // 2-byte UTF-8
