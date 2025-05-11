@@ -403,7 +403,7 @@ impl TestUtil {
                 s.push((random.random_range(b'a'..=b'z')) as char);
             } else {
                 // pick from ops
-                s.push((*OPS.choose(random).unwrap()).parse().unwrap());
+                s.push_str(OPS.choose(random).unwrap());
             }
         }
         s
@@ -427,7 +427,7 @@ impl TestUtil {
         b.length = length;
         b
     }
-    fn random_substring(random: &mut StdRng, word_len: usize, simple: bool) -> String {
+    pub fn random_substring(random: &mut StdRng, word_len: usize, simple: bool) -> String {
         if word_len == 0 {
             return String::new();
         }
