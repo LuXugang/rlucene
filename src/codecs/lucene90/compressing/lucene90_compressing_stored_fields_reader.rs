@@ -835,7 +835,7 @@ where
         } else if self.merging {
             DataInputEnum::ByteArray(ByteArrayDataInput::with_range(
                 std::mem::take(&mut bytes.bytes),
-                bytes.offset as i32 + offset,
+                bytes.offset + offset as usize,
                 length,
             ))
         } else {
@@ -847,7 +847,7 @@ where
                     &mut *stream,
                     self.chunk_size,
                     offset,
-                    min(length, self.chunk_size - offset),
+                    min(length as i32, self.chunk_size - offset),
                     &mut bytes,
                 )?;
                 DataInputEnum::Impl(DataInputImpl::new(
@@ -855,28 +855,28 @@ where
                     self.chunk_size,
                     Rc::clone(&self.fields_stream),
                     bytes,
-                    length,
+                    length as i32,
                 ))
             } else {
                 self.decompressor.decompress(
                     &mut *stream,
                     total_length,
                     offset,
-                    length,
+                    length as i32,
                     &mut bytes,
                 )?;
-                debug_assert_eq!(bytes.length as i32, length);
+                debug_assert_eq!(bytes.length, length);
                 DataInputEnum::ByteArray(ByteArrayDataInput::with_range(
                     std::mem::take(&mut bytes.bytes),
-                    bytes.offset as i32,
-                    bytes.length as i32,
+                    bytes.offset,
+                    bytes.length,
                 ))
             }
         };
 
         Ok(SerializedDocument::new(
             document_input,
-            length,
+            length as i32,
             num_stored_fields,
         ))
     }

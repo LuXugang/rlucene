@@ -1445,7 +1445,7 @@ where
         serialized: Vec<u8>,
         impacts_list: &mut MutableImpactList,
     ) -> Result<(&[Impact], Vec<u8>)> {
-        let len = serialized.len() as i32;
+        let len = serialized.len();
         let mut scratch = ByteArrayDataInput::with_range(serialized, 0, len);
         let r = lucene101_pr_util::read_impacts(&mut scratch, impacts_list)?;
         Ok((r, std::mem::take(&mut scratch.bytes)))

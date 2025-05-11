@@ -36,8 +36,8 @@ where
     AV: AccessVec<u8>,
 {
     pub(crate) bytes: AV,
-    pos: i32,
-    limit: i32,
+    pos: usize,
+    limit: usize,
 }
 impl<AV> ByteArrayDataInput<AV>
 where
@@ -49,10 +49,9 @@ where
 
     pub fn with_bytes(bytes: AV) -> Self {
         let len = bytes.len();
-        debug_assert!(len <= i32::MAX as usize, "bytes length exceeds u32 range");
-        Self::with_range(bytes, 0, len as i32)
+        Self::with_range(bytes, 0, len)
     }
-    pub fn with_range(bytes: AV, offset: i32, length: i32) -> Self {
+    pub fn with_range(bytes: AV, offset: usize, length: usize) -> Self {
         let mut data_input = Self::new();
         data_input.reset_with_range(bytes, offset, length);
         data_input
@@ -60,10 +59,9 @@ where
 
     pub fn reset(&mut self, bytes: AV) {
         let len = bytes.len();
-        debug_assert!(len <= i32::MAX as usize, "bytes length exceeds u32 range");
-        self.reset_with_range(bytes, 0, len as i32);
+        self.reset_with_range(bytes, 0, len);
     }
-    pub fn reset_with_range(&mut self, bytes: AV, offset: i32, length: i32) {
+    pub fn reset_with_range(&mut self, bytes: AV, offset: usize, length: usize) {
         self.bytes = bytes;
         self.pos = offset;
         self.limit = offset + length;
@@ -74,13 +72,13 @@ where
         self.pos = 0;
     }
 
-    pub fn get_position(&self) -> i32 {
+    pub fn get_position(&self) -> usize {
         self.pos
     }
-    pub fn set_position(&mut self, pos: i32) {
+    pub fn set_position(&mut self, pos: usize) {
         self.pos = pos;
     }
-    pub fn length(&self) -> i32 {
+    pub fn length(&self) -> usize {
         self.limit
     }
     pub fn eof(&self) -> bool {
@@ -107,7 +105,7 @@ where
 {
     fn read_byte(&mut self) -> Result<u8> {
         self.bytes.access(|bytes| {
-            let value = bytes[self.pos as usize];
+            let value = bytes[self.pos];
             self.pos += 1;
             Ok(value)
         })
@@ -115,18 +113,15 @@ where
 
     fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()> {
         self.bytes.access(|bytes| {
-            b.copy_from(
-                &bytes[self.pos as usize..(self.pos + len) as usize],
-                offset as usize,
-            );
+            b.copy_from(&bytes[self.pos..self.pos + len as usize], offset as usize);
         });
-        self.pos += len;
+        self.pos += len as usize;
         Ok(())
     }
 
     fn read_short(&mut self) -> Result<i16> {
         self.bytes.access(|bytes| {
-            let result = BitUtil::get_i16_le(bytes, self.pos as usize);
+            let result = BitUtil::get_i16_le(bytes, self.pos);
             self.pos += 2;
             Ok(result)
         })
@@ -134,7 +129,7 @@ where
 
     fn read_int(&mut self) -> Result<i32> {
         self.bytes.access(|bytes| {
-            let value = BitUtil::get_i32_le(bytes, self.pos as usize);
+            let value = BitUtil::get_i32_le(bytes, self.pos);
             self.pos += 4;
             Ok(value)
         })
@@ -142,7 +137,7 @@ where
 
     fn read_long(&mut self) -> Result<i64> {
         self.bytes.access(|bytes| {
-            let value = BitUtil::get_i64_le(bytes, self.pos as usize);
+            let value = BitUtil::get_i64_le(bytes, self.pos);
             self.pos += 8;
             Ok(value)
         })
@@ -150,7 +145,7 @@ where
 
     fn skip_bytes(&mut self, count: i64) -> Result<()> {
         debug_assert!(count <= i32::MAX as i64, "count exceeds usize range");
-        self.pos += count as i32;
+        self.pos += count as usize;
         Ok(())
     }
 }
@@ -201,7 +196,7 @@ mod tests {
         assert_eq!(buf.get_ref().len() - buf.position() as usize, 0);
 
         // read the primitives using ByteArrayDataInput:
-        let mut data_input = ByteArrayDataInput::with_range(out.bytes, 0, size);
+        let mut data_input = ByteArrayDataInput::with_range(out.bytes, 0, size as usize);
         assert_eq!(data_input.read_byte()?, 43);
         assert_eq!(data_input.read_short()?, 12345);
         assert_eq!(data_input.read_int()?, 1234567890);

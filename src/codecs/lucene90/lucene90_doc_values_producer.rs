@@ -3003,8 +3003,8 @@ where
             // Reset buffer reader
             self.block_input = ByteArrayDataInput::with_range(
                 std::mem::take(&mut self.block_buffer.bytes),
-                self.block_buffer.offset as i32,
-                self.block_buffer.length as i32,
+                self.block_buffer.offset,
+                self.block_buffer.length,
             );
         }
 

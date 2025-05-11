@@ -102,11 +102,8 @@ where
             index: Some(index),
         };
         // ownership to ByteArrayDataInput
-        let mut input = ByteArrayDataInput::with_range(
-            root_code.bytes,
-            root_code.offset as i32,
-            root_code.length as i32,
-        );
+        let mut input =
+            ByteArrayDataInput::with_range(root_code.bytes, root_code.offset, root_code.length);
         let root_fp = v.read_vlong_output(&mut input)?;
         v.root_block_fp = root_fp;
         // ownership from ByteArrayDataInput
