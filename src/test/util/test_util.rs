@@ -17,6 +17,8 @@
 
 use num_bigint::BigInt;
 use num_traits::{FromPrimitive, ToPrimitive};
+use once_cell::sync::Lazy;
+use rand::prelude::IndexedRandom;
 use rand::rngs::StdRng;
 use rand::{random_range, Rng, RngCore};
 
@@ -107,7 +109,10 @@ impl TestUtil {
         random.fill_bytes(&mut buffer);
         BigInt::from_signed_bytes_be(&buffer)
     }
-    pub fn random_simple_string_with_length(
+    pub fn random_simple_string_with_len(random: &mut StdRng, max_length: usize) -> String {
+        Self::random_simple_string_range(random, 0, max_length)
+    }
+    pub fn random_simple_string_range(
         random: &mut StdRng,
         min_length: usize,
         max_length: usize,
@@ -122,26 +127,162 @@ impl TestUtil {
     }
 
     pub fn random_simple_string(random: &mut StdRng) -> String {
-        Self::random_simple_string_with_length(random, 0, 10)
+        Self::random_simple_string_range(random, 0, 10)
+    }
+
+    pub fn random_htmlish_string(random: &mut StdRng, num_elements: usize) -> String {
+        use std::fmt::Write;
+        let end = random.random_range(0..=num_elements);
+        if end == 0 {
+            return String::new();
+        }
+
+        let mut sb = String::new();
+
+        for _ in 0..end {
+            match random.random_range(0..25) {
+                0 => sb.push_str("<p>"),
+                1 => {
+                    sb.push('<');
+                    sb.push_str(&"    "[..random.random_range(0..=4)]);
+                    sb.push_str(&Self::random_simple_string(random));
+                    for _ in 0..random.random_range(0..10) {
+                        sb.push(' ');
+                        sb.push_str(&Self::random_simple_string(random));
+                        sb.push_str(&" "[..random.random_range(0..=1)]);
+                        sb.push('=');
+                        sb.push_str(&" "[..random.random_range(0..=1)]);
+                        sb.push_str(&"\""[..random.random_range(0..=1)]);
+                        sb.push_str(&Self::random_simple_string(random));
+                        sb.push_str(&"\""[..random.random_range(0..=1)]);
+                    }
+                    sb.push_str(&"    "[..random.random_range(0..=4)]);
+                    if random.random_bool(0.5) {
+                        sb.push('/');
+                    }
+                    if random.random_bool(0.5) {
+                        sb.push('>');
+                    }
+                },
+                2 => {
+                    sb.push_str("</");
+                    sb.push_str(&"    "[..random.random_range(0..=4)]);
+                    sb.push_str(&Self::random_simple_string(random));
+                    sb.push_str(&"    "[..random.random_range(0..=4)]);
+                    if random.random_bool(0.5) {
+                        sb.push('>');
+                    }
+                },
+                3 => sb.push('>'),
+                4 => sb.push_str("</p>"),
+                5 => sb.push_str("<!--"),
+                6 => sb.push_str("<!--#"),
+                7 => sb.push_str("<script><!-- f('"),
+                8 => sb.push_str("</script>"),
+                9 => sb.push_str("<?"),
+                10 => sb.push_str("?>"),
+                11 => sb.push('"'),
+                12 => sb.push_str("\\\""),
+                13 => sb.push('\''),
+                14 => sb.push_str("\\'"),
+                15 => sb.push_str("-->"),
+                16 => {
+                    sb.push('&');
+                    match random.random_range(0..2) {
+                        0 => sb.push_str(&Self::random_simple_string(random)),
+                        1 => {
+                            let entity = HTML_CHAR_ENTITIES.choose(random).unwrap();
+                            sb.push_str(entity);
+                        },
+                        _ => {},
+                    }
+                    if random.random_bool(0.5) {
+                        sb.push(';');
+                    }
+                },
+                17 => {
+                    sb.push_str("&#");
+                    if random.random_bool(0.5) {
+                        write!(sb, "{}", random.gen::<u32>()).unwrap();
+                        if random.random_bool(0.5) {
+                            sb.push(';');
+                        }
+                    }
+                },
+                18 => {
+                    sb.push_str("&#x");
+                    if random.random_bool(0.5) {
+                        write!(sb, "{:x}", random.gen::<u32>()).unwrap();
+                        if random.random_bool(0.5) {
+                            sb.push(';');
+                        }
+                    }
+                },
+                19 => sb.push(';'),
+                20 => {
+                    write!(sb, "{}", random.gen::<u32>()).unwrap();
+                },
+                21 => sb.push('\n'),
+                22 => sb.push_str(&"          "[..random.random_range(0..=10)]),
+                23 => {
+                    sb.push('<');
+                    if random.gen_ratio(1, 3) {
+                        sb.push_str(&"          "[..random.random_range(1..=10)]);
+                    }
+                    if random.random_bool(0.5) {
+                        sb.push('/');
+                        if random.gen_ratio(1, 3) {
+                            sb.push_str(&"          "[..random.random_range(1..=10)]);
+                        }
+                    }
+                    let tag = match random.random_range(0..3) {
+                        0 => Self::randomly_recase_codepoints(random, "script"),
+                        1 => Self::randomly_recase_codepoints(random, "style"),
+                        _ => Self::randomly_recase_codepoints(random, "br"),
+                    };
+                    sb.push_str(&tag);
+                    if random.random_bool(0.5) {
+                        sb.push('>');
+                    }
+                },
+                _ => {
+                    sb.push_str(&Self::random_simple_string(random));
+                },
+            }
+        }
+        sb
+    }
+
+    pub fn randomly_recase_codepoints(random: &mut StdRng, s: &str) -> String {
+        let mut result = String::with_capacity(s.len());
+
+        for ch in s.chars() {
+            match random.random_range(0..=2) {
+                0 => result.push_str(&ch.to_uppercase().to_string()),
+                1 => result.push_str(&ch.to_lowercase().to_string()),
+                _ => result.push(ch), // leave intact
+            }
+        }
+        result
     }
 
     pub fn random_realistic_unicode_string(random: &mut StdRng) -> String {
-        Self::random_realistic_unicode_string_with_length(random, 20)
+        Self::random_realistic_unicode_string_with_len(random, 20)
     }
 
-    pub fn random_realistic_unicode_string_with_length(
+    pub fn random_realistic_unicode_string_with_len(
         random: &mut StdRng,
-        max_length: i32,
+        max_length: usize,
     ) -> String {
         Self::random_realistic_unicode_string_range(random, 0, max_length)
     }
 
     pub fn random_realistic_unicode_string_range(
         rng: &mut StdRng,
-        min_length: i32,
-        max_length: i32,
+        min_length: usize,
+        max_length: usize,
     ) -> String {
-        let end = rng.random_range(min_length as usize..=max_length as usize);
+        let end = rng.random_range(min_length..=max_length);
 
         // Choose a random Unicode block
         let block = rng.random_range(0..BLOCK_STARTS.len());
@@ -160,10 +301,10 @@ impl TestUtil {
     }
     /// Returns random string, including full unicode range
     pub fn random_unicode_string(random: &mut StdRng) -> String {
-        Self::random_unicode_string_with_length(random, 20)
+        Self::random_unicode_string_with_len(random, 20)
     }
     /// Returns a random string up to a certain length.
-    pub fn random_unicode_string_with_length(random: &mut StdRng, max_length: usize) -> String {
+    pub fn random_unicode_string_with_len(random: &mut StdRng, max_length: usize) -> String {
         let end = random.random_range(0..=max_length);
         if end == 0 {
             return "".to_string();
@@ -231,6 +372,43 @@ impl TestUtil {
             }
         }
     }
+    /// Returns a string that's "regexpish" — it contains many characters
+    /// typically found in regular expressions. If you call this enough
+    /// times, you might get a valid regex!
+    fn random_regexpish_string(random: &mut StdRng) -> String {
+        Self::random_regexpish_string_with_len(random, 20)
+    }
+    const MAX_RECURSION_BOUND: usize = 5;
+
+    /// Returns a string that's "regexpish" — it contains many characters
+    /// typically found in regular expressions.
+    ///
+    /// If you call this enough times, you might get a valid regex!
+    ///
+    /// Note:
+    /// To avoid practically endless backtracking patterns, this replaces `*`
+    /// and `+` operators with bounded repetitions.  
+    /// See LUCENE-4111 for more information.
+    ///
+    /// Parameters:
+    /// - `max_length`: A hint for the maximum length of the regexpish string.
+    ///   The result may exceed it slightly.
+    fn random_regexpish_string_with_len(random: &mut StdRng, max_len: usize) -> String {
+        let count = random.random_range(0..=max_len);
+        let mut s = String::with_capacity(count);
+
+        for _ in 0..count {
+            if random.random_bool(0.5) {
+                // a-z
+                s.push((random.random_range(b'a'..=b'z')) as char);
+            } else {
+                // pick from ops
+                s.push((*OPS.choose(random).unwrap()).parse().unwrap());
+            }
+        }
+        s
+    }
+
     /// Returns a random binary term.
     pub fn random_binary_term<AV: AccessVec<u8>>(rng: &mut StdRng) -> BytesRef<AV> {
         let len = rng.random_range(0..15);
@@ -249,4 +427,95 @@ impl TestUtil {
         b.length = length;
         b
     }
+    fn random_substring(random: &mut StdRng, word_len: usize, simple: bool) -> String {
+        if word_len == 0 {
+            return String::new();
+        }
+
+        let evilness = TestUtil::next_int(random, 0, 20);
+
+        let mut sb = String::new();
+        while sb.chars().count() < word_len {
+            if simple {
+                if random.random_bool(0.5) {
+                    sb.push_str(&Self::random_simple_string_with_len(random, word_len));
+                } else {
+                    sb.push_str(&Self::random_htmlish_string(random, word_len));
+                }
+            } else {
+                match evilness {
+                    0..=9 => sb.push_str(&Self::random_simple_string_with_len(random, word_len)),
+                    10..=14 => {
+                        assert!(sb.is_empty());
+                        sb.push_str(&Self::random_realistic_unicode_string_range(
+                            random, word_len, word_len,
+                        ));
+                    },
+                    16 => sb.push_str(&Self::random_htmlish_string(random, word_len)),
+                    17 => sb.push_str(&Self::random_regexpish_string_with_len(random, word_len)),
+                    _ => sb.push_str(&Self::random_unicode_string_with_len(random, word_len)),
+                }
+            }
+        }
+
+        // truncate to exact length (UTF-16 safe, remove trailing high surrogate if
+        // needed)
+        let mut s: String = sb.chars().take(word_len).collect();
+        if s.encode_utf16()
+            .last()
+            .is_some_and(|x| (0xD800..=0xDBFF).contains(&x))
+        {
+            s = s.chars().take(word_len - 1).collect();
+        }
+
+        if random.random_range(0..17) == 0 {
+            Self::randomly_recase_codepoints(random, &s)
+        } else {
+            s
+        }
+    }
 }
+static OPS: Lazy<Vec<String>> = Lazy::new(|| {
+    vec![
+        ".".to_string(),
+        "?".to_string(),
+        format!("{{0,{}}}", TestUtil::MAX_RECURSION_BOUND), // replaces '*'
+        format!("{{1,{}}}", TestUtil::MAX_RECURSION_BOUND), // replaces '+'
+        "(".to_string(),
+        ")".to_string(),
+        "-".to_string(),
+        "[".to_string(),
+        "]".to_string(),
+        "|".to_string(),
+    ]
+});
+static HTML_CHAR_ENTITIES: Lazy<Vec<&'static str>> = Lazy::new(|| {
+    vec![
+        "AElig", "Aacute", "Acirc", "Agrave", "Alpha", "AMP", "Aring", "Atilde", "Auml", "Beta",
+        "COPY", "Ccedil", "Chi", "Dagger", "Delta", "ETH", "Eacute", "Ecirc", "Egrave", "Epsilon",
+        "Eta", "Euml", "Gamma", "GT", "Iacute", "Icirc", "Igrave", "Iota", "Iuml", "Kappa",
+        "Lambda", "LT", "Mu", "Ntilde", "Nu", "OElig", "Oacute", "Ocirc", "Ograve", "Omega",
+        "Omicron", "Oslash", "Otilde", "Ouml", "Phi", "Pi", "Prime", "Psi", "QUOT", "REG", "Rho",
+        "Scaron", "Sigma", "THORN", "Tau", "Theta", "Uacute", "Ucirc", "Ugrave", "Upsilon", "Uuml",
+        "Xi", "Yacute", "Yuml", "Zeta", "aacute", "acirc", "acute", "aelig", "agrave", "alefsym",
+        "alpha", "amp", "and", "ang", "apos", "aring", "asymp", "atilde", "auml", "bdquo", "beta",
+        "brvbar", "bull", "cap", "ccedil", "cedil", "cent", "chi", "circ", "clubs", "cong", "copy",
+        "crarr", "cup", "curren", "dArr", "dagger", "darr", "deg", "delta", "diams", "divide",
+        "eacute", "ecirc", "egrave", "empty", "emsp", "ensp", "epsilon", "equiv", "eta", "eth",
+        "euml", "euro", "exist", "fnof", "forall", "frac12", "frac14", "frac34", "frasl", "gamma",
+        "ge", "gt", "hArr", "harr", "hearts", "hellip", "iacute", "icirc", "iexcl", "igrave",
+        "image", "infin", "int", "iota", "iquest", "isin", "iuml", "kappa", "lArr", "lambda",
+        "lang", "laquo", "larr", "lceil", "ldquo", "le", "lfloor", "lowast", "loz", "lrm",
+        "lsaquo", "lsquo", "lt", "macr", "mdash", "micro", "middot", "minus", "mu", "nabla",
+        "nbsp", "ndash", "ne", "ni", "not", "notin", "nsub", "ntilde", "nu", "oacute", "ocirc",
+        "oelig", "ograve", "oline", "omega", "omicron", "oplus", "or", "ordf", "ordm", "oslash",
+        "otilde", "otimes", "ouml", "para", "part", "permil", "perp", "phi", "pi", "piv", "plusmn",
+        "pound", "prime", "prod", "prop", "psi", "quot", "rArr", "radic", "rang", "raquo", "rarr",
+        "rceil", "rdquo", "real", "reg", "rfloor", "rho", "rlm", "rsaquo", "rsquo", "sbquo",
+        "scaron", "sdot", "sect", "shy", "sigma", "sigmaf", "sim", "spades", "sub", "sube", "sum",
+        "sup", "sup1", "sup2", "sup3", "supe", "szlig", "tau", "there4", "theta", "thetasym",
+        "thinsp", "thorn", "tilde", "times", "trade", "uArr", "uacute", "uarr", "ucirc", "ugrave",
+        "uml", "upsih", "upsilon", "uuml", "weierp", "xi", "yacute", "yen", "yuml", "zeta", "zwj",
+        "zwnj",
+    ]
+});

@@ -1805,7 +1805,7 @@ pub trait BaseDirectoryTestCase {
         let mut names_len = names.len();
         while names_len < count {
             let name = IndexFileNames::segment_file_name(
-                &TestUtil::random_simple_string_with_length(random, 1, 6),
+                &TestUtil::random_simple_string_range(random, 1, 6),
                 &TestUtil::random_simple_string(random),
                 "test",
             );

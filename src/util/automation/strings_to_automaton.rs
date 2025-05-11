@@ -444,7 +444,7 @@ mod tests {
                     automaton_list.push(Automata::make_binary(&t)?);
                     terms.push(t);
                 } else {
-                    let s = TestUtil::random_realistic_unicode_string_with_length(&mut random, 8);
+                    let s = TestUtil::random_realistic_unicode_string_with_len(&mut random, 8);
                     let t = new_bytes_ref_from_string(&mut random, &s)?;
                     automaton_list.push(Automata::make_string(&s)?);
                     terms.push(t);

@@ -269,7 +269,7 @@ pub(crate) mod tests {
         let mut scratch = IntsRefBuilder::new();
 
         for _ in 0..num_strings {
-            let s = TestUtil::random_simple_string_with_length(&mut random, 1, 200);
+            let s = TestUtil::random_simple_string_range(&mut random, 1, 200);
             Util::get_utf32_with_slice(&s, 0, s.len(), &mut scratch);
             if strings.insert(scratch.to_ints_ref()) {
                 string_list.push(Automata::make_string(&s)?);

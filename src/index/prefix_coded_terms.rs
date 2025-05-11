@@ -315,8 +315,8 @@ mod tests {
         let nterms = at_least(&mut random, 10_000);
 
         for _ in 0..nterms {
-            let field = TestUtil::random_unicode_string_with_length(&mut random, 2);
-            let text = TestUtil::random_unicode_string_with_length(&mut random, 0);
+            let field = TestUtil::random_unicode_string_with_len(&mut random, 2);
+            let text = TestUtil::random_unicode_string_with_len(&mut random, 0);
             let term = Term::from_text(field, &text);
             terms.insert(term);
         }

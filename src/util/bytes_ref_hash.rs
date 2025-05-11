@@ -1028,7 +1028,7 @@ mod tests {
                 let mut str_value;
                 loop {
                     str_value =
-                        TestUtil::random_realistic_unicode_string_with_length(&mut random, 1000);
+                        TestUtil::random_realistic_unicode_string_with_len(&mut random, 1000);
                     if !str_value.is_empty() {
                         break;
                     }
@@ -1068,7 +1068,7 @@ mod tests {
                 let mut str_value;
                 loop {
                     str_value =
-                        TestUtil::random_realistic_unicode_string_with_length(&mut random, 1000);
+                        TestUtil::random_realistic_unicode_string_with_len(&mut random, 1000);
                     if !str_value.is_empty() {
                         break;
                     }
@@ -1117,7 +1117,7 @@ mod tests {
                 let mut str_value;
                 loop {
                     str_value =
-                        TestUtil::random_realistic_unicode_string_with_length(&mut random, 1000);
+                        TestUtil::random_realistic_unicode_string_with_len(&mut random, 1000);
                     if !str_value.is_empty() {
                         break;
                     }
@@ -1167,7 +1167,7 @@ mod tests {
                 let mut str_value;
                 loop {
                     str_value =
-                        TestUtil::random_realistic_unicode_string_with_length(&mut random, 1000);
+                        TestUtil::random_realistic_unicode_string_with_len(&mut random, 1000);
                     if !str_value.is_empty() {
                         break;
                     }
@@ -1220,7 +1220,7 @@ mod tests {
                 let mut str_value;
                 loop {
                     str_value =
-                        TestUtil::random_realistic_unicode_string_with_length(&mut random, 1000);
+                        TestUtil::random_realistic_unicode_string_with_len(&mut random, 1000);
                     if !str_value.is_empty() {
                         break;
                     }
@@ -1267,7 +1267,7 @@ mod tests {
                 let mut str_value;
                 loop {
                     str_value =
-                        TestUtil::random_realistic_unicode_string_with_length(&mut random, 1000);
+                        TestUtil::random_realistic_unicode_string_with_len(&mut random, 1000);
                     if !str_value.is_empty() {
                         break;
                     }
@@ -1444,7 +1444,7 @@ mod tests {
                 let mut str_value;
                 loop {
                     str_value =
-                        TestUtil::random_realistic_unicode_string_with_length(&mut random, 1000);
+                        TestUtil::random_realistic_unicode_string_with_len(&mut random, 1000);
                     if !str_value.is_empty() {
                         break;
                     }
