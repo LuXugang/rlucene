@@ -17,7 +17,6 @@
 use crate::index::BytesRef;
 use crate::util::access::AccessVec;
 use crate::util::array_util::ArrayUtil;
-use crate::util::error::lucene_error::Result;
 use crate::util::ints_ref::IntsRef;
 use crate::util::SliceCopyOps;
 
@@ -72,10 +71,10 @@ where
         self.set_length(0);
     }
     /// Returns the int at the given offset.
-    pub fn int_at(&self, offset: i32) -> Result<i32> {
+    pub fn int_at(&self, offset: i32) -> i32 {
         self.ints_ref
             .ints
-            .access(|ints_bytes| Ok(ints_bytes[offset as usize]))
+            .access(|ints_bytes| ints_bytes[offset as usize])
     }
 
     /// Sets the int at the given offset.

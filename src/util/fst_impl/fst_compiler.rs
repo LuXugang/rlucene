@@ -166,7 +166,7 @@ where
             let is_final = node.is_final || node.num_arcs == 0;
             let label = {
                 let inner = self.inner.borrow();
-                inner.last_input.int_at(prev_idx as i32)?
+                inner.last_input.int_at(prev_idx as i32)
             };
             let (compiled, un_compiled) = self.compile_node(node)?;
             self.frontier[idx] = Some(un_compiled);
@@ -227,7 +227,7 @@ where
             let mut pos1 = 0;
             let mut pos2 = input.offset;
             let pos1_stop = inner.last_input.length().min(input.length);
-            while pos1 < pos1_stop && inner.last_input.int_at(pos1)? == ints[pos2 as usize] {
+            while pos1 < pos1_stop && inner.last_input.int_at(pos1) == ints[pos2 as usize] {
                 pos1 += 1;
                 pos2 += 1;
             }
