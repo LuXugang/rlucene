@@ -17,6 +17,7 @@
 use std::cmp::Ordering;
 use std::fmt::Display;
 use std::hash::Hash;
+use std::rc::Rc;
 
 use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -45,6 +46,12 @@ where
     pub bytes: AV,
     pub offset: usize,
     pub length: usize,
+}
+impl BytesRef<Rc<Vec<u8>>> {
+    /// compare: same bytes reference, same offset, same length
+    pub fn equals(a: &BytesRef<Rc<Vec<u8>>>, b: &BytesRef<Rc<Vec<u8>>>) -> bool {
+        Rc::ptr_eq(&a.bytes, &b.bytes) && a.offset == b.offset && a.length == b.length
+    }
 }
 
 impl<AV> BytesRef<AV>

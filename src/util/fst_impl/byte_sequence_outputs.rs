@@ -37,10 +37,6 @@ impl ByteSequenceOutputs {
     pub fn get() -> &'static ByteSequenceOutputs {
         &SINGLETON
     }
-    // compare: same bytes reference, same offset, same length
-    pub fn equals(a: &BytesRef<Rc<Vec<u8>>>, b: &BytesRef<Rc<Vec<u8>>>) -> bool {
-        Rc::ptr_eq(&a.bytes, &b.bytes) && a.offset == b.offset && a.length == b.length
-    }
 }
 
 impl Clone for ByteSequenceOutputs {
@@ -80,7 +76,7 @@ impl Outputs<BytesRef<Rc<Vec<u8>>>> for ByteSequenceOutputs {
         output: &BytesRef<Rc<Vec<u8>>>,
         inc: &BytesRef<Rc<Vec<u8>>>,
     ) -> BytesRef<Rc<Vec<u8>>> {
-        if ByteSequenceOutputs::equals(inc, &NO_OUTPUT.with(|rc| rc.clone())) {
+        if NO_OUTPUT.with(|rc| BytesRef::equals(inc, rc)) {
             // no prefix removed
             return output.clone();
         }
@@ -117,10 +113,10 @@ impl Outputs<BytesRef<Rc<Vec<u8>>>> for ByteSequenceOutputs {
         output: &BytesRef<Rc<Vec<u8>>>,
     ) -> BytesRef<Rc<Vec<u8>>> {
         let no_output_clone = NO_OUTPUT.with(|rc| rc.clone());
-        if ByteSequenceOutputs::equals(prefix, &no_output_clone) {
+        if NO_OUTPUT.with(|rc| BytesRef::equals(prefix, rc)) {
             return output.clone();
         }
-        if ByteSequenceOutputs::equals(output, &no_output_clone) {
+        if NO_OUTPUT.with(|rc| BytesRef::equals(output, rc)) {
             return prefix.clone();
         }
         debug_assert!(prefix.length > 0);
