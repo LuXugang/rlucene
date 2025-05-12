@@ -824,9 +824,8 @@ pub struct MinMaxDestSorter<'a> {
     transitions: &'a mut [i32],
 }
 impl<'a> MinMaxDestSorter<'a> {
-    fn swap_one(&mut self, i: usize, j: usize) -> Result<()> {
-        self.transitions.swap(i, j);
-        Ok(())
+    fn swap_one(&mut self, i: usize, j: usize) {
+        self.transitions.swap(i, j)
     }
 }
 impl Sorter for MinMaxDestSorter<'_> {
@@ -867,9 +866,10 @@ impl Sorter for MinMaxDestSorter<'_> {
     fn swap(&mut self, i: i32, j: i32) -> Result<()> {
         let i_start = 3 * i as usize;
         let j_start = 3 * j as usize;
-        self.swap_one(i_start, j_start)?;
-        self.swap_one(i_start + 1, j_start + 1)?;
-        self.swap_one(i_start + 2, j_start + 2)
+        self.swap_one(i_start, j_start);
+        self.swap_one(i_start + 1, j_start + 1);
+        self.swap_one(i_start + 2, j_start + 2);
+        Ok(())
     }
 }
 /// Sorts transitions by destination (ascending), then by minimum label
@@ -878,9 +878,8 @@ pub struct DestMinMaxSorter<'a> {
     transitions: &'a mut [i32],
 }
 impl<'a> DestMinMaxSorter<'a> {
-    fn swap_one(&mut self, i: usize, j: usize) -> Result<()> {
-        self.transitions.swap(i, j);
-        Ok(())
+    fn swap_one(&mut self, i: usize, j: usize) {
+        self.transitions.swap(i, j)
     }
 }
 impl Sorter for DestMinMaxSorter<'_> {
@@ -920,9 +919,10 @@ impl Sorter for DestMinMaxSorter<'_> {
     fn swap(&mut self, i: i32, j: i32) -> Result<()> {
         let i_start = (3 * i) as usize;
         let j_start = (3 * j) as usize;
-        self.swap_one(i_start, j_start)?;
-        self.swap_one(i_start + 1, j_start + 1)?;
-        self.swap_one(i_start + 2, j_start + 2)
+        self.swap_one(i_start, j_start);
+        self.swap_one(i_start + 1, j_start + 1);
+        self.swap_one(i_start + 2, j_start + 2);
+        Ok(())
     }
 }
 #[cfg(test)]
