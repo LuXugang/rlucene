@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -27,7 +28,7 @@ where
     I: IndexInput,
     P: PostingsReaderBase<I>,
 {
-    terms_reader: TermsReader<I, P>,
+    terms_reader: Rc<RefCell<TermsReader<I, P>>>,
     field_reader: FieldMapWrapper<I, P>,
 }
 pub struct FieldMapWrapper<I, P>

@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use std::cell::RefCell;
+use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 
 use crate::codecs::lucene90::block_tree::field_reader::FieldReader;
@@ -22,7 +23,8 @@ use crate::codecs::lucene90::block_tree::lucene90_block_tree_terms_reader::lucen
 use crate::codecs::lucene90::block_tree::segment_terms_enum_frame::SegmentTermsEnumFrame;
 use crate::codecs::postings_reader_base::PostingsReaderBase;
 use crate::index::{BytesRef, BytesRefBuilder};
-use crate::store::{ByteArrayDataInput, IndexInput};
+use crate::store::{ByteArrayDataInput, DataInput, IndexInput};
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fst_impl::fst::Arc;
 use crate::util::fst_impl::fst_reader::FstReader;
 
@@ -116,5 +118,32 @@ impl OutputAccumulator {
         let length = output.length - self.index;
 
         floor_data.reset_with_range(output.bytes, start, length);
+    }
+}
+
+impl Display for OutputAccumulator {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "OutputAccumulator")
+    }
+}
+
+impl DataInput for OutputAccumulator {
+    fn read_byte(&mut self) -> Result<u8> {
+        if self.index >= self.current.length {
+            self.output_index += 1;
+            self.current = self.outputs[self.output_index].clone();
+            self.index = 0;
+        }
+        let byte = self.current.bytes[self.current.offset + self.index];
+        self.index += 1;
+        Ok(byte)
+    }
+
+    fn read_bytes(&mut self, _b: &mut [u8], _offset: i32, _len: i32) -> Result<()> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
+    fn skip_bytes(&mut self, _num_bytes: i64) -> Result<()> {
+        Err(LuceneError::unsupported_operation(""))
     }
 }

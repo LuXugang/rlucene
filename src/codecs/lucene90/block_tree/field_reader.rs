@@ -220,14 +220,14 @@ where
 
     fn get_min<'a>(
         &'a self,
-        iterator: &'a mut impl TermsEnum<Vec<u8>>,
+        _iterator: &'a mut impl TermsEnum<Vec<u8>>,
     ) -> Result<Option<Cow<'a, BytesRef<Vec<u8>>>>> {
         Ok(Option::from(Cow::Borrowed(&self.min_term)))
     }
 
     fn get_max<'a>(
         &'a self,
-        iterator: &'a mut impl TermsEnum<Vec<u8>>,
+        _iterator: &'a mut impl TermsEnum<Vec<u8>>,
     ) -> Result<Option<Cow<'a, BytesRef<Vec<u8>>>>> {
         Ok(Option::from(Cow::Borrowed(&self.max_term)))
     }
