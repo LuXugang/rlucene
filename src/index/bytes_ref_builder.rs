@@ -172,7 +172,7 @@ where
         &mut self.bytes_ref
     }
     /// # Note
-    /// This method should be only called with BytesRef<Vec<u8>>
+    /// This method should be only called with `BytesRef<Vec<u8>>`
     pub fn get_bytes_owner(&mut self) -> BytesRef<AV> {
         std::mem::take(&mut self.bytes_ref)
     }

@@ -35,7 +35,7 @@ use crate::util::{BitSetExt, SliceCopyOps, Sorter};
 /// [`add_transition`](Automaton::add_transition).
 ///
 /// Each state must have all of its transitions added at once; if this is too
-/// restrictive, use [`Builder`](Builder) instead. State `0` is always the
+/// restrictive, use [`Builder`] instead. State `0` is always the
 /// initial state.
 ///
 /// Once a state is finished—either because you've started adding transitions to
@@ -181,7 +181,7 @@ impl Automaton {
         self.states[2 * self.cur_state as usize + 1] += 1;
         Ok(())
     }
-    /// Add a [virtual] epsilon transition between `source` and `dest`.
+    /// Add a `virtual` epsilon transition between `source` and `dest`.
     /// The destination state must already have all transitions added,
     /// because this method simply copies those same transitions over to the
     /// source.

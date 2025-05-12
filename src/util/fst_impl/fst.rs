@@ -525,7 +525,8 @@ where
 
     /// Reads the last arc of a direct addressing node.
     ///
-    /// This method is equivalent to calling [`read_arc_by_direct_addressing`]
+    /// This method is equivalent to calling
+    /// [`read_arc_by_direct_addressing`](Self::read_arc_by_direct_addressing)
     /// with `range_index` equal to `arc.num_arcs() - 1`, but it is faster.
     pub fn read_last_arc_by_direct_addressing(
         &self,

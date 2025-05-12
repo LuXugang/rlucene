@@ -95,10 +95,10 @@ where
         Ok(-(low + 1)) // key not found
     }
     type TermsEnum: TermsEnum<AV>;
-    /// Returns a [`TermsEnum`](crate::index::terms_enum::TermsEnum) over the
+    /// Returns a [`TermsEnum`] over the
     /// values. The enum supports
-    /// [`TermsEnum::ord()`](crate::index::terms_enum::TermsEnum::ord) and
-    /// [`TermsEnum::seek_exact_with_ord()`](crate::index::terms_enum::TermsEnum::seek_exact_with_ord).
+    /// [`TermsEnum::ord`] and
+    /// [`TermsEnum::seek_exact_with_ord`].
     fn terms_enum(&mut self) -> Result<Self::TermsEnum> {
         Err(LuceneError::not_implemented(""))
     }

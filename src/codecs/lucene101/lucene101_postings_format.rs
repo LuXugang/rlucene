@@ -28,15 +28,15 @@ impl Lucene101PostingsFormat {
     /// encoded.
     pub const META_EXTENSION: &'static str = "psm";
     /// Filename extension for document number, frequencies, and skip data.
-    /// See chapter: [Frequencies and Skip Data]
+    /// See chapter: `Frequencies and Skip Data`
     pub const DOC_EXTENSION: &'static str = "doc";
 
     /// Filename extension for positions.
-    /// See chapter: [Positions]
+    /// See chapter: `Positions`
     pub const POS_EXTENSION: &'static str = "pos";
 
     /// Filename extension for payloads and offsets.
-    /// See chapter: [Payloads and Offsets]
+    /// See chapter: `Payloads and Offsets`
     pub const PAY_EXTENSION: &'static str = "pay";
 
     /// Size of blocks.

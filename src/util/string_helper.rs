@@ -278,8 +278,8 @@ impl StringHelper {
     /// Converts each `i32` in the incoming [`IntsRef`] to a `u8` in the
     /// returned [`BytesRef`].
     ///
-    /// Throws an [`IllegalArgument`] if any int value is out of bounds for a
-    /// byte.
+    /// Throws an [`IllegalArgument`](crate::util::error::IllegalArgumentError)
+    /// if any int value is out of bounds for a byte.
     pub fn ints_ref_to_bytes_ref<AV: AccessVec<i32>>(
         ints: &IntsRef<AV>,
     ) -> Result<BytesRef<Vec<u8>>> {

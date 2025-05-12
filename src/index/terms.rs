@@ -88,13 +88,13 @@ pub trait Terms<AV: AccessVec<u8>> {
     fn size(&self) -> Result<i64>;
 
     /// Returns the sum of
-    /// [`TermsEnum::total_term_freq`](TermsEnum::total_term_freq)
+    /// [`TermsEnum::total_term_freq`]
     /// for all terms in this field. Note that, like other term measures,
     /// this value does **not** take deleted documents into account.
     fn get_sum_total_term_freq(&self) -> Result<i64>;
 
     /// Returns the sum of
-    /// [`TermsEnum::doc_freq`](TermsEnum::doc_freq)
+    /// [`TermsEnum::doc_freq`]
     /// for all terms in this field. Note that, like other term measures,
     /// this value does **not** take deleted documents into account.
     fn get_sum_doc_freq(&self) -> Result<i64>;

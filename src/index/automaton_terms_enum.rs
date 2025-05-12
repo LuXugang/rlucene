@@ -26,7 +26,7 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::ints_ref_builder::IntsRefBuilder;
 use crate::util::{SliceCopyOps, StringHelper, ToInt};
 
-/// A [`FilteredTermsEnum`] that enumerates terms based on what is accepted by a
+/// A [`FilteredTermsEnum`](crate::index::filtered_terms_enum::FilteredTermsEnum) that enumerates terms based on what is accepted by a
 /// DFA.
 ///
 /// The algorithm works as follows:

@@ -81,8 +81,8 @@ use crate::util::error::lucene_error::Result;
 ///                 |  \\<Unicode character>          (an escaped character)
 /// ```
 ///
-/// Productions marked [OPTIONAL] are only allowed if specified by the syntax
-/// flags passed to the [`RegExp`] constructor.
+/// Productions marked [OPTIONAL](RegExpKind::Optional) are only allowed if
+/// specified by the syntax flags passed to the [`RegExp`] constructor.
 ///
 /// Reserved characters used in the enabled syntax must be escaped with
 /// backslash (`\`) or double-quotes (`"..."`). This escaping is also required

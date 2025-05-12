@@ -77,7 +77,7 @@ where
     ) -> Result<Option<PostingsEnums<I>>>;
 
     type ImpactsEnum: ImpactsEnum;
-    /// Return an [`ImpactsEnum`](TermsEnum::ImpactsEnum) that computes impacts
+    /// Return an [`ImpactsEnum`] that computes impacts
     /// with `scorer`.
     ///
     /// See also:

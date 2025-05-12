@@ -45,7 +45,7 @@ pub trait Comparator<T> {
     ///
     /// Most comparator implementations are infallible. However, to support
     /// advanced use cases (e.g. pluggable or script-based comparators),
-    /// the main [`compare`] method returns a `Result<i32>`.
+    /// the main [`compare`](Self::compare) method returns a `Result<i32>`.
     /// This method provides a cleaner, ergonomic way to call the comparator
     /// in contexts where no error is expected.
     fn compare_unchecked(&self, a: &T, b: &T) -> i32 {
