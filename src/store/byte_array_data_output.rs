@@ -28,6 +28,7 @@ use crate::util::SliceCopyOps;
 ///
 /// # Note
 /// This is an experimental API.
+#[derive(Default)]
 pub struct ByteArrayDataOutput<AV>
 where
     AV: AccessVec<u8>,
@@ -35,15 +36,6 @@ where
     pub bytes: AV,
     pos: usize,
     limit: usize,
-}
-
-impl<AV> Default for ByteArrayDataOutput<AV>
-where
-    AV: AccessVec<u8>,
-{
-    fn default() -> Self {
-        Self::new()
-    }
 }
 
 impl<AV> ByteArrayDataOutput<AV>
