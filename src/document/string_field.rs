@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use std::fmt::{Display, Formatter};
+use std::rc::Rc;
 use std::sync::Arc;
 
 use once_cell::sync::Lazy;
@@ -65,7 +66,7 @@ static TYPE_STORED: Lazy<Arc<FieldType>> = Lazy::new(|| {
 /// separately to the document.
 pub struct StringField {
     parent_field: Field,
-    binary_value: Arc<BytesRef<Vec<u8>>>,
+    binary_value: BytesRef<Rc<Vec<u8>>>,
     stored_value: Option<StoredValue>,
 }
 #[allow(unused)]
@@ -84,13 +85,13 @@ impl StringField {
         } else {
             Arc::clone(&TYPE_NOT_STORED)
         };
-        let value_str = Arc::new(value.to_string());
+        let value_str = Rc::new(value.to_string());
         let parent_field = Field::with_string(name, value_str.clone(), field_type.clone())?;
-        let binary_value = Arc::new(BytesRef::from_string(value));
+        let binary_value = BytesRef::from_string(value);
         let stored_value = if store {
             None
         } else {
-            Option::from(StoredValue::new_string(value_str.clone()))
+            Option::from(StoredValue::new_string(value_str))
         };
         Ok(Self {
             parent_field,
@@ -107,7 +108,7 @@ impl StringField {
     ///   must not be modified until the document(s) holding it have been
     ///   indexed.
     /// - `stored`: `Store::Yes` if the content should also be stored.
-    pub fn with_bytes_ref(name: &str, value: Arc<BytesRef<Vec<u8>>>, store: Store) -> Result<Self> {
+    pub fn with_bytes_ref(name: &str, value: BytesRef<Rc<Vec<u8>>>, store: Store) -> Result<Self> {
         let store = store.into();
         let field_type = if store {
             Arc::clone(&TYPE_STORED)
@@ -129,7 +130,7 @@ impl StringField {
 }
 
 impl FieldBase for StringField {
-    fn set_bytes_value(&mut self, value: Arc<BytesRef<Vec<u8>>>) -> Result<()> {
+    fn set_bytes_value(&mut self, value: BytesRef<Rc<Vec<u8>>>) -> Result<()> {
         self.parent_field.set_bytes_value(value.clone())?;
         if let Some(ref mut stored_value) = self.stored_value {
             stored_value.set_binary_value(value.clone())?;
@@ -139,12 +140,12 @@ impl FieldBase for StringField {
     }
 
     fn set_string_value(&mut self, value: &str) -> Result<()> {
-        let value_str = Arc::new(value.to_string());
+        let value_str = Rc::new(value.to_string());
         self.parent_field.set_string_value(value_str.clone())?;
         if let Some(ref mut stored_value) = self.stored_value {
             stored_value.set_string_value(value_str.clone())?;
         }
-        self.binary_value = Arc::new(BytesRef::from_string(value));
+        self.binary_value = BytesRef::from_string(value);
         Ok(())
     }
 }
@@ -174,11 +175,11 @@ impl IndexableField for StringField {
         self.parent_field.token_stream(analyzer, reuse)
     }
 
-    fn binary_value(&self) -> Result<Option<Arc<BytesRef<Vec<u8>>>>> {
+    fn binary_value(&self) -> Result<Option<BytesRef<Rc<Vec<u8>>>>> {
         Ok(Some(self.binary_value.clone()))
     }
 
-    fn string_value(&self) -> Result<Option<Arc<String>>> {
+    fn string_value(&self) -> Result<Option<Rc<String>>> {
         self.parent_field.string_value()
     }
 

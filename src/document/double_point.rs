@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use std::fmt;
+use std::rc::Rc;
 use std::sync::Arc;
 
 use crate::analysis::analyzer::Analyzer;
@@ -39,7 +40,7 @@ impl DoublePoint {
     pub fn new(name: &str, point: &[f64]) -> Result<DoublePoint> {
         let packed = Self::pack(point)?;
         let len = packed.len();
-        let value = Arc::new(BytesRef::from_slice(packed, 0, len));
+        let value = BytesRef::from_slice(Rc::new(packed), 0, len);
         debug_assert!(len <= i32::MAX as usize);
         let field_type = Arc::new(Self::get_type(point.len() as i32)?);
         let parent_field = Field::with_bytes_ref(name, value, field_type.clone())?;
@@ -64,7 +65,7 @@ impl DoublePoint {
         }
         let packed = Self::pack(point)?;
         let len = packed.len();
-        let value = Arc::new(BytesRef::from_slice(packed, 0, len));
+        let value = BytesRef::from_slice(Rc::new(packed), 0, len);
         debug_assert!(len <= i32::MAX as usize);
         self.parent_field.fields_data = Option::from(FieldDataEnum::Binary(value));
         Ok(())
@@ -119,11 +120,11 @@ impl IndexableField for DoublePoint {
         self.parent_field.token_stream(analyzer, reuse)
     }
 
-    fn binary_value(&self) -> Result<Option<Arc<BytesRef<Vec<u8>>>>> {
+    fn binary_value(&self) -> Result<Option<BytesRef<Rc<Vec<u8>>>>> {
         self.parent_field.binary_value()
     }
 
-    fn string_value(&self) -> Result<Option<Arc<String>>> {
+    fn string_value(&self) -> Result<Option<Rc<String>>> {
         self.parent_field.string_value()
     }
 

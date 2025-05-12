@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use std::fmt;
-use std::sync::Arc;
+use std::rc::Rc;
 
 use crate::index::BytesRef;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -34,9 +34,9 @@ pub enum StoredValue {
     /// Type of double values.
     Double(f64),
     /// Type of binary values.
-    Binary(Arc<BytesRef<Vec<u8>>>),
+    Binary(BytesRef<Rc<Vec<u8>>>),
     /// Type of string values.
-    String(Arc<String>),
+    String(Rc<String>),
 }
 
 /// Type of a [`StoredValue`].
@@ -92,12 +92,12 @@ impl StoredValue {
     }
 
     /// Ctor for binary values.
-    pub fn new_binary(value: Arc<BytesRef<Vec<u8>>>) -> Self {
+    pub fn new_binary(value: BytesRef<Rc<Vec<u8>>>) -> Self {
         StoredValue::Binary(value)
     }
 
     /// Ctor for string values.
-    pub fn new_string(value: Arc<String>) -> Self {
+    pub fn new_string(value: Rc<String>) -> Self {
         StoredValue::String(value)
     }
 
@@ -166,7 +166,7 @@ impl StoredValue {
     }
 
     /// Set a binary value.
-    pub fn set_binary_value(&mut self, value: Arc<BytesRef<Vec<u8>>>) -> Result<()> {
+    pub fn set_binary_value(&mut self, value: BytesRef<Rc<Vec<u8>>>) -> Result<()> {
         if let StoredValue::Binary(ref mut v) = self {
             *v = value;
             Ok(())
@@ -179,7 +179,7 @@ impl StoredValue {
     }
 
     /// Set a string value.
-    pub fn set_string_value(&mut self, value: Arc<String>) -> Result<()> {
+    pub fn set_string_value(&mut self, value: Rc<String>) -> Result<()> {
         if let StoredValue::String(ref mut v) = self {
             *v = value;
             Ok(())
@@ -240,7 +240,7 @@ impl StoredValue {
     }
 
     /// Retrieve a binary value.
-    pub fn get_binary_value(&self) -> Result<&BytesRef<Vec<u8>>> {
+    pub fn get_binary_value(&self) -> Result<&BytesRef<Rc<Vec<u8>>>> {
         if let StoredValue::Binary(ref v) = self {
             Ok(v)
         } else {

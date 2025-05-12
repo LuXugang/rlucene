@@ -16,6 +16,7 @@
  */
 use std::fmt::{Display, Formatter};
 use std::io::Cursor;
+use std::rc::Rc;
 use std::sync::Arc;
 
 use crate::analysis::analyzer::Analyzer;
@@ -84,7 +85,7 @@ impl IndexableField for Fields {
         }
     }
 
-    fn binary_value(&self) -> Result<Option<Arc<BytesRef<Vec<u8>>>>> {
+    fn binary_value(&self) -> Result<Option<BytesRef<Rc<Vec<u8>>>>> {
         match self {
             Fields::Field(f) => f.binary_value(),
             Fields::Text(f) => f.binary_value(),
@@ -93,7 +94,7 @@ impl IndexableField for Fields {
         }
     }
 
-    fn string_value(&self) -> Result<Option<Arc<String>>> {
+    fn string_value(&self) -> Result<Option<Rc<String>>> {
         match self {
             Fields::Field(f) => f.string_value(),
             Fields::Text(f) => f.string_value(),
@@ -102,7 +103,7 @@ impl IndexableField for Fields {
         }
     }
 
-    fn get_char_sequence_value(&self) -> Result<Option<Arc<String>>> {
+    fn get_char_sequence_value(&self) -> Result<Option<Rc<String>>> {
         match self {
             Fields::Field(f) => f.get_char_sequence_value(),
             Fields::Text(f) => f.get_char_sequence_value(),

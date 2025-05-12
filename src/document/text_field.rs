@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use std::fmt;
+use std::rc::Rc;
 use std::sync::Arc;
 
 use crate::analysis::analyzer::Analyzer;
@@ -92,7 +93,7 @@ impl TextField {
     /// - `store`: `Store::Yes` if the content should also be stored.
     pub fn with_string(name: &str, value: &str, store: Store) -> Result<Self> {
         let store = store.into();
-        let value_str = Arc::new(value.to_string());
+        let value_str = Rc::new(value.to_string());
         let field_type = if store {
             Arc::clone(&text::TYPE_STORED)
         } else {
@@ -125,7 +126,7 @@ impl TextField {
 }
 impl FieldBase for TextField {
     fn set_string_value(&mut self, value: &str) -> Result<()> {
-        let value_str = Arc::new(value.to_string());
+        let value_str = Rc::new(value.to_string());
         self.parent_field.set_string_value(value_str.clone())?;
         if let Some(ref mut sv) = self.stored_value {
             sv.set_string_value(value_str)?;
@@ -152,15 +153,15 @@ impl IndexableField for TextField {
         self.parent_field.token_stream(analyzer, reuse)
     }
 
-    fn binary_value(&self) -> Result<Option<Arc<BytesRef<Vec<u8>>>>> {
+    fn binary_value(&self) -> Result<Option<BytesRef<Rc<Vec<u8>>>>> {
         self.parent_field.binary_value()
     }
 
-    fn string_value(&self) -> Result<Option<Arc<String>>> {
+    fn string_value(&self) -> Result<Option<Rc<String>>> {
         self.parent_field.string_value()
     }
 
-    fn get_char_sequence_value(&self) -> Result<Option<Arc<String>>> {
+    fn get_char_sequence_value(&self) -> Result<Option<Rc<String>>> {
         self.parent_field.get_char_sequence_value()
     }
 

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use std::fmt;
-use std::sync::Arc;
+use std::rc::Rc;
 use std::vec::IntoIter;
 
 use crate::document::fields::Fields;
@@ -97,7 +97,7 @@ impl Document {
     ///
     /// # Returns
     /// A `Vec<Arc<BytesRef>>` of binary field values.
-    pub fn get_binary_values(&self, name: &str) -> Result<Vec<Arc<BytesRef<Vec<u8>>>>> {
+    pub fn get_binary_values(&self, name: &str) -> Result<Vec<BytesRef<Rc<Vec<u8>>>>> {
         let mut result = Vec::new();
 
         for field in &self.fields {
@@ -122,7 +122,7 @@ impl Document {
     /// # Returns
     /// A `Option<Arc<BytesRef>>` containing the binary field value, or `None`
     /// if no matching field is found.
-    pub fn get_binary_value(&self, name: &str) -> Result<Option<Arc<BytesRef<Vec<u8>>>>> {
+    pub fn get_binary_value(&self, name: &str) -> Result<Option<BytesRef<Rc<Vec<u8>>>>> {
         for field in &self.fields {
             if field.name() == name {
                 return match field.binary_value() {
@@ -186,7 +186,7 @@ impl Document {
     /// # Returns
     /// A `Vec<Arc<String>`, which is an empty vector if no matching fields are
     /// found.
-    pub fn get_values(&self, name: &str) -> Result<Vec<Arc<String>>> {
+    pub fn get_values(&self, name: &str) -> Result<Vec<Rc<String>>> {
         let mut result = Vec::new();
         for field in &self.fields {
             if field.name() == name {
@@ -212,7 +212,7 @@ impl Document {
     /// # Returns
     /// An `Option<Arc<String>>`,  `None` means no string value is found (e.g.,
     /// for binary fields).
-    pub fn get(&self, name: &str) -> Result<Option<Arc<String>>> {
+    pub fn get(&self, name: &str) -> Result<Option<Rc<String>>> {
         for field in &self.fields {
             if field.name() == name {
                 return match field.string_value() {
@@ -254,6 +254,7 @@ impl IntoIterator for Document {
 
 #[cfg(test)]
 mod tests {
+    use std::rc::Rc;
     use std::sync::Arc;
 
     use crate::document::document::Document;
@@ -287,7 +288,7 @@ mod tests {
         let ft_arc = Arc::new(ft);
 
         let string_fld =
-            Field::with_string("string", Arc::new(binary_val.to_string()), ft_arc.clone())?;
+            Field::with_string("string", Rc::new(binary_val.to_string()), ft_arc.clone())?;
         let binary_fld = StoredField::with_binary("binary", binary_val.as_bytes().to_vec())?;
         let binary_fld2 = StoredField::with_binary("binary", binary_val2.as_bytes().to_vec())?;
 
@@ -449,24 +450,24 @@ mod tests {
         doc.add(TextField::with_string("text", "test2", Store::Yes)?);
         doc.add(Field::with_string(
             "unindexed",
-            Arc::new("test1".to_string()),
+            Rc::new("test1".to_string()),
             stored.clone(),
         )?);
         doc.add(Field::with_string(
             "unindexed",
-            Arc::new("test2".to_string()),
+            Rc::new("test2".to_string()),
             stored.clone(),
         )?);
         doc.add(TextField::with_string("unstored", "test1", Store::No)?);
         doc.add(TextField::with_string("unstored", "test2", Store::No)?);
         doc.add(Field::with_string(
             "indexed_not_tokenized",
-            Arc::new("test1".to_string()),
+            Rc::new("test1".to_string()),
             indexed_not_tokenized.clone(),
         )?);
         doc.add(Field::with_string(
             "indexed_not_tokenized",
-            Arc::new("test2".to_string()),
+            Rc::new("test2".to_string()),
             indexed_not_tokenized.clone(),
         )?);
         Ok(doc)
@@ -489,38 +490,38 @@ mod tests {
 
         assert_eq!(
             keyword_field_values[0].string_value()?,
-            Some(Arc::new("test1".to_string()))
+            Some(Rc::new("test1".to_string()))
         );
         assert_eq!(
             keyword_field_values[1].string_value()?,
-            Some(Arc::new("test2".to_string()))
+            Some(Rc::new("test2".to_string()))
         );
         assert_eq!(
             text_field_values[0].string_value()?,
-            Some(Arc::new("test1".to_string()))
+            Some(Rc::new("test1".to_string()))
         );
         assert_eq!(
             text_field_values[1].string_value()?,
-            Some(Arc::new("test2".to_string()))
+            Some(Rc::new("test2".to_string()))
         );
         assert_eq!(
             unindexed_field_values[0].string_value()?,
-            Some(Arc::new("test1".to_string()))
+            Some(Rc::new("test1".to_string()))
         );
         assert_eq!(
             unindexed_field_values[1].string_value()?,
-            Some(Arc::new("test2".to_string()))
+            Some(Rc::new("test2".to_string()))
         );
         // this test cannot work for documents retrieved from the index
         // since unstored fields will obviously not be returned
         if !from_index {
             assert_eq!(
                 unstored_field_values[0].string_value()?,
-                Some(Arc::new("test1".to_string()))
+                Some(Rc::new("test1".to_string()))
             );
             assert_eq!(
                 unstored_field_values[1].string_value()?,
-                Some(Arc::new("test2".to_string()))
+                Some(Rc::new("test2".to_string()))
             );
         }
 

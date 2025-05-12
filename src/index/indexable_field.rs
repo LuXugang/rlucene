@@ -17,7 +17,7 @@
 // TODO: how to handle versioning here...?
 
 use std::fmt::Display;
-use std::sync::Arc;
+use std::rc::Rc;
 
 use crate::analysis::analyzer::Analyzer;
 use crate::analysis::token_stream::TokenStream;
@@ -62,13 +62,12 @@ pub trait IndexableField: Display {
         _reuse: Option<&impl TokenStream>,
     ) -> Result<TokenStreamEnum>;
     /// Non-null if this field has a binary value.
-    // TODO: 返回值改成Result<Option<BytesRef<Arc<Vec<u8>>>>>
-    fn binary_value(&self) -> Result<Option<Arc<BytesRef<Vec<u8>>>>>;
+    fn binary_value(&self) -> Result<Option<BytesRef<Rc<Vec<u8>>>>>;
 
     /// Non-null if this field has a string value.
-    fn string_value(&self) -> Result<Option<Arc<String>>>;
+    fn string_value(&self) -> Result<Option<Rc<String>>>;
     /// Non-null if this field has a string value.
-    fn get_char_sequence_value(&self) -> Result<Option<Arc<String>>> {
+    fn get_char_sequence_value(&self) -> Result<Option<Rc<String>>> {
         self.string_value()
     }
 

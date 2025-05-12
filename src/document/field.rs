@@ -16,6 +16,7 @@
  */
 use std::fmt;
 use std::fmt::{Debug, Display};
+use std::rc::Rc;
 use std::sync::Arc;
 
 use crate::analysis::analyzer::Analyzer;
@@ -171,7 +172,7 @@ impl Field {
         value: Vec<u8>,
         indexable_field_type: Arc<FieldType>,
     ) -> Result<Self> {
-        let len = value.len() as i32;
+        let len = value.len();
         Self::with_binary_range(name, value, 0, len, indexable_field_type)
     }
     /// Creates a field with a binary value.
@@ -192,15 +193,11 @@ impl Field {
     pub fn with_binary_range(
         name: &str,
         value: Vec<u8>,
-        offset: i32,
-        length: i32,
+        offset: usize,
+        length: usize,
         indexable_field_type: Arc<FieldType>,
     ) -> Result<Self> {
-        let value = Arc::new(BytesRef::from_slice(
-            value,
-            offset as usize,
-            length as usize,
-        ));
+        let value = BytesRef::from_slice(Rc::new(value), offset, length);
         Self::with_bytes_ref(name, value, indexable_field_type)
     }
     /// Creates a field with a binary value.
@@ -218,7 +215,7 @@ impl Field {
     /// - Returns an error if the field's type is `indexed()`.
     pub fn with_bytes_ref(
         name: &str,
-        bytes: Arc<BytesRef<Vec<u8>>>,
+        bytes: BytesRef<Rc<Vec<u8>>>,
         indexable_field_type: Arc<FieldType>,
     ) -> Result<Self> {
         if indexable_field_type
@@ -265,7 +262,7 @@ impl Field {
     ///   is `true`.
     pub fn with_string(
         name: &str,
-        value: Arc<String>,
+        value: Rc<String>,
         indexable_field_type: Arc<FieldType>,
     ) -> Result<Self> {
         if !indexable_field_type.stored()
@@ -303,7 +300,7 @@ impl Field {
     /// # Note
     /// Each `Field` instance should only be used once within a single
     /// `Document` instance. See [ImproveIndexingSpeed](http://wiki.apache.org/lucene-java/ImproveIndexingSpeed) for details.
-    pub fn set_string_value(&mut self, value: Arc<String>) -> Result<()> {
+    pub fn set_string_value(&mut self, value: Rc<String>) -> Result<()> {
         match &self.fields_data {
             Some(FieldDataEnum::String(_)) => {},
             _ => {
@@ -334,14 +331,14 @@ impl Field {
         Ok(())
     }
     pub fn set_vec_value(&mut self, value: Vec<u8>) -> Result<()> {
-        self.set_bytes_value(Arc::new(BytesRef::from_bytes(value)))
+        self.set_bytes_value(BytesRef::from_bytes(Rc::new(value)))
     }
     /// Expert: changes the value of this field. See
     /// [`set_string_value`](Field::set_string_value).
     ///
     /// NOTE: the provided [`BytesRef`] is not copied, so be sure not to change
     /// it until you're done with this field.
-    pub fn set_bytes_value(&mut self, value: Arc<BytesRef<Vec<u8>>>) -> Result<()> {
+    pub fn set_bytes_value(&mut self, value: BytesRef<Rc<Vec<u8>>>) -> Result<()> {
         match &self.fields_data {
             Some(FieldDataEnum::Binary(_)) => {},
             _ => {
@@ -484,7 +481,7 @@ impl IndexableField for Field {
         todo!()
     }
 
-    fn binary_value(&self) -> Result<Option<Arc<BytesRef<Vec<u8>>>>> {
+    fn binary_value(&self) -> Result<Option<BytesRef<Rc<Vec<u8>>>>> {
         if let Some(FieldDataEnum::Binary(ref bytes)) = &self.fields_data {
             Ok(Some(bytes.clone()))
         } else {
@@ -497,17 +494,17 @@ impl IndexableField for Field {
     ///
     /// Exactly one of `string_value()`, `reader_value()`, or `binary_value()`
     /// must be set.
-    fn string_value(&self) -> Result<Option<Arc<String>>> {
+    fn string_value(&self) -> Result<Option<Rc<String>>> {
         if let Some(FieldDataEnum::String(ref s)) = &self.fields_data {
             Ok(Some(s.clone()))
         } else if let Some(FieldDataEnum::Number(val)) = &self.fields_data {
-            Ok(Some(Arc::from(val.as_string())))
+            Ok(Some(Rc::from(val.as_string())))
         } else {
             Ok(None)
         }
     }
 
-    fn get_char_sequence_value(&self) -> Result<Option<Arc<String>>> {
+    fn get_char_sequence_value(&self) -> Result<Option<Rc<String>>> {
         if let Some(FieldDataEnum::String(ref s)) = &self.fields_data {
             Ok(Some(s.clone()))
         } else {
@@ -574,7 +571,7 @@ impl Display for Field {
 }
 
 pub trait FieldBase {
-    fn set_bytes_value(&mut self, _value: Arc<BytesRef<Vec<u8>>>) -> Result<()> {
+    fn set_bytes_value(&mut self, _value: BytesRef<Rc<Vec<u8>>>) -> Result<()> {
         Err(LuceneError::not_implemented(
             "set_bytes_value is not implemented",
         ))
@@ -645,14 +642,15 @@ impl From<Store> for bool {
 #[derive(Debug, Clone)]
 pub enum FieldDataEnum {
     Number(Number),
-    Binary(Arc<BytesRef<Vec<u8>>>),
-    String(Arc<String>),
+    Binary(BytesRef<Rc<Vec<u8>>>),
+    String(Rc<String>),
     Reader(ReaderEnum),
     TokenStream(TokenStreamEnum),
 }
 
 #[cfg(test)]
 mod tests {
+    use std::rc::Rc;
     use std::sync::Arc;
 
     use crate::analysis::dummy::dummy_token_stream::DummyTokenStream;
@@ -905,11 +903,11 @@ mod tests {
         f.set_byte_value(10)
     }
     fn try_set_bytes_value<F: FieldBase>(f: &mut F) -> Result<()> {
-        f.set_bytes_value(Arc::new(BytesRef::from_bytes(vec![5, 5])))
+        f.set_bytes_value(BytesRef::from_bytes(Rc::new(vec![5, 5])))
     }
 
     fn try_set_bytes_ref_value<F: FieldBase>(f: &mut F) -> Result<()> {
-        f.set_bytes_value(Arc::new(BytesRef::from_string("bogus")))
+        f.set_bytes_value(BytesRef::from_string("bogus"))
     }
 
     fn try_set_double_value<F: FieldBase>(f: &mut F) -> Result<()> {
@@ -949,7 +947,7 @@ mod tests {
     #[test]
     fn test_disabled_field() -> Result<()> {
         let ft = FieldType::new();
-        let result = Field::with_string("foo", Arc::new("".to_string()), Arc::new(ft));
+        let result = Field::with_string("foo", Rc::new("".to_string()), Arc::new(ft));
         assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
         Ok(())
     }
@@ -958,7 +956,7 @@ mod tests {
         let mut ft = FieldType::new();
         ft.set_tokenized(true)?;
         ft.set_index_options(IndexOptions::DOCS)?;
-        let result = Field::with_bytes_ref("foo", Arc::new(BytesRef::new()), Arc::new(ft));
+        let result = Field::with_bytes_ref("foo", BytesRef::new(), Arc::new(ft));
         assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
         Ok(())
     }
@@ -967,7 +965,7 @@ mod tests {
         let mut ft = FieldType::new();
         ft.set_tokenized(false)?;
         ft.set_index_options(IndexOptions::DocsAndFreqsAndPositionsAndOffsets)?;
-        let result = Field::with_bytes_ref("foo", Arc::new(BytesRef::new()), Arc::new(ft));
+        let result = Field::with_bytes_ref("foo", BytesRef::new(), Arc::new(ft));
         assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
         Ok(())
     }
@@ -978,7 +976,7 @@ mod tests {
         ft.set_store_term_vectors(true)?;
         ft.set_store_term_vector_offsets(true)?;
         ft.set_store_term_vector_offsets(true)?;
-        let result = Field::with_bytes_ref("foo", Arc::new(BytesRef::new()), Arc::new(ft));
+        let result = Field::with_bytes_ref("foo", BytesRef::new(), Arc::new(ft));
         assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
         Ok(())
     }

@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use std::fmt::{Display, Formatter};
+use std::rc::Rc;
 use std::sync::Arc;
 
 use once_cell::sync::Lazy;
@@ -69,7 +70,7 @@ impl StoredField {
     /// - `field_type`: Custom [`FieldType`] for this field.
     pub fn with_bytes_ref_and_type(
         name: &str,
-        bytes: Arc<BytesRef<Vec<u8>>>,
+        bytes: BytesRef<Rc<Vec<u8>>>,
         file_type: FieldType,
     ) -> Result<Self> {
         let parent_field = Field::with_bytes_ref(name, bytes.clone(), Arc::new(file_type))?;
@@ -87,7 +88,7 @@ impl StoredField {
     pub fn with_binary(name: &str, value: Vec<u8>) -> Result<Self> {
         let len = value.len();
         debug_assert!(len <= i32::MAX as usize);
-        let bytes_ref = Arc::new(BytesRef::from_slice(value, 0, len));
+        let bytes_ref = BytesRef::from_slice(Rc::new(value), 0, len);
         let parent_field = Field::with_bytes_ref(name, bytes_ref.clone(), Arc::clone(&TYPE))?;
         Ok(Self { parent_field })
     }
@@ -103,11 +104,7 @@ impl StoredField {
     /// - `offset`: Starting position in the byte array.
     /// - `length`: Valid length of the byte array.
     pub fn with_binary_range(name: &str, value: Vec<u8>, offset: i32, length: i32) -> Result<Self> {
-        let bytes_ref = Arc::new(BytesRef::from_slice(
-            value,
-            offset as usize,
-            length as usize,
-        ));
+        let bytes_ref = BytesRef::from_slice(Rc::new(value), offset as usize, length as usize);
         let parent_field = Field::with_bytes_ref(name, bytes_ref.clone(), Arc::clone(&TYPE))?;
         Ok(Self { parent_field })
     }
@@ -120,7 +117,7 @@ impl StoredField {
     /// # Parameters
     /// - `name`: Field name.
     /// - `value`: [`BytesRef`] pointing to binary content (**not copied**).
-    pub fn with_bytes_ref(name: &str, value: Arc<BytesRef<Vec<u8>>>) -> Result<Self> {
+    pub fn with_bytes_ref(name: &str, value: BytesRef<Rc<Vec<u8>>>) -> Result<Self> {
         let parent_field = Field::with_bytes_ref(name, value.clone(), Arc::clone(&TYPE))?;
         Ok(Self { parent_field })
     }
@@ -130,7 +127,7 @@ impl StoredField {
     /// - `name`: Field name.
     /// - `value`: String value.
     pub fn with_string(name: &str, value: &str) -> Result<Self> {
-        let value_str = Arc::new(value.to_string());
+        let value_str = Rc::new(value.to_string());
         let parent_field = Field::with_string(name, value_str, Arc::clone(&TYPE))?;
         Ok(Self { parent_field })
     }
@@ -141,7 +138,7 @@ impl StoredField {
     /// - `value`: String value.
     /// - `field_type`: Custom [`FieldType`] for this field.
     pub fn with_string_and_type(name: &str, value: &str, file_type: FieldType) -> Result<Self> {
-        let value_str = Arc::new(value.to_string());
+        let value_str = Rc::new(value.to_string());
         let parent_field = Field::with_string(name, value_str, Arc::new(file_type))?;
         Ok(Self { parent_field })
     }
@@ -217,15 +214,15 @@ impl IndexableField for StoredField {
         self.parent_field.token_stream(analyzer, reuse)
     }
 
-    fn binary_value(&self) -> Result<Option<Arc<BytesRef<Vec<u8>>>>> {
+    fn binary_value(&self) -> Result<Option<BytesRef<Rc<Vec<u8>>>>> {
         self.parent_field.binary_value()
     }
 
-    fn string_value(&self) -> Result<Option<Arc<String>>> {
+    fn string_value(&self) -> Result<Option<Rc<String>>> {
         self.parent_field.string_value()
     }
 
-    fn get_char_sequence_value(&self) -> Result<Option<Arc<String>>> {
+    fn get_char_sequence_value(&self) -> Result<Option<Rc<String>>> {
         self.parent_field.get_char_sequence_value()
     }
 
