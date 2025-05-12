@@ -18,7 +18,6 @@ use std::fmt::{Debug, Display, Formatter};
 
 use crate::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::index::impacts_enum::ImpactsEnumEnum;
-use crate::index::postings_enum::PostingsEnum;
 use crate::index::term_state::{TermState, TermStateEnum};
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::index::BytesRef;
@@ -99,7 +98,7 @@ where
 
     fn postings_with_flags(
         &mut self,
-        _reuse: Option<impl PostingsEnum>,
+        _reuse: Option<Self::PostingsEnum>,
         _flags: i32,
     ) -> Result<Self::PostingsEnum> {
         Err(LuceneError::need_implemented(""))

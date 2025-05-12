@@ -18,7 +18,6 @@ use std::borrow::Cow;
 use std::fmt::Debug;
 
 use crate::index::dummy::dummy_postings_enum::DummyPostingsEnum;
-use crate::index::postings_enum::PostingsEnum;
 use crate::index::term_state::TermStateEnum;
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::index::BytesRef;
@@ -188,7 +187,7 @@ where
 
     fn postings_with_flags(
         &mut self,
-        _reuse: Option<impl PostingsEnum>,
+        _reuse: Option<Self::PostingsEnum>,
         _flags: i32,
     ) -> Result<Self::PostingsEnum> {
         Err(LuceneError::unsupported_operation(

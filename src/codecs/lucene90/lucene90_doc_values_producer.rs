@@ -48,7 +48,6 @@ use crate::index::dummy::dummy_terms_enum::DummyTermsEnum;
 use crate::index::field_info::FieldInfo;
 use crate::index::field_infos::FieldInfos;
 use crate::index::numeric_doc_values::NumericDocValues;
-use crate::index::postings_enum::PostingsEnum;
 use crate::index::segment_read_state::SegmentReadState;
 use crate::index::sorted_doc_values::SortedDocValues;
 use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
@@ -3137,7 +3136,7 @@ where
 
     fn postings_with_flags(
         &mut self,
-        _reuse: Option<impl PostingsEnum>,
+        _reuse: Option<Self::PostingsEnum>,
         _flags: i32,
     ) -> Result<Self::PostingsEnum> {
         Err(LuceneError::unsupported_operation(""))

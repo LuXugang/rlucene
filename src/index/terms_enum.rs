@@ -150,7 +150,7 @@ where
     ///
     /// - `reuse`: a prior [`PostingsEnum`] for possible reuse See also:
     ///   `postings_with_flags`.
-    fn postings(&mut self, reuse: Option<impl PostingsEnum>) -> Result<Self::PostingsEnum> {
+    fn postings(&mut self, reuse: Option<Self::PostingsEnum>) -> Result<Self::PostingsEnum> {
         self.postings_with_flags(reuse, postings_enum_util::FREQS as i32)
     }
 
@@ -166,7 +166,7 @@ where
     ///   [`PostingsEnum::FREQS`](postings_enum_util::FREQS))
     fn postings_with_flags(
         &mut self,
-        reuse: Option<impl PostingsEnum>,
+        reuse: Option<Self::PostingsEnum>,
         flags: i32,
     ) -> Result<Self::PostingsEnum>;
     type ImpactsEnum: ImpactsEnum;
@@ -261,7 +261,7 @@ where
 
     fn postings_with_flags(
         &mut self,
-        _reuse: Option<impl PostingsEnum>,
+        _reuse: Option<Self::PostingsEnum>,
         _flags: i32,
     ) -> Result<Self::PostingsEnum> {
         Err(LuceneError::not_implemented(

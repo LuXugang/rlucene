@@ -153,7 +153,7 @@ pub struct SortedDocValuesTermsEnum;
 //
 //     fn postings_with_flags(
 //         &mut self,
-//         _reuse: Option<impl PostingsEnum>,
+//         _reuse: Option<Self::PostingsEnum>,
 //         _flags: i32,
 //     ) -> Result<Self::PostingsEnum> {
 //         Err(LuceneError::unsupported_operation(""))

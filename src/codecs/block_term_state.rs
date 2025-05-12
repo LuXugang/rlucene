@@ -83,3 +83,17 @@ impl BlockTermStateEnum {
         }
     }
 }
+
+impl Display for BlockTermStateEnum {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        todo!()
+    }
+}
+
+impl TermState for BlockTermStateEnum {
+    fn copy_from(&mut self, other: &TermStateEnum) -> Result<()> {
+        match self {
+            BlockTermStateEnum::Int(int) => int.copy_from(other),
+        }
+    }
+}

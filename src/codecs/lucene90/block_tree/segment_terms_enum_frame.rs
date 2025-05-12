@@ -20,7 +20,7 @@ use std::rc::Rc;
 use crate::codecs::block_term_state::BlockTermStateEnum;
 use crate::codecs::lucene90::block_tree::compression_algorithm::CompressionAlgorithm;
 use crate::codecs::lucene90::block_tree::segment_terms_enum::{
-    OutputAccumulator, SegmentTermsEnum,
+    OutputAccumulator, SegmentTerms,
 };
 use crate::codecs::postings_reader_base::PostingsReaderBase;
 use crate::index::index_options::IndexOptions;
@@ -30,14 +30,12 @@ use crate::store::{ByteArrayDataInput, DataInput, IndexInput};
 use crate::util::array_util::ArrayUtil;
 use crate::util::error::lucene_error::Result;
 use crate::util::fst_impl::fst::Arc;
-use crate::util::fst_impl::fst_reader::FstReader;
 use crate::util::{SliceCopyOps, ToInt};
 
-pub struct SegmentTermsEnumFrame<I, P, R, F>
+pub struct SegmentTermsEnumFrame<I, P>
 where
     I: IndexInput,
     P: PostingsReaderBase,
-    F: FstReader,
 {
     /// Our index in stack[]
     pub(crate) ord: i32,
@@ -101,24 +99,24 @@ where
     pub(crate) bytes: Vec<u8>,
     pub(crate) bytes_reader: ByteArrayDataInput<Vec<u8>>,
 
-    /// parent SegmentTermsEnum
-    ste: Rc<RefCell<SegmentTermsEnum<I, P, R, F>>>,
+    /// parent SegmentTerms
+    ste: Rc<RefCell<SegmentTerms<I, P>>>,
 
     start_byte_pos: i32,
     suffix_length: i32,
     sub_code: i64,
     compression_alg: CompressionAlgorithm,
 }
-impl<I, P, R, F> SegmentTermsEnumFrame<I, P, R, F>
+impl<I, P> SegmentTermsEnumFrame<I, P>
 where
     I: IndexInput,
     P: PostingsReaderBase,
-    F: FstReader,
 {
-    pub fn new(ste: Rc<RefCell<SegmentTermsEnum<I, P, R, F>>>, ord: i32) -> Result<Self> {
+    pub fn new(ste: Rc<RefCell<SegmentTerms<I, P>>>, ord: i32) -> Result<Self> {
         let mut state = ste
             .borrow()
             .fr
+            .borrow()
             .parent
             .borrow_mut()
             .postings_reader
@@ -529,7 +527,7 @@ where
                     self.stats_singleton_run_length = (token as u32 >> 1) as i32;
                 } else {
                     state.doc_freq = (token as u32 >> 1) as i32;
-                    if *ste.fr.field_info.get_index_options() == IndexOptions::DOCS {
+                    if *ste.fr.borrow().field_info.get_index_options() == IndexOptions::DOCS {
                         state.total_term_freq = state.doc_freq as i64;
                     } else {
                         state.total_term_freq =
@@ -538,12 +536,17 @@ where
                 }
             }
 
-            ste.fr.parent.borrow_mut().postings_reader.decode_term(
-                &mut self.bytes_reader,
-                &ste.fr.field_info,
-                &mut self.state,
-                absolute,
-            )?;
+            ste.fr
+                .borrow()
+                .parent
+                .borrow_mut()
+                .postings_reader
+                .decode_term(
+                    &mut self.bytes_reader,
+                    &ste.fr.borrow().field_info,
+                    &mut self.state,
+                    absolute,
+                )?;
 
             self.meta_data_upto += 1;
             absolute = false;
