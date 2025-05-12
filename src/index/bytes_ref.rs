@@ -82,7 +82,7 @@ where
     }
     /// This instance will directly share/ownership bytes w/o making a copy
     pub fn from_bytes(bytes: AV) -> Self {
-        let len = bytes.len();
+        let len = bytes.access(|bytes| bytes.len());
         BytesRef {
             bytes,
             offset: 0,
@@ -130,28 +130,32 @@ where
     /// Performs internal consistency checks. Always returns `true` (or throws
     /// `IllegalStateError`).
     pub fn is_valid(&self) -> Result<bool> {
-        if self.length > self.bytes.len() {
-            return Err(LuceneError::illegal_state(format!(
-                "length is out of bounds: {},bytes.length= {}",
-                self.length,
-                self.bytes.len()
-            )));
-        }
-        if self.offset > self.bytes.len() {
-            return Err(LuceneError::illegal_state(format!(
-                "offset out of bounds: {},bytes.length= {}",
-                self.offset,
-                self.bytes.len()
-            )));
-        }
-        if (self.offset + self.length) > self.bytes.len() {
-            return Err(LuceneError::illegal_state(format!(
-                "offset+length out of bounds: offset={},length={},bytes.length= {}",
-                self.offset,
-                self.length,
-                self.bytes.len()
-            )));
-        }
+        self.bytes.access(|bytes| {
+            if self.length > bytes.len() {
+                return Err(LuceneError::illegal_state(format!(
+                    "length is out of bounds: {},bytes.length= {}",
+                    self.length,
+                    bytes.len()
+                )));
+            }
+            if self.offset > bytes.len() {
+                return Err(LuceneError::illegal_state(format!(
+                    "offset out of bounds: {},bytes.length= {}",
+                    self.offset,
+                    bytes.len()
+                )));
+            }
+            if (self.offset + self.length) > bytes.len() {
+                return Err(LuceneError::illegal_state(format!(
+                    "offset+length out of bounds: offset={},length={},bytes.length= {}",
+                    self.offset,
+                    self.length,
+                    bytes.len()
+                )));
+            }
+            // Help the compiler infer types.
+            Ok::<(), LuceneError>(())
+        })?;
         Ok(true)
     }
 }

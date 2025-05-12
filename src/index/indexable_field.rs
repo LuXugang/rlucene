@@ -62,6 +62,7 @@ pub trait IndexableField: Display {
         _reuse: Option<&impl TokenStream>,
     ) -> Result<TokenStreamEnum>;
     /// Non-null if this field has a binary value.
+    // TODO: 返回值改成Result<Option<BytesRef<Arc<Vec<u8>>>>>
     fn binary_value(&self) -> Result<Option<Arc<BytesRef<Vec<u8>>>>>;
 
     /// Non-null if this field has a string value.

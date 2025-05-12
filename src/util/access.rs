@@ -124,14 +124,13 @@ pub trait AccessVec<T>: Clone + Default {
     where
         F: FnOnce(&mut Vec<T>) -> R;
     fn slice_clone(&self, offset: usize, length: usize) -> Self;
-    fn len(&self) -> usize;
-    fn is_empty(&self) -> bool;
     fn new() -> Self;
     fn with_capacity(capacity: usize) -> Self;
     fn from_vec(v: Vec<T>) -> Self;
     fn copy(&mut self, src: &[T], offset: usize);
 }
 
+// Vec<T>
 impl<T> AccessVec<T> for Vec<T>
 where
     T: Clone + Default,
@@ -154,14 +153,6 @@ where
         ArrayUtil::copy_of_sub_array(self, offset, offset + length)
     }
 
-    fn len(&self) -> usize {
-        Vec::len(self)
-    }
-
-    fn is_empty(&self) -> bool {
-        self.is_empty()
-    }
-
     fn new() -> Self {
         Vec::new()
     }
@@ -178,7 +169,7 @@ where
         self.copy_from(src, offset)
     }
 }
-
+// Rc<Vec<T>>
 impl<T> AccessVec<T> for Rc<Vec<T>>
 where
     T: Clone + Default,
@@ -202,14 +193,6 @@ where
         Rc::new(slice.to_vec())
     }
 
-    fn len(&self) -> usize {
-        self.len()
-    }
-
-    fn is_empty(&self) -> bool {
-        self.is_empty()
-    }
-
     fn new() -> Self {
         Rc::new(Vec::new())
     }
@@ -226,6 +209,47 @@ where
         panic!("copy is not supported for Rc<Vec<T>>");
     }
 }
+// Arc<Vec<T>>
+impl<T> AccessVec<T> for Arc<Vec<T>>
+where
+    T: Clone + Default,
+{
+    fn access<F, R>(&self, f: F) -> R
+    where
+        F: FnOnce(&Vec<T>) -> R,
+    {
+        f(self)
+    }
+
+    fn access_mut<F, R>(&mut self, _f: F) -> R
+    where
+        F: FnOnce(&mut Vec<T>) -> R,
+    {
+        panic!("access_mut is not supported for Rc<Vec<T>>");
+    }
+
+    fn slice_clone(&self, offset: usize, length: usize) -> Self {
+        let slice = &self[offset..offset + length];
+        Arc::new(slice.to_vec())
+    }
+
+    fn new() -> Self {
+        Arc::new(Vec::new())
+    }
+
+    fn with_capacity(_capacity: usize) -> Self {
+        Arc::new(Vec::new()) // Rc<Vec<T>> can't preallocate meaningfully
+    }
+
+    fn from_vec(v: Vec<T>) -> Self {
+        Arc::new(v)
+    }
+
+    fn copy(&mut self, _src: &[T], _offset: usize) {
+        panic!("copy is not supported for Rc<Vec<T>>");
+    }
+}
+// Rc<RefCell<Vec<T>>>
 impl<T> AccessVec<T> for Rc<RefCell<Vec<T>>>
 where
     T: Clone + Default,
@@ -255,14 +279,6 @@ where
         )))
     }
 
-    fn len(&self) -> usize {
-        self.borrow().len()
-    }
-
-    fn is_empty(&self) -> bool {
-        self.borrow().is_empty()
-    }
-
     fn new() -> Self {
         Rc::new(RefCell::new(Vec::new()))
     }
@@ -279,7 +295,7 @@ where
         self.borrow_mut().copy_from(src, offset)
     }
 }
-
+// Arc<Mutex<Vec<T>>>
 impl<T> AccessVec<T> for Arc<Mutex<Vec<T>>>
 where
     T: Clone + Default,
@@ -307,14 +323,6 @@ where
             offset,
             offset + length,
         )))
-    }
-
-    fn len(&self) -> usize {
-        self.lock().len()
-    }
-
-    fn is_empty(&self) -> bool {
-        self.lock().is_empty()
     }
 
     fn new() -> Self {

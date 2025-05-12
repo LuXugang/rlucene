@@ -48,7 +48,7 @@ where
     }
 
     pub fn with_bytes(bytes: AV) -> Self {
-        let len = bytes.len();
+        let len = bytes.access(|bytes| bytes.len());
         Self::with_range(bytes, 0, len)
     }
     pub fn with_range(bytes: AV, offset: usize, length: usize) -> Self {
@@ -58,7 +58,7 @@ where
     }
 
     pub fn reset(&mut self, bytes: AV) {
-        let len = bytes.len();
+        let len = bytes.access(|bytes| bytes.len());
         self.reset_with_range(bytes, 0, len);
     }
     pub fn reset_with_range(&mut self, bytes: AV, offset: usize, length: usize) {
