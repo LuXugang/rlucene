@@ -147,10 +147,7 @@ where
     fn freeze_tail(&mut self, prefix_len_plus1: i32) -> Result<()> {
         let (len, down_to) = {
             let inner = self.inner.borrow();
-            (
-                inner.last_input.length() as usize,
-                prefix_len_plus1.max(1) as usize,
-            )
+            (inner.last_input.length(), prefix_len_plus1.max(1) as usize)
         };
 
         for idx in (down_to..=len).rev() {
@@ -166,7 +163,7 @@ where
             let is_final = node.is_final || node.num_arcs == 0;
             let label = {
                 let inner = self.inner.borrow();
-                inner.last_input.int_at(prev_idx as i32)
+                inner.last_input.int_at(prev_idx)
             };
             let (compiled, un_compiled) = self.compile_node(node)?;
             self.frontier[idx] = Some(un_compiled);
@@ -227,13 +224,13 @@ where
             let mut pos1 = 0;
             let mut pos2 = input.offset;
             let pos1_stop = inner.last_input.length().min(input.length);
-            while pos1 < pos1_stop && inner.last_input.int_at(pos1) == ints[pos2 as usize] {
+            while pos1 < pos1_stop && inner.last_input.int_at(pos1) == ints[pos2] {
                 pos1 += 1;
                 pos2 += 1;
             }
             prefix_len_plus1 = pos1 + 1;
 
-            if self.frontier.len() < (input.length + 1) as usize {
+            if self.frontier.len() < (input.length + 1) {
                 let old_len = self.frontier.len();
                 debug_assert!(old_len <= i32::MAX as usize);
                 ArrayUtil::grow_with_len(&mut self.frontier, old_len + 1);
@@ -246,12 +243,13 @@ where
 
         // minimize/compile states from previous input's
         // orphan'd suffix
-        self.freeze_tail(prefix_len_plus1)?;
+        debug_assert!(prefix_len_plus1 <= i32::MAX as usize);
+        self.freeze_tail(prefix_len_plus1 as i32)?;
 
         // init tail states for current input
-        let offset = input.offset as usize;
-        let prefix_len_plus1 = prefix_len_plus1 as usize;
-        for idx in prefix_len_plus1..=input.length as usize {
+        let offset = input.offset;
+        let prefix_len_plus1 = prefix_len_plus1;
+        for idx in prefix_len_plus1..=input.length {
             let label = ints[offset + idx - 1];
             // TODO: 这里先抛出所有权 看看有没有问题
             let un_compiled = NodeEnum::UnCompiledNode(self.frontier[idx].take().unwrap());
@@ -264,9 +262,7 @@ where
         let inner = self.inner.borrow();
         {
             let last_node = self.frontier[offset].as_mut().unwrap();
-            if inner.last_input.length() != input.length
-                || prefix_len_plus1 != input.length as usize + 1
-            {
+            if inner.last_input.length() != input.length || prefix_len_plus1 != input.length + 1 {
                 last_node.is_final = true;
                 last_node.output = inner.no_output.clone();
             }
@@ -305,9 +301,7 @@ where
             debug_assert!(inner.valid_output(&output));
         }
 
-        if inner.last_input.length() == input.length
-            && prefix_len_plus1 == input.length as usize + 1
-        {
+        if inner.last_input.length() == input.length && prefix_len_plus1 == input.length + 1 {
             // same input more than 1 time in a row, mapping to
             // multiple outputs
             let last_node = self.frontier[offset].as_mut().unwrap();

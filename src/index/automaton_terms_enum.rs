@@ -181,10 +181,9 @@ impl AutomatonTermsEnum {
     ///   `false`.
     pub fn next_string(&mut self) -> bool {
         let mut state;
-        let mut pos: i32 = 0;
+        let mut pos = 0;
 
-        self.saved_states
-            .grow(self.seek_bytes_ref.length() as i32 + 1);
+        self.saved_states.grow(self.seek_bytes_ref.length() + 1);
         self.saved_states.set_int_at(0, 0);
 
         loop {
@@ -202,7 +201,7 @@ impl AutomatonTermsEnum {
             self.linear = false;
 
             // walk the automaton until a character is rejected
-            state = self.saved_states.int_at(pos);
+            state = self.saved_states.int_at(pos as usize);
             while (pos as usize) < self.seek_bytes_ref.length() {
                 self.set_visited(state);
                 let byte = self.seek_bytes_ref.byte_at(pos as usize) as i32;
@@ -210,7 +209,7 @@ impl AutomatonTermsEnum {
                 if next_state == -1 {
                     break;
                 }
-                self.saved_states.set_int_at(pos + 1, next_state);
+                self.saved_states.set_int_at((pos + 1) as usize, next_state);
                 if !self.linear && self.is_visited(next_state) {
                     self.set_linear(pos as usize);
                 }
@@ -230,7 +229,7 @@ impl AutomatonTermsEnum {
                     return false;
                 }
 
-                let prev_state = self.saved_states.int_at(pos);
+                let prev_state = self.saved_states.int_at(pos as usize);
                 let byte = self.seek_bytes_ref.byte_at(pos as usize) as i32;
                 let new_state = self.byte_runnable.step(prev_state, byte);
 

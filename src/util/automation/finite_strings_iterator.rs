@@ -112,7 +112,7 @@ impl FiniteStringsIteratorBase for FiniteStringsIterator<'_> {
         let mut depth = self.string.length();
 
         while depth > 0 {
-            let node = &mut self.nodes[depth as usize - 1];
+            let node = &mut self.nodes[depth - 1];
 
             // Get next label leaving current node
             let label = node.next_label(self.a);
@@ -129,8 +129,8 @@ impl FiniteStringsIteratorBase for FiniteStringsIterator<'_> {
                     }
                     self.path_states.insert(to as usize);
                     // Push node onto stack:
-                    self.grow_stack(depth as usize)?;
-                    self.nodes[depth as usize].reset_state(self.a, to);
+                    self.grow_stack(depth)?;
+                    self.nodes[depth].reset_state(self.a, to);
                     depth += 1;
                     self.string.set_length(depth);
                     self.string.grow(depth);
@@ -498,9 +498,9 @@ pub(crate) mod tests {
 
     /// Only handles ASCII (for this test helper).
     fn to_ascii_string(ints: &IntsRef<Vec<i32>>) -> String {
-        let mut bytes = Vec::with_capacity(ints.length as usize);
-        for i in 0..ints.length as usize {
-            bytes.push(ints.ints[(ints.offset as usize) + i] as u8);
+        let mut bytes = Vec::with_capacity(ints.length);
+        for i in 0..ints.length {
+            bytes.push(ints.ints[ints.offset + i] as u8);
         }
         String::from_utf8(bytes).expect("Only ASCII supported in intsref_to_ascii_string")
     }

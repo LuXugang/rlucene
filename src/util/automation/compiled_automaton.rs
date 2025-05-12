@@ -158,8 +158,8 @@ impl CompiledAutomaton {
                 } else {
                     Some(BytesRef::from_string(&UnicodeUtil::new_string(
                         singleton.ints.as_slice(),
-                        singleton.offset as usize,
-                        singleton.length as usize,
+                        singleton.offset,
+                        singleton.length,
                     )?))
                 };
 

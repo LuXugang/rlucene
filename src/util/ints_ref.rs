@@ -50,9 +50,9 @@ pub struct IntsRef<AV: AccessVec<i32>> {
     /// The contents of the IntsRef
     pub ints: AV,
     /// Offset of first valid integer.
-    pub offset: i32,
+    pub offset: usize,
     /// Length of used ints.
-    pub length: i32,
+    pub length: usize,
 }
 impl<AV> Default for IntsRef<AV>
 where
@@ -84,7 +84,7 @@ where
             length: 0,
         })
     }
-    pub fn from_slice(ints: AV, offset: i32, length: i32) -> Self {
+    pub fn from_slice(ints: AV, offset: usize, length: usize) -> Self {
         let instance = IntsRef {
             ints,
             offset,
@@ -96,39 +96,21 @@ where
     /// Performs internal consistency checks. Always returns true (or Error)
     pub fn is_valid(&self) -> Result<bool> {
         self.ints.access(|ints| {
-            if self.length < 0 {
-                return Err(LuceneError::illegal_state(format!(
-                    "length is negative {}",
-                    self.length
-                )));
-            }
-            if (self.length as usize) > ints.len() {
+            if self.length > ints.len() {
                 return Err(LuceneError::illegal_state(format!(
                     "length is out of bounds: {}, ints.len()={}",
                     self.length,
                     ints.len()
                 )));
             }
-            if self.offset < 0 {
-                return Err(LuceneError::illegal_state(format!(
-                    "offset is negative {}",
-                    self.offset
-                )));
-            }
-            if (self.offset as usize) > ints.len() {
+            if self.offset > ints.len() {
                 return Err(LuceneError::illegal_state(format!(
                     "offset out of bounds: {}, ints.len()={}",
                     self.offset,
                     ints.len()
                 )));
             }
-            if self.offset + self.length < 0 {
-                return Err(LuceneError::illegal_state(format!(
-                    "offset+length is negative: offset={}, length={}",
-                    self.offset, self.length
-                )));
-            }
-            if ((self.offset + self.length) as usize) > ints.len() {
+            if self.offset + self.length > ints.len() {
                 return Err(LuceneError::illegal_state(format!(
                     "offset+length out of bounds: offset={}, length={}, ints.len()={}",
                     self.offset,
@@ -141,10 +123,8 @@ where
     }
     pub fn ints_equals(&self, other: &IntsRef<AV>) -> Result<bool> {
         with_other!(self.ints, other.ints, |ints_bytes, other_bytes| {
-            let self_slice =
-                &ints_bytes[self.offset as usize..(self.offset + self.length) as usize];
-            let other_slice =
-                &other_bytes[other.offset as usize..(other.offset + other.length) as usize];
+            let self_slice = &ints_bytes[self.offset..(self.offset + self.length)];
+            let other_slice = &other_bytes[other.offset..(other.offset + other.length)];
             Ok(self_slice == other_slice)
         })
     }
@@ -153,9 +133,7 @@ where
     /// The returned IntsRef will have a length of `other.length` and an offset
     /// of zero.
     pub fn deep_copy_of(other: &IntsRef<AV>) -> Self {
-        let ints = other
-            .ints
-            .slice_clone(other.offset as usize, other.length as usize);
+        let ints = other.ints.slice_clone(other.offset, other.length);
         IntsRef {
             ints,
             offset: 0,
@@ -192,10 +170,8 @@ where
 {
     fn cmp(&self, other: &Self) -> Ordering {
         with_other!(self.ints, other.ints, |ints_bytes, other_bytes| {
-            let self_slice =
-                &ints_bytes[self.offset as usize..(self.offset + self.length) as usize];
-            let other_slice =
-                &other_bytes[other.offset as usize..(other.offset + other.length) as usize];
+            let self_slice = &ints_bytes[self.offset..(self.offset + self.length)];
+            let other_slice = &other_bytes[other.offset..(other.offset + other.length)];
             self_slice.cmp(other_slice)
         })
     }
@@ -216,7 +192,7 @@ where
 {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.ints.access(|ints| {
-            let slice = &ints[self.offset as usize..(self.offset + self.length) as usize];
+            let slice = &ints[self.offset..(self.offset + self.length)];
             slice.hash(state);
         });
     }
@@ -229,8 +205,8 @@ where
 
     fn compare(&self, a: &IntsRef<AV>, b: &IntsRef<AV>) -> Result<i32> {
         with_other!(a.ints, b.ints, |a_bytes, b_bytes| {
-            let a_slice = &a_bytes[a.offset as usize..(a.offset + a.length) as usize];
-            let b_slice = &b_bytes[a.offset as usize..(a.offset + a.length) as usize];
+            let a_slice = &a_bytes[a.offset..(a.offset + a.length)];
+            let b_slice = &b_bytes[a.offset..(a.offset + a.length)];
             Ok(a_slice.cmp(b_slice).to_int())
         })
     }
@@ -241,7 +217,7 @@ where
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         self.ints.access(|ints| {
-            let slice = &ints[self.offset as usize..(self.offset + self.length) as usize];
+            let slice = &ints[self.offset..(self.offset + self.length)];
             write!(f, "[")?;
             for (i, v) in slice.iter().enumerate() {
                 if i > 0 {

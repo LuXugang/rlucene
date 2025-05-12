@@ -375,7 +375,7 @@ pub trait IntersectVisitor {
         self.default_visit_with_ints_ref(ints_ref)
     }
     fn default_visit_with_ints_ref(&mut self, ints_ref: &IntsRef<Vec<i32>>) -> Result<()> {
-        for i in ints_ref.offset as usize..(ints_ref.offset + ints_ref.length) as usize {
+        for i in ints_ref.offset..(ints_ref.offset + ints_ref.length) {
             self.visit(ints_ref.ints[i])?;
         }
         Ok(())

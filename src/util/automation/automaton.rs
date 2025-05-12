@@ -1528,7 +1528,7 @@ mod tests {
                 let s = ras.get_random_accepted_string(&mut random1)?;
                 let reversed: Vec<i32> = s.iter().copied().rev().collect();
                 let len = reversed.len();
-                let ints_ref = IntsRef::from_slice(reversed, 0, len as i32);
+                let ints_ref = IntsRef::from_slice(reversed, 0, len);
                 assert!(Operations::run_ints_ref(&rda, &ints_ref));
             }
         }

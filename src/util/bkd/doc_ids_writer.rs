@@ -432,7 +432,7 @@ impl DocIdsWriter {
         self.scratch_ints_ref.ints =
             CoreHelper::take_and_reset(&mut self.scratch, |_| vec![0; self.max_points_in_leaf]);
 
-        self.scratch_ints_ref.length = count;
+        self.scratch_ints_ref.length = count as usize;
         visitor.visit_with_ints_ref(&self.scratch_ints_ref)?;
         Ok(())
     }
@@ -475,7 +475,7 @@ impl DocIdsWriter {
         self.scratch_ints_ref.ints =
             CoreHelper::take_and_reset(&mut self.scratch, |old| vec![0; old.len()]);
 
-        self.scratch_ints_ref.length = count;
+        self.scratch_ints_ref.length = count as usize;
         visitor.visit_with_ints_ref(&self.scratch_ints_ref)?;
         Ok(())
     }

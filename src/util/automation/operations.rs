@@ -802,7 +802,7 @@ impl Operations {
 
         let mut state = 0;
         for i in 0..s.length {
-            let label = s.ints[(s.offset + i) as usize];
+            let label = s.ints[s.offset + i];
             let next_state = a.step(state, label);
             if next_state == -1 {
                 return false;

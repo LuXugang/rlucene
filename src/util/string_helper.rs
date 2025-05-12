@@ -283,10 +283,10 @@ impl StringHelper {
     pub fn ints_ref_to_bytes_ref<AV: AccessVec<i32>>(
         ints: &IntsRef<AV>,
     ) -> Result<BytesRef<Vec<u8>>> {
-        let mut bytes = Vec::with_capacity(ints.length as usize);
+        let mut bytes = Vec::with_capacity(ints.length);
         for i in 0..ints.length {
             ints.ints.access(|v| {
-                let x = v[(ints.offset + i) as usize];
+                let x = v[ints.offset + i];
                 if !(0..=255).contains(&x) {
                     return Err(LuceneError::illegal_argument(format!(
                         "int at pos={} with value={} is out-of-bounds for byte",

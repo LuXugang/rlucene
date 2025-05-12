@@ -42,8 +42,8 @@ impl Util {
         let mut fst_reader = fst.get_bytes_reader()?;
         let mut output = fst.outputs.get_no_output();
 
-        for i in 0..input.length as usize {
-            let label = input.ints[input.offset as usize + i];
+        for i in 0..input.length {
+            let label = input.ints[input.offset + i];
             let found = fst.find_target_arc(label, &arc.clone(), &mut arc, &mut fst_reader)?;
             if found.is_none() {
                 return Ok(None);
@@ -119,14 +119,14 @@ impl Util {
         input: &BytesRef<AV1>,
         scratch: &mut IntsRefBuilder<AV2>,
     ) {
-        scratch.grow_no_copy(input.length as i32);
+        scratch.grow_no_copy(input.length);
         for i in 0..input.length {
             input.bytes.access(|bytes| {
                 let byte = bytes[input.offset + i];
-                scratch.set_int_at(i as i32, byte as i32);
+                scratch.set_int_at(i, byte as i32);
             })
         }
-        scratch.set_length(input.length as i32);
+        scratch.set_length(input.length);
     }
     /// Just converts IntsRef to BytesRef; you must ensure the int values fit
     /// into a byte.
@@ -134,15 +134,15 @@ impl Util {
         input: &IntsRef<AV1>,
         scratch: &mut BytesRefBuilder<AV2>,
     ) -> Result<BytesRef<AV2>> {
-        scratch.grow(input.length as usize);
-        for i in 0..input.length as usize {
+        scratch.grow(input.length);
+        for i in 0..input.length {
             input.ints.access(|v| {
-                let value = v[i + input.offset as usize];
+                let value = v[i + input.offset];
                 debug_assert!(value >= u8::MIN as i32 && value <= u8::MAX as i32);
                 scratch.set_byte_at(i, value as u8);
             })
         }
-        scratch.set_length(input.length as usize);
+        scratch.set_length(input.length);
         Ok(scratch.get_bytes_owner())
     }
 
