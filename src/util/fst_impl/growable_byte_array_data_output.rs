@@ -215,15 +215,15 @@ mod tests {
         let mut bytes_out = vec![0u8; bytes.len()];
         random.fill_bytes(&mut bytes);
 
-        let offset = TestUtil::next_int(&mut random, 0, 100);
-        let len = (bytes.len() - offset as usize) as i32;
+        let offset = TestUtil::next_int(&mut random, 0, 100) as usize;
+        let len = bytes.len() - offset;
 
         let bytes_clone = bytes.clone();
         let mut input = ByteArrayDataInput::with_range(bytes, offset, len);
         let mut o = GrowableByteArrayDataOutput::new();
 
         o.copy_bytes(&mut input, len as i64)?;
-        o.write_to(0, &mut bytes_out, 0, len);
+        o.write_to(0, &mut bytes_out, 0, len as i32);
 
         let expected = &bytes_clone[offset as usize..(offset + len) as usize];
         let actual = &bytes_out[..len as usize];

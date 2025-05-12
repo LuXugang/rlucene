@@ -1605,7 +1605,8 @@ impl FixedLengthArcsBuffer {
     }
 
     pub(crate) fn get_position(&self) -> i32 {
-        self.bado.get_position()
+        debug_assert!(self.bado.bytes.len() <= i32::MAX as usize);
+        self.bado.get_position() as i32
     }
 
     /// Gets the internal byte array.

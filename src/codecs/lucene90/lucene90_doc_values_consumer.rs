@@ -700,7 +700,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
                 ord += 1;
             }
             // Compress and write out the last block
-            if buffered_output.get_position() > dict_length {
+            if buffered_output.get_position() > dict_length as usize {
                 let uncompressed_length = Self::compress_and_get_terms_dict_block_length(
                     &mut buffered_output,
                     dict_length,
@@ -731,7 +731,8 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
         ht: &mut HashTableEnum,
         data: &mut O,
     ) -> Result<i32> {
-        let uncompressed_length = buffered_output.get_position() - dict_length;
+        debug_assert!(buffered_output.get_position() <= i32::MAX as usize);
+        let uncompressed_length = buffered_output.get_position() as i32 - dict_length;
         data.write_vint(uncompressed_length)?;
         LZ4::compress_with_dictionary(
             CoreHelper::take_and_reset(&mut buffered_output.bytes, |old| vec![0u8; old.len()]),
@@ -752,10 +753,10 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
         let terms_dict_buffer = &mut buffered_output.bytes;
         debug_assert!(terms_dict_buffer.len() <= i32::MAX as usize);
         let original_length = terms_dict_buffer.len();
-        if (pos + term_length) as usize >= original_length - 1 {
+        if pos + term_length as usize >= original_length - 1 {
             ArrayUtil::grow_with_len(terms_dict_buffer, original_length + term_length as usize);
             debug_assert!(terms_dict_buffer.len() <= i32::MAX as usize);
-            let terms_dict_buffer_len = terms_dict_buffer.len() as i32;
+            let terms_dict_buffer_len = terms_dict_buffer.len();
             buffered_output.reset_with_range(pos, terms_dict_buffer_len - pos)?;
         }
         Ok(())

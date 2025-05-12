@@ -646,7 +646,7 @@ mod tests {
         let offset = random.random_range(0..=100);
         let len = bytes.len() - offset;
         let bytes_clone = bytes.clone();
-        let mut input = ByteArrayDataInput::with_range(bytes, offset as i32, len as i32);
+        let mut input = ByteArrayDataInput::with_range(bytes, offset, len);
 
         let mut o = ByteBuffersDataOutput::new_with_reuse(
             ByteBuffersDataOutput::DEFAULT_MIN_BITS_PER_BLOCK,
@@ -673,7 +673,7 @@ mod tests {
         let offset = random.random_range(0..=100);
         let len = bytes.len() - offset;
         let bytes_clone = bytes.clone();
-        let mut input = ByteArrayDataInput::with_range(bytes, offset as i32, len as i32);
+        let mut input = ByteArrayDataInput::with_range(bytes, offset, len);
         let mut o = ByteBuffersDataOutput::new_with_reuse(
             ByteBuffersDataOutput::DEFAULT_MIN_BITS_PER_BLOCK,
             ByteBuffersDataOutput::DEFAULT_MAX_BITS_PER_BLOCK,
