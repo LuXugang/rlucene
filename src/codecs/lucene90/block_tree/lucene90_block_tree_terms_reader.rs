@@ -43,7 +43,7 @@ where
     I: IndexInput,
     P: PostingsReaderBase<I>,
 {
-    terms_in: I,
+    pub(crate) terms_in: I,
     index_in: I,
     pub(crate) postings_reader: P,
     field_infos: Rc<FieldInfos>,

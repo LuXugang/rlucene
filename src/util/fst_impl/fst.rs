@@ -1032,7 +1032,7 @@ pub mod fst_util {
     }
 }
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Debug)]
 pub struct Arc<T>
 where
     T: Hash + Clone,

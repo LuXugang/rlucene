@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cell::RefCell;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 
@@ -35,7 +34,7 @@ where
     F: FstReader,
 {
     // Lazy init: input stream
-    pub(crate) input: Option<Rc<RefCell<I>>>,
+    pub(crate) input: Option<I>,
     pub(crate) stack: Vec<SegmentTermsEnumFrame<I, P, R, F>>,
     pub(crate) static_frame: SegmentTermsEnumFrame<I, P, R, F>,
     pub(crate) current_frame: Option<SegmentTermsEnumFrame<I, P, R, F>>,
@@ -48,6 +47,19 @@ where
     pub(crate) term: BytesRefBuilder<Vec<u8>>,
     pub(crate) fst_reader: Option<F::FstBytesReader>,
     pub(crate) arcs: Vec<Arc<BytesRef<Rc<Vec<u8>>>>>,
+}
+impl<I, P, R, F> SegmentTermsEnum<I, P, R, F>
+where
+    I: IndexInput,
+    P: PostingsReaderBase<I>,
+    F: FstReader,
+{
+    pub(crate) fn init_index_input(&mut self) -> Result<()> {
+        if self.input.is_none() {
+            self.input = Some(self.fr.parent.borrow_mut().terms_in.try_clone()?);
+        }
+        Ok(())
+    }
 }
 
 pub struct OutputAccumulator {
