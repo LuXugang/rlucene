@@ -181,7 +181,7 @@ impl AutomatonTermsEnum {
     ///   `false`.
     pub fn next_string(&mut self) -> bool {
         let mut state;
-        let mut pos = 0;
+        let mut pos: usize = 0;
 
         self.saved_states.grow(self.seek_bytes_ref.length() + 1);
         self.saved_states.set_int_at(0, 0);
@@ -201,17 +201,17 @@ impl AutomatonTermsEnum {
             self.linear = false;
 
             // walk the automaton until a character is rejected
-            state = self.saved_states.int_at(pos as usize);
-            while (pos as usize) < self.seek_bytes_ref.length() {
+            state = self.saved_states.int_at(pos);
+            while pos < self.seek_bytes_ref.length() {
                 self.set_visited(state);
-                let byte = self.seek_bytes_ref.byte_at(pos as usize) as i32;
+                let byte = self.seek_bytes_ref.byte_at(pos) as i32;
                 let next_state = self.byte_runnable.step(state, byte);
                 if next_state == -1 {
                     break;
                 }
-                self.saved_states.set_int_at((pos + 1) as usize, next_state);
+                self.saved_states.set_int_at(pos + 1, next_state);
                 if !self.linear && self.is_visited(next_state) {
-                    self.set_linear(pos as usize);
+                    self.set_linear(pos);
                 }
                 state = next_state;
                 pos += 1;
@@ -223,14 +223,15 @@ impl AutomatonTermsEnum {
                 return true;
             } else {
                 /* no more solutions exist from this useful portion, backtrack */
-                pos = self.backtrack(pos);
-                if pos < 0 {
+                let v = self.backtrack(pos);
+                if v < 0 {
                     /* no more solutions at all */
                     return false;
                 }
+                pos = v as usize;
 
-                let prev_state = self.saved_states.int_at(pos as usize);
-                let byte = self.seek_bytes_ref.byte_at(pos as usize) as i32;
+                let prev_state = self.saved_states.int_at(pos);
+                let byte = self.seek_bytes_ref.byte_at(pos) as i32;
                 let new_state = self.byte_runnable.step(prev_state, byte);
 
                 if new_state >= 0 && self.byte_runnable.is_accept(new_state) {
@@ -266,8 +267,7 @@ impl AutomatonTermsEnum {
     /// Returns:
     /// - `true` if more possible solutions exist for the DFA from this
     ///   position.
-    fn next_string_with_position(&mut self, mut state: i32, position: i32) -> bool {
-        let position = position as usize;
+    fn next_string_with_position(&mut self, mut state: i32, position: usize) -> bool {
         // The next lexicographic character must be greater than the existing character.
         let mut c = 0;
         if position < self.seek_bytes_ref.length() {
@@ -337,17 +337,17 @@ impl AutomatonTermsEnum {
     /// Returns:
     /// - A position `>= 0` if more possible solutions exist for the DFA;
     ///   otherwise, returns `false`.
-    fn backtrack(&mut self, mut position: i32) -> i32 {
+    fn backtrack(&mut self, mut position: usize) -> i32 {
+        debug_assert!(position < i32::MAX as usize);
         while position > 0 {
             position -= 1;
-            let p = position as usize;
-            let next_char = self.seek_bytes_ref.byte_at(p);
+            let next_char = self.seek_bytes_ref.byte_at(position);
             // if a character is 0xff it's a dead-end too,
             // because there is no higher character in binary sort order.
             if next_char != 0xFF {
-                self.seek_bytes_ref.set_byte_at(p, next_char + 1);
-                self.seek_bytes_ref.set_length(p + 1);
-                return position;
+                self.seek_bytes_ref.set_byte_at(position, next_char + 1);
+                self.seek_bytes_ref.set_length(position + 1);
+                return position as i32;
             }
         }
         -1 // all solutions exhausted
