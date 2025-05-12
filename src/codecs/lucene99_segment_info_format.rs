@@ -328,7 +328,7 @@ impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
     {
         let file_name = IndexFileNames::segment_file_name(&si.name, "", SI_EXTENSION);
         let mut output = dir.create_output(&file_name, io_context)?;
-        si.add_file(file_name.clone())?;
+        si.add_file(file_name)?;
         CodecUtil::write_index_header(
             &mut output,
             Lucene99SegmentInfoFormat::CODEC_NAME,

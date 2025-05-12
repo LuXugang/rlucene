@@ -140,7 +140,6 @@ where
             Ok::<(), LuceneError>(())
         })?;
 
-        // TODO: should we avoid Clone here?
         Ok(std::mem::take(spare.bytes_ref()))
     }
 

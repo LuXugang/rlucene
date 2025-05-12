@@ -266,11 +266,11 @@ impl SparseFixedBitSet {
             self.non_zero_long_count += non_zero_long_count;
             return;
         }
-        let current_bits = self.bits[i4096 as usize].take();
+        let mut current_bits = self.bits[i4096 as usize].take();
         let new_index = current_index | index;
         let required_capacity = new_index.count_ones();
         let mut new_bits = if current_bits.as_ref().unwrap().len() >= required_capacity as usize {
-            current_bits.as_ref().unwrap().clone()
+            current_bits.take().unwrap()
         } else {
             //TODO
             self.ram_bytes_used = 0;
