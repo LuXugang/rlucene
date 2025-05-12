@@ -94,7 +94,8 @@ where
     }
 
     fn restore(&mut self, src: i32, dest: i32) {
-        // TODO: avoid using clone, could we use std::men:take?
+        // TODO: avoid clone, maybe wo could let arr: &'a mut Rc<Vec<T>> using
+        // AccessVec,
         self.arr[dest as usize] = self.tmp[src as usize].clone();
     }
 
