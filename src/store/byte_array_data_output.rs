@@ -15,8 +15,11 @@
  * limitations under the License.
  */
 use crate::store::data_output::DataOutput;
+use crate::util::access::AccessVec;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::Result;
+use crate::util::SliceCopyOps;
+
 /// `DataOutput` backed by a byte array.
 ///
 /// # Warning
@@ -25,28 +28,37 @@ use crate::util::error::lucene_error::Result;
 ///
 /// # Note
 /// This is an experimental API.
-pub struct ByteArrayDataOutput {
-    pub bytes: Vec<u8>,
+pub struct ByteArrayDataOutput<AV>
+where
+    AV: AccessVec<u8>,
+{
+    pub bytes: AV,
     pos: usize,
     limit: usize,
 }
 
-impl Default for ByteArrayDataOutput {
+impl<AV> Default for ByteArrayDataOutput<AV>
+where
+    AV: AccessVec<u8>,
+{
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl ByteArrayDataOutput {
+impl<AV> ByteArrayDataOutput<AV>
+where
+    AV: AccessVec<u8>,
+{
     pub fn new() -> Self {
-        Self::with_bytes(vec![])
+        Self::default()
     }
 
-    pub fn with_bytes(bytes: Vec<u8>) -> Self {
+    pub fn with_bytes(bytes: AV) -> Self {
         let len = bytes.len();
         Self::with_range(bytes, 0, len)
     }
-    pub fn with_range(bytes: Vec<u8>, offset: usize, length: usize) -> Self {
+    pub fn with_range(bytes: AV, offset: usize, length: usize) -> Self {
         Self {
             bytes,
             pos: offset,
@@ -69,19 +81,15 @@ impl ByteArrayDataOutput {
     }
 }
 
-impl DataOutput for ByteArrayDataOutput {
+impl<AV> DataOutput for ByteArrayDataOutput<AV>
+where
+    AV: AccessVec<u8>,
+{
     fn write_byte(&mut self, b: u8) -> Result<()> {
-        debug_assert!(self.pos < self.limit, "Write exceeds the allowed limit");
-        debug_assert!(
-            self.pos < self.limit,
-            "Write position out of bounds: pos={}, limit={}",
-            self.pos,
-            self.limit
-        );
-
-        unsafe {
-            *self.bytes.as_mut_ptr().add(self.pos) = b;
-        }
+        debug_assert!(self.pos < self.limit);
+        self.bytes.access_mut(|bytes| {
+            bytes[self.pos] = b;
+        });
         self.pos += 1;
         Ok(())
     }
@@ -94,38 +102,9 @@ impl DataOutput for ByteArrayDataOutput {
             length,
             self.limit
         );
-        debug_assert!(
-            (offset + length) as usize <= b.len(),
-            "Source slice out of bounds: offset={}, length={}, source_len={}",
-            offset,
-            length,
-            b.len()
-        );
-        debug_assert!(
-            self.pos + length as usize <= self.bytes.len(),
-            "Destination slice out of bounds: pos={}, length={}, dest_len={}",
-            self.pos,
-            length,
-            self.bytes.len()
-        );
-
-        debug_assert!(
-            {
-                let dst_start = self.bytes.as_mut_ptr() as usize + self.pos;
-                let dst_end = dst_start + length as usize;
-                let src_start = b.as_ptr() as usize + offset as usize;
-                let src_end = src_start + length as usize;
-                dst_start >= src_end || src_start >= dst_end
-            },
-            "Source and destination memory regions overlap"
-        );
-
-        unsafe {
-            let dst = self.bytes.as_mut_ptr().add(self.pos);
-            let src = b.as_ptr().add(offset as usize);
-            std::ptr::copy_nonoverlapping(src, dst, length as usize);
-        }
-
+        self.bytes.access_mut(|bytes| {
+            bytes.copy_from(&b[offset as usize..(offset + length) as usize], self.pos);
+        });
         self.pos += length as usize;
         Ok(())
     }
@@ -135,7 +114,9 @@ impl DataOutput for ByteArrayDataOutput {
             self.pos + BitUtil::INT_BYTES <= self.limit,
             "Write exceeds the allowed limit"
         );
-        BitUtil::set_i32_le(&mut self.bytes, self.pos, i);
+        self.bytes.access_mut(|bytes| {
+            BitUtil::set_i32_le(bytes, self.pos, i);
+        });
         self.pos += BitUtil::INT_BYTES;
         Ok(())
     }
@@ -145,7 +126,9 @@ impl DataOutput for ByteArrayDataOutput {
             self.pos + BitUtil::SHORT_BYTES <= self.limit,
             "Write exceeds the allowed limit"
         );
-        BitUtil::set_i16_le(&mut self.bytes, self.pos, i);
+        self.bytes.access_mut(|bytes| {
+            BitUtil::set_i16_le(bytes, self.pos, i);
+        });
         self.pos += BitUtil::SHORT_BYTES;
         Ok(())
     }
@@ -155,7 +138,9 @@ impl DataOutput for ByteArrayDataOutput {
             self.pos + BitUtil::LONG_BYTES <= self.limit,
             "Write exceeds the allowed limit"
         );
-        BitUtil::set_i64_le(&mut self.bytes, self.pos, i);
+        self.bytes.access_mut(|bytes| {
+            BitUtil::set_i64_le(bytes, self.pos, i);
+        });
         self.pos += BitUtil::LONG_BYTES;
         Ok(())
     }

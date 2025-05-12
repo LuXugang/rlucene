@@ -1569,7 +1569,7 @@ where
 /// Reusable buffer for building nodes with fixed length arcs (binary search or
 /// direct addressing).
 pub(crate) struct FixedLengthArcsBuffer {
-    bado: ByteArrayDataOutput,
+    bado: ByteArrayDataOutput<Vec<u8>>,
 }
 impl FixedLengthArcsBuffer {
     pub(crate) fn new() -> Self {

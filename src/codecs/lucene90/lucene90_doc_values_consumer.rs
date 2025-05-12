@@ -726,7 +726,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     }
 
     fn compress_and_get_terms_dict_block_length(
-        buffered_output: &mut ByteArrayDataOutput,
+        buffered_output: &mut ByteArrayDataOutput<Vec<u8>>,
         dict_length: i32,
         ht: &mut HashTableEnum,
         data: &mut O,
@@ -746,7 +746,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     }
 
     fn maybe_grow_buffer(
-        buffered_output: &mut ByteArrayDataOutput,
+        buffered_output: &mut ByteArrayDataOutput<Vec<u8>>,
         term_length: i32,
     ) -> Result<()> {
         let pos = buffered_output.get_position();
