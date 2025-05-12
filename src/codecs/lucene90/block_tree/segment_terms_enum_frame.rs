@@ -53,14 +53,11 @@ where
     pub(crate) fp_orig: i64,
     pub(crate) fp_end: i64,
     pub(crate) total_suffix_bytes: i64, // for stats
-    // TODO: 要改成 Rc<RefCell>
     pub(crate) suffix_bytes: Vec<u8>,
     pub(crate) suffixes_reader: ByteArrayDataInput<Vec<u8>>,
 
-    // TODO: 要改成 Rc<RefCell>
     pub(crate) suffix_length_bytes: Vec<u8>,
     pub(crate) suffix_lengths_reader: ByteArrayDataInput<Vec<u8>>,
-    // TODO: 要改成 Rc<RefCell>
     pub(crate) stat_bytes: Vec<u8>,
     pub(crate) stats_singleton_run_length: i32,
     pub(crate) stats_reader: ByteArrayDataInput<Vec<u8>>,
@@ -101,7 +98,6 @@ where
     pub(crate) state: BlockTermStateEnum,
 
     // metadata buffer
-    // TODO: 要改成 Rc<RefCell>
     pub(crate) bytes: Vec<u8>,
     pub(crate) bytes_reader: ByteArrayDataInput<Vec<u8>>,
 
@@ -276,7 +272,7 @@ where
 
         if self.suffix_bytes.len() < num_suffix_bytes as usize {
             let new_len = ArrayUtil::oversize(num_suffix_bytes as usize, 1);
-            self.stat_bytes = vec![0u8; new_len];
+            self.suffix_bytes = vec![0u8; new_len];
         }
 
         let alg_code = (code_l & 0x03) as u8;
@@ -285,7 +281,7 @@ where
         self.compression_alg
             .read(input, &mut self.suffix_bytes, num_suffix_bytes)?;
         self.suffixes_reader.reset_with_range(
-            self.suffix_bytes.clone(),
+            std::mem::take(&mut self.suffix_bytes),
             0,
             num_suffix_bytes as usize,
         );
@@ -315,7 +311,7 @@ where
         }
 
         self.suffix_lengths_reader.reset_with_range(
-            self.suffix_length_bytes.clone(),
+            std::mem::take(&mut self.suffix_length_bytes),
             0,
             num_suffix_length_bytes,
         );
@@ -329,8 +325,11 @@ where
             self.stat_bytes = vec![0u8; new_len];
         }
         input.read_bytes(&mut self.stat_bytes, 0, num_bytes)?;
-        self.stats_reader
-            .reset_with_range(self.stat_bytes.clone(), 0, num_bytes as usize);
+        self.stats_reader.reset_with_range(
+            std::mem::take(&mut self.stat_bytes),
+            0,
+            num_bytes as usize,
+        );
         self.stats_singleton_run_length = 0;
         self.meta_data_upto = 0;
 
@@ -347,7 +346,7 @@ where
         }
         input.read_bytes(&mut self.bytes, 0, num_bytes)?;
         self.bytes_reader
-            .reset_with_range(self.bytes.clone(), 0, num_bytes as usize);
+            .reset_with_range(std::mem::take(&mut self.bytes), 0, num_bytes as usize);
 
         self.fp_end = input.get_file_pointer();
 
