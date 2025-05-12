@@ -21,8 +21,6 @@ use std::rc::Rc;
 use crate::internal::hppc::bit_mixer::BitMixer;
 use crate::util::automation::frozen_int_set::FrozenIntSet;
 use crate::util::automation::int_set::IntSet;
-use crate::util::error::lucene_error::LuceneError;
-use crate::util::error::lucene_error::Result;
 
 /// A thin wrapper mapping states to reference counts.
 /// When a state's count drops to zero, it is removed.
@@ -55,21 +53,13 @@ impl StateSet {
 
     /// Decrease the reference count of the state.
     /// If it reaches 0, remove the state.
-    pub(crate) fn decr(&mut self, state: i32) -> Result<()> {
+    pub(crate) fn decr(&mut self, state: i32) {
         debug_assert!(self.inner.contains_key(&state));
-        match self.inner.get_mut(&state) {
-            Some(entry) => {
-                *entry -= 1;
-                if *entry == 0 {
-                    self.inner.remove(&state);
-                    self.key_changed();
-                }
-                Ok(())
-            },
-            None => Err(LuceneError::illegal_state(format!(
-                "State {} not found",
-                state
-            ))),
+        let entry = self.inner.get_mut(&state).expect("state must exist");
+        *entry -= 1;
+        if *entry == 0 {
+            self.inner.remove(&state);
+            self.key_changed();
         }
     }
     pub(crate) fn reset(&mut self) {
@@ -195,7 +185,7 @@ mod tests {
         assert!(set.size() > 32);
         for i in 0..35 {
             // This is pretty much the worst case, perf wise
-            set.decr(i)?;
+            set.decr(i);
         }
 
         assert_eq!(set.size(), 0);
@@ -212,10 +202,10 @@ mod tests {
         set.incr(1);
         assert_equal(&mut set, &mut set2);
 
-        set.decr(1)?;
+        set.decr(1);
         assert_equal(&mut set, &mut set2);
 
-        set.decr(1)?;
+        set.decr(1);
         assert_ne!(
             (set.long_hash_code(), set.get_array()),
             (set2.long_hash_code(), set2.get_array())

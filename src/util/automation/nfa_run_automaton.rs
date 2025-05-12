@@ -28,7 +28,6 @@ use crate::util::automation::operations::PointTransitionSet;
 use crate::util::automation::state_set::StateSet;
 use crate::util::automation::transition::Transition;
 use crate::util::automation::transition_accessor::TransitionAccessor;
-use crate::util::error::lucene_error::Result;
 /// A [`RunAutomaton`](crate::util::automation::run_automaton::RunAutomaton)
 /// that does not require a precomputed DFA. It will lazily determinize
 /// on-demand, memorizing the DFA states that have been explored.
@@ -279,13 +278,13 @@ impl NFARunAutomaton {
 
         Some(DState::new(states_set.get_array().clone(), self))
     }
-    fn determinize(&self, index: usize) -> Result<()> {
+    fn determinize(&self, index: usize) {
         {
             let mut state = self.state.borrow_mut();
             let mut dstates = self.dstates.borrow_mut();
             let dstate = &mut dstates[index];
             if dstate.computed_transitions == dstate.transitions.len() as i32 {
-                return Ok(());
+                return;
             }
             state.transition_set.reset();
 
@@ -304,10 +303,10 @@ impl NFARunAutomaton {
                 if state.transition_set.count == 0 {
                     dstate.transitions.fill(NFARunAutomaton::MISSING);
                     dstate.computed_transitions = dstate.transitions.len() as i32;
-                    return Ok(());
+                    return;
                 }
             }
-            state.transition_set.sort()?;
+            state.transition_set.sort().expect("should not failed");
         }
         let mut states_set = self.states_set.borrow_mut();
         states_set.reset();
@@ -357,7 +356,7 @@ impl NFARunAutomaton {
             let limit = ends.next;
             for j in (0..limit).step_by(3) {
                 let dest = ends.transitions[j];
-                states_set.decr(dest)?;
+                states_set.decr(dest);
             }
             ends.next = 0;
 
@@ -391,7 +390,6 @@ impl NFARunAutomaton {
         dstate.transitions[char_class..len].fill(NFARunAutomaton::NOT_COMPUTED);
 
         dstate.computed_transitions = dstate.transitions.len() as i32;
-        Ok(())
     }
 }
 impl ByteRunnable for NFARunAutomaton {
@@ -449,14 +447,12 @@ impl TransitionAccessor for NFARunAutomaton {
     }
 
     fn get_num_transitions_with_state(&self, state: i32) -> i32 {
-        // TODO: 这里需要等优化Sorter的trait方法返回值不使用Result后 再来优化
-        self.determinize(state as usize).expect("should not failed");
+        self.determinize(state as usize);
         self.dstates.borrow()[state as usize].outgoing_transitions
     }
 
     fn get_transition(&self, state: i32, index: i32, t: &mut Transition) {
-        // TODO: 这里需要等优化Sorter的trait方法返回值不使用Result后 再来优化
-        self.determinize(state as usize).expect("should not failed");
+        self.determinize(state as usize);
 
         let transitions = &self.dstates.borrow()[state as usize].transitions;
 
