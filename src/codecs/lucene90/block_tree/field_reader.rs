@@ -44,7 +44,7 @@ use crate::util::ToInt;
 pub struct FieldReader<I, P>
 where
     I: IndexInput,
-    P: PostingsReaderBase<I>,
+    P: PostingsReaderBase,
 {
     pub(crate) num_terms: i64,
     pub(crate) field_info: Rc<FieldInfo>,
@@ -61,7 +61,7 @@ where
 impl<I, P> FieldReader<I, P>
 where
     I: IndexInput,
-    P: PostingsReaderBase<I>,
+    P: PostingsReaderBase,
 {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -155,7 +155,7 @@ where
 impl<I, P> Terms<Vec<u8>> for FieldReader<I, P>
 where
     I: IndexInput,
-    P: PostingsReaderBase<I>,
+    P: PostingsReaderBase,
 {
     type TermsEnum = DummyTermsEnum;
 
@@ -239,7 +239,7 @@ where
 impl<I, P> fmt::Display for FieldReader<I, P>
 where
     I: IndexInput,
-    P: PostingsReaderBase<I>,
+    P: PostingsReaderBase,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(

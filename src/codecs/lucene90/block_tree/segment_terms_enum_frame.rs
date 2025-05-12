@@ -36,7 +36,7 @@ use crate::util::{SliceCopyOps, ToInt};
 pub struct SegmentTermsEnumFrame<I, P, R, F>
 where
     I: IndexInput,
-    P: PostingsReaderBase<I>,
+    P: PostingsReaderBase,
     F: FstReader,
 {
     /// Our index in stack[]
@@ -112,7 +112,7 @@ where
 impl<I, P, R, F> SegmentTermsEnumFrame<I, P, R, F>
 where
     I: IndexInput,
-    P: PostingsReaderBase<I>,
+    P: PostingsReaderBase,
     F: FstReader,
 {
     pub fn new(ste: Rc<RefCell<SegmentTermsEnum<I, P, R, F>>>, ord: i32) -> Result<Self> {

@@ -26,7 +26,7 @@ use crate::store::IndexInput;
 pub struct Lucene90BlockTreeTermsReader<I, P>
 where
     I: IndexInput,
-    P: PostingsReaderBase<I>,
+    P: PostingsReaderBase,
 {
     terms_reader: Rc<RefCell<TermsReader<I, P>>>,
     field_reader: FieldMapWrapper<I, P>,
@@ -34,14 +34,14 @@ where
 pub struct FieldMapWrapper<I, P>
 where
     I: IndexInput,
-    P: PostingsReaderBase<I>,
+    P: PostingsReaderBase,
 {
     field_map: HashMap<i32, FieldReader<I, P>>,
 }
 pub struct TermsReader<I, P>
 where
     I: IndexInput,
-    P: PostingsReaderBase<I>,
+    P: PostingsReaderBase,
 {
     pub(crate) terms_in: I,
     index_in: I,

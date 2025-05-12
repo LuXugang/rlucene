@@ -19,7 +19,7 @@ use std::rc::Rc;
 use crate::codecs::block_term_state::BlockTermStateEnum;
 use crate::index::field_info::FieldInfo;
 use crate::index::impacts_enum::ImpactsEnum;
-use crate::index::postings_enum::{PostingsEnum, PostingsEnums};
+use crate::index::postings_enum::PostingsEnum;
 use crate::index::segment_read_state::SegmentReadState;
 use crate::store::directory::Directory;
 use crate::store::{DataInput, IndexInput};
@@ -36,10 +36,7 @@ use crate::util::error::lucene_error::Result;
 // Block) TODO: find a better name; this defines the API that the
 // terms dict impls use to talk to a postings impl.
 // TermsDict + PostingsReader/WriterBase == PostingsConsumer/Producer
-pub trait PostingsReaderBase<I>
-where
-    I: IndexInput,
-{
+pub trait PostingsReaderBase {
     /// Performs any initialization, such as reading and verifying the header
     /// from the provided terms dictionary [`IndexInput`].
     fn init<D>(
@@ -73,7 +70,7 @@ where
         &mut self,
         field_info: &FieldInfo,
         state: &BlockTermStateEnum,
-        reuse: Option<&mut PostingsEnums<I>>,
+        reuse: Option<Self::PostingsEnum>,
         flags: i32,
     ) -> Result<Option<Self::PostingsEnum>>;
 

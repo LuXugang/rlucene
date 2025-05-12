@@ -30,7 +30,7 @@ use crate::util::fst_impl::fst_reader::FstReader;
 pub struct SegmentTermsEnum<I, P, R, F>
 where
     I: IndexInput,
-    P: PostingsReaderBase<I>,
+    P: PostingsReaderBase,
     F: FstReader,
 {
     // Lazy init: input stream
@@ -51,7 +51,7 @@ where
 impl<I, P, R, F> SegmentTermsEnum<I, P, R, F>
 where
     I: IndexInput,
-    P: PostingsReaderBase<I>,
+    P: PostingsReaderBase,
     F: FstReader,
 {
     pub(crate) fn init_index_input(&mut self) -> Result<()> {

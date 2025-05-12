@@ -213,7 +213,7 @@ where
         })
     }
 }
-impl<I> PostingsReaderBase<I> for Lucene101PostingsReader<I>
+impl<I> PostingsReaderBase for Lucene101PostingsReader<I>
 where
     I: IndexInput,
 {
@@ -305,11 +305,12 @@ where
         &mut self,
         field_info: &FieldInfo,
         state: &BlockTermStateEnum,
-        reuse: Option<&mut PostingsEnums<I>>,
+        reuse: Option<Self::PostingsEnum>,
         flags: i32,
     ) -> Result<Option<Self::PostingsEnum>> {
-        let reuse_enum = reuse.ok_or_else(|| LuceneError::illegal_state("reuse is None"))?;
-        if let PostingsEnums::Block(ref mut everything_enum) = reuse_enum {
+        let reuse_enum: PostingsEnums<I> =
+            reuse.ok_or_else(|| LuceneError::illegal_state("reuse is None"))?;
+        if let PostingsEnums::Block(everything_enum) = reuse_enum {
             if everything_enum.can_reuse(&self.doc_in, field_info, flags, false, self) {
                 return Ok(None);
             }
