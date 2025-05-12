@@ -565,7 +565,6 @@ impl Hash for DStateKey {
 mod tests {
     use std::collections::HashSet;
 
-    use rand::rngs::StdRng;
     use rand::Rng;
 
     use crate::test::util::automaton::automaton_test_util::{
@@ -651,8 +650,8 @@ mod tests {
         Ok(())
     }
 
-    fn assert_random_access_transition(
-        random: &mut StdRng,
+    fn assert_random_access_transition<R: Rng + ?Sized>(
+        random: &mut R,
         automaton1: &mut NFARunAutomaton,
         automaton2: &mut NFARunAutomaton,
         state: i32,

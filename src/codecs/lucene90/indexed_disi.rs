@@ -1097,7 +1097,6 @@ mod tests {
     use std::cell::RefCell;
     use std::rc::Rc;
 
-    use rand::rngs::StdRng;
     use rand::Rng;
 
     use crate::codecs::indexed_disi::indexed_disi_util;
@@ -1256,8 +1255,8 @@ mod tests {
             BLOCKS,
         )
     }
-    fn test_position_not_zero_extra<I: IndexInput>(
-        random: &mut StdRng,
+    fn test_position_not_zero_extra<I: IndexInput, R: Rng + ?Sized>(
+        random: &mut R,
         full_input: &mut I,
         dense_rank_power: i8,
         length: i64,
@@ -1287,8 +1286,8 @@ mod tests {
         Ok(())
     }
 
-    fn create_set_with_random_blocks(
-        random: &mut StdRng,
+    fn create_set_with_random_blocks<R: Rng + ?Sized>(
+        random: &mut R,
         block_count: i32,
     ) -> Result<SparseFixedBitSet> {
         const B: i32 = 65536;
@@ -1317,8 +1316,8 @@ mod tests {
         Ok(set)
     }
 
-    fn do_test_all_single_jump(
-        random: &mut StdRng,
+    fn do_test_all_single_jump<R: Rng + ?Sized>(
+        random: &mut R,
         set: &impl BitSet,
         dir: &mut impl Directory,
     ) -> Result<()> {
@@ -1635,7 +1634,7 @@ mod tests {
         Ok(())
     }
 
-    fn do_test_random(dir: &mut impl Directory, random: &mut StdRng) -> Result<()> {
+    fn do_test_random<R: Rng + ?Sized>(dir: &mut impl Directory, random: &mut R) -> Result<()> {
         let end = TestUtil::next_int(random, 2, 20);
         let max_step = TestUtil::next_int(random, 1, 1 << end);
         let num_docs =
@@ -1659,7 +1658,11 @@ mod tests {
         do_test(&set, dir, random)
     }
 
-    fn do_test(set: &impl BitSet, dir: &mut impl Directory, random: &mut StdRng) -> Result<()> {
+    fn do_test<R: Rng + ?Sized>(
+        set: &impl BitSet,
+        dir: &mut impl Directory,
+        random: &mut R,
+    ) -> Result<()> {
         let cardinality = set.cardinality() as i64;
         let dense_rank_power = if rarely(random) {
             -1
@@ -1727,8 +1730,8 @@ mod tests {
         Ok(())
     }
 
-    fn assert_advance_exact_randomized<I: IndexInput, T: BitSet>(
-        random: &mut StdRng,
+    fn assert_advance_exact_randomized<I: IndexInput, T: BitSet, R: Rng + ?Sized>(
+        random: &mut R,
         disi: &mut IndexedDISI<I>,
         disi2: &mut BitSetIterator<T>,
         disi2_length: i32,

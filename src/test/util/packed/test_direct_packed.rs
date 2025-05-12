@@ -17,7 +17,6 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use rand::rngs::StdRng;
 use rand::Rng;
 
 use crate::store::data_output::DataOutput;
@@ -121,8 +120,8 @@ fn test_random_merge_with_offset() -> Result<()> {
     Ok(())
 }
 
-fn do_test_bpv(
-    random: &mut StdRng,
+fn do_test_bpv<R: Rng + ?Sized>(
+    random: &mut R,
     directory: &mut impl Directory,
     bpv: i32,
     offset: i64,
@@ -169,7 +168,7 @@ fn do_test_bpv(
     Ok(())
 }
 
-fn random_longs(random: &mut StdRng, bpv: i32) -> Vec<i64> {
+fn random_longs<R: Rng + ?Sized>(random: &mut R, bpv: i32) -> Vec<i64> {
     let amount = random.random_range(0..5000);
     let max = PackedInts::max_value(bpv);
     (0..amount).map(|_| random.random_range(0..=max)).collect()

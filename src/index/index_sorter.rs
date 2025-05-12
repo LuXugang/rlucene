@@ -88,7 +88,7 @@ impl IndexSorter for IndexSortEnum {
 }
 #[cfg(test)]
 mod tests {
-    use rand::rngs::StdRng;
+
     use rand::{Rng, RngCore};
 
     use crate::index::{BytesRef, BytesRefBuilder};
@@ -194,10 +194,10 @@ mod tests {
         test(vec![bytes1, bytes2], 2)
     }
 
-    fn test_random_impl(
+    fn test_random_impl<R: Rng + ?Sized>(
         common_prefix_len: usize,
         max_len: usize,
-        random: &mut StdRng,
+        random: &mut R,
     ) -> Result<()> {
         let mut common_prefix = vec![0u8; common_prefix_len];
         random.fill_bytes(&mut common_prefix);

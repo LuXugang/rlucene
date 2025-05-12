@@ -190,7 +190,7 @@ impl LongHeap {
 
 #[cfg(test)]
 mod tests {
-    use rand::rngs::StdRng;
+
     use rand::Rng;
 
     use crate::test::util::lucene_test_case::random;
@@ -220,7 +220,7 @@ mod tests {
         test_pq_with_random(10_000, &mut random)
     }
 
-    fn test_pq_with_random(count: usize, random: &mut StdRng) -> Result<()> {
+    fn test_pq_with_random<R: Rng + ?Sized>(count: usize, random: &mut R) -> Result<()> {
         let mut pq = LongHeap::new(count as i32)?;
         let mut sum: i64 = 0;
         let mut sum2: i64 = 0;

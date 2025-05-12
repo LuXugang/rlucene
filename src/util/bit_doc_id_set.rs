@@ -87,7 +87,8 @@ where
 
 #[cfg(test)]
 mod tests {
-    use rand::prelude::StdRng;
+
+    use rand::Rng;
 
     use crate::search::doc_id_set::DocIdSet;
     use crate::test::util::base_doc_id_set_test_case::{
@@ -111,9 +112,9 @@ mod tests {
             result.unwrap()
         }
 
-        fn assert_equals(
+        fn assert_equals<R: Rng + ?Sized>(
             &self,
-            random: &mut StdRng,
+            random: &mut R,
             num_bits: i32,
             ds1: &bit_set::BitSet,
             ds2: impl DocIdSet,

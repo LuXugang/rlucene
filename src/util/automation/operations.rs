@@ -1447,7 +1447,6 @@ pub(crate) mod tests {
     use std::collections::HashSet;
     use std::ptr;
 
-    use rand::rngs::StdRng;
     use rand::Rng;
 
     use crate::index::BytesRef;
@@ -1751,9 +1750,9 @@ pub(crate) mod tests {
     ///
     /// Returns:
     /// - A randomly generated [`Automaton`] instance.
-    pub(crate) fn generate_random_automaton(
+    pub(crate) fn generate_random_automaton<R: Rng + ?Sized>(
         has_cycle: bool,
-        random: &mut StdRng,
+        random: &mut R,
     ) -> Result<Automaton> {
         let mut a = Automaton::new();
         let mut last_level_states = vec![];

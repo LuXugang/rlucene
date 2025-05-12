@@ -611,7 +611,6 @@ mod tests {
     use std::cmp::Ordering;
     use std::fmt::Display;
 
-    use rand::rngs::StdRng;
     use rand::Rng;
 
     use crate::test::util::lucene_test_case::{at_least, random};
@@ -685,7 +684,7 @@ mod tests {
             assert!(v >= min_target_size);
         }
     }
-    fn parse_int(random: &mut StdRng, s: &str) -> Result<i32> {
+    fn parse_int<R: Rng + ?Sized>(random: &mut R, s: &str) -> Result<i32> {
         let start = random.random_range(0..5);
         let extra_length = random.random_range(0..4);
         let mut chars: Vec<char> = vec![' '; s.len() + start + extra_length];
@@ -734,7 +733,7 @@ mod tests {
         let value = result.unwrap();
         assert_eq!(value, 1923, "{} does not equal: 1923", value);
     }
-    fn create_random_array(random: &mut StdRng, max_size: i32) -> Vec<i32> {
+    fn create_random_array<R: Rng + ?Sized>(random: &mut R, max_size: i32) -> Vec<i32> {
         let size = random.random_range(1..=max_size);
         let mut array = Vec::with_capacity(size as usize);
 
@@ -767,7 +766,7 @@ mod tests {
         }
         Ok(())
     }
-    fn create_sparse_random_array(random: &mut StdRng, max_size: i32) -> Vec<i32> {
+    fn create_sparse_random_array<R: Rng + ?Sized>(random: &mut R, max_size: i32) -> Vec<i32> {
         let size = random.random_range(0..=max_size);
         let mut array = Vec::with_capacity(size as usize);
 
@@ -954,7 +953,7 @@ mod tests {
         Ok(())
     }
 
-    fn do_test_select(random: &mut StdRng) -> Result<()> {
+    fn do_test_select<R: Rng + ?Sized>(random: &mut R) -> Result<()> {
         let from = random.random_range(0..5) as usize;
         let to = from + TestUtil::next_int(random, 1, 10_000) as usize;
         let max = if random.random_bool(0.5) {

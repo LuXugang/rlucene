@@ -19,7 +19,6 @@ use std::sync::Arc;
 
 use num_bigint::BigInt;
 use parking_lot::Mutex;
-use rand::rngs::StdRng;
 use rand::Rng;
 
 use crate::codecs::segment_info_format::SegmentInfoFormat;
@@ -42,7 +41,7 @@ use crate::util::{StringHelper, Version};
 
 pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
     /// Test files map
-    fn test_files(&self, random: &mut StdRng) -> Result<()> {
+    fn test_files<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let id = StringHelper::random_id();
         let io_context = IOContext::default_io_context()?;
@@ -72,7 +71,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         assert_eq!(info.files()?, info2.files()?);
         Ok(())
     }
-    fn test_has_blocks(&self, random: &mut StdRng) -> Result<()> {
+    fn test_has_blocks<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         assert!(self.supports_has_blocks());
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let id = StringHelper::random_id();
@@ -106,7 +105,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
     }
 
     /// Tests SI writer adds itself to files...
-    fn test_adds_self_to_files(&self, random: &mut StdRng) -> Result<()> {
+    fn test_adds_self_to_files<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let id = StringHelper::random_id();
         let io_context = IOContext::default_io_context()?;
@@ -154,7 +153,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         Ok(())
     }
     /// Test diagnostics map
-    fn test_diagnostics(&self, random: &mut StdRng) -> Result<()> {
+    fn test_diagnostics<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let id = StringHelper::random_id();
         let mut diagnostics: HashMap<String, String> = HashMap::new();
@@ -197,7 +196,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         Ok(())
     }
     /// Test attributes map
-    fn test_attributes(&self, random: &mut StdRng) -> Result<()> {
+    fn test_attributes<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let id = StringHelper::random_id();
         let mut attributes: HashMap<String, String> = HashMap::new();
@@ -245,7 +244,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
     }
 
     /// Test unique ID
-    fn test_unique_id(&self, random: &mut StdRng) -> Result<()> {
+    fn test_unique_id<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let id = StringHelper::random_id();
         let io_context = IOContext::default_io_context()?;
@@ -278,7 +277,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         Ok(())
     }
     /// Test versions
-    fn test_versions(&self, random: &mut StdRng) -> Result<()> {
+    fn test_versions<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let io_context = IOContext::default_io_context()?;
 
         for version in self.get_versions() {
@@ -327,7 +326,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         Ok(())
     }
 
-    fn random_index_sort_field(random: &mut StdRng) -> Result<Option<SortFieldEnum>> {
+    fn random_index_sort_field<R: Rng + ?Sized>(random: &mut R) -> Result<Option<SortFieldEnum>> {
         let reversed = random.random_bool(0.5);
         let case = random.random_range(0..10);
         match case {
@@ -444,7 +443,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         }
     }
     /// Test sort
-    fn test_sort(&self, random: &mut StdRng) -> Result<()> {
+    fn test_sort<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         assert!(
             self.supports_index_sort(),
             "test requires a codec that can read/write index sort"
@@ -519,7 +518,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
 
     /// Sets some otherwise hard-to-test properties: random segment names, ID
     /// values, document count, etc and round-trips
-    fn test_random(&self, random: &mut StdRng) -> Result<()> {
+    fn test_random<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let versions = self.get_versions();
         let io_context = IOContext::default_io_context()?;
 

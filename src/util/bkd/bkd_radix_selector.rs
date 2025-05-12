@@ -1065,7 +1065,6 @@ mod tests {
         use std::cmp::Ordering::{Greater, Less};
         use std::rc::Rc;
 
-        use rand::rngs::StdRng;
         use rand::Rng;
 
         use crate::store::directory::Directory;
@@ -1148,7 +1147,7 @@ mod tests {
             let mut random = random();
             do_test_random_binary(&mut random, 500000)
         }
-        fn do_test_random_binary(random: &mut StdRng, count: i32) -> Result<()> {
+        fn do_test_random_binary<R: Rng + ?Sized>(random: &mut R, count: i32) -> Result<()> {
             let config = get_random_config(random)?;
             let packed_bytes_length = config.packed_bytes_length();
             let config = Rc::new(config);
@@ -1358,8 +1357,8 @@ mod tests {
             Ok(())
         }
         #[allow(clippy::too_many_arguments)]
-        fn verify<D: Directory>(
-            random: &mut StdRng,
+        fn verify<D: Directory, R: Rng + ?Sized>(
+            random: &mut R,
             config: Rc<BKDConfig>,
             dir: Rc<RefCell<D>>,
             points: &mut PointWriterEnum<D>,
@@ -1470,8 +1469,8 @@ mod tests {
             a[..len_a].cmp(&b[..len_b]).to_int()
         }
 
-        fn copy_points<D: Directory>(
-            random: &mut StdRng,
+        fn copy_points<D: Directory, R: Rng + ?Sized>(
+            random: &mut R,
             config: Rc<BKDConfig>,
             dir: Rc<RefCell<D>>,
             points: &PointWriterEnum<D>,
@@ -1489,11 +1488,11 @@ mod tests {
         }
 
         /// returns a common prefix length equal or lower than the current one.
-        fn get_random_common_prefix<D: Directory>(
+        fn get_random_common_prefix<D: Directory, R: Rng + ?Sized>(
             config: Rc<BKDConfig>,
             input_slice: &PathSlice<D>,
             split_dim: i32,
-            random: &mut StdRng,
+            random: &mut R,
         ) -> Result<i32> {
             let points_max = get_max(config.clone(), input_slice, split_dim)?;
             let points_min = get_min(config.clone(), input_slice, split_dim)?;
@@ -1514,8 +1513,8 @@ mod tests {
             }
         }
 
-        fn get_random_point_writer<D: Directory>(
-            random: &mut StdRng,
+        fn get_random_point_writer<D: Directory, R: Rng + ?Sized>(
+            random: &mut R,
             config: Rc<BKDConfig>,
             dir: Rc<RefCell<D>>,
             num_points: i64,
@@ -1734,7 +1733,7 @@ mod tests {
             Ok(doc_id)
         }
 
-        fn get_random_config(random: &mut StdRng) -> Result<BKDConfig> {
+        fn get_random_config<R: Rng + ?Sized>(random: &mut R) -> Result<BKDConfig> {
             let num_index_dims = TestUtil::next_int(random, 1, BKDConfig::MAX_INDEX_DIMS);
             let num_dims = TestUtil::next_int(random, num_index_dims, BKDConfig::MAX_DIMS);
             let bytes_per_dim = TestUtil::next_int(random, 2, 30);
@@ -1751,7 +1750,6 @@ mod tests {
         use std::cell::RefCell;
         use std::rc::Rc;
 
-        use rand::prelude::StdRng;
         use rand::Rng;
 
         use crate::store::directory::Directory;
@@ -1872,8 +1870,8 @@ mod tests {
             Ok(())
         }
 
-        fn verify_sort<D: Directory>(
-            random: &mut StdRng,
+        fn verify_sort<D: Directory, R: Rng + ?Sized>(
+            random: &mut R,
             config: Rc<BKDConfig>,
             points: Rc<RefCell<PointWriterEnum<D>>>,
             start: i32,
@@ -1980,13 +1978,13 @@ mod tests {
 
             Ok(())
         }
-        fn get_random_common_prefix<D: Directory>(
+        fn get_random_common_prefix<D: Directory, R: Rng + ?Sized>(
             config: Rc<BKDConfig>,
             points: Rc<RefCell<PointWriterEnum<D>>>,
             start: i32,
             end: i32,
             sort_dim: i32,
-            random: &mut StdRng,
+            random: &mut R,
         ) -> i32 {
             let mut heap_point = points.borrow_mut();
             match &mut *heap_point {
@@ -2037,7 +2035,7 @@ mod tests {
             }
         }
 
-        fn get_random_config(random: &mut StdRng) -> Result<BKDConfig> {
+        fn get_random_config<R: Rng + ?Sized>(random: &mut R) -> Result<BKDConfig> {
             let num_index_dims = TestUtil::next_int(random, 1, BKDConfig::MAX_INDEX_DIMS);
             let num_dims = TestUtil::next_int(random, num_index_dims, BKDConfig::MAX_DIMS);
             let bytes_per_dim = TestUtil::next_int(random, 2, 30);

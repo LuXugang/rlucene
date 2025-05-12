@@ -17,7 +17,6 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use rand::rngs::StdRng;
 use rand::Rng;
 
 use crate::store::directory::Directory;
@@ -232,7 +231,7 @@ pub fn test_random_merging() -> Result<()> {
     do_test_random(&mut random, true)
 }
 
-fn do_test_random(random: &mut StdRng, merging: bool) -> Result<()> {
+fn do_test_random<R: Rng + ?Sized>(random: &mut R, merging: bool) -> Result<()> {
     let iters = at_least(random, 3);
     for _ in 0..iters {
         let mut dir = new_directory(random)?;
@@ -335,8 +334,8 @@ pub fn test_monotonic_binary_search_random() -> Result<()> {
     Ok(())
 }
 
-fn do_test_monotonic_binary_search_against_long_array(
-    random: &mut StdRng,
+fn do_test_monotonic_binary_search_against_long_array<R: Rng + ?Sized>(
+    random: &mut R,
     dir: &mut impl Directory,
     array: &[i64],
     block_shift: i32,

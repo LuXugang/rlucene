@@ -140,7 +140,8 @@ impl DocIdSetIterator for IntArrayDocIdSetIterator<'_> {
 
 #[cfg(test)]
 mod tests {
-    use rand::rngs::StdRng;
+
+    use rand::Rng;
 
     use crate::search::doc_id_set::DocIdSet;
     use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
@@ -166,9 +167,9 @@ mod tests {
             result.unwrap()
         }
 
-        fn assert_equals(
+        fn assert_equals<R: Rng + ?Sized>(
             &self,
-            random: &mut StdRng,
+            random: &mut R,
             num_bits: i32,
             ds1: &bit_set::BitSet,
             ds2: impl DocIdSet,

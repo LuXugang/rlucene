@@ -528,7 +528,6 @@ mod tests {
     use std::hash::{DefaultHasher, Hash, Hasher};
 
     use bit_set::BitSet;
-    use rand::rngs::StdRng;
     use rand::Rng;
 
     use crate::test::util::id_set_common::{clear_range, flip_bit, flip_bit_range, set_range};
@@ -571,7 +570,7 @@ mod tests {
         }
     }
 
-    fn do_prev_set_bit(random: &mut StdRng, a: &BitSet, b: &LongBitSet) {
+    fn do_prev_set_bit<R: Rng + ?Sized>(random: &mut R, a: &BitSet, b: &LongBitSet) {
         assert_eq!(a.len(), b.cardinality() as usize);
 
         let mut aa = a.get_ref().len() as i64 + random.random_range(0..100);
@@ -600,7 +599,12 @@ mod tests {
             }
         }
     }
-    fn do_random_sets(max_size: i32, iter: i32, _mode: i32, random: &mut StdRng) -> Result<()> {
+    fn do_random_sets<R: Rng + ?Sized>(
+        max_size: i32,
+        iter: i32,
+        _mode: i32,
+        random: &mut R,
+    ) -> Result<()> {
         let mut a0: Option<BitSet> = None;
         let mut b0: Option<LongBitSet> = None;
 
@@ -811,7 +815,11 @@ mod tests {
         }
         Ok(())
     }
-    fn make_long_bitset(random: &mut StdRng, a: &Vec<i32>, num_bits: i32) -> Result<LongBitSet> {
+    fn make_long_bitset<R: Rng + ?Sized>(
+        random: &mut R,
+        a: &Vec<i32>,
+        num_bits: i32,
+    ) -> Result<LongBitSet> {
         let mut bs: LongBitSet;
         if random.random_bool(0.5) {
             let bits_2_words = LongBitSet::bits2words(num_bits as i64)?;
@@ -835,7 +843,11 @@ mod tests {
         bs
     }
 
-    fn check_prev_set_bit_array(random: &mut StdRng, a: Vec<i32>, num_bits: i32) -> Result<()> {
+    fn check_prev_set_bit_array<R: Rng + ?Sized>(
+        random: &mut R,
+        a: Vec<i32>,
+        num_bits: i32,
+    ) -> Result<()> {
         let obs = make_long_bitset(random, &a, num_bits)?;
         let bs = make_bitset(&a);
         do_prev_set_bit(random, &bs, &obs);
@@ -852,7 +864,11 @@ mod tests {
         Ok(())
     }
 
-    fn check_next_set_bit_array(random: &mut StdRng, a: Vec<i32>, num_bits: i32) -> Result<()> {
+    fn check_next_set_bit_array<R: Rng + ?Sized>(
+        random: &mut R,
+        a: Vec<i32>,
+        num_bits: i32,
+    ) -> Result<()> {
         let obs = make_long_bitset(random, &a, num_bits)?;
         let bs = make_bitset(&a);
         do_next_set_bit(&bs, &obs);

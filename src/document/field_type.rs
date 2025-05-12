@@ -566,7 +566,6 @@ impl fmt::Display for FieldType {
 mod tests {
     use std::hash::{DefaultHasher, Hash, Hasher};
 
-    use rand::rngs::StdRng;
     use rand::Rng;
 
     use crate::document::field_type::FieldType;
@@ -664,12 +663,12 @@ mod tests {
         Ok(())
     }
 
-    fn random_value_bool(random: &mut StdRng) -> bool {
+    fn random_value_bool<R: Rng + ?Sized>(random: &mut R) -> bool {
         random.random_bool(0.5)
     }
 
     // Generates a random FieldType.
-    fn random_field_type(random: &mut StdRng) -> Result<FieldType> {
+    fn random_field_type<R: Rng + ?Sized>(random: &mut R) -> Result<FieldType> {
         let mut ft = FieldType::new();
         let max_idx_dims = point_values_util::MAX_INDEX_DIMENSIONS;
         let max_dims = point_values_util::MAX_DIMENSIONS;

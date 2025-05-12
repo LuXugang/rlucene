@@ -552,7 +552,7 @@ mod tests {
         let mut random = random();
         // here could use any DataInput impl because this test does not test
         // ByteArrayDataInput
-        test.test_randomized_writes::<ByteArrayDataInput<Vec<u8>>>(&mut random)
+        test.test_randomized_writes::<ByteArrayDataInput<Vec<u8>>, _>(&mut random)
     }
 
     #[test]

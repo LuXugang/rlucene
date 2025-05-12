@@ -485,7 +485,6 @@ impl DocIdsWriter {
 mod tests {
     use std::collections::HashSet;
 
-    use rand::rngs::StdRng;
     use rand::Rng;
 
     use crate::index::point_values::{IntersectVisitor, Relation};
@@ -587,7 +586,7 @@ mod tests {
         Ok(())
     }
 
-    fn test(random: &mut StdRng, dir: &mut impl Directory, ints: &[i32]) -> Result<()> {
+    fn test<R: Rng + ?Sized>(random: &mut R, dir: &mut impl Directory, ints: &[i32]) -> Result<()> {
         let len: i64;
         let mut doc_ids_writer = DocIdsWriter::new(ints.len() as i32);
         {

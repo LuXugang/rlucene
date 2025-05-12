@@ -1069,14 +1069,14 @@ impl Mutable for DummyMutable {}
 
 #[cfg(test)]
 mod tests {
-    use rand::rngs::StdRng;
-    use rand::{Rng, SeedableRng};
+
+    use rand::Rng;
 
     use crate::store::directory::Directory;
     use crate::store::{
         ByteArrayDataInput, DataInput, DataOutput, IndexInput, IndexOutput, IO_CONTEXT_DEFAULT,
     };
-    use crate::test::util::lucene_test_case::{at_least, is_night_mode};
+    use crate::test::util::lucene_test_case::{at_least, is_night_mode, random_from_seed};
     use crate::test::util::lucene_test_case::{new_directory, new_io_context, random, rarely};
     use crate::test::util::test_util::TestUtil;
     use crate::util::error::lucene_error::{LuceneError, Result};
@@ -1489,7 +1489,7 @@ mod tests {
         } else {
             (1 << bits_per_value) - 1
         };
-        let mut random = StdRng::seed_from_u64(seed);
+        let mut random = random_from_seed(seed);
         for i in 0..packed_int.size() {
             let value: i64 = if bits_per_value == 64 {
                 random.random()

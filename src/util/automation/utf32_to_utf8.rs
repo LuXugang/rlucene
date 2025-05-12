@@ -379,7 +379,6 @@ mod tests {
     use std::collections::HashSet;
     use std::string::FromUtf16Error;
 
-    use rand::rngs::StdRng;
     use rand::Rng;
 
     use crate::test::util::automaton::automaton_test_util::{
@@ -411,8 +410,8 @@ mod tests {
         let _ = ch.encode_utf8(&mut buf);
         Ok(a.run(buf.as_slice(), 0, len))
     }
-    fn test_one(
-        random: &mut StdRng,
+    fn test_one<R: Rng + ?Sized>(
+        random: &mut R,
         a: &ByteRunAutomaton,
         start_code: i32,
         end_code: i32,
@@ -490,7 +489,7 @@ mod tests {
         }
         Ok(())
     }
-    fn get_code_start(random: &mut StdRng) -> i32 {
+    fn get_code_start<R: Rng + ?Sized>(random: &mut R) -> i32 {
         match random.random_range(0..4) {
             0 => random.random_range(0..128),
             1 => random.random_range(128..2048),
@@ -642,7 +641,7 @@ mod tests {
         Ok(())
     }
 
-    fn assert_automaton(random: &mut StdRng, a: &Automaton) -> Result<()> {
+    fn assert_automaton<R: Rng + ?Sized>(random: &mut R, a: &Automaton) -> Result<()> {
         let cra = CharacterRunAutomaton::new(a.clone())?;
         let bra = ByteRunAutomaton::new(a.clone())?;
         let ras = RandomAcceptedStrings::new(a)?;

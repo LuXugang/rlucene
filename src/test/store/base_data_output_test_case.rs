@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use rand::rngs::StdRng;
 use rand::{Rng, RngCore};
 use rand_xoshiro::rand_core::SeedableRng;
 use rand_xoshiro::Xoroshiro128Plus;
@@ -30,7 +29,10 @@ pub trait BaseDataOutputTestCase {
     fn new_instance(&self) -> Result<Self::DO>;
     fn get_bytes(&mut self, instance: Self::DO) -> Vec<u8>;
 
-    fn test_randomized_writes<DI: DataInput>(&mut self, random: &mut StdRng) -> Result<()> {
+    fn test_randomized_writes<DI: DataInput, R: Rng + ?Sized>(
+        &mut self,
+        random: &mut R,
+    ) -> Result<()> {
         let seed: u64 = random.random();
         let mut instance = self.new_instance()?;
         let mut buffer = Vec::new();

@@ -273,7 +273,6 @@ where
 mod tests {
     use std::collections::HashSet;
 
-    use rand::rngs::StdRng;
     use rand::{Rng, RngCore};
 
     use crate::index::{BytesRef, BytesRefBuilder};
@@ -287,7 +286,7 @@ mod tests {
     #[allow(dead_code)] // for quick search
     struct TestStableMSBRadixSorter;
 
-    fn test(refs: &[BytesRef<Vec<u8>>], len: usize, random: &mut StdRng) -> Result<()> {
+    fn test<R: Rng + ?Sized>(refs: &[BytesRef<Vec<u8>>], len: usize, random: &mut R) -> Result<()> {
         let mut expected: Vec<BytesRef<Vec<u8>>> = refs[..len].to_vec();
         expected.sort();
 
@@ -335,10 +334,10 @@ mod tests {
         test(&refs, 2, &mut random)
     }
 
-    fn test_random_impl(
+    fn test_random_impl<R: Rng + ?Sized>(
         common_prefix_len: usize,
         max_len: usize,
-        random: &mut StdRng,
+        random: &mut R,
     ) -> Result<()> {
         let mut common_prefix = vec![0u8; common_prefix_len];
         random.fill_bytes(&mut common_prefix);

@@ -212,7 +212,6 @@ impl BitTableUtil {
 mod tests {
     use std::fmt::{Display, Formatter};
 
-    use rand::rngs::StdRng;
     use rand::Rng;
 
     use crate::store::DataInput;
@@ -324,7 +323,7 @@ mod tests {
         Ok(())
     }
 
-    fn build_random_bits(random: &mut StdRng) -> Vec<u8> {
+    fn build_random_bits<R: Rng + ?Sized>(random: &mut R) -> Vec<u8> {
         let len = random.random_range(2..26);
         let mut bits = vec![0; len];
 

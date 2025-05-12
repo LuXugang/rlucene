@@ -482,7 +482,6 @@ pub trait MSBRadixSorterBase: Sorter {
 mod tests {
     use std::collections::{BTreeSet, HashSet};
 
-    use rand::rngs::StdRng;
     use rand::{Rng, RngCore};
 
     use crate::index::{BytesRef, BytesRefBuilder};
@@ -495,7 +494,11 @@ mod tests {
     #[allow(dead_code)] // for quick search
     struct TestMSBRadixSorter;
 
-    fn test(refs: &mut [BytesRef<Vec<u8>>], len: usize, random: &mut StdRng) -> Result<()> {
+    fn test<R: Rng + ?Sized>(
+        refs: &mut [BytesRef<Vec<u8>>],
+        len: usize,
+        random: &mut R,
+    ) -> Result<()> {
         let mut expected: Vec<BytesRef<Vec<u8>>> = refs[..len].to_vec();
         expected.sort();
 
@@ -544,7 +547,11 @@ mod tests {
         test(&mut refs, 2, &mut random)
     }
 
-    fn test_random_impl(common_prefix_len: usize, max_len: i32, random: &mut StdRng) -> Result<()> {
+    fn test_random_impl<R: Rng + ?Sized>(
+        common_prefix_len: usize,
+        max_len: i32,
+        random: &mut R,
+    ) -> Result<()> {
         let mut common_prefix = vec![0u8; common_prefix_len];
         random.fill_bytes(&mut common_prefix);
         let len = random.random_range(0..10000);

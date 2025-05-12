@@ -471,7 +471,7 @@ pub trait TimSorterBase {
 
 #[cfg(test)]
 mod tests {
-    use rand::rngs::StdRng;
+    use rand::Rng;
 
     use crate::test::util::base_sort_test_case::{BaseSortTestCase, Entry};
     use crate::test::util::lucene_test_case::random;
@@ -492,7 +492,7 @@ mod tests {
     }
 
     impl<T: Default + Clone, C: Comparator<T>> BaseSortTestCase for TestTimSorter<T, C> {
-        fn new_sorter(&self, random: &mut StdRng, arr: &mut Vec<Entry>) -> impl Sorter {
+        fn new_sorter<R: Rng + ?Sized>(&self, random: &mut R, arr: &mut Vec<Entry>) -> impl Sorter {
             let arr_len = arr.len();
             let max_temp_slots = TestUtil::next_int(random, 0, arr_len as i32);
             let array_tim_sorter = ArrayTimSorter::new(arr, NaturalOrder::new(), arr_len as i32);

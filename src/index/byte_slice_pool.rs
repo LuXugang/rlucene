@@ -162,7 +162,6 @@ mod tests {
     use std::cell::RefCell;
     use std::rc::Rc;
 
-    use rand::rngs::StdRng;
     use rand::Rng;
 
     use crate::index::byte_slice_pool::ByteSlicePool;
@@ -268,7 +267,10 @@ mod tests {
 
     impl SliceWriter {
         /// Creates a new `SliceWriter` instance.
-        pub fn new(random: &mut StdRng, slice_pool: Rc<RefCell<ByteSlicePool>>) -> Self {
+        pub fn new<R: Rng + ?Sized>(
+            random: &mut R,
+            slice_pool: Rc<RefCell<ByteSlicePool>>,
+        ) -> Self {
             let size: i32 = if random.random_bool(0.5) {
                 // size < ByteBlockPool.BYTE_BLOCK_SIZE
                 random.random_range(100..1000)

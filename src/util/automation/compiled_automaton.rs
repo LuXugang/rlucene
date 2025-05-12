@@ -418,7 +418,6 @@ pub enum AutomatonType {
 mod tests {
     use std::collections::HashSet;
 
-    use rand::prelude::StdRng;
     use rand::Rng;
 
     use crate::index::{BytesRef, BytesRefBuilder};
@@ -462,7 +461,11 @@ mod tests {
 
         Ok(())
     }
-    fn test_terms(random: &mut StdRng, determinize_work_limit: i32, terms: &[&str]) -> Result<()> {
+    fn test_terms<R: Rng + ?Sized>(
+        random: &mut R,
+        determinize_work_limit: i32,
+        terms: &[&str],
+    ) -> Result<()> {
         let mut compiled = build(determinize_work_limit, terms)?;
         let mut term_bytes: Vec<BytesRef<Vec<u8>>> =
             terms.iter().map(|s| BytesRef::from_string(s)).collect();
@@ -532,7 +535,7 @@ mod tests {
         Ok(())
     }
 
-    fn random_string(random: &mut StdRng) -> String {
+    fn random_string<R: Rng + ?Sized>(random: &mut R) -> String {
         TestUtil::random_realistic_unicode_string(random)
     }
     #[test]

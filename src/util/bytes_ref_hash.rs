@@ -981,7 +981,6 @@ mod tests {
     use std::thread;
 
     use parking_lot::Mutex;
-    use rand::rngs::StdRng;
     use rand::Rng;
 
     use crate::index::{BytesRef, BytesRefBuilder};
@@ -1001,7 +1000,7 @@ mod tests {
         let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
         Arc::new(Mutex::new(ByteBlockPool::new_sync(allocator)))
     }
-    fn new_hash(random: &mut StdRng, block_pool: ByteBlockPoolLock) -> MTBytesRefHash {
+    fn new_hash<R: Rng + ?Sized>(random: &mut R, block_pool: ByteBlockPoolLock) -> MTBytesRefHash {
         let init_size = 2 << (1 + random.random_range(0..5));
         if random.random_bool(0.5) {
             BytesRefHash::from_pool_sync(block_pool)

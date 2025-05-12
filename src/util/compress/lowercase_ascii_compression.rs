@@ -171,7 +171,7 @@ impl LowercaseAsciiCompression {
 }
 #[cfg(test)]
 mod tests {
-    use rand::rngs::StdRng;
+
     use rand::Rng;
 
     use crate::store::ByteBuffersDataOutput;
@@ -179,11 +179,15 @@ mod tests {
     use crate::test::util::test_util::TestUtil;
     use crate::util::compress::lowercase_ascii_compression::LowercaseAsciiCompression;
     use crate::util::error::lucene_error::Result;
-    fn do_test_compress(random: &mut StdRng, bytes: &[u8]) -> Result<bool> {
+    fn do_test_compress<R: Rng + ?Sized>(random: &mut R, bytes: &[u8]) -> Result<bool> {
         do_test_compress_with_len(random, bytes, bytes.len())
     }
 
-    fn do_test_compress_with_len(random: &mut StdRng, bytes: &[u8], len: usize) -> Result<bool> {
+    fn do_test_compress_with_len<R: Rng + ?Sized>(
+        random: &mut R,
+        bytes: &[u8],
+        len: usize,
+    ) -> Result<bool> {
         let mut compressed = ByteBuffersDataOutput::new();
         let mut tmp = vec![0u8; len + random.random_range(0..10)];
         random.fill(&mut tmp[..]);

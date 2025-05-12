@@ -249,7 +249,7 @@ impl StoredFieldsInts {
 }
 #[cfg(test)]
 mod tests {
-    use rand::rngs::StdRng;
+
     use rand::Rng;
 
     use crate::codecs::compressing::stored_fields_ints::StoredFieldsInts;
@@ -292,7 +292,7 @@ mod tests {
         Ok(())
     }
 
-    fn test(random: &mut StdRng, dir: &mut impl Directory, ints: &[i32]) -> Result<()> {
+    fn test<R: Rng + ?Sized>(random: &mut R, dir: &mut impl Directory, ints: &[i32]) -> Result<()> {
         let len;
         {
             let mut out = dir.create_output("tmp", &IOContext::default_io_context()?)?;

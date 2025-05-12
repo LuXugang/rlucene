@@ -147,7 +147,6 @@ mod tests {
     use num_integer::Integer;
     use num_traits::{FromPrimitive, ToPrimitive};
     use rand::prelude::IndexedRandom;
-    use rand::rngs::StdRng;
     use rand::Rng;
 
     use crate::test::util::lucene_test_case::{at_least, random};
@@ -158,7 +157,7 @@ mod tests {
 
     /// Generates a random `i64` value following the logic in the original Java
     /// function.
-    fn random_long(random: &mut StdRng) -> i64 {
+    fn random_long<R: Rng + ?Sized>(random: &mut R) -> i64 {
         if random.random_bool(0.5) {
             let mut l = 1;
             if random.random_bool(0.5) {

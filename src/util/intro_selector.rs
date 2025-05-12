@@ -302,7 +302,7 @@ pub trait IntroSelectorBaseDefault {
 
 #[cfg(test)]
 mod tests {
-    use rand::rngs::StdRng;
+
     use rand::Rng;
 
     use crate::test::util::lucene_test_case::random;
@@ -323,7 +323,7 @@ mod tests {
         Ok(())
     }
 
-    pub fn do_test_select(random: &mut StdRng) -> Result<()> {
+    pub fn do_test_select<R: Rng + ?Sized>(random: &mut R) -> Result<()> {
         let from: i32 = random.random_range(0..5);
         let to: i32 = from + TestUtil::next_int(random, 1, 10000);
         let max: i32 = if random.random_bool(0.5) {

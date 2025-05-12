@@ -18,7 +18,6 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use parking_lot::Mutex;
-use rand::rngs::StdRng;
 use rand::Rng;
 
 use crate::codecs::compound_directory::CompoundDirectory;
@@ -34,7 +33,7 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::{StringHelper, LATEST};
 
 pub trait BaseCompoundFormatTestCase {
-    fn test_empty(&self, random: &mut StdRng) -> Result<()> {
+    fn test_empty<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let mut si = new_segment_info(random, dir.clone(), "_123")?;
         si.set_files(HashSet::new());
@@ -49,7 +48,7 @@ pub trait BaseCompoundFormatTestCase {
     }
     /// This test creates compound file based on a single file. Files of
     /// different sizes are tested: 0, 1, 10, 100 bytes.
-    fn test_single_file(&self, random: &mut StdRng) -> Result<()> {
+    fn test_single_file<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let data = [0, 1, 10, 100];
         for (i, &size) in data.iter().enumerate() {
             let test_file = format!("_{}.test", i);
@@ -85,7 +84,7 @@ pub trait BaseCompoundFormatTestCase {
         Ok(())
     }
     /// This test creates compound file based on two files.
-    fn test_two_files(&self, random: &mut StdRng) -> Result<()> {
+    fn test_two_files<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let files = ["_123.d1", "_123.d2"];
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let mut si = new_segment_info(random, dir.clone(), "_123")?;
@@ -150,7 +149,7 @@ pub trait BaseCompoundFormatTestCase {
     }
     /// Test that the compound file system (CFS) reader is read-only by
     /// attempting to create an output.
-    fn test_create_output_disabled(&self, random: &mut StdRng) -> Result<()> {
+    fn test_create_output_disabled<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let mut si = new_segment_info(random, dir.clone(), "_123")?;
         si.set_files(HashSet::new());
@@ -167,7 +166,7 @@ pub trait BaseCompoundFormatTestCase {
     }
     /// Test that the CFS reader is read-only, and that `deleteFile` is
     /// disabled.
-    fn test_delete_file_disabled(&self, random: &mut StdRng) -> Result<()> {
+    fn test_delete_file_disabled<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let testfile = "_123.test";
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let mut out = dir
@@ -187,7 +186,7 @@ pub trait BaseCompoundFormatTestCase {
         Ok(())
     }
     /// Test that the CFS reader is read-only, and that `rename` is disabled.
-    fn test_rename_file_disabled(&self, random: &mut StdRng) -> Result<()> {
+    fn test_rename_file_disabled<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let testfile = "_123.test";
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let mut out = dir
@@ -207,7 +206,7 @@ pub trait BaseCompoundFormatTestCase {
         Ok(())
     }
     /// Test that the CFS reader is read-only, and that `sync` is disabled.
-    fn test_sync_disabled(&self, random: &mut StdRng) -> Result<()> {
+    fn test_sync_disabled<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let testfile = "_123.test";
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let mut out = dir
@@ -229,7 +228,7 @@ pub trait BaseCompoundFormatTestCase {
 
     /// Test that the CFS reader is read-only, and that obtaining locks is
     /// disabled.
-    fn test_make_lock_disabled(&self, random: &mut StdRng) -> Result<()> {
+    fn test_make_lock_disabled<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let testfile = "_123.test";
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let mut out = dir
@@ -254,7 +253,7 @@ pub trait BaseCompoundFormatTestCase {
     /// buffering logic in the file reading code. For this, the chunk
     /// variable is set to the length of the buffer used internally by the
     /// compound file logic.
-    fn test_random_files(&self, random: &mut StdRng) -> Result<()> {
+    fn test_random_files<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let segment = "_123";
         let chunk = 1024; // internal buffer size used by the stream
@@ -362,7 +361,7 @@ pub trait BaseCompoundFormatTestCase {
         Ok(())
     }
 
-    fn test_many_sub_files(&self, random: &mut StdRng) -> Result<()> {
+    fn test_many_sub_files<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         // TODO: should enhance after implementing the newMockFSDirectory
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let file_count = at_least(random, 500) as usize;
@@ -403,7 +402,7 @@ pub trait BaseCompoundFormatTestCase {
         // }
         Ok(())
     }
-    fn test_cloned_streams_closing(&self, random: &mut StdRng) -> Result<()> {
+    fn test_cloned_streams_closing<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let cr = create_large_cfs(random, dir.clone())?;
 
@@ -420,7 +419,7 @@ pub trait BaseCompoundFormatTestCase {
     }
     /// This test opens two files from a compound stream and verifies that their
     /// file positions are independent of each other.
-    fn test_random_access(&self, random: &mut StdRng) -> Result<()> {
+    fn test_random_access<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let cr = create_large_cfs(random, dir.clone())?;
 
@@ -493,7 +492,7 @@ pub trait BaseCompoundFormatTestCase {
     }
     /// This test opens two files from a compound stream and verifies that their
     /// file positions are independent of each other.
-    fn test_random_access_clones(&self, random: &mut StdRng) -> Result<()> {
+    fn test_random_access_clones<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let cr = create_large_cfs(random, dir.clone())?;
 
@@ -570,7 +569,7 @@ pub trait BaseCompoundFormatTestCase {
 
         Ok(())
     }
-    fn test_file_not_found(&self, random: &mut StdRng) -> Result<()> {
+    fn test_file_not_found<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let cr = create_large_cfs(random, dir.clone())?;
 
@@ -578,7 +577,7 @@ pub trait BaseCompoundFormatTestCase {
         assert!(matches!(result, Err(LuceneError::NotFound(_))));
         Ok(())
     }
-    fn test_read_past_eof(&self, random: &mut StdRng) -> Result<()> {
+    fn test_read_past_eof<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let cr = create_large_cfs(random, dir.clone())?;
         let mut is = cr.open_input("_123.f2", &new_io_context(random)?)?;
@@ -592,7 +591,10 @@ pub trait BaseCompoundFormatTestCase {
         assert!(matches!(result, Err(LuceneError::Eof(_))));
         Ok(())
     }
-    fn test_resource_name_inside_compound_file(&self, random: &mut StdRng) -> Result<()> {
+    fn test_resource_name_inside_compound_file<R: Rng + ?Sized>(
+        &self,
+        random: &mut R,
+    ) -> Result<()> {
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let sub_file = "_123.xyz";
         let mut si = new_segment_info(random, dir.clone(), "_123")?;
@@ -623,7 +625,7 @@ pub trait BaseCompoundFormatTestCase {
         );
         Ok(())
     }
-    fn test_missing_codec_headers_are_caught(&self, random: &mut StdRng) -> Result<()> {
+    fn test_missing_codec_headers_are_caught<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let sub_file = "_123.xyz";
 
@@ -655,7 +657,7 @@ pub trait BaseCompoundFormatTestCase {
             },
         }
     }
-    fn test_corrupt_files_are_caught(&self, random: &mut StdRng) -> Result<()> {
+    fn test_corrupt_files_are_caught<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let sub_file = "_123.xyz";
 
@@ -699,14 +701,14 @@ pub trait BaseCompoundFormatTestCase {
             },
         }
     }
-    fn test_check_integrity(&self, _random: &mut StdRng) -> Result<()> {
+    fn test_check_integrity<R: Rng + ?Sized>(&self, _random: &mut R) -> Result<()> {
         // TODD: waiting for FileTrackingDirectoryWrapper implement
         Ok(())
     }
 }
 
-pub(crate) fn new_segment_info<D: Directory>(
-    random: &mut StdRng,
+pub(crate) fn new_segment_info<D: Directory, R: Rng + ?Sized>(
+    random: &mut R,
     dir: Arc<Mutex<D>>,
     name: &str,
 ) -> Result<SegmentInfo<D>> {
@@ -732,8 +734,8 @@ pub(crate) fn new_segment_info<D: Directory>(
     Ok(value)
 }
 /// Creates a file of the specified size with random data.
-pub(crate) fn create_random_file(
-    random: &mut StdRng,
+pub(crate) fn create_random_file<R: Rng + ?Sized>(
+    random: &mut R,
     dir: &mut impl Directory,
     name: &str,
     size: i32,
@@ -753,8 +755,8 @@ pub(crate) fn create_random_file(
 /// Creates a file of the specified size with sequential data. The first byte is
 /// written as the start byte provided. All subsequent bytes are computed as
 /// start + offset where offset is the number of the byte.
-fn create_sequence_file(
-    random: &mut StdRng,
+fn create_sequence_file<R: Rng + ?Sized>(
+    random: &mut R,
     dir: &mut impl Directory,
     name: &str,
     mut start: u8,
@@ -856,7 +858,10 @@ fn assert_equal_arrays(msg: &str, expected: &[u8], test: &[u8], start: usize, le
 }
 /// Creates a large compound file with 20 sequential files, each of which is
 /// 1000 bytes.
-fn create_large_cfs<D>(random: &mut StdRng, dir: Arc<Mutex<D>>) -> Result<CompoundDirectory<D>>
+fn create_large_cfs<D, R: Rng + ?Sized>(
+    random: &mut R,
+    dir: Arc<Mutex<D>>,
+) -> Result<CompoundDirectory<D>>
 where
     D: Directory,
 {

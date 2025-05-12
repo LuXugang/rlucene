@@ -678,7 +678,6 @@ impl BitSet for FixedBitSet {
 mod tests {
     use std::hash::{DefaultHasher, Hash, Hasher};
 
-    use rand::rngs::StdRng;
     use rand::Rng;
 
     use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
@@ -728,7 +727,7 @@ mod tests {
             BaseBitSetTestCaseSupperImpl::assert_equals(self, set1, set2, max_doc, _sfbs);
         }
 
-        fn test_prev_set_bit(&mut self, random: &mut StdRng) {
+        fn test_prev_set_bit<R: Rng + ?Sized>(&mut self, random: &mut R) {
             check_prev_set_bit_array(random, vec![], 0);
             check_prev_set_bit_array(random, vec![0], 1);
             check_prev_set_bit_array(random, vec![0, 2], 3);
@@ -899,7 +898,11 @@ mod tests {
         assert_eq!(b.cardinality(), count);
     }
 
-    fn do_iterate(random: &mut StdRng, a: &bit_set::BitSet, b: &FixedBitSet) -> Result<()> {
+    fn do_iterate<R: Rng + ?Sized>(
+        random: &mut R,
+        a: &bit_set::BitSet,
+        b: &FixedBitSet,
+    ) -> Result<()> {
         assert_eq!(a.len(), b.cardinality() as usize);
         let mut iterator = BitSetIterator::new(b, 0)?;
         let iter = a.iter();
@@ -915,7 +918,7 @@ mod tests {
         Ok(())
     }
 
-    fn do_random_sets(random: &mut StdRng, iter: i32) -> Result<()> {
+    fn do_random_sets<R: Rng + ?Sized>(random: &mut R, iter: i32) -> Result<()> {
         // let max_size = random.random_range(1200..=i32::MAX);
         let max_size = random.random_range(1200..=100000);
         let mut a0: bit_set::BitSet = Default::default();
@@ -1115,7 +1118,11 @@ mod tests {
         }
     }
 
-    fn make_fixed_bitset(random: &mut StdRng, a: &Vec<i32>, num_bits: i32) -> Result<FixedBitSet> {
+    fn make_fixed_bitset<R: Rng + ?Sized>(
+        random: &mut R,
+        a: &Vec<i32>,
+        num_bits: i32,
+    ) -> Result<FixedBitSet> {
         let mut bs: FixedBitSet;
         if random.random_bool(0.5) {
             let bits_2_words = FixedBitSet::bits2words(num_bits);
@@ -1139,13 +1146,13 @@ mod tests {
         bs
     }
 
-    fn check_prev_set_bit_array(random: &mut StdRng, a: Vec<i32>, num_bits: i32) {
+    fn check_prev_set_bit_array<R: Rng + ?Sized>(random: &mut R, a: Vec<i32>, num_bits: i32) {
         let obs = make_fixed_bitset(random, &a, num_bits).unwrap();
         let bs = make_bitset(&a);
         do_prev_set_bit(&bs, &obs);
     }
 
-    fn check_next_set_bit_array(random: &mut StdRng, a: Vec<i32>, num_bits: i32) {
+    fn check_next_set_bit_array<R: Rng + ?Sized>(random: &mut R, a: Vec<i32>, num_bits: i32) {
         let obs = make_fixed_bitset(random, &a, num_bits).unwrap();
         let bs = make_bitset(&a);
         do_next_set_bit(&bs, &obs);
@@ -1210,7 +1217,7 @@ mod tests {
         assert_eq!(1 << (31 - 6), FixedBitSet::bits2words(i32::MAX));
     }
 
-    fn make_int_array(random: &mut StdRng, count: i32, min: i32, max: i32) -> Vec<i32> {
+    fn make_int_array<R: Rng + ?Sized>(random: &mut R, count: i32, min: i32, max: i32) -> Vec<i32> {
         let mut rv = vec![0; count as usize];
         for _i in 0..count {
             rv.push(random.random_range(min..=max));

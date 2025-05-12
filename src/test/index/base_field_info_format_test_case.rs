@@ -20,7 +20,6 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use parking_lot::Mutex;
-use rand::rngs::StdRng;
 use rand::Rng;
 use strum::EnumCount;
 
@@ -51,7 +50,7 @@ pub trait BaseFieldInfoFormatTestCase {
     fn support_doc_values_skip_index(&self) -> bool {
         true
     }
-    fn test_one_field(&self, random: &mut StdRng) -> Result<()> {
+    fn test_one_field<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let codec = get_default_code();
         let segment_info = Self::new_segment_info(random, dir.clone(), "_123")?;
@@ -97,33 +96,33 @@ pub trait BaseFieldInfoFormatTestCase {
         Ok(())
     }
     /// Test field infos attributes coming back are not mutable.
-    fn test_immutable_attributes(&self, _random: &mut StdRng) -> Result<()> {
+    fn test_immutable_attributes<R: Rng + ?Sized>(&self, _random: &mut R) -> Result<()> {
         // no necessary to implement
         Ok(())
     }
 
-    fn test_exception_on_create_output(&self, _random: &mut StdRng) -> Result<()> {
+    fn test_exception_on_create_output<R: Rng + ?Sized>(&self, _random: &mut R) -> Result<()> {
         // TODO
         // no necessary to implement
         Ok(())
     }
-    fn test_exception_on_close_output(&self, _random: &mut StdRng) -> Result<()> {
+    fn test_exception_on_close_output<R: Rng + ?Sized>(&self, _random: &mut R) -> Result<()> {
         // TODO
         // no necessary to implement
         Ok(())
     }
-    fn test_exception_on_open_input(&self, _random: &mut StdRng) -> Result<()> {
+    fn test_exception_on_open_input<R: Rng + ?Sized>(&self, _random: &mut R) -> Result<()> {
         // TODO
         // no necessary to implement
         Ok(())
     }
-    fn test_exception_on_close_input(&self, _random: &mut StdRng) -> Result<()> {
+    fn test_exception_on_close_input<R: Rng + ?Sized>(&self, _random: &mut R) -> Result<()> {
         // TODO
         // no necessary to implement
         Ok(())
     }
     // Test field infos read/write with random fields, with different values.
-    fn test_random(&self, random: &mut StdRng) -> Result<()> {
+    fn test_random<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let codec = get_default_code();
         let segment_info = Self::new_segment_info(random, dir.clone(), "_123")?;
@@ -246,7 +245,11 @@ pub trait BaseFieldInfoFormatTestCase {
         1024
     }
 
-    fn random_field_type(&self, random: &mut StdRng, field_name: &str) -> Result<FieldType> {
+    fn random_field_type<R: Rng + ?Sized>(
+        &self,
+        random: &mut R,
+        field_name: &str,
+    ) -> Result<FieldType> {
         let mut field_type = FieldType::new();
 
         if random.random_bool(0.5) {
@@ -352,8 +355,8 @@ pub trait BaseFieldInfoFormatTestCase {
         assert_eq!(expected.get_doc_values_gen(), actual.get_doc_values_gen());
     }
 
-    fn new_segment_info<D: Directory>(
-        random: &mut StdRng,
+    fn new_segment_info<D: Directory, R: Rng + ?Sized>(
+        random: &mut R,
         dir: Arc<Mutex<D>>,
         name: &str,
     ) -> Result<SegmentInfo<D>> {

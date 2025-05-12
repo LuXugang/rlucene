@@ -376,7 +376,6 @@ where
 mod tests {
     use std::cmp::{min, Ordering};
 
-    use rand::rngs::StdRng;
     use rand::{Rng, RngCore};
 
     use crate::index::BytesRef;
@@ -397,7 +396,7 @@ mod tests {
         Ok(())
     }
 
-    fn do_test_select(random: &mut StdRng) -> Result<()> {
+    fn do_test_select<R: Rng + ?Sized>(random: &mut R) -> Result<()> {
         let from = random.random_range(0..5);
         let to = from + TestUtil::next_int(random, 1, 10000);
         let max_len = TestUtil::next_int(random, 1, 12);
@@ -421,7 +420,7 @@ mod tests {
         Ok(())
     }
 
-    pub fn do_test_shared_prefixes(random: &mut StdRng) -> Result<()> {
+    pub fn do_test_shared_prefixes<R: Rng + ?Sized>(random: &mut R) -> Result<()> {
         let from = random.random_range(0..5);
         let to = from + TestUtil::next_int(random, 1, 10000);
         let max_len = TestUtil::next_int(random, 1, 12);
@@ -446,8 +445,8 @@ mod tests {
         do_test(random, &arr, from, to, max_len)
     }
 
-    pub fn do_test(
-        random: &mut StdRng,
+    pub fn do_test<R: Rng + ?Sized>(
+        random: &mut R,
         arr: &[BytesRef<Vec<u8>>],
         from: i32,
         to: i32,

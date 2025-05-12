@@ -931,8 +931,7 @@ mod tests {
     use std::collections::{BTreeSet, HashSet};
 
     use rand::prelude::SliceRandom;
-    use rand::rngs::StdRng;
-    use rand::{Rng, SeedableRng};
+    use rand::Rng;
 
     use crate::index::{BytesRef, BytesRefBuilder};
     use crate::test::util::automaton::automaton_test_util::{
@@ -941,6 +940,7 @@ mod tests {
     use crate::test::util::automaton::minimization_operation::MinimizationOperations;
     use crate::test::util::lucene_test_case::{
         at_least, new_bytes_ref, new_bytes_ref_empty, new_bytes_ref_from_string, random,
+        random_from_seed,
     };
     use crate::test::util::test_util::TestUtil;
     use crate::util::automation::automata::Automata;
@@ -1523,7 +1523,7 @@ mod tests {
 
             let ras = RandomAcceptedStrings::new(&a)?;
             for _ in 0..20 {
-                let mut random1 = StdRng::seed_from_u64(seed);
+                let mut random1 = random_from_seed(seed);
                 // Find string accepted by original automaton
                 let s = ras.get_random_accepted_string(&mut random1)?;
                 let reversed: Vec<i32> = s.iter().copied().rev().collect();
@@ -1576,7 +1576,7 @@ mod tests {
 
         for _ in 0..iters {
             let seed: u64 = random.random();
-            let mut random1 = StdRng::seed_from_u64(seed);
+            let mut random1 = random_from_seed(seed);
             let a = AutomatonTestUtil::random_automaton(&mut random)?;
 
             let mut all_trans = vec![];
@@ -1903,7 +1903,10 @@ mod tests {
         Ok(())
     }
 
-    fn random_no_op<'a>(a: &'a Automaton, random: &mut StdRng) -> Result<Cow<'a, Automaton>> {
+    fn random_no_op<'a, R: Rng + ?Sized>(
+        a: &'a Automaton,
+        random: &mut R,
+    ) -> Result<Cow<'a, Automaton>> {
         match random.random_range(0..7) {
             0 => Ok(Operations::determinize(a, i32::MAX as usize)?),
             1 => {
@@ -1943,7 +1946,7 @@ mod tests {
         }
         false
     }
-    fn union_terms(terms: &[BytesRef<Vec<u8>>], rng: &mut StdRng) -> Result<Automaton> {
+    fn union_terms<R: Rng + ?Sized>(terms: &[BytesRef<Vec<u8>>], rng: &mut R) -> Result<Automaton> {
         let a = if rng.random_bool(0.5) || has_massive_term(terms) {
             let owned_automata: Vec<Automaton> = terms
                 .iter()
@@ -1958,7 +1961,7 @@ mod tests {
         };
         Ok(random_no_op(&a, rng)?.into_owned())
     }
-    fn get_random_string(random: &mut StdRng) -> String {
+    fn get_random_string<R: Rng + ?Sized>(random: &mut R) -> String {
         TestUtil::random_realistic_unicode_string(random)
     }
     #[test]
@@ -2352,10 +2355,10 @@ mod tests {
         Ok(a2)
     }
 
-    pub fn assert_same(
+    pub fn assert_same<R: Rng + ?Sized>(
         terms: &[BytesRef<Vec<u8>>],
         a: &Automaton,
-        random: &mut StdRng,
+        random: &mut R,
     ) -> Result<()> {
         assert!(AutomatonTestUtil::is_finite(a)?);
         assert!(!Operations::is_total(a)?);
@@ -2680,7 +2683,7 @@ mod tests {
 
         Ok(())
     }
-    fn ints_ref(s: &str, random: &mut StdRng) -> Result<IntsRef<Vec<i32>>> {
+    fn ints_ref<R: Rng + ?Sized>(s: &str, random: &mut R) -> Result<IntsRef<Vec<i32>>> {
         let mut builder = IntsRefBuilder::new();
         let b = new_bytes_ref_from_string(random, s)?;
         Util::get_ints_ref(&b, &mut builder);

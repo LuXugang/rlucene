@@ -1377,7 +1377,6 @@ impl MakeRegexGroup for ConcatGroup {
 mod tests {
     use std::collections::{HashMap, HashSet};
 
-    use rand::rngs::StdRng;
     use rand::Rng;
     use regex::Regex;
 
@@ -1398,7 +1397,7 @@ mod tests {
         case_sensitive_query: bool,
     }
     impl TestRegExp {
-        fn random_doc_value(random: &mut StdRng, min_length: usize) -> String {
+        fn random_doc_value<R: Rng + ?Sized>(random: &mut R, min_length: usize) -> String {
             let char_palette = "AAAaaaBbbCccc123456 \t".chars().collect::<Vec<_>>();
             (0..min_length)
                 .map(|_| {
@@ -1407,16 +1406,16 @@ mod tests {
                 })
                 .collect()
         }
-        fn random_int(random: &mut StdRng, bound: usize) -> usize {
+        fn random_int<R: Rng + ?Sized>(random: &mut R, bound: usize) -> usize {
             if bound == 0 {
                 0
             } else {
                 random.random_range(0..bound)
             }
         }
-        fn check_random_expression(
+        fn check_random_expression<R: Rng + ?Sized>(
             &mut self,
-            random: &mut StdRng,
+            random: &mut R,
             doc_value: &str,
         ) -> Result<String> {
             use std::fmt::Write;

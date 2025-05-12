@@ -79,7 +79,7 @@ impl PostingsUtil {
 }
 #[cfg(test)]
 mod tests {
-    use rand::rngs::StdRng;
+
     use rand::Rng;
 
     use crate::codecs::lucene101::for_util::ForUtil;
@@ -101,7 +101,7 @@ mod tests {
         do_test_integer_overflow(&mut random, random_size2)?;
         Ok(())
     }
-    fn do_test_integer_overflow(random: &mut StdRng, size: usize) -> Result<()> {
+    fn do_test_integer_overflow<R: Rng + ?Sized>(random: &mut R, size: usize) -> Result<()> {
         let mut doc_delta_buffer = vec![0i32; size];
         let freq_buffer = vec![0i32; size];
 

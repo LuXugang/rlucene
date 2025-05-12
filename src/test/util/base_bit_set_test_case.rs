@@ -16,7 +16,6 @@
  */
 use std::collections::HashSet;
 
-use rand::rngs::StdRng;
 use rand::Rng;
 
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
@@ -30,11 +29,19 @@ use crate::util::bits::Bits;
 use crate::util::error::lucene_error::Result;
 use crate::util::sparse_fixed_bit_set::SparseFixedBitSet;
 
-pub fn random_set(random: &mut StdRng, num_bits: i32, percent_set: f32) -> bit_set::BitSet {
+pub fn random_set<R: Rng + ?Sized>(
+    random: &mut R,
+    num_bits: i32,
+    percent_set: f32,
+) -> bit_set::BitSet {
     random_set_impl(random, num_bits, (percent_set * num_bits as f32) as i32)
 }
 
-pub fn random_set_impl(random: &mut StdRng, num_bits: i32, num_bits_set: i32) -> bit_set::BitSet {
+pub fn random_set_impl<R: Rng + ?Sized>(
+    random: &mut R,
+    num_bits: i32,
+    num_bits_set: i32,
+) -> bit_set::BitSet {
     assert!(num_bits_set <= num_bits);
     let mut set = bit_set::BitSet::with_capacity(num_bits as usize);
     if num_bits_set == num_bits {
@@ -62,7 +69,7 @@ pub trait BaseBitSetTestCase {
         max_doc: i32,
         sfbs: &Option<SparseFixedBitSet>,
     );
-    fn test_cardinality(&mut self, random: &mut StdRng) {
+    fn test_cardinality<R: Rng + ?Sized>(&mut self, random: &mut R) {
         let num_bits = 1 + random.random_range(0..100000);
         for percent_set in [0f32, 0.01, 0.1, 0.5, 0.9, 0.99, 1f32] {
             let set1 = RustUtilBitSet::new(random_set(random, num_bits, percent_set), num_bits);
@@ -70,7 +77,7 @@ pub trait BaseBitSetTestCase {
             assert_eq!(set1.cardinality(), set2.cardinality());
         }
     }
-    fn test_prev_set_bit(&mut self, random: &mut StdRng) {
+    fn test_prev_set_bit<R: Rng + ?Sized>(&mut self, random: &mut R) {
         // TODO: 1000 should be 100000
         let num_bits = 1 + random.random_range(0..1000);
         for percent_set in [0f32, 0.01, 0.1, 0.5, 0.9, 0.99, 1f32] {
@@ -81,7 +88,7 @@ pub trait BaseBitSetTestCase {
             }
         }
     }
-    fn test_next_set_bit(&mut self, random: &mut StdRng) {
+    fn test_next_set_bit<R: Rng + ?Sized>(&mut self, random: &mut R) {
         // TODO: 1000 should be 100000
         let num_bits = 1 + random.random_range(0..1000);
         for percent_set in [0f32, 0.01, 0.1, 0.5, 0.9, 0.99, 1f32] {
@@ -92,7 +99,7 @@ pub trait BaseBitSetTestCase {
             }
         }
     }
-    fn test_next_set_bit_in_range(&mut self, random: &mut StdRng) {
+    fn test_next_set_bit_in_range<R: Rng + ?Sized>(&mut self, random: &mut R) {
         // TODO: 1000 should be 100000
         let num_bits = 1 + random.random_range(0..1000);
         for percent_set in [0f32, 0.01, 0.1, 0.5, 0.9, 0.99, 1f32] {
@@ -115,7 +122,7 @@ pub trait BaseBitSetTestCase {
             }
         }
     }
-    fn test_set(&self, random: &mut StdRng) {
+    fn test_set<R: Rng + ?Sized>(&self, random: &mut R) {
         let num_bits = 1 + random.random_range(0..100000);
         let set3 = RustUtilBitSet::new(random_set_impl(random, num_bits, 0), num_bits);
         let mut set1 = set3.clone();
@@ -128,7 +135,7 @@ pub trait BaseBitSetTestCase {
         }
         self.assert_equals(&set1, &set2, num_bits, &sfbs);
     }
-    fn test_get_and_set(&self, random: &mut StdRng) {
+    fn test_get_and_set<R: Rng + ?Sized>(&self, random: &mut R) {
         let num_bits = 1 + random.random_range(0..100000);
         let set3 = RustUtilBitSet::new(random_set_impl(random, num_bits, 0), num_bits);
         let mut set1 = set3.clone();
@@ -142,7 +149,7 @@ pub trait BaseBitSetTestCase {
         }
         self.assert_equals(&set1, &set2, num_bits, &sfbs);
     }
-    fn test_clear(&mut self, random: &mut StdRng) {
+    fn test_clear<R: Rng + ?Sized>(&mut self, random: &mut R) {
         let num_bits = 1 + random.random_range(0..100000);
         for percent_set in [0f32, 0.01, 0.1, 0.5, 0.9, 0.99, 1f32] {
             let set3 = RustUtilBitSet::new(random_set(random, num_bits, percent_set), num_bits);
@@ -157,7 +164,7 @@ pub trait BaseBitSetTestCase {
         }
     }
 
-    fn test_clear_range(&self, random: &mut StdRng) {
+    fn test_clear_range<R: Rng + ?Sized>(&self, random: &mut R) {
         let num_bits = 1 + random.random_range(0..100000);
         for percent_set in [0f32, 0.01, 0.1, 0.5, 0.9, 0.99, 1f32] {
             let set3 = RustUtilBitSet::new(random_set(random, num_bits, percent_set), num_bits);
@@ -173,7 +180,7 @@ pub trait BaseBitSetTestCase {
             }
         }
     }
-    fn test_clear_all(&self, random: &mut StdRng) {
+    fn test_clear_all<R: Rng + ?Sized>(&self, random: &mut R) {
         let num_bits = 1 + random.random_range(0..100000);
         for percent_set in [0f32, 0.01, 0.1, 0.5, 0.9, 0.99, 1f32] {
             let set3 = RustUtilBitSet::new(random_set(random, num_bits, percent_set), num_bits);
@@ -188,17 +195,17 @@ pub trait BaseBitSetTestCase {
         }
     }
 
-    fn test_or_sparse(&mut self, random: &mut StdRng) {
+    fn test_or_sparse<R: Rng + ?Sized>(&mut self, random: &mut R) {
         self.test_or_impl(random, 0.001)
     }
-    fn test_or_dense(&mut self, random: &mut StdRng) {
+    fn test_or_dense<R: Rng + ?Sized>(&mut self, random: &mut R) {
         self.test_or_impl(random, 0.5)
     }
-    fn test_or_random(&mut self, random: &mut StdRng) {
+    fn test_or_random<R: Rng + ?Sized>(&mut self, random: &mut R) {
         let random_float: f32 = random.random();
         self.test_or_impl(random, random_float)
     }
-    fn test_or_impl(&self, _random: &mut StdRng, _load: f32) {
+    fn test_or_impl<R: Rng + ?Sized>(&self, _random: &mut R, _load: f32) {
         // let num_bits = 1 + random.random_range(0..100000);
         // let set1 = RustUtilBitSet::new(random_set(random, num_bits, 0f32),
         // num_bits); let (mut set2, sfbs) = self.copy_of(&set1,
@@ -229,7 +236,7 @@ pub trait BaseBitSetTestCaseSupperImpl {
 
 //TODO
 #[allow(dead_code)]
-fn random_copy(_random: &mut StdRng, _set: impl BitSet, _num_bits: i32) {
+fn random_copy<R: Rng + ?Sized>(_random: &mut R, _set: impl BitSet, _num_bits: i32) {
     todo!()
 }
 pub struct RustUtilBitSet {

@@ -78,13 +78,13 @@ fn default_random_multiplier() -> i32 {
 ///
 /// The actual number returned will be influenced by whether `TEST_NIGHTLY` is
 /// active and `RANDOM_MULTIPLIER`, but also with some random fudge.
-pub(crate) fn at_least(random: &mut StdRng, i: i32) -> i32 {
+pub(crate) fn at_least<R: Rng + ?Sized>(random: &mut R, i: i32) -> i32 {
     let min = i * random_multiplier();
     let max = min + (min / 2);
     TestUtil::next_int(random, min, max)
 }
 
-pub(crate) fn rarely(random: &mut StdRng) -> bool {
+pub(crate) fn rarely<R: Rng + ?Sized>(random: &mut R) -> bool {
     let mut p = if is_night_mode() { 5 } else { 1 };
     p += (p as f64 * (random_multiplier() as f64).ln()).round() as i32;
     let min = 100 - p.min(20); // Never more than 20% chance
@@ -93,20 +93,20 @@ pub(crate) fn rarely(random: &mut StdRng) -> bool {
 
 // TODO: When we have implemented multiple directories, we need to select one
 // randomly. Currently, we choose NIOFSDirectory.
-pub(crate) fn new_directory(
-    _random: &mut StdRng,
+pub(crate) fn new_directory<R: Rng + ?Sized>(
+    _random: &mut R,
 ) -> Result<FSDirectory<NativeFSLockFactory, NIOFSDirectory>> {
     let temp_dir = TempDir::new()?;
     let sub_directory = NIOFSDirectory::new();
     FSDirectory::new(temp_dir.into_path(), sub_directory)
 }
 
-pub(crate) fn new_io_context(random: &mut StdRng) -> Result<IOContext> {
+pub(crate) fn new_io_context<R: Rng + ?Sized>(random: &mut R) -> Result<IOContext> {
     new_io_context_with_default(random, &IO_CONTEXT_DEFAULT)
 }
 
-pub(crate) fn new_io_context_with_default(
-    random: &mut StdRng,
+pub(crate) fn new_io_context_with_default<R: Rng + ?Sized>(
+    random: &mut R,
     old_context: &IOContext,
 ) -> Result<IOContext> {
     if *old_context == *IO_CONTEXT_READ_ONCE {
@@ -165,7 +165,10 @@ pub(crate) fn slow_file_exists(dir: &impl Directory, name: &str) -> Result<bool>
 /// Creates a `BytesRef` holding UTF-8 bytes for the incoming string,
 /// that sometimes uses a non-zero offset and non-zero end-padding to
 /// tickle latent bugs that fail to look at `BytesRef.offset`.
-pub(crate) fn new_bytes_ref_from_string(random: &mut StdRng, s: &str) -> Result<BytesRef<Vec<u8>>> {
+pub(crate) fn new_bytes_ref_from_string<R: Rng + ?Sized>(
+    random: &mut R,
+    s: &str,
+) -> Result<BytesRef<Vec<u8>>> {
     let bytes = s.as_bytes();
     new_bytes_ref(random, bytes, 0, bytes.len() as i32)
 }
@@ -173,8 +176,8 @@ pub(crate) fn new_bytes_ref_from_string(random: &mut StdRng, s: &str) -> Result<
 /// Creates a copy of the incoming `BytesRef` that sometimes uses a non-zero
 /// offset, and non-zero end-padding, to tickle latent bugs that fail to look at
 /// `BytesRef.offset`.
-pub(crate) fn new_bytes_ref_from_bytes_ref(
-    random: &mut StdRng,
+pub(crate) fn new_bytes_ref_from_bytes_ref<R: Rng + ?Sized>(
+    random: &mut R,
     b: &BytesRef<Vec<u8>>,
 ) -> Result<BytesRef<Vec<u8>>> {
     assert!(b.is_valid()?);
@@ -184,8 +187,8 @@ pub(crate) fn new_bytes_ref_from_bytes_ref(
 /// Creates a random `BytesRef` from the incoming bytes, sometimes using a
 /// non-zero offset, and non-zero end-padding, to tickle latent bugs that fail
 /// to look at `BytesRef.offset`.
-pub(crate) fn new_bytes_ref_from_bytes(
-    random: &mut StdRng,
+pub(crate) fn new_bytes_ref_from_bytes<R: Rng + ?Sized>(
+    random: &mut R,
     bytes_in: &[u8],
 ) -> Result<BytesRef<Vec<u8>>> {
     new_bytes_ref(random, bytes_in, 0, bytes_in.len() as i32)
@@ -194,7 +197,7 @@ pub(crate) fn new_bytes_ref_from_bytes(
 /// Creates a random empty `BytesRef` that sometimes uses a non-zero offset, and
 /// non-zero end-padding, to tickle latent bugs that fail to look at
 /// `BytesRef.offset`.
-pub(crate) fn new_bytes_ref_empty(random: &mut StdRng) -> Result<BytesRef<Vec<u8>>> {
+pub(crate) fn new_bytes_ref_empty<R: Rng + ?Sized>(random: &mut R) -> Result<BytesRef<Vec<u8>>> {
     new_bytes_ref(random, &[], 0, 0) // Calling the existing `new_bytes_ref`
                                      // function
 }
@@ -202,9 +205,9 @@ pub(crate) fn new_bytes_ref_empty(random: &mut StdRng) -> Result<BytesRef<Vec<u8
 /// Creates a random empty `BytesRef`, with at least the requested length of
 /// bytes free, that sometimes uses a non-zero offset and non-zero end-padding
 /// to tickle latent bugs that fail to look at `BytesRef.offset`.
-pub(crate) fn new_bytes_ref_with_length(
+pub(crate) fn new_bytes_ref_with_length<R: Rng + ?Sized>(
     byte_length: i32,
-    random: &mut StdRng,
+    random: &mut R,
 ) -> Result<BytesRef<Vec<u8>>> {
     let bytes_in = vec![0u8; byte_length as usize];
     new_bytes_ref(random, &bytes_in, 0, byte_length)
@@ -213,8 +216,8 @@ pub(crate) fn new_bytes_ref_with_length(
 /// Creates a copy of the incoming bytes slice that sometimes uses a non-zero
 /// {@code offset}, and non-zero end-padding, to tickle latent bugs that fail to
 /// look at {@code BytesRef.offset}.
-pub(crate) fn new_bytes_ref(
-    random: &mut StdRng,
+pub(crate) fn new_bytes_ref<R: Rng + ?Sized>(
+    random: &mut R,
     bytes_in: &[u8],
     offset: i32,
     length: i32,

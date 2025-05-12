@@ -21,7 +21,6 @@ use std::rc::Rc;
 
 use bit_set::BitSet;
 use rand::prelude::IndexedRandom;
-use rand::rngs::StdRng;
 use rand::Rng;
 
 use crate::util::automation::automaton::{Automaton, Builder};
@@ -47,7 +46,7 @@ impl AutomatonTestUtil {
     pub const DEFAULT_MAX_DETERMINIZED_STATES: usize = 1000000;
     ///  Maximum level of recursion allowed in recursive operations.
     pub const MAX_RECURSION_LEVEL: usize = 1000;
-    pub(crate) fn random_regexp(random: &mut StdRng) -> Result<String> {
+    pub(crate) fn random_regexp<R: Rng + ?Sized>(random: &mut R) -> Result<String> {
         loop {
             let regexp = Self::random_regexp_string(random);
             if !UnicodeUtil::valid_utf16_string(regexp.as_str()) {
@@ -59,7 +58,7 @@ impl AutomatonTestUtil {
             }
         }
     }
-    fn random_regexp_string(random: &mut StdRng) -> String {
+    fn random_regexp_string<R: Rng + ?Sized>(random: &mut R) -> String {
         let end = random.random_range(0..20);
         let mut result = String::with_capacity(end * 2);
         let specials = ['.', '?', '*', '+', '(', ')', '-', '[', ']', '|'];
@@ -90,7 +89,7 @@ impl AutomatonTestUtil {
     }
     /// picks a random int code point, avoiding surrogates; throws
     /// IllegalArgumentException if this transition only accepts surrogates
-    fn get_random_codepoint(random: &mut StdRng, min: i32, max: i32) -> Result<i32> {
+    fn get_random_codepoint<R: Rng + ?Sized>(random: &mut R, min: i32, max: i32) -> Result<i32> {
         let code = if max < UnicodeUtil::UNI_SUR_HIGH_START || min > UnicodeUtil::UNI_SUR_LOW_END {
             // Entire range is outside surrogates
             random.random_range(min..=max)
@@ -139,7 +138,7 @@ impl AutomatonTestUtil {
         Ok(code)
     }
 
-    pub fn random_single_automaton(random: &mut StdRng) -> Result<Automaton> {
+    pub fn random_single_automaton<R: Rng + ?Sized>(random: &mut R) -> Result<Automaton> {
         loop {
             let pattern = AutomatonTestUtil::random_regexp(random)?;
             match RegExp::from_str_with_flags(&pattern, RegExp::NONE)
@@ -159,7 +158,7 @@ impl AutomatonTestUtil {
     }
 
     /// return a random NFA/DFA for testing
-    pub fn random_automaton(random: &mut StdRng) -> Result<Cow<Automaton>> {
+    pub fn random_automaton<R: Rng + ?Sized>(random: &mut R) -> Result<Cow<Automaton>> {
         let a1 = AutomatonTestUtil::random_single_automaton(random)?;
         let a2 = AutomatonTestUtil::random_single_automaton(random)?;
 
@@ -599,7 +598,10 @@ impl<'a> RandomAcceptedStrings<'a> {
             transitions,
         })
     }
-    pub(crate) fn get_random_accepted_string(&self, random: &mut StdRng) -> Result<Vec<i32>> {
+    pub(crate) fn get_random_accepted_string<R: Rng + ?Sized>(
+        &self,
+        random: &mut R,
+    ) -> Result<Vec<i32>> {
         let mut codepoints = Vec::new();
         let mut s = 0;
 

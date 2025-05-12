@@ -19,7 +19,6 @@ use num_bigint::BigInt;
 use num_traits::{FromPrimitive, ToPrimitive};
 use once_cell::sync::Lazy;
 use rand::prelude::IndexedRandom;
-use rand::rngs::StdRng;
 use rand::{random_range, Rng, RngCore};
 
 use crate::index::BytesRef;
@@ -84,17 +83,18 @@ impl TestUtil {
         }
     }
     /// start and end are BOTH inclusive
-    pub fn next_int(r: &mut StdRng, start: i32, end: i32) -> i32 {
-        r.random_range(start..=end)
+    pub fn next_int<R: Rng + ?Sized>(random: &mut R, start: i32, end: i32) -> i32 {
+        random.random_range(start..=end)
     }
     /// start and end are BOTH inclusive
-    pub fn next_long(r: &mut StdRng, start: i64, end: i64) -> i64 {
+    pub fn next_long<R: Rng + ?Sized>(random: &mut R, start: i64, end: i64) -> i64 {
         assert!(end >= start, "start={}, end={}", start, end);
         let range = BigInt::from(end) + BigInt::from(1) - BigInt::from(start);
         if range <= BigInt::from(i32::MAX) {
-            start + r.random_range(0..range.to_i32().unwrap()) as i64
+            start + random.random_range(0..range.to_i32().unwrap()) as i64
         } else {
-            let augend = BigInt::from_f64(range.to_f64().unwrap() * r.random::<f64>()).unwrap();
+            let augend =
+                BigInt::from_f64(range.to_f64().unwrap() * random.random::<f64>()).unwrap();
             let result = BigInt::from(start) + augend;
             let result = result.to_i64().unwrap();
             assert!(result >= start);
@@ -103,17 +103,20 @@ impl TestUtil {
         }
     }
     /// Returns a random big integer with `1 .. max_bytes` storage.
-    pub fn next_big_integer(random: &mut StdRng, max_bytes: i32) -> BigInt {
+    pub fn next_big_integer<R: Rng + ?Sized>(random: &mut R, max_bytes: i32) -> BigInt {
         let length = Self::next_int(random, 1, max_bytes);
         let mut buffer = vec![0u8; length as usize];
         random.fill_bytes(&mut buffer);
         BigInt::from_signed_bytes_be(&buffer)
     }
-    pub fn random_simple_string_with_len(random: &mut StdRng, max_length: usize) -> String {
+    pub fn random_simple_string_with_len<R: Rng + ?Sized>(
+        random: &mut R,
+        max_length: usize,
+    ) -> String {
         Self::random_simple_string_range(random, 0, max_length)
     }
-    pub fn random_simple_string_range(
-        random: &mut StdRng,
+    pub fn random_simple_string_range<R: Rng + ?Sized>(
+        random: &mut R,
         min_length: usize,
         max_length: usize,
     ) -> String {
@@ -126,11 +129,11 @@ impl TestUtil {
             .collect()
     }
 
-    pub fn random_simple_string(random: &mut StdRng) -> String {
+    pub fn random_simple_string<R: Rng + ?Sized>(random: &mut R) -> String {
         Self::random_simple_string_range(random, 0, 10)
     }
 
-    pub fn random_htmlish_string(random: &mut StdRng, num_elements: usize) -> String {
+    pub fn random_htmlish_string<R: Rng + ?Sized>(random: &mut R, num_elements: usize) -> String {
         use std::fmt::Write;
         let end = random.random_range(0..=num_elements);
         if end == 0 {
@@ -253,7 +256,7 @@ impl TestUtil {
         sb
     }
 
-    pub fn randomly_recase_codepoints(random: &mut StdRng, s: &str) -> String {
+    pub fn randomly_recase_codepoints<R: Rng + ?Sized>(random: &mut R, s: &str) -> String {
         let mut result = String::with_capacity(s.len());
 
         for ch in s.chars() {
@@ -266,19 +269,19 @@ impl TestUtil {
         result
     }
 
-    pub fn random_realistic_unicode_string(random: &mut StdRng) -> String {
+    pub fn random_realistic_unicode_string<R: Rng + ?Sized>(random: &mut R) -> String {
         Self::random_realistic_unicode_string_with_len(random, 20)
     }
 
-    pub fn random_realistic_unicode_string_with_len(
-        random: &mut StdRng,
+    pub fn random_realistic_unicode_string_with_len<R: Rng + ?Sized>(
+        random: &mut R,
         max_length: usize,
     ) -> String {
         Self::random_realistic_unicode_string_range(random, 0, max_length)
     }
 
-    pub fn random_realistic_unicode_string_range(
-        rng: &mut StdRng,
+    pub fn random_realistic_unicode_string_range<R: Rng + ?Sized>(
+        rng: &mut R,
         min_length: usize,
         max_length: usize,
     ) -> String {
@@ -300,11 +303,14 @@ impl TestUtil {
         result
     }
     /// Returns random string, including full unicode range
-    pub fn random_unicode_string(random: &mut StdRng) -> String {
+    pub fn random_unicode_string<R: Rng + ?Sized>(random: &mut R) -> String {
         Self::random_unicode_string_with_len(random, 20)
     }
     /// Returns a random string up to a certain length.
-    pub fn random_unicode_string_with_len(random: &mut StdRng, max_length: usize) -> String {
+    pub fn random_unicode_string_with_len<R: Rng + ?Sized>(
+        random: &mut R,
+        max_length: usize,
+    ) -> String {
         let end = random.random_range(0..=max_length);
         if end == 0 {
             return "".to_string();
@@ -314,8 +320,8 @@ impl TestUtil {
         Self::random_fixed_length_unicode_string(random, &mut buffer, end);
         String::from_utf16_lossy(&buffer)
     }
-    pub fn random_fixed_length_unicode_string(
-        random: &mut StdRng,
+    pub fn random_fixed_length_unicode_string<R: Rng + ?Sized>(
+        random: &mut R,
         buffer: &mut Vec<u16>,
         length: usize,
     ) {
@@ -343,8 +349,8 @@ impl TestUtil {
             }
         }
     }
-    pub fn random_fixed_length_unicode_string_with_chars(
-        random: &mut StdRng,
+    pub fn random_fixed_length_unicode_string_with_chars<R: Rng + ?Sized>(
+        random: &mut R,
         chars: &mut [u16],
         offset: usize,
         length: usize,
@@ -375,7 +381,7 @@ impl TestUtil {
     /// Returns a string that's "regexpish" — it contains many characters
     /// typically found in regular expressions. If you call this enough
     /// times, you might get a valid regex!
-    fn random_regexpish_string(random: &mut StdRng) -> String {
+    fn random_regexpish_string<R: Rng + ?Sized>(random: &mut R) -> String {
         Self::random_regexpish_string_with_len(random, 20)
     }
     const MAX_RECURSION_BOUND: usize = 5;
@@ -393,7 +399,7 @@ impl TestUtil {
     /// Parameters:
     /// - `max_length`: A hint for the maximum length of the regexpish string.
     ///   The result may exceed it slightly.
-    fn random_regexpish_string_with_len(random: &mut StdRng, max_len: usize) -> String {
+    fn random_regexpish_string_with_len<R: Rng + ?Sized>(random: &mut R, max_len: usize) -> String {
         let count = random.random_range(0..=max_len);
         let mut s = String::with_capacity(count);
 
@@ -410,14 +416,14 @@ impl TestUtil {
     }
 
     /// Returns a random binary term.
-    pub fn random_binary_term<AV: AccessVec<u8>>(rng: &mut StdRng) -> BytesRef<AV> {
+    pub fn random_binary_term<AV: AccessVec<u8>, R: Rng + ?Sized>(rng: &mut R) -> BytesRef<AV> {
         let len = rng.random_range(0..15);
         Self::random_binary_term_with_len(rng, len)
     }
 
     ///  Returns a random binary with a given length
-    pub fn random_binary_term_with_len<AV: AccessVec<u8>>(
-        random: &mut StdRng,
+    pub fn random_binary_term_with_len<AV: AccessVec<u8>, R: Rng + ?Sized>(
+        random: &mut R,
         length: usize,
     ) -> BytesRef<AV> {
         let mut bytes = vec![0u8; length];
@@ -427,7 +433,11 @@ impl TestUtil {
         b.length = length;
         b
     }
-    pub fn random_substring(random: &mut StdRng, word_len: usize, simple: bool) -> String {
+    pub fn random_substring<R: Rng + ?Sized>(
+        random: &mut R,
+        word_len: usize,
+        simple: bool,
+    ) -> String {
         if word_len == 0 {
             return String::new();
         }

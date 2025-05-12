@@ -371,7 +371,6 @@ pub(crate) mod tests {
     use std::fmt;
     use std::rc::Rc;
 
-    use rand::rngs::StdRng;
     use rand::{Rng, RngCore};
 
     use crate::codecs::mutable_point_tree::{MutablePointTree, MutablePointTreeEnum};
@@ -404,7 +403,7 @@ pub(crate) mod tests {
         Ok(())
     }
 
-    fn do_test_sort(random: &mut StdRng, is_doc_id_incremental: bool) -> Result<()> {
+    fn do_test_sort<R: Rng + ?Sized>(random: &mut R, is_doc_id_incremental: bool) -> Result<()> {
         let bytes_per_dim = TestUtil::next_int(random, 1, 16);
         let end = 1 << random.random_range(0..30);
         let max_doc = TestUtil::next_int(random, 1, end);
@@ -466,7 +465,7 @@ pub(crate) mod tests {
         Ok(())
     }
 
-    fn do_test_sort_by_dim(random: &mut StdRng) -> Result<()> {
+    fn do_test_sort_by_dim<R: Rng + ?Sized>(random: &mut R) -> Result<()> {
         let config = Rc::new(create_random_config(random)?);
         let end = 1 << random.random_range(0..30);
         let max_doc = TestUtil::next_int(random, 1, end);
@@ -540,7 +539,7 @@ pub(crate) mod tests {
         }
         Ok(())
     }
-    fn do_test_partition(random: &mut StdRng) -> Result<()> {
+    fn do_test_partition<R: Rng + ?Sized>(random: &mut R) -> Result<()> {
         let config = Rc::new(create_random_config(random)?);
         let mut common_prefix_lengths = vec![0; config.num_dims as usize];
         let end = 1 << random.random_range(0..30);
@@ -627,7 +626,7 @@ pub(crate) mod tests {
         a.cmp(b).to_int()
     }
 
-    fn create_random_config(random: &mut StdRng) -> Result<BKDConfig> {
+    fn create_random_config<R: Rng + ?Sized>(random: &mut R) -> Result<BKDConfig> {
         let num_index_dims = TestUtil::next_int(random, 1, BKDConfig::MAX_INDEX_DIMS);
         let num_dims = TestUtil::next_int(random, num_index_dims, BKDConfig::MAX_DIMS);
         let bytes_per_dim = TestUtil::next_int(random, 1, 16);
@@ -639,8 +638,8 @@ pub(crate) mod tests {
             max_points_in_leaf_node,
         )
     }
-    fn create_random_points(
-        random: &mut StdRng,
+    fn create_random_points<R: Rng + ?Sized>(
+        random: &mut R,
         config: Rc<BKDConfig>,
         max_doc: i32,
         common_prefix_lengths: &mut [i32],
@@ -729,7 +728,7 @@ pub(crate) mod tests {
     }
 
     impl Point {
-        fn new(random: &mut StdRng, packed_value: &[u8], doc: i32) -> Self {
+        fn new<R: Rng + ?Sized>(random: &mut R, packed_value: &[u8], doc: i32) -> Self {
             let mut vec = vec![0u8; packed_value.len() + 1];
             vec[0] = random.random_range(0..255u8);
             vec.copy_from(packed_value, 1);

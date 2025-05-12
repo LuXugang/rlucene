@@ -21,7 +21,7 @@ struct TestDeterminizeLexicon;
 #[cfg(test)]
 mod tests {
     use rand::prelude::SliceRandom;
-    use rand::rngs::StdRng;
+    use rand::Rng;
 
     use crate::test::util::automaton::automaton_test_util::AutomatonTestUtil;
     use crate::test::util::lucene_test_case::{at_least, random};
@@ -53,8 +53,8 @@ mod tests {
         Ok(())
     }
 
-    fn assert_lexicon(
-        random: &mut StdRng,
+    fn assert_lexicon<R: Rng + ?Sized>(
+        random: &mut R,
         terms: &[String],
         automata: &mut [Automaton],
     ) -> Result<()> {

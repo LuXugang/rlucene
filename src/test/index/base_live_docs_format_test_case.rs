@@ -19,7 +19,6 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use parking_lot::Mutex;
-use rand::rngs::StdRng;
 use rand::Rng;
 
 use crate::codecs::live_docs_format::LiveDocsFormat;
@@ -37,26 +36,26 @@ use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::{StringHelper, LATEST};
 
 pub trait BaseLiveDocsFormatTestCase {
-    fn test_dense_live_docs(&self, random: &mut StdRng) -> Result<()> {
+    fn test_dense_live_docs<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let max_doc = TestUtil::next_int(random, 3, 1000);
         Self::test_serialization(random, max_doc, max_doc - 1, false)?;
         Self::test_serialization(random, max_doc, max_doc - 1, true)?;
         Ok(())
     }
-    fn test_empty_live_docs(&self, random: &mut StdRng) -> Result<()> {
+    fn test_empty_live_docs<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let max_doc = TestUtil::next_int(random, 3, 1000);
         Self::test_serialization(random, max_doc, 0, false)?;
         Self::test_serialization(random, max_doc, 0, true)?;
 
         Ok(())
     }
-    fn test_sparse_live_docs(&self, random: &mut StdRng) -> Result<()> {
+    fn test_sparse_live_docs<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let max_doc = TestUtil::next_int(random, 3, 1000);
         Self::test_serialization(random, max_doc, 1, false)?;
         Self::test_serialization(random, max_doc, 1, true)?;
         Ok(())
     }
-    fn test_over_flow(&self, random: &mut StdRng) -> Result<()> {
+    fn test_over_flow<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         Self::test_serialization(
             random,
             IndexWriter::MAX_DOCS,
@@ -66,8 +65,8 @@ pub trait BaseLiveDocsFormatTestCase {
         Ok(())
     }
 
-    fn test_serialization(
-        random: &mut StdRng,
+    fn test_serialization<R: Rng + ?Sized>(
+        random: &mut R,
         max_doc: i32,
         num_live_docs: i32,
         fixed_bit_set: bool,

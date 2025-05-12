@@ -20,7 +20,6 @@ use std::rc::Rc;
 use bit_set::BitSet;
 use num_bigint::{BigInt, Sign};
 use num_traits::Zero;
-use rand::rngs::StdRng;
 use rand::{Rng, RngCore};
 
 use crate::codecs::mutable_point_tree::{MutablePointTree, MutablePointTreeEnum};
@@ -423,7 +422,7 @@ fn test_too_little_heap() -> Result<()> {
     }
     Ok(())
 }
-fn do_test_random_binary(random: &mut StdRng, count: i32) -> Result<()> {
+fn do_test_random_binary<R: Rng + ?Sized>(random: &mut R, count: i32) -> Result<()> {
     let num_docs = TestUtil::next_int(random, count, count * 2);
     let num_bytes_per_dim = TestUtil::next_int(random, 2, 30);
 
@@ -789,8 +788,8 @@ fn test_multi_valued() -> Result<()> {
 
 /// `doc_ids` can be `None` for the single-valued case; otherwise, it maps value
 /// to `doc_id`.
-fn verify(
-    random: &mut StdRng,
+fn verify<R: Rng + ?Sized>(
+    random: &mut R,
     doc_values: &[Vec<Vec<u8>>],
     doc_ids: Option<Vec<i32>>,
     num_data_dims: i32,
@@ -809,8 +808,8 @@ fn verify(
     )
 }
 #[allow(clippy::too_many_arguments)]
-fn verify_full(
-    random: &mut StdRng,
+fn verify_full<R: Rng + ?Sized>(
+    random: &mut R,
     doc_values: &[Vec<Vec<u8>>],
     doc_ids: Option<Vec<i32>>,
     num_data_dims: i32,
@@ -833,8 +832,8 @@ fn verify_full(
     )
 }
 #[allow(clippy::too_many_arguments)]
-fn verify_with_max_mb<D: Directory>(
-    random: &mut StdRng,
+fn verify_with_max_mb<D: Directory, R: Rng + ?Sized>(
+    random: &mut R,
     dir: Rc<RefCell<D>>,
     doc_values: &[Vec<Vec<u8>>],
     doc_ids: Option<Vec<i32>>,
@@ -1112,7 +1111,7 @@ fn verify_with_max_mb<D: Directory>(
 
     Ok(())
 }
-fn assert_size(tree: &mut impl PointTree, random: &mut StdRng) -> Result<()> {
+fn assert_size<R: Rng + ?Sized>(tree: &mut impl PointTree, random: &mut R) -> Result<()> {
     // TODO:do we need clone?
     // let mut clone = tree.clone();
     // assert_eq!(clone.size()?, tree.size()?);
@@ -1171,7 +1170,10 @@ impl IntersectVisitor for IntersectVisitorMock1<'_> {
         Ok(Relation::CellCrossesQuery)
     }
 }
-fn random_point_tree_navigation(tree: &mut impl PointTree, random: &mut StdRng) -> Result<()> {
+fn random_point_tree_navigation<R: Rng + ?Sized>(
+    tree: &mut impl PointTree,
+    random: &mut R,
+) -> Result<()> {
     let min_packed_value = tree.get_min_packed_value()?.to_vec();
     let max_packed_value = tree.get_max_packed_value()?.to_vec();
     let size = tree.size()?;
@@ -1204,7 +1206,7 @@ fn assert_hits(hits: &BitSet, expected: &BitSet) {
     }
 }
 
-fn random_big_int(num_bytes: usize, random: &mut StdRng) -> BigInt {
+fn random_big_int<R: Rng + ?Sized>(num_bytes: usize, random: &mut R) -> BigInt {
     let num_bits = num_bytes * 8 - 1;
     let mut bytes = vec![0u8; num_bits.div_ceil(8)];
 
@@ -1226,15 +1228,21 @@ fn random_big_int(num_bytes: usize, random: &mut StdRng) -> BigInt {
 // TODO:
 // fn get_directory(num_points: i32) {
 // }
-struct IntersectVisitorImpl<'a> {
+struct IntersectVisitorImpl<'a, R>
+where
+    R: Rng + ?Sized,
+{
     hits: &'a mut BitSet,
     query_min: &'a [Vec<u8>],
     query_max: &'a [Vec<u8>],
     config: Rc<BKDConfig>,
-    random: &'a mut StdRng,
+    random: &'a mut R,
 }
 
-impl IntersectVisitor for IntersectVisitorImpl<'_> {
+impl<R> IntersectVisitor for IntersectVisitorImpl<'_, R>
+where
+    R: Rng + ?Sized,
+{
     fn visit(&mut self, doc_id: i32) -> Result<()> {
         self.hits.insert(doc_id as usize);
         Ok(())
@@ -1531,17 +1539,26 @@ fn test_check_data_dim_optimal_order() -> Result<()> {
     ))?;
     Ok(())
 }
-struct IntersectVisitorMock4<'a> {
+struct IntersectVisitorMock4<'a, R>
+where
+    R: Rng + ?Sized,
+{
     count: &'a mut [i32],
-    random: &'a mut StdRng,
+    random: &'a mut R,
 }
 #[allow(unused)]
-impl<'a> IntersectVisitorMock4<'a> {
-    fn new(count: &'a mut [i32], random: &'a mut StdRng) -> Self {
+impl<'a, R> IntersectVisitorMock4<'a, R>
+where
+    R: Rng + ?Sized,
+{
+    fn new(count: &'a mut [i32], random: &'a mut R) -> Self {
         Self { count, random }
     }
 }
-impl IntersectVisitor for IntersectVisitorMock4<'_> {
+impl<R> IntersectVisitor for IntersectVisitorMock4<'_, R>
+where
+    R: Rng + ?Sized,
+{
     fn visit(&mut self, _doc_id: i32) -> Result<()> {
         self.count[0] += 1;
         Ok(())
@@ -1609,14 +1626,20 @@ fn test_2d_long_ords_offline() -> Result<()> {
 
     Ok(())
 }
-struct IntersectVisitorMock5<'a> {
+struct IntersectVisitorMock5<'a, R>
+where
+    R: Rng + ?Sized,
+{
     count: &'a mut [i32],
-    random: &'a mut StdRng,
+    random: &'a mut R,
     num_index_dims: i32,
     bytes_per_dim: i32,
     num_dims: i32,
 }
-impl IntersectVisitor for IntersectVisitorMock5<'_> {
+impl<R> IntersectVisitor for IntersectVisitorMock5<'_, R>
+where
+    R: Rng + ?Sized,
+{
     fn visit(&mut self, _doc_id: i32) -> Result<()> {
         self.count[0] += 1;
         Ok(())

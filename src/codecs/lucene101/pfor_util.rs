@@ -152,7 +152,6 @@ mod tests {
     use std::cell::RefCell;
     use std::rc::Rc;
 
-    use rand::rngs::StdRng;
     use rand::Rng;
 
     use crate::codecs::lucene101::for_util::ForUtil;
@@ -207,7 +206,11 @@ mod tests {
         assert_eq!(end_pointer, input.borrow().get_file_pointer());
         Ok(())
     }
-    fn create_test_data(iterations: usize, max_bpv: i32, random: &mut StdRng) -> Vec<i32> {
+    fn create_test_data<R: Rng + ?Sized>(
+        iterations: usize,
+        max_bpv: i32,
+        random: &mut R,
+    ) -> Vec<i32> {
         assert!(max_bpv > 0 && max_bpv <= 31);
         let mut values = vec![0i32; iterations * ForUtil::BLOCK_SIZE];
         for i in 0..iterations {

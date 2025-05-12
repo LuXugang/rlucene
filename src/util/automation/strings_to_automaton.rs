@@ -375,7 +375,6 @@ mod tests {
     use std::borrow::Cow;
     use std::collections::HashSet;
 
-    use rand::rngs::StdRng;
     use rand::Rng;
 
     use crate::index::{BytesRef, BytesRefBuilder};
@@ -495,7 +494,7 @@ mod tests {
         Ok(())
     }
 
-    fn test_random(random: &mut StdRng, allow_binary: bool) -> Result<()> {
+    fn test_random<R: Rng + ?Sized>(random: &mut R, allow_binary: bool) -> Result<()> {
         let iters = if is_night_mode() { 50 } else { 10 };
 
         for _ in 0..iters {
@@ -584,8 +583,8 @@ mod tests {
         ]
     }
 
-    fn build(
-        random: &mut StdRng,
+    fn build<R: Rng + ?Sized>(
+        random: &mut R,
         terms: Vec<BytesRef<Vec<u8>>>,
         as_binary: bool,
     ) -> Result<Automaton> {
