@@ -299,13 +299,15 @@ where
         Ok(())
     }
 
+    type PostingsEnum = PostingsEnums<I>;
+
     fn postings(
         &mut self,
         field_info: &FieldInfo,
         state: &BlockTermStateEnum,
         reuse: Option<&mut PostingsEnums<I>>,
         flags: i32,
-    ) -> Result<Option<PostingsEnums<I>>> {
+    ) -> Result<Option<Self::PostingsEnum>> {
         let reuse_enum = reuse.ok_or_else(|| LuceneError::illegal_state("reuse is None"))?;
         if let PostingsEnums::Block(ref mut everything_enum) = reuse_enum {
             if everything_enum.can_reuse(&self.doc_in, field_info, flags, false, self) {

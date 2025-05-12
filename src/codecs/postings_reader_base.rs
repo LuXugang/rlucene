@@ -19,7 +19,7 @@ use std::rc::Rc;
 use crate::codecs::block_term_state::BlockTermStateEnum;
 use crate::index::field_info::FieldInfo;
 use crate::index::impacts_enum::ImpactsEnum;
-use crate::index::postings_enum::PostingsEnums;
+use crate::index::postings_enum::{PostingsEnum, PostingsEnums};
 use crate::index::segment_read_state::SegmentReadState;
 use crate::store::directory::Directory;
 use crate::store::{DataInput, IndexInput};
@@ -68,13 +68,14 @@ where
 
     /// Must fully consume `state`, since after this call that `TermState` may
     /// be reused.
+    type PostingsEnum: PostingsEnum;
     fn postings(
         &mut self,
         field_info: &FieldInfo,
         state: &BlockTermStateEnum,
         reuse: Option<&mut PostingsEnums<I>>,
         flags: i32,
-    ) -> Result<Option<PostingsEnums<I>>>;
+    ) -> Result<Option<Self::PostingsEnum>>;
 
     type ImpactsEnum: ImpactsEnum;
     /// Return an [`ImpactsEnum`] that computes impacts
