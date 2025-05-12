@@ -252,8 +252,6 @@ where
         self.reorder(from, to, l, k)?;
 
         // Update end offsets
-        // TODO: could we avoid copy here?
-        self.histograms[l as usize] = self.end_offsets.clone();
 
         // Recursively sort buckets if more levels are allowed
         if k + 1 < self.max_length {
