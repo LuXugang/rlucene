@@ -145,7 +145,7 @@ pub trait BaseDocIdSetTestCaseSupperImpl {
             let mut docs = vec![];
             iter.for_each(|doc| docs.push(doc));
             let mut index = 0;
-            let mut _doc = 0;
+            let mut doc = 0;
             while index < docs.len() {
                 if random.random_bool(0.5) {
                     assert_eq!(docs[index], disi.next_doc()? as usize);
@@ -160,13 +160,13 @@ pub trait BaseDocIdSetTestCaseSupperImpl {
                     let target = docs[index] + 1 + random.random_range(0..=skip_length) as usize;
                     if let Some(i) = docs.iter().position(|&doc| doc == target) {
                         index = i + 1;
-                        _doc = target
+                        doc = target
                     } else {
-                        _doc = NO_MORE_DOCS as usize;
+                        doc = NO_MORE_DOCS as usize;
                         break;
                     }
-                    assert_eq!(_doc as i32, disi.advance(target as i32)?);
-                    assert_eq!(_doc as i32, disi.doc_id());
+                    assert_eq!(doc as i32, disi.advance(target as i32)?);
+                    assert_eq!(doc as i32, disi.doc_id());
                 }
             }
         }
@@ -178,17 +178,17 @@ pub trait BaseDocIdSetTestCaseSupperImpl {
             let bits = bitss.unwrap();
             let mut disi = ds2.iterator().unwrap();
             while doc != NO_MORE_DOCS {
-                let mut _i = 0;
+                let mut i = 0;
                 doc = disi.next_doc()?;
                 let max = if doc == NO_MORE_DOCS {
                     bits.length()
                 } else {
                     doc
                 };
-                _i = previes_doc + 1;
-                while _i < max {
-                    assert!(!bits.get(_i));
-                    _i += 1;
+                i = previes_doc + 1;
+                while i < max {
+                    assert!(!bits.get(i));
+                    i += 1;
                 }
                 if doc == NO_MORE_DOCS {
                     break;
