@@ -136,21 +136,22 @@ pub type STAllocatorByteEnum = AllocatorByteEnum<Rc<RefCell<CounterEnum>>>;
 /// for multi-threaded scenarios
 pub type MTAllocatorByteEnum = AllocatorByteEnum<Arc<Mutex<CounterEnum>>>;
 #[allow(unused)]
-pub(crate) trait Allocator<C>
-where
-    C: Access<CounterEnum>,
-{
+pub(crate) trait Allocator {
+    type CounterAccess: Access<CounterEnum>;
     type Handle: Clone;
-    fn new_allocator(allocator: AllocatorByteEnum<C>) -> Self::Handle;
+
+    fn new_allocator(allocator: AllocatorByteEnum<Self::CounterAccess>) -> Self::Handle;
     fn recycle_byte_blocks(&mut self, blocks: &[Vec<u8>], start: i32, end: i32);
     fn get_byte_block(&mut self) -> Vec<u8>;
     fn get_block_size(&self) -> i32;
     fn get_used(&self) -> i64;
 }
-impl<C> Allocator<C> for Rc<RefCell<AllocatorByteEnum<C>>>
+
+impl<C> Allocator for Rc<RefCell<AllocatorByteEnum<C>>>
 where
     C: Access<CounterEnum>,
 {
+    type CounterAccess = C;
     type Handle = Rc<RefCell<AllocatorByteEnum<C>>>;
 
     fn new_allocator(allocator: AllocatorByteEnum<C>) -> Self::Handle {
@@ -173,10 +174,12 @@ where
         self.borrow().get_used()
     }
 }
-impl<C> Allocator<C> for Arc<Mutex<AllocatorByteEnum<C>>>
+
+impl<C> Allocator for Arc<Mutex<AllocatorByteEnum<C>>>
 where
     C: Access<CounterEnum>,
 {
+    type CounterAccess = C;
     type Handle = Arc<Mutex<AllocatorByteEnum<C>>>;
 
     fn new_allocator(allocator: AllocatorByteEnum<C>) -> Self::Handle {
