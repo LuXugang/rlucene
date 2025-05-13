@@ -15,13 +15,18 @@
  * limitations under the License.
  */
 use std::borrow::Cow;
+use std::cell::RefCell;
+use std::rc::Rc;
 
+use crate::codecs::block_tree::segment_terms_enum_frame::SegmentTermsEnumFrame;
+use crate::codecs::postings_reader_base::PostingsReaderBase;
 use crate::index::dummy::dummy_impacts_enum::DummyImpactsEnum;
 use crate::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::index::impacts_enum::ImpactsEnum;
 use crate::index::postings_enum::{postings_enum_util, PostingsEnum};
 use crate::index::term_state::{TermState, TermStateEnum};
 use crate::index::BytesRef;
+use crate::store::IndexInput;
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -274,4 +279,37 @@ pub enum SeekStatus {
     Found,
     /// A different term was found after the requested term.
     NotFound,
+}
+pub enum SeekAction<I, P>
+where
+    I: IndexInput,
+    P: PostingsReaderBase,
+{
+    ReturnTrue,
+    Scan {
+        target: BytesRef<Vec<u8>>,
+        current_frame: Rc<RefCell<SegmentTermsEnumFrame<I, P>>>,
+    },
+}
+
+impl<I, P> SeekAction<I, P>
+where
+    I: IndexInput,
+    P: PostingsReaderBase,
+{
+    pub fn get(&mut self) -> Result<bool> {
+        match self {
+            SeekAction::ReturnTrue => Ok(true),
+
+            SeekAction::Scan {
+                target,
+                current_frame,
+            } => {
+                let mut frame = current_frame.borrow_mut();
+                frame.load_block()?;
+                let result = frame.scan_to_term(target, true)?;
+                Ok(matches!(result, SeekStatus::Found))
+            },
+        }
+    }
 }

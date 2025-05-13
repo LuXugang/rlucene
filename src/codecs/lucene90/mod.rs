@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-mod block_tree;
+pub(crate) mod block_tree;
 pub mod compressing;
 pub mod doc_values_enum;
 pub mod dov_values_inner_enum;

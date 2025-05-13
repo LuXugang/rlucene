@@ -42,7 +42,7 @@ where
     pub(crate) has_terms_orig: bool,
     pub(crate) is_floor: bool,
 
-    pub(crate) arc: Option<Arc<BytesRef<Rc<Vec<u8>>>>>,
+    pub(crate) arc: Option<Rc<RefCell<Arc<BytesRef<Rc<Vec<u8>>>>>>>,
 
     /// File pointer where this block was loaded from
     pub(crate) fp: i64,

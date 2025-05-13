@@ -25,8 +25,9 @@ use crate::codecs::lucene90::block_tree::lucene90_block_tree_terms_reader::lucen
 use crate::codecs::lucene90::block_tree::segment_terms_enum_frame::SegmentTermsEnumFrame;
 use crate::codecs::postings_reader_base::PostingsReaderBase;
 use crate::index::base_terms_enum::BaseTermsEnum;
-use crate::index::term_state::TermStateEnum;
-use crate::index::terms_enum::{SeekStatus, TermsEnum};
+use crate::index::term_state::{TermState, TermStateEnum};
+use crate::index::terms::Terms;
+use crate::index::terms_enum::{SeekAction, SeekStatus, TermsEnum};
 use crate::index::{BytesRef, BytesRefBuilder};
 use crate::store::{ByteArrayDataInput, DataInput, IndexInput};
 use crate::util::array_util::ArrayUtil;
@@ -35,6 +36,7 @@ use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fst_impl::fst::Arc;
 use crate::util::fst_impl::reverse_random_access_reader::ReverseRandomAccessReader;
+use crate::util::ToInt;
 
 pub struct SegmentTermsEnum<I, P>
 where
@@ -43,7 +45,9 @@ where
 {
     frame: Frame<I, P>,
     segment_terms: Rc<RefCell<SegmentTerms<I, P>>>,
+    arcs: Vec<Rc<RefCell<Arc<BytesRef<Rc<Vec<u8>>>>>>>,
     base: BaseTermsEnum,
+    fst_reader: Option<ReverseRandomAccessReader<I::RandomAccessSlice>>,
 }
 pub struct SegmentTerms<I, P>
 where
@@ -60,8 +64,6 @@ where
     valid_index_prefix: i32,
     eof: bool,
     pub(crate) term: BytesRefBuilder<Vec<u8>>,
-    fst_reader: Option<ReverseRandomAccessReader<I::RandomAccessSlice>>,
-    arcs: Vec<Arc<BytesRef<Rc<Vec<u8>>>>>,
 }
 pub struct Frame<I, P>
 where
@@ -96,7 +98,8 @@ where
             None => None,
         };
 
-        let mut arcs = vec![Arc::default(); 1];
+        let v = Rc::new(RefCell::new(Arc::default()));
+        let arcs = vec![v; 1];
         {
             let fr_borrow = fr.borrow();
             if fr_borrow.index.is_some() {
@@ -104,8 +107,8 @@ where
                     .index
                     .as_ref()
                     .unwrap()
-                    .get_first_arc(&mut arcs[0]);
-                debug_assert!(arcs[0].is_final())
+                    .get_first_arc(&mut *arcs[0].borrow_mut());
+                debug_assert!(arcs[0].borrow().is_final())
             }
         }
 
@@ -118,8 +121,6 @@ where
             valid_index_prefix: 0,
             eof: false,
             term: BytesRefBuilder::new(),
-            fst_reader,
-            arcs,
         }));
 
         // Create static_frame
@@ -139,6 +140,8 @@ where
             frame,
             segment_terms,
             base: BaseTermsEnum::default(),
+            arcs,
+            fst_reader,
         })
     }
     fn get_frame(&mut self, ord: usize) -> Result<Rc<RefCell<SegmentTermsEnumFrame<I, P>>>> {
@@ -166,18 +169,19 @@ where
 
         Ok(self.frame.stack[ord].clone())
     }
-    fn check_arc_capacity(&mut self, ord: usize) {
-        let mut segment_terms = self.segment_terms.borrow_mut();
-        let arcs = &mut segment_terms.arcs;
-
-        if ord >= arcs.len() {
+    pub(crate) fn get_arc(&mut self, ord: usize) -> Rc<RefCell<Arc<BytesRef<Rc<Vec<u8>>>>>> {
+        if ord >= self.arcs.len() {
             let new_len = ArrayUtil::oversize(ord + 1, 0);
-            arcs.resize_with(new_len, Arc::default);
+            for _ in self.arcs.len()..new_len {
+                self.arcs.push(Rc::new(RefCell::new(Arc::default())))
+            }
         }
+
+        self.arcs[ord].clone()
     }
     pub(crate) fn push_frame_with_data(
         &mut self,
-        arc: Option<Arc<BytesRef<Rc<Vec<u8>>>>>,
+        arc: Option<Rc<RefCell<Arc<BytesRef<Rc<Vec<u8>>>>>>>,
         frame_data: BytesRef<Rc<Vec<u8>>>,
         length: i32,
     ) -> Result<Rc<RefCell<SegmentTermsEnumFrame<I, P>>>> {
@@ -192,7 +196,7 @@ where
     }
     pub(crate) fn push_frame_with_length(
         &mut self,
-        arc: Option<Arc<BytesRef<Rc<Vec<u8>>>>>,
+        arc: Option<Rc<RefCell<Arc<BytesRef<Rc<Vec<u8>>>>>>>,
         length: i32,
     ) -> Result<Rc<RefCell<SegmentTermsEnumFrame<I, P>>>> {
         self.segment_terms
@@ -229,7 +233,7 @@ where
     }
     pub(crate) fn push_frame(
         &mut self,
-        arc: Option<Arc<BytesRef<Rc<Vec<u8>>>>>,
+        arc: Option<Rc<RefCell<Arc<BytesRef<Rc<Vec<u8>>>>>>>,
         fp: i64,
         length: i32,
     ) -> Result<Rc<RefCell<SegmentTermsEnumFrame<I, P>>>> {
@@ -259,14 +263,253 @@ where
         self.frame.current_frame = Some(f_rc.clone());
         Ok(f_rc)
     }
-    fn set_eof(&mut self) -> bool {
-        self.segment_terms.borrow_mut().eof = true;
-        true
-    }
 
     fn clear_eof(&mut self) -> bool {
         self.segment_terms.borrow_mut().eof = false;
         true
+    }
+    fn set_eof(&mut self) -> bool {
+        self.segment_terms.borrow_mut().eof = true;
+        true
+    }
+    pub fn prepare_seek_exact(
+        &mut self,
+        target: &BytesRef<Vec<u8>>,
+        prefetch: bool,
+    ) -> Result<Option<SeekAction<I, P>>> {
+        {
+            let segment_terms = self.segment_terms.borrow();
+            let fr = segment_terms.fr.borrow();
+            if fr.index.is_none() {
+                return Err(LuceneError::illegal_state("terms index was not loaded"));
+            }
+            if fr.size()? > 0 {
+                let mut iter = segment_terms.fr.borrow().iterator();
+                let left = target
+                    .cmp(
+                        segment_terms
+                            .fr
+                            .borrow()
+                            .get_min(&mut iter)?
+                            .as_ref()
+                            .unwrap(),
+                    )
+                    .to_int();
+                let right = target
+                    .cmp(
+                        segment_terms
+                            .fr
+                            .borrow()
+                            .get_max(&mut iter)?
+                            .as_ref()
+                            .unwrap(),
+                    )
+                    .to_int();
+                if left < 0 || right > 0 {
+                    return Ok(None);
+                }
+            }
+        }
+        self.segment_terms.borrow_mut().term.grow(1 + target.length);
+        debug_assert!(self.clear_eof());
+        let mut arc;
+        let mut target_upto;
+        {
+            let mut segment_terms = self.segment_terms.borrow_mut();
+            segment_terms.target_before_current_length =
+                self.frame.current_frame.as_ref().unwrap().borrow().ord;
+            segment_terms.output_accumulator.reset();
+        }
+        if !Rc::ptr_eq(
+            self.frame.current_frame.as_ref().unwrap(),
+            &self.frame.static_frame,
+        ) {
+            let mut segment_terms = self.segment_terms.borrow_mut();
+            arc = self.arcs[0].clone();
+            debug_assert!(arc.borrow().is_final());
+            segment_terms.output_accumulator.push(arc.borrow().output());
+
+            target_upto = 0;
+            let mut last_frame = self.frame.stack[0].clone();
+            debug_assert!(segment_terms.valid_index_prefix <= segment_terms.term.length() as i32);
+
+            let target_limit =
+                std::cmp::min(target.length, segment_terms.valid_index_prefix as usize);
+
+            let mut cmp = 0;
+
+            while target_upto < target_limit {
+                let term_byte = segment_terms.term.byte_at(target_upto) as i32;
+                let target_byte = target.bytes[target.offset + target_upto] as i32;
+                cmp = term_byte - target_byte;
+                if cmp != 0 {
+                    break;
+                }
+
+                arc = self.arcs[1 + target_upto].clone();
+                let arc_b = arc.borrow();
+                debug_assert_eq!(
+                    arc_b.label(),
+                    target.bytes[target.offset + target_upto] as i32
+                );
+                segment_terms.output_accumulator.push(arc_b.output());
+
+                if arc_b.is_final() {
+                    let idx = 1 + last_frame.borrow().ord as usize;
+                    last_frame = self.frame.stack[idx].clone();
+                }
+
+                target_upto += 1;
+            }
+
+            if cmp == 0 {
+                let a =
+                    &segment_terms.term.bytes_ref.bytes[target_upto..segment_terms.term.length()];
+                let b = &target.bytes[target.offset + target_upto..target.offset + target.length];
+                cmp = a.cmp(b).to_int();
+            }
+
+            if cmp < 0 {
+                self.frame.current_frame = Some(last_frame);
+            } else if cmp > 0 {
+                segment_terms.target_before_current_length = last_frame.borrow().ord;
+                last_frame.borrow_mut().rewind()?;
+                self.frame.current_frame = Some(last_frame);
+            } else {
+                debug_assert_eq!(segment_terms.term.length(), target.length);
+                if segment_terms.term_exists {
+                    return Ok(Some(SeekAction::ReturnTrue));
+                }
+            }
+        } else {
+            arc = self.arcs[0].clone();
+            let mut arc_b = arc.borrow_mut();
+            {
+                let mut segment_terms = self.segment_terms.borrow_mut();
+                segment_terms.target_before_current_length = -1;
+
+                self.segment_terms
+                    .borrow()
+                    .fr
+                    .borrow()
+                    .index
+                    .as_ref()
+                    .unwrap()
+                    .get_first_arc(&mut *arc_b);
+                debug_assert!(arc_b.is_final());
+
+                segment_terms.output_accumulator.push(arc_b.output());
+
+                self.frame.current_frame = Some(self.frame.static_frame.clone());
+
+                target_upto = 0;
+                segment_terms
+                    .output_accumulator
+                    .push(arc_b.next_final_output());
+            }
+
+            let new_frame = self.push_frame_with_length(Some(arc.clone()), 0)?;
+            self.frame.current_frame = Some(new_frame);
+
+            self.segment_terms
+                .borrow_mut()
+                .output_accumulator
+                .pop(&arc_b.next_final_output());
+        }
+        while target_upto < target.length {
+            let target_label = target.bytes[target.offset + target_upto] as i32;
+
+            let next_arc = self.get_arc(1 + target_upto);
+            let r = {
+                let segment_terms = self.segment_terms.borrow_mut();
+                let mut fr_guard = segment_terms.fr.borrow_mut();
+                let fr_index = fr_guard.index.as_mut().unwrap();
+                let reader = self.fst_reader.as_mut().unwrap();
+
+                fr_index.find_target_arc(
+                    target_label,
+                    &mut *arc.borrow_mut(),
+                    &mut *next_arc.borrow_mut(),
+                    reader,
+                )?
+            };
+
+            if r.is_none() {
+                // index exhausted
+                let mut current_frame = self.frame.current_frame.as_ref().unwrap().borrow_mut();
+
+                self.segment_terms.borrow_mut().valid_index_prefix = current_frame.prefix_length;
+
+                current_frame.scan_to_floor_frame(target)?;
+
+                if !current_frame.has_terms {
+                    let mut segment_terms = self.segment_terms.borrow_mut();
+                    segment_terms.term_exists = false;
+                    segment_terms
+                        .term
+                        .set_byte_at(target_upto, target_label as u8);
+                    segment_terms.term.set_length(target_upto + 1);
+                    return Ok(None);
+                }
+
+                if prefetch {
+                    current_frame.prefetch_block()?;
+                }
+
+                return Ok(Some(SeekAction::Scan {
+                    // TODO:could we avoid copy here?
+                    target: target.clone(),
+                    current_frame: self.frame.current_frame.as_ref().unwrap().clone(),
+                }));
+            } else {
+                arc = next_arc;
+                let arc_b = arc.borrow();
+                {
+                    let mut segment_terms = self.segment_terms.borrow_mut();
+                    segment_terms
+                        .term
+                        .set_byte_at(target_upto, target_label as u8);
+                    segment_terms.output_accumulator.push(arc_b.output());
+                    target_upto += 1;
+                }
+
+                if arc_b.is_final() {
+                    self.segment_terms
+                        .borrow_mut()
+                        .output_accumulator
+                        .push(arc_b.next_final_output());
+
+                    let new_frame =
+                        self.push_frame_with_length(Some(arc.clone()), target_upto as i32)?;
+                    self.frame.current_frame = Some(new_frame);
+
+                    self.segment_terms
+                        .borrow_mut()
+                        .output_accumulator
+                        .pop(&arc_b.next_final_output());
+                }
+            }
+        }
+        let mut segment_terms = self.segment_terms.borrow_mut();
+        let mut current_frame = self.frame.current_frame.as_ref().unwrap().borrow_mut();
+
+        segment_terms.valid_index_prefix = current_frame.prefix_length;
+
+        current_frame.scan_to_floor_frame(target)?;
+
+        if !current_frame.has_terms {
+            segment_terms.term_exists = false;
+            segment_terms.term.set_length(target_upto);
+            return Ok(None);
+        }
+
+        if prefetch {
+            current_frame.prefetch_block()?;
+        }
+        Ok(Some(SeekAction::Scan {
+            target: target.clone(),
+            current_frame: self.frame.current_frame.as_ref().unwrap().clone(),
+        }))
     }
 }
 
@@ -276,6 +519,123 @@ where
     P: PostingsReaderBase,
 {
     type AV = Vec<u8>;
+
+    fn next(&mut self) -> Result<Option<Cow<BytesRef<Self::AV>>>> {
+        let input_none = {
+            let segment_terms = self.segment_terms.borrow();
+            segment_terms.input.is_none()
+        };
+        if input_none {
+            let (arc, root_code) = {
+                let segment_terms = self.segment_terms.borrow();
+                let fr = segment_terms.fr.borrow();
+                let arc = if let Some(index) = fr.index.as_ref() {
+                    let mut arc = self.arcs[0].borrow_mut();
+                    index.get_first_arc(&mut arc);
+                    debug_assert!(arc.is_final());
+                    Some(self.arcs[0].clone())
+                } else {
+                    None
+                };
+                (arc, fr.root_code.clone())
+            };
+            let new_frame = self.push_frame_with_data(arc, root_code, 0)?;
+            self.frame.current_frame = Some(new_frame);
+            self.frame
+                .current_frame
+                .as_ref()
+                .unwrap()
+                .borrow_mut()
+                .load_block()?;
+        }
+        {
+            let mut segment_terms = self.segment_terms.borrow_mut();
+            let current_frame = self.frame.current_frame.as_ref().unwrap();
+            segment_terms.target_before_current_length = current_frame.borrow().ord;
+            debug_assert!(!segment_terms.eof);
+        }
+
+        {
+            let is_static = Rc::ptr_eq(
+                self.frame.current_frame.as_ref().unwrap(),
+                &self.frame.static_frame,
+            );
+            if is_static {
+                let target = {
+                    let mut segment_terms = self.segment_terms.borrow_mut();
+                    // TODO: avoid copy here?
+                    segment_terms.term.get_bytes_ref().clone()
+                };
+                let found = self.seek_exact(&target)?;
+                debug_assert!(found);
+            }
+        }
+        {
+            let mut segment_terms = self.segment_terms.borrow_mut();
+            loop {
+                let mut current_frame = self.frame.current_frame.as_ref().unwrap().borrow_mut();
+                if current_frame.next_ent == current_frame.ent_count {
+                    if !current_frame.is_last_in_floor {
+                        current_frame.load_next_floor_block()?;
+                        break;
+                    } else {
+                        if current_frame.ord == 0 {
+                            segment_terms.eof = true;
+                            segment_terms.term.clear();
+                            segment_terms.valid_index_prefix = 0;
+                            current_frame.rewind()?;
+                            segment_terms.term_exists = false;
+                            return Ok(None);
+                        }
+
+                        let last_fp = current_frame.fp_orig;
+                        let parent_ord = current_frame.ord - 1;
+                        drop(current_frame);
+                        self.frame.current_frame =
+                            Some(self.frame.stack[parent_ord as usize].clone());
+                        let mut current_frame =
+                            self.frame.current_frame.as_ref().unwrap().borrow_mut();
+
+                        if current_frame.next_ent == -1 || current_frame.last_sub_fp != last_fp {
+                            let target = segment_terms.term.get_bytes_ref();
+                            current_frame.scan_to_floor_frame(target)?;
+                            current_frame.load_block()?;
+                            current_frame.scan_to_sub_block(last_fp)?;
+                        }
+
+                        let prefix = current_frame.prefix_length;
+                        segment_terms.valid_index_prefix =
+                            segment_terms.valid_index_prefix.min(prefix);
+                    }
+                } else {
+                    break;
+                }
+            }
+        }
+        loop {
+            let (has_next, last_sub_fp) = {
+                let current_frame = self.frame.current_frame.as_ref().unwrap();
+                let mut frame = current_frame.borrow_mut();
+                (frame.next()?, frame.last_sub_fp)
+            };
+            if has_next {
+                let length = self.segment_terms.borrow().term.length();
+                let new_frame = self.push_frame(None, last_sub_fp, length as i32)?;
+                self.frame.current_frame = Some(new_frame);
+                self.frame
+                    .current_frame
+                    .as_ref()
+                    .unwrap()
+                    .borrow_mut()
+                    .load_block()?;
+                continue;
+            } else {
+                // could we avoid copy here?
+                let term = self.segment_terms.borrow_mut().term.get_bytes_ref_copy();
+                Some(term)
+            };
+        }
+    }
 }
 
 impl<I, P> TermsEnum for SegmentTermsEnum<I, P>
@@ -287,8 +647,222 @@ where
         <BaseTermsEnum as TermsEnum>::attributes(&self.base)
     }
 
+    fn seek_exact(&mut self, target: &BytesRef<Self::AV>) -> Result<bool> {
+        let mut term_exists_supplier = self.prepare_seek_exact(target, false)?;
+        Ok(term_exists_supplier.is_some() && term_exists_supplier.as_mut().unwrap().get()?)
+    }
+
     fn seek_ceil(&mut self, target: &BytesRef<Self::AV>) -> Result<SeekStatus> {
-        todo!()
+        if self.segment_terms.borrow().fr.borrow().index.is_none() {
+            return Err(LuceneError::illegal_state("terms index was not loaded"));
+        }
+
+        self.segment_terms.borrow_mut().term.grow(1 + target.length);
+        debug_assert!(self.clear_eof());
+
+        let mut target_upto;
+
+        {
+            let mut segment_terms = self.segment_terms.borrow_mut();
+            segment_terms.target_before_current_length =
+                self.frame.current_frame.as_ref().unwrap().borrow().ord;
+            segment_terms.output_accumulator.reset();
+        }
+        let mut arc;
+
+        if !Rc::ptr_eq(
+            self.frame.current_frame.as_ref().unwrap(),
+            &self.frame.static_frame,
+        ) {
+            let mut segment_terms = self.segment_terms.borrow_mut();
+            arc = self.arcs[0].clone();
+            debug_assert!(arc.borrow().is_final());
+            let v = arc.borrow().output();
+            segment_terms.output_accumulator.push(v);
+            target_upto = 0;
+
+            let mut last_frame = self.frame.stack[0].clone();
+            debug_assert!(segment_terms.valid_index_prefix <= segment_terms.term.length() as i32);
+
+            let target_limit =
+                std::cmp::min(target.length, segment_terms.valid_index_prefix as usize);
+            let mut cmp = 0;
+
+            while target_upto < target_limit {
+                let term_byte = segment_terms.term.byte_at(target_upto) as i32;
+                let target_byte = target.bytes[target.offset + target_upto] as i32;
+                cmp = term_byte - target_byte;
+                if cmp != 0 {
+                    break;
+                }
+                arc = self.arcs[1 + target_upto].clone();
+                let arc_b = arc.borrow();
+                debug_assert_eq!(
+                    arc_b.label(),
+                    target.bytes[target.offset + target_upto] as i32
+                );
+                segment_terms.output_accumulator.push(arc_b.output());
+
+                if arc_b.is_final() {
+                    let idx = 1 + last_frame.borrow().ord as usize;
+                    last_frame = self.frame.stack[idx].clone();
+                }
+
+                target_upto += 1;
+            }
+
+            if cmp == 0 {
+                cmp = segment_terms.term.bytes_ref.bytes[target_upto..segment_terms.term.length()]
+                    .cmp(&target.bytes[target.offset + target_upto..target.offset + target.length])
+                    .to_int();
+            }
+
+            if cmp < 0 {
+                self.frame.current_frame = Some(last_frame);
+            } else if cmp > 0 {
+                self.segment_terms.borrow_mut().target_before_current_length = 0;
+                last_frame.borrow_mut().rewind()?;
+                self.frame.current_frame = Some(last_frame);
+            } else {
+                debug_assert_eq!(segment_terms.term.length(), target.length);
+                if segment_terms.term_exists {
+                    return Ok(SeekStatus::Found);
+                }
+            }
+        } else {
+            let v = {
+                {
+                    let mut segment_terms = self.segment_terms.borrow_mut();
+                    segment_terms.target_before_current_length = -1;
+                    arc = self.arcs[0].clone();
+                    let mut arc_b = arc.borrow_mut();
+                    segment_terms
+                        .fr
+                        .borrow()
+                        .index
+                        .as_ref()
+                        .unwrap()
+                        .get_first_arc(&mut *arc_b);
+
+                    debug_assert!(arc_b.is_final());
+
+                    segment_terms.output_accumulator.push(arc_b.output());
+
+                    self.frame.current_frame = Some(self.frame.static_frame.clone());
+
+                    target_upto = 0;
+                    segment_terms
+                        .output_accumulator
+                        .push(arc_b.next_final_output());
+                }
+                self.push_frame_with_length(Some(self.arcs[0].clone()), 0)?
+            };
+            self.frame.current_frame = Some(v);
+            self.segment_terms
+                .borrow_mut()
+                .output_accumulator
+                .pop(&self.arcs[0].borrow().next_final_output());
+        }
+        while target_upto < target.length {
+            let target_label = target.bytes[target.offset + target_upto] as i32;
+
+            let next_arc = self.get_arc(1 + target_upto);
+            let r = {
+                let segment_terms = self.segment_terms.borrow_mut();
+                let mut fr_guard = segment_terms.fr.borrow_mut();
+                let fr_index = fr_guard.index.as_mut().unwrap();
+
+                let reader = self.fst_reader.as_mut().unwrap();
+
+                fr_index.find_target_arc(
+                    target_label,
+                    &mut *arc.borrow_mut(),
+                    &mut *next_arc.borrow_mut(),
+                    reader,
+                )?
+            };
+
+            if r.is_none() {
+                let result = {
+                    let mut current_frame = self.frame.current_frame.as_ref().unwrap().borrow_mut();
+                    self.segment_terms.borrow_mut().valid_index_prefix =
+                        current_frame.prefix_length;
+
+                    current_frame.scan_to_floor_frame(target)?;
+                    current_frame.load_block()?;
+
+                    current_frame.scan_to_term(target, false)?
+                };
+                if result == SeekStatus::End {
+                    {
+                        let mut segment_terms = self.segment_terms.borrow_mut();
+                        segment_terms.term.copy_bytes_with_ref(target);
+                        segment_terms.term_exists = false;
+                    }
+
+                    if self.next()?.is_some() {
+                        return Ok(SeekStatus::NotFound);
+                    } else {
+                        return Ok(SeekStatus::End);
+                    }
+                } else {
+                    return Ok(result);
+                }
+            } else {
+                arc = next_arc;
+                let arc_b = arc.borrow();
+                {
+                    let mut segment_terms = self.segment_terms.borrow_mut();
+                    segment_terms
+                        .term
+                        .set_byte_at(target_upto, target_label as u8);
+                    segment_terms.output_accumulator.push(arc_b.output());
+
+                    target_upto += 1;
+                }
+
+                if arc_b.is_final() {
+                    self.segment_terms
+                        .borrow_mut()
+                        .output_accumulator
+                        .push(arc_b.next_final_output());
+
+                    let new_frame =
+                        self.push_frame_with_length(Some(arc.clone()), target_upto as i32)?;
+                    self.frame.current_frame = Some(new_frame);
+
+                    self.segment_terms
+                        .borrow_mut()
+                        .output_accumulator
+                        .pop(&arc_b.next_final_output());
+                }
+            }
+        }
+        let result = {
+            let current_frame_rc = self.frame.current_frame.as_ref().unwrap();
+            let mut current_frame = current_frame_rc.borrow_mut();
+
+            self.segment_terms.borrow_mut().valid_index_prefix = current_frame.prefix_length;
+            current_frame.scan_to_floor_frame(target)?;
+            current_frame.load_block()?;
+            current_frame.scan_to_term(target, false)?
+        };
+
+        match result {
+            SeekStatus::End => {
+                {
+                    let mut segment_terms = self.segment_terms.borrow_mut();
+                    segment_terms.term.copy_bytes_with_ref(target);
+                    segment_terms.term_exists = false;
+                }
+                if self.next()?.is_some() {
+                    Ok(SeekStatus::NotFound)
+                } else {
+                    Ok(SeekStatus::End)
+                }
+            },
+            _ => Ok(result),
+        }
     }
 
     fn seek_exact_with_ord(&mut self, ord: i64) -> Result<()> {
@@ -297,10 +871,25 @@ where
 
     fn seek_exact_with_state(
         &mut self,
-        term: &BytesRef<Self::AV>,
-        state: &TermStateEnum,
+        target: &BytesRef<Self::AV>,
+        other_state: &TermStateEnum,
     ) -> Result<()> {
-        todo!()
+        debug_assert!(self.clear_eof());
+        let mut segment_terms = self.segment_terms.borrow_mut();
+        if target.cmp(segment_terms.term.get_bytes_ref()).to_int() != 0
+            || !segment_terms.term_exists
+        {
+            if let TermStateEnum::Block(block_state) = other_state {
+                let mut current_frame = self.frame.static_frame.borrow_mut();
+                current_frame.state.copy_from(other_state)?;
+                self.frame.current_frame = Some(self.frame.static_frame.clone());
+                segment_terms.term.copy_bytes_with_ref(target);
+                current_frame.meta_data_upto = current_frame.get_term_block_ord();
+                debug_assert!(current_frame.meta_data_upto > 0);
+                segment_terms.valid_index_prefix = 0;
+            }
+        }
+        Ok(())
     }
 
     fn term(&self) -> Result<Cow<BytesRef<Self::AV>>> {
