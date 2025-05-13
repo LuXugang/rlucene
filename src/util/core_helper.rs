@@ -114,7 +114,7 @@ pub trait OptionTakeExt<T> {
 }
 
 impl<T> OptionTakeExt<T> for Option<T> {
-    /// Implementation of `take_do` for all `Option<T>`.
+    /// Implementation of `take_do_return` for all `Option<T>`.
     ///
     /// 1. Calls `self.take()` to extract the value (or return an error if
     ///    `None`).

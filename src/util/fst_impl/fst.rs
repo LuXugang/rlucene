@@ -27,6 +27,8 @@ use crate::store::output_stream_data_output::OutputStreamDataOutput;
 use crate::store::{ByteBuffersDataOutput, DataInput, DataOutput};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fst_impl::bit_table_util::BitTableUtil;
+use crate::util::fst_impl::dummy::dummy_fst_reader::DummyFSTReader;
+use crate::util::fst_impl::dummy::dummy_outputs::DummyOutputs;
 use crate::util::fst_impl::fst_reader::FstReader;
 use crate::util::fst_impl::on_heap_fst_store::OnHeapFSTStore;
 use crate::util::fst_impl::outputs::{Outputs, OutputsBound};
@@ -355,7 +357,7 @@ where
         }
     }
     /// In-place read; returns the arc.
-    pub fn read_next_arc(&mut self, arc: &mut Arc<T>, input: &mut impl BytesReader) -> Result<()> {
+    pub fn read_next_arc(&self, arc: &mut Arc<T>, input: &mut impl BytesReader) -> Result<()> {
         if arc.label() == fst_util::END_LABEL {
             // This was a fake inserted "final" arc
             if arc.next_arc() <= 0 {
@@ -443,7 +445,7 @@ where
     ///
     /// The updated arc
     pub fn read_arc_by_index(
-        &mut self,
+        &self,
         arc: &mut Arc<T>,
         input: &mut impl BytesReader,
         idx: i32,
@@ -673,7 +675,7 @@ where
     ///
     /// Returns an error if reading from the input fails
     pub fn find_target_arc(
-        &mut self,
+        &self,
         label_to_match: i32,
         follow: &Arc<T>,
         arc: &mut Arc<T>,
@@ -814,6 +816,7 @@ where
         self.fst_reader.get_reverse_bytes_reader()
     }
 }
+
 impl<T, O, F> Display for FST<T, O, F>
 where
     T: OutputsBound,

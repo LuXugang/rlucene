@@ -28,7 +28,7 @@ where
     O: Outputs<T>,
     F: FstReader,
 {
-    pub(crate) fst: FST<T, O, F>,
+    pub fst: FST<T, O, F>,
     pub(crate) arcs: Vec<Option<Arc<T>>>,
     pub(crate) output: Vec<T>,
     #[allow(unused)]

@@ -36,7 +36,7 @@ where
     pub(crate) current: RcIntsRef,
     pub(crate) result: InputOutput<T, RcIntsRef>,
     pub(crate) target: IntsRef<Vec<i32>>,
-    base: Option<FSTEnum<T, O, F>>,
+    pub base: Option<FSTEnum<T, O, F>>,
 }
 #[allow(unused)]
 impl<T, O, F> IntsRefFSTEnum<T, O, F>
