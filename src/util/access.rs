@@ -364,20 +364,6 @@ pub trait BorrowExt<T> {
     fn access(&self) -> Ref<T>;
     fn access_mut(&self) -> RefMut<T>;
 }
-
-// Rc<RefCell<T>>
-impl<T> BorrowExt<T> for Rc<RefCell<T>> {
-    #[inline]
-    fn access(&self) -> Ref<T> {
-        self.borrow()
-    }
-
-    #[inline]
-    fn access_mut(&self) -> RefMut<T> {
-        self.borrow_mut()
-    }
-}
-
 /// Implementation for `Option<Rc<RefCell<T>>>`
 ///
 /// # Panics
@@ -406,17 +392,6 @@ impl<T> BorrowExt<T> for Option<Rc<RefCell<T>>> {
 pub trait MutexAccess<T> {
     fn access(&self) -> MutexGuard<T>;
     fn access_mut(&self) -> MutexGuard<T>;
-}
-impl<T> MutexAccess<T> for Arc<Mutex<T>> {
-    #[inline]
-    fn access(&self) -> MutexGuard<T> {
-        self.lock()
-    }
-
-    #[inline]
-    fn access_mut(&self) -> MutexGuard<T> {
-        self.lock()
-    }
 }
 /// Implementation for `Option<Arc<Mutex<T>>>`
 ///

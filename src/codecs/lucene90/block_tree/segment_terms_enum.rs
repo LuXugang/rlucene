@@ -30,6 +30,7 @@ use crate::index::terms::Terms;
 use crate::index::terms_enum::{SeekAction, SeekStatus, TermsEnum};
 use crate::index::{BytesRef, BytesRefBuilder};
 use crate::store::{ByteArrayDataInput, DataInput, IndexInput};
+use crate::util::access::BorrowExt;
 use crate::util::array_util::ArrayUtil;
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
@@ -194,7 +195,7 @@ where
 
         let fp_seek = ((code as u64) >> lucene90_bttr_util::OUTPUT_FLAGS_NUM_BITS) as i64;
 
-        let current_ord = self.current_frame.as_ref().unwrap().borrow().ord;
+        let current_ord = self.current_frame.access().ord;
         let f_rc = self.get_frame((current_ord + 1) as usize)?;
 
         {
@@ -218,7 +219,7 @@ where
         fp: i64,
         length: i32,
     ) -> Result<Rc<RefCell<SegmentTermsEnumFrame<I, P>>>> {
-        let current_ord = self.current_frame.as_ref().unwrap().borrow().ord;
+        let current_ord = self.current_frame.access().ord;
 
         let f_rc = self.get_frame((current_ord + 1) as usize)?;
 
@@ -295,7 +296,7 @@ where
         debug_assert!(self.clear_eof());
         let mut arc;
         let mut target_upto;
-        self.target_before_current_length = self.current_frame.as_ref().unwrap().borrow().ord;
+        self.target_before_current_length = self.current_frame.access().ord;
         self.output_accumulator.reset();
         if !Rc::ptr_eq(self.current_frame.as_ref().unwrap(), &self.static_frame) {
             arc = self.arcs[0].clone();
@@ -400,7 +401,7 @@ where
 
             if r.is_none() {
                 // index exhausted
-                let mut current_frame = self.current_frame.as_ref().unwrap().borrow_mut();
+                let mut current_frame = self.current_frame.access_mut();
 
                 self.valid_index_prefix = current_frame.prefix_length;
 
@@ -448,7 +449,7 @@ where
                 }
             }
         }
-        let mut current_frame = self.current_frame.as_ref().unwrap().borrow_mut();
+        let mut current_frame = self.current_frame.access_mut();
 
         self.valid_index_prefix = current_frame.prefix_length;
 
@@ -524,7 +525,7 @@ where
         {
             let mut segment_terms = self.segment_terms.borrow_mut();
             loop {
-                let mut current_frame = self.current_frame.as_ref().unwrap().borrow_mut();
+                let mut current_frame = self.current_frame.access_mut();
                 if current_frame.next_ent == current_frame.ent_count {
                     if !current_frame.is_last_in_floor {
                         current_frame.load_next_floor_block()?;
@@ -543,7 +544,7 @@ where
                         let parent_ord = current_frame.ord - 1;
                         drop(current_frame);
                         self.current_frame = Some(self.stack[parent_ord as usize].clone());
-                        let mut current_frame = self.current_frame.as_ref().unwrap().borrow_mut();
+                        let mut current_frame = self.current_frame.access_mut();
 
                         if current_frame.next_ent == -1 || current_frame.last_sub_fp != last_fp {
                             let target = segment_terms.term.get_bytes_ref();
@@ -609,7 +610,7 @@ where
 
         let mut target_upto;
 
-        self.target_before_current_length = self.current_frame.as_ref().unwrap().borrow().ord;
+        self.target_before_current_length = self.current_frame.access().ord;
         self.output_accumulator.reset();
         let mut arc;
 
@@ -717,7 +718,7 @@ where
 
             if r.is_none() {
                 let result = {
-                    let mut current_frame = self.current_frame.as_ref().unwrap().borrow_mut();
+                    let mut current_frame = self.current_frame.access_mut();
                     self.valid_index_prefix = current_frame.prefix_length;
 
                     current_frame.scan_to_floor_frame(target)?;

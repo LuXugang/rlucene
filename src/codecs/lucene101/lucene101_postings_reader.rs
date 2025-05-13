@@ -45,6 +45,7 @@ use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::directory::Directory;
 use crate::store::{ByteArrayDataInput, DataInput, IndexInput, ReadAdvice};
+use crate::util::access::BorrowExt;
 use crate::util::array_util::ArrayUtil;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -669,10 +670,7 @@ where
                     doc_in.clone(),
                 ));
             }
-            lucene101_pr_util::prefetch_postings(
-                &mut *self.doc_in.as_mut().unwrap().borrow_mut(),
-                term_state,
-            )?;
+            lucene101_pr_util::prefetch_postings(&mut *self.doc_in.access_mut(), term_state)?;
         }
 
         if self.for_delta_util.is_none() && (self.doc_freq as usize) >= ForUtil::BLOCK_SIZE {
@@ -755,7 +753,7 @@ where
             &mut self.doc_buffer,
         )?;
         if self.index_has_freq {
-            let mut doc_in = self.doc_in.as_mut().unwrap().borrow_mut();
+            let mut doc_in = self.doc_in.access_mut();
             if self.needs_freq {
                 self.freq_fp = doc_in.get_file_pointer();
             }
@@ -782,7 +780,7 @@ where
             self.doc_count_left = 0;
             self.doc_buffer_size = 1;
         } else {
-            let mut doc_in = self.doc_in.as_mut().unwrap().borrow_mut();
+            let mut doc_in = self.doc_in.access_mut();
             PostingsUtil::read_vint_block(
                 &mut *doc_in,
                 &mut self.doc_buffer,
@@ -818,7 +816,7 @@ where
         Ok(())
     }
     fn skip_level1_to(&mut self, target: i32) -> Result<()> {
-        let mut doc_in = self.doc_in.as_mut().unwrap().borrow_mut();
+        let mut doc_in = self.doc_in.access_mut();
         loop {
             self.prev_doc_id = self.level1_last_doc_id;
             self.level0_last_doc_id = self.level1_last_doc_id;
@@ -895,7 +893,7 @@ where
 
         if (self.doc_count_left as usize) >= ForUtil::BLOCK_SIZE {
             {
-                let mut doc_in = self.doc_in.as_ref().unwrap().borrow_mut();
+                let mut doc_in = self.doc_in.access_mut();
                 doc_in.read_vlong()?;
                 let doc_delta = lucene101_pr_util::read_vint15(&mut *doc_in)?;
                 self.level0_last_doc_id += doc_delta;
@@ -940,7 +938,7 @@ where
         if self.needs_docs_and_freqs_only && (self.doc_count_left as usize) >= ForUtil::BLOCK_SIZE {
             // Optimize the common path for exhaustive evaluation
             {
-                let mut doc_in = self.doc_in.as_ref().unwrap().borrow_mut();
+                let mut doc_in = self.doc_in.access_mut();
                 let level0_num_bytes = doc_in.read_vlong()?;
                 IndexInput::skip_bytes(&mut *doc_in, level0_num_bytes)?;
             }
@@ -969,7 +967,7 @@ where
         // already decoded. In this case we just accumulate frequencies
         // into posPendingCount instead of seeking backwards and decoding the
         // same pos block again.
-        let mut pos_in = self.pos_in.as_mut().unwrap().borrow_mut();
+        let mut pos_in = self.pos_in.access_mut();
         if pos_fp >= pos_in.get_file_pointer() {
             pos_in.seek(pos_fp)?;
             self.pos_pending_count = pos_upto;
@@ -993,7 +991,7 @@ where
     fn skip_level0_to(&mut self, target: i32) -> Result<()> {
         let (mut pos_fp, mut pos_upto, mut pay_fp, mut pay_upto): (i64, i32, i64, i32);
         {
-            let mut doc_in = self.doc_in.as_ref().unwrap().borrow_mut();
+            let mut doc_in = self.doc_in.access_mut();
             loop {
                 self.prev_doc_id = self.level0_last_doc_id;
 
@@ -1084,7 +1082,7 @@ where
         } else {
             to_skip -= left_in_block;
             {
-                let mut pos_in = self.pos_in.as_ref().unwrap().borrow_mut();
+                let mut pos_in = self.pos_in.access_mut();
                 while to_skip >= ForUtil::BLOCK_SIZE as i32 {
                     debug_assert!(pos_in.get_file_pointer() != self.last_pos_block_fp);
                     PForUtil::skip(&mut *pos_in)?;
@@ -1129,7 +1127,7 @@ where
         let mut offset_length = 0;
         self.payload_byte_upto = 0;
 
-        let mut pos_in = self.pos_in.as_ref().unwrap().borrow_mut();
+        let mut pos_in = self.pos_in.access_mut();
 
         for i in 0..count {
             let code = pos_in.read_vint()?;
@@ -1186,16 +1184,14 @@ where
                     .unwrap()
                     .decode(pay_in_util, &mut self.payload_length_buffer)?;
 
-                let num_bytes = self.pay_in.as_ref().unwrap().borrow_mut().read_vint()?;
+                let num_bytes = self.pay_in.access_mut().read_vint()?;
                 if num_bytes as usize > self.payload_bytes.len() {
                     ArrayUtil::grow_with_len(&mut self.payload_bytes, num_bytes as usize);
                 }
 
-                self.pay_in.as_ref().unwrap().borrow_mut().read_bytes(
-                    &mut self.payload_bytes,
-                    0,
-                    num_bytes,
-                )?;
+                self.pay_in
+                    .access_mut()
+                    .read_bytes(&mut self.payload_bytes, 0, num_bytes)?;
             } else if let Some(ref pay_in_rc) = self.pay_in {
                 // this works, because when writing a vint block we always force
                 // the first length to be written
@@ -1226,7 +1222,7 @@ where
     }
     fn refill_positions(&mut self) -> Result<()> {
         let pos = {
-            let pos_in = self.pos_in.as_ref().unwrap().borrow_mut();
+            let pos_in = self.pos_in.access_mut();
             pos_in.get_file_pointer()
         };
         if pos == self.last_pos_block_fp {
@@ -1289,7 +1285,7 @@ where
 {
     fn freq(&mut self) -> Result<i32> {
         if self.freq_fp != -1 {
-            let mut doc_in = self.doc_in.as_ref().unwrap().borrow_mut();
+            let mut doc_in = self.doc_in.access_mut();
             doc_in.seek(self.freq_fp)?;
             self.pfor_util
                 .as_mut()

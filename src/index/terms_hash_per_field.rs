@@ -28,7 +28,7 @@ use crate::index::index_options::IndexOptions;
 use crate::index::parallel_postings_array::PostingsArrayEnum;
 use crate::index::term_vectors_consumer_per_field::TermVectorsPostingsArray;
 use crate::index::terms_hash_per_field_enum::TermsHashPerFieldEnum;
-use crate::util::access::Access;
+use crate::util::access::{Access, BorrowExt};
 use crate::util::bytes_ref_hash::{
     BytesRefHash, BytesStartArray, BytesStartArrayEnum, STBytesRefHash,
 };
@@ -299,7 +299,7 @@ impl TermsHashPerField {
         self.bytes_hash.clear();
         self.sorted_term_ids = false;
         if self.next_per_field.is_some() {
-            let mut next_per_field = self.next_per_field.as_ref().unwrap().borrow_mut();
+            let mut next_per_field = self.next_per_field.access_mut();
             next_per_field.reset();
         }
     }
