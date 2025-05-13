@@ -41,10 +41,12 @@ pub trait Terms {
         unimplemented!()
     }
 
-    type TermsEnum: TermsEnum;
+    type TermsEnumIter: TermsEnum;
     /// Returns an iterator that will step through all terms. This method will
     /// not return None.
-    fn iterator(&self) -> Self::TermsEnum;
+    fn iterator(&self) -> Self::TermsEnumIter;
+
+    type IntersectIter: TermsEnum;
     /// Returns a [`TermsEnum`] that iterates over all terms and documents
     /// accepted by the given [`CompiledAutomaton`].
     ///
@@ -64,9 +66,15 @@ pub trait Terms {
         &self,
         compiled: &mut CompiledAutomaton,
         start_term: Option<BytesRef<Vec<u8>>>,
-    ) -> Result<FilteredTermsEnum<Self::TermsEnum, Self::AV, AutomatonTermsEnum>>
+    ) -> Result<Self::IntersectIter>;
+
+    fn default_intersect(
+        &self,
+        compiled: &mut CompiledAutomaton,
+        start_term: Option<BytesRef<Vec<u8>>>,
+    ) -> Result<FilteredTermsEnum<Self::TermsEnumIter, Self::AV, AutomatonTermsEnum>>
     where
-        Self::TermsEnum: BytesRefIterator<AV = Self::AV>,
+        Self::TermsEnumIter: BytesRefIterator<AV = Self::AV>,
         AutomatonTermsEnum: FilteredTermsEnumBase<AV = Self::AV>,
     {
         let terms_enum = self.iterator();
@@ -131,7 +139,7 @@ pub trait Terms {
     fn get_max<'a, T>(&'a self, iterator: &'a mut T) -> Result<Option<Cow<'a, BytesRef<Self::AV>>>>
     where
         T: TermsEnum<AV = Self::AV>,
-        Self: Sized + Terms<TermsEnum = T>,
+        Self: Sized + Terms<TermsEnumIter = T>,
     {
         let size = self.size()?;
         if size == 0 {

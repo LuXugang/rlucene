@@ -157,25 +157,26 @@ impl<I, P> Terms for FieldReader<I, P>
 where
     I: IndexInput,
     P: PostingsReaderBase,
-    Self: Terms<AV = Vec<u8>>,
 {
     type AV = Vec<u8>;
-    type TermsEnum = SegmentTermsEnum<I, P>;
+    type TermsEnumIter = SegmentTermsEnum<I, P>;
 
-    fn iterator(&self) -> Self::TermsEnum {
+    fn iterator(&self) -> Self::TermsEnumIter {
         todo!()
     }
+
+    type IntersectIter
+        = FilteredTermsEnum<Self::TermsEnumIter, Self::AV, AutomatonTermsEnum>
+    where
+        Self::TermsEnumIter: BytesRefIterator<AV = Self::AV>,
+        AutomatonTermsEnum: FilteredTermsEnumBase<AV = Self::AV>;
 
     fn intersect(
         &self,
         compiled: &mut CompiledAutomaton,
         start_term: Option<BytesRef<Vec<u8>>>,
-    ) -> Result<FilteredTermsEnum<Self::TermsEnum, Self::AV, AutomatonTermsEnum>>
-    where
-        Self::TermsEnum: BytesRefIterator<AV = Self::AV>,
-        AutomatonTermsEnum: FilteredTermsEnumBase<AV = Self::AV>,
-    {
-        todo!()
+    ) -> Result<Self::IntersectIter> {
+        self.default_intersect(compiled, start_term)
     }
 
     fn size(&self) -> Result<i64> {
@@ -232,7 +233,6 @@ where
     fn get_max<'a, T>(&'a self, _iterator: &'a mut T) -> Result<Option<Cow<'a, BytesRef<Self::AV>>>>
     where
         T: TermsEnum<AV = Self::AV>,
-        Self: Terms<TermsEnum = T>,
     {
         Ok(Option::from(Cow::Borrowed(&self.max_term)))
     }
