@@ -18,15 +18,16 @@ use std::borrow::Cow;
 use std::cell::RefCell;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
+
 use crate::codecs::block_term_state::BlockTermStateEnum;
 use crate::codecs::lucene90::block_tree::field_reader::FieldReader;
 use crate::codecs::lucene90::block_tree::lucene90_block_tree_terms_reader::lucene90_bttr_util;
 use crate::codecs::lucene90::block_tree::segment_terms_enum_frame::SegmentTermsEnumFrame;
 use crate::codecs::postings_reader_base::PostingsReaderBase;
-use crate::index::{BytesRef, BytesRefBuilder};
 use crate::index::base_terms_enum::BaseTermsEnum;
 use crate::index::term_state::TermStateEnum;
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
+use crate::index::{BytesRef, BytesRefBuilder};
 use crate::store::{ByteArrayDataInput, DataInput, IndexInput};
 use crate::util::array_util::ArrayUtil;
 use crate::util::attribute_source::AttributeSource;
@@ -42,7 +43,7 @@ where
 {
     frame: Frame<I, P>,
     segment_terms: Rc<RefCell<SegmentTerms<I, P>>>,
-    base:BaseTermsEnum
+    base: BaseTermsEnum,
 }
 pub struct SegmentTerms<I, P>
 where
@@ -269,15 +270,24 @@ where
     }
 }
 
-impl<I, P> BytesRefIterator<Vec<u8>> for SegmentTermsEnum<I, P> where I: IndexInput, P: PostingsReaderBase, {}
+impl<I, P> BytesRefIterator for SegmentTermsEnum<I, P>
+where
+    I: IndexInput,
+    P: PostingsReaderBase,
+{
+    type AV = Vec<u8>;
+}
 
-impl<I, P> TermsEnum<Vec<u8>> for SegmentTermsEnum<I, P> where I:IndexInput, P:PostingsReaderBase
+impl<I, P> TermsEnum for SegmentTermsEnum<I, P>
+where
+    I: IndexInput,
+    P: PostingsReaderBase,
 {
     fn attributes(&self) -> Result<&AttributeSource> {
-        <BaseTermsEnum as TermsEnum<Vec<u8>>>::attributes(&self.base)
+        <BaseTermsEnum as TermsEnum>::attributes(&self.base)
     }
 
-    fn seek_ceil(&mut self, target: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+    fn seek_ceil(&mut self, target: &BytesRef<Self::AV>) -> Result<SeekStatus> {
         todo!()
     }
 
@@ -285,11 +295,15 @@ impl<I, P> TermsEnum<Vec<u8>> for SegmentTermsEnum<I, P> where I:IndexInput, P:P
         Err(LuceneError::unsupported_operation(""))
     }
 
-    fn seek_exact_with_state(&mut self, term: &BytesRef<Vec<u8>>, state: &TermStateEnum) -> Result<()> {
+    fn seek_exact_with_state(
+        &mut self,
+        term: &BytesRef<Self::AV>,
+        state: &TermStateEnum,
+    ) -> Result<()> {
         todo!()
     }
 
-    fn term(&self) -> Result<Cow<BytesRef<Vec<u8>>>> {
+    fn term(&self) -> Result<Cow<BytesRef<Self::AV>>> {
         debug_assert!(!self.segment_terms.borrow().eof);
         // TODO: could we avoid copy here
         let v = self.segment_terms.borrow_mut().term.bytes_ref.clone();
@@ -317,15 +331,16 @@ impl<I, P> TermsEnum<Vec<u8>> for SegmentTermsEnum<I, P> where I:IndexInput, P:P
         let mut current_frame = current_frame_rc.borrow_mut();
         current_frame.decode_meta_data()?;
 
-        Ok(current_frame
-            .state
-            .get_block_term_state()
-            .total_term_freq)
+        Ok(current_frame.state.get_block_term_state().total_term_freq)
     }
 
     type PostingsEnum = P::PostingsEnum;
 
-    fn postings_with_flags(&mut self, reuse: Option<Self::PostingsEnum>, flags: i32) -> Result<Self::PostingsEnum> {
+    fn postings_with_flags(
+        &mut self,
+        reuse: Option<Self::PostingsEnum>,
+        flags: i32,
+    ) -> Result<Self::PostingsEnum> {
         debug_assert!(!self.segment_terms.borrow().eof);
 
         let current_frame = self.frame.current_frame.as_ref().unwrap();
@@ -337,7 +352,9 @@ impl<I, P> TermsEnum<Vec<u8>> for SegmentTermsEnum<I, P> where I:IndexInput, P:P
         let field_info = &fr_borrow.field_info;
         let postings_reader = &mut fr_borrow.parent.borrow_mut().postings_reader;
 
-        let v = postings_reader.postings(field_info, &frame.state, reuse, flags)?.unwrap();
+        let v = postings_reader
+            .postings(field_info, &frame.state, reuse, flags)?
+            .unwrap();
         Ok(v)
     }
 

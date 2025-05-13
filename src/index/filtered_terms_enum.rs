@@ -38,9 +38,9 @@ use crate::util::error::lucene_error::Result;
 /// seeking method is called.
 pub struct FilteredTermsEnum<TE, AV, F>
 where
-    TE: TermsEnum<AV>,
+    TE: TermsEnum<AV = AV>,
     AV: AccessVec<u8>,
-    F: FilteredTermsEnumBase<AV>,
+    F: FilteredTermsEnumBase<AV = AV>,
 {
     initial_seek_term: Option<BytesRef<Vec<u8>>>,
     do_seek: bool,
@@ -50,9 +50,9 @@ where
 }
 impl<TE, AV, F> FilteredTermsEnum<TE, AV, F>
 where
-    TE: TermsEnum<AV>,
+    TE: TermsEnum<AV = AV>,
     AV: AccessVec<u8>,
-    F: FilteredTermsEnumBase<AV>,
+    F: FilteredTermsEnumBase<AV = AV>,
 {
     pub(crate) fn new(tenum: TE, sub: F) -> Self {
         Self::with_seek(tenum, true, sub)
@@ -86,13 +86,15 @@ where
     }
 }
 
-impl<TE, AV, F> BytesRefIterator<AV> for FilteredTermsEnum<TE, AV, F>
+impl<TE, AV, F> BytesRefIterator for FilteredTermsEnum<TE, AV, F>
 where
     AV: AccessVec<u8>,
-    TE: TermsEnum<AV>,
-    F: FilteredTermsEnumBase<AV>,
+    TE: TermsEnum<AV = AV>,
+    F: FilteredTermsEnumBase<AV = AV>,
 {
-    fn next(&mut self) -> Result<Option<Cow<BytesRef<AV>>>> {
+    type AV = AV;
+
+    fn next(&mut self) -> Result<Option<Cow<BytesRef<Self::AV>>>> {
         loop {
             if self.do_seek {
                 self.do_seek = false;
@@ -135,17 +137,17 @@ where
     }
 }
 
-impl<TE, AV, F> TermsEnum<AV> for FilteredTermsEnum<TE, AV, F>
+impl<TE, AV, F> TermsEnum for FilteredTermsEnum<TE, AV, F>
 where
-    TE: TermsEnum<AV>,
+    TE: TermsEnum<AV = AV>,
     AV: AccessVec<u8>,
-    F: FilteredTermsEnumBase<AV>,
+    F: FilteredTermsEnumBase<AV = AV>,
 {
     fn attributes(&self) -> Result<&AttributeSource> {
         self.tenum.attributes()
     }
 
-    fn seek_ceil(&mut self, _term: &BytesRef<AV>) -> Result<SeekStatus> {
+    fn seek_ceil(&mut self, _term: &BytesRef<Self::AV>) -> Result<SeekStatus> {
         Err(LuceneError::unsupported_operation(
             "FilteredTermsEnum::seek_ceil",
         ))
@@ -167,7 +169,7 @@ where
         ))
     }
 
-    fn term(&self) -> Result<Cow<BytesRef<AV>>> {
+    fn term(&self) -> Result<Cow<BytesRef<Self::AV>>> {
         self.tenum.term()
     }
 
@@ -230,12 +232,13 @@ pub enum AcceptStatus {
     /// Reject the term and terminate enumeration.
     End,
 }
-pub trait FilteredTermsEnumBase<AV>
-where
-    AV: AccessVec<u8>,
-{
+pub trait FilteredTermsEnumBase {
+    type AV: AccessVec<u8>;
     /// Return if term is accepted, not accepted or the iteration should ended
     /// (and possibly seek).
-    fn accept(&mut self, term: &BytesRef<AV>) -> Result<AcceptStatus>;
-    fn next_seek_term(&mut self, current: Option<&BytesRef<AV>>) -> Result<Option<BytesRef<AV>>>;
+    fn accept(&mut self, term: &BytesRef<Self::AV>) -> Result<AcceptStatus>;
+    fn next_seek_term(
+        &mut self,
+        current: Option<&BytesRef<Self::AV>>,
+    ) -> Result<Option<BytesRef<Self::AV>>>;
 }

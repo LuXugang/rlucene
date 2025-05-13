@@ -600,9 +600,10 @@ impl Automata {
     /// Returns:
     /// - An [`Automaton`] accepting all input strings. The resulting automaton
     ///   is codepoint-based (full Unicode codepoints on transitions).
-    pub(crate) fn make_string_union_from_iter(
-        utf8_strings: &mut impl BytesRefIterator<Vec<u8>>,
-    ) -> Result<Automaton> {
+    pub(crate) fn make_string_union_from_iter<B>(utf8_strings: &mut B) -> Result<Automaton>
+    where
+        B: BytesRefIterator<AV = Vec<u8>>,
+    {
         StringsToAutomaton::build_from_iterator(utf8_strings, false)
     }
     /// Returns a new (deterministic and minimal) automaton that accepts the
@@ -617,9 +618,10 @@ impl Automata {
     /// Returns:
     /// - An [`Automaton`] accepting all input strings. The resulting automaton
     ///   is binary-based (UTF-8 encoded byte transition labels).
-    pub fn make_binary_string_union_from_iter(
-        utf8_strings: &mut impl BytesRefIterator<Vec<u8>>,
-    ) -> Result<Automaton> {
+    pub fn make_binary_string_union_from_iter<B>(utf8_strings: &mut B) -> Result<Automaton>
+    where
+        B: BytesRefIterator<AV = Vec<u8>>,
+    {
         StringsToAutomaton::build_from_iterator(utf8_strings, true)
     }
 }

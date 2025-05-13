@@ -17,16 +17,17 @@
 use std::borrow::Cow;
 
 use crate::index::automaton_terms_enum::AutomatonTermsEnum;
-use crate::index::filtered_terms_enum::FilteredTermsEnum;
+use crate::index::filtered_terms_enum::{FilteredTermsEnum, FilteredTermsEnumBase};
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::index::{BytesRef, BytesRefBuilder};
 use crate::util::access::AccessVec;
-use crate::util::automation::compiled_automaton::{AutomatonType, CompiledAutomaton};
+use crate::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
-use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::error::lucene_error::Result;
 
 /// Trait representing base term statistics and access.
-pub trait Terms<AV: AccessVec<u8>> {
+pub trait Terms {
+    type AV: AccessVec<u8>;
     /// Returns the [`Terms`] index for this field, or [`Terms::EMPTY`] if it
     /// has none.
     ///
@@ -40,7 +41,7 @@ pub trait Terms<AV: AccessVec<u8>> {
         unimplemented!()
     }
 
-    type TermsEnum: TermsEnum<AV>;
+    type TermsEnum: TermsEnum;
     /// Returns an iterator that will step through all terms. This method will
     /// not return None.
     fn iterator(&self) -> Self::TermsEnum;
@@ -63,22 +64,18 @@ pub trait Terms<AV: AccessVec<u8>> {
         &self,
         compiled: &mut CompiledAutomaton,
         start_term: Option<BytesRef<Vec<u8>>>,
-    ) -> Result<FilteredTermsEnum<Self::TermsEnum, Vec<u8>, AutomatonTermsEnum>>
+    ) -> Result<FilteredTermsEnum<Self::TermsEnum, Self::AV, AutomatonTermsEnum>>
     where
-        <Self as Terms<AV>>::TermsEnum: TermsEnum<Vec<u8>>,
+        Self::TermsEnum: BytesRefIterator<AV = Self::AV>,
+        AutomatonTermsEnum: FilteredTermsEnumBase<AV = Self::AV>,
     {
-        if compiled.automaton_type != AutomatonType::Normal {
-            return Err(LuceneError::illegal_argument(
-                "please use CompiledAutomaton.get_terms_enum instead",
-            ));
-        }
-        let ters_enum = self.iterator();
-        let automaton_terms_enum = if start_term.is_none() {
-            AutomatonTermsEnum::new(compiled)?
-        } else {
+        let terms_enum = self.iterator();
+        let automaton_terms_enum = if start_term.is_some() {
             AutomatonTermsEnum::new_with_start_term(compiled, start_term)?
+        } else {
+            AutomatonTermsEnum::new(compiled)?
         };
-        Ok(FilteredTermsEnum::new(ters_enum, automaton_terms_enum))
+        Ok(FilteredTermsEnum::new(terms_enum, automaton_terms_enum))
     }
     /// Returns the number of terms for this field, or `-1` if this measure
     /// isn't stored by the codec.
@@ -121,20 +118,21 @@ pub trait Terms<AV: AccessVec<u8>> {
     /// Returns the smallest term (in lexicographic order) in the field.  
     /// Note that, like other term measures, this does **not** take deleted
     /// documents into account. Returns `None` when there are no terms.
-    fn get_min<'a>(
-        &'a self,
-        iterator: &'a mut impl TermsEnum<AV>,
-    ) -> Result<Option<Cow<'a, BytesRef<AV>>>> {
+    fn get_min<'a, T>(&'a self, iterator: &'a mut T) -> Result<Option<Cow<'a, BytesRef<Self::AV>>>>
+    where
+        T: TermsEnum<AV = Self::AV>,
+    {
         iterator.next()
     }
 
     /// Returns the largest term (in lexicographic order) in the field.  
     /// Note that, like other term measures, this does **not** take deleted
     /// documents into account. Returns `None` when there are no terms.
-    fn get_max<'a>(
-        &'a self,
-        iterator: &'a mut impl TermsEnum<AV>,
-    ) -> Result<Option<Cow<'a, BytesRef<AV>>>> {
+    fn get_max<'a, T>(&'a self, iterator: &'a mut T) -> Result<Option<Cow<'a, BytesRef<Self::AV>>>>
+    where
+        T: TermsEnum<AV = Self::AV>,
+        Self: Sized + Terms<TermsEnum = T>,
+    {
         let size = self.size()?;
         if size == 0 {
             // empty: only possible from a FilteredTermsEnum...

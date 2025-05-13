@@ -50,14 +50,13 @@ use crate::util::SliceCopyOps;
 
 /// Writer for
 /// [`Lucene101PostingsFormat`](crate::codecs::lucene101::lucene101_postings_format)
-pub struct Lucene101PostingsWriter<O, T, N, AV>
+pub struct Lucene101PostingsWriter<O, T, N>
 where
     O: IndexOutput,
-    T: TermsEnum<AV>,
+    T: TermsEnum,
     N: NormsProducer,
-    AV: AccessVec<u8>,
 {
-    pub(crate) base: PushPostingsWriterBase<T, N, AV>,
+    pub(crate) base: PushPostingsWriterBase<T, N>,
     pub(crate) meta_out: O,
     pub(crate) doc_out: O,
     pub(crate) pos_out: Option<O>,
@@ -121,12 +120,11 @@ where
     level1_output: ByteBuffersDataOutput,
 }
 #[allow(unused)]
-impl<O, T, N, AV> Lucene101PostingsWriter<O, T, N, AV>
+impl<O, T, N> Lucene101PostingsWriter<O, T, N>
 where
     O: IndexOutput,
-    T: TermsEnum<AV>,
+    T: TermsEnum,
     N: NormsProducer,
-    AV: AccessVec<u8>,
 {
     pub fn new<D>(state: &SegmentWriteState<D>) -> Result<Self>
     where
@@ -454,23 +452,21 @@ where
         }
     }
 }
-impl<O, T, N, AV> Drop for Lucene101PostingsWriter<O, T, N, AV>
+impl<O, T, N> Drop for Lucene101PostingsWriter<O, T, N>
 where
     O: IndexOutput,
-    T: TermsEnum<AV>,
+    T: TermsEnum,
     N: NormsProducer,
-    AV: AccessVec<u8>,
 {
     fn drop(&mut self) {
         self.close();
     }
 }
-impl<O, T, N, AV> PostingsWriterBase<T, N, AV> for Lucene101PostingsWriter<O, T, N, AV>
+impl<O, T, N> PostingsWriterBase<T, N> for Lucene101PostingsWriter<O, T, N>
 where
     O: IndexOutput,
-    T: TermsEnum<AV>,
+    T: TermsEnum,
     N: NormsProducer,
-    AV: AccessVec<u8>,
 {
     fn init<D: Directory>(
         &mut self,
@@ -562,12 +558,11 @@ where
         self.field_has_norms = field_info.has_norms();
     }
 }
-impl<O, T, N, AV> PushPostingsWriterBaseAbstract<N> for Lucene101PostingsWriter<O, T, N, AV>
+impl<O, T, N> PushPostingsWriterBaseAbstract<N> for Lucene101PostingsWriter<O, T, N>
 where
     O: IndexOutput,
-    T: TermsEnum<AV>,
+    T: TermsEnum,
     N: NormsProducer,
-    AV: AccessVec<u8>,
 {
     fn new_term_state(&mut self) -> Result<BlockTermStateEnum> {
         Ok(BlockTermStateEnum::Int(IntBlockTermState::default()))

@@ -94,7 +94,7 @@ where
         }
         Ok(-(low + 1)) // key not found
     }
-    type TermsEnum: TermsEnum<AV>;
+    type TermsEnum: TermsEnum;
     /// Returns a [`TermsEnum`] over the
     /// values. The enum supports
     /// [`TermsEnum::ord`] and

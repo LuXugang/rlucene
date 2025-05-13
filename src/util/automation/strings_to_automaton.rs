@@ -137,14 +137,15 @@ impl StringsToAutomaton {
     /// binary-sorted. Creates an [`Automaton`] with either UTF-8 codepoints
     /// as transition labels or binary (compiled) transition labels based on
     /// `as_binary`.
-    pub(crate) fn build_from_iterator(
-        input: &mut impl BytesRefIterator<Vec<u8>>,
-        as_binary: bool,
-    ) -> Result<Automaton> {
+    pub(crate) fn build_from_iterator<B>(input: &mut B, as_binary: bool) -> Result<Automaton>
+    where
+        B: BytesRefIterator<AV = Vec<u8>>,
+    {
         let mut builder = StringsToAutomaton::new();
 
         while let Some(b) = input.next()? {
-            builder.add(&b, as_binary)?;
+            builder.add(&b, as_binary)?; // b: Cow<BytesRef<Vec<u8>>> ->
+                                         // &BytesRef<Vec<u8>>
         }
 
         builder.complete_and_convert()
@@ -603,8 +604,10 @@ mod tests {
     struct TermIterator {
         it: std::vec::IntoIter<BytesRef<Vec<u8>>>,
     }
-    impl BytesRefIterator<Vec<u8>> for TermIterator {
-        fn next(&mut self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
+    impl BytesRefIterator for TermIterator {
+        type AV = Vec<u8>;
+
+        fn next(&mut self) -> Result<Option<Cow<BytesRef<Self::AV>>>> {
             match self.it.next() {
                 Some(b) => Ok(Some(Cow::Owned(b))),
                 None => Ok(None),

@@ -19,9 +19,7 @@ use std::rc::Rc;
 
 use crate::codecs::block_term_state::BlockTermStateEnum;
 use crate::codecs::lucene90::block_tree::compression_algorithm::CompressionAlgorithm;
-use crate::codecs::lucene90::block_tree::segment_terms_enum::{
-    OutputAccumulator, SegmentTerms,
-};
+use crate::codecs::lucene90::block_tree::segment_terms_enum::{OutputAccumulator, SegmentTerms};
 use crate::codecs::postings_reader_base::PostingsReaderBase;
 use crate::index::index_options::IndexOptions;
 use crate::index::terms_enum::SeekStatus;

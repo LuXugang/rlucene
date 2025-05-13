@@ -22,7 +22,7 @@ use crate::util::bytes_ref_iterator::BytesRefIterator;
 /// [`next()`](BytesRefIterator::next) to see if the field changed, but `==` can
 /// be used since the iterator implementation ensures it will use the same
 /// `String` instance for a given field.
-pub trait FieldTermIterator<AV>: BytesRefIterator<AV>
+pub trait FieldTermIterator<AV>: BytesRefIterator
 where
     AV: AccessVec<u8>,
 {

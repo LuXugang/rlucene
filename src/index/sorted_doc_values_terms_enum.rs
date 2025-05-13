@@ -42,12 +42,12 @@ pub struct SortedDocValuesTermsEnum;
 //     }
 // }
 //
-// impl<I, AV> BytesRefIterator<AV> for SortedDocValuesTermsEnum<I, AV>
+// impl<I, AV> BytesRefIterator for SortedDocValuesTermsEnum<I, AV>
 // where
 //     I: IndexInput,
 //     AV: AccessVec<u8>,
 // {
-//     fn next(&mut self) -> Result<Option<Cow<BytesRef<AV>>>> {
+//     fn next(&mut self) -> Result<Option<Cow<BytesRef<Self::AV>>>> {
 //         self.current_ord += 1;
 //         if self.current_ord >= self.values.get_value_count()? {
 //             Ok(None)

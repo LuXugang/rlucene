@@ -344,12 +344,14 @@ where
         self.ord
     }
 }
-impl<A, AV> BytesRefIterator<AV> for IndexedBytesRefIteratorImpl<'_, A, AV>
+impl<A, AV> BytesRefIterator for IndexedBytesRefIteratorImpl<'_, A, AV>
 where
     A: Access<CounterEnum>,
     AV: AccessVec<u8>,
 {
-    fn next(&mut self) -> Result<Option<Cow<BytesRef<AV>>>> {
+    type AV = AV;
+
+    fn next(&mut self) -> Result<Option<Cow<BytesRef<Self::AV>>>> {
         let mut result = BytesRef::new();
         self.pos += 1;
         if self.pos < self.size {

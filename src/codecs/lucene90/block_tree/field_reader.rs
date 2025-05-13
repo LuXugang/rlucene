@@ -22,17 +22,18 @@ use std::rc::Rc;
 use crate::codecs::lucene90::block_tree::lucene90_block_tree_terms_reader::{
     lucene90_bttr_util, TermsReader,
 };
+use crate::codecs::lucene90::block_tree::segment_terms_enum::SegmentTermsEnum;
 use crate::codecs::postings_reader_base::PostingsReaderBase;
 use crate::index::automaton_terms_enum::AutomatonTermsEnum;
-use crate::index::dummy::dummy_terms_enum::DummyTermsEnum;
 use crate::index::field_info::FieldInfo;
-use crate::index::filtered_terms_enum::FilteredTermsEnum;
+use crate::index::filtered_terms_enum::{FilteredTermsEnum, FilteredTermsEnumBase};
 use crate::index::index_options::IndexOptions;
 use crate::index::terms::Terms;
 use crate::index::terms_enum::TermsEnum;
 use crate::index::BytesRef;
 use crate::store::{ByteArrayDataInput, DataInput, IndexInput};
 use crate::util::automation::compiled_automaton::CompiledAutomaton;
+use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::Result;
 use crate::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs;
 use crate::util::fst_impl::fst::{fst_util, FST};
@@ -152,12 +153,14 @@ where
         Ok(l)
     }
 }
-impl<I, P> Terms<Vec<u8>> for FieldReader<I, P>
+impl<I, P> Terms for FieldReader<I, P>
 where
     I: IndexInput,
     P: PostingsReaderBase,
+    Self: Terms<AV = Vec<u8>>,
 {
-    type TermsEnum = DummyTermsEnum;
+    type AV = Vec<u8>;
+    type TermsEnum = SegmentTermsEnum<I, P>;
 
     fn iterator(&self) -> Self::TermsEnum {
         todo!()
@@ -167,9 +170,10 @@ where
         &self,
         compiled: &mut CompiledAutomaton,
         start_term: Option<BytesRef<Vec<u8>>>,
-    ) -> Result<FilteredTermsEnum<Self::TermsEnum, Vec<u8>, AutomatonTermsEnum>>
+    ) -> Result<FilteredTermsEnum<Self::TermsEnum, Self::AV, AutomatonTermsEnum>>
     where
-        <Self as Terms<Vec<u8>>>::TermsEnum: TermsEnum<Vec<u8>>,
+        Self::TermsEnum: BytesRefIterator<AV = Self::AV>,
+        AutomatonTermsEnum: FilteredTermsEnumBase<AV = Self::AV>,
     {
         todo!()
     }
@@ -218,17 +222,18 @@ where
         self.field_info.has_payloads()
     }
 
-    fn get_min<'a>(
-        &'a self,
-        _iterator: &'a mut impl TermsEnum<Vec<u8>>,
-    ) -> Result<Option<Cow<'a, BytesRef<Vec<u8>>>>> {
+    fn get_min<'a, T>(&'a self, _iterator: &'a mut T) -> Result<Option<Cow<'a, BytesRef<Self::AV>>>>
+    where
+        T: TermsEnum<AV = Self::AV>,
+    {
         Ok(Option::from(Cow::Borrowed(&self.min_term)))
     }
 
-    fn get_max<'a>(
-        &'a self,
-        _iterator: &'a mut impl TermsEnum<Vec<u8>>,
-    ) -> Result<Option<Cow<'a, BytesRef<Vec<u8>>>>> {
+    fn get_max<'a, T>(&'a self, _iterator: &'a mut T) -> Result<Option<Cow<'a, BytesRef<Self::AV>>>>
+    where
+        T: TermsEnum<AV = Self::AV>,
+        Self: Terms<TermsEnum = T>,
+    {
         Ok(Option::from(Cow::Borrowed(&self.max_term)))
     }
 

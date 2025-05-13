@@ -3011,12 +3011,14 @@ where
     }
 }
 
-impl<I, AV> BytesRefIterator<AV> for TermsDict<I, AV>
+impl<I, AV> BytesRefIterator for TermsDict<I, AV>
 where
     I: IndexInput,
     AV: AccessVec<u8>,
 {
-    fn next(&mut self) -> Result<Option<Cow<BytesRef<AV>>>> {
+    type AV = AV;
+
+    fn next(&mut self) -> Result<Option<Cow<BytesRef<Self::AV>>>> {
         self.ord += 1;
         if self.ord >= self.entry.terms_dict_size {
             return Ok(None);
@@ -3048,7 +3050,7 @@ where
     }
 }
 
-impl<I, AV> TermsEnum<AV> for TermsDict<I, AV>
+impl<I, AV> TermsEnum for TermsDict<I, AV>
 where
     I: IndexInput,
     AV: AccessVec<u8>,
@@ -3057,7 +3059,7 @@ where
         Err(LuceneError::not_implemented(""))
     }
 
-    fn seek_ceil(&mut self, text: &BytesRef<AV>) -> Result<SeekStatus> {
+    fn seek_ceil(&mut self, text: &BytesRef<Self::AV>) -> Result<SeekStatus> {
         let block = self.seek_block(text)?;
         if block == -2 {
             // empty terms dict
@@ -3110,13 +3112,13 @@ where
 
     fn seek_exact_with_state(
         &mut self,
-        _term: &BytesRef<AV>,
+        _term: &BytesRef<Self::AV>,
         _state: &TermStateEnum,
     ) -> Result<()> {
         Err(LuceneError::not_implemented(""))
     }
 
-    fn term(&self) -> Result<Cow<BytesRef<AV>>> {
+    fn term(&self) -> Result<Cow<BytesRef<Self::AV>>> {
         Ok(Cow::Borrowed(&self.term))
     }
 

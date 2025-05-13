@@ -232,11 +232,13 @@ where
     }
 }
 
-impl<AV> BytesRefIterator<AV> for TermIterator<'_, AV>
+impl<AV> BytesRefIterator for TermIterator<'_, AV>
 where
     AV: AccessVec<u8>,
 {
-    fn next(&mut self) -> Result<Option<Cow<BytesRef<AV>>>> {
+    type AV = AV;
+
+    fn next(&mut self) -> Result<Option<Cow<BytesRef<Self::AV>>>> {
         if self.input.position() < self.end {
             let code = self.input.read_vint()?;
             let new_field = (code & 1) != 0;

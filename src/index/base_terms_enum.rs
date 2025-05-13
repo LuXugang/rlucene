@@ -54,17 +54,16 @@ impl BaseTermsEnum {
     }
 }
 
-impl<AV> BytesRefIterator<AV> for BaseTermsEnum where AV: AccessVec<u8> {}
+impl BytesRefIterator for BaseTermsEnum {
+    type AV = Vec<u8>;
+}
 
-impl<AV> TermsEnum<AV> for BaseTermsEnum
-where
-    AV: AccessVec<u8>,
-{
+impl TermsEnum for BaseTermsEnum {
     fn attributes(&self) -> Result<&AttributeSource> {
         Ok(&self.atts)
     }
 
-    fn seek_ceil(&mut self, _term: &BytesRef<AV>) -> Result<SeekStatus> {
+    fn seek_ceil(&mut self, _term: &BytesRef<Self::AV>) -> Result<SeekStatus> {
         Err(LuceneError::need_implemented(""))
     }
 
@@ -72,7 +71,11 @@ where
         Err(LuceneError::need_implemented(""))
     }
 
-    fn seek_exact_with_state(&mut self, term: &BytesRef<AV>, _state: &TermStateEnum) -> Result<()> {
+    fn seek_exact_with_state(
+        &mut self,
+        term: &BytesRef<Self::AV>,
+        _state: &TermStateEnum,
+    ) -> Result<()> {
         if !self.seek_exact(term)? {
             return Err(LuceneError::illegal_argument(format!(
                 "term= {} does not exist",
