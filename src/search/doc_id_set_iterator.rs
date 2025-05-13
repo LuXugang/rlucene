@@ -73,9 +73,7 @@ pub trait DocIdSetIterator {
     /// that it should exhaust, it is recommended to check for this value in
     /// each call to this method.
     fn advance(&mut self, _target: i32) -> Result<i32> {
-        Err(LuceneError::need_implemented(
-            "advance() must be implemented if it need to be used",
-        ))
+        unimplemented!("advance() must be implemented if it need to be used")
     }
     /// A slow (linear) implementation of [`advance`](DocIdSetIterator::advance)
     /// that relies on [`next_doc`](DocIdSetIterator::next_doc) to move
@@ -96,9 +94,7 @@ pub trait DocIdSetIterator {
     /// iterator might match, but it may also be a rough heuristic, a
     /// hardcoded value, or otherwise completely inaccurate.
     fn cost(&self) -> Result<i64> {
-        Err(LuceneError::need_implemented(
-            "cost() must be implemented if it need to be used",
-        ))
+        unimplemented!("cost() must be implemented if it need to be used")
     }
 }
 
