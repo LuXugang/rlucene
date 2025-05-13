@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cell::RefCell;
+use std::cell::{Ref, RefCell, RefMut};
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -350,4 +350,87 @@ macro_rules! with_other {
     ($x:expr, $y:expr, |$ia:ident, $ib:ident| $body:expr) => {
         $x.access(|$ia| $y.access(|$ib| $body))
     };
+}
+/// A trait for ergonomic, read/write access to `Rc<RefCell<T>>` and variants.
+///
+/// `access()` returns a shared borrow (`Ref<T>`);
+/// `access_mut()` returns a mutable borrow (`RefMut<T>`).
+///
+/// # Panics
+///
+/// If implemented on `Option<Rc<RefCell<T>>>`, the value must be `Some`.
+/// Calling `.access()` or `.access_mut()` on `None` will panic.
+pub trait BorrowExt<T> {
+    fn access(&self) -> Ref<T>;
+    fn access_mut(&self) -> RefMut<T>;
+}
+
+// Rc<RefCell<T>>
+impl<T> BorrowExt<T> for Rc<RefCell<T>> {
+    #[inline]
+    fn access(&self) -> Ref<T> {
+        self.borrow()
+    }
+
+    #[inline]
+    fn access_mut(&self) -> RefMut<T> {
+        self.borrow_mut()
+    }
+}
+
+/// Implementation for `Option<Rc<RefCell<T>>>`
+///
+/// # Panics
+///
+/// Will panic if the `Option` is `None`.
+impl<T> BorrowExt<T> for Option<Rc<RefCell<T>>> {
+    #[inline]
+    fn access(&self) -> Ref<T> {
+        self.as_ref().unwrap().borrow()
+    }
+
+    #[inline]
+    fn access_mut(&self) -> RefMut<T> {
+        self.as_ref().unwrap().borrow_mut()
+    }
+}
+/// A trait for ergonomic, read/write access to `Arc<Mutex<T>>` and variants.
+///
+/// `access()` acquires a lock and returns a guard (`MutexGuard<T>`).
+/// `access_mut()` is equivalent to `access()` (alias).
+///
+/// # Panics
+///
+/// If implemented on `Option<Arc<Mutex<T>>>`, the value must be `Some`.
+/// Calling `.access()` or `.access_mut()` on `None` will panic.
+pub trait MutexAccess<T> {
+    fn access(&self) -> MutexGuard<T>;
+    fn access_mut(&self) -> MutexGuard<T>;
+}
+impl<T> MutexAccess<T> for Arc<Mutex<T>> {
+    #[inline]
+    fn access(&self) -> MutexGuard<T> {
+        self.lock()
+    }
+
+    #[inline]
+    fn access_mut(&self) -> MutexGuard<T> {
+        self.lock()
+    }
+}
+/// Implementation for `Option<Arc<Mutex<T>>>`
+///
+/// # Panics
+///
+/// Will panic if the `Option` is `None`.
+impl<T> MutexAccess<T> for Option<Arc<Mutex<T>>> {
+    #[inline]
+    fn access(&self) -> MutexGuard<T> {
+        self.as_ref().unwrap().lock()
+    }
+
+    #[inline]
+    fn access_mut(&self) -> MutexGuard<T> {
+        self.as_ref().unwrap().lock()
+    }
 }
