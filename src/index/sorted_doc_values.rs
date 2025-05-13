@@ -31,10 +31,7 @@ use crate::util::ToInt;
 /// and sorted into a dictionary of unique values. A pointer to the dictionary
 /// value (ordinal) can be retrieved for each document. Ordinals are dense and
 /// in increasing sorted order.
-pub trait SortedDocValues<AV>: DocValuesIterator
-where
-    AV: AccessVec<u8>,
-{
+pub trait SortedDocValues: DocValuesIterator {
     /// Returns the ordinal for the current docID.
     ///
     /// This method must only be called after `advance_exact(doc_id)` returns
@@ -44,6 +41,7 @@ where
     /// A dense ordinal (starts at 0, then increments in sorted order).
     fn ord_value(&mut self) -> Result<i32>;
 
+    type AV: AccessVec<u8>;
     /// Resolves the provided ordinal to the associated dictionary value.
     ///
     /// The returned `BytesRef` may be reused across calls,
@@ -54,7 +52,7 @@ where
     ///
     /// # Returns
     /// The dictionary value corresponding to the ordinal.
-    fn lookup_ord(&mut self, _ord: i32) -> Result<Cow<BytesRef<AV>>> {
+    fn lookup_ord(&mut self, _ord: i32) -> Result<Cow<BytesRef<Self::AV>>> {
         Err(LuceneError::need_implemented(
             "this method is not implemented",
         ))
@@ -76,7 +74,7 @@ where
     ///
     /// # Returns
     /// * Ordinal of the key if found, otherwise `-insertion_point - 1`
-    fn lookup_term(&mut self, key: &BytesRef<AV>) -> Result<i32> {
+    fn lookup_term(&mut self, key: &BytesRef<Self::AV>) -> Result<i32> {
         let mut low = 0;
         let mut high = self.get_value_count()? - 1;
 

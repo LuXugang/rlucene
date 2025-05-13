@@ -31,10 +31,7 @@ use crate::util::ToInt;
 /// dereferenced, and sorted into a dictionary of unique values. A pointer to
 /// the dictionary value (ordinal) can be retrieved for each document. Ordinals
 /// are dense and in increasing sorted order.
-pub trait SortedSetDocValues<AV>: DocValuesIterator
-where
-    AV: AccessVec<u8>,
-{
+pub trait SortedSetDocValues: DocValuesIterator {
     /// Returns the next ordinal for the current document. It is illegal to call
     /// this method after
     /// [`advance_exact(int)`](DocValuesIterator::advance_exact) returned
@@ -53,6 +50,7 @@ where
     /// `false`.
     fn doc_value_count(&mut self) -> Result<i32>;
 
+    type AV: AccessVec<u8>;
     /// Retrieves the value for the specified ordinal. The returned [`BytesRef`]
     /// may be re-used across calls to `lookup_ord`, so make sure to
     /// [`BytesRef::deep_copy_of`] it if you want to keep it around.
@@ -61,7 +59,7 @@ where
     /// * `ord` - Ordinal to lookup
     ///
     /// See also: [`next_ord`](SortedSetDocValues::next_ord)
-    fn lookup_ord(&mut self, _ord: i64) -> Result<Cow<BytesRef<AV>>> {
+    fn lookup_ord(&mut self, _ord: i64) -> Result<Cow<BytesRef<Self::AV>>> {
         Err(LuceneError::need_implemented(
             "this method is not implemented",
         ))
@@ -84,7 +82,7 @@ where
     ///
     /// # Returns
     /// * Ordinal of the key if found, otherwise `-insertion_point - 1`
-    fn lookup_term(&mut self, key: &BytesRef<AV>) -> Result<i64> {
+    fn lookup_term(&mut self, key: &BytesRef<Self::AV>) -> Result<i64> {
         let mut low = 0;
         let mut high = self.get_value_count()? - 1;
 

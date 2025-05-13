@@ -54,7 +54,7 @@ pub mod doc_values {
         }
     }
 
-    impl<I> SortedSetDocValues<Vec<u8>> for SortedSetDocValuesEnum<I>
+    impl<I> SortedSetDocValues for SortedSetDocValuesEnum<I>
     where
         I: IndexInput,
     {
@@ -65,6 +65,8 @@ pub mod doc_values {
         fn doc_value_count(&mut self) -> Result<i32> {
             todo!()
         }
+
+        type AV = Vec<u8>;
 
         fn lookup_ord(&mut self, _ord: i64) -> Result<Cow<BytesRef<Vec<u8>>>> {
             todo!()

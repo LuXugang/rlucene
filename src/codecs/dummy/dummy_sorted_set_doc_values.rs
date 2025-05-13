@@ -14,14 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::borrow::Cow;
 
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::dummy::dummy_terms_enum::DummyTermsEnum;
 use crate::index::sorted_set_doc_values::SortedSetDocValues;
-use crate::index::BytesRef;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::Result;
 
 pub struct DummySortedSetDocValues;
@@ -38,10 +35,7 @@ impl DocIdSetIterator for DummySortedSetDocValues {
     }
 }
 
-impl<AV> SortedSetDocValues<AV> for DummySortedSetDocValues
-where
-    AV: AccessVec<u8>,
-{
+impl SortedSetDocValues for DummySortedSetDocValues {
     fn next_ord(&mut self) -> Result<i64> {
         todo!()
     }
@@ -50,17 +44,7 @@ where
         todo!()
     }
 
-    fn lookup_ord(&mut self, _ord: i64) -> Result<Cow<BytesRef<AV>>> {
-        todo!()
-    }
-
-    fn get_value_count(&mut self) -> Result<i64> {
-        todo!()
-    }
-
-    fn lookup_term(&mut self, key: &BytesRef<AV>) -> Result<i64> {
-        todo!()
-    }
+    type AV = Vec<u8>;
 
     type TermsEnum = DummyTermsEnum;
 }

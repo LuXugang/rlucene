@@ -160,13 +160,15 @@ where
     }
 }
 
-impl<I> SortedDocValues<Vec<u8>> for MinValue<I>
+impl<I> SortedDocValues for MinValue<I>
 where
     I: IndexInput,
 {
     fn ord_value(&mut self) -> Result<i32> {
         Ok(self.ord)
     }
+
+    type AV = Vec<u8>;
 
     fn lookup_ord(&mut self, ord: i32) -> Result<Cow<BytesRef<Vec<u8>>>> {
         self.inner.lookup_ord(ord as i64)
@@ -248,13 +250,15 @@ where
     }
 }
 
-impl<I> SortedDocValues<Vec<u8>> for MaxValue<I>
+impl<I> SortedDocValues for MaxValue<I>
 where
     I: IndexInput,
 {
     fn ord_value(&mut self) -> Result<i32> {
         Ok(self.ord)
     }
+
+    type AV = Vec<u8>;
 
     fn lookup_ord(&mut self, ord: i32) -> Result<Cow<BytesRef<Vec<u8>>>> {
         self.inner.lookup_ord(ord as i64)
@@ -339,13 +343,15 @@ where
     }
 }
 
-impl<I> SortedDocValues<Vec<u8>> for MiddleMinValue<I>
+impl<I> SortedDocValues for MiddleMinValue<I>
 where
     I: IndexInput,
 {
     fn ord_value(&mut self) -> Result<i32> {
         Ok(self.ord)
     }
+
+    type AV = Vec<u8>;
 
     fn lookup_ord(&mut self, ord: i32) -> Result<Cow<BytesRef<Vec<u8>>>> {
         self.inner.lookup_ord(ord as i64)
@@ -429,13 +435,15 @@ where
     }
 }
 
-impl<I> SortedDocValues<Vec<u8>> for MiddleMaxValue<I>
+impl<I> SortedDocValues for MiddleMaxValue<I>
 where
     I: IndexInput,
 {
     fn ord_value(&mut self) -> Result<i32> {
         Ok(self.ord)
     }
+
+    type AV = Vec<u8>;
 
     fn lookup_ord(&mut self, ord: i32) -> Result<Cow<BytesRef<Vec<u8>>>> {
         self.inner.lookup_ord(ord as i64)
@@ -455,7 +463,7 @@ pub enum SortedDocValuesWrapEnum<I>
 where
     I: IndexInput,
 {
-    Lucene90Singleton(SingletonSortedSetDocValues<BaseSortedDocValues<I>, Vec<u8>>),
+    Lucene90Singleton(SingletonSortedSetDocValues<BaseSortedDocValues<I>>),
     Min(MinValue<I>),
     Max(MaxValue<I>),
     MiddleMin(MiddleMinValue<I>),
@@ -464,8 +472,6 @@ where
 
 impl<I> DocValuesIterator for SortedDocValuesWrapEnum<I>
 where
-    I: IndexInput,
-
     I: IndexInput,
 {
     fn advance_exact(&mut self, target: i32) -> Result<bool> {
@@ -483,8 +489,6 @@ where
 
 impl<I> DocIdSetIterator for SortedDocValuesWrapEnum<I>
 where
-    I: IndexInput,
-
     I: IndexInput,
 {
     fn doc_id(&self) -> i32 {
@@ -512,10 +516,8 @@ where
     }
 }
 
-impl<I> SortedDocValues<Vec<u8>> for SortedDocValuesWrapEnum<I>
+impl<I> SortedDocValues for SortedDocValuesWrapEnum<I>
 where
-    I: IndexInput,
-
     I: IndexInput,
 {
     fn ord_value(&mut self) -> Result<i32> {
@@ -529,6 +531,8 @@ where
             SortedDocValuesWrapEnum::MiddleMax(inner) => inner.ord_value(),
         }
     }
+
+    type AV = Vec<u8>;
 
     fn lookup_ord(&mut self, ord: i32) -> Result<Cow<BytesRef<Vec<u8>>>> {
         match self {

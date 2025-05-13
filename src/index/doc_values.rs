@@ -41,10 +41,9 @@ impl DocValues {
         SingletonSortedNumericDocValues::new(dv)
     }
     /// Returns a multi-valued view over the provided SortedDocValues.
-    pub fn singleton_sorted<S, AV>(dv: S) -> Result<SingletonSortedSetDocValues<S, AV>>
+    pub fn singleton_sorted<S>(dv: S) -> Result<SingletonSortedSetDocValues<S>>
     where
-        S: SortedDocValues<AV>,
-        AV: AccessVec<u8>,
+        S: SortedDocValues,
     {
         SingletonSortedSetDocValues::new(dv)
     }
@@ -55,19 +54,18 @@ impl DocValues {
     }
     /// An empty SortedDocValues which returns empty [`BytesRef`] for every
     /// document.
-    pub fn empty_sorted_set() -> Result<SingletonSortedSetDocValues<EmptySorted, Vec<u8>>> {
+    pub fn empty_sorted_set() -> Result<SingletonSortedSetDocValues<EmptySorted>> {
         Self::singleton_sorted(EmptySorted::new())
     }
 
     /// Returns a single-valued view of the SortedSetDocValues, if it was
     /// previously wrapped with
     /// [`singleton_sorted`](DocValues::singleton_sorted), or null.
-    pub fn unwrap_singleton_sorted_set_doc_values<I, AV, S>(
-        dv: &impl SortedSetDocValues<AV>,
+    pub fn unwrap_singleton_sorted_set_doc_values<S>(
+        dv: &impl SortedSetDocValues,
     ) -> Result<Option<S>>
     where
-        AV: AccessVec<u8>,
-        S: SortedDocValues<AV>,
+        S: SortedDocValues,
     {
         todo!()
     }
@@ -238,7 +236,7 @@ impl DocIdSetIterator for EmptySorted {
     }
 }
 
-impl SortedDocValues<Vec<u8>> for EmptySorted {
+impl SortedDocValues for EmptySorted {
     fn ord_value(&mut self) -> Result<i32> {
         debug_assert!(
             false,
@@ -246,6 +244,8 @@ impl SortedDocValues<Vec<u8>> for EmptySorted {
         );
         Ok(-1)
     }
+
+    type AV = Vec<u8>;
 
     fn lookup_ord(&mut self, _ord: i32) -> Result<Cow<BytesRef<Vec<u8>>>> {
         Ok(Cow::Owned(std::mem::take(&mut self.empty)))

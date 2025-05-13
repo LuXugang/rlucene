@@ -128,7 +128,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     fn write_skip_index(
         &mut self,
         field: &Rc<FieldInfo>,
-        values_producer: &mut impl DocValuesProducer<Vec<u8>>,
+        values_producer: &mut impl DocValuesProducer,
     ) -> Result<()> {
         debug_assert!(*field.doc_values_skip_index_type() != DocValuesSkipIndexType::None);
         let start = self.data.get_file_pointer();
@@ -273,7 +273,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     fn write_values(
         &mut self,
         field: &Rc<FieldInfo>,
-        values_producer: &mut impl DocValuesProducer<Vec<u8>>,
+        values_producer: &mut impl DocValuesProducer,
         ords: bool,
     ) -> Result<(i32, i64)> {
         let mut values = values_producer.get_sorted_numeric(field)?;
@@ -585,7 +585,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
         add_type_byte: bool,
     ) -> Result<()>
     where
-        D: DocValuesProducer<Vec<u8>>,
+        D: DocValuesProducer,
     {
         let mut producer: EmptyDocValuesProducerSub2<D> = EmptyDocValuesProducerSub2 {
             sorted: Some(values_producer.get_sorted(field)?),
@@ -605,10 +605,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
         Ok(())
     }
 
-    fn add_terms_dict<AV: AccessVec<u8>>(
-        &mut self,
-        values: &mut impl SortedSetDocValues<AV>,
-    ) -> Result<()> {
+    fn add_terms_dict(&mut self, values: &mut impl SortedSetDocValues) -> Result<()> {
         let size = values.get_value_count()?;
         let meta = &mut self.meta;
         meta.write_vlong(size)?;
@@ -762,10 +759,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
         Ok(())
     }
 
-    fn write_terms_index<AV: AccessVec<u8>>(
-        &mut self,
-        values: &mut impl SortedSetDocValues<AV>,
-    ) -> Result<()> {
+    fn write_terms_index(&mut self, values: &mut impl SortedSetDocValues) -> Result<()> {
         let size = values.get_value_count()?;
         self.meta
             .write_int(Lucene90DocValuesFormat::TERMS_DICT_REVERSE_INDEX_SHIFT)?;
@@ -832,7 +826,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     fn do_add_sorted_numeric_field(
         &mut self,
         field: &Rc<FieldInfo>,
-        values_producer: &mut impl DocValuesProducer<Vec<u8>>,
+        values_producer: &mut impl DocValuesProducer,
         ords: bool,
     ) -> Result<()> {
         if *field.doc_values_skip_index_type() != DocValuesSkipIndexType::None {
@@ -919,13 +913,13 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
         Ok(())
     }
 }
-impl<O> DocValuesConsumer<Vec<u8>> for Lucene90DocValuesConsumer<O>
+impl<O> DocValuesConsumer for Lucene90DocValuesConsumer<O>
 where
     O: IndexOutput,
 {
     fn add_numeric_field<D>(&mut self, field: &Rc<FieldInfo>, values_producer: &mut D) -> Result<()>
     where
-        D: DocValuesProducer<Vec<u8>>,
+        D: DocValuesProducer,
     {
         self.meta.write_int(field.number)?;
         self.meta.write_byte(Lucene90DocValuesFormat::NUMERIC)?;
@@ -945,7 +939,7 @@ where
 
     fn add_binary_field<D>(&mut self, field: &Rc<FieldInfo>, values_producer: &mut D) -> Result<()>
     where
-        D: DocValuesProducer<Vec<u8>>,
+        D: DocValuesProducer,
     {
         self.meta.write_int(field.number)?;
         self.meta.write_byte(Lucene90DocValuesFormat::BINARY)?;
@@ -1034,7 +1028,7 @@ where
 
     fn add_sorted_field<D>(&mut self, field: &Rc<FieldInfo>, values_producer: &mut D) -> Result<()>
     where
-        D: DocValuesProducer<Vec<u8>>,
+        D: DocValuesProducer,
     {
         self.meta.write_int(field.number)?;
         self.meta.write_byte(Lucene90DocValuesFormat::SORTED)?;
@@ -1048,7 +1042,7 @@ where
         values_producer: &mut D,
     ) -> Result<()>
     where
-        D: DocValuesProducer<Vec<u8>>,
+        D: DocValuesProducer,
     {
         self.meta.write_int(field.number)?;
         self.meta
@@ -1064,7 +1058,7 @@ where
     ) -> Result<()>
     where
         I: IndexInput,
-        D: DocValuesProducer<Vec<u8>, SortedSetDocValues = SortedSetDocValuesEnum<I>>,
+        D: DocValuesProducer<SortedSetDocValues = SortedSetDocValuesEnum<I>>,
     {
         self.meta.write_int(field.number)?;
         self.meta.write_byte(Lucene90DocValuesFormat::SORTED_SET)?;
@@ -1230,18 +1224,17 @@ impl SkipAccumulator {
 }
 struct EmptyDocValuesProducerSub1<D>
 where
-    D: DocValuesProducer<Vec<u8>>,
+    D: DocValuesProducer,
 {
     doc_values: Option<D::NumericDocValues>,
 }
-impl<D, AV> DocValuesProducer<AV> for EmptyDocValuesProducerSub1<D>
+impl<D> DocValuesProducer for EmptyDocValuesProducerSub1<D>
 where
-    D: DocValuesProducer<Vec<u8>>,
-    AV: AccessVec<u8>,
+    D: DocValuesProducer,
 {
     type NumericDocValues = DummyNumericDocValues;
     type BinaryDocValues = DummyBinaryDocValues;
-    type SortedDocValues = DummySortedDocValues<AV>;
+    type SortedDocValues = DummySortedDocValues;
     type SortedNumericDocValues = SingletonSortedNumericDocValues<D::NumericDocValues>;
 
     fn get_sorted_numeric(
@@ -1255,18 +1248,17 @@ where
 }
 struct EmptyDocValuesProducerSub2<D>
 where
-    D: DocValuesProducer<Vec<u8>>,
+    D: DocValuesProducer,
 {
     sorted: Option<D::SortedDocValues>,
 }
-impl<D, AV> DocValuesProducer<AV> for EmptyDocValuesProducerSub2<D>
+impl<D> DocValuesProducer for EmptyDocValuesProducerSub2<D>
 where
-    D: DocValuesProducer<Vec<u8>>,
-    AV: AccessVec<u8>,
+    D: DocValuesProducer,
 {
     type NumericDocValues = DummyNumericDocValues;
     type BinaryDocValues = DummyBinaryDocValues;
-    type SortedDocValues = DummySortedDocValues<AV>;
+    type SortedDocValues = DummySortedDocValues;
     type SortedNumericDocValues = SingletonSortedNumericDocValues<NumericDocValuesImpl<D>>;
 
     fn get_sorted_numeric(
@@ -1289,7 +1281,7 @@ where
 {
     doc_values: Option<SortedSetDocValuesEnum<I>>,
 }
-impl<I> DocValuesProducer<Vec<u8>> for EmptyDocValuesProducerSub3<I>
+impl<I> DocValuesProducer for EmptyDocValuesProducerSub3<I>
 where
     I: IndexInput,
 {
@@ -1307,18 +1299,17 @@ where
 }
 pub struct EmptyDocValuesProducerSub4<D>
 where
-    D: DocValuesProducer<Vec<u8>>,
+    D: DocValuesProducer,
 {
     doc_values: Option<D::SortedSetDocValues>,
 }
-impl<D, AV> DocValuesProducer<AV> for EmptyDocValuesProducerSub4<D>
+impl<D> DocValuesProducer for EmptyDocValuesProducerSub4<D>
 where
-    D: DocValuesProducer<Vec<u8>>,
-    AV: AccessVec<u8>,
+    D: DocValuesProducer,
 {
     type NumericDocValues = DummyNumericDocValues;
     type BinaryDocValues = DummyBinaryDocValues;
-    type SortedDocValues = DummySortedDocValues<AV>;
+    type SortedDocValues = DummySortedDocValues;
     type SortedNumericDocValues = SortedNumericDocValuesImpl<D>;
 
     fn get_sorted_numeric(
@@ -1339,14 +1330,14 @@ where
 
 pub struct NumericDocValuesImpl<D>
 where
-    D: DocValuesProducer<Vec<u8>>,
+    D: DocValuesProducer,
 {
     sorted: D::SortedDocValues,
 }
 
 impl<D> DocValuesIterator for NumericDocValuesImpl<D>
 where
-    D: DocValuesProducer<Vec<u8>>,
+    D: DocValuesProducer,
 {
     fn advance_exact(&mut self, target: i32) -> Result<bool> {
         self.sorted.advance_exact(target)
@@ -1355,7 +1346,7 @@ where
 
 impl<D> DocIdSetIterator for NumericDocValuesImpl<D>
 where
-    D: DocValuesProducer<Vec<u8>>,
+    D: DocValuesProducer,
 {
     fn doc_id(&self) -> i32 {
         self.sorted.doc_id()
@@ -1376,7 +1367,7 @@ where
 
 impl<D> NumericDocValues for NumericDocValuesImpl<D>
 where
-    D: DocValuesProducer<Vec<u8>>,
+    D: DocValuesProducer,
 {
     fn long_value(&mut self) -> Result<i64> {
         Ok(self.sorted.ord_value()? as i64)
@@ -1384,7 +1375,7 @@ where
 }
 pub struct SortedNumericDocValuesImpl<D>
 where
-    D: DocValuesProducer<Vec<u8>>,
+    D: DocValuesProducer,
 {
     ords: Vec<i64>,
     i: i32,
@@ -1394,7 +1385,7 @@ where
 
 impl<D> DocValuesIterator for SortedNumericDocValuesImpl<D>
 where
-    D: DocValuesProducer<Vec<u8>>,
+    D: DocValuesProducer,
 {
     fn advance_exact(&mut self, _target: i32) -> Result<bool> {
         Err(LuceneError::unsupported_operation(""))
@@ -1403,7 +1394,7 @@ where
 
 impl<D> DocIdSetIterator for SortedNumericDocValuesImpl<D>
 where
-    D: DocValuesProducer<Vec<u8>>,
+    D: DocValuesProducer,
 {
     fn doc_id(&self) -> i32 {
         self.value.doc_id()
@@ -1433,7 +1424,7 @@ where
 
 impl<D> SortedNumericDocValues for SortedNumericDocValuesImpl<D>
 where
-    D: DocValuesProducer<Vec<u8>>,
+    D: DocValuesProducer,
 {
     fn next_value(&mut self) -> Result<i64> {
         let value = self.ords[self.i as usize];

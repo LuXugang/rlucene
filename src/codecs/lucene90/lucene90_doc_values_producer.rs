@@ -846,7 +846,7 @@ pub mod lucene90_dvp_util {
         }
     }
 }
-impl<I> DocValuesProducer<Vec<u8>> for Lucene90DocValuesProducer<I>
+impl<I> DocValuesProducer for Lucene90DocValuesProducer<I>
 where
     I: IndexInput,
 {
@@ -2161,13 +2161,15 @@ where
     }
 }
 
-impl<I> SortedDocValues<Vec<u8>> for DenseBaseSortedDocValues<I>
+impl<I> SortedDocValues for DenseBaseSortedDocValues<I>
 where
     I: IndexInput,
 {
     fn ord_value(&mut self) -> Result<i32> {
         Ok(self.value.get(self.doc as i64)? as i32)
     }
+
+    type AV = Vec<u8>;
 
     type TermsEnum = DummyTermsEnum;
 }
@@ -2218,13 +2220,15 @@ where
     }
 }
 
-impl<I> SortedDocValues<Vec<u8>> for SparseBaseSortedDocValues<I>
+impl<I> SortedDocValues for SparseBaseSortedDocValues<I>
 where
     I: IndexInput,
 {
     fn ord_value(&mut self) -> Result<i32> {
         Ok(self.value.get(self.disi.index() as i64)? as i32)
     }
+
+    type AV = Vec<u8>;
 
     type TermsEnum = DummyTermsEnum;
 }
@@ -2273,13 +2277,15 @@ where
     }
 }
 
-impl<I> SortedDocValues<Vec<u8>> for BaseSortedDocValuesImpl<I>
+impl<I> SortedDocValues for BaseSortedDocValuesImpl<I>
 where
     I: IndexInput,
 {
     fn ord_value(&mut self) -> Result<i32> {
         Ok(self.ords.long_value()? as i32)
     }
+
+    type AV = Vec<u8>;
 
     type TermsEnum = DummyTermsEnum;
 }
@@ -2343,13 +2349,15 @@ where
     }
 }
 
-impl<I> SortedDocValues<Vec<u8>> for BaseSortedDocValues<I>
+impl<I> SortedDocValues for BaseSortedDocValues<I>
 where
     I: IndexInput,
 {
     fn ord_value(&mut self) -> Result<i32> {
         self.sub.ord_value()
     }
+
+    type AV = Vec<u8>;
 
     fn lookup_ord(&mut self, ord: i32) -> Result<Cow<BytesRef<Vec<u8>>>> {
         self.terms_enum.seek_exact_with_ord(ord as i64)?;
@@ -2450,7 +2458,7 @@ where
     }
 }
 
-impl<I> SortedSetDocValues<Vec<u8>> for DenseBaseSortedSetDocValues<I>
+impl<I> SortedSetDocValues for DenseBaseSortedSetDocValues<I>
 where
     I: IndexInput,
 {
@@ -2463,6 +2471,8 @@ where
     fn doc_value_count(&mut self) -> Result<i32> {
         Ok(self.count)
     }
+
+    type AV = Vec<u8>;
 
     type TermsEnum = TermsDict<I, Vec<u8>>;
 }
@@ -2541,7 +2551,7 @@ where
     }
 }
 
-impl<I> SortedSetDocValues<Vec<u8>> for SparseBaseSortedSetDocValues<I>
+impl<I> SortedSetDocValues for SparseBaseSortedSetDocValues<I>
 where
     I: IndexInput,
 {
@@ -2556,6 +2566,8 @@ where
         self.set()?;
         Ok(self.count)
     }
+
+    type AV = Vec<u8>;
 
     type TermsEnum = DummyTermsEnum;
 }
@@ -2605,7 +2617,7 @@ where
     }
 }
 
-impl<I> SortedSetDocValues<Vec<u8>> for BaseSortedSetDocValuesImpl<I>
+impl<I> SortedSetDocValues for BaseSortedSetDocValuesImpl<I>
 where
     I: IndexInput,
 {
@@ -2616,6 +2628,8 @@ where
     fn doc_value_count(&mut self) -> Result<i32> {
         self.ords.doc_value_count()
     }
+
+    type AV = Vec<u8>;
 
     type TermsEnum = TermsDict<I, Vec<u8>>;
 }
@@ -2687,7 +2701,7 @@ where
     }
 }
 
-impl<I> SortedSetDocValues<Vec<u8>> for BaseSortedSetDocValues<I>
+impl<I> SortedSetDocValues for BaseSortedSetDocValues<I>
 where
     I: IndexInput,
 {
@@ -2698,6 +2712,8 @@ where
     fn doc_value_count(&mut self) -> Result<i32> {
         self.sub.doc_value_count()
     }
+
+    type AV = Vec<u8>;
 
     fn lookup_ord(&mut self, ord: i64) -> Result<Cow<BytesRef<Vec<u8>>>> {
         self.terms_enum.seek_exact_with_ord(ord)?;

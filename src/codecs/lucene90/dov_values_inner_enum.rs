@@ -107,7 +107,7 @@ where
     }
 }
 
-impl<I> SortedDocValues<Vec<u8>> for BaseSortedDocValuesEnum<I>
+impl<I> SortedDocValues for BaseSortedDocValuesEnum<I>
 where
     I: IndexInput,
 {
@@ -118,6 +118,8 @@ where
             BaseSortedDocValuesEnum::Impl(sub) => sub.ord_value(),
         }
     }
+
+    type AV = Vec<u8>;
 
     type TermsEnum = DummyTermsEnum;
 }
@@ -181,7 +183,7 @@ where
     }
 }
 
-impl<I> SortedSetDocValues<Vec<u8>> for BaseSortedSetDocValuesEnum<I>
+impl<I> SortedSetDocValues for BaseSortedSetDocValuesEnum<I>
 where
     I: IndexInput,
 {
@@ -200,6 +202,8 @@ where
             BaseSortedSetDocValuesEnum::Impl(sub) => sub.doc_value_count(),
         }
     }
+
+    type AV = Vec<u8>;
 
     type TermsEnum = DummyTermsEnum;
 }

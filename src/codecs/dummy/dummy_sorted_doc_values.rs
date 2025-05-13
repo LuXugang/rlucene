@@ -21,24 +21,13 @@ use crate::index::dummy::dummy_terms_enum::DummyTermsEnum;
 use crate::index::sorted_doc_values::SortedDocValues;
 use crate::index::BytesRef;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::Result;
 
-pub struct DummySortedDocValues<AV>
-where
-    AV: AccessVec<u8>,
-{
-    // In a real implementation, this would contain the necessary fields and
-    // methods
-    _phantom: std::marker::PhantomData<AV>,
-}
+pub struct DummySortedDocValues;
 
-impl<AV> DocValuesIterator for DummySortedDocValues<AV> where AV: AccessVec<u8> {}
+impl DocValuesIterator for DummySortedDocValues {}
 
-impl<AV> DocIdSetIterator for DummySortedDocValues<AV>
-where
-    AV: AccessVec<u8>,
-{
+impl DocIdSetIterator for DummySortedDocValues {
     fn doc_id(&self) -> i32 {
         todo!()
     }
@@ -48,15 +37,14 @@ where
     }
 }
 
-impl<AV> SortedDocValues<AV> for DummySortedDocValues<AV>
-where
-    AV: AccessVec<u8>,
-{
+impl SortedDocValues for DummySortedDocValues {
     fn ord_value(&mut self) -> Result<i32> {
         todo!()
     }
 
-    fn lookup_ord(&mut self, _ord: i32) -> Result<Cow<BytesRef<AV>>> {
+    type AV = Vec<u8>;
+
+    fn lookup_ord(&mut self, _ord: i32) -> Result<Cow<BytesRef<Self::AV>>> {
         todo!()
     }
 
@@ -64,7 +52,7 @@ where
         todo!()
     }
 
-    fn lookup_term(&mut self, key: &BytesRef<AV>) -> Result<i32> {
+    fn lookup_term(&mut self, key: &BytesRef<Self::AV>) -> Result<i32> {
         todo!()
     }
 

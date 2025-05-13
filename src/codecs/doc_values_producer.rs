@@ -32,15 +32,11 @@ use crate::index::sorted_doc_values::SortedDocValues;
 use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::store::IndexInput;
-use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::{LuceneError, Result};
 
 /// A trait that produces numeric, binary, sorted, sorted set, and sorted
 /// numeric doc values.
-pub trait DocValuesProducer<AV>
-where
-    AV: AccessVec<u8>,
-{
+pub trait DocValuesProducer {
     type NumericDocValues: NumericDocValues;
     /// Returns [`NumericDocValues`] for this field. The returned instance need
     /// not be thread-safe: it will only be used by a single thread. The
@@ -59,7 +55,7 @@ where
     fn get_binary(&mut self, _field: &Rc<FieldInfo>) -> Result<Self::BinaryDocValues> {
         Err(LuceneError::need_implemented(""))
     }
-    type SortedDocValues: SortedDocValues<AV>;
+    type SortedDocValues: SortedDocValues;
     /// Returns [`SortedDocValues`] for this field. The returned instance need
     /// not be thread-safe: it will only be used by a single thread. The
     /// behavior is undefined if the doc values type of the given field is
@@ -82,7 +78,7 @@ where
         Err(LuceneError::need_implemented(""))
     }
 
-    type SortedSetDocValues: SortedSetDocValues<AV>;
+    type SortedSetDocValues: SortedSetDocValues;
     /// Returns [`SortedSetDocValues`] for this field. The returned instance
     /// need not be thread-safe: it will only be used by a single thread.
     /// The behavior is undefined if the doc values type of the given field
@@ -128,7 +124,7 @@ where
 {
     Lucene90(Lucene90DocValuesProducer<I>),
 }
-impl<I> DocValuesProducer<Vec<u8>> for DocValuesProducerEnum<I>
+impl<I> DocValuesProducer for DocValuesProducerEnum<I>
 where
     I: IndexInput,
 {

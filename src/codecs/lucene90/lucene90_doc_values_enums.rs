@@ -200,7 +200,7 @@ pub enum Lucene90SortedSetDocValuesEnum<I>
 where
     I: IndexInput,
 {
-    Singleton(SingletonSortedSetDocValues<BaseSortedDocValues<I>, Vec<u8>>),
+    Singleton(SingletonSortedSetDocValues<BaseSortedDocValues<I>>),
     Base(BaseSortedSetDocValues<I>),
 }
 
@@ -249,7 +249,7 @@ where
     }
 }
 
-impl<I> SortedSetDocValues<Vec<u8>> for Lucene90SortedSetDocValuesEnum<I>
+impl<I> SortedSetDocValues for Lucene90SortedSetDocValuesEnum<I>
 where
     I: IndexInput,
 {
@@ -266,6 +266,8 @@ where
             Lucene90SortedSetDocValuesEnum::Base(b) => b.doc_value_count(),
         }
     }
+
+    type AV = Vec<u8>;
 
     fn lookup_ord(&mut self, _ord: i64) -> Result<Cow<BytesRef<Vec<u8>>>> {
         match self {

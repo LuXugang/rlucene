@@ -26,7 +26,7 @@ use crate::util::error::lucene_error::Result;
 
 /// Encodes/decodes per-document values.
 pub trait DocValuesFormat: Display {
-    type DocValuesConsumer<T: IndexOutput>: DocValuesConsumer<Vec<u8>>;
+    type DocValuesConsumer<T: IndexOutput>: DocValuesConsumer;
     /// Returns a [`DocValuesConsumer`] to write docvalues to the index.
     fn fields_consumer<D>(
         &self,
@@ -35,7 +35,7 @@ pub trait DocValuesFormat: Display {
     where
         D: Directory;
 
-    type DocValuesProducer<T: IndexInput>: DocValuesProducer<Vec<u8>>;
+    type DocValuesProducer<T: IndexInput>: DocValuesProducer;
     /// Returns a [`DocValuesProducer`] to read docvalues from the index.
     ///
     /// NOTE: By the time this call returns, it must hold open any files it will

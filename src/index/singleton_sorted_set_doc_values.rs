@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use std::borrow::Cow;
-use std::marker::PhantomData;
 
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::dummy::dummy_terms_enum::DummyTermsEnum;
@@ -24,27 +23,23 @@ use crate::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::index::BytesRef;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::{LuceneError, Result};
 
 /// Exposes a multi-valued iterator view over a single-valued iterator.
 ///
 /// This can be used if you want to have one multi-valued implementation that
 /// works for both single-valued and multi-valued types.
-pub struct SingletonSortedSetDocValues<S, AV>
+pub struct SingletonSortedSetDocValues<S>
 where
-    S: SortedDocValues<AV>,
-    AV: AccessVec<u8>,
+    S: SortedDocValues,
 {
     pub(crate) inner: Option<S>,
     ord: i64,
-    _phantom1: PhantomData<AV>,
 }
 
-impl<S, AV> SingletonSortedSetDocValues<S, AV>
+impl<S> SingletonSortedSetDocValues<S>
 where
-    AV: AccessVec<u8>,
-    S: SortedDocValues<AV>,
+    S: SortedDocValues,
 {
     /// Creates a multi-valued view over the provided SortedDocValues.
     pub fn new(inner: S) -> Result<Self> {
@@ -57,7 +52,6 @@ where
         Ok(Self {
             inner: Some(inner),
             ord: -1,
-            _phantom1: PhantomData,
         })
     }
 
@@ -72,10 +66,9 @@ where
     }
 }
 
-impl<S, AV> DocIdSetIterator for SingletonSortedSetDocValues<S, AV>
+impl<S> DocIdSetIterator for SingletonSortedSetDocValues<S>
 where
-    AV: AccessVec<u8>,
-    S: SortedDocValues<AV>,
+    S: SortedDocValues,
 {
     fn doc_id(&self) -> i32 {
         self.inner.as_ref().unwrap().doc_id()
@@ -102,10 +95,9 @@ where
     }
 }
 
-impl<S, AV> DocValuesIterator for SingletonSortedSetDocValues<S, AV>
+impl<S> DocValuesIterator for SingletonSortedSetDocValues<S>
 where
-    AV: AccessVec<u8>,
-    S: SortedDocValues<AV>,
+    S: SortedDocValues,
 {
     fn advance_exact(&mut self, target: i32) -> Result<bool> {
         if self.inner.as_mut().unwrap().advance_exact(target)? {
@@ -117,10 +109,9 @@ where
     }
 }
 
-impl<S, AV> SortedSetDocValues<AV> for SingletonSortedSetDocValues<S, AV>
+impl<S> SortedSetDocValues for SingletonSortedSetDocValues<S>
 where
-    AV: AccessVec<u8>,
-    S: SortedDocValues<AV>,
+    S: SortedDocValues,
 {
     fn next_ord(&mut self) -> Result<i64> {
         Ok(self.ord)
@@ -130,7 +121,9 @@ where
         Ok(1)
     }
 
-    fn lookup_ord(&mut self, ord: i64) -> Result<Cow<BytesRef<AV>>> {
+    type AV = S::AV;
+
+    fn lookup_ord(&mut self, ord: i64) -> Result<Cow<BytesRef<Self::AV>>> {
         self.inner.as_mut().unwrap().lookup_ord(ord as i32)
     }
 
@@ -138,7 +131,7 @@ where
         Ok(self.inner.as_mut().unwrap().get_value_count()? as i64)
     }
 
-    fn lookup_term(&mut self, key: &BytesRef<AV>) -> Result<i64> {
+    fn lookup_term(&mut self, key: &BytesRef<Self::AV>) -> Result<i64> {
         Ok(self.inner.as_mut().unwrap().lookup_term(key)? as i64)
     }
 

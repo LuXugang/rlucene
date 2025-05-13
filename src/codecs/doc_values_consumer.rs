@@ -44,30 +44,27 @@ use crate::store::IndexInput;
 use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::{LuceneError, Result};
 
-pub trait DocValuesConsumer<AV>
-where
-    AV: AccessVec<u8>,
-{
+pub trait DocValuesConsumer {
     fn add_numeric_field<D>(
         &mut self,
         field: &Rc<FieldInfo>,
         values_producer: &mut D,
     ) -> Result<()>
     where
-        D: DocValuesProducer<AV>;
+        D: DocValuesProducer;
     fn add_binary_field<D>(&mut self, field: &Rc<FieldInfo>, values_producer: &mut D) -> Result<()>
     where
-        D: DocValuesProducer<AV>;
+        D: DocValuesProducer;
     fn add_sorted_field<D>(&mut self, field: &Rc<FieldInfo>, values_producer: &mut D) -> Result<()>
     where
-        D: DocValuesProducer<AV>;
+        D: DocValuesProducer;
     fn add_sorted_numeric_field<D>(
         &mut self,
         field: &Rc<FieldInfo>,
         values_producer: &mut D,
     ) -> Result<()>
     where
-        D: DocValuesProducer<AV>;
+        D: DocValuesProducer;
     fn add_sorted_set_field<I, D>(
         &mut self,
         field: &Rc<FieldInfo>,
@@ -75,7 +72,7 @@ where
     ) -> Result<()>
     where
         I: IndexInput,
-        D: DocValuesProducer<Vec<u8>, SortedSetDocValues = SortedSetDocValuesEnum<I>>;
+        D: DocValuesProducer<SortedSetDocValues = SortedSetDocValuesEnum<I>>;
 
     fn merge_numeric_field<I>(
         &mut self,
@@ -272,10 +269,9 @@ where
     merge_field_info: Rc<FieldInfo>,
     merge_state: &'a mut MergeState<I>,
 }
-impl<I, AV> DocValuesProducer<AV> for EmptyDocValuesProducerMerge1<'_, I>
+impl<I> DocValuesProducer for EmptyDocValuesProducerMerge1<'_, I>
 where
     I: IndexInput,
-    AV: AccessVec<u8>,
 {
     type NumericDocValues = NumericDocValuesMerge<I>;
 
@@ -312,7 +308,7 @@ where
     }
 
     type BinaryDocValues = DummyBinaryDocValues;
-    type SortedDocValues = DummySortedDocValues<AV>;
+    type SortedDocValues = DummySortedDocValues;
 
     type SortedNumericDocValues = DummySortedNumericDocValues;
     type SortedSetDocValues = DummySortedSetDocValues;
@@ -441,10 +437,9 @@ where
     merge_field_info: Rc<FieldInfo>,
     merge_state: &'a mut MergeState<I>,
 }
-impl<I, AV> DocValuesProducer<AV> for EmptyDocValuesProducerMerge2<'_, I>
+impl<I> DocValuesProducer for EmptyDocValuesProducerMerge2<'_, I>
 where
     I: IndexInput,
-    AV: AccessVec<u8>,
 {
     type NumericDocValues = DummyNumericDocValues;
     type BinaryDocValues = BinaryDocValuesMerge<I>;
@@ -493,7 +488,7 @@ where
         Ok(doc_value)
     }
 
-    type SortedDocValues = DummySortedDocValues<AV>;
+    type SortedDocValues = DummySortedDocValues;
 
     type SortedNumericDocValues = DummySortedNumericDocValues;
     type SortedSetDocValues = DummySortedSetDocValues;
@@ -626,14 +621,13 @@ where
     merge_field_info: Rc<FieldInfo>,
     merge_state: &'a mut MergeState<I>,
 }
-impl<I, AV> DocValuesProducer<AV> for EmptyDocValuesProducerMerge3<'_, I>
+impl<I> DocValuesProducer for EmptyDocValuesProducerMerge3<'_, I>
 where
     I: IndexInput,
-    AV: AccessVec<u8>,
 {
     type NumericDocValues = DummyNumericDocValues;
     type BinaryDocValues = DummyBinaryDocValues;
-    type SortedDocValues = DummySortedDocValues<AV>;
+    type SortedDocValues = DummySortedDocValues;
     type SortedNumericDocValues = SortedNumericDocValuesEnum<I>;
 
     fn get_sorted_numeric(
