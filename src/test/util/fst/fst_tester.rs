@@ -273,7 +273,7 @@ where
         self.arc_count = arc_count;
         todo!()
     }
-    fn run_steps<C, F>(&self, seed: u64, mut reuse: FST<T, O, F>, unwrap_fn: C) -> Result<()>
+    fn run_steps<C, F>(&mut self, seed: u64, mut reuse: FST<T, O, F>, unwrap_fn: C) -> Result<()>
     where
         T: OutputsBound,
         O: Outputs<T>,
@@ -281,8 +281,6 @@ where
         F: FstReader,
         D: Directory,
     {
-        let mut random = random_from_seed(seed);
-
         // step 1
         let mut v = self.step1(self.input_mode, Some(reuse))?;
         let (fst, _, _) = self.get_fst(seed)?;
@@ -290,21 +288,20 @@ where
         reuse = std::mem::replace(&mut v.base.as_mut().unwrap().fst, padding_fst);
 
         // step 2
-        let (mut v, terms_map) = self.step2(self.input_mode, Some(reuse), &mut random)?;
+        let (mut v, terms_map) = self.step2(self.input_mode, Some(reuse))?;
         let (fst, _, _) = self.get_fst(seed)?;
         let padding_fst = unwrap_fn(fst.unwrap());
         reuse = std::mem::replace(&mut v.base.as_mut().unwrap().fst, padding_fst);
 
         // step 3
-        let num = at_least(&mut random, 100);
+        let num = at_least(&mut self.random, 100);
         let mut upto = -1;
         for i in 0..num {
             if cfg!(feature = "test_log_verbose") {
                 println!("TEST: iter {}", i);
             }
             let fst_enum = IntsRefFSTEnum::new(reuse)?;
-            let (mut v, new_upto) =
-                self.step3(self.input_mode, fst_enum, &terms_map, &mut random, upto)?;
+            let (mut v, new_upto) = self.step3(self.input_mode, fst_enum, &terms_map, upto)?;
             upto = new_upto;
             let (fst, _, _) = self.get_fst(seed)?;
             let padding_fst = unwrap_fn(fst.unwrap());
@@ -314,11 +311,10 @@ where
         Ok(())
     }
     pub fn step3<F>(
-        &self,
+        &mut self,
         input_mode: i32,
         mut fst_enum: IntsRefFSTEnum<T, O, F>,
         terms_map: &HashMap<IntsRef<Vec<i32>>, T>,
-        random: &mut impl Rng,
         mut upto: i32,
     ) -> Result<(IntsRefFSTEnum<T, O, F>, i32)>
     where
@@ -329,7 +325,8 @@ where
         loop {
             let mut is_done = false;
 
-            if (upto as usize) == self.pairs.len().saturating_sub(1) || random.random_bool(0.5) {
+            if (upto as usize) == self.pairs.len().saturating_sub(1) || self.random.random_bool(0.5)
+            {
                 // next
                 upto += 1;
                 if cfg!(feature = "test_log_verbose") {
@@ -338,11 +335,11 @@ where
                 is_done = fst_enum.next()?.is_none();
             } else if upto != -1
                 && (upto as f64) < 0.75 * (self.pairs.len() as f64)
-                && random.random_bool(0.5)
+                && self.random.random_bool(0.5)
             {
                 let mut attempt = 0;
                 while attempt < 10 {
-                    let term_str = fst_tester_util::get_random_string(random);
+                    let term_str = fst_tester_util::get_random_string(&mut self.random);
                     let mut ir_builder = IntsRefBuilder::default();
                     let term = fst_tester_util::to_ints_ref_from_string_with_builder(
                         &term_str,
@@ -357,7 +354,7 @@ where
                             .binary_search_by(|p| p.input.cmp(&term))
                             .expect_err("expected term to not exist");
                         let mut upto: i32 = pos as i32;
-                        if random.random_bool(0.5) {
+                        if self.random.random_bool(0.5) {
                             upto -= 1;
                             assert!(upto >= 0);
                             if cfg!(feature = "test_log_verbose") {
@@ -384,13 +381,15 @@ where
                     continue;
                 }
             } else {
-                let inc = random.random_range(0..(self.pairs.len() - (upto as usize + 1)));
+                let inc = self
+                    .random
+                    .random_range(0..(self.pairs.len() - (upto as usize + 1)));
                 upto += inc as i32;
                 if upto == -1 {
                     upto = 0;
                 }
 
-                if random.random_bool(0.5) {
+                if self.random.random_bool(0.5) {
                     if cfg!(feature = "test_log_verbose") {
                         println!(
                             "  do seekCeil({})",
@@ -455,10 +454,9 @@ where
     }
 
     pub fn step2<F>(
-        &self,
+        &mut self,
         input_mode: i32,
         mut fst: Option<FST<T, O, F>>,
-        random: &mut impl Rng,
     ) -> Result<(IntsRefFSTEnum<T, O, F>, HashMap<IntsRef<Vec<i32>>, T>)>
     where
         T: OutputsBound,
@@ -475,12 +473,12 @@ where
         }
 
         let mut scratch = IntsRefBuilder::default();
-        let num = at_least(random, 500);
+        let num = at_least(&mut self.random, 500);
         for _ in 0..num {
             let output = FSTTester::<D, T, R, O, S>::random_accepted_word(
                 fst.as_mut().unwrap(),
                 &mut scratch,
-                random,
+                &mut self.random,
             )?;
             let key = scratch.get();
             let expected = terms_map.get(&key).expect(&format!(
@@ -498,16 +496,16 @@ where
             println!("TEST: verify seek");
         }
         let mut fst_enum = IntsRefFSTEnum::new(fst.unwrap())?;
-        let num_seek = at_least(random, 100);
+        let num_seek = at_least(&mut self.random, 100);
         for iter in 0..num_seek {
             if cfg!(feature = "test_log_verbose") {
                 println!("  iter={}", iter);
             }
 
-            if random.random_bool(0.5) {
+            if self.random.random_bool(0.5) {
                 // seek to term that doesn't exist
                 loop {
-                    let term_str = fst_tester_util::get_random_string(random);
+                    let term_str = fst_tester_util::get_random_string(&mut self.random);
                     let mut ir_builder = IntsRefBuilder::default();
                     let term = fst_tester_util::to_ints_ref_from_string_with_builder(
                         &term_str,
@@ -520,7 +518,7 @@ where
 
                     if let Err(mut pos) = pos {
                         // Not found
-                        let seek_result = if random.random_range(0..3) == 0 {
+                        let seek_result = if self.random.random_range(0..3) == 0 {
                             if cfg!(feature = "test_log_verbose") {
                                 println!(
                                     "  do non-exist seekExact term={}",
@@ -528,7 +526,7 @@ where
                                 );
                             }
                             fst_enum.seek_exact(term.clone())?
-                        } else if random.random_bool(0.5) {
+                        } else if self.random.random_bool(0.5) {
                             if cfg!(feature = "test_log_verbose") {
                                 println!(
                                     "  do non-exist seekFloor term={}",
@@ -606,8 +604,8 @@ where
             } else {
                 // seek to existing term
                 let len = self.pairs.len();
-                let pair = &self.pairs[random.random_range(0..len)];
-                let seek_result = if random.random_range(0..3) == 2 {
+                let pair = &self.pairs[self.random.random_range(0..len)];
+                let seek_result = if self.random.random_range(0..3) == 2 {
                     if cfg!(feature = "test_log_verbose") {
                         println!(
                             "  do exists seekExact term={}",
@@ -615,7 +613,7 @@ where
                         );
                     }
                     fst_enum.seek_exact(pair.input.clone())?
-                } else if random.random_bool(0.5) {
+                } else if self.random.random_bool(0.5) {
                     if cfg!(feature = "test_log_verbose") {
                         println!(
                             "  do exists seekFloor term={}",
