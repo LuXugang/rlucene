@@ -30,7 +30,6 @@ use crate::util::fst_impl::bit_table_util::BitTableUtil;
 use crate::util::fst_impl::fst_reader::FstReader;
 use crate::util::fst_impl::on_heap_fst_store::OnHeapFSTStore;
 use crate::util::fst_impl::outputs::{Outputs, OutputsBound};
-
 pub struct FST<T, O, F>
 where
     T: OutputsBound,

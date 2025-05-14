@@ -40,8 +40,16 @@ pub struct ByteBuffersDataOutput {
     reuse: bool,
 }
 impl Default for ByteBuffersDataOutput {
+    // It is used for padding
     fn default() -> Self {
-        Self::new()
+        Self {
+            max_bits_per_block: Self::DEFAULT_MAX_BITS_PER_BLOCK,
+            block_bits: Self::DEFAULT_MIN_BITS_PER_BLOCK,
+            blocks: VecDeque::new(),
+            ram_bytes_used: 0,
+            current_block_index: 0,
+            reuse: false,
+        }
     }
 }
 

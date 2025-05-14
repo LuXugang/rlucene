@@ -339,10 +339,7 @@ where
     ///   [`DataInput`](crate::store::data_input::DataInput), such as
     ///   [`IndexInput`](crate::store::data_input::DataInput) then pass it to
     ///   the FST construct
-    pub fn compile(
-        &mut self,
-        _frontier: &mut [UnCompiledNode<T, O, D>],
-    ) -> Result<Option<FSTMetadata<T, O>>> {
+    pub fn compile(&mut self) -> Result<Option<FSTMetadata<T, O>>> {
         let root = self.frontier[0].take().unwrap();
 
         // Minimize nodes in the last word's suffix
@@ -678,14 +675,17 @@ where
     /// to use the default `DataOutput` or
     /// [`get_on_heap_reader_writer`](fst_compiler_util::get_on_heap_reader_writer),
     /// otherwise an error will be thrown.
-    #[allow(unused)]
-    fn get_fst_reader(&mut self) -> Result<&mut DataOutputEnum<D>> {
+    pub fn get_fst_reader(&mut self) -> Result<DataOutputEnum<D>> {
         let is_fst_reader = match self.data_output {
             DataOutputEnum::FromDir(_) => false,
             DataOutputEnum::ReadWriter(_) => true,
         };
         if is_fst_reader {
-            Ok(&mut self.data_output)
+            let v = std::mem::replace(
+                &mut self.data_output,
+                DataOutputEnum::ReadWriter(ReadWriteDataOutput::default()),
+            );
+            Ok(v)
         } else {
             Err(LuceneError::illegal_state(format!(
                 "The DataOutput must implement FSTReader, but got {}",
@@ -1177,7 +1177,7 @@ where
     /// to map suffixes and estimates overhead from unused slots.
     ///
     /// Default: `32.0`
-    pub fn suffix_ram_limit_mb(mut self, mb: f64) -> Result<Self> {
+    pub fn suffix_ram_limit_mb(&mut self, mb: f64) -> Result<()> {
         if mb < 0f64 {
             return Err(LuceneError::illegal_argument(format!(
                 "suffix_ram_limit_mb must be >= 0; got: {}",
@@ -1185,7 +1185,7 @@ where
             )));
         }
         self.suffix_ram_limit_mb = mb;
-        Ok(self)
+        Ok(())
     }
 
     /// Controls whether fixed-length arc optimization (binary search or direct
@@ -1194,9 +1194,8 @@ where
     /// Disabling this makes the resulting FST smaller but slower to traverse.
     ///
     /// Default: `true`
-    pub fn allow_fixed_length_arcs(mut self, allow: bool) -> Self {
+    pub fn allow_fixed_length_arcs(&mut self, allow: bool) {
         self.allow_fixed_length_arcs = allow;
-        self
     }
 
     /// Set the [`DataOutput`] which is used for low-level writing of FST. If
@@ -1218,9 +1217,8 @@ where
     /// # See also
     ///
     /// [`fst_compiler_util::get_on_heap_reader_writer`]
-    pub fn data_output(mut self, data_output: DataOutputEnum<D>) -> Self {
+    pub fn data_output(&mut self, data_output: DataOutputEnum<D>) {
         self.data_output = Some(data_output);
-        self
     }
     /// Overrides the default maximum oversizing of fixed array allowed to
     /// enable direct addressing of arcs instead of binary search.
@@ -1236,12 +1234,11 @@ where
     ///
     /// Default = `1`.
 
-    pub fn with_direct_addressing_max_oversizing_factor(mut self, factor: f32) -> Self {
+    pub fn with_direct_addressing_max_oversizing_factor(&mut self, factor: f32) {
         self.direct_addressing_max_oversizing_factor = factor;
-        self
     }
     ///  Expert: Set the codec version.
-    pub fn with_version(mut self, version: i32) -> Result<Self> {
+    pub fn with_version(&mut self, version: i32) -> Result<()> {
         if (fst_util::VERSION_90..=fst_util::VERSION_CURRENT).contains(&version) {
             return Err(LuceneError::illegal_argument(format!(
                 "Version must be in range [{} - {}]; got: {}",
@@ -1250,9 +1247,8 @@ where
                 version
             )));
         }
-
         self.version = version;
-        Ok(self)
+        Ok(())
     }
     /// Creates a new {@link FSTCompiler}
     #[allow(unused)]

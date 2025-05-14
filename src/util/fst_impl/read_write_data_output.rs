@@ -26,6 +26,7 @@ use crate::util::fst_impl::reverse_bytes_reader::ReverseBytesReader;
 /// An adapter class to use [`ByteBuffersDataOutput`] as a
 /// [`FSTReader`](FstReader). It allows the FST to be readable immediately after
 /// writing
+#[derive(Default)] // used for padding,e.g. used for std::mem::replace
 pub struct ReadWriteDataOutput {
     pub data_output: ByteBuffersDataOutput,
     pub block_bits: i32,
