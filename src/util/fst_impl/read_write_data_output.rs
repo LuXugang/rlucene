@@ -91,7 +91,7 @@ impl FstReader for ReadWriteDataOutput {
         }
     }
 
-    fn write_to(&mut self, out: &mut impl DataOutput) -> Result<()> {
+    fn write_to(&self, out: &mut impl DataOutput) -> Result<()> {
         self.data_output.copy_to(out)
     }
 }

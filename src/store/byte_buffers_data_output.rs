@@ -205,7 +205,7 @@ impl ByteBuffersDataOutput {
         self.current_block_index = (self.blocks.len() - 1) as i32;
     }
     /// Copies the current content of this object into another [`DataOutput`].
-    pub(crate) fn copy_to<D: DataOutput>(&mut self, output: &mut D) -> Result<()> {
+    pub(crate) fn copy_to<D: DataOutput>(&self, output: &mut D) -> Result<()> {
         debug_assert!(!self.blocks.is_empty());
         for (index, block) in self.blocks.iter().enumerate() {
             if index == self.current_block_index as usize {

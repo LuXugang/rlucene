@@ -91,11 +91,11 @@ impl FstReader for OnHeapFSTStore {
         }
     }
 
-    fn write_to(&mut self, out: &mut impl DataOutput) -> Result<()> {
+    fn write_to(&self, out: &mut impl DataOutput) -> Result<()> {
         if self.data_output.is_some() {
-            self.data_output.as_mut().unwrap().write_to(out)?;
+            self.data_output.as_ref().unwrap().write_to(out)?;
         } else {
-            match &mut self.bytes_array {
+            match &self.bytes_array {
                 Some(bytes_array) => {
                     let len = bytes_array.len();
                     debug_assert!(len <= i32::MAX as usize);

@@ -35,7 +35,7 @@ impl FstReader for DummyFSTReader {
         Err(LuceneError::unreachable("this method should not be called"))
     }
 
-    fn write_to(&mut self, _out: &mut impl DataOutput) -> Result<()> {
+    fn write_to(&self, _out: &mut impl DataOutput) -> Result<()> {
         Err(LuceneError::unreachable("this method should not be called"))
     }
 }

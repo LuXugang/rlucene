@@ -115,7 +115,7 @@ where
             Some(mut base) => {
                 base.target_length = self.target.length as i32;
                 if base.do_seek_exact(self)? {
-                    debug_assert_eq!(base.upto, 1 + self.target.length as usize);
+                    debug_assert_eq!(base.upto, 1 + self.target.length);
                     self.base = Some(base);
                     self.set_result()
                 } else {
@@ -147,13 +147,10 @@ where
 {
     fn get_target_label(&mut self) -> Result<i32> {
         self.base.take_do_return(|base| {
-            if base.upto - 1 == self.target.length as usize {
+            if base.upto - 1 == self.target.length {
                 Ok(fst_util::END_LABEL)
             } else {
-                Ok(
-                    self.target.bytes.borrow()[self.target.offset as usize + base.upto - 1] as i32
-                        & 0xFF,
-                )
+                Ok(self.target.bytes.borrow()[self.target.offset + base.upto - 1] as i32 & 0xFF)
             }
         })
     }
