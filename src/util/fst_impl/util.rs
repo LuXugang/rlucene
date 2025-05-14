@@ -31,11 +31,12 @@ pub struct Util;
 impl Util {
     /// Looks up the output for this input, or null if the input is not
     /// accepted.
-    pub fn get<T, O, F>(fst: &mut FST<T, O, F>, input: &IntsRef<Vec<i32>>) -> Result<Option<T>>
+    pub fn get_ints<T, O, F, AV>(fst: &mut FST<T, O, F>, input: &IntsRef<AV>) -> Result<Option<T>>
     where
         T: OutputsBound,
         O: Outputs<T>,
         F: FstReader,
+        AV: AccessVec<i32>,
     {
         let mut arc = Arc::default();
         fst.get_first_arc(&mut arc);
@@ -43,7 +44,7 @@ impl Util {
         let mut output = fst.outputs.get_no_output();
 
         for i in 0..input.length {
-            let label = input.ints[input.offset + i];
+            let label = input.ints.access(|ints| ints[input.offset + i]);
             let found = fst.find_target_arc(label, &arc.clone(), &mut arc, &mut fst_reader)?;
             if found.is_none() {
                 return Ok(None);
@@ -60,14 +61,12 @@ impl Util {
     }
     /// Looks up the output for this input, or `None` if the input is not
     /// accepted.
-    pub fn get_bytes<T, O, F>(
-        fst: &mut FST<T, O, F>,
-        input: &BytesRef<Vec<u8>>,
-    ) -> Result<Option<T>>
+    pub fn get_bytes<T, O, F, AV>(fst: &mut FST<T, O, F>, input: &BytesRef<AV>) -> Result<Option<T>>
     where
         T: OutputsBound,
         O: Outputs<T>,
         F: FstReader,
+        AV: AccessVec<u8>,
     {
         assert_eq!(fst.metadata.as_ref().unwrap().input_type, InputType::Byte1);
 
@@ -77,7 +76,7 @@ impl Util {
         let mut output = fst.outputs.get_no_output();
 
         for i in 0..input.length {
-            let label = input.bytes[input.offset + i] as i32;
+            let label = input.bytes.access(|bytes| bytes[input.offset + i] as i32);
             let found = fst.find_target_arc(label, &arc.clone(), &mut arc, &mut fst_reader)?;
             if found.is_none() {
                 return Ok(None);
