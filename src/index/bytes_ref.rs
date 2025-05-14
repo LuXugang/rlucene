@@ -50,7 +50,17 @@ where
 impl BytesRef<Rc<Vec<u8>>> {
     /// compare: same bytes reference, same offset, same length
     pub fn equals(a: &BytesRef<Rc<Vec<u8>>>, b: &BytesRef<Rc<Vec<u8>>>) -> bool {
-        Rc::ptr_eq(&a.bytes, &b.bytes) && a.offset == b.offset && a.length == b.length
+        let v = Rc::ptr_eq(&a.bytes, &b.bytes);
+        // Simulate Java-style reference equality: if the bytes reference is the same,
+        // then offset and length must also be equal.
+        debug_assert!({
+            if v {
+                a.offset == b.offset && a.length == b.length
+            } else {
+                !v
+            }
+        });
+        v
     }
 }
 
