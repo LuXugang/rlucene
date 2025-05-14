@@ -22,20 +22,20 @@ use std::rc::Rc;
 
 use rand::Rng;
 
-use crate::index::BytesRef;
 use crate::store::directory::Directory;
-use crate::test::util::lucene_test_case::at_least;
-use crate::test::util::test_util::TestUtil;
+use crate::store::IOContext;
+use crate::test::util::lucene_test_case::{at_least, new_io_context, random_from_seed};
 use crate::util::error::lucene_error::Result;
-use crate::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs;
-use crate::util::fst_impl::dummy::dummy_fst_reader::DummyFSTReader;
-use crate::util::fst_impl::fst::{fst_util, Arc, FSTMetadata, InputType, FST};
+use crate::util::fst_impl::fst::{fst_util, Arc, InputType, FST};
+use crate::util::fst_impl::fst_compiler::{Builder, DataOutputEnum};
 use crate::util::fst_impl::fst_reader::FstReader;
 use crate::util::fst_impl::ints_ref_fst_enum::IntsRefFSTEnum;
+use crate::util::fst_impl::on_heap_fst_store::OnHeapFSTStore;
 use crate::util::fst_impl::outputs::{Outputs, OutputsBound};
 use crate::util::ints_ref::IntsRef;
 use crate::util::ints_ref_builder::IntsRefBuilder;
-
+use crate::util::ToInt;
+/// Helper class to test FSTs.
 pub struct FSTTester<D, T, R, O, S>
 where
     D: Directory,
@@ -110,7 +110,7 @@ where
     pub fn random_accepted_word<F>(
         fst: &mut FST<T, O, F>,
         in_builder: &mut IntsRefBuilder<Vec<i32>>,
-        random: &mut R,
+        random: &mut impl Rng,
     ) -> Result<T>
     where
         T: OutputsBound,
@@ -149,61 +149,321 @@ where
 
         Ok(output)
     }
-    pub fn verify_unpruned<F>(
+
+    pub fn get_fst(&self, seed: u64) -> Result<(Option<FSTEnums<T, O, D>>, i64, i64)> {
+        let mut random = random_from_seed(seed);
+        let input_type = if self.input_mode == 0 {
+            InputType::Byte1
+        } else {
+            InputType::Byte4
+        };
+        let mut fst_compiler_builder: Builder<_, _, D> =
+            Builder::new(input_type, self.outputs.clone());
+        let use_off_heap = random.random_bool(0.5);
+        if use_off_heap {
+            let out = self
+                .dir
+                .borrow_mut()
+                .create_output("fstOffHeap.bin", &IOContext::default_io_context()?)?;
+            let out = DataOutputEnum::FromDir(out);
+            fst_compiler_builder.data_output(out);
+        }
+        let mut fst_compiler = fst_compiler_builder.build()?;
+        for pair in &self.pairs {
+            // TODO: 没有判断是否为
+            // if let Some(list) = pair.output.as_list_of_longs() {
+            //     for value in list {
+            //         fst_compiler.add(&pair.input, &value)?;
+            //     }
+            // } else {
+            fst_compiler.add(&pair.input, pair.output.clone())?;
+            // }
+        }
+        let fst_metadata = fst_compiler.compile()?;
+        let fst = if use_off_heap {
+            if fst_metadata.is_none() {
+                self.dir.borrow_mut().delete_file("fstOffHeap.bin")?;
+                None
+            } else {
+                let mut input = self
+                    .dir
+                    .borrow_mut()
+                    .open_input("fstOffHeap.bin", &IOContext::default_io_context()?)?;
+                let fst = FST::from_on_heap_store(fst_metadata.unwrap(), &mut input)?;
+                self.dir.borrow_mut().delete_file("fstOffHeap.bin")?;
+                Some(FSTEnums::FST1(fst))
+            }
+        } else if let Some(_) = &fst_metadata {
+            let mut fst = FST::from_fst_reader(
+                fst_metadata,
+                Some(fst_compiler.inner.borrow_mut().get_fst_reader()?),
+            );
+            if random.random_bool(0.5) {
+                let ctx = new_io_context(&mut random)?;
+                {
+                    let mut out = Rc::new(RefCell::new(
+                        self.dir.borrow_mut().create_output("fst.bin", &ctx)?,
+                    ));
+                    if let Some(fst_ref) = &mut fst {
+                        fst_ref.save(out.clone(), out)?;
+                    }
+                }
+                let mut input = self.dir.borrow_mut().open_input("fst.bin", &ctx)?;
+                let metadata = fst_util::read_metadata(&mut input, self.outputs.clone())?;
+                let fst = FST::from_on_heap_store(metadata, &mut input)?;
+                self.dir.borrow_mut().delete_file("fst.bin")?;
+                Some(FSTEnums::FST1(fst))
+            } else {
+                Some(FSTEnums::FST2(fst.unwrap()))
+            }
+        } else {
+            None
+        };
+        let node_count = fst_compiler.inner.borrow().get_node_count();
+        let arc_count = fst_compiler.inner.borrow().get_arc_count();
+        Ok((fst, node_count, arc_count))
+    }
+
+    pub fn do_test(&mut self) -> Result<Option<FSTEnums<T, O, D>>> {
+        let seed = self.random.random();
+        let (fst_enums, node_count, arc_count) = self.get_fst(seed)?;
+
+        // if cfg!(feature = "test_log_verbose") && self.pairs.len() <= 20 {
+        //     if let Some(fst_ref) = &fst {
+        //         println!("Printing FST as dot file to stdout:");
+        //         let mut writer = std::io::BufWriter::new(std::io::stdout());
+        //         Util::to_dot(fst_ref, &mut writer, false, false)?;
+        //         writer.flush()?;
+        //         println!("END dot file");
+        //     }
+        // }
+        //
+        // if cfg!(feature = "test_log_verbose") {
+        //     if fst.is_none() {
+        //         println!("  fst has 0 nodes (fully pruned)");
+        //     } else {
+        //         println!(
+        //             "  fst has {} nodes and {} arcs",
+        //             fst_compiler.get_node_count(),
+        //             fst_compiler.get_arc_count()
+        //         );
+        //     }
+        // }
+        //
+
+        match fst_enums {
+            Some(FSTEnums::FST1(reuse)) => {
+                self.run_steps(seed, reuse, |e| match e {
+                    FSTEnums::FST1(fst) => fst,
+                    _ => panic!("Expected FST1"),
+                })?;
+            },
+            Some(FSTEnums::FST2(reuse)) => {
+                self.run_steps(seed, reuse, |e| match e {
+                    FSTEnums::FST2(fst) => fst,
+                    _ => panic!("Expected FST2"),
+                })?;
+            },
+            None => {},
+        }
+        self.node_count = node_count;
+        self.arc_count = arc_count;
+        todo!()
+    }
+    fn run_steps<F, FR>(&self, seed: u64, mut reuse: FST<T, O, FR>, unwrap_fn: F) -> Result<()>
+    where
+        T: OutputsBound,
+        O: Outputs<T>,
+        F: Fn(FSTEnums<T, O, D>) -> FST<T, O, FR>,
+        FR: FstReader,
+        D: Directory,
+    {
+        let mut random = random_from_seed(seed);
+
+        // step 1
+        let mut v = self.step1(self.input_mode, Some(reuse))?;
+        let (fst, _, _) = self.get_fst(seed)?;
+        let padding_fst = unwrap_fn(fst.unwrap());
+        reuse = std::mem::replace(&mut v.base.as_mut().unwrap().fst, padding_fst);
+
+        // step 2
+        let (mut v, terms_map) = self.step2(self.input_mode, Some(reuse), &mut random)?;
+        let (fst, _, _) = self.get_fst(seed)?;
+        let padding_fst = unwrap_fn(fst.unwrap());
+        reuse = std::mem::replace(&mut v.base.as_mut().unwrap().fst, padding_fst);
+
+        // step 3
+        let num = at_least(&mut random, 100);
+        let mut upto = -1;
+        for i in 0..num {
+            if cfg!(feature = "test_log_verbose") {
+                println!("TEST: iter {}", i);
+            }
+            let fst_enum = IntsRefFSTEnum::new(reuse)?;
+            let (mut v, new_upto) =
+                self.step3(self.input_mode, fst_enum, &terms_map, &mut random, upto)?;
+            upto = new_upto;
+            let (fst, _, _) = self.get_fst(seed)?;
+            let padding_fst = unwrap_fn(fst.unwrap());
+            reuse = std::mem::replace(&mut v.base.as_mut().unwrap().fst, padding_fst);
+        }
+
+        Ok(())
+    }
+    pub fn step3<F>(
         &self,
         input_mode: i32,
-        fst: Option<FST<T, O, F>>,
-        pairs: &[InputOutput<T>],
-        outputs: &O,
-        random: &mut R,
-    ) -> Result<()>
+        mut fst_enum: IntsRefFSTEnum<T, O, F>,
+        terms_map: &HashMap<IntsRef<Vec<i32>>, T>,
+        random: &mut impl Rng,
+        mut upto: i32,
+    ) -> Result<(IntsRefFSTEnum<T, O, F>, i32)>
     where
-        T: OutputsBound + PartialEq + std::fmt::Debug,
+        T: OutputsBound,
         O: Outputs<T>,
         F: FstReader,
     {
-        if pairs.is_empty() {
-            assert!(fst.is_none(), "FST should be None for empty input");
-            return Ok(());
+        loop {
+            let mut is_done = false;
+
+            if (upto as usize) == self.pairs.len().saturating_sub(1) || random.random_bool(0.5) {
+                // next
+                upto += 1;
+                if cfg!(feature = "test_log_verbose") {
+                    println!("  do next");
+                }
+                is_done = fst_enum.next()?.is_none();
+            } else if upto != -1
+                && (upto as f64) < 0.75 * (self.pairs.len() as f64)
+                && random.random_bool(0.5)
+            {
+                let mut attempt = 0;
+                while attempt < 10 {
+                    let term_str = fst_tester_util::get_random_string(random);
+                    let mut ir_builder = IntsRefBuilder::default();
+                    let term = fst_tester_util::to_ints_ref_from_string_with_builder(
+                        &term_str,
+                        input_mode,
+                        &mut ir_builder,
+                    );
+                    if !terms_map.contains_key(&term)
+                        && term.cmp(&self.pairs[upto as usize].input).to_int() > 0
+                    {
+                        let pos = self
+                            .pairs
+                            .binary_search_by(|p| p.input.cmp(&term))
+                            .expect_err("expected term to not exist");
+                        let mut upto: i32 = pos as i32;
+                        if random.random_bool(0.5) {
+                            upto -= 1;
+                            assert!(upto >= 0);
+                            if cfg!(feature = "test_log_verbose") {
+                                println!(
+                                    "  do non-exist seekFloor({})",
+                                    fst_tester_util::input_to_string(input_mode, &term)?
+                                );
+                            }
+                            is_done = fst_enum.seek_floor(term)?.is_none();
+                        } else {
+                            if cfg!(feature = "test_log_verbose") {
+                                println!(
+                                    "  do non-exist seekCeil({})",
+                                    fst_tester_util::input_to_string(input_mode, &term)?
+                                );
+                            }
+                            is_done = fst_enum.seek_ceil(term)?.is_none();
+                        }
+                        break;
+                    }
+                    attempt += 1;
+                }
+                if attempt == 10 {
+                    continue;
+                }
+            } else {
+                let inc = random.random_range(0..(self.pairs.len() - (upto as usize + 1)));
+                upto += inc as i32;
+                if upto == -1 {
+                    upto = 0;
+                }
+
+                if random.random_bool(0.5) {
+                    if cfg!(feature = "test_log_verbose") {
+                        println!(
+                            "  do seekCeil({})",
+                            fst_tester_util::input_to_string(
+                                input_mode,
+                                &self.pairs[upto as usize].input
+                            )?
+                        );
+                    }
+                    is_done = fst_enum
+                        .seek_ceil(self.pairs[upto as usize].input.clone())?
+                        .is_none();
+                } else {
+                    if cfg!(feature = "test_log_verbose") {
+                        println!(
+                            "  do seekFloor({})",
+                            fst_tester_util::input_to_string(
+                                input_mode,
+                                &self.pairs[upto as usize].input
+                            )?
+                        );
+                    }
+                    is_done = fst_enum
+                        .seek_floor(self.pairs[upto as usize].input.clone())?
+                        .is_none();
+                }
+            }
+
+            if cfg!(feature = "test_log_verbose") {
+                if !is_done {
+                    let current = fst_enum.current();
+                    println!(
+                        "    got {}",
+                        fst_tester_util::input_to_string(input_mode, &current.input.borrow())?
+                    );
+                } else {
+                    println!("    got null");
+                }
+            }
+
+            if upto as usize == self.pairs.len() {
+                assert!(is_done);
+                break;
+            } else {
+                assert!(!is_done);
+                let current = fst_enum.current();
+                assert_eq!(
+                    &*current.input.borrow(),
+                    &self.pairs[upto as usize].input,
+                    "expected input={} but got {}",
+                    fst_tester_util::input_to_string(input_mode, &self.pairs[upto as usize].input)?,
+                    fst_tester_util::input_to_string(input_mode, &current.input.borrow())?
+                );
+                assert!(
+                    self.outputs_equal(&self.pairs[upto as usize].output, &current.output),
+                    "output mismatch at input={}",
+                    fst_tester_util::input_to_string(input_mode, &self.pairs[upto as usize].input)?
+                );
+            }
         }
+        Ok((fst_enum, upto))
+    }
 
-        let mut fst_enum = IntsRefFSTEnum::new(fst.unwrap())?;
-
-        for pair in pairs {
-            let term = &pair.input;
-            let output = FSTTester::<D, T, R, O, S>::run(
-                &mut fst_enum.base.as_mut().unwrap().fst,
-                term,
-                None,
-            )?;
-            assert!(
-                output.is_some(),
-                "term {} is not accepted",
-                fst_tester_util::input_to_string(input_mode, term, true)?
-            );
-            assert!(self.outputs_equal(&pair.output, output.as_ref().unwrap()));
-
-            let t = fst_enum.next()?;
-            assert!(t.is_some(), "expected more terms");
-            let t = t.unwrap();
-            assert_eq!(
-                &*t.input.borrow(),
-                term,
-                "expected input={} but got {}",
-                fst_tester_util::input_to_string_with_term(input_mode, term,)?,
-                fst_tester_util::input_to_string_with_term(input_mode, &t.input.borrow(),)?
-            );
-            assert_eq!(
-                &t.output,
-                &pair.output,
-                "output mismatch at input={}",
-                fst_tester_util::input_to_string(input_mode, term, true)?
-            );
-        }
-
-        assert!(fst_enum.next()?.is_none(), "expected no more terms at end");
+    pub fn step2<F>(
+        &self,
+        input_mode: i32,
+        mut fst: Option<FST<T, O, F>>,
+        random: &mut impl Rng,
+    ) -> Result<(IntsRefFSTEnum<T, O, F>, HashMap<IntsRef<Vec<i32>>, T>)>
+    where
+        T: OutputsBound,
+        O: Outputs<T>,
+        F: FstReader,
+    {
         let mut terms_map: HashMap<IntsRef<Vec<i32>>, T> = HashMap::new();
-        for pair in pairs {
+        for pair in &self.pairs {
             terms_map.insert(pair.input.clone(), pair.output.clone());
         }
 
@@ -215,30 +475,245 @@ where
         let num = at_least(random, 500);
         for _ in 0..num {
             let output = FSTTester::<D, T, R, O, S>::random_accepted_word(
-                &mut fst_enum.base.as_mut().unwrap().fst,
+                fst.as_mut().unwrap(),
                 &mut scratch,
                 random,
             )?;
             let key = scratch.get();
             let expected = terms_map.get(&key).expect(&format!(
                 "accepted word {} is not valid",
-                fst_tester_util::input_to_string(input_mode, &key, true)?
+                fst_tester_util::input_to_string(input_mode, &key)?
             ));
             assert!(
                 self.outputs_equal(expected, &output),
                 "mismatched output for {}",
-                fst_tester_util::input_to_string(input_mode, &key, true)?
+                fst_tester_util::input_to_string(input_mode, &key)?
             );
         }
 
-        #[cfg(debug_assertions)]
-        {
+        if cfg!(feature = "test_log_verbose") {
             println!("TEST: verify seek");
         }
+        let mut fst_enum = IntsRefFSTEnum::new(fst.unwrap())?;
+        let num_seek = at_least(random, 100);
+        for iter in 0..num_seek {
+            if cfg!(feature = "test_log_verbose") {
+                println!("  iter={}", iter);
+            }
 
-        // let mut fst_enum = IntsRefFSTEnum::new(fst)?;
-        // let num_seek = at_least(random, 100);
+            if random.random_bool(0.5) {
+                // seek to term that doesn't exist
+                loop {
+                    let term_str = fst_tester_util::get_random_string(random);
+                    let mut ir_builder = IntsRefBuilder::default();
+                    let term = fst_tester_util::to_ints_ref_from_string_with_builder(
+                        &term_str,
+                        input_mode,
+                        &mut ir_builder,
+                    );
 
+                    let target = InputOutput::new(term.clone(), self.outputs.get_no_output());
+                    let mut pos = self.pairs.binary_search_by(|p| p.input.cmp(&target.input));
+
+                    if let Err(mut pos) = pos {
+                        // Not found
+                        let seek_result = if random.random_range(0..3) == 0 {
+                            if cfg!(feature = "test_log_verbose") {
+                                println!(
+                                    "  do non-exist seekExact term={}",
+                                    fst_tester_util::input_to_string(input_mode, &term)?
+                                );
+                            }
+                            fst_enum.seek_exact(term.clone())?
+                        } else if random.random_bool(0.5) {
+                            if cfg!(feature = "test_log_verbose") {
+                                println!(
+                                    "  do non-exist seekFloor term={}",
+                                    fst_tester_util::input_to_string(input_mode, &term)?
+                                );
+                            }
+
+                            pos = pos.saturating_sub(1);
+                            fst_enum.seek_floor(term.clone())?
+                        } else {
+                            if cfg!(feature = "test_log_verbose") {
+                                println!(
+                                    "  do non-exist seekCeil term={}",
+                                    fst_tester_util::input_to_string(input_mode, &term)?
+                                );
+                            }
+
+                            fst_enum.seek_ceil(term.clone())?
+                        };
+
+                        if pos != usize::MAX && pos < self.pairs.len() {
+                            let expected = &self.pairs[pos];
+
+                            assert!(
+                                seek_result.is_some(),
+                                "got null but expected term={}",
+                                fst_tester_util::input_to_string(input_mode, &expected.input)?
+                            );
+
+                            let actual = seek_result.unwrap();
+                            if cfg!(feature = "test_log_verbose") {
+                                println!(
+                                    "    got {}",
+                                    fst_tester_util::input_to_string(
+                                        input_mode,
+                                        &*actual.input.borrow()
+                                    )?
+                                );
+                            }
+
+                            assert_eq!(
+                                &*actual.input.borrow(),
+                                &expected.input,
+                                "expected input={} but got {}",
+                                fst_tester_util::input_to_string(input_mode, &expected.input)?,
+                                fst_tester_util::input_to_string(
+                                    input_mode,
+                                    &actual.input.borrow()
+                                )?
+                            );
+
+                            assert!(
+                                self.outputs_equal(&expected.output, &actual.output),
+                                "output mismatch at term={}",
+                                fst_tester_util::input_to_string(input_mode, &expected.input)?
+                            );
+                        } else {
+                            // seeked before start or beyond end
+                            assert!(
+                                seek_result.is_none(),
+                                "expected null but got {}",
+                                fst_tester_util::input_to_string(
+                                    input_mode,
+                                    &seek_result.unwrap().input.borrow()
+                                )?
+                            );
+                            if cfg!(feature = "test_log_verbose") {
+                                println!("    got null");
+                            }
+                        }
+
+                        break;
+                    }
+                }
+            } else {
+                // seek to existing term
+                let len = self.pairs.len();
+                let pair = &self.pairs[random.random_range(0..len)];
+                let seek_result = if random.random_range(0..3) == 2 {
+                    if cfg!(feature = "test_log_verbose") {
+                        println!(
+                            "  do exists seekExact term={}",
+                            fst_tester_util::input_to_string(input_mode, &pair.input,)?
+                        );
+                    }
+                    fst_enum.seek_exact(pair.input.clone())?
+                } else if random.random_bool(0.5) {
+                    if cfg!(feature = "test_log_verbose") {
+                        println!(
+                            "  do exists seekFloor term={}",
+                            fst_tester_util::input_to_string(input_mode, &pair.input,)?
+                        );
+                    };
+                    fst_enum.seek_floor(pair.input.clone())?
+                } else {
+                    if cfg!(feature = "test_log_verbose") {
+                        println!(
+                            "  do exists seekCeil term={}",
+                            fst_tester_util::input_to_string(input_mode, &pair.input,)?
+                        );
+                    };
+                    fst_enum.seek_ceil(pair.input.clone())?
+                };
+
+                let seek_result = seek_result.expect("expected seek result, got None");
+
+                assert_eq!(
+                    &*seek_result.input.borrow(),
+                    &pair.input,
+                    "got {} but expected {}",
+                    fst_tester_util::input_to_string(input_mode, &seek_result.input.borrow())?,
+                    fst_tester_util::input_to_string(input_mode, &pair.input)?
+                );
+
+                assert!(
+                    self.outputs_equal(&pair.output, &seek_result.output),
+                    "output mismatch at input={}",
+                    fst_tester_util::input_to_string(input_mode, &pair.input)?
+                );
+            }
+        }
+        if cfg!(feature = "test_log_verbose") {
+            println!("TEST: mixed next/seek");
+        }
+        Ok((fst_enum, terms_map))
+    }
+
+    pub fn step1<F>(
+        &self,
+        input_mode: i32,
+        fst: Option<FST<T, O, F>>,
+    ) -> Result<IntsRefFSTEnum<T, O, F>>
+    where
+        T: OutputsBound,
+        O: Outputs<T>,
+        F: FstReader,
+    {
+        let mut fst_enum = IntsRefFSTEnum::new(fst.unwrap())?;
+
+        for pair in &self.pairs {
+            let term = &pair.input;
+            let output = FSTTester::<D, T, R, O, S>::run(
+                &mut fst_enum.base.as_mut().unwrap().fst,
+                term,
+                None,
+            )?;
+            assert!(
+                output.is_some(),
+                "term {} is not accepted",
+                fst_tester_util::input_to_string(input_mode, term)?
+            );
+            assert!(self.outputs_equal(&pair.output, output.as_ref().unwrap()));
+
+            let t = fst_enum.next()?;
+            assert!(t.is_some(), "expected more terms");
+            let t = t.unwrap();
+            assert_eq!(
+                &*t.input.borrow(),
+                term,
+                "expected input={} but got {}",
+                fst_tester_util::input_to_string(input_mode, term,)?,
+                fst_tester_util::input_to_string(input_mode, &t.input.borrow(),)?
+            );
+            assert!(self.outputs_equal(&pair.output, &t.output));
+        }
+
+        assert!(fst_enum.next()?.is_none(), "expected no more terms at end");
+        Ok(fst_enum)
+    }
+
+    #[allow(dead_code)]
+    pub fn verify_unpruned<F>(
+        &self,
+        _input_mode: i32,
+        _fst: Option<FST<T, O, F>>,
+        _random: &mut impl Rng,
+        _seed: u64,
+    ) -> Result<()>
+    where
+        T: OutputsBound,
+        O: Outputs<T>,
+        F: FstReader,
+    {
+        // Due to Rust's ownership and borrowing rules, once ownership of fst is
+        // transferred to IntsRefFSTEnum, it can no longer be reused.
+        // To make this functionality work and keep consistent with Java Lucene, the
+        // method was split into three separate steps in `run_steps()`, allowing fst to
+        // be reused.
         Ok(())
     }
     fn outputs_equal(&self, a: &T, b: &T) -> bool
@@ -267,11 +742,11 @@ pub mod fst_tester_util {
     use crate::util::ints_ref_builder::IntsRefBuilder;
     use crate::util::unicode_util::UnicodeUtil;
 
-    pub fn input_to_string_with_term(input_mode: i32, term: &IntsRef<Vec<i32>>) -> Result<String> {
-        input_to_string(input_mode, term, true)
+    pub fn input_to_string(input_mode: i32, term: &IntsRef<Vec<i32>>) -> Result<String> {
+        input_to_string_with_flag(input_mode, term, true)
     }
 
-    pub fn input_to_string(
+    pub fn input_to_string_with_flag(
         input_mode: i32,
         term: &IntsRef<Vec<i32>>,
         is_valid_unicode: bool,
@@ -421,4 +896,14 @@ where
     fn cmp(&self, other: &Self) -> Ordering {
         self.input.cmp(&other.input)
     }
+}
+
+enum FSTEnums<T, O, D>
+where
+    T: OutputsBound,
+    O: Outputs<T>,
+    D: Directory,
+{
+    FST1(FST<T, O, OnHeapFSTStore>),
+    FST2(FST<T, O, DataOutputEnum<D>>),
 }
