@@ -14,25 +14,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::cell::RefCell;
+use std::rc::Rc;
+
+use crate::index::BytesRef;
 use crate::util::array_util::ArrayUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::fst_impl::bytes_rc::BytesRc;
 use crate::util::fst_impl::fst::{fst_util, FST};
 use crate::util::fst_impl::fst_enum::{FSTEnum, FSTEnumBase, InputOutput};
 use crate::util::fst_impl::fst_reader::FstReader;
 use crate::util::fst_impl::outputs::{Outputs, OutputsBound};
 use crate::util::OptionTakeExt;
 
-/// Enumerates all input (`BytesRc`) + output pairs in an FST.
+/// Enumerates all input (`BytesRef`) + output pairs in an FST.
 pub struct BytesRefFSTEnum<T, O, F>
 where
     T: OutputsBound,
     O: Outputs<T>,
     F: FstReader,
 {
-    pub(crate) current: BytesRc,
-    pub(crate) result: InputOutput<T, BytesRc>,
-    pub(crate) target: BytesRc,
+    pub(crate) current: BytesRef<Rc<RefCell<Vec<u8>>>>,
+    pub(crate) result: InputOutput<T, BytesRef<Rc<RefCell<Vec<u8>>>>>,
+    pub(crate) target: BytesRef<Rc<RefCell<Vec<u8>>>>,
     base: Option<FSTEnum<T, O, F>>,
 }
 
@@ -46,9 +49,10 @@ where
     /// `do_floor` controls the behavior of advance: if it's true,
     /// `advance` positions to the biggest term before target.
     pub fn new(fst: FST<T, O, F>) -> Result<Self> {
-        let mut current = BytesRc::with_capacity(10);
+        let mut current: BytesRef<Rc<RefCell<Vec<u8>>>> = BytesRef::with_capacity(10);
         current.offset = 1;
-        let result_input = BytesRc::from_vec(current.bytes.clone(), current.offset, current.length);
+        let result_input =
+            BytesRef::from_slice(current.bytes.clone(), current.offset, current.length);
         let base = FSTEnum::new(fst)?;
         Ok(Self {
             current,
@@ -56,25 +60,28 @@ where
                 input: result_input,
                 output: T::default(),
             },
-            target: BytesRc::new(),
+            target: BytesRef::new(),
             base: Some(base),
         })
     }
 
-    pub fn current(&self) -> &InputOutput<T, BytesRc> {
+    pub fn current(&self) -> &InputOutput<T, BytesRef<Rc<RefCell<Vec<u8>>>>> {
         &self.result
     }
 
-    pub fn next(&mut self) -> Result<Option<&InputOutput<T, BytesRc>>> {
+    pub fn next(&mut self) -> Result<Option<&InputOutput<T, BytesRef<Rc<RefCell<Vec<u8>>>>>>> {
         self.base.take_do_return(|base| base.do_next())?;
         self.set_result()
     }
 
-    pub fn seek_ceil(&mut self, target: BytesRc) -> Result<Option<&InputOutput<T, BytesRc>>> {
+    pub fn seek_ceil(
+        &mut self,
+        target: BytesRef<Rc<RefCell<Vec<u8>>>>,
+    ) -> Result<Option<&InputOutput<T, BytesRef<Rc<RefCell<Vec<u8>>>>>>> {
         self.target = target;
         match self.base.take() {
             Some(mut base) => {
-                base.target_length = self.target.length;
+                base.target_length = self.target.length as i32;
                 base.do_seek_ceil(self)?;
                 self.base = Some(base);
             },
@@ -83,11 +90,14 @@ where
         self.set_result()
     }
 
-    pub fn seek_floor(&mut self, target: BytesRc) -> Result<Option<&InputOutput<T, BytesRc>>> {
+    pub fn seek_floor(
+        &mut self,
+        target: BytesRef<Rc<RefCell<Vec<u8>>>>,
+    ) -> Result<Option<&InputOutput<T, BytesRef<Rc<RefCell<Vec<u8>>>>>>> {
         self.target = target;
         match self.base.take() {
             Some(mut base) => {
-                base.target_length = self.target.length;
+                base.target_length = self.target.length as i32;
                 base.do_seek_floor(self)?;
                 self.base = Some(base);
             },
@@ -96,11 +106,14 @@ where
         self.set_result()
     }
 
-    pub fn seek_exact(&mut self, target: BytesRc) -> Result<Option<&InputOutput<T, BytesRc>>> {
+    pub fn seek_exact(
+        &mut self,
+        target: BytesRef<Rc<RefCell<Vec<u8>>>>,
+    ) -> Result<Option<&InputOutput<T, BytesRef<Rc<RefCell<Vec<u8>>>>>>> {
         self.target = target;
         match self.base.take() {
             Some(mut base) => {
-                base.target_length = self.target.length;
+                base.target_length = self.target.length as i32;
                 if base.do_seek_exact(self)? {
                     debug_assert_eq!(base.upto, 1 + self.target.length as usize);
                     self.base = Some(base);
@@ -114,12 +127,12 @@ where
         }
     }
 
-    fn set_result(&mut self) -> Result<Option<&InputOutput<T, BytesRc>>> {
+    fn set_result(&mut self) -> Result<Option<&InputOutput<T, BytesRef<Rc<RefCell<Vec<u8>>>>>>> {
         self.base.take_do_return(|base| {
             if base.upto == 0 {
                 Ok(None)
             } else {
-                self.current.length = base.upto as i32 - 1;
+                self.current.length = base.upto - 1;
                 self.result.output = base.output[base.upto].clone();
                 Ok(Some(&self.result))
             }
