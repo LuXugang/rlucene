@@ -150,6 +150,9 @@ where
         Ok(output)
     }
 
+    // Using the same seed to generate the same type of FST object allows the fst
+    // inside IntsRefFSTEnum to be replaced using std::mem::replace. The purpose
+    // of this is to remain consistent with the behavior in Java Lucene.
     pub fn get_fst(&self, seed: u64) -> Result<(Option<FSTEnums<T, O, D>>, i64, i64)> {
         let mut random = random_from_seed(seed);
         let input_type = if self.input_mode == 0 {
@@ -270,12 +273,12 @@ where
         self.arc_count = arc_count;
         todo!()
     }
-    fn run_steps<F, FR>(&self, seed: u64, mut reuse: FST<T, O, FR>, unwrap_fn: F) -> Result<()>
+    fn run_steps<C, F>(&self, seed: u64, mut reuse: FST<T, O, F>, unwrap_fn: C) -> Result<()>
     where
         T: OutputsBound,
         O: Outputs<T>,
-        F: Fn(FSTEnums<T, O, D>) -> FST<T, O, FR>,
-        FR: FstReader,
+        C: Fn(FSTEnums<T, O, D>) -> FST<T, O, F>,
+        F: FstReader,
         D: Directory,
     {
         let mut random = random_from_seed(seed);
