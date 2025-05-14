@@ -30,6 +30,7 @@ use crate::store::{
 };
 use crate::test::util::lucene_test_case::EnvConfig::{Multiplier, NightMode, TestSeed};
 use crate::test::util::test_util::TestUtil;
+use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::Result;
 use crate::util::SliceCopyOps;
 
@@ -165,10 +166,10 @@ pub(crate) fn slow_file_exists(dir: &impl Directory, name: &str) -> Result<bool>
 /// Creates a `BytesRef` holding UTF-8 bytes for the incoming string,
 /// that sometimes uses a non-zero offset and non-zero end-padding to
 /// tickle latent bugs that fail to look at `BytesRef.offset`.
-pub(crate) fn new_bytes_ref_from_string<R: Rng + ?Sized>(
+pub(crate) fn new_bytes_ref_from_string<R: Rng + ?Sized, AV: AccessVec<u8>>(
     random: &mut R,
     s: &str,
-) -> Result<BytesRef<Vec<u8>>> {
+) -> Result<BytesRef<AV>> {
     let bytes = s.as_bytes();
     new_bytes_ref(random, bytes, 0, bytes.len() as i32)
 }
@@ -176,39 +177,42 @@ pub(crate) fn new_bytes_ref_from_string<R: Rng + ?Sized>(
 /// Creates a copy of the incoming `BytesRef` that sometimes uses a non-zero
 /// offset, and non-zero end-padding, to tickle latent bugs that fail to look at
 /// `BytesRef.offset`.
-pub(crate) fn new_bytes_ref_from_bytes_ref<R: Rng + ?Sized>(
+pub(crate) fn new_bytes_ref_from_bytes_ref<R: Rng + ?Sized, AV: AccessVec<u8>>(
     random: &mut R,
-    b: &BytesRef<Vec<u8>>,
-) -> Result<BytesRef<Vec<u8>>> {
+    b: &BytesRef<AV>,
+) -> Result<BytesRef<AV>> {
     assert!(b.is_valid()?);
-    new_bytes_ref(random, &b.bytes, b.offset as i32, b.length as i32)
+    b.bytes
+        .access(|bytes| new_bytes_ref(random, bytes, b.offset as i32, b.length as i32))
 }
 
 /// Creates a random `BytesRef` from the incoming bytes, sometimes using a
 /// non-zero offset, and non-zero end-padding, to tickle latent bugs that fail
 /// to look at `BytesRef.offset`.
-pub(crate) fn new_bytes_ref_from_bytes<R: Rng + ?Sized>(
+pub(crate) fn new_bytes_ref_from_bytes<R: Rng + ?Sized, AV: AccessVec<u8>>(
     random: &mut R,
     bytes_in: &[u8],
-) -> Result<BytesRef<Vec<u8>>> {
+) -> Result<BytesRef<AV>> {
     new_bytes_ref(random, bytes_in, 0, bytes_in.len() as i32)
 }
 
 /// Creates a random empty `BytesRef` that sometimes uses a non-zero offset, and
 /// non-zero end-padding, to tickle latent bugs that fail to look at
 /// `BytesRef.offset`.
-pub(crate) fn new_bytes_ref_empty<R: Rng + ?Sized>(random: &mut R) -> Result<BytesRef<Vec<u8>>> {
-    new_bytes_ref(random, &[], 0, 0) // Calling the existing `new_bytes_ref`
-                                     // function
+pub(crate) fn new_bytes_ref_empty<R: Rng + ?Sized, AV: AccessVec<u8>>(
+    random: &mut R,
+) -> Result<BytesRef<AV>> {
+    // Calling the existing `new_bytes_ref` function
+    new_bytes_ref(random, &[], 0, 0)
 }
 
 /// Creates a random empty `BytesRef`, with at least the requested length of
 /// bytes free, that sometimes uses a non-zero offset and non-zero end-padding
 /// to tickle latent bugs that fail to look at `BytesRef.offset`.
-pub(crate) fn new_bytes_ref_with_length<R: Rng + ?Sized>(
+pub(crate) fn new_bytes_ref_with_length<R: Rng + ?Sized, AV: AccessVec<u8>>(
     byte_length: i32,
     random: &mut R,
-) -> Result<BytesRef<Vec<u8>>> {
+) -> Result<BytesRef<AV>> {
     let bytes_in = vec![0u8; byte_length as usize];
     new_bytes_ref(random, &bytes_in, 0, byte_length)
 }
@@ -216,12 +220,12 @@ pub(crate) fn new_bytes_ref_with_length<R: Rng + ?Sized>(
 /// Creates a copy of the incoming bytes slice that sometimes uses a non-zero
 /// {@code offset}, and non-zero end-padding, to tickle latent bugs that fail to
 /// look at {@code BytesRef.offset}.
-pub(crate) fn new_bytes_ref<R: Rng + ?Sized>(
+pub(crate) fn new_bytes_ref<R: Rng + ?Sized, AV: AccessVec<u8>>(
     random: &mut R,
     bytes_in: &[u8],
     offset: i32,
     length: i32,
-) -> Result<BytesRef<Vec<u8>>> {
+) -> Result<BytesRef<AV>> {
     assert!(
         bytes_in.len() >= (offset + length) as usize,
         "got offset={} length={} bytesIn.length={}",
@@ -250,16 +254,19 @@ pub(crate) fn new_bytes_ref<R: Rng + ?Sized>(
         start_offset as usize,
     );
     // Create a BytesRef and return it
+    let vec = AV::from_vec(bytes);
     let it = BytesRef {
-        bytes,
+        bytes: vec,
         offset: start_offset as usize,
         length: length as usize,
     };
     assert!(it.is_valid()?);
 
     if random.random_range(1..=17) == 7 {
-        return new_bytes_ref(random, &it.bytes, it.offset as i32, it.length as i32);
-    };
+        return it
+            .bytes
+            .access(|bytes| new_bytes_ref(random, bytes, it.offset as i32, it.length as i32));
+    }
     Ok(it)
 }
 

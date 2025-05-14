@@ -326,6 +326,7 @@ pub static GOOD_FAST_HASH_SEED: Lazy<i32> = Lazy::new(|| {
 
 #[cfg(test)]
 mod tests {
+    use crate::index::BytesRef;
     use crate::test::util::lucene_test_case::new_bytes_ref_from_string;
     use crate::test::util::lucene_test_case::random;
     use crate::util::error::lucene_error::{LuceneError, Result};
@@ -336,54 +337,54 @@ mod tests {
     #[test]
     fn test_bytes_difference() -> Result<()> {
         let mut random = random();
-        let left = new_bytes_ref_from_string(&mut random, "foobar")?;
+        let left: BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, "foobar")?;
         let right = new_bytes_ref_from_string(&mut random, "foozo")?;
         assert_eq!(StringHelper::bytes_difference(&left, &right)?, 3);
 
         assert_eq!(
-            StringHelper::bytes_difference(
+            StringHelper::bytes_difference::<Vec<u8>>(
                 &new_bytes_ref_from_string(&mut random, "foo")?,
                 &new_bytes_ref_from_string(&mut random, "for")?
             )?,
             2
         );
         assert_eq!(
-            StringHelper::bytes_difference(
+            StringHelper::bytes_difference::<Vec<u8>>(
                 &new_bytes_ref_from_string(&mut random, "foo1234")?,
                 &new_bytes_ref_from_string(&mut random, "for1234")?
             )?,
             2
         );
         assert_eq!(
-            StringHelper::bytes_difference(
+            StringHelper::bytes_difference::<Vec<u8>>(
                 &new_bytes_ref_from_string(&mut random, "foo")?,
                 &new_bytes_ref_from_string(&mut random, "fz")?
             )?,
             1
         );
         assert_eq!(
-            StringHelper::bytes_difference(
+            StringHelper::bytes_difference::<Vec<u8>>(
                 &new_bytes_ref_from_string(&mut random, "foo")?,
                 &new_bytes_ref_from_string(&mut random, "g")?
             )?,
             0
         );
         assert_eq!(
-            StringHelper::bytes_difference(
+            StringHelper::bytes_difference::<Vec<u8>>(
                 &new_bytes_ref_from_string(&mut random, "foo")?,
                 &new_bytes_ref_from_string(&mut random, "food")?
             )?,
             3
         );
         assert_eq!(
-            StringHelper::bytes_difference(
+            StringHelper::bytes_difference::<Vec<u8>>(
                 &new_bytes_ref_from_string(&mut random, "food")?,
                 &new_bytes_ref_from_string(&mut random, "foo")?
             )?,
             3
         );
         // we can detect terms are out of order if we see a duplicate
-        let result = StringHelper::bytes_difference(
+        let result = StringHelper::bytes_difference::<Vec<u8>>(
             &new_bytes_ref_from_string(&mut random, "ab")?,
             &new_bytes_ref_from_string(&mut random, "ab")?,
         );
@@ -427,15 +428,21 @@ mod tests {
         let mut random = random();
         // Hashes computed using murmur3_32 from https://code.google.com/p/pyfasthash
         assert_eq!(
-            StringHelper::murmurhash3_x86_32(&new_bytes_ref_from_string(&mut random, "foo")?, 0),
+            StringHelper::murmurhash3_x86_32::<Vec<u8>>(
+                &new_bytes_ref_from_string(&mut random, "foo")?,
+                0
+            ),
             0xf6a5c420u32 as i32
         );
         assert_eq!(
-            StringHelper::murmurhash3_x86_32(&new_bytes_ref_from_string(&mut random, "foo")?, 16),
+            StringHelper::murmurhash3_x86_32::<Vec<u8>>(
+                &new_bytes_ref_from_string(&mut random, "foo")?,
+                16
+            ),
             0xcd018ef6u32 as i32
         );
         assert_eq!(
-            StringHelper::murmurhash3_x86_32(
+            StringHelper::murmurhash3_x86_32::<Vec<u8>>(
                 &new_bytes_ref_from_string(
                     &mut random,
                     "You want weapons? We're in a library! Books! The best weapons in the world!"
@@ -445,7 +452,7 @@ mod tests {
             0x111e7435
         );
         assert_eq!(
-            StringHelper::murmurhash3_x86_32(
+            StringHelper::murmurhash3_x86_32::<Vec<u8>>(
                 &new_bytes_ref_from_string(
                     &mut random,
                     "You want weapons? We're in a library! Books! The best weapons in the world!"
@@ -460,35 +467,35 @@ mod tests {
     fn test_sort_key_length() -> Result<()> {
         let mut random = random();
         assert_eq!(
-            StringHelper::sort_key_length(
+            StringHelper::sort_key_length::<Vec<u8>>(
                 &new_bytes_ref_from_string(&mut random, "foo")?,
                 &new_bytes_ref_from_string(&mut random, "for")?
             )?,
             3
         );
         assert_eq!(
-            StringHelper::sort_key_length(
+            StringHelper::sort_key_length::<Vec<u8>>(
                 &new_bytes_ref_from_string(&mut random, "foo1234")?,
                 &new_bytes_ref_from_string(&mut random, "for1234")?
             )?,
             3
         );
         assert_eq!(
-            StringHelper::sort_key_length(
+            StringHelper::sort_key_length::<Vec<u8>>(
                 &new_bytes_ref_from_string(&mut random, "foo")?,
                 &new_bytes_ref_from_string(&mut random, "fz")?
             )?,
             2
         );
         assert_eq!(
-            StringHelper::sort_key_length(
+            StringHelper::sort_key_length::<Vec<u8>>(
                 &new_bytes_ref_from_string(&mut random, "foo")?,
                 &new_bytes_ref_from_string(&mut random, "g")?
             )?,
             1
         );
         assert_eq!(
-            StringHelper::sort_key_length(
+            StringHelper::sort_key_length::<Vec<u8>>(
                 &new_bytes_ref_from_string(&mut random, "foo")?,
                 &new_bytes_ref_from_string(&mut random, "food")?
             )?,
@@ -496,7 +503,7 @@ mod tests {
         );
 
         // We can detect terms are out of order if we see a duplicate
-        let result = StringHelper::sort_key_length(
+        let result = StringHelper::sort_key_length::<Vec<u8>>(
             &new_bytes_ref_from_string(&mut random, "ab")?,
             &new_bytes_ref_from_string(&mut random, "ab")?,
         );

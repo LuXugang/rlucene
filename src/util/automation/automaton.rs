@@ -2685,7 +2685,7 @@ mod tests {
     }
     fn ints_ref<R: Rng + ?Sized>(s: &str, random: &mut R) -> Result<IntsRef<Vec<i32>>> {
         let mut builder = IntsRefBuilder::new();
-        let b = new_bytes_ref_from_string(random, s)?;
+        let b: BytesRef<Vec<u8>> = new_bytes_ref_from_string(random, s)?;
         Util::get_ints_ref(&b, &mut builder);
         Ok(builder.get().clone())
     }

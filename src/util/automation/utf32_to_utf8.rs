@@ -630,7 +630,10 @@ mod tests {
             let utf8 = UTF32ToUTF8::new().convert(&a)?.into_owned();
 
             let mut ints = IntsRefBuilder::new();
-            Util::get_ints_ref(&new_bytes_ref_from_string(&mut random, &s)?, &mut ints);
+            Util::get_ints_ref(
+                &new_bytes_ref_from_string::<rand::prelude::StdRng, Vec<u8>>(&mut random, &s)?,
+                &mut ints,
+            );
             let mut set = HashSet::new();
             set.insert(ints.get_owner());
 
