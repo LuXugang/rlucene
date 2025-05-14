@@ -30,6 +30,7 @@ mod node_hash;
 pub mod off_heap_fst_store;
 pub mod on_heap_fst_store;
 pub(crate) mod outputs;
+mod positive_int_outputs;
 mod read_write_data_output;
 pub mod reverse_bytes_reader;
 pub mod reverse_random_access_reader;
