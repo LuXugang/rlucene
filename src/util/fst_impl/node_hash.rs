@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use std::cell::RefCell;
+use std::hash::{DefaultHasher, Hash, Hasher};
 use std::marker::PhantomData;
 use std::rc::Rc;
 
@@ -30,7 +31,7 @@ use crate::util::long_values::LongValues;
 use crate::util::packed::abstract_paged_mutable::AbstractPagedMutable;
 use crate::util::packed::paged_growable_writer::PagedGrowableWriter;
 use crate::util::packed::PackedInts;
-use crate::util::{ByteBlockPool, ByteBlockPoolBorrow, CoreHelper};
+use crate::util::{ByteBlockPool, ByteBlockPoolBorrow};
 // TODO: any way to make a reverse suffix lookup (msokolov's idea) instead of
 // more costly hash? hmmm, though, hash is not so wasteful
 // since it does not have to store value of each entry: the value is the node
@@ -63,7 +64,6 @@ where
     fallback_table: Option<PagedGrowableHash<T, O, D>>,
 
     fst_compiler: Rc<RefCell<FSTCompilerInner<T, O, D>>>,
-    scratch_arc: Arc<T>,
     // store the last fallback table node length in getFallback()
     last_fallback_node_length: i32,
     // store the last fallback table hashtable slot in getFallback()
@@ -104,7 +104,6 @@ where
             fallback_table: None, // Empty initially
             ram_limit_bytes,
             fst_compiler,
-            scratch_arc: Arc::default(),
             last_fallback_node_length: 0,
             last_fallback_hash_slot: 0,
             phantom: PhantomData,
@@ -277,30 +276,21 @@ where
         }
     }
     fn hash(&self, node: &UnCompiledNode<T>) -> Result<i64> {
-        const PRIME: i64 = 31;
-        let mut h: i64 = 0;
-
+        let mut hasher = DefaultHasher::new();
         for arc in &node.arcs[..node.num_arcs as usize] {
-            h = PRIME.wrapping_mul(h).wrapping_add(arc.label as i64);
-
+            arc.label.hash(&mut hasher);
             let n = match &arc.target {
                 NodeEnum::CompiledNode(compiled_node) => compiled_node.node,
                 _ => return Err(LuceneError::illegal_state("Node should be compiled")),
             };
-            h = PRIME.wrapping_mul(h).wrapping_add(n ^ (n >> 32));
-
-            h = PRIME
-                .wrapping_mul(h)
-                .wrapping_add(CoreHelper::compute_hash(&arc.output));
-            h = PRIME
-                .wrapping_mul(h)
-                .wrapping_add(CoreHelper::compute_hash(&arc.next_final_output));
-
+            n.hash(&mut hasher);
+            arc.output.hash(&mut hasher);
+            arc.next_final_output.hash(&mut hasher);
             if arc.is_final {
-                h = h.wrapping_add(17);
+                arc.is_final.hash(&mut hasher);
             }
         }
-        Ok(h)
+        Ok(hasher.finish() as i64)
     }
 }
 
@@ -318,6 +308,7 @@ where
     copied_nodes: ByteBlockPoolBorrow,
     fst_compiler: Rc<RefCell<FSTCompilerInner<T, O, D>>>,
     inner: Inner,
+    scratch_arc: Arc<T>,
 }
 pub struct Inner {
     /// the [`FST.BytesReader`](crate::util::fst_impl::fst_reader::FstReader)
@@ -410,6 +401,7 @@ where
             copied_nodes,
             inner,
             fst_compiler,
+            scratch_arc: Arc::default(),
         })
     }
     /// Get the copied bytes at the provided hash slot.
@@ -549,33 +541,29 @@ where
         Ok(())
     }
     fn hash(&mut self, node_address: i64, hash_slot: i64) -> Result<i64> {
-        let mut scratch_arc: Arc<T> = Arc::default();
+        let mut hasher = DefaultHasher::new();
         let reader = self.inner.get_bytes_reader(node_address, hash_slot)?;
         let compiler = self.fst_compiler.borrow();
 
-        let prime: i64 = 31;
-        let mut h: i64 = 0;
-
         compiler
             .fst
-            .read_first_real_target_arc(node_address, &mut scratch_arc, reader)?;
-        // TODO: 这里要改成wrapping_mul跟wrapping_add
+            .read_first_real_target_arc(node_address, &mut self.scratch_arc, reader)?;
         loop {
-            h = prime * h + scratch_arc.label() as i64;
-            let target = scratch_arc.target();
-            h = prime * h + (target ^ (target >> 32));
-            h = prime * h + CoreHelper::compute_hash(&scratch_arc.output());
-            h = prime * h + CoreHelper::compute_hash(&scratch_arc.next_final_output());
-            if scratch_arc.is_final() {
-                h += 17;
+            self.scratch_arc.label().hash(&mut hasher);
+            self.scratch_arc.target().hash(&mut hasher);
+            self.scratch_arc.output().hash(&mut hasher);
+            self.scratch_arc.next_final_output().hash(&mut hasher);
+            if self.scratch_arc.is_final() {
+                self.scratch_arc.is_final().hash(&mut hasher);
             }
-            if scratch_arc.is_last() {
+            if self.scratch_arc.is_last() {
                 break;
             }
-            compiler.fst.read_next_real_arc(&mut scratch_arc, reader)?;
+            compiler
+                .fst
+                .read_next_real_arc(&mut self.scratch_arc, reader)?;
         }
-
-        Ok(h)
+        Ok(hasher.finish() as i64)
     }
     /// Compares an unfrozen node (`UnCompiledNode`) with a frozen node at byte
     /// location address (`i64`), returning the node length if the two nodes
@@ -591,20 +579,19 @@ where
         hash_slot: i64,
     ) -> Result<i32> {
         let in_reader = self.inner.get_bytes_reader(address, hash_slot)?;
-        let mut scratch_arc: Arc<T> = Arc::default();
         self.fst_compiler.borrow().fst.read_first_real_target_arc(
             address,
-            &mut scratch_arc,
+            &mut self.scratch_arc,
             in_reader,
         )?;
         // fail fast for a node with fixed length arcs
-        if scratch_arc.bytes_per_arc() != 0 {
+        if self.scratch_arc.bytes_per_arc() != 0 {
             debug_assert!(node.num_arcs > 0);
             // the frozen node uses fixed-with arc encoding (same number of
             // bytes per arc), but may be sparse or dense
-            match scratch_arc.node_flags() {
+            match self.scratch_arc.node_flags() {
                 fst_util::ARCS_FOR_BINARY_SEARCH => {
-                    if node.num_arcs != scratch_arc.num_arcs() {
+                    if node.num_arcs != self.scratch_arc.num_arcs() {
                         // sparse
                         return Ok(-1);
                     }
@@ -615,8 +602,8 @@ where
                     // not actually be arcs), and the number of arcs
                     let first_label = node.arcs[0].label;
                     let last_label = node.arcs[node.num_arcs as usize - 1].label;
-                    if (last_label - first_label + 1) != scratch_arc.num_arcs()
-                        || node.num_arcs != BitTable::count_bits(&scratch_arc, in_reader)?
+                    if (last_label - first_label + 1) != self.scratch_arc.num_arcs()
+                        || node.num_arcs != BitTable::count_bits(&self.scratch_arc, in_reader)?
                     {
                         return Ok(-1);
                     }
@@ -624,14 +611,14 @@ where
                 fst_util::ARCS_FOR_CONTINUOUS => {
                     let first_label = node.arcs[0].label;
                     let last_label = node.arcs[node.num_arcs as usize - 1].label;
-                    if (last_label - first_label + 1) != scratch_arc.num_arcs() {
+                    if (last_label - first_label + 1) != self.scratch_arc.num_arcs() {
                         return Ok(-1);
                     }
                 },
                 _ => {
                     return Err(LuceneError::illegal_state(format!(
                         "unhandled scratchArc.nodeFlag() {}",
-                        scratch_arc.node_flags()
+                        self.scratch_arc.node_flags()
                     )));
                 },
             }
@@ -640,30 +627,32 @@ where
         for arc_idx in 0..node.num_arcs as usize {
             let arc = &node.arcs[arc_idx];
 
-            if arc.label != scratch_arc.label()
-                || arc.output != scratch_arc.output()
+            if arc.label != self.scratch_arc.label()
+                || arc.output != self.scratch_arc.output()
                 || {
                     match &arc.target {
-                        NodeEnum::CompiledNode(compiled) => compiled.node != scratch_arc.target(),
+                        NodeEnum::CompiledNode(compiled) => {
+                            compiled.node != self.scratch_arc.target()
+                        },
                         _ => return Err(LuceneError::illegal_state("Node should be compiled")),
                     }
                 }
-                || arc.next_final_output != scratch_arc.next_final_output()
-                || arc.is_final != scratch_arc.is_final()
+                || arc.next_final_output != self.scratch_arc.next_final_output()
+                || arc.is_final != self.scratch_arc.is_final()
             {
                 return Ok(-1);
             }
 
             match &arc.target {
                 NodeEnum::CompiledNode(compiled) => {
-                    if compiled.node != scratch_arc.target() {
+                    if compiled.node != self.scratch_arc.target() {
                         return Ok(-1);
                     }
                 },
                 _ => return Ok(-1),
             }
 
-            if scratch_arc.is_last() {
+            if self.scratch_arc.is_last() {
                 if arc_idx == (node.num_arcs as usize - 1) {
                     let len = address - in_reader.get_position();
                     return Ok(len as i32);
@@ -675,7 +664,7 @@ where
             self.fst_compiler
                 .borrow()
                 .fst
-                .read_next_real_arc(&mut scratch_arc, in_reader)?;
+                .read_next_real_arc(&mut self.scratch_arc, in_reader)?;
         }
 
         // unfrozen node has fewer arcs than frozen node

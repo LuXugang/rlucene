@@ -271,7 +271,7 @@ where
                 debug_assert!(inner.valid_output(&last_output));
 
                 let common_output_prefix;
-                if std::ptr::eq(&last_output, &inner.no_output) {
+                if !std::ptr::eq(&last_output, &inner.no_output) {
                     common_output_prefix = inner.fst.outputs.common(&output, &last_output);
                     debug_assert!(inner.valid_output(&common_output_prefix));
 
@@ -517,8 +517,8 @@ where
     }
     // serializes new node by appending its bytes to the end
     // of the current byte[]
-    pub(crate) fn add_node(&mut self, node_in_index: usize) -> Result<i64> {
-        let node_in = self.frontier[node_in_index].as_ref().unwrap();
+    pub(crate) fn add_node(&mut self, node_in_idx: usize) -> Result<i64> {
+        let node_in = self.frontier[node_in_idx].as_ref().unwrap();
         if node_in.num_arcs == 0 {
             return Ok(if node_in.is_final {
                 fst_util::FINAL_END_NODE
@@ -566,7 +566,7 @@ where
 
                     if arc.is_final {
                         flags |= fst_util::BIT_FINAL_ARC as i32;
-                        if std::ptr::eq(&arc.next_final_output, &self.no_output) {
+                        if !std::ptr::eq(&arc.next_final_output, &self.no_output) {
                             flags |= fst_util::BIT_ARC_HAS_FINAL_OUTPUT as i32;
                         }
                     } else {
@@ -578,7 +578,7 @@ where
                         flags |= fst_util::BIT_STOP_NODE;
                     }
 
-                    if std::ptr::eq(&arc.output, &self.no_output) {
+                    if !std::ptr::eq(&arc.output, &self.no_output) {
                         flags |= fst_util::BIT_ARC_HAS_OUTPUT as i32;
                     }
 
@@ -606,13 +606,13 @@ where
                     let label_end = self.scratch_bytes.get_position();
                     let num_label_bytes = label_end - label_start;
 
-                    if std::ptr::eq(&arc.output, &self.no_output) {
+                    if !std::ptr::eq(&arc.output, &self.no_output) {
                         self.fst
                             .outputs
                             .write(&arc.output, &mut self.scratch_bytes)?;
                     }
 
-                    if std::ptr::eq(&arc.next_final_output, &self.no_output) {
+                    if !std::ptr::eq(&arc.next_final_output, &self.no_output) {
                         self.fst
                             .outputs
                             .write_final_output(&arc.next_final_output, &mut self.scratch_bytes)?;
@@ -657,37 +657,37 @@ where
           }
         }
         */
-        // if do_fixed_length_arcs {
-        //     debug_assert!(max_bytes_per_arc > 0);
-        //     let label_range = node_in.arcs[last_arc as usize].label -
-        // node_in.arcs[0].label + 1;     debug_assert!(label_range > 0);
-        //     let continuous_label = label_range == node_in.num_arcs;
-        //     if continuous_label && self.version >= fst_util::VERSION_CONTINUOUS_ARCS
-        // {         self.write_node_for_direct_addressing_or_continuous(
-        //             node_in,
-        //             max_bytes_per_arc_without_label,
-        //             label_range,
-        //             true,
-        //         )?;
-        //         self.continuous_node_count += 1;
-        //     } else if self.should_expand_node_with_direct_addressing(
-        //         node_in,
-        //         max_bytes_per_arc,
-        //         max_bytes_per_arc_without_label,
-        //         label_range,
-        //     ) {
-        //         self.write_node_for_direct_addressing_or_continuous(
-        //             node_in,
-        //             max_bytes_per_arc_without_label,
-        //             label_range,
-        //             false,
-        //         )?;
-        //         self.direct_addressing_node_count += 1;
-        //     } else {
-        //         self.write_node_for_binary_search(node_in, max_bytes_per_arc)?;
-        //         self.binary_search_node_count += 1;
-        //     }
-        // }
+        if do_fixed_length_arcs {
+            debug_assert!(max_bytes_per_arc > 0);
+            let label_range = node_in.arcs[last_arc as usize].label - node_in.arcs[0].label + 1;
+            debug_assert!(label_range > 0);
+            let continuous_label = label_range == node_in.num_arcs;
+            if continuous_label && self.version >= fst_util::VERSION_CONTINUOUS_ARCS {
+                self.write_node_for_direct_addressing_or_continuous(
+                    node_in_idx,
+                    max_bytes_per_arc_without_label,
+                    label_range,
+                    true,
+                )?;
+                self.continuous_node_count += 1;
+            } else if self.should_expand_node_with_direct_addressing(
+                node_in_idx,
+                max_bytes_per_arc,
+                max_bytes_per_arc_without_label,
+                label_range,
+            ) {
+                self.write_node_for_direct_addressing_or_continuous(
+                    node_in_idx,
+                    max_bytes_per_arc_without_label,
+                    label_range,
+                    false,
+                )?;
+                self.direct_addressing_node_count += 1;
+            } else {
+                self.write_node_for_binary_search(node_in_idx, max_bytes_per_arc)?;
+                self.binary_search_node_count += 1;
+            }
+        }
 
         self.reverse_scratch_bytes();
         // write the padding byte if needed
@@ -796,12 +796,13 @@ where
     /// [`FSTCompiler::get_direct_addressing_max_oversizing_factor`](Self::get_direct_addressing_max_oversizing_factor)
     fn should_expand_node_with_direct_addressing(
         &mut self,
-        node_in: &UnCompiledNode<T>,
+        node_in_idx: usize,
         num_bytes_per_arc: i32,
         max_bytes_per_arc_without_label: i32,
         label_range: i32,
     ) -> bool {
         // Anticipate precisely the size of the encodings.
+        let node_in = self.frontier[node_in_idx].as_ref().unwrap();
         let size_for_binary_search = num_bytes_per_arc * node_in.num_arcs;
         let size_for_direct_addressing = fst_util::get_num_presence_bytes(label_range)
             + self.num_label_bytes_per_arc[0]
@@ -839,7 +840,7 @@ where
     }
     fn write_node_for_binary_search(
         &mut self,
-        node_in: &UnCompiledNode<T>,
+        node_in_idx: usize,
         max_bytes_per_arc: i32,
     ) -> Result<()> {
         // Build the header in a buffer.
@@ -848,6 +849,7 @@ where
         // self.fixed_length_arcs_buffer.reset_position();
         self.fixed_length_arcs_buffer
             .write_byte(fst_util::ARCS_FOR_BINARY_SEARCH)?;
+        let node_in = self.frontier[node_in_idx].as_ref().unwrap();
         self.fixed_length_arcs_buffer.write_vint(node_in.num_arcs)?;
         self.fixed_length_arcs_buffer
             .write_vint(max_bytes_per_arc)?;
@@ -924,7 +926,7 @@ where
     }
     fn write_node_for_direct_addressing_or_continuous(
         &mut self,
-        node_in: &UnCompiledNode<T>,
+        node_in_idx: usize,
         max_bytes_per_arc_without_label: i32,
         label_range: i32,
         continuous: bool,
@@ -943,6 +945,7 @@ where
         };
 
         let mut src_pos = self.scratch_bytes.get_position();
+        let node_in = self.frontier[node_in_idx].as_ref().unwrap();
         let total_arc_bytes =
             self.num_label_bytes_per_arc[0] + node_in.num_arcs * max_bytes_per_arc_without_label;
 
@@ -1002,7 +1005,7 @@ where
 
         // Write presence bits if not continuous
         if !continuous {
-            self.write_presence_bits(node_in)?;
+            self.write_presence_bits(node_in_idx)?;
             debug_assert_eq!(
                 self.scratch_bytes.get_position(),
                 header_len + num_presence_bytes
@@ -1023,9 +1026,10 @@ where
         Ok(())
     }
 
-    fn write_presence_bits(&mut self, node_in: &UnCompiledNode<T>) -> Result<()> {
+    fn write_presence_bits(&mut self, node_in_idx: usize) -> Result<()> {
         let mut presence_bits: u8 = 1; // The first arc is always present.
         let mut presence_index = 0;
+        let node_in = self.frontier[node_in_idx].as_ref().unwrap();
         let mut previous_label = node_in.arcs[0].label;
 
         let byte_size = i8::BITS as i32;
