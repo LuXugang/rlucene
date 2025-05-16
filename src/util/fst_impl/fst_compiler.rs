@@ -102,22 +102,24 @@ where
 
         Ok(Self { dedup_hash, inner })
     }
-    fn compile_node(
-        &mut self,
-        mut node_in: UnCompiledNode<T>,
-    ) -> Result<(CompiledNode, UnCompiledNode<T>)> {
+    fn compile_node(&mut self, node_in_idx: usize) -> Result<(CompiledNode, usize)> {
         let mut inner = self.inner.borrow_mut();
+        let num_arcs = inner.frontier[node_in_idx].as_mut().unwrap().num_arcs;
+
         let bytes_pos_start = inner.num_bytes_written;
 
-        let node = if node_in.num_arcs == 0 {
-            let node = inner.add_node(&node_in)?;
+        let node = if num_arcs == 0 {
+            let node = inner.add_node(node_in_idx)?;
             inner.last_frozen_node = node;
+            drop(inner);
             node
         } else {
-            self.dedup_hash.add(&node_in)?
+            drop(inner);
+            self.dedup_hash.add(node_in_idx)?
         };
 
         debug_assert!(node != -2);
+        let mut inner = self.inner.borrow_mut();
 
         let bytes_pos_end = inner.num_bytes_written;
         if bytes_pos_end != bytes_pos_start {
@@ -126,9 +128,10 @@ where
             inner.last_frozen_node = node;
         }
 
-        node_in.clear(inner.no_output.clone());
+        let v = inner.no_output.clone();
+        inner.frontier[node_in_idx].as_mut().unwrap().clear(v);
 
-        Ok((CompiledNode { node }, node_in))
+        Ok((CompiledNode { node }, node_in_idx))
     }
     fn freeze_tail(&mut self, prefix_len_plus1: i32) -> Result<()> {
         let (len, down_to) = {
@@ -137,24 +140,24 @@ where
         };
 
         for idx in (down_to..=len).rev() {
-            let node = self.inner.borrow_mut().frontier[idx].take().unwrap();
-            let prev_idx = idx - 1;
+            let (label, next_final_output, is_final, prev_idx) = {
+                let inner = self.inner.borrow_mut();
+                let node = inner.frontier[idx].as_ref().unwrap();
+                let prev_idx = idx - 1;
 
-            let next_final_output = node.output.clone();
-            // We "fake" the node as being final if it has no
-            // outgoing arcs; in theory we could leave it
-            // as non-final (the FST can represent this), but
-            // FSTEnum, Util, etc., have trouble w/ non-final
-            // dead-end states:
-            let is_final = node.is_final || node.num_arcs == 0;
-            let label = {
-                let inner = self.inner.borrow();
-                inner.last_input.int_at(prev_idx)
+                let next_final_output = node.output.clone();
+                // We "fake" the node as being final if it has no
+                // outgoing arcs; in theory we could leave it
+                // as non-final (the FST can represent this), but
+                // FSTEnum, Util, etc., have trouble w/ non-final
+                // dead-end states:
+                let is_final = node.is_final || node.num_arcs == 0;
+                let label = inner.last_input.int_at(prev_idx);
+                (label, next_final_output, is_final, prev_idx)
             };
-            let (compiled, un_compiled) = self.compile_node(node)?;
+            let (compiled, _) = self.compile_node(idx)?;
             let mut inner = self.inner.borrow_mut();
-            inner.frontier[idx] = Some(un_compiled);
-            let parent = &mut inner.frontier[prev_idx].as_mut().unwrap();
+            let parent = inner.frontier[prev_idx].as_mut().unwrap();
             // this node makes it and we now compile it.  first,
             // compile any targets that were previously
             // undecided:
@@ -242,8 +245,7 @@ where
             let prefix_len_plus1 = prefix_len_plus1;
             for idx in prefix_len_plus1..=input.length {
                 let label = ints[offset + idx - 1];
-                // TODO: 这里先抛出所有权 看看有没有问题
-                let un_compiled = NodeEnum::UnCompiledNode(inner.frontier[idx].take().unwrap());
+                let un_compiled = NodeEnum::UnCompiledNode(idx);
                 let v = inner.no_output.clone();
                 inner.frontier[idx - 1]
                     .as_mut()
@@ -279,15 +281,17 @@ where
                         .subtract(&last_output, &common_output_prefix);
                     debug_assert!(inner.valid_output(&word_suffix));
 
-                    inner.frontier[idx - 1].as_mut().unwrap().set_last_output(
+                    UnCompiledNode::set_last_output(
                         label,
                         common_output_prefix.clone(),
-                        &*self.inner.borrow(),
+                        &mut self.inner.borrow_mut(),
+                        idx - 1,
                     );
-                    let node = &mut inner.frontier[idx];
-                    node.as_mut()
-                        .unwrap()
-                        .prepend_output(&word_suffix, &*self.inner.borrow());
+                    UnCompiledNode::prepend_output(
+                        &word_suffix,
+                        &mut *self.inner.borrow_mut(),
+                        idx,
+                    );
                 } else {
                     common_output_prefix = inner.no_output.clone();
                 }
@@ -312,10 +316,7 @@ where
             // this new arc is private to this new input; set its
             // arc output to the leftover output:
             let label = ints[input.offset + prefix_len_plus1 - 1];
-            inner.frontier[prefix_len_plus1 - 1]
-                .as_mut()
-                .unwrap()
-                .set_last_output(label, output, &*self.inner.borrow());
+            UnCompiledNode::set_last_output(label, output, &mut inner, prefix_len_plus1 - 1);
         }
 
         // Save last input
@@ -342,38 +343,33 @@ where
     ///   [`IndexInput`](crate::store::data_input::DataInput) then pass it to
     ///   the FST construct
     pub fn compile(&mut self) -> Result<Option<FSTMetadata<T, O>>> {
-        let root = {
-            let mut inner = self.inner.borrow_mut();
-            inner.frontier[0].take().unwrap()
-        };
-
         // Minimize nodes in the last word's suffix
         self.freeze_tail(0)?;
-
-        if root.num_arcs == 0 {
-            if self
-                .inner
-                .borrow()
-                .fst
-                .metadata
-                .as_ref()
-                .unwrap()
-                .empty_output
-                .is_none()
-            {
-                // return null for completely empty FST which accepts nothing
-                return Ok(None);
-            } else {
-                // we haven't written the padding byte so far, but the FST is
-                // still valid
-                self.inner.borrow_mut().write_padding_byte()?;
+        {
+            let inner = self.inner.borrow();
+            if inner.frontier[0].as_ref().unwrap().num_arcs == 0 {
+                if self
+                    .inner
+                    .borrow()
+                    .fst
+                    .metadata
+                    .as_ref()
+                    .unwrap()
+                    .empty_output
+                    .is_none()
+                {
+                    // return null for completely empty FST which accepts nothing
+                    return Ok(None);
+                } else {
+                    // we haven't written the padding byte so far, but the FST is
+                    // still valid
+                    self.inner.borrow_mut().write_padding_byte()?;
+                }
             }
         }
-
-        let (compiled_root, root) = self.compile_node(root)?;
+        let (compiled_root, root) = self.compile_node(0)?;
         let mut inner = self.inner.borrow_mut();
         inner.finish(compiled_root.node)?;
-        inner.frontier[0] = Some(root);
         Ok(Some(inner.fst.metadata.take().unwrap()))
     }
 }
@@ -521,7 +517,8 @@ where
     }
     // serializes new node by appending its bytes to the end
     // of the current byte[]
-    pub(crate) fn add_node(&mut self, node_in: &UnCompiledNode<T>) -> Result<i64> {
+    pub(crate) fn add_node(&mut self, node_in_index: usize) -> Result<i64> {
+        let node_in = self.frontier[node_in_index].as_ref().unwrap();
         if node_in.num_arcs == 0 {
             return Ok(if node_in.is_final {
                 fst_util::FINAL_END_NODE
@@ -588,7 +585,24 @@ where
                     self.scratch_bytes.write_byte(flags as u8)?;
 
                     let label_start = self.scratch_bytes.get_position();
-                    self.write_label(arc.label)?;
+                    // this code should be keep same with `self.write_label`;
+                    {
+                        debug_assert!(arc.label >= 0, "v = {}", arc.label);
+
+                        match self.fst.metadata.as_ref().unwrap().input_type {
+                            InputType::Byte1 => {
+                                debug_assert!(arc.label <= 255, "v = {}", arc.label);
+                                self.scratch_bytes.write_byte(arc.label as u8)?;
+                            },
+                            InputType::Byte2 => {
+                                debug_assert!(arc.label <= 65535, "v = {}", arc.label);
+                                self.scratch_bytes.write_short(arc.label as i16)?;
+                            },
+                            InputType::Byte4 => {
+                                self.scratch_bytes.write_vint(arc.label)?;
+                            },
+                        }
+                    }
                     let label_end = self.scratch_bytes.get_position();
                     let num_label_bytes = label_end - label_start;
 
@@ -643,37 +657,37 @@ where
           }
         }
         */
-        if do_fixed_length_arcs {
-            debug_assert!(max_bytes_per_arc > 0);
-            let label_range = node_in.arcs[last_arc as usize].label - node_in.arcs[0].label + 1;
-            debug_assert!(label_range > 0);
-            let continuous_label = label_range == node_in.num_arcs;
-            if continuous_label && self.version >= fst_util::VERSION_CONTINUOUS_ARCS {
-                self.write_node_for_direct_addressing_or_continuous(
-                    node_in,
-                    max_bytes_per_arc_without_label,
-                    label_range,
-                    true,
-                )?;
-                self.continuous_node_count += 1;
-            } else if self.should_expand_node_with_direct_addressing(
-                node_in,
-                max_bytes_per_arc,
-                max_bytes_per_arc_without_label,
-                label_range,
-            ) {
-                self.write_node_for_direct_addressing_or_continuous(
-                    node_in,
-                    max_bytes_per_arc_without_label,
-                    label_range,
-                    false,
-                )?;
-                self.direct_addressing_node_count += 1;
-            } else {
-                self.write_node_for_binary_search(node_in, max_bytes_per_arc)?;
-                self.binary_search_node_count += 1;
-            }
-        }
+        // if do_fixed_length_arcs {
+        //     debug_assert!(max_bytes_per_arc > 0);
+        //     let label_range = node_in.arcs[last_arc as usize].label -
+        // node_in.arcs[0].label + 1;     debug_assert!(label_range > 0);
+        //     let continuous_label = label_range == node_in.num_arcs;
+        //     if continuous_label && self.version >= fst_util::VERSION_CONTINUOUS_ARCS
+        // {         self.write_node_for_direct_addressing_or_continuous(
+        //             node_in,
+        //             max_bytes_per_arc_without_label,
+        //             label_range,
+        //             true,
+        //         )?;
+        //         self.continuous_node_count += 1;
+        //     } else if self.should_expand_node_with_direct_addressing(
+        //         node_in,
+        //         max_bytes_per_arc,
+        //         max_bytes_per_arc_without_label,
+        //         label_range,
+        //     ) {
+        //         self.write_node_for_direct_addressing_or_continuous(
+        //             node_in,
+        //             max_bytes_per_arc_without_label,
+        //             label_range,
+        //             false,
+        //         )?;
+        //         self.direct_addressing_node_count += 1;
+        //     } else {
+        //         self.write_node_for_binary_search(node_in, max_bytes_per_arc)?;
+        //         self.binary_search_node_count += 1;
+        //     }
+        // }
 
         self.reverse_scratch_bytes();
         // write the padding byte if needed
@@ -729,6 +743,11 @@ where
         self.padding_byte_pending = false;
         Ok(())
     }
+    //
+    // Due to Rust's borrowing rules, this method performs a mutable operation
+    // within logic that holds an immutable reference to self. Therefore, we
+    // manually inlined this function into the code.
+    #[allow(dead_code)]
     fn write_label(&mut self, v: i32) -> Result<()> {
         debug_assert!(v >= 0, "v = {}", v);
 
@@ -1367,7 +1386,7 @@ where
     T: OutputsBound,
 {
     pub label: i32, // really an "unsigned" byte
-    pub target: NodeEnum<T>,
+    pub target: NodeEnum,
     pub is_final: bool,
     pub output: T,
     pub next_final_output: T,
@@ -1394,20 +1413,16 @@ where
 pub(crate) trait Node {
     fn is_compiled(&self) -> bool;
 }
-pub(crate) enum NodeEnum<T>
-where
-    T: OutputsBound,
-{
-    UnCompiledNode(UnCompiledNode<T>),
+pub(crate) enum NodeEnum {
+    // Since UnCompiledNode in Java is a reference within the frontier, we record the index of the
+    // frontier instead to satisfy Rust's ownership rules.
+    UnCompiledNode(usize),
     CompiledNode(CompiledNode),
 }
-impl<T> Node for NodeEnum<T>
-where
-    T: OutputsBound,
-{
+impl Node for NodeEnum {
     fn is_compiled(&self) -> bool {
         match self {
-            NodeEnum::UnCompiledNode(node) => node.is_compiled(),
+            NodeEnum::UnCompiledNode(node) => false,
             NodeEnum::CompiledNode(node) => node.is_compiled(),
         }
     }
@@ -1478,7 +1493,7 @@ where
         self.arcs[self.num_arcs as usize - 1].output.clone()
     }
 
-    pub(crate) fn add_arc(&mut self, label: i32, target: NodeEnum<T>, no_outputs: T) -> Result<()> {
+    pub(crate) fn add_arc(&mut self, label: i32, target: NodeEnum, no_outputs: T) -> Result<()> {
         debug_assert!(label >= 0);
         debug_assert!(
             self.num_arcs == 0 || label > self.arcs[self.num_arcs as usize - 1].label,
@@ -1504,7 +1519,7 @@ where
     pub(crate) fn replace_last(
         &mut self,
         label_to_match: i32,
-        target: NodeEnum<T>,
+        target: NodeEnum,
         next_final_output: T,
         is_final: bool,
     ) {
@@ -1521,37 +1536,46 @@ where
     }
 
     pub(crate) fn set_last_output<O: Outputs<T>, D: Directory>(
-        &mut self,
         label_to_match: i32,
         new_output: T,
-        inner: &FSTCompilerInner<T, O, D>,
+        inner: &mut FSTCompilerInner<T, O, D>,
+        node_idx: usize,
     ) {
         debug_assert!(inner.valid_output(&new_output));
-        debug_assert!(self.num_arcs > 0);
-        let arc = &mut self.arcs[self.num_arcs as usize - 1];
+        let un_compile_node = inner.frontier[node_idx].as_mut().unwrap();
+        debug_assert!(un_compile_node.num_arcs > 0);
+        let arc = &mut un_compile_node.arcs[un_compile_node.num_arcs as usize - 1];
         debug_assert_eq!(arc.label, label_to_match);
         arc.output = new_output;
     }
 
     /// Pushes an output prefix forward onto all arcs.
     pub(crate) fn prepend_output<O: Outputs<T>, D: Directory>(
-        &mut self,
         output_prefix: &T,
-        inner: &FSTCompilerInner<T, O, D>,
+        inner: &mut FSTCompilerInner<T, O, D>,
+        node_index: usize,
     ) {
         debug_assert!(inner.valid_output(output_prefix));
-
-        for i in 0..self.num_arcs as usize {
-            let new_output = inner.fst.outputs.add(output_prefix, &self.arcs[i].output);
-            debug_assert!(inner.valid_output(&new_output));
-            self.arcs[i].output = new_output;
+        let un_compiled_node = inner.frontier[node_index].as_mut().unwrap();
+        for i in 0..un_compiled_node.num_arcs as usize {
+            let new_output = inner
+                .fst
+                .outputs
+                .add(output_prefix, &un_compiled_node.arcs[i].output);
+            un_compiled_node.arcs[i].output = new_output;
         }
+        // TODO:
+        // debug_assert!(inner.valid_output(&new_output));
 
-        if self.is_final {
-            let new_output = inner.fst.outputs.add(output_prefix, &self.output);
-            debug_assert!(inner.valid_output(&new_output));
-            self.output = new_output;
+        if un_compiled_node.is_final {
+            let new_output = inner
+                .fst
+                .outputs
+                .add(output_prefix, &un_compiled_node.output);
+            un_compiled_node.output = new_output;
         }
+        // TODO:
+        // debug_assert!(inner.valid_output(&new_output));
     }
 }
 impl<T> Node for UnCompiledNode<T>

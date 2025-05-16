@@ -110,7 +110,9 @@ where
             phantom: PhantomData,
         })
     }
-    fn get_fallback(&mut self, node_in: &UnCompiledNode<T>, hash: i64) -> Result<i64> {
+    fn get_fallback(&mut self, node_in_index: usize, hash: i64) -> Result<i64> {
+        let fst_compiler = self.fst_compiler.borrow();
+        let node_in = fst_compiler.frontier[node_in_index].as_ref().unwrap();
         self.last_fallback_node_length = -1;
         self.last_fallback_hash_slot = -1;
 
@@ -148,8 +150,12 @@ where
             },
         }
     }
-    pub fn add(&mut self, node_in: &UnCompiledNode<T>) -> Result<i64> {
-        let hash = self.hash(node_in)?;
+    pub fn add(&mut self, node_in_index: usize) -> Result<i64> {
+        let hash = {
+            let fst_compiler = self.fst_compiler.borrow_mut();
+            let node_in = fst_compiler.frontier[node_in_index].as_ref().unwrap();
+            self.hash(node_in)?
+        };
         let mut hash_slot = hash & self.primary_table.mask;
         let mut c = 0;
 
@@ -157,7 +163,7 @@ where
             let mut node_address = self.primary_table.get_node_address(hash_slot)?;
             if node_address == 0 {
                 // not in primary, check fallback
-                node_address = self.get_fallback(node_in, hash)?;
+                node_address = self.get_fallback(node_in_index, hash)?;
                 if node_address != 0 {
                     debug_assert!(
                         self.last_fallback_hash_slot != -1 && self.last_fallback_node_length != -1
@@ -175,7 +181,7 @@ where
                     // not in fallback either -- freeze & add the incoming node
 
                     // freeze & add
-                    node_address = self.fst_compiler.borrow_mut().add_node(node_in)?;
+                    node_address = self.fst_compiler.borrow_mut().add_node(node_in_index)?;
                     // we use 0 as empty marker in hash table, so it better be
                     // impossible to get a frozen node at 0:
                     debug_assert!(
@@ -185,13 +191,15 @@ where
 
                     self.primary_table
                         .set_node_address(hash_slot, node_address)?;
-                    let compiler = &mut *self.fst_compiler.borrow_mut();
-                    let pos = compiler.scratch_bytes.get_position();
-                    self.primary_table.copy_node_bytes(
-                        hash_slot,
-                        compiler.scratch_bytes.get_bytes(),
-                        pos,
-                    )?;
+                    {
+                        let compiler = &mut *self.fst_compiler.borrow_mut();
+                        let pos = compiler.scratch_bytes.get_position();
+                        self.primary_table.copy_node_bytes(
+                            hash_slot,
+                            compiler.scratch_bytes.get_bytes(),
+                            pos,
+                        )?;
+                    }
 
                     // confirm frozen hash and unfrozen hash are the same
                     debug_assert_eq!(
@@ -251,10 +259,13 @@ where
                 }
 
                 return Ok(node_address);
-            } else if self
-                .primary_table
-                .nodes_equal(node_in, node_address, hash_slot)?
-                != -1
+            } else if self.primary_table.nodes_equal(
+                self.fst_compiler.borrow().frontier[node_in_index]
+                    .as_ref()
+                    .unwrap(),
+                node_address,
+                hash_slot,
+            )? != -1
             {
                 // same node (in frozen form) is already in primary table
                 return Ok(node_address);
