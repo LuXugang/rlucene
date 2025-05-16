@@ -1432,6 +1432,8 @@ mod tests {
     use crate::util::fst_impl::positive_int_outputs::PositiveIntOutputs;
     use crate::util::fst_impl::util::Util;
     use crate::util::ints_ref_builder::IntsRefBuilder;
+    #[allow(dead_code)] // for quick search
+    struct TestFSTs;
 
     #[test]
     fn test_simple() -> Result<()> {

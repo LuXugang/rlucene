@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 use std::fmt::{Display, Formatter};
-use std::rc::Rc;
+
+use crate::define_on_heap_fst_store;
 use crate::store::{DataInput, DataOutput};
 use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -24,93 +25,116 @@ use crate::util::fst_impl::fst_compiler::fst_compiler_util;
 use crate::util::fst_impl::fst_reader::FstReader;
 use crate::util::fst_impl::read_write_data_output::{BytesReaderEnum, ReadWriteDataOutput};
 use crate::util::fst_impl::reverse_bytes_reader::ReverseBytesReader;
-
-/// Provides storage of finite state machine (FST), using byte array or byte
-/// store allocated on heap.
-pub struct OnHeapFSTStore {
-    /// A [`ReadWriteDataOutput`], used during reading when the FST is very
-    /// large (more than 1 GB). If the FST is less than 1 GB then
-    /// bytesArray is set instead.
-    data_output: Option<ReadWriteDataOutput>,
-    ///  Used at read time when the FST fits into a single byte array.
-    bytes_array: Option<Rc<Vec<u8>>>,
-}
-impl OnHeapFSTStore {
-    pub fn new(max_block_bits: i32, input: &mut impl DataInput, num_bytes: i64) -> Result<Self> {
-        if !(1..=30).contains(&max_block_bits) {
-            return Err(LuceneError::illegal_argument(format!(
-                "max_block_bits should be in 1..=30; got {}",
-                max_block_bits
-            )));
+macro_rules! take_or_clone_bytes_array {
+    ($self:expr) => {{
+        #[cfg(test)]
+        {
+            $self.bytes_array.as_ref().map(|b| b.clone())
         }
 
-        if num_bytes > (1_i64 << max_block_bits) {
-            // FST is big: we need multiple pages
-            let mut data_output = fst_compiler_util::get_on_heap_reader_writer(max_block_bits)?;
-            data_output.copy_bytes(input, num_bytes)?;
-            data_output.freeze()?;
-            Ok(Self {
-                data_output: Some(data_output),
-                bytes_array: None,
-            })
-        } else {
-            // FST fits into a single block: use Vec<u8> directly
-            let mut bytes_array = vec![0u8; num_bytes as usize];
-            debug_assert!(bytes_array.len() <= i32::MAX as usize);
-            let len = bytes_array.len() as i32;
-            input.read_bytes(&mut bytes_array, 0, len)?;
-            Ok(Self {
-                data_output: None, // or an empty fallback
-                bytes_array: Some(Rc::new(bytes_array)),
-            })
+        #[cfg(not(test))]
+        {
+            std::mem::take(&mut $self.bytes_array)
         }
-    }
+    }};
 }
-
-impl Accountable for OnHeapFSTStore {
-    fn ram_bytes_used(&self) -> Result<i64> {
-        todo!()
-    }
-}
-
-impl FstReader for OnHeapFSTStore {
-    type FstBytesReader = FstBytesReaderEnum;
-
-    fn get_reverse_bytes_reader(&mut self) -> Result<Self::FstBytesReader> {
-        if self.bytes_array.is_some() {
-            Ok(FstBytesReaderEnum::Reverse(ReverseBytesReader::new(
-                self.bytes_array.as_ref().unwrap().clone(),
-            )))
-        } else {
-            Ok(FstBytesReaderEnum::Bytes(
-                self.data_output
-                    .as_mut()
-                    .unwrap()
-                    .get_reverse_bytes_reader()?,
-            ))
+#[macro_export]
+macro_rules! define_on_heap_fst_store {
+    ($bytes_array_type:ty, $to_bytes_array:expr) => {
+        /// Provides storage of finite state machine (FST), using byte array or byte
+        /// store allocated on heap.
+        pub struct OnHeapFSTStore {
+            /// A [`ReadWriteDataOutput`], used during reading when the FST is very
+            /// large (more than 1 GB). If the FST is less than 1 GB then
+            /// bytesArray is set instead.
+            data_output: Option<ReadWriteDataOutput>,
+            ///  Used at read time when the FST fits into a single byte array.
+            bytes_array: Option<$bytes_array_type>,
         }
-    }
 
-    fn write_to(&self, out: &mut impl DataOutput) -> Result<()> {
-        if self.data_output.is_some() {
-            self.data_output.as_ref().unwrap().write_to(out)?;
-        } else {
-            match &self.bytes_array {
-                Some(bytes_array) => {
+        impl OnHeapFSTStore {
+            pub fn new(
+                max_block_bits: i32,
+                input: &mut impl DataInput,
+                num_bytes: i64,
+            ) -> Result<Self> {
+                if !(1..=30).contains(&max_block_bits) {
+                    return Err(LuceneError::illegal_argument(format!(
+                        "max_block_bits should be in 1..=30; got {}",
+                        max_block_bits
+                    )));
+                }
+
+                if num_bytes > (1_i64 << max_block_bits) {
+                    let mut data_output =
+                        fst_compiler_util::get_on_heap_reader_writer(max_block_bits)?;
+                    data_output.copy_bytes(input, num_bytes)?;
+                    data_output.freeze()?;
+                    Ok(Self {
+                        data_output: Some(data_output),
+                        bytes_array: None,
+                    })
+                } else {
+                    let mut bytes_array = vec![0u8; num_bytes as usize];
+                    let len = bytes_array.len() as i32;
+                    input.read_bytes(&mut bytes_array, 0, len)?;
+                    Ok(Self {
+                        data_output: None,
+                        bytes_array: Some($to_bytes_array(bytes_array)),
+                    })
+                }
+            }
+        }
+        impl Accountable for OnHeapFSTStore {
+            fn ram_bytes_used(&self) -> Result<i64> {
+                Ok(0)
+            }
+        }
+
+        impl FstReader for OnHeapFSTStore {
+            type FstBytesReader = FstBytesReaderEnum;
+
+            fn get_reverse_bytes_reader(&mut self) -> Result<Self::FstBytesReader> {
+                if let Some(bytes_array) = take_or_clone_bytes_array!(self) {
+                    return Ok(FstBytesReaderEnum::Reverse(ReverseBytesReader::new(
+                        bytes_array,
+                    )));
+                }
+
+                if let Some(data_output) = &mut self.data_output {
+                    Ok(FstBytesReaderEnum::Bytes(
+                        data_output.get_reverse_bytes_reader()?,
+                    ))
+                } else {
+                    Err(LuceneError::illegal_state(
+                        "OnHeapFSTStore has neither bytes_array nor data_output".to_string(),
+                    ))
+                }
+            }
+
+            fn write_to(&self, out: &mut impl DataOutput) -> Result<()> {
+                if let Some(data_output) = &self.data_output {
+                    data_output.write_to(out)?;
+                } else if let Some(bytes_array) = &self.bytes_array {
                     let len = bytes_array.len();
                     debug_assert!(len <= i32::MAX as usize);
                     out.write_bytes_range(bytes_array, 0, len as i32)?;
-                },
-                None => {
+                } else {
                     return Err(LuceneError::illegal_state(
-                        "data_output is None".to_string(),
-                    ))
-                },
+                        "OnHeapFSTStore is empty".to_string(),
+                    ));
+                }
+                Ok(())
             }
         }
-        Ok(())
-    }
+    };
 }
+
+#[cfg(test)]
+define_on_heap_fst_store!(Rc<Vec<u8>>, Rc::new);
+
+#[cfg(not(test))]
+define_on_heap_fst_store!(Vec<u8>, std::convert::identity);
 pub enum FstBytesReaderEnum {
     Reverse(ReverseBytesReader),
     Bytes(BytesReaderEnum),

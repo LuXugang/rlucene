@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use std::fmt::{Display, Formatter};
-use std::rc::Rc;
 
 use crate::store::{ByteBuffersDataOutput, DataInput, DataOutput};
 use crate::util::accountable::Accountable;
@@ -26,118 +25,164 @@ use crate::util::fst_impl::reverse_bytes_reader::ReverseBytesReader;
 /// An adapter class to use [`ByteBuffersDataOutput`] as a
 /// [`FSTReader`](FstReader). It allows the FST to be readable immediately after
 /// writing
-#[derive(Default)] // used for padding,e.g. used for std::mem::replace
-pub struct ReadWriteDataOutput {
-    pub data_output: ByteBuffersDataOutput,
-    pub block_bits: i32,
-    pub block_size: i32,
-    pub block_mask: i32,
-    pub byte_buffers: Option<Rc<Vec<Vec<u8>>>>,
-    pub byte_buffer: Option<Rc<Vec<u8>>>,
-    /// Whether the data output is frozen
-    pub frozen: bool,
-}
-impl ReadWriteDataOutput {
-    pub(crate) fn new(block_bits: i32) -> Self {
-        let block_size = 1 << block_bits;
-        let block_mask = block_size - 1;
-        let data_output = ByteBuffersDataOutput::new();
-        Self {
-            data_output,
-            block_bits,
-            block_size,
-            block_mask,
-            byte_buffers: None,
-            byte_buffer: None,
-            frozen: false,
+#[macro_export]
+macro_rules! define_read_write_data_output {
+    (
+        $buffers_type:ty,
+        $buffer_type:ty,
+        $buffers_wrap:expr,
+        $buffer_wrap:expr,
+        $buffers_extract:expr,
+        $buffer_extract:expr
+    ) => {
+        #[derive(Default)]
+        pub struct ReadWriteDataOutput {
+            pub data_output: ByteBuffersDataOutput,
+            pub block_bits: i32,
+            pub block_size: i32,
+            pub block_mask: i32,
+            pub byte_buffers: Option<$buffers_type>,
+            pub byte_buffer: Option<$buffer_type>,
+            pub frozen: bool,
         }
-    }
-    pub fn freeze(&mut self) -> Result<()> {
-        self.frozen = true;
 
-        // this operation is costly, so we want to compute it once and cache
-        let (_, byte_buffers) = self.data_output.to_buffer_list_owner();
-        let mut data: Vec<Vec<u8>> = byte_buffers.into_iter().map(|b| b.into_inner()).collect();
-        if data.len() == 1 {
-            self.byte_buffer = Some(Rc::new(std::mem::take(&mut data[0])));
-        } else {
-            self.byte_buffers = Some(Rc::new(data));
+        impl ReadWriteDataOutput {
+            pub(crate) fn new(block_bits: i32) -> Self {
+                let block_size = 1 << block_bits;
+                let block_mask = block_size - 1;
+                let data_output = ByteBuffersDataOutput::new();
+                Self {
+                    data_output,
+                    block_bits,
+                    block_size,
+                    block_mask,
+                    byte_buffers: None,
+                    byte_buffer: None,
+                    frozen: false,
+                }
+            }
+
+            pub fn freeze(&mut self) -> Result<()> {
+                self.frozen = true;
+                let (_, byte_buffers_raw) = self.data_output.to_buffer_list_owner();
+                let mut data: Vec<Vec<u8>> = byte_buffers_raw
+                    .into_iter()
+                    .map(|b| b.into_inner())
+                    .collect();
+
+                if data.len() == 1 {
+                    self.byte_buffer = Some($buffer_wrap(data.remove(0)));
+                } else {
+                    self.byte_buffers = Some($buffers_wrap(data));
+                }
+                Ok(())
+            }
         }
-        Ok(())
-    }
-}
 
-impl Accountable for ReadWriteDataOutput {
-    fn ram_bytes_used(&self) -> Result<i64> {
-        self.data_output.ram_bytes_used()
-    }
-}
-
-impl FstReader for ReadWriteDataOutput {
-    type FstBytesReader = BytesReaderEnum;
-
-    fn get_reverse_bytes_reader(&mut self) -> Result<Self::FstBytesReader> {
-        match (&self.byte_buffers, &self.byte_buffer) {
-            (Some(buffers), None) => Ok(BytesReaderEnum::Impl(BytesReaderImpl::new(
-                buffers.clone(),
-                self.block_bits,
-                self.block_size,
-                self.block_mask,
-            ))),
-            (None, Some(buffer)) => Ok(BytesReaderEnum::ReverseBytes(ReverseBytesReader::new(
-                buffer.clone(),
-            ))),
-            _ => {
-                Err(LuceneError::illegal_state(
-                    "Only one buffer is some".to_string(),
-                ))
-            },
+        impl Accountable for ReadWriteDataOutput {
+            fn ram_bytes_used(&self) -> Result<i64> {
+                self.data_output.ram_bytes_used()
+            }
         }
-    }
 
-    fn write_to(&self, out: &mut impl DataOutput) -> Result<()> {
-        self.data_output.copy_to(out)
-    }
-}
-impl DataOutput for ReadWriteDataOutput {
-    fn write_byte(&mut self, b: u8) -> Result<()> {
-        debug_assert!(!self.frozen);
-        DataOutput::write_byte(&mut self.data_output, b)
-    }
+        impl FstReader for ReadWriteDataOutput {
+            type FstBytesReader = BytesReaderEnum;
 
-    fn write_bytes_range(&mut self, b: &[u8], offset: i32, length: i32) -> Result<()> {
-        debug_assert!(!self.frozen);
-        self.data_output.write_bytes_range(b, offset, length)
-    }
-}
+            fn get_reverse_bytes_reader(&mut self) -> Result<Self::FstBytesReader> {
+                if self.byte_buffers.is_some() && self.byte_buffer.is_none() {
+                    let buffers = $buffers_extract(&mut self.byte_buffers);
+                    Ok(BytesReaderEnum::Impl(BytesReaderImpl::new(
+                        buffers,
+                        self.block_bits,
+                        self.block_size,
+                        self.block_mask,
+                    )))
+                } else if self.byte_buffer.is_some() && self.byte_buffers.is_none() {
+                    let buffer = $buffer_extract(&mut self.byte_buffer);
+                    Ok(BytesReaderEnum::ReverseBytes(ReverseBytesReader::new(
+                        buffer,
+                    )))
+                } else {
+                    Err(LuceneError::illegal_state(
+                        "Only one buffer is some".to_string(),
+                    ))
+                }
+            }
 
-pub struct BytesReaderImpl {
-    byte_buffers: Rc<Vec<Vec<u8>>>,
-    next_buffer: i32,
-    next_read: i32,
-    current: i32,
-    block_size: i32,
-    block_bits: i32,
-    block_mask: i32,
-}
-impl BytesReaderImpl {
-    pub fn new(
-        byte_buffers: Rc<Vec<Vec<u8>>>,
-        block_bits: i32,
-        block_size: i32,
-        block_mask: i32,
-    ) -> Self {
-        Self {
-            byte_buffers,
-            next_buffer: -1,
-            next_read: 0,
-            current: 0,
-            block_size,
-            block_bits,
-            block_mask,
+            fn write_to(&self, out: &mut impl DataOutput) -> Result<()> {
+                self.data_output.copy_to(out)
+            }
         }
-    }
+
+        impl DataOutput for ReadWriteDataOutput {
+            fn write_byte(&mut self, b: u8) -> Result<()> {
+                debug_assert!(!self.frozen);
+                DataOutput::write_byte(&mut self.data_output, b)
+            }
+
+            fn write_bytes_range(&mut self, b: &[u8], offset: i32, length: i32) -> Result<()> {
+                debug_assert!(!self.frozen);
+                self.data_output.write_bytes_range(b, offset, length)
+            }
+        }
+    };
 }
+#[cfg(test)]
+define_read_write_data_output!(
+    Rc<Vec<Vec<u8>>>,
+    Rc<Vec<u8>>,
+    Rc::new,
+    Rc::new,
+    |opt: &mut Option<Rc<Vec<Vec<u8>>>>| opt.as_ref().unwrap().clone(),
+    |opt: &mut Option<Rc<Vec<u8>>>| opt.as_ref().unwrap().clone()
+);
+#[cfg(not(test))]
+define_read_write_data_output!(
+    Vec<Vec<u8>>,
+    Vec<u8>,
+    std::convert::identity,
+    std::convert::identity,
+    |opt: &mut Option<Vec<Vec<u8>>>| std::mem::take(opt).unwrap(),
+    |opt: &mut Option<Vec<u8>>| std::mem::take(opt).unwrap()
+);
+
+#[macro_export]
+macro_rules! define_bytes_reader_impl {
+    ($buffer_type:ty) => {
+        pub struct BytesReaderImpl {
+            byte_buffers: $buffer_type,
+            next_buffer: i32,
+            next_read: i32,
+            current: i32,
+            block_size: i32,
+            block_bits: i32,
+            block_mask: i32,
+        }
+
+        impl BytesReaderImpl {
+            pub fn new(
+                byte_buffers: $buffer_type,
+                block_bits: i32,
+                block_size: i32,
+                block_mask: i32,
+            ) -> Self {
+                Self {
+                    byte_buffers,
+                    next_buffer: -1,
+                    next_read: 0,
+                    current: 0,
+                    block_size,
+                    block_bits,
+                    block_mask,
+                }
+            }
+        }
+    };
+}
+#[cfg(test)]
+define_bytes_reader_impl!(Rc<Vec<Vec<u8>>>);
+#[cfg(not(test))]
+define_bytes_reader_impl!(Vec<Vec<u8>>);
 
 impl DataInput for BytesReaderImpl {
     fn read_byte(&mut self) -> Result<u8> {
