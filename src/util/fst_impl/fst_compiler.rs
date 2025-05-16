@@ -70,13 +70,6 @@ where
     D: Directory,
 {
     pub(crate) dedup_hash: NodeHash<T, O, D>,
-    /// NOTE: cutting this over to ArrayList instead loses ~6%
-    /// in build performance on 9.8M Wikipedia terms; so we
-    /// left this as an array:
-    /// current "frontier"
-    /// # Note:
-    /// Wrap with `Option` for easy frontier growing
-    pub(crate) frontier: Vec<Option<UnCompiledNode<T, O, D>>>,
     pub(crate) inner: Rc<RefCell<FSTCompilerInner<T, O, D>>>,
 }
 impl<T, O, D> FSTCompiler<T, O, D>
@@ -94,6 +87,8 @@ where
         direct_addressing_max_oversizing_factor: f32,
         version: i32,
     ) -> Result<Self> {
+        let no_output = outputs.get_no_output();
+
         let inner = Rc::new(RefCell::new(FSTCompilerInner::new(
             input_type,
             suffix_ram_limit_mb,
@@ -104,20 +99,13 @@ where
             version,
         )?));
         let dedup_hash = NodeHash::new(inner.clone(), suffix_ram_limit_mb)?;
-        let mut frontier = vec![];
-        for i in 0..10 {
-            frontier.push(Some(UnCompiledNode::new(inner.clone(), i)));
-        }
-        Ok(Self {
-            dedup_hash,
-            frontier,
-            inner,
-        })
+
+        Ok(Self { dedup_hash, inner })
     }
     fn compile_node(
         &mut self,
-        mut node_in: UnCompiledNode<T, O, D>,
-    ) -> Result<(CompiledNode, UnCompiledNode<T, O, D>)> {
+        mut node_in: UnCompiledNode<T>,
+    ) -> Result<(CompiledNode, UnCompiledNode<T>)> {
         let mut inner = self.inner.borrow_mut();
         let bytes_pos_start = inner.num_bytes_written;
 
@@ -138,12 +126,10 @@ where
             inner.last_frozen_node = node;
         }
 
-        node_in.clear();
+        node_in.clear(inner.no_output.clone());
 
         Ok((CompiledNode { node }, node_in))
     }
-    /// Minimizes and compiles the suffix path of the previous input from
-    /// `prefix_len_plus1` to the end.
     fn freeze_tail(&mut self, prefix_len_plus1: i32) -> Result<()> {
         let (len, down_to) = {
             let inner = self.inner.borrow();
@@ -151,7 +137,7 @@ where
         };
 
         for idx in (down_to..=len).rev() {
-            let node = self.frontier[idx].take().unwrap();
+            let node = self.inner.borrow_mut().frontier[idx].take().unwrap();
             let prev_idx = idx - 1;
 
             let next_final_output = node.output.clone();
@@ -166,8 +152,9 @@ where
                 inner.last_input.int_at(prev_idx)
             };
             let (compiled, un_compiled) = self.compile_node(node)?;
-            self.frontier[idx] = Some(un_compiled);
-            let parent = &mut self.frontier[prev_idx].as_mut().unwrap();
+            let mut inner = self.inner.borrow_mut();
+            inner.frontier[idx] = Some(un_compiled);
+            let parent = &mut inner.frontier[prev_idx].as_mut().unwrap();
             // this node makes it and we now compile it.  first,
             // compile any targets that were previously
             // undecided:
@@ -215,7 +202,7 @@ where
                 // format cannot represent the empty input since
                 // 'finalness' is stored on the incoming arc, not on
                 // the node
-                self.frontier[0].as_mut().unwrap().is_final = true;
+                inner.frontier[0].as_mut().unwrap().is_final = true;
                 inner.set_empty_output(output)?;
                 return Ok(());
             }
@@ -230,94 +217,109 @@ where
             }
             prefix_len_plus1 = pos1 + 1;
 
-            if self.frontier.len() < (input.length + 1) {
-                let old_len = self.frontier.len();
+            if inner.frontier.len() < (input.length + 1) {
+                let old_len = inner.frontier.len();
                 debug_assert!(old_len <= i32::MAX as usize);
-                ArrayUtil::grow_with_len(&mut self.frontier, old_len + 1);
-                debug_assert!(self.frontier.len() <= i32::MAX as usize);
-                for i in old_len..self.frontier.len() {
-                    self.frontier[i] = Some(UnCompiledNode::new(self.inner.clone(), i as i32));
+                ArrayUtil::grow_with_len(&mut inner.frontier, old_len + 1);
+                debug_assert!(inner.frontier.len() <= i32::MAX as usize);
+                for i in old_len..inner.frontier.len() {
+                    inner.frontier[i] = Some(UnCompiledNode::new(
+                        self.inner.borrow().no_output.clone(),
+                        i as i32,
+                    ));
                 }
             }
         }
-
         // minimize/compile states from previous input's
         // orphan'd suffix
         debug_assert!(prefix_len_plus1 <= i32::MAX as usize);
         self.freeze_tail(prefix_len_plus1 as i32)?;
-
-        // init tail states for current input
-        let offset = input.offset;
-        let prefix_len_plus1 = prefix_len_plus1;
-        for idx in prefix_len_plus1..=input.length {
-            let label = ints[offset + idx - 1];
-            // TODO: 这里先抛出所有权 看看有没有问题
-            let un_compiled = NodeEnum::UnCompiledNode(self.frontier[idx].take().unwrap());
-            self.frontier[idx - 1]
-                .as_mut()
-                .unwrap()
-                .add_arc(label, un_compiled)?;
-        }
-
-        let inner = self.inner.borrow();
         {
-            let last_node = self.frontier[offset].as_mut().unwrap();
-            if inner.last_input.length() != input.length || prefix_len_plus1 != input.length + 1 {
-                last_node.is_final = true;
-                last_node.output = inner.no_output.clone();
-            }
-        }
-        // push conflicting outputs forward, only as far as
-        // needed
-        for idx in 1..prefix_len_plus1 {
-            let parent = &mut self.frontier[idx - 1];
-            let label = ints[offset + idx - 1];
-
-            let last_output = parent.as_mut().unwrap().get_last_output(label);
-            debug_assert!(inner.valid_output(&last_output));
-
-            let common_output_prefix;
-            if std::ptr::eq(&last_output, &inner.no_output) {
-                common_output_prefix = inner.fst.outputs.common(&output, &last_output);
-                debug_assert!(inner.valid_output(&common_output_prefix));
-
-                let word_suffix = inner
-                    .fst
-                    .outputs
-                    .subtract(&last_output, &common_output_prefix);
-                debug_assert!(inner.valid_output(&word_suffix));
-
-                parent
+            let mut inner = self.inner.borrow_mut();
+            let no_output = inner.no_output.clone();
+            // init tail states for current input
+            let offset = input.offset;
+            let prefix_len_plus1 = prefix_len_plus1;
+            for idx in prefix_len_plus1..=input.length {
+                let label = ints[offset + idx - 1];
+                // TODO: 这里先抛出所有权 看看有没有问题
+                let un_compiled = NodeEnum::UnCompiledNode(inner.frontier[idx].take().unwrap());
+                let v = inner.no_output.clone();
+                inner.frontier[idx - 1]
                     .as_mut()
                     .unwrap()
-                    .set_last_output(label, common_output_prefix.clone());
-                let node = &mut self.frontier[idx];
-                node.as_mut().unwrap().prepend_output(&word_suffix);
-            } else {
-                common_output_prefix = inner.no_output.clone();
+                    .add_arc(label, un_compiled, v)?;
             }
 
-            output = inner.fst.outputs.subtract(&output, &common_output_prefix);
-            debug_assert!(inner.valid_output(&output));
-        }
+            let last_input_len = inner.last_input.length();
+            let last_node = inner.frontier[input.length].as_mut().unwrap();
+            if last_input_len != input.length || prefix_len_plus1 != input.length + 1 {
+                last_node.is_final = true;
+                last_node.output = no_output.clone();
+            }
+            // push conflicting outputs forward, only as far as
+            // needed
+            for idx in 1..prefix_len_plus1 {
+                let (last_output, label) = {
+                    let parent = &mut inner.frontier[idx - 1];
+                    let label = ints[offset + idx - 1];
+                    (parent.as_mut().unwrap().get_last_output(label), label)
+                };
 
+                debug_assert!(inner.valid_output(&last_output));
+
+                let common_output_prefix;
+                if std::ptr::eq(&last_output, &inner.no_output) {
+                    common_output_prefix = inner.fst.outputs.common(&output, &last_output);
+                    debug_assert!(inner.valid_output(&common_output_prefix));
+
+                    let word_suffix = inner
+                        .fst
+                        .outputs
+                        .subtract(&last_output, &common_output_prefix);
+                    debug_assert!(inner.valid_output(&word_suffix));
+
+                    inner.frontier[idx - 1].as_mut().unwrap().set_last_output(
+                        label,
+                        common_output_prefix.clone(),
+                        &*self.inner.borrow(),
+                    );
+                    let node = &mut inner.frontier[idx];
+                    node.as_mut()
+                        .unwrap()
+                        .prepend_output(&word_suffix, &*self.inner.borrow());
+                } else {
+                    common_output_prefix = inner.no_output.clone();
+                }
+
+                output = inner.fst.outputs.subtract(&output, &common_output_prefix);
+                debug_assert!(inner.valid_output(&output));
+            }
+        };
+        let mut inner = self.inner.borrow_mut();
         if inner.last_input.length() == input.length && prefix_len_plus1 == input.length + 1 {
-            // same input more than 1 time in a row, mapping to
-            // multiple outputs
-            let last_node = self.frontier[offset].as_mut().unwrap();
-            last_node.output = inner.fst.outputs.merge(&last_node.output, &output)?;
+            // same input more than 1 time in a row,
+            // mapping to multiple outputs
+            let output = inner.frontier[input.offset]
+                .as_mut()
+                .unwrap()
+                .output
+                .clone();
+            let last_node = inner.frontier[input.length].as_ref().unwrap();
+            let v = inner.fst.outputs.merge(&last_node.output, &output)?;
+            inner.frontier[input.length].as_mut().unwrap().output = v;
         } else {
             // this new arc is private to this new input; set its
             // arc output to the leftover output:
-            let label = ints[offset + prefix_len_plus1 - 1];
-            self.frontier[prefix_len_plus1 - 1]
+            let label = ints[input.offset + prefix_len_plus1 - 1];
+            inner.frontier[prefix_len_plus1 - 1]
                 .as_mut()
                 .unwrap()
-                .set_last_output(label, output);
+                .set_last_output(label, output, &*self.inner.borrow());
         }
 
         // Save last input
-        self.inner.borrow_mut().last_input.copy_ints_ref(input);
+        inner.last_input.copy_ints_ref(input);
         Ok(())
     }
     /// Returns the metadata of the final FST. NOTE: this will return null if
@@ -340,7 +342,10 @@ where
     ///   [`IndexInput`](crate::store::data_input::DataInput) then pass it to
     ///   the FST construct
     pub fn compile(&mut self) -> Result<Option<FSTMetadata<T, O>>> {
-        let root = self.frontier[0].take().unwrap();
+        let root = {
+            let mut inner = self.inner.borrow_mut();
+            inner.frontier[0].take().unwrap()
+        };
 
         // Minimize nodes in the last word's suffix
         self.freeze_tail(0)?;
@@ -366,9 +371,10 @@ where
         }
 
         let (compiled_root, root) = self.compile_node(root)?;
-        self.inner.borrow_mut().finish(compiled_root.node)?;
-        self.frontier[0] = Some(root);
-        Ok(Some(self.inner.borrow_mut().fst.metadata.take().unwrap()))
+        let mut inner = self.inner.borrow_mut();
+        inner.finish(compiled_root.node)?;
+        inner.frontier[0] = Some(root);
+        Ok(Some(inner.fst.metadata.take().unwrap()))
     }
 }
 
@@ -447,6 +453,13 @@ where
     pub(crate) data_output: DataOutputEnum<D>,
     pub(crate) scratch_bytes: GrowableByteArrayDataOutput,
     pub(crate) num_bytes_written: i64,
+    /// NOTE: cutting this over to ArrayList instead loses ~6%
+    /// in build performance on 9.8M Wikipedia terms; so we
+    /// left this as an array:
+    /// current "frontier"
+    /// # Note:
+    /// Wrap with `Option` for easy frontier growing
+    pub(crate) frontier: Vec<Option<UnCompiledNode<T>>>,
 }
 impl<T, O, D> FSTCompilerInner<T, O, D>
 where
@@ -477,7 +490,10 @@ where
         let no_output = outputs.get_no_output();
         let fst_meta = FSTMetadata::new(input_type, outputs, None, -1, version, 0);
         let fst = FST::new(fst_meta, NullFSTReader);
-
+        let mut frontier = vec![];
+        for i in 0..10 {
+            frontier.push(Some(UnCompiledNode::new(no_output.clone(), i)));
+        }
         Ok(FSTCompilerInner {
             fst,
             no_output,
@@ -500,11 +516,12 @@ where
             data_output,
             scratch_bytes: GrowableByteArrayDataOutput::new(),
             num_bytes_written,
+            frontier,
         })
     }
     // serializes new node by appending its bytes to the end
     // of the current byte[]
-    pub(crate) fn add_node(&mut self, node_in: &UnCompiledNode<T, O, D>) -> Result<i64> {
+    pub(crate) fn add_node(&mut self, node_in: &UnCompiledNode<T>) -> Result<i64> {
         if node_in.num_arcs == 0 {
             return Ok(if node_in.is_final {
                 fst_util::FINAL_END_NODE
@@ -740,7 +757,7 @@ where
     /// arcs with a fixed number of bytes, but they allow either binary
     /// search or direct addressing on the arcs (instead of linear scan) on
     /// lookup by arc label.
-    fn should_expand_node_with_fixed_length_arcs(&self, node: &UnCompiledNode<T, O, D>) -> bool {
+    fn should_expand_node_with_fixed_length_arcs(&self, node: &UnCompiledNode<T>) -> bool {
         self.allow_fixed_length_arcs
             && ((node.depth <= fst_compiler_util::FIXED_LENGTH_ARC_SHALLOW_DEPTH
                 && node.num_arcs >= fst_compiler_util::FIXED_LENGTH_ARC_SHALLOW_NUM_ARCS)
@@ -760,7 +777,7 @@ where
     /// [`FSTCompiler::get_direct_addressing_max_oversizing_factor`](Self::get_direct_addressing_max_oversizing_factor)
     fn should_expand_node_with_direct_addressing(
         &mut self,
-        node_in: &UnCompiledNode<T, O, D>,
+        node_in: &UnCompiledNode<T>,
         num_bytes_per_arc: i32,
         max_bytes_per_arc_without_label: i32,
         label_range: i32,
@@ -803,7 +820,7 @@ where
     }
     fn write_node_for_binary_search(
         &mut self,
-        node_in: &UnCompiledNode<T, O, D>,
+        node_in: &UnCompiledNode<T>,
         max_bytes_per_arc: i32,
     ) -> Result<()> {
         // Build the header in a buffer.
@@ -888,7 +905,7 @@ where
     }
     fn write_node_for_direct_addressing_or_continuous(
         &mut self,
-        node_in: &UnCompiledNode<T, O, D>,
+        node_in: &UnCompiledNode<T>,
         max_bytes_per_arc_without_label: i32,
         label_range: i32,
         continuous: bool,
@@ -987,7 +1004,7 @@ where
         Ok(())
     }
 
-    fn write_presence_bits(&mut self, node_in: &UnCompiledNode<T, O, D>) -> Result<()> {
+    fn write_presence_bits(&mut self, node_in: &UnCompiledNode<T>) -> Result<()> {
         let mut presence_bits: u8 = 1; // The first arc is always present.
         let mut presence_index = 0;
         let mut previous_label = node_in.arcs[0].label;
@@ -1345,23 +1362,19 @@ where
     }
 }
 /// Expert: holds a pending (seen but not yet serialized) arc.
-pub(crate) struct Arc<T, O, D>
+pub(crate) struct Arc<T>
 where
     T: OutputsBound,
-    O: Outputs<T>,
-    D: Directory,
 {
     pub label: i32, // really an "unsigned" byte
-    pub target: NodeEnum<T, O, D>,
+    pub target: NodeEnum<T>,
     pub is_final: bool,
     pub output: T,
     pub next_final_output: T,
 }
-impl<T, O, D> Default for Arc<T, O, D>
+impl<T> Default for Arc<T>
 where
     T: OutputsBound,
-    O: Outputs<T>,
-    D: Directory,
 {
     fn default() -> Self {
         Self {
@@ -1381,20 +1394,16 @@ where
 pub(crate) trait Node {
     fn is_compiled(&self) -> bool;
 }
-pub(crate) enum NodeEnum<T, O, D>
+pub(crate) enum NodeEnum<T>
 where
     T: OutputsBound,
-    O: Outputs<T>,
-    D: Directory,
 {
-    UnCompiledNode(UnCompiledNode<T, O, D>),
+    UnCompiledNode(UnCompiledNode<T>),
     CompiledNode(CompiledNode),
 }
-impl<T, O, D> Node for NodeEnum<T, O, D>
+impl<T> Node for NodeEnum<T>
 where
     T: OutputsBound,
-    O: Outputs<T>,
-    D: Directory,
 {
     fn is_compiled(&self) -> bool {
         match self {
@@ -1413,15 +1422,12 @@ impl Node for CompiledNode {
     }
 }
 /// Expert: holds a pending (seen but not yet serialized) Node.
-pub(crate) struct UnCompiledNode<T, O, D>
+pub(crate) struct UnCompiledNode<T>
 where
     T: OutputsBound,
-    O: Outputs<T>,
-    D: Directory,
 {
-    pub owner: Rc<RefCell<FSTCompilerInner<T, O, D>>>,
     pub num_arcs: i32,
-    pub arcs: Vec<Arc<T, O, D>>,
+    pub arcs: Vec<Arc<T>>,
     // TODO: instead of recording is_final/output on the node,
     // maybe we should use -1 arc to mean "end" (like we do when reading the
     // FST). Would simplify much code here...
@@ -1431,11 +1437,9 @@ where
     /// This node's depth, starting from the automaton root.
     pub depth: i32,
 }
-impl<T, O, D> UnCompiledNode<T, O, D>
+impl<T> UnCompiledNode<T>
 where
     T: OutputsBound,
-    O: Outputs<T>,
-    D: Directory,
 {
     /// Creates a new uncompiled node.
     ///
@@ -1443,14 +1447,11 @@ where
     /// - `depth`: The node's depth starting from the automaton root. Needed for
     ///   LUCENE-2934 (node expansion based on conditions other than the fanout
     ///   size).
-    pub(crate) fn new(owner: Rc<RefCell<FSTCompilerInner<T, O, D>>>, depth: i32) -> Self {
+    pub(crate) fn new(output: T, depth: i32) -> Self {
         let mut arcs = Vec::with_capacity(1);
         arcs.push(Arc::default());
 
-        let output = owner.borrow().no_output.clone();
-
         Self {
-            owner,
             num_arcs: 0,
             arcs,
             output,
@@ -1463,10 +1464,10 @@ where
         false
     }
 
-    pub(crate) fn clear(&mut self) {
+    pub(crate) fn clear(&mut self, no_outputs: T) {
         self.num_arcs = 0;
         self.is_final = false;
-        self.output = self.owner.borrow().no_output.clone();
+        self.output = no_outputs;
         // We don't clear the depth here because it never changes
         // for nodes on the frontier (even when reused).
     }
@@ -1477,7 +1478,7 @@ where
         self.arcs[self.num_arcs as usize - 1].output.clone()
     }
 
-    pub(crate) fn add_arc(&mut self, label: i32, target: NodeEnum<T, O, D>) -> Result<()> {
+    pub(crate) fn add_arc(&mut self, label: i32, target: NodeEnum<T>, no_outputs: T) -> Result<()> {
         debug_assert!(label >= 0);
         debug_assert!(
             self.num_arcs == 0 || label > self.arcs[self.num_arcs as usize - 1].label,
@@ -1495,7 +1496,7 @@ where
         self.num_arcs += 1;
         arc.label = label;
         arc.target = target;
-        arc.output = self.owner.borrow().no_output.clone();
+        arc.output = no_outputs;
         arc.next_final_output = arc.output.clone();
         arc.is_final = false;
         Ok(())
@@ -1503,7 +1504,7 @@ where
     pub(crate) fn replace_last(
         &mut self,
         label_to_match: i32,
-        target: NodeEnum<T, O, D>,
+        target: NodeEnum<T>,
         next_final_output: T,
         is_final: bool,
     ) {
@@ -1519,8 +1520,13 @@ where
         arc.is_final = is_final;
     }
 
-    pub(crate) fn set_last_output(&mut self, label_to_match: i32, new_output: T) {
-        debug_assert!(self.owner.borrow().valid_output(&new_output));
+    pub(crate) fn set_last_output<O: Outputs<T>, D: Directory>(
+        &mut self,
+        label_to_match: i32,
+        new_output: T,
+        inner: &FSTCompilerInner<T, O, D>,
+    ) {
+        debug_assert!(inner.valid_output(&new_output));
         debug_assert!(self.num_arcs > 0);
         let arc = &mut self.arcs[self.num_arcs as usize - 1];
         debug_assert_eq!(arc.label, label_to_match);
@@ -1528,28 +1534,29 @@ where
     }
 
     /// Pushes an output prefix forward onto all arcs.
-    pub(crate) fn prepend_output(&mut self, output_prefix: &T) {
-        debug_assert!(self.owner.borrow().valid_output(output_prefix));
-        let owner = self.owner.borrow();
+    pub(crate) fn prepend_output<O: Outputs<T>, D: Directory>(
+        &mut self,
+        output_prefix: &T,
+        inner: &FSTCompilerInner<T, O, D>,
+    ) {
+        debug_assert!(inner.valid_output(output_prefix));
 
         for i in 0..self.num_arcs as usize {
-            let new_output = owner.fst.outputs.add(output_prefix, &self.arcs[i].output);
-            debug_assert!(owner.valid_output(&new_output));
+            let new_output = inner.fst.outputs.add(output_prefix, &self.arcs[i].output);
+            debug_assert!(inner.valid_output(&new_output));
             self.arcs[i].output = new_output;
         }
 
         if self.is_final {
-            let new_output = owner.fst.outputs.add(output_prefix, &self.output);
-            debug_assert!(owner.valid_output(&new_output));
+            let new_output = inner.fst.outputs.add(output_prefix, &self.output);
+            debug_assert!(inner.valid_output(&new_output));
             self.output = new_output;
         }
     }
 }
-impl<T, O, D> Node for UnCompiledNode<T, O, D>
+impl<T> Node for UnCompiledNode<T>
 where
     T: OutputsBound,
-    O: Outputs<T>,
-    D: Directory,
 {
     fn is_compiled(&self) -> bool {
         false

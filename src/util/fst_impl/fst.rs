@@ -1415,3 +1415,79 @@ pub trait BytesReader: DataInput {
     /// Set current read position.
     fn set_position(&mut self, pos: i64);
 }
+
+#[cfg(test)]
+mod tests {
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    use crate::index::BytesRef;
+    use crate::store::dummy::dummy_directory::DummyDirectory;
+    use crate::store::ByteArrayDataInput;
+    use crate::test::util::lucene_test_case::{new_bytes_ref_from_string, random};
+    use crate::util::error::lucene_error::Result;
+    use crate::util::fst_impl::bytes_ref_fst_enum::BytesRefFSTEnum;
+    use crate::util::fst_impl::fst::{InputType, FST};
+    use crate::util::fst_impl::fst_compiler::{Builder, DataOutputEnum};
+    use crate::util::fst_impl::positive_int_outputs::PositiveIntOutputs;
+    use crate::util::fst_impl::util::Util;
+    use crate::util::ints_ref_builder::IntsRefBuilder;
+
+    #[test]
+    fn test_simple() -> Result<()> {
+        let mut random = random();
+        // Get outputs -- passing true means FST will share
+        // (delta code) the outputs.  This should result in
+        // smaller FST if the outputs grow monotonically.  But
+        // if numbers are "random", false should give smaller
+        // final size:
+
+        let outputs = PositiveIntOutputs::get_singleton();
+        // Build an FST mapping BytesRef -> Long
+
+        let mut fst_compiler = Builder::new(InputType::Byte1, outputs.clone()).build()?;
+
+        let a = BytesRef::from_string("a");
+        let b = BytesRef::from_string("b");
+        let c: BytesRef<Rc<RefCell<Vec<u8>>>> = BytesRef::from_string("c");
+
+        let mut v = IntsRefBuilder::new();
+        Util::get_ints_ref(&a, &mut v);
+        fst_compiler.add(v.get(), Rc::new(17))?;
+        let mut v = IntsRefBuilder::new();
+        Util::get_ints_ref(&b, &mut v);
+        fst_compiler.add(v.get(), Rc::new(42))?;
+        let mut v = IntsRefBuilder::new();
+        Util::get_ints_ref(&c, &mut v);
+        fst_compiler.add(v.get(), Rc::new(13824324872317238))?;
+
+        let fst_metadata = fst_compiler.compile()?;
+        let fst_reader: DataOutputEnum<DummyDirectory> =
+            fst_compiler.inner.borrow_mut().get_fst_reader()?;
+        let mut fst = FST::from_fst_reader(fst_metadata, Some(fst_reader)).unwrap();
+
+        assert_eq!(*Util::get_bytes(&mut fst, &c)?.unwrap(), 13824324872317238);
+        assert_eq!(*Util::get_bytes(&mut fst, &b)?.unwrap(), 42);
+        assert_eq!(*Util::get_bytes(&mut fst, &a)?.unwrap(), 17);
+
+        let mut fst_enum = BytesRefFSTEnum::new(fst)?;
+        let mut seek_result = fst_enum.seek_floor(a.clone())?;
+        assert!(seek_result.is_some());
+        assert_eq!(*seek_result.as_ref().unwrap().output, 17);
+
+        // seekFloor("aa") -> goes to "a"
+        let aa = new_bytes_ref_from_string(&mut random, "aa")?;
+        seek_result = fst_enum.seek_floor(aa.clone())?;
+        assert!(seek_result.is_some());
+        assert_eq!(*seek_result.as_ref().unwrap().output, 17);
+
+        // seekCeil("aa") -> goes to "b"
+        seek_result = fst_enum.seek_ceil(new_bytes_ref_from_string(&mut random, "aa")?.clone())?;
+        assert!(seek_result.is_some());
+        let result = seek_result.unwrap();
+        assert_eq!(result.input, b);
+        assert_eq!(*result.output, 42);
+
+        Ok(())
+    }
+}

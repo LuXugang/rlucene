@@ -110,7 +110,7 @@ where
             phantom: PhantomData,
         })
     }
-    fn get_fallback(&mut self, node_in: &UnCompiledNode<T, O, D>, hash: i64) -> Result<i64> {
+    fn get_fallback(&mut self, node_in: &UnCompiledNode<T>, hash: i64) -> Result<i64> {
         self.last_fallback_node_length = -1;
         self.last_fallback_hash_slot = -1;
 
@@ -148,7 +148,7 @@ where
             },
         }
     }
-    pub fn add(&mut self, node_in: &UnCompiledNode<T, O, D>) -> Result<i64> {
+    pub fn add(&mut self, node_in: &UnCompiledNode<T>) -> Result<i64> {
         let hash = self.hash(node_in)?;
         let mut hash_slot = hash & self.primary_table.mask;
         let mut c = 0;
@@ -265,7 +265,7 @@ where
             hash_slot = (hash_slot + c) & self.primary_table.mask;
         }
     }
-    fn hash(&self, node: &UnCompiledNode<T, O, D>) -> Result<i64> {
+    fn hash(&self, node: &UnCompiledNode<T>) -> Result<i64> {
         const PRIME: i64 = 31;
         let mut h: i64 = 0;
 
@@ -575,7 +575,7 @@ where
     /// to the primary table.
     fn nodes_equal(
         &mut self,
-        node: &UnCompiledNode<T, O, D>,
+        node: &UnCompiledNode<T>,
         address: i64,
         hash_slot: i64,
     ) -> Result<i32> {
