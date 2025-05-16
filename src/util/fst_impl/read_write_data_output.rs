@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 use std::fmt::{Display, Formatter};
+#[cfg(test)]
+use std::rc::Rc;
 
 use crate::store::{ByteBuffersDataOutput, DataInput, DataOutput};
 use crate::util::accountable::Accountable;

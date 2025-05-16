@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 use std::fmt::{Display, Formatter};
+#[cfg(test)]
+use std::rc::Rc;
 
 use crate::define_on_heap_fst_store;
 use crate::store::{DataInput, DataOutput};
