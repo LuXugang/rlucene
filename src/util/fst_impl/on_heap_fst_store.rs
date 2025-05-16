@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use std::fmt::{Display, Formatter};
-
+use std::rc::Rc;
 use crate::store::{DataInput, DataOutput};
 use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -33,7 +33,7 @@ pub struct OnHeapFSTStore {
     /// bytesArray is set instead.
     data_output: Option<ReadWriteDataOutput>,
     ///  Used at read time when the FST fits into a single byte array.
-    bytes_array: Option<Vec<u8>>,
+    bytes_array: Option<Rc<Vec<u8>>>,
 }
 impl OnHeapFSTStore {
     pub fn new(max_block_bits: i32, input: &mut impl DataInput, num_bytes: i64) -> Result<Self> {
@@ -61,7 +61,7 @@ impl OnHeapFSTStore {
             input.read_bytes(&mut bytes_array, 0, len)?;
             Ok(Self {
                 data_output: None, // or an empty fallback
-                bytes_array: Some(bytes_array),
+                bytes_array: Some(Rc::new(bytes_array)),
             })
         }
     }
@@ -79,7 +79,7 @@ impl FstReader for OnHeapFSTStore {
     fn get_reverse_bytes_reader(&mut self) -> Result<Self::FstBytesReader> {
         if self.bytes_array.is_some() {
             Ok(FstBytesReaderEnum::Reverse(ReverseBytesReader::new(
-                self.bytes_array.take().unwrap(),
+                self.bytes_array.as_ref().unwrap().clone(),
             )))
         } else {
             Ok(FstBytesReaderEnum::Bytes(

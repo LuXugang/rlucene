@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use std::fmt::{Display, Formatter};
-use std::io::Cursor;
+use std::rc::Rc;
 
 use crate::store::{ByteBuffersDataOutput, DataInput, DataOutput};
 use crate::util::accountable::Accountable;
@@ -32,7 +32,8 @@ pub struct ReadWriteDataOutput {
     pub block_bits: i32,
     pub block_size: i32,
     pub block_mask: i32,
-    pub byte_buffers: Option<Vec<Cursor<Vec<u8>>>>,
+    pub byte_buffers: Option<Rc<Vec<Vec<u8>>>>,
+    pub byte_buffer: Option<Rc<Vec<u8>>>,
     /// Whether the data output is frozen
     pub frozen: bool,
 }
@@ -47,6 +48,7 @@ impl ReadWriteDataOutput {
             block_size,
             block_mask,
             byte_buffers: None,
+            byte_buffer: None,
             frozen: false,
         }
     }
@@ -55,7 +57,12 @@ impl ReadWriteDataOutput {
 
         // this operation is costly, so we want to compute it once and cache
         let (_, byte_buffers) = self.data_output.to_buffer_list_owner();
-        self.byte_buffers = Some(byte_buffers);
+        let mut data: Vec<Vec<u8>> = byte_buffers.into_iter().map(|b| b.into_inner()).collect();
+        if data.len() == 1 {
+            self.byte_buffer = Some(Rc::new(std::mem::take(&mut data[0])));
+        } else {
+            self.byte_buffers = Some(Rc::new(data));
+        }
         Ok(())
     }
 }
@@ -70,25 +77,21 @@ impl FstReader for ReadWriteDataOutput {
     type FstBytesReader = BytesReaderEnum;
 
     fn get_reverse_bytes_reader(&mut self) -> Result<Self::FstBytesReader> {
-        debug_assert!(self.byte_buffers.is_some());
-        if self.byte_buffers.is_none() {
-            return Err(LuceneError::illegal_state(
-                "byte_buffers is None".to_string(),
-            ));
-        }
-        let byte_buffers = self.byte_buffers.take().unwrap();
-        let mut data: Vec<Vec<u8>> = byte_buffers.into_iter().map(|b| b.into_inner()).collect();
-        if data.len() == 1 {
-            Ok(BytesReaderEnum::ReverseBytes(ReverseBytesReader::new(
-                std::mem::take(&mut data[0]),
-            )))
-        } else {
-            Ok(BytesReaderEnum::Impl(BytesReaderImpl::new(
-                data,
+        match (&self.byte_buffers, &self.byte_buffer) {
+            (Some(buffers), None) => Ok(BytesReaderEnum::Impl(BytesReaderImpl::new(
+                buffers.clone(),
                 self.block_bits,
                 self.block_size,
                 self.block_mask,
-            )))
+            ))),
+            (None, Some(buffer)) => Ok(BytesReaderEnum::ReverseBytes(ReverseBytesReader::new(
+                buffer.clone(),
+            ))),
+            _ => {
+                Err(LuceneError::illegal_state(
+                    "Only one buffer is some".to_string(),
+                ))
+            },
         }
     }
 
@@ -109,7 +112,7 @@ impl DataOutput for ReadWriteDataOutput {
 }
 
 pub struct BytesReaderImpl {
-    byte_buffers: Vec<Vec<u8>>,
+    byte_buffers: Rc<Vec<Vec<u8>>>,
     next_buffer: i32,
     next_read: i32,
     current: i32,
@@ -119,7 +122,7 @@ pub struct BytesReaderImpl {
 }
 impl BytesReaderImpl {
     pub fn new(
-        byte_buffers: Vec<Vec<u8>>,
+        byte_buffers: Rc<Vec<Vec<u8>>>,
         block_bits: i32,
         block_size: i32,
         block_mask: i32,

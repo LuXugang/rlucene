@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use std::fmt::{Display, Formatter};
+use std::rc::Rc;
 
 use crate::store::DataInput;
 use crate::util::error::lucene_error::Result;
@@ -22,12 +23,12 @@ use crate::util::fst_impl::fst::BytesReader;
 
 /// Reads in reverse from a single byte array.
 pub struct ReverseBytesReader {
-    bytes: Vec<u8>,
+    bytes: Rc<Vec<u8>>,
     pos: i32,
 }
 #[allow(unused)]
 impl ReverseBytesReader {
-    pub fn new(bytes: Vec<u8>) -> Self {
+    pub fn new(bytes: Rc<Vec<u8>>) -> Self {
         Self { bytes, pos: 0 }
     }
 }
