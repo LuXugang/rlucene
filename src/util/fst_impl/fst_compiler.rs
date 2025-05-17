@@ -271,7 +271,7 @@ where
                 debug_assert!(inner.valid_output(&last_output));
 
                 let common_output_prefix;
-                if !std::ptr::eq(&last_output, &inner.no_output) {
+                if inner.no_output.is_same_reference(&last_output) {
                     common_output_prefix = inner.fst.outputs.common(&output, &last_output);
                     debug_assert!(inner.valid_output(&common_output_prefix));
 
@@ -284,19 +284,19 @@ where
                     UnCompiledNode::set_last_output(
                         label,
                         common_output_prefix.clone(),
-                        &mut self.inner.borrow_mut(),
+                        &mut inner,
                         idx - 1,
                     );
                     UnCompiledNode::prepend_output(
                         &word_suffix,
-                        &mut *self.inner.borrow_mut(),
+                        &mut inner,
                         idx,
                     );
                 } else {
                     common_output_prefix = inner.no_output.clone();
                 }
 
-                output = inner.fst.outputs.subtract(&output, &common_output_prefix);
+                let output = inner.fst.outputs.subtract(&output, &common_output_prefix);
                 debug_assert!(inner.valid_output(&output));
             }
         };
@@ -566,11 +566,11 @@ where
 
                     if arc.is_final {
                         flags |= fst_util::BIT_FINAL_ARC as i32;
-                        if !std::ptr::eq(&arc.next_final_output, &self.no_output) {
+                        if self.no_output.is_same_reference(&arc.next_final_output){
                             flags |= fst_util::BIT_ARC_HAS_FINAL_OUTPUT as i32;
                         }
                     } else {
-                        debug_assert!(std::ptr::eq(&arc.next_final_output, &self.no_output));
+                        debug_assert!(self.no_output.is_same_reference(&arc.next_final_output));
                     }
 
                     let target_has_arcs = target.node > 0;
@@ -578,7 +578,7 @@ where
                         flags |= fst_util::BIT_STOP_NODE;
                     }
 
-                    if !std::ptr::eq(&arc.output, &self.no_output) {
+                    if self.no_output.is_same_reference(&arc.output){
                         flags |= fst_util::BIT_ARC_HAS_OUTPUT as i32;
                     }
 
@@ -606,13 +606,13 @@ where
                     let label_end = self.scratch_bytes.get_position();
                     let num_label_bytes = label_end - label_start;
 
-                    if !std::ptr::eq(&arc.output, &self.no_output) {
+                    if self.no_output.is_same_reference(&arc.output){
                         self.fst
                             .outputs
                             .write(&arc.output, &mut self.scratch_bytes)?;
                     }
 
-                    if !std::ptr::eq(&arc.next_final_output, &self.no_output) {
+                    if self.no_output.is_same_reference(&arc.next_final_output){
                         self.fst
                             .outputs
                             .write_final_output(&arc.next_final_output, &mut self.scratch_bytes)?;
@@ -1108,7 +1108,7 @@ where
         Ok(())
     }
     fn valid_output(&self, output: &T) -> bool {
-        std::ptr::eq(output, &self.no_output) || *output != self.no_output
+        self.no_output.is_same_reference(output) || *output != self.no_output
     }
     /// Returns the estimated heap memory used by the in-construction FST.
     pub fn fst_ram_bytes_used(&self) -> Result<i64> {

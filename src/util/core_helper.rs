@@ -14,12 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::num::Wrapping;
-
+use std::rc::Rc;
 use bit_set::BitSet;
-
+use crate::index::BytesRef;
 use crate::util::error::lucene_error::{LuceneError, Result};
 
 pub struct CoreHelper;
@@ -203,5 +204,27 @@ impl BitSetExt for BitSet {
             Some(bit) => bit as i32,
             None => -1,
         }
+    }
+}
+pub trait OutputIdentity {
+    fn is_same_reference(&self, other: &Self) -> bool;
+}
+impl OutputIdentity for Rc<i64> {
+    fn is_same_reference(&self, other: &Self) -> bool {
+        Rc::ptr_eq(self, other)
+    }
+}
+impl OutputIdentity for BytesRef<Rc<Vec<u8>>> {
+    fn is_same_reference(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.bytes, &other.bytes)
+            && self.offset == other.offset
+            && self.length == other.length
+    }
+}
+impl OutputIdentity for BytesRef<Rc<RefCell<Vec<u8>>>> {
+    fn is_same_reference(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.bytes, &other.bytes)
+            && self.offset == other.offset
+            && self.length == other.length
     }
 }

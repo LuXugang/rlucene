@@ -16,4 +16,3 @@
  */
 pub mod dummy_bytes_reader;
 pub mod dummy_fst_reader;
-pub mod dummy_outputs;
