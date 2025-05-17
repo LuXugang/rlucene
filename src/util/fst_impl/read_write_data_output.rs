@@ -71,6 +71,10 @@ macro_rules! define_read_write_data_output {
                 Ok(())
             }
             fn init_byte_buffer(&mut self) {
+                #[cfg(test)] // Allow multiple calls to the `get_reverse_bytes_reader()` method during testing.
+                let (_, byte_buffers_raw) = self.data_output.clone().to_buffer_list_owner();
+
+                #[cfg(not(test))]
                 let (_, byte_buffers_raw) = self.data_output.to_buffer_list_owner();
                 let mut data: Vec<Vec<u8>> = byte_buffers_raw
                     .into_iter()

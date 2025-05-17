@@ -39,6 +39,19 @@ pub struct ByteBuffersDataOutput {
     current_block_index: i32,
     reuse: bool,
 }
+#[cfg(test)]
+impl Clone for ByteBuffersDataOutput {
+    fn clone(&self) -> Self {
+        Self {
+            blocks: self.blocks.clone(),
+            max_bits_per_block: self.max_bits_per_block,
+            block_bits: self.block_bits,
+            ram_bytes_used: self.ram_bytes_used,
+            current_block_index: self.current_block_index,
+            reuse: self.reuse,
+        }
+    }
+}
 impl Default for ByteBuffersDataOutput {
     // It is used for padding
     fn default() -> Self {
