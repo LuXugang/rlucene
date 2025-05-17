@@ -1420,12 +1420,13 @@ pub trait BytesReader: DataInput {
 mod tests {
     use std::cell::RefCell;
     use std::rc::Rc;
+
     use crate::codecs::compressing::lucene90_compressing_stored_fields_reader::DataInputEnum;
     use crate::index::BytesRef;
     use crate::store::dummy::dummy_directory::DummyDirectory;
-    use crate::store::{ByteArrayDataInput, ByteArrayDataOutput};
     use crate::store::dummy::dummy_index_input::DummyIndexInput;
     use crate::store::output_stream_data_output::OutputStreamDataOutput;
+    use crate::store::{ByteArrayDataInput, ByteArrayDataOutput};
     use crate::test::util::lucene_test_case::{new_bytes_ref_from_string, random};
     use crate::util::error::lucene_error::Result;
     use crate::util::fst_impl::bytes_ref_fst_enum::BytesRefFSTEnum;
@@ -1495,7 +1496,8 @@ mod tests {
         Ok(())
     }
     // https://github.com/apache/lucene/issues/12697
-    // Make sure the FST can be saved and loaded with different DataOutput for metadata
+    // Make sure the FST can be saved and loaded with different DataOutput for
+    // metadata
     #[test]
     fn test_save_different_meta_out() -> Result<()> {
         let mut random = random();
@@ -1507,9 +1509,9 @@ mod tests {
         // let key1:BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, "aab")?;
         // let key2:BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, "aac")?;
         // let key3:BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, "ax")?;
-        let key1:BytesRef<Vec<u8>> = BytesRef::from_string("aab");
-        let key2:BytesRef<Vec<u8>> = BytesRef::from_string( "aac");
-        let key3:BytesRef<Vec<u8>> = BytesRef::from_string( "ax");
+        let key1: BytesRef<Vec<u8>> = BytesRef::from_string("aab");
+        let key2: BytesRef<Vec<u8>> = BytesRef::from_string("aac");
+        let key3: BytesRef<Vec<u8>> = BytesRef::from_string("ax");
 
         Util::get_ints_ref(&key1, &mut scratch);
         fst_compiler.add(scratch.get(), Rc::new(22))?;
@@ -1520,25 +1522,29 @@ mod tests {
 
         // Compile and load once
         let metadata = fst_compiler.compile()?;
-        let fst_reader: DataOutputEnum<DummyDirectory> = fst_compiler.inner.borrow_mut().get_fst_reader()?;
+        let fst_reader: DataOutputEnum<DummyDirectory> =
+            fst_compiler.inner.borrow_mut().get_fst_reader()?;
         let mut fst = FST::from_fst_reader(metadata, Some(fst_reader)).unwrap();
 
         // Save into a single output
         let mut bytes = Vec::new();
         {
-            let mut out= Rc::new(RefCell::new(OutputStreamDataOutput::new(&mut bytes)));
+            let mut out = Rc::new(RefCell::new(OutputStreamDataOutput::new(&mut bytes)));
             fst.save(out.clone(), out.clone())?;
         }
         // Load it back using split input (force FSTStore path)
         let mut input = ByteArrayDataInput::with_bytes(bytes);
         let metadata = fst_util::read_metadata(&mut input, outputs.clone())?;
-        let mut loaded_fst = FST::from_on_heap_store(metadata, &mut DataInputEnum::<DummyIndexInput>::ByteArray(input))?;
+        let mut loaded_fst = FST::from_on_heap_store(
+            metadata,
+            &mut DataInputEnum::<DummyIndexInput>::ByteArray(input),
+        )?;
 
         // Save again, now to separate outputs
-        let mut metdata_os= Vec::new();
-        let mut data_os_os= Vec::new();
+        let mut metdata_os = Vec::new();
+        let mut data_os_os = Vec::new();
         {
-            let meta_out= Rc::new(RefCell::new(OutputStreamDataOutput::new(&mut metdata_os)));
+            let meta_out = Rc::new(RefCell::new(OutputStreamDataOutput::new(&mut metdata_os)));
             let data_out = Rc::new(RefCell::new(OutputStreamDataOutput::new(&mut data_os_os)));
             loaded_fst.save(meta_out, data_out)?;
         }
@@ -1547,7 +1553,10 @@ mod tests {
         let mut meta_in = ByteArrayDataInput::with_bytes(metdata_os);
         let data_in = ByteArrayDataInput::with_bytes(data_os_os);
         let metadata = fst_util::read_metadata(&mut meta_in, outputs.clone())?;
-        let mut loaded_fst = FST::from_on_heap_store(metadata, &mut DataInputEnum::<DummyIndexInput>::ByteArray(data_in))?;
+        let mut loaded_fst = FST::from_on_heap_store(
+            metadata,
+            &mut DataInputEnum::<DummyIndexInput>::ByteArray(data_in),
+        )?;
 
         Util::get_ints_ref(&key1, &mut scratch);
         assert_eq!(*Util::get_bytes(&mut loaded_fst, &key1)?.unwrap(), 22);
@@ -1560,5 +1569,4 @@ mod tests {
 
         Ok(())
     }
-
 }

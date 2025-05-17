@@ -15,13 +15,13 @@
  * limitations under the License.
  */
 use std::cmp::Ordering;
-use std::fmt::Display;
+use std::fmt::{Debug, Display};
 use std::hash::Hash;
 use std::rc::Rc;
 
 use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::{StringHelper, GOOD_FAST_HASH_SEED};
+use crate::util::{HashCode, StringHelper, GOOD_FAST_HASH_SEED};
 use crate::with_other;
 
 /// Represents a `&[u8]` as a slice (offset + length) into an existing byte
@@ -239,6 +239,14 @@ where
             write!(f, "]")?;
             Ok(())
         })
+    }
+}
+impl<AV> HashCode for BytesRef<AV>
+where
+    AV: AccessVec<u8>,
+{
+    fn hash_code(&self) -> i32 {
+        StringHelper::murmurhash3_x86_32(self, *GOOD_FAST_HASH_SEED)
     }
 }
 

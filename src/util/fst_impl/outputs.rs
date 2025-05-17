@@ -18,11 +18,12 @@ use std::cell::RefCell;
 use std::fmt::Display;
 use std::hash::Hash;
 use std::rc::Rc;
+
 use crate::index::BytesRef;
 use crate::store::{DataInput, DataOutput};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs;
-use crate::util::OutputIdentity;
+use crate::util::{HashCode, OutputIdentity};
 
 /// Represents the outputs for an FST, providing the basic algebra required for
 /// building and traversing the FST.
@@ -105,11 +106,11 @@ pub enum OutputsEnum {
     ByteSequence(ByteSequenceOutputs),
 }
 
-pub trait OutputsBound: Clone + PartialEq + Default + Hash + Display + OutputIdentity{}
-impl OutputsBound for Rc<i64>{
+pub trait OutputsBound:
+    Clone + PartialEq + Default + HashCode + Hash + Display + OutputIdentity
+{
 }
-impl OutputsBound for BytesRef<Rc<Vec<u8>>>{
-}
-impl OutputsBound for BytesRef<Rc<RefCell<Vec<u8>>>>{
-}
+impl OutputsBound for Rc<i64> {}
+impl OutputsBound for BytesRef<Rc<Vec<u8>>> {}
+impl OutputsBound for BytesRef<Rc<RefCell<Vec<u8>>>> {}
 // impl<T: Clone + PartialEq + Default + Hash + Display> OutputsBound for T {}

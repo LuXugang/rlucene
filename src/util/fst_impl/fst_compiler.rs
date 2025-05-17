@@ -287,11 +287,7 @@ where
                         &mut inner,
                         idx - 1,
                     );
-                    UnCompiledNode::prepend_output(
-                        &word_suffix,
-                        &mut inner,
-                        idx,
-                    );
+                    UnCompiledNode::prepend_output(&word_suffix, &mut inner, idx);
                 } else {
                     common_output_prefix = inner.no_output.clone();
                 }
@@ -566,7 +562,7 @@ where
 
                     if arc.is_final {
                         flags |= fst_util::BIT_FINAL_ARC as i32;
-                        if self.no_output.is_same_reference(&arc.next_final_output){
+                        if self.no_output.is_same_reference(&arc.next_final_output) {
                             flags |= fst_util::BIT_ARC_HAS_FINAL_OUTPUT as i32;
                         }
                     } else {
@@ -578,7 +574,7 @@ where
                         flags |= fst_util::BIT_STOP_NODE;
                     }
 
-                    if self.no_output.is_same_reference(&arc.output){
+                    if self.no_output.is_same_reference(&arc.output) {
                         flags |= fst_util::BIT_ARC_HAS_OUTPUT as i32;
                     }
 
@@ -606,13 +602,13 @@ where
                     let label_end = self.scratch_bytes.get_position();
                     let num_label_bytes = label_end - label_start;
 
-                    if self.no_output.is_same_reference(&arc.output){
+                    if self.no_output.is_same_reference(&arc.output) {
                         self.fst
                             .outputs
                             .write(&arc.output, &mut self.scratch_bytes)?;
                     }
 
-                    if self.no_output.is_same_reference(&arc.next_final_output){
+                    if self.no_output.is_same_reference(&arc.next_final_output) {
                         self.fst
                             .outputs
                             .write_final_output(&arc.next_final_output, &mut self.scratch_bytes)?;

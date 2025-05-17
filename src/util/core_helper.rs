@@ -19,7 +19,9 @@ use std::cmp::Ordering;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::num::Wrapping;
 use std::rc::Rc;
+
 use bit_set::BitSet;
+
 use crate::index::BytesRef;
 use crate::util::error::lucene_error::{LuceneError, Result};
 
@@ -226,5 +228,30 @@ impl OutputIdentity for BytesRef<Rc<RefCell<Vec<u8>>>> {
         Rc::ptr_eq(&self.bytes, &other.bytes)
             && self.offset == other.offset
             && self.length == other.length
+    }
+}
+
+pub trait HashCode {
+    fn hash_code(&self) -> i32;
+}
+// i32
+impl HashCode for i32 {
+    fn hash_code(&self) -> i32 {
+        *self
+    }
+}
+// i64
+impl HashCode for i64 {
+    fn hash_code(&self) -> i32 {
+        let value = *self as u64;
+        let high = value >> 32;
+        let mixed = value ^ high;
+        (mixed & 0xFFFF_FFFF) as i32
+    }
+}
+// Rc<i64>
+impl HashCode for Rc<i64> {
+    fn hash_code(&self) -> i32 {
+        (**self).hash_code()
     }
 }
