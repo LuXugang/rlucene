@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use std::cell::RefCell;
-use std::hash::{DefaultHasher, Hash, Hasher};
+use std::hash::Hash;
 use std::marker::PhantomData;
 use std::rc::Rc;
 
