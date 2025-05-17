@@ -66,6 +66,11 @@ macro_rules! define_read_write_data_output {
 
             pub fn freeze(&mut self) -> Result<()> {
                 self.frozen = true;
+                // We only move the ownership of self.data_output when get_reverse_bytes_reader
+                // is called, so that the write_to method can still function correctly.
+                Ok(())
+            }
+            fn init_byte_buffer(&mut self) {
                 let (_, byte_buffers_raw) = self.data_output.to_buffer_list_owner();
                 let mut data: Vec<Vec<u8>> = byte_buffers_raw
                     .into_iter()
@@ -77,7 +82,6 @@ macro_rules! define_read_write_data_output {
                 } else {
                     self.byte_buffers = Some($buffers_wrap(data));
                 }
-                Ok(())
             }
         }
 
@@ -91,6 +95,7 @@ macro_rules! define_read_write_data_output {
             type FstBytesReader = BytesReaderEnum;
 
             fn get_reverse_bytes_reader(&mut self) -> Result<Self::FstBytesReader> {
+                self.init_byte_buffer();
                 if self.byte_buffers.is_some() && self.byte_buffer.is_none() {
                     let buffers = $buffers_extract(&mut self.byte_buffers);
                     Ok(BytesReaderEnum::Impl(BytesReaderImpl::new(

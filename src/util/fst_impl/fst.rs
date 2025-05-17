@@ -1423,15 +1423,20 @@ mod tests {
 
     use crate::codecs::compressing::lucene90_compressing_stored_fields_reader::DataInputEnum;
     use crate::index::BytesRef;
+    use crate::store::directory::Directory;
     use crate::store::dummy::dummy_directory::DummyDirectory;
     use crate::store::dummy::dummy_index_input::DummyIndexInput;
     use crate::store::output_stream_data_output::OutputStreamDataOutput;
-    use crate::store::{ByteArrayDataInput, ByteArrayDataOutput};
-    use crate::test::util::lucene_test_case::{new_bytes_ref_from_string, random};
+    use crate::store::{ByteArrayDataInput, ByteArrayDataOutput, IOContext};
+    use crate::test::util::lucene_test_case::{new_bytes_ref_from_string, new_directory, random};
     use crate::util::error::lucene_error::Result;
     use crate::util::fst_impl::bytes_ref_fst_enum::BytesRefFSTEnum;
     use crate::util::fst_impl::fst::{fst_util, InputType, FST};
-    use crate::util::fst_impl::fst_compiler::{Builder, DataOutputEnum};
+    use crate::util::fst_impl::fst_compiler::{
+        Arc, Builder, CompiledNode, DataOutputEnum, NodeEnum, UnCompiledNode,
+    };
+    use crate::util::fst_impl::fst_reader::FstReader;
+    use crate::util::fst_impl::outputs::{Outputs, OutputsBound};
     use crate::util::fst_impl::positive_int_outputs::PositiveIntOutputs;
     use crate::util::fst_impl::util::Util;
     use crate::util::ints_ref_builder::IntsRefBuilder;
@@ -1452,9 +1457,9 @@ mod tests {
 
         let mut fst_compiler = Builder::new(InputType::Byte1, outputs.clone()).build()?;
 
-        let a = BytesRef::from_string("a");
-        let b = BytesRef::from_string("b");
-        let c: BytesRef<Rc<RefCell<Vec<u8>>>> = BytesRef::from_string("c");
+        let a = new_bytes_ref_from_string(&mut random, "a")?;
+        let b = new_bytes_ref_from_string(&mut random, "b")?;
+        let c: BytesRef<Rc<RefCell<Vec<u8>>>> = new_bytes_ref_from_string(&mut random, "c")?;
 
         let mut v = IntsRefBuilder::new();
         Util::get_ints_ref(&a, &mut v);
@@ -1506,12 +1511,12 @@ mod tests {
 
         // Build the FST
         let mut scratch = IntsRefBuilder::new();
-        // let key1:BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, "aab")?;
-        // let key2:BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, "aac")?;
-        // let key3:BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, "ax")?;
-        let key1: BytesRef<Vec<u8>> = BytesRef::from_string("aab");
-        let key2: BytesRef<Vec<u8>> = BytesRef::from_string("aac");
-        let key3: BytesRef<Vec<u8>> = BytesRef::from_string("ax");
+        let key1: BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, "aab")?;
+        let key2: BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, "aac")?;
+        let key3: BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, "ax")?;
+        // let key1: BytesRef<Vec<u8>> = BytesRef::from_string("aab");
+        // let key2: BytesRef<Vec<u8>> = BytesRef::from_string("aac");
+        // let key3: BytesRef<Vec<u8>> = BytesRef::from_string("ax");
 
         Util::get_ints_ref(&key1, &mut scratch);
         fst_compiler.add(scratch.get(), Rc::new(22))?;
@@ -1566,6 +1571,119 @@ mod tests {
 
         Util::get_ints_ref(&key3, &mut scratch);
         assert_eq!(*Util::get_bytes(&mut loaded_fst, &key3)?.unwrap(), 17);
+
+        Ok(())
+    }
+    // Make sure raw FST can differentiate between final vs
+    // non-final end nodes
+    #[test]
+    fn test_non_final_stop_node() -> Result<()> {
+        // let outputs = PositiveIntOutputs::get_singleton();
+        // let nothing = outputs.get_no_output();
+        // let builder: Builder<_, _, DummyDirectory> =
+        //     Builder::new(InputType::Byte1, outputs.clone());
+        // let fst_compiler = builder.build()?;
+        // let no_output = fst_compiler.inner.borrow().no_output.clone();
+        // // Root node
+        // let mut root_node = UnCompiledNode::new(no_output, 0);
+        // 
+        // // Add final stop node for 'a'
+        // {
+        //     let mut inner = fst_compiler.inner.borrow_mut();
+        //     let node_in_idx = 0;
+        // 
+        //     let no_output = inner.no_output.clone();
+        //     let mut node = UnCompiledNode::new(no_output.clone(), 0);
+        //     node.is_final = true;
+        //     inner.frontier[0]= (Some(node));
+        //     root_node.add_arc(b'a' as i32, NodeEnum::UnCompiledNode(0), no_output.clone())?;
+        //     let mut fronze = CompiledNode::default();
+        //     fronze.node = inner.add_node(0)?;
+        // 
+        //     root_node.arcs[0].next_final_output = Rc::new(17);
+        //     root_node.arcs[0].is_final = true;
+        //     root_node.arcs[0].output = no_output.clone();
+        //     root_node.arcs[0].target = NodeEnum::CompiledNode(fronze);
+        // }
+        // 
+        // // Add non-final stop node for 'b'
+        // {
+        //     let node_in_idx = 1;
+        //     let mut inner = fst_compiler.inner.borrow_mut();
+        //     let no_output = inner.no_output.clone();
+        //     let mut node = UnCompiledNode::new(no_output.clone(), 0);
+        //     inner.frontier[1]= (Some(node));
+        //     root_node.add_arc(b'b' as i32, NodeEnum::UnCompiledNode(1), no_output.clone())?;
+        //     let mut fronze = CompiledNode::default();
+        //     fronze.node = inner.add_node(1)?;
+        // 
+        //     root_node.arcs[1].next_final_output = nothing.clone();
+        //     root_node.arcs[1].output = Rc::new(42);
+        //     root_node.arcs[1].target = NodeEnum::CompiledNode(fronze);
+        // }
+        // // index = 2;
+        // fst_compiler
+        //     .inner
+        //     .borrow_mut()
+        //     .frontier[2] = Some(root_node);
+        // 
+        // // Finish FST
+        // let mut inner = fst_compiler.inner.borrow_mut();
+        // // 2  =  root node
+        // let root = inner.add_node(2)?;
+        // inner.finish(root)?;
+        // 
+        // // Construct FST
+        // let metadata = inner.fst.metadata.take().unwrap();
+        // let mut fst = FST::new(metadata, inner.get_fst_reader()?);
+        // 
+        // // skip string writer
+        // check_stop_nodes(&mut fst, outputs.clone())?;
+        // 
+        // let mut random = random();
+        // let mut dir = new_directory(&mut random)?;
+        // {
+        //     let out = Rc::new(RefCell::new(
+        //         dir.create_output("fst", &IOContext::default_io_context()?)?,
+        //     ));
+        //     fst.save(out.clone(), out)?;
+        // }
+        // 
+        // let mut in_file = dir.open_input("fst", &IOContext::default_io_context()?)?;
+        // let metadata = fst_util::read_metadata(&mut in_file, outputs.clone())?;
+        // let mut loaded_fst = FST::from_on_heap_store(metadata, &mut in_file)?;
+        // 
+        // check_stop_nodes(&mut loaded_fst, outputs.clone())?;
+
+        Ok(())
+    }
+
+    fn check_stop_nodes<F>(
+        fst: &mut FST<Rc<i64>, PositiveIntOutputs, F>,
+        outputs: PositiveIntOutputs,
+    ) -> Result<()>
+    where
+        F: FstReader,
+    {
+        let nothing = outputs.get_no_output();
+        let mut start_arc = crate::util::fst_impl::fst::Arc::default();
+        fst.get_first_arc(&mut start_arc);
+        assert!(Rc::ptr_eq(&start_arc.output, &nothing));
+        assert!(Rc::ptr_eq(&start_arc.next_final_output, &nothing));
+
+        let mut reader = fst.get_bytes_reader()?;
+        let mut arc = crate::util::fst_impl::fst::Arc::default();
+        fst.read_first_target_arc(&start_arc, &mut arc, &mut reader)?;
+        assert_eq!(arc.label, b'a' as i32);
+        assert_eq!(*arc.next_final_output(), 17);
+        assert!(arc.is_final());
+
+        fst.read_next_arc(&mut arc, &mut reader)?;
+        assert_eq!(arc.label, b'b' as i32);
+        assert!(!arc.is_final());
+        assert_eq!(*arc.output(), 42);
+        // return ownership
+        // fst.fst_reader = reader;
 
         Ok(())
     }

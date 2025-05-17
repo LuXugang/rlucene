@@ -563,8 +563,10 @@ where
             .read_first_real_target_arc(node_address, &mut self.scratch_arc, reader)?;
 
         loop {
-            h = h.wrapping_mul(PRIME).wrapping_add(self.scratch_arc.label() as i64);
-            let target = self.scratch_arc.target() ;
+            h = h
+                .wrapping_mul(PRIME)
+                .wrapping_add(self.scratch_arc.label() as i64);
+            let target = self.scratch_arc.target();
             let mixed = (target ^ (target >> 32)) & 0xFFFF_FFFF;
             h = h.wrapping_mul(PRIME).wrapping_add(mixed as i32 as i64);
             let output_hash = self.scratch_arc.output().hash_code() as i64;

@@ -180,7 +180,6 @@ where
     /// (e.g. [`ByteSequenceOutputs`](crate::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs)
     /// or
     /// [`IntSequenceOutputs`](crate::util::fst_impl::int_sequence_outputs::IntSequenceOutputs)), then you cannot reuse them across calls.
-    #[allow(unused)]
     pub(crate) fn add(&mut self, input: &IntsRef<Vec<i32>>, mut output: T) -> Result<()> {
         let ints = &input.ints;
         let prefix_len_plus1;
@@ -271,7 +270,7 @@ where
                 debug_assert!(inner.valid_output(&last_output));
 
                 let common_output_prefix;
-                if inner.no_output.is_same_reference(&last_output) {
+                if !inner.no_output.is_same_reference(&last_output) {
                     common_output_prefix = inner.fst.outputs.common(&output, &last_output);
                     debug_assert!(inner.valid_output(&common_output_prefix));
 
@@ -292,7 +291,7 @@ where
                     common_output_prefix = inner.no_output.clone();
                 }
 
-                let output = inner.fst.outputs.subtract(&output, &common_output_prefix);
+                output = inner.fst.outputs.subtract(&output, &common_output_prefix);
                 debug_assert!(inner.valid_output(&output));
             }
         };
@@ -562,7 +561,7 @@ where
 
                     if arc.is_final {
                         flags |= fst_util::BIT_FINAL_ARC as i32;
-                        if self.no_output.is_same_reference(&arc.next_final_output) {
+                        if !self.no_output.is_same_reference(&arc.next_final_output) {
                             flags |= fst_util::BIT_ARC_HAS_FINAL_OUTPUT as i32;
                         }
                     } else {
@@ -574,7 +573,7 @@ where
                         flags |= fst_util::BIT_STOP_NODE;
                     }
 
-                    if self.no_output.is_same_reference(&arc.output) {
+                    if !self.no_output.is_same_reference(&arc.output) {
                         flags |= fst_util::BIT_ARC_HAS_OUTPUT as i32;
                     }
 
@@ -602,13 +601,13 @@ where
                     let label_end = self.scratch_bytes.get_position();
                     let num_label_bytes = label_end - label_start;
 
-                    if self.no_output.is_same_reference(&arc.output) {
+                    if !self.no_output.is_same_reference(&arc.output) {
                         self.fst
                             .outputs
                             .write(&arc.output, &mut self.scratch_bytes)?;
                     }
 
-                    if self.no_output.is_same_reference(&arc.next_final_output) {
+                    if !self.no_output.is_same_reference(&arc.next_final_output) {
                         self.fst
                             .outputs
                             .write_final_output(&arc.next_final_output, &mut self.scratch_bytes)?;
@@ -1441,13 +1440,13 @@ pub(crate) struct UnCompiledNode<T>
 where
     T: OutputsBound,
 {
-    pub num_arcs: i32,
-    pub arcs: Vec<Arc<T>>,
+    pub(crate) num_arcs: i32,
+    pub(crate) arcs: Vec<Arc<T>>,
     // TODO: instead of recording is_final/output on the node,
     // maybe we should use -1 arc to mean "end" (like we do when reading the
     // FST). Would simplify much code here...
-    pub output: T,
-    pub is_final: bool,
+    pub(crate) output: T,
+    pub(crate) is_final: bool,
 
     /// This node's depth, starting from the automaton root.
     pub depth: i32,
@@ -1462,14 +1461,14 @@ where
     /// - `depth`: The node's depth starting from the automaton root. Needed for
     ///   LUCENE-2934 (node expansion based on conditions other than the fanout
     ///   size).
-    pub(crate) fn new(output: T, depth: i32) -> Self {
+    pub(crate) fn new(no_output: T, depth: i32) -> Self {
         let mut arcs = Vec::with_capacity(1);
         arcs.push(Arc::default());
 
         Self {
             num_arcs: 0,
             arcs,
-            output,
+            output: no_output,
             is_final: false,
             depth,
         }
