@@ -149,39 +149,32 @@ where
     }
 }
 
-impl<T, O, F> FSTEnumBase for IntsRefFSTEnum<T, O, F>
+impl<T, O, F> FSTEnumBase<T, O, F> for IntsRefFSTEnum<T, O, F>
 where
     T: OutputsBound,
     O: Outputs<T>,
     F: FstReader,
 {
-    fn get_target_label(&mut self) -> Result<i32> {
-        self.base.take_do_return(|base| {
-            if base.upto - 1 == self.target.length {
-                Ok(fst_util::END_LABEL)
-            } else {
-                Ok(self.target.ints[self.target.offset + base.upto - 1])
-            }
-        })
+    fn get_target_label(&mut self, base: &mut FSTEnum<T, O, F>) -> Result<i32> {
+        if base.upto - 1 == self.target.length {
+            Ok(fst_util::END_LABEL)
+        } else {
+            Ok(self.target.ints[self.target.offset + base.upto - 1])
+        }
     }
 
-    fn get_current_label(&mut self) -> Result<i32> {
-        self.base
-            .take_do_return(|base| Ok(self.current.borrow().ints[base.upto]))
+    fn get_current_label(&mut self, base: &mut FSTEnum<T, O, F>) -> Result<i32> {
+        Ok(self.current.borrow().ints[base.upto])
     }
 
-    fn set_current_label(&mut self, label: i32) -> Result<()> {
-        self.base.take_do_return(|base| {
-            self.current.borrow_mut().ints[base.upto] = label;
-            Ok(())
-        })
+    fn set_current_label(&mut self, label: i32, base: &mut FSTEnum<T, O, F>) -> Result<()> {
+        self.current.borrow_mut().ints[base.upto] = label;
+        Ok(())
     }
 
-    fn grow(&mut self) -> Result<()> {
-        self.base.take_do_return(|base| {
-            ArrayUtil::grow_with_len(&mut self.current.borrow_mut().ints, base.upto + 1);
-            Ok(())
-        })
+    fn grow(&mut self, base: &mut FSTEnum<T, O, F>) -> Result<()> {
+        ArrayUtil::grow_with_len(&mut self.current.borrow_mut().ints, base.upto + 1);
+        Ok(())
     }
 }
 pub type RcIntsRef = Rc<RefCell<IntsRef<Vec<i32>>>>;

@@ -133,44 +133,38 @@ where
                 Ok(None)
             } else {
                 self.current.length = base.upto - 1;
+                self.result.input.length = base.upto - 1;
                 self.result.output = base.output[base.upto].clone();
                 Ok(Some(&self.result))
             }
         })
     }
 }
-impl<T, O, F> FSTEnumBase for BytesRefFSTEnum<T, O, F>
+impl<T, O, F> FSTEnumBase<T, O, F> for BytesRefFSTEnum<T, O, F>
 where
     T: OutputsBound,
     O: Outputs<T>,
     F: FstReader,
 {
-    fn get_target_label(&mut self) -> Result<i32> {
-        self.base.take_do_return(|base| {
-            if base.upto - 1 == self.target.length {
-                Ok(fst_util::END_LABEL)
-            } else {
-                Ok(self.target.bytes.borrow()[self.target.offset + base.upto - 1] as i32 & 0xFF)
-            }
-        })
+    fn get_target_label(&mut self, base: &mut FSTEnum<T, O, F>) -> Result<i32> {
+        if base.upto - 1 == self.target.length {
+            Ok(fst_util::END_LABEL)
+        } else {
+            Ok(self.target.bytes.borrow()[self.target.offset + base.upto - 1] as i32 & 0xFF)
+        }
     }
 
-    fn get_current_label(&mut self) -> Result<i32> {
-        self.base
-            .take_do_return(|base| Ok(self.current.bytes.borrow()[base.upto] as i32 & 0xFF))
+    fn get_current_label(&mut self, base: &mut FSTEnum<T, O, F>) -> Result<i32> {
+        Ok(self.current.bytes.borrow()[base.upto] as i32 & 0xFF)
     }
 
-    fn set_current_label(&mut self, label: i32) -> Result<()> {
-        self.base.take_do_return(|base| {
-            self.current.bytes.borrow_mut()[base.upto] = label as u8;
-            Ok(())
-        })
+    fn set_current_label(&mut self, label: i32, base: &mut FSTEnum<T, O, F>) -> Result<()> {
+        self.current.bytes.borrow_mut()[base.upto] = label as u8;
+        Ok(())
     }
 
-    fn grow(&mut self) -> Result<()> {
-        self.base.take_do_return(|base| {
-            ArrayUtil::grow_with_len(&mut *self.current.bytes.borrow_mut(), base.upto + 1);
-            Ok(())
-        })
+    fn grow(&mut self, base: &mut FSTEnum<T, O, F>) -> Result<()> {
+        ArrayUtil::grow_with_len(&mut *self.current.bytes.borrow_mut(), base.upto + 1);
+        Ok(())
     }
 }
