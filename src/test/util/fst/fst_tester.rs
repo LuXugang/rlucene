@@ -25,7 +25,8 @@ use rand::Rng;
 use crate::store::directory::Directory;
 use crate::store::IOContext;
 use crate::test::util::lucene_test_case::{at_least, new_io_context, random_from_seed};
-use crate::util::error::lucene_error::Result;
+use crate::util::access::AccessVec;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fst_impl::fst::{fst_util, Arc, InputType, FST};
 use crate::util::fst_impl::fst_compiler::{Builder, DataOutputEnum};
 use crate::util::fst_impl::fst_reader::FstReader;
@@ -45,7 +46,7 @@ where
     S: FSTTesterBase,
 {
     pub random: R,
-    pub pairs: Vec<InputOutput<T>>,
+    pub pairs: Vec<InputOutput<T, Rc<RefCell<Vec<i32>>>>>,
     pub input_mode: i32,
     pub outputs: O,
     pub dir: Rc<RefCell<D>>,
@@ -62,19 +63,36 @@ where
     O: Outputs<T>,
     S: FSTTesterBase,
 {
+    pub fn new(
+        random: R,
+        dir: Rc<RefCell<D>>,
+        input_mode: i32,
+        pairs: Vec<InputOutput<T, Rc<RefCell<Vec<i32>>>>>,
+        outputs: O,
+    ) -> Self {
+        Self {
+            random,
+            dir,
+            input_mode,
+            pairs,
+            outputs,
+            node_count: 0,
+            arc_count: 0,
+            sub: None,
+        }
+    }
     // runs the term, returning the output, or null if term
     // isn't accepted.  if prefixLength is non-null it must be
     // length 1 int array; prefixLength[0] is set to the length
     // of the term prefix that matches
-    pub fn run<F>(
+    pub fn run<F, AV>(
         fst: &mut FST<T, O, F>,
-        term: &IntsRef<Vec<i32>>,
+        term: &IntsRef<AV>,
         mut prefix_length: Option<&mut [i32]>,
     ) -> Result<Option<T>>
     where
-        T: OutputsBound,
-        O: Outputs<T>,
         F: FstReader,
+        AV: AccessVec<i32>,
     {
         assert!(prefix_length.is_none() || prefix_length.as_ref().unwrap().len() == 1);
         let mut arc = Arc::default();
@@ -86,7 +104,7 @@ where
             let label = if i == term.length {
                 fst_util::END_LABEL
             } else {
-                term.ints[term.offset + i]
+                term.ints.access(|ints| ints[term.offset + i])
             };
 
             let find = fst.find_target_arc(label, &arc.clone(), &mut arc, &mut reader)?;
@@ -107,16 +125,14 @@ where
 
         Ok(Some(output))
     }
-    pub fn random_accepted_word<F>(
+    pub fn random_accepted_word<F, AV>(
         fst: &mut FST<T, O, F>,
-        in_builder: &mut IntsRefBuilder<Vec<i32>>,
+        in_builder: &mut IntsRefBuilder<AV>,
         random: &mut impl Rng,
     ) -> Result<T>
     where
-        T: OutputsBound,
-        O: Outputs<T>,
         F: FstReader,
-        R: Rng,
+        AV: AccessVec<i32>,
     {
         let mut arc = Arc::default();
         fst.get_first_arc(&mut arc);
@@ -173,13 +189,19 @@ where
         }
         let mut fst_compiler = fst_compiler_builder.build()?;
         for pair in &self.pairs {
-            // TODO: 没有判断是否为
-            // if let Some(list) = pair.output.as_list_of_longs() {
-            //     for value in list {
-            //         fst_compiler.add(&pair.input, &value)?;
-            //     }
-            // } else {
-            fst_compiler.add(&pair.input, pair.output.clone())?;
+            pair.input.ints.access(|ints| {
+                // TODO: 没有判断是否为
+                // if let Some(list) = pair.output.as_list_of_longs() {
+                //     for value in list {
+                //         fst_compiler.add(&pair.input, &value)?;
+                //     }
+                // } else {
+                let v = IntsRef::from_slice(ints.clone(), pair.input.offset, pair.input.length);
+                fst_compiler.add(&v, pair.output.clone())?;
+                // Help the compiler infer types.
+                Ok::<(), LuceneError>(())
+            })?;
+
             // }
         }
         let fst_metadata = fst_compiler.compile()?;
@@ -314,12 +336,10 @@ where
         &mut self,
         input_mode: i32,
         mut fst_enum: IntsRefFSTEnum<T, O, F>,
-        terms_map: &HashMap<IntsRef<Vec<i32>>, T>,
+        terms_map: &HashMap<IntsRef<Rc<RefCell<Vec<i32>>>>, T>,
         mut upto: i32,
     ) -> Result<(IntsRefFSTEnum<T, O, F>, i32)>
     where
-        T: OutputsBound,
-        O: Outputs<T>,
         F: FstReader,
     {
         loop {
@@ -341,11 +361,12 @@ where
                 while attempt < 10 {
                     let term_str = fst_tester_util::get_random_string(&mut self.random);
                     let mut ir_builder = IntsRefBuilder::default();
-                    let term = fst_tester_util::to_ints_ref_from_string_with_builder(
-                        &term_str,
-                        input_mode,
-                        &mut ir_builder,
-                    );
+                    let term: IntsRef<Rc<RefCell<Vec<i32>>>> =
+                        fst_tester_util::to_ints_ref_from_string_with_builder(
+                            &term_str,
+                            input_mode,
+                            &mut ir_builder,
+                        );
                     if !terms_map.contains_key(&term)
                         && term.cmp(&self.pairs[upto as usize].input).to_int() > 0
                     {
@@ -423,7 +444,7 @@ where
                     let current = fst_enum.current();
                     println!(
                         "    got {}",
-                        fst_tester_util::input_to_string(input_mode, &current.input.borrow())?
+                        fst_tester_util::input_to_string(input_mode, &current.input)?
                     );
                 } else {
                     println!("    got null");
@@ -437,11 +458,11 @@ where
                 assert!(!is_done);
                 let current = fst_enum.current();
                 assert_eq!(
-                    &*current.input.borrow(),
+                    &current.input,
                     &self.pairs[upto as usize].input,
                     "expected input={} but got {}",
                     fst_tester_util::input_to_string(input_mode, &self.pairs[upto as usize].input)?,
-                    fst_tester_util::input_to_string(input_mode, &current.input.borrow())?
+                    fst_tester_util::input_to_string(input_mode, &current.input)?
                 );
                 assert!(
                     self.outputs_equal(&self.pairs[upto as usize].output, &current.output),
@@ -457,13 +478,14 @@ where
         &mut self,
         input_mode: i32,
         mut fst: Option<FST<T, O, F>>,
-    ) -> Result<(IntsRefFSTEnum<T, O, F>, HashMap<IntsRef<Vec<i32>>, T>)>
+    ) -> Result<(
+        IntsRefFSTEnum<T, O, F>,
+        HashMap<IntsRef<Rc<RefCell<Vec<i32>>>>, T>,
+    )>
     where
-        T: OutputsBound,
-        O: Outputs<T>,
         F: FstReader,
     {
-        let mut terms_map: HashMap<IntsRef<Vec<i32>>, T> = HashMap::new();
+        let mut terms_map: HashMap<IntsRef<Rc<RefCell<Vec<i32>>>>, T> = HashMap::new();
         for pair in &self.pairs {
             terms_map.insert(pair.input.clone(), pair.output.clone());
         }
@@ -560,22 +582,16 @@ where
                             if cfg!(feature = "test_log_verbose") {
                                 println!(
                                     "    got {}",
-                                    fst_tester_util::input_to_string(
-                                        input_mode,
-                                        &*actual.input.borrow()
-                                    )?
+                                    fst_tester_util::input_to_string(input_mode, &actual.input)?
                                 );
                             }
 
                             assert_eq!(
-                                &*actual.input.borrow(),
+                                &actual.input,
                                 &expected.input,
                                 "expected input={} but got {}",
                                 fst_tester_util::input_to_string(input_mode, &expected.input)?,
-                                fst_tester_util::input_to_string(
-                                    input_mode,
-                                    &actual.input.borrow()
-                                )?
+                                fst_tester_util::input_to_string(input_mode, &actual.input)?
                             );
 
                             assert!(
@@ -590,7 +606,7 @@ where
                                 "expected null but got {}",
                                 fst_tester_util::input_to_string(
                                     input_mode,
-                                    &seek_result.unwrap().input.borrow()
+                                    &seek_result.unwrap().input
                                 )?
                             );
                             if cfg!(feature = "test_log_verbose") {
@@ -634,10 +650,10 @@ where
                 let seek_result = seek_result.expect("expected seek result, got None");
 
                 assert_eq!(
-                    &*seek_result.input.borrow(),
+                    &seek_result.input,
                     &pair.input,
                     "got {} but expected {}",
-                    fst_tester_util::input_to_string(input_mode, &seek_result.input.borrow())?,
+                    fst_tester_util::input_to_string(input_mode, &seek_result.input)?,
                     fst_tester_util::input_to_string(input_mode, &pair.input)?
                 );
 
@@ -684,11 +700,11 @@ where
             assert!(t.is_some(), "expected more terms");
             let t = t.unwrap();
             assert_eq!(
-                &*t.input.borrow(),
+                &t.input,
                 term,
                 "expected input={} but got {}",
                 fst_tester_util::input_to_string(input_mode, term,)?,
-                fst_tester_util::input_to_string(input_mode, &t.input.borrow(),)?
+                fst_tester_util::input_to_string(input_mode, &t.input,)?
             );
             assert!(self.outputs_equal(&pair.output, &t.output));
         }
@@ -706,8 +722,6 @@ where
         _seed: u64,
     ) -> Result<()>
     where
-        T: OutputsBound,
-        O: Outputs<T>,
         F: FstReader,
     {
         // Due to Rust's ownership and borrowing rules, once ownership of fst is
@@ -738,18 +752,22 @@ pub mod fst_tester_util {
 
     use crate::index::BytesRef;
     use crate::test::util::test_util::TestUtil;
+    use crate::util::access::AccessVec;
     use crate::util::error::lucene_error::Result;
     use crate::util::ints_ref::IntsRef;
     use crate::util::ints_ref_builder::IntsRefBuilder;
     use crate::util::unicode_util::UnicodeUtil;
 
-    pub fn input_to_string(input_mode: i32, term: &IntsRef<Vec<i32>>) -> Result<String> {
+    pub fn input_to_string<AV: AccessVec<i32>>(
+        input_mode: i32,
+        term: &IntsRef<AV>,
+    ) -> Result<String> {
         input_to_string_with_flag(input_mode, term, true)
     }
 
-    pub fn input_to_string_with_flag(
+    pub fn input_to_string_with_flag<AV: AccessVec<i32>>(
         input_mode: i32,
-        term: &IntsRef<Vec<i32>>,
+        term: &IntsRef<AV>,
         is_valid_unicode: bool,
     ) -> Result<String> {
         if !is_valid_unicode {
@@ -757,22 +775,27 @@ pub mod fst_tester_util {
         } else if input_mode == 0 {
             // utf8
             let br = get_bytes_ref(term);
-            return Ok(format!("{} {:?}", br.utf8_to_string()?, term));
+            return Ok(format!("{} {}", br.utf8_to_string()?, term));
         } else {
-            let s = UnicodeUtil::new_string(&term.ints, term.offset, term.length)?;
-            Ok(format!("{} {:?}", s, term))
+            term.ints.access(|ints| {
+                let s = UnicodeUtil::new_string(&ints, term.offset, term.length)?;
+                Ok(format!("{} {}", s, term))
+            })
         }
     }
 
-    pub fn get_bytes_ref(ir: &IntsRef<Vec<i32>>) -> BytesRef<Vec<u8>> {
+    pub fn get_bytes_ref<AV: AccessVec<i32>>(ir: &IntsRef<AV>) -> BytesRef<Vec<u8>> {
         let len = ir.length;
         let mut bytes = vec![0u8; len];
 
-        for i in 0..len {
-            let x = ir.ints[ir.offset + i];
-            assert!((0..=255).contains(&x), "x={} out of range", x);
-            bytes[i] = x as u8;
-        }
+        ir.ints.access(|ints| {
+            for i in 0..len {
+                let x = ints[ir.offset + i];
+                assert!((0..=255).contains(&x), "x={} out of range", x);
+                bytes[i] = x as u8;
+            }
+        });
+
         BytesRef {
             bytes,
             offset: 0,
@@ -801,19 +824,19 @@ pub mod fst_tester_util {
 
         buffer
     }
-    pub fn to_ints_ref_from_string(s: &str, input_mode: i32) -> IntsRef<Vec<i32>> {
+    pub fn to_ints_ref_from_string<AV: AccessVec<i32>>(s: &str, input_mode: i32) -> IntsRef<AV> {
         let mut ir = IntsRefBuilder::default();
         to_ints_ref_from_string_with_builder(s, input_mode, &mut ir)
     }
 
-    pub fn to_ints_ref_from_string_with_builder(
+    pub fn to_ints_ref_from_string_with_builder<AV: AccessVec<i32>>(
         s: &str,
         input_mode: i32,
-        ir: &mut IntsRefBuilder<Vec<i32>>,
-    ) -> IntsRef<Vec<i32>> {
+        ir: &mut IntsRefBuilder<AV>,
+    ) -> IntsRef<AV> {
         if input_mode == 0 {
             // utf8
-            let br = BytesRef::from_string(s);
+            let br: BytesRef<Vec<u8>> = BytesRef::from_string(s);
             to_ints_ref(&br, ir)
         } else {
             // utf32
@@ -821,7 +844,10 @@ pub mod fst_tester_util {
         }
     }
 
-    pub fn to_ints_ref_utf32(s: &str, ir: &mut IntsRefBuilder<Vec<i32>>) -> IntsRef<Vec<i32>> {
+    pub fn to_ints_ref_utf32<AV: AccessVec<i32>>(
+        s: &str,
+        ir: &mut IntsRefBuilder<AV>,
+    ) -> IntsRef<AV> {
         ir.clear();
         for c in s.chars() {
             ir.append(c as i32);
@@ -829,10 +855,10 @@ pub mod fst_tester_util {
         ir.get().clone()
     }
 
-    pub fn to_ints_ref_from_bytes(
+    pub fn to_ints_ref_from_bytes<AV: AccessVec<i32>>(
         br: &BytesRef<Vec<u8>>,
-        ir: &mut IntsRefBuilder<Vec<i32>>,
-    ) -> IntsRef<Vec<i32>> {
+        ir: &mut IntsRefBuilder<AV>,
+    ) -> IntsRef<AV> {
         ir.clear();
         ir.grow_no_copy(br.length);
         for i in 0..br.length {
@@ -841,47 +867,52 @@ pub mod fst_tester_util {
         }
         ir.get_owner()
     }
-    pub fn to_ints_ref(
-        br: &BytesRef<Vec<u8>>,
-        ir: &mut IntsRefBuilder<Vec<i32>>,
-    ) -> IntsRef<Vec<i32>> {
+    pub fn to_ints_ref<AV1: AccessVec<u8>, AV2: AccessVec<i32>>(
+        br: &BytesRef<AV1>,
+        ir: &mut IntsRefBuilder<AV2>,
+    ) -> IntsRef<AV2> {
         ir.grow_no_copy(br.length);
         ir.clear();
-        for i in 0..br.length {
-            ir.append(br.bytes[br.offset + i] as i32);
-        }
+        br.bytes.access(|bytes| {
+            for i in 0..br.length {
+                ir.append(bytes[br.offset + i] as i32);
+            }
+        });
         ir.get_owner()
     }
 }
 #[derive(Debug, Clone)]
-pub struct InputOutput<T>
+pub struct InputOutput<T, AV>
 where
     T: OutputsBound,
+    AV: AccessVec<i32>,
 {
-    pub input: IntsRef<Vec<i32>>,
+    pub input: IntsRef<AV>,
     pub output: T,
 }
 
-impl<T> InputOutput<T>
+impl<T, AV> InputOutput<T, AV>
 where
     T: OutputsBound,
+    AV: AccessVec<i32>,
 {
-    pub fn new(input: IntsRef<Vec<i32>>, output: T) -> Self {
+    pub fn new(input: IntsRef<AV>, output: T) -> Self {
         Self { input, output }
     }
 }
-impl<T: PartialEq> PartialEq for InputOutput<T>
+impl<T: PartialEq, AV> PartialEq for InputOutput<T, AV>
 where
     T: OutputsBound,
+    AV: AccessVec<i32>,
 {
     fn eq(&self, other: &Self) -> bool {
         self.input == other.input
     }
 }
 
-impl<T: Eq> Eq for InputOutput<T> where T: OutputsBound {}
+impl<T: Eq, AV: AccessVec<i32>> Eq for InputOutput<T, AV> where T: OutputsBound {}
 
-impl<T: Ord> PartialOrd<Self> for InputOutput<T>
+impl<T: Ord, AV: AccessVec<i32>> PartialOrd<Self> for InputOutput<T, AV>
 where
     T: OutputsBound,
 {
@@ -890,7 +921,7 @@ where
     }
 }
 
-impl<T: Ord> Ord for InputOutput<T>
+impl<T: Ord, AV: AccessVec<i32>> Ord for InputOutput<T, AV>
 where
     T: OutputsBound,
 {
