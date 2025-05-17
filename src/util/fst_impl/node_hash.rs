@@ -276,21 +276,32 @@ where
         }
     }
     fn hash(&self, node: &UnCompiledNode<T>) -> Result<i64> {
-        let mut hasher = DefaultHasher::new();
+        const PRIME: i64 = 31;
+        let mut h: i64 = 0;
+
         for arc in &node.arcs[..node.num_arcs as usize] {
-            arc.label.hash(&mut hasher);
+            h = h.wrapping_mul(PRIME).wrapping_add(arc.label as i64);
+
             let n = match &arc.target {
                 NodeEnum::CompiledNode(compiled_node) => compiled_node.node,
                 _ => return Err(LuceneError::illegal_state("Node should be compiled")),
             };
-            n.hash(&mut hasher);
-            arc.output.hash(&mut hasher);
-            arc.next_final_output.hash(&mut hasher);
+
+            let mixed_node = ((n ^ (n >> 32)) & 0xFFFF_FFFF) as i32;
+            h = h.wrapping_mul(PRIME).wrapping_add(mixed_node as i64);
+
+            let output_hash = arc.output.hash_code() as i64;
+            h = h.wrapping_mul(PRIME).wrapping_add(output_hash);
+
+            let next_final_output_hash = arc.next_final_output.hash_code() as i64;
+            h = h.wrapping_mul(PRIME).wrapping_add(next_final_output_hash);
+
             if arc.is_final {
-                arc.is_final.hash(&mut hasher);
+                h = h.wrapping_add(17);
             }
         }
-        Ok(hasher.finish() as i64)
+
+        Ok(h)
     }
 }
 
@@ -541,20 +552,27 @@ where
         Ok(())
     }
     fn hash(&mut self, node_address: i64, hash_slot: i64) -> Result<i64> {
-        let mut hasher = DefaultHasher::new();
+        const PRIME: i64 = 31;
+        let mut h: i64 = 0;
+
         let reader = self.inner.get_bytes_reader(node_address, hash_slot)?;
         let compiler = self.fst_compiler.borrow();
 
         compiler
             .fst
             .read_first_real_target_arc(node_address, &mut self.scratch_arc, reader)?;
+
         loop {
-            self.scratch_arc.label().hash(&mut hasher);
-            self.scratch_arc.target().hash(&mut hasher);
-            self.scratch_arc.output().hash(&mut hasher);
-            self.scratch_arc.next_final_output().hash(&mut hasher);
+            h = h.wrapping_mul(PRIME).wrapping_add(self.scratch_arc.label() as i64);
+            let target = self.scratch_arc.target() ;
+            let mixed = (target ^ (target >> 32)) & 0xFFFF_FFFF;
+            h = h.wrapping_mul(PRIME).wrapping_add(mixed as i32 as i64);
+            let output_hash = self.scratch_arc.output().hash_code() as i64;
+            h = h.wrapping_mul(PRIME).wrapping_add(output_hash);
+            let next_output_hash = self.scratch_arc.next_final_output().hash_code() as i64;
+            h = h.wrapping_mul(PRIME).wrapping_add(next_output_hash);
             if self.scratch_arc.is_final() {
-                self.scratch_arc.is_final().hash(&mut hasher);
+                h = h.wrapping_add(17);
             }
             if self.scratch_arc.is_last() {
                 break;
@@ -563,8 +581,10 @@ where
                 .fst
                 .read_next_real_arc(&mut self.scratch_arc, reader)?;
         }
-        Ok(hasher.finish() as i64)
+
+        Ok(h)
     }
+
     /// Compares an unfrozen node (`UnCompiledNode`) with a frozen node at byte
     /// location address (`i64`), returning the node length if the two nodes
     /// are equals, or `-1` otherwise.
