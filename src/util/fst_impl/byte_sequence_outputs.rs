@@ -51,23 +51,17 @@ impl Outputs<BytesRef<Rc<Vec<u8>>>> for ByteSequenceOutputs {
         output1: &BytesRef<Rc<Vec<u8>>>,
         output2: &BytesRef<Rc<Vec<u8>>>,
     ) -> BytesRef<Rc<Vec<u8>>> {
-        let mismatch_pos = CoreHelper::miss_match(
-            &output1.bytes[output1.offset..(output1.offset + output1.length)],
-            &output2.bytes[output2.offset..(output2.offset + output2.length)],
-        );
+        let a = &output1.bytes[output1.offset..output1.offset + output1.length];
+        let b = &output2.bytes[output2.offset..output2.offset + output2.length];
 
-        if mismatch_pos == 0 {
-            // no common prefix
-            NO_OUTPUT.with(|rc| rc.clone())
-        } else if mismatch_pos as usize == output1.length {
-            // exactly equals
-            output1.clone()
-        } else if mismatch_pos as usize == output2.length {
-            // output1 is a prefix of output2
-            output2.clone()
-            // output2 is a prefix of output1
-        } else {
-            BytesRef::from_slice(output1.bytes.clone(), output1.offset, mismatch_pos as usize)
+        let mismatch_pos = CoreHelper::miss_match(a, b);
+
+        match mismatch_pos {
+            -1 => output1.clone(),
+            0 => NO_OUTPUT.with(|rc| rc.clone()),
+            n if n as usize == output1.length => output1.clone(),
+            n if n as usize == output2.length => output2.clone(),
+            n => BytesRef::from_slice(output1.bytes.clone(), output1.offset, n as usize),
         }
     }
 
