@@ -69,7 +69,10 @@ where
     }
 
     pub fn next(&mut self) -> Result<Option<&InputOutput<T, RcIntsRef>>> {
-        self.base.take_do_return(|base| base.do_next())?;
+        debug_assert!(self.base.is_some());
+        let mut base = self.base.take().unwrap();
+        base.do_next(self)?;
+        self.base = Some(base);
         self.set_result()
     }
     /// Seeks to smallest term that's &gt;= target.
@@ -78,17 +81,13 @@ where
         target: IntsRef<Rc<RefCell<Vec<i32>>>>,
     ) -> Result<Option<&InputOutput<T, RcIntsRef>>> {
         self.target = target;
-        match self.base.take() {
-            Some(mut base) => {
-                debug_assert!(self.target.length <= i32::MAX as usize);
-                base.target_length = self.target.length as i32;
-                base.do_seek_ceil(self)?;
-                self.base = Some(base);
-            },
-            None => {
-                return Err(LuceneError::illegal_state("base is None".to_string()));
-            },
-        }
+        debug_assert!(self.base.is_some());
+        let mut base = self.base.take().unwrap();
+        debug_assert!(self.target.length <= i32::MAX as usize);
+        base.target_length = self.target.length as i32;
+        base.do_seek_ceil(self)?;
+        self.base = Some(base);
+
         self.set_result()
     }
 
@@ -98,17 +97,12 @@ where
         target: IntsRef<Rc<RefCell<Vec<i32>>>>,
     ) -> Result<Option<&InputOutput<T, RcIntsRef>>> {
         self.target = target;
-        match self.base.take() {
-            Some(mut base) => {
-                debug_assert!(self.target.length <= i32::MAX as usize);
-                base.target_length = self.target.length as i32;
-                base.do_seek_floor(self)?;
-                self.base = Some(base);
-            },
-            None => {
-                return Err(LuceneError::illegal_state("base is None".to_string()));
-            },
-        }
+        debug_assert!(self.base.is_some());
+        let mut base = self.base.take().unwrap();
+        debug_assert!(self.target.length <= i32::MAX as usize);
+        base.target_length = self.target.length as i32;
+        base.do_seek_floor(self)?;
+        self.base = Some(base);
         self.set_result()
     }
     /// Seeks to the exact target term and returns `None` if the term does not
@@ -120,21 +114,21 @@ where
         target: IntsRef<Rc<RefCell<Vec<i32>>>>,
     ) -> Result<Option<&InputOutput<T, RcIntsRef>>> {
         self.target = target;
-        match self.base.take() {
-            Some(mut base) => {
-                debug_assert!(self.target.length <= i32::MAX as usize);
-                base.target_length = self.target.length as i32;
-                if base.do_seek_exact(self)? {
-                    debug_assert_eq!(base.upto, 1 + self.target.length);
-                    self.base = Some(base);
-                    self.set_result()
-                } else {
-                    self.base = Some(base);
-                    Ok(None)
-                }
-            },
-            None => Err(LuceneError::illegal_state("base is None".to_string())),
-        }
+        debug_assert!(self.base.is_some());
+        let mut base = self.base.take().unwrap();
+        debug_assert!(self.target.length <= i32::MAX as usize);
+        base.target_length = self.target.length as i32;
+
+        let result = if base.do_seek_exact(self)? {
+            debug_assert_eq!(base.upto, 1 + self.target.length);
+            self.base = Some(base);
+            self.set_result()
+        } else {
+            self.base = Some(base);
+            Ok(None)
+        };
+
+        result
     }
 
     fn set_result(&mut self) -> Result<Option<&InputOutput<T, RcIntsRef>>> {

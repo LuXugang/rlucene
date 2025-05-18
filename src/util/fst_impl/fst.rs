@@ -22,14 +22,29 @@ use std::hash::Hash;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
+use crate::codecs::compressing::lucene90_compressing_stored_fields_reader::DataInputEnum;
 use crate::codecs::CodecUtil;
+use crate::index::BytesRef;
+use crate::store::directory::Directory;
+use crate::store::dummy::dummy_directory::DummyDirectory;
+use crate::store::dummy::dummy_index_input::DummyIndexInput;
 use crate::store::output_stream_data_output::OutputStreamDataOutput;
-use crate::store::{ByteBuffersDataOutput, DataInput, DataOutput};
+use crate::store::{ByteArrayDataInput, ByteBuffersDataOutput, DataInput, DataOutput, IOContext};
+use crate::test::util::lucene_test_case::{new_bytes_ref_from_string, new_directory, random};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fst_impl::bit_table_util::BitTableUtil;
+use crate::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs;
+use crate::util::fst_impl::bytes_ref_fst_enum::BytesRefFSTEnum;
+use crate::util::fst_impl::fst_compiler::{
+    Builder, CompiledNode, DataOutputEnum, NodeEnum, UnCompiledNode,
+};
 use crate::util::fst_impl::fst_reader::FstReader;
 use crate::util::fst_impl::on_heap_fst_store::OnHeapFSTStore;
 use crate::util::fst_impl::outputs::{Outputs, OutputsBound};
+use crate::util::fst_impl::positive_int_outputs::PositiveIntOutputs;
+use crate::util::fst_impl::util::Util;
+use crate::util::ints_ref_builder::IntsRefBuilder;
+
 pub struct FST<T, O, F>
 where
     T: OutputsBound,
@@ -1422,17 +1437,22 @@ mod tests {
     use std::collections::HashSet;
     use std::rc::Rc;
 
+    use rand::{Rng, RngCore};
+
     use crate::codecs::compressing::lucene90_compressing_stored_fields_reader::DataInputEnum;
     use crate::index::BytesRef;
     use crate::store::directory::Directory;
     use crate::store::dummy::dummy_directory::DummyDirectory;
     use crate::store::dummy::dummy_index_input::DummyIndexInput;
+    use crate::store::nio_fs_directory::NIOFSDirectory;
     use crate::store::output_stream_data_output::OutputStreamDataOutput;
-    use crate::store::{ByteArrayDataInput, ByteArrayDataOutput, IOContext};
-    use crate::test::util::lucene_test_case::{
-        new_bytes_ref_from_bytes_ref, new_bytes_ref_from_string, new_directory, random,
+    use crate::store::{
+        ByteArrayDataInput, ByteArrayDataOutput, FSDirectory, IOContext, NativeFSLockFactory,
     };
-    use crate::test::util::test_util::TestUtil;
+    use crate::test::util::fst::fst_tester::{
+        fst_tester_util, DummyFSTTesterBaseImpl, FSTTester, InputOutput,
+    };
+    use crate::test::util::lucene_test_case::{at_least, is_night_mode, new_bytes_ref_from_bytes_ref, new_bytes_ref_from_string, new_directory, random, random_from_seed};
     use crate::util::error::lucene_error::Result;
     use crate::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs;
     use crate::util::fst_impl::bytes_ref_fst_enum::BytesRefFSTEnum;
@@ -1441,12 +1461,212 @@ mod tests {
         Arc, Builder, CompiledNode, DataOutputEnum, NodeEnum, UnCompiledNode,
     };
     use crate::util::fst_impl::fst_reader::FstReader;
+    use crate::util::fst_impl::int_sequence_outputs::IntSequenceOutputs;
+    use crate::util::fst_impl::no_outputs::NoOutputs;
     use crate::util::fst_impl::outputs::{Outputs, OutputsBound};
     use crate::util::fst_impl::positive_int_outputs::PositiveIntOutputs;
     use crate::util::fst_impl::util::Util;
+    use crate::util::ints_ref::IntsRef;
     use crate::util::ints_ref_builder::IntsRefBuilder;
-    #[allow(dead_code)] // for quick search
-    struct TestFSTs;
+    struct TestFSTs {
+        // TODO: MockDirectoryWrapper not Implement
+        dir: Rc<RefCell<FSDirectory<NativeFSLockFactory, NIOFSDirectory>>>,
+    }
+    impl TestFSTs {
+        fn new() -> Result<Self> {
+            let mut random = random();
+            let dir = new_directory(&mut random)?;
+            Ok(Self {
+                dir: Rc::new(RefCell::new(dir)),
+            })
+        }
+        fn do_test<R: Rng>(
+            &self,
+            random: &mut R,
+            input_mode: i32,
+            mut terms: Vec<IntsRef<Rc<RefCell<Vec<i32>>>>>,
+        ) -> Result<()> {
+            let random_seed = random.gen();
+            terms.sort();
+            // NoOutputs (simple FSA)
+            // TODO: NoOutputs not Implement
+
+            // PositiveIntOutput (ord)
+            {
+                let outputs = PositiveIntOutputs::get_singleton();
+                let no_output = outputs.get_no_output();
+                let pairs = terms
+                    .clone()
+                    .into_iter()
+                    .map(|term| InputOutput {
+                        input: term,
+                        output: no_output.clone(),
+                    })
+                    .collect::<Vec<_>>();
+
+                let mut tester: FSTTester<_, _, _, _, DummyFSTTesterBaseImpl> = FSTTester::new(
+                    random_from_seed(random_seed),
+                    self.dir.clone(),
+                    input_mode,
+                    pairs,
+                    outputs.clone(),
+                );
+                tester.do_test()?;
+            }
+            // PositiveIntOutputs (random monotonically increasing positive number)
+            {
+                let outputs = PositiveIntOutputs::get_singleton();
+                let mut last_output = 0i64;
+                let pairs = terms
+                    .clone()
+                    .iter()
+                    .map(|term| {
+                        let delta = random.random_range(1..=1000);
+                        last_output += delta;
+                        InputOutput {
+                            input: term.clone(),
+                            output: Rc::new(last_output),
+                        }
+                    })
+                    .collect::<Vec<_>>();
+
+                let mut tester: FSTTester<_, _, _, _, DummyFSTTesterBaseImpl> = FSTTester::new(
+                    random_from_seed(random_seed),
+                    self.dir.clone(),
+                    input_mode,
+                    pairs,
+                    outputs.clone(),
+                );
+                tester.do_test()?;
+            }
+
+            // PositiveIntOutputs (random positive number)
+            {
+                let outputs = PositiveIntOutputs::get_singleton();
+                let pairs = terms
+                    .clone()
+                    .iter()
+                    .map(|term| InputOutput {
+                        input: term.clone(),
+                        output: Rc::new(random.random_range(0..=i64::MAX)),
+                    })
+                    .collect::<Vec<_>>();
+
+                let mut tester: FSTTester<_, _, _, _, DummyFSTTesterBaseImpl> = FSTTester::new(
+                    random_from_seed(random_seed),
+                    self.dir.clone(),
+                    input_mode,
+                    pairs,
+                    outputs.clone(),
+                );
+                tester.do_test()?;
+            }
+
+            // Pair<ord, (random monotonically increasing positive number>
+            // TODO: PairOutputs not Implement
+
+            // ByteSequenceOutputs (sequence-of-bytes, sometimes NO_OUTPUT)
+            {
+                let outputs = ByteSequenceOutputs::get_singleton();
+                let no_output = outputs.get_no_output();
+                let pairs = terms
+                    .iter()
+                    .enumerate()
+                    .map(|(idx, term)| {
+                        let output = if random.random_range(0..30) == 17 {
+                            no_output.clone()
+                        } else {
+                            let s = idx.to_string();
+                            let v: BytesRef<Rc<Vec<u8>>> =
+                                new_bytes_ref_from_string(random, &s).unwrap();
+                            v
+                        };
+                        InputOutput {
+                            input: term.clone(),
+                            output,
+                        }
+                    })
+                    .collect::<Vec<_>>();
+
+                let mut tester: FSTTester<_, _, _, _, DummyFSTTesterBaseImpl> = FSTTester::new(
+                    random_from_seed(random_seed),
+                    self.dir.clone(),
+                    input_mode,
+                    pairs,
+                    outputs.clone(),
+                );
+                tester.do_test()?;
+            }
+
+            // IntSequenceOutputs (sequence-of-ints, each char of string as i32)
+            {
+                let outputs = IntSequenceOutputs::get_singleton();
+                let pairs = terms
+                    .iter()
+                    .enumerate()
+                    .map(|(idx, term)| {
+                        let s = idx.to_string();
+                        let vec = s.chars().map(|ch| ch as i32).collect::<Vec<_>>();
+                        InputOutput {
+                            input: term.clone(),
+                            output: IntsRef::from_slice(Rc::new(vec), 0, s.len()),
+                        }
+                    })
+                    .collect::<Vec<_>>();
+
+                let mut tester: FSTTester<_, _, _, _, DummyFSTTesterBaseImpl> = FSTTester::new(
+                    random_from_seed(random_seed),
+                    self.dir.clone(),
+                    input_mode,
+                    pairs,
+                    outputs.clone(),
+                );
+                tester.do_test()?;
+            }
+
+            Ok(())
+        }
+        fn test_random_words_impl<R: Rng>(
+            &self,
+            random: &mut R,
+            max_num_words: usize,
+            num_iter: usize,
+        ) -> Result<()> {
+            for iter in 0..num_iter {
+                if cfg!(feature = "test_log_verbose") {
+                    println!("\nTEST: iter {iter}");
+                }
+
+                for input_mode in 0..2 {
+                    let num_words = random.random_range(0..=max_num_words);
+                    let mut terms_set = HashSet::new();
+
+                    while terms_set.len() < num_words {
+                        let term = fst_tester_util::get_random_string(random);
+                        let ints_ref = fst_tester_util::to_ints_ref_from_string(&term, input_mode);
+                        terms_set.insert(ints_ref);
+                    }
+
+                    let mut terms: Vec<_> = Vec::from_iter(terms_set.into_iter());
+                    self.do_test(random, input_mode, terms)?;
+                }
+            }
+            Ok(())
+        }
+    }
+    #[test]
+    pub fn test_random_words() -> Result<()> {
+        let mut random = random();
+        let test = TestFSTs{
+            dir: Rc::new(RefCell::new(new_directory(&mut random)?)),
+        };
+        if is_night_mode(){
+            let num_iter = at_least(&mut random, 2);
+            test.test_random_words_impl(&mut random, 1000, num_iter as usize)
+        }else {
+            test.test_random_words_impl(&mut random, 100, 1)
+        }
+    }
 
     #[test]
     fn test_simple() -> Result<()> {

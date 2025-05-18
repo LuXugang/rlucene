@@ -201,8 +201,6 @@ where
                 // Help the compiler infer types.
                 Ok::<(), LuceneError>(())
             })?;
-
-            // }
         }
         let fst_metadata = fst_compiler.compile()?;
         let fst = if use_off_heap {
@@ -747,6 +745,15 @@ pub trait FSTTesterBase {
     where
         T: OutputsBound;
 }
+pub struct DummyFSTTesterBaseImpl;
+impl FSTTesterBase for DummyFSTTesterBaseImpl {
+    fn outputs_equal_impl<T>(&self, _a: &T, _b: &T) -> bool
+    where
+        T: OutputsBound,
+    {
+        unreachable!()
+    }
+}
 pub mod fst_tester_util {
     use rand::Rng;
 
@@ -930,7 +937,7 @@ where
     }
 }
 
-enum FSTEnums<T, O, D>
+pub enum FSTEnums<T, O, D>
 where
     T: OutputsBound,
     O: Outputs<T>,

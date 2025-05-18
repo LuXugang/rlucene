@@ -70,7 +70,10 @@ where
     }
 
     pub fn next(&mut self) -> Result<Option<&InputOutput<T, BytesRef<Rc<RefCell<Vec<u8>>>>>>> {
-        self.base.take_do_return(|base| base.do_next())?;
+        debug_assert!(self.base.is_some());
+        let mut base = self.base.take().unwrap();
+        base.do_next(self)?;
+        self.base = Some(base);
         self.set_result()
     }
 
@@ -79,14 +82,11 @@ where
         target: BytesRef<Rc<RefCell<Vec<u8>>>>,
     ) -> Result<Option<&InputOutput<T, BytesRef<Rc<RefCell<Vec<u8>>>>>>> {
         self.target = target;
-        match self.base.take() {
-            Some(mut base) => {
-                base.target_length = self.target.length as i32;
-                base.do_seek_ceil(self)?;
-                self.base = Some(base);
-            },
-            None => return Err(LuceneError::illegal_state("base is None".to_string())),
-        }
+        debug_assert!(self.base.is_some());
+        let mut base = self.base.take().unwrap();
+        base.target_length = self.target.length as i32;
+        base.do_seek_ceil(self)?;
+        self.base = Some(base);
         self.set_result()
     }
 
@@ -95,14 +95,11 @@ where
         target: BytesRef<Rc<RefCell<Vec<u8>>>>,
     ) -> Result<Option<&InputOutput<T, BytesRef<Rc<RefCell<Vec<u8>>>>>>> {
         self.target = target;
-        match self.base.take() {
-            Some(mut base) => {
-                base.target_length = self.target.length as i32;
-                base.do_seek_floor(self)?;
-                self.base = Some(base);
-            },
-            None => return Err(LuceneError::illegal_state("base is None".to_string())),
-        }
+        debug_assert!(self.base.is_some());
+        let mut base = self.base.take().unwrap();
+        base.target_length = self.target.length as i32;
+        base.do_seek_floor(self)?;
+        self.base = Some(base);
         self.set_result()
     }
 
@@ -111,20 +108,18 @@ where
         target: BytesRef<Rc<RefCell<Vec<u8>>>>,
     ) -> Result<Option<&InputOutput<T, BytesRef<Rc<RefCell<Vec<u8>>>>>>> {
         self.target = target;
-        match self.base.take() {
-            Some(mut base) => {
-                base.target_length = self.target.length as i32;
-                if base.do_seek_exact(self)? {
-                    debug_assert_eq!(base.upto, 1 + self.target.length);
-                    self.base = Some(base);
-                    self.set_result()
-                } else {
-                    self.base = Some(base);
-                    Ok(None)
-                }
-            },
-            None => Err(LuceneError::illegal_state("base is None".to_string())),
-        }
+        debug_assert!(self.base.is_some());
+        let mut base = self.base.take().unwrap();
+        base.target_length = self.target.length as i32;
+        let result = if base.do_seek_exact(self)? {
+            debug_assert_eq!(base.upto, 1 + self.target.length);
+            self.base = Some(base);
+            self.set_result()
+        } else {
+            self.base = Some(base);
+            Ok(None)
+        };
+        Ok(result?)
     }
 
     fn set_result(&mut self) -> Result<Option<&InputOutput<T, BytesRef<Rc<RefCell<Vec<u8>>>>>>> {

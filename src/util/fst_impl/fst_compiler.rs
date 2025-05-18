@@ -222,7 +222,7 @@ where
             if inner.frontier.len() < (input.length + 1) {
                 let old_len = inner.frontier.len();
                 debug_assert!(old_len <= i32::MAX as usize);
-                ArrayUtil::grow_with_len(&mut inner.frontier, old_len + 1);
+                ArrayUtil::grow_with_len(&mut inner.frontier, input.length);
                 debug_assert!(inner.frontier.len() <= i32::MAX as usize);
                 for i in old_len..inner.frontier.len() {
                     inner.frontier[i] =
@@ -239,7 +239,6 @@ where
             let no_output = inner.no_output.clone();
             // init tail states for current input
             let offset = input.offset;
-            let prefix_len_plus1 = prefix_len_plus1;
             for idx in prefix_len_plus1..=input.length {
                 let label = ints[offset + idx - 1];
                 let un_compiled = NodeEnum::UnCompiledNode(idx);

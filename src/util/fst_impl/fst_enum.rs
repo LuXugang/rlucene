@@ -104,7 +104,7 @@ where
 
         Ok(())
     }
-    pub(crate) fn do_next(&mut self) -> Result<()> {
+    pub(crate) fn do_next(&mut self, sub: &mut impl FSTEnumBase<T, O, F>) -> Result<()> {
         if self.upto == 0 {
             self.upto = 1;
             let arc0 = self.get_arc_ownership(0);
@@ -129,7 +129,7 @@ where
             self.fst.read_next_arc(&mut arc, &mut self.fst_reader)?;
             self.arcs[self.upto] = Some(arc);
         }
-        // self.push_first(sub)?;
+        self.push_first(sub)?;
         Ok(())
     }
     // TODO: should we return a status here (SEEK_FOUND / SEEK_NOT_FOUND /

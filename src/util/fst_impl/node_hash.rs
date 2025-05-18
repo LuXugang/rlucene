@@ -251,7 +251,8 @@ where
                         )?
                     }));
                 } else if self.primary_table.count
-                    > self.primary_table.inner.fst_node_address.size() * (2f32 / 3f32) as i64
+                    > (self.primary_table.inner.fst_node_address.size() as f32 * (2f32 / 3f32))
+                        as i64
                 {
                     // rehash at 2/3 occupancy
                     self.primary_table.rehash(node_address)?;
