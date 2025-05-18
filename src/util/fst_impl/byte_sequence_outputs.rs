@@ -106,16 +106,16 @@ impl Outputs<BytesRef<Rc<Vec<u8>>>> for ByteSequenceOutputs {
         prefix: &BytesRef<Rc<Vec<u8>>>,
         output: &BytesRef<Rc<Vec<u8>>>,
     ) -> BytesRef<Rc<Vec<u8>>> {
-        let no_output_clone = NO_OUTPUT.with(|rc| rc.clone());
-        if BytesRef::equals(prefix, &no_output_clone) {
+        let no_output = NO_OUTPUT.with(|rc| rc.clone());
+        if BytesRef::equals(prefix, &no_output) {
             return output.clone();
         }
-        if BytesRef::equals(output, &no_output_clone) {
+        if BytesRef::equals(output, &no_output) {
             return prefix.clone();
         }
         debug_assert!(prefix.length > 0);
         debug_assert!(output.length > 0);
-        let mut buf = Vec::with_capacity(prefix.length + output.length);
+        let mut buf = vec![0u8; prefix.length + output.length];
         buf.copy_from(
             &prefix.bytes[prefix.offset..(prefix.offset + prefix.length)],
             0,
