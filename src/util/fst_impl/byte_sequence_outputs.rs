@@ -107,10 +107,10 @@ impl Outputs<BytesRef<Rc<Vec<u8>>>> for ByteSequenceOutputs {
         output: &BytesRef<Rc<Vec<u8>>>,
     ) -> BytesRef<Rc<Vec<u8>>> {
         let no_output_clone = NO_OUTPUT.with(|rc| rc.clone());
-        if NO_OUTPUT.with(|rc| BytesRef::equals(prefix, rc)) {
+        if BytesRef::equals(prefix, &no_output_clone) {
             return output.clone();
         }
-        if NO_OUTPUT.with(|rc| BytesRef::equals(output, rc)) {
+        if BytesRef::equals(output, &no_output_clone) {
             return prefix.clone();
         }
         debug_assert!(prefix.length > 0);
