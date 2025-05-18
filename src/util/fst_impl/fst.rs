@@ -1419,6 +1419,7 @@ pub trait BytesReader: DataInput {
 #[cfg(test)]
 mod tests {
     use std::cell::RefCell;
+    use std::collections::HashSet;
     use std::rc::Rc;
 
     use crate::codecs::compressing::lucene90_compressing_stored_fields_reader::DataInputEnum;
@@ -1428,8 +1429,12 @@ mod tests {
     use crate::store::dummy::dummy_index_input::DummyIndexInput;
     use crate::store::output_stream_data_output::OutputStreamDataOutput;
     use crate::store::{ByteArrayDataInput, ByteArrayDataOutput, IOContext};
-    use crate::test::util::lucene_test_case::{new_bytes_ref_from_string, new_directory, random};
+    use crate::test::util::lucene_test_case::{
+        new_bytes_ref_from_bytes_ref, new_bytes_ref_from_string, new_directory, random,
+    };
+    use crate::test::util::test_util::TestUtil;
     use crate::util::error::lucene_error::Result;
+    use crate::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs;
     use crate::util::fst_impl::bytes_ref_fst_enum::BytesRefFSTEnum;
     use crate::util::fst_impl::fst::{fst_util, InputType, FST};
     use crate::util::fst_impl::fst_compiler::{
@@ -1500,6 +1505,44 @@ mod tests {
 
         Ok(())
     }
+    #[test]
+    fn test_primary_keys() -> Result<()> {
+        // TODO : IndexWriter not implemented
+        Ok(())
+    }
+    #[test]
+    fn test_random_term_lookup() -> Result<()> {
+        // TODO : IndexWriter not implemented
+        Ok(())
+    }
+    // fn test_expanded_close_to_root() -> Result<()> {
+    //     struct SyntheticData;
+    //     impl SyntheticData {
+    //         fn compile_terms<T: AsRef<str>>(lines: &[T]) -> Result<FST<T, O, F>>
+    // {
+    //
+    //             let outputs = NoOutputs::get_singleton();
+    //             let nothing = outputs.get_no_output();
+    //             let mut fst_compiler = Builder::new(InputType::Byte1,
+    // outputs.clone()).build()?;
+    //
+    //             let mut builder = IntsRefBuilder::new();
+    //             for line in lines {
+    //                 let text = line.as_ref();
+    //                 let term = BytesRef::from_string(text);
+    //                 Util::get_ints_ref(&term, &mut builder);
+    //                 fst_compiler.add(builder.get(), nothing)?;
+    //             }
+    //
+    //             let metadata = fst_compiler.compile()?;
+    //             let reader = fst_compiler.inner.borrow_mut().get_fst_reader()?;
+    //             let fst = FST::from_fst_reader(metadata, Some(reader))?;
+    //             Ok(fst)
+    //         }
+    //
+    //     }
+    //     Ok(())
+    // }
     // https://github.com/apache/lucene/issues/12697
     // Make sure the FST can be saved and loaded with different DataOutput for
     // metadata
@@ -1514,9 +1557,6 @@ mod tests {
         let key1: BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, "aab")?;
         let key2: BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, "aac")?;
         let key3: BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, "ax")?;
-        // let key1: BytesRef<Vec<u8>> = BytesRef::from_string("aab");
-        // let key2: BytesRef<Vec<u8>> = BytesRef::from_string("aac");
-        // let key3: BytesRef<Vec<u8>> = BytesRef::from_string("ax");
 
         Util::get_ints_ref(&key1, &mut scratch);
         fst_compiler.add(scratch.get(), Rc::new(22))?;
@@ -1679,8 +1719,100 @@ mod tests {
         assert_eq!(arc.label, b'b' as i32);
         assert!(!arc.is_final());
         assert_eq!(*arc.output(), 42);
-        // return ownership
-        // fst.fst_reader = reader;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_shortest_paths() {
+        // TODO
+    }
+    #[test]
+    fn test_reject_no_limits() {
+        // TODO
+    }
+    #[test]
+    fn test_shortest_paths_wfst() {
+        // TODO
+    }
+    #[test]
+    fn test_shortest_paths_random() {
+        // TODO
+    }
+    #[test]
+    fn test_shortest_paths_wfst_random() {
+        // TODO
+    }
+    #[test]
+    fn test_large_outputs_on_array_arcs() -> Result<()> {
+        let outputs = ByteSequenceOutputs::get_singleton();
+        let mut fst_compiler = Builder::new(InputType::Byte1, outputs.clone()).build()?;
+
+        let bytes = vec![0u8; 300];
+        let mut input = IntsRefBuilder::new();
+        input.append(0);
+        let mut output = BytesRef::from_bytes(bytes);
+
+        for arc in 0..6 {
+            input.set_int_at(0, arc);
+            output.bytes[0] = arc as u8;
+            let v =
+                BytesRef::from_slice(Rc::new(output.bytes.clone()), output.offset, output.length);
+            fst_compiler.add(input.get(), v)?;
+        }
+
+        let metadata = fst_compiler.compile()?;
+        let fst_reader: DataOutputEnum<DummyDirectory> =
+            fst_compiler.inner.borrow_mut().get_fst_reader()?;
+        let mut fst = FST::from_fst_reader(metadata, Some(fst_reader)).unwrap();
+
+        for arc in 0..6 {
+            input.set_int_at(0, arc);
+            let result = Util::get_ints(&mut fst, input.get())?;
+            assert!(result.is_some());
+            let result = result.unwrap();
+            assert_eq!(result.length, 300);
+            assert_eq!(result.bytes[result.offset], arc as u8);
+            for i in 1..result.length {
+                assert_eq!(result.bytes[result.offset + i], 0);
+            }
+        }
+
+        Ok(())
+    }
+    #[test]
+    fn test_illegally_modify_root_arc() -> Result<()> {
+        // Rust Lucene does not support this
+        Ok(())
+    }
+    #[test]
+    fn test_simple_depth() -> Result<()> {
+        let mut random = random();
+        let outputs = PositiveIntOutputs::get_singleton();
+        let mut fst_compiler = Builder::new(InputType::Byte1, outputs.clone()).build()?;
+
+        let ab: BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, "ab")?;
+        let ac: BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, "ac")?;
+        let bd: BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, "bd")?;
+
+        let mut builder = IntsRefBuilder::new();
+        Util::get_ints_ref(&ab, &mut builder);
+        fst_compiler.add(builder.get(), Rc::new(3))?;
+
+        Util::get_ints_ref(&ac, &mut builder);
+        fst_compiler.add(builder.get(), Rc::new(5))?;
+
+        Util::get_ints_ref(&bd, &mut builder);
+        fst_compiler.add(builder.get(), Rc::new(7))?;
+
+        let metadata = fst_compiler.compile()?;
+        let reader: DataOutputEnum<DummyDirectory> =
+            fst_compiler.inner.borrow_mut().get_fst_reader()?;
+        let mut fst = FST::from_fst_reader(metadata, Some(reader)).unwrap();
+
+        assert_eq!(*Util::get_bytes(&mut fst, &ab)?.unwrap(), 3);
+        assert_eq!(*Util::get_bytes(&mut fst, &ac)?.unwrap(), 5);
+        assert_eq!(*Util::get_bytes(&mut fst, &bd)?.unwrap(), 7);
 
         Ok(())
     }

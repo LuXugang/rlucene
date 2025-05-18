@@ -49,11 +49,12 @@ macro_rules! define_read_write_data_output {
         }
 
         impl ReadWriteDataOutput {
-            pub(crate) fn new(block_bits: i32) -> Self {
+            pub(crate) fn new(block_bits: i32) -> Result<Self> {
                 let block_size = 1 << block_bits;
                 let block_mask = block_size - 1;
-                let data_output = ByteBuffersDataOutput::new();
-                Self {
+                let data_output =
+                    ByteBuffersDataOutput::new_with_reuse(block_bits, block_bits, false)?;
+                Ok(Self {
                     data_output,
                     block_bits,
                     block_size,
@@ -61,7 +62,7 @@ macro_rules! define_read_write_data_output {
                     byte_buffers: None,
                     byte_buffer: None,
                     frozen: false,
-                }
+                })
             }
 
             pub fn freeze(&mut self) -> Result<()> {

@@ -225,10 +225,8 @@ where
                 ArrayUtil::grow_with_len(&mut inner.frontier, old_len + 1);
                 debug_assert!(inner.frontier.len() <= i32::MAX as usize);
                 for i in old_len..inner.frontier.len() {
-                    inner.frontier[i] = Some(UnCompiledNode::new(
-                        self.inner.borrow().no_output.clone(),
-                        i as i32,
-                    ));
+                    inner.frontier[i] =
+                        Some(UnCompiledNode::new(inner.no_output.clone(), i as i32));
                 }
             }
         }
@@ -401,7 +399,7 @@ pub mod fst_compiler_util {
     /// See [`FSTCompiler::should_expand_node_with_direct_addressing`](crate::util::fst_impl::fst_compiler::FSTCompilerInner::should_expand_node_with_direct_addressing).
     pub(super) const DIRECT_ADDRESSING_MAX_OVERSIZE_WITH_CREDIT_FACTOR: f32 = 1.66;
     pub fn get_on_heap_reader_writer(block_bits: i32) -> Result<ReadWriteDataOutput> {
-        Ok(ReadWriteDataOutput::new(block_bits))
+        ReadWriteDataOutput::new(block_bits)
     }
 }
 
@@ -744,21 +742,6 @@ where
     // manually inlined this function into the code.
     #[allow(dead_code)]
     fn write_label(&mut self, v: i32) -> Result<()> {
-        debug_assert!(v >= 0, "v = {}", v);
-
-        match self.fst.metadata.as_ref().unwrap().input_type {
-            InputType::Byte1 => {
-                debug_assert!(v <= 255, "v = {}", v);
-                self.scratch_bytes.write_byte(v as u8)?;
-            },
-            InputType::Byte2 => {
-                debug_assert!(v <= 65535, "v = {}", v);
-                self.scratch_bytes.write_short(v as i16)?;
-            },
-            InputType::Byte4 => {
-                self.scratch_bytes.write_vint(v)?;
-            },
-        }
         Ok(())
     }
 
@@ -959,8 +942,12 @@ where
             // Skip the label, copy the remaining.
             let remaining_len = src_arc_len - 1 - label_len;
             if remaining_len != 0 {
-                self.scratch_bytes
-                    .write_to(src_pos + 1, buffer, buffer_offset, label_len);
+                self.scratch_bytes.write_to(
+                    src_pos + 1 + label_len,
+                    buffer,
+                    buffer_offset + 1,
+                    remaining_len,
+                );
             }
 
             // Copy label for first arc only

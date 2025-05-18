@@ -30,7 +30,6 @@ pub struct ByteBlockPoolReverseBytesReader {
     pos_delta: i64,
     pos: i64,
 }
-#[allow(unused)]
 impl ByteBlockPoolReverseBytesReader {
     pub fn new(buf: ByteBlockPoolBorrow) -> Self {
         Self {

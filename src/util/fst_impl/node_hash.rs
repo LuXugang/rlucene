@@ -716,7 +716,7 @@ mod tests {
     fn test_copy_fallback_node_bytes() -> Result<()> {
         let mut random = random();
         let data_output: DataOutputEnum<DummyDirectory> =
-            DataOutputEnum::ReadWriter(ReadWriteDataOutput::new(10));
+            DataOutputEnum::ReadWriter(ReadWriteDataOutput::new(10)?);
         let index_type = InputType::Byte1;
         let outputs = ByteSequenceOutputs;
         let fst_compiler_inner = Rc::new(RefCell::new(FSTCompilerInner::new(

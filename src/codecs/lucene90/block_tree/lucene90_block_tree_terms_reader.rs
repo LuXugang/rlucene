@@ -82,6 +82,6 @@ pub mod lucene90_bttr_util {
     pub(crate) const TERMS_META_EXTENSION: &str = "tmd";
     pub(crate) const TERMS_META_CODEC_NAME: &str = "BlockTreeTermsMeta";
     thread_local! {
-        pub(crate) static NO_OUTPUT:BytesRef<Rc<Vec<u8>>> ={let v = ByteSequenceOutputs::get(); v.get_no_output()};
+        pub(crate) static NO_OUTPUT:BytesRef<Rc<Vec<u8>>> ={let v = ByteSequenceOutputs::get_singleton(); v.get_no_output()};
     }
 }
