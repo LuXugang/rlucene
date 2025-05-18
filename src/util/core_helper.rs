@@ -24,6 +24,7 @@ use bit_set::BitSet;
 
 use crate::index::BytesRef;
 use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::ints_ref::IntsRef;
 
 pub struct CoreHelper;
 impl CoreHelper {
@@ -222,6 +223,20 @@ impl OutputIdentity for BytesRef<Rc<Vec<u8>>> {
 impl OutputIdentity for BytesRef<Rc<RefCell<Vec<u8>>>> {
     fn is_same_reference(&self, other: &Self) -> bool {
         Rc::ptr_eq(&self.bytes, &other.bytes)
+            && self.offset == other.offset
+            && self.length == other.length
+    }
+}
+impl OutputIdentity for IntsRef<Rc<Vec<i32>>> {
+    fn is_same_reference(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.ints, &other.ints)
+            && self.offset == other.offset
+            && self.length == other.length
+    }
+}
+impl OutputIdentity for IntsRef<Rc<RefCell<Vec<i32>>>> {
+    fn is_same_reference(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.ints, &other.ints)
             && self.offset == other.offset
             && self.length == other.length
     }

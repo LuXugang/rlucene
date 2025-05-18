@@ -18,10 +18,11 @@ use std::cmp::Ordering;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
+use std::rc::Rc;
 
 use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::{Comparator, ToInt};
+use crate::util::{Comparator, HashCode, ToInt};
 use crate::with_other;
 /// A generic, slice-like reference over an integer array with offset and
 /// length.
@@ -62,6 +63,22 @@ where
         Self::new()
     }
 }
+impl IntsRef<Rc<Vec<i32>>> {
+    /// compare: same bytes reference, same offset, same length
+    pub fn equals(a: &IntsRef<Rc<Vec<i32>>>, b: &IntsRef<Rc<Vec<i32>>>) -> bool {
+        let v = Rc::ptr_eq(&a.ints, &b.ints);
+        // Simulate Java-style reference equality: if the bytes reference is the same,
+        // then offset and length must also be equal.
+        debug_assert!({
+            if v {
+                a.offset == b.offset && a.length == b.length
+            } else {
+                !v
+            }
+        });
+        v
+    }
+}
 
 impl<AV> IntsRef<AV>
 where
@@ -77,12 +94,12 @@ where
     }
 
     /// Create an IntsRef pointing to a new array of size `capacity`.
-    pub fn with_capacity(capacity: usize) -> Result<Self> {
-        Ok(IntsRef {
+    pub fn with_capacity(capacity: usize) -> Self {
+        IntsRef {
             ints: AV::with_capacity(capacity),
             offset: 0,
             length: 0,
-        })
+        }
     }
     pub fn from_slice(ints: AV, offset: usize, length: usize) -> Self {
         let instance = IntsRef {
@@ -228,6 +245,21 @@ where
             write!(f, "]")?;
             Ok(())
         })
+    }
+}
+impl<AV> HashCode for IntsRef<AV>
+where
+    AV: AccessVec<i32>,
+{
+    fn hash_code(&self) -> i32 {
+        const PRIME: i32 = 31;
+        let mut result: i32 = 0;
+        for i in self.offset..self.offset + self.length {
+            self.ints.access(|ints| {
+                result = result.wrapping_mul(PRIME).wrapping_add(ints[i]);
+            });
+        }
+        result
     }
 }
 

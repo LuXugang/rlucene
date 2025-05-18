@@ -24,6 +24,7 @@ pub mod fst_compiler;
 pub mod fst_enum;
 pub mod fst_reader;
 mod growable_byte_array_data_output;
+mod int_sequence_outputs;
 pub mod ints_ref_fst_enum;
 pub mod no_outputs;
 mod node_hash;

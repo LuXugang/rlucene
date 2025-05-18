@@ -48,7 +48,7 @@ where
     /// `do_floor` controls the behavior of advance: if it's true,
     /// `advance` positions to the biggest term before target.
     pub fn new(fst: FST<T, O, F>) -> Result<Self> {
-        let mut current: IntsRef<Rc<RefCell<Vec<i32>>>> = IntsRef::with_capacity(10)?;
+        let mut current: IntsRef<Rc<RefCell<Vec<i32>>>> = IntsRef::with_capacity(10);
         current.offset = 1;
         let result_input =
             IntsRef::from_slice(current.ints.clone(), current.offset, current.length);

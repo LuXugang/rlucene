@@ -23,6 +23,7 @@ use crate::index::BytesRef;
 use crate::store::{DataInput, DataOutput};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs;
+use crate::util::ints_ref::IntsRef;
 use crate::util::{HashCode, OutputIdentity};
 
 /// Represents the outputs for an FST, providing the basic algebra required for
@@ -113,4 +114,6 @@ pub trait OutputsBound:
 impl OutputsBound for Rc<i64> {}
 impl OutputsBound for BytesRef<Rc<Vec<u8>>> {}
 impl OutputsBound for BytesRef<Rc<RefCell<Vec<u8>>>> {}
+impl OutputsBound for IntsRef<Rc<Vec<i32>>> {}
+impl OutputsBound for IntsRef<Rc<RefCell<Vec<i32>>>> {}
 // impl<T: Clone + PartialEq + Default + Hash + Display> OutputsBound for T {}
