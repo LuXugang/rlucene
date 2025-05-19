@@ -1439,6 +1439,7 @@ mod tests {
     use crate::test::util::lucene_test_case::{
         at_least, is_night_mode, new_bytes_ref_from_string, new_directory, random, random_from_seed,
     };
+    use crate::test::util::test_util::TestUtil;
     use crate::util::error::lucene_error::Result;
     use crate::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs;
     use crate::util::fst_impl::bytes_ref_fst_enum::BytesRefFSTEnum;
@@ -1471,8 +1472,9 @@ mod tests {
             input_mode: i32,
             mut terms: Vec<IntsRef<Rc<RefCell<Vec<i32>>>>>,
         ) -> Result<()> {
-            let random_seed = random.random();
             terms.sort();
+            let random_seed = random.random();
+            // terms.sort();
             // NoOutputs (simple FSA)
             // TODO: NoOutputs not Implement
 
@@ -1529,7 +1531,6 @@ mod tests {
             {
                 let outputs = PositiveIntOutputs::get_singleton();
                 let pairs = terms
-                    .clone()
                     .iter()
                     .map(|term| InputOutput {
                         input: term.clone(),
@@ -1638,6 +1639,109 @@ mod tests {
         }
     }
     #[test]
+    fn test_basic_fsa() -> Result<()> {
+        let mut random = random();
+        let strings = [
+            "station",
+            "commotion",
+            "elation",
+            "elastic",
+            "plastic",
+            "stop",
+            "ftop",
+            "ftation",
+            "stat",
+        ];
+        let strings2 = [
+            "station",
+            "commotion",
+            "elation",
+            "elastic",
+            "plastic",
+            "stop",
+            "ftop",
+            "ftation",
+        ];
+        let random_seed = random.random();
+        for input_mode in 0..2 {
+            let terms: Vec<_> = strings
+                .iter()
+                .map(|s| {
+                    fst_tester_util::to_ints_ref_from_string::<Rc<RefCell<Vec<i32>>>>(s, input_mode)
+                })
+                .collect();
+            let mut terms2: Vec<_> = strings2
+                .iter()
+                .map(|s| fst_tester_util::to_ints_ref_from_string(s, input_mode))
+                .collect();
+            terms2.sort();
+            let test_fsts = TestFSTs::new()?;
+            test_fsts.do_test(&mut random, input_mode, terms)?;
+
+            // Test pre-determined FST sizes to make sure we haven't lost minimality (at
+            // least on this trivial set of terms):
+            {
+                // TODO: NoOutputs not Implement
+            }
+
+            // FST ord pos int
+            {
+                let outputs = PositiveIntOutputs::get_singleton();
+                let pairs = terms2
+                    .iter()
+                    .enumerate()
+                    .map(|(idx, term)| InputOutput {
+                        input: term.clone(),
+                        output: Rc::new(idx as i64),
+                    })
+                    .collect::<Vec<_>>();
+
+                let mut tester: FSTTester<_, _, _, _, DummyFSTTesterBaseImpl> = FSTTester::new(
+                    random_from_seed(random_seed),
+                    test_fsts.dir.clone(),
+                    input_mode,
+                    pairs,
+                    outputs.clone(),
+                );
+
+                let fst = tester.do_test()?;
+                assert_eq!(tester.node_count, 22);
+                assert_eq!(tester.arc_count, 27);
+            }
+
+            // ByteSequenceOutputs ordinal position string
+            {
+                let outputs = ByteSequenceOutputs::get_singleton();
+                let pairs = terms2
+                    .iter()
+                    .enumerate()
+                    .map(|(idx, term)| {
+                        let output = BytesRef::from_string(&idx.to_string());
+                        InputOutput {
+                            input: term.clone(),
+                            output,
+                        }
+                    })
+                    .collect::<Vec<_>>();
+
+                let mut tester: FSTTester<_, _, _, _, DummyFSTTesterBaseImpl> = FSTTester::new(
+                    random_from_seed(random_seed),
+                    test_fsts.dir.clone(),
+                    input_mode,
+                    pairs,
+                    outputs.clone(),
+                );
+
+                let fst = tester.do_test()?;
+                assert_eq!(tester.node_count, 24);
+                assert_eq!(tester.arc_count, 30);
+            }
+        }
+
+        Ok(())
+    }
+
+    #[test]
     fn test_random_words() -> Result<()> {
         let mut random = random();
         let test = TestFSTs {
@@ -1649,6 +1753,118 @@ mod tests {
         } else {
             test.test_random_words_impl(&mut random, 100, 1)
         }
+    }
+    fn test_random_words_limit<R: Rng>(
+        random: &mut R,
+        max_num_words: usize,
+        num_iter: usize,
+    ) -> Result<()> {
+        let case = TestFSTs::new()?;
+        for iter in 0..num_iter {
+            if cfg!(feature = "test_log_verbose") {
+                println!("\nTEST: iter {iter}");
+            }
+
+            for input_mode in 0..2 {
+                let num_words = random.random_range(0..=max_num_words);
+                let mut terms_set = HashSet::new();
+
+                while terms_set.len() < num_words {
+                    let term = fst_tester_util::get_random_string(random);
+                    let ints_ref = fst_tester_util::to_ints_ref_from_string(&term, input_mode);
+                    terms_set.insert(ints_ref);
+                }
+
+                let terms: Vec<_> = terms_set.into_iter().collect();
+                case.do_test(random, input_mode, terms)?;
+            }
+        }
+        Ok(())
+    }
+
+    #[test]
+    #[ignore]
+    fn test_big_set() -> Result<()> {
+        let mut random = random();
+        let max_num_words = TestUtil::next_int(&mut random, 50000, 60000) as usize;
+        test_random_words_limit(&mut random, max_num_words, 1)
+    }
+
+    #[test]
+    fn test_real_terms() -> Result<()> {
+        // TODO: IndexWriter not implemented
+        Ok(())
+    }
+
+    #[test]
+    fn test_single_string() -> Result<()> {
+        // TODO: NO_OUTPUTS not implemented
+        let mut random = random();
+        let outputs = PositiveIntOutputs::get_singleton();
+        let mut fst_compiler = Builder::new(InputType::Byte1, outputs.clone()).build()?;
+
+        let mut builder = IntsRefBuilder::new();
+        let key: BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, "foobar")?;
+        Util::get_ints_ref(&key, &mut builder);
+        fst_compiler.add(builder.get(), outputs.get_no_output())?;
+
+        let metadata = fst_compiler.compile()?;
+        let reader: DataOutputEnum<DummyDirectory> = fst_compiler.inner.borrow_mut().get_fst_reader()?;
+        let fst = FST::from_fst_reader(metadata, Some(reader)).unwrap();
+
+        let mut fst_enum = BytesRefFSTEnum::new(fst)?;
+
+        let seek1 = fst_enum.seek_floor(new_bytes_ref_from_string(&mut random, "foo")?)?;
+        assert!(seek1.is_none());
+
+        let seek2 = fst_enum.seek_ceil(new_bytes_ref_from_string(&mut random, "foobaz")?)?;
+        assert!(seek2.is_none());
+
+        Ok(())
+    }
+    #[test]
+    fn test_duplicate_fsa_string() -> Result<()> {
+        // TODO: NO_OUTPUT not Implement
+        // let mut random = random();
+        // let outputs = NoOutput::get_singleton();
+        // let mut fst_compiler = Builder::new(InputType::Byte1, outputs.clone()).build()?;
+        // 
+        // let str_key = "foobar";
+        // let mut builder = IntsRefBuilder::new();
+        // let key:BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, str_key)?;
+        // for _ in 0..10 {
+        //     Util::get_ints_ref(&key, &mut builder);
+        //     fst_compiler.add(builder.get(), outputs.get_no_output())?;
+        // }
+        // 
+        // let metadata = fst_compiler.compile()?;
+        // let reader: DataOutputEnum<DummyDirectory> =
+        //     fst_compiler.inner.borrow_mut().get_fst_reader()?;
+        // let mut fst = FST::from_fst_reader(metadata, Some(reader)).unwrap();
+        // 
+        // 
+        // 
+        // let actual = Util::get_bytes(&mut fst, &key)?;
+        // assert!(actual.is_some());
+        // 
+        // let v:BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, "foobaz")?;
+        // 
+        // let missing = Util::get_bytes(
+        //     &mut fst,
+        //     &v,
+        // )?;
+        // assert!(missing.is_none());
+        // 
+        // // Count the input paths
+        // let mut fst_enum = BytesRefFSTEnum::new(fst)?;
+        // let mut count = 0;
+        // while let Some(_) = fst_enum.next()? {
+        //     count += 1;
+        // }
+        // assert_eq!(count, 1);
+
+
+        Ok(())
     }
 
     #[test]
