@@ -19,9 +19,10 @@ use std::fmt::Display;
 use std::hash::Hash;
 
 use crate::index::{BytesRef, BytesRefBuilder};
+use crate::store::DataInput;
 use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::Result;
-use crate::util::fst_impl::fst::{Arc, InputType, FST};
+use crate::util::fst_impl::fst::{fst_util, Arc, BitTable, BytesReader, InputType, FST};
 use crate::util::fst_impl::fst_reader::FstReader;
 use crate::util::fst_impl::outputs::{Outputs, OutputsBound};
 use crate::util::ints_ref::IntsRef;
@@ -145,17 +146,131 @@ impl Util {
         Ok(scratch.get_bytes_owner())
     }
 
+    pub fn read_ceil_arc<T, O, F>(
+        label: i32,
+        fst: &mut FST<T, O, F>,
+        follow: &Arc<T>,
+        arc: &mut Arc<T>,
+        in_reader: &mut F::FstBytesReader,
+    ) -> Result<Option<()>>
+    where
+        T: OutputsBound,
+        O: Outputs<T>,
+        F: FstReader,
+    {
+        if label == fst_util::END_LABEL {
+            fst_util::read_end_arc(follow, arc);
+            return Ok(Some(()));
+        }
+
+        if !fst_util::target_has_arcs(follow) {
+            return Ok(None);
+        }
+
+        fst.read_first_target_arc(follow, arc, in_reader)?;
+
+        if arc.bytes_per_arc() != 0 && arc.label() != fst_util::END_LABEL {
+            match arc.node_flags() {
+                fst_util::ARCS_FOR_DIRECT_ADDRESSING => {
+                    let target_index = label - arc.label();
+                    if target_index >= arc.num_arcs() {
+                        return Ok(None);
+                    } else if target_index < 0 {
+                        return Ok(Some(()));
+                    }
+
+                    if BitTable::is_bit_set(target_index, arc, in_reader)? {
+                        fst.read_arc_by_direct_addressing(arc, in_reader, target_index)?;
+                        debug_assert_eq!(arc.label(), label);
+                    } else {
+                        let ceil_index = BitTable::next_bit_set(target_index, arc, in_reader)?;
+                        debug_assert!(ceil_index != -1);
+                        fst.read_arc_by_direct_addressing(arc, in_reader, ceil_index)?;
+                        debug_assert!(arc.label() > label);
+                    }
+                    return Ok(Some(()));
+                },
+
+                fst_util::ARCS_FOR_CONTINUOUS => {
+                    let target_index = label - arc.label();
+                    if target_index >= arc.num_arcs() {
+                        return Ok(None);
+                    } else if target_index < 0 {
+                        return Ok(Some(()));
+                    } else {
+                        fst.read_arc_by_continuous(arc, in_reader, target_index)?;
+                        debug_assert_eq!(arc.label(), label);
+                        return Ok(Some(()));
+                    }
+                },
+
+                _ => {
+                    // Fixed length arcs in a binary search node.
+                    let mut idx = Self::binary_search(fst, arc, label)?;
+                    if idx >= 0 {
+                        fst.read_arc_by_index(arc, in_reader, idx)?;
+                    }
+                    idx = -1 - idx;
+                    if idx == arc.num_arcs() {
+                        // DEAD END!
+                        return Ok(None);
+                    }
+                },
+            }
+        }
+
+        // Variable length arcs in a linear scan list,
+        // or special arc with label == FST.END_LABEL.
+        fst.read_first_real_target_arc(follow.target(), arc, in_reader)?;
+        loop {
+            if arc.label() >= label {
+                return Ok(Some(()));
+            } else if arc.is_last() {
+                return Ok(None);
+            }
+            fst.read_next_real_arc(arc, in_reader)?;
+        }
+    }
+
     pub fn binary_search<T, O, F>(
-        _fst: &mut FST<T, O, F>,
-        _arc: &Arc<T>,
-        _target_label: i32,
+        fst: &mut FST<T, O, F>,
+        arc: &Arc<T>,
+        target_label: i32,
     ) -> Result<i32>
     where
         T: OutputsBound,
         O: Outputs<T>,
         F: FstReader,
     {
-        Ok(0)
+        debug_assert!(
+            arc.node_flags() == fst_util::ARCS_FOR_BINARY_SEARCH,
+            "Arc is not encoded as packed array for binary search (nodeFlags={})",
+            arc.node_flags()
+        );
+
+        let mut in_reader = fst.get_bytes_reader()?;
+        let mut low = arc.arc_idx();
+        let mut high = arc.num_arcs() - 1;
+
+        while low <= high {
+            let mid = (low + high) >> 1;
+
+            in_reader.set_position(arc.pos_arcs_start());
+            in_reader.skip_bytes((arc.bytes_per_arc() * mid + 1) as i64)?;
+
+            let mid_label = fst.read_label(&mut in_reader)?;
+            let cmp = mid_label - target_label;
+
+            if cmp < 0 {
+                low = mid + 1;
+            } else if cmp > 0 {
+                high = mid - 1;
+            } else {
+                return Ok(mid);
+            }
+        }
+
+        Ok(-1 - low)
     }
 }
 /// Represents a path in TopNSearcher.
@@ -223,5 +338,167 @@ where
             self.boost,
             self.payload
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::rc::Rc;
+
+    use crate::index::BytesRef;
+    use crate::store::dummy::dummy_directory::DummyDirectory;
+    use crate::util::error::lucene_error::Result;
+    use crate::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs;
+    use crate::util::fst_impl::fst::{Arc, InputType, FST};
+    use crate::util::fst_impl::fst_compiler::{Builder, DataOutputEnum};
+    use crate::util::fst_impl::outputs::Outputs;
+    use crate::util::fst_impl::util::Util;
+    use crate::util::ints_ref_builder::IntsRefBuilder;
+
+    #[test]
+    fn test_binary_search() -> Result<()> {
+        let letters = vec!["A", "E", "J", "K", "L", "O", "T", "z"]
+            .into_iter()
+            .map(|s| s.to_string())
+            .collect::<Vec<_>>();
+        let mut fst = build_fst(&letters, true, false)?;
+        let mut arc = Arc::default();
+        fst.get_first_arc(&mut arc);
+        let mut reader = fst.get_bytes_reader()?;
+        fst.read_first_target_arc(&arc.clone(), &mut arc, &mut reader)?;
+        for (i, s) in letters.iter().enumerate() {
+            let label = s.chars().next().unwrap() as i32;
+            let found = Util::binary_search(&mut fst, &arc, label)?;
+            assert_eq!(found, i as i32, "Failed to match '{}'", s);
+        }
+        assert_eq!(Util::binary_search(&mut fst, &arc, ' ' as i32)?, -1);
+        assert_eq!(
+            Util::binary_search(&mut fst, &arc, '~' as i32)?,
+            -1 - letters.len() as i32
+        );
+        assert_eq!(Util::binary_search(&mut fst, &arc, 'B' as i32)?, -2);
+        assert_eq!(Util::binary_search(&mut fst, &arc, 'C' as i32)?, -2);
+        assert_eq!(Util::binary_search(&mut fst, &arc, 'P' as i32)?, -7);
+        Ok(())
+    }
+    #[test]
+    fn test_continuous() -> Result<()> {
+        let letters = vec!["A", "B", "C", "D", "E", "F", "G", "H"]
+            .into_iter()
+            .map(|s| s.to_string())
+            .collect::<Vec<_>>();
+
+        let mut fst = build_fst(&letters, true, false)?;
+
+        let mut first = Arc::default();
+        fst.get_first_arc(&mut first);
+        let mut arc = Arc::default();
+        let mut reader = fst.get_bytes_reader()?;
+        for s in &letters {
+            let c = s.chars().next().unwrap() as i32;
+            let result = Util::read_ceil_arc(c, &mut fst, &first, &mut arc, &mut reader)?;
+            assert!(result.is_some());
+            assert_eq!(arc.label(), c);
+        }
+
+        // in the middle
+        let c = 'F' as i32;
+        let result = Util::read_ceil_arc(c, &mut fst, &first, &mut arc, &mut reader)?;
+        assert!(result.is_some());
+        assert_eq!(arc.label(), c);
+
+        // no following arcs
+        let result =
+            Util::read_ceil_arc('A' as i32, &mut fst, &arc.clone(), &mut arc, &mut reader)?;
+        assert!(result.is_none());
+
+        Ok(())
+    }
+    #[test]
+    fn test_read_ceil_arc_packed_array() -> Result<()> {
+        let letters = &["A", "E", "J", "K", "L", "O", "T", "z"];
+        verify_read_ceil_arc(letters, true, false)
+    }
+
+    #[test]
+    fn test_read_ceil_arc_array_with_gaps() -> Result<()> {
+        let letters = &["A", "E", "J", "K", "L", "O", "T"];
+        verify_read_ceil_arc(letters, true, true)
+    }
+
+    #[test]
+    fn test_read_ceil_arc_list() -> Result<()> {
+        let letters = &["A", "E", "J", "K", "L", "O", "T", "z"];
+        verify_read_ceil_arc(letters, false, false)
+    }
+
+    fn verify_read_ceil_arc(
+        letters: &[&str],
+        allow_array_arcs: bool,
+        allow_direct_addressing: bool,
+    ) -> Result<()> {
+        let words = letters.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        let mut fst = build_fst(&words, allow_array_arcs, allow_direct_addressing)?;
+
+        let mut first = Arc::default();
+        fst.get_first_arc(&mut first);
+        let mut arc = Arc::default();
+        let mut reader = fst.get_bytes_reader()?;
+
+        for &letter in letters {
+            let c = letter.chars().next().unwrap() as i32;
+            let result = Util::read_ceil_arc(c, &mut fst, &first, &mut arc, &mut reader)?;
+            assert!(result.is_some());
+            assert_eq!(arc.label(), c);
+        }
+
+        let result = Util::read_ceil_arc(' ' as i32, &mut fst, &first, &mut arc, &mut reader)?;
+        assert!(result.is_some());
+        assert_eq!(arc.label(), 'A' as i32);
+
+        let result = Util::read_ceil_arc('~' as i32, &mut fst, &first, &mut arc, &mut reader)?;
+        assert!(result.is_none());
+
+        let result = Util::read_ceil_arc('F' as i32, &mut fst, &first, &mut arc, &mut reader)?;
+        assert!(result.is_some());
+        assert_eq!(arc.label(), 'J' as i32);
+
+        let result =
+            Util::read_ceil_arc('Z' as i32, &mut fst, &arc.clone(), &mut arc, &mut reader)?;
+        assert!(result.is_none());
+
+        Ok(())
+    }
+
+    pub fn build_fst(
+        words: &[String],
+        allow_array_arcs: bool,
+        allow_direct_addressing: bool,
+    ) -> Result<FST<BytesRef<Rc<Vec<u8>>>, ByteSequenceOutputs, DataOutputEnum<DummyDirectory>>>
+    {
+        // TODO: NoOutputs 未实现，先使用 ByteSequenceOutputs
+        let outputs = ByteSequenceOutputs::get_singleton();
+
+        let mut builder = Builder::new(InputType::Byte1, outputs.clone());
+        builder.allow_fixed_length_arcs(allow_array_arcs);
+
+        if !allow_direct_addressing {
+            builder.with_direct_addressing_max_oversizing_factor(-1.0);
+        }
+
+        let mut compiler = builder.build()?;
+
+        for word in words {
+            let mut v = IntsRefBuilder::new();
+            let bytes: BytesRef<Vec<u8>> = BytesRef::from_string(word);
+            Util::get_ints_ref(&bytes, &mut v);
+            compiler.add(v.get(), outputs.get_no_output())?;
+        }
+
+        let metadata = compiler.compile()?;
+        let fst_reader = compiler.inner.borrow_mut().get_fst_reader()?;
+
+        let fst = FST::from_fst_reader(metadata, Some(fst_reader)).unwrap();
+        Ok(fst)
     }
 }

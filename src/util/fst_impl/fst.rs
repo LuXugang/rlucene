@@ -22,28 +22,15 @@ use std::hash::Hash;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
-use crate::codecs::compressing::lucene90_compressing_stored_fields_reader::DataInputEnum;
 use crate::codecs::CodecUtil;
-use crate::index::BytesRef;
 use crate::store::directory::Directory;
-use crate::store::dummy::dummy_directory::DummyDirectory;
-use crate::store::dummy::dummy_index_input::DummyIndexInput;
 use crate::store::output_stream_data_output::OutputStreamDataOutput;
-use crate::store::{ByteArrayDataInput, ByteBuffersDataOutput, DataInput, DataOutput, IOContext};
-use crate::test::util::lucene_test_case::{new_bytes_ref_from_string, new_directory, random};
+use crate::store::{ByteBuffersDataOutput, DataInput, DataOutput};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fst_impl::bit_table_util::BitTableUtil;
-use crate::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs;
-use crate::util::fst_impl::bytes_ref_fst_enum::BytesRefFSTEnum;
-use crate::util::fst_impl::fst_compiler::{
-    Builder, CompiledNode, DataOutputEnum, NodeEnum, UnCompiledNode,
-};
 use crate::util::fst_impl::fst_reader::FstReader;
 use crate::util::fst_impl::on_heap_fst_store::OnHeapFSTStore;
 use crate::util::fst_impl::outputs::{Outputs, OutputsBound};
-use crate::util::fst_impl::positive_int_outputs::PositiveIntOutputs;
-use crate::util::fst_impl::util::Util;
-use crate::util::ints_ref_builder::IntsRefBuilder;
 
 pub struct FST<T, O, F>
 where
@@ -1028,8 +1015,7 @@ pub mod fst_util {
     /// # Returns
     ///
     /// The updated `arc` if `follow` is final, otherwise `None`
-    #[allow(unused)]
-    fn read_end_arc<T: Clone + Hash>(follow: &Arc<T>, arc: &mut Arc<T>) -> Option<()> {
+    pub(crate) fn read_end_arc<T: Clone + Hash>(follow: &Arc<T>, arc: &mut Arc<T>) -> Option<()> {
         if follow.is_final() {
             if follow.target() <= 0 {
                 arc.flags = BIT_LAST_ARC;
@@ -1452,7 +1438,10 @@ mod tests {
     use crate::test::util::fst::fst_tester::{
         fst_tester_util, DummyFSTTesterBaseImpl, FSTTester, InputOutput,
     };
-    use crate::test::util::lucene_test_case::{at_least, is_night_mode, new_bytes_ref_from_bytes_ref, new_bytes_ref_from_string, new_directory, random, random_from_seed};
+    use crate::test::util::lucene_test_case::{
+        at_least, is_night_mode, new_bytes_ref_from_bytes_ref, new_bytes_ref_from_string,
+        new_directory, random, random_from_seed,
+    };
     use crate::util::error::lucene_error::Result;
     use crate::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs;
     use crate::util::fst_impl::bytes_ref_fst_enum::BytesRefFSTEnum;
@@ -1657,13 +1646,13 @@ mod tests {
     #[test]
     pub fn test_random_words() -> Result<()> {
         let mut random = random();
-        let test = TestFSTs{
+        let test = TestFSTs {
             dir: Rc::new(RefCell::new(new_directory(&mut random)?)),
         };
-        if is_night_mode(){
+        if is_night_mode() {
             let num_iter = at_least(&mut random, 2);
             test.test_random_words_impl(&mut random, 1000, num_iter as usize)
-        }else {
+        } else {
             test.test_random_words_impl(&mut random, 100, 1)
         }
     }
