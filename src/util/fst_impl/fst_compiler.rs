@@ -87,7 +87,6 @@ where
         direct_addressing_max_oversizing_factor: f32,
         version: i32,
     ) -> Result<Self> {
-        let no_output = outputs.get_no_output();
 
         let inner = Rc::new(RefCell::new(FSTCompilerInner::new(
             input_type,
@@ -1046,6 +1045,17 @@ where
         }
         Ok(())
     }
+    /// Finish Data Writing
+    ///
+    /// # Warning
+    ///
+    /// If Data written to file (See:DataOutputEnum::FromDir) ,The actual data
+    /// is not flushed to the underlying file until the [`FSTCompiler`] is
+    /// dropped. If you need to ensure the data is written before the
+    /// compiler is dropped, consider manually finalizing or flushing the
+    /// data, or ensure the compiler goes out of scope.
+    ///
+    /// This method does not guarantee that the data has been persisted on disk.
     pub(crate) fn finish(&mut self, mut new_start_node: i64) -> Result<()> {
         debug_assert!(new_start_node <= self.num_bytes_written);
 
@@ -1065,7 +1075,7 @@ where
                 // Freeze the data output if it's a read-write buffer
                 match self.data_output {
                     DataOutputEnum::FromDir(_) => {
-                        // No action needed
+                        // file flush by when Drop FSTCompiler
                     },
                     DataOutputEnum::ReadWriter(ref mut rw) => {
                         rw.freeze()?;
