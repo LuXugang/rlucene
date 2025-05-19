@@ -1451,8 +1451,7 @@ mod tests {
     };
     use crate::util::fst_impl::fst_reader::FstReader;
     use crate::util::fst_impl::int_sequence_outputs::IntSequenceOutputs;
-    use crate::util::fst_impl::no_outputs::NoOutputs;
-    use crate::util::fst_impl::outputs::{Outputs, OutputsBound};
+    use crate::util::fst_impl::outputs::Outputs;
     use crate::util::fst_impl::positive_int_outputs::PositiveIntOutputs;
     use crate::util::fst_impl::util::Util;
     use crate::util::ints_ref::IntsRef;
@@ -1483,7 +1482,6 @@ mod tests {
             // PositiveIntOutput (ord)
             {
                 let outputs = PositiveIntOutputs::get_singleton();
-                // TODO: 这里不对 no_output 还要加一个随机
                 let no_output = outputs.get_no_output();
                 let pairs = terms
                     .clone()
@@ -1493,7 +1491,7 @@ mod tests {
                         output: no_output.clone(),
                     })
                     .collect::<Vec<_>>();
-            
+
                 let mut tester: FSTTester<_, _, _, _, DummyFSTTesterBaseImpl> = FSTTester::new(
                     random_from_seed(random_seed),
                     self.dir.clone(),
@@ -1504,114 +1502,112 @@ mod tests {
                 tester.do_test()?;
             }
             // PositiveIntOutputs (random monotonically increasing positive number)
-            // {
-            //     let outputs = PositiveIntOutputs::get_singleton();
-            //     let mut last_output = 0i64;
-            //     let pairs = terms
-            //         .clone()
-            //         .iter()
-            //         .map(|term| {
-            //             let delta = random.random_range(1..=1000);
-            //             last_output += delta;
-            //             InputOutput {
-            //                 input: term.clone(),
-            //                 output: Rc::new(last_output),
-            //             }
-            //         })
-            //         .collect::<Vec<_>>();
-            // 
-            //     let mut tester: FSTTester<_, _, _, _, DummyFSTTesterBaseImpl> = FSTTester::new(
-            //         random_from_seed(random_seed),
-            //         self.dir.clone(),
-            //         input_mode,
-            //         pairs,
-            //         outputs.clone(),
-            //     );
-            //     tester.do_test()?;
-            // }
-            // //
-            // // // PositiveIntOutputs (random positive number)
-            // {
-            //     let outputs = PositiveIntOutputs::get_singleton();
-            //     let pairs = terms
-            //         .clone()
-            //         .iter()
-            //         .map(|term| InputOutput {
-            //             input: term.clone(),
-            //             output: Rc::new(random.random_range(0..=i64::MAX)),
-            //         })
-            //         .collect::<Vec<_>>();
-            // 
-            //     let mut tester: FSTTester<_, _, _, _, DummyFSTTesterBaseImpl> = FSTTester::new(
-            //         random_from_seed(random_seed),
-            //         self.dir.clone(),
-            //         input_mode,
-            //         pairs,
-            //         outputs.clone(),
-            //     );
-            //     tester.do_test()?;
-            // }
-            // //
-            // // // Pair<ord, (random monotonically increasing positive number>
-            // // // TODO: PairOutputs not Implement
-            // //
-            // ByteSequenceOutputs (sequence-of-bytes, sometimes NO_OUTPUT)
-            // {
-            //     let outputs = ByteSequenceOutputs::get_singleton();
-            //     let no_output = outputs.get_no_output();
-            //     let pairs = terms
-            //         .iter()
-            //         .enumerate()
-            //         .map(|(idx, term)| {
-            //             let output = if random.random_range(0..30) == 17 {
-            //                 no_output.clone()
-            //             } else {
-            //                 let s = idx.to_string();
-            //                 let v: BytesRef<Rc<Vec<u8>>> =
-            //                     new_bytes_ref_from_string(random, &s).unwrap();
-            //                 v
-            //             };
-            //             InputOutput {
-            //                 input: term.clone(),
-            //                 output,
-            //             }
-            //         })
-            //         .collect::<Vec<_>>();
-            // 
-            //     let mut tester: FSTTester<_, _, _, _, DummyFSTTesterBaseImpl> = FSTTester::new(
-            //         random_from_seed(random_seed),
-            //         self.dir.clone(),
-            //         input_mode,
-            //         pairs,
-            //         outputs.clone(),
-            //     );
-            //     tester.do_test()?;
-            // }
-            // IntSequenceOutputs (sequence-of-ints, each char of string as i32)
-            // {
-            //     let outputs = IntSequenceOutputs::get_singleton();
-            //     let pairs = terms
-            //         .iter()
-            //         .enumerate()
-            //         .map(|(idx, term)| {
-            //             let s = idx.to_string();
-            //             let vec = s.chars().map(|ch| ch as i32).collect::<Vec<_>>();
-            //             InputOutput {
-            //                 input: term.clone(),
-            //                 output: IntsRef::from_slice(Rc::new(vec), 0, s.len()),
-            //             }
-            //         })
-            //         .collect::<Vec<_>>();
-            // 
-            //     let mut tester: FSTTester<_, _, _, _, DummyFSTTesterBaseImpl> = FSTTester::new(
-            //         random_from_seed(random_seed),
-            //         self.dir.clone(),
-            //         input_mode,
-            //         pairs,
-            //         outputs.clone(),
-            //     );
-            //     tester.do_test()?;
-            // }
+            {
+                let outputs = PositiveIntOutputs::get_singleton();
+                let mut last_output = 0i64;
+                let pairs = terms
+                    .clone()
+                    .iter()
+                    .map(|term| {
+                        let delta = random.random_range(1..=1000);
+                        last_output += delta;
+                        InputOutput {
+                            input: term.clone(),
+                            output: Rc::new(last_output),
+                        }
+                    })
+                    .collect::<Vec<_>>();
+
+                let mut tester: FSTTester<_, _, _, _, DummyFSTTesterBaseImpl> = FSTTester::new(
+                    random_from_seed(random_seed),
+                    self.dir.clone(),
+                    input_mode,
+                    pairs,
+                    outputs.clone(),
+                );
+                tester.do_test()?;
+            }
+            // PositiveIntOutputs (random positive number)
+            {
+                let outputs = PositiveIntOutputs::get_singleton();
+                let pairs = terms
+                    .clone()
+                    .iter()
+                    .map(|term| InputOutput {
+                        input: term.clone(),
+                        output: Rc::new(random.random_range(0..=i64::MAX)),
+                    })
+                    .collect::<Vec<_>>();
+
+                let mut tester: FSTTester<_, _, _, _, DummyFSTTesterBaseImpl> = FSTTester::new(
+                    random_from_seed(random_seed),
+                    self.dir.clone(),
+                    input_mode,
+                    pairs,
+                    outputs.clone(),
+                );
+                tester.do_test()?;
+            }
+            // Pair<ord, (random monotonically increasing positive number>
+            // TODO: PairOutputs not Implement
+
+            // Sequence-of-bytes
+            {
+                let outputs = ByteSequenceOutputs::get_singleton();
+                let no_output = outputs.get_no_output();
+                let pairs = terms
+                    .iter()
+                    .enumerate()
+                    .map(|(idx, term)| {
+                        let output = if random.random_range(0..30) == 17 {
+                            no_output.clone()
+                        } else {
+                            let s = idx.to_string();
+                            let v: BytesRef<Rc<Vec<u8>>> =
+                                new_bytes_ref_from_string(random, &s).unwrap();
+                            v
+                        };
+                        InputOutput {
+                            input: term.clone(),
+                            output,
+                        }
+                    })
+                    .collect::<Vec<_>>();
+
+                let mut tester: FSTTester<_, _, _, _, DummyFSTTesterBaseImpl> = FSTTester::new(
+                    random_from_seed(random_seed),
+                    self.dir.clone(),
+                    input_mode,
+                    pairs,
+                    outputs.clone(),
+                );
+                tester.do_test()?;
+            }
+            // // Sequence-of-ints
+            {
+                let outputs = IntSequenceOutputs::get_singleton();
+                let pairs = terms
+                    .iter()
+                    .enumerate()
+                    .map(|(idx, term)| {
+                        let s = idx.to_string();
+                        let vec = s.chars().map(|ch| ch as i32).collect::<Vec<_>>();
+                        InputOutput {
+                            input: term.clone(),
+                            output: IntsRef::from_slice(Rc::new(vec), 0, s.len()),
+                        }
+                    })
+                    .collect::<Vec<_>>();
+
+                let mut tester: FSTTester<_, _, _, _, DummyFSTTesterBaseImpl> = FSTTester::new(
+                    random_from_seed(random_seed),
+                    self.dir.clone(),
+                    input_mode,
+                    pairs,
+                    outputs.clone(),
+                );
+                tester.do_test()?;
+            }
 
             Ok(())
         }
@@ -1644,13 +1640,7 @@ mod tests {
             Ok(())
         }
     }
-    #[test]
-    fn test() -> Result<()>{
-        for i in 0..200 {
-            test_random_words()?;
-        }
-        Ok(())
-    }
+
     #[test]
     fn test_random_words() -> Result<()> {
         let mut random = random();

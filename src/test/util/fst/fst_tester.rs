@@ -203,7 +203,7 @@ where
             })?;
         }
         let fst_metadata = fst_compiler.compile()?;
-        let fst = if use_off_heap{
+        let fst = if use_off_heap {
             if fst_metadata.is_none() {
                 self.dir.borrow_mut().delete_file("fstOffHeap.bin")?;
                 None
@@ -224,7 +224,7 @@ where
             if random.random_bool(0.5) {
                 let ctx = new_io_context(&mut random)?;
                 {
-                    let mut out = Rc::new(RefCell::new(
+                    let out = Rc::new(RefCell::new(
                         self.dir.borrow_mut().create_output("fst.bin", &ctx)?,
                     ));
                     if let Some(fst_ref) = &mut fst {
@@ -307,7 +307,7 @@ where
         let (fst, _, _) = self.get_fst(seed)?;
         let padding_fst = unwrap_fn(fst.unwrap());
         reuse = std::mem::replace(&mut v.base.as_mut().unwrap().fst, padding_fst);
-        
+
         // init terms_map
         let mut terms_map: HashMap<IntsRef<Rc<RefCell<Vec<i32>>>>, T> = HashMap::new();
         for pair in &self.pairs {
@@ -344,7 +344,7 @@ where
     where
         F: FstReader,
     {
-        let mut upto:i32 = -1;
+        let mut upto: i32 = -1;
         loop {
             let mut is_done = false;
 
@@ -485,14 +485,11 @@ where
         &mut self,
         input_mode: i32,
         mut fst: Option<FST<T, O, F>>,
-        terms_map : &HashMap<IntsRef<Rc<RefCell<Vec<i32>>>>, T>
-    ) -> Result<
-        IntsRefFSTEnum<T, O, F>
-    >
+        terms_map: &HashMap<IntsRef<Rc<RefCell<Vec<i32>>>>, T>,
+    ) -> Result<IntsRefFSTEnum<T, O, F>>
     where
         F: FstReader,
     {
-        
         if cfg!(feature = "test_log_verbose") {
             println!("TEST: verify random accepted terms");
         }
@@ -528,7 +525,7 @@ where
                 println!("  iter={}", iter);
             }
             if self.random.random_bool(0.5) {
-            // if true {
+                // if true {
                 // seek to term that doesn't exist
                 loop {
                     let term_str = fst_tester_util::get_random_string(&mut self.random);
@@ -543,7 +540,7 @@ where
                     let pos = self.pairs.binary_search_by(|p| p.input.cmp(&target.input));
 
                     if let Err(mut pos) = pos {
-                        let mut pos  = pos as i32;
+                        let mut pos = pos as i32;
                         // Not found
                         let seek_result = if self.random.random_range(0..3) == 0 {
                             if cfg!(feature = "test_log_verbose") {
@@ -576,7 +573,7 @@ where
                             fst_enum.seek_ceil(term.clone())?
                         };
 
-                        if pos != - 1 && pos < self.pairs.len() as i32 {
+                        if pos != -1 && pos < self.pairs.len() as i32 {
                             let expected = &self.pairs[pos as usize];
 
                             assert!(
@@ -628,8 +625,8 @@ where
                 // seek to existing term
                 let len = self.pairs.len();
                 let pair = &self.pairs[self.random.random_range(0..len)];
-                    let seek_result = if self.random.random_range(0..3) == 2 {
-                        // let seek_result = if true {
+                let seek_result = if self.random.random_range(0..3) == 2 {
+                    // let seek_result = if true {
                     if cfg!(feature = "test_log_verbose") {
                         println!(
                             "  do exists seekExact term={}",
@@ -638,7 +635,7 @@ where
                     }
                     fst_enum.seek_exact(pair.input.clone())?
                 } else if self.random.random_bool(0.5) {
-                        // } else if false {
+                    // } else if false {
                     if cfg!(feature = "test_log_verbose") {
                         println!(
                             "  do exists seekFloor term={}",
@@ -738,6 +735,7 @@ where
         // To make this functionality work and keep consistent with Java Lucene, the
         // method was split into three separate steps in `run_steps()`, allowing fst to
         // be reused.
+        // See `self.step1`,`self.step2`,`self.step2`
         Ok(())
     }
     fn outputs_equal(&self, a: &T, b: &T) -> bool

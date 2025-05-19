@@ -99,7 +99,7 @@ where
                 }
                 self.upto += 1;
             }
-        } 
+        }
 
         Ok(())
     }
@@ -1107,7 +1107,7 @@ where
 
         Ok(())
     }
-  
+
     fn get_arc_ownership(&mut self, idx: usize) -> Arc<T> {
         match self.arcs[idx] {
             Some(_) => self.arcs[idx].take().unwrap(),

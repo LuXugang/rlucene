@@ -340,15 +340,7 @@ where
         {
             let mut inner = self.inner.borrow_mut();
             if inner.frontier[0].as_ref().unwrap().num_arcs == 0 {
-                if 
-                    inner
-                    .fst
-                    .metadata
-                    .as_ref()
-                    .unwrap()
-                    .empty_output
-                    .is_none()
-                {
+                if inner.fst.metadata.as_ref().unwrap().empty_output.is_none() {
                     // return null for completely empty FST which accepts nothing
                     return Ok(None);
                 } else {
