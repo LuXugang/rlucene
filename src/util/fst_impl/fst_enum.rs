@@ -1003,7 +1003,7 @@ where
             let mut next_arc = self.get_arc_ownership(next_arc_index);
             let found =
                 self.fst
-                    .find_target_arc(target_label, &mut arc, &mut next_arc, &mut fst_reader)?;
+                    .find_target_arc(target_label, &arc, &mut next_arc, &mut fst_reader)?;
 
             if found.is_none() {
                 // fallback: reset to first arc for correct state

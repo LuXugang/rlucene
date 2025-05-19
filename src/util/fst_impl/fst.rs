@@ -2070,7 +2070,7 @@ mod tests {
             let node_in_idx = 1;
             let mut inner = fst_compiler.inner.borrow_mut();
             let no_output = inner.no_output.clone();
-            let mut node = UnCompiledNode::new(no_output.clone(), 0);
+            let node = UnCompiledNode::new(no_output.clone(), 0);
             inner.frontier[1] = Some(node);
             root_node.add_arc(b'b' as i32, NodeEnum::UnCompiledNode(1), no_output.clone())?;
             let mut fronze = CompiledNode::default();

@@ -128,8 +128,8 @@ impl Outputs<IntsRef<Rc<Vec<i32>>>> for IntSequenceOutputs {
             Ok(self.get_no_output())
         } else {
             let mut buf = vec![0; len as usize];
-            for idx in 0..len as usize {
-                buf[idx] = input.read_vint()?;
+            for item in buf.iter_mut().take(len as usize) {
+                *item = input.read_vint()?;
             }
             Ok(IntsRef::from_slice(Rc::new(buf), 0, len as usize))
         }

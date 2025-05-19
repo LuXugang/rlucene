@@ -47,8 +47,8 @@ impl LowercaseAsciiCompression {
         let mut previous_exception_index = 0;
         let mut num_exceptions = 0;
 
-        for i in 0..len {
-            let b = input[i] as i32;
+        for (i, &b) in input.iter().take(len).enumerate() {
+            let b = b as i32;
             if !Self::is_compressible(b) {
                 while i - previous_exception_index > 0xFF {
                     num_exceptions += 1;
@@ -152,9 +152,8 @@ impl LowercaseAsciiCompression {
         }
 
         // 3. Move back to original range
-        for i in 0..len {
-            let b = out[i];
-            out[i] = (((b as u32 & 0x1F) | 0x20 | ((b as u32 & 0x20) << 1)) - 1) as u8;
+        for b in out.iter_mut().take(len) {
+            *b = (((*b as u32 & 0x1F) | 0x20 | ((*b as u32 & 0x20) << 1)) - 1) as u8;
         }
 
         // 4. Restore exceptions
