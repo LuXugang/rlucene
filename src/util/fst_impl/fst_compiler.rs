@@ -87,7 +87,6 @@ where
         direct_addressing_max_oversizing_factor: f32,
         version: i32,
     ) -> Result<Self> {
-
         let inner = Rc::new(RefCell::new(FSTCompilerInner::new(
             input_type,
             suffix_ram_limit_mb,
@@ -814,6 +813,7 @@ where
         // It is a false/special arc which is in fact a node header with node
         // flags followed by node metadata.
         // self.fixed_length_arcs_buffer.reset_position();
+        self.fixed_length_arcs_buffer.reset_position()?;
         self.fixed_length_arcs_buffer
             .write_byte(fst_util::ARCS_FOR_BINARY_SEARCH)?;
         let node_in = self.frontier[node_in_idx].as_ref().unwrap();

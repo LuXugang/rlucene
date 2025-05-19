@@ -23,7 +23,6 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 use crate::codecs::CodecUtil;
-use crate::store::directory::Directory;
 use crate::store::output_stream_data_output::OutputStreamDataOutput;
 use crate::store::{ByteBuffersDataOutput, DataInput, DataOutput};
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -1422,6 +1421,7 @@ mod tests {
     use std::cell::RefCell;
     use std::collections::HashSet;
     use std::rc::Rc;
+    use std::time::Instant;
 
     use rand::{Rng, RngCore};
 
@@ -1432,22 +1432,19 @@ mod tests {
     use crate::store::dummy::dummy_index_input::DummyIndexInput;
     use crate::store::nio_fs_directory::NIOFSDirectory;
     use crate::store::output_stream_data_output::OutputStreamDataOutput;
-    use crate::store::{
-        ByteArrayDataInput, ByteArrayDataOutput, FSDirectory, IOContext, NativeFSLockFactory,
-    };
+    use crate::store::{ByteArrayDataInput, FSDirectory, IOContext, NativeFSLockFactory};
     use crate::test::util::fst::fst_tester::{
         fst_tester_util, DummyFSTTesterBaseImpl, FSTTester, InputOutput,
     };
     use crate::test::util::lucene_test_case::{
-        at_least, is_night_mode, new_bytes_ref_from_bytes_ref, new_bytes_ref_from_string,
-        new_directory, random, random_from_seed,
+        at_least, is_night_mode, new_bytes_ref_from_string, new_directory, random, random_from_seed,
     };
     use crate::util::error::lucene_error::Result;
     use crate::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs;
     use crate::util::fst_impl::bytes_ref_fst_enum::BytesRefFSTEnum;
     use crate::util::fst_impl::fst::{fst_util, InputType, FST};
     use crate::util::fst_impl::fst_compiler::{
-        Arc, Builder, CompiledNode, DataOutputEnum, NodeEnum, UnCompiledNode,
+        Builder, CompiledNode, DataOutputEnum, NodeEnum, UnCompiledNode,
     };
     use crate::util::fst_impl::fst_reader::FstReader;
     use crate::util::fst_impl::int_sequence_outputs::IntSequenceOutputs;
@@ -1486,9 +1483,10 @@ mod tests {
                 let pairs = terms
                     .clone()
                     .into_iter()
-                    .map(|term| InputOutput {
+                    .enumerate()
+                    .map(|(idx, term)| InputOutput {
                         input: term,
-                        output: no_output.clone(),
+                        output: Rc::new(idx as i64),
                     })
                     .collect::<Vec<_>>();
 
@@ -1626,8 +1624,7 @@ mod tests {
                     let num_words = random.random_range(0..=max_num_words);
                     let mut terms_set = HashSet::new();
 
-                    // while terms_set.len() < num_words {
-                    while terms_set.len() < 5 {
+                    while terms_set.len() < num_words {
                         let term = fst_tester_util::get_random_string(random);
                         let ints_ref = fst_tester_util::to_ints_ref_from_string(&term, input_mode);
                         terms_set.insert(ints_ref);
@@ -1640,7 +1637,6 @@ mod tests {
             Ok(())
         }
     }
-
     #[test]
     fn test_random_words() -> Result<()> {
         let mut random = random();
@@ -1859,7 +1855,7 @@ mod tests {
             let mut inner = fst_compiler.inner.borrow_mut();
             let no_output = inner.no_output.clone();
             let mut node = UnCompiledNode::new(no_output.clone(), 0);
-            inner.frontier[1] = (Some(node));
+            inner.frontier[1] = Some(node);
             root_node.add_arc(b'b' as i32, NodeEnum::UnCompiledNode(1), no_output.clone())?;
             let mut fronze = CompiledNode::default();
             fronze.node = inner.add_node(1)?;

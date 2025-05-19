@@ -34,7 +34,7 @@ use crate::util::fst_impl::on_heap_fst_store::OnHeapFSTStore;
 use crate::util::fst_impl::outputs::{Outputs, OutputsBound};
 use crate::util::ints_ref::IntsRef;
 use crate::util::ints_ref_builder::IntsRefBuilder;
-use crate::util::{CoreHelper, ToInt};
+use crate::util::ToInt;
 /// Helper class to test FSTs.
 pub struct FSTTester<D, T, R, O, S>
 where
@@ -177,8 +177,7 @@ where
         };
         let mut fst_compiler_builder: Builder<_, _, D> =
             Builder::new(input_type, self.outputs.clone());
-        // let use_off_heap = random.random_bool(0.5);
-        let use_off_heap = false;
+        let use_off_heap = random.random_bool(0.5);
         if use_off_heap {
             let out = self
                 .dir
@@ -203,11 +202,15 @@ where
             })?;
         }
         let fst_metadata = fst_compiler.compile()?;
+        let node_count = fst_compiler.inner.borrow().get_node_count();
+        let arc_count = fst_compiler.inner.borrow().get_arc_count();
         let fst = if use_off_heap {
             if fst_metadata.is_none() {
                 self.dir.borrow_mut().delete_file("fstOffHeap.bin")?;
                 None
             } else {
+                // flush data to file
+                drop(fst_compiler);
                 let mut input = self
                     .dir
                     .borrow_mut()
@@ -242,8 +245,7 @@ where
         } else {
             None
         };
-        let node_count = fst_compiler.inner.borrow().get_node_count();
-        let arc_count = fst_compiler.inner.borrow().get_arc_count();
+
         Ok((fst, node_count, arc_count))
     }
 
