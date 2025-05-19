@@ -355,6 +355,9 @@ mod tests {
     use crate::util::fst_impl::util::Util;
     use crate::util::ints_ref_builder::IntsRefBuilder;
 
+    #[allow(dead_code)] // for quick search
+    struct TestUtil;
+
     #[test]
     fn test_binary_search() -> Result<()> {
         let letters = vec!["A", "E", "J", "K", "L", "O", "T", "z"]

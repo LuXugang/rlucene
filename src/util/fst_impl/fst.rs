@@ -1809,7 +1809,8 @@ mod tests {
         fst_compiler.add(builder.get(), outputs.get_no_output())?;
 
         let metadata = fst_compiler.compile()?;
-        let reader: DataOutputEnum<DummyDirectory> = fst_compiler.inner.borrow_mut().get_fst_reader()?;
+        let reader: DataOutputEnum<DummyDirectory> =
+            fst_compiler.inner.borrow_mut().get_fst_reader()?;
         let fst = FST::from_fst_reader(metadata, Some(reader)).unwrap();
 
         let mut fst_enum = BytesRefFSTEnum::new(fst)?;
@@ -1827,8 +1828,9 @@ mod tests {
         // TODO: NO_OUTPUT not Implement
         // let mut random = random();
         // let outputs = NoOutput::get_singleton();
-        // let mut fst_compiler = Builder::new(InputType::Byte1, outputs.clone()).build()?;
-        // 
+        // let mut fst_compiler = Builder::new(InputType::Byte1,
+        // outputs.clone()).build()?;
+        //
         // let str_key = "foobar";
         // let mut builder = IntsRefBuilder::new();
         // let key:BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, str_key)?;
@@ -1836,25 +1838,25 @@ mod tests {
         //     Util::get_ints_ref(&key, &mut builder);
         //     fst_compiler.add(builder.get(), outputs.get_no_output())?;
         // }
-        // 
+        //
         // let metadata = fst_compiler.compile()?;
         // let reader: DataOutputEnum<DummyDirectory> =
         //     fst_compiler.inner.borrow_mut().get_fst_reader()?;
         // let mut fst = FST::from_fst_reader(metadata, Some(reader)).unwrap();
-        // 
-        // 
-        // 
+        //
+        //
+        //
         // let actual = Util::get_bytes(&mut fst, &key)?;
         // assert!(actual.is_some());
-        // 
+        //
         // let v:BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, "foobaz")?;
-        // 
+        //
         // let missing = Util::get_bytes(
         //     &mut fst,
         //     &v,
         // )?;
         // assert!(missing.is_none());
-        // 
+        //
         // // Count the input paths
         // let mut fst_enum = BytesRefFSTEnum::new(fst)?;
         // let mut count = 0;
@@ -1862,7 +1864,6 @@ mod tests {
         //     count += 1;
         // }
         // assert_eq!(count, 1);
-
 
         Ok(())
     }
