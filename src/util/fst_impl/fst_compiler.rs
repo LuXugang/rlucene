@@ -338,11 +338,10 @@ where
         // Minimize nodes in the last word's suffix
         self.freeze_tail(0)?;
         {
-            let inner = self.inner.borrow();
+            let mut inner = self.inner.borrow_mut();
             if inner.frontier[0].as_ref().unwrap().num_arcs == 0 {
-                if self
-                    .inner
-                    .borrow()
+                if 
+                    inner
                     .fst
                     .metadata
                     .as_ref()
@@ -355,7 +354,7 @@ where
                 } else {
                     // we haven't written the padding byte so far, but the FST is
                     // still valid
-                    self.inner.borrow_mut().write_padding_byte()?;
+                    inner.write_padding_byte()?;
                 }
             }
         }

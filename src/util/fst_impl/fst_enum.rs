@@ -89,7 +89,6 @@ where
                 if cmp < 0 {
                     break;
                 } else if cmp > 0 {
-                    // Seek backwards -- reset this arc to the first arc.
                     let arc_prev = self.get_arc_ownership(self.upto - 1);
                     let mut arc = self.get_arc_ownership(self.upto);
                     self.fst
@@ -100,7 +99,7 @@ where
                 }
                 self.upto += 1;
             }
-        } // The mutable borrow ends here.
+        } 
 
         Ok(())
     }
@@ -408,6 +407,7 @@ where
                 .add(&self.output[self.upto - 1], &arc.output());
 
             if target_label == fst_util::END_LABEL {
+                self.arcs[upto] = Some(arc);
                 return Ok(None);
             }
 
@@ -598,7 +598,7 @@ where
 
         if target_index < 0 {
             self.arcs[upto] = Some(arc);
-            let result = self.backtrack_to_floor_arc(arc_index, target_label, reader, sub)?;
+            let result = self.backtrack_to_floor_arc(upto, target_label, reader, sub)?;
             debug_assert!(result.is_none());
             Ok(None)
         } else if target_index >= arc.num_arcs() {
@@ -750,7 +750,7 @@ where
                 self.arcs[upto] = Some(arc);
                 return Ok(None);
             }
-
+            self.arcs[upto] = Some(arc);
             target_label = sub.get_target_label(self)?;
             upto = self.upto;
             arc = self.get_arc_ownership(self.upto);
@@ -849,7 +849,7 @@ where
         sub: &mut impl FSTEnumBase<T, O, F>,
     ) -> Result<Option<usize>> {
         let upto = arc_index;
-        let mut arc = self.arcs[arc_index].take().unwrap();
+        let mut arc = self.arcs[upto].take().unwrap();
         let idx = Util::binary_search(&mut self.fst, &arc, target_label)?;
 
         if idx >= 0 {
@@ -869,6 +869,7 @@ where
                 .add(&self.output[self.upto - 1], &arc.output());
 
             if target_label == fst_util::END_LABEL {
+                self.arcs[upto] = Some(arc);
                 return Ok(None);
             }
 
@@ -881,7 +882,8 @@ where
             self.arcs[upto] = Some(arc);
             Ok(Some(self.upto))
         } else if idx == -1 {
-            let result = self.backtrack_to_floor_arc(arc_index, target_label, reader, sub)?;
+            self.arcs[upto] = Some(arc);
+            let result = self.backtrack_to_floor_arc(upto, target_label, reader, sub)?;
             debug_assert!(result.is_none());
             return Ok(None);
         } else {
@@ -896,6 +898,7 @@ where
                 arc.label(),
                 target_label
             );
+            self.arcs[upto] = Some(arc);
             self.push_last(sub)?;
             Ok(None)
         }
@@ -907,7 +910,7 @@ where
         sub: &mut impl FSTEnumBase<T, O, F>,
     ) -> Result<Option<usize>> {
         let upto = arc_index;
-        let mut arc = self.arcs[arc_index].take().unwrap();
+        let mut arc = self.arcs[upto].take().unwrap();
         if arc.label() == target_label {
             self.output[self.upto] = self
                 .fst
@@ -915,7 +918,7 @@ where
                 .add(&self.output[self.upto - 1], &arc.output());
 
             if target_label == fst_util::END_LABEL {
-                self.arcs[arc_index] = Some(arc);
+                self.arcs[upto] = Some(arc);
                 return Ok(None);
             }
 
@@ -928,12 +931,13 @@ where
             self.arcs[self.upto] = Some(next_arc);
             Ok(Some(self.upto))
         } else if arc.label() > target_label {
-            let mut upto = arc_index;
+            let mut upto = upto;
             // TODO: if each arc could somehow read the arc just
             // before, we can save this re-scan.  The ceil case
             // doesn't need this because it reads the next arc
             // instead:
             loop {
+                let prev_arc_index = self.upto - 1;
                 let prev_arc = self.get_arc_ownership(self.upto - 1);
                 // First, walk backwards until we find a first arc
                 // that's before our target label:
@@ -948,6 +952,7 @@ where
                         self.fst.read_next_arc(&mut arc, &mut self.fst_reader)?;
                     }
                     self.arcs[upto] = Some(arc);
+                    self.arcs[prev_arc_index] = Some(prev_arc);
                     self.push_last(sub)?;
                     return Ok(None);
                 }
@@ -955,10 +960,12 @@ where
                 self.upto -= 1;
                 if self.upto == 0 {
                     self.arcs[upto] = Some(arc);
+                    self.arcs[prev_arc_index] = Some(prev_arc);
                     return Ok(None);
                 }
                 target_label = sub.get_target_label(self)?;
                 self.arcs[upto] = Some(arc);
+                self.arcs[prev_arc_index] = Some(prev_arc);
                 upto = self.upto;
                 arc = self.get_arc_ownership(self.upto);
             }
@@ -988,12 +995,12 @@ where
         // b/w our current term & the target:
         self.rewind_prefix(sub)?;
         let mut upto = self.upto - 1;
-        let mut arc = self.get_arc_ownership(upto);
         let mut target_label = sub.get_target_label(self)?;
         let mut fst_reader = self.fst.get_bytes_reader()?;
+        let mut arc = self.get_arc_ownership(upto);
         loop {
-            let next_arc_upto = self.upto;
-            let mut next_arc = self.get_arc_ownership(next_arc_upto);
+            let next_arc_index = self.upto;
+            let mut next_arc = self.get_arc_ownership(next_arc_index);
             let found =
                 self.fst
                     .find_target_arc(target_label, &mut arc, &mut next_arc, &mut fst_reader)?;
@@ -1002,7 +1009,7 @@ where
                 // fallback: reset to first arc for correct state
                 self.fst
                     .read_first_target_arc(&arc, &mut next_arc, &mut fst_reader)?;
-                self.arcs[next_arc_upto] = Some(next_arc);
+                self.arcs[next_arc_index] = Some(next_arc);
                 self.arcs[upto] = Some(arc);
                 return Ok(false);
             }
@@ -1014,7 +1021,7 @@ where
 
             if target_label == fst_util::END_LABEL {
                 self.arcs[upto] = Some(arc);
-                self.arcs[next_arc_upto] = Some(next_arc);
+                self.arcs[next_arc_index] = Some(next_arc);
                 return Ok(true);
             }
 
@@ -1022,7 +1029,7 @@ where
             sub.set_current_label(target_label, self)?;
             self.incr(sub)?;
             target_label = sub.get_target_label(self)?;
-            upto = self.upto;
+            upto = next_arc_index;
             arc = next_arc;
         }
     }
@@ -1059,10 +1066,11 @@ where
             self.incr(sub)?;
 
             let mut next_arc = self.get_arc_ownership(self.upto);
+            let next_arc_index = self.upto;
             self.fst
                 .read_first_target_arc(&arc, &mut next_arc, &mut self.fst_reader)?;
             self.arcs[upto] = Some(arc);
-            upto = self.upto;
+            upto = next_arc_index;
             arc = next_arc;
         }
 
@@ -1073,8 +1081,7 @@ where
     fn push_last(&mut self, sub: &mut impl FSTEnumBase<T, O, F>) -> Result<()> {
         debug_assert!(self.arcs[self.upto].is_some());
         let mut upto = self.upto;
-        let mut arc = self.arcs[upto].take().unwrap();
-
+        let mut arc = self.get_arc_ownership(upto);
         loop {
             let label = arc.label();
             sub.set_current_label(label, self)?;
@@ -1089,20 +1096,18 @@ where
             }
             self.incr(sub)?;
 
+            let next_arc_index = self.upto;
             let mut next_arc = self.get_arc_ownership(self.upto);
             self.fst
                 .read_last_target_arc(&arc, &mut next_arc, &mut self.fst_reader)?;
             self.arcs[upto] = Some(arc);
-            upto = self.upto;
+            upto = next_arc_index;
             arc = next_arc;
         }
 
         Ok(())
     }
-    #[allow(unused)]
-    fn get_arc_ref(&mut self, idx: usize) -> &mut Arc<T> {
-        self.arcs[idx].as_mut().unwrap()
-    }
+  
     fn get_arc_ownership(&mut self, idx: usize) -> Arc<T> {
         match self.arcs[idx] {
             Some(_) => self.arcs[idx].take().unwrap(),
