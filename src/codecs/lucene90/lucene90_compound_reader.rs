@@ -295,7 +295,7 @@ where
     D: Directory,
 {
     fn check_integrity(&mut self) -> Result<()> {
-        let _ = CodecUtil::checksum_entire_file(&mut self.handle)?;
+        let _ = CodecUtil::checksum_entire_file(&self.handle)?;
         Ok(())
     }
 }

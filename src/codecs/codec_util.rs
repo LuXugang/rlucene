@@ -699,7 +699,7 @@ impl CodecUtil {
     /// This method may be slow, as it must process the entire file.  
     /// If you just need to extract the checksum value, call
     /// [`retrieve_checksum`](CodecUtil::retrieve_checksum).
-    pub fn checksum_entire_file(input: &mut impl IndexInput) -> Result<i64> {
+    pub fn checksum_entire_file(input: &impl IndexInput) -> Result<i64> {
         let mut clone = input.try_clone()?;
         clone.seek(0)?;
         let mut checksum_in = BufferedChecksumIndexInput::new(clone);
@@ -884,7 +884,7 @@ mod tests {
         }
 
         let mut input_data = ByteBuffersIndexInput::new(output.get_data_input(), "temp");
-        CodecUtil::checksum_entire_file(&mut input_data)?;
+        CodecUtil::checksum_entire_file(&input_data)?;
         Ok(())
     }
     #[test]
@@ -1131,7 +1131,7 @@ mod tests {
 
         let mut input = ByteBuffersIndexInput::new(out.get_data_input(), "temp");
 
-        let result = CodecUtil::checksum_entire_file(&mut input);
+        let result = CodecUtil::checksum_entire_file(&input);
         assert!(matches!(result, Err(LuceneError::CorruptIndex(_))));
         assert!(result.unwrap_err().to_string().contains(
             "misplaced codec footer (file truncated?): length=0 but footerLength==16 (resource"

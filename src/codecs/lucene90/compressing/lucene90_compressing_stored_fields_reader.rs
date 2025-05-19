@@ -608,7 +608,7 @@ where
 {
     fn check_integrity(&mut self) -> Result<()> {
         self.index_reader.check_integrity()?;
-        CodecUtil::checksum_entire_file(&mut *self.fields_stream.borrow_mut())?;
+        CodecUtil::checksum_entire_file(&*self.fields_stream.borrow())?;
         Ok(())
     }
 

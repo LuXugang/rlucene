@@ -101,7 +101,7 @@ pub trait DocValuesProducer {
     ///
     /// Note that this may be costly in terms of I/O, e.g. it may involve
     /// computing a checksum value against large data files.
-    fn check_integrity(&mut self) -> Result<()> {
+    fn check_integrity(&self) -> Result<()> {
         Err(LuceneError::need_implemented(""))
     }
 }
@@ -179,7 +179,7 @@ where
         }
     }
 
-    fn check_integrity(&mut self) -> Result<()> {
+    fn check_integrity(&self) -> Result<()> {
         match self {
             DocValuesProducerEnum::Lucene90(lucene90) => lucene90.check_integrity(),
         }

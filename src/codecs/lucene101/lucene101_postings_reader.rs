@@ -243,12 +243,12 @@ where
         Ok(())
     }
 
-    fn new_term_state(&mut self) -> Result<BlockTermStateEnum> {
+    fn new_term_state(&self) -> Result<BlockTermStateEnum> {
         Ok(BlockTermStateEnum::Int(IntBlockTermState::default()))
     }
 
     fn decode_term(
-        &mut self,
+        &self,
         input: &mut impl DataInput,
         field_info: &Rc<FieldInfo>,
         state: &mut BlockTermStateEnum,
@@ -303,7 +303,7 @@ where
     type PostingsEnum = PostingsEnums<I>;
 
     fn postings(
-        &mut self,
+        &self,
         field_info: &FieldInfo,
         state: &BlockTermStateEnum,
         reuse: Option<Self::PostingsEnum>,
@@ -333,7 +333,7 @@ where
     type ImpactsEnum = BlockPostingsEnum<I>;
 
     fn impacts(
-        &mut self,
+        &self,
         field_info: &FieldInfo,
         state: &BlockTermStateEnum,
         flags: i32,
@@ -350,12 +350,12 @@ where
         }
     }
 
-    fn check_integrity(&mut self) -> Result<()> {
-        CodecUtil::checksum_entire_file(&mut self.doc_in)?;
-        if let Some(ref mut pos_in) = self.pos_in {
+    fn check_integrity(&self) -> Result<()> {
+        CodecUtil::checksum_entire_file(&self.doc_in)?;
+        if let Some(ref pos_in) = self.pos_in {
             CodecUtil::checksum_entire_file(pos_in)?;
         };
-        if let Some(ref mut pay_in) = self.pay_in {
+        if let Some(ref pay_in) = self.pay_in {
             CodecUtil::checksum_entire_file(pay_in)?;
         }
         Ok(())

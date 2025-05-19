@@ -572,7 +572,7 @@ where
     }
 
     fn check_integrity(&mut self) -> Result<()> {
-        let _ = CodecUtil::checksum_entire_file(&mut self.data);
+        let _ = CodecUtil::checksum_entire_file(&self.data);
         Ok(())
     }
 

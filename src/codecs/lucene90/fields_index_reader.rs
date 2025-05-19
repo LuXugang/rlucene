@@ -203,7 +203,7 @@ where
     }
 
     fn check_integrity(&mut self) -> Result<()> {
-        CodecUtil::checksum_entire_file(&mut self.index_input)?;
+        CodecUtil::checksum_entire_file(&self.index_input)?;
         Ok(())
     }
 }

@@ -1153,8 +1153,8 @@ where
         }
     }
 
-    fn check_integrity(&mut self) -> Result<()> {
-        CodecUtil::checksum_entire_file(&mut self.data)?;
+    fn check_integrity(&self) -> Result<()> {
+        CodecUtil::checksum_entire_file(&self.data)?;
         Ok(())
     }
 

@@ -49,14 +49,14 @@ pub trait PostingsReaderBase {
 
     /// Return a newly created empty `TermState`.
     // TODO: 这里是不是应该返回关联类型
-    fn new_term_state(&mut self) -> Result<BlockTermStateEnum>;
+    fn new_term_state(&self) -> Result<BlockTermStateEnum>;
 
     /// Actually decode metadata for next term
     ///
     /// See also:
     /// - [`PostingsWriterBase::encodeTerm`](crate::codecs::postings_writer_base::PostingsWriterBase::encode_term)
     fn decode_term(
-        &mut self,
+        &self,
         input: &mut impl DataInput,
         field_info: &Rc<FieldInfo>,
         state: &mut BlockTermStateEnum,
@@ -67,7 +67,7 @@ pub trait PostingsReaderBase {
     /// be reused.
     type PostingsEnum: PostingsEnum;
     fn postings(
-        &mut self,
+        &self,
         field_info: &FieldInfo,
         state: &BlockTermStateEnum,
         reuse: Option<Self::PostingsEnum>,
@@ -81,7 +81,7 @@ pub trait PostingsReaderBase {
     /// See also:
     /// - [`postings`](Self::postings)
     fn impacts(
-        &mut self,
+        &self,
         field_info: &FieldInfo,
         state: &BlockTermStateEnum,
         flags: i32,
@@ -91,5 +91,5 @@ pub trait PostingsReaderBase {
     ///
     /// Note that this may be costly in terms of I/O, e.g. may involve computing
     /// a checksum value against large data files.
-    fn check_integrity(&mut self) -> Result<()>;
+    fn check_integrity(&self) -> Result<()>;
 }
