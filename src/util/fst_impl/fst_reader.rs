@@ -26,11 +26,6 @@ pub trait FstReader: Accountable {
     ///
     /// # Returns
     /// The reverse `BytesReader`.
-    ///
-    /// # Important
-    /// - This call **consumes ownership** of the internal buffers,   making the
-    ///   writer unusable afterward.
-    /// - In test mode, multiple calls are allowed by using Rc.
     fn get_reverse_bytes_reader(&mut self) -> Result<Self::FstBytesReader>;
 
     /// Write this FST to another `DataOutput`.

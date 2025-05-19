@@ -1421,9 +1421,8 @@ mod tests {
     use std::cell::RefCell;
     use std::collections::HashSet;
     use std::rc::Rc;
-    use std::time::Instant;
 
-    use rand::{Rng, RngCore};
+    use rand::Rng;
 
     use crate::codecs::compressing::lucene90_compressing_stored_fields_reader::DataInputEnum;
     use crate::index::BytesRef;
@@ -2092,10 +2091,8 @@ mod tests {
 
         // Construct FST
         let metadata = inner.fst.metadata.take().unwrap();
-        let mut fst = FST::new(metadata, inner.get_fst_reader()?);
 
-        // skip string writer
-        check_stop_nodes(&mut fst, outputs.clone())?;
+        let mut fst = FST::new(metadata, inner.get_fst_reader()?);
 
         let mut random = random();
         let mut dir = new_directory(&mut random)?;
@@ -2105,6 +2102,8 @@ mod tests {
             ));
             fst.save(out.clone(), out)?;
         }
+        // skip string writer
+        check_stop_nodes(&mut fst, outputs.clone())?;
 
         let mut in_file = dir.open_input("fst", &IOContext::default_io_context()?)?;
         let metadata = fst_util::read_metadata(&mut in_file, outputs.clone())?;
