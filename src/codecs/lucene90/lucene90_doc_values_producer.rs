@@ -3142,11 +3142,11 @@ where
         Ok(self.ord)
     }
 
-    fn doc_freq(&self) -> Result<i32> {
+    fn doc_freq(&mut self) -> Result<i32> {
         Err(LuceneError::unsupported_operation(""))
     }
 
-    fn total_term_freq(&self) -> Result<i64> {
+    fn total_term_freq(&mut self) -> Result<i64> {
         Ok(-1)
     }
 
@@ -3168,7 +3168,7 @@ where
 
     type TermState = DummyTermState;
 
-    fn term_state(&self) -> Result<Self::TermState> {
+    fn term_state(&mut self) -> Result<Self::TermState> {
         Err(LuceneError::not_implemented(""))
     }
 }

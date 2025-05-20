@@ -92,13 +92,13 @@ impl TermsEnum for DummyTermsEnum {
         ))
     }
 
-    fn doc_freq(&self) -> Result<i32> {
+    fn doc_freq(&mut self) -> Result<i32> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))
     }
 
-    fn total_term_freq(&self) -> Result<i64> {
+    fn total_term_freq(&mut self) -> Result<i64> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))
@@ -126,7 +126,7 @@ impl TermsEnum for DummyTermsEnum {
 
     type TermState = TermStateEnum;
 
-    fn term_state(&self) -> Result<Self::TermState> {
+    fn term_state(&mut self) -> Result<Self::TermState> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))

@@ -57,7 +57,11 @@ where
     pub(crate) min_term: BytesRef<Vec<u8>>,
     pub(crate) max_term: BytesRef<Vec<u8>>,
     pub(crate) parent: Rc<RefCell<TermsReader<I, P>>>,
-    pub(crate) index: Option<FST<BytesRef<Rc<Vec<u8>>>, ByteSequenceOutputs, OffHeapFSTStore<I>>>,
+    // FieldReader needs to be held as an immutable reference in SegmentTermsEnum, but
+    // FST#get_bytes_reader requires a mutable borrow. Therefore, we define `index` with interior
+    // mutability by `RefCell`.
+    pub(crate) index:
+        Option<RefCell<FST<BytesRef<Rc<Vec<u8>>>, ByteSequenceOutputs, OffHeapFSTStore<I>>>>,
 }
 impl<I, P> FieldReader<I, P>
 where
@@ -100,7 +104,7 @@ where
             root_code: BytesRef::new(),
             min_term,
             max_term,
-            index: Some(index),
+            index: Some(RefCell::new(index)),
         };
         // ownership to ByteArrayDataInput
         let mut input =
@@ -159,23 +163,29 @@ where
     P: PostingsReaderBase,
 {
     type AV = Vec<u8>;
-    type TermsEnumIter = SegmentTermsEnum<I, P>;
+    type TermsEnumIter<'a>
+        = SegmentTermsEnum<'a, I, P>
+    where
+        I: 'a,
+        P: 'a;
 
-    fn iterator(&self) -> Self::TermsEnumIter {
+    fn iterator<'a>(&'a self) -> Self::TermsEnumIter<'a> {
         todo!()
     }
 
-    type IntersectIter
-        = FilteredTermsEnum<Self::TermsEnumIter, Self::AV, AutomatonTermsEnum>
+    type IntersectIter<'a>
+        = FilteredTermsEnum<Self::TermsEnumIter<'a>, Self::AV, AutomatonTermsEnum>
     where
-        Self::TermsEnumIter: BytesRefIterator<AV = Self::AV>,
-        AutomatonTermsEnum: FilteredTermsEnumBase<AV = Self::AV>;
+        Self::TermsEnumIter<'a>: BytesRefIterator<AV = Self::AV>,
+        AutomatonTermsEnum: FilteredTermsEnumBase<AV = Self::AV>,
+        I: 'a,
+        P: 'a;
 
     fn intersect(
         &self,
         compiled: &mut CompiledAutomaton,
         start_term: Option<BytesRef<Vec<u8>>>,
-    ) -> Result<Self::IntersectIter> {
+    ) -> Result<Self::IntersectIter<'_>> {
         self.default_intersect(compiled, start_term)
     }
 
@@ -230,10 +240,7 @@ where
         Ok(Option::from(Cow::Borrowed(&self.min_term)))
     }
 
-    fn get_max<'a, T>(&'a self, _iterator: &'a mut T) -> Result<Option<Cow<'a, BytesRef<Self::AV>>>>
-    where
-        T: TermsEnum<AV = Self::AV>,
-    {
+    fn get_max<T>(&self, _iterator: &mut T) -> Result<Option<Cow<BytesRef<Self::AV>>>> {
         Ok(Option::from(Cow::Borrowed(&self.max_term)))
     }
 

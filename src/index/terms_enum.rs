@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 use std::borrow::Cow;
-use std::cell::RefCell;
-use std::rc::Rc;
 
 use crate::codecs::block_tree::segment_terms_enum_frame::SegmentTermsEnumFrame;
 use crate::codecs::postings_reader_base::PostingsReaderBase;
@@ -126,14 +124,14 @@ pub trait TermsEnum: BytesRefIterator {
     /// Returns the number of documents containing the current term.
     /// Do not call this when the enum is unpositioned.
     /// Equivalent to [`SeekStatus::End`] when exhausted.
-    fn doc_freq(&self) -> Result<i32>;
+    fn doc_freq(&mut self) -> Result<i32>;
 
     /// Returns the total number of occurrences of this term across all
     /// documents (the sum of `freq()` for each doc that has this term).
     ///
     /// Note: like other term measures, this does not take deleted documents
     /// into account.
-    fn total_term_freq(&self) -> Result<i64>;
+    fn total_term_freq(&mut self) -> Result<i64>;
 
     type PostingsEnum: PostingsEnum;
     /// Get [`PostingsEnum`] for the current term. Do not call this when the
@@ -184,7 +182,7 @@ pub trait TermsEnum: BytesRefIterator {
     ///
     /// See also: [`TermState`],
     /// [`seek_exact_with_state`](TermsEnum::seek_exact_with_state).
-    fn term_state(&self) -> Result<Self::TermState>;
+    fn term_state(&mut self) -> Result<Self::TermState>;
 }
 pub struct TermsEnumEmpty;
 impl BytesRefIterator for TermsEnumEmpty {
@@ -230,13 +228,13 @@ impl TermsEnum for TermsEnumEmpty {
         ))
     }
 
-    fn doc_freq(&self) -> Result<i32> {
+    fn doc_freq(&mut self) -> Result<i32> {
         Err(LuceneError::not_implemented(
             "this method should never be called",
         ))
     }
 
-    fn total_term_freq(&self) -> Result<i64> {
+    fn total_term_freq(&mut self) -> Result<i64> {
         Err(LuceneError::not_implemented(
             "this method should never be called",
         ))
@@ -264,7 +262,7 @@ impl TermsEnum for TermsEnumEmpty {
 
     type TermState = TermStateEnum;
 
-    fn term_state(&self) -> Result<Self::TermState> {
+    fn term_state(&mut self) -> Result<Self::TermState> {
         Err(LuceneError::not_implemented(
             "this method should never be called",
         ))
@@ -280,7 +278,7 @@ pub enum SeekStatus {
     /// A different term was found after the requested term.
     NotFound,
 }
-pub enum SeekAction<I, P>
+pub enum SeekAction<'a, I, P>
 where
     I: IndexInput,
     P: PostingsReaderBase,
@@ -288,11 +286,11 @@ where
     ReturnTrue,
     Scan {
         target: BytesRef<Vec<u8>>,
-        current_frame: Rc<RefCell<SegmentTermsEnumFrame<I, P>>>,
+        current_frame: &'a mut SegmentTermsEnumFrame<'a, I, P>,
     },
 }
 
-impl<I, P> SeekAction<I, P>
+impl<I, P> SeekAction<'_, I, P>
 where
     I: IndexInput,
     P: PostingsReaderBase,
@@ -305,9 +303,8 @@ where
                 target,
                 current_frame,
             } => {
-                let mut frame = current_frame.borrow_mut();
-                frame.load_block()?;
-                let result = frame.scan_to_term(target, true)?;
+                current_frame.load_block()?;
+                let result = current_frame.scan_to_term(target, true)?;
                 Ok(matches!(result, SeekStatus::Found))
             },
         }

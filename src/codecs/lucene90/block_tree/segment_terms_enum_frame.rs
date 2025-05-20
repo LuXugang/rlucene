@@ -30,7 +30,7 @@ use crate::util::error::lucene_error::Result;
 use crate::util::fst_impl::fst::Arc;
 use crate::util::{SliceCopyOps, ToInt};
 
-pub struct SegmentTermsEnumFrame<I, P>
+pub struct SegmentTermsEnumFrame<'a, I, P>
 where
     I: IndexInput,
     P: PostingsReaderBase,
@@ -98,25 +98,24 @@ where
     pub(crate) bytes_reader: ByteArrayDataInput<Vec<u8>>,
 
     /// parent SegmentTerms
-    ste: Rc<RefCell<SegmentTerms<I, P>>>,
+    ste: Rc<RefCell<SegmentTerms<'a, I, P>>>,
 
     start_byte_pos: i32,
     suffix_length: i32,
     sub_code: i64,
     compression_alg: CompressionAlgorithm,
 }
-impl<I, P> SegmentTermsEnumFrame<I, P>
+impl<'a, I, P> SegmentTermsEnumFrame<'a, I, P>
 where
     I: IndexInput,
     P: PostingsReaderBase,
 {
-    pub fn new(ste: Rc<RefCell<SegmentTerms<I, P>>>, ord: i32) -> Result<Self> {
+    pub fn new(ste: Rc<RefCell<SegmentTerms<'a, I, P>>>, ord: i32) -> Result<Self> {
         let mut state = ste
             .borrow()
             .fr
-            .borrow()
             .parent
-            .borrow_mut()
+            .borrow()
             .postings_reader
             .new_term_state()?;
 
@@ -393,7 +392,7 @@ where
         ste.term.grow(len);
 
         self.suffixes_reader.read_bytes(
-            ste.term.get_bytes_ref().bytes.as_mut(),
+            ste.term.get_bytes_mut_ref().bytes.as_mut(),
             self.prefix_length,
             self.suffix_length,
         )?;
@@ -443,7 +442,7 @@ where
             ste.term.grow(len);
 
             self.suffixes_reader.read_bytes(
-                ste.term.get_bytes_ref().bytes.as_mut(),
+                ste.term.get_bytes_mut_ref().bytes.as_mut(),
                 self.prefix_length,
                 self.suffix_length,
             )?;
@@ -525,7 +524,7 @@ where
                     self.stats_singleton_run_length = (token as u32 >> 1) as i32;
                 } else {
                     state.doc_freq = (token as u32 >> 1) as i32;
-                    if *ste.fr.borrow().field_info.get_index_options() == IndexOptions::DOCS {
+                    if *ste.fr.field_info.get_index_options() == IndexOptions::DOCS {
                         state.total_term_freq = state.doc_freq as i64;
                     } else {
                         state.total_term_freq =
@@ -534,17 +533,12 @@ where
                 }
             }
 
-            ste.fr
-                .borrow()
-                .parent
-                .borrow_mut()
-                .postings_reader
-                .decode_term(
-                    &mut self.bytes_reader,
-                    &ste.fr.borrow().field_info,
-                    &mut self.state,
-                    absolute,
-                )?;
+            ste.fr.parent.borrow_mut().postings_reader.decode_term(
+                &mut self.bytes_reader,
+                &ste.fr.field_info,
+                &mut self.state,
+                absolute,
+            )?;
 
             self.meta_data_upto += 1;
             absolute = false;
@@ -837,7 +831,8 @@ where
                 // keep scanning
             } else if cmp > 0 {
                 // TODO: 等完成segment_terms_enum再来写
-                // self.fill_term();
+                self.fill_term();
+                let ste = self.ste.borrow();
                 // if !exact_only && !ste.term_exists {
                 //     let prefix_len = self.prefix_length + self.suffix_length;
                 //     let mut new_frame = ste.push_frame(None, self.last_sub_fp, prefix_len);
@@ -879,7 +874,7 @@ where
         ste.term.set_length(term_length as usize);
         ste.term.grow(term_length as usize);
 
-        let dest: &mut [u8] = ste.term.get_bytes_ref().bytes.as_mut();
+        let dest: &mut [u8] = ste.term.get_bytes_mut_ref().bytes.as_mut();
         let src = &self.suffix_bytes;
         let start = self.start_byte_pos as usize;
         let len = start + self.suffix_length as usize;

@@ -41,12 +41,17 @@ pub trait Terms {
         unimplemented!()
     }
 
-    type TermsEnumIter: TermsEnum;
+    type TermsEnumIter<'a>: TermsEnum + 'a
+    where
+        Self: 'a;
+
     /// Returns an iterator that will step through all terms. This method will
     /// not return None.
-    fn iterator(&self) -> Self::TermsEnumIter;
+    fn iterator<'a>(&'a self) -> Self::TermsEnumIter<'a>;
 
-    type IntersectIter: TermsEnum;
+    type IntersectIter<'a>: TermsEnum + 'a
+    where
+        Self: 'a;
     /// Returns a [`TermsEnum`] that iterates over all terms and documents
     /// accepted by the given [`CompiledAutomaton`].
     ///
@@ -66,15 +71,15 @@ pub trait Terms {
         &self,
         compiled: &mut CompiledAutomaton,
         start_term: Option<BytesRef<Vec<u8>>>,
-    ) -> Result<Self::IntersectIter>;
+    ) -> Result<Self::IntersectIter<'_>>;
 
-    fn default_intersect(
-        &self,
+    fn default_intersect<'a>(
+        &'a self,
         compiled: &mut CompiledAutomaton,
         start_term: Option<BytesRef<Vec<u8>>>,
-    ) -> Result<FilteredTermsEnum<Self::TermsEnumIter, Self::AV, AutomatonTermsEnum>>
+    ) -> Result<FilteredTermsEnum<Self::TermsEnumIter<'_>, Self::AV, AutomatonTermsEnum>>
     where
-        Self::TermsEnumIter: BytesRefIterator<AV = Self::AV>,
+        Self::TermsEnumIter<'a>: BytesRefIterator<AV = Self::AV>,
         AutomatonTermsEnum: FilteredTermsEnumBase<AV = Self::AV>,
     {
         let terms_enum = self.iterator();
@@ -136,10 +141,15 @@ pub trait Terms {
     /// Returns the largest term (in lexicographic order) in the field.  
     /// Note that, like other term measures, this does **not** take deleted
     /// documents into account. Returns `None` when there are no terms.
-    fn get_max<'a, T>(&'a self, iterator: &'a mut T) -> Result<Option<Cow<'a, BytesRef<Self::AV>>>>
+    fn get_max<T>(&self, iterator: &mut T) -> Result<Option<Cow<BytesRef<Self::AV>>>>;
+
+    fn default_get_max<'a, T>(
+        &'a self,
+        iterator: &'a mut T,
+    ) -> Result<Option<Cow<'a, BytesRef<Self::AV>>>>
     where
         T: TermsEnum<AV = Self::AV>,
-        Self: Sized + Terms<TermsEnumIter = T>,
+        Self: Sized + Terms<TermsEnumIter<'a> = T>,
     {
         let size = self.size()?;
         if size == 0 {
@@ -167,7 +177,7 @@ pub trait Terms {
             while low != high {
                 let mid = (((low + high) as u32) >> 1) as i32;
                 scratch.set_byte_at(scratch.length() - 1, mid as u8);
-                match iterator.seek_ceil(scratch.get_bytes_ref())? {
+                match iterator.seek_ceil(scratch.get_bytes_mut_ref())? {
                     SeekStatus::End => {
                         if mid == 0 {
                             scratch.set_length(scratch.length() - 1);

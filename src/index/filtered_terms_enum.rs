@@ -177,11 +177,11 @@ where
         self.tenum.ord()
     }
 
-    fn doc_freq(&self) -> Result<i32> {
+    fn doc_freq(&mut self) -> Result<i32> {
         self.tenum.doc_freq()
     }
 
-    fn total_term_freq(&self) -> Result<i64> {
+    fn total_term_freq(&mut self) -> Result<i64> {
         self.tenum.total_term_freq()
     }
 
@@ -205,7 +205,7 @@ where
 
     type TermState = TE::TermState;
 
-    fn term_state(&self) -> Result<Self::TermState> {
+    fn term_state(&mut self) -> Result<Self::TermState> {
         self.tenum.term_state()
     }
 }

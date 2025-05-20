@@ -89,11 +89,11 @@ impl TermsEnum for BaseTermsEnum {
         Err(LuceneError::need_implemented(""))
     }
 
-    fn doc_freq(&self) -> Result<i32> {
+    fn doc_freq(&mut self) -> Result<i32> {
         Err(LuceneError::need_implemented(""))
     }
 
-    fn total_term_freq(&self) -> Result<i64> {
+    fn total_term_freq(&mut self) -> Result<i64> {
         Err(LuceneError::need_implemented(""))
     }
 
@@ -115,7 +115,7 @@ impl TermsEnum for BaseTermsEnum {
 
     type TermState = TermStateImpl1;
 
-    fn term_state(&self) -> Result<Self::TermState> {
+    fn term_state(&mut self) -> Result<Self::TermState> {
         Ok(TermStateImpl1)
     }
 }

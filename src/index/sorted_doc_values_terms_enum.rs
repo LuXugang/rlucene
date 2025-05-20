@@ -141,11 +141,11 @@ pub struct SortedDocValuesTermsEnum;
 //         Ok(self.current_ord as i64)
 //     }
 //
-//     fn doc_freq(&self) -> Result<i32> {
+//     fn doc_freq(&mut self) -> Result<i32> {
 //         Err(LuceneError::unsupported_operation(""))
 //     }
 //
-//     fn total_term_freq(&self) -> Result<i64> {
+//     fn total_term_freq(&mut self) -> Result<i64> {
 //         Err(LuceneError::unsupported_operation(""))
 //     }
 //
@@ -167,7 +167,7 @@ pub struct SortedDocValuesTermsEnum;
 //
 //     type TermState = TermStateEnum;
 //
-//     fn term_state(&self) -> Result<Self::TermState> {
+//     fn term_state(&mut self) -> Result<Self::TermState> {
 //         let mut state = OrdTermState::default();
 //         state.ord = self.current_ord as i64;
 //         Ok(TermStateEnum::Ord(state))

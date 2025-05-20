@@ -108,7 +108,7 @@ where
 
     /// Reset this builder to the empty state.
     pub fn append_builder(&mut self, b: &mut BytesRefBuilder<AV>) {
-        self.append_ref(b.get_bytes_ref())
+        self.append_ref(b.get_bytes_mut_ref())
     }
     pub fn clear(&mut self) {
         self.set_length(0);
@@ -143,7 +143,7 @@ where
             .access(|bytes| self.copy_bytes_with_vec(bytes, b.offset, b.length))
     }
     pub fn copy_bytes_with_builder(&mut self, b: &mut BytesRefBuilder<AV>) {
-        self.copy_bytes_with_ref(b.get_bytes_ref())
+        self.copy_bytes_with_ref(b.get_bytes_mut_ref())
     }
     pub fn copy_chars_with_string(&mut self, s: &str) {
         self.copy_chars_range(s, 0, s.len())
@@ -164,12 +164,19 @@ where
     /// Return a BytesRef that points to the internal content of this builder.
     /// Any update to  the content of this builder might invalidate the
     /// provided bytes_ref and vice versa.
-    pub fn get_bytes_ref(&mut self) -> &mut BytesRef<AV> {
+    pub fn get_bytes_mut_ref(&mut self) -> &mut BytesRef<AV> {
         debug_assert_eq!(
             self.bytes_ref.offset, 0,
             "Modifying the offset of the returned ref is illegal"
         );
         &mut self.bytes_ref
+    }
+    pub fn get_bytes_mut(&self) -> &BytesRef<AV> {
+        debug_assert_eq!(
+            self.bytes_ref.offset, 0,
+            "Modifying the offset of the returned ref is illegal"
+        );
+        &self.bytes_ref
     }
     /// # Note
     /// This method should be only called with `BytesRef<Vec<u8>>`

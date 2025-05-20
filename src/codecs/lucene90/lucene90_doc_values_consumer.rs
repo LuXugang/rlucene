@@ -665,8 +665,10 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
                     })?;
                     dict_length = length;
                 } else {
-                    let prefix_length =
-                        StringHelper::bytes_difference(previous.get_bytes_ref(), term.as_ref())?;
+                    let prefix_length = StringHelper::bytes_difference(
+                        previous.get_bytes_mut_ref(),
+                        term.as_ref(),
+                    )?;
                     let suffix_length = length - prefix_length;
                     debug_assert!(suffix_length > 0);
                     // Will write (suffixLength + 1 byte + 2 vint) bytes. Grow
@@ -793,7 +795,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
                     let sort_key_length = if ord == 0 {
                         0
                     } else {
-                        StringHelper::sort_key_length(previous.get_bytes_ref(), &term)?
+                        StringHelper::sort_key_length(previous.get_bytes_mut_ref(), &term)?
                     };
                     offset += sort_key_length as i64;
                     term.bytes.access(|bytes| {
