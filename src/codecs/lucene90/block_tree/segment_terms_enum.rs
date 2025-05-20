@@ -258,7 +258,7 @@ where
                 return Err(LuceneError::illegal_state("terms index was not loaded"));
             }
             if fr.size()? > 0 {
-                let mut iter = segment_terms.fr.iterator();
+                let mut iter = segment_terms.fr.iterator()?;
                 let left = target
                     .cmp(segment_terms.fr.get_min(&mut iter)?.as_ref().unwrap())
                     .to_int();
@@ -366,7 +366,7 @@ where
         } else {
             let next_final_output = {
                 arc_index = 0;
-                let mut arc = &mut self.arcs[0];
+                let arc = &mut self.arcs[0];
                 self.target_before_current_length = -1;
 
                 self.segment_terms
@@ -513,7 +513,7 @@ where
                 let segment_terms = self.segment_terms.borrow();
                 let fr = segment_terms.fr;
                 let arc = if let Some(index) = fr.index.as_ref() {
-                    let mut arc = &mut self.arcs[0];
+                    let arc = &mut self.arcs[0];
                     index.borrow().get_first_arc(arc);
                     debug_assert!(arc.is_final());
                     Some(0)
@@ -701,7 +701,7 @@ where
                 }
             }
         } else {
-            let mut arc;
+            let arc;
             self.target_before_current_length = -1;
             arc_index = 0;
             let next_final_output = {

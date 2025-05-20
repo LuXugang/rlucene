@@ -47,7 +47,7 @@ pub trait Terms {
 
     /// Returns an iterator that will step through all terms. This method will
     /// not return None.
-    fn iterator<'a>(&'a self) -> Self::TermsEnumIter<'a>;
+    fn iterator<'a>(&'a self) -> Result<Self::TermsEnumIter<'a>>;
 
     type IntersectIter<'a>: TermsEnum + 'a
     where
@@ -82,7 +82,7 @@ pub trait Terms {
         Self::TermsEnumIter<'a>: BytesRefIterator<AV = Self::AV>,
         AutomatonTermsEnum: FilteredTermsEnumBase<AV = Self::AV>,
     {
-        let terms_enum = self.iterator();
+        let terms_enum = self.iterator()?;
         let automaton_terms_enum = if start_term.is_some() {
             AutomatonTermsEnum::new_with_start_term(compiled, start_term)?
         } else {
@@ -160,7 +160,7 @@ pub trait Terms {
             return iterator.next();
         }
         // otherwise: binary search
-        let mut iterator = self.iterator();
+        let mut iterator = self.iterator()?;
         let v = iterator.next()?;
         if v.is_none() {
             return Ok(None);

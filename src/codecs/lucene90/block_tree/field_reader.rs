@@ -169,8 +169,8 @@ where
         I: 'a,
         P: 'a;
 
-    fn iterator<'a>(&'a self) -> Self::TermsEnumIter<'a> {
-        todo!()
+    fn iterator<'a>(&'a self) -> Result<Self::TermsEnumIter<'a>> {
+        SegmentTermsEnum::new(self)
     }
 
     type IntersectIter<'a>
