@@ -27,7 +27,6 @@ use crate::index::BytesRef;
 use crate::store::{ByteArrayDataInput, DataInput, IndexInput};
 use crate::util::array_util::ArrayUtil;
 use crate::util::error::lucene_error::Result;
-use crate::util::fst_impl::fst::Arc;
 use crate::util::{SliceCopyOps, ToInt};
 
 pub struct SegmentTermsEnumFrame<'a, I, P>
@@ -42,7 +41,7 @@ where
     pub(crate) has_terms_orig: bool,
     pub(crate) is_floor: bool,
 
-    pub(crate) arc: Option<Rc<RefCell<Arc<BytesRef<Rc<Vec<u8>>>>>>>,
+    pub(crate) arc: Option<usize>,
 
     /// File pointer where this block was loaded from
     pub(crate) fp: i64,

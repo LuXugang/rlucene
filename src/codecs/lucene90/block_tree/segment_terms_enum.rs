@@ -38,13 +38,14 @@ use crate::util::fst_impl::fst::Arc;
 use crate::util::fst_impl::reverse_random_access_reader::ReverseRandomAccessReader;
 use crate::util::ToInt;
 
+/// Iterates through terms in this field.
 pub struct SegmentTermsEnum<'a, I, P>
 where
     I: IndexInput,
     P: PostingsReaderBase,
 {
     segment_terms: Rc<RefCell<SegmentTerms<'a, I, P>>>,
-    arcs: Vec<Rc<RefCell<Arc<BytesRef<Rc<Vec<u8>>>>>>>,
+    arcs: Vec<Arc<BytesRef<Rc<Vec<u8>>>>>,
     base: BaseTermsEnum,
     fst_reader: Option<ReverseRandomAccessReader<I::RandomAccessSlice>>,
     eof: bool,
@@ -52,7 +53,7 @@ where
     output_accumulator: OutputAccumulator,
     valid_index_prefix: i32,
     stack: Vec<SegmentTermsEnumFrame<'a, I, P>>,
-    // TODO:maybe we should let static_frame as stack[0]. that we could get current much more
+    // TODO:maybe we should let static_frame as stack[0]. that we could get current_frame much more
     // easily and efficient
     static_frame: SegmentTermsEnumFrame<'a, I, P>,
     pub(crate) current_frame_idx: usize,
@@ -93,16 +94,16 @@ where
             None => None,
         };
 
-        let v = Rc::new(RefCell::new(Arc::default()));
-        let arcs = vec![v; 1];
+        let v = Arc::default();
+        let mut arcs = vec![v; 1];
         {
             if fr.index.is_some() {
                 fr.index
                     .as_ref()
                     .unwrap()
                     .borrow()
-                    .get_first_arc(&mut *arcs[0].borrow_mut());
-                debug_assert!(arcs[0].borrow().is_final())
+                    .get_first_arc(&mut arcs[0]);
+                debug_assert!(arcs[0].is_final())
             }
         }
 
@@ -153,19 +154,18 @@ where
         debug_assert_eq!(self.stack[ord].ord, ord as i32, "Frame ord mismatch");
         Ok(())
     }
-    pub(crate) fn get_arc(&mut self, ord: usize) -> Rc<RefCell<Arc<BytesRef<Rc<Vec<u8>>>>>> {
+    pub(crate) fn get_arc(&mut self, ord: usize) -> usize {
         if ord >= self.arcs.len() {
             let new_len = ArrayUtil::oversize(ord + 1, 0);
             for _ in self.arcs.len()..new_len {
-                self.arcs.push(Rc::new(RefCell::new(Arc::default())))
+                self.arcs.push(Arc::default())
             }
         }
-
-        self.arcs[ord].clone()
+        ord
     }
     pub(crate) fn push_frame_with_data(
         &mut self,
-        arc: Option<Rc<RefCell<Arc<BytesRef<Rc<Vec<u8>>>>>>>,
+        arc: Option<usize>,
         frame_data: BytesRef<Rc<Vec<u8>>>,
         length: i32,
     ) -> Result<usize> {
@@ -175,7 +175,7 @@ where
     }
     pub(crate) fn push_frame_with_length(
         &mut self,
-        arc: Option<Rc<RefCell<Arc<BytesRef<Rc<Vec<u8>>>>>>>,
+        arc: Option<usize>,
         length: i32,
     ) -> Result<usize> {
         self.output_accumulator.prepare_read();
@@ -210,12 +210,7 @@ where
         self.push_frame(arc, fp_seek, length)?;
         Ok(ord)
     }
-    pub(crate) fn push_frame(
-        &mut self,
-        arc: Option<Rc<RefCell<Arc<BytesRef<Rc<Vec<u8>>>>>>>,
-        fp: i64,
-        length: i32,
-    ) -> Result<usize> {
+    pub(crate) fn push_frame(&mut self, arc: Option<usize>, fp: i64, length: i32) -> Result<usize> {
         let current_frame = if self.current_frame_idx == self.static_frame_idx {
             &mut self.static_frame
         } else {
@@ -277,7 +272,6 @@ where
         }
         self.segment_terms.borrow_mut().term.grow(1 + target.length);
         debug_assert!(self.clear_eof());
-        let mut arc;
         let mut target_upto;
         let target_before_current_length = {
             let current_frame = if self.current_frame_idx == self.static_frame_idx {
@@ -290,16 +284,19 @@ where
         self.target_before_current_length = target_before_current_length;
         self.output_accumulator.reset();
         // -1 means equal to staticFrame
+        let mut arc_index;
         if self.current_frame_idx != self.static_frame_idx {
+            let mut arc;
             // We are already seek'd; find the common
             // prefix of new seek term vs current term and
             // re-use the corresponding seek state.  For
             // example, if app first seeks to foobar, then
             // seeks to foobaz, we can re-use the seek state
             // for the first 5 bytes.
-            arc = self.arcs[0].clone();
-            debug_assert!(arc.borrow().is_final());
-            self.output_accumulator.push(arc.borrow().output());
+            arc_index = 0;
+            arc = &mut self.arcs[arc_index];
+            debug_assert!(arc.is_final());
+            self.output_accumulator.push(arc.output());
 
             target_upto = 0;
             let mut last_frame: usize = 0;
@@ -317,16 +314,15 @@ where
                 if cmp != 0 {
                     break;
                 }
-
-                arc = self.arcs[1 + target_upto].clone();
-                let arc_b = arc.borrow();
+                arc_index = 1 + target_upto;
+                arc = &mut self.arcs[arc_index];
                 debug_assert_eq!(
-                    arc_b.label(),
+                    arc.label(),
                     target.bytes[target.offset + target_upto] as i32
                 );
-                self.output_accumulator.push(arc_b.output());
+                self.output_accumulator.push(arc.output());
 
-                if arc_b.is_final() {
+                if arc.is_final() {
                     last_frame = (1 + self.stack[last_frame].ord + 1) as usize;
                 }
 
@@ -368,35 +364,39 @@ where
                 }
             }
         } else {
-            arc = self.arcs[0].clone();
-            let mut arc_b = arc.borrow_mut();
-            self.target_before_current_length = -1;
+            let next_final_output = {
+                arc_index = 0;
+                let mut arc = &mut self.arcs[0];
+                self.target_before_current_length = -1;
 
-            self.segment_terms
-                .borrow()
-                .fr
-                .index
-                .as_ref()
-                .unwrap()
-                .borrow()
-                .get_first_arc(&mut *arc_b);
-            debug_assert!(arc_b.is_final());
+                self.segment_terms
+                    .borrow()
+                    .fr
+                    .index
+                    .as_ref()
+                    .unwrap()
+                    .borrow()
+                    .get_first_arc(arc);
+                debug_assert!(arc.is_final());
 
-            self.output_accumulator.push(arc_b.output());
+                self.output_accumulator.push(arc.output());
 
-            self.current_frame_idx = self.static_frame_idx;
+                self.current_frame_idx = self.static_frame_idx;
 
-            target_upto = 0;
-            self.output_accumulator.push(arc_b.next_final_output());
-            self.current_frame_idx = self.push_frame_with_length(Some(arc.clone()), 0)?;
-            self.output_accumulator.pop(&arc_b.next_final_output());
+                target_upto = 0;
+                let next_final_output = arc.next_final_output();
+                self.output_accumulator.push(next_final_output.clone());
+                next_final_output
+            };
+            self.current_frame_idx = self.push_frame_with_length(Some(0), 0)?;
+            self.output_accumulator.pop(&next_final_output);
         }
         // We are done sharing the common prefix with the incoming target and where we
         // are currently seek'd; now continue walking the index:
         while target_upto < target.length {
             let target_label = target.bytes[target.offset + target_upto] as i32;
 
-            let next_arc = self.get_arc(1 + target_upto);
+            let next_arc_idx = self.get_arc(1 + target_upto);
             let r = {
                 let segment_terms = self.segment_terms.borrow();
                 let fr_index = segment_terms.fr.index.as_ref().unwrap().borrow();
@@ -404,8 +404,9 @@ where
 
                 fr_index.find_target_arc(
                     target_label,
-                    &*arc.borrow(),
-                    &mut *next_arc.borrow_mut(),
+                    // clone here is acceptable
+                    &self.arcs[arc_index].clone(),
+                    &mut self.arcs[next_arc_idx],
                     reader,
                 )?
             };
@@ -444,22 +445,25 @@ where
                 // self.current_frame_idx.as_ref().unwrap().clone(),
                 // }));
             } else {
-                arc = next_arc;
-                let arc_b = arc.borrow();
-                {
-                    let mut segment_terms = self.segment_terms.borrow_mut();
-                    segment_terms
-                        .term
-                        .set_byte_at(target_upto, target_label as u8);
-                }
-                self.output_accumulator.push(arc_b.output());
-                target_upto += 1;
+                arc_index = next_arc_idx;
 
-                if arc_b.is_final() {
-                    self.output_accumulator.push(arc_b.next_final_output());
+                let (is_final, next_final_output) = {
+                    let arc = &mut self.arcs[next_arc_idx];
+                    {
+                        let mut segment_terms = self.segment_terms.borrow_mut();
+                        segment_terms
+                            .term
+                            .set_byte_at(target_upto, target_label as u8);
+                    }
+                    self.output_accumulator.push(arc.output());
+                    target_upto += 1;
+                    (arc.is_final(), arc.next_final_output())
+                };
+                if is_final {
+                    self.output_accumulator.push(next_final_output.clone());
                     self.current_frame_idx =
-                        self.push_frame_with_length(Some(arc.clone()), target_upto as i32)?;
-                    self.output_accumulator.pop(&arc_b.next_final_output());
+                        self.push_frame_with_length(Some(next_arc_idx), target_upto as i32)?;
+                    self.output_accumulator.pop(&next_final_output);
                 }
             }
         }
@@ -509,10 +513,10 @@ where
                 let segment_terms = self.segment_terms.borrow();
                 let fr = segment_terms.fr;
                 let arc = if let Some(index) = fr.index.as_ref() {
-                    let mut arc = self.arcs[0].borrow_mut();
-                    index.borrow().get_first_arc(&mut arc);
+                    let mut arc = &mut self.arcs[0];
+                    index.borrow().get_first_arc(arc);
                     debug_assert!(arc.is_final());
-                    Some(self.arcs[0].clone())
+                    Some(0)
                 } else {
                     None
                 };
@@ -630,9 +634,9 @@ where
 
         self.target_before_current_length = self.stack[self.current_frame_idx].ord;
         self.output_accumulator.reset();
-        let mut arc;
-
+        let mut arc_index;
         if self.current_frame_idx != self.static_frame_idx {
+            let mut arc;
             // We are already seek'd; find the common
             // prefix of new seek term vs current term and
             // re-use the corresponding seek state.  For
@@ -640,9 +644,10 @@ where
             // seeks to foobaz, we can re-use the seek state
             // for the first 5 bytes.
             let segment_terms = self.segment_terms.borrow_mut();
-            arc = self.arcs[0].clone();
-            debug_assert!(arc.borrow().is_final());
-            let v = arc.borrow().output();
+            arc_index = 0;
+            arc = &self.arcs[arc_index];
+            debug_assert!(arc.is_final());
+            let v = arc.output();
             self.output_accumulator.push(v);
             target_upto = 0;
 
@@ -660,15 +665,15 @@ where
                 if cmp != 0 {
                     break;
                 }
-                arc = self.arcs[1 + target_upto].clone();
-                let arc_b = arc.borrow();
+                arc_index = 1 + target_upto;
+                arc = &self.arcs[arc_index];
                 debug_assert_eq!(
-                    arc_b.label(),
+                    arc.label(),
                     target.bytes[target.offset + target_upto] as i32
                 );
-                self.output_accumulator.push(arc_b.output());
+                self.output_accumulator.push(arc.output());
 
-                if arc_b.is_final() {
+                if arc.is_final() {
                     let idx = 1 + last_frame.ord;
                     last_frame_index = idx as usize;
                     last_frame = &mut self.stack[idx as usize];
@@ -696,10 +701,11 @@ where
                 }
             }
         } else {
+            let mut arc;
             self.target_before_current_length = -1;
-            arc = self.arcs[0].clone();
-            let mut arc_b = arc.borrow_mut();
-            {
+            arc_index = 0;
+            let next_final_output = {
+                arc = &mut self.arcs[arc_index];
                 let segment_terms = self.segment_terms.borrow_mut();
                 segment_terms
                     .fr
@@ -707,25 +713,26 @@ where
                     .as_ref()
                     .unwrap()
                     .borrow()
-                    .get_first_arc(&mut *arc_b);
+                    .get_first_arc(arc);
 
-                debug_assert!(arc_b.is_final());
+                debug_assert!(arc.is_final());
 
-                self.output_accumulator.push(arc_b.output());
+                self.output_accumulator.push(arc.output());
 
                 self.current_frame_idx = self.static_frame_idx;
 
                 target_upto = 0;
-                self.output_accumulator.push(arc_b.next_final_output());
-            }
-            self.current_frame_idx = self.push_frame_with_length(Some(self.arcs[0].clone()), 0)?;
-            self.output_accumulator
-                .pop(&self.arcs[0].borrow().next_final_output());
+                self.output_accumulator.push(arc.next_final_output());
+                arc.next_final_output()
+            };
+            self.current_frame_idx = self.push_frame_with_length(Some(0), 0)?;
+            self.output_accumulator.pop(&next_final_output);
         }
+        let mut next_arc_idx;
         while target_upto < target.length {
             let target_label = target.bytes[target.offset + target_upto] as i32;
 
-            let next_arc = self.get_arc(1 + target_upto);
+            next_arc_idx = self.get_arc(1 + target_upto);
             let r = {
                 let segment_terms = self.segment_terms.borrow();
                 let fr_index = segment_terms.fr.index.as_ref().unwrap().borrow();
@@ -734,8 +741,9 @@ where
 
                 fr_index.find_target_arc(
                     target_label,
-                    &*arc.borrow(),
-                    &mut *next_arc.borrow_mut(),
+                    // clone here is acceptable
+                    &self.arcs[arc_index].clone(),
+                    &mut self.arcs[next_arc_idx],
                     reader,
                 )?
             };
@@ -770,25 +778,26 @@ where
                     return Ok(result);
                 }
             } else {
-                arc = next_arc;
-                let arc_b = arc.borrow();
-                {
+                let (is_final, next_final_output) = {
+                    arc_index = next_arc_idx;
+                    let arc = &self.arcs[arc_index];
                     let mut segment_terms = self.segment_terms.borrow_mut();
                     segment_terms
                         .term
                         .set_byte_at(target_upto, target_label as u8);
-                }
-                self.output_accumulator.push(arc_b.output());
+                    self.output_accumulator.push(arc.output());
 
-                target_upto += 1;
+                    target_upto += 1;
+                    (arc.is_final(), arc.next_final_output())
+                };
 
-                if arc_b.is_final() {
-                    self.output_accumulator.push(arc_b.next_final_output());
+                if is_final {
+                    self.output_accumulator.push(next_final_output.clone());
 
                     self.current_frame_idx =
-                        self.push_frame_with_length(Some(arc.clone()), target_upto as i32)?;
+                        self.push_frame_with_length(Some(arc_index), target_upto as i32)?;
 
-                    self.output_accumulator.pop(&arc_b.next_final_output());
+                    self.output_accumulator.pop(&next_final_output);
                 }
             }
         }
