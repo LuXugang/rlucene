@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::Display;
 use std::rc::Rc;
 
 use crate::codecs::block_term_state::BlockTermStateEnum;
@@ -36,7 +37,7 @@ use crate::util::error::lucene_error::Result;
 // Block) TODO: find a better name; this defines the API that the
 // terms dict impls use to talk to a postings impl.
 // TermsDict + PostingsReader/WriterBase == PostingsConsumer/Producer
-pub trait PostingsReaderBase {
+pub trait PostingsReaderBase: Display {
     /// Performs any initialization, such as reading and verifying the header
     /// from the provided terms dictionary [`IndexInput`].
     fn init<D>(

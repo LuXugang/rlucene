@@ -41,7 +41,7 @@ use crate::util::fst_impl::off_heap_fst_store::OffHeapFSTStore;
 use crate::util::ToInt;
 
 /// BlockTree's implementation of [`Terms`].
-// #[allow(clippy::type_complexity)]
+#[allow(clippy::type_complexity)]
 pub struct FieldReader<I, P>
 where
     I: IndexInput,
@@ -69,7 +69,7 @@ where
     P: PostingsReaderBase,
 {
     #[allow(clippy::too_many_arguments)]
-    pub fn new(
+    pub fn new<I1: IndexInput>(
         parent: Rc<RefCell<TermsReader<I, P>>>,
         field_info: Rc<FieldInfo>,
         num_terms: i64,
@@ -78,7 +78,7 @@ where
         sum_doc_freq: i64,
         doc_count: i32,
         index_start_fp: i64,
-        meta_in: &mut I,
+        meta_in: &mut I1,
         index_in: Rc<RefCell<I>>,
         min_term: BytesRef<Vec<u8>>,
         max_term: BytesRef<Vec<u8>>,
@@ -109,8 +109,7 @@ where
         // ownership to ByteArrayDataInput
         let mut input =
             ByteArrayDataInput::with_range(root_code.bytes, root_code.offset, root_code.length);
-        let root_fp = v.read_vlong_output(&mut input)?;
-        v.root_block_fp = root_fp;
+        v.root_block_fp = v.read_vlong_output(&mut input)?;
         // ownership from ByteArrayDataInput
         let root_code = BytesRef {
             bytes: Rc::new(input.bytes),

@@ -15,8 +15,9 @@
  * limitations under the License.
  */
 use std::cell::RefCell;
-use std::ptr;
+use std::fmt::{Display, Formatter};
 use std::rc::Rc;
+use std::{fmt, ptr};
 
 use once_cell::sync::Lazy;
 
@@ -214,6 +215,21 @@ where
         })
     }
 }
+
+impl<I> Display for Lucene101PostingsReader<I>
+where
+    I: IndexInput,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Lucene101PostingsReader(positions={},payloads={})",
+            self.pos_in.is_some(),
+            self.pay_in.is_some()
+        )
+    }
+}
+
 impl<I> PostingsReaderBase for Lucene101PostingsReader<I>
 where
     I: IndexInput,
