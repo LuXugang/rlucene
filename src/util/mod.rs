@@ -89,6 +89,7 @@ pub mod strict_string_tokenizer;
 pub mod string_helper;
 pub(crate) mod string_sorter;
 pub mod tim_sorter;
+mod to_string_utils;
 pub mod unicode_util;
 pub mod vec_copy_ops;
 pub mod version;
