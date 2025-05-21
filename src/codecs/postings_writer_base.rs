@@ -38,7 +38,7 @@ use crate::util::fixed_bit_set::FixedBitSet;
 // TODO: find a better name; this defines the API that the
 // terms dict impls use to talk to a postings impl.
 // TermsDict + PostingsReader/WriterBase == FieldsProducer/Consumer
-pub trait PostingsWriterBase<T: TermsEnum, N: NormsProducer> {
+pub trait PostingsWriterBase {
     /// Called once after startup, before any terms have been added.
     /// Implementations typically write a header to the provided `termsOut`.
     fn init<D: Directory>(
@@ -47,6 +47,8 @@ pub trait PostingsWriterBase<T: TermsEnum, N: NormsProducer> {
         state: &SegmentWriteState<D>,
     ) -> Result<()>;
 
+    type TermsEnum: TermsEnum;
+    type Norms: NormsProducer;
     /// Write all postings for one term; use the provided [`TermsEnum`] to pull
     /// a [`PostingsEnum`](crate::index::postings_enum::PostingsEnum). This
     /// method should not re-position the `terms_enum`! It is already
@@ -57,10 +59,10 @@ pub trait PostingsWriterBase<T: TermsEnum, N: NormsProducer> {
     fn write_term(
         &mut self,
         term: &BytesRef<Vec<u8>>,
-        terms_enum: &mut T,
+        terms_enum: &mut Self::TermsEnum,
         docs_seen: &mut FixedBitSet,
-        norms: &mut N,
-        sub: &mut impl PushPostingsWriterBaseAbstract<N>,
+        norms: &mut Self::Norms,
+        sub: &mut impl PushPostingsWriterBaseAbstract<Self::Norms>,
     ) -> Result<Option<BlockTermStateEnum>>;
 
     /// Encode metadata as `&[i64]` and `&[u8]`. `absolute` controls whether the

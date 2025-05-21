@@ -462,7 +462,7 @@ where
         self.close();
     }
 }
-impl<O, T, N> PostingsWriterBase<T, N> for Lucene101PostingsWriter<O, T, N>
+impl<O, T, N> PostingsWriterBase for Lucene101PostingsWriter<O, T, N>
 where
     O: IndexOutput,
     T: TermsEnum,
@@ -483,6 +483,9 @@ where
         terms_out.write_vint(Lucene101PostingsFormat::BLOCK_SIZE as i32)?;
         Ok(())
     }
+
+    type TermsEnum = <PushPostingsWriterBase<T, N> as PostingsWriterBase>::TermsEnum;
+    type Norms = <PushPostingsWriterBase<T, N> as PostingsWriterBase>::Norms;
 
     fn write_term(
         &mut self,

@@ -93,7 +93,7 @@ where
         }
     }
 }
-impl<T, N> PostingsWriterBase<T, N> for PushPostingsWriterBase<T, N>
+impl<T, N> PostingsWriterBase for PushPostingsWriterBase<T, N>
 where
     T: TermsEnum,
     N: NormsProducer,
@@ -108,13 +108,16 @@ where
         ))
     }
 
+    type TermsEnum = T;
+    type Norms = N;
+
     fn write_term(
         &mut self,
         _term: &BytesRef<Vec<u8>>,
-        terms_enum: &mut T,
+        terms_enum: &mut Self::TermsEnum,
         docs_seen: &mut FixedBitSet,
-        norms: &mut N,
-        sub: &mut impl PushPostingsWriterBaseAbstract<N>,
+        norms: &mut Self::Norms,
+        sub: &mut impl PushPostingsWriterBaseAbstract<Self::Norms>,
     ) -> Result<Option<BlockTermStateEnum>> {
         let norm_values = if self.field_info.has_norms() {
             Some(norms.get_norms(&self.field_info)?)
