@@ -541,7 +541,7 @@ where
                     let target = InputOutput::new(term.clone(), self.outputs.get_no_output());
                     let pos = self.pairs.binary_search_by(|p| p.input.cmp(&target.input));
 
-                    if let Err(mut pos) = pos {
+                    if let Err(pos) = pos {
                         let mut pos = pos as i32;
                         // Not found
                         let seek_result = if self.random.random_range(0..3) == 0 {

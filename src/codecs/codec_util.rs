@@ -883,7 +883,7 @@ mod tests {
             CodecUtil::write_footer(&mut index_output)?;
         }
 
-        let mut input_data = ByteBuffersIndexInput::new(output.get_data_input(), "temp");
+        let input_data = ByteBuffersIndexInput::new(output.get_data_input(), "temp");
         CodecUtil::checksum_entire_file(&input_data)?;
         Ok(())
     }

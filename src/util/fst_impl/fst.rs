@@ -1993,7 +1993,7 @@ mod tests {
         // Save into a single output
         let mut bytes = Vec::new();
         {
-            let mut out = Rc::new(RefCell::new(OutputStreamDataOutput::new(&mut bytes)));
+            let out = Rc::new(RefCell::new(OutputStreamDataOutput::new(&mut bytes)));
             fst.save(out.clone(), out.clone())?;
         }
         // Load it back using split input (force FSTStore path)
@@ -2054,7 +2054,7 @@ mod tests {
             let no_output = inner.no_output.clone();
             let mut node = UnCompiledNode::new(no_output.clone(), 0);
             node.is_final = true;
-            inner.frontier[0] = (Some(node));
+            inner.frontier[0] = Some(node);
             root_node.add_arc(b'a' as i32, NodeEnum::UnCompiledNode(0), no_output.clone())?;
             let mut fronze = CompiledNode::default();
             fronze.node = inner.add_node(0)?;

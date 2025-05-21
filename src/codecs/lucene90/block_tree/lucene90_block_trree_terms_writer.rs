@@ -41,7 +41,7 @@ pub(crate) mod lucene90_bttw_util {
 
 #[cfg(test)]
 mod tests {
-    use crate::codecs::block_tree::field_reader::{field_reader_util, FieldReader};
+    use crate::codecs::block_tree::field_reader::field_reader_util;
     use crate::codecs::block_tree::lucene90_block_trree_terms_writer::lucene90_bttw_util;
     use crate::store::{ByteArrayDataInput, ByteArrayDataOutput};
     use crate::test::util::lucene_test_case::{at_least, random};

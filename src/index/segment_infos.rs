@@ -1891,7 +1891,7 @@ mod tests {
                         let file_pointer = input.get_file_pointer();
                         output.copy_bytes(&mut input, input_length - file_pointer)?;
                     }
-                    let mut input = corrupt_directory.open_input(&file, &io_context)?;
+                    let input = corrupt_directory.open_input(&file, &io_context)?;
                     match CodecUtil::checksum_entire_file(&input) {
                         Ok(_) => {
                             if cfg!(feature = "test_log_verbose") {
