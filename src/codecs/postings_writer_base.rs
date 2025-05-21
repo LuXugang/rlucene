@@ -19,7 +19,7 @@ use std::rc::Rc;
 
 use crate::codecs::block_term_state::BlockTermStateEnum;
 use crate::codecs::norms_producer::NormsProducer;
-use crate::codecs::push_postings_writer_base::PushPostingsWriterBaseAbstract;
+use crate::codecs::push_postings_writer_base::FieldWriteOptions;
 use crate::index::field_info::FieldInfo;
 use crate::index::segment_write_state::SegmentWriteState;
 use crate::index::terms_enum::TermsEnum;
@@ -58,12 +58,13 @@ pub trait PostingsWriterBase {
     /// dict will skip the term.
     fn write_term(
         &mut self,
-        term: &BytesRef<Vec<u8>>,
-        terms_enum: &mut Self::TermsEnum,
-        docs_seen: &mut FixedBitSet,
-        norms: &mut Self::Norms,
-        sub: &mut impl PushPostingsWriterBaseAbstract<Self::Norms>,
-    ) -> Result<Option<BlockTermStateEnum>>;
+        _term: &BytesRef<Vec<u8>>,
+        _terms_enum: &mut Self::TermsEnum,
+        _docs_seen: &mut FixedBitSet,
+        _norms: &mut Self::Norms,
+    ) -> Result<Option<BlockTermStateEnum>> {
+        unimplemented!()
+    }
 
     /// Encode metadata as `&[i64]` and `&[u8]`. `absolute` controls whether the
     /// current term is delta encoded according to the latest term. Usually
@@ -76,6 +77,7 @@ pub trait PostingsWriterBase {
         field_info: &FieldInfo,
         state: Cow<BlockTermStateEnum>,
         absolute: bool,
+        options: &FieldWriteOptions,
     ) -> Result<()>;
 
     /// Sets the current field for writing.

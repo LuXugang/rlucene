@@ -16,6 +16,7 @@
  */
 use std::borrow::Cow;
 use std::default::Default;
+use std::marker::PhantomData;
 use std::rc::Rc;
 
 use crate::codecs::block_term_state::BlockTermStateEnum;
@@ -29,7 +30,7 @@ use crate::codecs::lucene101::postings_util::PostingsUtil;
 use crate::codecs::norms_producer::NormsProducer;
 use crate::codecs::postings_writer_base::PostingsWriterBase;
 use crate::codecs::push_postings_writer_base::{
-    PushPostingsWriterBase, PushPostingsWriterBaseAbstract,
+    FieldWriteOptions, PushPostingsWriterBase, PushPostingsWriterBaseAbstract,
 };
 use crate::codecs::CodecUtil;
 use crate::index::doc_values_iterator::DocValuesIterator;
@@ -56,7 +57,6 @@ where
     T: TermsEnum,
     N: NormsProducer,
 {
-    pub(crate) base: PushPostingsWriterBase<T, N>,
     pub(crate) meta_out: O,
     pub(crate) doc_out: O,
     pub(crate) pos_out: Option<O>,
@@ -118,6 +118,7 @@ where
     /// these 32 blocks, which can only be done once we have encoded these
     /// 32 blocks. The content is then typically copied to [`docCount`].
     level1_output: ByteBuffersDataOutput,
+    _phantom: PhantomData<T>,
 }
 #[allow(unused)]
 impl<O, T, N> Lucene101PostingsWriter<O, T, N>
@@ -220,7 +221,6 @@ where
         let freq_buffer = vec![0; Lucene101PostingsFormat::BLOCK_SIZE];
 
         Ok(Self {
-            base: PushPostingsWriterBase::new(FieldInfo::default()),
             meta_out,
             doc_out,
             pos_out,
@@ -263,9 +263,10 @@ where
             scratch_output: ByteBuffersDataOutput::with_resettable_instance(),
             level0_output: ByteBuffersDataOutput::with_resettable_instance(),
             level1_output: ByteBuffersDataOutput::with_resettable_instance(),
+            _phantom: PhantomData,
         })
     }
-    fn flush_doc_block(&mut self, finish_term: bool) -> Result<()> {
+    fn flush_doc_block(&mut self, finish_term: bool, options: &FieldWriteOptions) -> Result<()> {
         debug_assert!(self.doc_buffer_upto != 0);
 
         if (self.doc_buffer_upto as usize) < Lucene101PostingsFormat::BLOCK_SIZE {
@@ -275,10 +276,10 @@ where
                 &mut self.doc_delta_buffer,
                 &self.freq_buffer,
                 self.doc_buffer_upto,
-                self.base.write_freqs,
+                options.write_freqs,
             )?;
         } else {
-            if self.base.write_freqs {
+            if options.write_freqs {
                 let impacts = self
                     .level0_freq_norm_accumulator
                     .get_competitive_freq_norm_pairs();
@@ -296,14 +297,14 @@ where
                 self.scratch_output.copy_to(&mut self.level0_output)?;
                 self.scratch_output.reset();
 
-                if self.base.write_positions {
+                if options.write_positions {
                     let pos_out = self.pos_out.as_ref().unwrap();
                     self.level0_output
                         .write_vlong(pos_out.get_file_pointer() - self.level0_last_pos_fp)?;
                     self.level0_output.write_byte(self.pos_buffer_upto as u8)?;
                     self.level0_last_pos_fp = pos_out.get_file_pointer();
 
-                    if self.base.write_offsets || self.base.write_payloads {
+                    if options.write_offsets || options.write_payloads {
                         let pay_out = self.pay_out.as_ref().unwrap();
                         self.level0_output
                             .write_vlong(pay_out.get_file_pointer() - self.level0_last_pay_fp)?;
@@ -316,7 +317,7 @@ where
             let mut num_skip_bytes = self.level0_output.size();
             self.for_delta_util
                 .encode_deltas(&mut self.doc_delta_buffer, &mut self.level0_output)?;
-            if self.base.write_freqs {
+            if options.write_freqs {
                 self.pfor_util
                     .encode(&mut self.freq_buffer, &mut self.level0_output)?;
             }
@@ -340,7 +341,7 @@ where
         self.level0_output.reset();
 
         self.level0_last_doc_id = self.doc_id;
-        if self.base.write_freqs {
+        if options.write_freqs {
             self.level1_competitive_freq_norm_accumulator
                 .add_all(&self.level0_freq_norm_accumulator);
             self.level0_freq_norm_accumulator.clear();
@@ -348,7 +349,7 @@ where
 
         if (self.doc_count & Lucene101PostingsFormat::LEVEL1_MASK) == 0 {
             // true every 32 blocks (4,096 docs)
-            self.write_level1_skip_data()?;
+            self.write_level1_skip_data(options)?;
             self.level1_last_doc_id = self.doc_id;
             self.level1_competitive_freq_norm_accumulator.clear();
         } else if finish_term {
@@ -359,12 +360,12 @@ where
 
         Ok(())
     }
-    fn write_level1_skip_data(&mut self) -> Result<()> {
+    fn write_level1_skip_data(&mut self, options: &FieldWriteOptions) -> Result<()> {
         self.doc_out
             .write_vint(self.doc_id - self.level1_last_doc_id)?;
         let level1_end: i64;
 
-        if self.base.write_freqs {
+        if options.write_freqs {
             let impacts = self
                 .level1_competitive_freq_norm_accumulator
                 .get_competitive_freq_norm_pairs();
@@ -377,13 +378,13 @@ where
             if num_impact_bytes > self.max_impact_num_bytes_at_level1 as i64 {
                 self.max_impact_num_bytes_at_level1 = num_impact_bytes.try_into()?;
             }
-            if self.base.write_positions {
+            if options.write_positions {
                 let pos_fp = self.pos_out.as_ref().unwrap().get_file_pointer();
                 self.scratch_output
                     .write_vlong(pos_fp - self.level1_last_pos_fp)?;
                 self.scratch_output.write_byte(self.pos_buffer_upto as u8)?;
                 self.level1_last_pos_fp = pos_fp;
-                if self.base.write_offsets || self.base.write_payloads {
+                if options.write_offsets || options.write_payloads {
                     let pay_fp = self.pay_out.as_ref().unwrap().get_file_pointer();
                     self.scratch_output
                         .write_vlong(pay_fp - self.level1_last_pay_fp)?;
@@ -484,19 +485,17 @@ where
         Ok(())
     }
 
-    type TermsEnum = <PushPostingsWriterBase<T, N> as PostingsWriterBase>::TermsEnum;
-    type Norms = <PushPostingsWriterBase<T, N> as PostingsWriterBase>::Norms;
+    type TermsEnum = <PushPostingsWriterBase<T, N, Lucene101PostingsWriter<O, T, N>> as PostingsWriterBase>::TermsEnum;
+    type Norms = <PushPostingsWriterBase<T, N, Lucene101PostingsWriter<O, T, N>> as PostingsWriterBase>::Norms;
 
     fn write_term(
         &mut self,
-        term: &BytesRef<Vec<u8>>,
-        terms_enum: &mut T,
-        docs_seen: &mut FixedBitSet,
-        norms: &mut N,
-        sub: &mut impl PushPostingsWriterBaseAbstract<N>,
+        _term: &BytesRef<Vec<u8>>,
+        _terms_enum: &mut Self::TermsEnum,
+        _docs_seen: &mut FixedBitSet,
+        _norms: &mut Self::Norms,
     ) -> Result<Option<BlockTermStateEnum>> {
-        self.base
-            .write_term(term, terms_enum, docs_seen, norms, sub)
+        Err(LuceneError::not_implemented(""))
     }
 
     fn encode_term(
@@ -505,6 +504,7 @@ where
         _field_info: &FieldInfo,
         state: Cow<BlockTermStateEnum>,
         absolute: bool,
+        options: &FieldWriteOptions,
     ) -> Result<()> {
         let state = match state {
             Cow::Borrowed(b) => b.clone(),
@@ -541,9 +541,9 @@ where
             }
         }
 
-        if self.base.write_positions {
+        if options.write_positions {
             out.write_vlong(state.pos_start_fp - self.last_state.pos_start_fp)?;
-            if self.base.write_payloads || self.base.write_offsets {
+            if options.write_payloads || options.write_offsets {
                 out.write_vlong(state.pay_start_fp - self.last_state.pay_start_fp)?;
             }
             if state.last_pos_block_offset != -1 {
@@ -556,12 +556,11 @@ where
     }
 
     fn set_field(&mut self, field_info: Rc<FieldInfo>) {
-        self.base.set_field(field_info.clone());
         self.last_state = IntBlockTermState::default();
         self.field_has_norms = field_info.has_norms();
     }
 }
-impl<O, T, N> PushPostingsWriterBaseAbstract<N> for Lucene101PostingsWriter<O, T, N>
+impl<O, T, N> PushPostingsWriterBaseAbstract for Lucene101PostingsWriter<O, T, N>
 where
     O: IndexOutput,
     T: TermsEnum,
@@ -571,14 +570,20 @@ where
         Ok(BlockTermStateEnum::Int(IntBlockTermState::default()))
     }
 
-    fn start_term(&mut self, norms: Option<N::NumericDocValues>) -> Result<()> {
+    type Numeric = N::NumericDocValues;
+
+    fn start_term(
+        &mut self,
+        norms: Option<Self::Numeric>,
+        options: &FieldWriteOptions,
+    ) -> Result<()> {
         self.doc_start_fp = self.doc_out.get_file_pointer();
-        if self.base.write_positions {
+        if options.write_positions {
             if let Some(ref pos_out) = self.pos_out {
                 self.pos_start_fp = pos_out.get_file_pointer();
                 self.level0_last_pos_fp = self.pos_start_fp;
                 self.level1_last_pos_fp = self.pos_start_fp;
-                if self.base.write_payloads || self.base.write_offsets {
+                if options.write_payloads || options.write_offsets {
                     let pay_fp = self.pay_out.as_ref().unwrap().get_file_pointer();
                     self.pay_start_fp = pay_fp;
                     self.level0_last_pay_fp = pay_fp;
@@ -590,13 +595,17 @@ where
         self.level0_last_doc_id = -1;
         self.level1_last_doc_id = -1;
         self.norms = norms;
-        if self.base.write_freqs {
+        if options.write_freqs {
             self.level0_freq_norm_accumulator.clear();
         }
         Ok(())
     }
 
-    fn finish_term(&mut self, state: &mut BlockTermStateEnum) -> Result<()> {
+    fn finish_term(
+        &mut self,
+        state: &mut BlockTermStateEnum,
+        options: &FieldWriteOptions,
+    ) -> Result<()> {
         let state = match state {
             BlockTermStateEnum::Int(state) => state,
             _ => {
@@ -611,11 +620,11 @@ where
         let singleton_doc_id = if state.base.doc_freq == 1 {
             self.doc_delta_buffer[0] - 1
         } else {
-            self.flush_doc_block(true)?;
+            self.flush_doc_block(true, options)?;
             -1
         };
 
-        let last_pos_block_offset = if self.base.write_positions {
+        let last_pos_block_offset = if options.write_positions {
             // totalTermFreq is just total number of positions(or payloads, or
             // offsets) associated with current term.
             debug_assert!(state.base.total_term_freq != -1);
@@ -642,7 +651,7 @@ where
                 let po_out = self.pos_out.as_mut().unwrap();
                 for i in 0..self.pos_buffer_upto as usize {
                     let pos_delta = self.pos_delta_buffer[i];
-                    if self.base.write_payloads {
+                    if options.write_payloads {
                         let payload_length = self.payload_length_buffer[i];
                         if payload_length != last_payload_length {
                             last_payload_length = payload_length;
@@ -662,7 +671,7 @@ where
                     } else {
                         po_out.write_vint(pos_delta)?;
                     }
-                    if self.base.write_offsets {
+                    if options.write_offsets {
                         let delta = self.offset_start_delta_buffer[i];
                         let length = self.offset_length_buffer[i];
                         if length == last_offset_length {
@@ -674,7 +683,7 @@ where
                         }
                     }
                 }
-                if self.base.write_payloads {
+                if options.write_payloads {
                     debug_assert_eq!(payload_bytes_read_upto, self.payload_byte_upto);
                     self.payload_byte_upto = 0;
                 }
@@ -697,9 +706,14 @@ where
         Ok(())
     }
 
-    fn start_doc(&mut self, doc_id: i32, term_doc_freq: i32) -> Result<()> {
+    fn start_doc(
+        &mut self,
+        doc_id: i32,
+        term_doc_freq: i32,
+        options: &FieldWriteOptions,
+    ) -> Result<()> {
         if self.doc_buffer_upto as usize == Lucene101PostingsFormat::BLOCK_SIZE {
-            self.flush_doc_block(false)?;
+            self.flush_doc_block(false, options)?;
             self.doc_buffer_upto = 0;
         }
 
@@ -713,7 +727,7 @@ where
 
         let idx = self.doc_buffer_upto as usize;
         self.doc_delta_buffer[idx] = doc_delta;
-        if self.base.write_freqs {
+        if options.write_freqs {
             self.freq_buffer[idx] = term_doc_freq;
         }
 
@@ -721,7 +735,7 @@ where
         self.last_position = 0;
         self.last_start_offset = 0;
 
-        if self.base.write_freqs {
+        if options.write_freqs {
             let norm = if self.field_has_norms {
                 let found = self.norms.as_mut().unwrap().advance_exact(doc_id)?;
                 if !found {
@@ -746,6 +760,7 @@ where
         payload: Option<&BytesRef<Vec<u8>>>,
         start_offset: i32,
         end_offset: i32,
+        options: &FieldWriteOptions,
     ) -> Result<()> {
         if position > IndexWriter::MAX_POSITION {
             return Err(LuceneError::corrupt_index(format!(
@@ -765,7 +780,7 @@ where
         let idx = self.pos_buffer_upto as usize;
         self.pos_delta_buffer[idx] = position - self.last_position;
 
-        if self.base.write_payloads {
+        if options.write_payloads {
             let len = payload
                 .filter(|p| p.length > 0)
                 .map(|p| p.length)
@@ -789,7 +804,7 @@ where
             }
         }
 
-        if self.base.write_offsets {
+        if options.write_offsets {
             debug_assert!(start_offset >= self.last_start_offset);
             debug_assert!(end_offset >= start_offset);
             self.offset_start_delta_buffer[idx] = start_offset - self.last_start_offset;
@@ -803,7 +818,7 @@ where
         if self.pos_buffer_upto as usize == Lucene101PostingsFormat::BLOCK_SIZE {
             let po = self.pos_out.as_mut().unwrap();
             self.pfor_util.encode(&mut self.pos_delta_buffer, po)?;
-            if self.base.write_payloads {
+            if options.write_payloads {
                 let pay_out = self.pay_out.as_mut().unwrap();
                 self.pfor_util
                     .encode(&mut self.payload_length_buffer, pay_out)?;
@@ -811,7 +826,7 @@ where
                 pay_out.write_bytes_range(&self.payload_bytes, 0, self.payload_byte_upto)?;
                 self.payload_byte_upto = 0;
             }
-            if self.base.write_offsets {
+            if options.write_offsets {
                 let pay_out = self.pay_out.as_mut().unwrap();
                 self.pfor_util
                     .encode(&mut self.offset_start_delta_buffer, pay_out)?;
