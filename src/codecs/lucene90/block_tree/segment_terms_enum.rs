@@ -159,11 +159,8 @@ where
         length: i32,
     ) -> Result<usize> {
         self.output_accumulator.prepare_read();
-
         let code = self.fr.read_vlong_output(&mut self.output_accumulator)?;
-
         let fp_seek = ((code as u64) >> lucene90_bttr_util::OUTPUT_FLAGS_NUM_BITS) as i64;
-
         let current_ord = if self.current_frame_idx == self.static_frame_idx {
             -1
         } else {
@@ -171,18 +168,14 @@ where
         };
         let ord = (current_ord + 1) as usize;
         self.get_frame(ord)?;
+        let f = &mut self.stack[ord];
+        f.has_terms = (code & lucene90_bttr_util::OUTPUT_FLAG_HAS_TERMS as i64) != 0;
+        f.has_terms_orig = f.has_terms;
+        f.is_floor = (code & lucene90_bttr_util::OUTPUT_FLAG_IS_FLOOR as i64) != 0;
 
-        {
-            let f = &mut self.stack[ord];
-            f.has_terms = (code & lucene90_bttr_util::OUTPUT_FLAG_HAS_TERMS as i64) != 0;
-            f.has_terms_orig = f.has_terms;
-            f.is_floor = (code & lucene90_bttr_util::OUTPUT_FLAG_IS_FLOOR as i64) != 0;
-
-            if f.is_floor {
-                f.set_floor_data(&self.output_accumulator)?;
-            }
+        if f.is_floor {
+            f.set_floor_data(&self.output_accumulator)?;
         }
-
         self.push_frame(arc, fp_seek, length)?;
         Ok(ord)
     }
@@ -227,21 +220,19 @@ where
         target: &BytesRef<Vec<u8>>,
         prefetch: bool,
     ) -> Result<Option<SeekAction>> {
-        {
-            if self.fr.index.is_none() {
-                return Err(LuceneError::illegal_state("terms index was not loaded"));
-            }
-            if self.fr.size()? > 0 {
-                let mut iter = self.fr.iterator()?;
-                let left = target
-                    .cmp(self.fr.get_min(&mut iter)?.as_ref().unwrap())
-                    .to_int();
-                let right = target
-                    .cmp(self.fr.get_max(&mut iter)?.as_ref().unwrap())
-                    .to_int();
-                if left < 0 || right > 0 {
-                    return Ok(None);
-                }
+        if self.fr.index.is_none() {
+            return Err(LuceneError::illegal_state("terms index was not loaded"));
+        }
+        if self.fr.size()? > 0 {
+            let mut iter = self.fr.iterator()?;
+            let left = target
+                .cmp(self.fr.get_min(&mut iter)?.as_ref().unwrap())
+                .to_int();
+            let right = target
+                .cmp(self.fr.get_max(&mut iter)?.as_ref().unwrap())
+                .to_int();
+            if left < 0 || right > 0 {
+                return Ok(None);
             }
         }
         self.term.grow(1 + target.length);
@@ -362,20 +353,18 @@ where
             let target_label = target.bytes[target.offset + target_upto] as i32;
 
             let next_arc_idx = self.get_arc(1 + target_upto);
-            let r = {
-                let fr_index = self.fr.index.as_ref().unwrap().borrow();
-                let reader = self.fst_reader.as_mut().unwrap();
+            let fr_index = self.fr.index.as_ref().unwrap().borrow();
+            let reader = self.fst_reader.as_mut().unwrap();
 
-                fr_index.find_target_arc(
-                    target_label,
-                    // clone here is acceptable
-                    &self.arcs[arc_index].clone(),
-                    &mut self.arcs[next_arc_idx],
-                    reader,
-                )?
-            };
+            let v = fr_index.find_target_arc(
+                target_label,
+                // clone here is acceptable
+                &self.arcs[arc_index].clone(),
+                &mut self.arcs[next_arc_idx],
+                reader,
+            )?;
 
-            if r.is_none() {
+            if v.is_none() {
                 // index exhausted
                 {
                     let current_frame = if self.current_frame_idx == self.static_frame_idx {
@@ -417,20 +406,18 @@ where
             } else {
                 arc_index = next_arc_idx;
 
-                let (is_final, next_final_output) = {
-                    let arc = &mut self.arcs[next_arc_idx];
-                    {
-                        self.term.set_byte_at(target_upto, target_label as u8);
-                    }
-                    self.output_accumulator.push(arc.output());
-                    target_upto += 1;
-                    (arc.is_final(), arc.next_final_output())
-                };
-                if is_final {
-                    self.output_accumulator.push(next_final_output.clone());
+                let arc = &mut self.arcs[next_arc_idx];
+                {
+                    self.term.set_byte_at(target_upto, target_label as u8);
+                }
+                self.output_accumulator.push(arc.output());
+                target_upto += 1;
+                if arc.is_final() {
+                    self.output_accumulator.push(arc.next_final_output());
+                    let v = arc.next_final_output();
                     self.current_frame_idx =
                         self.push_frame_with_length(Some(next_arc_idx), target_upto as i32)?;
-                    self.output_accumulator.pop(&next_final_output);
+                    self.output_accumulator.pop(&v);
                 }
             }
         }
@@ -481,18 +468,16 @@ where
     fn next(&mut self) -> Result<Option<Cow<BytesRef<Self::AV>>>> {
         let input_none = { self.input.is_none() };
         if input_none {
-            let (arc, root_code) = {
-                let arc = if let Some(index) = self.fr.index.as_ref() {
-                    let arc = &mut self.arcs[0];
-                    index.borrow().get_first_arc(arc);
-                    debug_assert!(arc.is_final());
-                    Some(0)
-                } else {
-                    None
-                };
-                (arc, self.fr.root_code.clone())
+            let arc = if let Some(index) = self.fr.index.as_ref() {
+                let arc = &mut self.arcs[0];
+                index.borrow().get_first_arc(arc);
+                debug_assert!(arc.is_final());
+                Some(0)
+            } else {
+                None
             };
-            self.current_frame_idx = self.push_frame_with_data(arc, root_code, 0)?;
+            self.current_frame_idx =
+                self.push_frame_with_data(arc, self.fr.root_code.clone(), 0)?;
             SegmentTermsEnumFrame::load_block(self.current_frame_idx, self)?;
         }
         self.target_before_current_length = self.stack[self.current_frame_idx].ord;
@@ -512,79 +497,75 @@ where
             let found = self.seek_exact(&v)?;
             debug_assert!(found);
         }
-        {
-            loop {
-                let res = {
+
+        loop {
+            let res = {
+                let current_frame = if self.current_frame_idx == self.static_frame_idx {
+                    &mut self.static_frame
+                } else {
+                    &mut self.stack[self.current_frame_idx]
+                };
+                current_frame.next_ent == current_frame.ent_count
+            };
+            if res {
+                let is_last_in_floor = {
                     let current_frame = if self.current_frame_idx == self.static_frame_idx {
                         &mut self.static_frame
                     } else {
                         &mut self.stack[self.current_frame_idx]
                     };
-                    current_frame.next_ent == current_frame.ent_count
+                    current_frame.is_last_in_floor
                 };
-                if res {
-                    let is_last_in_floor = {
-                        let current_frame = if self.current_frame_idx == self.static_frame_idx {
-                            &mut self.static_frame
-                        } else {
-                            &mut self.stack[self.current_frame_idx]
-                        };
-                        current_frame.is_last_in_floor
-                    };
-                    if !is_last_in_floor {
-                        SegmentTermsEnumFrame::load_next_floor_block(self.current_frame_idx, self)?;
-                        break;
-                    } else {
-                        let (next_ent, last_sub_fp, last_fp) = {
-                            let mut current_frame =
-                                if self.current_frame_idx == self.static_frame_idx {
-                                    &mut self.static_frame
-                                } else {
-                                    &mut self.stack[self.current_frame_idx]
-                                };
-                            if current_frame.ord == 0 {
-                                self.eof = true;
-                                self.term.clear();
-                                self.valid_index_prefix = 0;
-                                current_frame.rewind()?;
-                                self.term_exists = false;
-                                return Ok(None);
-                            }
-
-                            let last_fp = current_frame.fp_orig;
-                            self.current_frame_idx = (current_frame.ord - 1) as usize;
-                            current_frame = &mut self.stack[self.current_frame_idx];
-                            (current_frame.next_ent, current_frame.last_sub_fp, last_fp)
-                        };
-
-                        if next_ent == -1 || last_sub_fp != last_fp {
-                            // We popped into a frame that's not loaded
-                            // yet or not scan'd to the right entry
-                            let target = self.term.get_bytes_mut_ref();
-                            SegmentTermsEnumFrame::scan_to_floor_frame(
-                                self.current_frame_idx,
-                                self,
-                            )?;
-                            SegmentTermsEnumFrame::load_block(self.current_frame_idx, self)?;
-                            SegmentTermsEnumFrame::scan_to_sub_block(
-                                self.current_frame_idx,
-                                last_fp,
-                                self,
-                            )?;
-                        }
-                        let current_frame = if self.current_frame_idx == self.static_frame_idx {
-                            &mut self.static_frame
-                        } else {
-                            &mut self.stack[self.current_frame_idx]
-                        };
-                        self.valid_index_prefix =
-                            self.valid_index_prefix.min(current_frame.prefix_length);
-                    }
-                } else {
+                if !is_last_in_floor {
+                    SegmentTermsEnumFrame::load_next_floor_block(self.current_frame_idx, self)?;
                     break;
+                } else {
+                    let (next_ent, last_sub_fp, last_fp) = {
+                        let mut current_frame = if self.current_frame_idx == self.static_frame_idx {
+                            &mut self.static_frame
+                        } else {
+                            &mut self.stack[self.current_frame_idx]
+                        };
+                        if current_frame.ord == 0 {
+                            self.eof = true;
+                            self.term.clear();
+                            self.valid_index_prefix = 0;
+                            current_frame.rewind()?;
+                            self.term_exists = false;
+                            return Ok(None);
+                        }
+
+                        let last_fp = current_frame.fp_orig;
+                        self.current_frame_idx = (current_frame.ord - 1) as usize;
+                        current_frame = &mut self.stack[self.current_frame_idx];
+                        (current_frame.next_ent, current_frame.last_sub_fp, last_fp)
+                    };
+
+                    if next_ent == -1 || last_sub_fp != last_fp {
+                        // We popped into a frame that's not loaded
+                        // yet or not scan'd to the right entry
+                        let target = self.term.get_bytes_mut_ref();
+                        SegmentTermsEnumFrame::scan_to_floor_frame(self.current_frame_idx, self)?;
+                        SegmentTermsEnumFrame::load_block(self.current_frame_idx, self)?;
+                        SegmentTermsEnumFrame::scan_to_sub_block(
+                            self.current_frame_idx,
+                            last_fp,
+                            self,
+                        )?;
+                    }
+                    let current_frame = if self.current_frame_idx == self.static_frame_idx {
+                        &mut self.static_frame
+                    } else {
+                        &mut self.stack[self.current_frame_idx]
+                    };
+                    self.valid_index_prefix =
+                        self.valid_index_prefix.min(current_frame.prefix_length);
                 }
+            } else {
+                break;
             }
         }
+
         loop {
             let last_sub_fp = {
                 let current_frame = if self.current_frame_idx == self.static_frame_idx {
@@ -700,68 +681,61 @@ where
                 }
             }
         } else {
-            let arc;
             self.target_before_current_length = -1;
             arc_index = 0;
-            let next_final_output = {
-                arc = &mut self.arcs[arc_index];
-                self.fr.index.as_ref().unwrap().borrow().get_first_arc(arc);
+            let arc = &mut self.arcs[arc_index];
+            self.fr.index.as_ref().unwrap().borrow().get_first_arc(arc);
 
-                debug_assert!(arc.is_final());
+            debug_assert!(arc.is_final());
 
-                self.output_accumulator.push(arc.output());
+            self.output_accumulator.push(arc.output());
 
-                self.current_frame_idx = self.static_frame_idx;
+            self.current_frame_idx = self.static_frame_idx;
 
-                target_upto = 0;
-                self.output_accumulator.push(arc.next_final_output());
-                arc.next_final_output()
-            };
+            target_upto = 0;
+            self.output_accumulator.push(arc.next_final_output());
+            let v = arc.next_final_output();
             self.current_frame_idx = self.push_frame_with_length(Some(0), 0)?;
-            self.output_accumulator.pop(&next_final_output);
+            self.output_accumulator.pop(&v);
         }
         let mut next_arc_idx;
         while target_upto < target.length {
             let target_label = target.bytes[target.offset + target_upto] as i32;
 
             next_arc_idx = self.get_arc(1 + target_upto);
-            let r = {
-                let fr_index = self.fr.index.as_ref().unwrap().borrow();
+            let fr_index = self.fr.index.as_ref().unwrap().borrow();
 
-                let reader = self.fst_reader.as_mut().unwrap();
+            let reader = self.fst_reader.as_mut().unwrap();
 
-                fr_index.find_target_arc(
-                    target_label,
-                    // clone here is acceptable
-                    &self.arcs[arc_index].clone(),
-                    &mut self.arcs[next_arc_idx],
-                    reader,
-                )?
-            };
+            let v = fr_index.find_target_arc(
+                target_label,
+                // clone here is acceptable
+                &self.arcs[arc_index].clone(),
+                &mut self.arcs[next_arc_idx],
+                reader,
+            )?;
 
-            if r.is_none() {
-                let result = {
-                    let current_frame = if self.current_frame_idx == self.static_frame_idx {
-                        &mut self.static_frame
-                    } else {
-                        &mut self.stack[self.current_frame_idx]
-                    };
-                    self.valid_index_prefix = current_frame.prefix_length;
-                    SegmentTermsEnumFrame::scan_to_floor_frame_with_target(
-                        self.current_frame_idx,
-                        target,
-                        self,
-                        true,
-                    )?;
-                    SegmentTermsEnumFrame::load_block(self.current_frame_idx, self)?;
-
-                    SegmentTermsEnumFrame::scan_to_term(
-                        self.current_frame_idx,
-                        target,
-                        false,
-                        self,
-                    )?
+            if v.is_none() {
+                let current_frame = if self.current_frame_idx == self.static_frame_idx {
+                    &mut self.static_frame
+                } else {
+                    &mut self.stack[self.current_frame_idx]
                 };
+                self.valid_index_prefix = current_frame.prefix_length;
+                SegmentTermsEnumFrame::scan_to_floor_frame_with_target(
+                    self.current_frame_idx,
+                    target,
+                    self,
+                    true,
+                )?;
+                SegmentTermsEnumFrame::load_block(self.current_frame_idx, self)?;
+
+                let result = SegmentTermsEnumFrame::scan_to_term(
+                    self.current_frame_idx,
+                    target,
+                    false,
+                    self,
+                )?;
                 if result == SeekStatus::End {
                     {
                         self.term.copy_bytes_with_ref(target);
@@ -777,42 +751,36 @@ where
                     return Ok(result);
                 }
             } else {
-                let (is_final, next_final_output) = {
-                    arc_index = next_arc_idx;
-                    let arc = &self.arcs[arc_index];
-                    self.term.set_byte_at(target_upto, target_label as u8);
-                    self.output_accumulator.push(arc.output());
+                arc_index = next_arc_idx;
+                let arc = &self.arcs[arc_index];
+                self.term.set_byte_at(target_upto, target_label as u8);
+                self.output_accumulator.push(arc.output());
 
-                    target_upto += 1;
-                    (arc.is_final(), arc.next_final_output())
-                };
-
-                if is_final {
-                    self.output_accumulator.push(next_final_output.clone());
-
+                target_upto += 1;
+                if arc.is_final() {
+                    self.output_accumulator.push(arc.next_final_output());
+                    let v = arc.next_final_output();
                     self.current_frame_idx =
                         self.push_frame_with_length(Some(arc_index), target_upto as i32)?;
-
-                    self.output_accumulator.pop(&next_final_output);
+                    self.output_accumulator.pop(&v);
                 }
             }
         }
-        let result = {
-            let current_frame = if self.current_frame_idx == self.static_frame_idx {
-                &mut self.static_frame
-            } else {
-                &mut self.stack[self.current_frame_idx]
-            };
-            self.valid_index_prefix = current_frame.prefix_length;
-            SegmentTermsEnumFrame::scan_to_floor_frame_with_target(
-                self.current_frame_idx,
-                target,
-                self,
-                true,
-            )?;
-            SegmentTermsEnumFrame::load_block(self.current_frame_idx, self)?;
-            SegmentTermsEnumFrame::scan_to_term(self.current_frame_idx, target, false, self)?
+        let current_frame = if self.current_frame_idx == self.static_frame_idx {
+            &mut self.static_frame
+        } else {
+            &mut self.stack[self.current_frame_idx]
         };
+        self.valid_index_prefix = current_frame.prefix_length;
+        SegmentTermsEnumFrame::scan_to_floor_frame_with_target(
+            self.current_frame_idx,
+            target,
+            self,
+            true,
+        )?;
+        SegmentTermsEnumFrame::load_block(self.current_frame_idx, self)?;
+        let result =
+            SegmentTermsEnumFrame::scan_to_term(self.current_frame_idx, target, false, self)?;
 
         match result {
             SeekStatus::End => {
