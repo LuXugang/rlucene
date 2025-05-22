@@ -500,59 +500,12 @@ where
 
     fn encode_term(
         &mut self,
-        out: &mut impl DataOutput,
+        _out: &mut impl DataOutput,
         _field_info: &FieldInfo,
-        state: Cow<BlockTermStateEnum>,
-        absolute: bool,
-        options: &FieldWriteOptions,
+        _state: Cow<BlockTermStateEnum>,
+        _absolute: bool,
     ) -> Result<()> {
-        let state = match state {
-            Cow::Borrowed(b) => b.clone(),
-            Cow::Owned(o) => o,
-        };
-        let state = match state {
-            BlockTermStateEnum::Int(state) => state,
-            _ => {
-                return Err(LuceneError::illegal_state(
-                    "not IntBlockTermState".to_string(),
-                ))
-            },
-        };
-        if absolute {
-            self.last_state = IntBlockTermState::default();
-            debug_assert_eq!(self.last_state.doc_start_fp, 0);
-        }
-
-        if self.last_state.singleton_doc_id != -1
-            && state.singleton_doc_id != -1
-            && state.doc_start_fp == self.last_state.doc_start_fp
-        {
-            // With runs of rare values such as ID fields, the increment of
-            // pointers in the docs file is often 0.
-            // Furthermore some ID schemes like auto-increment IDs or Flake IDs
-            // are monotonic, so we encode the delta
-            // between consecutive doc IDs to save space.
-            let delta = (state.singleton_doc_id - self.last_state.singleton_doc_id) as i64;
-            out.write_vlong((BitUtil::zig_zag_encode_i64(delta) << 1) | 1)?;
-        } else {
-            out.write_vlong((state.doc_start_fp - self.last_state.doc_start_fp) << 1)?;
-            if state.singleton_doc_id != -1 {
-                out.write_vint(state.singleton_doc_id)?;
-            }
-        }
-
-        if options.write_positions {
-            out.write_vlong(state.pos_start_fp - self.last_state.pos_start_fp)?;
-            if options.write_payloads || options.write_offsets {
-                out.write_vlong(state.pay_start_fp - self.last_state.pay_start_fp)?;
-            }
-            if state.last_pos_block_offset != -1 {
-                out.write_vlong(state.last_pos_block_offset)?;
-            }
-        }
-
-        self.last_state = state;
-        Ok(())
+        Err(LuceneError::unreachable("should not be called"))
     }
 
     fn set_field(&mut self, field_info: Rc<FieldInfo>) {
@@ -843,6 +796,63 @@ where
         self.doc_buffer_upto += 1;
         self.doc_count += 1;
         self.last_doc_id = self.doc_id;
+        Ok(())
+    }
+
+    fn encode_term_with_option(
+        &mut self,
+        out: &mut impl DataOutput,
+        field_info: &FieldInfo,
+        state: Cow<BlockTermStateEnum>,
+        absolute: bool,
+        options: &FieldWriteOptions,
+    ) -> Result<()> {
+        let state = match state {
+            Cow::Borrowed(b) => b.clone(),
+            Cow::Owned(o) => o,
+        };
+        let state = match state {
+            BlockTermStateEnum::Int(state) => state,
+            _ => {
+                return Err(LuceneError::illegal_state(
+                    "not IntBlockTermState".to_string(),
+                ))
+            },
+        };
+        if absolute {
+            self.last_state = IntBlockTermState::default();
+            debug_assert_eq!(self.last_state.doc_start_fp, 0);
+        }
+
+        if self.last_state.singleton_doc_id != -1
+            && state.singleton_doc_id != -1
+            && state.doc_start_fp == self.last_state.doc_start_fp
+        {
+            // With runs of rare values such as ID fields, the increment of
+            // pointers in the docs file is often 0.
+            // Furthermore some ID schemes like auto-increment IDs or Flake IDs
+            // are monotonic, so we encode the delta
+            // between consecutive doc IDs to save space.
+            let delta = (state.singleton_doc_id - self.last_state.singleton_doc_id) as i64;
+            out.write_vlong((BitUtil::zig_zag_encode_i64(delta) << 1) | 1)?;
+        } else {
+            out.write_vlong((state.doc_start_fp - self.last_state.doc_start_fp) << 1)?;
+            if state.singleton_doc_id != -1 {
+                out.write_vint(state.singleton_doc_id)?;
+            }
+        }
+
+        if options.write_positions {
+            out.write_vlong(state.pos_start_fp - self.last_state.pos_start_fp)?;
+            if options.write_payloads || options.write_offsets {
+                out.write_vlong(state.pay_start_fp - self.last_state.pay_start_fp)?;
+            }
+            if state.last_pos_block_offset != -1 {
+                out.write_vlong(state.last_pos_block_offset)?;
+            }
+        }
+
+        self.last_state = state;
         Ok(())
     }
 }

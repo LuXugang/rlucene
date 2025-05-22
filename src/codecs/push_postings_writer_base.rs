@@ -205,10 +205,9 @@ where
         field_info: &FieldInfo,
         state: Cow<BlockTermStateEnum>,
         absolute: bool,
-        _options: &FieldWriteOptions,
     ) -> Result<()> {
         self.sub
-            .encode_term(out, field_info, state, absolute, &self.options)
+            .encode_term_with_option(out, field_info, state, absolute, &self.options)
     }
     /// Sets the current field for writing, and returns the fixed length of
     /// `&[i64]` metadata (which is fixed per field), called when the
@@ -284,4 +283,12 @@ pub trait PushPostingsWriterBaseAbstract {
 
     /// Called when we are done adding positions and payloads for each doc.
     fn finish_doc(&mut self) -> Result<()>;
+    fn encode_term_with_option(
+        &mut self,
+        out: &mut impl DataOutput,
+        field_info: &FieldInfo,
+        state: Cow<BlockTermStateEnum>,
+        absolute: bool,
+        options: &FieldWriteOptions,
+    ) -> Result<()>;
 }

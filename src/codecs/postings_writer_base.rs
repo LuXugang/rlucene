@@ -19,7 +19,6 @@ use std::rc::Rc;
 
 use crate::codecs::block_term_state::BlockTermStateEnum;
 use crate::codecs::norms_producer::NormsProducer;
-use crate::codecs::push_postings_writer_base::FieldWriteOptions;
 use crate::index::field_info::FieldInfo;
 use crate::index::segment_write_state::SegmentWriteState;
 use crate::index::terms_enum::TermsEnum;
@@ -77,7 +76,6 @@ pub trait PostingsWriterBase {
         field_info: &FieldInfo,
         state: Cow<BlockTermStateEnum>,
         absolute: bool,
-        options: &FieldWriteOptions,
     ) -> Result<()>;
 
     /// Sets the current field for writing.
