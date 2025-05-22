@@ -47,6 +47,7 @@ where
     pub(crate) input: Option<I>,
     pub(crate) stack: Vec<SegmentTermsEnumFrame>,
     pub(crate) static_frame: SegmentTermsEnumFrame,
+    // TODO: 由于不确定使用static_frame_idx还是stack 代码中存在很多根据current_frame_idx的重复代码需要优化
     pub(crate) current_frame_idx: usize,
     pub(crate) static_frame_idx: usize,
     pub(crate) term_exists: bool,
