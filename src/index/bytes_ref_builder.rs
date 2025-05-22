@@ -171,7 +171,7 @@ where
         );
         &mut self.bytes_ref
     }
-    pub fn get_bytes_mut(&self) -> &BytesRef<AV> {
+    pub fn get_bytes_ref(&self) -> &BytesRef<AV> {
         debug_assert_eq!(
             self.bytes_ref.offset, 0,
             "Modifying the offset of the returned ref is illegal"

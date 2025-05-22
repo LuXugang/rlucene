@@ -14,12 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::codecs::block_term_state::BlockTermStateEnum;
+use crate::codecs::block_tree::field_reader::FieldReader;
+use crate::codecs::block_tree::segment_terms_enum::SegmentTermsEnum;
 use crate::codecs::lucene90::block_tree::compression_algorithm::CompressionAlgorithm;
-use crate::codecs::lucene90::block_tree::segment_terms_enum::{OutputAccumulator, SegmentTerms};
+use crate::codecs::lucene90::block_tree::segment_terms_enum::OutputAccumulator;
 use crate::codecs::postings_reader_base::PostingsReaderBase;
 use crate::index::index_options::IndexOptions;
 use crate::index::terms_enum::SeekStatus;
@@ -29,11 +30,7 @@ use crate::util::array_util::ArrayUtil;
 use crate::util::error::lucene_error::Result;
 use crate::util::{SliceCopyOps, ToInt};
 
-pub struct SegmentTermsEnumFrame<'a, I, P>
-where
-    I: IndexInput,
-    P: PostingsReaderBase,
-{
+pub struct SegmentTermsEnumFrame {
     /// Our index in stack[]
     pub(crate) ord: i32,
 
@@ -96,33 +93,21 @@ where
     pub(crate) bytes: Vec<u8>,
     pub(crate) bytes_reader: ByteArrayDataInput<Vec<u8>>,
 
-    /// parent SegmentTerms
-    ste: Rc<RefCell<SegmentTerms<'a, I, P>>>,
-
     start_byte_pos: i32,
     suffix_length: i32,
     sub_code: i64,
     compression_alg: CompressionAlgorithm,
 }
-impl<'a, I, P> SegmentTermsEnumFrame<'a, I, P>
-where
-    I: IndexInput,
-    P: PostingsReaderBase,
-{
-    pub fn new(ste: Rc<RefCell<SegmentTerms<'a, I, P>>>, ord: i32) -> Result<Self> {
-        let mut state = ste
-            .borrow()
-            .fr
-            .parent
-            .borrow()
-            .postings_reader
-            .new_term_state()?;
-
+impl SegmentTermsEnumFrame {
+    pub fn new<I, P>(ord: i32, fr: &FieldReader<I, P>) -> Result<Self>
+    where
+        I: IndexInput,
+        P: PostingsReaderBase,
+    {
+        let mut state = fr.parent.borrow().postings_reader.new_term_state()?;
         state.get_block_term_state().total_term_freq = -1;
-
         Ok(Self {
             ord,
-            ste,
             state,
 
             arc: None,
@@ -185,21 +170,48 @@ where
             self.state.get_block_term_state().term_block_ord
         }
     }
-    pub(crate) fn load_next_floor_block(&mut self) -> Result<()> {
+    pub(crate) fn load_next_floor_block<I, P>(
+        frame_idx: usize,
+        ste: &mut SegmentTermsEnum<I, P>,
+    ) -> Result<bool>
+    where
+        I: IndexInput,
+        P: PostingsReaderBase,
+    {
+        let frame = if frame_idx == ste.static_frame_idx {
+            &mut ste.static_frame
+        } else {
+            &mut ste.stack[frame_idx]
+        };
         debug_assert!(
-            self.arc.is_none() || self.is_floor,
+            frame.arc.is_none() || frame.is_floor,
             "arc= {:?} isFloor={}",
-            self.arc,
-            self.is_floor
+            frame.arc,
+            frame.is_floor
         );
 
-        self.fp = self.fp_end;
-        self.next_ent = -1;
+        frame.fp = frame.fp_end;
+        frame.next_ent = -1;
 
-        self.load_block()
+        Self::load_block(frame_idx, ste)
     }
-    pub(crate) fn prefetch_block(&mut self) -> Result<()> {
-        if self.next_ent != -1 {
+    pub(crate) fn prefetch_block<I, P>(
+        frame_idx: usize,
+        ste: &mut SegmentTermsEnum<I, P>,
+    ) -> Result<()>
+    where
+        I: IndexInput,
+        P: PostingsReaderBase,
+    {
+        let (next_ent, fp) = {
+            let frame = if frame_idx == ste.static_frame_idx {
+                &ste.static_frame
+            } else {
+                &ste.stack[frame_idx]
+            };
+            (frame.next_ent, frame.fp)
+        };
+        if next_ent != -1 {
             // Already loaded
             return Ok(());
         }
@@ -207,15 +219,10 @@ where
         // Clone the IndexInput lazily, so that consumers
         // that just pull a TermsEnum to
         // seekExact(TermState) don't pay this cost:
-        self.ste.borrow_mut().init_index_input()?;
+        ste.init_index_input()?;
 
         // TODO: Could we know the number of bytes to prefetch?
-        self.ste
-            .borrow_mut()
-            .input
-            .as_mut()
-            .unwrap()
-            .prefetch(self.fp, 1)?;
+        ste.input.as_mut().unwrap().prefetch(fp, 1)?;
         Ok(())
     }
     /* Does initial decode of next block of terms; this
@@ -227,32 +234,43 @@ where
     intensive consumes (eg certain MTQs, respelling) to
     not pay the price of decoding metadata they won't
     use. */
-    pub(crate) fn load_block(&mut self) -> Result<()> {
+    pub(crate) fn load_block<I, P>(
+        frame_index: usize,
+        ste: &mut SegmentTermsEnum<I, P>,
+    ) -> Result<bool>
+    where
+        I: IndexInput,
+        P: PostingsReaderBase,
+    {
         // Clone the IndexInput lazily, so that consumers
         // that just pull a TermsEnum to
         // seekExact(TermState) don't pay this cost:
-        self.ste.borrow_mut().init_index_input()?;
+        ste.init_index_input()?;
+        let frame = if frame_index == ste.static_frame_idx {
+            &mut ste.static_frame
+        } else {
+            &mut ste.stack[frame_index]
+        };
 
-        if self.next_ent != -1 {
-            return Ok(()); // already loaded
+        if frame.next_ent != -1 {
+            return Ok(frame.is_leaf_block); // already loaded
         }
 
-        let mut ste = self.ste.borrow_mut();
         let input = ste.input.as_mut().unwrap();
 
-        input.seek(self.fp)?;
+        input.seek(frame.fp)?;
         let code = input.read_vint()?;
-        self.ent_count = ((code as u32) >> 1) as i32;
-        debug_assert!(self.ent_count > 0);
-        self.is_last_in_floor = (code & 1) != 0;
+        frame.ent_count = ((code as u32) >> 1) as i32;
+        debug_assert!(frame.ent_count > 0);
+        frame.is_last_in_floor = (code & 1) != 0;
 
         debug_assert!(
-            self.arc.is_none() || self.is_last_in_floor || self.is_floor,
+            frame.arc.is_none() || frame.is_last_in_floor || frame.is_floor,
             "fp={} arc={:?} is_floor={} is_last_in_floor={}",
-            self.fp,
-            self.arc,
-            self.is_floor,
-            self.is_last_in_floor
+            frame.fp,
+            frame.arc,
+            frame.is_floor,
+            frame.is_last_in_floor
         );
         // TODO: if suffixes were stored in random-access
         // array structure, then we could do binary search
@@ -261,21 +279,22 @@ where
         let start_suffix_fp = input.get_file_pointer();
         // term suffixes:
         let code_l = input.read_vlong()?;
-        self.is_leaf_block = (code_l & 0x04) != 0;
+        frame.is_leaf_block = (code_l & 0x04) != 0;
         let num_suffix_bytes = ((code_l as u64) >> 3) as i32;
 
-        if self.suffix_bytes.len() < num_suffix_bytes as usize {
+        if frame.suffix_bytes.len() < num_suffix_bytes as usize {
             let new_len = ArrayUtil::oversize(num_suffix_bytes as usize, 1);
-            self.suffix_bytes = vec![0u8; new_len];
+            frame.suffix_bytes = vec![0u8; new_len];
         }
 
         let alg_code = (code_l & 0x03) as u8;
-        self.compression_alg = CompressionAlgorithm::by_code(alg_code)?;
+        frame.compression_alg = CompressionAlgorithm::by_code(alg_code)?;
 
-        self.compression_alg
-            .read(input, &mut self.suffix_bytes, num_suffix_bytes)?;
-        self.suffixes_reader.reset_with_range(
-            std::mem::take(&mut self.suffix_bytes),
+        frame
+            .compression_alg
+            .read(input, &mut frame.suffix_bytes, num_suffix_bytes)?;
+        frame.suffixes_reader.reset_with_range(
+            std::mem::take(&mut frame.suffix_bytes),
             0,
             num_suffix_bytes as usize,
         );
@@ -283,68 +302,71 @@ where
         let num_suffix_length_bytes = input.read_vint()?;
         debug_assert!(num_suffix_length_bytes >= 0);
         let mut num_suffix_length_bytes = num_suffix_length_bytes as usize;
-        self.all_equal = (num_suffix_length_bytes & 0x01) != 0;
+        frame.all_equal = (num_suffix_length_bytes & 0x01) != 0;
         num_suffix_length_bytes >>= 1;
 
-        if self.suffix_length_bytes.len() < num_suffix_length_bytes {
+        if frame.suffix_length_bytes.len() < num_suffix_length_bytes {
             let new_len = ArrayUtil::oversize(num_suffix_length_bytes, 1);
-            self.suffix_length_bytes = vec![0u8; new_len];
+            frame.suffix_length_bytes = vec![0u8; new_len];
         }
 
-        if self.all_equal {
+        if frame.all_equal {
             let fill_byte = input.read_byte()?;
             for i in 0..num_suffix_length_bytes {
-                self.suffix_length_bytes[i] = fill_byte;
+                frame.suffix_length_bytes[i] = fill_byte;
             }
         } else {
             input.read_bytes(
-                &mut self.suffix_length_bytes,
+                &mut frame.suffix_length_bytes,
                 0,
                 num_suffix_length_bytes as i32,
             )?;
         }
 
-        self.suffix_lengths_reader.reset_with_range(
-            std::mem::take(&mut self.suffix_length_bytes),
+        frame.suffix_lengths_reader.reset_with_range(
+            std::mem::take(&mut frame.suffix_length_bytes),
             0,
             num_suffix_length_bytes,
         );
-        self.total_suffix_bytes = input.get_file_pointer() - start_suffix_fp;
+        frame.total_suffix_bytes = input.get_file_pointer() - start_suffix_fp;
 
         // stats
         let mut num_bytes = input.read_vint()?;
         debug_assert!(num_bytes >= 0);
-        if self.stat_bytes.len() < num_bytes as usize {
+        if frame.stat_bytes.len() < num_bytes as usize {
             let new_len = ArrayUtil::oversize(num_bytes as usize, 1);
-            self.stat_bytes = vec![0u8; new_len];
+            frame.stat_bytes = vec![0u8; new_len];
         }
-        input.read_bytes(&mut self.stat_bytes, 0, num_bytes)?;
-        self.stats_reader.reset_with_range(
-            std::mem::take(&mut self.stat_bytes),
+        input.read_bytes(&mut frame.stat_bytes, 0, num_bytes)?;
+        frame.stats_reader.reset_with_range(
+            std::mem::take(&mut frame.stat_bytes),
             0,
             num_bytes as usize,
         );
-        self.stats_singleton_run_length = 0;
-        self.meta_data_upto = 0;
+        frame.stats_singleton_run_length = 0;
+        frame.meta_data_upto = 0;
 
-        self.state.get_block_term_state().term_block_ord = 0;
-        self.next_ent = 0;
-        self.last_sub_fp = -1;
+        frame.state.get_block_term_state().term_block_ord = 0;
+        frame.next_ent = 0;
+        frame.last_sub_fp = -1;
         // TODO: we could skip this if !hasTerms; but
         // that's rare so won't help much
         // metadata
         num_bytes = input.read_vint()?;
-        if self.bytes.len() < num_bytes as usize {
+        if frame.bytes.len() < num_bytes as usize {
             let new_len = ArrayUtil::oversize(num_bytes as usize, 1);
-            self.bytes = vec![0u8; new_len];
+            frame.bytes = vec![0u8; new_len];
         }
-        input.read_bytes(&mut self.bytes, 0, num_bytes)?;
-        self.bytes_reader
-            .reset_with_range(std::mem::take(&mut self.bytes), 0, num_bytes as usize);
+        input.read_bytes(&mut frame.bytes, 0, num_bytes)?;
+        frame.bytes_reader.reset_with_range(
+            std::mem::take(&mut frame.bytes),
+            0,
+            num_bytes as usize,
+        );
 
-        self.fp_end = input.get_file_pointer();
+        frame.fp_end = input.get_file_pointer();
 
-        Ok(())
+        Ok(frame.is_leaf_block)
     }
     pub(crate) fn rewind(&mut self) -> Result<()> {
         // Force reload
@@ -362,196 +384,284 @@ where
 
         Ok(())
     }
-    pub fn next(&mut self) -> Result<bool> {
-        if self.is_leaf_block {
-            self.next_leaf()?;
+    pub fn next<I, P>(frame_idx: usize, ste: &mut SegmentTermsEnum<I, P>) -> Result<bool>
+    where
+        I: IndexInput,
+        P: PostingsReaderBase,
+    {
+        let frame = if frame_idx == ste.static_frame_idx {
+            &mut ste.static_frame
+        } else {
+            &mut ste.stack[frame_idx]
+        };
+        if frame.is_leaf_block {
+            Self::next_leaf(frame_idx, ste)?;
             Ok(false)
         } else {
-            self.next_non_leaf()
+            Self::next_non_leaf(frame_idx, ste)
         }
     }
-    pub fn next_leaf(&mut self) -> Result<()> {
+    pub fn next_leaf<I, P>(frame_idx: usize, ste: &mut SegmentTermsEnum<I, P>) -> Result<()>
+    where
+        I: IndexInput,
+        P: PostingsReaderBase,
+    {
+        // TODO: 可以判断下是不是static 就可以避免这里的判断
+        let frame = if frame_idx == ste.static_frame_idx {
+            &mut ste.static_frame
+        } else {
+            &mut ste.stack[frame_idx]
+        };
         debug_assert!(
-            self.next_ent != -1 && self.next_ent < self.ent_count,
+            frame.next_ent != -1 && frame.next_ent < frame.ent_count,
             "next_ent={} ent_count={} fp={}",
-            self.next_ent,
-            self.ent_count,
-            self.fp
+            frame.next_ent,
+            frame.ent_count,
+            frame.fp
         );
 
-        self.next_ent += 1;
-        self.suffix_length = self.suffix_lengths_reader.read_vint()?;
-        debug_assert!(self.suffixes_reader.get_position() <= i32::MAX as usize);
-        self.start_byte_pos = self.suffixes_reader.get_position() as i32;
+        frame.next_ent += 1;
+        frame.suffix_length = frame.suffix_lengths_reader.read_vint()?;
+        debug_assert!(frame.suffixes_reader.get_position() <= i32::MAX as usize);
+        frame.start_byte_pos = frame.suffixes_reader.get_position() as i32;
 
-        let mut ste = self.ste.borrow_mut();
-        let term_len = self.prefix_length + self.suffix_length;
+        let term_len = frame.prefix_length + frame.suffix_length;
         ste.term.set_length(term_len as usize);
         let len = ste.term.length();
         ste.term.grow(len);
 
-        self.suffixes_reader.read_bytes(
+        frame.suffixes_reader.read_bytes(
             ste.term.get_bytes_mut_ref().bytes.as_mut(),
-            self.prefix_length,
-            self.suffix_length,
+            frame.prefix_length,
+            frame.suffix_length,
         )?;
 
         ste.term_exists = true;
         Ok(())
     }
-    pub(crate) fn next_non_leaf(&mut self) -> Result<bool> {
+    pub(crate) fn next_non_leaf<I, P>(
+        frame_idx: usize,
+        ste: &mut SegmentTermsEnum<I, P>,
+    ) -> Result<bool>
+    where
+        I: IndexInput,
+        P: PostingsReaderBase,
+    {
         loop {
-            if self.next_ent == self.ent_count {
-                debug_assert!(
-                    self.arc.is_none() || (self.is_floor && !self.is_last_in_floor),
-                    "is_floor={}, is_last_in_floor={}",
-                    self.is_floor,
-                    self.is_last_in_floor
-                );
+            let v = {
+                let frame = if frame_idx == ste.static_frame_idx {
+                    &mut ste.static_frame
+                } else {
+                    &mut ste.stack[frame_idx]
+                };
+                frame.next_ent == frame.ent_count
+            };
 
-                self.load_next_floor_block()?;
+            if v {
+                debug_assert!({
+                    let frame = if frame_idx == ste.static_frame_idx {
+                        &mut ste.static_frame
+                    } else {
+                        &mut ste.stack[frame_idx]
+                    };
+                    frame.arc.is_none() || (frame.is_floor && !frame.is_last_in_floor)
+                });
 
-                if self.is_leaf_block {
-                    self.next_leaf()?;
+                let is_leaf_block = Self::load_next_floor_block(frame_idx, ste)?;
+
+                if is_leaf_block {
+                    Self::next_leaf(frame_idx, ste)?;
                     return Ok(false);
                 } else {
                     continue;
                 }
             }
-
+            let frame = if frame_idx == ste.static_frame_idx {
+                &mut ste.static_frame
+            } else {
+                &mut ste.stack[frame_idx]
+            };
             debug_assert!(
-                self.next_ent != -1 && self.next_ent < self.ent_count,
+                frame.next_ent != -1 && frame.next_ent < frame.ent_count,
                 "next_ent={} ent_count={} fp={}",
-                self.next_ent,
-                self.ent_count,
-                self.fp
+                frame.next_ent,
+                frame.ent_count,
+                frame.fp
             );
 
-            self.next_ent += 1;
+            frame.next_ent += 1;
 
-            let code = self.suffix_lengths_reader.read_vint()?;
-            self.suffix_length = ((code as u32) >> 1) as i32;
-            debug_assert!(self.suffixes_reader.get_position() <= i32::MAX as usize);
-            self.start_byte_pos = self.suffixes_reader.get_position() as i32;
+            let code = frame.suffix_lengths_reader.read_vint()?;
+            frame.suffix_length = ((code as u32) >> 1) as i32;
+            debug_assert!(frame.suffixes_reader.get_position() <= i32::MAX as usize);
+            frame.start_byte_pos = frame.suffixes_reader.get_position() as i32;
 
-            let mut ste = self.ste.borrow_mut();
-            let term_len = self.prefix_length + self.suffix_length;
+            let term_len = frame.prefix_length + frame.suffix_length;
             ste.term.set_length(term_len as usize);
             let len = ste.term.length();
             ste.term.grow(len);
 
-            self.suffixes_reader.read_bytes(
+            frame.suffixes_reader.read_bytes(
                 ste.term.get_bytes_mut_ref().bytes.as_mut(),
-                self.prefix_length,
-                self.suffix_length,
+                frame.prefix_length,
+                frame.suffix_length,
             )?;
 
             if (code & 1) == 0 {
                 // Normal term
                 ste.term_exists = true;
-                self.sub_code = 0;
-                self.state.get_block_term_state().term_block_ord += 1;
+                frame.sub_code = 0;
+                frame.state.get_block_term_state().term_block_ord += 1;
                 return Ok(false);
             } else {
                 // A sub-block; make sub-FP absolute:
                 ste.term_exists = false;
-                self.sub_code = self.suffix_lengths_reader.read_vlong()?;
-                self.last_sub_fp = self.fp - self.sub_code;
+                frame.sub_code = frame.suffix_lengths_reader.read_vlong()?;
+                frame.last_sub_fp = frame.fp - frame.sub_code;
                 return Ok(true);
             }
         }
     }
-    pub fn scan_to_floor_frame(&mut self, target: &BytesRef<Vec<u8>>) -> Result<()> {
-        if !self.is_floor || target.length <= self.prefix_length as usize {
+    pub fn scan_to_floor_frame<I, P>(
+        frame_idx: usize,
+        ste: &mut SegmentTermsEnum<I, P>,
+    ) -> Result<()>
+    where
+        I: IndexInput,
+        P: PostingsReaderBase,
+    {
+        Self::scan_to_floor_frame_with_target(frame_idx, &BytesRef::new(), ste, false)
+    }
+    pub fn scan_to_floor_frame_with_target<I, P>(
+        frame_idx: usize,
+        target: &BytesRef<Vec<u8>>,
+        ste: &mut SegmentTermsEnum<I, P>,
+        use_target: bool,
+    ) -> Result<()>
+    where
+        I: IndexInput,
+        P: PostingsReaderBase,
+    {
+        let frame = if frame_idx == ste.static_frame_idx {
+            &mut ste.static_frame
+        } else {
+            &mut ste.stack[frame_idx]
+        };
+        let target = if use_target {
+            target
+        } else {
+            ste.term.get_bytes_ref()
+        };
+        if !frame.is_floor || target.length <= frame.prefix_length as usize {
             return Ok(());
         }
 
-        let target_label = target.bytes[target.offset + self.prefix_length as usize] as i32;
+        let target_label = target.bytes[target.offset + frame.prefix_length as usize] as i32;
 
-        if target_label < self.next_floor_label {
+        if target_label < frame.next_floor_label {
             return Ok(());
         }
 
-        debug_assert!(self.num_follow_floor_blocks != 0);
+        debug_assert!(frame.num_follow_floor_blocks != 0);
 
-        let mut new_fp = self.fp_orig;
+        let mut new_fp = frame.fp_orig;
 
         loop {
-            let code = self.floor_data_reader.read_vlong()?;
-            new_fp = self.fp_orig + ((code as u64) >> 1) as i64;
-            self.has_terms = (code & 1) != 0;
+            let code = frame.floor_data_reader.read_vlong()?;
+            new_fp = frame.fp_orig + ((code as u64) >> 1) as i64;
+            frame.has_terms = (code & 1) != 0;
 
-            self.is_last_in_floor = self.num_follow_floor_blocks == 0;
-            self.num_follow_floor_blocks -= 1;
+            frame.is_last_in_floor = frame.num_follow_floor_blocks == 0;
+            frame.num_follow_floor_blocks -= 1;
 
-            if self.is_last_in_floor {
-                self.next_floor_label = 256;
+            if frame.is_last_in_floor {
+                frame.next_floor_label = 256;
                 break;
             } else {
-                self.next_floor_label = self.floor_data_reader.read_byte()? as i32;
-                if target_label < self.next_floor_label {
+                frame.next_floor_label = frame.floor_data_reader.read_byte()? as i32;
+                if target_label < frame.next_floor_label {
                     break;
                 }
             }
         }
 
-        if new_fp != self.fp {
-            self.next_ent = -1;
-            self.fp = new_fp;
+        if new_fp != frame.fp {
+            frame.next_ent = -1;
+            frame.fp = new_fp;
         }
 
         Ok(())
     }
-    pub fn decode_meta_data(&mut self) -> Result<()> {
-        let limit = self.get_term_block_ord();
-        let mut absolute = self.meta_data_upto == 0;
+    pub fn decode_meta_data<I, P>(frame_idx: usize, ste: &mut SegmentTermsEnum<I, P>) -> Result<()>
+    where
+        I: IndexInput,
+        P: PostingsReaderBase,
+    {
+        let frame = if frame_idx == ste.static_frame_idx {
+            &mut ste.static_frame
+        } else {
+            &mut ste.stack[frame_idx]
+        };
+        let limit = frame.get_term_block_ord();
+        let mut absolute = frame.meta_data_upto == 0;
         debug_assert!(limit > 0);
 
-        while self.meta_data_upto < limit {
-            let ste = self.ste.borrow_mut();
-            let state = self.state.get_block_term_state();
+        while frame.meta_data_upto < limit {
+            let state = frame.state.get_block_term_state();
 
-            if self.stats_singleton_run_length > 0 {
+            if frame.stats_singleton_run_length > 0 {
                 state.doc_freq = 1;
                 state.total_term_freq = 1;
-                self.stats_singleton_run_length -= 1;
+                frame.stats_singleton_run_length -= 1;
             } else {
-                let token = self.stats_reader.read_vint()?;
+                let token = frame.stats_reader.read_vint()?;
                 if (token & 1) == 1 {
                     state.doc_freq = 1;
                     state.total_term_freq = 1;
-                    self.stats_singleton_run_length = (token as u32 >> 1) as i32;
+                    frame.stats_singleton_run_length = (token as u32 >> 1) as i32;
                 } else {
                     state.doc_freq = (token as u32 >> 1) as i32;
                     if *ste.fr.field_info.get_index_options() == IndexOptions::DOCS {
                         state.total_term_freq = state.doc_freq as i64;
                     } else {
                         state.total_term_freq =
-                            state.doc_freq as i64 + self.stats_reader.read_vlong()?;
+                            state.doc_freq as i64 + frame.stats_reader.read_vlong()?;
                     }
                 }
             }
 
             ste.fr.parent.borrow_mut().postings_reader.decode_term(
-                &mut self.bytes_reader,
+                &mut frame.bytes_reader,
                 &ste.fr.field_info,
-                &mut self.state,
+                &mut frame.state,
                 absolute,
             )?;
 
-            self.meta_data_upto += 1;
+            frame.meta_data_upto += 1;
             absolute = false;
         }
 
-        self.state.get_block_term_state().term_block_ord = self.meta_data_upto;
+        frame.state.get_block_term_state().term_block_ord = frame.meta_data_upto;
 
         Ok(())
     }
     /// Used only in debug assertions: does target prefix match the current
     /// term?
-    fn prefix_matches(&self, target: &BytesRef<Vec<u8>>) -> bool {
-        let ste = self.ste.borrow();
-        for byte_pos in 0..self.prefix_length as usize {
+    fn prefix_matches<I, P>(
+        frame_idx: usize,
+        target: &BytesRef<Vec<u8>>,
+        ste: &SegmentTermsEnum<I, P>,
+    ) -> bool
+    where
+        I: IndexInput,
+        P: PostingsReaderBase,
+    {
+        let frame = if frame_idx == ste.static_frame_idx {
+            &ste.static_frame
+        } else {
+            &ste.stack[frame_idx]
+        };
+        for byte_pos in 0..frame.prefix_length as usize {
             if target.bytes[target.offset + byte_pos] != ste.term.byte_at(byte_pos) {
                 return false;
             }
@@ -561,88 +671,127 @@ where
     // Scans to sub-block that has this target fp; only
     // called by next(); NOTE: does not set
     // startBytePos/suffix as a side effect
-    pub fn scan_to_sub_block(&mut self, sub_fp: i64) -> Result<()> {
-        debug_assert!(!self.is_leaf_block);
-        if self.last_sub_fp == sub_fp {
+    pub fn scan_to_sub_block<I, P>(
+        frame_idx: usize,
+        sub_fp: i64,
+        ste: &mut SegmentTermsEnum<I, P>,
+    ) -> Result<()>
+    where
+        I: IndexInput,
+        P: PostingsReaderBase,
+    {
+        let frame = if frame_idx == ste.static_frame_idx {
+            &mut ste.static_frame
+        } else {
+            &mut ste.stack[frame_idx]
+        };
+        debug_assert!(!frame.is_leaf_block);
+        if frame.last_sub_fp == sub_fp {
             return Ok(());
         }
 
-        debug_assert!(sub_fp < self.fp, "fp={} sub_fp={}", self.fp, sub_fp);
-        let target_sub_code = self.fp - sub_fp;
+        debug_assert!(sub_fp < frame.fp, "fp={} sub_fp={}", frame.fp, sub_fp);
+        let target_sub_code = frame.fp - sub_fp;
 
         loop {
-            debug_assert!(self.next_ent < self.ent_count);
-            self.next_ent += 1;
+            debug_assert!(frame.next_ent < frame.ent_count);
+            frame.next_ent += 1;
 
-            let code = self.suffix_lengths_reader.read_vint()?;
-            self.suffixes_reader.skip_bytes((code as u64 >> 1) as i64)?;
+            let code = frame.suffix_lengths_reader.read_vint()?;
+            frame
+                .suffixes_reader
+                .skip_bytes((code as u64 >> 1) as i64)?;
 
             if (code & 1) != 0 {
-                let sub_code = self.suffix_lengths_reader.read_vlong()?;
+                let sub_code = frame.suffix_lengths_reader.read_vlong()?;
                 if target_sub_code == sub_code {
-                    self.last_sub_fp = sub_fp;
+                    frame.last_sub_fp = sub_fp;
                     return Ok(());
                 }
             } else {
-                self.state.get_block_term_state().term_block_ord += 1;
+                frame.state.get_block_term_state().term_block_ord += 1;
             }
         }
     }
     /// Scan to a specific target term within the block. May update
     /// suffix/startBytePos.
-    pub(crate) fn scan_to_term(
-        &mut self,
+    pub(crate) fn scan_to_term<I, P>(
+        frame_idx: usize,
         target: &BytesRef<Vec<u8>>,
         exact_only: bool,
-    ) -> Result<SeekStatus> {
-        if self.is_leaf_block {
-            if self.all_equal {
-                self.binary_search_term_leaf(target, exact_only)
+        ste: &mut SegmentTermsEnum<I, P>,
+    ) -> Result<SeekStatus>
+    where
+        I: IndexInput,
+        P: PostingsReaderBase,
+    {
+        let frame = if frame_idx == ste.static_frame_idx {
+            &mut ste.static_frame
+        } else {
+            &mut ste.stack[frame_idx]
+        };
+        if frame.is_leaf_block {
+            if frame.all_equal {
+                Self::binary_search_term_leaf(frame_idx, target, exact_only, ste)
             } else {
-                self.scan_to_term_leaf(target, exact_only)
+                Self::scan_to_term_leaf(frame_idx, target, exact_only, ste)
             }
         } else {
-            self.scan_to_term_non_leaf(target, exact_only)
+            Self::scan_to_term_non_leaf(frame_idx, target, exact_only, ste)
         }
     }
     // Target's prefix matches this block's prefix; we
     // scan the entries to check if the suffix matches.
-    pub fn scan_to_term_leaf(
-        &mut self,
+    pub fn scan_to_term_leaf<I, P>(
+        frame_idx: usize,
         target: &BytesRef<Vec<u8>>,
         exact_only: bool,
-    ) -> Result<SeekStatus> {
-        debug_assert!(self.next_ent != -1);
-
+        ste: &mut SegmentTermsEnum<I, P>,
+    ) -> Result<SeekStatus>
+    where
+        I: IndexInput,
+        P: PostingsReaderBase,
+    {
         {
-            let mut ste = self.ste.borrow_mut();
+            let frame = if frame_idx == ste.static_frame_idx {
+                &mut ste.static_frame
+            } else {
+                &mut ste.stack[frame_idx]
+            };
+            debug_assert!(frame.next_ent != -1);
             ste.term_exists = true;
-        }
+            frame.sub_code = 0;
 
-        self.sub_code = 0;
-
-        if self.next_ent == self.ent_count {
-            if exact_only {
-                self.fill_term();
+            if frame.next_ent == frame.ent_count {
+                if exact_only {
+                    Self::fill_term(frame_idx, ste);
+                }
+                return Ok(SeekStatus::End);
             }
-            return Ok(SeekStatus::End);
         }
 
-        debug_assert!(self.prefix_matches(target));
+        debug_assert!(Self::prefix_matches(frame_idx, target, ste));
 
         loop {
-            self.next_ent += 1;
-            self.suffix_length = self.suffix_lengths_reader.read_vint()?;
-            debug_assert!(self.suffixes_reader.get_position() <= i32::MAX as usize);
-            self.start_byte_pos = self.suffixes_reader.get_position() as i32;
-            self.suffixes_reader.skip_bytes(self.suffix_length as i64)?;
+            let frame = if frame_idx == ste.static_frame_idx {
+                &mut ste.static_frame
+            } else {
+                &mut ste.stack[frame_idx]
+            };
+            frame.next_ent += 1;
+            frame.suffix_length = frame.suffix_lengths_reader.read_vint()?;
+            debug_assert!(frame.suffixes_reader.get_position() <= i32::MAX as usize);
+            frame.start_byte_pos = frame.suffixes_reader.get_position() as i32;
+            frame
+                .suffixes_reader
+                .skip_bytes(frame.suffix_length as i64)?;
 
-            let suffix_start = self.start_byte_pos as usize;
-            let suffix_end = suffix_start + self.suffix_length as usize;
+            let suffix_start = frame.start_byte_pos as usize;
+            let suffix_end = suffix_start + frame.suffix_length as usize;
 
-            let cmp = self.suffix_bytes[suffix_start..suffix_end]
+            let cmp = frame.suffix_bytes[suffix_start..suffix_end]
                 .cmp(
-                    &target.bytes[target.offset + self.prefix_length as usize
+                    &target.bytes[target.offset + frame.prefix_length as usize
                         ..target.offset + target.length],
                 )
                 .to_int();
@@ -653,7 +802,7 @@ where
             } else if cmp > 0 {
                 // Done!  Current entry is after target --
                 // return NOT_FOUND:
-                self.fill_term();
+                Self::fill_term(frame_idx, ste);
                 return Ok(SeekStatus::NotFound);
             } else {
                 // Exact match!
@@ -661,10 +810,10 @@ where
                 // This cannot be a sub-block because we
                 // would have followed the index to this
                 // sub-block from the start:
-                self.fill_term();
+                Self::fill_term(frame_idx, ste);
                 return Ok(SeekStatus::Found);
             }
-            if self.next_ent < self.ent_count {
+            if frame.next_ent < frame.ent_count {
                 break;
             }
         }
@@ -678,7 +827,7 @@ where
         // was fooz (and, eg, first term in the next block will
         // bee fop).
         if exact_only {
-            self.fill_term();
+            Self::fill_term(frame_idx, ste);
         }
         // TODO: not consistent that in the
         // not-exact case we don't next() into the next
@@ -689,45 +838,58 @@ where
     // Target's prefix matches this block's prefix;
     // And all suffixes have the same length in this block,
     // we binary search the entries to check if the suffix matches.
-    pub fn binary_search_term_leaf(
-        &mut self,
+    pub fn binary_search_term_leaf<I, P>(
+        frame_idx: usize,
         target: &BytesRef<Vec<u8>>,
         exact_only: bool,
-    ) -> Result<SeekStatus> {
-        debug_assert!(self.next_ent != -1);
-
+        ste: &mut SegmentTermsEnum<I, P>,
+    ) -> Result<SeekStatus>
+    where
+        I: IndexInput,
+        P: PostingsReaderBase,
+    {
         {
-            let mut ste = self.ste.borrow_mut();
+            let frame = if frame_idx == ste.static_frame_idx {
+                &mut ste.static_frame
+            } else {
+                &mut ste.stack[frame_idx]
+            };
+            debug_assert!(frame.next_ent != -1);
             ste.term_exists = true;
-        }
-        self.sub_code = 0;
+            frame.sub_code = 0;
 
-        if self.next_ent == self.ent_count {
-            if exact_only {
-                self.fill_term();
+            if frame.next_ent == frame.ent_count {
+                if exact_only {
+                    Self::fill_term(frame_idx, ste);
+                }
+                return Ok(SeekStatus::End);
             }
-            return Ok(SeekStatus::End);
         }
 
-        debug_assert!(self.prefix_matches(target));
+        debug_assert!(Self::prefix_matches(frame_idx, target, ste));
+        let frame = if frame_idx == ste.static_frame_idx {
+            &mut ste.static_frame
+        } else {
+            &mut ste.stack[frame_idx]
+        };
 
-        self.suffix_length = self.suffix_lengths_reader.read_vint()?;
+        frame.suffix_length = frame.suffix_lengths_reader.read_vint()?;
 
-        let mut start = self.next_ent;
-        let mut end = self.ent_count - 1;
+        let mut start = frame.next_ent;
+        let mut end = frame.ent_count - 1;
         let mut cmp = 0;
 
         while start <= end {
             let mid = ((start + end) as u32 >> 1) as i32;
-            self.next_ent = mid + 1;
-            self.start_byte_pos = mid * self.suffix_length;
+            frame.next_ent = mid + 1;
+            frame.start_byte_pos = mid * frame.suffix_length;
 
-            let suffix_start = self.start_byte_pos as usize;
-            let suffix_end = suffix_start + self.suffix_length as usize;
+            let suffix_start = frame.start_byte_pos as usize;
+            let suffix_end = suffix_start + frame.suffix_length as usize;
 
-            cmp = self.suffix_bytes[suffix_start..suffix_end]
+            cmp = frame.suffix_bytes[suffix_start..suffix_end]
                 .cmp(
-                    &target.bytes[target.offset + self.prefix_length as usize
+                    &target.bytes[target.offset + frame.prefix_length as usize
                         ..target.offset + target.length],
                 )
                 .to_int();
@@ -738,9 +900,10 @@ where
                 end = mid - 1;
             } else {
                 // match
-                self.suffixes_reader
-                    .set_position((self.start_byte_pos + self.suffix_length) as usize);
-                self.fill_term();
+                frame
+                    .suffixes_reader
+                    .set_position((frame.start_byte_pos + frame.suffix_length) as usize);
+                Self::fill_term(frame_idx, ste);
                 return Ok(SeekStatus::Found);
             }
         }
@@ -755,21 +918,23 @@ where
         // bee fop).
         let seek_status;
 
-        if end < self.ent_count - 1 {
+        if end < frame.ent_count - 1 {
             seek_status = SeekStatus::NotFound;
             if cmp < 0 {
-                self.start_byte_pos += self.suffix_length;
-                self.next_ent += 1;
+                frame.start_byte_pos += frame.suffix_length;
+                frame.next_ent += 1;
             }
-            self.suffixes_reader
-                .set_position((self.start_byte_pos + self.suffix_length) as usize);
-            self.fill_term();
+            frame
+                .suffixes_reader
+                .set_position((frame.start_byte_pos + frame.suffix_length) as usize);
+            Self::fill_term(frame_idx, ste);
         } else {
             seek_status = SeekStatus::End;
-            self.suffixes_reader
-                .set_position((self.start_byte_pos + self.suffix_length) as usize);
+            frame
+                .suffixes_reader
+                .set_position((frame.start_byte_pos + frame.suffix_length) as usize);
             if exact_only {
-                self.fill_term();
+                Self::fill_term(frame_idx, ste);
             }
         }
 
@@ -777,77 +942,142 @@ where
     }
     // Target's prefix matches this block's prefix; we
     // scan the entries to check if the suffix matches.
-    pub fn scan_to_term_non_leaf(
-        &mut self,
+    pub fn scan_to_term_non_leaf<I, P>(
+        frame_idx: usize,
         target: &BytesRef<Vec<u8>>,
         exact_only: bool,
-    ) -> Result<SeekStatus> {
-        debug_assert!(self.next_ent != -1);
+        ste: &mut SegmentTermsEnum<I, P>,
+    ) -> Result<SeekStatus>
+    where
+        I: IndexInput,
+        P: PostingsReaderBase,
+    {
+        debug_assert!({
+            let frame = if frame_idx == ste.static_frame_idx {
+                &mut ste.static_frame
+            } else {
+                &mut ste.stack[frame_idx]
+            };
+            frame.next_ent != -1
+        });
 
-        if self.next_ent == self.ent_count {
+        let v = {
+            let frame = if frame_idx == ste.static_frame_idx {
+                &mut ste.static_frame
+            } else {
+                &mut ste.stack[frame_idx]
+            };
+            frame.next_ent == frame.ent_count
+        };
+        if v {
             if exact_only {
-                self.fill_term();
-                self.ste.borrow_mut().term_exists = self.sub_code == 0;
+                Self::fill_term(frame_idx, ste);
+                let frame = if frame_idx == ste.static_frame_idx {
+                    &mut ste.static_frame
+                } else {
+                    &mut ste.stack[frame_idx]
+                };
+                ste.term_exists = frame.sub_code == 0;
             }
             return Ok(SeekStatus::End);
         }
-
-        debug_assert!(self.prefix_matches(target));
-
-        while self.next_ent < self.ent_count {
-            self.next_ent += 1;
-            let code = self.suffix_lengths_reader.read_vint()?;
-            self.suffix_length = (code as u32 >> 1) as i32;
-            debug_assert!(self.suffixes_reader.get_position() <= i32::MAX as usize);
-            self.start_byte_pos = self.suffixes_reader.get_position() as i32;
-            self.suffixes_reader.skip_bytes(self.suffix_length as i64)?;
-
-            let exists = {
-                let mut ste = self.ste.borrow_mut();
-                ste.term_exists = (code & 1) == 0;
-                ste.term_exists
-            };
-            if exists {
-                self.state.get_block_term_state().term_block_ord += 1;
-                self.sub_code = 0;
+        debug_assert!(Self::prefix_matches(frame_idx, target, ste));
+        while {
+            let frame = if frame_idx == ste.static_frame_idx {
+                &mut ste.static_frame
             } else {
-                self.sub_code = self.suffix_lengths_reader.read_vlong()?;
-                self.last_sub_fp = self.fp - self.sub_code;
-            }
+                &mut ste.stack[frame_idx]
+            };
+            frame.next_ent < frame.ent_count
+        } {
+            let cmp = {
+                let frame = if frame_idx == ste.static_frame_idx {
+                    &mut ste.static_frame
+                } else {
+                    &mut ste.stack[frame_idx]
+                };
+                frame.next_ent += 1;
+                let code = frame.suffix_lengths_reader.read_vint()?;
+                frame.suffix_length = (code as u32 >> 1) as i32;
+                debug_assert!(frame.suffixes_reader.get_position() <= i32::MAX as usize);
+                frame.start_byte_pos = frame.suffixes_reader.get_position() as i32;
+                frame
+                    .suffixes_reader
+                    .skip_bytes(frame.suffix_length as i64)?;
 
-            let suffix_start = self.start_byte_pos as usize;
-            let suffix_end = suffix_start + self.suffix_length as usize;
+                let exists = {
+                    ste.term_exists = (code & 1) == 0;
+                    ste.term_exists
+                };
+                if exists {
+                    frame.state.get_block_term_state().term_block_ord += 1;
+                    frame.sub_code = 0;
+                } else {
+                    frame.sub_code = frame.suffix_lengths_reader.read_vlong()?;
+                    frame.last_sub_fp = frame.fp - frame.sub_code;
+                }
 
-            let cmp = self.suffix_bytes[suffix_start..suffix_end]
-                .cmp(
-                    &target.bytes[target.offset + self.prefix_length as usize
-                        ..target.offset + target.length],
-                )
-                .to_int();
+                let suffix_start = frame.start_byte_pos as usize;
+                let suffix_end = suffix_start + frame.suffix_length as usize;
+
+                frame.suffix_bytes[suffix_start..suffix_end]
+                    .cmp(
+                        &target.bytes[target.offset + frame.prefix_length as usize
+                            ..target.offset + target.length],
+                    )
+                    .to_int()
+            };
 
             if cmp < 0 {
                 // Current entry is still before the target;
                 // keep scanning
             } else if cmp > 0 {
-                // TODO: 等完成segment_terms_enum再来写
-                self.fill_term();
-                let ste = self.ste.borrow();
-                // if !exact_only && !ste.term_exists {
-                //     let prefix_len = self.prefix_length + self.suffix_length;
-                //     let mut new_frame = ste.push_frame(None, self.last_sub_fp, prefix_len);
-                //     new_frame.load_block()?;
-                //     while new_frame.next()? {
-                //         let next_prefix = ste.term.length();
-                //         new_frame = ste.push_frame(None, new_frame.last_sub_fp, next_prefix);
-                //         new_frame.load_block()?;
-                //     }
-                //     ste.current_frame = new_frame;
-                // }
+                Self::fill_term(frame_idx, ste);
+                if !exact_only && !ste.term_exists {
+                    // TODO this
+                    // We are on a sub-block, and caller wants
+                    // us to position to the next term after
+                    // the target, so we must recurse into the
+                    // sub-frame(s):
+                    let last_sub_fp = {
+                        let current_frame = if ste.current_frame_idx == ste.static_frame_idx {
+                            &mut ste.static_frame
+                        } else {
+                            &mut ste.stack[ste.current_frame_idx]
+                        };
+                        current_frame.last_sub_fp
+                    };
+                    let frame = if frame_idx == ste.static_frame_idx {
+                        &mut ste.static_frame
+                    } else {
+                        &mut ste.stack[frame_idx]
+                    };
+                    let prefix_len = frame.prefix_length + frame.suffix_length;
+                    let mut current_frame_idx = ste.push_frame(None, last_sub_fp, prefix_len)?;
+                    ste.current_frame_idx = current_frame_idx;
+
+                    Self::load_block(current_frame_idx, ste)?;
+                    while Self::next(current_frame_idx, ste)? {
+                        let last_sub_fp = {
+                            let current_frame = if ste.current_frame_idx == ste.static_frame_idx {
+                                &mut ste.static_frame
+                            } else {
+                                &mut ste.stack[ste.current_frame_idx]
+                            };
+                            current_frame.last_sub_fp
+                        };
+
+                        let next_prefix = ste.term.length();
+                        current_frame_idx =
+                            ste.push_frame(None, last_sub_fp, next_prefix as i32)?;
+                        Self::load_block(current_frame_idx, ste)?;
+                    }
+                }
 
                 return Ok(SeekStatus::NotFound);
             } else {
-                debug_assert!(self.ste.borrow_mut().term_exists);
-                self.fill_term();
+                debug_assert!(ste.term_exists);
+                Self::fill_term(frame_idx, ste);
                 return Ok(SeekStatus::Found);
             }
         }
@@ -861,22 +1091,29 @@ where
         // was fooz (and, eg, first term in the next block will
         // bee fop).
         if exact_only {
-            self.fill_term();
+            Self::fill_term(frame_idx, ste);
         }
 
         Ok(SeekStatus::End)
     }
-    pub(crate) fn fill_term(&mut self) {
-        let term_length = self.prefix_length + self.suffix_length;
-        let mut ste = self.ste.borrow_mut();
-
+    pub(crate) fn fill_term<I, P>(frame_idx: usize, ste: &mut SegmentTermsEnum<I, P>)
+    where
+        I: IndexInput,
+        P: PostingsReaderBase,
+    {
+        let frame = if frame_idx == ste.static_frame_idx {
+            &mut ste.static_frame
+        } else {
+            &mut ste.stack[frame_idx]
+        };
+        let term_length = frame.prefix_length + frame.suffix_length;
         ste.term.set_length(term_length as usize);
         ste.term.grow(term_length as usize);
 
         let dest: &mut [u8] = ste.term.get_bytes_mut_ref().bytes.as_mut();
-        let src = &self.suffix_bytes;
-        let start = self.start_byte_pos as usize;
-        let len = start + self.suffix_length as usize;
-        dest.copy_from(&src[start..start + len], self.prefix_length as usize);
+        let src = &frame.suffix_bytes;
+        let start = frame.start_byte_pos as usize;
+        let len = start + frame.suffix_length as usize;
+        dest.copy_from(&src[start..start + len], frame.prefix_length as usize);
     }
 }

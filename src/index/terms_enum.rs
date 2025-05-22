@@ -278,23 +278,15 @@ pub enum SeekStatus {
     /// A different term was found after the requested term.
     NotFound,
 }
-pub enum SeekAction<'a, I, P>
-where
-    I: IndexInput,
-    P: PostingsReaderBase,
-{
+pub enum SeekAction {
     ReturnTrue,
     Scan {
         target: BytesRef<Vec<u8>>,
-        current_frame: &'a mut SegmentTermsEnumFrame<'a, I, P>,
+        current_frame: SegmentTermsEnumFrame,
     },
 }
 
-impl<I, P> SeekAction<'_, I, P>
-where
-    I: IndexInput,
-    P: PostingsReaderBase,
-{
+impl SeekAction {
     pub fn get(&mut self) -> Result<bool> {
         match self {
             SeekAction::ReturnTrue => Ok(true),
@@ -303,9 +295,11 @@ where
                 target,
                 current_frame,
             } => {
-                current_frame.load_block()?;
-                let result = current_frame.scan_to_term(target, true)?;
-                Ok(matches!(result, SeekStatus::Found))
+                // TODO: not Implement
+                // current_frame.load_block(&mut self)?;
+                // let result = current_frame.scan_to_term(target, true, &mut self)?;
+                // Ok(matches!(result, SeekStatus::Found))
+                todo!()
             },
         }
     }

@@ -66,7 +66,7 @@ impl ToStringUtils {
     where
         AV: AccessVec<u8>,
     {
-        Self::bytes_ref_to_string(b.get_bytes_mut())
+        Self::bytes_ref_to_string(b.get_bytes_ref())
     }
     pub fn bytes_ref_to_string_from_slice(b: Vec<u8>) -> String {
         Self::bytes_ref_to_string(&BytesRef::from_bytes(b))
