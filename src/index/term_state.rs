@@ -16,8 +16,7 @@
  */
 use std::fmt::{Display, Formatter};
 
-use crate::codecs::block_term_state::BlockTermState;
-use crate::codecs::lucene101::lucene101_postings_format::IntBlockTermState;
+use crate::codecs::block_term_state::BlockTermStateEnum;
 use crate::index::base_terms_enum::TermStateImpl1;
 use crate::index::dummy::dummy_term_state_type::DummyTermState;
 use crate::index::ord_term_state::OrdTermState;
@@ -34,8 +33,7 @@ pub enum TermStateEnum {
     Dummy(DummyTermState),
     Impl1(TermStateImpl1),
     Ord(OrdTermState),
-    Block(BlockTermState),
-    IntBlock(IntBlockTermState),
+    Block(BlockTermStateEnum),
 }
 
 impl Display for TermStateEnum {

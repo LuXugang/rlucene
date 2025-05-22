@@ -57,13 +57,18 @@ impl Display for BlockTermState {
 impl TermState for BlockTermState {
     fn copy_from(&mut self, other: &TermStateEnum) -> Result<()> {
         match other {
-            TermStateEnum::Block(other) => {
-                self.doc_freq = other.doc_freq;
-                self.total_term_freq = other.total_term_freq;
-                self.term_block_ord = other.term_block_ord;
-                self.block_file_pointer = other.block_file_pointer;
-                self.ord = other.ord.clone();
-                Ok(())
+            TermStateEnum::Block(other) => match other {
+                BlockTermStateEnum::Block(block) => {
+                    self.doc_freq = block.doc_freq;
+                    self.total_term_freq = block.total_term_freq;
+                    self.term_block_ord = block.term_block_ord;
+                    self.block_file_pointer = block.block_file_pointer;
+                    self.ord = block.ord.clone();
+                    Ok(())
+                },
+                _ => Err(LuceneError::illegal_state(
+                    "enum other should be BlockTermState",
+                )),
             },
             _ => Err(LuceneError::illegal_state(
                 "enum other should be BlockTermState",
@@ -75,11 +80,13 @@ impl TermState for BlockTermState {
 #[derive(Clone)]
 pub enum BlockTermStateEnum {
     Int(IntBlockTermState),
+    Block(BlockTermState),
 }
 impl BlockTermStateEnum {
     pub fn get_block_term_state(&mut self) -> &mut BlockTermState {
         match self {
             BlockTermStateEnum::Int(int) => &mut int.base,
+            BlockTermStateEnum::Block(block) => block,
         }
     }
 }
@@ -94,6 +101,7 @@ impl TermState for BlockTermStateEnum {
     fn copy_from(&mut self, other: &TermStateEnum) -> Result<()> {
         match self {
             BlockTermStateEnum::Int(int) => int.copy_from(other),
+            BlockTermStateEnum::Block(block) => block.copy_from(other),
         }
     }
 }

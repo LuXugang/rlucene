@@ -16,7 +16,7 @@
  */
 use std::fmt::{Display, Formatter};
 
-use crate::codecs::block_term_state::BlockTermState;
+use crate::codecs::block_term_state::{BlockTermState, BlockTermStateEnum};
 use crate::codecs::lucene101::for_util::ForUtil;
 use crate::index::term_state::{TermState, TermStateEnum};
 use crate::util::error::lucene_error::LuceneError;
@@ -125,14 +125,19 @@ impl Display for IntBlockTermState {
 impl TermState for IntBlockTermState {
     fn copy_from(&mut self, other: &TermStateEnum) -> Result<()> {
         match other {
-            TermStateEnum::IntBlock(other) => {
-                self.doc_start_fp = other.doc_start_fp;
-                self.pos_start_fp = other.pos_start_fp;
-                self.pay_start_fp = other.pay_start_fp;
-                self.last_pos_block_offset = other.last_pos_block_offset;
-                self.singleton_doc_id = other.singleton_doc_id;
-                self.base = other.base.clone();
-                Ok(())
+            TermStateEnum::Block(other) => match other {
+                BlockTermStateEnum::Int(other) => {
+                    self.doc_start_fp = other.doc_start_fp;
+                    self.pos_start_fp = other.pos_start_fp;
+                    self.pay_start_fp = other.pay_start_fp;
+                    self.last_pos_block_offset = other.last_pos_block_offset;
+                    self.singleton_doc_id = other.singleton_doc_id;
+                    self.base = other.base.clone();
+                    Ok(())
+                },
+                _ => Err(LuceneError::illegal_state(
+                    "enum other should be IntBlockTermState",
+                )),
             },
             _ => Err(LuceneError::illegal_state(
                 "enum other should be IntBlockTermState",
