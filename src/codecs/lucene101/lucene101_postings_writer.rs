@@ -802,7 +802,7 @@ where
     fn encode_term_with_option(
         &mut self,
         out: &mut impl DataOutput,
-        field_info: &FieldInfo,
+        _field_info: &FieldInfo,
         state: Cow<BlockTermStateEnum>,
         absolute: bool,
         options: &FieldWriteOptions,

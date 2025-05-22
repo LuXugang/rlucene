@@ -49,7 +49,7 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 /// Use `CheckIndex` with the `-verbose` option to see summary statistics on the
 /// blocks in the dictionary.
 ///
-/// See [`Lucene90BlockTreeTermsWriter`](crate::codecs::lucene90::block_tree::lucene90_block_trree_terms_writer::Lucene90BlockTreeTermsWriter).
+/// See [`Lucene90BlockTreeTermsWriter`](crate::codecs::lucene90::block_tree::lucene90_block_tree_terms_writer::Lucene90BlockTreeTermsWriter).
 ///
 /// [`Lucene90BlockTreeTermsWriter`]: crate::codecs::lucene90::writer::Lucene90BlockTreeTermsWriter
 pub struct Lucene90BlockTreeTermsReader<I, P>
