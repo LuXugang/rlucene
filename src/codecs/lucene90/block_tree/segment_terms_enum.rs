@@ -407,9 +407,7 @@ where
                 arc_index = next_arc_idx;
 
                 let arc = &mut self.arcs[next_arc_idx];
-                {
-                    self.term.set_byte_at(target_upto, target_label as u8);
-                }
+                self.term.set_byte_at(target_upto, target_label as u8);
                 self.output_accumulator.push(arc.output());
                 target_upto += 1;
                 if arc.is_final() {
@@ -582,8 +580,7 @@ where
                 SegmentTermsEnumFrame::load_block(self.current_frame_idx, self)?;
                 continue;
             } else {
-                // could we avoid copy here?
-                let term = self.term.get_bytes_ref_copy();
+                let term = self.term.get_bytes_ref();
                 Some(term)
             };
         }
@@ -809,7 +806,7 @@ where
     ) -> Result<()> {
         debug_assert!(self.clear_eof());
         if target.cmp(self.term.get_bytes_mut_ref()).to_int() != 0 || !self.term_exists {
-            if let TermStateEnum::Block(block_state) = other_state {
+            if let TermStateEnum::Block(_) = other_state {
                 self.static_frame.state.copy_from(other_state)?;
                 self.current_frame_idx = self.static_frame_idx;
                 self.term.copy_bytes_with_ref(target);

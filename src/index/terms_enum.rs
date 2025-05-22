@@ -52,7 +52,6 @@ pub trait TermsEnum: BytesRefIterator {
     fn seek_exact(&mut self, term: &BytesRef<Self::AV>) -> Result<bool> {
         Ok(self.seek_ceil(term)? == SeekStatus::Found)
     }
-
     /// Two-phase [`seek_exact`](TermsEnum::seek_exact). The first phase
     /// typically calls [`IndexInput::prefetch`] on the right range of bytes
     /// under the hood, while the second phase
