@@ -297,7 +297,8 @@ impl Compressor for LZ4FastCompressor {
         let len = buffers_input.length() as i32;
         let mut bytes = vec![0u8; len as usize];
         DataInput::read_bytes(buffers_input, bytes.as_mut_slice(), 0, len)?;
-        LZ4::compress(bytes, 0, len, out, &mut self.ht)
+        let _ = LZ4::compress(bytes, 0, len, out, &mut self.ht)?;
+        Ok(())
     }
 }
 
@@ -320,7 +321,8 @@ impl Compressor for LZ4HighCompressor {
         let len = buffers_input.length() as i32;
         let mut bytes = vec![0u8; len as usize];
         DataInput::read_bytes(buffers_input, bytes.as_mut_slice(), 0, len)?;
-        LZ4::compress(bytes, 0, len, out, &mut self.ht)
+        let _ = LZ4::compress(bytes, 0, len, out, &mut self.ht)?;
+        Ok(())
     }
 }
 

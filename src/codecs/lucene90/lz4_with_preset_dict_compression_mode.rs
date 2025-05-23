@@ -223,6 +223,7 @@ impl LZ4WithPresetDictCompressor {
             buffer: Vec::new(),
         }
     }
+    // TODO: 如果有必要的话，这里可以设计为归还所有权?
     fn do_compress(
         &mut self,
         bytes: Vec<u8>,
@@ -231,7 +232,7 @@ impl LZ4WithPresetDictCompressor {
         out: &mut impl DataOutput,
     ) -> Result<()> {
         let prev_compressed_size = self.compressed.size();
-        LZ4::compress_with_dictionary(
+        let _ = LZ4::compress_with_dictionary(
             bytes,
             0,
             dict_len,
