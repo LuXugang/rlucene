@@ -18,7 +18,7 @@ use std::borrow::Cow;
 use std::fmt;
 use std::rc::Rc;
 
-use crate::codecs::block_term_state::{BlockTermState, BlockTermStateEnum};
+use crate::codecs::block_term_state::BlockTermStateEnum;
 use crate::codecs::block_tree::lucene90_block_tree_terms_reader::lucene90_bttr_util;
 use crate::codecs::postings_writer_base::PostingsWriterBase;
 use crate::index::field_info::FieldInfo;
@@ -62,7 +62,7 @@ impl PendingTerm {
     pub fn new(term: &BytesRef<Vec<u8>>, state: BlockTermStateEnum) -> Self {
         Self {
             term_bytes: term.bytes[term.offset..term.offset + term.length].to_vec(),
-            state:state,
+            state,
         }
     }
 }
@@ -145,7 +145,7 @@ where
         let mut estimate_size = self.prefix.length as i64;
         for block in blocks.iter() {
             for sub_index in &block.sub_indices {
-                estimate_size += sub_index.num_bytes() as i64;
+                estimate_size += sub_index.num_bytes();
             }
         }
 
@@ -191,7 +191,7 @@ where
                 fst_compiler.compile()?,
                 Some(fst_compiler.inner.borrow_mut().get_fst_reader()?),
             )
-                .unwrap(),
+            .unwrap(),
         );
 
         debug_assert!(self.sub_indices.is_empty());
@@ -330,11 +330,14 @@ where
             let mut stats_writer =
                 StatsWriter::new(*self.field_info.get_index_options() != IndexOptions::DOCS);
             for i in start..end {
-                let term = match  &self.pending[i] {
-                    PendingEntryEnum::Term(term) => term.clone(),
-                    _ => return Err(LuceneError::illegal_state("Expected PendingTerm"))
+                let term = match &self.pending[i] {
+                    PendingEntryEnum::Term(term) => term,
+                    _ => return Err(LuceneError::illegal_state("Expected PendingTerm")),
                 };
-                debug_assert!(StringHelper::starts_with_byte_array(&term.term_bytes, &prefix));
+                debug_assert!(StringHelper::starts_with_byte_array(
+                    &term.term_bytes,
+                    &prefix
+                ));
                 let state = &term.state;
                 let suffix = term.term_bytes.len() - prefix_length;
 
@@ -349,13 +352,18 @@ where
                 match state {
                     BlockTermStateEnum::Block(block) => {
                         stats_writer.add(terms_out, block.doc_freq, block.total_term_freq)?;
-                    }
+                    },
                     BlockTermStateEnum::Int(int) => {
                         stats_writer.add(terms_out, int.base.doc_freq, int.base.total_term_freq)?;
-                    }
+                    },
                 }
 
-                postings_writer.encode_term(terms_out, &self.field_info, Cow::Borrowed(state), absolute)?;
+                postings_writer.encode_term(
+                    terms_out,
+                    &self.field_info,
+                    Cow::Borrowed(state),
+                    absolute,
+                )?;
                 absolute = false;
             }
             stats_writer.finish(terms_out)?;
@@ -365,34 +373,57 @@ where
             for i in start..end {
                 match &mut self.pending[i] {
                     PendingEntryEnum::Term(term) => {
-                        debug_assert!(StringHelper::starts_with_byte_array(&term.term_bytes, &prefix));
+                        debug_assert!(StringHelper::starts_with_byte_array(
+                            &term.term_bytes,
+                            &prefix
+                        ));
                         let state = &term.state;
                         let suffix_len = term.term_bytes.len() - prefix_length;
 
-                        self.suffix_lengths_writer.write_vint((suffix_len << 1) as i32)?;
-                        self.suffix_writer
-                            .append_with_range(&term.term_bytes, prefix_length, suffix_len);
+                        self.suffix_lengths_writer
+                            .write_vint((suffix_len << 1) as i32)?;
+                        self.suffix_writer.append_with_range(
+                            &term.term_bytes,
+                            prefix_length,
+                            suffix_len,
+                        );
                         match state {
                             BlockTermStateEnum::Block(block) => {
-                                stats_writer.add(terms_out, block.doc_freq, block.total_term_freq)?;
-                            }
+                                stats_writer.add(
+                                    terms_out,
+                                    block.doc_freq,
+                                    block.total_term_freq,
+                                )?;
+                            },
                             BlockTermStateEnum::Int(int) => {
-                                stats_writer.add(terms_out, int.base.doc_freq, int.base.total_term_freq)?;
-                            }
+                                stats_writer.add(
+                                    terms_out,
+                                    int.base.doc_freq,
+                                    int.base.total_term_freq,
+                                )?;
+                            },
                         }
                         // meta
-                        postings_writer.encode_term(terms_out, &self.field_info, Cow::Borrowed(state), absolute)?;
+                        postings_writer.encode_term(
+                            terms_out,
+                            &self.field_info,
+                            Cow::Borrowed(state),
+                            absolute,
+                        )?;
                         absolute = false;
-                    }
+                    },
                     PendingEntryEnum::Block(block) => {
                         debug_assert!(StringHelper::starts_with_byte_ref(&block.prefix, &prefix));
-                        let suffix= block.prefix.length - prefix_length;
+                        let suffix = block.prefix.length - prefix_length;
                         debug_assert!(suffix > 0);
 
                         // write block suffix
                         terms_out.write_vint(((suffix << 1) | 1) as i32)?;
-                        self.suffix_writer
-                            .append_with_range(&block.prefix.bytes,prefix_length,suffix);
+                        self.suffix_writer.append_with_range(
+                            &block.prefix.bytes,
+                            prefix_length,
+                            suffix,
+                        );
 
                         debug_assert!(
                             floor_lead_label == -1
@@ -402,7 +433,7 @@ where
 
                         terms_out.write_vlong(start_fp - block.fp)?;
                         // sub_indices.push(block.index.clone().unwrap());
-                    }
+                    },
                 }
             }
             stats_writer.finish(terms_out)?;
@@ -420,15 +451,15 @@ pub(crate) mod lucene90_bttw_util {
         debug_assert!(fp < (1i64 << 62));
         (fp << 2)
             | if has_terms {
-            lucene90_bttr_util::OUTPUT_FLAG_HAS_TERMS as i64
-        } else {
-            0
-        }
+                lucene90_bttr_util::OUTPUT_FLAG_HAS_TERMS as i64
+            } else {
+                0
+            }
             | if is_floor {
-            lucene90_bttr_util::OUTPUT_FLAG_IS_FLOOR as i64
-        } else {
-            0
-        }
+                lucene90_bttr_util::OUTPUT_FLAG_IS_FLOOR as i64
+            } else {
+                0
+            }
     }
 
     pub(crate) fn write_msb_vlong(out: &mut impl DataOutput, mut l: i64) -> Result<()> {

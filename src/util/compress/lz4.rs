@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use std::rc::Rc;
+
 use crate::store::{DataInput, DataOutput};
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -319,11 +320,9 @@ impl LZ4 {
         assert!(literal_len >= LZ4::LAST_LITERALS || literal_len == len);
         LZ4::encode_last_literals(bytes.as_slice(), anchor, literal_len, out)?;
         match Rc::try_unwrap(bytes) {
-            Ok(vec) => {
-               Ok(vec)
-            },
+            Ok(vec) => Ok(vec),
             Err(_) => Err(LuceneError::illegal_state("bytes's rc count should be 1")),
-        } 
+        }
     }
 }
 
@@ -760,7 +759,8 @@ impl HashTable for HashTableEnum {
 #[cfg(test)]
 mod tests {
     use std::rc::Rc;
-    use rand::{Rng};
+
+    use rand::Rng;
 
     use crate::store::{ByteArrayDataInput, ByteBuffersDataOutput, DataOutput};
     use crate::test::util::lucene_test_case::random;
