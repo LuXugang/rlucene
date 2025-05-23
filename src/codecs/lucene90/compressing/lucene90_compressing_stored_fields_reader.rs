@@ -722,8 +722,8 @@ where
 
         self.sliced = (token & 1) != 0;
 
-        ArrayUtil::grow_no_copy(&self.offsets, self.chunk_docs as usize + 1);
-        ArrayUtil::grow_no_copy(&self.num_stored_fields, self.chunk_docs as usize);
+        ArrayUtil::grow_with_len(&mut self.offsets, self.chunk_docs as usize + 1);
+        ArrayUtil::grow_with_len(&mut self.num_stored_fields, self.chunk_docs as usize);
 
         if self.chunk_docs == 1 {
             self.num_stored_fields[0] = stream.read_vint()? as i64;
