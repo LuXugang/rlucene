@@ -19,14 +19,19 @@ use std::fmt;
 use std::rc::Rc;
 
 use crate::codecs::block_term_state::BlockTermStateEnum;
+use crate::codecs::block_tree::compression_algorithm::CompressionAlgorithm;
 use crate::codecs::block_tree::lucene90_block_tree_terms_reader::lucene90_bttr_util;
 use crate::codecs::postings_writer_base::PostingsWriterBase;
 use crate::index::field_info::FieldInfo;
 use crate::index::index_options::IndexOptions;
 use crate::index::{BytesRef, BytesRefBuilder};
 use crate::store::dummy::dummy_directory::DummyDirectory;
-use crate::store::{ByteBuffersDataOutput, DataOutput, IndexInput, IndexOutput};
-use crate::util::compress::lz4;
+use crate::store::{
+    ByteArrayDataOutput, ByteBuffersDataOutput, DataOutput, IndexInput, IndexOutput,
+};
+use crate::util::array_util::ArrayUtil;
+use crate::util::compress::lowercase_ascii_compression::LowercaseAsciiCompression;
+use crate::util::compress::lz4::{HashTableEnum, HighCompressionHashTable, LZ4};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs;
@@ -278,7 +283,7 @@ pub struct TermsWriter<I: IndexInput> {
     pub meta_writer: ByteBuffersDataOutput,
     pub spare_writer: ByteBuffersDataOutput,
     pub spare_bytes: Vec<u8>,
-    pub compression_hash_table: lz4::HighCompressionHashTable,
+    pub compression_hash_table: Option<HashTableEnum>,
 }
 impl<I: IndexInput> TermsWriter<I>
 where
@@ -323,7 +328,7 @@ where
         terms_out.write_vint(code)?;
 
         let is_leaf = !has_sub_blocks;
-        // let mut sub_indices = Vec::new();
+        let sub_indices = Vec::new();
         let mut absolute = true;
 
         if is_leaf {
@@ -437,9 +442,125 @@ where
                 }
             }
             stats_writer.finish(terms_out)?;
-            // debug_assert!(!sub_indices.is_empty());
+            debug_assert!(!sub_indices.is_empty());
         }
-        todo!()
+        // Write suffixes byte[] blob to terms dict output, either uncompressed,
+        // compressed with LZ4 or with LowercaseAsciiCompression.
+        let mut compression_alg = CompressionAlgorithm::NoCompression;
+        let suffix_len = self.suffix_writer.length();
+        // If there are 2 suffix bytes or less per term, then we don't bother
+        // compressing as suffix are unlikely what
+        // makes the terms dictionary large, and it also tends to be frequently the case
+        // for dense IDs like
+        // auto-increment IDs, so not compressing in that case helps not hurt ID lookups
+        // by too much. We also only start compressing when the prefix length is
+        // greater than 2 since blocks whose prefix length is
+        // 1 or 2 always all get visited when running a fuzzy query whose max number of
+        // edits is 2.
+        if suffix_len > 2 * num_entries && prefix_length > 2 {
+            if suffix_len > 6 * num_entries {
+                if self.compression_hash_table.is_none() {
+                    self.compression_hash_table =
+                        Some(HashTableEnum::High(HighCompressionHashTable::default()));
+                }
+                let bytes = LZ4::compress(
+                    std::mem::take(&mut self.suffix_writer.bytes_ref.bytes),
+                    0,
+                    suffix_len.try_into()?,
+                    &mut self.spare_writer,
+                    self.compression_hash_table.as_mut().unwrap(),
+                )?;
+                // take ownership back
+                self.suffix_writer.bytes_ref.bytes = bytes;
+
+                if self.spare_writer.size() < (suffix_len - (suffix_len >> 2)) as i64 {
+                    compression_alg = CompressionAlgorithm::Lz4;
+                }
+            }
+
+            if compression_alg == CompressionAlgorithm::NoCompression {
+                self.spare_writer.reset();
+
+                if self.spare_bytes.len() < suffix_len {
+                    self.spare_bytes = vec![0u8; ArrayUtil::oversize(suffix_len, 1)];
+                }
+
+                if LowercaseAsciiCompression::compress(
+                    &self.suffix_writer.bytes_ref.bytes,
+                    suffix_len,
+                    &mut self.spare_bytes,
+                    &mut self.spare_writer,
+                )? {
+                    compression_alg = CompressionAlgorithm::LowercaseAscii;
+                }
+            }
+        }
+
+        let mut token = (suffix_len as u64) << 3;
+        if is_leaf {
+            token |= 0x04;
+        }
+        token |= compression_alg.code() as u64;
+        terms_out.write_vlong(token.try_into()?)?;
+
+        if compression_alg == CompressionAlgorithm::NoCompression {
+            terms_out.write_bytes_with_len(
+                &self.suffix_writer.bytes_ref.bytes,
+                suffix_len.try_into()?,
+            )?;
+        } else {
+            self.spare_writer.copy_to(terms_out)?;
+        }
+        self.suffix_writer.set_length(0);
+        self.spare_writer.reset();
+
+        // suffix lengths
+        let num_suffix_bytes = self.suffix_lengths_writer.size().try_into()?;
+        if let Some(v) = ArrayUtil::grow_no_copy(&self.spare_bytes, num_suffix_bytes) {
+            self.spare_bytes = v
+        }
+        {
+            let mut data_output =
+                ByteArrayDataOutput::with_bytes(std::mem::take(&mut self.spare_bytes));
+            self.suffix_lengths_writer.copy_to(&mut data_output)?;
+            self.spare_bytes = std::mem::take(&mut data_output.bytes);
+        }
+        self.suffix_lengths_writer.reset();
+
+        if Self::all_equal(&self.spare_bytes, 1, num_suffix_bytes, self.spare_bytes[0])? {
+            debug_assert!(num_suffix_bytes <= i32::MAX as usize);
+            terms_out.write_vint(((num_suffix_bytes << 1) | 1) as i32)?;
+            terms_out.write_byte(self.spare_bytes[0])?;
+        } else {
+            debug_assert!(num_suffix_bytes <= i32::MAX as usize);
+            terms_out.write_vint((num_suffix_bytes << 1) as i32)?;
+            terms_out.write_bytes_with_len(&self.spare_bytes, num_suffix_bytes as i32)?;
+        }
+
+        // stats
+        let num_stats_bytes = self.stats_writer.size() as i32;
+        terms_out.write_vint(num_stats_bytes)?;
+        self.stats_writer.copy_to(terms_out)?;
+        self.stats_writer.reset();
+
+        // meta
+        terms_out.write_vint(self.meta_writer.size() as i32)?;
+        self.meta_writer.copy_to(terms_out)?;
+        self.meta_writer.reset();
+
+        if has_floor_lead {
+            prefix.bytes[prefix.length] = floor_lead_label as u8;
+            prefix.length += 1;
+        }
+
+        Ok(PendingBlock::new(
+            prefix,
+            start_fp,
+            has_terms,
+            is_floor,
+            floor_lead_label,
+            sub_indices,
+        ))
     }
 }
 
