@@ -227,11 +227,9 @@ where
             if random.random_bool(0.5) {
                 let ctx = new_io_context(&mut random)?;
                 {
-                    let out = Rc::new(RefCell::new(
-                        self.dir.borrow_mut().create_output("fst.bin", &ctx)?,
-                    ));
+                    let mut out = self.dir.borrow_mut().create_output("fst.bin", &ctx)?;
                     if let Some(fst_ref) = &mut fst {
-                        fst_ref.save(out.clone(), out)?;
+                        fst_ref.save_with_same_data_out(&mut out)?;
                     }
                 }
                 let mut input = self.dir.borrow_mut().open_input("fst.bin", &ctx)?;

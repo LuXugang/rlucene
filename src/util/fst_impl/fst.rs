@@ -106,22 +106,24 @@ where
     ///
     /// * `metaOut` - the DataOutput to write the metadata to
     /// * `out` - the DataOutput to write the FST bytes to
-    pub fn save<D: DataOutput>(
+    pub fn save(
         &mut self,
-        meta_out: Rc<RefCell<D>>,
-        out: Rc<RefCell<D>>,
+        meta_out: &mut impl DataOutput,
+        out: &mut impl DataOutput,
     ) -> Result<()> {
-        self.metadata
-            .as_ref()
-            .unwrap()
-            .save(&mut *meta_out.borrow_mut())?;
-        self.fst_reader.write_to(&mut *out.borrow_mut())
+        self.metadata.as_ref().unwrap().save(meta_out)?;
+        self.fst_reader.write_to(out)
     }
+    pub fn save_with_same_data_out(&mut self, out: &mut impl DataOutput) -> Result<()> {
+        self.metadata.as_ref().unwrap().save(out)?;
+        self.fst_reader.write_to(out)
+    }
+
     /// Writes the automaton to a file.
     pub fn save_to_path(&mut self, path: &PathBuf) -> Result<()> {
         let file = File::create(path)?; // or: path.as_path()
-        let out = Rc::new(RefCell::new(OutputStreamDataOutput::new(file)));
-        self.save(out.clone(), out)?;
+        let mut out = OutputStreamDataOutput::new(file);
+        self.save_with_same_data_out(&mut out)?;
         Ok(())
     }
     /// Reads the automaton from a file.
@@ -1993,8 +1995,8 @@ mod tests {
         // Save into a single output
         let mut bytes = Vec::new();
         {
-            let out = Rc::new(RefCell::new(OutputStreamDataOutput::new(&mut bytes)));
-            fst.save(out.clone(), out.clone())?;
+            let mut out = OutputStreamDataOutput::new(&mut bytes);
+            fst.save_with_same_data_out(&mut out)?;
         }
         // Load it back using split input (force FSTStore path)
         let mut input = ByteArrayDataInput::with_bytes(bytes);
@@ -2008,9 +2010,9 @@ mod tests {
         let mut metdata_os = Vec::new();
         let mut data_os_os = Vec::new();
         {
-            let meta_out = Rc::new(RefCell::new(OutputStreamDataOutput::new(&mut metdata_os)));
-            let data_out = Rc::new(RefCell::new(OutputStreamDataOutput::new(&mut data_os_os)));
-            loaded_fst.save(meta_out, data_out)?;
+            let mut meta_out = OutputStreamDataOutput::new(&mut metdata_os);
+            let mut data_out = OutputStreamDataOutput::new(&mut data_os_os);
+            loaded_fst.save(&mut meta_out, &mut data_out)?;
         }
 
         // Load again using split inputs
@@ -2097,10 +2099,8 @@ mod tests {
         let mut random = random();
         let mut dir = new_directory(&mut random)?;
         {
-            let out = Rc::new(RefCell::new(
-                dir.create_output("fst", &IOContext::default_io_context()?)?,
-            ));
-            fst.save(out.clone(), out)?;
+            let mut out = dir.create_output("fst", &IOContext::default_io_context()?)?;
+            fst.save_with_same_data_out(&mut out)?;
         }
         // skip string writer
         check_stop_nodes(&mut fst, outputs.clone())?;
