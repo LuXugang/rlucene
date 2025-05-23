@@ -30,6 +30,7 @@ use crate::store::{
     ByteArrayDataOutput, ByteBuffersDataOutput, DataOutput, IndexInput, IndexOutput,
 };
 use crate::util::array_util::ArrayUtil;
+use crate::util::bit_set::BitSet;
 use crate::util::compress::lowercase_ascii_compression::LowercaseAsciiCompression;
 use crate::util::compress::lz4::{HashTableEnum, HighCompressionHashTable, LZ4};
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -40,14 +41,16 @@ use crate::util::fst_impl::fst::{fst_util, InputType, FST};
 use crate::util::fst_impl::fst_compiler::{
     fst_compiler_util, Builder, DataOutputEnum, FSTCompiler,
 };
-use crate::util::fst_impl::off_heap_fst_store::OffHeapFSTStore;
 use crate::util::fst_impl::util::Util;
 use crate::util::ints_ref_builder::IntsRefBuilder;
 use crate::util::packed::PackedInts;
 use crate::util::to_string_utils::ToStringUtils;
 use crate::util::{CoreHelper, SliceCopyOps, StringHelper};
 
-pub struct Lucene90BlockTreeTermsWriter;
+pub struct Lucene90BlockTreeTermsWriter {
+    first_pending_term: Option<PendingTerm>,
+    last_pending_term: PendingTerm,
+}
 
 trait PendingEntry {
     fn is_term(&self) -> bool;
@@ -77,30 +80,27 @@ impl fmt::Display for PendingTerm {
         write!(f, "TERM: {}", s)
     }
 }
-pub struct PendingBlock<I>
-where
-    I: IndexInput,
-{
+pub struct PendingBlock {
     pub prefix: BytesRef<Vec<u8>>,
     pub fp: i64,
     pub index:
         Option<FST<BytesRef<Rc<Vec<u8>>>, ByteSequenceOutputs, DataOutputEnum<DummyDirectory>>>,
-    pub sub_indices: Vec<FST<BytesRef<Rc<Vec<u8>>>, ByteSequenceOutputs, OffHeapFSTStore<I>>>,
+    pub sub_indices:
+        Vec<FST<BytesRef<Rc<Vec<u8>>>, ByteSequenceOutputs, DataOutputEnum<DummyDirectory>>>,
     pub has_terms: bool,
     pub is_floor: bool,
     pub floor_lead_byte: i32,
 }
-impl<I> PendingBlock<I>
-where
-    I: IndexInput,
-{
+impl PendingBlock {
     pub fn new(
         prefix: BytesRef<Vec<u8>>,
         fp: i64,
         has_terms: bool,
         is_floor: bool,
         floor_lead_byte: i32,
-        sub_indices: Vec<FST<BytesRef<Rc<Vec<u8>>>, ByteSequenceOutputs, OffHeapFSTStore<I>>>,
+        sub_indices: Vec<
+            FST<BytesRef<Rc<Vec<u8>>>, ByteSequenceOutputs, DataOutputEnum<DummyDirectory>>,
+        >,
     ) -> Self {
         Self {
             prefix,
@@ -113,41 +113,51 @@ where
         }
     }
     fn compile_index(
-        &mut self,
-        mut blocks: Vec<PendingBlock<I>>,
+        mut blocks: Vec<PendingBlock>,
         scratch_bytes: &mut ByteBuffersDataOutput,
         scratch_ints_ref: &mut IntsRefBuilder<Vec<i32>>,
         version: i32,
-    ) -> Result<()> {
+    ) -> Result<PendingBlock> {
         debug_assert!(
-            (self.is_floor && blocks.len() > 1) || (!self.is_floor && blocks.len() == 1),
+            (blocks.len() > 1 && blocks[0].is_floor) || (!blocks[0].is_floor && blocks.len() == 1),
             "is_floor={}, blocks.len()={}",
-            self.is_floor,
+            blocks[0].is_floor,
             blocks.len()
         );
-        debug_assert!(std::ptr::eq(self, &blocks[0]));
         debug_assert_eq!(scratch_bytes.size(), 0);
 
-        let output = lucene90_bttw_util::encode_output(self.fp, self.has_terms, self.is_floor);
-        if version >= lucene90_bttr_util::VERSION_MSB_VLONG_OUTPUT {
-            lucene90_bttw_util::write_msb_vlong(scratch_bytes, output)?;
-        } else {
-            scratch_bytes.write_vlong(output)?;
-        }
+        let (is_floor, fp, prefix_len) = {
+            let first_block = &mut blocks[0];
+            let output = lucene90_bttw_util::encode_output(
+                first_block.fp,
+                first_block.has_terms,
+                first_block.is_floor,
+            );
+            if version >= lucene90_bttr_util::VERSION_MSB_VLONG_OUTPUT {
+                lucene90_bttw_util::write_msb_vlong(scratch_bytes, output)?;
+            } else {
+                scratch_bytes.write_vlong(output)?;
+            }
+            (
+                first_block.is_floor,
+                first_block.fp,
+                first_block.prefix.length,
+            )
+        };
 
-        if self.is_floor {
+        if is_floor {
             debug_assert!((blocks.len() - 1) <= i32::MAX as usize);
             scratch_bytes.write_vint((blocks.len() - 1) as i32)?;
             for block in &blocks[1..] {
                 debug_assert!(block.floor_lead_byte != -1);
                 scratch_bytes.write_byte(block.floor_lead_byte as u8)?;
-                debug_assert!(block.fp > self.fp);
-                let delta_fp = ((block.fp - self.fp) << 1) | if block.has_terms { 1 } else { 0 };
+                debug_assert!(block.fp > fp);
+                let delta_fp = ((block.fp - fp) << 1) | if block.has_terms { 1 } else { 0 };
                 scratch_bytes.write_vlong(delta_fp)?;
             }
         }
 
-        let mut estimate_size = self.prefix.length as i64;
+        let mut estimate_size = prefix_len as i64;
         for block in blocks.iter() {
             for sub_index in &block.sub_indices {
                 estimate_size += sub_index.num_bytes();
@@ -178,7 +188,7 @@ where
         let len = bytes.len();
         debug_assert!(!bytes.is_empty());
 
-        Util::get_ints_ref(&self.prefix, scratch_ints_ref);
+        Util::get_ints_ref(&blocks[0].prefix, scratch_ints_ref);
         fst_compiler.add(
             scratch_ints_ref.get(),
             BytesRef::from_slice(Rc::from(bytes), 0, len),
@@ -190,8 +200,8 @@ where
                 block.append(&mut fst_compiler, sub_index, scratch_ints_ref)?;
             }
         }
-
-        self.index = Some(
+        let first_block = &mut blocks[0];
+        first_block.index = Some(
             FST::from_fst_reader(
                 fst_compiler.compile()?,
                 Some(fst_compiler.inner.borrow_mut().get_fst_reader()?),
@@ -199,14 +209,13 @@ where
             .unwrap(),
         );
 
-        debug_assert!(self.sub_indices.is_empty());
-
-        Ok(())
+        debug_assert!(first_block.sub_indices.is_empty());
+        Ok(blocks.remove(0))
     }
     fn append(
         &self,
         fst_compiler: &mut FSTCompiler<BytesRef<Rc<Vec<u8>>>, ByteSequenceOutputs, DummyDirectory>,
-        sub_index: FST<BytesRef<Rc<Vec<u8>>>, ByteSequenceOutputs, OffHeapFSTStore<I>>,
+        sub_index: FST<BytesRef<Rc<Vec<u8>>>, ByteSequenceOutputs, DataOutputEnum<DummyDirectory>>,
         scratch_ints_ref: &mut IntsRefBuilder<Vec<i32>>,
     ) -> Result<()> {
         let mut sub_index_enum = BytesRefFSTEnum::new(sub_index)?;
@@ -253,42 +262,157 @@ impl StatsWriter {
         Ok(())
     }
 }
-pub struct TermsWriter<I: IndexInput> {
-    pub field_info: FieldInfo,
-    pub num_terms: i64,
-    pub docs_seen: FixedBitSet,
-    pub sum_total_term_freq: i64,
-    pub sum_doc_freq: i64,
+pub struct TermsWriter {
+    field_info: FieldInfo,
+    num_terms: i64,
+    docs_seen: FixedBitSet,
+    sum_total_term_freq: i64,
+    sum_doc_freq: i64,
     // Records index into pending where the current prefix at that
     // length "started"; for example, if current term starts with 't',
     // startsByPrefix[0] is the index into pending for the first
     // term/sub-block starting with 't'.  We use this to figure out when
     // to write a new block:
-    pub last_term: BytesRefBuilder<Vec<u8>>,
-    pub prefix_starts: Vec<usize>,
+    last_term: BytesRefBuilder<Vec<u8>>,
+    prefix_starts: Vec<usize>,
     // Pending stack of terms and blocks.  As terms arrive (in sorted order)
     // we append to this stack, and once the top of the stack has enough
     // terms starting with a common prefix, we write a new block with
     // those terms and replace those terms in the stack with a new block:
-    pub pending: Vec<PendingEntryEnum<I>>,
+    pending: Vec<PendingEntryEnum>,
     // Reused in writeBlocks:
-    pub new_blocks: Vec<PendingBlock<I>>,
-
-    pub first_pending_term: Option<PendingTerm>,
-    pub last_pending_term: Option<PendingTerm>,
-
-    pub suffix_lengths_writer: ByteBuffersDataOutput,
-    pub suffix_writer: BytesRefBuilder<Vec<u8>>,
-    pub stats_writer: ByteBuffersDataOutput,
-    pub meta_writer: ByteBuffersDataOutput,
-    pub spare_writer: ByteBuffersDataOutput,
-    pub spare_bytes: Vec<u8>,
-    pub compression_hash_table: Option<HashTableEnum>,
+    new_blocks: Vec<PendingBlock>,
+    suffix_lengths_writer: ByteBuffersDataOutput,
+    suffix_writer: BytesRefBuilder<Vec<u8>>,
+    stats_writer: ByteBuffersDataOutput,
+    meta_writer: ByteBuffersDataOutput,
+    spare_writer: ByteBuffersDataOutput,
+    spare_bytes: Vec<u8>,
+    compression_hash_table: Option<HashTableEnum>,
+    min_items_in_block: i32,
+    max_items_in_block: i32,
+    scratch_bytes: ByteBuffersDataOutput,
+    scratch_ints_ref: IntsRefBuilder<Vec<i32>>,
+    version: i32,
 }
-impl<I: IndexInput> TermsWriter<I>
-where
-    I: IndexInput,
-{
+impl TermsWriter {
+    pub fn write_blocks<O, PW>(
+        &mut self,
+        prefix_length: usize,
+        count: usize,
+        terms_out: &mut O,
+        postings_writer: &mut PW,
+    ) -> Result<()>
+    where
+        O: IndexOutput,
+        PW: PostingsWriterBase,
+    {
+        debug_assert!(count > 0);
+        debug_assert!(prefix_length > 0 || count == self.pending.len());
+
+        let mut last_suffix_lead_label = -1;
+        let mut has_terms = false;
+        let mut has_sub_blocks = false;
+
+        let start = self.pending.len() - count;
+        let end = self.pending.len();
+        let mut next_block_start = start;
+        let mut next_floor_lead_label = -1;
+
+        for i in start..end {
+            let (suffix_lead_label, is_term) = {
+                let ent = &self.pending[i];
+                (
+                    match ent {
+                        PendingEntryEnum::Term(term) => {
+                            if term.term_bytes.len() == prefix_length {
+                                debug_assert_eq!(
+                                    last_suffix_lead_label, -1,
+                                    "i={} last_suffix_lead_label={}",
+                                    i, last_suffix_lead_label
+                                );
+                                -1
+                            } else {
+                                term.term_bytes[prefix_length] as i32
+                            }
+                        },
+                        PendingEntryEnum::Block(block) => {
+                            debug_assert!(block.prefix.length > prefix_length);
+                            block.prefix.bytes[block.prefix.offset + prefix_length] as i32
+                        },
+                    },
+                    true,
+                )
+            };
+
+            if suffix_lead_label != last_suffix_lead_label {
+                let items_in_block = i - next_block_start;
+                if items_in_block >= self.min_items_in_block as usize
+                    && end - next_block_start > self.max_items_in_block as usize
+                {
+                    let is_floor = items_in_block < count;
+                    let block = self.write_block(
+                        prefix_length,
+                        is_floor,
+                        next_floor_lead_label,
+                        next_block_start,
+                        i,
+                        has_terms,
+                        has_sub_blocks,
+                        terms_out,
+                        postings_writer,
+                    )?;
+                    self.new_blocks.push(block);
+
+                    has_terms = false;
+                    has_sub_blocks = false;
+                    next_floor_lead_label = suffix_lead_label;
+                    next_block_start = i;
+                }
+                last_suffix_lead_label = suffix_lead_label;
+            }
+            if is_term {
+                has_terms = true;
+            } else {
+                has_sub_blocks = true;
+            }
+        }
+
+        if next_block_start < end {
+            let items_in_block = end - next_block_start;
+            let is_floor = items_in_block < count;
+            let block = self.write_block(
+                prefix_length,
+                is_floor,
+                next_floor_lead_label,
+                next_block_start,
+                end,
+                has_terms,
+                has_sub_blocks,
+                terms_out,
+                postings_writer,
+            )?;
+            self.new_blocks.push(block);
+        }
+
+        debug_assert!(!self.new_blocks.is_empty());
+
+        debug_assert!(self.new_blocks[0].is_floor || self.new_blocks.len() == 1);
+
+        let first_block = PendingBlock::compile_index(
+            std::mem::take(&mut self.new_blocks),
+            &mut self.scratch_bytes,
+            &mut self.scratch_ints_ref,
+            self.version,
+        )?;
+
+        let remove_start = self.pending.len() - count;
+        self.pending.drain(remove_start..);
+        self.pending.push(PendingEntryEnum::Block(first_block));
+
+        Ok(())
+    }
+
     fn all_equal(b: &[u8], start_offset: usize, end_offset: usize, value: u8) -> Result<bool> {
         CoreHelper::check_from_index_size(start_offset as i32, end_offset as i32, b.len() as i32)?;
         Ok(b[start_offset..end_offset].iter().all(|&x| x == value))
@@ -305,7 +429,7 @@ where
         has_sub_blocks: bool,
         terms_out: &mut O,
         postings_writer: &mut PW,
-    ) -> Result<PendingBlock<I>>
+    ) -> Result<PendingBlock>
     where
         O: IndexOutput,
         PW: PostingsWriterBase,
@@ -328,7 +452,7 @@ where
         terms_out.write_vint(code)?;
 
         let is_leaf = !has_sub_blocks;
-        let sub_indices = Vec::new();
+        let mut sub_indices = Vec::new();
         let mut absolute = true;
 
         if is_leaf {
@@ -437,7 +561,7 @@ where
                         debug_assert!(block.fp < start_fp);
 
                         terms_out.write_vlong(start_fp - block.fp)?;
-                        // sub_indices.push(block.index.clone().unwrap());
+                        sub_indices.push(block.index.take().unwrap());
                     },
                 }
             }
@@ -562,6 +686,173 @@ where
             sub_indices,
         ))
     }
+    pub fn write<O, PW>(
+        &mut self,
+        text: &BytesRef<Vec<u8>>,
+        terms_out: &mut O,
+        terms_enum: &mut PW::TermsEnum,
+        norms: &mut PW::Norms,
+        postings_writer: &mut PW,
+    ) -> Result<()>
+    where
+        O: IndexOutput,
+        PW: PostingsWriterBase,
+    {
+        let state_opt = postings_writer.write_term(text, terms_enum, &mut self.docs_seen, norms)?;
+
+        if let Some(state) = &state_opt {
+            let (total_term_freq, doc_freq) = match state {
+                BlockTermStateEnum::Block(block) => {
+                    debug_assert!(block.doc_freq != 0);
+                    (block.total_term_freq, block.doc_freq)
+                },
+                BlockTermStateEnum::Int(int) => {
+                    debug_assert!(int.base.doc_freq != 0);
+                    (int.base.total_term_freq, int.base.doc_freq)
+                },
+            };
+            debug_assert!(
+                *self.field_info.get_index_options() == IndexOptions::DOCS
+                    || total_term_freq > doc_freq as i64
+            );
+
+            self.push_term(text, terms_out, postings_writer)?;
+
+            let term = PendingTerm::new(text, state_opt.unwrap());
+            self.pending.push(PendingEntryEnum::Term(term));
+
+            self.sum_doc_freq += doc_freq as i64;
+            self.sum_total_term_freq += total_term_freq;
+            self.num_terms += 1;
+        }
+
+        Ok(())
+    }
+    fn push_term<O, PW>(
+        &mut self,
+        text: &BytesRef<Vec<u8>>,
+        terms_out: &mut O,
+        postings_writer: &mut PW,
+    ) -> Result<()>
+    where
+        O: IndexOutput,
+        PW: PostingsWriterBase,
+    {
+        let last_bytes = self.last_term.get_bytes_ref();
+        let mut prefix_length = CoreHelper::miss_match(
+            &last_bytes.bytes[..self.last_term.length()],
+            &text.bytes[text.offset..text.offset + text.length],
+        );
+        if prefix_length == 1 {
+            debug_assert!(self.last_term.length() == 0);
+            prefix_length = 0;
+        }
+
+        for i in (prefix_length as usize..last_bytes.length).rev() {
+            let prefix_top_size = self.pending.len() - self.prefix_starts[i];
+            if prefix_top_size >= self.min_items_in_block as usize {
+                self.write_blocks(i + 1, prefix_top_size, terms_out, postings_writer)?;
+                self.prefix_starts[i] -= prefix_top_size - 1;
+            }
+        }
+
+        if self.prefix_starts.len() < text.length {
+            ArrayUtil::grow_with_len(&mut self.prefix_starts, text.length);
+        }
+
+        for i in prefix_length as usize..text.length {
+            self.prefix_starts[i] = self.pending.len();
+        }
+
+        self.last_term.copy_bytes_with_ref(text);
+        Ok(())
+    }
+    pub fn finish<O, PW>(
+        &mut self,
+        first_term_bytes: Vec<u8>,
+        last_term_bytes: Vec<u8>,
+        terms_out: &mut O,
+        postings_writer: &mut PW,
+        fields: &mut Vec<ByteBuffersDataOutput>,
+        index_out: &mut O,
+    ) -> Result<()>
+    where
+        O: IndexOutput,
+        PW: PostingsWriterBase,
+    {
+        if self.num_terms > 0 {
+            self.push_term(&BytesRef::new(), terms_out, postings_writer)?;
+            self.push_term(&BytesRef::new(), terms_out, postings_writer)?;
+
+            let pending_len = self.pending.len();
+            self.write_blocks(0, pending_len, terms_out, postings_writer)?;
+
+            debug_assert!(
+                self.pending.len() == 1
+                    && match self.pending[0] {
+                        PendingEntryEnum::Block(_) => true,
+                        PendingEntryEnum::Term(_) => false,
+                    }
+            );
+            let mut root = match self.pending.pop().unwrap() {
+                PendingEntryEnum::Block(b) => b,
+                _ => return Err(LuceneError::illegal_state("expected final root block")),
+            };
+            debug_assert_eq!(root.prefix.length, 0);
+
+            let root_code = root.index.as_ref().unwrap().get_empty_output();
+            debug_assert!(root_code.is_some());
+
+            let mut meta_out = ByteBuffersDataOutput::new();
+
+            meta_out.write_vint(self.field_info.get_field_number())?;
+            meta_out.write_vlong(self.num_terms)?;
+
+            let root_code = root_code.unwrap();
+            debug_assert!(root_code.length <= i32::MAX as usize);
+            meta_out.write_vint(root_code.length as i32)?;
+            debug_assert!(root_code.offset <= i32::MAX as usize);
+            debug_assert!(root_code.length <= i32::MAX as usize);
+            meta_out.write_bytes_range(
+                &root_code.bytes,
+                root_code.offset as i32,
+                root_code.length as i32,
+            )?;
+            debug_assert!(*self.field_info.get_index_options() != IndexOptions::None);
+
+            if *self.field_info.get_index_options() != IndexOptions::DOCS {
+                meta_out.write_vlong(self.sum_total_term_freq)?;
+            }
+            meta_out.write_vlong(self.sum_doc_freq)?;
+            meta_out.write_vint(self.docs_seen.cardinality())?;
+            self.write_bytes_ref(&mut meta_out, &BytesRef::from_bytes(first_term_bytes))?;
+            self.write_bytes_ref(&mut meta_out, &BytesRef::from_bytes(last_term_bytes))?;
+            meta_out.write_vlong(index_out.get_file_pointer())?;
+            root.index
+                .as_mut()
+                .unwrap()
+                .save(&mut meta_out, index_out)?;
+
+            fields.push(meta_out);
+        } else {
+            debug_assert!(
+                self.sum_total_term_freq == 0
+                    || (*self.field_info.get_index_options() == IndexOptions::DOCS
+                        && self.sum_total_term_freq == -1)
+            );
+            debug_assert_eq!(self.sum_doc_freq, 0);
+            debug_assert_eq!(self.docs_seen.cardinality(), 0);
+        }
+
+        Ok(())
+    }
+    fn write_bytes_ref(&self, out: &mut impl DataOutput, bytes: &BytesRef<Vec<u8>>) -> Result<()> {
+        debug_assert!(bytes.length <= i32::MAX as usize);
+        out.write_vint(bytes.length as i32)?;
+        debug_assert!(bytes.offset <= i32::MAX as usize);
+        out.write_bytes_range(&bytes.bytes, bytes.offset as i32, bytes.length as i32)?;
+        Ok(())
+    }
 }
 
 pub(crate) mod lucene90_bttw_util {
@@ -602,12 +893,9 @@ pub(crate) mod lucene90_bttw_util {
     }
 }
 
-enum PendingEntryEnum<I>
-where
-    I: IndexInput,
-{
+enum PendingEntryEnum {
     Term(PendingTerm),
-    Block(PendingBlock<I>),
+    Block(PendingBlock),
 }
 
 #[cfg(test)]

@@ -92,7 +92,7 @@ where
         self.metadata.as_ref().unwrap().num_bytes
     }
 
-    pub fn empty_output(&self) -> Option<&T> {
+    pub fn get_empty_output(&self) -> Option<&T> {
         self.metadata.as_ref().unwrap().empty_output.as_ref()
     }
 
