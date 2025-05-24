@@ -95,7 +95,7 @@ where
                     Lucene101PostingsFormat::META_CODEC,
                     Lucene101PostingsFormat::VERSION_START,
                     Lucene101PostingsFormat::VERSION_CURRENT,
-                    &state.segment_info.get_id(),
+                    state.segment_info.get_id(),
                     &state.segment_suffix,
                 )?;
                 max_num_impacts_at_level0 = meta_in.read_int()?;
@@ -153,7 +153,7 @@ where
             Lucene101PostingsFormat::DOC_CODEC,
             version,
             version,
-            &state.segment_info.get_id(),
+            state.segment_info.get_id(),
             &state.segment_suffix,
         )?;
         CodecUtil::retrieve_checksum_with_expected(&mut doc_in, expected_doc_file_length)?;
@@ -175,7 +175,7 @@ where
                 Lucene101PostingsFormat::POS_CODEC,
                 version,
                 version,
-                &state.segment_info.get_id(),
+                state.segment_info.get_id(),
                 &state.segment_suffix,
             )?;
             CodecUtil::retrieve_checksum_with_expected(&mut pos_in, expected_pos_file_length)?;
@@ -196,7 +196,7 @@ where
                     Lucene101PostingsFormat::PAY_CODEC,
                     version,
                     version,
-                    &state.segment_info.get_id(),
+                    state.segment_info.get_id(),
                     &state.segment_suffix,
                 )?;
                 CodecUtil::retrieve_checksum_with_expected(&mut pay, expected_pay_file_length)?;
@@ -244,7 +244,7 @@ where
             Lucene101PostingsFormat::TERMS_CODEC,
             Lucene101PostingsFormat::VERSION_START,
             Lucene101PostingsFormat::VERSION_CURRENT,
-            &state.segment_info.get_id(),
+            state.segment_info.get_id(),
             &state.segment_suffix,
         )?;
         let index_block_size = terms_in.read_vint()?;

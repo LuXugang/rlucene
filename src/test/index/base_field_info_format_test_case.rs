@@ -375,7 +375,7 @@ pub trait BaseFieldInfoFormatTestCase {
             false,
             false,
             HashMap::new(),
-            Vec::from(id),
+            id,
             HashMap::new(),
             None,
         )?;

@@ -36,7 +36,7 @@ where
     suffix: String,
     extension: String,
     codec_name: String,
-    id: Vec<u8>,
+    id: [u8; 16],
     block_shift: i32,
     io_context: IOContext,
     // Using Option to wrap the IndexOutput makes it easier to release the
@@ -65,7 +65,7 @@ where
         suffix: &str,
         extension: &str,
         codec_name: &str,
-        id: Vec<u8>,
+        id: [u8; 16],
         block_shift: i32,
         io_context: IOContext,
     ) -> Result<Self> {

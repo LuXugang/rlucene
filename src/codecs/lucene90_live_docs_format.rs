@@ -123,7 +123,7 @@ impl LiveDocsFormat for Lucene90LiveDocsFormat {
                 Lucene90LiveDocsFormat::CODEC_NAME,
                 Lucene90LiveDocsFormat::VERSION_START,
                 Lucene90LiveDocsFormat::VERSION_CURRENT,
-                info.info.get_id().as_slice(),
+                info.info.get_id(),
                 &BigInt::from(gen).to_str_radix(36).to_string(),
             )?;
 
@@ -172,7 +172,7 @@ impl LiveDocsFormat for Lucene90LiveDocsFormat {
                 &mut output,
                 Lucene90LiveDocsFormat::CODEC_NAME,
                 Lucene90LiveDocsFormat::VERSION_CURRENT,
-                info.info.get_id().as_slice(),
+                info.info.get_id(),
                 &BigInt::from(gen).to_str_radix(36).to_string(),
             )?;
 

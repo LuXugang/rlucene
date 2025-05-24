@@ -149,14 +149,14 @@ where
             &mut meta_out,
             Lucene101PostingsFormat::META_CODEC,
             Lucene101PostingsFormat::VERSION_CURRENT,
-            &state.segment_info.get_id(),
+            state.segment_info.get_id(),
             &state.segment_suffix,
         )?;
         CodecUtil::write_index_header(
             &mut doc_out,
             Lucene101PostingsFormat::DOC_CODEC,
             Lucene101PostingsFormat::VERSION_CURRENT,
-            &state.segment_info.get_id(),
+            state.segment_info.get_id(),
             &state.segment_suffix,
         )?;
 
@@ -183,7 +183,7 @@ where
                 &mut pos_out_opt,
                 Lucene101PostingsFormat::POS_CODEC,
                 Lucene101PostingsFormat::VERSION_CURRENT,
-                &state.segment_info.get_id(),
+                state.segment_info.get_id(),
                 &state.segment_suffix,
             )?;
             pos_out = Some(pos_out_opt);
@@ -210,7 +210,7 @@ where
                     &mut pay_out_opt,
                     Lucene101PostingsFormat::PAY_CODEC,
                     Lucene101PostingsFormat::VERSION_CURRENT,
-                    &state.segment_info.get_id(),
+                    state.segment_info.get_id(),
                     &state.segment_suffix,
                 )?;
                 pay_out = Some(pay_out_opt);
@@ -478,7 +478,7 @@ where
             terms_out,
             Lucene101PostingsFormat::TERMS_CODEC,
             Lucene101PostingsFormat::VERSION_CURRENT,
-            &state.segment_info.get_id(),
+            state.segment_info.get_id(),
             &state.segment_suffix,
         )?;
         terms_out.write_vint(Lucene101PostingsFormat::BLOCK_SIZE as i32)?;

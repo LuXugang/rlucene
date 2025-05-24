@@ -60,7 +60,7 @@ pub trait BaseCompoundFormatTestCase {
                 &test_file,
                 0,
                 size,
-                si.get_id().as_slice(),
+                si.get_id(),
                 "suffix",
             )?;
 
@@ -95,7 +95,7 @@ pub trait BaseCompoundFormatTestCase {
             files[0],
             0,
             15,
-            si.get_id().as_slice(),
+            si.get_id(),
             "suffix",
         )?;
         create_sequence_file(
@@ -104,7 +104,7 @@ pub trait BaseCompoundFormatTestCase {
             files[1],
             0,
             114,
-            si.get_id().as_slice(),
+            si.get_id(),
             "suffix",
         )?;
 
@@ -264,77 +264,77 @@ pub trait BaseCompoundFormatTestCase {
             &mut *dir.lock(),
             &format!("{}.zero", segment),
             0,
-            &seg_id,
+            seg_id,
         )?;
         create_random_file(
             random,
             &mut *dir.lock(),
             &format!("{}.one", segment),
             1,
-            &seg_id,
+            seg_id,
         )?;
         create_random_file(
             random,
             &mut *dir.lock(),
             &format!("{}.ten", segment),
             10,
-            &seg_id,
+            seg_id,
         )?;
         create_random_file(
             random,
             &mut *dir.lock(),
             &format!("{}.hundred", segment),
             100,
-            &seg_id,
+            seg_id,
         )?;
         create_random_file(
             random,
             &mut *dir.lock(),
             &format!("{}.big1", segment),
             chunk,
-            &seg_id,
+            seg_id,
         )?;
         create_random_file(
             random,
             &mut *dir.lock(),
             &format!("{}.big2", segment),
             chunk - 1,
-            &seg_id,
+            seg_id,
         )?;
         create_random_file(
             random,
             &mut *dir.lock(),
             &format!("{}.big3", segment),
             chunk + 1,
-            &seg_id,
+            seg_id,
         )?;
         create_random_file(
             random,
             &mut *dir.lock(),
             &format!("{}.big4", segment),
             3 * chunk,
-            &seg_id,
+            seg_id,
         )?;
         create_random_file(
             random,
             &mut *dir.lock(),
             &format!("{}.big5", segment),
             3 * chunk - 1,
-            &seg_id,
+            seg_id,
         )?;
         create_random_file(
             random,
             &mut *dir.lock(),
             &format!("{}.big6", segment),
             3 * chunk + 1,
-            &seg_id,
+            seg_id,
         )?;
         create_random_file(
             random,
             &mut *dir.lock(),
             &format!("{}.big7", segment),
             1000 * chunk,
-            &seg_id,
+            seg_id,
         )?;
         let files: Vec<String> = dir
             .lock()
@@ -371,7 +371,7 @@ pub trait BaseCompoundFormatTestCase {
             let file = format!("_123.{}", file_idx);
             files.push(file.clone());
             let mut out = dir.lock().create_output(&file, &new_io_context(random)?)?;
-            CodecUtil::write_index_header(&mut out, "Foo", 0, &si.get_id(), "suffix")?;
+            CodecUtil::write_index_header(&mut out, "Foo", 0, si.get_id(), "suffix")?;
             out.write_byte(file_idx as u8)?;
             CodecUtil::write_footer(&mut out)?;
         }
@@ -388,7 +388,7 @@ pub trait BaseCompoundFormatTestCase {
         for file_idx in 0..file_count {
             let file = format!("_123.{}", file_idx);
             let mut input = cfs.open_input(&file, &new_io_context(random)?)?;
-            CodecUtil::check_index_header(&mut input, "Foo", 0, 0, &si.get_id(), "suffix")?;
+            CodecUtil::check_index_header(&mut input, "Foo", 0, 0, si.get_id(), "suffix")?;
             ins.push(input);
         }
         // assert_eq!(dir.lock().get_file_handle_count(), 1);
@@ -604,7 +604,7 @@ pub trait BaseCompoundFormatTestCase {
             sub_file,
             0,
             10,
-            si.get_id().as_slice(),
+            si.get_id(),
             "suffix",
         )?;
         let mut hash_set_file = HashSet::new();
@@ -667,7 +667,7 @@ pub trait BaseCompoundFormatTestCase {
             let mut os = dir
                 .lock()
                 .create_output(sub_file, &new_io_context(random)?)?;
-            CodecUtil::write_index_header(&mut os, "Foo", 0, &si.get_id(), "suffix")?;
+            CodecUtil::write_index_header(&mut os, "Foo", 0, si.get_id(), "suffix")?;
             for i in 0..1024 {
                 os.write_byte(i as u8)?;
             }
@@ -727,7 +727,7 @@ pub(crate) fn new_segment_info<D: Directory, R: Rng + ?Sized>(
         false,
         false,
         HashMap::new(),
-        Vec::from(id),
+        id,
         HashMap::new(),
         None,
     )?;
@@ -877,7 +877,7 @@ where
             &file_name,
             0,
             2000,
-            &si.get_id(),
+            si.get_id(),
             "suffix",
         )?;
         files.insert(file_name);

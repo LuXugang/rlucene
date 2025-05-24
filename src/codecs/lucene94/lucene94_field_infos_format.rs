@@ -245,7 +245,7 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
                 Self::CODEC_NAME,
                 Self::FORMAT_START,
                 Self::FORMAT_CURRENT,
-                &segment_info.get_id(),
+                segment_info.get_id(),
                 segment_suffix,
             )?;
 
@@ -376,7 +376,7 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
             &mut output,
             Self::CODEC_NAME,
             Self::FORMAT_CURRENT,
-            &segment_info.get_id(),
+            segment_info.get_id(),
             segment_suffix,
         )?;
 

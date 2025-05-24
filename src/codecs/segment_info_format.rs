@@ -47,7 +47,7 @@ pub trait SegmentInfoFormat {
         &self,
         directory: Arc<Mutex<D>>,
         segment_name: &str,
-        segment_id: Vec<u8>,
+        segment_id: &[u8; 16],
         context: &IOContext,
     ) -> Result<SegmentInfo<D>>
     where

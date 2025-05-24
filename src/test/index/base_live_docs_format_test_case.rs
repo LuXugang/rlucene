@@ -112,7 +112,7 @@ pub trait BaseLiveDocsFormatTestCase {
             rand::random(),
             false,
             HashMap::new(),
-            Vec::from(StringHelper::random_id()),
+            StringHelper::random_id(),
             HashMap::new(),
             None,
         )?;

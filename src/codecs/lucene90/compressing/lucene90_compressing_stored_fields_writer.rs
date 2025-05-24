@@ -296,7 +296,7 @@ where
             segment_suffix,
             lucene90_csfw_util::INDEX_EXTENSION,
             lucene90_csfw_util::INDEX_CODEC_NAME,
-            si.get_id().clone(),
+            *si.get_id(),
             block_shift,
             context.clone(),
         )?;
@@ -305,7 +305,7 @@ where
             &mut meta_stream,
             &format!("{}Meta", lucene90_csfw_util::INDEX_CODEC_NAME),
             lucene90_csfw_util::VERSION_CURRENT,
-            &si.get_id(),
+            si.get_id(),
             segment_suffix,
         )?;
 
@@ -321,7 +321,7 @@ where
             &mut fields_stream,
             format_name,
             lucene90_csfw_util::VERSION_CURRENT,
-            &si.get_id(),
+            si.get_id(),
             segment_suffix,
         )?;
 

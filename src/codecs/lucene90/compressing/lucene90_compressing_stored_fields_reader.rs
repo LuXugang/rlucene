@@ -208,7 +208,7 @@ where
                 format_name,
                 lucene90_csfw_util::VERSION_START,
                 lucene90_csfw_util::VERSION_CURRENT,
-                &si.get_id(),
+                si.get_id(),
                 segment_suffix,
             )?;
 
@@ -229,7 +229,7 @@ where
                 &format!("{}Meta", lucene90_csfw_util::INDEX_CODEC_NAME),
                 lucene90_csfw_util::META_VERSION_START,
                 version,
-                &si.get_id(),
+                si.get_id(),
                 segment_suffix,
             )?;
 
@@ -258,7 +258,7 @@ where
                 segment_suffix,
                 lucene90_csfw_util::INDEX_EXTENSION,
                 lucene90_csfw_util::INDEX_CODEC_NAME,
-                &si.get_id(),
+                si.get_id(),
                 &mut meta,
                 context,
             )?;

@@ -46,7 +46,7 @@ where
     pub dir: Arc<Mutex<D>>,
     is_compound_file: bool,
     /// Id that uniquely identifies this segment.
-    id: Vec<u8>,
+    id: [u8; 16],
     // Diff to Java Lucene: We need to ensure that there is only one Codec in
     // the index, Therefore, we do not need to explicitly define the Codec
     // in the SegmentInfo. pub(crate) codec: Option<Lucene101Codec>,
@@ -106,7 +106,7 @@ where
         has_blocks: bool,
         diagnostics: HashMap<String, String>,
         //TODO: type should be [u8,16],avoid heap allocation?
-        id: Vec<u8>,
+        id: [u8; 16],
         attributes: HashMap<String, String>,
         index_sort: Option<Sort>,
     ) -> Result<SegmentInfo<D>> {
@@ -329,8 +329,8 @@ where
     }
 
     /// Returns the id that uniquely identifies this segment.
-    pub fn get_id(&self) -> Vec<u8> {
-        self.id.clone()
+    pub fn get_id(&self) -> &[u8; 16] {
+        &self.id
     }
 
     /// Add these files to the set of files written for this segment.
@@ -453,7 +453,7 @@ where
             max_doc: self.max_doc,
             dir: self.dir.clone(),
             is_compound_file: self.is_compound_file,
-            id: self.id.clone(),
+            id: self.id,
             diagnostics: self.diagnostics.clone(),
             attributes: self.attributes.clone(),
             index_sort: self.index_sort.clone(),

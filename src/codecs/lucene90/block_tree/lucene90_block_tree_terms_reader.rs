@@ -103,7 +103,7 @@ where
             lucene90_bttr_util::TERMS_CODEC_NAME,
             lucene90_bttr_util::VERSION_START,
             lucene90_bttr_util::VERSION_CURRENT,
-            &state.segment_info.get_id(),
+            state.segment_info.get_id(),
             &state.segment_suffix,
         )?;
 
@@ -123,7 +123,7 @@ where
             lucene90_bttr_util::TERMS_INDEX_CODEC_NAME,
             version,
             version,
-            &state.segment_info.get_id(),
+            state.segment_info.get_id(),
             &state.segment_suffix,
         )?;
 
@@ -152,7 +152,7 @@ where
                 lucene90_bttr_util::TERMS_META_CODEC_NAME,
                 version,
                 version,
-                &state.segment_info.get_id(),
+                state.segment_info.get_id(),
                 &state.segment_suffix,
             )?;
             terms_reader

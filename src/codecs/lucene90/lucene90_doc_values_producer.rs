@@ -132,7 +132,7 @@ where
                 meta_codec,
                 Lucene90DocValuesFormat::VERSION_START,
                 Lucene90DocValuesFormat::VERSION_CURRENT,
-                &state.segment_info.get_id(),
+                state.segment_info.get_id(),
                 &state.segment_suffix,
             ) {
                 Ok(v) => {
@@ -181,7 +181,7 @@ where
             data_codec,
             Lucene90DocValuesFormat::VERSION_START,
             Lucene90DocValuesFormat::VERSION_CURRENT,
-            &state.segment_info.get_id(),
+            state.segment_info.get_id(),
             &state.segment_suffix,
         )?;
 

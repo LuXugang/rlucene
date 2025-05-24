@@ -67,7 +67,7 @@ where
             Lucene90CompoundFormat::ENTRIES_EXTENSION,
         );
 
-        let (version, entries) = Self::read_entries(&si.get_id(), directory, &entries_file_name)?;
+        let (version, entries) = Self::read_entries(si.get_id(), directory, &entries_file_name)?;
 
         let mut handle = directory.open_input(
             &data_file_name,
@@ -88,7 +88,7 @@ where
             Lucene90CompoundFormat::DATA_CODEC,
             version,
             version,
-            &si.get_id(),
+            si.get_id(),
             "",
         )?;
         // NOTE: data file is too costly to verify checksum against all the

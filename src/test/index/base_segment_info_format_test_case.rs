@@ -54,7 +54,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             false,
             false,
             HashMap::new(),
-            Vec::from(id),
+            id.clone(),
             HashMap::new(),
             None,
         )?;
@@ -62,12 +62,10 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         LATEST_CODEC
             .segment_info_format()
             .write(&mut *dir.lock(), &mut info, &io_context)?;
-        let info2 = LATEST_CODEC.segment_info_format().read(
-            dir.clone(),
-            "_123",
-            Vec::from(&id),
-            &io_context,
-        )?;
+        let info2 =
+            LATEST_CODEC
+                .segment_info_format()
+                .read(dir.clone(), "_123", &id, &io_context)?;
         assert_eq!(info.files()?, info2.files()?);
         Ok(())
     }
@@ -86,7 +84,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             false,
             has_blocks,
             HashMap::new(),
-            Vec::from(id),
+            id.clone(),
             HashMap::new(),
             None,
         )?;
@@ -94,12 +92,10 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         LATEST_CODEC
             .segment_info_format()
             .write(&mut *dir.lock(), &mut info, &io_context)?;
-        let info2 = LATEST_CODEC.segment_info_format().read(
-            dir.clone(),
-            "_123",
-            Vec::from(&id),
-            &io_context,
-        )?;
+        let info2 =
+            LATEST_CODEC
+                .segment_info_format()
+                .read(dir.clone(), "_123", &id, &io_context)?;
         assert_eq!(info.get_has_blocks(), info2.get_has_blocks());
         Ok(())
     }
@@ -119,7 +115,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             false,
             false,
             HashMap::new(),
-            Vec::from(id),
+            id.clone(),
             HashMap::new(),
             None,
         )?;
@@ -135,12 +131,10 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             modified_files.len() > original_files.len(),
             "did you forget to add yourself to files()"
         );
-        let info2 = LATEST_CODEC.segment_info_format().read(
-            dir.clone(),
-            "_123",
-            Vec::from(&id),
-            &io_context,
-        )?;
+        let info2 =
+            LATEST_CODEC
+                .segment_info_format()
+                .read(dir.clone(), "_123", &id, &io_context)?;
         assert_eq!(info.files()?, info2.files()?);
         // In Rust Lucene, SegmentInfo::files return an immutable Set,
         // so we do not need to verify this
@@ -170,7 +164,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             false,
             false,
             diagnostics.clone(),
-            Vec::from(id),
+            id.clone(),
             HashMap::new(),
             None,
         )?;
@@ -178,12 +172,10 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         LATEST_CODEC
             .segment_info_format()
             .write(&mut *dir.lock(), &mut info, &io_context)?;
-        let info2 = LATEST_CODEC.segment_info_format().read(
-            dir.clone(),
-            "_123",
-            Vec::from(&id),
-            &io_context,
-        )?;
+        let info2 =
+            LATEST_CODEC
+                .segment_info_format()
+                .read(dir.clone(), "_123", &id, &io_context)?;
         assert_eq!(diagnostics, *info2.get_diagnostics());
         // In Rust Lucene, SegmentInfo::get_diagnostics return an immutable Set,
         // so we do not need to verify this
@@ -213,7 +205,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             false,
             false,
             HashMap::new(),
-            Vec::from(id),
+            id.clone(),
             attributes.clone(),
             None,
         )?;
@@ -221,12 +213,10 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         LATEST_CODEC
             .segment_info_format()
             .write(&mut *dir.lock(), &mut info, &io_context)?;
-        let info2 = LATEST_CODEC.segment_info_format().read(
-            dir.clone(),
-            "_123",
-            Vec::from(&id),
-            &io_context,
-        )?;
+        let info2 =
+            LATEST_CODEC
+                .segment_info_format()
+                .read(dir.clone(), "_123", &id, &io_context)?;
         let info2_attributes = info2.get_attributes()?;
         let info2_values = info2_attributes.lock();
         assert_eq!(attributes, *info2_values);
@@ -258,7 +248,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             false,
             false,
             HashMap::new(),
-            Vec::from(id),
+            id.clone(),
             HashMap::new(),
             None,
         )?;
@@ -266,12 +256,10 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         LATEST_CODEC
             .segment_info_format()
             .write(&mut *dir.lock(), &mut info, &io_context)?;
-        let info2 = LATEST_CODEC.segment_info_format().read(
-            dir.clone(),
-            "_123",
-            Vec::from(&id),
-            &io_context,
-        )?;
+        let info2 =
+            LATEST_CODEC
+                .segment_info_format()
+                .read(dir.clone(), "_123", &id, &io_context)?;
         assert_eq!(id, info2.get_id().as_slice());
 
         Ok(())
@@ -293,7 +281,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                     false,
                     false,
                     HashMap::new(),
-                    Vec::from(id),
+                    id.clone(),
                     HashMap::new(),
                     None,
                 )?;
@@ -306,7 +294,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                 let info2 = LATEST_CODEC.segment_info_format().read(
                     dir.clone(),
                     "_123",
-                    Vec::from(&id),
+                    &id,
                     &io_context,
                 )?;
                 assert!(info2.get_version().is_some());
@@ -476,7 +464,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                 false,
                 false,
                 HashMap::new(),
-                Vec::from(id),
+                id.clone(),
                 HashMap::new(),
                 sort,
             )?;
@@ -484,12 +472,10 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             LATEST_CODEC
                 .segment_info_format()
                 .write(&mut *dir.lock(), &mut info, &io_context)?;
-            let info2 = LATEST_CODEC.segment_info_format().read(
-                dir.clone(),
-                "_123",
-                Vec::from(&id),
-                &io_context,
-            )?;
+            let info2 =
+                LATEST_CODEC
+                    .segment_info_format()
+                    .read(dir.clone(), "_123", &id, &io_context)?;
             if info2.get_index_sort().is_some() {
                 assert!(info2.get_index_sort().is_some());
                 assert!(sort_clone.unwrap() == *info2.get_index_sort().unwrap());
@@ -550,7 +536,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                     TestUtil::random_unicode_string(random),
                 );
             }
-            let mut id = vec![0; StringHelper::ID_LENGTH as usize];
+            let mut id = [0; StringHelper::ID_LENGTH as usize];
             random.fill(&mut id[..]);
             let mut attributes = HashMap::new();
             let num_attributes = random.random_range(0..10);
@@ -577,12 +563,10 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             LATEST_CODEC
                 .segment_info_format()
                 .write(&mut *dir.lock(), &mut info, &io_context)?;
-            let info2 = LATEST_CODEC.segment_info_format().read(
-                dir.clone(),
-                &name,
-                id.clone(),
-                &io_context,
-            )?;
+            let info2 =
+                LATEST_CODEC
+                    .segment_info_format()
+                    .read(dir.clone(), &name, &id, &io_context)?;
             Self::assert_equals(&info, &info2)?;
         }
         Ok(())

@@ -93,7 +93,7 @@ impl Lucene99SegmentInfoFormat {
         dir: Arc<Mutex<D>>,
         input: &mut impl DataInput,
         segment: &str,
-        segment_id: Vec<u8>,
+        segment_id: &[u8; 16],
     ) -> Result<SegmentInfo<D>>
     where
         D: Directory,
@@ -167,7 +167,7 @@ impl Lucene99SegmentInfoFormat {
             is_compound_file,
             has_blocks,
             diagnostics,
-            segment_id,
+            *segment_id,
             attributes,
             index_sort,
         )?;
@@ -264,7 +264,7 @@ impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
         &self,
         dir: Arc<Mutex<D>>,
         segment: &str,
-        segment_id: Vec<u8>,
+        segment_id: &[u8; 16],
         _context: &IOContext,
     ) -> Result<SegmentInfo<D>>
     where
@@ -283,7 +283,7 @@ impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
                     Lucene99SegmentInfoFormat::CODEC_NAME,
                     Lucene99SegmentInfoFormat::VERSION_START,
                     Lucene99SegmentInfoFormat::VERSION_CURRENT,
-                    &segment_id,
+                    segment_id,
                     "",
                 );
                 match check_result {
@@ -333,7 +333,7 @@ impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
             &mut output,
             Lucene99SegmentInfoFormat::CODEC_NAME,
             Lucene99SegmentInfoFormat::VERSION_CURRENT,
-            si.get_id().as_slice(),
+            si.get_id(),
             "",
         )?;
         Self::write_segment_info(&mut output, si)?;

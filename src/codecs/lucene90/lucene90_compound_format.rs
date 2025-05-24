@@ -111,7 +111,7 @@ impl Lucene90CompoundFormat {
             let mut file_input = directory.open_checksum_input(file)?;
             // just copies the index header, verifying that its id matches what
             // we expect
-            CodecUtil::verify_and_copy_index_header(&mut file_input, data, &si.get_id())?;
+            CodecUtil::verify_and_copy_index_header(&mut file_input, data, si.get_id())?;
             // copy all bytes except the footer
             let num_bytes_to_copy = file_input.length()
                 - CodecUtil::footer_length() as i64
@@ -176,14 +176,14 @@ impl CompoundFormat for Lucene90CompoundFormat {
             &mut data_output,
             Lucene90CompoundFormat::DATA_CODEC,
             Lucene90CompoundFormat::VERSION_CURRENT,
-            &si.get_id(),
+            si.get_id(),
             "",
         )?;
         CodecUtil::write_index_header(
             &mut entries_output,
             Lucene90CompoundFormat::ENTRY_CODEC,
             Lucene90CompoundFormat::VERSION_CURRENT,
-            &si.get_id(),
+            si.get_id(),
             "",
         )?;
         self.write_compound_file(&mut entries_output, &mut data_output, dir, si)?;
@@ -388,7 +388,7 @@ mod tests {
                 &mut *dir.lock(),
                 &filename,
                 random_file_size,
-                &seg_id,
+                seg_id,
             )?;
             random_file_size += random.random_range(1..100);
             ordered_files.push(filename);
@@ -421,7 +421,7 @@ mod tests {
                 Lucene90CompoundFormat::ENTRY_CODEC,
                 Lucene90CompoundFormat::VERSION_START,
                 Lucene90CompoundFormat::VERSION_CURRENT,
-                &si.get_id(),
+                si.get_id(),
                 "",
             )?;
 

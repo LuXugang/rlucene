@@ -397,7 +397,7 @@ where
 
         for _ in 0..num_segments {
             let seg_name = input.read_string()?;
-            let mut segment_id = vec![0u8; StringHelper::ID_LENGTH as usize];
+            let mut segment_id = [0u8; StringHelper::ID_LENGTH as usize];
             let segment_id_len = segment_id.len();
             debug_assert!(segment_id_len <= i32::MAX as usize);
             input.read_bytes(&mut segment_id, 0, segment_id_len as i32)?;
@@ -405,7 +405,7 @@ where
             let info = codec.segment_info_format().read(
                 directory.clone(),
                 &seg_name,
-                segment_id,
+                &segment_id,
                 &IO_CONTEXT_DEFAULT,
             )?;
             // info.set_codec(codec)?;
@@ -660,7 +660,7 @@ where
                 )));
             }
             out.write_string(&si.name)?;
-            let segment_id = &si.get_id();
+            let segment_id = si.get_id();
             let segment_id_len = segment_id.len();
             if segment_id_len != StringHelper::ID_LENGTH as usize {
                 return Err(LuceneError::illegal_state(format!(
@@ -1489,7 +1489,7 @@ mod tests {
             false,
             false,
             HashMap::new(),
-            Vec::from(id),
+            id,
             HashMap::new(),
             None,
         )?;
@@ -1542,7 +1542,7 @@ mod tests {
             false,
             false,
             HashMap::new(),
-            Vec::from(id),
+            id,
             HashMap::new(),
             None,
         )?;
@@ -1572,7 +1572,7 @@ mod tests {
             false,
             false,
             HashMap::new(),
-            Vec::from(id),
+            id,
             HashMap::new(),
             None,
         )?;
@@ -1652,7 +1652,7 @@ mod tests {
             false,
             false,
             HashMap::new(),
-            Vec::from(StringHelper::random_id()),
+            StringHelper::random_id(),
             HashMap::new(),
             Some(Sort::get_index_order()?),
         )?;
@@ -1671,7 +1671,7 @@ mod tests {
             false,
             false,
             diagnostics.clone(),
-            Vec::from(StringHelper::random_id()),
+            StringHelper::random_id(),
             HashMap::new(),
             Some(Sort::get_index_order()?),
         )?;
@@ -1693,7 +1693,7 @@ mod tests {
             false,
             false,
             HashMap::new(),
-            Vec::from(StringHelper::random_id()),
+            StringHelper::random_id(),
             attributes.clone(),
             Some(Sort::get_index_order()?),
         )?;
@@ -1715,7 +1715,7 @@ mod tests {
             false,
             false,
             diagnostics.clone(),
-            Vec::from(StringHelper::random_id()),
+            StringHelper::random_id(),
             attributes.clone(),
             Some(Sort::get_index_order()?),
         )?;
@@ -1743,7 +1743,7 @@ mod tests {
             false,
             false,
             HashMap::new(),
-            Vec::from(StringHelper::random_id()),
+            StringHelper::random_id(),
             HashMap::new(),
             Some(Sort::get_index_order()?),
         )?;
@@ -1816,7 +1816,7 @@ mod tests {
             false,
             false,
             HashMap::new(),
-            Vec::from(id),
+            id,
             HashMap::new(),
             None,
         )?;
@@ -1845,7 +1845,7 @@ mod tests {
             false,
             false,
             HashMap::new(),
-            Vec::from(id),
+            id,
             HashMap::new(),
             None,
         )?;
@@ -1951,7 +1951,7 @@ mod tests {
             false,
             false,
             diagnostics.clone(),
-            Vec::from(StringHelper::random_id()),
+            StringHelper::random_id(),
             HashMap::new(),
             Some(Sort::get_index_order()?),
         )?;
@@ -1981,7 +1981,7 @@ mod tests {
             false,
             false,
             diagnostics.clone(),
-            Vec::from(StringHelper::random_id()),
+            StringHelper::random_id(),
             HashMap::new(),
             Some(Sort::get_index_order()?),
         )?;

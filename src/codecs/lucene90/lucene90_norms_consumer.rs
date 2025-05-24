@@ -65,7 +65,7 @@ impl<O: IndexOutput> Lucene90NormsConsumer<O> {
             &mut data,
             data_codec,
             Lucene90NormsFormat::VERSION_CURRENT,
-            &state.segment_info.get_id(),
+            state.segment_info.get_id(),
             &state.segment_suffix,
         )?;
 
@@ -79,7 +79,7 @@ impl<O: IndexOutput> Lucene90NormsConsumer<O> {
             &mut meta,
             meta_codec,
             Lucene90NormsFormat::VERSION_CURRENT,
-            &state.segment_info.get_id(),
+            state.segment_info.get_id(),
             &state.segment_suffix,
         )?;
 
