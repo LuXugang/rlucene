@@ -21,16 +21,25 @@ use std::rc::Rc;
 use crate::codecs::block_term_state::BlockTermStateEnum;
 use crate::codecs::block_tree::compression_algorithm::CompressionAlgorithm;
 use crate::codecs::block_tree::lucene90_block_tree_terms_reader::lucene90_bttr_util;
+use crate::codecs::postings_reader_base::PostingsReaderBase;
 use crate::codecs::postings_writer_base::PostingsWriterBase;
+use crate::codecs::CodecUtil;
 use crate::index::field_info::FieldInfo;
+use crate::index::field_infos::FieldInfos;
+use crate::index::fields::Fields;
 use crate::index::index_options::IndexOptions;
-use crate::index::{BytesRef, BytesRefBuilder};
+use crate::index::segment_write_state::SegmentWriteState;
+use crate::index::terms::Terms;
+use crate::index::{BytesRef, BytesRefBuilder, IndexFileNames};
+use crate::store::directory::Directory;
 use crate::store::dummy::dummy_directory::DummyDirectory;
 use crate::store::{
     ByteArrayDataOutput, ByteBuffersDataOutput, DataOutput, IndexInput, IndexOutput,
 };
+use crate::util::access::AccessVec;
 use crate::util::array_util::ArrayUtil;
 use crate::util::bit_set::BitSet;
+use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::compress::lowercase_ascii_compression::LowercaseAsciiCompression;
 use crate::util::compress::lz4::{HashTableEnum, HighCompressionHashTable, LZ4};
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -47,17 +56,218 @@ use crate::util::packed::PackedInts;
 use crate::util::to_string_utils::ToStringUtils;
 use crate::util::{CoreHelper, SliceCopyOps, StringHelper};
 
-pub struct Lucene90BlockTreeTermsWriter {
-    first_pending_term: Option<PendingTerm>,
-    last_pending_term: PendingTerm,
+pub struct Lucene90BlockTreeTermsWriter<O, PW>
+where
+    O: IndexOutput,
+    PW: PostingsWriterBase,
+{
+    meta_out: O,
+    terms_out: O,
+    index_out: O,
+    max_doc: i32,
+    min_items_in_block: i32,
+    max_items_in_block: i32,
+    version: i32,
+    postings_writer: PW,
+    field_infos: Rc<FieldInfos>,
+    fields: Vec<ByteBuffersDataOutput>,
 }
+impl<O, PW> Lucene90BlockTreeTermsWriter<O, PW>
+where
+    O: IndexOutput,
+    PW: PostingsWriterBase,
+{
+    pub fn new<D>(
+        state: &SegmentWriteState<D>,
+        mut postings_writer: PW,
+        min_items_in_block: i32,
+        max_items_in_block: i32,
+        version: i32,
+    ) -> Result<Self>
+    where
+        D: Directory<IndexOutputType = O>,
+    {
+        Self::validate_settings(min_items_in_block, max_items_in_block)?;
 
+        if !(lucene90_bttr_util::VERSION_START..=lucene90_bttr_util::VERSION_CURRENT)
+            .contains(&version)
+        {
+            return Err(LuceneError::illegal_argument(format!(
+                "Expected version in range [{}, {}], but got {}",
+                lucene90_bttr_util::VERSION_START,
+                lucene90_bttr_util::VERSION_CURRENT,
+                version
+            )));
+        }
+
+        let max_doc = state.segment_info.max_doc()?;
+        let field_infos = Rc::clone(&state.field_infos);
+
+        let terms_name = IndexFileNames::segment_file_name(
+            &state.segment_info.name,
+            &state.segment_suffix,
+            lucene90_bttr_util::TERMS_EXTENSION,
+        );
+        let mut terms_out = state
+            .directory
+            .lock()
+            .create_output(&terms_name, &state.context)?;
+        CodecUtil::write_index_header(
+            &mut terms_out,
+            lucene90_bttr_util::TERMS_CODEC_NAME,
+            version,
+            state.segment_info.get_id(),
+            &state.segment_suffix,
+        )?;
+        let index_name = IndexFileNames::segment_file_name(
+            &state.segment_info.name,
+            &state.segment_suffix,
+            lucene90_bttr_util::TERMS_INDEX_EXTENSION,
+        );
+        let mut index_out = state
+            .directory
+            .lock()
+            .create_output(&index_name, &state.context)?;
+        CodecUtil::write_index_header(
+            &mut index_out,
+            lucene90_bttr_util::TERMS_INDEX_CODEC_NAME,
+            version,
+            state.segment_info.get_id(),
+            &state.segment_suffix,
+        )?;
+        let meta_name = IndexFileNames::segment_file_name(
+            &state.segment_info.name,
+            &state.segment_suffix,
+            lucene90_bttr_util::TERMS_META_EXTENSION,
+        );
+        let mut meta_out = state
+            .directory
+            .lock()
+            .create_output(&meta_name, &state.context)?;
+        CodecUtil::write_index_header(
+            &mut meta_out,
+            lucene90_bttr_util::TERMS_META_CODEC_NAME,
+            version,
+            state.segment_info.get_id(),
+            &state.segment_suffix,
+        )?;
+
+        postings_writer.init(&mut meta_out, state)?;
+
+        Ok(Self {
+            meta_out,
+            terms_out,
+            index_out,
+            max_doc,
+            min_items_in_block,
+            max_items_in_block,
+            version,
+            postings_writer,
+            field_infos,
+            fields: vec![],
+        })
+    }
+    pub fn validate_settings(min_items_in_block: i32, max_items_in_block: i32) -> Result<()> {
+        if min_items_in_block <= 1 {
+            return Err(LuceneError::illegal_argument(format!(
+                "min_items_in_block must be >= 2; got {}",
+                min_items_in_block
+            )));
+        }
+
+        if min_items_in_block > max_items_in_block {
+            return Err(LuceneError::illegal_argument(format!(
+                "max_items_in_block must be >= min_items_in_block; got max_items_in_block={}, min_items_in_block={}",
+                max_items_in_block, min_items_in_block
+            )));
+        }
+
+        if 2 * (min_items_in_block - 1) > max_items_in_block {
+            return Err(LuceneError::illegal_argument(format!(
+                "max_items_in_block must be at least 2*(min_items_in_block-1); got max_items_in_block={}, min_items_in_block={}",
+                max_items_in_block, min_items_in_block
+            )));
+        }
+
+        Ok(())
+    }
+    pub fn write<F, N, I, P>(&mut self, fields: &mut F, norms: &mut PW::Norms) -> Result<()>
+    where
+        I: IndexInput,
+        P: PostingsReaderBase,
+        // TODO: 这里不能指定Terms为FieldReader
+        F: Fields,
+    {
+        // let mut last_field: Option<String> = None;
+        //
+        // for field in fields.iterator() {
+        //     debug_assert!({
+        //         let v =
+        //             last_field.is_none() ||
+        // last_field.as_ref().unwrap().cmp(&field).to_int() < 0;
+        //         last_field = Some(field.clone());
+        //         v
+        //     });
+        //
+        //     let terms_opt = fields.terms(&field)?;
+        //     if terms_opt.is_none() {
+        //         continue;
+        //     }
+        //     let terms = terms_opt.unwrap();
+        //     let mut terms_enum = terms.iterator()?;
+        //
+        //     let field_info = self.field_infos.field_info_by_name(&field);
+        //     if field_info.is_none() {
+        //         return Err(LuceneError::illegal_state(format!(
+        //             "Missing fields:{}",
+        //             field
+        //         )));
+        //     }
+        //
+        //     let mut terms_writer = TermsWriter::new(
+        //         field_info.as_ref().unwrap().clone(),
+        //         self.max_doc,
+        //         &mut self.postings_writer,
+        //         self.min_items_in_block,
+        //         self.max_items_in_block,
+        //         self.version,
+        //     );
+        //     loop {
+        //         let term = terms_enum.next()?;
+        //
+        //         if term.is_none() {
+        //             break;
+        //         }
+        //
+        //         terms_writer.write(
+        //             term.as_ref().unwrap(),
+        //             &mut self.terms_out,
+        //             &mut terms_enum,
+        //             norms,
+        //             &mut self.postings_writer,
+        //         )?;
+        //     }
+        //
+        //     terms_writer.finish(&mut self.terms_out, &mut self.postings_writer,&mut
+        // self.fields, &mut self.index_out)?; }
+        //
+        Ok(())
+    }
+}
 trait PendingEntry {
     fn is_term(&self) -> bool;
 }
 pub struct PendingTerm {
-    pub term_bytes: Vec<u8>,
+    pub term_bytes: Rc<Vec<u8>>,
     pub state: BlockTermStateEnum,
+}
+impl Default for PendingTerm {
+    fn default() -> Self {
+        Self {
+            term_bytes: Rc::new(vec![]),
+            state: BlockTermStateEnum::Int(Default::default()),
+        }
+    }
 }
 
 impl PendingEntry for PendingTerm {
@@ -69,14 +279,14 @@ impl PendingEntry for PendingTerm {
 impl PendingTerm {
     pub fn new(term: &BytesRef<Vec<u8>>, state: BlockTermStateEnum) -> Self {
         Self {
-            term_bytes: term.bytes[term.offset..term.offset + term.length].to_vec(),
+            term_bytes: Rc::new(term.bytes[term.offset..term.offset + term.length].to_vec()),
             state,
         }
     }
 }
 impl fmt::Display for PendingTerm {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = ToStringUtils::bytes_ref_to_string_from_bytes(self.term_bytes.clone());
+        let s = ToStringUtils::bytes_ref_to_string_from_bytes(self.term_bytes.clone().to_vec());
         write!(f, "TERM: {}", s)
     }
 }
@@ -262,8 +472,12 @@ impl StatsWriter {
         Ok(())
     }
 }
-pub struct TermsWriter {
-    field_info: FieldInfo,
+pub struct TermsWriter<'a, O, PW>
+where
+    O: IndexOutput,
+    PW: PostingsWriterBase,
+{
+    field_info: Rc<FieldInfo>,
     num_terms: i64,
     docs_seen: FixedBitSet,
     sum_total_term_freq: i64,
@@ -294,19 +508,58 @@ pub struct TermsWriter {
     scratch_bytes: ByteBuffersDataOutput,
     scratch_ints_ref: IntsRefBuilder<Vec<i32>>,
     version: i32,
+    first_pending_term_bytes: Option<Rc<Vec<u8>>>,
+    last_pending_term_bytes: Rc<Vec<u8>>,
+    terms_out: &'a mut O,
+    postings_writer: &'a mut PW,
 }
-impl TermsWriter {
-    pub fn write_blocks<O, PW>(
-        &mut self,
-        prefix_length: usize,
-        count: usize,
-        terms_out: &mut O,
-        postings_writer: &mut PW,
-    ) -> Result<()>
-    where
-        O: IndexOutput,
-        PW: PostingsWriterBase,
-    {
+impl<'a, O, PW> TermsWriter<'a, O, PW>
+where
+    O: IndexOutput,
+    PW: PostingsWriterBase,
+{
+    fn new(
+        field_info: Rc<FieldInfo>,
+        max_doc: i32,
+        postings_writer: &'a mut PW,
+        min_items_in_block: i32,
+        max_items_in_block: i32,
+        version: i32,
+        terms_out: &'a mut O,
+    ) -> Self {
+        assert_ne!(*field_info.get_index_options(), IndexOptions::None);
+
+        postings_writer.set_field(field_info.clone());
+
+        Self {
+            field_info,
+            num_terms: 0,
+            docs_seen: FixedBitSet::new(max_doc),
+            sum_total_term_freq: 0,
+            sum_doc_freq: 0,
+            last_term: BytesRefBuilder::new(),
+            prefix_starts: vec![0; 8],
+            pending: Vec::new(),
+            new_blocks: Vec::new(),
+            suffix_lengths_writer: ByteBuffersDataOutput::with_resettable_instance(),
+            suffix_writer: BytesRefBuilder::new(),
+            stats_writer: ByteBuffersDataOutput::with_resettable_instance(),
+            meta_writer: ByteBuffersDataOutput::with_resettable_instance(),
+            spare_writer: ByteBuffersDataOutput::with_resettable_instance(),
+            spare_bytes: Vec::new(),
+            compression_hash_table: None,
+            min_items_in_block,
+            max_items_in_block,
+            scratch_bytes: ByteBuffersDataOutput::with_resettable_instance(),
+            scratch_ints_ref: IntsRefBuilder::new(),
+            version,
+            first_pending_term_bytes: None,
+            last_pending_term_bytes: Rc::new(vec![]),
+            terms_out,
+            postings_writer,
+        }
+    }
+    pub fn write_blocks(&mut self, prefix_length: usize, count: usize) -> Result<()> {
         debug_assert!(count > 0);
         debug_assert!(prefix_length > 0 || count == self.pending.len());
 
@@ -359,8 +612,6 @@ impl TermsWriter {
                         i,
                         has_terms,
                         has_sub_blocks,
-                        terms_out,
-                        postings_writer,
                     )?;
                     self.new_blocks.push(block);
 
@@ -389,8 +640,6 @@ impl TermsWriter {
                 end,
                 has_terms,
                 has_sub_blocks,
-                terms_out,
-                postings_writer,
             )?;
             self.new_blocks.push(block);
         }
@@ -418,7 +667,7 @@ impl TermsWriter {
         Ok(b[start_offset..end_offset].iter().all(|&x| x == value))
     }
     #[allow(clippy::too_many_arguments)]
-    pub fn write_block<O, PW>(
+    pub fn write_block(
         &mut self,
         prefix_length: usize,
         is_floor: bool,
@@ -427,16 +676,10 @@ impl TermsWriter {
         end: usize,
         has_terms: bool,
         has_sub_blocks: bool,
-        terms_out: &mut O,
-        postings_writer: &mut PW,
-    ) -> Result<PendingBlock>
-    where
-        O: IndexOutput,
-        PW: PostingsWriterBase,
-    {
+    ) -> Result<PendingBlock> {
         debug_assert!(end > start);
 
-        let start_fp = terms_out.get_file_pointer();
+        let start_fp = self.terms_out.get_file_pointer();
         let has_floor_lead = is_floor && floor_lead_label != -1;
 
         let mut prefix_bytes = vec![0u8; prefix_length + if has_floor_lead { 1 } else { 0 }];
@@ -449,7 +692,7 @@ impl TermsWriter {
         if end == self.pending.len() {
             code |= 1;
         }
-        terms_out.write_vint(code)?;
+        self.terms_out.write_vint(code)?;
 
         let is_leaf = !has_sub_blocks;
         let mut sub_indices = Vec::new();
@@ -480,22 +723,26 @@ impl TermsWriter {
 
                 match state {
                     BlockTermStateEnum::Block(block) => {
-                        stats_writer.add(terms_out, block.doc_freq, block.total_term_freq)?;
+                        stats_writer.add(self.terms_out, block.doc_freq, block.total_term_freq)?;
                     },
                     BlockTermStateEnum::Int(int) => {
-                        stats_writer.add(terms_out, int.base.doc_freq, int.base.total_term_freq)?;
+                        stats_writer.add(
+                            self.terms_out,
+                            int.base.doc_freq,
+                            int.base.total_term_freq,
+                        )?;
                     },
                 }
 
-                postings_writer.encode_term(
-                    terms_out,
+                self.postings_writer.encode_term(
+                    self.terms_out,
                     &self.field_info,
                     Cow::Borrowed(state),
                     absolute,
                 )?;
                 absolute = false;
             }
-            stats_writer.finish(terms_out)?;
+            stats_writer.finish(self.terms_out)?;
         } else {
             let mut stats_writer =
                 StatsWriter::new(*self.field_info.get_index_options() != IndexOptions::DOCS);
@@ -519,22 +766,22 @@ impl TermsWriter {
                         match state {
                             BlockTermStateEnum::Block(block) => {
                                 stats_writer.add(
-                                    terms_out,
+                                    self.terms_out,
                                     block.doc_freq,
                                     block.total_term_freq,
                                 )?;
                             },
                             BlockTermStateEnum::Int(int) => {
                                 stats_writer.add(
-                                    terms_out,
+                                    self.terms_out,
                                     int.base.doc_freq,
                                     int.base.total_term_freq,
                                 )?;
                             },
                         }
                         // meta
-                        postings_writer.encode_term(
-                            terms_out,
+                        self.postings_writer.encode_term(
+                            self.terms_out,
                             &self.field_info,
                             Cow::Borrowed(state),
                             absolute,
@@ -547,7 +794,7 @@ impl TermsWriter {
                         debug_assert!(suffix > 0);
 
                         // write block suffix
-                        terms_out.write_vint(((suffix << 1) | 1) as i32)?;
+                        self.terms_out.write_vint(((suffix << 1) | 1) as i32)?;
                         self.suffix_writer.append_with_range(
                             &block.prefix.bytes,
                             prefix_length,
@@ -560,12 +807,12 @@ impl TermsWriter {
                         );
                         debug_assert!(block.fp < start_fp);
 
-                        terms_out.write_vlong(start_fp - block.fp)?;
+                        self.terms_out.write_vlong(start_fp - block.fp)?;
                         sub_indices.push(block.index.take().unwrap());
                     },
                 }
             }
-            stats_writer.finish(terms_out)?;
+            stats_writer.finish(self.terms_out)?;
             debug_assert!(!sub_indices.is_empty());
         }
         // Write suffixes byte[] blob to terms dict output, either uncompressed,
@@ -625,15 +872,15 @@ impl TermsWriter {
             token |= 0x04;
         }
         token |= compression_alg.code() as u64;
-        terms_out.write_vlong(token.try_into()?)?;
+        self.terms_out.write_vlong(token.try_into()?)?;
 
         if compression_alg == CompressionAlgorithm::NoCompression {
-            terms_out.write_bytes_with_len(
+            self.terms_out.write_bytes_with_len(
                 &self.suffix_writer.bytes_ref.bytes,
                 suffix_len.try_into()?,
             )?;
         } else {
-            self.spare_writer.copy_to(terms_out)?;
+            self.spare_writer.copy_to(self.terms_out)?;
         }
         self.suffix_writer.set_length(0);
         self.spare_writer.reset();
@@ -653,23 +900,25 @@ impl TermsWriter {
 
         if Self::all_equal(&self.spare_bytes, 1, num_suffix_bytes, self.spare_bytes[0])? {
             debug_assert!(num_suffix_bytes <= i32::MAX as usize);
-            terms_out.write_vint(((num_suffix_bytes << 1) | 1) as i32)?;
-            terms_out.write_byte(self.spare_bytes[0])?;
+            self.terms_out
+                .write_vint(((num_suffix_bytes << 1) | 1) as i32)?;
+            self.terms_out.write_byte(self.spare_bytes[0])?;
         } else {
             debug_assert!(num_suffix_bytes <= i32::MAX as usize);
-            terms_out.write_vint((num_suffix_bytes << 1) as i32)?;
-            terms_out.write_bytes_with_len(&self.spare_bytes, num_suffix_bytes as i32)?;
+            self.terms_out.write_vint((num_suffix_bytes << 1) as i32)?;
+            self.terms_out
+                .write_bytes_with_len(&self.spare_bytes, num_suffix_bytes as i32)?;
         }
 
         // stats
         let num_stats_bytes = self.stats_writer.size() as i32;
-        terms_out.write_vint(num_stats_bytes)?;
-        self.stats_writer.copy_to(terms_out)?;
+        self.terms_out.write_vint(num_stats_bytes)?;
+        self.stats_writer.copy_to(self.terms_out)?;
         self.stats_writer.reset();
 
         // meta
-        terms_out.write_vint(self.meta_writer.size() as i32)?;
-        self.meta_writer.copy_to(terms_out)?;
+        self.terms_out.write_vint(self.meta_writer.size() as i32)?;
+        self.meta_writer.copy_to(self.terms_out)?;
         self.meta_writer.reset();
 
         if has_floor_lead {
@@ -686,19 +935,15 @@ impl TermsWriter {
             sub_indices,
         ))
     }
-    pub fn write<O, PW>(
+    pub fn write(
         &mut self,
         text: &BytesRef<Vec<u8>>,
-        terms_out: &mut O,
         terms_enum: &mut PW::TermsEnum,
         norms: &mut PW::Norms,
-        postings_writer: &mut PW,
-    ) -> Result<()>
-    where
-        O: IndexOutput,
-        PW: PostingsWriterBase,
-    {
-        let state_opt = postings_writer.write_term(text, terms_enum, &mut self.docs_seen, norms)?;
+    ) -> Result<()> {
+        let state_opt =
+            self.postings_writer
+                .write_term(text, terms_enum, &mut self.docs_seen, norms)?;
 
         if let Some(state) = &state_opt {
             let (total_term_freq, doc_freq) = match state {
@@ -716,28 +961,24 @@ impl TermsWriter {
                     || total_term_freq > doc_freq as i64
             );
 
-            self.push_term(text, terms_out, postings_writer)?;
+            self.push_term(text)?;
 
             let term = PendingTerm::new(text, state_opt.unwrap());
-            self.pending.push(PendingEntryEnum::Term(term));
 
             self.sum_doc_freq += doc_freq as i64;
             self.sum_total_term_freq += total_term_freq;
             self.num_terms += 1;
+
+            if self.first_pending_term_bytes.is_none() {
+                self.first_pending_term_bytes = Some(term.term_bytes.clone());
+            }
+            self.last_pending_term_bytes = term.term_bytes.clone();
+            self.pending.push(PendingEntryEnum::Term(term));
         }
 
         Ok(())
     }
-    fn push_term<O, PW>(
-        &mut self,
-        text: &BytesRef<Vec<u8>>,
-        terms_out: &mut O,
-        postings_writer: &mut PW,
-    ) -> Result<()>
-    where
-        O: IndexOutput,
-        PW: PostingsWriterBase,
-    {
+    fn push_term(&mut self, text: &BytesRef<Vec<u8>>) -> Result<()> {
         let last_bytes = self.last_term.get_bytes_ref();
         let mut prefix_length = CoreHelper::miss_match(
             &last_bytes.bytes[..self.last_term.length()],
@@ -751,7 +992,7 @@ impl TermsWriter {
         for i in (prefix_length as usize..last_bytes.length).rev() {
             let prefix_top_size = self.pending.len() - self.prefix_starts[i];
             if prefix_top_size >= self.min_items_in_block as usize {
-                self.write_blocks(i + 1, prefix_top_size, terms_out, postings_writer)?;
+                self.write_blocks(i + 1, prefix_top_size)?;
                 self.prefix_starts[i] -= prefix_top_size - 1;
             }
         }
@@ -767,12 +1008,8 @@ impl TermsWriter {
         self.last_term.copy_bytes_with_ref(text);
         Ok(())
     }
-    pub fn finish<O, PW>(
+    pub fn finish(
         &mut self,
-        first_term_bytes: Vec<u8>,
-        last_term_bytes: Vec<u8>,
-        terms_out: &mut O,
-        postings_writer: &mut PW,
         fields: &mut Vec<ByteBuffersDataOutput>,
         index_out: &mut O,
     ) -> Result<()>
@@ -781,11 +1018,11 @@ impl TermsWriter {
         PW: PostingsWriterBase,
     {
         if self.num_terms > 0 {
-            self.push_term(&BytesRef::new(), terms_out, postings_writer)?;
-            self.push_term(&BytesRef::new(), terms_out, postings_writer)?;
+            self.push_term(&BytesRef::new())?;
+            self.push_term(&BytesRef::new())?;
 
             let pending_len = self.pending.len();
-            self.write_blocks(0, pending_len, terms_out, postings_writer)?;
+            self.write_blocks(0, pending_len)?;
 
             debug_assert!(
                 self.pending.len() == 1
@@ -825,7 +1062,9 @@ impl TermsWriter {
             }
             meta_out.write_vlong(self.sum_doc_freq)?;
             meta_out.write_vint(self.docs_seen.cardinality())?;
+            let first_term_bytes = self.first_pending_term_bytes.take().unwrap();
             self.write_bytes_ref(&mut meta_out, &BytesRef::from_bytes(first_term_bytes))?;
+            let last_term_bytes = std::mem::take(&mut self.last_pending_term_bytes);
             self.write_bytes_ref(&mut meta_out, &BytesRef::from_bytes(last_term_bytes))?;
             meta_out.write_vlong(index_out.get_file_pointer())?;
             root.index
@@ -846,11 +1085,19 @@ impl TermsWriter {
 
         Ok(())
     }
-    fn write_bytes_ref(&self, out: &mut impl DataOutput, bytes: &BytesRef<Vec<u8>>) -> Result<()> {
+    fn write_bytes_ref<AV: AccessVec<u8>>(
+        &self,
+        out: &mut impl DataOutput,
+        bytes: &BytesRef<AV>,
+    ) -> Result<()> {
         debug_assert!(bytes.length <= i32::MAX as usize);
         out.write_vint(bytes.length as i32)?;
         debug_assert!(bytes.offset <= i32::MAX as usize);
-        out.write_bytes_range(&bytes.bytes, bytes.offset as i32, bytes.length as i32)?;
+        bytes.bytes.access(|v| {
+            out.write_bytes_range(v, bytes.offset as i32, bytes.length as i32)?;
+            // Help the compiler infer types.
+            Ok::<(), LuceneError>(())
+        })?;
         Ok(())
     }
 }
@@ -859,6 +1106,10 @@ pub(crate) mod lucene90_bttw_util {
     use crate::codecs::block_tree::lucene90_block_tree_terms_reader::lucene90_bttr_util;
     use crate::store::DataOutput;
     use crate::util::error::lucene_error::Result;
+
+    const DEFAULT_MIN_BLOCK_SIZE: i32 = 25;
+    const DEFAULT_MAX_BLOCK_SIZE: i32 = 48;
+
     pub fn encode_output(fp: i64, has_terms: bool, is_floor: bool) -> i64 {
         debug_assert!(fp < (1i64 << 62));
         (fp << 2)
