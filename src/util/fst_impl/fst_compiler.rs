@@ -237,113 +237,109 @@ where
     /// [`IntSequenceOutputs`](crate::util::fst_impl::int_sequence_outputs::IntSequenceOutputs)), then you cannot reuse them across calls.
     pub(crate) fn add(&mut self, input: &IntsRef<Vec<i32>>, mut output: O::V) -> Result<()> {
         let ints = &input.ints;
-        let prefix_len_plus1;
-        {
-            // De-dup NO_OUTPUT since it must be a singleton:
-            if output == self.no_output {
-                output = self.no_output.clone();
-            }
 
-            debug_assert!(
-                self.last_input.length() == 0 || *input >= *self.last_input.get(),
-                "inputs are added out of order lastInput={:?} vs input={:?}",
-                self.last_input.get(),
-                input
-            );
-            debug_assert!(self.valid_output(&output));
+        // De-dup NO_OUTPUT since it must be a singleton:
+        if output == self.no_output {
+            output = self.no_output.clone();
+        }
 
-            if input.length == 0 {
-                // empty input: only allowed as first input.  we have
-                // to special case this because the packed FST
-                // format cannot represent the empty input since
-                // 'finalness' is stored on the incoming arc, not on
-                // the node
-                self.frontier[0].as_mut().unwrap().is_final = true;
-                self.set_empty_output(output)?;
-                return Ok(());
-            }
+        debug_assert!(
+            self.last_input.length() == 0 || *input >= *self.last_input.get(),
+            "inputs are added out of order lastInput={:?} vs input={:?}",
+            self.last_input.get(),
+            input
+        );
+        debug_assert!(self.valid_output(&output));
 
-            // Compare shared prefix length
-            let mut pos1 = 0;
-            let mut pos2 = input.offset;
-            let pos1_stop = self.last_input.length().min(input.length);
-            while pos1 < pos1_stop && self.last_input.int_at(pos1) == ints[pos2] {
-                pos1 += 1;
-                pos2 += 1;
-            }
-            prefix_len_plus1 = pos1 + 1;
+        if input.length == 0 {
+            // empty input: only allowed as first input.  we have
+            // to special case this because the packed FST
+            // format cannot represent the empty input since
+            // 'finalness' is stored on the incoming arc, not on
+            // the node
+            self.frontier[0].as_mut().unwrap().is_final = true;
+            self.set_empty_output(output)?;
+            return Ok(());
+        }
 
-            if self.frontier.len() < (input.length + 1) {
-                let old_len = self.frontier.len();
-                debug_assert!(old_len <= i32::MAX as usize);
-                ArrayUtil::grow_with_len(&mut self.frontier, input.length);
-                debug_assert!(self.frontier.len() <= i32::MAX as usize);
-                for i in old_len..self.frontier.len() {
-                    self.frontier[i] = Some(UnCompiledNode::new(self.no_output.clone(), i as i32));
-                }
+        // Compare shared prefix length
+        let mut pos1 = 0;
+        let mut pos2 = input.offset;
+        let pos1_stop = self.last_input.length().min(input.length);
+        while pos1 < pos1_stop && self.last_input.int_at(pos1) == ints[pos2] {
+            pos1 += 1;
+            pos2 += 1;
+        }
+        let prefix_len_plus1 = pos1 + 1;
+
+        if self.frontier.len() < (input.length + 1) {
+            let old_len = self.frontier.len();
+            debug_assert!(old_len <= i32::MAX as usize);
+            ArrayUtil::grow_with_len(&mut self.frontier, input.length);
+            debug_assert!(self.frontier.len() <= i32::MAX as usize);
+            for i in old_len..self.frontier.len() {
+                self.frontier[i] = Some(UnCompiledNode::new(self.no_output.clone(), i as i32));
             }
         }
         // minimize/compile states from previous input's
         // orphan'd suffix
         debug_assert!(prefix_len_plus1 <= i32::MAX as usize);
         self.freeze_tail(prefix_len_plus1 as i32)?;
-        {
-            let no_output = self.no_output.clone();
-            // init tail states for current input
-            let offset = input.offset;
-            for idx in prefix_len_plus1..=input.length {
+        let no_output = self.no_output.clone();
+        // init tail states for current input
+        let offset = input.offset;
+        for idx in prefix_len_plus1..=input.length {
+            let label = ints[offset + idx - 1];
+            let un_compiled = NodeEnum::UnCompiledNode(idx);
+            let v = self.no_output.clone();
+            self.frontier[idx - 1]
+                .as_mut()
+                .unwrap()
+                .add_arc(label, un_compiled, v)?;
+        }
+
+        let last_input_len = self.last_input.length();
+        let last_node = self.frontier[input.length].as_mut().unwrap();
+        if last_input_len != input.length || prefix_len_plus1 != input.length + 1 {
+            last_node.is_final = true;
+            last_node.output = no_output.clone();
+        }
+        // push conflicting outputs forward, only as far as
+        // needed
+        for idx in 1..prefix_len_plus1 {
+            let (last_output, label) = {
+                let parent = &mut self.frontier[idx - 1];
                 let label = ints[offset + idx - 1];
-                let un_compiled = NodeEnum::UnCompiledNode(idx);
-                let v = self.no_output.clone();
-                self.frontier[idx - 1]
-                    .as_mut()
-                    .unwrap()
-                    .add_arc(label, un_compiled, v)?;
+                (parent.as_mut().unwrap().get_last_output(label), label)
+            };
+
+            debug_assert!(self.valid_output(&last_output));
+
+            let common_output_prefix;
+            if !self.no_output.is_same_reference(&last_output) {
+                common_output_prefix = self.fst.outputs.common(&output, &last_output);
+                debug_assert!(self.valid_output(&common_output_prefix));
+
+                let word_suffix = self
+                    .fst
+                    .outputs
+                    .subtract(&last_output, &common_output_prefix);
+                debug_assert!(self.valid_output(&word_suffix));
+
+                UnCompiledNode::<O::V>::set_last_output(
+                    label,
+                    common_output_prefix.clone(),
+                    self,
+                    idx - 1,
+                );
+                UnCompiledNode::<O::V>::prepend_output(&word_suffix, self, idx);
+            } else {
+                common_output_prefix = self.no_output.clone();
             }
 
-            let last_input_len = self.last_input.length();
-            let last_node = self.frontier[input.length].as_mut().unwrap();
-            if last_input_len != input.length || prefix_len_plus1 != input.length + 1 {
-                last_node.is_final = true;
-                last_node.output = no_output.clone();
-            }
-            // push conflicting outputs forward, only as far as
-            // needed
-            for idx in 1..prefix_len_plus1 {
-                let (last_output, label) = {
-                    let parent = &mut self.frontier[idx - 1];
-                    let label = ints[offset + idx - 1];
-                    (parent.as_mut().unwrap().get_last_output(label), label)
-                };
-
-                debug_assert!(self.valid_output(&last_output));
-
-                let common_output_prefix;
-                if !self.no_output.is_same_reference(&last_output) {
-                    common_output_prefix = self.fst.outputs.common(&output, &last_output);
-                    debug_assert!(self.valid_output(&common_output_prefix));
-
-                    let word_suffix = self
-                        .fst
-                        .outputs
-                        .subtract(&last_output, &common_output_prefix);
-                    debug_assert!(self.valid_output(&word_suffix));
-
-                    UnCompiledNode::<O::V>::set_last_output(
-                        label,
-                        common_output_prefix.clone(),
-                        self,
-                        idx - 1,
-                    );
-                    UnCompiledNode::<O::V>::prepend_output(&word_suffix, self, idx);
-                } else {
-                    common_output_prefix = self.no_output.clone();
-                }
-
-                output = self.fst.outputs.subtract(&output, &common_output_prefix);
-                debug_assert!(self.valid_output(&output));
-            }
-        };
+            output = self.fst.outputs.subtract(&output, &common_output_prefix);
+            debug_assert!(self.valid_output(&output));
+        }
         if self.last_input.length() == input.length && prefix_len_plus1 == input.length + 1 {
             // same input more than 1 time in a row,
             // mapping to multiple outputs
@@ -384,16 +380,14 @@ where
     pub fn compile(&mut self) -> Result<Option<FSTMetadata<O>>> {
         // Minimize nodes in the last word's suffix
         self.freeze_tail(0)?;
-        {
-            if self.frontier[0].as_ref().unwrap().num_arcs == 0 {
-                if self.fst.metadata.as_ref().unwrap().empty_output.is_none() {
-                    // return null for completely empty FST which accepts nothing
-                    return Ok(None);
-                } else {
-                    // we haven't written the padding byte so far, but the FST is
-                    // still valid
-                    self.write_padding_byte()?;
-                }
+        if self.frontier[0].as_ref().unwrap().num_arcs == 0 {
+            if self.fst.metadata.as_ref().unwrap().empty_output.is_none() {
+                // return null for completely empty FST which accepts nothing
+                return Ok(None);
+            } else {
+                // we haven't written the padding byte so far, but the FST is
+                // still valid
+                self.write_padding_byte()?;
             }
         }
         let (compiled_root, root) = self.compile_node(0)?;
@@ -1048,13 +1042,11 @@ pub mod fst_compiler_util {
 /// This class is used for FST backed by non-FSTReader DataOutput. It does not
 /// allow getting the reverse BytesReader nor writing to a DataOutput.
 pub(crate) struct NullFSTReader;
-#[allow(unused)]
 impl Accountable for NullFSTReader {
     fn ram_bytes_used(&self) -> Result<i64> {
         todo!()
     }
 }
-#[allow(unused)]
 impl FstReader for NullFSTReader {
     type FstBytesReader = DummyBytesReader;
 
@@ -1210,7 +1202,6 @@ where
         Ok(())
     }
     /// Creates a new {@link FSTCompiler}
-    #[allow(unused)]
     pub fn build(mut self) -> Result<FSTCompiler<O, D>> {
         if self.data_output.is_none() {
             self.data_output = Some(DataOutputEnum::ReadWriter(
