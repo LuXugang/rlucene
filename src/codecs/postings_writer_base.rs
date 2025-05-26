@@ -20,6 +20,7 @@ use std::rc::Rc;
 use crate::codecs::block_term_state::BlockTermStateEnum;
 use crate::codecs::norms_producer::NormsProducer;
 use crate::index::field_info::FieldInfo;
+use crate::index::postings_enum::PostingsEnum;
 use crate::index::segment_write_state::SegmentWriteState;
 use crate::index::terms_enum::TermsEnum;
 use crate::index::BytesRef;
@@ -46,8 +47,8 @@ pub trait PostingsWriterBase {
         state: &SegmentWriteState<D>,
     ) -> Result<()>;
 
-    type TermsEnum: TermsEnum<AV = Vec<u8>>;
     type Norms: NormsProducer;
+    type PostingsEnum: PostingsEnum;
     /// Write all postings for one term; use the provided [`TermsEnum`] to pull
     /// a [`PostingsEnum`](crate::index::postings_enum::PostingsEnum). This
     /// method should not re-position the `terms_enum`! It is already
@@ -58,7 +59,7 @@ pub trait PostingsWriterBase {
     fn write_term(
         &mut self,
         _term: &BytesRef<Vec<u8>>,
-        _terms_enum: &mut Self::TermsEnum,
+        _terms_enum: &mut impl TermsEnum<PostingsEnum = Self::PostingsEnum>,
         _docs_seen: &mut FixedBitSet,
         _norms: &mut Self::Norms,
     ) -> Result<Option<BlockTermStateEnum>> {

@@ -32,7 +32,7 @@ use crate::codecs::postings_writer_base::PostingsWriterBase;
 use crate::codecs::push_postings_writer_base::{FieldWriteOptions, PushPostingsWriterBaseAbstract};
 use crate::codecs::CodecUtil;
 use crate::index::doc_values_iterator::DocValuesIterator;
-use crate::index::dummy::dummy_terms_enum::DummyTermsEnum;
+use crate::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::index::field_info::FieldInfo;
 use crate::index::index_writer::IndexWriter;
 use crate::index::numeric_doc_values::NumericDocValues;
@@ -480,13 +480,13 @@ where
         Ok(())
     }
 
-    type TermsEnum = DummyTermsEnum;
     type Norms = DummyNormsProducer;
+    type PostingsEnum = DummyPostingsEnum;
 
     fn write_term(
         &mut self,
         _term: &BytesRef<Vec<u8>>,
-        _terms_enum: &mut Self::TermsEnum,
+        _terms_enum: &mut impl TermsEnum<PostingsEnum = Self::PostingsEnum>,
         _docs_seen: &mut FixedBitSet,
         _norms: &mut Self::Norms,
     ) -> Result<Option<BlockTermStateEnum>> {

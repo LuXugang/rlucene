@@ -45,14 +45,14 @@ use crate::util::fixed_bit_set::FixedBitSet;
 // TODO: find a better name; this defines the API that the
 // terms dict impls use to talk to a postings impl.
 /// TermsDict + PostingsReader/WriterBase == PostingsConsumer/Producer
-pub struct PushPostingsWriterBase<T, N, S>
+pub struct PushPostingsWriterBase<P, N, S>
 where
-    T: TermsEnum<AV = Vec<u8>>,
+    P: PostingsEnum,
     N: NormsProducer,
     S: PushPostingsWriterBaseAbstract<Numeric = N::NumericDocValues> + PostingsWriterBase,
 {
     /// Reused in `write_term`
-    postings_enum: Option<T::PostingsEnum>,
+    postings_enum: Option<P>,
     enum_flags: i32,
 
     /// `FieldInfo` of current field being written.
@@ -77,9 +77,9 @@ pub struct FieldWriteOptions {
     pub(crate) write_offsets: bool,
 }
 
-impl<T, N, S> PushPostingsWriterBase<T, N, S>
+impl<P, N, S> PushPostingsWriterBase<P, N, S>
 where
-    T: TermsEnum<AV = Vec<u8>>,
+    P: PostingsEnum,
     N: NormsProducer,
     S: PushPostingsWriterBaseAbstract<Numeric = N::NumericDocValues> + PostingsWriterBase,
 {
@@ -106,9 +106,9 @@ where
         }
     }
 }
-impl<T, N, S> PostingsWriterBase for PushPostingsWriterBase<T, N, S>
+impl<P, N, S> PostingsWriterBase for PushPostingsWriterBase<P, N, S>
 where
-    T: TermsEnum<AV = Vec<u8>>,
+    P: PostingsEnum,
     N: NormsProducer,
     S: PushPostingsWriterBaseAbstract<Numeric = N::NumericDocValues> + PostingsWriterBase,
 {
@@ -120,13 +120,13 @@ where
         self.sub.init(terms_out, state)
     }
 
-    type TermsEnum = T;
     type Norms = N;
+    type PostingsEnum = P;
 
     fn write_term(
         &mut self,
         _term: &BytesRef<Vec<u8>>,
-        terms_enum: &mut Self::TermsEnum,
+        terms_enum: &mut impl TermsEnum<PostingsEnum = Self::PostingsEnum>,
         docs_seen: &mut FixedBitSet,
         norms: &mut Self::Norms,
     ) -> Result<Option<BlockTermStateEnum>> {
@@ -138,8 +138,8 @@ where
 
         self.sub.start_term(norm_values, &self.options)?;
 
-        self.postings_enum =
-            Some(terms_enum.postings_with_flags(self.postings_enum.take(), self.enum_flags)?);
+        let v = terms_enum.postings_with_flags(self.postings_enum.take(), self.enum_flags)?;
+        self.postings_enum = Some(v);
 
         let mut doc_freq = 0;
         let mut total_term_freq = 0i64;

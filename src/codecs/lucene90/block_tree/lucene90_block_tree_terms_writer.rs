@@ -21,7 +21,6 @@ use std::rc::Rc;
 use crate::codecs::block_term_state::BlockTermStateEnum;
 use crate::codecs::block_tree::compression_algorithm::CompressionAlgorithm;
 use crate::codecs::block_tree::lucene90_block_tree_terms_reader::lucene90_bttr_util;
-use crate::codecs::postings_reader_base::PostingsReaderBase;
 use crate::codecs::postings_writer_base::PostingsWriterBase;
 use crate::codecs::CodecUtil;
 use crate::index::field_info::FieldInfo;
@@ -30,6 +29,7 @@ use crate::index::fields::Fields;
 use crate::index::index_options::IndexOptions;
 use crate::index::segment_write_state::SegmentWriteState;
 use crate::index::terms::Terms;
+use crate::index::terms_enum::TermsEnum;
 use crate::index::{BytesRef, BytesRefBuilder, IndexFileNames};
 use crate::store::directory::Directory;
 use crate::store::dummy::dummy_directory::DummyDirectory;
@@ -54,7 +54,7 @@ use crate::util::fst_impl::util::Util;
 use crate::util::ints_ref_builder::IntsRefBuilder;
 use crate::util::packed::PackedInts;
 use crate::util::to_string_utils::ToStringUtils;
-use crate::util::{CoreHelper, SliceCopyOps, StringHelper};
+use crate::util::{CoreHelper, SliceCopyOps, StringHelper, ToInt};
 
 pub struct Lucene90BlockTreeTermsWriter<O, PW>
 where
@@ -195,58 +195,57 @@ where
     where
         F: Fields,
         F::Terms: Terms<AV = Vec<u8>>,
-        PW: PostingsWriterBase<TermsEnum = <F::Terms as Terms>::TermsEnum<'a>>,
+        PW: PostingsWriterBase,
+        for<'b> <F::Terms as Terms>::TermsEnum<'b>: TermsEnum<PostingsEnum = PW::PostingsEnum>,
     {
-        // let mut last_field: Option<String> = None;
-        // // TODO: could we avoid copy here?>
-        // let field_names: Vec<String> = fields.iterator().to_vec();
-        // for field in field_names {
-        //     debug_assert!({
-        //         let v =
-        //             last_field.is_none() ||
-        // last_field.as_ref().unwrap().cmp(&field).to_int() < 0;
-        //         last_field = Some(field.clone());
-        //         v
-        //     });
-        //     let field_info = self.field_infos.field_info_by_name(&field);
-        //     if field_info.is_none() {
-        //         return Err(LuceneError::illegal_state(format!(
-        //             "Missing fields:{}",
-        //             field
-        //         )));
-        //     }
-        //     let terms_opt = fields.terms(&field)?;
-        //     if terms_opt.is_none() {
-        //         continue;
-        //     }
-        //     let terms = terms_opt.unwrap();
-        //     let mut terms_enum = terms.iterator()?;
-        //     //
-        //
-        //     let mut terms_writer = TermsWriter::new(
-        //         field_info.as_ref().unwrap().clone(),
-        //         self.max_doc,
-        //         &mut self.postings_writer,
-        //         self.min_items_in_block,
-        //         self.max_items_in_block,
-        //         self.version,
-        //         &mut self.terms_out,
-        //     );
-        //     loop {
-        //
-        //         let text = terms_enum.next()?;
-        //         if text.is_none() {
-        //             break;
-        //         }
-        //         let byte_ref = text.as_ref().unwrap();
-        //         // clone here is Ok, then we do not clone while init PendingTerm;
-        //         let text = BytesRef::from_bytes(
-        //             byte_ref.bytes[byte_ref.offset..byte_ref.offset +
-        // byte_ref.length].to_vec(),         );
-        //         terms_writer.write(text, &mut terms_enum, norms)?;
-        //     }
-        //     terms_writer.finish(&mut self.fields, &mut self.index_out)?;
-        // }
+        let mut last_field: Option<String> = None;
+        // TODO: could we avoid copy here?>
+        let field_names: Vec<String> = fields.iterator().to_vec();
+        for field in field_names {
+            debug_assert!({
+                let v =
+                    last_field.is_none() || last_field.as_ref().unwrap().cmp(&field).to_int() < 0;
+                last_field = Some(field.clone());
+                v
+            });
+            let field_info = self.field_infos.field_info_by_name(&field);
+            if field_info.is_none() {
+                return Err(LuceneError::illegal_state(format!(
+                    "Missing fields:{}",
+                    field
+                )));
+            }
+            let terms_opt = fields.terms(&field)?;
+            if terms_opt.is_none() {
+                continue;
+            }
+            let terms = terms_opt.unwrap();
+            let mut terms_enum = terms.iterator()?;
+            //
+
+            let mut terms_writer = TermsWriter::new(
+                field_info.as_ref().unwrap().clone(),
+                self.max_doc,
+                &mut self.postings_writer,
+                self.min_items_in_block,
+                self.max_items_in_block,
+                self.version,
+                &mut self.terms_out,
+            );
+            loop {
+                let text = terms_enum.next()?;
+                if text.is_none() {
+                    break;
+                }
+                let byte_ref = text.as_ref().unwrap();
+                // clone here is Ok, then we do not clone while init PendingTerm;
+                let text = BytesRef::from_bytes(
+                    byte_ref.bytes[byte_ref.offset..byte_ref.offset + byte_ref.length].to_vec(),
+                );
+                terms_writer.write(text, &mut terms_enum, norms)?;
+            }
+            terms_writer.finish(&mut self.fields, &mut self.index_out)?;
+        }
 
         Ok(())
     }
@@ -935,7 +934,7 @@ where
     pub fn write(
         &mut self,
         text: BytesRef<Vec<u8>>,
-        terms_enum: &mut PW::TermsEnum,
+        terms_enum: &mut impl TermsEnum<PostingsEnum = PW::PostingsEnum>,
         norms: &mut PW::Norms,
     ) -> Result<()> {
         let state_opt =
