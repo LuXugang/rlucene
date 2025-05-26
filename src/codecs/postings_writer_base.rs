@@ -20,6 +20,7 @@ use std::rc::Rc;
 use crate::codecs::block_term_state::BlockTermStateEnum;
 use crate::codecs::norms_producer::NormsProducer;
 use crate::index::field_info::FieldInfo;
+use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::postings_enum::PostingsEnum;
 use crate::index::segment_write_state::SegmentWriteState;
 use crate::index::terms_enum::TermsEnum;
@@ -47,7 +48,7 @@ pub trait PostingsWriterBase {
         state: &SegmentWriteState<D>,
     ) -> Result<()>;
 
-    type Norms: NormsProducer;
+    type NumericDocValues: NumericDocValues;
     type PostingsEnum: PostingsEnum;
     /// Write all postings for one term; use the provided [`TermsEnum`] to pull
     /// a [`PostingsEnum`](crate::index::postings_enum::PostingsEnum). This
@@ -61,7 +62,7 @@ pub trait PostingsWriterBase {
         _term: &BytesRef<Vec<u8>>,
         _terms_enum: &mut impl TermsEnum<PostingsEnum = Self::PostingsEnum>,
         _docs_seen: &mut FixedBitSet,
-        _norms: &mut Self::Norms,
+        _norms: &mut impl NormsProducer<NumericDocValues = Self::NumericDocValues>,
     ) -> Result<Option<BlockTermStateEnum>> {
         unimplemented!()
     }

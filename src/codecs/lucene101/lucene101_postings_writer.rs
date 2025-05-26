@@ -20,7 +20,7 @@ use std::rc::Rc;
 
 use crate::codecs::block_term_state::BlockTermStateEnum;
 use crate::codecs::competitive_impact_accumulator::CompetitiveImpactAccumulator;
-use crate::codecs::dummy::dummy_norms_producer::DummyNormsProducer;
+use crate::codecs::dummy::dummy_numeric_doc_values::DummyNumericDocValues;
 use crate::codecs::lucene101::for_delta_util::ForDeltaUtil;
 use crate::codecs::lucene101::lucene101_postings_format::{
     IntBlockTermState, Lucene101PostingsFormat,
@@ -480,7 +480,7 @@ where
         Ok(())
     }
 
-    type Norms = DummyNormsProducer;
+    type NumericDocValues = DummyNumericDocValues;
     type PostingsEnum = DummyPostingsEnum;
 
     fn write_term(
@@ -488,7 +488,7 @@ where
         _term: &BytesRef<Vec<u8>>,
         _terms_enum: &mut impl TermsEnum<PostingsEnum = Self::PostingsEnum>,
         _docs_seen: &mut FixedBitSet,
-        _norms: &mut Self::Norms,
+        _norms: &mut impl NormsProducer<NumericDocValues = Self::NumericDocValues>,
     ) -> Result<Option<BlockTermStateEnum>> {
         Err(LuceneError::not_implemented(""))
     }

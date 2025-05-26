@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use std::borrow::Cow;
-use std::marker::PhantomData;
 use std::rc::Rc;
 
 use crate::codecs::block_term_state::BlockTermStateEnum;
@@ -29,10 +28,8 @@ use crate::index::segment_write_state::SegmentWriteState;
 use crate::index::terms_enum::TermsEnum;
 use crate::index::BytesRef;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::directory::Directory;
 use crate::store::{DataOutput, IndexOutput};
-use crate::util::access::AccessVec;
 use crate::util::bit_set::BitSet;
 use crate::util::error::lucene_error::Result;
 use crate::util::fixed_bit_set::FixedBitSet;
@@ -45,11 +42,10 @@ use crate::util::fixed_bit_set::FixedBitSet;
 // TODO: find a better name; this defines the API that the
 // terms dict impls use to talk to a postings impl.
 /// TermsDict + PostingsReader/WriterBase == PostingsConsumer/Producer
-pub struct PushPostingsWriterBase<P, N, S>
+pub struct PushPostingsWriterBase<P, S>
 where
     P: PostingsEnum,
-    N: NormsProducer,
-    S: PushPostingsWriterBaseAbstract<Numeric = N::NumericDocValues> + PostingsWriterBase,
+    S: PushPostingsWriterBaseAbstract + PostingsWriterBase,
 {
     /// Reused in `write_term`
     postings_enum: Option<P>,
@@ -63,7 +59,6 @@ where
 
     options: FieldWriteOptions,
 
-    phantom2: PhantomData<N>,
     sub: S,
 }
 pub struct FieldWriteOptions {
@@ -77,11 +72,11 @@ pub struct FieldWriteOptions {
     pub(crate) write_offsets: bool,
 }
 
-impl<P, N, S> PushPostingsWriterBase<P, N, S>
+impl<P, S> PushPostingsWriterBase<P, S>
 where
     P: PostingsEnum,
-    N: NormsProducer,
-    S: PushPostingsWriterBaseAbstract<Numeric = N::NumericDocValues> + PostingsWriterBase,
+
+    S: PushPostingsWriterBaseAbstract + PostingsWriterBase,
 {
     #[allow(clippy::too_many_arguments)]
     /// # Parameters
@@ -100,17 +95,16 @@ where
             enum_flags: 0,
             field_info: Rc::new(field_info),
             index_options: Default::default(),
-            phantom2: PhantomData,
             options,
             sub,
         }
     }
 }
-impl<P, N, S> PostingsWriterBase for PushPostingsWriterBase<P, N, S>
+impl<P, S> PostingsWriterBase for PushPostingsWriterBase<P, S>
 where
     P: PostingsEnum,
-    N: NormsProducer,
-    S: PushPostingsWriterBaseAbstract<Numeric = N::NumericDocValues> + PostingsWriterBase,
+
+    S: PushPostingsWriterBaseAbstract + PostingsWriterBase,
 {
     fn init<D: Directory>(
         &mut self,
@@ -120,7 +114,7 @@ where
         self.sub.init(terms_out, state)
     }
 
-    type Norms = N;
+    type NumericDocValues = S::Numeric;
     type PostingsEnum = P;
 
     fn write_term(
@@ -128,7 +122,7 @@ where
         _term: &BytesRef<Vec<u8>>,
         terms_enum: &mut impl TermsEnum<PostingsEnum = Self::PostingsEnum>,
         docs_seen: &mut FixedBitSet,
-        norms: &mut Self::Norms,
+        norms: &mut impl NormsProducer<NumericDocValues = Self::NumericDocValues>,
     ) -> Result<Option<BlockTermStateEnum>> {
         let norm_values = if self.field_info.has_norms() {
             Some(norms.get_norms(&self.field_info)?)

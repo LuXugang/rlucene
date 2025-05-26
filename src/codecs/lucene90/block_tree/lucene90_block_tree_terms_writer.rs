@@ -21,6 +21,7 @@ use std::rc::Rc;
 use crate::codecs::block_term_state::BlockTermStateEnum;
 use crate::codecs::block_tree::compression_algorithm::CompressionAlgorithm;
 use crate::codecs::block_tree::lucene90_block_tree_terms_reader::lucene90_bttr_util;
+use crate::codecs::norms_producer::NormsProducer;
 use crate::codecs::postings_writer_base::PostingsWriterBase;
 use crate::codecs::CodecUtil;
 use crate::index::field_info::FieldInfo;
@@ -335,11 +336,12 @@ where
 
         Ok(())
     }
-    pub fn write<'a, F>(&mut self, fields: &'a mut F, norms: &mut PW::Norms) -> Result<()>
+    pub fn write<'a, F, N>(&mut self, fields: &'a mut F, norms: &mut N) -> Result<()>
     where
         F: Fields,
         F::Terms: Terms<AV = Vec<u8>>,
-        PW: PostingsWriterBase,
+        PW: PostingsWriterBase<NumericDocValues = N::NumericDocValues>,
+        N: NormsProducer,
         for<'b> <F::Terms as Terms>::TermsEnum<'b>: TermsEnum<PostingsEnum = PW::PostingsEnum>,
     {
         let mut last_field: Option<String> = None;
@@ -1102,7 +1104,7 @@ where
         &mut self,
         text: BytesRef<Vec<u8>>,
         terms_enum: &mut impl TermsEnum<PostingsEnum = PW::PostingsEnum>,
-        norms: &mut PW::Norms,
+        norms: &mut impl NormsProducer<NumericDocValues = PW::NumericDocValues>,
     ) -> Result<()> {
         let state_opt =
             self.postings_writer
