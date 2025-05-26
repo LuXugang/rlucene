@@ -17,7 +17,6 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
-use std::marker::PhantomData;
 use std::rc::Rc;
 
 use crate::codecs::doc_values_enum::norms::Lucene90NormNumericDocValuesEnum;
@@ -524,7 +523,6 @@ where
             let sub_sparse_norms =
                 SparseNormsIteratorBaseEnum::Sparse(SparseNormsIteratorBaseImpl {
                     norms_offset: entry.norms_offset,
-                    _phantom: PhantomData,
                 });
             let sparse_norms_iterator = SparseNormsIterator::new(sub_sparse_norms, disi);
             return Ok(Lucene90NormNumericDocValuesEnum::Sparse(
@@ -833,26 +831,15 @@ where
 {
     fn long_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<i64>;
 }
-struct SparseNormsIteratorBaseImpl<I>
-where
-    I: IndexInput,
-{
+struct SparseNormsIteratorBaseImpl {
     norms_offset: i64,
-    _phantom: PhantomData<I>,
 }
-#[allow(unused)]
-impl<I> SparseNormsIteratorBaseImpl<I>
-where
-    I: IndexInput,
-{
+impl SparseNormsIteratorBaseImpl {
     fn new(norms_offset: i64) -> Self {
-        Self {
-            norms_offset,
-            _phantom: Default::default(),
-        }
+        Self { norms_offset }
     }
 }
-impl<I> SparseNormsIteratorBase<I> for SparseNormsIteratorBaseImpl<I>
+impl<I> SparseNormsIteratorBase<I> for SparseNormsIteratorBaseImpl
 where
     I: IndexInput,
 {
@@ -932,7 +919,7 @@ enum SparseNormsIteratorBaseEnum<I>
 where
     I: IndexInput,
 {
-    Sparse(SparseNormsIteratorBaseImpl<I>),
+    Sparse(SparseNormsIteratorBaseImpl),
     Sparse1(SparseNormsIteratorBaseImpl1<I>),
     Sparse2(SparseNormsIteratorBaseImpl2<I>),
     Sparse3(SparseNormsIteratorBaseImpl4<I>),
