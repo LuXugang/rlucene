@@ -145,20 +145,19 @@ where
     P: PostingsReaderBase,
 {
     type AV = Vec<u8>;
-    type TermsEnumIter<'a>
+    type TermsEnum<'a>
         = SegmentTermsEnum<'a, I, P>
     where
-        I: 'a,
-        P: 'a;
+        Self: 'a;
 
-    fn iterator<'a>(&'a self) -> Result<Self::TermsEnumIter<'a>> {
+    fn iterator(&self) -> Result<Self::TermsEnum<'_>> {
         SegmentTermsEnum::new(self)
     }
 
     type IntersectIter<'a>
-        = FilteredTermsEnum<Self::TermsEnumIter<'a>, Self::AV, AutomatonTermsEnum>
+        = FilteredTermsEnum<Self::TermsEnum<'a>, Self::AV, AutomatonTermsEnum>
     where
-        Self::TermsEnumIter<'a>: BytesRefIterator<AV = Self::AV>,
+        Self::TermsEnum<'a>: BytesRefIterator<AV = Self::AV>,
         AutomatonTermsEnum: FilteredTermsEnumBase<AV = Self::AV>,
         I: 'a,
         P: 'a;

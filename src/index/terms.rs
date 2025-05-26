@@ -41,15 +41,15 @@ pub trait Terms {
         unimplemented!()
     }
 
-    type TermsEnumIter<'a>: TermsEnum + 'a
+    type TermsEnum<'a>: TermsEnum<AV = Self::AV>
     where
         Self: 'a;
 
     /// Returns an iterator that will step through all terms. This method will
     /// not return None.
-    fn iterator<'a>(&'a self) -> Result<Self::TermsEnumIter<'a>>;
+    fn iterator(&self) -> Result<Self::TermsEnum<'_>>;
 
-    type IntersectIter<'a>: TermsEnum + 'a
+    type IntersectIter<'a>: TermsEnum<AV = Self::AV> + 'a
     where
         Self: 'a;
     /// Returns a [`TermsEnum`] that iterates over all terms and documents
@@ -77,9 +77,9 @@ pub trait Terms {
         &'a self,
         compiled: &mut CompiledAutomaton,
         start_term: Option<BytesRef<Vec<u8>>>,
-    ) -> Result<FilteredTermsEnum<Self::TermsEnumIter<'_>, Self::AV, AutomatonTermsEnum>>
+    ) -> Result<FilteredTermsEnum<Self::TermsEnum<'_>, Self::AV, AutomatonTermsEnum>>
     where
-        Self::TermsEnumIter<'a>: BytesRefIterator<AV = Self::AV>,
+        Self::TermsEnum<'a>: BytesRefIterator<AV = Self::AV>,
         AutomatonTermsEnum: FilteredTermsEnumBase<AV = Self::AV>,
     {
         let terms_enum = self.iterator()?;
@@ -149,7 +149,7 @@ pub trait Terms {
     ) -> Result<Option<Cow<'a, BytesRef<Self::AV>>>>
     where
         T: TermsEnum<AV = Self::AV>,
-        Self: Sized + Terms<TermsEnumIter<'a> = T>,
+        Self: Sized + Terms<TermsEnum<'a> = T>,
     {
         let size = self.size()?;
         if size == 0 {

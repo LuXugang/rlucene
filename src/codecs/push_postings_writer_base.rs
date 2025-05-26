@@ -47,7 +47,7 @@ use crate::util::fixed_bit_set::FixedBitSet;
 /// TermsDict + PostingsReader/WriterBase == PostingsConsumer/Producer
 pub struct PushPostingsWriterBase<T, N, S>
 where
-    T: TermsEnum,
+    T: TermsEnum<AV = Vec<u8>>,
     N: NormsProducer,
     S: PushPostingsWriterBaseAbstract<Numeric = N::NumericDocValues> + PostingsWriterBase,
 {
@@ -79,7 +79,7 @@ pub struct FieldWriteOptions {
 
 impl<T, N, S> PushPostingsWriterBase<T, N, S>
 where
-    T: TermsEnum,
+    T: TermsEnum<AV = Vec<u8>>,
     N: NormsProducer,
     S: PushPostingsWriterBaseAbstract<Numeric = N::NumericDocValues> + PostingsWriterBase,
 {
@@ -108,7 +108,7 @@ where
 }
 impl<T, N, S> PostingsWriterBase for PushPostingsWriterBase<T, N, S>
 where
-    T: TermsEnum,
+    T: TermsEnum<AV = Vec<u8>>,
     N: NormsProducer,
     S: PushPostingsWriterBaseAbstract<Numeric = N::NumericDocValues> + PostingsWriterBase,
 {

@@ -191,16 +191,16 @@ where
 
         Ok(())
     }
-    pub fn write<F, N, I, P>(&mut self, fields: &mut F, norms: &mut PW::Norms) -> Result<()>
+    pub fn write<'a, F>(&mut self, fields: &'a mut F, norms: &mut PW::Norms) -> Result<()>
     where
-        I: IndexInput,
-        P: PostingsReaderBase,
-        // TODO: 这里不能指定Terms为FieldReader
         F: Fields,
+        F::Terms: Terms<AV = Vec<u8>>,
+        PW: PostingsWriterBase<TermsEnum = <F::Terms as Terms>::TermsEnum<'a>>,
     {
         // let mut last_field: Option<String> = None;
-        //
-        // for field in fields.iterator() {
+        // // TODO: could we avoid copy here?>
+        // let field_names: Vec<String> = fields.iterator().to_vec();
+        // for field in field_names {
         //     debug_assert!({
         //         let v =
         //             last_field.is_none() ||
@@ -208,14 +208,6 @@ where
         //         last_field = Some(field.clone());
         //         v
         //     });
-        //
-        //     let terms_opt = fields.terms(&field)?;
-        //     if terms_opt.is_none() {
-        //         continue;
-        //     }
-        //     let terms = terms_opt.unwrap();
-        //     let mut terms_enum = terms.iterator()?;
-        //
         //     let field_info = self.field_infos.field_info_by_name(&field);
         //     if field_info.is_none() {
         //         return Err(LuceneError::illegal_state(format!(
@@ -223,6 +215,13 @@ where
         //             field
         //         )));
         //     }
+        //     let terms_opt = fields.terms(&field)?;
+        //     if terms_opt.is_none() {
+        //         continue;
+        //     }
+        //     let terms = terms_opt.unwrap();
+        //     let mut terms_enum = terms.iterator()?;
+        //     //
         //
         //     let mut terms_writer = TermsWriter::new(
         //         field_info.as_ref().unwrap().clone(),
@@ -231,26 +230,24 @@ where
         //         self.min_items_in_block,
         //         self.max_items_in_block,
         //         self.version,
+        //         &mut self.terms_out,
         //     );
         //     loop {
-        //         let term = terms_enum.next()?;
         //
-        //         if term.is_none() {
+        //         let text = terms_enum.next()?;
+        //         if text.is_none() {
         //             break;
         //         }
-        //
-        //         terms_writer.write(
-        //             term.as_ref().unwrap(),
-        //             &mut self.terms_out,
-        //             &mut terms_enum,
-        //             norms,
-        //             &mut self.postings_writer,
-        //         )?;
+        //         let byte_ref = text.as_ref().unwrap();
+        //         // clone here is Ok, then we do not clone while init PendingTerm;
+        //         let text = BytesRef::from_bytes(
+        //             byte_ref.bytes[byte_ref.offset..byte_ref.offset +
+        // byte_ref.length].to_vec(),         );
+        //         terms_writer.write(text, &mut terms_enum, norms)?;
         //     }
-        //
-        //     terms_writer.finish(&mut self.terms_out, &mut self.postings_writer,&mut
-        // self.fields, &mut self.index_out)?; }
-        //
+        //     terms_writer.finish(&mut self.fields, &mut self.index_out)?;
+        // }
+
         Ok(())
     }
 }
@@ -277,9 +274,9 @@ impl PendingEntry for PendingTerm {
 }
 
 impl PendingTerm {
-    pub fn new(term: &BytesRef<Vec<u8>>, state: BlockTermStateEnum) -> Self {
+    pub fn new(mut term: BytesRef<Vec<u8>>, state: BlockTermStateEnum) -> Self {
         Self {
-            term_bytes: Rc::new(term.bytes[term.offset..term.offset + term.length].to_vec()),
+            term_bytes: Rc::new(std::mem::take(&mut term.bytes)),
             state,
         }
     }
@@ -937,13 +934,13 @@ where
     }
     pub fn write(
         &mut self,
-        text: &BytesRef<Vec<u8>>,
+        text: BytesRef<Vec<u8>>,
         terms_enum: &mut PW::TermsEnum,
         norms: &mut PW::Norms,
     ) -> Result<()> {
         let state_opt =
             self.postings_writer
-                .write_term(text, terms_enum, &mut self.docs_seen, norms)?;
+                .write_term(&text, terms_enum, &mut self.docs_seen, norms)?;
 
         if let Some(state) = &state_opt {
             let (total_term_freq, doc_freq) = match state {
@@ -961,7 +958,7 @@ where
                     || total_term_freq > doc_freq as i64
             );
 
-            self.push_term(text)?;
+            self.push_term(&text)?;
 
             let term = PendingTerm::new(text, state_opt.unwrap());
 

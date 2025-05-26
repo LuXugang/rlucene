@@ -25,6 +25,7 @@ use crate::util::error::lucene_error::Result;
 pub trait Fields {
     /// Returns an iterator that will step through all field names.
     /// This will not return `None`.
+    // TODO: 改为Cow是不是更好点
     fn iterator(&self) -> &[String];
 
     type Terms: Terms;

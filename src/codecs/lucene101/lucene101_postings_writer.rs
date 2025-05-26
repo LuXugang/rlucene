@@ -16,11 +16,11 @@
  */
 use std::borrow::Cow;
 use std::default::Default;
-use std::marker::PhantomData;
 use std::rc::Rc;
 
 use crate::codecs::block_term_state::BlockTermStateEnum;
 use crate::codecs::competitive_impact_accumulator::CompetitiveImpactAccumulator;
+use crate::codecs::dummy::dummy_norms_producer::DummyNormsProducer;
 use crate::codecs::lucene101::for_delta_util::ForDeltaUtil;
 use crate::codecs::lucene101::lucene101_postings_format::{
     IntBlockTermState, Lucene101PostingsFormat,
@@ -29,11 +29,10 @@ use crate::codecs::lucene101::pfor_util::PForUtil;
 use crate::codecs::lucene101::postings_util::PostingsUtil;
 use crate::codecs::norms_producer::NormsProducer;
 use crate::codecs::postings_writer_base::PostingsWriterBase;
-use crate::codecs::push_postings_writer_base::{
-    FieldWriteOptions, PushPostingsWriterBase, PushPostingsWriterBaseAbstract,
-};
+use crate::codecs::push_postings_writer_base::{FieldWriteOptions, PushPostingsWriterBaseAbstract};
 use crate::codecs::CodecUtil;
 use crate::index::doc_values_iterator::DocValuesIterator;
+use crate::index::dummy::dummy_terms_enum::DummyTermsEnum;
 use crate::index::field_info::FieldInfo;
 use crate::index::index_writer::IndexWriter;
 use crate::index::numeric_doc_values::NumericDocValues;
@@ -51,10 +50,9 @@ use crate::util::SliceCopyOps;
 
 /// Writer for
 /// [`Lucene101PostingsFormat`](crate::codecs::lucene101::lucene101_postings_format)
-pub struct Lucene101PostingsWriter<O, T, N>
+pub struct Lucene101PostingsWriter<O, N>
 where
     O: IndexOutput,
-    T: TermsEnum,
     N: NormsProducer,
 {
     pub(crate) meta_out: O,
@@ -118,13 +116,12 @@ where
     /// these 32 blocks, which can only be done once we have encoded these
     /// 32 blocks. The content is then typically copied to [`docCount`].
     level1_output: ByteBuffersDataOutput,
-    _phantom: PhantomData<T>,
 }
 #[allow(unused)]
-impl<O, T, N> Lucene101PostingsWriter<O, T, N>
+impl<O, N> Lucene101PostingsWriter<O, N>
 where
     O: IndexOutput,
-    T: TermsEnum,
+
     N: NormsProducer,
 {
     pub fn new<D>(state: &SegmentWriteState<D>) -> Result<Self>
@@ -263,7 +260,6 @@ where
             scratch_output: ByteBuffersDataOutput::with_resettable_instance(),
             level0_output: ByteBuffersDataOutput::with_resettable_instance(),
             level1_output: ByteBuffersDataOutput::with_resettable_instance(),
-            _phantom: PhantomData,
         })
     }
     fn flush_doc_block(&mut self, finish_term: bool, options: &FieldWriteOptions) -> Result<()> {
@@ -453,20 +449,19 @@ where
         }
     }
 }
-impl<O, T, N> Drop for Lucene101PostingsWriter<O, T, N>
+impl<O, N> Drop for Lucene101PostingsWriter<O, N>
 where
     O: IndexOutput,
-    T: TermsEnum,
+
     N: NormsProducer,
 {
     fn drop(&mut self) {
         self.close();
     }
 }
-impl<O, T, N> PostingsWriterBase for Lucene101PostingsWriter<O, T, N>
+impl<O, N> PostingsWriterBase for Lucene101PostingsWriter<O, N>
 where
     O: IndexOutput,
-    T: TermsEnum,
     N: NormsProducer,
 {
     fn init<D: Directory>(
@@ -485,8 +480,8 @@ where
         Ok(())
     }
 
-    type TermsEnum = <PushPostingsWriterBase<T, N, Lucene101PostingsWriter<O, T, N>> as PostingsWriterBase>::TermsEnum;
-    type Norms = <PushPostingsWriterBase<T, N, Lucene101PostingsWriter<O, T, N>> as PostingsWriterBase>::Norms;
+    type TermsEnum = DummyTermsEnum;
+    type Norms = DummyNormsProducer;
 
     fn write_term(
         &mut self,
@@ -513,10 +508,10 @@ where
         self.field_has_norms = field_info.has_norms();
     }
 }
-impl<O, T, N> PushPostingsWriterBaseAbstract for Lucene101PostingsWriter<O, T, N>
+impl<O, N> PushPostingsWriterBaseAbstract for Lucene101PostingsWriter<O, N>
 where
     O: IndexOutput,
-    T: TermsEnum,
+
     N: NormsProducer,
 {
     fn new_term_state(&mut self) -> Result<BlockTermStateEnum> {

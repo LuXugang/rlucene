@@ -14,10 +14,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod dummy_binary_doc_values;
-pub mod dummy_doc_values_skipper;
-pub mod dummy_norms_producer;
-pub mod dummy_numeric_doc_values;
-pub mod dummy_sorted_doc_values;
-pub mod dummy_sorted_numeric_doc_values;
-pub mod dummy_sorted_set_doc_values;
+use std::rc::Rc;
+
+use crate::codecs::dummy::dummy_numeric_doc_values::DummyNumericDocValues;
+use crate::codecs::norms_producer::NormsProducer;
+use crate::index::field_info::FieldInfo;
+
+pub struct DummyNormsProducer;
+impl NormsProducer for DummyNormsProducer {
+    type NumericDocValues = DummyNumericDocValues;
+
+    fn get_norms(
+        &mut self,
+        field: &Rc<FieldInfo>,
+    ) -> crate::util::error::lucene_error::Result<Self::NumericDocValues> {
+        todo!()
+    }
+
+    fn check_integrity(&mut self) -> crate::util::error::lucene_error::Result<()> {
+        todo!()
+    }
+}

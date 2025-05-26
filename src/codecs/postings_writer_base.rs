@@ -46,7 +46,7 @@ pub trait PostingsWriterBase {
         state: &SegmentWriteState<D>,
     ) -> Result<()>;
 
-    type TermsEnum: TermsEnum;
+    type TermsEnum: TermsEnum<AV = Vec<u8>>;
     type Norms: NormsProducer;
     /// Write all postings for one term; use the provided [`TermsEnum`] to pull
     /// a [`PostingsEnum`](crate::index::postings_enum::PostingsEnum). This
