@@ -17,7 +17,7 @@
 use crate::store::directory::Directory;
 use crate::util::bkd::heap_point_write::HeapPointWriter;
 use crate::util::bkd::offline_point_write::OfflinePointWriter;
-use crate::util::bkd::point_reader::PointReaderEnum;
+use crate::util::bkd::point_reader::{PointReader, PointReaderEnum};
 use crate::util::bkd::point_value::PointValueEnum;
 use crate::util::error::lucene_error::Result;
 
@@ -33,8 +33,8 @@ pub trait PointWriter {
 
     /// Returns a PointReader iterator to step through all previously added
     /// points
-    type Dir: Directory;
-    fn get_reader(&self, start_point: i64, length: i64) -> Result<PointReaderEnum<Self::Dir>>;
+    type PointReader: PointReader;
+    fn get_reader(&self, start_point: i64, length: i64) -> Result<Self::PointReader>;
 
     /// Return the number of points in this writer
     fn count(&self) -> i64;
@@ -50,7 +50,7 @@ where
     D: Directory,
 {
     Offline(OfflinePointWriter<D>),
-    Heap(HeapPointWriter<D>),
+    Heap(HeapPointWriter),
 }
 impl<D> PointWriter for PointWriterEnum<D>
 where
@@ -70,11 +70,16 @@ where
         }
     }
 
-    type Dir = D;
-    fn get_reader(&self, start_point: i64, length: i64) -> Result<PointReaderEnum<Self::Dir>> {
+    type PointReader = PointReaderEnum<D>;
+
+    fn get_reader(&self, start_point: i64, length: i64) -> Result<Self::PointReader> {
         match self {
-            PointWriterEnum::Offline(offline) => offline.get_reader(start_point, length),
-            PointWriterEnum::Heap(heap) => heap.get_reader(start_point, length),
+            PointWriterEnum::Offline(offline) => Ok(PointReaderEnum::Offline(
+                offline.get_reader(start_point, length)?,
+            )),
+            PointWriterEnum::Heap(heap) => {
+                Ok(PointReaderEnum::Heap(heap.get_reader(start_point, length)?))
+            },
         }
     }
 

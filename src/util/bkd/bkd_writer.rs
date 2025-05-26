@@ -2016,7 +2016,7 @@ where
 
     fn compute_common_prefix_length(
         &mut self,
-        heap_point_writer: &mut HeapPointWriter<D>,
+        heap_point_writer: &mut HeapPointWriter,
         from: i32,
         to: i32,
     ) {

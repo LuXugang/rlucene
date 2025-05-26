@@ -24,7 +24,6 @@ use crate::util::array_util::{ArrayUtil, ByteArrayComparator, ByteArrayComparato
 use crate::util::bit_util::BitUtil;
 use crate::util::bkd::bkd_config::BKDConfig;
 use crate::util::bkd::heap_point_reader::HeapPointReader;
-use crate::util::bkd::point_reader::PointReaderEnum;
 use crate::util::bkd::point_value::{PointValue, PointValueEnum};
 use crate::util::bkd::point_writer::PointWriter;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -32,10 +31,7 @@ use crate::util::{CoreHelper, SliceCopyOps, ToInt};
 
 /// Utility struct to write new points into in-heap arrays.
 #[allow(unused)]
-pub struct HeapPointWriter<D>
-where
-    D: Directory,
-{
+pub struct HeapPointWriter {
     pub block: Rc<RefCell<Vec<u8>>>,
     pub size: i32,
     pub config: Rc<BKDConfig>,
@@ -46,13 +42,9 @@ where
     pub next_write: i32,
     pub closed: bool,
     pub point_value: Option<Rc<RefCell<PointValueEnum>>>,
-    _phantom: std::marker::PhantomData<D>,
 }
 #[allow(unused)]
-impl<D> HeapPointWriter<D>
-where
-    D: Directory,
-{
+impl HeapPointWriter {
     pub fn new(config: Rc<BKDConfig>, size: i32) -> Self {
         let data_dims_and_doc_length = config.bytes_per_doc() - config.packed_index_bytes_length();
         let bytes_per_doc = config.bytes_per_doc() as usize;
@@ -75,7 +67,6 @@ where
             next_write: 0,
             closed: false,
             point_value,
-            _phantom: Default::default(),
         }
     }
     pub fn get_packed_value_slice(&mut self, index: i32) -> Rc<RefCell<PointValueEnum>> {
@@ -232,10 +223,7 @@ where
         leaf_cardinality
     }
 }
-impl<D> PointWriter for HeapPointWriter<D>
-where
-    D: Directory,
-{
+impl PointWriter for HeapPointWriter {
     fn append_bytes(&mut self, packed_value: &[u8], doc_id: i32) -> Result<()> {
         debug_assert!(!self.closed, "point writer is already closed");
         assert_eq!(
@@ -291,9 +279,9 @@ where
         Ok(())
     }
 
-    type Dir = D;
+    type PointReader = HeapPointReader;
 
-    fn get_reader(&self, start: i64, length: i64) -> Result<PointReaderEnum<Self::Dir>> {
+    fn get_reader(&self, start: i64, length: i64) -> Result<Self::PointReader> {
         debug_assert!(
             self.closed,
             "point writer is still open and trying to get a reader"
@@ -324,12 +312,12 @@ where
         } else {
             None
         };
-        Ok(PointReaderEnum::Heap(HeapPointReader::new(
+        Ok(HeapPointReader::new(
             point_value,
             start as i32,
             value as i32,
             self.config.bytes_per_doc(),
-        )))
+        ))
     }
 
     fn count(&self) -> i64 {
@@ -344,10 +332,7 @@ where
         self.closed = true;
     }
 }
-impl<D> Display for HeapPointWriter<D>
-where
-    D: Directory,
-{
+impl Display for HeapPointWriter {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -356,10 +341,7 @@ where
         )
     }
 }
-impl<D> Drop for HeapPointWriter<D>
-where
-    D: Directory,
-{
+impl Drop for HeapPointWriter {
     fn drop(&mut self) {
         self.close();
     }

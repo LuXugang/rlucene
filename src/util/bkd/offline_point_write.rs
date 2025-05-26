@@ -22,7 +22,6 @@ use crate::store::directory::Directory;
 use crate::store::{DataOutput, IOContext, IndexOutput};
 use crate::util::bkd::bkd_config::BKDConfig;
 use crate::util::bkd::offline_point_reader::OfflinePointReader;
-use crate::util::bkd::point_reader::PointReaderEnum;
 use crate::util::bkd::point_value::{PointValue, PointValueEnum};
 use crate::util::bkd::point_writer::PointWriter;
 use crate::util::error::lucene_error::Result;
@@ -75,7 +74,7 @@ where
         start: i64,
         length: i64,
         reusable_buffer: Rc<RefCell<Vec<u8>>>,
-    ) -> Result<PointReaderEnum<D>> {
+    ) -> Result<OfflinePointReader<D>> {
         debug_assert!(
             self.closed && self.out.is_none(),
             "point writer is still open and trying to get a reader"
@@ -101,7 +100,7 @@ where
             length,
             reusable_buffer,
         )?;
-        Ok(PointReaderEnum::Offline(reader))
+        Ok(reader)
     }
 }
 impl<D> Drop for OfflinePointWriter<D>
@@ -177,15 +176,16 @@ where
         Ok(())
     }
 
-    type Dir = D;
+    type PointReader = OfflinePointReader<D>;
 
-    fn get_reader(&self, start: i64, length: i64) -> Result<PointReaderEnum<Self::Dir>> {
+    fn get_reader(&self, start: i64, length: i64) -> Result<Self::PointReader> {
         let buffer = Rc::new(RefCell::new(vec![
             0u8;
             self.config.bytes_per_doc() as usize
         ]));
         self.get_reader_with_buffer(start, length, buffer)
     }
+
     fn count(&self) -> i64 {
         self.count
     }
