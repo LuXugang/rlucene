@@ -214,9 +214,9 @@ where
         Ok(self.doc_count)
     }
 
-    type PointTreeType = BKDPointTree<I>;
+    type PointTree = BKDPointTree<I>;
 
-    fn get_point_tree(&self) -> Result<Self::PointTreeType> {
+    fn get_point_tree(&self) -> Result<Self::PointTree> {
         let slice = self.index_in.borrow_mut().slice(
             "packedIndex",
             self.index_start_pointer,

@@ -62,9 +62,9 @@ impl PointValuesBase for DummyPointValuesBase {
         ))
     }
 
-    type PointTreeType = DummyPointTree;
+    type PointTree = DummyPointTree;
 
-    fn get_point_tree(&self) -> Result<Self::PointTreeType> {
+    fn get_point_tree(&self) -> Result<Self::PointTree> {
         Ok(DummyPointTree)
     }
 }

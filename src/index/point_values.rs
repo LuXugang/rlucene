@@ -226,9 +226,9 @@ where
         self.sub_point_values.get_doc_count()
     }
 
-    type PointTreeType = S::PointTreeType;
+    type PointTree = S::PointTree;
 
-    fn get_point_tree(&self) -> Result<Self::PointTreeType> {
+    fn get_point_tree(&self) -> Result<Self::PointTree> {
         self.sub_point_values.get_point_tree()
     }
 }
@@ -256,8 +256,8 @@ pub trait PointValuesBase {
     /// Returns the total number of documents that have indexed at least one
     /// point.
     fn get_doc_count(&self) -> Result<i32>;
-    type PointTreeType: PointTree;
-    fn get_point_tree(&self) -> Result<Self::PointTreeType>;
+    type PointTree: PointTree;
+    fn get_point_tree(&self) -> Result<Self::PointTree>;
 }
 /// Used by `intersect` to check how each recursive cell corresponds to the
 /// query.

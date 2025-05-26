@@ -2456,7 +2456,7 @@ fn value_in_bounds(
     true
 }
 struct MergeReader<S: PointValuesBase> {
-    point_tree: Option<S::PointTreeType>,
+    point_tree: Option<S::PointTree>,
     packed_bytes_length: usize,
     doc_map: Option<Rc<DocMapEnum>>,
     merge_intersects_visitor: MergeIntersectsVisitor,
