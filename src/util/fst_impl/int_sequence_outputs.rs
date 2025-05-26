@@ -46,9 +46,9 @@ impl IntSequenceOutputs {
 }
 
 impl Outputs for IntSequenceOutputs {
-    type Outputs = IntsRef<Rc<Vec<i32>>>;
+    type V = IntsRef<Rc<Vec<i32>>>;
 
-    fn common(&self, output1: &Self::Outputs, output2: &Self::Outputs) -> Self::Outputs {
+    fn common(&self, output1: &Self::V, output2: &Self::V) -> Self::V {
         let a = &output1.ints[output1.offset..output1.offset + output1.length];
         let b = &output2.ints[output2.offset..output2.offset + output2.length];
 
@@ -63,7 +63,7 @@ impl Outputs for IntSequenceOutputs {
         }
     }
 
-    fn subtract(&self, output: &Self::Outputs, inc: &Self::Outputs) -> Self::Outputs {
+    fn subtract(&self, output: &Self::V, inc: &Self::V) -> Self::V {
         let no_output_clone = NO_OUTPUT.with(|rc| rc.clone());
 
         if IntsRef::equals(inc, &no_output_clone) {
@@ -81,7 +81,7 @@ impl Outputs for IntSequenceOutputs {
         )
     }
 
-    fn add(&self, prefix: &Self::Outputs, output: &Self::Outputs) -> Self::Outputs {
+    fn add(&self, prefix: &Self::V, output: &Self::V) -> Self::V {
         let no_output = NO_OUTPUT.with(|rc| rc.clone());
 
         if IntsRef::equals(prefix, &no_output) {
@@ -104,7 +104,7 @@ impl Outputs for IntSequenceOutputs {
         IntsRef::from_slice(Rc::new(buf), 0, prefix.length + output.length)
     }
 
-    fn write(&self, output: &Self::Outputs, out: &mut impl DataOutput) -> Result<()> {
+    fn write(&self, output: &Self::V, out: &mut impl DataOutput) -> Result<()> {
         out.write_vint(output.length as i32)?;
         for i in 0..output.length {
             out.write_vint(output.ints[output.offset + i])?;
@@ -112,7 +112,7 @@ impl Outputs for IntSequenceOutputs {
         Ok(())
     }
 
-    fn read(&self, input: &mut impl DataInput) -> Result<Self::Outputs> {
+    fn read(&self, input: &mut impl DataInput) -> Result<Self::V> {
         let len = input.read_vint()?;
         if len == 0 {
             Ok(self.get_no_output())
@@ -136,15 +136,15 @@ impl Outputs for IntSequenceOutputs {
         Ok(())
     }
 
-    fn get_no_output(&self) -> Self::Outputs {
+    fn get_no_output(&self) -> Self::V {
         NO_OUTPUT.with(|rc| rc.clone())
     }
 
-    fn output_to_string(&self, output: &Self::Outputs) -> String {
+    fn output_to_string(&self, output: &Self::V) -> String {
         output.to_string()
     }
 
-    fn ram_bytes_used(&self, output: &Self::Outputs) -> i64 {
+    fn ram_bytes_used(&self, output: &Self::V) -> i64 {
         // TODO: memory calculation not implemented
         0
     }

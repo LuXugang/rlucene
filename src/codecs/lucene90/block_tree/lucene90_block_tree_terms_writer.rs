@@ -552,7 +552,7 @@ impl PendingBlock {
         first_block.index = Some(
             FST::from_fst_reader(
                 fst_compiler.compile()?,
-                Some(fst_compiler.inner.borrow_mut().get_fst_reader()?),
+                Some(fst_compiler.get_fst_reader()?),
             )
             .unwrap(),
         );

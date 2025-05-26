@@ -14,22 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cell::RefCell;
 use std::hash::Hash;
-use std::rc::Rc;
 
 use crate::store::directory::Directory;
 use crate::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fst_impl::byte_block_pool_reverse_bytes_reader::ByteBlockPoolReverseBytesReader;
-use crate::util::fst_impl::fst::{fst_util, Arc, BitTable, BytesReader};
-use crate::util::fst_impl::fst_compiler::{FSTCompilerInner, NodeEnum, UnCompiledNode};
-use crate::util::fst_impl::outputs::Outputs;
+use crate::util::fst_impl::fst::{fst_util, Arc, BitTable, BytesReader, FST};
+use crate::util::fst_impl::fst_compiler::{FSTCompiler, NodeEnum, NullFSTReader, UnCompiledNode};
+use crate::util::fst_impl::fst_reader::FstReader;
+use crate::util::fst_impl::outputs::{Outputs, OutputsBound};
 use crate::util::long_values::LongValues;
 use crate::util::packed::abstract_paged_mutable::AbstractPagedMutable;
 use crate::util::packed::paged_growable_writer::PagedGrowableWriter;
 use crate::util::packed::PackedInts;
-use crate::util::{ByteBlockPool, HashCode};
+use crate::util::ByteBlockPool;
 // TODO: any way to make a reverse suffix lookup (msokolov's idea) instead of
 // more costly hash? hmmm, though, hash is not so wasteful
 // since it does not have to store value of each entry: the value is the node
@@ -42,14 +41,13 @@ use crate::util::{ByteBlockPool, HashCode};
 // shared?
 
 // Used to dedup states (lookup already-frozen states)
-pub struct NodeHash<O, D>
+pub struct NodeHash<T>
 where
-    O: Outputs,
-    D: Directory,
+    T: OutputsBound,
 {
     // primary table -- we add nodes into this until it reaches the requested
     // tableSizeLimit/2, then we move it to fallback
-    primary_table: PagedGrowableHash<O, D>,
+    primary_table: PagedGrowableHash<T>,
     // how many nodes are allowed to store in both primary and fallback tables;
     // when primary gets full (tableSizeLimit/2), we move it to the
     // fallback table
@@ -58,18 +56,15 @@ where
     // promote it to primary table, for a simplistic and
     // lowish-RAM-overhead (compared to e.g. LinkedHashMap) LRU behaviour.
     // fallbackTable is read-only.
-    fallback_table: Option<PagedGrowableHash<O, D>>,
-
-    fst_compiler: Rc<RefCell<FSTCompilerInner<O, D>>>,
+    fallback_table: Option<PagedGrowableHash<T>>,
     // store the last fallback table node length in getFallback()
     last_fallback_node_length: i32,
     // store the last fallback table hashtable slot in getFallback()
     last_fallback_hash_slot: i64,
 }
-impl<O, D> NodeHash<O, D>
+impl<T> NodeHash<T>
 where
-    O: Outputs,
-    D: Directory,
+    T: OutputsBound,
 {
     /// Creates a new `NodeHash` instance.
     ///
@@ -77,10 +72,7 @@ where
     /// If this limit is hit, least recently used suffixes are discarded and the
     /// FST is no longer minimal. A larger `ram_limit_mb` makes the FST
     /// smaller (closer to minimal).
-    pub fn new(
-        fst_compiler: Rc<RefCell<FSTCompilerInner<O, D>>>,
-        ram_limit_mb: f64,
-    ) -> Result<Self> {
+    pub fn new(ram_limit_mb: f64) -> Result<Self> {
         if ram_limit_mb <= 0.0 {
             return Err(LuceneError::illegal_argument(format!(
                 "ram_limit_mb must be > 0; got: {ram_limit_mb}"
@@ -95,21 +87,30 @@ where
         };
 
         Ok(Self {
-            primary_table: PagedGrowableHash::new(fst_compiler.clone())?,
+            primary_table: PagedGrowableHash::new()?,
             fallback_table: None, // Empty initially
             ram_limit_bytes,
-            fst_compiler,
             last_fallback_node_length: 0,
             last_fallback_hash_slot: 0,
         })
     }
-    fn get_fallback(&mut self, node_in_index: usize, hash: i64) -> Result<i64> {
-        let fst_compiler = self.fst_compiler.borrow();
-        let node_in = fst_compiler.frontier[node_in_index].as_ref().unwrap();
-        self.last_fallback_node_length = -1;
-        self.last_fallback_hash_slot = -1;
+    fn get_fallback<O, D>(
+        node_in_index: usize,
+        hash: i64,
+        fst_compiler: &mut FSTCompiler<O, D>,
+    ) -> Result<i64>
+    where
+        O: Outputs<V = T>,
+        D: Directory,
+    {
+        let fallback_table = {
+            let node_hash = &mut fst_compiler.dedup_hash;
+            node_hash.last_fallback_node_length = -1;
+            node_hash.last_fallback_hash_slot = -1;
+            &mut node_hash.fallback_table
+        };
 
-        match self.fallback_table {
+        match fallback_table {
             Some(ref mut fallback_table) => {
                 let mut hash_slot = hash & fallback_table.mask;
                 let mut c = 0;
@@ -120,12 +121,15 @@ where
                         // not found
                         return Ok(0);
                     } else {
+                        let node = fst_compiler.frontier[node_in_index].as_ref().unwrap();
+                        let fst = &fst_compiler.fst;
                         let length =
-                            fallback_table.nodes_equal(node_in, node_address, hash_slot)?;
+                            fallback_table.nodes_equal(node_address, hash_slot, fst, node)?;
                         if length != -1 {
+                            let node_hash = &mut fst_compiler.dedup_hash;
                             // store the node length for further use
-                            self.last_fallback_node_length = length;
-                            self.last_fallback_hash_slot = hash_slot;
+                            node_hash.last_fallback_node_length = length;
+                            node_hash.last_fallback_hash_slot = hash_slot;
                             // frozen version of this node is already here
                             return Ok(node_address);
                         }
@@ -143,60 +147,73 @@ where
             },
         }
     }
-    pub fn add(&mut self, node_in_index: usize) -> Result<i64> {
-        let hash = {
-            let fst_compiler = self.fst_compiler.borrow_mut();
-            let node_in = fst_compiler.frontier[node_in_index].as_ref().unwrap();
-            self.hash(node_in)?
+    pub fn add<O, D>(node_in_index: usize, fst_compiler: &mut FSTCompiler<O, D>) -> Result<i64>
+    where
+        O: Outputs<V = T>,
+        D: Directory,
+    {
+        let (mut hash_slot, mut c, hash) = {
+            let node_hash = &mut fst_compiler.dedup_hash;
+            let hash = {
+                let node_in = fst_compiler.frontier[node_in_index].as_ref().unwrap();
+                node_hash.hash(node_in)?
+            };
+            (hash & node_hash.primary_table.mask, 0, hash)
         };
-        let mut hash_slot = hash & self.primary_table.mask;
-        let mut c = 0;
 
         loop {
-            let mut node_address = self.primary_table.get_node_address(hash_slot)?;
+            let mut node_address = {
+                let node_hash = &mut fst_compiler.dedup_hash;
+                node_hash.primary_table.get_node_address(hash_slot)?
+            };
             if node_address == 0 {
                 // not in primary, check fallback
-                node_address = self.get_fallback(node_in_index, hash)?;
+                node_address = NodeHash::get_fallback(node_in_index, hash, fst_compiler)?;
                 if node_address != 0 {
+                    let node_hash = &mut fst_compiler.dedup_hash;
                     debug_assert!(
-                        self.last_fallback_hash_slot != -1 && self.last_fallback_node_length != -1
+                        node_hash.last_fallback_hash_slot != -1
+                            && node_hash.last_fallback_node_length != -1
                     );
                     // it was already in fallback -- promote to primary
-                    self.primary_table
+                    node_hash
+                        .primary_table
                         .set_node_address(hash_slot, node_address)?;
-                    self.primary_table.copy_fallback_node_bytes(
+                    node_hash.primary_table.copy_fallback_node_bytes(
                         hash_slot,
-                        self.fallback_table.as_mut().unwrap(),
-                        self.last_fallback_hash_slot,
-                        self.last_fallback_node_length,
+                        node_hash.fallback_table.as_mut().unwrap(),
+                        node_hash.last_fallback_hash_slot,
+                        node_hash.last_fallback_node_length,
                     )?;
                 } else {
                     // not in fallback either -- freeze & add the incoming node
 
                     // freeze & add
-                    node_address = self.fst_compiler.borrow_mut().add_node(node_in_index)?;
+                    node_address = fst_compiler.add_node(node_in_index)?;
                     // we use 0 as empty marker in hash table, so it better be
                     // impossible to get a frozen node at 0:
                     debug_assert!(
                         node_address != fst_util::FINAL_END_NODE
                             && node_address != fst_util::NON_FINAL_END_NODE
                     );
-
-                    self.primary_table
+                    let node_hash = &mut fst_compiler.dedup_hash;
+                    node_hash
+                        .primary_table
                         .set_node_address(hash_slot, node_address)?;
                     {
-                        let compiler = &mut *self.fst_compiler.borrow_mut();
-                        let pos = compiler.scratch_bytes.get_position();
-                        self.primary_table.copy_node_bytes(
+                        let pos = fst_compiler.scratch_bytes.get_position();
+                        node_hash.primary_table.copy_node_bytes(
                             hash_slot,
-                            compiler.scratch_bytes.get_bytes(),
+                            fst_compiler.scratch_bytes.get_bytes(),
                             pos,
                         )?;
                     }
 
                     // confirm frozen hash and unfrozen hash are the same
                     debug_assert_eq!(
-                        self.primary_table.hash(node_address, hash_slot)?,
+                        node_hash
+                            .primary_table
+                            .hash(node_address, hash_slot, &fst_compiler.fst)?,
                         hash,
                         "Frozen hash mismatch"
                     );
@@ -210,15 +227,17 @@ where
                 // between 33.3% and 66.6% note that some of the
                 // copiedNodes are shared between fallback and primary tables so
                 // this computation is pessimistic
-                let copied_bytes = self.primary_table.inner.bytes_reader.get_position();
-                let ram_bytes_used =
-                    self.primary_table.count * 2 * PackedInts::bits_required(node_address)? as i64
+                let node_hash = &mut fst_compiler.dedup_hash;
+                let copied_bytes = node_hash.primary_table.inner.bytes_reader.get_position();
+                let ram_bytes_used = node_hash.primary_table.count
+                    * 2
+                    * PackedInts::bits_required(node_address)? as i64
+                    / 8
+                    + node_hash.primary_table.count
+                        * 2
+                        * PackedInts::bits_required(copied_bytes)? as i64
                         / 8
-                        + self.primary_table.count
-                            * 2
-                            * PackedInts::bits_required(copied_bytes)? as i64
-                            / 8
-                        + copied_bytes;
+                    + copied_bytes;
                 // NOTE: we could instead use the more precise RAM used, but
                 // this leads to unpredictable
                 // quantized behavior due to 2X rehashing where for large ranges
@@ -232,33 +251,31 @@ where
 
                 // divide limit by 2 because fallback gets half the RAM and
                 // primary gets the other half
-                if ram_bytes_used >= self.ram_limit_bytes / 2 {
+                if ram_bytes_used >= node_hash.ram_limit_bytes / 2 {
                     // time to fallback -- fallback is now used read-only to
                     // promote a node (suffix) to primary if
                     // we encounter it again
-                    let size = self.primary_table.inner.fst_node_address.size();
-                    self.fallback_table = Some(std::mem::replace(&mut self.primary_table, {
-                        PagedGrowableHash::with_size(
-                            self.fst_compiler.clone(),
-                            node_address,
-                            size.max(16),
-                        )?
-                    }));
-                } else if self.primary_table.count
-                    > (self.primary_table.inner.fst_node_address.size() as f32 * (2f32 / 3f32))
+                    let size = node_hash.primary_table.inner.fst_node_address.size();
+                    node_hash.fallback_table =
+                        Some(std::mem::replace(&mut node_hash.primary_table, {
+                            PagedGrowableHash::with_size(node_address, size.max(16))?
+                        }));
+                } else if node_hash.primary_table.count
+                    > (node_hash.primary_table.inner.fst_node_address.size() as f32 * (2f32 / 3f32))
                         as i64
                 {
                     // rehash at 2/3 occupancy
-                    self.primary_table.rehash(node_address)?;
+                    node_hash
+                        .primary_table
+                        .rehash(node_address, &fst_compiler.fst)?;
                 }
 
                 return Ok(node_address);
-            } else if self.primary_table.nodes_equal(
-                self.fst_compiler.borrow().frontier[node_in_index]
-                    .as_ref()
-                    .unwrap(),
+            } else if fst_compiler.dedup_hash.primary_table.nodes_equal(
                 node_address,
                 hash_slot,
+                &fst_compiler.fst,
+                fst_compiler.frontier[node_in_index].as_ref().unwrap(),
             )? != -1
             {
                 // same node (in frozen form) is already in primary table
@@ -267,10 +284,10 @@ where
 
             c += 1;
             // quadratic probe (but is it, really?)
-            hash_slot = (hash_slot + c) & self.primary_table.mask;
+            hash_slot = (hash_slot + c) & fst_compiler.dedup_hash.primary_table.mask;
         }
     }
-    fn hash(&self, node: &UnCompiledNode<O::Outputs>) -> Result<i64> {
+    fn hash(&self, node: &UnCompiledNode<T>) -> Result<i64> {
         const PRIME: i64 = 31;
         let mut h: i64 = 0;
 
@@ -301,16 +318,14 @@ where
 }
 
 /// Inner class because it needs access to hash function and FST bytes.
-pub struct PagedGrowableHash<O, D>
+pub struct PagedGrowableHash<T>
 where
-    O: Outputs,
-    D: Directory,
+    T: OutputsBound,
 {
     count: i64,
     mask: i64,
-    fst_compiler: Rc<RefCell<FSTCompilerInner<O, D>>>,
     inner: Inner,
-    scratch_arc: Arc<O::Outputs>,
+    scratch_arc: Arc<T>,
 }
 pub struct Inner {
     /// the [`FST.BytesReader`](crate::util::fst_impl::fst_reader::FstReader)
@@ -341,24 +356,19 @@ impl Inner {
     }
 }
 
-impl<O, D> PagedGrowableHash<O, D>
+impl<T> PagedGrowableHash<T>
 where
-    O: Outputs,
-    D: Directory,
+    T: OutputsBound,
 {
     // 256K blocks, but note that the final block is sized only as needed so it
     // won't use the full block size when just a few elements were written
     // to it
     const BLOCK_SIZE_BYTES: i32 = 1 << 18;
-    pub(crate) fn new(fst_compiler: Rc<RefCell<FSTCompilerInner<O, D>>>) -> Result<Self> {
-        Self::build(fst_compiler, 8, 8, 16, 15)
+    pub(crate) fn new() -> Result<Self> {
+        Self::build(8, 8, 16, 15)
     }
 
-    pub(crate) fn with_size(
-        fst_compiler: Rc<RefCell<FSTCompilerInner<O, D>>>,
-        last_node_address: i64,
-        size: i64,
-    ) -> Result<Self> {
+    pub(crate) fn with_size(last_node_address: i64, size: i64) -> Result<Self> {
         let fst_node_address_bits_per_value = PackedInts::bits_required(last_node_address)?;
         let mask = size - 1;
         debug_assert!(
@@ -367,10 +377,9 @@ where
             size,
             mask
         );
-        Self::build(fst_compiler, fst_node_address_bits_per_value, 8, size, mask)
+        Self::build(fst_node_address_bits_per_value, 8, size, mask)
     }
     fn build(
-        fst_compiler: Rc<RefCell<FSTCompilerInner<O, D>>>,
         fst_node_address_bits_per_value: i32,
         copied_node_address_bits_per_value: i32,
         size: i64,
@@ -400,7 +409,6 @@ where
             count: 0,
             mask,
             inner,
-            fst_compiler,
             scratch_arc: Arc::default(),
         })
     }
@@ -456,7 +464,7 @@ where
     pub(crate) fn copy_fallback_node_bytes(
         &mut self,
         hash_slot: i64,
-        fallback_table: &mut PagedGrowableHash<O, D>,
+        fallback_table: &mut PagedGrowableHash<T>,
         fallback_hash_slot: i64,
         node_length: i32,
     ) -> Result<()> {
@@ -482,7 +490,11 @@ where
             .set(hash_slot, position - 1)?;
         Ok(())
     }
-    fn rehash(&mut self, last_node_address: i64) -> Result<()> {
+    fn rehash<O, F>(&mut self, last_node_address: i64, fst: &FST<O, F>) -> Result<()>
+    where
+        O: Outputs<V = T>,
+        F: FstReader,
+    {
         // TODO: https://github.com/apache/lucene/issues/12744
         // should we always use a small startBitsPerValue here (e.g 8) instead
         // base off of lastNodeAddress?
@@ -511,7 +523,7 @@ where
         for idx in 0..self.inner.fst_node_address.size() {
             let address = self.inner.fst_node_address.get(idx)?;
             if address != 0 {
-                let mut hash_slot = self.hash(address, idx)? & new_mask;
+                let mut hash_slot = self.hash(address, idx, fst)? & new_mask;
                 let mut c = 0;
                 loop {
                     if new_fst_node_address.get(hash_slot)? == 0 {
@@ -533,16 +545,17 @@ where
 
         Ok(())
     }
-    fn hash(&mut self, node_address: i64, hash_slot: i64) -> Result<i64> {
+    fn hash<O, F>(&mut self, node_address: i64, hash_slot: i64, fst: &FST<O, F>) -> Result<i64>
+    where
+        O: Outputs<V = T>,
+        F: FstReader,
+    {
         const PRIME: i64 = 31;
         let mut h: i64 = 0;
 
         let reader = self.inner.get_bytes_reader(node_address, hash_slot)?;
-        let compiler = self.fst_compiler.borrow();
 
-        compiler
-            .fst
-            .read_first_real_target_arc(node_address, &mut self.scratch_arc, reader)?;
+        fst.read_first_real_target_arc(node_address, &mut self.scratch_arc, reader)?;
 
         loop {
             h = h
@@ -561,9 +574,7 @@ where
             if self.scratch_arc.is_last() {
                 break;
             }
-            compiler
-                .fst
-                .read_next_real_arc(&mut self.scratch_arc, reader)?;
+            fst.read_next_real_arc(&mut self.scratch_arc, reader)?;
         }
 
         Ok(h)
@@ -576,18 +587,18 @@ where
     ///
     /// The node length will be used to promote the node from the fallback table
     /// to the primary table.
-    fn nodes_equal(
+    fn nodes_equal<O>(
         &mut self,
-        node: &UnCompiledNode<O::Outputs>,
         address: i64,
         hash_slot: i64,
-    ) -> Result<i32> {
+        fst: &FST<O, NullFSTReader>,
+        node: &UnCompiledNode<T>,
+    ) -> Result<i32>
+    where
+        O: Outputs<V = T>,
+    {
         let in_reader = self.inner.get_bytes_reader(address, hash_slot)?;
-        self.fst_compiler.borrow().fst.read_first_real_target_arc(
-            address,
-            &mut self.scratch_arc,
-            in_reader,
-        )?;
+        fst.read_first_real_target_arc(address, &mut self.scratch_arc, in_reader)?;
         // fail fast for a node with fixed length arcs
         if self.scratch_arc.bytes_per_arc() != 0 {
             debug_assert!(node.num_arcs > 0);
@@ -665,10 +676,7 @@ where
                 }
             }
 
-            self.fst_compiler
-                .borrow()
-                .fst
-                .read_next_real_arc(&mut self.scratch_arc, in_reader)?;
+            fst.read_next_real_arc(&mut self.scratch_arc, in_reader)?;
         }
 
         // unfrozen node has fewer arcs than frozen node
@@ -688,7 +696,7 @@ mod tests {
     use crate::util::error::lucene_error::Result;
     use crate::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs;
     use crate::util::fst_impl::fst::InputType;
-    use crate::util::fst_impl::fst_compiler::{DataOutputEnum, FSTCompilerInner};
+    use crate::util::fst_impl::fst_compiler::DataOutputEnum;
     use crate::util::fst_impl::node_hash::PagedGrowableHash;
     use crate::util::fst_impl::read_write_data_output::ReadWriteDataOutput;
 
@@ -701,18 +709,9 @@ mod tests {
             DataOutputEnum::ReadWriter(ReadWriteDataOutput::new(10)?);
         let index_type = InputType::Byte1;
         let outputs = ByteSequenceOutputs;
-        let fst_compiler_inner = Rc::new(RefCell::new(FSTCompilerInner::new(
-            index_type,
-            0f64,
-            outputs,
-            true,
-            data_output,
-            0f32,
-            10,
-        )?));
         // Create primary and fallback hash tables
-        let mut primary_hash_table = PagedGrowableHash::new(fst_compiler_inner.clone())?;
-        let mut fallback_hash_table = PagedGrowableHash::new(fst_compiler_inner)?;
+        let mut primary_hash_table: PagedGrowableHash<Rc<i64>> = PagedGrowableHash::new()?;
+        let mut fallback_hash_table = PagedGrowableHash::new()?;
 
         let node_length = at_least(&mut random, 500);
         let fallback_hash_slot = 1;

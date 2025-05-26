@@ -89,7 +89,7 @@ where
         self.metadata.as_ref().unwrap().num_bytes
     }
 
-    pub fn get_empty_output(&self) -> Option<&O::Outputs> {
+    pub fn get_empty_output(&self) -> Option<&O::V> {
         self.metadata.as_ref().unwrap().empty_output.as_ref()
     }
 
@@ -151,7 +151,7 @@ where
     /// position and skip.
     fn read_presence_bytes(
         &self,
-        arc: &mut Arc<O::Outputs>,
+        arc: &mut Arc<O::V>,
         reader: &mut impl BytesReader,
     ) -> Result<()> {
         debug_assert!(arc.bytes_per_arc > 0);
@@ -164,7 +164,7 @@ where
     }
     /// Fills the virtual 'start' arc, i.e., an empty incoming arc to the FST's
     /// start node.
-    pub fn get_first_arc(&self, arc: &mut Arc<O::Outputs>) {
+    pub fn get_first_arc(&self, arc: &mut Arc<O::V>) {
         let no_output = self.outputs.get_no_output();
 
         if let Some(ref empty_output) = self.metadata.as_ref().unwrap().empty_output {
@@ -191,10 +191,10 @@ where
     /// Returns the second argument (`arc`).
     pub(crate) fn read_last_target_arc<'a>(
         &self,
-        follow: &Arc<O::Outputs>,
-        arc: &'a mut Arc<O::Outputs>,
+        follow: &Arc<O::V>,
+        arc: &'a mut Arc<O::V>,
         input: &mut impl BytesReader,
-    ) -> Result<&'a mut Arc<O::Outputs>> {
+    ) -> Result<&'a mut Arc<O::V>> {
         if !fst_util::target_has_arcs(follow) {
             debug_assert!(follow.is_final());
             arc.label = fst_util::END_LABEL;
@@ -271,8 +271,8 @@ where
     /// modifies `arc` in-place and returns it.
     pub fn read_first_target_arc(
         &self,
-        follow: &Arc<O::Outputs>,
-        arc: &mut Arc<O::Outputs>,
+        follow: &Arc<O::V>,
+        arc: &mut Arc<O::V>,
         reader: &mut impl BytesReader,
     ) -> Result<()> {
         if follow.is_final() {
@@ -297,7 +297,7 @@ where
     fn read_first_arc_info(
         &self,
         node_address: i64,
-        arc: &mut Arc<O::Outputs>,
+        arc: &mut Arc<O::V>,
         reader: &mut impl BytesReader,
     ) -> Result<()> {
         reader.set_position(node_address);
@@ -334,7 +334,7 @@ where
     pub fn read_first_real_target_arc(
         &self,
         node_address: i64,
-        arc: &mut Arc<O::Outputs>,
+        arc: &mut Arc<O::V>,
         reader: &mut impl BytesReader,
     ) -> Result<()> {
         self.read_first_arc_info(node_address, arc, reader)?;
@@ -344,7 +344,7 @@ where
     /// (fixed length arcs).
     pub fn is_expanded_target(
         &self,
-        follow: &Arc<O::Outputs>,
+        follow: &Arc<O::V>,
         reader: &mut impl BytesReader,
     ) -> Result<bool> {
         if !fst_util::target_has_arcs(follow) {
@@ -358,11 +358,7 @@ where
         }
     }
     /// In-place read; returns the arc.
-    pub fn read_next_arc(
-        &self,
-        arc: &mut Arc<O::Outputs>,
-        input: &mut impl BytesReader,
-    ) -> Result<()> {
+    pub fn read_next_arc(&self, arc: &mut Arc<O::V>, input: &mut impl BytesReader) -> Result<()> {
         if arc.label() == fst_util::END_LABEL {
             // This was a fake inserted "final" arc
             if arc.next_arc() <= 0 {
@@ -379,7 +375,7 @@ where
     /// Do not call this if `arc.is_last()`!
     pub(crate) fn read_next_arc_label(
         &self,
-        arc: &Arc<O::Outputs>,
+        arc: &Arc<O::V>,
         input: &mut impl BytesReader,
     ) -> Result<i32> {
         debug_assert!(!arc.is_last());
@@ -451,7 +447,7 @@ where
     /// The updated arc
     pub fn read_arc_by_index(
         &self,
-        arc: &mut Arc<O::Outputs>,
+        arc: &mut Arc<O::V>,
         input: &mut impl BytesReader,
         idx: i32,
     ) -> Result<()> {
@@ -469,7 +465,7 @@ where
     /// `range_index` must be within the label range.
     pub fn read_arc_by_continuous(
         &self,
-        arc: &mut Arc<O::Outputs>,
+        arc: &mut Arc<O::V>,
         reader: &mut impl BytesReader,
         range_index: i32,
     ) -> Result<()> {
@@ -487,7 +483,7 @@ where
     /// from presence bits.
     pub fn read_arc_by_direct_addressing(
         &self,
-        arc: &mut Arc<O::Outputs>,
+        arc: &mut Arc<O::V>,
         reader: &mut impl BytesReader,
         range_index: i32,
     ) -> Result<()> {
@@ -517,7 +513,7 @@ where
     /// count of presence bits before it).
     pub fn read_arc_by_direct_addressing_with_presence_index(
         &self,
-        arc: &mut Arc<O::Outputs>,
+        arc: &mut Arc<O::V>,
         reader: &mut impl BytesReader,
         range_index: i32,
         presence_index: i32,
@@ -537,7 +533,7 @@ where
     /// with `range_index` equal to `arc.num_arcs() - 1`, but it is faster.
     pub fn read_last_arc_by_direct_addressing(
         &self,
-        arc: &mut Arc<O::Outputs>,
+        arc: &mut Arc<O::V>,
         reader: &mut impl BytesReader,
     ) -> Result<()> {
         debug_assert!(BitTable::assert_is_valid(arc, reader)?);
@@ -555,7 +551,7 @@ where
     /// Reads the last arc of a continuous node.
     pub fn read_last_arc_by_continuous(
         &self,
-        arc: &mut Arc<O::Outputs>,
+        arc: &mut Arc<O::V>,
         reader: &mut impl BytesReader,
     ) -> Result<()> {
         self.read_arc_by_continuous(arc, reader, arc.num_arcs - 1)
@@ -563,7 +559,7 @@ where
     /// Never returns `None`, but must not be called if `arc.is_last()` is true.
     pub fn read_next_real_arc(
         &self,
-        arc: &mut Arc<O::Outputs>,
+        arc: &mut Arc<O::V>,
         reader: &mut impl BytesReader,
     ) -> Result<()> {
         // TODO: can't assert this because we call from readFirstArc
@@ -609,7 +605,7 @@ where
     ///
     /// Precondition: The arc flags byte has already been read and set;
     /// the given `BytesReader` is positioned just after the arc flags byte.
-    pub fn read_arc(&self, arc: &mut Arc<O::Outputs>, reader: &mut impl BytesReader) -> Result<()> {
+    pub fn read_arc(&self, arc: &mut Arc<O::V>, reader: &mut impl BytesReader) -> Result<()> {
         if arc.node_flags == fst_util::ARCS_FOR_DIRECT_ADDRESSING
             || arc.node_flags == fst_util::ARCS_FOR_CONTINUOUS
         {
@@ -682,8 +678,8 @@ where
     pub fn find_target_arc(
         &self,
         label_to_match: i32,
-        follow: &Arc<O::Outputs>,
-        arc: &mut Arc<O::Outputs>,
+        follow: &Arc<O::V>,
+        arc: &mut Arc<O::V>,
         input: &mut impl BytesReader,
     ) -> Result<Option<()>> {
         if label_to_match == fst_util::END_LABEL {
@@ -936,7 +932,7 @@ pub mod fst_util {
         let version =
             CodecUtil::check_header(meta_in, FILE_FORMAT_NAME, VERSION_START, VERSION_CURRENT)?;
 
-        let mut empty_output: Option<O::Outputs> = None;
+        let mut empty_output: Option<O::V> = None;
 
         if meta_in.read_byte()? == 1 {
             // Accepts empty string
@@ -1315,7 +1311,7 @@ where
     pub version: i32,
     /// If non-None, this FST accepts the empty string and produces this
     /// output.
-    pub empty_output: Option<O::Outputs>,
+    pub empty_output: Option<O::V>,
     pub start_node: i64,
     pub num_bytes: i64,
 }
@@ -1323,7 +1319,7 @@ impl<O: Outputs> FSTMetadata<O> {
     pub fn new(
         input_type: InputType,
         outputs: O,
-        empty_output: Option<O::Outputs>,
+        empty_output: Option<O::V>,
         start_node: i64,
         version: i32,
         num_bytes: i64,
@@ -1345,7 +1341,7 @@ impl<O: Outputs> FSTMetadata<O> {
         self.version
     }
 
-    pub fn empty_output(&self) -> Option<&O::Outputs> {
+    pub fn empty_output(&self) -> Option<&O::V> {
         self.empty_output.as_ref()
     }
 
@@ -1808,8 +1804,7 @@ mod tests {
         fst_compiler.add(builder.get(), outputs.get_no_output())?;
 
         let metadata = fst_compiler.compile()?;
-        let reader: DataOutputEnum<DummyDirectory> =
-            fst_compiler.inner.borrow_mut().get_fst_reader()?;
+        let reader: DataOutputEnum<DummyDirectory> = fst_compiler.get_fst_reader()?;
         let fst = FST::from_fst_reader(metadata, Some(reader)).unwrap();
 
         let mut fst_enum = BytesRefFSTEnum::new(fst)?;
@@ -1840,7 +1835,7 @@ mod tests {
         //
         // let metadata = fst_compiler.compile()?;
         // let reader: DataOutputEnum<DummyDirectory> =
-        //     fst_compiler.inner.borrow_mut().get_fst_reader()?;
+        //     fst_compiler.get_fst_reader()?;
         // let mut fst = FST::from_fst_reader(metadata, Some(reader)).unwrap();
         //
         //
@@ -1896,8 +1891,7 @@ mod tests {
         fst_compiler.add(v.get(), Rc::new(13824324872317238))?;
 
         let fst_metadata = fst_compiler.compile()?;
-        let fst_reader: DataOutputEnum<DummyDirectory> =
-            fst_compiler.inner.borrow_mut().get_fst_reader()?;
+        let fst_reader: DataOutputEnum<DummyDirectory> = fst_compiler.get_fst_reader()?;
         let mut fst = FST::from_fst_reader(fst_metadata, Some(fst_reader)).unwrap();
 
         assert_eq!(*Util::get_bytes(&mut fst, &c)?.unwrap(), 13824324872317238);
@@ -1954,7 +1948,7 @@ mod tests {
     //             }
     //
     //             let metadata = fst_compiler.compile()?;
-    //             let reader = fst_compiler.inner.borrow_mut().get_fst_reader()?;
+    //             let reader = fst_compiler.get_fst_reader()?;
     //             let fst = FST::from_fst_reader(metadata, Some(reader))?;
     //             Ok(fst)
     //         }
@@ -1986,8 +1980,7 @@ mod tests {
 
         // Compile and load once
         let metadata = fst_compiler.compile()?;
-        let fst_reader: DataOutputEnum<DummyDirectory> =
-            fst_compiler.inner.borrow_mut().get_fst_reader()?;
+        let fst_reader: DataOutputEnum<DummyDirectory> = fst_compiler.get_fst_reader()?;
         let mut fst = FST::from_fst_reader(metadata, Some(fst_reader)).unwrap();
 
         // Save into a single output
@@ -2040,23 +2033,22 @@ mod tests {
         let outputs = PositiveIntOutputs::get_singleton();
         let nothing = outputs.get_no_output();
         let builder: Builder<_, DummyDirectory> = Builder::new(InputType::Byte1, outputs.clone());
-        let fst_compiler = builder.build()?;
-        let no_output = fst_compiler.inner.borrow().no_output.clone();
+        let mut fst_compiler = builder.build()?;
+        let no_output = fst_compiler.no_output.clone();
         // Root node
         let mut root_node = UnCompiledNode::new(no_output, 0);
 
         // Add final stop node for 'a'
         {
-            let mut inner = fst_compiler.inner.borrow_mut();
             let node_in_idx = 0;
 
-            let no_output = inner.no_output.clone();
+            let no_output = fst_compiler.no_output.clone();
             let mut node = UnCompiledNode::new(no_output.clone(), 0);
             node.is_final = true;
-            inner.frontier[0] = Some(node);
+            fst_compiler.frontier[0] = Some(node);
             root_node.add_arc(b'a' as i32, NodeEnum::UnCompiledNode(0), no_output.clone())?;
             let mut fronze = CompiledNode::default();
-            fronze.node = inner.add_node(0)?;
+            fronze.node = fst_compiler.add_node(0)?;
 
             root_node.arcs[0].next_final_output = Rc::new(17);
             root_node.arcs[0].is_final = true;
@@ -2067,31 +2059,29 @@ mod tests {
         // Add non-final stop node for 'b'
         {
             let node_in_idx = 1;
-            let mut inner = fst_compiler.inner.borrow_mut();
-            let no_output = inner.no_output.clone();
+            let no_output = fst_compiler.no_output.clone();
             let node = UnCompiledNode::new(no_output.clone(), 0);
-            inner.frontier[1] = Some(node);
+            fst_compiler.frontier[1] = Some(node);
             root_node.add_arc(b'b' as i32, NodeEnum::UnCompiledNode(1), no_output.clone())?;
             let mut fronze = CompiledNode::default();
-            fronze.node = inner.add_node(1)?;
+            fronze.node = fst_compiler.add_node(1)?;
 
             root_node.arcs[1].next_final_output = nothing.clone();
             root_node.arcs[1].output = Rc::new(42);
             root_node.arcs[1].target = NodeEnum::CompiledNode(fronze);
         }
         // index = 2;
-        fst_compiler.inner.borrow_mut().frontier[2] = Some(root_node);
+        fst_compiler.frontier[2] = Some(root_node);
 
         // Finish FST
-        let mut inner = fst_compiler.inner.borrow_mut();
         // 2  =  root node
-        let root = inner.add_node(2)?;
-        inner.finish(root)?;
+        let root = fst_compiler.add_node(2)?;
+        fst_compiler.finish(root)?;
 
         // Construct FST
-        let metadata = inner.fst.metadata.take().unwrap();
+        let metadata = fst_compiler.fst.metadata.take().unwrap();
 
-        let mut fst = FST::new(metadata, inner.get_fst_reader()?);
+        let mut fst = FST::new(metadata, fst_compiler.get_fst_reader()?);
 
         let mut random = random();
         let mut dir = new_directory(&mut random)?;
@@ -2178,8 +2168,7 @@ mod tests {
         }
 
         let metadata = fst_compiler.compile()?;
-        let fst_reader: DataOutputEnum<DummyDirectory> =
-            fst_compiler.inner.borrow_mut().get_fst_reader()?;
+        let fst_reader: DataOutputEnum<DummyDirectory> = fst_compiler.get_fst_reader()?;
         let mut fst = FST::from_fst_reader(metadata, Some(fst_reader)).unwrap();
 
         for arc in 0..6 {
@@ -2222,8 +2211,7 @@ mod tests {
         fst_compiler.add(builder.get(), Rc::new(7))?;
 
         let metadata = fst_compiler.compile()?;
-        let reader: DataOutputEnum<DummyDirectory> =
-            fst_compiler.inner.borrow_mut().get_fst_reader()?;
+        let reader: DataOutputEnum<DummyDirectory> = fst_compiler.get_fst_reader()?;
         let mut fst = FST::from_fst_reader(metadata, Some(reader)).unwrap();
 
         assert_eq!(*Util::get_bytes(&mut fst, &ab)?.unwrap(), 3);

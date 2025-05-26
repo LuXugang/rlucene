@@ -33,7 +33,7 @@ where
     F: FstReader,
 {
     pub(crate) current: RcIntsRef,
-    pub(crate) result: InputOutput<O::Outputs, RcIntsRef>,
+    pub(crate) result: InputOutput<O::V, RcIntsRef>,
     pub(crate) target: IntsRef<Rc<RefCell<Vec<i32>>>>,
     pub base: Option<FSTEnum<O, F>>,
 }
@@ -55,18 +55,18 @@ where
             current,
             result: InputOutput {
                 input: result_input,
-                output: O::Outputs::default(),
+                output: O::V::default(),
             },
             target: IntsRef::default(),
             base: Some(base),
         })
     }
 
-    pub fn current(&self) -> &InputOutput<O::Outputs, RcIntsRef> {
+    pub fn current(&self) -> &InputOutput<O::V, RcIntsRef> {
         &self.result
     }
 
-    pub fn next(&mut self) -> Result<Option<&InputOutput<O::Outputs, RcIntsRef>>> {
+    pub fn next(&mut self) -> Result<Option<&InputOutput<O::V, RcIntsRef>>> {
         debug_assert!(self.base.is_some());
         let mut base = self.base.take().unwrap();
         base.do_next(self)?;
@@ -77,7 +77,7 @@ where
     pub fn seek_ceil(
         &mut self,
         target: IntsRef<Rc<RefCell<Vec<i32>>>>,
-    ) -> Result<Option<&InputOutput<O::Outputs, RcIntsRef>>> {
+    ) -> Result<Option<&InputOutput<O::V, RcIntsRef>>> {
         self.target = target;
         debug_assert!(self.base.is_some());
         let mut base = self.base.take().unwrap();
@@ -93,7 +93,7 @@ where
     pub fn seek_floor(
         &mut self,
         target: IntsRef<Rc<RefCell<Vec<i32>>>>,
-    ) -> Result<Option<&InputOutput<O::Outputs, RcIntsRef>>> {
+    ) -> Result<Option<&InputOutput<O::V, RcIntsRef>>> {
         self.target = target;
         debug_assert!(self.base.is_some());
         let mut base = self.base.take().unwrap();
@@ -110,7 +110,7 @@ where
     pub fn seek_exact(
         &mut self,
         target: IntsRef<Rc<RefCell<Vec<i32>>>>,
-    ) -> Result<Option<&InputOutput<O::Outputs, RcIntsRef>>> {
+    ) -> Result<Option<&InputOutput<O::V, RcIntsRef>>> {
         self.target = target;
         debug_assert!(self.base.is_some());
         let mut base = self.base.take().unwrap();
@@ -129,7 +129,7 @@ where
         result
     }
 
-    fn set_result(&mut self) -> Result<Option<&InputOutput<O::Outputs, RcIntsRef>>> {
+    fn set_result(&mut self) -> Result<Option<&InputOutput<O::V, RcIntsRef>>> {
         self.base.take_do_return(|base| {
             if base.upto == 0 {
                 Ok(None)

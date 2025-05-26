@@ -50,9 +50,9 @@ impl PositiveIntOutputs {
 }
 
 impl Outputs for PositiveIntOutputs {
-    type Outputs = Rc<i64>;
+    type V = Rc<i64>;
 
-    fn common(&self, output1: &Self::Outputs, output2: &Self::Outputs) -> Self::Outputs {
+    fn common(&self, output1: &Self::V, output2: &Self::V) -> Self::V {
         debug_assert!(self.valid(output1));
         debug_assert!(self.valid(output2));
 
@@ -66,7 +66,7 @@ impl Outputs for PositiveIntOutputs {
         }
     }
 
-    fn subtract(&self, output: &Self::Outputs, inc: &Self::Outputs) -> Self::Outputs {
+    fn subtract(&self, output: &Self::V, inc: &Self::V) -> Self::V {
         debug_assert!(self.valid(output));
         debug_assert!(self.valid(inc));
         debug_assert!(**output >= **inc);
@@ -80,7 +80,7 @@ impl Outputs for PositiveIntOutputs {
         }
     }
 
-    fn add(&self, prefix: &Self::Outputs, output: &Self::Outputs) -> Self::Outputs {
+    fn add(&self, prefix: &Self::V, output: &Self::V) -> Self::V {
         debug_assert!(self.valid(prefix));
         debug_assert!(self.valid(output));
 
@@ -93,7 +93,7 @@ impl Outputs for PositiveIntOutputs {
         }
     }
 
-    fn write(&self, output: &Self::Outputs, out: &mut impl DataOutput) -> Result<()> {
+    fn write(&self, output: &Self::V, out: &mut impl DataOutput) -> Result<()> {
         debug_assert!(self.valid(output));
         out.write_vlong(**output)
     }
@@ -107,15 +107,15 @@ impl Outputs for PositiveIntOutputs {
         }
     }
 
-    fn get_no_output(&self) -> Self::Outputs {
+    fn get_no_output(&self) -> Self::V {
         NO_OUTPUT.with(|rc| rc.clone())
     }
 
-    fn output_to_string(&self, output: &Self::Outputs) -> String {
+    fn output_to_string(&self, output: &Self::V) -> String {
         output.to_string()
     }
 
-    fn ram_bytes_used(&self, output: &Self::Outputs) -> i64 {
+    fn ram_bytes_used(&self, output: &Self::V) -> i64 {
         // TODO
         0
     }

@@ -42,37 +42,37 @@ impl Clone for NoOutputs {
 
 impl Outputs for NoOutputs {
     // TODO: 未完成
-    type Outputs = Rc<i64>;
+    type V = Rc<i64>;
 
-    fn common(&self, _output1: &Self::Outputs, _output2: &Self::Outputs) -> Self::Outputs {
+    fn common(&self, _output1: &Self::V, _output2: &Self::V) -> Self::V {
         todo!()
     }
 
-    fn subtract(&self, _output: &Self::Outputs, _inc: &Self::Outputs) -> Self::Outputs {
+    fn subtract(&self, _output: &Self::V, _inc: &Self::V) -> Self::V {
         todo!()
     }
 
-    fn add(&self, _prefix: &Self::Outputs, _output: &Self::Outputs) -> Self::Outputs {
+    fn add(&self, _prefix: &Self::V, _output: &Self::V) -> Self::V {
         todo!()
     }
 
-    fn write(&self, _output: &Self::Outputs, _out: &mut impl DataOutput) -> Result<()> {
+    fn write(&self, _output: &Self::V, _out: &mut impl DataOutput) -> Result<()> {
         todo!()
     }
 
-    fn read(&self, _input: &mut impl DataInput) -> Result<Self::Outputs> {
+    fn read(&self, _input: &mut impl DataInput) -> Result<Self::V> {
         todo!()
     }
 
-    fn get_no_output(&self) -> Self::Outputs {
+    fn get_no_output(&self) -> Self::V {
         todo!()
     }
 
-    fn output_to_string(&self, _output: &Self::Outputs) -> String {
+    fn output_to_string(&self, _output: &Self::V) -> String {
         todo!()
     }
 
-    fn ram_bytes_used(&self, _output: &Self::Outputs) -> i64 {
+    fn ram_bytes_used(&self, _output: &Self::V) -> i64 {
         todo!()
     }
 }

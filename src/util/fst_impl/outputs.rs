@@ -39,28 +39,28 @@ pub trait Outputs: Display + Clone {
     // (new object per byte/char/int) if eg used during
     // analysis
 
-    type Outputs: OutputsBound;
+    type V: OutputsBound;
 
     /// Eg. `common("foobar", "food") -> "foo"`
-    fn common(&self, output1: &Self::Outputs, output2: &Self::Outputs) -> Self::Outputs;
+    fn common(&self, output1: &Self::V, output2: &Self::V) -> Self::V;
 
     /// Eg. `subtract("foobar", "foo") -> "bar"`
-    fn subtract(&self, output: &Self::Outputs, inc: &Self::Outputs) -> Self::Outputs;
+    fn subtract(&self, output: &Self::V, inc: &Self::V) -> Self::V;
 
     /// Eg. `add("foo", "bar") -> "foobar"`
-    fn add(&self, prefix: &Self::Outputs, output: &Self::Outputs) -> Self::Outputs;
+    fn add(&self, prefix: &Self::V, output: &Self::V) -> Self::V;
 
     /// Encode an output value into a `Write` stream.
-    fn write(&self, output: &Self::Outputs, out: &mut impl DataOutput) -> Result<()>;
+    fn write(&self, output: &Self::V, out: &mut impl DataOutput) -> Result<()>;
 
     /// Encode a final node output value into a `Write` stream.
     /// By default this just calls [`write`].
-    fn write_final_output(&self, output: &Self::Outputs, out: &mut impl DataOutput) -> Result<()> {
+    fn write_final_output(&self, output: &Self::V, out: &mut impl DataOutput) -> Result<()> {
         self.write(output, out)
     }
 
     /// Decode an output value previously written with [`write`].
-    fn read(&self, input: &mut impl DataInput) -> Result<Self::Outputs>;
+    fn read(&self, input: &mut impl DataInput) -> Result<Self::V>;
 
     /// Skip the output; defaults to just calling [`read`] and discarding the
     /// result.
@@ -71,7 +71,7 @@ pub trait Outputs: Display + Clone {
 
     /// Decode an output value previously written with [`write_final_output`].
     /// By default this just calls [`read`].
-    fn read_final_output(&self, input: &mut impl DataInput) -> Result<Self::Outputs> {
+    fn read_final_output(&self, input: &mut impl DataInput) -> Result<Self::V> {
         self.read(input)
     }
 
@@ -86,20 +86,20 @@ pub trait Outputs: Display + Clone {
     /// NOTE: this output is compared with pointer equality (`==`), so you must
     /// ensure that all methods return the same SINGLETON object if it's
     /// really no output.
-    fn get_no_output(&self) -> Self::Outputs;
+    fn get_no_output(&self) -> Self::V;
 
-    fn output_to_string(&self, output: &Self::Outputs) -> String;
+    fn output_to_string(&self, output: &Self::V) -> String;
 
     // TODO: maybe make valid(Self::V output) public...? for asserts
 
-    fn merge(&self, _first: &Self::Outputs, _second: &Self::Outputs) -> Result<Self::Outputs> {
+    fn merge(&self, _first: &Self::V, _second: &Self::V) -> Result<Self::V> {
         Err(LuceneError::unsupported_operation(""))
     }
 
     /// Return memory usage for the provided output.
     ///
     /// See also: `Accountable`
-    fn ram_bytes_used(&self, output: &Self::Outputs) -> i64;
+    fn ram_bytes_used(&self, output: &Self::V) -> i64;
 }
 
 pub enum OutputsEnum {

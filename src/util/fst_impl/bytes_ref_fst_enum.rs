@@ -33,7 +33,7 @@ where
     F: FstReader,
 {
     pub(crate) current: BytesRef<Rc<RefCell<Vec<u8>>>>,
-    pub(crate) result: InputOutput<O::Outputs, BytesRef<Rc<RefCell<Vec<u8>>>>>,
+    pub(crate) result: InputOutput<O::V, BytesRef<Rc<RefCell<Vec<u8>>>>>,
     pub(crate) target: BytesRef<Rc<RefCell<Vec<u8>>>>,
     base: Option<FSTEnum<O, F>>,
 }
@@ -56,20 +56,18 @@ where
             current,
             result: InputOutput {
                 input: result_input,
-                output: O::Outputs::default(),
+                output: O::V::default(),
             },
             target: BytesRef::new(),
             base: Some(base),
         })
     }
 
-    pub fn current(&self) -> &InputOutput<O::Outputs, BytesRef<Rc<RefCell<Vec<u8>>>>> {
+    pub fn current(&self) -> &InputOutput<O::V, BytesRef<Rc<RefCell<Vec<u8>>>>> {
         &self.result
     }
 
-    pub fn next(
-        &mut self,
-    ) -> Result<Option<&InputOutput<O::Outputs, BytesRef<Rc<RefCell<Vec<u8>>>>>>> {
+    pub fn next(&mut self) -> Result<Option<&InputOutput<O::V, BytesRef<Rc<RefCell<Vec<u8>>>>>>> {
         debug_assert!(self.base.is_some());
         let mut base = self.base.take().unwrap();
         base.do_next(self)?;
@@ -80,7 +78,7 @@ where
     pub fn seek_ceil(
         &mut self,
         target: BytesRef<Rc<RefCell<Vec<u8>>>>,
-    ) -> Result<Option<&InputOutput<O::Outputs, BytesRef<Rc<RefCell<Vec<u8>>>>>>> {
+    ) -> Result<Option<&InputOutput<O::V, BytesRef<Rc<RefCell<Vec<u8>>>>>>> {
         self.target = target;
         debug_assert!(self.base.is_some());
         let mut base = self.base.take().unwrap();
@@ -93,7 +91,7 @@ where
     pub fn seek_floor(
         &mut self,
         target: BytesRef<Rc<RefCell<Vec<u8>>>>,
-    ) -> Result<Option<&InputOutput<O::Outputs, BytesRef<Rc<RefCell<Vec<u8>>>>>>> {
+    ) -> Result<Option<&InputOutput<O::V, BytesRef<Rc<RefCell<Vec<u8>>>>>>> {
         self.target = target;
         debug_assert!(self.base.is_some());
         let mut base = self.base.take().unwrap();
@@ -106,7 +104,7 @@ where
     pub fn seek_exact(
         &mut self,
         target: BytesRef<Rc<RefCell<Vec<u8>>>>,
-    ) -> Result<Option<&InputOutput<O::Outputs, BytesRef<Rc<RefCell<Vec<u8>>>>>>> {
+    ) -> Result<Option<&InputOutput<O::V, BytesRef<Rc<RefCell<Vec<u8>>>>>>> {
         self.target = target;
         debug_assert!(self.base.is_some());
         let mut base = self.base.take().unwrap();
@@ -122,9 +120,7 @@ where
         result
     }
 
-    fn set_result(
-        &mut self,
-    ) -> Result<Option<&InputOutput<O::Outputs, BytesRef<Rc<RefCell<Vec<u8>>>>>>> {
+    fn set_result(&mut self) -> Result<Option<&InputOutput<O::V, BytesRef<Rc<RefCell<Vec<u8>>>>>>> {
         self.base.take_do_return(|base| {
             if base.upto == 0 {
                 Ok(None)

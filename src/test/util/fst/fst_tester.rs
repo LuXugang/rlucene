@@ -44,7 +44,7 @@ where
     S: FSTTesterBase,
 {
     pub random: R,
-    pub pairs: Vec<InputOutput<O::Outputs, Rc<RefCell<Vec<i32>>>>>,
+    pub pairs: Vec<InputOutput<O::V, Rc<RefCell<Vec<i32>>>>>,
     pub input_mode: i32,
     pub outputs: O,
     pub dir: Rc<RefCell<D>>,
@@ -64,7 +64,7 @@ where
         random: R,
         dir: Rc<RefCell<D>>,
         input_mode: i32,
-        pairs: Vec<InputOutput<O::Outputs, Rc<RefCell<Vec<i32>>>>>,
+        pairs: Vec<InputOutput<O::V, Rc<RefCell<Vec<i32>>>>>,
         outputs: O,
     ) -> Self {
         Self {
@@ -86,7 +86,7 @@ where
         fst: &mut FST<O, F>,
         term: &IntsRef<AV>,
         mut prefix_length: Option<&mut [i32]>,
-    ) -> Result<Option<O::Outputs>>
+    ) -> Result<Option<O::V>>
     where
         F: FstReader,
         AV: AccessVec<i32>,
@@ -126,7 +126,7 @@ where
         fst: &mut FST<O, F>,
         in_builder: &mut IntsRefBuilder<AV>,
         random: &mut impl Rng,
-    ) -> Result<O::Outputs>
+    ) -> Result<O::V>
     where
         F: FstReader,
         AV: AccessVec<i32>,
@@ -200,8 +200,8 @@ where
             })?;
         }
         let fst_metadata = fst_compiler.compile()?;
-        let node_count = fst_compiler.inner.borrow().get_node_count();
-        let arc_count = fst_compiler.inner.borrow().get_arc_count();
+        let node_count = fst_compiler.get_node_count();
+        let arc_count = fst_compiler.get_arc_count();
         let fst = if use_off_heap {
             if fst_metadata.is_none() {
                 self.dir.borrow_mut().delete_file("fstOffHeap.bin")?;
@@ -218,10 +218,7 @@ where
                 Some(FSTEnums::FST1(fst))
             }
         } else if let Some(_) = &fst_metadata {
-            let mut fst = FST::from_fst_reader(
-                fst_metadata,
-                Some(fst_compiler.inner.borrow_mut().get_fst_reader()?),
-            );
+            let mut fst = FST::from_fst_reader(fst_metadata, Some(fst_compiler.get_fst_reader()?));
             if random.random_bool(0.5) {
                 let ctx = new_io_context(&mut random)?;
                 {
@@ -306,7 +303,7 @@ where
         reuse = std::mem::replace(&mut v.base.as_mut().unwrap().fst, padding_fst);
 
         // init terms_map
-        let mut terms_map: HashMap<IntsRef<Rc<RefCell<Vec<i32>>>>, O::Outputs> = HashMap::new();
+        let mut terms_map: HashMap<IntsRef<Rc<RefCell<Vec<i32>>>>, O::V> = HashMap::new();
         for pair in &self.pairs {
             terms_map.insert(pair.input.clone(), pair.output.clone());
         }
@@ -336,7 +333,7 @@ where
         &mut self,
         input_mode: i32,
         mut fst_enum: IntsRefFSTEnum<O, F>,
-        terms_map: &HashMap<IntsRef<Rc<RefCell<Vec<i32>>>>, O::Outputs>,
+        terms_map: &HashMap<IntsRef<Rc<RefCell<Vec<i32>>>>, O::V>,
     ) -> Result<IntsRefFSTEnum<O, F>>
     where
         F: FstReader,
@@ -482,7 +479,7 @@ where
         &mut self,
         input_mode: i32,
         mut fst: Option<FST<O, F>>,
-        terms_map: &HashMap<IntsRef<Rc<RefCell<Vec<i32>>>>, O::Outputs>,
+        terms_map: &HashMap<IntsRef<Rc<RefCell<Vec<i32>>>>, O::V>,
     ) -> Result<IntsRefFSTEnum<O, F>>
     where
         F: FstReader,
@@ -727,7 +724,7 @@ where
         // See `self.step1`,`self.step2`,`self.step2`
         Ok(())
     }
-    fn outputs_equal(&self, a: &O::Outputs, b: &O::Outputs) -> bool {
+    fn outputs_equal(&self, a: &O::V, b: &O::V) -> bool {
         if self.sub.is_some() {
             self.sub.as_ref().unwrap().outputs_equal_impl(a, b)
         } else {

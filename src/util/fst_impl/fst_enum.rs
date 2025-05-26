@@ -28,10 +28,10 @@ where
     F: FstReader,
 {
     pub fst: FST<O, F>,
-    pub(crate) arcs: Vec<Option<Arc<O::Outputs>>>,
-    pub(crate) output: Vec<O::Outputs>,
+    pub(crate) arcs: Vec<Option<Arc<O::V>>>,
+    pub(crate) output: Vec<O::V>,
     #[allow(unused)]
-    pub(crate) no_output: O::Outputs,
+    pub(crate) no_output: O::V,
     pub(crate) fst_reader: F::FstBytesReader,
     pub(crate) upto: usize,
     pub(crate) target_length: i32,
@@ -49,7 +49,7 @@ where
         fst.get_first_arc(&mut arc);
         arcs[0] = Some(arc);
 
-        let mut output = vec![O::Outputs::default(); 10];
+        let mut output = vec![O::V::default(); 10];
         output[0] = no_output.clone();
 
         Ok(Self {
@@ -684,7 +684,7 @@ where
         mut target_label: i32,
         reader: &mut F::FstBytesReader,
         sub: &mut impl FSTEnumBase<O, F>,
-    ) -> Result<Option<Arc<O::Outputs>>> {
+    ) -> Result<Option<Arc<O::V>>> {
         let mut upto = arc_index;
         let mut arc = self.get_arc_ownership(upto);
         loop {
@@ -760,7 +760,7 @@ where
     /// Precondition: the given arc is the first arc of the node.
     fn find_next_floor_arc_direct_addressing(
         &mut self,
-        arc: &mut Arc<O::Outputs>,
+        arc: &mut Arc<O::V>,
         target_label: i32,
         reader: &mut F::FstBytesReader,
     ) -> Result<()> {
@@ -790,7 +790,7 @@ where
     /// Same as [`find_next_floor_arc_direct_addressing`](Self::find_next_floor_arc_direct_addressing) for continuous node.
     fn find_next_floor_arc_continuous(
         &mut self,
-        arc: &mut Arc<O::Outputs>,
+        arc: &mut Arc<O::V>,
         target_label: i32,
         reader: &mut F::FstBytesReader,
     ) -> Result<()> {
@@ -816,7 +816,7 @@ where
     /// Same as [`find_next_floor_arc_direct_addressing`](Self::find_next_floor_arc_direct_addressing) for binary search node.
     fn find_next_floor_arc_binary_search(
         &mut self,
-        arc: &mut Arc<O::Outputs>,
+        arc: &mut Arc<O::V>,
         target_label: i32,
         reader: &mut F::FstBytesReader,
     ) -> Result<()> {
@@ -1103,7 +1103,7 @@ where
         Ok(())
     }
 
-    fn get_arc_ownership(&mut self, idx: usize) -> Arc<O::Outputs> {
+    fn get_arc_ownership(&mut self, idx: usize) -> Arc<O::V> {
         match self.arcs[idx] {
             Some(_) => self.arcs[idx].take().unwrap(),
             None => Arc::default(),

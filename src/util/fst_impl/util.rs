@@ -31,10 +31,7 @@ pub struct Util;
 impl Util {
     /// Looks up the output for this input, or null if the input is not
     /// accepted.
-    pub fn get_ints<O, F, AV>(
-        fst: &mut FST<O, F>,
-        input: &IntsRef<AV>,
-    ) -> Result<Option<O::Outputs>>
+    pub fn get_ints<O, F, AV>(fst: &mut FST<O, F>, input: &IntsRef<AV>) -> Result<Option<O::V>>
     where
         O: Outputs,
         F: FstReader,
@@ -63,10 +60,7 @@ impl Util {
     }
     /// Looks up the output for this input, or `None` if the input is not
     /// accepted.
-    pub fn get_bytes<O, F, AV>(
-        fst: &mut FST<O, F>,
-        input: &BytesRef<AV>,
-    ) -> Result<Option<O::Outputs>>
+    pub fn get_bytes<O, F, AV>(fst: &mut FST<O, F>, input: &BytesRef<AV>) -> Result<Option<O::V>>
     where
         O: Outputs,
         F: FstReader,
@@ -75,7 +69,7 @@ impl Util {
         assert_eq!(fst.metadata.as_ref().unwrap().input_type, InputType::Byte1);
 
         let mut fst_reader = fst.get_bytes_reader()?;
-        let mut arc = Arc::<O::Outputs>::default();
+        let mut arc = Arc::<O::V>::default();
         fst.get_first_arc(&mut arc);
         let mut output = fst.outputs.get_no_output();
 
@@ -152,8 +146,8 @@ impl Util {
     pub fn read_ceil_arc<O, F>(
         label: i32,
         fst: &mut FST<O, F>,
-        follow: &Arc<O::Outputs>,
-        arc: &mut Arc<O::Outputs>,
+        follow: &Arc<O::V>,
+        arc: &mut Arc<O::V>,
         in_reader: &mut F::FstBytesReader,
     ) -> Result<Option<()>>
     where
@@ -236,7 +230,7 @@ impl Util {
 
     pub fn binary_search<O, F>(
         fst: &mut FST<O, F>,
-        arc: &Arc<O::Outputs>,
+        arc: &Arc<O::V>,
         target_label: i32,
     ) -> Result<i32>
     where
@@ -499,7 +493,7 @@ mod tests {
         }
 
         let metadata = compiler.compile()?;
-        let fst_reader = compiler.inner.borrow_mut().get_fst_reader()?;
+        let fst_reader = compiler.get_fst_reader()?;
 
         let fst = FST::from_fst_reader(metadata, Some(fst_reader)).unwrap();
         Ok(fst)
