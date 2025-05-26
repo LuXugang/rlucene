@@ -55,7 +55,151 @@ use crate::util::ints_ref_builder::IntsRefBuilder;
 use crate::util::packed::PackedInts;
 use crate::util::to_string_utils::ToStringUtils;
 use crate::util::{CoreHelper, SliceCopyOps, StringHelper, ToInt};
+/*
+  TODO:
 
+    - Currently there is a one-to-one mapping of indexed
+      term to term block, but we could decouple the two, ie,
+      put more terms into the index than there are blocks.
+      The index would take up more RAM but then it'd be able
+      to avoid seeking more often and could make PK/FuzzyQ
+      faster if the additional indexed terms could store
+      the offset into the terms block.
+
+    - The blocks are not written in true depth-first
+      order, meaning if you just next() the file pointer will
+      sometimes jump backwards.  For example, block foo* will
+      be written before block f* because it finished before.
+      This could possibly hurt performance if the terms dict is
+      not hot, since OSs anticipate sequential file access.  We
+      could fix the writer to re-order the blocks as a 2nd
+      pass.
+
+    - Each block encodes the term suffixes packed
+      sequentially using a separate vInt per term, which is
+      1) wasteful and 2) slow (must linear scan to find a
+      particular suffix).  We should instead 1) make
+      random-access array so we can directly access the Nth
+      suffix, and 2) bulk-encode this array using bulk int[]
+      codecs; then at search time we can binary search when
+      we seek a particular term.
+*/
+
+/// Block-based terms index and dictionary writer.
+///
+/// Writes terms dict and index, block-encoding (column stride) each term's
+/// metadata for each set of terms between two index terms.
+///
+/// Files:
+///
+/// - `.tim`: Term Dictionary
+/// - `.tmd`: Term Metadata
+/// - `.tip`: Term Index
+///
+/// ---
+///
+/// ## Term Dictionary (.tim)
+///
+/// The `.tim` file contains the list of terms in each field along with per-term
+/// statistics (such as docFreq) and per-term metadata (typically pointers to
+/// the postings list for that term in the inverted index).
+///
+/// The `.tim` file is arranged in blocks: each block contains a variable number
+/// of entries (by default 25–48), where each entry is either a term or a
+/// reference to a sub-block.
+///
+/// **NOTE:** The term dictionary can plug into different postings
+/// implementations: the postings writer/reader are responsible for encoding and
+/// decoding the postings metadata and term metadata.
+///
+/// Structure:
+///
+/// - TermsDict (.tim) → Header, FieldDict<sup>NumFields</sup>, Footer
+/// - FieldDict → PostingsHeader, NodeBlock<sup>NumBlocks</sup>
+/// - NodeBlock → OuterNode | InnerNode
+/// - OuterNode → EntryCount, SuffixLength, Bytes<sup>SuffixLength</sup>,
+///   StatsLength, TermStats<sup>EntryCount</sup>, MetaLength,
+///   TermMetadata<sup>EntryCount</sup>
+/// - InnerNode → EntryCount, SuffixLength`[, Sub?]`,
+///   Bytes<sup>SuffixLength</sup>, StatsLength,
+///   TermStats?<sup>EntryCount</sup>, MetaLength,
+///   TermMetadata?<sup>EntryCount</sup>
+/// - TermStats → DocFreq, TotalTermFreq
+/// - Header → `CodecUtil::write_header`
+/// - EntryCount, SuffixLength, StatsLength, DocFreq, MetaLength → `write_vint`
+/// - TotalTermFreq → `write_vlong`
+/// - Footer → `CodecUtil::write_footer`
+///
+/// Notes:
+///
+/// - Header stores version information for the BlockTree implementation.
+/// - `DocFreq` is the number of documents that contain the term.
+/// - `TotalTermFreq` is the total number of occurrences of the term, encoded as
+///   the delta from `DocFreq`.
+/// - `PostingsHeader` and `TermMetadata` are pluggable and format-specific.
+/// - Inner node entries use a bit to mark sub-blocks; in that case, TermStats
+///   and TermMetadata are omitted.
+///
+/// ---
+///
+/// ## Term Metadata (.tmd)
+///
+/// The `.tmd` file contains term metadata (e.g. FST index metadata) and
+/// field-level statistics (e.g. sumTotalTermFreq).
+///
+/// Structure:
+///
+/// - TermsMeta (.tmd) → Header, NumFields, FieldStats<sup>NumFields</sup>,
+///   TermIndexLength, TermDictLength, Footer
+/// - FieldStats → FieldNumber, NumTerms, RootCodeLength,
+///   Bytes<sup>RootCodeLength</sup>, SumTotalTermFreq?, SumDocFreq, DocCount,
+///   MinTerm, MaxTerm, IndexStartFP, FSTHeader, FSTMetadata
+///
+/// Encoding:
+///
+/// - Header, FSTHeader → [`CodecUtil::write_header`](CodecUtil::write_header)
+/// - TermIndexLength, TermDictLength → `write_long`
+/// - MinTerm, MaxTerm → `write_vint` + Bytes
+/// - NumFields, FieldNumber, RootCodeLength, DocCount → `write_vint`
+/// - NumTerms, SumTotalTermFreq, SumDocFreq, IndexStartFP → `write_vlong`
+/// - Footer → `CodecUtil::write_footer`
+///
+/// Notes:
+///
+/// - `FieldNumber` comes from `.fnm` (`FieldInfos`)
+/// - `NumTerms` is the number of unique terms for the field
+/// - `RootCode` points to the root block of the field
+/// - `SumDocFreq` counts the number of term-document pairs
+/// - `DocCount` is the number of documents that have at least one term in the
+///   field
+/// - `MinTerm` / `MaxTerm` are the smallest/largest lexicographic terms
+///
+/// ---
+///
+/// ## Term Index (.tip)
+///
+/// The `.tip` file contains an index into the term dictionary, allowing
+/// efficient random access. The index also helps determine when a term does not
+/// exist on disk.
+///
+/// Structure:
+///
+/// - TermsIndex (.tip) → Header, FSTIndex<sup>NumFields</sup>, Footer
+/// - Header → `CodecUtil::write_header`
+/// - FSTIndex → `FST<BytesRef>`
+/// - Footer → `CodecUtil::write_footer`
+///
+/// Notes:
+/// - The .tip file contains a separate FST for each field. The FST maps a term
+///   prefix to the on-disk block that holds all terms starting with that
+///   prefix. Each field's IndexStartFP points to its FST.
+/// -It's possible that an on-disk block would contain too many terms (more than
+///   the allowed maximum (default: 48)). When this happens, the block is
+///   sub-divided into new blocks (called "floor blocks"), and then the output
+/// in   the FST for the block's prefix encodes the leading byte of each
+/// sub-block,   and its file pointer.
+///
+/// See also [`Lucene90BlockTreeTermsReader`](crate::codecs::lucene90::terms_reader::Lucene90BlockTreeTermsReader).
 pub struct Lucene90BlockTreeTermsWriter<O, PW>
 where
     O: IndexOutput,
@@ -557,9 +701,13 @@ where
     }
     pub fn write_blocks(&mut self, prefix_length: usize, count: usize) -> Result<()> {
         debug_assert!(count > 0);
+        // Root block better write all remaining pending entries:
         debug_assert!(prefix_length > 0 || count == self.pending.len());
 
         let mut last_suffix_lead_label = -1;
+        // True if we saw at least one term in this block (we record if a block
+        // only points to sub-blocks in the terms index so we can avoid seeking
+        // to it when we are looking for a term):
         let mut has_terms = false;
         let mut has_sub_blocks = false;
 
@@ -575,6 +723,9 @@ where
                     match ent {
                         PendingEntryEnum::Term(term) => {
                             if term.term_bytes.len() == prefix_length {
+                                // Suffix is 0, i.e. prefix 'foo' and term is
+                                // 'foo' so the term has empty string suffix
+                                // in this block
                                 debug_assert_eq!(
                                     last_suffix_lead_label, -1,
                                     "i={} last_suffix_lead_label={}",
@@ -599,6 +750,15 @@ where
                 if items_in_block >= self.min_items_in_block as usize
                     && end - next_block_start > self.max_items_in_block as usize
                 {
+                    // The count is too large for one block, so we must break it into "floor"
+                    // blocks, where we record
+                    // the leading label of the suffix of the first term in each floor block, so at
+                    // search time we can
+                    // jump to the right floor block.  We just use a naive greedy segmenter here:
+                    // make a new floor
+                    // block as soon as we have at least minItemsInBlock.  This is not always best:
+                    // it often produces
+                    // a too-small block as the final block:
                     let is_floor = items_in_block < count;
                     let block = self.write_block(
                         prefix_length,
@@ -662,6 +822,13 @@ where
         CoreHelper::check_from_index_size(start_offset as i32, end_offset as i32, b.len() as i32)?;
         Ok(b[start_offset..end_offset].iter().all(|&x| x == value))
     }
+    /// Writes the specified slice (start is inclusive, end is exclusive) from
+    /// the pending stack as a new block.
+    ///
+    /// If `is_floor` is `true`, it means there were too many (more than
+    /// `max_items_in_block`) entries sharing the same prefix, so we broke
+    /// it into multiple floor blocks. In that case, we record the starting
+    /// label of the suffix of each floor block.
     #[allow(clippy::too_many_arguments)]
     pub fn write_block(
         &mut self,
@@ -690,11 +857,11 @@ where
         }
         self.terms_out.write_vint(code)?;
 
-        let is_leaf = !has_sub_blocks;
+        let is_leaf_block = !has_sub_blocks;
         let mut sub_indices = Vec::new();
         let mut absolute = true;
 
-        if is_leaf {
+        if is_leaf_block {
             let mut stats_writer =
                 StatsWriter::new(*self.field_info.get_index_options() != IndexOptions::DOCS);
             for i in start..end {
@@ -864,7 +1031,7 @@ where
         }
 
         let mut token = (suffix_len as u64) << 3;
-        if is_leaf {
+        if is_leaf_block {
             token |= 0x04;
         }
         token |= compression_alg.code() as u64;
