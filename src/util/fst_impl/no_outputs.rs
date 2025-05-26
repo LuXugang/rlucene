@@ -15,10 +15,11 @@
  * limitations under the License.
  */
 use std::fmt::{Display, Formatter};
+use std::rc::Rc;
 
 use crate::store::{DataInput, DataOutput};
 use crate::util::error::lucene_error::Result;
-use crate::util::fst_impl::outputs::{Outputs, OutputsBound};
+use crate::util::fst_impl::outputs::Outputs;
 
 pub struct NoOutputs;
 impl NoOutputs {
@@ -39,39 +40,39 @@ impl Clone for NoOutputs {
     }
 }
 
-impl<T> Outputs<T> for NoOutputs
-where
-    T: OutputsBound,
-{
-    fn common(&self, _output1: &T, _output2: &T) -> T {
+impl Outputs for NoOutputs {
+    // TODO: 未完成
+    type Outputs = Rc<i64>;
+
+    fn common(&self, output1: &Self::Outputs, output2: &Self::Outputs) -> Self::Outputs {
         todo!()
     }
 
-    fn subtract(&self, _output: &T, _inc: &T) -> T {
+    fn subtract(&self, output: &Self::Outputs, inc: &Self::Outputs) -> Self::Outputs {
         todo!()
     }
 
-    fn add(&self, _prefix: &T, _output: &T) -> T {
+    fn add(&self, prefix: &Self::Outputs, output: &Self::Outputs) -> Self::Outputs {
         todo!()
     }
 
-    fn write(&self, _output: &T, _out: &mut impl DataOutput) -> Result<()> {
+    fn write(&self, output: &Self::Outputs, out: &mut impl DataOutput) -> Result<()> {
         todo!()
     }
 
-    fn read(&self, _input: &mut impl DataInput) -> Result<T> {
+    fn read(&self, input: &mut impl DataInput) -> Result<Self::Outputs> {
         todo!()
     }
 
-    fn get_no_output(&self) -> T {
+    fn get_no_output(&self) -> Self::Outputs {
         todo!()
     }
 
-    fn output_to_string(&self, _output: &T) -> String {
+    fn output_to_string(&self, output: &Self::Outputs) -> String {
         todo!()
     }
 
-    fn ram_bytes_used(&self, _output: &T) -> i64 {
+    fn ram_bytes_used(&self, output: &Self::Outputs) -> i64 {
         todo!()
     }
 }

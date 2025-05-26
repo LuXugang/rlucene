@@ -23,32 +23,30 @@ use crate::util::error::lucene_error::Result;
 use crate::util::fst_impl::fst::{fst_util, FST};
 use crate::util::fst_impl::fst_enum::{FSTEnum, FSTEnumBase, InputOutput};
 use crate::util::fst_impl::fst_reader::FstReader;
-use crate::util::fst_impl::outputs::{Outputs, OutputsBound};
+use crate::util::fst_impl::outputs::Outputs;
 use crate::util::OptionTakeExt;
 
 /// Enumerates all input (`BytesRef`) + output pairs in an FST.
-pub struct BytesRefFSTEnum<T, O, F>
+pub struct BytesRefFSTEnum<O, F>
 where
-    T: OutputsBound,
-    O: Outputs<T>,
+    O: Outputs,
     F: FstReader,
 {
     pub(crate) current: BytesRef<Rc<RefCell<Vec<u8>>>>,
-    pub(crate) result: InputOutput<T, BytesRef<Rc<RefCell<Vec<u8>>>>>,
+    pub(crate) result: InputOutput<O::Outputs, BytesRef<Rc<RefCell<Vec<u8>>>>>,
     pub(crate) target: BytesRef<Rc<RefCell<Vec<u8>>>>,
-    base: Option<FSTEnum<T, O, F>>,
+    base: Option<FSTEnum<O, F>>,
 }
 
 #[allow(unused)]
-impl<T, O, F> BytesRefFSTEnum<T, O, F>
+impl<O, F> BytesRefFSTEnum<O, F>
 where
-    T: OutputsBound,
-    O: Outputs<T>,
+    O: Outputs,
     F: FstReader,
 {
     /// `do_floor` controls the behavior of advance: if it's true,
     /// `advance` positions to the biggest term before target.
-    pub fn new(fst: FST<T, O, F>) -> Result<Self> {
+    pub fn new(fst: FST<O, F>) -> Result<Self> {
         let mut current: BytesRef<Rc<RefCell<Vec<u8>>>> = BytesRef::with_capacity(10);
         current.offset = 1;
         let result_input =
@@ -58,18 +56,20 @@ where
             current,
             result: InputOutput {
                 input: result_input,
-                output: T::default(),
+                output: O::Outputs::default(),
             },
             target: BytesRef::new(),
             base: Some(base),
         })
     }
 
-    pub fn current(&self) -> &InputOutput<T, BytesRef<Rc<RefCell<Vec<u8>>>>> {
+    pub fn current(&self) -> &InputOutput<O::Outputs, BytesRef<Rc<RefCell<Vec<u8>>>>> {
         &self.result
     }
 
-    pub fn next(&mut self) -> Result<Option<&InputOutput<T, BytesRef<Rc<RefCell<Vec<u8>>>>>>> {
+    pub fn next(
+        &mut self,
+    ) -> Result<Option<&InputOutput<O::Outputs, BytesRef<Rc<RefCell<Vec<u8>>>>>>> {
         debug_assert!(self.base.is_some());
         let mut base = self.base.take().unwrap();
         base.do_next(self)?;
@@ -80,7 +80,7 @@ where
     pub fn seek_ceil(
         &mut self,
         target: BytesRef<Rc<RefCell<Vec<u8>>>>,
-    ) -> Result<Option<&InputOutput<T, BytesRef<Rc<RefCell<Vec<u8>>>>>>> {
+    ) -> Result<Option<&InputOutput<O::Outputs, BytesRef<Rc<RefCell<Vec<u8>>>>>>> {
         self.target = target;
         debug_assert!(self.base.is_some());
         let mut base = self.base.take().unwrap();
@@ -93,7 +93,7 @@ where
     pub fn seek_floor(
         &mut self,
         target: BytesRef<Rc<RefCell<Vec<u8>>>>,
-    ) -> Result<Option<&InputOutput<T, BytesRef<Rc<RefCell<Vec<u8>>>>>>> {
+    ) -> Result<Option<&InputOutput<O::Outputs, BytesRef<Rc<RefCell<Vec<u8>>>>>>> {
         self.target = target;
         debug_assert!(self.base.is_some());
         let mut base = self.base.take().unwrap();
@@ -106,7 +106,7 @@ where
     pub fn seek_exact(
         &mut self,
         target: BytesRef<Rc<RefCell<Vec<u8>>>>,
-    ) -> Result<Option<&InputOutput<T, BytesRef<Rc<RefCell<Vec<u8>>>>>>> {
+    ) -> Result<Option<&InputOutput<O::Outputs, BytesRef<Rc<RefCell<Vec<u8>>>>>>> {
         self.target = target;
         debug_assert!(self.base.is_some());
         let mut base = self.base.take().unwrap();
@@ -122,7 +122,9 @@ where
         result
     }
 
-    fn set_result(&mut self) -> Result<Option<&InputOutput<T, BytesRef<Rc<RefCell<Vec<u8>>>>>>> {
+    fn set_result(
+        &mut self,
+    ) -> Result<Option<&InputOutput<O::Outputs, BytesRef<Rc<RefCell<Vec<u8>>>>>>> {
         self.base.take_do_return(|base| {
             if base.upto == 0 {
                 Ok(None)
@@ -135,13 +137,12 @@ where
         })
     }
 }
-impl<T, O, F> FSTEnumBase<T, O, F> for BytesRefFSTEnum<T, O, F>
+impl<O, F> FSTEnumBase<O, F> for BytesRefFSTEnum<O, F>
 where
-    T: OutputsBound,
-    O: Outputs<T>,
+    O: Outputs,
     F: FstReader,
 {
-    fn get_target_label(&mut self, base: &mut FSTEnum<T, O, F>) -> Result<i32> {
+    fn get_target_label(&mut self, base: &mut FSTEnum<O, F>) -> Result<i32> {
         if base.upto - 1 == self.target.length {
             Ok(fst_util::END_LABEL)
         } else {
@@ -149,16 +150,16 @@ where
         }
     }
 
-    fn get_current_label(&mut self, base: &mut FSTEnum<T, O, F>) -> Result<i32> {
+    fn get_current_label(&mut self, base: &mut FSTEnum<O, F>) -> Result<i32> {
         Ok(self.current.bytes.borrow()[base.upto] as i32 & 0xFF)
     }
 
-    fn set_current_label(&mut self, label: i32, base: &mut FSTEnum<T, O, F>) -> Result<()> {
+    fn set_current_label(&mut self, label: i32, base: &mut FSTEnum<O, F>) -> Result<()> {
         self.current.bytes.borrow_mut()[base.upto] = label as u8;
         Ok(())
     }
 
-    fn grow(&mut self, base: &mut FSTEnum<T, O, F>) -> Result<()> {
+    fn grow(&mut self, base: &mut FSTEnum<O, F>) -> Result<()> {
         ArrayUtil::grow_with_len(&mut *self.current.bytes.borrow_mut(), base.upto + 1);
         Ok(())
     }

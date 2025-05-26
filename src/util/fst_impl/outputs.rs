@@ -33,35 +33,34 @@ use crate::util::{HashCode, OutputIdentity};
 /// SINGLETON object from [`get_no_output`](Outputs::get_no_output).
 ///
 /// # lucene.experimental
-pub trait Outputs<T>: Display + Clone
-where
-    T: OutputsBound,
-{
+pub trait Outputs: Display + Clone {
     // TODO: maybe change this API to allow for re-use of the
     // output instances -- this is an insane amount of garbage
     // (new object per byte/char/int) if eg used during
     // analysis
 
+    type Outputs: OutputsBound;
+
     /// Eg. `common("foobar", "food") -> "foo"`
-    fn common(&self, output1: &T, output2: &T) -> T;
+    fn common(&self, output1: &Self::Outputs, output2: &Self::Outputs) -> Self::Outputs;
 
     /// Eg. `subtract("foobar", "foo") -> "bar"`
-    fn subtract(&self, output: &T, inc: &T) -> T;
+    fn subtract(&self, output: &Self::Outputs, inc: &Self::Outputs) -> Self::Outputs;
 
     /// Eg. `add("foo", "bar") -> "foobar"`
-    fn add(&self, prefix: &T, output: &T) -> T;
+    fn add(&self, prefix: &Self::Outputs, output: &Self::Outputs) -> Self::Outputs;
 
     /// Encode an output value into a `Write` stream.
-    fn write(&self, output: &T, out: &mut impl DataOutput) -> Result<()>;
+    fn write(&self, output: &Self::Outputs, out: &mut impl DataOutput) -> Result<()>;
 
     /// Encode a final node output value into a `Write` stream.
     /// By default this just calls [`write`].
-    fn write_final_output(&self, output: &T, out: &mut impl DataOutput) -> Result<()> {
+    fn write_final_output(&self, output: &Self::Outputs, out: &mut impl DataOutput) -> Result<()> {
         self.write(output, out)
     }
 
     /// Decode an output value previously written with [`write`].
-    fn read(&self, input: &mut impl DataInput) -> Result<T>;
+    fn read(&self, input: &mut impl DataInput) -> Result<Self::Outputs>;
 
     /// Skip the output; defaults to just calling [`read`] and discarding the
     /// result.
@@ -72,7 +71,7 @@ where
 
     /// Decode an output value previously written with [`write_final_output`].
     /// By default this just calls [`read`].
-    fn read_final_output(&self, input: &mut impl DataInput) -> Result<T> {
+    fn read_final_output(&self, input: &mut impl DataInput) -> Result<Self::Outputs> {
         self.read(input)
     }
 
@@ -87,20 +86,20 @@ where
     /// NOTE: this output is compared with pointer equality (`==`), so you must
     /// ensure that all methods return the same SINGLETON object if it's
     /// really no output.
-    fn get_no_output(&self) -> T;
+    fn get_no_output(&self) -> Self::Outputs;
 
-    fn output_to_string(&self, output: &T) -> String;
+    fn output_to_string(&self, output: &Self::Outputs) -> String;
 
-    // TODO: maybe make valid(T output) public...? for asserts
+    // TODO: maybe make valid(Self::V output) public...? for asserts
 
-    fn merge(&self, _first: &T, _second: &T) -> Result<T> {
+    fn merge(&self, _first: &Self::Outputs, _second: &Self::Outputs) -> Result<Self::Outputs> {
         Err(LuceneError::unsupported_operation(""))
     }
 
     /// Return memory usage for the provided output.
     ///
     /// See also: `Accountable`
-    fn ram_bytes_used(&self, output: &T) -> i64;
+    fn ram_bytes_used(&self, output: &Self::Outputs) -> i64;
 }
 
 pub enum OutputsEnum {

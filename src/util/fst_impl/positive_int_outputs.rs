@@ -49,8 +49,10 @@ impl PositiveIntOutputs {
     }
 }
 
-impl Outputs<Rc<i64>> for PositiveIntOutputs {
-    fn common(&self, output1: &Rc<i64>, output2: &Rc<i64>) -> Rc<i64> {
+impl Outputs for PositiveIntOutputs {
+    type Outputs = Rc<i64>;
+
+    fn common(&self, output1: &Self::Outputs, output2: &Self::Outputs) -> Self::Outputs {
         debug_assert!(self.valid(output1));
         debug_assert!(self.valid(output2));
 
@@ -64,7 +66,7 @@ impl Outputs<Rc<i64>> for PositiveIntOutputs {
         }
     }
 
-    fn subtract(&self, output: &Rc<i64>, inc: &Rc<i64>) -> Rc<i64> {
+    fn subtract(&self, output: &Self::Outputs, inc: &Self::Outputs) -> Self::Outputs {
         debug_assert!(self.valid(output));
         debug_assert!(self.valid(inc));
         debug_assert!(**output >= **inc);
@@ -78,7 +80,7 @@ impl Outputs<Rc<i64>> for PositiveIntOutputs {
         }
     }
 
-    fn add(&self, prefix: &Rc<i64>, output: &Rc<i64>) -> Rc<i64> {
+    fn add(&self, prefix: &Self::Outputs, output: &Self::Outputs) -> Self::Outputs {
         debug_assert!(self.valid(prefix));
         debug_assert!(self.valid(output));
 
@@ -91,7 +93,7 @@ impl Outputs<Rc<i64>> for PositiveIntOutputs {
         }
     }
 
-    fn write(&self, output: &Rc<i64>, out: &mut impl DataOutput) -> Result<()> {
+    fn write(&self, output: &Self::Outputs, out: &mut impl DataOutput) -> Result<()> {
         debug_assert!(self.valid(output));
         out.write_vlong(**output)
     }
@@ -105,17 +107,17 @@ impl Outputs<Rc<i64>> for PositiveIntOutputs {
         }
     }
 
-    fn get_no_output(&self) -> Rc<i64> {
+    fn get_no_output(&self) -> Self::Outputs {
         NO_OUTPUT.with(|rc| rc.clone())
     }
 
-    fn output_to_string(&self, output: &Rc<i64>) -> String {
+    fn output_to_string(&self, output: &Self::Outputs) -> String {
         output.to_string()
     }
 
-    fn ram_bytes_used(&self, _output: &Rc<i64>) -> i64 {
-        // i64: 8 bytes + Rc header, conservatively assume ~16 bytes total
-        16
+    fn ram_bytes_used(&self, output: &Self::Outputs) -> i64 {
+        // TODO
+        0
     }
 }
 

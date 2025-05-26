@@ -27,27 +27,25 @@ use crate::util::ints_ref::IntsRef;
 use crate::util::OptionTakeExt;
 
 /// Enumerates all input (`IntsRef`) + output pairs in an FST.
-pub struct IntsRefFSTEnum<T, O, F>
+pub struct IntsRefFSTEnum<O, F>
 where
-    T: OutputsBound,
-    O: Outputs<T>,
+    O: Outputs,
     F: FstReader,
 {
     pub(crate) current: RcIntsRef,
-    pub(crate) result: InputOutput<T, RcIntsRef>,
+    pub(crate) result: InputOutput<O::Outputs, RcIntsRef>,
     pub(crate) target: IntsRef<Rc<RefCell<Vec<i32>>>>,
-    pub base: Option<FSTEnum<T, O, F>>,
+    pub base: Option<FSTEnum<O, F>>,
 }
 #[allow(unused)]
-impl<T, O, F> IntsRefFSTEnum<T, O, F>
+impl<O, F> IntsRefFSTEnum<O, F>
 where
-    T: OutputsBound,
-    O: Outputs<T>,
+    O: Outputs,
     F: FstReader,
 {
     /// `do_floor` controls the behavior of advance: if it's true,
     /// `advance` positions to the biggest term before target.
-    pub fn new(fst: FST<T, O, F>) -> Result<Self> {
+    pub fn new(fst: FST<O, F>) -> Result<Self> {
         let mut current: IntsRef<Rc<RefCell<Vec<i32>>>> = IntsRef::with_capacity(10);
         current.offset = 1;
         let result_input =
@@ -57,18 +55,18 @@ where
             current,
             result: InputOutput {
                 input: result_input,
-                output: T::default(),
+                output: O::Outputs::default(),
             },
             target: IntsRef::default(),
             base: Some(base),
         })
     }
 
-    pub fn current(&self) -> &InputOutput<T, RcIntsRef> {
+    pub fn current(&self) -> &InputOutput<O::Outputs, RcIntsRef> {
         &self.result
     }
 
-    pub fn next(&mut self) -> Result<Option<&InputOutput<T, RcIntsRef>>> {
+    pub fn next(&mut self) -> Result<Option<&InputOutput<O::Outputs, RcIntsRef>>> {
         debug_assert!(self.base.is_some());
         let mut base = self.base.take().unwrap();
         base.do_next(self)?;
@@ -79,7 +77,7 @@ where
     pub fn seek_ceil(
         &mut self,
         target: IntsRef<Rc<RefCell<Vec<i32>>>>,
-    ) -> Result<Option<&InputOutput<T, RcIntsRef>>> {
+    ) -> Result<Option<&InputOutput<O::Outputs, RcIntsRef>>> {
         self.target = target;
         debug_assert!(self.base.is_some());
         let mut base = self.base.take().unwrap();
@@ -95,7 +93,7 @@ where
     pub fn seek_floor(
         &mut self,
         target: IntsRef<Rc<RefCell<Vec<i32>>>>,
-    ) -> Result<Option<&InputOutput<T, RcIntsRef>>> {
+    ) -> Result<Option<&InputOutput<O::Outputs, RcIntsRef>>> {
         self.target = target;
         debug_assert!(self.base.is_some());
         let mut base = self.base.take().unwrap();
@@ -112,7 +110,7 @@ where
     pub fn seek_exact(
         &mut self,
         target: IntsRef<Rc<RefCell<Vec<i32>>>>,
-    ) -> Result<Option<&InputOutput<T, RcIntsRef>>> {
+    ) -> Result<Option<&InputOutput<O::Outputs, RcIntsRef>>> {
         self.target = target;
         debug_assert!(self.base.is_some());
         let mut base = self.base.take().unwrap();
@@ -131,7 +129,7 @@ where
         result
     }
 
-    fn set_result(&mut self) -> Result<Option<&InputOutput<T, RcIntsRef>>> {
+    fn set_result(&mut self) -> Result<Option<&InputOutput<O::Outputs, RcIntsRef>>> {
         self.base.take_do_return(|base| {
             if base.upto == 0 {
                 Ok(None)
@@ -145,13 +143,12 @@ where
     }
 }
 
-impl<T, O, F> FSTEnumBase<T, O, F> for IntsRefFSTEnum<T, O, F>
+impl<O, F> FSTEnumBase<O, F> for IntsRefFSTEnum<O, F>
 where
-    T: OutputsBound,
-    O: Outputs<T>,
+    O: Outputs,
     F: FstReader,
 {
-    fn get_target_label(&mut self, base: &mut FSTEnum<T, O, F>) -> Result<i32> {
+    fn get_target_label(&mut self, base: &mut FSTEnum<O, F>) -> Result<i32> {
         if base.upto - 1 == self.target.length {
             Ok(fst_util::END_LABEL)
         } else {
@@ -159,16 +156,16 @@ where
         }
     }
 
-    fn get_current_label(&mut self, base: &mut FSTEnum<T, O, F>) -> Result<i32> {
+    fn get_current_label(&mut self, base: &mut FSTEnum<O, F>) -> Result<i32> {
         Ok(self.current.ints.borrow()[base.upto])
     }
 
-    fn set_current_label(&mut self, label: i32, base: &mut FSTEnum<T, O, F>) -> Result<()> {
+    fn set_current_label(&mut self, label: i32, base: &mut FSTEnum<O, F>) -> Result<()> {
         self.current.ints.borrow_mut()[base.upto] = label;
         Ok(())
     }
 
-    fn grow(&mut self, base: &mut FSTEnum<T, O, F>) -> Result<()> {
+    fn grow(&mut self, base: &mut FSTEnum<O, F>) -> Result<()> {
         ArrayUtil::grow_with_len(&mut *self.current.ints.borrow_mut(), base.upto + 1);
         Ok(())
     }

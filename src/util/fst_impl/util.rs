@@ -16,7 +16,6 @@
  */
 use std::fmt;
 use std::fmt::Display;
-use std::hash::Hash;
 
 use crate::index::{BytesRef, BytesRefBuilder};
 use crate::store::DataInput;
@@ -32,10 +31,12 @@ pub struct Util;
 impl Util {
     /// Looks up the output for this input, or null if the input is not
     /// accepted.
-    pub fn get_ints<T, O, F, AV>(fst: &mut FST<T, O, F>, input: &IntsRef<AV>) -> Result<Option<T>>
+    pub fn get_ints<O, F, AV>(
+        fst: &mut FST<O, F>,
+        input: &IntsRef<AV>,
+    ) -> Result<Option<O::Outputs>>
     where
-        T: OutputsBound,
-        O: Outputs<T>,
+        O: Outputs,
         F: FstReader,
         AV: AccessVec<i32>,
     {
@@ -62,17 +63,19 @@ impl Util {
     }
     /// Looks up the output for this input, or `None` if the input is not
     /// accepted.
-    pub fn get_bytes<T, O, F, AV>(fst: &mut FST<T, O, F>, input: &BytesRef<AV>) -> Result<Option<T>>
+    pub fn get_bytes<O, F, AV>(
+        fst: &mut FST<O, F>,
+        input: &BytesRef<AV>,
+    ) -> Result<Option<O::Outputs>>
     where
-        T: OutputsBound,
-        O: Outputs<T>,
+        O: Outputs,
         F: FstReader,
         AV: AccessVec<u8>,
     {
         assert_eq!(fst.metadata.as_ref().unwrap().input_type, InputType::Byte1);
 
         let mut fst_reader = fst.get_bytes_reader()?;
-        let mut arc = Arc::<T>::default();
+        let mut arc = Arc::<O::Outputs>::default();
         fst.get_first_arc(&mut arc);
         let mut output = fst.outputs.get_no_output();
 
@@ -146,16 +149,15 @@ impl Util {
         Ok(scratch.get_bytes_owner())
     }
 
-    pub fn read_ceil_arc<T, O, F>(
+    pub fn read_ceil_arc<O, F>(
         label: i32,
-        fst: &mut FST<T, O, F>,
-        follow: &Arc<T>,
-        arc: &mut Arc<T>,
+        fst: &mut FST<O, F>,
+        follow: &Arc<O::Outputs>,
+        arc: &mut Arc<O::Outputs>,
         in_reader: &mut F::FstBytesReader,
     ) -> Result<Option<()>>
     where
-        T: OutputsBound,
-        O: Outputs<T>,
+        O: Outputs,
         F: FstReader,
     {
         if label == fst_util::END_LABEL {
@@ -232,14 +234,13 @@ impl Util {
         }
     }
 
-    pub fn binary_search<T, O, F>(
-        fst: &mut FST<T, O, F>,
-        arc: &Arc<T>,
+    pub fn binary_search<O, F>(
+        fst: &mut FST<O, F>,
+        arc: &Arc<O::Outputs>,
         target_label: i32,
     ) -> Result<i32>
     where
-        T: OutputsBound,
-        O: Outputs<T>,
+        O: Outputs,
         F: FstReader,
     {
         debug_assert!(
@@ -276,7 +277,7 @@ impl Util {
 /// Represents a path in TopNSearcher.
 pub struct FSTPath<T>
 where
-    T: Clone + Hash + Default,
+    T: OutputsBound,
 {
     /// Holds the last arc appended to this path
     pub arc: Arc<T>,
@@ -292,7 +293,7 @@ where
 
 impl<T> FSTPath<T>
 where
-    T: Clone + Hash + Default,
+    T: OutputsBound,
 {
     pub fn new(
         output: T,
@@ -326,7 +327,7 @@ where
 }
 impl<T> Display for FSTPath<T>
 where
-    T: Clone + Hash + Default + Display,
+    T: OutputsBound,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
@@ -477,8 +478,7 @@ mod tests {
         words: &[String],
         allow_array_arcs: bool,
         allow_direct_addressing: bool,
-    ) -> Result<FST<BytesRef<Rc<Vec<u8>>>, ByteSequenceOutputs, DataOutputEnum<DummyDirectory>>>
-    {
+    ) -> Result<FST<ByteSequenceOutputs, DataOutputEnum<DummyDirectory>>> {
         // TODO: NoOutputs 未实现，先使用 ByteSequenceOutputs
         let outputs = ByteSequenceOutputs::get_singleton();
 

@@ -60,8 +60,7 @@ where
     // FieldReader needs to be held as an immutable reference in SegmentTermsEnum, but
     // FST#get_bytes_reader requires a mutable borrow. Therefore, we define `index` with interior
     // mutability by `RefCell`.
-    pub(crate) index:
-        Option<RefCell<FST<BytesRef<Rc<Vec<u8>>>, ByteSequenceOutputs, OffHeapFSTStore<I>>>>,
+    pub(crate) index: Option<RefCell<FST<ByteSequenceOutputs, OffHeapFSTStore<I>>>>,
 }
 impl<I, P> FieldReader<I, P>
 where

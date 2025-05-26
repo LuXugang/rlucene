@@ -16,7 +16,6 @@
  */
 use std::cell::RefCell;
 use std::hash::Hash;
-use std::marker::PhantomData;
 use std::rc::Rc;
 
 use crate::store::directory::Directory;
@@ -26,12 +25,12 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fst_impl::byte_block_pool_reverse_bytes_reader::ByteBlockPoolReverseBytesReader;
 use crate::util::fst_impl::fst::{fst_util, Arc, BitTable, BytesReader};
 use crate::util::fst_impl::fst_compiler::{FSTCompilerInner, NodeEnum, UnCompiledNode};
-use crate::util::fst_impl::outputs::{Outputs, OutputsBound};
+use crate::util::fst_impl::outputs::Outputs;
 use crate::util::long_values::LongValues;
 use crate::util::packed::abstract_paged_mutable::AbstractPagedMutable;
 use crate::util::packed::paged_growable_writer::PagedGrowableWriter;
 use crate::util::packed::PackedInts;
-use crate::util::{ByteBlockPool, ByteBlockPoolBorrow};
+use crate::util::{ByteBlockPool, ByteBlockPoolBorrow, HashCode};
 // TODO: any way to make a reverse suffix lookup (msokolov's idea) instead of
 // more costly hash? hmmm, though, hash is not so wasteful
 // since it does not have to store value of each entry: the value is the node
@@ -44,15 +43,14 @@ use crate::util::{ByteBlockPool, ByteBlockPoolBorrow};
 // shared?
 
 // Used to dedup states (lookup already-frozen states)
-pub struct NodeHash<T, O, D>
+pub struct NodeHash<O, D>
 where
-    T: OutputsBound,
-    O: Outputs<T>,
+    O: Outputs,
     D: Directory,
 {
     // primary table -- we add nodes into this until it reaches the requested
     // tableSizeLimit/2, then we move it to fallback
-    primary_table: PagedGrowableHash<T, O, D>,
+    primary_table: PagedGrowableHash<O, D>,
     // how many nodes are allowed to store in both primary and fallback tables;
     // when primary gets full (tableSizeLimit/2), we move it to the
     // fallback table
@@ -61,19 +59,17 @@ where
     // promote it to primary table, for a simplistic and
     // lowish-RAM-overhead (compared to e.g. LinkedHashMap) LRU behaviour.
     // fallbackTable is read-only.
-    fallback_table: Option<PagedGrowableHash<T, O, D>>,
+    fallback_table: Option<PagedGrowableHash<O, D>>,
 
-    fst_compiler: Rc<RefCell<FSTCompilerInner<T, O, D>>>,
+    fst_compiler: Rc<RefCell<FSTCompilerInner<O, D>>>,
     // store the last fallback table node length in getFallback()
     last_fallback_node_length: i32,
     // store the last fallback table hashtable slot in getFallback()
     last_fallback_hash_slot: i64,
-    phantom: PhantomData<T>,
 }
-impl<T, O, D> NodeHash<T, O, D>
+impl<O, D> NodeHash<O, D>
 where
-    T: OutputsBound,
-    O: Outputs<T>,
+    O: Outputs,
     D: Directory,
 {
     /// Creates a new `NodeHash` instance.
@@ -83,7 +79,7 @@ where
     /// FST is no longer minimal. A larger `ram_limit_mb` makes the FST
     /// smaller (closer to minimal).
     pub fn new(
-        fst_compiler: Rc<RefCell<FSTCompilerInner<T, O, D>>>,
+        fst_compiler: Rc<RefCell<FSTCompilerInner<O, D>>>,
         ram_limit_mb: f64,
     ) -> Result<Self> {
         if ram_limit_mb <= 0.0 {
@@ -106,7 +102,6 @@ where
             fst_compiler,
             last_fallback_node_length: 0,
             last_fallback_hash_slot: 0,
-            phantom: PhantomData,
         })
     }
     fn get_fallback(&mut self, node_in_index: usize, hash: i64) -> Result<i64> {
@@ -276,7 +271,7 @@ where
             hash_slot = (hash_slot + c) & self.primary_table.mask;
         }
     }
-    fn hash(&self, node: &UnCompiledNode<T>) -> Result<i64> {
+    fn hash(&self, node: &UnCompiledNode<O::Outputs>) -> Result<i64> {
         const PRIME: i64 = 31;
         let mut h: i64 = 0;
 
@@ -307,10 +302,9 @@ where
 }
 
 /// Inner class because it needs access to hash function and FST bytes.
-pub struct PagedGrowableHash<T, O, D>
+pub struct PagedGrowableHash<O, D>
 where
-    T: OutputsBound,
-    O: Outputs<T>,
+    O: Outputs,
     D: Directory,
 {
     count: i64,
@@ -318,9 +312,9 @@ where
     /// Storing the byte slice from the FST for nodes added to the hash,
     /// allowing append-only writes without needing to read from the FST.
     copied_nodes: ByteBlockPoolBorrow,
-    fst_compiler: Rc<RefCell<FSTCompilerInner<T, O, D>>>,
+    fst_compiler: Rc<RefCell<FSTCompilerInner<O, D>>>,
     inner: Inner,
-    scratch_arc: Arc<T>,
+    scratch_arc: Arc<O::Outputs>,
 }
 pub struct Inner {
     /// the [`FST.BytesReader`](crate::util::fst_impl::fst_reader::FstReader)
@@ -351,22 +345,21 @@ impl Inner {
     }
 }
 
-impl<T, O, D> PagedGrowableHash<T, O, D>
+impl<O, D> PagedGrowableHash<O, D>
 where
-    T: OutputsBound,
-    O: Outputs<T>,
+    O: Outputs,
     D: Directory,
 {
     // 256K blocks, but note that the final block is sized only as needed so it
     // won't use the full block size when just a few elements were written
     // to it
     const BLOCK_SIZE_BYTES: i32 = 1 << 18;
-    pub(crate) fn new(fst_compiler: Rc<RefCell<FSTCompilerInner<T, O, D>>>) -> Result<Self> {
+    pub(crate) fn new(fst_compiler: Rc<RefCell<FSTCompilerInner<O, D>>>) -> Result<Self> {
         Self::build(fst_compiler, 8, 8, 16, 15)
     }
 
     pub(crate) fn with_size(
-        fst_compiler: Rc<RefCell<FSTCompilerInner<T, O, D>>>,
+        fst_compiler: Rc<RefCell<FSTCompilerInner<O, D>>>,
         last_node_address: i64,
         size: i64,
     ) -> Result<Self> {
@@ -381,7 +374,7 @@ where
         Self::build(fst_compiler, fst_node_address_bits_per_value, 8, size, mask)
     }
     fn build(
-        fst_compiler: Rc<RefCell<FSTCompilerInner<T, O, D>>>,
+        fst_compiler: Rc<RefCell<FSTCompilerInner<O, D>>>,
         fst_node_address_bits_per_value: i32,
         copied_node_address_bits_per_value: i32,
         size: i64,
@@ -473,7 +466,7 @@ where
     pub(crate) fn copy_fallback_node_bytes(
         &mut self,
         hash_slot: i64,
-        fallback_table: &mut PagedGrowableHash<T, O, D>,
+        fallback_table: &mut PagedGrowableHash<O, D>,
         fallback_hash_slot: i64,
         node_length: i32,
     ) -> Result<()> {
@@ -597,7 +590,7 @@ where
     /// to the primary table.
     fn nodes_equal(
         &mut self,
-        node: &UnCompiledNode<T>,
+        node: &UnCompiledNode<O::Outputs>,
         address: i64,
         hash_slot: i64,
     ) -> Result<i32> {

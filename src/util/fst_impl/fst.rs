@@ -31,27 +31,25 @@ use crate::util::fst_impl::fst_reader::FstReader;
 use crate::util::fst_impl::on_heap_fst_store::OnHeapFSTStore;
 use crate::util::fst_impl::outputs::{Outputs, OutputsBound};
 
-pub struct FST<T, O, F>
+pub struct FST<O, F>
 where
-    T: OutputsBound,
-    O: Outputs<T>,
+    O: Outputs,
     F: FstReader,
 {
-    pub metadata: Option<FSTMetadata<T, O>>,
+    pub metadata: Option<FSTMetadata<O>>,
     pub outputs: O,
     pub fst_reader: F,
 }
 
-impl<T, O> FST<T, O, OnHeapFSTStore>
+impl<O> FST<O, OnHeapFSTStore>
 where
-    T: OutputsBound,
-    O: Outputs<T>,
+    O: Outputs,
 {
     /// Load a previously saved FST with a DataInput for metadata using an
     /// [`OnHeapFSTStore`] with `maxBlockBits` set to
     /// [`DEFAULT_MAX_BLOCK_BITS`]
     pub fn from_on_heap_store(
-        metadata: FSTMetadata<T, O>,
+        metadata: FSTMetadata<O>,
         input: &mut impl DataInput,
     ) -> Result<Self> {
         let store =
@@ -59,14 +57,13 @@ where
         Ok(Self::new(metadata, store))
     }
 }
-impl<T, O, F> FST<T, O, F>
+impl<O, F> FST<O, F>
 where
-    T: OutputsBound,
-    O: Outputs<T>,
+    O: Outputs,
     F: FstReader,
 {
     /// Create the FST with a metadata object and a reader.
-    pub fn new(metadata: FSTMetadata<T, O>, fst_reader: F) -> Self {
+    pub fn new(metadata: FSTMetadata<O>, fst_reader: F) -> Self {
         Self {
             outputs: metadata.outputs.clone(),
             metadata: Some(metadata),
@@ -76,7 +73,7 @@ where
     /// Create an FST from metadata and reader. Returns `None` if the metadata
     /// is `None`.
     pub fn from_fst_reader(
-        metadata: Option<FSTMetadata<T, O>>,
+        metadata: Option<FSTMetadata<O>>,
         fst_reader: Option<F>,
     ) -> Option<Self> {
         metadata.as_ref()?;
@@ -92,11 +89,11 @@ where
         self.metadata.as_ref().unwrap().num_bytes
     }
 
-    pub fn get_empty_output(&self) -> Option<&T> {
+    pub fn get_empty_output(&self) -> Option<&O::Outputs> {
         self.metadata.as_ref().unwrap().empty_output.as_ref()
     }
 
-    pub fn metadata(&self) -> &FSTMetadata<T, O> {
+    pub fn metadata(&self) -> &FSTMetadata<O> {
         self.metadata.as_ref().unwrap()
     }
 
@@ -152,7 +149,11 @@ where
     /// Reads the presence bits of a direct-addressing node.
     /// Actually we don't read them here — we just record the bit-table start
     /// position and skip.
-    fn read_presence_bytes(&self, arc: &mut Arc<T>, reader: &mut impl BytesReader) -> Result<()> {
+    fn read_presence_bytes(
+        &self,
+        arc: &mut Arc<O::Outputs>,
+        reader: &mut impl BytesReader,
+    ) -> Result<()> {
         debug_assert!(arc.bytes_per_arc > 0);
         debug_assert_eq!(arc.node_flags, fst_util::ARCS_FOR_DIRECT_ADDRESSING);
 
@@ -163,7 +164,7 @@ where
     }
     /// Fills the virtual 'start' arc, i.e., an empty incoming arc to the FST's
     /// start node.
-    pub fn get_first_arc(&self, arc: &mut Arc<T>) {
+    pub fn get_first_arc(&self, arc: &mut Arc<O::Outputs>) {
         let no_output = self.outputs.get_no_output();
 
         if let Some(ref empty_output) = self.metadata.as_ref().unwrap().empty_output {
@@ -190,10 +191,10 @@ where
     /// Returns the second argument (`arc`).
     pub(crate) fn read_last_target_arc<'a>(
         &self,
-        follow: &Arc<T>,
-        arc: &'a mut Arc<T>,
+        follow: &Arc<O::Outputs>,
+        arc: &'a mut Arc<O::Outputs>,
         input: &mut impl BytesReader,
-    ) -> Result<&'a mut Arc<T>> {
+    ) -> Result<&'a mut Arc<O::Outputs>> {
         if !fst_util::target_has_arcs(follow) {
             debug_assert!(follow.is_final());
             arc.label = fst_util::END_LABEL;
@@ -270,8 +271,8 @@ where
     /// modifies `arc` in-place and returns it.
     pub fn read_first_target_arc(
         &self,
-        follow: &Arc<T>,
-        arc: &mut Arc<T>,
+        follow: &Arc<O::Outputs>,
+        arc: &mut Arc<O::Outputs>,
         reader: &mut impl BytesReader,
     ) -> Result<()> {
         if follow.is_final() {
@@ -296,7 +297,7 @@ where
     fn read_first_arc_info(
         &self,
         node_address: i64,
-        arc: &mut Arc<T>,
+        arc: &mut Arc<O::Outputs>,
         reader: &mut impl BytesReader,
     ) -> Result<()> {
         reader.set_position(node_address);
@@ -333,7 +334,7 @@ where
     pub fn read_first_real_target_arc(
         &self,
         node_address: i64,
-        arc: &mut Arc<T>,
+        arc: &mut Arc<O::Outputs>,
         reader: &mut impl BytesReader,
     ) -> Result<()> {
         self.read_first_arc_info(node_address, arc, reader)?;
@@ -343,7 +344,7 @@ where
     /// (fixed length arcs).
     pub fn is_expanded_target(
         &self,
-        follow: &Arc<T>,
+        follow: &Arc<O::Outputs>,
         reader: &mut impl BytesReader,
     ) -> Result<bool> {
         if !fst_util::target_has_arcs(follow) {
@@ -357,7 +358,11 @@ where
         }
     }
     /// In-place read; returns the arc.
-    pub fn read_next_arc(&self, arc: &mut Arc<T>, input: &mut impl BytesReader) -> Result<()> {
+    pub fn read_next_arc(
+        &self,
+        arc: &mut Arc<O::Outputs>,
+        input: &mut impl BytesReader,
+    ) -> Result<()> {
         if arc.label() == fst_util::END_LABEL {
             // This was a fake inserted "final" arc
             if arc.next_arc() <= 0 {
@@ -374,7 +379,7 @@ where
     /// Do not call this if `arc.is_last()`!
     pub(crate) fn read_next_arc_label(
         &self,
-        arc: &Arc<T>,
+        arc: &Arc<O::Outputs>,
         input: &mut impl BytesReader,
     ) -> Result<i32> {
         debug_assert!(!arc.is_last());
@@ -446,7 +451,7 @@ where
     /// The updated arc
     pub fn read_arc_by_index(
         &self,
-        arc: &mut Arc<T>,
+        arc: &mut Arc<O::Outputs>,
         input: &mut impl BytesReader,
         idx: i32,
     ) -> Result<()> {
@@ -464,7 +469,7 @@ where
     /// `range_index` must be within the label range.
     pub fn read_arc_by_continuous(
         &self,
-        arc: &mut Arc<T>,
+        arc: &mut Arc<O::Outputs>,
         reader: &mut impl BytesReader,
         range_index: i32,
     ) -> Result<()> {
@@ -482,7 +487,7 @@ where
     /// from presence bits.
     pub fn read_arc_by_direct_addressing(
         &self,
-        arc: &mut Arc<T>,
+        arc: &mut Arc<O::Outputs>,
         reader: &mut impl BytesReader,
         range_index: i32,
     ) -> Result<()> {
@@ -512,7 +517,7 @@ where
     /// count of presence bits before it).
     pub fn read_arc_by_direct_addressing_with_presence_index(
         &self,
-        arc: &mut Arc<T>,
+        arc: &mut Arc<O::Outputs>,
         reader: &mut impl BytesReader,
         range_index: i32,
         presence_index: i32,
@@ -532,7 +537,7 @@ where
     /// with `range_index` equal to `arc.num_arcs() - 1`, but it is faster.
     pub fn read_last_arc_by_direct_addressing(
         &self,
-        arc: &mut Arc<T>,
+        arc: &mut Arc<O::Outputs>,
         reader: &mut impl BytesReader,
     ) -> Result<()> {
         debug_assert!(BitTable::assert_is_valid(arc, reader)?);
@@ -550,7 +555,7 @@ where
     /// Reads the last arc of a continuous node.
     pub fn read_last_arc_by_continuous(
         &self,
-        arc: &mut Arc<T>,
+        arc: &mut Arc<O::Outputs>,
         reader: &mut impl BytesReader,
     ) -> Result<()> {
         self.read_arc_by_continuous(arc, reader, arc.num_arcs - 1)
@@ -558,7 +563,7 @@ where
     /// Never returns `None`, but must not be called if `arc.is_last()` is true.
     pub fn read_next_real_arc(
         &self,
-        arc: &mut Arc<T>,
+        arc: &mut Arc<O::Outputs>,
         reader: &mut impl BytesReader,
     ) -> Result<()> {
         // TODO: can't assert this because we call from readFirstArc
@@ -604,7 +609,7 @@ where
     ///
     /// Precondition: The arc flags byte has already been read and set;
     /// the given `BytesReader` is positioned just after the arc flags byte.
-    pub fn read_arc(&self, arc: &mut Arc<T>, reader: &mut impl BytesReader) -> Result<()> {
+    pub fn read_arc(&self, arc: &mut Arc<O::Outputs>, reader: &mut impl BytesReader) -> Result<()> {
         if arc.node_flags == fst_util::ARCS_FOR_DIRECT_ADDRESSING
             || arc.node_flags == fst_util::ARCS_FOR_CONTINUOUS
         {
@@ -677,8 +682,8 @@ where
     pub fn find_target_arc(
         &self,
         label_to_match: i32,
-        follow: &Arc<T>,
-        arc: &mut Arc<T>,
+        follow: &Arc<O::Outputs>,
+        arc: &mut Arc<O::Outputs>,
         input: &mut impl BytesReader,
     ) -> Result<Option<()>> {
         if label_to_match == fst_util::END_LABEL {
@@ -817,10 +822,9 @@ where
     }
 }
 
-impl<T, O, F> Display for FST<T, O, F>
+impl<O, F> Display for FST<O, F>
 where
-    T: OutputsBound,
-    O: Outputs<T>,
+    O: Outputs,
     F: FstReader,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -833,7 +837,6 @@ where
     }
 }
 pub mod fst_util {
-    use std::hash::Hash;
 
     use crate::codecs::CodecUtil;
     use crate::store::{DataInput, DataOutput};
@@ -923,13 +926,9 @@ pub mod fst_util {
     /// # Errors
     ///
     /// Returns an error if an exception occurred during parsing
-    pub fn read_metadata<T, O>(
-        meta_in: &mut impl DataInput,
-        outputs: O,
-    ) -> Result<FSTMetadata<T, O>>
+    pub fn read_metadata<O>(meta_in: &mut impl DataInput, outputs: O) -> Result<FSTMetadata<O>>
     where
-        T: OutputsBound,
-        O: Outputs<T>,
+        O: Outputs,
     {
         // NOTE: only reads formats VERSION_START up to VERSION_CURRENT; we
         // don't have back-compat promise for FSTs (they are
@@ -937,7 +936,7 @@ pub mod fst_util {
         let version =
             CodecUtil::check_header(meta_in, FILE_FORMAT_NAME, VERSION_START, VERSION_CURRENT)?;
 
-        let mut empty_output: Option<T> = None;
+        let mut empty_output: Option<O::Outputs> = None;
 
         if meta_in.read_byte()? == 1 {
             // Accepts empty string
@@ -982,7 +981,7 @@ pub mod fst_util {
     }
 
     /// Returns `true` if the node at this address has any outgoing arcs.
-    pub fn target_has_arcs<T: Hash + Clone>(arc: &Arc<T>) -> bool {
+    pub fn target_has_arcs<T: OutputsBound>(arc: &Arc<T>) -> bool {
         arc.target() > 0
     }
     /// Gets the number of bytes required to flag the presence of each arc in
@@ -994,7 +993,7 @@ pub mod fst_util {
     /// Reads the presence bits of a direct-addressing node. Actually we don't
     /// read them here, we just keep the pointer to the bit-table start and
     /// we skip them.
-    pub(crate) fn read_presence_bytes<T: Hash + Clone>(
+    pub(crate) fn read_presence_bytes<T: OutputsBound>(
         arc: &mut Arc<T>,
         reader: &mut impl BytesReader,
     ) -> Result<()> {
@@ -1016,7 +1015,7 @@ pub mod fst_util {
     /// # Returns
     ///
     /// The updated `arc` if `follow` is final, otherwise `None`
-    pub(crate) fn read_end_arc<T: Clone + Hash>(follow: &Arc<T>, arc: &mut Arc<T>) -> Option<()> {
+    pub(crate) fn read_end_arc<T: OutputsBound>(follow: &Arc<T>, arc: &mut Arc<T>) -> Option<()> {
         if follow.is_final() {
             if follow.target() <= 0 {
                 arc.flags = BIT_LAST_ARC;
@@ -1037,7 +1036,7 @@ pub mod fst_util {
 #[derive(Default, Clone, Debug)]
 pub struct Arc<T>
 where
-    T: Hash + Clone,
+    T: OutputsBound,
 {
     // *** Arc fields.
     label: i32,
@@ -1076,7 +1075,7 @@ where
 }
 impl<T> Arc<T>
 where
-    T: Hash + Clone,
+    T: OutputsBound,
 {
     pub(crate) fn flag(&self, flag: i32) -> bool {
         fst_util::flag(self.flags as i32, flag)
@@ -1151,7 +1150,7 @@ where
 }
 impl<T: Clone> Arc<T>
 where
-    T: Hash + Clone,
+    T: OutputsBound,
 {
     /// Returns `self` after copying all fields from `other`.
     pub fn copy_from(&mut self, other: &Arc<T>) {
@@ -1185,7 +1184,7 @@ where
 }
 impl<T: Display + Clone> Display for Arc<T>
 where
-    T: Hash + Clone,
+    T: OutputsBound,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, " target={}", self.target)?;
@@ -1228,9 +1227,9 @@ where
 pub(crate) struct BitTable;
 impl BitTable {
     /// See [`BitTableUtil::is_bit_set`].
-    pub(crate) fn is_bit_set(
+    pub(crate) fn is_bit_set<T: OutputsBound>(
         bit_index: i32,
-        arc: &Arc<impl Clone + Hash>,
+        arc: &Arc<T>,
         reader: &mut impl BytesReader,
     ) -> Result<bool> {
         debug_assert_eq!(arc.node_flags(), fst_util::ARCS_FOR_DIRECT_ADDRESSING);
@@ -1240,8 +1239,8 @@ impl BitTable {
 
     /// See [`BitTableUtil::count_bits`]. The count of bit set is the number of
     /// arcs of a direct addressing node.
-    pub(crate) fn count_bits<R: BytesReader>(
-        arc: &Arc<impl Clone + Hash>,
+    pub(crate) fn count_bits<R: BytesReader, T: OutputsBound>(
+        arc: &Arc<T>,
         reader: &mut R,
     ) -> Result<i32> {
         debug_assert_eq!(arc.node_flags(), fst_util::ARCS_FOR_DIRECT_ADDRESSING);
@@ -1250,9 +1249,9 @@ impl BitTable {
         BitTableUtil::count_bits(num_presence_bytes, reader)
     }
     /// See [`BitTableUtil::count_bits_up_to`].
-    pub(crate) fn count_bits_up_to(
+    pub(crate) fn count_bits_up_to<T: OutputsBound>(
         bit_index: i32,
-        arc: &Arc<impl Clone + Hash>,
+        arc: &Arc<T>,
         reader: &mut impl BytesReader,
     ) -> Result<i32> {
         debug_assert_eq!(arc.node_flags(), fst_util::ARCS_FOR_DIRECT_ADDRESSING);
@@ -1261,9 +1260,9 @@ impl BitTable {
     }
 
     /// See [`BitTableUtil::next_bit_set`].
-    pub(crate) fn next_bit_set(
+    pub(crate) fn next_bit_set<T: OutputsBound>(
         bit_index: i32,
-        arc: &Arc<impl Clone + Hash>,
+        arc: &Arc<T>,
         reader: &mut impl BytesReader,
     ) -> Result<i32> {
         debug_assert_eq!(arc.node_flags(), fst_util::ARCS_FOR_DIRECT_ADDRESSING);
@@ -1273,9 +1272,9 @@ impl BitTable {
     }
 
     /// See [`BitTableUtil::previous_bit_set`].
-    pub(crate) fn previous_bit_set(
+    pub(crate) fn previous_bit_set<T: OutputsBound>(
         bit_index: i32,
-        arc: &Arc<impl Clone + Hash>,
+        arc: &Arc<T>,
         reader: &mut impl BytesReader,
     ) -> Result<i32> {
         debug_assert_eq!(arc.node_flags(), fst_util::ARCS_FOR_DIRECT_ADDRESSING);
@@ -1284,8 +1283,8 @@ impl BitTable {
     }
 
     /// Asserts the bit-table of the provided [`Arc`] is valid.
-    pub(crate) fn assert_is_valid(
-        arc: &Arc<impl Clone + Hash>,
+    pub(crate) fn assert_is_valid<T: OutputsBound>(
+        arc: &Arc<T>,
         reader: &mut impl BytesReader,
     ) -> Result<bool> {
         debug_assert!(arc.bytes_per_arc() > 0);
@@ -1307,25 +1306,24 @@ impl BitTable {
 /// Represents the FST metadata.
 ///
 /// `T` is the FST output type.
-pub struct FSTMetadata<T, O>
+pub struct FSTMetadata<O>
 where
-    T: OutputsBound,
-    O: Outputs<T>,
+    O: Outputs,
 {
     pub input_type: InputType,
     pub outputs: O,
     pub version: i32,
     /// If non-None, this FST accepts the empty string and produces this
     /// output.
-    pub empty_output: Option<T>,
+    pub empty_output: Option<O::Outputs>,
     pub start_node: i64,
     pub num_bytes: i64,
 }
-impl<T: OutputsBound, O: Outputs<T>> FSTMetadata<T, O> {
+impl<O: Outputs> FSTMetadata<O> {
     pub fn new(
         input_type: InputType,
         outputs: O,
-        empty_output: Option<T>,
+        empty_output: Option<O::Outputs>,
         start_node: i64,
         version: i32,
         num_bytes: i64,
@@ -1347,7 +1345,7 @@ impl<T: OutputsBound, O: Outputs<T>> FSTMetadata<T, O> {
         self.version
     }
 
-    pub fn empty_output(&self) -> Option<&T> {
+    pub fn empty_output(&self) -> Option<&O::Outputs> {
         self.empty_output.as_ref()
     }
 
@@ -1493,7 +1491,7 @@ mod tests {
                     })
                     .collect::<Vec<_>>();
 
-                let mut tester: FSTTester<_, _, _, _, DummyFSTTesterBaseImpl> = FSTTester::new(
+                let mut tester: FSTTester<_, _, _, DummyFSTTesterBaseImpl> = FSTTester::new(
                     random_from_seed(random_seed),
                     self.dir.clone(),
                     input_mode,
@@ -1519,7 +1517,7 @@ mod tests {
                     })
                     .collect::<Vec<_>>();
 
-                let mut tester: FSTTester<_, _, _, _, DummyFSTTesterBaseImpl> = FSTTester::new(
+                let mut tester: FSTTester<_, _, _, DummyFSTTesterBaseImpl> = FSTTester::new(
                     random_from_seed(random_seed),
                     self.dir.clone(),
                     input_mode,
@@ -1539,7 +1537,7 @@ mod tests {
                     })
                     .collect::<Vec<_>>();
 
-                let mut tester: FSTTester<_, _, _, _, DummyFSTTesterBaseImpl> = FSTTester::new(
+                let mut tester: FSTTester<_, _, _, DummyFSTTesterBaseImpl> = FSTTester::new(
                     random_from_seed(random_seed),
                     self.dir.clone(),
                     input_mode,
@@ -1574,7 +1572,7 @@ mod tests {
                     })
                     .collect::<Vec<_>>();
 
-                let mut tester: FSTTester<_, _, _, _, DummyFSTTesterBaseImpl> = FSTTester::new(
+                let mut tester: FSTTester<_, _, _, DummyFSTTesterBaseImpl> = FSTTester::new(
                     random_from_seed(random_seed),
                     self.dir.clone(),
                     input_mode,
@@ -1599,7 +1597,7 @@ mod tests {
                     })
                     .collect::<Vec<_>>();
 
-                let mut tester: FSTTester<_, _, _, _, DummyFSTTesterBaseImpl> = FSTTester::new(
+                let mut tester: FSTTester<_, _, _, DummyFSTTesterBaseImpl> = FSTTester::new(
                     random_from_seed(random_seed),
                     self.dir.clone(),
                     input_mode,
@@ -1697,7 +1695,7 @@ mod tests {
                     })
                     .collect::<Vec<_>>();
 
-                let mut tester: FSTTester<_, _, _, _, DummyFSTTesterBaseImpl> = FSTTester::new(
+                let mut tester: FSTTester<_, _, _, DummyFSTTesterBaseImpl> = FSTTester::new(
                     random_from_seed(random_seed),
                     test_fsts.dir.clone(),
                     input_mode,
@@ -1725,7 +1723,7 @@ mod tests {
                     })
                     .collect::<Vec<_>>();
 
-                let mut tester: FSTTester<_, _, _, _, DummyFSTTesterBaseImpl> = FSTTester::new(
+                let mut tester: FSTTester<_, _, _, DummyFSTTesterBaseImpl> = FSTTester::new(
                     random_from_seed(random_seed),
                     test_fsts.dir.clone(),
                     input_mode,
@@ -1939,7 +1937,7 @@ mod tests {
     // fn test_expanded_close_to_root() -> Result<()> {
     //     struct SyntheticData;
     //     impl SyntheticData {
-    //         fn compile_terms<T: AsRef<str>>(lines: &[T]) -> Result<FST<T, O, F>>
+    //         fn compile_terms<T: AsRef<str>>(lines: &[T]) -> Result<FST<O, F>>
     // {
     //
     //             let outputs = NoOutputs::get_singleton();
@@ -2041,8 +2039,7 @@ mod tests {
     fn test_non_final_stop_node() -> Result<()> {
         let outputs = PositiveIntOutputs::get_singleton();
         let nothing = outputs.get_no_output();
-        let builder: Builder<_, _, DummyDirectory> =
-            Builder::new(InputType::Byte1, outputs.clone());
+        let builder: Builder<_, DummyDirectory> = Builder::new(InputType::Byte1, outputs.clone());
         let fst_compiler = builder.build()?;
         let no_output = fst_compiler.inner.borrow().no_output.clone();
         // Root node
@@ -2115,7 +2112,7 @@ mod tests {
     }
 
     fn check_stop_nodes<F>(
-        fst: &mut FST<Rc<i64>, PositiveIntOutputs, F>,
+        fst: &mut FST<PositiveIntOutputs, F>,
         outputs: PositiveIntOutputs,
     ) -> Result<()>
     where

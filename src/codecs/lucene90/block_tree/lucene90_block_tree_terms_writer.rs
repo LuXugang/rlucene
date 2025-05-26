@@ -435,10 +435,8 @@ impl fmt::Display for PendingTerm {
 pub struct PendingBlock {
     pub prefix: BytesRef<Vec<u8>>,
     pub fp: i64,
-    pub index:
-        Option<FST<BytesRef<Rc<Vec<u8>>>, ByteSequenceOutputs, DataOutputEnum<DummyDirectory>>>,
-    pub sub_indices:
-        Vec<FST<BytesRef<Rc<Vec<u8>>>, ByteSequenceOutputs, DataOutputEnum<DummyDirectory>>>,
+    pub index: Option<FST<ByteSequenceOutputs, DataOutputEnum<DummyDirectory>>>,
+    pub sub_indices: Vec<FST<ByteSequenceOutputs, DataOutputEnum<DummyDirectory>>>,
     pub has_terms: bool,
     pub is_floor: bool,
     pub floor_lead_byte: i32,
@@ -450,9 +448,7 @@ impl PendingBlock {
         has_terms: bool,
         is_floor: bool,
         floor_lead_byte: i32,
-        sub_indices: Vec<
-            FST<BytesRef<Rc<Vec<u8>>>, ByteSequenceOutputs, DataOutputEnum<DummyDirectory>>,
-        >,
+        sub_indices: Vec<FST<ByteSequenceOutputs, DataOutputEnum<DummyDirectory>>>,
     ) -> Self {
         Self {
             prefix,
@@ -566,8 +562,8 @@ impl PendingBlock {
     }
     fn append(
         &self,
-        fst_compiler: &mut FSTCompiler<BytesRef<Rc<Vec<u8>>>, ByteSequenceOutputs, DummyDirectory>,
-        sub_index: FST<BytesRef<Rc<Vec<u8>>>, ByteSequenceOutputs, DataOutputEnum<DummyDirectory>>,
+        fst_compiler: &mut FSTCompiler<ByteSequenceOutputs, DummyDirectory>,
+        sub_index: FST<ByteSequenceOutputs, DataOutputEnum<DummyDirectory>>,
         scratch_ints_ref: &mut IntsRefBuilder<Vec<i32>>,
     ) -> Result<()> {
         let mut sub_index_enum = BytesRefFSTEnum::new(sub_index)?;

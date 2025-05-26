@@ -16,7 +16,6 @@
  */
 use std::cell::RefCell;
 use std::fmt::{Display, Formatter};
-use std::marker::PhantomData;
 use std::rc::Rc;
 
 use crate::store::directory::Directory;
@@ -34,7 +33,7 @@ use crate::util::fst_impl::outputs::{Outputs, OutputsBound};
 use crate::util::fst_impl::read_write_data_output::{BytesReaderEnum, ReadWriteDataOutput};
 use crate::util::ints_ref::IntsRef;
 use crate::util::ints_ref_builder::IntsRefBuilder;
-use crate::util::SliceCopyOps;
+use crate::util::{OutputIdentity, SliceCopyOps};
 
 /// Builds a minimal FST (maps an `IntsRef` term to an arbitrary output) from
 /// pre-sorted terms with outputs. The FST becomes an FSA if you use
@@ -63,19 +62,17 @@ use crate::util::SliceCopyOps;
 /// - Build FST but stream it immediately to disk (except the `FSTMetaData`, to
 ///   be saved at the end). In order to use it, you need to construct the
 ///   corresponding `DataInput` and use the FST constructor to read it.
-pub(crate) struct FSTCompiler<T, O, D>
+pub(crate) struct FSTCompiler<O, D>
 where
-    T: OutputsBound,
-    O: Outputs<T>,
+    O: Outputs,
     D: Directory,
 {
-    pub(crate) dedup_hash: NodeHash<T, O, D>,
-    pub(crate) inner: Rc<RefCell<FSTCompilerInner<T, O, D>>>,
+    pub(crate) dedup_hash: NodeHash<O, D>,
+    pub(crate) inner: Rc<RefCell<FSTCompilerInner<O, D>>>,
 }
-impl<T, O, D> FSTCompiler<T, O, D>
+impl<O, D> FSTCompiler<O, D>
 where
-    T: OutputsBound,
-    O: Outputs<T>,
+    O: Outputs,
     D: Directory,
 {
     fn new(
@@ -178,7 +175,7 @@ where
     /// (e.g. [`ByteSequenceOutputs`](crate::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs)
     /// or
     /// [`IntSequenceOutputs`](crate::util::fst_impl::int_sequence_outputs::IntSequenceOutputs)), then you cannot reuse them across calls.
-    pub(crate) fn add(&mut self, input: &IntsRef<Vec<i32>>, mut output: T) -> Result<()> {
+    pub(crate) fn add(&mut self, input: &IntsRef<Vec<i32>>, mut output: O::Outputs) -> Result<()> {
         let ints = &input.ints;
         let prefix_len_plus1;
         {
@@ -275,13 +272,13 @@ where
                         .subtract(&last_output, &common_output_prefix);
                     debug_assert!(inner.valid_output(&word_suffix));
 
-                    UnCompiledNode::set_last_output(
+                    UnCompiledNode::<O::Outputs>::set_last_output(
                         label,
                         common_output_prefix.clone(),
                         &mut inner,
                         idx - 1,
                     );
-                    UnCompiledNode::prepend_output(&word_suffix, &mut inner, idx);
+                    UnCompiledNode::<O::Outputs>::prepend_output(&word_suffix, &mut inner, idx);
                 } else {
                     common_output_prefix = inner.no_output.clone();
                 }
@@ -306,7 +303,12 @@ where
             // this new arc is private to this new input; set its
             // arc output to the leftover output:
             let label = ints[input.offset + prefix_len_plus1 - 1];
-            UnCompiledNode::set_last_output(label, output, &mut inner, prefix_len_plus1 - 1);
+            UnCompiledNode::<O::Outputs>::set_last_output(
+                label,
+                output,
+                &mut inner,
+                prefix_len_plus1 - 1,
+            );
         }
 
         // Save last input
@@ -332,7 +334,7 @@ where
     ///   [`DataInput`](crate::store::data_input::DataInput), such as
     ///   [`IndexInput`](crate::store::data_input::DataInput) then pass it to
     ///   the FST construct
-    pub fn compile(&mut self) -> Result<Option<FSTMetadata<T, O>>> {
+    pub fn compile(&mut self) -> Result<Option<FSTMetadata<O>>> {
         // Minimize nodes in the last word's suffix
         self.freeze_tail(0)?;
         {
@@ -391,15 +393,14 @@ pub mod fst_compiler_util {
     }
 }
 
-pub struct FSTCompilerInner<T, O, D>
+pub struct FSTCompilerInner<O, D>
 where
-    T: OutputsBound,
-    O: Outputs<T>,
+    O: Outputs,
     D: Directory,
 {
     /// A temporary FST used during building for NodeHash cache.
-    pub(crate) fst: FST<T, O, NullFSTReader>,
-    pub(crate) no_output: T,
+    pub(crate) fst: FST<O, NullFSTReader>,
+    pub(crate) no_output: O::Outputs,
     /// A FSTReader used when a non-FSTReader DataOutput is configured.
     /// Will panic if `get_reverse_bytes_reader()` or `write_to()` is called.
     pub(crate) null_fst_reader: NullFSTReader,
@@ -436,12 +437,11 @@ where
     /// current "frontier"
     /// # Note:
     /// Wrap with `Option` for easy frontier growing
-    pub(crate) frontier: Vec<Option<UnCompiledNode<T>>>,
+    pub(crate) frontier: Vec<Option<UnCompiledNode<O::Outputs>>>,
 }
-impl<T, O, D> FSTCompilerInner<T, O, D>
+impl<O, D> FSTCompilerInner<O, D>
 where
-    T: OutputsBound,
-    O: Outputs<T>,
+    O: Outputs,
     D: Directory,
 {
     pub(crate) fn new(
@@ -742,7 +742,7 @@ where
     /// arcs with a fixed number of bytes, but they allow either binary
     /// search or direct addressing on the arcs (instead of linear scan) on
     /// lookup by arc label.
-    fn should_expand_node_with_fixed_length_arcs(&self, node: &UnCompiledNode<T>) -> bool {
+    fn should_expand_node_with_fixed_length_arcs(&self, node: &UnCompiledNode<O::Outputs>) -> bool {
         self.allow_fixed_length_arcs
             && ((node.depth <= fst_compiler_util::FIXED_LENGTH_ARC_SHALLOW_DEPTH
                 && node.num_arcs >= fst_compiler_util::FIXED_LENGTH_ARC_SHALLOW_NUM_ARCS)
@@ -1030,7 +1030,7 @@ where
         self.scratch_bytes.write_byte(presence_bits)?;
         Ok(())
     }
-    pub(crate) fn set_empty_output(&mut self, v: T) -> Result<()> {
+    pub(crate) fn set_empty_output(&mut self, v: O::Outputs) -> Result<()> {
         match self.fst.metadata {
             Some(ref mut metadata) => {
                 if let Some(existing) = &mut metadata.empty_output {
@@ -1089,7 +1089,7 @@ where
 
         Ok(())
     }
-    fn valid_output(&self, output: &T) -> bool {
+    fn valid_output(&self, output: &O::Outputs) -> bool {
         self.no_output.is_same_reference(output) || *output != self.no_output
     }
     /// Returns the estimated heap memory used by the in-construction FST.
@@ -1133,10 +1133,9 @@ impl FstReader for NullFSTReader {
 ///
 /// Creates an FST/FSA builder with all possible tuning and construction tweaks.
 /// Read parameter documentation carefully.
-pub struct Builder<T, O, D>
+pub struct Builder<O, D>
 where
-    T: OutputsBound,
-    O: Outputs<T>,
+    O: Outputs,
     D: Directory,
 {
     input_type: InputType,
@@ -1146,12 +1145,10 @@ where
     data_output: Option<DataOutputEnum<D>>,
     direct_addressing_max_oversizing_factor: f32,
     version: i32,
-    phantom: PhantomData<T>,
 }
-impl<T, O, D> Builder<T, O, D>
+impl<O, D> Builder<O, D>
 where
-    T: OutputsBound,
-    O: Outputs<T>,
+    O: Outputs,
     D: Directory,
 {
     /// Creates a new [`Builder`] with the given input type and outputs.
@@ -1176,7 +1173,6 @@ where
             direct_addressing_max_oversizing_factor:
                 fst_compiler_util::DIRECT_ADDRESSING_MAX_OVERSIZING_FACTOR,
             version: fst_util::VERSION_CURRENT,
-            phantom: Default::default(),
         }
     }
     /// Sets the approximate maximum amount of RAM (in MB) to use for holding
@@ -1274,7 +1270,7 @@ where
     }
     /// Creates a new {@link FSTCompiler}
     #[allow(unused)]
-    pub fn build(mut self) -> Result<FSTCompiler<T, O, D>> {
+    pub fn build(mut self) -> Result<FSTCompiler<O, D>> {
         if self.data_output.is_none() {
             self.data_output = Some(DataOutputEnum::ReadWriter(
                 fst_compiler_util::get_on_heap_reader_writer(15)?,
@@ -1521,10 +1517,10 @@ where
         arc.is_final = is_final;
     }
 
-    pub(crate) fn set_last_output<O: Outputs<T>, D: Directory>(
+    pub(crate) fn set_last_output<O: Outputs, D: Directory>(
         label_to_match: i32,
-        new_output: T,
-        inner: &mut FSTCompilerInner<T, O, D>,
+        new_output: O::Outputs,
+        inner: &mut FSTCompilerInner<O, D>,
         node_idx: usize,
     ) {
         debug_assert!(inner.valid_output(&new_output));
@@ -1536,9 +1532,9 @@ where
     }
 
     /// Pushes an output prefix forward onto all arcs.
-    pub(crate) fn prepend_output<O: Outputs<T>, D: Directory>(
-        output_prefix: &T,
-        inner: &mut FSTCompilerInner<T, O, D>,
+    pub(crate) fn prepend_output<O: Outputs, D: Directory>(
+        output_prefix: &O::Outputs,
+        inner: &mut FSTCompilerInner<O, D>,
         node_index: usize,
     ) {
         debug_assert!(inner.valid_output(output_prefix));

@@ -45,12 +45,10 @@ impl IntSequenceOutputs {
     }
 }
 
-impl Outputs<IntsRef<Rc<Vec<i32>>>> for IntSequenceOutputs {
-    fn common(
-        &self,
-        output1: &IntsRef<Rc<Vec<i32>>>,
-        output2: &IntsRef<Rc<Vec<i32>>>,
-    ) -> IntsRef<Rc<Vec<i32>>> {
+impl Outputs for IntSequenceOutputs {
+    type Outputs = IntsRef<Rc<Vec<i32>>>;
+
+    fn common(&self, output1: &Self::Outputs, output2: &Self::Outputs) -> Self::Outputs {
         let a = &output1.ints[output1.offset..output1.offset + output1.length];
         let b = &output2.ints[output2.offset..output2.offset + output2.length];
 
@@ -65,11 +63,7 @@ impl Outputs<IntsRef<Rc<Vec<i32>>>> for IntSequenceOutputs {
         }
     }
 
-    fn subtract(
-        &self,
-        output: &IntsRef<Rc<Vec<i32>>>,
-        inc: &IntsRef<Rc<Vec<i32>>>,
-    ) -> IntsRef<Rc<Vec<i32>>> {
+    fn subtract(&self, output: &Self::Outputs, inc: &Self::Outputs) -> Self::Outputs {
         let no_output_clone = NO_OUTPUT.with(|rc| rc.clone());
 
         if IntsRef::equals(inc, &no_output_clone) {
@@ -87,11 +81,7 @@ impl Outputs<IntsRef<Rc<Vec<i32>>>> for IntSequenceOutputs {
         )
     }
 
-    fn add(
-        &self,
-        prefix: &IntsRef<Rc<Vec<i32>>>,
-        output: &IntsRef<Rc<Vec<i32>>>,
-    ) -> IntsRef<Rc<Vec<i32>>> {
+    fn add(&self, prefix: &Self::Outputs, output: &Self::Outputs) -> Self::Outputs {
         let no_output = NO_OUTPUT.with(|rc| rc.clone());
 
         if IntsRef::equals(prefix, &no_output) {
@@ -114,7 +104,7 @@ impl Outputs<IntsRef<Rc<Vec<i32>>>> for IntSequenceOutputs {
         IntsRef::from_slice(Rc::new(buf), 0, prefix.length + output.length)
     }
 
-    fn write(&self, output: &IntsRef<Rc<Vec<i32>>>, out: &mut impl DataOutput) -> Result<()> {
+    fn write(&self, output: &Self::Outputs, out: &mut impl DataOutput) -> Result<()> {
         out.write_vint(output.length as i32)?;
         for i in 0..output.length {
             out.write_vint(output.ints[output.offset + i])?;
@@ -122,7 +112,7 @@ impl Outputs<IntsRef<Rc<Vec<i32>>>> for IntSequenceOutputs {
         Ok(())
     }
 
-    fn read(&self, input: &mut impl DataInput) -> Result<IntsRef<Rc<Vec<i32>>>> {
+    fn read(&self, input: &mut impl DataInput) -> Result<Self::Outputs> {
         let len = input.read_vint()?;
         if len == 0 {
             Ok(self.get_no_output())
@@ -146,15 +136,15 @@ impl Outputs<IntsRef<Rc<Vec<i32>>>> for IntSequenceOutputs {
         Ok(())
     }
 
-    fn get_no_output(&self) -> IntsRef<Rc<Vec<i32>>> {
+    fn get_no_output(&self) -> Self::Outputs {
         NO_OUTPUT.with(|rc| rc.clone())
     }
 
-    fn output_to_string(&self, output: &IntsRef<Rc<Vec<i32>>>) -> String {
+    fn output_to_string(&self, output: &Self::Outputs) -> String {
         output.to_string()
     }
 
-    fn ram_bytes_used(&self, _output: &IntsRef<Rc<Vec<i32>>>) -> i64 {
+    fn ram_bytes_used(&self, output: &Self::Outputs) -> i64 {
         // TODO: memory calculation not implemented
         0
     }

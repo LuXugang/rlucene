@@ -36,16 +36,15 @@ use crate::util::ints_ref::IntsRef;
 use crate::util::ints_ref_builder::IntsRefBuilder;
 use crate::util::ToInt;
 /// Helper class to test FSTs.
-pub struct FSTTester<D, T, R, O, S>
+pub struct FSTTester<D, R, O, S>
 where
     D: Directory,
-    T: OutputsBound,
     R: Rng,
-    O: Outputs<T>,
+    O: Outputs,
     S: FSTTesterBase,
 {
     pub random: R,
-    pub pairs: Vec<InputOutput<T, Rc<RefCell<Vec<i32>>>>>,
+    pub pairs: Vec<InputOutput<O::Outputs, Rc<RefCell<Vec<i32>>>>>,
     pub input_mode: i32,
     pub outputs: O,
     pub dir: Rc<RefCell<D>>,
@@ -54,19 +53,18 @@ where
     pub arc_count: i64,
     pub sub: Option<S>,
 }
-impl<D, T, R, O, S> FSTTester<D, T, R, O, S>
+impl<D, R, O, S> FSTTester<D, R, O, S>
 where
     D: Directory,
-    T: OutputsBound,
     R: Rng,
-    O: Outputs<T>,
+    O: Outputs,
     S: FSTTesterBase,
 {
     pub fn new(
         random: R,
         dir: Rc<RefCell<D>>,
         input_mode: i32,
-        pairs: Vec<InputOutput<T, Rc<RefCell<Vec<i32>>>>>,
+        pairs: Vec<InputOutput<O::Outputs, Rc<RefCell<Vec<i32>>>>>,
         outputs: O,
     ) -> Self {
         Self {
@@ -85,10 +83,10 @@ where
     // length 1 int array; prefixLength[0] is set to the length
     // of the term prefix that matches
     pub fn run<F, AV>(
-        fst: &mut FST<T, O, F>,
+        fst: &mut FST<O, F>,
         term: &IntsRef<AV>,
         mut prefix_length: Option<&mut [i32]>,
-    ) -> Result<Option<T>>
+    ) -> Result<Option<O::Outputs>>
     where
         F: FstReader,
         AV: AccessVec<i32>,
@@ -125,10 +123,10 @@ where
         Ok(Some(output))
     }
     pub fn random_accepted_word<F, AV>(
-        fst: &mut FST<T, O, F>,
+        fst: &mut FST<O, F>,
         in_builder: &mut IntsRefBuilder<AV>,
         random: &mut impl Rng,
-    ) -> Result<T>
+    ) -> Result<O::Outputs>
     where
         F: FstReader,
         AV: AccessVec<i32>,
@@ -168,14 +166,14 @@ where
     // Using the same seed to generate the same type of FST object allows the fst
     // inside IntsRefFSTEnum to be replaced using std::mem::replace. The purpose
     // of this is to remain consistent with the behavior in Java Lucene.
-    pub fn get_fst(&self, seed: u64) -> Result<(Option<FSTEnums<T, O, D>>, i64, i64)> {
+    pub fn get_fst(&self, seed: u64) -> Result<(Option<FSTEnums<O, D>>, i64, i64)> {
         let mut random = random_from_seed(seed);
         let input_type = if self.input_mode == 0 {
             InputType::Byte1
         } else {
             InputType::Byte4
         };
-        let mut fst_compiler_builder: Builder<_, _, D> =
+        let mut fst_compiler_builder: Builder<_, D> =
             Builder::new(input_type, self.outputs.clone());
         let use_off_heap = random.random_bool(0.5);
         if use_off_heap {
@@ -247,7 +245,7 @@ where
         Ok((fst, node_count, arc_count))
     }
 
-    pub fn do_test(&mut self) -> Result<Option<FSTEnums<T, O, D>>> {
+    pub fn do_test(&mut self) -> Result<Option<FSTEnums<O, D>>> {
         let seed = self.random.random();
         let (fst_enums, node_count, arc_count) = self.get_fst(seed)?;
 
@@ -294,11 +292,10 @@ where
         let (fst, _, _) = self.get_fst(seed)?;
         Ok(fst)
     }
-    fn run_steps<C, F>(&mut self, seed: u64, mut reuse: FST<T, O, F>, unwrap_fn: C) -> Result<()>
+    fn run_steps<C, F>(&mut self, seed: u64, mut reuse: FST<O, F>, unwrap_fn: C) -> Result<()>
     where
-        T: OutputsBound,
-        O: Outputs<T>,
-        C: Fn(FSTEnums<T, O, D>) -> FST<T, O, F>,
+        O: Outputs,
+        C: Fn(FSTEnums<O, D>) -> FST<O, F>,
         F: FstReader,
         D: Directory,
     {
@@ -309,7 +306,7 @@ where
         reuse = std::mem::replace(&mut v.base.as_mut().unwrap().fst, padding_fst);
 
         // init terms_map
-        let mut terms_map: HashMap<IntsRef<Rc<RefCell<Vec<i32>>>>, T> = HashMap::new();
+        let mut terms_map: HashMap<IntsRef<Rc<RefCell<Vec<i32>>>>, O::Outputs> = HashMap::new();
         for pair in &self.pairs {
             terms_map.insert(pair.input.clone(), pair.output.clone());
         }
@@ -338,9 +335,9 @@ where
     pub fn step3<F>(
         &mut self,
         input_mode: i32,
-        mut fst_enum: IntsRefFSTEnum<T, O, F>,
-        terms_map: &HashMap<IntsRef<Rc<RefCell<Vec<i32>>>>, T>,
-    ) -> Result<IntsRefFSTEnum<T, O, F>>
+        mut fst_enum: IntsRefFSTEnum<O, F>,
+        terms_map: &HashMap<IntsRef<Rc<RefCell<Vec<i32>>>>, O::Outputs>,
+    ) -> Result<IntsRefFSTEnum<O, F>>
     where
         F: FstReader,
     {
@@ -484,9 +481,9 @@ where
     pub fn step2<F>(
         &mut self,
         input_mode: i32,
-        mut fst: Option<FST<T, O, F>>,
-        terms_map: &HashMap<IntsRef<Rc<RefCell<Vec<i32>>>>, T>,
-    ) -> Result<IntsRefFSTEnum<T, O, F>>
+        mut fst: Option<FST<O, F>>,
+        terms_map: &HashMap<IntsRef<Rc<RefCell<Vec<i32>>>>, O::Outputs>,
+    ) -> Result<IntsRefFSTEnum<O, F>>
     where
         F: FstReader,
     {
@@ -497,7 +494,7 @@ where
         let mut scratch = IntsRefBuilder::default();
         let num = at_least(&mut self.random, 500);
         for _ in 0..num {
-            let output = FSTTester::<D, T, R, O, S>::random_accepted_word(
+            let output = FSTTester::<D, R, O, S>::random_accepted_word(
                 fst.as_mut().unwrap(),
                 &mut scratch,
                 &mut self.random,
@@ -676,25 +673,17 @@ where
         Ok(fst_enum)
     }
 
-    pub fn step1<F>(
-        &self,
-        input_mode: i32,
-        fst: Option<FST<T, O, F>>,
-    ) -> Result<IntsRefFSTEnum<T, O, F>>
+    pub fn step1<F>(&self, input_mode: i32, fst: Option<FST<O, F>>) -> Result<IntsRefFSTEnum<O, F>>
     where
-        T: OutputsBound,
-        O: Outputs<T>,
+        O: Outputs,
         F: FstReader,
     {
         let mut fst_enum = IntsRefFSTEnum::new(fst.unwrap())?;
 
         for pair in &self.pairs {
             let term = &pair.input;
-            let output = FSTTester::<D, T, R, O, S>::run(
-                &mut fst_enum.base.as_mut().unwrap().fst,
-                term,
-                None,
-            )?;
+            let output =
+                FSTTester::<D, R, O, S>::run(&mut fst_enum.base.as_mut().unwrap().fst, term, None)?;
             assert!(
                 output.is_some(),
                 "term {} is not accepted",
@@ -723,7 +712,7 @@ where
     pub fn verify_unpruned<F>(
         &self,
         _input_mode: i32,
-        _fst: Option<FST<T, O, F>>,
+        _fst: Option<FST<O, F>>,
         _random: &mut impl Rng,
         _seed: u64,
     ) -> Result<()>
@@ -738,10 +727,7 @@ where
         // See `self.step1`,`self.step2`,`self.step2`
         Ok(())
     }
-    fn outputs_equal(&self, a: &T, b: &T) -> bool
-    where
-        T: OutputsBound,
-    {
+    fn outputs_equal(&self, a: &O::Outputs, b: &O::Outputs) -> bool {
         if self.sub.is_some() {
             self.sub.as_ref().unwrap().outputs_equal_impl(a, b)
         } else {
@@ -946,12 +932,11 @@ where
     }
 }
 
-pub enum FSTEnums<T, O, D>
+pub enum FSTEnums<O, D>
 where
-    T: OutputsBound,
-    O: Outputs<T>,
+    O: Outputs,
     D: Directory,
 {
-    FST1(FST<T, O, OnHeapFSTStore>),
-    FST2(FST<T, O, DataOutputEnum<D>>),
+    FST1(FST<O, OnHeapFSTStore>),
+    FST2(FST<O, DataOutputEnum<D>>),
 }
