@@ -17,7 +17,6 @@
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::marker::PhantomData;
 use std::rc::Rc;
 
 use crate::codecs::doc_values_producer::DocValuesProducer;
@@ -591,7 +590,6 @@ where
             let sparse_numeric_doc_values_base_enum = if entry.bits_per_value == 0 {
                 SparseNumericDocValuesSubEnum::Sparse(SparseNumericDocValuesBaseImpl {
                     min_values: entry.min_value,
-                    _phantom: Default::default(),
                 })
             } else {
                 let mut slice = self
@@ -1842,14 +1840,10 @@ pub trait SparseNumericDocValuesBase<I> {
     where
         I: IndexInput;
 }
-pub struct SparseNumericDocValuesBaseImpl<I>
-where
-    I: IndexInput,
-{
+pub struct SparseNumericDocValuesBaseImpl {
     min_values: i64,
-    _phantom: PhantomData<I>,
 }
-impl<I> SparseNumericDocValuesBase<I> for SparseNumericDocValuesBaseImpl<I>
+impl<I> SparseNumericDocValuesBase<I> for SparseNumericDocValuesBaseImpl
 where
     I: IndexInput,
 {

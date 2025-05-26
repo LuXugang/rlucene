@@ -278,7 +278,7 @@ pub enum SparseNumericDocValuesSubEnum<I>
 where
     I: IndexInput,
 {
-    Sparse(SparseNumericDocValuesBaseImpl<I>),
+    Sparse(SparseNumericDocValuesBaseImpl),
     Sparse1(SparseNumericDocValuesBaseImpl1<I>),
     Sparse2(SparseNumericDocValuesBaseImpl2<I>),
     Sparse3(SparseNumericDocValuesBaseImpl3<I>),
