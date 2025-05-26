@@ -338,7 +338,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::rc::Rc;
 
     use crate::index::BytesRef;
     use crate::store::dummy::dummy_directory::DummyDirectory;

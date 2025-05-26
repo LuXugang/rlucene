@@ -17,14 +17,12 @@
 use std::borrow::Cow;
 
 use crate::codecs::block_tree::segment_terms_enum_frame::SegmentTermsEnumFrame;
-use crate::codecs::postings_reader_base::PostingsReaderBase;
 use crate::index::dummy::dummy_impacts_enum::DummyImpactsEnum;
 use crate::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::index::impacts_enum::ImpactsEnum;
 use crate::index::postings_enum::{postings_enum_util, PostingsEnum};
 use crate::index::term_state::{TermState, TermStateEnum};
 use crate::index::BytesRef;
-use crate::store::IndexInput;
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};

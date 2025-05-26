@@ -686,7 +686,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::cell::RefCell;
+
     use std::rc::Rc;
 
     use rand::Rng;

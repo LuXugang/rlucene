@@ -22,7 +22,7 @@ use crate::util::error::lucene_error::Result;
 use crate::util::fst_impl::fst::{fst_util, FST};
 use crate::util::fst_impl::fst_enum::{FSTEnum, FSTEnumBase, InputOutput};
 use crate::util::fst_impl::fst_reader::FstReader;
-use crate::util::fst_impl::outputs::{Outputs, OutputsBound};
+use crate::util::fst_impl::outputs::Outputs;
 use crate::util::ints_ref::IntsRef;
 use crate::util::OptionTakeExt;
 
