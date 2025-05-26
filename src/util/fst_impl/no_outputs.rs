@@ -44,23 +44,23 @@ impl Outputs for NoOutputs {
     // TODO: 未完成
     type Outputs = Rc<i64>;
 
-    fn common(&self, output1: &Self::Outputs, output2: &Self::Outputs) -> Self::Outputs {
+    fn common(&self, _output1: &Self::Outputs, _output2: &Self::Outputs) -> Self::Outputs {
         todo!()
     }
 
-    fn subtract(&self, output: &Self::Outputs, inc: &Self::Outputs) -> Self::Outputs {
+    fn subtract(&self, _output: &Self::Outputs, _inc: &Self::Outputs) -> Self::Outputs {
         todo!()
     }
 
-    fn add(&self, prefix: &Self::Outputs, output: &Self::Outputs) -> Self::Outputs {
+    fn add(&self, _prefix: &Self::Outputs, _output: &Self::Outputs) -> Self::Outputs {
         todo!()
     }
 
-    fn write(&self, output: &Self::Outputs, out: &mut impl DataOutput) -> Result<()> {
+    fn write(&self, _output: &Self::Outputs, _out: &mut impl DataOutput) -> Result<()> {
         todo!()
     }
 
-    fn read(&self, input: &mut impl DataInput) -> Result<Self::Outputs> {
+    fn read(&self, _input: &mut impl DataInput) -> Result<Self::Outputs> {
         todo!()
     }
 
@@ -68,11 +68,11 @@ impl Outputs for NoOutputs {
         todo!()
     }
 
-    fn output_to_string(&self, output: &Self::Outputs) -> String {
+    fn output_to_string(&self, _output: &Self::Outputs) -> String {
         todo!()
     }
 
-    fn ram_bytes_used(&self, output: &Self::Outputs) -> i64 {
+    fn ram_bytes_used(&self, _output: &Self::Outputs) -> i64 {
         todo!()
     }
 }
