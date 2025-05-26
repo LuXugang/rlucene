@@ -17,21 +17,20 @@
 use std::fmt::{Display, Formatter};
 
 use crate::store::DataInput;
-use crate::util::access::Access;
 use crate::util::error::lucene_error::Result;
 use crate::util::fst_impl::fst::BytesReader;
-use crate::util::ByteBlockPoolBorrow;
+use crate::util::{ByteBlockPool, CounterEnumBorrow};
 
 /// Reads in reverse from a ByteBlockPool.
 pub struct ByteBlockPoolReverseBytesReader {
-    buf: ByteBlockPoolBorrow,
+    pub(crate) buf: ByteBlockPool<CounterEnumBorrow>,
     // the difference between the FST node address and the hash table copied
     // node address
     pos_delta: i64,
     pos: i64,
 }
-impl ByteBlockPoolReverseBytesReader {
-    pub fn new(buf: ByteBlockPoolBorrow) -> Self {
+impl<'a> ByteBlockPoolReverseBytesReader {
+    pub fn new(buf: ByteBlockPool<CounterEnumBorrow>) -> Self {
         Self {
             buf,
             pos_delta: 0,
@@ -45,7 +44,7 @@ impl ByteBlockPoolReverseBytesReader {
 
 impl DataInput for ByteBlockPoolReverseBytesReader {
     fn read_byte(&mut self) -> Result<u8> {
-        let b = self.buf.access_mut(|buf| buf.read_byte(self.pos));
+        let b = self.buf.read_byte(self.pos);
         self.pos -= 1;
         Ok(b)
     }
@@ -53,12 +52,10 @@ impl DataInput for ByteBlockPoolReverseBytesReader {
     fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()> {
         let offset = offset as usize;
         let len = len as usize;
-        self.buf.access_mut(|buf| {
-            for i in 0..len {
-                b[offset + i] = buf.read_byte(self.pos);
-                self.pos -= 1;
-            }
-        });
+        for i in 0..len {
+            b[offset + i] = self.buf.read_byte(self.pos);
+            self.pos -= 1;
+        }
         Ok(())
     }
 

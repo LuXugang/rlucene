@@ -19,7 +19,6 @@ use std::hash::Hash;
 use std::rc::Rc;
 
 use crate::store::directory::Directory;
-use crate::util::access::Access;
 use crate::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fst_impl::byte_block_pool_reverse_bytes_reader::ByteBlockPoolReverseBytesReader;
@@ -30,7 +29,7 @@ use crate::util::long_values::LongValues;
 use crate::util::packed::abstract_paged_mutable::AbstractPagedMutable;
 use crate::util::packed::paged_growable_writer::PagedGrowableWriter;
 use crate::util::packed::PackedInts;
-use crate::util::{ByteBlockPool, ByteBlockPoolBorrow, HashCode};
+use crate::util::{ByteBlockPool, HashCode};
 // TODO: any way to make a reverse suffix lookup (msokolov's idea) instead of
 // more costly hash? hmmm, though, hash is not so wasteful
 // since it does not have to store value of each entry: the value is the node
@@ -211,7 +210,7 @@ where
                 // between 33.3% and 66.6% note that some of the
                 // copiedNodes are shared between fallback and primary tables so
                 // this computation is pessimistic
-                let copied_bytes = self.primary_table.copied_nodes.borrow_mut().get_position();
+                let copied_bytes = self.primary_table.inner.bytes_reader.get_position();
                 let ram_bytes_used =
                     self.primary_table.count * 2 * PackedInts::bits_required(node_address)? as i64
                         / 8
@@ -309,9 +308,6 @@ where
 {
     count: i64,
     mask: i64,
-    /// Storing the byte slice from the FST for nodes added to the hash,
-    /// allowing append-only writes without needing to read from the FST.
-    copied_nodes: ByteBlockPoolBorrow,
     fst_compiler: Rc<RefCell<FSTCompilerInner<O, D>>>,
     inner: Inner,
     scratch_arc: Arc<O::Outputs>,
@@ -393,8 +389,8 @@ where
             AbstractPagedMutable::new(size, Self::BLOCK_SIZE_BYTES, sub_reader)?;
 
         let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
-        let copied_nodes = Rc::new(RefCell::new(ByteBlockPool::new(allocator)));
-        let bytes_reader = ByteBlockPoolReverseBytesReader::new(copied_nodes.clone());
+        let copied_nodes = ByteBlockPool::new(allocator);
+        let bytes_reader = ByteBlockPoolReverseBytesReader::new(copied_nodes);
         let inner = Inner {
             bytes_reader,
             fst_node_address,
@@ -403,7 +399,6 @@ where
         Ok(Self {
             count: 0,
             mask,
-            copied_nodes,
             inner,
             fst_compiler,
             scratch_arc: Arc::default(),
@@ -424,11 +419,10 @@ where
         debug_assert!(address - length as i64 + 1 >= 0);
 
         let mut buf = vec![0u8; length as usize];
-        self.copied_nodes.access_mut(|copied_nodes| {
-            copied_nodes.read_bytes(address - length as i64 + 1, &mut buf, 0, length)?;
-            // Help the compiler infer types
-            Ok::<(), LuceneError>(())
-        })?;
+        self.inner
+            .bytes_reader
+            .buf
+            .read_bytes(address - length as i64 + 1, &mut buf, 0, length)?;
         Ok(buf)
     }
     /// Get the node address from the provided hash slot.
@@ -451,16 +445,12 @@ where
     ) -> Result<()> {
         debug_assert_eq!(self.inner.copied_node_address.get(hash_slot)?, 0);
 
-        self.copied_nodes.access_mut(|copied_nodes| {
-            copied_nodes.append_range(bytes, 0, length)?;
-            let position = copied_nodes.get_position();
-            // write the offset, which points to the last byte of the node we
-            // copied since we later read this node in reverse
-            self.inner
-                .copied_node_address
-                .set(hash_slot, position - 1)?;
-            Ok(())
-        })
+        let copied_nodes = &mut self.inner.bytes_reader.buf;
+        copied_nodes.append_range(bytes, 0, length)?;
+        let position = copied_nodes.get_position();
+        // write the offset, which points to the last byte of the node we
+        // copied since we later read this node in reverse
+        self.inner.copied_node_address.set(hash_slot, position - 1)
     }
     /// Promote the node bytes from the fallback table.
     pub(crate) fn copy_fallback_node_bytes(
@@ -480,16 +470,13 @@ where
         // the bytes from the start address
         let fallback_start_address = fallback_address - node_length as i64 + 1;
         debug_assert!(fallback_start_address >= 0);
-
-        let position = self.copied_nodes.access_mut(|copied_nodes| {
-            copied_nodes.append_from_byte_block_pool(
-                &*fallback_table.copied_nodes.borrow(),
-                fallback_start_address,
-                node_length,
-            )?;
-            // Help the compiler infer types
-            Ok::<i64, LuceneError>(copied_nodes.get_position())
-        })?;
+        let copied_nodes = &mut self.inner.bytes_reader.buf;
+        copied_nodes.append_from_byte_block_pool(
+            &fallback_table.inner.bytes_reader.buf,
+            fallback_start_address,
+            node_length,
+        )?;
+        let position = copied_nodes.get_position();
         self.inner
             .copied_node_address
             .set(hash_slot, position - 1)?;
@@ -504,8 +491,9 @@ where
         // Double the hash table size
         let new_size = self.inner.fst_node_address.size() * 2;
 
+        let position = self.inner.bytes_reader.get_position();
         let sub_reader = PagedGrowableWriter::with_fill_page(
-            PackedInts::bits_required(self.copied_nodes.borrow_mut().get_position())?,
+            PackedInts::bits_required(position)?,
             PackedInts::COMPACT,
         );
         let mut new_copied_node_address =
