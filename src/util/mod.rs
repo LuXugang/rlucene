@@ -54,6 +54,7 @@ pub mod fixed_bit_set;
 mod fixed_bits;
 pub mod fst_impl;
 pub mod group_vint_util;
+pub mod hnsw;
 pub mod in_place_merge_sorter;
 pub mod info_stream;
 pub mod int_array_doc_id_set;
