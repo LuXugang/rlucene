@@ -26,6 +26,7 @@ use crate::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSupplier
 ///
 /// - descending order if `scores_desc_order` is `true`
 /// - ascending order if `scores_desc_order` is `false`
+#[derive(Clone)]
 pub struct NeighborArray {
     scores_desc_order: bool,
     size: usize,

@@ -19,5 +19,6 @@ pub(crate) mod float_heap;
 mod hnsw_graph;
 pub(crate) mod neighbor_array;
 pub(crate) mod neighbor_queue;
+mod on_heap_hnsw_graph;
 pub(crate) mod random_vector_scorer;
 pub(crate) mod random_vector_scorer_supplier;
