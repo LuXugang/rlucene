@@ -14,8 +14,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-mod float_heap;
-mod neighbor_array;
-mod neighbor_queue;
-mod random_vector_scorer;
-mod random_vector_scorer_supplier;
+use crate::util::error::lucene_error::Result;
+use crate::util::hnsw::random_vector_scorer::RandomVectorScorer;
+
+/// A supplier that creates  [`RandomVectorScorer`] from an ordinal.
+pub trait RandomVectorScorerSupplier {
+    type Scorer: RandomVectorScorer;
+    /// This creates a [`RandomVectorScorer`] for scoring random nodes in
+    /// batches against the given ordinal.
+    ///
+    /// # Arguments
+    ///
+    /// * `ord` - The ordinal of the node to compare.
+    ///
+    /// # Returns
+    ///
+    /// A new [`RandomVectorScorer`].
+    fn scorer(&self, ord: i32) -> Result<Self::Scorer>;
+
+    /// Make a copy of the supplier, which will copy the underlying
+    /// `vectorValues` so the copy is safe to be used in other threads.
+    fn copy(&self) -> Result<Self>
+    where
+        Self: Sized;
+}
