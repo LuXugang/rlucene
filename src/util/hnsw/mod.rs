@@ -16,6 +16,7 @@
  */
 pub(crate) mod dummy;
 pub(crate) mod float_heap;
+mod hnsw_graph;
 pub(crate) mod neighbor_array;
 pub(crate) mod neighbor_queue;
 pub(crate) mod random_vector_scorer;
