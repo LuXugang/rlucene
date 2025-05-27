@@ -66,3 +66,4 @@ message_error!(MergeAbortedError);
 message_error!(AlreadyClosedError);
 message_error!(VersionError);
 message_error!(TooComplexToDeterminizeError);
+message_error!(NoSuchElementError);

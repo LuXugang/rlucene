@@ -26,9 +26,9 @@ use crate::util::error::{
     AlreadyClosedError, ArrayIndexOutOfBoundsError, BufferAllocationError, CorruptIndexError, Eof,
     IllegalArgumentError, IllegalStateError, IndexFormatTooNewError, IndexFormatTooOldError,
     IndexNotFound, LockAlreadyHeldError, LockHeldByOtherError, MaxBytesLengthExceededError,
-    MergeAbortedError, MergeError, NeedImplementedError, NotFoundError, NotImplementedError,
-    NumberFormatError, NumberOverflow, TooComplexToDeterminizeError, UnreachableError,
-    UnsupportedOperationError,
+    MergeAbortedError, MergeError, NeedImplementedError, NoSuchElementError, NotFoundError,
+    NotImplementedError, NumberFormatError, NumberOverflow, TooComplexToDeterminizeError,
+    UnreachableError, UnsupportedOperationError,
 };
 use crate::util::VersionError;
 
@@ -100,6 +100,8 @@ pub enum LuceneError {
     Parse(#[from] Parse),
     #[error("{0}")]
     TooComplexToDeterminize(#[from] TooComplexToDeterminizeError),
+    #[error("{0}")]
+    NoSuchElement(#[from] NoSuchElementError),
 }
 macro_rules! error_ctor {
     ($fn_name:ident, $variant:ident, $error_type:ty) => {
@@ -175,6 +177,7 @@ impl LuceneError {
         TooComplexToDeterminize,
         TooComplexToDeterminizeError
     );
+    error_ctor!(no_such_element, NoSuchElement, NoSuchElementError);
 }
 
 pub type Result<T> = core::result::Result<T, LuceneError>;
