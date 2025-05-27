@@ -445,15 +445,11 @@ mod tests {
             let level = random.random_range(0..max_level);
             for l in (0..=level).rev() {
                 graph.add_node(l, i as usize)?;
-                graph.try_set_new_entry_node(i as i32, l as i32);
+                graph.try_set_new_entry_node(i, l as i32);
                 if l > graph.num_levels()? - 1 {
-                    graph.try_promote_new_entry_node(
-                        i as i32,
-                        l as i32,
-                        graph.num_levels()? as i32 - 1,
-                    );
+                    graph.try_promote_new_entry_node(i, l as i32, graph.num_levels()? as i32 - 1);
                 }
-                level_to_nodes[l].push(i as i32);
+                level_to_nodes[l].push(i);
             }
         }
 
@@ -504,10 +500,9 @@ mod tests {
     fn assert_graph_equals(graph: &mut impl HnswGraph, level_to_nodes: &[Vec<i32>]) -> Result<()> {
         let num_levels = graph.num_levels()?;
 
-        for level in 0..num_levels {
+        for (level, expected) in level_to_nodes.iter().enumerate().take(num_levels) {
             let mut nodes_iterator = graph.get_nodes_on_level(level)?;
 
-            let expected = &level_to_nodes[level];
             assert_eq!(
                 expected.len(),
                 nodes_iterator.size(),
@@ -515,13 +510,20 @@ mod tests {
                 level
             );
 
-            let mut idx = 0;
-            while nodes_iterator.has_next() {
-                let expected = level_to_nodes[level].get(idx).unwrap();
-                idx += 1;
+            for (idx, expected_val) in expected.iter().enumerate() {
                 let actual = nodes_iterator.next().unwrap();
-                assert_eq!(*expected, actual, "Mismatch at level {}", level);
+                assert_eq!(
+                    *expected_val, actual,
+                    "Mismatch at level {}, index {}",
+                    level, idx
+                );
             }
+
+            assert!(
+                nodes_iterator.next().is_none(),
+                "Extra elements in iterator at level {}",
+                level
+            );
         }
 
         Ok(())

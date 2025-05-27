@@ -513,7 +513,7 @@ mod tests {
         let mut neighbors = NeighborArray::new(10, false);
 
         neighbors.add_out_of_order(1, 2.0)?;
-        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let result = catch_unwind(AssertUnwindSafe(|| {
             neighbors.add_in_order(1, 2.0).unwrap();
         }));
         assert!(result.is_err());
@@ -525,7 +525,7 @@ mod tests {
         neighbors.add_out_of_order(6, 7.0)?;
         neighbors.add_out_of_order(4, 5.0)?;
 
-        let unchecked = neighbors.sort(&mut DummyRandomVectorScorer)?;
+        let unchecked = neighbors.sort(&DummyRandomVectorScorer)?;
         assert_eq!(unchecked, vec![0, 1, 2, 3, 4, 5, 6]);
         assert_nodes_equal(&[1, 2, 3, 4, 5, 6, 7], &neighbors);
         assert_scores_equal(&[2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], &neighbors);
@@ -539,7 +539,7 @@ mod tests {
         neighbors2.add_out_of_order(5, 6.0)?;
         neighbors2.add_out_of_order(3, 4.0)?;
 
-        let unchecked = neighbors2.sort(&mut DummyRandomVectorScorer)?;
+        let unchecked = neighbors2.sort(&DummyRandomVectorScorer)?;
         assert_eq!(unchecked, vec![2, 3, 5, 6]);
         assert_nodes_equal(&[0, 1, 2, 3, 4, 5, 6], &neighbors2);
         assert_scores_equal(&[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0], &neighbors2);
