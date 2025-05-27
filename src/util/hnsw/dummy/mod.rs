@@ -14,9 +14,4 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub(crate) mod dummy;
-pub(crate) mod float_heap;
-pub(crate) mod neighbor_array;
-pub(crate) mod neighbor_queue;
-pub(crate) mod random_vector_scorer;
-pub(crate) mod random_vector_scorer_supplier;
+pub(crate) mod dummy_random_vector_scorer;

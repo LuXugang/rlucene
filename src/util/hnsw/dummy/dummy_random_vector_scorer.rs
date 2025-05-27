@@ -14,9 +14,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub(crate) mod dummy;
-pub(crate) mod float_heap;
-pub(crate) mod neighbor_array;
-pub(crate) mod neighbor_queue;
-pub(crate) mod random_vector_scorer;
-pub(crate) mod random_vector_scorer_supplier;
+use crate::util::bits::MatchNoBits;
+use crate::util::error::lucene_error::Result;
+use crate::util::hnsw::random_vector_scorer::RandomVectorScorer;
+
+#[derive(Default)]
+pub struct DummyRandomVectorScorer;
+impl RandomVectorScorer for DummyRandomVectorScorer {
+    fn score(&self, _node: i32) -> Result<f32> {
+        Ok(0f32)
+    }
+
+    fn max_ord(&self) -> i32 {
+        0
+    }
+
+    fn ord_to_doc(&self, _ord: i32) -> i32 {
+        0
+    }
+
+    type Bits = MatchNoBits;
+    type BitsR = MatchNoBits;
+
+    fn get_accept_ords(&self, _accept_docs: Self::Bits) -> Self::Bits {
+        MatchNoBits::default()
+    }
+}
