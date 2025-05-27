@@ -14,4 +14,5 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+mod float_heap;
 mod neighbor_queue;
