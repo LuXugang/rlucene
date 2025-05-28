@@ -242,7 +242,7 @@ impl FieldUpdatesBuffer {
                 self.has_values = Some(new_bitset);
             } else if self.has_values.as_ref().unwrap().length() <= ord {
                 let bitset = self.has_values.as_mut().unwrap();
-                FixedBitSet::ensure_capacity(bitset, ord + 1);
+                bitset.ensure_capacity(ord + 1);
                 // TODO: memory calculation not implemented
                 bytes_used.add_and_get(0);
             }

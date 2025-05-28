@@ -82,7 +82,7 @@ impl KnnCollector for VectorSimilarityCollector {
         self.base.visit_limit()
     }
 
-    fn k(&self) -> usize {
+    fn k(&self) -> i32 {
         self.base.k()
     }
 

@@ -47,7 +47,7 @@ pub trait KnnCollector {
     fn visit_limit(&self) -> usize;
 
     /// Returns the expected number of collected results.
-    fn k(&self) -> usize;
+    fn k(&self) -> i32;
 
     /// Collects the provided `doc_id` and includes it in the result set.
     ///

@@ -16,27 +16,55 @@
  */
 use crate::search::knn_collector::KnnCollector;
 use crate::search::top_docs::TopDocs;
-use crate::util::error::lucene_error::Result;
-///  AbstractKnnCollector is the default implementation for a knn collector used
-///  for gathering kNN results and providing topDocs from the gathered neighbors
-pub struct AbstractKnnCollector {
-    visited_count: usize,
-    visit_limit: usize,
-    k: i32,
-}
+use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::hnsw::neighbor_queue::NeighborQueue;
 
-impl AbstractKnnCollector {
-    pub fn new(k: i32, visit_limit: usize) -> Self {
-        Self {
-            visited_count: 0,
-            visit_limit,
+pub struct HnswGraphBuilder;
+/// A restricted, specialized [`KnnCollector`] that can be used when building a
+/// graph.
+///
+/// This collector does **not** support [`TopDocs`].
+pub struct GraphBuilderKnnCollector {
+    queue: NeighborQueue,
+    k: i32,
+    visited_count: usize,
+}
+impl GraphBuilderKnnCollector {
+    pub fn new(k: i32) -> Result<Self> {
+        Ok(Self {
+            queue: NeighborQueue::new(k, false)?,
             k,
+            visited_count: 0,
+        })
+    }
+
+    pub fn size(&self) -> usize {
+        self.queue.size() as usize
+    }
+
+    pub fn pop_node(&mut self) -> Result<i32> {
+        self.queue.pop()
+    }
+
+    pub fn pop_until_nearest_k_nodes(&mut self) -> Result<Vec<i32>> {
+        while self.size() as i32 > self.k {
+            self.queue.pop()?;
         }
+        Ok(self.queue.nodes())
+    }
+
+    pub fn minimum_score(&self) -> f32 {
+        self.queue.top_score()
+    }
+
+    pub fn clear(&mut self) {
+        self.queue.clear();
+        self.visited_count = 0;
     }
 }
-impl KnnCollector for AbstractKnnCollector {
+impl KnnCollector for GraphBuilderKnnCollector {
     fn early_terminated(&self) -> bool {
-        self.visited_count >= self.visit_limit
+        false
     }
 
     fn inc_visited_count(&mut self, count: usize) {
@@ -48,7 +76,7 @@ impl KnnCollector for AbstractKnnCollector {
     }
 
     fn visit_limit(&self) -> usize {
-        self.visit_limit
+        i64::MAX as usize
     }
 
     fn k(&self) -> i32 {
@@ -56,18 +84,18 @@ impl KnnCollector for AbstractKnnCollector {
     }
 
     fn collect(&mut self, doc_id: i32, similarity: f32) -> bool {
-        unimplemented!()
+        self.queue.insert_with_overflow(doc_id, similarity)
     }
 
     fn min_competitive_similarity(&self) -> f32 {
-        unimplemented!()
+        if self.queue.size() >= self.k {
+            self.queue.top_score()
+        } else {
+            f32::NEG_INFINITY
+        }
     }
 
     fn top_docs(&mut self) -> Result<TopDocs> {
-        unimplemented!()
+        Err(LuceneError::illegal_state(""))
     }
-}
-
-pub trait AbstractKnnCollectorBase {
-    fn num_collected(&self) -> usize;
 }

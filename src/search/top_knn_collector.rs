@@ -37,8 +37,8 @@ impl TopKnnCollector {
     ///
     /// * `k` - the number of neighbors to collect
     /// * `visit_limit` - how many vector nodes the results are allowed to visit
-    pub fn new(k: i32, visit_limit: i32) -> Result<Self> {
-        let base = AbstractKnnCollector::new(k as usize, visit_limit as usize);
+    pub fn new(k: i32, visit_limit: usize) -> Result<Self> {
+        let base = AbstractKnnCollector::new(k, visit_limit);
         Ok(Self {
             queue: NeighborQueue::new(k, false)?,
             base,
@@ -67,7 +67,7 @@ impl KnnCollector for TopKnnCollector {
         self.base.visit_limit()
     }
 
-    fn k(&self) -> usize {
+    fn k(&self) -> i32 {
         self.base.k()
     }
 
@@ -76,7 +76,7 @@ impl KnnCollector for TopKnnCollector {
     }
 
     fn min_competitive_similarity(&self) -> f32 {
-        if self.queue.size() as usize >= self.k() {
+        if self.queue.size() >= self.k() {
             self.queue.top_score()
         } else {
             f32::NEG_INFINITY
@@ -85,7 +85,7 @@ impl KnnCollector for TopKnnCollector {
 
     fn top_docs(&mut self) -> Result<TopDocs> {
         assert!(
-            self.queue.size() as usize <= self.k(),
+            self.queue.size() <= self.k(),
             "Tried to collect more results than the maximum number allowed"
         );
 
@@ -130,7 +130,7 @@ mod tests {
     struct TestTopKnnResults;
     #[test]
     fn test_collect_and_provide_results() -> Result<()> {
-        let mut results = TopKnnCollector::new(5, i32::MAX)?;
+        let mut results = TopKnnCollector::new(5, i32::MAX as usize)?;
         let nodes = [4, 1, 5, 7, 8, 10, 2];
         let scores = [1.0, 0.5, 0.6, 2.0, 2.0, 1.2, 4.0];
 

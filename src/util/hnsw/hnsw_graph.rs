@@ -18,6 +18,7 @@ use std::sync::Arc;
 
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::util::error::lucene_error::Result;
+use crate::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph;
 use crate::util::SliceCopyOps;
 /// Hierarchical Navigable Small World (HNSW) graph.
 ///
@@ -316,6 +317,49 @@ impl NodesIterator for NodesIteratorEnums {
         match self {
             NodesIteratorEnums::Array(iter) => iter.has_next(),
             NodesIteratorEnums::Collection(iter) => iter.has_next(),
+        }
+    }
+}
+
+pub enum HnswGraphEnums {
+    OnHeap(OnHeapHnswGraph),
+}
+impl HnswGraph for HnswGraphEnums {
+    fn seek(&mut self, level: usize, target: usize) -> Result<()> {
+        match self {
+            HnswGraphEnums::OnHeap(graph) => graph.seek(level, target),
+        }
+    }
+
+    fn size(&self) -> usize {
+        match self {
+            HnswGraphEnums::OnHeap(graph) => graph.size(),
+        }
+    }
+
+    fn next_neighbor(&mut self) -> Result<i32> {
+        match self {
+            HnswGraphEnums::OnHeap(graph) => graph.next_neighbor(),
+        }
+    }
+
+    fn num_levels(&self) -> Result<usize> {
+        match self {
+            HnswGraphEnums::OnHeap(graph) => graph.num_levels(),
+        }
+    }
+
+    fn entry_node(&self) -> Result<i32> {
+        match self {
+            HnswGraphEnums::OnHeap(graph) => graph.entry_node(),
+        }
+    }
+
+    type NodeIterator = NodesIteratorEnums;
+
+    fn get_nodes_on_level(&mut self, level: usize) -> Result<Self::NodeIterator> {
+        match self {
+            HnswGraphEnums::OnHeap(on_heap) => on_heap.get_nodes_on_level(level),
         }
     }
 }

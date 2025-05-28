@@ -83,19 +83,7 @@ impl Clone for FixedBitSet {
 /// possible. Also, calling `length()` on the returned bits may return a value
 /// greater than `num_bits`.
 impl FixedBitSet {
-    pub fn ensure_capacity(bits: &mut FixedBitSet, num_bits: i32) {
-        if num_bits < bits.num_bits {
-        } else {
-            let num_words = Self::bits2words(num_bits);
-            let length = bits.bits.len();
-            if num_words as usize >= length {
-                ArrayUtil::grow_with_len(&mut bits.bits, num_words as usize + 1);
-            }
-            debug_assert!(bits.bits.len() <= i32::MAX as usize);
-            bits.num_bits = (bits.bits.len() as i32) << 6;
-            bits.num_words = Self::bits2words(bits.num_bits);
-        }
-    }
+    pub fn ensure_capacity(bits: &mut FixedBitSet, num_bits: i32) {}
 
     /// returns the number of 64-bit words it would take to hold numBits
     pub fn bits2words(num_bits: i32) -> i32 {
@@ -672,6 +660,20 @@ impl BitSet for FixedBitSet {
         }
         Ok(())
     }
+
+    fn ensure_capacity(&mut self, num_bits: i32) {
+        if num_bits < self.num_bits {
+        } else {
+            let num_words = Self::bits2words(num_bits);
+            let length = self.bits.len();
+            if num_words as usize >= length {
+                ArrayUtil::grow_with_len(&mut self.bits, num_words as usize + 1);
+            }
+            debug_assert!(self.bits.len() <= i32::MAX as usize);
+            self.num_bits = (self.bits.len() as i32) << 6;
+            self.num_words = Self::bits2words(self.num_bits);
+        }
+    }
 }
 
 #[cfg(test)]
@@ -1176,7 +1178,7 @@ mod tests {
         let mut bits = FixedBitSet::new(5);
         bits.set(1);
         bits.set(4);
-        FixedBitSet::ensure_capacity(&mut bits, 8);
+        bits.ensure_capacity(8);
         let mut new_bits = bits.clone();
         assert!(bits.get(1));
         assert!(bits.get(4));
@@ -1186,11 +1188,11 @@ mod tests {
 
         new_bits.set(1);
         let length = bits.length();
-        FixedBitSet::ensure_capacity(&mut new_bits, length - 2);
+        new_bits.ensure_capacity(length - 2);
         assert!(new_bits.get(1));
 
         new_bits.set(1);
-        FixedBitSet::ensure_capacity(&mut new_bits, 72);
+        new_bits.ensure_capacity(72);
         assert!(new_bits.get(1));
         assert!(new_bits.get(4));
         new_bits.clear_with_index(1);

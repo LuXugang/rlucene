@@ -102,4 +102,6 @@ pub trait BitSet: Bits + Accountable {
     /// Performs in-place OR of the bits provided by the iterator. The state of
     /// the iterator after this operation terminates is undefined.
     fn or<T: DocIdSetIterator>(&mut self, iter: T) -> Result<()>;
+
+    fn ensure_capacity(&mut self, _num_bits: i32) {}
 }
