@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+mod blocking_float_heap;
 pub(crate) mod dummy;
 pub(crate) mod float_heap;
 mod hnsw_graph;
