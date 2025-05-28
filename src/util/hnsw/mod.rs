@@ -17,6 +17,7 @@
 mod blocking_float_heap;
 pub(crate) mod dummy;
 pub(crate) mod float_heap;
+mod hnsw_builder;
 mod hnsw_graph;
 mod hnsw_util;
 pub(crate) mod neighbor_array;
