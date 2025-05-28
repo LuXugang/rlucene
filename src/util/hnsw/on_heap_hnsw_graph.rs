@@ -106,7 +106,7 @@ impl OnHeapHnswGraph {
     /// * `level` - The level of the graph.
     /// * `node` - The node whose neighbors are returned, represented as an
     ///   ordinal on level 0.
-    pub fn get_neighbors(&self, level: usize, node: usize) -> &NeighborArray {
+    pub fn get_neighbors(&mut self, level: usize, node: usize) -> &NeighborArray {
         debug_assert!(node < self.graph.len(),);
 
         debug_assert!(
@@ -117,7 +117,7 @@ impl OnHeapHnswGraph {
             node
         );
         debug_assert!(self.graph[node][level].is_some());
-        self.graph[node][level].as_ref().unwrap()
+        self.graph[node][level].as_mut().unwrap()
     }
     /// Add node on the given level. Nodes can be inserted out of order, but it
     /// requires that the nodes preceding the inserted out-of-order node are
