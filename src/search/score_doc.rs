@@ -17,7 +17,7 @@
 use std::fmt;
 
 /// Holds one hit in [`TopDocs`](crate::search::top_docs::TopDocs).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct ScoreDoc {
     /// The score of this document for the query.
     pub score: f32,

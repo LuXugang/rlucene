@@ -37,4 +37,5 @@ pub mod sorted_set_selector;
 pub mod sorted_set_sort_field;
 pub mod term_query;
 mod top_docs;
+mod top_knn_collector;
 mod total_hits;

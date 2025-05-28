@@ -16,6 +16,7 @@
  */
 use crate::search::knn_collector::KnnCollector;
 use crate::search::top_docs::TopDocs;
+use crate::util::error::lucene_error::Result;
 ///  AbstractKnnCollector is the default implementation for a knn collector used
 ///  for gathering kNN results and providing topDocs from the gathered neighbors
 pub struct AbstractKnnCollector<S>
@@ -73,7 +74,7 @@ where
         self.sub.min_competitive_similarity()
     }
 
-    fn top_docs(self) -> TopDocs {
+    fn top_docs(&mut self) -> Result<TopDocs> {
         self.sub.top_docs()
     }
 }

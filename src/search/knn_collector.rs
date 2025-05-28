@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::search::top_docs::TopDocs;
+use crate::util::error::lucene_error::Result;
 
 /// KnnCollector is a knn collector used for gathering kNN results and providing
 /// topDocs from the gathered neighbors
@@ -81,5 +82,5 @@ pub trait KnnCollector {
     /// # Returns
     ///
     /// The collected top documents.
-    fn top_docs(self) -> TopDocs;
+    fn top_docs(&mut self) -> Result<TopDocs>;
 }
