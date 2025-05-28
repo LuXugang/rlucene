@@ -39,3 +39,4 @@ pub mod term_query;
 mod top_docs;
 mod top_knn_collector;
 mod total_hits;
+mod vector_similarity_collector;
