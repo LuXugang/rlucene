@@ -14,26 +14,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod doc_id_set;
-pub mod doc_id_set_iterator;
-pub mod dummy;
-pub mod field_comparator;
-pub mod field_comparator_source;
-pub mod field_value_hit_queue;
-pub mod index_searcher;
-mod knn_collector;
-pub mod leaf_field_comparator;
-pub mod pruning;
-pub mod query;
-pub mod scorable;
-pub mod score_doc;
-pub mod score_mode;
-pub mod sort_field;
-pub mod sort_field_enum;
-pub mod sorted_numeric_selector;
-pub mod sorted_numeric_sort_field;
-pub mod sorted_set_selector;
-pub mod sorted_set_sort_field;
-pub mod term_query;
-mod top_docs;
-mod total_hits;
+use crate::search::score_doc::ScoreDoc;
+use crate::search::total_hits::TotalHits;
+
+/// Represents hits returned.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TopDocs {
+    /// The total number of hits for the query.
+    pub total_hits: TotalHits,
+
+    /// The top hits for the query.
+    pub score_docs: Vec<ScoreDoc>,
+}
+
+impl TopDocs {
+    /// Constructs a new `TopDocs`.
+    pub fn new(total_hits: TotalHits, score_docs: Vec<ScoreDoc>) -> Self {
+        Self {
+            total_hits,
+            score_docs,
+        }
+    }
+}
