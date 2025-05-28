@@ -34,3 +34,4 @@ pub mod sorted_numeric_sort_field;
 pub mod sorted_set_selector;
 pub mod sorted_set_sort_field;
 pub mod term_query;
+mod total_hits;
