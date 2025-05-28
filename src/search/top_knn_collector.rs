@@ -16,7 +16,7 @@
  */
 use std::fmt;
 
-use crate::search::abstract_knn_collector::AbstractKnnCollectorBase;
+use crate::search::abstract_knn_collector::{AbstractKnnCollector, AbstractKnnCollectorBase};
 use crate::search::knn_collector::KnnCollector;
 use crate::search::score_doc::ScoreDoc;
 use crate::search::top_docs::TopDocs;
@@ -29,6 +29,7 @@ use crate::util::hnsw::neighbor_queue::NeighborQueue;
 /// allowing for efficient updates as better vectors are collected.
 pub struct TopKnnCollector {
     queue: NeighborQueue,
+    base: AbstractKnnCollector,
 }
 
 impl TopKnnCollector {
@@ -36,9 +37,11 @@ impl TopKnnCollector {
     ///
     /// * `k` - the number of neighbors to collect
     /// * `visit_limit` - how many vector nodes the results are allowed to visit
-    pub fn new(k: i32) -> Result<Self> {
+    pub fn new(k: i32, visit_limit: i32) -> Result<Self> {
+        let base = AbstractKnnCollector::new(k as usize, visit_limit as usize);
         Ok(Self {
             queue: NeighborQueue::new(k, false)?,
+            base,
         })
     }
 }
@@ -49,23 +52,23 @@ impl AbstractKnnCollectorBase for TopKnnCollector {
 }
 impl KnnCollector for TopKnnCollector {
     fn early_terminated(&self) -> bool {
-        unimplemented!()
+        self.base.early_terminated()
     }
 
     fn inc_visited_count(&mut self, count: usize) {
-        unimplemented!()
+        self.base.inc_visited_count(count);
     }
 
     fn visited_count(&self) -> usize {
-        unimplemented!()
+        self.base.visited_count()
     }
 
     fn visit_limit(&self) -> usize {
-        unimplemented!()
+        self.base.visit_limit()
     }
 
     fn k(&self) -> usize {
-        unimplemented!()
+        self.base.k()
     }
 
     fn collect(&mut self, doc_id: i32, similarity: f32) -> bool {
@@ -87,7 +90,7 @@ impl KnnCollector for TopKnnCollector {
         );
 
         let mut score_docs = vec![ScoreDoc::default(); self.queue.size() as usize];
-        for i in 1..score_docs.len() {
+        for i in 1..=score_docs.len() {
             let doc_id = self.queue.top_node();
             let score = self.queue.top_score();
             let len = score_docs.len() - i;
@@ -114,5 +117,40 @@ impl fmt::Display for TopKnnCollector {
             self.k(),
             self.queue.size()
         )
+    }
+}
+#[cfg(test)]
+mod tests {
+    use crate::search::abstract_knn_collector::AbstractKnnCollector;
+    use crate::search::knn_collector::KnnCollector;
+    use crate::search::top_knn_collector::TopKnnCollector;
+    use crate::util::error::lucene_error::Result;
+
+    #[allow(dead_code)] // for quick search
+    struct TestTopKnnResults;
+    #[test]
+    fn test_collect_and_provide_results() -> Result<()> {
+        let mut results = TopKnnCollector::new(5, i32::MAX)?;
+        let nodes = [4, 1, 5, 7, 8, 10, 2];
+        let scores = [1.0, 0.5, 0.6, 2.0, 2.0, 1.2, 4.0];
+
+        for (node, score) in nodes.iter().zip(scores.iter()) {
+            results.collect(*node, *score);
+        }
+
+        let top_docs = results.top_docs()?;
+        let sorted_nodes: Vec<i32> = top_docs.score_docs.iter().map(|doc| doc.doc).collect();
+        let sorted_scores: Vec<f32> = top_docs.score_docs.iter().map(|doc| doc.score).collect();
+
+        assert_eq!(sorted_nodes, vec![2, 7, 8, 10, 4]);
+        assert!(
+            sorted_scores
+                .iter()
+                .zip([4.0, 2.0, 2.0, 1.2, 1.0].iter())
+                .all(|(a, b)| (a - b).abs() < f32::EPSILON),
+            "Scores do not match: {:?} vs expected",
+            sorted_scores
+        );
+        Ok(())
     }
 }

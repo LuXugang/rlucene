@@ -19,33 +19,22 @@ use crate::search::top_docs::TopDocs;
 use crate::util::error::lucene_error::Result;
 ///  AbstractKnnCollector is the default implementation for a knn collector used
 ///  for gathering kNN results and providing topDocs from the gathered neighbors
-pub struct AbstractKnnCollector<S>
-where
-    S: KnnCollector + AbstractKnnCollectorBase,
-{
+pub struct AbstractKnnCollector {
     visited_count: usize,
     visit_limit: usize,
     k: usize,
-    sub: S,
 }
 
-impl<S> AbstractKnnCollector<S>
-where
-    S: KnnCollector + AbstractKnnCollectorBase,
-{
-    pub fn new(k: usize, visit_limit: usize, sub: S) -> Self {
+impl AbstractKnnCollector {
+    pub fn new(k: usize, visit_limit: usize) -> Self {
         Self {
             visited_count: 0,
             visit_limit,
             k,
-            sub,
         }
     }
 }
-impl<S> KnnCollector for AbstractKnnCollector<S>
-where
-    S: KnnCollector + AbstractKnnCollectorBase,
-{
+impl KnnCollector for AbstractKnnCollector {
     fn early_terminated(&self) -> bool {
         self.visited_count >= self.visit_limit
     }
@@ -67,15 +56,15 @@ where
     }
 
     fn collect(&mut self, doc_id: i32, similarity: f32) -> bool {
-        self.sub.collect(doc_id, similarity)
+        unimplemented!()
     }
 
     fn min_competitive_similarity(&self) -> f32 {
-        self.sub.min_competitive_similarity()
+        unimplemented!()
     }
 
     fn top_docs(&mut self) -> Result<TopDocs> {
-        self.sub.top_docs()
+        unimplemented!()
     }
 }
 
