@@ -67,7 +67,7 @@ pub trait HnswGraph {
     ///
     /// A node ordinal in the graph, or `NO_MORE_DOCS` if the iteration is
     /// complete.
-    fn next_neighbor(&mut self) -> Result<usize>;
+    fn next_neighbor(&mut self) -> Result<i32>;
     /// Returns the number of levels of the graph
     fn num_levels(&self) -> Result<usize>;
     /// Returns graph's entry point on the top level *
@@ -98,8 +98,8 @@ impl HnswGraph for EmptyHnswGraph {
         0
     }
 
-    fn next_neighbor(&mut self) -> Result<usize> {
-        Ok(NO_MORE_DOCS as usize)
+    fn next_neighbor(&mut self) -> Result<i32> {
+        Ok(NO_MORE_DOCS)
     }
 
     fn num_levels(&self) -> Result<usize> {

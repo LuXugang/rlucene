@@ -281,13 +281,13 @@ impl HnswGraph for OnHeapHnswGraph {
         }
     }
 
-    fn next_neighbor(&mut self) -> Result<usize> {
+    fn next_neighbor(&mut self) -> Result<i32> {
         let cur = self.graph[self.cur_node][self.cur_level].as_ref().unwrap();
         self.upto += 1;
         if (self.upto as usize) < cur.size() {
-            Ok(cur.nodes()[self.upto as usize] as usize)
+            Ok(cur.nodes()[self.upto as usize])
         } else {
-            Ok(NO_MORE_DOCS as usize)
+            Ok(NO_MORE_DOCS)
         }
     }
     /// Returns the current number of levels in the graph.
