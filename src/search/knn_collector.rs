@@ -16,7 +16,8 @@
  */
 use crate::search::top_docs::TopDocs;
 
-/// KnnCollector is a knn collector used for gathering kNN results and providing topDocs from the gathered neighbors
+/// KnnCollector is a knn collector used for gathering kNN results and providing
+/// topDocs from the gathered neighbors
 pub trait KnnCollector {
     /// If search visits too many documents, the results collector will
     /// terminate early.
@@ -39,10 +40,10 @@ pub trait KnnCollector {
     fn inc_visited_count(&mut self, count: usize);
 
     /// Returns the current visited vector count.
-    fn visited_count(&self) -> u64;
+    fn visited_count(&self) -> usize;
 
     /// Returns the visited vector limit.
-    fn visit_limit(&self) -> u64;
+    fn visit_limit(&self) -> usize;
 
     /// Returns the expected number of collected results.
     fn k(&self) -> usize;
