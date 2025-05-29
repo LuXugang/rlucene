@@ -14,11 +14,206 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::util::error::lucene_error::Result;
 
 /// A DocIdSetIterator that also provides an index() method tracking a distinct
 /// ordinal for a vector associated with each doc.
 pub trait DocIndexIterator: DocIdSetIterator {
+    /// return the value index (aka "ordinal" or "ord") corresponding to the
+    /// current doc
     fn index(&self) -> Result<i32>;
+}
+
+pub(crate) mod knn_vector_values_util {
+    use crate::index::knn_vector_values::{
+        DocIndexIteratorImpl1, DocIndexIteratorImpl2, DocIndexIteratorImpl3, OrdToDoc,
+    };
+    use crate::search::doc_id_set_iterator::DocIdSetIterator;
+
+    pub(crate) fn create_dense_iterator(size: i32) -> DocIndexIteratorImpl1 {
+        DocIndexIteratorImpl1::new(size)
+    }
+
+    /// creates an iterator from a docidsetiterator indicating which docs have
+    /// values, and for which ordinals increase monotonically with docid.
+    pub(crate) fn from_disi<D>(disi: D) -> DocIndexIteratorImpl2<D>
+    where
+        D: DocIdSetIterator,
+    {
+        DocIndexIteratorImpl2::new(disi)
+    }
+
+    ///  Creates an iterator from this instance's ordinal-to-docid mapping which
+    /// must be monotonic (docid increases when ordinal does).
+    pub(crate) fn create_sparse_iterator<T>(size: i32, map: T) -> DocIndexIteratorImpl3<T>
+    where
+        T: OrdToDoc,
+    {
+        DocIndexIteratorImpl3::new(size, map)
+    }
+}
+
+pub(crate) struct DocIndexIteratorImpl1 {
+    doc: i32,
+    size: i32,
+}
+impl DocIndexIteratorImpl1 {
+    pub(crate) fn new(size: i32) -> Self {
+        Self { doc: -1, size }
+    }
+}
+
+impl DocIdSetIterator for DocIndexIteratorImpl1 {
+    fn doc_id(&self) -> i32 {
+        self.doc
+    }
+
+    fn next_doc(&mut self) -> Result<i32> {
+        if self.doc >= self.size - 1 {
+            self.doc = NO_MORE_DOCS;
+        } else {
+            self.doc += 1;
+        }
+        Ok(self.doc)
+    }
+
+    fn advance(&mut self, target: i32) -> Result<i32> {
+        if target >= self.size {
+            self.doc = NO_MORE_DOCS;
+        } else {
+            self.doc = target;
+        }
+        Ok(self.doc)
+    }
+
+    fn cost(&self) -> Result<i64> {
+        Ok(self.size as i64)
+    }
+}
+
+impl DocIndexIterator for DocIndexIteratorImpl1 {
+    fn index(&self) -> Result<i32> {
+        Ok(self.doc)
+    }
+}
+
+pub(crate) struct DocIndexIteratorImpl2<D> {
+    ord: i32,
+    docs_with_field: D,
+}
+
+impl<D> DocIndexIteratorImpl2<D>
+where
+    D: DocIdSetIterator,
+{
+    pub(crate) fn new(docs_with_field: D) -> Self {
+        Self {
+            ord: -1,
+            docs_with_field,
+        }
+    }
+}
+
+impl<D> DocIdSetIterator for DocIndexIteratorImpl2<D>
+where
+    D: DocIdSetIterator,
+{
+    fn doc_id(&self) -> i32 {
+        self.docs_with_field.doc_id()
+    }
+
+    fn next_doc(&mut self) -> Result<i32> {
+        if self.doc_id() == NO_MORE_DOCS {
+            return Ok(NO_MORE_DOCS);
+        }
+        self.ord += 1;
+        self.docs_with_field.next_doc()
+    }
+
+    fn advance(&mut self, target: i32) -> Result<i32> {
+        self.docs_with_field.advance(target)
+    }
+
+    fn cost(&self) -> Result<i64> {
+        self.docs_with_field.cost()
+    }
+}
+
+impl<D> DocIndexIterator for DocIndexIteratorImpl2<D>
+where
+    D: DocIdSetIterator,
+{
+    fn index(&self) -> Result<i32> {
+        Ok(self.ord)
+    }
+}
+
+pub(crate) struct DocIndexIteratorImpl3<T>
+where
+    T: OrdToDoc,
+{
+    ord: i32,
+    size: i32,
+    map: T,
+}
+
+impl<T> DocIndexIteratorImpl3<T>
+where
+    T: OrdToDoc,
+{
+    pub(crate) fn new(size: i32, ord_to_doc: T) -> Self {
+        Self {
+            ord: -1,
+            size,
+            map: ord_to_doc,
+        }
+    }
+}
+
+impl<T> DocIdSetIterator for DocIndexIteratorImpl3<T>
+where
+    T: OrdToDoc,
+{
+    fn doc_id(&self) -> i32 {
+        if self.ord == -1 {
+            -1
+        } else if self.ord == NO_MORE_DOCS {
+            NO_MORE_DOCS
+        } else {
+            self.map.ord_to_doc(self.ord)
+        }
+    }
+
+    fn next_doc(&mut self) -> Result<i32> {
+        if self.ord >= self.size - 1 {
+            self.ord = NO_MORE_DOCS;
+        } else {
+            self.ord += 1;
+        }
+        Ok(self.doc_id())
+    }
+
+    fn advance(&mut self, target: i32) -> Result<i32> {
+        self.slow_advance(target)
+    }
+
+    fn cost(&self) -> Result<i64> {
+        Ok(self.size as i64)
+    }
+}
+
+impl<T> DocIndexIterator for DocIndexIteratorImpl3<T>
+where
+    T: OrdToDoc,
+{
+    fn index(&self) -> Result<i32> {
+        Ok(self.ord)
+    }
+}
+
+pub trait OrdToDoc {
+    fn ord_to_doc(&self, ord: i32) -> i32;
 }
