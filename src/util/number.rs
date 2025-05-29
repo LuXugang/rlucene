@@ -14,8 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt;
+use std::hash::{Hash, Hasher};
+
 use num_traits::ToPrimitive;
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Number {
     U8(u8),
     I16(i16),
@@ -99,6 +102,31 @@ impl Number {
             Number::I64(n) => n.to_string(),
             Number::F32(n) => n.to_string(),
             Number::F64(n) => n.to_string(),
+        }
+    }
+}
+
+impl fmt::Display for Number {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Number::U8(v) => write!(f, "{}", v),
+            Number::I16(v) => write!(f, "{}", v),
+            Number::I32(v) => write!(f, "{}", v),
+            Number::I64(v) => write!(f, "{}", v),
+            Number::F32(v) => write!(f, "{}", v),
+            Number::F64(v) => write!(f, "{}", v),
+        }
+    }
+}
+impl Hash for Number {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match self {
+            Number::U8(v) => v.hash(state),
+            Number::I16(v) => v.hash(state),
+            Number::I32(v) => v.hash(state),
+            Number::I64(v) => v.hash(state),
+            Number::F32(v) => v.to_bits().hash(state),
+            Number::F64(v) => v.to_bits().hash(state),
         }
     }
 }
