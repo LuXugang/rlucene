@@ -14,30 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-mod abstract_knn_collector;
-pub mod doc_id_set;
-pub mod doc_id_set_iterator;
-pub mod dummy;
-pub mod field_comparator;
-pub mod field_comparator_source;
-pub mod field_value_hit_queue;
-pub mod index_searcher;
-pub mod knn_collector;
-pub mod leaf_field_comparator;
-pub mod pruning;
-pub mod query;
-pub mod scorable;
-pub mod score_doc;
-pub mod score_mode;
-pub mod sort_field;
-pub mod sort_field_enum;
-pub mod sorted_numeric_selector;
-pub mod sorted_numeric_sort_field;
-pub mod sorted_set_selector;
-pub mod sorted_set_sort_field;
-pub mod term_query;
-pub(crate) mod top_docs;
-pub mod top_knn_collector;
-mod total_hits;
-mod vector_scorer;
-mod vector_similarity_collector;
+use crate::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::util::error::lucene_error::Result;
+
+/// Computes the similarity score between a given query vector and different
+/// document vectors. This is used for exact searching and scoring.
+pub trait VectorScorer {
+    /// Compute the score for the current document ID.
+    ///
+    /// # Returns
+    /// The score for the current document ID
+    ///
+    /// # Errors
+    /// Returns an error if an exception occurs during score computation.
+    fn score(&mut self) -> Result<f32>;
+
+    type DocIdSetIterator: DocIdSetIterator;
+    /// Returns an iterator over the document IDs.
+    fn iterator(&self) -> &Self::DocIdSetIterator;
+}
