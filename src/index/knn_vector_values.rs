@@ -17,44 +17,8 @@
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::util::error::lucene_error::Result;
 
-pub struct DocIndexIterator<D>
-where
-    D: DocIdSetIterator + DocIndexIteratorBase,
-{
-    delegate: D,
-}
-impl<D> DocIndexIterator<D>
-where
-    D: DocIdSetIterator + DocIndexIteratorBase,
-{
-    pub fn new(delegate: D) -> DocIndexIterator<D> {
-        Self { delegate }
-    }
-}
-impl<D> DocIdSetIterator for DocIndexIterator<D>
-where
-    D: DocIdSetIterator + DocIndexIteratorBase,
-{
-    fn doc_id(&self) -> i32 {
-        self.delegate.doc_id()
-    }
-
-    fn next_doc(&mut self) -> Result<i32> {
-        self.delegate.next_doc()
-    }
-
-    fn advance(&mut self, target: i32) -> Result<i32> {
-        self.delegate.advance(target)
-    }
-
-    fn slow_advance(&mut self, target: i32) -> Result<i32> {
-        self.delegate.slow_advance(target)
-    }
-
-    fn cost(&self) -> Result<i64> {
-        self.delegate.cost()
-    }
-}
-pub trait DocIndexIteratorBase {
+/// A DocIdSetIterator that also provides an index() method tracking a distinct
+/// ordinal for a vector associated with each doc.
+pub trait DocIndexIterator: DocIdSetIterator {
     fn index(&self) -> Result<i32>;
 }

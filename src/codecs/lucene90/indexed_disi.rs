@@ -17,7 +17,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use crate::index::knn_vector_values::DocIndexIteratorBase;
+use crate::index::knn_vector_values::DocIndexIterator;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{DataInput, IndexInput};
@@ -121,7 +121,6 @@ where
 }
 pub mod indexed_disi_util {
     use crate::codecs::indexed_disi::{DocIndexIteratorImpl, IndexedDISI};
-    use crate::index::knn_vector_values::DocIndexIteratorBase;
     use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::search::doc_id_set_iterator::DocIdSetIterator;
     use crate::store::{DataInput, IndexInput, IndexOutput};
@@ -538,7 +537,6 @@ pub mod indexed_disi_util {
     /// iterator will advance the underlying IndexedDISI, and vice-versa.
     pub fn get_doc_index_iterator<D, I>(disi: &mut IndexedDISI<I>) -> DocIndexIteratorImpl<I>
     where
-        D: DocIdSetIterator + DocIndexIteratorBase,
         I: IndexInput,
     {
         DocIndexIteratorImpl::new(disi)
@@ -792,48 +790,6 @@ where
     }
 }
 
-pub struct DocIndexIteratorImpl<'a, I>
-where
-    I: IndexInput,
-{
-    disi: &'a mut IndexedDISI<I>,
-}
-impl<'a, I> DocIndexIteratorImpl<'a, I>
-where
-    I: IndexInput,
-{
-    pub fn new(disi: &'a mut IndexedDISI<I>) -> Self {
-        DocIndexIteratorImpl { disi }
-    }
-}
-impl<I> DocIdSetIterator for DocIndexIteratorImpl<'_, I>
-where
-    I: IndexInput,
-{
-    fn doc_id(&self) -> i32 {
-        self.disi.doc_id()
-    }
-
-    fn next_doc(&mut self) -> Result<i32> {
-        self.disi.next_doc()
-    }
-
-    fn advance(&mut self, _target: i32) -> Result<i32> {
-        self.disi.advance(_target)
-    }
-
-    fn cost(&self) -> Result<i64> {
-        self.disi.cost()
-    }
-}
-impl<I> DocIndexIteratorBase for DocIndexIteratorImpl<'_, I>
-where
-    I: IndexInput,
-{
-    fn index(&self) -> Result<i32> {
-        Ok(self.disi.index())
-    }
-}
 impl<I> DocIdSetIterator for IndexedDISI<I>
 where
     I: IndexInput,
@@ -878,14 +834,7 @@ where
         Ok(self.cost)
     }
 }
-impl<I> DocIndexIteratorBase for IndexedDISI<I>
-where
-    I: IndexInput,
-{
-    fn index(&self) -> Result<i32> {
-        Ok(self.index)
-    }
-}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Method {
     Sparse,
@@ -1089,6 +1038,49 @@ impl MethodBehavior for All {
     ) -> Result<bool> {
         disi.index = target - disi.gap;
         Ok(true)
+    }
+}
+
+pub struct DocIndexIteratorImpl<'a, I>
+where
+    I: IndexInput,
+{
+    disi: &'a mut IndexedDISI<I>,
+}
+impl<'a, I> DocIndexIteratorImpl<'a, I>
+where
+    I: IndexInput,
+{
+    pub fn new(disi: &'a mut IndexedDISI<I>) -> Self {
+        DocIndexIteratorImpl { disi }
+    }
+}
+impl<I> DocIdSetIterator for DocIndexIteratorImpl<'_, I>
+where
+    I: IndexInput,
+{
+    fn doc_id(&self) -> i32 {
+        self.disi.doc_id()
+    }
+
+    fn next_doc(&mut self) -> Result<i32> {
+        self.disi.next_doc()
+    }
+
+    fn advance(&mut self, _target: i32) -> Result<i32> {
+        self.disi.advance(_target)
+    }
+
+    fn cost(&self) -> Result<i64> {
+        self.disi.cost()
+    }
+}
+impl<I> DocIndexIterator for DocIndexIteratorImpl<'_, I>
+where
+    I: IndexInput,
+{
+    fn index(&self) -> Result<i32> {
+        Ok(self.disi.index())
     }
 }
 
