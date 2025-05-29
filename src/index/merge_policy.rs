@@ -16,9 +16,11 @@
  */
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{Arc, Condvar, Mutex};
+use std::sync::Arc;
 use std::thread::{self, ThreadId};
 use std::time::{Duration, Instant};
+
+use parking_lot::{Condvar, Mutex};
 pub struct MergePolicy;
 /// Reason for pausing the merge thread.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -97,7 +99,7 @@ impl OneMergeProgress {
     where
         F: Fn() -> bool,
     {
-        let owner = self.owner.lock().unwrap();
+        let owner = self.owner.lock();
         let current_id = thread::current().id();
         debug_assert_eq!(
             *owner,
@@ -107,18 +109,19 @@ impl OneMergeProgress {
         drop(owner);
 
         let start = Instant::now();
-        let remaining = pause_nanos;
+        let deadline = start + Duration::from_nanos(pause_nanos);
 
-        let lock = self.pause_lock.lock().unwrap();
-        let _guard = self
-            .pausing
-            .wait_timeout_while(lock, Duration::from_nanos(remaining), |_| {
-                !self.aborted.load(Ordering::Relaxed) && condition()
-            })
-            .unwrap()
-            .0;
+        let mut lock = self.pause_lock.lock();
+        while !self.aborted.load(Ordering::Relaxed) && condition() {
+            let now = Instant::now();
+            if now >= deadline {
+                break;
+            }
+            let timeout = deadline - now;
+            self.pausing.wait_for(&mut lock, timeout);
+        }
 
-        let elapsed = start.elapsed().as_nanos() as u64;
+        let elapsed = start.elapsed().as_nanos().min(u64::MAX as u128) as u64;
         self.add_pause_time(reason, elapsed);
     }
 
@@ -132,7 +135,7 @@ impl OneMergeProgress {
     /// Request a wakeup for any threads stalled in
     /// [`pauseNanos`](OneMergeProgress::pause_nanos).
     pub fn wakeup(&self) {
-        let _lock = self.pause_lock.lock().unwrap();
+        let _lock = self.pause_lock.lock();
         self.pausing.notify_all();
     }
     /// Returns pause reasons and associated times in nanoseconds.
@@ -153,7 +156,7 @@ impl OneMergeProgress {
         map
     }
     pub fn set_merge_thread(&self) {
-        let mut owner = self.owner.lock().unwrap();
+        let mut owner = self.owner.lock();
         debug_assert!(owner.is_none());
         *owner = Some(thread::current().id());
     }
