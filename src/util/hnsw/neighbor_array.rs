@@ -18,6 +18,7 @@ use std::fmt;
 
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::hnsw::dummy::dummy_random_vector_scorer::DummyRandomVectorScorer;
+use crate::util::hnsw::hnsw_graph::HnswGraphEnums;
 use crate::util::hnsw::random_vector_scorer::RandomVectorScorer;
 use crate::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSupplier;
 /// `NeighborArray` encodes the neighbors of a node and their mutual scores in
@@ -107,23 +108,30 @@ impl NeighborArray {
     ///
     /// * `node_id` - Node ID of the owner of this `NeighborArray`.
     pub fn add_and_ensure_diversity(
-        &mut self,
+        hnsw: &mut HnswGraphEnums,
+        level: usize,
         new_node: i32,
         new_score: f32,
         node_id: i32,
         scorer_supplier: &impl RandomVectorScorerSupplier,
     ) -> Result<()> {
-        self.add_out_of_order(new_node, new_score)?;
+        let HnswGraphEnums::OnHeap(hnsw) = hnsw else {
+            return Err(LuceneError::illegal_state(
+                "Only OnHeap variant is supported",
+            ));
+        };
+        let neighbor_array = hnsw.get_neighbors(level, node_id as usize);
+        neighbor_array.add_out_of_order(new_node, new_score)?;
 
-        if self.size < self.nodes.len() {
+        if neighbor_array.size < neighbor_array.nodes.len() {
             return Ok(());
         }
 
         // We're oversize, need to drop the least diverse neighbor
-        let worst_idx = self.find_worst_non_diverse(node_id, scorer_supplier)?;
-        self.remove_index(worst_idx);
+        let worst_idx = neighbor_array.find_worst_non_diverse(node_id, scorer_supplier)?;
+        neighbor_array.remove_index(worst_idx);
 
-        debug_assert!(self.size == self.nodes.len() - 1);
+        debug_assert!(neighbor_array.size == neighbor_array.nodes.len() - 1);
 
         Ok(())
     }

@@ -243,19 +243,24 @@ where
 
             if let Some(lock) = &self.hnsw_lock {
                 let guard = lock.write(level, nbr);
-                // TODO: 多线程版本未完成
-                // let nbrs_of_nbr = self.get_graph().get_neighbors(level, nbr as usize);
-                // nbrs_of_nbr.add_and_ensure_diversity(node, score, nbr,
-                // &self.scorer_supplier)?;
+                NeighborArray::add_and_ensure_diversity(
+                    &mut self.hnsw,
+                    level,
+                    node,
+                    score,
+                    nbr,
+                    &self.scorer_supplier,
+                )?;
                 drop(guard);
             } else {
-                let HnswGraphEnums::OnHeap(hnsw) = &mut self.hnsw else {
-                    return Err(LuceneError::illegal_state(
-                        "Only OnHeap variant is supported",
-                    ));
-                };
-                let nbrs_of_nbr = hnsw.get_neighbors(level, nbr as usize);
-                nbrs_of_nbr.add_and_ensure_diversity(node, score, nbr, &self.scorer_supplier)?;
+                NeighborArray::add_and_ensure_diversity(
+                    &mut self.hnsw,
+                    level,
+                    node,
+                    score,
+                    nbr,
+                    &self.scorer_supplier,
+                )?;
             }
         }
 
