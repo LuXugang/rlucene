@@ -21,6 +21,7 @@ strum = "0.27.1"
 strum_macros = "0.27.1"
 parking_lot = "0.12.3"
 bit-set = "0.8.0"
+rand_chacha = "0.3.1"
 
 [dev-dependencies]
 rand_xoshiro = "0.7.0"

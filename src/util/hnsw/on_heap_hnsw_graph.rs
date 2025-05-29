@@ -106,7 +106,7 @@ impl OnHeapHnswGraph {
     /// * `level` - The level of the graph.
     /// * `node` - The node whose neighbors are returned, represented as an
     ///   ordinal on level 0.
-    pub fn get_neighbors(&mut self, level: usize, node: usize) -> &NeighborArray {
+    pub fn get_neighbors(&mut self, level: usize, node: usize) -> &mut NeighborArray {
         debug_assert!(node < self.graph.len(),);
 
         debug_assert!(
@@ -172,7 +172,7 @@ impl OnHeapHnswGraph {
     ///
     /// `true` if the entry node was successfully set to the provided node,  
     /// `false` if the entry node was already set.
-    pub fn try_set_new_entry_node(&self, node: i32, level: i32) -> bool {
+    pub fn try_set_new_entry_node(&self, node: i32, level: usize) -> bool {
         let mut entry_node = self.entry_node.write().unwrap();
         if entry_node.node == -1 {
             *entry_node = EntryNode::new(node, level);
@@ -196,7 +196,12 @@ impl OnHeapHnswGraph {
     /// level. Even if `level` is higher than the current entry node level,
     /// this method will not update the entry node if the expected level
     /// check fails.
-    pub fn try_promote_new_entry_node(&self, node: i32, level: i32, expect_old_level: i32) -> bool {
+    pub fn try_promote_new_entry_node(
+        &self,
+        node: i32,
+        level: usize,
+        expect_old_level: usize,
+    ) -> bool {
         debug_assert!(
             level > expect_old_level,
             "level must be greater than expect_old_level"
@@ -292,7 +297,7 @@ impl HnswGraph for OnHeapHnswGraph {
     /// The current number of levels in the graph.
     fn num_levels(&self) -> Result<usize> {
         let entry = self.entry_node.read().unwrap();
-        Ok((entry.level + 1) as usize)
+        Ok(entry.level + 1)
     }
     /// Returns the graph's current entry node on the top level,
     /// represented as an ordinal of the node on the 0th level.
@@ -368,10 +373,10 @@ impl Accountable for OnHeapHnswGraph {
 #[derive(Debug)]
 struct EntryNode {
     node: i32,
-    level: i32,
+    level: usize,
 }
 impl EntryNode {
-    pub fn new(node: i32, level: i32) -> Self {
+    pub fn new(node: i32, level: usize) -> Self {
         Self { node, level }
     }
 }
@@ -440,9 +445,9 @@ mod tests {
             let level = random.random_range(0..max_level);
             for l in (0..=level).rev() {
                 graph.add_node(l, i as usize)?;
-                graph.try_set_new_entry_node(i, l as i32);
+                graph.try_set_new_entry_node(i, l);
                 if l > graph.num_levels()? - 1 {
-                    graph.try_promote_new_entry_node(i, l as i32, graph.num_levels()? as i32 - 1);
+                    graph.try_promote_new_entry_node(i, l, graph.num_levels()? - 1);
                 }
                 level_to_nodes[l].push(i);
             }
@@ -474,9 +479,9 @@ mod tests {
             let level = random.random_range(0..max_level);
             for l in (0..=level).rev() {
                 graph.add_node(l, i as usize)?;
-                graph.try_set_new_entry_node(i, l as i32);
+                graph.try_set_new_entry_node(i, l);
                 if l > graph.num_levels()? - 1 {
-                    graph.try_promote_new_entry_node(i, l as i32, graph.num_levels()? as i32 - 1);
+                    graph.try_promote_new_entry_node(i, l, graph.num_levels()? - 1);
                 }
                 level_to_nodes[l].push(i);
             }

@@ -16,7 +16,7 @@
  */
 use crate::util::error::lucene_error::Result;
 use crate::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph;
-use crate::util::info_stream::InfoStream;
+use crate::util::info_stream::InfoStreamLock;
 
 /// Interface for building an [`OnHeapHnswGraph`].
 ///
@@ -32,14 +32,13 @@ pub trait HnswBuilder {
     /// # Returns
     ///
     /// The built [`OnHeapHnswGraph`].
-    fn build(&mut self, max_ord: usize) -> Result<OnHeapHnswGraph>;
+    fn build(&mut self, max_ord: i32) -> Result<&mut OnHeapHnswGraph>;
 
     /// Inserts a doc with vector value to the graph.
     fn add_graph_node(&mut self, node: i32) -> Result<()>;
 
-    type InfoStream: InfoStream;
     /// Sets the info stream for debug output.
-    fn set_info_stream(&mut self, info_stream: Self::InfoStream);
+    fn set_info_stream(&mut self, info_stream: InfoStreamLock);
 
     /// Returns a reference to the current graph under construction.
     fn get_graph(&mut self) -> &mut OnHeapHnswGraph;
@@ -54,5 +53,5 @@ pub trait HnswBuilder {
     ///
     /// This operation may be time-consuming, and callers should expect it to
     /// take some time.
-    fn get_completed_graph(&mut self) -> Result<OnHeapHnswGraph>;
+    fn get_completed_graph(&mut self) -> Result<&mut OnHeapHnswGraph>;
 }

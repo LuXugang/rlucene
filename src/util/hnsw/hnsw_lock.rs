@@ -14,12 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::rc::Rc;
+
 use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 /// Provide (read-and-write) striped locks for access to nodes of an
 /// [`OnHeapHnswGraph`](crate::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph).
 /// Used by [`HnswConcurrentMergeBuilder`](crate::util::hnsw::hnsw_concurrent_merge_builder::HnswConcurrentMergeBuilder) and its `HnswGraphBuilders`.
 pub(crate) struct HnswLock {
-    locks: Vec<RwLock<()>>,
+    locks: Rc<Vec<RwLock<()>>>,
 }
 
 impl HnswLock {
@@ -29,20 +31,22 @@ impl HnswLock {
         for _ in 0..Self::NUM_LOCKS {
             locks.push(RwLock::new(()));
         }
-        Self { locks }
+        Self {
+            locks: Rc::new(locks),
+        }
     }
 
-    fn hash(level: i32, node: i32) -> usize {
-        (level.wrapping_mul(31).wrapping_add(node) as usize) % Self::NUM_LOCKS
+    fn hash(v1: usize, v2: i32) -> usize {
+        v1.wrapping_mul(31).wrapping_add(v2 as usize)
     }
 
-    pub fn read(&self, level: i32, node: i32) -> RwLockReadGuard<()> {
-        let lock_id = Self::hash(level, node);
+    pub fn read(&self, level: usize, node: i32) -> RwLockReadGuard<()> {
+        let lock_id = Self::hash(level, node) % Self::NUM_LOCKS;
         self.locks[lock_id].read()
     }
 
-    pub fn write(&self, level: i32, node: i32) -> RwLockWriteGuard<()> {
-        let lock_id = Self::hash(level, node);
+    pub fn write(&self, level: usize, node: i32) -> RwLockWriteGuard<()> {
+        let lock_id = Self::hash(level, node) % Self::NUM_LOCKS;
         self.locks[lock_id].write()
     }
 }

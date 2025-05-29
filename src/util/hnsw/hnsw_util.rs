@@ -71,7 +71,7 @@ impl HnswUtil {
         level: usize,
         not_fully_connected: &mut Option<FixedBitSet>,
         connected_nodes: &mut FixedBitSet,
-        max_conn: i32,
+        max_conn: usize,
     ) -> Result<i32> {
         let mut total = 0;
         for entry_point in nodes_iter {
@@ -92,7 +92,7 @@ impl HnswUtil {
         hnsw: &mut G,
         level: usize,
         not_fully_connected: &mut Option<FixedBitSet>,
-        max_conn: i32,
+        max_conn: usize,
     ) -> Result<Vec<Component>> {
         let mut components = Vec::new();
         debug_assert!(hnsw.size() <= i32::MAX as usize);
@@ -210,7 +210,7 @@ impl HnswUtil {
         level: usize,
         connected_nodes: &mut FixedBitSet,
         not_fully_connected: &mut Option<FixedBitSet>,
-        max_conn: i32,
+        max_conn: usize,
         entry_point: i32,
     ) -> Result<Component> {
         // Start at entry point and search all nodes on this level
