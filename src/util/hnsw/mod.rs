@@ -21,6 +21,7 @@ mod hnsw_builder;
 mod hnsw_graph;
 mod hnsw_graph_builder;
 mod hnsw_graph_searcher;
+mod hnsw_lock;
 mod hnsw_util;
 pub(crate) mod neighbor_array;
 pub(crate) mod neighbor_queue;
