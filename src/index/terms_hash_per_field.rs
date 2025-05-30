@@ -111,12 +111,10 @@ impl TermsHashPerField {
         // IndexOptions.NONE.
         debug_assert!(index_options != IndexOptions::None);
         let slice_pool = ByteSlicePool;
-        let byte_starts = Rc::new(RefCell::new(BytesStartArrayEnum::Postings(
-            PostingsBytesStartArray {
-                per_field: postings_array_wrapper.clone(),
-                bytes_used,
-            },
-        )));
+        let byte_starts = BytesStartArrayEnum::Postings(PostingsBytesStartArray {
+            per_field: postings_array_wrapper.clone(),
+            bytes_used,
+        });
 
         let bytes_hash = BytesRefHash::from_bytes_start_array(
             term_byte_pool,

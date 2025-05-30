@@ -36,10 +36,7 @@ use crate::util::access::Access;
 use crate::util::accountable::Accountable;
 use crate::util::allocator_byte::{AllocatorByteEnum, DirectTrackingAllocatorByte};
 use crate::util::array_util::ArrayUtil;
-use crate::util::bytes_ref_hash::{
-    BytesRefHash, BytesStartArrayEnum, BytesStartArrayEnumBorrow, BytesStartArrayEnumLock,
-    DirectBytesStartArray,
-};
+use crate::util::bytes_ref_hash::{BytesRefHash, BytesStartArrayEnum, DirectBytesStartArray};
 use crate::util::error::lucene_error::Result;
 use crate::util::{
     ByteBlockPool, ByteBlockPoolBorrow, ByteBlockPoolLock, Counter, CounterEnum, CounterEnumBorrow,
@@ -64,16 +61,15 @@ const BYTES_PER_DEL_QUERY: i64 = 0;
 ///   `DocumentWriterPerThread`, or through synchronized code in the
 ///   `DocumentsWriterDeleteQueue`.
 #[allow(dead_code)]
-pub(crate) struct BufferedUpdates<Q, C, B, A, P>
+pub(crate) struct BufferedUpdates<Q, C, B, P>
 where
     Q: Query,
     C: Access<CounterEnum>,
     B: Access<ByteBlockPool<C>>,
-    A: Access<BytesStartArrayEnum<C, P>>,
     P: Access<PostingsArrayWrapper>,
 {
     pub(crate) num_field_updates: AtomicI32,
-    pub delete_terms: DeletedTerms<C, B, A, P>,
+    pub delete_terms: DeletedTerms<C, B, P>,
     pub(crate) delete_queries: HashMap<Arc<Q>, i32>,
     pub(crate) field_updates: HashMap<String, FieldUpdatesBuffer>,
     bytes_used: C,
@@ -214,12 +210,12 @@ where
 }
 
 #[allow(unused)]
-impl<Q, C, B, A, P> BufferedUpdates<Q, C, B, A, P>
+impl<Q, C, B, P> BufferedUpdates<Q, C, B, P>
 where
     Q: Query,
     C: Access<CounterEnum>,
     B: Access<ByteBlockPool<C>>,
-    A: Access<BytesStartArrayEnum<C, P>>,
+
     P: Access<PostingsArrayWrapper>,
 {
     pub(crate) fn add_query(&mut self, query: Arc<Q>, doc_id_upto: i32) {
@@ -264,12 +260,12 @@ where
     }
 }
 
-impl<Q, C, B, A, P> Accountable for BufferedUpdates<Q, C, B, A, P>
+impl<Q, C, B, P> Accountable for BufferedUpdates<Q, C, B, P>
 where
     Q: Query,
     C: Access<CounterEnum>,
     B: Access<ByteBlockPool<C>>,
-    A: Access<BytesStartArrayEnum<C, P>>,
+
     P: Access<PostingsArrayWrapper>,
 {
     fn ram_bytes_used(&self) -> Result<i64> {
@@ -277,12 +273,12 @@ where
         Ok(0)
     }
 }
-impl<Q, C, B, A, P> fmt::Display for BufferedUpdates<Q, C, B, A, P>
+impl<Q, C, B, P> fmt::Display for BufferedUpdates<Q, C, B, P>
 where
     Q: Query + fmt::Display,
     C: Access<CounterEnum>,
     B: Access<ByteBlockPool<C>>,
-    A: Access<BytesStartArrayEnum<C, P>>,
+
     P: Access<PostingsArrayWrapper>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -327,36 +323,25 @@ where
     }
 }
 /// for multi-threaded scenarios
-pub type MTBufferedUpdates<Q> = BufferedUpdates<
-    Q,
-    CounterEnumLock,
-    ByteBlockPoolLock,
-    BytesStartArrayEnumLock,
-    MTPostingsArrayWrapper,
->;
+pub type MTBufferedUpdates<Q> =
+    BufferedUpdates<Q, CounterEnumLock, ByteBlockPoolLock, MTPostingsArrayWrapper>;
 
 #[allow(unused)]
 pub type BufferedUpdatesLock<Q> = Arc<Mutex<MTBufferedUpdates<Q>>>;
 /// for single-threaded scenarios
-pub type STBufferedUpdates<Q> = BufferedUpdates<
-    Q,
-    CounterEnumBorrow,
-    ByteBlockPoolBorrow,
-    BytesStartArrayEnumBorrow,
-    STPostingsArrayWrapper,
->;
+pub type STBufferedUpdates<Q> =
+    BufferedUpdates<Q, CounterEnumBorrow, ByteBlockPoolBorrow, STPostingsArrayWrapper>;
 #[allow(unused)]
 pub type BufferedUpdatesBorrow<Q> = Rc<RefCell<STBufferedUpdates<Q>>>;
-pub(crate) struct DeletedTerms<C, B, A, P>
+pub(crate) struct DeletedTerms<C, B, P>
 where
     C: Access<CounterEnum>,
     B: Access<ByteBlockPool<C>>,
-    A: Access<BytesStartArrayEnum<C, P>>,
     P: Access<PostingsArrayWrapper>,
 {
     bytes_used: C,
     pool: B,
-    delete_terms: HashMap<String, BytesRefIntMap<C, B, A, P>>,
+    delete_terms: HashMap<String, BytesRefIntMap<C, B, P>>,
     terms_size: i32,
 }
 macro_rules! impl_deleted_terms {
@@ -417,25 +402,16 @@ impl_deleted_terms!(
     map_ctor = new_sync
 );
 
-pub type MTDeletedTerms = DeletedTerms<
-    CounterEnumLock,
-    ByteBlockPoolLock,
-    BytesStartArrayEnumLock,
-    MTPostingsArrayWrapper,
->;
-pub type STDeletedTerms = DeletedTerms<
-    CounterEnumBorrow,
-    ByteBlockPoolBorrow,
-    BytesStartArrayEnumBorrow,
-    STPostingsArrayWrapper,
->;
+pub type MTDeletedTerms = DeletedTerms<CounterEnumLock, ByteBlockPoolLock, MTPostingsArrayWrapper>;
+pub type STDeletedTerms =
+    DeletedTerms<CounterEnumBorrow, ByteBlockPoolBorrow, STPostingsArrayWrapper>;
 
 #[allow(unused)]
-impl<C, B, A, P> DeletedTerms<C, B, A, P>
+impl<C, B, P> DeletedTerms<C, B, P>
 where
     C: Access<CounterEnum>,
     B: Access<ByteBlockPool<C>>,
-    A: Access<BytesStartArrayEnum<C, P>>,
+
     P: Access<PostingsArrayWrapper>,
 {
     /// Creates a new instance of `DeletedTerms`.
@@ -496,7 +472,7 @@ where
     where
         F: FnMut(&Term, i32) -> Result<()>,
     {
-        let mut delete_fields: Vec<(&String, &mut BytesRefIntMap<C, B, A, P>)> =
+        let mut delete_fields: Vec<(&String, &mut BytesRefIntMap<C, B, P>)> =
             self.delete_terms.iter_mut().collect();
         delete_fields.sort_by(|a, b| a.0.cmp(b.0));
 
@@ -522,11 +498,11 @@ where
 pub trait DeletedTermConsumer {
     fn accept(&mut self, term: &Term, doc_id: i32) -> Result<()>;
 }
-impl<C, B, A, P> Accountable for DeletedTerms<C, B, A, P>
+impl<C, B, P> Accountable for DeletedTerms<C, B, P>
 where
     C: Access<CounterEnum>,
     B: Access<ByteBlockPool<C>>,
-    A: Access<BytesStartArrayEnum<C, P>>,
+
     P: Access<PostingsArrayWrapper>,
 {
     fn ram_bytes_used(&self) -> Result<i64> {
@@ -534,11 +510,11 @@ where
         Ok(0)
     }
 }
-impl<C, B, A, P> fmt::Display for DeletedTerms<C, B, A, P>
+impl<C, B, P> fmt::Display for DeletedTerms<C, B, P>
 where
     C: Access<CounterEnum>,
     B: Access<ByteBlockPool<C>>,
-    A: Access<BytesStartArrayEnum<C, P>>,
+
     P: Access<PostingsArrayWrapper>,
 {
     /// Used for `BufferedUpdates::VERBOSE_DELETES`.
@@ -553,83 +529,58 @@ where
 }
 
 #[allow(unused)]
-struct BytesRefIntMap<C, B, A, P>
+struct BytesRefIntMap<C, B, P>
 where
     C: Access<CounterEnum>,
     B: Access<ByteBlockPool<C>>,
-    A: Access<BytesStartArrayEnum<C, P>>,
+
     P: Access<PostingsArrayWrapper>,
 {
     counter: C,
-    pub(crate) bytes_ref_hash: BytesRefHash<C, B, A, P>,
+    pub(crate) bytes_ref_hash: BytesRefHash<C, B, P>,
     values: Vec<i32>,
 }
-impl
-    BytesRefIntMap<
-        CounterEnumLock,
-        ByteBlockPoolLock,
-        BytesStartArrayEnumLock,
-        MTPostingsArrayWrapper,
-    >
-{
+impl BytesRefIntMap<CounterEnumLock, ByteBlockPoolLock, MTPostingsArrayWrapper> {
     // TODO: memory calculation not implemented
     const INIT_RAM_BYTES: i64 = 0;
 }
 
-impl
-    BytesRefIntMap<
-        CounterEnumLock,
-        ByteBlockPoolLock,
-        BytesStartArrayEnumLock,
-        MTPostingsArrayWrapper,
-    >
-{
+impl BytesRefIntMap<CounterEnumLock, ByteBlockPoolLock, MTPostingsArrayWrapper> {
     fn new_sync(pool: ByteBlockPoolLock, counter: CounterEnumLock) -> Self {
         let bytes_ref_hash = BytesRefHash::from_bytes_start_array(
             pool,
             BytesRefHash::DEFAULT_CAPACITY,
-            Arc::new(Mutex::new(BytesStartArrayEnum::Direct(
-                DirectBytesStartArray::with_counter_sync(
-                    BytesRefHash::DEFAULT_CAPACITY,
-                    counter.clone(),
-                ),
-            ))),
+            BytesStartArrayEnum::Direct(DirectBytesStartArray::with_counter_sync(
+                BytesRefHash::DEFAULT_CAPACITY,
+                counter.clone(),
+            )),
         );
         Self::new_impl(counter, bytes_ref_hash)
     }
 }
-impl
-    BytesRefIntMap<
-        CounterEnumBorrow,
-        ByteBlockPoolBorrow,
-        BytesStartArrayEnumBorrow,
-        STPostingsArrayWrapper,
-    >
-{
+impl BytesRefIntMap<CounterEnumBorrow, ByteBlockPoolBorrow, STPostingsArrayWrapper> {
     fn new(pool: ByteBlockPoolBorrow, counter: CounterEnumBorrow) -> Self {
         let bytes_ref_hash = BytesRefHash::from_bytes_start_array(
             pool,
             BytesRefHash::DEFAULT_CAPACITY,
-            Rc::new(RefCell::new(BytesStartArrayEnum::Direct(
-                DirectBytesStartArray::with_counter(
-                    BytesRefHash::DEFAULT_CAPACITY,
-                    counter.clone(),
-                ),
-            ))),
+            BytesStartArrayEnum::Direct(DirectBytesStartArray::with_counter(
+                BytesRefHash::DEFAULT_CAPACITY,
+                counter.clone(),
+            )),
         );
         Self::new_impl(counter, bytes_ref_hash)
     }
 }
 
 #[allow(unused)]
-impl<C, B, A, P> BytesRefIntMap<C, B, A, P>
+impl<C, B, P> BytesRefIntMap<C, B, P>
 where
     C: Access<CounterEnum>,
     B: Access<ByteBlockPool<C>>,
-    A: Access<BytesStartArrayEnum<C, P>>,
+
     P: Access<PostingsArrayWrapper>,
 {
-    fn new_impl(counter: C, bytes_ref_hash: BytesRefHash<C, B, A, P>) -> Self {
+    fn new_impl(counter: C, bytes_ref_hash: BytesRefHash<C, B, P>) -> Self {
         let values = vec![0; BytesRefHash::DEFAULT_CAPACITY as usize];
 
         counter.access_mut(|c| c.add_and_get(BytesRefIntMap::INIT_RAM_BYTES));
