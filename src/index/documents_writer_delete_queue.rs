@@ -16,9 +16,9 @@
  */
 use std::fmt::{Display, Formatter};
 use std::sync::atomic::{AtomicI64, Ordering};
-use std::sync::{Arc, RwLock, RwLockWriteGuard};
+use std::sync::Arc;
 
-use parking_lot::Mutex;
+use parking_lot::{Mutex, RwLock, RwLockWriteGuard};
 
 use crate::index::buffered_updates::{buffered_updates_util, BufferedUpdates, MTBufferedUpdates};
 use crate::index::doc_values_type::DocValuesType;
@@ -186,11 +186,7 @@ where
     }
 
     pub(crate) fn add_node(&self, new_node: Arc<Node<Q>>) -> Result<i64> {
-        let mut global_state = self
-            .global_buffer_lock
-            .write()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
-
+        let mut global_state = self.global_buffer_lock.write();
         self.ensure_open(global_state.closed)?;
         {
             let mut tail_next_guard = global_state.tail.next.lock();
@@ -201,12 +197,9 @@ where
         Ok(self.get_next_sequence_number(global_state.max_seq_no))
     }
 
-    pub(crate) fn any_changes(&self) -> Result<bool> {
-        let global_state = self
-            .global_buffer_lock
-            .write()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
-        Ok(self.any_changes_with_lock(&global_state))
+    pub(crate) fn any_changes(&self) -> bool {
+        let global_state = self.global_buffer_lock.write();
+        self.any_changes_with_lock(&global_state)
     }
     pub(crate) fn any_changes_with_lock(
         &self,
@@ -223,7 +216,7 @@ where
     }
     pub(crate) fn try_apply_global_slice(&self) -> Result<()> {
         match self.global_buffer_lock.try_write() {
-            Ok(mut global_state) => {
+            Some(mut global_state) => {
                 self.ensure_open(global_state.closed)?;
                 // The global buffer must be locked, but we don't need to update
                 // them if there is an update going on right
@@ -235,7 +228,7 @@ where
                     global_state.apply(buffered_updates_util::MAX_INT)?;
                 }
             },
-            Err(_) => {
+            _ => {
                 return Ok(());
             },
         }
@@ -249,10 +242,7 @@ where
     where
         D: Directory,
     {
-        let mut global_state = self
-            .global_buffer_lock
-            .write()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
+        let mut global_state = self.global_buffer_lock.write();
         self.ensure_open(global_state.closed)?;
         // Here we freeze the global buffer so we need to lock it, apply all
         // deletes in the queue and reset the global slice to let the GC prune
@@ -277,10 +267,7 @@ where
     where
         D: Directory,
     {
-        let mut global_state = self
-            .global_buffer_lock
-            .write()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
+        let mut global_state = self.global_buffer_lock.write();
 
         if !global_state.closed {
             // Here we freeze the global buffer so we need to lock it,
@@ -323,19 +310,13 @@ where
             Ok(None)
         }
     }
-    pub(crate) fn new_slice(&self) -> Result<DeleteSlice<Q>> {
-        let global_state = self
-            .global_buffer_lock
-            .read()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire  lock.".to_string()))?;
-        Ok(DeleteSlice::new(global_state.tail.clone()))
+    pub(crate) fn new_slice(&self) -> DeleteSlice<Q> {
+        let global_state = self.global_buffer_lock.read();
+        DeleteSlice::new(global_state.tail.clone())
     }
     /// Negative result means there were new deletes since we last applied.
     pub(crate) fn update_slice(&self, slice: &mut DeleteSlice<Q>) -> Result<i64> {
-        let global_state = self
-            .global_buffer_lock
-            .read()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire  lock.".to_string()))?;
+        let global_state = self.global_buffer_lock.read();
         self.ensure_open(global_state.closed)?;
         let mut seq_no = self.get_next_sequence_number(global_state.max_seq_no);
         if !Arc::ptr_eq(&slice.slice_tail, &global_state.tail) {
@@ -366,12 +347,9 @@ where
         }
         Ok(())
     }
-    pub(crate) fn is_open(&self) -> Result<bool> {
-        let global_state = self
-            .global_buffer_lock
-            .read()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
-        Ok(!global_state.closed)
+    pub(crate) fn is_open(&self) -> bool {
+        let global_state = self.global_buffer_lock.read();
+        !global_state.closed
     }
 
     pub(crate) fn get_next_sequence_number(&self, max_seq_no: i64) -> i64 {
@@ -385,10 +363,7 @@ where
         seq_no
     }
     pub(crate) fn close(&self) -> Result<()> {
-        let mut global_state = self
-            .global_buffer_lock
-            .write()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
+        let mut global_state = self.global_buffer_lock.write();
 
         if self.any_changes_with_lock(&global_state) {
             return Err(LuceneError::illegal_state(
@@ -409,28 +384,18 @@ where
         Ok(())
     }
     #[cfg(feature = "test_only")]
-    pub(crate) fn num_global_term_deletes(&self) -> Result<i32> {
-        let global_state = self
-            .global_buffer_lock
-            .read()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
-        Ok(global_state.global_buffered_updates.delete_terms.size())
+    pub(crate) fn num_global_term_deletes(&self) -> i32 {
+        let global_state = self.global_buffer_lock.read();
+        global_state.global_buffered_updates.delete_terms.size()
     }
-    pub(crate) fn clear(&self) -> Result<()> {
-        let mut global_state = self
-            .global_buffer_lock
-            .write()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
+    pub(crate) fn clear(&self) {
+        let mut global_state = self.global_buffer_lock.write();
         global_state.global_slice.slice_head = global_state.tail.clone();
         global_state.global_slice.slice_tail = global_state.tail.clone();
         global_state.global_buffered_updates.clear();
-        Ok(())
     }
     pub(crate) fn get_buffered_updates_terms_size(&self) -> Result<i32> {
-        let mut global_state = self
-            .global_buffer_lock
-            .write()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
+        let mut global_state = self.global_buffer_lock.write();
 
         let current_tail = global_state.tail.clone();
 
@@ -484,10 +449,7 @@ where
         &self,
         max_num_pending_ops: i64,
     ) -> Result<DocumentsWriterDeleteQueue<Q>> {
-        let mut global_state = self
-            .global_buffer_lock
-            .write()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
+        let mut global_state = self.global_buffer_lock.write();
         if global_state.advanced {
             return Err(LuceneError::illegal_state(
                 "queue was already advanced".to_string(),
@@ -515,21 +477,15 @@ where
 
     /// Returns the maximum sequence number for this queue.
     /// This value will change once this queue is advanced.
-    pub(crate) fn get_max_seq_no(&self) -> Result<i64> {
-        let global_state = self
-            .global_buffer_lock
-            .read()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
-        Ok(global_state.max_seq_no)
+    pub(crate) fn get_max_seq_no(&self) -> i64 {
+        let global_state = self.global_buffer_lock.read();
+        global_state.max_seq_no
     }
 
     /// Returns `true` if the queue has been advanced.
-    pub(crate) fn is_advanced(&self) -> Result<bool> {
-        let global_state = self
-            .global_buffer_lock
-            .read()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
-        Ok(global_state.advanced)
+    pub(crate) fn is_advanced(&self) -> bool {
+        let global_state = self.global_buffer_lock.read();
+        global_state.advanced
     }
 }
 impl<Q> Drop for DocumentsWriterDeleteQueue<Q>
@@ -1039,8 +995,8 @@ mod tests {
         for _ in 0..size {
             ids.push(random.random());
         }
-        let mut slice1 = queue.new_slice()?;
-        let mut slice2 = queue.new_slice()?;
+        let mut slice1 = queue.new_slice();
+        let mut slice2 = queue.new_slice();
         let mut bd1 = BufferedUpdates::new_sync("bd1".to_string());
         let mut bd2 = BufferedUpdates::new_sync("bd2".to_string());
         let mut last1 = 0;
@@ -1072,7 +1028,7 @@ mod tests {
                 test_assert_all_between(last2 as i32, j as i32, &mut bd2, &ids)?;
                 last2 = j + 1;
             }
-            let num_deletes = queue.num_global_term_deletes()? as usize;
+            let num_deletes = queue.num_global_term_deletes() as usize;
             assert_eq!(unique_values.len(), num_deletes);
         }
 
@@ -1092,7 +1048,7 @@ mod tests {
             frozen_set.insert(term.clone());
         }
         assert_eq!(unique_values, frozen_set);
-        let num_deletes_after = queue.num_global_term_deletes()?;
+        let num_deletes_after = queue.num_global_term_deletes();
         assert_eq!(0, num_deletes_after, "num deletes must be 0 after freeze");
 
         Ok(())
@@ -1117,9 +1073,9 @@ mod tests {
     fn test_clear() -> Result<()> {
         let mut random = random();
         let queue = DocumentsWriterDeleteQueue::new(get_default_info_stream());
-        assert!(!queue.any_changes()?);
-        queue.clear()?;
-        assert!(!queue.any_changes()?);
+        assert!(!queue.any_changes());
+        queue.clear();
+        assert!(!queue.any_changes());
         let size = 200 + random.random_range(0..500) * random_multiplier();
         for i in 0..size {
             let term = Term::from_text("id".to_string(), &i.to_string());
@@ -1128,12 +1084,12 @@ mod tests {
             } else {
                 queue.add_delete_term(vec![term.clone()])?;
             }
-            assert!(queue.any_changes()?);
+            assert!(queue.any_changes());
 
             if random.random_range(0..10) == 0 {
-                queue.clear()?;
+                queue.clear();
                 queue.try_apply_global_slice()?;
-                assert!(!queue.any_changes()?);
+                assert!(!queue.any_changes());
             }
         }
 
@@ -1157,7 +1113,7 @@ mod tests {
                 terms_since_freeze += 1;
             }
 
-            assert!(queue.any_changes()?);
+            assert!(queue.any_changes());
 
             if random.random_range(0..5) == 0 {
                 if let Some(frozen) = queue.freeze_global_buffer::<DummyDirectory>(None)? {
@@ -1165,7 +1121,7 @@ mod tests {
                     assert_eq!(queries_since_freeze, frozen.delete_queries.len());
                     terms_since_freeze = 0;
                     queries_since_freeze = 0;
-                    assert!(!queue.any_changes()?);
+                    assert!(!queue.any_changes());
                 }
             }
         }
@@ -1187,15 +1143,15 @@ mod tests {
         drop(lock);
         handle.join().unwrap();
         let queue = queue.lock();
-        assert!(queue.any_changes()?);
+        assert!(queue.any_changes());
         queue.try_apply_global_slice()?;
-        assert!(queue.any_changes()?);
+        assert!(queue.any_changes());
         let frozen_global_buffer_wrap = queue.freeze_global_buffer::<DummyDirectory>(None)?;
         assert!(frozen_global_buffer_wrap.is_some());
         let frozen_global_buffer = frozen_global_buffer_wrap.unwrap();
         assert!(frozen_global_buffer.any());
         assert_eq!(1, frozen_global_buffer.delete_terms.size());
-        assert!(!queue.any_changes()?);
+        assert!(!queue.any_changes());
         Ok(())
     }
     #[test]
@@ -1260,7 +1216,7 @@ mod tests {
         }
         assert_eq!(unique_values.len(), frozen_set.len());
         assert_eq!(unique_values, frozen_set);
-        assert_eq!(0, queue.num_global_term_deletes()?);
+        assert_eq!(0, queue.num_global_term_deletes());
         Ok(())
     }
 
@@ -1269,7 +1225,7 @@ mod tests {
         {
             let mut random = random();
             let queue = DocumentsWriterDeleteQueue::new(get_default_info_stream());
-            assert!(queue.is_open()?);
+            assert!(queue.is_open());
             queue.close()?;
             if random.random_bool(0.5) {
                 queue.close()?; // double close
@@ -1298,7 +1254,7 @@ mod tests {
             assert!(matches!(result, Err(LuceneError::AlreadyClosed(_))));
             let result = queue.maybe_freeze_global_buffer::<DummyDirectory>()?;
             assert!(result.is_none());
-            assert!(!queue.is_open()?);
+            assert!(!queue.is_open());
         }
         {
             let queue: DocumentsWriterDeleteQueue<DummyQuery> =
@@ -1307,11 +1263,11 @@ mod tests {
             let result = queue.close();
             assert!(matches!(result, Err(LuceneError::IllegalState(_))));
 
-            assert!(queue.is_open()?);
+            assert!(queue.is_open());
             queue.try_apply_global_slice()?;
             queue.freeze_global_buffer::<DummyDirectory>(None)?;
             queue.close()?;
-            assert!(!queue.is_open()?);
+            assert!(!queue.is_open());
         }
         Ok(())
     }
@@ -1338,7 +1294,7 @@ mod tests {
             ids: Vec<i32>,
             barrier: Arc<Barrier>,
         ) -> Result<Self> {
-            let slice = queue.new_slice()?;
+            let slice = queue.new_slice();
             let deletes = Arc::new(Mutex::new(BufferedUpdates::new_sync("deletes".to_string())));
 
             Ok(UpdateThread {
