@@ -45,6 +45,7 @@ pub mod dummy;
 pub mod empty_doc_values_producer;
 pub mod field_info;
 pub mod field_infos;
+mod field_invert_state;
 pub mod field_term_iterator;
 pub(crate) mod field_updates_buffer;
 pub mod fields;
