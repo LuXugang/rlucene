@@ -192,7 +192,7 @@ mod tests {
     use crate::test::util::test_util::TestUtil;
     use crate::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
     use crate::util::error::lucene_error::Result;
-    use crate::util::{ByteBlockPool, ByteBlockPoolBorrow, CounterEnumBorrow};
+    use crate::util::{ByteBlockPool, CounterEnumBorrow};
 
     #[allow(dead_code)] // for quick search
     struct TestByteSliceReader;

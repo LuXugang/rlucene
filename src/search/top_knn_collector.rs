@@ -121,7 +121,7 @@ impl fmt::Display for TopKnnCollector {
 }
 #[cfg(test)]
 mod tests {
-    use crate::search::abstract_knn_collector::AbstractKnnCollector;
+
     use crate::search::knn_collector::KnnCollector;
     use crate::search::top_knn_collector::TopKnnCollector;
     use crate::util::error::lucene_error::Result;

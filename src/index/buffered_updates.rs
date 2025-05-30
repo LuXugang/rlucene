@@ -314,12 +314,9 @@ where
 }
 /// for multi-threaded scenarios
 pub type MTBufferedUpdates<Q> = BufferedUpdates<Q, CounterEnumLock, ByteBlockPoolLock>;
-
-#[allow(unused)]
 pub type BufferedUpdatesLock<Q> = Arc<Mutex<MTBufferedUpdates<Q>>>;
 /// for single-threaded scenarios
 pub type STBufferedUpdates<Q> = BufferedUpdates<Q, CounterEnumBorrow, ByteBlockPoolBorrow>;
-#[allow(unused)]
 pub type BufferedUpdatesBorrow<Q> = Rc<RefCell<STBufferedUpdates<Q>>>;
 
 pub(crate) struct DeletedTerms<C, B>

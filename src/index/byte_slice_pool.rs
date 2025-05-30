@@ -176,9 +176,7 @@ mod tests {
     };
     use crate::util::bit_util::BitUtil;
     use crate::util::error::lucene_error::{LuceneError, Result};
-    use crate::util::{
-        ByteBlockPool, ByteBlockPoolBorrow, CounterEnum, CounterEnumBorrow, SliceCopyOps,
-    };
+    use crate::util::{ByteBlockPool, ByteBlockPoolBorrow, CounterEnum, SliceCopyOps};
 
     #[test]
     fn test_alloc_known_size_slice() -> Result<()> {
