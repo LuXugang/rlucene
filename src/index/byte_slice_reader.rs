@@ -192,7 +192,7 @@ mod tests {
     use crate::test::util::test_util::TestUtil;
     use crate::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
     use crate::util::error::lucene_error::Result;
-    use crate::util::{ByteBlockPool, ByteBlockPoolBorrow};
+    use crate::util::{ByteBlockPool, ByteBlockPoolBorrow, CounterEnumBorrow};
 
     #[allow(dead_code)] // for quick search
     struct TestByteSliceReader;
@@ -200,28 +200,25 @@ mod tests {
     #[allow(clippy::type_complexity)]
     pub fn before_class<R: Rng + ?Sized>(
         random: &mut R,
-    ) -> Result<(Vec<u8>, ByteBlockPoolBorrow, i32)> {
+    ) -> Result<(Vec<u8>, ByteBlockPool<CounterEnumBorrow>, i32)> {
         let len = 100; // You can adjust this value if needed
         let random_data: Vec<u8> = (0..len).map(|_| random.random()).collect(); // Fill RANDOM_DATA with random bytes
 
         let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
-        let block_pool = Rc::new(RefCell::new(ByteBlockPool::new(allocator)));
-        block_pool.borrow_mut().next_buffer()?;
+        let mut block_pool = ByteBlockPool::new(allocator);
+        block_pool.next_buffer()?;
 
-        let mut slice_pool = ByteSlicePool::new(block_pool.clone());
-        let mut buffer_upto = block_pool.borrow().buffer_upto;
-        let mut upto = slice_pool.new_slice(ByteSlicePool::FIRST_LEVEL_SIZE)?;
+        let mut slice_pool = ByteSlicePool::default();
+        let mut buffer_upto = block_pool.buffer_upto;
+        let mut upto = slice_pool.new_slice(ByteSlicePool::FIRST_LEVEL_SIZE, &mut block_pool)?;
         for &random_byte in random_data.iter() {
-            let mut pool_guard = block_pool.borrow_mut();
-            let mut buffer = pool_guard.get_buffer(buffer_upto);
+            let mut buffer = block_pool.get_buffer_mut(buffer_upto);
             let value = buffer[upto as usize];
-            drop(pool_guard);
             if (value & 16) != 0 {
-                upto = slice_pool.alloc_slice(buffer_upto, upto)?;
+                upto = slice_pool.alloc_slice(buffer_upto, upto, &mut block_pool)?;
             }
-            pool_guard = block_pool.borrow_mut();
-            buffer_upto = pool_guard.buffer_upto;
-            buffer = pool_guard.get_buffer(buffer_upto);
+            buffer_upto = block_pool.buffer_upto;
+            buffer = block_pool.get_buffer_mut(buffer_upto);
             buffer[upto as usize] = random_byte;
             upto += 1;
         }
@@ -233,7 +230,7 @@ mod tests {
         let mut random = random();
         let (random_data, block_pool, block_pool_end) = before_class(&mut random)?;
         let mut reader = ByteSliceReader::new();
-        reader.init(block_pool.clone(), 0, block_pool_end);
+        reader.init(Rc::new(RefCell::new(block_pool)), 0, block_pool_end);
         for &expected in random_data.iter() {
             let byte = reader.read_byte()?;
             assert_eq!(byte, expected);
@@ -247,6 +244,7 @@ mod tests {
         let mut slice_reader = ByteSliceReader::new();
         let max_skip_to = random_data.len() as i32 - 1;
         let iterations = at_least(&mut random, 10);
+        let block_pool = Rc::new(RefCell::new(block_pool));
         for _ in 0..iterations {
             slice_reader.init(block_pool.clone(), 0, block_pool_end);
             // Skip random chunks of bytes until exhausted

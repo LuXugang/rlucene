@@ -142,7 +142,7 @@ where
             let buffer_upto = pool.byte_upto;
             let text_start = buffer_upto + pool.byte_offset;
             let buffer_index = pool.buffer_upto;
-            let buffer = pool.get_buffer(buffer_index);
+            let buffer = pool.get_buffer_mut(buffer_index);
 
             // We first encode the length, followed by the bytes. Length is
             // encoded as vInt, but will consume 1 or 2 bytes at

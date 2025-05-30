@@ -357,8 +357,11 @@ where
     pub fn get_position(&mut self) -> i64 {
         (self.buffer_upto * self.allocator.get_block_size() + self.byte_upto) as i64
     }
-    pub fn get_buffer(&mut self, buffer_index: i32) -> &mut Vec<u8> {
+    pub fn get_buffer_mut(&mut self, buffer_index: i32) -> &mut Vec<u8> {
         &mut self.buffers[buffer_index as usize]
+    }
+    pub fn get_buffer(&mut self, buffer_index: i32) -> &Vec<u8> {
+        &self.buffers[buffer_index as usize]
     }
     pub fn get_bytes_used(&self) -> i64 {
         self.allocator.get_used()

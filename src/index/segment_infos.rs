@@ -1304,7 +1304,7 @@ pub fn message(msg: &str) -> Result<()> {
     if let Some(ref stream) = *info_stream {
         let mut stream = stream.lock();
         writeln!(stream, "SIS: {}", msg)
-            .map_err(|e| LuceneError::io_with_path("Failed to acquire lock".to_string(), e))?;
+            .map_err(|e| LuceneError::io_with_path("Failed to write".to_string(), e))?;
     }
 
     Ok(())
