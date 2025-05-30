@@ -14,17 +14,3 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::search::explanation::{explanation_util, Explanation};
-use crate::util::number::Number;
-
-pub trait SimScorer {
-    /// Score a single document. `freq` is positive, finite. `norm` is non-zero.
-    fn score(&self, freq: f32, norm: i64) -> f32;
-
-    /// Explain the score computation for a document
-    fn explain(&self, freq: Explanation, norm: i64) -> Explanation {
-        let value = self.score(freq.get_value().to_f32().unwrap(), norm);
-        let description = format!("score(freq={}), with freq of:", freq.get_value());
-        explanation_util::match_(Number::F32(value), description, vec![freq])
-    }
-}
