@@ -46,7 +46,6 @@ use crate::util::{
 /// by a [`ByteSliceReader`] for each term. Terms are first deduplicated in a
 /// [`BytesRefHash`]. Once this is done, internal data structures point to the
 /// current offset of each stream that can be written to.
-#[allow(unused)]
 pub struct TermsHashPerField {
     pub(crate) next_per_field: Option<Rc<RefCell<TermsHashPerFieldEnum>>>,
     int_pool: Rc<RefCell<IntBlockPool>>,

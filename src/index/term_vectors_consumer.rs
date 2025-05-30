@@ -14,17 +14,4 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::index::terms_hash::TermsHashBase;
-use crate::util::ByteBlockPoolBorrow;
-#[allow(unused)]
 pub(crate) struct TermVectorsConsumer;
-#[allow(unused)]
-impl TermsHashBase for TermVectorsConsumer {
-    fn get_term_byte_pool(&self) -> Option<ByteBlockPoolBorrow> {
-        todo!()
-    }
-
-    fn set_term_byte_pool(&mut self, _term_byte_pool: Option<ByteBlockPoolBorrow>) {
-        todo!()
-    }
-}
