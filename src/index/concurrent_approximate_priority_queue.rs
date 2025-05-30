@@ -17,7 +17,8 @@
 use std::cmp::{max, min};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
-use std::sync::Mutex;
+
+use parking_lot::Mutex;
 
 use crate::index::approximate_priority_queue::ApproximatePriorityQueue;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -80,21 +81,18 @@ impl<T: PartialEq> ConcurrentApproximatePriorityQueue<T> {
         ((hasher.finish() as usize) & 0xFFFF) as i32
     }
 
-    pub fn add(&self, entry: T, weight: i64) -> Result<()> {
+    pub fn add(&self, entry: T, weight: i64) {
         let thread_hash = Self::thread_hash();
         for i in 0..self.concurrency {
             let index = ((thread_hash + i) % self.concurrency) as usize;
-            if let Ok(mut queue) = self.queues[index].try_lock() {
+            if let Some(mut queue) = self.queues[index].try_lock() {
                 queue.add(entry, weight);
-                return Ok(());
+                return;
             }
         }
         let index = (thread_hash % self.concurrency) as usize;
-        let mut queue = self.queues[index]
-            .lock()
-            .map_err(|_| LuceneError::illegal_state("Failed to acquire lock.".to_string()))?;
+        let mut queue = self.queues[index].lock();
         queue.add(entry, weight);
-        Ok(())
     }
 
     pub fn poll<F>(&self, predicate: F) -> Option<T>
@@ -104,7 +102,7 @@ impl<T: PartialEq> ConcurrentApproximatePriorityQueue<T> {
         let thread_hash = Self::thread_hash();
         for i in 0..self.concurrency {
             let index = ((thread_hash + i) % self.concurrency) as usize;
-            if let Ok(mut queue) = self.queues[index].try_lock() {
+            if let Some(mut queue) = self.queues[index].try_lock() {
                 if let Some(entry) = queue.poll(&predicate) {
                     return Some(entry);
                 }
@@ -112,7 +110,7 @@ impl<T: PartialEq> ConcurrentApproximatePriorityQueue<T> {
         }
         for i in 0..self.concurrency {
             let index = ((thread_hash + i) % self.concurrency) as usize;
-            let mut queue = self.queues[index].lock().unwrap();
+            let mut queue = self.queues[index].lock();
             if let Some(entry) = queue.poll(&predicate) {
                 return Some(entry);
             }
@@ -125,7 +123,7 @@ impl<T: PartialEq> ConcurrentApproximatePriorityQueue<T> {
         T: PartialEq,
     {
         for mutex in &self.queues {
-            let queue = mutex.lock().unwrap();
+            let queue = mutex.lock();
             if queue.contains(o) {
                 return true;
             }
@@ -133,17 +131,17 @@ impl<T: PartialEq> ConcurrentApproximatePriorityQueue<T> {
         false
     }
 
-    pub fn remove(&self, o: &T) -> Result<bool>
+    pub fn remove(&self, o: &T) -> bool
     where
         T: PartialEq,
     {
         for mutex in &self.queues {
-            let mut queue = mutex.lock().unwrap();
+            let mut queue = mutex.lock();
             if queue.remove(o) {
-                return Ok(true);
+                return true;
             }
         }
-        Ok(false)
+        false
     }
 }
 
@@ -165,9 +163,9 @@ mod tests {
         let concurrency = TestUtil::next_int(&mut random, MIN_CONCURRENCY, MAX_CONCURRENCY);
         let pq = ConcurrentApproximatePriorityQueue::<i32>::with_concurrency(concurrency)?;
 
-        pq.add(3, 3)?;
-        pq.add(10, 10)?;
-        pq.add(7, 7)?;
+        pq.add(3, 3);
+        pq.add(10, 10);
+        pq.add(7, 7);
 
         assert_eq!(Some(10), pq.poll(|_| true));
         assert_eq!(Some(7), pq.poll(|_| true));
@@ -183,9 +181,9 @@ mod tests {
             concurrency,
         )?);
 
-        pq.add(3, 3)?;
-        pq.add(10, 10)?;
-        pq.add(7, 7)?;
+        pq.add(3, 3);
+        pq.add(10, 10);
+        pq.add(7, 7);
 
         let pq_clone = Arc::clone(&pq);
         let handle = thread::spawn(move || {
@@ -206,7 +204,7 @@ mod tests {
             concurrency,
         )?);
 
-        pq.add(3, 3)?;
+        pq.add(3, 3);
 
         let (take_lock_tx, take_lock_rx) = mpsc::channel::<()>();
         let (release_lock_tx, release_lock_rx) = mpsc::channel::<()>();
@@ -217,12 +215,15 @@ mod tests {
             #[allow(unused_variables)]
             let mut chosen_lock = None;
             for (i, mutex) in pq_clone.queues.iter().enumerate() {
-                if let Ok(guard) = mutex.try_lock() {
-                    if !guard.is_empty() {
-                        chosen_index = Some(i);
-                        chosen_lock = Some(guard);
-                        break;
-                    }
+                match mutex.try_lock() {
+                    Some(guard) => {
+                        if !guard.is_empty() {
+                            chosen_index = Some(i);
+                            chosen_lock = Some(guard);
+                            break;
+                        }
+                    },
+                    None => (),
                 }
             }
             assert!(chosen_index.is_some());
@@ -232,7 +233,7 @@ mod tests {
 
         take_lock_rx.recv().unwrap();
 
-        pq.add(1, 1)?;
+        pq.add(1, 1);
         assert_eq!(Some(1), pq.poll(|_| true));
 
         release_lock_tx.send(()).unwrap();
