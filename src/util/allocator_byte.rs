@@ -21,7 +21,7 @@ use std::sync::Arc;
 use parking_lot::Mutex;
 
 use crate::util::access::Access;
-use crate::util::{ByteBlockPool, Counter, CounterEnum};
+use crate::util::{ByteBlockPool, Counter, CounterEnum, CounterEnumBorrow};
 
 /// A simple `Allocator` that never recycles, but tracks how much total RAM is
 /// in use. */
@@ -132,7 +132,7 @@ where
     }
 }
 /// for single-threaded scenarios
-pub type STAllocatorByteEnum = AllocatorByteEnum<Rc<RefCell<CounterEnum>>>;
+pub type STAllocatorByteEnum = AllocatorByteEnum<CounterEnumBorrow>;
 /// for multi-threaded scenarios
 pub type MTAllocatorByteEnum = AllocatorByteEnum<Arc<Mutex<CounterEnum>>>;
 #[allow(unused)]

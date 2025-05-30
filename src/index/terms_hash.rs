@@ -21,30 +21,26 @@ use crate::index::freq_prox_terms_writer::FreqProxTermsWriter;
 use crate::index::term_vectors_consumer::TermVectorsConsumer;
 use crate::util::allocator_byte::AllocatorByteEnum;
 use crate::util::int_block_pool::{AllocatorIntEnum, IntBlockPool};
-use crate::util::{ByteBlockPool, ByteBlockPoolBorrow, CounterEnum};
-#[allow(unused)]
+use crate::util::{ByteBlockPool, ByteBlockPoolBorrow, CounterEnumBorrow};
 pub(crate) struct TermsHash {
     next_terms_hash: Option<TermsHashEnum>,
-    int_pool: Rc<RefCell<IntBlockPool>>,
+    int_pool: IntBlockPool,
     byte_pool: ByteBlockPoolBorrow,
     term_byte_pool: Option<ByteBlockPoolBorrow>,
-    bytes_used: Rc<RefCell<CounterEnum>>,
+    bytes_used: CounterEnumBorrow,
 }
-#[allow(unused)]
 impl TermsHash {
     pub(crate) fn new(
         int_block_allocator: Rc<RefCell<AllocatorIntEnum>>,
-        byte_block_allocator: AllocatorByteEnum<Rc<RefCell<CounterEnum>>>,
-        bytes_used: Rc<RefCell<CounterEnum>>,
+        byte_block_allocator: AllocatorByteEnum<CounterEnumBorrow>,
+        bytes_used: CounterEnumBorrow,
         next_terms_hash: Option<TermsHashEnum>,
     ) -> Self {
         let term_byte_pool = None;
 
         let mut terms_hash = TermsHash {
             next_terms_hash,
-            int_pool: Rc::new(RefCell::new(IntBlockPool::with_allocator(
-                int_block_allocator,
-            ))),
+            int_pool: IntBlockPool::with_allocator(int_block_allocator),
             byte_pool: Rc::new(RefCell::new(ByteBlockPool::new(byte_block_allocator))),
             term_byte_pool,
             bytes_used,

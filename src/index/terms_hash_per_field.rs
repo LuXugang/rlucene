@@ -34,7 +34,9 @@ use crate::util::bytes_ref_hash::{
 };
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::int_block_pool::IntBlockPool;
-use crate::util::{ByteBlockPool, ByteBlockPoolBorrow, Counter, CounterEnum, SliceCopyOps};
+use crate::util::{
+    ByteBlockPool, ByteBlockPoolBorrow, Counter, CounterEnum, CounterEnumBorrow, SliceCopyOps,
+};
 
 /// This struct stores streams of information per term without knowing the size
 /// of the stream ahead of time. Each stream typically encodes one level of
@@ -100,7 +102,7 @@ impl TermsHashPerField {
         int_pool: Rc<RefCell<IntBlockPool>>,
         byte_pool: ByteBlockPoolBorrow,
         term_byte_pool: ByteBlockPoolBorrow,
-        bytes_used: Rc<RefCell<CounterEnum>>,
+        bytes_used: CounterEnumBorrow,
         next_per_field: Option<Rc<RefCell<TermsHashPerFieldEnum>>>,
         field_name: String,
         index_options: IndexOptions,

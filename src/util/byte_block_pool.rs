@@ -52,7 +52,7 @@ where
     pub(crate) byte_offset: i32,
     pub(crate) byte_upto: i32,
 }
-impl ByteBlockPool<Rc<RefCell<CounterEnum>>> {
+impl ByteBlockPool<CounterEnumBorrow> {
     //TODO
     #[allow(unused)]
     const BASE_RAM_BYTES: i64 = 0;
@@ -560,8 +560,7 @@ mod tests {
     #[test]
     fn test_too_many_allocs() -> Result<()> {
         // Use a mock allocator that doesn't waste memory
-        let allocator =
-            AllocatorByteEnum::<Rc<RefCell<CounterEnum>>>::DA(DirectAllocatorByte::new());
+        let allocator = AllocatorByteEnum::<CounterEnumBorrow>::DA(DirectAllocatorByte::new());
         let mut pool = ByteBlockPool::new(allocator);
         pool.next_buffer()?;
 
