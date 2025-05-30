@@ -16,7 +16,9 @@
  */
 use std::fmt;
 use std::sync::atomic::{AtomicI32, AtomicUsize, Ordering};
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
+
+use parking_lot::RwLock;
 
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::util::accountable::Accountable;
@@ -173,7 +175,7 @@ impl OnHeapHnswGraph {
     /// `true` if the entry node was successfully set to the provided node,  
     /// `false` if the entry node was already set.
     pub fn try_set_new_entry_node(&self, node: i32, level: usize) -> bool {
-        let mut entry_node = self.entry_node.write().unwrap();
+        let mut entry_node = self.entry_node.write();
         if entry_node.node == -1 {
             *entry_node = EntryNode::new(node, level);
             true
@@ -207,7 +209,7 @@ impl OnHeapHnswGraph {
             "level must be greater than expect_old_level"
         );
 
-        let mut entry = self.entry_node.write().unwrap();
+        let mut entry = self.entry_node.write();
         if entry.level == expect_old_level {
             *entry = EntryNode::new(node, level);
             true
@@ -296,7 +298,7 @@ impl HnswGraph for OnHeapHnswGraph {
     ///
     /// The current number of levels in the graph.
     fn num_levels(&self) -> Result<usize> {
-        let entry = self.entry_node.read().unwrap();
+        let entry = self.entry_node.read();
         Ok(entry.level + 1)
     }
     /// Returns the graph's current entry node on the top level,
@@ -306,7 +308,7 @@ impl HnswGraph for OnHeapHnswGraph {
     ///
     /// The graph's current entry node on the top level.
     fn entry_node(&self) -> Result<i32> {
-        let entry = self.entry_node.read().unwrap();
+        let entry = self.entry_node.read();
         Ok(entry.node)
     }
 
@@ -349,15 +351,11 @@ impl fmt::Display for OnHeapHnswGraph {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let size = self.size();
         let num_levels = self.num_levels().unwrap_or(0);
-        let entry_node = self
-            .entry_node
-            .read()
-            .map(|e| format!("{:?}", *e))
-            .unwrap_or_else(|_| "<locked>".to_string());
+        let entry_node = self.entry_node.read();
 
         write!(
             f,
-            "OnHeapHnswGraph(size={}, numLevels={}, entryNode={})",
+            "OnHeapHnswGraph(size={}, numLevels={}, entryNode={:?})",
             size, num_levels, entry_node
         )
     }

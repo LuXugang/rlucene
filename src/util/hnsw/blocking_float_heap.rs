@@ -185,6 +185,7 @@ mod tests {
     use std::thread;
     use std::time::Duration;
 
+    use parking_lot::Mutex;
     use rand::{rng, Rng};
 
     use crate::test::util::lucene_test_case::{at_least, random};
@@ -243,7 +244,7 @@ mod tests {
     fn test_multiple_threads() -> Result<()> {
         let mut random = random();
         let thread_count = random.random_range(3..=5);
-        let heap = Arc::new(std::sync::Mutex::new(BlockingFloatHeap::new(1)));
+        let heap = Arc::new(Mutex::new(BlockingFloatHeap::new(1)));
         let barrier = Arc::new(Barrier::new(thread_count + 1));
         let mut handles = vec![];
 
@@ -259,13 +260,13 @@ mod tests {
                 for _ in 0..rng.random_range(10..100) {
                     bottom_value += rng.random_range(0..=5) as f32;
                     {
-                        let mut heap = heap.lock().unwrap();
+                        let mut heap = heap.lock();
                         let _ = heap.offer(bottom_value);
                     }
                     thread::sleep(Duration::from_millis(rng.random_range(0..50)));
 
                     let global_bottom = {
-                        let heap = heap.lock().unwrap();
+                        let heap = heap.lock();
                         heap.peek()
                     };
 
