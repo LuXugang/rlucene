@@ -395,7 +395,7 @@ mod tests {
         AllocatorByteEnum, DirectAllocatorByte, DirectTrackingAllocatorByte,
     };
     use crate::util::error::lucene_error::{LuceneError, Result};
-    use crate::util::{ByteBlockPool, CounterEnum, SliceCopyOps};
+    use crate::util::{ByteBlockPool, CounterEnum, CounterEnumBorrow, SliceCopyOps};
 
     #[allow(dead_code)] // for quick search
     struct TestByteBlockPool {}
