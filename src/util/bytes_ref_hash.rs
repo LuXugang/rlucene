@@ -15,15 +15,11 @@
  * limitations under the License.
  */
 use std::cell::RefCell;
-use std::marker::PhantomData;
 use std::rc::Rc;
 use std::sync::Arc;
 
 use parking_lot::Mutex;
 
-use crate::index::terms_hash_per_field::{
-    MTPostingsArrayWrapper, PostingsArrayWrapper, PostingsBytesStartArray, STPostingsArrayWrapper,
-};
 use crate::index::{BytesRef, BytesRefBuilder};
 use crate::util::access::Access;
 use crate::util::accountable::Accountable;
@@ -52,11 +48,11 @@ use crate::util::{
 /// - The internal storage is limited to 2GB total byte storage.
 ///
 /// [`ByteBlockPool::BYTE_BLOCK_SIZE`]: ByteBlockPool::BYTE_BLOCK_SIZE
-pub(crate) struct BytesRefHash<C, B, P>
+pub(crate) struct BytesRefHash<C, B, BSA>
 where
     C: Access<CounterEnum>,
     B: Access<ByteBlockPool<C>>,
-    P: Access<PostingsArrayWrapper>,
+    BSA: BytesStartArray<Counter = C>,
 {
     pool: BytesRefBlockPool<C, B>,
     hash_size: i32,
@@ -65,9 +61,8 @@ where
     pub(crate) count: i32,
     last_count: i32,
     pub ids: Vec<i32>,
-    bytes_start_array: BytesStartArrayEnum<C, P>,
+    bytes_start_array: BSA,
     bytes_used: C,
-    _phantom2: PhantomData<P>,
 }
 #[allow(unused)]
 impl MTBytesRefHash {
@@ -78,9 +73,7 @@ impl MTBytesRefHash {
         BytesRefHash::from_pool_sync(pool)
     }
     pub fn from_pool_sync(pool: ByteBlockPoolLock) -> Self {
-        let bytes_start_array = BytesStartArrayEnum::Direct(DirectBytesStartArray::new_sync(
-            BytesRefHash::DEFAULT_CAPACITY,
-        ));
+        let bytes_start_array = DirectBytesStartArray::new_sync(BytesRefHash::DEFAULT_CAPACITY);
         BytesRefHash::from_bytes_start_array(pool, 16, bytes_start_array)
     }
 }
@@ -92,8 +85,7 @@ impl STBytesRefHash {
         BytesRefHash::from_pool(pool)
     }
     pub fn from_pool(pool: ByteBlockPoolBorrow) -> Self {
-        let bytes_start_array =
-            BytesStartArrayEnum::Direct(DirectBytesStartArray::new(BytesRefHash::DEFAULT_CAPACITY));
+        let bytes_start_array = DirectBytesStartArray::new(BytesRefHash::DEFAULT_CAPACITY);
         BytesRefHash::from_bytes_start_array(pool, 16, bytes_start_array)
     }
     pub fn do_hash(bytes: &[u8], offset: usize, length: usize) -> i32 {
@@ -101,17 +93,13 @@ impl STBytesRefHash {
     }
 }
 
-impl<C, B, P> BytesRefHash<C, B, P>
+impl<C, B, BSA> BytesRefHash<C, B, BSA>
 where
     C: Access<CounterEnum>,
     B: Access<ByteBlockPool<C>>,
-    P: Access<PostingsArrayWrapper>,
+    BSA: BytesStartArray<Counter = C>,
 {
-    pub fn from_bytes_start_array(
-        pool: B,
-        capacity: i32,
-        mut bytes_start_array: BytesStartArrayEnum<C, P>,
-    ) -> Self {
+    pub fn from_bytes_start_array(pool: B, capacity: i32, mut bytes_start_array: BSA) -> Self {
         bytes_start_array.init();
         let bytes_used = bytes_start_array.bytes_used();
         let ref_pool = BytesRefBlockPool::from_byte_block_pool(pool);
@@ -125,7 +113,6 @@ where
             ids: vec![-1; capacity as usize],
             bytes_start_array,
             bytes_used,
-            _phantom2: Default::default(),
         }
     }
     /// Returns the number of [`BytesRef`] values in this [`BytesRefHash`].
@@ -499,12 +486,11 @@ where
         self.bytes_start_array.get_value(bytes_id as usize)
     }
 }
-impl<C, B, P> Accountable for BytesRefHash<C, B, P>
+impl<C, B, BSA> Accountable for BytesRefHash<C, B, BSA>
 where
     C: Access<CounterEnum>,
     B: Access<ByteBlockPool<C>>,
-
-    P: Access<PostingsArrayWrapper>,
+    BSA: BytesStartArray<Counter = C>,
 {
     fn ram_bytes_used(&self) -> Result<i64> {
         // TODO: memory calculation not implemented
@@ -513,39 +499,37 @@ where
 }
 /// for single-threaded scenarios
 pub(crate) type STBytesRefHash =
-    BytesRefHash<CounterEnumBorrow, ByteBlockPoolBorrow, STPostingsArrayWrapper>;
+    BytesRefHash<CounterEnumBorrow, ByteBlockPoolBorrow, DirectBytesStartArray<CounterEnumBorrow>>;
 /// for multi-threaded scenarios
-#[allow(unused)]
 pub(crate) type MTBytesRefHash =
-    BytesRefHash<CounterEnumLock, ByteBlockPoolLock, MTPostingsArrayWrapper>;
+    BytesRefHash<CounterEnumLock, ByteBlockPoolLock, DirectBytesStartArray<CounterEnumLock>>;
 
-pub(crate) struct StringSorterImpl<'a, C, B, P>
+pub(crate) struct StringSorterImpl<'a, C, B, BSA>
 where
     C: Access<CounterEnum>,
     B: Access<ByteBlockPool<C>>,
 
-    P: Access<PostingsArrayWrapper>,
+    BSA: BytesStartArray,
 {
     tmp_offset: i32,
     compact: &'a mut Vec<i32>,
     pool: &'a mut BytesRefBlockPool<C, B>,
-    bytes_start_array: &'a BytesStartArrayEnum<C, P>,
+    bytes_start_array: &'a BSA,
     k: i32,
     cmp: Natural,
-    _phantom1: PhantomData<P>,
 }
-impl<'a, C, B, P> StringSorterImpl<'a, C, B, P>
+impl<'a, C, B, BSA> StringSorterImpl<'a, C, B, BSA>
 where
     C: Access<CounterEnum>,
     B: Access<ByteBlockPool<C>>,
 
-    P: Access<PostingsArrayWrapper>,
+    BSA: BytesStartArray,
 {
     pub fn new(
         tmp_offset: i32,
         compact: &'a mut Vec<i32>,
         pool: &'a mut BytesRefBlockPool<C, B>,
-        bytes_start_array: &'a BytesStartArrayEnum<C, P>,
+        bytes_start_array: &'a BSA,
     ) -> Self {
         StringSorterImpl {
             tmp_offset,
@@ -554,7 +538,6 @@ where
             bytes_start_array,
             k: 0,
             cmp: Natural::default(),
-            _phantom1: Default::default(),
         }
     }
     fn swap_bucket_cache(&mut self, i: i32, j: i32) -> Result<()> {
@@ -566,12 +549,12 @@ where
         Ok(())
     }
 }
-impl<C, B, P> MSBRadixSorterBase for StringSorterImpl<'_, C, B, P>
+impl<C, B, BSA> MSBRadixSorterBase for StringSorterImpl<'_, C, B, BSA>
 where
     C: Access<CounterEnum>,
     B: Access<ByteBlockPool<C>>,
 
-    P: Access<PostingsArrayWrapper>,
+    BSA: BytesStartArray,
 {
     fn byte_at(&mut self, i: i32, k: i32) -> Result<i32> {
         let mut scratch = BytesRefBuilder::new();
@@ -630,24 +613,24 @@ where
         to - from <= ((LEVEL_THRESHOLD as i32) / 2) || l >= LEVEL_THRESHOLD as i32
     }
 }
-impl<C, B, P> Sorter for StringSorterImpl<'_, C, B, P>
+impl<C, B, BSA> Sorter for StringSorterImpl<'_, C, B, BSA>
 where
     C: Access<CounterEnum>,
     B: Access<ByteBlockPool<C>>,
 
-    P: Access<PostingsArrayWrapper>,
+    BSA: BytesStartArray,
 {
     fn swap(&mut self, i: i32, j: i32) -> Result<()> {
         self.compact.swap(i as usize, j as usize);
         Ok(())
     }
 }
-impl<C, B, P> StringSorterBase for StringSorterImpl<'_, C, B, P>
+impl<C, B, BSA> StringSorterBase for StringSorterImpl<'_, C, B, BSA>
 where
     C: Access<CounterEnum>,
     B: Access<ByteBlockPool<C>>,
 
-    P: Access<PostingsArrayWrapper>,
+    BSA: BytesStartArray,
 {
     fn get(
         &mut self,
@@ -785,75 +768,6 @@ where
     }
 }
 
-pub(crate) enum BytesStartArrayEnum<C, P>
-where
-    C: Access<CounterEnum>,
-    P: Access<PostingsArrayWrapper>,
-{
-    Direct(DirectBytesStartArray<C>),
-    Postings(PostingsBytesStartArray<C, P>),
-}
-impl<C, P> BytesStartArray for BytesStartArrayEnum<C, P>
-where
-    C: Access<CounterEnum>,
-    P: Access<PostingsArrayWrapper>,
-{
-    fn init(&mut self) {
-        match self {
-            BytesStartArrayEnum::Direct(d) => d.init(),
-            BytesStartArrayEnum::Postings(p) => p.init(),
-        }
-    }
-
-    fn grow(&mut self) -> Result<()> {
-        match self {
-            BytesStartArrayEnum::Direct(d) => d.grow(),
-            BytesStartArrayEnum::Postings(p) => p.grow(),
-        }
-    }
-
-    fn clear(&mut self) {
-        match self {
-            BytesStartArrayEnum::Direct(d) => d.clear(),
-            BytesStartArrayEnum::Postings(p) => p.clear(),
-        }
-    }
-
-    type Counter = C;
-
-    fn bytes_used(&mut self) -> Self::Counter {
-        match self {
-            BytesStartArrayEnum::Direct(d) => d.bytes_used(),
-            BytesStartArrayEnum::Postings(p) => p.bytes_used(),
-        }
-    }
-
-    fn get_value(&self, index: usize) -> i32 {
-        match self {
-            BytesStartArrayEnum::Direct(d) => d.get_value(index),
-            BytesStartArrayEnum::Postings(p) => p.get_value(index),
-        }
-    }
-
-    fn set_value(&mut self, index: usize, value: i32) {
-        match self {
-            BytesStartArrayEnum::Direct(d) => d.set_value(index, value),
-            BytesStartArrayEnum::Postings(p) => p.set_value(index, value),
-        }
-    }
-
-    fn len(&self) -> usize {
-        match self {
-            BytesStartArrayEnum::Direct(d) => d.len(),
-            BytesStartArrayEnum::Postings(p) => p.len(),
-        }
-    }
-}
-pub(crate) type BytesStartArrayEnumBorrow =
-    Rc<RefCell<BytesStartArrayEnum<CounterEnumBorrow, STPostingsArrayWrapper>>>;
-pub(crate) type BytesStartArrayEnumLock =
-    Arc<Mutex<BytesStartArrayEnum<CounterEnumLock, MTPostingsArrayWrapper>>>;
-
 /// # Note
 /// In Java Lucene, BytesRefHash uses MSBStringRadixSorter. Due to language
 /// limitations, a new MSBStringHashRadixSorter is currently being used.
@@ -952,9 +866,7 @@ mod tests {
     use crate::test::util::lucene_test_case::{at_least, random};
     use crate::test::util::test_util::TestUtil;
     use crate::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
-    use crate::util::bytes_ref_hash::{
-        BytesRefHash, BytesStartArrayEnum, DirectBytesStartArray, MTBytesRefHash,
-    };
+    use crate::util::bytes_ref_hash::{BytesRefHash, DirectBytesStartArray, MTBytesRefHash};
     use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::{ByteBlockPool, ByteBlockPoolLock};
 
@@ -973,7 +885,7 @@ mod tests {
             BytesRefHash::from_bytes_start_array(
                 block_pool,
                 init_size,
-                BytesStartArrayEnum::Direct(DirectBytesStartArray::new_sync(init_size)),
+                DirectBytesStartArray::new_sync(init_size),
             )
         }
     }

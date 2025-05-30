@@ -29,9 +29,7 @@ use crate::index::parallel_postings_array::PostingsArrayEnum;
 use crate::index::term_vectors_consumer_per_field::TermVectorsPostingsArray;
 use crate::index::terms_hash_per_field_enum::TermsHashPerFieldEnum;
 use crate::util::access::{Access, BorrowExt};
-use crate::util::bytes_ref_hash::{
-    BytesRefHash, BytesStartArray, BytesStartArrayEnum, STBytesRefHash,
-};
+use crate::util::bytes_ref_hash::{BytesRefHash, BytesStartArray, STBytesRefHash};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::int_block_pool::IntBlockPool;
 use crate::util::{
@@ -67,7 +65,11 @@ pub struct TermsHashPerField {
     // This stores the actual term bytes for postings and offsets into the
     // parent hash in the case that this TermsHashPerField is hashing term
     // vectors.
-    pub(crate) bytes_hash: STBytesRefHash,
+    pub(crate) bytes_hash: BytesRefHash<
+        CounterEnumBorrow,
+        ByteBlockPoolBorrow,
+        PostingsBytesStartArray<CounterEnumBorrow, STPostingsArrayWrapper>,
+    >,
     last_doc_id: i32, // only used with debug/asserts
     sorted_term_ids: bool,
     pub(crate) do_next_call: bool,
@@ -111,10 +113,10 @@ impl TermsHashPerField {
         // IndexOptions.NONE.
         debug_assert!(index_options != IndexOptions::None);
         let slice_pool = ByteSlicePool;
-        let byte_starts = BytesStartArrayEnum::Postings(PostingsBytesStartArray {
+        let byte_starts = PostingsBytesStartArray {
             per_field: postings_array_wrapper.clone(),
             bytes_used,
-        });
+        };
 
         let bytes_hash = BytesRefHash::from_bytes_start_array(
             term_byte_pool,
