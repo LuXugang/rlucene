@@ -43,7 +43,7 @@ pub struct BKDRadixSelector<D> {
     // flag to when we are moving to sort on heap
     max_points_sort_in_heap: i32,
     // reusable buffer
-    offline_buffer: Rc<RefCell<Vec<u8>>>,
+    offline_buffer: Vec<u8>,
     // holder for partition points
     partition_bucket: Vec<i32>,
     // scratch array to hold temporary data
@@ -82,11 +82,7 @@ where
             + BitUtil::INT_BYTES as i32;
         let number_of_points_offline =
             Self::MAX_SIZE_OFFLINE_BUFFER / config.bytes_per_doc() as usize;
-        let offline_buffer = Rc::new(RefCell::new(vec![
-            0u8;
-            number_of_points_offline
-                * config.bytes_per_doc() as usize
-        ]));
+        let offline_buffer = vec![0u8; number_of_points_offline * config.bytes_per_doc() as usize];
         let partition_bucket = vec![0; bytes_sorted as usize];
         let histogram = vec![0; Self::HISTOGRAM_SIZE];
         let scratch = vec![0u8; bytes_sorted as usize];
@@ -215,52 +211,49 @@ where
     ) -> Result<i32> {
         let mut common_prefix_position = self.bytes_sorted;
         let offset = dim * self.config.bytes_per_dim;
-        let mut reader =
-            points.get_reader_with_buffer(from, to - from, self.offline_buffer.clone())?;
+        let mut reader = points.get_reader_with_buffer(
+            from,
+            to - from,
+            std::mem::take(&mut self.offline_buffer),
+        )?;
         debug_assert!(common_prefix_position > dim_common_prefix);
         reader.next()?;
         {
-            let point_value_ref = reader.point_value();
-            let point_value = point_value_ref.borrow();
+            let point_value = reader.point_value();
             let (value, packed_value_offset, length) = point_value.packed_value_doc_id_bytes();
 
             let mut start = (packed_value_offset + offset) as usize;
             let mut end = start + self.config.bytes_per_dim as usize;
-            self.scratch.copy_from(&value.borrow()[start..end], 0);
+            self.scratch.copy_from(&value[start..end], 0);
 
             start = (packed_value_offset + self.config.packed_index_bytes_length()) as usize;
             end = start
                 + ((self.config.num_dims - self.config.num_index_dims) * self.config.bytes_per_dim)
                     as usize
                 + BitUtil::INT_BYTES;
-            self.scratch.copy_from(
-                &value.borrow()[start..end],
-                self.config.bytes_per_dim as usize,
-            );
+            self.scratch
+                .copy_from(&value[start..end], self.config.bytes_per_dim as usize);
         }
         let mut histogram_index;
         for i in (from + 1)..to {
             reader.next()?;
             if common_prefix_position == dim_common_prefix {
                 {
-                    let point_value_ref = reader.point_value();
-                    let point_value = point_value_ref.borrow();
+                    let point_value = reader.point_value();
                     histogram_index =
-                        self.get_bucket(offset, common_prefix_position, &point_value) as usize;
+                        self.get_bucket(offset, common_prefix_position, point_value) as usize;
                     self.histogram[histogram_index] += 1;
                 }
                 for _ in (i + 1)..to {
                     reader.next()?;
-                    let point_value_ref = reader.point_value();
-                    let point_value = point_value_ref.borrow();
+                    let point_value = reader.point_value();
                     histogram_index =
-                        self.get_bucket(offset, common_prefix_position, &point_value) as usize;
+                        self.get_bucket(offset, common_prefix_position, point_value) as usize;
                     self.histogram[histogram_index] += 1;
                 }
                 break;
             } else {
-                let point_value_ref = reader.point_value();
-                let point_value = point_value_ref.borrow();
+                let point_value = reader.point_value();
                 // Check common prefix and adjust histogram
                 let scratch_start_index =
                     std::cmp::min(dim_common_prefix, self.config.bytes_per_dim) as usize;
@@ -273,7 +266,7 @@ where
                     (packed_value_offset + offset) as usize + scratch_end_index;
                 let j = CoreHelper::miss_match(
                     &self.scratch[scratch_start_index..scratch_end_index],
-                    &value.borrow()[packed_value_start_index..packed_value_end_index],
+                    &value[packed_value_start_index..packed_value_end_index],
                 );
                 if j == -1 {
                     if common_prefix_position > self.config.bytes_per_dim {
@@ -283,7 +276,7 @@ where
                         let k = CoreHelper::miss_match(
                             &self.scratch[self.config.bytes_per_dim as usize
                                 ..common_prefix_position as usize],
-                            &value.borrow()[(packed_value_offset + start_tie_break) as usize
+                            &value[(packed_value_offset + start_tie_break) as usize
                                 ..(packed_value_offset + end_tie_break) as usize],
                         );
                         if k != -1 {
@@ -301,10 +294,18 @@ where
                 }
                 if common_prefix_position != self.bytes_sorted {
                     histogram_index =
-                        self.get_bucket(offset, common_prefix_position, &point_value) as usize;
+                        self.get_bucket(offset, common_prefix_position, point_value) as usize;
                     self.histogram[histogram_index] += 1;
                 }
             }
+        }
+        match &mut reader.point_value {
+            PointValueEnum::Offline(offline_point_value) => {
+                self.offline_buffer = std::mem::take(&mut offline_point_value.value);
+            },
+            _ => {
+                debug_assert!(false, "PointValueEnum must be Offline");
+            },
         }
         // Build partition buckets up to commonPrefix
         for i in 0..common_prefix_position as usize {
@@ -322,8 +323,7 @@ where
         if common_prefix_position < self.config.bytes_per_dim {
             let (packed_value, packed_value_offset, _length) = point_value.packed_value();
             let index = (packed_value_offset + offset + common_prefix_position) as usize;
-            let bytes = packed_value.borrow();
-            bytes[index] as i32
+            packed_value[index] as i32
         } else {
             let (packed_value, packed_value_offset, _length) =
                 point_value.packed_value_doc_id_bytes();
@@ -331,8 +331,7 @@ where
                 + self.config.packed_index_bytes_length()
                 + common_prefix_position
                 - self.config.bytes_per_dim) as usize;
-            let bytes = packed_value.borrow();
-            bytes[index] as i32
+            packed_value[index] as i32
         }
     }
     #[allow(clippy::too_many_arguments)]
@@ -469,26 +468,36 @@ where
         debug_assert!(byte_position == self.bytes_sorted - 1 || delta_points.is_some());
         let offset = dim * self.config.bytes_per_dim;
         let mut tiebreak_counter = 0i64;
-        let mut reader =
-            points.get_reader_with_buffer(from, to - from, self.offline_buffer.clone())?;
+        let mut reader = points.get_reader_with_buffer(
+            from,
+            to - from,
+            std::mem::take(&mut self.offline_buffer),
+        )?;
         while reader.next()? {
-            let point_value_ref = reader.point_value();
-            let point_value = point_value_ref.borrow();
-            let bucket = self.get_bucket(offset, byte_position, &point_value);
+            let point_value = reader.point_value();
+            let bucket = self.get_bucket(offset, byte_position, point_value);
             if bucket < self.partition_bucket[byte_position as usize] {
-                left.append_point_value(&point_value)?;
+                left.append_point_value(point_value)?;
             } else if bucket > self.partition_bucket[byte_position as usize] {
-                right.append_point_value(&point_value)?;
+                right.append_point_value(point_value)?;
             } else if byte_position == self.bytes_sorted - 1 {
                 if tiebreak_counter < num_docs_tiebreak {
-                    left.append_point_value(&point_value)?;
+                    left.append_point_value(point_value)?;
                     tiebreak_counter += 1;
                 } else {
-                    right.append_point_value(&point_value)?;
+                    right.append_point_value(point_value)?;
                 }
             } else if let Some(dp) = delta_points.as_mut() {
-                dp.append_point_value(&point_value)?;
+                dp.append_point_value(point_value)?;
             }
+        }
+        match &mut reader.point_value {
+            PointValueEnum::Offline(offline_point_value) => {
+                self.offline_buffer = std::mem::take(&mut offline_point_value.value);
+            },
+            _ => {
+                debug_assert!(false, "PointValueEnum must be Offline");
+            },
         }
         // Delete original file
         points.destroy()?;
@@ -534,9 +543,9 @@ where
                 for i in from..to {
                     let value = heap_writer.get_packed_value_slice(i);
                     if i < partition_point {
-                        left.append_point_value(&value.borrow())?;
+                        left.append_point_value(value)?;
                     } else {
-                        right.append_point_value(&value.borrow())?;
+                        right.append_point_value(value)?;
                     }
                 }
                 Ok(partition)
@@ -583,12 +592,12 @@ where
         match &mut *points {
             PointWriterEnum::Heap(heap_writer) => {
                 let point_value = heap_writer.get_packed_value_slice(partition_point);
-                let (bytes, offset, _length) = point_value.borrow().packed_value();
+                let (bytes, offset, _length) = point_value.packed_value();
 
                 let start = (offset + (dim * bytes_per_dim)) as usize;
                 let end = start + bytes_per_dim as usize;
 
-                partition.copy_from(&bytes.borrow().as_slice()[start..end], 0);
+                partition.copy_from(&bytes[start..end], 0);
                 Ok(partition)
             },
             _ => Err(LuceneError::unreachable(
@@ -1115,7 +1124,7 @@ mod tests {
             NumericUtils::int_to_sortable_bytes(4, &mut value, 0);
             points.append_bytes(&value, 3)?;
             points.close();
-            let mut copy = copy_points(&mut random, config.clone(), dir.clone(), &points)?;
+            let mut copy = copy_points(&mut random, config.clone(), dir.clone(), &mut points)?;
             verify(
                 &mut random,
                 config,
@@ -1473,16 +1482,16 @@ mod tests {
             random: &mut R,
             config: Rc<BKDConfig>,
             dir: Rc<RefCell<D>>,
-            points: &PointWriterEnum<D>,
+            points: &mut PointWriterEnum<D>,
         ) -> Result<PointWriterEnum<D>> {
             let mut copy = get_random_point_writer(random, config, dir, points.count())?;
             let count = points.count();
             let mut reader = points.get_reader(0, count)?;
             while reader.next()? {
                 let point_value_ref = reader.point_value();
-                let point_value = point_value_ref.borrow();
-                copy.append_point_value(&point_value)?
+                copy.append_point_value(point_value_ref)?
             }
+            points.take_data(reader.remove_points());
             copy.close();
             Ok(copy)
         }
@@ -1550,14 +1559,18 @@ mod tests {
             let mut value = vec![0u8; size];
             while reader.next()? {
                 let point_value = reader.point_value();
-                let (value_ref, packed_value_offset, _) = point_value.borrow().packed_value();
+                let (value_ref, packed_value_offset, _) = point_value.packed_value();
                 let start_idx = (packed_value_offset + dimension * config.bytes_per_dim) as usize;
                 let end_idx = start_idx + size;
-                value.copy_from(&value_ref.borrow()[start_idx..end_idx], 0);
+                value.copy_from(&value_ref[start_idx..end_idx], 0);
                 if min.cmp(&value) == Greater {
                     min.copy_from(&value, 0);
                 }
             }
+            path_slice
+                .writer
+                .borrow_mut()
+                .take_data(reader.remove_points());
             Ok(min)
         }
 
@@ -1572,8 +1585,7 @@ mod tests {
             let mut reader = p.writer.borrow_mut().get_reader(p.start, p.count)?;
             while reader.next()? {
                 let point_value_ref = reader.point_value();
-                let point_value = point_value_ref.borrow_mut();
-                let (bytes, packed_value_offset, _) = point_value.packed_value();
+                let (bytes, packed_value_offset, _) = point_value_ref.packed_value();
                 let offset = dimension * config.bytes_per_dim;
                 let data_offset = config.packed_index_bytes_length();
                 let data_length = (config.num_dims - config.num_index_dims) * config.bytes_per_dim;
@@ -1581,11 +1593,10 @@ mod tests {
                 let slice1_equal1;
                 let slice1_equal2;
                 {
-                    let value_ref = bytes.borrow();
-                    let dim_slice = &value_ref[(packed_value_offset + offset) as usize
+                    let dim_slice = &bytes[(packed_value_offset + offset) as usize
                         ..(packed_value_offset + offset + config.bytes_per_dim) as usize];
                     let partition_slice = &partition_point[0..config.bytes_per_dim as usize];
-                    let data_slice = &value_ref[(packed_value_offset + data_offset) as usize
+                    let data_slice = &bytes[(packed_value_offset + data_offset) as usize
                         ..(packed_value_offset + data_offset + data_length) as usize];
                     let data_dim_slice = &data_dim[0..data_length as usize];
                     slice1_equal1 = data_slice == partition_slice;
@@ -1593,12 +1604,13 @@ mod tests {
                 }
 
                 if slice1_equal1 && slice1_equal2 {
-                    let new_doc_id = point_value.doc_id();
+                    let new_doc_id = point_value_ref.doc_id();
                     if new_doc_id < doc_id {
                         doc_id = new_doc_id;
                     }
                 }
             }
+            p.writer.borrow_mut().take_data(reader.remove_points());
             Ok(doc_id)
         }
 
@@ -1616,23 +1628,23 @@ mod tests {
             let mut value = vec![0u8; size];
             while reader.next()? {
                 let point_value_ref = reader.point_value();
-                let point_value = point_value_ref.borrow_mut();
-                let (value_vec, packed_value_offset, _) = point_value.packed_value();
+                let (value_vec, packed_value_offset, _) = point_value_ref.packed_value();
                 let start_idx = (packed_value_offset + offset) as usize;
                 let end_idx = (packed_value_offset + offset + config.bytes_per_dim) as usize;
-                let dim_slice = &value_vec.borrow()[start_idx..end_idx];
+                let dim_slice = &value_vec[start_idx..end_idx];
                 let min_dim_slice = &min_dim[0..config.bytes_per_dim as usize];
                 if min_dim_slice.cmp(dim_slice) == Less {
                     let copy_start = (packed_value_offset
                         + config.num_index_dims * config.bytes_per_dim)
                         as usize;
                     let copy_end = copy_start + size;
-                    value.copy_from(&value_vec.borrow()[copy_start..copy_end], 0);
+                    value.copy_from(&value_vec[copy_start..copy_end], 0);
                     if min_dim_slice.cmp(&value) == Greater {
                         min.copy_from(&value, 0);
                     }
                 }
             }
+            p.writer.borrow_mut().take_data(reader.remove_points());
             Ok(min)
         }
 
@@ -1647,15 +1659,15 @@ mod tests {
             let mut value = vec![0u8; size];
             while reader.next()? {
                 let point_value_ref = reader.point_value();
-                let point_value = point_value_ref.borrow_mut();
-                let (bytes_ref, packed_value_offset, _) = point_value.packed_value();
+                let (bytes_ref, packed_value_offset, _) = point_value_ref.packed_value();
                 let start_idx = (packed_value_offset + dimension * config.bytes_per_dim) as usize;
                 let end_idx = start_idx + size;
-                value.copy_from(&bytes_ref.borrow()[start_idx..end_idx], 0);
+                value.copy_from(&bytes_ref[start_idx..end_idx], 0);
                 if max.cmp(&value) == std::cmp::Ordering::Less {
                     max.copy_from(&value, 0);
                 }
             }
+            p.writer.borrow_mut().take_data(reader.remove_points());
             Ok(max)
         }
 
@@ -1673,23 +1685,23 @@ mod tests {
             let mut value = vec![0u8; size];
             while reader.next()? {
                 let point_value_ref = reader.point_value();
-                let point_value = point_value_ref.borrow_mut();
-                let (value_vec, packed_value_offset, _) = point_value.packed_value();
+                let (value_vec, packed_value_offset, _) = point_value_ref.packed_value();
 
                 let start_idx = (packed_value_offset + offset) as usize;
                 let end_idx = start_idx + config.bytes_per_dim as usize;
-                let dim_slice = &value_vec.borrow()[start_idx..end_idx];
+                let dim_slice = &value_vec[start_idx..end_idx];
                 let max_dim_slice = &max_dim[0..config.bytes_per_dim as usize];
                 if max_dim_slice.cmp(dim_slice) == std::cmp::Ordering::Less {
                     let copy_start =
                         (packed_value_offset + config.packed_index_bytes_length()) as usize;
                     let copy_end = copy_start + size;
-                    value.copy_from(&value_vec.borrow()[copy_start..copy_end], 0);
+                    value.copy_from(&value_vec[copy_start..copy_end], 0);
                     if max.cmp(&value) == std::cmp::Ordering::Less {
                         max.copy_from(&value, 0);
                     }
                 }
             }
+            p.writer.borrow_mut().take_data(reader.remove_points());
             Ok(max)
         }
 
@@ -1704,19 +1716,18 @@ mod tests {
             let mut reader = p.writer.borrow_mut().get_reader(p.start, p.count)?;
             while reader.next()? {
                 let point_value_ref = reader.point_value();
-                let point_value = point_value_ref.borrow_mut();
-                let (value, packed_value_offset, _) = point_value.packed_value();
+                let (value, packed_value_offset, _) = point_value_ref.packed_value();
                 let offset = dimension * config.bytes_per_dim;
                 let data_offset = config.packed_index_bytes_length();
                 let data_length = (config.num_dims - config.num_index_dims) * config.bytes_per_dim;
                 let slice1_equal1;
                 let slice1_equal2;
                 {
-                    let dim_slice = &value.borrow()[(packed_value_offset + offset) as usize
+                    let dim_slice = &value[(packed_value_offset + offset) as usize
                         ..(packed_value_offset + offset + config.bytes_per_dim) as usize];
                     let partition_slice = &partition_point[0..config.bytes_per_dim as usize];
 
-                    let data_slice = &value.borrow()[(packed_value_offset + data_offset) as usize
+                    let data_slice = &value[(packed_value_offset + data_offset) as usize
                         ..(packed_value_offset + data_offset + data_length) as usize];
                     let data_dim_slice = &data_dim[0..data_length as usize];
                     slice1_equal1 = dim_slice == partition_slice;
@@ -1724,12 +1735,13 @@ mod tests {
                 }
 
                 if slice1_equal1 && slice1_equal2 {
-                    let new_doc_id = point_value.doc_id();
+                    let new_doc_id = point_value_ref.doc_id();
                     if new_doc_id > doc_id {
                         doc_id = new_doc_id;
                     }
                 }
             }
+            p.writer.borrow_mut().take_data(reader.remove_points());
             Ok(doc_id)
         }
 
@@ -1776,6 +1788,7 @@ mod tests {
                 random.fill(&mut value[..]);
                 heap_points.append_bytes(&value, i)?;
             }
+            heap_points.close();
             let points = Rc::new(RefCell::new(PointWriterEnum::Heap(heap_points)));
             let dir = Rc::new(RefCell::new(new_directory(&mut random)?));
             verify_sort(&mut random, config, points, 0, num_points, dir)?;
@@ -1794,6 +1807,7 @@ mod tests {
                 let doc_id = random.random_range(0..num_points);
                 heap_points.append_bytes(&value, doc_id)?;
             }
+            heap_points.close();
             let points = Rc::new(RefCell::new(PointWriterEnum::Heap(heap_points)));
             let dir = Rc::new(RefCell::new(new_directory(&mut random)?));
             verify_sort(&mut random, config, points, 0, num_points, dir)?;
@@ -1815,6 +1829,7 @@ mod tests {
                     heap_points.append_bytes(&value, 2)?;
                 }
             }
+            heap_points.close();
             let points = Rc::new(RefCell::new(PointWriterEnum::Heap(heap_points)));
             let dir = Rc::new(RefCell::new(new_directory(&mut random)?));
             verify_sort(&mut random, config, points, 0, num_points, dir)?;
@@ -1839,6 +1854,7 @@ mod tests {
                 let index = random.random_range(0..number_values);
                 heap_points.append_bytes(&different_values[index as usize], i)?;
             }
+            heap_points.close();
             let points = Rc::new(RefCell::new(PointWriterEnum::Heap(heap_points)));
             let dir = Rc::new(RefCell::new(new_directory(&mut random)?));
             verify_sort(&mut random, config, points, 0, num_points, dir)?;
@@ -1864,6 +1880,7 @@ mod tests {
                 let doc_id = random.random_range(0..num_points);
                 heap_points.append_bytes(&value, doc_id)?;
             }
+            heap_points.close();
             let points = Rc::new(RefCell::new(PointWriterEnum::Heap(heap_points)));
             let dir = Rc::new(RefCell::new(new_directory(&mut random)?));
             verify_sort(&mut random, config, points, 0, num_points, dir)?;
@@ -1913,11 +1930,9 @@ mod tests {
                         for j in start..end {
                             let point_value = heap_writer.get_packed_value_slice(j);
                             let mut cmp;
-                            let (bytes_ref, packed_value_offset, _) =
-                                point_value.borrow().packed_value();
+                            let (bytes_ref, packed_value_offset, _) = point_value.packed_value();
                             {
-                                let value = bytes_ref.borrow();
-                                cmp = value[packed_value_offset as usize + dim_offset
+                                cmp = bytes_ref[packed_value_offset as usize + dim_offset
                                     ..packed_value_offset as usize
                                         + dim_offset
                                         + config.bytes_per_dim as usize]
@@ -1936,7 +1951,7 @@ mod tests {
                                 if cmp == 0 {
                                     let data_offset =
                                         (config.num_index_dims * config.bytes_per_dim) as usize;
-                                    cmp = value[packed_value_offset as usize + data_offset
+                                    cmp = bytes_ref[packed_value_offset as usize + data_offset
                                         ..packed_value_offset as usize
                                             + config.packed_bytes_length() as usize]
                                         .cmp(
@@ -1949,7 +1964,7 @@ mod tests {
                             }
 
                             if cmp == 0 {
-                                let doc_id = point_value.borrow().doc_id();
+                                let doc_id = point_value.doc_id();
                                 assert!(
                                     doc_id >= previous_doc_id,
                                     "DocID order validation failed: {} < {}",
@@ -1959,15 +1974,14 @@ mod tests {
                             }
 
                             {
-                                let value = bytes_ref.borrow();
                                 previous.copy_from(
-                                    &value[packed_value_offset as usize
+                                    &bytes_ref[packed_value_offset as usize
                                         ..packed_value_offset as usize
                                             + config.packed_bytes_length() as usize],
                                     0,
                                 );
                             }
-                            previous_doc_id = point_value.borrow().doc_id();
+                            previous_doc_id = point_value.doc_id();
                         }
                     },
                     _ => {
@@ -1991,12 +2005,11 @@ mod tests {
                 PointWriterEnum::Heap(heap_writer) => {
                     let mut common_prefix_length = config.bytes_per_dim;
                     let point_value = heap_writer.get_packed_value_slice(start);
-                    let (bytes_ref, packed_value_offset, _length) =
-                        point_value.borrow().packed_value();
+                    let (bytes_ref, packed_value_offset, _length) = point_value.packed_value();
                     let mut first_value = vec![0u8; config.bytes_per_dim as usize];
                     let offset = (sort_dim * config.bytes_per_dim) as usize;
                     first_value.copy_from(
-                        &bytes_ref.borrow()[packed_value_offset as usize + offset
+                        &bytes_ref[packed_value_offset as usize + offset
                             ..packed_value_offset as usize
                                 + offset
                                 + config.bytes_per_dim as usize],
@@ -2004,11 +2017,9 @@ mod tests {
                     );
                     for i in (start + 1)..end {
                         let point_value = heap_writer.get_packed_value_slice(i);
-                        let (bytes_ref, packed_value_offset, _length) =
-                            point_value.borrow().packed_value();
-                        let bytes = bytes_ref.borrow();
+                        let (bytes_ref, packed_value_offset, _length) = point_value.packed_value();
                         let diff = CoreHelper::miss_match(
-                            &bytes[packed_value_offset as usize + offset
+                            &bytes_ref[packed_value_offset as usize + offset
                                 ..packed_value_offset as usize
                                     + offset
                                     + config.bytes_per_dim as usize],

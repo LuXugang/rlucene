@@ -34,7 +34,7 @@ pub trait PointWriter {
     /// Returns a PointReader iterator to step through all previously added
     /// points
     type PointReader: PointReader;
-    fn get_reader(&self, start_point: i64, length: i64) -> Result<Self::PointReader>;
+    fn get_reader(&mut self, start_point: i64, length: i64) -> Result<Self::PointReader>;
 
     /// Return the number of points in this writer
     fn count(&self) -> i64;
@@ -51,6 +51,14 @@ where
 {
     Offline(OfflinePointWriter<D>),
     Heap(HeapPointWriter),
+}
+impl<D: Directory> PointWriterEnum<D> {
+    pub fn take_data(&mut self, v: Option<PointValueEnum>) {
+        match self {
+            PointWriterEnum::Offline(_) => {},
+            PointWriterEnum::Heap(heap) => heap.take_data(v),
+        }
+    }
 }
 impl<D> PointWriter for PointWriterEnum<D>
 where
@@ -72,7 +80,7 @@ where
 
     type PointReader = PointReaderEnum<D>;
 
-    fn get_reader(&self, start_point: i64, length: i64) -> Result<Self::PointReader> {
+    fn get_reader(&mut self, start_point: i64, length: i64) -> Result<Self::PointReader> {
         match self {
             PointWriterEnum::Offline(offline) => Ok(PointReaderEnum::Offline(
                 offline.get_reader(start_point, length)?,

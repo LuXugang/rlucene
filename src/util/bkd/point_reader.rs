@@ -14,8 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cell::RefCell;
-use std::rc::Rc;
 
 use crate::store::directory::Directory;
 use crate::util::bkd::heap_point_reader::HeapPointReader;
@@ -38,7 +36,7 @@ pub trait PointReader {
     fn next(&mut self) -> Result<bool>;
 
     /// Returns the current point value.
-    fn point_value(&self) -> Rc<RefCell<PointValueEnum>>;
+    fn point_value(&mut self) -> &PointValueEnum;
 }
 
 pub enum PointReaderEnum<D>
@@ -47,6 +45,17 @@ where
 {
     Offline(OfflinePointReader<D>),
     Heap(HeapPointReader),
+}
+impl<D> PointReaderEnum<D>
+where
+    D: Directory,
+{
+    pub fn remove_points(&mut self) -> Option<PointValueEnum> {
+        match self {
+            PointReaderEnum::Offline(_) => None,
+            PointReaderEnum::Heap(heap) => heap.remove_points(),
+        }
+    }
 }
 impl<D> PointReader for PointReaderEnum<D>
 where
@@ -59,7 +68,7 @@ where
         }
     }
 
-    fn point_value(&self) -> Rc<RefCell<PointValueEnum>> {
+    fn point_value(&mut self) -> &PointValueEnum {
         match self {
             PointReaderEnum::Offline(offline) => offline.point_value(),
             PointReaderEnum::Heap(heap) => heap.point_value(),

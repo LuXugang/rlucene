@@ -14,15 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cell::RefCell;
-use std::rc::Rc;
 
 use crate::util::bkd::point_reader::PointReader;
 use crate::util::bkd::point_value::{PointValue, PointValueEnum};
 use crate::util::error::lucene_error::Result;
 
 pub struct HeapPointReader {
-    points: Option<Rc<RefCell<PointValueEnum>>>,
+    points: Option<PointValueEnum>,
     cur_read: i32,
     end: i32,
     bytes_per_doc: i32,
@@ -30,7 +28,7 @@ pub struct HeapPointReader {
 
 impl HeapPointReader {
     pub fn new(
-        get_slice: Option<Rc<RefCell<PointValueEnum>>>,
+        get_slice: Option<PointValueEnum>,
         start: i32,
         end: i32,
         bytes_per_doc: i32,
@@ -42,6 +40,9 @@ impl HeapPointReader {
             bytes_per_doc,
         }
     }
+    pub fn remove_points(&mut self) -> Option<PointValueEnum> {
+        self.points.take()
+    }
 }
 impl PointReader for HeapPointReader {
     fn next(&mut self) -> Result<bool> {
@@ -49,13 +50,12 @@ impl PointReader for HeapPointReader {
         Ok(self.cur_read < self.end)
     }
 
-    fn point_value(&self) -> Rc<RefCell<PointValueEnum>> {
+    fn point_value(&mut self) -> &PointValueEnum {
         debug_assert!(self.points.is_some());
         self.points
-            .as_ref()
+            .as_mut()
             .unwrap()
-            .borrow_mut()
             .set_offset(self.bytes_per_doc * self.cur_read);
-        self.points.as_ref().unwrap().clone()
+        self.points.as_ref().unwrap()
     }
 }

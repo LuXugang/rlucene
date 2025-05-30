@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cell::RefCell;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
@@ -30,9 +29,8 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::{CoreHelper, SliceCopyOps, ToInt};
 
 /// Utility struct to write new points into in-heap arrays.
-#[allow(unused)]
 pub struct HeapPointWriter {
-    pub block: Rc<RefCell<Vec<u8>>>,
+    pub block: Vec<u8>,
     pub size: i32,
     pub config: Rc<BKDConfig>,
     pub scratch: Vec<u8>,
@@ -41,18 +39,16 @@ pub struct HeapPointWriter {
     pub data_dims_and_doc_length: i32,
     pub next_write: i32,
     pub closed: bool,
-    pub point_value: Option<Rc<RefCell<PointValueEnum>>>,
+    pub point_value: Option<PointValueEnum>,
 }
-#[allow(unused)]
+
 impl HeapPointWriter {
     pub fn new(config: Rc<BKDConfig>, size: i32) -> Self {
         let data_dims_and_doc_length = config.bytes_per_doc() - config.packed_index_bytes_length();
         let bytes_per_doc = config.bytes_per_doc() as usize;
-        let block = Rc::new(RefCell::new(vec![0u8; bytes_per_doc * (size as usize)]));
+        let block = vec![0u8; bytes_per_doc * (size as usize)];
         let point_value = if size > 0 {
-            Some(Rc::new(RefCell::new(PointValueEnum::Heap(
-                HeapPointValue::new(&config, block.clone()),
-            ))))
+            Some(PointValueEnum::Heap(HeapPointValue::new(&config, vec![])))
         } else {
             None
         };
@@ -69,7 +65,8 @@ impl HeapPointWriter {
             point_value,
         }
     }
-    pub fn get_packed_value_slice(&mut self, index: i32) -> Rc<RefCell<PointValueEnum>> {
+    pub fn get_packed_value_slice(&mut self, index: i32) -> &PointValueEnum {
+        debug_assert!(self.closed);
         debug_assert!(
             index < self.next_write,
             "next_write={} vs index={}",
@@ -79,55 +76,98 @@ impl HeapPointWriter {
         self.point_value
             .as_mut()
             .unwrap()
-            .borrow_mut()
             .set_offset(index * self.config.bytes_per_doc());
-        self.point_value.as_ref().unwrap().clone()
+        self.point_value.as_ref().unwrap()
     }
     /// Swaps the point at point `i` with the point at position `j`
     pub(crate) fn swap(&mut self, i: i32, j: i32) {
+        debug_assert!(self.closed);
+        let PointValueEnum::Heap(heap_value) = self
+            .point_value
+            .as_mut()
+            .expect("point_value should be heap")
+        else {
+            debug_assert!(false, "should not be here");
+            return;
+        };
         let bytes_per_doc = self.config.bytes_per_doc() as usize;
         let index_i = bytes_per_doc * i as usize;
         let index_j = bytes_per_doc * j as usize;
-        let mut block = self.block.borrow_mut();
         self.scratch
-            .copy_from(&block[index_i..index_i + bytes_per_doc], 0);
-        block.copy_within(index_j..index_j + bytes_per_doc, index_i);
-        block.copy_from(&self.scratch, index_j);
+            .copy_from(&heap_value.value[index_i..index_i + bytes_per_doc], 0);
+        heap_value
+            .value
+            .copy_within(index_j..index_j + bytes_per_doc, index_i);
+        heap_value.value.copy_from(&self.scratch, index_j);
     }
 
     /// Return the byte at position `k` of the point at position `i`
     pub fn byte_at(&self, i: i32, k: i32) -> i32 {
-        self.block.borrow()[(i * self.config.bytes_per_doc() + k) as usize] as i32
+        debug_assert!(self.closed);
+        let PointValueEnum::Heap(heap_value) = self
+            .point_value
+            .as_ref()
+            .expect("point_value should be heap")
+        else {
+            debug_assert!(false, "should not be here");
+            return -1;
+        };
+        heap_value.value[(i * self.config.bytes_per_doc() + k) as usize] as i32
     }
 
     /// Copy the dimension `dim` of the point at position `i` in the provided
     /// `bytes` at the given offset
     pub fn copy_dim(&self, i: i32, dim: i32, bytes: &mut [u8], offset: usize) {
+        debug_assert!(self.closed);
+        let PointValueEnum::Heap(heap_value) = self
+            .point_value
+            .as_ref()
+            .expect("point_value should be heap")
+        else {
+            debug_assert!(false, "should not be here");
+            return;
+        };
         let start = (i * self.config.bytes_per_doc() + dim) as usize;
         let len = self.config.bytes_per_dim as usize;
-        bytes.copy_from(&self.block.borrow()[start..start + len], offset);
+        bytes.copy_from(&heap_value.value[start..start + len], offset);
     }
 
     /// Copy the data dimensions and doc value of the point at position `i` in
     /// the provided `bytes` at the given offset
     pub fn copy_data_dims_and_doc(&self, i: i32, bytes: &mut [u8], offset: usize) {
+        debug_assert!(self.closed);
+        let PointValueEnum::Heap(heap_value) = self
+            .point_value
+            .as_ref()
+            .expect("point_value should be heap")
+        else {
+            debug_assert!(false, "should not be here");
+            return;
+        };
         let start =
             (i * self.config.bytes_per_doc() + self.config.packed_index_bytes_length()) as usize;
         let len = self.data_dims_and_doc_length as usize;
-        bytes.copy_from(&self.block.borrow()[start..start + len], offset);
+        bytes.copy_from(&heap_value.value[start..start + len], offset);
     }
 
     /// Compares the dimension `dim` value of the point at position `i` with the
     /// point at position `j`
     pub fn compare_dim(&self, i: i32, j: i32, dim: i32) -> i32 {
-        let i_offset = (i * self.config.bytes_per_doc() + dim) as usize;
-        let j_offset = (j * self.config.bytes_per_doc() + dim) as usize;
-        self.compare_dim_slice(
-            &self.block.borrow(),
-            i_offset,
-            &self.block.borrow(),
-            j_offset,
-        )
+        debug_assert!(self.closed);
+        let PointValueEnum::Heap(heap_value) = self
+            .point_value
+            .as_ref()
+            .expect("point_value should be heap")
+        else {
+            debug_assert!(false, "should not be here");
+            return -1;
+        };
+
+        let bytes_per_doc = self.config.bytes_per_doc();
+        let i_offset = (i * bytes_per_doc + dim) as usize;
+        let j_offset = (j * bytes_per_doc + dim) as usize;
+
+        self.compare_dim_slice(&heap_value.value, i_offset, &heap_value.value, j_offset)
     }
 
     /// Compares the dimension `dim` value of the point at position `j` with the
@@ -139,8 +179,17 @@ impl HeapPointWriter {
         offset: usize,
         dim: i32,
     ) -> i32 {
+        debug_assert!(self.closed);
+        let PointValueEnum::Heap(heap_value) = self
+            .point_value
+            .as_ref()
+            .expect("point_value should be heap")
+        else {
+            debug_assert!(false, "should not be here");
+            return -1;
+        };
         let j_offset = (j * self.config.bytes_per_doc() + dim) as usize;
-        self.compare_dim_slice(dim_value, offset, &self.block.borrow(), j_offset)
+        self.compare_dim_slice(dim_value, offset, &heap_value.value, j_offset)
     }
 
     fn compare_dim_slice(
@@ -157,14 +206,23 @@ impl HeapPointWriter {
     /// Compares the data dimensions and doc values of the point at position `i`
     /// with the point at position `j`
     pub fn compare_data_dims_and_doc(&self, i: i32, j: i32) -> i32 {
+        debug_assert!(self.closed);
+        let PointValueEnum::Heap(heap_value) = self
+            .point_value
+            .as_ref()
+            .expect("point_value should be heap")
+        else {
+            debug_assert!(false, "should not be here");
+            return -1;
+        };
         let i_offset =
             (i * self.config.bytes_per_doc() + self.config.packed_index_bytes_length()) as usize;
         let j_offset =
             (j * self.config.bytes_per_doc() + self.config.packed_index_bytes_length()) as usize;
         self.compare_data_dims_and_doc_slice(
-            &self.block.borrow(),
+            &heap_value.value,
             i_offset,
-            &self.block.borrow(),
+            &heap_value.value,
             j_offset,
         )
     }
@@ -177,12 +235,21 @@ impl HeapPointWriter {
         data_dims_and_docs: &[u8],
         offset: usize,
     ) -> i32 {
+        debug_assert!(self.closed);
+        let PointValueEnum::Heap(heap_value) = self
+            .point_value
+            .as_ref()
+            .expect("point_value should be heap")
+        else {
+            debug_assert!(false, "should not be here");
+            return -1;
+        };
         let j_offset =
             (j * self.config.bytes_per_doc() + self.config.packed_index_bytes_length()) as usize;
         self.compare_data_dims_and_doc_slice(
             data_dims_and_docs,
             offset,
-            &self.block.borrow(),
+            &heap_value.value,
             j_offset,
         )
     }
@@ -202,6 +269,15 @@ impl HeapPointWriter {
 
     /// Computes the cardinality of the points between `from` tp `to`
     pub fn compute_cardinality(&self, from: i32, to: i32, common_prefix_lengths: &[i32]) -> i32 {
+        debug_assert!(self.closed);
+        let PointValueEnum::Heap(heap_value) = self
+            .point_value
+            .as_ref()
+            .expect("point_value should be heap")
+        else {
+            debug_assert!(false, "should not be here");
+            return -1;
+        };
         let mut leaf_cardinality = 1;
         for i in (from + 1)..to {
             let point_offset = ((i - 1) * self.config.bytes_per_doc()) as usize;
@@ -211,8 +287,8 @@ impl HeapPointWriter {
                     as usize;
                 let end = (dim * self.config.bytes_per_dim + self.config.bytes_per_dim) as usize;
                 if CoreHelper::miss_match(
-                    &self.block.borrow()[next_point_offset + start..next_point_offset + end],
-                    &self.block.borrow()[point_offset + start..point_offset + end],
+                    &heap_value.value[next_point_offset + start..next_point_offset + end],
+                    &heap_value.value[point_offset + start..point_offset + end],
                 ) != -1
                 {
                     leaf_cardinality += 1;
@@ -221,6 +297,9 @@ impl HeapPointWriter {
             }
         }
         leaf_cardinality
+    }
+    pub fn take_data(&mut self, data: Option<PointValueEnum>) {
+        self.point_value = data
     }
 }
 impl PointWriter for HeapPointWriter {
@@ -240,12 +319,12 @@ impl PointWriter for HeapPointWriter {
             self.size
         );
         let position = self.next_write * self.config.bytes_per_doc();
-        self.block.borrow_mut().copy_from(
+        self.block.copy_from(
             &packed_value[0..self.config.packed_bytes_length() as usize],
             position as usize,
         );
         BitUtil::set_i32_be(
-            &mut self.block.borrow_mut(),
+            &mut self.block,
             (position + self.config.packed_bytes_length()) as usize,
             doc_id,
         );
@@ -270,9 +349,8 @@ impl PointWriter for HeapPointWriter {
             length
         );
         let position = self.next_write * self.config.bytes_per_doc();
-        self.block.borrow_mut().copy_from(
-            &packed_value.borrow()
-                [offset as usize..(offset + self.config.bytes_per_doc()) as usize],
+        self.block.copy_from(
+            &packed_value[offset as usize..(offset + self.config.bytes_per_doc()) as usize],
             position as usize,
         );
         self.next_write += 1;
@@ -281,7 +359,7 @@ impl PointWriter for HeapPointWriter {
 
     type PointReader = HeapPointReader;
 
-    fn get_reader(&self, start: i64, length: i64) -> Result<Self::PointReader> {
+    fn get_reader(&mut self, start: i64, length: i64) -> Result<Self::PointReader> {
         debug_assert!(
             self.closed,
             "point writer is still open and trying to get a reader"
@@ -307,13 +385,8 @@ impl PointWriter for HeapPointWriter {
                 i32::MAX
             )));
         }
-        let point_value = if self.point_value.is_some() {
-            Some(self.point_value.as_ref().unwrap().clone())
-        } else {
-            None
-        };
         Ok(HeapPointReader::new(
-            point_value,
+            self.point_value.take(),
             start as i32,
             value as i32,
             self.config.bytes_per_doc(),
@@ -330,6 +403,18 @@ impl PointWriter for HeapPointWriter {
 
     fn close(&mut self) {
         self.closed = true;
+        if let Some(ref mut point_value) = self.point_value {
+            match point_value {
+                PointValueEnum::Heap(heap_value) => {
+                    // Since `block` is no longer updated, its ownership is now transferred to
+                    // `point_value`.
+                    heap_value.value = std::mem::take(&mut self.block);
+                },
+                _ => {
+                    debug_assert!(false, "should not be here")
+                },
+            }
+        }
     }
 }
 impl Display for HeapPointWriter {
@@ -351,14 +436,13 @@ impl Drop for HeapPointWriter {
 #[derive(Debug, Clone)]
 pub(crate) struct HeapPointValue {
     pub(crate) offset: i32,
-    // TODO: 未完成 should replace with BytesRef<Rc<RefCell<Vec<u8>>>>
-    pub(crate) value: Rc<RefCell<Vec<u8>>>,
+    pub(crate) value: Vec<u8>,
     pub(crate) packed_value_length: i32,
     pub(crate) packed_value_doc_id_length: i32,
 }
-#[allow(unused)]
+
 impl HeapPointValue {
-    pub fn new(config: &BKDConfig, value: Rc<RefCell<Vec<u8>>>) -> Self {
+    pub fn new(config: &BKDConfig, value: Vec<u8>) -> Self {
         Self {
             offset: 0,
             value,
@@ -372,21 +456,16 @@ impl PointValue for HeapPointValue {
         self.offset = offset;
     }
 
-    fn packed_value(&self) -> (Rc<RefCell<Vec<u8>>>, i32, i32) {
-        (self.value.clone(), self.offset, self.packed_value_length)
+    fn packed_value(&self) -> (&[u8], i32, i32) {
+        (&self.value, self.offset, self.packed_value_length)
     }
 
     fn doc_id(&self) -> i32 {
         let position = (self.offset + self.packed_value_length) as usize;
-        let bytes = self.value.borrow();
-        BitUtil::get_i32_be(&bytes[position..], 0)
+        BitUtil::get_i32_be(&self.value[position..], 0)
     }
 
-    fn packed_value_doc_id_bytes(&self) -> (Rc<RefCell<Vec<u8>>>, i32, i32) {
-        (
-            self.value.clone(),
-            self.offset,
-            self.packed_value_doc_id_length,
-        )
+    fn packed_value_doc_id_bytes(&self) -> (&[u8], i32, i32) {
+        (&self.value, self.offset, self.packed_value_doc_id_length)
     }
 }

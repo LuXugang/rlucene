@@ -73,7 +73,7 @@ where
         &self,
         start: i64,
         length: i64,
-        reusable_buffer: Rc<RefCell<Vec<u8>>>,
+        reusable_buffer: Vec<u8>,
     ) -> Result<OfflinePointReader<D>> {
         debug_assert!(
             self.closed && self.out.is_none(),
@@ -165,7 +165,7 @@ where
         self.out
             .as_mut()
             .unwrap()
-            .write_bytes_range(value.borrow().as_slice(), offset, length)?;
+            .write_bytes_range(value, offset, length)?;
         self.count += 1;
         debug_assert!(
             self.expected_count == 0 || self.count <= self.expected_count,
@@ -178,11 +178,8 @@ where
 
     type PointReader = OfflinePointReader<D>;
 
-    fn get_reader(&self, start: i64, length: i64) -> Result<Self::PointReader> {
-        let buffer = Rc::new(RefCell::new(vec![
-            0u8;
-            self.config.bytes_per_doc() as usize
-        ]));
+    fn get_reader(&mut self, start: i64, length: i64) -> Result<Self::PointReader> {
+        let buffer = vec![0u8; self.config.bytes_per_doc() as usize];
         self.get_reader_with_buffer(start, length, buffer)
     }
 

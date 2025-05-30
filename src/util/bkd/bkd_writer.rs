@@ -1411,11 +1411,11 @@ where
             for _ in 0..count {
                 let has_next = reader.next()?;
                 debug_assert!(has_next);
-                writer.append_point_value(&reader.point_value().borrow())?;
+                writer.append_point_value(reader.point_value())?;
             }
             Ok(())
         })();
-
+        source.take_data(reader.remove_points());
         if let Err(err) = result {
             // todo
         }
@@ -1712,21 +1712,25 @@ where
         min_packed_value: &mut [u8],
         max_packed_value: &mut [u8],
     ) -> Result<()> {
-        let mut reader = slice.writer.borrow().get_reader(slice.start, slice.count)?;
+        let mut reader = slice
+            .writer
+            .borrow_mut()
+            .get_reader(slice.start, slice.count)?;
 
         if !reader.next()? {
+            slice.writer.borrow_mut().take_data(reader.remove_points());
             return Ok(());
         }
         {
             let point_value = reader.point_value();
-            let (value, offset, _length) = point_value.borrow().packed_value();
+            let (value, offset, _length) = point_value.packed_value();
             min_packed_value.copy_from(
-                &value.borrow()
+                &value
                     [offset as usize..(offset + self.config.packed_index_bytes_length()) as usize],
                 0,
             );
             max_packed_value.copy_from(
-                &value.borrow()
+                &value
                     [offset as usize..(offset + self.config.packed_index_bytes_length()) as usize],
                 0,
             );
@@ -1734,36 +1738,37 @@ where
 
         while reader.next()? {
             let point_value = reader.point_value();
-            let (value, offset, _length) = point_value.borrow().packed_value();
+            let (value, offset, _length) = point_value.packed_value();
             for dim in 0..self.config.num_index_dims {
                 let start_offset = (dim * self.config.bytes_per_dim) as usize;
                 if self.comparator.compare(
-                    &value.borrow(),
+                    value,
                     offset as usize + start_offset,
                     min_packed_value,
                     start_offset,
                 ) < 0
                 {
                     min_packed_value.copy_from(
-                        &value.borrow()[offset as usize + start_offset
+                        &value[offset as usize + start_offset
                             ..offset as usize + start_offset + self.config.bytes_per_dim as usize],
                         start_offset,
                     );
                 } else if self.comparator.compare(
-                    &value.borrow(),
+                    value,
                     offset as usize + start_offset,
                     max_packed_value,
                     start_offset,
                 ) > 0
                 {
                     max_packed_value.copy_from(
-                        &value.borrow()[offset as usize + start_offset
+                        &value[offset as usize + start_offset
                             ..offset as usize + start_offset + self.config.bytes_per_dim as usize],
                         start_offset,
                     );
                 }
             }
         }
+        slice.writer.borrow_mut().take_data(reader.remove_points());
 
         Ok(())
     }
@@ -1820,12 +1825,9 @@ where
                         if prefix < self.config.bytes_per_dim {
                             let offset = (dim * self.config.bytes_per_dim) as usize;
                             for i in from..to {
-                                let (bytes, bytes_offset, _) = heap_source
-                                    .get_packed_value_slice(i)
-                                    .borrow()
-                                    .packed_value();
-                                let bucket = bytes.borrow()
-                                    [bytes_offset as usize + offset + prefix as usize]
+                                let (bytes, bytes_offset, _) =
+                                    heap_source.get_packed_value_slice(i).packed_value();
+                                let bucket = bytes[bytes_offset as usize + offset + prefix as usize]
                                     as usize;
                                 used_bytes[dim as usize]
                                     .as_mut()
@@ -1863,10 +1865,8 @@ where
                     debug_assert!(count > 0);
                     debug_assert!(count <= spare_doc_ids.len() as i32);
                     for i in 0..count {
-                        spare_doc_ids[i as usize] = heap_source
-                            .get_packed_value_slice(from + i)
-                            .borrow()
-                            .doc_id();
+                        spare_doc_ids[i as usize] =
+                            heap_source.get_packed_value_slice(from + i).doc_id();
                     }
                 },
                 _ => debug_assert!(false),
@@ -1882,8 +1882,10 @@ where
                 match &mut *point_writer {
                     PointWriterEnum::Heap(heap) => {
                         let point_value_ref = heap.get_packed_value_slice(from + i);
-                        let point_value = point_value_ref.borrow();
-                        Ok(point_value.packed_value())
+                        let (bytes_ref, offset, length) = point_value_ref.packed_value();
+                        let v = Rc::new(RefCell::new(bytes_ref.to_vec()));
+                        // TODO: 这里不能Clone  一会来该
+                        Ok((v, offset, length))
                     },
                     _ => Err(LuceneError::illegal_state(
                         "Point writer is not a heap".to_string(),
@@ -2024,14 +2026,13 @@ where
 
         {
             let point_value = heap_point_writer.get_packed_value_slice(from);
-            let value = point_value.borrow();
-            let (bytes, offset, _) = value.packed_value();
+            let (bytes, offset, _) = point_value.packed_value();
 
             for dim in 0..self.config.num_dims {
                 let src_offset = (offset + dim * self.config.bytes_per_dim) as usize;
                 let dst_offset = (dim * self.config.bytes_per_dim) as usize;
                 self.scratch.copy_from(
-                    &bytes.borrow()[src_offset..src_offset + self.config.bytes_per_dim as usize],
+                    &bytes[src_offset..src_offset + self.config.bytes_per_dim as usize],
                     dst_offset,
                 );
             }
@@ -2039,8 +2040,7 @@ where
 
         for i in from + 1..to {
             let point_value = heap_point_writer.get_packed_value_slice(i);
-            let value = point_value.borrow();
-            let (bytes, offset, _) = value.packed_value();
+            let (bytes, offset, _) = point_value.packed_value();
 
             for dim in 0..self.config.num_dims {
                 if self.common_prefix_lengths[dim as usize] != 0 {
@@ -2049,7 +2049,7 @@ where
                         .min(self.common_prefix_comparator.compare(
                             &self.scratch,
                             (dim * self.config.bytes_per_dim) as usize,
-                            &bytes.borrow(),
+                            bytes,
                             (offset + dim * self.config.bytes_per_dim) as usize,
                         ));
                 }
