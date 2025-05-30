@@ -44,10 +44,10 @@ use crate::util::{
 /// # Note
 /// - The maximum capacity `BytesRef` instance passed to
 ///   [`add`](BytesRefHash::add) must not be longer than
-///   [`ByteBlockPool::BYTE_BLOCK_SIZE`](ByteBlockPool) - 2.
+///   [`byte_block_pool_util::BYTE_BLOCK_SIZE`](ByteBlockPool) - 2.
 /// - The internal storage is limited to 2GB total byte storage.
 ///
-/// [`ByteBlockPool::BYTE_BLOCK_SIZE`]: ByteBlockPool::BYTE_BLOCK_SIZE
+/// [`byte_block_pool_util::BYTE_BLOCK_SIZE`]: byte_block_pool_util::BYTE_BLOCK_SIZE
 pub(crate) struct BytesRefHash<C, B, BSA>
 where
     C: Access<CounterEnum>,
@@ -264,7 +264,7 @@ where
     ///
     /// # Errors
     /// Returns `MaxBytesLengthExceededException` if the given bytes are greater
-    /// than 2 + [`ByteBlockPool::BYTE_BLOCK_SIZE`].
+    /// than 2 + [`byte_block_pool_util::BYTE_BLOCK_SIZE`].
     pub fn add(&mut self, bytes: &BytesRef<Vec<u8>>) -> Result<i32> {
         debug_assert!(
             self.bytes_start_array.len() > 0,
@@ -868,7 +868,7 @@ mod tests {
     use crate::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
     use crate::util::bytes_ref_hash::{BytesRefHash, DirectBytesStartArray, MTBytesRefHash};
     use crate::util::error::lucene_error::{LuceneError, Result};
-    use crate::util::{ByteBlockPool, ByteBlockPoolLock};
+    use crate::util::{byte_block_pool_util, ByteBlockPool, ByteBlockPoolLock};
 
     #[allow(dead_code)] // for quick search
     pub struct TestBytesRefHash;
@@ -1275,8 +1275,8 @@ mod tests {
 
         let sizes = [
             random.random_range(0..5),
-            ByteBlockPool::BYTE_BLOCK_SIZE - 33 + random.random_range(0..31),
-            ByteBlockPool::BYTE_BLOCK_SIZE - 1 + random.random_range(0..37),
+            byte_block_pool_util::BYTE_BLOCK_SIZE - 33 + random.random_range(0..31),
+            byte_block_pool_util::BYTE_BLOCK_SIZE - 1 + random.random_range(0..37),
         ];
 
         for (i, &size) in sizes.iter().enumerate() {

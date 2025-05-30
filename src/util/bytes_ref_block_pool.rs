@@ -29,8 +29,8 @@ use crate::util::bit_util::BitUtil;
 use crate::util::bytes_ref_hash::BytesRefHash;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::{
-    ByteBlockPool, ByteBlockPoolBorrow, ByteBlockPoolLock, CounterEnum, CounterEnumBorrow,
-    CounterEnumLock, SliceCopyOps,
+    byte_block_pool_util, ByteBlockPool, ByteBlockPoolBorrow, ByteBlockPoolLock, CounterEnum,
+    CounterEnumBorrow, CounterEnumLock, SliceCopyOps,
 };
 
 pub struct BytesRefBlockPool<C, B>
@@ -96,8 +96,8 @@ where
     pub fn fill_bytes_ref(&self, term: &mut BytesRef<Vec<u8>>, start: i32) {
         self.byte_block_pool.access_mut(|pool| {
             {
-                let block = pool.get_buffer(start >> ByteBlockPool::BYTE_BLOCK_SHIFT);
-                let pos = (start & ByteBlockPool::BYTE_BLOCK_MASK) as usize;
+                let block = pool.get_buffer(start >> byte_block_pool_util::BYTE_BLOCK_SHIFT);
+                let pos = (start & byte_block_pool_util::BYTE_BLOCK_MASK) as usize;
 
                 let (length, offset) = if (block[pos] & 0x80) == 0 {
                     // Length is 1 byte
@@ -128,11 +128,11 @@ where
         let length = bytes.length as i32;
         let len2 = 2 + bytes.length as i32;
         self.byte_block_pool.access_mut(|pool| {
-            if len2 + pool.byte_upto > ByteBlockPool::BYTE_BLOCK_SIZE {
-                if len2 > ByteBlockPool::BYTE_BLOCK_SIZE {
+            if len2 + pool.byte_upto > byte_block_pool_util::BYTE_BLOCK_SIZE {
+                if len2 > byte_block_pool_util::BYTE_BLOCK_SIZE {
                     return Err(LuceneError::max_bytes_length_exceeded(format!(
                         "bytes can be at most {} in length; got {}",
-                        ByteBlockPool::BYTE_BLOCK_SIZE,
+                        byte_block_pool_util::BYTE_BLOCK_SIZE,
                         bytes.length
                     )));
                 }
@@ -171,9 +171,9 @@ where
     }
     /// Computes the hash of the BytesRef at the given start.
     pub fn hash(&mut self, start: i32) -> i32 {
-        let offset = (start & ByteBlockPool::BYTE_BLOCK_MASK) as usize;
+        let offset = (start & byte_block_pool_util::BYTE_BLOCK_MASK) as usize;
         self.byte_block_pool.access_mut(|pool| {
-            let bytes = pool.get_buffer(start >> ByteBlockPool::BYTE_BLOCK_SHIFT);
+            let bytes = pool.get_buffer(start >> byte_block_pool_util::BYTE_BLOCK_SHIFT);
 
             let (len, pos) = if (bytes[offset] & 0x80) == 0 {
                 // length is 1 byte
@@ -191,9 +191,9 @@ where
     /// Computes the equality between the BytesRef at the given start position
     /// and the provided BytesRef.
     pub fn equals(&self, start: i32, b: &BytesRef<Vec<u8>>) -> bool {
-        let pos = (start & ByteBlockPool::BYTE_BLOCK_MASK) as usize;
+        let pos = (start & byte_block_pool_util::BYTE_BLOCK_MASK) as usize;
         self.byte_block_pool.access_mut(|pool| {
-            let bytes = pool.get_buffer(start >> ByteBlockPool::BYTE_BLOCK_SHIFT);
+            let bytes = pool.get_buffer(start >> byte_block_pool_util::BYTE_BLOCK_SHIFT);
 
             let (length, offset) = if (bytes[pos] & 0x80) == 0 {
                 // length is 1 byte

@@ -33,7 +33,8 @@ use crate::util::bytes_ref_hash::{BytesRefHash, BytesStartArray, STBytesRefHash}
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::int_block_pool::IntBlockPool;
 use crate::util::{
-    ByteBlockPool, ByteBlockPoolBorrow, Counter, CounterEnum, CounterEnumBorrow, SliceCopyOps,
+    byte_block_pool_util, ByteBlockPoolBorrow, Counter, CounterEnum, CounterEnumBorrow,
+    SliceCopyOps,
 };
 
 /// This struct stores streams of information per term without knowing the size
@@ -198,10 +199,10 @@ impl TermsHashPerField {
         let term_stream_address_buffer = int_pool.get_buffer(self.term_stream_address_buffer_index);
         let upto = term_stream_address_buffer[stream_address];
         let mut byte_pool = self.byte_pool.borrow_mut();
-        let block_index = upto >> ByteBlockPool::BYTE_BLOCK_SHIFT;
+        let block_index = upto >> byte_block_pool_util::BYTE_BLOCK_SHIFT;
         debug_assert!(block_index <= byte_pool.buffer_upto);
         let bytes = byte_pool.get_buffer(block_index);
-        let offset = upto & ByteBlockPool::BYTE_BLOCK_MASK;
+        let offset = upto & byte_block_pool_util::BYTE_BLOCK_MASK;
         let value = bytes[offset as usize];
         drop(byte_pool);
         let mut byte_pool;
@@ -240,10 +241,10 @@ impl TermsHashPerField {
         let upto = term_stream_address_buffer[stream_address];
         {
             let mut byte_pool = self.byte_pool.borrow_mut();
-            let mut block_index = upto >> ByteBlockPool::BYTE_BLOCK_SHIFT;
+            let mut block_index = upto >> byte_block_pool_util::BYTE_BLOCK_SHIFT;
             debug_assert!(block_index <= byte_pool.buffer_upto);
             let slice = byte_pool.get_buffer_mut(block_index);
-            let mut slice_offset = (upto & ByteBlockPool::BYTE_BLOCK_MASK) as usize;
+            let mut slice_offset = (upto & byte_block_pool_util::BYTE_BLOCK_MASK) as usize;
 
             while offset < end && slice[slice_offset] == 0 {
                 slice[slice_offset] = b[offset];
@@ -323,7 +324,7 @@ impl TermsHashPerField {
         let byte_offset;
         {
             let mut byte_pool = self.byte_pool.borrow_mut();
-            if ByteBlockPool::BYTE_BLOCK_SIZE - byte_pool.byte_upto
+            if byte_block_pool_util::BYTE_BLOCK_SIZE - byte_pool.byte_upto
                 < 2 * self.stream_count * ByteSlicePool::FIRST_LEVEL_SIZE
             {
                 // can we fit at least one byte per stream in the current

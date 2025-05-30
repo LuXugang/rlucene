@@ -21,7 +21,7 @@ use std::sync::Arc;
 use parking_lot::Mutex;
 
 use crate::util::access::Access;
-use crate::util::{ByteBlockPool, Counter, CounterEnum, CounterEnumBorrow};
+use crate::util::{byte_block_pool_util, Counter, CounterEnum, CounterEnumBorrow};
 
 /// A simple `Allocator` that never recycles, but tracks how much total RAM is
 /// in use. */
@@ -33,7 +33,7 @@ pub struct DirectTrackingAllocatorByte<C: Access<CounterEnum>> {
 impl<C: Access<CounterEnum>> DirectTrackingAllocatorByte<C> {
     pub fn new(byte_used: C) -> Self {
         DirectTrackingAllocatorByte {
-            block_size: ByteBlockPool::BYTE_BLOCK_SIZE,
+            block_size: byte_block_pool_util::BYTE_BLOCK_SIZE,
             byte_used,
         }
     }
@@ -78,7 +78,7 @@ impl Default for DirectAllocatorByte {
 impl DirectAllocatorByte {
     pub fn new() -> Self {
         DirectAllocatorByte {
-            block_size: ByteBlockPool::BYTE_BLOCK_SIZE,
+            block_size: byte_block_pool_util::BYTE_BLOCK_SIZE,
         }
     }
 }
