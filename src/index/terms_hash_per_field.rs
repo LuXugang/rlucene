@@ -66,11 +66,8 @@ pub struct TermsHashPerField {
     // This stores the actual term bytes for postings and offsets into the
     // parent hash in the case that this TermsHashPerField is hashing term
     // vectors.
-    pub(crate) bytes_hash: BytesRefHash<
-        CounterEnumBorrow,
-        ByteBlockPoolBorrow,
-        PostingsBytesStartArray<CounterEnumBorrow>,
-    >,
+    pub(crate) bytes_hash:
+        BytesRefHash<CounterEnumBorrow, ByteBlockPoolBorrow, PostingsBytesStartArray>,
     last_doc_id: i32, // only used with debug/asserts
     sorted_term_ids: bool,
     pub(crate) do_next_call: bool,
@@ -430,29 +427,20 @@ pub(crate) trait TermsHashPerFieldBase {
     /// Finish adding all instances of this field to the current document.
     fn finish(&mut self);
 }
-pub(crate) struct PostingsBytesStartArray<C>
-where
-    C: Access<CounterEnum>,
-{
+pub(crate) struct PostingsBytesStartArray {
     pub(crate) per_field: PostingsArrayWrapper,
-    bytes_used: C,
+    bytes_used: CounterEnumBorrow,
 }
 #[allow(unused)]
-impl<C> PostingsBytesStartArray<C>
-where
-    C: Access<CounterEnum>,
-{
-    pub(crate) fn new(per_field: PostingsArrayWrapper, bytes_used: C) -> Self {
+impl PostingsBytesStartArray {
+    pub(crate) fn new(per_field: PostingsArrayWrapper, bytes_used: CounterEnumBorrow) -> Self {
         Self {
             per_field,
             bytes_used,
         }
     }
 }
-impl<C> BytesStartArray for PostingsBytesStartArray<C>
-where
-    C: Access<CounterEnum>,
-{
+impl BytesStartArray for PostingsBytesStartArray {
     fn init(&mut self) {
         if self.per_field.postings_array.is_none() {
             self.per_field.postings_array =
@@ -491,7 +479,7 @@ where
         }
     }
 
-    type Counter = C;
+    type Counter = CounterEnumBorrow;
 
     fn bytes_used(&mut self) -> Self::Counter {
         self.bytes_used.clone()
