@@ -87,8 +87,7 @@ impl HeapPointWriter {
             .as_mut()
             .expect("point_value should be heap")
         else {
-            debug_assert!(false, "should not be here");
-            return;
+            unreachable!("should not be here")
         };
         let bytes_per_doc = self.config.bytes_per_doc() as usize;
         let index_i = bytes_per_doc * i as usize;
@@ -109,8 +108,7 @@ impl HeapPointWriter {
             .as_ref()
             .expect("point_value should be heap")
         else {
-            debug_assert!(false, "should not be here");
-            return -1;
+            unreachable!("should not be here")
         };
         heap_value.value[(i * self.config.bytes_per_doc() + k) as usize] as i32
     }
@@ -124,8 +122,7 @@ impl HeapPointWriter {
             .as_ref()
             .expect("point_value should be heap")
         else {
-            debug_assert!(false, "should not be here");
-            return;
+            unreachable!("should not be here")
         };
         let start = (i * self.config.bytes_per_doc() + dim) as usize;
         let len = self.config.bytes_per_dim as usize;
@@ -141,8 +138,7 @@ impl HeapPointWriter {
             .as_ref()
             .expect("point_value should be heap")
         else {
-            debug_assert!(false, "should not be here");
-            return;
+            unreachable!("should not be here")
         };
         let start =
             (i * self.config.bytes_per_doc() + self.config.packed_index_bytes_length()) as usize;
@@ -159,8 +155,7 @@ impl HeapPointWriter {
             .as_ref()
             .expect("point_value should be heap")
         else {
-            debug_assert!(false, "should not be here");
-            return -1;
+            unreachable!("should not be here")
         };
 
         let bytes_per_doc = self.config.bytes_per_doc();
@@ -185,8 +180,7 @@ impl HeapPointWriter {
             .as_ref()
             .expect("point_value should be heap")
         else {
-            debug_assert!(false, "should not be here");
-            return -1;
+            unreachable!("should not be here")
         };
         let j_offset = (j * self.config.bytes_per_doc() + dim) as usize;
         self.compare_dim_slice(dim_value, offset, &heap_value.value, j_offset)
@@ -212,8 +206,7 @@ impl HeapPointWriter {
             .as_ref()
             .expect("point_value should be heap")
         else {
-            debug_assert!(false, "should not be here");
-            return -1;
+            unreachable!("should not be here")
         };
         let i_offset =
             (i * self.config.bytes_per_doc() + self.config.packed_index_bytes_length()) as usize;
@@ -241,8 +234,7 @@ impl HeapPointWriter {
             .as_ref()
             .expect("point_value should be heap")
         else {
-            debug_assert!(false, "should not be here");
-            return -1;
+            unreachable!("should not be here")
         };
         let j_offset =
             (j * self.config.bytes_per_doc() + self.config.packed_index_bytes_length()) as usize;
@@ -275,8 +267,7 @@ impl HeapPointWriter {
             .as_ref()
             .expect("point_value should be heap")
         else {
-            debug_assert!(false, "should not be here");
-            return -1;
+            unreachable!("should not be here")
         };
         let mut leaf_cardinality = 1;
         for i in (from + 1)..to {
