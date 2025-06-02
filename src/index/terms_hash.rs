@@ -23,7 +23,7 @@ use crate::index::field_info::FieldInfo;
 use crate::index::field_invert_state::FieldInvertState;
 use crate::index::merge_state::DocMap;
 use crate::index::segment_write_state::SegmentWriteState;
-use crate::index::terms_hash_per_field::TermsHashPerField;
+use crate::index::terms_hash_per_field_enum::TermsHashPerFieldEnum;
 use crate::store::directory::Directory;
 use crate::util::allocator_byte::AllocatorByteEnum;
 use crate::util::error::lucene_error::Result;
@@ -34,7 +34,7 @@ where
     S: TermsHashBase,
 {
     next_terms_hash: Option<Box<TermsHash<S>>>,
-    int_pool: IntBlockPool,
+    int_pool: Rc<RefCell<IntBlockPool>>,
     byte_pool: ByteBlockPoolBorrow,
     term_byte_pool: Option<ByteBlockPoolBorrow>,
     bytes_used: CounterEnumBorrow,
@@ -55,7 +55,9 @@ where
 
         let mut terms_hash = TermsHash {
             next_terms_hash,
-            int_pool: IntBlockPool::with_allocator(int_block_allocator),
+            int_pool: Rc::new(RefCell::new(IntBlockPool::with_allocator(
+                int_block_allocator,
+            ))),
             byte_pool: Rc::new(RefCell::new(ByteBlockPool::new(byte_block_allocator))),
             term_byte_pool,
             bytes_used,
@@ -82,13 +84,13 @@ where
     }
 
     fn reset(&mut self) {
-        self.int_pool.reset(false, false);
+        self.int_pool.borrow_mut().reset(false, false);
         self.byte_pool.borrow_mut().reset(false, false)
     }
 
     fn flush<D, N, M>(
         &mut self,
-        fields_to_flush: &mut HashMap<String, TermsHashPerField>,
+        fields_to_flush: &mut HashMap<String, TermsHashPerFieldEnum>,
         state: &SegmentWriteState<D>,
         sort_map: &M,
         norms: &mut N,
@@ -105,7 +107,7 @@ where
         &mut self,
         field_invert_state: &FieldInvertState,
         field_info: &FieldInfo,
-    ) -> TermsHashPerField {
+    ) -> TermsHashPerFieldEnum {
         self.sub.add_field(field_invert_state, field_info)
     }
 
@@ -132,7 +134,7 @@ pub(crate) trait TermsHashBase {
     fn reset(&mut self);
     fn flush<D, N, M>(
         &mut self,
-        fields_to_flush: &mut HashMap<String, TermsHashPerField>,
+        fields_to_flush: &mut HashMap<String, TermsHashPerFieldEnum>,
         state: &SegmentWriteState<D>,
         sort_map: &M,
         norms: &mut N,
@@ -146,7 +148,7 @@ pub(crate) trait TermsHashBase {
         &mut self,
         field_invert_state: &FieldInvertState,
         field_info: &FieldInfo,
-    ) -> TermsHashPerField;
+    ) -> TermsHashPerFieldEnum;
 
     fn start_document(&mut self) -> Result<()>;
 

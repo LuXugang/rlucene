@@ -977,7 +977,7 @@ pub(crate) mod tests {
 
     pub(crate) struct TermsHashPerFieldMock {
         pub(crate) postings_array_wrapper: Rc<RefCell<PostingsArrayWrapper>>,
-        pub(crate) parent_per_field: TermsHashPerField,
+        pub(crate) base: TermsHashPerField,
         new_called: AtomicI64,
         add_called: AtomicI64,
     }
@@ -1012,7 +1012,7 @@ pub(crate) mod tests {
             );
             Ok(TermsHashPerFieldEnum::Mock(TermsHashPerFieldMock {
                 postings_array_wrapper,
-                parent_per_field: parent_per_filed,
+                base: parent_per_filed,
                 new_called,
                 add_called,
             }))
@@ -1020,18 +1020,18 @@ pub(crate) mod tests {
     }
     impl TermsHashPerFieldBase for TermsHashPerFieldMock {
         fn init_stream_slices(&mut self, term_id: i32, doc_id: i32) -> Result<()> {
-            self.parent_per_field.init_stream_slices(term_id, doc_id)?;
+            self.base.init_stream_slices(term_id, doc_id)?;
             self.new_term(term_id, doc_id)
         }
 
         fn position_stream_slice(&mut self, term_id: i32, doc_id: i32) -> Result<i32> {
-            let term_id = self.parent_per_field.position_stream_slice(term_id, doc_id);
+            let term_id = self.base.position_stream_slice(term_id, doc_id);
             self.add_term(term_id, doc_id)?;
             Ok(term_id)
         }
 
         fn start(&mut self, field: &Fields, first: bool) -> Result<bool> {
-            self.parent_per_field.start(field, first)
+            self.base.start(field, first)
         }
 
         fn new_term(&mut self, term_id: i32, doc_id: i32) -> Result<()> {
@@ -1074,12 +1074,12 @@ pub(crate) mod tests {
                             match &mut postings.term_freqs {
                                 Some(term_freqs) => {
                                     if 1 == term_freqs[term_id] {
-                                        self.parent_per_field
+                                        self.base
                                             .write_vint(0, postings.last_doc_codes[term_id] | 1)?;
                                     } else {
-                                        self.parent_per_field
+                                        self.base
                                             .write_vint(0, postings.last_doc_codes[term_id])?;
-                                        self.parent_per_field.write_vint(0, term_freqs[term_id])?;
+                                        self.base.write_vint(0, term_freqs[term_id])?;
                                     }
                                     term_freqs[term_id] = 1;
                                 },
@@ -1114,7 +1114,7 @@ pub(crate) mod tests {
         }
 
         fn finish(&mut self) {
-            self.parent_per_field.finish()
+            self.base.finish()
         }
     }
 }

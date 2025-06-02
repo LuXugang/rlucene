@@ -25,19 +25,19 @@ use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::Result;
 #[allow(unused)]
 pub(crate) struct FreqProxTermsWriterPerField {
-    pub(crate) parent_per_field: TermsHashPerField,
+    pub(crate) base: TermsHashPerField,
     pub(crate) postings_array: Option<PostingsArrayEnum>,
 }
 impl FreqProxTermsWriterPerField {}
 #[allow(unused)]
 impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
     fn init_stream_slices(&mut self, term_id: i32, doc_id: i32) -> Result<()> {
-        self.parent_per_field.init_stream_slices(term_id, doc_id)?;
+        self.base.init_stream_slices(term_id, doc_id)?;
         self.new_term(term_id, doc_id)
     }
 
     fn position_stream_slice(&mut self, term_id: i32, doc_id: i32) -> Result<i32> {
-        let term_id = self.parent_per_field.position_stream_slice(term_id, doc_id);
+        let term_id = self.base.position_stream_slice(term_id, doc_id);
         self.add_term(term_id, doc_id)?;
         Ok(term_id)
     }
