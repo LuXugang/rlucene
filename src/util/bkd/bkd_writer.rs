@@ -1879,6 +1879,8 @@ where
 
             let heap_source = heap_source.clone();
             let mut packed_values = move |i: i32| -> PackedValueResult {
+                // TODO: 这里不需要使用Rc<RefCell>封装PointWriterEnum，
+                // 这样我就可以返回数组的引用了, 以后来该
                 let mut point_writer = heap_source.borrow_mut();
                 match &mut *point_writer {
                     PointWriterEnum::Heap(heap) => {
