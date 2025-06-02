@@ -16,9 +16,6 @@
  */
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::Arc;
-
-use parking_lot::Mutex;
 
 use crate::document::fields::Fields;
 use crate::index::byte_slice_pool::ByteSlicePool;
@@ -76,11 +73,6 @@ pub(crate) struct PostingsArrayWrapper {
     pub(crate) postings_array: Option<PostingsArrayEnum>,
     pub(crate) terms_hash_per_field_type: TermsHashPerFieldType,
 }
-/// for multi-threaded scenarios
-pub type MTPostingsArrayWrapper = Arc<Mutex<PostingsArrayWrapper>>;
-/// for single-threaded scenarios
-pub type STPostingsArrayWrapper = Rc<RefCell<PostingsArrayWrapper>>;
-#[allow(unused)]
 impl PostingsArrayWrapper {
     pub fn new(terms_hash_per_field_type: TermsHashPerFieldType) -> Self {
         Self {
@@ -89,7 +81,6 @@ impl PostingsArrayWrapper {
         }
     }
 }
-#[allow(unused)]
 impl TermsHashPerField {
     const HASH_INIT_SIZE: i32 = 4;
     ///  streamCount: how many streams this field stores per term. E.g.
