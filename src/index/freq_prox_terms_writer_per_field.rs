@@ -25,32 +25,30 @@ use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::Result;
 #[allow(unused)]
 pub(crate) struct FreqProxTermsWriterPerField {
-    pub(crate) base: TermsHashPerField,
     pub(crate) postings_array: Option<PostingsArrayEnum>,
 }
 impl FreqProxTermsWriterPerField {}
 #[allow(unused)]
 impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
-    fn init_stream_slices(&mut self, term_id: i32, doc_id: i32) -> Result<()> {
-        self.base.init_stream_slices(term_id, doc_id)?;
-        self.new_term(term_id, doc_id)
-    }
-
-    fn position_stream_slice(&mut self, term_id: i32, doc_id: i32) -> Result<i32> {
-        let term_id = self.base.position_stream_slice(term_id, doc_id);
-        self.add_term(term_id, doc_id)?;
-        Ok(term_id)
-    }
-
     fn start(&mut self, _field: &Fields, _first: bool) -> Result<bool> {
         todo!()
     }
 
-    fn new_term(&mut self, _term_id: i32, _doc_id: i32) -> Result<()> {
+    fn new_term<S: TermsHashPerFieldBase>(
+        &mut self,
+        term_id: i32,
+        doc_id: i32,
+        per_filed: &mut TermsHashPerField<S>,
+    ) -> Result<()> {
         todo!()
     }
 
-    fn add_term(&mut self, _term_id: i32, _doc_id: i32) -> Result<()> {
+    fn add_term<S: TermsHashPerFieldBase>(
+        &mut self,
+        term_id: i32,
+        doc_id: i32,
+        per_field: &mut TermsHashPerField<S>,
+    ) -> Result<()> {
         todo!()
     }
 

@@ -23,7 +23,7 @@ use crate::index::field_info::FieldInfo;
 use crate::index::field_invert_state::FieldInvertState;
 use crate::index::merge_state::DocMap;
 use crate::index::segment_write_state::SegmentWriteState;
-use crate::index::terms_hash_per_field_enum::TermsHashPerFieldEnum;
+use crate::index::terms_hash_per_field::{TermsHashPerField, TermsHashPerFieldBase};
 use crate::store::directory::Directory;
 use crate::util::allocator_byte::AllocatorByteEnum;
 use crate::util::error::lucene_error::Result;
@@ -88,9 +88,9 @@ where
         self.byte_pool.borrow_mut().reset(false, false)
     }
 
-    fn flush<D, N, M>(
+    fn flush<D, N, M, T>(
         &mut self,
-        fields_to_flush: &mut HashMap<String, TermsHashPerFieldEnum>,
+        fields_to_flush: &mut HashMap<String, TermsHashPerField<T>>,
         state: &SegmentWriteState<D>,
         sort_map: &M,
         norms: &mut N,
@@ -99,16 +99,20 @@ where
         D: Directory,
         N: NormsProducer,
         M: DocMap,
+        T: TermsHashPerFieldBase,
     {
         todo!()
     }
 
-    fn add_field(
+    fn add_field<T>(
         &mut self,
         field_invert_state: &FieldInvertState,
         field_info: &FieldInfo,
-    ) -> TermsHashPerFieldEnum {
-        self.sub.add_field(field_invert_state, field_info)
+    ) -> TermsHashPerField<T>
+    where
+        T: TermsHashPerFieldBase,
+    {
+        todo!()
     }
 
     fn start_document(&mut self) -> Result<()> {
@@ -132,9 +136,9 @@ where
 pub(crate) trait TermsHashBase {
     fn abort(&mut self);
     fn reset(&mut self);
-    fn flush<D, N, M>(
+    fn flush<D, N, M, T>(
         &mut self,
-        fields_to_flush: &mut HashMap<String, TermsHashPerFieldEnum>,
+        fields_to_flush: &mut HashMap<String, TermsHashPerField<T>>,
         state: &SegmentWriteState<D>,
         sort_map: &M,
         norms: &mut N,
@@ -142,13 +146,16 @@ pub(crate) trait TermsHashBase {
     where
         D: Directory,
         N: NormsProducer,
-        M: DocMap;
+        M: DocMap,
+        T: TermsHashPerFieldBase;
 
-    fn add_field(
+    fn add_field<T>(
         &mut self,
         field_invert_state: &FieldInvertState,
         field_info: &FieldInfo,
-    ) -> TermsHashPerFieldEnum;
+    ) -> TermsHashPerField<T>
+    where
+        T: TermsHashPerFieldBase;
 
     fn start_document(&mut self) -> Result<()>;
 

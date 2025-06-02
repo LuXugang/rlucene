@@ -106,7 +106,6 @@ pub mod terms;
 pub mod terms_enum;
 mod terms_hash;
 pub(crate) mod terms_hash_per_field;
-pub(crate) mod terms_hash_per_field_enum;
 pub mod vector_encoding;
 pub mod vector_similarity_function;
 

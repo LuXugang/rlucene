@@ -24,14 +24,13 @@ use crate::index::freq_prox_terms_writer_per_field::{FreqProx, FreqProxPostingsA
 use crate::index::index_options::IndexOptions;
 use crate::index::parallel_postings_array::PostingsArrayEnum;
 use crate::index::term_vectors_consumer_per_field::TermVectorsPostingsArray;
-use crate::index::terms_hash_per_field_enum::TermsHashPerFieldEnum;
+use crate::index::BytesRef;
 use crate::util::access::{Access, BorrowExt};
 use crate::util::bytes_ref_hash::{BytesRefHash, BytesStartArray, STBytesRefHash};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::int_block_pool::IntBlockPool;
 use crate::util::{
-    byte_block_pool_util, ByteBlockPoolBorrow, Counter, CounterEnum, CounterEnumBorrow,
-    SliceCopyOps,
+    byte_block_pool_util, ByteBlockPoolBorrow, Counter, CounterEnumBorrow, SliceCopyOps,
 };
 
 /// This struct stores streams of information per term without knowing the size
@@ -42,8 +41,11 @@ use crate::util::{
 /// by a [`ByteSliceReader`] for each term. Terms are first deduplicated in a
 /// [`BytesRefHash`]. Once this is done, internal data structures point to the
 /// current offset of each stream that can be written to.
-pub struct TermsHashPerField {
-    pub(crate) next_per_field: Option<Rc<RefCell<TermsHashPerFieldEnum>>>,
+pub struct TermsHashPerField<S>
+where
+    S: TermsHashPerFieldBase,
+{
+    pub(crate) next_per_field: Option<Box<TermsHashPerField<S>>>,
     int_pool: Rc<RefCell<IntBlockPool>>,
     pub(crate) byte_pool: ByteBlockPoolBorrow,
     slice_pool: ByteSlicePool,
@@ -68,6 +70,8 @@ pub struct TermsHashPerField {
     last_doc_id: i32, // only used with debug/asserts
     sorted_term_ids: bool,
     pub(crate) do_next_call: bool,
+    // wrap with Option for `std::mem:take`
+    sub: Option<S>,
 }
 pub(crate) struct PostingsArrayWrapper {
     pub(crate) postings_array: Option<PostingsArrayEnum>,
@@ -81,8 +85,13 @@ impl PostingsArrayWrapper {
         }
     }
 }
-impl TermsHashPerField {
-    const HASH_INIT_SIZE: i32 = 4;
+pub mod terms_hash_per_field_util {
+    pub(super) const HASH_INIT_SIZE: i32 = 4;
+}
+impl<S> TermsHashPerField<S>
+where
+    S: TermsHashPerFieldBase,
+{
     ///  streamCount: how many streams this field stores per term. E.g.
     /// doc(+freq) is 1 stream, prox+offset is a second.
     #[allow(clippy::too_many_arguments)]
@@ -92,10 +101,11 @@ impl TermsHashPerField {
         byte_pool: ByteBlockPoolBorrow,
         term_byte_pool: ByteBlockPoolBorrow,
         bytes_used: CounterEnumBorrow,
-        next_per_field: Option<Rc<RefCell<TermsHashPerFieldEnum>>>,
+        next_per_field: Option<Box<TermsHashPerField<S>>>,
         field_name: String,
         index_options: IndexOptions,
         postings_array_wrapper: PostingsArrayWrapper,
+        sub: S,
     ) -> Self {
         // In the original Java code, we assert that indexOptions !=
         // IndexOptions.NONE.
@@ -105,7 +115,7 @@ impl TermsHashPerField {
 
         let bytes_hash = BytesRefHash::from_bytes_start_array(
             term_byte_pool,
-            TermsHashPerField::HASH_INIT_SIZE,
+            terms_hash_per_field_util::HASH_INIT_SIZE,
             byte_starts,
         );
 
@@ -123,6 +133,7 @@ impl TermsHashPerField {
             last_doc_id: 0,
             sorted_term_ids: false,
             do_next_call: false,
+            sub: Some(sub),
         }
     }
     pub(crate) fn init_reader(&self, reader: &mut ByteSliceReader, term_id: i32, stream: i32) {
@@ -152,8 +163,8 @@ impl TermsHashPerField {
     }
     /// Collapse the hash table and sort in-place; also sets this.sortedTermIDs
     /// to the results. This method must not be called twice unless
-    /// [`reset()`](TermsHashPerFieldBase::reset) or
-    /// [`reinit_hash()`](TermsHashPerFieldBase::reinit_hash) was called.
+    /// [`reset()`](Self::reset) or
+    /// [`reinit_hash()`](Self::reinit_hash) was called.
     pub(crate) fn sort_terms(&mut self, bytes_hash: &mut STBytesRefHash) -> Result<()> {
         debug_assert!(!self.sorted_term_ids);
         bytes_hash.sort()?;
@@ -166,16 +177,7 @@ impl TermsHashPerField {
         debug_assert!(!self.sorted_term_ids);
         bytes_hash.ids.as_slice()
     }
-    pub(crate) fn assert_doc_id(&mut self, doc_id: i32) -> bool {
-        debug_assert!(
-            doc_id >= self.last_doc_id,
-            "docID must be >= {} but was: {}",
-            self.last_doc_id,
-            doc_id
-        );
-        self.last_doc_id = doc_id;
-        true
-    }
+
     pub(crate) fn write_byte(&mut self, stream: i32, b: u8) -> Result<()> {
         let stream_address = (self.stream_address_offset + stream) as usize;
         let mut int_pool = self.int_pool.borrow_mut();
@@ -261,7 +263,11 @@ impl TermsHashPerField {
         }
         Ok(())
     }
-    pub(crate) fn write_vint(base: &mut TermsHashPerField, stream: i32, mut i: i32) -> Result<()> {
+    pub(crate) fn write_vint(
+        base: &mut TermsHashPerField<S>,
+        stream: i32,
+        mut i: i32,
+    ) -> Result<()> {
         debug_assert!(stream < base.stream_count);
         while (i & !0x7F) != 0 {
             base.write_byte(stream, ((i & 0x7F) | 0x80) as u8)?;
@@ -270,18 +276,18 @@ impl TermsHashPerField {
         base.write_byte(stream, i as u8)
     }
 
-    pub(crate) fn get_next_per_field(&self) -> Rc<RefCell<TermsHashPerFieldEnum>> {
-        debug_assert!(self.next_per_field.is_some());
-        self.next_per_field.as_ref().unwrap().clone()
+    pub(crate) fn get_next_per_field(&mut self) -> &mut TermsHashPerField<S> {
+        self.next_per_field.as_mut().unwrap()
     }
 
     pub(crate) fn get_field_name(&self) -> &str {
         &self.field_name
     }
     fn finish(&mut self) {
-        if let Some(ref next_per_field) = self.next_per_field {
-            next_per_field.borrow_mut().finish()
+        if let Some(ref mut next_per_field) = self.next_per_field {
+            next_per_field.finish()
         }
+        self.sub.as_mut().unwrap().finish()
     }
     pub(crate) fn get_num_terms(&self, bytes_ref_hash: &STBytesRefHash) -> i32 {
         bytes_ref_hash.size()
@@ -290,8 +296,7 @@ impl TermsHashPerField {
         self.bytes_hash.clear();
         self.sorted_term_ids = false;
         if self.next_per_field.is_some() {
-            let mut next_per_field = self.next_per_field.access_mut();
-            next_per_field.reset();
+            self.next_per_field.as_mut().unwrap().reset();
         }
     }
 
@@ -299,11 +304,26 @@ impl TermsHashPerField {
         self.sorted_term_ids = false;
         self.bytes_hash.reinit()
     }
+    // Secondary entry point (for 2nd & subsequent TermsHash),
+    // because token text has already been "interned" into
+    // textStart, so we hash by textStart.  term vectors use
+    // this API.
+    fn add_with_text_start(&mut self, text_start: i32, doc_id: i32) -> Result<()> {
+        let term_id = self.bytes_hash.add_by_pool_offset(text_start)?;
+        if term_id >= 0 {
+            // First time we are seeing this token since we last
+            // flushed the hash.
+            self.init_stream_slices(term_id, doc_id)?;
+        } else {
+            self.position_stream_slice(term_id, doc_id)?;
+        }
+        Ok(())
+    }
     /// Called when we first encounter a new term. We must allocate slices to
     /// store the postings (vInt compressed doc/freq/prox), and also the int
     /// pointers to where (in our [`ByteBlockPool`] storage) the postings
     /// for this term begin.
-    pub(crate) fn init_stream_slices(&mut self, term_id: i32, _doc_id: i32) -> Result<()> {
+    pub(crate) fn init_stream_slices(&mut self, term_id: i32, doc_id: i32) -> Result<()> {
         let byte_offset;
         {
             let mut byte_pool = self.byte_pool.borrow_mut();
@@ -324,7 +344,7 @@ impl TermsHashPerField {
             self.term_stream_address_buffer_index = int_pool.buffer_upto;
             self.stream_address_offset = int_pool.int_upto;
             int_pool.int_upto += self.stream_count;
-            let mut postings_array_wrapper = &mut self.bytes_hash.bytes_start_array.per_field;
+            let postings_array_wrapper = &mut self.bytes_hash.bytes_start_array.per_field;
             debug_assert!(postings_array_wrapper.postings_array.is_some());
             postings_array_wrapper
                 .postings_array
@@ -354,10 +374,55 @@ impl TermsHashPerField {
                     term_stream_address_buffer[self.stream_address_offset as usize],
                 );
         }
+        let mut sub = std::mem::take(&mut self.sub);
+        sub.as_mut().unwrap().new_term(term_id, doc_id, self)?;
+        self.sub = sub;
         Ok(())
     }
 
-    pub(crate) fn position_stream_slice(&mut self, term_id: i32, _doc_id: i32) -> i32 {
+    pub(crate) fn assert_doc_id(&mut self, doc_id: i32) -> bool {
+        debug_assert!(
+            doc_id >= self.last_doc_id,
+            "docID must be >= {} but was: {}",
+            self.last_doc_id,
+            doc_id
+        );
+        self.last_doc_id = doc_id;
+        true
+    }
+    /// Called once per inverted token. This is the primary entry point (for
+    /// first TermsHash); postings use this API.
+    pub(crate) fn add_with_bytes_ref(
+        &mut self,
+        term_bytes: &BytesRef<Vec<u8>>,
+        doc_id: i32,
+    ) -> Result<()> {
+        debug_assert!(self.assert_doc_id(doc_id));
+        // We are first in the chain so we must "intern" the
+        // term text into textStart address
+        // Get the text & hash of this term.
+        let mut term_id = self.bytes_hash.add(term_bytes)?;
+        if term_id >= 0 {
+            self.init_stream_slices(term_id, doc_id)?;
+        } else {
+            term_id = self.position_stream_slice(term_id, doc_id)?;
+        }
+
+        if self.do_next_call {
+            if let Some(ref mut next_per_field) = self.next_per_field {
+                let postings_array_wrapper = &self.bytes_hash.bytes_start_array.per_field;
+                debug_assert!(postings_array_wrapper.postings_array.is_some());
+                let text_start = postings_array_wrapper
+                    .postings_array
+                    .as_ref()
+                    .unwrap()
+                    .get_text_starts()[term_id as usize];
+                next_per_field.add_with_text_start(text_start, doc_id)?;
+            }
+        }
+        Ok(())
+    }
+    pub(crate) fn position_stream_slice(&mut self, term_id: i32, doc_id: i32) -> Result<i32> {
         let term_id = (-term_id) - 1;
         let postings_array_wrapper = &self.bytes_hash.bytes_start_array.per_field;
         debug_assert!(postings_array_wrapper.postings_array.is_some());
@@ -368,33 +433,37 @@ impl TermsHashPerField {
             .get_address_offset()[term_id as usize];
         self.term_stream_address_buffer_index = int_start >> IntBlockPool::INT_BLOCK_SHIFT;
         self.stream_address_offset = int_start & IntBlockPool::INT_BLOCK_MASK;
-        term_id
+        let mut sub = std::mem::take(&mut self.sub);
+        sub.as_mut().unwrap().add_term(term_id, doc_id, self)?;
+        self.sub = sub;
+        Ok(term_id)
     }
     fn start(&mut self, field: &Fields, first: bool) -> Result<bool> {
         match self.next_per_field {
-            Some(ref next_per_field) => {
-                let mut next_per_field = next_per_field.borrow_mut();
-                next_per_field.start(field, first)
-            },
-            None => Ok(true),
-        }
+            Some(ref mut next_per_field) => next_per_field.start(field, first)?,
+            None => true,
+        };
+        self.sub.as_mut().unwrap().start(field, first)
     }
 }
-#[allow(unused)]
 pub(crate) trait TermsHashPerFieldBase {
-    /// Called when we first encounter a new term. We must allocate slies to
-    /// store the postings (vInt compressed doc/freq/prox), and also the int
-    /// pointers to where (in our {@link ByteBlockPool} storage) the
-    /// postings for this term begin.
-    fn init_stream_slices(&mut self, term_id: i32, doc_id: i32) -> Result<()>;
-    fn position_stream_slice(&mut self, term_id: i32, doc_id: i32) -> Result<i32>;
     ///Start adding a new field instance; first is true if this is the first
     /// time this field name was seen in the document.
     fn start(&mut self, field: &Fields, first: bool) -> Result<bool>;
     /// Called when a term is seen for the first time.
-    fn new_term(&mut self, term_id: i32, doc_id: i32) -> Result<()>;
+    fn new_term<S: TermsHashPerFieldBase>(
+        &mut self,
+        term_id: i32,
+        doc_id: i32,
+        per_field: &mut TermsHashPerField<S>,
+    ) -> Result<()>;
     /// Called when a previously seen term is seen again.
-    fn add_term(&mut self, term_id: i32, doc_id: i32) -> Result<()>;
+    fn add_term<S: TermsHashPerFieldBase>(
+        &mut self,
+        term_id: i32,
+        doc_id: i32,
+        per_field: &mut TermsHashPerField<S>,
+    ) -> Result<()>;
     /// Called when the postings array is initialized or resized.
     /// # Note
     /// In rust Lucene, we do not need to init new postings array
@@ -504,7 +573,6 @@ impl BytesStartArray for PostingsBytesStartArray {
             .len()
     }
 }
-#[allow(unused)]
 pub(crate) enum TermsHashPerFieldType {
     TermVectors,
     FreqProx(FreqProx),
@@ -556,7 +624,6 @@ pub(crate) mod tests {
     use crate::index::terms_hash_per_field::{
         PostingsArrayWrapper, TermsHashPerField, TermsHashPerFieldBase, TermsHashPerFieldType,
     };
-    use crate::index::terms_hash_per_field_enum::TermsHashPerFieldEnum;
     use crate::index::BytesRef;
     use crate::store::DataInput;
     use crate::test::util::lucene_test_case::{new_bytes_ref_from_string, random};
@@ -572,14 +639,14 @@ pub(crate) mod tests {
     fn create_new_hash(
         new_called: AtomicI64,
         add_called: AtomicI64,
-    ) -> Result<TermsHashPerFieldEnum> {
+    ) -> Result<TermsHashPerField<TermsHashPerFieldMock>> {
         let hash = TermsHashPerFieldMock::new(new_called, add_called)?;
         Ok(hash)
     }
 
     fn assert_doc_and_freq(
         reader: &mut ByteSliceReader,
-        parent: &PostingsArrayWrapper,
+        postings_array_wrapper: &PostingsArrayWrapper,
         prev_doc: i32,
         term_id: i32,
         doc: i32,
@@ -587,7 +654,7 @@ pub(crate) mod tests {
     ) -> Result<bool> {
         assert!(term_id >= 0);
         let term_id = term_id as usize;
-        let postings_array_enum = parent.postings_array.as_ref().unwrap();
+        let postings_array_enum = postings_array_wrapper.postings_array.as_ref().unwrap();
         let postings_array = match postings_array_enum {
             PostingsArrayEnum::FreqProx(freq_prox) => freq_prox,
             _ => {
@@ -663,43 +730,106 @@ pub(crate) mod tests {
         hash.add_with_bytes_ref(&new_bytes_ref_from_string(&mut random, "end")?, 3)?;
         hash.finish();
 
-        match &hash {
-            TermsHashPerFieldEnum::Mock(hash) => {
-                assert_eq!(7, hash.new_called.load(Ordering::SeqCst));
-                assert_eq!(6, hash.add_called.load(Ordering::SeqCst));
-            },
-            _ => {
-                unreachable!();
-            },
-        }
+        assert_eq!(
+            7,
+            hash.sub.as_mut().unwrap().new_called.load(Ordering::SeqCst)
+        );
+        assert_eq!(
+            6,
+            hash.sub.as_mut().unwrap().add_called.load(Ordering::SeqCst)
+        );
 
         let mut reader = ByteSliceReader::new();
-        let parent = match &hash {
-            TermsHashPerFieldEnum::Mock(inner) => {
-                &inner.base.bytes_hash.bytes_start_array.per_field
-            },
-            _ => {
-                unreachable!();
-            },
-        };
         hash.init_reader(&mut reader, 0, 0);
 
-        assert!(assert_doc_and_freq(&mut reader, parent, 0, 0, 0, 1)?);
+        let postings_array_wrapper = &hash.bytes_hash.bytes_start_array.per_field;
+
+        assert!(assert_doc_and_freq(
+            &mut reader,
+            postings_array_wrapper,
+            0,
+            0,
+            0,
+            1
+        )?);
         hash.init_reader(&mut reader, 1, 0);
-        assert!(assert_doc_and_freq(&mut reader, parent, 0, 1, 0, 1)?);
+        assert!(assert_doc_and_freq(
+            &mut reader,
+            postings_array_wrapper,
+            0,
+            1,
+            0,
+            1
+        )?);
         hash.init_reader(&mut reader, 2, 0);
-        assert!(!assert_doc_and_freq(&mut reader, parent, 0, 2, 0, 1)?);
-        assert!(assert_doc_and_freq(&mut reader, parent, 2, 2, 1, 3)?);
+        assert!(!assert_doc_and_freq(
+            &mut reader,
+            postings_array_wrapper,
+            0,
+            2,
+            0,
+            1
+        )?);
+        assert!(assert_doc_and_freq(
+            &mut reader,
+            postings_array_wrapper,
+            2,
+            2,
+            1,
+            3
+        )?);
         hash.init_reader(&mut reader, 3, 0);
-        assert!(assert_doc_and_freq(&mut reader, parent, 0, 3, 1, 2)?);
+        assert!(assert_doc_and_freq(
+            &mut reader,
+            postings_array_wrapper,
+            0,
+            3,
+            1,
+            2
+        )?);
         hash.init_reader(&mut reader, 4, 0);
-        assert!(!assert_doc_and_freq(&mut reader, parent, 0, 4, 1, 1)?);
-        assert!(!assert_doc_and_freq(&mut reader, parent, 1, 4, 2, 1)?);
-        assert!(assert_doc_and_freq(&mut reader, parent, 2, 4, 3, 1)?);
+        assert!(!assert_doc_and_freq(
+            &mut reader,
+            postings_array_wrapper,
+            0,
+            4,
+            1,
+            1
+        )?);
+        assert!(!assert_doc_and_freq(
+            &mut reader,
+            postings_array_wrapper,
+            1,
+            4,
+            2,
+            1
+        )?);
+        assert!(assert_doc_and_freq(
+            &mut reader,
+            postings_array_wrapper,
+            2,
+            4,
+            3,
+            1
+        )?);
         hash.init_reader(&mut reader, 5, 0);
-        assert!(assert_doc_and_freq(&mut reader, parent, 0, 5, 2, 1)?);
+        assert!(assert_doc_and_freq(
+            &mut reader,
+            postings_array_wrapper,
+            0,
+            5,
+            2,
+            1
+        )?);
         hash.init_reader(&mut reader, 6, 0);
-        assert!(assert_doc_and_freq(&mut reader, parent, 0, 6, 3, 1)?);
+        assert!(assert_doc_and_freq(
+            &mut reader,
+            postings_array_wrapper,
+            0,
+            6,
+            3,
+            1
+        )?);
         Ok(())
     }
     #[test]
@@ -778,14 +908,8 @@ pub(crate) mod tests {
             .collect();
         values.shuffle(&mut random);
         let mut reader = ByteSliceReader::new();
-        let parent = match &hash {
-            TermsHashPerFieldEnum::Mock(inner) => {
-                &inner.base.bytes_hash.bytes_start_array.per_field
-            },
-            _ => {
-                unreachable!();
-            },
-        };
+
+        let postings_array_wrapper = &hash.bytes_hash.bytes_start_array.per_field;
         for posting in values {
             hash.init_reader(&mut reader, posting.term_id, 0);
 
@@ -795,8 +919,14 @@ pub(crate) mod tests {
             for (doc, freq) in posting.doc_and_freq {
                 assert!(!eof, "the reader must not be EOF here");
 
-                eof =
-                    assert_doc_and_freq(&mut reader, parent, pref_doc, posting.term_id, doc, freq)?;
+                eof = assert_doc_and_freq(
+                    &mut reader,
+                    postings_array_wrapper,
+                    pref_doc,
+                    posting.term_id,
+                    doc,
+                    freq,
+                )?;
 
                 pref_doc = doc;
             }
@@ -840,7 +970,7 @@ pub(crate) mod tests {
 
             let mut reader = ByteSliceReader::new();
             {
-                let byte_block_pool = hash.get_byte_block_pool();
+                let byte_block_pool = hash.byte_pool;
                 let byte_offset;
                 let byte_upto;
                 {
@@ -859,7 +989,6 @@ pub(crate) mod tests {
     }
 
     pub(crate) struct TermsHashPerFieldMock {
-        pub(crate) base: TermsHashPerField,
         new_called: AtomicI64,
         add_called: AtomicI64,
     }
@@ -868,7 +997,7 @@ pub(crate) mod tests {
         pub(crate) fn new(
             new_called: AtomicI64,
             add_called: AtomicI64,
-        ) -> Result<TermsHashPerFieldEnum> {
+        ) -> Result<TermsHashPerField<TermsHashPerFieldMock>> {
             let int_block_pool = Rc::new(RefCell::new(IntBlockPool::new()));
 
             let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
@@ -879,7 +1008,11 @@ pub(crate) mod tests {
 
             let postings_array_wrapper = PostingsArrayWrapper::new(TermsHashPerFieldType::Mock);
 
-            let parent_per_filed = TermsHashPerField::new(
+            let sub = TermsHashPerFieldMock {
+                new_called,
+                add_called,
+            };
+            Ok(TermsHashPerField::new(
                 1,
                 int_block_pool.clone(),
                 byte_block_pool.clone(),
@@ -889,116 +1022,109 @@ pub(crate) mod tests {
                 "field_name".to_string(),
                 IndexOptions::DocsAndFreqs,
                 postings_array_wrapper,
-            );
-            Ok(TermsHashPerFieldEnum::Mock(TermsHashPerFieldMock {
-                base: parent_per_filed,
-                new_called,
-                add_called,
-            }))
+                sub,
+            ))
         }
     }
     impl TermsHashPerFieldBase for TermsHashPerFieldMock {
-        fn init_stream_slices(&mut self, term_id: i32, doc_id: i32) -> Result<()> {
-            self.base.init_stream_slices(term_id, doc_id)?;
-            self.new_term(term_id, doc_id)
-        }
-
-        fn position_stream_slice(&mut self, term_id: i32, doc_id: i32) -> Result<i32> {
-            let term_id = self.base.position_stream_slice(term_id, doc_id);
-            self.add_term(term_id, doc_id)?;
-            Ok(term_id)
-        }
-
         fn start(&mut self, field: &Fields, first: bool) -> Result<bool> {
-            self.base.start(field, first)
+            Ok(true)
         }
 
-        fn new_term(&mut self, term_id: i32, doc_id: i32) -> Result<()> {
+        fn new_term<S: TermsHashPerFieldBase>(
+            &mut self,
+            term_id: i32,
+            doc_id: i32,
+            per_filed: &mut TermsHashPerField<S>,
+        ) -> Result<()> {
             self.new_called
                 .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             let term_id = term_id as usize;
-            let mut postings_array_wrapper = &mut self.base.bytes_hash.bytes_start_array.per_field;
-            debug_assert!(postings_array_wrapper.postings_array.is_some());
-            match &mut postings_array_wrapper.postings_array {
-                Some(postings_array) => match postings_array {
-                    PostingsArrayEnum::FreqProx(f) => {
-                        f.last_doc_ids[term_id] = doc_id;
-                        f.last_doc_codes[term_id] = doc_id << 1;
-                        match &mut f.term_freqs {
+            match per_filed
+                .bytes_hash
+                .bytes_start_array
+                .per_field
+                .postings_array
+                .as_mut()
+                .unwrap()
+            {
+                PostingsArrayEnum::FreqProx(f) => {
+                    f.last_doc_ids[term_id] = doc_id;
+                    f.last_doc_codes[term_id] = doc_id << 1;
+                    match &mut f.term_freqs {
+                        Some(term_freqs) => {
+                            term_freqs[term_id] = 1;
+                        },
+                        None => unreachable!(),
+                    }
+                    Ok(())
+                },
+                _ => unreachable!(),
+            }
+        }
+
+        fn add_term<S: TermsHashPerFieldBase>(
+            &mut self,
+            term_id: i32,
+            doc_id: i32,
+            per_field: &mut TermsHashPerField<S>,
+        ) -> Result<()> {
+            self.add_called
+                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            let term_id = term_id as usize;
+            let mut v = Vec::new();
+            let mut need_write = false;
+            match per_field
+                .bytes_hash
+                .bytes_start_array
+                .per_field
+                .postings_array
+                .as_mut()
+                .unwrap()
+            {
+                PostingsArrayEnum::FreqProx(postings) => {
+                    if doc_id != postings.last_doc_ids[term_id] {
+                        match &mut postings.term_freqs {
                             Some(term_freqs) => {
+                                need_write = true;
+                                if 1 == term_freqs[term_id] {
+                                    v.push(postings.last_doc_codes[term_id] | 1);
+                                } else {
+                                    v.push(postings.last_doc_codes[term_id]);
+                                    v.push(term_freqs[term_id]);
+                                }
                                 term_freqs[term_id] = 1;
                             },
                             None => unreachable!(),
                         }
-                        Ok(())
-                    },
-                    _ => unreachable!(),
-                },
-                None => {
-                    unreachable!()
-                },
-            }
-        }
-
-        fn add_term(&mut self, term_id: i32, doc_id: i32) -> Result<()> {
-            self.add_called
-                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-            let term_id = term_id as usize;
-            let mut postings_array_wrapper = &mut self.base.bytes_hash.bytes_start_array.per_field;
-            debug_assert!(postings_array_wrapper.postings_array.is_some());
-            let mut v = Vec::new();
-            let mut need_write = false;
-            match &mut postings_array_wrapper.postings_array {
-                Some(postings_array) => match postings_array {
-                    PostingsArrayEnum::FreqProx(postings) => {
-                        if doc_id != postings.last_doc_ids[term_id] {
-                            match &mut postings.term_freqs {
-                                Some(term_freqs) => {
-                                    need_write = true;
-                                    if 1 == term_freqs[term_id] {
-                                        v.push(postings.last_doc_codes[term_id] | 1);
-                                    } else {
-                                        v.push(postings.last_doc_codes[term_id]);
-                                        v.push(term_freqs[term_id]);
-                                    }
-                                    term_freqs[term_id] = 1;
-                                },
-                                None => unreachable!(),
-                            }
-                            postings.last_doc_codes[term_id] =
-                                (doc_id - postings.last_doc_ids[term_id]) << 1;
-                            postings.last_doc_ids[term_id] = doc_id;
-                        } else {
-                            match &mut postings.term_freqs {
-                                Some(term_freqs) => {
-                                    let value = term_freqs[term_id] as i64 + 1;
-                                    if value > i32::MAX as i64 {
-                                        return Err(LuceneError::number_overflow(
-                                            "term_freqs".to_string(),
-                                        ));
-                                    }
-                                    term_freqs[term_id] += 1;
-                                },
-                                None => unreachable!(),
-                            }
+                        postings.last_doc_codes[term_id] =
+                            (doc_id - postings.last_doc_ids[term_id]) << 1;
+                        postings.last_doc_ids[term_id] = doc_id;
+                    } else {
+                        match &mut postings.term_freqs {
+                            Some(term_freqs) => {
+                                let value = term_freqs[term_id] as i64 + 1;
+                                if value > i32::MAX as i64 {
+                                    return Err(LuceneError::number_overflow(
+                                        "term_freqs".to_string(),
+                                    ));
+                                }
+                                term_freqs[term_id] += 1;
+                            },
+                            None => unreachable!(),
                         }
-                    },
-                    _ => unreachable!(),
+                    }
                 },
-                None => {
-                    unreachable!()
-                },
+                _ => unreachable!(),
             }
             if need_write {
                 for x in v {
-                    TermsHashPerField::write_vint(&mut self.base, 0, x)?;
+                    TermsHashPerField::write_vint(per_field, 0, x)?;
                 }
             }
             Ok(())
         }
 
-        fn finish(&mut self) {
-            self.base.finish()
-        }
+        fn finish(&mut self) {}
     }
 }
