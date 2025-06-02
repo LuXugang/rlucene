@@ -20,7 +20,7 @@ use crate::index::freq_prox_terms_writer_per_field::FreqProxTermsWriterPerField;
 use crate::index::term_vectors_consumer_per_field::TermVectorsConsumerPerField;
 #[cfg(test)]
 use crate::index::terms_hash_per_field::tests::TermsHashPerFieldMock;
-use crate::index::terms_hash_per_field::TermsHashPerFieldBase;
+use crate::index::terms_hash_per_field::{TermsHashPerField, TermsHashPerFieldBase};
 use crate::index::BytesRef;
 use crate::util::error::lucene_error::Result;
 use crate::util::ByteBlockPoolBorrow;
@@ -93,10 +93,16 @@ impl TermsHashPerFieldEnum {
 
     pub(crate) fn write_vint(&mut self, stream: i32, i: i32) -> Result<()> {
         match self {
-            TermsHashPerFieldEnum::TermVectorsConsumer(inner) => inner.base.write_vint(stream, i),
-            TermsHashPerFieldEnum::FreqProxTermsWriter(inner) => inner.base.write_vint(stream, i),
+            TermsHashPerFieldEnum::TermVectorsConsumer(inner) => {
+                TermsHashPerField::write_vint(&mut inner.base, stream, i)
+            },
+            TermsHashPerFieldEnum::FreqProxTermsWriter(inner) => {
+                TermsHashPerField::write_vint(&mut inner.base, stream, i)
+            },
             #[cfg(test)]
-            TermsHashPerFieldEnum::Mock(inner) => inner.base.write_vint(stream, i),
+            TermsHashPerFieldEnum::Mock(inner) => {
+                TermsHashPerField::write_vint(&mut inner.base, stream, i)
+            },
         }
     }
     pub(crate) fn get_byte_block_pool(&self) -> ByteBlockPoolBorrow {
@@ -158,7 +164,7 @@ impl TermsHashPerFieldEnum {
             debug_assert!(parent.next_per_field.is_some());
             if let Some(ref next_per_field) = parent.next_per_field {
                 let mut next_per_field = next_per_field.borrow_mut();
-                let postings_array_wrapper = parent.postings_array_wrapper.borrow_mut();
+                let postings_array_wrapper = &parent.bytes_hash.bytes_start_array.per_field;
                 debug_assert!(postings_array_wrapper.postings_array.is_some());
                 let text_start = postings_array_wrapper
                     .postings_array

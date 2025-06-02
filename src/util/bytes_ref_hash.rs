@@ -61,7 +61,7 @@ where
     pub(crate) count: i32,
     last_count: i32,
     pub ids: Vec<i32>,
-    bytes_start_array: BSA,
+    pub(crate) bytes_start_array: BSA,
     bytes_used: C,
 }
 #[allow(unused)]

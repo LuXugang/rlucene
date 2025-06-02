@@ -69,12 +69,11 @@ pub struct TermsHashPerField {
     pub(crate) bytes_hash: BytesRefHash<
         CounterEnumBorrow,
         ByteBlockPoolBorrow,
-        PostingsBytesStartArray<CounterEnumBorrow, STPostingsArrayWrapper>,
+        PostingsBytesStartArray<CounterEnumBorrow>,
     >,
     last_doc_id: i32, // only used with debug/asserts
     sorted_term_ids: bool,
     pub(crate) do_next_call: bool,
-    pub(crate) postings_array_wrapper: Rc<RefCell<PostingsArrayWrapper>>,
 }
 pub(crate) struct PostingsArrayWrapper {
     pub(crate) postings_array: Option<PostingsArrayEnum>,
@@ -108,16 +107,13 @@ impl TermsHashPerField {
         next_per_field: Option<Rc<RefCell<TermsHashPerFieldEnum>>>,
         field_name: String,
         index_options: IndexOptions,
-        postings_array_wrapper: Rc<RefCell<PostingsArrayWrapper>>,
+        postings_array_wrapper: PostingsArrayWrapper,
     ) -> Self {
         // In the original Java code, we assert that indexOptions !=
         // IndexOptions.NONE.
         debug_assert!(index_options != IndexOptions::None);
         let slice_pool = ByteSlicePool;
-        let byte_starts = PostingsBytesStartArray {
-            per_field: postings_array_wrapper.clone(),
-            bytes_used,
-        };
+        let byte_starts = PostingsBytesStartArray::new(postings_array_wrapper, bytes_used);
 
         let bytes_hash = BytesRefHash::from_bytes_start_array(
             term_byte_pool,
@@ -139,13 +135,12 @@ impl TermsHashPerField {
             last_doc_id: 0,
             sorted_term_ids: false,
             do_next_call: false,
-            postings_array_wrapper,
         }
     }
     pub(crate) fn init_reader(&self, reader: &mut ByteSliceReader, term_id: i32, stream: i32) {
         debug_assert!(stream < self.stream_count);
         let term_id = term_id as usize;
-        let postings_array_wrapper = self.postings_array_wrapper.borrow_mut();
+        let postings_array_wrapper = &self.bytes_hash.bytes_start_array.per_field;
         let stream_start_offset = postings_array_wrapper
             .postings_array
             .as_ref()
@@ -278,13 +273,13 @@ impl TermsHashPerField {
         }
         Ok(())
     }
-    pub(crate) fn write_vint(&mut self, stream: i32, mut i: i32) -> Result<()> {
-        debug_assert!(stream < self.stream_count);
+    pub(crate) fn write_vint(base: &mut TermsHashPerField, stream: i32, mut i: i32) -> Result<()> {
+        debug_assert!(stream < base.stream_count);
         while (i & !0x7F) != 0 {
-            self.write_byte(stream, ((i & 0x7F) | 0x80) as u8)?;
+            base.write_byte(stream, ((i & 0x7F) | 0x80) as u8)?;
             i = ((i as u32) >> 7) as i32;
         }
-        self.write_byte(stream, i as u8)
+        base.write_byte(stream, i as u8)
     }
 
     pub(crate) fn get_next_per_field(&self) -> Rc<RefCell<TermsHashPerFieldEnum>> {
@@ -341,7 +336,7 @@ impl TermsHashPerField {
             self.term_stream_address_buffer_index = int_pool.buffer_upto;
             self.stream_address_offset = int_pool.int_upto;
             int_pool.int_upto += self.stream_count;
-            let mut postings_array_wrapper = self.postings_array_wrapper.borrow_mut();
+            let mut postings_array_wrapper = &mut self.bytes_hash.bytes_start_array.per_field;
             debug_assert!(postings_array_wrapper.postings_array.is_some());
             postings_array_wrapper
                 .postings_array
@@ -376,7 +371,7 @@ impl TermsHashPerField {
 
     pub(crate) fn position_stream_slice(&mut self, term_id: i32, _doc_id: i32) -> i32 {
         let term_id = (-term_id) - 1;
-        let postings_array_wrapper = self.postings_array_wrapper.borrow_mut();
+        let postings_array_wrapper = &self.bytes_hash.bytes_start_array.per_field;
         debug_assert!(postings_array_wrapper.postings_array.is_some());
         let int_start = postings_array_wrapper
             .postings_array
@@ -435,77 +430,65 @@ pub(crate) trait TermsHashPerFieldBase {
     /// Finish adding all instances of this field to the current document.
     fn finish(&mut self);
 }
-pub(crate) struct PostingsBytesStartArray<C, P>
+pub(crate) struct PostingsBytesStartArray<C>
 where
     C: Access<CounterEnum>,
-    P: Access<PostingsArrayWrapper>,
 {
-    per_field: P,
+    pub(crate) per_field: PostingsArrayWrapper,
     bytes_used: C,
 }
 #[allow(unused)]
-impl<C, P> PostingsBytesStartArray<C, P>
+impl<C> PostingsBytesStartArray<C>
 where
     C: Access<CounterEnum>,
-    P: Access<PostingsArrayWrapper>,
 {
-    pub(crate) fn new(per_field: P, bytes_used: C) -> Self {
+    pub(crate) fn new(per_field: PostingsArrayWrapper, bytes_used: C) -> Self {
         Self {
             per_field,
             bytes_used,
         }
     }
 }
-impl<C, P> BytesStartArray for PostingsBytesStartArray<C, P>
+impl<C> BytesStartArray for PostingsBytesStartArray<C>
 where
     C: Access<CounterEnum>,
-    P: Access<PostingsArrayWrapper>,
 {
     fn init(&mut self) {
-        self.per_field.access_mut(|postings_array_wrapper| {
-            if postings_array_wrapper.postings_array.is_none() {
-                postings_array_wrapper.postings_array = Option::from(
-                    postings_array_wrapper
-                        .terms_hash_per_field_type
-                        .new_per_field(2),
-                );
-                if let Some(ref mut postings_array) = postings_array_wrapper.postings_array {
-                    let byte_used = postings_array.bytes_per_posting() + postings_array.get_size();
-                    let _ = self
-                        .bytes_used
-                        .access_mut(|bytes_used| bytes_used.add_and_get(byte_used as i64));
-                }
-            }
-        })
-    }
-
-    fn grow(&mut self) -> Result<()> {
-        self.per_field.access_mut(|postings_array_wrapper| {
-            debug_assert!(postings_array_wrapper.postings_array.is_some());
-            let postings_array = postings_array_wrapper.postings_array.as_mut().unwrap();
-            let old_size = postings_array.get_size();
-            postings_array.grow()?;
-            self.bytes_used.access_mut(|bytes_used| {
-                bytes_used.add_and_get(
-                    (postings_array.bytes_per_posting() * (postings_array.get_size() - old_size))
-                        as i64,
-                )
-            });
-            Ok(())
-        })
-    }
-
-    fn clear(&mut self) {
-        self.per_field.access_mut(|postings_array_wrapper| {
-            if postings_array_wrapper.postings_array.is_some() {
-                let postings_array = postings_array_wrapper.postings_array.as_ref().unwrap();
+        if self.per_field.postings_array.is_none() {
+            self.per_field.postings_array =
+                Option::from(self.per_field.terms_hash_per_field_type.new_per_field(2));
+            if let Some(ref mut postings_array) = self.per_field.postings_array {
                 let byte_used = postings_array.bytes_per_posting() + postings_array.get_size();
                 let _ = self
                     .bytes_used
-                    .access_mut(|bytes_used| bytes_used.add_and_get(-byte_used as i64));
-                postings_array_wrapper.postings_array = None;
+                    .access_mut(|bytes_used| bytes_used.add_and_get(byte_used as i64));
             }
-        })
+        }
+    }
+
+    fn grow(&mut self) -> Result<()> {
+        debug_assert!(self.per_field.postings_array.is_some());
+        let postings_array = self.per_field.postings_array.as_mut().unwrap();
+        let old_size = postings_array.get_size();
+        postings_array.grow()?;
+        self.bytes_used.access_mut(|bytes_used| {
+            bytes_used.add_and_get(
+                (postings_array.bytes_per_posting() * (postings_array.get_size() - old_size))
+                    as i64,
+            )
+        });
+        Ok(())
+    }
+
+    fn clear(&mut self) {
+        if self.per_field.postings_array.is_some() {
+            let postings_array = self.per_field.postings_array.as_ref().unwrap();
+            let byte_used = postings_array.bytes_per_posting() + postings_array.get_size();
+            let _ = self
+                .bytes_used
+                .access_mut(|bytes_used| bytes_used.add_and_get(-byte_used as i64));
+            self.per_field.postings_array = None;
+        }
     }
 
     type Counter = C;
@@ -515,37 +498,31 @@ where
     }
 
     fn get_value(&self, index: usize) -> i32 {
-        self.per_field.access_mut(|postings_array_wrapper| {
-            debug_assert!(postings_array_wrapper.postings_array.is_some());
-            postings_array_wrapper
-                .postings_array
-                .as_ref()
-                .unwrap()
-                .get_text_starts()[index]
-        })
+        debug_assert!(self.per_field.postings_array.is_some());
+        self.per_field
+            .postings_array
+            .as_ref()
+            .unwrap()
+            .get_text_starts()[index]
     }
 
     fn set_value(&mut self, index: usize, value: i32) {
-        self.per_field.access_mut(|postings_array_wrapper| {
-            debug_assert!(postings_array_wrapper.postings_array.is_some());
-            postings_array_wrapper
-                .postings_array
-                .as_mut()
-                .unwrap()
-                .set_text_starts(index, value)
-        })
+        debug_assert!(self.per_field.postings_array.is_some());
+        self.per_field
+            .postings_array
+            .as_mut()
+            .unwrap()
+            .set_text_starts(index, value)
     }
 
     fn len(&self) -> usize {
-        self.per_field.access_mut(|postings_array_wrapper| {
-            debug_assert!(postings_array_wrapper.postings_array.is_some());
-            postings_array_wrapper
-                .postings_array
-                .as_ref()
-                .unwrap()
-                .get_text_starts()
-                .len()
-        })
+        debug_assert!(self.per_field.postings_array.is_some());
+        self.per_field
+            .postings_array
+            .as_ref()
+            .unwrap()
+            .get_text_starts()
+            .len()
     }
 }
 #[allow(unused)]
@@ -623,7 +600,7 @@ pub(crate) mod tests {
 
     fn assert_doc_and_freq(
         reader: &mut ByteSliceReader,
-        parent: Rc<RefCell<PostingsArrayWrapper>>,
+        parent: &PostingsArrayWrapper,
         prev_doc: i32,
         term_id: i32,
         doc: i32,
@@ -631,8 +608,7 @@ pub(crate) mod tests {
     ) -> Result<bool> {
         assert!(term_id >= 0);
         let term_id = term_id as usize;
-        let mut postings_array_enum = parent.borrow_mut();
-        let postings_array_enum = postings_array_enum.postings_array.as_mut().unwrap();
+        let postings_array_enum = parent.postings_array.as_ref().unwrap();
         let postings_array = match postings_array_enum {
             PostingsArrayEnum::FreqProx(freq_prox) => freq_prox,
             _ => {
@@ -644,7 +620,7 @@ pub(crate) mod tests {
         let eof = reader.eof();
         if eof {
             doc_id = postings_array.last_doc_ids[term_id];
-            match &mut postings_array.term_freqs {
+            match &postings_array.term_freqs {
                 Some(term_freqs) => {
                     freq = term_freqs[term_id];
                 },
@@ -720,99 +696,31 @@ pub(crate) mod tests {
 
         let mut reader = ByteSliceReader::new();
         let parent = match &hash {
-            TermsHashPerFieldEnum::Mock(inner) => &mut inner.postings_array_wrapper.clone(),
+            TermsHashPerFieldEnum::Mock(inner) => {
+                &inner.base.bytes_hash.bytes_start_array.per_field
+            },
             _ => {
                 unreachable!();
             },
         };
         hash.init_reader(&mut reader, 0, 0);
 
-        assert!(assert_doc_and_freq(
-            &mut reader,
-            parent.clone(),
-            0,
-            0,
-            0,
-            1
-        )?);
+        assert!(assert_doc_and_freq(&mut reader, parent, 0, 0, 0, 1)?);
         hash.init_reader(&mut reader, 1, 0);
-        assert!(assert_doc_and_freq(
-            &mut reader,
-            parent.clone(),
-            0,
-            1,
-            0,
-            1
-        )?);
+        assert!(assert_doc_and_freq(&mut reader, parent, 0, 1, 0, 1)?);
         hash.init_reader(&mut reader, 2, 0);
-        assert!(!assert_doc_and_freq(
-            &mut reader,
-            parent.clone(),
-            0,
-            2,
-            0,
-            1
-        )?);
-        assert!(assert_doc_and_freq(
-            &mut reader,
-            parent.clone(),
-            2,
-            2,
-            1,
-            3
-        )?);
+        assert!(!assert_doc_and_freq(&mut reader, parent, 0, 2, 0, 1)?);
+        assert!(assert_doc_and_freq(&mut reader, parent, 2, 2, 1, 3)?);
         hash.init_reader(&mut reader, 3, 0);
-        assert!(assert_doc_and_freq(
-            &mut reader,
-            parent.clone(),
-            0,
-            3,
-            1,
-            2
-        )?);
+        assert!(assert_doc_and_freq(&mut reader, parent, 0, 3, 1, 2)?);
         hash.init_reader(&mut reader, 4, 0);
-        assert!(!assert_doc_and_freq(
-            &mut reader,
-            parent.clone(),
-            0,
-            4,
-            1,
-            1
-        )?);
-        assert!(!assert_doc_and_freq(
-            &mut reader,
-            parent.clone(),
-            1,
-            4,
-            2,
-            1
-        )?);
-        assert!(assert_doc_and_freq(
-            &mut reader,
-            parent.clone(),
-            2,
-            4,
-            3,
-            1
-        )?);
+        assert!(!assert_doc_and_freq(&mut reader, parent, 0, 4, 1, 1)?);
+        assert!(!assert_doc_and_freq(&mut reader, parent, 1, 4, 2, 1)?);
+        assert!(assert_doc_and_freq(&mut reader, parent, 2, 4, 3, 1)?);
         hash.init_reader(&mut reader, 5, 0);
-        assert!(assert_doc_and_freq(
-            &mut reader,
-            parent.clone(),
-            0,
-            5,
-            2,
-            1
-        )?);
+        assert!(assert_doc_and_freq(&mut reader, parent, 0, 5, 2, 1)?);
         hash.init_reader(&mut reader, 6, 0);
-        assert!(assert_doc_and_freq(
-            &mut reader,
-            parent.clone(),
-            0,
-            6,
-            3,
-            1
-        )?);
+        assert!(assert_doc_and_freq(&mut reader, parent, 0, 6, 3, 1)?);
         Ok(())
     }
     #[test]
@@ -892,7 +800,9 @@ pub(crate) mod tests {
         values.shuffle(&mut random);
         let mut reader = ByteSliceReader::new();
         let parent = match &hash {
-            TermsHashPerFieldEnum::Mock(inner) => &mut inner.postings_array_wrapper.clone(),
+            TermsHashPerFieldEnum::Mock(inner) => {
+                &inner.base.bytes_hash.bytes_start_array.per_field
+            },
             _ => {
                 unreachable!();
             },
@@ -906,14 +816,8 @@ pub(crate) mod tests {
             for (doc, freq) in posting.doc_and_freq {
                 assert!(!eof, "the reader must not be EOF here");
 
-                eof = assert_doc_and_freq(
-                    &mut reader,
-                    parent.clone(),
-                    pref_doc,
-                    posting.term_id,
-                    doc,
-                    freq,
-                )?;
+                eof =
+                    assert_doc_and_freq(&mut reader, parent, pref_doc, posting.term_id, doc, freq)?;
 
                 pref_doc = doc;
             }
@@ -976,7 +880,6 @@ pub(crate) mod tests {
     }
 
     pub(crate) struct TermsHashPerFieldMock {
-        pub(crate) postings_array_wrapper: Rc<RefCell<PostingsArrayWrapper>>,
         pub(crate) base: TermsHashPerField,
         new_called: AtomicI64,
         add_called: AtomicI64,
@@ -995,9 +898,7 @@ pub(crate) mod tests {
             let term_block_pool = Rc::new(RefCell::new(ByteBlockPool::new(allocator1)));
             let bytes_used = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
 
-            let postings_array_wrapper = Rc::new(RefCell::new(PostingsArrayWrapper::new(
-                TermsHashPerFieldType::Mock,
-            )));
+            let postings_array_wrapper = PostingsArrayWrapper::new(TermsHashPerFieldType::Mock);
 
             let parent_per_filed = TermsHashPerField::new(
                 1,
@@ -1008,10 +909,9 @@ pub(crate) mod tests {
                 None,
                 "field_name".to_string(),
                 IndexOptions::DocsAndFreqs,
-                postings_array_wrapper.clone(),
+                postings_array_wrapper,
             );
             Ok(TermsHashPerFieldEnum::Mock(TermsHashPerFieldMock {
-                postings_array_wrapper,
                 base: parent_per_filed,
                 new_called,
                 add_called,
@@ -1038,7 +938,7 @@ pub(crate) mod tests {
             self.new_called
                 .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             let term_id = term_id as usize;
-            let mut postings_array_wrapper = self.postings_array_wrapper.borrow_mut();
+            let mut postings_array_wrapper = &mut self.base.bytes_hash.bytes_start_array.per_field;
             debug_assert!(postings_array_wrapper.postings_array.is_some());
             match &mut postings_array_wrapper.postings_array {
                 Some(postings_array) => match postings_array {
@@ -1065,21 +965,22 @@ pub(crate) mod tests {
             self.add_called
                 .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             let term_id = term_id as usize;
-            let mut postings_array_wrapper = self.postings_array_wrapper.borrow_mut();
+            let mut postings_array_wrapper = &mut self.base.bytes_hash.bytes_start_array.per_field;
             debug_assert!(postings_array_wrapper.postings_array.is_some());
+            let mut v = Vec::new();
+            let mut need_write = false;
             match &mut postings_array_wrapper.postings_array {
                 Some(postings_array) => match postings_array {
                     PostingsArrayEnum::FreqProx(postings) => {
                         if doc_id != postings.last_doc_ids[term_id] {
                             match &mut postings.term_freqs {
                                 Some(term_freqs) => {
+                                    need_write = true;
                                     if 1 == term_freqs[term_id] {
-                                        self.base
-                                            .write_vint(0, postings.last_doc_codes[term_id] | 1)?;
+                                        v.push(postings.last_doc_codes[term_id] | 1);
                                     } else {
-                                        self.base
-                                            .write_vint(0, postings.last_doc_codes[term_id])?;
-                                        self.base.write_vint(0, term_freqs[term_id])?;
+                                        v.push(postings.last_doc_codes[term_id]);
+                                        v.push(term_freqs[term_id]);
                                     }
                                     term_freqs[term_id] = 1;
                                 },
@@ -1088,7 +989,6 @@ pub(crate) mod tests {
                             postings.last_doc_codes[term_id] =
                                 (doc_id - postings.last_doc_ids[term_id]) << 1;
                             postings.last_doc_ids[term_id] = doc_id;
-                            Ok(())
                         } else {
                             match &mut postings.term_freqs {
                                 Some(term_freqs) => {
@@ -1099,7 +999,6 @@ pub(crate) mod tests {
                                         ));
                                     }
                                     term_freqs[term_id] += 1;
-                                    Ok(())
                                 },
                                 None => unreachable!(),
                             }
@@ -1111,6 +1010,12 @@ pub(crate) mod tests {
                     unreachable!()
                 },
             }
+            if need_write {
+                for x in v {
+                    TermsHashPerField::write_vint(&mut self.base, 0, x)?;
+                }
+            }
+            Ok(())
         }
 
         fn finish(&mut self) {
