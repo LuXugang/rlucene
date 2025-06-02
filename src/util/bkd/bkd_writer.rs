@@ -1413,6 +1413,7 @@ where
                 debug_assert!(has_next);
                 writer.append_point_value(reader.point_value())?;
             }
+            writer.close();
             Ok(())
         })();
         source.take_data(reader.remove_points());
