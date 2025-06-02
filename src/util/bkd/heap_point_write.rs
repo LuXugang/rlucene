@@ -41,6 +41,21 @@ pub struct HeapPointWriter {
     pub closed: bool,
     pub point_value: Option<PointValueEnum>,
 }
+impl Default for HeapPointWriter {
+    fn default() -> Self {
+        Self {
+            block: vec![],
+            size: 0,
+            config: Rc::new(BKDConfig::default()),
+            scratch: vec![],
+            dim_comparator: ArrayUtil::get_unsigned_comparator(1),
+            data_dims_and_doc_length: 0,
+            next_write: 0,
+            closed: false,
+            point_value: None,
+        }
+    }
+}
 
 impl HeapPointWriter {
     pub fn new(config: Rc<BKDConfig>, size: i32) -> Self {

@@ -1005,17 +1005,14 @@ where
             .write_doc_ids(doc_ids, start, count, out)?;
         Ok(())
     }
-    fn write_leaf_block_packed_values<F>(
+    fn write_leaf_block_packed_values(
         &mut self,
         out: &mut impl DataOutput,
         count: i32,
         sorted_dim: i32,
-        packed_values: &mut F,
+        packed_values: &mut impl PackedValues,
         leaf_cardinality: i32,
-    ) -> Result<()>
-    where
-        F: FnMut(i32) -> PackedValueResult,
-    {
+    ) -> Result<()> {
         let prefix_len_sum: i32 = self.common_prefix_lengths.iter().sum();
         if prefix_len_sum == self.config.packed_bytes_length() {
             // all values in this block are equal
@@ -1080,33 +1077,29 @@ where
         }
         Ok(())
     }
-    fn write_low_cardinality_leaf_block_packed_values<F>(
+    fn write_low_cardinality_leaf_block_packed_values(
         &mut self,
         out: &mut impl DataOutput,
         count: i32,
-        packed_values: &mut F,
-    ) -> Result<()>
-    where
-        F: FnMut(i32) -> PackedValueResult,
-    {
+        packed_values: &mut impl PackedValues,
+    ) -> Result<()> {
         if self.config.num_index_dims != 1 {
             self.write_actual_bounds(out, count, packed_values)?;
         }
 
-        let (bytes_ref, offset, length) = packed_values(0)?;
+        let (bytes_ref, offset, length) = packed_values.get_value(0)?;
         self.scratch.copy_from(
-            &bytes_ref.borrow()
-                [offset as usize..(offset + self.config.packed_bytes_length()) as usize],
+            &bytes_ref[offset as usize..(offset + self.config.packed_bytes_length()) as usize],
             0,
         );
 
         let mut cardinality = 1;
         for i in 1..count {
-            let (bytes_ref, offset, length) = packed_values(i)?;
+            let (bytes_ref, offset, length) = packed_values.get_value(i)?;
             for dim in 0..self.config.num_dims {
                 let start = (dim * self.config.bytes_per_dim) as usize;
                 if !self.equals_predicate.test(
-                    &bytes_ref.borrow(),
+                    bytes_ref,
                     offset as usize + start,
                     &self.scratch,
                     start,
@@ -1120,7 +1113,7 @@ where
                         )?;
                     }
                     self.scratch.copy_from(
-                        &bytes_ref.borrow()[offset as usize
+                        &bytes_ref[offset as usize
                             ..(offset + self.config.packed_bytes_length()) as usize],
                         0,
                     );
@@ -1143,17 +1136,14 @@ where
 
         Ok(())
     }
-    fn write_high_cardinality_leaf_block_packed_values<F>(
+    fn write_high_cardinality_leaf_block_packed_values(
         &mut self,
         out: &mut impl DataOutput,
         count: i32,
         sorted_dim: i32,
-        packed_values: &mut F,
+        packed_values: &mut impl PackedValues,
         compressed_byte_offset: usize,
-    ) -> Result<()>
-    where
-        F: FnMut(i32) -> PackedValueResult,
-    {
+    ) -> Result<()> {
         if self.config.num_index_dims != 1 {
             self.write_actual_bounds(out, count, packed_values)?;
         }
@@ -1171,8 +1161,8 @@ where
             )?;
             debug_assert!(run_len <= 0xff);
 
-            let (bytes_ref, offset, _) = packed_values(i)?;
-            let prefix_byte = bytes_ref.borrow()[offset as usize + compressed_byte_offset];
+            let (bytes_ref, offset, _) = packed_values.get_value(i)?;
+            let prefix_byte = bytes_ref[offset as usize + compressed_byte_offset];
 
             out.write_byte(prefix_byte)?;
             out.write_byte(run_len as u8)?;
@@ -1184,15 +1174,12 @@ where
 
         Ok(())
     }
-    fn write_actual_bounds<F>(
+    fn write_actual_bounds(
         &self,
         out: &mut impl DataOutput,
         count: i32,
-        packed_values: &mut F,
-    ) -> Result<()>
-    where
-        F: FnMut(i32) -> PackedValueResult,
-    {
+        packed_values: &mut impl PackedValues,
+    ) -> Result<()> {
         for dim in 0..self.config.num_index_dims {
             let common_prefix_length = self.common_prefix_lengths[dim as usize];
             let suffix_length = self.config.bytes_per_dim - common_prefix_length;
@@ -1213,30 +1200,27 @@ where
     }
     /// Return an array that contains the min and max values for the [offset,
     /// offset+length] interval of the given {@link BytesRef}s.
-    fn compute_min_max<F>(
+    fn compute_min_max(
         &self,
         count: i32,
-        packed_values: &mut F,
+        packed_values: &mut impl PackedValues,
         offset: i32,
         length: i32,
-    ) -> Result<(BytesRef<Vec<u8>>, BytesRef<Vec<u8>>)>
-    where
-        F: FnMut(i32) -> PackedValueResult,
-    {
+    ) -> Result<(BytesRef<Vec<u8>>, BytesRef<Vec<u8>>)> {
         debug_assert!(length > 0);
-        let (bytes_ref, first_offset, _first_length) = packed_values(0)?;
+        let (bytes_ref, first_offset, _first_length) = packed_values.get_value(0)?;
         let mut min: BytesRefBuilder<Vec<u8>> = BytesRefBuilder::new();
         let mut max: BytesRefBuilder<Vec<u8>> = BytesRefBuilder::new();
-        let bytes = bytes_ref.borrow();
-        min.copy_bytes_with_vec(&bytes, (first_offset + offset) as usize, length as usize);
-        max.copy_bytes_with_vec(&bytes, (first_offset + offset) as usize, length as usize);
+        let bytes = bytes_ref;
+        min.copy_bytes_with_vec(bytes, (first_offset + offset) as usize, length as usize);
+        max.copy_bytes_with_vec(bytes, (first_offset + offset) as usize, length as usize);
 
         let length_usize = length as usize;
         let offset_usize = offset as usize;
         for i in 1..count {
-            let (bytes_ref, candidate_offset, _candidate_length) = packed_values(i)?;
+            let (bytes_ref, candidate_offset, _candidate_length) = packed_values.get_value(i)?;
             let candidate_offset_usize = candidate_offset as usize;
-            let candidate_bytes = bytes_ref.borrow();
+            let candidate_bytes = bytes_ref;
             if min.bytes_ref().bytes[0..length_usize]
                 .cmp(
                     &candidate_bytes[candidate_offset_usize + offset_usize
@@ -1246,7 +1230,7 @@ where
                 > 0
             {
                 min.copy_bytes_with_vec(
-                    &candidate_bytes,
+                    candidate_bytes,
                     (candidate_offset + offset) as usize,
                     length as usize,
                 );
@@ -1259,7 +1243,7 @@ where
                 < 0
             {
                 max.copy_bytes_with_vec(
-                    &candidate_bytes,
+                    candidate_bytes,
                     (candidate_offset + offset) as usize,
                     length as usize,
                 )
@@ -1267,24 +1251,21 @@ where
         }
         Ok((min.get_bytes_owner(), max.get_bytes_owner()))
     }
-    fn write_leaf_block_packed_values_range<F>(
+    fn write_leaf_block_packed_values_range(
         &self,
         out: &mut impl DataOutput,
         start: i32,
         end: i32,
-        packed_values: &mut F,
-    ) -> Result<()>
-    where
-        F: FnMut(i32) -> PackedValueResult,
-    {
+        packed_values: &mut impl PackedValues,
+    ) -> Result<()> {
         for i in start..end {
-            let (bytes_ref, offset, length) = packed_values(i)?;
+            let (bytes_ref, offset, length) = packed_values.get_value(i)?;
             debug_assert!(length == self.config.packed_bytes_length());
 
             for dim in 0..self.config.num_dims {
                 let prefix = self.common_prefix_lengths[dim as usize];
                 out.write_bytes_range(
-                    &bytes_ref.borrow(),
+                    bytes_ref,
                     offset + (dim * self.config.bytes_per_dim) + prefix,
                     self.config.bytes_per_dim - prefix,
                 )?;
@@ -1293,15 +1274,17 @@ where
         Ok(())
     }
 
-    fn run_len<F>(packed_values: &mut F, start: i32, end: i32, byte_offset: usize) -> Result<i32>
-    where
-        F: FnMut(i32) -> PackedValueResult,
-    {
-        let (bytes_ref, offset, _) = packed_values(start)?;
-        let b = bytes_ref.borrow()[offset as usize + byte_offset];
+    fn run_len(
+        packed_values: &mut impl PackedValues,
+        start: i32,
+        end: i32,
+        byte_offset: usize,
+    ) -> Result<i32> {
+        let (bytes_ref, offset, _) = packed_values.get_value(start)?;
+        let b = bytes_ref[offset as usize + byte_offset];
         for i in (start + 1)..end {
-            let (bytes_ref, offset, _) = packed_values(i)?;
-            let b2 = bytes_ref.borrow()[offset as usize + byte_offset];
+            let (bytes_ref, offset, _) = packed_values.get_value(i)?;
+            let b2 = bytes_ref[offset as usize + byte_offset];
             debug_assert!(b2 >= b);
             if b != b2 {
                 return Ok(i - start);
@@ -1557,17 +1540,10 @@ where
                 self.write_common_prefixes(out, &self.common_prefix_lengths, &self.scratch)?;
             }
             // Write the full values:
-            let reader = reader.clone();
-            let mut packed_values = move |i: i32| -> PackedValueResult {
-                let mut scratch = BytesRef::default();
-                reader.borrow().get_value(i + from, &mut scratch);
-
-                let byte = std::mem::take(&mut scratch.bytes);
-                Ok((
-                    Rc::new(RefCell::new(byte)),
-                    scratch.offset as i32,
-                    scratch.length as i32,
-                ))
+            let mut packed_values = PackedValuesImpl2 {
+                scratch: BytesRef::new(),
+                reader: reader.clone(),
+                from,
             };
             debug_assert!(values_in_order_and_bounds(
                 self.config.clone(),
@@ -1877,25 +1853,11 @@ where
 
             self.write_common_prefixes(out, &self.common_prefix_lengths, &self.scratch)?;
 
-            let heap_source = heap_source.clone();
-            let mut packed_values = move |i: i32| -> PackedValueResult {
-                // TODO: 这里不需要使用Rc<RefCell>封装PointWriterEnum，
-                // 这样我就可以返回数组的引用了, 以后来该
-                let mut point_writer = heap_source.borrow_mut();
-                match &mut *point_writer {
-                    PointWriterEnum::Heap(heap) => {
-                        let point_value_ref = heap.get_packed_value_slice(from + i);
-                        let (bytes_ref, offset, length) = point_value_ref.packed_value();
-                        let v = Rc::new(RefCell::new(bytes_ref.to_vec()));
-                        // TODO: 这里不能Clone  一会来该
-                        Ok((v, offset, length))
-                    },
-                    _ => Err(LuceneError::illegal_state(
-                        "Point writer is not a heap".to_string(),
-                    )),
-                }
+            let mut packed_values = PackedValuesImpl3 {
+                heap_source: heap_source.clone(),
+                bytes: vec![],
+                from,
             };
-
             debug_assert!(values_in_order_and_bounds(
                 self.config.clone(),
                 count,
@@ -2273,19 +2235,13 @@ where
             self.bkd_writer.config.packed_index_bytes_length() as usize;
         self.bkd_writer.scratch_bytes_ref1.bytes = self.leaf_values.clone();
 
-        let scratch_bytes_ref_byte = Rc::new(RefCell::new(std::mem::take(
-            &mut self.bkd_writer.scratch_bytes_ref1.bytes,
-        )));
-
         let length = self.bkd_writer.scratch_bytes_ref1.length;
         let packed_bytes_length = self.bkd_writer.config.packed_bytes_length();
 
-        let mut packed_values = move |i: i32| -> PackedValueResult {
-            Ok((
-                scratch_bytes_ref_byte.clone(),
-                packed_bytes_length * i,
-                length as i32,
-            ))
+        let mut packed_values = PackedValuesImpl1 {
+            scratch_bytes_ref_byte: std::mem::take(&mut self.bkd_writer.scratch_bytes_ref1.bytes),
+            packed_bytes_length,
+            length: length as i32,
         };
         debug_assert!(values_in_order_and_bounds(
             self.bkd_writer.config.clone(),
@@ -2314,31 +2270,28 @@ where
 }
 // only called from assert
 #[allow(clippy::too_many_arguments)]
-fn values_in_order_and_bounds<F>(
+fn values_in_order_and_bounds(
     config: Rc<BKDConfig>,
     count: i32,
     sorted_dim: i32,
     min_packed_value: &[u8],
     max_packed_value: &[u8],
-    values: &mut F,
+    values: &mut impl PackedValues,
     docs: &[i32],
     docs_offset: usize,
-) -> Result<bool>
-where
-    F: FnMut(i32) -> PackedValueResult,
-{
+) -> Result<bool> {
     let mut last_packed_value = vec![0u8; config.packed_bytes_length() as usize];
     let mut last_doc = -1;
     for i in 0..count {
-        let (bytes_ref, offset, length) = values(i)?;
-        let bytes = bytes_ref.borrow();
+        let (bytes_ref, offset, length) = values.get_value(i)?;
+        let bytes = bytes_ref;
         debug_assert_eq!(length, config.packed_bytes_length());
         debug_assert!(value_in_order(
             config.clone(),
             i as i64,
             sorted_dim,
             &mut last_packed_value,
-            &bytes,
+            bytes,
             offset,
             docs[docs_offset + i as usize],
             last_doc
@@ -2347,7 +2300,7 @@ where
         // Make sure this value does in fact fall within this leaf cell:
         debug_assert!(value_in_bounds(
             config.clone(),
-            &bytes,
+            bytes,
             offset,
             min_packed_value,
             max_packed_value
@@ -2795,3 +2748,65 @@ where
     }
 }
 type PackedValueResult = Result<(Rc<RefCell<Vec<u8>>>, i32, i32)>;
+
+trait PackedValues {
+    fn get_value(&mut self, i: i32) -> Result<(&[u8], i32, i32)>;
+}
+struct PackedValuesImpl1 {
+    scratch_bytes_ref_byte: Vec<u8>,
+    packed_bytes_length: i32,
+    length: i32,
+}
+impl PackedValues for PackedValuesImpl1 {
+    fn get_value(&mut self, i: i32) -> Result<(&[u8], i32, i32)> {
+        Ok((
+            &self.scratch_bytes_ref_byte,
+            self.packed_bytes_length * i,
+            self.length,
+        ))
+    }
+}
+
+struct PackedValuesImpl2 {
+    scratch: BytesRef<Vec<u8>>,
+    reader: Rc<RefCell<MutablePointTreeEnum>>,
+    from: i32,
+}
+impl PackedValues for PackedValuesImpl2 {
+    fn get_value(&mut self, i: i32) -> Result<(&[u8], i32, i32)> {
+        self.reader
+            .borrow()
+            .get_value(i + self.from, &mut self.scratch);
+        Ok((
+            self.scratch.bytes.as_slice(),
+            self.scratch.offset as i32,
+            self.scratch.length as i32,
+        ))
+    }
+}
+struct PackedValuesImpl3<D>
+where
+    D: Directory,
+{
+    heap_source: Rc<RefCell<PointWriterEnum<D>>>,
+    bytes: Vec<u8>,
+    from: i32,
+}
+impl<D> PackedValues for PackedValuesImpl3<D>
+where
+    D: Directory,
+{
+    fn get_value(&mut self, i: i32) -> Result<(&[u8], i32, i32)> {
+        match &mut *self.heap_source.borrow_mut() {
+            PointWriterEnum::Heap(ref mut heap_source) => {
+                let (v, offset, length) = heap_source
+                    .get_packed_value_slice(self.from + i)
+                    .packed_value();
+                // TODO; could we avoid copy here
+                self.bytes = v[offset as usize..(offset + length) as usize].to_vec();
+                Ok((self.bytes.as_slice(), 0, length))
+            },
+            _ => Err(LuceneError::illegal_argument("heap_source should be Heap")),
+        }
+    }
+}

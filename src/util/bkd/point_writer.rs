@@ -49,8 +49,16 @@ pub enum PointWriterEnum<D>
 where
     D: Directory,
 {
-    Offline(OfflinePointWriter<D>),
     Heap(HeapPointWriter),
+    Offline(OfflinePointWriter<D>),
+}
+impl<D> Default for PointWriterEnum<D>
+where
+    D: Directory,
+{
+    fn default() -> Self {
+        PointWriterEnum::Heap(HeapPointWriter::default())
+    }
 }
 impl<D: Directory> PointWriterEnum<D> {
     pub fn take_data(&mut self, v: Option<PointValueEnum>) {
