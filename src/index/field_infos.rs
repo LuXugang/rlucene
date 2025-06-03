@@ -24,7 +24,6 @@ use crate::index::field_info::FieldInfo;
 use crate::index::index_options::IndexOptions;
 use crate::index::vector_encoding::VectorEncoding;
 use crate::index::vector_similarity_function::VectorSimilarityFunction;
-use crate::util::collection_util::CollectionUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 
 /// Collection of FieldInfos (accessible by number or by name).
@@ -66,7 +65,7 @@ impl FieldInfos {
         let mut soft_deletes_field: Option<String> = None;
         let mut parent_field: Option<String> = None;
 
-        let mut by_name = CollectionUtil::new_hashmap(infos.len() as i32);
+        let mut by_name = HashMap::new();
         let mut max_field_number = -1;
         let mut field_number_strictly_ascending = true;
 
