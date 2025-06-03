@@ -16,27 +16,10 @@
  */
 use std::fmt::{Display, Formatter};
 
-use crate::store::random_access_input::RandomAccessInput;
 use crate::store::DataInput;
 use crate::util::error::lucene_error;
 use crate::util::error::lucene_error::LuceneError;
-use crate::util::fst_impl::byte_block_pool_reverse_bytes_reader::ByteBlockPoolReverseBytesReader;
 use crate::util::fst_impl::fst::BytesReader;
-use crate::util::fst_impl::read_write_data_output::BytesReaderImpl;
-use crate::util::fst_impl::reverse_bytes_reader::ReverseBytesReader;
-use crate::util::fst_impl::reverse_random_access_reader::ReverseRandomAccessReader;
-
-#[allow(unused)]
-pub(crate) enum BytesReaderEnum<R>
-where
-    R: RandomAccessInput,
-{
-    ByteBlockPoolReverse(ByteBlockPoolReverseBytesReader),
-    ReverseBytes(ReverseBytesReader),
-    ReverseRandomAccess(ReverseRandomAccessReader<R>),
-    Dummy(DummyBytesReader),
-    Impl(BytesReaderImpl),
-}
 
 pub struct DummyBytesReader;
 

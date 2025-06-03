@@ -167,7 +167,6 @@ where
     /// than `intersect(IntersectVisitor)`.
     ///
     /// See also: `DocIdSetIterator::cost`
-    #[allow(unused)]
     fn estimate_doc_count(&self, visitor: &mut impl IntersectVisitor) -> Result<i64> {
         let estimated_point_count = self.estimate_point_count(visitor)?;
         let doc_count = self.get_doc_count()?;
@@ -263,7 +262,7 @@ pub trait PointValuesBase {
 /// query.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Relation {
-    /// Return this if the cell is fully contained by the query.
+    /// Return this if the query fully contains the cell.
     CellInsideQuery,
     /// Return this if the cell and query do not overlap.
     CellOutsideQuery,

@@ -602,7 +602,7 @@ pub(crate) mod tests {
             &mut BytesRef::default(),
             &mut BytesRef::default(),
         )?;
-        let mut reader = reader.borrow_mut();
+        let reader = reader.borrow_mut();
         let pivot_point = &reader.points[pivot as usize];
         let pivot_value = &pivot_point.packed_value;
         let offset = split_dim * config.bytes_per_dim;

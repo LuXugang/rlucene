@@ -16,11 +16,7 @@
  */
 use crate::index::point_values::PointTree;
 use crate::index::BytesRef;
-#[cfg(test)]
-use crate::test::util::bkd::test_bkd::{MutablePointTreeMock1, MutablePointTreeMock2};
 use crate::util::access::AccessVec;
-#[cfg(test)]
-use crate::util::bkd::mutable_point_tree_reader_utils::tests::DummyPointsReader;
 
 /// One leaf [PointTree] whose order of points can be changed.
 /// This trait is useful for codecs to optimize flush.
