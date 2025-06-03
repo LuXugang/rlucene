@@ -40,25 +40,19 @@ pub trait NormsProducer {
     /// for example it might compute a checksum over large data files.
     fn check_integrity(&mut self) -> Result<()>;
 
-    // type NormsProducer<'a, I: IndexInput,AV:AccessVec<u8>>: NormsProducer
-    // where
-    //     Self: 'a,
-    //     I: 'a,
-    //      AV:'a;
-    // /// Returns an instance optimized for merging.
-    // ///
-    // /// This instance may only be used from the thread that acquires it.
-    // ///
-    // /// By default, this method returns `None`, which indicates that no new
-    // /// `NormsProducerEnum` is required for merging, and the current instance
-    // /// should be used directly during merge operations.
-    // fn get_merge_instance<I,AV>(&self) ->
-    // Result<Option<Self::NormsProducer<'_, I, AV>>> where
-    //     I: IndexInput,
-    //     AV: AccessVec<u8>,
-    // {
-    //     Ok(None)
-    // }
+    /// Returns an instance optimized for merging.
+    ///
+    /// This instance may only be used from the thread that acquires it.
+    ///
+    /// By default, this method returns `None`, which indicates that no new
+    /// `NormsProducerEnum` is required for merging, and the current instance
+    /// should be used directly during merge operations.
+    fn get_merge_instance(&self) -> Result<Option<Self>>
+    where
+        Self: Sized,
+    {
+        Ok(None)
+    }
 }
 
 pub enum NormsProducerEnum<I>

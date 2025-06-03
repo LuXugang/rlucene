@@ -15,18 +15,12 @@
  * limitations under the License.
  */
 use crate::document::fields::Fields;
-use crate::index::parallel_postings_array::{
-    ParallelPostingsArray, PostingsArrayBase, PostingsArrayEnum,
-};
+use crate::index::parallel_postings_array::{ParallelPostingsArray, PostingsArrayBase};
 use crate::index::terms_hash_per_field::{TermsHashPerField, TermsHashPerFieldBase};
 use crate::util::array_util::ArrayUtil;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::Result;
-#[allow(unused)]
-pub(crate) struct TermVectorsConsumerPerField {
-    pub(crate) postings_array: Option<PostingsArrayEnum>,
-}
-#[allow(unused)]
+pub(crate) struct TermVectorsConsumerPerField {}
 impl TermVectorsConsumerPerField {
     pub(crate) fn new(_size: i32) -> Self {
         todo!()
