@@ -70,13 +70,11 @@ pub(crate) trait PostingsArrayBase {
     /// with same function name for consistent.
     fn copy_to(&mut self, new_size: i32) -> Result<()>;
 }
-#[allow(unused)]
 pub(crate) enum PostingsArrayEnum {
     Parallel(ParallelPostingsArray),
     FreqProx(FreqProxPostingsArray),
     TermVectors(TermVectorsPostingsArray),
 }
-#[allow(unused)]
 impl PostingsArrayEnum {
     pub(crate) fn bytes_per_posting(&self) -> i32 {
         match self {

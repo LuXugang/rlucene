@@ -276,8 +276,8 @@ where
         base.write_byte(stream, i as u8)
     }
 
-    pub(crate) fn get_next_per_field(&mut self) -> &mut TermsHashPerField<S> {
-        self.next_per_field.as_mut().unwrap()
+    pub(crate) fn get_next_per_field(&mut self) -> TermsHashPerField<S> {
+        *self.next_per_field.take().unwrap()
     }
 
     pub(crate) fn get_field_name(&self) -> &str {

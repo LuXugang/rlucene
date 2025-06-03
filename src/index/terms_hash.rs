@@ -21,7 +21,7 @@ use std::rc::Rc;
 use crate::codecs::norms_producer::NormsProducer;
 use crate::index::field_info::FieldInfo;
 use crate::index::field_invert_state::FieldInvertState;
-use crate::index::merge_state::DocMap;
+use crate::index::merge_state::DocMapEnum;
 use crate::index::segment_write_state::SegmentWriteState;
 use crate::index::terms_hash_per_field::{TermsHashPerField, TermsHashPerFieldBase};
 use crate::store::directory::Directory;
@@ -29,6 +29,13 @@ use crate::util::allocator_byte::AllocatorByteEnum;
 use crate::util::error::lucene_error::Result;
 use crate::util::int_block_pool::{AllocatorIntEnum, IntBlockPool};
 use crate::util::{ByteBlockPool, ByteBlockPoolBorrow, CounterEnumBorrow};
+/// This struct receives each token produced by the analyzer on each field
+/// during indexing, and stores them in a hash table. It also allocates separate
+/// byte streams per token.
+///
+/// Consumers of this struct, such as [`FreqProxTermsWriter`] and
+/// [`TermVectorsConsumer`], write their own byte streams associated with each
+/// term.
 pub(crate) struct TermsHash<S>
 where
     S: TermsHashBase,
@@ -88,20 +95,28 @@ where
         self.byte_pool.borrow_mut().reset(false, false)
     }
 
-    fn flush<D, N, M, T>(
+    fn flush<D, N, T>(
         &mut self,
         fields_to_flush: &mut HashMap<String, TermsHashPerField<T>>,
         state: &SegmentWriteState<D>,
-        sort_map: &M,
+        sort_map: &DocMapEnum,
         norms: &mut N,
     ) -> Result<()>
     where
         D: Directory,
         N: NormsProducer,
-        M: DocMap,
         T: TermsHashPerFieldBase,
     {
-        todo!()
+        if let Some(next) = &mut self.next_terms_hash {
+            let mut next_child_fields = HashMap::with_capacity(fields_to_flush.len());
+
+            for (field_name, per_field) in fields_to_flush.iter_mut() {
+                next_child_fields.insert(field_name.clone(), per_field.get_next_per_field());
+            }
+
+            next.flush(&mut next_child_fields, state, sort_map, norms)?;
+        }
+        Ok(())
     }
 
     fn add_field<T>(
@@ -112,7 +127,7 @@ where
     where
         T: TermsHashPerFieldBase,
     {
-        todo!()
+        self.sub.add_field(field_invert_state, field_info)
     }
 
     fn start_document(&mut self) -> Result<()> {
@@ -136,17 +151,16 @@ where
 pub(crate) trait TermsHashBase {
     fn abort(&mut self);
     fn reset(&mut self);
-    fn flush<D, N, M, T>(
+    fn flush<D, N, T>(
         &mut self,
         fields_to_flush: &mut HashMap<String, TermsHashPerField<T>>,
         state: &SegmentWriteState<D>,
-        sort_map: &M,
+        sort_map: &DocMapEnum,
         norms: &mut N,
     ) -> Result<()>
     where
         D: Directory,
         N: NormsProducer,
-        M: DocMap,
         T: TermsHashPerFieldBase;
 
     fn add_field<T>(
