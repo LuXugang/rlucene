@@ -217,7 +217,7 @@ where
                 self.dir.borrow_mut().delete_file("fstOffHeap.bin")?;
                 Some(FSTEnums::FST1(fst))
             }
-        } else if let Some(_) = &fst_metadata {
+        } else if fst_metadata.is_some() {
             let mut fst = FST::from_fst_reader(fst_metadata, Some(fst_compiler.get_fst_reader()?));
             if random.random_bool(0.5) {
                 let ctx = new_io_context(&mut random)?;

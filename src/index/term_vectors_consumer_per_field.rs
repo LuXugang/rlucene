@@ -33,18 +33,18 @@ impl TermsHashPerFieldBase for TermVectorsConsumerPerField {
 
     fn new_term<S: TermsHashPerFieldBase>(
         &mut self,
-        term_id: i32,
-        doc_id: i32,
-        per_field: &mut TermsHashPerField<S>,
+        _term_id: i32,
+        _doc_id: i32,
+        _per_field: &mut TermsHashPerField<S>,
     ) -> Result<()> {
         todo!()
     }
 
     fn add_term<S: TermsHashPerFieldBase>(
         &mut self,
-        term_id: i32,
-        doc_id: i32,
-        per_field: &mut TermsHashPerField<S>,
+        _term_id: i32,
+        _doc_id: i32,
+        _per_field: &mut TermsHashPerField<S>,
     ) -> Result<()> {
         todo!()
     }

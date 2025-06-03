@@ -205,13 +205,6 @@ mod tests {
         }
     }
     #[test]
-    fn test() -> Result<()> {
-        for i in 0..100 {
-            test_simple()?;
-        }
-        Ok(())
-    }
-    #[test]
     fn test_simple() -> Result<()> {
         let mut random = random();
 

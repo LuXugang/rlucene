@@ -73,7 +73,7 @@ impl DocValues {
     /// previously wrapped with
     /// [`singleton_numeric`](DocValues::singleton_numeric), or null.
     pub fn unwrap_singleton_sorted_numeric_doc_values<N>(
-        dv: &mut impl SortedNumericDocValues,
+        _dv: &mut impl SortedNumericDocValues,
     ) -> Result<Option<N>>
     where
         N: NumericDocValues,

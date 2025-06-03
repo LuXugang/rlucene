@@ -236,7 +236,7 @@ where
     /// Returns all files referenced by this SegmentInfo
     pub fn files(&self) -> Result<Rc<RefCell<HashSet<String>>>> {
         match self.set_files {
-            Some(ref set_files) => Ok(self.set_files.as_ref().unwrap().clone()),
+            Some(ref _set_files) => Ok(self.set_files.as_ref().unwrap().clone()),
             None => {
                 debug_assert!(self.max_doc.is_some());
                 Err(LuceneError::illegal_argument(format!(

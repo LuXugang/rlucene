@@ -26,7 +26,7 @@ impl NormsProducer for DummyNormsProducer {
 
     fn get_norms(
         &mut self,
-        field: &Rc<FieldInfo>,
+        _field: &Rc<FieldInfo>,
     ) -> crate::util::error::lucene_error::Result<Self::NumericDocValues> {
         todo!()
     }

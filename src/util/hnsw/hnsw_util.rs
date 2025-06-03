@@ -621,7 +621,7 @@ mod tests {
                 }
             }
             let final_count = count;
-            let v = NodeIteratorImpl::new(self.nodes.clone(), final_count as i32, level);
+            let v = NodeIteratorImpl::new(self.nodes.clone(), final_count, level);
             Ok(v)
         }
     }

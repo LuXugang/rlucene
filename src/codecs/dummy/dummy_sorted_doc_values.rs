@@ -52,7 +52,7 @@ impl SortedDocValues for DummySortedDocValues {
         todo!()
     }
 
-    fn lookup_term(&mut self, key: &BytesRef<Self::AV>) -> Result<i32> {
+    fn lookup_term(&mut self, _key: &BytesRef<Self::AV>) -> Result<i32> {
         todo!()
     }
 

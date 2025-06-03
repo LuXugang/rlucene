@@ -76,7 +76,7 @@ pub mod doc_values {
             todo!()
         }
 
-        fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i64> {
+        fn lookup_term(&mut self, _key: &BytesRef<Vec<u8>>) -> Result<i64> {
             todo!()
         }
 

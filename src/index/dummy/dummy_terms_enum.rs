@@ -21,7 +21,6 @@ use crate::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::index::term_state::TermStateEnum;
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::index::BytesRef;
-use crate::util::access::AccessVec;
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -58,7 +57,7 @@ impl TermsEnum for DummyTermsEnum {
         Ok(&self.atts)
     }
 
-    fn seek_ceil(&mut self, term: &BytesRef<Self::AV>) -> Result<SeekStatus> {
+    fn seek_ceil(&mut self, _term: &BytesRef<Self::AV>) -> Result<SeekStatus> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))
@@ -72,8 +71,8 @@ impl TermsEnum for DummyTermsEnum {
 
     fn seek_exact_with_state(
         &mut self,
-        term: &BytesRef<Self::AV>,
-        state: &TermStateEnum,
+        _term: &BytesRef<Self::AV>,
+        _state: &TermStateEnum,
     ) -> Result<()> {
         Err(LuceneError::illegal_state(
             "this method should never be called",

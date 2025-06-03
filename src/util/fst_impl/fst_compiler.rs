@@ -1184,7 +1184,6 @@ where
     ///
     ///
     /// Default = `1`.
-
     pub fn with_direct_addressing_max_oversizing_factor(&mut self, factor: f32) {
         self.direct_addressing_max_oversizing_factor = factor;
     }

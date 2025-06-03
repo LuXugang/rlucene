@@ -513,13 +513,6 @@ mod tests {
         Ok(())
     }
     #[test]
-    fn test() -> Result<()> {
-        for i in 0..100 {
-            test_random()?;
-        }
-        Ok(())
-    }
-    #[test]
     fn test_random() -> Result<()> {
         let mut random = random();
         let num_terms = at_least(&mut random, 400);

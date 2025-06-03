@@ -637,8 +637,8 @@ mod tests {
 
         let arr_len = TestUtil::next_int(&mut random, block_size / 2, block_size * 2) as usize;
         let mut arr = vec![0u8; arr_len];
-        for i in 0..arr_len {
-            arr[i] = i as u8;
+        for (i, byte) in arr.iter_mut().enumerate().take(arr_len) {
+            *byte = i as u8;
         }
 
         let extra = TestUtil::next_int(&mut random, 1, block_size * 3) as i64;

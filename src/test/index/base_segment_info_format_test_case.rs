@@ -54,7 +54,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             false,
             false,
             HashMap::new(),
-            id.clone(),
+            id,
             HashMap::new(),
             None,
         )?;
@@ -84,7 +84,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             false,
             has_blocks,
             HashMap::new(),
-            id.clone(),
+            id,
             HashMap::new(),
             None,
         )?;
@@ -115,7 +115,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             false,
             false,
             HashMap::new(),
-            id.clone(),
+            id,
             HashMap::new(),
             None,
         )?;
@@ -164,7 +164,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             false,
             false,
             diagnostics.clone(),
-            id.clone(),
+            id,
             HashMap::new(),
             None,
         )?;
@@ -205,7 +205,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             false,
             false,
             HashMap::new(),
-            id.clone(),
+            id,
             attributes.clone(),
             None,
         )?;
@@ -248,7 +248,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             false,
             false,
             HashMap::new(),
-            id.clone(),
+            id,
             HashMap::new(),
             None,
         )?;
@@ -281,7 +281,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                     false,
                     false,
                     HashMap::new(),
-                    id.clone(),
+                    id,
                     HashMap::new(),
                     None,
                 )?;
@@ -464,7 +464,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                 false,
                 false,
                 HashMap::new(),
-                id.clone(),
+                id,
                 HashMap::new(),
                 sort,
             )?;
@@ -555,7 +555,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                 is_compound_file,
                 false,
                 diagnostics,
-                id.clone(),
+                id,
                 attributes,
                 None,
             )?;

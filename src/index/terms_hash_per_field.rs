@@ -25,7 +25,7 @@ use crate::index::index_options::IndexOptions;
 use crate::index::parallel_postings_array::PostingsArrayEnum;
 use crate::index::term_vectors_consumer_per_field::TermVectorsPostingsArray;
 use crate::index::BytesRef;
-use crate::util::access::{Access, BorrowExt};
+use crate::util::access::Access;
 use crate::util::bytes_ref_hash::{BytesRefHash, BytesStartArray, STBytesRefHash};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::int_block_pool::IntBlockPool;
@@ -1026,7 +1026,7 @@ pub(crate) mod tests {
         }
     }
     impl TermsHashPerFieldBase for TermsHashPerFieldMock {
-        fn start(&mut self, field: &Fields, first: bool) -> Result<bool> {
+        fn start(&mut self, _field: &Fields, _first: bool) -> Result<bool> {
             Ok(true)
         }
 
