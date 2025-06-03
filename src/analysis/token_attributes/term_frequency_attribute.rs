@@ -14,7 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod analyzer;
-pub mod dummy;
-pub mod token_attributes;
-pub mod token_stream;
+use crate::util::attribute::Attribute;
+
+/// Sets the custom term frequency of a term within one document.
+///
+/// If this attribute is present in the analysis chain for a given field,
+/// that field must be indexed with
+/// [`IndexOptions::DocsAndFreqs`](crate::index::index_options::IndexOptions).
+///
+/// See also: [`IndexOptions`](crate::index::IndexOptions)
+pub trait TermFrequencyAttribute: Attribute {
+    /// Sets the custom term frequency of the current term within one document.
+    fn set_term_frequency(&mut self, term_frequency: i32);
+
+    /// Returns the custom term frequency.
+    fn term_frequency(&self) -> i32;
+}

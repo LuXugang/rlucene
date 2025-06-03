@@ -27,6 +27,7 @@ pub mod accountable;
 pub mod allocator_byte;
 pub mod array_tim_sorter;
 pub mod array_util;
+pub mod attribute;
 pub mod attribute_source;
 pub mod automation;
 pub mod bit_doc_id_set;

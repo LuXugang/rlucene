@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod analyzer;
-pub mod dummy;
-pub mod token_attributes;
-pub mod token_stream;
+pub mod offset_attribute;
+pub mod payload_attribute;
+pub mod term_frequency_attribute;

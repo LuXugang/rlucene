@@ -55,6 +55,7 @@ impl FieldInvertState {
     }
     /// Creates {code FieldInvertState} for the specified field name and values
     /// for all fields.
+    #[allow(clippy::too_many_arguments)]
     pub fn with_states(
         index_created_version_major: i32,
         name: String,
