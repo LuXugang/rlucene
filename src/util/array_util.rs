@@ -24,7 +24,7 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::selector::Selector;
 use crate::util::{
     ArrayIntroSorter, Comparator, IntroSelector, IntroSelectorBase, IntroSelectorBaseDefault,
-    NaturalOrder, SliceCopyOps, Sorter, TimSorter, ToInt,
+    NaturalOrder, SliceCopyOps, Sorter, ToInt,
 };
 
 pub struct ArrayUtil;
@@ -301,8 +301,7 @@ impl ArrayUtil {
         }
         let max_temp_slots = a.len() / 64;
         debug_assert!(max_temp_slots <= i32::MAX as usize);
-        let array_tim_sorter = ArrayTimSorter::new(a, comp, max_temp_slots as i32);
-        TimSorter::new(max_temp_slots as i32, array_tim_sorter).sort(from_index, to_index)
+        ArrayTimSorter::new(a, comp, max_temp_slots as i32).sort(from_index, to_index)
     }
     /// Sorts the given slice using the Tim sort algorithm,
     /// falling back to binary sort for small arrays.

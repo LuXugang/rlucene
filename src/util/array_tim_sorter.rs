@@ -16,7 +16,7 @@
  */
 
 use crate::util::error::lucene_error::Result;
-use crate::util::{Comparator, Sorter, TimSorterBase};
+use crate::util::{Comparator, Sorter, TimSorter, TimSorterBase};
 
 /// A [`TimSorter`](crate::util::TimSorter) for object arrays.
 ///
@@ -24,7 +24,7 @@ use crate::util::{Comparator, Sorter, TimSorterBase};
 /// This is an internal API.
 pub struct ArrayTimSorter<'a, T, C: Comparator<T>>
 where
-    T: Default + Clone,
+    T: Default + Clone + PartialEq,
 {
     arr: &'a mut Vec<T>,
     tmp: Vec<T>,
@@ -33,29 +33,30 @@ where
 }
 impl<'a, T, C: Comparator<T>> ArrayTimSorter<'a, T, C>
 where
-    T: Default + Clone,
+    T: Default + Clone + PartialEq,
 {
     pub fn new(
         arr: &'a mut Vec<T>,
         comparator: C,
         max_temp_slots: i32,
-    ) -> ArrayTimSorter<'a, T, C> {
+    ) -> TimSorter<ArrayTimSorter<'a, T, C>> {
         let tmp = if max_temp_slots > 0 {
             vec![T::default(); max_temp_slots as usize]
         } else {
             vec![]
         };
-        ArrayTimSorter {
+        let sub = ArrayTimSorter {
             arr,
             tmp,
             comparator,
             pivot_index: 0,
-        }
+        };
+        TimSorter::new(max_temp_slots, sub)
     }
 }
 impl<T, C: Comparator<T>> Sorter for ArrayTimSorter<'_, T, C>
 where
-    T: Default + Clone,
+    T: Default + Clone + PartialEq,
 {
     fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
         self.comparator
