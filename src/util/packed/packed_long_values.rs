@@ -41,18 +41,16 @@ const MIN_PAGE_SIZE: i32 = 64;
 const MAX_PAGE_SIZE: i32 = 1 << 20;
 impl PackedLongValues {
     pub const DEFAULT_PAGE_SIZE: i32 = 256;
-    /// Return a new [`PackedLongValuesBuilder`] that will compress efficiently
+    /// Return a new [`Builder`] that will compress efficiently
     /// positive integers.
     pub fn packed_long_values_builder(
         page_size: i32,
         acceptable_overhead_ratio: f32,
-    ) -> Result<PackedLongValuesBuilder> {
-        PackedLongValuesBuilder::new(page_size, acceptable_overhead_ratio)
+    ) -> Result<Builder> {
+        Builder::new(page_size, acceptable_overhead_ratio)
     }
-    /// See [`PackedLongValuesBuilder`].
-    pub fn packed_long_values_builder_default(
-        acceptable_overhead_ratio: f32,
-    ) -> Result<PackedLongValuesBuilder> {
+    /// See [`Builder`].
+    pub fn packed_long_values_builder_default(acceptable_overhead_ratio: f32) -> Result<Builder> {
         Self::packed_long_values_builder(Self::DEFAULT_PAGE_SIZE, acceptable_overhead_ratio)
     }
 
@@ -61,19 +59,15 @@ impl PackedLongValues {
     pub fn delta_packed_long_values_builder(
         page_size: i32,
         acceptable_overhead_ratio: f32,
-    ) -> Result<PackedLongValuesBuilder> {
+    ) -> Result<Builder> {
         let sub_builder = DeltaPackedLongValuesBuilder::new();
-        PackedLongValuesBuilder::with_sub_builder(
-            page_size,
-            acceptable_overhead_ratio,
-            Some(sub_builder),
-        )
+        Builder::with_sub_builder(page_size, acceptable_overhead_ratio, Some(sub_builder))
     }
 
     /// See [`delta_packed_long_values_builder`](DeltaPackedLongValuesBuilder).
     pub fn delta_packed_long_values_builder_default(
         acceptable_overhead_ratio: f32,
-    ) -> Result<PackedLongValuesBuilder> {
+    ) -> Result<Builder> {
         Self::delta_packed_long_values_builder(Self::DEFAULT_PAGE_SIZE, acceptable_overhead_ratio)
     }
 
@@ -82,10 +76,10 @@ impl PackedLongValues {
     pub fn monotonic_long_values_builder(
         page_size: i32,
         acceptable_overhead_ratio: f32,
-    ) -> Result<PackedLongValuesBuilder> {
+    ) -> Result<Builder> {
         let sub_builder = MonotonicLongValuesBuilder::new();
         let sub_delta_builder = DeltaPackedLongValuesBuilder::with_sub_builder(Some(sub_builder));
-        PackedLongValuesBuilder::with_sub_builder(
+        Builder::with_sub_builder(
             page_size,
             acceptable_overhead_ratio,
             Some(sub_delta_builder),
@@ -95,7 +89,7 @@ impl PackedLongValues {
     /// See [`monotonic_long_values_builder`](MonotonicLongValuesBuilder).
     pub fn monotonic_long_values_builder_default(
         acceptable_overhead_ratio: f32,
-    ) -> Result<PackedLongValuesBuilder> {
+    ) -> Result<Builder> {
         PackedLongValues::monotonic_long_values_builder(
             Self::DEFAULT_PAGE_SIZE,
             acceptable_overhead_ratio,
@@ -168,7 +162,7 @@ impl LongValues for PackedLongValues {
 }
 
 /// A Builder for a {@link PackedLongValues} instance.
-pub struct PackedLongValuesBuilder {
+pub struct Builder {
     pub(crate) page_shift: i32,
     pub(crate) page_mask: i32,
     page_size: i32,
@@ -184,18 +178,18 @@ pub struct PackedLongValuesBuilder {
 
 pub(crate) const INITIAL_PAGE_COUNT: i32 = 16;
 /// A Builder for a [`PackedLongValues`] instance.
-impl PackedLongValuesBuilder {
+impl Builder {
     // TODO
     #[allow(dead_code)]
     const BASE_RAM_BYTES_USED: i64 = 0;
-    pub fn new(page_size: i32, acceptable_overhead_ratio: f32) -> Result<PackedLongValuesBuilder> {
+    pub fn new(page_size: i32, acceptable_overhead_ratio: f32) -> Result<Builder> {
         Self::with_sub_builder(page_size, acceptable_overhead_ratio, None)
     }
     pub(crate) fn with_sub_builder(
         page_size: i32,
         acceptable_overhead_ratio: f32,
         sub_packed_long_values_builder: Option<DeltaPackedLongValuesBuilder>,
-    ) -> Result<PackedLongValuesBuilder> {
+    ) -> Result<Builder> {
         let page_shift = PackedInts::check_block_size(page_size, MIN_PAGE_SIZE, MAX_PAGE_SIZE)?;
         let page_mask = page_size - 1;
         let pending = Some(vec![0; page_size as usize]);
