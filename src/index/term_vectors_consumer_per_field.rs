@@ -58,6 +58,10 @@ impl TermsHashPerFieldBase for TermVectorsConsumerPerField {
     fn finish(&mut self) {
         todo!()
     }
+
+    fn field_name(&self) -> &str {
+        todo!()
+    }
 }
 pub(crate) struct TermVectorsPostingsArray {
     pub(crate) size: i32,

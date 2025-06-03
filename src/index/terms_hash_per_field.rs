@@ -60,7 +60,6 @@ where
     term_stream_address_buffer_index: i32,
     stream_address_offset: i32,
     stream_count: i32,
-    field_name: String,
     index_options: IndexOptions,
     // This stores the actual term bytes for postings and offsets into the
     // parent hash in the case that this TermsHashPerField is hashing term
@@ -102,7 +101,6 @@ where
         term_byte_pool: ByteBlockPoolBorrow,
         bytes_used: CounterEnumBorrow,
         next_per_field: Option<Box<TermsHashPerField<S>>>,
-        field_name: String,
         index_options: IndexOptions,
         postings_array_wrapper: PostingsArrayWrapper,
         sub: S,
@@ -127,7 +125,6 @@ where
             term_stream_address_buffer_index: 0,
             stream_address_offset: 0,
             stream_count,
-            field_name,
             index_options,
             bytes_hash,
             last_doc_id: 0,
@@ -281,7 +278,7 @@ where
     }
 
     pub(crate) fn get_field_name(&self) -> &str {
-        &self.field_name
+        self.sub.as_ref().unwrap().field_name()
     }
     fn finish(&mut self) {
         if let Some(ref mut next_per_field) = self.next_per_field {
@@ -486,6 +483,8 @@ pub(crate) trait TermsHashPerFieldBase {
     }
     /// Finish adding all instances of this field to the current document.
     fn finish(&mut self);
+
+    fn field_name(&self) -> &str;
 }
 pub(crate) struct PostingsBytesStartArray {
     pub(crate) per_field: PostingsArrayWrapper,
@@ -1019,7 +1018,6 @@ pub(crate) mod tests {
                 term_block_pool,
                 bytes_used,
                 None,
-                "field_name".to_string(),
                 IndexOptions::DocsAndFreqs,
                 postings_array_wrapper,
                 sub,
@@ -1126,5 +1124,9 @@ pub(crate) mod tests {
         }
 
         fn finish(&mut self) {}
+
+        fn field_name(&self) -> &str {
+            ""
+        }
     }
 }

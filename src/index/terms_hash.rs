@@ -18,6 +18,9 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
+use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
+use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
+use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
 use crate::codecs::norms_producer::NormsProducer;
 use crate::index::field_info::FieldInfo;
 use crate::index::field_invert_state::FieldInvertState;
@@ -40,11 +43,11 @@ pub(crate) struct TermsHash<S>
 where
     S: TermsHashBase,
 {
-    next_terms_hash: Option<Box<TermsHash<S>>>,
-    int_pool: Rc<RefCell<IntBlockPool>>,
-    byte_pool: ByteBlockPoolBorrow,
-    term_byte_pool: Option<ByteBlockPoolBorrow>,
-    bytes_used: CounterEnumBorrow,
+    pub(crate) next_terms_hash: Option<Box<TermsHash<S>>>,
+    pub(crate) int_pool: Rc<RefCell<IntBlockPool>>,
+    pub(crate) byte_pool: ByteBlockPoolBorrow,
+    pub(crate) term_byte_pool: Option<ByteBlockPoolBorrow>,
+    pub(crate) bytes_used: CounterEnumBorrow,
     sub: S,
 }
 impl<S> TermsHash<S>
@@ -119,13 +122,16 @@ where
         Ok(())
     }
 
-    fn add_field<T>(
+    fn add_field<S1, O, P, T>(
         &mut self,
-        field_invert_state: &FieldInvertState,
+        field_invert_state: &FieldInvertState<O, P, T>,
         field_info: &FieldInfo,
-    ) -> TermsHashPerField<T>
+    ) -> TermsHashPerField<S1>
     where
-        T: TermsHashPerFieldBase,
+        S1: TermsHashPerFieldBase,
+        O: OffsetAttribute,
+        P: PayloadAttribute,
+        T: TermFrequencyAttribute,
     {
         self.sub.add_field(field_invert_state, field_info)
     }
@@ -163,13 +169,16 @@ pub(crate) trait TermsHashBase {
         N: NormsProducer,
         T: TermsHashPerFieldBase;
 
-    fn add_field<T>(
+    fn add_field<S1, O, P, T>(
         &mut self,
-        field_invert_state: &FieldInvertState,
+        field_invert_state: &FieldInvertState<O, P, T>,
         field_info: &FieldInfo,
-    ) -> TermsHashPerField<T>
+    ) -> TermsHashPerField<S1>
     where
-        T: TermsHashPerFieldBase;
+        S1: TermsHashPerFieldBase,
+        O: OffsetAttribute,
+        P: PayloadAttribute,
+        T: TermFrequencyAttribute;
 
     fn start_document(&mut self) -> Result<()>;
 

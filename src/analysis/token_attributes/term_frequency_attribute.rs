@@ -28,5 +28,5 @@ pub trait TermFrequencyAttribute: Attribute {
     fn set_term_frequency(&mut self, term_frequency: i32);
 
     /// Returns the custom term frequency.
-    fn term_frequency(&self) -> i32;
+    fn get_term_frequency(&self) -> i32;
 }
