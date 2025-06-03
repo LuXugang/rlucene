@@ -27,6 +27,7 @@ use crate::util::SliceCopyOps;
 /// Represents a logical byte[] as a series of pages. You can write-once into
 /// the logical byte[] (append only), using copy, and then retrieve slices
 /// (BytesRef) into it using fill.
+#[derive(Default)]
 pub struct PagedBytes {
     blocks: Vec<Vec<u8>>,
     num_blocks: usize,
@@ -229,8 +230,8 @@ impl Reader {
             return;
         }
 
-        let index = (start >> self.block_bits);
-        let offset = (start & self.block_mask);
+        let index = start >> self.block_bits;
+        let offset = start & self.block_mask;
 
         if self.block_size - offset >= length {
             // Within block
@@ -252,8 +253,8 @@ impl Reader {
     }
     /// Get the byte at the given offset.
     pub fn get_byte(&self, o: usize) -> u8 {
-        let index = (o >> self.block_bits);
-        let offset = (o & self.block_mask);
+        let index = o >> self.block_bits;
+        let offset = o & self.block_mask;
         self.blocks[index][offset]
     }
     pub fn fill(_b: &mut BytesRef<Rc<Vec<u8>>>, _start: i64) {
@@ -440,6 +441,245 @@ impl DataOutput for PagedBytesDataOutput {
                 break;
             }
         }
+        Ok(())
+    }
+}
+#[cfg(test)]
+mod tests {
+    use rand::Rng;
+
+    use crate::index::BytesRef;
+    use crate::store::directory::Directory;
+    use crate::store::{DataInput, DataOutput, IOContext, IndexInput, IndexOutput};
+    use crate::test::util::lucene_test_case::{at_least, is_night_mode, new_directory, random};
+    use crate::test::util::test_util::TestUtil;
+    use crate::util::clone::TryClone;
+    use crate::util::error::lucene_error::Result;
+    use crate::util::paged_bytes::{paged_bytes_util, PagedBytes};
+
+    #[allow(dead_code)] // for quick search
+    struct TestPagedBytes;
+    #[test]
+    fn test_data_input_output() -> Result<()> {
+        let mut random = random();
+        let num_iters = at_least(&mut random, 1);
+
+        for _ in 0..num_iters {
+            // TODO: BaseDirectoryWrapper not implement
+            let mut dir = new_directory(&mut random)?;
+            let block_bits = TestUtil::next_int(&mut random, 1, 20);
+            let block_size = 1 << block_bits;
+            let mut paged_bytes = PagedBytes::new(block_bits as usize);
+
+            let num_bytes = if is_night_mode() {
+                TestUtil::next_int(&mut random, 2, 10_000_000) as usize
+            } else {
+                TestUtil::next_int(&mut random, 2, 1_000_000) as usize
+            };
+
+            let mut answer = vec![0u8; num_bytes];
+            random.fill(&mut answer[..]);
+
+            {
+                let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
+                let mut written: usize = 0;
+                while written < num_bytes {
+                    if random.random_range(0..100) == 7 {
+                        out.write_byte(answer[written])?;
+                        written += 1;
+                    } else {
+                        let chunk =
+                            std::cmp::min(random.random_range(1..1000), num_bytes - written);
+                        out.write_bytes_range(&answer, written as i32, chunk as i32)?;
+                        written += chunk;
+                    }
+                }
+            }
+
+            let mut input = dir.open_input("foo", &IOContext::default_io_context()?)?;
+            let mut clone_input = input.try_clone()?;
+
+            let len = input.length() as usize;
+            paged_bytes.copy_with_input(&mut input, len)?;
+            let reader = paged_bytes.freeze(random.random_bool(0.5))?;
+
+            let mut verify = vec![0u8; num_bytes];
+            let mut read = 0;
+            while read < num_bytes {
+                if random.random_range(0..100) == 7 {
+                    verify[read] = clone_input.read_byte()?;
+                    read += 1;
+                } else {
+                    let chunk = std::cmp::min(random.random_range(1..1000), num_bytes - read);
+                    clone_input.read_bytes(&mut verify, read as i32, chunk as i32)?;
+                    read += chunk;
+                }
+            }
+
+            assert_eq!(answer, verify);
+
+            let mut slice = BytesRef::new();
+            for _ in 0..100 {
+                let pos = random.random_range(0..num_bytes - 1);
+                assert_eq!(reader.get_byte(pos), answer[pos]);
+
+                let len = random.random_range(0..std::cmp::min(block_size + 1, num_bytes - pos));
+                reader.fill_slice(&mut slice, pos, len);
+
+                for i in 0..len {
+                    assert_eq!(
+                        slice.bytes[slice.offset + i],
+                        answer[pos + i],
+                        "byte mismatch at pos {} + {}",
+                        pos,
+                        i
+                    );
+                }
+            }
+        }
+
+        Ok(())
+    }
+    // Writes random byte/s into PagedBytes via
+    // .getDataOutput(), then verifies with
+    // PagedBytes.getDataInput():
+    #[test]
+    fn test_data_input_output_2() -> Result<()> {
+        let mut random = random();
+        let num_iters = at_least(&mut random, 1);
+
+        for _ in 0..num_iters {
+            let block_bits = TestUtil::next_int(&mut random, 1, 20);
+            let block_size = 1 << block_bits;
+            let paged_bytes = PagedBytes::new(block_bits as usize);
+            let mut out = paged_bytes_util::get_data_output(paged_bytes)?;
+
+            let num_bytes = if is_night_mode() {
+                TestUtil::next_int(&mut random, 1, 10_000_000)
+            } else {
+                TestUtil::next_int(&mut random, 1, 1_000_000)
+            } as usize;
+
+            let mut answer = vec![0u8; num_bytes];
+            random.fill(&mut answer[..]);
+
+            let mut written = 0;
+            while written < num_bytes {
+                if random.random_range(0..10) == 7 {
+                    out.write_byte(answer[written])?;
+                    written += 1;
+                } else {
+                    let chunk = std::cmp::min(random.random_range(1..1000), num_bytes - written);
+                    out.write_bytes_range(&answer, written as i32, chunk as i32)?;
+                    written += chunk;
+                }
+            }
+
+            let reader = out.paged_bytes.freeze(random.random_bool(0.5))?;
+            let paged_bytes = std::mem::take(&mut out.paged_bytes);
+            let mut input = paged_bytes_util::get_data_input(paged_bytes)?;
+
+            let mut verify = vec![0u8; num_bytes];
+            let mut read = 0;
+            while read < num_bytes {
+                if random.random_range(0..10) == 7 {
+                    verify[read] = input.read_byte()?;
+                    read += 1;
+                } else {
+                    let chunk = std::cmp::min(random.random_range(1..1000), num_bytes - read);
+                    input.read_bytes(&mut verify, read as i32, chunk as i32)?;
+                    read += chunk;
+                }
+            }
+
+            assert_eq!(answer, verify);
+
+            let mut slice = BytesRef::new();
+            for _ in 0..100 {
+                let pos = random.random_range(0..num_bytes - 1);
+                let len = random.random_range(0..std::cmp::min(block_size + 1, num_bytes - pos));
+                reader.fill_slice(&mut slice, pos, len);
+                for byte_upto in 0..len {
+                    assert_eq!(
+                        slice.bytes[slice.offset + byte_upto],
+                        answer[pos + byte_upto],
+                        "byte mismatch at pos {} + {}",
+                        pos,
+                        byte_upto
+                    );
+                }
+            }
+
+            let paged_bytes = std::mem::take(&mut input.paged_bytes);
+            let mut input2 = paged_bytes_util::get_data_input(paged_bytes)?;
+            let mut curr = 0;
+            let max_skip_to = num_bytes - 1;
+            while curr < max_skip_to {
+                let skip_to =
+                    TestUtil::next_int(&mut random, curr as i32, max_skip_to as i32) as usize;
+                let step = skip_to - curr;
+                input2.skip_bytes(step as i64)?;
+                assert_eq!(answer[skip_to], input2.read_byte()?);
+                curr = skip_to + 1;
+            }
+        }
+
+        Ok(())
+    }
+    #[test]
+    #[ignore] // memory hole
+    fn test_overflow() -> Result<()> {
+        let mut random = random();
+        // TODO: BaseDirectoryWrapper not implement
+        let mut dir = new_directory(&mut random)?;
+        let block_bits = TestUtil::next_int(&mut random, 14, 28);
+        let block_size = 1 << block_bits;
+
+        let arr_len = TestUtil::next_int(&mut random, block_size / 2, block_size * 2) as usize;
+        let mut arr = vec![0u8; arr_len];
+        for i in 0..arr_len {
+            arr[i] = i as u8;
+        }
+
+        let extra = TestUtil::next_int(&mut random, 1, block_size * 3) as i64;
+        let num_bytes: i64 = (1i64 << 31) + extra;
+
+        let mut paged_bytes = PagedBytes::new(block_bits as usize);
+        {
+            let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
+
+            let mut written: i64 = 0;
+            while written < num_bytes {
+                assert_eq!(written, out.get_file_pointer());
+                let len = std::cmp::min(arr.len() as i64, num_bytes - written) as usize;
+                out.write_bytes_range(&arr, 0, len as i32)?;
+                written += len as i64;
+            }
+            assert_eq!(num_bytes, out.get_file_pointer());
+        }
+
+        let mut input = dir.open_input("foo", &IOContext::default_io_context()?)?;
+        paged_bytes.copy_with_input(&mut input, num_bytes as usize)?;
+        let reader = paged_bytes.freeze(random.random_bool(0.5))?;
+
+        let test_offsets = [
+            0_i64,
+            i32::MAX as i64,
+            num_bytes - 1,
+            TestUtil::next_long(&mut random, 1, num_bytes - 2),
+        ];
+
+        let mut b = BytesRef::new();
+        for &offset in &test_offsets {
+            reader.fill_slice(&mut b, offset as usize, 1);
+            let expected = arr[(offset % arr.len() as i64) as usize];
+            assert_eq!(expected, b.bytes[b.offset], "Mismatch at offset {}", offset);
+        }
+        Ok(())
+    }
+    #[test]
+    fn test_ram_bytes_used() -> Result<()> {
+        // TODO: memory calculation not implemented
         Ok(())
     }
 }
