@@ -21,7 +21,7 @@ use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::Result;
 
 pub(crate) struct ParallelPostingsArray {
-    size: i32,
+    size: usize,
     text_starts: Vec<i32>,    /* maps term ID to the term's text start in the
                                * bytesHash */
     address_offset: Vec<i32>, // maps term ID to current stream address
@@ -30,25 +30,23 @@ pub(crate) struct ParallelPostingsArray {
 }
 
 impl ParallelPostingsArray {
-    pub(crate) const BYTES_PER_POSTING: i32 = 3 * BitUtil::INT_BYTES as i32;
+    pub(crate) const BYTES_PER_POSTING: usize = 3 * BitUtil::INT_BYTES;
 
-    pub(crate) fn new(size: i32) -> Self {
-        let vec_size = size as usize;
+    pub(crate) fn new(size: usize) -> Self {
         Self {
             size,
-            text_starts: vec![0; vec_size],
-            address_offset: vec![0; vec_size],
-            byte_starts: vec![0; vec_size],
+            text_starts: vec![0; size],
+            address_offset: vec![0; size],
+            byte_starts: vec![0; size],
         }
     }
 }
 impl PostingsArrayBase for ParallelPostingsArray {
-    fn bytes_per_posting(&self) -> i32 {
+    fn bytes_per_posting(&self) -> usize {
         Self::BYTES_PER_POSTING
     }
-    fn copy_to(&mut self, new_size: i32) -> Result<()> {
+    fn copy_to(&mut self, new_size: usize) -> Result<()> {
         self.size = new_size;
-        let new_size = new_size as usize;
         ArrayUtil::grow_exact(&mut self.text_starts, new_size)?;
         ArrayUtil::grow_exact(&mut self.address_offset, new_size)?;
         ArrayUtil::grow_exact(&mut self.byte_starts, new_size)?;
@@ -57,7 +55,7 @@ impl PostingsArrayBase for ParallelPostingsArray {
 }
 
 pub(crate) trait PostingsArrayBase {
-    fn bytes_per_posting(&self) -> i32;
+    fn bytes_per_posting(&self) -> usize;
     /// # Note
     /// Diff to Java Lucene, this method used for array growing in Java Lucene,
     /// But In Rust Lucene we do not need to init a new array instead we can
@@ -68,7 +66,7 @@ pub(crate) trait PostingsArrayBase {
     /// Diff to Java Lucene, In Rust Lucene we do not need to init a new array
     /// instead we can just grow the vector. But we still keep this method
     /// with same function name for consistent.
-    fn copy_to(&mut self, new_size: i32) -> Result<()>;
+    fn copy_to(&mut self, new_size: usize) -> Result<()>;
 }
 pub(crate) enum PostingsArrayEnum {
     Parallel(ParallelPostingsArray),
@@ -76,7 +74,7 @@ pub(crate) enum PostingsArrayEnum {
     TermVectors(TermVectorsPostingsArray),
 }
 impl PostingsArrayEnum {
-    pub(crate) fn bytes_per_posting(&self) -> i32 {
+    pub(crate) fn bytes_per_posting(&self) -> usize {
         match self {
             PostingsArrayEnum::Parallel(p) => p.bytes_per_posting(),
             PostingsArrayEnum::FreqProx(p) => p.bytes_per_posting(),
@@ -90,7 +88,7 @@ impl PostingsArrayEnum {
             PostingsArrayEnum::TermVectors(t) => t.bytes_per_posting(),
         };
         let size = self.get_size();
-        let new_size = ArrayUtil::oversize(size as usize + 1, bytes_per_posting as usize) as i32;
+        let new_size = ArrayUtil::oversize(size + 1, bytes_per_posting);
         match self {
             PostingsArrayEnum::Parallel(p) => p.copy_to(new_size)?,
             PostingsArrayEnum::FreqProx(f) => f.copy_to(new_size)?,
@@ -142,7 +140,7 @@ impl PostingsArrayEnum {
             PostingsArrayEnum::TermVectors(t) => t.parent_postings_array.byte_starts[index] = value,
         }
     }
-    pub(crate) fn get_size(&self) -> i32 {
+    pub(crate) fn get_size(&self) -> usize {
         match self {
             PostingsArrayEnum::Parallel(p) => p.size,
             PostingsArrayEnum::FreqProx(f) => f.size,

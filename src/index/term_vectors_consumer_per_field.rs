@@ -64,7 +64,7 @@ impl TermsHashPerFieldBase for TermVectorsConsumerPerField {
     }
 }
 pub(crate) struct TermVectorsPostingsArray {
-    pub(crate) size: i32,
+    pub(crate) size: usize,
     freqs: Vec<i32>,          // How many times this term occurred in the current doc
     last_offsets: Vec<i32>,   // Last offset we saw
     last_positions: Vec<i32>, // Last position where this term occurred
@@ -72,28 +72,24 @@ pub(crate) struct TermVectorsPostingsArray {
 }
 
 impl TermVectorsPostingsArray {
-    pub fn new(size: i32) -> Self {
-        let vec_size = size as usize;
-        debug_assert!(vec_size <= i32::MAX as usize);
-
+    pub fn new(size: usize) -> Self {
         TermVectorsPostingsArray {
             size,
-            freqs: vec![0; vec_size],
-            last_offsets: vec![0; vec_size],
-            last_positions: vec![0; vec_size],
+            freqs: vec![0; size],
+            last_offsets: vec![0; size],
+            last_positions: vec![0; size],
             parent_postings_array: ParallelPostingsArray::new(size),
         }
     }
 }
 
 impl PostingsArrayBase for TermVectorsPostingsArray {
-    fn bytes_per_posting(&self) -> i32 {
-        self.parent_postings_array.bytes_per_posting() + 3 * BitUtil::INT_BYTES as i32
+    fn bytes_per_posting(&self) -> usize {
+        self.parent_postings_array.bytes_per_posting() + 3 * BitUtil::INT_BYTES
     }
-    fn copy_to(&mut self, new_size: i32) -> Result<()> {
+    fn copy_to(&mut self, new_size: usize) -> Result<()> {
         self.parent_postings_array.copy_to(new_size)?;
         self.size = new_size;
-        let new_size = new_size as usize;
         ArrayUtil::grow_exact(&mut self.freqs, new_size)?;
         ArrayUtil::grow_exact(&mut self.last_offsets, new_size)?;
         ArrayUtil::grow_exact(&mut self.last_positions, new_size)?;

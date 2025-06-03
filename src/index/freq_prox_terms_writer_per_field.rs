@@ -401,7 +401,7 @@ where
 }
 
 pub(crate) struct FreqProxPostingsArray {
-    pub(crate) size: i32,
+    pub(crate) size: usize,
     pub(crate) term_freqs: Option<Vec<i32>>, /* # times this term occurs in
                                               * the current doc */
     pub(crate) last_doc_ids: Vec<i32>, // Last docID where this term occurred
@@ -413,28 +413,31 @@ pub(crate) struct FreqProxPostingsArray {
 }
 impl FreqProxPostingsArray {
     // Constructor for FreqProxPostingsArray
-    pub(crate) fn new(size: i32, write_freqs: bool, write_prox: bool, write_offsets: bool) -> Self {
-        let vec_size = size as usize;
+    pub(crate) fn new(
+        size: usize,
+        write_freqs: bool,
+        write_prox: bool,
+        write_offsets: bool,
+    ) -> Self {
         let mut term_freqs = None;
         if write_freqs {
-            term_freqs = Some(vec![0; vec_size]);
+            term_freqs = Some(vec![0; size]);
         }
         let last_positions = if write_prox {
-            Some(vec![0; vec_size])
+            Some(vec![0; size])
         } else {
             None
         };
         let last_offsets = if write_offsets {
-            Some(vec![0; vec_size])
+            Some(vec![0; size])
         } else {
             None
         };
-        debug_assert!(vec_size <= i32::MAX as usize);
         FreqProxPostingsArray {
             size,
             term_freqs,
-            last_doc_ids: vec![0; vec_size],
-            last_doc_codes: vec![0; vec_size],
+            last_doc_ids: vec![0; size],
+            last_doc_codes: vec![0; size],
             last_positions,
             last_offsets,
             parent_postings_array: ParallelPostingsArray::new(size),
@@ -443,8 +446,8 @@ impl FreqProxPostingsArray {
 }
 
 impl PostingsArrayBase for FreqProxPostingsArray {
-    fn bytes_per_posting(&self) -> i32 {
-        let i32_bytes = BitUtil::INT_BYTES as i32;
+    fn bytes_per_posting(&self) -> usize {
+        let i32_bytes = BitUtil::INT_BYTES;
         let mut bytes = ParallelPostingsArray::BYTES_PER_POSTING + 2 * i32_bytes;
 
         if self.last_positions.is_some() {
@@ -459,10 +462,9 @@ impl PostingsArrayBase for FreqProxPostingsArray {
         bytes
     }
 
-    fn copy_to(&mut self, new_size: i32) -> Result<()> {
+    fn copy_to(&mut self, new_size: usize) -> Result<()> {
         self.parent_postings_array.copy_to(new_size)?;
         self.size = new_size;
-        let new_size = new_size as usize;
         ArrayUtil::grow_exact(&mut self.last_doc_ids, new_size)?;
         ArrayUtil::grow_exact(&mut self.last_doc_codes, new_size)?;
         if self.last_positions.is_some() {

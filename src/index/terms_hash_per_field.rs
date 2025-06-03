@@ -531,9 +531,10 @@ impl BytesStartArray for PostingsBytesStartArray {
         if self.per_field.postings_array.is_some() {
             let postings_array = self.per_field.postings_array.as_ref().unwrap();
             let byte_used = postings_array.bytes_per_posting() + postings_array.get_size();
+            debug_assert!(byte_used <= i64::MAX as usize);
             let _ = self
                 .bytes_used
-                .access_mut(|bytes_used| bytes_used.add_and_get(-byte_used as i64));
+                .access_mut(|bytes_used| bytes_used.add_and_get(-(byte_used as i64)));
             self.per_field.postings_array = None;
         }
     }
@@ -579,7 +580,7 @@ pub(crate) enum TermsHashPerFieldType {
     Mock,
 }
 impl TermsHashPerFieldType {
-    pub(crate) fn new_per_field(&self, size: i32) -> PostingsArrayEnum {
+    pub(crate) fn new_per_field(&self, size: usize) -> PostingsArrayEnum {
         match self {
             TermsHashPerFieldType::TermVectors => {
                 PostingsArrayEnum::TermVectors(TermVectorsPostingsArray::new(size))
