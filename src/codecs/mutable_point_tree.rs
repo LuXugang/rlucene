@@ -19,7 +19,7 @@ use crate::index::point_values_writer::MutableSortingPointValues;
 use crate::index::BytesRef;
 #[cfg(test)]
 use crate::test::util::bkd::test_bkd::{MutablePointTreeMock1, MutablePointTreeMock2};
-use crate::util::access::{Access, AccessVec};
+use crate::util::access::AccessVec;
 #[cfg(test)]
 use crate::util::bkd::mutable_point_tree_reader_utils::tests::DummyPointsReader;
 use crate::util::error::lucene_error::Result;
