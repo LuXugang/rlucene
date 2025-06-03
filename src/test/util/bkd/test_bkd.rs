@@ -22,7 +22,7 @@ use num_bigint::{BigInt, Sign};
 use num_traits::Zero;
 use rand::{Rng, RngCore};
 
-use crate::codecs::mutable_point_tree::{MutablePointTree, MutablePointTreeEnum};
+use crate::codecs::mutable_point_tree::MutablePointTree;
 use crate::index::merge_state::{DocMap, DocMapEnum};
 use crate::index::point_values::{
     point_values_util, IntersectVisitor, PointTree, PointValues, PointValuesBase, Relation,
@@ -1943,7 +1943,7 @@ fn test_total_point_count_validation() -> Result<()> {
         point_values: point_value.clone(),
         num_points_added,
     };
-    let reader = Rc::new(RefCell::new(MutablePointTreeEnum::Mock1(mock)));
+    let reader = Rc::new(RefCell::new(mock));
 
     let config = Rc::new(BKDConfig::new(
         1,
@@ -2053,7 +2053,7 @@ fn test_too_many_points_1d() -> Result<()> {
         point_values,
         doc_id: doc_ids,
     };
-    let reader = Rc::new(RefCell::new(MutablePointTreeEnum::Mock2(mock2)));
+    let reader = Rc::new(RefCell::new(mock2));
 
     let config = Rc::new(BKDConfig::new(1, 1, num_bytes_per_dim, 2)?);
     let mut writer = BKDWriter::new(

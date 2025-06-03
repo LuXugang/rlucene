@@ -17,7 +17,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use crate::codecs::mutable_point_tree::{MutablePointTree, MutablePointTreeEnum};
+use crate::codecs::mutable_point_tree::MutablePointTree;
 use crate::codecs::CodecUtil;
 use crate::index::merge_state::{DocMap, DocMapEnum};
 use crate::index::point_values::{
@@ -294,12 +294,15 @@ where
     /// faster than regular writes with `BKDWriter::add` since there is
     /// opportunity for reordering points before writing them to disk. This
     /// method does not use transient disk in order to reorder points.
-    pub fn write_field(
+    pub fn write_field<M>(
         &mut self,
         data_out: Rc<RefCell<D::IndexOutputType>>,
-        reader: Rc<RefCell<MutablePointTreeEnum>>,
+        reader: Rc<RefCell<M>>,
         filename: &str,
-    ) -> Result<Option<IORunnable>> {
+    ) -> Result<Option<IORunnable>>
+    where
+        M: MutablePointTree<AV = std::vec::Vec<u8>>,
+    {
         if self.config.num_dims == 1 {
             self.write_field_1dim(data_out, filename, reader)
         } else {
@@ -307,14 +310,17 @@ where
         }
     }
 
-    fn compute_packed_value_bounds_with_tree(
+    fn compute_packed_value_bounds_with_tree<M>(
         &mut self,
-        values: &MutablePointTreeEnum,
+        values: &M,
         from: i32,
         to: i32,
         min_packed_value: &mut [u8],
         max_packed_value: &mut [u8],
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        M: MutablePointTree<AV = std::vec::Vec<u8>>,
+    {
         if from == to {
             return Ok(());
         }
@@ -365,11 +371,14 @@ where
     }
     /// In the 2+D case, we recursively pick the split dimension, compute the
     /// median value and partition other values around it.
-    pub fn write_field_n_dims(
+    pub fn write_field_n_dims<M>(
         &mut self,
         data_out: Rc<RefCell<D::IndexOutputType>>,
-        values: Rc<RefCell<MutablePointTreeEnum>>,
-    ) -> Result<Option<IORunnable>> {
+        values: Rc<RefCell<M>>,
+    ) -> Result<Option<IORunnable>>
+    where
+        M: MutablePointTree<AV = std::vec::Vec<u8>>,
+    {
         if self.point_count != 0 {
             return Err(LuceneError::illegal_state(
                 "cannot mix add and write_field".to_string(),
@@ -406,7 +415,7 @@ where
         let mut max_packed_value = vec![0u8; self.max_packed_value.len()];
         // Compute the min/max for this slice
         self.compute_packed_value_bounds_with_tree(
-            &values.borrow(),
+            &*values.borrow(),
             0,
             point_count,
             &mut min_packed_value,
@@ -414,9 +423,9 @@ where
         )?;
 
         {
-            let values = values.borrow();
+            let values_b = values.borrow();
             for i in 0..self.point_count as i32 {
-                self.docs_seen.set(values.get_doc_id(i));
+                self.docs_seen.set(values_b.get_doc_id(i));
             }
         }
 
@@ -457,15 +466,18 @@ where
 
     /// In the 1D case, we can simply sort points in ascending order and use the
     /// same writing logic as we use at merge time.
-    fn write_field_1dim(
+    fn write_field_1dim<M>(
         &mut self,
         data_out: Rc<RefCell<D::IndexOutputType>>,
         _field_name: &str,
-        reader: Rc<RefCell<MutablePointTreeEnum>>,
-    ) -> Result<Option<IORunnable>> {
+        reader: Rc<RefCell<M>>,
+    ) -> Result<Option<IORunnable>>
+    where
+        M: MutablePointTree,
+    {
         let mut reader = reader.borrow_mut();
         let size = reader.size()?.try_into()?;
-        MutablePointTreeReaderUtils::sort(&self.config, self.max_doc, &mut reader, 0, size)?;
+        MutablePointTreeReaderUtils::sort(&self.config, self.max_doc, &mut *reader, 0, size)?;
 
         let one_dim_writer = OneDimensionBKDWriter::new(data_out, self)?;
         let mut intersect_visitor = IntersectVisitorImpl { one_dim_writer };
@@ -1412,11 +1424,11 @@ where
     /// fly; this method is used when we are writing a new segment directly
     /// from IndexWriter's indexing buffer (MutablePointsReader).
     #[allow(clippy::too_many_arguments)]
-    fn build_with_reader(
+    fn build_with_reader<M>(
         &mut self,
         leaves_offset: i32,
         num_leaves: i32,
-        reader: Rc<RefCell<MutablePointTreeEnum>>,
+        reader: Rc<RefCell<M>>,
         from: i32,
         to: i32,
         out: &mut impl IndexOutput,
@@ -1427,7 +1439,10 @@ where
         split_dimension_values: &mut [u8],
         leaf_block_fps: &mut [i64],
         spare_doc_ids: &mut [i32],
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        M: MutablePointTree<AV = std::vec::Vec<u8>>,
+    {
         if num_leaves == 1 {
             // leaf node
             let count = to - from;
@@ -1493,7 +1508,7 @@ where
                     &self.config,
                     sorted_dim,
                     &self.common_prefix_lengths,
-                    &mut reader_ref,
+                    &mut *reader_ref,
                     from,
                     to,
                     &mut self.scratch_bytes_ref1,
@@ -1582,7 +1597,7 @@ where
                 {
                     let reader_ref = reader.borrow();
                     self.compute_packed_value_bounds_with_tree(
-                        &reader_ref,
+                        &*reader_ref,
                         from,
                         to,
                         min_packed_value,
@@ -2767,12 +2782,18 @@ impl PackedValues for PackedValuesImpl1 {
     }
 }
 
-struct PackedValuesImpl2 {
+struct PackedValuesImpl2<M>
+where
+    M: MutablePointTree,
+{
     scratch: BytesRef<Vec<u8>>,
-    reader: Rc<RefCell<MutablePointTreeEnum>>,
+    reader: Rc<RefCell<M>>,
     from: i32,
 }
-impl PackedValues for PackedValuesImpl2 {
+impl<M> PackedValues for PackedValuesImpl2<M>
+where
+    M: MutablePointTree<AV = std::vec::Vec<u8>>,
+{
     fn get_value(&mut self, i: i32) -> Result<(&[u8], i32, i32)> {
         self.reader
             .borrow()

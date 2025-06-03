@@ -17,7 +17,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use crate::codecs::mutable_point_tree::{MutablePointTree, MutablePointTreeEnum};
+use crate::codecs::mutable_point_tree::MutablePointTree;
 use crate::index::BytesRef;
 use crate::util::array_util::{ArrayUtil, ByteArrayComparator, ByteArrayComparatorEnum};
 use crate::util::bkd::bkd_config::BKDConfig;
@@ -37,13 +37,16 @@ pub struct MutablePointTreeReaderUtils;
 impl MutablePointTreeReaderUtils {
     /// Sort the given [`MutablePointTree`] based on its packed value then doc
     /// ID.
-    pub fn sort(
+    pub fn sort<M>(
         config: &BKDConfig,
         max_doc: i32,
-        reader: &mut MutablePointTreeEnum,
+        reader: &mut M,
         from: i32,
         to: i32,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        M: MutablePointTree,
+    {
         let mut sorted_by_doc_id = true;
         let mut prev_doc = 0;
         for i in from..to {
@@ -77,16 +80,19 @@ impl MutablePointTreeReaderUtils {
 
     /// Sort points on the given dimension.
     #[allow(clippy::too_many_arguments)]
-    pub fn sort_by_dim(
+    pub fn sort_by_dim<M>(
         config: &BKDConfig,
         sorted_dim: i32,
         _common_prefix_lengths: &[i32],
-        reader: &mut MutablePointTreeEnum,
+        reader: &mut M,
         from: i32,
         to: i32,
         _scratch1: &mut BytesRef<Vec<u8>>,
         _scratch2: &mut BytesRef<Vec<u8>>,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        M: MutablePointTree<AV = std::vec::Vec<u8>>,
+    {
         // Get an unsigned comparator for the byte arrays.
         let comparator = ArrayUtil::get_unsigned_comparator(config.bytes_per_dim as usize);
         let start = sorted_dim * config.bytes_per_dim;
@@ -108,18 +114,21 @@ impl MutablePointTreeReaderUtils {
     /// or equal to it and all values on the right must be greater than or
     /// equal to it.
     #[allow(clippy::too_many_arguments)]
-    pub fn partition(
+    pub fn partition<M>(
         config: &BKDConfig,
         max_doc: i32,
         split_dim: i32,
         common_prefix_len: i32,
-        reader: Rc<RefCell<MutablePointTreeEnum>>,
+        reader: Rc<RefCell<M>>,
         from: i32,
         to: i32,
         mid: i32,
         _scratch1: &mut BytesRef<Vec<u8>>,
         _scratch2: &mut BytesRef<Vec<u8>>,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        M: MutablePointTree<AV = std::vec::Vec<u8>>,
+    {
         let dim_offset = split_dim * config.bytes_per_dim + common_prefix_len;
         let dim_cmp_bytes = config.bytes_per_dim - common_prefix_len;
         let data_cmp_bytes =
@@ -141,13 +150,19 @@ impl MutablePointTreeReaderUtils {
     }
 }
 
-struct StableMSBRadixSorterImpl<'a> {
-    reader: &'a mut MutablePointTreeEnum,
+struct StableMSBRadixSorterImpl<'a, M>
+where
+    M: MutablePointTree,
+{
+    reader: &'a mut M,
     config: Rc<BKDConfig>,
     bits_per_doc_id: i32,
 }
 
-impl MSBRadixSorterBase for StableMSBRadixSorterImpl<'_> {
+impl<M> MSBRadixSorterBase for StableMSBRadixSorterImpl<'_, M>
+where
+    M: MutablePointTree,
+{
     fn byte_at(&mut self, i: i32, k: i32) -> Result<i32> {
         if k < self.config.packed_bytes_length() {
             Ok(self.reader.get_byte_at(i, k) as i32)
@@ -159,14 +174,20 @@ impl MSBRadixSorterBase for StableMSBRadixSorterImpl<'_> {
     }
 }
 
-impl Sorter for StableMSBRadixSorterImpl<'_> {
+impl<M> Sorter for StableMSBRadixSorterImpl<'_, M>
+where
+    M: MutablePointTree,
+{
     fn swap(&mut self, i: i32, j: i32) -> Result<()> {
         self.reader.swap(i, j);
         Ok(())
     }
 }
 
-impl StableMSBRadixSorterBase for StableMSBRadixSorterImpl<'_> {
+impl<M> StableMSBRadixSorterBase for StableMSBRadixSorterImpl<'_, M>
+where
+    M: MutablePointTree,
+{
     fn save(&mut self, i: i32, j: i32) {
         self.reader.save(i, j);
     }
@@ -176,8 +197,11 @@ impl StableMSBRadixSorterBase for StableMSBRadixSorterImpl<'_> {
     }
 }
 
-struct IntroSorterImpl<'a> {
-    reader: &'a mut MutablePointTreeEnum,
+struct IntroSorterImpl<'a, M>
+where
+    M: MutablePointTree<AV = Vec<u8>>,
+{
+    reader: &'a mut M,
     config: Rc<BKDConfig>,
     pivot: BytesRef<Vec<u8>>,
     scratch2: BytesRef<Vec<u8>>,
@@ -185,7 +209,10 @@ struct IntroSorterImpl<'a> {
     comparator: ByteArrayComparatorEnum,
     start: i32,
 }
-impl Sorter for IntroSorterImpl<'_> {
+impl<M> Sorter for IntroSorterImpl<'_, M>
+where
+    M: MutablePointTree<AV = Vec<u8>>,
+{
     fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
         self.set_pivot(i)?;
         self.compare_pivot(j)
@@ -240,26 +267,35 @@ impl Sorter for IntroSorterImpl<'_> {
     }
 }
 
-impl IntroSorter for IntroSorterImpl<'_> {}
+impl<M> IntroSorter for IntroSorterImpl<'_, M> where M: MutablePointTree<AV = std::vec::Vec<u8>> {}
 
-struct RadixSelectorImpl {
+struct RadixSelectorImpl<M>
+where
+    M: MutablePointTree,
+{
     split_dim: i32,
     config: Rc<BKDConfig>,
     dim_cmp_bytes: i32,
-    reader: Rc<RefCell<MutablePointTreeEnum>>,
+    reader: Rc<RefCell<M>>,
     dim_offset: i32,
     data_cmp_bytes: i32,
     bits_per_doc_id: i32,
 }
 
-impl Selector for RadixSelectorImpl {
+impl<M> Selector for RadixSelectorImpl<M>
+where
+    M: MutablePointTree,
+{
     fn swap(&mut self, i: i32, j: i32) -> Result<()> {
         self.reader.borrow_mut().swap(i, j);
         Ok(())
     }
 }
 
-impl RadixSelectorBase for RadixSelectorImpl {
+impl<M> RadixSelectorBase for RadixSelectorImpl<M>
+where
+    M: MutablePointTree<AV = std::vec::Vec<u8>>,
+{
     fn byte_at(&self, i: i32, k: i32) -> i32 {
         let reader = self.reader.borrow();
         if k < self.dim_cmp_bytes {
@@ -306,11 +342,14 @@ impl RadixSelectorBase for RadixSelectorImpl {
     }
 }
 
-struct IntroSelectorImpl {
+struct IntroSelectorImpl<M>
+where
+    M: MutablePointTree,
+{
     dim_cmp_bytes: i32,
     data_cmp_bytes: i32,
     pivot: BytesRef<Vec<u8>>,
-    reader: Rc<RefCell<MutablePointTreeEnum>>,
+    reader: Rc<RefCell<M>>,
     pivot_doc: i32,
     k: i32,
     scratch2: BytesRef<Vec<u8>>,
@@ -320,7 +359,10 @@ struct IntroSelectorImpl {
     data_end: i32,
 }
 
-impl IntroSelectorBaseDefault for IntroSelectorImpl {
+impl<M> IntroSelectorBaseDefault for IntroSelectorImpl<M>
+where
+    M: MutablePointTree<AV = Vec<u8>>,
+{
     fn set_pivot(&mut self, i: i32) {
         let reader = self.reader.borrow_mut();
         reader.get_value(i, &mut self.pivot);
@@ -356,14 +398,17 @@ impl IntroSelectorBaseDefault for IntroSelectorImpl {
     }
 }
 
-impl Selector for IntroSelectorImpl {
+impl<M> Selector for IntroSelectorImpl<M>
+where
+    M: MutablePointTree,
+{
     fn swap(&mut self, i: i32, j: i32) -> Result<()> {
         self.reader.borrow_mut().swap(i, j);
         Ok(())
     }
 }
 
-impl IntroSelectorBase for IntroSelectorImpl {}
+impl<M> IntroSelectorBase for IntroSelectorImpl<M> where M: MutablePointTree<AV = std::vec::Vec<u8>> {}
 
 #[cfg(test)]
 pub(crate) mod tests {
@@ -373,7 +418,7 @@ pub(crate) mod tests {
 
     use rand::{Rng, RngCore};
 
-    use crate::codecs::mutable_point_tree::{MutablePointTree, MutablePointTreeEnum};
+    use crate::codecs::mutable_point_tree::MutablePointTree;
     use crate::index::point_values::PointTree;
     use crate::index::BytesRef;
     use crate::test::util::lucene_test_case::random;
@@ -421,7 +466,7 @@ pub(crate) mod tests {
             &mut common_prefix_lengths,
             is_doc_id_incremental,
         );
-        let mut reader = MutablePointTreeEnum::Dummy(DummyPointsReader::new(&points));
+        let mut reader = DummyPointsReader::new(&points);
         MutablePointTreeReaderUtils::sort(&config, max_doc, &mut reader, 0, points.len() as i32)?;
         let mut sorted_points = points.clone();
         sorted_points.sort_by(|o1, o2| {
@@ -432,26 +477,21 @@ pub(crate) mod tests {
                 cmp
             }
         });
-        match reader {
-            MutablePointTreeEnum::Dummy(reader) => {
-                assert_ne!(points.as_ptr(), reader.points.as_ptr());
-                assert_eq!(sorted_points.len(), reader.points.len());
+        assert_ne!(points.as_ptr(), reader.points.as_ptr());
+        assert_eq!(sorted_points.len(), reader.points.len());
 
-                let mut prev_point: Option<&Point> = None;
-                for (sorted_point, reader_point) in sorted_points.iter().zip(reader.points.iter()) {
-                    assert_eq!(sorted_point.packed_value, reader_point.packed_value);
-                    if let Some(prev) = prev_point {
-                        if reader_point.packed_value == prev.packed_value {
-                            assert!(
-                                reader_point.doc >= prev.doc,
-                                "Doc IDs not in ascending order"
-                            );
-                        }
-                    }
-                    prev_point = Some(reader_point);
+        let mut prev_point: Option<&Point> = None;
+        for (sorted_point, reader_point) in sorted_points.iter().zip(reader.points.iter()) {
+            assert_eq!(sorted_point.packed_value, reader_point.packed_value);
+            if let Some(prev) = prev_point {
+                if reader_point.packed_value == prev.packed_value {
+                    assert!(
+                        reader_point.doc >= prev.doc,
+                        "Doc IDs not in ascending order"
+                    );
                 }
-            },
-            _ => unreachable!(),
+            }
+            prev_point = Some(reader_point);
         }
         Ok(())
     }
@@ -478,7 +518,7 @@ pub(crate) mod tests {
             false,
         );
         let sorted_dim = random.random_range(0..config.num_index_dims);
-        let mut reader = MutablePointTreeEnum::Dummy(DummyPointsReader::new(&points));
+        let mut reader = DummyPointsReader::new(&points);
         MutablePointTreeReaderUtils::sort_by_dim(
             &config,
             sorted_dim,
@@ -490,43 +530,38 @@ pub(crate) mod tests {
             &mut BytesRef::default(),
         )?;
         let offset = sorted_dim * config.bytes_per_dim;
-        match &mut reader {
-            MutablePointTreeEnum::Dummy(reader) => {
-                for i in 1..points.len() {
-                    let previous_value = &reader.points[i - 1].packed_value;
-                    let current_value = &reader.points[i].packed_value;
+        for i in 1..points.len() {
+            let previous_value = &reader.points[i - 1].packed_value;
+            let current_value = &reader.points[i].packed_value;
 
-                    let dim_start_prev = previous_value.offset + offset as usize;
-                    let dim_end_prev = dim_start_prev + config.bytes_per_dim as usize;
-                    let dim_start_curr = current_value.offset + offset as usize;
-                    let dim_end_curr = dim_start_curr + config.bytes_per_dim as usize;
+            let dim_start_prev = previous_value.offset + offset as usize;
+            let dim_end_prev = dim_start_prev + config.bytes_per_dim as usize;
+            let dim_start_curr = current_value.offset + offset as usize;
+            let dim_end_curr = dim_start_curr + config.bytes_per_dim as usize;
 
-                    let mut cmp = compare_unsigned(
-                        &previous_value.bytes[dim_start_prev..dim_end_prev],
-                        &current_value.bytes[dim_start_curr..dim_end_curr],
-                    );
+            let mut cmp = compare_unsigned(
+                &previous_value.bytes[dim_start_prev..dim_end_prev],
+                &current_value.bytes[dim_start_curr..dim_end_curr],
+            );
 
-                    if cmp == 0 {
-                        let data_dim_offset = config.packed_index_bytes_length();
-                        let data_dims_length =
-                            (config.num_dims - config.num_index_dims) * config.bytes_per_dim;
-                        let data_start_prev = previous_value.offset + data_dim_offset as usize;
-                        let data_end_prev = data_start_prev + data_dims_length as usize;
-                        let data_start_curr = current_value.offset + data_dim_offset as usize;
-                        let data_end_curr = data_start_curr + data_dims_length as usize;
+            if cmp == 0 {
+                let data_dim_offset = config.packed_index_bytes_length();
+                let data_dims_length =
+                    (config.num_dims - config.num_index_dims) * config.bytes_per_dim;
+                let data_start_prev = previous_value.offset + data_dim_offset as usize;
+                let data_end_prev = data_start_prev + data_dims_length as usize;
+                let data_start_curr = current_value.offset + data_dim_offset as usize;
+                let data_end_curr = data_start_curr + data_dims_length as usize;
 
-                        cmp = compare_unsigned(
-                            &previous_value.bytes[data_start_prev..data_end_prev],
-                            &current_value.bytes[data_start_curr..data_end_curr],
-                        );
-                        if cmp == 0 {
-                            cmp = reader.points[i - 1].doc - reader.points[i].doc;
-                        }
-                    }
-                    assert!(cmp <= 0);
+                cmp = compare_unsigned(
+                    &previous_value.bytes[data_start_prev..data_end_prev],
+                    &current_value.bytes[data_start_curr..data_end_curr],
+                );
+                if cmp == 0 {
+                    cmp = reader.points[i - 1].doc - reader.points[i].doc;
                 }
-            },
-            _ => unreachable!(),
+            }
+            assert!(cmp <= 0);
         }
         Ok(())
     }
@@ -552,9 +587,7 @@ pub(crate) mod tests {
             false,
         );
         let split_dim = random.random_range(0..config.num_index_dims);
-        let reader = Rc::new(RefCell::new(MutablePointTreeEnum::Dummy(
-            DummyPointsReader::new(&points),
-        )));
+        let reader = Rc::new(RefCell::new(DummyPointsReader::new(&points)));
         let pivot = TestUtil::next_int(random, 0, points.len() as i32 - 1);
 
         MutablePointTreeReaderUtils::partition(
@@ -569,55 +602,49 @@ pub(crate) mod tests {
             &mut BytesRef::default(),
             &mut BytesRef::default(),
         )?;
-        let mut reader_ref = reader.borrow_mut();
-        match &mut *reader_ref {
-            MutablePointTreeEnum::Dummy(reader) => {
-                let pivot_point = &reader.points[pivot as usize];
-                let pivot_value = &pivot_point.packed_value;
-                let offset = split_dim * config.bytes_per_dim;
+        let mut reader = reader.borrow_mut();
+        let pivot_point = &reader.points[pivot as usize];
+        let pivot_value = &pivot_point.packed_value;
+        let offset = split_dim * config.bytes_per_dim;
 
-                for i in 0..(points.len() as i32) {
-                    let value = &reader.points[i as usize].packed_value;
-                    let dim_start = value.offset + offset as usize;
-                    let dim_end = value.offset + (offset + config.bytes_per_dim) as usize;
-                    let pivot_dim_start = pivot_value.offset + offset as usize;
-                    let pivot_dim_end =
-                        pivot_value.offset + (offset + config.bytes_per_dim) as usize;
+        for i in 0..(points.len() as i32) {
+            let value = &reader.points[i as usize].packed_value;
+            let dim_start = value.offset + offset as usize;
+            let dim_end = value.offset + (offset + config.bytes_per_dim) as usize;
+            let pivot_dim_start = pivot_value.offset + offset as usize;
+            let pivot_dim_end = pivot_value.offset + (offset + config.bytes_per_dim) as usize;
 
-                    let mut cmp = compare_unsigned(
-                        &value.bytes[dim_start..dim_end],
-                        &pivot_value.bytes[pivot_dim_start..pivot_dim_end],
-                    );
-                    if cmp == 0 {
-                        let data_dim_offset = config.packed_index_bytes_length();
-                        let data_dims_length =
-                            (config.num_dims - config.num_index_dims) * config.bytes_per_dim;
-                        let data_start = value.offset + data_dim_offset as usize;
-                        let data_end = data_start + data_dims_length as usize;
-                        let pivot_data_start = pivot_value.offset + data_dim_offset as usize;
-                        let pivot_data_end = pivot_data_start + data_dims_length as usize;
-                        cmp = compare_unsigned(
-                            &value.bytes[data_start..data_end],
-                            &pivot_value.bytes[pivot_data_start..pivot_data_end],
-                        );
-                        if cmp == 0 {
-                            cmp = reader.points[i as usize].doc - pivot_point.doc;
-                        }
-                    }
-                    match i.cmp(&pivot) {
-                        std::cmp::Ordering::Less => {
-                            assert!(cmp <= 0, "Expected cmp <= 0 for i < pivot, got {}", cmp);
-                        },
-                        std::cmp::Ordering::Greater => {
-                            assert!(cmp >= 0, "Expected cmp >= 0 for i > pivot, got {}", cmp);
-                        },
-                        std::cmp::Ordering::Equal => {
-                            assert_eq!(cmp, 0, "Expected cmp == 0 for the pivot index");
-                        },
-                    }
+            let mut cmp = compare_unsigned(
+                &value.bytes[dim_start..dim_end],
+                &pivot_value.bytes[pivot_dim_start..pivot_dim_end],
+            );
+            if cmp == 0 {
+                let data_dim_offset = config.packed_index_bytes_length();
+                let data_dims_length =
+                    (config.num_dims - config.num_index_dims) * config.bytes_per_dim;
+                let data_start = value.offset + data_dim_offset as usize;
+                let data_end = data_start + data_dims_length as usize;
+                let pivot_data_start = pivot_value.offset + data_dim_offset as usize;
+                let pivot_data_end = pivot_data_start + data_dims_length as usize;
+                cmp = compare_unsigned(
+                    &value.bytes[data_start..data_end],
+                    &pivot_value.bytes[pivot_data_start..pivot_data_end],
+                );
+                if cmp == 0 {
+                    cmp = reader.points[i as usize].doc - pivot_point.doc;
                 }
-            },
-            _ => unreachable!(),
+            }
+            match i.cmp(&pivot) {
+                std::cmp::Ordering::Less => {
+                    assert!(cmp <= 0, "Expected cmp <= 0 for i < pivot, got {}", cmp);
+                },
+                std::cmp::Ordering::Greater => {
+                    assert!(cmp >= 0, "Expected cmp >= 0 for i > pivot, got {}", cmp);
+                },
+                std::cmp::Ordering::Equal => {
+                    assert_eq!(cmp, 0, "Expected cmp == 0 for the pivot index");
+                },
+            }
         }
         Ok(())
     }
