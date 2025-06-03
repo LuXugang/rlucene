@@ -778,7 +778,9 @@ pub(crate) mod tests {
         }
     }
     impl MutablePointTree for DummyPointsReader {
-        fn get_value(&self, i: i32, packed_value: &mut BytesRef<Vec<u8>>) {
+        type AV = Vec<u8>;
+
+        fn get_value(&self, i: i32, packed_value: &mut BytesRef<Self::AV>) {
             let point = &self.points[i as usize].packed_value;
             packed_value.bytes = point.bytes.clone();
             packed_value.offset = point.offset;

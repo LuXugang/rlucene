@@ -19,6 +19,7 @@ use crate::index::point_values_writer::MutableSortingPointValues;
 use crate::index::BytesRef;
 #[cfg(test)]
 use crate::test::util::bkd::test_bkd::{MutablePointTreeMock1, MutablePointTreeMock2};
+use crate::util::access::{Access, AccessVec};
 #[cfg(test)]
 use crate::util::bkd::mutable_point_tree_reader_utils::tests::DummyPointsReader;
 use crate::util::error::lucene_error::Result;
@@ -26,9 +27,10 @@ use crate::util::error::lucene_error::Result;
 /// One leaf [PointTree] whose order of points can be changed.
 /// This trait is useful for codecs to optimize flush.
 pub trait MutablePointTree: PointTree {
+    type AV: AccessVec<u8>;
     /// Set `packed_value` with a reference to the packed bytes of the i-th
     /// value.
-    fn get_value(&self, i: i32, packed_value: &mut BytesRef<Vec<u8>>);
+    fn get_value(&self, i: i32, packed_value: &mut BytesRef<Self::AV>);
 
     /// Get the k-th byte of the i-th value.
     fn get_byte_at(&self, i: i32, k: i32) -> u8;
@@ -63,7 +65,9 @@ impl Clone for MutablePointTreeEnum {
     }
 }
 impl MutablePointTree for MutablePointTreeEnum {
-    fn get_value(&self, i: i32, packed_value: &mut BytesRef<Vec<u8>>) {
+    type AV = Vec<u8>;
+
+    fn get_value(&self, i: i32, packed_value: &mut BytesRef<Self::AV>) {
         match self {
             #[cfg(test)]
             MutablePointTreeEnum::Dummy(reader) => reader.get_value(i, packed_value),

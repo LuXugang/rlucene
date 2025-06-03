@@ -1907,7 +1907,9 @@ impl Clone for MutablePointTreeMock1 {
 }
 
 impl MutablePointTree for MutablePointTreeMock1 {
-    fn get_value(&self, _i: i32, packed_value: &mut BytesRef<Vec<u8>>) {
+    type AV = Vec<u8>;
+
+    fn get_value(&self, _i: i32, packed_value: &mut BytesRef<Self::AV>) {
         packed_value.bytes = self.point_values.clone();
     }
 
@@ -1996,7 +1998,9 @@ impl Clone for MutablePointTreeMock2 {
 }
 
 impl MutablePointTree for MutablePointTreeMock2 {
-    fn get_value(&self, i: i32, packed_value: &mut BytesRef<Vec<u8>>) {
+    type AV = Vec<u8>;
+
+    fn get_value(&self, i: i32, packed_value: &mut BytesRef<Self::AV>) {
         packed_value.bytes = self.point_values[i as usize].clone();
         packed_value.offset = 0;
         packed_value.length = self.num_bytes_per_dim as usize;

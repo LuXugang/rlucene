@@ -22,7 +22,9 @@ pub struct PointValuesWriter;
 #[allow(unused)]
 pub struct MutableSortingPointValues;
 impl MutablePointTree for MutableSortingPointValues {
-    fn get_value(&self, _i: i32, _packed_value: &mut BytesRef<Vec<u8>>) {
+    type AV = Vec<u8>;
+
+    fn get_value(&self, _i: i32, _packed_value: &mut BytesRef<Self::AV>) {
         todo!()
     }
 
