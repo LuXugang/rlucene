@@ -1909,25 +1909,25 @@ impl Clone for MutablePointTreeMock1 {
 impl MutablePointTree for MutablePointTreeMock1 {
     type AV = Vec<u8>;
 
-    fn get_value(&self, _i: i32, packed_value: &mut BytesRef<Self::AV>) {
+    fn get_value(&self, _i: usize, packed_value: &mut BytesRef<Self::AV>) {
         packed_value.bytes = self.point_values.clone();
     }
 
-    fn get_byte_at(&self, i: i32, k: i32) -> u8 {
+    fn get_byte_at(&self, i: usize, k: usize) -> u8 {
         let mut b = BytesRef::new();
         self.get_value(i, &mut b);
         b.bytes[b.offset + k as usize]
     }
 
-    fn get_doc_id(&self, _i: i32) -> i32 {
+    fn get_doc_id(&self, _i: usize) -> i32 {
         0
     }
 
-    fn swap(&mut self, _i: i32, _j: i32) {}
+    fn swap(&mut self, _i: usize, _j: usize) {}
 
-    fn save(&mut self, _i: i32, _j: i32) {}
+    fn save(&mut self, _i: usize, _j: usize) {}
 
-    fn restore(&mut self, _i: i32, _j: i32) {}
+    fn restore(&mut self, _i: usize, _j: usize) {}
 }
 #[test]
 fn test_total_point_count_validation() -> Result<()> {
@@ -2000,31 +2000,31 @@ impl Clone for MutablePointTreeMock2 {
 impl MutablePointTree for MutablePointTreeMock2 {
     type AV = Vec<u8>;
 
-    fn get_value(&self, i: i32, packed_value: &mut BytesRef<Self::AV>) {
+    fn get_value(&self, i: usize, packed_value: &mut BytesRef<Self::AV>) {
         packed_value.bytes = self.point_values[i as usize].clone();
         packed_value.offset = 0;
         packed_value.length = self.num_bytes_per_dim as usize;
     }
 
-    fn get_byte_at(&self, i: i32, k: i32) -> u8 {
+    fn get_byte_at(&self, i: usize, k: usize) -> u8 {
         self.point_values[i as usize][k as usize]
     }
 
-    fn get_doc_id(&self, i: i32) -> i32 {
+    fn get_doc_id(&self, i: usize) -> i32 {
         self.doc_id[i as usize]
     }
 
-    fn swap(&mut self, i: i32, j: i32) {
+    fn swap(&mut self, i: usize, j: usize) {
         self.point_values.swap(i as usize, j as usize);
         self.doc_id.swap(i as usize, j as usize)
     }
 
-    fn save(&mut self, i: i32, j: i32) {
+    fn save(&mut self, i: usize, j: usize) {
         self.tmp_values[j as usize] = self.point_values[i as usize].clone();
         self.tmp_docs[j as usize] = self.doc_id[i as usize];
     }
 
-    fn restore(&mut self, i: i32, j: i32) {
+    fn restore(&mut self, i: usize, j: usize) {
         for k in i as usize..j as usize {
             self.point_values[k] = self.tmp_values[k].clone();
             self.doc_id[k] = self.tmp_docs[k];

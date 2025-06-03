@@ -24,21 +24,21 @@ pub trait MutablePointTree: PointTree {
     type AV: AccessVec<u8>;
     /// Set `packed_value` with a reference to the packed bytes of the i-th
     /// value.
-    fn get_value(&self, i: i32, packed_value: &mut BytesRef<Self::AV>);
+    fn get_value(&self, i: usize, packed_value: &mut BytesRef<Self::AV>);
 
     /// Get the k-th byte of the i-th value.
-    fn get_byte_at(&self, i: i32, k: i32) -> u8;
+    fn get_byte_at(&self, i: usize, k: usize) -> u8;
 
     /// Return the doc ID of the i-th value.
-    fn get_doc_id(&self, i: i32) -> i32;
+    fn get_doc_id(&self, i: usize) -> i32;
 
     /// Swap the i-th and j-th values.
-    fn swap(&mut self, i: i32, j: i32);
+    fn swap(&mut self, i: usize, j: usize);
 
     /// Save the i-th value into the j-th position in temporary storage.
-    fn save(&mut self, i: i32, j: i32);
+    fn save(&mut self, i: usize, j: usize);
 
     /// Restore values between i-th and j-th (excluding) in temporary storage
     /// into original storage.
-    fn restore(&mut self, i: i32, j: i32);
+    fn restore(&mut self, i: usize, j: usize);
 }

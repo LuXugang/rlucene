@@ -324,7 +324,7 @@ where
         if from == to {
             return Ok(());
         }
-        values.get_value(from, &mut self.scratch_bytes_ref1);
+        values.get_value(from as usize, &mut self.scratch_bytes_ref1);
         min_packed_value.copy_from(
             &self.scratch_bytes_ref1.bytes[self.scratch_bytes_ref1.offset
                 ..self.scratch_bytes_ref1.offset
@@ -339,7 +339,7 @@ where
         );
 
         for i in from + 1..to {
-            values.get_value(i, &mut self.scratch_bytes_ref1);
+            values.get_value(i as usize, &mut self.scratch_bytes_ref1);
             let offset = self.scratch_bytes_ref1.offset;
             for dim in 0..self.config.num_index_dims {
                 let start_offset = (dim * self.config.bytes_per_dim) as usize;
@@ -425,7 +425,7 @@ where
         {
             let values_b = values.borrow();
             for i in 0..self.point_count as i32 {
-                self.docs_seen.set(values_b.get_doc_id(i));
+                self.docs_seen.set(values_b.get_doc_id(i as usize));
             }
         }
 
@@ -1454,9 +1454,9 @@ where
             let mut leaf_cardinality = 1;
             {
                 let mut reader_ref = reader.borrow_mut();
-                reader_ref.get_value(from, &mut self.scratch_bytes_ref1);
+                reader_ref.get_value(from as usize, &mut self.scratch_bytes_ref1);
                 for i in from + 1..to {
-                    reader_ref.get_value(i, &mut self.scratch_bytes_ref2);
+                    reader_ref.get_value(i as usize, &mut self.scratch_bytes_ref2);
                     for dim in 0..self.config.num_dims {
                         let offset = (dim * self.config.bytes_per_dim) as usize;
                         let dimension_prefix_length = self.common_prefix_lengths[dim as usize];
@@ -1484,9 +1484,10 @@ where
                     for dim in 0..self.config.num_dims {
                         if let Some(ref mut set) = used_bytes[dim as usize] {
                             let b = reader_ref.get_byte_at(
-                                i,
-                                dim * self.config.bytes_per_dim
-                                    + self.common_prefix_lengths[dim as usize],
+                                i as usize,
+                                (dim * self.config.bytes_per_dim
+                                    + self.common_prefix_lengths[dim as usize])
+                                    as usize,
                             );
                             set.set(b as i32);
                         }
@@ -1517,9 +1518,9 @@ where
 
                 let mut comparator = self.scratch_bytes_ref1.clone();
                 let mut collector = self.scratch_bytes_ref2.clone();
-                reader_ref.get_value(from, &mut comparator);
+                reader_ref.get_value(from as usize, &mut comparator);
                 for i in from + 1..to {
-                    reader_ref.get_value(i, &mut collector);
+                    reader_ref.get_value(i as usize, &mut collector);
                     for dim in 0..self.config.num_dims {
                         let start = (dim * self.config.bytes_per_dim) as usize;
                         if !self.equals_predicate.test(
@@ -1540,12 +1541,12 @@ where
 
                 // Write doc IDs
                 for i in from..to {
-                    spare_doc_ids[(i - from) as usize] = reader_ref.get_doc_id(i);
+                    spare_doc_ids[(i - from) as usize] = reader_ref.get_doc_id(i as usize);
                 }
                 self.write_leaf_block_docs(out, spare_doc_ids, 0, count)?;
 
                 // Write the common prefixes:
-                reader_ref.get_value(from, &mut self.scratch_bytes_ref1);
+                reader_ref.get_value(from as usize, &mut self.scratch_bytes_ref1);
                 self.scratch.copy_from(
                     &self.scratch_bytes_ref1.bytes[self.scratch_bytes_ref1.offset
                         ..self.scratch_bytes_ref1.offset
@@ -1635,7 +1636,9 @@ where
             let split_offset = right_offset - 1;
             let address = (split_offset * self.config.bytes_per_dim) as usize;
             split_dimension_values[split_offset as usize] = split_dim as u8;
-            reader.borrow().get_value(mid, &mut self.scratch_bytes_ref1);
+            reader
+                .borrow()
+                .get_value(mid as usize, &mut self.scratch_bytes_ref1);
             let start =
                 self.scratch_bytes_ref1.offset + (split_dim * self.config.bytes_per_dim) as usize;
             split_packed_values.copy_from(
@@ -2797,7 +2800,7 @@ where
     fn get_value(&mut self, i: i32) -> Result<(&[u8], i32, i32)> {
         self.reader
             .borrow()
-            .get_value(i + self.from, &mut self.scratch);
+            .get_value((i + self.from) as usize, &mut self.scratch);
         Ok((
             self.scratch.bytes.as_slice(),
             self.scratch.offset as i32,

@@ -50,7 +50,7 @@ impl MutablePointTreeReaderUtils {
         let mut sorted_by_doc_id = true;
         let mut prev_doc = 0;
         for i in from..to {
-            let doc = reader.get_doc_id(i);
+            let doc = reader.get_doc_id(i as usize);
             if doc < prev_doc {
                 sorted_by_doc_id = false;
                 break;
@@ -165,11 +165,11 @@ where
 {
     fn byte_at(&mut self, i: i32, k: i32) -> Result<i32> {
         if k < self.config.packed_bytes_length() {
-            Ok(self.reader.get_byte_at(i, k) as i32)
+            Ok(self.reader.get_byte_at(i as usize, k as usize) as i32)
         } else {
             let shift = self.bits_per_doc_id - ((k - self.config.packed_bytes_length() + 1) << 3);
             let effective_shift = std::cmp::max(0, shift) as u32;
-            Ok(((self.reader.get_doc_id(i) as u32 >> effective_shift) & 0xff) as i32)
+            Ok(((self.reader.get_doc_id(i as usize) as u32 >> effective_shift) & 0xff) as i32)
         }
     }
 }
@@ -179,7 +179,7 @@ where
     M: MutablePointTree,
 {
     fn swap(&mut self, i: i32, j: i32) -> Result<()> {
-        self.reader.swap(i, j);
+        self.reader.swap(i as usize, j as usize);
         Ok(())
     }
 }
@@ -189,11 +189,11 @@ where
     M: MutablePointTree,
 {
     fn save(&mut self, i: i32, j: i32) {
-        self.reader.save(i, j);
+        self.reader.save(i as usize, j as usize);
     }
 
     fn restore(&mut self, i: i32, j: i32) {
-        self.reader.restore(i, j);
+        self.reader.restore(i as usize, j as usize);
     }
 }
 
@@ -219,18 +219,18 @@ where
     }
 
     fn swap(&mut self, i: i32, j: i32) -> Result<()> {
-        self.reader.swap(i, j);
+        self.reader.swap(i as usize, j as usize);
         Ok(())
     }
 
     fn set_pivot(&mut self, i: i32) -> Result<()> {
-        self.reader.get_value(i, &mut self.pivot);
-        self.pivot_doc = self.reader.get_doc_id(i);
+        self.reader.get_value(i as usize, &mut self.pivot);
+        self.pivot_doc = self.reader.get_doc_id(i as usize);
         Ok(())
     }
 
     fn compare_pivot(&mut self, j: i32) -> Result<i32> {
-        self.reader.get_value(j, &mut self.scratch2);
+        self.reader.get_value(j as usize, &mut self.scratch2);
 
         let cmp = self.comparator.compare(
             &self.pivot.bytes,
@@ -253,7 +253,7 @@ where
 
             let cmp = pivot_slice.cmp(scratch_slice).to_int();
             return if cmp == 0 {
-                Ok(self.pivot_doc - self.reader.get_doc_id(j))
+                Ok(self.pivot_doc - self.reader.get_doc_id(j as usize))
             } else {
                 Ok(cmp)
             };
@@ -287,7 +287,7 @@ where
     M: MutablePointTree,
 {
     fn swap(&mut self, i: i32, j: i32) -> Result<()> {
-        self.reader.borrow_mut().swap(i, j);
+        self.reader.borrow_mut().swap(i as usize, j as usize);
         Ok(())
     }
 }
@@ -299,16 +299,16 @@ where
     fn byte_at(&self, i: i32, k: i32) -> i32 {
         let reader = self.reader.borrow();
         if k < self.dim_cmp_bytes {
-            reader.get_byte_at(i, self.dim_offset + k) as i32
+            reader.get_byte_at(i as usize, self.dim_offset as usize + k as usize) as i32
         } else if k < self.data_cmp_bytes {
             reader.get_byte_at(
-                i,
-                self.config.packed_index_bytes_length() + k - self.dim_cmp_bytes,
+                i as usize,
+                (self.config.packed_index_bytes_length() + k - self.dim_cmp_bytes) as usize,
             ) as i32
         } else {
             let shift = self.bits_per_doc_id - ((k - self.data_cmp_bytes + 1) << 3);
             let effective_shift = std::cmp::max(0, shift) as u32;
-            ((reader.get_doc_id(i) as u32 >> effective_shift) & 0xff) as i32
+            ((reader.get_doc_id(i as usize) as u32 >> effective_shift) & 0xff) as i32
         }
     }
 
@@ -365,14 +365,14 @@ where
 {
     fn set_pivot(&mut self, i: i32) {
         let reader = self.reader.borrow_mut();
-        reader.get_value(i, &mut self.pivot);
-        self.pivot_doc = reader.get_doc_id(i);
+        reader.get_value(i as usize, &mut self.pivot);
+        self.pivot_doc = reader.get_doc_id(i as usize);
     }
 
     fn compare_pivot(&mut self, j: i32) -> i32 {
         let reader = self.reader.borrow();
         if self.k < self.dim_cmp_bytes {
-            reader.get_value(j, &mut self.scratch2);
+            reader.get_value(j as usize, &mut self.scratch2);
             let cmp = self.dim_comparator.compare(
                 &self.pivot.bytes,
                 self.pivot.offset + self.dim_start as usize,
@@ -384,7 +384,7 @@ where
             }
         }
         if self.k < self.data_cmp_bytes {
-            reader.get_value(j, &mut self.scratch2);
+            reader.get_value(j as usize, &mut self.scratch2);
             let pivot_slice = &self.pivot.bytes[self.pivot.offset + self.data_start as usize
                 ..self.pivot.offset + self.data_end as usize];
             let scratch_slice = &self.scratch2.bytes[self.scratch2.offset + self.data_start as usize
@@ -394,7 +394,7 @@ where
                 return cmp;
             }
         }
-        self.pivot_doc - reader.get_doc_id(j)
+        self.pivot_doc - reader.get_doc_id(j as usize)
     }
 }
 
@@ -403,7 +403,7 @@ where
     M: MutablePointTree,
 {
     fn swap(&mut self, i: i32, j: i32) -> Result<()> {
-        self.reader.borrow_mut().swap(i, j);
+        self.reader.borrow_mut().swap(i as usize, j as usize);
         Ok(())
     }
 }
@@ -807,31 +807,31 @@ pub(crate) mod tests {
     impl MutablePointTree for DummyPointsReader {
         type AV = Vec<u8>;
 
-        fn get_value(&self, i: i32, packed_value: &mut BytesRef<Self::AV>) {
+        fn get_value(&self, i: usize, packed_value: &mut BytesRef<Self::AV>) {
             let point = &self.points[i as usize].packed_value;
             packed_value.bytes = point.bytes.clone();
             packed_value.offset = point.offset;
             packed_value.length = point.length;
         }
 
-        fn get_byte_at(&self, i: i32, k: i32) -> u8 {
+        fn get_byte_at(&self, i: usize, k: usize) -> u8 {
             let packed_value = &self.points[i as usize].packed_value;
             packed_value.bytes[packed_value.offset + k as usize]
         }
 
-        fn get_doc_id(&self, i: i32) -> i32 {
+        fn get_doc_id(&self, i: usize) -> i32 {
             self.points[i as usize].doc
         }
 
-        fn swap(&mut self, i: i32, j: i32) {
+        fn swap(&mut self, i: usize, j: usize) {
             self.points.swap(i as usize, j as usize);
         }
 
-        fn save(&mut self, i: i32, j: i32) {
+        fn save(&mut self, i: usize, j: usize) {
             self.temp[j as usize] = self.points[i as usize].clone();
         }
 
-        fn restore(&mut self, i: i32, j: i32) {
+        fn restore(&mut self, i: usize, j: usize) {
             let i = i as usize;
             let j = j as usize;
             self.points[i..j].clone_from_slice(&self.temp[i..j]);

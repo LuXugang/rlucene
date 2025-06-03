@@ -24,27 +24,27 @@ pub struct MutableSortingPointValues;
 impl MutablePointTree for MutableSortingPointValues {
     type AV = Vec<u8>;
 
-    fn get_value(&self, _i: i32, _packed_value: &mut BytesRef<Self::AV>) {
+    fn get_value(&self, _i: usize, _packed_value: &mut BytesRef<Self::AV>) {
         todo!()
     }
 
-    fn get_byte_at(&self, _i: i32, _k: i32) -> u8 {
+    fn get_byte_at(&self, _i: usize, _k: usize) -> u8 {
         todo!()
     }
 
-    fn get_doc_id(&self, _i: i32) -> i32 {
+    fn get_doc_id(&self, _i: usize) -> i32 {
         todo!()
     }
 
-    fn swap(&mut self, _i: i32, _j: i32) {
+    fn swap(&mut self, _i: usize, _j: usize) {
         todo!()
     }
 
-    fn save(&mut self, _i: i32, _j: i32) {
+    fn save(&mut self, _i: usize, _j: usize) {
         todo!()
     }
 
-    fn restore(&mut self, _i: i32, _j: i32) {
+    fn restore(&mut self, _i: usize, _j: usize) {
         todo!()
     }
 }
