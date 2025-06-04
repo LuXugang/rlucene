@@ -16,12 +16,11 @@
  */
 use std::fmt::{Debug, Display, Formatter};
 
+use crate::index::dummy::dummy_impacts_enum::DummyImpactsEnum;
 use crate::index::dummy::dummy_postings_enum::DummyPostingsEnum;
-use crate::index::impacts_enum::ImpactsEnumEnum;
 use crate::index::term_state::{TermState, TermStateEnum};
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::index::BytesRef;
-use crate::util::access::AccessVec;
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -107,7 +106,7 @@ impl TermsEnum for BaseTermsEnum {
         Err(LuceneError::need_implemented(""))
     }
 
-    type ImpactsEnum = ImpactsEnumEnum;
+    type ImpactsEnum = DummyImpactsEnum;
 
     fn impacts(&mut self, _flags: i32) -> Result<Self::ImpactsEnum> {
         Err(LuceneError::need_implemented(""))

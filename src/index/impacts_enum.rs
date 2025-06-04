@@ -14,73 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::index::impacts::ImpactsEnums;
 use crate::index::impacts_source::ImpactsSource;
 use crate::index::postings_enum::PostingsEnum;
-use crate::index::BytesRef;
-use crate::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::util::error::lucene_error::Result;
 
 /// Extension of `PostingsEnum` which also provides information about upcoming
 /// impacts.
 pub trait ImpactsEnum: PostingsEnum + ImpactsSource {}
-
-pub enum ImpactsEnumEnum {}
-
-impl PostingsEnum for ImpactsEnumEnum {
-    fn freq(&mut self) -> Result<i32> {
-        todo!()
-    }
-
-    fn next_position(&mut self) -> Result<i32> {
-        todo!()
-    }
-
-    fn start_offset(&self) -> Result<i32> {
-        todo!()
-    }
-
-    fn end_offset(&self) -> Result<i32> {
-        todo!()
-    }
-
-    fn get_payload(&self) -> Result<Option<&BytesRef<Vec<u8>>>> {
-        todo!()
-    }
-}
-
-impl DocIdSetIterator for ImpactsEnumEnum {
-    fn doc_id(&self) -> i32 {
-        todo!()
-    }
-
-    fn next_doc(&mut self) -> Result<i32> {
-        todo!()
-    }
-
-    fn advance(&mut self, _target: i32) -> Result<i32> {
-        todo!()
-    }
-
-    fn slow_advance(&mut self, _target: i32) -> Result<i32> {
-        todo!()
-    }
-
-    fn cost(&self) -> Result<i64> {
-        todo!()
-    }
-}
-
-impl ImpactsSource for ImpactsEnumEnum {
-    fn advance_shallow(&mut self, _target: i32) -> Result<()> {
-        todo!()
-    }
-
-    type ImpactsType<'a> = ImpactsEnums;
-
-    fn get_impacts(&mut self) -> Result<Self::ImpactsType<'_>> {
-        todo!()
-    }
-}
-
-impl ImpactsEnum for ImpactsEnumEnum {}
