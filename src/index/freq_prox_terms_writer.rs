@@ -14,6 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::index::postings_enum::PostingsEnum;
+use crate::index::sorter::DocMap;
+use crate::index::BytesRef;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::store::byte_buffers_data_input::ByteBuffersDataInputOwned;
+use crate::store::{ByteBuffersDataOutput, DataInput, DataOutput};
 use crate::util::array_util::ArrayUtil;
 use crate::util::error::lucene_error::Result;
 use crate::util::{SliceCopyOps, Sorter, TimSorter, TimSorterBase};
@@ -102,7 +109,240 @@ impl TimSorterBase for DocOffsetSorter<'_> {
         self.tmp_docs[i as usize] - self.docs[j as usize]
     }
 }
+pub(crate) struct SortingPostingsEnum<P>
+where
+    P: PostingsEnum,
+{
+    docs: Vec<i32>,
+    offsets: Vec<i64>,
+    upto: i32,
 
+    posting_input: Option<ByteBuffersDataInputOwned>,
+    postings_enum: Option<P>,
+
+    store_positions: bool,
+    store_offsets: bool,
+
+    doc_it: i32,
+    pos: i32,
+    start_offset: i32,
+    end_offset: i32,
+
+    payload: BytesRef<Vec<u8>>,
+    curr_freq: i32,
+
+    buffer: ByteBuffersDataOutput,
+}
+impl<P> SortingPostingsEnum<P>
+where
+    P: PostingsEnum,
+{
+    pub fn new(store_positions: bool, store_offsets: bool) -> Self {
+        Self {
+            docs: Vec::new(),
+            offsets: Vec::new(),
+            upto: 0,
+            posting_input: None,
+            postings_enum: None,
+            store_positions,
+            store_offsets,
+            doc_it: -1,
+            pos: 0,
+            start_offset: 0,
+            end_offset: 0,
+            payload: BytesRef::new(),
+            curr_freq: 0,
+            buffer: ByteBuffersDataOutput::new_resettable_instance(),
+        }
+    }
+    pub fn reset(
+        &mut self,
+        doc_map: &impl DocMap,
+        mut postings_enum: P,
+        store_positions: bool,
+        store_offsets: bool,
+    ) -> Result<()> {
+        self.store_positions = store_positions;
+        self.store_offsets = store_offsets;
+
+        self.doc_it = -1;
+        self.start_offset = -1;
+        self.end_offset = -1;
+
+        self.buffer.reset();
+
+        let mut i = 0;
+        loop {
+            let doc = postings_enum.next_doc()?;
+            if doc == NO_MORE_DOCS {
+                break;
+            }
+            if i == self.docs.len() {
+                let new_length = ArrayUtil::oversize(i + 1, 4);
+                ArrayUtil::grow_exact(&mut self.docs, new_length)?;
+                ArrayUtil::grow_exact(&mut self.offsets, new_length)?;
+            }
+
+            self.docs[i] = doc_map.old_to_new(doc);
+            self.offsets[i] = self.buffer.size();
+
+            self.add_positions(&mut postings_enum)?;
+            i += 1;
+        }
+        self.postings_enum = Some(postings_enum);
+
+        debug_assert!(i <= i32::MAX as usize);
+        self.upto = i as i32;
+
+        let num_temp_slots = doc_map.size() / 8;
+        let mut sorter = DocOffsetSorter::new(&mut self.docs, &mut self.offsets, num_temp_slots);
+        sorter.sort(0, self.upto)?;
+
+        self.posting_input = Some(self.buffer.get_data_input_owner());
+
+        Ok(())
+    }
+    fn add_positions(&mut self, postings: &mut impl PostingsEnum) -> Result<()> {
+        let freq = postings.freq()?;
+        self.buffer.write_vint(freq)?;
+
+        if self.store_positions {
+            let mut previous_position = 0;
+            let mut previous_end_offset = 0;
+
+            for _ in 0..freq {
+                let pos = postings.next_position()?;
+                let payload_opt = postings.get_payload()?;
+                // The low-order bit of token is set only if there is a payload, the
+                // previous bits are the delta-encoded position.
+                let token =
+                    ((pos - previous_position) << 1) | if payload_opt.is_some() { 1 } else { 0 };
+                self.buffer.write_vint(token)?;
+                previous_position = pos;
+
+                if self.store_offsets {
+                    // don't encode offsets if they are not stored
+                    let start_offset = postings.start_offset()?;
+                    let end_offset = postings.end_offset()?;
+                    self.buffer.write_vint(start_offset - previous_end_offset)?;
+                    self.buffer.write_vint(end_offset - start_offset)?;
+                    previous_end_offset = end_offset;
+                }
+
+                if let Some(payload) = payload_opt {
+                    self.buffer.write_vint(payload.length as i32)?;
+                    self.buffer.write_bytes_range(
+                        &payload.bytes,
+                        payload.offset as i32,
+                        payload.length as i32,
+                    )?;
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+impl<P> DocIdSetIterator for SortingPostingsEnum<P>
+where
+    P: PostingsEnum,
+{
+    fn doc_id(&self) -> i32 {
+        if self.doc_it < 0 {
+            -1
+        } else if self.doc_it >= self.upto {
+            NO_MORE_DOCS
+        } else {
+            self.docs[self.doc_it as usize]
+        }
+    }
+
+    fn next_doc(&mut self) -> Result<i32> {
+        self.doc_it += 1;
+        if self.doc_it >= self.upto {
+            return Ok(NO_MORE_DOCS);
+        }
+
+        let offset = self.offsets[self.doc_it as usize];
+        let posting_input = self.posting_input.as_mut().unwrap();
+        posting_input.seek(offset)?;
+
+        posting_input.read_vint()?;
+
+        self.pos = 0;
+        self.end_offset = 0;
+
+        Ok(self.docs[self.doc_it as usize])
+    }
+
+    fn advance(&mut self, target: i32) -> Result<i32> {
+        // need to support it for checkIndex, but in practice it won't be called, so
+        // don't bother to implement efficiently for now.
+        self.slow_advance(target)
+    }
+
+    fn cost(&self) -> Result<i64> {
+        self.postings_enum.as_ref().unwrap().cost()
+    }
+}
+
+impl<P> PostingsEnum for SortingPostingsEnum<P>
+where
+    P: PostingsEnum,
+{
+    fn freq(&mut self) -> Result<i32> {
+        Ok(self.curr_freq)
+    }
+
+    fn next_position(&mut self) -> Result<i32> {
+        if !self.store_positions {
+            return Ok(-1);
+        }
+
+        let posting_input = self.posting_input.as_mut().unwrap();
+
+        let token = posting_input.read_vint()?;
+        self.pos += ((token as u32) >> 1) as i32;
+
+        if self.store_offsets {
+            self.start_offset = self.end_offset + posting_input.read_vint()?;
+            self.end_offset = self.start_offset + posting_input.read_vint()?;
+        }
+
+        if (token & 1) != 0 {
+            self.payload.offset = 0;
+            let length = posting_input.read_vint()? as usize;
+            self.payload.length = length;
+
+            if self.payload.bytes.len() < length {
+                let new_length = ArrayUtil::oversize(length, 1);
+                self.payload.bytes = vec![0; new_length];
+            }
+
+            posting_input.read_bytes(&mut self.payload.bytes, 0, self.payload.length as i32)?;
+        } else {
+            self.payload.length = 0;
+        }
+
+        Ok(self.pos)
+    }
+
+    fn start_offset(&self) -> Result<i32> {
+        Ok(self.start_offset)
+    }
+
+    fn end_offset(&self) -> Result<i32> {
+        Ok(self.end_offset)
+    }
+
+    fn get_payload(&self) -> Result<Option<&BytesRef<Vec<u8>>>> {
+        if self.payload.length == 0 {
+            Ok(None)
+        } else {
+            Ok(Some(&self.payload))
+        }
+    }
+}
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
