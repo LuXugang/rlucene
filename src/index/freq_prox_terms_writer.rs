@@ -23,11 +23,119 @@ use crate::store::byte_buffers_data_input::ByteBuffersDataInputOwned;
 use crate::store::{ByteBuffersDataOutput, DataInput, DataOutput};
 use crate::util::array_util::ArrayUtil;
 use crate::util::error::lucene_error::Result;
+use crate::util::lsb_radix_sorter::LSBRadixSorter;
+use crate::util::packed::PackedInts;
 use crate::util::{SliceCopyOps, Sorter, TimSorter, TimSorterBase};
 
 pub(crate) struct FreqProxTermsWriter;
 
-pub struct DocOffsetSorter<'a> {
+pub(crate) struct SortingDocsEnum<P>
+where
+    P: PostingsEnum,
+{
+    sorter: LSBRadixSorter,
+    postings_enum: Option<P>,
+    docs: Vec<i32>,
+    doc_it: i32,
+    upto: i32,
+}
+impl<P> SortingDocsEnum<P>
+where
+    P: PostingsEnum,
+{
+    pub(crate) fn new() -> Self {
+        Self {
+            sorter: LSBRadixSorter::new(),
+            postings_enum: None,
+            docs: Vec::new(),
+            doc_it: -1,
+            upto: 0,
+        }
+    }
+    pub(crate) fn reset(&mut self, doc_map: &impl DocMap, mut postings_enum: P) -> Result<()> {
+        let mut i = 0;
+        loop {
+            let doc = postings_enum.next_doc()?;
+            if doc == NO_MORE_DOCS {
+                break;
+            }
+            if self.docs.len() <= i {
+                ArrayUtil::grow(&mut self.docs)?;
+            }
+            self.docs[i] = doc_map.old_to_new(doc);
+            i += 1;
+        }
+
+        self.upto = i as i32;
+        if self.docs.len() == self.upto as usize {
+            ArrayUtil::grow(&mut self.docs)?;
+        }
+        self.docs[self.upto as usize] = NO_MORE_DOCS;
+
+        let max_doc = doc_map.size();
+        let num_bits = PackedInts::bits_required(std::cmp::max(0, (max_doc - 1) as i64))? as usize;
+        // Even though LSBRadixSorter cannot take advantage of partial ordering like
+        // TimSorter it is often still faster for nearly-sorted inputs.
+        self.sorter
+            .sort(num_bits, &mut self.docs, self.upto as usize);
+        self.doc_it = -1;
+        self.postings_enum = Some(postings_enum);
+        Ok(())
+    }
+}
+
+impl<P> DocIdSetIterator for SortingDocsEnum<P>
+where
+    P: PostingsEnum,
+{
+    fn doc_id(&self) -> i32 {
+        if self.doc_it < 0 {
+            -1
+        } else {
+            self.docs[self.doc_it as usize]
+        }
+    }
+
+    fn next_doc(&mut self) -> Result<i32> {
+        self.doc_it += 1;
+        Ok(self.docs[self.doc_it as usize])
+    }
+
+    fn advance(&mut self, target: i32) -> Result<i32> {
+        self.slow_advance(target)
+    }
+
+    fn cost(&self) -> Result<i64> {
+        Ok(self.upto as i64)
+    }
+}
+
+impl<P> PostingsEnum for SortingDocsEnum<P>
+where
+    P: PostingsEnum,
+{
+    fn freq(&mut self) -> Result<i32> {
+        Ok(1)
+    }
+
+    fn next_position(&mut self) -> Result<i32> {
+        Ok(-1)
+    }
+
+    fn start_offset(&self) -> Result<i32> {
+        Ok(-1)
+    }
+
+    fn end_offset(&self) -> Result<i32> {
+        Ok(-1)
+    }
+
+    fn get_payload(&self) -> Result<Option<&BytesRef<Vec<u8>>>> {
+        Ok(None)
+    }
+}
+
+struct DocOffsetSorter<'a> {
     docs: &'a mut [i32],
     offsets: &'a mut [i64],
     tmp_docs: Vec<i32>,

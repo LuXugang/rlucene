@@ -27,6 +27,12 @@ pub struct LSBRadixSorter {
     histogram: [i32; lsb_radix_sorter_util::HISTOGRAM_SIZE],
     buffer: Vec<i32>,
 }
+impl Default for LSBRadixSorter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl LSBRadixSorter {
     pub fn new() -> Self {
         LSBRadixSorter {
