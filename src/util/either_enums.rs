@@ -14,11 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::{Display, Formatter};
+
 use crate::index::impact::Impact;
 use crate::index::impacts::Impacts;
 use crate::index::impacts_enum::ImpactsEnum;
 use crate::index::impacts_source::ImpactsSource;
 use crate::index::postings_enum::PostingsEnum;
+use crate::index::term_state::{TermState, TermStateEnum};
 use crate::index::BytesRef;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::util::error::lucene_error::Result;
@@ -289,6 +292,51 @@ where
         match self {
             EitherPostingsEnum::T(t) => t.get_payload(),
             EitherPostingsEnum::S(s) => s.get_payload(),
+        }
+    }
+}
+
+// TermState
+pub enum EitherTermState<T, S> {
+    T(T),
+    S(S),
+}
+
+impl<T, S> Display for EitherTermState<T, S>
+where
+    T: TermState,
+    S: TermState,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            EitherTermState::T(t) => write!(f, "EitherTermState::T({})", t),
+            EitherTermState::S(s) => write!(f, "EitherTermState::S({})", s),
+        }
+    }
+}
+
+impl<T, S> Clone for EitherTermState<T, S>
+where
+    T: TermState,
+    S: TermState,
+{
+    fn clone(&self) -> Self {
+        match self {
+            EitherTermState::T(t) => EitherTermState::T(t.clone()),
+            EitherTermState::S(s) => EitherTermState::S(s.clone()),
+        }
+    }
+}
+
+impl<T, S> TermState for EitherTermState<T, S>
+where
+    T: TermState,
+    S: TermState,
+{
+    fn copy_from(&mut self, other: &TermStateEnum) -> Result<()> {
+        match self {
+            EitherTermState::T(t) => t.copy_from(other),
+            EitherTermState::S(s) => s.copy_from(other),
         }
     }
 }
