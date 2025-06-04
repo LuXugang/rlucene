@@ -1,0 +1,31 @@
+[tasks.check]
+description = "code format"
+dependencies = ["clippy", "format"]
+
+[tasks.ci]
+description = "run ci"
+dependencies = ["clippy","format", "check-dirty","test"]
+
+[tasks.format]
+command = "cargo"
+args = ["fmt"]
+
+[tasks.clippy]
+command = "cargo"
+#args = ["clippy", "--fix", "--", "-D", "warnings"]
+args = ["clippy", "--fix"]
+
+[tasks.test]
+command = "cargo"
+args = ["test", "--verbose", "--features", "test_log_verbose,nightly"]
+
+[tasks.check-dirty]
+description = "Check if code was modified after auto-fix"
+script = [
+    "if ! git diff --exit-code > /dev/null; then",
+    "  echo '❌ Rust code was not properly formatted. Please run 'cargo fmt' and commit the changes.';",
+    "  exit 1;",
+    "else",
+    "  echo '✅ Ok';",
+    "fi"
+]
