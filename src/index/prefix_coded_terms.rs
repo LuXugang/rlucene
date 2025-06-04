@@ -22,7 +22,7 @@ use std::io::Cursor;
 use crate::index::field_term_iterator::FieldTermIterator;
 use crate::index::term::Term;
 use crate::index::{BytesRef, BytesRefBuilder};
-use crate::store::byte_buffers_data_input::ByteBuffersDataInput;
+use crate::store::byte_buffers_data_input::{ByteBuffersDataInput, ByteBuffersDataInputRef};
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{ByteBuffersDataOutput, DataInput, DataOutput};
 use crate::util::access::AccessVec;
@@ -191,7 +191,7 @@ pub struct TermIterator<'a, AV>
 where
     AV: AccessVec<u8>,
 {
-    input: ByteBuffersDataInput<'a>,
+    input: ByteBuffersDataInputRef<'a>,
     builder: BytesRefBuilder<AV>,
     bytes: BytesRef<AV>,
     end: i64,
@@ -203,7 +203,7 @@ impl<'a, AV> TermIterator<'a, AV>
 where
     AV: AccessVec<u8>,
 {
-    pub fn new(del_gen: i64, input: ByteBuffersDataInput<'a>) -> Self {
+    pub fn new(del_gen: i64, input: ByteBuffersDataInputRef<'a>) -> Self {
         let mut builder = BytesRefBuilder::new();
         let bytes = builder.get_bytes_ref_copy();
         let end = input.length();

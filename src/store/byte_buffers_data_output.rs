@@ -344,7 +344,7 @@ impl ByteBuffersDataOutput {
         }
     }
 
-    pub fn get_data_input(&mut self) -> ByteBuffersDataInput {
+    pub fn get_data_input(&mut self) -> ByteBuffersDataInput<&[u8]> {
         let (length, data) = self.to_buffer_list_ref();
         ByteBuffersDataInput::new(data, length)
     }

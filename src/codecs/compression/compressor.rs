@@ -25,7 +25,7 @@ pub trait Compressor {
     /// when to stop decompressing bytes from the stream.
     fn compress(
         &mut self,
-        buffers_input: &mut ByteBuffersDataInput,
+        buffers_input: &mut ByteBuffersDataInput<&[u8]>,
         out: &mut impl DataOutput,
     ) -> Result<()>;
 }

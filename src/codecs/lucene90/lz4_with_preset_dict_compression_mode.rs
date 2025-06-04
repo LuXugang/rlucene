@@ -247,7 +247,7 @@ impl LZ4WithPresetDictCompressor {
 impl Compressor for LZ4WithPresetDictCompressor {
     fn compress(
         &mut self,
-        buffers_input: &mut ByteBuffersDataInput,
+        buffers_input: &mut ByteBuffersDataInput<&[u8]>,
         out: &mut impl DataOutput,
     ) -> Result<()> {
         let len = (buffers_input.length() - buffers_input.position()) as i32;

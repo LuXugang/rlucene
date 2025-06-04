@@ -291,7 +291,7 @@ impl LZ4FastCompressor {
 impl Compressor for LZ4FastCompressor {
     fn compress(
         &mut self,
-        buffers_input: &mut ByteBuffersDataInput,
+        buffers_input: &mut ByteBuffersDataInput<&[u8]>,
         out: &mut impl DataOutput,
     ) -> Result<()> {
         let len = buffers_input.length() as i32;
@@ -315,7 +315,7 @@ impl LZ4HighCompressor {
 impl Compressor for LZ4HighCompressor {
     fn compress(
         &mut self,
-        buffers_input: &mut ByteBuffersDataInput,
+        buffers_input: &mut ByteBuffersDataInput<&[u8]>,
         out: &mut impl DataOutput,
     ) -> Result<()> {
         let len = buffers_input.length() as i32;
@@ -386,7 +386,7 @@ impl DeflateCompressor {
 impl Compressor for DeflateCompressor {
     fn compress(
         &mut self,
-        buffers_input: &mut ByteBuffersDataInput,
+        buffers_input: &mut ByteBuffersDataInput<&[u8]>,
         out: &mut impl DataOutput,
     ) -> Result<()> {
         let len = buffers_input.length() as i32;
@@ -411,7 +411,7 @@ pub enum CompressorEnum {
 impl Compressor for CompressorEnum {
     fn compress(
         &mut self,
-        buffers_input: &mut ByteBuffersDataInput,
+        buffers_input: &mut ByteBuffersDataInput<&[u8]>,
         out: &mut impl DataOutput,
     ) -> Result<()> {
         match self {

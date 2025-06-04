@@ -17,6 +17,7 @@
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::io::Cursor;
+use std::marker::PhantomData;
 
 use byteorder::{ByteOrder, LE};
 
@@ -27,41 +28,41 @@ use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::group_vint_util::GroupVIntUtil;
 use crate::util::{ReadableCursorExt, SliceCopyOps};
+pub type ByteBuffersDataInputRef<'a> = ByteBuffersDataInput<'a, &'a [u8]>;
+pub type ByteBuffersDataInputOwned = ByteBuffersDataInput<'static, Vec<u8>>;
 
 /// A [`DataInput`] implementing [`RandomAccessInput`]
 /// and reading data from a list of [`Cursor<Vec<u8>>`](Cursor).
-pub struct ByteBuffersDataInput<'a> {
+pub struct ByteBuffersDataInput<'a, B: AsRef<[u8]>> {
     /// In Java Lucene, hierarchical data is encapsulated using
     /// List<`java.nio.ByteBuffer`>, where each ByteBuffer limits the
     /// readable data using the limit parameter. In Rust Lucene, however,
     /// this is managed by controlling the readable data using
     /// Cursor#setPosition.
-    blocks: Vec<Cursor<&'a [u8]>>,
+    blocks: Vec<Cursor<B>>,
     block_mask: i32,
     block_bits: i32,
     length: i64,
     offset: i64,
     pos: i64,
+    _phantom: PhantomData<&'a B>,
 }
 /// Reads data from a set of contiguous buffers.
 /// All data buffers except for the last one must have an identical number of
 /// remaining bytes (which must be a power of two). The last buffer can have an
 /// arbitrary remaining length.
-impl<'a> ByteBuffersDataInput<'a> {
-    pub fn new(blocks: Vec<Cursor<&'a [u8]>>, length: i64) -> Self {
+impl<'a, B: AsRef<[u8]>> ByteBuffersDataInput<'a, B> {
+    pub fn new(blocks: Vec<Cursor<B>>, length: i64) -> Self {
         let (block_bits, block_mask) = if blocks.is_empty() {
             (32, !0)
         } else {
-            let block_bytes = blocks[0].get_ref().len() as u64;
+            let block_bytes = blocks[0].get_ref().as_ref().len() as u64;
             let block_bits = block_bytes.trailing_zeros();
-            debug_assert!(block_bits <= i32::MAX as u32);
             (block_bits, (1 << block_bits) - 1)
         };
         // The initial "position" of this stream is shifted by the position of
         // the first block.
-        let offset = blocks.first().map_or(0, |block| block.position());
-        debug_assert!(offset <= i64::MAX as u64);
-        let offset = offset as i64;
+        let offset = blocks.first().map_or(0, |block| block.position()) as i64;
         Self {
             blocks,
             block_mask,
@@ -69,6 +70,7 @@ impl<'a> ByteBuffersDataInput<'a> {
             length,
             offset,
             pos: offset,
+            _phantom: PhantomData,
         }
     }
     fn block_index(&self, pos: i64) -> i32 {
@@ -109,7 +111,8 @@ impl<'a> ByteBuffersDataInput<'a> {
             }
 
             let block = self.blocks.get_mut(block_index as usize).unwrap();
-            let available = block.remain_between(block_offset as u64, block.get_ref().len() as u64);
+            let available =
+                block.remain_between(block_offset as u64, block.get_ref().as_ref().len() as u64);
 
             debug_assert!(available <= i32::MAX as u64);
 
@@ -169,19 +172,65 @@ impl<'a> ByteBuffersDataInput<'a> {
     pub fn position(&self) -> i64 {
         self.pos - self.offset
     }
-    pub fn slice(&self, offset: i64, length: i64) -> Result<ByteBuffersDataInput<'a>> {
+}
+impl<'a> ByteBuffersDataInput<'a, &'a [u8]> {
+    pub fn slice(&self, offset: i64, length: i64) -> Result<ByteBuffersDataInput<'a, &'a [u8]>> {
         if offset < 0 || length < 0 || offset + length > self.length {
             return Err(LuceneError::illegal_argument(format!(
                 "slice(offset={}, length={}) is out of bounds: {}",
                 offset, length, self.length
             )));
         }
-        let blocks = slice_buffer_list(&self.blocks, offset, length);
+        let blocks = Self::slice_buffer_list(&self.blocks, offset, length);
         Ok(Self::new(blocks, length))
+    }
+    pub fn slice_buffer_list(
+        blocks: &[Cursor<&'a [u8]>],
+        offset: i64,
+        length: i64,
+    ) -> Vec<Cursor<&'a [u8]>> {
+        debug_assert!(!blocks.is_empty(), "blocks cannot be empty");
+
+        let abs_start = blocks[0].position() + offset as u64;
+        let abs_end = abs_start + length as u64;
+
+        let block_bytes = blocks[0].get_ref().len() as u64;
+        debug_assert!(block_bytes.is_power_of_two());
+        let block_bits = block_bytes.trailing_zeros() as u64;
+        let block_mask = (1u64 << block_bits) - 1;
+
+        let start_block_index = (abs_start / block_bytes) as usize;
+        let end_block_index = ((abs_end / block_bytes) as usize).min(blocks.len() - 1);
+
+        // Create a new Cursor for each block and adjust the position and underlying
+        // data range as needed
+        blocks[start_block_index..=end_block_index]
+            .iter()
+            .enumerate()
+            .map(|(i, block)| {
+                let vec_data = *block.get_ref();
+
+                let mut new_cursor = Cursor::new(vec_data);
+                if i == 0 {
+                    // first block we need to set position to start_offset to keep
+                    // al blocks same length
+                    let block_offset = abs_start & block_mask;
+                    new_cursor.set_position(block_offset);
+                } else {
+                    // other blocks we can use full block, so we only need set
+                    // position to 0
+                    new_cursor.set_position(0);
+                }
+                new_cursor
+            })
+            .collect()
     }
 }
 
-impl Display for ByteBuffersDataInput<'_> {
+impl<B> Display for ByteBuffersDataInput<'_, B>
+where
+    B: AsRef<[u8]>,
+{
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let blocks_len = self.blocks.len();
         let offset_str = if self.offset == 0 {
@@ -202,7 +251,10 @@ impl Display for ByteBuffersDataInput<'_> {
     }
 }
 
-impl DataInput for ByteBuffersDataInput<'_> {
+impl<B> DataInput for ByteBuffersDataInput<'_, B>
+where
+    B: AsRef<[u8]>,
+{
     fn read_byte(&mut self) -> Result<u8> {
         let mut bytes = [0; 1];
         self.read_bytes(self.pos, 1, &mut bytes)?;
@@ -233,8 +285,9 @@ impl DataInput for ByteBuffersDataInput<'_> {
         let block_index = self.block_index(self.pos);
         let block_offset = self.block_offset(self.pos);
         let block = self.blocks.get_mut(block_index as usize).unwrap();
-        let remain =
-            block.remain_between(block_offset as u64, block.get_ref().len() as u64) as usize;
+        let remain = block
+            .remain_between(block_offset as u64, block.get_ref().as_ref().len() as u64)
+            as usize;
         let len = GroupVIntUtil::read_group_vint_i32_with_reader(
             self,
             remain as u64,
@@ -280,7 +333,10 @@ impl DataInput for ByteBuffersDataInput<'_> {
 // TODO: In the current implementation, after performing a random read of a
 // specific value, it is not possible to use sequential reads to access the next
 // value at the subsequent position. TODO: should we support this feature?
-impl RandomAccessInput for ByteBuffersDataInput<'_> {
+impl<B> RandomAccessInput for ByteBuffersDataInput<'_, B>
+where
+    B: AsRef<[u8]>,
+{
     fn length(&self) -> i64 {
         self.length
     }
@@ -318,52 +374,13 @@ impl RandomAccessInput for ByteBuffersDataInput<'_> {
     }
 }
 
-impl Accountable for ByteBuffersDataInput<'_> {
+impl<B> Accountable for ByteBuffersDataInput<'_, B>
+where
+    B: AsRef<[u8]>,
+{
     fn ram_bytes_used(&self) -> Result<i64> {
         Ok(0)
     }
-}
-
-pub fn slice_buffer_list<'a>(
-    blocks: &[Cursor<&'a [u8]>],
-    offset: i64,
-    length: i64,
-) -> Vec<Cursor<&'a [u8]>> {
-    debug_assert!(!blocks.is_empty(), "blocks cannot be empty");
-
-    let abs_start = blocks[0].position() + offset as u64;
-    let abs_end = abs_start + length as u64;
-
-    let block_bytes = blocks[0].get_ref().len() as u64;
-    debug_assert!(block_bytes.is_power_of_two());
-    let block_bits = block_bytes.trailing_zeros() as u64;
-    let block_mask = (1u64 << block_bits) - 1;
-
-    let start_block_index = (abs_start / block_bytes) as usize;
-    let end_block_index = ((abs_end / block_bytes) as usize).min(blocks.len() - 1);
-
-    // Create a new Cursor for each block and adjust the position and underlying
-    // data range as needed
-    blocks[start_block_index..=end_block_index]
-        .iter()
-        .enumerate()
-        .map(|(i, block)| {
-            let vec_data = *block.get_ref();
-
-            let mut new_cursor = Cursor::new(vec_data);
-            if i == 0 {
-                // first block we need to set position to start_offset to keep
-                // al blocks same length
-                let block_offset = abs_start & block_mask;
-                new_cursor.set_position(block_offset);
-            } else {
-                // other blocks we can use full block, so we only need set
-                // position to 0
-                new_cursor.set_position(0);
-            }
-            new_cursor
-        })
-        .collect()
 }
 
 #[cfg(test)]
@@ -417,7 +434,7 @@ mod tests {
         let seed: u64 = random.random();
         let mut random1 = Xoroshiro128Plus::seed_from_u64(seed);
         let max = if is_night_mode() { 1000000 } else { 100000 };
-        let reply = add_random_data::<ByteBuffersDataInput>(&mut dst, &mut random1, max);
+        let reply = add_random_data(&mut dst, &mut random1, max);
         let mut src = dst.get_data_input();
         for mut f in reply {
             f(&mut src);
@@ -439,7 +456,7 @@ mod tests {
             let seed: u64 = random.random();
             let max = 10000;
             let mut random1 = Xoroshiro128Plus::seed_from_u64(seed);
-            let reply = add_random_data::<ByteBuffersDataInput>(&mut dst, &mut random1, max);
+            let reply = add_random_data(&mut dst, &mut random1, max);
             let suffix: Vec<u8> = vec![0; random.random_range(0..=1024 * 8)];
             let suffix_len = suffix.len() as i64;
             dst.write_bytes(suffix)?;
@@ -489,7 +506,7 @@ mod tests {
             let seed: u64 = random.random();
             let max = 1000;
             let mut random1 = Xoroshiro128Plus::seed_from_u64(seed);
-            let mut reply = add_random_data::<ByteBuffersDataInput>(&mut dst, &mut random1, max);
+            let mut reply = add_random_data(&mut dst, &mut random1, max);
             let size = dst.size();
             let mut array = dst.get_array_copy();
             array = Vec::from(&array[prefix_len as usize..array.len()]);

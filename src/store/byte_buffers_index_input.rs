@@ -17,7 +17,7 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 
-use crate::store::byte_buffers_data_input::ByteBuffersDataInput;
+use crate::store::byte_buffers_data_input::ByteBuffersDataInputRef;
 use crate::store::index_input::IndexInput;
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::DataInput;
@@ -26,11 +26,11 @@ use crate::util::error::lucene_error::Result;
 /// An [`IndexInput`] implementing [`RandomAccessInput`]
 /// and backed by a [`ByteBuffersDataInput`].
 pub struct ByteBuffersIndexInput<'a> {
-    data_input: ByteBuffersDataInput<'a>,
+    data_input: ByteBuffersDataInputRef<'a>,
     resource_description: String,
 }
 impl<'a> ByteBuffersIndexInput<'a> {
-    pub fn new(data_input: ByteBuffersDataInput<'a>, resource_description: &str) -> Self {
+    pub fn new(data_input: ByteBuffersDataInputRef<'a>, resource_description: &str) -> Self {
         Self {
             data_input,
             resource_description: resource_description.to_string(),
