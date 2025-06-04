@@ -1,9 +1,9 @@
 [tasks.check]
-description = "code format"
+description = "Code format"
 dependencies = ["check-rust-version","clippy", "format"]
 
 [tasks.ci]
-description = "run ci"
+description = "Run ci"
 dependencies = ["check-rust-version","clippy","format", "check-dirty","test"]
 
 [tasks.format]
@@ -27,11 +27,11 @@ script = [
     "  git diff --color;",
     "  exit 1;",
     "else",
-    "  echo '✅ Ok';",
+    "  echo '✅ Code-dirty check Ok';",
     "fi"
 ]
 [tasks.check-rust-version]
-description = "Ensure local rustc is exactly 1.84.0"
+description = "Ensure local rustc's version is 1.84.0"
 script = [
     "RUST_VERSION=$(rustc --version)",
     "if ! echo \"$RUST_VERSION\" | grep -q \"rustc 1.84.0\"; then",
@@ -42,5 +42,3 @@ script = [
     "  echo \"✅ Rust version check pass：$RUST_VERSION\";",
     "fi"
 ]
-
-

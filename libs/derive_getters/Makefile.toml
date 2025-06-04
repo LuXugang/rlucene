@@ -1,0 +1,5 @@
+extend = "../../Makefile.toml"
+
+[tasks.test]
+command = "echo"
+args = ["no tests in this crate"]
