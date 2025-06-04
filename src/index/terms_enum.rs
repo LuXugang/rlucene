@@ -16,9 +16,6 @@
  */
 use std::borrow::Cow;
 
-use crate::codecs::block_tree::segment_terms_enum_frame::SegmentTermsEnumFrame;
-use crate::index::dummy::dummy_impacts_enum::DummyImpactsEnum;
-use crate::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::index::impacts_enum::ImpactsEnum;
 use crate::index::postings_enum::{postings_enum_util, PostingsEnum};
 use crate::index::term_state::{TermState, TermStateEnum};
@@ -42,13 +39,15 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 /// methods.
 pub trait TermsEnum: BytesRefIterator {
     /// Returns the related attribute source.
-    fn attributes(&self) -> Result<&AttributeSource>;
+    fn attributes(&self) -> Result<&AttributeSource> {
+        Err(LuceneError::need_implemented(""))
+    }
     /// Attempts to seek to the exact term.
     ///
     /// Returns `true` if the term is found; `false` if the enum is
     /// unpositioned.
-    fn seek_exact(&mut self, term: &BytesRef<Self::AV>) -> Result<bool> {
-        Ok(self.seek_ceil(term)? == SeekStatus::Found)
+    fn seek_exact(&mut self, _term: &BytesRef<Self::AV>) -> Result<bool> {
+        Err(LuceneError::need_implemented(""))
     }
     /// Two-phase [`seek_exact`](TermsEnum::seek_exact). The first phase
     /// typically calls [`IndexInput::prefetch`] on the right range of bytes
@@ -64,11 +63,8 @@ pub trait TermsEnum: BytesRefIterator {
     ///
     /// **NOTE**: This may return `None` if this [`TermsEnum`] can identify that
     /// the term may not exist without performing any I/O.
-    fn prepare_seek_exact(
-        &mut self,
-        text: BytesRef<Self::AV>,
-    ) -> Result<impl FnMut() -> Result<bool>> {
-        Ok(move || self.seek_exact(&text))
+    fn prepare_seek_exact(&mut self, _text: &BytesRef<Self::AV>) -> Result<bool> {
+        Err(LuceneError::need_implemented(""))
     }
 
     /// Seeks to the specified term, if it exists, or to the next (ceiling)
@@ -76,12 +72,16 @@ pub trait TermsEnum: BytesRefIterator {
     /// found, a different term was found, or EOF was hit.
     /// The target term may be before or after the current term.
     /// If this returns `SeekStatus::End`, the enum is unpositioned.
-    fn seek_ceil(&mut self, term: &BytesRef<Self::AV>) -> Result<SeekStatus>;
+    fn seek_ceil(&mut self, _term: &BytesRef<Self::AV>) -> Result<SeekStatus> {
+        Err(LuceneError::need_implemented(""))
+    }
 
     /// Seeks to the specified term by ordinal (position) as previously returned
     /// by [`ord()`](TermsEnum::ord). The target ordinal may be before or
     /// after the current ordinal, and must be within bounds.
-    fn seek_exact_with_ord(&mut self, ord: i64) -> Result<()>;
+    fn seek_exact_with_ord(&mut self, _ord: i64) -> Result<()> {
+        Err(LuceneError::need_implemented(""))
+    }
     /// Expert: Seeks a specific position by [`TermState`] previously obtained
     /// from [`term_state()`](TermsEnum::term_state). Callers should
     /// maintain the [`TermState`] to use this method.
@@ -105,30 +105,38 @@ pub trait TermsEnum: BytesRefIterator {
     /// - `state`: the [`TermState`]
     fn seek_exact_with_state(
         &mut self,
-        term: &BytesRef<Self::AV>,
-        state: &TermStateEnum,
-    ) -> Result<()>;
+        _term: &BytesRef<Self::AV>,
+        _state: &TermStateEnum,
+    ) -> Result<()> {
+        Err(LuceneError::need_implemented(""))
+    }
 
     /// Returns current term. Do not call this when the enum is unpositioned.
     fn term(&self) -> Result<Cow<BytesRef<Self::AV>>> {
-        Err(LuceneError::need_implemented("this method need implement"))
+        Err(LuceneError::need_implemented(""))
     }
     /// Returns ordinal position for the current term.
     /// This is an optional method (the codec may return an error or indicate
     /// unsupported). Do not call this when the enum is unpositioned.
-    fn ord(&self) -> Result<i64>;
+    fn ord(&self) -> Result<i64> {
+        Err(LuceneError::need_implemented(""))
+    }
 
     /// Returns the number of documents containing the current term.
     /// Do not call this when the enum is unpositioned.
     /// Equivalent to [`SeekStatus::End`] when exhausted.
-    fn doc_freq(&mut self) -> Result<i32>;
+    fn doc_freq(&mut self) -> Result<i32> {
+        Err(LuceneError::need_implemented(""))
+    }
 
     /// Returns the total number of occurrences of this term across all
     /// documents (the sum of `freq()` for each doc that has this term).
     ///
     /// Note: like other term measures, this does not take deleted documents
     /// into account.
-    fn total_term_freq(&mut self) -> Result<i64>;
+    fn total_term_freq(&mut self) -> Result<i64> {
+        Err(LuceneError::need_implemented(""))
+    }
 
     type PostingsEnum: PostingsEnum;
     /// Get [`PostingsEnum`] for the current term. Do not call this when the
@@ -160,14 +168,18 @@ pub trait TermsEnum: BytesRefIterator {
     ///   [`PostingsEnum::FREQS`](postings_enum_util::FREQS))
     fn postings_with_flags(
         &mut self,
-        reuse: Option<Self::PostingsEnum>,
-        flags: i32,
-    ) -> Result<Self::PostingsEnum>;
+        _reuse: Option<Self::PostingsEnum>,
+        _flags: i32,
+    ) -> Result<Self::PostingsEnum> {
+        Err(LuceneError::need_implemented(""))
+    }
     type ImpactsEnum: ImpactsEnum;
     /// Return an `ImpactsEnum`.
     ///
     /// See also: [`postings_with_flags`](TermsEnum::postings_with_flags).
-    fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnum>;
+    fn impacts(&mut self, _flags: i32) -> Result<Self::ImpactsEnum> {
+        Err(LuceneError::need_implemented(""))
+    }
 
     type TermState: TermState;
     /// Expert: Returns the [`TermsEnum`]'s internal state to position the enum
@@ -179,7 +191,9 @@ pub trait TermsEnum: BytesRefIterator {
     ///
     /// See also: [`TermState`],
     /// [`seek_exact_with_state`](TermsEnum::seek_exact_with_state).
-    fn term_state(&mut self) -> Result<Self::TermState>;
+    fn term_state(&mut self) -> Result<Self::TermState> {
+        Err(LuceneError::need_implemented(""))
+    }
 }
 /// Represents returned result from `seek_ceil`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -190,30 +204,4 @@ pub enum SeekStatus {
     Found,
     /// A different term was found after the requested term.
     NotFound,
-}
-pub enum SeekAction {
-    ReturnTrue,
-    Scan {
-        target: BytesRef<Vec<u8>>,
-        current_frame: SegmentTermsEnumFrame,
-    },
-}
-
-impl SeekAction {
-    pub fn get(&mut self) -> Result<bool> {
-        match self {
-            SeekAction::ReturnTrue => Ok(true),
-
-            SeekAction::Scan {
-                target,
-                current_frame,
-            } => {
-                // TODO: not Implement
-                // current_frame.load_block(&mut self)?;
-                // let result = current_frame.scan_to_term(target, true, &mut self)?;
-                // Ok(matches!(result, SeekStatus::Found))
-                todo!()
-            },
-        }
-    }
 }

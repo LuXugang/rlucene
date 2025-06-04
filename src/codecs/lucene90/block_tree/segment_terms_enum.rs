@@ -23,14 +23,12 @@ use crate::codecs::lucene90::block_tree::field_reader::FieldReader;
 use crate::codecs::lucene90::block_tree::lucene90_block_tree_terms_reader::lucene90_bttr_util;
 use crate::codecs::lucene90::block_tree::segment_terms_enum_frame::SegmentTermsEnumFrame;
 use crate::codecs::postings_reader_base::PostingsReaderBase;
-use crate::index::base_terms_enum::BaseTermsEnum;
 use crate::index::term_state::{TermState, TermStateEnum};
 use crate::index::terms::Terms;
-use crate::index::terms_enum::{SeekAction, SeekStatus, TermsEnum};
+use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::index::{BytesRef, BytesRefBuilder};
 use crate::store::{ByteArrayDataInput, DataInput, IndexInput};
 use crate::util::array_util::ArrayUtil;
-use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fst_impl::fst::Arc;
@@ -60,7 +58,6 @@ where
     pub(crate) term: BytesRefBuilder<Vec<u8>>,
     fst_reader: Option<ReverseRandomAccessReader<I::RandomAccessSlice>>,
     arcs: Vec<Arc<BytesRef<Rc<Vec<u8>>>>>,
-    base: BaseTermsEnum,
 }
 
 impl<'a, I, P> SegmentTermsEnum<'a, I, P>
@@ -109,7 +106,6 @@ where
             term: BytesRefBuilder::new(),
             fst_reader,
             arcs,
-            base: BaseTermsEnum::default(),
         })
     }
     pub(crate) fn init_index_input(&mut self) -> Result<()> {
@@ -221,7 +217,7 @@ where
         &mut self,
         target: &BytesRef<Vec<u8>>,
         prefetch: bool,
-    ) -> Result<Option<SeekAction>> {
+    ) -> Result<Option<bool>> {
         if self.fr.index.is_none() {
             return Err(LuceneError::illegal_state("terms index was not loaded"));
         }
@@ -325,7 +321,7 @@ where
             } else {
                 debug_assert_eq!(self.term.length(), target.length);
                 if self.term_exists {
-                    return Ok(Some(SeekAction::ReturnTrue));
+                    return Ok(Some(true));
                 }
             }
         } else {
@@ -397,14 +393,18 @@ where
                 if prefetch {
                     SegmentTermsEnumFrame::prefetch_block(self.current_frame_idx, self)?;
                 }
-                // TODO: 返回值为指定
-                todo!()
-                // return Ok(Some(SeekAction::Scan {
-                //     // TODO:could we avoid copy here?
-                //     target: target.clone(),
-                //     current_frame:
-                // self.current_frame_idx.as_ref().unwrap().clone(),
-                // }));
+                SegmentTermsEnumFrame::load_block(self.current_frame_idx, self)?;
+                let result = SegmentTermsEnumFrame::scan_to_term(
+                    self.current_frame_idx,
+                    target,
+                    false,
+                    self,
+                )?;
+                if result == SeekStatus::Found {
+                    return Ok(Some(true));
+                } else {
+                    return Ok(Some(false));
+                }
             } else {
                 arc_index = next_arc_idx;
 
@@ -449,12 +449,14 @@ where
         if prefetch {
             SegmentTermsEnumFrame::prefetch_block(self.current_frame_idx, self)?;
         }
-        // TODO: 返回值未实现
-        todo!()
-        // Ok(Some(SeekAction::Scan {
-        //     target: target.clone(),
-        //     current_frame: self.current_frame_idx.as_ref().unwrap().clone(),
-        // }))
+        SegmentTermsEnumFrame::load_block(self.current_frame_idx, self)?;
+        let result =
+            SegmentTermsEnumFrame::scan_to_term(self.current_frame_idx, target, false, self)?;
+        if result == SeekStatus::Found {
+            Ok(Some(true))
+        } else {
+            Ok(Some(false))
+        }
     }
 }
 
@@ -490,14 +492,11 @@ where
             // docFreq, etc.  But, if they then call next(),
             // this method catches up all internal state so next()
             // works properly:
-            let v = {
-                // TODO: could we avoid copy here
-                self.term.get_bytes_ref().clone()
-            };
+            let v = std::mem::take(&mut self.term.bytes_ref);
             let found = self.seek_exact(&v)?;
+            self.term.bytes_ref = v;
             debug_assert!(found);
         }
-
         loop {
             let res = {
                 let current_frame = if self.current_frame_idx == self.static_frame_idx {
@@ -594,14 +593,20 @@ where
     I: IndexInput,
     P: PostingsReaderBase,
 {
-    fn attributes(&self) -> Result<&AttributeSource> {
-        <BaseTermsEnum as TermsEnum>::attributes(&self.base)
+    fn seek_exact(&mut self, target: &BytesRef<Self::AV>) -> Result<bool> {
+        match self.prepare_seek_exact(target, false)? {
+            Some(found) => Ok(found),
+            None => Ok(false),
+        }
     }
 
-    fn seek_exact(&mut self, target: &BytesRef<Self::AV>) -> Result<bool> {
-        let mut term_exists_supplier = self.prepare_seek_exact(target, false)?;
-        Ok(term_exists_supplier.is_some() && term_exists_supplier.as_mut().unwrap().get()?)
+    fn prepare_seek_exact(&mut self, target: &BytesRef<Self::AV>) -> Result<bool> {
+        match self.prepare_seek_exact(target, true)? {
+            Some(found) => Ok(found),
+            None => Ok(false),
+        }
     }
+
     fn seek_ceil(&mut self, target: &BytesRef<Self::AV>) -> Result<SeekStatus> {
         if self.fr.index.is_none() {
             return Err(LuceneError::illegal_state("terms index was not loaded"));

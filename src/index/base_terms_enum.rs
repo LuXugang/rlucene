@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::borrow::Cow;
 use std::fmt::{Debug, Display, Formatter};
 
 use crate::index::dummy::dummy_impacts_enum::DummyImpactsEnum;
@@ -36,38 +37,54 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 /// In some cases, the default implementation may be slow and consume large
 /// amounts of memory, so subclasses SHOULD provide their own implementation if
 /// possible.
-pub struct BaseTermsEnum {
+pub struct BaseTermsEnum<S>
+where
+    S: TermsEnum,
+{
     atts: AttributeSource,
+    sub: S,
 }
-impl Default for BaseTermsEnum {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl BaseTermsEnum {
-    pub fn new() -> Self {
+impl<S> BaseTermsEnum<S>
+where
+    S: TermsEnum,
+{
+    pub fn new(sub: S) -> Self {
         Self {
             atts: AttributeSource::new(),
+            sub,
         }
     }
 }
 
-impl BytesRefIterator for BaseTermsEnum {
-    type AV = Vec<u8>;
+impl<S> BytesRefIterator for BaseTermsEnum<S>
+where
+    S: TermsEnum,
+{
+    type AV = S::AV;
 }
 
-impl TermsEnum for BaseTermsEnum {
+impl<S> TermsEnum for BaseTermsEnum<S>
+where
+    S: TermsEnum,
+{
     fn attributes(&self) -> Result<&AttributeSource> {
         Ok(&self.atts)
     }
 
-    fn seek_ceil(&mut self, _term: &BytesRef<Self::AV>) -> Result<SeekStatus> {
-        Err(LuceneError::need_implemented(""))
+    fn seek_exact(&mut self, term: &BytesRef<Self::AV>) -> Result<bool> {
+        Ok(self.seek_ceil(term)? == SeekStatus::Found)
     }
 
-    fn seek_exact_with_ord(&mut self, _ord: i64) -> Result<()> {
-        Err(LuceneError::need_implemented(""))
+    fn prepare_seek_exact(&mut self, text: &BytesRef<Self::AV>) -> Result<bool> {
+        self.seek_exact(text)
+    }
+
+    fn seek_ceil(&mut self, term: &BytesRef<Self::AV>) -> Result<SeekStatus> {
+        self.sub.seek_ceil(term)
+    }
+
+    fn seek_exact_with_ord(&mut self, ord: i64) -> Result<()> {
+        self.sub.seek_exact_with_ord(ord)
     }
 
     fn seek_exact_with_state(
@@ -84,19 +101,27 @@ impl TermsEnum for BaseTermsEnum {
         Ok(())
     }
 
+    fn term(&self) -> Result<Cow<BytesRef<Self::AV>>> {
+        self.sub.term()
+    }
+
     fn ord(&self) -> Result<i64> {
-        Err(LuceneError::need_implemented(""))
+        self.sub.ord()
     }
 
     fn doc_freq(&mut self) -> Result<i32> {
-        Err(LuceneError::need_implemented(""))
+        self.sub.doc_freq()
     }
 
     fn total_term_freq(&mut self) -> Result<i64> {
-        Err(LuceneError::need_implemented(""))
+        self.sub.total_term_freq()
     }
 
     type PostingsEnum = DummyPostingsEnum;
+
+    fn postings(&mut self, reuse: Option<Self::PostingsEnum>) -> Result<Self::PostingsEnum> {
+        todo!()
+    }
 
     fn postings_with_flags(
         &mut self,
