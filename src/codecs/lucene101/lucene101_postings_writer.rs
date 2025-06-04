@@ -257,9 +257,9 @@ where
             max_impact_num_bytes_at_level0: 0,
             max_num_impacts_at_level1: 0,
             max_impact_num_bytes_at_level1: 0,
-            scratch_output: ByteBuffersDataOutput::with_resettable_instance(),
-            level0_output: ByteBuffersDataOutput::with_resettable_instance(),
-            level1_output: ByteBuffersDataOutput::with_resettable_instance(),
+            scratch_output: ByteBuffersDataOutput::new_resettable_instance(),
+            level0_output: ByteBuffersDataOutput::new_resettable_instance(),
+            level1_output: ByteBuffersDataOutput::new_resettable_instance(),
         })
     }
     fn flush_doc_block(&mut self, finish_term: bool, options: &FieldWriteOptions) -> Result<()> {

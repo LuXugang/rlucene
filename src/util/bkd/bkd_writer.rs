@@ -717,7 +717,7 @@ where
     /// compact byte[] structure.
     fn pack_index(&self, leaf_nodes: &BKDTreeLeafNodesEnum) -> Result<Vec<u8>> {
         // Reused while packing the index
-        let mut write_buffer = ByteBuffersDataOutput::with_resettable_instance();
+        let mut write_buffer = ByteBuffersDataOutput::new_resettable_instance();
 
         // This is the "file" we append the byte[] to:
         let mut blocks: Vec<Option<Vec<u8>>> = Vec::new();

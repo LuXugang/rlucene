@@ -505,7 +505,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
         let mut offsets: Vec<i64> = vec![0; ArrayUtil::oversize(1, BitUtil::LONG_BYTES)];
         let mut offsets_index: usize = 0;
         let mut buffer = [0i64; Lucene90DocValuesFormat::NUMERIC_BLOCK_SIZE as usize];
-        let mut encode_buffer = ByteBuffersDataOutput::with_resettable_instance();
+        let mut encode_buffer = ByteBuffersDataOutput::new_resettable_instance();
         let mut up_to = 0;
 
         let mut doc = values.next_doc()?;

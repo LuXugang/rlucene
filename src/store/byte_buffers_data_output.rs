@@ -89,7 +89,7 @@ impl ByteBuffersDataOutput {
         result.unwrap()
     }
     ///Creates a new output with all defaults.
-    pub fn with_resettable_instance() -> Self {
+    pub fn new_resettable_instance() -> Self {
         let result = Self::new_with_reuse(
             Self::DEFAULT_MIN_BITS_PER_BLOCK,
             Self::DEFAULT_MAX_BITS_PER_BLOCK,
@@ -499,7 +499,7 @@ mod tests {
         type DO = ByteBuffersDataOutput;
 
         fn new_instance(&self) -> Result<Self::DO> {
-            Ok(ByteBuffersDataOutput::with_resettable_instance())
+            Ok(ByteBuffersDataOutput::new_resettable_instance())
         }
 
         fn get_bytes(&mut self, instance: Self::DO) -> Vec<u8> {
@@ -632,7 +632,7 @@ mod tests {
     #[test]
     fn test_large_array_add() -> Result<()> {
         let mut random = random();
-        let mut o = ByteBuffersDataOutput::with_resettable_instance();
+        let mut o = ByteBuffersDataOutput::new_resettable_instance();
         let mb = 1024 * 1024;
         let mut bytes = if is_night_mode() {
             let size = random.random_range(5 * mb..=15 * mb);

@@ -135,7 +135,7 @@ impl PrefixCodedTermsBuilder {
     /// Sole constructor.
     pub fn new() -> Self {
         Self {
-            output: ByteBuffersDataOutput::with_resettable_instance(),
+            output: ByteBuffersDataOutput::new_resettable_instance(),
             last_term: Term::from_empty("".to_string()),
             last_term_bytes: BytesRefBuilder::new(),
             size: 0,

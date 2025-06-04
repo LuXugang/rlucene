@@ -269,7 +269,7 @@ where
     ) -> Result<Self> {
         let segment = si.name.clone();
         let compressor = compression_mode.new_compressor();
-        let buffered_docs = ByteBuffersDataOutput::with_resettable_instance();
+        let buffered_docs = ByteBuffersDataOutput::new_resettable_instance();
 
         let meta_file = IndexFileNames::segment_file_name(
             &segment,
