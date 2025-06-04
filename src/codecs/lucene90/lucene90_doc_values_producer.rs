@@ -819,7 +819,7 @@ pub mod lucene90_dvp_util {
     use crate::util::error::lucene_error::Result;
     use crate::util::packed::direct_reader::{DirectPackedEnum, DirectReader};
 
-    pub(super) fn get_direct_reader_instance<I: IndexInput>(
+    pub(super) fn get_direct_reader_instance<I>(
         merging: bool,
         slice: Rc<RefCell<I::RandomAccessSlice>>,
         bits_per_value: i32,

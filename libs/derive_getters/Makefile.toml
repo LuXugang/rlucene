@@ -3,3 +3,15 @@ extend = "../../Makefile.toml"
 [tasks.test]
 command = "echo"
 args = ["no tests in this crate"]
+
+# only run once in root Makefile.toml
+[tasks.check-dirty]
+script = [
+    ""
+]
+
+# only run once in root Makefile.toml
+[tasks.check-rust-version]
+script = [
+   ""
+]

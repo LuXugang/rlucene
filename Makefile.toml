@@ -35,8 +35,8 @@ description = "Ensure local rustc's version is 1.84.0"
 script = [
     "RUST_VERSION=$(rustc --version)",
     "if ! echo \"$RUST_VERSION\" | grep -q \"rustc 1.84.0\"; then",
-    "  echo \"❌ Error：current rustc version is not 1.84.0，but：$RUST_VERSION\";",
-    "  echo \"   please run：rustup override set 1.84.0\";",
+    "  echo \"❌ Error: current rustc version is not 1.84.0，but：$RUST_VERSION\";",
+    "  echo \"   please run: rustup override set 1.84.0\";",
     "  exit 1;",
     "else",
     "  echo \"✅ Rust version check pass：$RUST_VERSION\";",
