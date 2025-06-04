@@ -61,14 +61,14 @@ impl<T> DocIdSet for NotDocIdSet<T>
 where
     T: DocIdSet,
 {
-    type DISIType<'a>
-        = NotDocDocIdSetIterator<T::DISIType<'a>>
+    type DocIdSetIterator<'a>
+        = NotDocDocIdSetIterator<T::DocIdSetIterator<'a>>
     where
         Self: 'a;
 
     type BitType = NotDocIdBits<T::BitType>;
 
-    fn iterator(&self) -> Option<Self::DISIType<'_>> {
+    fn iterator(&self) -> Option<Self::DocIdSetIterator<'_>> {
         NotDocDocIdSetIterator::new(self.set.iterator(), self.max_doc)
     }
 

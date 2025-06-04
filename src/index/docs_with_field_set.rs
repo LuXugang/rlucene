@@ -121,12 +121,12 @@ impl<T: BitSet> Accountable for DocsWithFieldSet<T> {
 }
 
 impl<T: BitSet> DocIdSet for DocsWithFieldSet<T> {
-    type DISIType<'b>
+    type DocIdSetIterator<'b>
         = DocsWithFieldSetEnum<'b, T>
     where
         T: 'b;
 
-    fn iterator(&self) -> Option<Self::DISIType<'_>> {
+    fn iterator(&self) -> Option<Self::DocIdSetIterator<'_>> {
         if self.set.length() != 0 {
             debug_assert!(self.cardinality > 0);
             Some(DocsWithFieldSetEnum::Sparse(

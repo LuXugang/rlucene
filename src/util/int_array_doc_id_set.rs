@@ -67,9 +67,9 @@ fn assert_array_sorted(docs: &[i32]) -> bool {
 }
 
 impl DocIdSet for IntArrayDocIdSet {
-    type DISIType<'a> = IntArrayDocIdSetIterator<'a>;
+    type DocIdSetIterator<'a> = IntArrayDocIdSetIterator<'a>;
 
-    fn iterator(&self) -> Option<Self::DISIType<'_>> {
+    fn iterator(&self) -> Option<Self::DocIdSetIterator<'_>> {
         Some(IntArrayDocIdSetIterator::new(&self.docs, self.length))
     }
 

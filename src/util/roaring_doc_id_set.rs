@@ -67,9 +67,9 @@ impl RoaringDocIdSet {
     }
 }
 impl DocIdSet for RoaringDocIdSet {
-    type DISIType<'a> = Iterator<'a>;
+    type DocIdSetIterator<'a> = Iterator<'a>;
 
-    fn iterator(&self) -> Option<Self::DISIType<'_>> {
+    fn iterator(&self) -> Option<Self::DocIdSetIterator<'_>> {
         Some(Iterator::new(&self.doc_id_sets, self.cardinality as i64))
     }
 
@@ -261,9 +261,9 @@ impl Accountable for ShortArrayDocIdSet {
 }
 
 impl DocIdSet for ShortArrayDocIdSet {
-    type DISIType<'b> = ShortArrayDISI<'b>;
+    type DocIdSetIterator<'b> = ShortArrayDISI<'b>;
 
-    fn iterator(&self) -> Option<Self::DISIType<'_>> {
+    fn iterator(&self) -> Option<Self::DocIdSetIterator<'_>> {
         Some(ShortArrayDISI::new(&self.doc_ids))
     }
 
@@ -429,12 +429,12 @@ impl Accountable for DocIdSetEnum {
 }
 
 impl DocIdSet for DocIdSetEnum {
-    type DISIType<'a>
+    type DocIdSetIterator<'a>
         = DocIdSetIteratorEnum<'a>
     where
         Self: 'a;
 
-    fn iterator(&self) -> Option<Self::DISIType<'_>> {
+    fn iterator(&self) -> Option<Self::DocIdSetIterator<'_>> {
         match self {
             DocIdSetEnum::Sparse(s) => Some(DocIdSetIteratorEnum::Sparse(s.iterator()?)),
             DocIdSetEnum::Medium(m) => Some(DocIdSetIteratorEnum::Medium(m.iterator()?)),

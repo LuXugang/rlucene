@@ -25,10 +25,10 @@ use crate::util::error::lucene_error::Result;
 /// Implementing types must provide an [`iterator`](DocIdSet::iterator) method
 /// to access the set.
 pub trait DocIdSet: Accountable {
-    type DISIType<'a>: DocIdSetIterator + 'a
+    type DocIdSetIterator<'a>: DocIdSetIterator + 'a
     where
         Self: 'a;
-    fn iterator(&self) -> Option<Self::DISIType<'_>>;
+    fn iterator(&self) -> Option<Self::DocIdSetIterator<'_>>;
 
     // TODO: somehow this struct should express the cost of
     // iteration vs the cost of random access Bits; for
@@ -72,9 +72,9 @@ impl All {
 }
 /// A `DocIdSet` that matches all doc ids up to a specified doc (exclusive).
 impl DocIdSet for All {
-    type DISIType<'a> = AllDocIdSetIterator;
+    type DocIdSetIterator<'a> = AllDocIdSetIterator;
 
-    fn iterator(&self) -> Option<Self::DISIType<'_>> {
+    fn iterator(&self) -> Option<Self::DocIdSetIterator<'_>> {
         Some(AllDocIdSetIterator::new(self.max_doc))
     }
 
@@ -98,9 +98,9 @@ impl Accountable for EmptyDocIdSet {
     }
 }
 impl DocIdSet for EmptyDocIdSet {
-    type DISIType<'a> = EmptyDISI;
+    type DocIdSetIterator<'a> = EmptyDISI;
 
-    fn iterator(&self) -> Option<Self::DISIType<'_>> {
+    fn iterator(&self) -> Option<Self::DocIdSetIterator<'_>> {
         None
     }
 
