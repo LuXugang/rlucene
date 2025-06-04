@@ -477,7 +477,7 @@ mod tests {
     use crate::test::util::lucene_test_case::random;
     use crate::test::util::test_util::TestUtil;
     use crate::util::array_tim_sorter::ArrayTimSorter;
-    use crate::util::{Comparator, NaturalOrder, Sorter, TimSorter};
+    use crate::util::{Comparator, NaturalOrder, Sorter};
 
     struct TestTimSorter<T, C> {
         _marker: std::marker::PhantomData<(T, C)>,

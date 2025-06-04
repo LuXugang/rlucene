@@ -389,7 +389,6 @@ mod tests {
     use rand_xoshiro::rand_core::SeedableRng;
     use rand_xoshiro::Xoroshiro128Plus;
 
-    use crate::store::byte_buffers_data_input::ByteBuffersDataInput;
     use crate::store::random_access_input::RandomAccessInput;
     use crate::store::{ByteBuffersDataOutput, DataInput};
     use crate::test::store::base_data_output_test_case::add_random_data;

@@ -1,10 +1,10 @@
 [tasks.check]
 description = "Code format"
-dependencies = ["check-rust-version","clippy", "format"]
+dependencies = ["check-rust-version","clippy", "fix","format"]
 
 [tasks.ci]
 description = "Run ci"
-dependencies = ["check-rust-version","clippy","format", "check-dirty","test"]
+dependencies = ["check-rust-version","clippy","fix", "format", "check-dirty","test"]
 
 [tasks.format]
 command = "cargo"
@@ -14,6 +14,11 @@ args = ["fmt"]
 command = "cargo"
 #args = ["clippy", "--fix", "--", "-D", "warnings"]
 args = ["clippy", "--fix"]
+
+[tasks.fix]
+command = "cargo"
+#args = ["clippy", "--fix", "--", "-D", "warnings"]
+args = ["fix", "--allow-dirty", "--allow-staged"]
 
 [tasks.test]
 command = "cargo"
