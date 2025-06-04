@@ -22,7 +22,7 @@ args = ["fix", "--allow-dirty", "--allow-staged"]
 
 [tasks.test]
 command = "cargo"
-args = ["test", "--verbose", "--features", "test_log_verbose,nightly"]
+args = ["test", "--verbose", "--features", "test_log_verbose,nightly", "--", "--ignored"]
 
 [tasks.check-dirty]
 description = "Check if code was modified after auto-fix, and show diff details"
