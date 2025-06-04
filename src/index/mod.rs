@@ -49,6 +49,7 @@ mod field_invert_state;
 pub mod field_term_iterator;
 pub(crate) mod field_updates_buffer;
 pub mod fields;
+pub mod filter_leaf_reader;
 pub mod filtered_terms_enum;
 pub(crate) mod freq_prox_terms_writer;
 pub(crate) mod freq_prox_terms_writer_per_field;

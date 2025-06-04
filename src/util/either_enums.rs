@@ -28,8 +28,9 @@ use crate::util::error::lucene_error::Result;
 /// wrappers over two different types implementing the same trait.
 ///
 /// These enums are useful when an algorithm or component can operate over
-/// multiple implementations of a common trait (e.g., `PostingsEnum`, `ImpactsEnum`),
-/// and a concrete type is needed without resorting to dynamic dispatch.
+/// multiple implementations of a common trait (e.g., `PostingsEnum`,
+/// `ImpactsEnum`), and a concrete type is needed without resorting to dynamic
+/// dispatch.
 ///
 /// ## Examples
 /// - [`EitherPostingsEnum<T, S>`] wraps two types implementing `PostingsEnum`.
@@ -37,7 +38,8 @@ use crate::util::error::lucene_error::Result;
 /// - [`EitherImpacts`] wraps two types implementing `Impacts`.
 ///
 /// Each enum forwards all trait method calls to the underlying variant,
-/// enabling seamless use in performance-critical paths without heap allocation or virtual dispatch.
+/// enabling seamless use in performance-critical paths without heap allocation
+/// or virtual dispatch.
 ///
 /// This approach avoids the overhead of `Box<dyn Trait>` and keeps all behavior
 /// statically resolved by the compiler.
@@ -142,9 +144,9 @@ where
     }
 
     type ImpactsType<'a>
+        = EitherImpacts<T::ImpactsType<'a>, S::ImpactsType<'a>>
     where
-        Self: 'a,
-    = EitherImpacts<T::ImpactsType<'a>, S::ImpactsType<'a>>;
+        Self: 'a;
 
     fn get_impacts(&mut self) -> Result<Self::ImpactsType<'_>> {
         match self {
