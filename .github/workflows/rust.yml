@@ -35,8 +35,8 @@ jobs:
       - name: Install cargo-make if missing
         run: |
           if [ ! -f ~/.cargo/bin/cargo-make ]; then
-            echo "❯ Installing cargo-make..."
-            cargo install cargo-make --locked
+            echo "❯ Installing cargo-make v0.37.24..."
+            cargo install cargo-make --locked --version 0.37.24
           else
             echo "✔ cargo-make already installed, skipping"
           fi
