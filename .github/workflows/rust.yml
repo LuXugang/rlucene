@@ -14,17 +14,32 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Set up Rust
+      - name: Set up Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
           toolchain: 1.84.0
           override: true
 
-      - name: Install cargo-make
-        run: cargo install cargo-make --locked
+      - name: Cache cargo-make binary
+        uses: actions/cache@v3
+        id: cache-cargo-make
+        with:
+          path: ~/.cargo/bin/cargo-make
+          key: ${{ runner.os }}-cargo-make-v0.37.24
+          restore-keys: |
+            ${{ runner.os }}-cargo-make-
+
+      - name: Install cargo-make if missing
+        run: |
+          if [ ! -f ~/.cargo/bin/cargo-make ]; then
+            echo "❯ Installing cargo-make..."
+            cargo install cargo-make --locked
+          else
+            echo "✔ cargo-make already installed, skipping"
+          fi
 
       - name: Run full CI pipeline via cargo-make
         run: cargo make ci
-

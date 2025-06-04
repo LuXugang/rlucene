@@ -8,12 +8,6 @@ reorder_imports = true
 match_block_trailing_comma = true
 # Specify the Rust edition for formatting.
 edition = "2024"
-# Group imports by standard library, external crates, and local modules.
-group_imports = "StdExternalCrate"
-# Automatically wrap long comments.
-wrap_comments = true
-# Use vertical trailing commas in multi-line structures.
-trailing_comma = "Vertical"
 # Use Unix-style line endings.
 newline_style = "Unix"
 # Merge multiple `derive` attributes into a single annotation.

@@ -562,22 +562,21 @@ pub trait BaseDirectoryTestCase {
         let io_context = new_io_context(random)?;
 
         for _ in 0..num_longs {
-            let value =
-                match random.random_range(0..3) {
-                    0 => random.random::<i64>(), // Random 64-bit integer
-                    1 => {
-                        if random.random_bool(0.5) {
-                            i64::MIN // Minimum value for i64
-                        } else {
-                            i64::MAX // Maximum value for i64
-                        }
-                    },
-                    2 => {
-                        let sign = if random.random_bool(0.5) { -1 } else { 1 };
-                        sign * random.random_range(0..1024) as i64 // Small range value with random sign
-                    },
-                    _ => unreachable!(),
-                };
+            let value = match random.random_range(0..3) {
+                0 => random.random::<i64>(), // Random 64-bit integer
+                1 => {
+                    if random.random_bool(0.5) {
+                        i64::MIN // Minimum value for i64
+                    } else {
+                        i64::MAX // Maximum value for i64
+                    }
+                },
+                2 => {
+                    let sign = if random.random_bool(0.5) { -1 } else { 1 };
+                    sign * random.random_range(0..1024) as i64 // Small range value with random sign
+                },
+                _ => unreachable!(),
+            };
             longs.push(value);
         }
 

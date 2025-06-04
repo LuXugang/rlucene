@@ -1,10 +1,10 @@
 [tasks.check]
 description = "code format"
-dependencies = ["clippy", "format"]
+dependencies = ["check-rust-version","clippy", "format"]
 
 [tasks.ci]
 description = "run ci"
-dependencies = ["clippy","format", "check-dirty","test"]
+dependencies = ["check-rust-version","clippy","format", "check-dirty","test"]
 
 [tasks.format]
 command = "cargo"
@@ -20,12 +20,27 @@ command = "cargo"
 args = ["test", "--verbose", "--features", "test_log_verbose,nightly"]
 
 [tasks.check-dirty]
-description = "Check if code was modified after auto-fix"
+description = "Check if code was modified after auto-fix, and show diff details"
 script = [
     "if ! git diff --exit-code > /dev/null; then",
-    "  echo '❌ Rust code was not properly formatted. Please run 'cargo fmt' and commit the changes.';",
+    "  echo '❌ Rust code was not properly formatted. Please run 'cargo make check' and commit the changes';",
+    "  git diff --color;",
     "  exit 1;",
     "else",
     "  echo '✅ Ok';",
     "fi"
 ]
+[tasks.check-rust-version]
+description = "Ensure local rustc is exactly 1.84.0"
+script = [
+    "RUST_VERSION=$(rustc --version)",
+    "if ! echo \"$RUST_VERSION\" | grep -q \"rustc 1.84.0\"; then",
+    "  echo \"❌ Error：current rustc version is not 1.84.0，but：$RUST_VERSION\";",
+    "  echo \"   please run：rustup override set 1.84.0\";",
+    "  exit 1;",
+    "else",
+    "  echo \"✅ Rust version check pass：$RUST_VERSION\";",
+    "fi"
+]
+
+
