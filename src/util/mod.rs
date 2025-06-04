@@ -50,6 +50,7 @@ pub mod cursor_ext;
 pub mod doc_base_bit_set_iterator;
 pub mod doc_id_set_builder;
 pub mod dummy;
+pub mod either_enums;
 pub mod error;
 pub mod fixed_bit_set;
 mod fixed_bits;
