@@ -35,6 +35,7 @@ use crate::codecs::lucene90_doc_values_format::{
     Lucene90DocValuesFormat, SKIP_INDEX_JUMP_LENGTH_PER_LEVEL,
 };
 use crate::codecs::CodecUtil;
+use crate::index::base_terms_enum::BaseTermsEnum;
 use crate::index::binary_doc_values::BinaryDocValues;
 use crate::index::doc_values::{DocValues, EmptyBinary, EmptyNumeric};
 use crate::index::doc_values_iterator::DocValuesIterator;
@@ -2290,7 +2291,7 @@ where
 {
     entry: Rc<SortedEntry>,
     // if copy is heavy, we could change `Vec<u8>` as `Rc<RefCell<Vec<u8>>>`
-    terms_enum: TermsDict<I, Vec<u8>>,
+    terms_enum: BaseTermsEnum<TermsDict<I, Vec<u8>>>,
     sub: BaseSortedDocValuesEnum<I>,
 }
 
@@ -2468,7 +2469,7 @@ where
 
     type AV = Vec<u8>;
 
-    type TermsEnum = TermsDict<I, Vec<u8>>;
+    type TermsEnum = BaseTermsEnum<TermsDict<I, Vec<u8>>>;
 }
 
 pub struct SparseBaseSortedSetDocValues<I>
@@ -2625,7 +2626,7 @@ where
 
     type AV = Vec<u8>;
 
-    type TermsEnum = TermsDict<I, Vec<u8>>;
+    type TermsEnum = BaseTermsEnum<TermsDict<I, Vec<u8>>>;
 }
 
 pub struct BaseSortedSetDocValues<I>
@@ -2634,7 +2635,7 @@ where
 {
     entry: Rc<SortedSetEntry>,
     // if copy is heavy, we could change `Vec<u8>` as `Rc<RefCell<Vec<u8>>>`
-    terms_enum: TermsDict<I, Vec<u8>>,
+    terms_enum: BaseTermsEnum<TermsDict<I, Vec<u8>>>,
     sub: BaseSortedSetDocValuesEnum<I>,
 }
 
@@ -2762,7 +2763,11 @@ where
 {
     const LZ4_DECOMPRESSOR_PADDING: i32 = 7;
 
-    pub fn new(entry: Rc<TermsDictEntry>, data: &mut I, merging: bool) -> Result<Self> {
+    pub fn new(
+        entry: Rc<TermsDictEntry>,
+        data: &mut I,
+        merging: bool,
+    ) -> Result<BaseTermsEnum<Self>> {
         let addresses_slice = Rc::new(RefCell::new(
             data.random_access_slice(entry.terms_addresses_offset, entry.terms_addresses_length)?,
         ));
@@ -2817,7 +2822,7 @@ where
         );
         let block_input = ByteArrayDataInput::new(); // assuming default constructor
 
-        Ok(Self {
+        let sub = Self {
             entry,
             block_addresses,
             bytes,
@@ -2830,7 +2835,8 @@ where
             block_input,
             current_compressed_block_start: -1,
             current_compressed_block_end: -1,
-        })
+        };
+        Ok(BaseTermsEnum::new(sub))
     }
 
     fn get_term_from_index(&mut self, index: i64) -> Result<&BytesRef<AV>> {
@@ -3069,6 +3075,14 @@ where
         Err(LuceneError::not_implemented(""))
     }
 
+    fn seek_exact(&mut self, _term: &BytesRef<Self::AV>) -> Result<bool> {
+        Err(LuceneError::not_implemented(""))
+    }
+
+    fn prepare_seek_exact(&mut self, _text: &BytesRef<Self::AV>) -> Result<bool> {
+        Err(LuceneError::not_implemented(""))
+    }
+
     fn seek_ceil(&mut self, text: &BytesRef<Self::AV>) -> Result<SeekStatus> {
         let block = self.seek_block(text)?;
         if block == -2 {
@@ -3132,10 +3146,6 @@ where
         Ok(Cow::Borrowed(&self.term))
     }
 
-    fn ord(&self) -> Result<i64> {
-        Ok(self.ord)
-    }
-
     fn doc_freq(&mut self) -> Result<i32> {
         Err(LuceneError::unsupported_operation(""))
     }
@@ -3161,10 +3171,6 @@ where
     }
 
     type TermState = DummyTermState;
-
-    fn term_state(&mut self) -> Result<Self::TermState> {
-        Err(LuceneError::not_implemented(""))
-    }
 }
 
 pub struct DenseSortedNumericDocValues<I>

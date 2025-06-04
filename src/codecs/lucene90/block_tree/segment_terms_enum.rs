@@ -23,12 +23,14 @@ use crate::codecs::lucene90::block_tree::field_reader::FieldReader;
 use crate::codecs::lucene90::block_tree::lucene90_block_tree_terms_reader::lucene90_bttr_util;
 use crate::codecs::lucene90::block_tree::segment_terms_enum_frame::SegmentTermsEnumFrame;
 use crate::codecs::postings_reader_base::PostingsReaderBase;
+use crate::index::base_terms_enum::BaseTermsEnum;
 use crate::index::term_state::{TermState, TermStateEnum};
 use crate::index::terms::Terms;
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::index::{BytesRef, BytesRefBuilder};
 use crate::store::{ByteArrayDataInput, DataInput, IndexInput};
 use crate::util::array_util::ArrayUtil;
+use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fst_impl::fst::Arc;
@@ -65,7 +67,7 @@ where
     I: IndexInput,
     P: PostingsReaderBase,
 {
-    pub fn new(fr: &'a FieldReader<I, P>) -> Result<Self> {
+    pub fn new(fr: &'a FieldReader<I, P>) -> Result<BaseTermsEnum<Self>> {
         // Construct SegmentTerms first
         let fst_reader = match &fr.index {
             Some(index) => Some(index.borrow_mut().get_bytes_reader()?),
@@ -90,7 +92,7 @@ where
         // Build Frame
         let stack = Vec::new();
         let stack_len = stack.len();
-        Ok(Self {
+        let sub = Self {
             input: None,
             stack,
             static_frame,
@@ -106,7 +108,8 @@ where
             term: BytesRefBuilder::new(),
             fst_reader,
             arcs,
-        })
+        };
+        Ok(BaseTermsEnum::new(sub))
     }
     pub(crate) fn init_index_input(&mut self) -> Result<()> {
         if self.input.is_none() {
@@ -593,6 +596,10 @@ where
     I: IndexInput,
     P: PostingsReaderBase,
 {
+    fn attributes(&self) -> Result<&AttributeSource> {
+        Err(LuceneError::not_implemented(""))
+    }
+
     fn seek_exact(&mut self, target: &BytesRef<Self::AV>) -> Result<bool> {
         match self.prepare_seek_exact(target, false)? {
             Some(found) => Ok(found),

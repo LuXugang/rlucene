@@ -17,13 +17,12 @@
 use std::borrow::Cow;
 use std::fmt::{Debug, Display, Formatter};
 
-use crate::index::dummy::dummy_impacts_enum::DummyImpactsEnum;
-use crate::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::index::term_state::{TermState, TermStateEnum};
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::index::BytesRef;
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
+use crate::util::either_enums::EitherTermState;
 use crate::util::error::lucene_error::{LuceneError, Result};
 
 /// A base `TermsEnum` that provides default implementations for:
@@ -68,15 +67,33 @@ where
     S: TermsEnum,
 {
     fn attributes(&self) -> Result<&AttributeSource> {
-        Ok(&self.atts)
+        match self.sub.attributes() {
+            Ok(v) => Ok(v),
+            Err(e) => match e {
+                LuceneError::NotImplemented(_) => Ok(&self.atts),
+                _ => Err(e),
+            },
+        }
     }
 
     fn seek_exact(&mut self, term: &BytesRef<Self::AV>) -> Result<bool> {
-        Ok(self.seek_ceil(term)? == SeekStatus::Found)
+        match self.sub.seek_exact(term) {
+            Ok(v) => Ok(v),
+            Err(e) => match e {
+                LuceneError::NotImplemented(_) => Ok(self.seek_ceil(term)? == SeekStatus::Found),
+                _ => Err(e),
+            },
+        }
     }
 
     fn prepare_seek_exact(&mut self, text: &BytesRef<Self::AV>) -> Result<bool> {
-        self.seek_exact(text)
+        match self.sub.prepare_seek_exact(text) {
+            Ok(v) => Ok(v),
+            Err(e) => match e {
+                LuceneError::NotImplemented(_) => self.seek_exact(text),
+                _ => Err(e),
+            },
+        }
     }
 
     fn seek_ceil(&mut self, term: &BytesRef<Self::AV>) -> Result<SeekStatus> {
@@ -90,15 +107,23 @@ where
     fn seek_exact_with_state(
         &mut self,
         term: &BytesRef<Self::AV>,
-        _state: &TermStateEnum,
+        state: &TermStateEnum,
     ) -> Result<()> {
-        if !self.seek_exact(term)? {
-            return Err(LuceneError::illegal_argument(format!(
-                "term= {} does not exist",
-                term
-            )));
-        };
-        Ok(())
+        match self.sub.seek_exact_with_state(term, state) {
+            Ok(v) => Ok(v),
+            Err(e) => match e {
+                LuceneError::NotImplemented(_) => {
+                    if !self.seek_exact(term)? {
+                        return Err(LuceneError::illegal_argument(format!(
+                            "term= {} does not exist",
+                            term
+                        )));
+                    };
+                    Ok(())
+                },
+                _ => Err(e),
+            },
+        }
     }
 
     fn term(&self) -> Result<Cow<BytesRef<Self::AV>>> {
@@ -117,30 +142,36 @@ where
         self.sub.total_term_freq()
     }
 
-    type PostingsEnum = DummyPostingsEnum;
+    type PostingsEnum = S::PostingsEnum;
 
     fn postings(&mut self, reuse: Option<Self::PostingsEnum>) -> Result<Self::PostingsEnum> {
-        todo!()
+        self.sub.postings(reuse)
     }
 
     fn postings_with_flags(
         &mut self,
-        _reuse: Option<Self::PostingsEnum>,
-        _flags: i32,
+        reuse: Option<Self::PostingsEnum>,
+        flags: i32,
     ) -> Result<Self::PostingsEnum> {
-        Err(LuceneError::need_implemented(""))
+        self.sub.postings_with_flags(reuse, flags)
     }
 
-    type ImpactsEnum = DummyImpactsEnum;
+    type ImpactsEnum = S::ImpactsEnum;
 
-    fn impacts(&mut self, _flags: i32) -> Result<Self::ImpactsEnum> {
-        Err(LuceneError::need_implemented(""))
+    fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnum> {
+        self.sub.impacts(flags)
     }
 
-    type TermState = TermStateImpl1;
+    type TermState = EitherTermState<TermStateImpl1, S::TermState>;
 
     fn term_state(&mut self) -> Result<Self::TermState> {
-        Ok(TermStateImpl1)
+        match self.sub.term_state() {
+            Ok(v) => Ok(EitherTermState::S(v)),
+            Err(e) => match e {
+                LuceneError::NotImplemented(_) => Ok(EitherTermState::T(TermStateImpl1)),
+                _ => Err(e),
+            },
+        }
     }
 }
 #[derive(Debug, Clone)]

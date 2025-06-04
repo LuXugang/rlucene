@@ -25,6 +25,7 @@ use crate::codecs::lucene90::block_tree::lucene90_block_tree_terms_reader::{
 use crate::codecs::lucene90::block_tree::segment_terms_enum::SegmentTermsEnum;
 use crate::codecs::postings_reader_base::PostingsReaderBase;
 use crate::index::automaton_terms_enum::AutomatonTermsEnum;
+use crate::index::base_terms_enum::BaseTermsEnum;
 use crate::index::field_info::FieldInfo;
 use crate::index::filtered_terms_enum::{FilteredTermsEnum, FilteredTermsEnumBase};
 use crate::index::index_options::IndexOptions;
@@ -145,7 +146,7 @@ where
 {
     type AV = Vec<u8>;
     type TermsEnum<'a>
-        = SegmentTermsEnum<'a, I, P>
+        = BaseTermsEnum<SegmentTermsEnum<'a, I, P>>
     where
         Self: 'a;
 
