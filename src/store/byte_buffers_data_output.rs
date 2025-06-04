@@ -19,7 +19,7 @@ use std::io::{Cursor, Seek};
 
 use byteorder::WriteBytesExt;
 
-use crate::store::byte_buffers_data_input::ByteBuffersDataInput;
+use crate::store::byte_buffers_data_input::{ByteBuffersDataInput, ByteBuffersDataInputOwned};
 use crate::store::data_output::DataOutput;
 use crate::store::DataInput;
 use crate::util::accountable::Accountable;
@@ -344,8 +344,27 @@ impl ByteBuffersDataOutput {
         }
     }
 
+    /// Returns a `ByteBuffersDataInput` backed by references to internal
+    /// buffers.
+    ///
+    /// This method borrows the internal buffer data as `&[u8]`,
+    /// and constructs a read-only view over the current written content.
+    ///
+    /// The returned input is only valid as long as `self` is not mutated.
     pub fn get_data_input(&mut self) -> ByteBuffersDataInput<&[u8]> {
         let (length, data) = self.to_buffer_list_ref();
+        ByteBuffersDataInput::new(data, length)
+    }
+
+    /// Returns a `ByteBuffersDataInput` that owns its internal buffers.
+    ///
+    /// This method consumes the written buffer content into owned `[u8]`
+    /// vectors, and constructs a self-contained input stream that can
+    /// outlive `self`.
+    ///
+    /// Use this when the data needs to be retained or passed independently.
+    pub fn get_data_input_owner(&mut self) -> ByteBuffersDataInputOwned {
+        let (length, data) = self.to_buffer_list_owner();
         ByteBuffersDataInput::new(data, length)
     }
 
