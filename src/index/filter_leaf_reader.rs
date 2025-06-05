@@ -27,13 +27,13 @@ pub trait FilterLeafReader {}
 /// Base class for filtering `TermsEnum` implementations.
 pub struct FilterTermsEnum<T>
 where
-    T: TermsEnum<AV = Vec<u8>>,
+    T: TermsEnum,
 {
     terms_enum: T,
 }
 impl<T> FilterTermsEnum<T>
 where
-    T: TermsEnum<AV = Vec<u8>>,
+    T: TermsEnum,
 {
     fn new(terms_enum: T) -> Self {
         Self { terms_enum }
@@ -42,9 +42,9 @@ where
 
 impl<T> BytesRefIterator for FilterTermsEnum<T>
 where
-    T: TermsEnum<AV = Vec<u8>>,
+    T: TermsEnum,
 {
-    type AV = Vec<u8>;
+    type AV = T::AV;
 
     fn next(&mut self) -> Result<Option<Cow<BytesRef<Self::AV>>>> {
         self.terms_enum.next()
@@ -53,7 +53,7 @@ where
 
 impl<T> TermsEnum for FilterTermsEnum<T>
 where
-    T: TermsEnum<AV = Vec<u8>>,
+    T: TermsEnum,
 {
     fn attributes(&self) -> Result<&AttributeSource> {
         self.terms_enum.attributes()

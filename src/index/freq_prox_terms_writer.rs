@@ -14,20 +14,119 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::index::filter_leaf_reader::FilterTermsEnum;
+use crate::index::index_options::IndexOptions;
 use crate::index::postings_enum::PostingsEnum;
 use crate::index::sorter::DocMap;
+use crate::index::term_state::TermStateEnum;
+use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::index::BytesRef;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::byte_buffers_data_input::ByteBuffersDataInputOwned;
 use crate::store::{ByteBuffersDataOutput, DataInput, DataOutput};
 use crate::util::array_util::ArrayUtil;
+use crate::util::attribute_source::AttributeSource;
+use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::Result;
 use crate::util::lsb_radix_sorter::LSBRadixSorter;
 use crate::util::packed::PackedInts;
 use crate::util::{SliceCopyOps, Sorter, TimSorter, TimSorterBase};
+use std::borrow::Cow;
+use std::rc::Rc;
 
 pub(crate) struct FreqProxTermsWriter;
+
+pub(crate) struct SortingTermsEnum<T, D>
+where
+    T: TermsEnum,
+    D: DocMap,
+{
+    base: FilterTermsEnum<T>,
+    index_options: IndexOptions,
+    doc_map: Rc<D>,
+}
+
+impl<T, D> BytesRefIterator for SortingTermsEnum<T, D>
+where
+    D: DocMap,
+    T: TermsEnum,
+{
+    type AV = T::AV;
+}
+
+impl<T, D> TermsEnum for SortingTermsEnum<T, D>
+where
+    T: TermsEnum,
+    D: DocMap,
+{
+    fn attributes(&self) -> Result<&AttributeSource> {
+        self.base.attributes()
+    }
+
+    fn seek_exact(&mut self, term: &BytesRef<Self::AV>) -> Result<bool> {
+        self.base.seek_exact(term)
+    }
+
+    fn prepare_seek_exact(&mut self, text: &BytesRef<Self::AV>) -> Result<bool> {
+        self.base.prepare_seek_exact(text)
+    }
+
+    fn seek_ceil(&mut self, term: &BytesRef<Self::AV>) -> Result<SeekStatus> {
+        self.base.seek_ceil(term)
+    }
+
+    fn seek_exact_with_ord(&mut self, ord: i64) -> Result<()> {
+        self.base.seek_exact_with_ord(ord)
+    }
+
+    fn seek_exact_with_state(
+        &mut self,
+        term: &BytesRef<Self::AV>,
+        state: &TermStateEnum,
+    ) -> Result<()> {
+        self.base.seek_exact_with_state(term, state)
+    }
+
+    fn term(&self) -> Result<Cow<BytesRef<Self::AV>>> {
+        self.base.term()
+    }
+
+    fn ord(&self) -> Result<i64> {
+        self.base.ord()
+    }
+
+    fn doc_freq(&mut self) -> Result<i32> {
+        self.base.doc_freq()
+    }
+
+    fn total_term_freq(&mut self) -> Result<i64> {
+        self.base.total_term_freq()
+    }
+
+    type PostingsEnum = SortingPostingsEnum<T::PostingsEnumRet>;
+    type PostingsEnumRet = SortingDocsEnum<T::PostingsEnumRet>;
+
+    fn postings_with_flags(
+        &mut self,
+        reuse: Option<Self::PostingsEnum>,
+        flags: i32,
+    ) -> Result<Self::PostingsEnumRet> {
+        todo!()
+    }
+
+    type ImpactsEnum = T::ImpactsEnum;
+
+    fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnum> {
+        self.base.impacts(flags)
+    }
+
+    type TermState = T::TermState;
+
+    fn term_state(&mut self) -> Result<Self::TermState> {
+        self.base.term_state()
+    }
+}
 
 pub(crate) struct SortingDocsEnum<P>
 where

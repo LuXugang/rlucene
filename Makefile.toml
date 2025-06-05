@@ -3,7 +3,7 @@ description = "Code tidy"
 dependencies = ["check-rust-version","clippy", "fix","format"]
 
 [tasks.commit]
-description = "Run Before Commit"
+description = "Full Check Before Commit"
 dependencies = ["check-rust-version","clippy", "fix","format","check-uncommitted","test-light"]
 
 [tasks.ci]
