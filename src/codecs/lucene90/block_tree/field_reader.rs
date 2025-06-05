@@ -221,7 +221,10 @@ where
         Ok(Option::from(Cow::Borrowed(&self.min_term)))
     }
 
-    fn get_max<T>(&self, _iterator: &mut T) -> Result<Option<Cow<BytesRef<Self::AV>>>> {
+    fn get_max<'a, T>(&'a self, _iterator: &'a mut T) -> Result<Option<Cow<'a, BytesRef<Self::AV>>>>
+    where
+        T: TermsEnum<AV = Self::AV>,
+    {
         Ok(Option::from(Cow::Borrowed(&self.max_term)))
     }
 

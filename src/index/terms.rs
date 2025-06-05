@@ -141,23 +141,18 @@ pub trait Terms {
     /// Returns the largest term (in lexicographic order) in the field.  
     /// Note that, like other term measures, this does **not** take deleted
     /// documents into account. Returns `None` when there are no terms.
-    fn get_max<T>(&self, iterator: &mut T) -> Result<Option<Cow<BytesRef<Self::AV>>>>;
-
-    fn default_get_max<'a, T>(
-        &'a self,
-        iterator: &'a mut T,
-    ) -> Result<Option<Cow<'a, BytesRef<Self::AV>>>>
+    fn get_max<'a, T>(&'a self, iterator: &'a mut T) -> Result<Option<Cow<'a, BytesRef<Self::AV>>>>
     where
         T: TermsEnum<AV = Self::AV>,
-        Self: Sized + Terms<TermsEnum<'a> = T>,
     {
         let size = self.size()?;
-        if size == 0 {
-            // empty: only possible from a FilteredTermsEnum...
-            return Ok(None);
-        } else if size > 0 {
-            iterator.seek_exact_with_ord(size - 1)?;
-            return iterator.next();
+        match size.cmp(&0) {
+            std::cmp::Ordering::Equal => return Ok(None),
+            std::cmp::Ordering::Greater => {
+                iterator.seek_exact_with_ord(size - 1)?;
+                return Ok(Some(iterator.term()?));
+            },
+            std::cmp::Ordering::Less => {},
         }
         // otherwise: binary search
         let mut iterator = self.iterator()?;

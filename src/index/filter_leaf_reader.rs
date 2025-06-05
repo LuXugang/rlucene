@@ -14,16 +14,109 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::borrow::Cow;
-
+use crate::index::dummy::dummy_terms_enum::DummyTermsEnum;
 use crate::index::term_state::TermStateEnum;
+use crate::index::terms::Terms;
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::index::BytesRef;
 use crate::util::attribute_source::AttributeSource;
+use crate::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::Result;
+use std::borrow::Cow;
 
 pub trait FilterLeafReader {}
+
+/// A decorator base struct for `Terms` that delegates all calls to the underlying `Terms` instance.
+pub struct FilterTerms<T>
+where
+    T: Terms,
+{
+    /// The underlying `Terms` instance.
+    pub(crate) inner: T,
+}
+
+impl<T> FilterTerms<T>
+where
+    T: Terms,
+{
+    pub fn new(inner: T) -> Self {
+        Self { inner }
+    }
+}
+impl<T> Terms for FilterTerms<T>
+where
+    T: Terms,
+{
+    type AV = T::AV;
+
+    fn get_terms() -> Result<()> {
+        todo!()
+    }
+
+    type TermsEnum<'a>
+        = T::TermsEnum<'a>
+    where
+        T: 'a;
+
+    fn iterator(&self) -> Result<Self::TermsEnum<'_>> {
+        self.inner.iterator()
+    }
+
+    type IntersectIter<'a>
+        = DummyTermsEnum<Self::AV>
+    where
+        Self: 'a;
+
+    fn intersect(
+        &self,
+        compiled: &mut CompiledAutomaton,
+        start_term: Option<BytesRef<Vec<u8>>>,
+    ) -> Result<Self::IntersectIter<'_>> {
+        todo!()
+    }
+
+    fn size(&self) -> Result<i64> {
+        self.inner.size()
+    }
+
+    fn get_sum_total_term_freq(&self) -> Result<i64> {
+        self.inner.get_sum_total_term_freq()
+    }
+
+    fn get_sum_doc_freq(&self) -> Result<i64> {
+        self.inner.get_sum_doc_freq()
+    }
+
+    fn get_doc_count(&self) -> Result<i32> {
+        self.inner.get_doc_count()
+    }
+
+    fn has_freqs(&self) -> bool {
+        self.inner.has_freqs()
+    }
+
+    fn has_offsets(&self) -> bool {
+        self.inner.has_offsets()
+    }
+
+    fn has_positions(&self) -> bool {
+        self.inner.has_positions()
+    }
+
+    fn has_payloads(&self) -> bool {
+        self.inner.has_payloads()
+    }
+
+    fn get_stats(&self) -> Result<String> {
+        self.inner.get_stats()
+    }
+
+    fn type_name(&self) -> &'static str {
+        "FilterTerms"
+    }
+}
+
 /// Base class for filtering `TermsEnum` implementations.
 pub struct FilterTermsEnum<T>
 where
