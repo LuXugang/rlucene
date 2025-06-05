@@ -36,14 +36,23 @@ script = [
     "fi"
 ]
 [tasks.check-rust-version]
-description = "Ensure local rustc's version is 1.84.0"
+description = "Ensure exact Rust version"
+script_runner = "@rust"
 script = [
-    "RUST_VERSION=$(rustc --version)",
-    "if ! echo \"$RUST_VERSION\" | grep -q \"rustc 1.84.0\"; then",
-    "  echo \"❌ Error: current rustc version is not 1.84.0，but：$RUST_VERSION\";",
-    "  echo \"   please run: rustup override set 1.84.0\";",
-    "  exit 1;",
-    "else",
-    "  echo \"✅ Rust version check pass：$RUST_VERSION\";",
-    "fi"
+    '''
+    fn main() {
+        let version = std::process::Command::new("rustc")
+            .arg("--version")
+            .output()
+            .expect("failed to execute rustc");
+
+        let stdout = String::from_utf8_lossy(&version.stdout);
+        if !stdout.contains("1.84.0") {
+            eprintln!("❌ Rust version mismatch: expected 1.84.0, got: {}", stdout);
+            std::process::exit(1);
+        } else {
+            println!("✅ Rust version OK: {}", stdout);
+        }
+    }
+    '''
 ]
