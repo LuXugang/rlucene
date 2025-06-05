@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::dummy::dummy_terms_enum::DummyTermsEnum;
 use crate::index::sorted_set_doc_values::SortedSetDocValues;
@@ -46,5 +45,5 @@ impl SortedSetDocValues for DummySortedSetDocValues {
 
     type AV = Vec<u8>;
 
-    type TermsEnum = DummyTermsEnum;
+    type TermsEnum = DummyTermsEnum<Self::AV>;
 }

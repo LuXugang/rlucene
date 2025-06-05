@@ -255,5 +255,5 @@ impl SortedDocValues for EmptySorted {
         Ok(0)
     }
 
-    type TermsEnum = DummyTermsEnum;
+    type TermsEnum = DummyTermsEnum<Self::AV>;
 }

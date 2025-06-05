@@ -14,35 +14,41 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::borrow::Cow;
-
 use crate::index::dummy::dummy_impacts_enum::DummyImpactsEnum;
 use crate::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::index::term_state::TermStateEnum;
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::index::BytesRef;
+use crate::util::access::AccessVec;
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
+use std::borrow::Cow;
+use std::marker::PhantomData;
 
-pub struct DummyTermsEnum {
+pub struct DummyTermsEnum<AV>
+where
+    AV: AccessVec<u8>,
+{
     atts: AttributeSource,
+    _phantom: PhantomData<AV>,
 }
-impl Default for DummyTermsEnum {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl DummyTermsEnum {
+impl<AV> DummyTermsEnum<AV>
+where
+    AV: AccessVec<u8>,
+{
     pub fn new() -> Self {
         Self {
             atts: AttributeSource::new(),
+            _phantom: PhantomData,
         }
     }
 }
-impl BytesRefIterator for DummyTermsEnum {
-    type AV = Vec<u8>;
+impl<AV> BytesRefIterator for DummyTermsEnum<AV>
+where
+    AV: AccessVec<u8>,
+{
+    type AV = AV;
 
     fn next(&mut self) -> Result<Option<Cow<BytesRef<Self::AV>>>> {
         Err(LuceneError::illegal_state(
@@ -51,7 +57,10 @@ impl BytesRefIterator for DummyTermsEnum {
     }
 }
 
-impl TermsEnum for DummyTermsEnum {
+impl<AV> TermsEnum for DummyTermsEnum<AV>
+where
+    AV: AccessVec<u8>,
+{
     fn attributes(&self) -> Result<&AttributeSource> {
         debug_assert!(false, "should never be called");
         Ok(&self.atts)

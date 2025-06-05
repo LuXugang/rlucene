@@ -2166,7 +2166,7 @@ where
 
     type AV = Vec<u8>;
 
-    type TermsEnum = DummyTermsEnum;
+    type TermsEnum = DummyTermsEnum<Self::AV>;
 }
 
 pub struct SparseBaseSortedDocValues<I>
@@ -2225,7 +2225,7 @@ where
 
     type AV = Vec<u8>;
 
-    type TermsEnum = DummyTermsEnum;
+    type TermsEnum = DummyTermsEnum<Self::AV>;
 }
 pub struct BaseSortedDocValuesImpl<I>
 where
@@ -2282,7 +2282,7 @@ where
 
     type AV = Vec<u8>;
 
-    type TermsEnum = DummyTermsEnum;
+    type TermsEnum = DummyTermsEnum<Self::AV>;
 }
 
 pub struct BaseSortedDocValues<I>
@@ -2376,7 +2376,7 @@ where
             },
         }
     }
-    type TermsEnum = DummyTermsEnum;
+    type TermsEnum = DummyTermsEnum<Self::AV>;
 }
 pub struct DenseBaseSortedSetDocValues<I>
 where
@@ -2564,7 +2564,7 @@ where
 
     type AV = Vec<u8>;
 
-    type TermsEnum = DummyTermsEnum;
+    type TermsEnum = DummyTermsEnum<Self::AV>;
 }
 
 pub struct BaseSortedSetDocValuesImpl<I>

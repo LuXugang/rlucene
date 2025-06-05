@@ -290,7 +290,7 @@ where
         }
     }
 
-    type TermsEnum = DummyTermsEnum;
+    type TermsEnum = DummyTermsEnum<Self::AV>;
 
     // type TermsEnum = ;
     //

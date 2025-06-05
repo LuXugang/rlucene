@@ -135,5 +135,5 @@ where
         Ok(self.inner.as_mut().unwrap().lookup_term(key)? as i64)
     }
 
-    type TermsEnum = DummyTermsEnum;
+    type TermsEnum = DummyTermsEnum<Self::AV>;
 }

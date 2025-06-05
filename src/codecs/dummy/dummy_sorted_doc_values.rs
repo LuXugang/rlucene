@@ -56,7 +56,7 @@ impl SortedDocValues for DummySortedDocValues {
         todo!()
     }
 
-    type TermsEnum = DummyTermsEnum;
+    type TermsEnum = DummyTermsEnum<Vec<u8>>;
 
     // fn terms_enum(&mut self) -> Result<TermsEnums<I, AV>> {
     //     todo!()

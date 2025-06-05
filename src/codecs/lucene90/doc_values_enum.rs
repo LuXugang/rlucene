@@ -80,7 +80,7 @@ pub mod doc_values {
             todo!()
         }
 
-        type TermsEnum = DummyTermsEnum;
+        type TermsEnum = DummyTermsEnum<Self::AV>;
     }
 }
 
