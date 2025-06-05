@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use std::fmt;
+use std::fmt::{Display, Formatter};
 use std::io::Error;
 use std::num::TryFromIntError;
 use std::string::FromUtf8Error;
@@ -103,6 +104,7 @@ pub enum LuceneError {
     #[error("{0}")]
     NoSuchElement(#[from] NoSuchElementError),
 }
+
 macro_rules! error_ctor {
     ($fn_name:ident, $variant:ident, $error_type:ty) => {
         pub fn $fn_name(msg: impl Into<String>) -> Self {
@@ -111,6 +113,12 @@ macro_rules! error_ctor {
     };
 }
 impl LuceneError {
+    pub fn with_payload<T>(self, payload: T) -> PayloadError<T> {
+        PayloadError {
+            error: self,
+            payload,
+        }
+    }
     pub fn io_with_path(path: impl Into<String>, err: std::io::Error) -> Self {
         LuceneError::IoWithPath {
             source: err,
@@ -181,3 +189,38 @@ impl LuceneError {
 }
 
 pub type Result<T> = core::result::Result<T, LuceneError>;
+
+pub struct PayloadError<T> {
+    pub error: LuceneError,
+    pub payload: T,
+}
+
+impl<T> std::fmt::Debug for PayloadError<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("WithPayload")
+            .field("error", &self.error)
+            .field("payload", &"<omitted>")
+            .finish()
+    }
+}
+
+impl<T: 'static> Display for PayloadError<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("WithPayload")
+            .field("error", &self.error)
+            .field("payload", &"<omitted>")
+            .finish()
+    }
+}
+impl<T> PayloadError<T> {
+    #[inline]
+    pub fn into_parts(self) -> (LuceneError, T) {
+        (self.error, self.payload)
+    }
+    #[inline]
+    pub fn into_result<U>(self) -> std::result::Result<U, Self> {
+        Err(self)
+    }
+}
+
+impl<T: 'static> std::error::Error for PayloadError<T> {}
