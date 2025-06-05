@@ -4,7 +4,7 @@ dependencies = ["check-rust-version","clippy", "fix","format"]
 
 [tasks.ci]
 description = "Run ci"
-dependencies = ["check-rust-version","clippy","fix", "format", "check-dirty","test"]
+dependencies = ["check-rust-version","clippy","fix", "format", "check-uncommitted","test"]
 
 [tasks.format]
 command = "cargo"
@@ -22,19 +22,30 @@ args = ["fix", "--allow-dirty", "--allow-staged"]
 
 [tasks.test]
 command = "cargo"
-args = ["test", "--verbose", "--features", "test_log_verbose,nightly", "--", "--ignored"]
+args = ["test", "--verbose", "--features", "test_log_verbose,nightly"]
 
-[tasks.check-dirty]
-description = "Check if code was modified after auto-fix, and show diff details"
+[tasks.check-uncommitted]
+description = "Check for uncommitted changes using Rust script"
+script_runner = "@rust"
 script = [
-    "if ! git diff --exit-code > /dev/null; then",
-    "  echo '❌ Rust code was not properly formatted. Please run 'cargo make check' and commit the changes';",
-    "  git diff --color;",
-    "  exit 1;",
-    "else",
-    "  echo '✅ Code-dirty check Ok';",
-    "fi"
+    '''
+    fn main() {
+        let output = std::process::Command::new("git")
+            .args(["status", "--porcelain"])
+            .output()
+            .expect("failed to execute git");
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        if stdout.trim().is_empty() {
+            println!("✅ Working directory clean. All changes committed.");
+        } else {
+            eprintln!("❌ Uncommitted changes detected. Please commit your work first.");
+            eprintln!("{}", stdout);
+            std::process::exit(1);
+        }
+    }
+    '''
 ]
+
 [tasks.check-rust-version]
 description = "Ensure exact Rust version"
 script_runner = "@rust"
