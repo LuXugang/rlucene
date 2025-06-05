@@ -14,10 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::codecs::lucene101::lucene101_postings_reader::BlockPostingsEnum;
 use crate::index::BytesRef;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::store::IndexInput;
 use crate::util::error::lucene_error::Result;
 
 /// Iterates through the postings.
@@ -64,81 +62,5 @@ pub mod postings_enum_util {
     /// Returns true if the given feature is requested in the flags.
     pub fn feature_requested(flags: i32, feature: i16) -> bool {
         (flags & (feature as i32)) == (feature as i32)
-    }
-}
-
-pub enum PostingsEnums<I>
-where
-    I: IndexInput,
-{
-    Block(BlockPostingsEnum<I>),
-}
-impl<I> DocIdSetIterator for PostingsEnums<I>
-where
-    I: IndexInput,
-{
-    fn doc_id(&self) -> i32 {
-        match self {
-            PostingsEnums::Block(block) => block.doc_id(),
-        }
-    }
-
-    fn next_doc(&mut self) -> Result<i32> {
-        match self {
-            PostingsEnums::Block(block) => block.next_doc(),
-        }
-    }
-
-    fn advance(&mut self, _target: i32) -> Result<i32> {
-        match self {
-            PostingsEnums::Block(block) => block.advance(_target),
-        }
-    }
-
-    fn slow_advance(&mut self, target: i32) -> Result<i32> {
-        match self {
-            PostingsEnums::Block(block) => block.slow_advance(target),
-        }
-    }
-
-    fn cost(&self) -> Result<i64> {
-        match self {
-            PostingsEnums::Block(block) => block.cost(),
-        }
-    }
-}
-
-impl<I> PostingsEnum for PostingsEnums<I>
-where
-    I: IndexInput,
-{
-    fn freq(&mut self) -> Result<i32> {
-        match self {
-            PostingsEnums::Block(block) => block.freq(),
-        }
-    }
-
-    fn next_position(&mut self) -> Result<i32> {
-        match self {
-            PostingsEnums::Block(block) => block.next_position(),
-        }
-    }
-
-    fn start_offset(&self) -> Result<i32> {
-        match self {
-            PostingsEnums::Block(block) => block.start_offset(),
-        }
-    }
-
-    fn end_offset(&self) -> Result<i32> {
-        match self {
-            PostingsEnums::Block(block) => block.end_offset(),
-        }
-    }
-
-    fn get_payload(&self) -> Result<Option<&BytesRef<Vec<u8>>>> {
-        match self {
-            PostingsEnums::Block(block) => block.get_payload(),
-        }
     }
 }

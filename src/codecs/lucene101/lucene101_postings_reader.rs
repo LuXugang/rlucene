@@ -37,7 +37,7 @@ use crate::index::impacts::Impacts;
 use crate::index::impacts_enum::ImpactsEnum;
 use crate::index::impacts_source::ImpactsSource;
 use crate::index::index_options::IndexOptions;
-use crate::index::postings_enum::{postings_enum_util, PostingsEnum, PostingsEnums};
+use crate::index::postings_enum::{postings_enum_util, PostingsEnum};
 use crate::index::segment_read_state::SegmentReadState;
 use crate::index::{BytesRef, IndexFileNames};
 use crate::internal::vectorization::posting_decoding_util::PostingDecodingUtil;
@@ -316,7 +316,7 @@ where
         Ok(())
     }
 
-    type PostingsEnum = PostingsEnums<I>;
+    type PostingsEnum = BlockPostingsEnum<I>;
 
     fn postings(
         &self,
@@ -325,12 +325,9 @@ where
         reuse: Option<Self::PostingsEnum>,
         flags: i32,
     ) -> Result<Option<Self::PostingsEnum>> {
-        let reuse_enum: PostingsEnums<I> =
-            reuse.ok_or_else(|| LuceneError::illegal_state("reuse is None"))?;
-        if let PostingsEnums::Block(everything_enum) = reuse_enum {
-            if everything_enum.can_reuse(&self.doc_in, field_info, flags, false, self) {
-                return Ok(None);
-            }
+        let reuse_enum = reuse.ok_or_else(|| LuceneError::illegal_state("reuse is None"))?;
+        if reuse_enum.can_reuse(&self.doc_in, field_info, flags, false, self) {
+            return Ok(Some(reuse_enum));
         }
         let mut block = BlockPostingsEnum::new(field_info, flags, false, self)?;
         match state {
@@ -343,7 +340,7 @@ where
                 ))
             },
         }
-        Ok(Some(PostingsEnums::Block(block)))
+        Ok(Some(block))
     }
 
     type ImpactsEnum = BlockPostingsEnum<I>;
