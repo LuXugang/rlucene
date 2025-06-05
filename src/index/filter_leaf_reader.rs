@@ -21,84 +21,54 @@ use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::index::BytesRef;
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
-use crate::util::either_enums::{EitherImpactsEnum, EitherPostingsEnum, EitherTermState};
-use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::error::lucene_error::Result;
 
 pub trait FilterLeafReader {}
 /// Base class for filtering `TermsEnum` implementations.
-pub struct FilterTermsEnum<T, S>
+pub struct FilterTermsEnum<T>
 where
     T: TermsEnum<AV = Vec<u8>>,
-    S: TermsEnum<AV = Vec<u8>>,
 {
     terms_enum: T,
-    sub: S,
 }
-impl<T, S> FilterTermsEnum<T, S>
+impl<T> FilterTermsEnum<T>
 where
     T: TermsEnum<AV = Vec<u8>>,
-    S: TermsEnum<AV = Vec<u8>>,
 {
-    fn new(terms_enum: T, sub: S) -> Self {
-        Self { terms_enum, sub }
+    fn new(terms_enum: T) -> Self {
+        Self { terms_enum }
     }
 }
 
-impl<T, S> BytesRefIterator for FilterTermsEnum<T, S>
+impl<T> BytesRefIterator for FilterTermsEnum<T>
 where
-    S: TermsEnum<AV = Vec<u8>>,
     T: TermsEnum<AV = Vec<u8>>,
 {
     type AV = Vec<u8>;
 
     fn next(&mut self) -> Result<Option<Cow<BytesRef<Self::AV>>>> {
-        match self.sub.next() {
-            Ok(v) => Ok(v),
-            Err(e) => match e {
-                LuceneError::NotImplemented(_) => self.terms_enum.next(),
-                _ => Err(e),
-            },
-        }
+        self.terms_enum.next()
     }
 }
 
-impl<T, S> TermsEnum for FilterTermsEnum<T, S>
+impl<T> TermsEnum for FilterTermsEnum<T>
 where
-    T: TermsEnum<AV = S::AV>,
-    S: TermsEnum<AV = Vec<u8>>,
+    T: TermsEnum<AV = Vec<u8>>,
 {
     fn attributes(&self) -> Result<&AttributeSource> {
         self.terms_enum.attributes()
     }
 
     fn seek_exact(&mut self, term: &BytesRef<Self::AV>) -> Result<bool> {
-        match self.sub.seek_exact(term) {
-            Ok(v) => Ok(v),
-            Err(e) => match e {
-                LuceneError::NotImplemented(_) => self.terms_enum.seek_exact(term),
-                _ => Err(e),
-            },
-        }
+        self.terms_enum.seek_exact(term)
     }
 
     fn seek_ceil(&mut self, term: &BytesRef<Self::AV>) -> Result<SeekStatus> {
-        match self.sub.seek_ceil(term) {
-            Ok(v) => Ok(v),
-            Err(e) => match e {
-                LuceneError::NotImplemented(_) => self.terms_enum.seek_ceil(term),
-                _ => Err(e),
-            },
-        }
+        self.terms_enum.seek_ceil(term)
     }
 
     fn seek_exact_with_ord(&mut self, ord: i64) -> Result<()> {
-        match self.sub.seek_exact_with_ord(ord) {
-            Ok(_) => Ok(()),
-            Err(e) => match e {
-                LuceneError::NotImplemented(_) => self.terms_enum.seek_exact_with_ord(ord),
-                _ => Err(e),
-            },
-        }
+        self.terms_enum.seek_exact_with_ord(ord)
     }
 
     fn seek_exact_with_state(
@@ -106,104 +76,45 @@ where
         term: &BytesRef<Self::AV>,
         state: &TermStateEnum,
     ) -> Result<()> {
-        todo!()
+        self.terms_enum.seek_exact_with_state(term, state)
     }
 
     fn term(&self) -> Result<Cow<BytesRef<Self::AV>>> {
-        match self.sub.term() {
-            Ok(v) => Ok(v),
-            Err(e) => match e {
-                LuceneError::NotImplemented(_) => self.terms_enum.term(),
-                _ => Err(e),
-            },
-        }
+        self.terms_enum.term()
     }
 
     fn ord(&self) -> Result<i64> {
-        match self.sub.ord() {
-            Ok(v) => Ok(v),
-            Err(e) => match e {
-                LuceneError::NotImplemented(_) => self.terms_enum.ord(),
-                _ => Err(e),
-            },
-        }
+        self.terms_enum.ord()
     }
 
     fn doc_freq(&mut self) -> Result<i32> {
-        match self.sub.doc_freq() {
-            Ok(v) => Ok(v),
-            Err(e) => match e {
-                LuceneError::NotImplemented(_) => self.terms_enum.doc_freq(),
-                _ => Err(e),
-            },
-        }
+        self.terms_enum.doc_freq()
     }
 
     fn total_term_freq(&mut self) -> Result<i64> {
-        match self.sub.total_term_freq() {
-            Ok(v) => Ok(v),
-            Err(e) => match e {
-                LuceneError::NotImplemented(_) => self.terms_enum.total_term_freq(),
-                _ => Err(e),
-            },
-        }
+        self.terms_enum.total_term_freq()
     }
 
-    type PostingsEnum = EitherPostingsEnum<T::PostingsEnum, S::PostingsEnum>;
-    type PostingsEnumRet = EitherPostingsEnum<T::PostingsEnumRet, S::PostingsEnumRet>;
+    type PostingsEnum = T::PostingsEnum;
+    type PostingsEnumRet = T::PostingsEnumRet;
 
     fn postings_with_flags(
         &mut self,
         reuse: Option<Self::PostingsEnum>,
         flags: i32,
     ) -> Result<Self::PostingsEnumRet> {
-        match reuse {
-            Some(EitherPostingsEnum::S(s)) => Ok(EitherPostingsEnum::S(
-                self.sub.postings_with_flags(Some(s), flags)?,
-            )),
-            Some(EitherPostingsEnum::T(t)) => Ok(EitherPostingsEnum::T(
-                self.terms_enum.postings_with_flags(Some(t), flags)?,
-            )),
-            None => match self.sub.postings_with_flags(None, flags) {
-                Ok(v) => Ok(EitherPostingsEnum::S(v)),
-                Err(e) => match e {
-                    LuceneError::NotImplemented(_) => {
-                        let postings = self.terms_enum.postings_with_flags(None, flags)?;
-                        Ok(EitherPostingsEnum::T(postings))
-                    },
-                    _ => Err(e),
-                },
-            },
-        }
+        self.terms_enum.postings_with_flags(reuse, flags)
     }
 
-    type ImpactsEnum = EitherImpactsEnum<T::ImpactsEnum, S::ImpactsEnum>;
+    type ImpactsEnum = T::ImpactsEnum;
 
     fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnum> {
-        match self.sub.impacts(flags) {
-            Ok(v) => Ok(EitherImpactsEnum::S(v)),
-            Err(e) => match e {
-                LuceneError::NotImplemented(_) => {
-                    let impacts = self.terms_enum.impacts(flags)?;
-                    Ok(EitherImpactsEnum::T(impacts))
-                },
-                _ => Err(e),
-            },
-        }
+        self.terms_enum.impacts(flags)
     }
 
-    type TermState = EitherTermState<T::TermState, S::TermState>;
+    type TermState = T::TermState;
 
     fn term_state(&mut self) -> Result<Self::TermState> {
-        match self.sub.term_state() {
-            Ok(v) => Ok(EitherTermState::S(v)),
-            Err(e) => match e {
-                LuceneError::NotImplemented(_) => {
-                    let term_state = self.terms_enum.term_state()?;
-                    Ok(EitherTermState::T(term_state))
-                },
-                _ => Err(e),
-            },
-        }
+        self.terms_enum.term_state()
     }
 }
