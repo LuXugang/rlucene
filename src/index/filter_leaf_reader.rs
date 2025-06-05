@@ -21,11 +21,11 @@ use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::index::BytesRef;
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
-use crate::util::either_enums::{EitherImpactsEnum, EitherPostingsEnum};
+use crate::util::either_enums::{EitherImpactsEnum, EitherPostingsEnum, EitherTermState};
 use crate::util::error::lucene_error::{LuceneError, Result};
 
 pub trait FilterLeafReader {}
-
+/// Base class for filtering `TermsEnum` implementations.
 pub struct FilterTermsEnum<T, S>
 where
     T: TermsEnum<AV = Vec<u8>>,
@@ -164,17 +164,15 @@ where
             Some(EitherPostingsEnum::T(t)) => Ok(EitherPostingsEnum::T(
                 self.terms_enum.postings_with_flags(Some(t), flags)?,
             )),
-            None => {
-                return match self.sub.postings_with_flags(None, flags) {
-                    Ok(v) => Ok(EitherPostingsEnum::S(v)),
-                    Err(e) => match e {
-                        LuceneError::NotImplemented(_) => {
-                            let postings = self.terms_enum.postings_with_flags(None, flags)?;
-                            Ok(EitherPostingsEnum::T(postings))
-                        },
-                        _ => Err(e),
+            None => match self.sub.postings_with_flags(None, flags) {
+                Ok(v) => Ok(EitherPostingsEnum::S(v)),
+                Err(e) => match e {
+                    LuceneError::NotImplemented(_) => {
+                        let postings = self.terms_enum.postings_with_flags(None, flags)?;
+                        Ok(EitherPostingsEnum::T(postings))
                     },
-                };
+                    _ => Err(e),
+                },
             },
         }
     }
@@ -182,12 +180,30 @@ where
     type ImpactsEnum = EitherImpactsEnum<T::ImpactsEnum, S::ImpactsEnum>;
 
     fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnum> {
-        todo!()
+        match self.sub.impacts(flags) {
+            Ok(v) => Ok(EitherImpactsEnum::S(v)),
+            Err(e) => match e {
+                LuceneError::NotImplemented(_) => {
+                    let impacts = self.terms_enum.impacts(flags)?;
+                    Ok(EitherImpactsEnum::T(impacts))
+                },
+                _ => Err(e),
+            },
+        }
     }
 
-    type TermState = T::TermState;
+    type TermState = EitherTermState<T::TermState, S::TermState>;
 
     fn term_state(&mut self) -> Result<Self::TermState> {
-        todo!()
+        match self.sub.term_state() {
+            Ok(v) => Ok(EitherTermState::S(v)),
+            Err(e) => match e {
+                LuceneError::NotImplemented(_) => {
+                    let term_state = self.terms_enum.term_state()?;
+                    Ok(EitherTermState::T(term_state))
+                },
+                _ => Err(e),
+            },
+        }
     }
 }
