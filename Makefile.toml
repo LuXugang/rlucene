@@ -1,6 +1,10 @@
 [tasks.check]
-description = "Code format"
+description = "Code tidy"
 dependencies = ["check-rust-version","clippy", "fix","format"]
+
+[tasks.commit]
+description = "Run Before Commit"
+dependencies = ["check-rust-version","clippy", "fix","format","check-uncommitted","test-light"]
 
 [tasks.ci]
 description = "Run ci"
@@ -23,6 +27,10 @@ args = ["fix", "--allow-dirty", "--allow-staged"]
 [tasks.test]
 command = "cargo"
 args = ["test", "--verbose", "--features", "test_log_verbose,nightly"]
+
+[tasks.test-light]
+command = "cargo"
+args = ["test"]
 
 [tasks.check-uncommitted]
 description = "Check for uncommitted changes using Rust script"
