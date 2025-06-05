@@ -44,9 +44,9 @@ script = [
             .expect("failed to execute git");
         let stdout = String::from_utf8_lossy(&output.stdout);
         if stdout.trim().is_empty() {
-            println!("✅ Working directory clean. All changes committed.");
+            println!("✅ ✅ ✅ Working directory clean. All changes committed.");
         } else {
-            eprintln!("❌ Uncommitted changes detected. Please commit your work first.");
+            eprintln!("❌ ❌ ❌ Uncommitted changes detected. Please commit your work first.");
             eprintln!("{}", stdout);
             std::process::exit(1);
         }
@@ -56,21 +56,26 @@ script = [
 
 [tasks.check-rust-version]
 description = "Ensure exact Rust version"
+env = { REQUIRED_RUST_VERSION = "1.84.0" }
 script_runner = "@rust"
 script = [
     '''
+    use std::env;
     fn main() {
-        let version = std::process::Command::new("rustc")
+        let required = env::var("REQUIRED_RUST_VERSION")
+            .expect("REQUIRED_RUST_VERSION is not set");
+
+        let output = std::process::Command::new("rustc")
             .arg("--version")
             .output()
             .expect("failed to execute rustc");
 
-        let stdout = String::from_utf8_lossy(&version.stdout);
-        if !stdout.contains("1.84.0") {
-            eprintln!("❌ Rust version mismatch: expected 1.84.0, got: {}", stdout);
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        if !stdout.contains(&required) {
+            eprintln!(" ❌ ❌ ❌ Rust version mismatch: expected {}, got: {}", required, stdout);
             std::process::exit(1);
         } else {
-            println!("✅ Rust version OK: {}", stdout);
+            println!(" ✅ ✅ ✅ Rust version OK: {}", stdout.trim());
         }
     }
     '''

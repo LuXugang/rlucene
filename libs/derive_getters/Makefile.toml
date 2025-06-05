@@ -1,17 +1,31 @@
 extend = "../../Makefile.toml"
 
+[tasks.check]
+disabled=true
+
+[tasks.commit]
+disabled=true
+
+[tasks.ci]
+disabled=true
+
+[tasks.format]
+disabled=true
+
+[tasks.clippy]
+disabled=true
+
+[tasks.fix]
+disabled=true
+
 [tasks.test]
-command = "echo"
-args = ["no tests in this crate"]
+disabled=true
 
-# only run once in root Makefile.toml
-[tasks.check-dirty]
-script = [
-    ""
-]
+[tasks.test-light]
+disabled=true
 
-# only run once in root Makefile.toml
+[tasks.check-uncommitted]
+disabled=true
+
 [tasks.check-rust-version]
-script = [
-   ""
-]
+disabled=true
