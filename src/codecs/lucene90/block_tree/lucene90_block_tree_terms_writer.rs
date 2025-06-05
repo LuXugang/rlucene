@@ -342,7 +342,8 @@ where
         F::Terms: Terms<AV = Vec<u8>>,
         PW: PostingsWriterBase<NumericDocValues = N::NumericDocValues>,
         N: NormsProducer,
-        for<'b> <F::Terms as Terms>::TermsEnum<'b>: TermsEnum<PostingsEnum = PW::PostingsEnum>,
+        for<'b> <F::Terms as Terms>::TermsEnum<'b>:
+            TermsEnum<PostingsEnum = PW::PostingsEnum, PostingsEnumRet = PW::PostingsEnumRt>,
     {
         let mut last_field: Option<String> = None;
         // TODO: could we avoid copy here?>
@@ -1099,7 +1100,10 @@ where
     pub fn write(
         &mut self,
         text: BytesRef<Vec<u8>>,
-        terms_enum: &mut impl TermsEnum<PostingsEnum = PW::PostingsEnum>,
+        terms_enum: &mut impl TermsEnum<
+            PostingsEnum = PW::PostingsEnum,
+            PostingsEnumRet = PW::PostingsEnumRt,
+        >,
         norms: &mut impl NormsProducer<NumericDocValues = PW::NumericDocValues>,
     ) -> Result<()> {
         let state_opt =

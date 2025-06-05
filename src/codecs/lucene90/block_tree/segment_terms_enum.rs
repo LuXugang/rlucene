@@ -868,6 +868,7 @@ where
     }
 
     type PostingsEnum = P::PostingsEnum;
+    type PostingsEnumRet = P::PostingsEnum;
 
     fn postings_with_flags(
         &mut self,

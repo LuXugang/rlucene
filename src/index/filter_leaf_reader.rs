@@ -150,23 +150,33 @@ where
     }
 
     type PostingsEnum = EitherPostingsEnum<T::PostingsEnum, S::PostingsEnum>;
+    type PostingsEnumRet = EitherPostingsEnum<T::PostingsEnumRet, S::PostingsEnumRet>;
 
     fn postings_with_flags(
         &mut self,
         reuse: Option<Self::PostingsEnum>,
         flags: i32,
-    ) -> Result<Self::PostingsEnum> {
-        // match self.sub.postings_with_flags(reuse, flags) {
-        //     Ok(v) => Ok(EitherPostingsEnum::S(v)),
-        //     Err(e) => match e {
-        //         LuceneError::NotImplemented(_) => {
-        //             let postings = self.terms_enum.postings_with_flags(reuse,
-        // flags)?;             Ok(EitherPostingsEnum::T(postings))
-        //         },
-        //         _ => Err(e),
-        //     },
-        // }
-        todo!()
+    ) -> Result<Self::PostingsEnumRet> {
+        match reuse {
+            Some(EitherPostingsEnum::S(s)) => Ok(EitherPostingsEnum::S(
+                self.sub.postings_with_flags(Some(s), flags)?,
+            )),
+            Some(EitherPostingsEnum::T(t)) => Ok(EitherPostingsEnum::T(
+                self.terms_enum.postings_with_flags(Some(t), flags)?,
+            )),
+            None => {
+                return match self.sub.postings_with_flags(None, flags) {
+                    Ok(v) => Ok(EitherPostingsEnum::S(v)),
+                    Err(e) => match e {
+                        LuceneError::NotImplemented(_) => {
+                            let postings = self.terms_enum.postings_with_flags(None, flags)?;
+                            Ok(EitherPostingsEnum::T(postings))
+                        },
+                        _ => Err(e),
+                    },
+                };
+            },
+        }
     }
 
     type ImpactsEnum = EitherImpactsEnum<T::ImpactsEnum, S::ImpactsEnum>;

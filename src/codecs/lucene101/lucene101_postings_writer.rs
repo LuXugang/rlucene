@@ -482,6 +482,7 @@ where
 
     type NumericDocValues = DummyNumericDocValues;
     type PostingsEnum = DummyPostingsEnum;
+    type PostingsEnumRt = DummyPostingsEnum;
 
     fn write_term(
         &mut self,
