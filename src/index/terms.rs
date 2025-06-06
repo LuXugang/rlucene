@@ -72,14 +72,11 @@ pub trait Terms {
         start_term: Option<BytesRef<Vec<u8>>>,
     ) -> Result<Self::IntersectIter<'_>>;
 
-    fn default_intersect<'a>(
-        &'a self,
+    fn default_intersect(
+        &self,
         compiled: &mut CompiledAutomaton,
         start_term: Option<BytesRef<Vec<u8>>>,
     ) -> Result<FilteredTermsEnum<Self::TermsEnum<'_>, AutomatonTermsEnum>>
-    where
-        Self::TermsEnum<'a>: BytesRefIterator,
-        AutomatonTermsEnum: FilteredTermsEnumBase,
     {
         let terms_enum = self.iterator()?;
         let automaton_terms_enum = if start_term.is_some() {

@@ -24,6 +24,8 @@ use crate::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::Result;
 use std::borrow::Cow;
+use crate::index::automaton_terms_enum::AutomatonTermsEnum;
+use crate::index::filtered_terms_enum::{FilteredTermsEnum, FilteredTermsEnumBase};
 
 pub trait FilterLeafReader {}
 
@@ -62,16 +64,17 @@ where
     }
 
     type IntersectIter<'a>
-        = DummyTermsEnum
+    = FilteredTermsEnum<Self::TermsEnum<'a>, AutomatonTermsEnum>
     where
-        Self: 'a;
+        Self::TermsEnum<'a>: BytesRefIterator,
+        AutomatonTermsEnum: FilteredTermsEnumBase, <T as Terms>::TermsEnum<'a>: 'a, T: 'a;
 
     fn intersect(
         &self,
         compiled: &mut CompiledAutomaton,
         start_term: Option<BytesRef<Vec<u8>>>,
     ) -> Result<Self::IntersectIter<'_>> {
-        todo!()
+        self.default_intersect(compiled, start_term)
     }
 
     fn size(&self) -> Result<i64> {
