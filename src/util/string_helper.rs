@@ -103,14 +103,19 @@ impl StringHelper {
     /// # Returns
     ///
     /// `true` if `ref_bytes` starts with the given `prefix`, otherwise `false`.
-    pub fn starts_with_byte_array(ref_bytes: &[u8], prefix: &BytesRef<Vec<u8>>) -> bool {
+    pub fn starts_with_byte_array<AV>(ref_bytes: &[u8], prefix: &BytesRef<AV>) -> bool
+    where
+        AV: AccessVec<u8>,
+    {
         // Not long enough to start with the prefix
         if ref_bytes.len() < prefix.length {
             return false;
         }
         let ref_slice = &ref_bytes[0..prefix.length];
-        let prefix_slice = &prefix.bytes[prefix.offset..(prefix.offset + prefix.length)];
-        ref_slice == prefix_slice
+        prefix.bytes.access(|bytes| {
+            let prefix_slice = &bytes[prefix.offset..prefix.offset + prefix.length];
+            ref_slice == prefix_slice
+        })
     }
     /// Returns `true` if the given `ref` starts with the given `prefix`.
     /// Otherwise returns `false`.
@@ -123,14 +128,23 @@ impl StringHelper {
     /// # Returns
     ///
     /// `true` if `ref_bytes` starts with the given `prefix`, otherwise `false`.
-    pub fn starts_with_byte_ref(ref_bytes: &BytesRef<Vec<u8>>, prefix: &BytesRef<Vec<u8>>) -> bool {
-        Self::starts_with(
-            &ref_bytes.bytes,
-            ref_bytes.offset,
-            ref_bytes.length,
-            &prefix.bytes,
-            prefix.offset,
-            prefix.length,
+    pub fn starts_with_byte_ref<AV>(ref_bytes: &BytesRef<AV>, prefix: &BytesRef<AV>) -> bool
+    where
+        AV: AccessVec<u8>,
+    {
+        with_other!(
+            ref_bytes.bytes,
+            prefix.bytes,
+            |ref_bytes_bytes, prefix_bytes| {
+                Self::starts_with(
+                    ref_bytes_bytes,
+                    ref_bytes.offset,
+                    ref_bytes.length,
+                    prefix_bytes,
+                    prefix.offset,
+                    prefix.length,
+                )
+            }
         )
     }
     pub fn starts_with(
@@ -164,17 +178,26 @@ impl StringHelper {
     /// # Returns
     ///
     /// `True` if `ref` ends with the given `suffix`, otherwise `false`.
-    pub fn ends_with(ref_bytes: &BytesRef<Vec<u8>>, suffix: &BytesRef<Vec<u8>>) -> bool {
-        // Not long enough to start with the suffix
-        if ref_bytes.length < suffix.length {
-            return false;
-        }
-        let start_at = ref_bytes.length - suffix.length;
+    pub fn ends_with<AV>(ref_bytes: &BytesRef<AV>, suffix: &BytesRef<AV>) -> bool
+    where
+        AV: AccessVec<u8>,
+    {
+        with_other!(
+            ref_bytes.bytes,
+            suffix.bytes,
+            |ref_bytes_bytes, suffix_bytes| {
+                // Not long enough to start with the suffix
+                if ref_bytes.length < suffix.length {
+                    return false;
+                }
+                let start_at = ref_bytes.length - suffix.length;
 
-        let ref_slice = &ref_bytes.bytes
-            [ref_bytes.offset + start_at..(ref_bytes.offset + start_at + suffix.length)];
-        let suffix_slice = &suffix.bytes[suffix.offset..(suffix.offset + suffix.length)];
-        ref_slice == suffix_slice
+                let ref_slice = &ref_bytes_bytes
+                    [ref_bytes.offset + start_at..(ref_bytes.offset + start_at + suffix.length)];
+                let suffix_slice = &suffix_bytes[suffix.offset..(suffix.offset + suffix.length)];
+                ref_slice == suffix_slice
+            }
+        )
     }
 
     /// Returns the MurmurHash3_x86_32 hash.
@@ -280,10 +303,10 @@ impl StringHelper {
     ///
     /// Throws an [`IllegalArgument`](crate::util::error::IllegalArgumentError)
     /// if any int value is out of bounds for a byte.
-    pub fn ints_ref_to_bytes_ref<AV: AccessVec<i32>>(
+    pub fn ints_ref_to_bytes_ref<AV: AccessVec<i32>, AV1: AccessVec<u8>>(
         ints: &IntsRef<AV>,
-    ) -> Result<BytesRef<Vec<u8>>> {
-        let mut bytes = Vec::with_capacity(ints.length);
+    ) -> Result<BytesRef<AV1>> {
+        let mut bytes = AV1::with_capacity(ints.length);
         for i in 0..ints.length {
             ints.ints.access(|v| {
                 let x = v[ints.offset + i];
@@ -293,12 +316,13 @@ impl StringHelper {
                         i, x
                     )));
                 }
-                bytes.push(x as u8);
+                bytes.access_mut(|v| {
+                    v.push(x as u8);
+                });
                 // Help the compiler infer types.
                 Ok::<(), LuceneError>(())
             })?;
         }
-
         Ok(BytesRef::from_bytes(bytes))
     }
 }
@@ -394,7 +418,7 @@ mod tests {
     #[test]
     fn test_starts_with() -> Result<()> {
         let mut random = random();
-        let ref_bytes = new_bytes_ref_from_string(&mut random, "foobar")?;
+        let ref_bytes: BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, "foobar")?;
         let slice = new_bytes_ref_from_string(&mut random, "foo")?;
         assert!(StringHelper::starts_with_byte_ref(&ref_bytes, &slice));
         Ok(())
@@ -402,7 +426,7 @@ mod tests {
     #[test]
     fn test_ends_with() -> Result<()> {
         let mut random = random();
-        let ref_bytes = new_bytes_ref_from_string(&mut random, "foobar")?;
+        let ref_bytes: BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, "foobar")?;
         let slice = new_bytes_ref_from_string(&mut random, "bar")?;
         assert!(StringHelper::ends_with(&ref_bytes, &slice));
         Ok(())
@@ -410,7 +434,7 @@ mod tests {
     #[test]
     fn test_starts_with_whole() -> Result<()> {
         let mut random = random();
-        let ref_bytes = new_bytes_ref_from_string(&mut random, "foobar")?;
+        let ref_bytes: BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, "foobar")?;
         let slice = new_bytes_ref_from_string(&mut random, "foobar")?;
         assert!(StringHelper::starts_with_byte_ref(&ref_bytes, &slice));
         Ok(())
@@ -418,7 +442,7 @@ mod tests {
     #[test]
     fn test_ends_with_whole() -> Result<()> {
         let mut random = random();
-        let ref_bytes = new_bytes_ref_from_string(&mut random, "foobar")?;
+        let ref_bytes: BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, "foobar")?;
         let slice = new_bytes_ref_from_string(&mut random, "foobar")?;
         assert!(StringHelper::ends_with(&ref_bytes, &slice));
         Ok(())
