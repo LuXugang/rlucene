@@ -46,7 +46,7 @@ where
 {
     /// Load a previously saved FST with a DataInput for metadata using an
     /// [`OnHeapFSTStore`] with `maxBlockBits` set to
-    /// [`DEFAULT_MAX_BLOCK_BITS`]
+    /// [`DEFAULT_MAX_BLOCK_BITS`](fst_util::DEFAULT_MAX_BLOCK_BITS)
     pub fn from_on_heap_store(
         metadata: FSTMetadata<O>,
         input: &mut impl DataInput,

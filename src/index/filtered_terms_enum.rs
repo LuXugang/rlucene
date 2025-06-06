@@ -214,7 +214,7 @@ where
 /// and step forward.
 ///
 /// See also:
-/// - [`accept`](FilteredTermsEnum::accept)
+/// - [`accept`](FilteredTermsEnumBase::accept)
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum AcceptStatus {
     /// Accept the term and continue.

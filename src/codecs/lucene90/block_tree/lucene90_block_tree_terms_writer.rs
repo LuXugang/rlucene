@@ -194,11 +194,11 @@ use crate::util::{CoreHelper, SliceCopyOps, StringHelper, ToInt};
 /// - The .tip file contains a separate FST for each field. The FST maps a term
 ///   prefix to the on-disk block that holds all terms starting with that
 ///   prefix. Each field's IndexStartFP points to its FST.
-/// -It's possible that an on-disk block would contain too many terms (more than
+/// - It's possible that an on-disk block would contain too many terms (more than
 ///   the allowed maximum (default: 48)). When this happens, the block is
-///   sub-divided into new blocks (called "floor blocks"), and then the output
-/// in   the FST for the block's prefix encodes the leading byte of each
-/// sub-block,   and its file pointer.
+///   subdivided into new blocks (called "floor blocks"), and then the output
+///   in   the FST for the block's prefix encodes the leading byte of each
+/// subblock,   and its file pointer.
 ///
 /// See also [`Lucene90BlockTreeTermsReader`](crate::codecs::lucene90::terms_reader::Lucene90BlockTreeTermsReader).
 pub struct Lucene90BlockTreeTermsWriter<O, PW>

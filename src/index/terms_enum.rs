@@ -50,7 +50,7 @@ pub trait TermsEnum: BytesRefIterator {
         Err(LuceneError::need_implemented(""))
     }
     /// Two-phase [`seek_exact`](TermsEnum::seek_exact). The first phase
-    /// typically calls [`IndexInput::prefetch`] on the right range of bytes
+    /// typically calls [`IndexInput::prefetch`](crate::store::index_input::IndexInput) on the right range of bytes
     /// under the hood, while the second phase
     /// [`see.exact`](TermsEnum::seek_exact) actually seeks the term within
     /// these bytes. This can be used to parallelize I/O across multiple

@@ -38,7 +38,7 @@ pub trait Comparator<T> {
     ///
     /// # Panics
     ///
-    /// Panics if [`compare`] returns `Err`. Only use this when you are sure
+    /// Panics if [`compare`](Self::compare) returns `Err`. Only use this when you are sure
     /// the comparison cannot fail.
     ///
     /// # Why this method exists

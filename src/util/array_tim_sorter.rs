@@ -18,7 +18,7 @@
 use crate::util::error::lucene_error::Result;
 use crate::util::{Comparator, Sorter, TimSorter, TimSorterBase};
 
-/// A [`TimSorter`](crate::util::TimSorter) for object arrays.
+/// A [`TimSorter`] for object arrays.
 ///
 /// # Note
 /// This is an internal API.

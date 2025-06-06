@@ -34,6 +34,6 @@ pub trait Fields {
     fn terms(&mut self, field: &str) -> Result<Option<Self::Terms>>;
 
     /// Returns the number of fields or -1 if the number of distinct field names
-    /// is unknown. If >= 0, [`iterator`] will return as many field names.
+    /// is unknown. If >= 0, [`iterator`](Self::iterator) will return as many field names.
     fn size(&self) -> i32;
 }

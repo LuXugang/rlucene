@@ -24,7 +24,7 @@ use crate::store::DataInput;
 use crate::util::error::lucene_error::Result;
 
 /// An [`IndexInput`] implementing [`RandomAccessInput`]
-/// and backed by a [`ByteBuffersDataInput`].
+/// and backed by a [`ByteBuffersDataInput`](crate::store::byte_buffers_data_input::ByteBuffersDataInput).
 pub struct ByteBuffersIndexInput<'a> {
     data_input: ByteBuffersDataInputRef<'a>,
     resource_description: String,

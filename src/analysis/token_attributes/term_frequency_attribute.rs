@@ -22,7 +22,7 @@ use crate::util::attribute::Attribute;
 /// that field must be indexed with
 /// [`IndexOptions::DocsAndFreqs`](crate::index::index_options::IndexOptions).
 ///
-/// See also: [`IndexOptions`](crate::index::IndexOptions)
+/// See also: [`IndexOptions`](crate::index::index_options::IndexOptions)
 pub trait TermFrequencyAttribute: Attribute {
     /// Sets the custom term frequency of the current term within one document.
     fn set_term_frequency(&mut self, term_frequency: i32);
