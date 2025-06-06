@@ -169,7 +169,7 @@ impl<T> FilterTermsEnum<T>
 where
     T: TermsEnum,
 {
-    fn new(terms_enum: T) -> Self {
+    pub fn new(terms_enum: T) -> Self {
         Self { terms_enum }
     }
 }

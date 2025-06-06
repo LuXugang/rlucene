@@ -14,11 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::index::filter_leaf_reader::FilterTermsEnum;
+use crate::index::automaton_terms_enum::AutomatonTermsEnum;
+use crate::index::fields::Fields;
+use crate::index::filter_leaf_reader::{FilterTerms, FilterTermsEnum};
+use crate::index::filtered_terms_enum::FilteredTermsEnum;
 use crate::index::index_options::IndexOptions;
 use crate::index::postings_enum::PostingsEnum;
 use crate::index::sorter::DocMap;
 use crate::index::term_state::TermStateEnum;
+use crate::index::terms::Terms;
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::index::BytesRef;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
@@ -27,6 +31,7 @@ use crate::store::byte_buffers_data_input::ByteBuffersDataInputOwned;
 use crate::store::{ByteBuffersDataOutput, DataInput, DataOutput};
 use crate::util::array_util::ArrayUtil;
 use crate::util::attribute_source::AttributeSource;
+use crate::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::Result;
 use crate::util::lsb_radix_sorter::LSBRadixSorter;
@@ -36,7 +41,125 @@ use std::borrow::Cow;
 use std::rc::Rc;
 
 pub(crate) struct FreqProxTermsWriter;
+// SortingTerms
+pub(crate) struct SortingTerms<T, D>
+where
+    T: Terms,
+    D: DocMap,
+{
+    base: FilterTerms<T>,
+    index_options: IndexOptions,
+    doc_map: Rc<D>,
+}
+impl<T, D> SortingTerms<T, D>
+where
+    T: Terms,
+    D: DocMap,
+{
+    pub(crate) fn new(base: FilterTerms<T>, index_options: IndexOptions, doc_map: Rc<D>) -> Self {
+        Self {
+            base,
+            index_options,
+            doc_map,
+        }
+    }
+}
+impl<T, D> Terms for SortingTerms<T, D>
+where
+    T: Terms,
+    D: DocMap,
+{
+    type TermsEnum<'a>
+        = SortingTermsEnum<T::TermsEnum<'a>, D>
+    where
+        D: 'a,
+        T: 'a;
 
+    fn iterator(&self) -> Result<Self::TermsEnum<'_>> {
+        let base = FilterTermsEnum::new(self.base.iterator()?);
+        Ok(SortingTermsEnum::new(
+            base,
+            self.index_options,
+            self.doc_map.clone(),
+        ))
+    }
+
+    type IntersectIter<'a>
+        = SortingTermsEnum<FilteredTermsEnum<T::TermsEnum<'a>, AutomatonTermsEnum>, D>
+    where
+        <T as Terms>::TermsEnum<'a>: 'a,
+        D: 'a,
+        T: 'a;
+
+    fn intersect(
+        &self,
+        compiled: &mut CompiledAutomaton,
+        start_term: Option<BytesRef<Vec<u8>>>,
+    ) -> Result<Self::IntersectIter<'_>> {
+        let base = FilterTermsEnum::new(self.base.intersect(compiled, start_term)?);
+        Ok(SortingTermsEnum::new(
+            base,
+            self.index_options,
+            self.doc_map.clone(),
+        ))
+    }
+
+    fn size(&self) -> Result<i64> {
+        self.base.size()
+    }
+
+    fn get_sum_total_term_freq(&self) -> Result<i64> {
+        self.base.get_sum_total_term_freq()
+    }
+
+    fn get_sum_doc_freq(&self) -> Result<i64> {
+        self.base.get_sum_doc_freq()
+    }
+
+    fn get_doc_count(&self) -> Result<i32> {
+        self.base.get_doc_count()
+    }
+
+    fn has_freqs(&self) -> bool {
+        self.base.has_freqs()
+    }
+
+    fn has_offsets(&self) -> bool {
+        self.base.has_offsets()
+    }
+
+    fn has_positions(&self) -> bool {
+        self.base.has_positions()
+    }
+
+    fn has_payloads(&self) -> bool {
+        self.base.has_payloads()
+    }
+
+    fn get_min<'a, T1>(&'a self, iterator: &'a mut T1) -> Result<Option<Cow<'a, BytesRef<Vec<u8>>>>>
+    where
+        T1: TermsEnum,
+    {
+        self.base.get_min(iterator)
+    }
+
+    fn get_max<'a, T1>(&'a self, iterator: &'a mut T1) -> Result<Option<Cow<'a, BytesRef<Vec<u8>>>>>
+    where
+        T1: TermsEnum,
+    {
+        self.base.get_max(iterator)
+    }
+
+    fn get_stats(&self) -> Result<String> {
+        self.base.get_stats()
+    }
+
+    fn type_name(&self) -> &'static str {
+        "SortingTerms"
+    }
+}
+
+// SortingTermsEnum
 pub(crate) struct SortingTermsEnum<T, D>
 where
     T: TermsEnum,
@@ -45,6 +168,23 @@ where
     base: FilterTermsEnum<T>,
     index_options: IndexOptions,
     doc_map: Rc<D>,
+}
+impl<T, D> SortingTermsEnum<T, D>
+where
+    T: TermsEnum,
+    D: DocMap,
+{
+    pub(crate) fn new(
+        base: FilterTermsEnum<T>,
+        index_options: IndexOptions,
+        doc_map: Rc<D>,
+    ) -> Self {
+        Self {
+            base,
+            index_options,
+            doc_map,
+        }
+    }
 }
 
 impl<T, D> BytesRefIterator for SortingTermsEnum<T, D>
@@ -126,7 +266,7 @@ where
         self.base.term_state()
     }
 }
-
+// SortingDocsEnum
 pub(crate) struct SortingDocsEnum<P>
 where
     P: PostingsEnum,
