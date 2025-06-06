@@ -155,7 +155,7 @@ where
     }
 
     type IntersectIter<'a>
-        = FilteredTermsEnum<Self::TermsEnum<'a>, Self::AV, AutomatonTermsEnum>
+        = FilteredTermsEnum<Self::TermsEnum<'a>, AutomatonTermsEnum>
     where
         Self::TermsEnum<'a>: BytesRefIterator<AV = Self::AV>,
         AutomatonTermsEnum: FilteredTermsEnumBase<AV = Self::AV>,

@@ -27,7 +27,7 @@ use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::error::lucene_error::Result;
 
-/// struct for enumerating a subset of all terms.
+/// Struct for enumerating a subset of all terms.
 ///
 /// Term enumerations are always ordered by [`BytesRef::cmp`] Each term in the
 /// enumeration is greater than all that precede it.
@@ -36,30 +36,28 @@ use crate::util::error::lucene_error::Result;
 /// only; it will return
 /// [`UnsupportedOperationError`](LuceneError::unsupported_operation) when a
 /// seeking method is called.
-pub struct FilteredTermsEnum<TE, AV, F>
+pub struct FilteredTermsEnum<T, F>
 where
-    TE: TermsEnum<AV = AV>,
-    AV: AccessVec<u8>,
-    F: FilteredTermsEnumBase<AV = AV>,
+    T: TermsEnum,
+    F: FilteredTermsEnumBase<AV = T::AV>,
 {
     initial_seek_term: Option<BytesRef<Vec<u8>>>,
     do_seek: bool,
-    pub actual_term: BytesRef<AV>,
-    pub tenum: TE,
+    pub actual_term: BytesRef<T::AV>,
+    pub tenum: T,
     sub: F,
 }
-impl<TE, AV, F> FilteredTermsEnum<TE, AV, F>
+impl<T, F> FilteredTermsEnum<T, F>
 where
-    TE: TermsEnum<AV = AV>,
-    AV: AccessVec<u8>,
-    F: FilteredTermsEnumBase<AV = AV>,
+    T: TermsEnum,
+    F: FilteredTermsEnumBase<AV = T::AV>,
 {
-    pub(crate) fn new(tenum: TE, sub: F) -> Self {
+    pub(crate) fn new(tenum: T, sub: F) -> Self {
         Self::with_seek(tenum, true, sub)
     }
 
     /// Creates a new filtered enumerator with control over initial seeking.
-    pub(crate) fn with_seek(tenum: TE, start_with_seek: bool, sub: F) -> Self {
+    pub(crate) fn with_seek(tenum: T, start_with_seek: bool, sub: F) -> Self {
         FilteredTermsEnum {
             initial_seek_term: None,
             do_seek: start_with_seek,
@@ -71,13 +69,13 @@ where
     pub(crate) fn set_initial_seek_term(&mut self, term: BytesRef<Vec<u8>>) {
         self.initial_seek_term = Some(term);
     }
-    pub fn next_seek_term(&mut self) -> Result<Option<BytesRef<AV>>> {
+    pub fn next_seek_term(&mut self) -> Result<Option<BytesRef<T::AV>>> {
         match self.sub.next_seek_term(Option::from(&self.actual_term)) {
             Ok(v) => Ok(v),
             Err(e) => match e {
                 LuceneError::NotImplemented(_) => {
                     let mut a = self.initial_seek_term.take().unwrap();
-                    let vec = AV::from_vec(std::mem::take(&mut a.bytes));
+                    let vec = T::AV::from_vec(std::mem::take(&mut a.bytes));
                     Ok(Some(BytesRef::from_slice(vec, a.offset, a.length)))
                 },
                 _ => Err(e),
@@ -86,13 +84,12 @@ where
     }
 }
 
-impl<TE, AV, F> BytesRefIterator for FilteredTermsEnum<TE, AV, F>
+impl<T, F> BytesRefIterator for FilteredTermsEnum<T, F>
 where
-    AV: AccessVec<u8>,
-    TE: TermsEnum<AV = AV>,
-    F: FilteredTermsEnumBase<AV = AV>,
+    T: TermsEnum,
+    F: FilteredTermsEnumBase<AV = T::AV>,
 {
-    type AV = AV;
+    type AV = T::AV;
 
     fn next(&mut self) -> Result<Option<Cow<BytesRef<Self::AV>>>> {
         loop {
@@ -103,6 +100,7 @@ where
                 if t.is_none() || self.tenum.seek_ceil(t.as_ref().unwrap())? == SeekStatus::End {
                     return Ok(None);
                 }
+                // TODO: avoid copy here?
                 self.actual_term = self.tenum.term()?.into_owned();
             } else {
                 match self.tenum.next()? {
@@ -137,11 +135,10 @@ where
     }
 }
 
-impl<TE, AV, F> TermsEnum for FilteredTermsEnum<TE, AV, F>
+impl<T, F> TermsEnum for FilteredTermsEnum<T, F>
 where
-    TE: TermsEnum<AV = AV>,
-    AV: AccessVec<u8>,
-    F: FilteredTermsEnumBase<AV = AV>,
+    T: TermsEnum,
+    F: FilteredTermsEnumBase<AV = T::AV>,
 {
     fn attributes(&self) -> Result<&AttributeSource> {
         self.tenum.attributes()
@@ -161,7 +158,7 @@ where
 
     fn seek_exact_with_state(
         &mut self,
-        _term: &BytesRef<AV>,
+        _term: &BytesRef<Self::AV>,
         _state: &TermStateEnum,
     ) -> Result<()> {
         Err(LuceneError::unsupported_operation(
@@ -198,13 +195,13 @@ where
         ))
     }
 
-    type ImpactsEnum = TE::ImpactsEnum;
+    type ImpactsEnum = T::ImpactsEnum;
 
     fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnum> {
         self.tenum.impacts(flags)
     }
 
-    type TermState = TE::TermState;
+    type TermState = T::TermState;
 
     fn term_state(&mut self) -> Result<Self::TermState> {
         self.tenum.term_state()

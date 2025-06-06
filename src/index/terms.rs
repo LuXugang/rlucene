@@ -77,7 +77,7 @@ pub trait Terms {
         &'a self,
         compiled: &mut CompiledAutomaton,
         start_term: Option<BytesRef<Vec<u8>>>,
-    ) -> Result<FilteredTermsEnum<Self::TermsEnum<'_>, Self::AV, AutomatonTermsEnum>>
+    ) -> Result<FilteredTermsEnum<Self::TermsEnum<'_>, AutomatonTermsEnum>>
     where
         Self::TermsEnum<'a>: BytesRefIterator<AV = Self::AV>,
         AutomatonTermsEnum: FilteredTermsEnumBase<AV = Self::AV>,
