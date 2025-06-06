@@ -602,7 +602,7 @@ impl Automata {
     ///   is codepoint-based (full Unicode codepoints on transitions).
     pub(crate) fn make_string_union_from_iter<B>(utf8_strings: &mut B) -> Result<Automaton>
     where
-        B: BytesRefIterator<AV = Vec<u8>>,
+        B: BytesRefIterator,
     {
         StringsToAutomaton::build_from_iterator(utf8_strings, false)
     }
@@ -620,7 +620,7 @@ impl Automata {
     ///   is binary-based (UTF-8 encoded byte transition labels).
     pub fn make_binary_string_union_from_iter<B>(utf8_strings: &mut B) -> Result<Automaton>
     where
-        B: BytesRefIterator<AV = Vec<u8>>,
+        B: BytesRefIterator,
     {
         StringsToAutomaton::build_from_iterator(utf8_strings, true)
     }

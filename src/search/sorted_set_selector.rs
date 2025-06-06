@@ -168,8 +168,6 @@ where
         Ok(self.ord)
     }
 
-    type AV = Vec<u8>;
-
     fn lookup_ord(&mut self, ord: i32) -> Result<Cow<BytesRef<Vec<u8>>>> {
         self.inner.lookup_ord(ord as i64)
     }
@@ -181,7 +179,7 @@ where
     fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
         Ok(self.inner.lookup_term(key)? as i32)
     }
-    type TermsEnum = DummyTermsEnum<Self::AV>;
+    type TermsEnum = DummyTermsEnum;
 }
 /// Wraps a SortedSetDocValues and returns the last ordinal (max)
 pub struct MaxValue<I>
@@ -258,8 +256,6 @@ where
         Ok(self.ord)
     }
 
-    type AV = Vec<u8>;
-
     fn lookup_ord(&mut self, ord: i32) -> Result<Cow<BytesRef<Vec<u8>>>> {
         self.inner.lookup_ord(ord as i64)
     }
@@ -272,7 +268,7 @@ where
         Ok(self.inner.lookup_term(key)? as i32)
     }
 
-    type TermsEnum = DummyTermsEnum<Self::AV>;
+    type TermsEnum = DummyTermsEnum;
 }
 /// Wraps a SortedSetDocValues and returns the middle ordinal (or min of the
 /// two)
@@ -351,8 +347,6 @@ where
         Ok(self.ord)
     }
 
-    type AV = Vec<u8>;
-
     fn lookup_ord(&mut self, ord: i32) -> Result<Cow<BytesRef<Vec<u8>>>> {
         self.inner.lookup_ord(ord as i64)
     }
@@ -364,7 +358,7 @@ where
     fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
         Ok(self.inner.lookup_term(key)? as i32)
     }
-    type TermsEnum = DummyTermsEnum<Self::AV>;
+    type TermsEnum = DummyTermsEnum;
 }
 /// Wraps a SortedSetDocValues and returns the middle ordinal (or max of the
 /// two)
@@ -443,8 +437,6 @@ where
         Ok(self.ord)
     }
 
-    type AV = Vec<u8>;
-
     fn lookup_ord(&mut self, ord: i32) -> Result<Cow<BytesRef<Vec<u8>>>> {
         self.inner.lookup_ord(ord as i64)
     }
@@ -456,7 +448,7 @@ where
     fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
         Ok(self.inner.lookup_term(key)? as i32)
     }
-    type TermsEnum = DummyTermsEnum<Self::AV>;
+    type TermsEnum = DummyTermsEnum;
 }
 
 pub enum SortedDocValuesWrapEnum<I>
@@ -532,8 +524,6 @@ where
         }
     }
 
-    type AV = Vec<u8>;
-
     fn lookup_ord(&mut self, ord: i32) -> Result<Cow<BytesRef<Vec<u8>>>> {
         match self {
             SortedDocValuesWrapEnum::Lucene90Singleton(inner) => {
@@ -569,5 +559,5 @@ where
             SortedDocValuesWrapEnum::MiddleMax(inner) => inner.lookup_term(key),
         }
     }
-    type TermsEnum = DummyTermsEnum<Self::AV>;
+    type TermsEnum = DummyTermsEnum;
 }

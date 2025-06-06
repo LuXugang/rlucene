@@ -267,8 +267,6 @@ where
         }
     }
 
-    type AV = Vec<u8>;
-
     fn lookup_ord(&mut self, _ord: i64) -> Result<Cow<BytesRef<Vec<u8>>>> {
         match self {
             Lucene90SortedSetDocValuesEnum::Singleton(s) => s.lookup_ord(_ord),
@@ -290,7 +288,7 @@ where
         }
     }
 
-    type TermsEnum = DummyTermsEnum<Self::AV>;
+    type TermsEnum = DummyTermsEnum;
 
     // type TermsEnum = ;
     //

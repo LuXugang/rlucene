@@ -42,9 +42,7 @@ impl SortedDocValues for DummySortedDocValues {
         todo!()
     }
 
-    type AV = Vec<u8>;
-
-    fn lookup_ord(&mut self, _ord: i32) -> Result<Cow<BytesRef<Self::AV>>> {
+    fn lookup_ord(&mut self, _ord: i32) -> Result<Cow<BytesRef<Vec<u8>>>> {
         todo!()
     }
 
@@ -52,11 +50,11 @@ impl SortedDocValues for DummySortedDocValues {
         todo!()
     }
 
-    fn lookup_term(&mut self, _key: &BytesRef<Self::AV>) -> Result<i32> {
+    fn lookup_term(&mut self, _key: &BytesRef<Vec<u8>>) -> Result<i32> {
         todo!()
     }
 
-    type TermsEnum = DummyTermsEnum<Vec<u8>>;
+    type TermsEnum = DummyTermsEnum;
 
     // fn terms_enum(&mut self) -> Result<TermsEnums<I, AV>> {
     //     todo!()

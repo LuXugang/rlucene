@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use std::borrow::Cow;
-use std::marker::PhantomData;
 use std::sync::Arc;
 
 use crate::index::{BytesRef, BytesRefBuilder};
@@ -209,7 +208,7 @@ where
         }
         Ok(SortState::new(Some(ordered_entries)))
     }
-    pub fn iterator(&self) -> IndexedBytesRefIteratorImpl<A, Vec<u8>> {
+    pub fn iterator(&self) -> IndexedBytesRefIteratorImpl<A> {
         self.iterator_with_state(Arc::from(SortState::new(None)))
     }
     /// Returns an [`IndexedBytesRefIteratorImpl`] with point-in-time semantics.
@@ -229,7 +228,7 @@ where
     pub fn iterator_with_state(
         &self,
         sort_state: Arc<SortState>,
-    ) -> IndexedBytesRefIteratorImpl<A, Vec<u8>> {
+    ) -> IndexedBytesRefIteratorImpl<A> {
         IndexedBytesRefIteratorImpl::new(sort_state, self)
     }
 }
@@ -281,7 +280,7 @@ where
     ///
     /// # Note
     /// - This is a non-destructive operation.
-    type Iter = IndexedBytesRefIteratorImpl<'a, A, Vec<u8>>;
+    type Iter = IndexedBytesRefIteratorImpl<'a, A>;
 
     fn iterator(
         &'a mut self,
@@ -307,29 +306,26 @@ impl Accountable for SortState {
     }
 }
 
-pub struct IndexedBytesRefIteratorImpl<'a, A, AV>
+pub struct IndexedBytesRefIteratorImpl<'a, A>
 where
     A: Access<CounterEnum>,
-    AV: AccessVec<u8>,
 {
     pos: i32,
     pub(crate) ord: i32,
     sort_state: Arc<SortState>,
-    spare: BytesRefBuilder<AV>,
+    spare: BytesRefBuilder<Vec<u8>>,
     size: i32,
     bytes_ref_array: &'a BytesRefArray<A>,
-    phantom: PhantomData<AV>,
 }
-impl<'a, A, AV> IndexedBytesRefIteratorImpl<'a, A, AV>
+impl<'a, A> IndexedBytesRefIteratorImpl<'a, A>
 where
     A: Access<CounterEnum>,
-    AV: AccessVec<u8>,
     BytesRefArray<A>: SortableBytesRefArray<'a>,
 {
     fn new(
         sort_state: Arc<SortState>,
         bytes_ref_array: &'a BytesRefArray<A>,
-    ) -> IndexedBytesRefIteratorImpl<'a, A, AV> {
+    ) -> IndexedBytesRefIteratorImpl<'a, A> {
         Self {
             pos: -1,
             ord: -1,
@@ -337,21 +333,17 @@ where
             spare: BytesRefBuilder::new(),
             size: bytes_ref_array.size(),
             bytes_ref_array,
-            phantom: PhantomData,
         }
     }
     pub fn ord(&self) -> i32 {
         self.ord
     }
 }
-impl<A, AV> BytesRefIterator for IndexedBytesRefIteratorImpl<'_, A, AV>
+impl<A> BytesRefIterator for IndexedBytesRefIteratorImpl<'_, A>
 where
     A: Access<CounterEnum>,
-    AV: AccessVec<u8>,
 {
-    type AV = AV;
-
-    fn next(&mut self) -> Result<Option<Cow<BytesRef<Self::AV>>>> {
+    fn next(&mut self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
         let mut result = BytesRef::new();
         self.pos += 1;
         if self.pos < self.size {
@@ -368,10 +360,9 @@ where
         }
     }
 }
-impl<A, AV> IndexedBytesRefIterator for IndexedBytesRefIteratorImpl<'_, A, AV>
+impl<A> IndexedBytesRefIterator for IndexedBytesRefIteratorImpl<'_, A>
 where
     A: Access<CounterEnum>,
-    AV: AccessVec<u8>,
 {
     fn ord(&self) -> i32 {
         self.ord

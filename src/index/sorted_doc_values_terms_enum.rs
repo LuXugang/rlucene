@@ -47,7 +47,7 @@ pub struct SortedDocValuesTermsEnum;
 //     I: IndexInput,
 //     AV: AccessVec<u8>,
 // {
-//     fn next(&mut self) -> Result<Option<Cow<BytesRef<Self::AV>>>> {
+//     fn next(&mut self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
 //         self.current_ord += 1;
 //         if self.current_ord >= self.values.get_value_count()? {
 //             Ok(None)

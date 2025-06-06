@@ -21,7 +21,6 @@ use crate::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::index::term_state::TermStateEnum;
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::index::BytesRef;
-use crate::util::access::AccessVec;
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::LuceneError;
@@ -39,18 +38,18 @@ use crate::util::error::lucene_error::Result;
 pub struct FilteredTermsEnum<T, F>
 where
     T: TermsEnum,
-    F: FilteredTermsEnumBase<AV = T::AV>,
+    F: FilteredTermsEnumBase,
 {
     initial_seek_term: Option<BytesRef<Vec<u8>>>,
     do_seek: bool,
-    pub actual_term: BytesRef<T::AV>,
+    pub actual_term: BytesRef<Vec<u8>>,
     pub tenum: T,
     sub: F,
 }
 impl<T, F> FilteredTermsEnum<T, F>
 where
     T: TermsEnum,
-    F: FilteredTermsEnumBase<AV = T::AV>,
+    F: FilteredTermsEnumBase,
 {
     pub(crate) fn new(tenum: T, sub: F) -> Self {
         Self::with_seek(tenum, true, sub)
@@ -69,14 +68,17 @@ where
     pub(crate) fn set_initial_seek_term(&mut self, term: BytesRef<Vec<u8>>) {
         self.initial_seek_term = Some(term);
     }
-    pub fn next_seek_term(&mut self) -> Result<Option<BytesRef<T::AV>>> {
+    pub fn next_seek_term(&mut self) -> Result<Option<BytesRef<Vec<u8>>>> {
         match self.sub.next_seek_term(Option::from(&self.actual_term)) {
             Ok(v) => Ok(v),
             Err(e) => match e {
                 LuceneError::NotImplemented(_) => {
                     let mut a = self.initial_seek_term.take().unwrap();
-                    let vec = T::AV::from_vec(std::mem::take(&mut a.bytes));
-                    Ok(Some(BytesRef::from_slice(vec, a.offset, a.length)))
+                    Ok(Some(BytesRef::from_slice(
+                        std::mem::take(&mut a.bytes),
+                        a.offset,
+                        a.length,
+                    )))
                 },
                 _ => Err(e),
             },
@@ -87,11 +89,9 @@ where
 impl<T, F> BytesRefIterator for FilteredTermsEnum<T, F>
 where
     T: TermsEnum,
-    F: FilteredTermsEnumBase<AV = T::AV>,
+    F: FilteredTermsEnumBase,
 {
-    type AV = T::AV;
-
-    fn next(&mut self) -> Result<Option<Cow<BytesRef<Self::AV>>>> {
+    fn next(&mut self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
         loop {
             if self.do_seek {
                 self.do_seek = false;
@@ -138,13 +138,13 @@ where
 impl<T, F> TermsEnum for FilteredTermsEnum<T, F>
 where
     T: TermsEnum,
-    F: FilteredTermsEnumBase<AV = T::AV>,
+    F: FilteredTermsEnumBase,
 {
     fn attributes(&self) -> Result<&AttributeSource> {
         self.tenum.attributes()
     }
 
-    fn seek_ceil(&mut self, _term: &BytesRef<Self::AV>) -> Result<SeekStatus> {
+    fn seek_ceil(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
         Err(LuceneError::unsupported_operation(
             "FilteredTermsEnum::seek_ceil",
         ))
@@ -158,7 +158,7 @@ where
 
     fn seek_exact_with_state(
         &mut self,
-        _term: &BytesRef<Self::AV>,
+        _term: &BytesRef<Vec<u8>>,
         _state: &TermStateEnum,
     ) -> Result<()> {
         Err(LuceneError::unsupported_operation(
@@ -166,7 +166,7 @@ where
         ))
     }
 
-    fn term(&self) -> Result<Cow<BytesRef<Self::AV>>> {
+    fn term(&self) -> Result<Cow<BytesRef<Vec<u8>>>> {
         self.tenum.term()
     }
 
@@ -231,12 +231,11 @@ pub enum AcceptStatus {
     End,
 }
 pub trait FilteredTermsEnumBase {
-    type AV: AccessVec<u8>;
     /// Return if term is accepted, not accepted or the iteration should ended
     /// (and possibly seek).
-    fn accept(&mut self, term: &BytesRef<Self::AV>) -> Result<AcceptStatus>;
+    fn accept(&mut self, term: &BytesRef<Vec<u8>>) -> Result<AcceptStatus>;
     fn next_seek_term(
         &mut self,
-        current: Option<&BytesRef<Self::AV>>,
-    ) -> Result<Option<BytesRef<Self::AV>>>;
+        current: Option<&BytesRef<Vec<u8>>>,
+    ) -> Result<Option<BytesRef<Vec<u8>>>>;
 }

@@ -339,7 +339,7 @@ where
     pub fn write<'a, F, N>(&mut self, fields: &'a mut F, norms: &mut N) -> Result<()>
     where
         F: Fields,
-        F::Terms: Terms<AV = Vec<u8>>,
+        F::Terms: Terms,
         PW: PostingsWriterBase<NumericDocValues = N::NumericDocValues>,
         N: NormsProducer,
         for<'b> <F::Terms as Terms>::TermsEnum<'b>:

@@ -46,7 +46,7 @@ pub trait TermsEnum: BytesRefIterator {
     ///
     /// Returns `true` if the term is found; `false` if the enum is
     /// unpositioned.
-    fn seek_exact(&mut self, _term: &BytesRef<Self::AV>) -> Result<bool> {
+    fn seek_exact(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<bool> {
         Err(LuceneError::need_implemented(""))
     }
     /// Two-phase [`seek_exact`](TermsEnum::seek_exact). The first phase
@@ -63,7 +63,7 @@ pub trait TermsEnum: BytesRefIterator {
     ///
     /// **NOTE**: This may return `None` if this [`TermsEnum`] can identify that
     /// the term may not exist without performing any I/O.
-    fn prepare_seek_exact(&mut self, _text: &BytesRef<Self::AV>) -> Result<bool> {
+    fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<bool> {
         Err(LuceneError::need_implemented(""))
     }
 
@@ -72,7 +72,7 @@ pub trait TermsEnum: BytesRefIterator {
     /// found, a different term was found, or EOF was hit.
     /// The target term may be before or after the current term.
     /// If this returns `SeekStatus::End`, the enum is unpositioned.
-    fn seek_ceil(&mut self, _term: &BytesRef<Self::AV>) -> Result<SeekStatus> {
+    fn seek_ceil(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
         Err(LuceneError::need_implemented(""))
     }
 
@@ -105,14 +105,14 @@ pub trait TermsEnum: BytesRefIterator {
     /// - `state`: the [`TermState`]
     fn seek_exact_with_state(
         &mut self,
-        _term: &BytesRef<Self::AV>,
+        _term: &BytesRef<Vec<u8>>,
         _state: &TermStateEnum,
     ) -> Result<()> {
         Err(LuceneError::need_implemented(""))
     }
 
     /// Returns current term. Do not call this when the enum is unpositioned.
-    fn term(&self) -> Result<Cow<BytesRef<Self::AV>>> {
+    fn term(&self) -> Result<Cow<BytesRef<Vec<u8>>>> {
         Err(LuceneError::need_implemented(""))
     }
     /// Returns ordinal position for the current term.

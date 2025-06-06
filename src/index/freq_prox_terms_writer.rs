@@ -52,7 +52,6 @@ where
     D: DocMap,
     T: TermsEnum,
 {
-    type AV = T::AV;
 }
 
 impl<T, D> TermsEnum for SortingTermsEnum<T, D>
@@ -64,15 +63,15 @@ where
         self.base.attributes()
     }
 
-    fn seek_exact(&mut self, term: &BytesRef<Self::AV>) -> Result<bool> {
+    fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
         self.base.seek_exact(term)
     }
 
-    fn prepare_seek_exact(&mut self, text: &BytesRef<Self::AV>) -> Result<bool> {
+    fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<bool> {
         self.base.prepare_seek_exact(text)
     }
 
-    fn seek_ceil(&mut self, term: &BytesRef<Self::AV>) -> Result<SeekStatus> {
+    fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
         self.base.seek_ceil(term)
     }
 
@@ -82,13 +81,13 @@ where
 
     fn seek_exact_with_state(
         &mut self,
-        term: &BytesRef<Self::AV>,
+        term: &BytesRef<Vec<u8>>,
         state: &TermStateEnum,
     ) -> Result<()> {
         self.base.seek_exact_with_state(term, state)
     }
 
-    fn term(&self) -> Result<Cow<BytesRef<Self::AV>>> {
+    fn term(&self) -> Result<Cow<BytesRef<Vec<u8>>>> {
         self.base.term()
     }
 

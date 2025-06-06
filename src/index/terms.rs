@@ -27,7 +27,6 @@ use crate::util::error::lucene_error::Result;
 
 /// Trait representing base term statistics and access.
 pub trait Terms {
-    type AV: AccessVec<u8>;
     /// Returns the [`Terms`] index for this field, or [`Terms::EMPTY`] if it
     /// has none.
     ///
@@ -41,7 +40,7 @@ pub trait Terms {
         unimplemented!()
     }
 
-    type TermsEnum<'a>: TermsEnum<AV = Self::AV>
+    type TermsEnum<'a>: TermsEnum
     where
         Self: 'a;
 
@@ -49,7 +48,7 @@ pub trait Terms {
     /// not return None.
     fn iterator(&self) -> Result<Self::TermsEnum<'_>>;
 
-    type IntersectIter<'a>: TermsEnum<AV = Self::AV> + 'a
+    type IntersectIter<'a>: TermsEnum + 'a
     where
         Self: 'a;
     /// Returns a [`TermsEnum`] that iterates over all terms and documents
@@ -79,8 +78,8 @@ pub trait Terms {
         start_term: Option<BytesRef<Vec<u8>>>,
     ) -> Result<FilteredTermsEnum<Self::TermsEnum<'_>, AutomatonTermsEnum>>
     where
-        Self::TermsEnum<'a>: BytesRefIterator<AV = Self::AV>,
-        AutomatonTermsEnum: FilteredTermsEnumBase<AV = Self::AV>,
+        Self::TermsEnum<'a>: BytesRefIterator,
+        AutomatonTermsEnum: FilteredTermsEnumBase,
     {
         let terms_enum = self.iterator()?;
         let automaton_terms_enum = if start_term.is_some() {
@@ -131,9 +130,9 @@ pub trait Terms {
     /// Returns the smallest term (in lexicographic order) in the field.  
     /// Note that, like other term measures, this does **not** take deleted
     /// documents into account. Returns `None` when there are no terms.
-    fn get_min<'a, T>(&'a self, iterator: &'a mut T) -> Result<Option<Cow<'a, BytesRef<Self::AV>>>>
+    fn get_min<'a, T>(&'a self, iterator: &'a mut T) -> Result<Option<Cow<'a, BytesRef<Vec<u8>>>>>
     where
-        T: TermsEnum<AV = Self::AV>,
+        T: TermsEnum,
     {
         iterator.next()
     }
@@ -141,9 +140,9 @@ pub trait Terms {
     /// Returns the largest term (in lexicographic order) in the field.  
     /// Note that, like other term measures, this does **not** take deleted
     /// documents into account. Returns `None` when there are no terms.
-    fn get_max<'a, T>(&'a self, iterator: &'a mut T) -> Result<Option<Cow<'a, BytesRef<Self::AV>>>>
+    fn get_max<'a, T>(&'a self, iterator: &'a mut T) -> Result<Option<Cow<'a, BytesRef<Vec<u8>>>>>
     where
-        T: TermsEnum<AV = Self::AV>,
+        T: TermsEnum,
     {
         let size = self.size()?;
         match size.cmp(&0) {

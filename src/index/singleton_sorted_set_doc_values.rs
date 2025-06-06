@@ -121,9 +121,7 @@ where
         Ok(1)
     }
 
-    type AV = S::AV;
-
-    fn lookup_ord(&mut self, ord: i64) -> Result<Cow<BytesRef<Self::AV>>> {
+    fn lookup_ord(&mut self, ord: i64) -> Result<Cow<BytesRef<Vec<u8>>>> {
         self.inner.as_mut().unwrap().lookup_ord(ord as i32)
     }
 
@@ -131,9 +129,9 @@ where
         Ok(self.inner.as_mut().unwrap().get_value_count()? as i64)
     }
 
-    fn lookup_term(&mut self, key: &BytesRef<Self::AV>) -> Result<i64> {
+    fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i64> {
         Ok(self.inner.as_mut().unwrap().lookup_term(key)? as i64)
     }
 
-    type TermsEnum = DummyTermsEnum<Self::AV>;
+    type TermsEnum = DummyTermsEnum;
 }

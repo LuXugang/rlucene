@@ -66,8 +66,6 @@ pub mod doc_values {
             todo!()
         }
 
-        type AV = Vec<u8>;
-
         fn lookup_ord(&mut self, _ord: i64) -> Result<Cow<BytesRef<Vec<u8>>>> {
             todo!()
         }
@@ -80,7 +78,7 @@ pub mod doc_values {
             todo!()
         }
 
-        type TermsEnum = DummyTermsEnum<Self::AV>;
+        type TermsEnum = DummyTermsEnum;
     }
 }
 

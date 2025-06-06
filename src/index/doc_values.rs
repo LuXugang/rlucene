@@ -245,8 +245,6 @@ impl SortedDocValues for EmptySorted {
         Ok(-1)
     }
 
-    type AV = Vec<u8>;
-
     fn lookup_ord(&mut self, _ord: i32) -> Result<Cow<BytesRef<Vec<u8>>>> {
         Ok(Cow::Owned(std::mem::take(&mut self.empty)))
     }
@@ -255,5 +253,5 @@ impl SortedDocValues for EmptySorted {
         Ok(0)
     }
 
-    type TermsEnum = DummyTermsEnum<Self::AV>;
+    type TermsEnum = DummyTermsEnum;
 }

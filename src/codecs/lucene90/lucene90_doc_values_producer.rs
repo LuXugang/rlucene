@@ -2164,9 +2164,7 @@ where
         Ok(self.value.get(self.doc as i64)? as i32)
     }
 
-    type AV = Vec<u8>;
-
-    type TermsEnum = DummyTermsEnum<Self::AV>;
+    type TermsEnum = DummyTermsEnum;
 }
 
 pub struct SparseBaseSortedDocValues<I>
@@ -2223,9 +2221,7 @@ where
         Ok(self.value.get(self.disi.index() as i64)? as i32)
     }
 
-    type AV = Vec<u8>;
-
-    type TermsEnum = DummyTermsEnum<Self::AV>;
+    type TermsEnum = DummyTermsEnum;
 }
 pub struct BaseSortedDocValuesImpl<I>
 where
@@ -2280,9 +2276,7 @@ where
         Ok(self.ords.long_value()? as i32)
     }
 
-    type AV = Vec<u8>;
-
-    type TermsEnum = DummyTermsEnum<Self::AV>;
+    type TermsEnum = DummyTermsEnum;
 }
 
 pub struct BaseSortedDocValues<I>
@@ -2291,7 +2285,7 @@ where
 {
     entry: Rc<SortedEntry>,
     // if copy is heavy, we could change `Vec<u8>` as `Rc<RefCell<Vec<u8>>>`
-    terms_enum: BaseTermsEnum<TermsDict<I, Vec<u8>>>,
+    terms_enum: BaseTermsEnum<TermsDict<I>>,
     sub: BaseSortedDocValuesEnum<I>,
 }
 
@@ -2352,8 +2346,6 @@ where
         self.sub.ord_value()
     }
 
-    type AV = Vec<u8>;
-
     fn lookup_ord(&mut self, ord: i32) -> Result<Cow<BytesRef<Vec<u8>>>> {
         self.terms_enum.seek_exact_with_ord(ord as i64)?;
         self.terms_enum.term()
@@ -2376,7 +2368,7 @@ where
             },
         }
     }
-    type TermsEnum = DummyTermsEnum<Self::AV>;
+    type TermsEnum = DummyTermsEnum;
 }
 pub struct DenseBaseSortedSetDocValues<I>
 where
@@ -2467,9 +2459,7 @@ where
         Ok(self.count)
     }
 
-    type AV = Vec<u8>;
-
-    type TermsEnum = BaseTermsEnum<TermsDict<I, Vec<u8>>>;
+    type TermsEnum = BaseTermsEnum<TermsDict<I>>;
 }
 
 pub struct SparseBaseSortedSetDocValues<I>
@@ -2562,9 +2552,7 @@ where
         Ok(self.count)
     }
 
-    type AV = Vec<u8>;
-
-    type TermsEnum = DummyTermsEnum<Self::AV>;
+    type TermsEnum = DummyTermsEnum;
 }
 
 pub struct BaseSortedSetDocValuesImpl<I>
@@ -2624,9 +2612,7 @@ where
         self.ords.doc_value_count()
     }
 
-    type AV = Vec<u8>;
-
-    type TermsEnum = BaseTermsEnum<TermsDict<I, Vec<u8>>>;
+    type TermsEnum = BaseTermsEnum<TermsDict<I>>;
 }
 
 pub struct BaseSortedSetDocValues<I>
@@ -2635,7 +2621,7 @@ where
 {
     entry: Rc<SortedSetEntry>,
     // if copy is heavy, we could change `Vec<u8>` as `Rc<RefCell<Vec<u8>>>`
-    terms_enum: BaseTermsEnum<TermsDict<I, Vec<u8>>>,
+    terms_enum: BaseTermsEnum<TermsDict<I>>,
     sub: BaseSortedSetDocValuesEnum<I>,
 }
 
@@ -2708,8 +2694,6 @@ where
         self.sub.doc_value_count()
     }
 
-    type AV = Vec<u8>;
-
     fn lookup_ord(&mut self, ord: i64) -> Result<Cow<BytesRef<Vec<u8>>>> {
         self.terms_enum.seek_exact_with_ord(ord)?;
         self.terms_enum.term()
@@ -2734,13 +2718,12 @@ where
         }
     }
 
-    type TermsEnum = TermsDict<I, Vec<u8>>;
+    type TermsEnum = TermsDict<I>;
 }
 
-pub struct TermsDict<I, AV>
+pub struct TermsDict<I>
 where
     I: IndexInput,
-    AV: AccessVec<u8>,
 {
     pub entry: Rc<TermsDictEntry>,
     pub block_addresses: DirectMonotonicReader<I::RandomAccessSlice>,
@@ -2748,18 +2731,17 @@ where
     pub block_mask: u64,
     pub index_addresses: DirectMonotonicReader<I::RandomAccessSlice>,
     pub index_bytes: I::RandomAccessSlice,
-    pub term: BytesRef<AV>,
+    pub term: BytesRef<Vec<u8>>,
     pub ord: i64,
-    pub block_buffer: BytesRef<AV>,
-    pub block_input: ByteArrayDataInput<AV>,
+    pub block_buffer: BytesRef<Vec<u8>>,
+    pub block_input: ByteArrayDataInput<Vec<u8>>,
     pub current_compressed_block_start: i64,
     pub current_compressed_block_end: i64,
 }
 
-impl<I, AV> TermsDict<I, AV>
+impl<I> TermsDict<I>
 where
     I: IndexInput,
-    AV: AccessVec<u8>,
 {
     const LZ4_DECOMPRESSOR_PADDING: i32 = 7;
 
@@ -2815,11 +2797,8 @@ where
         let buffer_size =
             entry.max_block_length + entry.max_term_length + Self::LZ4_DECOMPRESSOR_PADDING;
 
-        let block_buffer = BytesRef::from_slice(
-            AV::from_vec(vec![0u8; buffer_size as usize]),
-            0,
-            buffer_size as usize,
-        );
+        let block_buffer =
+            BytesRef::from_slice(vec![0u8; buffer_size as usize], 0, buffer_size as usize);
         let block_input = ByteArrayDataInput::new(); // assuming default constructor
 
         let sub = Self {
@@ -2839,7 +2818,7 @@ where
         Ok(BaseTermsEnum::new(sub))
     }
 
-    fn get_term_from_index(&mut self, index: i64) -> Result<&BytesRef<AV>> {
+    fn get_term_from_index(&mut self, index: i64) -> Result<&BytesRef<Vec<u8>>> {
         debug_assert!(
             index >= 0
                 && index
@@ -2862,7 +2841,7 @@ where
 
         Ok(&self.term)
     }
-    fn seek_terms_index(&mut self, text: &BytesRef<AV>) -> Result<i64> {
+    fn seek_terms_index(&mut self, text: &BytesRef<Vec<u8>>) -> Result<i64> {
         let mut lo: i64 = 0;
         let mut hi: i64 = (self.entry.terms_dict_size - 1) >> self.entry.terms_dict_index_shift;
 
@@ -2893,7 +2872,7 @@ where
         );
         Ok(hi)
     }
-    fn get_first_term_from_block(&mut self, block: i64) -> Result<&BytesRef<AV>> {
+    fn get_first_term_from_block(&mut self, block: i64) -> Result<&BytesRef<Vec<u8>>> {
         debug_assert!(
             block >= 0
                 && block
@@ -2915,7 +2894,7 @@ where
 
         Ok(&self.term)
     }
-    fn seek_block(&mut self, text: &BytesRef<AV>) -> Result<i64> {
+    fn seek_block(&mut self, text: &BytesRef<Vec<u8>>) -> Result<i64> {
         let index = self.seek_terms_index(text)?;
 
         if index == -1 {
@@ -3027,14 +3006,11 @@ where
     }
 }
 
-impl<I, AV> BytesRefIterator for TermsDict<I, AV>
+impl<I> BytesRefIterator for TermsDict<I>
 where
     I: IndexInput,
-    AV: AccessVec<u8>,
 {
-    type AV = AV;
-
-    fn next(&mut self) -> Result<Option<Cow<BytesRef<Self::AV>>>> {
+    fn next(&mut self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
         self.ord += 1;
         if self.ord >= self.entry.terms_dict_size {
             return Ok(None);
@@ -3066,24 +3042,23 @@ where
     }
 }
 
-impl<I, AV> TermsEnum for TermsDict<I, AV>
+impl<I> TermsEnum for TermsDict<I>
 where
     I: IndexInput,
-    AV: AccessVec<u8>,
 {
     fn attributes(&self) -> Result<&AttributeSource> {
         Err(LuceneError::not_implemented(""))
     }
 
-    fn seek_exact(&mut self, _term: &BytesRef<Self::AV>) -> Result<bool> {
+    fn seek_exact(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<bool> {
         Err(LuceneError::not_implemented(""))
     }
 
-    fn prepare_seek_exact(&mut self, _text: &BytesRef<Self::AV>) -> Result<bool> {
+    fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<bool> {
         Err(LuceneError::not_implemented(""))
     }
 
-    fn seek_ceil(&mut self, text: &BytesRef<Self::AV>) -> Result<SeekStatus> {
+    fn seek_ceil(&mut self, text: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
         let block = self.seek_block(text)?;
         if block == -2 {
             // empty terms dict
@@ -3136,13 +3111,13 @@ where
 
     fn seek_exact_with_state(
         &mut self,
-        _term: &BytesRef<Self::AV>,
+        _term: &BytesRef<Vec<u8>>,
         _state: &TermStateEnum,
     ) -> Result<()> {
         Err(LuceneError::not_implemented(""))
     }
 
-    fn term(&self) -> Result<Cow<BytesRef<Self::AV>>> {
+    fn term(&self) -> Result<Cow<BytesRef<Vec<u8>>>> {
         Ok(Cow::Borrowed(&self.term))
     }
 

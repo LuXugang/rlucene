@@ -20,7 +20,6 @@ use std::borrow::Cow;
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::terms_enum::TermsEnum;
 use crate::index::BytesRef;
-use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::ToInt;
 
@@ -50,7 +49,6 @@ pub trait SortedSetDocValues: DocValuesIterator {
     /// `false`.
     fn doc_value_count(&mut self) -> Result<i32>;
 
-    type AV: AccessVec<u8>;
     /// Retrieves the value for the specified ordinal. The returned [`BytesRef`]
     /// may be re-used across calls to `lookup_ord`, so make sure to
     /// [`BytesRef::deep_copy_of`] it if you want to keep it around.
@@ -59,7 +57,7 @@ pub trait SortedSetDocValues: DocValuesIterator {
     /// * `ord` - Ordinal to lookup
     ///
     /// See also: [`next_ord`](SortedSetDocValues::next_ord)
-    fn lookup_ord(&mut self, _ord: i64) -> Result<Cow<BytesRef<Self::AV>>> {
+    fn lookup_ord(&mut self, _ord: i64) -> Result<Cow<BytesRef<Vec<u8>>>> {
         Err(LuceneError::need_implemented(
             "this method is not implemented",
         ))
@@ -82,7 +80,7 @@ pub trait SortedSetDocValues: DocValuesIterator {
     ///
     /// # Returns
     /// * Ordinal of the key if found, otherwise `-insertion_point - 1`
-    fn lookup_term(&mut self, key: &BytesRef<Self::AV>) -> Result<i64> {
+    fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i64> {
         let mut low = 0;
         let mut high = self.get_value_count()? - 1;
 

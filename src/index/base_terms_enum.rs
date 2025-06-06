@@ -55,12 +55,7 @@ where
     }
 }
 
-impl<S> BytesRefIterator for BaseTermsEnum<S>
-where
-    S: TermsEnum,
-{
-    type AV = S::AV;
-}
+impl<S> BytesRefIterator for BaseTermsEnum<S> where S: TermsEnum {}
 
 impl<S> TermsEnum for BaseTermsEnum<S>
 where
@@ -76,7 +71,7 @@ where
         }
     }
 
-    fn seek_exact(&mut self, term: &BytesRef<Self::AV>) -> Result<bool> {
+    fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
         match self.sub.seek_exact(term) {
             Ok(v) => Ok(v),
             Err(e) => match e {
@@ -86,7 +81,7 @@ where
         }
     }
 
-    fn prepare_seek_exact(&mut self, text: &BytesRef<Self::AV>) -> Result<bool> {
+    fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<bool> {
         match self.sub.prepare_seek_exact(text) {
             Ok(v) => Ok(v),
             Err(e) => match e {
@@ -96,7 +91,7 @@ where
         }
     }
 
-    fn seek_ceil(&mut self, term: &BytesRef<Self::AV>) -> Result<SeekStatus> {
+    fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
         self.sub.seek_ceil(term)
     }
 
@@ -106,7 +101,7 @@ where
 
     fn seek_exact_with_state(
         &mut self,
-        term: &BytesRef<Self::AV>,
+        term: &BytesRef<Vec<u8>>,
         state: &TermStateEnum,
     ) -> Result<()> {
         match self.sub.seek_exact_with_state(term, state) {
@@ -126,7 +121,7 @@ where
         }
     }
 
-    fn term(&self) -> Result<Cow<BytesRef<Self::AV>>> {
+    fn term(&self) -> Result<Cow<BytesRef<Vec<u8>>>> {
         self.sub.term()
     }
 

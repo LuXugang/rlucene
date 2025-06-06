@@ -19,7 +19,6 @@ use std::borrow::Cow;
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::terms_enum::TermsEnum;
 use crate::index::BytesRef;
-use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::ToInt;
 
@@ -41,7 +40,6 @@ pub trait SortedDocValues: DocValuesIterator {
     /// A dense ordinal (starts at 0, then increments in sorted order).
     fn ord_value(&mut self) -> Result<i32>;
 
-    type AV: AccessVec<u8>;
     /// Resolves the provided ordinal to the associated dictionary value.
     ///
     /// The returned `BytesRef` may be reused across calls,
@@ -52,7 +50,7 @@ pub trait SortedDocValues: DocValuesIterator {
     ///
     /// # Returns
     /// The dictionary value corresponding to the ordinal.
-    fn lookup_ord(&mut self, _ord: i32) -> Result<Cow<BytesRef<Self::AV>>> {
+    fn lookup_ord(&mut self, _ord: i32) -> Result<Cow<BytesRef<Vec<u8>>>> {
         Err(LuceneError::need_implemented(
             "this method is not implemented",
         ))
@@ -74,7 +72,7 @@ pub trait SortedDocValues: DocValuesIterator {
     ///
     /// # Returns
     /// * Ordinal of the key if found, otherwise `-insertion_point - 1`
-    fn lookup_term(&mut self, key: &BytesRef<Self::AV>) -> Result<i32> {
+    fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
         let mut low = 0;
         let mut high = self.get_value_count()? - 1;
 

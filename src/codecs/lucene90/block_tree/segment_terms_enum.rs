@@ -468,9 +468,7 @@ where
     I: IndexInput,
     P: PostingsReaderBase,
 {
-    type AV = Vec<u8>;
-
-    fn next(&mut self) -> Result<Option<Cow<BytesRef<Self::AV>>>> {
+    fn next(&mut self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
         let input_none = { self.input.is_none() };
         if input_none {
             let arc = if let Some(index) = self.fr.index.as_ref() {
@@ -600,21 +598,21 @@ where
         Err(LuceneError::not_implemented(""))
     }
 
-    fn seek_exact(&mut self, target: &BytesRef<Self::AV>) -> Result<bool> {
+    fn seek_exact(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
         match self.prepare_seek_exact(target, false)? {
             Some(found) => Ok(found),
             None => Ok(false),
         }
     }
 
-    fn prepare_seek_exact(&mut self, target: &BytesRef<Self::AV>) -> Result<bool> {
+    fn prepare_seek_exact(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
         match self.prepare_seek_exact(target, true)? {
             Some(found) => Ok(found),
             None => Ok(false),
         }
     }
 
-    fn seek_ceil(&mut self, target: &BytesRef<Self::AV>) -> Result<SeekStatus> {
+    fn seek_ceil(&mut self, target: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
         if self.fr.index.is_none() {
             return Err(LuceneError::illegal_state("terms index was not loaded"));
         }
@@ -815,7 +813,7 @@ where
 
     fn seek_exact_with_state(
         &mut self,
-        target: &BytesRef<Self::AV>,
+        target: &BytesRef<Vec<u8>>,
         other_state: &TermStateEnum,
     ) -> Result<()> {
         debug_assert!(self.clear_eof());
@@ -832,7 +830,7 @@ where
         Ok(())
     }
 
-    fn term(&self) -> Result<Cow<BytesRef<Self::AV>>> {
+    fn term(&self) -> Result<Cow<BytesRef<Vec<u8>>>> {
         debug_assert!(!self.eof);
         Ok(Cow::Borrowed(&self.term.bytes_ref))
     }

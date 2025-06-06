@@ -24,49 +24,32 @@ use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use std::borrow::Cow;
-use std::marker::PhantomData;
 
-pub struct DummyTermsEnum<AV>
-where
-    AV: AccessVec<u8>,
-{
+pub struct DummyTermsEnum {
     atts: AttributeSource,
-    _phantom: PhantomData<AV>,
 }
-impl<AV> DummyTermsEnum<AV>
-where
-    AV: AccessVec<u8>,
-{
+impl DummyTermsEnum {
     pub fn new() -> Self {
         Self {
             atts: AttributeSource::new(),
-            _phantom: PhantomData,
         }
     }
 }
-impl<AV> BytesRefIterator for DummyTermsEnum<AV>
-where
-    AV: AccessVec<u8>,
-{
-    type AV = AV;
-
-    fn next(&mut self) -> Result<Option<Cow<BytesRef<Self::AV>>>> {
+impl BytesRefIterator for DummyTermsEnum {
+    fn next(&mut self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))
     }
 }
 
-impl<AV> TermsEnum for DummyTermsEnum<AV>
-where
-    AV: AccessVec<u8>,
-{
+impl TermsEnum for DummyTermsEnum {
     fn attributes(&self) -> Result<&AttributeSource> {
         debug_assert!(false, "should never be called");
         Ok(&self.atts)
     }
 
-    fn seek_ceil(&mut self, _term: &BytesRef<Self::AV>) -> Result<SeekStatus> {
+    fn seek_ceil(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))
@@ -80,7 +63,7 @@ where
 
     fn seek_exact_with_state(
         &mut self,
-        _term: &BytesRef<Self::AV>,
+        _term: &BytesRef<Vec<u8>>,
         _state: &TermStateEnum,
     ) -> Result<()> {
         Err(LuceneError::illegal_state(
@@ -88,7 +71,7 @@ where
         ))
     }
 
-    fn term(&self) -> Result<Cow<BytesRef<Self::AV>>> {
+    fn term(&self) -> Result<Cow<BytesRef<Vec<u8>>>> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))

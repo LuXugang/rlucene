@@ -119,9 +119,7 @@ where
         }
     }
 
-    type AV = Vec<u8>;
-
-    type TermsEnum = DummyTermsEnum<Vec<u8>>;
+    type TermsEnum = DummyTermsEnum;
 }
 
 pub enum BaseSortedSetDocValuesEnum<I>
@@ -203,9 +201,7 @@ where
         }
     }
 
-    type AV = Vec<u8>;
-
-    type TermsEnum = DummyTermsEnum<Self::AV>;
+    type TermsEnum = DummyTermsEnum;
 }
 
 pub enum SparseBinaryDocValuesBaseEnum<I>

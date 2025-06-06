@@ -144,7 +144,6 @@ where
     I: IndexInput,
     P: PostingsReaderBase,
 {
-    type AV = Vec<u8>;
     type TermsEnum<'a>
         = BaseTermsEnum<SegmentTermsEnum<'a, I, P>>
     where
@@ -157,8 +156,8 @@ where
     type IntersectIter<'a>
         = FilteredTermsEnum<Self::TermsEnum<'a>, AutomatonTermsEnum>
     where
-        Self::TermsEnum<'a>: BytesRefIterator<AV = Self::AV>,
-        AutomatonTermsEnum: FilteredTermsEnumBase<AV = Self::AV>,
+        Self::TermsEnum<'a>: BytesRefIterator,
+        AutomatonTermsEnum: FilteredTermsEnumBase,
         I: 'a,
         P: 'a;
 
@@ -214,16 +213,16 @@ where
         self.field_info.has_payloads()
     }
 
-    fn get_min<'a, T>(&'a self, _iterator: &'a mut T) -> Result<Option<Cow<'a, BytesRef<Self::AV>>>>
+    fn get_min<'a, T>(&'a self, _iterator: &'a mut T) -> Result<Option<Cow<'a, BytesRef<Vec<u8>>>>>
     where
-        T: TermsEnum<AV = Self::AV>,
+        T: TermsEnum,
     {
         Ok(Option::from(Cow::Borrowed(&self.min_term)))
     }
 
-    fn get_max<'a, T>(&'a self, _iterator: &'a mut T) -> Result<Option<Cow<'a, BytesRef<Self::AV>>>>
+    fn get_max<'a, T>(&'a self, _iterator: &'a mut T) -> Result<Option<Cow<'a, BytesRef<Vec<u8>>>>>
     where
-        T: TermsEnum<AV = Self::AV>,
+        T: TermsEnum,
     {
         Ok(Option::from(Cow::Borrowed(&self.max_term)))
     }

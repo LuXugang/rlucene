@@ -42,8 +42,5 @@ impl SortedSetDocValues for DummySortedSetDocValues {
     fn doc_value_count(&mut self) -> Result<i32> {
         todo!()
     }
-
-    type AV = Vec<u8>;
-
-    type TermsEnum = DummyTermsEnum<Self::AV>;
+    type TermsEnum = DummyTermsEnum;
 }

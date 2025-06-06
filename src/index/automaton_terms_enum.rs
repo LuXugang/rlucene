@@ -354,9 +354,7 @@ impl AutomatonTermsEnum {
     }
 }
 impl FilteredTermsEnumBase for AutomatonTermsEnum {
-    type AV = Vec<u8>;
-
-    fn accept(&mut self, term: &BytesRef<Self::AV>) -> Result<AcceptStatus> {
+    fn accept(&mut self, term: &BytesRef<Vec<u8>>) -> Result<AcceptStatus> {
         let suffix_ok = match &self.common_suffix_ref {
             None => true,
             Some(suffix) => StringHelper::ends_with(term, suffix),
@@ -387,8 +385,8 @@ impl FilteredTermsEnumBase for AutomatonTermsEnum {
 
     fn next_seek_term(
         &mut self,
-        term: Option<&BytesRef<Self::AV>>,
-    ) -> Result<Option<BytesRef<Self::AV>>> {
+        term: Option<&BytesRef<Vec<u8>>>,
+    ) -> Result<Option<BytesRef<Vec<u8>>>> {
         if let Some(t) = term {
             self.seek_bytes_ref.copy_bytes_with_ref(t);
         } else {
