@@ -14,7 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::index::dummy::dummy_terms_enum::DummyTermsEnum;
+use crate::index::automaton_terms_enum::AutomatonTermsEnum;
+use crate::index::fields::Fields;
+use crate::index::filtered_terms_enum::{FilteredTermsEnum, FilteredTermsEnumBase};
 use crate::index::term_state::TermStateEnum;
 use crate::index::terms::Terms;
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
@@ -24,12 +26,48 @@ use crate::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::Result;
 use std::borrow::Cow;
-use crate::index::automaton_terms_enum::AutomatonTermsEnum;
-use crate::index::filtered_terms_enum::{FilteredTermsEnum, FilteredTermsEnumBase};
 
 pub trait FilterLeafReader {}
+/// Base class for filtering [`Fields`] implementations.
+pub struct FilterFields<F>
+where
+    F: Fields,
+{
+    /// The underlying Fields instance.
+    inner: F,
+}
+impl<F> FilterFields<F>
+where
+    F: Fields,
+{
+    pub fn new(inner: F) -> FilterFields<F> {
+        Self { inner }
+    }
+}
+impl<F> Fields for FilterFields<F>
+where
+    F: Fields,
+{
+    fn iterator(&self) -> &[String] {
+        self.inner.iterator()
+    }
 
-/// A decorator base struct for `Terms` that delegates all calls to the underlying `Terms` instance.
+    type Terms = F::Terms;
+
+    fn terms(&mut self, field: &str) -> Result<Option<&mut Self::Terms>> {
+        self.inner.terms(field)
+    }
+
+    fn size(&self) -> i32 {
+        self.inner.size()
+    }
+}
+
+/// Base class for filtering [`Terms`] implementations.
+///
+/// **NOTE**: If the order of terms and documents is not changed, and if these terms are
+/// going to be intersected with automata, you could consider overriding [`Self::intersect`](Terms::intersect) for
+/// better performance.
 pub struct FilterTerms<T>
 where
     T: Terms,
@@ -64,10 +102,12 @@ where
     }
 
     type IntersectIter<'a>
-    = FilteredTermsEnum<Self::TermsEnum<'a>, AutomatonTermsEnum>
+        = FilteredTermsEnum<Self::TermsEnum<'a>, AutomatonTermsEnum>
     where
         Self::TermsEnum<'a>: BytesRefIterator,
-        AutomatonTermsEnum: FilteredTermsEnumBase, <T as Terms>::TermsEnum<'a>: 'a, T: 'a;
+        AutomatonTermsEnum: FilteredTermsEnumBase,
+        <T as Terms>::TermsEnum<'a>: 'a,
+        T: 'a;
 
     fn intersect(
         &self,

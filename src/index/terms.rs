@@ -17,7 +17,7 @@
 use std::borrow::Cow;
 
 use crate::index::automaton_terms_enum::AutomatonTermsEnum;
-use crate::index::filtered_terms_enum::{FilteredTermsEnum, FilteredTermsEnumBase};
+use crate::index::filtered_terms_enum::FilteredTermsEnum;
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::index::{BytesRef, BytesRefBuilder};
 use crate::util::access::AccessVec;
@@ -76,8 +76,7 @@ pub trait Terms {
         &self,
         compiled: &mut CompiledAutomaton,
         start_term: Option<BytesRef<Vec<u8>>>,
-    ) -> Result<FilteredTermsEnum<Self::TermsEnum<'_>, AutomatonTermsEnum>>
-    {
+    ) -> Result<FilteredTermsEnum<Self::TermsEnum<'_>, AutomatonTermsEnum>> {
         let terms_enum = self.iterator()?;
         let automaton_terms_enum = if start_term.is_some() {
             AutomatonTermsEnum::new_with_start_term(compiled, start_term)?
