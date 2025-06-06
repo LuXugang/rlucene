@@ -15,8 +15,9 @@
  * limitations under the License.
  */
 use crate::index::automaton_terms_enum::AutomatonTermsEnum;
+use crate::index::field_infos::FieldInfos;
 use crate::index::fields::Fields;
-use crate::index::filter_leaf_reader::{FilterTerms, FilterTermsEnum};
+use crate::index::filter_leaf_reader::{FilterFields, FilterTerms, FilterTermsEnum};
 use crate::index::filtered_terms_enum::FilteredTermsEnum;
 use crate::index::index_options::IndexOptions;
 use crate::index::postings_enum::PostingsEnum;
@@ -33,7 +34,7 @@ use crate::util::array_util::ArrayUtil;
 use crate::util::attribute_source::AttributeSource;
 use crate::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
-use crate::util::error::lucene_error::Result;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::lsb_radix_sorter::LSBRadixSorter;
 use crate::util::packed::PackedInts;
 use crate::util::{SliceCopyOps, Sorter, TimSorter, TimSorterBase};
@@ -41,6 +42,66 @@ use std::borrow::Cow;
 use std::rc::Rc;
 
 pub(crate) struct FreqProxTermsWriter;
+
+pub(crate) struct FilterFieldsImpl<F, D>
+where
+    F: Fields,
+    D: DocMap,
+{
+    base: FilterFields<F>,
+    field_infos: Rc<FieldInfos>,
+    doc_map: Rc<D>,
+}
+impl<F, D> FilterFieldsImpl<F, D>
+where
+    F: Fields,
+    D: DocMap,
+{
+    pub(crate) fn new(base: FilterFields<F>, field_infos: Rc<FieldInfos>, doc_map: Rc<D>) -> Self {
+        Self {
+            base,
+            field_infos,
+            doc_map,
+        }
+    }
+}
+impl<F, D> Fields for FilterFieldsImpl<F, D>
+where
+    F: Fields,
+    D: DocMap,
+{
+    fn iterator(&self) -> &[String] {
+        self.base.iterator()
+    }
+
+    type Terms = SortingTerms<F::Terms, D>;
+
+    fn terms(&mut self, field: &str) -> Result<Option<Self::Terms>> {
+        match self.base.terms(field)? {
+            Some(terms) => {
+                let index_options = self.field_infos.field_info_by_name(field);
+                if index_options.is_none() {
+                    return Err(LuceneError::illegal_state(format!(
+                        "Field '{}' not found in field infos",
+                        field
+                    )));
+                }
+                let base = FilterTerms::new(terms);
+                Ok(Some(SortingTerms::new(
+                    base,
+                    *index_options.as_ref().unwrap().get_index_options(),
+                    self.doc_map.clone(),
+                )))
+            },
+            None => Ok(None),
+        }
+    }
+
+    fn size(&self) -> i32 {
+        self.base.size()
+    }
+}
+
 // SortingTerms
 pub(crate) struct SortingTerms<T, D>
 where

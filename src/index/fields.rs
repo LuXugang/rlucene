@@ -31,7 +31,7 @@ pub trait Fields {
     type Terms: Terms;
     /// Get the [`Terms`] for this field. This will return `None` if the field
     /// does not exist.
-    fn terms(&mut self, field: &str) -> Result<Option<&mut Self::Terms>>;
+    fn terms(&mut self, field: &str) -> Result<Option<Self::Terms>>;
 
     /// Returns the number of fields or -1 if the number of distinct field names
     /// is unknown. If >= 0, [`iterator`] will return as many field names.

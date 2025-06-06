@@ -54,7 +54,7 @@ where
 
     type Terms = F::Terms;
 
-    fn terms(&mut self, field: &str) -> Result<Option<&mut Self::Terms>> {
+    fn terms(&mut self, field: &str) -> Result<Option<Self::Terms>> {
         self.inner.terms(field)
     }
 

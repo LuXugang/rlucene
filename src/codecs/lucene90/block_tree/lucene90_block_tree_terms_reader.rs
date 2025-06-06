@@ -302,10 +302,10 @@ where
 
     type Terms = FieldReader<I, P>;
 
-    fn terms(&mut self, field: &str) -> Result<Option<&mut Self::Terms>> {
+    fn terms(&mut self, field: &str) -> Result<Option<Self::Terms>> {
         let field_info = self.field_infos.field_info_by_name(field);
         match field_info {
-            Some(f) => Ok(self.field_map.get_mut(&f.number)),
+            Some(f) => Ok(self.field_map.remove(&f.number)),
             None => Ok(None),
         }
     }
