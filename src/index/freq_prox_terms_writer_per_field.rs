@@ -46,7 +46,7 @@ where
 {
     field_state: FieldInvertState<O, P, T>,
     field_info: Rc<FieldInfo>,
-    has_freq: bool,
+    pub(crate) has_freq: bool,
     has_prox: bool,
     pub(crate) has_offsets: bool,
     // Set to true if any token had a payload in the current segment.

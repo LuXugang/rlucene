@@ -255,6 +255,150 @@ where
 
     type TermState = DummyTermState;
 }
+
+struct FreqProxDocsEnum<O, P, T>
+where
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+{
+    pub terms: Rc<RefCell<TermsHashPerField<FreqProxTermsWriterPerField<O, P, T>>>>,
+    pub reader: ByteSliceReader,
+    pub read_term_freq: bool,
+    pub doc_id: i32,
+    pub freq: i32,
+    pub ended: bool,
+    pub term_id: i32,
+}
+impl<O, P, T> FreqProxDocsEnum<O, P, T>
+where
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+{
+    pub fn new(
+        terms: Rc<RefCell<TermsHashPerField<FreqProxTermsWriterPerField<O, P, T>>>>,
+    ) -> Self {
+        let read_term_freq = terms.borrow().sub.as_ref().unwrap().has_freq;
+        Self {
+            terms,
+            reader: ByteSliceReader::new(),
+            read_term_freq,
+            doc_id: -1,
+            freq: 0,
+            ended: false,
+            term_id: -1,
+        }
+    }
+    pub fn reset(&mut self, term_id: i32) {
+        self.term_id = term_id;
+        let terms = self.terms.borrow_mut();
+        terms.init_reader(&mut self.reader, term_id, 0);
+        self.ended = false;
+        self.doc_id = -1;
+    }
+}
+
+impl<O, P, T> DocIdSetIterator for FreqProxDocsEnum<O, P, T>
+where
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+{
+    fn doc_id(&self) -> i32 {
+        self.doc_id
+    }
+
+    fn next_doc(&mut self) -> Result<i32> {
+        if self.doc_id == -1 {
+            self.doc_id = 0;
+        }
+
+        if self.reader.eof() {
+            if self.ended {
+                return Ok(NO_MORE_DOCS);
+            } else {
+                self.ended = true;
+                {
+                    let postings_array_enum = &self
+                        .terms
+                        .borrow()
+                        .bytes_hash
+                        .bytes_start_array
+                        .per_field
+                        .postings_array;
+                    let Some(postings_array) = postings_array_enum else {
+                        return Err(LuceneError::illegal_state("Postings array is none"));
+                    };
+
+                    let PostingsArrayEnum::FreqProx(p) = postings_array else {
+                        return Err(LuceneError::illegal_state("Unexpected postings array type"));
+                    };
+                    self.doc_id = p.last_doc_ids[self.term_id as usize];
+                    if self.read_term_freq {
+                        self.freq = p.term_freqs.as_ref().expect("term_freqs must exist")
+                            [self.term_id as usize];
+                    }
+                }
+            }
+        } else {
+            let code = self.reader.read_vint()?;
+            if !self.read_term_freq {
+                self.doc_id += code;
+            } else {
+                self.doc_id += (code as u32 >> 1) as i32;
+                if (code & 1) != 0 {
+                    self.freq = 1;
+                } else {
+                    self.freq = self.reader.read_vint()?;
+                }
+            }
+        }
+
+        Ok(self.doc_id)
+    }
+
+    fn advance(&mut self, _target: i32) -> Result<i32> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
+    fn cost(&self) -> Result<i64> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+}
+
+impl<O, P, T> PostingsEnum for FreqProxDocsEnum<O, P, T>
+where
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+{
+    fn freq(&mut self) -> Result<i32> {
+        // Don't lie here ... don't want codecs writings lots
+        // of wasted 1s into the index:
+        if !self.read_term_freq {
+            return Err(LuceneError::illegal_state("freq was not indexed"));
+        }
+        Ok(self.freq)
+    }
+
+    fn next_position(&mut self) -> Result<i32> {
+        Ok(-1)
+    }
+
+    fn start_offset(&self) -> Result<i32> {
+        Ok(-1)
+    }
+
+    fn end_offset(&self) -> Result<i32> {
+        Ok(-1)
+    }
+
+    fn get_payload(&self) -> Result<Option<&BytesRef<Vec<u8>>>> {
+        Ok(None)
+    }
+}
+
 struct FreqProxPostingsEnum<O, P, T>
 where
     O: OffsetAttribute,
@@ -338,23 +482,25 @@ where
                 return Ok(NO_MORE_DOCS);
             } else {
                 self.ended = true;
-                let postings_array_enum = &self
-                    .terms
-                    .borrow()
-                    .bytes_hash
-                    .bytes_start_array
-                    .per_field
-                    .postings_array;
-                let Some(postings_array) = postings_array_enum else {
-                    return Err(LuceneError::illegal_state("Postings array is none"));
-                };
+                {
+                    let postings_array_enum = &self
+                        .terms
+                        .borrow()
+                        .bytes_hash
+                        .bytes_start_array
+                        .per_field
+                        .postings_array;
+                    let Some(postings_array) = postings_array_enum else {
+                        return Err(LuceneError::illegal_state("Postings array is none"));
+                    };
 
-                let PostingsArrayEnum::FreqProx(p) = postings_array else {
-                    return Err(LuceneError::illegal_state("Unexpected postings array type"));
-                };
+                    let PostingsArrayEnum::FreqProx(p) = postings_array else {
+                        return Err(LuceneError::illegal_state("Unexpected postings array type"));
+                    };
 
-                self.doc_id = p.last_doc_codes[self.term_id as usize];
-                self.freq = p.term_freqs.as_ref().unwrap()[self.term_id as usize];
+                    self.doc_id = p.last_doc_codes[self.term_id as usize];
+                    self.freq = p.term_freqs.as_ref().unwrap()[self.term_id as usize];
+                }
             }
         } else {
             let code = self.reader.read_vint()?;
