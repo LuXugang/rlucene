@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CARGO_MAKE_VERSION: 0.37.24
-      RUST_TOOLCHAIN: 1.84.0
+      RUST_TOOLCHAIN: 1.87.0
 
     steps:
       - name: Checkout repository

@@ -56,7 +56,7 @@ script = [
 
 [tasks.check-rust-version]
 description = "Ensure exact Rust version"
-env = { REQUIRED_RUST_VERSION = "1.84.0" }
+env = { REQUIRED_RUST_VERSION = "1.87.0" }
 script_runner = "@rust"
 script = [
     '''
