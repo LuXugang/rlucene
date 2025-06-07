@@ -44,7 +44,8 @@ use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-
+/// Implements limited (iterators only, no stats) [`Fields`](crate::index::fields::Fields) interface over the in-RAM buffered
+/// fields/terms/postings, to flush postings through the PostingsFormat.
 pub(crate) struct FreqProxFields<O, P, T>
 where
     O: OffsetAttribute,
@@ -60,6 +61,7 @@ where
     T: TermFrequencyAttribute,
 {
     pub fn new(field_list: Vec<TermsHashPerField<FreqProxTermsWriterPerField<O, P, T>>>) -> Self {
+        // NOTE: fields are already sorted by field name
         let mut fields = HashMap::with_capacity(field_list.len());
         for field in field_list {
             let field_name = field.get_field_name().to_string();
