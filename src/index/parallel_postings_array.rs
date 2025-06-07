@@ -22,11 +22,11 @@ use crate::util::error::lucene_error::Result;
 
 pub(crate) struct ParallelPostingsArray {
     size: usize,
-    text_starts: Vec<i32>,    /* maps term ID to the term's text start in the
-                               * bytesHash */
-    address_offset: Vec<i32>, // maps term ID to current stream address
-    byte_starts: Vec<i32>,    /* maps term ID to stream start offset in the
-                               * byte pool */
+    pub(crate) text_starts: Vec<i32>, /* maps term ID to the term's text start in the
+                                       * bytesHash */
+    pub(crate) address_offset: Vec<i32>, // maps term ID to current stream address
+    pub(crate) byte_starts: Vec<i32>,    /* maps term ID to stream start offset in the
+                                          * byte pool */
 }
 
 impl ParallelPostingsArray {
@@ -99,14 +99,14 @@ impl PostingsArrayEnum {
     pub(crate) fn get_address_offset(&self) -> &[i32] {
         match self {
             PostingsArrayEnum::Parallel(p) => p.address_offset.as_slice(),
-            PostingsArrayEnum::FreqProx(f) => f.parent_postings_array.address_offset.as_slice(),
+            PostingsArrayEnum::FreqProx(f) => f.parent.address_offset.as_slice(),
             PostingsArrayEnum::TermVectors(t) => t.parent_postings_array.address_offset.as_slice(),
         }
     }
     pub(crate) fn set_address_offset(&mut self, index: usize, value: i32) {
         match self {
             PostingsArrayEnum::Parallel(p) => p.address_offset[index] = value,
-            PostingsArrayEnum::FreqProx(f) => f.parent_postings_array.address_offset[index] = value,
+            PostingsArrayEnum::FreqProx(f) => f.parent.address_offset[index] = value,
             PostingsArrayEnum::TermVectors(t) => {
                 t.parent_postings_array.address_offset[index] = value
             },
@@ -115,28 +115,28 @@ impl PostingsArrayEnum {
     pub(crate) fn get_text_starts(&self) -> &[i32] {
         match self {
             PostingsArrayEnum::Parallel(p) => p.text_starts.as_slice(),
-            PostingsArrayEnum::FreqProx(f) => f.parent_postings_array.text_starts.as_slice(),
+            PostingsArrayEnum::FreqProx(f) => f.parent.text_starts.as_slice(),
             PostingsArrayEnum::TermVectors(t) => t.parent_postings_array.text_starts.as_slice(),
         }
     }
     pub(crate) fn set_text_starts(&mut self, index: usize, value: i32) {
         match self {
             PostingsArrayEnum::Parallel(p) => p.text_starts[index] = value,
-            PostingsArrayEnum::FreqProx(f) => f.parent_postings_array.text_starts[index] = value,
+            PostingsArrayEnum::FreqProx(f) => f.parent.text_starts[index] = value,
             PostingsArrayEnum::TermVectors(t) => t.parent_postings_array.text_starts[index] = value,
         }
     }
     pub(crate) fn get_byte_starts(&self) -> &[i32] {
         match self {
             PostingsArrayEnum::Parallel(p) => p.byte_starts.as_slice(),
-            PostingsArrayEnum::FreqProx(f) => f.parent_postings_array.byte_starts.as_slice(),
+            PostingsArrayEnum::FreqProx(f) => f.parent.byte_starts.as_slice(),
             PostingsArrayEnum::TermVectors(t) => t.parent_postings_array.byte_starts.as_slice(),
         }
     }
     pub(crate) fn set_byte_starts(&mut self, index: usize, value: i32) {
         match self {
             PostingsArrayEnum::Parallel(p) => p.byte_starts[index] = value,
-            PostingsArrayEnum::FreqProx(f) => f.parent_postings_array.byte_starts[index] = value,
+            PostingsArrayEnum::FreqProx(f) => f.parent.byte_starts[index] = value,
             PostingsArrayEnum::TermVectors(t) => t.parent_postings_array.byte_starts[index] = value,
         }
     }

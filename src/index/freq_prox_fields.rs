@@ -26,7 +26,7 @@ use crate::index::filtered_terms_enum::FilteredTermsEnum;
 use crate::index::freq_prox_terms_writer_per_field::FreqProxTermsWriterPerField;
 use crate::index::index_options::IndexOptions;
 use crate::index::parallel_postings_array::PostingsArrayEnum;
-use crate::index::postings_enum::PostingsEnum;
+use crate::index::postings_enum::{postings_enum_util, PostingsEnum};
 use crate::index::terms::Terms;
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::index::terms_hash_per_field::{TermsHashPerField, TermsHashPerFieldBase};
@@ -35,9 +35,11 @@ use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::DataInput;
 use crate::util::automation::compiled_automaton::CompiledAutomaton;
+use crate::util::bytes_ref_block_pool::BytesRefBlockPool;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
+use crate::util::either_enums::EitherPostingsEnum;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::ToInt;
+use crate::util::{ByteBlockPoolBorrow, CounterEnumBorrow, ToInt};
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -178,6 +180,10 @@ where
     T: TermFrequencyAttribute,
 {
     terms: Rc<RefCell<TermsHashPerField<FreqProxTermsWriterPerField<O, P, T>>>>,
+    terms_pool: BytesRefBlockPool<CounterEnumBorrow, ByteBlockPoolBorrow>,
+    scratch: BytesRef<Vec<u8>>,
+    num_terms: i32,
+    ord: i32,
 }
 impl<O, P, T> FreqProxTermsEnum<O, P, T>
 where
@@ -188,8 +194,23 @@ where
     fn new(
         terms: Rc<RefCell<TermsHashPerField<FreqProxTermsWriterPerField<O, P, T>>>>,
     ) -> BaseTermsEnum<Self> {
-        let sub = Self { terms };
+        let (num_terms, terms_pool) = {
+            let terms_b = terms.borrow();
+            let num_terms = terms_b.get_num_terms();
+            let terms_pool = BytesRefBlockPool::from_byte_block_pool(terms_b.byte_pool.clone());
+            (num_terms, terms_pool)
+        };
+        let sub = Self {
+            terms,
+            terms_pool,
+            scratch: BytesRef::new(),
+            num_terms,
+            ord: 0,
+        };
         BaseTermsEnum::new(sub)
+    }
+    pub fn reset(&mut self) {
+        self.ord = -1;
     }
 }
 
@@ -199,6 +220,34 @@ where
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 {
+    fn next(&mut self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
+        self.ord += 1;
+        if self.ord >= self.num_terms {
+            return Ok(None);
+        }
+
+        let term_id = self.terms.borrow().get_sorted_term_ids()[self.ord as usize];
+
+        let postings_array_enum = &self
+            .terms
+            .borrow()
+            .bytes_hash
+            .bytes_start_array
+            .per_field
+            .postings_array;
+
+        let Some(PostingsArrayEnum::FreqProx(p)) = postings_array_enum else {
+            return Err(LuceneError::illegal_state(
+                "Expected FreqProx postings array",
+            ));
+        };
+
+        let text_start = p.parent.text_starts[term_id as usize];
+        self.terms_pool
+            .fill_bytes_ref(&mut self.scratch, text_start);
+
+        Ok(Some(Cow::Borrowed(&self.scratch)))
+    }
 }
 
 impl<O, P, T> TermsEnum for FreqProxTermsEnum<O, P, T>
@@ -207,20 +256,98 @@ where
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 {
-    fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
-        todo!()
+    fn seek_ceil(&mut self, text: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+        let terms = self.terms.borrow();
+        let sub = terms.sub.as_ref().expect("sub must be initialized");
+        let postings_array_enum = &self
+            .terms
+            .borrow()
+            .bytes_hash
+            .bytes_start_array
+            .per_field
+            .postings_array;
+        let Some(postings_array) = postings_array_enum else {
+            return Err(LuceneError::illegal_state("Postings array is none"));
+        };
+
+        let PostingsArrayEnum::FreqProx(postings_array) = postings_array else {
+            return Err(LuceneError::illegal_state("Unexpected postings array type"));
+        };
+
+        let terms_b = self.terms.borrow();
+        let sorted_term_ids = terms_b.get_sorted_term_ids();
+
+        let mut lo = 0;
+        let mut hi = self.num_terms - 1;
+
+        while hi >= lo {
+            let mid = (lo + hi) >> 1;
+            let term_id = sorted_term_ids[mid as usize];
+            let text_start = postings_array.parent.text_starts[term_id as usize];
+
+            self.terms_pool
+                .fill_bytes_ref(&mut self.scratch, text_start);
+            let cmp = self.scratch.cmp(text).to_int();
+
+            if cmp < 0 {
+                lo = mid + 1;
+            } else if cmp > 0 {
+                hi = mid - 1;
+            } else {
+                // found
+                self.ord = mid;
+                debug_assert_eq!((*self.term()?).cmp(text).to_int(), 0);
+                return Ok(SeekStatus::Found);
+            }
+        }
+
+        // not found
+        self.ord = lo;
+        if self.ord >= self.num_terms {
+            Ok(SeekStatus::End)
+        } else {
+            let term_id = sorted_term_ids[self.ord as usize];
+            let text_start = postings_array.parent.text_starts[term_id as usize];
+            self.terms_pool
+                .fill_bytes_ref(&mut self.scratch, text_start);
+            debug_assert!((*self.term()?).cmp(text).to_int() > 0);
+            Ok(SeekStatus::NotFound)
+        }
     }
 
     fn seek_exact_with_ord(&mut self, ord: i64) -> Result<()> {
-        todo!()
+        let ord = ord as i32;
+        self.ord = ord;
+
+        let term_id = self.terms.borrow().get_sorted_term_ids()[ord as usize];
+
+        let postings_array_enum = &self
+            .terms
+            .borrow()
+            .bytes_hash
+            .bytes_start_array
+            .per_field
+            .postings_array;
+
+        let Some(PostingsArrayEnum::FreqProx(p)) = postings_array_enum else {
+            return Err(LuceneError::illegal_state(
+                "Expected FreqProx postings array",
+            ));
+        };
+
+        let text_start = p.parent.text_starts[term_id as usize];
+        self.terms_pool
+            .fill_bytes_ref(&mut self.scratch, text_start);
+
+        Ok(())
     }
 
     fn term(&self) -> Result<Cow<BytesRef<Vec<u8>>>> {
-        todo!()
+        Ok(Cow::Borrowed(&self.scratch))
     }
 
     fn ord(&self) -> Result<i64> {
-        todo!()
+        Ok(self.ord as i64)
     }
 
     fn doc_freq(&mut self) -> Result<i32> {
@@ -237,14 +364,57 @@ where
         Err(LuceneError::unsupported_operation(""))
     }
 
-    type PostingsEnum = FreqProxPostingsEnum<O, P, T>;
+    type PostingsEnum =
+        EitherPostingsEnum<FreqProxPostingsEnum<O, P, T>, FreqProxDocsEnum<O, P, T>>;
 
     fn postings_with_flags(
         &mut self,
-        _reuse: Option<Self::PostingsEnum>,
-        _flags: i32,
+        reuse: Option<Self::PostingsEnum>,
+        flags: i32,
     ) -> Result<Self::PostingsEnum> {
-        todo!()
+        let terms_b = self.terms.borrow();
+        let sorted_term_ids = terms_b.get_sorted_term_ids();
+        if postings_enum_util::feature_requested(flags, postings_enum_util::POSITIONS) {
+            let terms_borrow = self.terms.borrow();
+            let (has_prox, has_offsets, has_freq) = {
+                let sub = terms_borrow.sub.as_ref().expect("sub must be initialized");
+                (sub.has_prox, sub.has_offsets, sub.has_freq)
+            };
+
+            if !has_prox {
+                // Caller wants positions but we didn't index them;
+                // don't lie:
+                return Err(LuceneError::illegal_state("did not index positions"));
+            }
+            if !has_offsets
+                && postings_enum_util::feature_requested(flags, postings_enum_util::OFFSETS)
+            {
+                // Caller wants offsets but we didn't index them;
+                // don't lie:
+                return Err(LuceneError::illegal_state("did not index offsets"));
+            }
+
+            let mut pos_enum = match reuse {
+                Some(EitherPostingsEnum::T(p)) => p,
+                _ => FreqProxPostingsEnum::new(self.terms.clone()),
+                None => return Err(LuceneError::illegal_state("reuse is none")),
+            };
+            pos_enum.reset(sorted_term_ids[self.ord as usize]);
+            return Ok(EitherPostingsEnum::T(pos_enum));
+        }
+
+        if !postings_enum_util::feature_requested(flags, postings_enum_util::OFFSETS) {
+            // Caller wants offsets but we didn't index them;
+            // don't lie:
+            return Err(LuceneError::illegal_state("did not index offsets"));
+        };
+        let mut docs_enum = match reuse {
+            Some(EitherPostingsEnum::S(p)) => p,
+            _ => FreqProxDocsEnum::new(self.terms.clone()),
+            None => return Err(LuceneError::illegal_state("reuse is none")),
+        };
+        docs_enum.reset(sorted_term_ids[self.ord as usize]);
+        Ok(EitherPostingsEnum::S(docs_enum))
     }
 
     type ImpactsEnum = DummyImpactsEnum;

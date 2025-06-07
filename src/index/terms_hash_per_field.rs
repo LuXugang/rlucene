@@ -28,7 +28,7 @@ use crate::index::term_vectors_consumer_per_field::{
 };
 use crate::index::BytesRef;
 use crate::util::access::Access;
-use crate::util::bytes_ref_hash::{BytesRefHash, BytesStartArray, STBytesRefHash};
+use crate::util::bytes_ref_hash::{BytesRefHash, BytesStartArray};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::int_block_pool::IntBlockPool;
 use crate::util::{
@@ -68,7 +68,6 @@ where
     pub(crate) bytes_hash:
         BytesRefHash<CounterEnumBorrow, ByteBlockPoolBorrow, PostingsBytesStartArray>,
     last_doc_id: i32, // only used with debug/asserts
-    sorted_term_ids: bool,
     pub(crate) do_next_call: bool,
     pub(crate) index_options: IndexOptions,
     // wrap with Option for `std::mem:take`
@@ -129,7 +128,6 @@ where
             stream_count,
             bytes_hash,
             last_doc_id: 0,
-            sorted_term_ids: false,
             do_next_call: false,
             index_options,
             sub: Some(sub),
@@ -164,17 +162,14 @@ where
     /// to the results. This method must not be called twice unless
     /// [`reset()`](Self::reset) or
     /// [`reinit_hash()`](Self::reinit_hash) was called.
-    pub(crate) fn sort_terms(&mut self, bytes_hash: &mut STBytesRefHash) -> Result<()> {
-        debug_assert!(!self.sorted_term_ids);
-        bytes_hash.sort()?;
-        self.sorted_term_ids = true;
+    pub(crate) fn sort_terms(&mut self) -> Result<()> {
+        self.bytes_hash.sort()?;
         Ok(())
     }
     /// Returns the sorted term IDs.
     /// [`sort_terms()`](TermsHashPerField::sort_terms) must be called before.
-    pub(crate) fn get_sorted_term_ids<'a>(&self, bytes_hash: &'a STBytesRefHash) -> &'a [i32] {
-        debug_assert!(!self.sorted_term_ids);
-        bytes_hash.ids.as_slice()
+    pub(crate) fn get_sorted_term_ids(&self) -> &[i32] {
+        self.bytes_hash.ids.as_slice()
     }
 
     pub(crate) fn write_byte(&mut self, stream: i32, b: u8) -> Result<()> {
@@ -288,19 +283,18 @@ where
         }
         self.sub.as_mut().unwrap().finish()
     }
-    pub(crate) fn get_num_terms(&self, bytes_ref_hash: &STBytesRefHash) -> i32 {
-        bytes_ref_hash.size()
+    pub(crate) fn get_num_terms(&self) -> i32 {
+        self.bytes_hash.size()
     }
     pub(crate) fn reset(&mut self) {
         self.bytes_hash.clear();
-        self.sorted_term_ids = false;
+        self.bytes_hash.ids.clear();
         if self.next_per_field.is_some() {
             self.next_per_field.as_mut().unwrap().reset();
         }
     }
 
     pub(crate) fn reinit_hash(&mut self) {
-        self.sorted_term_ids = false;
         self.bytes_hash.reinit()
     }
     // Secondary entry point (for 2nd & subsequent TermsHash),

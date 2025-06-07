@@ -47,7 +47,7 @@ where
     field_state: FieldInvertState<O, P, T>,
     field_info: Rc<FieldInfo>,
     pub(crate) has_freq: bool,
-    has_prox: bool,
+    pub(crate) has_prox: bool,
     pub(crate) has_offsets: bool,
     // Set to true if any token had a payload in the current segment.
     pub(crate) saw_payloads: bool,
@@ -407,10 +407,10 @@ pub(crate) struct FreqProxPostingsArray {
                                               * the current doc */
     pub(crate) last_doc_ids: Vec<i32>, // Last docID where this term occurred
     pub(crate) last_doc_codes: Vec<i32>, // Code for prior doc
-    last_positions: Option<Vec<i32>>,  /* Last position where this term
+    pub(crate) last_positions: Option<Vec<i32>>, /* Last position where this term
                                         * occurred */
-    last_offsets: Option<Vec<i32>>, // Last endOffset where this term occurred
-    pub(crate) parent_postings_array: ParallelPostingsArray,
+    pub(crate) last_offsets: Option<Vec<i32>>, // Last endOffset where this term occurred
+    pub(crate) parent: ParallelPostingsArray,
 }
 impl FreqProxPostingsArray {
     // Constructor for FreqProxPostingsArray
@@ -441,7 +441,7 @@ impl FreqProxPostingsArray {
             last_doc_codes: vec![0; size],
             last_positions,
             last_offsets,
-            parent_postings_array: ParallelPostingsArray::new(size),
+            parent: ParallelPostingsArray::new(size),
         }
     }
 }
@@ -464,7 +464,7 @@ impl PostingsArrayBase for FreqProxPostingsArray {
     }
 
     fn copy_to(&mut self, new_size: usize) -> Result<()> {
-        self.parent_postings_array.copy_to(new_size)?;
+        self.parent.copy_to(new_size)?;
         self.size = new_size;
         ArrayUtil::grow_exact(&mut self.last_doc_ids, new_size)?;
         ArrayUtil::grow_exact(&mut self.last_doc_codes, new_size)?;
