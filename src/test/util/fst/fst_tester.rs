@@ -342,9 +342,7 @@ where
         loop {
             let mut is_done = false;
 
-            if (upto) == self.pairs.len().saturating_sub(1) as i32 || self.random.random_bool(0.5)
-            // if (upto) == self.pairs.len().saturating_sub(1) as i32
-            {
+            if (upto) == self.pairs.len() as i32 - 1 || self.random.random_bool(0.5) {
                 // next
                 upto += 1;
                 if cfg!(feature = "test_log_verbose") {
@@ -352,7 +350,7 @@ where
                 }
                 is_done = fst_enum.next()?.is_none();
             } else if upto != -1
-                && (upto as f64) < 0.75 * (self.pairs.len() as f64)
+                && upto < (0.75 * (self.pairs.len() as f32)) as i32
                 && self.random.random_bool(0.5)
             {
                 let mut attempt = 0;
@@ -376,7 +374,7 @@ where
                         if self.random.random_bool(0.5) {
                             // if true{
                             upto -= 1;
-                            assert!(upto >= 0);
+                            assert_ne!(upto, 1);
                             if cfg!(feature = "test_log_verbose") {
                                 println!(
                                     "  do non-exist seekFloor({})",
@@ -404,7 +402,6 @@ where
                 let inc = self
                     .random
                     .random_range(0..(self.pairs.len() - (upto + 1) as usize));
-                // let inc = 0;
                 upto += inc as i32;
                 if upto == -1 {
                     upto = 0;

@@ -1500,7 +1500,6 @@ mod tests {
                 let outputs = PositiveIntOutputs::get_singleton();
                 let mut last_output = 0i64;
                 let pairs = terms
-                    .clone()
                     .iter()
                     .map(|term| {
                         let delta = random.random_range(1..=1000);

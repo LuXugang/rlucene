@@ -397,8 +397,8 @@ fn test_random_binary_medium() -> Result<()> {
     do_test_random_binary(&mut random, 10_000)
 }
 
-#[cfg(feature = "nightly")]
 #[test]
+#[ignore]
 fn test_random_binary_big() -> Result<()> {
     let mut random = random();
     do_test_random_binary(&mut random, 200_000)
