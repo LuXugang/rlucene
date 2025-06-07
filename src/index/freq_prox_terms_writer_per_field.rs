@@ -50,6 +50,7 @@ where
     has_offsets: bool,
     // Set to true if any token had a payload in the current segment.
     saw_payloads: bool,
+    index_options: IndexOptions,
 }
 impl<O, P, T> FreqProxTermsWriterPerField<O, P, T>
 where
@@ -87,6 +88,7 @@ where
             has_prox,
             has_offsets,
             saw_payloads,
+            index_options,
         };
         let postings_array_wrapper = PostingsArrayWrapper::new(TermsHashPerFieldType::FreqProx(
             FreqProx::new(index_options),
@@ -98,7 +100,6 @@ where
             terms_hash.term_byte_pool.as_mut().unwrap().clone(),
             terms_hash.bytes_used.clone(),
             Some(Box::new(next_per_field)),
-            index_options,
             postings_array_wrapper,
             sub,
         )
@@ -395,8 +396,12 @@ where
         }
     }
 
-    fn field_name(&self) -> &str {
+    fn get_field_name(&self) -> &str {
         &self.field_info.name
+    }
+
+    fn index_options(&self) -> &IndexOptions {
+        &self.index_options
     }
 }
 

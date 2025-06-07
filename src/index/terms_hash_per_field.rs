@@ -60,7 +60,6 @@ where
     term_stream_address_buffer_index: i32,
     stream_address_offset: i32,
     stream_count: i32,
-    index_options: IndexOptions,
     // This stores the actual term bytes for postings and offsets into the
     // parent hash in the case that this TermsHashPerField is hashing term
     // vectors.
@@ -101,13 +100,12 @@ where
         term_byte_pool: ByteBlockPoolBorrow,
         bytes_used: CounterEnumBorrow,
         next_per_field: Option<Box<TermsHashPerField<S>>>,
-        index_options: IndexOptions,
         postings_array_wrapper: PostingsArrayWrapper,
         sub: S,
     ) -> Self {
         // In the original Java code, we assert that indexOptions !=
         // IndexOptions.NONE.
-        debug_assert!(index_options != IndexOptions::None);
+        debug_assert!(*sub.index_options() != IndexOptions::None);
         let slice_pool = ByteSlicePool;
         let byte_starts = PostingsBytesStartArray::new(postings_array_wrapper, bytes_used);
 
@@ -125,7 +123,6 @@ where
             term_stream_address_buffer_index: 0,
             stream_address_offset: 0,
             stream_count,
-            index_options,
             bytes_hash,
             last_doc_id: 0,
             sorted_term_ids: false,
@@ -278,7 +275,7 @@ where
     }
 
     pub(crate) fn get_field_name(&self) -> &str {
-        self.sub.as_ref().unwrap().field_name()
+        self.sub.as_ref().unwrap().get_field_name()
     }
     fn finish(&mut self) {
         if let Some(ref mut next_per_field) = self.next_per_field {
@@ -484,7 +481,8 @@ pub(crate) trait TermsHashPerFieldBase {
     /// Finish adding all instances of this field to the current document.
     fn finish(&mut self);
 
-    fn field_name(&self) -> &str;
+    fn get_field_name(&self) -> &str;
+    fn index_options(&self) -> &IndexOptions;
 }
 pub(crate) struct PostingsBytesStartArray {
     pub(crate) per_field: PostingsArrayWrapper,
@@ -991,6 +989,7 @@ pub(crate) mod tests {
     pub(crate) struct TermsHashPerFieldMock {
         new_called: AtomicI64,
         add_called: AtomicI64,
+        index_options: IndexOptions,
     }
     impl TermsHashPerFieldMock {
         #[allow(clippy::new_ret_no_self)]
@@ -1011,6 +1010,7 @@ pub(crate) mod tests {
             let sub = TermsHashPerFieldMock {
                 new_called,
                 add_called,
+                index_options: IndexOptions::DocsAndFreqs,
             };
             Ok(TermsHashPerField::new(
                 1,
@@ -1019,7 +1019,6 @@ pub(crate) mod tests {
                 term_block_pool,
                 bytes_used,
                 None,
-                IndexOptions::DocsAndFreqs,
                 postings_array_wrapper,
                 sub,
             ))
@@ -1126,8 +1125,12 @@ pub(crate) mod tests {
 
         fn finish(&mut self) {}
 
-        fn field_name(&self) -> &str {
+        fn get_field_name(&self) -> &str {
             ""
+        }
+
+        fn index_options(&self) -> &IndexOptions {
+            &self.index_options
         }
     }
 }
