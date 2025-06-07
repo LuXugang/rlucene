@@ -20,7 +20,7 @@ use crate::index::fields::Fields;
 use crate::index::filter_leaf_reader::{FilterFields, FilterTerms, FilterTermsEnum};
 use crate::index::filtered_terms_enum::FilteredTermsEnum;
 use crate::index::index_options::IndexOptions;
-use crate::index::postings_enum::PostingsEnum;
+use crate::index::postings_enum::{postings_enum_util, PostingsEnum};
 use crate::index::sorter::DocMap;
 use crate::index::term_state::TermStateEnum;
 use crate::index::terms::Terms;
@@ -34,10 +34,11 @@ use crate::util::array_util::ArrayUtil;
 use crate::util::attribute_source::AttributeSource;
 use crate::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
+use crate::util::either_enums::EitherPostingsEnum;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::lsb_radix_sorter::LSBRadixSorter;
 use crate::util::packed::PackedInts;
-use crate::util::{SliceCopyOps, Sorter, TimSorter, TimSorterBase};
+use crate::util::{SliceCopyOps, Sorter, TimSorter, TimSorterBase, ToInt};
 use std::borrow::Cow;
 use std::rc::Rc;
 
@@ -304,14 +305,56 @@ where
         self.base.total_term_freq()
     }
 
-    type PostingsEnum = SortingPostingsEnum<T::PostingsEnum>;
+    type PostingsEnum =
+        EitherPostingsEnum<SortingPostingsEnum<T::PostingsEnum>, SortingDocsEnum<T::PostingsEnum>>;
 
     fn postings_with_flags(
         &mut self,
         reuse: Option<Self::PostingsEnum>,
         flags: i32,
     ) -> Result<Self::PostingsEnum> {
-        todo!()
+        let feature_freqs = postings_enum_util::feature_requested(flags, postings_enum_util::FREQS);
+
+        if self.index_options >= IndexOptions::DocsAndFreqs && feature_freqs {
+            let mut wrap_reuse = match reuse {
+                Some(EitherPostingsEnum::T(sorting_enum)) => sorting_enum,
+                _ => SortingPostingsEnum::new(),
+            };
+            let in_reuse = wrap_reuse.postings_enum.take();
+
+            let in_docs_and_positions = self.base.postings_with_flags(in_reuse, flags)?;
+            // we ignore the fact that positions/offsets may be stored but not asked for,
+            // since this code is expected to be used during addIndexes which will
+            // ask for everything. if that assumption changes in the future, we can
+            // factor in whether 'flags' says offsets are not required.
+            let store_positions = self
+                .index_options
+                .cmp(&IndexOptions::DocsAndFreqsAndPositions)
+                .to_int()
+                >= 0;
+            let store_offsets = self
+                .index_options
+                .cmp(&IndexOptions::DocsAndFreqsAndPositionsAndOffsets)
+                .to_int()
+                >= 0;
+
+            wrap_reuse.reset(
+                &*self.doc_map,
+                in_docs_and_positions,
+                store_positions,
+                store_offsets,
+            )?;
+            return Ok(EitherPostingsEnum::T(wrap_reuse));
+        }
+
+        let mut wrap_reuse = match reuse {
+            Some(EitherPostingsEnum::S(sorting_enum)) => sorting_enum,
+            _ => SortingDocsEnum::new(),
+        };
+        let in_reuse = wrap_reuse.postings_enum.take();
+        let in_docs = self.base.postings_with_flags(in_reuse, flags)?;
+        wrap_reuse.reset(&*self.doc_map, in_docs)?;
+        Ok(EitherPostingsEnum::S(wrap_reuse))
     }
 
     type ImpactsEnum = T::ImpactsEnum;
@@ -543,15 +586,15 @@ impl<P> SortingPostingsEnum<P>
 where
     P: PostingsEnum,
 {
-    pub fn new(store_positions: bool, store_offsets: bool) -> Self {
+    pub fn new() -> Self {
         Self {
             docs: Vec::new(),
             offsets: Vec::new(),
             upto: 0,
             posting_input: None,
             postings_enum: None,
-            store_positions,
-            store_offsets,
+            store_positions: false,
+            store_offsets: false,
             doc_it: -1,
             pos: 0,
             start_offset: 0,
@@ -561,13 +604,16 @@ where
             buffer: ByteBuffersDataOutput::new_resettable_instance(),
         }
     }
-    pub fn reset(
+    pub fn reset<D>(
         &mut self,
-        doc_map: &impl DocMap,
+        doc_map: &D,
         mut postings_enum: P,
         store_positions: bool,
         store_offsets: bool,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        D: DocMap,
+    {
         self.store_positions = store_positions;
         self.store_offsets = store_offsets;
 
