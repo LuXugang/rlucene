@@ -87,7 +87,7 @@ impl PForUtil {
         if Self::all_equal(ints) && max_bits_required <= 8 {
             for i in 0..num_exceptions {
                 exceptions[2 * i + 1] =
-                    ((exceptions[2 * i + 1] as i32) << patched_bits_required as i32) as u8;
+                    ((exceptions[2 * i + 1] as i32) << patched_bits_required) as u8;
             }
             out.write_byte((num_exceptions << 5) as u8)?;
             out.write_vint(ints[0])?;

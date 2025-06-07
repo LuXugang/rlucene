@@ -28,6 +28,12 @@ use std::borrow::Cow;
 pub struct DummyTermsEnum {
     atts: AttributeSource,
 }
+impl Default for DummyTermsEnum {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DummyTermsEnum {
     pub fn new() -> Self {
         Self {
