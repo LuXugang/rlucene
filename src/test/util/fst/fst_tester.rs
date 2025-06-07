@@ -374,7 +374,7 @@ where
                         if self.random.random_bool(0.5) {
                             // if true{
                             upto -= 1;
-                            assert_ne!(upto, 1);
+                            assert_ne!(upto, -1);
                             if cfg!(feature = "test_log_verbose") {
                                 println!(
                                     "  do non-exist seekFloor({})",
