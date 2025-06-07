@@ -139,7 +139,6 @@ pub trait TermsEnum: BytesRefIterator {
     }
 
     type PostingsEnum: PostingsEnum;
-    type PostingsEnumRet: PostingsEnum;
     /// Get [`PostingsEnum`] for the current term. Do not call this when the
     /// enum is unpositioned. This method will not return `None`.
     ///
@@ -153,7 +152,7 @@ pub trait TermsEnum: BytesRefIterator {
     ///
     /// - `reuse`: a prior [`PostingsEnum`] for possible reuse See also:
     ///   `postings_with_flags`.
-    fn postings(&mut self, reuse: Option<Self::PostingsEnum>) -> Result<Self::PostingsEnumRet> {
+    fn postings(&mut self, reuse: Option<Self::PostingsEnum>) -> Result<Self::PostingsEnum> {
         self.postings_with_flags(reuse, postings_enum_util::FREQS as i32)
     }
 
@@ -171,7 +170,7 @@ pub trait TermsEnum: BytesRefIterator {
         &mut self,
         _reuse: Option<Self::PostingsEnum>,
         _flags: i32,
-    ) -> Result<Self::PostingsEnumRet> {
+    ) -> Result<Self::PostingsEnum> {
         Err(LuceneError::need_implemented(""))
     }
     type ImpactsEnum: ImpactsEnum;

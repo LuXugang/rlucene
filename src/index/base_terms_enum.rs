@@ -138,9 +138,8 @@ where
     }
 
     type PostingsEnum = S::PostingsEnum;
-    type PostingsEnumRet = S::PostingsEnumRet;
 
-    fn postings(&mut self, reuse: Option<Self::PostingsEnum>) -> Result<Self::PostingsEnumRet> {
+    fn postings(&mut self, reuse: Option<Self::PostingsEnum>) -> Result<Self::PostingsEnum> {
         self.sub.postings(reuse)
     }
 
@@ -148,7 +147,7 @@ where
         &mut self,
         reuse: Option<Self::PostingsEnum>,
         flags: i32,
-    ) -> Result<Self::PostingsEnumRet> {
+    ) -> Result<Self::PostingsEnum> {
         self.sub.postings_with_flags(reuse, flags)
     }
 

@@ -116,15 +116,11 @@ where
 
     type NumericDocValues = S::Numeric;
     type PostingsEnum = P;
-    type PostingsEnumRt = P;
 
     fn write_term(
         &mut self,
         _term: &BytesRef<Vec<u8>>,
-        terms_enum: &mut impl TermsEnum<
-            PostingsEnumRet = Self::PostingsEnum,
-            PostingsEnum = Self::PostingsEnum,
-        >,
+        terms_enum: &mut impl TermsEnum<PostingsEnum = Self::PostingsEnum>,
         docs_seen: &mut FixedBitSet,
         norms: &mut impl NormsProducer<NumericDocValues = Self::NumericDocValues>,
     ) -> Result<Option<BlockTermStateEnum>> {

@@ -228,13 +228,12 @@ where
     }
 
     type PostingsEnum = T::PostingsEnum;
-    type PostingsEnumRet = T::PostingsEnumRet;
 
     fn postings_with_flags(
         &mut self,
         reuse: Option<Self::PostingsEnum>,
         flags: i32,
-    ) -> Result<Self::PostingsEnumRet> {
+    ) -> Result<Self::PostingsEnum> {
         self.terms_enum.postings_with_flags(reuse, flags)
     }
 

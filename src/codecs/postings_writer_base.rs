@@ -50,7 +50,6 @@ pub trait PostingsWriterBase {
 
     type NumericDocValues: NumericDocValues;
     type PostingsEnum: PostingsEnum;
-    type PostingsEnumRt: PostingsEnum;
     /// Write all postings for one term; use the provided [`TermsEnum`] to pull
     /// a [`PostingsEnum`](crate::index::postings_enum::PostingsEnum). This
     /// method should not re-position the `terms_enum`! It is already
@@ -61,10 +60,7 @@ pub trait PostingsWriterBase {
     fn write_term(
         &mut self,
         _term: &BytesRef<Vec<u8>>,
-        _terms_enum: &mut impl TermsEnum<
-            PostingsEnum = Self::PostingsEnum,
-            PostingsEnumRet = Self::PostingsEnumRt,
-        >,
+        _terms_enum: &mut impl TermsEnum<PostingsEnum = Self::PostingsEnum>,
         _docs_seen: &mut FixedBitSet,
         _norms: &mut impl NormsProducer<NumericDocValues = Self::NumericDocValues>,
     ) -> Result<Option<BlockTermStateEnum>> {

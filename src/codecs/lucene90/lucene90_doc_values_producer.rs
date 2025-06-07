@@ -3130,13 +3130,12 @@ where
     }
 
     type PostingsEnum = DummyPostingsEnum;
-    type PostingsEnumRet = DummyPostingsEnum;
 
     fn postings_with_flags(
         &mut self,
         _reuse: Option<Self::PostingsEnum>,
         _flags: i32,
-    ) -> Result<Self::PostingsEnumRet> {
+    ) -> Result<Self::PostingsEnum> {
         Err(LuceneError::unsupported_operation(""))
     }
 

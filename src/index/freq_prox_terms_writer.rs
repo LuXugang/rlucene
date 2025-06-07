@@ -304,14 +304,13 @@ where
         self.base.total_term_freq()
     }
 
-    type PostingsEnum = SortingPostingsEnum<T::PostingsEnumRet>;
-    type PostingsEnumRet = SortingDocsEnum<T::PostingsEnumRet>;
+    type PostingsEnum = SortingPostingsEnum<T::PostingsEnum>;
 
     fn postings_with_flags(
         &mut self,
         reuse: Option<Self::PostingsEnum>,
         flags: i32,
-    ) -> Result<Self::PostingsEnumRet> {
+    ) -> Result<Self::PostingsEnum> {
         todo!()
     }
 

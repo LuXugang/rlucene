@@ -96,7 +96,6 @@ impl TermsEnum for DummyTermsEnum {
     }
 
     type PostingsEnum = DummyPostingsEnum;
-    type PostingsEnumRet = DummyPostingsEnum;
 
     fn postings_with_flags(
         &mut self,
