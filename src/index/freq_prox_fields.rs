@@ -395,12 +395,12 @@ where
             }
 
             let mut pos_enum = match reuse {
-                Some(EitherPostingsEnum::T(p)) => p,
-                _ => FreqProxPostingsEnum::new(self.terms.clone()),
+                Some(EitherPostingsEnum::F(p)) => p,
+                Some(EitherPostingsEnum::S(_)) => FreqProxPostingsEnum::new(self.terms.clone()),
                 None => return Err(LuceneError::illegal_state("reuse is none")),
             };
             pos_enum.reset(sorted_term_ids[self.ord as usize]);
-            return Ok(EitherPostingsEnum::T(pos_enum));
+            return Ok(EitherPostingsEnum::F(pos_enum));
         }
 
         if !postings_enum_util::feature_requested(flags, postings_enum_util::OFFSETS) {
@@ -410,7 +410,7 @@ where
         };
         let mut docs_enum = match reuse {
             Some(EitherPostingsEnum::S(p)) => p,
-            _ => FreqProxDocsEnum::new(self.terms.clone()),
+            Some(EitherPostingsEnum::F(_)) => FreqProxDocsEnum::new(self.terms.clone()),
             None => return Err(LuceneError::illegal_state("reuse is none")),
         };
         docs_enum.reset(sorted_term_ids[self.ord as usize]);

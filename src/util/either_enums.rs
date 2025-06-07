@@ -36,8 +36,8 @@ use crate::util::error::lucene_error::Result;
 /// dispatch.
 ///
 /// ## Examples
-/// - [`EitherPostingsEnum<T, S>`] wraps two types implementing `PostingsEnum`.
-/// - [`EitherImpactsEnum<T, S>`] wraps two types implementing `ImpactsEnum`.
+/// - [`EitherPostingsEnum<F, S>`] wraps two types implementing `PostingsEnum`.
+/// - [`EitherImpactsEnum<F, S>`] wraps two types implementing `ImpactsEnum`.
 /// - [`EitherImpacts`] wraps two types implementing `Impacts`.
 ///
 /// Each enum forwards all trait method calls to the underlying variant,
@@ -47,115 +47,115 @@ use crate::util::error::lucene_error::Result;
 /// This approach avoids the overhead of `Box<dyn Trait>` and keeps all behavior
 /// statically resolved by the compiler.
 // ImpactsEnum
-pub enum EitherImpactsEnum<T, S> {
-    T(T),
+pub enum EitherImpactsEnum<F, S> {
+    F(F),
     S(S),
 }
 
-impl<T, S> PostingsEnum for EitherImpactsEnum<T, S>
+impl<F, S> PostingsEnum for EitherImpactsEnum<F, S>
 where
-    T: ImpactsEnum,
+    F: ImpactsEnum,
     S: ImpactsEnum,
 {
     fn freq(&mut self) -> Result<i32> {
         match self {
-            EitherImpactsEnum::T(t) => t.freq(),
+            EitherImpactsEnum::F(t) => t.freq(),
             EitherImpactsEnum::S(s) => s.freq(),
         }
     }
 
     fn next_position(&mut self) -> Result<i32> {
         match self {
-            EitherImpactsEnum::T(t) => t.next_position(),
+            EitherImpactsEnum::F(t) => t.next_position(),
             EitherImpactsEnum::S(s) => s.next_position(),
         }
     }
 
     fn start_offset(&self) -> Result<i32> {
         match self {
-            EitherImpactsEnum::T(t) => t.start_offset(),
+            EitherImpactsEnum::F(t) => t.start_offset(),
             EitherImpactsEnum::S(s) => s.start_offset(),
         }
     }
 
     fn end_offset(&self) -> Result<i32> {
         match self {
-            EitherImpactsEnum::T(t) => t.end_offset(),
+            EitherImpactsEnum::F(t) => t.end_offset(),
             EitherImpactsEnum::S(s) => s.end_offset(),
         }
     }
 
     fn get_payload(&self) -> Result<Option<&BytesRef<Vec<u8>>>> {
         match self {
-            EitherImpactsEnum::T(t) => t.get_payload(),
+            EitherImpactsEnum::F(t) => t.get_payload(),
             EitherImpactsEnum::S(s) => s.get_payload(),
         }
     }
 }
 
-impl<T, S> DocIdSetIterator for EitherImpactsEnum<T, S>
+impl<F, S> DocIdSetIterator for EitherImpactsEnum<F, S>
 where
-    T: ImpactsEnum,
+    F: ImpactsEnum,
     S: ImpactsEnum,
 {
     fn doc_id(&self) -> i32 {
         match self {
-            EitherImpactsEnum::T(t) => t.doc_id(),
+            EitherImpactsEnum::F(t) => t.doc_id(),
             EitherImpactsEnum::S(s) => s.doc_id(),
         }
     }
 
     fn next_doc(&mut self) -> Result<i32> {
         match self {
-            EitherImpactsEnum::T(t) => t.next_doc(),
+            EitherImpactsEnum::F(t) => t.next_doc(),
             EitherImpactsEnum::S(s) => s.next_doc(),
         }
     }
 
     fn advance(&mut self, _target: i32) -> Result<i32> {
         match self {
-            EitherImpactsEnum::T(t) => t.advance(_target),
+            EitherImpactsEnum::F(t) => t.advance(_target),
             EitherImpactsEnum::S(s) => s.advance(_target),
         }
     }
 
     fn slow_advance(&mut self, target: i32) -> Result<i32> {
         match self {
-            EitherImpactsEnum::T(t) => t.slow_advance(target),
+            EitherImpactsEnum::F(t) => t.slow_advance(target),
             EitherImpactsEnum::S(s) => s.slow_advance(target),
         }
     }
 
     fn cost(&self) -> Result<i64> {
         match self {
-            EitherImpactsEnum::T(t) => t.cost(),
+            EitherImpactsEnum::F(t) => t.cost(),
             EitherImpactsEnum::S(s) => s.cost(),
         }
     }
 }
 
-impl<T, S> ImpactsSource for EitherImpactsEnum<T, S>
+impl<F, S> ImpactsSource for EitherImpactsEnum<F, S>
 where
     S: ImpactsEnum,
-    T: ImpactsEnum,
+    F: ImpactsEnum,
 {
     fn advance_shallow(&mut self, target: i32) -> Result<()> {
         match self {
-            EitherImpactsEnum::T(t) => t.advance_shallow(target),
+            EitherImpactsEnum::F(t) => t.advance_shallow(target),
             EitherImpactsEnum::S(s) => s.advance_shallow(target),
         }
     }
 
     type ImpactsType<'a>
-        = EitherImpacts<T::ImpactsType<'a>, S::ImpactsType<'a>>
+        = EitherImpacts<F::ImpactsType<'a>, S::ImpactsType<'a>>
     where
         Self: 'a;
 
     fn get_impacts(&mut self) -> Result<Self::ImpactsType<'_>> {
         match self {
-            EitherImpactsEnum::T(t) => {
+            EitherImpactsEnum::F(t) => {
                 let impacts = t.get_impacts()?;
-                Ok(EitherImpacts::T(impacts))
+                Ok(EitherImpacts::F(impacts))
             },
             EitherImpactsEnum::S(s) => {
                 let impacts = s.get_impacts()?;
@@ -165,177 +165,177 @@ where
     }
 }
 
-impl<T, S> ImpactsEnum for EitherImpactsEnum<T, S>
+impl<F, S> ImpactsEnum for EitherImpactsEnum<F, S>
 where
-    T: ImpactsEnum,
+    F: ImpactsEnum,
     S: ImpactsEnum,
 {
 }
 
 // Impacts
-pub enum EitherImpacts<T, S>
+pub enum EitherImpacts<F, S>
 where
-    T: Impacts,
+    F: Impacts,
     S: Impacts,
 {
-    T(T),
+    F(F),
     S(S),
 }
-impl<T, S> Impacts for EitherImpacts<T, S>
+impl<F, S> Impacts for EitherImpacts<F, S>
 where
-    T: Impacts,
+    F: Impacts,
     S: Impacts,
 {
     fn num_levels(&self) -> i32 {
         match self {
-            EitherImpacts::T(t) => t.num_levels(),
+            EitherImpacts::F(t) => t.num_levels(),
             EitherImpacts::S(s) => s.num_levels(),
         }
     }
 
     fn get_doc_id_up_to(&self, level: i32) -> i32 {
         match self {
-            EitherImpacts::T(t) => t.get_doc_id_up_to(level),
+            EitherImpacts::F(t) => t.get_doc_id_up_to(level),
             EitherImpacts::S(s) => s.get_doc_id_up_to(level),
         }
     }
 
     fn get_impacts(&mut self, level: i32) -> Result<&[Impact]> {
         match self {
-            EitherImpacts::T(t) => t.get_impacts(level),
+            EitherImpacts::F(t) => t.get_impacts(level),
             EitherImpacts::S(s) => s.get_impacts(level),
         }
     }
 }
 
 // PostingsEnum
-pub enum EitherPostingsEnum<T, S> {
-    T(T),
+pub enum EitherPostingsEnum<F, S> {
+    F(F),
     S(S),
 }
 
-impl<T, S> DocIdSetIterator for EitherPostingsEnum<T, S>
+impl<F, S> DocIdSetIterator for EitherPostingsEnum<F, S>
 where
-    T: PostingsEnum,
+    F: PostingsEnum,
     S: PostingsEnum,
 {
     fn doc_id(&self) -> i32 {
         match self {
-            EitherPostingsEnum::T(t) => t.doc_id(),
+            EitherPostingsEnum::F(t) => t.doc_id(),
             EitherPostingsEnum::S(s) => s.doc_id(),
         }
     }
 
     fn next_doc(&mut self) -> Result<i32> {
         match self {
-            EitherPostingsEnum::T(t) => t.next_doc(),
+            EitherPostingsEnum::F(t) => t.next_doc(),
             EitherPostingsEnum::S(s) => s.next_doc(),
         }
     }
 
     fn advance(&mut self, _target: i32) -> Result<i32> {
         match self {
-            EitherPostingsEnum::T(t) => t.advance(_target),
+            EitherPostingsEnum::F(t) => t.advance(_target),
             EitherPostingsEnum::S(s) => s.advance(_target),
         }
     }
 
     fn slow_advance(&mut self, target: i32) -> Result<i32> {
         match self {
-            EitherPostingsEnum::T(t) => t.slow_advance(target),
+            EitherPostingsEnum::F(t) => t.slow_advance(target),
             EitherPostingsEnum::S(s) => s.slow_advance(target),
         }
     }
 
     fn cost(&self) -> Result<i64> {
         match self {
-            EitherPostingsEnum::T(t) => t.cost(),
+            EitherPostingsEnum::F(t) => t.cost(),
             EitherPostingsEnum::S(s) => s.cost(),
         }
     }
 }
 
-impl<T, S> PostingsEnum for EitherPostingsEnum<T, S>
+impl<F, S> PostingsEnum for EitherPostingsEnum<F, S>
 where
-    T: PostingsEnum,
+    F: PostingsEnum,
     S: PostingsEnum,
 {
     fn freq(&mut self) -> Result<i32> {
         match self {
-            EitherPostingsEnum::T(t) => t.freq(),
+            EitherPostingsEnum::F(t) => t.freq(),
             EitherPostingsEnum::S(s) => s.freq(),
         }
     }
 
     fn next_position(&mut self) -> Result<i32> {
         match self {
-            EitherPostingsEnum::T(t) => t.next_position(),
+            EitherPostingsEnum::F(t) => t.next_position(),
             EitherPostingsEnum::S(s) => s.next_position(),
         }
     }
 
     fn start_offset(&self) -> Result<i32> {
         match self {
-            EitherPostingsEnum::T(t) => t.start_offset(),
+            EitherPostingsEnum::F(t) => t.start_offset(),
             EitherPostingsEnum::S(s) => s.start_offset(),
         }
     }
 
     fn end_offset(&self) -> Result<i32> {
         match self {
-            EitherPostingsEnum::T(t) => t.end_offset(),
+            EitherPostingsEnum::F(t) => t.end_offset(),
             EitherPostingsEnum::S(s) => s.end_offset(),
         }
     }
 
     fn get_payload(&self) -> Result<Option<&BytesRef<Vec<u8>>>> {
         match self {
-            EitherPostingsEnum::T(t) => t.get_payload(),
+            EitherPostingsEnum::F(t) => t.get_payload(),
             EitherPostingsEnum::S(s) => s.get_payload(),
         }
     }
 }
 
 // TermState
-pub enum EitherTermState<T, S> {
-    T(T),
+pub enum EitherTermState<F, S> {
+    F(F),
     S(S),
 }
 
-impl<T, S> Display for EitherTermState<T, S>
+impl<F, S> Display for EitherTermState<F, S>
 where
-    T: TermState,
+    F: TermState,
     S: TermState,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            EitherTermState::T(t) => write!(f, "EitherTermState::T({})", t),
+            EitherTermState::F(t) => write!(f, "EitherTermState::F({})", t),
             EitherTermState::S(s) => write!(f, "EitherTermState::S({})", s),
         }
     }
 }
 
-impl<T, S> Clone for EitherTermState<T, S>
+impl<F, S> Clone for EitherTermState<F, S>
 where
-    T: TermState,
+    F: TermState,
     S: TermState,
 {
     fn clone(&self) -> Self {
         match self {
-            EitherTermState::T(t) => EitherTermState::T(t.clone()),
+            EitherTermState::F(t) => EitherTermState::F(t.clone()),
             EitherTermState::S(s) => EitherTermState::S(s.clone()),
         }
     }
 }
 
-impl<T, S> TermState for EitherTermState<T, S>
+impl<F, S> TermState for EitherTermState<F, S>
 where
-    T: TermState,
+    F: TermState,
     S: TermState,
 {
     fn copy_from(&mut self, other: &TermStateEnum) -> Result<()> {
         match self {
-            EitherTermState::T(t) => t.copy_from(other),
+            EitherTermState::F(t) => t.copy_from(other),
             EitherTermState::S(s) => s.copy_from(other),
         }
     }

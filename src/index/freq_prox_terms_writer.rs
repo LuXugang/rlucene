@@ -393,7 +393,7 @@ where
 
         if self.index_options >= IndexOptions::DocsAndFreqs && feature_freqs {
             let mut wrap_reuse = match reuse {
-                Some(EitherPostingsEnum::T(sorting_enum)) => sorting_enum,
+                Some(EitherPostingsEnum::F(sorting_enum)) => sorting_enum,
                 _ => SortingPostingsEnum::new(),
             };
             let in_reuse = wrap_reuse.postings_enum.take();
@@ -420,7 +420,7 @@ where
                 store_positions,
                 store_offsets,
             )?;
-            return Ok(EitherPostingsEnum::T(wrap_reuse));
+            return Ok(EitherPostingsEnum::F(wrap_reuse));
         }
 
         let mut wrap_reuse = match reuse {

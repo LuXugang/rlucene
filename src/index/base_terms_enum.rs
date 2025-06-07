@@ -163,7 +163,7 @@ where
         match self.sub.term_state() {
             Ok(v) => Ok(EitherTermState::S(v)),
             Err(e) => match e {
-                LuceneError::NotImplemented(_) => Ok(EitherTermState::T(TermStateImpl1)),
+                LuceneError::NotImplemented(_) => Ok(EitherTermState::F(TermStateImpl1)),
                 _ => Err(e),
             },
         }
