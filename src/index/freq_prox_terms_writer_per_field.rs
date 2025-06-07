@@ -22,11 +22,11 @@ use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAt
 use crate::document::fields::Fields;
 use crate::index::field_info::FieldInfo;
 use crate::index::field_invert_state::FieldInvertState;
+use crate::index::freq_prox_terms_writer::FreqProxTermsWriter;
 use crate::index::index_options::IndexOptions;
 use crate::index::parallel_postings_array::{
     ParallelPostingsArray, PostingsArrayBase, PostingsArrayEnum,
 };
-use crate::index::terms_hash::{TermsHash, TermsHashBase};
 use crate::index::terms_hash_per_field::{
     PostingsArrayWrapper, TermsHashPerField, TermsHashPerFieldBase, TermsHashPerFieldType,
 };
@@ -58,9 +58,9 @@ where
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 {
-    pub fn new<S: TermsHashBase>(
+    pub fn new(
         field_state: FieldInvertState<O, P, T>,
-        terms_hash: &mut TermsHash<S>,
+        terms_hash: &mut FreqProxTermsWriter,
         field_info: Rc<FieldInfo>,
         next_per_field: TermsHashPerField<FreqProxTermsWriterPerField<O, P, T>>,
     ) -> TermsHashPerField<FreqProxTermsWriterPerField<O, P, T>> {
@@ -95,10 +95,10 @@ where
         ));
         TermsHashPerField::new(
             stream_count,
-            terms_hash.int_pool.clone(),
-            terms_hash.byte_pool.clone(),
-            terms_hash.term_byte_pool.as_mut().unwrap().clone(),
-            terms_hash.bytes_used.clone(),
+            terms_hash.base.int_pool.clone(),
+            terms_hash.base.byte_pool.clone(),
+            terms_hash.base.term_byte_pool.as_mut().unwrap().clone(),
+            terms_hash.base.bytes_used.clone(),
             Some(Box::new(next_per_field)),
             postings_array_wrapper,
             sub,

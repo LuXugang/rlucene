@@ -26,6 +26,7 @@ use crate::index::field_info::FieldInfo;
 use crate::index::field_invert_state::FieldInvertState;
 use crate::index::merge_state::DocMapEnum;
 use crate::index::segment_write_state::SegmentWriteState;
+use crate::index::term_vectors_consumer::TermVectorsConsumer;
 use crate::index::terms_hash_per_field::{TermsHashPerField, TermsHashPerFieldBase};
 use crate::store::directory::Directory;
 use crate::util::allocator_byte::AllocatorByteEnum;
@@ -39,27 +40,19 @@ use crate::util::{ByteBlockPool, ByteBlockPoolBorrow, CounterEnumBorrow};
 /// Consumers of this struct, such as [`FreqProxTermsWriter`] and
 /// [`TermVectorsConsumer`], write their own byte streams associated with each
 /// term.
-pub(crate) struct TermsHash<S>
-where
-    S: TermsHashBase,
-{
-    pub(crate) next_terms_hash: Option<Box<TermsHash<S>>>,
+pub(crate) struct TermsHash {
+    pub(crate) next_terms_hash: Option<Box<TermVectorsConsumer>>,
     pub(crate) int_pool: Rc<RefCell<IntBlockPool>>,
     pub(crate) byte_pool: ByteBlockPoolBorrow,
     pub(crate) term_byte_pool: Option<ByteBlockPoolBorrow>,
     pub(crate) bytes_used: CounterEnumBorrow,
-    sub: S,
 }
-impl<S> TermsHash<S>
-where
-    S: TermsHashBase,
-{
+impl TermsHash {
     pub(crate) fn new(
         int_block_allocator: Rc<RefCell<AllocatorIntEnum>>,
         byte_block_allocator: AllocatorByteEnum<CounterEnumBorrow>,
         bytes_used: CounterEnumBorrow,
-        next_terms_hash: Option<Box<TermsHash<S>>>,
-        sub: S,
+        next_terms_hash: Option<Box<TermVectorsConsumer>>,
     ) -> Self {
         let term_byte_pool = None;
 
@@ -71,31 +64,26 @@ where
             byte_pool: Rc::new(RefCell::new(ByteBlockPool::new(byte_block_allocator))),
             term_byte_pool,
             bytes_used,
-            sub,
         };
 
         if let Some(next_terms_hash) = &mut terms_hash.next_terms_hash {
             // If we are the primary, share the byte pool
             terms_hash.term_byte_pool = Option::from(terms_hash.byte_pool.clone());
-            next_terms_hash.term_byte_pool = Option::from(terms_hash.byte_pool.clone());
+            next_terms_hash.base.term_byte_pool = Option::from(terms_hash.byte_pool.clone());
         }
         terms_hash
     }
+    fn reset(&mut self) {
+        self.int_pool.borrow_mut().reset(false, false);
+        self.byte_pool.borrow_mut().reset(false, false)
+    }
 }
-impl<S> TermsHashBase for TermsHash<S>
-where
-    S: TermsHashBase,
-{
+impl TermsHashBase for TermsHash {
     fn abort(&mut self) {
         self.reset();
         if self.next_terms_hash.is_some() {
             self.next_terms_hash.as_mut().unwrap().abort();
         }
-    }
-
-    fn reset(&mut self) {
-        self.int_pool.borrow_mut().reset(false, false);
-        self.byte_pool.borrow_mut().reset(false, false)
     }
 
     fn flush<D, N, T>(
@@ -122,20 +110,6 @@ where
         Ok(())
     }
 
-    fn add_field<S1, O, P, T>(
-        &mut self,
-        field_invert_state: &FieldInvertState<O, P, T>,
-        field_info: &FieldInfo,
-    ) -> TermsHashPerField<S1>
-    where
-        S1: TermsHashPerFieldBase,
-        O: OffsetAttribute,
-        P: PayloadAttribute,
-        T: TermFrequencyAttribute,
-    {
-        self.sub.add_field(field_invert_state, field_info)
-    }
-
     fn start_document(&mut self) -> Result<()> {
         if self.next_terms_hash.is_some() {
             self.next_terms_hash.as_mut().unwrap().start_document()?;
@@ -156,7 +130,6 @@ where
 
 pub(crate) trait TermsHashBase {
     fn abort(&mut self);
-    fn reset(&mut self);
     fn flush<D, N, T>(
         &mut self,
         fields_to_flush: &mut HashMap<String, TermsHashPerField<T>>,
@@ -171,14 +144,17 @@ pub(crate) trait TermsHashBase {
 
     fn add_field<S1, O, P, T>(
         &mut self,
-        field_invert_state: &FieldInvertState<O, P, T>,
-        field_info: &FieldInfo,
+        _field_invert_state: &FieldInvertState<O, P, T>,
+        _field_info: &FieldInfo,
     ) -> TermsHashPerField<S1>
     where
         S1: TermsHashPerFieldBase,
         O: OffsetAttribute,
         P: PayloadAttribute,
-        T: TermFrequencyAttribute;
+        T: TermFrequencyAttribute,
+    {
+        unimplemented!("This method should be implemented by the specific TermsHashPerField type.");
+    }
 
     fn start_document(&mut self) -> Result<()>;
 

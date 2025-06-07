@@ -14,4 +14,61 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub(crate) struct TermVectorsConsumer;
+use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
+use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
+use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
+use crate::codecs::norms_producer::NormsProducer;
+use crate::index::field_info::FieldInfo;
+use crate::index::field_invert_state::FieldInvertState;
+use crate::index::merge_state::DocMapEnum;
+use crate::index::segment_write_state::SegmentWriteState;
+use crate::index::terms_hash::{TermsHash, TermsHashBase};
+use crate::index::terms_hash_per_field::{TermsHashPerField, TermsHashPerFieldBase};
+use crate::store::directory::Directory;
+use std::collections::HashMap;
+
+pub(crate) struct TermVectorsConsumer {
+    pub(crate) base: TermsHash,
+}
+impl TermsHashBase for TermVectorsConsumer {
+    fn abort(&mut self) {
+        todo!()
+    }
+
+    fn flush<D, N, T>(
+        &mut self,
+        fields_to_flush: &mut HashMap<String, TermsHashPerField<T>>,
+        state: &SegmentWriteState<D>,
+        sort_map: &DocMapEnum,
+        norms: &mut N,
+    ) -> crate::util::error::lucene_error::Result<()>
+    where
+        D: Directory,
+        N: NormsProducer,
+        T: TermsHashPerFieldBase,
+    {
+        todo!()
+    }
+
+    fn add_field<S1, O, P, T>(
+        &mut self,
+        _field_invert_state: &FieldInvertState<O, P, T>,
+        _field_info: &FieldInfo,
+    ) -> TermsHashPerField<S1>
+    where
+        S1: TermsHashPerFieldBase,
+        O: OffsetAttribute,
+        P: PayloadAttribute,
+        T: TermFrequencyAttribute,
+    {
+        todo!()
+    }
+
+    fn start_document(&mut self) -> crate::util::error::lucene_error::Result<()> {
+        todo!()
+    }
+
+    fn finish_document(&mut self, doc_id: i32) -> crate::util::error::lucene_error::Result<()> {
+        todo!()
+    }
+}

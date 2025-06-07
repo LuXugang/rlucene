@@ -14,35 +14,111 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
+use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
+use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
+use crate::codecs::norms_producer::NormsProducer;
 use crate::index::automaton_terms_enum::AutomatonTermsEnum;
+use crate::index::field_info::FieldInfo;
 use crate::index::field_infos::FieldInfos;
+use crate::index::field_invert_state::FieldInvertState;
 use crate::index::fields::Fields;
 use crate::index::filter_leaf_reader::{FilterFields, FilterTerms, FilterTermsEnum};
 use crate::index::filtered_terms_enum::FilteredTermsEnum;
 use crate::index::index_options::IndexOptions;
+use crate::index::merge_state::DocMapEnum;
 use crate::index::postings_enum::{postings_enum_util, PostingsEnum};
+use crate::index::segment_write_state::SegmentWriteState;
 use crate::index::sorter::DocMap;
 use crate::index::term_state::TermStateEnum;
+use crate::index::term_vectors_consumer::TermVectorsConsumer;
 use crate::index::terms::Terms;
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
+use crate::index::terms_hash::{TermsHash, TermsHashBase};
+use crate::index::terms_hash_per_field::{TermsHashPerField, TermsHashPerFieldBase};
 use crate::index::BytesRef;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::byte_buffers_data_input::ByteBuffersDataInputOwned;
+use crate::store::directory::Directory;
 use crate::store::{ByteBuffersDataOutput, DataInput, DataOutput};
+use crate::util::allocator_byte::AllocatorByteEnum;
 use crate::util::array_util::ArrayUtil;
 use crate::util::attribute_source::AttributeSource;
 use crate::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::either_enums::EitherPostingsEnum;
 use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::int_block_pool::AllocatorIntEnum;
 use crate::util::lsb_radix_sorter::LSBRadixSorter;
 use crate::util::packed::PackedInts;
-use crate::util::{SliceCopyOps, Sorter, TimSorter, TimSorterBase, ToInt};
+use crate::util::{CounterEnumBorrow, SliceCopyOps, Sorter, TimSorter, TimSorterBase, ToInt};
 use std::borrow::Cow;
+use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
 
-pub(crate) struct FreqProxTermsWriter;
+pub(crate) struct FreqProxTermsWriter {
+    pub(crate) base: TermsHash,
+}
+impl FreqProxTermsWriter {
+    pub(crate) fn new(
+        int_block_allocator: Rc<RefCell<AllocatorIntEnum>>,
+        byte_block_allocator: AllocatorByteEnum<CounterEnumBorrow>,
+        bytes_used: CounterEnumBorrow,
+        next_terms_hash: Option<Box<TermVectorsConsumer>>,
+    ) -> Self {
+        let base = TermsHash::new(
+            int_block_allocator,
+            byte_block_allocator,
+            bytes_used,
+            next_terms_hash,
+        );
+        Self { base }
+    }
+}
+impl TermsHashBase for FreqProxTermsWriter {
+    fn abort(&mut self) {
+        self.base.abort()
+    }
+
+    fn flush<D, N, T>(
+        &mut self,
+        fields_to_flush: &mut HashMap<String, TermsHashPerField<T>>,
+        state: &SegmentWriteState<D>,
+        sort_map: &DocMapEnum,
+        norms: &mut N,
+    ) -> Result<()>
+    where
+        D: Directory,
+        N: NormsProducer,
+        T: TermsHashPerFieldBase,
+    {
+        todo!()
+    }
+
+    fn add_field<S1, O, P, T>(
+        &mut self,
+        _field_invert_state: &FieldInvertState<O, P, T>,
+        _field_info: &FieldInfo,
+    ) -> TermsHashPerField<S1>
+    where
+        S1: TermsHashPerFieldBase,
+        O: OffsetAttribute,
+        P: PayloadAttribute,
+        T: TermFrequencyAttribute,
+    {
+        todo!()
+    }
+
+    fn start_document(&mut self) -> Result<()> {
+        self.base.start_document()
+    }
+
+    fn finish_document(&mut self, doc_id: i32) -> Result<()> {
+        self.base.finish_document(doc_id)
+    }
+}
 
 pub(crate) struct FilterFieldsImpl<F, D>
 where
