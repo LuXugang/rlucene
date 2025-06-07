@@ -51,6 +51,7 @@ pub(crate) mod field_updates_buffer;
 pub mod fields;
 pub mod filter_leaf_reader;
 pub mod filtered_terms_enum;
+mod freq_prox_fields;
 pub(crate) mod freq_prox_terms_writer;
 pub(crate) mod freq_prox_terms_writer_per_field;
 pub(crate) mod frozen_buffered_updates;

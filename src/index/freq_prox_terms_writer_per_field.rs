@@ -27,6 +27,7 @@ use crate::index::index_options::IndexOptions;
 use crate::index::parallel_postings_array::{
     ParallelPostingsArray, PostingsArrayBase, PostingsArrayEnum,
 };
+use crate::index::term_vectors_consumer_per_field::TermVectorsConsumerPerField;
 use crate::index::terms_hash_per_field::{
     PostingsArrayWrapper, TermsHashPerField, TermsHashPerFieldBase, TermsHashPerFieldType,
 };
@@ -47,10 +48,9 @@ where
     field_info: Rc<FieldInfo>,
     has_freq: bool,
     has_prox: bool,
-    has_offsets: bool,
+    pub(crate) has_offsets: bool,
     // Set to true if any token had a payload in the current segment.
-    saw_payloads: bool,
-    index_options: IndexOptions,
+    pub(crate) saw_payloads: bool,
 }
 impl<O, P, T> FreqProxTermsWriterPerField<O, P, T>
 where
@@ -62,7 +62,7 @@ where
         field_state: FieldInvertState<O, P, T>,
         terms_hash: &mut FreqProxTermsWriter,
         field_info: Rc<FieldInfo>,
-        next_per_field: TermsHashPerField<FreqProxTermsWriterPerField<O, P, T>>,
+        next_per_field: TermsHashPerField<TermVectorsConsumerPerField>,
     ) -> TermsHashPerField<FreqProxTermsWriterPerField<O, P, T>> {
         let index_options = *field_info.get_index_options();
 
@@ -88,7 +88,6 @@ where
             has_prox,
             has_offsets,
             saw_payloads,
-            index_options,
         };
         let postings_array_wrapper = PostingsArrayWrapper::new(TermsHashPerFieldType::FreqProx(
             FreqProx::new(index_options),
@@ -101,6 +100,7 @@ where
             terms_hash.base.bytes_used.clone(),
             Some(Box::new(next_per_field)),
             postings_array_wrapper,
+            index_options,
             sub,
         )
     }
@@ -398,10 +398,6 @@ where
 
     fn get_field_name(&self) -> &str {
         &self.field_info.name
-    }
-
-    fn index_options(&self) -> &IndexOptions {
-        &self.index_options
     }
 }
 

@@ -23,7 +23,9 @@ use crate::index::byte_slice_reader::ByteSliceReader;
 use crate::index::freq_prox_terms_writer_per_field::{FreqProx, FreqProxPostingsArray};
 use crate::index::index_options::IndexOptions;
 use crate::index::parallel_postings_array::PostingsArrayEnum;
-use crate::index::term_vectors_consumer_per_field::TermVectorsPostingsArray;
+use crate::index::term_vectors_consumer_per_field::{
+    TermVectorsConsumerPerField, TermVectorsPostingsArray,
+};
 use crate::index::BytesRef;
 use crate::util::access::Access;
 use crate::util::bytes_ref_hash::{BytesRefHash, BytesStartArray, STBytesRefHash};
@@ -45,7 +47,7 @@ pub struct TermsHashPerField<S>
 where
     S: TermsHashPerFieldBase,
 {
-    pub(crate) next_per_field: Option<Box<TermsHashPerField<S>>>,
+    pub(crate) next_per_field: Option<Box<TermsHashPerField<TermVectorsConsumerPerField>>>,
     int_pool: Rc<RefCell<IntBlockPool>>,
     pub(crate) byte_pool: ByteBlockPoolBorrow,
     slice_pool: ByteSlicePool,
@@ -68,8 +70,9 @@ where
     last_doc_id: i32, // only used with debug/asserts
     sorted_term_ids: bool,
     pub(crate) do_next_call: bool,
+    pub(crate) index_options: IndexOptions,
     // wrap with Option for `std::mem:take`
-    sub: Option<S>,
+    pub(crate) sub: Option<S>,
 }
 pub(crate) struct PostingsArrayWrapper {
     pub(crate) postings_array: Option<PostingsArrayEnum>,
@@ -99,13 +102,14 @@ where
         byte_pool: ByteBlockPoolBorrow,
         term_byte_pool: ByteBlockPoolBorrow,
         bytes_used: CounterEnumBorrow,
-        next_per_field: Option<Box<TermsHashPerField<S>>>,
+        next_per_field: Option<Box<TermsHashPerField<TermVectorsConsumerPerField>>>,
         postings_array_wrapper: PostingsArrayWrapper,
+        index_options: IndexOptions,
         sub: S,
     ) -> Self {
         // In the original Java code, we assert that indexOptions !=
         // IndexOptions.NONE.
-        debug_assert!(*sub.index_options() != IndexOptions::None);
+        debug_assert!(index_options != IndexOptions::None);
         let slice_pool = ByteSlicePool;
         let byte_starts = PostingsBytesStartArray::new(postings_array_wrapper, bytes_used);
 
@@ -127,6 +131,7 @@ where
             last_doc_id: 0,
             sorted_term_ids: false,
             do_next_call: false,
+            index_options,
             sub: Some(sub),
         }
     }
@@ -270,7 +275,7 @@ where
         base.write_byte(stream, i as u8)
     }
 
-    pub(crate) fn get_next_per_field(&mut self) -> TermsHashPerField<S> {
+    pub(crate) fn get_next_per_field(&mut self) -> TermsHashPerField<TermVectorsConsumerPerField> {
         *self.next_per_field.take().unwrap()
     }
 
@@ -482,7 +487,6 @@ pub(crate) trait TermsHashPerFieldBase {
     fn finish(&mut self);
 
     fn get_field_name(&self) -> &str;
-    fn index_options(&self) -> &IndexOptions;
 }
 pub(crate) struct PostingsBytesStartArray {
     pub(crate) per_field: PostingsArrayWrapper,
@@ -989,7 +993,6 @@ pub(crate) mod tests {
     pub(crate) struct TermsHashPerFieldMock {
         new_called: AtomicI64,
         add_called: AtomicI64,
-        index_options: IndexOptions,
     }
     impl TermsHashPerFieldMock {
         #[allow(clippy::new_ret_no_self)]
@@ -1010,7 +1013,6 @@ pub(crate) mod tests {
             let sub = TermsHashPerFieldMock {
                 new_called,
                 add_called,
-                index_options: IndexOptions::DocsAndFreqs,
             };
             Ok(TermsHashPerField::new(
                 1,
@@ -1020,6 +1022,7 @@ pub(crate) mod tests {
                 bytes_used,
                 None,
                 postings_array_wrapper,
+                IndexOptions::DocsAndFreqs,
                 sub,
             ))
         }
@@ -1127,10 +1130,6 @@ pub(crate) mod tests {
 
         fn get_field_name(&self) -> &str {
             ""
-        }
-
-        fn index_options(&self) -> &IndexOptions {
-            &self.index_options
         }
     }
 }
