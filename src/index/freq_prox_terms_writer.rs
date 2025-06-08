@@ -25,6 +25,7 @@ use crate::index::field_invert_state::FieldInvertState;
 use crate::index::fields::Fields;
 use crate::index::filter_leaf_reader::{FilterFields, FilterTerms, FilterTermsEnum};
 use crate::index::filtered_terms_enum::FilteredTermsEnum;
+use crate::index::freq_prox_terms_writer_per_field::FreqProxTermsWriterPerField;
 use crate::index::index_options::IndexOptions;
 use crate::index::merge_state::DocMapEnum;
 use crate::index::postings_enum::{postings_enum_util, PostingsEnum};
@@ -35,7 +36,7 @@ use crate::index::term_vectors_consumer::TermVectorsConsumer;
 use crate::index::terms::Terms;
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::index::terms_hash::{TermsHash, TermsHashBase};
-use crate::index::terms_hash_per_field::{TermsHashPerField, TermsHashPerFieldBase};
+use crate::index::terms_hash_per_field::TermsHashPerField;
 use crate::index::BytesRef;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
@@ -58,15 +59,25 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-pub(crate) struct FreqProxTermsWriter {
-    pub(crate) base: TermsHash,
+pub(crate) struct FreqProxTermsWriter<O, P, T>
+where
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+{
+    pub(crate) base: TermsHash<O, P, T>,
 }
-impl FreqProxTermsWriter {
+impl<O, P, T> FreqProxTermsWriter<O, P, T>
+where
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+{
     pub(crate) fn new(
         int_block_allocator: Rc<RefCell<AllocatorIntEnum>>,
         byte_block_allocator: AllocatorByteEnum<CounterEnumBorrow>,
         bytes_used: CounterEnumBorrow,
-        next_terms_hash: Option<Box<TermVectorsConsumer>>,
+        next_terms_hash: Option<Box<TermVectorsConsumer<O, P, T>>>,
     ) -> Self {
         let base = TermsHash::new(
             int_block_allocator,
@@ -77,37 +88,78 @@ impl FreqProxTermsWriter {
         Self { base }
     }
 }
-impl TermsHashBase for FreqProxTermsWriter {
+impl<O, P, T> TermsHashBase for FreqProxTermsWriter<O, P, T>
+where
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+{
     fn abort(&mut self) {
         self.base.abort()
     }
 
-    fn flush<D, N, T>(
+    type TermsHashPerFieldBase = FreqProxTermsWriterPerField<O, P, T>;
+
+    fn flush<D, N>(
         &mut self,
-        fields_to_flush: HashMap<String, TermsHashPerField<T>>,
+        fields_to_flush: HashMap<String, TermsHashPerField<Self::TermsHashPerFieldBase>>,
         state: &SegmentWriteState<D>,
         sort_map: &DocMapEnum,
         norms: &mut N,
-    ) -> Result<HashMap<String, TermsHashPerField<T>>>
+    ) -> Result<HashMap<String, TermsHashPerField<Self::TermsHashPerFieldBase>>>
     where
         D: Directory,
         N: NormsProducer,
-        T: TermsHashPerFieldBase,
     {
+        // let mut fields_to_flush = self.base.flush(fields_to_flush, state, sort_map, norms)?;
+        // if !state.field_infos.has_postings() {
+        //     return Ok(fields_to_flush);
+        // }
+        // let mut all_fields = Vec::new();
+        // for mut per_field in fields_to_flush.into_values() {
+        //     if per_field.get_num_terms() > 0 {
+        //         per_field.sort_terms()?;
+        //         debug_assert!(per_field.index_options != IndexOptions::None);
+        //         all_fields.push(per_field);
+        //     }
+        // }
+        // // Sort by field name
+        // CollectionUtil::intro_sort(&mut all_fields)?;
+        // let mut fields = FreqProxFields::new(all_fields);
+        //
+        // apply_deletes(state, fields)?;
+        //
+        // let fields_boxed: Box<dyn Fields> = if let Some(doc_map) = sort_map {
+        //     let infos = &state.field_infos;
+        //     Box::new(SortingFields::new(fields, infos, doc_map))
+        // } else {
+        //     Box::new(fields)
+        // };
+        //
+        // let mut consumer = state
+        //     .segment_info
+        //     .codec()
+        //     .postings_format()
+        //     .fields_consumer(state)?;
+        // consumer.write(fields_boxed.as_ref(), norms)?;
+        //
+        // Ok(())
         todo!()
     }
 
-    fn add_field<S1, O, P, T>(
+    type OffsetAttribute = O;
+    type PayloadAttribute = P;
+    type TermFrequencyAttribute = T;
+
+    fn add_field(
         &mut self,
-        _field_invert_state: &FieldInvertState<O, P, T>,
+        _field_invert_state: &FieldInvertState<
+            Self::OffsetAttribute,
+            Self::PayloadAttribute,
+            Self::TermFrequencyAttribute,
+        >,
         _field_info: &FieldInfo,
-    ) -> TermsHashPerField<S1>
-    where
-        S1: TermsHashPerFieldBase,
-        O: OffsetAttribute,
-        P: PayloadAttribute,
-        T: TermFrequencyAttribute,
-    {
+    ) -> TermsHashPerField<Self::TermsHashPerFieldBase> {
         todo!()
     }
 

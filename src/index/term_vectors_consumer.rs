@@ -22,45 +22,65 @@ use crate::index::field_info::FieldInfo;
 use crate::index::field_invert_state::FieldInvertState;
 use crate::index::merge_state::DocMapEnum;
 use crate::index::segment_write_state::SegmentWriteState;
+use crate::index::term_vectors_consumer_per_field::TermVectorsConsumerPerField;
 use crate::index::terms_hash::{TermsHash, TermsHashBase};
-use crate::index::terms_hash_per_field::{TermsHashPerField, TermsHashPerFieldBase};
+use crate::index::terms_hash_per_field::TermsHashPerField;
 use crate::store::directory::Directory;
 use std::collections::HashMap;
+use std::marker::PhantomData;
 
-pub(crate) struct TermVectorsConsumer {
-    pub(crate) base: TermsHash,
+pub(crate) struct TermVectorsConsumer<O, P, T>
+where
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+{
+    pub(crate) base: TermsHash<O, P, T>,
+    _phantom1: PhantomData<O>,
+    _phantom2: PhantomData<P>,
+    _phantom3: PhantomData<T>,
 }
-impl TermsHashBase for TermVectorsConsumer {
+impl<O, P, T> TermsHashBase for TermVectorsConsumer<O, P, T>
+where
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+{
     fn abort(&mut self) {
         todo!()
     }
 
-    fn flush<D, N, T>(
+    type TermsHashPerFieldBase = TermVectorsConsumerPerField;
+
+    fn flush<D, N>(
         &mut self,
-        fields_to_flush: HashMap<String, TermsHashPerField<T>>,
+        fields_to_flush: HashMap<String, TermsHashPerField<Self::TermsHashPerFieldBase>>,
         state: &SegmentWriteState<D>,
         sort_map: &DocMapEnum,
         norms: &mut N,
-    ) -> crate::util::error::lucene_error::Result<HashMap<String, TermsHashPerField<T>>>
+    ) -> crate::util::error::lucene_error::Result<
+        HashMap<String, TermsHashPerField<Self::TermsHashPerFieldBase>>,
+    >
     where
         D: Directory,
         N: NormsProducer,
-        T: TermsHashPerFieldBase,
     {
         todo!()
     }
 
-    fn add_field<S1, O, P, T>(
+    type OffsetAttribute = O;
+    type PayloadAttribute = P;
+    type TermFrequencyAttribute = T;
+
+    fn add_field(
         &mut self,
-        _field_invert_state: &FieldInvertState<O, P, T>,
+        _field_invert_state: &FieldInvertState<
+            Self::OffsetAttribute,
+            Self::PayloadAttribute,
+            Self::TermFrequencyAttribute,
+        >,
         _field_info: &FieldInfo,
-    ) -> TermsHashPerField<S1>
-    where
-        S1: TermsHashPerFieldBase,
-        O: OffsetAttribute,
-        P: PayloadAttribute,
-        T: TermFrequencyAttribute,
-    {
+    ) -> TermsHashPerField<Self::TermsHashPerFieldBase> {
         todo!()
     }
 

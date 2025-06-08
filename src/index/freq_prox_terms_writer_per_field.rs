@@ -60,7 +60,7 @@ where
 {
     pub fn new(
         field_state: FieldInvertState<O, P, T>,
-        terms_hash: &mut FreqProxTermsWriter,
+        terms_hash: &mut FreqProxTermsWriter<O, P, T>,
         field_info: Rc<FieldInfo>,
         next_per_field: TermsHashPerField<TermVectorsConsumerPerField>,
     ) -> TermsHashPerField<FreqProxTermsWriterPerField<O, P, T>> {
@@ -81,6 +81,7 @@ where
         } else {
             1
         };
+        let name = field_info.get_name().to_string();
         let sub = FreqProxTermsWriterPerField {
             field_state,
             field_info,
@@ -100,6 +101,7 @@ where
             terms_hash.base.bytes_used.clone(),
             Some(Box::new(next_per_field)),
             postings_array_wrapper,
+            name,
             index_options,
             sub,
         )
@@ -398,6 +400,25 @@ where
 
     fn get_field_name(&self) -> &str {
         &self.field_info.name
+    }
+}
+
+impl<O, P, T> Eq for FreqProxTermsWriterPerField<O, P, T>
+where
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+{
+}
+
+impl<O, P, T> PartialEq<Self> for FreqProxTermsWriterPerField<O, P, T>
+where
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+{
+    fn eq(&self, other: &Self) -> bool {
+        todo!()
     }
 }
 

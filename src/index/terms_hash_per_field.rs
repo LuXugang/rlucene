@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use std::cell::RefCell;
+use std::cmp::Ordering;
 use std::rc::Rc;
 
 use crate::document::fields::Fields;
@@ -69,6 +70,7 @@ where
         BytesRefHash<CounterEnumBorrow, ByteBlockPoolBorrow, PostingsBytesStartArray>,
     last_doc_id: i32, // only used with debug/asserts
     pub(crate) do_next_call: bool,
+    field_name: String,
     pub(crate) index_options: IndexOptions,
     // wrap with Option for `std::mem:take`
     pub(crate) sub: Option<S>,
@@ -103,6 +105,7 @@ where
         bytes_used: CounterEnumBorrow,
         next_per_field: Option<Box<TermsHashPerField<TermVectorsConsumerPerField>>>,
         postings_array_wrapper: PostingsArrayWrapper,
+        field_name: String,
         index_options: IndexOptions,
         sub: S,
     ) -> Self {
@@ -129,6 +132,7 @@ where
             bytes_hash,
             last_doc_id: 0,
             do_next_call: false,
+            field_name,
             index_options,
             sub: Some(sub),
         }
@@ -437,6 +441,35 @@ where
             None => true,
         };
         self.sub.as_mut().unwrap().start(field, first)
+    }
+}
+
+impl<S> Eq for TermsHashPerField<S> where S: TermsHashPerFieldBase {}
+
+impl<S> PartialEq<Self> for TermsHashPerField<S>
+where
+    S: TermsHashPerFieldBase,
+{
+    fn eq(&self, other: &Self) -> bool {
+        todo!()
+    }
+}
+
+impl<S> PartialOrd<Self> for TermsHashPerField<S>
+where
+    S: TermsHashPerFieldBase,
+{
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl<S> Ord for TermsHashPerField<S>
+where
+    S: TermsHashPerFieldBase,
+{
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.field_name.cmp(&other.field_name)
     }
 }
 pub(crate) trait TermsHashPerFieldBase {
@@ -1016,6 +1049,7 @@ pub(crate) mod tests {
                 bytes_used,
                 None,
                 postings_array_wrapper,
+                "testfield".to_string(),
                 IndexOptions::DocsAndFreqs,
                 sub,
             ))
