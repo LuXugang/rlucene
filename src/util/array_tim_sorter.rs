@@ -90,7 +90,8 @@ where
         if len > tmp_len as i32 {
             self.tmp.resize(len as usize, T::default());
         }
-        self.tmp.copy_from(&self.arr[start as usize..start as usize + len as usize], 0);
+        self.tmp
+            .copy_from(&self.arr[start as usize..start as usize + len as usize], 0);
     }
 
     fn restore(&mut self, src: i32, dest: i32) {
