@@ -84,11 +84,11 @@ impl TermsHashBase for FreqProxTermsWriter {
 
     fn flush<D, N, T>(
         &mut self,
-        fields_to_flush: &mut HashMap<String, TermsHashPerField<T>>,
+        fields_to_flush: HashMap<String, TermsHashPerField<T>>,
         state: &SegmentWriteState<D>,
         sort_map: &DocMapEnum,
         norms: &mut N,
-    ) -> Result<()>
+    ) -> Result<HashMap<String, TermsHashPerField<T>>>
     where
         D: Directory,
         N: NormsProducer,

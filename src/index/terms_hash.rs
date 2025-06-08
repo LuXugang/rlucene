@@ -88,11 +88,11 @@ impl TermsHashBase for TermsHash {
 
     fn flush<D, N, T>(
         &mut self,
-        fields_to_flush: &mut HashMap<String, TermsHashPerField<T>>,
+        mut fields_to_flush: HashMap<String, TermsHashPerField<T>>,
         state: &SegmentWriteState<D>,
         sort_map: &DocMapEnum,
         norms: &mut N,
-    ) -> Result<()>
+    ) -> Result<HashMap<String, TermsHashPerField<T>>>
     where
         D: Directory,
         N: NormsProducer,
@@ -105,9 +105,9 @@ impl TermsHashBase for TermsHash {
                 next_child_fields.insert(field_name.clone(), per_field.get_next_per_field());
             }
 
-            next.flush(&mut next_child_fields, state, sort_map, norms)?;
+            next.flush(next_child_fields, state, sort_map, norms)?;
         }
-        Ok(())
+        Ok(fields_to_flush)
     }
 
     fn start_document(&mut self) -> Result<()> {
@@ -132,11 +132,11 @@ pub(crate) trait TermsHashBase {
     fn abort(&mut self);
     fn flush<D, N, T>(
         &mut self,
-        fields_to_flush: &mut HashMap<String, TermsHashPerField<T>>,
+        fields_to_flush: HashMap<String, TermsHashPerField<T>>,
         state: &SegmentWriteState<D>,
         sort_map: &DocMapEnum,
         norms: &mut N,
-    ) -> Result<()>
+    ) -> Result<HashMap<String, TermsHashPerField<T>>>
     where
         D: Directory,
         N: NormsProducer,
