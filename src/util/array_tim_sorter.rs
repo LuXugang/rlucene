@@ -86,10 +86,6 @@ where
     }
 
     fn save(&mut self, start: i32, len: i32) {
-        let tmp_len = self.tmp.len();
-        if len > tmp_len as i32 {
-            self.tmp.resize(len as usize, T::default());
-        }
         self.tmp
             .copy_from(&self.arr[start as usize..start as usize + len as usize], 0);
     }
