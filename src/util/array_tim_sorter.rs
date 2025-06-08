@@ -16,7 +16,7 @@
  */
 
 use crate::util::error::lucene_error::Result;
-use crate::util::{Comparator, Sorter, TimSorter, TimSorterBase};
+use crate::util::{Comparator, SliceCopyOps, Sorter, TimSorter, TimSorterBase};
 
 /// A [`TimSorter`] for object arrays.
 ///
@@ -24,7 +24,7 @@ use crate::util::{Comparator, Sorter, TimSorter, TimSorterBase};
 /// This is an internal API.
 pub struct ArrayTimSorter<'a, T, C: Comparator<T>>
 where
-    T: Default + Clone + PartialEq,
+    T: Default + Clone + Ord,
 {
     arr: &'a mut Vec<T>,
     tmp: Vec<T>,
@@ -33,7 +33,7 @@ where
 }
 impl<'a, T, C: Comparator<T>> ArrayTimSorter<'a, T, C>
 where
-    T: Default + Clone + PartialEq,
+    T: Default + Clone + Ord,
 {
     pub fn new(
         arr: &'a mut Vec<T>,
@@ -56,7 +56,7 @@ where
 }
 impl<T, C: Comparator<T>> Sorter for ArrayTimSorter<'_, T, C>
 where
-    T: Default + Clone + PartialEq,
+    T: Default + Clone + Ord,
 {
     fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
         self.comparator
@@ -79,7 +79,7 @@ where
 }
 impl<T, C: Comparator<T>> TimSorterBase for ArrayTimSorter<'_, T, C>
 where
-    T: Default + Clone + PartialEq,
+    T: Default + Clone + Ord,
 {
     fn copy(&mut self, src: i32, dest: i32) {
         self.arr[dest as usize] = self.arr[src as usize].clone();
@@ -90,13 +90,11 @@ where
         if len > tmp_len as i32 {
             self.tmp.resize(len as usize, T::default());
         }
-        self.tmp[0..len as usize]
-            .clone_from_slice(&self.arr[start as usize..start as usize + len as usize]);
+        self.tmp.copy_from(&self.arr[start as usize..start as usize + len as usize], 0);
     }
 
     fn restore(&mut self, src: i32, dest: i32) {
-        // TODO: avoid clone, maybe wo could let arr: &'a mut Rc<Vec<T>> using
-        // AccessVec,
+        // TODO: avoid clone
         self.arr[dest as usize] = self.tmp[src as usize].clone();
     }
 
