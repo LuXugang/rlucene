@@ -35,6 +35,7 @@ pub struct ReadWriteDataOutput {
     pub byte_buffers: Option<Rc<Vec<Vec<u8>>>>,
     pub byte_buffer: Option<Rc<Vec<u8>>>,
     pub frozen: bool,
+    /// Indicates whether the byte_buffer/byte_buffers have been initialized.
     pub finish: bool,
 }
 
@@ -60,22 +61,6 @@ impl ReadWriteDataOutput {
         // We only move the ownership of self.data_output when get_reverse_bytes_reader
         // is called, so that the write_to method can still function correctly.
         Ok(())
-    }
-    pub(crate) fn init_byte_buffer(&mut self) {
-        self.finish = true;
-        if self.byte_buffer.is_none() && self.byte_buffers.is_none() {
-            let (_, byte_buffers_raw) = self.data_output.to_buffer_list_owner();
-            let mut data: Vec<Vec<u8>> = byte_buffers_raw
-                .into_iter()
-                .map(|b| b.into_inner())
-                .collect();
-
-            if data.len() == 1 {
-                self.byte_buffer = Some(Rc::new(data.remove(0)));
-            } else {
-                self.byte_buffers = Some(Rc::new(data));
-            }
-        }
     }
 }
 
@@ -113,9 +98,27 @@ impl FstReader for ReadWriteDataOutput {
     }
 
     fn write_to(&self, out: &mut impl DataOutput) -> Result<()> {
+        debug_assert!(!self.finish);
         // Note: After calling get_reverse_bytes_reader, the ownership of data_output
         // will be moved.
         self.data_output.copy_to(out)
+    }
+
+    fn init_reader(&mut self) {
+        self.finish = true;
+        if self.byte_buffer.is_none() && self.byte_buffers.is_none() {
+            let (_, byte_buffers_raw) = self.data_output.to_buffer_list_owner();
+            let mut data: Vec<Vec<u8>> = byte_buffers_raw
+                .into_iter()
+                .map(|b| b.into_inner())
+                .collect();
+
+            if data.len() == 1 {
+                self.byte_buffer = Some(Rc::new(data.remove(0)));
+            } else {
+                self.byte_buffers = Some(Rc::new(data));
+            }
+        }
     }
 }
 

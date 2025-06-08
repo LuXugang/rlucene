@@ -37,7 +37,8 @@ where
 {
     pub metadata: Option<FSTMetadata<O>>,
     pub outputs: O,
-    pub fst_reader: F,
+    // wrap with Rc<RefCell<>> to allow interior mutability
+    pub fst_reader: Rc<RefCell<F>>,
 }
 
 impl<O> FST<O, OnHeapFSTStore>
@@ -66,7 +67,7 @@ where
         Self {
             outputs: metadata.outputs.clone(),
             metadata: Some(metadata),
-            fst_reader,
+            fst_reader: Rc::new(RefCell::new(fst_reader)),
         }
     }
     /// Create an FST from metadata and reader. Returns `None` if the metadata
@@ -81,7 +82,7 @@ where
         Some(Self {
             outputs: metadata.outputs.clone(),
             metadata: Some(metadata),
-            fst_reader,
+            fst_reader: Rc::new(RefCell::new(fst_reader)),
         })
     }
     pub fn num_bytes(&self) -> i64 {
@@ -108,11 +109,11 @@ where
         out: &mut impl DataOutput,
     ) -> Result<()> {
         self.metadata.as_ref().unwrap().save(meta_out)?;
-        self.fst_reader.write_to(out)
+        self.fst_reader.borrow_mut().write_to(out)
     }
     pub fn save_with_same_data_out(&mut self, out: &mut impl DataOutput) -> Result<()> {
         self.metadata.as_ref().unwrap().save(out)?;
-        self.fst_reader.write_to(out)
+        self.fst_reader.borrow_mut().write_to(out)
     }
 
     /// Writes the automaton to a file.
@@ -813,7 +814,9 @@ where
     }
     /// Returns a [`BytesReader`] for this FST, positioned at position 0.
     pub fn get_bytes_reader(&self) -> Result<F::FstBytesReader> {
-        self.fst_reader.get_reverse_bytes_reader()
+        let mut fst_reader = self.fst_reader.borrow_mut();
+        fst_reader.init_reader();
+        fst_reader.get_reverse_bytes_reader()
     }
 }
 
@@ -940,8 +943,7 @@ pub mod fst_util {
             let num_bytes = meta_in.read_vint()?;
             empty_bytes.copy_bytes(meta_in, num_bytes as i64)?;
             empty_bytes.freeze()?;
-
-            empty_bytes.init_byte_buffer();
+            empty_bytes.init_reader();
             // De-serialize empty-string output:
             let mut reader = empty_bytes.get_reverse_bytes_reader()?;
             // NoOutputs uses 0 bytes when writing its output,
@@ -1454,9 +1456,8 @@ mod tests {
         dir: Rc<RefCell<FSDirectory<NativeFSLockFactory, NIOFSDirectory>>>,
     }
     impl TestFSTs {
-        fn new() -> Result<Self> {
-            let mut random = random();
-            let dir = new_directory(&mut random)?;
+        fn new<R: Rng>(random: &mut R) -> Result<Self> {
+            let dir = new_directory(random)?;
             Ok(Self {
                 dir: Rc::new(RefCell::new(dir)),
             })
@@ -1669,7 +1670,7 @@ mod tests {
                 .map(|s| fst_tester_util::to_ints_ref_from_string(s, input_mode))
                 .collect();
             terms2.sort();
-            let test_fsts = TestFSTs::new()?;
+            let test_fsts = TestFSTs::new(&mut random)?;
             test_fsts.do_test(&mut random, input_mode, terms)?;
 
             // Test pre-determined FST sizes to make sure we haven't lost minimality (at
@@ -1753,7 +1754,7 @@ mod tests {
         max_num_words: usize,
         num_iter: usize,
     ) -> Result<()> {
-        let case = TestFSTs::new()?;
+        let case = TestFSTs::new(random)?;
         for iter in 0..num_iter {
             if cfg!(feature = "test_log_verbose") {
                 println!("\nTEST: iter {iter}");

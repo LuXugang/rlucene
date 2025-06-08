@@ -106,6 +106,12 @@ impl FstReader for OnHeapFSTStore {
         }
         Ok(())
     }
+
+    fn init_reader(&mut self) {
+        if let Some(data_output) = &mut self.data_output {
+            data_output.init_reader();
+        }
+    }
 }
 pub enum FstBytesReaderEnum {
     Reverse(ReverseBytesReader),
