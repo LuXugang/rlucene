@@ -24,7 +24,7 @@ use crate::util::sorter::Sorter;
 /// # Note
 /// This is an internal API.
 pub(crate) struct ArrayIntroSorter<'a, T, C: Comparator<T>> {
-    pub arr: &'a mut Vec<T>,
+    pub arr: &'a mut [T],
     comparator: C,
     pivot: i32,
 }
@@ -33,7 +33,7 @@ impl<'a, T, C> ArrayIntroSorter<'a, T, C>
 where
     C: Comparator<T>,
 {
-    pub fn new(arr: &'a mut Vec<T>, comparator: C) -> ArrayIntroSorter<'a, T, C> {
+    pub fn new(arr: &'a mut [T], comparator: C) -> ArrayIntroSorter<'a, T, C> {
         ArrayIntroSorter {
             arr,
             comparator,
