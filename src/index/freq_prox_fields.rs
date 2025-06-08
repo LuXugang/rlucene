@@ -97,27 +97,19 @@ where
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 {
-    type TermsEnum<'a>
-        = BaseTermsEnum<FreqProxTermsEnum<O, P, T>>
-    where
-        Self: 'a;
+    type TermsEnum = BaseTermsEnum<FreqProxTermsEnum<O, P, T>>;
 
-    fn iterator(&self) -> Result<Self::TermsEnum<'_>> {
+    fn iterator(&self) -> Result<Self::TermsEnum> {
         Ok(FreqProxTermsEnum::new(self.terms.clone()))
     }
 
-    type IntersectIter<'a>
-        = FilteredTermsEnum<Self::TermsEnum<'a>, AutomatonTermsEnum>
-    where
-        O: 'a,
-        P: 'a,
-        T: 'a;
+    type IntersectIter = FilteredTermsEnum<Self::TermsEnum, AutomatonTermsEnum>;
 
     fn intersect(
         &self,
         compiled: &mut CompiledAutomaton,
         start_term: Option<BytesRef<Vec<u8>>>,
-    ) -> Result<Self::IntersectIter<'_>> {
+    ) -> Result<Self::IntersectIter> {
         self.default_intersect(compiled, start_term)
     }
 

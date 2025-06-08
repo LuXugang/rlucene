@@ -35,6 +35,7 @@ pub struct ReadWriteDataOutput {
     pub byte_buffers: Option<Rc<Vec<Vec<u8>>>>,
     pub byte_buffer: Option<Rc<Vec<u8>>>,
     pub frozen: bool,
+    pub finish: bool,
 }
 
 impl ReadWriteDataOutput {
@@ -50,6 +51,7 @@ impl ReadWriteDataOutput {
             byte_buffers: None,
             byte_buffer: None,
             frozen: false,
+            finish: false,
         })
     }
 
@@ -59,7 +61,8 @@ impl ReadWriteDataOutput {
         // is called, so that the write_to method can still function correctly.
         Ok(())
     }
-    fn init_byte_buffer(&mut self) {
+    pub(crate) fn init_byte_buffer(&mut self) {
+        self.finish = true;
         if self.byte_buffer.is_none() && self.byte_buffers.is_none() {
             let (_, byte_buffers_raw) = self.data_output.to_buffer_list_owner();
             let mut data: Vec<Vec<u8>> = byte_buffers_raw
@@ -85,8 +88,10 @@ impl Accountable for ReadWriteDataOutput {
 impl FstReader for ReadWriteDataOutput {
     type FstBytesReader = BytesReaderEnum;
 
-    fn get_reverse_bytes_reader(&mut self) -> Result<Self::FstBytesReader> {
-        self.init_byte_buffer();
+    fn get_reverse_bytes_reader(&self) -> Result<Self::FstBytesReader> {
+        if !self.finish {
+            return Err(LuceneError::illegal_state("Call ReadWriteDataOutput#init_byte_buffer before Call ReadWriteDataOutput#get_reverse_bytes_reader"));
+        }
         if self.byte_buffers.is_some() && self.byte_buffer.is_none() {
             let buffers = self.byte_buffers.as_ref().unwrap().clone();
             Ok(BytesReaderEnum::Impl(BytesReaderImpl::new(

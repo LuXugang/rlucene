@@ -31,7 +31,7 @@ pub struct Util;
 impl Util {
     /// Looks up the output for this input, or null if the input is not
     /// accepted.
-    pub fn get_ints<O, F, AV>(fst: &mut FST<O, F>, input: &IntsRef<AV>) -> Result<Option<O::V>>
+    pub fn get_ints<O, F, AV>(fst: &FST<O, F>, input: &IntsRef<AV>) -> Result<Option<O::V>>
     where
         O: Outputs,
         F: FstReader,

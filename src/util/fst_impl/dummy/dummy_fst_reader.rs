@@ -31,7 +31,7 @@ impl Accountable for DummyFSTReader {
 impl FstReader for DummyFSTReader {
     type FstBytesReader = DummyBytesReader;
 
-    fn get_reverse_bytes_reader(&mut self) -> Result<Self::FstBytesReader> {
+    fn get_reverse_bytes_reader(&self) -> Result<Self::FstBytesReader> {
         Err(LuceneError::unreachable("this method should not be called"))
     }
 

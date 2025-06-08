@@ -83,7 +83,7 @@ where
     // length 1 int array; prefixLength[0] is set to the length
     // of the term prefix that matches
     pub fn run<F, AV>(
-        fst: &mut FST<O, F>,
+        fst: &FST<O, F>,
         term: &IntsRef<AV>,
         mut prefix_length: Option<&mut [i32]>,
     ) -> Result<Option<O::V>>
@@ -677,7 +677,7 @@ where
         for pair in &self.pairs {
             let term = &pair.input;
             let output =
-                FSTTester::<D, R, O, S>::run(&mut fst_enum.base.as_mut().unwrap().fst, term, None)?;
+                FSTTester::<D, R, O, S>::run(&fst_enum.base.as_mut().unwrap().fst, term, None)?;
             assert!(
                 output.is_some(),
                 "term {} is not accepted",

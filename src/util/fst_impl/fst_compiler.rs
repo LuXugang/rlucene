@@ -1050,7 +1050,7 @@ impl Accountable for NullFSTReader {
 impl FstReader for NullFSTReader {
     type FstBytesReader = DummyBytesReader;
 
-    fn get_reverse_bytes_reader(&mut self) -> Result<Self::FstBytesReader> {
+    fn get_reverse_bytes_reader(&self) -> Result<Self::FstBytesReader> {
         Err(LuceneError::unsupported_operation(
             "FST was not constructed with getOnHeapReaderWriter()".to_string(),
         ))
@@ -1256,10 +1256,10 @@ where
 {
     type FstBytesReader = BytesReaderEnum;
 
-    fn get_reverse_bytes_reader(&mut self) -> Result<Self::FstBytesReader> {
+    fn get_reverse_bytes_reader(&self) -> Result<Self::FstBytesReader> {
         match self {
             DataOutputEnum::FromDir(_) => Err(LuceneError::unsupported_operation("".to_string())),
-            DataOutputEnum::ReadWriter(ref mut rw) => {
+            DataOutputEnum::ReadWriter(ref rw) => {
                 let reader = rw.get_reverse_bytes_reader()?;
                 Ok(reader)
             },

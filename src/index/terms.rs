@@ -40,17 +40,12 @@ pub trait Terms {
         unimplemented!()
     }
 
-    type TermsEnum<'a>: TermsEnum
-    where
-        Self: 'a;
-
+    type TermsEnum: TermsEnum;
     /// Returns an iterator that will step through all terms. This method will
     /// not return None.
-    fn iterator(&self) -> Result<Self::TermsEnum<'_>>;
+    fn iterator(&self) -> Result<Self::TermsEnum>;
 
-    type IntersectIter<'a>: TermsEnum + 'a
-    where
-        Self: 'a;
+    type IntersectIter: TermsEnum;
     /// Returns a [`TermsEnum`] that iterates over all terms and documents
     /// accepted by the given [`CompiledAutomaton`].
     ///
@@ -70,13 +65,16 @@ pub trait Terms {
         &self,
         compiled: &mut CompiledAutomaton,
         start_term: Option<BytesRef<Vec<u8>>>,
-    ) -> Result<Self::IntersectIter<'_>>;
+    ) -> Result<Self::IntersectIter>;
 
     fn default_intersect(
         &self,
         compiled: &mut CompiledAutomaton,
         start_term: Option<BytesRef<Vec<u8>>>,
-    ) -> Result<FilteredTermsEnum<Self::TermsEnum<'_>, AutomatonTermsEnum>> {
+    ) -> Result<FilteredTermsEnum<Self::TermsEnum, AutomatonTermsEnum>>
+    where
+        Self: Sized,
+    {
         let terms_enum = self.iterator()?;
         let automaton_terms_enum = if start_term.is_some() {
             AutomatonTermsEnum::new_with_start_term(compiled, start_term)?

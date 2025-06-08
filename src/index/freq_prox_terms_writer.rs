@@ -259,13 +259,9 @@ where
     T: Terms,
     D: DocMap,
 {
-    type TermsEnum<'a>
-        = SortingTermsEnum<T::TermsEnum<'a>, D>
-    where
-        D: 'a,
-        T: 'a;
+    type TermsEnum = SortingTermsEnum<T::TermsEnum, D>;
 
-    fn iterator(&self) -> Result<Self::TermsEnum<'_>> {
+    fn iterator(&self) -> Result<Self::TermsEnum> {
         let base = FilterTermsEnum::new(self.base.iterator()?);
         Ok(SortingTermsEnum::new(
             base,
@@ -274,18 +270,13 @@ where
         ))
     }
 
-    type IntersectIter<'a>
-        = SortingTermsEnum<FilteredTermsEnum<T::TermsEnum<'a>, AutomatonTermsEnum>, D>
-    where
-        <T as Terms>::TermsEnum<'a>: 'a,
-        D: 'a,
-        T: 'a;
+    type IntersectIter = SortingTermsEnum<FilteredTermsEnum<T::TermsEnum, AutomatonTermsEnum>, D>;
 
     fn intersect(
         &self,
         compiled: &mut CompiledAutomaton,
         start_term: Option<BytesRef<Vec<u8>>>,
-    ) -> Result<Self::IntersectIter<'_>> {
+    ) -> Result<Self::IntersectIter> {
         let base = FilterTermsEnum::new(self.base.intersect(compiled, start_term)?);
         Ok(SortingTermsEnum::new(
             base,

@@ -41,7 +41,7 @@ where
     O: Outputs,
     F: FstReader,
 {
-    pub(crate) fn new(mut fst: FST<O, F>) -> Result<Self> {
+    pub(crate) fn new(fst: FST<O, F>) -> Result<Self> {
         let fst_reader = fst.get_bytes_reader()?;
         let no_output = fst.outputs.get_no_output();
         let mut arcs = vec![None; 10];

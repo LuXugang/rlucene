@@ -336,13 +336,13 @@ where
 
         Ok(())
     }
-    pub fn write<'a, F, N>(&mut self, fields: &'a mut F, norms: &mut N) -> Result<()>
+    pub fn write<F, N>(&mut self, fields: &mut F, norms: &mut N) -> Result<()>
     where
         F: Fields,
         F::Terms: Terms,
         PW: PostingsWriterBase<NumericDocValues = N::NumericDocValues>,
         N: NormsProducer,
-        for<'b> <F::Terms as Terms>::TermsEnum<'b>: TermsEnum<PostingsEnum = PW::PostingsEnum>,
+        <F::Terms as Terms>::TermsEnum: TermsEnum<PostingsEnum = PW::PostingsEnum>,
     {
         let mut last_field: Option<String> = None;
         // TODO: could we avoid copy here?>

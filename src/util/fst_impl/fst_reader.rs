@@ -26,7 +26,7 @@ pub trait FstReader: Accountable {
     ///
     /// # Returns
     /// The reverse `BytesReader`.
-    fn get_reverse_bytes_reader(&mut self) -> Result<Self::FstBytesReader>;
+    fn get_reverse_bytes_reader(&self) -> Result<Self::FstBytesReader>;
 
     /// Write this FST to another `DataOutput`.
     ///

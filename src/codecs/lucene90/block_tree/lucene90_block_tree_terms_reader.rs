@@ -57,7 +57,7 @@ where
     I: IndexInput,
     P: PostingsReaderBase,
 {
-    terms_reader: Rc<RefCell<TermsReader<I, P>>>,
+    terms_reader: Rc<TermsReader<I, P>>,
     // Open input to the terms index file (_X.tip)
     index_in: Rc<RefCell<I>>,
     field_map: HashMap<i32, FieldReader<I, P>>,
@@ -140,12 +140,14 @@ where
         let mut prior_error = None;
         let mut meta_in = state.directory.lock().open_checksum_input(&meta_name)?;
         let index_in = Rc::new(RefCell::new(index_in));
-        let terms_reader = Rc::new(RefCell::new(TermsReader {
+        let mut terms_reader = TermsReader {
             terms_in,
             postings_reader,
             segment,
             version,
-        }));
+        };
+        CodecUtil::retrieve_checksum_with_expected(&mut terms_reader.terms_in, terms_length)?;
+        let terms_reader = Rc::new(terms_reader);
         let result: Result<()> = (|| {
             CodecUtil::check_index_header(
                 &mut meta_in,
@@ -155,10 +157,7 @@ where
                 state.segment_info.get_id(),
                 &state.segment_suffix,
             )?;
-            terms_reader
-                .borrow_mut()
-                .postings_reader
-                .init(&mut meta_in, state)?;
+            terms_reader.postings_reader.init(&mut meta_in, state)?;
 
             let num_fields = meta_in.read_vint()?;
             if num_fields < 0 {
@@ -202,7 +201,6 @@ where
 
                 if num_terms == 1 {
                     assert_eq!(max_term, min_term);
-                    // save heap for edge case of a single term only so min == max
                     max_term = min_term.clone();
                 }
 
@@ -276,10 +274,6 @@ where
         // At this point the checksum of the meta file has been verified so the lengths
         // are likely correct
         CodecUtil::retrieve_checksum_with_expected(&mut *index_in.borrow_mut(), index_length)?;
-        CodecUtil::retrieve_checksum_with_expected(
-            &mut terms_reader.borrow_mut().terms_in,
-            terms_length,
-        )?;
 
         let field_list = lucene90_bttr_util::sort_field_names(&field_map, &state.field_infos)?;
         Ok(Lucene90BlockTreeTermsReader {
@@ -325,7 +319,7 @@ where
             f,
             "Lucene90BlockTreeTermsReader(fields={}, delegate={})",
             self.field_map.len(),
-            self.terms_reader.borrow().postings_reader
+            self.terms_reader.postings_reader
         )
     }
 }

@@ -812,7 +812,7 @@ where
         }
     }
     /// Returns a [`BytesReader`] for this FST, positioned at position 0.
-    pub fn get_bytes_reader(&mut self) -> Result<F::FstBytesReader> {
+    pub fn get_bytes_reader(&self) -> Result<F::FstBytesReader> {
         self.fst_reader.get_reverse_bytes_reader()
     }
 }
@@ -941,6 +941,7 @@ pub mod fst_util {
             empty_bytes.copy_bytes(meta_in, num_bytes as i64)?;
             empty_bytes.freeze()?;
 
+            empty_bytes.init_byte_buffer();
             // De-serialize empty-string output:
             let mut reader = empty_bytes.get_reverse_bytes_reader()?;
             // NoOutputs uses 0 bytes when writing its output,
@@ -2100,7 +2101,7 @@ mod tests {
     }
 
     fn check_stop_nodes<F>(
-        fst: &mut FST<PositiveIntOutputs, F>,
+        fst: &FST<PositiveIntOutputs, F>,
         outputs: PositiveIntOutputs,
     ) -> Result<()>
     where

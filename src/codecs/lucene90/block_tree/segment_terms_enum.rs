@@ -38,7 +38,7 @@ use crate::util::fst_impl::reverse_random_access_reader::ReverseRandomAccessRead
 use crate::util::ToInt;
 
 /// Iterates through terms in this field.
-pub struct SegmentTermsEnum<'a, I, P>
+pub struct SegmentTermsEnum<I, P>
 where
     I: IndexInput,
     P: PostingsReaderBase,
@@ -52,7 +52,7 @@ where
     pub(crate) current_frame_idx: usize,
     pub(crate) static_frame_idx: usize,
     pub(crate) term_exists: bool,
-    pub(crate) fr: &'a FieldReader<I, P>,
+    pub(crate) fr: FieldReader<I, P>,
     target_before_current_length: i32,
     output_accumulator: OutputAccumulator,
     valid_index_prefix: i32,
@@ -62,15 +62,15 @@ where
     arcs: Vec<Arc<BytesRef<Rc<Vec<u8>>>>>,
 }
 
-impl<'a, I, P> SegmentTermsEnum<'a, I, P>
+impl<I, P> SegmentTermsEnum<I, P>
 where
     I: IndexInput,
     P: PostingsReaderBase,
 {
-    pub fn new(fr: &'a FieldReader<I, P>) -> Result<BaseTermsEnum<Self>> {
+    pub fn new(fr: FieldReader<I, P>) -> Result<BaseTermsEnum<Self>> {
         // Construct SegmentTerms first
         let fst_reader = match &fr.index {
-            Some(index) => Some(index.borrow_mut().get_bytes_reader()?),
+            Some(index) => Some(index.get_bytes_reader()?),
             None => None,
         };
 
@@ -78,16 +78,12 @@ where
         let mut arcs = vec![v; 1];
         {
             if fr.index.is_some() {
-                fr.index
-                    .as_ref()
-                    .unwrap()
-                    .borrow()
-                    .get_first_arc(&mut arcs[0]);
+                fr.index.as_ref().unwrap().get_first_arc(&mut arcs[0]);
                 debug_assert!(arcs[0].is_final())
             }
         }
         // Create static_frame
-        let static_frame = SegmentTermsEnumFrame::new(-1, fr)?;
+        let static_frame = SegmentTermsEnumFrame::new(-1, &fr)?;
 
         // Build Frame
         let stack = Vec::new();
@@ -113,7 +109,7 @@ where
     }
     pub(crate) fn init_index_input(&mut self) -> Result<()> {
         if self.input.is_none() {
-            self.input = Some(self.fr.parent.borrow().terms_in.try_clone()?);
+            self.input = Some(self.fr.parent.terms_in.try_clone()?);
         }
         Ok(())
     }
@@ -122,7 +118,7 @@ where
             let new_len = ArrayUtil::oversize(ord + 1, 0);
 
             for i in self.stack.len()..new_len {
-                let frame = SegmentTermsEnumFrame::new(i as i32, self.fr)?;
+                let frame = SegmentTermsEnumFrame::new(i as i32, &self.fr)?;
                 self.stack.push(frame);
             }
             if self.current_frame_idx == self.static_frame_idx {
@@ -333,7 +329,7 @@ where
                 let arc = &mut self.arcs[0];
                 self.target_before_current_length = -1;
 
-                self.fr.index.as_ref().unwrap().borrow().get_first_arc(arc);
+                self.fr.index.as_ref().unwrap().get_first_arc(arc);
                 debug_assert!(arc.is_final());
 
                 self.output_accumulator.push(arc.output());
@@ -354,16 +350,18 @@ where
             let target_label = target.bytes[target.offset + target_upto] as i32;
 
             let next_arc_idx = self.get_arc(1 + target_upto);
-            let fr_index = self.fr.index.as_ref().unwrap().borrow();
-            let reader = self.fst_reader.as_mut().unwrap();
+            let v = {
+                let fr_index = self.fr.index.as_ref().unwrap();
+                let reader = self.fst_reader.as_mut().unwrap();
 
-            let v = fr_index.find_target_arc(
-                target_label,
-                // clone here is acceptable
-                &self.arcs[arc_index].clone(),
-                &mut self.arcs[next_arc_idx],
-                reader,
-            )?;
+                fr_index.find_target_arc(
+                    target_label,
+                    // clone here is acceptable
+                    &self.arcs[arc_index].clone(),
+                    &mut self.arcs[next_arc_idx],
+                    reader,
+                )?
+            };
 
             if v.is_none() {
                 // index exhausted
@@ -463,7 +461,7 @@ where
     }
 }
 
-impl<'a, I, P> BytesRefIterator for SegmentTermsEnum<'a, I, P>
+impl<I, P> BytesRefIterator for SegmentTermsEnum<I, P>
 where
     I: IndexInput,
     P: PostingsReaderBase,
@@ -473,7 +471,7 @@ where
         if input_none {
             let arc = if let Some(index) = self.fr.index.as_ref() {
                 let arc = &mut self.arcs[0];
-                index.borrow().get_first_arc(arc);
+                index.get_first_arc(arc);
                 debug_assert!(arc.is_final());
                 Some(0)
             } else {
@@ -589,7 +587,7 @@ where
     }
 }
 
-impl<I, P> TermsEnum for SegmentTermsEnum<'_, I, P>
+impl<I, P> TermsEnum for SegmentTermsEnum<I, P>
 where
     I: IndexInput,
     P: PostingsReaderBase,
@@ -693,7 +691,7 @@ where
             self.target_before_current_length = -1;
             arc_index = 0;
             let arc = &mut self.arcs[arc_index];
-            self.fr.index.as_ref().unwrap().borrow().get_first_arc(arc);
+            self.fr.index.as_ref().unwrap().get_first_arc(arc);
 
             debug_assert!(arc.is_final());
 
@@ -712,17 +710,19 @@ where
             let target_label = target.bytes[target.offset + target_upto] as i32;
 
             next_arc_idx = self.get_arc(1 + target_upto);
-            let fr_index = self.fr.index.as_ref().unwrap().borrow();
+            let v = {
+                let fr_index = self.fr.index.as_ref().unwrap();
 
-            let reader = self.fst_reader.as_mut().unwrap();
+                let reader = self.fst_reader.as_mut().unwrap();
 
-            let v = fr_index.find_target_arc(
-                target_label,
-                // clone here is acceptable
-                &self.arcs[arc_index].clone(),
-                &mut self.arcs[next_arc_idx],
-                reader,
-            )?;
+                fr_index.find_target_arc(
+                    target_label,
+                    // clone here is acceptable
+                    &self.arcs[arc_index].clone(),
+                    &mut self.arcs[next_arc_idx],
+                    reader,
+                )?
+            };
 
             if v.is_none() {
                 let current_frame = if self.current_frame_idx == self.static_frame_idx {
@@ -877,7 +877,7 @@ where
         SegmentTermsEnumFrame::decode_meta_data(self.current_frame_idx, self)?;
 
         let field_info = &self.fr.field_info;
-        let postings_reader = &mut self.fr.parent.borrow_mut().postings_reader;
+        let postings_reader = &self.fr.parent.postings_reader;
         let current_frame = if self.current_frame_idx == self.static_frame_idx {
             &mut self.static_frame
         } else {
@@ -901,7 +901,7 @@ where
             &mut self.stack[self.current_frame_idx]
         };
         let field_info = &self.fr.field_info;
-        let postings_reader = &mut self.fr.parent.borrow_mut().postings_reader;
+        let postings_reader = &self.fr.parent.postings_reader;
 
         let result = postings_reader.impacts(field_info, &current_frame.state, flags)?;
         Ok(result)

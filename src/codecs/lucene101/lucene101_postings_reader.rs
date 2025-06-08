@@ -234,7 +234,7 @@ impl<I> PostingsReaderBase for Lucene101PostingsReader<I>
 where
     I: IndexInput,
 {
-    fn init<D>(&mut self, terms_in: &mut impl IndexInput, state: &SegmentReadState<D>) -> Result<()>
+    fn init<D>(&self, terms_in: &mut impl IndexInput, state: &SegmentReadState<D>) -> Result<()>
     where
         D: Directory,
     {

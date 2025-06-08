@@ -104,7 +104,7 @@ impl SegmentTermsEnumFrame {
         I: IndexInput,
         P: PostingsReaderBase,
     {
-        let mut state = fr.parent.borrow().postings_reader.new_term_state()?;
+        let mut state = fr.parent.postings_reader.new_term_state()?;
         state.get_block_term_state().total_term_freq = -1;
         Ok(Self {
             ord,
@@ -630,7 +630,7 @@ impl SegmentTermsEnumFrame {
                 }
             }
 
-            ste.fr.parent.borrow_mut().postings_reader.decode_term(
+            ste.fr.parent.postings_reader.decode_term(
                 &mut frame.bytes_reader,
                 &ste.fr.field_info,
                 &mut frame.state,

@@ -40,11 +40,7 @@ use crate::util::error::lucene_error::Result;
 pub trait PostingsReaderBase: Display {
     /// Performs any initialization, such as reading and verifying the header
     /// from the provided terms dictionary [`IndexInput`].
-    fn init<D>(
-        &mut self,
-        terms_in: &mut impl IndexInput,
-        state: &SegmentReadState<D>,
-    ) -> Result<()>
+    fn init<D>(&self, terms_in: &mut impl IndexInput, state: &SegmentReadState<D>) -> Result<()>
     where
         D: Directory;
 

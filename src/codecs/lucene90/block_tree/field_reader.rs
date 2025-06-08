@@ -55,13 +55,12 @@ where
     pub(crate) doc_count: i32,
     pub(crate) root_block_fp: i64,
     pub(crate) root_code: BytesRef<Rc<Vec<u8>>>,
+    // TODO: 这里可以改成 BytesRef<Rc<Vec<u8>>>
     pub(crate) min_term: BytesRef<Vec<u8>>,
+    // TODO: 这里可以改成 BytesRef<Rc<Vec<u8>>>
     pub(crate) max_term: BytesRef<Vec<u8>>,
-    pub(crate) parent: Rc<RefCell<TermsReader<I, P>>>,
-    // FieldReader needs to be held as an immutable reference in SegmentTermsEnum, but
-    // FST#get_bytes_reader requires a mutable borrow. Therefore, we define `index` with interior
-    // mutability by `RefCell`.
-    pub(crate) index: Option<RefCell<FST<ByteSequenceOutputs, OffHeapFSTStore<I>>>>,
+    pub(crate) parent: Rc<TermsReader<I, P>>,
+    pub(crate) index: Option<Rc<FST<ByteSequenceOutputs, OffHeapFSTStore<I>>>>,
 }
 impl<I, P> FieldReader<I, P>
 where
@@ -70,7 +69,7 @@ where
 {
     #[allow(clippy::too_many_arguments)]
     pub fn new<I1: IndexInput>(
-        parent: Rc<RefCell<TermsReader<I, P>>>,
+        parent: Rc<TermsReader<I, P>>,
         field_info: Rc<FieldInfo>,
         num_terms: i64,
         root_code: BytesRef<Vec<u8>>,
@@ -104,7 +103,7 @@ where
             root_code: BytesRef::new(),
             min_term,
             max_term,
-            index: Some(RefCell::new(index)),
+            index: Some(Rc::new(index)),
         };
         // ownership to ByteArrayDataInput
         let mut input =
@@ -131,7 +130,7 @@ where
         Ok(v)
     }
     pub(crate) fn read_vlong_output(&self, input: &mut impl DataInput) -> Result<i64> {
-        let version = self.parent.borrow().version;
+        let version = self.parent.version;
         if version >= lucene90_bttr_util::VERSION_MSB_VLONG_OUTPUT {
             field_reader_util::read_msb_vlong(input)
         } else {
@@ -144,28 +143,22 @@ where
     I: IndexInput,
     P: PostingsReaderBase,
 {
-    type TermsEnum<'a>
-        = BaseTermsEnum<SegmentTermsEnum<'a, I, P>>
-    where
-        Self: 'a;
+    type TermsEnum = BaseTermsEnum<SegmentTermsEnum<I, P>>;
 
-    fn iterator(&self) -> Result<Self::TermsEnum<'_>> {
-        SegmentTermsEnum::new(self)
+    fn iterator(&self) -> Result<Self::TermsEnum> {
+        SegmentTermsEnum::new(self.clone())
     }
 
-    type IntersectIter<'a>
-        = FilteredTermsEnum<Self::TermsEnum<'a>, AutomatonTermsEnum>
+    type IntersectIter
+        = FilteredTermsEnum<Self::TermsEnum, AutomatonTermsEnum>
     where
-        Self::TermsEnum<'a>: BytesRefIterator,
-        AutomatonTermsEnum: FilteredTermsEnumBase,
-        I: 'a,
-        P: 'a;
-
+        Self::TermsEnum: BytesRefIterator,
+        AutomatonTermsEnum: FilteredTermsEnumBase;
     fn intersect(
         &self,
         compiled: &mut CompiledAutomaton,
         start_term: Option<BytesRef<Vec<u8>>>,
-    ) -> Result<Self::IntersectIter<'_>> {
+    ) -> Result<Self::IntersectIter> {
         self.default_intersect(compiled, start_term)
     }
 
@@ -240,12 +233,34 @@ where
         write!(
             f,
             "BlockTreeTerms(seg={} terms={} postings={} positions={} docs={})",
-            self.parent.borrow().segment,
+            self.parent.segment,
             self.num_terms,
             self.sum_doc_freq,
             self.sum_total_term_freq,
             self.doc_count
         )
+    }
+}
+impl<I, P> Clone for FieldReader<I, P>
+where
+    I: IndexInput,
+    P: PostingsReaderBase,
+{
+    // used to init SegmentTermsEnum
+    fn clone(&self) -> Self {
+        Self {
+            num_terms: self.num_terms,
+            field_info: Rc::clone(&self.field_info),
+            sum_total_term_freq: self.sum_total_term_freq,
+            sum_doc_freq: self.sum_doc_freq,
+            doc_count: self.doc_count,
+            root_block_fp: self.root_block_fp,
+            root_code: self.root_code.clone(),
+            min_term: self.min_term.clone(),
+            max_term: self.max_term.clone(),
+            parent: Rc::clone(&self.parent),
+            index: Some(Rc::clone(self.index.as_ref().unwrap())),
+        }
     }
 }
 

@@ -73,14 +73,14 @@ impl Accountable for OnHeapFSTStore {
 impl FstReader for OnHeapFSTStore {
     type FstBytesReader = FstBytesReaderEnum;
 
-    fn get_reverse_bytes_reader(&mut self) -> Result<Self::FstBytesReader> {
+    fn get_reverse_bytes_reader(&self) -> Result<Self::FstBytesReader> {
         if let Some(bytes_array) = &self.bytes_array {
             return Ok(FstBytesReaderEnum::Reverse(ReverseBytesReader::new(
                 bytes_array.clone(),
             )));
         }
 
-        if let Some(data_output) = &mut self.data_output {
+        if let Some(data_output) = &self.data_output {
             Ok(FstBytesReaderEnum::Bytes(
                 data_output.get_reverse_bytes_reader()?,
             ))

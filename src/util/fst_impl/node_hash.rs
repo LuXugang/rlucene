@@ -689,24 +689,16 @@ mod tests {
 
     use rand::Rng;
 
-    use crate::store::dummy::dummy_directory::DummyDirectory;
     use crate::test::util::lucene_test_case::{at_least, random};
     use crate::util::error::lucene_error::Result;
-    use crate::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs;
-    use crate::util::fst_impl::fst::InputType;
-    use crate::util::fst_impl::fst_compiler::DataOutputEnum;
+
     use crate::util::fst_impl::node_hash::PagedGrowableHash;
-    use crate::util::fst_impl::read_write_data_output::ReadWriteDataOutput;
 
     #[allow(dead_code)]
     struct TestNodeHash;
     #[test]
     fn test_copy_fallback_node_bytes() -> Result<()> {
         let mut random = random();
-        let data_output: DataOutputEnum<DummyDirectory> =
-            DataOutputEnum::ReadWriter(ReadWriteDataOutput::new(10)?);
-        let index_type = InputType::Byte1;
-        let outputs = ByteSequenceOutputs;
         // Create primary and fallback hash tables
         let mut primary_hash_table: PagedGrowableHash<Rc<i64>> = PagedGrowableHash::new()?;
         let mut fallback_hash_table = PagedGrowableHash::new()?;

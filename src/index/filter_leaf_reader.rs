@@ -92,28 +92,23 @@ where
         todo!()
     }
 
-    type TermsEnum<'a>
-        = T::TermsEnum<'a>
-    where
-        T: 'a;
+    type TermsEnum = T::TermsEnum;
 
-    fn iterator(&self) -> Result<Self::TermsEnum<'_>> {
+    fn iterator(&self) -> Result<Self::TermsEnum> {
         self.inner.iterator()
     }
 
-    type IntersectIter<'a>
-        = FilteredTermsEnum<Self::TermsEnum<'a>, AutomatonTermsEnum>
+    type IntersectIter
+        = FilteredTermsEnum<Self::TermsEnum, AutomatonTermsEnum>
     where
-        Self::TermsEnum<'a>: BytesRefIterator,
-        AutomatonTermsEnum: FilteredTermsEnumBase,
-        <T as Terms>::TermsEnum<'a>: 'a,
-        T: 'a;
+        Self::TermsEnum: BytesRefIterator,
+        AutomatonTermsEnum: FilteredTermsEnumBase;
 
     fn intersect(
         &self,
         compiled: &mut CompiledAutomaton,
         start_term: Option<BytesRef<Vec<u8>>>,
-    ) -> Result<Self::IntersectIter<'_>> {
+    ) -> Result<Self::IntersectIter> {
         self.default_intersect(compiled, start_term)
     }
 
