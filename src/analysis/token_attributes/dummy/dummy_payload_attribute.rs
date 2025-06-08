@@ -14,7 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod dummy;
-pub mod offset_attribute;
-pub mod payload_attribute;
-pub mod term_frequency_attribute;
+use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
+use crate::index::BytesRef;
+use crate::util::attribute::Attribute;
+
+pub struct DummyPayloadAttribute;
+
+impl Attribute for DummyPayloadAttribute {}
+
+impl PayloadAttribute for DummyPayloadAttribute {
+    fn get_payload(&self) -> &BytesRef<Vec<u8>> {
+        todo!()
+    }
+
+    fn set_payload(&mut self, payload: BytesRef<Vec<u8>>) {
+        todo!()
+    }
+}

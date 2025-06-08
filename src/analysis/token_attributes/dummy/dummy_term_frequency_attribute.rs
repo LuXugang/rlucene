@@ -14,7 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod dummy;
-pub mod offset_attribute;
-pub mod payload_attribute;
-pub mod term_frequency_attribute;
+use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
+use crate::util::attribute::Attribute;
+
+pub struct DummyTermFrequencyAttribute;
+
+impl Attribute for DummyTermFrequencyAttribute {}
+
+impl TermFrequencyAttribute for DummyTermFrequencyAttribute {
+    fn set_term_frequency(&mut self, term_frequency: i32) {
+        todo!()
+    }
+
+    fn get_term_frequency(&self) -> i32 {
+        todo!()
+    }
+}

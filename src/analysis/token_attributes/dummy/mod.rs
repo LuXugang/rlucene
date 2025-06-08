@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod dummy;
-pub mod offset_attribute;
-pub mod payload_attribute;
-pub mod term_frequency_attribute;
+pub mod dummy_offset_attribute;
+pub mod dummy_payload_attribute;
+pub mod dummy_term_frequency_attribute;

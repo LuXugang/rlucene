@@ -14,7 +14,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod dummy;
-pub mod offset_attribute;
-pub mod payload_attribute;
-pub mod term_frequency_attribute;
+use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
+use crate::util::attribute::Attribute;
+
+pub struct DummyOffsetAttribute;
+
+impl Attribute for DummyOffsetAttribute {}
+
+impl OffsetAttribute for DummyOffsetAttribute {
+    fn start_offset(&self) -> i32 {
+        todo!()
+    }
+
+    fn set_offset(
+        &mut self,
+        start_offset: i32,
+        end_offset: i32,
+    ) -> crate::util::error::lucene_error::Result<()> {
+        todo!()
+    }
+
+    fn end_offset(&self) -> i32 {
+        todo!()
+    }
+}
