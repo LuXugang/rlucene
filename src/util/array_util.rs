@@ -216,6 +216,9 @@ impl ArrayUtil {
     pub fn grow_i32(vec: &mut Vec<i32>, min_size: usize) -> Result<()> {
         Self::grow_in_range(vec, min_size, i32::MAX as usize)
     }
+    pub fn grow_usize(vec: &mut Vec<usize>, min_size: usize) -> Result<()> {
+        Self::grow_in_range(vec, min_size, i32::MAX as usize)
+    }
     /// Returns a vector whose size is at least `min_size`, generally
     /// over-allocating exponentially, and it will not copy the original
     /// data to the new vector.

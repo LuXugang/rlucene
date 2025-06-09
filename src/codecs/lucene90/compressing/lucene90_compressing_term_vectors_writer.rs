@@ -15,10 +15,15 @@
  * limitations under the License.
  */
 use crate::codecs::compression::compression_mode::{CompressionModeEnum, CompressorEnum};
+use crate::codecs::compression::compressor::Compressor;
 use crate::codecs::lucene90::fields_index_writer::FieldsIndexWriter;
+use crate::codecs::term_vectors_writer::TermVectorsWriter;
+use crate::codecs::CodecUtil;
+use crate::index::field_info::FieldInfo;
 use crate::index::BytesRef;
 use crate::store::directory::Directory;
-use crate::store::{ByteBuffersDataOutput, DataOutput};
+use crate::store::{ByteBuffersDataOutput, DataInput, DataOutput, IndexOutput};
+use crate::util::accountable::Accountable;
 use crate::util::array_util::ArrayUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::packed::abstract_block_packed_writer::AbstractBlockPackedWriter;
@@ -26,6 +31,7 @@ use crate::util::packed::block_packed_writer::BlockPackedWriter;
 use crate::util::packed::direct_writer::{direct_writer_util, DirectWriter};
 use crate::util::packed::Format::Packed;
 use crate::util::packed::{PackedImpl, PackedInts, Writer};
+use crate::util::{SliceCopyOps, StringHelper};
 use once_cell::sync::Lazy;
 use std::collections::{HashSet, VecDeque};
 
@@ -36,7 +42,7 @@ pub(crate) static FLAGS_BITS: Lazy<i32> = Lazy::new(|| {
     )
     .unwrap()
 });
-
+/// [`TermVectorsWriter`] for [`Lucene90CompressingTermVectorsFormat`](crate::codecs::lucene90::Lucene90_compressing_term_vectors_format::Lucene90CompressingTermVectorsFormat).
 pub struct Lucene90CompressingTermVectorsWriter<D>
 where
     D: Directory,
@@ -111,6 +117,69 @@ where
         self.term_suffixes.size() >= self.chunk_size as i64
             || self.pending_docs.len() >= self.max_docs_per_chunk as usize
     }
+    fn flush(&mut self, force: bool) -> Result<()> {
+        debug_assert_ne!(force, self.trigger_flush());
+
+        let chunk_docs = self.pending_docs.len();
+        debug_assert!(chunk_docs > 0);
+        debug_assert!(chunk_docs <= i32::MAX as usize);
+
+        self.num_chunks += 1;
+        if force {
+            // incomplete: we had to force this flush
+            self.num_dirty_chunks += 1;
+            self.num_dirty_docs += chunk_docs as i64;
+        }
+
+        // write the index file
+        self.index_writer
+            .write_index(chunk_docs as i32, self.vectors_stream.get_file_pointer())?;
+
+        let doc_base = self.num_docs - chunk_docs as i32;
+        self.vectors_stream.write_vint(doc_base)?;
+
+        let dirty_bit = if force { 1 } else { 0 };
+        self.vectors_stream
+            .write_vint(((chunk_docs as i32) << 1) | dirty_bit)?;
+        // total number of fields of the chunk
+        let total_fields = self.flush_num_fields(chunk_docs)?;
+
+        if total_fields > 0 {
+            // unique field numbers (sorted)
+            let field_nums = self.flush_field_nums()?;
+            // offsets in the array of unique field numbers
+            self.flush_fields(total_fields, &field_nums)?;
+            // flags (does the field have positions, offsets, payloads?)
+            self.flush_flags(total_fields, &field_nums)?;
+            // number of terms of each field
+            self.flush_num_terms(total_fields)?;
+            // prefix and suffix lengths for each field
+            self.flush_term_lengths()?;
+            // term freqs - 1 (because termFreq is always >=1) for each term
+            self.flush_term_freqs()?;
+            // positions for all terms, when enabled
+            self.flush_positions()?;
+            // offsets for all terms, when enabled
+            self.flush_offsets(&field_nums)?;
+            // payload lengths for all terms, when enabled
+            self.flush_payload_lengths()?;
+
+            // compress terms and payloads and write them to the output
+            // using ByteBuffersDataInput reduce memory copy
+            let mut input = self.term_suffixes.get_data_input();
+            self.compressor
+                .compress(&mut input, &mut self.vectors_stream)?;
+        }
+
+        // reset state
+        self.pending_docs.clear();
+        self.cur_doc = 0;
+        self.cur_field = 0;
+        self.term_suffixes.reset();
+
+        Ok(())
+    }
+
     fn flush_num_fields(&mut self, chunk_docs: usize) -> Result<i32> {
         if chunk_docs == 1 {
             let num_fields = self.pending_docs.front().unwrap().num_fields;
@@ -142,7 +211,7 @@ where
         field_nums.sort_unstable();
 
         let num_distinct_fields = field_nums.len();
-        assert!(num_distinct_fields > 0);
+        debug_assert!(num_distinct_fields > 0);
 
         let max_field_num = field_nums[num_distinct_fields - 1];
         let bits_required = PackedInts::bits_required(max_field_num as i64)?;
@@ -513,6 +582,276 @@ where
         }
 
         self.writer.finish(&mut self.vectors_stream)
+    }
+}
+
+impl<D> Accountable for Lucene90CompressingTermVectorsWriter<D>
+where
+    D: Directory,
+{
+    fn ram_bytes_used(&self) -> Result<i64> {
+        // TODO: memory calculation not implemented
+        Ok(0)
+    }
+}
+
+impl<D> TermVectorsWriter for Lucene90CompressingTermVectorsWriter<D>
+where
+    D: Directory,
+{
+    fn start_document(&mut self, num_vector_fields: i32) -> Result<()> {
+        self.cur_doc = self.add_doc_data(num_vector_fields);
+        Ok(())
+    }
+
+    fn finish_document(&mut self) -> Result<()> {
+        // append the payload bytes of the doc after its terms
+        self.payload_bytes.copy_to(&mut self.term_suffixes)?;
+        self.payload_bytes.reset();
+        self.num_docs += 1;
+
+        if self.trigger_flush() {
+            self.flush(false)?;
+        }
+
+        self.cur_doc = 0;
+
+        Ok(())
+    }
+
+    fn start_field(
+        &mut self,
+        field_info: &FieldInfo,
+        num_terms: usize,
+        positions: bool,
+        offsets: bool,
+        payloads: bool,
+    ) -> Result<()> {
+        self.cur_field = self.pending_docs[self.cur_doc].add_field(
+            field_info.number,
+            num_terms,
+            positions,
+            offsets,
+            payloads,
+        );
+        self.last_term.length = 0;
+        Ok(())
+    }
+
+    fn finish_field(&mut self) -> Result<()> {
+        self.cur_field = 0;
+        Ok(())
+    }
+
+    fn start_term(&mut self, term: &BytesRef<Vec<u8>>, freq: i32) -> Result<()> {
+        debug_assert!(freq >= 1);
+
+        let prefix: usize = if self.last_term.length == 0 {
+            0
+        } else {
+            StringHelper::bytes_difference(&self.last_term, term)? as usize
+        };
+
+        let suffix_len = term.length - prefix;
+        debug_assert!(suffix_len <= i32::MAX as usize);
+
+        let cur_field = match self.pending_docs[self.cur_doc]
+            .fields
+            .get_mut(self.cur_field)
+        {
+            Some(cur_field) => cur_field,
+            None => {
+                return Err(LuceneError::illegal_state(format!(
+                    "No field found at index {} for current doc {}",
+                    self.cur_field, self.cur_doc
+                )));
+            },
+        };
+        cur_field.add_term(freq, prefix, suffix_len);
+
+        debug_assert!((term.offset + prefix) <= i32::MAX as usize);
+        self.term_suffixes.write_bytes_range(
+            &term.bytes,
+            (term.offset + prefix) as i32,
+            suffix_len as i32,
+        )?;
+        // copy last term
+        if self.last_term.bytes.len() < term.length {
+            self.last_term.bytes = vec![0; ArrayUtil::oversize(term.length, 1)];
+        }
+
+        self.last_term.offset = 0;
+        self.last_term.length = term.length;
+        self.last_term
+            .bytes
+            .copy_from(&term.bytes[term.offset..term.offset + term.length], 0);
+
+        Ok(())
+    }
+
+    fn add_position(
+        &mut self,
+        position: i32,
+        start_offset: i32,
+        end_offset: i32,
+        payload: Option<&BytesRef<Vec<u8>>>,
+    ) -> Result<()> {
+        let cur_field = match self.pending_docs[self.cur_doc]
+            .fields
+            .get_mut(self.cur_field)
+        {
+            Some(cur_field) => cur_field,
+            None => {
+                return Err(LuceneError::illegal_state(format!(
+                    "No field found at index {} for current doc {}",
+                    self.cur_field, self.cur_doc
+                )));
+            },
+        };
+        debug_assert!(cur_field.flags != 0);
+
+        let length = end_offset - start_offset;
+        let payload_len = payload.map_or(0, |p| p.length) as i32;
+
+        cur_field.add_position(
+            position,
+            start_offset,
+            length,
+            payload_len,
+            &mut self.positions_buf,
+            &mut self.start_offsets_buf,
+            &mut self.lengths_buf,
+            &mut self.payload_lengths_buf,
+        )?;
+
+        if cur_field.has_payloads && payload.is_some() {
+            let p = payload.unwrap();
+            self.payload_bytes
+                .write_bytes_range(&p.bytes, p.offset as i32, p.length as i32)?;
+        }
+
+        Ok(())
+    }
+
+    fn finish(&mut self, num_docs: i32) -> Result<()> {
+        if !self.pending_docs.is_empty() {
+            self.flush(true)?;
+        }
+
+        if num_docs != self.num_docs {
+            return Err(LuceneError::illegal_state(format!(
+                "Wrote {} docs, finish called with numDocs={}",
+                self.num_docs, num_docs
+            )));
+        }
+
+        self.index_writer.finish(
+            num_docs,
+            self.vectors_stream.get_file_pointer(),
+            &mut self.meta_stream,
+        )?;
+
+        self.meta_stream.write_vlong(self.num_chunks)?;
+        self.meta_stream.write_vlong(self.num_dirty_chunks)?;
+        self.meta_stream.write_vlong(self.num_dirty_docs)?;
+
+        CodecUtil::write_footer(&mut self.meta_stream)?;
+        CodecUtil::write_footer(&mut self.vectors_stream)?;
+
+        Ok(())
+    }
+
+    fn add_prox(
+        &mut self,
+        num_prox: usize,
+        positions: &mut Option<impl DataInput>,
+        offsets: &mut Option<impl DataInput>,
+    ) -> Result<()> {
+        let cur_field = match self.pending_docs[self.cur_doc]
+            .fields
+            .get_mut(self.cur_field)
+        {
+            Some(cur_field) => cur_field,
+            None => {
+                return Err(LuceneError::illegal_state(format!(
+                    "No field found at index {} for current doc {}",
+                    self.cur_field, self.cur_doc
+                )));
+            },
+        };
+
+        debug_assert_eq!(cur_field.has_positions, positions.is_some());
+        debug_assert_eq!(cur_field.has_offsets, offsets.is_some());
+        if cur_field.has_payloads {
+            if let Some(positions) = positions {
+                let pos_start = cur_field.pos_start + cur_field.total_positions;
+                let len = pos_start + num_prox;
+                if len > self.positions_buf.len() {
+                    ArrayUtil::grow_i32(&mut self.positions_buf, len)?;
+                }
+
+                let mut position = 0;
+                if cur_field.has_payloads {
+                    let pay_start = cur_field.pay_start + cur_field.total_positions;
+                    let len = pay_start + num_prox;
+                    if len > self.payload_lengths_buf.len() {
+                        ArrayUtil::grow_i32(&mut self.payload_lengths_buf, len)?;
+                    }
+
+                    for i in 0..num_prox {
+                        let code = positions.read_vint()?;
+                        if (code & 1) != 0 {
+                            // This position has a payload
+                            let payload_len = positions.read_vint()?;
+                            self.payload_lengths_buf[pay_start + i] = payload_len;
+                            self.payload_bytes
+                                .copy_bytes(positions, payload_len as i64)?;
+                        } else {
+                            self.payload_lengths_buf[pay_start + i] = 0;
+                        }
+                        let code = ((code as u32) >> 1) as i32;
+                        position += code;
+                        self.payload_lengths_buf[pay_start + i] = position;
+                    }
+                } else {
+                    for i in 0..num_prox {
+                        let code = positions.read_vint()?;
+                        position += (code as u32 >> 1) as i32;
+                        self.positions_buf[pos_start + i] = position;
+                    }
+                }
+            } else {
+                Err(LuceneError::illegal_state("Positions is None"))?
+            }
+        }
+
+        if cur_field.has_offsets {
+            if let Some(offsets) = offsets {
+                let off_start = cur_field.off_start + cur_field.total_positions;
+                let len = off_start + num_prox;
+                if self.start_offsets_buf.len() < len {
+                    let new_length = ArrayUtil::oversize(len, 4);
+                    ArrayUtil::grow_exact(&mut self.start_offsets_buf, new_length)?;
+                    ArrayUtil::grow_exact(&mut self.lengths_buf, new_length)?;
+                }
+
+                let mut last_offset = 0;
+                for i in 0..num_prox {
+                    let start_offset = last_offset + offsets.read_vint()?;
+                    let end_offset = start_offset + offsets.read_vint()?;
+                    last_offset = end_offset;
+                    debug_assert!(start_offset >= 0);
+                    debug_assert!((end_offset - start_offset) >= 0);
+                    self.start_offsets_buf[off_start + i] = start_offset;
+                    self.lengths_buf[off_start + i] = end_offset - start_offset;
+                }
+            } else {
+                return Err(LuceneError::illegal_state("Offsets is None"))?;
+            }
+        }
+
+        cur_field.total_positions += num_prox;
+        Ok(())
     }
 }
 
