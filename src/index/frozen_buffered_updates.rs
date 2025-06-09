@@ -183,7 +183,6 @@ where
 {
     provider: P,
     field: Option<String>,
-    terms: Option<P::Terms>,
     terms_enum: Option<<<P as TermsProvider>::Terms as Terms>::TermsEnum>,
     postings_enum:
         Option<<<<P as TermsProvider>::Terms as Terms>::TermsEnum as TermsEnum>::PostingsEnum>,
@@ -193,6 +192,7 @@ where
     #[cfg(debug_assertions)]
     last_term: Option<BytesRef<Vec<u8>>>, // only set with debug_assert
 }
+
 impl<P> TermDocsIterator<P>
 where
     P: TermsProvider,
@@ -200,7 +200,6 @@ where
     pub(crate) fn new(provider: P, sorted_terms: bool) -> Self {
         TermDocsIterator {
             provider,
-            terms: None,
             field: None,
             terms_enum: None,
             postings_enum: None,
@@ -215,8 +214,7 @@ where
             self.field = field.take();
 
             if let Some(terms) = self.provider.terms(field.as_ref().unwrap())? {
-                self.terms = Some(terms);
-                let mut terms_enum = self.terms.as_mut().unwrap().iterator()?;
+                let mut terms_enum = terms.iterator()?;
                 if self.sorted_terms {
                     // need to reset otherwise we fail the assertSorted below since we sort per field
                     debug_assert!(self.last_term.is_none());
