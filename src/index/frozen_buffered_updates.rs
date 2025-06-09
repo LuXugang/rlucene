@@ -23,14 +23,21 @@ use std::sync::{
 use crate::index::buffered_updates::MTBufferedUpdates;
 use crate::index::buffered_updates_stream::SegmentState;
 use crate::index::field_updates_buffer::FieldUpdatesBuffer;
+use crate::index::fields::Fields;
+use crate::index::postings_enum::postings_enum_util;
 use crate::index::prefix_coded_terms::{PrefixCodedTerms, PrefixCodedTermsBuilder};
 use crate::index::segment_commit_info::SegmentCommitInfo;
+use crate::index::terms::Terms;
+use crate::index::terms_enum::{SeekStatus, TermsEnum};
+use crate::index::BytesRef;
 use crate::search::query::Query;
 use crate::store::directory::Directory;
 use crate::util::access::Access;
 use crate::util::accountable::Accountable;
+use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::info_stream::{InfoStream, InfoStreamEnum};
+use crate::util::ToInt;
 
 #[allow(unused)]
 pub(crate) struct FrozenBufferedUpdates<D, Q, I>
@@ -161,5 +168,159 @@ where
         self.delete_terms.size() > 0
             || !self.delete_queries.is_empty()
             || self.field_updates_count > 0
+    }
+}
+/// This class helps iterating a term dictionary and consuming all the docs for each term.  
+/// It accepts a (field, value) tuple and returns a [`DocIdSetIterator`](crate::search::doc_id_set_iterator::DocIdSetIterator) if the field has an entry  
+/// for the given value.  
+///
+/// It has an optimized way of iterating the term dictionary if the terms are  
+/// passed in sorted order and makes sure terms and postings are reused as much as possible.
+pub(crate) struct TermDocsIterator<P>
+where
+    P: TermsProvider,
+    <P as TermsProvider>::Terms:,
+{
+    provider: P,
+    field: Option<String>,
+    terms: Option<P::Terms>,
+    terms_enum: Option<<<P as TermsProvider>::Terms as Terms>::TermsEnum>,
+    postings_enum:
+        Option<<<<P as TermsProvider>::Terms as Terms>::TermsEnum as TermsEnum>::PostingsEnum>,
+    sorted_terms: bool,
+    // TODO: we should avoid copy here
+    reader_term: Option<BytesRef<Vec<u8>>>,
+    #[cfg(debug_assertions)]
+    last_term: Option<BytesRef<Vec<u8>>>, // only set with debug_assert
+}
+impl<P> TermDocsIterator<P>
+where
+    P: TermsProvider,
+{
+    pub(crate) fn new(provider: P, sorted_terms: bool) -> Self {
+        TermDocsIterator {
+            provider,
+            terms: None,
+            field: None,
+            terms_enum: None,
+            postings_enum: None,
+            sorted_terms,
+            reader_term: None,
+            #[cfg(debug_assertions)]
+            last_term: None,
+        }
+    }
+    fn set_field(&mut self, mut field: Option<String>) -> Result<()> {
+        if field.is_some() && self.field.as_ref() != field.as_ref() {
+            self.field = field.take();
+
+            if let Some(terms) = self.provider.terms(field.as_ref().unwrap())? {
+                self.terms = Some(terms);
+                let mut terms_enum = self.terms.as_mut().unwrap().iterator()?;
+                if self.sorted_terms {
+                    // need to reset otherwise we fail the assertSorted below since we sort per field
+                    debug_assert!(self.last_term.is_none());
+                    self.reader_term = Option::from(terms_enum.next()?.unwrap().into_owned());
+                }
+                self.terms_enum = Some(terms_enum);
+            } else {
+                self.terms_enum = None;
+            }
+        }
+        Ok(())
+    }
+    pub(crate) fn next_term(
+        &mut self,
+        field: &str,
+        term: &BytesRef<Vec<u8>>,
+    ) -> Result<
+        Option<&mut <<<P as TermsProvider>::Terms as Terms>::TermsEnum as TermsEnum>::PostingsEnum>,
+    > {
+        self.set_field(Some(field.to_string()))?;
+
+        if let Some(terms_enum) = self.terms_enum.as_mut() {
+            if self.sorted_terms {
+                #[cfg(debug_assertions)]
+                Self::assert_sorted(self.sorted_terms, &mut self.last_term, term);
+                // in the sorted case we can take advantage of the "seeking forward" property
+                // this allows us depending on the term dict impl to reuse data-structures internally
+                // which speed up iteration over terms and docs significantly.
+                let cmp = term
+                    .cmp(self.reader_term.as_ref().expect("reader_term must be set"))
+                    .to_int();
+
+                if cmp < 0 {
+                    return Ok(None); // requested term does not exist in this segment
+                } else if cmp == 0 {
+                    return self.get_docs().map(Some);
+                } else {
+                    return match terms_enum.seek_ceil(term)? {
+                        SeekStatus::Found => self.get_docs().map(Some),
+                        SeekStatus::NotFound => {
+                            self.reader_term = Some(terms_enum.term()?.into_owned());
+                            Ok(None)
+                        },
+                        SeekStatus::End => {
+                            self.terms_enum = None;
+                            Ok(None)
+                        },
+                    };
+                }
+            } else if terms_enum.seek_exact(term)? {
+                return self.get_docs().map(Some);
+            }
+        }
+
+        Ok(None)
+    }
+    #[cfg(debug_assertions)]
+    fn assert_sorted(
+        sorted_terms: bool,
+        last_term: &mut Option<BytesRef<Vec<u8>>>,
+        term: &BytesRef<Vec<u8>>,
+    ) {
+        debug_assert!(sorted_terms);
+        if let Some(last) = last_term {
+            debug_assert!(
+                term >= last,
+                "boom: {:?} last: {:?}",
+                term.utf8_to_string(),
+                last.utf8_to_string()
+            );
+        }
+        *last_term = Some(BytesRef::deep_copy_of(term));
+    }
+    fn get_docs(
+        &mut self,
+    ) -> Result<&mut <<<P as TermsProvider>::Terms as Terms>::TermsEnum as TermsEnum>::PostingsEnum>
+    {
+        debug_assert!(self.terms_enum.is_some());
+
+        let terms_enum = self.terms_enum.as_mut().unwrap();
+        let postings_enum = terms_enum
+            .postings_with_flags(self.postings_enum.take(), postings_enum_util::NONE as i32)?;
+        self.postings_enum = Some(postings_enum);
+        Ok(self.postings_enum.as_mut().unwrap())
+    }
+}
+
+pub(crate) trait TermsProvider {
+    type Terms: Terms;
+    fn terms(&mut self, field: &str) -> Result<Option<Self::Terms>>;
+}
+pub(crate) struct TermsProviderImpl1<F>
+where
+    F: Fields,
+{
+    fields: F,
+}
+impl<F> TermsProvider for TermsProviderImpl1<F>
+where
+    F: Fields,
+{
+    type Terms = F::Terms;
+
+    fn terms(&mut self, field: &str) -> Result<Option<Self::Terms>> {
+        self.fields.terms(field)
     }
 }
