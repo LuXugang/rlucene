@@ -88,10 +88,6 @@ impl<T> Terms for FilterTerms<T>
 where
     T: Terms,
 {
-    fn get_terms() -> Result<()> {
-        todo!()
-    }
-
     type TermsEnum = T::TermsEnum;
 
     fn iterator(&self) -> Result<Self::TermsEnum> {
