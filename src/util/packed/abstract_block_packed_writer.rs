@@ -23,8 +23,7 @@ pub(crate) const MIN_BLOCK_SIZE: i32 = 64;
 pub(crate) const MAX_BLOCK_SIZE: i32 = 1 << (30 - 3);
 pub(crate) const MIN_VALUE_EQUALS_0: i32 = 1 << 0;
 pub(crate) const BPV_SHIFT: i32 = 1;
-pub(crate) struct AbstractBlockPackedWriter<'a, T: DataOutput, D: AbstractBlockPackedWriterBase> {
-    out: &'a mut T,
+pub(crate) struct AbstractBlockPackedWriter<D: AbstractBlockPackedWriterBase> {
     values: Vec<i64>,
     blocks: Vec<u8>,
     off: i32,
@@ -34,7 +33,7 @@ pub(crate) struct AbstractBlockPackedWriter<'a, T: DataOutput, D: AbstractBlockP
 }
 
 #[allow(unused)]
-impl<'a, D: AbstractBlockPackedWriterBase, T: DataOutput> AbstractBlockPackedWriter<'a, T, D> {
+impl<D: AbstractBlockPackedWriterBase> AbstractBlockPackedWriter<D> {
     /// Constructs a new `AbstractBlockPackedWriter`.
     ///
     /// # Arguments
@@ -46,11 +45,10 @@ impl<'a, D: AbstractBlockPackedWriterBase, T: DataOutput> AbstractBlockPackedWri
     /// # Errors
     ///
     /// Returns an error if `block_size` is not valid.
-    pub fn new(block_size: i32, sub_writer: D, out: &'a mut T) -> Result<Self> {
+    pub fn new(block_size: i32, sub_writer: D) -> Result<Self> {
         PackedInts::check_block_size(block_size, MIN_BLOCK_SIZE, MAX_BLOCK_SIZE)?;
 
         Ok(Self {
-            out,
             values: vec![0; block_size as usize],
             blocks: Vec::new(),
             off: 0,
@@ -65,8 +63,7 @@ impl<'a, D: AbstractBlockPackedWriterBase, T: DataOutput> AbstractBlockPackedWri
     /// # Arguments
     ///
     /// * `out` - The new output stream.
-    pub fn reset(&mut self, out: &'a mut T) {
-        self.out = out;
+    pub fn reset(&mut self) {
         self.off = 0;
         self.ord = 0;
         self.finished = false;
@@ -88,12 +85,12 @@ impl<'a, D: AbstractBlockPackedWriterBase, T: DataOutput> AbstractBlockPackedWri
     ///
     /// Returns an error if the writer has already finished or if flushing
     /// fails.
-    pub fn add(&mut self, value: i64) -> Result<()> {
+    pub fn add(&mut self, value: i64, out: &mut impl DataOutput) -> Result<()> {
         self.sub_writer.add(value);
         self.check_not_finished()?;
         if self.off as usize == self.values.len() {
             self.sub_writer
-                .flush(self.out, &mut self.off, &mut self.values, &mut self.blocks)?;
+                .flush(out, &mut self.off, &mut self.values, &mut self.blocks)?;
         }
         self.values[self.off as usize] = value;
         self.off += 1;
@@ -107,14 +104,14 @@ impl<'a, D: AbstractBlockPackedWriterBase, T: DataOutput> AbstractBlockPackedWri
     /// Returns an error if the writer has already finished or the offset is
     /// invalid.
     #[cfg(feature = "test_only")]
-    pub(crate) fn add_block_of_zeros(&mut self) -> Result<()> {
+    pub(crate) fn add_block_of_zeros(&mut self, out: &mut impl DataOutput) -> Result<()> {
         self.check_not_finished()?;
         if self.off != 0 && self.off as usize != self.values.len() {
             return Err(LuceneError::illegal_state(format!("{}", self.off)));
         }
         if self.off as usize == self.values.len() {
             self.sub_writer
-                .flush(self.out, &mut self.off, &mut self.values, &mut self.blocks)?;
+                .flush(out, &mut self.off, &mut self.values, &mut self.blocks)?;
         }
         self.values.fill(0);
         debug_assert!(self.values.len() <= i32::MAX as usize);
@@ -129,11 +126,11 @@ impl<'a, D: AbstractBlockPackedWriterBase, T: DataOutput> AbstractBlockPackedWri
     ///
     /// Returns an error if the writer has already finished or if flushing
     /// fails.
-    pub fn finish(&mut self) -> Result<()> {
+    pub fn finish(&mut self, out: &mut impl DataOutput) -> Result<()> {
         self.check_not_finished()?;
         if self.off > 0 {
             self.sub_writer
-                .flush(self.out, &mut self.off, &mut self.values, &mut self.blocks)?;
+                .flush(out, &mut self.off, &mut self.values, &mut self.blocks)?;
         }
         self.finished = true;
         Ok(())

@@ -2339,13 +2339,13 @@ mod tests {
             {
                 let mut out = dir.create_output("out.bin", &IO_CONTEXT_DEFAULT)?;
                 let mut writer =
-                    AbstractBlockPackedWriter::new(block_size as i32, BlockPackedWriter, &mut out)?;
+                    AbstractBlockPackedWriter::new(block_size as i32, BlockPackedWriter)?;
                 for (i, &value) in values.iter().enumerate() {
                     assert_eq!(i, writer.ord() as usize);
-                    writer.add(value)?;
+                    writer.add(value, &mut out)?;
                 }
                 assert_eq!(value_count as i64, writer.ord());
-                writer.finish()?;
+                writer.finish(&mut out)?;
                 assert_eq!(value_count as i64, writer.ord());
                 fp = out.get_file_pointer();
             }
@@ -2497,17 +2497,14 @@ mod tests {
             let file_pointer;
             {
                 let mut out = dir.create_output("out.bin", &IO_CONTEXT_DEFAULT)?;
-                let mut writer = AbstractBlockPackedWriter::new(
-                    block_size as i32,
-                    MonotonicBlockPackedWriter,
-                    &mut out,
-                )?;
+                let mut writer =
+                    AbstractBlockPackedWriter::new(block_size as i32, MonotonicBlockPackedWriter)?;
                 for (i, &value) in values.iter().enumerate().take(value_count) {
                     assert_eq!(i as i64, writer.ord());
-                    writer.add(value)?;
+                    writer.add(value, &mut out)?;
                 }
                 assert_eq!(value_count as i64, writer.ord());
-                writer.finish()?;
+                writer.finish(&mut out)?;
                 assert_eq!(value_count as i64, writer.ord());
                 file_pointer = out.get_file_pointer();
             }
@@ -2544,8 +2541,7 @@ mod tests {
 
         {
             let mut out = dir.create_output("out.bin", &IO_CONTEXT_DEFAULT)?;
-            let mut writer =
-                AbstractBlockPackedWriter::new(block_size as i32, BlockPackedWriter, &mut out)?;
+            let mut writer = AbstractBlockPackedWriter::new(block_size as i32, BlockPackedWriter)?;
 
             let mut i = 0;
             while i < value_count {
@@ -2554,13 +2550,13 @@ mod tests {
                     && (i + block_size < value_offset
                         || (i > value_offset && i + block_size < value_count))
                 {
-                    writer.add_block_of_zeros()?;
+                    writer.add_block_of_zeros(&mut out)?;
                     i += block_size;
                 } else if i == value_offset {
-                    writer.add(value)?;
+                    writer.add(value, &mut out)?;
                     i += 1;
                 } else {
-                    writer.add(0)?;
+                    writer.add(0, &mut out)?;
                     i += 1;
                 }
             }
