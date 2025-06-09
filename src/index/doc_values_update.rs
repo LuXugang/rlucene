@@ -93,11 +93,12 @@ impl Display for DocValuesUpdate {
     }
 }
 pub trait DocValuesUpdateBase {
+    #[allow(dead_code)]
     fn value_size_in_bytes(&self) -> i64 {
         unimplemented!("Not used in Java Lucene, so we did not implement it")
     }
     fn value_to_string(&self) -> String;
-
+    #[allow(dead_code)]
     fn write_to<D: DataOutput>(&self, _bytes: &mut BytesRef<Vec<u8>>) -> Result<()> {
         unimplemented!("Not used in Java Lucene, so we did not implement it")
     }

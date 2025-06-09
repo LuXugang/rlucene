@@ -83,8 +83,6 @@ impl Clone for FixedBitSet {
 /// possible. Also, calling `length()` on the returned bits may return a value
 /// greater than `num_bits`.
 impl FixedBitSet {
-    pub fn ensure_capacity(bits: &mut FixedBitSet, num_bits: i32) {}
-
     /// returns the number of 64-bit words it would take to hold numBits
     pub fn bits2words(num_bits: i32) -> i32 {
         ((num_bits - 1) >> 6) + 1
@@ -242,7 +240,7 @@ impl FixedBitSet {
     pub fn xor(&mut self, other: &FixedBitSet) {
         self.xor_impl(&other.bits, other.num_words);
     }
-    #[allow(unused)]
+    #[allow(dead_code)]
     pub fn xor_disi(&self, _iter: impl DocIdSetIterator) {
         // not used in Java Lucene, so we did not impl it
         todo!()

@@ -62,7 +62,7 @@ impl ByteRunAutomaton {
         }
         let converted = UTF32ToUTF8::default().convert(a)?;
         match Operations::determinize(&converted, i32::MAX as usize)? {
-            Cow::Borrowed(v) => Ok(converted),
+            Cow::Borrowed(_) => Ok(converted),
             Cow::Owned(o) => Ok(Cow::Owned(o)),
         }
     }

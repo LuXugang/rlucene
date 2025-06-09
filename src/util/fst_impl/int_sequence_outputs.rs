@@ -144,7 +144,7 @@ impl Outputs for IntSequenceOutputs {
         output.to_string()
     }
 
-    fn ram_bytes_used(&self, output: &Self::V) -> i64 {
+    fn ram_bytes_used(&self, _output: &Self::V) -> i64 {
         // TODO: memory calculation not implemented
         0
     }

@@ -30,7 +30,7 @@ use crate::index::parallel_postings_array::PostingsArrayEnum;
 use crate::index::postings_enum::{postings_enum_util, PostingsEnum};
 use crate::index::terms::Terms;
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
-use crate::index::terms_hash_per_field::{TermsHashPerField, TermsHashPerFieldBase};
+use crate::index::terms_hash_per_field::TermsHashPerField;
 use crate::index::{BytesRef, BytesRefBuilder};
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;

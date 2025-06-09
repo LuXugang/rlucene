@@ -28,8 +28,8 @@ impl OffsetAttribute for DummyOffsetAttribute {
 
     fn set_offset(
         &mut self,
-        start_offset: i32,
-        end_offset: i32,
+        _start_offset: i32,
+        _end_offset: i32,
     ) -> crate::util::error::lucene_error::Result<()> {
         todo!()
     }

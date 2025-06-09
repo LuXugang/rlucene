@@ -49,7 +49,7 @@ impl Clone for TermStateEnum {
 }
 
 impl TermState for TermStateEnum {
-    fn copy_from(&mut self, other: &TermStateEnum) -> Result<()> {
+    fn copy_from(&mut self, _other: &TermStateEnum) -> Result<()> {
         todo!()
     }
 }

@@ -41,7 +41,6 @@ use crate::index::terms_enum::TermsEnum;
 use crate::index::{BytesRef, IndexFileNames};
 use crate::store::directory::Directory;
 use crate::store::{ByteBuffersDataOutput, DataOutput, IndexOutput};
-use crate::util::access::AccessVec;
 use crate::util::array_util::ArrayUtil;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};

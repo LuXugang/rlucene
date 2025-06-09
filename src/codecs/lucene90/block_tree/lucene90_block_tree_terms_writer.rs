@@ -34,9 +34,7 @@ use crate::index::terms_enum::TermsEnum;
 use crate::index::{BytesRef, BytesRefBuilder, IndexFileNames};
 use crate::store::directory::Directory;
 use crate::store::dummy::dummy_directory::DummyDirectory;
-use crate::store::{
-    ByteArrayDataOutput, ByteBuffersDataOutput, DataOutput, IndexInput, IndexOutput,
-};
+use crate::store::{ByteArrayDataOutput, ByteBuffersDataOutput, DataOutput, IndexOutput};
 use crate::util::access::AccessVec;
 use crate::util::array_util::ArrayUtil;
 use crate::util::bit_set::BitSet;

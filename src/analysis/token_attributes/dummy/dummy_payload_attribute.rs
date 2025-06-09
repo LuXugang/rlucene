@@ -27,7 +27,7 @@ impl PayloadAttribute for DummyPayloadAttribute {
         todo!()
     }
 
-    fn set_payload(&mut self, payload: BytesRef<Vec<u8>>) {
+    fn set_payload(&mut self, _payload: BytesRef<Vec<u8>>) {
         todo!()
     }
 }

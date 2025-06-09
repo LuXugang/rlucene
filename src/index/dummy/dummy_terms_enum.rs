@@ -19,7 +19,6 @@ use crate::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::index::term_state::TermStateEnum;
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::index::BytesRef;
-use crate::util::access::AccessVec;
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};

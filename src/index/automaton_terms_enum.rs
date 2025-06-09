@@ -16,7 +16,6 @@
  */
 use crate::index::filtered_terms_enum::{AcceptStatus, FilteredTermsEnumBase};
 use crate::index::{BytesRef, BytesRefBuilder};
-use crate::util::access::AccessVec;
 use crate::util::array_util::ArrayUtil;
 use crate::util::automation::byte_runnable::{ByteRunnable, ByteRunnableEnum};
 use crate::util::automation::compiled_automaton::{AutomatonType, CompiledAutomaton};

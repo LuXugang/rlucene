@@ -60,7 +60,7 @@ use crate::util::{OutputIdentity, SliceCopyOps};
 /// - Build FST but stream it immediately to disk (except the `FSTMetaData`, to
 ///   be saved at the end). In order to use it, you need to construct the
 ///   corresponding `DataInput` and use the FST constructor to read it.
-pub(crate) struct FSTCompiler<O, D>
+pub struct FSTCompiler<O, D>
 where
     O: Outputs,
     D: Directory,
@@ -390,7 +390,7 @@ where
                 self.write_padding_byte()?;
             }
         }
-        let (compiled_root, root) = self.compile_node(0)?;
+        let (compiled_root, _) = self.compile_node(0)?;
         self.finish(compiled_root.node)?;
         Ok(Some(self.fst.metadata.take().unwrap()))
     }
@@ -627,7 +627,7 @@ where
     // within logic that holds an immutable reference to self. Therefore, we
     // manually inlined this function into the code.
     #[allow(dead_code)]
-    fn write_label(&mut self, v: i32) -> Result<()> {
+    fn write_label(&mut self, _v: i32) -> Result<()> {
         Ok(())
     }
 
@@ -1342,7 +1342,7 @@ pub(crate) enum NodeEnum {
 impl Node for NodeEnum {
     fn is_compiled(&self) -> bool {
         match self {
-            NodeEnum::UnCompiledNode(node) => false,
+            NodeEnum::UnCompiledNode(_) => false,
             NodeEnum::CompiledNode(node) => node.is_compiled(),
         }
     }

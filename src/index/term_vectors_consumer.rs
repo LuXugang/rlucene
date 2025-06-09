@@ -56,10 +56,10 @@ where
 
     fn flush<D, N, DM>(
         &mut self,
-        fields_to_flush: HashMap<String, TermsHashPerField<Self::TermsHashPerFieldBase>>,
-        state: &mut SegmentWriteState<D>,
-        sort_map: Option<Rc<DM>>,
-        norms: &mut N,
+        _fields_to_flush: HashMap<String, TermsHashPerField<Self::TermsHashPerFieldBase>>,
+        _state: &mut SegmentWriteState<D>,
+        _sort_map: Option<Rc<DM>>,
+        _norms: &mut N,
     ) -> Result<()>
     where
         D: Directory,
@@ -91,7 +91,7 @@ where
         todo!()
     }
 
-    fn finish_document(&mut self, doc_id: i32) -> Result<()> {
+    fn finish_document(&mut self, _doc_id: i32) -> Result<()> {
         todo!()
     }
 }

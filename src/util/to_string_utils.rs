@@ -37,8 +37,8 @@ impl ToStringUtils {
         '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f',
     ];
 
-    #[allow(unused)]
-    pub fn long_hex(x: u64) -> String {
+    #[allow(dead_code)]
+    pub fn long_hex(_x: u64) -> String {
         // not used in Java Lucene
         "".to_string()
     }

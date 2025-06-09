@@ -41,7 +41,6 @@ use crate::index::{doc_id_merger_util, BytesRef, DocIDMerger, DocIDMergerEnum, S
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::IndexInput;
-use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::{LuceneError, Result};
 
 pub trait DocValuesConsumer {

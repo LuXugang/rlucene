@@ -28,7 +28,6 @@ use crate::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::index::BytesRef;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::Result;
 
 pub struct DocValues;

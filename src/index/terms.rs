@@ -20,7 +20,6 @@ use crate::index::automaton_terms_enum::AutomatonTermsEnum;
 use crate::index::filtered_terms_enum::FilteredTermsEnum;
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::index::{BytesRef, BytesRefBuilder};
-use crate::util::access::AccessVec;
 use crate::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::Result;

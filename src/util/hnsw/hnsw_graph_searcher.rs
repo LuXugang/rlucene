@@ -140,7 +140,7 @@ where
             while found_better {
                 found_better = false;
                 self.sub.graph_seek(graph, level, current_ep as usize)?;
-                let mut friend_ord = 0;
+                let mut friend_ord;
                 while {
                     friend_ord = self.sub.graph_next_neighbor(graph)?;
                     friend_ord != NO_MORE_DOCS

@@ -380,7 +380,7 @@ impl CompiledAutomaton {
     pub fn get_byte_runnable(&mut self) -> ByteRunnableEnum {
         debug_assert!(self.nfa_run_automaton.is_none() || self.run_automaton.is_none());
 
-        if let Some(ref nfa) = self.nfa_run_automaton {
+        if self.nfa_run_automaton.is_some() {
             ByteRunnableEnum::NFA(self.nfa_run_automaton.take().unwrap())
         } else {
             ByteRunnableEnum::Byte(self.run_automaton.take().unwrap())
@@ -392,7 +392,7 @@ impl CompiledAutomaton {
     pub fn get_transition_accessor(&mut self) -> TransitionAccessorEnum {
         debug_assert!(self.nfa_run_automaton.is_none() || self.run_automaton.is_some());
 
-        if let Some(ref nfa) = self.nfa_run_automaton {
+        if self.nfa_run_automaton.is_some() {
             TransitionAccessorEnum::NFA(self.nfa_run_automaton.take().unwrap())
         } else {
             TransitionAccessorEnum::Byte(self.run_automaton.take().unwrap())

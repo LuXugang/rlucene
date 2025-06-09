@@ -33,7 +33,7 @@ use crate::util::access::Access;
 use crate::util::accountable::Accountable;
 use crate::util::allocator_byte::{AllocatorByteEnum, DirectTrackingAllocatorByte};
 use crate::util::array_util::ArrayUtil;
-use crate::util::bytes_ref_hash::{BytesRefHash, BytesStartArray, DirectBytesStartArray};
+use crate::util::bytes_ref_hash::{BytesRefHash, DirectBytesStartArray};
 use crate::util::error::lucene_error::Result;
 use crate::util::{
     ByteBlockPool, ByteBlockPoolBorrow, ByteBlockPoolLock, Counter, CounterEnum, CounterEnumBorrow,

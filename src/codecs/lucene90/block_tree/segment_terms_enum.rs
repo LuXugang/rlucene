@@ -542,7 +542,6 @@ where
                     if next_ent == -1 || last_sub_fp != last_fp {
                         // We popped into a frame that's not loaded
                         // yet or not scan'd to the right entry
-                        let target = self.term.get_bytes_mut_ref();
                         SegmentTermsEnumFrame::scan_to_floor_frame(self.current_frame_idx, self)?;
                         SegmentTermsEnumFrame::load_block(self.current_frame_idx, self)?;
                         SegmentTermsEnumFrame::scan_to_sub_block(

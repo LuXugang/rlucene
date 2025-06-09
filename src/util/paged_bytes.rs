@@ -116,7 +116,12 @@ impl PagedBytes {
     /// Do **not** use this method if `freeze(true)` will be called afterward.
     ///
     /// This only supports `bytes.len() <= block_size`.
-    pub fn copy_with_bytes_ref(&mut self, _bytes: &BytesRef<Vec<u8>>, out: &mut BytesRef<Vec<u8>>) {
+    #[allow(dead_code)]
+    pub fn copy_with_bytes_ref(
+        &mut self,
+        _bytes: &BytesRef<Vec<u8>>,
+        _out: &mut BytesRef<Vec<u8>>,
+    ) {
         unimplemented!("not used in Java Lucene")
     }
     /// Commits final byte[], trimming it if necessary and if trim=true
@@ -152,6 +157,7 @@ impl PagedBytes {
         }
     }
     /// Copy bytes in, writing the length as a 1 or 2 byte vInt prefix.
+    #[allow(dead_code)]
     pub fn copy_using_length_prefix(&mut self, _bytes: &BytesRef<Vec<u8>>) -> Result<i64> {
         unimplemented!("not used in Java Lucene")
     }
@@ -258,6 +264,7 @@ impl Reader {
         let offset = o & self.block_mask;
         self.blocks[index][offset]
     }
+    #[allow(dead_code)]
     pub fn fill(_b: &mut BytesRef<Rc<Vec<u8>>>, _start: i64) {
         unimplemented!("not used in Java Lucene");
     }

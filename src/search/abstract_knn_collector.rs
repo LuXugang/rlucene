@@ -55,7 +55,7 @@ impl KnnCollector for AbstractKnnCollector {
         self.k
     }
 
-    fn collect(&mut self, doc_id: i32, similarity: f32) -> bool {
+    fn collect(&mut self, _doc_id: i32, _similarity: f32) -> bool {
         unimplemented!()
     }
 

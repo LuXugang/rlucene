@@ -564,7 +564,7 @@ impl SegmentTermsEnumFrame {
 
         debug_assert!(frame.num_follow_floor_blocks != 0);
 
-        let mut new_fp = frame.fp_orig;
+        let mut new_fp;
 
         loop {
             let code = frame.floor_data_reader.read_vlong()?;
