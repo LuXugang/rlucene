@@ -222,9 +222,8 @@ impl PackedInts {
     ///
     /// # Returns
     /// A `Writer` instance.
-    #[allow(unused)]
     pub(crate) fn get_writer_no_header<T>(
-        out: &'_ mut T,
+        out: &mut T,
         format: Format,
         value_count: i32,
         bits_per_value: i32,
