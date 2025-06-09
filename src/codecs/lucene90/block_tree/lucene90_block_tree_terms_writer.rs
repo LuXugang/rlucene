@@ -345,23 +345,22 @@ where
         <F::Terms as Terms>::TermsEnum: TermsEnum<PostingsEnum = PW::PostingsEnum>,
     {
         let mut last_field: Option<String> = None;
-        // TODO: could we avoid copy here?>
-        let field_names: Vec<String> = fields.iterator().to_vec();
+        let field_names = fields.iterator();
         for field in field_names {
             debug_assert!({
                 let v =
-                    last_field.is_none() || last_field.as_ref().unwrap().cmp(&field).to_int() < 0;
+                    last_field.is_none() || last_field.as_ref().unwrap().cmp(field).to_int() < 0;
                 last_field = Some(field.clone());
                 v
             });
-            let field_info = self.field_infos.field_info_by_name(&field);
+            let field_info = self.field_infos.field_info_by_name(field);
             if field_info.is_none() {
                 return Err(LuceneError::illegal_state(format!(
                     "Missing fields:{}",
                     field
                 )));
             }
-            let terms_opt = fields.terms(&field)?;
+            let terms_opt = fields.terms(field)?;
             if terms_opt.is_none() {
                 continue;
             }

@@ -199,13 +199,13 @@ where
     F: Fields,
     D: DocMap,
 {
-    fn iterator(&self) -> &[String] {
+    fn iterator(&self) -> impl Iterator<Item = &String> {
         self.base.iterator()
     }
 
     type Terms = SortingTerms<F::Terms, D>;
 
-    fn terms(&mut self, field: &str) -> Result<Option<Self::Terms>> {
+    fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
         match self.base.terms(field)? {
             Some(terms) => {
                 let index_options = self.field_infos.field_info_by_name(field);
@@ -226,7 +226,7 @@ where
         }
     }
 
-    fn size(&self) -> i32 {
+    fn size(&self) -> Result<i32> {
         self.base.size()
     }
 }

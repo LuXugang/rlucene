@@ -290,23 +290,20 @@ where
     I: IndexInput,
     P: PostingsReaderBase,
 {
-    fn iterator(&self) -> &[String] {
-        &self.field_list
+    fn iterator(&self) -> impl Iterator<Item = &String> {
+        self.field_list.iter()
     }
 
     type Terms = FieldReader<I, P>;
 
-    fn terms(&mut self, field: &str) -> Result<Option<Self::Terms>> {
+    fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
         let field_info = self.field_infos.field_info_by_name(field);
-        match field_info {
-            Some(f) => Ok(self.field_map.remove(&f.number)),
-            None => Ok(None),
-        }
+        Ok(field_info.and_then(|f| self.field_map.get(&f.number).cloned()))
     }
 
-    fn size(&self) -> i32 {
+    fn size(&self) -> Result<i32> {
         debug_assert!(self.field_map.len() <= i32::MAX as usize);
-        self.field_map.len() as i32
+        Ok(self.field_map.len() as i32)
     }
 }
 impl<I, P> Display for Lucene90BlockTreeTermsReader<I, P>

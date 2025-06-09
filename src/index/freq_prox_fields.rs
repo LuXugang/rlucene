@@ -22,6 +22,7 @@ use crate::index::base_terms_enum::BaseTermsEnum;
 use crate::index::byte_slice_reader::ByteSliceReader;
 use crate::index::dummy::dummy_impacts_enum::DummyImpactsEnum;
 use crate::index::dummy::dummy_term_state_type::DummyTermState;
+use crate::index::fields::Fields;
 use crate::index::filtered_terms_enum::FilteredTermsEnum;
 use crate::index::freq_prox_terms_writer_per_field::FreqProxTermsWriterPerField;
 use crate::index::index_options::IndexOptions;
@@ -41,9 +42,9 @@ use crate::util::either_enums::EitherPostingsEnum;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::{ByteBlockPoolBorrow, CounterEnumBorrow, ToInt};
 use std::borrow::Cow;
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
+
 /// Implements limited (iterators only, no stats) [`Fields`](crate::index::fields::Fields) interface over the in-RAM buffered
 /// fields/terms/postings, to flush postings through the PostingsFormat.
 pub(crate) struct FreqProxFields<O, P, T>
@@ -52,7 +53,7 @@ where
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 {
-    fields: HashMap<String, TermsHashPerField<FreqProxTermsWriterPerField<O, P, T>>>,
+    fields: HashMap<String, Rc<TermsHashPerField<FreqProxTermsWriterPerField<O, P, T>>>>,
 }
 impl<O, P, T> FreqProxFields<O, P, T>
 where
@@ -60,7 +61,9 @@ where
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 {
-    pub fn new(field_list: Vec<TermsHashPerField<FreqProxTermsWriterPerField<O, P, T>>>) -> Self {
+    pub fn new(
+        field_list: Vec<Rc<TermsHashPerField<FreqProxTermsWriterPerField<O, P, T>>>>,
+    ) -> Self {
         // NOTE: fields are already sorted by field name
         let mut fields = HashMap::with_capacity(field_list.len());
         for field in field_list {
@@ -70,14 +73,38 @@ where
         Self { fields }
     }
 }
-
-struct FreqProxTerms<O, P, T>
+impl<O, P, T> Fields for FreqProxFields<O, P, T>
 where
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 {
-    terms: Rc<RefCell<TermsHashPerField<FreqProxTermsWriterPerField<O, P, T>>>>,
+    fn iterator(&self) -> impl Iterator<Item = &String> {
+        self.fields.keys()
+    }
+
+    type Terms = FreqProxTerms<O, P, T>;
+
+    fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
+        let per_filed = self.fields.get(field);
+        match per_filed {
+            Some(terms) => Ok(Some(FreqProxTerms::new(Rc::clone(terms)))),
+            None => Ok(None),
+        }
+    }
+
+    fn size(&self) -> Result<i32> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+}
+
+pub(crate) struct FreqProxTerms<O, P, T>
+where
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+{
+    terms: Rc<TermsHashPerField<FreqProxTermsWriterPerField<O, P, T>>>,
 }
 impl<O, P, T> FreqProxTerms<O, P, T>
 where
@@ -85,9 +112,7 @@ where
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 {
-    pub fn new(
-        terms: Rc<RefCell<TermsHashPerField<FreqProxTermsWriterPerField<O, P, T>>>>,
-    ) -> Self {
+    pub fn new(terms: Rc<TermsHashPerField<FreqProxTermsWriterPerField<O, P, T>>>) -> Self {
         Self { terms }
     }
 }
@@ -131,7 +156,6 @@ where
 
     fn has_freqs(&self) -> bool {
         self.terms
-            .borrow()
             .index_options
             .cmp(&IndexOptions::DocsAndFreqs)
             .to_int()
@@ -143,7 +167,6 @@ where
         // because that's what FieldInfo said when we started,
         // but during indexing this may have been downgraded:
         self.terms
-            .borrow()
             .index_options
             .cmp(&IndexOptions::DocsAndFreqsAndPositionsAndOffsets)
             .to_int()
@@ -155,7 +178,6 @@ where
         // because that's what FieldInfo said when we started,
         // but during indexing this may have been downgraded:
         self.terms
-            .borrow()
             .index_options
             .cmp(&IndexOptions::DocsAndFreqsAndPositions)
             .to_int()
@@ -163,17 +185,17 @@ where
     }
 
     fn has_payloads(&self) -> bool {
-        self.terms.borrow().sub.as_ref().unwrap().saw_payloads
+        self.terms.sub.as_ref().unwrap().saw_payloads
     }
 }
 
-struct FreqProxTermsEnum<O, P, T>
+pub(crate) struct FreqProxTermsEnum<O, P, T>
 where
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 {
-    terms: Rc<RefCell<TermsHashPerField<FreqProxTermsWriterPerField<O, P, T>>>>,
+    terms: Rc<TermsHashPerField<FreqProxTermsWriterPerField<O, P, T>>>,
     terms_pool: BytesRefBlockPool<CounterEnumBorrow, ByteBlockPoolBorrow>,
     scratch: BytesRef<Vec<u8>>,
     num_terms: i32,
@@ -186,12 +208,11 @@ where
     T: TermFrequencyAttribute,
 {
     fn new(
-        terms: Rc<RefCell<TermsHashPerField<FreqProxTermsWriterPerField<O, P, T>>>>,
+        terms: Rc<TermsHashPerField<FreqProxTermsWriterPerField<O, P, T>>>,
     ) -> BaseTermsEnum<Self> {
         let (num_terms, terms_pool) = {
-            let terms_b = terms.borrow();
-            let num_terms = terms_b.get_num_terms();
-            let terms_pool = BytesRefBlockPool::from_byte_block_pool(terms_b.byte_pool.clone());
+            let num_terms = terms.get_num_terms();
+            let terms_pool = BytesRefBlockPool::from_byte_block_pool(terms.byte_pool.clone());
             (num_terms, terms_pool)
         };
         let sub = Self {
@@ -220,11 +241,10 @@ where
             return Ok(None);
         }
 
-        let term_id = self.terms.borrow().get_sorted_term_ids()[self.ord as usize];
+        let term_id = self.terms.get_sorted_term_ids()[self.ord as usize];
 
         let postings_array_enum = &self
             .terms
-            .borrow()
             .bytes_hash
             .bytes_start_array
             .per_field
@@ -251,11 +271,8 @@ where
     T: TermFrequencyAttribute,
 {
     fn seek_ceil(&mut self, text: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
-        let terms = self.terms.borrow();
-        let sub = terms.sub.as_ref().expect("sub must be initialized");
         let postings_array_enum = &self
             .terms
-            .borrow()
             .bytes_hash
             .bytes_start_array
             .per_field
@@ -268,8 +285,7 @@ where
             return Err(LuceneError::illegal_state("Unexpected postings array type"));
         };
 
-        let terms_b = self.terms.borrow();
-        let sorted_term_ids = terms_b.get_sorted_term_ids();
+        let sorted_term_ids = self.terms.get_sorted_term_ids();
 
         let mut lo = 0;
         let mut hi = self.num_terms - 1;
@@ -313,11 +329,10 @@ where
         let ord = ord as i32;
         self.ord = ord;
 
-        let term_id = self.terms.borrow().get_sorted_term_ids()[ord as usize];
+        let term_id = self.terms.get_sorted_term_ids()[ord as usize];
 
         let postings_array_enum = &self
             .terms
-            .borrow()
             .bytes_hash
             .bytes_start_array
             .per_field
@@ -366,15 +381,12 @@ where
         reuse: Option<Self::PostingsEnum>,
         flags: i32,
     ) -> Result<Self::PostingsEnum> {
-        let terms_b = self.terms.borrow();
-        let sorted_term_ids = terms_b.get_sorted_term_ids();
+        let sorted_term_ids = self.terms.get_sorted_term_ids();
+        let (has_prox, has_offsets, has_freq) = {
+            let sub = self.terms.sub.as_ref().expect("sub must be initialized");
+            (sub.has_prox, sub.has_offsets, sub.has_freq)
+        };
         if postings_enum_util::feature_requested(flags, postings_enum_util::POSITIONS) {
-            let terms_borrow = self.terms.borrow();
-            let (has_prox, has_offsets, has_freq) = {
-                let sub = terms_borrow.sub.as_ref().expect("sub must be initialized");
-                (sub.has_prox, sub.has_offsets, sub.has_freq)
-            };
-
             if !has_prox {
                 // Caller wants positions but we didn't index them;
                 // don't lie:
@@ -397,10 +409,10 @@ where
             return Ok(EitherPostingsEnum::F(pos_enum));
         }
 
-        if !postings_enum_util::feature_requested(flags, postings_enum_util::OFFSETS) {
+        if has_freq && !postings_enum_util::feature_requested(flags, postings_enum_util::FREQS) {
             // Caller wants offsets but we didn't index them;
             // don't lie:
-            return Err(LuceneError::illegal_state("did not index offsets"));
+            return Err(LuceneError::illegal_state("did not index freq"));
         };
         let mut docs_enum = match reuse {
             Some(EitherPostingsEnum::S(p)) => p,
@@ -420,13 +432,13 @@ where
     type TermState = DummyTermState;
 }
 
-struct FreqProxDocsEnum<O, P, T>
+pub(crate) struct FreqProxDocsEnum<O, P, T>
 where
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 {
-    pub terms: Rc<RefCell<TermsHashPerField<FreqProxTermsWriterPerField<O, P, T>>>>,
+    pub terms: Rc<TermsHashPerField<FreqProxTermsWriterPerField<O, P, T>>>,
     pub reader: ByteSliceReader,
     pub read_term_freq: bool,
     pub doc_id: i32,
@@ -440,10 +452,8 @@ where
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 {
-    pub fn new(
-        terms: Rc<RefCell<TermsHashPerField<FreqProxTermsWriterPerField<O, P, T>>>>,
-    ) -> Self {
-        let read_term_freq = terms.borrow().sub.as_ref().unwrap().has_freq;
+    pub fn new(terms: Rc<TermsHashPerField<FreqProxTermsWriterPerField<O, P, T>>>) -> Self {
+        let read_term_freq = terms.sub.as_ref().unwrap().has_freq;
         Self {
             terms,
             reader: ByteSliceReader::new(),
@@ -456,8 +466,7 @@ where
     }
     pub fn reset(&mut self, term_id: i32) {
         self.term_id = term_id;
-        let terms = self.terms.borrow_mut();
-        terms.init_reader(&mut self.reader, term_id, 0);
+        self.terms.init_reader(&mut self.reader, term_id, 0);
         self.ended = false;
         self.doc_id = -1;
     }
@@ -486,7 +495,6 @@ where
                 {
                     let postings_array_enum = &self
                         .terms
-                        .borrow()
                         .bytes_hash
                         .bytes_start_array
                         .per_field
@@ -563,13 +571,13 @@ where
     }
 }
 
-struct FreqProxPostingsEnum<O, P, T>
+pub(crate) struct FreqProxPostingsEnum<O, P, T>
 where
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 {
-    terms: Rc<RefCell<TermsHashPerField<FreqProxTermsWriterPerField<O, P, T>>>>,
+    terms: Rc<TermsHashPerField<FreqProxTermsWriterPerField<O, P, T>>>,
     reader: ByteSliceReader,
     pos_reader: ByteSliceReader,
     read_offsets: bool,
@@ -590,10 +598,8 @@ where
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 {
-    pub fn new(
-        terms: Rc<RefCell<TermsHashPerField<FreqProxTermsWriterPerField<O, P, T>>>>,
-    ) -> Self {
-        let has_offsets = terms.borrow().sub.as_ref().unwrap().has_offsets;
+    pub fn new(terms: Rc<TermsHashPerField<FreqProxTermsWriterPerField<O, P, T>>>) -> Self {
+        let has_offsets = terms.sub.as_ref().unwrap().has_offsets;
         Self {
             terms,
             reader: ByteSliceReader::new(),
@@ -613,9 +619,8 @@ where
     }
     pub fn reset(&mut self, term_id: i32) {
         self.term_id = term_id;
-        let terms = self.terms.borrow_mut();
-        terms.init_reader(&mut self.reader, term_id, 0);
-        terms.init_reader(&mut self.pos_reader, term_id, 1);
+        self.terms.init_reader(&mut self.reader, term_id, 0);
+        self.terms.init_reader(&mut self.pos_reader, term_id, 1);
         self.ended = false;
         self.doc_id = -1;
         self.pos_left = 0;
@@ -649,7 +654,6 @@ where
                 {
                     let postings_array_enum = &self
                         .terms
-                        .borrow()
                         .bytes_hash
                         .bytes_start_array
                         .per_field

@@ -48,17 +48,17 @@ impl<F> Fields for FilterFields<F>
 where
     F: Fields,
 {
-    fn iterator(&self) -> &[String] {
+    fn iterator(&self) -> impl Iterator<Item = &String> {
         self.inner.iterator()
     }
 
     type Terms = F::Terms;
 
-    fn terms(&mut self, field: &str) -> Result<Option<Self::Terms>> {
+    fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
         self.inner.terms(field)
     }
 
-    fn size(&self) -> i32 {
+    fn size(&self) -> Result<i32> {
         self.inner.size()
     }
 }

@@ -25,15 +25,14 @@ use crate::util::error::lucene_error::Result;
 pub trait Fields {
     /// Returns an iterator that will step through all field names.
     /// This will not return `None`.
-    // TODO: 改为Cow是不是更好点
-    fn iterator(&self) -> &[String];
+    fn iterator(&self) -> impl Iterator<Item = &String>;
 
     type Terms: Terms;
     /// Get the [`Terms`] for this field. This will return `None` if the field
     /// does not exist.
-    fn terms(&mut self, field: &str) -> Result<Option<Self::Terms>>;
+    fn terms(&self, field: &str) -> Result<Option<Self::Terms>>;
 
     /// Returns the number of fields or -1 if the number of distinct field names
     /// is unknown. If >= 0, [`iterator`](Self::iterator) will return as many field names.
-    fn size(&self) -> i32;
+    fn size(&self) -> Result<i32>;
 }
