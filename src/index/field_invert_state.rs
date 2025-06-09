@@ -18,6 +18,8 @@ use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
 use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
 use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
 use crate::index::index_options::IndexOptions;
+use std::cell::RefCell;
+use std::rc::Rc;
 /// This class tracks the number and position / offset parameters of terms being
 /// added to the index. The information collected in this class is also used to
 /// calculate the normalization factor for a field.
@@ -34,14 +36,17 @@ where
     length: i32,
     num_overlap: i32,
     pub(crate) offset: i32,
-    pub(crate) max_term_frequency: i32,
-    pub(crate) unique_term_count: i32,
     // we must track these across field instances (multi-valued case)
     last_start_offset: i32,
     last_position: i32,
     pub(crate) off_set_attribute: Option<O>,
     pub(crate) pay_load_attribute: Option<P>,
     pub(crate) term_freq_attribute: Option<T>,
+    pub(crate) inner: Rc<RefCell<Inner>>,
+}
+pub struct Inner {
+    pub(crate) max_term_frequency: i32,
+    pub(crate) unique_term_count: i32,
 }
 impl<O, P, T> FieldInvertState<O, P, T>
 where
@@ -55,6 +60,10 @@ where
         name: String,
         index_options: IndexOptions,
     ) -> Self {
+        let inner = Rc::new(RefCell::new(Inner {
+            max_term_frequency: 0,
+            unique_term_count: 0,
+        }));
         FieldInvertState {
             index_created_version_major,
             name,
@@ -63,13 +72,12 @@ where
             length: 0,
             num_overlap: 0,
             offset: 0,
-            max_term_frequency: 0,
-            unique_term_count: 0,
             last_start_offset: 0,
             last_position: 0,
             off_set_attribute: None,
             pay_load_attribute: None,
             term_freq_attribute: None,
+            inner,
         }
     }
     /// Creates {code FieldInvertState} for the specified field name and values
@@ -91,8 +99,11 @@ where
         state.length = length;
         state.num_overlap = num_overlap;
         state.offset = offset;
-        state.max_term_frequency = max_term_frequency;
-        state.unique_term_count = unique_term_count;
+        {
+            let mut inner = state.inner.borrow_mut();
+            inner.max_term_frequency = max_term_frequency;
+            inner.unique_term_count = unique_term_count;
+        }
         state
     }
     /// Re-initialize the state
@@ -101,8 +112,11 @@ where
         self.length = 0;
         self.num_overlap = 0;
         self.offset = 0;
-        self.max_term_frequency = 0;
-        self.unique_term_count = 0;
+        {
+            let mut inner = self.inner.borrow_mut();
+            inner.max_term_frequency = 0;
+            inner.unique_term_count = 0;
+        }
         self.last_start_offset = 0;
         self.last_position = 0;
     }
@@ -141,12 +155,12 @@ where
     /// field containing "the quick brown fox jumps over the lazy dog" would
     /// have a value of 2, because "the" appears twice.
     pub fn get_max_term_frequency(&self) -> i32 {
-        self.max_term_frequency
+        self.inner.borrow().max_term_frequency
     }
 
     /// Return the number of unique terms encountered in this field.
     pub fn get_unique_term_count(&self) -> i32 {
-        self.unique_term_count
+        self.inner.borrow().unique_term_count
     }
 
     /// Return the field's name.

@@ -25,12 +25,14 @@ use crate::index::field_invert_state::FieldInvertState;
 use crate::index::fields::Fields;
 use crate::index::filter_leaf_reader::{FilterFields, FilterTerms, FilterTermsEnum};
 use crate::index::filtered_terms_enum::FilteredTermsEnum;
+use crate::index::freq_prox_fields::FreqProxFields;
 use crate::index::freq_prox_terms_writer_per_field::FreqProxTermsWriterPerField;
+use crate::index::frozen_buffered_updates::{TermDocsIterator, TermsProviderImpl1};
 use crate::index::index_options::IndexOptions;
-use crate::index::merge_state::DocMapEnum;
 use crate::index::postings_enum::{postings_enum_util, PostingsEnum};
 use crate::index::segment_write_state::SegmentWriteState;
 use crate::index::sorter::DocMap;
+use crate::index::term::Term;
 use crate::index::term_state::TermStateEnum;
 use crate::index::term_vectors_consumer::TermVectorsConsumer;
 use crate::index::terms::Terms;
@@ -48,8 +50,10 @@ use crate::util::array_util::ArrayUtil;
 use crate::util::attribute_source::AttributeSource;
 use crate::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
+use crate::util::collection_util::CollectionUtil;
 use crate::util::either_enums::EitherPostingsEnum;
 use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::int_block_pool::AllocatorIntEnum;
 use crate::util::lsb_radix_sorter::LSBRadixSorter;
 use crate::util::packed::PackedInts;
@@ -87,6 +91,49 @@ where
         );
         Self { base }
     }
+    fn apply_deletes<D>(
+        &self,
+        state: &mut SegmentWriteState<D>,
+        fields: FreqProxFields<O, P, T>,
+    ) -> Result<()>
+    where
+        D: Directory,
+    {
+        if let Some(seg_updates) = &mut state.seg_updates {
+            let seg_deletes = &mut seg_updates.borrow_mut().delete_terms;
+
+            if seg_deletes.size() == 0 {
+                return Ok(());
+            }
+
+            let mut iterator = TermDocsIterator::new(TermsProviderImpl1 { fields }, true);
+
+            seg_deletes.for_each_ordered(&mut |term: &Term, doc_id: i32| {
+                if let Some(postings) = iterator.next_term(term.field(), &term.bytes)? {
+                    debug_assert!(doc_id < NO_MORE_DOCS);
+
+                    while let Ok(doc) = postings.next_doc() {
+                        if doc >= doc_id {
+                            break;
+                        }
+
+                        let max_doc = state.segment_info.max_doc()?;
+                        let live_docs = state.live_docs.get_or_insert_with(|| {
+                            let mut bits = FixedBitSet::new(max_doc);
+                            bits.set_with_range(0, max_doc);
+                            bits
+                        });
+
+                        if live_docs.get_and_clear(doc) {
+                            state.del_count_on_flush += 1;
+                        }
+                    }
+                }
+                Ok(())
+            })?;
+        }
+        Ok(())
+    }
 }
 impl<O, P, T> TermsHashBase for FreqProxTermsWriter<O, P, T>
 where
@@ -100,51 +147,48 @@ where
 
     type TermsHashPerFieldBase = FreqProxTermsWriterPerField<O, P, T>;
 
-    fn flush<D, N>(
+    fn flush<D, N, DM>(
         &mut self,
         fields_to_flush: HashMap<String, TermsHashPerField<Self::TermsHashPerFieldBase>>,
-        state: &SegmentWriteState<D>,
-        sort_map: &DocMapEnum,
+        state: &mut SegmentWriteState<D>,
+        sort_map: Option<Rc<DM>>,
         norms: &mut N,
-    ) -> Result<HashMap<String, TermsHashPerField<Self::TermsHashPerFieldBase>>>
+    ) -> Result<()>
     where
         D: Directory,
         N: NormsProducer,
+        DM: DocMap,
     {
-        // let mut fields_to_flush = self.base.flush(fields_to_flush, state, sort_map, norms)?;
-        // if !state.field_infos.has_postings() {
-        //     return Ok(fields_to_flush);
-        // }
-        // let mut all_fields = Vec::new();
-        // for mut per_field in fields_to_flush.into_values() {
-        //     if per_field.get_num_terms() > 0 {
-        //         per_field.sort_terms()?;
-        //         debug_assert!(per_field.index_options != IndexOptions::None);
-        //         all_fields.push(per_field);
-        //     }
-        // }
-        // // Sort by field name
-        // CollectionUtil::intro_sort(&mut all_fields)?;
-        // let mut fields = FreqProxFields::new(all_fields);
-        //
-        // apply_deletes(state, fields)?;
-        //
-        // let fields_boxed: Box<dyn Fields> = if let Some(doc_map) = sort_map {
-        //     let infos = &state.field_infos;
-        //     Box::new(SortingFields::new(fields, infos, doc_map))
-        // } else {
-        //     Box::new(fields)
-        // };
-        //
-        // let mut consumer = state
-        //     .segment_info
-        //     .codec()
-        //     .postings_format()
-        //     .fields_consumer(state)?;
-        // consumer.write(fields_boxed.as_ref(), norms)?;
-        //
-        // Ok(())
-        todo!()
+        let fields_to_flush = self
+            .base
+            .flush(fields_to_flush, state, sort_map.clone(), norms)?;
+        if !state.field_infos.has_postings() {
+            return Ok(());
+        }
+        // Gather all fields that saw any postings:
+        let mut all_fields = Vec::new();
+        for mut per_field in fields_to_flush.into_values() {
+            if per_field.get_num_terms() > 0 {
+                per_field.sort_terms()?;
+                debug_assert!(per_field.index_options != IndexOptions::None);
+                all_fields.push(Rc::new(per_field));
+            }
+        }
+        // Sort by field name
+        CollectionUtil::intro_sort(&mut all_fields)?;
+        let fields = FreqProxFields::new(all_fields);
+        self.apply_deletes(state, fields.clone())?;
+
+        if let Some(doc_map) = &sort_map {
+            let filter_fields = FilterFieldsImpl::new(
+                FilterFields::new(fields),
+                state.field_infos.clone(),
+                doc_map.clone(),
+            );
+        } else {
+            todo!()
+        }
+        Ok(())
     }
 
     type OffsetAttribute = O;
@@ -153,14 +197,22 @@ where
 
     fn add_field(
         &mut self,
-        _field_invert_state: &FieldInvertState<
-            Self::OffsetAttribute,
-            Self::PayloadAttribute,
-            Self::TermFrequencyAttribute,
+        field_invert_state: Rc<
+            FieldInvertState<
+                Self::OffsetAttribute,
+                Self::PayloadAttribute,
+                Self::TermFrequencyAttribute,
+            >,
         >,
-        _field_info: &FieldInfo,
+        field_info: Rc<FieldInfo>,
     ) -> TermsHashPerField<Self::TermsHashPerFieldBase> {
-        todo!()
+        let next_per_field = self
+            .base
+            .next_terms_hash
+            .as_mut()
+            .unwrap()
+            .add_field(field_invert_state.clone(), field_info.clone());
+        FreqProxTermsWriterPerField::new(field_invert_state, self, field_info, next_per_field)
     }
 
     fn start_document(&mut self) -> Result<()> {

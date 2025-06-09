@@ -20,14 +20,16 @@ use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAt
 use crate::codecs::norms_producer::NormsProducer;
 use crate::index::field_info::FieldInfo;
 use crate::index::field_invert_state::FieldInvertState;
-use crate::index::merge_state::DocMapEnum;
 use crate::index::segment_write_state::SegmentWriteState;
+use crate::index::sorter::DocMap;
 use crate::index::term_vectors_consumer_per_field::TermVectorsConsumerPerField;
 use crate::index::terms_hash::{TermsHash, TermsHashBase};
 use crate::index::terms_hash_per_field::TermsHashPerField;
 use crate::store::directory::Directory;
+use crate::util::error::lucene_error::Result;
 use std::collections::HashMap;
 use std::marker::PhantomData;
+use std::rc::Rc;
 
 pub(crate) struct TermVectorsConsumer<O, P, T>
 where
@@ -52,18 +54,17 @@ where
 
     type TermsHashPerFieldBase = TermVectorsConsumerPerField;
 
-    fn flush<D, N>(
+    fn flush<D, N, DM>(
         &mut self,
         fields_to_flush: HashMap<String, TermsHashPerField<Self::TermsHashPerFieldBase>>,
-        state: &SegmentWriteState<D>,
-        sort_map: &DocMapEnum,
+        state: &mut SegmentWriteState<D>,
+        sort_map: Option<Rc<DM>>,
         norms: &mut N,
-    ) -> crate::util::error::lucene_error::Result<
-        HashMap<String, TermsHashPerField<Self::TermsHashPerFieldBase>>,
-    >
+    ) -> Result<()>
     where
         D: Directory,
         N: NormsProducer,
+        DM: DocMap,
     {
         todo!()
     }
@@ -74,21 +75,23 @@ where
 
     fn add_field(
         &mut self,
-        _field_invert_state: &FieldInvertState<
-            Self::OffsetAttribute,
-            Self::PayloadAttribute,
-            Self::TermFrequencyAttribute,
+        _field_invert_state: Rc<
+            FieldInvertState<
+                Self::OffsetAttribute,
+                Self::PayloadAttribute,
+                Self::TermFrequencyAttribute,
+            >,
         >,
-        _field_info: &FieldInfo,
+        _field_info: Rc<FieldInfo>,
     ) -> TermsHashPerField<Self::TermsHashPerFieldBase> {
         todo!()
     }
 
-    fn start_document(&mut self) -> crate::util::error::lucene_error::Result<()> {
+    fn start_document(&mut self) -> Result<()> {
         todo!()
     }
 
-    fn finish_document(&mut self, doc_id: i32) -> crate::util::error::lucene_error::Result<()> {
+    fn finish_document(&mut self, doc_id: i32) -> Result<()> {
         todo!()
     }
 }

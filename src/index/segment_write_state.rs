@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -57,7 +58,7 @@ where
     /// A Term is enrolled here if it was deleted/updated at one point,
     /// and it's mapped to the docIDUpto, meaning any docID < docIDUpto
     /// containing this term should be deleted/updated.
-    pub(crate) seg_updates: Option<Rc<STBufferedUpdates<DummyQuery>>>,
+    pub(crate) seg_updates: Option<Rc<RefCell<STBufferedUpdates<DummyQuery>>>>,
 
     /// FixedBitSet recording live documents; this is only set if there
     /// is one or more deleted documents.
@@ -113,7 +114,7 @@ where
         context: Rc<IOContext>,
         segment_suffix: &str,
     ) -> Self {
-        let seg_updates = seg_updates.map(Rc::new);
+        let seg_updates = seg_updates.map(|u| Rc::new(RefCell::new(u)));
         debug_assert!(Self::assert_segment_suffix(segment_suffix));
         Self {
             info_stream,

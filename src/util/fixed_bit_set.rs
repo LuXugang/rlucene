@@ -200,8 +200,7 @@ impl FixedBitSet {
         &self.bits
     }
 
-    #[allow(unused)]
-    fn get_and_clear(&mut self, index: i32) -> bool {
+    pub fn get_and_clear(&mut self, index: i32) -> bool {
         debug_assert!(
             index >= 0 && index < self.num_bits,
             "index = {}, num_bits = {}",

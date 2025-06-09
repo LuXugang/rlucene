@@ -25,8 +25,8 @@ use crate::codecs::norms_producer::NormsProducer;
 use crate::index::field_info::FieldInfo;
 use crate::index::field_invert_state::FieldInvertState;
 use crate::index::freq_prox_terms_writer_per_field::FreqProxTermsWriterPerField;
-use crate::index::merge_state::DocMapEnum;
 use crate::index::segment_write_state::SegmentWriteState;
+use crate::index::sorter::DocMap;
 use crate::index::term_vectors_consumer::TermVectorsConsumer;
 use crate::index::terms_hash_per_field::{TermsHashPerField, TermsHashPerFieldBase};
 use crate::store::directory::Directory;
@@ -91,19 +91,20 @@ where
         }
     }
 
-    pub(crate) fn flush<D, N>(
+    pub(crate) fn flush<D, N, DM>(
         &mut self,
         mut fields_to_flush: HashMap<
             String,
             TermsHashPerField<FreqProxTermsWriterPerField<O, P, T>>,
         >,
-        state: &SegmentWriteState<D>,
-        sort_map: &DocMapEnum,
+        state: &mut SegmentWriteState<D>,
+        sort_map: Option<Rc<DM>>,
         norms: &mut N,
     ) -> Result<HashMap<String, TermsHashPerField<FreqProxTermsWriterPerField<O, P, T>>>>
     where
         D: Directory,
         N: NormsProducer,
+        DM: DocMap,
     {
         if let Some(next) = &mut self.next_terms_hash {
             let mut next_child_fields = HashMap::with_capacity(fields_to_flush.len());
@@ -141,16 +142,17 @@ where
 pub(crate) trait TermsHashBase {
     fn abort(&mut self);
     type TermsHashPerFieldBase: TermsHashPerFieldBase;
-    fn flush<D, N>(
+    fn flush<D, N, DM>(
         &mut self,
         fields_to_flush: HashMap<String, TermsHashPerField<Self::TermsHashPerFieldBase>>,
-        state: &SegmentWriteState<D>,
-        sort_map: &DocMapEnum,
+        state: &mut SegmentWriteState<D>,
+        sort_map: Option<Rc<DM>>,
         norms: &mut N,
-    ) -> Result<HashMap<String, TermsHashPerField<Self::TermsHashPerFieldBase>>>
+    ) -> Result<()>
     where
         D: Directory,
-        N: NormsProducer;
+        N: NormsProducer,
+        DM: DocMap;
 
     type OffsetAttribute: OffsetAttribute;
     type PayloadAttribute: PayloadAttribute;
@@ -158,12 +160,14 @@ pub(crate) trait TermsHashBase {
 
     fn add_field(
         &mut self,
-        _field_invert_state: &FieldInvertState<
-            Self::OffsetAttribute,
-            Self::PayloadAttribute,
-            Self::TermFrequencyAttribute,
+        _field_invert_state: Rc<
+            FieldInvertState<
+                Self::OffsetAttribute,
+                Self::PayloadAttribute,
+                Self::TermFrequencyAttribute,
+            >,
         >,
-        _field_info: &FieldInfo,
+        _field_info: Rc<FieldInfo>,
     ) -> TermsHashPerField<Self::TermsHashPerFieldBase> {
         unimplemented!("This method should be implemented by the specific TermsHashPerField type.");
     }

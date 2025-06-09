@@ -98,6 +98,19 @@ where
     }
 }
 
+impl<O, P, T> Clone for FreqProxFields<O, P, T>
+where
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+{
+    fn clone(&self) -> Self {
+        Self {
+            fields: self.fields.clone(),
+        }
+    }
+}
+
 pub(crate) struct FreqProxTerms<O, P, T>
 where
     O: OffsetAttribute,

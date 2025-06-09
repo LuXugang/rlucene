@@ -310,7 +310,7 @@ pub(crate) struct TermsProviderImpl1<F>
 where
     F: Fields,
 {
-    fields: F,
+    pub(crate) fields: F,
 }
 impl<F> TermsProvider for TermsProviderImpl1<F>
 where

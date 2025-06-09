@@ -44,7 +44,7 @@ where
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 {
-    field_state: FieldInvertState<O, P, T>,
+    field_state: Rc<FieldInvertState<O, P, T>>,
     field_info: Rc<FieldInfo>,
     pub(crate) has_freq: bool,
     pub(crate) has_prox: bool,
@@ -59,7 +59,7 @@ where
     T: TermFrequencyAttribute,
 {
     pub fn new(
-        field_state: FieldInvertState<O, P, T>,
+        field_state: Rc<FieldInvertState<O, P, T>>,
         terms_hash: &mut FreqProxTermsWriter<O, P, T>,
         field_info: Rc<FieldInfo>,
         next_per_field: TermsHashPerField<TermVectorsConsumerPerField>,
@@ -245,8 +245,8 @@ where
                 if !self.has_freq {
                     debug_assert!(postings.term_freqs.is_none());
                     postings.last_doc_codes[term_id] = doc_id;
-                    self.field_state.max_term_frequency =
-                        self.field_state.max_term_frequency.max(1);
+                    let mut inner = self.field_state.inner.borrow_mut();
+                    inner.max_term_frequency = inner.max_term_frequency.max(1);
                 } else {
                     postings.last_doc_codes[term_id] = doc_id << 1;
                     let tf = self.get_term_freq()?;
@@ -264,11 +264,13 @@ where
                         debug_assert!(!self.has_offsets);
                     }
 
-                    self.field_state.max_term_frequency =
-                        self.field_state.max_term_frequency.max(tf);
+                    let mut inner = self.field_state.inner.borrow_mut();
+                    inner.max_term_frequency = inner.max_term_frequency.max(tf);
                 }
-
-                self.field_state.unique_term_count += 1;
+                {
+                    let mut inner = self.field_state.inner.borrow_mut();
+                    inner.unique_term_count += 1;
+                }
             },
             _ => unreachable!("expected FreqProx posting array"),
         }
@@ -315,7 +317,10 @@ where
                         v.push(postings.last_doc_codes[term_id]);
                         postings.last_doc_codes[term_id] = doc_id - postings.last_doc_ids[term_id];
                         postings.last_doc_ids[term_id] = doc_id;
-                        self.field_state.unique_term_count += 1;
+                        {
+                            let mut inner = self.field_state.inner.borrow_mut();
+                            inner.unique_term_count += 1;
+                        }
                     }
                 } else if doc_id != postings.last_doc_ids[term_id] {
                     debug_assert!(
@@ -342,8 +347,10 @@ where
                     let tf = self.get_term_freq()?;
                     postings.term_freqs.as_mut().unwrap()[term_id] = tf;
 
-                    self.field_state.max_term_frequency =
-                        self.field_state.max_term_frequency.max(tf);
+                    {
+                        let mut inner = self.field_state.inner.borrow_mut();
+                        inner.max_term_frequency = inner.max_term_frequency.max(tf);
+                    }
 
                     postings.last_doc_codes[term_id] =
                         (doc_id - postings.last_doc_ids[term_id]) << 1;
@@ -360,8 +367,10 @@ where
                     } else {
                         debug_assert!(!self.has_offsets);
                     }
-
-                    self.field_state.unique_term_count += 1;
+                    {
+                        let mut inner = self.field_state.inner.borrow_mut();
+                        inner.unique_term_count += 1;
+                    }
                 } else {
                     let tf = self.get_term_freq()?;
                     let term_freqs = postings.term_freqs.as_mut().unwrap();
@@ -369,8 +378,11 @@ where
                         LuceneError::illegal_state("term frequency overflow".to_string())
                     })?;
 
-                    self.field_state.max_term_frequency =
-                        self.field_state.max_term_frequency.max(term_freqs[term_id]);
+                    {
+                        let mut inner = self.field_state.inner.borrow_mut();
+                        inner.max_term_frequency =
+                            inner.max_term_frequency.max(term_freqs[term_id]);
+                    }
 
                     if self.has_prox {
                         let delta = self.field_state.position
