@@ -55,10 +55,8 @@ where
     pub(crate) doc_count: i32,
     pub(crate) root_block_fp: i64,
     pub(crate) root_code: BytesRef<Rc<Vec<u8>>>,
-    // TODO: 这里可以改成 BytesRef<Rc<Vec<u8>>>
-    pub(crate) min_term: BytesRef<Vec<u8>>,
-    // TODO: 这里可以改成 BytesRef<Rc<Vec<u8>>>
-    pub(crate) max_term: BytesRef<Vec<u8>>,
+    pub(crate) min_term: Rc<BytesRef<Vec<u8>>>,
+    pub(crate) max_term: Rc<BytesRef<Vec<u8>>>,
     pub(crate) parent: Rc<TermsReader<I, P>>,
     pub(crate) index: Option<Rc<FST<ByteSequenceOutputs, OffHeapFSTStore<I>>>>,
 }
@@ -79,8 +77,8 @@ where
         index_start_fp: i64,
         meta_in: &mut I1,
         index_in: Rc<RefCell<I>>,
-        min_term: BytesRef<Vec<u8>>,
-        max_term: BytesRef<Vec<u8>>,
+        min_term: Rc<BytesRef<Vec<u8>>>,
+        max_term: Rc<BytesRef<Vec<u8>>>,
     ) -> Result<Self> {
         assert!(num_terms > 0);
         // Read FST metadata and build the index
@@ -210,14 +208,14 @@ where
     where
         T: TermsEnum,
     {
-        Ok(Option::from(Cow::Borrowed(&self.min_term)))
+        Ok(Option::from(Cow::Borrowed(&*self.min_term)))
     }
 
     fn get_max<'a, T>(&'a self, _iterator: &'a mut T) -> Result<Option<Cow<'a, BytesRef<Vec<u8>>>>>
     where
         T: TermsEnum,
     {
-        Ok(Option::from(Cow::Borrowed(&self.max_term)))
+        Ok(Option::from(Cow::Borrowed(&*self.max_term)))
     }
 
     fn get_stats(&self) -> Result<String> {

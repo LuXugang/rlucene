@@ -196,8 +196,8 @@ where
                 };
 
                 let doc_count = meta_in.read_vint()?;
-                let min_term = lucene90_bttr_util::read_bytes_ref(&mut meta_in)?;
-                let mut max_term = lucene90_bttr_util::read_bytes_ref(&mut meta_in)?;
+                let min_term = Rc::new(lucene90_bttr_util::read_bytes_ref(&mut meta_in)?);
+                let mut max_term = Rc::new(lucene90_bttr_util::read_bytes_ref(&mut meta_in)?);
 
                 if num_terms == 1 {
                     assert_eq!(max_term, min_term);
