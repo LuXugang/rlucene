@@ -32,7 +32,6 @@ pub(crate) struct AbstractBlockPackedWriter<D: AbstractBlockPackedWriterBase> {
     sub_writer: D,
 }
 
-#[allow(unused)]
 impl<D: AbstractBlockPackedWriterBase> AbstractBlockPackedWriter<D> {
     /// Constructs a new `AbstractBlockPackedWriter`.
     ///

@@ -14,15 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::codecs::compression::compression_mode::{CompressionModeEnum, CompressorEnum};
+use crate::codecs::compression::compression_mode::{
+    CompressionModeBase, CompressionModeEnum, CompressorEnum,
+};
 use crate::codecs::compression::compressor::Compressor;
 use crate::codecs::lucene90::fields_index_writer::FieldsIndexWriter;
 use crate::codecs::term_vectors_writer::TermVectorsWriter;
 use crate::codecs::CodecUtil;
 use crate::index::field_info::FieldInfo;
-use crate::index::BytesRef;
+use crate::index::segment_info::SegmentInfo;
+use crate::index::{BytesRef, IndexFileNames};
 use crate::store::directory::Directory;
-use crate::store::{ByteBuffersDataOutput, DataInput, DataOutput, IndexOutput};
+use crate::store::{ByteBuffersDataOutput, DataInput, DataOutput, IOContext, IndexOutput};
 use crate::util::accountable::Accountable;
 use crate::util::array_util::ArrayUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -33,7 +36,10 @@ use crate::util::packed::Format::Packed;
 use crate::util::packed::{PackedImpl, PackedInts, Writer};
 use crate::util::{SliceCopyOps, StringHelper};
 use once_cell::sync::Lazy;
+use parking_lot::Mutex;
 use std::collections::{HashSet, VecDeque};
+use std::rc::Rc;
+use std::sync::Arc;
 
 pub(crate) static FLAGS_BITS: Lazy<i32> = Lazy::new(|| {
     PackedInts::bits_required(
@@ -87,6 +93,111 @@ impl<D> Lucene90CompressingTermVectorsWriter<D>
 where
     D: Directory,
 {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        directory: Arc<Mutex<D>>,
+        si: Rc<SegmentInfo<D>>,
+        segment_suffix: &str,
+        context: &IOContext,
+        format_name: &str,
+        compression_mode: CompressionModeEnum,
+        chunk_size: i32,
+        max_docs_per_chunk: i32,
+        block_shift: i32,
+    ) -> Result<Self> {
+        debug_assert!(chunk_size > 0);
+        debug_assert!(max_docs_per_chunk > 0);
+
+        let segment = si.name.clone();
+        let compressor = compression_mode.new_compressor();
+
+        let mut meta_stream = directory.lock().create_output(
+            &IndexFileNames::segment_file_name(
+                &segment,
+                segment_suffix,
+                lucene90_ctvw_util::VECTORS_META_EXTENSION,
+            ),
+            context,
+        )?;
+        CodecUtil::write_index_header(
+            &mut meta_stream,
+            &format!("{}Meta", lucene90_ctvw_util::VECTORS_INDEX_CODEC_NAME),
+            lucene90_ctvw_util::VERSION_CURRENT,
+            si.get_id(),
+            segment_suffix,
+        )?;
+        debug_assert_eq!(
+            CodecUtil::index_header_length(
+                &format!("{}Meta", lucene90_ctvw_util::VECTORS_INDEX_CODEC_NAME),
+                segment_suffix
+            ) as i64,
+            meta_stream.get_file_pointer()
+        );
+
+        let mut vectors_stream = directory.lock().create_output(
+            &IndexFileNames::segment_file_name(
+                &segment,
+                segment_suffix,
+                lucene90_ctvw_util::VECTORS_EXTENSION,
+            ),
+            context,
+        )?;
+        CodecUtil::write_index_header(
+            &mut vectors_stream,
+            format_name,
+            lucene90_ctvw_util::VERSION_CURRENT,
+            si.get_id(),
+            segment_suffix,
+        )?;
+        debug_assert_eq!(
+            CodecUtil::index_header_length(format_name, segment_suffix) as i64,
+            vectors_stream.get_file_pointer()
+        );
+
+        let index_writer = FieldsIndexWriter::new(
+            directory,
+            &segment,
+            segment_suffix,
+            lucene90_ctvw_util::VECTORS_INDEX_EXTENSION,
+            lucene90_ctvw_util::VECTORS_INDEX_CODEC_NAME,
+            *si.get_id(),
+            block_shift,
+            context.clone(),
+        )?;
+
+        meta_stream.write_vint(PackedInts::VERSION_CURRENT)?;
+        meta_stream.write_vint(chunk_size)?;
+
+        Ok(Self {
+            segment,
+            index_writer,
+            meta_stream,
+            vectors_stream,
+            compression_mode,
+            compressor,
+            chunk_size,
+            num_chunks: 0,
+            num_dirty_chunks: 0,
+            num_dirty_docs: 0,
+            num_docs: 0,
+            pending_docs: VecDeque::new(),
+            cur_doc: 0,
+            cur_field: 0,
+            last_term: BytesRef::with_capacity(ArrayUtil::oversize(30, 1)),
+            positions_buf: vec![0; 1024],
+            start_offsets_buf: vec![0; 1024],
+            lengths_buf: vec![0; 1024],
+            payload_lengths_buf: vec![0; 1024],
+            term_suffixes: ByteBuffersDataOutput::new_resettable_instance(),
+            payload_bytes: ByteBuffersDataOutput::new_resettable_instance(),
+            writer: AbstractBlockPackedWriter::new(
+                lucene90_ctvw_util::PACKED_BLOCK_SIZE,
+                BlockPackedWriter,
+            )?,
+            max_docs_per_chunk,
+            scratch_buffer: ByteBuffersDataOutput::new_resettable_instance(),
+        })
+    }
     fn add_doc_data(&mut self, num_vector_fields: i32) -> usize {
         let mut last: Option<&FieldData> = None;
 

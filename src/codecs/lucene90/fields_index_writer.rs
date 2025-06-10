@@ -67,7 +67,7 @@ where
         codec_name: &str,
         id: [u8; 16],
         block_shift: i32,
-        io_context: IOContext,
+        io_context: IOContext, // TODO:avoid copy? could wrap with Rc?
     ) -> Result<Self> {
         let mut dir_guard = dir.lock();
         let mut docs_out =
