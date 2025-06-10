@@ -14,15 +14,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub(crate) mod dummy_doc_map;
-pub mod dummy_fields;
-pub mod dummy_impacts;
-pub mod dummy_impacts_enum;
-pub mod dummy_indexable_field_type;
-pub mod dummy_point_tree;
-pub mod dummy_point_value_base;
-pub mod dummy_postings_enum;
-pub mod dummy_sub_base;
-pub mod dummy_term_state_type;
-pub mod dummy_terms;
-pub mod dummy_terms_enum;
+use crate::index::dummy::dummy_terms::DummyTerms;
+use crate::index::fields::Fields;
+use crate::util::error::lucene_error::Result;
+use std::iter;
+
+pub struct DummyFields;
+impl Fields for DummyFields {
+    fn iterator(&self) -> impl Iterator<Item = &String> {
+        iter::empty()
+    }
+
+    type Terms = DummyTerms;
+
+    fn terms(&self, _field: &str) -> Result<Option<Self::Terms>> {
+        unreachable!()
+    }
+
+    fn size(&self) -> Result<i32> {
+        unreachable!()
+    }
+}
