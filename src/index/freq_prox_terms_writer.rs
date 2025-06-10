@@ -642,7 +642,7 @@ where
         Ok(-1)
     }
 
-    fn get_payload(&self) -> Result<Option<&BytesRef<Vec<u8>>>> {
+    fn get_payload(&self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
         Ok(None)
     }
 }
@@ -958,11 +958,11 @@ where
         Ok(self.end_offset)
     }
 
-    fn get_payload(&self) -> Result<Option<&BytesRef<Vec<u8>>>> {
+    fn get_payload(&self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
         if self.payload.length == 0 {
             Ok(None)
         } else {
-            Ok(Some(&self.payload))
+            Ok(Some(Cow::Borrowed(&self.payload)))
         }
     }
 }

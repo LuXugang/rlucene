@@ -18,7 +18,7 @@ use std::cell::RefCell;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 use std::{fmt, ptr};
-
+use std::borrow::Cow;
 use once_cell::sync::Lazy;
 
 use crate::codecs::block_term_state::BlockTermStateEnum;
@@ -1355,11 +1355,11 @@ where
         }
     }
 
-    fn get_payload(&self) -> Result<Option<&BytesRef<Vec<u8>>>> {
+    fn get_payload(&self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
         if !self.needs_payloads || self.payload_length == 0 {
             Ok(None)
         } else {
-            Ok(self.payload.as_ref())
+            Ok(Option::from(Cow::Borrowed(self.payload.as_ref().unwrap())))
         }
     }
 }

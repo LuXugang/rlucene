@@ -579,7 +579,7 @@ where
         Ok(-1)
     }
 
-    fn get_payload(&self) -> Result<Option<&BytesRef<Vec<u8>>>> {
+    fn get_payload(&self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
         Ok(None)
     }
 }
@@ -765,12 +765,12 @@ where
         Ok(self.end_offset)
     }
 
-    fn get_payload(&self) -> Result<Option<&BytesRef<Vec<u8>>>> {
+    fn get_payload(&self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
         if !self.has_payload {
             return Err(LuceneError::unsupported_operation(
                 "Payloads not indexed".to_string(),
             ));
         }
-        Ok(Some(&self.payload.bytes_ref))
+        Ok(Some(Cow::Borrowed(&self.payload.bytes_ref)))
     }
 }

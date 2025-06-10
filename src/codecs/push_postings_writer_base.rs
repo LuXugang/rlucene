@@ -269,7 +269,7 @@ pub trait PushPostingsWriterBaseAbstract {
     fn add_position(
         &mut self,
         position: i32,
-        payload: Option<&BytesRef<Vec<u8>>>,
+        payload: Option<Cow<BytesRef<Vec<u8>>>>,
         start_offset: i32,
         end_offset: i32,
         options: &FieldWriteOptions,

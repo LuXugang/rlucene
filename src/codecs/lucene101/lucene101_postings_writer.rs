@@ -704,7 +704,7 @@ where
     fn add_position(
         &mut self,
         position: i32,
-        payload: Option<&BytesRef<Vec<u8>>>,
+        payload: Option<Cow<BytesRef<Vec<u8>>>>,
         start_offset: i32,
         end_offset: i32,
         options: &FieldWriteOptions,
@@ -728,26 +728,24 @@ where
         self.pos_delta_buffer[idx] = position - self.last_position;
 
         if options.write_payloads {
-            let len = payload
-                .filter(|p| p.length > 0)
-                .map(|p| p.length)
-                .unwrap_or(0);
-            let len_i32: i32 = len.try_into()?;
-            self.payload_length_buffer[idx] = len_i32;
-            if len > 0 {
-                if self.payload_byte_upto as usize + len > self.payload_bytes.len() {
+            if payload.is_none() || payload.as_ref().unwrap().length == 0{
+
+                self.payload_length_buffer[idx] = 0;
+            }else {
+                let p = payload.as_ref().unwrap();
+                self.payload_length_buffer[idx] = p.length as i32;
+                if self.payload_byte_upto as usize + p.length> self.payload_bytes.len() {
                     ArrayUtil::grow_with_len(
                         &mut self.payload_bytes,
-                        (self.payload_byte_upto + len_i32) as usize,
+                        (self.payload_byte_upto as usize + p.length) ,
                     );
                 }
-                let p = payload.unwrap();
                 let start = p.offset;
                 self.payload_bytes.copy_from(
-                    &p.bytes[start..start + len],
+                    &p.bytes[start..start + p.length],
                     self.payload_byte_upto as usize,
                 );
-                self.payload_byte_upto += p.length as i32;
+                self.payload_byte_upto += p.length as i32; 
             }
         }
 

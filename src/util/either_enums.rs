@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 
 use crate::index::impact::Impact;
@@ -85,7 +86,7 @@ where
         }
     }
 
-    fn get_payload(&self) -> Result<Option<&BytesRef<Vec<u8>>>> {
+    fn get_payload(&self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
         match self {
             EitherImpactsEnum::F(t) => t.get_payload(),
             EitherImpactsEnum::S(s) => s.get_payload(),
@@ -288,7 +289,7 @@ where
         }
     }
 
-    fn get_payload(&self) -> Result<Option<&BytesRef<Vec<u8>>>> {
+    fn get_payload(&self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
         match self {
             EitherPostingsEnum::F(t) => t.get_payload(),
             EitherPostingsEnum::S(s) => s.get_payload(),

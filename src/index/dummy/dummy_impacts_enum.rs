@@ -21,6 +21,7 @@ use crate::index::postings_enum::PostingsEnum;
 use crate::index::BytesRef;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
+use std::borrow::Cow;
 
 pub struct DummyImpactsEnum;
 
@@ -49,7 +50,7 @@ impl PostingsEnum for DummyImpactsEnum {
         ))
     }
 
-    fn get_payload(&self) -> Result<Option<&BytesRef<Vec<u8>>>> {
+    fn get_payload(&self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
         Err(LuceneError::illegal_state(
             "this method should never be called",
         ))
