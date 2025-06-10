@@ -15,19 +15,15 @@
  * limitations under the License.
  */
 use crate::store::DataOutput;
-use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::error::lucene_error::Result;
 
 pub struct DummyDataOutput;
 impl DataOutput for DummyDataOutput {
     fn write_byte(&mut self, _b: u8) -> Result<()> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn write_bytes_range(&mut self, _b: &[u8], _offset: i32, _length: i32) -> Result<()> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

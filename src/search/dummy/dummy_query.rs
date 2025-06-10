@@ -23,6 +23,6 @@ pub struct DummyQuery {}
 impl Query for DummyQuery {}
 impl Display for DummyQuery {
     fn fmt(&self, _f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

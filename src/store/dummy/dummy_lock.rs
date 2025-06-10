@@ -17,20 +17,18 @@
 use std::fmt::{Display, Formatter};
 
 use crate::store::lock::Lock;
-use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::error::lucene_error::Result;
 
 pub struct DummyLock;
 
 impl Display for DummyLock {
     fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
-        unreachable!("this method should never be called")
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
 
 impl Lock for DummyLock {
     fn ensure_valid(&self) -> Result<()> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

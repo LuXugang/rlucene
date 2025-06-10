@@ -22,14 +22,14 @@ use crate::util::error::lucene_error::Result;
 pub struct DummyImpacts;
 impl Impacts for DummyImpacts {
     fn num_levels(&self) -> i32 {
-        unreachable!("this method should never be called")
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn get_doc_id_up_to(&self, _level: i32) -> i32 {
-        unreachable!("this method should never be called")
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn get_impacts(&mut self, _level: i32) -> Result<&[Impact]> {
-        unreachable!("this method should never be called")
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

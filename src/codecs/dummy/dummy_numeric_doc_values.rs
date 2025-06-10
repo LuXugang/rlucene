@@ -17,16 +17,13 @@
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::numeric_doc_values::NumericDocValues;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::util::error::lucene_error::LuceneError;
 use crate::util::error::lucene_error::Result;
 
 pub struct DummyNumericDocValues;
 
 impl DocValuesIterator for DummyNumericDocValues {
     fn advance_exact(&mut self, _target: i32) -> Result<bool> {
-        Err(LuceneError::not_implemented(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
 
@@ -36,34 +33,24 @@ impl DocIdSetIterator for DummyNumericDocValues {
     }
 
     fn next_doc(&mut self) -> Result<i32> {
-        Err(LuceneError::not_implemented(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn advance(&mut self, _target: i32) -> Result<i32> {
-        Err(LuceneError::not_implemented(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn slow_advance(&mut self, _target: i32) -> Result<i32> {
-        Err(LuceneError::not_implemented(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn cost(&self) -> Result<i64> {
-        Err(LuceneError::not_implemented(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
 
 impl NumericDocValues for DummyNumericDocValues {
     fn long_value(&mut self) -> Result<i64> {
-        Err(LuceneError::not_implemented(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

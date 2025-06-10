@@ -58,7 +58,7 @@ impl PostingsEnum for DummyImpactsEnum {
 
 impl DocIdSetIterator for DummyImpactsEnum {
     fn doc_id(&self) -> i32 {
-        unreachable!("this method should never be called")
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn next_doc(&mut self) -> Result<i32> {

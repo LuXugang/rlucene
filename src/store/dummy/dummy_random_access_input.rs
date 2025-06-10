@@ -20,26 +20,26 @@ use crate::util::error::lucene_error::Result;
 pub struct DummyRandomAccessInput;
 impl RandomAccessInput for DummyRandomAccessInput {
     fn length(&self) -> i64 {
-        unreachable!(" this method should never be called")
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn read_byte(&mut self, _pos: i64) -> Result<u8> {
-        unreachable!(" this method should never be called")
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn read_short(&mut self, _pos: i64) -> Result<i16> {
-        unreachable!(" this method should never be called")
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn read_int(&mut self, _pos: i64) -> Result<i32> {
-        unreachable!(" this method should never be called")
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn read_long(&mut self, _pos: i64) -> Result<i64> {
-        unreachable!(" this method should never be called")
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn prefetch(&mut self, _pos: i64, _len: i64) -> Result<()> {
-        unreachable!(" this method should never be called")
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

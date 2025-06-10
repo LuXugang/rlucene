@@ -20,46 +20,46 @@ use crate::util::error::lucene_error::Result;
 pub struct DummyDocValuesSkipper;
 impl DocValuesSkipper for DummyDocValuesSkipper {
     fn advance(&mut self, _target: i32) -> Result<()> {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn num_levels(&self) -> i32 {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn min_doc_id(&self, _level: i32) -> i32 {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn max_doc_id(&self, _level: i32) -> i32 {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn min_value(&self, _level: i32) -> i64 {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn max_value(&self, _level: i32) -> i64 {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn doc_count_level(&self, _level: i32) -> i32 {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn global_min_value(&self) -> i64 {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn global_max_value(&self) -> i64 {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn global_doc_count(&self) -> i32 {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn advance_by_range(&mut self, _min_value: i64, _max_value: i64) -> Result<()> {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

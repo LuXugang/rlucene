@@ -18,18 +18,14 @@ use std::rc::Rc;
 
 use crate::index::doc_id_merger::SubBase;
 use crate::index::merge_state::DocMapEnum;
-use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::error::lucene_error::Result;
 pub struct DummySubBase;
 impl SubBase for DummySubBase {
     fn next_doc(&mut self) -> Result<i32> {
-        Err(LuceneError::not_implemented(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn get_doc_map(&self) -> Result<&Rc<DocMapEnum>> {
-        Err(LuceneError::not_implemented(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

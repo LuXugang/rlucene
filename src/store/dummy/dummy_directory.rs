@@ -22,38 +22,29 @@ use crate::store::dummy::dummy_index_input::DummyIndexInput;
 use crate::store::dummy::dummy_index_output::DummyIndexOutput;
 use crate::store::dummy::dummy_lock::DummyLock;
 use crate::store::IOContext;
-use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::error::lucene_error::Result;
 
 pub struct DummyDirectory;
 impl Display for DummyDirectory {
     fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
-        unreachable!("this method should never be called")
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
 
 impl Directory for DummyDirectory {
     fn list_all(&self) -> Result<Vec<String>> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn delete_file(&mut self, _name: &str) -> Result<()> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn file_length(&self, _name: &str) -> Result<i64> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
-    #[allow(refining_impl_trait)]
     fn create_output(&mut self, _name: &str, _context: &IOContext) -> Result<DummyIndexOutput> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     type IndexOutputType = DummyIndexOutput;
@@ -63,46 +54,31 @@ impl Directory for DummyDirectory {
         _suffix: &str,
         _context: &IOContext,
     ) -> Result<Self::IndexOutputType> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn sync(&mut self, _names: &[&str]) -> Result<()> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn sync_metadata(&mut self) -> Result<()> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn rename(&mut self, _source: &str, _dest: &str) -> Result<()> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     type IndexInputType = DummyIndexInput;
 
     fn open_input(&self, _name: &str, _context: &IOContext) -> Result<Self::IndexInputType> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
-    #[allow(refining_impl_trait)]
     fn obtain_lock(&mut self, _name: &str) -> Result<DummyLock> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn get_pending_deletions(&mut self) -> Result<HashSet<String>> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

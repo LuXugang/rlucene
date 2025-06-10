@@ -26,16 +26,16 @@ impl DocValuesIterator for DummyBinaryDocValues {}
 
 impl DocIdSetIterator for DummyBinaryDocValues {
     fn doc_id(&self) -> i32 {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn next_doc(&mut self) -> Result<i32> {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
 
 impl BinaryDocValues for DummyBinaryDocValues {
     fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

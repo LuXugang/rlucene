@@ -26,21 +26,21 @@ impl DocValuesIterator for DummySortedSetDocValues {}
 
 impl DocIdSetIterator for DummySortedSetDocValues {
     fn doc_id(&self) -> i32 {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn next_doc(&mut self) -> Result<i32> {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
 
 impl SortedSetDocValues for DummySortedSetDocValues {
     fn next_ord(&mut self) -> Result<i64> {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn doc_value_count(&mut self) -> Result<i32> {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
     type TermsEnum = DummyTermsEnum;
 }

@@ -17,7 +17,7 @@
 use std::io::Cursor;
 
 use crate::store::{BufferedIndexInput, BufferedIndexInputBase};
-use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::error::lucene_error::Result;
 
 pub struct DummyBufferedIndexInputBase;
 
@@ -26,15 +26,13 @@ impl crate::util::clone::TryClone for DummyBufferedIndexInputBase {
     where
         Self: Sized,
     {
-        unreachable!("this method should never be called")
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
 
 impl BufferedIndexInputBase for DummyBufferedIndexInputBase {
     fn seek_internal(&mut self, _pos: i64) -> Result<()> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn read_internal(
@@ -43,20 +41,16 @@ impl BufferedIndexInputBase for DummyBufferedIndexInputBase {
         _len: i64,
         _file_pointer: i64,
     ) -> Result<()> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     type Slice = BufferedIndexInput<DummyBufferedIndexInputBase>;
 
     fn slice(&self, _slice_description: &str, _offset: i64, _length: i64) -> Result<Self::Slice> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn length(&self) -> i64 {
-        unreachable!("this method should never be called")
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

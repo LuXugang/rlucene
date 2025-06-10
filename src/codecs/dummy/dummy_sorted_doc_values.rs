@@ -29,34 +29,34 @@ impl DocValuesIterator for DummySortedDocValues {}
 
 impl DocIdSetIterator for DummySortedDocValues {
     fn doc_id(&self) -> i32 {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn next_doc(&mut self) -> Result<i32> {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
 
 impl SortedDocValues for DummySortedDocValues {
     fn ord_value(&mut self) -> Result<i32> {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn lookup_ord(&mut self, _ord: i32) -> Result<Cow<BytesRef<Vec<u8>>>> {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn get_value_count(&mut self) -> Result<i32> {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn lookup_term(&mut self, _key: &BytesRef<Vec<u8>>) -> Result<i32> {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     type TermsEnum = DummyTermsEnum;
 
     // fn terms_enum(&mut self) -> Result<TermsEnums<I, AV>> {
-    //     todo!()
+    //     unreachable!("Dummy implementation: this method should never be called in real usage")
     // }
 }

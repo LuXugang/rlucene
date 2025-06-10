@@ -28,10 +28,10 @@ impl NormsProducer for DummyNormsProducer {
         &mut self,
         _field: &Rc<FieldInfo>,
     ) -> crate::util::error::lucene_error::Result<Self::NumericDocValues> {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn check_integrity(&mut self) -> crate::util::error::lucene_error::Result<()> {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

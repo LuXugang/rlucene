@@ -27,13 +27,13 @@ use std::borrow::Cow;
 pub struct DummyTerms;
 impl Terms for DummyTerms {
     fn get_terms() -> Result<()> {
-        unreachable!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     type TermsEnum = DummyTermsEnum;
 
     fn iterator(&self) -> Result<Self::TermsEnum> {
-        unreachable!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     type IntersectIter = DummyTermsEnum;
@@ -43,7 +43,7 @@ impl Terms for DummyTerms {
         _compiled: &mut CompiledAutomaton,
         _start_term: Option<BytesRef<Vec<u8>>>,
     ) -> Result<Self::IntersectIter> {
-        unreachable!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn default_intersect(
@@ -54,60 +54,60 @@ impl Terms for DummyTerms {
     where
         Self: Sized,
     {
-        unreachable!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn size(&self) -> Result<i64> {
-        unreachable!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn get_sum_total_term_freq(&self) -> Result<i64> {
-        unreachable!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn get_sum_doc_freq(&self) -> Result<i64> {
-        unreachable!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn get_doc_count(&self) -> Result<i32> {
-        unreachable!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn has_freqs(&self) -> bool {
-        unreachable!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn has_offsets(&self) -> bool {
-        unreachable!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn has_positions(&self) -> bool {
-        unreachable!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn has_payloads(&self) -> bool {
-        unreachable!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn get_min<'a, T>(&'a self, _iterator: &'a mut T) -> Result<Option<Cow<'a, BytesRef<Vec<u8>>>>>
     where
         T: TermsEnum,
     {
-        unreachable!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn get_max<'a, T>(&'a self, _iterator: &'a mut T) -> Result<Option<Cow<'a, BytesRef<Vec<u8>>>>>
     where
         T: TermsEnum,
     {
-        unreachable!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn get_stats(&self) -> Result<String> {
-        unreachable!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn type_name(&self) -> &'static str {
-        unreachable!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

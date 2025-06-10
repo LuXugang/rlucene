@@ -18,33 +18,27 @@ use std::fmt::{Display, Formatter};
 
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{DataInput, IndexInput};
-use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::error::lucene_error::Result;
 
 pub struct DummyIndexInput;
 
 impl DataInput for DummyIndexInput {
     fn read_byte(&mut self) -> Result<u8> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn read_bytes(&mut self, _b: &mut [u8], _offset: i32, _len: i32) -> Result<()> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn skip_bytes(&mut self, _num_bytes: i64) -> Result<()> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
 
 impl Display for DummyIndexInput {
     fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
-        unreachable!("this method should never be called")
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
 
@@ -53,23 +47,21 @@ impl crate::util::clone::TryClone for DummyIndexInput {
     where
         Self: Sized,
     {
-        unreachable!("this method should never be called")
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
 
 impl IndexInput for DummyIndexInput {
     fn get_file_pointer(&self) -> i64 {
-        unreachable!("this method should never be called")
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn seek(&mut self, _pos: i64) -> Result<()> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn length(&self) -> i64 {
-        unreachable!("this method should never be called")
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     type Slice = DummyIndexInput;
@@ -80,51 +72,37 @@ impl IndexInput for DummyIndexInput {
         _offset: i64,
         _length: i64,
     ) -> Result<DummyIndexInput> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     type RandomAccessSlice = DummyIndexInput;
 
     fn random_access_slice(&self, _offset: i64, _length: i64) -> Result<DummyIndexInput> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
 impl RandomAccessInput for DummyIndexInput {
     fn length(&self) -> i64 {
-        unreachable!("this method should never be called")
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn read_byte(&mut self, _pos: i64) -> Result<u8> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn read_short(&mut self, _pos: i64) -> Result<i16> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn read_int(&mut self, _pos: i64) -> Result<i32> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn read_long(&mut self, _pos: i64) -> Result<i64> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn prefetch(&mut self, _pos: i64, _len: i64) -> Result<()> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

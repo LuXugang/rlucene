@@ -21,10 +21,10 @@ pub struct DummyDISI;
 
 impl DocIdSetIterator for DummyDISI {
     fn doc_id(&self) -> i32 {
-        unreachable!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn next_doc(&mut self) -> lucene_error::Result<i32> {
-        unreachable!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

@@ -17,58 +17,43 @@
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::error::lucene_error::Result;
 pub struct DummySortedNumericDocValues;
 
 impl DocValuesIterator for DummySortedNumericDocValues {
     fn advance_exact(&mut self, _target: i32) -> Result<bool> {
-        Err(LuceneError::not_implemented(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
 
 impl DocIdSetIterator for DummySortedNumericDocValues {
     fn doc_id(&self) -> i32 {
-        debug_assert!(false, "this method should never be called");
-        -1
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn next_doc(&mut self) -> Result<i32> {
-        Err(LuceneError::not_implemented(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn advance(&mut self, _target: i32) -> Result<i32> {
-        Err(LuceneError::not_implemented(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn slow_advance(&mut self, _target: i32) -> Result<i32> {
-        Err(LuceneError::not_implemented(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn cost(&self) -> Result<i64> {
-        Err(LuceneError::not_implemented(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
 
 impl SortedNumericDocValues for DummySortedNumericDocValues {
     fn next_value(&mut self) -> Result<i64> {
-        Err(LuceneError::not_implemented(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn doc_value_count(&mut self) -> Result<i32> {
-        Err(LuceneError::not_implemented(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

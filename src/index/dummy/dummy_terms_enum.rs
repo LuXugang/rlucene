@@ -21,7 +21,7 @@ use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::index::BytesRef;
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
-use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::error::lucene_error::Result;
 use std::borrow::Cow;
 
 pub struct DummyTermsEnum {
@@ -42,28 +42,21 @@ impl DummyTermsEnum {
 }
 impl BytesRefIterator for DummyTermsEnum {
     fn next(&mut self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
 
 impl TermsEnum for DummyTermsEnum {
     fn attributes(&self) -> Result<&AttributeSource> {
-        debug_assert!(false, "should never be called");
-        Ok(&self.atts)
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn seek_ceil(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn seek_exact_with_ord(&mut self, _ord: i64) -> Result<()> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn seek_exact_with_state(
@@ -71,33 +64,23 @@ impl TermsEnum for DummyTermsEnum {
         _term: &BytesRef<Vec<u8>>,
         _state: &TermStateEnum,
     ) -> Result<()> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn term(&self) -> Result<Cow<BytesRef<Vec<u8>>>> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn ord(&self) -> Result<i64> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn doc_freq(&mut self) -> Result<i32> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn total_term_freq(&mut self) -> Result<i64> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     type PostingsEnum = DummyPostingsEnum;
@@ -107,24 +90,18 @@ impl TermsEnum for DummyTermsEnum {
         _reuse: Option<Self::PostingsEnum>,
         _flags: i32,
     ) -> Result<Self::PostingsEnum> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     type ImpactsEnum = DummyImpactsEnum;
 
     fn impacts(&mut self, _flags: i32) -> Result<Self::ImpactsEnum> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     type TermState = TermStateEnum;
 
     fn term_state(&mut self) -> Result<Self::TermState> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

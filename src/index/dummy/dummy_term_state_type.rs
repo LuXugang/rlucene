@@ -22,7 +22,7 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 pub struct DummyTermState;
 impl Display for DummyTermState {
     fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
-        unreachable!("this method should never be called")
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
 

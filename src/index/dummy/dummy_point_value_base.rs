@@ -16,55 +16,41 @@
  */
 use crate::index::dummy::dummy_point_tree::DummyPointTree;
 use crate::index::point_values::PointValuesBase;
-use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::error::lucene_error::Result;
 
 pub struct DummyPointValuesBase;
 impl PointValuesBase for DummyPointValuesBase {
     fn get_min_packed_value(&self) -> Result<Option<Vec<u8>>> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn get_max_packed_value(&self) -> Result<Option<Vec<u8>>> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn get_num_dimensions(&self) -> Result<i32> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn get_num_index_dimensions(&self) -> Result<i32> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn get_bytes_per_dimension(&self) -> Result<i32> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn size(&self) -> Result<i64> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn get_doc_count(&self) -> Result<i32> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     type PointTree = DummyPointTree;
 
     fn get_point_tree(&self) -> Result<Self::PointTree> {
-        Ok(DummyPointTree)
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

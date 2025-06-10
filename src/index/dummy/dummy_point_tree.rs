@@ -20,7 +20,7 @@ pub struct DummyPointTree;
 
 impl Clone for DummyPointTree {
     fn clone(&self) -> Self {
-        unreachable!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
 impl PointTree for DummyPointTree {}

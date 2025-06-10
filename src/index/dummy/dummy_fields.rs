@@ -28,10 +28,10 @@ impl Fields for DummyFields {
     type Terms = DummyTerms;
 
     fn terms(&self, _field: &str) -> Result<Option<Self::Terms>> {
-        unreachable!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn size(&self) -> Result<i32> {
-        unreachable!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

@@ -29,70 +29,70 @@ use crate::index::vector_similarity_function::VectorSimilarityFunction;
 pub struct DummyIndexableFieldType;
 impl IndexableFieldType for DummyIndexableFieldType {
     fn stored(&self) -> bool {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn tokenized(&self) -> bool {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn store_term_vectors(&self) -> bool {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn store_term_vector_offsets(&self) -> bool {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn store_term_vector_positions(&self) -> bool {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn store_term_vector_payloads(&self) -> bool {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn omit_norms(&self) -> bool {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn index_options(&self) -> &IndexOptions {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn doc_values_type(&self) -> &DocValuesType {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn doc_values_skip_index_type(&self) -> &DocValuesSkipIndexType {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn point_dimension_count(&self) -> i32 {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn point_index_dimension_count(&self) -> i32 {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn point_num_bytes(&self) -> i32 {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn vector_dimension(&self) -> i32 {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn vector_encoding(&self) -> &VectorEncoding {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn vector_similarity_function(&self) -> &VectorSimilarityFunction {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn get_attributes(&self) -> Arc<Mutex<HashMap<String, String>>> {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
