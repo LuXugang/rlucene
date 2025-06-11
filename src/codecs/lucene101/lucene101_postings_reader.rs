@@ -50,7 +50,7 @@ use crate::util::access::BorrowExt;
 use crate::util::array_util::ArrayUtil;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::{SliceCopyOps, ToUsizeExact};
+use crate::util::{CoreHelper, SliceCopyOps, ToUsizeExact};
 
 pub struct Lucene101PostingsReader<I>
 where
@@ -464,7 +464,7 @@ where
     level0_block_pos_upto: i32,
     level0_pay_end_fp: i64,
     level0_block_pay_upto: i32,
-    // TODO: 这里的BytesRef中的byte需要共享
+    // TODO: 调用get_impacts时，暂时移除所有权，如果该值为空 说明Java Lucene中有重复的读取
     level0_serialized_impacts: Option<BytesRef<Vec<u8>>>,
     #[allow(dead_code)]
     level0_impacts: Option<MutableImpactList>,
@@ -481,6 +481,8 @@ where
 
     max_num_impacts_at_level0: i32,
     max_num_impacts_at_level1: i32,
+    max_impact_num_bytes_at_level0: i32,
+    max_impact_num_bytes_at_level1: i32,
 }
 #[allow(unused)]
 impl<I> BlockPostingsEnum<I>
@@ -658,6 +660,9 @@ where
             needs_refilling: false,
             max_num_impacts_at_level0: reader.max_num_impacts_at_level0,
             max_num_impacts_at_level1: reader.max_num_impacts_at_level1,
+
+            max_impact_num_bytes_at_level0: reader.max_num_impacts_at_level0,
+            max_impact_num_bytes_at_level1: reader.max_impact_num_bytes_at_level0,
         })
     }
     pub fn can_reuse(
@@ -1439,16 +1444,29 @@ where
         Ok(())
     }
 
-    type ImpactsType<'a>
-        = ImpactsImpl<'a, I>
-    where
-        I: 'a;
+    type Impacts = ImpactsImpl;
 
-    fn get_impacts(&mut self) -> Result<Self::ImpactsType<'_>> {
+    fn get_impacts(&mut self) -> Result<Self::Impacts> {
         let max_num_impacts_at_level0 = self.max_num_impacts_at_level0 as usize;
         let max_num_impacts_at_level1 = self.max_num_impacts_at_level1 as usize;
+        let level0_serialized_impacts =
+            CoreHelper::take_and_reset(&mut self.level0_serialized_impacts, |_| {
+                Some(BytesRef::with_capacity(
+                    self.max_impact_num_bytes_at_level0 as usize,
+                ))
+            });
+        let level1_serialized_impacts =
+            CoreHelper::take_and_reset(&mut self.level1_serialized_impacts, |_| {
+                Some(BytesRef::with_capacity(
+                    self.max_impact_num_bytes_at_level1 as usize,
+                ))
+            });
         Ok(ImpactsImpl {
-            impacts_enum: self,
+            index_has_freq: self.index_has_freq,
+            level0_last_doc_id: self.level0_last_doc_id,
+            level1_last_doc_id: self.level1_last_doc_id,
+            level0_serialized_impacts,
+            level1_serialized_impacts,
             max_num_impacts_at_level0,
             max_num_impacts_at_level1,
         })
@@ -1456,18 +1474,16 @@ where
 }
 impl<I> ImpactsEnum for BlockPostingsEnum<I> where I: IndexInput {}
 
-pub struct ImpactsImpl<'a, I>
-where
-    I: IndexInput,
-{
-    impacts_enum: &'a mut BlockPostingsEnum<I>,
+pub struct ImpactsImpl {
+    index_has_freq: bool,
+    level0_last_doc_id: i32,
+    level1_last_doc_id: i32,
+    level0_serialized_impacts: Option<BytesRef<Vec<u8>>>,
+    level1_serialized_impacts: Option<BytesRef<Vec<u8>>>,
     max_num_impacts_at_level0: usize,
     max_num_impacts_at_level1: usize,
 }
-impl<I> ImpactsImpl<'_, I>
-where
-    I: IndexInput,
-{
+impl ImpactsImpl {
     fn read_impacts(
         serialized: Vec<u8>,
         level_impacts_len: usize,
@@ -1479,13 +1495,9 @@ where
         Ok((level_impacts, std::mem::take(&mut scratch.bytes)))
     }
 }
-impl<I> Impacts for ImpactsImpl<'_, I>
-where
-    I: IndexInput,
-{
+impl Impacts for ImpactsImpl {
     fn num_levels(&self) -> i32 {
-        if !self.impacts_enum.index_has_freq || self.impacts_enum.level1_last_doc_id == NO_MORE_DOCS
-        {
+        if !self.index_has_freq || self.level1_last_doc_id == NO_MORE_DOCS {
             1
         } else {
             2
@@ -1493,41 +1505,41 @@ where
     }
 
     fn get_doc_id_up_to(&self, level: i32) -> i32 {
-        if !self.impacts_enum.index_has_freq {
+        if !self.index_has_freq {
             NO_MORE_DOCS
         } else if level == 0 {
-            self.impacts_enum.level0_last_doc_id
+            self.level0_last_doc_id
         } else if level == 1 {
-            self.impacts_enum.level1_last_doc_id
+            self.level1_last_doc_id
         } else {
             NO_MORE_DOCS
         }
     }
 
     fn get_impacts(&mut self, level: i32) -> Result<Cow<[Impact]>> {
-        if self.impacts_enum.index_has_freq {
+        if self.index_has_freq {
             // We don't reuse level0_impacts and level1_impacts like Java Lucene does.
-            if level == 0 && self.impacts_enum.level0_last_doc_id != NO_MORE_DOCS {
-                let mut v = self.impacts_enum.level0_serialized_impacts.take().unwrap();
-                let (level0_impacts, bytes) = ImpactsImpl::<I>::read_impacts(
+            if level == 0 && self.level0_last_doc_id != NO_MORE_DOCS {
+                let mut v = self.level0_serialized_impacts.take().unwrap();
+                let (level0_impacts, bytes) = ImpactsImpl::read_impacts(
                     // take ownership
                     std::mem::take(&mut v.bytes),
                     self.max_num_impacts_at_level0,
                 )?;
                 // return ownership
                 v.bytes = bytes;
-                self.impacts_enum.level0_serialized_impacts = Some(v);
+                self.level0_serialized_impacts = Some(v);
                 Ok(Cow::Owned(level0_impacts.impacts))
             } else {
-                let mut v = self.impacts_enum.level1_serialized_impacts.take().unwrap();
-                let (level1_impacts, bytes) = ImpactsImpl::<I>::read_impacts(
+                let mut v = self.level1_serialized_impacts.take().unwrap();
+                let (level1_impacts, bytes) = ImpactsImpl::read_impacts(
                     // take ownership
                     std::mem::take(&mut v.bytes),
                     self.max_num_impacts_at_level1,
                 )?;
                 // return ownership
                 v.bytes = bytes;
-                self.impacts_enum.level1_serialized_impacts = Some(v);
+                self.level1_serialized_impacts = Some(v);
                 Ok(Cow::Owned(level1_impacts.impacts))
             }
         } else {

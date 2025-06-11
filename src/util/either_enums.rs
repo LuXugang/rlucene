@@ -147,12 +147,9 @@ where
         }
     }
 
-    type ImpactsType<'a>
-        = EitherImpacts<F::ImpactsType<'a>, S::ImpactsType<'a>>
-    where
-        Self: 'a;
+    type Impacts = EitherImpacts<F::Impacts, S::Impacts>;
 
-    fn get_impacts(&mut self) -> Result<Self::ImpactsType<'_>> {
+    fn get_impacts(&mut self) -> Result<Self::Impacts> {
         match self {
             EitherImpactsEnum::F(t) => {
                 let impacts = t.get_impacts()?;

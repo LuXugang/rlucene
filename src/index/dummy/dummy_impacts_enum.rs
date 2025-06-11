@@ -63,25 +63,19 @@ impl DocIdSetIterator for DummyImpactsEnum {
     }
 
     fn next_doc(&mut self) -> Result<i32> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
 
 impl ImpactsSource for DummyImpactsEnum {
     fn advance_shallow(&mut self, _target: i32) -> Result<()> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    type ImpactsType<'a> = DummyImpacts;
+    type Impacts = DummyImpacts;
 
-    fn get_impacts(&mut self) -> Result<Self::ImpactsType<'_>> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+    fn get_impacts(&mut self) -> Result<Self::Impacts> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
 
