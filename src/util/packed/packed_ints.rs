@@ -31,7 +31,6 @@ use crate::util::packed::packed64_single_block::create;
 use crate::util::packed::packed_reader_iterator::PackedReaderIterator;
 use crate::util::packed::packed_writer::PackedWriter;
 
-#[allow(dead_code)]
 pub struct PackedInts;
 impl PackedInts {
     /// At most 700% memory overhead, always select a direct implementation.

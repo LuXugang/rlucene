@@ -32,6 +32,7 @@ pub(crate) mod lucene90_norms_consumer;
 pub mod lucene90_norms_format;
 pub mod lucene90_norms_producer;
 pub mod lucene90_stored_fields_format;
+pub mod lucene90_term_vectors_format;
 pub mod lz4_with_preset_dict_compression_mode;
 
 pub use lucene90_compound_format::*;
