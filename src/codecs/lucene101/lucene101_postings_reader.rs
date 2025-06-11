@@ -466,6 +466,7 @@ where
     level0_block_pay_upto: i32,
     // TODO: 这里的BytesRef中的byte需要共享
     level0_serialized_impacts: Option<BytesRef<Vec<u8>>>,
+    #[allow(dead_code)]
     level0_impacts: Option<MutableImpactList>,
     /// level 1 skip data
     level1_pos_end_fp: i64,
@@ -473,9 +474,13 @@ where
     level1_pay_end_fp: i64,
     level1_block_pay_upto: i32,
     level1_serialized_impacts: Option<BytesRef<Vec<u8>>>,
+    #[allow(dead_code)]
     level1_impacts: Option<MutableImpactList>,
     // true if we shallow-advanced to a new block that we have not decoded yet
     needs_refilling: bool,
+
+    max_num_impacts_at_level0: i32,
+    max_num_impacts_at_level1: i32,
 }
 #[allow(unused)]
 impl<I> BlockPostingsEnum<I>
@@ -651,6 +656,8 @@ where
             level1_impacts: Some(level1_impacts),
 
             needs_refilling: false,
+            max_num_impacts_at_level0: reader.max_num_impacts_at_level0,
+            max_num_impacts_at_level1: reader.max_num_impacts_at_level1,
         })
     }
     pub fn can_reuse(
@@ -1438,7 +1445,13 @@ where
         I: 'a;
 
     fn get_impacts(&mut self) -> Result<Self::ImpactsType<'_>> {
-        Ok(ImpactsImpl { impacts_enum: self })
+        let max_num_impacts_at_level0 = self.max_num_impacts_at_level0 as usize;
+        let max_num_impacts_at_level1 = self.max_num_impacts_at_level1 as usize;
+        Ok(ImpactsImpl {
+            impacts_enum: self,
+            max_num_impacts_at_level0,
+            max_num_impacts_at_level1,
+        })
     }
 }
 impl<I> ImpactsEnum for BlockPostingsEnum<I> where I: IndexInput {}
@@ -1448,6 +1461,8 @@ where
     I: IndexInput,
 {
     impacts_enum: &'a mut BlockPostingsEnum<I>,
+    max_num_impacts_at_level0: usize,
+    max_num_impacts_at_level1: usize,
 }
 impl<I> ImpactsImpl<'_, I>
 where
@@ -1455,12 +1470,13 @@ where
 {
     fn read_impacts(
         serialized: Vec<u8>,
-        impacts_list: &mut MutableImpactList,
-    ) -> Result<(&[Impact], Vec<u8>)> {
+        level_impacts_len: usize,
+    ) -> Result<(MutableImpactList, Vec<u8>)> {
         let len = serialized.len();
         let mut scratch = ByteArrayDataInput::with_range(serialized, 0, len);
-        let r = lucene101_pr_util::read_impacts(&mut scratch, impacts_list)?;
-        Ok((r, std::mem::take(&mut scratch.bytes)))
+        let mut level_impacts = MutableImpactList::with_capacity(level_impacts_len);
+        lucene101_pr_util::read_impacts(&mut scratch, &mut level_impacts)?;
+        Ok((level_impacts, std::mem::take(&mut scratch.bytes)))
     }
 }
 impl<I> Impacts for ImpactsImpl<'_, I>
@@ -1488,33 +1504,34 @@ where
         }
     }
 
-    fn get_impacts(&mut self, level: i32) -> Result<&[Impact]> {
+    fn get_impacts(&mut self, level: i32) -> Result<Cow<[Impact]>> {
         if self.impacts_enum.index_has_freq {
+            // We don't reuse level0_impacts and level1_impacts like Java Lucene does.
             if level == 0 && self.impacts_enum.level0_last_doc_id != NO_MORE_DOCS {
                 let mut v = self.impacts_enum.level0_serialized_impacts.take().unwrap();
-                let (impact, bytes) = ImpactsImpl::<I>::read_impacts(
+                let (level0_impacts, bytes) = ImpactsImpl::<I>::read_impacts(
                     // take ownership
                     std::mem::take(&mut v.bytes),
-                    self.impacts_enum.level0_impacts.as_mut().unwrap(),
+                    self.max_num_impacts_at_level0,
                 )?;
                 // return ownership
                 v.bytes = bytes;
                 self.impacts_enum.level0_serialized_impacts = Some(v);
-                Ok(impact)
+                Ok(Cow::Owned(level0_impacts.impacts))
             } else {
                 let mut v = self.impacts_enum.level1_serialized_impacts.take().unwrap();
-                let (impact, bytes) = ImpactsImpl::<I>::read_impacts(
+                let (level1_impacts, bytes) = ImpactsImpl::<I>::read_impacts(
                     // take ownership
                     std::mem::take(&mut v.bytes),
-                    self.impacts_enum.level1_impacts.as_mut().unwrap(),
+                    self.max_num_impacts_at_level1,
                 )?;
                 // return ownership
                 v.bytes = bytes;
                 self.impacts_enum.level1_serialized_impacts = Some(v);
-                Ok(impact)
+                Ok(Cow::Owned(level1_impacts.impacts))
             }
         } else {
-            Ok(DUMMY_IMPACTS.as_slice())
+            Ok(Cow::Borrowed(DUMMY_IMPACTS.as_slice()))
         }
     }
 }
@@ -1522,7 +1539,7 @@ where
 pub mod lucene101_pr_util {
     use crate::codecs::lucene101::lucene101_postings_format::IntBlockTermState;
     use crate::codecs::lucene101::lucene101_postings_reader::MutableImpactList;
-    use crate::index::impact::Impact;
+
     use crate::store::{ByteArrayDataInput, DataInput, IndexInput};
     use crate::util::error::lucene_error::Result;
     pub(super) fn prefix_sum(buffer: &mut [i32], count: usize, base: i32) {
@@ -1551,10 +1568,10 @@ pub mod lucene101_pr_util {
             Ok((s as i64) & 0x7FFF | (input.read_vlong()? << 15))
         }
     }
-    pub(crate) fn read_impacts<'a>(
+    pub(crate) fn read_impacts(
         input: &mut ByteArrayDataInput<Vec<u8>>,
-        reuse: &'a mut MutableImpactList,
-    ) -> Result<&'a [Impact]> {
+        reuse: &mut MutableImpactList,
+    ) -> Result<()> {
         let mut freq = 0;
         let mut norm = 0;
         let mut length = 0;
@@ -1572,9 +1589,8 @@ pub mod lucene101_pr_util {
             slot.norm = norm;
             length += 1;
         }
-
         reuse.length = length;
-        Ok(&reuse.impacts[..length])
+        Ok(())
     }
     pub(super) fn sum_over_range(arr: &[i32], start: usize, end: usize) -> i32 {
         let mut res = 0;
@@ -1607,8 +1623,8 @@ pub mod lucene101_pr_util {
 
 #[derive(Default)]
 pub(crate) struct MutableImpactList {
-    length: usize,
-    impacts: Vec<Impact>,
+    pub(crate) length: usize,
+    pub(crate) impacts: Vec<Impact>,
 }
 impl MutableImpactList {
     pub(crate) fn with_capacity(capacity: usize) -> Self {

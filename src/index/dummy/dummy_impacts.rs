@@ -17,6 +17,7 @@
 use crate::index::impact::Impact;
 use crate::index::impacts::Impacts;
 use crate::util::error::lucene_error::Result;
+use std::borrow::Cow;
 
 #[derive(Clone)]
 pub struct DummyImpacts;
@@ -29,7 +30,7 @@ impl Impacts for DummyImpacts {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn get_impacts(&mut self, _level: i32) -> Result<&[Impact]> {
+    fn get_impacts(&mut self, _level: i32) -> Result<Cow<[Impact]>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

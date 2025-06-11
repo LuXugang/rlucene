@@ -262,9 +262,9 @@ mod tests {
         let mut data_in = ByteArrayDataInput::with_bytes(buffer);
         let mut mutable_impacts_list =
             MutableImpactList::with_capacity(impacts.len() + random.random_range(0..3));
-        let impacts2 = lucene101_pr_util::read_impacts(&mut data_in, &mut mutable_impacts_list)?;
-
-        assert_eq!(impacts2, impacts);
+        lucene101_pr_util::read_impacts(&mut data_in, &mut mutable_impacts_list)?;
+        let len = mutable_impacts_list.length;
+        assert_eq!(&mutable_impacts_list.impacts[0..len], impacts);
         Ok(())
     }
 }

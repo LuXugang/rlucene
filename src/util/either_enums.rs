@@ -201,7 +201,7 @@ where
         }
     }
 
-    fn get_impacts(&mut self, level: i32) -> Result<&[Impact]> {
+    fn get_impacts(&mut self, level: i32) -> Result<Cow<[Impact]>> {
         match self {
             EitherImpacts::F(t) => t.get_impacts(level),
             EitherImpacts::S(s) => s.get_impacts(level),
