@@ -33,6 +33,7 @@ impl DirectReader {
 
     /// Retrieves an instance from the specified slice, decoding
     /// `bits_per_value` for each value.
+    // TODO: 参数slice应该实现编译多态 能接受 R或者Rc<RefCell<R>>类型
     pub(crate) fn get_instance<R>(slice: Rc<RefCell<R>>, bits_per_value: i32) -> DirectPackedEnum<R>
     where
         R: RandomAccessInput,
