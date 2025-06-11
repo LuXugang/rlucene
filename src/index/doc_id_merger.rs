@@ -36,7 +36,7 @@ where
     /// as it may result in unpredicted behavior.
     fn next(&mut self) -> Result<Option<Rc<RefCell<Sub<S>>>>>;
 }
-#[allow(unused)]
+
 pub mod doc_id_merger_util {
     use std::cell::RefCell;
     use std::rc::Rc;
@@ -75,8 +75,8 @@ where
     S: SubBase + Default,
 {
     subs: Vec<Rc<RefCell<Sub<S>>>>,
-    current: Option<Rc<RefCell<Sub<S>>>>,
-    next_index: i32,
+    current: Option<usize>,
+    next_index: usize,
 }
 impl<S> SequentialDocIDMerger<S>
 where
@@ -99,7 +99,7 @@ where
 {
     fn reset(&mut self) -> Result<()> {
         if !self.subs.is_empty() {
-            self.current = Some(self.subs[0].clone());
+            self.current = Some(0);
             self.next_index = 1;
         } else {
             self.current = None;
@@ -111,16 +111,17 @@ where
     fn next(&mut self) -> Result<Option<Rc<RefCell<Sub<S>>>>> {
         loop {
             if let Some(ref current_sub) = self.current {
-                if current_sub.borrow_mut().next_mapped_doc()? != NO_MORE_DOCS {
-                    return Ok(Some(Rc::clone(current_sub)));
+                let current = &self.subs[*current_sub];
+                if current.borrow_mut().next_mapped_doc()? != NO_MORE_DOCS {
+                    return Ok(Some(Rc::clone(current)));
                 }
             }
-            if self.next_index as usize == self.subs.len() {
+            if self.next_index == self.subs.len() {
                 self.current = None;
                 return Ok(None);
             }
 
-            self.current = Some(Rc::clone(&self.subs[self.next_index as usize]));
+            self.current = Some(self.next_index);
             self.next_index += 1;
         }
     }
@@ -187,9 +188,9 @@ where
                 }
                 if next_mapped_doc != NO_MORE_DOCS {
                     self.queue.add(sub.clone());
-                }
-            } // else all docs in this sub were deleted; do not add it to the
-              // queue!
+                } // else all docs in this sub were deleted; do not add it to the
+                  // queue!
+            }
         }
 
         self.set_queue_min_doc_id();
