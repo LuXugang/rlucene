@@ -158,7 +158,7 @@ where
     }
 
     fn with_capacity(capacity: usize) -> Self {
-        Vec::with_capacity(capacity)
+        vec![T::default(); capacity]
     }
 
     fn from_vec(v: Vec<T>) -> Self {
