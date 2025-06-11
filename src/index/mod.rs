@@ -104,7 +104,7 @@ pub mod stored_field_visitor;
 pub mod stored_fields;
 pub mod term;
 pub mod term_state;
-mod term_vectors;
+pub mod term_vectors;
 pub(crate) mod term_vectors_consumer;
 pub(crate) mod term_vectors_consumer_per_field;
 pub mod terms;

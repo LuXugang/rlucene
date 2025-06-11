@@ -33,7 +33,6 @@ impl DirectReader {
 
     /// Retrieves an instance from the specified slice, decoding
     /// `bits_per_value` for each value.
-    #[allow(unused)]
     pub(crate) fn get_instance<R>(slice: Rc<RefCell<R>>, bits_per_value: i32) -> DirectPackedEnum<R>
     where
         R: RandomAccessInput,

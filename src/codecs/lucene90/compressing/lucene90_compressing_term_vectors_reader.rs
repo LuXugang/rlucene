@@ -17,32 +17,48 @@
 use crate::codecs::compressing::lucene90_compressing_term_vectors_writer::lucene90_ctvw_util::{
     OFFSETS, PAYLOADS, POSITIONS,
 };
+use crate::codecs::compressing::lucene90_compressing_term_vectors_writer::{
+    lucene90_ctvw_util, FLAGS_BITS,
+};
+use crate::codecs::compression::compression_mode::{CompressionModeEnum, DecompressorEnum};
+use crate::codecs::compression::decompressor::Decompressor;
+use crate::codecs::lucene90::fields_index::{FieldsIndex, FieldsIndexEnum};
 use crate::index::automaton_terms_enum::AutomatonTermsEnum;
 use crate::index::base_terms_enum::BaseTermsEnum;
-use crate::index::dummy::dummy_impacts_enum::DummyImpactsEnum;
 use crate::index::dummy::dummy_term_state_type::DummyTermState;
 use crate::index::field_infos::FieldInfos;
 use crate::index::fields::Fields;
 use crate::index::filtered_terms_enum::{FilteredTermsEnum, FilteredTermsEnumBase};
-use crate::index::postings_enum::PostingsEnum;
+use crate::index::postings_enum::{postings_enum_util, PostingsEnum};
+use crate::index::slow_impacts_enum::SlowImpactsEnum;
+use crate::index::term_vectors::TermVectors;
 use crate::index::terms::Terms;
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::index::BytesRef;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::store::{ByteArrayDataInput, DataInput};
+use crate::store::byte_buffers_data_input::{ByteBuffersDataInput, ByteBuffersDataInputOwned};
+use crate::store::{ByteArrayDataInput, ByteBuffersDataOutput, DataInput, IndexInput};
 use crate::util::array_util::ArrayUtil;
 use crate::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::long_values::LongValues;
+use crate::util::packed::block_packed_reader_iterator::BlockPackedReaderIterator;
+use crate::util::packed::direct_reader::DirectReader;
+use crate::util::packed::direct_writer::{direct_writer_util, DirectWriter};
+use crate::util::packed::Format::Packed;
+use crate::util::packed::{PackedImpl, PackedInts, ReaderIterator};
 use crate::util::ToInt;
 use std::borrow::Cow;
+use std::cell::RefCell;
+use std::io::Cursor;
 use std::rc::Rc;
 
-pub struct Lucene90CompressingTermVectorsReader;
-
-impl Lucene90CompressingTermVectorsReader {
-    fn sum(arr: &[i32]) -> i32 {
+pub mod lucene90_ctvr_util {
+    pub(super) const PREFETCH_CACHE_SIZE: usize = 1 << 4;
+    pub(crate) const PREFETCH_CACHE_MASK: usize = PREFETCH_CACHE_SIZE - 1;
+    pub(crate) fn sum(arr: &[i32]) -> i32 {
         let mut sum = 0;
         for &el in arr {
             sum += el;
@@ -50,7 +66,739 @@ impl Lucene90CompressingTermVectorsReader {
         sum
     }
 }
-pub(crate) struct TVFields {
+
+pub struct Lucene90CompressingTermVectorsReader<I>
+where
+    I: IndexInput,
+{
+    field_infos: Rc<FieldInfos>,
+    index_reader: FieldsIndexEnum<I>,
+    vectors_stream: I,
+    version: i32,
+    packed_ints_version: i32,
+    compression_mode: CompressionModeEnum,
+    decompressor: DecompressorEnum,
+    chunk_size: i32,
+    num_docs: i32,
+    closed: bool,
+    // number of written blocks
+    num_chunks: i64,
+    // number of incomplete compressed blocks written
+    num_dirty_chunks: i64,
+    // cumulative number of docs in incomplete chunks
+    num_dirty_docs: i64,
+    // end of the data section
+    max_pointer: i64,
+    block_state: BlockState,
+    // Cache of recently prefetched block IDs. This helps reduce chances of prefetching the same block
+    // multiple times, which is otherwise likely due to index sorting or recursive graph bisection
+    // clustering similar documents together. NOTE: this cache must be small since it's fully scanned.
+    prefetched_block_id_cache: [i64; lucene90_ctvr_util::PREFETCH_CACHE_SIZE],
+    prefetched_block_id_cache_index: usize,
+}
+
+impl<I> Lucene90CompressingTermVectorsReader<I>
+where
+    I: IndexInput,
+{
+    pub(crate) fn compression_mode(&self) -> &CompressionModeEnum {
+        &self.compression_mode
+    }
+
+    pub(crate) fn chunk_size(&self) -> i32 {
+        self.chunk_size
+    }
+
+    pub(crate) fn packed_ints_version(&self) -> i32 {
+        self.packed_ints_version
+    }
+
+    pub(crate) fn version(&self) -> i32 {
+        self.version
+    }
+
+    pub(crate) fn index_reader(&self) -> &FieldsIndexEnum<I> {
+        &self.index_reader
+    }
+
+    pub(crate) fn vectors_stream(&mut self) -> &mut I {
+        &mut self.vectors_stream
+    }
+    pub(crate) fn max_pointer(&self) -> i64 {
+        self.max_pointer
+    }
+
+    pub(crate) fn num_dirty_docs(&self) -> Result<i64> {
+        if self.version != lucene90_ctvw_util::VERSION_CURRENT {
+            return Err(LuceneError::illegal_state("get_num_dirty_docs should only ever get called when the reader is on the current version"));
+        }
+        debug_assert!(self.num_dirty_docs >= 0);
+        Ok(self.num_dirty_docs)
+    }
+
+    pub(crate) fn num_dirty_chunks(&self) -> Result<i64> {
+        if self.version != lucene90_ctvw_util::VERSION_CURRENT {
+            return Err(LuceneError::illegal_state("get_num_dirty_chunks should only ever get called when the reader is on the current version"));
+        }
+        debug_assert!(self.num_dirty_chunks >= 0);
+        Ok(self.num_dirty_chunks)
+    }
+
+    pub(crate) fn num_chunks(&self) -> Result<i64> {
+        if self.version != lucene90_ctvw_util::VERSION_CURRENT {
+            return Err(LuceneError::illegal_state("get_num_chunks should only ever get called when the reader is on the current version"));
+        }
+        debug_assert!(self.num_chunks >= 0);
+        Ok(self.num_chunks)
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn num_docs(&self) -> i32 {
+        // not used in Java Lucene, so we did not impl it
+        0
+    }
+    pub fn ensure_open(&self) -> Result<()> {
+        if self.closed {
+            Err(LuceneError::already_closed("this FieldsReader is closed"))
+        } else {
+            Ok(())
+        }
+    }
+    /// # Note
+    /// `indexReader` and `fieldsStream` will automatically release resource in
+    /// Rust Lucene, but we still keep this method for compatibility with
+    /// Java Lucene.
+    pub fn close(&mut self) {
+        if !self.closed {
+            self.closed = true;
+        }
+    }
+    fn slice(input: &mut I) -> Result<ByteBuffersDataInputOwned> {
+        let length = input.read_vint()?;
+        let mut buf = vec![0; length as usize];
+        input.read_bytes(&mut buf, 0, length)?;
+        Ok(ByteBuffersDataInput::new(
+            vec![Cursor::new(buf)],
+            length as i64,
+        ))
+    }
+    pub(crate) fn is_loaded(&self, doc_id: i32) -> bool {
+        let bs = &self.block_state;
+        bs.doc_base <= doc_id && doc_id < bs.doc_base + bs.chunk_docs
+    }
+    fn position_index(
+        skip: i32,
+        num_fields: usize,
+        num_terms: &mut impl LongValues,
+        term_freqs: &[i32],
+    ) -> Result<Vec<Vec<i32>>> {
+        let mut position_index = vec![Vec::new(); num_fields];
+        let mut term_index = 0;
+        for i in 0..skip {
+            let term_count = num_terms.get(i as i64)?;
+            term_index += term_count;
+        }
+        let mut term_index = term_index as usize;
+        for i in 0..num_fields {
+            let term_count = num_terms.get(skip as i64 + i as i64)? as usize;
+            let mut arr = Vec::with_capacity(term_count + 1);
+            arr.push(0);
+            for j in 0..term_count {
+                let freq = term_freqs[term_index + j];
+                arr[j + 1] = arr[j] + freq;
+            }
+            term_index += term_count;
+            position_index[i] = arr;
+        }
+        Ok(position_index)
+    }
+
+    pub(crate) fn read_positions(
+        &mut self,
+        skip: i32,
+        num_fields: usize,
+        flags: &mut impl LongValues,
+        num_terms: &mut impl LongValues,
+        term_freqs: &[i32],
+        flag: i32,
+        total_positions: i32,
+        position_index: &[Vec<i32>],
+    ) -> Result<Vec<Vec<i32>>> {
+        let mut positions = vec![Vec::new(); num_fields];
+        // reset reader
+        let mut reader = BlockPackedReaderIterator::new(
+            self.packed_ints_version,
+            lucene90_ctvw_util::PACKED_BLOCK_SIZE,
+            0,
+        )?;
+        reader.reset(total_positions as i64);
+
+        // skip
+        let mut to_skip = 0;
+        let mut term_index = 0;
+        for i in 0..skip {
+            let f = flags.get(i as i64)? as i32;
+            let term_count = num_terms.get(i as i64)? as usize;
+            if (f & flag) != 0 {
+                for j in 0..term_count {
+                    to_skip += term_freqs[term_index + j];
+                }
+            }
+            term_index += term_count;
+        }
+        reader.skip(to_skip as i64, &mut self.vectors_stream)?;
+        // read doc positions
+        for i in 0..num_fields {
+            let f = flags.get(skip as i64 + i as i64)? as i32;
+            let term_count = num_terms.get(skip as i64 + i as i64)? as usize;
+            if (f & flag) != 0 {
+                let total_freq = position_index[i][term_count];
+                let mut field_positions = Vec::with_capacity(total_freq as usize);
+                for j in 0..total_freq {
+                    let next_positions =
+                        reader.next_batch(total_freq - j, &mut self.vectors_stream)?;
+                    for k in 0..next_positions.length as usize {
+                        field_positions[k] =
+                            next_positions.longs[next_positions.offset as usize + k] as i32;
+                    }
+                }
+                positions[i] = field_positions;
+            }
+            term_index += term_count;
+        }
+
+        let read = reader.ord();
+        reader.skip(total_positions as i64 - read, &mut self.vectors_stream)?;
+        Ok(positions)
+    }
+}
+impl<I> TermVectors for Lucene90CompressingTermVectorsReader<I>
+where
+    I: IndexInput,
+{
+    fn prefetch(&mut self, doc_id: i32) -> Result<()> {
+        let block_id = self.index_reader.get_block_id(doc_id)?;
+        for &prefetched_block_id in &self.prefetched_block_id_cache {
+            if prefetched_block_id == block_id {
+                return Ok(());
+            }
+        }
+        let block_start_pointer = self.index_reader.get_block_start_pointer(block_id)?;
+        let block_length = self.index_reader.get_block_length(block_id)?;
+        self.vectors_stream
+            .prefetch(block_start_pointer, block_length)?;
+        let idx = self.prefetched_block_id_cache_index & lucene90_ctvr_util::PREFETCH_CACHE_MASK;
+        self.prefetched_block_id_cache[idx] = block_id;
+        self.prefetched_block_id_cache_index += 1;
+        Ok(())
+    }
+
+    type Fields = TVFields;
+
+    fn get(&mut self, doc: i32) -> Result<Option<Self::Fields>> {
+        self.ensure_open()?;
+        // seek to the right place
+        let start_pointer = if self.is_loaded(doc) {
+            self.block_state.start_pointer
+        } else {
+            self.index_reader.get_start_pointer(doc)?
+        };
+        self.vectors_stream.seek(start_pointer)?;
+        // decode
+        // - docBase: first doc ID of the chunk
+        // - chunkDocs: number of docs of the chunk
+        let doc_base = self.vectors_stream.read_vint()?;
+        let chunk_docs = ((self.vectors_stream.read_vint()? as u32) >> 1) as i32;
+        if doc < doc_base || doc >= doc_base + chunk_docs || (doc_base + chunk_docs) > self.num_docs
+        {
+            return Err(LuceneError::corrupt_index(format!(
+                "docBase={},chunkDocs={},doc={},resource={}",
+                doc_base, chunk_docs, doc, &self.vectors_stream
+            )));
+        }
+        self.block_state = BlockState::new(start_pointer, doc_base, chunk_docs);
+        let mut reader = BlockPackedReaderIterator::new(
+            self.packed_ints_version,
+            lucene90_ctvw_util::PACKED_BLOCK_SIZE,
+            0,
+        )?;
+        let (skip, num_fields, total_fields) = if chunk_docs == 1 {
+            let nf = self.vectors_stream.read_vint()? as usize;
+            (0, nf, nf)
+        } else {
+            reader.reset(chunk_docs as i64);
+            let mut sum = 0;
+            for _ in doc_base..doc {
+                sum += reader.next_value(&mut self.vectors_stream)? as usize;
+            }
+            let skip = sum;
+            let num_fields = reader.next_value(&mut self.vectors_stream)? as usize;
+            sum += num_fields;
+            for _ in (doc + 1)..(doc_base + chunk_docs) {
+                sum += reader.next_value(&mut self.vectors_stream)? as usize;
+            }
+            (skip, num_fields, sum)
+        };
+
+        if num_fields == 0 {
+            return Ok(None);
+        }
+
+        // read field numbers that have term vectors
+        let field_nums = {
+            let token = self.vectors_stream.read_byte()?;
+            debug_assert!(token != 0); // means no term vectors, cannot happen since we checked for numFields == 0
+            let bits_per_field_num = (token & 0x1F) as i32;
+            let mut total_distinct_fields = (token >> 5) as i32;
+            if total_distinct_fields == 0x07 {
+                total_distinct_fields += self.vectors_stream.read_vint()?;
+            }
+            total_distinct_fields += 1;
+            let mut it = PackedInts::get_reader_iterator_no_header(
+                &mut self.vectors_stream,
+                Packed(PackedImpl::new(0)),
+                self.packed_ints_version,
+                total_distinct_fields,
+                bits_per_field_num,
+                1,
+            )?;
+            let mut field_nums = vec![0; total_distinct_fields as usize];
+            for i in 0..total_distinct_fields as usize {
+                field_nums[i] = it.next()? as i32;
+            }
+            field_nums
+        };
+
+        // read field numbers and flags
+        let mut field_num_offs = vec![0i32; num_fields];
+        let mut flags = {
+            let bits_per_off = direct_writer_util::bits_required((field_nums.len() - 1) as i64)?;
+            let mut all_field_num_offs = DirectReader::get_instance(
+                Rc::new(RefCell::new(Self::slice(&mut self.vectors_stream)?)),
+                bits_per_off,
+            );
+            let v = self.vectors_stream.read_vint()?;
+            let flags = match v {
+                0 => {
+                    let mut field_flags = DirectReader::get_instance(
+                        Rc::new(RefCell::new(Self::slice(&mut self.vectors_stream)?)),
+                        *FLAGS_BITS,
+                    );
+                    let mut out = ByteBuffersDataOutput::new();
+                    let mut writer =
+                        DirectWriter::get_instance(&mut out, total_fields as i64, *FLAGS_BITS)?;
+                    for i in 0..total_fields {
+                        let field_num_off = all_field_num_offs.get(i as i64)?;
+                        debug_assert!(
+                            field_num_off >= 0 && (field_num_off as usize) < field_nums.len()
+                        );
+                        writer.add(field_flags.get(field_num_off)?)?;
+                    }
+                    writer.finish()?;
+                    DirectReader::get_instance(
+                        Rc::new(RefCell::new(out.get_data_input_owner())),
+                        *FLAGS_BITS,
+                    )
+                },
+                1 => DirectReader::get_instance(
+                    Rc::new(RefCell::new(Self::slice(&mut self.vectors_stream)?)),
+                    *FLAGS_BITS,
+                ),
+                _ => {
+                    return Err(LuceneError::illegal_state(format!(
+                        "invalid flag selector: {}",
+                        v
+                    )))
+                },
+            };
+            for i in 0..num_fields {
+                field_num_offs[i] = all_field_num_offs.get((skip + i) as i64)? as i32;
+            }
+            flags
+        };
+
+        // number of terms per field for all fields
+        let (mut num_terms, total_terms) = {
+            let bits_required = self.vectors_stream.read_vint()?;
+            let mut num_terms = DirectReader::get_instance(
+                Rc::new(RefCell::new(Self::slice(&mut self.vectors_stream)?)),
+                bits_required,
+            );
+            let mut sum = 0;
+            for i in 0..total_fields {
+                sum += num_terms.get(i as i64)?;
+            }
+            (num_terms, sum)
+        };
+
+        // term lengths
+        let mut doc_off = 0;
+        let mut doc_len = 0;
+        let mut total_len = 0;
+        let mut field_lengths = vec![0i32; num_fields];
+        let mut prefix_lengths = vec![Vec::new(); num_fields];
+        let mut suffix_lengths = vec![Vec::new(); num_fields];
+        {
+            reader.reset(total_terms);
+
+            // skip
+            let mut to_skip = 0;
+            for i in 0..skip {
+                to_skip += num_terms.get(i as i64)? as usize;
+            }
+            reader.skip(to_skip as i64, &mut self.vectors_stream)?;
+
+            // read prefix lengths
+            for i in 0..num_fields {
+                let term_count = num_terms.get((skip + i) as i64)? as usize;
+                let mut field_prefix_lengths = vec![0i32; term_count];
+                let mut j = 0;
+                while j < term_count {
+                    let next =
+                        reader.next_batch((term_count - j) as i32, &mut self.vectors_stream)?;
+                    for k in 0..next.length as usize {
+                        field_prefix_lengths[j] = next.longs[(next.offset as usize) + k] as i32;
+                        j += 1;
+                    }
+                }
+                prefix_lengths[i] = field_prefix_lengths;
+            }
+
+            reader.skip(total_terms - reader.ord(), &mut self.vectors_stream)?;
+
+            reader.reset(total_terms);
+
+            for i in 0..skip {
+                let term_count = num_terms.get(i as i64)? as usize;
+                for _ in 0..term_count {
+                    doc_off += reader.next_value(&mut self.vectors_stream)? as i32;
+                }
+            }
+
+            for i in 0..num_fields {
+                let term_count = num_terms.get((skip + i) as i64)? as usize;
+                let mut field_suffix_lengths = vec![0i32; term_count];
+                let mut j = 0;
+                while j < term_count {
+                    let next =
+                        reader.next_batch((term_count - j) as i32, &mut self.vectors_stream)?;
+                    for k in 0..next.length as usize {
+                        field_suffix_lengths[j] = next.longs[(next.offset as usize) + k] as i32;
+                        j += 1;
+                    }
+                }
+                doc_len += lucene90_ctvr_util::sum(&field_suffix_lengths);
+                field_lengths[i] = lucene90_ctvr_util::sum(&field_suffix_lengths);
+                suffix_lengths[i] = field_suffix_lengths;
+            }
+
+            total_len = doc_off + doc_len;
+            for i in (skip + num_fields)..total_fields {
+                let term_count = num_terms.get(i as i64)? as usize;
+                for _ in 0..term_count {
+                    total_len += reader.next_value(&mut self.vectors_stream)? as i32;
+                }
+            }
+        }
+
+        // term freqs
+        let term_freqs = {
+            let mut term_freqs = vec![0i32; total_terms as usize];
+            reader.reset(total_terms);
+            let mut i = 0;
+            debug_assert!(((total_terms as usize) - i) <= i32::MAX as usize);
+            while i < total_terms as usize {
+                let next = reader.next_batch(
+                    ((total_terms as usize) - i) as i32,
+                    &mut self.vectors_stream,
+                )?;
+                for k in 0..next.length as usize {
+                    term_freqs[i] = 1 + next.longs[next.offset as usize + k] as i32;
+                    i += 1;
+                }
+            }
+            term_freqs
+        };
+
+        // total number of positions, offsets and payloads
+        let mut total_positions = 0;
+        let mut total_offsets = 0;
+        let mut total_payloads = 0;
+        let mut term_index = 0;
+        for i in 0..total_fields {
+            let f = flags.get(i as i64)? as i32;
+            let term_count = num_terms.get(i as i64)? as usize;
+            for _ in 0..term_count {
+                let freq = term_freqs[term_index];
+                term_index += 1;
+                if (f & POSITIONS) != 0 {
+                    total_positions += freq;
+                }
+                if (f & OFFSETS) != 0 {
+                    total_offsets += freq;
+                }
+                if (f & PAYLOADS) != 0 {
+                    total_payloads += freq;
+                }
+            }
+            debug_assert!(i != total_fields - 1 || term_index == total_terms as usize);
+        }
+
+        // position index
+        let position_index =
+            Self::position_index(skip as i32, num_fields, &mut num_terms, &term_freqs)?;
+
+        // positions
+        let mut positions = if total_positions > 0 {
+            self.read_positions(
+                skip as i32,
+                num_fields,
+                &mut flags,
+                &mut num_terms,
+                &term_freqs,
+                POSITIONS,
+                total_positions,
+                &position_index,
+            )?
+        } else {
+            vec![vec![]; num_fields]
+        };
+        let (start_offsets, lengths) = if total_offsets > 0 {
+            // average number of chars per term
+            let mut chars_per_term = vec![0f32; field_nums.len()];
+            for v in chars_per_term.iter_mut() {
+                *v = f32::from_bits(self.vectors_stream.read_int()? as u32);
+            }
+
+            let mut start_offsets = self.read_positions(
+                skip as i32,
+                num_fields,
+                &mut flags,
+                &mut num_terms,
+                &term_freqs,
+                OFFSETS,
+                total_offsets,
+                &position_index,
+            )?;
+
+            let mut lengths = self.read_positions(
+                skip as i32,
+                num_fields,
+                &mut flags,
+                &mut num_terms,
+                &term_freqs,
+                OFFSETS,
+                total_offsets,
+                &position_index,
+            )?;
+
+            for i in 0..num_fields {
+                let f_start_offsets = &mut start_offsets[i];
+                let f_positions = &positions[i];
+                // patch offsets from positions
+                if !f_start_offsets.is_empty() && !f_positions.is_empty() {
+                    let field_chars_per_term = chars_per_term[field_num_offs[i] as usize];
+                    for j in 0..f_start_offsets.len() {
+                        f_start_offsets[j] += (field_chars_per_term * f_positions[j] as f32) as i32;
+                    }
+                }
+
+                if !f_start_offsets.is_empty() {
+                    let f_prefix_lengths = &prefix_lengths[i];
+                    let f_suffix_lengths = &suffix_lengths[i];
+                    let f_lengths = &mut lengths[i];
+                    let term_count = num_terms.get((skip + i) as i64)? as usize;
+                    for j in 0..term_count {
+                        // delta-decode start offsets and  patch lengths using term lengths
+                        let term_length = f_prefix_lengths[j] + f_suffix_lengths[j];
+                        let pos_start = position_index[i][j] as usize;
+                        let pos_end = position_index[i][j + 1] as usize;
+                        f_lengths[pos_start] += term_length;
+                        for k in (pos_start + 1)..pos_end {
+                            f_start_offsets[k] += f_start_offsets[k - 1];
+                            f_lengths[k] += term_length;
+                        }
+                    }
+                }
+            }
+
+            (start_offsets, lengths)
+        } else {
+            (vec![vec![]; num_fields], vec![vec![]; num_fields])
+        };
+
+        if total_positions > 0 {
+            // delta-decode positions
+            for i in 0..num_fields {
+                let f_positions = &mut positions[i];
+                let f_position_index = &position_index[i];
+                if !f_positions.is_empty() {
+                    let term_count = num_terms.get((skip + i) as i64)? as usize;
+                    for j in 0..term_count {
+                        // delta-decode start offsets
+                        for k in
+                            (f_position_index[j] as usize + 1)..f_position_index[j + 1] as usize
+                        {
+                            f_positions[k] += f_positions[k - 1];
+                        }
+                    }
+                }
+            }
+        }
+        let mut payload_index = vec![Vec::new(); num_fields];
+        let mut total_payload_length = 0;
+        let mut payload_off = 0;
+        let mut payload_len = 0;
+
+        if total_payloads > 0 {
+            reader.reset(total_payloads as i64);
+            // skip
+            let mut term_index = 0;
+            for i in 0..skip {
+                let f = flags.get(i as i64)? as i32;
+                let term_count = num_terms.get(i as i64)? as usize;
+                if (f & PAYLOADS) != 0 {
+                    for j in 0..term_count {
+                        let freq = term_freqs[term_index + j];
+                        for _ in 0..freq {
+                            let l = reader.next_value(&mut self.vectors_stream)? as i32;
+                            payload_off += l;
+                        }
+                    }
+                }
+                term_index += term_count;
+            }
+            total_payload_length = payload_off;
+
+            // read doc payload lengths
+            for i in 0..num_fields {
+                let f = flags.get((skip + i) as i64)? as i32;
+                let term_count = num_terms.get((skip + i) as i64)? as usize;
+                if (f & PAYLOADS) != 0 {
+                    let total_freq = position_index[i][term_count];
+                    let mut field_payload_index = vec![0i32; (total_freq + 1) as usize];
+                    let mut pos_idx = 0;
+                    field_payload_index[pos_idx] = payload_len;
+                    for j in 0..term_count {
+                        let freq = term_freqs[term_index + j];
+                        for _ in 0..freq {
+                            let payload_length =
+                                reader.next_value(&mut self.vectors_stream)? as i32;
+                            payload_len += payload_length;
+                            pos_idx += 1;
+                            field_payload_index[pos_idx] = payload_len;
+                        }
+                    }
+                    debug_assert_eq!(pos_idx, total_freq as usize);
+                    payload_index[i] = field_payload_index;
+                }
+                term_index += term_count;
+            }
+            total_payload_length += payload_len;
+            for i in (skip + num_fields)..total_fields {
+                let f = flags.get(i as i64)? as i32;
+                let term_count = num_terms.get(i as i64)? as usize;
+                if (f & PAYLOADS) != 0 {
+                    for j in 0..term_count {
+                        let freq = term_freqs[term_index + j];
+                        for _ in 0..freq {
+                            total_payload_length +=
+                                reader.next_value(&mut self.vectors_stream)? as i32;
+                        }
+                    }
+                }
+                term_index += term_count;
+            }
+
+            debug_assert_eq!(term_index, total_terms as usize);
+        }
+        // decompress data
+        let mut suffix_bytes = BytesRef::new();
+        self.decompressor.decompress(
+            &mut self.vectors_stream,
+            total_len + total_payload_length,
+            doc_off + payload_off,
+            doc_len + payload_len,
+            &mut suffix_bytes,
+        )?;
+        suffix_bytes.length = doc_len as usize;
+        let suffix_bytes = BytesRef::from_slice(
+            Rc::new(suffix_bytes.bytes),
+            suffix_bytes.offset,
+            suffix_bytes.length,
+        );
+        let payload_bytes = BytesRef::from_slice(
+            suffix_bytes.bytes.clone(),
+            suffix_bytes.offset + doc_len as usize,
+            payload_len as usize,
+        );
+
+        let mut field_flags = vec![0i32; num_fields];
+        for i in 0..num_fields {
+            field_flags[i] = flags.get((skip + i) as i64)? as i32;
+        }
+
+        let mut field_num_terms = vec![0i32; num_fields];
+        for i in 0..num_fields {
+            field_num_terms[i] = num_terms.get((skip + i) as i64)? as i32;
+        }
+
+        let mut field_term_freqs = vec![Vec::new(); num_fields];
+        {
+            let mut term_idx = 0;
+            for i in 0..skip {
+                term_idx += num_terms.get(i as i64)? as usize;
+            }
+            for i in 0..num_fields {
+                let term_count = num_terms.get((skip + i) as i64)? as usize;
+                let mut v = vec![0i32; term_count];
+                for j in 0..term_count {
+                    v[j] = term_freqs[term_idx];
+                    term_idx += 1;
+                }
+                field_term_freqs[i] = v;
+            }
+        }
+
+        debug_assert_eq!(lucene90_ctvr_util::sum(&field_lengths), doc_len);
+
+        Ok(Some(TVFields::new(
+            field_nums,
+            field_flags,
+            field_num_offs,
+            field_num_terms,
+            field_lengths,
+            prefix_lengths.into_iter().map(Rc::new).collect(),
+            suffix_lengths.into_iter().map(Rc::new).collect(),
+            field_term_freqs.into_iter().map(Rc::new).collect(),
+            position_index.into_iter().map(Rc::new).collect(),
+            positions.into_iter().map(Rc::new).collect(),
+            start_offsets.into_iter().map(Rc::new).collect(),
+            lengths.into_iter().map(Rc::new).collect(),
+            payload_bytes,
+            payload_index.into_iter().map(Rc::new).collect(),
+            suffix_bytes,
+            self.field_infos.clone(),
+        )?))
+    }
+}
+
+struct BlockState {
+    start_pointer: i64,
+    doc_base: i32,
+    chunk_docs: i32,
+}
+impl BlockState {
+    pub(crate) fn new(start_pointer: i64, doc_base: i32, chunk_docs: i32) -> Self {
+        BlockState {
+            start_pointer,
+            doc_base,
+            chunk_docs,
+        }
+    }
+}
+
+pub struct TVFields {
     field_nums: Vec<i32>,
     field_flags: Vec<i32>,
     field_num_offs: Vec<i32>,
@@ -198,7 +946,7 @@ impl Fields for TVFields {
     }
 }
 
-pub(crate) struct TVTerms {
+pub struct TVTerms {
     num_terms: i32,
     flags: i32,
     total_term_freq: i64,
@@ -321,7 +1069,7 @@ impl Terms for TVTerms {
     }
 }
 
-pub(crate) struct TVTermsEnum {
+pub struct TVTermsEnum {
     num_terms: i32,
     start_pos: i32,
     ord: i32,
@@ -485,16 +1233,17 @@ impl TermsEnum for TVTermsEnum {
         Ok(docs_enum)
     }
 
-    type ImpactsEnum = DummyImpactsEnum;
+    type ImpactsEnum = SlowImpactsEnum<TVPostingsEnum>;
 
     fn impacts(&mut self, _flags: i32) -> Result<Self::ImpactsEnum> {
-        todo!()
+        let delegate = self.postings_with_flags(None, postings_enum_util::FREQS as i32)?;
+        Ok(SlowImpactsEnum::new(delegate))
     }
 
     type TermState = DummyTermState;
 }
 
-pub(crate) struct TVPostingsEnum {
+pub struct TVPostingsEnum {
     doc: i32,
     term_freq: i32,
     position_index: i32,

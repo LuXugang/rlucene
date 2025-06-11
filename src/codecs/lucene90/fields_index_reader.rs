@@ -30,7 +30,6 @@ use crate::util::packed::direct_monotonic_reader::{
     direct_monotonic_reader_util, DirectMonotonicReader,
 };
 
-#[allow(unused)]
 pub(crate) struct FieldsIndexReader<I>
 where
     I: IndexInput,
@@ -49,7 +48,6 @@ where
     start_pointers: DirectMonotonicReader<I::RandomAccessSlice>,
     max_pointer: i64,
 }
-#[allow(unused)]
 impl<I> FieldsIndexReader<I>
 where
     I: IndexInput,

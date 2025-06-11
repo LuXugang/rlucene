@@ -22,8 +22,6 @@ use crate::util::error::lucene_error::Result;
 /// **NOTE**: This class is not thread-safe and should only be consumed in the thread where it
 /// was acquired.
 pub trait TermVectors {
-    /// The associated `Fields` type.
-    type Fields: Fields;
     /// Optional method: Give a hint to this [`TermVectors`] instance that the given document will
     /// be read in the near future. This typically delegates to [`IndexInput::prefetch`](crate::store::index_input::IndexInput::prefetch) and is
     /// useful to parallelize I/O across multiple documents.
@@ -35,17 +33,19 @@ pub trait TermVectors {
     fn prefetch(&mut self, _doc_id: i32) -> Result<()> {
         Ok(())
     }
+    /// The associated `Fields` type.
+    type Fields: Fields;
     /// Returns term vectors for this document, or `None` if term vectors were not indexed.
     ///
     /// The returned [`Fields`] instance acts like a single-document inverted index (the `doc_id` will be
     /// `0`). If offsets are available they are in an [`OffsetAttribute`](crate::analysis::token_attributes::offset_attribute::OffsetAttribute) available from the [`PostingsEnum`](crate::index::postings_enum::PostingsEnum).
-    fn get(&self, doc: i32) -> Result<Option<Self::Fields>>;
+    fn get(&mut self, doc: i32) -> Result<Option<Self::Fields>>;
     /// Returns term vectors for this document, or `None` if term vectors were not indexed.
     ///
     /// The returned [`Fields`] instance acts like a single-document inverted index (the `doc_id` will be
     /// `0`). If offsets are available they are in an [`OffsetAttribute`](crate::analysis::token_attributes::offset_attribute::OffsetAttribute) available from the [`PostingsEnum`](crate::index::postings_enum::PostingsEnum).
     fn get_field_terms(
-        &self,
+        &mut self,
         doc: i32,
         field: &str,
     ) -> Result<Option<<Self::Fields as Fields>::Terms>> {
@@ -61,7 +61,7 @@ pub struct EmptyTermVectors;
 impl TermVectors for EmptyTermVectors {
     type Fields = DummyFields;
 
-    fn get(&self, _doc: i32) -> Result<Option<Self::Fields>> {
+    fn get(&mut self, _doc: i32) -> Result<Option<Self::Fields>> {
         Ok(None)
     }
 }
