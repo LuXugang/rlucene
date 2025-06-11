@@ -49,6 +49,7 @@ pub mod simple_text_live_docs_format;
 pub mod stored_fields_format;
 pub mod stored_fields_reader;
 pub mod stored_fields_writer;
+pub mod term_vectors_format;
 pub mod term_vectors_reader;
 pub mod term_vectors_writer;
 

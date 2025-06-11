@@ -17,6 +17,6 @@
 pub mod lucene90_compressing_stored_fields_format;
 pub mod lucene90_compressing_stored_fields_reader;
 pub mod lucene90_compressing_stored_fields_writer;
-mod lucene90_compressing_term_vectors_reader;
-mod lucene90_compressing_term_vectors_writer;
+pub mod lucene90_compressing_term_vectors_reader;
+pub mod lucene90_compressing_term_vectors_writer;
 mod stored_fields_ints;

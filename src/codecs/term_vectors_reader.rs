@@ -14,11 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codecs::compressing::lucene90_compressing_term_vectors_reader::{
+    Lucene90CompressingTermVectorsReader, TVFields,
+};
 use crate::index::term_vectors::TermVectors;
+use crate::store::IndexInput;
 use crate::util::clone::TryClone;
 use crate::util::error::lucene_error::Result;
 /// Codec API for reading term vectors:
-pub trait TermVectorsReader: TermVectors + TryClone {
+pub trait TermVectorsReader<I>: TermVectors + TryClone
+where
+    I: IndexInput,
+{
     /// Checks consistency of this reader.
     ///
     /// Note that this may be costly in terms of I/O, e.g. may involve computing
@@ -28,10 +35,60 @@ pub trait TermVectorsReader: TermVectors + TryClone {
     /// Returns an instance optimized for merging.
     ///
     /// This instance may only be used from the thread that acquires it.
-    fn get_merge_instance(&self) -> Result<Option<Self>>
+    fn get_merge_instance(&self) -> Result<Option<TermVectorsReaderEnum<I>>> {
+        Ok(None)
+    }
+}
+
+pub enum TermVectorsReaderEnum<I>
+where
+    I: IndexInput,
+{
+    Lucene90(Lucene90CompressingTermVectorsReader<I>),
+}
+
+impl<I> TermVectors for TermVectorsReaderEnum<I>
+where
+    I: IndexInput,
+{
+    type Fields = TVFields;
+
+    fn get(&mut self, doc: i32) -> Result<Option<Self::Fields>> {
+        match self {
+            TermVectorsReaderEnum::Lucene90(reader) => reader.get(doc),
+        }
+    }
+}
+
+impl<I> TryClone for TermVectorsReaderEnum<I>
+where
+    I: IndexInput,
+{
+    fn try_clone(&self) -> Result<Self>
     where
         Self: Sized,
     {
-        Ok(None)
+        match self {
+            TermVectorsReaderEnum::Lucene90(reader) => {
+                Ok(TermVectorsReaderEnum::Lucene90(reader.try_clone()?))
+            },
+        }
+    }
+}
+
+impl<I> TermVectorsReader<I> for TermVectorsReaderEnum<I>
+where
+    I: IndexInput,
+{
+    fn check_integrity(&mut self) -> Result<()> {
+        match self {
+            TermVectorsReaderEnum::Lucene90(reader) => reader.check_integrity(),
+        }
+    }
+
+    fn get_merge_instance(&self) -> Result<Option<TermVectorsReaderEnum<I>>> {
+        match self {
+            TermVectorsReaderEnum::Lucene90(reader) => reader.get_merge_instance(),
+        }
     }
 }

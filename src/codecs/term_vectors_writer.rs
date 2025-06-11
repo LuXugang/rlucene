@@ -14,8 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codecs::compressing::lucene90_compressing_term_vectors_writer::Lucene90CompressingTermVectorsWriter;
 use crate::index::field_info::FieldInfo;
 use crate::index::{BytesRef, BytesRefBuilder};
+use crate::store::directory::Directory;
 use crate::store::DataInput;
 use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::Result;
@@ -113,5 +115,119 @@ pub trait TermVectorsWriter: Accountable {
         }
 
         Ok(())
+    }
+}
+
+pub enum TermVectorsWriterEnum<D>
+where
+    D: Directory,
+{
+    Lucene90(Lucene90CompressingTermVectorsWriter<D>),
+}
+
+impl<D> Accountable for TermVectorsWriterEnum<D>
+where
+    D: Directory,
+{
+    fn ram_bytes_used(&self) -> Result<i64> {
+        match self {
+            TermVectorsWriterEnum::Lucene90(writer) => writer.ram_bytes_used(),
+        }
+    }
+}
+
+impl<D> TermVectorsWriter for TermVectorsWriterEnum<D>
+where
+    D: Directory,
+{
+    fn start_document(&mut self, num_vector_fields: i32) -> Result<()> {
+        match self {
+            TermVectorsWriterEnum::Lucene90(writer) => writer.start_document(num_vector_fields),
+        }
+    }
+
+    fn finish_document(&mut self) -> Result<()> {
+        match self {
+            TermVectorsWriterEnum::Lucene90(writer) => writer.finish_document(),
+        }
+    }
+
+    fn start_field(
+        &mut self,
+        field_info: &FieldInfo,
+        num_terms: usize,
+        positions: bool,
+        offsets: bool,
+        payloads: bool,
+    ) -> Result<()> {
+        match self {
+            TermVectorsWriterEnum::Lucene90(writer) => {
+                writer.start_field(field_info, num_terms, positions, offsets, payloads)
+            },
+        }
+    }
+
+    fn finish_field(&mut self) -> Result<()> {
+        match self {
+            TermVectorsWriterEnum::Lucene90(writer) => writer.finish_field(),
+        }
+    }
+
+    fn start_term(&mut self, term: &BytesRef<Vec<u8>>, freq: i32) -> Result<()> {
+        match self {
+            TermVectorsWriterEnum::Lucene90(writer) => writer.start_term(term, freq),
+        }
+    }
+
+    fn finish_term(&mut self) -> Result<()> {
+        match self {
+            TermVectorsWriterEnum::Lucene90(writer) => writer.finish_term(),
+        }
+    }
+
+    fn add_position(
+        &mut self,
+        position: i32,
+        start_offset: i32,
+        end_offset: i32,
+        payload: Option<&BytesRef<Vec<u8>>>,
+    ) -> Result<()> {
+        match self {
+            TermVectorsWriterEnum::Lucene90(writer) => {
+                writer.add_position(position, start_offset, end_offset, payload)
+            },
+        }
+    }
+
+    fn finish(&mut self, num_docs: i32) -> Result<()> {
+        match self {
+            TermVectorsWriterEnum::Lucene90(writer) => writer.finish(num_docs),
+        }
+    }
+
+    fn add_prox(
+        &mut self,
+        num_prox: usize,
+        positions: &mut Option<impl DataInput>,
+        offsets: &mut Option<impl DataInput>,
+    ) -> Result<()> {
+        match self {
+            TermVectorsWriterEnum::Lucene90(writer) => {
+                writer.add_prox(num_prox, positions, offsets)
+            },
+        }
+    }
+
+    fn default_add_prox(
+        &mut self,
+        num_prox: usize,
+        positions: &mut Option<impl DataInput>,
+        offsets: &mut Option<impl DataInput>,
+    ) -> Result<()> {
+        match self {
+            TermVectorsWriterEnum::Lucene90(writer) => {
+                writer.default_add_prox(num_prox, positions, offsets)
+            },
+        }
     }
 }
