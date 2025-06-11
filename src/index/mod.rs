@@ -92,6 +92,7 @@ pub mod segment_reader;
 pub mod segment_write_state;
 pub mod singleton_sorted_numeric_doc_values;
 pub mod singleton_sorted_set_doc_values;
+pub mod slow_impacts_enum;
 pub mod sort;
 pub mod sort_field_provider;
 pub mod sorted_doc_values;
