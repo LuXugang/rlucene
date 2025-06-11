@@ -23,6 +23,8 @@ use crate::codecs::compressing::lucene90_compressing_term_vectors_writer::{
 use crate::codecs::compression::compression_mode::{CompressionModeEnum, DecompressorEnum};
 use crate::codecs::compression::decompressor::Decompressor;
 use crate::codecs::lucene90::fields_index::{FieldsIndex, FieldsIndexEnum};
+use crate::codecs::term_vectors_reader::TermVectorsReader;
+use crate::codecs::CodecUtil;
 use crate::index::automaton_terms_enum::AutomatonTermsEnum;
 use crate::index::base_terms_enum::BaseTermsEnum;
 use crate::index::dummy::dummy_term_state_type::DummyTermState;
@@ -42,6 +44,7 @@ use crate::store::{ByteArrayDataInput, ByteBuffersDataOutput, DataInput, IndexIn
 use crate::util::array_util::ArrayUtil;
 use crate::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
+use crate::util::clone::TryClone;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::long_values::LongValues;
 use crate::util::packed::block_packed_reader_iterator::BlockPackedReaderIterator;
@@ -101,6 +104,28 @@ impl<I> Lucene90CompressingTermVectorsReader<I>
 where
     I: IndexInput,
 {
+    pub fn new_with_reader(reader: &Lucene90CompressingTermVectorsReader<I>) -> Result<Self> {
+        Ok(Self {
+            field_infos: Rc::clone(&reader.field_infos),
+            vectors_stream: reader.vectors_stream.try_clone()?,
+            index_reader: reader.index_reader.try_clone()?,
+            packed_ints_version: reader.packed_ints_version,
+            compression_mode: reader.compression_mode.clone(),
+            decompressor: reader.decompressor.try_clone()?,
+            chunk_size: reader.chunk_size,
+            num_docs: reader.num_docs,
+            version: reader.version,
+            num_chunks: reader.num_chunks,
+            num_dirty_chunks: reader.num_dirty_chunks,
+            num_dirty_docs: reader.num_dirty_docs,
+            max_pointer: reader.max_pointer,
+            closed: false,
+            block_state: BlockState::new(-1, -1, 0),
+            prefetched_block_id_cache: [-1; lucene90_ctvr_util::PREFETCH_CACHE_SIZE],
+            prefetched_block_id_cache_index: 0,
+        })
+    }
+
     pub(crate) fn compression_mode(&self) -> &CompressionModeEnum {
         &self.compression_mode
     }
@@ -213,6 +238,7 @@ where
         Ok(position_index)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn read_positions(
         &mut self,
         skip: i32,
@@ -779,6 +805,38 @@ where
             payload_index.into_iter().map(Rc::new).collect(),
             suffix_bytes,
             self.field_infos.clone(),
+        )?))
+    }
+}
+
+impl<I> TryClone for Lucene90CompressingTermVectorsReader<I>
+where
+    I: IndexInput,
+{
+    fn try_clone(&self) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        Lucene90CompressingTermVectorsReader::new_with_reader(self)
+    }
+}
+
+impl<I> TermVectorsReader for Lucene90CompressingTermVectorsReader<I>
+where
+    I: IndexInput,
+{
+    fn check_integrity(&mut self) -> Result<()> {
+        self.index_reader.check_integrity()?;
+        let _ = CodecUtil::checksum_entire_file(&self.vectors_stream)?;
+        Ok(())
+    }
+
+    fn get_merge_instance(&self) -> Result<Option<Self>>
+    where
+        Self: Sized,
+    {
+        Ok(Some(Lucene90CompressingTermVectorsReader::new_with_reader(
+            self,
         )?))
     }
 }
