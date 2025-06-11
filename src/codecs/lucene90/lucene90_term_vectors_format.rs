@@ -107,9 +107,15 @@ use std::sync::Arc;
 pub struct Lucene90TermVectorsFormat {
     base: Lucene90CompressingTermVectorsFormat,
 }
+impl Default for Lucene90TermVectorsFormat {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Lucene90TermVectorsFormat {
-    pub fn new() -> Result<Self> {
-        Ok(Self {
+    pub fn new() -> Self {
+        Self {
             base: Lucene90CompressingTermVectorsFormat::new(
                 "Lucene90TermVectorsData",
                 "",
@@ -117,8 +123,9 @@ impl Lucene90TermVectorsFormat {
                 1 << 12,
                 128,
                 10,
-            )?,
-        })
+            )
+            .unwrap(),
+        }
     }
 }
 impl TermVectorsFormat for Lucene90TermVectorsFormat {

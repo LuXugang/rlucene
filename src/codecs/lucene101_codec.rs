@@ -19,6 +19,7 @@ use crate::codecs::lucene90_doc_values_format::Lucene90DocValuesFormat;
 use crate::codecs::lucene90_live_docs_format::Lucene90LiveDocsFormat;
 use crate::codecs::lucene90_norms_format::Lucene90NormsFormat;
 use crate::codecs::lucene90_stored_fields_format::Lucene90StoredFieldsFormat;
+use crate::codecs::lucene90_term_vectors_format::Lucene90TermVectorsFormat;
 use crate::codecs::lucene94::lucene94_field_infos_format::Lucene94FieldInfosFormat;
 use crate::codecs::lucene99_segment_info_format::Lucene99SegmentInfoFormat;
 use crate::codecs::Codec;
@@ -29,6 +30,7 @@ pub struct Lucene101Codec;
 impl Codec for Lucene101Codec {
     type DocValuesFormat = Lucene90DocValuesFormat;
     type StoredFieldsFormat = Lucene90StoredFieldsFormat;
+    type TermVectorsFormat = Lucene90TermVectorsFormat;
     type FieldInfosFormat = Lucene94FieldInfosFormat;
     type SegmentInfoFormat = Lucene99SegmentInfoFormat;
     type NormsFormat = Lucene90NormsFormat;
@@ -40,7 +42,11 @@ impl Codec for Lucene101Codec {
     }
 
     fn stored_fields_format(&self) -> Self::StoredFieldsFormat {
-        Lucene90StoredFieldsFormat::new()
+        Lucene90StoredFieldsFormat::default()
+    }
+
+    fn term_vectors_format(&self) -> Self::TermVectorsFormat {
+        Lucene90TermVectorsFormat::default()
     }
 
     fn field_infos_format(&self) -> Self::FieldInfosFormat {
