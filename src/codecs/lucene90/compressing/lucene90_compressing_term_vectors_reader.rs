@@ -19,7 +19,9 @@ use crate::codecs::compressing::lucene90_compressing_term_vectors_writer::lucene
 };
 use crate::index::automaton_terms_enum::AutomatonTermsEnum;
 use crate::index::base_terms_enum::BaseTermsEnum;
+use crate::index::dummy::dummy_impacts_enum::DummyImpactsEnum;
 use crate::index::dummy::dummy_term_state_type::DummyTermState;
+use crate::index::field_infos::FieldInfos;
 use crate::index::fields::Fields;
 use crate::index::filtered_terms_enum::{FilteredTermsEnum, FilteredTermsEnumBase};
 use crate::index::postings_enum::PostingsEnum;
@@ -66,6 +68,9 @@ pub(crate) struct TVFields {
     payload_bytes: BytesRef<Rc<Vec<u8>>>,
     payload_index: Vec<Rc<Vec<i32>>>,
     suffix_bytes: BytesRef<Rc<Vec<u8>>>,
+
+    names: Vec<String>,
+    field_infos: Rc<FieldInfos>,
 }
 impl TVFields {
     #[allow(clippy::too_many_arguments)]
@@ -85,8 +90,26 @@ impl TVFields {
         payload_bytes: BytesRef<Rc<Vec<u8>>>,
         payload_index: Vec<Rc<Vec<i32>>>,
         suffix_bytes: BytesRef<Rc<Vec<u8>>>,
-    ) -> Self {
-        Self {
+        field_infos: Rc<FieldInfos>,
+    ) -> Result<Self> {
+        let mut names = Vec::new();
+        for i in 0..field_num_offs.len() {
+            let field_num = field_nums[field_num_offs[i] as usize];
+            let field_info = field_infos.field_info_by_number(field_num)?;
+            match field_info {
+                Some(fi) => {
+                    names.push(fi.name.clone());
+                },
+                None => {
+                    return Err(LuceneError::illegal_state(format!(
+                        "Field number {} not found in field infos",
+                        field_num
+                    )));
+                },
+            }
+        }
+
+        Ok(Self {
             field_nums,
             field_flags,
             field_num_offs,
@@ -103,18 +126,70 @@ impl TVFields {
             payload_bytes,
             payload_index,
             suffix_bytes,
-        }
+            names,
+            field_infos,
+        })
     }
 }
 impl Fields for TVFields {
     fn iterator(&self) -> impl Iterator<Item = &String> {
-        todo!()
+        self.names.iter()
     }
 
     type Terms = TVTerms;
 
     fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
-        todo!()
+        let field_info = match self.field_infos.field_info_by_name(field) {
+            Some(info) => info,
+            None => return Ok(None),
+        };
+
+        let mut idx = -1;
+        for (i, &off) in self.field_num_offs.iter().enumerate() {
+            if self.field_nums[off as usize] == field_info.number {
+                idx = i as i32;
+                break;
+            }
+        }
+        if idx == -1 || self.num_terms[idx as usize] != 0 {
+            // no term
+            return Ok(None);
+        }
+
+        let mut field_off = 0;
+        let mut field_len = -1_i32;
+        for (i, &len) in self.field_lengths.iter().enumerate() {
+            if i < idx as usize {
+                field_off += len;
+            } else {
+                field_len = len;
+                break;
+            }
+        }
+        debug_assert!(field_len >= 0);
+
+        let term_bytes = BytesRef::from_slice(
+            self.suffix_bytes.bytes.clone(),
+            self.suffix_bytes.offset + field_off as usize,
+            field_len as usize,
+        );
+
+        let idx = idx as usize;
+        let tv_terms = TVTerms::new(
+            self.num_terms[idx],
+            self.field_flags[idx],
+            self.prefix_lengths[idx].clone(),
+            self.suffix_lengths[idx].clone(),
+            self.term_freqs[idx].clone(),
+            self.position_index[idx].clone(),
+            self.positions[idx].clone(),
+            self.start_offsets[idx].clone(),
+            self.lengths[idx].clone(),
+            self.payload_index[idx].clone(),
+            self.payload_bytes.clone(),
+            term_bytes,
+        );
+        Ok(Some(tv_terms))
     }
 
     fn size(&self) -> Result<i32> {
@@ -179,7 +254,25 @@ impl Terms for TVTerms {
     type TermsEnum = BaseTermsEnum<TVTermsEnum>;
 
     fn iterator(&self) -> Result<Self::TermsEnum> {
-        todo!()
+        let terms_enum = TVTermsEnum::new(
+            self.num_terms,
+            self.flags,
+            self.prefix_lengths.clone(),
+            self.suffix_lengths.clone(),
+            self.term_freqs.clone(),
+            self.position_index.clone(),
+            self.positions.clone(),
+            self.start_offsets.clone(),
+            self.lengths.clone(),
+            self.payload_index.clone(),
+            self.payload_bytes.clone(),
+            ByteArrayDataInput::with_range(
+                self.term_bytes.bytes.clone(),
+                self.term_bytes.offset,
+                self.term_bytes.length,
+            ),
+        );
+        Ok(BaseTermsEnum::new(terms_enum))
     }
 
     type IntersectIter
@@ -242,7 +335,7 @@ pub(crate) struct TVTermsEnum {
     lengths: Rc<Vec<i32>>,
     payload_index: Rc<Vec<i32>>,
 
-    input: ByteArrayDataInput<Vec<u8>>,
+    input: ByteArrayDataInput<Rc<Vec<u8>>>,
     payloads: BytesRef<Rc<Vec<u8>>>,
     term: BytesRef<Vec<u8>>,
 }
@@ -260,7 +353,7 @@ impl TVTermsEnum {
         lengths: Rc<Vec<i32>>,
         payload_index: Rc<Vec<i32>>,
         payloads: BytesRef<Rc<Vec<u8>>>,
-        input: ByteArrayDataInput<Vec<u8>>,
+        input: ByteArrayDataInput<Rc<Vec<u8>>>,
     ) -> Self {
         let start_pos = input.get_position();
         debug_assert!(start_pos <= i32::MAX as usize);
@@ -336,7 +429,7 @@ impl TermsEnum for TVTermsEnum {
             match term {
                 None => return Ok(SeekStatus::End),
                 Some(t) => {
-                    let cmp = (&*t).cmp(text).to_int();
+                    let cmp = (*t).cmp(text).to_int();
                     if cmp > 0 {
                         return Ok(SeekStatus::NotFound);
                     } else if cmp == 0 {
@@ -392,7 +485,7 @@ impl TermsEnum for TVTermsEnum {
         Ok(docs_enum)
     }
 
-    type ImpactsEnum = ();
+    type ImpactsEnum = DummyImpactsEnum;
 
     fn impacts(&mut self, _flags: i32) -> Result<Self::ImpactsEnum> {
         todo!()
@@ -446,6 +539,7 @@ impl TVPostingsEnum {
     fn reset(&mut self) {
         self.base_payload_offset = self.payload_offset;
         self.payload_length = 0;
+
         self.payload_offset = 0;
         self.i = -1;
         self.doc = -1;
@@ -510,7 +604,7 @@ impl PostingsEnum for TVPostingsEnum {
         self.i += 1;
         if self.payload_index.is_empty() {
             let index = (self.position_index + self.i) as usize;
-            self.payload_offset = (self.base_payload_offset + self.payload_index[index] as usize);
+            self.payload_offset = self.base_payload_offset + self.payload_index[index] as usize;
             self.payload_length =
                 (self.payload_index[index + 1] - self.payload_index[index]) as usize;
         }

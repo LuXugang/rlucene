@@ -728,16 +728,15 @@ where
         self.pos_delta_buffer[idx] = position - self.last_position;
 
         if options.write_payloads {
-            if payload.is_none() || payload.as_ref().unwrap().length == 0{
-
+            if payload.is_none() || payload.as_ref().unwrap().length == 0 {
                 self.payload_length_buffer[idx] = 0;
-            }else {
+            } else {
                 let p = payload.as_ref().unwrap();
                 self.payload_length_buffer[idx] = p.length as i32;
-                if self.payload_byte_upto as usize + p.length> self.payload_bytes.len() {
+                if self.payload_byte_upto as usize + p.length > self.payload_bytes.len() {
                     ArrayUtil::grow_with_len(
                         &mut self.payload_bytes,
-                        (self.payload_byte_upto as usize + p.length) ,
+                        self.payload_byte_upto as usize + p.length,
                     );
                 }
                 let start = p.offset;
@@ -745,7 +744,7 @@ where
                     &p.bytes[start..start + p.length],
                     self.payload_byte_upto as usize,
                 );
-                self.payload_byte_upto += p.length as i32; 
+                self.payload_byte_upto += p.length as i32;
             }
         }
 

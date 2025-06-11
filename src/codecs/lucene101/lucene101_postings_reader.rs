@@ -14,12 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use once_cell::sync::Lazy;
+use std::borrow::Cow;
 use std::cell::RefCell;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 use std::{fmt, ptr};
-use std::borrow::Cow;
-use once_cell::sync::Lazy;
 
 use crate::codecs::block_term_state::BlockTermStateEnum;
 use crate::codecs::lucene101::for_delta_util::ForDeltaUtil;
