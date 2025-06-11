@@ -20,9 +20,12 @@ use crate::codecs::compressing::lucene90_compressing_term_vectors_writer::lucene
 use crate::codecs::compressing::lucene90_compressing_term_vectors_writer::{
     lucene90_ctvw_util, FLAGS_BITS,
 };
-use crate::codecs::compression::compression_mode::{CompressionModeEnum, DecompressorEnum};
+use crate::codecs::compression::compression_mode::{
+    CompressionModeBase, CompressionModeEnum, DecompressorEnum,
+};
 use crate::codecs::compression::decompressor::Decompressor;
 use crate::codecs::lucene90::fields_index::{FieldsIndex, FieldsIndexEnum};
+use crate::codecs::lucene90::fields_index_reader::FieldsIndexReader;
 use crate::codecs::term_vectors_reader::{TermVectorsReader, TermVectorsReaderEnum};
 use crate::codecs::CodecUtil;
 use crate::index::automaton_terms_enum::AutomatonTermsEnum;
@@ -32,15 +35,19 @@ use crate::index::field_infos::FieldInfos;
 use crate::index::fields::Fields;
 use crate::index::filtered_terms_enum::{FilteredTermsEnum, FilteredTermsEnumBase};
 use crate::index::postings_enum::{postings_enum_util, PostingsEnum};
+use crate::index::segment_info::SegmentInfo;
 use crate::index::slow_impacts_enum::SlowImpactsEnum;
 use crate::index::term_vectors::TermVectors;
 use crate::index::terms::Terms;
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
-use crate::index::BytesRef;
+use crate::index::{BytesRef, IndexFileNames};
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::byte_buffers_data_input::{ByteBuffersDataInput, ByteBuffersDataInputOwned};
-use crate::store::{ByteArrayDataInput, ByteBuffersDataOutput, DataInput, IndexInput};
+use crate::store::directory::Directory;
+use crate::store::{
+    ByteArrayDataInput, ByteBuffersDataOutput, DataInput, IOContext, IndexInput, ReadAdvice,
+};
 use crate::util::array_util::ArrayUtil;
 use crate::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
@@ -104,6 +111,145 @@ impl<I> Lucene90CompressingTermVectorsReader<I>
 where
     I: IndexInput,
 {
+    pub fn new<D>(
+        dir: &mut D,
+        si: &SegmentInfo<D>,
+        segment_suffix: &str,
+        field_infos: Rc<FieldInfos>,
+        context: &IOContext,
+        format_name: &str,
+        compression_mode: CompressionModeEnum,
+    ) -> Result<Self>
+    where
+        D: Directory<IndexInputType = I>,
+    {
+        let segment = &si.name;
+        let num_docs = si.max_doc()?;
+        let mut meta_in = None;
+
+        let result: Result<Self> = (|| {
+            let vectors_stream_fn = IndexFileNames::segment_file_name(
+                segment,
+                segment_suffix,
+                lucene90_ctvw_util::VECTORS_EXTENSION,
+            );
+            let mut vectors_stream = dir.open_input(
+                &vectors_stream_fn,
+                &context.with_read_advice(ReadAdvice::Random)?,
+            )?;
+
+            let version = CodecUtil::check_index_header(
+                &mut vectors_stream,
+                format_name,
+                lucene90_ctvw_util::VERSION_START,
+                lucene90_ctvw_util::VERSION_CURRENT,
+                si.get_id(),
+                segment_suffix,
+            )?;
+            debug_assert_eq!(
+                CodecUtil::index_header_length(format_name, segment_suffix) as i64,
+                vectors_stream.get_file_pointer()
+            );
+
+            let meta_stream_fn = IndexFileNames::segment_file_name(
+                segment,
+                segment_suffix,
+                lucene90_ctvw_util::VECTORS_META_EXTENSION,
+            );
+            let mut meta = dir.open_checksum_input(&meta_stream_fn)?;
+
+            CodecUtil::check_index_header(
+                &mut meta,
+                &format!("{}Meta", lucene90_ctvw_util::VECTORS_INDEX_CODEC_NAME),
+                lucene90_ctvw_util::META_VERSION_START,
+                version,
+                si.get_id(),
+                segment_suffix,
+            )?;
+
+            let packed_ints_version = meta.read_vint()?;
+            let chunk_size = meta.read_vint()?;
+            // NOTE: data file is too costly to verify checksum against all the bytes on open,
+            // but for now we at least verify proper structure of the checksum footer: which looks
+            // for FOOTER_MAGIC + algorithmID. This is cheap and can detect some forms of corruption
+            // such as file truncation.
+            CodecUtil::retrieve_checksum(&mut vectors_stream)?;
+
+            let fields_index_reader = FieldsIndexReader::new(
+                dir,
+                si.name.clone(),
+                segment_suffix,
+                lucene90_ctvw_util::VECTORS_INDEX_EXTENSION,
+                lucene90_ctvw_util::VECTORS_INDEX_CODEC_NAME,
+                si.get_id(),
+                &mut meta,
+                context,
+            )?;
+            let max_pointer = fields_index_reader.get_max_pointer();
+            let index_reader = FieldsIndexEnum::Lucene90(fields_index_reader);
+
+            let num_chunks = meta.read_vlong()?;
+            let num_dirty_chunks = meta.read_vlong()?;
+            let num_dirty_docs = meta.read_vlong()?;
+
+            if num_chunks < num_dirty_chunks {
+                return Err(LuceneError::corrupt_index(format!(
+                    "Cannot have more dirty chunks than chunks: numChunks={}, numDirtyChunks={} (resource={})",
+                    num_chunks, num_dirty_chunks, meta
+                )));
+            }
+            if (num_dirty_chunks == 0) != (num_dirty_docs == 0) {
+                return Err(LuceneError::corrupt_index(format!(
+                    "Cannot have dirty chunks without dirty docs or vice-versa: numDirtyChunks={}, numDirtyDocs={} (resource={})",
+                    num_dirty_chunks, num_dirty_docs, meta
+                )));
+            }
+            if num_dirty_docs < num_dirty_chunks {
+                return Err(LuceneError::corrupt_index(format!(
+                    "Cannot have more dirty chunks than documents within dirty chunks: numDirtyChunks={}, numDirtyDocs={} (resource={})",
+                    num_dirty_chunks, num_dirty_docs, meta
+                )));
+            }
+
+            let decompressor = compression_mode.new_decompressor();
+
+            CodecUtil::check_footer(&mut meta)?;
+            meta_in = Some(meta);
+
+            let prefetched_block_id_cache = [-1i64; lucene90_ctvr_util::PREFETCH_CACHE_SIZE];
+
+            Ok(Self {
+                field_infos,
+                compression_mode,
+                version,
+                packed_ints_version,
+                chunk_size,
+                num_docs,
+                vectors_stream,
+                index_reader,
+                max_pointer,
+                num_chunks,
+                num_dirty_chunks,
+                num_dirty_docs,
+                decompressor,
+                prefetched_block_id_cache,
+                prefetched_block_id_cache_index: 0,
+                closed: false,
+                block_state: BlockState::new(-1, -1, 0),
+            })
+        })();
+
+        match result {
+            Ok(reader) => Ok(reader),
+            Err(mut e) => {
+                if let Some(ref mut meta) = meta_in {
+                    CodecUtil::check_footer_with_error(meta, &mut e);
+                }
+                Err(e)
+            },
+        }
+    }
+
     pub fn new_with_reader(reader: &Lucene90CompressingTermVectorsReader<I>) -> Result<Self> {
         Ok(Self {
             field_infos: Rc::clone(&reader.field_infos),
