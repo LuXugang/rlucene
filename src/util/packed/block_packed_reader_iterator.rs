@@ -32,8 +32,7 @@ use crate::util::packed::{Decoder, Format, FormatBehavior, PackedImpl, PackedInt
 ///
 /// # Note
 /// This is an internal implementation detail.
-pub struct BlockPackedReaderIterator<'a, T: DataInput> {
-    data_input: &'a mut T,
+pub struct BlockPackedReaderIterator {
     packed_ints_version: i32,
     value_count: i64,
     block_size: i32,
@@ -43,7 +42,7 @@ pub struct BlockPackedReaderIterator<'a, T: DataInput> {
     ord: i64,
 }
 
-impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
+impl BlockPackedReaderIterator {
     /// Reads a variable-length long value (supports negative values).
     ///
     /// # Arguments
@@ -70,17 +69,11 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
         Ok(l as i64 | ((last_byte as i64 & 0xFF) << 56))
     }
 
-    pub fn new(
-        data_input: &'a mut T,
-        packed_ints_version: i32,
-        block_size: i32,
-        value_count: i64,
-    ) -> Result<Self> {
+    pub fn new(packed_ints_version: i32, block_size: i32, value_count: i64) -> Result<Self> {
         PackedInts::check_block_size(block_size, MIN_BLOCK_SIZE, MAX_BLOCK_SIZE)?;
         let values = vec![0; block_size as usize];
         let long_ref = LongsRef::from_slice(values, 0, 0);
         Ok(Self {
-            data_input,
             packed_ints_version,
             value_count,
             block_size,
@@ -97,9 +90,8 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
     ///
     /// * `data_input` - The new input stream to read from.
     /// * `value_count` - The number of values to read from the input.
-    pub fn reset(&mut self, data_input: &'a mut T, value_count: i64) {
+    pub fn reset(&mut self, value_count: i64) {
         debug_assert!(value_count >= 0);
-        self.data_input = data_input;
         self.value_count = value_count;
         self.off = self.block_size;
         self.ord = 0;
@@ -114,7 +106,7 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
     ///
     /// Returns a `LuceneError` if `count` is invalid or if there is an issue
     /// reading the input.
-    pub fn skip(&mut self, mut count: i64) -> Result<()> {
+    pub fn skip(&mut self, mut count: i64, data_input: &mut impl DataInput) -> Result<()> {
         debug_assert!(count >= 0);
         if self.ord + count > self.value_count {
             return Err(LuceneError::eof("Attempt to skip past end of file"));
@@ -132,7 +124,7 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
         // 2. Skip as many blocks as necessary
         debug_assert_eq!(self.off, self.block_size);
         while count >= self.block_size as i64 {
-            let token = self.data_input.read_byte()? as i32;
+            let token = data_input.read_byte()? as i32;
             let bits_per_value = token >> BPV_SHIFT;
 
             if bits_per_value > 64 {
@@ -140,7 +132,7 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
             }
 
             if (token & MIN_VALUE_EQUALS_0) == 0 {
-                Self::read_vlong(self.data_input)?;
+                Self::read_vlong(data_input)?;
             }
 
             let block_bytes = Format::Packed(PackedImpl::new(0)).byte_count(
@@ -148,7 +140,7 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
                 self.block_size,
                 bits_per_value,
             );
-            self.skip_bytes(block_bytes)?;
+            self.skip_bytes(block_bytes, data_input)?;
             self.ord += self.block_size as i64;
             count -= self.block_size as i64;
         }
@@ -158,16 +150,16 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
         }
         // 3. Skip last values
         debug_assert!(count < self.block_size as i64);
-        self.refill()?;
+        self.refill(data_input)?;
         self.ord += count;
         debug_assert!(count <= i32::MAX as i64);
         self.off += count as i32;
         Ok(())
     }
-    fn skip_bytes(&mut self, count: i64) -> Result<()> {
-        if self.data_input.is_index_input() {
-            let new_position = self.data_input.get_file_pointer_in_data_input() + count;
-            self.data_input.seek_in_data_input(new_position)?;
+    fn skip_bytes(&mut self, count: i64, data_input: &mut impl DataInput) -> Result<()> {
+        if data_input.is_index_input() {
+            let new_position = data_input.get_file_pointer_in_data_input() + count;
+            data_input.seek_in_data_input(new_position)?;
         } else {
             // Use a temporary buffer to skip bytes
             if self.blocks.is_empty() {
@@ -178,8 +170,7 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
             while skipped < count {
                 let to_skip = std::cmp::min(self.blocks.len() as i64, count - skipped);
                 debug_assert!(to_skip <= i32::MAX as i64);
-                self.data_input
-                    .read_bytes(&mut self.blocks, 0, to_skip as i32)?;
+                data_input.read_bytes(&mut self.blocks, 0, to_skip as i32)?;
                 skipped += to_skip;
             }
         }
@@ -198,12 +189,12 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
     ///   refill the block.
     /// - Increments the `ord` to track the current position in the stream.
     /// - Returns the next value from the `values` buffer.
-    pub fn next_value(&mut self) -> Result<i64> {
+    pub fn next_value(&mut self, data_input: &mut impl DataInput) -> Result<i64> {
         if self.ord == self.value_count {
             return Err(LuceneError::eof("Reached end of value stream"));
         }
         if self.off == self.block_size {
-            self.refill()?;
+            self.refill(data_input)?;
         }
         let value = self.values_ref.longs[self.off as usize];
         self.off += 1;
@@ -227,13 +218,17 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
     ///
     /// Returns an `EOFError` if the reader has reached the end of the value
     /// stream.
-    pub fn next_batch(&mut self, mut count: i32) -> Result<&LongsRef> {
+    pub fn next_batch(
+        &mut self,
+        mut count: i32,
+        data_input: &mut impl DataInput,
+    ) -> Result<&LongsRef> {
         debug_assert!(count > 0);
         if self.ord == self.value_count {
             return Err(LuceneError::eof("Reached end of value stream"));
         }
         if self.off == self.block_size {
-            self.refill()?;
+            self.refill(data_input)?;
         }
         count = count.min(self.block_size - self.off);
         count = count.min((self.value_count - self.ord) as i32);
@@ -245,8 +240,8 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
         Ok(&self.values_ref)
     }
 
-    fn refill(&mut self) -> Result<()> {
-        let token = self.data_input.read_byte()? as i32;
+    fn refill(&mut self, data_input: &mut impl DataInput) -> Result<()> {
+        let token = data_input.read_byte()? as i32;
         let min_equals_0 = (token & MIN_VALUE_EQUALS_0) != 0;
         let bits_per_value = token >> BPV_SHIFT;
 
@@ -256,7 +251,7 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
         let min_value = if min_equals_0 {
             0
         } else {
-            BitUtil::zig_zag_decode_i64((1 + Self::read_vlong(self.data_input)?) as u64)
+            BitUtil::zig_zag_decode_i64((1 + Self::read_vlong(data_input)?) as u64)
         };
         debug_assert!(min_equals_0 || min_value != 0);
 
@@ -285,8 +280,7 @@ impl<'a, T: DataInput> BlockPackedReaderIterator<'a, T> {
                 bits_per_value,
             );
             debug_assert!(blocks_count <= i32::MAX as i64);
-            self.data_input
-                .read_bytes(&mut self.blocks, 0, blocks_count as i32)?;
+            data_input.read_bytes(&mut self.blocks, 0, blocks_count as i32)?;
 
             decoder.decode_u8_to_i64(&self.blocks, 0, &mut self.values_ref.longs, 0, iterations);
             if min_value != 0 {
