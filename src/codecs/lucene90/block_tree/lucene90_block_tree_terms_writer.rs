@@ -21,6 +21,7 @@ use std::rc::Rc;
 use crate::codecs::block_term_state::BlockTermStateEnum;
 use crate::codecs::block_tree::compression_algorithm::CompressionAlgorithm;
 use crate::codecs::block_tree::lucene90_block_tree_terms_reader::lucene90_bttr_util;
+use crate::codecs::fields_consumer::FieldsConsumer;
 use crate::codecs::norms_producer::NormsProducer;
 use crate::codecs::postings_writer_base::PostingsWriterBase;
 use crate::codecs::CodecUtil;
@@ -28,6 +29,7 @@ use crate::index::field_info::FieldInfo;
 use crate::index::field_infos::FieldInfos;
 use crate::index::fields::Fields;
 use crate::index::index_options::IndexOptions;
+use crate::index::postings_enum::PostingsEnum;
 use crate::index::segment_write_state::SegmentWriteState;
 use crate::index::terms::Terms;
 use crate::index::terms_enum::TermsEnum;
@@ -222,6 +224,23 @@ where
 {
     pub fn new<D>(
         state: &SegmentWriteState<D>,
+        postings_writer: PW,
+        min_items_in_block: i32,
+        max_items_in_block: i32,
+    ) -> Result<Self>
+    where
+        D: Directory<IndexOutputType = O>,
+    {
+        Self::new_with_version(
+            state,
+            postings_writer,
+            min_items_in_block,
+            max_items_in_block,
+            lucene90_bttr_util::VERSION_CURRENT,
+        )
+    }
+    pub fn new_with_version<D>(
+        state: &SegmentWriteState<D>,
         mut postings_writer: PW,
         min_items_in_block: i32,
         max_items_in_block: i32,
@@ -334,13 +353,17 @@ where
 
         Ok(())
     }
-    pub fn write<F, N>(&mut self, fields: &mut F, norms: &mut N) -> Result<()>
+}
+impl<O, PW> FieldsConsumer for Lucene90BlockTreeTermsWriter<O, PW>
+where
+    O: IndexOutput,
+    PW: PostingsWriterBase,
+{
+    fn write<F, N>(&mut self, fields: &mut F, norms: &mut N) -> Result<()>
     where
         F: Fields,
-        F::Terms: Terms,
-        PW: PostingsWriterBase<NumericDocValues = N::NumericDocValues>,
+        PW: PostingsWriterBase,
         N: NormsProducer,
-        <F::Terms as Terms>::TermsEnum: TermsEnum<PostingsEnum = PW::PostingsEnum>,
     {
         let mut last_field: Option<String> = None;
         let field_names = fields.iterator();
@@ -375,6 +398,7 @@ where
                 self.version,
                 &mut self.terms_out,
             );
+            let mut reuse = None;
             loop {
                 let text = terms_enum.next()?;
                 if text.is_none() {
@@ -385,11 +409,25 @@ where
                 let text = BytesRef::from_bytes(
                     byte_ref.bytes[byte_ref.offset..byte_ref.offset + byte_ref.length].to_vec(),
                 );
-                terms_writer.write(text, &mut terms_enum, norms)?;
+                reuse = terms_writer.write(text, &mut terms_enum, norms, reuse)?;
             }
             terms_writer.finish(&mut self.fields, &mut self.index_out)?;
         }
+        Ok(())
+    }
 
+    fn close(&mut self) -> Result<()> {
+        self.meta_out.write_vint(self.fields.len() as i32)?;
+        for field_meta in &self.fields {
+            field_meta.copy_to(&mut self.meta_out)?;
+        }
+        CodecUtil::write_footer(&mut self.index_out)?;
+        self.meta_out
+            .write_long(self.index_out.get_file_pointer())?;
+        CodecUtil::write_footer(&mut self.terms_out)?;
+        self.meta_out
+            .write_long(self.terms_out.get_file_pointer())?;
+        CodecUtil::write_footer(&mut self.meta_out)?;
         Ok(())
     }
 }
@@ -1093,15 +1131,20 @@ where
             sub_indices,
         ))
     }
-    pub fn write(
+    pub fn write<N: NormsProducer, PE: PostingsEnum>(
         &mut self,
         text: BytesRef<Vec<u8>>,
-        terms_enum: &mut impl TermsEnum<PostingsEnum = PW::PostingsEnum>,
-        norms: &mut impl NormsProducer<NumericDocValues = PW::NumericDocValues>,
-    ) -> Result<()> {
-        let state_opt =
-            self.postings_writer
-                .write_term(&text, terms_enum, &mut self.docs_seen, norms)?;
+        terms_enum: &mut impl TermsEnum<PostingsEnum = PE>,
+        norms: &mut N,
+        postings_enum: Option<PE>,
+    ) -> Result<Option<PE>> {
+        let (reuse, state_opt) = self.postings_writer.write_term(
+            &text,
+            terms_enum,
+            &mut self.docs_seen,
+            norms,
+            postings_enum,
+        )?;
 
         if let Some(state) = &state_opt {
             let (total_term_freq, doc_freq) = match state {
@@ -1134,7 +1177,7 @@ where
             self.pending.push(PendingEntryEnum::Term(term));
         }
 
-        Ok(())
+        Ok(reuse)
     }
     fn push_term(&mut self, text: &BytesRef<Vec<u8>>) -> Result<()> {
         let last_bytes = self.last_term.get_bytes_ref();
@@ -1265,8 +1308,8 @@ pub(crate) mod lucene90_bttw_util {
     use crate::store::DataOutput;
     use crate::util::error::lucene_error::Result;
 
-    const DEFAULT_MIN_BLOCK_SIZE: i32 = 25;
-    const DEFAULT_MAX_BLOCK_SIZE: i32 = 48;
+    pub(crate) const DEFAULT_MIN_BLOCK_SIZE: i32 = 25;
+    pub(crate) const DEFAULT_MAX_BLOCK_SIZE: i32 = 48;
 
     pub fn encode_output(fp: i64, has_terms: bool, is_floor: bool) -> i64 {
         debug_assert!(fp < (1i64 << 62));

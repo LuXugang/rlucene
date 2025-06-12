@@ -43,10 +43,10 @@ use crate::util::ToInt;
 
 /// BlockTree's implementation of [`Terms`].
 #[allow(clippy::type_complexity)]
-pub struct FieldReader<I, P>
+pub struct FieldReader<I, PR>
 where
     I: IndexInput,
-    P: PostingsReaderBase,
+    PR: PostingsReaderBase,
 {
     pub(crate) num_terms: i64,
     pub(crate) field_info: Rc<FieldInfo>,
@@ -57,17 +57,17 @@ where
     pub(crate) root_code: BytesRef<Rc<Vec<u8>>>,
     pub(crate) min_term: Rc<BytesRef<Vec<u8>>>,
     pub(crate) max_term: Rc<BytesRef<Vec<u8>>>,
-    pub(crate) parent: Rc<TermsReader<I, P>>,
+    pub(crate) parent: Rc<TermsReader<I, PR>>,
     pub(crate) index: Option<Rc<FST<ByteSequenceOutputs, OffHeapFSTStore<I>>>>,
 }
-impl<I, P> FieldReader<I, P>
+impl<I, PR> FieldReader<I, PR>
 where
     I: IndexInput,
-    P: PostingsReaderBase,
+    PR: PostingsReaderBase,
 {
     #[allow(clippy::too_many_arguments)]
     pub fn new<I1: IndexInput>(
-        parent: Rc<TermsReader<I, P>>,
+        parent: Rc<TermsReader<I, PR>>,
         field_info: Rc<FieldInfo>,
         num_terms: i64,
         root_code: BytesRef<Vec<u8>>,
@@ -136,12 +136,12 @@ where
         }
     }
 }
-impl<I, P> Terms for FieldReader<I, P>
+impl<I, PR> Terms for FieldReader<I, PR>
 where
     I: IndexInput,
-    P: PostingsReaderBase,
+    PR: PostingsReaderBase,
 {
-    type TermsEnum = BaseTermsEnum<SegmentTermsEnum<I, P>>;
+    type TermsEnum = BaseTermsEnum<SegmentTermsEnum<I, PR>>;
 
     fn iterator(&self) -> Result<Self::TermsEnum> {
         SegmentTermsEnum::new(self.clone())
@@ -222,10 +222,10 @@ where
         todo!()
     }
 }
-impl<I, P> fmt::Display for FieldReader<I, P>
+impl<I, PR> fmt::Display for FieldReader<I, PR>
 where
     I: IndexInput,
-    P: PostingsReaderBase,
+    PR: PostingsReaderBase,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
@@ -239,10 +239,10 @@ where
         )
     }
 }
-impl<I, P> Clone for FieldReader<I, P>
+impl<I, PR> Clone for FieldReader<I, PR>
 where
     I: IndexInput,
-    P: PostingsReaderBase,
+    PR: PostingsReaderBase,
 {
     // used to init SegmentTermsEnum
     fn clone(&self) -> Self {

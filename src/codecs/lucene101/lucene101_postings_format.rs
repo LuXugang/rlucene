@@ -17,12 +17,35 @@
 use std::fmt::{Display, Formatter};
 
 use crate::codecs::block_term_state::{BlockTermState, BlockTermStateEnum};
+use crate::codecs::block_tree::lucene90_block_tree_terms_reader::Lucene90BlockTreeTermsReader;
+use crate::codecs::block_tree::lucene90_block_tree_terms_writer::{
+    lucene90_bttw_util, Lucene90BlockTreeTermsWriter,
+};
+use crate::codecs::fields_consumer::FieldsConsumerEnum;
+use crate::codecs::fields_producer::FieldsProducerEnum;
 use crate::codecs::lucene101::for_util::ForUtil;
+use crate::codecs::lucene101::lucene101_postings_reader::Lucene101PostingsReader;
+use crate::codecs::lucene101::lucene101_postings_writer::Lucene101PostingsWriter;
+use crate::codecs::postings_format::PostingsFormat;
+use crate::codecs::push_postings_writer_base::PushPostingsWriterBase;
+use crate::index::segment_read_state::SegmentReadState;
+use crate::index::segment_write_state::SegmentWriteState;
 use crate::index::term_state::{TermState, TermStateEnum};
+use crate::store::directory::Directory;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::error::lucene_error::Result;
 
-pub struct Lucene101PostingsFormat;
+pub struct Lucene101PostingsFormat {
+    min_term_block_size: i32,
+    max_term_block_size: i32,
+}
+
+impl Default for Lucene101PostingsFormat {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Lucene101PostingsFormat {
     /// Filename extension for some small metadata about how postings are
     /// encoded.
@@ -61,6 +84,71 @@ impl Lucene101PostingsFormat {
 
     pub(crate) const VERSION_START: i32 = 0;
     pub(crate) const VERSION_CURRENT: i32 = Self::VERSION_START;
+
+    pub fn new() -> Self {
+        Self::new_with_iterm_num(
+            lucene90_bttw_util::DEFAULT_MIN_BLOCK_SIZE,
+            lucene90_bttw_util::DEFAULT_MAX_BLOCK_SIZE,
+        )
+        .unwrap()
+    }
+    pub fn new_with_iterm_num(min_items_in_block: i32, max_items_in_block: i32) -> Result<Self> {
+        Self::validate_settings(min_items_in_block, max_items_in_block)?;
+        Ok(Self {
+            min_term_block_size: min_items_in_block,
+            max_term_block_size: max_items_in_block,
+        })
+    }
+
+    pub fn validate_settings(min_items_in_block: i32, max_items_in_block: i32) -> Result<()> {
+        if min_items_in_block <= 1 {
+            return Err(LuceneError::illegal_argument(format!(
+                "min_items_in_block must be >= 2; got {}",
+                min_items_in_block
+            )));
+        }
+        if max_items_in_block < min_items_in_block {
+            return Err(LuceneError::illegal_argument(format!(
+                "max_items_in_block must be >= min_items_in_block; got max_items_in_block={} min_items_in_block={}",
+                max_items_in_block, min_items_in_block
+            )));
+        }
+        if max_items_in_block < 2 * (min_items_in_block - 1) {
+            return Err(LuceneError::illegal_argument(format!(
+                "max_items_in_block must be at least 2*(min_items_in_block-1); got max_items_in_block={} min_items_in_block={}",
+                max_items_in_block, min_items_in_block
+            )));
+        }
+        Ok(())
+    }
+}
+
+impl PostingsFormat for Lucene101PostingsFormat {
+    fn fields_consumer<D: Directory>(
+        &self,
+        state: &SegmentWriteState<D>,
+    ) -> Result<FieldsConsumerEnum<D::IndexOutputType>> {
+        let posting_writer = PushPostingsWriterBase::new(Lucene101PostingsWriter::new(state)?);
+        let ret = FieldsConsumerEnum::Lucene90(Lucene90BlockTreeTermsWriter::new(
+            state,
+            posting_writer,
+            self.min_term_block_size,
+            self.max_term_block_size,
+        )?);
+        Ok(ret)
+    }
+
+    fn fields_producer<D: Directory>(
+        &self,
+        state: &SegmentReadState<D>,
+    ) -> Result<FieldsProducerEnum<D::IndexInputType>> {
+        let postings_reader = Lucene101PostingsReader::new(state)?;
+        let ret = FieldsProducerEnum::Lucene90(Lucene90BlockTreeTermsReader::new(
+            postings_reader,
+            state,
+        )?);
+        Ok(ret)
+    }
 }
 
 /// Holds all state required for

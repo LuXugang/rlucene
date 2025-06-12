@@ -22,13 +22,14 @@ use crate::codecs::field_infos_format::FieldInfosFormat;
 use crate::codecs::live_docs_format::LiveDocsFormat;
 use crate::codecs::lucene101_codec::Lucene101Codec;
 use crate::codecs::norms_format::NormsFormat;
+use crate::codecs::postings_format::PostingsFormat;
 use crate::codecs::segment_info_format::SegmentInfoFormat;
 use crate::codecs::stored_fields_format::StoredFieldsFormat;
 use crate::codecs::term_vectors_format::TermVectorsFormat;
 
 pub static LATEST_CODEC: Lazy<Lucene101Codec> = Lazy::new(|| Lucene101Codec);
 pub trait Codec {
-    // type PostingsFormat;
+    type PostingsFormat: PostingsFormat;
     type DocValuesFormat: DocValuesFormat;
     type StoredFieldsFormat: StoredFieldsFormat;
     type TermVectorsFormat: TermVectorsFormat;
@@ -39,9 +40,8 @@ pub trait Codec {
     type CompoundFormat: CompoundFormat;
     // type PointsFormat;
     // type KnnVectorsFormat;
-    // /// Encodes/decodes postings
-    // fn postings_format(&self) -> &Self::PostingsFormat;
-    //
+    /// Encodes/decodes postings
+    fn postings_format(&self) -> Self::PostingsFormat;
     /// Encodes/decodes docvalues
     fn doc_values_format(&self) -> Self::DocValuesFormat;
     //

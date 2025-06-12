@@ -14,8 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codecs::block_tree::lucene90_block_tree_terms_writer::Lucene90BlockTreeTermsWriter;
+use crate::codecs::lucene101::lucene101_postings_writer::Lucene101PostingsWriter;
 use crate::codecs::norms_producer::NormsProducer;
+use crate::codecs::push_postings_writer_base::PushPostingsWriterBase;
 use crate::index::fields::Fields;
+use crate::store::IndexOutput;
 use crate::util::error::lucene_error::Result;
 
 pub trait FieldsConsumer {
@@ -23,6 +27,32 @@ pub trait FieldsConsumer {
     where
         F: Fields,
         N: NormsProducer;
-
     fn close(&mut self) -> Result<()>;
+}
+
+pub enum FieldsConsumerEnum<O>
+where
+    O: IndexOutput,
+{
+    Lucene90(Lucene90BlockTreeTermsWriter<O, PushPostingsWriterBase<Lucene101PostingsWriter<O>>>),
+}
+impl<O> FieldsConsumer for FieldsConsumerEnum<O>
+where
+    O: IndexOutput,
+{
+    fn write<F, N>(&mut self, fields: &mut F, norms: &mut N) -> Result<()>
+    where
+        F: Fields,
+        N: NormsProducer,
+    {
+        match self {
+            FieldsConsumerEnum::Lucene90(writer) => writer.write(fields, norms),
+        }
+    }
+
+    fn close(&mut self) -> Result<()> {
+        match self {
+            FieldsConsumerEnum::Lucene90(writer) => writer.close(),
+        }
+    }
 }

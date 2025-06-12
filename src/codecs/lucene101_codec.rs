@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codecs::lucene101::lucene101_postings_format::Lucene101PostingsFormat;
 use crate::codecs::lucene90::lucene90_compound_format::Lucene90CompoundFormat;
 use crate::codecs::lucene90_doc_values_format::Lucene90DocValuesFormat;
 use crate::codecs::lucene90_live_docs_format::Lucene90LiveDocsFormat;
@@ -28,6 +29,7 @@ use crate::codecs::Codec;
 pub struct Lucene101Codec;
 
 impl Codec for Lucene101Codec {
+    type PostingsFormat = Lucene101PostingsFormat;
     type DocValuesFormat = Lucene90DocValuesFormat;
     type StoredFieldsFormat = Lucene90StoredFieldsFormat;
     type TermVectorsFormat = Lucene90TermVectorsFormat;
@@ -36,6 +38,10 @@ impl Codec for Lucene101Codec {
     type NormsFormat = Lucene90NormsFormat;
     type LiveDocsFormat = Lucene90LiveDocsFormat;
     type CompoundFormat = Lucene90CompoundFormat;
+
+    fn postings_format(&self) -> Self::PostingsFormat {
+        Lucene101PostingsFormat::new()
+    }
 
     fn doc_values_format(&self) -> Self::DocValuesFormat {
         Lucene90DocValuesFormat::default()

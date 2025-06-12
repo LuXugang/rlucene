@@ -20,7 +20,6 @@ use std::rc::Rc;
 
 use crate::codecs::block_term_state::BlockTermStateEnum;
 use crate::codecs::competitive_impact_accumulator::CompetitiveImpactAccumulator;
-use crate::codecs::dummy::dummy_numeric_doc_values::DummyNumericDocValues;
 use crate::codecs::lucene101::for_delta_util::ForDeltaUtil;
 use crate::codecs::lucene101::lucene101_postings_format::{
     IntBlockTermState, Lucene101PostingsFormat,
@@ -32,10 +31,10 @@ use crate::codecs::postings_writer_base::PostingsWriterBase;
 use crate::codecs::push_postings_writer_base::{FieldWriteOptions, PushPostingsWriterBaseAbstract};
 use crate::codecs::CodecUtil;
 use crate::index::doc_values_iterator::DocValuesIterator;
-use crate::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::index::field_info::FieldInfo;
 use crate::index::index_writer::IndexWriter;
 use crate::index::numeric_doc_values::NumericDocValues;
+use crate::index::postings_enum::PostingsEnum;
 use crate::index::segment_write_state::SegmentWriteState;
 use crate::index::terms_enum::TermsEnum;
 use crate::index::{BytesRef, IndexFileNames};
@@ -49,10 +48,9 @@ use crate::util::SliceCopyOps;
 
 /// Writer for
 /// [`Lucene101PostingsFormat`](crate::codecs::lucene101::lucene101_postings_format)
-pub struct Lucene101PostingsWriter<O, N>
+pub struct Lucene101PostingsWriter<O>
 where
     O: IndexOutput,
-    N: NormsProducer,
 {
     pub(crate) meta_out: O,
     pub(crate) doc_out: O,
@@ -95,7 +93,6 @@ where
     for_delta_util: ForDeltaUtil,
 
     field_has_norms: bool,
-    norms: Option<N::NumericDocValues>,
     level0_freq_norm_accumulator: CompetitiveImpactAccumulator,
     level1_competitive_freq_norm_accumulator: CompetitiveImpactAccumulator,
 
@@ -116,12 +113,9 @@ where
     /// 32 blocks. The content is then typically copied to [`docCount`].
     level1_output: ByteBuffersDataOutput,
 }
-#[allow(unused)]
-impl<O, N> Lucene101PostingsWriter<O, N>
+impl<O> Lucene101PostingsWriter<O>
 where
     O: IndexOutput,
-
-    N: NormsProducer,
 {
     pub fn new<D>(state: &SegmentWriteState<D>) -> Result<Self>
     where
@@ -249,7 +243,6 @@ where
             pfor_util,
             for_delta_util,
             field_has_norms: false,
-            norms: None,
             level0_freq_norm_accumulator: CompetitiveImpactAccumulator::new(),
             level1_competitive_freq_norm_accumulator: CompetitiveImpactAccumulator::new(),
             max_num_impacts_at_level0: 0,
@@ -448,20 +441,17 @@ where
         }
     }
 }
-impl<O, N> Drop for Lucene101PostingsWriter<O, N>
+impl<O> Drop for Lucene101PostingsWriter<O>
 where
     O: IndexOutput,
-
-    N: NormsProducer,
 {
     fn drop(&mut self) {
         self.close();
     }
 }
-impl<O, N> PostingsWriterBase for Lucene101PostingsWriter<O, N>
+impl<O> PostingsWriterBase for Lucene101PostingsWriter<O>
 where
     O: IndexOutput,
-    N: NormsProducer,
 {
     fn init<D: Directory>(
         &mut self,
@@ -479,16 +469,14 @@ where
         Ok(())
     }
 
-    type NumericDocValues = DummyNumericDocValues;
-    type PostingsEnum = DummyPostingsEnum;
-
-    fn write_term(
+    fn write_term<N: NormsProducer, PE: PostingsEnum>(
         &mut self,
         _term: &BytesRef<Vec<u8>>,
-        _terms_enum: &mut impl TermsEnum<PostingsEnum = Self::PostingsEnum>,
+        _terms_enum: &mut impl TermsEnum<PostingsEnum = PE>,
         _docs_seen: &mut FixedBitSet,
-        _norms: &mut impl NormsProducer<NumericDocValues = Self::NumericDocValues>,
-    ) -> Result<Option<BlockTermStateEnum>> {
+        _norms: &mut N,
+        _postings_enum: Option<PE>,
+    ) -> Result<(Option<PE>, Option<BlockTermStateEnum>)> {
         Err(LuceneError::not_implemented(""))
     }
 
@@ -507,23 +495,15 @@ where
         self.field_has_norms = field_info.has_norms();
     }
 }
-impl<O, N> PushPostingsWriterBaseAbstract for Lucene101PostingsWriter<O, N>
+impl<O> PushPostingsWriterBaseAbstract for Lucene101PostingsWriter<O>
 where
     O: IndexOutput,
-
-    N: NormsProducer,
 {
     fn new_term_state(&mut self) -> Result<BlockTermStateEnum> {
         Ok(BlockTermStateEnum::Int(IntBlockTermState::default()))
     }
 
-    type Numeric = N::NumericDocValues;
-
-    fn start_term(
-        &mut self,
-        norms: Option<Self::Numeric>,
-        options: &FieldWriteOptions,
-    ) -> Result<()> {
+    fn start_term(&mut self, options: &FieldWriteOptions) -> Result<()> {
         self.doc_start_fp = self.doc_out.get_file_pointer();
         if options.write_positions {
             if let Some(ref pos_out) = self.pos_out {
@@ -541,7 +521,6 @@ where
         self.last_doc_id = -1;
         self.level0_last_doc_id = -1;
         self.level1_last_doc_id = -1;
-        self.norms = norms;
         if options.write_freqs {
             self.level0_freq_norm_accumulator.clear();
         }
@@ -653,8 +632,9 @@ where
         Ok(())
     }
 
-    fn start_doc(
+    fn start_doc<N: NormsProducer>(
         &mut self,
+        norms: &mut Option<N::NumericDocValues>,
         doc_id: i32,
         term_doc_freq: i32,
         options: &FieldWriteOptions,
@@ -684,11 +664,12 @@ where
 
         if options.write_freqs {
             let norm = if self.field_has_norms {
-                let found = self.norms.as_mut().unwrap().advance_exact(doc_id)?;
+                debug_assert!(norms.is_some(), "norms should not be None");
+                let found = norms.as_mut().unwrap().advance_exact(doc_id)?;
                 if !found {
                     1
                 } else {
-                    let n = self.norms.as_mut().unwrap().long_value()?;
+                    let n = norms.as_mut().unwrap().long_value()?;
                     debug_assert!(n != 0, "norm for doc {} is zero", doc_id);
                     n
                 }

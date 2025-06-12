@@ -14,10 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-mod for_delta_util;
-mod for_util;
-pub mod lucene101_postings_format;
-pub mod lucene101_postings_reader;
-pub mod lucene101_postings_writer;
-mod pfor_util;
-mod postings_util;
+use crate::codecs::fields_consumer::FieldsConsumerEnum;
+use crate::codecs::fields_producer::FieldsProducerEnum;
+use crate::index::segment_read_state::SegmentReadState;
+use crate::index::segment_write_state::SegmentWriteState;
+use crate::store::directory::Directory;
+use crate::util::error::lucene_error::Result;
+
+pub trait PostingsFormat {
+    fn fields_consumer<D: Directory>(
+        &self,
+        state: &SegmentWriteState<D>,
+    ) -> Result<FieldsConsumerEnum<D::IndexOutputType>>;
+
+    fn fields_producer<D: Directory>(
+        &self,
+        state: &SegmentReadState<D>,
+    ) -> Result<FieldsProducerEnum<D::IndexInputType>>;
+}

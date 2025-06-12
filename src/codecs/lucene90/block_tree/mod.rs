@@ -16,7 +16,7 @@
  */
 mod compression_algorithm;
 pub mod field_reader;
-mod lucene90_block_tree_terms_reader;
+pub mod lucene90_block_tree_terms_reader;
 pub mod lucene90_block_tree_terms_writer;
 mod segment_terms_enum;
 pub(crate) mod segment_terms_enum_frame;

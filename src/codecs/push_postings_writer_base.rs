@@ -22,7 +22,6 @@ use crate::codecs::norms_producer::NormsProducer;
 use crate::codecs::postings_writer_base::PostingsWriterBase;
 use crate::index::field_info::FieldInfo;
 use crate::index::index_options::IndexOptions;
-use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::postings_enum::{postings_enum_util, PostingsEnum};
 use crate::index::segment_write_state::SegmentWriteState;
 use crate::index::terms_enum::TermsEnum;
@@ -42,17 +41,14 @@ use crate::util::fixed_bit_set::FixedBitSet;
 // TODO: find a better name; this defines the API that the
 // terms dict impls use to talk to a postings impl.
 /// TermsDict + PostingsReader/WriterBase == PostingsConsumer/Producer
-pub struct PushPostingsWriterBase<P, S>
+pub struct PushPostingsWriterBase<S>
 where
-    P: PostingsEnum,
     S: PushPostingsWriterBaseAbstract + PostingsWriterBase,
 {
-    /// Reused in `write_term`
-    postings_enum: Option<P>,
     enum_flags: i32,
 
     /// `FieldInfo` of current field being written.
-    pub(crate) field_info: Rc<FieldInfo>,
+    pub(crate) field_info: Option<Rc<FieldInfo>>,
 
     /// `IndexOptions` of current field being written.
     pub(crate) index_options: IndexOptions,
@@ -72,10 +68,8 @@ pub struct FieldWriteOptions {
     pub(crate) write_offsets: bool,
 }
 
-impl<P, S> PushPostingsWriterBase<P, S>
+impl<S> PushPostingsWriterBase<S>
 where
-    P: PostingsEnum,
-
     S: PushPostingsWriterBaseAbstract + PostingsWriterBase,
 {
     #[allow(clippy::too_many_arguments)]
@@ -83,7 +77,7 @@ where
     /// - `field_info`: It is just a placeholder value; it should be initialized
     ///   as None, but I don't want to add extra wrapping around it. It would be
     ///   set in [`set_field`](Self::set_field) before used
-    pub fn new(field_info: FieldInfo, sub: S) -> Self {
+    pub fn new(sub: S) -> Self {
         let options = FieldWriteOptions {
             write_freqs: false,
             write_positions: false,
@@ -91,19 +85,16 @@ where
             write_offsets: false,
         };
         Self {
-            postings_enum: None,
             enum_flags: 0,
-            field_info: Rc::new(field_info),
+            field_info: None,
             index_options: Default::default(),
             options,
             sub,
         }
     }
 }
-impl<P, S> PostingsWriterBase for PushPostingsWriterBase<P, S>
+impl<S> PostingsWriterBase for PushPostingsWriterBase<S>
 where
-    P: PostingsEnum,
-
     S: PushPostingsWriterBaseAbstract + PostingsWriterBase,
 {
     fn init<D: Directory>(
@@ -114,30 +105,26 @@ where
         self.sub.init(terms_out, state)
     }
 
-    type NumericDocValues = S::Numeric;
-    type PostingsEnum = P;
-
-    fn write_term(
+    fn write_term<N: NormsProducer, PE: PostingsEnum>(
         &mut self,
         _term: &BytesRef<Vec<u8>>,
-        terms_enum: &mut impl TermsEnum<PostingsEnum = Self::PostingsEnum>,
+        terms_enum: &mut impl TermsEnum<PostingsEnum = PE>,
         docs_seen: &mut FixedBitSet,
-        norms: &mut impl NormsProducer<NumericDocValues = Self::NumericDocValues>,
-    ) -> Result<Option<BlockTermStateEnum>> {
-        let norm_values = if self.field_info.has_norms() {
-            Some(norms.get_norms(&self.field_info)?)
+        norms: &mut N,
+        postings_enum: Option<PE>,
+    ) -> Result<(Option<PE>, Option<BlockTermStateEnum>)> {
+        let mut norm_values = if self.field_info.as_ref().unwrap().has_norms() {
+            Some(norms.get_norms(self.field_info.as_ref().unwrap())?)
         } else {
             None
         };
 
-        self.sub.start_term(norm_values, &self.options)?;
+        self.sub.start_term(&self.options)?;
 
-        let v = terms_enum.postings_with_flags(self.postings_enum.take(), self.enum_flags)?;
-        self.postings_enum = Some(v);
+        let mut postings_enum = terms_enum.postings_with_flags(postings_enum, self.enum_flags)?;
 
         let mut doc_freq = 0;
         let mut total_term_freq = 0i64;
-        let postings_enum = self.postings_enum.as_mut().unwrap();
         loop {
             let doc_id = postings_enum.next_doc()?;
             if doc_id == NO_MORE_DOCS {
@@ -154,7 +141,8 @@ where
                 -1
             };
 
-            self.sub.start_doc(doc_id, freq, &self.options)?;
+            self.sub
+                .start_doc::<N>(&mut norm_values, doc_id, freq, &self.options)?;
 
             if self.options.write_positions {
                 for _ in 0..freq {
@@ -178,7 +166,7 @@ where
         }
 
         if doc_freq == 0 {
-            return Ok(None);
+            return Ok((Some(postings_enum), None));
         }
 
         let mut upper = self.sub.new_term_state()?;
@@ -190,7 +178,7 @@ where
             -1
         };
         self.sub.finish_term(&mut upper, &self.options)?;
-        Ok(Some(upper))
+        Ok((Some(postings_enum), Some(upper)))
     }
 
     fn encode_term(
@@ -207,14 +195,14 @@ where
     /// `&[i64]` metadata (which is fixed per field), called when the
     /// writing switches to another field.
     fn set_field(&mut self, field_info: Rc<FieldInfo>) {
-        self.field_info = field_info.clone();
-        self.index_options = *self.field_info.get_index_options();
+        self.index_options = *field_info.get_index_options();
         let options = &mut self.options;
         options.write_freqs = self.index_options >= IndexOptions::DocsAndFreqs;
         options.write_positions = self.index_options >= IndexOptions::DocsAndFreqsAndPositions;
         options.write_offsets =
             self.index_options >= IndexOptions::DocsAndFreqsAndPositionsAndOffsets;
-        options.write_payloads = self.field_info.has_payloads();
+        options.write_payloads = field_info.has_payloads();
+        self.field_info = Option::from(field_info.clone());
 
         self.enum_flags = if !options.write_freqs {
             0
@@ -238,15 +226,10 @@ pub trait PushPostingsWriterBaseAbstract {
     /// Return a newly created empty TermState
     fn new_term_state(&mut self) -> Result<BlockTermStateEnum>;
 
-    type Numeric: NumericDocValues;
     /// Start a new term.
     /// A matching call to [`finish_term`](Self::finish_term) will be done only
     /// if the term has at least one document.
-    fn start_term(
-        &mut self,
-        norms: Option<Self::Numeric>,
-        options: &FieldWriteOptions,
-    ) -> Result<()>;
+    fn start_term(&mut self, options: &FieldWriteOptions) -> Result<()>;
 
     /// Finishes the current term. The provided [`BlockTermState`] contains
     /// the term's summary statistics and will hold metadata from PBF when
@@ -259,7 +242,13 @@ pub trait PushPostingsWriterBaseAbstract {
 
     /// Adds a new doc in this term. `freq` will be -1 when term
     /// frequencies are omitted for the field.
-    fn start_doc(&mut self, doc_id: i32, freq: i32, options: &FieldWriteOptions) -> Result<()>;
+    fn start_doc<N: NormsProducer>(
+        &mut self,
+        norms: &mut Option<N::NumericDocValues>,
+        doc_id: i32,
+        freq: i32,
+        options: &FieldWriteOptions,
+    ) -> Result<()>;
 
     /// Add a new position and payload, and start/end offset.
     /// A null payload means no payload; a non-null payload with zero length

@@ -20,6 +20,7 @@ use std::fmt;
 use std::fmt::Display;
 use std::rc::Rc;
 
+use crate::codecs::fields_producer::FieldsProducer;
 use crate::codecs::lucene90::block_tree::field_reader::FieldReader;
 use crate::codecs::postings_reader_base::PostingsReaderBase;
 use crate::codecs::CodecUtil;
@@ -52,36 +53,36 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 /// See [`Lucene90BlockTreeTermsWriter`](crate::codecs::lucene90::block_tree::lucene90_block_tree_terms_writer::Lucene90BlockTreeTermsWriter).
 ///
 /// [`Lucene90BlockTreeTermsWriter`]: crate::codecs::lucene90::writer::Lucene90BlockTreeTermsWriter
-pub struct Lucene90BlockTreeTermsReader<I, P>
+pub struct Lucene90BlockTreeTermsReader<I, PR>
 where
     I: IndexInput,
-    P: PostingsReaderBase,
+    PR: PostingsReaderBase,
 {
-    terms_reader: Rc<TermsReader<I, P>>,
+    terms_reader: Rc<TermsReader<I, PR>>,
     // Open input to the terms index file (_X.tip)
     index_in: Rc<RefCell<I>>,
-    field_map: HashMap<i32, FieldReader<I, P>>,
+    field_map: HashMap<i32, FieldReader<I, PR>>,
     field_list: Vec<String>,
     field_infos: Rc<FieldInfos>,
 }
-pub struct TermsReader<I, P>
+pub struct TermsReader<I, PR>
 where
     I: IndexInput,
-    P: PostingsReaderBase,
+    PR: PostingsReaderBase,
 {
     // Open input to the main terms dict file (_X.tib)
     pub(crate) terms_in: I,
-    pub(crate) postings_reader: P,
+    pub(crate) postings_reader: PR,
     pub(crate) segment: String,
     pub(crate) version: i32,
 }
 
-impl<I, P> Lucene90BlockTreeTermsReader<I, P>
+impl<I, PR> Lucene90BlockTreeTermsReader<I, PR>
 where
     I: IndexInput,
-    P: PostingsReaderBase,
+    PR: PostingsReaderBase,
 {
-    pub fn new<D>(postings_reader: P, state: &SegmentReadState<D>) -> Result<Self>
+    pub fn new<D>(postings_reader: PR, state: &SegmentReadState<D>) -> Result<Self>
     where
         D: Directory<IndexInputType = I>,
     {
@@ -285,16 +286,16 @@ where
         })
     }
 }
-impl<I, P> Fields for Lucene90BlockTreeTermsReader<I, P>
+impl<I, PR> Fields for Lucene90BlockTreeTermsReader<I, PR>
 where
     I: IndexInput,
-    P: PostingsReaderBase,
+    PR: PostingsReaderBase,
 {
     fn iterator(&self) -> impl Iterator<Item = &String> {
         self.field_list.iter()
     }
 
-    type Terms = FieldReader<I, P>;
+    type Terms = FieldReader<I, PR>;
 
     fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
         let field_info = self.field_infos.field_info_by_name(field);
@@ -306,10 +307,10 @@ where
         Ok(self.field_map.len() as i32)
     }
 }
-impl<I, P> Display for Lucene90BlockTreeTermsReader<I, P>
+impl<I, PR> Display for Lucene90BlockTreeTermsReader<I, PR>
 where
     I: IndexInput,
-    P: PostingsReaderBase + Display,
+    PR: PostingsReaderBase + Display,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
@@ -318,6 +319,23 @@ where
             self.field_map.len(),
             self.terms_reader.postings_reader
         )
+    }
+}
+
+impl<I, PR> FieldsProducer<I> for Lucene90BlockTreeTermsReader<I, PR>
+where
+    I: IndexInput,
+    PR: PostingsReaderBase,
+{
+    fn close(&mut self) -> Result<()> {
+        self.field_map.clear();
+        Ok(())
+    }
+
+    fn check_integrity(&mut self) -> Result<()> {
+        CodecUtil::checksum_entire_file(&*self.index_in.borrow())?;
+        CodecUtil::checksum_entire_file(&self.terms_reader.terms_in)?;
+        self.terms_reader.postings_reader.check_integrity()
     }
 }
 
@@ -372,13 +390,13 @@ pub mod lucene90_bttr_util {
         input.read_bytes(&mut buffer, 0, num_bytes)?;
         Ok(BytesRef::from_slice(buffer, 0, num_bytes as usize))
     }
-    pub(super) fn sort_field_names<I, P>(
-        field_map: &HashMap<i32, FieldReader<I, P>>,
+    pub(super) fn sort_field_names<I, PR>(
+        field_map: &HashMap<i32, FieldReader<I, PR>>,
         field_infos: &FieldInfos,
     ) -> Result<Vec<String>>
     where
         I: IndexInput,
-        P: PostingsReaderBase,
+        PR: PostingsReaderBase,
     {
         let mut field_names = Vec::with_capacity(field_map.len());
 
