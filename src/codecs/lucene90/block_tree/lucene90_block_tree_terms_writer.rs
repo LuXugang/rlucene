@@ -222,6 +222,9 @@ where
     O: IndexOutput,
     PW: PostingsWriterBase,
 {
+    /// Create a new writer. The number of items (terms or sub-blocks) per block will aim to be between
+    /// `min_items_per_block` and `max_items_per_block`, though in some cases the blocks may be smaller than the
+    /// min.
     pub fn new<D>(
         state: &SegmentWriteState<D>,
         postings_writer: PW,
@@ -239,6 +242,7 @@ where
             lucene90_bttr_util::VERSION_CURRENT,
         )
     }
+    /// Expert constructor that allows configuring the version, used for bw tests
     pub fn new_with_version<D>(
         state: &SegmentWriteState<D>,
         mut postings_writer: PW,
@@ -329,6 +333,7 @@ where
             fields: vec![],
         })
     }
+    /// Throws `IllegalArgumentError` if any of these settings is invalid.
     pub fn validate_settings(min_items_in_block: i32, max_items_in_block: i32) -> Result<()> {
         if min_items_in_block <= 1 {
             return Err(LuceneError::illegal_argument(format!(
@@ -1325,7 +1330,7 @@ pub(crate) mod lucene90_bttw_util {
                 0
             }
     }
-
+    /// Encodes long value to variable length byte[], in MSB order.
     pub(crate) fn write_msb_vlong(out: &mut impl DataOutput, mut l: i64) -> Result<()> {
         debug_assert!(l >= 0);
         // Keep zero bits on most significant byte to have more chance to get prefix

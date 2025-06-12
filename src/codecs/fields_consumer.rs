@@ -21,8 +21,22 @@ use crate::codecs::push_postings_writer_base::PushPostingsWriterBase;
 use crate::index::fields::Fields;
 use crate::store::IndexOutput;
 use crate::util::error::lucene_error::Result;
-
+/// Abstract API that consumes terms, doc, freq, prox, offset and payloads postings. Concrete
+/// implementations of this actually do "something" with the postings (write it into the index in a
+/// specific format).
 pub trait FieldsConsumer {
+    /// Write all fields, terms and postings. This is the "pull" API, allowing you to iterate more than
+    /// once over the postings, somewhat analogous to using a DOM API to traverse an XML tree.
+    ///
+    /// # Notes
+    ///
+    /// - You must compute index statistics, including each Term’s `doc_freq` and `total_term_freq`, as
+    ///   well as the summary `sum_total_term_freq`, `sum_total_doc_freq` and `doc_count`.
+    /// - You must skip terms that have no docs and fields that have no terms, even though the
+    ///   provided `Fields` API will expose them; this typically requires lazily writing the field or
+    ///   term until you’ve actually seen the first term or document.
+    /// - The provided `Fields` instance is limited: you cannot call any methods that return
+    ///   statistics/counts; you cannot pass a non-null live docs when pulling docs/positions enums.
     fn write<F, N>(&mut self, fields: &mut F, norms: &mut N) -> Result<()>
     where
         F: Fields,

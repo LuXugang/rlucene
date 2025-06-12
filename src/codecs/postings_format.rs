@@ -20,13 +20,18 @@ use crate::index::segment_read_state::SegmentReadState;
 use crate::index::segment_write_state::SegmentWriteState;
 use crate::store::directory::Directory;
 use crate::util::error::lucene_error::Result;
-
+/// Encodes/decodes terms, postings, and proximity data.
 pub trait PostingsFormat {
+    /// Writes a new segment
     fn fields_consumer<D: Directory>(
         &self,
         state: &SegmentWriteState<D>,
     ) -> Result<FieldsConsumerEnum<D::IndexOutputType>>;
-
+    /// Reads a segment. **NOTE**: by the time this call returns, it must hold open any files it will need
+    /// to use; else, those files may be deleted. Additionally, required files may be deleted during
+    /// the execution of this call before there is a chance to open them. Under these circumstances an
+    /// `IOException` should be returned by the implementation. IO exceptions are expected and will
+    /// automatically cause a retry of the segment opening logic with the newly revised segments.
     fn fields_producer<D: Directory>(
         &self,
         state: &SegmentReadState<D>,
