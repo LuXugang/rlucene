@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::cmp::Ordering;
 use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
 use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
 use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
@@ -26,6 +27,9 @@ use crate::util::bit_util::BitUtil;
 use crate::util::bytes_ref_block_pool::BytesRefBlockPoolBorrow;
 use crate::util::error::lucene_error::Result;
 use std::rc::Rc;
+use crate::index::BytesRef;
+
+#[derive(Clone,Default)] // Default used for padding in PriorityQueue, maybe we should Improve PriorityQueue to avoid Default/Clone trait
 pub(crate) struct TermVectorsConsumerPerField {
     field_info: Rc<FieldInfo>,
     do_vectors: bool,
@@ -34,10 +38,89 @@ pub(crate) struct TermVectorsConsumerPerField {
     do_vector_payloads: bool,
     term_byte_pool: BytesRefBlockPoolBorrow,
     has_payloads: bool,
+    field_name: String,
 }
 impl TermVectorsConsumerPerField {
     pub(crate) fn new(_size: i32) -> Self {
         todo!()
+    }
+
+    pub(crate) fn finish_document(&mut self, flush_term: &mut BytesRef<Vec<u8>>) -> Result<()> {
+        // if !self.do_vectors {
+        //     return Ok(());
+        // }
+        // self.do_vectors = false;
+        //
+        // let num_postings = self.get_num_terms();
+        // debug_assert!(num_postings >= 0);
+        //
+        // let postings = &self.term_vectors_postings_array;
+        // let tv = &mut self.terms_writer.writer;
+        //
+        // self.sort_terms();
+        // let term_ids = self.get_sorted_term_ids();
+        //
+        // tv.start_field(
+        //     &*self.field_info,
+        //     num_postings as usize,
+        //     self.do_vector_positions,
+        //     self.do_vector_offsets,
+        //     self.has_payloads,
+        // )?;
+        //
+        // let mut pos_reader = if self.do_vector_positions {
+        //     Some(self.terms_writer.vector_slice_reader_pos.clone())
+        // } else {
+        //     None
+        // };
+        // let mut off_reader = if self.do_vector_offsets {
+        //     Some(self.terms_writer.vector_slice_reader_off.clone())
+        // } else {
+        //     None
+        // };
+        //
+        // for &term_id in &term_ids {
+        //     let freq = postings.freqs[term_id];
+        //     self.term_byte_pool.fill_bytes_ref(flush_term, postings.text_starts[term_id]);
+        //
+        //     tv.start_term(flush_term, freq)?;
+        //
+        //     if self.do_vector_positions || self.do_vector_offsets {
+        //         if let Some(ref mut pr) = pos_reader {
+        //             self.init_reader(pr, term_id, 0)?;
+        //         }
+        //         if let Some(ref mut or) = off_reader {
+        //             self.init_reader(or, term_id, 1)?;
+        //         }
+        //         tv.add_prox(freq, pos_reader.as_mut(), off_reader.as_mut())?;
+        //     }
+        //
+        //     tv.finish_term()?;
+        // }
+        //
+        // tv.finish_field()?;
+        //
+        // self.reset();
+        // self.field_info.set_store_term_vectors()?;
+        Ok(())
+    }
+}
+
+impl Eq for TermVectorsConsumerPerField {}
+
+impl PartialEq<Self> for TermVectorsConsumerPerField {
+    fn eq(&self, other: &Self) -> bool {
+        todo!()
+    }
+}
+
+impl PartialOrd<Self> for TermVectorsConsumerPerField {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> { Some(self.cmp(other)) }
+}
+
+impl Ord for TermVectorsConsumerPerField{
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.field_name.cmp(&other.field_name)
     }
 }
 impl TermsHashPerFieldBase for TermVectorsConsumerPerField {
@@ -81,6 +164,8 @@ impl TermsHashPerFieldBase for TermVectorsConsumerPerField {
         todo!()
     }
 }
+
+
 pub(crate) struct TermVectorsPostingsArray {
     pub(crate) size: usize,
     freqs: Vec<i32>,          // How many times this term occurred in the current doc

@@ -158,9 +158,6 @@ where
 
     pub(crate) fn abort(&mut self) {
         self.reset();
-        if self.next_terms_hash.is_some() {
-            self.next_terms_hash.as_mut().unwrap().abort();
-        }
     }
     pub(crate) fn reset(&mut self) {
         self.int_pool.borrow_mut().reset(false, false);
@@ -212,6 +209,22 @@ where
         }
         Ok(())
     }
+    fn finish_document(&mut self, doc_id: i32) -> Result<()> {
+        if self.next_terms_hash.is_some() {
+            self.next_terms_hash
+                .as_mut()
+                .unwrap()
+                .finish_document(doc_id,&self.bytes_used)?;
+        }
+        self.reset();
+        Ok(())
+    }
+    fn start_document(&mut self) -> Result<()> {
+        if self.next_terms_hash.is_some() {
+            self.next_terms_hash.as_mut().unwrap().start_document()?;
+        }
+        Ok(())
+    } 
 }
 impl<D, C, TVW> TermsHashBase for FreqProxTermsWriter<D, C, TVW>
 where
@@ -219,12 +232,7 @@ where
     C: Codec,
     TVW: TermVectorsWriter,
 {
-    fn abort(&mut self) {
-        self.reset();
-        if let Some(next) = self.next_terms_hash.as_mut() {
-            next.abort();
-        }
-    }
+   
 
     type TermsHashPerFieldBase = FreqProxTermsWriterPerField;
 
@@ -246,22 +254,7 @@ where
         FreqProxTermsWriterPerField::new(field_invert_state, self, field_info, next_per_field)
     }
 
-    fn start_document(&mut self) -> Result<()> {
-        if self.next_terms_hash.is_some() {
-            self.next_terms_hash.as_mut().unwrap().start_document()?;
-        }
-        Ok(())
-    }
-
-    fn finish_document(&mut self, doc_id: i32) -> Result<()> {
-        if self.next_terms_hash.is_some() {
-            self.next_terms_hash
-                .as_mut()
-                .unwrap()
-                .finish_document(doc_id)?;
-        }
-        Ok(())
-    }
+   
 }
 
 pub(crate) struct FilterFieldsImpl<F, D>

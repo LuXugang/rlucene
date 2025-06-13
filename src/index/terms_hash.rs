@@ -31,7 +31,6 @@ use crate::util::error::lucene_error::Result;
 /// [`TermVectorsConsumer`], write their own byte streams associated with each
 /// term.
 pub(crate) trait TermsHashBase {
-    fn abort(&mut self);
     type TermsHashPerFieldBase: TermsHashPerFieldBase;
     fn add_field<O, P, T>(
         &mut self,
@@ -45,8 +44,4 @@ pub(crate) trait TermsHashBase {
     {
         unimplemented!("This method should be implemented by the specific TermsHashPerField type.");
     }
-
-    fn start_document(&mut self) -> Result<()>;
-
-    fn finish_document(&mut self, doc_id: i32) -> Result<()>;
 }

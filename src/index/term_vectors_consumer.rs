@@ -38,6 +38,7 @@ use crate::util::{Counter, CounterEnumBorrow};
 use parking_lot::Mutex;
 use std::rc::Rc;
 use std::sync::Arc;
+use crate::util::array_util::ArrayUtil;
 
 pub(crate) struct TermVectorsConsumer<D, C, TVW>
 where
@@ -49,7 +50,9 @@ where
     info: Rc<SegmentInfo<D>>,
     code: Arc<Mutex<C>>,
     writer: Option<TVW>,
+    // Scratch term used by TermVectorsConsumerPerField.finishDocument.
     flush_term: BytesRef<Vec<u8>>,
+    // Used by TermVectorsConsumerPerField when serializing the term vectors.
     vector_slice_reader_pos: ByteSliceReader,
     vector_slice_reader_off: ByteSliceReader,
     has_vectors: bool,
@@ -64,7 +67,7 @@ where
     TVW: TermVectorsWriter,
 {
     pub(crate) fn reset_fields(&mut self) {
-        self.per_fields.clear();
+        self.per_fields.clear();// don't hang onto stuff from previous doc
         self.num_vector_fields = 0;
     }
     pub(crate) fn fill(&mut self, doc_id: i32) -> Result<()> {
@@ -81,7 +84,7 @@ where
         }
         Ok(())
     }
-    pub(crate) fn init_term_vectors_writer(&mut self, bytes_used: CounterEnumBorrow) -> Result<()> {
+    pub(crate) fn init_term_vectors_writer(&mut self, bytes_used: &CounterEnumBorrow) -> Result<()> {
         if self.writer.is_none() {
             let flush_info = FlushInfo::new(self.last_doc_id, bytes_used.borrow().get());
             let context = IOContext::with_flush(flush_info)?;
@@ -104,7 +107,57 @@ where
     where
         DM: DocMap,
     {
-        todo!()
+        if self.writer.is_some() {
+            let num_docs = state.segment_info.max_doc()?;
+            debug_assert!(num_docs > 0);
+            // At least one doc in this run had term vectors enabled
+            self.fill(num_docs)?;
+            self.writer.as_mut().unwrap().finish(num_docs)?;
+        }
+        Ok(())
+    }
+    pub(crate) fn set_has_vectors(&mut self) {
+        self.has_vectors = true;
+    }
+    pub(crate) fn finish_document(&mut self, doc_id: i32,bytes_used: &CounterEnumBorrow) -> Result<()> {
+        // if !self.has_vectors {
+        //     return Ok(());
+        // }
+        // 
+        // ArrayUtil::intro_sort_with_range(&mut self.per_fields, 0, self.num_vector_fields)?;
+        // 
+        // self.init_term_vectors_writer(bytes_used)?;
+        // self.fill(doc_id)?;
+        // // Append term vectors to the real outputs:
+        // if let Some(ref mut writer) = self.writer {
+        //     writer.start_document(self.num_vector_fields)?;
+        // 
+        //     for i in 0..self.num_vector_fields as usize {
+        //         self.per_fields[i].finish_document()?;
+        //     }
+        // 
+        //     writer.finish_document()?;
+        // } else {
+        //     return Err(LuceneError::illegal_state(
+        //         "TermVectorsConsumer writer was not initialized",
+        //     ));
+        // }
+        // 
+        // debug_assert_eq!(
+        //     self.last_doc_id, doc_id,
+        //     "last_doc_id = {}, doc_id = {}",
+        //     self.last_doc_id, doc_id
+        // );
+        // 
+        // self.last_doc_id += 1;
+        // self.reset_fields();
+
+        Ok(())
+    }
+    pub(crate) fn start_document(&mut self) -> Result<()> {
+        self.reset_fields();
+        self.num_vector_fields = 0;
+        Ok(())
     }
 }
 
@@ -114,9 +167,6 @@ where
     C: Codec,
     TVW: TermVectorsWriter,
 {
-    fn abort(&mut self) {
-        todo!()
-    }
 
     type TermsHashPerFieldBase = TermVectorsConsumerPerField;
 
@@ -133,11 +183,5 @@ where
         todo!()
     }
 
-    fn start_document(&mut self) -> Result<()> {
-        todo!()
-    }
 
-    fn finish_document(&mut self, _doc_id: i32) -> Result<()> {
-        todo!()
-    }
 }
