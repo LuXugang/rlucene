@@ -41,29 +41,19 @@ use crate::util::{ByteBlockPool, ByteBlockPoolBorrow, CounterEnumBorrow};
 /// Consumers of this struct, such as [`FreqProxTermsWriter`] and
 /// [`TermVectorsConsumer`], write their own byte streams associated with each
 /// term.
-pub(crate) struct TermsHash<O, P, T>
-where
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-{
-    pub(crate) next_terms_hash: Option<Box<TermVectorsConsumer<O, P, T>>>,
+pub(crate) struct TermsHash {
+    pub(crate) next_terms_hash: Option<Box<TermVectorsConsumer>>,
     pub(crate) int_pool: Rc<RefCell<IntBlockPool>>,
     pub(crate) byte_pool: ByteBlockPoolBorrow,
     pub(crate) term_byte_pool: Option<ByteBlockPoolBorrow>,
     pub(crate) bytes_used: CounterEnumBorrow,
 }
-impl<O, P, T> TermsHash<O, P, T>
-where
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-{
+impl TermsHash {
     pub(crate) fn new(
         int_block_allocator: Rc<RefCell<AllocatorIntEnum>>,
         byte_block_allocator: AllocatorByteEnum<CounterEnumBorrow>,
         bytes_used: CounterEnumBorrow,
-        next_terms_hash: Option<Box<TermVectorsConsumer<O, P, T>>>,
+        next_terms_hash: Option<Box<TermVectorsConsumer>>,
     ) -> Self {
         let term_byte_pool = None;
 
@@ -91,20 +81,23 @@ where
         }
     }
 
-    pub(crate) fn flush<D, N, DM>(
+    pub(crate) fn flush<D, N, DM, O, P, T>(
         &mut self,
         mut fields_to_flush: HashMap<
             String,
-            TermsHashPerField<FreqProxTermsWriterPerField<O, P, T>>,
+            TermsHashPerField<FreqProxTermsWriterPerField, O, P, T>,
         >,
         state: &mut SegmentWriteState<D>,
         sort_map: Option<Rc<DM>>,
         norms: &mut N,
-    ) -> Result<HashMap<String, TermsHashPerField<FreqProxTermsWriterPerField<O, P, T>>>>
+    ) -> Result<HashMap<String, TermsHashPerField<FreqProxTermsWriterPerField, O, P, T>>>
     where
         D: Directory,
         N: NormsProducer,
         DM: DocMap,
+        O: OffsetAttribute,
+        P: PayloadAttribute,
+        T: TermFrequencyAttribute,
     {
         if let Some(next) = &mut self.next_terms_hash {
             let mut next_child_fields = HashMap::with_capacity(fields_to_flush.len());
@@ -142,9 +135,9 @@ where
 pub(crate) trait TermsHashBase {
     fn abort(&mut self);
     type TermsHashPerFieldBase: TermsHashPerFieldBase;
-    fn flush<D, N, DM>(
+    fn flush<D, N, DM, O, P, T>(
         &mut self,
-        fields_to_flush: HashMap<String, TermsHashPerField<Self::TermsHashPerFieldBase>>,
+        fields_to_flush: HashMap<String, TermsHashPerField<Self::TermsHashPerFieldBase, O, P, T>>,
         state: &mut SegmentWriteState<D>,
         sort_map: Option<Rc<DM>>,
         norms: &mut N,
@@ -152,23 +145,21 @@ pub(crate) trait TermsHashBase {
     where
         D: Directory,
         N: NormsProducer,
-        DM: DocMap;
+        DM: DocMap,
+        O: OffsetAttribute,
+        P: PayloadAttribute,
+        T: TermFrequencyAttribute;
 
-    type OffsetAttribute: OffsetAttribute;
-    type PayloadAttribute: PayloadAttribute;
-    type TermFrequencyAttribute: TermFrequencyAttribute;
-
-    fn add_field(
+    fn add_field<O, P, T>(
         &mut self,
-        _field_invert_state: Rc<
-            FieldInvertState<
-                Self::OffsetAttribute,
-                Self::PayloadAttribute,
-                Self::TermFrequencyAttribute,
-            >,
-        >,
+        _field_invert_state: Rc<FieldInvertState<O, P, T>>,
         _field_info: Rc<FieldInfo>,
-    ) -> TermsHashPerField<Self::TermsHashPerFieldBase> {
+    ) -> TermsHashPerField<Self::TermsHashPerFieldBase, O, P, T>
+    where
+        O: OffsetAttribute,
+        P: PayloadAttribute,
+        T: TermFrequencyAttribute,
+    {
         unimplemented!("This method should be implemented by the specific TermsHashPerField type.");
     }
 

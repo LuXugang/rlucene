@@ -87,7 +87,7 @@ impl ByteSlicePool {
     /// # Returns
     /// The offset of the new slice in the pool.
     pub fn alloc_slice(
-        &mut self,
+        &self,
         slice_index: i32,
         upto: i32,
         pool: &mut ByteBlockPool<CounterEnumBorrow>,
@@ -106,7 +106,7 @@ impl ByteSlicePool {
     /// A value where the lower 8 bits represent the new slice's length, and the
     /// other 24 bits represent the offset into the pool.
     pub fn alloc_known_size_slice(
-        &mut self,
+        &self,
         slice_index: i32,
         upto: i32,
         pool: &mut ByteBlockPool<CounterEnumBorrow>,

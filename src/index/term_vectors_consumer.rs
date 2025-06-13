@@ -28,62 +28,46 @@ use crate::index::terms_hash_per_field::TermsHashPerField;
 use crate::store::directory::Directory;
 use crate::util::error::lucene_error::Result;
 use std::collections::HashMap;
-use std::marker::PhantomData;
 use std::rc::Rc;
 
-pub(crate) struct TermVectorsConsumer<O, P, T>
-where
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-{
-    pub(crate) base: TermsHash<O, P, T>,
-    _phantom1: PhantomData<O>,
-    _phantom2: PhantomData<P>,
-    _phantom3: PhantomData<T>,
+pub(crate) struct TermVectorsConsumer {
+    pub(crate) base: TermsHash,
 }
-impl<O, P, T> TermsHashBase for TermVectorsConsumer<O, P, T>
-where
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-{
+impl TermsHashBase for TermVectorsConsumer {
     fn abort(&mut self) {
         todo!()
     }
 
     type TermsHashPerFieldBase = TermVectorsConsumerPerField;
 
-    fn flush<D, N, DM>(
+    fn flush<D, N, DM, O, P, T>(
         &mut self,
-        _fields_to_flush: HashMap<String, TermsHashPerField<Self::TermsHashPerFieldBase>>,
-        _state: &mut SegmentWriteState<D>,
-        _sort_map: Option<Rc<DM>>,
-        _norms: &mut N,
+        fields_to_flush: HashMap<String, TermsHashPerField<Self::TermsHashPerFieldBase, O, P, T>>,
+        state: &mut SegmentWriteState<D>,
+        sort_map: Option<Rc<DM>>,
+        norms: &mut N,
     ) -> Result<()>
     where
         D: Directory,
         N: NormsProducer,
         DM: DocMap,
+        O: OffsetAttribute,
+        P: PayloadAttribute,
+        T: TermFrequencyAttribute,
     {
         todo!()
     }
 
-    type OffsetAttribute = O;
-    type PayloadAttribute = P;
-    type TermFrequencyAttribute = T;
-
-    fn add_field(
+    fn add_field<O, P, T>(
         &mut self,
-        _field_invert_state: Rc<
-            FieldInvertState<
-                Self::OffsetAttribute,
-                Self::PayloadAttribute,
-                Self::TermFrequencyAttribute,
-            >,
-        >,
+        _field_invert_state: Rc<FieldInvertState<O, P, T>>,
         _field_info: Rc<FieldInfo>,
-    ) -> TermsHashPerField<Self::TermsHashPerFieldBase> {
+    ) -> TermsHashPerField<Self::TermsHashPerFieldBase, O, P, T>
+    where
+        O: OffsetAttribute,
+        P: PayloadAttribute,
+        T: TermFrequencyAttribute,
+    {
         todo!()
     }
 

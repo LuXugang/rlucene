@@ -63,25 +63,15 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-pub(crate) struct FreqProxTermsWriter<O, P, T>
-where
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-{
-    pub(crate) base: TermsHash<O, P, T>,
+pub(crate) struct FreqProxTermsWriter {
+    pub(crate) base: TermsHash,
 }
-impl<O, P, T> FreqProxTermsWriter<O, P, T>
-where
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-{
+impl FreqProxTermsWriter {
     pub(crate) fn new(
         int_block_allocator: Rc<RefCell<AllocatorIntEnum>>,
         byte_block_allocator: AllocatorByteEnum<CounterEnumBorrow>,
         bytes_used: CounterEnumBorrow,
-        next_terms_hash: Option<Box<TermVectorsConsumer<O, P, T>>>,
+        next_terms_hash: Option<Box<TermVectorsConsumer>>,
     ) -> Self {
         let base = TermsHash::new(
             int_block_allocator,
@@ -91,13 +81,16 @@ where
         );
         Self { base }
     }
-    fn apply_deletes<D>(
+    fn apply_deletes<D, O, P, T>(
         &self,
         state: &mut SegmentWriteState<D>,
         fields: FreqProxFields<O, P, T>,
     ) -> Result<()>
     where
         D: Directory,
+        O: OffsetAttribute,
+        P: PayloadAttribute,
+        T: TermFrequencyAttribute,
     {
         if let Some(seg_updates) = &mut state.seg_updates {
             let seg_deletes = &mut seg_updates.borrow_mut().delete_terms;
@@ -135,21 +128,16 @@ where
         Ok(())
     }
 }
-impl<O, P, T> TermsHashBase for FreqProxTermsWriter<O, P, T>
-where
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-{
+impl TermsHashBase for FreqProxTermsWriter {
     fn abort(&mut self) {
         self.base.abort()
     }
 
-    type TermsHashPerFieldBase = FreqProxTermsWriterPerField<O, P, T>;
+    type TermsHashPerFieldBase = FreqProxTermsWriterPerField;
 
-    fn flush<D, N, DM>(
+    fn flush<D, N, DM, O, P, T>(
         &mut self,
-        fields_to_flush: HashMap<String, TermsHashPerField<Self::TermsHashPerFieldBase>>,
+        fields_to_flush: HashMap<String, TermsHashPerField<Self::TermsHashPerFieldBase, O, P, T>>,
         state: &mut SegmentWriteState<D>,
         sort_map: Option<Rc<DM>>,
         norms: &mut N,
@@ -158,6 +146,9 @@ where
         D: Directory,
         N: NormsProducer,
         DM: DocMap,
+        O: OffsetAttribute,
+        P: PayloadAttribute,
+        T: TermFrequencyAttribute,
     {
         let fields_to_flush = self
             .base
@@ -191,21 +182,16 @@ where
         Ok(())
     }
 
-    type OffsetAttribute = O;
-    type PayloadAttribute = P;
-    type TermFrequencyAttribute = T;
-
-    fn add_field(
+    fn add_field<O, P, T>(
         &mut self,
-        field_invert_state: Rc<
-            FieldInvertState<
-                Self::OffsetAttribute,
-                Self::PayloadAttribute,
-                Self::TermFrequencyAttribute,
-            >,
-        >,
+        field_invert_state: Rc<FieldInvertState<O, P, T>>,
         field_info: Rc<FieldInfo>,
-    ) -> TermsHashPerField<Self::TermsHashPerFieldBase> {
+    ) -> TermsHashPerField<Self::TermsHashPerFieldBase, O, P, T>
+    where
+        O: OffsetAttribute,
+        P: PayloadAttribute,
+        T: TermFrequencyAttribute,
+    {
         let next_per_field = self
             .base
             .next_terms_hash

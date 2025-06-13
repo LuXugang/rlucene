@@ -14,6 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
+use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
+use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
 use crate::document::fields::Fields;
 use crate::index::parallel_postings_array::{ParallelPostingsArray, PostingsArrayBase};
 use crate::index::terms_hash_per_field::{TermsHashPerField, TermsHashPerFieldBase};
@@ -31,20 +34,30 @@ impl TermsHashPerFieldBase for TermVectorsConsumerPerField {
         todo!()
     }
 
-    fn new_term<S: TermsHashPerFieldBase>(
+    fn new_term<
+        S: TermsHashPerFieldBase,
+        O: OffsetAttribute,
+        P: PayloadAttribute,
+        T: TermFrequencyAttribute,
+    >(
         &mut self,
-        _term_id: i32,
-        _doc_id: i32,
-        _per_field: &mut TermsHashPerField<S>,
+        term_id: i32,
+        doc_id: i32,
+        per_field: &mut TermsHashPerField<S, O, P, T>,
     ) -> Result<()> {
         todo!()
     }
 
-    fn add_term<S: TermsHashPerFieldBase>(
+    fn add_term<
+        S: TermsHashPerFieldBase,
+        O: OffsetAttribute,
+        P: PayloadAttribute,
+        T: TermFrequencyAttribute,
+    >(
         &mut self,
-        _term_id: i32,
-        _doc_id: i32,
-        _per_field: &mut TermsHashPerField<S>,
+        term_id: i32,
+        doc_id: i32,
+        per_field: &mut TermsHashPerField<S, O, P, T>,
     ) -> Result<()> {
         todo!()
     }

@@ -48,6 +48,35 @@ pub struct Inner {
     pub(crate) max_term_frequency: i32,
     pub(crate) unique_term_count: i32,
 }
+#[cfg(test)]
+impl<O, P, T> Default for FieldInvertState<O, P, T>
+where
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+{
+    fn default() -> Self {
+        FieldInvertState {
+            index_created_version_major: 6,
+            name: String::new(),
+            index_options: IndexOptions::None,
+            position: -1,
+            length: 0,
+            num_overlap: 0,
+            offset: 0,
+            last_start_offset: 0,
+            last_position: 0,
+            off_set_attribute: None,
+            pay_load_attribute: None,
+            term_freq_attribute: None,
+            inner: Rc::new(RefCell::new(Inner {
+                max_term_frequency: 0,
+                unique_term_count: 0,
+            })),
+        }
+    }
+}
+
 impl<O, P, T> FieldInvertState<O, P, T>
 where
     O: OffsetAttribute,

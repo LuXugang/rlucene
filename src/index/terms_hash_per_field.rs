@@ -14,13 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cell::RefCell;
-use std::cmp::Ordering;
-use std::rc::Rc;
-
+use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
+use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
+use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
 use crate::document::fields::Fields;
 use crate::index::byte_slice_pool::ByteSlicePool;
 use crate::index::byte_slice_reader::ByteSliceReader;
+use crate::index::field_invert_state::FieldInvertState;
 use crate::index::freq_prox_terms_writer_per_field::{FreqProx, FreqProxPostingsArray};
 use crate::index::index_options::IndexOptions;
 use crate::index::parallel_postings_array::PostingsArrayEnum;
@@ -35,6 +35,9 @@ use crate::util::int_block_pool::IntBlockPool;
 use crate::util::{
     byte_block_pool_util, ByteBlockPoolBorrow, Counter, CounterEnumBorrow, SliceCopyOps,
 };
+use std::cell::RefCell;
+use std::cmp::Ordering;
+use std::rc::Rc;
 
 /// This struct stores streams of information per term without knowing the size
 /// of the stream ahead of time. Each stream typically encodes one level of
@@ -44,11 +47,15 @@ use crate::util::{
 /// by a [`ByteSliceReader`] for each term. Terms are first deduplicated in a
 /// [`BytesRefHash`]. Once this is done, internal data structures point to the
 /// current offset of each stream that can be written to.
-pub struct TermsHashPerField<S>
+pub struct TermsHashPerField<S, O, P, T>
 where
     S: TermsHashPerFieldBase,
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
 {
-    pub(crate) next_per_field: Option<Box<TermsHashPerField<TermVectorsConsumerPerField>>>,
+    pub(crate) field_state: Rc<FieldInvertState<O, P, T>>,
+    pub(crate) next_per_field: Option<Box<TermsHashPerField<TermVectorsConsumerPerField, O, P, T>>>,
     int_pool: Rc<RefCell<IntBlockPool>>,
     pub(crate) byte_pool: ByteBlockPoolBorrow,
     slice_pool: ByteSlicePool,
@@ -90,9 +97,12 @@ impl PostingsArrayWrapper {
 pub mod terms_hash_per_field_util {
     pub(super) const HASH_INIT_SIZE: i32 = 4;
 }
-impl<S> TermsHashPerField<S>
+impl<S, O, P, T> TermsHashPerField<S, O, P, T>
 where
     S: TermsHashPerFieldBase,
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
 {
     ///  streamCount: how many streams this field stores per term. E.g.
     /// doc(+freq) is 1 stream, prox+offset is a second.
@@ -103,11 +113,12 @@ where
         byte_pool: ByteBlockPoolBorrow,
         term_byte_pool: ByteBlockPoolBorrow,
         bytes_used: CounterEnumBorrow,
-        next_per_field: Option<Box<TermsHashPerField<TermVectorsConsumerPerField>>>,
+        next_per_field: Option<Box<TermsHashPerField<TermVectorsConsumerPerField, O, P, T>>>,
         postings_array_wrapper: PostingsArrayWrapper,
         field_name: String,
         index_options: IndexOptions,
         sub: S,
+        field_state: Rc<FieldInvertState<O, P, T>>,
     ) -> Self {
         // In the original Java code, we assert that indexOptions !=
         // IndexOptions.NONE.
@@ -135,6 +146,7 @@ where
             field_name,
             index_options,
             sub: Some(sub),
+            field_state,
         }
     }
     pub(crate) fn init_reader(&self, reader: &mut ByteSliceReader, term_id: i32, stream: i32) {
@@ -176,7 +188,7 @@ where
         self.bytes_hash.ids.as_slice()
     }
 
-    pub(crate) fn write_byte(&mut self, stream: i32, b: u8) -> Result<()> {
+    pub(crate) fn write_byte(&self, stream: i32, b: u8) -> Result<()> {
         let stream_address = (self.stream_address_offset + stream) as usize;
         let mut int_pool = self.int_pool.borrow_mut();
         let term_stream_address_buffer = int_pool.get_buffer(self.term_stream_address_buffer_index);
@@ -208,13 +220,7 @@ where
         term_stream_address_buffer[stream_address] += 1;
         Ok(())
     }
-    pub(crate) fn write_bytes(
-        &mut self,
-        stream: i32,
-        b: &[u8],
-        offset: i32,
-        len: i32,
-    ) -> Result<()> {
+    pub(crate) fn write_bytes(&self, stream: i32, b: &[u8], offset: i32, len: i32) -> Result<()> {
         let mut offset = offset as usize;
         let end = offset + len as usize;
         let stream_address = (self.stream_address_offset + stream) as usize;
@@ -262,7 +268,7 @@ where
         Ok(())
     }
     pub(crate) fn write_vint(
-        base: &mut TermsHashPerField<S>,
+        base: &TermsHashPerField<S, O, P, T>,
         stream: i32,
         mut i: i32,
     ) -> Result<()> {
@@ -274,7 +280,9 @@ where
         base.write_byte(stream, i as u8)
     }
 
-    pub(crate) fn get_next_per_field(&mut self) -> TermsHashPerField<TermVectorsConsumerPerField> {
+    pub(crate) fn get_next_per_field(
+        &mut self,
+    ) -> TermsHashPerField<TermVectorsConsumerPerField, O, P, T> {
         *self.next_per_field.take().unwrap()
     }
 
@@ -444,29 +452,45 @@ where
     }
 }
 
-impl<S> Eq for TermsHashPerField<S> where S: TermsHashPerFieldBase {}
-
-impl<S> PartialEq<Self> for TermsHashPerField<S>
+impl<S, O, P, T> Eq for TermsHashPerField<S, O, P, T>
 where
     S: TermsHashPerFieldBase,
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+{
+}
+
+impl<S, O, P, T> PartialEq<Self> for TermsHashPerField<S, O, P, T>
+where
+    S: TermsHashPerFieldBase,
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
 {
     fn eq(&self, other: &Self) -> bool {
         todo!()
     }
 }
 
-impl<S> PartialOrd<Self> for TermsHashPerField<S>
+impl<S, O, P, T> PartialOrd<Self> for TermsHashPerField<S, O, P, T>
 where
     S: TermsHashPerFieldBase,
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
 {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl<S> Ord for TermsHashPerField<S>
+impl<S, O, P, T> Ord for TermsHashPerField<S, O, P, T>
 where
     S: TermsHashPerFieldBase,
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
 {
     fn cmp(&self, other: &Self) -> Ordering {
         self.field_name.cmp(&other.field_name)
@@ -477,18 +501,28 @@ pub(crate) trait TermsHashPerFieldBase {
     /// time this field name was seen in the document.
     fn start(&mut self, field: &Fields, first: bool) -> Result<bool>;
     /// Called when a term is seen for the first time.
-    fn new_term<S: TermsHashPerFieldBase>(
+    fn new_term<
+        S: TermsHashPerFieldBase,
+        O: OffsetAttribute,
+        P: PayloadAttribute,
+        T: TermFrequencyAttribute,
+    >(
         &mut self,
         term_id: i32,
         doc_id: i32,
-        per_field: &mut TermsHashPerField<S>,
+        per_field: &mut TermsHashPerField<S, O, P, T>,
     ) -> Result<()>;
     /// Called when a previously seen term is seen again.
-    fn add_term<S: TermsHashPerFieldBase>(
+    fn add_term<
+        S: TermsHashPerFieldBase,
+        O: OffsetAttribute,
+        P: PayloadAttribute,
+        T: TermFrequencyAttribute,
+    >(
         &mut self,
         term_id: i32,
         doc_id: i32,
-        per_field: &mut TermsHashPerField<S>,
+        per_field: &mut TermsHashPerField<S, O, P, T>,
     ) -> Result<()>;
     /// Called when the postings array is initialized or resized.
     /// # Note
@@ -641,13 +675,16 @@ pub(crate) mod tests {
     use std::rc::Rc;
     use std::sync::atomic::{AtomicI64, Ordering};
 
-    use rand::distr::Alphanumeric;
-    use rand::prelude::SliceRandom;
-    use rand::Rng;
-
+    use crate::analysis::token_attributes::dummy::dummy_offset_attribute::DummyOffsetAttribute;
+    use crate::analysis::token_attributes::dummy::dummy_payload_attribute::DummyPayloadAttribute;
+    use crate::analysis::token_attributes::dummy::dummy_term_frequency_attribute::DummyTermFrequencyAttribute;
+    use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
+    use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
+    use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
     use crate::document::fields::Fields;
     use crate::document::stored_field::StoredField;
     use crate::index::byte_slice_reader::ByteSliceReader;
+    use crate::index::field_invert_state::FieldInvertState;
     use crate::index::index_options::IndexOptions;
     use crate::index::parallel_postings_array::PostingsArrayEnum;
     use crate::index::terms_hash_per_field::{
@@ -661,6 +698,9 @@ pub(crate) mod tests {
     use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::int_block_pool::IntBlockPool;
     use crate::util::{ByteBlockPool, CounterEnum};
+    use rand::distr::Alphanumeric;
+    use rand::prelude::SliceRandom;
+    use rand::Rng;
 
     #[allow(dead_code)] // for quick search
     struct TestTermsHashPerField;
@@ -668,7 +708,14 @@ pub(crate) mod tests {
     fn create_new_hash(
         new_called: AtomicI64,
         add_called: AtomicI64,
-    ) -> Result<TermsHashPerField<TermsHashPerFieldMock>> {
+    ) -> Result<
+        TermsHashPerField<
+            TermsHashPerFieldMock,
+            DummyOffsetAttribute,
+            DummyPayloadAttribute,
+            DummyTermFrequencyAttribute,
+        >,
+    > {
         let hash = TermsHashPerFieldMock::new(new_called, add_called)?;
         Ok(hash)
     }
@@ -1026,7 +1073,14 @@ pub(crate) mod tests {
         pub(crate) fn new(
             new_called: AtomicI64,
             add_called: AtomicI64,
-        ) -> Result<TermsHashPerField<TermsHashPerFieldMock>> {
+        ) -> Result<
+            TermsHashPerField<
+                TermsHashPerFieldMock,
+                DummyOffsetAttribute,
+                DummyPayloadAttribute,
+                DummyTermFrequencyAttribute,
+            >,
+        > {
             let int_block_pool = Rc::new(RefCell::new(IntBlockPool::new()));
 
             let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
@@ -1041,6 +1095,7 @@ pub(crate) mod tests {
                 new_called,
                 add_called,
             };
+            let field_state = Rc::new(FieldInvertState::default());
             Ok(TermsHashPerField::new(
                 1,
                 int_block_pool.clone(),
@@ -1052,6 +1107,7 @@ pub(crate) mod tests {
                 "testfield".to_string(),
                 IndexOptions::DocsAndFreqs,
                 sub,
+                field_state,
             ))
         }
     }
@@ -1060,16 +1116,21 @@ pub(crate) mod tests {
             Ok(true)
         }
 
-        fn new_term<S: TermsHashPerFieldBase>(
+        fn new_term<
+            S: TermsHashPerFieldBase,
+            O: OffsetAttribute,
+            P: PayloadAttribute,
+            T: TermFrequencyAttribute,
+        >(
             &mut self,
             term_id: i32,
             doc_id: i32,
-            per_filed: &mut TermsHashPerField<S>,
+            per_field: &mut TermsHashPerField<S, O, P, T>,
         ) -> Result<()> {
             self.new_called
                 .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             let term_id = term_id as usize;
-            match per_filed
+            match per_field
                 .bytes_hash
                 .bytes_start_array
                 .per_field
@@ -1092,11 +1153,16 @@ pub(crate) mod tests {
             }
         }
 
-        fn add_term<S: TermsHashPerFieldBase>(
+        fn add_term<
+            S: TermsHashPerFieldBase,
+            O: OffsetAttribute,
+            P: PayloadAttribute,
+            T: TermFrequencyAttribute,
+        >(
             &mut self,
             term_id: i32,
             doc_id: i32,
-            per_field: &mut TermsHashPerField<S>,
+            per_field: &mut TermsHashPerField<S, O, P, T>,
         ) -> Result<()> {
             self.add_called
                 .fetch_add(1, std::sync::atomic::Ordering::SeqCst);

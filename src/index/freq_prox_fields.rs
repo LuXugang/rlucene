@@ -53,7 +53,7 @@ where
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 {
-    fields: HashMap<String, Rc<TermsHashPerField<FreqProxTermsWriterPerField<O, P, T>>>>,
+    fields: HashMap<String, Rc<TermsHashPerField<FreqProxTermsWriterPerField, O, P, T>>>,
 }
 impl<O, P, T> FreqProxFields<O, P, T>
 where
@@ -62,7 +62,7 @@ where
     T: TermFrequencyAttribute,
 {
     pub fn new(
-        field_list: Vec<Rc<TermsHashPerField<FreqProxTermsWriterPerField<O, P, T>>>>,
+        field_list: Vec<Rc<TermsHashPerField<FreqProxTermsWriterPerField, O, P, T>>>,
     ) -> Self {
         // NOTE: fields are already sorted by field name
         let mut fields = HashMap::with_capacity(field_list.len());
@@ -117,7 +117,7 @@ where
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 {
-    terms: Rc<TermsHashPerField<FreqProxTermsWriterPerField<O, P, T>>>,
+    terms: Rc<TermsHashPerField<FreqProxTermsWriterPerField, O, P, T>>,
 }
 impl<O, P, T> FreqProxTerms<O, P, T>
 where
@@ -125,7 +125,7 @@ where
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 {
-    pub fn new(terms: Rc<TermsHashPerField<FreqProxTermsWriterPerField<O, P, T>>>) -> Self {
+    pub fn new(terms: Rc<TermsHashPerField<FreqProxTermsWriterPerField, O, P, T>>) -> Self {
         Self { terms }
     }
 }
@@ -208,7 +208,7 @@ where
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 {
-    terms: Rc<TermsHashPerField<FreqProxTermsWriterPerField<O, P, T>>>,
+    terms: Rc<TermsHashPerField<FreqProxTermsWriterPerField, O, P, T>>,
     terms_pool: BytesRefBlockPool<CounterEnumBorrow, ByteBlockPoolBorrow>,
     scratch: BytesRef<Vec<u8>>,
     num_terms: i32,
@@ -221,7 +221,7 @@ where
     T: TermFrequencyAttribute,
 {
     fn new(
-        terms: Rc<TermsHashPerField<FreqProxTermsWriterPerField<O, P, T>>>,
+        terms: Rc<TermsHashPerField<FreqProxTermsWriterPerField, O, P, T>>,
     ) -> BaseTermsEnum<Self> {
         let (num_terms, terms_pool) = {
             let num_terms = terms.get_num_terms();
@@ -451,7 +451,7 @@ where
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 {
-    pub terms: Rc<TermsHashPerField<FreqProxTermsWriterPerField<O, P, T>>>,
+    pub terms: Rc<TermsHashPerField<FreqProxTermsWriterPerField, O, P, T>>,
     pub reader: ByteSliceReader,
     pub read_term_freq: bool,
     pub doc_id: i32,
@@ -465,7 +465,7 @@ where
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 {
-    pub fn new(terms: Rc<TermsHashPerField<FreqProxTermsWriterPerField<O, P, T>>>) -> Self {
+    pub fn new(terms: Rc<TermsHashPerField<FreqProxTermsWriterPerField, O, P, T>>) -> Self {
         let read_term_freq = terms.sub.as_ref().unwrap().has_freq;
         Self {
             terms,
@@ -590,7 +590,7 @@ where
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 {
-    terms: Rc<TermsHashPerField<FreqProxTermsWriterPerField<O, P, T>>>,
+    terms: Rc<TermsHashPerField<FreqProxTermsWriterPerField, O, P, T>>,
     reader: ByteSliceReader,
     pos_reader: ByteSliceReader,
     read_offsets: bool,
@@ -611,7 +611,7 @@ where
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 {
-    pub fn new(terms: Rc<TermsHashPerField<FreqProxTermsWriterPerField<O, P, T>>>) -> Self {
+    pub fn new(terms: Rc<TermsHashPerField<FreqProxTermsWriterPerField, O, P, T>>) -> Self {
         let has_offsets = terms.sub.as_ref().unwrap().has_offsets;
         Self {
             terms,
