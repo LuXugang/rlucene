@@ -1,4 +1,4 @@
-[tasks.check]
+[tasks.tidy]
 description = "Code tidy"
 dependencies = ["check-rust-version","clippy", "fix","format"]
 
