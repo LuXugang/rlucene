@@ -18,12 +18,23 @@ use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
 use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
 use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
 use crate::document::fields::Fields;
+use crate::index::field_info::FieldInfo;
 use crate::index::parallel_postings_array::{ParallelPostingsArray, PostingsArrayBase};
 use crate::index::terms_hash_per_field::{TermsHashPerField, TermsHashPerFieldBase};
 use crate::util::array_util::ArrayUtil;
 use crate::util::bit_util::BitUtil;
+use crate::util::bytes_ref_block_pool::BytesRefBlockPoolBorrow;
 use crate::util::error::lucene_error::Result;
-pub(crate) struct TermVectorsConsumerPerField;
+use std::rc::Rc;
+pub(crate) struct TermVectorsConsumerPerField {
+    field_info: Rc<FieldInfo>,
+    do_vectors: bool,
+    do_vector_positions: bool,
+    do_vector_offsets: bool,
+    do_vector_payloads: bool,
+    term_byte_pool: BytesRefBlockPoolBorrow,
+    has_payloads: bool,
+}
 impl TermVectorsConsumerPerField {
     pub(crate) fn new(_size: i32) -> Self {
         todo!()

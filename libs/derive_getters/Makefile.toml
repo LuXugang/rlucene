@@ -1,6 +1,6 @@
 extend = "../../Makefile.toml"
 
-[tasks.check]
+[tasks.tidy]
 disabled=true
 
 [tasks.commit]

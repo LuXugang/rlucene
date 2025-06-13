@@ -18,6 +18,8 @@ use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
 use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
 use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
 use crate::codecs::norms_producer::NormsProducer;
+use crate::codecs::term_vectors_writer::TermVectorsWriter;
+use crate::codecs::Codec;
 use crate::index::automaton_terms_enum::AutomatonTermsEnum;
 use crate::index::field_info::FieldInfo;
 use crate::index::field_infos::FieldInfos;
@@ -37,7 +39,7 @@ use crate::index::term_state::TermStateEnum;
 use crate::index::term_vectors_consumer::TermVectorsConsumer;
 use crate::index::terms::Terms;
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
-use crate::index::terms_hash::{TermsHash, TermsHashBase};
+use crate::index::terms_hash::TermsHashBase;
 use crate::index::terms_hash_per_field::TermsHashPerField;
 use crate::index::BytesRef;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
@@ -54,34 +56,60 @@ use crate::util::collection_util::CollectionUtil;
 use crate::util::either_enums::EitherPostingsEnum;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
-use crate::util::int_block_pool::AllocatorIntEnum;
+use crate::util::int_block_pool::{AllocatorIntEnum, IntBlockPool};
 use crate::util::lsb_radix_sorter::LSBRadixSorter;
 use crate::util::packed::PackedInts;
-use crate::util::{CounterEnumBorrow, SliceCopyOps, Sorter, TimSorter, TimSorterBase, ToInt};
+use crate::util::{
+    ByteBlockPool, ByteBlockPoolBorrow, CounterEnumBorrow, SliceCopyOps, Sorter, TimSorter,
+    TimSorterBase, ToInt,
+};
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-pub(crate) struct FreqProxTermsWriter {
-    pub(crate) base: TermsHash,
+pub(crate) struct FreqProxTermsWriter<D, C, TVW>
+where
+    D: Directory,
+    C: Codec,
+    TVW: TermVectorsWriter,
+{
+    pub(crate) next_terms_hash: Option<TermVectorsConsumer<D, C, TVW>>,
+    pub(crate) int_pool: Rc<RefCell<IntBlockPool>>,
+    pub(crate) byte_pool: ByteBlockPoolBorrow,
+    pub(crate) term_byte_pool: Option<ByteBlockPoolBorrow>,
+    pub(crate) bytes_used: CounterEnumBorrow,
 }
-impl FreqProxTermsWriter {
+impl<D, C, TVW> FreqProxTermsWriter<D, C, TVW>
+where
+    D: Directory,
+    C: Codec,
+    TVW: TermVectorsWriter,
+{
     pub(crate) fn new(
         int_block_allocator: Rc<RefCell<AllocatorIntEnum>>,
         byte_block_allocator: AllocatorByteEnum<CounterEnumBorrow>,
         bytes_used: CounterEnumBorrow,
-        next_terms_hash: Option<Box<TermVectorsConsumer>>,
+        next_terms_hash: Option<TermVectorsConsumer<D, C, TVW>>,
     ) -> Self {
-        let base = TermsHash::new(
-            int_block_allocator,
-            byte_block_allocator,
+        let mut terms_hash = Self {
+            next_terms_hash: None,
+            int_pool: Rc::new(RefCell::new(IntBlockPool::with_allocator(
+                int_block_allocator,
+            ))),
+            byte_pool: Rc::new(RefCell::new(ByteBlockPool::new(byte_block_allocator))),
+            term_byte_pool: None,
             bytes_used,
-            next_terms_hash,
-        );
-        Self { base }
+        };
+        let term_byte_pool = if next_terms_hash.is_some() {
+            Some(terms_hash.byte_pool.clone())
+        } else {
+            None
+        };
+        terms_hash.term_byte_pool = term_byte_pool;
+        terms_hash
     }
-    fn apply_deletes<D, O, P, T>(
+    fn apply_deletes<O, P, T>(
         &self,
         state: &mut SegmentWriteState<D>,
         fields: FreqProxFields<O, P, T>,
@@ -127,32 +155,35 @@ impl FreqProxTermsWriter {
         }
         Ok(())
     }
-}
-impl TermsHashBase for FreqProxTermsWriter {
-    fn abort(&mut self) {
-        self.base.abort()
+
+    pub(crate) fn abort(&mut self) {
+        self.reset();
+        if self.next_terms_hash.is_some() {
+            self.next_terms_hash.as_mut().unwrap().abort();
+        }
+    }
+    pub(crate) fn reset(&mut self) {
+        self.int_pool.borrow_mut().reset(false, false);
+        self.byte_pool.borrow_mut().reset(false, false)
     }
 
-    type TermsHashPerFieldBase = FreqProxTermsWriterPerField;
-
-    fn flush<D, N, DM, O, P, T>(
+    fn flush<N, DM, O, P, T>(
         &mut self,
-        fields_to_flush: HashMap<String, TermsHashPerField<Self::TermsHashPerFieldBase, O, P, T>>,
+        fields_to_flush: HashMap<String, TermsHashPerField<FreqProxTermsWriterPerField, O, P, T>>,
         state: &mut SegmentWriteState<D>,
         sort_map: Option<Rc<DM>>,
         norms: &mut N,
     ) -> Result<()>
     where
-        D: Directory,
         N: NormsProducer,
         DM: DocMap,
         O: OffsetAttribute,
         P: PayloadAttribute,
         T: TermFrequencyAttribute,
     {
-        let fields_to_flush = self
-            .base
-            .flush(fields_to_flush, state, sort_map.clone(), norms)?;
+        if let Some(term_vector_consumer) = self.next_terms_hash.as_mut() {
+            term_vector_consumer.flush(state, &sort_map)?;
+        }
         if !state.field_infos.has_postings() {
             return Ok(());
         }
@@ -181,6 +212,21 @@ impl TermsHashBase for FreqProxTermsWriter {
         }
         Ok(())
     }
+}
+impl<D, C, TVW> TermsHashBase for FreqProxTermsWriter<D, C, TVW>
+where
+    D: Directory,
+    C: Codec,
+    TVW: TermVectorsWriter,
+{
+    fn abort(&mut self) {
+        self.reset();
+        if let Some(next) = self.next_terms_hash.as_mut() {
+            next.abort();
+        }
+    }
+
+    type TermsHashPerFieldBase = FreqProxTermsWriterPerField;
 
     fn add_field<O, P, T>(
         &mut self,
@@ -193,7 +239,6 @@ impl TermsHashBase for FreqProxTermsWriter {
         T: TermFrequencyAttribute,
     {
         let next_per_field = self
-            .base
             .next_terms_hash
             .as_mut()
             .unwrap()
@@ -202,11 +247,20 @@ impl TermsHashBase for FreqProxTermsWriter {
     }
 
     fn start_document(&mut self) -> Result<()> {
-        self.base.start_document()
+        if self.next_terms_hash.is_some() {
+            self.next_terms_hash.as_mut().unwrap().start_document()?;
+        }
+        Ok(())
     }
 
     fn finish_document(&mut self, doc_id: i32) -> Result<()> {
-        self.base.finish_document(doc_id)
+        if self.next_terms_hash.is_some() {
+            self.next_terms_hash
+                .as_mut()
+                .unwrap()
+                .finish_document(doc_id)?;
+        }
+        Ok(())
     }
 }
 

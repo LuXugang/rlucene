@@ -19,6 +19,8 @@ use std::rc::Rc;
 use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
 use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
 use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
+use crate::codecs::term_vectors_writer::TermVectorsWriter;
+use crate::codecs::Codec;
 use crate::document::fields::Fields;
 use crate::index::field_info::FieldInfo;
 use crate::index::field_invert_state::FieldInvertState;
@@ -31,6 +33,7 @@ use crate::index::term_vectors_consumer_per_field::TermVectorsConsumerPerField;
 use crate::index::terms_hash_per_field::{
     PostingsArrayWrapper, TermsHashPerField, TermsHashPerFieldBase, TermsHashPerFieldType,
 };
+use crate::store::directory::Directory;
 use crate::util::array_util::ArrayUtil;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -47,9 +50,9 @@ pub(crate) struct FreqProxTermsWriterPerField {
     pub(crate) saw_payloads: bool,
 }
 impl FreqProxTermsWriterPerField {
-    pub fn new<O, P, T>(
+    pub fn new<O, P, T, D, C, TVW>(
         field_state: Rc<FieldInvertState<O, P, T>>,
-        terms_hash: &mut FreqProxTermsWriter,
+        terms_hash: &mut FreqProxTermsWriter<D, C, TVW>,
         field_info: Rc<FieldInfo>,
         next_per_field: TermsHashPerField<TermVectorsConsumerPerField, O, P, T>,
     ) -> TermsHashPerField<FreqProxTermsWriterPerField, O, P, T>
@@ -57,6 +60,9 @@ impl FreqProxTermsWriterPerField {
         O: OffsetAttribute,
         P: PayloadAttribute,
         T: TermFrequencyAttribute,
+        D: Directory,
+        C: Codec,
+        TVW: TermVectorsWriter,
     {
         let index_options = *field_info.get_index_options();
 
@@ -88,10 +94,10 @@ impl FreqProxTermsWriterPerField {
         ));
         TermsHashPerField::new(
             stream_count,
-            terms_hash.base.int_pool.clone(),
-            terms_hash.base.byte_pool.clone(),
-            terms_hash.base.term_byte_pool.as_mut().unwrap().clone(),
-            terms_hash.base.bytes_used.clone(),
+            terms_hash.int_pool.clone(),
+            terms_hash.byte_pool.clone(),
+            terms_hash.term_byte_pool.as_mut().unwrap().clone(),
+            terms_hash.bytes_used.clone(),
             Some(Box::new(next_per_field)),
             postings_array_wrapper,
             name,
