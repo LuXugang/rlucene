@@ -126,12 +126,8 @@ where
             if payload.length > 0 {
                 self.base.write_vint(1, (prox_code << 1) | 1)?;
                 self.base.write_vint(1, payload.length as i32)?;
-                self.base.write_bytes(
-                    1,
-                    &payload.bytes,
-                    payload.offset as i32,
-                    payload.length as i32,
-                )?;
+                self.base
+                    .write_bytes(1, &payload.bytes, payload.offset, payload.length)?;
                 self.saw_payloads = true;
             } else {
                 self.base.write_vint(1, prox_code << 1)?;
@@ -218,10 +214,8 @@ where
         self.next_per_field.take().unwrap()
     }
     fn finish(&mut self) {
-        if self.saw_payloads {
-            self.field_info
-                .set_store_payloads()
-                .expect("should not failed")
+        if self.next_per_field.is_some() {
+            self.next_per_field.as_mut().unwrap().finish();
         }
         if self.saw_payloads {
             self.field_info

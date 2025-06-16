@@ -103,7 +103,6 @@ impl TermsHashPerField {
             terms_hash_per_field_util::HASH_INIT_SIZE,
             byte_starts,
         );
-
         TermsHashPerField {
             int_pool,
             byte_pool,
@@ -189,9 +188,14 @@ impl TermsHashPerField {
         term_stream_address_buffer[stream_address] += 1;
         Ok(())
     }
-    pub(crate) fn write_bytes(&self, stream: i32, b: &[u8], offset: i32, len: i32) -> Result<()> {
-        let mut offset = offset as usize;
-        let end = offset + len as usize;
+    pub(crate) fn write_bytes(
+        &self,
+        stream: i32,
+        b: &[u8],
+        mut offset: usize,
+        len: usize,
+    ) -> Result<()> {
+        let end = offset + len;
         let stream_address = (self.stream_address_offset + stream) as usize;
 
         let mut int_pool = self.int_pool.borrow_mut();

@@ -20,13 +20,18 @@ use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAt
 use crate::document::fields::Fields;
 use crate::index::field_info::FieldInfo;
 use crate::index::field_invert_state::FieldInvertState;
-use crate::index::parallel_postings_array::{ParallelPostingsArray, PostingsArrayBase};
+use crate::index::index_options::IndexOptions;
+use crate::index::indexable_field::IndexableField;
+use crate::index::indexable_field_type::IndexableFieldType;
+use crate::index::parallel_postings_array::{
+    ParallelPostingsArray, PostingsArrayBase, PostingsArrayEnum,
+};
 use crate::index::terms_hash_per_field::{TermsHashPerField, TermsHashPerFieldBase};
 use crate::index::BytesRef;
 use crate::util::array_util::ArrayUtil;
 use crate::util::bit_util::BitUtil;
 use crate::util::bytes_ref_block_pool::BytesRefBlockPoolBorrow;
-use crate::util::error::lucene_error::Result;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use std::cmp::Ordering;
 use std::rc::Rc;
 
@@ -138,6 +143,196 @@ where
         Ok(())
     }
     pub(crate) fn start(&mut self, field: &Fields, first: bool) -> Result<bool> {
+        debug_assert!(*field.field_type().index_options() != IndexOptions::None);
+
+        if first {
+            if self.base.get_num_terms() != 0 {
+                // Only necessary if previous doc hit a
+                // non-aborting exception while writing vectors in
+                // this field:
+                self.base.reset();
+            }
+
+            self.base.reinit_hash();
+
+            self.has_payloads = false;
+
+            self.do_vectors = field.field_type().store_term_vectors();
+
+            if self.do_vectors {
+                self.do_vector_positions = field.field_type().store_term_vector_positions();
+                // Somewhat confusingly, unlike postings, you are
+                // allowed to index TV offsets without TV positions:
+                self.do_vector_offsets = field.field_type().store_term_vector_offsets();
+
+                if self.do_vector_positions {
+                    self.do_vector_payloads = field.field_type().store_term_vector_payloads();
+                } else {
+                    self.do_vector_payloads = false;
+                    if field.field_type().store_term_vector_payloads() {
+                        return Err(LuceneError::illegal_argument(format!(
+                            "cannot index term vector payloads without term vector positions (field=\"{}\")",
+                            field.name()
+                        )));
+                    }
+                }
+            } else {
+                if field.field_type().store_term_vector_offsets() {
+                    return Err(LuceneError::illegal_argument(format!(
+                        "cannot index term vector offsets when term vectors are not indexed (field=\"{}\")",
+                        field.name()
+                    )));
+                }
+                if field.field_type().store_term_vector_positions() {
+                    return Err(LuceneError::illegal_argument(format!(
+                        "cannot index term vector positions when term vectors are not indexed (field=\"{}\")",
+                        field.name()
+                    )));
+                }
+                if field.field_type().store_term_vector_payloads() {
+                    return Err(LuceneError::illegal_argument(format!(
+                        "cannot index term vector payloads when term vectors are not indexed (field=\"{}\")",
+                        field.name()
+                    )));
+                }
+            }
+        } else {
+            if self.do_vectors != field.field_type().store_term_vectors() {
+                return Err(LuceneError::illegal_argument(format!(
+                    "all instances of a given field name must have the same term vectors settings (storeTermVectors changed for field=\"{}\")",
+                    field.name()
+                )));
+            }
+            if self.do_vector_positions != field.field_type().store_term_vector_positions() {
+                return Err(LuceneError::illegal_argument(format!(
+                    "all instances of a given field name must have the same term vectors settings (storeTermVectorPositions changed for field=\"{}\")",
+                    field.name()
+                )));
+            }
+            if self.do_vector_offsets != field.field_type().store_term_vector_offsets() {
+                return Err(LuceneError::illegal_argument(format!(
+                    "all instances of a given field name must have the same term vectors settings (storeTermVectorOffsets changed for field=\"{}\")",
+                    field.name()
+                )));
+            }
+            if self.do_vector_payloads != field.field_type().store_term_vector_payloads() {
+                return Err(LuceneError::illegal_argument(format!(
+                    "all instances of a given field name must have the same term vectors settings (storeTermVectorPayloads changed for field=\"{}\")",
+                    field.name()
+                )));
+            }
+        }
+
+        if self.do_vectors && self.do_vector_offsets {
+            debug_assert!(self.field_state.off_set_attribute.is_some());
+        }
+        Ok(self.do_vectors)
+    }
+    pub(crate) fn write_prox(&mut self, term_id: usize) -> Result<()>
+    where
+        O: OffsetAttribute,
+        P: PayloadAttribute,
+        T: TermFrequencyAttribute,
+    {
+        let postings = self
+            .base
+            .bytes_hash
+            .bytes_start_array
+            .per_field
+            .postings_array
+            .as_ref()
+            .unwrap();
+        let mut last_offset = None;
+        let mut last_position = None;
+        match postings {
+            PostingsArrayEnum::TermVectors(postings) => {
+                if self.do_vector_offsets {
+                    let offset_attr = self.field_state.off_set_attribute.as_ref().unwrap();
+                    let start_offset = self.field_state.offset + offset_attr.start_offset();
+                    let end_offset = self.field_state.offset + offset_attr.end_offset();
+
+                    self.base
+                        .write_vint(1, start_offset - postings.last_offsets[term_id])?;
+                    self.base.write_vint(1, end_offset - start_offset)?;
+                    last_offset = Some(end_offset);
+                }
+
+                if self.do_vector_positions {
+                    let payload_attribute = &self.field_state.pay_load_attribute;
+
+                    let pos = self.field_state.position - postings.last_positions[term_id];
+
+                    if let Some(v) = payload_attribute {
+                        let payload = v.get_payload();
+                        if payload.length > 0 {
+                            self.base.write_vint(0, (pos << 1) | 1)?;
+                            self.base.write_vint(0, payload.length as i32)?;
+                            self.base.write_bytes(
+                                0,
+                                &payload.bytes,
+                                payload.offset,
+                                payload.length,
+                            )?;
+                            self.has_payloads = true;
+                        } else {
+                            self.base.write_vint(0, pos << 1)?;
+                        }
+                    } else {
+                        self.base.write_vint(0, pos << 1)?;
+                    }
+
+                    last_position = Some(self.field_state.position);
+                }
+            },
+            _ => unreachable!("should not be here"),
+        }
+        let postings = self
+            .base
+            .bytes_hash
+            .bytes_start_array
+            .per_field
+            .postings_array
+            .as_mut()
+            .unwrap();
+        match postings {
+            PostingsArrayEnum::TermVectors(postings) => {
+                if last_offset.is_some() {
+                    postings.last_offsets[term_id] = last_offset.unwrap();
+                }
+                if last_position.is_some() {
+                    postings.last_positions[term_id] = last_position.unwrap();
+                }
+            },
+            _ => unreachable!("should not be here"),
+        }
+
+        Ok(())
+    }
+    pub(crate) fn get_term_freq(&self) -> Result<i32> {
+        let freq = if let Some(att) = &self.field_state.term_freq_attribute {
+            att.get_term_frequency()
+        } else {
+            return Ok(1);
+        };
+
+        if freq != 1 {
+            if self.do_vector_positions {
+                return Err(LuceneError::illegal_argument(format!(
+                    "field \"{}\": cannot index term vector positions while using custom TermFrequencyAttribute",
+                    self.field_name
+                )));
+            }
+            if self.do_vector_offsets {
+                return Err(LuceneError::illegal_argument(format!(
+                    "field \"{}\": cannot index term vector offsets while using custom TermFrequencyAttribute",
+                    self.field_name
+                )));
+            }
+        }
+
+        Ok(freq)
+    }
+    pub(crate) fn finish(&mut self) {
         todo!()
     }
 }
@@ -189,11 +384,48 @@ where
     T: TermFrequencyAttribute,
 {
     fn new_term(&mut self, term_id: i32, doc_id: i32) -> Result<()> {
-        todo!()
+        let term_id = term_id as usize;
+        let freq = self.get_term_freq()?;
+        let postings_enum = self
+            .base
+            .bytes_hash
+            .bytes_start_array
+            .per_field
+            .postings_array
+            .as_mut()
+            .unwrap();
+        if let PostingsArrayEnum::TermVectors(postings) = postings_enum {
+            postings.freqs[term_id] = freq;
+            postings.last_offsets[term_id] = 0;
+            postings.last_positions[term_id] = 0;
+
+            self.write_prox(term_id)?;
+        } else {
+            unreachable!("Expected TermVectors postings");
+        }
+        Ok(())
     }
 
     fn add_term(&mut self, term_id: i32, doc_id: i32) -> Result<()> {
-        todo!()
+        let term_id = term_id as usize;
+        let freq = self.get_term_freq()?;
+        let postings_enum = self
+            .base
+            .bytes_hash
+            .bytes_start_array
+            .per_field
+            .postings_array
+            .as_mut()
+            .unwrap();
+
+        if let PostingsArrayEnum::TermVectors(postings) = postings_enum {
+            postings.freqs[term_id] += freq;
+            self.write_prox(term_id)?;
+        } else {
+            unreachable!("Expected TermVectors postings");
+        }
+
+        Ok(())
     }
 
     fn get_field_name(&self) -> &str {
