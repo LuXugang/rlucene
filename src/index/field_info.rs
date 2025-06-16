@@ -46,7 +46,7 @@ pub struct FieldInfo {
     // True if any document indexed term vectors
     store_term_vector: bool,
     omit_norms: bool, // omit norms associated with indexed fields
-    index_options: IndexOptions,
+    pub(crate) index_options: IndexOptions,
     pub(crate) properties: Rc<RefCell<Properties>>,
     dv_gen: i64,
     ///  If both of these are positive it means this field indexed points (see

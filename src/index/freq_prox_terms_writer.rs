@@ -110,7 +110,7 @@ where
         } else {
             None
         };
-        terms_hash.term_byte_pool = term_byte_pool;
+        terms_hash.term_byte_pool = Option::from(terms_hash.byte_pool.clone());
         terms_hash
     }
     fn apply_deletes(
@@ -241,7 +241,7 @@ where
             .as_mut()
             .unwrap()
             .add_field(field_invert_state.clone(), field_info.clone());
-        FreqProxTermsWriterPerField::new(field_invert_state, self, field_info, next_per_field)
+        FreqProxTermsWriterPerField::new(field_invert_state, self, field_info, Some(next_per_field))
     }
 }
 

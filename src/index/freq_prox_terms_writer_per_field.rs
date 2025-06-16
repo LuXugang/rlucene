@@ -31,6 +31,8 @@ use crate::index::parallel_postings_array::{
     ParallelPostingsArray, PostingsArrayBase, PostingsArrayEnum,
 };
 use crate::index::term_vectors_consumer_per_field::TermVectorsConsumerPerField;
+#[cfg(test)]
+use crate::index::terms_hash_per_field::tests::TermsHashPerFieldMock;
 use crate::index::terms_hash_per_field::{
     PostingsArrayWrapper, TermsHashPerField, TermsHashPerFieldBase, TermsHashPerFieldType,
 };
@@ -71,7 +73,7 @@ where
         field_state: Rc<FieldInvertState<O, P, T>>,
         terms_hash: &mut FreqProxTermsWriter<D, C, TVW, O, P, T>,
         field_info: Rc<FieldInfo>,
-        next_per_field: TermVectorsConsumerPerField<O, P, T>,
+        next_per_field: Option<TermVectorsConsumerPerField<O, P, T>>,
     ) -> FreqProxTermsWriterPerField<O, P, T>
     where
         D: Directory,
@@ -115,7 +117,7 @@ where
             has_prox,
             has_offsets,
             saw_payloads,
-            next_per_field: Option::from(next_per_field),
+            next_per_field,
             field_state,
             base,
         }
@@ -213,7 +215,7 @@ where
     pub(crate) fn get_next_per_field(&mut self) -> TermVectorsConsumerPerField<O, P, T> {
         self.next_per_field.take().unwrap()
     }
-    fn finish(&mut self) {
+    pub(crate) fn finish(&mut self) {
         if self.next_per_field.is_some() {
             self.next_per_field.as_mut().unwrap().finish();
         }
@@ -261,7 +263,39 @@ where
         }
         Ok(())
     }
-    fn start(&mut self, field: &Fields, first: bool) -> Result<bool> {
+    #[cfg(test)]
+    pub(crate) fn add_with_bytes_ref_with_test(
+        &mut self,
+        term_bytes: &BytesRef<Vec<u8>>,
+        doc_id: i32,
+        sub: &mut TermsHashPerFieldMock,
+    ) -> Result<()> {
+        debug_assert!(self.base.assert_doc_id(doc_id));
+        // We are first in the chain so we must "intern" the
+        // term text into textStart address
+        // Get the text & hash of this term.
+        let mut term_id = self.base.bytes_hash.add(term_bytes)?;
+        if term_id >= 0 {
+            self.base.init_stream_slices(term_id, doc_id)?;
+            sub.new_term(term_id, doc_id, &mut self.base)?;
+        } else {
+            term_id = self.base.position_stream_slice(term_id, doc_id)?;
+            sub.add_term(term_id, doc_id, &mut self.base)?;
+        }
+
+        if let Some(ref mut next_per_field) = self.next_per_field {
+            let postings_array_wrapper = &self.base.bytes_hash.bytes_start_array.per_field;
+            debug_assert!(postings_array_wrapper.postings_array.is_some());
+            let text_start = postings_array_wrapper
+                .postings_array
+                .as_ref()
+                .unwrap()
+                .get_text_starts()[term_id as usize];
+            next_per_field.add_with_text_start(text_start, doc_id)?;
+        }
+        Ok(())
+    }
+    pub(crate) fn start(&mut self, field: &Fields, first: bool) -> Result<bool> {
         match self.next_per_field {
             Some(ref mut next_per_field) => next_per_field.start(field, first)?,
             None => true,
