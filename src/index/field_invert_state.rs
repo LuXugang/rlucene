@@ -48,7 +48,6 @@ pub struct Inner {
     pub(crate) max_term_frequency: i32,
     pub(crate) unique_term_count: i32,
 }
-#[cfg(test)]
 impl<O, P, T> Default for FieldInvertState<O, P, T>
 where
     O: OffsetAttribute,

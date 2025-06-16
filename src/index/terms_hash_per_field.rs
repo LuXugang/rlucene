@@ -21,11 +21,14 @@ use crate::index::index_options::IndexOptions;
 use crate::index::parallel_postings_array::PostingsArrayEnum;
 use crate::index::term_vectors_consumer_per_field::TermVectorsPostingsArray;
 use crate::util::access::Access;
+use crate::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
 use crate::util::bytes_ref_hash::{BytesRefHash, BytesStartArray};
+use crate::util::dummy::dummy_counter::DummyCounter;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::int_block_pool::IntBlockPool;
 use crate::util::{
-    byte_block_pool_util, ByteBlockPoolBorrow, Counter, CounterEnumBorrow, SliceCopyOps,
+    byte_block_pool_util, ByteBlockPool, ByteBlockPoolBorrow, Counter, CounterEnum,
+    CounterEnumBorrow, SliceCopyOps,
 };
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -62,6 +65,37 @@ pub struct TermsHashPerField {
     pub(crate) do_next_call: bool,
     pub(crate) field_name: String,
     pub(crate) index_options: IndexOptions,
+}
+impl Default for TermsHashPerField {
+    // for padding
+    fn default() -> Self {
+        let postings_array_wrapper = PostingsArrayWrapper::default();
+        let bytes_used = Rc::new(RefCell::new(CounterEnum::Dummy(DummyCounter)));
+        let byte_starts = PostingsBytesStartArray::new(postings_array_wrapper, bytes_used);
+        let term_byte_pool = Rc::new(RefCell::new(ByteBlockPool::new(AllocatorByteEnum::DA(
+            DirectAllocatorByte::new(),
+        ))));
+        let byte_pool = term_byte_pool.clone();
+
+        let bytes_hash = BytesRefHash::from_bytes_start_array(
+            term_byte_pool,
+            terms_hash_per_field_util::HASH_INIT_SIZE,
+            byte_starts,
+        );
+        TermsHashPerField {
+            int_pool: Rc::new(RefCell::new(IntBlockPool::default())),
+            byte_pool,
+            slice_pool: ByteSlicePool,
+            term_stream_address_buffer_index: 0,
+            stream_address_offset: 0,
+            stream_count: 0,
+            bytes_hash,
+            last_doc_id: 0,
+            do_next_call: false,
+            field_name: String::new(),
+            index_options: IndexOptions::None,
+        }
+    }
 }
 
 impl TermsHashPerField {
@@ -366,6 +400,16 @@ pub(crate) struct PostingsArrayWrapper {
     pub(crate) postings_array: Option<PostingsArrayEnum>,
     pub(crate) terms_hash_per_field_type: TermsHashPerFieldType,
 }
+impl Default for PostingsArrayWrapper {
+    fn default() -> Self {
+        Self {
+            postings_array: None,
+            terms_hash_per_field_type: TermsHashPerFieldType::FreqProx(FreqProx::new(
+                IndexOptions::None,
+            )),
+        }
+    }
+}
 impl PostingsArrayWrapper {
     pub fn new(terms_hash_per_field_type: TermsHashPerFieldType) -> Self {
         Self {
@@ -375,7 +419,7 @@ impl PostingsArrayWrapper {
     }
 }
 pub mod terms_hash_per_field_util {
-    pub(super) const HASH_INIT_SIZE: i32 = 4;
+    pub(crate) const HASH_INIT_SIZE: i32 = 4;
 }
 pub(crate) struct PostingsBytesStartArray {
     pub(crate) per_field: PostingsArrayWrapper,
@@ -507,7 +551,6 @@ pub(crate) mod tests {
     use crate::analysis::token_attributes::dummy::dummy_payload_attribute::DummyPayloadAttribute;
     use crate::analysis::token_attributes::dummy::dummy_term_frequency_attribute::DummyTermFrequencyAttribute;
 
-    use crate::codecs::compressing::lucene90_compressing_term_vectors_writer::Lucene90CompressingTermVectorsWriter;
     use crate::codecs::lucene101_codec::Lucene101Codec;
     use crate::document::fields::Fields;
     use crate::document::stored_field::StoredField;
@@ -615,7 +658,7 @@ pub(crate) mod tests {
             0,
             &mut hash,
         )?;
-        base.finish();
+        // base.finish();
         base.add_with_bytes_ref_with_test(
             &new_bytes_ref_from_string(&mut random, "bar")?,
             1,
@@ -646,7 +689,7 @@ pub(crate) mod tests {
             1,
             &mut hash,
         )?;
-        base.finish();
+        // base.finish();
         base.add_with_bytes_ref_with_test(
             &new_bytes_ref_from_string(&mut random, "verylongfoobarbaz")?,
             2,
@@ -657,7 +700,7 @@ pub(crate) mod tests {
             2,
             &mut hash,
         )?;
-        base.finish();
+        // base.finish();
         base.add_with_bytes_ref_with_test(
             &new_bytes_ref_from_string(&mut random, "verylongfoobarbaz")?,
             3,
@@ -668,7 +711,7 @@ pub(crate) mod tests {
             3,
             &mut hash,
         )?;
-        base.finish();
+        // base.finish();
 
         assert_eq!(7, hash.new_called.load(Ordering::SeqCst));
         assert_eq!(6, hash.add_called.load(Ordering::SeqCst));
@@ -834,7 +877,7 @@ pub(crate) mod tests {
                     .or_insert(1);
                 base.add_with_bytes_ref_with_test(ref_, doc, &mut hash)?;
             }
-            base.finish();
+            // base.finish();
         }
 
         let mut values: Vec<_> = posting_map
@@ -950,14 +993,8 @@ pub(crate) mod tests {
             let allocator_int = Rc::new(RefCell::new(AllocatorIntEnum::DA(
                 DirectAllocatorI32::new(),
             )));
-            let mut writer: FreqProxTermsWriter<
-                DummyDirectory,
-                Lucene101Codec,
-                Lucene90CompressingTermVectorsWriter<DummyDirectory>,
-                _,
-                _,
-                _,
-            > = FreqProxTermsWriter::new(allocator_int, allocator, bytes_used, None);
+            let mut writer: FreqProxTermsWriter<DummyDirectory, Lucene101Codec, _, _, _> =
+                FreqProxTermsWriter::new(allocator_int, allocator, bytes_used, None);
 
             let allocator_term = AllocatorByteEnum::DA(DirectAllocatorByte::new());
             writer.term_byte_pool = Some(Rc::new(RefCell::new(ByteBlockPool::new(allocator_term))));

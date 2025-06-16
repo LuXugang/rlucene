@@ -20,7 +20,6 @@ use std::rc::Rc;
 use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
 use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
 use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
-use crate::codecs::term_vectors_writer::TermVectorsWriter;
 use crate::codecs::Codec;
 use crate::document::fields::Fields;
 use crate::index::field_info::FieldInfo;
@@ -30,6 +29,7 @@ use crate::index::index_options::IndexOptions;
 use crate::index::parallel_postings_array::{
     ParallelPostingsArray, PostingsArrayBase, PostingsArrayEnum,
 };
+use crate::index::term_vectors_consumer::TermVectorsConsumer;
 use crate::index::term_vectors_consumer_per_field::TermVectorsConsumerPerField;
 #[cfg(test)]
 use crate::index::terms_hash_per_field::tests::TermsHashPerFieldMock;
@@ -69,16 +69,15 @@ where
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 {
-    pub fn new<D, C, TVW>(
+    pub fn new<D, C>(
         field_state: Rc<FieldInvertState<O, P, T>>,
-        terms_hash: &mut FreqProxTermsWriter<D, C, TVW, O, P, T>,
+        terms_hash: &mut FreqProxTermsWriter<D, C, O, P, T>,
         field_info: Rc<FieldInfo>,
         next_per_field: Option<TermVectorsConsumerPerField<O, P, T>>,
     ) -> FreqProxTermsWriterPerField<O, P, T>
     where
         D: Directory,
         C: Codec,
-        TVW: TermVectorsWriter,
     {
         let index_options = *field_info.get_index_options();
 
@@ -215,9 +214,18 @@ where
     pub(crate) fn get_next_per_field(&mut self) -> TermVectorsConsumerPerField<O, P, T> {
         self.next_per_field.take().unwrap()
     }
-    pub(crate) fn finish(&mut self) {
+    pub(crate) fn finish<D, C>(
+        &mut self,
+        term_vectors_consumer: &mut TermVectorsConsumer<D, C, O, P, T>,
+    ) where
+        D: Directory,
+        C: Codec,
+    {
         if self.next_per_field.is_some() {
-            self.next_per_field.as_mut().unwrap().finish();
+            self.next_per_field
+                .take()
+                .unwrap()
+                .finish(term_vectors_consumer);
         }
         if self.saw_payloads {
             self.field_info

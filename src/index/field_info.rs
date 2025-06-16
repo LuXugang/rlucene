@@ -43,8 +43,6 @@ pub struct FieldInfo {
     pub number: i32,
     doc_values_type: DocValuesType,
     doc_values_skip_index: DocValuesSkipIndexType,
-    // True if any document indexed term vectors
-    store_term_vector: bool,
     omit_norms: bool, // omit norms associated with indexed fields
     pub(crate) index_options: IndexOptions,
     pub(crate) properties: Rc<RefCell<Properties>>,
@@ -66,6 +64,8 @@ pub struct Properties {
     pub(crate) attributes: Rc<RefCell<HashMap<String, String>>>,
     store_payloads: bool, /* whether this field stores payloads together
                            * with term positions */
+    // True if any document indexed term vectors
+    store_term_vector: bool,
 }
 /// For padding using
 impl Default for Properties {
@@ -73,6 +73,7 @@ impl Default for Properties {
         Properties {
             attributes: Rc::new(RefCell::new(HashMap::new())),
             store_payloads: false,
+            store_term_vector: false,
         }
     }
 }
@@ -111,6 +112,7 @@ impl FieldInfo {
         let properties = Rc::new(RefCell::new(Properties {
             attributes,
             store_payloads,
+            store_term_vector,
         }));
 
         FieldInfo {
@@ -118,7 +120,6 @@ impl FieldInfo {
             number,
             doc_values_type,
             doc_values_skip_index,
-            store_term_vector,
             omit_norms,
             index_options,
             properties,
@@ -156,7 +157,7 @@ impl FieldInfo {
                     )));
                 }
             } else {
-                if self.store_term_vector {
+                if self.properties.borrow().store_term_vector {
                     return Err(LuceneError::illegal_argument(format!(
                         "non-indexed field '{}' cannot store term vectors",
                         self.name
@@ -261,8 +262,8 @@ impl FieldInfo {
             Self::verify_same_omit_norms(field_name, self.omit_norms, other.omit_norms)?;
             Self::verify_same_store_term_vectors(
                 field_name,
-                self.store_term_vector,
-                other.store_term_vector,
+                self.properties.borrow().store_term_vector,
+                other.properties.borrow().store_term_vector,
             )?;
         }
 
@@ -567,8 +568,8 @@ impl FieldInfo {
     }
 
     /// Set store term vectors
-    pub fn set_store_term_vectors(&mut self) -> Result<()> {
-        self.store_term_vector = true;
+    pub fn set_store_term_vectors(&self) -> Result<()> {
+        self.properties.borrow_mut().store_term_vector = true;
         self.check_consistency()?;
         Ok(())
     }
@@ -615,7 +616,7 @@ impl FieldInfo {
 
     /// Returns true if any term vectors exist for this field.
     pub fn has_term_vectors(&self) -> bool {
-        self.store_term_vector
+        self.properties.borrow().store_term_vector
     }
 
     /// Returns whether any (numeric) vector values exist for this field

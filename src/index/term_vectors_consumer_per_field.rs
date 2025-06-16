@@ -17,6 +17,8 @@
 use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
 use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
 use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
+use crate::codecs::term_vectors_writer::TermVectorsWriter;
+use crate::codecs::Codec;
 use crate::document::fields::Fields;
 use crate::index::field_info::FieldInfo;
 use crate::index::field_invert_state::FieldInvertState;
@@ -26,8 +28,9 @@ use crate::index::indexable_field_type::IndexableFieldType;
 use crate::index::parallel_postings_array::{
     ParallelPostingsArray, PostingsArrayBase, PostingsArrayEnum,
 };
+use crate::index::term_vectors_consumer::TermVectorsConsumer;
 use crate::index::terms_hash_per_field::{TermsHashPerField, TermsHashPerFieldBase};
-use crate::index::BytesRef;
+use crate::store::directory::Directory;
 use crate::util::array_util::ArrayUtil;
 use crate::util::bit_util::BitUtil;
 use crate::util::bytes_ref_block_pool::BytesRefBlockPoolBorrow;
@@ -50,76 +53,158 @@ where
     has_payloads: bool,
     field_name: String,
     field_state: Rc<FieldInvertState<O, P, T>>,
-
     base: TermsHashPerField,
 }
+impl<O, P, T> Default for TermVectorsConsumerPerField<O, P, T>
+where
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+{
+    fn default() -> Self {
+        TermVectorsConsumerPerField {
+            field_info: Rc::new(FieldInfo::default()),
+            do_vectors: false,
+            do_vector_positions: false,
+            do_vector_offsets: false,
+            do_vector_payloads: false,
+            term_byte_pool: BytesRefBlockPoolBorrow::default(),
+            has_payloads: false,
+            field_name: String::new(),
+            field_state: Rc::new(FieldInvertState::default()),
+            base: TermsHashPerField::default(),
+        }
+    }
+}
+impl<O, P, T> Clone for TermVectorsConsumerPerField<O, P, T>
+where
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+{
+    // for padding
+    fn clone(&self) -> Self {
+        TermVectorsConsumerPerField {
+            field_info: Rc::clone(&self.field_info),
+            do_vectors: self.do_vectors,
+            do_vector_positions: self.do_vector_positions,
+            do_vector_offsets: self.do_vector_offsets,
+            do_vector_payloads: self.do_vector_payloads,
+            term_byte_pool: self.term_byte_pool.clone(),
+            has_payloads: self.has_payloads,
+            field_name: self.field_name.clone(),
+            field_state: Rc::clone(&self.field_state),
+            base: TermsHashPerField::default(),
+        }
+    }
+}
+
 impl<O, P, T> TermVectorsConsumerPerField<O, P, T>
 where
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 {
-    pub(crate) fn new(_size: i32) -> Self {
+    pub(crate) fn new(
+        field_invert_state: Rc<FieldInvertState<O, P, T>>,
+        field_info: Rc<FieldInfo>,
+    ) -> Self {
         todo!()
     }
 
-    pub(crate) fn finish_document(&mut self, flush_term: &mut BytesRef<Vec<u8>>) -> Result<()> {
-        // if !self.do_vectors {
-        //     return Ok(());
-        // }
-        // self.do_vectors = false;
-        //
-        // let num_postings = self.get_num_terms();
-        // debug_assert!(num_postings >= 0);
-        //
-        // let postings = &self.term_vectors_postings_array;
-        // let tv = &mut self.terms_writer.writer;
-        //
-        // self.sort_terms();
-        // let term_ids = self.get_sorted_term_ids();
-        //
-        // tv.start_field(
-        //     &*self.field_info,
-        //     num_postings as usize,
-        //     self.do_vector_positions,
-        //     self.do_vector_offsets,
-        //     self.has_payloads,
-        // )?;
-        //
-        // let mut pos_reader = if self.do_vector_positions {
-        //     Some(self.terms_writer.vector_slice_reader_pos.clone())
-        // } else {
-        //     None
-        // };
-        // let mut off_reader = if self.do_vector_offsets {
-        //     Some(self.terms_writer.vector_slice_reader_off.clone())
-        // } else {
-        //     None
-        // };
-        //
-        // for &term_id in &term_ids {
-        //     let freq = postings.freqs[term_id];
-        //     self.term_byte_pool.fill_bytes_ref(flush_term, postings.text_starts[term_id]);
-        //
-        //     tv.start_term(flush_term, freq)?;
-        //
-        //     if self.do_vector_positions || self.do_vector_offsets {
-        //         if let Some(ref mut pr) = pos_reader {
-        //             self.init_reader(pr, term_id, 0)?;
-        //         }
-        //         if let Some(ref mut or) = off_reader {
-        //             self.init_reader(or, term_id, 1)?;
-        //         }
-        //         tv.add_prox(freq, pos_reader.as_mut(), off_reader.as_mut())?;
-        //     }
-        //
-        //     tv.finish_term()?;
-        // }
-        //
-        // tv.finish_field()?;
-        //
-        // self.reset();
-        // self.field_info.set_store_term_vectors()?;
+    pub(crate) fn finish_document<D, C>(
+        &mut self,
+        term_vectors_consumer: &mut TermVectorsConsumer<D, C, O, P, T>,
+    ) -> Result<()>
+    where
+        D: Directory,
+        C: Codec,
+    {
+        if !self.do_vectors {
+            return Ok(());
+        }
+        self.do_vectors = false;
+
+        let num_postings = self.base.get_num_terms();
+        debug_assert!(num_postings >= 0);
+
+        let tv = term_vectors_consumer.writer.as_mut().unwrap();
+
+        self.base.sort_terms()?;
+        let term_ids = self.base.get_sorted_term_ids();
+
+        tv.start_field(
+            &self.field_info,
+            num_postings as usize,
+            self.do_vector_positions,
+            self.do_vector_offsets,
+            self.has_payloads,
+        )?;
+
+        let mut pos_reader = if self.do_vector_positions {
+            Some(
+                term_vectors_consumer
+                    .vector_slice_reader_pos
+                    .take()
+                    .unwrap(),
+            )
+        } else {
+            None
+        };
+        let mut off_reader = if self.do_vector_offsets {
+            Some(
+                term_vectors_consumer
+                    .vector_slice_reader_off
+                    .take()
+                    .unwrap(),
+            )
+        } else {
+            None
+        };
+
+        let postings_array_enum = self
+            .base
+            .bytes_hash
+            .bytes_start_array
+            .per_field
+            .postings_array
+            .as_ref()
+            .expect("postings_array must be Some");
+        match postings_array_enum {
+            PostingsArrayEnum::TermVectors(postings) => {
+                for &term_id in term_ids {
+                    let freq = postings.freqs[term_id as usize];
+                    self.term_byte_pool.borrow().fill_bytes_ref(
+                        &mut term_vectors_consumer.flush_term,
+                        postings.parent.text_starts[term_id as usize],
+                    );
+
+                    tv.start_term(&term_vectors_consumer.flush_term, freq)?;
+
+                    if self.do_vector_positions || self.do_vector_offsets {
+                        if pos_reader.is_some() {
+                            self.base
+                                .init_reader(pos_reader.as_mut().unwrap(), term_id, 0);
+                        }
+                        if off_reader.is_some() {
+                            self.base
+                                .init_reader(off_reader.as_mut().unwrap(), term_id, 1);
+                        }
+                        tv.add_prox(freq as usize, &mut pos_reader, &mut off_reader)?;
+                    }
+
+                    tv.finish_term()?;
+                }
+            },
+            _ => unreachable!("Expected TermVectors postings"),
+        }
+
+        tv.finish_field()?;
+
+        self.reset();
+        self.field_info.set_store_term_vectors()?;
+        term_vectors_consumer.vector_slice_reader_off = off_reader;
+        term_vectors_consumer.vector_slice_reader_pos = pos_reader;
         Ok(())
     }
     pub(crate) fn reset(&mut self) {
@@ -332,8 +417,15 @@ where
 
         Ok(freq)
     }
-    pub(crate) fn finish(&mut self) {
-        todo!()
+    pub(crate) fn finish<D, C>(self, term_vectors_consumer: &mut TermVectorsConsumer<D, C, O, P, T>)
+    where
+        D: Directory,
+        C: Codec,
+    {
+        if !self.do_vectors || self.base.get_num_terms() == 0 {
+            return;
+        }
+        term_vectors_consumer.add_field_to_flush(self)
     }
 }
 
@@ -429,7 +521,7 @@ where
     }
 
     fn get_field_name(&self) -> &str {
-        todo!()
+        self.field_name.as_str()
     }
 }
 
@@ -438,7 +530,7 @@ pub(crate) struct TermVectorsPostingsArray {
     freqs: Vec<i32>,          // How many times this term occurred in the current doc
     last_offsets: Vec<i32>,   // Last offset we saw
     last_positions: Vec<i32>, // Last position where this term occurred
-    pub(crate) parent_postings_array: ParallelPostingsArray,
+    pub(crate) parent: ParallelPostingsArray,
 }
 
 impl TermVectorsPostingsArray {
@@ -448,17 +540,17 @@ impl TermVectorsPostingsArray {
             freqs: vec![0; size],
             last_offsets: vec![0; size],
             last_positions: vec![0; size],
-            parent_postings_array: ParallelPostingsArray::new(size),
+            parent: ParallelPostingsArray::new(size),
         }
     }
 }
 
 impl PostingsArrayBase for TermVectorsPostingsArray {
     fn bytes_per_posting(&self) -> usize {
-        self.parent_postings_array.bytes_per_posting() + 3 * BitUtil::INT_BYTES
+        self.parent.bytes_per_posting() + 3 * BitUtil::INT_BYTES
     }
     fn copy_to(&mut self, new_size: usize) -> Result<()> {
-        self.parent_postings_array.copy_to(new_size)?;
+        self.parent.copy_to(new_size)?;
         self.size = new_size;
         ArrayUtil::grow_exact(&mut self.freqs, new_size)?;
         ArrayUtil::grow_exact(&mut self.last_offsets, new_size)?;

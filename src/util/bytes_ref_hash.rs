@@ -64,6 +64,7 @@ where
     pub(crate) bytes_start_array: BSA,
     bytes_used: C,
 }
+
 #[allow(unused)]
 impl MTBytesRefHash {
     pub const DEFAULT_CAPACITY: i32 = 16;

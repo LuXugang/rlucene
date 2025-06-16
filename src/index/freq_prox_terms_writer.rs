@@ -66,26 +66,26 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-pub(crate) struct FreqProxTermsWriter<D, C, TVW, O, P, T>
+pub(crate) struct FreqProxTermsWriter<D, C, O, P, T>
 where
     D: Directory,
     C: Codec,
-    TVW: TermVectorsWriter,
+
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 {
-    pub(crate) next_terms_hash: Option<TermVectorsConsumer<D, C, TVW, O, P, T>>,
+    pub(crate) next_terms_hash: Option<TermVectorsConsumer<D, C, O, P, T>>,
     pub(crate) int_pool: Rc<RefCell<IntBlockPool>>,
     pub(crate) byte_pool: ByteBlockPoolBorrow,
     pub(crate) term_byte_pool: Option<ByteBlockPoolBorrow>,
     pub(crate) bytes_used: CounterEnumBorrow,
 }
-impl<D, C, TVW, O, P, T> FreqProxTermsWriter<D, C, TVW, O, P, T>
+impl<D, C, O, P, T> FreqProxTermsWriter<D, C, O, P, T>
 where
     D: Directory,
     C: Codec,
-    TVW: TermVectorsWriter,
+
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
@@ -94,7 +94,7 @@ where
         int_block_allocator: Rc<RefCell<AllocatorIntEnum>>,
         byte_block_allocator: AllocatorByteEnum<CounterEnumBorrow>,
         bytes_used: CounterEnumBorrow,
-        next_terms_hash: Option<TermVectorsConsumer<D, C, TVW, O, P, T>>,
+        next_terms_hash: Option<TermVectorsConsumer<D, C, O, P, T>>,
     ) -> Self {
         let mut terms_hash = Self {
             next_terms_hash: None,
@@ -110,7 +110,7 @@ where
         } else {
             None
         };
-        terms_hash.term_byte_pool = Option::from(terms_hash.byte_pool.clone());
+        terms_hash.term_byte_pool = term_byte_pool;
         terms_hash
     }
     fn apply_deletes(

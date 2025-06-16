@@ -18,7 +18,7 @@ use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
 use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
 use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
 use crate::codecs::term_vectors_format::TermVectorsFormat;
-use crate::codecs::term_vectors_writer::TermVectorsWriter;
+use crate::codecs::term_vectors_writer::{TermVectorsWriter, TermVectorsWriterEnum};
 use crate::codecs::Codec;
 use crate::index::byte_slice_reader::ByteSliceReader;
 use crate::index::field_info::FieldInfo;
@@ -31,46 +31,74 @@ use crate::index::BytesRef;
 use crate::store::directory::Directory;
 use crate::store::flush_info::FlushInfo;
 use crate::store::IOContext;
+use crate::util::allocator_byte::AllocatorByteEnum;
+use crate::util::array_util::ArrayUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::int_block_pool::AllocatorIntEnum;
 use crate::util::{Counter, CounterEnumBorrow};
 use parking_lot::Mutex;
+use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 
-pub(crate) struct TermVectorsConsumer<D, C, TVW, O, P, T>
+pub(crate) struct TermVectorsConsumer<D, C, O, P, T>
 where
     D: Directory,
     C: Codec,
-    TVW: TermVectorsWriter,
+
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 {
     directory: Arc<Mutex<D>>,
     info: Rc<SegmentInfo<D>>,
-    code: Arc<Mutex<C>>,
-    writer: Option<TVW>,
+    codec: Rc<C>,
+    pub(crate) writer: Option<TermVectorsWriterEnum<D>>,
     // Scratch term used by TermVectorsConsumerPerField.finishDocument.
-    flush_term: BytesRef<Vec<u8>>,
+    pub(crate) flush_term: BytesRef<Vec<u8>>,
     // Used by TermVectorsConsumerPerField when serializing the term vectors.
-    vector_slice_reader_pos: ByteSliceReader,
-    vector_slice_reader_off: ByteSliceReader,
+    pub(crate) vector_slice_reader_pos: Option<ByteSliceReader>,
+    pub(crate) vector_slice_reader_off: Option<ByteSliceReader>,
     has_vectors: bool,
     num_vector_fields: i32,
     last_doc_id: i32,
     per_fields: Vec<TermVectorsConsumerPerField<O, P, T>>,
 }
-impl<D, C, TVW, O, P, T> TermVectorsConsumer<D, C, TVW, O, P, T>
+impl<D, C, O, P, T> TermVectorsConsumer<D, C, O, P, T>
 where
     D: Directory,
     C: Codec,
-    TVW: TermVectorsWriter,
+
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 {
+    pub(crate) fn new(
+        int_block_allocator: Rc<RefCell<AllocatorIntEnum>>,
+        byte_block_allocator: AllocatorByteEnum<CounterEnumBorrow>,
+        directory: Arc<Mutex<D>>,
+        info: Rc<SegmentInfo<D>>,
+        codec: Rc<C>,
+        bytes_used: CounterEnumBorrow,
+    ) -> Self {
+        let per_fields = vec![TermVectorsConsumerPerField::default(); 1];
+
+        TermVectorsConsumer {
+            directory,
+            info,
+            codec,
+            writer: None,
+            flush_term: BytesRef::default(),
+            vector_slice_reader_pos: Some(ByteSliceReader::new()),
+            vector_slice_reader_off: Some(ByteSliceReader::new()),
+            has_vectors: false,
+            num_vector_fields: 0,
+            last_doc_id: 0,
+            per_fields,
+        }
+    }
     pub(crate) fn reset_fields(&mut self) {
-        self.per_fields.clear(); // don't hang onto stuff from previous doc
+        self.per_fields.clear();
         self.num_vector_fields = 0;
     }
     pub(crate) fn fill(&mut self, doc_id: i32) -> Result<()> {
@@ -95,11 +123,11 @@ where
             let flush_info = FlushInfo::new(self.last_doc_id, bytes_used.borrow().get());
             let context = IOContext::with_flush(flush_info)?;
 
-            let writer = self.code.lock().term_vectors_format().vectors_writer(
+            self.writer = Option::from(self.codec.term_vectors_format().vectors_writer(
                 Arc::clone(&self.directory),
                 Rc::clone(&self.info),
                 &context,
-            )?;
+            )?);
 
             self.last_doc_id = 0;
         }
@@ -130,38 +158,33 @@ where
         doc_id: i32,
         bytes_used: &CounterEnumBorrow,
     ) -> Result<()> {
-        // if !self.has_vectors {
-        //     return Ok(());
-        // }
-        //
-        // ArrayUtil::intro_sort_with_range(&mut self.per_fields, 0, self.num_vector_fields)?;
-        //
-        // self.init_term_vectors_writer(bytes_used)?;
-        // self.fill(doc_id)?;
-        // // Append term vectors to the real outputs:
-        // if let Some(ref mut writer) = self.writer {
-        //     writer.start_document(self.num_vector_fields)?;
-        //
-        //     for i in 0..self.num_vector_fields as usize {
-        //         self.per_fields[i].finish_document()?;
-        //     }
-        //
-        //     writer.finish_document()?;
-        // } else {
-        //     return Err(LuceneError::illegal_state(
-        //         "TermVectorsConsumer writer was not initialized",
-        //     ));
-        // }
-        //
-        // debug_assert_eq!(
-        //     self.last_doc_id, doc_id,
-        //     "last_doc_id = {}, doc_id = {}",
-        //     self.last_doc_id, doc_id
-        // );
-        //
-        // self.last_doc_id += 1;
-        // self.reset_fields();
+        if !self.has_vectors {
+            return Ok(());
+        }
 
+        ArrayUtil::intro_sort_with_range(&mut self.per_fields, 0, self.num_vector_fields)?;
+
+        self.init_term_vectors_writer(bytes_used)?;
+        self.fill(doc_id)?;
+        // Append term vectors to the real outputs:
+        self.writer
+            .as_mut()
+            .unwrap()
+            .start_document(self.num_vector_fields)?;
+        let mut per_fields = std::mem::take(&mut self.per_fields);
+        for i in 0..self.num_vector_fields as usize {
+            per_fields[i].finish_document(self)?;
+        }
+        self.writer.as_mut().unwrap().finish_document()?;
+
+        debug_assert_eq!(
+            self.last_doc_id, doc_id,
+            "last_doc_id = {}, doc_id = {}",
+            self.last_doc_id, doc_id
+        );
+
+        self.last_doc_id += 1;
+        self.reset_fields();
         Ok(())
     }
     pub(crate) fn start_document(&mut self) -> Result<()> {
@@ -171,9 +194,21 @@ where
     }
     pub(crate) fn add_field(
         &mut self,
-        _field_invert_state: Rc<FieldInvertState<O, P, T>>,
-        _field_info: Rc<FieldInfo>,
+        field_invert_state: Rc<FieldInvertState<O, P, T>>,
+        field_info: Rc<FieldInfo>,
     ) -> TermVectorsConsumerPerField<O, P, T> {
-        todo!()
+        TermVectorsConsumerPerField::new(field_invert_state, field_info)
+    }
+    pub(crate) fn add_field_to_flush(
+        &mut self,
+        field_to_flush: TermVectorsConsumerPerField<O, P, T>,
+    ) {
+        let num_vector_fields = self.num_vector_fields as usize;
+        if num_vector_fields == self.per_fields.len() {
+            let new_size = ArrayUtil::oversize(num_vector_fields + 1, 0);
+            ArrayUtil::grow_with_len(&mut self.per_fields, new_size);
+        }
+        self.per_fields[num_vector_fields] = field_to_flush;
+        self.num_vector_fields += 1;
     }
 }
