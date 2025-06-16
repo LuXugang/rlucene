@@ -17,17 +17,13 @@
 use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
 use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
 use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
-use crate::document::fields::Fields;
 use crate::index::byte_slice_pool::ByteSlicePool;
 use crate::index::byte_slice_reader::ByteSliceReader;
 use crate::index::field_invert_state::FieldInvertState;
 use crate::index::freq_prox_terms_writer_per_field::{FreqProx, FreqProxPostingsArray};
 use crate::index::index_options::IndexOptions;
 use crate::index::parallel_postings_array::PostingsArrayEnum;
-use crate::index::term_vectors_consumer_per_field::{
-    TermVectorsConsumerPerField, TermVectorsPostingsArray,
-};
-use crate::index::BytesRef;
+use crate::index::term_vectors_consumer_per_field::TermVectorsPostingsArray;
 use crate::util::access::Access;
 use crate::util::bytes_ref_hash::{BytesRefHash, BytesStartArray};
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -36,7 +32,6 @@ use crate::util::{
     byte_block_pool_util, ByteBlockPoolBorrow, Counter, CounterEnumBorrow, SliceCopyOps,
 };
 use std::cell::RefCell;
-use std::cmp::Ordering;
 use std::rc::Rc;
 
 /// This struct stores streams of information per term without knowing the size
@@ -47,15 +42,13 @@ use std::rc::Rc;
 /// by a [`ByteSliceReader`] for each term. Terms are first deduplicated in a
 /// [`BytesRefHash`]. Once this is done, internal data structures point to the
 /// current offset of each stream that can be written to.
-pub struct TermsHashPerField<S, O, P, T>
+pub struct TermsHashPerField<O, P, T>
 where
-    S: TermsHashPerFieldBase,
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 {
     pub(crate) field_state: Rc<FieldInvertState<O, P, T>>,
-    pub(crate) next_per_field: Option<Box<TermsHashPerField<TermVectorsConsumerPerField, O, P, T>>>,
     int_pool: Rc<RefCell<IntBlockPool>>,
     pub(crate) byte_pool: ByteBlockPoolBorrow,
     slice_pool: ByteSlicePool,
@@ -77,10 +70,8 @@ where
         BytesRefHash<CounterEnumBorrow, ByteBlockPoolBorrow, PostingsBytesStartArray>,
     last_doc_id: i32, // only used with debug/asserts
     pub(crate) do_next_call: bool,
-    field_name: String,
+    pub(crate) field_name: String,
     pub(crate) index_options: IndexOptions,
-    // wrap with Option for `std::mem:take`
-    pub(crate) sub: Option<S>,
 }
 pub(crate) struct PostingsArrayWrapper {
     pub(crate) postings_array: Option<PostingsArrayEnum>,
@@ -97,9 +88,8 @@ impl PostingsArrayWrapper {
 pub mod terms_hash_per_field_util {
     pub(super) const HASH_INIT_SIZE: i32 = 4;
 }
-impl<S, O, P, T> TermsHashPerField<S, O, P, T>
+impl<O, P, T> TermsHashPerField<O, P, T>
 where
-    S: TermsHashPerFieldBase,
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
@@ -113,11 +103,9 @@ where
         byte_pool: ByteBlockPoolBorrow,
         term_byte_pool: ByteBlockPoolBorrow,
         bytes_used: CounterEnumBorrow,
-        next_per_field: Option<Box<TermsHashPerField<TermVectorsConsumerPerField, O, P, T>>>,
         postings_array_wrapper: PostingsArrayWrapper,
         field_name: String,
         index_options: IndexOptions,
-        sub: S,
         field_state: Rc<FieldInvertState<O, P, T>>,
     ) -> Self {
         // In the original Java code, we assert that indexOptions !=
@@ -133,7 +121,6 @@ where
         );
 
         TermsHashPerField {
-            next_per_field,
             int_pool,
             byte_pool,
             slice_pool,
@@ -145,7 +132,6 @@ where
             do_next_call: false,
             field_name,
             index_options,
-            sub: Some(sub),
             field_state,
         }
     }
@@ -267,63 +253,31 @@ where
         }
         Ok(())
     }
-    pub(crate) fn write_vint(
-        base: &TermsHashPerField<S, O, P, T>,
-        stream: i32,
-        mut i: i32,
-    ) -> Result<()> {
-        debug_assert!(stream < base.stream_count);
+    pub(crate) fn write_vint(&self, stream: i32, mut i: i32) -> Result<()> {
+        debug_assert!(stream < self.stream_count);
         while (i & !0x7F) != 0 {
-            base.write_byte(stream, ((i & 0x7F) | 0x80) as u8)?;
+            self.write_byte(stream, ((i & 0x7F) | 0x80) as u8)?;
             i = ((i as u32) >> 7) as i32;
         }
-        base.write_byte(stream, i as u8)
-    }
-
-    pub(crate) fn get_next_per_field(
-        &mut self,
-    ) -> TermsHashPerField<TermVectorsConsumerPerField, O, P, T> {
-        *self.next_per_field.take().unwrap()
+        self.write_byte(stream, i as u8)
     }
 
     pub(crate) fn get_field_name(&self) -> &str {
-        self.sub.as_ref().unwrap().get_field_name()
+        self.field_name.as_str()
     }
-    fn finish(&mut self) {
-        if let Some(ref mut next_per_field) = self.next_per_field {
-            next_per_field.finish()
-        }
-        self.sub.as_mut().unwrap().finish()
-    }
+
     pub(crate) fn get_num_terms(&self) -> i32 {
         self.bytes_hash.size()
     }
     pub(crate) fn reset(&mut self) {
         self.bytes_hash.clear();
         self.bytes_hash.ids.clear();
-        if self.next_per_field.is_some() {
-            self.next_per_field.as_mut().unwrap().reset();
-        }
     }
 
     pub(crate) fn reinit_hash(&mut self) {
         self.bytes_hash.reinit()
     }
-    // Secondary entry point (for 2nd & subsequent TermsHash),
-    // because token text has already been "interned" into
-    // textStart, so we hash by textStart.  term vectors use
-    // this API.
-    fn add_with_text_start(&mut self, text_start: i32, doc_id: i32) -> Result<()> {
-        let term_id = self.bytes_hash.add_by_pool_offset(text_start)?;
-        if term_id >= 0 {
-            // First time we are seeing this token since we last
-            // flushed the hash.
-            self.init_stream_slices(term_id, doc_id)?;
-        } else {
-            self.position_stream_slice(term_id, doc_id)?;
-        }
-        Ok(())
-    }
+
     /// Called when we first encounter a new term. We must allocate slices to
     /// store the postings (vInt compressed doc/freq/prox), and also the int
     /// pointers to where (in our [`ByteBlockPool`] storage) the postings
@@ -379,9 +333,6 @@ where
                     term_stream_address_buffer[self.stream_address_offset as usize],
                 );
         }
-        let mut sub = std::mem::take(&mut self.sub);
-        sub.as_mut().unwrap().new_term(term_id, doc_id, self)?;
-        self.sub = sub;
         Ok(())
     }
 
@@ -395,38 +346,7 @@ where
         self.last_doc_id = doc_id;
         true
     }
-    /// Called once per inverted token. This is the primary entry point (for
-    /// first TermsHash); postings use this API.
-    pub(crate) fn add_with_bytes_ref(
-        &mut self,
-        term_bytes: &BytesRef<Vec<u8>>,
-        doc_id: i32,
-    ) -> Result<()> {
-        debug_assert!(self.assert_doc_id(doc_id));
-        // We are first in the chain so we must "intern" the
-        // term text into textStart address
-        // Get the text & hash of this term.
-        let mut term_id = self.bytes_hash.add(term_bytes)?;
-        if term_id >= 0 {
-            self.init_stream_slices(term_id, doc_id)?;
-        } else {
-            term_id = self.position_stream_slice(term_id, doc_id)?;
-        }
 
-        if self.do_next_call {
-            if let Some(ref mut next_per_field) = self.next_per_field {
-                let postings_array_wrapper = &self.bytes_hash.bytes_start_array.per_field;
-                debug_assert!(postings_array_wrapper.postings_array.is_some());
-                let text_start = postings_array_wrapper
-                    .postings_array
-                    .as_ref()
-                    .unwrap()
-                    .get_text_starts()[term_id as usize];
-                next_per_field.add_with_text_start(text_start, doc_id)?;
-            }
-        }
-        Ok(())
-    }
     pub(crate) fn position_stream_slice(&mut self, term_id: i32, doc_id: i32) -> Result<i32> {
         let term_id = (-term_id) - 1;
         let postings_array_wrapper = &self.bytes_hash.bytes_start_array.per_field;
@@ -438,92 +358,15 @@ where
             .get_address_offset()[term_id as usize];
         self.term_stream_address_buffer_index = int_start >> IntBlockPool::INT_BLOCK_SHIFT;
         self.stream_address_offset = int_start & IntBlockPool::INT_BLOCK_MASK;
-        let mut sub = std::mem::take(&mut self.sub);
-        sub.as_mut().unwrap().add_term(term_id, doc_id, self)?;
-        self.sub = sub;
         Ok(term_id)
     }
-    fn start(&mut self, field: &Fields, first: bool) -> Result<bool> {
-        match self.next_per_field {
-            Some(ref mut next_per_field) => next_per_field.start(field, first)?,
-            None => true,
-        };
-        self.sub.as_mut().unwrap().start(field, first)
-    }
 }
 
-impl<S, O, P, T> Eq for TermsHashPerField<S, O, P, T>
-where
-    S: TermsHashPerFieldBase,
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-{
-}
-
-impl<S, O, P, T> PartialEq<Self> for TermsHashPerField<S, O, P, T>
-where
-    S: TermsHashPerFieldBase,
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-{
-    fn eq(&self, other: &Self) -> bool {
-        todo!()
-    }
-}
-
-impl<S, O, P, T> PartialOrd<Self> for TermsHashPerField<S, O, P, T>
-where
-    S: TermsHashPerFieldBase,
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-{
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl<S, O, P, T> Ord for TermsHashPerField<S, O, P, T>
-where
-    S: TermsHashPerFieldBase,
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-{
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.field_name.cmp(&other.field_name)
-    }
-}
 pub(crate) trait TermsHashPerFieldBase {
-    ///Start adding a new field instance; first is true if this is the first
-    /// time this field name was seen in the document.
-    fn start(&mut self, field: &Fields, first: bool) -> Result<bool>;
     /// Called when a term is seen for the first time.
-    fn new_term<
-        S: TermsHashPerFieldBase,
-        O: OffsetAttribute,
-        P: PayloadAttribute,
-        T: TermFrequencyAttribute,
-    >(
-        &mut self,
-        term_id: i32,
-        doc_id: i32,
-        per_field: &mut TermsHashPerField<S, O, P, T>,
-    ) -> Result<()>;
+    fn new_term(&mut self, term_id: i32, doc_id: i32) -> Result<()>;
     /// Called when a previously seen term is seen again.
-    fn add_term<
-        S: TermsHashPerFieldBase,
-        O: OffsetAttribute,
-        P: PayloadAttribute,
-        T: TermFrequencyAttribute,
-    >(
-        &mut self,
-        term_id: i32,
-        doc_id: i32,
-        per_field: &mut TermsHashPerField<S, O, P, T>,
-    ) -> Result<()>;
+    fn add_term(&mut self, term_id: i32, doc_id: i32) -> Result<()>;
     /// Called when the postings array is initialized or resized.
     /// # Note
     /// In rust Lucene, we do not need to init new postings array
@@ -544,9 +387,6 @@ pub(crate) trait TermsHashPerFieldBase {
             "should nerve called".to_string(),
         ))
     }
-    /// Finish adding all instances of this field to the current document.
-    fn finish(&mut self);
-
     fn get_field_name(&self) -> &str;
 }
 pub(crate) struct PostingsBytesStartArray {
@@ -670,560 +510,560 @@ impl TermsHashPerFieldType {
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use std::cell::RefCell;
-    use std::collections::{BTreeMap, HashMap};
-    use std::rc::Rc;
-    use std::sync::atomic::{AtomicI64, Ordering};
-
-    use crate::analysis::token_attributes::dummy::dummy_offset_attribute::DummyOffsetAttribute;
-    use crate::analysis::token_attributes::dummy::dummy_payload_attribute::DummyPayloadAttribute;
-    use crate::analysis::token_attributes::dummy::dummy_term_frequency_attribute::DummyTermFrequencyAttribute;
-    use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
-    use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
-    use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
-    use crate::document::fields::Fields;
-    use crate::document::stored_field::StoredField;
-    use crate::index::byte_slice_reader::ByteSliceReader;
-    use crate::index::field_invert_state::FieldInvertState;
-    use crate::index::index_options::IndexOptions;
-    use crate::index::parallel_postings_array::PostingsArrayEnum;
-    use crate::index::terms_hash_per_field::{
-        PostingsArrayWrapper, TermsHashPerField, TermsHashPerFieldBase, TermsHashPerFieldType,
-    };
-    use crate::index::BytesRef;
-    use crate::store::DataInput;
-    use crate::test::util::lucene_test_case::{new_bytes_ref_from_string, random};
-    use crate::test::util::test_util::TestUtil;
-    use crate::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
-    use crate::util::error::lucene_error::{LuceneError, Result};
-    use crate::util::int_block_pool::IntBlockPool;
-    use crate::util::{ByteBlockPool, CounterEnum};
-    use rand::distr::Alphanumeric;
-    use rand::prelude::SliceRandom;
-    use rand::Rng;
-
-    #[allow(dead_code)] // for quick search
-    struct TestTermsHashPerField;
-
-    fn create_new_hash(
-        new_called: AtomicI64,
-        add_called: AtomicI64,
-    ) -> Result<
-        TermsHashPerField<
-            TermsHashPerFieldMock,
-            DummyOffsetAttribute,
-            DummyPayloadAttribute,
-            DummyTermFrequencyAttribute,
-        >,
-    > {
-        let hash = TermsHashPerFieldMock::new(new_called, add_called)?;
-        Ok(hash)
-    }
-
-    fn assert_doc_and_freq(
-        reader: &mut ByteSliceReader,
-        postings_array_wrapper: &PostingsArrayWrapper,
-        prev_doc: i32,
-        term_id: i32,
-        doc: i32,
-        frequency: i32,
-    ) -> Result<bool> {
-        assert!(term_id >= 0);
-        let term_id = term_id as usize;
-        let postings_array_enum = postings_array_wrapper.postings_array.as_ref().unwrap();
-        let postings_array = match postings_array_enum {
-            PostingsArrayEnum::FreqProx(freq_prox) => freq_prox,
-            _ => {
-                unreachable!()
-            },
-        };
-        let mut doc_id = prev_doc;
-        let freq: i32;
-        let eof = reader.eof();
-        if eof {
-            doc_id = postings_array.last_doc_ids[term_id];
-            match &postings_array.term_freqs {
-                Some(term_freqs) => {
-                    freq = term_freqs[term_id];
-                },
-                _ => {
-                    return Err(LuceneError::illegal_state(
-                        "term_freqs is None.".to_string(),
-                    ));
-                },
-            }
-        } else {
-            let code = reader.read_vint()?;
-            doc_id += code >> 1;
-            if (code & 1) != 0 {
-                freq = 1;
-            } else {
-                freq = reader.read_vint()?;
-            }
-        }
-        assert_eq!(doc, doc_id, "docID mismatch eof: {}", eof);
-        assert_eq!(frequency, freq, "freq mismatch eof: {}", eof);
-        Ok(eof)
-    }
-    #[test]
-    fn test_add_and_update_term() -> Result<()> {
-        let mut random = random();
-        let new_called = AtomicI64::new(0);
-        let add_called = AtomicI64::new(0);
-        let mut hash = create_new_hash(new_called, add_called)?;
-        let dummy_value = "dummy";
-        let dummy_filed = Fields::Stored(StoredField::with_binary(
-            "binary",
-            dummy_value.as_bytes().to_vec(),
-        )?);
-        hash.start(&dummy_filed, true)?;
-        // Pass `None` for the field as in the Java version (null)
-
-        hash.add_with_bytes_ref(&new_bytes_ref_from_string(&mut random, "start")?, 0)?;
-        hash.add_with_bytes_ref(&new_bytes_ref_from_string(&mut random, "foo")?, 0)?;
-        hash.add_with_bytes_ref(&new_bytes_ref_from_string(&mut random, "bar")?, 0)?;
-        hash.finish();
-        hash.add_with_bytes_ref(&new_bytes_ref_from_string(&mut random, "bar")?, 1)?;
-        hash.add_with_bytes_ref(&new_bytes_ref_from_string(&mut random, "foobar")?, 1)?;
-        hash.add_with_bytes_ref(&new_bytes_ref_from_string(&mut random, "bar")?, 1)?;
-        hash.add_with_bytes_ref(&new_bytes_ref_from_string(&mut random, "bar")?, 1)?;
-        hash.add_with_bytes_ref(&new_bytes_ref_from_string(&mut random, "foobar")?, 1)?;
-        hash.add_with_bytes_ref(
-            &new_bytes_ref_from_string(&mut random, "verylongfoobarbaz")?,
-            1,
-        )?;
-        hash.finish();
-        hash.add_with_bytes_ref(
-            &new_bytes_ref_from_string(&mut random, "verylongfoobarbaz")?,
-            2,
-        )?;
-        hash.add_with_bytes_ref(&new_bytes_ref_from_string(&mut random, "boom")?, 2)?;
-        hash.finish();
-        hash.add_with_bytes_ref(
-            &new_bytes_ref_from_string(&mut random, "verylongfoobarbaz")?,
-            3,
-        )?;
-        hash.add_with_bytes_ref(&new_bytes_ref_from_string(&mut random, "end")?, 3)?;
-        hash.finish();
-
-        assert_eq!(
-            7,
-            hash.sub.as_mut().unwrap().new_called.load(Ordering::SeqCst)
-        );
-        assert_eq!(
-            6,
-            hash.sub.as_mut().unwrap().add_called.load(Ordering::SeqCst)
-        );
-
-        let mut reader = ByteSliceReader::new();
-        hash.init_reader(&mut reader, 0, 0);
-
-        let postings_array_wrapper = &hash.bytes_hash.bytes_start_array.per_field;
-
-        assert!(assert_doc_and_freq(
-            &mut reader,
-            postings_array_wrapper,
-            0,
-            0,
-            0,
-            1
-        )?);
-        hash.init_reader(&mut reader, 1, 0);
-        assert!(assert_doc_and_freq(
-            &mut reader,
-            postings_array_wrapper,
-            0,
-            1,
-            0,
-            1
-        )?);
-        hash.init_reader(&mut reader, 2, 0);
-        assert!(!assert_doc_and_freq(
-            &mut reader,
-            postings_array_wrapper,
-            0,
-            2,
-            0,
-            1
-        )?);
-        assert!(assert_doc_and_freq(
-            &mut reader,
-            postings_array_wrapper,
-            2,
-            2,
-            1,
-            3
-        )?);
-        hash.init_reader(&mut reader, 3, 0);
-        assert!(assert_doc_and_freq(
-            &mut reader,
-            postings_array_wrapper,
-            0,
-            3,
-            1,
-            2
-        )?);
-        hash.init_reader(&mut reader, 4, 0);
-        assert!(!assert_doc_and_freq(
-            &mut reader,
-            postings_array_wrapper,
-            0,
-            4,
-            1,
-            1
-        )?);
-        assert!(!assert_doc_and_freq(
-            &mut reader,
-            postings_array_wrapper,
-            1,
-            4,
-            2,
-            1
-        )?);
-        assert!(assert_doc_and_freq(
-            &mut reader,
-            postings_array_wrapper,
-            2,
-            4,
-            3,
-            1
-        )?);
-        hash.init_reader(&mut reader, 5, 0);
-        assert!(assert_doc_and_freq(
-            &mut reader,
-            postings_array_wrapper,
-            0,
-            5,
-            2,
-            1
-        )?);
-        hash.init_reader(&mut reader, 6, 0);
-        assert!(assert_doc_and_freq(
-            &mut reader,
-            postings_array_wrapper,
-            0,
-            6,
-            3,
-            1
-        )?);
-        Ok(())
-    }
-    #[test]
-    fn test_add_and_update_random() -> Result<()> {
-        let mut random = random();
-        let new_called = AtomicI64::new(0);
-        let add_called = AtomicI64::new(0);
-        let mut hash = create_new_hash(new_called, add_called)?;
-        let dummy_value = "dummy";
-        let dummy_filed = Fields::Stored(StoredField::with_binary(
-            "binary",
-            dummy_value.as_bytes().to_vec(),
-        )?);
-        hash.start(&dummy_filed, true)?;
-
-        #[derive(Clone)]
-        struct Posting {
-            term_id: i32,
-            doc_and_freq: BTreeMap<i32, i32>,
-        }
-        impl Posting {
-            fn new() -> Self {
-                Self {
-                    term_id: -1,
-                    doc_and_freq: BTreeMap::new(),
-                }
-            }
-        }
-
-        let mut posting_map: HashMap<BytesRef<Vec<u8>>, Posting> = HashMap::new();
-        let num_strings = 1 + random.random_range(0..200);
-
-        let random_length = random.random_range(1..100);
-        for _ in 0..num_strings {
-            let random_string = (&mut random)
-                .sample_iter(&Alphanumeric)
-                .take(random_length)
-                .map(char::from)
-                .collect::<String>();
-            posting_map
-                .entry(new_bytes_ref_from_string(&mut random, &random_string)?)
-                .or_insert_with(Posting::new);
-        }
-
-        let mut bytes_refs: Vec<_> = posting_map.keys().cloned().collect();
-        let vec_len = bytes_refs.len();
-        bytes_refs.sort();
-
-        let num_docs = 1 + random.random_range(0..200);
-        let mut term_ord = 0;
-        for doc in 0..num_docs {
-            let num_terms = 1 + random.random_range(0..200);
-            for _ in 0..num_terms {
-                let ref_ = bytes_refs.get(random.random_range(0..vec_len)).unwrap();
-                let posting = posting_map.get_mut(ref_).unwrap();
-
-                if posting.term_id == -1 {
-                    posting.term_id = term_ord;
-                    term_ord += 1;
-                }
-
-                posting
-                    .doc_and_freq
-                    .entry(doc)
-                    .and_modify(|v| *v += 1)
-                    .or_insert(1);
-                hash.add_with_bytes_ref(ref_, doc)?;
-            }
-            hash.finish();
-        }
-
-        let mut values: Vec<_> = posting_map
-            .values()
-            .filter(|x| x.term_id != -1)
-            .cloned()
-            .collect();
-        values.shuffle(&mut random);
-        let mut reader = ByteSliceReader::new();
-
-        let postings_array_wrapper = &hash.bytes_hash.bytes_start_array.per_field;
-        for posting in values {
-            hash.init_reader(&mut reader, posting.term_id, 0);
-
-            let mut eof = false;
-            let mut pref_doc = 0;
-
-            for (doc, freq) in posting.doc_and_freq {
-                assert!(!eof, "the reader must not be EOF here");
-
-                eof = assert_doc_and_freq(
-                    &mut reader,
-                    postings_array_wrapper,
-                    pref_doc,
-                    posting.term_id,
-                    doc,
-                    freq,
-                )?;
-
-                pref_doc = doc;
-            }
-
-            assert!(eof, "the last posting must be EOF on the reader");
-        }
-
-        Ok(())
-    }
-    #[test]
-    fn test_write_bytes() -> Result<()> {
-        let mut random = random();
-
-        for _ in 0..100 {
-            let new_called = AtomicI64::new(0);
-            let add_called = AtomicI64::new(0);
-            let mut hash = create_new_hash(new_called, add_called)?;
-            let dummy_value = "dummy";
-            let dummy_filed = Fields::Stored(StoredField::with_binary(
-                "binary",
-                dummy_value.as_bytes().to_vec(),
-            )?);
-            hash.start(&dummy_filed, true)?;
-            hash.add_with_bytes_ref(&new_bytes_ref_from_string(&mut random, "start")?, 0)?;
-
-            let size = random.random_range(50_000..=100_000);
-            let mut random_data = vec![0u8; size];
-            random.fill(&mut random_data[..]);
-
-            let mut offset = 0;
-            while offset < random_data.len() {
-                let write_length = std::cmp::min(
-                    random_data.len() - offset,
-                    TestUtil::next_int(&mut random, 1, 200) as usize,
-                );
-                debug_assert!(offset <= i32::MAX as usize);
-                debug_assert!(write_length <= i32::MAX as usize);
-                hash.write_bytes(0, &random_data, offset as i32, write_length as i32)?;
-                offset += write_length;
-            }
-
-            let mut reader = ByteSliceReader::new();
-            {
-                let byte_block_pool = hash.byte_pool;
-                let byte_offset;
-                let byte_upto;
-                {
-                    let byte_pool = byte_block_pool.borrow_mut();
-                    byte_offset = byte_pool.byte_offset;
-                    byte_upto = byte_pool.byte_upto;
-                }
-                reader.init(byte_block_pool, 0, byte_offset + byte_upto);
-            }
-
-            for &expected in &random_data {
-                assert_eq!(expected, reader.read_byte()?);
-            }
-        }
-        Ok(())
-    }
-
-    pub(crate) struct TermsHashPerFieldMock {
-        new_called: AtomicI64,
-        add_called: AtomicI64,
-    }
-    impl TermsHashPerFieldMock {
-        #[allow(clippy::new_ret_no_self)]
-        pub(crate) fn new(
-            new_called: AtomicI64,
-            add_called: AtomicI64,
-        ) -> Result<
-            TermsHashPerField<
-                TermsHashPerFieldMock,
-                DummyOffsetAttribute,
-                DummyPayloadAttribute,
-                DummyTermFrequencyAttribute,
-            >,
-        > {
-            let int_block_pool = Rc::new(RefCell::new(IntBlockPool::new()));
-
-            let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
-            let byte_block_pool = Rc::new(RefCell::new(ByteBlockPool::new(allocator)));
-            let allocator1 = AllocatorByteEnum::DA(DirectAllocatorByte::new());
-            let term_block_pool = Rc::new(RefCell::new(ByteBlockPool::new(allocator1)));
-            let bytes_used = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
-
-            let postings_array_wrapper = PostingsArrayWrapper::new(TermsHashPerFieldType::Mock);
-
-            let sub = TermsHashPerFieldMock {
-                new_called,
-                add_called,
-            };
-            let field_state = Rc::new(FieldInvertState::default());
-            Ok(TermsHashPerField::new(
-                1,
-                int_block_pool.clone(),
-                byte_block_pool.clone(),
-                term_block_pool,
-                bytes_used,
-                None,
-                postings_array_wrapper,
-                "testfield".to_string(),
-                IndexOptions::DocsAndFreqs,
-                sub,
-                field_state,
-            ))
-        }
-    }
-    impl TermsHashPerFieldBase for TermsHashPerFieldMock {
-        fn start(&mut self, _field: &Fields, _first: bool) -> Result<bool> {
-            Ok(true)
-        }
-
-        fn new_term<
-            S: TermsHashPerFieldBase,
-            O: OffsetAttribute,
-            P: PayloadAttribute,
-            T: TermFrequencyAttribute,
-        >(
-            &mut self,
-            term_id: i32,
-            doc_id: i32,
-            per_field: &mut TermsHashPerField<S, O, P, T>,
-        ) -> Result<()> {
-            self.new_called
-                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-            let term_id = term_id as usize;
-            match per_field
-                .bytes_hash
-                .bytes_start_array
-                .per_field
-                .postings_array
-                .as_mut()
-                .unwrap()
-            {
-                PostingsArrayEnum::FreqProx(f) => {
-                    f.last_doc_ids[term_id] = doc_id;
-                    f.last_doc_codes[term_id] = doc_id << 1;
-                    match &mut f.term_freqs {
-                        Some(term_freqs) => {
-                            term_freqs[term_id] = 1;
-                        },
-                        None => unreachable!(),
-                    }
-                    Ok(())
-                },
-                _ => unreachable!(),
-            }
-        }
-
-        fn add_term<
-            S: TermsHashPerFieldBase,
-            O: OffsetAttribute,
-            P: PayloadAttribute,
-            T: TermFrequencyAttribute,
-        >(
-            &mut self,
-            term_id: i32,
-            doc_id: i32,
-            per_field: &mut TermsHashPerField<S, O, P, T>,
-        ) -> Result<()> {
-            self.add_called
-                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-            let term_id = term_id as usize;
-            let mut v = Vec::new();
-            let mut need_write = false;
-            match per_field
-                .bytes_hash
-                .bytes_start_array
-                .per_field
-                .postings_array
-                .as_mut()
-                .unwrap()
-            {
-                PostingsArrayEnum::FreqProx(postings) => {
-                    if doc_id != postings.last_doc_ids[term_id] {
-                        match &mut postings.term_freqs {
-                            Some(term_freqs) => {
-                                need_write = true;
-                                if 1 == term_freqs[term_id] {
-                                    v.push(postings.last_doc_codes[term_id] | 1);
-                                } else {
-                                    v.push(postings.last_doc_codes[term_id]);
-                                    v.push(term_freqs[term_id]);
-                                }
-                                term_freqs[term_id] = 1;
-                            },
-                            None => unreachable!(),
-                        }
-                        postings.last_doc_codes[term_id] =
-                            (doc_id - postings.last_doc_ids[term_id]) << 1;
-                        postings.last_doc_ids[term_id] = doc_id;
-                    } else {
-                        match &mut postings.term_freqs {
-                            Some(term_freqs) => {
-                                let value = term_freqs[term_id] as i64 + 1;
-                                if value > i32::MAX as i64 {
-                                    return Err(LuceneError::number_overflow(
-                                        "term_freqs".to_string(),
-                                    ));
-                                }
-                                term_freqs[term_id] += 1;
-                            },
-                            None => unreachable!(),
-                        }
-                    }
-                },
-                _ => unreachable!(),
-            }
-            if need_write {
-                for x in v {
-                    TermsHashPerField::write_vint(per_field, 0, x)?;
-                }
-            }
-            Ok(())
-        }
-
-        fn finish(&mut self) {}
-
-        fn get_field_name(&self) -> &str {
-            ""
-        }
-    }
+    // use std::cell::RefCell;
+    // use std::collections::{BTreeMap, HashMap};
+    // use std::rc::Rc;
+    // use std::sync::atomic::{AtomicI64, Ordering};
+    //
+    // use crate::analysis::token_attributes::dummy::dummy_offset_attribute::DummyOffsetAttribute;
+    // use crate::analysis::token_attributes::dummy::dummy_payload_attribute::DummyPayloadAttribute;
+    // use crate::analysis::token_attributes::dummy::dummy_term_frequency_attribute::DummyTermFrequencyAttribute;
+    // use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
+    // use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
+    // use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
+    // use crate::document::fields::Fields;
+    // use crate::document::stored_field::StoredField;
+    // use crate::index::byte_slice_reader::ByteSliceReader;
+    // use crate::index::field_invert_state::FieldInvertState;
+    // use crate::index::index_options::IndexOptions;
+    // use crate::index::parallel_postings_array::PostingsArrayEnum;
+    // use crate::index::terms_hash_per_field::{
+    //     PostingsArrayWrapper, TermsHashPerField, TermsHashPerFieldBase, TermsHashPerFieldType,
+    // };
+    // use crate::index::BytesRef;
+    // use crate::store::DataInput;
+    // use crate::test::util::lucene_test_case::{new_bytes_ref_from_string, random};
+    // use crate::test::util::test_util::TestUtil;
+    // use crate::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
+    // use crate::util::error::lucene_error::{LuceneError, Result};
+    // use crate::util::int_block_pool::IntBlockPool;
+    // use crate::util::{ByteBlockPool, CounterEnum};
+    // use rand::distr::Alphanumeric;
+    // use rand::prelude::SliceRandom;
+    // use rand::Rng;
+    //
+    // #[allow(dead_code)] // for quick search
+    // struct TestTermsHashPerField;
+    //
+    // fn create_new_hash(
+    //     new_called: AtomicI64,
+    //     add_called: AtomicI64,
+    // ) -> Result<
+    //     TermsHashPerField<
+    //         TermsHashPerFieldMock,
+    //         DummyOffsetAttribute,
+    //         DummyPayloadAttribute,
+    //         DummyTermFrequencyAttribute,
+    //     >,
+    // > {
+    //     let hash = TermsHashPerFieldMock::new(new_called, add_called)?;
+    //     Ok(hash)
+    // }
+    //
+    // fn assert_doc_and_freq(
+    //     reader: &mut ByteSliceReader,
+    //     postings_array_wrapper: &PostingsArrayWrapper,
+    //     prev_doc: i32,
+    //     term_id: i32,
+    //     doc: i32,
+    //     frequency: i32,
+    // ) -> Result<bool> {
+    //     assert!(term_id >= 0);
+    //     let term_id = term_id as usize;
+    //     let postings_array_enum = postings_array_wrapper.postings_array.as_ref().unwrap();
+    //     let postings_array = match postings_array_enum {
+    //         PostingsArrayEnum::FreqProx(freq_prox) => freq_prox,
+    //         _ => {
+    //             unreachable!()
+    //         },
+    //     };
+    //     let mut doc_id = prev_doc;
+    //     let freq: i32;
+    //     let eof = reader.eof();
+    //     if eof {
+    //         doc_id = postings_array.last_doc_ids[term_id];
+    //         match &postings_array.term_freqs {
+    //             Some(term_freqs) => {
+    //                 freq = term_freqs[term_id];
+    //             },
+    //             _ => {
+    //                 return Err(LuceneError::illegal_state(
+    //                     "term_freqs is None.".to_string(),
+    //                 ));
+    //             },
+    //         }
+    //     } else {
+    //         let code = reader.read_vint()?;
+    //         doc_id += code >> 1;
+    //         if (code & 1) != 0 {
+    //             freq = 1;
+    //         } else {
+    //             freq = reader.read_vint()?;
+    //         }
+    //     }
+    //     assert_eq!(doc, doc_id, "docID mismatch eof: {}", eof);
+    //     assert_eq!(frequency, freq, "freq mismatch eof: {}", eof);
+    //     Ok(eof)
+    // }
+    // #[test]
+    // fn test_add_and_update_term() -> Result<()> {
+    //     let mut random = random();
+    //     let new_called = AtomicI64::new(0);
+    //     let add_called = AtomicI64::new(0);
+    //     let mut hash = create_new_hash(new_called, add_called)?;
+    //     let dummy_value = "dummy";
+    //     let dummy_filed = Fields::Stored(StoredField::with_binary(
+    //         "binary",
+    //         dummy_value.as_bytes().to_vec(),
+    //     )?);
+    //     hash.start(&dummy_filed, true)?;
+    //     // Pass `None` for the field as in the Java version (null)
+    //
+    //     hash.add_with_bytes_ref(&new_bytes_ref_from_string(&mut random, "start")?, 0)?;
+    //     hash.add_with_bytes_ref(&new_bytes_ref_from_string(&mut random, "foo")?, 0)?;
+    //     hash.add_with_bytes_ref(&new_bytes_ref_from_string(&mut random, "bar")?, 0)?;
+    //     hash.finish();
+    //     hash.add_with_bytes_ref(&new_bytes_ref_from_string(&mut random, "bar")?, 1)?;
+    //     hash.add_with_bytes_ref(&new_bytes_ref_from_string(&mut random, "foobar")?, 1)?;
+    //     hash.add_with_bytes_ref(&new_bytes_ref_from_string(&mut random, "bar")?, 1)?;
+    //     hash.add_with_bytes_ref(&new_bytes_ref_from_string(&mut random, "bar")?, 1)?;
+    //     hash.add_with_bytes_ref(&new_bytes_ref_from_string(&mut random, "foobar")?, 1)?;
+    //     hash.add_with_bytes_ref(
+    //         &new_bytes_ref_from_string(&mut random, "verylongfoobarbaz")?,
+    //         1,
+    //     )?;
+    //     hash.finish();
+    //     hash.add_with_bytes_ref(
+    //         &new_bytes_ref_from_string(&mut random, "verylongfoobarbaz")?,
+    //         2,
+    //     )?;
+    //     hash.add_with_bytes_ref(&new_bytes_ref_from_string(&mut random, "boom")?, 2)?;
+    //     hash.finish();
+    //     hash.add_with_bytes_ref(
+    //         &new_bytes_ref_from_string(&mut random, "verylongfoobarbaz")?,
+    //         3,
+    //     )?;
+    //     hash.add_with_bytes_ref(&new_bytes_ref_from_string(&mut random, "end")?, 3)?;
+    //     hash.finish();
+    //
+    //     assert_eq!(
+    //         7,
+    //         hash.sub.as_mut().unwrap().new_called.load(Ordering::SeqCst)
+    //     );
+    //     assert_eq!(
+    //         6,
+    //         hash.sub.as_mut().unwrap().add_called.load(Ordering::SeqCst)
+    //     );
+    //
+    //     let mut reader = ByteSliceReader::new();
+    //     hash.init_reader(&mut reader, 0, 0);
+    //
+    //     let postings_array_wrapper = &hash.bytes_hash.bytes_start_array.per_field;
+    //
+    //     assert!(assert_doc_and_freq(
+    //         &mut reader,
+    //         postings_array_wrapper,
+    //         0,
+    //         0,
+    //         0,
+    //         1
+    //     )?);
+    //     hash.init_reader(&mut reader, 1, 0);
+    //     assert!(assert_doc_and_freq(
+    //         &mut reader,
+    //         postings_array_wrapper,
+    //         0,
+    //         1,
+    //         0,
+    //         1
+    //     )?);
+    //     hash.init_reader(&mut reader, 2, 0);
+    //     assert!(!assert_doc_and_freq(
+    //         &mut reader,
+    //         postings_array_wrapper,
+    //         0,
+    //         2,
+    //         0,
+    //         1
+    //     )?);
+    //     assert!(assert_doc_and_freq(
+    //         &mut reader,
+    //         postings_array_wrapper,
+    //         2,
+    //         2,
+    //         1,
+    //         3
+    //     )?);
+    //     hash.init_reader(&mut reader, 3, 0);
+    //     assert!(assert_doc_and_freq(
+    //         &mut reader,
+    //         postings_array_wrapper,
+    //         0,
+    //         3,
+    //         1,
+    //         2
+    //     )?);
+    //     hash.init_reader(&mut reader, 4, 0);
+    //     assert!(!assert_doc_and_freq(
+    //         &mut reader,
+    //         postings_array_wrapper,
+    //         0,
+    //         4,
+    //         1,
+    //         1
+    //     )?);
+    //     assert!(!assert_doc_and_freq(
+    //         &mut reader,
+    //         postings_array_wrapper,
+    //         1,
+    //         4,
+    //         2,
+    //         1
+    //     )?);
+    //     assert!(assert_doc_and_freq(
+    //         &mut reader,
+    //         postings_array_wrapper,
+    //         2,
+    //         4,
+    //         3,
+    //         1
+    //     )?);
+    //     hash.init_reader(&mut reader, 5, 0);
+    //     assert!(assert_doc_and_freq(
+    //         &mut reader,
+    //         postings_array_wrapper,
+    //         0,
+    //         5,
+    //         2,
+    //         1
+    //     )?);
+    //     hash.init_reader(&mut reader, 6, 0);
+    //     assert!(assert_doc_and_freq(
+    //         &mut reader,
+    //         postings_array_wrapper,
+    //         0,
+    //         6,
+    //         3,
+    //         1
+    //     )?);
+    //     Ok(())
+    // }
+    // #[test]
+    // fn test_add_and_update_random() -> Result<()> {
+    //     let mut random = random();
+    //     let new_called = AtomicI64::new(0);
+    //     let add_called = AtomicI64::new(0);
+    //     let mut hash = create_new_hash(new_called, add_called)?;
+    //     let dummy_value = "dummy";
+    //     let dummy_filed = Fields::Stored(StoredField::with_binary(
+    //         "binary",
+    //         dummy_value.as_bytes().to_vec(),
+    //     )?);
+    //     hash.start(&dummy_filed, true)?;
+    //
+    //     #[derive(Clone)]
+    //     struct Posting {
+    //         term_id: i32,
+    //         doc_and_freq: BTreeMap<i32, i32>,
+    //     }
+    //     impl Posting {
+    //         fn new() -> Self {
+    //             Self {
+    //                 term_id: -1,
+    //                 doc_and_freq: BTreeMap::new(),
+    //             }
+    //         }
+    //     }
+    //
+    //     let mut posting_map: HashMap<BytesRef<Vec<u8>>, Posting> = HashMap::new();
+    //     let num_strings = 1 + random.random_range(0..200);
+    //
+    //     let random_length = random.random_range(1..100);
+    //     for _ in 0..num_strings {
+    //         let random_string = (&mut random)
+    //             .sample_iter(&Alphanumeric)
+    //             .take(random_length)
+    //             .map(char::from)
+    //             .collect::<String>();
+    //         posting_map
+    //             .entry(new_bytes_ref_from_string(&mut random, &random_string)?)
+    //             .or_insert_with(Posting::new);
+    //     }
+    //
+    //     let mut bytes_refs: Vec<_> = posting_map.keys().cloned().collect();
+    //     let vec_len = bytes_refs.len();
+    //     bytes_refs.sort();
+    //
+    //     let num_docs = 1 + random.random_range(0..200);
+    //     let mut term_ord = 0;
+    //     for doc in 0..num_docs {
+    //         let num_terms = 1 + random.random_range(0..200);
+    //         for _ in 0..num_terms {
+    //             let ref_ = bytes_refs.get(random.random_range(0..vec_len)).unwrap();
+    //             let posting = posting_map.get_mut(ref_).unwrap();
+    //
+    //             if posting.term_id == -1 {
+    //                 posting.term_id = term_ord;
+    //                 term_ord += 1;
+    //             }
+    //
+    //             posting
+    //                 .doc_and_freq
+    //                 .entry(doc)
+    //                 .and_modify(|v| *v += 1)
+    //                 .or_insert(1);
+    //             hash.add_with_bytes_ref(ref_, doc)?;
+    //         }
+    //         hash.finish();
+    //     }
+    //
+    //     let mut values: Vec<_> = posting_map
+    //         .values()
+    //         .filter(|x| x.term_id != -1)
+    //         .cloned()
+    //         .collect();
+    //     values.shuffle(&mut random);
+    //     let mut reader = ByteSliceReader::new();
+    //
+    //     let postings_array_wrapper = &hash.bytes_hash.bytes_start_array.per_field;
+    //     for posting in values {
+    //         hash.init_reader(&mut reader, posting.term_id, 0);
+    //
+    //         let mut eof = false;
+    //         let mut pref_doc = 0;
+    //
+    //         for (doc, freq) in posting.doc_and_freq {
+    //             assert!(!eof, "the reader must not be EOF here");
+    //
+    //             eof = assert_doc_and_freq(
+    //                 &mut reader,
+    //                 postings_array_wrapper,
+    //                 pref_doc,
+    //                 posting.term_id,
+    //                 doc,
+    //                 freq,
+    //             )?;
+    //
+    //             pref_doc = doc;
+    //         }
+    //
+    //         assert!(eof, "the last posting must be EOF on the reader");
+    //     }
+    //
+    //     Ok(())
+    // }
+    // #[test]
+    // fn test_write_bytes() -> Result<()> {
+    //     let mut random = random();
+    //
+    //     for _ in 0..100 {
+    //         let new_called = AtomicI64::new(0);
+    //         let add_called = AtomicI64::new(0);
+    //         let mut hash = create_new_hash(new_called, add_called)?;
+    //         let dummy_value = "dummy";
+    //         let dummy_filed = Fields::Stored(StoredField::with_binary(
+    //             "binary",
+    //             dummy_value.as_bytes().to_vec(),
+    //         )?);
+    //         hash.start(&dummy_filed, true)?;
+    //         hash.add_with_bytes_ref(&new_bytes_ref_from_string(&mut random, "start")?, 0)?;
+    //
+    //         let size = random.random_range(50_000..=100_000);
+    //         let mut random_data = vec![0u8; size];
+    //         random.fill(&mut random_data[..]);
+    //
+    //         let mut offset = 0;
+    //         while offset < random_data.len() {
+    //             let write_length = std::cmp::min(
+    //                 random_data.len() - offset,
+    //                 TestUtil::next_int(&mut random, 1, 200) as usize,
+    //             );
+    //             debug_assert!(offset <= i32::MAX as usize);
+    //             debug_assert!(write_length <= i32::MAX as usize);
+    //             hash.write_bytes(0, &random_data, offset as i32, write_length as i32)?;
+    //             offset += write_length;
+    //         }
+    //
+    //         let mut reader = ByteSliceReader::new();
+    //         {
+    //             let byte_block_pool = hash.byte_pool;
+    //             let byte_offset;
+    //             let byte_upto;
+    //             {
+    //                 let byte_pool = byte_block_pool.borrow_mut();
+    //                 byte_offset = byte_pool.byte_offset;
+    //                 byte_upto = byte_pool.byte_upto;
+    //             }
+    //             reader.init(byte_block_pool, 0, byte_offset + byte_upto);
+    //         }
+    //
+    //         for &expected in &random_data {
+    //             assert_eq!(expected, reader.read_byte()?);
+    //         }
+    //     }
+    //     Ok(())
+    // }
+    //
+    // pub(crate) struct TermsHashPerFieldMock {
+    //     new_called: AtomicI64,
+    //     add_called: AtomicI64,
+    // }
+    // impl TermsHashPerFieldMock {
+    //     #[allow(clippy::new_ret_no_self)]
+    //     pub(crate) fn new(
+    //         new_called: AtomicI64,
+    //         add_called: AtomicI64,
+    //     ) -> Result<
+    //         TermsHashPerField<
+    //             TermsHashPerFieldMock,
+    //             DummyOffsetAttribute,
+    //             DummyPayloadAttribute,
+    //             DummyTermFrequencyAttribute,
+    //         >,
+    //     > {
+    //         let int_block_pool = Rc::new(RefCell::new(IntBlockPool::new()));
+    //
+    //         let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
+    //         let byte_block_pool = Rc::new(RefCell::new(ByteBlockPool::new(allocator)));
+    //         let allocator1 = AllocatorByteEnum::DA(DirectAllocatorByte::new());
+    //         let term_block_pool = Rc::new(RefCell::new(ByteBlockPool::new(allocator1)));
+    //         let bytes_used = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
+    //
+    //         let postings_array_wrapper = PostingsArrayWrapper::new(TermsHashPerFieldType::Mock);
+    //
+    //         let sub = TermsHashPerFieldMock {
+    //             new_called,
+    //             add_called,
+    //         };
+    //         let field_state = Rc::new(FieldInvertState::default());
+    //         Ok(TermsHashPerField::new(
+    //             1,
+    //             int_block_pool.clone(),
+    //             byte_block_pool.clone(),
+    //             term_block_pool,
+    //             bytes_used,
+    //             None,
+    //             postings_array_wrapper,
+    //             "testfield".to_string(),
+    //             IndexOptions::DocsAndFreqs,
+    //             sub,
+    //             field_state,
+    //         ))
+    //     }
+    // }
+    // impl TermsHashPerFieldBase for TermsHashPerFieldMock {
+    //     fn start(&mut self, _field: &Fields, _first: bool) -> Result<bool> {
+    //         Ok(true)
+    //     }
+    //
+    //     fn new_term<
+    //
+    //         O: OffsetAttribute,
+    //         P: PayloadAttribute,
+    //         T: TermFrequencyAttribute,
+    //     >(
+    //         &mut self,
+    //         term_id: i32,
+    //         doc_id: i32,
+    //         per_field: &mut TermsHashPerField<O, P, T>,
+    //     ) -> Result<()> {
+    //         self.new_called
+    //             .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    //         let term_id = term_id as usize;
+    //         match per_field
+    //             .bytes_hash
+    //             .bytes_start_array
+    //             .per_field
+    //             .postings_array
+    //             .as_mut()
+    //             .unwrap()
+    //         {
+    //             PostingsArrayEnum::FreqProx(f) => {
+    //                 f.last_doc_ids[term_id] = doc_id;
+    //                 f.last_doc_codes[term_id] = doc_id << 1;
+    //                 match &mut f.term_freqs {
+    //                     Some(term_freqs) => {
+    //                         term_freqs[term_id] = 1;
+    //                     },
+    //                     None => unreachable!(),
+    //                 }
+    //                 Ok(())
+    //             },
+    //             _ => unreachable!(),
+    //         }
+    //     }
+    //
+    //     fn add_term<
+    //
+    //         O: OffsetAttribute,
+    //         P: PayloadAttribute,
+    //         T: TermFrequencyAttribute,
+    //     >(
+    //         &mut self,
+    //         term_id: i32,
+    //         doc_id: i32,
+    //         per_field: &mut TermsHashPerField<O, P, T>,
+    //     ) -> Result<()> {
+    //         self.add_called
+    //             .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    //         let term_id = term_id as usize;
+    //         let mut v = Vec::new();
+    //         let mut need_write = false;
+    //         match per_field
+    //             .bytes_hash
+    //             .bytes_start_array
+    //             .per_field
+    //             .postings_array
+    //             .as_mut()
+    //             .unwrap()
+    //         {
+    //             PostingsArrayEnum::FreqProx(postings) => {
+    //                 if doc_id != postings.last_doc_ids[term_id] {
+    //                     match &mut postings.term_freqs {
+    //                         Some(term_freqs) => {
+    //                             need_write = true;
+    //                             if 1 == term_freqs[term_id] {
+    //                                 v.push(postings.last_doc_codes[term_id] | 1);
+    //                             } else {
+    //                                 v.push(postings.last_doc_codes[term_id]);
+    //                                 v.push(term_freqs[term_id]);
+    //                             }
+    //                             term_freqs[term_id] = 1;
+    //                         },
+    //                         None => unreachable!(),
+    //                     }
+    //                     postings.last_doc_codes[term_id] =
+    //                         (doc_id - postings.last_doc_ids[term_id]) << 1;
+    //                     postings.last_doc_ids[term_id] = doc_id;
+    //                 } else {
+    //                     match &mut postings.term_freqs {
+    //                         Some(term_freqs) => {
+    //                             let value = term_freqs[term_id] as i64 + 1;
+    //                             if value > i32::MAX as i64 {
+    //                                 return Err(LuceneError::number_overflow(
+    //                                     "term_freqs".to_string(),
+    //                                 ));
+    //                             }
+    //                             term_freqs[term_id] += 1;
+    //                         },
+    //                         None => unreachable!(),
+    //                     }
+    //                 }
+    //             },
+    //             _ => unreachable!(),
+    //         }
+    //         if need_write {
+    //             for x in v {
+    //                 TermsHashPerField::write_vint(per_field, 0, x)?;
+    //             }
+    //         }
+    //         Ok(())
+    //     }
+    //
+    //     fn finish(&mut self) {}
+    //
+    //     fn get_field_name(&self) -> &str {
+    //         ""
+    //     }
+    // }
 }

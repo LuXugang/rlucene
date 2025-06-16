@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cmp::Ordering;
 use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
 use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
 use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
@@ -22,15 +21,20 @@ use crate::document::fields::Fields;
 use crate::index::field_info::FieldInfo;
 use crate::index::parallel_postings_array::{ParallelPostingsArray, PostingsArrayBase};
 use crate::index::terms_hash_per_field::{TermsHashPerField, TermsHashPerFieldBase};
+use crate::index::BytesRef;
 use crate::util::array_util::ArrayUtil;
 use crate::util::bit_util::BitUtil;
 use crate::util::bytes_ref_block_pool::BytesRefBlockPoolBorrow;
 use crate::util::error::lucene_error::Result;
+use std::cmp::Ordering;
 use std::rc::Rc;
-use crate::index::BytesRef;
 
-#[derive(Clone,Default)] // Default used for padding in PriorityQueue, maybe we should Improve PriorityQueue to avoid Default/Clone trait
-pub(crate) struct TermVectorsConsumerPerField {
+pub(crate) struct TermVectorsConsumerPerField<O, P, T>
+where
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+{
     field_info: Rc<FieldInfo>,
     do_vectors: bool,
     do_vector_positions: bool,
@@ -39,8 +43,15 @@ pub(crate) struct TermVectorsConsumerPerField {
     term_byte_pool: BytesRefBlockPoolBorrow,
     has_payloads: bool,
     field_name: String,
+
+    base: TermsHashPerField<O, P, T>,
 }
-impl TermVectorsConsumerPerField {
+impl<O, P, T> TermVectorsConsumerPerField<O, P, T>
+where
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+{
     pub(crate) fn new(_size: i32) -> Self {
         todo!()
     }
@@ -104,59 +115,82 @@ impl TermVectorsConsumerPerField {
         // self.field_info.set_store_term_vectors()?;
         Ok(())
     }
+    pub(crate) fn reset(&mut self) {
+        self.base.reset();
+    }
+    // Secondary entry point (for 2nd & subsequent TermsHash),
+    // because token text has already been "interned" into
+    // textStart, so we hash by textStart.  term vectors use
+    // this API.
+    pub(crate) fn add_with_text_start(&mut self, text_start: i32, doc_id: i32) -> Result<()> {
+        let term_id = self.base.bytes_hash.add_by_pool_offset(text_start)?;
+        if term_id >= 0 {
+            // First time we are seeing this token since we last
+            // flushed the hash.
+            self.base.init_stream_slices(term_id, doc_id)?;
+            self.new_term(term_id, doc_id)?;
+        } else {
+            self.base.position_stream_slice(term_id, doc_id)?;
+            self.add_term(term_id, doc_id)?;
+        }
+        Ok(())
+    }
+    pub(crate) fn start(&mut self, field: &Fields, first: bool) -> Result<bool> {
+        todo!()
+    }
 }
 
-impl Eq for TermVectorsConsumerPerField {}
+impl<O, P, T> Eq for TermVectorsConsumerPerField<O, P, T>
+where
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+{
+}
 
-impl PartialEq<Self> for TermVectorsConsumerPerField {
+impl<O, P, T> PartialEq<Self> for TermVectorsConsumerPerField<O, P, T>
+where
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+{
     fn eq(&self, other: &Self) -> bool {
         todo!()
     }
 }
 
-impl PartialOrd<Self> for TermVectorsConsumerPerField {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> { Some(self.cmp(other)) }
+impl<O, P, T> PartialOrd<Self> for TermVectorsConsumerPerField<O, P, T>
+where
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+{
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
 }
 
-impl Ord for TermVectorsConsumerPerField{
+impl<O, P, T> Ord for TermVectorsConsumerPerField<O, P, T>
+where
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+{
     fn cmp(&self, other: &Self) -> Ordering {
         self.field_name.cmp(&other.field_name)
     }
 }
-impl TermsHashPerFieldBase for TermVectorsConsumerPerField {
-    fn start(&mut self, _field: &Fields, _first: bool) -> Result<bool> {
+impl<O, P, T> TermsHashPerFieldBase for TermVectorsConsumerPerField<O, P, T>
+where
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+{
+    fn new_term(&mut self, term_id: i32, doc_id: i32) -> Result<()> {
         todo!()
     }
 
-    fn new_term<
-        S: TermsHashPerFieldBase,
-        O: OffsetAttribute,
-        P: PayloadAttribute,
-        T: TermFrequencyAttribute,
-    >(
-        &mut self,
-        term_id: i32,
-        doc_id: i32,
-        per_field: &mut TermsHashPerField<S, O, P, T>,
-    ) -> Result<()> {
-        todo!()
-    }
-
-    fn add_term<
-        S: TermsHashPerFieldBase,
-        O: OffsetAttribute,
-        P: PayloadAttribute,
-        T: TermFrequencyAttribute,
-    >(
-        &mut self,
-        term_id: i32,
-        doc_id: i32,
-        per_field: &mut TermsHashPerField<S, O, P, T>,
-    ) -> Result<()> {
-        todo!()
-    }
-
-    fn finish(&mut self) {
+    fn add_term(&mut self, term_id: i32, doc_id: i32) -> Result<()> {
         todo!()
     }
 
@@ -164,7 +198,6 @@ impl TermsHashPerFieldBase for TermVectorsConsumerPerField {
         todo!()
     }
 }
-
 
 pub(crate) struct TermVectorsPostingsArray {
     pub(crate) size: usize,

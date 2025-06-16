@@ -39,8 +39,6 @@ use crate::index::term_state::TermStateEnum;
 use crate::index::term_vectors_consumer::TermVectorsConsumer;
 use crate::index::terms::Terms;
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
-use crate::index::terms_hash::TermsHashBase;
-use crate::index::terms_hash_per_field::TermsHashPerField;
 use crate::index::BytesRef;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
@@ -68,29 +66,35 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-pub(crate) struct FreqProxTermsWriter<D, C, TVW>
+pub(crate) struct FreqProxTermsWriter<D, C, TVW, O, P, T>
 where
     D: Directory,
     C: Codec,
     TVW: TermVectorsWriter,
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
 {
-    pub(crate) next_terms_hash: Option<TermVectorsConsumer<D, C, TVW>>,
+    pub(crate) next_terms_hash: Option<TermVectorsConsumer<D, C, TVW, O, P, T>>,
     pub(crate) int_pool: Rc<RefCell<IntBlockPool>>,
     pub(crate) byte_pool: ByteBlockPoolBorrow,
     pub(crate) term_byte_pool: Option<ByteBlockPoolBorrow>,
     pub(crate) bytes_used: CounterEnumBorrow,
 }
-impl<D, C, TVW> FreqProxTermsWriter<D, C, TVW>
+impl<D, C, TVW, O, P, T> FreqProxTermsWriter<D, C, TVW, O, P, T>
 where
     D: Directory,
     C: Codec,
     TVW: TermVectorsWriter,
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
 {
     pub(crate) fn new(
         int_block_allocator: Rc<RefCell<AllocatorIntEnum>>,
         byte_block_allocator: AllocatorByteEnum<CounterEnumBorrow>,
         bytes_used: CounterEnumBorrow,
-        next_terms_hash: Option<TermVectorsConsumer<D, C, TVW>>,
+        next_terms_hash: Option<TermVectorsConsumer<D, C, TVW, O, P, T>>,
     ) -> Self {
         let mut terms_hash = Self {
             next_terms_hash: None,
@@ -109,7 +113,7 @@ where
         terms_hash.term_byte_pool = term_byte_pool;
         terms_hash
     }
-    fn apply_deletes<O, P, T>(
+    fn apply_deletes(
         &self,
         state: &mut SegmentWriteState<D>,
         fields: FreqProxFields<O, P, T>,
@@ -164,9 +168,9 @@ where
         self.byte_pool.borrow_mut().reset(false, false)
     }
 
-    fn flush<N, DM, O, P, T>(
+    fn flush<N, DM>(
         &mut self,
-        fields_to_flush: HashMap<String, TermsHashPerField<FreqProxTermsWriterPerField, O, P, T>>,
+        fields_to_flush: HashMap<String, FreqProxTermsWriterPerField<O, P, T>>,
         state: &mut SegmentWriteState<D>,
         sort_map: Option<Rc<DM>>,
         norms: &mut N,
@@ -174,9 +178,6 @@ where
     where
         N: NormsProducer,
         DM: DocMap,
-        O: OffsetAttribute,
-        P: PayloadAttribute,
-        T: TermFrequencyAttribute,
     {
         if let Some(term_vector_consumer) = self.next_terms_hash.as_mut() {
             term_vector_consumer.flush(state, &sort_map)?;
@@ -187,9 +188,9 @@ where
         // Gather all fields that saw any postings:
         let mut all_fields = Vec::new();
         for mut per_field in fields_to_flush.into_values() {
-            if per_field.get_num_terms() > 0 {
-                per_field.sort_terms()?;
-                debug_assert!(per_field.index_options != IndexOptions::None);
+            if per_field.base.get_num_terms() > 0 {
+                per_field.base.sort_terms()?;
+                debug_assert!(per_field.base.index_options != IndexOptions::None);
                 all_fields.push(Rc::new(per_field));
             }
         }
@@ -214,7 +215,7 @@ where
             self.next_terms_hash
                 .as_mut()
                 .unwrap()
-                .finish_document(doc_id,&self.bytes_used)?;
+                .finish_document(doc_id, &self.bytes_used)?;
         }
         self.reset();
         Ok(())
@@ -224,23 +225,12 @@ where
             self.next_terms_hash.as_mut().unwrap().start_document()?;
         }
         Ok(())
-    } 
-}
-impl<D, C, TVW> TermsHashBase for FreqProxTermsWriter<D, C, TVW>
-where
-    D: Directory,
-    C: Codec,
-    TVW: TermVectorsWriter,
-{
-   
-
-    type TermsHashPerFieldBase = FreqProxTermsWriterPerField;
-
-    fn add_field<O, P, T>(
+    }
+    fn add_field(
         &mut self,
         field_invert_state: Rc<FieldInvertState<O, P, T>>,
         field_info: Rc<FieldInfo>,
-    ) -> TermsHashPerField<Self::TermsHashPerFieldBase, O, P, T>
+    ) -> FreqProxTermsWriterPerField<O, P, T>
     where
         O: OffsetAttribute,
         P: PayloadAttribute,
@@ -253,8 +243,6 @@ where
             .add_field(field_invert_state.clone(), field_info.clone());
         FreqProxTermsWriterPerField::new(field_invert_state, self, field_info, next_per_field)
     }
-
-   
 }
 
 pub(crate) struct FilterFieldsImpl<F, D>

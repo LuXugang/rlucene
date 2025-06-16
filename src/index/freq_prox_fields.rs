@@ -30,7 +30,6 @@ use crate::index::parallel_postings_array::PostingsArrayEnum;
 use crate::index::postings_enum::{postings_enum_util, PostingsEnum};
 use crate::index::terms::Terms;
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
-use crate::index::terms_hash_per_field::TermsHashPerField;
 use crate::index::{BytesRef, BytesRefBuilder};
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
@@ -53,7 +52,7 @@ where
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 {
-    fields: HashMap<String, Rc<TermsHashPerField<FreqProxTermsWriterPerField, O, P, T>>>,
+    fields: HashMap<String, Rc<FreqProxTermsWriterPerField<O, P, T>>>,
 }
 impl<O, P, T> FreqProxFields<O, P, T>
 where
@@ -61,13 +60,11 @@ where
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 {
-    pub fn new(
-        field_list: Vec<Rc<TermsHashPerField<FreqProxTermsWriterPerField, O, P, T>>>,
-    ) -> Self {
+    pub fn new(field_list: Vec<Rc<FreqProxTermsWriterPerField<O, P, T>>>) -> Self {
         // NOTE: fields are already sorted by field name
         let mut fields = HashMap::with_capacity(field_list.len());
         for field in field_list {
-            let field_name = field.get_field_name().to_string();
+            let field_name = field.base.get_field_name().to_string();
             fields.insert(field_name, field);
         }
         Self { fields }
@@ -117,7 +114,7 @@ where
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 {
-    terms: Rc<TermsHashPerField<FreqProxTermsWriterPerField, O, P, T>>,
+    terms: Rc<FreqProxTermsWriterPerField<O, P, T>>,
 }
 impl<O, P, T> FreqProxTerms<O, P, T>
 where
@@ -125,7 +122,7 @@ where
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 {
-    pub fn new(terms: Rc<TermsHashPerField<FreqProxTermsWriterPerField, O, P, T>>) -> Self {
+    pub fn new(terms: Rc<FreqProxTermsWriterPerField<O, P, T>>) -> Self {
         Self { terms }
     }
 }
@@ -169,6 +166,7 @@ where
 
     fn has_freqs(&self) -> bool {
         self.terms
+            .base
             .index_options
             .cmp(&IndexOptions::DocsAndFreqs)
             .to_int()
@@ -180,6 +178,7 @@ where
         // because that's what FieldInfo said when we started,
         // but during indexing this may have been downgraded:
         self.terms
+            .base
             .index_options
             .cmp(&IndexOptions::DocsAndFreqsAndPositionsAndOffsets)
             .to_int()
@@ -191,6 +190,7 @@ where
         // because that's what FieldInfo said when we started,
         // but during indexing this may have been downgraded:
         self.terms
+            .base
             .index_options
             .cmp(&IndexOptions::DocsAndFreqsAndPositions)
             .to_int()
@@ -198,7 +198,7 @@ where
     }
 
     fn has_payloads(&self) -> bool {
-        self.terms.sub.as_ref().unwrap().saw_payloads
+        self.terms.saw_payloads
     }
 }
 
@@ -208,7 +208,7 @@ where
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 {
-    terms: Rc<TermsHashPerField<FreqProxTermsWriterPerField, O, P, T>>,
+    terms: Rc<FreqProxTermsWriterPerField<O, P, T>>,
     terms_pool: BytesRefBlockPool<CounterEnumBorrow, ByteBlockPoolBorrow>,
     scratch: BytesRef<Vec<u8>>,
     num_terms: i32,
@@ -220,12 +220,10 @@ where
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 {
-    fn new(
-        terms: Rc<TermsHashPerField<FreqProxTermsWriterPerField, O, P, T>>,
-    ) -> BaseTermsEnum<Self> {
+    fn new(terms: Rc<FreqProxTermsWriterPerField<O, P, T>>) -> BaseTermsEnum<Self> {
         let (num_terms, terms_pool) = {
-            let num_terms = terms.get_num_terms();
-            let terms_pool = BytesRefBlockPool::from_byte_block_pool(terms.byte_pool.clone());
+            let num_terms = terms.base.get_num_terms();
+            let terms_pool = BytesRefBlockPool::from_byte_block_pool(terms.base.byte_pool.clone());
             (num_terms, terms_pool)
         };
         let sub = Self {
@@ -254,10 +252,11 @@ where
             return Ok(None);
         }
 
-        let term_id = self.terms.get_sorted_term_ids()[self.ord as usize];
+        let term_id = self.terms.base.get_sorted_term_ids()[self.ord as usize];
 
         let postings_array_enum = &self
             .terms
+            .base
             .bytes_hash
             .bytes_start_array
             .per_field
@@ -286,6 +285,7 @@ where
     fn seek_ceil(&mut self, text: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
         let postings_array_enum = &self
             .terms
+            .base
             .bytes_hash
             .bytes_start_array
             .per_field
@@ -298,7 +298,7 @@ where
             return Err(LuceneError::illegal_state("Unexpected postings array type"));
         };
 
-        let sorted_term_ids = self.terms.get_sorted_term_ids();
+        let sorted_term_ids = self.terms.base.get_sorted_term_ids();
 
         let mut lo = 0;
         let mut hi = self.num_terms - 1;
@@ -342,10 +342,11 @@ where
         let ord = ord as i32;
         self.ord = ord;
 
-        let term_id = self.terms.get_sorted_term_ids()[ord as usize];
+        let term_id = self.terms.base.get_sorted_term_ids()[ord as usize];
 
         let postings_array_enum = &self
             .terms
+            .base
             .bytes_hash
             .bytes_start_array
             .per_field
@@ -394,10 +395,13 @@ where
         reuse: Option<Self::PostingsEnum>,
         flags: i32,
     ) -> Result<Self::PostingsEnum> {
-        let sorted_term_ids = self.terms.get_sorted_term_ids();
+        let sorted_term_ids = self.terms.base.get_sorted_term_ids();
         let (has_prox, has_offsets, has_freq) = {
-            let sub = self.terms.sub.as_ref().expect("sub must be initialized");
-            (sub.has_prox, sub.has_offsets, sub.has_freq)
+            (
+                self.terms.has_prox,
+                self.terms.has_offsets,
+                self.terms.has_freq,
+            )
         };
         if postings_enum_util::feature_requested(flags, postings_enum_util::POSITIONS) {
             if !has_prox {
@@ -451,7 +455,7 @@ where
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 {
-    pub terms: Rc<TermsHashPerField<FreqProxTermsWriterPerField, O, P, T>>,
+    pub terms: Rc<FreqProxTermsWriterPerField<O, P, T>>,
     pub reader: ByteSliceReader,
     pub read_term_freq: bool,
     pub doc_id: i32,
@@ -465,8 +469,8 @@ where
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 {
-    pub fn new(terms: Rc<TermsHashPerField<FreqProxTermsWriterPerField, O, P, T>>) -> Self {
-        let read_term_freq = terms.sub.as_ref().unwrap().has_freq;
+    pub fn new(terms: Rc<FreqProxTermsWriterPerField<O, P, T>>) -> Self {
+        let read_term_freq = terms.has_freq;
         Self {
             terms,
             reader: ByteSliceReader::new(),
@@ -479,7 +483,7 @@ where
     }
     pub fn reset(&mut self, term_id: i32) {
         self.term_id = term_id;
-        self.terms.init_reader(&mut self.reader, term_id, 0);
+        self.terms.base.init_reader(&mut self.reader, term_id, 0);
         self.ended = false;
         self.doc_id = -1;
     }
@@ -508,6 +512,7 @@ where
                 {
                     let postings_array_enum = &self
                         .terms
+                        .base
                         .bytes_hash
                         .bytes_start_array
                         .per_field
@@ -590,7 +595,7 @@ where
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 {
-    terms: Rc<TermsHashPerField<FreqProxTermsWriterPerField, O, P, T>>,
+    terms: Rc<FreqProxTermsWriterPerField<O, P, T>>,
     reader: ByteSliceReader,
     pos_reader: ByteSliceReader,
     read_offsets: bool,
@@ -611,8 +616,8 @@ where
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 {
-    pub fn new(terms: Rc<TermsHashPerField<FreqProxTermsWriterPerField, O, P, T>>) -> Self {
-        let has_offsets = terms.sub.as_ref().unwrap().has_offsets;
+    pub fn new(terms: Rc<FreqProxTermsWriterPerField<O, P, T>>) -> Self {
+        let has_offsets = terms.has_offsets;
         Self {
             terms,
             reader: ByteSliceReader::new(),
@@ -632,8 +637,10 @@ where
     }
     pub fn reset(&mut self, term_id: i32) {
         self.term_id = term_id;
-        self.terms.init_reader(&mut self.reader, term_id, 0);
-        self.terms.init_reader(&mut self.pos_reader, term_id, 1);
+        self.terms.base.init_reader(&mut self.reader, term_id, 0);
+        self.terms
+            .base
+            .init_reader(&mut self.pos_reader, term_id, 1);
         self.ended = false;
         self.doc_id = -1;
         self.pos_left = 0;
@@ -667,6 +674,7 @@ where
                 {
                     let postings_array_enum = &self
                         .terms
+                        .base
                         .bytes_hash
                         .bytes_start_array
                         .per_field

@@ -16,7 +16,6 @@
  */
 use crate::codecs::block_tree::lucene90_block_tree_terms_reader::Lucene90BlockTreeTermsReader;
 use crate::codecs::lucene101::lucene101_postings_reader::Lucene101PostingsReader;
-use crate::codecs::postings_reader_base::PostingsReaderBase;
 use crate::store::IndexInput;
 use crate::util::error::lucene_error::Result;
 pub trait FieldsProducer<I>

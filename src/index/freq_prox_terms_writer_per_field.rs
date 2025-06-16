@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::cmp::Ordering;
 use std::rc::Rc;
 
 use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
@@ -33,6 +34,7 @@ use crate::index::term_vectors_consumer_per_field::TermVectorsConsumerPerField;
 use crate::index::terms_hash_per_field::{
     PostingsArrayWrapper, TermsHashPerField, TermsHashPerFieldBase, TermsHashPerFieldType,
 };
+use crate::index::BytesRef;
 use crate::store::directory::Directory;
 use crate::util::array_util::ArrayUtil;
 use crate::util::bit_util::BitUtil;
@@ -41,25 +43,36 @@ use crate::util::ToInt;
 // TODO: break into separate freq and prox writers as
 // codecs; make separate container (tii/tis/skip/*) that can
 // be configured as any number of files 1..N
-pub(crate) struct FreqProxTermsWriterPerField {
+pub(crate) struct FreqProxTermsWriterPerField<O, P, T>
+where
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+{
     field_info: Rc<FieldInfo>,
     pub(crate) has_freq: bool,
     pub(crate) has_prox: bool,
     pub(crate) has_offsets: bool,
     // Set to true if any token had a payload in the current segment.
     pub(crate) saw_payloads: bool,
+
+    pub(crate) next_per_field: Option<TermVectorsConsumerPerField<O, P, T>>,
+
+    pub(crate) base: TermsHashPerField<O, P, T>,
 }
-impl FreqProxTermsWriterPerField {
-    pub fn new<O, P, T, D, C, TVW>(
+impl<O, P, T> FreqProxTermsWriterPerField<O, P, T>
+where
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+{
+    pub fn new<D, C, TVW>(
         field_state: Rc<FieldInvertState<O, P, T>>,
-        terms_hash: &mut FreqProxTermsWriter<D, C, TVW>,
+        terms_hash: &mut FreqProxTermsWriter<D, C, TVW, O, P, T>,
         field_info: Rc<FieldInfo>,
-        next_per_field: TermsHashPerField<TermVectorsConsumerPerField, O, P, T>,
-    ) -> TermsHashPerField<FreqProxTermsWriterPerField, O, P, T>
+        next_per_field: TermVectorsConsumerPerField<O, P, T>,
+    ) -> FreqProxTermsWriterPerField<O, P, T>
     where
-        O: OffsetAttribute,
-        P: PayloadAttribute,
-        T: TermFrequencyAttribute,
         D: Directory,
         C: Codec,
         TVW: TermVectorsWriter,
@@ -82,49 +95,37 @@ impl FreqProxTermsWriterPerField {
             1
         };
         let name = field_info.get_name().to_string();
-        let sub = FreqProxTermsWriterPerField {
-            field_info,
-            has_freq,
-            has_prox,
-            has_offsets,
-            saw_payloads,
-        };
         let postings_array_wrapper = PostingsArrayWrapper::new(TermsHashPerFieldType::FreqProx(
             FreqProx::new(index_options),
         ));
-        TermsHashPerField::new(
+        let base = TermsHashPerField::new(
             stream_count,
             terms_hash.int_pool.clone(),
             terms_hash.byte_pool.clone(),
             terms_hash.term_byte_pool.as_mut().unwrap().clone(),
             terms_hash.bytes_used.clone(),
-            Some(Box::new(next_per_field)),
             postings_array_wrapper,
             name,
             index_options,
-            sub,
             field_state,
-        )
+        );
+        FreqProxTermsWriterPerField {
+            field_info,
+            has_freq,
+            has_prox,
+            has_offsets,
+            saw_payloads,
+            next_per_field: Option::from(next_per_field),
+            base,
+        }
     }
-    pub(crate) fn write_prox<S, O, P, T>(
-        &mut self,
-        term_id: usize,
-        prox_code: i32,
-        per_filed: &mut TermsHashPerField<S, O, P, T>,
-    ) -> Result<()>
-    where
-        S: TermsHashPerFieldBase,
-        O: OffsetAttribute,
-        P: PayloadAttribute,
-        T: TermFrequencyAttribute,
-    {
-        if let Some(payload_attr) = &per_filed.field_state.pay_load_attribute {
+    pub(crate) fn write_prox(&mut self, term_id: usize, prox_code: i32) -> Result<()> {
+        if let Some(payload_attr) = &self.base.field_state.pay_load_attribute {
             let payload = payload_attr.get_payload();
             if payload.length > 0 {
-                TermsHashPerField::write_vint(per_filed, 1, (prox_code << 1) | 1)?;
-                TermsHashPerField::write_vint(per_filed, 1, payload.length as i32)?;
-                TermsHashPerField::write_bytes(
-                    per_filed,
+                self.base.write_vint(1, (prox_code << 1) | 1)?;
+                self.base.write_vint(1, payload.length as i32)?;
+                self.base.write_bytes(
                     1,
                     &payload.bytes,
                     payload.offset as i32,
@@ -132,12 +133,13 @@ impl FreqProxTermsWriterPerField {
                 )?;
                 self.saw_payloads = true;
             } else {
-                TermsHashPerField::write_vint(per_filed, 1, prox_code << 1)?;
+                self.base.write_vint(1, prox_code << 1)?;
             }
         } else {
-            TermsHashPerField::write_vint(per_filed, 1, prox_code << 1)?;
+            self.base.write_vint(1, prox_code << 1)?;
         }
-        let postings_array_enum = per_filed
+        let postings_array_enum = self
+            .base
             .bytes_hash
             .bytes_start_array
             .per_field
@@ -146,30 +148,20 @@ impl FreqProxTermsWriterPerField {
             .expect("postings_array must be Some");
         match postings_array_enum {
             PostingsArrayEnum::FreqProx(f) => {
-                f.last_positions.as_mut().unwrap()[term_id] = per_filed.field_state.position();
+                f.last_positions.as_mut().unwrap()[term_id] = self.base.field_state.position();
             },
             _ => unreachable!("should not be here"),
         }
 
         Ok(())
     }
-    pub(crate) fn write_offsets<S, O, P, T>(
-        &mut self,
-        term_id: usize,
-        offset_accum: i32,
-        per_field: &mut TermsHashPerField<S, O, P, T>,
-    ) -> Result<()>
-    where
-        S: TermsHashPerFieldBase,
-        O: OffsetAttribute,
-        P: PayloadAttribute,
-        T: TermFrequencyAttribute,
-    {
-        let offset_attribute = &per_field.field_state.off_set_attribute.as_ref().unwrap();
+    pub(crate) fn write_offsets(&mut self, term_id: usize, offset_accum: i32) -> Result<()> {
+        let offset_attribute = &self.base.field_state.off_set_attribute.as_ref().unwrap();
         let start_offset = offset_accum + offset_attribute.start_offset();
         let end_offset = offset_accum + offset_attribute.end_offset();
 
-        let postings_array = per_field
+        let postings_array = self
+            .base
             .bytes_hash
             .bytes_start_array
             .per_field
@@ -195,12 +187,12 @@ impl FreqProxTermsWriterPerField {
             },
             _ => unreachable!("expected FreqProx posting array"),
         };
-        TermsHashPerField::write_vint(per_field, 1, v1)?;
-        TermsHashPerField::write_vint(per_field, 1, v2)?;
+        self.base.write_vint(1, v1)?;
+        self.base.write_vint(1, v2)?;
 
         Ok(())
     }
-    fn get_term_freq<O, P, T>(&self, field_state: &FieldInvertState<O, P, T>) -> Result<i32>
+    fn get_term_freq(&self, field_state: &FieldInvertState<O, P, T>) -> Result<i32>
     where
         O: OffsetAttribute,
         P: PayloadAttribute,
@@ -221,27 +213,80 @@ impl FreqProxTermsWriterPerField {
 
         Ok(freq)
     }
-}
-impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
-    fn start(&mut self, _field: &Fields, _first: bool) -> Result<bool> {
+    pub(crate) fn get_next_per_field(&mut self) -> TermVectorsConsumerPerField<O, P, T> {
+        self.next_per_field.take().unwrap()
+    }
+    fn finish(&mut self) {
+        if self.saw_payloads {
+            self.field_info
+                .set_store_payloads()
+                .expect("should not failed")
+        }
+        if self.saw_payloads {
+            self.field_info
+                .set_store_payloads()
+                .expect("should not failed")
+        }
+    }
+    pub(crate) fn reset(&mut self) {
+        self.base.reset();
+        if self.next_per_field.is_some() {
+            self.next_per_field.as_mut().unwrap().reset();
+        }
+    }
+    /// Called once per inverted token. This is the primary entry point (for
+    /// first TermsHash); postings use this API.
+    pub(crate) fn add_with_bytes_ref(
+        &mut self,
+        term_bytes: &BytesRef<Vec<u8>>,
+        doc_id: i32,
+    ) -> Result<()> {
+        debug_assert!(self.base.assert_doc_id(doc_id));
+        // We are first in the chain so we must "intern" the
+        // term text into textStart address
+        // Get the text & hash of this term.
+        let mut term_id = self.base.bytes_hash.add(term_bytes)?;
+        if term_id >= 0 {
+            self.base.init_stream_slices(term_id, doc_id)?;
+            self.new_term(term_id, doc_id)?;
+        } else {
+            term_id = self.base.position_stream_slice(term_id, doc_id)?;
+            self.add_term(term_id, doc_id)?;
+        }
+
+        if let Some(ref mut next_per_field) = self.next_per_field {
+            let postings_array_wrapper = &self.base.bytes_hash.bytes_start_array.per_field;
+            debug_assert!(postings_array_wrapper.postings_array.is_some());
+            let text_start = postings_array_wrapper
+                .postings_array
+                .as_ref()
+                .unwrap()
+                .get_text_starts()[term_id as usize];
+            next_per_field.add_with_text_start(text_start, doc_id)?;
+        }
+        Ok(())
+    }
+    fn start(&mut self, field: &Fields, first: bool) -> Result<bool> {
+        match self.next_per_field {
+            Some(ref mut next_per_field) => next_per_field.start(field, first)?,
+            None => true,
+        };
         Ok(true)
     }
-
-    fn new_term<
-        S: TermsHashPerFieldBase,
-        O: OffsetAttribute,
-        P: PayloadAttribute,
-        T: TermFrequencyAttribute,
-    >(
-        &mut self,
-        term_id: i32,
-        doc_id: i32,
-        per_field: &mut TermsHashPerField<S, O, P, T>,
-    ) -> Result<()> {
+}
+impl<O, P, T> TermsHashPerFieldBase for FreqProxTermsWriterPerField<O, P, T>
+where
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+{
+    fn new_term(&mut self, term_id: i32, doc_id: i32) -> Result<()> {
         let term_id = term_id as usize;
         // First time we're seeing this term since the last
         // flush
-        let postings_array_enum = per_field
+        let tf = self.get_term_freq(&self.base.field_state)?;
+        let postings_array_enum = self
+            .base
             .bytes_hash
             .bytes_start_array
             .per_field
@@ -256,30 +301,29 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
                 if !self.has_freq {
                     debug_assert!(postings.term_freqs.is_none());
                     postings.last_doc_codes[term_id] = doc_id;
-                    let mut inner = per_field.field_state.inner.borrow_mut();
+                    let mut inner = self.base.field_state.inner.borrow_mut();
                     inner.max_term_frequency = inner.max_term_frequency.max(1);
                 } else {
                     postings.last_doc_codes[term_id] = doc_id << 1;
-                    let tf = self.get_term_freq(&per_field.field_state)?;
                     postings
                         .term_freqs
                         .as_mut()
                         .expect("term_freqs must be Some")[term_id] = tf;
 
                     if self.has_prox {
-                        self.write_prox(term_id, per_field.field_state.position, per_field)?;
+                        self.write_prox(term_id, self.base.field_state.position)?;
                         if self.has_offsets {
-                            self.write_offsets(term_id, per_field.field_state.offset, per_field)?;
+                            self.write_offsets(term_id, self.base.field_state.offset)?;
                         }
                     } else {
                         debug_assert!(!self.has_offsets);
                     }
 
-                    let mut inner = per_field.field_state.inner.borrow_mut();
+                    let mut inner = self.base.field_state.inner.borrow_mut();
                     inner.max_term_frequency = inner.max_term_frequency.max(tf);
                 }
                 {
-                    let mut inner = per_field.field_state.inner.borrow_mut();
+                    let mut inner = self.base.field_state.inner.borrow_mut();
                     inner.unique_term_count += 1;
                 }
             },
@@ -289,20 +333,12 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
         Ok(())
     }
 
-    fn add_term<
-        S: TermsHashPerFieldBase,
-        O: OffsetAttribute,
-        P: PayloadAttribute,
-        T: TermFrequencyAttribute,
-    >(
-        &mut self,
-        term_id: i32,
-        doc_id: i32,
-        per_field: &mut TermsHashPerField<S, O, P, T>,
-    ) -> Result<()> {
+    fn add_term(&mut self, term_id: i32, doc_id: i32) -> Result<()> {
         let term_id = term_id as usize;
 
-        let postings_enum = per_field
+        let tf = self.get_term_freq(&self.base.field_state)?;
+        let postings_enum = self
+            .base
             .bytes_hash
             .bytes_start_array
             .per_field
@@ -319,7 +355,7 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
                 if !self.has_freq {
                     debug_assert!(postings.term_freqs.is_none());
 
-                    if let Some(attr) = &per_field.field_state.term_freq_attribute {
+                    if let Some(attr) = &self.base.field_state.term_freq_attribute {
                         if attr.get_term_frequency() != 1 {
                             return Err(LuceneError::illegal_state(format!(
                                 "field \"{}\": must index term freq while using custom TermFrequencyAttribute",
@@ -334,7 +370,7 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
                         postings.last_doc_codes[term_id] = doc_id - postings.last_doc_ids[term_id];
                         postings.last_doc_ids[term_id] = doc_id;
                         {
-                            let mut inner = per_field.field_state.inner.borrow_mut();
+                            let mut inner = self.base.field_state.inner.borrow_mut();
                             inner.unique_term_count += 1;
                         }
                     }
@@ -360,11 +396,10 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
                         v.push(freq);
                     }
                     // Init freq for the current document
-                    let tf = self.get_term_freq(&per_field.field_state)?;
                     postings.term_freqs.as_mut().unwrap()[term_id] = tf;
 
                     {
-                        let mut inner = per_field.field_state.inner.borrow_mut();
+                        let mut inner = self.base.field_state.inner.borrow_mut();
                         inner.max_term_frequency = inner.max_term_frequency.max(tf);
                     }
 
@@ -376,36 +411,35 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
                         postings.last_offsets.as_mut().unwrap()[term_id] = 0;
                     }
                     if self.has_prox {
-                        self.write_prox(term_id, per_field.field_state.position, per_field)?;
+                        self.write_prox(term_id, self.base.field_state.position)?;
                         if self.has_offsets {
-                            self.write_offsets(term_id, per_field.field_state.offset, per_field)?;
+                            self.write_offsets(term_id, self.base.field_state.offset)?;
                         }
                     } else {
                         debug_assert!(!self.has_offsets);
                     }
                     {
-                        let mut inner = per_field.field_state.inner.borrow_mut();
+                        let mut inner = self.base.field_state.inner.borrow_mut();
                         inner.unique_term_count += 1;
                     }
                 } else {
-                    let tf = self.get_term_freq(&per_field.field_state)?;
                     let term_freqs = postings.term_freqs.as_mut().unwrap();
                     term_freqs[term_id] = term_freqs[term_id].checked_add(tf).ok_or_else(|| {
                         LuceneError::illegal_state("term frequency overflow".to_string())
                     })?;
 
                     {
-                        let mut inner = per_field.field_state.inner.borrow_mut();
+                        let mut inner = self.base.field_state.inner.borrow_mut();
                         inner.max_term_frequency =
                             inner.max_term_frequency.max(term_freqs[term_id]);
                     }
 
                     if self.has_prox {
-                        let delta = per_field.field_state.position
+                        let delta = self.base.field_state.position
                             - postings.last_positions.as_ref().unwrap()[term_id];
-                        self.write_prox(term_id, delta, per_field)?;
+                        self.write_prox(term_id, delta)?;
                         if self.has_offsets {
-                            self.write_offsets(term_id, per_field.field_state.offset, per_field)?;
+                            self.write_offsets(term_id, self.base.field_state.offset)?;
                         }
                     }
                 }
@@ -413,17 +447,9 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
             _ => unreachable!("expected FreqProx posting array"),
         }
         for x in v {
-            TermsHashPerField::write_vint(per_field, 0, x)?
+            self.base.write_vint(0, x)?
         }
         Ok(())
-    }
-
-    fn finish(&mut self) {
-        if self.saw_payloads {
-            self.field_info
-                .set_store_payloads()
-                .expect("should not failed")
-        }
     }
 
     fn get_field_name(&self) -> &str {
@@ -431,11 +457,44 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
     }
 }
 
-impl Eq for FreqProxTermsWriterPerField {}
+impl<O, P, T> Eq for FreqProxTermsWriterPerField<O, P, T>
+where
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+{
+}
 
-impl PartialEq<Self> for FreqProxTermsWriterPerField {
+impl<O, P, T> PartialEq<Self> for FreqProxTermsWriterPerField<O, P, T>
+where
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+{
     fn eq(&self, other: &Self) -> bool {
         todo!()
+    }
+}
+
+impl<O, P, T> PartialOrd<Self> for FreqProxTermsWriterPerField<O, P, T>
+where
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+{
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl<O, P, T> Ord for FreqProxTermsWriterPerField<O, P, T>
+where
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+{
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.base.field_name.cmp(&other.base.field_name)
     }
 }
 
