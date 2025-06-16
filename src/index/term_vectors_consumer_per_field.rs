@@ -19,6 +19,7 @@ use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
 use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
 use crate::document::fields::Fields;
 use crate::index::field_info::FieldInfo;
+use crate::index::field_invert_state::FieldInvertState;
 use crate::index::parallel_postings_array::{ParallelPostingsArray, PostingsArrayBase};
 use crate::index::terms_hash_per_field::{TermsHashPerField, TermsHashPerFieldBase};
 use crate::index::BytesRef;
@@ -43,8 +44,9 @@ where
     term_byte_pool: BytesRefBlockPoolBorrow,
     has_payloads: bool,
     field_name: String,
+    field_state: Rc<FieldInvertState<O, P, T>>,
 
-    base: TermsHashPerField<O, P, T>,
+    base: TermsHashPerField,
 }
 impl<O, P, T> TermVectorsConsumerPerField<O, P, T>
 where

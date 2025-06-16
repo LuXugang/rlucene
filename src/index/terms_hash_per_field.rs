@@ -14,12 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
-use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
-use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
 use crate::index::byte_slice_pool::ByteSlicePool;
 use crate::index::byte_slice_reader::ByteSliceReader;
-use crate::index::field_invert_state::FieldInvertState;
 use crate::index::freq_prox_terms_writer_per_field::{FreqProx, FreqProxPostingsArray};
 use crate::index::index_options::IndexOptions;
 use crate::index::parallel_postings_array::PostingsArrayEnum;
@@ -42,13 +38,7 @@ use std::rc::Rc;
 /// by a [`ByteSliceReader`] for each term. Terms are first deduplicated in a
 /// [`BytesRefHash`]. Once this is done, internal data structures point to the
 /// current offset of each stream that can be written to.
-pub struct TermsHashPerField<O, P, T>
-where
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-{
-    pub(crate) field_state: Rc<FieldInvertState<O, P, T>>,
+pub struct TermsHashPerField {
     int_pool: Rc<RefCell<IntBlockPool>>,
     pub(crate) byte_pool: ByteBlockPoolBorrow,
     slice_pool: ByteSlicePool,
@@ -88,12 +78,7 @@ impl PostingsArrayWrapper {
 pub mod terms_hash_per_field_util {
     pub(super) const HASH_INIT_SIZE: i32 = 4;
 }
-impl<O, P, T> TermsHashPerField<O, P, T>
-where
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-{
+impl TermsHashPerField {
     ///  streamCount: how many streams this field stores per term. E.g.
     /// doc(+freq) is 1 stream, prox+offset is a second.
     #[allow(clippy::too_many_arguments)]
@@ -106,7 +91,6 @@ where
         postings_array_wrapper: PostingsArrayWrapper,
         field_name: String,
         index_options: IndexOptions,
-        field_state: Rc<FieldInvertState<O, P, T>>,
     ) -> Self {
         // In the original Java code, we assert that indexOptions !=
         // IndexOptions.NONE.
@@ -132,7 +116,6 @@ where
             do_next_call: false,
             field_name,
             index_options,
-            field_state,
         }
     }
     pub(crate) fn init_reader(&self, reader: &mut ByteSliceReader, term_id: i32, stream: i32) {
@@ -965,7 +948,7 @@ pub(crate) mod tests {
     //         &mut self,
     //         term_id: i32,
     //         doc_id: i32,
-    //         per_field: &mut TermsHashPerField<O, P, T>,
+    //         per_field: &mut TermsHashPerField,
     //     ) -> Result<()> {
     //         self.new_called
     //             .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
@@ -1002,7 +985,7 @@ pub(crate) mod tests {
     //         &mut self,
     //         term_id: i32,
     //         doc_id: i32,
-    //         per_field: &mut TermsHashPerField<O, P, T>,
+    //         per_field: &mut TermsHashPerField,
     //     ) -> Result<()> {
     //         self.add_called
     //             .fetch_add(1, std::sync::atomic::Ordering::SeqCst);

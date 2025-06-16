@@ -55,10 +55,11 @@ where
     pub(crate) has_offsets: bool,
     // Set to true if any token had a payload in the current segment.
     pub(crate) saw_payloads: bool,
+    field_state: Rc<FieldInvertState<O, P, T>>,
 
     pub(crate) next_per_field: Option<TermVectorsConsumerPerField<O, P, T>>,
 
-    pub(crate) base: TermsHashPerField<O, P, T>,
+    pub(crate) base: TermsHashPerField,
 }
 impl<O, P, T> FreqProxTermsWriterPerField<O, P, T>
 where
@@ -107,7 +108,6 @@ where
             postings_array_wrapper,
             name,
             index_options,
-            field_state,
         );
         FreqProxTermsWriterPerField {
             field_info,
@@ -116,11 +116,12 @@ where
             has_offsets,
             saw_payloads,
             next_per_field: Option::from(next_per_field),
+            field_state,
             base,
         }
     }
     pub(crate) fn write_prox(&mut self, term_id: usize, prox_code: i32) -> Result<()> {
-        if let Some(payload_attr) = &self.base.field_state.pay_load_attribute {
+        if let Some(payload_attr) = &self.field_state.pay_load_attribute {
             let payload = payload_attr.get_payload();
             if payload.length > 0 {
                 self.base.write_vint(1, (prox_code << 1) | 1)?;
@@ -148,7 +149,7 @@ where
             .expect("postings_array must be Some");
         match postings_array_enum {
             PostingsArrayEnum::FreqProx(f) => {
-                f.last_positions.as_mut().unwrap()[term_id] = self.base.field_state.position();
+                f.last_positions.as_mut().unwrap()[term_id] = self.field_state.position();
             },
             _ => unreachable!("should not be here"),
         }
@@ -156,7 +157,7 @@ where
         Ok(())
     }
     pub(crate) fn write_offsets(&mut self, term_id: usize, offset_accum: i32) -> Result<()> {
-        let offset_attribute = &self.base.field_state.off_set_attribute.as_ref().unwrap();
+        let offset_attribute = &self.field_state.off_set_attribute.as_ref().unwrap();
         let start_offset = offset_accum + offset_attribute.start_offset();
         let end_offset = offset_accum + offset_attribute.end_offset();
 
@@ -284,7 +285,7 @@ where
         let term_id = term_id as usize;
         // First time we're seeing this term since the last
         // flush
-        let tf = self.get_term_freq(&self.base.field_state)?;
+        let tf = self.get_term_freq(&self.field_state)?;
         let postings_array_enum = self
             .base
             .bytes_hash
@@ -301,7 +302,7 @@ where
                 if !self.has_freq {
                     debug_assert!(postings.term_freqs.is_none());
                     postings.last_doc_codes[term_id] = doc_id;
-                    let mut inner = self.base.field_state.inner.borrow_mut();
+                    let mut inner = self.field_state.inner.borrow_mut();
                     inner.max_term_frequency = inner.max_term_frequency.max(1);
                 } else {
                     postings.last_doc_codes[term_id] = doc_id << 1;
@@ -311,19 +312,19 @@ where
                         .expect("term_freqs must be Some")[term_id] = tf;
 
                     if self.has_prox {
-                        self.write_prox(term_id, self.base.field_state.position)?;
+                        self.write_prox(term_id, self.field_state.position)?;
                         if self.has_offsets {
-                            self.write_offsets(term_id, self.base.field_state.offset)?;
+                            self.write_offsets(term_id, self.field_state.offset)?;
                         }
                     } else {
                         debug_assert!(!self.has_offsets);
                     }
 
-                    let mut inner = self.base.field_state.inner.borrow_mut();
+                    let mut inner = self.field_state.inner.borrow_mut();
                     inner.max_term_frequency = inner.max_term_frequency.max(tf);
                 }
                 {
-                    let mut inner = self.base.field_state.inner.borrow_mut();
+                    let mut inner = self.field_state.inner.borrow_mut();
                     inner.unique_term_count += 1;
                 }
             },
@@ -336,7 +337,7 @@ where
     fn add_term(&mut self, term_id: i32, doc_id: i32) -> Result<()> {
         let term_id = term_id as usize;
 
-        let tf = self.get_term_freq(&self.base.field_state)?;
+        let tf = self.get_term_freq(&self.field_state)?;
         let postings_enum = self
             .base
             .bytes_hash
@@ -355,7 +356,7 @@ where
                 if !self.has_freq {
                     debug_assert!(postings.term_freqs.is_none());
 
-                    if let Some(attr) = &self.base.field_state.term_freq_attribute {
+                    if let Some(attr) = &self.field_state.term_freq_attribute {
                         if attr.get_term_frequency() != 1 {
                             return Err(LuceneError::illegal_state(format!(
                                 "field \"{}\": must index term freq while using custom TermFrequencyAttribute",
@@ -370,7 +371,7 @@ where
                         postings.last_doc_codes[term_id] = doc_id - postings.last_doc_ids[term_id];
                         postings.last_doc_ids[term_id] = doc_id;
                         {
-                            let mut inner = self.base.field_state.inner.borrow_mut();
+                            let mut inner = self.field_state.inner.borrow_mut();
                             inner.unique_term_count += 1;
                         }
                     }
@@ -399,7 +400,7 @@ where
                     postings.term_freqs.as_mut().unwrap()[term_id] = tf;
 
                     {
-                        let mut inner = self.base.field_state.inner.borrow_mut();
+                        let mut inner = self.field_state.inner.borrow_mut();
                         inner.max_term_frequency = inner.max_term_frequency.max(tf);
                     }
 
@@ -411,15 +412,15 @@ where
                         postings.last_offsets.as_mut().unwrap()[term_id] = 0;
                     }
                     if self.has_prox {
-                        self.write_prox(term_id, self.base.field_state.position)?;
+                        self.write_prox(term_id, self.field_state.position)?;
                         if self.has_offsets {
-                            self.write_offsets(term_id, self.base.field_state.offset)?;
+                            self.write_offsets(term_id, self.field_state.offset)?;
                         }
                     } else {
                         debug_assert!(!self.has_offsets);
                     }
                     {
-                        let mut inner = self.base.field_state.inner.borrow_mut();
+                        let mut inner = self.field_state.inner.borrow_mut();
                         inner.unique_term_count += 1;
                     }
                 } else {
@@ -429,17 +430,17 @@ where
                     })?;
 
                     {
-                        let mut inner = self.base.field_state.inner.borrow_mut();
+                        let mut inner = self.field_state.inner.borrow_mut();
                         inner.max_term_frequency =
                             inner.max_term_frequency.max(term_freqs[term_id]);
                     }
 
                     if self.has_prox {
-                        let delta = self.base.field_state.position
+                        let delta = self.field_state.position
                             - postings.last_positions.as_ref().unwrap()[term_id];
                         self.write_prox(term_id, delta)?;
                         if self.has_offsets {
-                            self.write_offsets(term_id, self.base.field_state.offset)?;
+                            self.write_offsets(term_id, self.field_state.offset)?;
                         }
                     }
                 }
