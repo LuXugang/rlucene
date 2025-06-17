@@ -105,11 +105,11 @@ impl GrowableWriter {
 }
 
 impl Reader for GrowableWriter {
-    fn get(&mut self, index: i32) -> Result<i64> {
+    fn get(&self, index: i32) -> Result<i64> {
         self.current.get(index)
     }
 
-    fn get_bulk(&mut self, index: i32, arr: &mut [i64], off: i32, len: i32) -> Result<i32> {
+    fn get_bulk(&self, index: i32, arr: &mut [i64], off: i32, len: i32) -> Result<i32> {
         self.current.get_bulk(index, arr, off, len)
     }
 

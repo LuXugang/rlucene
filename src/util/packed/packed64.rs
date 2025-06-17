@@ -104,7 +104,7 @@ impl Packed64 {
 }
 
 impl Reader for Packed64 {
-    fn get(&mut self, index: i32) -> Result<i64> {
+    fn get(&self, index: i32) -> Result<i64> {
         // The abstract index in a bit stream
         let major_bit_pos = (index as u64) * (self.bits_per_value as u64);
 
@@ -129,13 +129,7 @@ impl Reader for Packed64 {
             & self.mask_right) as i64)
     }
 
-    fn get_bulk(
-        &mut self,
-        mut index: i32,
-        arr: &mut [i64],
-        mut off: i32,
-        mut len: i32,
-    ) -> Result<i32> {
+    fn get_bulk(&self, mut index: i32, arr: &mut [i64], mut off: i32, mut len: i32) -> Result<i32> {
         debug_assert!(len > 0, "len must be > 0 (got {})", len);
         debug_assert!(
             index >= 0 && index < self.value_count,

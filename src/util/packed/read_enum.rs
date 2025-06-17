@@ -34,14 +34,14 @@ impl Accountable for PackedIntsReadEnum {
 }
 
 impl Reader for PackedIntsReadEnum {
-    fn get(&mut self, index: i32) -> Result<i64> {
+    fn get(&self, index: i32) -> Result<i64> {
         match self {
             PackedIntsReadEnum::PackedReader(op) => op.get(index),
             PackedIntsReadEnum::NullReader(op) => op.get(index),
         }
     }
 
-    fn get_bulk(&mut self, index: i32, arr: &mut [i64], off: i32, len: i32) -> Result<i32> {
+    fn get_bulk(&self, index: i32, arr: &mut [i64], off: i32, len: i32) -> Result<i32> {
         match self {
             PackedIntsReadEnum::PackedReader(op) => op.get_bulk(index, arr, off, len),
             PackedIntsReadEnum::NullReader(op) => op.get_bulk(index, arr, off, len),

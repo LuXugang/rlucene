@@ -146,7 +146,7 @@ where
             if i < num_common_pages {
                 let copy_length = std::cmp::min(value_count, self.sub_mutables[i].size());
                 PackedInts::copy_with_buffer(
-                    &mut self.sub_mutables[i],
+                    &self.sub_mutables[i],
                     0,
                     &mut copy.sub_mutables[i],
                     0,

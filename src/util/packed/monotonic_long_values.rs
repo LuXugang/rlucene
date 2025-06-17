@@ -31,7 +31,7 @@ impl MonotonicLongValues {
     pub(crate) fn new(averages: Vec<f32>) -> Self {
         Self { averages }
     }
-    pub(crate) fn decode_block(&mut self, block: i32, dest: &mut [i64], count: i32) -> Result<i32> {
+    pub(crate) fn decode_block(&self, block: i32, dest: &mut [i64], count: i32) -> Result<i32> {
         let average = self.averages[block as usize];
         for (i, item) in dest.iter_mut().enumerate().take(count as usize) {
             debug_assert!(i <= i32::MAX as usize);
@@ -40,7 +40,7 @@ impl MonotonicLongValues {
         Ok(count)
     }
 
-    pub(crate) fn get_value(&mut self, block: i32, element: i32, value: u64) -> Result<i64> {
+    pub(crate) fn get_value(&self, block: i32, element: i32, value: u64) -> Result<i64> {
         Ok(expected(
             value as i64,
             self.averages[block as usize],

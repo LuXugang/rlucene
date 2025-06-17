@@ -320,7 +320,7 @@ impl PackedInts {
     }
     /// Same as `copy` but uses a pre-allocated buffer.
     pub fn copy_with_buffer(
-        src: &mut impl Reader,
+        src: &impl Reader,
         mut src_pos: i32,
         dest: &mut impl Mutable,
         mut dest_pos: i32,
@@ -723,17 +723,17 @@ pub trait Encoder {
 /// A read-only random access array of positive integers.
 pub trait Reader: Accountable {
     /// Get the value at the given index.
-    fn get(&mut self, _index: i32) -> Result<i64> {
+    fn get(&self, _index: i32) -> Result<i64> {
         unimplemented!("get() must be implemented if it need to be used")
     }
 
     /// Bulk get: read at least one and at most `len` values starting from
     /// `index` into `arr[off.off+len]` and return the actual number of
     /// values that have been read.
-    fn get_bulk(&mut self, index: i32, arr: &mut [i64], off: i32, len: i32) -> Result<i32> {
+    fn get_bulk(&self, index: i32, arr: &mut [i64], off: i32, len: i32) -> Result<i32> {
         self.default_get_bulk(index, arr, off, len)
     }
-    fn default_get_bulk(&mut self, index: i32, arr: &mut [i64], off: i32, len: i32) -> Result<i32> {
+    fn default_get_bulk(&self, index: i32, arr: &mut [i64], off: i32, len: i32) -> Result<i32> {
         debug_assert!(len > 0, "len must be > 0");
         debug_assert!(index < self.size(), "index out of bounds: {}", index);
         debug_assert!(
@@ -1009,11 +1009,11 @@ impl Accountable for NullReader {
     }
 }
 impl Reader for NullReader {
-    fn get(&mut self, _index: i32) -> Result<i64> {
+    fn get(&self, _index: i32) -> Result<i64> {
         Ok(0)
     }
 
-    fn get_bulk(&mut self, index: i32, arr: &mut [i64], off: i32, mut len: i32) -> Result<i32> {
+    fn get_bulk(&self, index: i32, arr: &mut [i64], off: i32, mut len: i32) -> Result<i32> {
         debug_assert!(len > 0, "len must be > 0 (got {})", len);
         debug_assert!(
             index < self.value_count,
@@ -1605,7 +1605,7 @@ mod tests {
         let mut random = random();
         // must be > 10 for the bulk reads below
         let size = TestUtil::next_int(&mut random, 11, 256);
-        let mut packed_ints = NullReader::for_count(size);
+        let packed_ints = NullReader::for_count(size);
         let random_index = TestUtil::next_int(&mut random, 0, size - 1);
         assert_eq!(
             packed_ints.get(random_index)?,

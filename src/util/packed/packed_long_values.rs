@@ -116,23 +116,23 @@ impl PackedLongValues {
         self.size
     }
 
-    fn decode_block(&mut self, block: i32, dest: &mut [i64], _count: i32) -> Result<i32> {
-        let vals = &mut self.values[block as usize];
+    fn decode_block(&self, block: i32, dest: &mut [i64], _count: i32) -> Result<i32> {
+        let vals = &self.values[block as usize];
         let size = vals.size();
         let mut k = 0;
         while k < size {
             k += vals.get_bulk(k, dest, k, size - k)?;
         }
         match self.sub_long_values {
-            Some(ref mut sub) => Ok(sub.decode_block(block, dest, size)?),
+            Some(ref sub) => Ok(sub.decode_block(block, dest, size)?),
             _ => Ok(size),
         }
     }
 
-    fn get_value(&mut self, block: i32, element: i32, _value: i64) -> Result<i64> {
+    fn get_value(&self, block: i32, element: i32, _value: i64) -> Result<i64> {
         let value = if self.sub_long_values.is_some() {
             self.sub_long_values
-                .as_mut()
+                .as_ref()
                 .unwrap()
                 .get_value(block, element, 0)?
         } else {
@@ -140,7 +140,7 @@ impl PackedLongValues {
         };
         Ok(self.values[block as usize].get(element)? + value)
     }
-    pub fn iterator(&mut self) -> Result<PackedLongValuesIterator> {
+    pub fn iterator(&self) -> Result<PackedLongValuesIterator> {
         PackedLongValuesIterator::new(self)
     }
 }
@@ -359,7 +359,7 @@ impl Builder {
 }
 
 pub struct PackedLongValuesIterator<'a> {
-    packed_long_values: &'a mut PackedLongValues,
+    packed_long_values: &'a PackedLongValues,
     current_values: Vec<i64>,
     v_off: i32,
     p_off: i32,
@@ -367,7 +367,7 @@ pub struct PackedLongValuesIterator<'a> {
 }
 
 impl<'a> PackedLongValuesIterator<'a> {
-    pub fn new(packed_long_values: &'a mut PackedLongValues) -> Result<Self> {
+    pub fn new(packed_long_values: &'a PackedLongValues) -> Result<Self> {
         let current_values = vec![
             0;
             packed_long_values
