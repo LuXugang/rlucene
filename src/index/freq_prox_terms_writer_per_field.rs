@@ -102,10 +102,10 @@ where
         ));
         let base = TermsHashPerField::new(
             stream_count,
-            terms_hash.int_pool.clone(),
-            terms_hash.byte_pool.clone(),
-            terms_hash.term_byte_pool.as_mut().unwrap().clone(),
-            terms_hash.bytes_used.clone(),
+            terms_hash.base.int_pool.clone(),
+            terms_hash.base.byte_pool.clone(),
+            terms_hash.base.term_byte_pool.as_mut().unwrap().clone(),
+            terms_hash.base.bytes_used.clone(),
             postings_array_wrapper,
             name,
             index_options,

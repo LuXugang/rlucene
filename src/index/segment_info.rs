@@ -26,6 +26,8 @@ use parking_lot::Mutex;
 use crate::index::sort::Sort;
 use crate::index::{IndexFileNames, CODEC_FILE_PATTERN};
 use crate::store::directory::Directory;
+#[cfg(test)]
+use crate::store::dummy::dummy_directory::DummyDirectory;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::version::Version;
 use crate::util::StringHelper;
@@ -67,6 +69,27 @@ where
     has_blocks: bool,
     set_files: Option<Rc<RefCell<HashSet<String>>>>,
 }
+
+#[cfg(test)]
+impl Default for SegmentInfo<DummyDirectory> {
+    fn default() -> Self {
+        SegmentInfo {
+            name: String::new(),
+            max_doc: None,
+            dir: Arc::new(Mutex::new(DummyDirectory)),
+            is_compound_file: false,
+            id: [0; 16],
+            diagnostics: HashMap::new(),
+            attributes: Arc::new(Mutex::new(HashMap::new())),
+            index_sort: None,
+            version: None,
+            min_version: None,
+            has_blocks: false,
+            set_files: None,
+        }
+    }
+}
+
 pub mod seg_info {
     /// Used by some member fields to mean not present (e.g., norms, deletions).
     pub const NO: i32 = -1; // e.g. no norms; no deletes;

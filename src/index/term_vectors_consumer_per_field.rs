@@ -29,12 +29,15 @@ use crate::index::parallel_postings_array::{
     ParallelPostingsArray, PostingsArrayBase, PostingsArrayEnum,
 };
 use crate::index::term_vectors_consumer::TermVectorsConsumer;
-use crate::index::terms_hash_per_field::{TermsHashPerField, TermsHashPerFieldBase};
+use crate::index::terms_hash_per_field::{
+    PostingsArrayWrapper, TermsHashPerField, TermsHashPerFieldBase, TermsHashPerFieldType,
+};
 use crate::store::directory::Directory;
 use crate::util::array_util::ArrayUtil;
 use crate::util::bit_util::BitUtil;
-use crate::util::bytes_ref_block_pool::BytesRefBlockPoolBorrow;
+use crate::util::bytes_ref_block_pool::BytesRefBlockPool;
 use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::{ByteBlockPoolBorrow, CounterEnumBorrow};
 use std::cmp::Ordering;
 use std::rc::Rc;
 
@@ -49,7 +52,7 @@ where
     do_vector_positions: bool,
     do_vector_offsets: bool,
     do_vector_payloads: bool,
-    term_byte_pool: BytesRefBlockPoolBorrow,
+    term_byte_pool: BytesRefBlockPool<CounterEnumBorrow, ByteBlockPoolBorrow>,
     has_payloads: bool,
     field_name: String,
     field_state: Rc<FieldInvertState<O, P, T>>,
@@ -68,7 +71,7 @@ where
             do_vector_positions: false,
             do_vector_offsets: false,
             do_vector_payloads: false,
-            term_byte_pool: BytesRefBlockPoolBorrow::default(),
+            term_byte_pool: BytesRefBlockPool::default(),
             has_payloads: false,
             field_name: String::new(),
             field_state: Rc::new(FieldInvertState::default()),
@@ -90,7 +93,7 @@ where
             do_vector_positions: self.do_vector_positions,
             do_vector_offsets: self.do_vector_offsets,
             do_vector_payloads: self.do_vector_payloads,
-            term_byte_pool: self.term_byte_pool.clone(),
+            term_byte_pool: BytesRefBlockPool::default(),
             has_payloads: self.has_payloads,
             field_name: self.field_name.clone(),
             field_state: Rc::clone(&self.field_state),
@@ -105,11 +108,41 @@ where
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 {
-    pub(crate) fn new(
+    pub(crate) fn new<D, C>(
         field_invert_state: Rc<FieldInvertState<O, P, T>>,
+        terms_hash: &mut TermVectorsConsumer<D, C, O, P, T>,
         field_info: Rc<FieldInfo>,
-    ) -> Self {
-        todo!()
+    ) -> Self
+    where
+        D: Directory,
+        C: Codec,
+    {
+        let postings_array_wrapper = PostingsArrayWrapper::new(TermsHashPerFieldType::TermVectors);
+        let base = TermsHashPerField::new(
+            2,
+            terms_hash.base.int_pool.clone(),
+            terms_hash.base.byte_pool.clone(),
+            terms_hash.base.term_byte_pool.as_mut().unwrap().clone(),
+            terms_hash.base.bytes_used.clone(),
+            postings_array_wrapper,
+            field_info.name.clone(),
+            field_info.index_options,
+        );
+        let field_name = field_info.name.clone();
+        Self {
+            field_info,
+            do_vectors: false,
+            do_vector_positions: false,
+            do_vector_offsets: false,
+            do_vector_payloads: false,
+            term_byte_pool: BytesRefBlockPool::from_byte_block_pool(
+                terms_hash.base.term_byte_pool.as_mut().unwrap().clone(),
+            ),
+            has_payloads: false,
+            field_name,
+            field_state: field_invert_state,
+            base,
+        }
     }
 
     pub(crate) fn finish_document<D, C>(
@@ -174,7 +207,7 @@ where
             PostingsArrayEnum::TermVectors(postings) => {
                 for &term_id in term_ids {
                     let freq = postings.freqs[term_id as usize];
-                    self.term_byte_pool.borrow().fill_bytes_ref(
+                    self.term_byte_pool.fill_bytes_ref(
                         &mut term_vectors_consumer.flush_term,
                         postings.parent.text_starts[term_id as usize],
                     );

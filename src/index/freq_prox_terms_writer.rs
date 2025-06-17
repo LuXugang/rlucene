@@ -39,6 +39,7 @@ use crate::index::term_state::TermStateEnum;
 use crate::index::term_vectors_consumer::TermVectorsConsumer;
 use crate::index::terms::Terms;
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
+use crate::index::terms_hash::TermsHash;
 use crate::index::BytesRef;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
@@ -54,13 +55,10 @@ use crate::util::collection_util::CollectionUtil;
 use crate::util::either_enums::EitherPostingsEnum;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
-use crate::util::int_block_pool::{AllocatorIntEnum, IntBlockPool};
+use crate::util::int_block_pool::AllocatorIntEnum;
 use crate::util::lsb_radix_sorter::LSBRadixSorter;
 use crate::util::packed::PackedInts;
-use crate::util::{
-    ByteBlockPool, ByteBlockPoolBorrow, CounterEnumBorrow, SliceCopyOps, Sorter, TimSorter,
-    TimSorterBase, ToInt,
-};
+use crate::util::{CounterEnumBorrow, SliceCopyOps, Sorter, TimSorter, TimSorterBase, ToInt};
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -76,10 +74,7 @@ where
     T: TermFrequencyAttribute,
 {
     pub(crate) next_terms_hash: Option<TermVectorsConsumer<D, C, O, P, T>>,
-    pub(crate) int_pool: Rc<RefCell<IntBlockPool>>,
-    pub(crate) byte_pool: ByteBlockPoolBorrow,
-    pub(crate) term_byte_pool: Option<ByteBlockPoolBorrow>,
-    pub(crate) bytes_used: CounterEnumBorrow,
+    pub(crate) base: TermsHash,
 }
 impl<D, C, O, P, T> FreqProxTermsWriter<D, C, O, P, T>
 where
@@ -94,24 +89,16 @@ where
         int_block_allocator: Rc<RefCell<AllocatorIntEnum>>,
         byte_block_allocator: AllocatorByteEnum<CounterEnumBorrow>,
         bytes_used: CounterEnumBorrow,
-        next_terms_hash: Option<TermVectorsConsumer<D, C, O, P, T>>,
+        mut next_terms_hash: TermVectorsConsumer<D, C, O, P, T>,
     ) -> Self {
-        let mut terms_hash = Self {
+        let mut base = TermsHash::new(int_block_allocator, byte_block_allocator, bytes_used);
+        base.term_byte_pool = Some(base.byte_pool.clone());
+        next_terms_hash.base.term_byte_pool = Some(base.byte_pool.clone());
+
+        Self {
             next_terms_hash: None,
-            int_pool: Rc::new(RefCell::new(IntBlockPool::with_allocator(
-                int_block_allocator,
-            ))),
-            byte_pool: Rc::new(RefCell::new(ByteBlockPool::new(byte_block_allocator))),
-            term_byte_pool: None,
-            bytes_used,
-        };
-        let term_byte_pool = if next_terms_hash.is_some() {
-            Some(terms_hash.byte_pool.clone())
-        } else {
-            None
-        };
-        terms_hash.term_byte_pool = term_byte_pool;
-        terms_hash
+            base,
+        }
     }
     fn apply_deletes(
         &self,
@@ -161,11 +148,8 @@ where
     }
 
     pub(crate) fn abort(&mut self) {
-        self.reset();
-    }
-    pub(crate) fn reset(&mut self) {
-        self.int_pool.borrow_mut().reset(false, false);
-        self.byte_pool.borrow_mut().reset(false, false)
+        self.base.reset();
+        self.next_terms_hash.as_mut().unwrap().abort();
     }
 
     fn flush<N, DM>(
@@ -215,9 +199,8 @@ where
             self.next_terms_hash
                 .as_mut()
                 .unwrap()
-                .finish_document(doc_id, &self.bytes_used)?;
+                .finish_document(doc_id, &self.base.bytes_used)?;
         }
-        self.reset();
         Ok(())
     }
     fn start_document(&mut self) -> Result<()> {

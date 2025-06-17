@@ -17,6 +17,8 @@
 use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
 use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
 use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
+#[cfg(test)]
+use crate::codecs::lucene101_codec::Lucene101Codec;
 use crate::codecs::term_vectors_format::TermVectorsFormat;
 use crate::codecs::term_vectors_writer::{TermVectorsWriter, TermVectorsWriterEnum};
 use crate::codecs::Codec;
@@ -27,15 +29,22 @@ use crate::index::segment_info::SegmentInfo;
 use crate::index::segment_write_state::SegmentWriteState;
 use crate::index::sorter::DocMap;
 use crate::index::term_vectors_consumer_per_field::TermVectorsConsumerPerField;
+use crate::index::terms_hash::TermsHash;
 use crate::index::BytesRef;
 use crate::store::directory::Directory;
+#[cfg(test)]
+use crate::store::dummy::dummy_directory::DummyDirectory;
 use crate::store::flush_info::FlushInfo;
 use crate::store::IOContext;
 use crate::util::allocator_byte::AllocatorByteEnum;
+#[cfg(test)]
+use crate::util::allocator_byte::DirectAllocatorByte;
 use crate::util::array_util::ArrayUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::int_block_pool::AllocatorIntEnum;
-use crate::util::{Counter, CounterEnumBorrow};
+#[cfg(test)]
+use crate::util::int_block_pool::DirectAllocatorI32;
+use crate::util::{Counter, CounterEnum, CounterEnumBorrow};
 use parking_lot::Mutex;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -63,7 +72,36 @@ where
     num_vector_fields: i32,
     last_doc_id: i32,
     per_fields: Vec<TermVectorsConsumerPerField<O, P, T>>,
+
+    pub(crate) base: TermsHash,
 }
+
+#[cfg(test)]
+impl<O, P, T> Default for TermVectorsConsumer<DummyDirectory, Lucene101Codec, O, P, T>
+where
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+{
+    fn default() -> Self {
+        let int_block_allocator = Rc::new(RefCell::new(AllocatorIntEnum::DA(
+            DirectAllocatorI32::new(),
+        )));
+        let byte_block_allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
+        let directory = Arc::new(Mutex::new(DummyDirectory));
+        let info = Rc::new(SegmentInfo::default());
+        let codec = Rc::new(Lucene101Codec);
+
+        TermVectorsConsumer::new(
+            int_block_allocator,
+            byte_block_allocator,
+            directory,
+            info,
+            codec,
+        )
+    }
+}
+
 impl<D, C, O, P, T> TermVectorsConsumer<D, C, O, P, T>
 where
     D: Directory,
@@ -79,8 +117,13 @@ where
         directory: Arc<Mutex<D>>,
         info: Rc<SegmentInfo<D>>,
         codec: Rc<C>,
-        bytes_used: CounterEnumBorrow,
     ) -> Self {
+        let base = TermsHash::new(
+            int_block_allocator,
+            byte_block_allocator,
+            Rc::new(RefCell::new(CounterEnum::new_counter(false))),
+        );
+
         let per_fields = vec![TermVectorsConsumerPerField::default(); 1];
 
         TermVectorsConsumer {
@@ -95,6 +138,7 @@ where
             num_vector_fields: 0,
             last_doc_id: 0,
             per_fields,
+            base,
         }
     }
     pub(crate) fn reset_fields(&mut self) {
@@ -136,7 +180,7 @@ where
     pub(crate) fn flush<DM>(
         &mut self,
         state: &mut SegmentWriteState<D>,
-        sort_map: &Option<Rc<DM>>,
+        _sort_map: &Option<Rc<DM>>,
     ) -> Result<()>
     where
         DM: DocMap,
@@ -197,7 +241,7 @@ where
         field_invert_state: Rc<FieldInvertState<O, P, T>>,
         field_info: Rc<FieldInfo>,
     ) -> TermVectorsConsumerPerField<O, P, T> {
-        TermVectorsConsumerPerField::new(field_invert_state, field_info)
+        TermVectorsConsumerPerField::new(field_invert_state, self, field_info)
     }
     pub(crate) fn add_field_to_flush(
         &mut self,
@@ -210,5 +254,8 @@ where
         }
         self.per_fields[num_vector_fields] = field_to_flush;
         self.num_vector_fields += 1;
+    }
+    pub(crate) fn abort(&mut self) {
+        self.base.reset();
     }
 }

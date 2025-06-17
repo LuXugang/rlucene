@@ -23,7 +23,6 @@ use crate::index::term_vectors_consumer_per_field::TermVectorsPostingsArray;
 use crate::util::access::Access;
 use crate::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
 use crate::util::bytes_ref_hash::{BytesRefHash, BytesStartArray};
-use crate::util::dummy::dummy_counter::DummyCounter;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::int_block_pool::IntBlockPool;
 use crate::util::{
@@ -70,7 +69,7 @@ impl Default for TermsHashPerField {
     // for padding
     fn default() -> Self {
         let postings_array_wrapper = PostingsArrayWrapper::default();
-        let bytes_used = Rc::new(RefCell::new(CounterEnum::Dummy(DummyCounter)));
+        let bytes_used = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
         let byte_starts = PostingsBytesStartArray::new(postings_array_wrapper, bytes_used);
         let term_byte_pool = Rc::new(RefCell::new(ByteBlockPool::new(AllocatorByteEnum::DA(
             DirectAllocatorByte::new(),
@@ -561,6 +560,7 @@ pub(crate) mod tests {
     use crate::index::freq_prox_terms_writer_per_field::FreqProxTermsWriterPerField;
     use crate::index::index_options::IndexOptions;
     use crate::index::parallel_postings_array::PostingsArrayEnum;
+    use crate::index::term_vectors_consumer::TermVectorsConsumer;
     use crate::index::terms_hash_per_field::{PostingsArrayWrapper, TermsHashPerField};
     use crate::index::BytesRef;
     use crate::store::dummy::dummy_directory::DummyDirectory;
@@ -994,10 +994,16 @@ pub(crate) mod tests {
                 DirectAllocatorI32::new(),
             )));
             let mut writer: FreqProxTermsWriter<DummyDirectory, Lucene101Codec, _, _, _> =
-                FreqProxTermsWriter::new(allocator_int, allocator, bytes_used, None);
+                FreqProxTermsWriter::new(
+                    allocator_int,
+                    allocator,
+                    bytes_used,
+                    TermVectorsConsumer::default(),
+                );
 
             let allocator_term = AllocatorByteEnum::DA(DirectAllocatorByte::new());
-            writer.term_byte_pool = Some(Rc::new(RefCell::new(ByteBlockPool::new(allocator_term))));
+            writer.base.term_byte_pool =
+                Some(Rc::new(RefCell::new(ByteBlockPool::new(allocator_term))));
 
             let field_state = Rc::new(FieldInvertState::default());
             let mut field_info = FieldInfo::default();
