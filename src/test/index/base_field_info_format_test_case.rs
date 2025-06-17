@@ -371,7 +371,7 @@ pub trait BaseFieldInfoFormatTestCase {
             Some((*LATEST).clone()),
             min_version,
             name.to_string(),
-            Option::from(10_000),
+            10_000,
             false,
             false,
             HashMap::new(),

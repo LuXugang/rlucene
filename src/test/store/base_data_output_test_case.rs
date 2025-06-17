@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use rand::{Rng, RngCore};
+use rand::Rng;
 use rand_xoshiro::rand_core::SeedableRng;
 use rand_xoshiro::Xoroshiro128Plus;
 
@@ -52,7 +52,7 @@ type DataInputProcessor<DI> = Box<dyn FnMut(&mut DI)>;
 
 pub fn add_random_data<DI: DataInput>(
     dst: &mut impl DataOutput,
-    rnd: &mut impl RngCore,
+    rnd: &mut impl Rng,
     max_add_calls: i32,
 ) -> Vec<DataInputProcessor<DI>> {
     let cg = create_generators();
@@ -65,7 +65,7 @@ pub fn add_random_data<DI: DataInput>(
 }
 type Generator<DO, DI, R> = fn(&mut DO, &mut R) -> Box<dyn FnMut(&mut DI)>;
 
-fn create_generators<DO: DataOutput, DI: DataInput, R: RngCore>() -> Vec<Generator<DO, DI, R>> {
+fn create_generators<DO: DataOutput, DI: DataInput, R: Rng>() -> Vec<Generator<DO, DI, R>> {
     vec![
         //0 writeByte / readByte
         |dst, rnd| {

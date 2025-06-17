@@ -273,7 +273,7 @@ where
 mod tests {
     use std::collections::HashSet;
 
-    use rand::{Rng, RngCore};
+    use rand::Rng;
 
     use crate::index::{BytesRef, BytesRefBuilder};
     use crate::test::util::common_method::assert_vecs_equal;

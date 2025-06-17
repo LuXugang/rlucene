@@ -416,7 +416,7 @@ pub(crate) mod tests {
     use std::fmt;
     use std::rc::Rc;
 
-    use rand::{Rng, RngCore};
+    use rand::Rng;
 
     use crate::codecs::mutable_point_tree::MutablePointTree;
     use crate::index::point_values::PointTree;

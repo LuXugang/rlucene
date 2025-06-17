@@ -43,7 +43,7 @@ where
 {
     /// Unique segment name in the directory.
     pub name: String,
-    max_doc: Option<i32>, // number of docs in seg
+    max_doc: i32, // number of docs in seg
     /// Where this segment resides.
     pub dir: Arc<Mutex<D>>,
     is_compound_file: bool,
@@ -75,7 +75,7 @@ impl Default for SegmentInfo<DummyDirectory> {
     fn default() -> Self {
         SegmentInfo {
             name: String::new(),
-            max_doc: None,
+            max_doc: -1,
             dir: Arc::new(Mutex::new(DummyDirectory)),
             is_compound_file: false,
             id: [0; 16],
@@ -124,7 +124,7 @@ where
         version: Option<Version>,
         min_version: Option<Version>,
         name: String,
-        max_doc: Option<i32>,
+        max_doc: i32,
         is_compound_file: bool,
         has_blocks: bool,
         diagnostics: HashMap<String, String>,
@@ -235,24 +235,23 @@ where
     /// Returns the number of documents in this segment (deletions are not taken
     /// into account)
     pub fn max_doc(&self) -> Result<i32> {
-        if self.max_doc.is_none() {
+        if self.max_doc == -1 {
             return Err(LuceneError::illegal_argument(
                 "maxDoc isn't set yet".to_string(),
             ));
         }
-        Ok(self.max_doc.unwrap())
+        Ok(self.max_doc)
     }
 
     /// Sets the max_doc value, can only be called once
     pub fn set_max_doc(&mut self, max_doc: i32) -> Result<()> {
-        if self.max_doc.is_some() {
+        if self.max_doc != -1 {
             return Err(LuceneError::illegal_argument(format!(
                 "maxDoc was already set: this.maxDoc={} vs maxDoc {}",
-                self.max_doc.unwrap(),
-                max_doc
+                self.max_doc, max_doc
             )));
         }
-        self.max_doc = Some(max_doc);
+        self.max_doc = max_doc;
         Ok(())
     }
 
@@ -260,14 +259,10 @@ where
     pub fn files(&self) -> Result<Rc<RefCell<HashSet<String>>>> {
         match self.set_files {
             Some(ref _set_files) => Ok(self.set_files.as_ref().unwrap().clone()),
-            None => {
-                debug_assert!(self.max_doc.is_some());
-                Err(LuceneError::illegal_argument(format!(
-                    "files were not computed yet; segment={} maxDoc={}",
-                    self.name,
-                    self.max_doc.unwrap()
-                )))
-            },
+            None => Err(LuceneError::illegal_argument(format!(
+                "files were not computed yet; segment={} maxDoc={}",
+                self.name, self.max_doc
+            ))),
         }
     }
 
@@ -313,7 +308,7 @@ where
         s.push(':');
         s.push(cfs);
 
-        s.push_str(&self.max_doc.as_ref().unwrap().to_string());
+        s.push_str(&self.max_doc.to_string());
 
         if del_count != 0 {
             s.push('/');

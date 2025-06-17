@@ -163,7 +163,7 @@ impl Lucene99SegmentInfoFormat {
             Option::from(version),
             min_version,
             segment.to_string(),
-            Option::from(doc_count),
+            doc_count,
             is_compound_file,
             has_blocks,
             diagnostics,

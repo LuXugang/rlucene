@@ -376,7 +376,7 @@ where
 mod tests {
     use std::cmp::{min, Ordering};
 
-    use rand::{Rng, RngCore};
+    use rand::Rng;
 
     use crate::index::BytesRef;
     use crate::test::util::lucene_test_case::random;

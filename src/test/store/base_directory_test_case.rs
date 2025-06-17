@@ -23,7 +23,7 @@ use std::thread;
 use std::time::Duration;
 
 use parking_lot::Mutex;
-use rand::{Rng, RngCore};
+use rand::Rng;
 use tempfile::Builder;
 
 use crate::index::IndexFileNames;
