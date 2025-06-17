@@ -28,3 +28,18 @@ pub trait DocMap {
     /// This must equal the number of documents in the sorted `LeafReader`.
     fn size(&self) -> usize;
 }
+
+pub struct DummyDocMap;
+impl DocMap for DummyDocMap {
+    fn old_to_new(&self, _doc_id: i32) -> i32 {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn new_to_old(&self, _doc_id: i32) -> i32 {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn size(&self) -> usize {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+}

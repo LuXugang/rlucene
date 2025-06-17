@@ -115,13 +115,13 @@ where
     fn flush<DM>(
         &mut self,
         state: &SegmentWriteState<Self::Directory>,
-        sort_map: &Option<Rc<DM>>,
+        sort_map: Option<Rc<DM>>,
         codec: &impl Codec,
     ) -> Result<()>
     where
         DM: DocMap,
     {
-        self.base.flush(state, sort_map, codec)?;
+        self.base.flush(state, sort_map.clone(), codec)?;
         let mut dir = self.tmp_directory.lock();
         let mut reader = self.stored_fields_format.as_ref().unwrap().fields_reader(
             &mut *dir,
@@ -142,7 +142,7 @@ where
         let max_doc = state.segment_info.max_doc()?;
         for doc_id in 0..max_doc {
             sort_writer.start_document()?;
-            let mapped_doc = if let Some(sort_map) = sort_map {
+            let mapped_doc = if let Some(sort_map) = &sort_map {
                 sort_map.new_to_old(doc_id)
             } else {
                 doc_id

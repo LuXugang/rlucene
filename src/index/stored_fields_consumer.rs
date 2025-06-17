@@ -119,8 +119,8 @@ where
     fn flush<DM>(
         &mut self,
         state: &SegmentWriteState<Self::Directory>,
-        _sort_map: &Option<Rc<DM>>,
-        codec: &impl Codec,
+        _sort_map: Option<Rc<DM>>,
+        _codec: &impl Codec,
     ) -> Result<()>
     where
         DM: DocMap,
@@ -148,10 +148,145 @@ pub(crate) trait StoredFieldsConsumerBase {
     fn flush<DM>(
         &mut self,
         state: &SegmentWriteState<Self::Directory>,
-        sort_map: &Option<Rc<DM>>,
+        sort_map: Option<Rc<DM>>,
         codec: &impl Codec,
     ) -> Result<()>
     where
         DM: DocMap;
     fn abort(&mut self) -> Result<()>;
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::codecs::Codec;
+    use crate::document::stored_value::StoredValue;
+    use crate::index::field_info::FieldInfo;
+    use crate::index::segment_info::SegmentInfo;
+    use crate::index::segment_write_state::SegmentWriteState;
+
+    use crate::codecs::lucene101_codec::Lucene101Codec;
+    use crate::index::field_infos::FieldInfos;
+    use crate::index::sorter::{DocMap, DummyDocMap};
+    use crate::index::stored_fields_consumer::{StoredFieldsConsumer, StoredFieldsConsumerBase};
+    use crate::store::directory::Directory;
+    use crate::store::flush_info::FlushInfo;
+    use crate::store::IOContext;
+    use crate::test::util::lucene_test_case::{new_directory, random};
+    use crate::util::error::lucene_error::Result;
+    use crate::util::info_stream::{InfoStreamEnum, NoOutput};
+    use crate::util::{StringHelper, LATEST};
+    use parking_lot::Mutex;
+    use std::collections::HashMap;
+    use std::rc::Rc;
+    use std::sync::atomic::{AtomicI32, Ordering};
+    use std::sync::Arc;
+
+    #[allow(dead_code)] // for quick search
+    struct TestStoredFieldsConsumer;
+
+    #[test]
+    fn test_finish() -> Result<()> {
+        let mut random = random();
+        let dir = Arc::new(Mutex::new(new_directory(&mut random)?));
+        let si = Rc::new(SegmentInfo::new(
+            dir.clone(),
+            Some((*LATEST).clone()),
+            Some((*LATEST).clone()),
+            "_0".to_string(),
+            3,
+            false,
+            false,
+            HashMap::new(),
+            StringHelper::random_id(),
+            HashMap::new(),
+            None,
+        )?);
+        let mut consumer = StoredFieldsConsumerImpl::new(dir.clone(), si.clone());
+        let num_doc = 3;
+        let codec = Lucene101Codec;
+        consumer.finish(&codec, num_doc)?;
+
+        let stream = Arc::new(Mutex::new(InfoStreamEnum::NoOutput(NoOutput)));
+        let field_infos = Rc::new(FieldInfos::new(vec![Rc::from(FieldInfo::default()); 1])?);
+        let context = Rc::new(IOContext::with_flush(FlushInfo::new(num_doc, 10))?);
+        let state = SegmentWriteState::new(stream, dir.clone(), si, field_infos, None, context);
+        consumer.flush(&state, Some(Rc::new(DummyDocMap)), &codec)?;
+        assert_eq!(num_doc, consumer.start_doc_counter.load(Ordering::SeqCst));
+        assert_eq!(num_doc, consumer.finish_doc_counter.load(Ordering::SeqCst));
+        Ok(())
+    }
+
+    struct StoredFieldsConsumerImpl<D1, D2>
+    where
+        D1: Directory,
+        D2: Directory,
+    {
+        start_doc_counter: AtomicI32,
+        finish_doc_counter: AtomicI32,
+        base: StoredFieldsConsumer<D1, D2>,
+    }
+    impl<D1, D2> StoredFieldsConsumerImpl<D1, D2>
+    where
+        D1: Directory,
+        D2: Directory,
+    {
+        pub fn new(directory: Arc<Mutex<D1>>, info: Rc<SegmentInfo<D2>>) -> Self {
+            Self {
+                start_doc_counter: AtomicI32::new(0),
+                finish_doc_counter: AtomicI32::new(0),
+                base: StoredFieldsConsumer::new(directory, info),
+            }
+        }
+    }
+    impl<D1, D2> StoredFieldsConsumerBase for StoredFieldsConsumerImpl<D1, D2>
+    where
+        D1: Directory,
+        D2: Directory,
+    {
+        fn init_stored_fields_writer(&mut self, codec: &impl Codec) -> Result<()> {
+            self.base.init_stored_fields_writer(codec)
+        }
+
+        fn start_document(&mut self, codec: &impl Codec, doc_id: i32) -> Result<()> {
+            self.base.start_document(codec, doc_id)?;
+            self.start_doc_counter.fetch_add(1, Ordering::SeqCst);
+            Ok(())
+        }
+
+        fn write_field(&mut self, info: &FieldInfo, value: &StoredValue) -> Result<()> {
+            self.base.write_field(info, value)
+        }
+
+        fn finish_document(&mut self) -> Result<()> {
+            self.base.finish_document()?;
+            self.finish_doc_counter.fetch_add(1, Ordering::SeqCst);
+            Ok(())
+        }
+
+        fn finish(&mut self, codec: &impl Codec, max_doc: i32) -> Result<()> {
+            while self.base.last_doc < max_doc - 1 {
+                self.start_document(codec, self.base.last_doc + 1)?;
+                self.finish_document()?
+            }
+            Ok(())
+        }
+
+        type Directory = D2;
+
+        fn flush<DM>(
+            &mut self,
+            state: &SegmentWriteState<Self::Directory>,
+            sort_map: Option<Rc<DM>>,
+            codec: &impl Codec,
+        ) -> Result<()>
+        where
+            DM: DocMap,
+        {
+            self.base.flush(state, sort_map, codec)
+        }
+
+        fn abort(&mut self) -> Result<()> {
+            self.base.abort()
+        }
+    }
 }

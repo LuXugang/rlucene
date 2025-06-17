@@ -135,7 +135,7 @@ where
         }
 
         CodecUtil::write_footer(self.docs_out.as_mut().unwrap())?;
-        CodecUtil::write_footer(self.docs_out.as_mut().unwrap())?;
+        CodecUtil::write_footer(self.file_pointers_out.as_mut().unwrap())?;
         let docs_out_file_name = self.docs_out.as_ref().unwrap().get_name().to_string();
         let file_pointers_out_file_name = self
             .file_pointers_out
@@ -143,8 +143,10 @@ where
             .unwrap()
             .get_name()
             .to_string();
-        let _ = std::mem::take(&mut self.docs_out);
-        let _ = std::mem::take(&mut self.file_pointers_out);
+        {
+            let _ = std::mem::take(&mut self.docs_out);
+            let _ = std::mem::take(&mut self.file_pointers_out);
+        }
 
         let mut dir = self.dir.lock();
         let mut data_out = dir.create_output(
