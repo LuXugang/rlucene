@@ -34,7 +34,7 @@ pub enum StoredValue {
     /// Type of double values.
     Double(f64),
     /// Type of binary values.
-    Binary(BytesRef<Rc<Vec<u8>>>),
+    Binary(Rc<BytesRef<Vec<u8>>>),
     /// Type of string values.
     String(Rc<String>),
 }
@@ -92,7 +92,7 @@ impl StoredValue {
     }
 
     /// Ctor for binary values.
-    pub fn new_binary(value: BytesRef<Rc<Vec<u8>>>) -> Self {
+    pub fn new_binary(value: Rc<BytesRef<Vec<u8>>>) -> Self {
         StoredValue::Binary(value)
     }
 
@@ -166,7 +166,7 @@ impl StoredValue {
     }
 
     /// Set a binary value.
-    pub fn set_binary_value(&mut self, value: BytesRef<Rc<Vec<u8>>>) -> Result<()> {
+    pub fn set_binary_value(&mut self, value: Rc<BytesRef<Vec<u8>>>) -> Result<()> {
         if let StoredValue::Binary(ref mut v) = self {
             *v = value;
             Ok(())
@@ -240,7 +240,7 @@ impl StoredValue {
     }
 
     /// Retrieve a binary value.
-    pub fn get_binary_value(&self) -> Result<&BytesRef<Rc<Vec<u8>>>> {
+    pub fn get_binary_value(&self) -> Result<&Rc<BytesRef<Vec<u8>>>> {
         if let StoredValue::Binary(ref v) = self {
             Ok(v)
         } else {
