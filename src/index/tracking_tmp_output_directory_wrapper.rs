@@ -14,70 +14,65 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::store::buffered_checksum_index_input::BufferedChecksumIndexInput;
 use crate::store::directory::Directory;
-use crate::store::IOContext;
+use crate::store::filter_directory::FilterDirectory;
+use crate::store::{IOContext, IndexOutput};
 use crate::util::error::lucene_error::Result;
 use parking_lot::Mutex;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
-/// Directory implementation that delegates calls to another directory.
-///
-/// This struct can be used to add limitations on top of an existing
-/// [`Directory`] implementation such as
-/// [`NRTCachingDirectory`](crate::store::nrt_caching_directory::NRTCachingDirectory), or to add additional
-/// sanity checks for tests.
-///
-/// However, if you plan to write your own [`Directory`] implementation,
-/// you should consider extending directly [`Directory`] or
-/// [`BaseDirectory`](crate::store::base_directory::BaseDirectory) rather than
-/// trying to reuse functionality of existing [`Directory`]s by wrapping this
-/// one.
-pub struct FilterDirectory<D>
+
+pub struct TrackingTmpOutputDirectoryWrapper<D>
 where
     D: Directory,
 {
-    delegate: Arc<Mutex<D>>,
+    file_names: HashMap<String, String>,
+    base: FilterDirectory<D>,
 }
-impl<D> FilterDirectory<D>
+impl<D> TrackingTmpOutputDirectoryWrapper<D>
 where
     D: Directory,
 {
-    pub fn new(inner: Arc<Mutex<D>>) -> Self {
-        FilterDirectory { delegate: inner }
-    }
-    pub fn get_inner(&mut self) -> &mut Arc<Mutex<D>> {
-        &mut self.delegate
+    pub fn new(input: Arc<Mutex<D>>) -> Self {
+        TrackingTmpOutputDirectoryWrapper {
+            file_names: HashMap::new(),
+            base: FilterDirectory::new(input),
+        }
     }
 }
 
-impl<D> Display for FilterDirectory<D>
+impl<D> Display for TrackingTmpOutputDirectoryWrapper<D>
 where
     D: Directory,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "FilterDirectory({})", self.delegate.lock())
+        write!(f, "TrackingTmpOutputDirectoryWrapper({})", self.base)
     }
 }
 
-impl<D> Directory for FilterDirectory<D>
+impl<D> Directory for TrackingTmpOutputDirectoryWrapper<D>
 where
     D: Directory,
 {
     fn list_all(&self) -> Result<Vec<String>> {
-        self.delegate.lock().list_all()
+        self.base.list_all()
     }
 
     fn delete_file(&mut self, name: &str) -> Result<()> {
-        self.delegate.lock().delete_file(name)
+        self.base.delete_file(name)
     }
 
     fn file_length(&self, name: &str) -> Result<i64> {
-        self.delegate.lock().file_length(name)
+        self.base.file_length(name)
     }
 
     fn create_output(&mut self, name: &str, context: &IOContext) -> Result<Self::IndexOutputType> {
-        self.delegate.lock().create_output(name, context)
+        let output = self.base.create_temp_output(name, "", context)?;
+        self.file_names
+            .insert(name.to_string(), output.get_name().to_string());
+        Ok(output)
     }
 
     type IndexOutputType = D::IndexOutputType;
@@ -88,36 +83,60 @@ where
         suffix: &str,
         context: &IOContext,
     ) -> Result<Self::IndexOutputType> {
-        self.delegate
-            .lock()
-            .create_temp_output(prefix, suffix, context)
+        self.base.create_temp_output(prefix, suffix, context)
     }
 
     fn sync(&mut self, names: &[&str]) -> Result<()> {
-        self.delegate.lock().sync(names)
+        self.base.sync(names)
     }
 
     fn sync_metadata(&mut self) -> Result<()> {
-        self.delegate.lock().sync_metadata()
+        self.base.sync_metadata()
     }
 
     fn rename(&mut self, source: &str, dest: &str) -> Result<()> {
-        self.delegate.lock().rename(source, dest)
+        self.base.rename(source, dest)
     }
 
     type IndexInputType = D::IndexInputType;
 
     fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInputType> {
-        self.delegate.lock().open_input(name, context)
+        let tmp_name = self
+            .file_names
+            .get(name)
+            .map(|s| s.as_str())
+            .unwrap_or(name);
+        self.base.open_input(tmp_name, context)
+    }
+
+    fn open_checksum_input(
+        &self,
+        name: &str,
+    ) -> Result<BufferedChecksumIndexInput<Self::IndexInputType>> {
+        self.base.open_checksum_input(name)
     }
 
     type Lock = D::Lock;
 
     fn obtain_lock(&mut self, name: &str) -> Result<Self::Lock> {
-        self.delegate.lock().obtain_lock(name)
+        self.base.obtain_lock(name)
+    }
+
+    fn copy_from<T: Directory>(
+        &mut self,
+        from: Arc<Mutex<T>>,
+        src: &str,
+        dest: &str,
+        context: &IOContext,
+    ) -> Result<()> {
+        self.base.copy_from(from, src, dest, context)
+    }
+
+    fn delete_files_ignoring_exceptions(&mut self, files: &[String]) {
+        self.base.delete_files_ignoring_exceptions(files)
     }
 
     fn get_pending_deletions(&mut self) -> Result<HashSet<String>> {
-        self.delegate.lock().get_pending_deletions()
+        self.base.get_pending_deletions()
     }
 }
