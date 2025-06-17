@@ -317,3 +317,88 @@ where
 {
     Lucene90(Lucene90CompressingStoredFieldsWriter<D>),
 }
+impl<D> StoredFieldsWriter for StoredFieldsWriterEnum<D>
+where
+    D: Directory,
+{
+    fn start_document(&mut self) -> Result<()> {
+        match self {
+            StoredFieldsWriterEnum::Lucene90(writer) => writer.start_document(),
+        }
+    }
+
+    fn finish_document(&mut self) -> Result<()> {
+        match self {
+            StoredFieldsWriterEnum::Lucene90(writer) => writer.finish_document(),
+        }
+    }
+
+    fn write_field_i32(&mut self, field_info: &FieldInfo, value: i32) -> Result<()> {
+        match self {
+            StoredFieldsWriterEnum::Lucene90(writer) => writer.write_field_i32(field_info, value),
+        }
+    }
+
+    fn write_field_i64(&mut self, field_info: &FieldInfo, value: i64) -> Result<()> {
+        match self {
+            StoredFieldsWriterEnum::Lucene90(writer) => writer.write_field_i64(field_info, value),
+        }
+    }
+
+    fn write_field_f32(&mut self, field_info: &FieldInfo, value: f32) -> Result<()> {
+        match self {
+            StoredFieldsWriterEnum::Lucene90(writer) => writer.write_field_f32(field_info, value),
+        }
+    }
+
+    fn write_field_f64(&mut self, field_info: &FieldInfo, value: f64) -> Result<()> {
+        match self {
+            StoredFieldsWriterEnum::Lucene90(writer) => writer.write_field_f64(field_info, value),
+        }
+    }
+
+    fn write_field_with_input(
+        &mut self,
+        field_info: &FieldInfo,
+        input: &mut impl DataInput,
+        length: i32,
+    ) -> Result<()> {
+        match self {
+            StoredFieldsWriterEnum::Lucene90(writer) => {
+                writer.write_field_with_input(field_info, input, length)
+            },
+        }
+    }
+
+    fn write_field_bytes(
+        &mut self,
+        field_info: &FieldInfo,
+        value: &BytesRef<Vec<u8>>,
+    ) -> Result<()> {
+        match self {
+            StoredFieldsWriterEnum::Lucene90(writer) => writer.write_field_bytes(field_info, value),
+        }
+    }
+
+    fn write_field_str(&mut self, field_info: &FieldInfo, value: &str) -> Result<()> {
+        match self {
+            StoredFieldsWriterEnum::Lucene90(writer) => writer.write_field_str(field_info, value),
+        }
+    }
+
+    fn finish(&mut self, num_docs: i32) -> Result<()> {
+        match self {
+            StoredFieldsWriterEnum::Lucene90(writer) => writer.finish(num_docs),
+        }
+    }
+
+    fn merge<I>(&mut self, merge_state: &mut MergeState<I>) -> Result<i32>
+    where
+        I: IndexInput,
+        Self: Sized,
+    {
+        match self {
+            StoredFieldsWriterEnum::Lucene90(writer) => writer.merge(merge_state),
+        }
+    }
+}
