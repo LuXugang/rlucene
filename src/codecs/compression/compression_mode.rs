@@ -26,6 +26,9 @@ use crate::codecs::compression::decompressor::Decompressor;
 use crate::codecs::lz4_with_preset_dict_compression_mode::{
     LZ4WithPresetDictCompressionMode, LZ4WithPresetDictCompressor, LZ4WithPresetDictDecompressor,
 };
+use crate::index::sorting_stored_fields_consumer::{
+    CompressorImpl, DecompressorImpl, NoCompression,
+};
 use crate::index::BytesRef;
 use crate::store::byte_buffers_data_input::ByteBuffersDataInput;
 use crate::store::random_access_input::RandomAccessInput;
@@ -149,6 +152,7 @@ pub enum CompressionModeEnum {
     High(LZ4HighCompressionMode),
     Deflate(DeflateCompressionMode),
     LZ4Dict(LZ4WithPresetDictCompressionMode),
+    Impl(NoCompression),
 }
 
 impl Display for CompressionModeEnum {
@@ -158,6 +162,7 @@ impl Display for CompressionModeEnum {
             CompressionModeEnum::High(mode) => write!(f, "{}", mode),
             CompressionModeEnum::Deflate(mode) => write!(f, "{}", mode),
             CompressionModeEnum::LZ4Dict(mode) => write!(f, "{}", mode),
+            CompressionModeEnum::Impl(mode) => write!(f, "{}", mode),
         }
     }
 }
@@ -169,6 +174,7 @@ impl CompressionModeBase for CompressionModeEnum {
             CompressionModeEnum::High(mode) => mode.new_compressor(),
             CompressionModeEnum::Deflate(mode) => mode.new_compressor(),
             CompressionModeEnum::LZ4Dict(mode) => mode.new_compressor(),
+            CompressionModeEnum::Impl(mode) => mode.new_compressor(),
         }
     }
 
@@ -178,6 +184,7 @@ impl CompressionModeBase for CompressionModeEnum {
             CompressionModeEnum::High(mode) => mode.new_decompressor(),
             CompressionModeEnum::Deflate(mode) => mode.new_decompressor(),
             CompressionModeEnum::LZ4Dict(mode) => mode.new_decompressor(),
+            CompressionModeEnum::Impl(mode) => mode.new_decompressor(),
         }
     }
 }
@@ -188,6 +195,7 @@ impl Clone for CompressionModeEnum {
             CompressionModeEnum::High(mode) => CompressionModeEnum::High(mode.clone()),
             CompressionModeEnum::Deflate(mode) => CompressionModeEnum::Deflate(mode.clone()),
             CompressionModeEnum::LZ4Dict(mode) => CompressionModeEnum::LZ4Dict(mode.clone()),
+            CompressionModeEnum::Impl(mode) => CompressionModeEnum::Impl(mode.clone()),
         }
     }
 }
@@ -235,6 +243,7 @@ pub enum DecompressorEnum {
     LZ4(LZ4Decompressor),
     Deflate(DeflateDecompressor),
     LZ4Dict(LZ4WithPresetDictDecompressor),
+    Impl1(DecompressorImpl),
 }
 
 impl TryClone for DecompressorEnum {
@@ -249,6 +258,9 @@ impl TryClone for DecompressorEnum {
             },
             DecompressorEnum::LZ4Dict(decompressor) => {
                 DecompressorEnum::LZ4Dict(decompressor.clone())
+            },
+            DecompressorEnum::Impl1(decompressor) => {
+                DecompressorEnum::Impl1(decompressor.try_clone()?)
             },
         })
     }
@@ -271,6 +283,9 @@ impl Decompressor for DecompressorEnum {
                 decompressor.decompress(input, original_length, offset, length, bytes)
             },
             DecompressorEnum::LZ4Dict(decompressor) => {
+                decompressor.decompress(input, original_length, offset, length, bytes)
+            },
+            DecompressorEnum::Impl1(decompressor) => {
                 decompressor.decompress(input, original_length, offset, length, bytes)
             },
         }
@@ -407,6 +422,7 @@ pub enum CompressorEnum {
     LZ4High(LZ4HighCompressor),
     Deflate(DeflateCompressor),
     LZ4Dict(LZ4WithPresetDictCompressor),
+    Impl1(CompressorImpl),
 }
 impl Compressor for CompressorEnum {
     fn compress(
@@ -419,6 +435,7 @@ impl Compressor for CompressorEnum {
             CompressorEnum::LZ4High(compressor) => compressor.compress(buffers_input, out),
             CompressorEnum::Deflate(compressor) => compressor.compress(buffers_input, out),
             CompressorEnum::LZ4Dict(compressor) => compressor.compress(buffers_input, out),
+            CompressorEnum::Impl1(compressor) => compressor.compress(buffers_input, out),
         }
     }
 }

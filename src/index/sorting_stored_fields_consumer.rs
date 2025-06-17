@@ -14,6 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codecs::compression::compression_mode::{
+    CompressionModeBase, CompressorEnum, DecompressorEnum,
+};
+use crate::codecs::compression::compressor::Compressor;
+use crate::codecs::compression::decompressor::Decompressor;
 use crate::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::codecs::Codec;
 use crate::document::stored_value::StoredValue;
@@ -25,10 +30,15 @@ use crate::index::stored_field_visitor::{Status, StoredFieldVisitor};
 use crate::index::stored_fields_consumer::{StoredFieldsConsumer, StoredFieldsConsumerBase};
 use crate::index::tracking_tmp_output_directory_wrapper::TrackingTmpOutputDirectoryWrapper;
 use crate::index::BytesRef;
+use crate::store::byte_buffers_data_input::ByteBuffersDataInput;
 use crate::store::directory::Directory;
-use crate::store::DataInput;
+use crate::store::random_access_input::RandomAccessInput;
+use crate::store::{DataInput, DataOutput};
+use crate::util::array_util::ArrayUtil;
+use crate::util::clone::TryClone;
 use crate::util::error::lucene_error::Result;
 use parking_lot::Mutex;
+use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -160,5 +170,71 @@ impl StoredFieldVisitor for CopyVisitor {
         _writer: &mut impl StoredFieldsWriter,
     ) -> Result<Status> {
         Ok(Status::Yes)
+    }
+}
+
+pub struct NoCompression;
+
+impl Display for NoCompression {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "CompressionModeImpl")
+    }
+}
+
+impl Clone for NoCompression {
+    fn clone(&self) -> Self {
+        NoCompression
+    }
+}
+
+impl CompressionModeBase for NoCompression {
+    fn new_compressor(&self) -> CompressorEnum {
+        CompressorEnum::Impl1(CompressorImpl)
+    }
+
+    fn new_decompressor(&self) -> DecompressorEnum {
+        DecompressorEnum::Impl1(DecompressorImpl)
+    }
+}
+
+pub struct CompressorImpl;
+impl Compressor for CompressorImpl {
+    fn compress(
+        &mut self,
+        buffers_input: &mut ByteBuffersDataInput<&[u8]>,
+        out: &mut impl DataOutput,
+    ) -> Result<()> {
+        let len = buffers_input.length();
+        out.copy_bytes(buffers_input, len)
+    }
+}
+pub struct DecompressorImpl;
+
+impl TryClone for DecompressorImpl {
+    fn try_clone(&self) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        Ok(DecompressorImpl)
+    }
+}
+
+impl Decompressor for DecompressorImpl {
+    fn decompress(
+        &mut self,
+        input: &mut impl DataInput,
+        _original_length: i32,
+        offset: i32,
+        length: i32,
+        bytes: &mut BytesRef<Vec<u8>>,
+    ) -> Result<()> {
+        if let Some(new_array) = ArrayUtil::grow_no_copy(&bytes.bytes, length as usize) {
+            bytes.bytes = new_array
+        }
+        input.skip_bytes(offset as i64)?;
+        input.read_bytes(&mut bytes.bytes, 0, length)?;
+        bytes.offset = 0;
+        bytes.length = length as usize;
+        Ok(())
     }
 }
