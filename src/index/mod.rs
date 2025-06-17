@@ -76,6 +76,7 @@ mod live_index_writer_config;
 pub mod merge_policy;
 pub mod merge_state;
 pub mod multi_bits;
+pub(crate) mod norm_values_writer;
 pub mod numeric_doc_values;
 pub mod numeric_doc_values_field_updates;
 pub mod ord_term_state;
