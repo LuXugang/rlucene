@@ -20,7 +20,6 @@ use std::fmt::{Display, Formatter};
 use crate::codecs::compound_directory::CompoundDirectoryBase;
 use crate::codecs::lucene90::lucene90_compound_reader::Lucene90CompoundReader;
 use crate::store::directory::Directory;
-use crate::store::lock::Lock;
 use crate::store::{IOContext, IndexInput};
 use crate::util::error::lucene_error::Result;
 
@@ -113,7 +112,9 @@ where
         }
     }
 
-    fn obtain_lock(&mut self, name: &str) -> Result<impl Lock> {
+    type Lock = D::Lock;
+
+    fn obtain_lock(&mut self, name: &str) -> Result<Self::Lock> {
         match self {
             CompoundDirectoryEnum::Lucene90(reader) => reader.obtain_lock(name),
         }

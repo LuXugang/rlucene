@@ -23,8 +23,6 @@ use crate::codecs::CodecUtil;
 use crate::index::segment_info::SegmentInfo;
 use crate::index::IndexFileNames;
 use crate::store::directory::Directory;
-use crate::store::dummy::dummy_lock::DummyLock;
-use crate::store::lock::Lock;
 use crate::store::{IOContext, IndexInput, ReadAdvice, IO_CONTEXT_DEFAULT};
 use crate::util::error::lucene_error::{LuceneError, Result};
 
@@ -266,8 +264,10 @@ where
         Ok(input)
     }
 
-    fn obtain_lock(&mut self, _name: &str) -> Result<impl Lock> {
-        Err::<DummyLock, LuceneError>(LuceneError::illegal_state(
+    type Lock = D::Lock;
+
+    fn obtain_lock(&mut self, _name: &str) -> Result<Self::Lock> {
+        Err(LuceneError::illegal_state(
             "obtain_lock() wrapped by CompoundDirectory, this method should never not be called"
                 .to_string(),
         ))

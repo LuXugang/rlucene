@@ -27,7 +27,7 @@ use fs2::FileExt;
 use parking_lot::Mutex;
 
 use crate::store::fs_lock_factory::FSLockFactory;
-use crate::store::lock::{FSLockEnum, Lock};
+use crate::store::lock::Lock;
 use crate::store::lock_factory::LockFactory;
 use crate::util::error::lucene_error::{LuceneError, Result};
 
@@ -89,7 +89,9 @@ impl NativeFSLockFactory {
     }
 }
 impl LockFactory for NativeFSLockFactory {
-    fn obtain_lock(&self, dir: &Path, lock_name: &str) -> Result<FSLockEnum> {
+    type Lock = NativeFSLock;
+
+    fn obtain_lock(&self, dir: &Path, lock_name: &str) -> Result<Self::Lock> {
         FSLockFactory::obtain_lock(self, dir, lock_name)
     }
 }
@@ -101,7 +103,7 @@ impl Display for NativeFSLockFactory {
 }
 
 impl FSLockFactory for NativeFSLockFactory {
-    fn obtain_fs_lock(&self, dir: &Path, lock_name: &str) -> Result<FSLockEnum> {
+    fn obtain_fs_lock(&self, dir: &Path, lock_name: &str) -> Result<Self::Lock> {
         fs::create_dir_all(dir)
             .map_err(|e| LuceneError::io_with_path(dir.to_string_lossy().to_string(), e))?;
 
@@ -147,7 +149,7 @@ impl FSLockFactory for NativeFSLockFactory {
                     path: real_path,
                     metadata,
                 };
-                Ok(FSLockEnum::Native(lock))
+                Ok(lock)
             },
             Err(_) => {
                 lock_held.remove(&real_path_str);

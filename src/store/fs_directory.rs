@@ -436,7 +436,9 @@ where
             .open_input(name, context, &self.directory)
     }
 
-    fn obtain_lock(&mut self, name: &str) -> Result<impl Lock> {
+    type Lock = D::Lock;
+
+    fn obtain_lock(&mut self, name: &str) -> Result<Self::Lock> {
         self.lock_factory.obtain_lock(&self.directory, name)
     }
 

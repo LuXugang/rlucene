@@ -17,7 +17,7 @@
 use std::fmt::Display;
 use std::path::Path;
 
-use crate::store::lock::FSLockEnum;
+use crate::store::lock::Lock;
 use crate::util::error::lucene_error::Result;
 
 /// Base trait for locking implementations. `Directory` uses instances of this
@@ -34,6 +34,7 @@ use crate::util::error::lucene_error::Result;
 /// instances and clean up any leftover lock files before starting with the new
 /// configuration. Different implementations cannot work together.
 pub trait LockFactory: Display {
+    type Lock: Lock;
     /// Returns a new got `Lock` instance identified by `lock_name`.
     ///
     /// # Arguments
@@ -44,5 +45,5 @@ pub trait LockFactory: Display {
     ///   the lock could not be obtained because it is currently held elsewhere.
     /// - Returns an `std::io::Error` if any I/O error occurs attempting to gain
     ///   the lock.
-    fn obtain_lock(&self, dir: &Path, lock_name: &str) -> Result<FSLockEnum>;
+    fn obtain_lock(&self, dir: &Path, lock_name: &str) -> Result<Self::Lock>;
 }

@@ -18,7 +18,6 @@ use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 
 use crate::store::directory::Directory;
-use crate::store::lock::Lock;
 use crate::store::IOContext;
 use crate::util::error::lucene_error::Result;
 /// Directory implementation that delegates calls to another directory.
@@ -109,7 +108,9 @@ where
         self.delegate.open_input(name, context)
     }
 
-    fn obtain_lock(&mut self, name: &str) -> Result<impl Lock> {
+    type Lock = D::Lock;
+
+    fn obtain_lock(&mut self, name: &str) -> Result<Self::Lock> {
         self.delegate.obtain_lock(name)
     }
 

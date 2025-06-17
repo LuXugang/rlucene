@@ -21,7 +21,6 @@ use crate::codecs::compound_directory_enum::CompoundDirectoryEnum;
 use crate::store::directory::Directory;
 use crate::store::dummy::dummy_index_output::DummyIndexOutput;
 use crate::store::dummy::dummy_lock::DummyLock;
-use crate::store::lock::Lock;
 use crate::store::{IOContext, IndexInput};
 use crate::util::error::lucene_error::{LuceneError, Result};
 /// A read-only [`Directory`] that provides a view over a compound file.
@@ -116,7 +115,9 @@ where
         self.sub_compound_dir.open_input(name, context)
     }
 
-    fn obtain_lock(&mut self, _name: &str) -> Result<impl Lock> {
+    type Lock = DummyLock;
+
+    fn obtain_lock(&mut self, _name: &str) -> Result<Self::Lock> {
         Err::<DummyLock, LuceneError>(LuceneError::unsupported_operation(
             "obtain_lock".to_string(),
         ))

@@ -16,7 +16,6 @@
  */
 use std::path::Path;
 
-use crate::store::lock::FSLockEnum;
 use crate::store::lock_factory::LockFactory;
 use crate::store::NativeFSLockFactory;
 use crate::util::error::lucene_error::Result;
@@ -30,7 +29,7 @@ pub trait FSLockFactory: LockFactory {
     ///
     /// This method always returns
     /// [`native_fs_lock_factory`](NativeFSLockFactory).
-    fn obtain_lock(&self, directory: &Path, lock_name: &str) -> Result<FSLockEnum> {
+    fn obtain_lock(&self, directory: &Path, lock_name: &str) -> Result<Self::Lock> {
         self.obtain_fs_lock(directory, lock_name)
     }
 
@@ -41,7 +40,7 @@ pub trait FSLockFactory: LockFactory {
     ///
     /// # Note
     /// Implement this method to define how the lock should be acquired.
-    fn obtain_fs_lock(&self, directory: &Path, lock_name: &str) -> Result<FSLockEnum>;
+    fn obtain_fs_lock(&self, directory: &Path, lock_name: &str) -> Result<Self::Lock>;
 }
 #[allow(unused)]
 pub(crate) fn get_default() -> impl FSLockFactory {

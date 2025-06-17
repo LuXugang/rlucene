@@ -74,7 +74,10 @@ impl Directory for DummyDirectory {
     fn open_input(&self, _name: &str, _context: &IOContext) -> Result<Self::IndexInputType> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
-    fn obtain_lock(&mut self, _name: &str) -> Result<DummyLock> {
+
+    type Lock = DummyLock;
+
+    fn obtain_lock(&mut self, _name: &str) -> Result<Self::Lock> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
