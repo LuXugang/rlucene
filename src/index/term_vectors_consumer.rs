@@ -50,18 +50,15 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 
-pub(crate) struct TermVectorsConsumer<D, C, O, P, T>
+pub(crate) struct TermVectorsConsumer<D, O, P, T>
 where
     D: Directory,
-    C: Codec,
-
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 {
     directory: Arc<Mutex<D>>,
     info: Rc<SegmentInfo<D>>,
-    codec: Rc<C>,
     pub(crate) writer: Option<TermVectorsWriterEnum<D>>,
     // Scratch term used by TermVectorsConsumerPerField.finishDocument.
     pub(crate) flush_term: BytesRef<Vec<u8>>,
@@ -77,7 +74,7 @@ where
 }
 
 #[cfg(test)]
-impl<O, P, T> Default for TermVectorsConsumer<DummyDirectory, Lucene101Codec, O, P, T>
+impl<O, P, T> Default for TermVectorsConsumer<DummyDirectory, O, P, T>
 where
     O: OffsetAttribute,
     P: PayloadAttribute,
@@ -92,20 +89,13 @@ where
         let info = Rc::new(SegmentInfo::default());
         let codec = Rc::new(Lucene101Codec);
 
-        TermVectorsConsumer::new(
-            int_block_allocator,
-            byte_block_allocator,
-            directory,
-            info,
-            codec,
-        )
+        TermVectorsConsumer::new(int_block_allocator, byte_block_allocator, directory, info)
     }
 }
 
-impl<D, C, O, P, T> TermVectorsConsumer<D, C, O, P, T>
+impl<D, O, P, T> TermVectorsConsumer<D, O, P, T>
 where
     D: Directory,
-    C: Codec,
 
     O: OffsetAttribute,
     P: PayloadAttribute,
@@ -116,7 +106,6 @@ where
         byte_block_allocator: AllocatorByteEnum<CounterEnumBorrow>,
         directory: Arc<Mutex<D>>,
         info: Rc<SegmentInfo<D>>,
-        codec: Rc<C>,
     ) -> Self {
         let base = TermsHash::new(
             int_block_allocator,
@@ -129,7 +118,6 @@ where
         TermVectorsConsumer {
             directory,
             info,
-            codec,
             writer: None,
             flush_term: BytesRef::default(),
             vector_slice_reader_pos: Some(ByteSliceReader::new()),
@@ -162,12 +150,13 @@ where
     pub(crate) fn init_term_vectors_writer(
         &mut self,
         bytes_used: &CounterEnumBorrow,
+        codec: &impl Codec,
     ) -> Result<()> {
         if self.writer.is_none() {
             let flush_info = FlushInfo::new(self.last_doc_id, bytes_used.borrow().get());
             let context = IOContext::with_flush(flush_info)?;
 
-            self.writer = Option::from(self.codec.term_vectors_format().vectors_writer(
+            self.writer = Option::from(codec.term_vectors_format().vectors_writer(
                 Arc::clone(&self.directory),
                 Rc::clone(&self.info),
                 &context,
@@ -201,6 +190,7 @@ where
         &mut self,
         doc_id: i32,
         bytes_used: &CounterEnumBorrow,
+        codec: &impl Codec,
     ) -> Result<()> {
         if !self.has_vectors {
             return Ok(());
@@ -208,7 +198,7 @@ where
 
         ArrayUtil::intro_sort_with_range(&mut self.per_fields, 0, self.num_vector_fields)?;
 
-        self.init_term_vectors_writer(bytes_used)?;
+        self.init_term_vectors_writer(bytes_used, codec)?;
         self.fill(doc_id)?;
         // Append term vectors to the real outputs:
         self.writer

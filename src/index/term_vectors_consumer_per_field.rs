@@ -18,7 +18,6 @@ use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
 use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
 use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
 use crate::codecs::term_vectors_writer::TermVectorsWriter;
-use crate::codecs::Codec;
 use crate::document::fields::Fields;
 use crate::index::field_info::FieldInfo;
 use crate::index::field_invert_state::FieldInvertState;
@@ -108,14 +107,13 @@ where
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 {
-    pub(crate) fn new<D, C>(
+    pub(crate) fn new<D>(
         field_invert_state: Rc<FieldInvertState<O, P, T>>,
-        terms_hash: &mut TermVectorsConsumer<D, C, O, P, T>,
+        terms_hash: &mut TermVectorsConsumer<D, O, P, T>,
         field_info: Rc<FieldInfo>,
     ) -> Self
     where
         D: Directory,
-        C: Codec,
     {
         let postings_array_wrapper = PostingsArrayWrapper::new(TermsHashPerFieldType::TermVectors);
         let base = TermsHashPerField::new(
@@ -145,13 +143,12 @@ where
         }
     }
 
-    pub(crate) fn finish_document<D, C>(
+    pub(crate) fn finish_document<D>(
         &mut self,
-        term_vectors_consumer: &mut TermVectorsConsumer<D, C, O, P, T>,
+        term_vectors_consumer: &mut TermVectorsConsumer<D, O, P, T>,
     ) -> Result<()>
     where
         D: Directory,
-        C: Codec,
     {
         if !self.do_vectors {
             return Ok(());
@@ -450,10 +447,9 @@ where
 
         Ok(freq)
     }
-    pub(crate) fn finish<D, C>(self, term_vectors_consumer: &mut TermVectorsConsumer<D, C, O, P, T>)
+    pub(crate) fn finish<D>(self, term_vectors_consumer: &mut TermVectorsConsumer<D, O, P, T>)
     where
         D: Directory,
-        C: Codec,
     {
         if !self.do_vectors || self.base.get_num_terms() == 0 {
             return;

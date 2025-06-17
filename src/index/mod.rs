@@ -102,6 +102,7 @@ pub mod sorted_set_doc_values;
 pub mod sorter;
 pub mod stored_field_visitor;
 pub mod stored_fields;
+pub(crate) mod stored_fields_consumer;
 pub mod term;
 pub mod term_state;
 pub mod term_vectors;

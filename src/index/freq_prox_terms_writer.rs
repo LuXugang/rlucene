@@ -64,23 +64,20 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-pub(crate) struct FreqProxTermsWriter<D, C, O, P, T>
+pub(crate) struct FreqProxTermsWriter<D, O, P, T>
 where
     D: Directory,
-    C: Codec,
 
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 {
-    pub(crate) next_terms_hash: Option<TermVectorsConsumer<D, C, O, P, T>>,
+    pub(crate) next_terms_hash: Option<TermVectorsConsumer<D, O, P, T>>,
     pub(crate) base: TermsHash,
 }
-impl<D, C, O, P, T> FreqProxTermsWriter<D, C, O, P, T>
+impl<D, O, P, T> FreqProxTermsWriter<D, O, P, T>
 where
     D: Directory,
-    C: Codec,
-
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
@@ -89,7 +86,7 @@ where
         int_block_allocator: Rc<RefCell<AllocatorIntEnum>>,
         byte_block_allocator: AllocatorByteEnum<CounterEnumBorrow>,
         bytes_used: CounterEnumBorrow,
-        mut next_terms_hash: TermVectorsConsumer<D, C, O, P, T>,
+        mut next_terms_hash: TermVectorsConsumer<D, O, P, T>,
     ) -> Self {
         let mut base = TermsHash::new(int_block_allocator, byte_block_allocator, bytes_used);
         base.term_byte_pool = Some(base.byte_pool.clone());
@@ -194,12 +191,13 @@ where
         }
         Ok(())
     }
-    fn finish_document(&mut self, doc_id: i32) -> Result<()> {
+    fn finish_document(&mut self, doc_id: i32, codec: &impl Codec) -> Result<()> {
         if self.next_terms_hash.is_some() {
-            self.next_terms_hash
-                .as_mut()
-                .unwrap()
-                .finish_document(doc_id, &self.base.bytes_used)?;
+            self.next_terms_hash.as_mut().unwrap().finish_document(
+                doc_id,
+                &self.base.bytes_used,
+                codec,
+            )?;
         }
         Ok(())
     }

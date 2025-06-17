@@ -550,7 +550,6 @@ pub(crate) mod tests {
     use crate::analysis::token_attributes::dummy::dummy_payload_attribute::DummyPayloadAttribute;
     use crate::analysis::token_attributes::dummy::dummy_term_frequency_attribute::DummyTermFrequencyAttribute;
 
-    use crate::codecs::lucene101_codec::Lucene101Codec;
     use crate::document::fields::Fields;
     use crate::document::stored_field::StoredField;
     use crate::index::byte_slice_reader::ByteSliceReader;
@@ -993,13 +992,12 @@ pub(crate) mod tests {
             let allocator_int = Rc::new(RefCell::new(AllocatorIntEnum::DA(
                 DirectAllocatorI32::new(),
             )));
-            let mut writer: FreqProxTermsWriter<DummyDirectory, Lucene101Codec, _, _, _> =
-                FreqProxTermsWriter::new(
-                    allocator_int,
-                    allocator,
-                    bytes_used,
-                    TermVectorsConsumer::default(),
-                );
+            let mut writer: FreqProxTermsWriter<DummyDirectory, _, _, _> = FreqProxTermsWriter::new(
+                allocator_int,
+                allocator,
+                bytes_used,
+                TermVectorsConsumer::default(),
+            );
 
             let allocator_term = AllocatorByteEnum::DA(DirectAllocatorByte::new());
             writer.base.term_byte_pool =
