@@ -41,6 +41,9 @@ where
             base: FilterDirectory::new(input),
         }
     }
+    pub fn get_temporary_files(&self) -> &HashMap<String, String> {
+        &self.file_names
+    }
 }
 
 impl<D> Display for TrackingTmpOutputDirectoryWrapper<D>

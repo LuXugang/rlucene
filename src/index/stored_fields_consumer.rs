@@ -29,20 +29,22 @@ use parking_lot::Mutex;
 use std::rc::Rc;
 use std::sync::Arc;
 
-pub(crate) struct StoredFieldsConsumer<D>
+pub(crate) struct StoredFieldsConsumer<D1, D2>
 where
-    D: Directory,
+    D1: Directory,
+    D2: Directory,
 {
-    pub directory: Arc<Mutex<D>>,
-    pub info: Rc<SegmentInfo<D>>,
-    pub writer: Option<StoredFieldsWriterEnum<D>>,
+    pub directory: Arc<Mutex<D1>>,
+    pub info: Rc<SegmentInfo<D2>>,
+    pub writer: Option<StoredFieldsWriterEnum<D1>>,
     pub last_doc: i32,
 }
-impl<D> StoredFieldsConsumer<D>
+impl<D1, D2> StoredFieldsConsumer<D1, D2>
 where
-    D: Directory,
+    D1: Directory,
+    D2: Directory,
 {
-    pub(crate) fn new(directory: Arc<Mutex<D>>, info: Rc<SegmentInfo<D>>) -> Self {
+    pub(crate) fn new(directory: Arc<Mutex<D1>>, info: Rc<SegmentInfo<D2>>) -> Self {
         Self {
             directory,
             info,
@@ -51,9 +53,10 @@ where
         }
     }
 }
-impl<D> StoredFieldsConsumerBase for StoredFieldsConsumer<D>
+impl<D1, D2> StoredFieldsConsumerBase for StoredFieldsConsumer<D1, D2>
 where
-    D: Directory,
+    D1: Directory,
+    D2: Directory,
 {
     fn init_stored_fields_writer(&mut self, codec: &impl Codec) -> Result<()> {
         if self.writer.is_none() {
@@ -111,17 +114,25 @@ where
         Ok(())
     }
 
-    type Directory = D;
+    type Directory = D2;
 
-    fn flush(
+    fn flush<DM>(
         &mut self,
         state: &SegmentWriteState<Self::Directory>,
-        _sort_map: &impl DocMap,
-    ) -> Result<()> {
+        _sort_map: &Option<Rc<DM>>,
+        codec: &impl Codec,
+    ) -> Result<()>
+    where
+        DM: DocMap,
+    {
         self.writer
             .as_mut()
             .expect("writer must be initialized")
             .finish(state.segment_info.max_doc()?)
+    }
+
+    fn abort(&mut self) -> Result<()> {
+        Ok(())
     }
 }
 
@@ -134,12 +145,13 @@ pub(crate) trait StoredFieldsConsumerBase {
     fn finish(&mut self, codec: &impl Codec, max_doc: i32) -> Result<()>;
 
     type Directory: Directory;
-    fn flush(
+    fn flush<DM>(
         &mut self,
         state: &SegmentWriteState<Self::Directory>,
-        _sort_map: &impl DocMap,
-    ) -> Result<()>;
-    fn abort(&mut self) {
-        // not required in Rust Lucene
-    }
+        sort_map: &Option<Rc<DM>>,
+        codec: &impl Codec,
+    ) -> Result<()>
+    where
+        DM: DocMap;
+    fn abort(&mut self) -> Result<()>;
 }

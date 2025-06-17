@@ -34,9 +34,9 @@ impl IOUtils {
             }
         }
     }
-    pub fn delete_files(dir: &mut impl Directory, names: Vec<String>) -> Result<()> {
+    pub fn delete_files(dir: &mut impl Directory, names: &[&str]) -> Result<()> {
         for name in names {
-            dir.delete_file(&name)?;
+            dir.delete_file(name)?;
         }
         Ok(())
     }

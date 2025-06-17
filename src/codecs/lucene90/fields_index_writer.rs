@@ -260,23 +260,17 @@ where
     fn drop(&mut self) {
         let mut files = Vec::new();
         if self.docs_out.is_some() {
-            files.push(self.docs_out.as_ref().unwrap().get_name().to_string());
-            let _ = self.docs_out.take();
+            files.push(self.docs_out.as_ref().unwrap().get_name());
         }
         if self.file_pointers_out.is_some() {
-            files.push(
-                self.file_pointers_out
-                    .as_ref()
-                    .unwrap()
-                    .get_name()
-                    .to_string(),
-            );
-            let _ = self.file_pointers_out.take();
+            files.push(self.file_pointers_out.as_ref().unwrap().get_name());
         }
         let mut dir = self.dir.lock();
-        match IOUtils::delete_files(&mut *dir, files) {
+        match IOUtils::delete_files(&mut *dir, files.as_slice()) {
             Ok(_) => (),
             Err(e) => eprintln!("Failed to delete files: {:?}", e),
         }
+        let _ = self.docs_out.take();
+        let _ = self.file_pointers_out.take();
     }
 }

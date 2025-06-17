@@ -148,15 +148,16 @@ impl Lucene90CompressingStoredFieldsFormat {
     }
 }
 impl StoredFieldsFormat for Lucene90CompressingStoredFieldsFormat {
-    fn fields_reader<D>(
+    fn fields_reader<D1, D2>(
         &self,
-        directory: &mut D,
-        segment_info: Rc<SegmentInfo<D>>,
+        directory: &mut D1,
+        segment_info: Rc<SegmentInfo<D2>>,
         field_infos: Rc<FieldInfos>,
         context: &IOContext,
-    ) -> Result<StoredFieldsReaderEnum<D::IndexInputType>>
+    ) -> Result<StoredFieldsReaderEnum<D1::IndexInputType>>
     where
-        D: Directory,
+        D1: Directory,
+        D2: Directory,
     {
         Ok(StoredFieldsReaderEnum::Lucene90(
             Lucene90CompressingStoredFieldsReader::new(
@@ -171,14 +172,15 @@ impl StoredFieldsFormat for Lucene90CompressingStoredFieldsFormat {
         ))
     }
 
-    fn fields_writer<D>(
+    fn fields_writer<D1, D2>(
         &self,
-        directory: Arc<Mutex<D>>,
-        segment_info: Rc<SegmentInfo<D>>,
+        directory: Arc<Mutex<D1>>,
+        segment_info: Rc<SegmentInfo<D2>>,
         context: &IOContext,
-    ) -> Result<StoredFieldsWriterEnum<D>>
+    ) -> Result<StoredFieldsWriterEnum<D1>>
     where
-        D: Directory,
+        D1: Directory,
+        D2: Directory,
     {
         Ok(StoredFieldsWriterEnum::Lucene90(
             Lucene90CompressingStoredFieldsWriter::new(

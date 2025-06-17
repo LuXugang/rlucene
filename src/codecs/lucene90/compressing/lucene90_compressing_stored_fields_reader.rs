@@ -176,9 +176,9 @@ where
     const SECOND_ENCODING: u8 = 0x40;
     const HOUR_ENCODING: u8 = 0x80;
     const DAY_ENCODING: u8 = 0xC0;
-    pub fn new<D>(
-        dir: &mut D,
-        si: &SegmentInfo<D>,
+    pub fn new<D1, D2>(
+        dir: &mut D1,
+        si: &SegmentInfo<D2>,
         segment_suffix: &str,
         field_infos: Rc<FieldInfos>,
         context: &IOContext,
@@ -186,7 +186,8 @@ where
         compression_mode: CompressionModeEnum,
     ) -> Result<Self>
     where
-        D: Directory<IndexInputType = I>,
+        D1: Directory<IndexInputType = I>,
+        D2: Directory,
     {
         let segment = &si.name;
         let num_docs = si.max_doc()?;
