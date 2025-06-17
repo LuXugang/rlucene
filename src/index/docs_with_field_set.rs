@@ -21,35 +21,29 @@ use crate::search::doc_id_set_iterator::{AllDocIdSetIterator, DocIdSetIterator};
 use crate::util::accountable::Accountable;
 use crate::util::bit_set::BitSet;
 use crate::util::bit_set_iterator::BitSetIterator;
-use crate::util::bits::{Bits, MatchNoBits};
+use crate::util::bits::MatchNoBits;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
 
-//TODO
-#[allow(unused)]
-const BASE_RAM_BYTES_USED: i64 = 0;
 /// Accumulator for documents that have a value for a field.
 /// This is optimized for the case where all documents have a value.
-pub struct DocsWithFieldSet<FixedBitSet> {
-    set: FixedBitSet,
+pub struct DocsWithFieldSet {
+    set: Option<FixedBitSet>,
     cardinality: i32,
     last_doc_id: i32,
-    _marker: std::marker::PhantomData<FixedBitSet>,
 }
-impl Default for DocsWithFieldSet<FixedBitSet> {
+impl Default for DocsWithFieldSet {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl DocsWithFieldSet<FixedBitSet> {
-    pub fn new() -> DocsWithFieldSet<FixedBitSet> {
-        let set = FixedBitSet::new(0);
+impl DocsWithFieldSet {
+    pub fn new() -> DocsWithFieldSet {
         DocsWithFieldSet {
-            set,
+            set: None,
             cardinality: 0,
             last_doc_id: -1,
-            _marker: Default::default(),
         }
     }
     /// Adds a document to the set.
@@ -63,13 +57,15 @@ impl DocsWithFieldSet<FixedBitSet> {
                 self.last_doc_id, doc_id
             )));
         }
-        if self.set.length() != 0 {
-            self.set.ensure_capacity(doc_id);
-            self.set.set(doc_id);
+        if self.set.is_some() {
+            let set = self.set.as_mut().unwrap();
+            set.ensure_capacity(doc_id);
+            set.set(doc_id);
         } else if doc_id != self.cardinality {
-            self.set = FixedBitSet::new(doc_id + 1);
-            self.set.set_with_range(0, self.cardinality);
-            self.set.set(doc_id);
+            let mut set = FixedBitSet::new(doc_id + 1);
+            set.set_with_range(0, self.cardinality);
+            set.set(doc_id);
+            self.set = Some(set);
         }
         self.last_doc_id = doc_id;
         self.cardinality += 1;
@@ -80,11 +76,11 @@ impl DocsWithFieldSet<FixedBitSet> {
         self.cardinality
     }
 }
-pub enum DocsWithFieldSetEnum<'a, T: BitSet> {
+pub enum DocsWithFieldSetEnum<'a> {
     Dense(AllDocIdSetIterator),
-    Sparse(BitSetIterator<'a, T>),
+    Sparse(BitSetIterator<'a, FixedBitSet>),
 }
-impl<T: BitSet> DocIdSetIterator for DocsWithFieldSetEnum<'_, T> {
+impl DocIdSetIterator for DocsWithFieldSetEnum<'_> {
     fn doc_id(&self) -> i32 {
         match self {
             DocsWithFieldSetEnum::Dense(d) => d.doc_id(),
@@ -114,23 +110,20 @@ impl<T: BitSet> DocIdSetIterator for DocsWithFieldSetEnum<'_, T> {
     }
 }
 
-impl<T: BitSet> Accountable for DocsWithFieldSet<T> {
+impl Accountable for DocsWithFieldSet {
     fn ram_bytes_used(&self) -> Result<i64> {
         todo!()
     }
 }
 
-impl<T: BitSet> DocIdSet for DocsWithFieldSet<T> {
-    type DocIdSetIterator<'b>
-        = DocsWithFieldSetEnum<'b, T>
-    where
-        T: 'b;
+impl DocIdSet for DocsWithFieldSet {
+    type DocIdSetIterator<'b> = DocsWithFieldSetEnum<'b>;
 
     fn iterator(&self) -> Option<Self::DocIdSetIterator<'_>> {
-        if self.set.length() != 0 {
+        if self.set.is_some() {
             debug_assert!(self.cardinality > 0);
             Some(DocsWithFieldSetEnum::Sparse(
-                BitSetIterator::new(&self.set, self.cardinality as i64).unwrap(),
+                BitSetIterator::new(self.set.as_ref().unwrap(), self.cardinality as i64).unwrap(),
             ))
         } else {
             Some(DocsWithFieldSetEnum::Dense(AllDocIdSetIterator::new(
@@ -144,6 +137,12 @@ impl<T: BitSet> DocIdSet for DocsWithFieldSet<T> {
     fn bits(&self) -> Option<Rc<Self::BitType>> {
         None
     }
+}
+
+mod dwfs_util {
+    //TODO
+    #[allow(unused)]
+    pub(super) const BASE_RAM_BYTES_USED: i64 = 0;
 }
 
 #[cfg(test)]
