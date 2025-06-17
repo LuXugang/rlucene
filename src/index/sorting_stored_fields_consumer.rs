@@ -15,10 +15,15 @@
  * limitations under the License.
  */
 use crate::codecs::stored_fields_writer::StoredFieldsWriter;
+use crate::codecs::Codec;
+use crate::document::stored_value::StoredValue;
 use crate::index::field_info::FieldInfo;
 use crate::index::segment_info::SegmentInfo;
+use crate::index::segment_write_state::SegmentWriteState;
+use crate::index::sorter::DocMap;
 use crate::index::stored_field_visitor::{Status, StoredFieldVisitor};
-use crate::index::stored_fields_consumer::StoredFieldsConsumer;
+use crate::index::stored_fields_consumer::{StoredFieldsConsumer, StoredFieldsConsumerBase};
+use crate::index::tracking_tmp_output_directory_wrapper::TrackingTmpOutputDirectoryWrapper;
 use crate::index::BytesRef;
 use crate::store::directory::Directory;
 use crate::store::DataInput;
@@ -32,6 +37,7 @@ where
     D: Directory,
 {
     base: StoredFieldsConsumer<D>,
+    tmp_directory: TrackingTmpOutputDirectoryWrapper<D>,
 }
 impl<D> SortingStoredFieldsConsumer<D>
 where
@@ -39,8 +45,45 @@ where
 {
     pub(crate) fn new(directory: Arc<Mutex<D>>, info: Rc<SegmentInfo<D>>) -> Self {
         Self {
-            base: StoredFieldsConsumer::new(directory, info),
+            base: StoredFieldsConsumer::new(directory.clone(), info),
+            tmp_directory: TrackingTmpOutputDirectoryWrapper::new(directory),
         }
+    }
+}
+
+impl<D> StoredFieldsConsumerBase for SortingStoredFieldsConsumer<D>
+where
+    D: Directory,
+{
+    fn init_stored_fields_writer(&mut self, codec: &impl Codec) -> Result<()> {
+        self.base.writer.is_none();
+        Ok(())
+    }
+
+    fn start_document(&mut self, codec: &impl Codec, doc_id: i32) -> Result<()> {
+        todo!()
+    }
+
+    fn write_field(&mut self, info: &FieldInfo, value: &StoredValue) -> Result<()> {
+        todo!()
+    }
+
+    fn finish_document(&mut self) -> Result<()> {
+        todo!()
+    }
+
+    fn finish(&mut self, codec: &impl Codec, max_doc: i32) -> Result<()> {
+        todo!()
+    }
+
+    type Directory = D;
+
+    fn flush(
+        &mut self,
+        state: &SegmentWriteState<Self::Directory>,
+        _sort_map: &impl DocMap,
+    ) -> Result<()> {
+        todo!()
     }
 }
 
