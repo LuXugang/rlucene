@@ -16,19 +16,32 @@
  */
 use crate::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::index::field_info::FieldInfo;
+use crate::index::segment_info::SegmentInfo;
 use crate::index::stored_field_visitor::{Status, StoredFieldVisitor};
 use crate::index::stored_fields_consumer::StoredFieldsConsumer;
 use crate::index::BytesRef;
 use crate::store::directory::Directory;
 use crate::store::DataInput;
 use crate::util::error::lucene_error::Result;
+use parking_lot::Mutex;
 use std::rc::Rc;
+use std::sync::Arc;
 
 pub(crate) struct SortingStoredFieldsConsumer<D>
 where
     D: Directory,
 {
     base: StoredFieldsConsumer<D>,
+}
+impl<D> SortingStoredFieldsConsumer<D>
+where
+    D: Directory,
+{
+    pub(crate) fn new(directory: Arc<Mutex<D>>, info: Rc<SegmentInfo<D>>) -> Self {
+        Self {
+            base: StoredFieldsConsumer::new(directory, info),
+        }
+    }
 }
 
 /// A visitor that copies every field it sees in the provided [`StoredFieldsWriter`]

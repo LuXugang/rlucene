@@ -50,7 +50,12 @@ where
             last_doc: -1,
         }
     }
-    pub(crate) fn init_stored_fields_writer(&mut self, codec: &impl Codec) -> Result<()> {
+}
+impl<D> StoredFieldsConsumerBase for StoredFieldsConsumer<D>
+where
+    D: Directory,
+{
+    fn init_stored_fields_writer(&mut self, codec: &impl Codec) -> Result<()> {
         if self.writer.is_none() {
             let writer = codec.stored_fields_format().fields_writer(
                 self.directory.clone(),
@@ -61,7 +66,8 @@ where
         }
         Ok(())
     }
-    pub(crate) fn start_document(&mut self, codec: &impl Codec, doc_id: i32) -> Result<()> {
+
+    fn start_document(&mut self, codec: &impl Codec, doc_id: i32) -> Result<()> {
         debug_assert!(self.last_doc < doc_id);
         self.init_stored_fields_writer(codec)?;
         while self.last_doc + 1 < doc_id {
@@ -78,7 +84,8 @@ where
 
         Ok(())
     }
-    pub(crate) fn write_field(&mut self, info: &FieldInfo, value: &StoredValue) -> Result<()> {
+
+    fn write_field(&mut self, info: &FieldInfo, value: &StoredValue) -> Result<()> {
         let writer = self.writer.as_mut().expect("writer must be initialized");
 
         match value.get_type() {
@@ -90,12 +97,13 @@ where
             StoredValueType::STRING => writer.write_field_str(info, value.get_string_value()?),
         }
     }
-    pub(crate) fn finish_document(&mut self) -> Result<()> {
+
+    fn finish_document(&mut self) -> Result<()> {
         let writer = self.writer.as_mut().expect("writer must be initialized");
         writer.finish_document()
     }
 
-    pub(crate) fn finish(&mut self, codec: &impl Codec, max_doc: i32) -> Result<()> {
+    fn finish(&mut self, codec: &impl Codec, max_doc: i32) -> Result<()> {
         while self.last_doc < max_doc - 1 {
             self.start_document(codec, self.last_doc + 1)?;
             self.finish_document()?;
@@ -103,9 +111,11 @@ where
         Ok(())
     }
 
-    pub(crate) fn flush(
+    type Directory = D;
+
+    fn flush(
         &mut self,
-        state: &SegmentWriteState<D>,
+        state: &SegmentWriteState<Self::Directory>,
         _sort_map: &impl DocMap,
     ) -> Result<()> {
         self.writer
@@ -113,7 +123,23 @@ where
             .expect("writer must be initialized")
             .finish(state.segment_info.max_doc()?)
     }
-    pub(crate) fn abort(&mut self) {
+}
+
+pub(crate) trait StoredFieldsConsumerBase {
+    fn init_stored_fields_writer(&mut self, codec: &impl Codec) -> Result<()>;
+    fn start_document(&mut self, codec: &impl Codec, doc_id: i32) -> Result<()>;
+    fn write_field(&mut self, info: &FieldInfo, value: &StoredValue) -> Result<()>;
+    fn finish_document(&mut self) -> Result<()>;
+
+    fn finish(&mut self, codec: &impl Codec, max_doc: i32) -> Result<()>;
+
+    type Directory: Directory;
+    fn flush(
+        &mut self,
+        state: &SegmentWriteState<Self::Directory>,
+        _sort_map: &impl DocMap,
+    ) -> Result<()>;
+    fn abort(&mut self) {
         // not required in Rust Lucene
     }
 }
