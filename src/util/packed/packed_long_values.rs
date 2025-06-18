@@ -140,7 +140,7 @@ impl PackedLongValues {
         };
         Ok(self.values[block as usize].get(element)? + value)
     }
-    pub fn iterator(&self) -> Result<PackedLongValuesIterator> {
+    pub fn iterator(self) -> Result<PackedLongValuesIterator> {
         PackedLongValuesIterator::new(self)
     }
 }
@@ -358,16 +358,16 @@ impl Builder {
     }
 }
 
-pub struct PackedLongValuesIterator<'a> {
-    packed_long_values: &'a PackedLongValues,
+pub struct PackedLongValuesIterator {
+    packed_long_values: PackedLongValues,
     current_values: Vec<i64>,
     v_off: i32,
     p_off: i32,
     current_count: i32,
 }
 
-impl<'a> PackedLongValuesIterator<'a> {
-    pub fn new(packed_long_values: &'a PackedLongValues) -> Result<Self> {
+impl PackedLongValuesIterator {
+    pub fn new(packed_long_values: PackedLongValues) -> Result<Self> {
         let current_values = vec![
             0;
             packed_long_values

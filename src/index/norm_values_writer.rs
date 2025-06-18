@@ -23,14 +23,14 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::packed::packed_long_values::{PackedLongValues, PackedLongValuesIterator};
 pub struct NormValuesWriter;
 
-struct BufferedNorms<'a> {
-    iter: PackedLongValuesIterator<'a>,
+struct BufferedNorms {
+    iter: PackedLongValuesIterator,
     doc_with_field: DocsWithFieldSetEnum,
     value: i64,
 }
-impl<'a> BufferedNorms<'a> {
+impl BufferedNorms {
     pub(crate) fn new(
-        values: &'a PackedLongValues,
+        values: PackedLongValues,
         doc_with_field: DocsWithFieldSetEnum,
     ) -> Result<Self> {
         Ok(Self {
@@ -41,13 +41,13 @@ impl<'a> BufferedNorms<'a> {
     }
 }
 
-impl DocValuesIterator for BufferedNorms<'_> {
+impl DocValuesIterator for BufferedNorms {
     fn advance_exact(&mut self, _target: i32) -> Result<bool> {
         Err(LuceneError::unsupported_operation(""))
     }
 }
 
-impl DocIdSetIterator for BufferedNorms<'_> {
+impl DocIdSetIterator for BufferedNorms {
     fn doc_id(&self) -> i32 {
         self.doc_with_field.doc_id()
     }
@@ -69,7 +69,7 @@ impl DocIdSetIterator for BufferedNorms<'_> {
     }
 }
 
-impl<'a> NumericDocValues for BufferedNorms<'a> {
+impl NumericDocValues for BufferedNorms {
     fn long_value(&mut self) -> Result<i64> {
         Ok(self.value)
     }
