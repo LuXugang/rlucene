@@ -124,7 +124,7 @@ impl PackedLongValues {
             k += vals.get_bulk(k, dest, k, size - k)?;
         }
         match self.sub_long_values {
-            Some(ref sub) => Ok(sub.decode_block(block, dest, size)?),
+            Some(ref sub) => Ok(sub.decode_block(block, dest, size)),
             _ => Ok(size),
         }
     }
@@ -134,7 +134,7 @@ impl PackedLongValues {
             self.sub_long_values
                 .as_ref()
                 .unwrap()
-                .get_value(block, element, 0)?
+                .get_value(block, element, 0)
         } else {
             0
         };

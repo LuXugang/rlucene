@@ -33,22 +33,22 @@ impl DeltaPackedLongValues {
             mins,
         }
     }
-    pub(crate) fn decode_block(&self, block: i32, dest: &mut [i64], count: i32) -> Result<i32> {
+    pub(crate) fn decode_block(&self, block: i32, dest: &mut [i64], count: i32) -> i32 {
         let min = self.mins[block as usize];
         for item in dest.iter_mut().take(count as usize) {
             *item += min;
         }
         match self.sub_long_value {
-            Some(ref sub) => Ok(sub.decode_block(block, dest, count)?),
-            _ => Ok(count),
+            Some(ref sub) => sub.decode_block(block, dest, count),
+            _ => count,
         }
     }
 
-    pub(crate) fn get_value(&self, block: i32, element: i32, _value: u64) -> Result<i64> {
+    pub(crate) fn get_value(&self, block: i32, element: i32, _value: u64) -> i64 {
         let current = self.mins[block as usize];
         match self.sub_long_value {
-            Some(ref reader) => Ok(reader.get_value(block, element, current as u64)?),
-            None => Ok(current),
+            Some(ref reader) => reader.get_value(block, element, current as u64),
+            None => current,
         }
     }
 }
