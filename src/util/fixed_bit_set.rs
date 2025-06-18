@@ -675,9 +675,9 @@ impl BitSet for FixedBitSet {
 
 #[cfg(test)]
 mod tests {
-    use std::hash::{DefaultHasher, Hash, Hasher};
-
     use rand::Rng;
+    use std::hash::{DefaultHasher, Hash, Hasher};
+    use std::rc::Rc;
 
     use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::search::doc_id_set_iterator::DocIdSetIterator;
@@ -1300,7 +1300,7 @@ mod tests {
             let mut sorted = bits1.clone();
             sorted.push(0);
             sorted[bits1.len()] = NO_MORE_DOCS;
-            let disi = IntArrayDocIdSetIterator::new(&sorted, count1);
+            let disi = IntArrayDocIdSetIterator::new(Rc::new(sorted), count1);
             fixed_bit_set2.and_not_iter(disi)?;
             do_get(&bitset2, &fixed_bit_set2);
         }

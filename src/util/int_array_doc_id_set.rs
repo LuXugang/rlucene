@@ -32,7 +32,7 @@ const BASE_RAM_BYTES_USED: i64 = 0;
 /// # Note
 /// This is an internal API.
 pub struct IntArrayDocIdSet {
-    docs: Vec<i32>,
+    docs: Rc<Vec<i32>>,
     length: i32,
 }
 /// Builds an `IntArrayDocIdSet` from an `i32` array and its length.
@@ -59,7 +59,10 @@ impl IntArrayDocIdSet {
                 .collect::<Vec<String>>()
                 .join(", ")
         );
-        Ok(IntArrayDocIdSet { docs, length })
+        Ok(IntArrayDocIdSet {
+            docs: Rc::new(docs),
+            length,
+        })
     }
 }
 fn assert_array_sorted(docs: &[i32]) -> bool {
@@ -67,10 +70,13 @@ fn assert_array_sorted(docs: &[i32]) -> bool {
 }
 
 impl DocIdSet for IntArrayDocIdSet {
-    type DocIdSetIterator<'a> = IntArrayDocIdSetIterator<'a>;
+    type DocIdSetIterator<'a> = IntArrayDocIdSetIterator;
 
     fn iterator(&self) -> Option<Self::DocIdSetIterator<'_>> {
-        Some(IntArrayDocIdSetIterator::new(&self.docs, self.length))
+        Some(IntArrayDocIdSetIterator::new(
+            self.docs.clone(),
+            self.length,
+        ))
     }
 
     type BitType = MatchNoBits;
@@ -86,14 +92,14 @@ impl Accountable for IntArrayDocIdSet {
     }
 }
 
-pub struct IntArrayDocIdSetIterator<'a> {
-    docs: &'a Vec<i32>,
+pub struct IntArrayDocIdSetIterator {
+    docs: Rc<Vec<i32>>,
     length: i32,
     i: i32,
     doc: i32,
 }
-impl<'a> IntArrayDocIdSetIterator<'a> {
-    pub fn new(docs: &'a Vec<i32>, length: i32) -> IntArrayDocIdSetIterator<'a> {
+impl IntArrayDocIdSetIterator {
+    pub fn new(docs: Rc<Vec<i32>>, length: i32) -> IntArrayDocIdSetIterator {
         IntArrayDocIdSetIterator {
             docs,
             length,
@@ -102,7 +108,7 @@ impl<'a> IntArrayDocIdSetIterator<'a> {
         }
     }
 }
-impl DocIdSetIterator for IntArrayDocIdSetIterator<'_> {
+impl DocIdSetIterator for IntArrayDocIdSetIterator {
     fn doc_id(&self) -> i32 {
         self.doc
     }

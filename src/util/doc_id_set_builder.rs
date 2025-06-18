@@ -199,7 +199,7 @@ impl DocIdSet for DocIdSetBuilderEnum {
 }
 pub enum DocIdSetBuilderIterator<'a> {
     BitSet(BitSetIterator<'a, FixedBitSet>),
-    IntArray(IntArrayDocIdSetIterator<'a>),
+    IntArray(IntArrayDocIdSetIterator),
 }
 impl DocIdSetIterator for DocIdSetBuilderIterator<'_> {
     fn doc_id(&self) -> i32 {

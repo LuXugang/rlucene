@@ -17,15 +17,15 @@
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 
+use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::impact::Impact;
 use crate::index::impacts::Impacts;
 use crate::index::impacts_enum::ImpactsEnum;
 use crate::index::impacts_source::ImpactsSource;
+use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::postings_enum::PostingsEnum;
 use crate::index::term_state::{TermState, TermStateEnum};
 use crate::index::BytesRef;
-use crate::index::doc_values_iterator::DocValuesIterator;
-use crate::index::numeric_doc_values::NumericDocValues;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::util::error::lucene_error::Result;
 /// # Either Enums for Unified Trait Implementations
@@ -347,7 +347,12 @@ pub enum EitherNumericDocValues<F, S> {
     S(S),
 }
 
-impl<F, S> DocValuesIterator for EitherNumericDocValues<F, S> where F: NumericDocValues, S: NumericDocValues, {}
+impl<F, S> DocValuesIterator for EitherNumericDocValues<F, S>
+where
+    F: NumericDocValues,
+    S: NumericDocValues,
+{
+}
 
 impl<F, S> DocIdSetIterator for EitherNumericDocValues<F, S>
 where
@@ -390,7 +395,11 @@ where
     }
 }
 
-impl<F, S> NumericDocValues for EitherNumericDocValues<F, S> where F: NumericDocValues , S:NumericDocValues{
+impl<F, S> NumericDocValues for EitherNumericDocValues<F, S>
+where
+    F: NumericDocValues,
+    S: NumericDocValues,
+{
     fn long_value(&mut self) -> Result<i64> {
         match self {
             EitherNumericDocValues::F(t) => t.long_value(),
