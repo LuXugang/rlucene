@@ -26,6 +26,50 @@ use std::cell::Cell;
 
 pub(crate) struct NumericDocValuesWriter;
 
+pub mod ndvw_util {
+    use crate::index::numeric_doc_values::NumericDocValues;
+    use crate::index::numeric_doc_values_writer::NumericDVs;
+    use crate::index::sorter::DocMap;
+    use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+    use crate::util::bit_set::BitSet;
+    use crate::util::error::lucene_error::Result;
+    use crate::util::fixed_bit_set::FixedBitSet;
+
+    pub(crate) fn sort_doc_values<DV, M>(
+        max_doc: i32,
+        sort_map: &M,
+        old_doc_values: &mut DV,
+        dense: bool,
+    ) -> Result<NumericDVs<FixedBitSet>>
+    where
+        DV: NumericDocValues,
+        M: DocMap,
+    {
+        let mut docs_with_field = if !dense {
+            Some(FixedBitSet::new(max_doc))
+        } else {
+            None
+        };
+
+        let mut values = vec![0i64; max_doc as usize];
+
+        loop {
+            let doc_id = old_doc_values.next_doc()?;
+            if doc_id == NO_MORE_DOCS {
+                break;
+            }
+
+            let new_doc_id = sort_map.old_to_new(doc_id);
+            if let Some(bits) = &mut docs_with_field {
+                bits.set(new_doc_id);
+            }
+
+            values[new_doc_id as usize] = old_doc_values.long_value()?;
+        }
+        Ok(NumericDVs::new(values, docs_with_field))
+    }
+}
+
 pub(crate) struct SortingNumericDocValues<T>
 where
     T: BitSet,
