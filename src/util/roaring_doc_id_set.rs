@@ -246,11 +246,13 @@ pub mod builder {
 const SHORT_ARRAY_DOC_ID_SET_BASE_RAM_BYTES_USED: i64 = 0;
 
 pub struct ShortArrayDocIdSet {
-    doc_ids: Vec<i16>,
+    doc_ids: Rc<Vec<i16>>,
 }
 impl ShortArrayDocIdSet {
     fn new(doc_ids: Vec<i16>) -> ShortArrayDocIdSet {
-        ShortArrayDocIdSet { doc_ids }
+        ShortArrayDocIdSet {
+            doc_ids: Rc::new(doc_ids),
+        }
     }
 }
 
@@ -261,10 +263,10 @@ impl Accountable for ShortArrayDocIdSet {
 }
 
 impl DocIdSet for ShortArrayDocIdSet {
-    type DocIdSetIterator<'b> = ShortArrayDISI<'b>;
+    type DocIdSetIterator<'b> = ShortArrayDISI;
 
     fn iterator(&self) -> Option<Self::DocIdSetIterator<'_>> {
-        Some(ShortArrayDISI::new(&self.doc_ids))
+        Some(ShortArrayDISI::new(self.doc_ids.clone()))
     }
 
     type BitType = MatchNoBits;
@@ -274,13 +276,13 @@ impl DocIdSet for ShortArrayDocIdSet {
     }
 }
 
-pub struct ShortArrayDISI<'a> {
+pub struct ShortArrayDISI {
     i: i32,
     doc: i32,
-    doc_ids: &'a Vec<i16>,
+    doc_ids: Rc<Vec<i16>>,
 }
-impl<'a> ShortArrayDISI<'a> {
-    fn new(doc_ids: &'a Vec<i16>) -> Self {
+impl ShortArrayDISI {
+    fn new(doc_ids: Rc<Vec<i16>>) -> Self {
         ShortArrayDISI {
             i: -1,
             doc: -1,
@@ -291,7 +293,7 @@ impl<'a> ShortArrayDISI<'a> {
         self.doc_ids[i as usize] as i32 & 0xFFFF
     }
 }
-impl DocIdSetIterator for ShortArrayDISI<'_> {
+impl DocIdSetIterator for ShortArrayDISI {
     fn doc_id(&self) -> i32 {
         self.doc
     }
@@ -450,9 +452,9 @@ impl DocIdSet for DocIdSetEnum {
 }
 
 enum DocIdSetIteratorEnum<'a> {
-    Sparse(ShortArrayDISI<'a>),
+    Sparse(ShortArrayDISI),
     Medium(BitSetIterator<'a, FixedBitSet>),
-    Dense(NotDocDocIdSetIterator<ShortArrayDISI<'a>>),
+    Dense(NotDocDocIdSetIterator<ShortArrayDISI>),
     Empty(EmptyDISI),
 }
 impl DocIdSetIterator for DocIdSetIteratorEnum<'_> {

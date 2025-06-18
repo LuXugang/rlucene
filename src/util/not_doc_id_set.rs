@@ -66,11 +66,11 @@ where
     where
         Self: 'a;
 
-    type BitType = NotDocIdBits<T::BitType>;
-
     fn iterator(&self) -> Option<Self::DocIdSetIterator<'_>> {
         NotDocDocIdSetIterator::new(self.set.iterator(), self.max_doc)
     }
+
+    type BitType = NotDocIdBits<T::BitType>;
 
     fn bits(&self) -> Option<Rc<Self::BitType>> {
         self.set
