@@ -160,13 +160,6 @@ where
     fn check_integrity(&mut self) -> Result<()> {
         Ok(())
     }
-
-    // type NormsProducer<'b, T: IndexInput,AV1:AccessVec<u8>>
-    //     = NormsProducerMerge<'a, I, AV>
-    // where
-    //     Self: 'b,
-    //     T: 'b,
-    //     AV1: 'b,;
 }
 
 pub struct NumericDocValuesMerge<I>

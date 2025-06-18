@@ -573,27 +573,6 @@ where
         let _ = CodecUtil::checksum_entire_file(&self.data);
         Ok(())
     }
-
-    // type NormsProducer<'a, T: IndexInput + 'a>
-    //     = NormsProducerEnum<I>
-    // where
-    //     I: 'a;
-    //
-    // fn get_merge_instance<T>(&self) -> Result<Option<NormsProducerEnum<I>>>
-    // where
-    //     I: IndexInput,
-    // {
-    //     let result = Self {
-    //         norms: self.norms.clone(),
-    //         max_doc: self.max_doc,
-    //         data: self.data.try_clone()?,
-    //         merging: true,
-    //         disi_inputs: HashMap::new(),
-    //         disi_jump_tables: HashMap::new(),
-    //         data_inputs: HashMap::new(),
-    //     };
-    //     Ok(Some(NormsProducerEnum::Lucene90(result)))
-    // }
 }
 
 #[derive(Clone)]

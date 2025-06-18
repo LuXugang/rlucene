@@ -78,23 +78,4 @@ where
             NormsProducerEnum::Lucene90(producer) => producer.check_integrity(),
         }
     }
-
-    // type NormsProducer<'a, T: IndexInput , AV1:AccessVec<u8>+ 'a>
-    //     = NormsProducerEnum<I>
-    // where
-    //     I: 'a,
-    //     AV1: 'a;
-    //
-    // fn get_merge_instance<T>(&self) -> Result<Option<Self::NormsProducer<'_,
-    // I>>> {     match self {
-    //         NormsProducerEnum::Lucene90(producer) => {
-    //             let merge_instance = producer.get_merge_instance::<I>()?;
-    //             if merge_instance.is_none() {
-    //                 Ok(None)
-    //             } else {
-    //                 Ok(merge_instance)
-    //             }
-    //         }
-    //     }
-    // }
 }
