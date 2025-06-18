@@ -14,10 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::docs_with_field_set::DocsWithFieldSetEnum;
+use crate::index::numeric_doc_values::NumericDocValues;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::util::bit_set::BitSet;
-use crate::util::error::lucene_error::Result;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::packed::packed_long_values::{PackedLongValues, PackedLongValuesIterator};
+use std::cell::Cell;
 
 pub struct NormValuesWriter;
 
@@ -36,6 +41,68 @@ impl<'a> BufferedNorms<'a> {
         })
     }
 }
+
+pub(crate) struct SortingNumericDocValues<T>
+where
+    T: BitSet,
+{
+    dvs: NumericDVs<T>,
+    doc_id: i32,
+    cost: Cell<i64>,
+}
+impl<T> SortingNumericDocValues<T>
+where
+    T: BitSet,
+{
+    pub(crate) fn new(dvs: NumericDVs<T>) -> Self {
+        Self {
+            dvs,
+            doc_id: -1,
+            cost: Cell::new(-1),
+        }
+    }
+}
+
+impl<T> DocValuesIterator for SortingNumericDocValues<T> where T: BitSet {}
+
+impl<T> DocIdSetIterator for SortingNumericDocValues<T>
+where
+    T: BitSet,
+{
+    fn doc_id(&self) -> i32 {
+        self.doc_id
+    }
+
+    fn next_doc(&mut self) -> Result<i32> {
+        if self.doc_id + 1 == self.dvs.max_doc() {
+            self.doc_id = NO_MORE_DOCS;
+        } else {
+            self.doc_id = self.dvs.advance(self.doc_id + 1);
+        }
+        Ok(self.doc_id)
+    }
+
+    fn advance(&mut self, _target: i32) -> Result<i32> {
+        Err(LuceneError::unsupported_operation("use nextDoc() instead"))
+    }
+
+    fn cost(&self) -> Result<i64> {
+        if self.cost.get() == -1 {
+            self.cost.set(self.dvs.cost());
+        }
+        Ok(self.cost.get())
+    }
+}
+
+impl<T> NumericDocValues for SortingNumericDocValues<T>
+where
+    T: BitSet,
+{
+    fn long_value(&mut self) -> Result<i64> {
+        Ok(self.dvs.values[self.doc_id as usize])
+    }
+}
+
 pub(crate) struct NumericDVs<T>
 where
     T: BitSet,
