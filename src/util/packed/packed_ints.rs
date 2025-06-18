@@ -1088,7 +1088,7 @@ mod tests {
     use crate::util::packed::monotonic_block_packed_writer::MonotonicBlockPackedWriter;
     use crate::util::packed::mutable_packed64_enum::MutablePacked64Enum;
     use crate::util::packed::packed64::Packed64;
-    use crate::util::packed::packed_long_values::{Builder, PackedLongValues};
+    use crate::util::packed::packed_long_values::{PackedLongValues, PackedLongValuesBuilder};
     use crate::util::packed::paged_growable_writer::PagedGrowableWriter;
     use crate::util::packed::paged_mutable::PagedMutable;
     use crate::util::packed::Format::{Packed, PackedSingleBlock};
@@ -2205,7 +2205,7 @@ mod tests {
                 let acceptable_overhead_ratio = ratio_options
                     [TestUtil::next_int(&mut random, 0, ratio_options.len() as i32 - 1) as usize];
 
-                let mut buf: Builder;
+                let mut buf: PackedLongValuesBuilder;
                 let inc: i64;
 
                 match data_type {

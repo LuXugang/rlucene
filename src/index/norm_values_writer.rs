@@ -32,7 +32,7 @@ use crate::util::either_enums::EitherNumericDocValues;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::packed::packed_long_values::{
-    Builder, PackedLongValues, PackedLongValuesIterator,
+    PackedLongValues, PackedLongValuesBuilder, PackedLongValuesIterator,
 };
 use crate::util::packed::PackedInts;
 use crate::util::{Counter, CounterEnumBorrow};
@@ -41,7 +41,7 @@ use std::rc::Rc;
 /// Buffers up pending long per doc, then flushes when segment flushes.
 pub(crate) struct NormValuesWriter {
     docs_with_field: DocsWithFieldSet,
-    pending: Builder,
+    pending: PackedLongValuesBuilder,
     iw_bytes_used: CounterEnumBorrow,
     bytes_used: i64,
     field_info: Rc<FieldInfo>,
