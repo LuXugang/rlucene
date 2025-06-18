@@ -15,12 +15,15 @@
  * limitations under the License.
  */
 use crate::index::doc_values_iterator::DocValuesIterator;
+use crate::index::docs_with_field_set::DocsWithFieldSetEnum;
 use crate::index::numeric_doc_values::NumericDocValues;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::util::bit_set::BitSet;
 use crate::util::error::lucene_error;
 use crate::util::error::lucene_error::LuceneError;
+use crate::util::error::lucene_error::Result;
+use crate::util::packed::packed_long_values::{PackedLongValues, PackedLongValuesIterator};
 use std::cell::Cell;
 use std::rc::Rc;
 
@@ -67,6 +70,54 @@ pub mod ndvw_util {
             values[new_doc_id as usize] = old_doc_values.long_value()?;
         }
         Ok(NumericDVs::new(values, docs_with_field))
+    }
+}
+// iterates over the values we have in ram
+pub(crate) struct BufferedNumericDocValues {
+    iter: PackedLongValuesIterator,
+    doc_with_field: DocsWithFieldSetEnum,
+    value: i64,
+}
+impl BufferedNumericDocValues {
+    pub(crate) fn new(
+        values: &PackedLongValues,
+        doc_with_field: DocsWithFieldSetEnum,
+    ) -> Result<Self> {
+        Ok(Self {
+            iter: values.iterator()?,
+            doc_with_field,
+            value: 0,
+        })
+    }
+}
+
+impl DocValuesIterator for BufferedNumericDocValues {}
+
+impl DocIdSetIterator for BufferedNumericDocValues {
+    fn doc_id(&self) -> i32 {
+        self.doc_with_field.doc_id()
+    }
+
+    fn next_doc(&mut self) -> Result<i32> {
+        let doc_id = self.doc_with_field.next_doc()?;
+        if doc_id != NO_MORE_DOCS {
+            self.value = self.iter.next_value()?;
+        }
+        Ok(doc_id)
+    }
+
+    fn advance(&mut self, _target: i32) -> Result<i32> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
+    fn cost(&self) -> Result<i64> {
+        self.doc_with_field.cost()
+    }
+}
+
+impl NumericDocValues for BufferedNumericDocValues {
+    fn long_value(&mut self) -> Result<i64> {
+        Ok(self.value)
     }
 }
 
