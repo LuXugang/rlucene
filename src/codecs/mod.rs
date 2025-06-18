@@ -25,7 +25,7 @@ pub mod compression;
 pub mod doc_values_consumer;
 pub mod doc_values_format;
 pub mod doc_values_producer;
-mod dummy;
+pub mod dummy;
 pub mod field_infos_format;
 pub mod fields_consumer;
 pub mod fields_producer;
