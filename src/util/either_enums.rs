@@ -24,6 +24,8 @@ use crate::index::impacts_source::ImpactsSource;
 use crate::index::postings_enum::PostingsEnum;
 use crate::index::term_state::{TermState, TermStateEnum};
 use crate::index::BytesRef;
+use crate::index::doc_values_iterator::DocValuesIterator;
+use crate::index::numeric_doc_values::NumericDocValues;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::util::error::lucene_error::Result;
 /// # Either Enums for Unified Trait Implementations
@@ -335,6 +337,64 @@ where
         match self {
             EitherTermState::F(t) => t.copy_from(other),
             EitherTermState::S(s) => s.copy_from(other),
+        }
+    }
+}
+
+// NumericDocValues
+pub enum EitherNumericDocValues<F, S> {
+    F(F),
+    S(S),
+}
+
+impl<F, S> DocValuesIterator for EitherNumericDocValues<F, S> where F: NumericDocValues, S: NumericDocValues, {}
+
+impl<F, S> DocIdSetIterator for EitherNumericDocValues<F, S>
+where
+    F: NumericDocValues,
+    S: NumericDocValues,
+{
+    fn doc_id(&self) -> i32 {
+        match self {
+            EitherNumericDocValues::F(t) => t.doc_id(),
+            EitherNumericDocValues::S(s) => s.doc_id(),
+        }
+    }
+
+    fn next_doc(&mut self) -> Result<i32> {
+        match self {
+            EitherNumericDocValues::F(t) => t.next_doc(),
+            EitherNumericDocValues::S(s) => s.next_doc(),
+        }
+    }
+
+    fn advance(&mut self, _target: i32) -> Result<i32> {
+        match self {
+            EitherNumericDocValues::F(t) => t.advance(_target),
+            EitherNumericDocValues::S(s) => s.advance(_target),
+        }
+    }
+
+    fn slow_advance(&mut self, target: i32) -> Result<i32> {
+        match self {
+            EitherNumericDocValues::F(t) => t.slow_advance(target),
+            EitherNumericDocValues::S(s) => s.slow_advance(target),
+        }
+    }
+
+    fn cost(&self) -> Result<i64> {
+        match self {
+            EitherNumericDocValues::F(t) => t.cost(),
+            EitherNumericDocValues::S(s) => s.cost(),
+        }
+    }
+}
+
+impl<F, S> NumericDocValues for EitherNumericDocValues<F, S> where F: NumericDocValues , S:NumericDocValues{
+    fn long_value(&mut self) -> Result<i64> {
+        match self {
+            EitherNumericDocValues::F(t) => t.long_value(),
+            EitherNumericDocValues::S(s) => s.long_value(),
         }
     }
 }
