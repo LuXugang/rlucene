@@ -14,15 +14,157 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codecs::norms_consumer::NormsConsumer;
+use crate::codecs::norms_producer::NormsProducer;
 use crate::index::doc_values_iterator::DocValuesIterator;
-use crate::index::docs_with_field_set::DocsWithFieldSetEnum;
+use crate::index::docs_with_field_set::{DocsWithFieldSet, DocsWithFieldSetEnum};
+use crate::index::field_info::FieldInfo;
 use crate::index::numeric_doc_values::NumericDocValues;
+use crate::index::numeric_doc_values_writer::{ndvw_util, NumericDVs, SortingNumericDocValues};
+use crate::index::segment_write_state::SegmentWriteState;
+use crate::index::sorter::DocMap;
+use crate::search::doc_id_set::DocIdSet;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::store::directory::Directory;
+use crate::util::accountable::Accountable;
+use crate::util::either_enums::EitherNumericDocValues;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::packed::packed_long_values::{PackedLongValues, PackedLongValuesIterator};
-pub struct NormValuesWriter;
+use crate::util::fixed_bit_set::FixedBitSet;
+use crate::util::packed::packed_long_values::{
+    Builder, PackedLongValues, PackedLongValuesIterator,
+};
+use crate::util::packed::PackedInts;
+use crate::util::{Counter, CounterEnumBorrow};
+use std::rc::Rc;
 
+/// Buffers up pending long per doc, then flushes when segment flushes.
+pub(crate) struct NormValuesWriter {
+    docs_with_field: DocsWithFieldSet,
+    pending: Builder,
+    iw_bytes_used: CounterEnumBorrow,
+    bytes_used: i64,
+    field_info: Rc<FieldInfo>,
+    last_doc_id: i32,
+}
+impl NormValuesWriter {
+    pub(crate) fn new(field_info: Rc<FieldInfo>, iw_bytes_used: CounterEnumBorrow) -> Result<Self> {
+        Ok(Self {
+            docs_with_field: DocsWithFieldSet::new(),
+            pending: PackedLongValues::delta_packed_long_values_builder_default(
+                PackedInts::COMPACT,
+            )?,
+            iw_bytes_used,
+            bytes_used: 0,
+            field_info,
+            last_doc_id: -1,
+        })
+    }
+    pub(crate) fn add_value(&mut self, doc_id: i32, value: i64) -> Result<()> {
+        if doc_id <= self.last_doc_id {
+            return Err(LuceneError::illegal_argument(format!(
+                "Norm for \"{}\" appears more than once in this document (only one value is allowed per field)",
+                self.field_info.name
+            )));
+        }
+
+        self.pending.add(value)?;
+        self.docs_with_field.add(doc_id)?;
+        self.update_bytes_used()?;
+        self.last_doc_id = doc_id;
+        Ok(())
+    }
+
+    fn update_bytes_used(&mut self) -> Result<()> {
+        let new_bytes_used =
+            self.pending.ram_bytes_used()? + self.docs_with_field.ram_bytes_used()?;
+        self.iw_bytes_used
+            .borrow_mut()
+            .add_and_get(new_bytes_used - self.bytes_used);
+        self.bytes_used = new_bytes_used;
+        Ok(())
+    }
+    pub(crate) fn finish(&mut self, _max_doc: i32) {}
+
+    pub(crate) fn flush<D, DM, N>(
+        &mut self,
+        state: &SegmentWriteState<D>,
+        sort_map: Option<Rc<DM>>,
+        norms_consumer: &mut N,
+    ) -> Result<()>
+    where
+        D: Directory,
+        DM: DocMap,
+        N: NormsConsumer,
+    {
+        let values = std::mem::take(&mut self.pending).build()?;
+        let sorted = match sort_map {
+            Some(sort_map) => {
+                let dense = sort_map.size() == self.docs_with_field.cardinality() as usize;
+                let iter = match self.docs_with_field.iterator()? {
+                    Some(iter) => iter,
+                    None => return Err(LuceneError::illegal_state("DocsWithFieldSet is None")),
+                };
+                let mut buffer_norms = BufferedNorms::new(&values, iter)?;
+                let sorted = ndvw_util::sort_doc_values(
+                    state.segment_info.max_doc()?,
+                    &*sort_map,
+                    &mut buffer_norms,
+                    dense,
+                )?;
+                Some(sorted)
+            },
+            None => None,
+        };
+
+        let mut norms_producer =
+            NormsProducerImpl::new(sorted, std::mem::take(&mut self.docs_with_field), values)?;
+        norms_consumer.add_norms_field(&self.field_info, &mut norms_producer)?;
+
+        Ok(())
+    }
+}
+
+struct NormsProducerImpl {
+    sorted: Option<NumericDVs<FixedBitSet>>,
+    docs_with_field: DocsWithFieldSet,
+    values: PackedLongValues,
+}
+impl NormsProducerImpl {
+    pub(crate) fn new(
+        sorted: Option<NumericDVs<FixedBitSet>>,
+        docs_with_field: DocsWithFieldSet,
+        values: PackedLongValues,
+    ) -> Result<Self> {
+        Ok(Self {
+            sorted,
+            docs_with_field,
+            values,
+        })
+    }
+}
+impl NormsProducer for NormsProducerImpl {
+    type NumericDocValues =
+        EitherNumericDocValues<BufferedNorms, SortingNumericDocValues<FixedBitSet>>;
+
+    fn get_norms(&mut self, _field_info2: &Rc<FieldInfo>) -> Result<Self::NumericDocValues> {
+        match &self.sorted {
+            Some(sorted) => Ok(EitherNumericDocValues::S(SortingNumericDocValues::new(
+                sorted.clone(),
+            ))),
+            None => Ok(EitherNumericDocValues::F(BufferedNorms::new(
+                &self.values,
+                self.docs_with_field.iterator()?.unwrap(),
+            )?)),
+        }
+    }
+
+    fn check_integrity(&mut self) -> Result<()> {
+        Ok(())
+    }
+}
+
+/// iterates over the values we have in ram
 struct BufferedNorms {
     iter: PackedLongValuesIterator,
     doc_with_field: DocsWithFieldSetEnum,
@@ -30,7 +172,7 @@ struct BufferedNorms {
 }
 impl BufferedNorms {
     pub(crate) fn new(
-        values: PackedLongValues,
+        values: &PackedLongValues,
         doc_with_field: DocsWithFieldSetEnum,
     ) -> Result<Self> {
         Ok(Self {

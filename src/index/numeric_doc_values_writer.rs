@@ -22,6 +22,7 @@ use crate::util::bit_set::BitSet;
 use crate::util::error::lucene_error;
 use crate::util::error::lucene_error::LuceneError;
 use std::cell::Cell;
+use std::rc::Rc;
 
 pub(crate) struct NumericDocValuesWriter;
 
@@ -130,12 +131,13 @@ where
         Ok(self.dvs.values[self.doc_id as usize])
     }
 }
+#[derive(Clone)]
 pub(crate) struct NumericDVs<T>
 where
     T: BitSet,
 {
-    pub values: Vec<i64>,
-    pub docs_with_field: Option<T>,
+    pub values: Rc<Vec<i64>>,
+    pub docs_with_field: Option<Rc<T>>,
     pub max_doc: i32,
 }
 
@@ -145,9 +147,10 @@ where
 {
     pub fn new(values: Vec<i64>, docs_with_field: Option<T>) -> Self {
         debug_assert!(values.len() <= i32::MAX as usize);
+        let docs_with_field = docs_with_field.map(Rc::new);
         let max_doc = values.len() as i32;
         Self {
-            values,
+            values: Rc::new(values),
             docs_with_field,
             max_doc,
         }

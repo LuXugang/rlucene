@@ -147,13 +147,10 @@ impl DocIdSet for DocsWithFieldSet {
                 ));
             }
             debug_assert!(self.cardinality > 0);
-            Ok(Some(DocsWithFieldSetEnum::Sparse(
-                BitSetIterator::new(
-                    self.set_iter.as_ref().unwrap().clone(),
-                    self.cardinality as i64,
-                )
-                .unwrap(),
-            )))
+            Ok(Some(DocsWithFieldSetEnum::Sparse(BitSetIterator::new(
+                self.set_iter.as_ref().unwrap().clone(),
+                self.cardinality as i64,
+            )?)))
         } else {
             Ok(Some(DocsWithFieldSetEnum::Dense(AllDocIdSetIterator::new(
                 self.cardinality,

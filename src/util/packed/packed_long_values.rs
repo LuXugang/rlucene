@@ -24,16 +24,18 @@ use crate::util::packed::delta_packed_long_values::{
 use crate::util::packed::monotonic_long_values::MonotonicLongValuesBuilder;
 use crate::util::packed::read_enum::PackedIntsReadEnum;
 use crate::util::packed::{Mutable, NullReader, PackedInts, Reader};
+use std::rc::Rc;
 
 /// Utility struct to compress integers into a [`LongValues`] instance.
+#[derive(Clone)]
 pub struct PackedLongValues {
     page_shift: i32,
     pub(crate) page_mask: i32,
-    pub(crate) values: Vec<PackedIntsReadEnum>,
+    pub(crate) values: Vec<Rc<PackedIntsReadEnum>>,
     pub(crate) size: i64,
     #[allow(unused)]
     ram_bytes_used: i64,
-    sub_long_values: Option<DeltaPackedLongValues>,
+    sub_long_values: Option<Rc<DeltaPackedLongValues>>,
 }
 const MIN_PAGE_SIZE: i32 = 64;
 // More than 1M doesn't really makes sense with these appending buffers
@@ -103,13 +105,15 @@ impl PackedLongValues {
         ram_bytes_used: i64,
         sub_packed_long_values: Option<DeltaPackedLongValues>,
     ) -> Self {
+        let sub_long_values = sub_packed_long_values.map(Rc::new);
+        let values: Vec<Rc<PackedIntsReadEnum>> = values.into_iter().map(Rc::new).collect();
         Self {
             page_shift,
             page_mask,
             values,
             size,
             ram_bytes_used,
-            sub_long_values: sub_packed_long_values,
+            sub_long_values,
         }
     }
     pub fn size(&self) -> i64 {
@@ -140,8 +144,8 @@ impl PackedLongValues {
         };
         Ok(self.values[block as usize].get(element)? + value)
     }
-    pub fn iterator(self) -> Result<PackedLongValuesIterator> {
-        PackedLongValuesIterator::new(self)
+    pub fn iterator(&self) -> Result<PackedLongValuesIterator> {
+        PackedLongValuesIterator::new(self.clone())
     }
 }
 impl Accountable for PackedLongValues {
@@ -162,6 +166,7 @@ impl LongValues for PackedLongValues {
 }
 
 /// A Builder for a {@link PackedLongValues} instance.
+#[derive(Default)]
 pub struct Builder {
     pub(crate) page_shift: i32,
     pub(crate) page_mask: i32,
@@ -355,6 +360,11 @@ impl Builder {
     }
     pub fn size(&self) -> i64 {
         self.size
+    }
+}
+impl Accountable for Builder {
+    fn ram_bytes_used(&self) -> Result<i64> {
+        Ok(self.ram_bytes_used)
     }
 }
 
