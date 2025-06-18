@@ -136,9 +136,9 @@ impl Accountable for DocsWithFieldSet {
 }
 
 impl DocIdSet for DocsWithFieldSet {
-    type DocIdSetIterator<'b> = DocsWithFieldSetEnum;
+    type DocIdSetIterator = DocsWithFieldSetEnum;
 
-    fn iterator(&self) -> Result<Option<Self::DocIdSetIterator<'_>>> {
+    fn iterator(&self) -> Result<Option<Self::DocIdSetIterator>> {
         if self.set.is_some() || self.set_iter.is_some() {
             if !self.finish {
                 return Err(LuceneError::illegal_state(

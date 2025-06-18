@@ -25,10 +25,8 @@ use crate::util::error::lucene_error::Result;
 /// Implementing types must provide an [`iterator`](DocIdSet::iterator) method
 /// to access the set.
 pub trait DocIdSet: Accountable {
-    type DocIdSetIterator<'a>: DocIdSetIterator + 'a
-    where
-        Self: 'a;
-    fn iterator(&self) -> Result<Option<Self::DocIdSetIterator<'_>>>;
+    type DocIdSetIterator: DocIdSetIterator;
+    fn iterator(&self) -> Result<Option<Self::DocIdSetIterator>>;
 
     // TODO: somehow this struct should express the cost of
     // iteration vs the cost of random access Bits; for
@@ -72,9 +70,9 @@ impl All {
 }
 /// A `DocIdSet` that matches all doc ids up to a specified doc (exclusive).
 impl DocIdSet for All {
-    type DocIdSetIterator<'a> = AllDocIdSetIterator;
+    type DocIdSetIterator = AllDocIdSetIterator;
 
-    fn iterator(&self) -> Result<Option<Self::DocIdSetIterator<'_>>> {
+    fn iterator(&self) -> Result<Option<Self::DocIdSetIterator>> {
         Ok(Some(AllDocIdSetIterator::new(self.max_doc)))
     }
 
@@ -98,9 +96,9 @@ impl Accountable for EmptyDocIdSet {
     }
 }
 impl DocIdSet for EmptyDocIdSet {
-    type DocIdSetIterator<'a> = EmptyDISI;
+    type DocIdSetIterator = EmptyDISI;
 
-    fn iterator(&self) -> Result<Option<Self::DocIdSetIterator<'_>>> {
+    fn iterator(&self) -> Result<Option<Self::DocIdSetIterator>> {
         Ok(None)
     }
 

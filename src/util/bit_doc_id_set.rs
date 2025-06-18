@@ -68,11 +68,11 @@ where
 
 impl<T> DocIdSet for BitDocIdSet<T>
 where
-    T: BitSet + Clone + 'static,
+    T: BitSet + Clone,
 {
-    type DocIdSetIterator<'a> = BitSetIterator<T>;
+    type DocIdSetIterator = BitSetIterator<T>;
 
-    fn iterator(&self) -> Result<Option<Self::DocIdSetIterator<'_>>> {
+    fn iterator(&self) -> Result<Option<Self::DocIdSetIterator>> {
         Ok(self
             .set
             .as_ref()

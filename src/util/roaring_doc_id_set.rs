@@ -71,9 +71,9 @@ impl RoaringDocIdSet {
     }
 }
 impl DocIdSet for RoaringDocIdSet {
-    type DocIdSetIterator<'a> = Iterator;
+    type DocIdSetIterator = Iterator;
 
-    fn iterator(&self) -> Result<Option<Self::DocIdSetIterator<'_>>> {
+    fn iterator(&self) -> Result<Option<Self::DocIdSetIterator>> {
         Ok(Some(Iterator::new(
             self.doc_id_sets.clone(),
             self.cardinality as i64,
@@ -270,9 +270,9 @@ impl Accountable for ShortArrayDocIdSet {
 }
 
 impl DocIdSet for ShortArrayDocIdSet {
-    type DocIdSetIterator<'b> = ShortArrayDISI;
+    type DocIdSetIterator = ShortArrayDISI;
 
-    fn iterator(&self) -> Result<Option<Self::DocIdSetIterator<'_>>> {
+    fn iterator(&self) -> Result<Option<Self::DocIdSetIterator>> {
         Ok(Some(ShortArrayDISI::new(self.doc_ids.clone())))
     }
 
@@ -438,12 +438,9 @@ impl Accountable for DocIdSetEnum {
 }
 
 impl DocIdSet for DocIdSetEnum {
-    type DocIdSetIterator<'a>
-        = DocIdSetIteratorEnum
-    where
-        Self: 'a;
+    type DocIdSetIterator = DocIdSetIteratorEnum;
 
-    fn iterator(&self) -> Result<Option<Self::DocIdSetIterator<'_>>> {
+    fn iterator(&self) -> Result<Option<Self::DocIdSetIterator>> {
         match self {
             DocIdSetEnum::Sparse(s) => {
                 Ok(Some(DocIdSetIteratorEnum::Sparse(s.iterator()?.unwrap())))

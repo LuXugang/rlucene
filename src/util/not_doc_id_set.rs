@@ -61,12 +61,9 @@ impl<T> DocIdSet for NotDocIdSet<T>
 where
     T: DocIdSet,
 {
-    type DocIdSetIterator<'a>
-        = NotDocDocIdSetIterator<T::DocIdSetIterator<'a>>
-    where
-        Self: 'a;
+    type DocIdSetIterator = NotDocDocIdSetIterator<T::DocIdSetIterator>;
 
-    fn iterator(&self) -> Result<Option<Self::DocIdSetIterator<'_>>> {
+    fn iterator(&self) -> Result<Option<Self::DocIdSetIterator>> {
         Ok(NotDocDocIdSetIterator::new(
             self.set.iterator()?,
             self.max_doc,

@@ -177,9 +177,9 @@ impl Accountable for DocIdSetBuilderEnum {
 }
 
 impl DocIdSet for DocIdSetBuilderEnum {
-    type DocIdSetIterator<'a> = DocIdSetBuilderIterator;
+    type DocIdSetIterator = DocIdSetBuilderIterator;
 
-    fn iterator(&self) -> Result<Option<Self::DocIdSetIterator<'_>>> {
+    fn iterator(&self) -> Result<Option<Self::DocIdSetIterator>> {
         match self {
             DocIdSetBuilderEnum::BitDoc(m) => Ok(Some(DocIdSetBuilderIterator::BitSet(
                 m.iterator()?.unwrap(),

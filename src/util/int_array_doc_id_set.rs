@@ -70,9 +70,9 @@ fn assert_array_sorted(docs: &[i32]) -> bool {
 }
 
 impl DocIdSet for IntArrayDocIdSet {
-    type DocIdSetIterator<'a> = IntArrayDocIdSetIterator;
+    type DocIdSetIterator = IntArrayDocIdSetIterator;
 
-    fn iterator(&self) -> Result<Option<Self::DocIdSetIterator<'_>>> {
+    fn iterator(&self) -> Result<Option<Self::DocIdSetIterator>> {
         Ok(Some(IntArrayDocIdSetIterator::new(
             self.docs.clone(),
             self.length,
