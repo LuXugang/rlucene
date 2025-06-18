@@ -14,28 +14,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::any::TypeId;
-
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::util::bit_set::BitSet;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::sparse_fixed_bit_set::SparseFixedBitSet;
+use std::any::TypeId;
+use std::rc::Rc;
 
 /// A [`DocIdSetIterator`] which iterates over set bits in a bit set.
 ///
 /// # Note
 /// This is an internal API.
-pub struct BitSetIterator<'a, T: BitSet> {
-    bits: &'a T,
+pub struct BitSetIterator<T>
+where
+    T: BitSet,
+{
+    pub(crate) bits: Rc<T>,
     length: i32,
     cost: i64,
     doc: i32,
 }
 
-impl<'a, T: BitSet> BitSetIterator<'a, T> {
-    pub fn new(bits: &'a T, cost: i64) -> Result<BitSetIterator<'a, T>> {
+impl<T: BitSet> BitSetIterator<T> {
+    pub fn new(bits: Rc<T>, cost: i64) -> Result<BitSetIterator<T>> {
         if cost < 0 {
             return Err(LuceneError::illegal_argument(format!(
                 "cost must be >= 0, got {}",
@@ -51,8 +54,8 @@ impl<'a, T: BitSet> BitSetIterator<'a, T> {
         })
     }
 
-    pub fn get_bit_set(&self) -> &T {
-        self.bits
+    pub fn get_bit_set(&self) -> Rc<T> {
+        self.bits.clone()
     }
 
     // Set the current doc id that this iterator is on.
@@ -101,7 +104,7 @@ impl<'a, T: BitSet> BitSetIterator<'a, T> {
     }
 }
 
-impl<T: BitSet> DocIdSetIterator for BitSetIterator<'_, T> {
+impl<T: BitSet> DocIdSetIterator for BitSetIterator<T> {
     fn doc_id(&self) -> i32 {
         self.doc
     }

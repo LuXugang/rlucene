@@ -70,12 +70,13 @@ impl<T> DocIdSet for BitDocIdSet<T>
 where
     T: BitSet + Clone + 'static,
 {
-    type DocIdSetIterator<'a> = BitSetIterator<'a, T>;
+    type DocIdSetIterator<'a> = BitSetIterator<T>;
 
-    fn iterator(&self) -> Option<Self::DocIdSetIterator<'_>> {
-        self.set
+    fn iterator(&self) -> Result<Option<Self::DocIdSetIterator<'_>>> {
+        Ok(self
+            .set
             .as_ref()
-            .map(|set| BitSetIterator::new(&**set, self.cost).unwrap())
+            .map(|set| BitSetIterator::new(set.clone(), self.cost).unwrap()))
     }
 
     type BitType = T;

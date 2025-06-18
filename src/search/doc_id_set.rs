@@ -28,7 +28,7 @@ pub trait DocIdSet: Accountable {
     type DocIdSetIterator<'a>: DocIdSetIterator + 'a
     where
         Self: 'a;
-    fn iterator(&self) -> Option<Self::DocIdSetIterator<'_>>;
+    fn iterator(&self) -> Result<Option<Self::DocIdSetIterator<'_>>>;
 
     // TODO: somehow this struct should express the cost of
     // iteration vs the cost of random access Bits; for
@@ -74,8 +74,8 @@ impl All {
 impl DocIdSet for All {
     type DocIdSetIterator<'a> = AllDocIdSetIterator;
 
-    fn iterator(&self) -> Option<Self::DocIdSetIterator<'_>> {
-        Some(AllDocIdSetIterator::new(self.max_doc))
+    fn iterator(&self) -> Result<Option<Self::DocIdSetIterator<'_>>> {
+        Ok(Some(AllDocIdSetIterator::new(self.max_doc)))
     }
 
     type BitType = MatchAllBits;
@@ -100,8 +100,8 @@ impl Accountable for EmptyDocIdSet {
 impl DocIdSet for EmptyDocIdSet {
     type DocIdSetIterator<'a> = EmptyDISI;
 
-    fn iterator(&self) -> Option<Self::DocIdSetIterator<'_>> {
-        None
+    fn iterator(&self) -> Result<Option<Self::DocIdSetIterator<'_>>> {
+        Ok(None)
     }
 
     type BitType = MatchNoBits;

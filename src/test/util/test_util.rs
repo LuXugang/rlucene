@@ -19,7 +19,7 @@ use num_bigint::BigInt;
 use num_traits::{FromPrimitive, ToPrimitive};
 use once_cell::sync::Lazy;
 use rand::prelude::IndexedRandom;
-use rand::{random_range, Rng, RngCore};
+use rand::{random_range, Rng};
 
 use crate::index::BytesRef;
 use crate::util::access::AccessVec;

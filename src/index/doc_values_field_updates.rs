@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::rc::Rc;
 use std::sync::Arc;
 
 use parking_lot::Mutex;
@@ -786,7 +787,6 @@ pub trait AbstractIteratorBase {
     fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>>;
 }
 
-#[allow(unused)]
 pub(crate) struct SingleValueDocValuesFieldUpdates<S>
 where
     S: SingleValueDocValuesFieldUpdatesBase + Default,
@@ -799,6 +799,8 @@ where
     has_at_least_one_value: bool,
     lock: Mutex<()>,
     dov_values_type: DocValuesType,
+    // for reuse iterator
+    bit_set_iter: Option<Rc<SparseFixedBitSet>>,
 }
 #[allow(unused)]
 impl<S> SingleValueDocValuesFieldUpdates<S>
@@ -815,6 +817,7 @@ where
             has_at_least_one_value: false,
             lock: Mutex::new(()),
             dov_values_type,
+            bit_set_iter: None,
         })
     }
     pub fn binary_value(&self) -> Result<&BytesRef<Vec<u8>>> {
@@ -840,6 +843,7 @@ where
 {
     fn add_value(&mut self, doc: i32, value: i64, _index: i32) -> Result<()> {
         debug_assert!(self.sub_update.long_value()? == value);
+        debug_assert!(self.bit_set_iter.is_none());
         self.bit_set.set(doc);
         self.has_at_least_one_value = true;
         if self.has_no_value.is_some() {
@@ -850,6 +854,7 @@ where
 
     fn add_byte_ref(&mut self, doc: i32, value: &BytesRef<Vec<u8>>, _index: i32) -> Result<()> {
         debug_assert!(self.sub_update.binary_value()? == value);
+        debug_assert!(self.bit_set_iter.is_none());
         self.bit_set.set(doc);
         self.has_at_least_one_value = true;
         if self.has_no_value.is_some() {
@@ -871,7 +876,13 @@ where
         _inner: Arc<Mutex<DocValuesFieldInner>>,
         _del_gen: i64,
     ) -> Result<impl DocValuesFieldIterator> {
-        let iterator = BitSetIterator::new(&self.bit_set, self.max_doc as i64)?;
+        if self.bit_set_iter.is_none() {
+            self.bit_set_iter = Some(Rc::new(std::mem::take(&mut self.bit_set)));
+        }
+        let iterator = BitSetIterator::new(
+            self.bit_set_iter.as_ref().unwrap().clone(),
+            self.max_doc as i64,
+        )?;
         SingleValueDocValuesFieldUpdatesIterator::new(
             Some(iterator),
             self.del_gen,
@@ -882,6 +893,7 @@ where
 
     fn reset(&mut self, doc: i32) -> Result<()> {
         let _guide = self.lock.lock();
+        debug_assert!(self.bit_set_iter.is_none());
         self.bit_set.set(doc);
         self.has_at_least_one_value = true;
         if self.has_no_value.is_none() {
@@ -927,7 +939,7 @@ where
 {
     del_gen: i64,
     has_no_value: Option<&'a mut SparseFixedBitSet>,
-    iterator: Option<BitSetIterator<'a, SparseFixedBitSet>>,
+    iterator: Option<BitSetIterator<SparseFixedBitSet>>,
     single: Option<&'a mut S>,
 }
 impl<'a, S> SingleValueDocValuesFieldUpdatesIterator<'a, S>
@@ -940,7 +952,7 @@ where
     /// Avoid using the `Default` trait. This constructor should be used
     /// instead.
     pub fn new(
-        iterator: Option<BitSetIterator<'a, SparseFixedBitSet>>,
+        iterator: Option<BitSetIterator<SparseFixedBitSet>>,
         del_gen: i64,
         has_no_value: Option<&'a mut SparseFixedBitSet>,
         single: Option<&'a mut S>,

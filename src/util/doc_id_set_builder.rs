@@ -177,14 +177,16 @@ impl Accountable for DocIdSetBuilderEnum {
 }
 
 impl DocIdSet for DocIdSetBuilderEnum {
-    type DocIdSetIterator<'a> = DocIdSetBuilderIterator<'a>;
+    type DocIdSetIterator<'a> = DocIdSetBuilderIterator;
 
-    fn iterator(&self) -> Option<Self::DocIdSetIterator<'_>> {
+    fn iterator(&self) -> Result<Option<Self::DocIdSetIterator<'_>>> {
         match self {
-            DocIdSetBuilderEnum::BitDoc(m) => Some(DocIdSetBuilderIterator::BitSet(m.iterator()?)),
-            DocIdSetBuilderEnum::IntArray(m) => {
-                Some(DocIdSetBuilderIterator::IntArray(m.iterator()?))
-            },
+            DocIdSetBuilderEnum::BitDoc(m) => Ok(Some(DocIdSetBuilderIterator::BitSet(
+                m.iterator()?.unwrap(),
+            ))),
+            DocIdSetBuilderEnum::IntArray(m) => Ok(Some(DocIdSetBuilderIterator::IntArray(
+                m.iterator()?.unwrap(),
+            ))),
         }
     }
 
@@ -197,11 +199,11 @@ impl DocIdSet for DocIdSetBuilderEnum {
         }
     }
 }
-pub enum DocIdSetBuilderIterator<'a> {
-    BitSet(BitSetIterator<'a, FixedBitSet>),
+pub enum DocIdSetBuilderIterator {
+    BitSet(BitSetIterator<FixedBitSet>),
     IntArray(IntArrayDocIdSetIterator),
 }
-impl DocIdSetIterator for DocIdSetBuilderIterator<'_> {
+impl DocIdSetIterator for DocIdSetBuilderIterator {
     fn doc_id(&self) -> i32 {
         match self {
             DocIdSetBuilderIterator::BitSet(bit_set) => bit_set.doc_id(),
@@ -234,6 +236,7 @@ impl DocIdSetIterator for DocIdSetBuilderIterator<'_> {
 #[cfg(test)]
 mod tests {
     use rand::Rng;
+    use std::rc::Rc;
 
     use crate::search::doc_id_set::DocIdSet;
     use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
@@ -247,7 +250,7 @@ mod tests {
     use crate::util::doc_id_set_builder::{
         DocIdSetBuilder, DocIdSetBuilderEnum, DocIdSetBuilderIterator,
     };
-    use crate::util::error::lucene_error::Result;
+    use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::fixed_bit_set::FixedBitSet;
     use crate::util::int_array_doc_id_set::IntArrayDocIdSet;
     use crate::util::roaring_doc_id_set::builder::Builder;
@@ -275,7 +278,7 @@ mod tests {
                 assert_eq!(
                     d2.as_mut()
                         .unwrap()
-                        .iterator()
+                        .iterator()?
                         .as_mut()
                         .unwrap()
                         .next_doc()?,
@@ -286,15 +289,15 @@ mod tests {
             assert_eq!(
                 d1.as_mut()
                     .unwrap()
-                    .iterator()
+                    .iterator()?
                     .as_mut()
                     .unwrap()
                     .next_doc()?,
                 NO_MORE_DOCS
             );
         } else {
-            let mut i1 = d1.as_mut().unwrap().iterator().unwrap();
-            let mut i2 = d2.as_mut().unwrap().iterator().unwrap();
+            let mut i1 = d1.as_mut().unwrap().iterator()?.unwrap();
+            let mut i2 = d2.as_mut().unwrap().iterator()?.unwrap();
             let mut doc = i1.next_doc()?;
             while doc != NO_MORE_DOCS {
                 assert_eq!(doc, i2.next_doc()?);
@@ -322,7 +325,7 @@ mod tests {
                 doc += base_inc + random.random_range(0..10000);
             }
             let roaring_doc_id_set = b.build();
-            let iter = roaring_doc_id_set.iterator().unwrap();
+            let iter = roaring_doc_id_set.iterator()?.unwrap();
             builder.add_disi::<DocIdSetBuilderIterator>(iter)?;
         }
         let result = builder.build()?;
@@ -353,7 +356,7 @@ mod tests {
                 doc += 1 + random.random_range(0..100);
             }
             let roaring_doc_id_set = b.build();
-            let iter = roaring_doc_id_set.iterator().unwrap();
+            let iter = roaring_doc_id_set.iterator()?.unwrap();
             builder.add_disi::<DocIdSetBuilderIterator>(iter)?;
         }
         let result = builder.build()?;
@@ -389,15 +392,24 @@ mod tests {
                     c += 1
                 }
             }
+            let docs = Rc::new(docs);
             let mut array = vec![0; num_docs as usize + random.random_range(0..100)];
-            let mut it = BitSetIterator::new(&docs, 0)?;
-            let mut j = 0;
-            let mut doc = it.next_doc()?;
-            while doc != NO_MORE_DOCS {
-                array[j] = doc;
-                j += 1;
-                doc = it.next_doc()?;
-            }
+            let mut j = {
+                let mut it = BitSetIterator::new(docs.clone(), 0)?;
+                let mut j = 0;
+                let mut doc = it.next_doc()?;
+                while doc != NO_MORE_DOCS {
+                    array[j] = doc;
+                    j += 1;
+                    doc = it.next_doc()?;
+                }
+                j
+            };
+
+            let docs = match Rc::try_unwrap(docs) {
+                Ok(value) => value,
+                Err(_) => return Err(LuceneError::illegal_state("Rc count should be 1")),
+            };
             assert_eq!(num_docs, j as i32);
             // add some duplicates
             while j < array.len() {
@@ -449,9 +461,10 @@ mod tests {
                 docs.set(doc);
             }
             expected.or(&docs);
+            let docs = Rc::new(docs);
             // We provide a cost of 0 here to make sure the builder can deal
             // with wrong costs
-            let bit_doc_id_set = BitSetIterator::new(&docs, 0)?;
+            let bit_doc_id_set = BitSetIterator::new(docs, 0)?;
             builder.add_disi::<DocIdSetBuilderIterator>(bit_doc_id_set)?;
         }
         let bit_doc_id_set = BitDocIdSet::new(Some(expected))?;
@@ -485,7 +498,7 @@ mod tests {
             DocIdSetBuilderEnum::IntArray(_) => enum_type2,
         };
         assert_eq!(doc_id_set_type, enum_type1);
-        assert_eq!(set.iterator().unwrap().cost()?, 2);
+        assert_eq!(set.iterator()?.unwrap().cost()?, 2);
 
         // multi-valued
         doc_count = 42;
@@ -502,7 +515,7 @@ mod tests {
             DocIdSetBuilderEnum::IntArray(_) => enum_type2,
         };
         assert_eq!(doc_id_set_type, enum_type1);
-        assert_eq!(set.iterator().unwrap().cost()?, 1);
+        assert_eq!(set.iterator()?.unwrap().cost()?, 1);
 
         // incomplete stats
         doc_count = 42;
@@ -534,7 +547,7 @@ mod tests {
             DocIdSetBuilderEnum::IntArray(_) => enum_type2,
         };
         assert_eq!(doc_id_set_type, enum_type1);
-        assert_eq!(set.iterator().unwrap().cost()?, 1000000 >> 6);
+        assert_eq!(set.iterator()?.unwrap().cost()?, 1000000 >> 6);
         Ok(())
     }
 }

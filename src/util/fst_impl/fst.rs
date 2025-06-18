@@ -1477,7 +1477,6 @@ mod tests {
             // PositiveIntOutput (ord)
             {
                 let outputs = PositiveIntOutputs::get_singleton();
-                let no_output = outputs.get_no_output();
                 let pairs = terms
                     .clone()
                     .into_iter()
@@ -1699,7 +1698,7 @@ mod tests {
                     outputs.clone(),
                 );
 
-                let fst = tester.do_test()?;
+                let _ = tester.do_test()?;
                 assert_eq!(tester.node_count, 22);
                 assert_eq!(tester.arc_count, 27);
             }
@@ -1727,7 +1726,7 @@ mod tests {
                     outputs.clone(),
                 );
 
-                let fst = tester.do_test()?;
+                let _ = tester.do_test()?;
                 assert_eq!(tester.node_count, 24);
                 assert_eq!(tester.arc_count, 30);
             }
@@ -2040,8 +2039,6 @@ mod tests {
 
         // Add final stop node for 'a'
         {
-            let node_in_idx = 0;
-
             let no_output = fst_compiler.no_output.clone();
             let mut node = UnCompiledNode::new(no_output.clone(), 0);
             node.is_final = true;
@@ -2058,7 +2055,6 @@ mod tests {
 
         // Add non-final stop node for 'b'
         {
-            let node_in_idx = 1;
             let no_output = fst_compiler.no_output.clone();
             let node = UnCompiledNode::new(no_output.clone(), 0);
             fst_compiler.frontier[1] = Some(node);

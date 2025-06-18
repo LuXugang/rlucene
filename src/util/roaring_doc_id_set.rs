@@ -45,7 +45,7 @@ const BASE_RAM_BYTES_USED: i64 = 0;
 /// # Note
 /// This is an internal API.
 pub struct RoaringDocIdSet {
-    doc_id_sets: Vec<Option<DocIdSetEnum>>,
+    doc_id_sets: Vec<Option<Rc<DocIdSetEnum>>>,
     cardinality: i32,
     #[allow(unused)]
     ram_bytes_used: i64,
@@ -53,6 +53,10 @@ pub struct RoaringDocIdSet {
 impl RoaringDocIdSet {
     fn new(doc_id_sets: Vec<Option<DocIdSetEnum>>, cardinality: i32) -> Self {
         // todo
+        let doc_id_sets: Vec<Option<Rc<DocIdSetEnum>>> = doc_id_sets
+            .into_iter()
+            .map(|opt| opt.map(Rc::new))
+            .collect();
         let ram_bytes_used = 0;
         RoaringDocIdSet {
             doc_id_sets,
@@ -67,10 +71,13 @@ impl RoaringDocIdSet {
     }
 }
 impl DocIdSet for RoaringDocIdSet {
-    type DocIdSetIterator<'a> = Iterator<'a>;
+    type DocIdSetIterator<'a> = Iterator;
 
-    fn iterator(&self) -> Option<Self::DocIdSetIterator<'_>> {
-        Some(Iterator::new(&self.doc_id_sets, self.cardinality as i64))
+    fn iterator(&self) -> Result<Option<Self::DocIdSetIterator<'_>>> {
+        Ok(Some(Iterator::new(
+            self.doc_id_sets.clone(),
+            self.cardinality as i64,
+        )))
     }
 
     type BitType = MatchNoBits;
@@ -265,8 +272,8 @@ impl Accountable for ShortArrayDocIdSet {
 impl DocIdSet for ShortArrayDocIdSet {
     type DocIdSetIterator<'b> = ShortArrayDISI;
 
-    fn iterator(&self) -> Option<Self::DocIdSetIterator<'_>> {
-        Some(ShortArrayDISI::new(self.doc_ids.clone()))
+    fn iterator(&self) -> Result<Option<Self::DocIdSetIterator<'_>>> {
+        Ok(Some(ShortArrayDISI::new(self.doc_ids.clone())))
     }
 
     type BitType = MatchNoBits;
@@ -335,16 +342,16 @@ impl DocIdSetIterator for ShortArrayDISI {
     }
 }
 
-pub struct Iterator<'a> {
+pub struct Iterator {
     block: i32,
     doc: i32,
     set_length: usize,
-    sub: Option<DocIdSetIteratorEnum<'a>>,
-    doc_id_sets: &'a Vec<Option<DocIdSetEnum>>,
+    sub: Option<DocIdSetIteratorEnum>,
+    doc_id_sets: Vec<Option<Rc<DocIdSetEnum>>>,
     cardinality: i64,
 }
-impl<'a> Iterator<'a> {
-    fn new(doc_id_sets: &'a Vec<Option<DocIdSetEnum>>, cardinality: i64) -> Self {
+impl Iterator {
+    fn new(doc_id_sets: Vec<Option<Rc<DocIdSetEnum>>>, cardinality: i64) -> Self {
         let set_length = doc_id_sets.len();
         Iterator {
             block: -1,
@@ -365,7 +372,7 @@ impl<'a> Iterator<'a> {
                 self.sub = self.doc_id_sets[self.block as usize]
                     .as_ref()
                     .unwrap()
-                    .iterator();
+                    .iterator()?;
                 let sub_next = self.sub.as_mut().unwrap().next_doc()?;
                 debug_assert!(sub_next != NO_MORE_DOCS);
                 self.doc = (self.block << 16) | sub_next;
@@ -375,7 +382,7 @@ impl<'a> Iterator<'a> {
         Ok(self.doc)
     }
 }
-impl DocIdSetIterator for Iterator<'_> {
+impl DocIdSetIterator for Iterator {
     fn doc_id(&self) -> i32 {
         self.doc
     }
@@ -404,7 +411,7 @@ impl DocIdSetIterator for Iterator<'_> {
             self.sub = self.doc_id_sets[self.block as usize]
                 .as_ref()
                 .unwrap()
-                .iterator()
+                .iterator()?
         }
         let sub_next = self.sub.as_mut().unwrap().advance(_target & 0xFFFF)?;
         if sub_next == NO_MORE_DOCS {
@@ -432,15 +439,19 @@ impl Accountable for DocIdSetEnum {
 
 impl DocIdSet for DocIdSetEnum {
     type DocIdSetIterator<'a>
-        = DocIdSetIteratorEnum<'a>
+        = DocIdSetIteratorEnum
     where
         Self: 'a;
 
-    fn iterator(&self) -> Option<Self::DocIdSetIterator<'_>> {
+    fn iterator(&self) -> Result<Option<Self::DocIdSetIterator<'_>>> {
         match self {
-            DocIdSetEnum::Sparse(s) => Some(DocIdSetIteratorEnum::Sparse(s.iterator()?)),
-            DocIdSetEnum::Medium(m) => Some(DocIdSetIteratorEnum::Medium(m.iterator()?)),
-            DocIdSetEnum::Dense(d) => Some(DocIdSetIteratorEnum::Dense(d.iterator()?)),
+            DocIdSetEnum::Sparse(s) => {
+                Ok(Some(DocIdSetIteratorEnum::Sparse(s.iterator()?.unwrap())))
+            },
+            DocIdSetEnum::Medium(m) => {
+                Ok(Some(DocIdSetIteratorEnum::Medium(m.iterator()?.unwrap())))
+            },
+            DocIdSetEnum::Dense(d) => Ok(Some(DocIdSetIteratorEnum::Dense(d.iterator()?.unwrap()))),
         }
     }
 
@@ -451,13 +462,13 @@ impl DocIdSet for DocIdSetEnum {
     }
 }
 
-enum DocIdSetIteratorEnum<'a> {
+enum DocIdSetIteratorEnum {
     Sparse(ShortArrayDISI),
-    Medium(BitSetIterator<'a, FixedBitSet>),
+    Medium(BitSetIterator<FixedBitSet>),
     Dense(NotDocDocIdSetIterator<ShortArrayDISI>),
     Empty(EmptyDISI),
 }
-impl DocIdSetIterator for DocIdSetIteratorEnum<'_> {
+impl DocIdSetIterator for DocIdSetIteratorEnum {
     fn doc_id(&self) -> i32 {
         match self {
             DocIdSetIteratorEnum::Sparse(s) => s.doc_id(),

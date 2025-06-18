@@ -372,7 +372,7 @@ where
                         )));
                     },
                 };
-                writer.add(field_num as i64)?
+                writer.add(field_index as i64)?
             }
         }
 

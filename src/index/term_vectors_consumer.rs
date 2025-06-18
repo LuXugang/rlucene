@@ -17,8 +17,6 @@
 use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
 use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
 use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
-#[cfg(test)]
-use crate::codecs::lucene101_codec::Lucene101Codec;
 use crate::codecs::term_vectors_format::TermVectorsFormat;
 use crate::codecs::term_vectors_writer::{TermVectorsWriter, TermVectorsWriterEnum};
 use crate::codecs::Codec;
@@ -87,8 +85,6 @@ where
         let byte_block_allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
         let directory = Arc::new(Mutex::new(DummyDirectory));
         let info = Rc::new(SegmentInfo::default());
-        let codec = Rc::new(Lucene101Codec);
-
         TermVectorsConsumer::new(int_block_allocator, byte_block_allocator, directory, info)
     }
 }

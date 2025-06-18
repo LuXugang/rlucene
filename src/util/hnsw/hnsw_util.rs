@@ -615,7 +615,7 @@ mod tests {
 
         fn get_nodes_on_level(&mut self, level: usize) -> Result<Self::NodeIterator> {
             let mut count = 0;
-            for (i, neighbors) in self.nodes[level].iter().enumerate() {
+            for (_, neighbors) in self.nodes[level].iter().enumerate() {
                 if neighbors.is_some() {
                     count += 1;
                 }
@@ -683,7 +683,7 @@ mod tests {
             self.size
         }
 
-        fn consume(&mut self, dest: &mut [i32]) -> Option<i32> {
+        fn consume(&mut self, _dest: &mut [i32]) -> Option<i32> {
             unreachable!()
         }
 

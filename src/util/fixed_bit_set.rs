@@ -690,7 +690,7 @@ mod tests {
     use crate::util::bit_set_iterator::BitSetIterator;
     use crate::util::bits::Bits;
     use crate::util::doc_base_bit_set_iterator::DocBaseBitSetIterator;
-    use crate::util::error::lucene_error::Result;
+    use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::fixed_bit_set::FixedBitSet;
     use crate::util::int_array_doc_id_set::IntArrayDocIdSetIterator;
     use crate::util::sparse_fixed_bit_set::SparseFixedBitSet;
@@ -900,21 +900,28 @@ mod tests {
     fn do_iterate<R: Rng + ?Sized>(
         random: &mut R,
         a: &bit_set::BitSet,
-        b: &FixedBitSet,
-    ) -> Result<()> {
+        b: FixedBitSet,
+    ) -> Result<FixedBitSet> {
         assert_eq!(a.len(), b.cardinality() as usize);
-        let mut iterator = BitSetIterator::new(b, 0)?;
-        let iter = a.iter();
-        for index in iter {
-            let bb = if random.random_bool(0.5) {
-                iterator.next_doc()?
-            } else {
-                iterator.advance(index as i32)?
-            };
-            assert_eq!(index, bb as usize);
+        let b = Rc::new(b);
+        {
+            let mut iterator = BitSetIterator::new(b.clone(), 0)?;
+            let iter = a.iter();
+            for index in iter {
+                let bb = if random.random_bool(0.5) {
+                    iterator.next_doc()?
+                } else {
+                    iterator.advance(index as i32)?
+                };
+                assert_eq!(index, bb as usize);
+            }
+            assert_eq!(iterator.next_doc()?, NO_MORE_DOCS);
         }
-        assert_eq!(iterator.next_doc()?, NO_MORE_DOCS);
-        Ok(())
+        let b = match Rc::try_unwrap(b) {
+            Ok(value) => value,
+            Err(_) => return Err(LuceneError::illegal_state("Rc count should be 1")),
+        };
+        Ok(b)
     }
 
     fn do_random_sets<R: Rng + ?Sized>(random: &mut R, iter: i32) -> Result<()> {
@@ -969,7 +976,7 @@ mod tests {
             let mut bb = b.clone();
             bb.flip_range(from_index, to_index);
 
-            do_iterate(random, &aa, &bb)?; //  a problem here is from flip or doIterate
+            bb = do_iterate(random, &aa, bb)?; //  a problem here is from flip or doIterate
 
             from_index = random.random_range(0..(sz / 2));
             to_index = from_index + random.random_range(0..(sz - from_index));
@@ -1023,10 +1030,10 @@ mod tests {
                 assert_eq!(a_andn.len(), b_andn.cardinality() as usize);
                 assert_eq!(a_xor.len(), b_xor.cardinality() as usize);
 
-                do_iterate(random, &a_and, &b_and)?;
-                do_iterate(random, &a_xor, &b_xor)?;
-                do_iterate(random, &a_or, &b_or)?;
-                do_iterate(random, &a_andn, &b_andn)?;
+                b_and = do_iterate(random, &a_and, b_and)?;
+                b_xor = do_iterate(random, &a_xor, b_xor)?;
+                b_or = do_iterate(random, &a_or, b_or)?;
+                b_andn = do_iterate(random, &a_andn, b_andn)?;
 
                 a0 = a;
                 b0 = b;
@@ -1280,8 +1287,8 @@ mod tests {
         {
             // test BitSetIterator
             let mut fixed_bit_set2 = make_fixed_bitset(&mut random, &bits2, num_bits2)?;
-            let fixed_bit = make_fixed_bitset(&mut random, &bits1, num_bits1)?;
-            let disi = BitSetIterator::new(&fixed_bit, count1 as i64)?;
+            let fixed_bit = Rc::new(make_fixed_bitset(&mut random, &bits1, num_bits1)?);
+            let disi = BitSetIterator::new(fixed_bit, count1 as i64)?;
             fixed_bit_set2.and_not_iter(disi)?;
             do_get(&bitset2, &fixed_bit_set2);
         }

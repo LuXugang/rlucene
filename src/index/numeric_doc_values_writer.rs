@@ -19,7 +19,6 @@ use crate::index::numeric_doc_values::NumericDocValues;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::util::bit_set::BitSet;
-use crate::util::bits::Bits;
 use crate::util::error::lucene_error;
 use crate::util::error::lucene_error::LuceneError;
 use std::cell::Cell;

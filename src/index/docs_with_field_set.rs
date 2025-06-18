@@ -31,6 +31,8 @@ pub struct DocsWithFieldSet {
     set: Option<FixedBitSet>,
     cardinality: i32,
     last_doc_id: i32,
+    set_iter: Option<Rc<FixedBitSet>>,
+    finish: bool,
 }
 impl Default for DocsWithFieldSet {
     fn default() -> Self {
@@ -44,6 +46,8 @@ impl DocsWithFieldSet {
             set: None,
             cardinality: 0,
             last_doc_id: -1,
+            set_iter: None,
+            finish: false,
         }
     }
     /// Adds a document to the set.
@@ -57,7 +61,15 @@ impl DocsWithFieldSet {
                 self.last_doc_id, doc_id
             )));
         }
-        if self.set.is_some() {
+        if self.set.is_some() || self.set_iter.is_some() {
+            if self.set_iter.is_some() {
+                self.finish = false;
+                let fixed_set = match Rc::try_unwrap(self.set_iter.take().unwrap()) {
+                    Ok(value) => value,
+                    Err(_) => return Err(LuceneError::illegal_state("Rc count shoud be 1")),
+                };
+                self.set = Some(fixed_set);
+            }
             let set = self.set.as_mut().unwrap();
             set.ensure_capacity(doc_id);
             set.set(doc_id);
@@ -75,12 +87,19 @@ impl DocsWithFieldSet {
     pub fn cardinality(&self) -> i32 {
         self.cardinality
     }
+
+    pub fn finish(&mut self) {
+        self.finish = true;
+        if self.set_iter.is_none() {
+            self.set_iter = Some(Rc::new(self.set.take().unwrap()));
+        }
+    }
 }
-pub enum DocsWithFieldSetEnum<'a> {
+pub enum DocsWithFieldSetEnum {
     Dense(AllDocIdSetIterator),
-    Sparse(BitSetIterator<'a, FixedBitSet>),
+    Sparse(BitSetIterator<FixedBitSet>),
 }
-impl DocIdSetIterator for DocsWithFieldSetEnum<'_> {
+impl DocIdSetIterator for DocsWithFieldSetEnum {
     fn doc_id(&self) -> i32 {
         match self {
             DocsWithFieldSetEnum::Dense(d) => d.doc_id(),
@@ -117,18 +136,28 @@ impl Accountable for DocsWithFieldSet {
 }
 
 impl DocIdSet for DocsWithFieldSet {
-    type DocIdSetIterator<'b> = DocsWithFieldSetEnum<'b>;
+    type DocIdSetIterator<'b> = DocsWithFieldSetEnum;
 
-    fn iterator(&self) -> Option<Self::DocIdSetIterator<'_>> {
-        if self.set.is_some() {
+    fn iterator(&self) -> Result<Option<Self::DocIdSetIterator<'_>>> {
+        if self.set.is_some() || self.set_iter.is_some() {
+            if !self.finish {
+                return Err(LuceneError::illegal_state(
+                    "DocsWithFieldSet must be call finish() before creating an iterator"
+                        .to_string(),
+                ));
+            }
             debug_assert!(self.cardinality > 0);
-            Some(DocsWithFieldSetEnum::Sparse(
-                BitSetIterator::new(self.set.as_ref().unwrap(), self.cardinality as i64).unwrap(),
-            ))
-        } else {
-            Some(DocsWithFieldSetEnum::Dense(AllDocIdSetIterator::new(
-                self.cardinality,
+            Ok(Some(DocsWithFieldSetEnum::Sparse(
+                BitSetIterator::new(
+                    self.set_iter.as_ref().unwrap().clone(),
+                    self.cardinality as i64,
+                )
+                .unwrap(),
             )))
+        } else {
+            Ok(Some(DocsWithFieldSetEnum::Dense(AllDocIdSetIterator::new(
+                self.cardinality,
+            ))))
         }
     }
 
@@ -162,11 +191,11 @@ mod tests {
     #[test]
     fn test_dense() -> Result<()> {
         let mut set = DocsWithFieldSet::new();
-        let mut it = set.iterator().unwrap();
+        let mut it = set.iterator()?.unwrap();
         assert_eq!(it.next_doc()?, NO_MORE_DOCS);
 
         let _ = set.add(0);
-        it = set.iterator().unwrap();
+        it = set.iterator()?.unwrap();
         assert_eq!(0, it.next_doc()?);
         assert_eq!(it.next_doc()?, NO_MORE_DOCS);
 
@@ -177,7 +206,7 @@ mod tests {
         }
         //TODO:
         // assert_eq!(ram_bytes_used, set.ram_bytes_used());
-        it = set.iterator().unwrap();
+        it = set.iterator()?.unwrap();
         for i in 0..1000 {
             assert_eq!(i, it.next_doc()?);
         }
@@ -191,12 +220,16 @@ mod tests {
         let mut set = DocsWithFieldSet::new();
         let doc = random.random_range(0..10000);
         let _ = set.add(doc);
-        let mut it = set.iterator().unwrap();
-        assert_eq!(doc, it.next_doc()?);
-        assert_eq!(it.next_doc()?, NO_MORE_DOCS);
+        set.finish();
+        {
+            let mut it = set.iterator()?.unwrap();
+            assert_eq!(doc, it.next_doc()?);
+            assert_eq!(it.next_doc()?, NO_MORE_DOCS);
+        }
         let doc2 = doc + TestUtil::next_int(&mut random, 1, 100);
         let _ = set.add(doc2);
-        it = set.iterator().unwrap();
+        set.finish();
+        let mut it = set.iterator()?.unwrap();
         assert_eq!(doc, it.next_doc()?);
         assert_eq!(doc2, it.next_doc()?);
         assert_eq!(it.next_doc()?, NO_MORE_DOCS);
@@ -213,7 +246,8 @@ mod tests {
             let _ = set.add(i);
         }
         let _ = set.add(next_doc);
-        let mut it = set.iterator().unwrap();
+        set.finish();
+        let mut it = set.iterator()?.unwrap();
         for i in 0..dense_count {
             assert_eq!(i, it.next_doc()?);
         }

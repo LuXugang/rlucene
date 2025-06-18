@@ -119,12 +119,12 @@ pub trait BaseDocIdSetTestCaseSupperImpl {
         ds2: impl DocIdSet,
     ) -> Result<()> {
         // nextDoc
-        let mut it2 = ds2.iterator();
+        let mut it2 = ds2.iterator()?;
         if it2.is_none() {
             assert!(ds1.is_empty())
         } else {
             assert_eq!(-1, it2.unwrap().doc_id());
-            let mut disi = ds2.iterator().unwrap();
+            let mut disi = ds2.iterator()?.unwrap();
             let iter = ds1.iter();
             for doc in iter {
                 assert_eq!(doc, disi.next_doc()? as usize);
@@ -135,7 +135,7 @@ pub trait BaseDocIdSetTestCaseSupperImpl {
         }
 
         // nextDoc / advance
-        it2 = ds2.iterator();
+        it2 = ds2.iterator()?;
         if it2.is_none() {
             assert!(ds1.is_empty())
         } else {
@@ -175,7 +175,7 @@ pub trait BaseDocIdSetTestCaseSupperImpl {
         let mut previes_doc = -1;
         if bitss.is_some() {
             let bits = bitss.unwrap();
-            let mut disi = ds2.iterator().unwrap();
+            let mut disi = ds2.iterator()?.unwrap();
             while doc != NO_MORE_DOCS {
                 let mut i = 0;
                 doc = disi.next_doc()?;

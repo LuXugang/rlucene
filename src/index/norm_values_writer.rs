@@ -25,13 +25,13 @@ pub struct NormValuesWriter;
 
 struct BufferedNorms<'a> {
     iter: PackedLongValuesIterator<'a>,
-    doc_with_field: DocsWithFieldSetEnum<'a>,
+    doc_with_field: DocsWithFieldSetEnum,
     value: i64,
 }
 impl<'a> BufferedNorms<'a> {
     pub(crate) fn new(
         values: &'a PackedLongValues,
-        doc_with_field: DocsWithFieldSetEnum<'a>,
+        doc_with_field: DocsWithFieldSetEnum,
     ) -> Result<Self> {
         Ok(Self {
             iter: values.iterator()?,

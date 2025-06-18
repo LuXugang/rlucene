@@ -18,7 +18,6 @@ use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
 use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
 use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
 use crate::codecs::norms_producer::NormsProducer;
-use crate::codecs::term_vectors_writer::TermVectorsWriter;
 use crate::codecs::Codec;
 use crate::index::automaton_terms_enum::AutomatonTermsEnum;
 use crate::index::field_info::FieldInfo;
