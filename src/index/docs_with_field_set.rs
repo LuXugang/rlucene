@@ -66,7 +66,7 @@ impl DocsWithFieldSet {
                 self.finish = false;
                 let fixed_set = match Rc::try_unwrap(self.set_iter.take().unwrap()) {
                     Ok(value) => value,
-                    Err(_) => return Err(LuceneError::illegal_state("Rc count shoud be 1")),
+                    Err(_) => return Err(LuceneError::illegal_state("Rc count should be 1")),
                 };
                 self.set = Some(fixed_set);
             }

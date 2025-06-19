@@ -84,7 +84,9 @@ impl NormValuesWriter {
         self.bytes_used = new_bytes_used;
         Ok(())
     }
-    pub(crate) fn finish(&mut self, _max_doc: i32) {}
+    pub(crate) fn finish(&mut self, _max_doc: i32) {
+        self.docs_with_field.finish()
+    }
 
     pub(crate) fn flush<D, DM, N>(
         &mut self,

@@ -110,6 +110,7 @@ impl NumericDocValuesWriter {
         DM: DocMap,
         DC: DocValuesConsumer,
     {
+        self.finish();
         if self.final_values.is_none() {
             self.final_values = Some(std::mem::take(&mut self.pending).build()?)
         }
@@ -121,6 +122,9 @@ impl NumericDocValuesWriter {
         )?;
         dv_consumer.add_numeric_field(&self.field_info, &mut producer)?;
         Ok(())
+    }
+    pub(crate) fn finish(&mut self) {
+        self.docs_with_field.finish();
     }
 }
 pub(crate) struct DocValuesProducerImpl {

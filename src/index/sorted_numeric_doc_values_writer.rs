@@ -196,6 +196,7 @@ impl SortedNumericDocValuesWriter {
         DM: DocMap,
         DC: DocValuesConsumer,
     {
+        self.finish();
         let (values, value_counts) = if self.final_values.is_none() {
             self.finish_current_doc()?;
             let values = self.pending.build()?;
@@ -248,6 +249,9 @@ impl SortedNumericDocValuesWriter {
         dv_consumer.add_sorted_numeric_field(&self.field_info, &mut producer)?;
 
         Ok(())
+    }
+    pub(crate) fn finish(&mut self) {
+        self.docs_with_field.finish();
     }
 }
 pub(crate) struct DocValuesProducerImpl1 {
