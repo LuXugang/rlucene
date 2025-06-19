@@ -498,6 +498,14 @@ where
         Ok(0)
     }
 }
+
+// used for std::mem::take(&mut STBytesRefHash)
+impl Default for STBytesRefHash {
+    fn default() -> Self {
+        BytesRefHash::new()
+    }
+}
+
 /// for single-threaded scenarios
 pub(crate) type STBytesRefHash =
     BytesRefHash<CounterEnumBorrow, ByteBlockPoolBorrow, DirectBytesStartArray<CounterEnumBorrow>>;
