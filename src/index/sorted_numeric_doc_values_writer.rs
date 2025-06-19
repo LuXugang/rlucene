@@ -132,4 +132,54 @@ impl SortedNumericDocValuesWriter {
     }
 }
 
-pub(crate) mod sndvw_util {}
+pub(crate) mod sndvw_util {
+    use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
+    use crate::index::sorter::DocMap;
+    use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+    use crate::util::error::lucene_error::Result;
+    use crate::util::packed::packed_long_values::PackedLongValues;
+    use std::rc::Rc;
+
+    pub(crate) struct LongValues {
+        offsets: Rc<Vec<i64>>,
+        values: PackedLongValues,
+    }
+    impl LongValues {
+        pub fn new<DM>(
+            max_doc: usize,
+            sort_map: &Rc<DM>,
+            old_values: &mut impl SortedNumericDocValues,
+            acceptable_overhead_ratio: f32,
+        ) -> Result<Self>
+        where
+            DM: DocMap,
+        {
+            let mut offsets = vec![0i64; max_doc];
+            let mut value_builder =
+                PackedLongValues::packed_long_values_builder_default(acceptable_overhead_ratio)?;
+            let mut offset_index = 1i64;
+            let mut doc_id = 0;
+            loop {
+                doc_id = old_values.next_doc()?;
+                if doc_id == NO_MORE_DOCS {
+                    break;
+                }
+                let new_doc_id = sort_map.old_to_new(doc_id);
+                let num_values = old_values.doc_value_count()?;
+                value_builder.add(num_values as i64)?;
+                offsets[new_doc_id as usize] = offset_index;
+                offset_index += 1;
+                for _ in 0..num_values {
+                    let value = old_values.next_value()?;
+                    value_builder.add(value)?;
+                    offset_index += 1;
+                }
+            }
+
+            Ok(LongValues {
+                offsets: Rc::new(offsets),
+                values: value_builder.build()?,
+            })
+        }
+    }
+}

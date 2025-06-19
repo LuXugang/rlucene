@@ -34,7 +34,6 @@ use crate::store::directory::Directory;
 use crate::util::accountable::Accountable;
 use crate::util::bit_set::BitSet;
 use crate::util::either_enums::EitherNumericDocValues;
-use crate::util::error::lucene_error;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::error::lucene_error::Result;
 use crate::util::fixed_bit_set::FixedBitSet;
@@ -328,7 +327,7 @@ where
         self.doc_id
     }
 
-    fn next_doc(&mut self) -> lucene_error::Result<i32> {
+    fn next_doc(&mut self) -> Result<i32> {
         if self.doc_id + 1 == self.dvs.max_doc() {
             self.doc_id = NO_MORE_DOCS;
         } else {
@@ -337,11 +336,11 @@ where
         Ok(self.doc_id)
     }
 
-    fn advance(&mut self, _target: i32) -> lucene_error::Result<i32> {
+    fn advance(&mut self, _target: i32) -> Result<i32> {
         Err(LuceneError::unsupported_operation("use nextDoc() instead"))
     }
 
-    fn cost(&self) -> lucene_error::Result<i64> {
+    fn cost(&self) -> Result<i64> {
         if self.cost.get() == -1 {
             self.cost.set(self.dvs.cost());
         }
@@ -353,7 +352,7 @@ impl<T> NumericDocValues for SortingNumericDocValues<T>
 where
     T: BitSet,
 {
-    fn long_value(&mut self) -> lucene_error::Result<i64> {
+    fn long_value(&mut self) -> Result<i64> {
         Ok(self.dvs.values[self.doc_id as usize])
     }
 }
