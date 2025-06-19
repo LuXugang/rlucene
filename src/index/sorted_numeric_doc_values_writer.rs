@@ -25,7 +25,9 @@ use crate::util::accountable::Accountable;
 use crate::util::array_util::ArrayUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::long_values::LongValues as OtherLongValues;
-use crate::util::packed::packed_long_values::{PackedLongValues, PackedLongValuesBuilder};
+use crate::util::packed::packed_long_values::{
+    PackedLongValues, PackedLongValuesBuilder, PackedLongValuesIterator,
+};
 use crate::util::packed::PackedInts;
 use crate::util::{Counter, CounterEnumBorrow};
 use std::rc::Rc;
@@ -188,6 +190,89 @@ pub(crate) mod sndvw_util {
                 values: value_builder.build()?,
             })
         }
+    }
+}
+
+pub(crate) struct BufferedSortedNumericDocValues<D>
+where
+    D: DocIdSetIterator,
+{
+    values_iter: PackedLongValuesIterator,
+    value_counts_iter: PackedLongValuesIterator,
+    docs_with_field: D,
+    value_count: i32,
+    value_upto: i32,
+}
+
+impl<D> BufferedSortedNumericDocValues<D>
+where
+    D: DocIdSetIterator,
+{
+    pub fn new(
+        values: &PackedLongValues,
+        value_counts: &PackedLongValues,
+        docs_with_field: D,
+    ) -> Result<Self> {
+        Ok(Self {
+            values_iter: values.iterator()?,
+            value_counts_iter: value_counts.iterator()?,
+            docs_with_field,
+            value_count: 0,
+            value_upto: 0,
+        })
+    }
+}
+
+impl<D> DocValuesIterator for BufferedSortedNumericDocValues<D>
+where
+    D: DocIdSetIterator,
+{
+    fn advance_exact(&mut self, _target: i32) -> Result<bool> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+}
+
+impl<D> DocIdSetIterator for BufferedSortedNumericDocValues<D>
+where
+    D: DocIdSetIterator,
+{
+    fn doc_id(&self) -> i32 {
+        self.docs_with_field.doc_id()
+    }
+
+    fn next_doc(&mut self) -> Result<i32> {
+        for _ in self.value_upto..self.value_count {
+            self.values_iter.next_value()?;
+        }
+
+        let doc_id = self.docs_with_field.next_doc()?;
+        if doc_id != NO_MORE_DOCS {
+            self.value_count = self.value_counts_iter.next_value()?.try_into()?;
+            self.value_upto = 0;
+        }
+        Ok(doc_id)
+    }
+
+    fn advance(&mut self, _target: i32) -> Result<i32> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
+    fn cost(&self) -> Result<i64> {
+        self.docs_with_field.cost()
+    }
+}
+
+impl<D> SortedNumericDocValues for BufferedSortedNumericDocValues<D>
+where
+    D: DocIdSetIterator,
+{
+    fn next_value(&mut self) -> Result<i64> {
+        self.value_upto += 1;
+        self.values_iter.next_value()
+    }
+
+    fn doc_value_count(&mut self) -> Result<i32> {
+        Ok(self.value_count)
     }
 }
 
