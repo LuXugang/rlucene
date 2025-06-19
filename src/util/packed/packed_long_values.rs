@@ -225,7 +225,7 @@ impl PackedLongValuesBuilder {
     }
     /// Build a [`PackedLongValues`] instance that contains values that have
     /// been added to this builder. This operation is destructive.
-    pub fn build(mut self) -> Result<PackedLongValues> {
+    pub fn build(&mut self) -> Result<PackedLongValues> {
         self.finish()?;
         // TODO
         let ram_bytes_used = 0;

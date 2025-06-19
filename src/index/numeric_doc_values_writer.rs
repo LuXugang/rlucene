@@ -101,7 +101,7 @@ impl NumericDocValuesWriter {
     }
     pub(crate) fn flush<D, DM, DC>(
         &mut self,
-        state: &SegmentWriteState<D>,
+        _state: &SegmentWriteState<D>,
         sort_map: Option<Rc<DM>>,
         dv_consumer: &mut DC,
     ) -> Result<()>
@@ -170,7 +170,7 @@ impl DocValuesProducer for DocValuesProducerImpl {
     type DocValuesSkipper = DummyDocValuesSkipper;
 }
 
-pub mod ndvw_util {
+pub(crate) mod ndvw_util {
     use crate::index::docs_with_field_set::DocsWithFieldSet;
     use crate::index::field_info::FieldInfo;
     use crate::index::numeric_doc_values::NumericDocValues;

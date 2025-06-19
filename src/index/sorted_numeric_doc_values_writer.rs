@@ -14,16 +14,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codecs::doc_values_consumer::DocValuesConsumer;
+use crate::codecs::doc_values_producer::DocValuesProducer;
+use crate::codecs::dummy::dummy_binary_doc_values::DummyBinaryDocValues;
+use crate::codecs::dummy::dummy_doc_values_skipper::DummyDocValuesSkipper;
+use crate::codecs::dummy::dummy_numeric_doc_values::DummyNumericDocValues;
+use crate::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
+use crate::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocValues;
+use crate::index::doc_values::DocValues;
 use crate::index::doc_values_iterator::DocValuesIterator;
-use crate::index::docs_with_field_set::DocsWithFieldSet;
+use crate::index::docs_with_field_set::{DocsWithFieldSet, DocsWithFieldSetEnum};
 use crate::index::field_info::FieldInfo;
+use crate::index::numeric_doc_values_writer::{
+    ndvw_util, BufferedNumericDocValues, DocValuesProducerImpl, SortingNumericDocValues,
+};
+use crate::index::segment_write_state::SegmentWriteState;
+use crate::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
 use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::index::sorted_numeric_doc_values_writer::sndvw_util::LongValues;
+use crate::index::sorter::DocMap;
+use crate::search::doc_id_set::DocIdSet;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::store::directory::Directory;
 use crate::util::accountable::Accountable;
 use crate::util::array_util::ArrayUtil;
+use crate::util::either_enums::{EitherNumericDocValues, EitherSortedNumericDocValues};
 use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::long_values::LongValues as OtherLongValues;
 use crate::util::packed::packed_long_values::{
     PackedLongValues, PackedLongValuesBuilder, PackedLongValuesIterator,
@@ -139,6 +157,192 @@ impl SortedNumericDocValuesWriter {
         self.bytes_used = new_bytes_used;
         Ok(())
     }
+
+    pub(crate) fn get_values(
+        values: &PackedLongValues,
+        value_counts: &Option<PackedLongValues>,
+        docs_with_field: &DocsWithFieldSet,
+    ) -> Result<
+        EitherSortedNumericDocValues<
+            SingletonSortedNumericDocValues<BufferedNumericDocValues>,
+            BufferedSortedNumericDocValues<DocsWithFieldSetEnum>,
+        >,
+    > {
+        let iter = docs_with_field
+            .iterator()?
+            .ok_or_else(|| LuceneError::illegal_state("docsWithField.iterator() returned None"))?;
+
+        match value_counts {
+            None => {
+                let dv = BufferedNumericDocValues::new(values, iter)?;
+                Ok(EitherSortedNumericDocValues::F(
+                    DocValues::singleton_numeric(dv)?,
+                ))
+            },
+            Some(value_counts) => {
+                let dv = BufferedSortedNumericDocValues::new(values, value_counts, iter)?;
+                Ok(EitherSortedNumericDocValues::S(dv))
+            },
+        }
+    }
+    pub(crate) fn flush<D, DM, DC>(
+        &mut self,
+        state: &SegmentWriteState<D>,
+        sort_map: Option<Rc<DM>>,
+        dv_consumer: &mut DC,
+    ) -> Result<()>
+    where
+        D: Directory,
+        DM: DocMap,
+        DC: DocValuesConsumer,
+    {
+        let (values, value_counts) = if self.final_values.is_none() {
+            self.finish_current_doc()?;
+            let values = self.pending.build()?;
+            let value_counts = match &mut self.pending_counts {
+                Some(p) => Some(p.build()?),
+                None => None,
+            };
+            (values, value_counts)
+        } else {
+            (
+                self.final_values.take().unwrap(),
+                self.final_values_count.take(),
+            )
+        };
+        if value_counts.is_none() {
+            let single_value_producer = ndvw_util::get_doc_values_producer(
+                self.field_info.clone(),
+                &values,
+                std::mem::take(&mut self.docs_with_field),
+                sort_map,
+            )?;
+            let mut producer = DocValuesProducerImpl1::new(single_value_producer)?;
+            dv_consumer.add_sorted_numeric_field(&self.field_info, &mut producer)?;
+            return Ok(());
+        }
+
+        let sorted = if let Some(sort_map) = sort_map {
+            let mut v = SortedNumericDocValuesWriter::get_values(
+                &values,
+                &value_counts,
+                &self.docs_with_field,
+            )?;
+            Some(LongValues::new(
+                state.segment_info.max_doc()? as usize,
+                &sort_map,
+                &mut v,
+                PackedInts::FASTEST,
+            )?)
+        } else {
+            None
+        };
+
+        let mut producer = DocValuesProducerImpl2::new(
+            self.field_info.clone(),
+            std::mem::take(&mut self.docs_with_field),
+            values,
+            sorted,
+            value_counts,
+        )?;
+        dv_consumer.add_sorted_numeric_field(&self.field_info, &mut producer)?;
+
+        Ok(())
+    }
+}
+pub(crate) struct DocValuesProducerImpl1 {
+    single_value_producer: DocValuesProducerImpl,
+}
+impl DocValuesProducerImpl1 {
+    pub(crate) fn new(single_value_producer: DocValuesProducerImpl) -> Result<Self> {
+        Ok(Self {
+            single_value_producer,
+        })
+    }
+}
+impl DocValuesProducer for DocValuesProducerImpl1 {
+    type NumericDocValues = DummyNumericDocValues;
+    type BinaryDocValues = DummyBinaryDocValues;
+    type SortedDocValues = DummySortedDocValues;
+    type SortedNumericDocValues = SingletonSortedNumericDocValues<
+        EitherNumericDocValues<BufferedNumericDocValues, SortingNumericDocValues<FixedBitSet>>,
+    >;
+
+    fn get_sorted_numeric(
+        &mut self,
+        field_info_in: &Rc<FieldInfo>,
+    ) -> Result<Self::SortedNumericDocValues> {
+        let v = self.single_value_producer.get_numeric(field_info_in)?;
+        DocValues::singleton_numeric(v)
+    }
+
+    type SortedSetDocValues = DummySortedSetDocValues;
+    type DocValuesSkipper = DummyDocValuesSkipper;
+}
+
+pub(crate) struct DocValuesProducerImpl2 {
+    field_info: Rc<FieldInfo>,
+    docs_with_field: DocsWithFieldSet,
+    values: PackedLongValues,
+    sorted: Option<LongValues>,
+    value_counts: Option<PackedLongValues>,
+}
+impl DocValuesProducerImpl2 {
+    fn new(
+        field_info: Rc<FieldInfo>,
+        docs_with_field: DocsWithFieldSet,
+        values: PackedLongValues,
+        sorted: Option<LongValues>,
+        value_counts: Option<PackedLongValues>,
+    ) -> Result<Self> {
+        Ok(Self {
+            field_info,
+            docs_with_field,
+            values,
+            sorted,
+            value_counts,
+        })
+    }
+}
+impl DocValuesProducer for DocValuesProducerImpl2 {
+    type NumericDocValues = DummyNumericDocValues;
+    type BinaryDocValues = DummyBinaryDocValues;
+    type SortedDocValues = DummySortedDocValues;
+    type SortedNumericDocValues = EitherSortedNumericDocValues<
+        EitherSortedNumericDocValues<
+            SingletonSortedNumericDocValues<BufferedNumericDocValues>,
+            BufferedSortedNumericDocValues<DocsWithFieldSetEnum>,
+        >,
+        SortingSortedNumericDocValues<
+            EitherSortedNumericDocValues<
+                SingletonSortedNumericDocValues<BufferedNumericDocValues>,
+                BufferedSortedNumericDocValues<DocsWithFieldSetEnum>,
+            >,
+        >,
+    >;
+
+    fn get_sorted_numeric(
+        &mut self,
+        field_info_in: &Rc<FieldInfo>,
+    ) -> Result<Self::SortedNumericDocValues> {
+        if !Rc::ptr_eq(&self.field_info, field_info_in) {
+            return Err(LuceneError::illegal_state("wrong fieldInfo"));
+        }
+        let buf = SortedNumericDocValuesWriter::get_values(
+            &self.values,
+            &self.value_counts,
+            &self.docs_with_field,
+        )?;
+        match &self.sorted {
+            Some(sorted) => Ok(EitherSortedNumericDocValues::S(
+                SortingSortedNumericDocValues::new(buf, sorted.clone()),
+            )),
+            None => Ok(EitherSortedNumericDocValues::F(buf)),
+        }
+    }
+
+    type SortedSetDocValues = DummySortedSetDocValues;
+    type DocValuesSkipper = DummyDocValuesSkipper;
 }
 
 pub(crate) mod sndvw_util {
@@ -149,6 +353,7 @@ pub(crate) mod sndvw_util {
     use crate::util::packed::packed_long_values::PackedLongValues;
     use std::rc::Rc;
 
+    #[derive(Clone)]
     pub(crate) struct LongValues {
         pub(crate) offsets: Rc<Vec<i64>>,
         pub(crate) values: PackedLongValues,
@@ -290,14 +495,14 @@ impl<S> SortingSortedNumericDocValues<S>
 where
     S: SortedNumericDocValues,
 {
-    pub fn new(input: S, values: LongValues) -> Result<Self> {
-        Ok(Self {
+    pub fn new(input: S, values: LongValues) -> Self {
+        Self {
             input,
             values,
             doc_id: -1,
             upto: 0,
             num_values: -1,
-        })
+        }
     }
 }
 
