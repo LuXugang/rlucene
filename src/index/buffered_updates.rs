@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::util::bytes_ref_hash::brh_util;
 use std::cell::RefCell;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::{HashMap, HashSet};
@@ -529,8 +530,8 @@ macro_rules! impl_bytes_ref_int_map_new {
             pub fn $new_fn(pool: $Pool, counter: $Counter) -> Self {
                 let bytes_ref_hash = BytesRefHash::from_bytes_start_array(
                     pool,
-                    BytesRefHash::DEFAULT_CAPACITY,
-                    $start_array_ctor(BytesRefHash::DEFAULT_CAPACITY, counter.clone()),
+                    brh_util::DEFAULT_CAPACITY,
+                    $start_array_ctor(brh_util::DEFAULT_CAPACITY, counter.clone()),
                 );
                 BytesRefIntMap::new_impl(counter, bytes_ref_hash)
             }
@@ -558,7 +559,7 @@ where
     B: Access<ByteBlockPool<C>>,
 {
     fn new_impl(counter: C, bytes_ref_hash: BytesRefHash<C, B, DirectBytesStartArray<C>>) -> Self {
-        let values = vec![0; BytesRefHash::DEFAULT_CAPACITY as usize];
+        let values = vec![0; brh_util::DEFAULT_CAPACITY as usize];
 
         counter.access_mut(|c| c.add_and_get(bytes_ref_int_map_util::INIT_RAM_BYTES));
 
