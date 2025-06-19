@@ -14,15 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::docs_with_field_set::DocsWithFieldSet;
 use crate::index::field_info::FieldInfo;
+use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
+use crate::index::sorted_numeric_doc_values_writer::sndvw_util::LongValues;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::util::accountable::Accountable;
 use crate::util::array_util::ArrayUtil;
-use crate::util::error::lucene_error::Result;
+use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::long_values::LongValues as OtherLongValues;
 use crate::util::packed::packed_long_values::{PackedLongValues, PackedLongValuesBuilder};
 use crate::util::packed::PackedInts;
 use crate::util::{Counter, CounterEnumBorrow};
 use std::rc::Rc;
+
 /// Buffers up pending `[i64]` per doc, sorts, then flushes when segment flushes.
 pub(crate) struct SortedNumericDocValuesWriter {
     pending: PackedLongValuesBuilder, // stream of all values
@@ -141,8 +148,8 @@ pub(crate) mod sndvw_util {
     use std::rc::Rc;
 
     pub(crate) struct LongValues {
-        offsets: Rc<Vec<i64>>,
-        values: PackedLongValues,
+        pub(crate) offsets: Rc<Vec<i64>>,
+        pub(crate) values: PackedLongValues,
     }
     impl LongValues {
         pub fn new<DM>(
@@ -181,5 +188,95 @@ pub(crate) mod sndvw_util {
                 values: value_builder.build()?,
             })
         }
+    }
+}
+
+pub(crate) struct SortingSortedNumericDocValues<S>
+where
+    S: SortedNumericDocValues,
+{
+    input: S,
+    values: LongValues,
+    doc_id: i32,
+    upto: i64,
+    num_values: i32,
+}
+impl<S> SortingSortedNumericDocValues<S>
+where
+    S: SortedNumericDocValues,
+{
+    pub fn new(input: S, values: LongValues) -> Result<Self> {
+        Ok(Self {
+            input,
+            values,
+            doc_id: -1,
+            upto: 0,
+            num_values: -1,
+        })
+    }
+}
+
+impl<S> DocValuesIterator for SortingSortedNumericDocValues<S>
+where
+    S: SortedNumericDocValues,
+{
+    fn advance_exact(&mut self, target: i32) -> Result<bool> {
+        self.doc_id = target;
+        self.upto = self.values.offsets[self.doc_id as usize];
+
+        if self.upto > 0 {
+            self.num_values = self.values.values.get(self.upto - 1)?.try_into()?;
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+}
+
+impl<S> DocIdSetIterator for SortingSortedNumericDocValues<S>
+where
+    S: SortedNumericDocValues,
+{
+    fn doc_id(&self) -> i32 {
+        self.doc_id
+    }
+
+    fn next_doc(&mut self) -> Result<i32> {
+        loop {
+            self.doc_id += 1;
+            if self.doc_id as usize >= self.values.offsets.len() {
+                self.doc_id = NO_MORE_DOCS;
+                return Ok(self.doc_id);
+            }
+            let offset = self.values.offsets[self.doc_id as usize];
+            if offset > 0 {
+                self.upto = offset;
+                self.num_values = self.values.values.get(self.upto - 1)?.try_into()?;
+                return Ok(self.doc_id);
+            }
+        }
+    }
+
+    fn advance(&mut self, _target: i32) -> Result<i32> {
+        Err(LuceneError::unsupported_operation("use nextDoc instead"))
+    }
+
+    fn cost(&self) -> Result<i64> {
+        self.input.cost()
+    }
+}
+
+impl<S> SortedNumericDocValues for SortingSortedNumericDocValues<S>
+where
+    S: SortedNumericDocValues,
+{
+    fn next_value(&mut self) -> Result<i64> {
+        let v = self.values.values.get(self.upto)?;
+        self.upto += 1;
+        Ok(v)
+    }
+
+    fn doc_value_count(&mut self) -> Result<i32> {
+        Ok(self.num_values)
     }
 }
