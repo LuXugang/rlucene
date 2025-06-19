@@ -376,7 +376,7 @@ pub(crate) mod sndvw_util {
             let mut value_builder =
                 PackedLongValues::packed_long_values_builder_default(acceptable_overhead_ratio)?;
             let mut offset_index = 1i64;
-            let mut doc_id = 0;
+            let mut doc_id;
             loop {
                 doc_id = old_values.next_doc()?;
                 if doc_id == NO_MORE_DOCS {

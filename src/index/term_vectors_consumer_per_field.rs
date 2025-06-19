@@ -504,7 +504,7 @@ where
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 {
-    fn new_term(&mut self, term_id: i32, doc_id: i32) -> Result<()> {
+    fn new_term(&mut self, term_id: i32, _doc_id: i32) -> Result<()> {
         let term_id = term_id as usize;
         let freq = self.get_term_freq()?;
         let postings_enum = self

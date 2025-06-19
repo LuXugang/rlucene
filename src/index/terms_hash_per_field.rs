@@ -288,7 +288,7 @@ impl TermsHashPerField {
     /// store the postings (vInt compressed doc/freq/prox), and also the int
     /// pointers to where (in our [`ByteBlockPool`] storage) the postings
     /// for this term begin.
-    pub(crate) fn init_stream_slices(&mut self, term_id: i32, doc_id: i32) -> Result<()> {
+    pub(crate) fn init_stream_slices(&mut self, term_id: i32, _doc_id: i32) -> Result<()> {
         let byte_offset;
         {
             let mut byte_pool = self.byte_pool.borrow_mut();

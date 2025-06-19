@@ -125,7 +125,7 @@ impl Impacts for DummyImpacts {
         NO_MORE_DOCS
     }
 
-    fn get_impacts(&mut self, level: i32) -> Result<Cow<[Impact]>> {
+    fn get_impacts(&mut self, _level: i32) -> Result<Cow<[Impact]>> {
         Ok(Cow::Borrowed(self.impacts.as_slice()))
     }
 }
