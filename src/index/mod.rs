@@ -99,6 +99,7 @@ pub mod sort;
 pub mod sort_field_provider;
 pub mod sorted_doc_values;
 pub(crate) mod sorted_doc_values_terms_enum;
+pub(crate) mod sorted_doc_values_writer;
 pub mod sorted_numeric_doc_values;
 pub(crate) mod sorted_numeric_doc_values_writer;
 pub mod sorted_set_doc_values;
