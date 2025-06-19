@@ -103,6 +103,7 @@ pub(crate) mod sorted_doc_values_writer;
 pub mod sorted_numeric_doc_values;
 pub(crate) mod sorted_numeric_doc_values_writer;
 pub mod sorted_set_doc_values;
+pub(crate) mod sorted_set_doc_values_writer;
 pub mod sorter;
 pub(crate) mod sorting_stored_fields_consumer;
 pub mod stored_field_visitor;

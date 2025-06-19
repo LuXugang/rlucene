@@ -82,7 +82,7 @@ impl SortedDocValuesWriter {
         let pending =
             PackedLongValues::delta_packed_long_values_builder_default(PackedInts::COMPACT)?;
         let docs_with_field = DocsWithFieldSet::new();
-
+        // TODO: memory calculation not implemented
         let bytes_used = pending.ram_bytes_used()? + docs_with_field.ram_bytes_used()?;
         iw_bytes_used.borrow_mut().add_and_get(bytes_used);
 
@@ -162,10 +162,10 @@ impl SortedDocValuesWriter {
             let ords = self.pending.build()?;
 
             let mut ord_map = vec![0i32; value_count as usize];
-            for (ord, &idx) in self.hash.ids.iter().enumerate() {
-                ord_map[idx as usize] = ord as i32;
+            for ord in 0..value_count as usize {
+                let index = self.hash.ids[ord] as usize;
+                ord_map[index] = ord as i32;
             }
-
             self.hash_rc = Some(Rc::new(std::mem::take(&mut self.hash)));
             self.final_ords = Some(ords);
             self.final_ord_map = Some(Rc::new(ord_map));
