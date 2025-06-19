@@ -24,11 +24,15 @@ use crate::index::impacts_enum::ImpactsEnum;
 use crate::index::impacts_source::ImpactsSource;
 use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::postings_enum::PostingsEnum;
+use crate::index::sorted_doc_values::SortedDocValues;
 use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::index::term_state::{TermState, TermStateEnum};
+use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::index::BytesRef;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::util::error::lucene_error::Result;
+use crate::util::attribute_source::AttributeSource;
+use crate::util::bytes_ref_iterator::BytesRefIterator;
+use crate::util::error::lucene_error::{LuceneError, Result};
 /// # Either Enums for Unified Trait Implementations
 ///
 /// This module defines `EitherXXX` enums that act as static-dispatch-compatible
@@ -491,6 +495,305 @@ where
         match self {
             EitherSortedNumericDocValues::F(t) => t.doc_value_count(),
             EitherSortedNumericDocValues::S(s) => s.doc_value_count(),
+        }
+    }
+}
+// SortedDocValues
+pub enum EitherSortedDocValues<F, S> {
+    F(F),
+    S(S),
+}
+
+impl<F, S> DocValuesIterator for EitherSortedDocValues<F, S>
+where
+    F: SortedDocValues,
+    S: SortedDocValues,
+{
+    fn advance_exact(&mut self, target: i32) -> Result<bool> {
+        match self {
+            EitherSortedDocValues::F(t) => t.advance_exact(target),
+            EitherSortedDocValues::S(s) => s.advance_exact(target),
+        }
+    }
+}
+
+impl<F, S> DocIdSetIterator for EitherSortedDocValues<F, S>
+where
+    F: SortedDocValues,
+    S: SortedDocValues,
+{
+    fn doc_id(&self) -> i32 {
+        match self {
+            EitherSortedDocValues::F(t) => t.doc_id(),
+            EitherSortedDocValues::S(s) => s.doc_id(),
+        }
+    }
+
+    fn next_doc(&mut self) -> Result<i32> {
+        match self {
+            EitherSortedDocValues::F(t) => t.next_doc(),
+            EitherSortedDocValues::S(s) => s.next_doc(),
+        }
+    }
+
+    fn advance(&mut self, target: i32) -> Result<i32> {
+        match self {
+            EitherSortedDocValues::F(t) => t.advance(target),
+            EitherSortedDocValues::S(s) => s.advance(target),
+        }
+    }
+
+    fn slow_advance(&mut self, target: i32) -> Result<i32> {
+        match self {
+            EitherSortedDocValues::F(t) => t.slow_advance(target),
+            EitherSortedDocValues::S(s) => s.slow_advance(target),
+        }
+    }
+
+    fn cost(&self) -> Result<i64> {
+        match self {
+            EitherSortedDocValues::F(t) => t.cost(),
+            EitherSortedDocValues::S(s) => s.cost(),
+        }
+    }
+}
+
+impl<F, S> SortedDocValues for EitherSortedDocValues<F, S>
+where
+    F: SortedDocValues,
+    S: SortedDocValues,
+{
+    fn ord_value(&mut self) -> Result<i32> {
+        match self {
+            EitherSortedDocValues::F(t) => t.ord_value(),
+            EitherSortedDocValues::S(s) => s.ord_value(),
+        }
+    }
+
+    fn lookup_ord(&mut self, _ord: i32) -> Result<Cow<BytesRef<Vec<u8>>>> {
+        match self {
+            EitherSortedDocValues::F(t) => t.lookup_ord(_ord),
+            EitherSortedDocValues::S(s) => s.lookup_ord(_ord),
+        }
+    }
+
+    fn get_value_count(&mut self) -> Result<i32> {
+        match self {
+            EitherSortedDocValues::F(t) => t.get_value_count(),
+            EitherSortedDocValues::S(s) => s.get_value_count(),
+        }
+    }
+
+    fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
+        match self {
+            EitherSortedDocValues::F(t) => t.lookup_term(key),
+            EitherSortedDocValues::S(s) => s.lookup_term(key),
+        }
+    }
+
+    type TermsEnum = EitherTermsEnum<F::TermsEnum, S::TermsEnum>;
+
+    fn terms_enum(&mut self) -> Result<Self::TermsEnum> {
+        match self {
+            EitherSortedDocValues::F(t) => {
+                let terms_enum = t.terms_enum()?;
+                Ok(EitherTermsEnum::F(terms_enum))
+            },
+            EitherSortedDocValues::S(s) => {
+                let terms_enum = s.terms_enum()?;
+                Ok(EitherTermsEnum::S(terms_enum))
+            },
+        }
+    }
+}
+
+// TermsEnum
+pub enum EitherTermsEnum<F, S> {
+    F(F),
+    S(S),
+}
+
+impl<F, S> BytesRefIterator for EitherTermsEnum<F, S>
+where
+    F: TermsEnum,
+    S: TermsEnum,
+{
+}
+
+impl<F, S> TermsEnum for EitherTermsEnum<F, S>
+where
+    F: TermsEnum,
+    S: TermsEnum,
+{
+    fn attributes(&self) -> Result<&AttributeSource> {
+        match self {
+            EitherTermsEnum::F(t) => t.attributes(),
+            EitherTermsEnum::S(s) => s.attributes(),
+        }
+    }
+
+    fn seek_exact(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<bool> {
+        match self {
+            EitherTermsEnum::F(t) => t.seek_exact(_term),
+            EitherTermsEnum::S(s) => s.seek_exact(_term),
+        }
+    }
+
+    fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<bool> {
+        match self {
+            EitherTermsEnum::F(t) => t.prepare_seek_exact(_text),
+            EitherTermsEnum::S(s) => s.prepare_seek_exact(_text),
+        }
+    }
+
+    fn seek_ceil(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+        match self {
+            EitherTermsEnum::F(t) => t.seek_ceil(_term),
+            EitherTermsEnum::S(s) => s.seek_ceil(_term),
+        }
+    }
+
+    fn seek_exact_with_ord(&mut self, _ord: i64) -> Result<()> {
+        match self {
+            EitherTermsEnum::F(t) => t.seek_exact_with_ord(_ord),
+            EitherTermsEnum::S(s) => s.seek_exact_with_ord(_ord),
+        }
+    }
+
+    fn seek_exact_with_state(
+        &mut self,
+        _term: &BytesRef<Vec<u8>>,
+        _state: &TermStateEnum,
+    ) -> Result<()> {
+        match self {
+            EitherTermsEnum::F(t) => t.seek_exact_with_state(_term, _state),
+            EitherTermsEnum::S(s) => s.seek_exact_with_state(_term, _state),
+        }
+    }
+
+    fn term(&self) -> Result<Cow<BytesRef<Vec<u8>>>> {
+        match self {
+            EitherTermsEnum::F(t) => t.term(),
+            EitherTermsEnum::S(s) => s.term(),
+        }
+    }
+
+    fn ord(&self) -> Result<i64> {
+        match self {
+            EitherTermsEnum::F(t) => t.ord(),
+            EitherTermsEnum::S(s) => s.ord(),
+        }
+    }
+
+    fn doc_freq(&mut self) -> Result<i32> {
+        match self {
+            EitherTermsEnum::F(t) => t.doc_freq(),
+            EitherTermsEnum::S(s) => s.doc_freq(),
+        }
+    }
+
+    fn total_term_freq(&mut self) -> Result<i64> {
+        match self {
+            EitherTermsEnum::F(t) => t.total_term_freq(),
+            EitherTermsEnum::S(s) => s.total_term_freq(),
+        }
+    }
+
+    type PostingsEnum = EitherPostingsEnum<F::PostingsEnum, S::PostingsEnum>;
+
+    fn postings(&mut self, reuse: Option<Self::PostingsEnum>) -> Result<Self::PostingsEnum> {
+        match self {
+            EitherTermsEnum::F(t) => match reuse {
+                Some(EitherPostingsEnum::F(v)) => {
+                    let postings_enum = t.postings(Some(v))?;
+                    Ok(EitherPostingsEnum::F(postings_enum))
+                },
+                None => {
+                    let postings_enum = t.postings(None)?;
+                    Ok(EitherPostingsEnum::F(postings_enum))
+                },
+                _ => Err(LuceneError::illegal_state(
+                    "EitherTermsEnum::F expected EitherPostingsEnum::F for reuse".to_string(),
+                )),
+            },
+            EitherTermsEnum::S(s) => match reuse {
+                Some(EitherPostingsEnum::S(v)) => {
+                    let postings_enum = s.postings(Some(v))?;
+                    Ok(EitherPostingsEnum::S(postings_enum))
+                },
+                None => {
+                    let postings_enum = s.postings(None)?;
+                    Ok(EitherPostingsEnum::S(postings_enum))
+                },
+                _ => Err(LuceneError::illegal_state(
+                    "EitherTermsEnum::S expected EitherPostingsEnum::S for reuse".to_string(),
+                )),
+            },
+        }
+    }
+
+    fn postings_with_flags(
+        &mut self,
+        reuse: Option<Self::PostingsEnum>,
+        flags: i32,
+    ) -> Result<Self::PostingsEnum> {
+        match self {
+            EitherTermsEnum::F(t) => match reuse {
+                Some(EitherPostingsEnum::F(v)) => {
+                    let postings_enum = t.postings_with_flags(Some(v), flags)?;
+                    Ok(EitherPostingsEnum::F(postings_enum))
+                },
+                None => {
+                    let postings_enum = t.postings_with_flags(None, flags)?;
+                    Ok(EitherPostingsEnum::F(postings_enum))
+                },
+                _ => Err(LuceneError::illegal_state(
+                    "EitherTermsEnum::F expected EitherPostingsEnum::F for reuse".to_string(),
+                )),
+            },
+            EitherTermsEnum::S(s) => match reuse {
+                Some(EitherPostingsEnum::S(v)) => {
+                    let postings_enum = s.postings_with_flags(Some(v), flags)?;
+                    Ok(EitherPostingsEnum::S(postings_enum))
+                },
+                None => {
+                    let postings_enum = s.postings_with_flags(None, flags)?;
+                    Ok(EitherPostingsEnum::S(postings_enum))
+                },
+                _ => Err(LuceneError::illegal_state(
+                    "EitherTermsEnum::S expected EitherPostingsEnum::S for reuse".to_string(),
+                )),
+            },
+        }
+    }
+
+    type ImpactsEnum = EitherImpactsEnum<F::ImpactsEnum, S::ImpactsEnum>;
+
+    fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnum> {
+        match self {
+            EitherTermsEnum::F(t) => {
+                let impacts_enum = t.impacts(flags)?;
+                Ok(EitherImpactsEnum::F(impacts_enum))
+            },
+            EitherTermsEnum::S(s) => {
+                let impacts_enum = s.impacts(flags)?;
+                Ok(EitherImpactsEnum::S(impacts_enum))
+            },
+        }
+    }
+
+    type TermState = EitherTermState<F::TermState, S::TermState>;
+
+    fn term_state(&mut self) -> Result<Self::TermState> {
+        match self {
+            EitherTermsEnum::F(t) => {
+                let term_state = t.term_state()?;
+                Ok(EitherTermState::F(term_state))
+            },
+            EitherTermsEnum::S(s) => {
+                let term_state = s.term_state()?;
+                Ok(EitherTermState::S(term_state))
+            },
         }
     }
 }
