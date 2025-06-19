@@ -68,7 +68,6 @@ pub mod brh_util {
     pub const DEFAULT_CAPACITY: i32 = 16;
 }
 
-#[allow(unused)]
 impl MTBytesRefHash {
     pub fn new_sync() -> Self {
         let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
@@ -80,7 +79,6 @@ impl MTBytesRefHash {
         BytesRefHash::from_bytes_start_array(pool, 16, bytes_start_array)
     }
 }
-#[allow(unused)]
 impl STBytesRefHash {
     pub fn new() -> Self {
         let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
