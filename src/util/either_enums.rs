@@ -44,9 +44,13 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 /// dispatch.
 ///
 /// ## Examples
-/// - [`EitherPostingsEnum<F, S>`] wraps two types implementing `PostingsEnum`.
-/// - [`EitherImpactsEnum<F, S>`] wraps two types implementing `ImpactsEnum`.
+/// - [`EitherPostingsEnum`] wraps two types implementing `PostingsEnum`.
+/// - [`EitherImpactsEnum`] wraps two types implementing `ImpactsEnum`.
 /// - [`EitherImpacts`] wraps two types implementing `Impacts`.
+/// - [`EitherSortedNumericDocValues`] wraps two types implementing `SortedNumericDocValues`.
+/// - [`EitherNumericDocValues`] wraps two types implementing `NumericDocValues`.
+/// - [`EitherSortedDocValues`] wraps two types implementing `SortedDocValues`.
+/// - [`EitherTermsEnum`] wraps two types implementing `TermsEnum`.
 ///
 /// Each enum forwards all trait method calls to the underlying variant,
 /// enabling seamless use in performance-critical paths without heap allocation
