@@ -493,6 +493,15 @@ impl DocIdSetIterator for DocIdSetIteratorEnum {
         }
     }
 
+    fn slow_advance(&mut self, target: i32) -> Result<i32> {
+        match self {
+            DocIdSetIteratorEnum::Sparse(s) => s.slow_advance(target),
+            DocIdSetIteratorEnum::Medium(m) => m.slow_advance(target),
+            DocIdSetIteratorEnum::Dense(d) => d.slow_advance(target),
+            DocIdSetIteratorEnum::Empty(e) => e.slow_advance(target),
+        }
+    }
+
     fn cost(&self) -> Result<i64> {
         match self {
             DocIdSetIteratorEnum::Sparse(s) => s.cost(),
