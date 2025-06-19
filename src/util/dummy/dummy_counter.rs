@@ -19,12 +19,10 @@ use crate::util::Counter;
 pub struct DummyCounter;
 impl Counter for DummyCounter {
     fn add_and_get(&mut self, _delta: i64) -> i64 {
-        debug_assert!(false, "should never be called");
-        0
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn get(&self) -> i64 {
-        debug_assert!(false, "should never be called");
-        0
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

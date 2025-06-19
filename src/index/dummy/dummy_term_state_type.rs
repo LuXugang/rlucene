@@ -17,7 +17,7 @@
 use std::fmt::{Debug, Display, Formatter};
 
 use crate::index::term_state::{TermState, TermStateEnum};
-use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::error::lucene_error::Result;
 #[derive(Debug, Clone)]
 pub struct DummyTermState;
 impl Display for DummyTermState {
@@ -28,8 +28,6 @@ impl Display for DummyTermState {
 
 impl TermState for DummyTermState {
     fn copy_from(&mut self, _other: &TermStateEnum) -> Result<()> {
-        Err(LuceneError::illegal_state(
-            "this method should never be called",
-        ))
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
