@@ -24,6 +24,7 @@ use crate::index::impacts_enum::ImpactsEnum;
 use crate::index::impacts_source::ImpactsSource;
 use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::postings_enum::PostingsEnum;
+use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::index::term_state::{TermState, TermStateEnum};
 use crate::index::BytesRef;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
@@ -115,10 +116,10 @@ where
         }
     }
 
-    fn advance(&mut self, _target: i32) -> Result<i32> {
+    fn advance(&mut self, target: i32) -> Result<i32> {
         match self {
-            EitherImpactsEnum::F(t) => t.advance(_target),
-            EitherImpactsEnum::S(s) => s.advance(_target),
+            EitherImpactsEnum::F(t) => t.advance(target),
+            EitherImpactsEnum::S(s) => s.advance(target),
         }
     }
 
@@ -233,10 +234,10 @@ where
         }
     }
 
-    fn advance(&mut self, _target: i32) -> Result<i32> {
+    fn advance(&mut self, target: i32) -> Result<i32> {
         match self {
-            EitherPostingsEnum::F(t) => t.advance(_target),
-            EitherPostingsEnum::S(s) => s.advance(_target),
+            EitherPostingsEnum::F(t) => t.advance(target),
+            EitherPostingsEnum::S(s) => s.advance(target),
         }
     }
 
@@ -352,6 +353,12 @@ where
     F: NumericDocValues,
     S: NumericDocValues,
 {
+    fn advance_exact(&mut self, target: i32) -> Result<bool> {
+        match self {
+            EitherNumericDocValues::F(t) => t.advance_exact(target),
+            EitherNumericDocValues::S(s) => s.advance_exact(target),
+        }
+    }
 }
 
 impl<F, S> DocIdSetIterator for EitherNumericDocValues<F, S>
@@ -373,10 +380,10 @@ where
         }
     }
 
-    fn advance(&mut self, _target: i32) -> Result<i32> {
+    fn advance(&mut self, target: i32) -> Result<i32> {
         match self {
-            EitherNumericDocValues::F(t) => t.advance(_target),
-            EitherNumericDocValues::S(s) => s.advance(_target),
+            EitherNumericDocValues::F(t) => t.advance(target),
+            EitherNumericDocValues::S(s) => s.advance(target),
         }
     }
 
@@ -404,6 +411,86 @@ where
         match self {
             EitherNumericDocValues::F(t) => t.long_value(),
             EitherNumericDocValues::S(s) => s.long_value(),
+        }
+    }
+}
+
+// SortedNumericDocValues
+pub enum EitherSortedNumericDocValues<F, S> {
+    F(F),
+    S(S),
+}
+
+impl<F, S> DocValuesIterator for EitherSortedNumericDocValues<F, S>
+where
+    F: SortedNumericDocValues,
+    S: SortedNumericDocValues,
+{
+    fn advance_exact(&mut self, target: i32) -> Result<bool> {
+        match self {
+            EitherSortedNumericDocValues::F(t) => t.advance_exact(target),
+            EitherSortedNumericDocValues::S(s) => s.advance_exact(target),
+        }
+    }
+}
+
+impl<F, S> DocIdSetIterator for EitherSortedNumericDocValues<F, S>
+where
+    F: SortedNumericDocValues,
+    S: SortedNumericDocValues,
+{
+    fn doc_id(&self) -> i32 {
+        match self {
+            EitherSortedNumericDocValues::F(t) => t.doc_id(),
+            EitherSortedNumericDocValues::S(s) => s.doc_id(),
+        }
+    }
+
+    fn next_doc(&mut self) -> Result<i32> {
+        match self {
+            EitherSortedNumericDocValues::F(t) => t.next_doc(),
+            EitherSortedNumericDocValues::S(s) => s.next_doc(),
+        }
+    }
+
+    fn advance(&mut self, target: i32) -> Result<i32> {
+        match self {
+            EitherSortedNumericDocValues::F(t) => t.advance(target),
+            EitherSortedNumericDocValues::S(s) => s.advance(target),
+        }
+    }
+
+    fn slow_advance(&mut self, target: i32) -> Result<i32> {
+        match self {
+            EitherSortedNumericDocValues::F(t) => t.slow_advance(target),
+            EitherSortedNumericDocValues::S(s) => s.slow_advance(target),
+        }
+    }
+
+    fn cost(&self) -> Result<i64> {
+        match self {
+            EitherSortedNumericDocValues::F(t) => t.cost(),
+            EitherSortedNumericDocValues::S(s) => s.cost(),
+        }
+    }
+}
+
+impl<F, S> SortedNumericDocValues for EitherSortedNumericDocValues<F, S>
+where
+    F: SortedNumericDocValues,
+    S: SortedNumericDocValues,
+{
+    fn next_value(&mut self) -> Result<i64> {
+        match self {
+            EitherSortedNumericDocValues::F(t) => t.next_value(),
+            EitherSortedNumericDocValues::S(s) => s.next_value(),
+        }
+    }
+
+    fn doc_value_count(&mut self) -> Result<i32> {
+        match self {
+            EitherSortedNumericDocValues::F(t) => t.doc_value_count(),
+            EitherSortedNumericDocValues::S(s) => s.doc_value_count(),
         }
     }
 }
