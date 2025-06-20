@@ -1148,12 +1148,18 @@ where
         Ok(size)
     }
 
-    fn visit_doc_ids(&mut self, visitor: &mut impl IntersectVisitor) -> Result<()> {
+    fn visit_doc_ids<IV>(&mut self, visitor: &mut IV) -> Result<()>
+    where
+        IV: IntersectVisitor,
+    {
         self.reset_node_data_position()?;
         self.add_all(visitor, false)
     }
 
-    fn visit_doc_values(&mut self, visitor: &mut impl IntersectVisitor) -> Result<()> {
+    fn visit_doc_values<IV>(&mut self, visitor: &mut IV) -> Result<()>
+    where
+        IV: IntersectVisitor,
+    {
         self.reset_node_data_position()?;
         self.visit_leaves_one_by_one(visitor)
     }

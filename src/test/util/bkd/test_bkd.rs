@@ -1892,7 +1892,10 @@ impl PointTree for MutablePointTreeMock1 {
         Ok(self.num_points_added as i64)
     }
 
-    fn visit_doc_values(&mut self, visitor: &mut impl IntersectVisitor) -> Result<()> {
+    fn visit_doc_values<IV>(&mut self, visitor: &mut IV) -> Result<()>
+    where
+        IV: IntersectVisitor,
+    {
         for _ in 0..self.num_points_added {
             visitor.visit_with_packed_value(0, self.point_values.as_slice())?;
         }
@@ -1983,7 +1986,10 @@ impl PointTree for MutablePointTreeMock2 {
         Ok(11)
     }
 
-    fn visit_doc_values(&mut self, visitor: &mut impl IntersectVisitor) -> Result<()> {
+    fn visit_doc_values<IV>(&mut self, visitor: &mut IV) -> Result<()>
+    where
+        IV: IntersectVisitor,
+    {
         for i in 0..self.size()? as usize {
             visitor.visit_with_packed_value(self.doc_id[i], &self.point_values[i])?
         }
