@@ -391,7 +391,7 @@ impl DataInput for PagedBytesDataInput {
 }
 
 pub struct PagedBytesDataOutput {
-    paged_bytes: PagedBytes,
+    pub(crate) paged_bytes: PagedBytes,
 }
 impl PagedBytesDataOutput {
     fn new(paged_bytes: PagedBytes) -> Self {

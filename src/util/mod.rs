@@ -78,7 +78,7 @@ pub mod number;
 pub mod numeric_utils;
 pub mod output_enum;
 pub mod packed;
-mod paged_bytes;
+pub(crate) mod paged_bytes;
 pub mod priority_queue;
 mod radix_selector;
 pub mod ram_usage_estimator;

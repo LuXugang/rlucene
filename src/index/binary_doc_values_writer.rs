@@ -14,20 +14,221 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codecs::doc_values_consumer::DocValuesConsumer;
+use crate::codecs::doc_values_producer::DocValuesProducer;
+use crate::codecs::dummy::dummy_doc_values_skipper::DummyDocValuesSkipper;
+use crate::codecs::dummy::dummy_numeric_doc_values::DummyNumericDocValues;
+use crate::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
+use crate::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNumericDocValues;
+use crate::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocValues;
 use crate::index::binary_doc_values::BinaryDocValues;
 use crate::index::doc_values_iterator::DocValuesIterator;
+use crate::index::docs_with_field_set::{DocsWithFieldSet, DocsWithFieldSetEnum};
+use crate::index::field_info::FieldInfo;
+use crate::index::segment_write_state::SegmentWriteState;
 use crate::index::sorter::DocMap;
 use crate::index::{BytesRef, BytesRefBuilder};
+use crate::search::doc_id_set::DocIdSet;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::store::DataInput;
+use crate::store::directory::Directory;
+use crate::store::{DataInput, DataOutput};
+use crate::util::accountable::Accountable;
+use crate::util::either_enums::EitherBinaryDocValues;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::packed::packed_long_values::{PackedLongValues, PackedLongValuesIterator};
-use crate::util::{BytesRefArray, CounterEnum, CounterEnumBorrow, SortableBytesRefArray};
+use crate::util::packed::packed_long_values::{
+    PackedLongValues, PackedLongValuesBuilder, PackedLongValuesIterator,
+};
+use crate::util::packed::PackedInts;
+use crate::util::paged_bytes::{
+    paged_bytes_util, PagedBytes, PagedBytesDataInput, PagedBytesDataOutput,
+};
+use crate::util::{BytesRefArray, Counter, CounterEnum, CounterEnumBorrow, SortableBytesRefArray};
 use std::cell::RefCell;
 use std::rc::Rc;
 
-pub(crate) struct BinaryDocValuesWriter;
+/// Buffers up pending `[u8]` per doc, then flushes when segment flushes.
+pub(crate) struct BinaryDocValuesWriter {
+    field_info: Rc<FieldInfo>,
+    bytes_out: PagedBytesDataOutput,
+    iw_bytes_used: CounterEnumBorrow,
+    lengths: PackedLongValuesBuilder,
+    docs_with_field: DocsWithFieldSet,
+    bytes_used: i64,
+    last_doc_id: i32,
+    max_length: i32,
+    final_lengths: Option<PackedLongValues>,
+}
+
+impl BinaryDocValuesWriter {
+    pub fn new(field_info: Rc<FieldInfo>, iw_bytes_used: CounterEnumBorrow) -> Result<Self> {
+        let bytes = PagedBytes::new(bdvw_util::BLOCK_BITS);
+        let bytes_out = paged_bytes_util::get_data_output(bytes)?;
+        let lengths =
+            PackedLongValues::delta_packed_long_values_builder_default(PackedInts::COMPACT)?;
+        let docs_with_field = DocsWithFieldSet::new();
+
+        let bytes_used = lengths.ram_bytes_used()? + docs_with_field.ram_bytes_used()?;
+        iw_bytes_used.borrow_mut().add_and_get(bytes_used);
+
+        Ok(Self {
+            field_info,
+            bytes_out,
+            iw_bytes_used,
+            lengths,
+            docs_with_field,
+            bytes_used,
+            last_doc_id: -1,
+            max_length: 0,
+            final_lengths: None,
+        })
+    }
+    pub fn add_value(&mut self, doc_id: i32, value: &BytesRef<Vec<u8>>) -> Result<()> {
+        if doc_id <= self.last_doc_id {
+            return Err(LuceneError::illegal_argument(format!(
+                "DocValuesField \"{}\" appears more than once in this document (only one value is allowed per field)",
+                self.field_info.name
+            )));
+        }
+        if value.length > bdvw_util::MAX_LENGTH {
+            return Err(LuceneError::illegal_argument(format!(
+                "DocValuesField \"{}\" is too large, must be <= {}",
+                self.field_info.name,
+                bdvw_util::MAX_LENGTH
+            )));
+        }
+
+        self.max_length = self.max_length.max(value.length as i32);
+        self.lengths.add(value.length as i64)?;
+
+        self.bytes_out
+            .write_bytes_range(&value.bytes, value.offset as i32, value.length as i32)?;
+
+        self.docs_with_field.add(doc_id)?;
+        self.update_bytes_used()?;
+
+        self.last_doc_id = doc_id;
+        Ok(())
+    }
+
+    fn update_bytes_used(&mut self) -> Result<()> {
+        let new_bytes_used = self.lengths.ram_bytes_used()?
+            + self.bytes_out.paged_bytes.ram_bytes_used()?
+            + self.docs_with_field.ram_bytes_used()?;
+        self.iw_bytes_used
+            .borrow_mut()
+            .add_and_get(new_bytes_used - self.bytes_used);
+        self.bytes_used = new_bytes_used;
+        Ok(())
+    }
+    pub(crate) fn flush<D, DM, DC>(
+        &mut self,
+        state: &SegmentWriteState<D>,
+        sort_map: Option<Rc<DM>>,
+        dv_consumer: &mut DC,
+    ) -> Result<()>
+    where
+        D: Directory,
+        DM: DocMap,
+        DC: DocValuesConsumer,
+    {
+        self.bytes_out.paged_bytes.freeze(false)?;
+        if self.final_lengths.is_none() {
+            self.final_lengths = Some(self.lengths.build()?);
+        }
+        let sorted = match sort_map {
+            Some(sort_map) => {
+                let mut buffered_binary_doc_values = BufferedBinaryDocValues::new(
+                    self.final_lengths.as_ref().unwrap(),
+                    self.max_length as usize,
+                    paged_bytes_util::get_data_input(&self.bytes_out.paged_bytes)?,
+                    self.docs_with_field.iterator()?.unwrap(),
+                )?;
+                Some(BinaryDVs::new(
+                    state.segment_info.max_doc()?,
+                    &*sort_map,
+                    &mut buffered_binary_doc_values,
+                )?)
+            },
+            None => None,
+        };
+
+        let mut producer = DocValuesProducerImpl::new(
+            self.field_info.clone(),
+            self.final_lengths.take().unwrap(),
+            self.max_length,
+            std::mem::take(&mut self.bytes_out.paged_bytes),
+            std::mem::take(&mut self.docs_with_field),
+            sorted,
+        )?;
+        dv_consumer.add_binary_field(&self.field_info, &mut producer)
+    }
+}
+
+pub(crate) struct DocValuesProducerImpl {
+    field_info: Rc<FieldInfo>,
+    final_lengths: PackedLongValues,
+    max_length: i32,
+    paged_bytes: PagedBytes,
+    docs_with_field: DocsWithFieldSet,
+    sorted: Option<BinaryDVs>,
+}
+impl DocValuesProducerImpl {
+    pub(crate) fn new(
+        field_info: Rc<FieldInfo>,
+        final_lengths: PackedLongValues,
+        max_length: i32,
+        paged_bytes: PagedBytes,
+        docs_with_field: DocsWithFieldSet,
+        sorted: Option<BinaryDVs>,
+    ) -> Result<Self> {
+        Ok(Self {
+            field_info,
+            final_lengths,
+            max_length,
+            paged_bytes,
+            docs_with_field,
+            sorted,
+        })
+    }
+}
+impl DocValuesProducer for DocValuesProducerImpl {
+    type NumericDocValues = DummyNumericDocValues;
+    type BinaryDocValues = EitherBinaryDocValues<
+        SortingBinaryDocValues,
+        BufferedBinaryDocValues<DocsWithFieldSetEnum, PagedBytesDataInput>,
+    >;
+
+    fn get_binary(&mut self, field_info: &Rc<FieldInfo>) -> Result<Self::BinaryDocValues> {
+        if Rc::ptr_eq(field_info, &self.field_info) {
+            return Err(LuceneError::illegal_argument("wrong fieldInfo"));
+        }
+        match &self.sorted {
+            Some(sorted) => Ok(EitherBinaryDocValues::F(SortingBinaryDocValues::new(
+                sorted.clone(),
+            ))),
+            None => Ok(EitherBinaryDocValues::S(BufferedBinaryDocValues::new(
+                &self.final_lengths,
+                self.max_length as usize,
+                paged_bytes_util::get_data_input(&self.paged_bytes)?,
+                self.docs_with_field.iterator()?.unwrap(),
+            )?)),
+        }
+    }
+
+    type SortedDocValues = DummySortedDocValues;
+    type SortedNumericDocValues = DummySortedNumericDocValues;
+    type SortedSetDocValues = DummySortedSetDocValues;
+    type DocValuesSkipper = DummyDocValuesSkipper;
+}
+
+mod bdvw_util {
+    use crate::util::array_util::ArrayUtil;
+
+    // 4 kB block sizes for PagedBytes storage:
+    pub(super) const BLOCK_BITS: usize = 12;
+    pub(super) const MAX_LENGTH: usize = ArrayUtil::MAX_ARRAY_LENGTH;
+}
 
 // iterates over the values we have in ram
 pub(crate) struct BufferedBinaryDocValues<D, DI>
