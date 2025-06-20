@@ -233,7 +233,7 @@ impl PagedBytesReader {
     /// sufficient resources and copy the paged data.
     ///
     /// Slices spanning more than two blocks are **not supported**.
-    pub fn fill_slice(&self, b: &mut BytesRef<Rc<Vec<u8>>>, start: usize, length: usize) {
+    pub fn fill_slice(&self, b: &mut BytesRef<Vec<u8>>, start: usize, length: usize) {
         assert!(length <= self.block_size + 1, "length={}", length);
         b.length = length;
 
@@ -245,8 +245,9 @@ impl PagedBytesReader {
         let offset = start & self.block_mask;
 
         if self.block_size - offset >= length {
+            // TODO: always copy here, could we avoid copying
             // Within block
-            b.bytes = self.blocks[index].clone();
+            b.bytes = self.blocks[index].as_ref().clone();
             b.offset = offset;
         } else {
             // Split across two blocks
@@ -258,7 +259,7 @@ impl PagedBytesReader {
                 self.block_size - offset,
             );
 
-            b.bytes = Rc::new(new_bytes);
+            b.bytes = new_bytes;
             b.offset = 0;
         }
     }

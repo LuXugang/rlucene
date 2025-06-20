@@ -215,8 +215,8 @@ impl Clone for MutablePointTreeImpl {
 impl MutablePointTree for MutablePointTreeImpl {
     fn get_value(&self, i: usize, packed_value: &mut BytesRef<Vec<u8>>) {
         let offset = self.packed_bytes_length * self.ords[i] as usize;
-        // self.bytes_reader
-        //     .fill_slice(packed_value, offset, self.packed_bytes_length);
+        self.bytes_reader
+            .fill_slice(packed_value, offset, self.packed_bytes_length);
     }
 
     fn get_byte_at(&self, i: usize, k: usize) -> u8 {
