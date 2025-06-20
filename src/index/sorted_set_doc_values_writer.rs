@@ -14,19 +14,35 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codecs::doc_values_consumer::DocValuesConsumer;
+use crate::codecs::doc_values_producer::DocValuesProducer;
+use crate::codecs::dummy::dummy_binary_doc_values::DummyBinaryDocValues;
+use crate::codecs::dummy::dummy_doc_values_skipper::DummyDocValuesSkipper;
+use crate::codecs::dummy::dummy_numeric_doc_values::DummyNumericDocValues;
 use crate::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
+use crate::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNumericDocValues;
+use crate::index::doc_values::DocValues;
 use crate::index::doc_values_iterator::DocValuesIterator;
+use crate::index::docs_with_field_set::DocsWithFieldSetEnum;
+use crate::index::segment_write_state::SegmentWriteState;
+use crate::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
 use crate::index::sorted_doc_values_terms_enum::SortedDocValuesTermsEnum;
+use crate::index::sorted_doc_values_writer::{
+    sdvw_util, BufferedSortedDocValues, SortingSortedDocValues,
+};
 use crate::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::index::sorter::DocMap;
 use crate::index::{docs_with_field_set::DocsWithFieldSet, field_info::FieldInfo, BytesRef};
+use crate::search::doc_id_set::DocIdSet;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::store::directory::Directory;
 use crate::util::accountable::Accountable;
 use crate::util::array_util::ArrayUtil;
 use crate::util::bit_util::BitUtil;
 use crate::util::bytes_ref_hash::{brh_util, BytesRefHash, DirectBytesStartArray, STBytesRefHash};
 use crate::util::counter::CounterEnumBorrow;
+use crate::util::either_enums::{EitherSortedDocValues, EitherSortedSetDocValues};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::long_values::LongValues;
 use crate::util::packed::growable_writer::GrowableWriter;
@@ -41,6 +57,7 @@ use std::rc::Rc;
 /// Buffers up pending `[u8]`s per doc, deref and sorting via int ord, then flushes when segment flushes.
 pub(crate) struct SortedSetDocValuesWriter {
     hash: STBytesRefHash,
+    hash_rc: Option<Rc<STBytesRefHash>>,
     pending: PackedLongValuesBuilder, // stream of all termIDs
     pending_counts: Option<PackedLongValuesBuilder>, // termIDs per doc
     docs_with_field: DocsWithFieldSet,
@@ -84,6 +101,7 @@ impl SortedSetDocValuesWriter {
         iw_bytes_used.borrow_mut().add_and_get(bytes_used);
         Ok(Self {
             hash,
+            hash_rc: None,
             pending,
             pending_counts: None,
             docs_with_field,
@@ -214,12 +232,212 @@ impl SortedSetDocValuesWriter {
                 let index = self.hash.ids[ord] as usize;
                 ord_map[index] = ord as i32;
             }
+            self.hash_rc = Some(Rc::new(std::mem::take(&mut self.hash)));
             self.final_ord_map = Some(Rc::new(ord_map));
         } else {
             debug_assert!(self.is_sorted);
         }
         Ok(())
     }
+    pub fn get_values(
+        ord_map: Rc<Vec<i32>>,
+        hash: Rc<STBytesRefHash>,
+        ords: &PackedLongValues,
+        ord_counts: Option<PackedLongValues>,
+        max_count: i32,
+        docs_with_field: &mut DocsWithFieldSet,
+    ) -> Result<
+        EitherSortedSetDocValues<
+            SingletonSortedSetDocValues<BufferedSortedDocValues<DocsWithFieldSetEnum>>,
+            BufferedSortedSetDocValues<DocsWithFieldSetEnum>,
+        >,
+    > {
+        let docs_iter = docs_with_field
+            .iterator()?
+            .ok_or_else(|| LuceneError::illegal_state("docsWithField.iterator() returned None"))?;
+        match ord_counts {
+            Some(ords_counts) => Ok(EitherSortedSetDocValues::S(
+                BufferedSortedSetDocValues::new(
+                    ord_map,
+                    hash,
+                    ords,
+                    ords_counts,
+                    max_count,
+                    docs_iter,
+                )?,
+            )),
+            None => Ok(EitherSortedSetDocValues::F(DocValues::singleton_sorted(
+                BufferedSortedDocValues::new(hash, ords, ord_map, docs_iter)?,
+            )?)),
+        }
+    }
+    pub(crate) fn flush<D, DM, DC>(
+        &mut self,
+        state: &SegmentWriteState<D>,
+        sort_map: Option<Rc<DM>>,
+        dv_consumer: &mut DC,
+    ) -> Result<()>
+    where
+        D: Directory,
+        DM: DocMap,
+        DC: DocValuesConsumer,
+    {
+        self.finish()?;
+        let ords = self.final_ords.take().unwrap();
+        let ord_counts = self.final_ord_counts.take();
+        let ord_map = self.final_ord_map.take().unwrap();
+
+        if ord_counts.is_none() {
+            let single_value_producer = sdvw_util::get_doc_values_producer(
+                self.field_info.clone(),
+                self.hash_rc.clone().unwrap(),
+                ords.clone(),
+                ord_map.clone(),
+                std::mem::take(&mut self.docs_with_field),
+                sort_map,
+            )?;
+            let producer = DocValuesProducerImpl2::new(single_value_producer);
+            dv_consumer.add_sorted_set_field(&self.field_info, producer)?;
+            return Ok(());
+        }
+
+        let doc_ords = if let Some(map) = sort_map {
+            Some(DocOrds::new(
+                state.segment_info.max_doc()?,
+                &*map,
+                &mut SortedSetDocValuesWriter::get_values(
+                    ord_map.clone(),
+                    self.hash_rc.clone().unwrap(),
+                    &ords,
+                    ord_counts.clone(),
+                    self.max_count,
+                    &mut self.docs_with_field,
+                )?,
+                PackedInts::FASTEST,
+                PackedInts::bits_required(self.max_count as i64)?,
+            )?)
+        } else {
+            None
+        };
+        let producer = DocValuesProducerImpl1::new(
+            self.field_info.clone(),
+            ord_map,
+            self.hash_rc.clone().unwrap(),
+            ords,
+            ord_counts,
+            self.max_count,
+            std::mem::take(&mut self.docs_with_field),
+            doc_ords,
+        );
+        dv_consumer.add_sorted_set_field(&self.field_info, producer)?;
+        Ok(())
+    }
+}
+pub(crate) struct DocValuesProducerImpl1 {
+    field_info: Rc<FieldInfo>,
+    ord_map: Rc<Vec<i32>>,
+    hash: Rc<STBytesRefHash>,
+    ords: PackedLongValues,
+    ord_counts: Option<PackedLongValues>,
+    max_count: i32,
+    docs_with_field: DocsWithFieldSet,
+    doc_ords: Option<DocOrds>,
+}
+impl DocValuesProducerImpl1 {
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn new(
+        field_info: Rc<FieldInfo>,
+        ord_map: Rc<Vec<i32>>,
+        hash: Rc<STBytesRefHash>,
+        ords: PackedLongValues,
+        ord_counts: Option<PackedLongValues>,
+        max_count: i32,
+        docs_with_field: DocsWithFieldSet,
+        doc_ords: Option<DocOrds>,
+    ) -> Self {
+        Self {
+            field_info,
+            ord_map,
+            hash,
+            ords,
+            ord_counts,
+            max_count,
+            docs_with_field,
+            doc_ords,
+        }
+    }
+}
+impl DocValuesProducer for DocValuesProducerImpl1 {
+    type NumericDocValues = DummyNumericDocValues;
+    type BinaryDocValues = DummyBinaryDocValues;
+    type SortedDocValues = DummySortedDocValues;
+    type SortedNumericDocValues = DummySortedNumericDocValues;
+    type SortedSetDocValues = EitherSortedSetDocValues<
+        EitherSortedSetDocValues<
+            SingletonSortedSetDocValues<BufferedSortedDocValues<DocsWithFieldSetEnum>>,
+            BufferedSortedSetDocValues<DocsWithFieldSetEnum>,
+        >,
+        SortingSortedSetDocValues<
+            EitherSortedSetDocValues<
+                SingletonSortedSetDocValues<BufferedSortedDocValues<DocsWithFieldSetEnum>>,
+                BufferedSortedSetDocValues<DocsWithFieldSetEnum>,
+            >,
+        >,
+    >;
+
+    fn get_sorted_set(&mut self, field_info: &Rc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
+        if Rc::ptr_eq(&self.field_info, field_info) {
+            return Err(LuceneError::illegal_argument("wrong fieldInfo"));
+        }
+        let buf = SortedSetDocValuesWriter::get_values(
+            self.ord_map.clone(),
+            self.hash.clone(),
+            &self.ords,
+            self.ord_counts.clone(),
+            self.max_count,
+            &mut self.docs_with_field,
+        )?;
+        match &self.doc_ords {
+            Some(ords) => Ok(EitherSortedSetDocValues::S(SortingSortedSetDocValues::new(
+                buf,
+                ords.clone(),
+            ))),
+            None => Ok(EitherSortedSetDocValues::F(buf)),
+        }
+    }
+
+    type DocValuesSkipper = DummyDocValuesSkipper;
+}
+
+pub(crate) struct DocValuesProducerImpl2 {
+    single_value_producer: crate::index::sorted_doc_values_writer::DocValuesProducerImpl,
+}
+impl DocValuesProducerImpl2 {
+    pub(crate) fn new(
+        single_value_producer: crate::index::sorted_doc_values_writer::DocValuesProducerImpl,
+    ) -> Self {
+        Self {
+            single_value_producer,
+        }
+    }
+}
+impl DocValuesProducer for DocValuesProducerImpl2 {
+    type NumericDocValues = DummyNumericDocValues;
+    type BinaryDocValues = DummyBinaryDocValues;
+    type SortedDocValues = DummySortedDocValues;
+    type SortedNumericDocValues = DummySortedNumericDocValues;
+    type SortedSetDocValues = SingletonSortedSetDocValues<
+        EitherSortedDocValues<
+            BufferedSortedDocValues<DocsWithFieldSetEnum>,
+            SortingSortedDocValues<BufferedSortedDocValues<DocsWithFieldSetEnum>>,
+        >,
+    >;
+
+    fn get_sorted_set(&mut self, field_info: &Rc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
+        DocValues::singleton_sorted(self.single_value_producer.get_sorted(field_info)?)
+    }
+
+    type DocValuesSkipper = DummyDocValuesSkipper;
 }
 
 pub(crate) struct BufferedSortedSetDocValues<D>
@@ -244,9 +462,9 @@ where
     pub fn new(
         ord_map: Rc<Vec<i32>>,
         hash: Rc<STBytesRefHash>,
-        ords: PackedLongValues,
+        ords: &PackedLongValues,
         ord_counts: PackedLongValues,
-        max_count: usize,
+        max_count: i32,
         docs_with_field: D,
     ) -> Result<Self> {
         Ok(Self {
@@ -256,7 +474,7 @@ where
             ords_iter: ords.iterator()?,
             ord_counts_iter: ord_counts.iterator()?,
             docs_with_field,
-            current_doc: vec![0; max_count],
+            current_doc: vec![0; max_count as usize],
             ord_count: 0,
             ord_upto: 0,
         })
