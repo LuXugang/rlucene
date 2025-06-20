@@ -15,7 +15,12 @@
  * limitations under the License.
  */
 use crate::codecs::doc_values_consumer::DocValuesConsumer;
+use crate::index::binary_doc_values_writer::BinaryDocValuesWriter;
+use crate::index::numeric_doc_values_writer::NumericDocValuesWriter;
 use crate::index::segment_write_state::SegmentWriteState;
+use crate::index::sorted_doc_values_writer::SortedDocValuesWriter;
+use crate::index::sorted_numeric_doc_values_writer::SortedNumericDocValuesWriter;
+use crate::index::sorted_set_doc_values_writer::SortedSetDocValuesWriter;
 use crate::index::sorter::DocMap;
 use crate::store::directory::Directory;
 use std::rc::Rc;
@@ -31,4 +36,35 @@ pub(crate) trait DocValuesWriter {
         D: Directory,
         DM: DocMap,
         DC: DocValuesConsumer;
+}
+
+pub(crate) enum DocValuesWriterEnum {
+    Binary(BinaryDocValuesWriter),
+    Numeric(NumericDocValuesWriter),
+    SortedNumeric(SortedNumericDocValuesWriter),
+    Sorted(SortedDocValuesWriter),
+    SortedSet(SortedSetDocValuesWriter),
+}
+impl DocValuesWriter for DocValuesWriterEnum {
+    fn flush<D, DM, DC>(
+        &mut self,
+        state: &SegmentWriteState<D>,
+        sort_map: Option<Rc<DM>>,
+        dv_consumer: &mut DC,
+    ) -> crate::util::error::lucene_error::Result<()>
+    where
+        D: Directory,
+        DM: DocMap,
+        DC: DocValuesConsumer,
+    {
+        match self {
+            DocValuesWriterEnum::Binary(writer) => writer.flush(state, sort_map, dv_consumer),
+            DocValuesWriterEnum::Numeric(writer) => writer.flush(state, sort_map, dv_consumer),
+            DocValuesWriterEnum::SortedNumeric(writer) => {
+                writer.flush(state, sort_map, dv_consumer)
+            },
+            DocValuesWriterEnum::Sorted(writer) => writer.flush(state, sort_map, dv_consumer),
+            DocValuesWriterEnum::SortedSet(writer) => writer.flush(state, sort_map, dv_consumer),
+        }
+    }
 }
