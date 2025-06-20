@@ -127,7 +127,7 @@ impl PagedBytes {
         unimplemented!("not used in Java Lucene")
     }
     /// Commits final byte[], trimming it if necessary and if trim=true
-    pub fn freeze(&mut self, trim: bool) -> Result<Reader> {
+    pub fn freeze(&mut self, trim: bool) -> Result<PagedBytesReader> {
         if self.frozen {
             return Err(LuceneError::illegal_state("already frozen".to_string()));
         }
@@ -155,7 +155,7 @@ impl PagedBytes {
         }
         self.blocks_rc = Some(block);
 
-        Ok(Reader::new(self))
+        Ok(PagedBytesReader::new(self))
     }
     pub fn get_pointer(&self) -> i64 {
         if self.current_block.is_none() {
@@ -205,7 +205,7 @@ pub mod paged_bytes_util {
     }
 }
 /// Provides methods to read BytesRefs from a frozen PagedBytes.
-pub struct Reader {
+pub struct PagedBytesReader {
     blocks: Vec<Rc<Vec<u8>>>,
     block_bits: usize,
     block_mask: usize,
@@ -213,11 +213,11 @@ pub struct Reader {
     bytes_used_per_block: i64,
 }
 
-impl Reader {
+impl PagedBytesReader {
     /// 1<<blockBits must be bigger than biggest single BytesRef slice that will
     /// be pulled
     pub fn new(paged_bytes: &PagedBytes) -> Self {
-        Reader {
+        PagedBytesReader {
             blocks: paged_bytes.blocks_rc.as_ref().unwrap().clone(),
             block_bits: paged_bytes.block_bits,
             block_mask: paged_bytes.block_mask,
@@ -272,7 +272,7 @@ impl Reader {
         unimplemented!("not used in Java Lucene");
     }
 }
-impl Accountable for Reader {
+impl Accountable for PagedBytesReader {
     fn ram_bytes_used(&self) -> Result<i64> {
         // TODO:  memory calculation not implemented
         Ok(0)
