@@ -578,14 +578,14 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     fn do_add_sorted_field<D>(
         &mut self,
         field: &Rc<FieldInfo>,
-        values_producer: &mut D,
+        mut values_producer: D,
         add_type_byte: bool,
-    ) -> Result<()>
+    ) -> Result<D>
     where
         D: DocValuesProducer,
     {
-        let mut producer: EmptyDocValuesProducerSub2<D> = EmptyDocValuesProducerSub2 {
-            sorted: Some(values_producer.get_sorted(field)?),
+        let mut producer = EmptyDocValuesProducerSub2 {
+            values_producer: Some(values_producer),
         };
 
         if *field.doc_values_skip_index_type() != DocValuesSkipIndexType::None {
@@ -597,9 +597,10 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
         }
 
         self.write_values(field, &mut producer, true)?;
+        values_producer = producer.values_producer.take().unwrap();
         let mut sorted = DocValues::singleton_sorted(values_producer.get_sorted(field)?)?;
         self.add_terms_dict(&mut sorted)?;
-        Ok(())
+        Ok(values_producer)
     }
 
     fn add_terms_dict(&mut self, values: &mut impl SortedSetDocValues) -> Result<()> {
@@ -906,16 +907,15 @@ impl<O> DocValuesConsumer for Lucene90DocValuesConsumer<O>
 where
     O: IndexOutput,
 {
-    fn add_numeric_field<D>(&mut self, field: &Rc<FieldInfo>, values_producer: &mut D) -> Result<()>
+    fn add_numeric_field<D>(&mut self, field: &Rc<FieldInfo>, values_producer: D) -> Result<D>
     where
         D: DocValuesProducer,
     {
         self.meta.write_int(field.number)?;
         self.meta.write_byte(Lucene90DocValuesFormat::NUMERIC)?;
 
-        let numeric = values_producer.get_numeric(field)?;
-        let mut producer: EmptyDocValuesProducerSub1<D> = EmptyDocValuesProducerSub1 {
-            doc_values: Some(numeric),
+        let mut producer = EmptyDocValuesProducerSub1 {
+            values_producer: Some(values_producer),
         };
 
         if *field.doc_values_skip_index_type() != DocValuesSkipIndexType::None {
@@ -923,7 +923,7 @@ where
         }
 
         self.write_values(field, &mut producer, false)?;
-        Ok(())
+        Ok(producer.values_producer.take().unwrap())
     }
 
     fn add_binary_field<D>(&mut self, field: &Rc<FieldInfo>, values_producer: &mut D) -> Result<()>
@@ -1015,14 +1015,13 @@ where
         Ok(())
     }
 
-    fn add_sorted_field<D>(&mut self, field: &Rc<FieldInfo>, values_producer: &mut D) -> Result<()>
+    fn add_sorted_field<D>(&mut self, field: &Rc<FieldInfo>, values_producer: D) -> Result<D>
     where
         D: DocValuesProducer,
     {
         self.meta.write_int(field.number)?;
         self.meta.write_byte(Lucene90DocValuesFormat::SORTED)?;
-        self.do_add_sorted_field(field, values_producer, false)?;
-        Ok(())
+        self.do_add_sorted_field(field, values_producer, false)
     }
 
     fn add_sorted_numeric_field<D>(
@@ -1056,13 +1055,14 @@ where
             let mut producer = EmptyDocValuesProducerSub3 {
                 values_producer: Some(values_producer),
             };
-            self.do_add_sorted_field(field, &mut producer, true)?;
+            producer = self.do_add_sorted_field(field, producer, true)?;
             return Ok(producer.values_producer.take().unwrap());
         }
 
-        let mut producer: EmptyDocValuesProducerSub4<D> = EmptyDocValuesProducerSub4 {
-            doc_values: Some(values_producer.get_sorted_set(field)?),
+        let mut producer = EmptyDocValuesProducerSub4 {
+            values_producer: Some(values_producer),
         };
+        let mut values_producer = producer.values_producer.take().unwrap();
         self.do_add_sorted_numeric_field(field, &mut producer, true)?;
         self.add_terms_dict(&mut values_producer.get_sorted_set(field)?)?;
         Ok(values_producer)
@@ -1214,7 +1214,8 @@ struct EmptyDocValuesProducerSub1<D>
 where
     D: DocValuesProducer,
 {
-    doc_values: Option<D::NumericDocValues>,
+    // wrap with `Option` for std::mem::take
+    values_producer: Option<D>,
 }
 impl<D> DocValuesProducer for EmptyDocValuesProducerSub1<D>
 where
@@ -1227,9 +1228,10 @@ where
 
     fn get_sorted_numeric(
         &mut self,
-        _field: &Rc<FieldInfo>,
+        field: &Rc<FieldInfo>,
     ) -> Result<Self::SortedNumericDocValues> {
-        DocValues::singleton_numeric(self.doc_values.take().unwrap())
+        let v = self.values_producer.as_mut().unwrap().get_numeric(field)?;
+        DocValues::singleton_numeric(v)
     }
     type SortedSetDocValues = DummySortedSetDocValues;
     type DocValuesSkipper = DummyDocValuesSkipper;
@@ -1238,7 +1240,7 @@ struct EmptyDocValuesProducerSub2<D>
 where
     D: DocValuesProducer,
 {
-    sorted: Option<D::SortedDocValues>,
+    values_producer: Option<D>,
 }
 impl<D> DocValuesProducer for EmptyDocValuesProducerSub2<D>
 where
@@ -1247,15 +1249,15 @@ where
     type NumericDocValues = DummyNumericDocValues;
     type BinaryDocValues = DummyBinaryDocValues;
     type SortedDocValues = DummySortedDocValues;
-    type SortedNumericDocValues = SingletonSortedNumericDocValues<NumericDocValuesImpl<D>>;
+    type SortedNumericDocValues =
+        SingletonSortedNumericDocValues<NumericDocValuesImpl<D::SortedDocValues>>;
 
     fn get_sorted_numeric(
         &mut self,
-        _field: &Rc<FieldInfo>,
+        field: &Rc<FieldInfo>,
     ) -> Result<Self::SortedNumericDocValues> {
-        let sorted_ords = NumericDocValuesImpl {
-            sorted: self.sorted.take().unwrap(),
-        };
+        let sorted = self.values_producer.as_mut().unwrap().get_sorted(field)?;
+        let sorted_ords = NumericDocValuesImpl { sorted };
         DocValues::singleton_numeric(sorted_ords)
     }
 
@@ -1295,7 +1297,7 @@ pub struct EmptyDocValuesProducerSub4<D>
 where
     D: DocValuesProducer,
 {
-    doc_values: Option<D::SortedSetDocValues>,
+    values_producer: Option<D>,
 }
 impl<D> DocValuesProducer for EmptyDocValuesProducerSub4<D>
 where
@@ -1308,13 +1310,18 @@ where
 
     fn get_sorted_numeric(
         &mut self,
-        _field: &Rc<FieldInfo>,
+        field: &Rc<FieldInfo>,
     ) -> Result<Self::SortedNumericDocValues> {
+        let value = self
+            .values_producer
+            .as_mut()
+            .unwrap()
+            .get_sorted_set(field)?;
         Ok(SortedNumericDocValuesImpl {
             ords: vec![],
             i: 0,
             doc_value_count: 0,
-            value: self.doc_values.take().unwrap(),
+            value,
         })
     }
 
@@ -1322,25 +1329,25 @@ where
     type DocValuesSkipper = DummyDocValuesSkipper;
 }
 
-pub struct NumericDocValuesImpl<D>
+pub struct NumericDocValuesImpl<S>
 where
-    D: DocValuesProducer,
+    S: SortedDocValues,
 {
-    sorted: D::SortedDocValues,
+    sorted: S,
 }
 
-impl<D> DocValuesIterator for NumericDocValuesImpl<D>
+impl<S> DocValuesIterator for NumericDocValuesImpl<S>
 where
-    D: DocValuesProducer,
+    S: SortedDocValues,
 {
     fn advance_exact(&mut self, target: i32) -> Result<bool> {
         self.sorted.advance_exact(target)
     }
 }
 
-impl<D> DocIdSetIterator for NumericDocValuesImpl<D>
+impl<S> DocIdSetIterator for NumericDocValuesImpl<S>
 where
-    D: DocValuesProducer,
+    S: SortedDocValues,
 {
     fn doc_id(&self) -> i32 {
         self.sorted.doc_id()
@@ -1359,9 +1366,9 @@ where
     }
 }
 
-impl<D> NumericDocValues for NumericDocValuesImpl<D>
+impl<S> NumericDocValues for NumericDocValuesImpl<S>
 where
-    D: DocValuesProducer,
+    S: SortedDocValues,
 {
     fn long_value(&mut self) -> Result<i64> {
         Ok(self.sorted.ord_value()? as i64)

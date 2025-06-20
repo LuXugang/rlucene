@@ -208,7 +208,7 @@ impl SortedDocValuesWriter {
         self.finish()?;
         dv_consumer.add_sorted_field(
             &self.field_info,
-            &mut sdvw_util::get_doc_values_producer(
+            sdvw_util::get_doc_values_producer(
                 self.field_info.clone(),
                 self.hash_rc.clone().unwrap(),
                 self.final_ords.take().unwrap(),

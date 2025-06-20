@@ -44,17 +44,13 @@ use crate::util::either_enums::EitherSortedNumericDocValues;
 use crate::util::error::lucene_error::{LuceneError, Result};
 
 pub trait DocValuesConsumer {
-    fn add_numeric_field<D>(
-        &mut self,
-        field: &Rc<FieldInfo>,
-        values_producer: &mut D,
-    ) -> Result<()>
+    fn add_numeric_field<D>(&mut self, field: &Rc<FieldInfo>, values_producer: D) -> Result<D>
     where
         D: DocValuesProducer;
     fn add_binary_field<D>(&mut self, field: &Rc<FieldInfo>, values_producer: &mut D) -> Result<()>
     where
         D: DocValuesProducer;
-    fn add_sorted_field<D>(&mut self, field: &Rc<FieldInfo>, values_producer: &mut D) -> Result<()>
+    fn add_sorted_field<D>(&mut self, field: &Rc<FieldInfo>, values_producer: D) -> Result<D>
     where
         D: DocValuesProducer;
     fn add_sorted_numeric_field<D>(
@@ -76,11 +72,12 @@ pub trait DocValuesConsumer {
     where
         I: IndexInput,
     {
-        let mut producer = EmptyDocValuesProducerMerge1 {
+        let producer = EmptyDocValuesProducerMerge1 {
             merge_field_info: merge_field_info.clone(),
             merge_state,
         };
-        self.add_numeric_field(merge_field_info, &mut producer)
+        let _ = self.add_numeric_field(merge_field_info, producer);
+        Ok(())
     }
     fn merge_binary_filed<I: IndexInput>(
         &mut self,
