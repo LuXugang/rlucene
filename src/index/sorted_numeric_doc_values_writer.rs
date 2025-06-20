@@ -23,6 +23,7 @@ use crate::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocValues;
 use crate::index::doc_values::DocValues;
 use crate::index::doc_values_iterator::DocValuesIterator;
+use crate::index::doc_values_writer::DocValuesWriter;
 use crate::index::docs_with_field_set::{DocsWithFieldSet, DocsWithFieldSetEnum};
 use crate::index::field_info::FieldInfo;
 use crate::index::numeric_doc_values_writer::{
@@ -185,7 +186,12 @@ impl SortedNumericDocValuesWriter {
             },
         }
     }
-    pub(crate) fn flush<D, DM, DC>(
+    pub(crate) fn finish(&mut self) {
+        self.docs_with_field.finish();
+    }
+}
+impl DocValuesWriter for SortedNumericDocValuesWriter {
+    fn flush<D, DM, DC>(
         &mut self,
         state: &SegmentWriteState<D>,
         sort_map: Option<Rc<DM>>,
@@ -246,12 +252,7 @@ impl SortedNumericDocValuesWriter {
             sorted,
             value_counts,
         )?;
-        dv_consumer.add_sorted_numeric_field(&self.field_info, &mut producer)?;
-
-        Ok(())
-    }
-    pub(crate) fn finish(&mut self) {
-        self.docs_with_field.finish();
+        dv_consumer.add_sorted_numeric_field(&self.field_info, &mut producer)
     }
 }
 pub(crate) struct DocValuesProducerImpl1 {

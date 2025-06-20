@@ -22,6 +22,7 @@ use crate::codecs::dummy::dummy_numeric_doc_values::DummyNumericDocValues;
 use crate::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNumericDocValues;
 use crate::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocValues;
 use crate::index::doc_values_iterator::DocValuesIterator;
+use crate::index::doc_values_writer::DocValuesWriter;
 use crate::index::docs_with_field_set::{DocsWithFieldSet, DocsWithFieldSetEnum};
 use crate::index::field_info::FieldInfo;
 use crate::index::segment_write_state::SegmentWriteState;
@@ -46,6 +47,7 @@ use crate::util::packed::PackedInts;
 use crate::util::{byte_block_pool_util, ByteBlockPoolBorrow, Counter, CounterEnumBorrow};
 use std::borrow::Cow;
 use std::rc::Rc;
+
 ///  Buffers up pending `[u8]` per doc, deref and sorting via int ord, then flushes when segment flushes.
 pub(crate) struct SortedDocValuesWriter {
     hash: STBytesRefHash,
@@ -193,8 +195,9 @@ impl SortedDocValuesWriter {
         }
         Ok(ords)
     }
-
-    pub(crate) fn flush<D, DM, DC>(
+}
+impl DocValuesWriter for SortedDocValuesWriter {
+    fn flush<D, DM, DC>(
         &mut self,
         _state: &SegmentWriteState<D>,
         sort_map: Option<Rc<DM>>,
@@ -206,7 +209,7 @@ impl SortedDocValuesWriter {
         DC: DocValuesConsumer,
     {
         self.finish()?;
-        dv_consumer.add_sorted_field(
+        let _ = dv_consumer.add_sorted_field(
             &self.field_info,
             sdvw_util::get_doc_values_producer(
                 self.field_info.clone(),

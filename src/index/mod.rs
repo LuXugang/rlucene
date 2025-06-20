@@ -38,6 +38,7 @@ pub mod doc_values_skip_index_type;
 pub mod doc_values_skipper;
 pub mod doc_values_type;
 pub mod doc_values_update;
+pub(crate) mod doc_values_writer;
 pub mod docs_with_field_set;
 mod documents_writer;
 pub(crate) mod documents_writer_delete_queue;

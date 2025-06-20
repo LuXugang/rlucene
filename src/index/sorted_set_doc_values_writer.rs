@@ -23,6 +23,7 @@ use crate::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNumericDocValues;
 use crate::index::doc_values::DocValues;
 use crate::index::doc_values_iterator::DocValuesIterator;
+use crate::index::doc_values_writer::DocValuesWriter;
 use crate::index::docs_with_field_set::DocsWithFieldSetEnum;
 use crate::index::segment_write_state::SegmentWriteState;
 use crate::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
@@ -271,7 +272,9 @@ impl SortedSetDocValuesWriter {
             )?)),
         }
     }
-    pub(crate) fn flush<D, DM, DC>(
+}
+impl DocValuesWriter for SortedSetDocValuesWriter {
+    fn flush<D, DM, DC>(
         &mut self,
         state: &SegmentWriteState<D>,
         sort_map: Option<Rc<DM>>,
@@ -329,7 +332,7 @@ impl SortedSetDocValuesWriter {
             std::mem::take(&mut self.docs_with_field),
             doc_ords,
         );
-        dv_consumer.add_sorted_set_field(&self.field_info, producer)?;
+        let _ = dv_consumer.add_sorted_set_field(&self.field_info, producer)?;
         Ok(())
     }
 }

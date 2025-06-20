@@ -22,6 +22,7 @@ use crate::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNumericDocValues;
 use crate::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocValues;
 use crate::index::doc_values_iterator::DocValuesIterator;
+use crate::index::doc_values_writer::DocValuesWriter;
 use crate::index::docs_with_field_set::{DocsWithFieldSet, DocsWithFieldSetEnum};
 use crate::index::field_info::FieldInfo;
 use crate::index::numeric_doc_values::NumericDocValues;
@@ -44,6 +45,7 @@ use crate::util::packed::PackedInts;
 use crate::util::{Counter, CounterEnumBorrow};
 use std::cell::Cell;
 use std::rc::Rc;
+
 /// Buffers up pending long per doc, then flushes when segment flushes.
 pub(crate) struct NumericDocValuesWriter {
     pending: PackedLongValuesBuilder,
@@ -99,7 +101,12 @@ impl NumericDocValuesWriter {
         self.bytes_used = new_bytes_used;
         Ok(())
     }
-    pub(crate) fn flush<D, DM, DC>(
+    pub(crate) fn finish(&mut self) {
+        self.docs_with_field.finish();
+    }
+}
+impl DocValuesWriter for NumericDocValuesWriter {
+    fn flush<D, DM, DC>(
         &mut self,
         _state: &SegmentWriteState<D>,
         sort_map: Option<Rc<DM>>,
@@ -122,9 +129,6 @@ impl NumericDocValuesWriter {
         )?;
         let _ = dv_consumer.add_numeric_field(&self.field_info, producer)?;
         Ok(())
-    }
-    pub(crate) fn finish(&mut self) {
-        self.docs_with_field.finish();
     }
 }
 pub(crate) struct DocValuesProducerImpl {
