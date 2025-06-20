@@ -26,6 +26,7 @@ use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::postings_enum::PostingsEnum;
 use crate::index::sorted_doc_values::SortedDocValues;
 use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
+use crate::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::index::term_state::{TermState, TermStateEnum};
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::index::BytesRef;
@@ -604,6 +605,116 @@ where
                 Ok(EitherTermsEnum::F(terms_enum))
             },
             EitherSortedDocValues::S(s) => {
+                let terms_enum = s.terms_enum()?;
+                Ok(EitherTermsEnum::S(terms_enum))
+            },
+        }
+    }
+}
+
+// SortedSetDocValues
+pub enum EitherSortedSetDocValues<F, S> {
+    F(F),
+    S(S),
+}
+
+impl<F, S> DocValuesIterator for EitherSortedSetDocValues<F, S>
+where
+    F: SortedSetDocValues,
+    S: SortedSetDocValues,
+{
+}
+
+impl<F, S> DocIdSetIterator for EitherSortedSetDocValues<F, S>
+where
+    F: SortedSetDocValues,
+    S: SortedSetDocValues,
+{
+    fn doc_id(&self) -> i32 {
+        match self {
+            EitherSortedSetDocValues::F(t) => t.doc_id(),
+            EitherSortedSetDocValues::S(s) => s.doc_id(),
+        }
+    }
+
+    fn next_doc(&mut self) -> Result<i32> {
+        match self {
+            EitherSortedSetDocValues::F(t) => t.next_doc(),
+            EitherSortedSetDocValues::S(s) => s.next_doc(),
+        }
+    }
+
+    fn advance(&mut self, _target: i32) -> Result<i32> {
+        match self {
+            EitherSortedSetDocValues::F(t) => t.advance(_target),
+            EitherSortedSetDocValues::S(s) => s.advance(_target),
+        }
+    }
+
+    fn slow_advance(&mut self, target: i32) -> Result<i32> {
+        match self {
+            EitherSortedSetDocValues::F(t) => t.slow_advance(target),
+            EitherSortedSetDocValues::S(s) => s.slow_advance(target),
+        }
+    }
+
+    fn cost(&self) -> Result<i64> {
+        match self {
+            EitherSortedSetDocValues::F(t) => t.cost(),
+            EitherSortedSetDocValues::S(s) => s.cost(),
+        }
+    }
+}
+
+impl<F, S> SortedSetDocValues for EitherSortedSetDocValues<F, S>
+where
+    F: SortedSetDocValues,
+    S: SortedSetDocValues,
+{
+    fn next_ord(&mut self) -> Result<i64> {
+        match self {
+            EitherSortedSetDocValues::F(t) => t.next_ord(),
+            EitherSortedSetDocValues::S(s) => s.next_ord(),
+        }
+    }
+
+    fn doc_value_count(&mut self) -> Result<i32> {
+        match self {
+            EitherSortedSetDocValues::F(t) => t.doc_value_count(),
+            EitherSortedSetDocValues::S(s) => s.doc_value_count(),
+        }
+    }
+
+    fn lookup_ord(&mut self, _ord: i64) -> Result<Cow<BytesRef<Vec<u8>>>> {
+        match self {
+            EitherSortedSetDocValues::F(t) => t.lookup_ord(_ord),
+            EitherSortedSetDocValues::S(s) => s.lookup_ord(_ord),
+        }
+    }
+
+    fn get_value_count(&mut self) -> Result<i64> {
+        match self {
+            EitherSortedSetDocValues::F(t) => t.get_value_count(),
+            EitherSortedSetDocValues::S(s) => s.get_value_count(),
+        }
+    }
+
+    fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i64> {
+        match self {
+            EitherSortedSetDocValues::F(t) => t.lookup_term(key),
+            EitherSortedSetDocValues::S(s) => s.lookup_term(key),
+        }
+    }
+
+    type TermsEnum = EitherTermsEnum<F::TermsEnum, S::TermsEnum>;
+
+    fn terms_enum(&mut self) -> Result<Self::TermsEnum> {
+        match self {
+            EitherSortedSetDocValues::F(t) => {
+                let terms_enum = t.terms_enum()?;
+                Ok(EitherTermsEnum::F(terms_enum))
+            },
+            EitherSortedSetDocValues::S(s) => {
                 let terms_enum = s.terms_enum()?;
                 Ok(EitherTermsEnum::S(terms_enum))
             },
