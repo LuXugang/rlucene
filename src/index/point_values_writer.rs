@@ -44,12 +44,10 @@ where
 
 impl<M, DM> MutablePointTree for MutableSortingPointValues<M, DM>
 where
-    M: MutablePointTree<AV = std::vec::Vec<u8>>,
+    M: MutablePointTree,
     DM: DocMap,
 {
-    type AV = Vec<u8>;
-
-    fn get_value(&self, i: usize, packed_value: &mut BytesRef<Self::AV>) {
+    fn get_value(&self, i: usize, packed_value: &mut BytesRef<Vec<u8>>) {
         self.input.get_value(i, packed_value)
     }
 
@@ -215,12 +213,10 @@ impl Clone for MutablePointTreeImpl {
 }
 
 impl MutablePointTree for MutablePointTreeImpl {
-    type AV = Rc<Vec<u8>>;
-
-    fn get_value(&self, i: usize, packed_value: &mut BytesRef<Self::AV>) {
+    fn get_value(&self, i: usize, packed_value: &mut BytesRef<Vec<u8>>) {
         let offset = self.packed_bytes_length * self.ords[i] as usize;
-        self.bytes_reader
-            .fill_slice(packed_value, offset, self.packed_bytes_length);
+        // self.bytes_reader
+        //     .fill_slice(packed_value, offset, self.packed_bytes_length);
     }
 
     fn get_byte_at(&self, i: usize, k: usize) -> u8 {

@@ -16,15 +16,13 @@
  */
 use crate::index::point_values::PointTree;
 use crate::index::BytesRef;
-use crate::util::access::AccessVec;
 
 /// One leaf [PointTree] whose order of points can be changed.
 /// This trait is useful for codecs to optimize flush.
 pub trait MutablePointTree: PointTree {
-    type AV: AccessVec<u8>;
     /// Set `packed_value` with a reference to the packed bytes of the i-th
     /// value.
-    fn get_value(&self, i: usize, packed_value: &mut BytesRef<Self::AV>);
+    fn get_value(&self, i: usize, packed_value: &mut BytesRef<Vec<u8>>);
 
     /// Get the k-th byte of the i-th value.
     fn get_byte_at(&self, i: usize, k: usize) -> u8;

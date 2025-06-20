@@ -1116,11 +1116,9 @@ where
 impl<F, S> MutablePointTree for EitherMutablePointTree<F, S>
 where
     F: MutablePointTree,
-    S: MutablePointTree<AV = F::AV>,
+    S: MutablePointTree,
 {
-    type AV = F::AV;
-
-    fn get_value(&self, i: usize, packed_value: &mut BytesRef<Self::AV>) {
+    fn get_value(&self, i: usize, packed_value: &mut BytesRef<Vec<u8>>) {
         match self {
             EitherMutablePointTree::F(t) => t.get_value(i, packed_value),
             EitherMutablePointTree::S(s) => s.get_value(i, packed_value),

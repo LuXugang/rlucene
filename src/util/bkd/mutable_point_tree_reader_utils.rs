@@ -91,7 +91,7 @@ impl MutablePointTreeReaderUtils {
         _scratch2: &mut BytesRef<Vec<u8>>,
     ) -> Result<()>
     where
-        M: MutablePointTree<AV = std::vec::Vec<u8>>,
+        M: MutablePointTree,
     {
         // Get an unsigned comparator for the byte arrays.
         let comparator = ArrayUtil::get_unsigned_comparator(config.bytes_per_dim as usize);
@@ -127,7 +127,7 @@ impl MutablePointTreeReaderUtils {
         _scratch2: &mut BytesRef<Vec<u8>>,
     ) -> Result<()>
     where
-        M: MutablePointTree<AV = std::vec::Vec<u8>>,
+        M: MutablePointTree,
     {
         let dim_offset = split_dim * config.bytes_per_dim + common_prefix_len;
         let dim_cmp_bytes = config.bytes_per_dim - common_prefix_len;
@@ -199,7 +199,7 @@ where
 
 struct IntroSorterImpl<'a, M>
 where
-    M: MutablePointTree<AV = Vec<u8>>,
+    M: MutablePointTree,
 {
     reader: &'a mut M,
     config: Rc<BKDConfig>,
@@ -211,7 +211,7 @@ where
 }
 impl<M> Sorter for IntroSorterImpl<'_, M>
 where
-    M: MutablePointTree<AV = Vec<u8>>,
+    M: MutablePointTree,
 {
     fn compare(&mut self, i: i32, j: i32) -> Result<i32> {
         self.set_pivot(i)?;
@@ -267,7 +267,7 @@ where
     }
 }
 
-impl<M> IntroSorter for IntroSorterImpl<'_, M> where M: MutablePointTree<AV = std::vec::Vec<u8>> {}
+impl<M> IntroSorter for IntroSorterImpl<'_, M> where M: MutablePointTree {}
 
 struct RadixSelectorImpl<M>
 where
@@ -294,7 +294,7 @@ where
 
 impl<M> RadixSelectorBase for RadixSelectorImpl<M>
 where
-    M: MutablePointTree<AV = std::vec::Vec<u8>>,
+    M: MutablePointTree,
 {
     fn byte_at(&self, i: i32, k: i32) -> i32 {
         let reader = self.reader.borrow();
@@ -361,7 +361,7 @@ where
 
 impl<M> IntroSelectorBaseDefault for IntroSelectorImpl<M>
 where
-    M: MutablePointTree<AV = Vec<u8>>,
+    M: MutablePointTree,
 {
     fn set_pivot(&mut self, i: i32) {
         let reader = self.reader.borrow_mut();
@@ -408,7 +408,7 @@ where
     }
 }
 
-impl<M> IntroSelectorBase for IntroSelectorImpl<M> where M: MutablePointTree<AV = std::vec::Vec<u8>> {}
+impl<M> IntroSelectorBase for IntroSelectorImpl<M> where M: MutablePointTree {}
 
 #[cfg(test)]
 pub(crate) mod tests {
@@ -805,9 +805,7 @@ pub(crate) mod tests {
         }
     }
     impl MutablePointTree for DummyPointsReader {
-        type AV = Vec<u8>;
-
-        fn get_value(&self, i: usize, packed_value: &mut BytesRef<Self::AV>) {
+        fn get_value(&self, i: usize, packed_value: &mut BytesRef<Vec<u8>>) {
             let point = &self.points[i as usize].packed_value;
             packed_value.bytes = point.bytes.clone();
             packed_value.offset = point.offset;

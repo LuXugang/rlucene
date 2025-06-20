@@ -301,7 +301,7 @@ where
         filename: &str,
     ) -> Result<Option<IORunnable>>
     where
-        M: MutablePointTree<AV = std::vec::Vec<u8>>,
+        M: MutablePointTree,
     {
         if self.config.num_dims == 1 {
             self.write_field_1dim(data_out, filename, reader)
@@ -319,7 +319,7 @@ where
         max_packed_value: &mut [u8],
     ) -> Result<()>
     where
-        M: MutablePointTree<AV = std::vec::Vec<u8>>,
+        M: MutablePointTree,
     {
         if from == to {
             return Ok(());
@@ -377,7 +377,7 @@ where
         values: Rc<RefCell<M>>,
     ) -> Result<Option<IORunnable>>
     where
-        M: MutablePointTree<AV = std::vec::Vec<u8>>,
+        M: MutablePointTree,
     {
         if self.point_count != 0 {
             return Err(LuceneError::illegal_state(
@@ -1441,7 +1441,7 @@ where
         spare_doc_ids: &mut [i32],
     ) -> Result<()>
     where
-        M: MutablePointTree<AV = std::vec::Vec<u8>>,
+        M: MutablePointTree,
     {
         if num_leaves == 1 {
             // leaf node
@@ -2795,7 +2795,7 @@ where
 }
 impl<M> PackedValues for PackedValuesImpl2<M>
 where
-    M: MutablePointTree<AV = std::vec::Vec<u8>>,
+    M: MutablePointTree,
 {
     fn get_value(&mut self, i: i32) -> Result<(&[u8], i32, i32)> {
         self.reader
