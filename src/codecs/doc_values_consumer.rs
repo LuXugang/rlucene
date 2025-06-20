@@ -40,6 +40,7 @@ use crate::index::{doc_id_merger_util, BytesRef, DocIDMerger, DocIDMergerEnum, S
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::IndexInput;
+use crate::util::either_enums::EitherSortedNumericDocValues;
 use crate::util::error::lucene_error::{LuceneError, Result};
 
 pub trait DocValuesConsumer {
@@ -606,6 +607,9 @@ where
             None => Err(LuceneError::unreachable("should not be here")),
         }
     }
+
+    // TODO: is it correct?
+    type NumericDocValues = DummyNumericDocValues;
 }
 pub(crate) struct EmptyDocValuesProducerMerge3<'a, I>
 where
@@ -621,7 +625,10 @@ where
     type NumericDocValues = DummyNumericDocValues;
     type BinaryDocValues = DummyBinaryDocValues;
     type SortedDocValues = DummySortedDocValues;
-    type SortedNumericDocValues = SortedNumericDocValuesEnum<I>;
+    type SortedNumericDocValues = EitherSortedNumericDocValues<
+        SingletonSortedNumericDocValues<NumericDocValuesMerge<I>>,
+        SortedNumericDocValuesMerge<I>,
+    >;
 
     fn get_sorted_numeric(
         &mut self,
@@ -682,7 +689,7 @@ where
                 let mut sub = sub.borrow_mut();
                 let single_valued_values = match &mut sub.sub.values {
                     Lucene90SortedNumericDocValuesEnums::Singleton(inner) => {
-                        inner.get_numeric_doc_values()?
+                        inner.get_numeric_doc_values()?.unwrap()
                     },
                     _ => return Err(LuceneError::unreachable("")),
                 };
@@ -695,12 +702,12 @@ where
                 single_valued_subs,
                 self.merge_state.needs_index_sort,
             )?;
-            return Ok(SortedNumericDocValuesEnum::Singleton(
+            return Ok(EitherSortedNumericDocValues::F(
                 DocValues::singleton_numeric(dv)?,
             ));
         }
         let doc_id_merger = doc_id_merger_util::of(subs, self.merge_state.needs_index_sort)?;
-        Ok(SortedNumericDocValuesEnum::Merge(
+        Ok(EitherSortedNumericDocValues::S(
             SortedNumericDocValuesMerge {
                 doc_id: -1,
                 current_sub: None,
@@ -712,176 +719,4 @@ where
 
     type SortedSetDocValues = DummySortedSetDocValues;
     type DocValuesSkipper = DummyDocValuesSkipper;
-}
-
-// 4. SortedDocValues
-// /// Tracks state of one sorted sub-reader that we are merging.
-// struct SortedDocValuesSub<I, AV>
-// where
-//     I: IndexInput,
-//     AV: AccessVec<u8>,
-// {
-//     values: SortedDocValuesEnum<I, AV>,
-//     map: Rc<LongValuesEnum<I>>,
-//     doc_map: Rc<DocMapEnum>,
-// }
-//
-// #[allow(unused)]
-// impl<I, AV> SortedDocValuesSub<I, AV>
-// where
-//     I: IndexInput,
-//     AV: AccessVec<u8>,
-// {
-//     fn new(
-//         doc_map: Rc<DocMapEnum>,
-//         values: SortedDocValuesEnum<I, AV>,
-//         map: Rc<LongValuesEnum<I>>,
-//     ) -> Self {
-//         debug_assert!(values.doc_id() == -1);
-//         SortedDocValuesSub {
-//             values,
-//             map,
-//             doc_map,
-//         }
-//     }
-// }
-//
-// impl<I, AV> SubBase for SortedDocValuesSub<I, AV>
-// where
-//     I: IndexInput,
-//     AV: AccessVec<u8>,
-// {
-//     fn next_doc(&mut self) -> Result<i32> {
-//         self.values.next_doc()
-//     }
-//
-//     fn get_doc_map(&self) -> Result<&Rc<DocMapEnum>> {
-//         Ok(&self.doc_map)
-//     }
-// }
-// 5. SortedSetDocValues
-//Tracks state of one sorted set sub-reader that we are merging.
-// struct SortedSetDocValuesSub<I, AV>
-// where
-//     I: IndexInput,
-//     AV: AccessVec<u8>,
-// {
-//     values: SortedSetDocValuesEnum<I, AV>,
-//     map: Rc<LongValuesEnum<I>>,
-//     doc_map: Rc<DocMapEnum>,
-// }
-//
-// #[allow(unused)]
-// impl<I, AV> SortedSetDocValuesSub<I, AV>
-// where
-//     I: IndexInput,
-//     AV: AccessVec<u8>,
-// {
-//     fn new(
-//         doc_map: Rc<DocMapEnum>,
-//         values: SortedSetDocValuesEnum<I, AV>,
-//         map: Rc<LongValuesEnum<I>>,
-//     ) -> Self {
-//         debug_assert!(values.doc_id() == -1);
-//         SortedSetDocValuesSub {
-//             values,
-//             map,
-//             doc_map,
-//         }
-//     }
-// }
-//
-// impl<I, AV> SubBase for SortedSetDocValuesSub<I, AV>
-// where
-//     I: IndexInput,
-//     AV: AccessVec<u8>,
-// {
-//     fn next_doc(&mut self) -> Result<i32> {
-//         self.values.next_doc()
-//     }
-//
-//     fn get_doc_map(&self) -> Result<&Rc<DocMapEnum>> {
-//         Ok(&self.doc_map)
-//     }
-// }
-
-pub(crate) enum SortedNumericDocValuesEnum<I>
-where
-    I: IndexInput,
-{
-    Merge(SortedNumericDocValuesMerge<I>),
-    Singleton(SingletonSortedNumericDocValues<NumericDocValuesMerge<I>>),
-}
-
-impl<I> DocValuesIterator for SortedNumericDocValuesEnum<I>
-where
-    I: IndexInput,
-{
-    fn advance_exact(&mut self, _target: i32) -> Result<bool> {
-        match self {
-            SortedNumericDocValuesEnum::Merge(ref mut merge) => merge.advance_exact(_target),
-            SortedNumericDocValuesEnum::Singleton(ref mut singleton) => {
-                singleton.advance_exact(_target)
-            },
-        }
-    }
-}
-
-impl<I> DocIdSetIterator for SortedNumericDocValuesEnum<I>
-where
-    I: IndexInput,
-{
-    fn doc_id(&self) -> i32 {
-        match self {
-            SortedNumericDocValuesEnum::Merge(ref merge) => merge.doc_id(),
-            SortedNumericDocValuesEnum::Singleton(ref singleton) => singleton.doc_id(),
-        }
-    }
-
-    fn next_doc(&mut self) -> Result<i32> {
-        match self {
-            SortedNumericDocValuesEnum::Merge(ref mut merge) => merge.next_doc(),
-            SortedNumericDocValuesEnum::Singleton(ref mut singleton) => singleton.next_doc(),
-        }
-    }
-
-    fn advance(&mut self, _target: i32) -> Result<i32> {
-        match self {
-            SortedNumericDocValuesEnum::Merge(ref mut merge) => merge.advance(_target),
-            SortedNumericDocValuesEnum::Singleton(ref mut singleton) => singleton.advance(_target),
-        }
-    }
-
-    fn slow_advance(&mut self, target: i32) -> Result<i32> {
-        match self {
-            SortedNumericDocValuesEnum::Merge(ref mut merge) => merge.advance(target),
-            SortedNumericDocValuesEnum::Singleton(ref mut singleton) => singleton.advance(target),
-        }
-    }
-
-    fn cost(&self) -> Result<i64> {
-        match self {
-            SortedNumericDocValuesEnum::Merge(ref merge) => merge.cost(),
-            SortedNumericDocValuesEnum::Singleton(ref singleton) => singleton.cost(),
-        }
-    }
-}
-
-impl<I> SortedNumericDocValues for SortedNumericDocValuesEnum<I>
-where
-    I: IndexInput,
-{
-    fn next_value(&mut self) -> Result<i64> {
-        match self {
-            SortedNumericDocValuesEnum::Merge(ref mut merge) => merge.next_value(),
-            SortedNumericDocValuesEnum::Singleton(ref mut singleton) => singleton.next_value(),
-        }
-    }
-
-    fn doc_value_count(&mut self) -> Result<i32> {
-        match self {
-            SortedNumericDocValuesEnum::Merge(ref mut merge) => merge.doc_value_count(),
-            SortedNumericDocValuesEnum::Singleton(ref mut singleton) => singleton.doc_value_count(),
-        }
-    }
 }

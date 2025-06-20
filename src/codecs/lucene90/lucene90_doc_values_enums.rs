@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+use crate::codecs::dummy::dummy_numeric_doc_values::DummyNumericDocValues;
 use crate::codecs::lucene90_doc_values_producer::{
     DenseBinaryDocValues, DenseNumericDocValues, DenseSortedNumericDocValues,
     SpareSortedNumericDocValues, SparseBinaryDocValues, SparseNumericDocValues,
@@ -28,6 +28,7 @@ use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::index::BytesRef;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::IndexInput;
+use crate::util::either_enums::EitherNumericDocValues;
 use crate::util::error::lucene_error::Result;
 
 // 1. NumericDocValues
@@ -186,6 +187,29 @@ where
             Lucene90SortedNumericDocValuesEnums::Sparse(s) => s.doc_value_count(),
             Lucene90SortedNumericDocValuesEnums::Singleton(s) => s.doc_value_count(),
             Lucene90SortedNumericDocValuesEnums::Empty(s) => s.doc_value_count(),
+        }
+    }
+
+    fn is_single_valued(&self) -> bool {
+        match self {
+            Lucene90SortedNumericDocValuesEnums::Dense(_) => false,
+            Lucene90SortedNumericDocValuesEnums::Sparse(_) => false,
+            Lucene90SortedNumericDocValuesEnums::Singleton(s) => s.is_single_valued(),
+            // for padding
+            Lucene90SortedNumericDocValuesEnums::Empty(_) => false,
+        }
+    }
+
+    type NumericDocValues =
+        EitherNumericDocValues<Lucene90NumericDocValuesEnums<I>, DummyNumericDocValues>;
+
+    fn get_numeric_doc_values(&mut self) -> Result<Option<Self::NumericDocValues>> {
+        match self {
+            Lucene90SortedNumericDocValuesEnums::Singleton(s) => {
+                let v = s.get_numeric_doc_values()?.unwrap();
+                Ok(Some(EitherNumericDocValues::F(v)))
+            },
+            _ => Ok(None),
         }
     }
 }

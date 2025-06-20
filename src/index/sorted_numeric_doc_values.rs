@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::index::doc_values_iterator::DocValuesIterator;
+use crate::index::numeric_doc_values::NumericDocValues;
 use crate::util::error::lucene_error::Result;
 /// A list of per-document numeric values, sorted according to i64's cmp.
 pub trait SortedNumericDocValues: DocValuesIterator {
@@ -29,4 +30,12 @@ pub trait SortedNumericDocValues: DocValuesIterator {
     /// [`advance_exact(int)`](DocValuesIterator::advance_exact) returned
     /// `false`.
     fn doc_value_count(&mut self) -> Result<i32>;
+
+    fn is_single_valued(&self) -> bool {
+        false
+    }
+    type NumericDocValues: NumericDocValues;
+    fn get_numeric_doc_values(&mut self) -> Result<Option<Self::NumericDocValues>> {
+        Ok(None)
+    }
 }

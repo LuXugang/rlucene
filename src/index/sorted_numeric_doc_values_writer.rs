@@ -483,6 +483,8 @@ where
     fn doc_value_count(&mut self) -> Result<i32> {
         Ok(self.value_count)
     }
+
+    type NumericDocValues = DummyNumericDocValues;
 }
 
 pub(crate) struct SortingSortedNumericDocValues<S>
@@ -572,5 +574,15 @@ where
 
     fn doc_value_count(&mut self) -> Result<i32> {
         Ok(self.num_values)
+    }
+
+    fn is_single_valued(&self) -> bool {
+        self.input.is_single_valued()
+    }
+
+    type NumericDocValues = S::NumericDocValues;
+
+    fn get_numeric_doc_values(&mut self) -> Result<Option<Self::NumericDocValues>> {
+        self.input.get_numeric_doc_values()
     }
 }

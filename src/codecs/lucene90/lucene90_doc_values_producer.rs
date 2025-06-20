@@ -20,6 +20,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::codecs::doc_values_producer::DocValuesProducer;
+use crate::codecs::dummy::dummy_numeric_doc_values::DummyNumericDocValues;
 use crate::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::codecs::indexed_disi::IndexedDISI;
 use crate::codecs::lucene90::dov_values_inner_enum::{
@@ -3244,6 +3245,7 @@ where
     fn doc_value_count(&mut self) -> Result<i32> {
         Ok(self.count)
     }
+    type NumericDocValues = DummyNumericDocValues;
 }
 pub struct SpareSortedNumericDocValues<I>
 where
@@ -3335,4 +3337,6 @@ where
         self.set()?;
         Ok(self.count)
     }
+
+    type NumericDocValues = DummyNumericDocValues;
 }

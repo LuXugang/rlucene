@@ -45,16 +45,6 @@ where
         }
         Ok(Self { inner: Some(inner) })
     }
-
-    pub fn get_numeric_doc_values(&mut self) -> Result<N> {
-        if self.inner.as_ref().unwrap().doc_id() != -1 {
-            return Err(LuceneError::illegal_state(format!(
-                "iterator has already been used: docID={}",
-                self.inner.as_ref().unwrap().doc_id()
-            )));
-        }
-        Ok(self.inner.take().unwrap())
-    }
 }
 
 impl<N> DocIdSetIterator for SingletonSortedNumericDocValues<N>
@@ -97,5 +87,21 @@ where
 
     fn doc_value_count(&mut self) -> Result<i32> {
         Ok(1)
+    }
+
+    fn is_single_valued(&self) -> bool {
+        true
+    }
+
+    type NumericDocValues = N;
+
+    fn get_numeric_doc_values(&mut self) -> Result<Option<Self::NumericDocValues>> {
+        if self.inner.as_ref().unwrap().doc_id() != -1 {
+            return Err(LuceneError::illegal_state(format!(
+                "iterator has already been used: docID={}",
+                self.inner.as_ref().unwrap().doc_id()
+            )));
+        }
+        Ok(self.inner.take())
     }
 }

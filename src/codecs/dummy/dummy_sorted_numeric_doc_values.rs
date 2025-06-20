@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codecs::dummy::dummy_numeric_doc_values::DummyNumericDocValues;
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
@@ -54,6 +55,16 @@ impl SortedNumericDocValues for DummySortedNumericDocValues {
     }
 
     fn doc_value_count(&mut self) -> Result<i32> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn is_single_valued(&self) -> bool {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    type NumericDocValues = DummyNumericDocValues;
+
+    fn get_numeric_doc_values(&mut self) -> Result<Option<Self::NumericDocValues>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

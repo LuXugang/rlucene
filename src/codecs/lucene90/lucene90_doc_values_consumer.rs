@@ -1429,4 +1429,6 @@ where
     fn doc_value_count(&mut self) -> Result<i32> {
         Ok(self.doc_value_count)
     }
+
+    type NumericDocValues = DummyNumericDocValues;
 }

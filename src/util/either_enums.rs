@@ -502,6 +502,28 @@ where
             EitherSortedNumericDocValues::S(s) => s.doc_value_count(),
         }
     }
+
+    fn is_single_valued(&self) -> bool {
+        match self {
+            EitherSortedNumericDocValues::F(t) => t.is_single_valued(),
+            EitherSortedNumericDocValues::S(s) => s.is_single_valued(),
+        }
+    }
+
+    type NumericDocValues = EitherNumericDocValues<F::NumericDocValues, S::NumericDocValues>;
+
+    fn get_numeric_doc_values(&mut self) -> Result<Option<Self::NumericDocValues>> {
+        match self {
+            EitherSortedNumericDocValues::F(t) => {
+                let sorted_doc_values = t.get_numeric_doc_values()?;
+                Ok(sorted_doc_values.map(EitherNumericDocValues::F))
+            },
+            EitherSortedNumericDocValues::S(s) => {
+                let sorted_doc_values = s.get_numeric_doc_values()?;
+                Ok(sorted_doc_values.map(EitherNumericDocValues::S))
+            },
+        }
+    }
 }
 // SortedDocValues
 pub enum EitherSortedDocValues<F, S> {
