@@ -205,7 +205,7 @@ pub mod paged_bytes_util {
     }
 }
 /// Provides methods to read BytesRefs from a frozen PagedBytes.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct PagedBytesReader {
     blocks: Vec<Rc<Vec<u8>>>,
     block_bits: usize,

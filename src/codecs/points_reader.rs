@@ -25,7 +25,7 @@ pub trait PointsReader {
     fn check_integrity(&mut self) -> Result<()>;
 
     type PointValuesBase: PointValuesBase;
-    fn get_values(&mut self, field: &str) -> PointValues<Self::PointValuesBase>;
+    fn get_values(&mut self, field: &str) -> Result<PointValues<Self::PointValuesBase>>;
 
     /// Returns an instance optimized for merging. This instance may only be
     /// cloned

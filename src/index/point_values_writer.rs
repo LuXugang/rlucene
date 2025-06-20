@@ -15,15 +15,262 @@
  * limitations under the License.
  */
 use crate::codecs::mutable_point_tree::MutablePointTree;
-use crate::index::point_values::{IntersectVisitor, PointTree, Relation};
+use crate::codecs::points_reader::PointsReader;
+use crate::codecs::points_writer::PointsWriter;
+use crate::index::field_info::FieldInfo;
+use crate::index::point_values::{
+    IntersectVisitor, PointTree, PointValues, PointValuesBase, Relation,
+};
+use crate::index::segment_write_state::SegmentWriteState;
 use crate::index::sorter::DocMap;
 use crate::index::BytesRef;
-use crate::util::error::lucene_error::Result;
-use crate::util::paged_bytes::PagedBytesReader;
-use crate::util::SliceCopyOps;
+use crate::store::directory::Directory;
+use crate::store::DataOutput;
+use crate::util::accountable::Accountable;
+use crate::util::array_util::ArrayUtil;
+use crate::util::bit_util::BitUtil;
+use crate::util::either_enums::EitherMutablePointTree;
+use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::paged_bytes::{
+    paged_bytes_util, PagedBytes, PagedBytesDataOutput, PagedBytesReader,
+};
+use crate::util::{Counter, CounterEnumBorrow, SliceCopyOps};
+use std::cell::RefCell;
 use std::rc::Rc;
+/// Buffers up pending byte[][] value(s) per doc, then flushes when segment flushes.
+pub(crate) struct PointValuesWriter {
+    field_info: Rc<FieldInfo>,
+    bytes_out: PagedBytesDataOutput,
+    iw_bytes_used: CounterEnumBorrow,
+    doc_ids: Vec<i32>,
+    num_points: usize,
+    num_docs: usize,
+    last_doc_id: i32,
+    packed_bytes_length: usize,
+}
 
-pub(crate) struct PointValuesWriter;
+impl PointValuesWriter {
+    pub(crate) fn new(iw_bytes_used: CounterEnumBorrow, field_info: Rc<FieldInfo>) -> Result<Self> {
+        let bytes = PagedBytes::new(12);
+        let bytes_out = paged_bytes_util::get_data_output(bytes)?;
+        let doc_ids = vec![0; 16];
+        iw_bytes_used
+            .borrow_mut()
+            .add_and_get((16 * BitUtil::INT_BYTES) as i64);
+        let packed_bytes_length =
+            (field_info.get_point_dimension_count() + field_info.get_point_num_bytes()) as usize;
+        Ok(Self {
+            field_info,
+            bytes_out,
+            iw_bytes_used,
+            doc_ids,
+            num_points: 0,
+            num_docs: 0,
+            last_doc_id: -1,
+            packed_bytes_length,
+        })
+    }
+    // TODO: if exactly the same value is added to exactly the same doc, should we dedup?
+    pub(crate) fn add_packed_value(
+        &mut self,
+        doc_id: i32,
+        value: &BytesRef<Vec<u8>>,
+    ) -> Result<()> {
+        if value.length != self.packed_bytes_length {
+            return Err(LuceneError::illegal_argument(format!(
+                "field={}: this field's value has length={} but should be {}",
+                self.field_info.name,
+                value.length,
+                self.field_info.get_point_dimension_count() + self.field_info.get_point_num_bytes()
+            )));
+        }
+
+        if self.doc_ids.len() == self.num_points {
+            ArrayUtil::grow_with_len(&mut self.doc_ids, self.num_points + 1);
+            self.iw_bytes_used
+                .borrow_mut()
+                .add_and_get(((self.doc_ids.len() - self.num_points) * BitUtil::INT_BYTES) as i64);
+        }
+
+        let bytes_ram_bytes_used_before = self.bytes_out.paged_bytes.ram_bytes_used()?;
+        self.bytes_out
+            .write_bytes_range(&value.bytes, value.offset as i32, value.length as i32)?;
+        self.iw_bytes_used.borrow_mut().add_and_get(
+            self.bytes_out.paged_bytes.ram_bytes_used()? - bytes_ram_bytes_used_before,
+        );
+
+        self.doc_ids[self.num_points] = doc_id;
+        if doc_id != self.last_doc_id {
+            self.num_docs += 1;
+            self.last_doc_id = doc_id;
+        }
+        self.num_points += 1;
+        Ok(())
+    }
+
+    /// Get number of buffered documents.
+    pub(crate) fn get_num_docs(&self) -> usize {
+        self.num_docs
+    }
+    fn flush<D, DM, PW>(
+        &mut self,
+        _state: &SegmentWriteState<D>,
+        sort_map: Option<Rc<DM>>,
+        writer: &mut PW,
+    ) -> Result<()>
+    where
+        D: Directory,
+        DM: DocMap,
+        PW: PointsWriter,
+    {
+        let bytes_reader = self.bytes_out.paged_bytes.freeze(false)?;
+        let points = MutablePointTreeImpl::new(
+            self.num_points,
+            std::mem::take(&mut self.doc_ids),
+            bytes_reader,
+            self.packed_bytes_length,
+        );
+        let values = match sort_map {
+            Some(doc_map) => {
+                EitherMutablePointTree::S(MutableSortingPointValues::new(points, doc_map))
+            },
+            None => EitherMutablePointTree::F(points),
+        };
+        let mut reader = PointsReaderImpl::new(values, self.field_info.clone());
+
+        writer.write_field(&self.field_info, &mut reader)
+    }
+}
+struct PointsReaderImpl<DM>
+where
+    DM: DocMap,
+{
+    values: RefCell<
+        EitherMutablePointTree<
+            MutablePointTreeImpl,
+            MutableSortingPointValues<MutablePointTreeImpl, DM>,
+        >,
+    >,
+    field_info: Rc<FieldInfo>,
+}
+impl<DM> PointsReaderImpl<DM>
+where
+    DM: DocMap,
+{
+    pub(crate) fn new(
+        values: EitherMutablePointTree<
+            MutablePointTreeImpl,
+            MutableSortingPointValues<MutablePointTreeImpl, DM>,
+        >,
+        field_info: Rc<FieldInfo>,
+    ) -> Self {
+        Self {
+            values: RefCell::new(values),
+            field_info,
+        }
+    }
+}
+impl<DM> PointsReader for PointsReaderImpl<DM>
+where
+    DM: DocMap,
+{
+    fn check_integrity(&mut self) -> Result<()> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
+    type PointValuesBase = PointValuesImpl<DM>;
+
+    fn get_values(&mut self, field_name: &str) -> Result<PointValues<Self::PointValuesBase>> {
+        if !field_name.eq(self.field_info.name.as_str()) {
+            return Err(LuceneError::illegal_argument("fieldName must be the same"));
+        }
+        let values = self.values.take();
+        Ok(PointValues::new(PointValuesImpl::new(values)))
+    }
+}
+
+struct PointValuesImpl<DM>
+where
+    DM: DocMap,
+{
+    values: RefCell<
+        EitherMutablePointTree<
+            MutablePointTreeImpl,
+            MutableSortingPointValues<MutablePointTreeImpl, DM>,
+        >,
+    >,
+}
+// for padding
+impl<DM> Default
+    for EitherMutablePointTree<
+        MutablePointTreeImpl,
+        MutableSortingPointValues<MutablePointTreeImpl, DM>,
+    >
+where
+    DM: DocMap,
+{
+    fn default() -> Self {
+        EitherMutablePointTree::F(MutablePointTreeImpl::default())
+    }
+}
+
+impl<DM> PointValuesImpl<DM>
+where
+    DM: DocMap,
+{
+    pub(crate) fn new(
+        values: EitherMutablePointTree<
+            MutablePointTreeImpl,
+            MutableSortingPointValues<MutablePointTreeImpl, DM>,
+        >,
+    ) -> Self {
+        Self {
+            values: RefCell::new(values),
+        }
+    }
+}
+impl<DM> PointValuesBase for PointValuesImpl<DM>
+where
+    DM: DocMap,
+{
+    fn get_min_packed_value(&self) -> Result<Option<Vec<u8>>> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
+    fn get_max_packed_value(&self) -> Result<Option<Vec<u8>>> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
+    fn get_num_dimensions(&self) -> Result<i32> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
+    fn get_num_index_dimensions(&self) -> Result<i32> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
+    fn get_bytes_per_dimension(&self) -> Result<i32> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
+    fn size(&self) -> Result<i64> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
+    fn get_doc_count(&self) -> Result<i32> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
+    type PointTree = EitherMutablePointTree<
+        MutablePointTreeImpl,
+        MutableSortingPointValues<MutablePointTreeImpl, DM>,
+    >;
+
+    fn get_point_tree(&self) -> Result<Self::PointTree> {
+        Ok(self.values.take())
+    }
+}
+
 pub(crate) struct MutableSortingPointValues<M, DM>
 where
     M: MutablePointTree,
@@ -139,18 +386,19 @@ where
     }
 }
 
+#[derive(Default)]
 struct MutablePointTreeImpl {
     num_points: usize,
     ords: Vec<i32>,
     temp: Vec<i32>,
-    doc_ids: Rc<Vec<i32>>,
+    doc_ids: Vec<i32>,
     packed_bytes_length: usize,
     bytes_reader: PagedBytesReader,
 }
 impl MutablePointTreeImpl {
     pub(crate) fn new(
         num_points: usize,
-        doc_ids: Rc<Vec<i32>>,
+        doc_ids: Vec<i32>,
         bytes_reader: PagedBytesReader,
         packed_bytes_length: usize,
     ) -> Self {
@@ -199,7 +447,7 @@ impl Clone for MutablePointTreeImpl {
     fn clone(&self) -> Self {
         let ords = self.ords.clone();
         let temp = self.temp.clone();
-        let doc_ids = Rc::clone(&self.doc_ids);
+        let doc_ids = self.doc_ids.clone();
         let bytes_reader = self.bytes_reader.clone();
         Self {
             num_points: self.num_points,

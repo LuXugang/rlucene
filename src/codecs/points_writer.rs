@@ -20,7 +20,7 @@ use crate::util::error::lucene_error::Result;
 use std::rc::Rc;
 
 pub trait PointsWriter {
-    fn write_field<PR>(field_info: &Rc<FieldInfo>, values: &mut PR) -> Result<()>
+    fn write_field<PR>(&mut self, field_info: &Rc<FieldInfo>, values: &mut PR) -> Result<()>
     where
         PR: PointsReader;
 }

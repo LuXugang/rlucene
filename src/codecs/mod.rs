@@ -44,6 +44,7 @@ pub mod norms_format;
 pub mod norms_producer;
 pub mod points_format;
 pub mod points_reader;
+pub mod points_writer;
 pub mod postings_format;
 pub mod postings_reader_base;
 mod postings_writer_base;
