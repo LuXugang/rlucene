@@ -18,6 +18,7 @@
 use std::borrow::Cow;
 
 use crate::index::doc_values_iterator::DocValuesIterator;
+use crate::index::sorted_doc_values::SortedDocValues;
 use crate::index::terms_enum::TermsEnum;
 use crate::index::BytesRef;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -108,4 +109,12 @@ pub trait SortedSetDocValues: DocValuesIterator {
     }
     // TODO:
     // intersect not Implemented
+
+    fn is_single_valued(&self) -> bool {
+        false
+    }
+    type SortedDocValues: SortedDocValues;
+    fn get_sorted_doc_values(&mut self) -> Result<Option<Self::SortedDocValues>> {
+        Ok(None)
+    }
 }

@@ -19,19 +19,20 @@ use std::rc::Rc;
 use crate::codecs::lucene90::lucene90_doc_values_enums::Lucene90NumericDocValuesEnums;
 use crate::codecs::lucene90_doc_values_enums::{
     Lucene90BinaryDocValuesEnum, Lucene90SortedNumericDocValuesEnums,
-    Lucene90SortedSetDocValuesEnum,
 };
 use crate::codecs::lucene90_doc_values_producer::{
-    BaseSortedDocValues, DocValuesSkipperImpl, Lucene90DocValuesProducer,
+    BaseSortedDocValues, BaseSortedSetDocValues, DocValuesSkipperImpl, Lucene90DocValuesProducer,
 };
 use crate::index::binary_doc_values::BinaryDocValues;
 use crate::index::doc_values_skipper::DocValuesSkipper;
 use crate::index::field_info::FieldInfo;
 use crate::index::numeric_doc_values::NumericDocValues;
+use crate::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
 use crate::index::sorted_doc_values::SortedDocValues;
 use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::store::IndexInput;
+use crate::util::either_enums::EitherSortedSetDocValues;
 use crate::util::error::lucene_error::{LuceneError, Result};
 
 /// A trait that produces numeric, binary, sorted, sorted set, and sorted
@@ -163,7 +164,10 @@ where
         }
     }
 
-    type SortedSetDocValues = Lucene90SortedSetDocValuesEnum<I>;
+    type SortedSetDocValues = EitherSortedSetDocValues<
+        SingletonSortedSetDocValues<BaseSortedDocValues<I>>,
+        BaseSortedSetDocValues<I>,
+    >;
 
     fn get_sorted_set(&mut self, _field: &Rc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
         match self {

@@ -14,22 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::borrow::Cow;
 
 use crate::codecs::lucene90_doc_values_producer::{
-    BaseSortedDocValues, BaseSortedSetDocValues, DenseBinaryDocValues, DenseNumericDocValues,
-    DenseSortedNumericDocValues, SpareSortedNumericDocValues, SparseBinaryDocValues,
-    SparseNumericDocValues,
+    DenseBinaryDocValues, DenseNumericDocValues, DenseSortedNumericDocValues,
+    SpareSortedNumericDocValues, SparseBinaryDocValues, SparseNumericDocValues,
 };
 use crate::index::binary_doc_values::BinaryDocValues;
 use crate::index::doc_values::{EmptyBinary, EmptyNumeric};
 use crate::index::doc_values_iterator::DocValuesIterator;
-use crate::index::dummy::dummy_terms_enum::DummyTermsEnum;
 use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
-use crate::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
 use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
-use crate::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::index::BytesRef;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::IndexInput;
@@ -194,113 +189,6 @@ where
         }
     }
 }
-
-// 3. SortedSetDocValues
-pub enum Lucene90SortedSetDocValuesEnum<I>
-where
-    I: IndexInput,
-{
-    Singleton(SingletonSortedSetDocValues<BaseSortedDocValues<I>>),
-    Base(BaseSortedSetDocValues<I>),
-}
-
-impl<I> DocValuesIterator for Lucene90SortedSetDocValuesEnum<I>
-where
-    I: IndexInput,
-{
-    fn advance_exact(&mut self, _target: i32) -> Result<bool> {
-        match self {
-            Lucene90SortedSetDocValuesEnum::Singleton(s) => s.advance_exact(_target),
-            Lucene90SortedSetDocValuesEnum::Base(b) => b.advance_exact(_target),
-        }
-    }
-}
-
-impl<I> DocIdSetIterator for Lucene90SortedSetDocValuesEnum<I>
-where
-    I: IndexInput,
-{
-    fn doc_id(&self) -> i32 {
-        match self {
-            Lucene90SortedSetDocValuesEnum::Singleton(s) => s.doc_id(),
-            Lucene90SortedSetDocValuesEnum::Base(b) => b.doc_id(),
-        }
-    }
-
-    fn next_doc(&mut self) -> Result<i32> {
-        match self {
-            Lucene90SortedSetDocValuesEnum::Singleton(s) => s.next_doc(),
-            Lucene90SortedSetDocValuesEnum::Base(b) => b.next_doc(),
-        }
-    }
-
-    fn advance(&mut self, _target: i32) -> Result<i32> {
-        match self {
-            Lucene90SortedSetDocValuesEnum::Singleton(s) => s.advance(_target),
-            Lucene90SortedSetDocValuesEnum::Base(b) => b.advance(_target),
-        }
-    }
-
-    fn cost(&self) -> Result<i64> {
-        match self {
-            Lucene90SortedSetDocValuesEnum::Singleton(s) => s.cost(),
-            Lucene90SortedSetDocValuesEnum::Base(b) => b.cost(),
-        }
-    }
-}
-
-impl<I> SortedSetDocValues for Lucene90SortedSetDocValuesEnum<I>
-where
-    I: IndexInput,
-{
-    fn next_ord(&mut self) -> Result<i64> {
-        match self {
-            Lucene90SortedSetDocValuesEnum::Singleton(s) => s.next_ord(),
-            Lucene90SortedSetDocValuesEnum::Base(b) => b.next_ord(),
-        }
-    }
-
-    fn doc_value_count(&mut self) -> Result<i32> {
-        match self {
-            Lucene90SortedSetDocValuesEnum::Singleton(s) => s.doc_value_count(),
-            Lucene90SortedSetDocValuesEnum::Base(b) => b.doc_value_count(),
-        }
-    }
-
-    fn lookup_ord(&mut self, _ord: i64) -> Result<Cow<BytesRef<Vec<u8>>>> {
-        match self {
-            Lucene90SortedSetDocValuesEnum::Singleton(s) => s.lookup_ord(_ord),
-            Lucene90SortedSetDocValuesEnum::Base(b) => b.lookup_ord(_ord),
-        }
-    }
-
-    fn get_value_count(&mut self) -> Result<i64> {
-        match self {
-            Lucene90SortedSetDocValuesEnum::Singleton(s) => s.get_value_count(),
-            Lucene90SortedSetDocValuesEnum::Base(b) => b.get_value_count(),
-        }
-    }
-
-    fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i64> {
-        match self {
-            Lucene90SortedSetDocValuesEnum::Singleton(s) => s.lookup_term(key),
-            Lucene90SortedSetDocValuesEnum::Base(b) => b.lookup_term(key),
-        }
-    }
-
-    type TermsEnum = DummyTermsEnum;
-
-    // type TermsEnum = ;
-    //
-    // fn terms_enum(&mut self) -> Result<DummyTermsEnum> {
-    //     match self {
-    //         Lucene90SortedSetDocValuesEnum::Singleton(s) => s.terms_enum(),
-    //         Lucene90SortedSetDocValuesEnum::Base(b) => b.terms_enum(),
-    //     }
-    // }
-}
-
-// 4. SortedDocValues
 
 // 5.BinaryDocValues
 pub enum Lucene90BinaryDocValuesEnum<I>

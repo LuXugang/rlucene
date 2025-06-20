@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::codecs::indexed_disi::IndexedDISI;
 use crate::codecs::lucene90::lucene90_doc_values_producer::{
     BaseSortedDocValuesImpl, DenseBaseSortedDocValues, DenseBinaryDocValuesBase,
@@ -200,7 +201,7 @@ where
             BaseSortedSetDocValuesEnum::Impl(sub) => sub.doc_value_count(),
         }
     }
-
+    type SortedDocValues = DummySortedDocValues;
     type TermsEnum = DummyTermsEnum;
 }
 

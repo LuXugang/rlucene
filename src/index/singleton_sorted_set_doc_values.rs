@@ -55,7 +55,7 @@ where
         })
     }
 
-    pub fn get_numeric_doc_values(&mut self) -> Result<S> {
+    pub fn get_sorted_doc_values(&mut self) -> Result<S> {
         if self.inner.as_ref().unwrap().doc_id() != -1 {
             return Err(LuceneError::illegal_state(format!(
                 "iterator has already been used: docID={}",
@@ -134,4 +134,14 @@ where
     }
 
     type TermsEnum = DummyTermsEnum;
+
+    fn is_single_valued(&self) -> bool {
+        true
+    }
+
+    type SortedDocValues = S;
+
+    fn get_sorted_doc_values(&mut self) -> Result<Option<Self::SortedDocValues>> {
+        Ok(Some(self.get_sorted_doc_values()?))
+    }
 }

@@ -720,6 +720,28 @@ where
             },
         }
     }
+
+    fn is_single_valued(&self) -> bool {
+        match self {
+            EitherSortedSetDocValues::F(t) => t.is_single_valued(),
+            EitherSortedSetDocValues::S(s) => s.is_single_valued(),
+        }
+    }
+
+    type SortedDocValues = EitherSortedDocValues<F::SortedDocValues, S::SortedDocValues>;
+
+    fn get_sorted_doc_values(&mut self) -> Result<Option<Self::SortedDocValues>> {
+        match self {
+            EitherSortedSetDocValues::F(t) => {
+                let sorted_doc_values = t.get_sorted_doc_values()?;
+                Ok(sorted_doc_values.map(EitherSortedDocValues::F))
+            },
+            EitherSortedSetDocValues::S(s) => {
+                let sorted_doc_values = s.get_sorted_doc_values()?;
+                Ok(sorted_doc_values.map(EitherSortedDocValues::S))
+            },
+        }
+    }
 }
 
 // TermsEnum

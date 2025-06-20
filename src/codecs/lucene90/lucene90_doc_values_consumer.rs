@@ -18,7 +18,6 @@ use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 use crate::codecs::doc_values_consumer::DocValuesConsumer;
-use crate::codecs::doc_values_enum::doc_values::SortedSetDocValuesEnum;
 use crate::codecs::doc_values_producer::DocValuesProducer;
 use crate::codecs::dummy::dummy_binary_doc_values::DummyBinaryDocValues;
 use crate::codecs::dummy::dummy_doc_values_skipper::DummyDocValuesSkipper;
@@ -27,7 +26,6 @@ use crate::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNumericDocValues;
 use crate::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocValues;
 use crate::codecs::indexed_disi::indexed_disi_util;
-use crate::codecs::lucene90_doc_values_enums::Lucene90SortedSetDocValuesEnum;
 use crate::codecs::lucene90_doc_values_format::Lucene90DocValuesFormat;
 use crate::codecs::CodecUtil;
 use crate::index::binary_doc_values::BinaryDocValues;
@@ -49,8 +47,7 @@ use crate::search::sorted_set_selector::{
 };
 use crate::store::directory::Directory;
 use crate::store::{
-    ByteArrayDataOutput, ByteBuffersDataOutput, ByteBuffersIndexOutput, DataOutput, IndexInput,
-    IndexOutput,
+    ByteArrayDataOutput, ByteBuffersDataOutput, ByteBuffersIndexOutput, DataOutput, IndexOutput,
 };
 use crate::util::access::AccessVec;
 use crate::util::array_util::ArrayUtil;
@@ -874,23 +871,13 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
 
         Ok(())
     }
-    fn is_single_valued<I>(values: &mut SortedSetDocValuesEnum<I>) -> Result<bool>
+    fn is_single_valued<S>(values: &mut S) -> Result<bool>
     where
-        I: IndexInput,
+        S: SortedSetDocValues,
     {
-        match values {
-            SortedSetDocValuesEnum::Lucene90(lucene90) => {
-                match lucene90 {
-                    Lucene90SortedSetDocValuesEnum::Singleton(_) => {
-                        return Ok(true);
-                    },
-                    _ => {
-                        //
-                    },
-                }
-            },
+        if values.is_single_valued() {
+            return Ok(true);
         }
-
         debug_assert_eq!(values.doc_id(), -1);
 
         let mut doc = values.next_doc()?;
@@ -1053,14 +1040,13 @@ where
         Ok(())
     }
 
-    fn add_sorted_set_field<I, D>(
+    fn add_sorted_set_field<D>(
         &mut self,
         field: &Rc<FieldInfo>,
-        values_producer: &mut D,
-    ) -> Result<()>
+        mut values_producer: D,
+    ) -> Result<D>
     where
-        I: IndexInput,
-        D: DocValuesProducer<SortedSetDocValues = SortedSetDocValuesEnum<I>>,
+        D: DocValuesProducer,
     {
         self.meta.write_int(field.number)?;
         self.meta.write_byte(Lucene90DocValuesFormat::SORTED_SET)?;
@@ -1068,10 +1054,10 @@ where
         let mut sorted_set = values_producer.get_sorted_set(field)?;
         if Self::is_single_valued(&mut sorted_set)? {
             let mut producer = EmptyDocValuesProducerSub3 {
-                doc_values: Some(sorted_set),
+                values_producer: Some(values_producer),
             };
             self.do_add_sorted_field(field, &mut producer, true)?;
-            return Ok(());
+            return Ok(producer.values_producer.take().unwrap());
         }
 
         let mut producer: EmptyDocValuesProducerSub4<D> = EmptyDocValuesProducerSub4 {
@@ -1079,7 +1065,7 @@ where
         };
         self.do_add_sorted_numeric_field(field, &mut producer, true)?;
         self.add_terms_dict(&mut values_producer.get_sorted_set(field)?)?;
-        Ok(())
+        Ok(values_producer)
     }
 }
 impl<O> Drop for Lucene90DocValuesConsumer<O>
@@ -1277,28 +1263,34 @@ where
     type DocValuesSkipper = DummyDocValuesSkipper;
 }
 
-pub struct EmptyDocValuesProducerSub3<I>
+pub struct EmptyDocValuesProducerSub3<D>
 where
-    I: IndexInput,
+    D: DocValuesProducer,
 {
-    doc_values: Option<SortedSetDocValuesEnum<I>>,
+    values_producer: Option<D>,
 }
-impl<I> DocValuesProducer for EmptyDocValuesProducerSub3<I>
+impl<D> DocValuesProducer for EmptyDocValuesProducerSub3<D>
 where
-    I: IndexInput,
+    D: DocValuesProducer,
 {
     type NumericDocValues = DummyNumericDocValues;
     type BinaryDocValues = DummyBinaryDocValues;
-    type SortedDocValues = SortedDocValuesWrapEnum<I>;
+    type SortedDocValues = SortedDocValuesWrapEnum<D::SortedSetDocValues>;
 
-    fn get_sorted(&mut self, _field: &Rc<FieldInfo>) -> Result<Self::SortedDocValues> {
-        SortedSetSelector::wrap(self.doc_values.take().unwrap(), SortedSetSelectorType::Min)
+    fn get_sorted(&mut self, field: &Rc<FieldInfo>) -> Result<Self::SortedDocValues> {
+        let sorted_set = self
+            .values_producer
+            .as_mut()
+            .unwrap()
+            .get_sorted_set(field)?;
+        SortedSetSelector::wrap(sorted_set, SortedSetSelectorType::Min)
     }
 
     type SortedNumericDocValues = DummySortedNumericDocValues;
     type SortedSetDocValues = DummySortedSetDocValues;
     type DocValuesSkipper = DummyDocValuesSkipper;
 }
+
 pub struct EmptyDocValuesProducerSub4<D>
 where
     D: DocValuesProducer,

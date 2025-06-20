@@ -20,6 +20,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::codecs::doc_values_producer::DocValuesProducer;
+use crate::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::codecs::indexed_disi::IndexedDISI;
 use crate::codecs::lucene90::dov_values_inner_enum::{
     BaseSortedDocValuesEnum, BaseSortedSetDocValuesEnum, DenseBinaryDocValuesBaseEnum,
@@ -28,7 +29,6 @@ use crate::codecs::lucene90::dov_values_inner_enum::{
 };
 use crate::codecs::lucene90::lucene90_doc_values_enums::{
     Lucene90NumericDocValuesEnums, Lucene90SortedNumericDocValuesEnums,
-    Lucene90SortedSetDocValuesEnum,
 };
 use crate::codecs::lucene90_doc_values_enums::Lucene90BinaryDocValuesEnum;
 use crate::codecs::lucene90_doc_values_format::{
@@ -49,6 +49,7 @@ use crate::index::field_info::FieldInfo;
 use crate::index::field_infos::FieldInfos;
 use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::segment_read_state::SegmentReadState;
+use crate::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
 use crate::index::sorted_doc_values::SortedDocValues;
 use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::index::sorted_set_doc_values::SortedSetDocValues;
@@ -65,6 +66,7 @@ use crate::util::attribute_source::AttributeSource;
 use crate::util::bit_util::BitUtil;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::compress::lz4::LZ4;
+use crate::util::either_enums::EitherSortedSetDocValues;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::error::lucene_error::Result;
 use crate::util::long_values::{LongValues, Zeroes};
@@ -1017,7 +1019,10 @@ where
         }
     }
 
-    type SortedSetDocValues = Lucene90SortedSetDocValuesEnum<I>;
+    type SortedSetDocValues = EitherSortedSetDocValues<
+        SingletonSortedSetDocValues<BaseSortedDocValues<I>>,
+        BaseSortedSetDocValues<I>,
+    >;
 
     fn get_sorted_set(&mut self, field: &Rc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
         let field_number = field.number;
@@ -1028,7 +1033,7 @@ where
                 if let Some(ref single_value_entry) = entry.single_value_entry {
                     let singleton =
                         DocValues::singleton_sorted(self.get_sorted(single_value_entry.clone())?)?;
-                    return Ok(Lucene90SortedSetDocValuesEnum::Singleton(singleton));
+                    return Ok(EitherSortedSetDocValues::F(singleton));
                 }
                 // Specialize the common case for ordinals: single block of
                 // packed integers.
@@ -1097,27 +1102,23 @@ where
                                     SparseBaseSortedSetDocValues::new(disi, values, addresses),
                                 )
                             };
-                            return Ok(Lucene90SortedSetDocValuesEnum::Base(
-                                BaseSortedSetDocValues::new(
-                                    entry_clone.clone(),
-                                    &mut self.data,
-                                    sbu,
-                                    self.merging,
-                                )?,
-                            ));
+                            return Ok(EitherSortedSetDocValues::S(BaseSortedSetDocValues::new(
+                                entry_clone.clone(),
+                                &mut self.data,
+                                sbu,
+                                self.merging,
+                            )?));
                         }
 
                         let ords = self.get_sorted_numeric(&ords_entry_clone)?;
                         let sub =
                             BaseSortedSetDocValuesEnum::Impl(BaseSortedSetDocValuesImpl::new(ords));
-                        Ok(Lucene90SortedSetDocValuesEnum::Base(
-                            BaseSortedSetDocValues::new(
-                                entry_clone,
-                                &mut self.data,
-                                sub,
-                                self.merging,
-                            )?,
-                        ))
+                        Ok(EitherSortedSetDocValues::S(BaseSortedSetDocValues::new(
+                            entry_clone,
+                            &mut self.data,
+                            sub,
+                            self.merging,
+                        )?))
                     },
                     None => Err(LuceneError::illegal_state("ords_entry is None".to_string()))?,
                 }
@@ -2460,6 +2461,7 @@ where
     }
 
     type TermsEnum = BaseTermsEnum<TermsDict<I>>;
+    type SortedDocValues = DummySortedDocValues;
 }
 
 pub struct SparseBaseSortedSetDocValues<I>
@@ -2553,6 +2555,7 @@ where
     }
 
     type TermsEnum = DummyTermsEnum;
+    type SortedDocValues = DummySortedDocValues;
 }
 
 pub struct BaseSortedSetDocValuesImpl<I>
@@ -2611,7 +2614,7 @@ where
     fn doc_value_count(&mut self) -> Result<i32> {
         self.ords.doc_value_count()
     }
-
+    type SortedDocValues = DummySortedDocValues;
     type TermsEnum = BaseTermsEnum<TermsDict<I>>;
 }
 
@@ -2719,6 +2722,7 @@ where
     }
 
     type TermsEnum = TermsDict<I>;
+    type SortedDocValues = DummySortedDocValues;
 }
 
 pub struct TermsDict<I>

@@ -17,7 +17,6 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use crate::codecs::doc_values_enum::doc_values::SortedSetDocValuesEnum;
 use crate::codecs::doc_values_producer::DocValuesProducer;
 use crate::codecs::dummy::dummy_binary_doc_values::DummyBinaryDocValues;
 use crate::codecs::dummy::dummy_doc_values_skipper::DummyDocValuesSkipper;
@@ -64,14 +63,9 @@ pub trait DocValuesConsumer {
     ) -> Result<()>
     where
         D: DocValuesProducer;
-    fn add_sorted_set_field<I, D>(
-        &mut self,
-        field: &Rc<FieldInfo>,
-        values_producer: &mut D,
-    ) -> Result<()>
+    fn add_sorted_set_field<D>(&mut self, field: &Rc<FieldInfo>, values_producer: D) -> Result<D>
     where
-        I: IndexInput,
-        D: DocValuesProducer<SortedSetDocValues = SortedSetDocValuesEnum<I>>;
+        D: DocValuesProducer;
 
     fn merge_numeric_field<I>(
         &mut self,

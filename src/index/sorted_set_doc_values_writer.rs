@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::sorted_doc_values_terms_enum::SortedDocValuesTermsEnum;
 use crate::index::sorted_set_doc_values::SortedSetDocValues;
@@ -331,6 +332,8 @@ where
     fn get_value_count(&mut self) -> Result<i64> {
         Ok(self.ord_map.len() as i64)
     }
+
+    type SortedDocValues = DummySortedDocValues;
 }
 
 pub(crate) struct SortingSortedSetDocValues<S>
@@ -434,6 +437,16 @@ where
     }
 
     type TermsEnum = SortedDocValuesTermsEnum;
+
+    fn is_single_valued(&self) -> bool {
+        self.input.is_single_valued()
+    }
+
+    type SortedDocValues = S::SortedDocValues;
+
+    fn get_sorted_doc_values(&mut self) -> Result<Option<Self::SortedDocValues>> {
+        self.input.get_sorted_doc_values()
+    }
 }
 
 #[derive(Clone)]
