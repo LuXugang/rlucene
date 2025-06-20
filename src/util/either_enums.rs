@@ -14,9 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::borrow::Cow;
-use std::fmt::{Display, Formatter};
-
+use crate::index::binary_doc_values::BinaryDocValues;
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::impact::Impact;
 use crate::index::impacts::Impacts;
@@ -34,6 +32,8 @@ use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
+use std::borrow::Cow;
+use std::fmt::{Display, Formatter};
 /// # Either Enums for Unified Trait Implementations
 ///
 /// This module defines `EitherXXX` enums that act as static-dispatch-compatible
@@ -762,6 +762,73 @@ where
                 let sorted_doc_values = s.get_sorted_doc_values()?;
                 Ok(sorted_doc_values.map(EitherSortedDocValues::S))
             },
+        }
+    }
+}
+
+// BinaryDocValues
+pub enum EitherBinaryDocValues<F, S> {
+    F(F),
+    S(S),
+}
+
+impl<F, S> DocValuesIterator for EitherBinaryDocValues<F, S>
+where
+    F: BinaryDocValues,
+    S: BinaryDocValues,
+{
+}
+
+impl<F, S> DocIdSetIterator for EitherBinaryDocValues<F, S>
+where
+    F: BinaryDocValues,
+    S: BinaryDocValues,
+{
+    fn doc_id(&self) -> i32 {
+        match self {
+            EitherBinaryDocValues::F(t) => t.doc_id(),
+            EitherBinaryDocValues::S(s) => s.doc_id(),
+        }
+    }
+
+    fn next_doc(&mut self) -> Result<i32> {
+        match self {
+            EitherBinaryDocValues::F(t) => t.next_doc(),
+            EitherBinaryDocValues::S(s) => s.next_doc(),
+        }
+    }
+
+    fn advance(&mut self, _target: i32) -> Result<i32> {
+        match self {
+            EitherBinaryDocValues::F(t) => t.advance(_target),
+            EitherBinaryDocValues::S(s) => s.advance(_target),
+        }
+    }
+
+    fn slow_advance(&mut self, target: i32) -> Result<i32> {
+        match self {
+            EitherBinaryDocValues::F(t) => t.slow_advance(target),
+            EitherBinaryDocValues::S(s) => s.slow_advance(target),
+        }
+    }
+
+    fn cost(&self) -> Result<i64> {
+        match self {
+            EitherBinaryDocValues::F(t) => t.cost(),
+            EitherBinaryDocValues::S(s) => s.cost(),
+        }
+    }
+}
+
+impl<F, S> BinaryDocValues for EitherBinaryDocValues<F, S>
+where
+    F: BinaryDocValues,
+    S: BinaryDocValues,
+{
+    fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
+        match self {
+            EitherBinaryDocValues::F(t) => t.binary_value(),
+            EitherBinaryDocValues::S(s) => s.binary_value(),
         }
     }
 }
