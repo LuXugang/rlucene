@@ -30,6 +30,7 @@ use crate::util::SliceCopyOps;
 #[derive(Default)]
 pub struct PagedBytes {
     blocks: Vec<Vec<u8>>,
+    blocks_rc: Option<Vec<Rc<Vec<u8>>>>,
     num_blocks: usize,
     block_size: usize,
     block_bits: usize,
@@ -55,6 +56,7 @@ impl PagedBytes {
 
         PagedBytes {
             blocks: Vec::with_capacity(16),
+            blocks_rc: None,
             num_blocks: 0,
             block_size,
             block_bits,
@@ -147,6 +149,12 @@ impl PagedBytes {
         self.frozen = true;
         self.current_block = None;
 
+        let mut block = Vec::new();
+        for i in 0..self.num_blocks {
+            block.push(Rc::new(std::mem::take(&mut self.blocks[i])));
+        }
+        self.blocks_rc = Some(block);
+
         Ok(Reader::new(self))
     }
     pub fn get_pointer(&self) -> i64 {
@@ -174,7 +182,7 @@ pub mod paged_bytes_util {
     use crate::util::paged_bytes::{PagedBytes, PagedBytesDataInput, PagedBytesDataOutput};
 
     /// Returns a DataInput to read values from this PagedBytes instance.
-    pub fn get_data_input(paged_bytes: PagedBytes) -> Result<PagedBytesDataInput> {
+    pub fn get_data_input(paged_bytes: &PagedBytes) -> Result<PagedBytesDataInput> {
         if !paged_bytes.frozen {
             return Err(LuceneError::illegal_state(
                 "must call freeze() before get_data_input()".to_string(),
@@ -209,12 +217,8 @@ impl Reader {
     /// 1<<blockBits must be bigger than biggest single BytesRef slice that will
     /// be pulled
     pub fn new(paged_bytes: &PagedBytes) -> Self {
-        let mut blocks = Vec::new();
-        for i in 0..paged_bytes.num_blocks {
-            blocks.push(Rc::new(paged_bytes.blocks[i].clone()));
-        }
         Reader {
-            blocks,
+            blocks: paged_bytes.blocks_rc.as_ref().unwrap().clone(),
             block_bits: paged_bytes.block_bits,
             block_mask: paged_bytes.block_mask,
             block_size: paged_bytes.block_size,
@@ -281,27 +285,34 @@ impl fmt::Display for PagedBytes {
 }
 /// Input that transparently iterates over pages
 pub struct PagedBytesDataInput {
-    paged_bytes: PagedBytes,
     current_block_index: usize,
     current_block_upto: usize,
+    block_size: usize,
+    block_bits: usize,
+    block_mask: usize,
+    blocks: Vec<Rc<Vec<u8>>>,
 }
 
 impl PagedBytesDataInput {
-    pub fn new(blocks: PagedBytes) -> Self {
+    fn new(blocks: &PagedBytes) -> Self {
+        debug_assert!(blocks.blocks_rc.is_some());
         Self {
-            paged_bytes: blocks,
             current_block_index: 0,
             current_block_upto: 0,
+            block_size: blocks.block_size,
+            block_bits: blocks.block_bits,
+            block_mask: blocks.block_mask,
+            blocks: blocks.blocks_rc.as_ref().unwrap().clone(),
         }
     }
     /// Returns the current byte position.
     pub fn get_position(&self) -> usize {
-        (self.current_block_index * self.paged_bytes.block_size) + self.current_block_upto
+        (self.current_block_index * self.block_size) + self.current_block_upto
     }
     /// Seek to a position previously obtained from `get_position()`.
     pub fn set_position(&mut self, pos: usize) {
-        self.current_block_index = pos >> self.paged_bytes.block_bits;
-        self.current_block_upto = pos & self.paged_bytes.block_mask;
+        self.current_block_index = pos >> self.block_bits;
+        self.current_block_upto = pos & self.block_mask;
     }
     fn next_block(&mut self) {
         self.current_block_index += 1;
@@ -313,19 +324,19 @@ impl Display for PagedBytesDataInput {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "PagedBytesDataInput(blocks={}, current_block_index={}, current_block_upto={})",
-            self.paged_bytes, self.current_block_index, self.current_block_upto
+            "PagedBytesDataInput(blocks={:?}, current_block_index={}, current_block_upto={})",
+            self.blocks, self.current_block_index, self.current_block_upto
         )
     }
 }
 
 impl DataInput for PagedBytesDataInput {
     fn read_byte(&mut self) -> Result<u8> {
-        if self.current_block_upto == self.paged_bytes.block_size {
+        if self.current_block_upto == self.block_size {
             self.next_block();
         }
 
-        let byte = self.paged_bytes.blocks[self.current_block_index][self.current_block_upto];
+        let byte = self.blocks[self.current_block_index][self.current_block_upto];
         self.current_block_upto += 1;
         Ok(byte)
     }
@@ -343,8 +354,8 @@ impl DataInput for PagedBytesDataInput {
         let offset_end = offset + len;
 
         loop {
-            let block = &self.paged_bytes.blocks[self.current_block_index];
-            let block_left = self.paged_bytes.block_size - self.current_block_upto;
+            let block = &self.blocks[self.current_block_index];
+            let block_left = self.block_size - self.current_block_upto;
             let left = offset_end - offset;
 
             if block_left < left {
@@ -383,7 +394,7 @@ pub struct PagedBytesDataOutput {
     paged_bytes: PagedBytes,
 }
 impl PagedBytesDataOutput {
-    pub fn new(paged_bytes: PagedBytes) -> Self {
+    fn new(paged_bytes: PagedBytes) -> Self {
         PagedBytesDataOutput { paged_bytes }
     }
     /// Return the current byte position.
@@ -584,7 +595,7 @@ mod tests {
 
             let reader = out.paged_bytes.freeze(random.random_bool(0.5))?;
             let paged_bytes = std::mem::take(&mut out.paged_bytes);
-            let mut input = paged_bytes_util::get_data_input(paged_bytes)?;
+            let mut input = paged_bytes_util::get_data_input(&paged_bytes)?;
 
             let mut verify = vec![0u8; num_bytes];
             let mut read = 0;
@@ -617,8 +628,7 @@ mod tests {
                 }
             }
 
-            let paged_bytes = std::mem::take(&mut input.paged_bytes);
-            let mut input2 = paged_bytes_util::get_data_input(paged_bytes)?;
+            let mut input2 = paged_bytes_util::get_data_input(&paged_bytes)?;
             let mut curr = 0;
             let max_skip_to = num_bytes - 1;
             while curr < max_skip_to {
