@@ -31,8 +31,10 @@ pub trait PointsReader {
     /// cloned
     /// # Note
     /// Returning None means returning itself.
-    fn get_merge_instance(&self) -> Result<Option<()>> {
-        // TODO: 返回值不对
+    fn get_merge_instance(&self) -> Result<Option<Self>>
+    where
+        Self: Sized,
+    {
         Ok(None)
     }
 }
