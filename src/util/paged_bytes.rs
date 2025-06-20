@@ -186,7 +186,6 @@ pub mod paged_bytes_util {
     /// Returns a DataOutput that you may use to write into this PagedBytes
     /// instance. If you do this,  you should not call the other writing methods
     /// (eg, copy); results are undefined.
-    #[allow(unused)]
     pub fn get_data_output(paged_bytes: PagedBytes) -> Result<PagedBytesDataOutput> {
         if paged_bytes.frozen {
             return Err(LuceneError::illegal_state(

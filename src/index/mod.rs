@@ -25,6 +25,7 @@ pub mod automaton_terms_enum;
 pub mod base_terms_enum;
 pub mod binary_doc_values;
 pub(crate) mod binary_doc_values_field_updates;
+pub(crate) mod binary_doc_values_writer;
 mod buffered_updates_stream;
 mod byte_slice_pool;
 mod byte_slice_reader;
