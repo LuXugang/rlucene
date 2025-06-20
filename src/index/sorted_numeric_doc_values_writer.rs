@@ -254,6 +254,29 @@ impl DocValuesWriter for SortedNumericDocValuesWriter {
         )?;
         dv_consumer.add_sorted_numeric_field(&self.field_info, &mut producer)
     }
+
+    type DocIdSetIterator = EitherSortedNumericDocValues<
+        SingletonSortedNumericDocValues<BufferedNumericDocValues>,
+        BufferedSortedNumericDocValues<DocsWithFieldSetEnum>,
+    >;
+
+    fn get_doc_values(&mut self) -> Result<Self::DocIdSetIterator> {
+        self.finish();
+        if self.final_values.is_none() {
+            debug_assert!(self.final_values_count.is_none());
+            self.finish_current_doc()?;
+            self.final_values = Option::from(self.pending.build()?);
+            self.final_values_count = match &mut self.pending_counts {
+                Some(p) => Some(p.build()?),
+                None => None,
+            };
+        }
+        SortedNumericDocValuesWriter::get_values(
+            self.final_values.as_ref().unwrap(),
+            &self.final_values_count,
+            &self.docs_with_field,
+        )
+    }
 }
 pub(crate) struct DocValuesProducerImpl1 {
     single_value_producer: DocValuesProducerImpl,

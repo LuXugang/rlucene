@@ -130,6 +130,19 @@ impl DocValuesWriter for NumericDocValuesWriter {
         let _ = dv_consumer.add_numeric_field(&self.field_info, producer)?;
         Ok(())
     }
+
+    type DocIdSetIterator = BufferedNumericDocValues;
+
+    fn get_doc_values(&mut self) -> Result<Self::DocIdSetIterator> {
+        self.finish();
+        if self.final_values.is_none() {
+            self.final_values = Some(std::mem::take(&mut self.pending).build()?)
+        }
+        BufferedNumericDocValues::new(
+            self.final_values.as_ref().unwrap(),
+            self.docs_with_field.iterator()?.unwrap(),
+        )
+    }
 }
 pub(crate) struct DocValuesProducerImpl {
     sorted: Option<NumericDVs<FixedBitSet>>,

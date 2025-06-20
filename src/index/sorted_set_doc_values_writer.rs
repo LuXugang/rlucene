@@ -335,6 +335,23 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
         let _ = dv_consumer.add_sorted_set_field(&self.field_info, producer)?;
         Ok(())
     }
+
+    type DocIdSetIterator = EitherSortedSetDocValues<
+        SingletonSortedSetDocValues<BufferedSortedDocValues<DocsWithFieldSetEnum>>,
+        BufferedSortedSetDocValues<DocsWithFieldSetEnum>,
+    >;
+
+    fn get_doc_values(&mut self) -> Result<Self::DocIdSetIterator> {
+        self.finish()?;
+        SortedSetDocValuesWriter::get_values(
+            self.final_ord_map.as_ref().unwrap().clone(),
+            self.hash_rc.clone().unwrap(),
+            self.final_ords.as_ref().unwrap(),
+            self.final_ord_counts.clone(),
+            self.max_count,
+            &mut self.docs_with_field,
+        )
+    }
 }
 pub(crate) struct DocValuesProducerImpl1 {
     field_info: Rc<FieldInfo>,

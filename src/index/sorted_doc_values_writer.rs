@@ -222,6 +222,18 @@ impl DocValuesWriter for SortedDocValuesWriter {
         )?;
         Ok(())
     }
+
+    type DocIdSetIterator = BufferedSortedDocValues<DocsWithFieldSetEnum>;
+
+    fn get_doc_values(&mut self) -> Result<Self::DocIdSetIterator> {
+        self.finish()?;
+        BufferedSortedDocValues::new(
+            self.hash_rc.as_ref().unwrap().clone(),
+            self.final_ords.as_ref().unwrap(),
+            self.final_ord_map.as_ref().unwrap().clone(),
+            self.docs_with_field.iterator()?.unwrap(),
+        )
+    }
 }
 
 pub(crate) mod sdvw_util {

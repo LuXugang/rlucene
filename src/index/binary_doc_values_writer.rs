@@ -171,6 +171,21 @@ impl DocValuesWriter for BinaryDocValuesWriter {
         )?;
         dv_consumer.add_binary_field(&self.field_info, &mut producer)
     }
+
+    type DocIdSetIterator = BufferedBinaryDocValues<DocsWithFieldSetEnum, PagedBytesDataInput>;
+
+    fn get_doc_values(&mut self) -> Result<Self::DocIdSetIterator> {
+        self.docs_with_field.finish();
+        if self.final_lengths.is_none() {
+            self.final_lengths = Some(self.lengths.build()?);
+        }
+        BufferedBinaryDocValues::new(
+            self.final_lengths.as_ref().unwrap(),
+            self.max_length as usize,
+            paged_bytes_util::get_data_input(&self.bytes_out.paged_bytes)?,
+            self.docs_with_field.iterator()?.unwrap(),
+        )
+    }
 }
 
 pub(crate) struct DocValuesProducerImpl {
