@@ -61,7 +61,7 @@ pub(crate) struct BinaryDocValuesWriter {
 }
 
 impl BinaryDocValuesWriter {
-    pub fn new(field_info: Rc<FieldInfo>, iw_bytes_used: CounterEnumBorrow) -> Result<Self> {
+    pub(crate) fn new(field_info: Rc<FieldInfo>, iw_bytes_used: CounterEnumBorrow) -> Result<Self> {
         let bytes = PagedBytes::new(bdvw_util::BLOCK_BITS);
         let bytes_out = paged_bytes_util::get_data_output(bytes)?;
         let lengths =
@@ -83,7 +83,7 @@ impl BinaryDocValuesWriter {
             final_lengths: None,
         })
     }
-    pub fn add_value(&mut self, doc_id: i32, value: &BytesRef<Vec<u8>>) -> Result<()> {
+    pub(crate) fn add_value(&mut self, doc_id: i32, value: &BytesRef<Vec<u8>>) -> Result<()> {
         if doc_id <= self.last_doc_id {
             return Err(LuceneError::illegal_argument(format!(
                 "DocValuesField \"{}\" appears more than once in this document (only one value is allowed per field)",
@@ -320,7 +320,7 @@ pub(crate) struct SortingBinaryDocValues {
 }
 
 impl SortingBinaryDocValues {
-    pub fn new(dvs: BinaryDVs) -> Self {
+    pub(crate) fn new(dvs: BinaryDVs) -> Self {
         Self {
             dvs,
             spare: BytesRefBuilder::new(),
@@ -378,7 +378,7 @@ pub(crate) struct BinaryDVs {
 }
 
 impl BinaryDVs {
-    pub fn new<DM>(
+    pub(crate) fn new<DM>(
         max_doc: i32,
         sort_map: &DM,
         old_values: &mut impl BinaryDocValues,

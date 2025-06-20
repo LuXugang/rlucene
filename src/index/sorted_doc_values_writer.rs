@@ -67,7 +67,7 @@ pub(crate) struct SortedDocValuesWriter {
 }
 
 impl SortedDocValuesWriter {
-    pub fn new(
+    pub(crate) fn new(
         field_info: Rc<FieldInfo>,
         iw_bytes_used: CounterEnumBorrow,
         pool: ByteBlockPoolBorrow,
@@ -101,7 +101,7 @@ impl SortedDocValuesWriter {
         })
     }
 
-    pub fn add_value(&mut self, doc_id: i32, value: &BytesRef<Vec<u8>>) -> Result<()> {
+    pub(crate) fn add_value(&mut self, doc_id: i32, value: &BytesRef<Vec<u8>>) -> Result<()> {
         if doc_id <= self.last_doc_id {
             return Err(LuceneError::illegal_argument(format!(
                 "DocValuesField \"{}\" appears more than once in this document (only one value is allowed per field)",
@@ -280,7 +280,7 @@ pub(crate) struct DocValuesProducerImpl {
     sorted: Option<Rc<Vec<i32>>>,
 }
 impl DocValuesProducerImpl {
-    pub fn new(
+    pub(crate) fn new(
         hash: Rc<STBytesRefHash>,
         ords: PackedLongValues,
         ord_map: Rc<Vec<i32>>,
@@ -346,7 +346,7 @@ impl<D> BufferedSortedDocValues<D>
 where
     D: DocIdSetIterator,
 {
-    pub fn new(
+    pub(crate) fn new(
         hash: Rc<STBytesRefHash>,
         doc_to_ord: &PackedLongValues,
         ord_map: Rc<Vec<i32>>,
@@ -438,7 +438,7 @@ impl<S> SortingSortedDocValues<S>
 where
     S: SortedDocValues,
 {
-    pub fn new(input: S, ords: Rc<Vec<i32>>) -> Self {
+    pub(crate) fn new(input: S, ords: Rc<Vec<i32>>) -> Self {
         Self {
             input,
             ords,

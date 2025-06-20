@@ -67,7 +67,7 @@ pub(crate) struct SortedNumericDocValuesWriter {
 }
 
 impl SortedNumericDocValuesWriter {
-    pub fn new(field_info: Rc<FieldInfo>, iw_bytes_used: CounterEnumBorrow) -> Result<Self> {
+    pub(crate) fn new(field_info: Rc<FieldInfo>, iw_bytes_used: CounterEnumBorrow) -> Result<Self> {
         let current_values = vec![0i64; 8];
         let docs_with_field = DocsWithFieldSet::new();
         let pending =
@@ -93,7 +93,7 @@ impl SortedNumericDocValuesWriter {
         })
     }
 
-    pub fn add_value(&mut self, doc_id: i32, value: i64) -> Result<()> {
+    pub(crate) fn add_value(&mut self, doc_id: i32, value: i64) -> Result<()> {
         debug_assert!(doc_id >= self.current_doc);
         if doc_id != self.current_doc {
             self.finish_current_doc()?;
@@ -363,7 +363,7 @@ pub(crate) mod sndvw_util {
         pub(crate) values: PackedLongValues,
     }
     impl LongValues {
-        pub fn new<DM>(
+        pub(crate) fn new<DM>(
             max_doc: usize,
             sort_map: &Rc<DM>,
             old_values: &mut impl SortedNumericDocValues,
@@ -417,7 +417,7 @@ impl<D> BufferedSortedNumericDocValues<D>
 where
     D: DocIdSetIterator,
 {
-    pub fn new(
+    pub(crate) fn new(
         values: &PackedLongValues,
         value_counts: &PackedLongValues,
         docs_with_field: D,
@@ -501,7 +501,7 @@ impl<S> SortingSortedNumericDocValues<S>
 where
     S: SortedNumericDocValues,
 {
-    pub fn new(input: S, values: LongValues) -> Self {
+    pub(crate) fn new(input: S, values: LongValues) -> Self {
         Self {
             input,
             values,

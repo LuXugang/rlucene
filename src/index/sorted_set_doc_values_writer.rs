@@ -81,7 +81,7 @@ pub(crate) struct SortedSetDocValuesWriter {
 }
 
 impl SortedSetDocValuesWriter {
-    pub fn new(
+    pub(crate) fn new(
         field_info: Rc<FieldInfo>,
         iw_bytes_used: CounterEnumBorrow,
         pool: ByteBlockPoolBorrow,
@@ -119,7 +119,7 @@ impl SortedSetDocValuesWriter {
         })
     }
 
-    pub fn add_value(&mut self, doc_id: i32, value: &BytesRef<Vec<u8>>) -> Result<()> {
+    pub(crate) fn add_value(&mut self, doc_id: i32, value: &BytesRef<Vec<u8>>) -> Result<()> {
         debug_assert!(doc_id >= self.current_doc);
         if value.length > (byte_block_pool_util::BYTE_BLOCK_SIZE as usize - 2) {
             return Err(LuceneError::illegal_argument(format!(
@@ -212,7 +212,7 @@ impl SortedSetDocValuesWriter {
         Ok(())
     }
 
-    pub fn finish(&mut self) -> Result<()> {
+    pub(crate) fn finish(&mut self) -> Result<()> {
         self.docs_with_field.finish();
         if self.final_ords.is_none() {
             debug_assert!(
@@ -239,7 +239,7 @@ impl SortedSetDocValuesWriter {
         }
         Ok(())
     }
-    pub fn get_values(
+    pub(crate) fn get_values(
         ord_map: Rc<Vec<i32>>,
         hash: Rc<STBytesRefHash>,
         ords: &PackedLongValues,
@@ -459,7 +459,7 @@ impl<D> BufferedSortedSetDocValues<D>
 where
     D: DocIdSetIterator,
 {
-    pub fn new(
+    pub(crate) fn new(
         ord_map: Rc<Vec<i32>>,
         hash: Rc<STBytesRefHash>,
         ords: &PackedLongValues,
@@ -569,7 +569,7 @@ impl<S> SortingSortedSetDocValues<S>
 where
     S: SortedSetDocValues,
 {
-    pub fn new(input: S, ords: DocOrds) -> Self {
+    pub(crate) fn new(input: S, ords: DocOrds) -> Self {
         Self {
             input,
             ords,
@@ -675,7 +675,7 @@ pub(crate) struct DocOrds {
 }
 
 impl DocOrds {
-    pub fn new<DM>(
+    pub(crate) fn new<DM>(
         max_doc: i32,
         sort_map: &DM,
         old_values: &mut impl SortedSetDocValues,
