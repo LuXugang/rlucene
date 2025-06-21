@@ -124,9 +124,12 @@ where
             }
             if self.buffer_upto > 0 || !reuse_first {
                 let offset = if reuse_first { 1 } else { 0 };
-                self.allocator
-                    .recycle_byte_blocks(&self.buffers, offset, self.buffer_upto + 1);
-                for _i in offset as usize..(self.buffer_upto + 1) as usize {
+                self.allocator.recycle_byte_blocks(
+                    &self.buffers,
+                    offset,
+                    (self.buffer_upto + 1) as usize,
+                );
+                for _i in offset..(self.buffer_upto + 1) as usize {
                     self.buffers.pop();
                 }
             }
@@ -361,7 +364,8 @@ where
     }
     /// the current position (in absolute value) of this byte pool .
     pub fn get_position(&mut self) -> i64 {
-        (self.buffer_upto * self.allocator.get_block_size() + self.byte_upto) as i64
+        debug_assert!(self.allocator.get_block_size() <= i32::MAX as usize);
+        (self.buffer_upto * self.allocator.get_block_size() as i32 + self.byte_upto) as i64
     }
     pub fn get_buffer_mut(&mut self, buffer_index: i32) -> &mut Vec<u8> {
         &mut self.buffers[buffer_index as usize]
