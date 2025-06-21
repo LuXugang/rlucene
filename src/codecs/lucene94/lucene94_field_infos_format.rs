@@ -198,7 +198,7 @@ impl Lucene94FieldInfosFormat {
     fn index_options_byte(index_options: &IndexOptions) -> u8 {
         match index_options {
             IndexOptions::None => 0,
-            IndexOptions::DOCS => 1,
+            IndexOptions::Docs => 1,
             IndexOptions::DocsAndFreqs => 2,
             IndexOptions::DocsAndFreqsAndPositions => 3,
             IndexOptions::DocsAndFreqsAndPositionsAndOffsets => 4,

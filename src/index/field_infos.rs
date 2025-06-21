@@ -92,7 +92,7 @@ impl FieldInfos {
             has_term_vectors |= info.has_term_vectors();
             has_postings |= info.get_index_options() != &IndexOptions::None;
             has_prox |= info.get_index_options() >= &IndexOptions::DocsAndFreqsAndPositions;
-            has_freq |= info.get_index_options() != &IndexOptions::DOCS;
+            has_freq |= info.get_index_options() != &IndexOptions::Docs;
             has_offsets |=
                 info.get_index_options() >= &IndexOptions::DocsAndFreqsAndPositionsAndOffsets;
             has_norms |= info.has_norms();

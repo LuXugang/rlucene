@@ -190,7 +190,7 @@ where
                 let sum_total_term_freq = meta_in.read_vlong()?;
                 // when frequencies are omitted, sumDocFreq=sumTotalTermFreq and only one value
                 // is written.
-                let sum_doc_freq = if *field_info.get_index_options() == IndexOptions::DOCS {
+                let sum_doc_freq = if *field_info.get_index_options() == IndexOptions::Docs {
                     sum_total_term_freq
                 } else {
                     meta_in.read_vlong()?

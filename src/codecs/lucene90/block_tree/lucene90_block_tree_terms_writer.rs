@@ -901,7 +901,7 @@ where
 
         if is_leaf_block {
             let mut stats_writer =
-                StatsWriter::new(*self.field_info.get_index_options() != IndexOptions::DOCS);
+                StatsWriter::new(*self.field_info.get_index_options() != IndexOptions::Docs);
             for i in start..end {
                 let term = match &self.pending[i] {
                     PendingEntryEnum::Term(term) => term,
@@ -946,7 +946,7 @@ where
             stats_writer.finish(self.terms_out)?;
         } else {
             let mut stats_writer =
-                StatsWriter::new(*self.field_info.get_index_options() != IndexOptions::DOCS);
+                StatsWriter::new(*self.field_info.get_index_options() != IndexOptions::Docs);
             for i in start..end {
                 match &mut self.pending[i] {
                     PendingEntryEnum::Term(term) => {
@@ -1163,7 +1163,7 @@ where
                 },
             };
             debug_assert!(
-                *self.field_info.get_index_options() == IndexOptions::DOCS
+                *self.field_info.get_index_options() == IndexOptions::Docs
                     || total_term_freq > doc_freq as i64
             );
 
@@ -1263,7 +1263,7 @@ where
             )?;
             debug_assert!(*self.field_info.get_index_options() != IndexOptions::None);
 
-            if *self.field_info.get_index_options() != IndexOptions::DOCS {
+            if *self.field_info.get_index_options() != IndexOptions::Docs {
                 meta_out.write_vlong(self.sum_total_term_freq)?;
             }
             meta_out.write_vlong(self.sum_doc_freq)?;
@@ -1282,7 +1282,7 @@ where
         } else {
             debug_assert!(
                 self.sum_total_term_freq == 0
-                    || (*self.field_info.get_index_options() == IndexOptions::DOCS
+                    || (*self.field_info.get_index_options() == IndexOptions::Docs
                         && self.sum_total_term_freq == -1)
             );
             debug_assert_eq!(self.sum_doc_freq, 0);

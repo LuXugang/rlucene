@@ -960,7 +960,7 @@ mod tests {
     fn test_tokenized_binary_field() -> Result<()> {
         let mut ft = FieldType::new();
         ft.set_tokenized(true)?;
-        ft.set_index_options(IndexOptions::DOCS)?;
+        ft.set_index_options(IndexOptions::Docs)?;
         let result = Field::with_bytes_ref("foo", Rc::new(BytesRef::new()), Arc::new(ft));
         assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
         Ok(())

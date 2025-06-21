@@ -30,7 +30,7 @@ pub enum IndexOptions {
     /// Phrase and other positional queries on the field will throw an
     /// exception, and scoring will behave as if any term in the document
     /// appears only once.
-    DOCS,
+    Docs,
     /// Only documents and term frequencies are indexed: positions are omitted.
     /// This enables normal scoring, but Phrase and other positional queries
     /// will throw an Error.

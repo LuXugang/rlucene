@@ -621,7 +621,7 @@ impl SegmentTermsEnumFrame {
                     frame.stats_singleton_run_length = (token as u32 >> 1) as i32;
                 } else {
                     state.doc_freq = (token as u32 >> 1) as i32;
-                    if *ste.fr.field_info.get_index_options() == IndexOptions::DOCS {
+                    if *ste.fr.field_info.get_index_options() == IndexOptions::Docs {
                         state.total_term_freq = state.doc_freq as i64;
                     } else {
                         state.total_term_freq =

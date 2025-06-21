@@ -37,7 +37,7 @@ static TYPE_NOT_STORED: Lazy<Arc<FieldType>> = Lazy::new(|| {
     let mut ft = FieldType::new();
     ft.set_omit_norms(true)
         .expect("set_omit_norms(true) should never fail in this context");
-    ft.set_index_options(IndexOptions::DOCS)
+    ft.set_index_options(IndexOptions::Docs)
         .expect("set_index_options should never fail in this context");
     ft.set_tokenized(false)
         .expect("set_tokenized(false) should never fail in this context");
@@ -49,7 +49,7 @@ static TYPE_STORED: Lazy<Arc<FieldType>> = Lazy::new(|| {
     let mut ft = FieldType::new();
     ft.set_omit_norms(true)
         .expect("set_omit_norms(true) should never fail in this context");
-    ft.set_index_options(IndexOptions::DOCS)
+    ft.set_index_options(IndexOptions::Docs)
         .expect("set_index_options should never fail in this context");
     ft.set_stored(true)
         .expect("set_stored(true) should never fail in this context");

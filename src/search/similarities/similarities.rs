@@ -124,7 +124,7 @@ pub trait Similarity {
         P: PayloadAttribute,
         T: TermFrequencyAttribute,
     {
-        let num_terms = if state.get_index_options() == IndexOptions::DOCS {
+        let num_terms = if state.get_index_options() == IndexOptions::Docs {
             state.get_unique_term_count()
         } else if self.get_discount_overlaps() {
             state.length() - state.num_overlap()

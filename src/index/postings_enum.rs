@@ -24,7 +24,7 @@ use std::borrow::Cow;
 /// using any of the per-doc methods.
 pub trait PostingsEnum: DocIdSetIterator {
     /// Returns term frequency in the current document, or 1 if the field was
-    /// indexed with [`DOCS`](crate::index::index_options::IndexOptions::DOCS)
+    /// indexed with [`DOCS`](crate::index::index_options::IndexOptions::Docs)
     /// only.  Do not call this before
     /// [`nextDoc`](DocIdSetIterator::next_doc) is first called, nor after
     /// [`nextDoc`](DocIdSetIterator::next_doc) returns
