@@ -90,9 +90,9 @@ impl IntBlockPool {
                 self.allocator.borrow_mut().recycle_int_blocks(
                     &self.buffers,
                     offset,
-                    self.buffer_upto + 1,
+                    (self.buffer_upto + 1) as usize,
                 );
-                for _i in offset as usize..(self.buffer_upto + 1) as usize {
+                for _i in offset..(self.buffer_upto + 1) as usize {
                     self.buffers.pop();
                 }
             }
@@ -137,14 +137,14 @@ impl IntBlockPool {
 
 /// Abstract trait for allocating and freeing byte blocks.
 pub trait AllocatorI32 {
-    fn recycle_int_blocks(&mut self, blocks: &[Vec<i32>], start: i32, end: i32);
+    fn recycle_int_blocks(&mut self, blocks: &[Vec<i32>], start: usize, end: usize);
     fn get_byte_block(&mut self) -> Vec<i32>;
-    fn get_block_size(&self) -> i32;
+    fn get_block_size(&self) -> usize;
 }
 
 /// A simple `AllocatorByte` that never recycles. */
 pub struct DirectAllocatorI32 {
-    block_size: i32,
+    block_size: usize,
 }
 
 impl Default for DirectAllocatorI32 {
@@ -156,19 +156,19 @@ impl Default for DirectAllocatorI32 {
 impl DirectAllocatorI32 {
     pub fn new() -> Self {
         DirectAllocatorI32 {
-            block_size: IntBlockPool::INT_BLOCK_SIZE,
+            block_size: IntBlockPool::INT_BLOCK_SIZE as usize,
         }
     }
 }
 
 impl AllocatorI32 for DirectAllocatorI32 {
-    fn recycle_int_blocks(&mut self, _blocks: &[Vec<i32>], _start: i32, _end: i32) {}
+    fn recycle_int_blocks(&mut self, _blocks: &[Vec<i32>], _start: usize, _end: usize) {}
 
     fn get_byte_block(&mut self) -> Vec<i32> {
-        vec![0; self.block_size as usize]
+        vec![0; self.block_size]
     }
 
-    fn get_block_size(&self) -> i32 {
+    fn get_block_size(&self) -> usize {
         self.block_size
     }
 }
@@ -176,7 +176,7 @@ pub enum AllocatorIntEnum {
     DA(DirectAllocatorI32),
 }
 impl AllocatorI32 for AllocatorIntEnum {
-    fn recycle_int_blocks(&mut self, blocks: &[Vec<i32>], start: i32, end: i32) {
+    fn recycle_int_blocks(&mut self, blocks: &[Vec<i32>], start: usize, end: usize) {
         match self {
             AllocatorIntEnum::DA(da) => da.recycle_int_blocks(blocks, start, end),
         }
@@ -188,7 +188,7 @@ impl AllocatorI32 for AllocatorIntEnum {
         }
     }
 
-    fn get_block_size(&self) -> i32 {
+    fn get_block_size(&self) -> usize {
         match self {
             AllocatorIntEnum::DA(da) => da.get_block_size(),
         }
