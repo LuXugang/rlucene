@@ -331,6 +331,38 @@ mod tests {
         }
         Ok(())
     }
+
+    #[test]
+    fn test_byte4() -> Result<()> {
+        let mut random = random();
+        let mut decoded = [0i32; 256];
+        for b in 0..256 {
+            decoded[b] = SmallFloat::byte4_to_int(b as u8)?;
+            assert_eq!(b as u8, SmallFloat::int_to_byte4(decoded[b])?,);
+        }
+        for i in 1..256 {
+            assert!(decoded[i] > decoded[i - 1]);
+        }
+
+        assert_eq!(255u8, SmallFloat::int_to_byte4(i32::MAX)?);
+        let iters = at_least(&mut random, 1_000);
+        for _ in 0..iters {
+            let exp = TestUtil::next_int(&mut random, 5, 30) as usize;
+            let bound = 1usize << exp;
+            let i = TestUtil::next_int(&mut random, 0, bound as i32) as i32;
+
+            let idx = decoded
+                .binary_search(&i)
+                .unwrap_or_else(|ins| ins.saturating_sub(1));
+
+            assert!(decoded[idx] <= i,);
+
+            let b = SmallFloat::int_to_byte4(i)?;
+            assert_eq!(idx as u8, b);
+        }
+        Ok(())
+    }
+
     #[test]
     #[ignore]
     fn test_all_floats() -> Result<()> {
