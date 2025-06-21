@@ -20,12 +20,59 @@ use crate::index::field_info::FieldInfo;
 use crate::index::index_options::IndexOptions;
 use crate::index::vector_encoding::VectorEncoding;
 use crate::index::vector_similarity_function::VectorSimilarityFunction;
+use crate::util::access::Access;
+use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::int_block_pool::{ibp_util, AllocatorI32};
+use crate::util::{Counter, CounterEnum};
 use std::collections::HashMap;
 use std::fmt::Display;
 
 #[allow(unused)]
 pub(crate) struct IndexingChain;
+
+pub struct IntBlockAllocator<C>
+where
+    C: Access<CounterEnum>,
+{
+    block_size: usize,
+    pub(crate) byte_used: C,
+}
+impl<C> IntBlockAllocator<C>
+where
+    C: Access<CounterEnum>,
+{
+    pub fn new(byte_used: C) -> Self {
+        IntBlockAllocator {
+            block_size: ibp_util::INT_BLOCK_SIZE as usize,
+            byte_used,
+        }
+    }
+}
+impl<C> AllocatorI32 for IntBlockAllocator<C>
+where
+    C: Access<CounterEnum>,
+{
+    fn recycle_int_blocks(&mut self, _blocks: &[Vec<i32>], _offset: usize, length: usize) {
+        self.byte_used.access_mut(|byte_used| {
+            let delta = length as i64 * (self.block_size as i64 * BitUtil::INT_BYTES as i64);
+            byte_used.add_and_get(-delta);
+        });
+    }
+
+    fn get_byte_block(&mut self) -> Vec<i32> {
+        let b = vec![0; ibp_util::INT_BLOCK_SIZE as usize];
+        self.byte_used.access_mut(|byte_used| {
+            byte_used.add_and_get(ibp_util::INT_BLOCK_SIZE as i64 * BitUtil::INT_BYTES as i64);
+        });
+        b
+    }
+
+    fn get_block_size(&self) -> usize {
+        self.block_size
+    }
+}
+
 /// A schema of the field in the current document. With every new document this schema is reset.
 /// As the document’s fields are processed, we update the schema with any options encountered in
 /// this document. Once processing for the document is complete, we compare the built schema of
