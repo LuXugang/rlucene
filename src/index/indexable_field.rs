@@ -21,7 +21,7 @@ use std::rc::Rc;
 
 use crate::analysis::analyzer::Analyzer;
 use crate::analysis::token_stream::TokenStream;
-use crate::document::fields::{ReaderEnum, TokenStreamEnum};
+use crate::document::fields::ReaderEnum;
 use crate::document::invertable_field::InvertableType;
 use crate::document::stored_value::StoredValue;
 use crate::index::indexable_field_type::IndexableFieldType;
@@ -56,11 +56,14 @@ pub trait IndexableField: Display {
     /// # Returns
     /// TokenStream value for indexing the document. Should always return a
     /// non-null value if the field is to be indexed.
-    fn token_stream(
+    type TokenStream: TokenStream;
+    fn token_stream<A>(
         &self,
-        _analyzer: Option<&impl Analyzer>,
-        _reuse: Option<&impl TokenStream>,
-    ) -> Result<TokenStreamEnum>;
+        analyzer: &mut A,
+        reuse: Option<Self::TokenStream>,
+    ) -> Result<Self::TokenStream>
+    where
+        A: Analyzer;
     /// Non-null if this field has a binary value.
     fn binary_value(&self) -> Result<Option<Rc<BytesRef<Vec<u8>>>>>;
 
@@ -83,7 +86,7 @@ pub trait IndexableField: Display {
 
     /// Describes how this field should be inverted. This must return a non-null
     /// value if the field indexes terms and postings.
-    fn invertable_type(&self) -> Result<&InvertableType>;
+    fn invertable_type(&self) -> &InvertableType;
 }
 
 #[cfg(test)]

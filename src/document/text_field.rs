@@ -19,7 +19,6 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use crate::analysis::analyzer::Analyzer;
-use crate::analysis::token_stream::TokenStream;
 use crate::document::field::{Field, FieldBase, Store};
 use crate::document::field_type::FieldType;
 use crate::document::fields::{ReaderEnum, TokenStreamEnum};
@@ -145,11 +144,16 @@ impl IndexableField for TextField {
         self.parent_field.field_type()
     }
 
-    fn token_stream(
+    type TokenStream = <Field as IndexableField>::TokenStream;
+
+    fn token_stream<A>(
         &self,
-        analyzer: Option<&impl Analyzer>,
-        reuse: Option<&impl TokenStream>,
-    ) -> Result<TokenStreamEnum> {
+        analyzer: &mut A,
+        reuse: Option<Self::TokenStream>,
+    ) -> Result<Self::TokenStream>
+    where
+        A: Analyzer,
+    {
         self.parent_field.token_stream(analyzer, reuse)
     }
 
@@ -177,7 +181,7 @@ impl IndexableField for TextField {
         Ok(self.stored_value.clone())
     }
 
-    fn invertable_type(&self) -> Result<&InvertableType> {
+    fn invertable_type(&self) -> &InvertableType {
         todo!()
     }
 }

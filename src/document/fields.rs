@@ -21,7 +21,6 @@ use std::sync::Arc;
 
 use crate::analysis::analyzer::Analyzer;
 use crate::analysis::dummy::dummy_token_stream::DummyTokenStream;
-use crate::analysis::token_stream::TokenStream;
 use crate::document::field::Field;
 use crate::document::field_type::FieldType;
 use crate::document::invertable_field::InvertableType;
@@ -72,16 +71,21 @@ impl IndexableField for Fields {
         }
     }
 
-    fn token_stream(
+    type TokenStream = DummyTokenStream;
+
+    fn token_stream<A>(
         &self,
-        _analyzer: Option<&impl Analyzer>,
-        _reuse: Option<&impl TokenStream>,
-    ) -> Result<TokenStreamEnum> {
+        analyzer: &mut A,
+        reuse: Option<Self::TokenStream>,
+    ) -> Result<Self::TokenStream>
+    where
+        A: Analyzer,
+    {
         match self {
-            Fields::Field(f) => f.token_stream(_analyzer, _reuse),
-            Fields::Text(f) => f.token_stream(_analyzer, _reuse),
-            Fields::String(f) => f.token_stream(_analyzer, _reuse),
-            Fields::Stored(f) => f.token_stream(_analyzer, _reuse),
+            Fields::Field(f) => f.token_stream(analyzer, reuse),
+            Fields::Text(f) => f.token_stream(analyzer, reuse),
+            Fields::String(f) => f.token_stream(analyzer, reuse),
+            Fields::Stored(f) => f.token_stream(analyzer, reuse),
         }
     }
 
@@ -139,7 +143,7 @@ impl IndexableField for Fields {
         }
     }
 
-    fn invertable_type(&self) -> Result<&InvertableType> {
+    fn invertable_type(&self) -> &InvertableType {
         match self {
             Fields::Field(f) => f.invertable_type(),
             Fields::Text(f) => f.invertable_type(),
