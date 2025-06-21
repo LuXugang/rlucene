@@ -14,11 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use strum_macros::{EnumCount, FromRepr};
+use strum_macros::{Display, EnumCount, FromRepr};
 
 /// DocValues types. Note that DocValues is strongly typed, so a field cannot
 /// have different types across different documents.
-#[derive(Debug, PartialEq, Eq, Clone, Copy, FromRepr, Hash, EnumCount)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, FromRepr, Hash, EnumCount, Display)]
 #[repr(u8)]
 pub enum DocValuesType {
     /// No doc values for this field.
