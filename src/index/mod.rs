@@ -65,6 +65,7 @@ mod index_commit;
 pub mod index_deletion_policy;
 pub mod index_file_names;
 pub mod index_options;
+pub mod index_reader;
 pub mod index_sorter;
 pub mod index_writer;
 pub mod index_writer_config;
