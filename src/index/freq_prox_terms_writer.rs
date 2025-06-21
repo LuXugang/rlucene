@@ -206,7 +206,7 @@ where
         }
         Ok(())
     }
-    fn add_field(
+    pub(crate) fn add_field(
         &mut self,
         field_invert_state: Rc<FieldInvertState<O, P, T>>,
         field_info: Rc<FieldInfo>,

@@ -25,6 +25,7 @@ use crate::search::term_statistics::TermStatistics;
 use crate::util::error::lucene_error::Result;
 use crate::util::number::Number;
 use crate::util::small_float::SmallFloat;
+use std::fmt::Display;
 /// Similarity defines the components of Lucene scoring.  
 ///
 /// *Expert: Scoring API.*  
@@ -79,7 +80,7 @@ use crate::util::small_float::SmallFloat;
 /// When [`IndexSearcher::explain(query: &Query, doc: i32)`](crate::search::index_searcher::IndexSearcher) is invoked, Lucene consults
 /// your scorer’s explanation method to detail how the score was computed, passing in the
 /// document ID and a frequency explanation.
-pub trait Similarity {
+pub trait Similarity: Display {
     /// Returns `true` if overlap tokens (tokens with a position increment of `0`) are
     /// discounted from the document’s length.
     fn get_discount_overlaps(&self) -> bool {

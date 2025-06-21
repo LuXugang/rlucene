@@ -20,11 +20,11 @@ use std::rc::Rc;
 use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
 use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
 use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
-use crate::document::fields::Fields;
 use crate::index::field_info::FieldInfo;
 use crate::index::field_invert_state::FieldInvertState;
 use crate::index::freq_prox_terms_writer::FreqProxTermsWriter;
 use crate::index::index_options::IndexOptions;
+use crate::index::indexable_field::IndexableField;
 use crate::index::parallel_postings_array::{
     ParallelPostingsArray, PostingsArrayBase, PostingsArrayEnum,
 };
@@ -298,7 +298,10 @@ where
         }
         Ok(())
     }
-    pub(crate) fn start(&mut self, field: &Fields, first: bool) -> Result<bool> {
+    pub(crate) fn start<F>(&mut self, field: &F, first: bool) -> Result<bool>
+    where
+        F: IndexableField,
+    {
         match self.next_per_field {
             Some(ref mut next_per_field) => next_per_field.start(field, first)?,
             None => true,

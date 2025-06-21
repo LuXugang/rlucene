@@ -18,7 +18,6 @@ use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
 use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
 use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
 use crate::codecs::term_vectors_writer::TermVectorsWriter;
-use crate::document::fields::Fields;
 use crate::index::field_info::FieldInfo;
 use crate::index::field_invert_state::FieldInvertState;
 use crate::index::index_options::IndexOptions;
@@ -257,7 +256,10 @@ where
         }
         Ok(())
     }
-    pub(crate) fn start(&mut self, field: &Fields, first: bool) -> Result<bool> {
+    pub(crate) fn start<F>(&mut self, field: &F, first: bool) -> Result<bool>
+    where
+        F: IndexableField,
+    {
         debug_assert!(*field.field_type().index_options() != IndexOptions::None);
 
         if first {

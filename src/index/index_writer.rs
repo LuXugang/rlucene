@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::index::merge_state::DocMap;
+use crate::util::byte_block_pool_util;
 
 pub struct IndexWriter;
 
@@ -29,6 +30,8 @@ impl IndexWriter {
     /// A variable that holds the actual maximum number of documents, which can
     /// be adjusted for testing purposes.
     pub const ACTUAL_MAX_DOCS: i32 = Self::MAX_DOCS;
+
+    pub const MAX_TERM_LENGTH: i32 = byte_block_pool_util::BYTE_BLOCK_SIZE - 1;
     pub fn set_live_commit_data(&self) {}
 
     pub fn get_actual_max_docs() -> i32 {

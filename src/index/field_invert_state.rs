@@ -33,7 +33,7 @@ where
     name: String,
     index_options: IndexOptions,
     pub(crate) position: i32,
-    length: i32,
+    pub(crate) length: i32,
     num_overlap: i32,
     pub(crate) offset: i32,
     // we must track these across field instances (multi-valued case)

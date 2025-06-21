@@ -14,22 +14,450 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::analysis::analyzer::Analyzer;
+use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
+use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
+use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
+use crate::analysis::token_stream::TokenStream;
+use crate::document::invertable_field::InvertableType;
 use crate::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::index::doc_values_type::DocValuesType;
+use crate::index::doc_values_writer::DocValuesWriter;
 use crate::index::field_info::FieldInfo;
+use crate::index::field_invert_state::FieldInvertState;
+use crate::index::freq_prox_terms_writer::FreqProxTermsWriter;
+use crate::index::freq_prox_terms_writer_per_field::FreqProxTermsWriterPerField;
 use crate::index::index_options::IndexOptions;
+use crate::index::index_writer::IndexWriter;
+use crate::index::indexable_field::IndexableField;
+use crate::index::indexable_field_type::IndexableFieldType;
+use crate::index::norm_values_writer::NormValuesWriter;
+use crate::index::point_values_writer::PointValuesWriter;
+use crate::index::term_vectors_consumer::TermVectorsConsumer;
 use crate::index::vector_encoding::VectorEncoding;
 use crate::index::vector_similarity_function::VectorSimilarityFunction;
+use crate::search::similarities::similarities::Similarity;
+use crate::store::directory::Directory;
 use crate::util::access::Access;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::int_block_pool::{ibp_util, AllocatorI32};
-use crate::util::{Counter, CounterEnum};
+use crate::util::{Counter, CounterEnum, CounterEnumBorrow, SliceCopyOps};
+use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt::Display;
+use std::rc::Rc;
+use std::sync::Arc;
 
-#[allow(unused)]
 pub(crate) struct IndexingChain;
+
+pub(crate) struct PerField<A, S, O, P, T, TS, DW>
+where
+    A: Analyzer,
+    S: Similarity,
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+    DW: DocValuesWriter,
+{
+    pub(crate) field_name: String,
+    pub(crate) index_created_version_major: i32,
+    pub(crate) schema: FieldSchema,
+    pub(crate) reserved: bool,
+    pub(crate) field_info: Option<Rc<FieldInfo>>,
+    pub(crate) similarity: Arc<S>,
+    pub(crate) invert_state: Option<FieldInvertState<O, P, T>>,
+    pub(crate) terms_hash_per_field: Option<FreqProxTermsWriterPerField<O, P, T>>,
+    pub(crate) doc_values_writer: Option<DW>,
+    pub(crate) point_values_writer: Option<PointValuesWriter>,
+    // pub(crate) knn_field_vectors_writer: Option<KnnFieldVectorsWriter>,
+    pub(crate) field_gen: i64,
+    pub(crate) next: Option<Box<PerField<A, S, O, P, T, TS, DW>>>,
+    pub(crate) norms: Option<NormValuesWriter>,
+    pub(crate) token_stream: Option<TS>,
+    pub(crate) analyzer: Arc<A>,
+    pub(crate) first: bool,
+}
+impl<A, S, O, P, T, TS, DW> PerField<A, S, O, P, T, TS, DW>
+where
+    A: Analyzer,
+    S: Similarity,
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+    TS: TokenStream,
+    DW: DocValuesWriter,
+{
+    pub(crate) fn new(
+        field_name: impl Into<String>,
+        index_created_version_major: i32,
+        schema: FieldSchema,
+        similarity: Arc<S>,
+        analyzer: Arc<A>,
+        reserved: bool,
+    ) -> Self {
+        PerField {
+            field_name: field_name.into(),
+            index_created_version_major,
+            schema,
+            reserved,
+            field_info: None,
+            similarity,
+            invert_state: None,
+            terms_hash_per_field: None,
+            doc_values_writer: None,
+            point_values_writer: None,
+            field_gen: -1,
+            next: None,
+            norms: None,
+            token_stream: None,
+            analyzer,
+            first: false,
+        }
+    }
+    pub(crate) fn reset(&mut self, doc_id: i32) {
+        self.first = true;
+        self.schema.reset(doc_id);
+    }
+
+    pub(crate) fn set_field_info(&mut self, field_info: FieldInfo) {
+        assert!(self.field_info.is_none());
+        self.field_info = Some(Rc::new(field_info));
+    }
+    pub(crate) fn set_invert_state<D: Directory>(
+        &mut self,
+        terms_hash: &mut FreqProxTermsWriter<D, O, P, T>,
+        term_vectors_writer: &mut TermVectorsConsumer<D, O, P, T>,
+        bytes_used: CounterEnumBorrow,
+    ) -> Result<()> {
+        let fi = Rc::clone(self.field_info.as_ref().unwrap());
+        let state = FieldInvertState::new(
+            self.index_created_version_major,
+            fi.name.clone(),
+            *fi.get_index_options(),
+        );
+        self.invert_state = Some(state);
+        // self.terms_hash_per_field = Some(terms_hash.add_field(
+        //     self.invert_state.as_ref().unwrap().clone(),
+        //     self.field_info.as_ref().unwrap().clone(),
+        // ));
+
+        if !fi.omits_norms() {
+            // Even if no documents actually succeed in setting a norm, we still write norms for this
+            // segment
+            debug_assert!(self.norms.is_none());
+            self.norms = Some(NormValuesWriter::new(fi.clone(), bytes_used)?);
+        }
+
+        if fi.has_term_vectors() {
+            term_vectors_writer.set_has_vectors();
+        }
+        Ok(())
+    }
+    pub(crate) fn finish<D>(
+        &mut self,
+        doc_id: i32,
+        term_vectors_consumer: &mut TermVectorsConsumer<D, O, P, T>,
+    ) -> Result<()>
+    where
+        D: Directory,
+    {
+        if !self.field_info.as_ref().unwrap().omits_norms() {
+            let norm_value = {
+                let state = self.invert_state.as_ref().unwrap();
+                if state.length == 0 {
+                    // the field exists in this document, but it did not have
+                    // any indexed tokens, so we assign a default value of zero
+                    // to the norm
+                    0
+                } else {
+                    let nv = self.similarity.compute_norm(state)?;
+                    if nv == 0 {
+                        return Err(LuceneError::illegal_state(format!(
+                            "Similarity {} returned 0 for non-empty field",
+                            self.similarity
+                        )));
+                    }
+                    nv
+                }
+            };
+            self.norms.as_mut().unwrap().add_value(doc_id, norm_value)?;
+        }
+        self.terms_hash_per_field
+            .as_mut()
+            .unwrap()
+            .finish(term_vectors_consumer);
+        Ok(())
+    }
+    /// Inverts one field for one document; first is true if this is the first time we are seeing
+    /// this field name in this document.
+    pub(crate) fn invert<F>(&mut self, doc_id: i32, field: &F, first: bool) -> Result<()>
+    where
+        F: IndexableField,
+    {
+        debug_assert!(
+            *field.field_type().index_options() >= IndexOptions::Docs,
+            "field must be indexed with at least Docs"
+        );
+
+        if first {
+            match &mut self.invert_state {
+                Some(invert_state) => {
+                    // First time we're seeing this field (indexed) in this document
+                    invert_state.reset()
+                },
+                None => {
+                    return Err(LuceneError::illegal_state("invert_state not initialized"));
+                },
+            }
+        }
+
+        match field.invertable_type() {
+            InvertableType::BINARY => {
+                self.invert_term(doc_id, field, first)?;
+            },
+            InvertableType::TokenStream => {
+                // self.invert_token_stream(doc_id, field, first)?;
+            },
+        }
+
+        Ok(())
+    }
+    fn invert_token_stream<F>(&mut self, doc_id: i32, field: &F, first: bool) -> Result<()>
+    where
+        F: IndexableField,
+    {
+        // let analyzed = field.field_type().tokenized() ;
+        // /*
+        //  * To assist people in tracking down problems in analysis components, we wish to write the field name to the infostream
+        //  * when we fail. We expect some caller to eventually deal with the real exception, so we don't want any 'catch' clauses,
+        //  * but rather a finally that takes note of the problem.
+        //  */
+        //
+        // // obtain and reuse TokenStream
+        // let mut stream = field.token_stream(
+        //     self.analyzer.as_ref().expect("analyzer must be set"),
+        //     self.token_stream.take(),
+        // )?;
+        // self.token_stream = Some(stream.clone());
+        //
+        // let mut succeeded = false;
+        // // ensure end()/close() semantics
+        // let result = (|| {
+        //     stream.reset()?;
+        //     {
+        //         let state = self.invert_state.as_mut().unwrap();
+        //         state.set_attribute_source(Some(&mut stream));
+        //     }
+        //     let thpf = self.terms_hash_per_field.as_mut().unwrap();
+        //     thpf.start(field, first)?;
+        //
+        //     while stream.increment_token()? {
+        //         let state = self.invert_state.as_mut().unwrap();
+        //         let pos_incr = state.pos_incr_attribute.get_position_increment();
+        //         state.position = state.position.saturating_add(pos_incr);
+        //         if state.position < state.last_position {
+        //             return Err(LuceneError::illegal_argument(format!(
+        //                 "invalid position increment={} for field {}",
+        //                 pos_incr,
+        //                 field.name()
+        //             )));
+        //         }
+        //         if state.position > IndexWriter::MAX_POSITION {
+        //             return Err(LuceneError::illegal_argument(format!(
+        //                 "position {} too large for field {}",
+        //                 state.position,
+        //                 field.name()
+        //             )));
+        //         }
+        //         if pos_incr == 0 {
+        //             state.num_overlap += 1;
+        //         }
+        //         state.last_position = state.position;
+        //
+        //         let start_offset = state.offset + state.offset_attribute.start_offset();
+        //         let end_offset = state.offset + state.offset_attribute.end_offset();
+        //         if start_offset < state.last_start_offset || end_offset < start_offset {
+        //             return Err(LuceneError::illegal_argument(format!(
+        //                 "invalid offsets: start={} end={} last_start={} for field {}",
+        //                 start_offset,
+        //                 end_offset,
+        //                 state.last_start_offset,
+        //                 field.name()
+        //             )));
+        //         }
+        //         state.last_start_offset = start_offset;
+        //
+        //         // update length
+        //         let tf = state.term_freq_attribute.get_term_frequency();
+        //         state.length = state.length.checked_add(tf as i64).ok_or_else(|| {
+        //             LuceneError::number_overflow(format!(
+        //                 "too many tokens for field {}",
+        //                 field.name()
+        //             ))
+        //         })?;
+        //
+        //         // add term
+        //         if let Err(e) = thpf.add(stream.term_attribute().get_bytes_ref(), doc_id) {
+        //             let mut prefix = [0u8; 30];
+        //             let br = stream.term_attribute().get_bytes_ref();
+        //             prefix.copy_from_slice(&br.bytes[br.offset..br.offset + 30]);
+        //             return Err(LuceneError::illegal_argument(format!(
+        //                 "immense term in field {}: prefix={:?}, cause={}",
+        //                 field.name(),
+        //                 prefix,
+        //                 e
+        //             )));
+        //         }
+        //     }
+        //
+        //     stream.end()?;
+        //     {
+        //         let state = self.invert_state.as_mut().unwrap();
+        //         state.position = state
+        //             .position
+        //             .saturating_add(state.pos_incr_attribute.get_position_increment());
+        //         state.offset += state.offset_attribute.end_offset();
+        //     }
+        //
+        //     succeeded = true;
+        //     Ok(())
+        // })();
+        //
+        // if !succeeded && self.info_stream.is_enabled("DW") {
+        //     self.info_stream.message(
+        //         "DW",
+        //         &format!("exception in invert_token_stream for {}", field.name()),
+        //     );
+        // }
+        //
+        // result?;
+        //
+        // if analyzed {
+        //     let state = self.invert_state.as_mut().unwrap();
+        //     state.position += self
+        //         .analyzer
+        //         .get_position_increment_gap(&self.field_info.as_ref().unwrap().name);
+        //     state.offset += self
+        //         .analyzer
+        //         .get_offset_gap(&self.field_info.as_ref().unwrap().name);
+        // }
+
+        Ok(())
+    }
+
+    fn invert_term<F>(&mut self, doc_id: i32, field: &F, first: bool) -> Result<()>
+    where
+        F: IndexableField,
+    {
+        let binary_value = field
+            .binary_value()?
+            .ok_or_else(|| LuceneError::illegal_argument(format!(
+                "Field {} returns TERM for invertable_type() and null for binary_value(), which is illegal",
+                field.name()
+            )))?;
+
+        let field_type = field.field_type();
+        if field_type.tokenized()
+            || *field_type.index_options() > IndexOptions::DocsAndFreqs
+            || field_type.store_term_vector_positions()
+            || field_type.store_term_vector_offsets()
+            || field_type.store_term_vector_payloads()
+        {
+            return Err(LuceneError::illegal_argument(format!(
+                "Fields that are tokenized or index proximity data must produce a non-null TokenStream, but {} did not",
+                field.name()
+            )));
+        }
+        let state = self.invert_state.as_mut().unwrap();
+        // TODO
+        // state.set_attribute_source();
+        state.position += 1;
+        state.length += 1;
+        let terms_hash_per_field = self.terms_hash_per_field.as_mut().unwrap();
+        terms_hash_per_field.start(field, first)?;
+        match state.length.checked_add(1) {
+            Some(new_length) => {
+                state.length = new_length;
+            },
+            None => {
+                return Err(LuceneError::number_overflow(
+                    "Field length overflowed".to_string(),
+                ));
+            },
+        }
+
+        if let Err(e) = terms_hash_per_field.add_with_bytes_ref(&binary_value, doc_id) {
+            let mut prefix = [0u8; 30];
+            prefix.copy_from(
+                &binary_value.bytes[binary_value.offset..binary_value.offset + 30],
+                0,
+            );
+            let msg = format!(
+                "Document contains at least one immense term in field=\"{}\" (whose length is longer than the max length {}), all of which were skipped. The prefix of the first immense term is: '{:?}...'",
+                self.field_info.as_ref().unwrap().name,
+                IndexWriter::MAX_TERM_LENGTH,
+                prefix
+            );
+            // if self.info_stream.is_enabled("IW") {
+            //     self.info_stream.message("IW", &format!("ERROR: {}", msg));
+            // }
+            return Err(LuceneError::illegal_state(format!("{} {}", msg, e)));
+        }
+        Ok(())
+    }
+}
+
+impl<A, S, O, P, T, TS, DW> PartialEq for PerField<A, S, O, P, T, TS, DW>
+where
+    A: Analyzer,
+    S: Similarity,
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+    DW: DocValuesWriter,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.field_name == other.field_name
+    }
+}
+impl<A, S, O, P, T, TS, DW> Eq for PerField<A, S, O, P, T, TS, DW>
+where
+    A: Analyzer,
+    S: Similarity,
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+    DW: DocValuesWriter,
+{
+}
+
+impl<A, S, O, P, T, TS, DW> PartialOrd for PerField<A, S, O, P, T, TS, DW>
+where
+    A: Analyzer,
+    S: Similarity,
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+    DW: DocValuesWriter,
+{
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.field_name.cmp(&other.field_name))
+    }
+}
+impl<A, S, O, P, T, TS, DW> Ord for PerField<A, S, O, P, T, TS, DW>
+where
+    A: Analyzer,
+    S: Similarity,
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+    DW: DocValuesWriter,
+{
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.field_name.cmp(&other.field_name)
+    }
+}
 
 pub struct IntBlockAllocator<C>
 where
