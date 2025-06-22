@@ -429,8 +429,8 @@ where
 
     /// Returns the sort order of this segment, or None if the index has no
     /// sort.
-    pub fn get_index_sort(&self) -> Option<&Sort> {
-        self.index_sort.as_ref()
+    pub fn get_index_sort(&self) -> &Option<Sort> {
+        &self.index_sort
     }
 }
 impl<D> Display for SegmentInfo<D>
