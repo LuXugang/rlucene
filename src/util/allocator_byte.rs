@@ -37,6 +37,9 @@ impl<C: Access<CounterEnum>> DirectTrackingAllocatorByte<C> {
             byte_used,
         }
     }
+    pub fn allocator_enum(byte_used: C) -> AllocatorByteEnum<C> {
+        AllocatorByteEnum::DTA(DirectTrackingAllocatorByte::new(byte_used))
+    }
 }
 
 impl<C: Access<CounterEnum>> AllocatorByte for DirectTrackingAllocatorByte<C> {
