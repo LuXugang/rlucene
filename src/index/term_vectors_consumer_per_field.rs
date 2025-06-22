@@ -341,7 +341,7 @@ where
         }
 
         if self.do_vectors && self.do_vector_offsets {
-            debug_assert!(self.field_state.off_set_attribute.is_some());
+            debug_assert!(self.field_state.offset_attribute.is_some());
         }
         Ok(self.do_vectors)
     }
@@ -364,7 +364,7 @@ where
         match postings {
             PostingsArrayEnum::TermVectors(postings) => {
                 if self.do_vector_offsets {
-                    let offset_attr = self.field_state.off_set_attribute.as_ref().unwrap();
+                    let offset_attr = self.field_state.offset_attribute.as_ref().unwrap();
                     let start_offset = self.field_state.offset + offset_attr.start_offset();
                     let end_offset = self.field_state.offset + offset_attr.end_offset();
 
@@ -375,7 +375,7 @@ where
                 }
 
                 if self.do_vector_positions {
-                    let payload_attribute = &self.field_state.pay_load_attribute;
+                    let payload_attribute = &self.field_state.payload_attribute;
 
                     let pos = self.field_state.position - postings.last_positions[term_id];
 

@@ -120,7 +120,7 @@ where
         }
     }
     pub(crate) fn write_prox(&mut self, term_id: usize, prox_code: i32) -> Result<()> {
-        if let Some(payload_attr) = &self.field_state.pay_load_attribute {
+        if let Some(payload_attr) = &self.field_state.payload_attribute {
             let payload = payload_attr.get_payload();
             if payload.length > 0 {
                 self.base.write_vint(1, (prox_code << 1) | 1)?;
@@ -152,7 +152,7 @@ where
         Ok(())
     }
     pub(crate) fn write_offsets(&mut self, term_id: usize, offset_accum: i32) -> Result<()> {
-        let offset_attribute = &self.field_state.off_set_attribute.as_ref().unwrap();
+        let offset_attribute = &self.field_state.offset_attribute.as_ref().unwrap();
         let start_offset = offset_accum + offset_attribute.start_offset();
         let end_offset = offset_accum + offset_attribute.end_offset();
 

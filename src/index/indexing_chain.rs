@@ -36,6 +36,7 @@ use crate::index::point_values_writer::PointValuesWriter;
 use crate::index::term_vectors_consumer::TermVectorsConsumer;
 use crate::index::vector_encoding::VectorEncoding;
 use crate::index::vector_similarity_function::VectorSimilarityFunction;
+use crate::index::BytesRef;
 use crate::search::similarities::similarities::Similarity;
 use crate::store::directory::Directory;
 use crate::util::access::Access;
@@ -51,7 +52,7 @@ use std::sync::Arc;
 
 pub(crate) struct IndexingChain;
 
-pub(crate) struct PerField<A, S, O, P, T, TS, DW>
+pub(crate) struct PerField<A, S, O, P, T, DW, IF>
 where
     A: Analyzer,
     S: Similarity,
@@ -59,6 +60,7 @@ where
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
     DW: DocValuesWriter,
+    IF: IndexableField,
 {
     pub(crate) field_name: String,
     pub(crate) index_created_version_major: i32,
@@ -72,21 +74,21 @@ where
     pub(crate) point_values_writer: Option<PointValuesWriter>,
     // pub(crate) knn_field_vectors_writer: Option<KnnFieldVectorsWriter>,
     pub(crate) field_gen: i64,
-    pub(crate) next: Option<Box<PerField<A, S, O, P, T, TS, DW>>>,
+    pub(crate) next: Option<Box<PerField<A, S, O, P, T, DW, IF>>>,
     pub(crate) norms: Option<NormValuesWriter>,
-    pub(crate) token_stream: Option<TS>,
+    pub(crate) token_stream: Option<IF::TokenStream>,
     pub(crate) analyzer: Arc<A>,
     pub(crate) first: bool,
 }
-impl<A, S, O, P, T, TS, DW> PerField<A, S, O, P, T, TS, DW>
+impl<A, S, O, P, T, DW, IF> PerField<A, S, O, P, T, DW, IF>
 where
     A: Analyzer,
     S: Similarity,
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
-    TS: TokenStream,
     DW: DocValuesWriter,
+    IF: IndexableField,
 {
     pub(crate) fn new(
         field_name: impl Into<String>,
@@ -223,126 +225,161 @@ where
 
         Ok(())
     }
-    fn invert_token_stream<F>(&mut self, doc_id: i32, field: &F, first: bool) -> Result<()>
-    where
-        F: IndexableField,
-    {
-        // let analyzed = field.field_type().tokenized() ;
-        // /*
-        //  * To assist people in tracking down problems in analysis components, we wish to write the field name to the infostream
-        //  * when we fail. We expect some caller to eventually deal with the real exception, so we don't want any 'catch' clauses,
-        //  * but rather a finally that takes note of the problem.
-        //  */
-        //
-        // // obtain and reuse TokenStream
-        // let mut stream = field.token_stream(
-        //     self.analyzer.as_ref().expect("analyzer must be set"),
-        //     self.token_stream.take(),
-        // )?;
-        // self.token_stream = Some(stream.clone());
-        //
-        // let mut succeeded = false;
-        // // ensure end()/close() semantics
-        // let result = (|| {
-        //     stream.reset()?;
-        //     {
-        //         let state = self.invert_state.as_mut().unwrap();
-        //         state.set_attribute_source(Some(&mut stream));
-        //     }
-        //     let thpf = self.terms_hash_per_field.as_mut().unwrap();
-        //     thpf.start(field, first)?;
-        //
-        //     while stream.increment_token()? {
-        //         let state = self.invert_state.as_mut().unwrap();
-        //         let pos_incr = state.pos_incr_attribute.get_position_increment();
-        //         state.position = state.position.saturating_add(pos_incr);
-        //         if state.position < state.last_position {
-        //             return Err(LuceneError::illegal_argument(format!(
-        //                 "invalid position increment={} for field {}",
-        //                 pos_incr,
-        //                 field.name()
-        //             )));
-        //         }
-        //         if state.position > IndexWriter::MAX_POSITION {
-        //             return Err(LuceneError::illegal_argument(format!(
-        //                 "position {} too large for field {}",
-        //                 state.position,
-        //                 field.name()
-        //             )));
-        //         }
-        //         if pos_incr == 0 {
-        //             state.num_overlap += 1;
-        //         }
-        //         state.last_position = state.position;
-        //
-        //         let start_offset = state.offset + state.offset_attribute.start_offset();
-        //         let end_offset = state.offset + state.offset_attribute.end_offset();
-        //         if start_offset < state.last_start_offset || end_offset < start_offset {
-        //             return Err(LuceneError::illegal_argument(format!(
-        //                 "invalid offsets: start={} end={} last_start={} for field {}",
-        //                 start_offset,
-        //                 end_offset,
-        //                 state.last_start_offset,
-        //                 field.name()
-        //             )));
-        //         }
-        //         state.last_start_offset = start_offset;
-        //
-        //         // update length
-        //         let tf = state.term_freq_attribute.get_term_frequency();
-        //         state.length = state.length.checked_add(tf as i64).ok_or_else(|| {
-        //             LuceneError::number_overflow(format!(
-        //                 "too many tokens for field {}",
-        //                 field.name()
-        //             ))
-        //         })?;
-        //
-        //         // add term
-        //         if let Err(e) = thpf.add(stream.term_attribute().get_bytes_ref(), doc_id) {
-        //             let mut prefix = [0u8; 30];
-        //             let br = stream.term_attribute().get_bytes_ref();
-        //             prefix.copy_from_slice(&br.bytes[br.offset..br.offset + 30]);
-        //             return Err(LuceneError::illegal_argument(format!(
-        //                 "immense term in field {}: prefix={:?}, cause={}",
-        //                 field.name(),
-        //                 prefix,
-        //                 e
-        //             )));
-        //         }
-        //     }
-        //
-        //     stream.end()?;
-        //     {
-        //         let state = self.invert_state.as_mut().unwrap();
-        //         state.position = state
-        //             .position
-        //             .saturating_add(state.pos_incr_attribute.get_position_increment());
-        //         state.offset += state.offset_attribute.end_offset();
-        //     }
-        //
-        //     succeeded = true;
-        //     Ok(())
-        // })();
-        //
+    fn invert_token_stream(&mut self, doc_id: i32, field: &IF, first: bool) -> Result<()> {
+        let analyzed = field.field_type().tokenized();
+        /*
+         * To assist people in tracking down problems in analysis components, we wish to write the field name to the infostream
+         * when we fail. We expect some caller to eventually deal with the real exception, so we don't want any 'catch' clauses,
+         * but rather a finally that takes note of the problem.
+         */
+
+        // obtain and reuse TokenStream
+        let mut stream = field.token_stream(&*self.analyzer, self.token_stream.take())?;
+
+        let mut succeeded = false;
+        // ensure end()/close() semantics
+        let result = (|| {
+            stream.reset()?;
+            {
+                let state = self.invert_state.as_mut().unwrap();
+                // state.set_attribute_source(Some(&mut stream));
+            }
+            let terms_hash_per_field = self.terms_hash_per_field.as_mut().unwrap();
+            terms_hash_per_field.start(field, first)?;
+
+            while stream.increment_token()? {
+                // If we hit an exception in stream.next below
+                // (which is fairly common, e.g. if analyzer
+                // chokes on a given document), then it's
+                // non-aborting and (above) this one document
+                // will be marked as deleted, but still
+                // consume a docID
+                let invert_state = self.invert_state.as_mut().unwrap();
+                // TODO
+                let pos_incr = 0;
+                // let pos_incr = state.pos_incr_attribute.get_position_increment();
+                invert_state.position += pos_incr;
+                if invert_state.position < invert_state.last_position {
+                    if pos_incr == 0 {
+                        return Err(LuceneError::illegal_argument(format!(
+                            "first position increment must be > 0 (got 0) for field '{}'",
+                            field.name()
+                        )));
+                    } else if pos_incr < 0 {
+                        // position increment must be > 0
+                        return Err(LuceneError::illegal_argument(format!(
+                            "position increment must be > 0 (got {}) for field '{}'",
+                            pos_incr,
+                            field.name()
+                        )));
+                    } else {
+                        return Err(LuceneError::illegal_argument(format!(
+                            "position overflowed Integer.MAX_VALUE (got posIncr={} last_position={} position={}) for field '{}'",
+                            pos_incr, invert_state.last_position, invert_state.position, field.name()
+                        )));
+                    }
+                } else if invert_state.position > IndexWriter::MAX_POSITION {
+                    return Err(LuceneError::illegal_argument(format!(
+                        "position {} too large for field {}",
+                        invert_state.position,
+                        field.name()
+                    )));
+                }
+                if pos_incr == 0 {
+                    invert_state.num_overlap += 1;
+                }
+                invert_state.last_position = invert_state.position;
+
+                let start_offset = invert_state.offset
+                    + invert_state
+                        .offset_attribute
+                        .as_ref()
+                        .unwrap()
+                        .start_offset();
+                let end_offset = invert_state.offset
+                    + invert_state.offset_attribute.as_ref().unwrap().end_offset();
+                if start_offset < invert_state.last_start_offset || end_offset < start_offset {
+                    return Err(LuceneError::illegal_argument(format!(
+                        "startOffset must be non-negative, and endOffset must be >= startOffset, and offsets must not go backwards offsets: start={} end={} last_start={} for field {}",
+                        start_offset,
+                        end_offset,
+                        invert_state.last_start_offset,
+                        field.name()
+                    )));
+                }
+                invert_state.last_start_offset = start_offset;
+
+                // update length
+                let tf = invert_state
+                    .term_freq_attribute
+                    .as_ref()
+                    .unwrap()
+                    .get_term_frequency();
+                invert_state.length = invert_state.length.checked_add(tf).ok_or_else(|| {
+                    LuceneError::number_overflow(format!(
+                        "too many tokens for field {}",
+                        field.name()
+                    ))
+                })?;
+                // If we hit an exception in here, we abort
+                // all buffered documents since the last
+                // flush, on the likelihood that the
+                // internal state of the terms hash is now
+                // corrupt and should not be flushed to a
+                // new segment:
+                if let Err(e) =
+                    // TODO
+                    terms_hash_per_field.add_with_bytes_ref(&BytesRef::new(), doc_id)
+                // terms_hash_per_field.add_with_bytes_ref(invert_state.term_attribute.as_ref().unwrap().get_bytes_ref(), doc_id)
+                {
+                    let mut prefix = [0u8; 30];
+                    // TODO
+                    let big_term: BytesRef<Vec<u8>> = BytesRef::new();
+                    // let big_term =invert_state.term_attribute.as_ref().unwrap().get_bytes_ref();
+                    prefix.copy_from(&big_term.bytes[big_term.offset..big_term.offset + 30], 0);
+                    return Err(LuceneError::illegal_argument(format!(
+                        "Document contains at least one immense term in field=\"{}\" (whose UTF8 encoding is longer than the max length {}), all of which were skipped. Please correct the analyzer to not produce such terms. The prefix of the first immense term is: '{:?}...', original message: {}",
+                        self.field_info.as_ref().unwrap().name,
+                        IndexWriter::MAX_TERM_LENGTH,
+                        prefix,
+                        e
+                    )));
+                }
+            }
+            // trigger streams to perform end-of-stream operations
+            stream.end()?;
+            {
+                // when we come back around to the field...
+                let invert_state = self.invert_state.as_mut().unwrap();
+                // TODO
+                invert_state.position += 0;
+                // invert_state.position += invert_state.pos_incr_attribute.as_ref().unwrap().get_position_increment();
+                invert_state.offset += invert_state.offset_attribute.as_ref().unwrap().end_offset();
+            }
+
+            succeeded = true;
+            Ok(())
+        })();
+
         // if !succeeded && self.info_stream.is_enabled("DW") {
         //     self.info_stream.message(
         //         "DW",
         //         &format!("exception in invert_token_stream for {}", field.name()),
         //     );
         // }
-        //
-        // result?;
-        //
-        // if analyzed {
-        //     let state = self.invert_state.as_mut().unwrap();
-        //     state.position += self
-        //         .analyzer
-        //         .get_position_increment_gap(&self.field_info.as_ref().unwrap().name);
-        //     state.offset += self
-        //         .analyzer
-        //         .get_offset_gap(&self.field_info.as_ref().unwrap().name);
-        // }
 
+        result?;
+        self.token_stream = Some(stream);
+
+        if analyzed {
+            let invert_state = self.invert_state.as_mut().unwrap();
+            invert_state.position += self
+                .analyzer
+                .get_position_increment_gap(&self.field_info.as_ref().unwrap().name);
+            invert_state.offset += self
+                .analyzer
+                .get_offset_gap(&self.field_info.as_ref().unwrap().name);
+        }
         Ok(())
     }
 
@@ -408,7 +445,7 @@ where
     }
 }
 
-impl<A, S, O, P, T, TS, DW> PartialEq for PerField<A, S, O, P, T, TS, DW>
+impl<A, S, O, P, T, DW, IF> PartialEq for PerField<A, S, O, P, T, DW, IF>
 where
     A: Analyzer,
     S: Similarity,
@@ -416,12 +453,13 @@ where
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
     DW: DocValuesWriter,
+    IF: IndexableField,
 {
     fn eq(&self, other: &Self) -> bool {
         self.field_name == other.field_name
     }
 }
-impl<A, S, O, P, T, TS, DW> Eq for PerField<A, S, O, P, T, TS, DW>
+impl<A, S, O, P, T, DW, IF> Eq for PerField<A, S, O, P, T, DW, IF>
 where
     A: Analyzer,
     S: Similarity,
@@ -429,10 +467,11 @@ where
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
     DW: DocValuesWriter,
+    IF: IndexableField,
 {
 }
 
-impl<A, S, O, P, T, TS, DW> PartialOrd for PerField<A, S, O, P, T, TS, DW>
+impl<A, S, O, P, T, DW, IF> PartialOrd for PerField<A, S, O, P, T, DW, IF>
 where
     A: Analyzer,
     S: Similarity,
@@ -440,12 +479,13 @@ where
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
     DW: DocValuesWriter,
+    IF: IndexableField,
 {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.field_name.cmp(&other.field_name))
     }
 }
-impl<A, S, O, P, T, TS, DW> Ord for PerField<A, S, O, P, T, TS, DW>
+impl<A, S, O, P, T, DW, IF> Ord for PerField<A, S, O, P, T, DW, IF>
 where
     A: Analyzer,
     S: Similarity,
@@ -453,6 +493,7 @@ where
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
     DW: DocValuesWriter,
+    IF: IndexableField,
 {
     fn cmp(&self, other: &Self) -> Ordering {
         self.field_name.cmp(&other.field_name)

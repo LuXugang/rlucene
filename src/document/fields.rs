@@ -75,7 +75,7 @@ impl IndexableField for Fields {
 
     fn token_stream<A>(
         &self,
-        analyzer: &mut A,
+        analyzer: &A,
         reuse: Option<Self::TokenStream>,
     ) -> Result<Self::TokenStream>
     where

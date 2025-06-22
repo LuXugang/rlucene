@@ -14,4 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub trait Analyzer {}
+pub trait Analyzer {
+    fn get_position_increment_gap(&self, _field_name: &str) -> i32 {
+        0
+    }
+    fn get_offset_gap(&self, _field_name: &str) -> i32 {
+        1
+    }
+}

@@ -59,7 +59,7 @@ pub trait IndexableField: Display {
     type TokenStream: TokenStream;
     fn token_stream<A>(
         &self,
-        analyzer: &mut A,
+        analyzer: &A,
         reuse: Option<Self::TokenStream>,
     ) -> Result<Self::TokenStream>
     where
