@@ -24,7 +24,7 @@ use crate::util::access::Access;
 use crate::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
 use crate::util::bytes_ref_hash::{BytesRefHash, BytesStartArray};
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::int_block_pool::{ibp_util, IntBlockPool};
+use crate::util::int_block_pool::{ibp_util, IntBlockPool, IntBlockPoolBorrow};
 use crate::util::{
     byte_block_pool_util, ByteBlockPool, ByteBlockPoolBorrow, Counter, CounterEnum,
     CounterEnumBorrow, SliceCopyOps,
@@ -41,7 +41,7 @@ use std::rc::Rc;
 /// [`BytesRefHash`]. Once this is done, internal data structures point to the
 /// current offset of each stream that can be written to.
 pub struct TermsHashPerField {
-    int_pool: Rc<RefCell<IntBlockPool<CounterEnumBorrow>>>,
+    int_pool: IntBlockPoolBorrow,
     pub(crate) byte_pool: ByteBlockPoolBorrow,
     slice_pool: ByteSlicePool,
     // for each term we store an integer per stream that points into the
@@ -103,7 +103,7 @@ impl TermsHashPerField {
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         stream_count: i32,
-        int_pool: Rc<RefCell<IntBlockPool<CounterEnumBorrow>>>,
+        int_pool: IntBlockPoolBorrow,
         byte_pool: ByteBlockPoolBorrow,
         term_byte_pool: ByteBlockPoolBorrow,
         bytes_used: CounterEnumBorrow,

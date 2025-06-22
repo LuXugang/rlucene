@@ -15,13 +15,13 @@
  * limitations under the License.
  */
 use crate::util::allocator_byte::AllocatorByteEnum;
-use crate::util::int_block_pool::{AllocatorIntEnum, IntBlockPool};
+use crate::util::int_block_pool::{AllocatorIntEnum, IntBlockPool, IntBlockPoolBorrow};
 use crate::util::{ByteBlockPool, ByteBlockPoolBorrow, CounterEnumBorrow};
 use std::cell::RefCell;
 use std::rc::Rc;
 
 pub struct TermsHash {
-    pub(crate) int_pool: Rc<RefCell<IntBlockPool<CounterEnumBorrow>>>,
+    pub(crate) int_pool: IntBlockPoolBorrow,
     pub(crate) byte_pool: ByteBlockPoolBorrow,
     pub(crate) term_byte_pool: Option<ByteBlockPoolBorrow>,
     pub(crate) bytes_used: CounterEnumBorrow,

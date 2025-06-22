@@ -17,7 +17,11 @@
 use crate::index::indexing_chain::IntBlockAllocator;
 use crate::util::access::Access;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::CounterEnum;
+use crate::util::{CounterEnum, CounterEnumBorrow, CounterEnumLock};
+use parking_lot::Mutex;
+use std::cell::RefCell;
+use std::rc::Rc;
+use std::sync::Arc;
 /// # Internal
 /// A pool for int blocks similar to `ByteBlockPool`.
 pub struct IntBlockPool<C>
@@ -136,6 +140,10 @@ where
         &mut self.buffers[buffer_index as usize]
     }
 }
+// for single thread
+pub type IntBlockPoolBorrow = Rc<RefCell<IntBlockPool<CounterEnumBorrow>>>;
+// for multi thread
+pub type IntBlockPoolLock = Arc<Mutex<IntBlockPool<CounterEnumLock>>>;
 pub mod ibp_util {
     pub(crate) const INT_BLOCK_SHIFT: i32 = 13;
     pub(crate) const INT_BLOCK_SIZE: i32 = 1 << INT_BLOCK_SHIFT;
