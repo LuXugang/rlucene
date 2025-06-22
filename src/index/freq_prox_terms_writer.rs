@@ -59,7 +59,6 @@ use crate::util::lsb_radix_sorter::LSBRadixSorter;
 use crate::util::packed::PackedInts;
 use crate::util::{CounterEnumBorrow, SliceCopyOps, Sorter, TimSorter, TimSorterBase, ToInt};
 use std::borrow::Cow;
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -82,7 +81,7 @@ where
     T: TermFrequencyAttribute,
 {
     pub(crate) fn new(
-        int_block_allocator: Rc<RefCell<AllocatorIntEnum>>,
+        int_block_allocator: AllocatorIntEnum<CounterEnumBorrow>,
         byte_block_allocator: AllocatorByteEnum<CounterEnumBorrow>,
         bytes_used: CounterEnumBorrow,
         mut next_terms_hash: TermVectorsConsumer<D, O, P, T>,

@@ -79,9 +79,7 @@ where
     T: TermFrequencyAttribute,
 {
     fn default() -> Self {
-        let int_block_allocator = Rc::new(RefCell::new(AllocatorIntEnum::DA(
-            DirectAllocatorI32::new(),
-        )));
+        let int_block_allocator = AllocatorIntEnum::DA(DirectAllocatorI32::new());
         let byte_block_allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
         let directory = Arc::new(Mutex::new(DummyDirectory));
         let info = Rc::new(SegmentInfo::default());
@@ -98,7 +96,7 @@ where
     T: TermFrequencyAttribute,
 {
     pub(crate) fn new(
-        int_block_allocator: Rc<RefCell<AllocatorIntEnum>>,
+        int_block_allocator: AllocatorIntEnum<CounterEnumBorrow>,
         byte_block_allocator: AllocatorByteEnum<CounterEnumBorrow>,
         directory: Arc<Mutex<D>>,
         info: Rc<SegmentInfo<D>>,

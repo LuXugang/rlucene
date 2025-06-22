@@ -21,14 +21,14 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 pub struct TermsHash {
-    pub(crate) int_pool: Rc<RefCell<IntBlockPool>>,
+    pub(crate) int_pool: Rc<RefCell<IntBlockPool<CounterEnumBorrow>>>,
     pub(crate) byte_pool: ByteBlockPoolBorrow,
     pub(crate) term_byte_pool: Option<ByteBlockPoolBorrow>,
     pub(crate) bytes_used: CounterEnumBorrow,
 }
 impl TermsHash {
     pub(crate) fn new(
-        int_block_allocator: Rc<RefCell<AllocatorIntEnum>>,
+        int_block_allocator: AllocatorIntEnum<CounterEnumBorrow>,
         byte_block_allocator: AllocatorByteEnum<CounterEnumBorrow>,
         bytes_used: CounterEnumBorrow,
     ) -> Self {

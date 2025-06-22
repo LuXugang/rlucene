@@ -14,13 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cell::RefCell;
-use std::rc::Rc;
-
+use crate::index::indexing_chain::IntBlockAllocator;
+use crate::util::access::Access;
 use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::CounterEnum;
 /// # Internal
 /// A pool for int blocks similar to `ByteBlockPool`.
-pub struct IntBlockPool {
+pub struct IntBlockPool<C>
+where
+    C: Access<CounterEnum>,
+{
     /// array of buffers currently used in the pool. Buffers are allocated if
     /// needed don't modify this outside of this struct
     buffers: Vec<Vec<i32>>,
@@ -31,28 +34,32 @@ pub struct IntBlockPool {
     pub(crate) int_upto: i32,
     /// Current head offset.
     pub(crate) int_offset: i32,
-    allocator: Rc<RefCell<AllocatorIntEnum>>,
+    allocator: AllocatorIntEnum<C>,
 }
-impl Default for IntBlockPool {
+impl<C> Default for IntBlockPool<C>
+where
+    C: Access<CounterEnum>,
+{
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl IntBlockPool {
+impl<C> IntBlockPool<C>
+where
+    C: Access<CounterEnum>,
+{
     /// Creates a new `IntBlockPool` with a default `Allocator`.
     ///
     /// See `IntBlockPool::next_buffer()` for more details.
     pub fn new() -> Self {
-        let allocator = Rc::new(RefCell::new(
-            AllocatorIntEnum::DA(DirectAllocatorI32::new()),
-        ));
+        let allocator = AllocatorIntEnum::DA(DirectAllocatorI32::new());
         Self::with_allocator(allocator)
     }
     /// Creates a new `IntBlockPool` with the given `Allocator`.
     ///
     /// See `IntBlockPool::next_buffer()` for more details.
-    pub fn with_allocator(allocator: Rc<RefCell<AllocatorIntEnum>>) -> Self {
+    pub fn with_allocator(allocator: AllocatorIntEnum<C>) -> Self {
         IntBlockPool {
             buffers: vec![],
             buffer_upto: -1,
@@ -83,7 +90,7 @@ impl IntBlockPool {
             }
             if self.buffer_upto > 0 || !reuse_first {
                 let offset = if reuse_first { 1 } else { 0 };
-                self.allocator.borrow_mut().recycle_int_blocks(
+                self.allocator.recycle_int_blocks(
                     &self.buffers,
                     offset,
                     (self.buffer_upto + 1) as usize,
@@ -110,8 +117,7 @@ impl IntBlockPool {
     /// call will advance the pool to its first buffer immediately.
     pub fn next_buffer(&mut self) -> Result<()> {
         if self.buffer_upto + 1 == self.buffers.len() as i32 {
-            self.buffers
-                .push(self.allocator.borrow_mut().get_byte_block());
+            self.buffers.push(self.allocator.get_byte_block());
         }
         // Allocate new buffer and advance the pool to it
         self.buffer_upto += 1;
@@ -173,33 +179,41 @@ impl AllocatorI32 for DirectAllocatorI32 {
         self.block_size
     }
 }
-pub enum AllocatorIntEnum {
+pub enum AllocatorIntEnum<C>
+where
+    C: Access<CounterEnum>,
+{
     DA(DirectAllocatorI32),
+    IBA(IntBlockAllocator<C>),
 }
-impl AllocatorI32 for AllocatorIntEnum {
+impl<C> AllocatorI32 for AllocatorIntEnum<C>
+where
+    C: Access<CounterEnum>,
+{
     fn recycle_int_blocks(&mut self, blocks: &[Vec<i32>], start: usize, end: usize) {
         match self {
             AllocatorIntEnum::DA(da) => da.recycle_int_blocks(blocks, start, end),
+            AllocatorIntEnum::IBA(iba) => iba.recycle_int_blocks(blocks, start, end),
         }
     }
 
     fn get_byte_block(&mut self) -> Vec<i32> {
         match self {
             AllocatorIntEnum::DA(da) => da.get_byte_block(),
+            AllocatorIntEnum::IBA(iba) => iba.get_byte_block(),
         }
     }
 
     fn get_block_size(&self) -> usize {
         match self {
             AllocatorIntEnum::DA(da) => da.get_block_size(),
+            AllocatorIntEnum::IBA(iba) => iba.get_block_size(),
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::cell::RefCell;
-    use std::rc::Rc;
 
     use rand::Rng;
 
@@ -208,14 +222,13 @@ mod tests {
     use crate::util::int_block_pool::{
         ibp_util, AllocatorIntEnum, DirectAllocatorI32, IntBlockPool,
     };
+    use crate::util::CounterEnumBorrow;
 
     #[test]
     fn test_write_read_reset() -> Result<()> {
         let mut random = random();
-        let allocator = Rc::new(RefCell::new(
-            AllocatorIntEnum::DA(DirectAllocatorI32::new()),
-        ));
-        let mut pool = IntBlockPool::with_allocator(allocator);
+        let allocator = AllocatorIntEnum::DA(DirectAllocatorI32::new());
+        let mut pool: IntBlockPool<CounterEnumBorrow> = IntBlockPool::with_allocator(allocator);
         pool.next_buffer()?;
 
         // Write <count> consecutive ints to the buffer, possibly allocating a
@@ -258,10 +271,8 @@ mod tests {
     }
     #[test]
     fn test_too_many_allocs() -> Result<()> {
-        let allocator = Rc::new(RefCell::new(
-            AllocatorIntEnum::DA(DirectAllocatorI32::new()),
-        ));
-        let mut pool = IntBlockPool::with_allocator(allocator);
+        let allocator = AllocatorIntEnum::DA(DirectAllocatorI32::new());
+        let mut pool: IntBlockPool<CounterEnumBorrow> = IntBlockPool::with_allocator(allocator);
         pool.next_buffer()?;
 
         let result = (|| {

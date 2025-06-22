@@ -115,22 +115,27 @@ where
             AllocatorByteEnum::DTA(dta) => dta.byte_used.access_mut(|byte_used| byte_used.get()),
         }
     }
-    pub fn recycle_byte_blocks(&mut self, blocks: &[Vec<u8>], start: usize, end: usize) {
+}
+impl<C> AllocatorByte for AllocatorByteEnum<C>
+where
+    C: Access<CounterEnum>,
+{
+    fn recycle_byte_blocks(&mut self, blocks: &[Vec<u8>], start: usize, end: usize) {
         match self {
             AllocatorByteEnum::DA(da) => da.recycle_byte_blocks(blocks, start, end),
             AllocatorByteEnum::DTA(dta) => dta.recycle_byte_blocks(blocks, start, end),
         }
     }
-    pub fn get_block_size(&self) -> usize {
-        match self {
-            AllocatorByteEnum::DA(da) => da.get_block_size(),
-            AllocatorByteEnum::DTA(dta) => dta.get_block_size(),
-        }
-    }
-    pub fn get_byte_block(&mut self) -> Vec<u8> {
+    fn get_byte_block(&mut self) -> Vec<u8> {
         match self {
             AllocatorByteEnum::DA(da) => da.get_byte_block(),
             AllocatorByteEnum::DTA(dta) => dta.get_byte_block(),
+        }
+    }
+    fn get_block_size(&self) -> usize {
+        match self {
+            AllocatorByteEnum::DA(da) => da.get_block_size(),
+            AllocatorByteEnum::DTA(dta) => dta.get_block_size(),
         }
     }
 }

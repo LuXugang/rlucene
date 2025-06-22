@@ -23,7 +23,9 @@ use parking_lot::Mutex;
 use crate::index::{BytesRef, BytesRefBuilder};
 use crate::util::access::{Access, AccessVec};
 use crate::util::accountable::Accountable;
-use crate::util::allocator_byte::{AllocatorByteEnum, MTAllocatorByteEnum, STAllocatorByteEnum};
+use crate::util::allocator_byte::{
+    AllocatorByte, AllocatorByteEnum, MTAllocatorByteEnum, STAllocatorByteEnum,
+};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::{CounterEnum, CounterEnumBorrow, CounterEnumLock, SliceCopyOps};
 

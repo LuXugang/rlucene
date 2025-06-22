@@ -41,7 +41,7 @@ use std::rc::Rc;
 /// [`BytesRefHash`]. Once this is done, internal data structures point to the
 /// current offset of each stream that can be written to.
 pub struct TermsHashPerField {
-    int_pool: Rc<RefCell<IntBlockPool>>,
+    int_pool: Rc<RefCell<IntBlockPool<CounterEnumBorrow>>>,
     pub(crate) byte_pool: ByteBlockPoolBorrow,
     slice_pool: ByteSlicePool,
     // for each term we store an integer per stream that points into the
@@ -103,7 +103,7 @@ impl TermsHashPerField {
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         stream_count: i32,
-        int_pool: Rc<RefCell<IntBlockPool>>,
+        int_pool: Rc<RefCell<IntBlockPool<CounterEnumBorrow>>>,
         byte_pool: ByteBlockPoolBorrow,
         term_byte_pool: ByteBlockPoolBorrow,
         bytes_used: CounterEnumBorrow,
@@ -989,9 +989,7 @@ pub(crate) mod tests {
             let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
             let bytes_used = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
 
-            let allocator_int = Rc::new(RefCell::new(AllocatorIntEnum::DA(
-                DirectAllocatorI32::new(),
-            )));
+            let allocator_int = AllocatorIntEnum::DA(DirectAllocatorI32::new());
             let mut writer: FreqProxTermsWriter<DummyDirectory, _, _, _> = FreqProxTermsWriter::new(
                 allocator_int,
                 allocator,
