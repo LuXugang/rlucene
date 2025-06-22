@@ -24,6 +24,7 @@ use crate::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::index::doc_values_type::DocValuesType;
 use crate::index::doc_values_writer::DocValuesWriter;
 use crate::index::field_info::FieldInfo;
+use crate::index::field_infos::build::Builder;
 use crate::index::field_invert_state::FieldInvertState;
 use crate::index::freq_prox_terms_writer::FreqProxTermsWriter;
 use crate::index::freq_prox_terms_writer_per_field::FreqProxTermsWriterPerField;
@@ -31,8 +32,11 @@ use crate::index::index_options::IndexOptions;
 use crate::index::index_writer::IndexWriter;
 use crate::index::indexable_field::IndexableField;
 use crate::index::indexable_field_type::IndexableFieldType;
+use crate::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::index::norm_values_writer::NormValuesWriter;
 use crate::index::point_values_writer::PointValuesWriter;
+use crate::index::segment_info::SegmentInfo;
+use crate::index::sorting_stored_fields_consumer::StoredFieldsConsumerEnum;
 use crate::index::term_vectors_consumer::TermVectorsConsumer;
 use crate::index::vector_encoding::VectorEncoding;
 use crate::index::vector_similarity_function::VectorSimilarityFunction;
@@ -40,17 +44,132 @@ use crate::index::BytesRef;
 use crate::search::similarities::similarities::Similarity;
 use crate::store::directory::Directory;
 use crate::util::access::Access;
+use crate::util::allocator_byte::STAllocatorByteEnum;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::int_block_pool::{ibp_util, AllocatorI32};
-use crate::util::{Counter, CounterEnum, CounterEnumBorrow, SliceCopyOps};
+use crate::util::int_block_pool::{ibp_util, AllocatorI32, AllocatorIntEnum};
+use crate::util::{ByteBlockPoolBorrow, Counter, CounterEnum, CounterEnumBorrow, SliceCopyOps};
+use parking_lot::Mutex;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::rc::Rc;
 use std::sync::Arc;
 
-pub(crate) struct IndexingChain;
+struct IndexingChain<D, D1, A, S, O, P, T, DW, IF>
+where
+    D: Directory,
+    D1: Directory,
+    A: Analyzer,
+    S: Similarity,
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+    DW: DocValuesWriter,
+    IF: IndexableField,
+{
+    bytes_used: CounterEnumBorrow,
+    field_infos: Builder,
+    terms_hash: FreqProxTermsWriter<D, O, P, T>,
+    doc_values_byte_pool: ByteBlockPoolBorrow,
+    stored_fields_consumer: StoredFieldsConsumerEnum<D, D1>,
+    term_vectors_writer: TermVectorsConsumer<D1, O, P, T>,
+    field_hash: Vec<Option<Rc<PerField<A, S, O, P, T, DW, IF>>>>,
+    hash_mask: usize,
+    total_field_count: usize,
+    next_field_gen: i64,
+    fields: Vec<Rc<PerField<A, S, O, P, T, DW, IF>>>,
+    doc_fields: Vec<Rc<PerField<A, S, O, P, T, DW, IF>>>,
+    byte_block_allocator: STAllocatorByteEnum,
+    index_writer_config: Arc<LiveIndexWriterConfig>,
+    index_created_version_major: i32,
+    has_hit_aborting_exception: bool,
+}
+impl<D, D1, A, S, O, P, T, DW, IF> IndexingChain<D, D1, A, S, O, P, T, DW, IF>
+where
+    D: Directory,
+    D1: Directory,
+    A: Analyzer,
+    S: Similarity,
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+    DW: DocValuesWriter,
+    IF: IndexableField,
+{
+    fn new(
+        index_created_version_major: i32,
+        segment_info: Rc<SegmentInfo<D>>,
+        directory: Arc<Mutex<D>>,
+        field_infos: Builder,
+        index_writer_config: Arc<LiveIndexWriterConfig>,
+    ) -> Self {
+        // let bytes_used = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
+        // let byte_block_allocator =
+        //     AllocatorByteEnum::DTA(DirectTrackingAllocatorByte::new(bytes_used.clone()));
+        // let (stored_fields_consumer, term_vectors_writer) =
+        //     if segment_info.get_index_sort().is_none() {
+        //         (
+        //             StoredFieldsConsumerEnum::UnSort(StoredFieldsConsumer::new(
+        //                 Arc::clone(&directory),
+        //                 Rc::clone(&segment_info),
+        //             )),
+        //             TermVectorsConsumer::new(
+        //                 IntBlockAllocator::allocator_enum(bytes_used.clone()),
+        //                 DirectTrackingAllocatorByte::allocator_enum(bytes_used.clone()),
+        //                 Arc::clone(&directory),
+        //                 Rc::clone(&segment_info),
+        //             ),
+        //         )
+        //     } else {
+        //         (
+        //             StoredFieldsConsumerEnum::Sort(SortingStoredFieldsConsumer::new(
+        //                 Arc::clone(&directory),
+        //                 Rc::clone(&segment_info),
+        //             )),
+        //             SortingTermVectorsConsumer::new(
+        //                 IntBlockAllocator::allocator_enum(bytes_used.clone()),
+        //                 DirectTrackingAllocatorByte::allocator_enum(bytes_used.clone()),
+        //                 Arc::clone(&directory),
+        //                 Rc::clone(&segment_info),
+        //             ),
+        //         )
+        //     };
+        //
+        // // postings writer
+        // let terms_hash = FreqProxTermsWriter::new(
+        //     IntBlockAllocator::allocator_enum(bytes_used.clone()),
+        //     DirectTrackingAllocatorByte::allocator_enum(bytes_used.clone()),
+        //     bytes_used.clone(),
+        //     term_vectors_writer.clone(),
+        // );
+        //
+        // let doc_values_byte_pool = Rc::new(RefCell::new(ByteBlockPool::new(
+        //     DirectTrackingAllocatorByte::allocator_enum(bytes_used.clone()),
+        // )));
+        //
+        // IndexingChain {
+        //     bytes_used,
+        //     field_infos,
+        //     terms_hash,
+        //     doc_values_byte_pool,
+        //     stored_fields_consumer,
+        //     // vector_values_consumer,
+        //     term_vectors_writer,
+        //     field_hash: vec![None; 2],
+        //     hash_mask: 1,
+        //     total_field_count: 0,
+        //     next_field_gen: 0,
+        //     fields: Vec::with_capacity(1),
+        //     doc_fields: Vec::with_capacity(2),
+        //     byte_block_allocator,
+        //     index_writer_config,
+        //     index_created_version_major,
+        //     has_hit_aborting_exception: false,
+        // }
+        todo!()
+    }
+}
 
 pub(crate) struct PerField<A, S, O, P, T, DW, IF>
 where
@@ -500,7 +619,7 @@ where
     }
 }
 
-pub struct IntBlockAllocator<C>
+pub(crate) struct IntBlockAllocator<C>
 where
     C: Access<CounterEnum>,
 {
@@ -511,11 +630,14 @@ impl<C> IntBlockAllocator<C>
 where
     C: Access<CounterEnum>,
 {
-    pub fn new(byte_used: C) -> Self {
+    fn new(byte_used: C) -> Self {
         IntBlockAllocator {
             block_size: ibp_util::INT_BLOCK_SIZE as usize,
             byte_used,
         }
+    }
+    fn allocator_enum(byte_used: C) -> AllocatorIntEnum<C> {
+        AllocatorIntEnum::IBA(IntBlockAllocator::new(byte_used))
     }
 }
 impl<C> AllocatorI32 for IntBlockAllocator<C>

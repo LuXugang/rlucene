@@ -319,8 +319,8 @@ where
     D1: Directory,
     D2: Directory,
 {
-    F(SortingStoredFieldsConsumer<D2>),
-    S(StoredFieldsConsumer<D1, D2>),
+    Sort(SortingStoredFieldsConsumer<D2>),
+    UnSort(StoredFieldsConsumer<D1, D2>),
 }
 impl<D1, D2> StoredFieldsConsumerBase for StoredFieldsConsumerEnum<D1, D2>
 where
@@ -329,36 +329,36 @@ where
 {
     fn init_stored_fields_writer(&mut self, codec: &impl Codec) -> Result<()> {
         match self {
-            StoredFieldsConsumerEnum::F(t) => t.init_stored_fields_writer(codec),
-            StoredFieldsConsumerEnum::S(s) => s.init_stored_fields_writer(codec),
+            StoredFieldsConsumerEnum::Sort(t) => t.init_stored_fields_writer(codec),
+            StoredFieldsConsumerEnum::UnSort(s) => s.init_stored_fields_writer(codec),
         }
     }
 
     fn start_document(&mut self, codec: &impl Codec, doc_id: i32) -> Result<()> {
         match self {
-            StoredFieldsConsumerEnum::F(t) => t.start_document(codec, doc_id),
-            StoredFieldsConsumerEnum::S(s) => s.start_document(codec, doc_id),
+            StoredFieldsConsumerEnum::Sort(t) => t.start_document(codec, doc_id),
+            StoredFieldsConsumerEnum::UnSort(s) => s.start_document(codec, doc_id),
         }
     }
 
     fn write_field(&mut self, info: &FieldInfo, value: &StoredValue) -> Result<()> {
         match self {
-            StoredFieldsConsumerEnum::F(t) => t.write_field(info, value),
-            StoredFieldsConsumerEnum::S(s) => s.write_field(info, value),
+            StoredFieldsConsumerEnum::Sort(t) => t.write_field(info, value),
+            StoredFieldsConsumerEnum::UnSort(s) => s.write_field(info, value),
         }
     }
 
     fn finish_document(&mut self) -> Result<()> {
         match self {
-            StoredFieldsConsumerEnum::F(t) => t.finish_document(),
-            StoredFieldsConsumerEnum::S(s) => s.finish_document(),
+            StoredFieldsConsumerEnum::Sort(t) => t.finish_document(),
+            StoredFieldsConsumerEnum::UnSort(s) => s.finish_document(),
         }
     }
 
     fn finish(&mut self, codec: &impl Codec, max_doc: i32) -> Result<()> {
         match self {
-            StoredFieldsConsumerEnum::F(t) => t.finish(codec, max_doc),
-            StoredFieldsConsumerEnum::S(s) => s.finish(codec, max_doc),
+            StoredFieldsConsumerEnum::Sort(t) => t.finish(codec, max_doc),
+            StoredFieldsConsumerEnum::UnSort(s) => s.finish(codec, max_doc),
         }
     }
 
@@ -374,15 +374,15 @@ where
         DM: DocMap,
     {
         match self {
-            StoredFieldsConsumerEnum::F(t) => t.flush(state, sort_map, codec),
-            StoredFieldsConsumerEnum::S(s) => s.flush(state, sort_map, codec),
+            StoredFieldsConsumerEnum::Sort(t) => t.flush(state, sort_map, codec),
+            StoredFieldsConsumerEnum::UnSort(s) => s.flush(state, sort_map, codec),
         }
     }
 
     fn abort(&mut self) -> Result<()> {
         match self {
-            StoredFieldsConsumerEnum::F(t) => t.abort(),
-            StoredFieldsConsumerEnum::S(s) => s.abort(),
+            StoredFieldsConsumerEnum::Sort(t) => t.abort(),
+            StoredFieldsConsumerEnum::UnSort(s) => s.abort(),
         }
     }
 }

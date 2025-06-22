@@ -14,5 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#[allow(unused)]
+use crate::codecs::lucene101_codec::Lucene101Codec;
+
 pub struct LiveIndexWriterConfig;
+
+impl LiveIndexWriterConfig {
+    pub fn get_code(&self) -> Lucene101Codec {
+        Lucene101Codec
+    }
+}
