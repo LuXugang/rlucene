@@ -14,4 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub trait TokenStream {}
+use crate::util::error::lucene_error::Result;
+pub trait TokenStream {
+    fn increment_token(&mut self) -> Result<bool>;
+    fn end(&mut self) -> Result<()>;
+    fn reset(&mut self) -> Result<()>;
+    fn close(&mut self) -> Result<()>;
+}

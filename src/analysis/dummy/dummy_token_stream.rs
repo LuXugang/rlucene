@@ -19,4 +19,20 @@ use crate::analysis::token_stream::TokenStream;
 #[derive(Debug)]
 pub struct DummyTokenStream;
 
-impl TokenStream for DummyTokenStream {}
+impl TokenStream for DummyTokenStream {
+    fn increment_token(&mut self) -> crate::util::error::lucene_error::Result<bool> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn end(&mut self) -> crate::util::error::lucene_error::Result<()> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn reset(&mut self) -> crate::util::error::lucene_error::Result<()> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn close(&mut self) -> crate::util::error::lucene_error::Result<()> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+}
