@@ -96,15 +96,16 @@ impl Lucene90CompressingTermVectorsFormat {
 }
 
 impl TermVectorsFormat for Lucene90CompressingTermVectorsFormat {
-    fn vectors_reader<D>(
+    fn vectors_reader<D1, D2>(
         &self,
-        directory: &mut D,
-        segment_info: Rc<SegmentInfo<D>>,
+        directory: &mut D1,
+        segment_info: Rc<SegmentInfo<D2>>,
         field_infos: Rc<FieldInfos>,
         context: &IOContext,
-    ) -> Result<TermVectorsReaderEnum<D::IndexInputType>>
+    ) -> Result<TermVectorsReaderEnum<D1::IndexInputType>>
     where
-        D: Directory,
+        D1: Directory,
+        D2: Directory,
     {
         Ok(TermVectorsReaderEnum::Lucene90(
             Lucene90CompressingTermVectorsReader::new(
@@ -119,14 +120,15 @@ impl TermVectorsFormat for Lucene90CompressingTermVectorsFormat {
         ))
     }
 
-    fn vectors_writer<D>(
+    fn vectors_writer<D1, D2>(
         &self,
-        directory: Arc<Mutex<D>>,
-        segment_info: Rc<SegmentInfo<D>>,
+        directory: Arc<Mutex<D1>>,
+        segment_info: Rc<SegmentInfo<D2>>,
         context: &IOContext,
-    ) -> Result<TermVectorsWriterEnum<D>>
+    ) -> Result<TermVectorsWriterEnum<D1>>
     where
-        D: Directory,
+        D1: Directory,
+        D2: Directory,
     {
         Ok(TermVectorsWriterEnum::Lucene90(
             Lucene90CompressingTermVectorsWriter::new(

@@ -94,9 +94,9 @@ where
     D: Directory,
 {
     #[allow(clippy::too_many_arguments)]
-    pub fn new(
+    pub fn new<D1>(
         directory: Arc<Mutex<D>>,
-        si: Rc<SegmentInfo<D>>,
+        si: Rc<SegmentInfo<D1>>,
         segment_suffix: &str,
         context: &IOContext,
         format_name: &str,
@@ -104,7 +104,10 @@ where
         chunk_size: i32,
         max_docs_per_chunk: i32,
         block_shift: i32,
-    ) -> Result<Self> {
+    ) -> Result<Self>
+    where
+        D1: Directory,
+    {
         debug_assert!(chunk_size > 0);
         debug_assert!(max_docs_per_chunk > 0);
 
