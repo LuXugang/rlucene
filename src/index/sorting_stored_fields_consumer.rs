@@ -312,3 +312,77 @@ impl Decompressor for DecompressorImpl {
         Ok(())
     }
 }
+
+// StoredFieldsConsumer
+pub enum StoredFieldsConsumerEnum<D1, D2>
+where
+    D1: Directory,
+    D2: Directory,
+{
+    F(SortingStoredFieldsConsumer<D2>),
+    S(StoredFieldsConsumer<D1, D2>),
+}
+impl<D1, D2> StoredFieldsConsumerBase for StoredFieldsConsumerEnum<D1, D2>
+where
+    D1: Directory,
+    D2: Directory,
+{
+    fn init_stored_fields_writer(&mut self, codec: &impl Codec) -> Result<()> {
+        match self {
+            StoredFieldsConsumerEnum::F(t) => t.init_stored_fields_writer(codec),
+            StoredFieldsConsumerEnum::S(s) => s.init_stored_fields_writer(codec),
+        }
+    }
+
+    fn start_document(&mut self, codec: &impl Codec, doc_id: i32) -> Result<()> {
+        match self {
+            StoredFieldsConsumerEnum::F(t) => t.start_document(codec, doc_id),
+            StoredFieldsConsumerEnum::S(s) => s.start_document(codec, doc_id),
+        }
+    }
+
+    fn write_field(&mut self, info: &FieldInfo, value: &StoredValue) -> Result<()> {
+        match self {
+            StoredFieldsConsumerEnum::F(t) => t.write_field(info, value),
+            StoredFieldsConsumerEnum::S(s) => s.write_field(info, value),
+        }
+    }
+
+    fn finish_document(&mut self) -> Result<()> {
+        match self {
+            StoredFieldsConsumerEnum::F(t) => t.finish_document(),
+            StoredFieldsConsumerEnum::S(s) => s.finish_document(),
+        }
+    }
+
+    fn finish(&mut self, codec: &impl Codec, max_doc: i32) -> Result<()> {
+        match self {
+            StoredFieldsConsumerEnum::F(t) => t.finish(codec, max_doc),
+            StoredFieldsConsumerEnum::S(s) => s.finish(codec, max_doc),
+        }
+    }
+
+    type Directory = D2;
+
+    fn flush<DM>(
+        &mut self,
+        state: &SegmentWriteState<Self::Directory>,
+        sort_map: Option<Rc<DM>>,
+        codec: &impl Codec,
+    ) -> Result<()>
+    where
+        DM: DocMap,
+    {
+        match self {
+            StoredFieldsConsumerEnum::F(t) => t.flush(state, sort_map, codec),
+            StoredFieldsConsumerEnum::S(s) => s.flush(state, sort_map, codec),
+        }
+    }
+
+    fn abort(&mut self) -> Result<()> {
+        match self {
+            StoredFieldsConsumerEnum::F(t) => t.abort(),
+            StoredFieldsConsumerEnum::S(s) => s.abort(),
+        }
+    }
+}

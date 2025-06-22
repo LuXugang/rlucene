@@ -27,6 +27,7 @@ use crate::index::postings_enum::PostingsEnum;
 use crate::index::sorted_doc_values::SortedDocValues;
 use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::index::sorted_set_doc_values::SortedSetDocValues;
+use crate::index::sorter::DocMap;
 use crate::index::term_state::{TermState, TermStateEnum};
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::index::BytesRef;
