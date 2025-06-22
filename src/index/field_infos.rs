@@ -789,21 +789,21 @@ impl FieldNumbers {
     }
 }
 pub mod build {
-    use std::collections::HashMap;
-    use std::rc::Rc;
-
     use crate::index::field_info::FieldInfo;
     use crate::index::field_infos::{FieldInfos, FieldNumbers};
     use crate::util::error::lucene_error::Result;
+    use std::collections::HashMap;
+    use std::rc::Rc;
+    use std::sync::Arc;
 
     pub struct Builder {
         by_name: HashMap<String, Rc<FieldInfo>>,
-        global_field_numbers: Rc<FieldNumbers>,
+        global_field_numbers: Arc<FieldNumbers>,
         finished: bool,
     }
     #[allow(unused)]
     impl Builder {
-        pub(crate) fn new(global_field_numbers: Rc<FieldNumbers>) -> Self {
+        pub(crate) fn new(global_field_numbers: Arc<FieldNumbers>) -> Self {
             Self {
                 by_name: HashMap::new(),
                 global_field_numbers,

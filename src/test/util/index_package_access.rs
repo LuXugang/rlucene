@@ -14,12 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::rc::Rc;
-
 use crate::index::field_info::FieldInfo;
 use crate::index::field_infos::build::Builder;
 use crate::index::field_infos::{FieldInfos, FieldNumbers};
 use crate::util::error::lucene_error::Result;
+use std::rc::Rc;
+use std::sync::Arc;
 
 pub(crate) trait IndexPackageAccess {
     // type CacheKey;
@@ -61,7 +61,7 @@ impl FieldInfosBuilderImpl {
     ) -> Result<Self> {
         let field_number = FieldNumbers::new(soft_deletes_field_name, parent_field_name)?;
         Ok(FieldInfosBuilderImpl {
-            builder: Builder::new(Rc::new(field_number)),
+            builder: Builder::new(Arc::new(field_number)),
         })
     }
 }
