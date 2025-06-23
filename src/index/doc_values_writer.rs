@@ -15,7 +15,12 @@
  * limitations under the License.
  */
 use crate::codecs::doc_values_consumer::DocValuesConsumer;
+use crate::index::binary_doc_values_writer::BinaryDocValuesWriter;
+use crate::index::numeric_doc_values_writer::NumericDocValuesWriter;
 use crate::index::segment_write_state::SegmentWriteState;
+use crate::index::sorted_doc_values_writer::SortedDocValuesWriter;
+use crate::index::sorted_numeric_doc_values_writer::SortedNumericDocValuesWriter;
+use crate::index::sorted_set_doc_values_writer::SortedSetDocValuesWriter;
 use crate::index::sorter::DocMap;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::directory::Directory;
@@ -38,13 +43,13 @@ pub(crate) trait DocValuesWriter {
     fn get_doc_values(&mut self) -> Result<Self::DocIdSetIterator>;
 }
 
-// pub(crate) enum DocValuesWriterEnum {
-//     Binary(BinaryDocValuesWriter),
-//     Numeric(NumericDocValuesWriter),
-//     SortedNumeric(SortedNumericDocValuesWriter),
-//     Sorted(SortedDocValuesWriter),
-//     SortedSet(SortedSetDocValuesWriter),
-// }
+pub(crate) enum DocValuesWriterEnum {
+    Binary(BinaryDocValuesWriter),
+    Numeric(NumericDocValuesWriter),
+    SortedNumeric(SortedNumericDocValuesWriter),
+    Sorted(SortedDocValuesWriter),
+    SortedSet(SortedSetDocValuesWriter),
+}
 // impl DocValuesWriter for DocValuesWriterEnum {
 //     fn flush<D, DM, DC>(
 //         &mut self,
