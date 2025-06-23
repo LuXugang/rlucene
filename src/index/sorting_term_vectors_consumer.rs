@@ -31,7 +31,7 @@ use crate::index::segment_write_state::SegmentWriteState;
 use crate::index::sorter::DocMap;
 use crate::index::sorting_stored_fields_consumer::NoCompression;
 use crate::index::term_vectors::TermVectors;
-use crate::index::term_vectors_consumer::TermVectorsConsumer;
+use crate::index::term_vectors_consumer::{TermVectorsConsumer, TermVectorsConsumerBase};
 use crate::index::terms::Terms;
 use crate::index::terms_enum::TermsEnum;
 use crate::index::tracking_tmp_output_directory_wrapper::TrackingTmpOutputDirectoryWrapper;
@@ -90,82 +90,7 @@ where
             stored_fields_format: None,
         }
     }
-    pub(crate) fn flush<DM>(
-        &mut self,
-        state: &mut SegmentWriteState<D>,
-        sort_map: &Option<Rc<DM>>,
-        codec: &impl Codec,
-    ) -> Result<()>
-    where
-        DM: DocMap,
-    {
-        self.base.flush(state, sort_map, codec)?;
 
-        {
-            let mut tmp_dir = self.tmp_directory.lock();
-            let mut reader = self.stored_fields_format.as_mut().unwrap().vectors_reader(
-                &mut *tmp_dir,
-                state.segment_info.clone(),
-                state.field_infos.clone(),
-                &IOContext::default_io_context()?,
-            )?;
-            // Don't pull a merge instance, since merge instances optimize for
-            // sequential access while term vectors will likely be accessed in random
-            // order here.
-            let mut writer = codec.term_vectors_format().vectors_writer(
-                state.directory.clone(),
-                state.segment_info.clone(),
-                &state.context.clone(),
-            )?;
-
-            reader.check_integrity()?;
-            let max_doc = state.segment_info.max_doc()?;
-            for doc_id in 0..max_doc {
-                let read_id = match sort_map {
-                    Some(sm) => sm.new_to_old(doc_id),
-                    None => doc_id,
-                };
-                let vectors = reader.get(read_id)?;
-                Self::write_term_vectors(&mut writer, &vectors, &state.field_infos)?;
-            }
-            writer.finish(max_doc)?;
-            let name_map: Vec<String> = tmp_dir.get_temporary_files().into_values().collect();
-            let names: Vec<&str> = name_map.iter().map(String::as_str).collect();
-            IOUtils::delete_files(&mut *tmp_dir, names.as_slice())?;
-        }
-        Ok(())
-    }
-    pub(crate) fn init_term_vectors_writer(&mut self) -> Result<()> {
-        if self.base.writer.is_none() {
-            let context = IOContext::with_flush(FlushInfo::new(
-                self.base.last_doc_id,
-                self.base.base.bytes_used.borrow().get(),
-            ))?;
-            let term_vectors_format = Lucene90CompressingTermVectorsFormat::new(
-                "TempTermVectors",
-                "",
-                CompressionModeEnum::Impl(NoCompression),
-                8 * 1024,
-                128,
-                10,
-            )?;
-            self.base.writer = Option::from(term_vectors_format.vectors_writer(
-                self.tmp_directory.clone(),
-                self.base.info.clone(),
-                &IOContext::default_io_context()?,
-            )?);
-            self.base.last_doc_id = 0;
-        }
-        Ok(())
-    }
-    pub(crate) fn abort(&mut self) -> Result<()> {
-        self.base.abort();
-        let mut tmp_dir = self.tmp_directory.lock();
-        let name_map: Vec<String> = tmp_dir.get_temporary_files().into_values().collect();
-        let names: Vec<&str> = name_map.iter().map(String::as_str).collect();
-        IOUtils::delete_files(&mut *tmp_dir, names.as_slice())?;
-        Ok(())
-    }
     fn write_term_vectors<TVW, F>(
         writer: &mut TVW,
         vectors: &Option<F>,
@@ -285,6 +210,95 @@ where
         }
         debug_assert!(field_count == num_fields);
         writer.finish_document()?;
+        Ok(())
+    }
+}
+
+impl<D, O, P, T> TermVectorsConsumerBase for SortingTermVectorsConsumer<D, O, P, T>
+where
+    D: Directory,
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+{
+    type Directory = D;
+
+    fn flush<DM>(
+        &mut self,
+        state: &mut SegmentWriteState<Self::Directory>,
+        sort_map: &Option<Rc<DM>>,
+        codec: &impl Codec,
+    ) -> Result<()>
+    where
+        DM: DocMap,
+    {
+        self.base.flush(state, sort_map, codec)?;
+
+        {
+            let mut tmp_dir = self.tmp_directory.lock();
+            let mut reader = self.stored_fields_format.as_mut().unwrap().vectors_reader(
+                &mut *tmp_dir,
+                state.segment_info.clone(),
+                state.field_infos.clone(),
+                &IOContext::default_io_context()?,
+            )?;
+            // Don't pull a merge instance, since merge instances optimize for
+            // sequential access while term vectors will likely be accessed in random
+            // order here.
+            let mut writer = codec.term_vectors_format().vectors_writer(
+                state.directory.clone(),
+                state.segment_info.clone(),
+                &state.context.clone(),
+            )?;
+
+            reader.check_integrity()?;
+            let max_doc = state.segment_info.max_doc()?;
+            for doc_id in 0..max_doc {
+                let read_id = match sort_map {
+                    Some(sm) => sm.new_to_old(doc_id),
+                    None => doc_id,
+                };
+                let vectors = reader.get(read_id)?;
+                Self::write_term_vectors(&mut writer, &vectors, &state.field_infos)?;
+            }
+            writer.finish(max_doc)?;
+            let name_map: Vec<String> = tmp_dir.get_temporary_files().into_values().collect();
+            let names: Vec<&str> = name_map.iter().map(String::as_str).collect();
+            IOUtils::delete_files(&mut *tmp_dir, names.as_slice())?;
+        }
+        Ok(())
+    }
+
+    fn init_term_vectors_writer(&mut self, _codec: &impl Codec) -> Result<()> {
+        if self.base.writer.is_none() {
+            let context = IOContext::with_flush(FlushInfo::new(
+                self.base.last_doc_id,
+                self.base.base.bytes_used.borrow().get(),
+            ))?;
+            let term_vectors_format = Lucene90CompressingTermVectorsFormat::new(
+                "TempTermVectors",
+                "",
+                CompressionModeEnum::Impl(NoCompression),
+                8 * 1024,
+                128,
+                10,
+            )?;
+            self.base.writer = Option::from(term_vectors_format.vectors_writer(
+                self.tmp_directory.clone(),
+                self.base.info.clone(),
+                &context,
+            )?);
+            self.base.last_doc_id = 0;
+        }
+        Ok(())
+    }
+
+    fn abort(&mut self) -> Result<()> {
+        self.base.abort()?;
+        let mut tmp_dir = self.tmp_directory.lock();
+        let name_map: Vec<String> = tmp_dir.get_temporary_files().into_values().collect();
+        let names: Vec<&str> = name_map.iter().map(String::as_str).collect();
+        IOUtils::delete_files(&mut *tmp_dir, names.as_slice())?;
         Ok(())
     }
 }

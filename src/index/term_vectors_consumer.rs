@@ -26,6 +26,7 @@ use crate::index::field_invert_state::FieldInvertState;
 use crate::index::segment_info::SegmentInfo;
 use crate::index::segment_write_state::SegmentWriteState;
 use crate::index::sorter::DocMap;
+use crate::index::sorting_term_vectors_consumer::SortingTermVectorsConsumer;
 use crate::index::term_vectors_consumer_per_field::TermVectorsConsumerPerField;
 use crate::index::terms_hash::TermsHash;
 use crate::index::BytesRef;
@@ -125,11 +126,11 @@ where
             base,
         }
     }
-    pub(crate) fn reset_fields(&mut self) {
+    fn reset_fields(&mut self) {
         self.per_fields.clear();
         self.num_vector_fields = 0;
     }
-    pub(crate) fn fill(&mut self, doc_id: i32) -> Result<()> {
+    fn fill(&mut self, doc_id: i32) -> Result<()> {
         while self.last_doc_id < doc_id {
             if let Some(ref mut w) = self.writer {
                 w.start_document(0)?;
@@ -143,59 +144,18 @@ where
         }
         Ok(())
     }
-    pub(crate) fn init_term_vectors_writer(
-        &mut self,
-        bytes_used: &CounterEnumBorrow,
-        codec: &impl Codec,
-    ) -> Result<()> {
-        if self.writer.is_none() {
-            let flush_info = FlushInfo::new(self.last_doc_id, bytes_used.borrow().get());
-            let context = IOContext::with_flush(flush_info)?;
 
-            self.writer = Option::from(codec.term_vectors_format().vectors_writer(
-                Arc::clone(&self.directory),
-                Rc::clone(&self.info),
-                &context,
-            )?);
-
-            self.last_doc_id = 0;
-        }
-        Ok(())
-    }
-    pub(crate) fn flush<DM>(
-        &mut self,
-        state: &mut SegmentWriteState<D2>,
-        _sort_map: &Option<Rc<DM>>,
-        _codec: &impl Codec,
-    ) -> Result<()>
-    where
-        DM: DocMap,
-    {
-        if self.writer.is_some() {
-            let num_docs = state.segment_info.max_doc()?;
-            debug_assert!(num_docs > 0);
-            // At least one doc in this run had term vectors enabled
-            self.fill(num_docs)?;
-            self.writer.as_mut().unwrap().finish(num_docs)?;
-        }
-        Ok(())
-    }
     pub(crate) fn set_has_vectors(&mut self) {
         self.has_vectors = true;
     }
-    pub(crate) fn finish_document(
-        &mut self,
-        doc_id: i32,
-        bytes_used: &CounterEnumBorrow,
-        codec: &impl Codec,
-    ) -> Result<()> {
+    pub(crate) fn finish_document(&mut self, doc_id: i32, codec: &impl Codec) -> Result<()> {
         if !self.has_vectors {
             return Ok(());
         }
 
         ArrayUtil::intro_sort_with_range(&mut self.per_fields, 0, self.num_vector_fields)?;
 
-        self.init_term_vectors_writer(bytes_used, codec)?;
+        self.init_term_vectors_writer(codec)?;
         self.fill(doc_id)?;
         // Append term vectors to the real outputs:
         self.writer
@@ -242,7 +202,121 @@ where
         self.per_fields[num_vector_fields] = field_to_flush;
         self.num_vector_fields += 1;
     }
-    pub(crate) fn abort(&mut self) {
+}
+
+impl<D1, D2, O, P, T> TermVectorsConsumerBase for TermVectorsConsumer<D1, D2, O, P, T>
+where
+    D1: Directory,
+    D2: Directory,
+
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+{
+    type Directory = D2;
+
+    fn flush<DM>(
+        &mut self,
+        state: &mut SegmentWriteState<Self::Directory>,
+        sort_map: &Option<Rc<DM>>,
+        codec: &impl Codec,
+    ) -> Result<()>
+    where
+        DM: DocMap,
+    {
+        if self.writer.is_some() {
+            let num_docs = state.segment_info.max_doc()?;
+            debug_assert!(num_docs > 0);
+            // At least one doc in this run had term vectors enabled
+            self.fill(num_docs)?;
+            self.writer.as_mut().unwrap().finish(num_docs)?;
+        }
+        Ok(())
+    }
+
+    fn init_term_vectors_writer(&mut self, codec: &impl Codec) -> Result<()> {
+        if self.writer.is_none() {
+            let flush_info = FlushInfo::new(self.last_doc_id, self.base.bytes_used.borrow().get());
+            let context = IOContext::with_flush(flush_info)?;
+
+            self.writer = Option::from(codec.term_vectors_format().vectors_writer(
+                Arc::clone(&self.directory),
+                Rc::clone(&self.info),
+                &context,
+            )?);
+
+            self.last_doc_id = 0;
+        }
+        Ok(())
+    }
+
+    fn abort(&mut self) -> Result<()> {
         self.base.reset();
+        Ok(())
+    }
+}
+
+pub(crate) trait TermVectorsConsumerBase {
+    type Directory: Directory;
+    fn flush<DM>(
+        &mut self,
+        state: &mut SegmentWriteState<Self::Directory>,
+        sort_map: &Option<Rc<DM>>,
+        codec: &impl Codec,
+    ) -> Result<()>
+    where
+        DM: DocMap;
+    fn init_term_vectors_writer(&mut self, codec: &impl Codec) -> Result<()>;
+    fn abort(&mut self) -> Result<()>;
+}
+
+pub enum TermVectorsConsumerEnum<D1, D2, O, P, T>
+where
+    D1: Directory,
+    D2: Directory,
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+{
+    Sort(SortingTermVectorsConsumer<D2, O, P, T>),
+    UnSort(TermVectorsConsumer<D1, D2, O, P, T>),
+}
+impl<D1, D2, O, P, T> TermVectorsConsumerBase for TermVectorsConsumerEnum<D1, D2, O, P, T>
+where
+    D1: Directory,
+    D2: Directory,
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+{
+    type Directory = D2;
+
+    fn flush<DM>(
+        &mut self,
+        state: &mut SegmentWriteState<Self::Directory>,
+        sort_map: &Option<Rc<DM>>,
+        codec: &impl Codec,
+    ) -> Result<()>
+    where
+        DM: DocMap,
+    {
+        match self {
+            TermVectorsConsumerEnum::Sort(consumer) => consumer.flush(state, sort_map, codec),
+            TermVectorsConsumerEnum::UnSort(consumer) => consumer.flush(state, sort_map, codec),
+        }
+    }
+
+    fn init_term_vectors_writer(&mut self, codec: &impl Codec) -> Result<()> {
+        match self {
+            TermVectorsConsumerEnum::Sort(consumer) => consumer.init_term_vectors_writer(codec),
+            TermVectorsConsumerEnum::UnSort(consumer) => consumer.init_term_vectors_writer(codec),
+        }
+    }
+
+    fn abort(&mut self) -> Result<()> {
+        match self {
+            TermVectorsConsumerEnum::Sort(consumer) => consumer.abort(),
+            TermVectorsConsumerEnum::UnSort(consumer) => consumer.abort(),
+        }
     }
 }
