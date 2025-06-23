@@ -1,0 +1,290 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
+use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
+use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
+use crate::codecs::compressing::lucene90_compressing_term_vectors_format::Lucene90CompressingTermVectorsFormat;
+use crate::codecs::compression::compression_mode::CompressionModeEnum;
+use crate::codecs::term_vectors_format::TermVectorsFormat;
+use crate::codecs::term_vectors_reader::TermVectorsReader;
+use crate::codecs::term_vectors_writer::TermVectorsWriter;
+use crate::codecs::Codec;
+use crate::index::field_infos::FieldInfos;
+use crate::index::fields::Fields;
+use crate::index::postings_enum::{postings_enum_util, PostingsEnum};
+use crate::index::segment_info::SegmentInfo;
+use crate::index::segment_write_state::SegmentWriteState;
+use crate::index::sorter::DocMap;
+use crate::index::sorting_stored_fields_consumer::NoCompression;
+use crate::index::term_vectors::TermVectors;
+use crate::index::term_vectors_consumer::TermVectorsConsumer;
+use crate::index::terms::Terms;
+use crate::index::terms_enum::TermsEnum;
+use crate::index::tracking_tmp_output_directory_wrapper::TrackingTmpOutputDirectoryWrapper;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::store::directory::Directory;
+use crate::store::flush_info::FlushInfo;
+use crate::store::IOContext;
+use crate::util::allocator_byte::AllocatorByteEnum;
+use crate::util::bytes_ref_iterator::BytesRefIterator;
+use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::int_block_pool::AllocatorIntEnum;
+use crate::util::{Counter, CounterEnumBorrow, IOUtils, ToInt};
+use parking_lot::Mutex;
+use std::borrow::Cow;
+use std::rc::Rc;
+use std::sync::Arc;
+
+pub(crate) struct SortingTermVectorsConsumer<D, O, P, T>
+where
+    D: Directory,
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+{
+    base: TermVectorsConsumer<TrackingTmpOutputDirectoryWrapper<D>, D, O, P, T>,
+    tmp_directory: Arc<Mutex<TrackingTmpOutputDirectoryWrapper<D>>>,
+    stored_fields_format: Option<Lucene90CompressingTermVectorsFormat>,
+}
+impl<D, O, P, T> SortingTermVectorsConsumer<D, O, P, T>
+where
+    D: Directory,
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+{
+    pub(crate) fn new(
+        int_block_allocator: AllocatorIntEnum<CounterEnumBorrow>,
+        byte_block_allocator: AllocatorByteEnum<CounterEnumBorrow>,
+        directory: Arc<Mutex<D>>,
+        info: Rc<SegmentInfo<D>>,
+    ) -> Self {
+        let tmp_directory = Arc::new(Mutex::new(TrackingTmpOutputDirectoryWrapper::new(
+            directory,
+        )));
+        let base = TermVectorsConsumer::new(
+            int_block_allocator,
+            byte_block_allocator,
+            tmp_directory.clone(),
+            info,
+        );
+
+        Self {
+            base,
+            tmp_directory,
+            stored_fields_format: None,
+        }
+    }
+    pub(crate) fn flush<DM>(
+        &mut self,
+        state: &mut SegmentWriteState<D>,
+        sort_map: &Option<Rc<DM>>,
+        codec: &impl Codec,
+    ) -> Result<()>
+    where
+        DM: DocMap,
+    {
+        self.base.flush(state, sort_map, codec)?;
+
+        {
+            let mut tmp_dir = self.tmp_directory.lock();
+            let mut reader = self.stored_fields_format.as_mut().unwrap().vectors_reader(
+                &mut *tmp_dir,
+                state.segment_info.clone(),
+                state.field_infos.clone(),
+                &IOContext::default_io_context()?,
+            )?;
+            // Don't pull a merge instance, since merge instances optimize for
+            // sequential access while term vectors will likely be accessed in random
+            // order here.
+            let mut writer = codec.term_vectors_format().vectors_writer(
+                state.directory.clone(),
+                state.segment_info.clone(),
+                &state.context.clone(),
+            )?;
+
+            reader.check_integrity()?;
+            let max_doc = state.segment_info.max_doc()?;
+            for doc_id in 0..max_doc {
+                let read_id = match sort_map {
+                    Some(sm) => sm.new_to_old(doc_id),
+                    None => doc_id,
+                };
+                let vectors = reader.get(read_id)?;
+                Self::write_term_vectors(&mut writer, &vectors, &state.field_infos)?;
+            }
+            writer.finish(max_doc)?;
+            let values: Vec<String> = tmp_dir.get_temporary_files().values().cloned().collect();
+            let name: Vec<&str> = values.iter().map(String::as_str).collect();
+            IOUtils::delete_files(&mut *tmp_dir, name.as_slice())?;
+        }
+        Ok(())
+    }
+    pub(crate) fn init_term_vectors_writer(&mut self) -> Result<()> {
+        if self.base.writer.is_none() {
+            let context = IOContext::with_flush(FlushInfo::new(
+                self.base.last_doc_id,
+                self.base.base.bytes_used.borrow().get(),
+            ))?;
+            let term_vectors_format = Lucene90CompressingTermVectorsFormat::new(
+                "TempTermVectors",
+                "",
+                CompressionModeEnum::Impl(NoCompression),
+                8 * 1024,
+                128,
+                10,
+            )?;
+            self.base.writer = Option::from(term_vectors_format.vectors_writer(
+                self.tmp_directory.clone(),
+                self.base.info.clone(),
+                &IOContext::default_io_context()?,
+            )?);
+            self.base.last_doc_id = 0;
+        }
+        Ok(())
+    }
+    pub(crate) fn abort(&mut self) -> Result<()> {
+        self.base.abort();
+        let mut dir = self.tmp_directory.lock();
+        let values: Vec<String> = dir.get_temporary_files().values().cloned().collect();
+        let name: Vec<&str> = values.iter().map(String::as_str).collect();
+        IOUtils::delete_files(&mut *dir, name.as_slice())?;
+        Ok(())
+    }
+    fn write_term_vectors<TVW, F>(
+        writer: &mut TVW,
+        vectors: &Option<F>,
+        field_infos: &Rc<FieldInfos>,
+    ) -> Result<()>
+    where
+        TVW: TermVectorsWriter,
+        F: Fields,
+    {
+        if vectors.is_none() {
+            writer.start_document(0)?;
+            writer.finish_document()?;
+            return Ok(());
+        }
+        let vectors = vectors.as_ref().unwrap();
+
+        let mut num_fields = vectors.size()?;
+        if num_fields == -1 {
+            // count manually! TODO: Maybe enforce that Fields.size() returns something valid?
+            for _ in vectors.iterator() {
+                num_fields += 1;
+            }
+        }
+        writer.start_document(num_fields)?;
+        let mut last_field_name: Option<String> = None;
+        let mut docs_and_positions = None;
+        let mut field_count = 0;
+        let mut terms_enum;
+        for field_name in vectors.iterator() {
+            field_count += 1;
+            let field_info = match field_infos.field_info_by_name(field_name) {
+                Some(fi) => fi,
+                None => {
+                    return Err(LuceneError::illegal_state(format!(
+                        "Field '{}' not found in FieldInfos",
+                        field_name
+                    )));
+                },
+            };
+
+            debug_assert!({
+                let v = last_field_name.is_none()
+                    || field_name.cmp(last_field_name.as_ref().unwrap()).to_int() > 0;
+                last_field_name = Some(field_name.clone());
+                v
+            });
+
+            let terms = match vectors.terms(field_name)? {
+                Some(t) => t,
+                None => continue,
+            };
+
+            let has_positions = terms.has_positions();
+            let has_offsets = terms.has_offsets();
+            let has_payloads = terms.has_payloads();
+            debug_assert!(!has_payloads || has_positions);
+
+            let mut num_terms = terms.size()?;
+            if num_terms == -1 {
+                // count manually. It is stupid, but needed, as Terms.size() is not a mandatory statistics
+                // function
+                num_terms = 0;
+                terms_enum = terms.iterator()?;
+                while terms_enum.next()?.is_some() {
+                    num_terms += 1;
+                }
+            }
+            writer.start_field(
+                &field_info,
+                num_terms as usize,
+                has_positions,
+                has_offsets,
+                has_payloads,
+            )?;
+            terms_enum = terms.iterator()?;
+            let mut term_count = 0;
+            while terms_enum.next()?.is_some() {
+                term_count += 1;
+
+                let freq = terms_enum.total_term_freq()? as i32;
+                writer.start_term(&*terms_enum.term()?, freq)?;
+
+                if has_positions || has_offsets {
+                    docs_and_positions = Some(terms_enum.postings_with_flags(
+                        docs_and_positions,
+                        (postings_enum_util::OFFSETS | postings_enum_util::PAYLOADS) as i32,
+                    )?);
+                    match docs_and_positions {
+                        Some(ref mut dap) => {
+                            let doc_id = dap.next_doc()?;
+                            debug_assert!(doc_id != NO_MORE_DOCS);
+                            debug_assert!(dap.freq()? == freq);
+
+                            for _ in 0..freq {
+                                let pos = dap.next_position()?;
+                                let start_offset = dap.start_offset()?;
+                                let end_offset = dap.end_offset()?;
+                                let payload = dap.get_payload()?;
+                                debug_assert!(!has_positions || pos >= 0);
+                                writer.add_position(
+                                    pos,
+                                    start_offset,
+                                    end_offset,
+                                    payload.as_ref().map(Cow::as_ref),
+                                )?;
+                            }
+                        },
+                        None => {
+                            debug_assert!(false, "docs_and_positions is None");
+                        },
+                    }
+                }
+                writer.finish_term()?;
+            }
+            debug_assert!(term_count == num_terms);
+            writer.finish_field()?;
+        }
+        debug_assert!(field_count == num_fields);
+        writer.finish_document()?;
+        Ok(())
+    }
+}

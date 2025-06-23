@@ -56,10 +56,10 @@ use std::fmt::Display;
 use std::rc::Rc;
 use std::sync::Arc;
 
-struct IndexingChain<D, D1, A, S, O, P, T, DW, IF>
+struct IndexingChain<D1, D2, A, S, O, P, T, DW, IF>
 where
-    D: Directory,
     D1: Directory,
+    D2: Directory,
     A: Analyzer,
     S: Similarity,
     O: OffsetAttribute,
@@ -70,10 +70,10 @@ where
 {
     bytes_used: CounterEnumBorrow,
     field_infos: Builder,
-    terms_hash: FreqProxTermsWriter<D, O, P, T>,
+    terms_hash: FreqProxTermsWriter<D1, D2, O, P, T>,
     doc_values_byte_pool: ByteBlockPoolBorrow,
-    stored_fields_consumer: StoredFieldsConsumerEnum<D, D1>,
-    term_vectors_writer: TermVectorsConsumer<D1, O, P, T>,
+    stored_fields_consumer: StoredFieldsConsumerEnum<D1, D2>,
+    term_vectors_writer: TermVectorsConsumer<D1, D2, O, P, T>,
     field_hash: Vec<Option<Rc<PerField<A, S, O, P, T, DW, IF>>>>,
     hash_mask: usize,
     total_field_count: usize,
@@ -85,10 +85,10 @@ where
     index_created_version_major: i32,
     has_hit_aborting_exception: bool,
 }
-impl<D, D1, A, S, O, P, T, DW, IF> IndexingChain<D, D1, A, S, O, P, T, DW, IF>
+impl<D1, D2, A, S, O, P, T, DW, IF> IndexingChain<D1, D2, A, S, O, P, T, DW, IF>
 where
-    D: Directory,
     D1: Directory,
+    D2: Directory,
     A: Analyzer,
     S: Similarity,
     O: OffsetAttribute,
@@ -99,8 +99,8 @@ where
 {
     fn new(
         index_created_version_major: i32,
-        segment_info: Rc<SegmentInfo<D>>,
-        directory: Arc<Mutex<D>>,
+        segment_info: Rc<SegmentInfo<D2>>,
+        directory: Arc<Mutex<D2>>,
         field_infos: Builder,
         index_writer_config: Arc<LiveIndexWriterConfig>,
     ) -> Self {
@@ -245,12 +245,16 @@ where
         assert!(self.field_info.is_none());
         self.field_info = Some(Rc::new(field_info));
     }
-    pub(crate) fn set_invert_state<D: Directory>(
+    pub(crate) fn set_invert_state<D1, D2>(
         &mut self,
-        terms_hash: &mut FreqProxTermsWriter<D, O, P, T>,
-        term_vectors_writer: &mut TermVectorsConsumer<D, O, P, T>,
+        terms_hash: &mut FreqProxTermsWriter<D1, D2, O, P, T>,
+        term_vectors_writer: &mut TermVectorsConsumer<D1, D2, O, P, T>,
         bytes_used: CounterEnumBorrow,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        D1: Directory,
+        D2: Directory,
+    {
         let fi = Rc::clone(self.field_info.as_ref().unwrap());
         let state = FieldInvertState::new(
             self.index_created_version_major,
@@ -275,13 +279,14 @@ where
         }
         Ok(())
     }
-    pub(crate) fn finish<D>(
+    pub(crate) fn finish<D1, D2>(
         &mut self,
         doc_id: i32,
-        term_vectors_consumer: &mut TermVectorsConsumer<D, O, P, T>,
+        term_vectors_consumer: &mut TermVectorsConsumer<D1, D2, O, P, T>,
     ) -> Result<()>
     where
-        D: Directory,
+        D1: Directory,
+        D2: Directory,
     {
         if !self.field_info.as_ref().unwrap().omits_norms() {
             let norm_value = {

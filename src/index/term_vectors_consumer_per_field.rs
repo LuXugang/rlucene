@@ -106,13 +106,14 @@ where
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 {
-    pub(crate) fn new<D>(
+    pub(crate) fn new<D1, D2>(
         field_invert_state: Rc<FieldInvertState<O, P, T>>,
-        terms_hash: &mut TermVectorsConsumer<D, O, P, T>,
+        terms_hash: &mut TermVectorsConsumer<D1, D2, O, P, T>,
         field_info: Rc<FieldInfo>,
     ) -> Self
     where
-        D: Directory,
+        D1: Directory,
+        D2: Directory,
     {
         let postings_array_wrapper = PostingsArrayWrapper::new(TermsHashPerFieldType::TermVectors);
         let base = TermsHashPerField::new(
@@ -142,12 +143,13 @@ where
         }
     }
 
-    pub(crate) fn finish_document<D>(
+    pub(crate) fn finish_document<D1, D2>(
         &mut self,
-        term_vectors_consumer: &mut TermVectorsConsumer<D, O, P, T>,
+        term_vectors_consumer: &mut TermVectorsConsumer<D1, D2, O, P, T>,
     ) -> Result<()>
     where
-        D: Directory,
+        D1: Directory,
+        D2: Directory,
     {
         if !self.do_vectors {
             return Ok(());
@@ -449,9 +451,12 @@ where
 
         Ok(freq)
     }
-    pub(crate) fn finish<D>(self, term_vectors_consumer: &mut TermVectorsConsumer<D, O, P, T>)
-    where
-        D: Directory,
+    pub(crate) fn finish<D1, D2>(
+        self,
+        term_vectors_consumer: &mut TermVectorsConsumer<D1, D2, O, P, T>,
+    ) where
+        D1: Directory,
+        D2: Directory,
     {
         if !self.do_vectors || self.base.get_num_terms() == 0 {
             return;

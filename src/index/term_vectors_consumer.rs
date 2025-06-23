@@ -48,16 +48,17 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 
-pub(crate) struct TermVectorsConsumer<D, O, P, T>
+pub(crate) struct TermVectorsConsumer<D1, D2, O, P, T>
 where
-    D: Directory,
+    D1: Directory,
+    D2: Directory,
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 {
-    directory: Arc<Mutex<D>>,
-    info: Rc<SegmentInfo<D>>,
-    pub(crate) writer: Option<TermVectorsWriterEnum<D>>,
+    directory: Arc<Mutex<D1>>,
+    pub(crate) info: Rc<SegmentInfo<D2>>,
+    pub(crate) writer: Option<TermVectorsWriterEnum<D1>>,
     // Scratch term used by TermVectorsConsumerPerField.finishDocument.
     pub(crate) flush_term: BytesRef<Vec<u8>>,
     // Used by TermVectorsConsumerPerField when serializing the term vectors.
@@ -65,14 +66,14 @@ where
     pub(crate) vector_slice_reader_off: Option<ByteSliceReader>,
     has_vectors: bool,
     num_vector_fields: i32,
-    last_doc_id: i32,
+    pub(crate) last_doc_id: i32,
     per_fields: Vec<TermVectorsConsumerPerField<O, P, T>>,
 
     pub(crate) base: TermsHash,
 }
 
 #[cfg(test)]
-impl<O, P, T> Default for TermVectorsConsumer<DummyDirectory, O, P, T>
+impl<O, P, T> Default for TermVectorsConsumer<DummyDirectory, DummyDirectory, O, P, T>
 where
     O: OffsetAttribute,
     P: PayloadAttribute,
@@ -87,9 +88,10 @@ where
     }
 }
 
-impl<D, O, P, T> TermVectorsConsumer<D, O, P, T>
+impl<D1, D2, O, P, T> TermVectorsConsumer<D1, D2, O, P, T>
 where
-    D: Directory,
+    D1: Directory,
+    D2: Directory,
 
     O: OffsetAttribute,
     P: PayloadAttribute,
@@ -98,8 +100,8 @@ where
     pub(crate) fn new(
         int_block_allocator: AllocatorIntEnum<CounterEnumBorrow>,
         byte_block_allocator: AllocatorByteEnum<CounterEnumBorrow>,
-        directory: Arc<Mutex<D>>,
-        info: Rc<SegmentInfo<D>>,
+        directory: Arc<Mutex<D1>>,
+        info: Rc<SegmentInfo<D2>>,
     ) -> Self {
         let base = TermsHash::new(
             int_block_allocator,
@@ -162,8 +164,9 @@ where
     }
     pub(crate) fn flush<DM>(
         &mut self,
-        state: &mut SegmentWriteState<D>,
+        state: &mut SegmentWriteState<D2>,
         _sort_map: &Option<Rc<DM>>,
+        _codec: &impl Codec,
     ) -> Result<()>
     where
         DM: DocMap,

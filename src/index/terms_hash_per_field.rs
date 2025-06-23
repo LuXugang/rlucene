@@ -990,12 +990,13 @@ pub(crate) mod tests {
             let bytes_used = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
 
             let allocator_int = AllocatorIntEnum::DA(DirectAllocatorI32::new());
-            let mut writer: FreqProxTermsWriter<DummyDirectory, _, _, _> = FreqProxTermsWriter::new(
-                allocator_int,
-                allocator,
-                bytes_used,
-                TermVectorsConsumer::default(),
-            );
+            let mut writer: FreqProxTermsWriter<DummyDirectory, DummyDirectory, _, _, _> =
+                FreqProxTermsWriter::new(
+                    allocator_int,
+                    allocator,
+                    bytes_used,
+                    TermVectorsConsumer::default(),
+                );
 
             let allocator_term = AllocatorByteEnum::DA(DirectAllocatorByte::new());
             writer.base.term_byte_pool =

@@ -62,20 +62,22 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-pub(crate) struct FreqProxTermsWriter<D, O, P, T>
+pub(crate) struct FreqProxTermsWriter<D1, D2, O, P, T>
 where
-    D: Directory,
+    D1: Directory,
+    D2: Directory,
 
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 {
-    pub(crate) next_terms_hash: Option<TermVectorsConsumer<D, O, P, T>>,
+    pub(crate) next_terms_hash: Option<TermVectorsConsumer<D1, D2, O, P, T>>,
     pub(crate) base: TermsHash,
 }
-impl<D, O, P, T> FreqProxTermsWriter<D, O, P, T>
+impl<D1, D2, O, P, T> FreqProxTermsWriter<D1, D2, O, P, T>
 where
-    D: Directory,
+    D1: Directory,
+    D2: Directory,
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
@@ -84,7 +86,7 @@ where
         int_block_allocator: AllocatorIntEnum<CounterEnumBorrow>,
         byte_block_allocator: AllocatorByteEnum<CounterEnumBorrow>,
         bytes_used: CounterEnumBorrow,
-        mut next_terms_hash: TermVectorsConsumer<D, O, P, T>,
+        mut next_terms_hash: TermVectorsConsumer<D1, D2, O, P, T>,
     ) -> Self {
         let mut base = TermsHash::new(int_block_allocator, byte_block_allocator, bytes_used);
         base.term_byte_pool = Some(base.byte_pool.clone());
@@ -97,11 +99,12 @@ where
     }
     fn apply_deletes(
         &self,
-        state: &mut SegmentWriteState<D>,
+        state: &mut SegmentWriteState<D2>,
         fields: FreqProxFields<O, P, T>,
     ) -> Result<()>
     where
-        D: Directory,
+        D1: Directory,
+        D2: Directory,
         O: OffsetAttribute,
         P: PayloadAttribute,
         T: TermFrequencyAttribute,
@@ -150,16 +153,17 @@ where
     fn flush<N, DM>(
         &mut self,
         fields_to_flush: HashMap<String, FreqProxTermsWriterPerField<O, P, T>>,
-        state: &mut SegmentWriteState<D>,
+        state: &mut SegmentWriteState<D2>,
         sort_map: Option<Rc<DM>>,
-        norms: &mut N,
+        _norms: &mut N,
+        codec: &impl Codec,
     ) -> Result<()>
     where
         N: NormsProducer,
         DM: DocMap,
     {
         if let Some(term_vector_consumer) = self.next_terms_hash.as_mut() {
-            term_vector_consumer.flush(state, &sort_map)?;
+            term_vector_consumer.flush(state, &sort_map, codec)?;
         }
         if !state.field_infos.has_postings() {
             return Ok(());
