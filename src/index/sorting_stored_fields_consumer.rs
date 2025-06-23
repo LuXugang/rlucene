@@ -39,8 +39,6 @@ use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{DataInput, DataOutput, IOContext};
 use crate::util::array_util::ArrayUtil;
 use crate::util::clone::TryClone;
-#[cfg(test)]
-use crate::util::error::lucene_error::LuceneError;
 use crate::util::error::lucene_error::Result;
 use crate::util::IOUtils;
 use parking_lot::Mutex;
@@ -52,6 +50,7 @@ pub(crate) struct SortingStoredFieldsConsumer<D>
 where
     D: Directory,
 {
+    pub(crate) writer: Option<StoredFieldsWriterEnum<TrackingTmpOutputDirectoryWrapper<D>>>,
     tmp_directory: Arc<Mutex<TrackingTmpOutputDirectoryWrapper<D>>>,
     stored_fields_format: Option<Lucene90CompressingStoredFieldsFormat>,
 }
@@ -64,6 +63,7 @@ where
             directory,
         )));
         Self {
+            writer: None,
             tmp_directory,
             stored_fields_format: None,
         }
@@ -74,12 +74,9 @@ impl<D> StoredFieldsConsumerBase for SortingStoredFieldsConsumer<D>
 where
     D: Directory,
 {
-    type TempDirectory = TrackingTmpOutputDirectoryWrapper<D>;
+    type Directory = D;
 
-    fn init_stored_fields_writer(
-        &mut self,
-        info: Rc<SegmentInfo<Self::Directory>>,
-    ) -> Result<StoredFieldsWriterEnum<Self::TempDirectory>> {
+    fn init_stored_fields_writer(&mut self, info: Rc<SegmentInfo<Self::Directory>>) -> Result<()> {
         let stored_fields_format = Lucene90CompressingStoredFieldsFormat::new(
             "TempStoredFields",
             CompressionModeEnum::Impl(NoCompression),
@@ -87,25 +84,14 @@ where
             1,
             10,
         )?;
-        let writer = stored_fields_format.fields_writer(
+        self.writer = Some(stored_fields_format.fields_writer(
             self.tmp_directory.clone(),
             info.clone(),
             &IOContext::default_io_context()?,
-        )?;
+        )?);
         self.stored_fields_format = Some(stored_fields_format);
-        Ok(writer)
+        Ok(())
     }
-
-    #[cfg(test)]
-    fn start_document(&mut self, _codec: &impl Codec, _doc_id: i32) -> Result<()> {
-        Err(LuceneError::not_implemented(""))
-    }
-    #[cfg(test)]
-    fn finish_document(&mut self) -> Result<()> {
-        Err(LuceneError::not_implemented(""))
-    }
-
-    type Directory = D;
 
     fn flush<DM>(
         &mut self,

@@ -37,6 +37,7 @@ use crate::index::norm_values_writer::NormValuesWriter;
 use crate::index::point_values_writer::PointValuesWriter;
 use crate::index::segment_info::SegmentInfo;
 use crate::index::sorting_stored_fields_consumer::SortingStoredFieldsConsumer;
+use crate::index::sorting_term_vectors_consumer::SortingTermVectorsConsumer;
 use crate::index::stored_fields_consumer::StoredFieldsConsumer;
 use crate::index::term_vectors_consumer::TermVectorsConsumer;
 use crate::index::vector_encoding::VectorEncoding;
@@ -45,22 +46,24 @@ use crate::index::BytesRef;
 use crate::search::similarities::similarities::Similarity;
 use crate::store::directory::Directory;
 use crate::util::access::Access;
-use crate::util::allocator_byte::STAllocatorByteEnum;
+use crate::util::allocator_byte::{
+    AllocatorByteEnum, DirectTrackingAllocatorByte, STAllocatorByteEnum,
+};
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::int_block_pool::{ibp_util, AllocatorI32, AllocatorIntEnum};
 use crate::util::{ByteBlockPoolBorrow, Counter, CounterEnum, CounterEnumBorrow, SliceCopyOps};
 use parking_lot::Mutex;
+use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::rc::Rc;
 use std::sync::Arc;
 
-struct IndexingChain<D1, D2, A, S, O, P, T, DW, IF>
+struct IndexingChain<D, A, S, O, P, T, DW, IF>
 where
-    D1: Directory,
-    D2: Directory,
+    D: Directory,
     A: Analyzer,
     S: Similarity,
     O: OffsetAttribute,
@@ -71,10 +74,10 @@ where
 {
     bytes_used: CounterEnumBorrow,
     field_infos: Builder,
-    terms_hash: FreqProxTermsWriter<D1, O, P, T>,
+    terms_hash: FreqProxTermsWriter<D, O, P, T>,
     doc_values_byte_pool: ByteBlockPoolBorrow,
-    stored_fields_consumer: StoredFieldsConsumer<D1, D2, SortingStoredFieldsConsumer<D2>>,
-    term_vectors_writer: TermVectorsConsumer<D1, O, P, T>,
+    stored_fields_consumer: StoredFieldsConsumer<D>,
+    term_vectors_writer: TermVectorsConsumer<D, O, P, T>,
     field_hash: Vec<Option<Rc<PerField<A, S, O, P, T, DW, IF>>>>,
     hash_mask: usize,
     total_field_count: usize,
@@ -86,10 +89,9 @@ where
     index_created_version_major: i32,
     has_hit_aborting_exception: bool,
 }
-impl<D1, D2, A, S, O, P, T, DW, IF> IndexingChain<D1, D2, A, S, O, P, T, DW, IF>
+impl<D, A, S, O, P, T, DW, IF> IndexingChain<D, A, S, O, P, T, DW, IF>
 where
-    D1: Directory,
-    D2: Directory,
+    D: Directory,
     A: Analyzer,
     S: Similarity,
     O: OffsetAttribute,
@@ -100,44 +102,48 @@ where
 {
     fn new(
         index_created_version_major: i32,
-        segment_info: Rc<SegmentInfo<D2>>,
-        directory: Arc<Mutex<D2>>,
+        segment_info: Rc<SegmentInfo<D>>,
+        directory: Arc<Mutex<D>>,
         field_infos: Builder,
         index_writer_config: Arc<LiveIndexWriterConfig>,
     ) -> Self {
-        // let bytes_used = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
-        // let byte_block_allocator =
-        //     AllocatorByteEnum::DTA(DirectTrackingAllocatorByte::new(bytes_used.clone()));
-        // let (stored_fields_consumer, term_vectors_writer) =
-        //     if segment_info.get_index_sort().is_none() {
-        //         (
-        //             StoredFieldsConsumerEnum::UnSort(StoredFieldsConsumer::new(
-        //                 Arc::clone(&directory),
-        //                 Rc::clone(&segment_info),
-        //             )),
-        //             TermVectorsConsumer::new(
-        //                 IntBlockAllocator::allocator_enum(bytes_used.clone()),
-        //                 DirectTrackingAllocatorByte::allocator_enum(bytes_used.clone()),
-        //                 Arc::clone(&directory),
-        //                 Rc::clone(&segment_info),
-        //             ),
-        //         )
-        //     } else {
-        //         (
-        //             StoredFieldsConsumerEnum::Sort(SortingStoredFieldsConsumer::new(
-        //                 Arc::clone(&directory),
-        //                 Rc::clone(&segment_info),
-        //             )),
-        //             SortingTermVectorsConsumer::new(
-        //                 IntBlockAllocator::allocator_enum(bytes_used.clone()),
-        //                 DirectTrackingAllocatorByte::allocator_enum(bytes_used.clone()),
-        //                 Arc::clone(&directory),
-        //                 Rc::clone(&segment_info),
-        //             ),
-        //         )
-        //     };
-        //
-        // // postings writer
+        let bytes_used = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
+        let byte_block_allocator =
+            AllocatorByteEnum::DTA(DirectTrackingAllocatorByte::new(bytes_used.clone()));
+        let (term_vectors_writer, stored_fields_consumer) = if segment_info
+            .get_index_sort()
+            .is_none()
+        {
+            (
+                StoredFieldsConsumer::new(Arc::clone(&directory), Rc::clone(&segment_info), None),
+                TermVectorsConsumer::<_, O, P, T>::new(
+                    IntBlockAllocator::allocator_enum(bytes_used.clone()),
+                    DirectTrackingAllocatorByte::allocator_enum(bytes_used.clone()),
+                    Arc::clone(&directory),
+                    Rc::clone(&segment_info),
+                    None,
+                ),
+            )
+        } else {
+            let stored_fields_consumer_sub = SortingStoredFieldsConsumer::new(directory.clone());
+            let term_vector_consumer_sub = SortingTermVectorsConsumer::new(directory.clone());
+            (
+                StoredFieldsConsumer::new(
+                    Arc::clone(&directory),
+                    Rc::clone(&segment_info),
+                    Some(stored_fields_consumer_sub),
+                ),
+                TermVectorsConsumer::new(
+                    IntBlockAllocator::allocator_enum(bytes_used.clone()),
+                    DirectTrackingAllocatorByte::allocator_enum(bytes_used.clone()),
+                    Arc::clone(&directory),
+                    Rc::clone(&segment_info),
+                    Some(term_vector_consumer_sub),
+                ),
+            )
+        };
+
+        // postings writer
         // let terms_hash = FreqProxTermsWriter::new(
         //     IntBlockAllocator::allocator_enum(bytes_used.clone()),
         //     DirectTrackingAllocatorByte::allocator_enum(bytes_used.clone()),
