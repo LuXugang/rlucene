@@ -36,7 +36,8 @@ use crate::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::index::norm_values_writer::NormValuesWriter;
 use crate::index::point_values_writer::PointValuesWriter;
 use crate::index::segment_info::SegmentInfo;
-use crate::index::sorting_stored_fields_consumer::StoredFieldsConsumerEnum;
+use crate::index::sorting_stored_fields_consumer::SortingStoredFieldsConsumer;
+use crate::index::stored_fields_consumer::StoredFieldsConsumer;
 use crate::index::term_vectors_consumer::TermVectorsConsumer;
 use crate::index::vector_encoding::VectorEncoding;
 use crate::index::vector_similarity_function::VectorSimilarityFunction;
@@ -72,7 +73,7 @@ where
     field_infos: Builder,
     terms_hash: FreqProxTermsWriter<D1, D2, O, P, T>,
     doc_values_byte_pool: ByteBlockPoolBorrow,
-    stored_fields_consumer: StoredFieldsConsumerEnum<D1, D2>,
+    stored_fields_consumer: StoredFieldsConsumer<D1, D2, SortingStoredFieldsConsumer<D2>>,
     term_vectors_writer: TermVectorsConsumer<D1, D2, O, P, T>,
     field_hash: Vec<Option<Rc<PerField<A, S, O, P, T, DW, IF>>>>,
     hash_mask: usize,

@@ -22,16 +22,15 @@ use crate::codecs::compression::compressor::Compressor;
 use crate::codecs::compression::decompressor::Decompressor;
 use crate::codecs::stored_fields_format::StoredFieldsFormat;
 use crate::codecs::stored_fields_reader::StoredFieldsReader;
-use crate::codecs::stored_fields_writer::StoredFieldsWriter;
+use crate::codecs::stored_fields_writer::{StoredFieldsWriter, StoredFieldsWriterEnum};
 use crate::codecs::Codec;
-use crate::document::stored_value::StoredValue;
 use crate::index::field_info::FieldInfo;
 use crate::index::segment_info::SegmentInfo;
 use crate::index::segment_write_state::SegmentWriteState;
 use crate::index::sorter::DocMap;
 use crate::index::stored_field_visitor::{Status, StoredFieldVisitor};
 use crate::index::stored_fields::StoredFields;
-use crate::index::stored_fields_consumer::{StoredFieldsConsumer, StoredFieldsConsumerBase};
+use crate::index::stored_fields_consumer::StoredFieldsConsumerBase;
 use crate::index::tracking_tmp_output_directory_wrapper::TrackingTmpOutputDirectoryWrapper;
 use crate::index::BytesRef;
 use crate::store::byte_buffers_data_input::ByteBuffersDataInput;
@@ -40,6 +39,8 @@ use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{DataInput, DataOutput, IOContext};
 use crate::util::array_util::ArrayUtil;
 use crate::util::clone::TryClone;
+#[cfg(test)]
+use crate::util::error::lucene_error::LuceneError;
 use crate::util::error::lucene_error::Result;
 use crate::util::IOUtils;
 use parking_lot::Mutex;
@@ -51,7 +52,6 @@ pub(crate) struct SortingStoredFieldsConsumer<D>
 where
     D: Directory,
 {
-    base: StoredFieldsConsumer<TrackingTmpOutputDirectoryWrapper<D>, D>,
     tmp_directory: Arc<Mutex<TrackingTmpOutputDirectoryWrapper<D>>>,
     stored_fields_format: Option<Lucene90CompressingStoredFieldsFormat>,
 }
@@ -59,12 +59,11 @@ impl<D> SortingStoredFieldsConsumer<D>
 where
     D: Directory,
 {
-    pub(crate) fn new(directory: Arc<Mutex<D>>, info: Rc<SegmentInfo<D>>) -> Self {
+    pub(crate) fn new(directory: Arc<Mutex<D>>) -> Self {
         let tmp_directory = Arc::new(Mutex::new(TrackingTmpOutputDirectoryWrapper::new(
             directory,
         )));
         Self {
-            base: StoredFieldsConsumer::new(tmp_directory.clone(), info),
             tmp_directory,
             stored_fields_format: None,
         }
@@ -75,39 +74,35 @@ impl<D> StoredFieldsConsumerBase for SortingStoredFieldsConsumer<D>
 where
     D: Directory,
 {
-    fn init_stored_fields_writer(&mut self, _codec: &impl Codec) -> Result<()> {
-        if self.base.writer.is_none() {
-            let stored_fields_format = Lucene90CompressingStoredFieldsFormat::new(
-                "TempStoredFields",
-                CompressionModeEnum::Impl(NoCompression),
-                128 * 1024,
-                1,
-                10,
-            )?;
-            self.base.writer = Option::from(stored_fields_format.fields_writer(
-                self.tmp_directory.clone(),
-                self.base.info.clone(),
-                &IOContext::default_io_context()?,
-            )?);
-            self.stored_fields_format = Some(stored_fields_format);
-        }
-        Ok(())
+    type TempDirectory = TrackingTmpOutputDirectoryWrapper<D>;
+
+    fn init_stored_fields_writer(
+        &mut self,
+        info: Rc<SegmentInfo<Self::Directory>>,
+    ) -> Result<StoredFieldsWriterEnum<Self::TempDirectory>> {
+        let stored_fields_format = Lucene90CompressingStoredFieldsFormat::new(
+            "TempStoredFields",
+            CompressionModeEnum::Impl(NoCompression),
+            128 * 1024,
+            1,
+            10,
+        )?;
+        let writer = stored_fields_format.fields_writer(
+            self.tmp_directory.clone(),
+            info.clone(),
+            &IOContext::default_io_context()?,
+        )?;
+        self.stored_fields_format = Some(stored_fields_format);
+        Ok(writer)
     }
 
-    fn start_document(&mut self, codec: &impl Codec, doc_id: i32) -> Result<()> {
-        self.base.start_document(codec, doc_id)
+    #[cfg(test)]
+    fn start_document(&mut self, _codec: &impl Codec, _doc_id: i32) -> Result<()> {
+        Err(LuceneError::not_implemented(""))
     }
-
-    fn write_field(&mut self, info: &FieldInfo, value: &StoredValue) -> Result<()> {
-        self.base.write_field(info, value)
-    }
-
+    #[cfg(test)]
     fn finish_document(&mut self) -> Result<()> {
-        self.base.finish_document()
-    }
-
-    fn finish(&mut self, codec: &impl Codec, max_doc: i32) -> Result<()> {
-        self.base.finish(codec, max_doc)
+        Err(LuceneError::not_implemented(""))
     }
 
     type Directory = D;
@@ -121,7 +116,6 @@ where
     where
         DM: DocMap,
     {
-        self.base.flush(state, sort_map.clone(), codec)?;
         let mut tmp_dir = self.tmp_directory.lock();
         let mut reader = self.stored_fields_format.as_ref().unwrap().fields_reader(
             &mut *tmp_dir,
@@ -161,7 +155,6 @@ where
     }
 
     fn abort(&mut self) -> Result<()> {
-        self.base.abort()?;
         let mut tmp_dir = self.tmp_directory.lock();
         let name_map: Vec<String> = tmp_dir.get_temporary_files().into_values().collect();
         let names: Vec<&str> = name_map.iter().map(String::as_str).collect();
@@ -310,79 +303,5 @@ impl Decompressor for DecompressorImpl {
         bytes.offset = 0;
         bytes.length = length as usize;
         Ok(())
-    }
-}
-
-// StoredFieldsConsumer
-pub enum StoredFieldsConsumerEnum<D1, D2>
-where
-    D1: Directory,
-    D2: Directory,
-{
-    Sort(SortingStoredFieldsConsumer<D2>),
-    UnSort(StoredFieldsConsumer<D1, D2>),
-}
-impl<D1, D2> StoredFieldsConsumerBase for StoredFieldsConsumerEnum<D1, D2>
-where
-    D1: Directory,
-    D2: Directory,
-{
-    fn init_stored_fields_writer(&mut self, codec: &impl Codec) -> Result<()> {
-        match self {
-            StoredFieldsConsumerEnum::Sort(t) => t.init_stored_fields_writer(codec),
-            StoredFieldsConsumerEnum::UnSort(s) => s.init_stored_fields_writer(codec),
-        }
-    }
-
-    fn start_document(&mut self, codec: &impl Codec, doc_id: i32) -> Result<()> {
-        match self {
-            StoredFieldsConsumerEnum::Sort(t) => t.start_document(codec, doc_id),
-            StoredFieldsConsumerEnum::UnSort(s) => s.start_document(codec, doc_id),
-        }
-    }
-
-    fn write_field(&mut self, info: &FieldInfo, value: &StoredValue) -> Result<()> {
-        match self {
-            StoredFieldsConsumerEnum::Sort(t) => t.write_field(info, value),
-            StoredFieldsConsumerEnum::UnSort(s) => s.write_field(info, value),
-        }
-    }
-
-    fn finish_document(&mut self) -> Result<()> {
-        match self {
-            StoredFieldsConsumerEnum::Sort(t) => t.finish_document(),
-            StoredFieldsConsumerEnum::UnSort(s) => s.finish_document(),
-        }
-    }
-
-    fn finish(&mut self, codec: &impl Codec, max_doc: i32) -> Result<()> {
-        match self {
-            StoredFieldsConsumerEnum::Sort(t) => t.finish(codec, max_doc),
-            StoredFieldsConsumerEnum::UnSort(s) => s.finish(codec, max_doc),
-        }
-    }
-
-    type Directory = D2;
-
-    fn flush<DM>(
-        &mut self,
-        state: &SegmentWriteState<Self::Directory>,
-        sort_map: Option<Rc<DM>>,
-        codec: &impl Codec,
-    ) -> Result<()>
-    where
-        DM: DocMap,
-    {
-        match self {
-            StoredFieldsConsumerEnum::Sort(t) => t.flush(state, sort_map, codec),
-            StoredFieldsConsumerEnum::UnSort(s) => s.flush(state, sort_map, codec),
-        }
-    }
-
-    fn abort(&mut self) -> Result<()> {
-        match self {
-            StoredFieldsConsumerEnum::Sort(t) => t.abort(),
-            StoredFieldsConsumerEnum::UnSort(s) => s.abort(),
-        }
     }
 }
