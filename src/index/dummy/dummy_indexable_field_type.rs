@@ -15,9 +15,6 @@
  * limitations under the License.
  */
 use std::collections::HashMap;
-use std::sync::Arc;
-
-use parking_lot::Mutex;
 
 use crate::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::index::doc_values_type::DocValuesType;
@@ -92,7 +89,7 @@ impl IndexableFieldType for DummyIndexableFieldType {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn get_attributes(&self) -> Arc<Mutex<HashMap<String, String>>> {
+    fn get_attributes(&self) -> Option<&HashMap<String, String>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

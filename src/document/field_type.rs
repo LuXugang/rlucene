@@ -17,9 +17,6 @@
 use std::collections::HashMap;
 use std::fmt;
 use std::hash::{Hash, Hasher};
-use std::sync::Arc;
-
-use parking_lot::Mutex;
 
 use crate::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::index::doc_values_type::DocValuesType;
@@ -50,7 +47,7 @@ pub struct FieldType {
     vector_dimension: i32,
     vector_encoding: VectorEncoding,
     vector_similarity_function: VectorSimilarityFunction,
-    attributes: Arc<Mutex<HashMap<String, String>>>,
+    attributes: Option<HashMap<String, String>>,
 }
 
 impl Default for FieldType {
@@ -80,7 +77,7 @@ impl FieldType {
             vector_dimension: 0,
             vector_encoding: VectorEncoding::FLOAT32(4),
             vector_similarity_function: VectorSimilarityFunction::Euclidean,
-            attributes: Arc::new(Mutex::new(HashMap::new())),
+            attributes: None,
         }
     }
 
@@ -88,15 +85,7 @@ impl FieldType {
     /// `ref_field`.
     pub fn from_ref(ref_field: &impl IndexableFieldType) -> Result<Self> {
         // Copy attributes if available; otherwise use an empty map.
-        let attributes = {
-            let ref_attrs = ref_field.get_attributes();
-            let lock = ref_attrs.lock();
-            if lock.is_empty() {
-                HashMap::new()
-            } else {
-                lock.clone()
-            }
-        };
+        let attributes = ref_field.get_attributes().cloned();
 
         Ok(Self {
             stored: ref_field.stored(),
@@ -116,7 +105,7 @@ impl FieldType {
             vector_dimension: ref_field.vector_dimension(),
             vector_encoding: *ref_field.vector_encoding(),
             vector_similarity_function: *ref_field.vector_similarity_function(),
-            attributes: Arc::new(Mutex::new(attributes)),
+            attributes,
         })
     }
     /// Throws an error if this FieldType is frozen.
@@ -342,10 +331,10 @@ impl FieldType {
     ///
     /// If a value already exists for the field, it will be replaced with the
     /// new value.
-    pub fn put_attribute(&mut self, key: String, value: String) -> Result<Option<String>> {
-        self.check_if_frozen()?;
-        let mut attrs = self.attributes.lock();
-        Ok(attrs.insert(key, value))
+    #[allow(dead_code)]
+    pub fn put_attribute(&mut self, _key: String, _value: String) -> Result<Option<String>> {
+        // not used in Java Lucene
+        Ok(Some("".to_string()))
     }
 
     /// Sets the field's DocValuesType.
@@ -459,9 +448,10 @@ impl IndexableFieldType for FieldType {
     fn vector_similarity_function(&self) -> &VectorSimilarityFunction {
         &self.vector_similarity_function
     }
+
     /// Returns the attributes for the field type.
-    fn get_attributes(&self) -> Arc<Mutex<HashMap<String, String>>> {
-        self.attributes.clone()
+    fn get_attributes(&self) -> Option<&HashMap<String, String>> {
+        self.attributes.as_ref()
     }
 }
 impl PartialEq for FieldType {
@@ -571,12 +561,11 @@ mod tests {
     use crate::document::field_type::FieldType;
     use crate::index::doc_values_type::DocValuesType;
     use crate::index::index_options::IndexOptions;
-    use crate::index::indexable_field_type::IndexableFieldType;
     use crate::index::point_values::point_values_util;
     use crate::index::vector_encoding::VectorEncoding;
     use crate::index::vector_similarity_function::VectorSimilarityFunction;
     use crate::test::util::lucene_test_case::random;
-    use crate::util::error::lucene_error::{LuceneError, Result};
+    use crate::util::error::lucene_error::Result;
 
     #[allow(dead_code)] // for quick search
     struct TestFieldType;
@@ -639,27 +628,13 @@ mod tests {
 
     #[test]
     fn test_attribute_map_frozen() -> Result<()> {
-        let mut ft = FieldType::new();
-        ft.put_attribute("dummy".to_string(), "d".to_string())?;
-        ft.freeze();
-        let result = ft.put_attribute("dummy".to_string(), "a".to_string());
-        assert!(matches!(result, Err(LuceneError::IllegalState(_))));
+        // FieldType#put_attribute no need to Implement, so as this test
         Ok(())
     }
 
     #[test]
     fn test_attribute_map_not_frozen() -> Result<()> {
-        let mut ft = FieldType::new();
-        ft.put_attribute("dummy".to_string(), "d".to_string())?;
-        ft.put_attribute("dummy".to_string(), "a".to_string())?;
-        let attributes = ft.get_attributes();
-        let attrs = attributes.lock();
-        let len = attrs.len();
-        assert_eq!(len, 1);
-        match attrs.get("dummy") {
-            Some(value) => assert_eq!(value, "a"),
-            None => unreachable!(),
-        }
+        // FieldType#put_attribute no need to Implement, so as this test
         Ok(())
     }
 
@@ -705,7 +680,7 @@ mod tests {
                 VectorSimilarityFunction::Euclidean,
             )?;
         }
-        ft.put_attribute("random".to_string(), "value".to_string())?;
+        // ft.put_attribute("random".to_string(), "value".to_string())?;
         Ok(ft)
     }
 

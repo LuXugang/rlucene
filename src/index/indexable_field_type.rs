@@ -15,9 +15,6 @@
  * limitations under the License.
  */
 use std::collections::HashMap;
-use std::sync::Arc;
-
-use parking_lot::Mutex;
 
 use crate::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::index::doc_values_type::DocValuesType;
@@ -106,5 +103,5 @@ pub trait IndexableFieldType {
     fn vector_similarity_function(&self) -> &VectorSimilarityFunction;
 
     /// Returns the attributes for the field type.
-    fn get_attributes(&self) -> Arc<Mutex<HashMap<String, String>>>;
+    fn get_attributes(&self) -> Option<&HashMap<String, String>>;
 }
