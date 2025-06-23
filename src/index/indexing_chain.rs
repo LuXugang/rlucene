@@ -71,10 +71,10 @@ where
 {
     bytes_used: CounterEnumBorrow,
     field_infos: Builder,
-    terms_hash: FreqProxTermsWriter<D1, D2, O, P, T>,
+    terms_hash: FreqProxTermsWriter<D1, O, P, T>,
     doc_values_byte_pool: ByteBlockPoolBorrow,
     stored_fields_consumer: StoredFieldsConsumer<D1, D2, SortingStoredFieldsConsumer<D2>>,
-    term_vectors_writer: TermVectorsConsumer<D1, D2, O, P, T>,
+    term_vectors_writer: TermVectorsConsumer<D1, O, P, T>,
     field_hash: Vec<Option<Rc<PerField<A, S, O, P, T, DW, IF>>>>,
     hash_mask: usize,
     total_field_count: usize,
@@ -246,15 +246,14 @@ where
         assert!(self.field_info.is_none());
         self.field_info = Some(Rc::new(field_info));
     }
-    pub(crate) fn set_invert_state<D1, D2>(
+    pub(crate) fn set_invert_state<D>(
         &mut self,
-        terms_hash: &mut FreqProxTermsWriter<D1, D2, O, P, T>,
-        term_vectors_writer: &mut TermVectorsConsumer<D1, D2, O, P, T>,
+        terms_hash: &mut FreqProxTermsWriter<D, O, P, T>,
+        term_vectors_writer: &mut TermVectorsConsumer<D, O, P, T>,
         bytes_used: CounterEnumBorrow,
     ) -> Result<()>
     where
-        D1: Directory,
-        D2: Directory,
+        D: Directory,
     {
         let fi = Rc::clone(self.field_info.as_ref().unwrap());
         let state = FieldInvertState::new(
@@ -280,14 +279,13 @@ where
         }
         Ok(())
     }
-    pub(crate) fn finish<D1, D2>(
+    pub(crate) fn finish<D>(
         &mut self,
         doc_id: i32,
-        term_vectors_consumer: &mut TermVectorsConsumer<D1, D2, O, P, T>,
+        term_vectors_consumer: &mut TermVectorsConsumer<D, O, P, T>,
     ) -> Result<()>
     where
-        D1: Directory,
-        D2: Directory,
+        D: Directory,
     {
         if !self.field_info.as_ref().unwrap().omits_norms() {
             let norm_value = {

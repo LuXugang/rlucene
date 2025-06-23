@@ -16,12 +16,11 @@
  */
 use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
 use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
-use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
 use crate::codecs::compressing::lucene90_compressing_term_vectors_format::Lucene90CompressingTermVectorsFormat;
 use crate::codecs::compression::compression_mode::CompressionModeEnum;
 use crate::codecs::term_vectors_format::TermVectorsFormat;
 use crate::codecs::term_vectors_reader::TermVectorsReader;
-use crate::codecs::term_vectors_writer::TermVectorsWriter;
+use crate::codecs::term_vectors_writer::{TermVectorsWriter, TermVectorsWriterEnum};
 use crate::codecs::Codec;
 use crate::index::field_infos::FieldInfos;
 use crate::index::fields::Fields;
@@ -31,7 +30,7 @@ use crate::index::segment_write_state::SegmentWriteState;
 use crate::index::sorter::DocMap;
 use crate::index::sorting_stored_fields_consumer::NoCompression;
 use crate::index::term_vectors::TermVectors;
-use crate::index::term_vectors_consumer::{TermVectorsConsumer, TermVectorsConsumerBase};
+use crate::index::term_vectors_consumer::TermVectorsConsumerBase;
 use crate::index::terms::Terms;
 use crate::index::terms_enum::TermsEnum;
 use crate::index::tracking_tmp_output_directory_wrapper::TrackingTmpOutputDirectoryWrapper;
@@ -40,52 +39,32 @@ use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::directory::Directory;
 use crate::store::flush_info::FlushInfo;
 use crate::store::IOContext;
-use crate::util::allocator_byte::AllocatorByteEnum;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::int_block_pool::AllocatorIntEnum;
-use crate::util::{Counter, CounterEnumBorrow, IOUtils, ToInt};
+use crate::util::{Counter, IOUtils, ToInt};
 use parking_lot::Mutex;
 use std::borrow::Cow;
 use std::rc::Rc;
 use std::sync::Arc;
 
-pub(crate) struct SortingTermVectorsConsumer<D, O, P, T>
+pub(crate) struct SortingTermVectorsConsumer<D>
 where
     D: Directory,
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
 {
-    base: TermVectorsConsumer<TrackingTmpOutputDirectoryWrapper<D>, D, O, P, T>,
+    pub(crate) writer: Option<TermVectorsWriterEnum<TrackingTmpOutputDirectoryWrapper<D>>>,
     tmp_directory: Arc<Mutex<TrackingTmpOutputDirectoryWrapper<D>>>,
     stored_fields_format: Option<Lucene90CompressingTermVectorsFormat>,
 }
-impl<D, O, P, T> SortingTermVectorsConsumer<D, O, P, T>
+impl<D> SortingTermVectorsConsumer<D>
 where
     D: Directory,
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
 {
-    pub(crate) fn new(
-        int_block_allocator: AllocatorIntEnum<CounterEnumBorrow>,
-        byte_block_allocator: AllocatorByteEnum<CounterEnumBorrow>,
-        directory: Arc<Mutex<D>>,
-        info: Rc<SegmentInfo<D>>,
-    ) -> Self {
+    pub(crate) fn new(directory: Arc<Mutex<D>>) -> Self {
         let tmp_directory = Arc::new(Mutex::new(TrackingTmpOutputDirectoryWrapper::new(
             directory,
         )));
-        let base = TermVectorsConsumer::new(
-            int_block_allocator,
-            byte_block_allocator,
-            tmp_directory.clone(),
-            info,
-        );
-
         Self {
-            base,
+            writer: None,
             tmp_directory,
             stored_fields_format: None,
         }
@@ -214,12 +193,9 @@ where
     }
 }
 
-impl<D, O, P, T> TermVectorsConsumerBase for SortingTermVectorsConsumer<D, O, P, T>
+impl<D> TermVectorsConsumerBase for SortingTermVectorsConsumer<D>
 where
     D: Directory,
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
 {
     type Directory = D;
 
@@ -232,8 +208,6 @@ where
     where
         DM: DocMap,
     {
-        self.base.flush(state, sort_map, codec)?;
-
         {
             let mut tmp_dir = self.tmp_directory.lock();
             let mut reader = self.stored_fields_format.as_mut().unwrap().vectors_reader(
@@ -269,32 +243,30 @@ where
         Ok(())
     }
 
-    fn init_term_vectors_writer(&mut self, _codec: &impl Codec) -> Result<()> {
-        if self.base.writer.is_none() {
-            let context = IOContext::with_flush(FlushInfo::new(
-                self.base.last_doc_id,
-                self.base.base.bytes_used.borrow().get(),
-            ))?;
-            let term_vectors_format = Lucene90CompressingTermVectorsFormat::new(
-                "TempTermVectors",
-                "",
-                CompressionModeEnum::Impl(NoCompression),
-                8 * 1024,
-                128,
-                10,
-            )?;
-            self.base.writer = Option::from(term_vectors_format.vectors_writer(
-                self.tmp_directory.clone(),
-                self.base.info.clone(),
-                &context,
-            )?);
-            self.base.last_doc_id = 0;
-        }
+    fn init_term_vectors_writer(
+        &mut self,
+        last_doc_id: i32,
+        info: Rc<SegmentInfo<Self::Directory>>,
+        bytes_used: i64,
+    ) -> Result<()> {
+        let context = IOContext::with_flush(FlushInfo::new(last_doc_id, bytes_used))?;
+        let term_vectors_format = Lucene90CompressingTermVectorsFormat::new(
+            "TempTermVectors",
+            "",
+            CompressionModeEnum::Impl(NoCompression),
+            8 * 1024,
+            128,
+            10,
+        )?;
+        self.writer = Option::from(term_vectors_format.vectors_writer(
+            self.tmp_directory.clone(),
+            info.clone(),
+            &context,
+        )?);
         Ok(())
     }
 
     fn abort(&mut self) -> Result<()> {
-        self.base.abort()?;
         let mut tmp_dir = self.tmp_directory.lock();
         let name_map: Vec<String> = tmp_dir.get_temporary_files().into_values().collect();
         let names: Vec<&str> = name_map.iter().map(String::as_str).collect();

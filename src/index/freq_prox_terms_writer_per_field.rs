@@ -68,15 +68,14 @@ where
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 {
-    pub fn new<D1, D2>(
+    pub fn new<D>(
         field_state: Rc<FieldInvertState<O, P, T>>,
-        terms_hash: &mut FreqProxTermsWriter<D1, D2, O, P, T>,
+        terms_hash: &mut FreqProxTermsWriter<D, O, P, T>,
         field_info: Rc<FieldInfo>,
         next_per_field: Option<TermVectorsConsumerPerField<O, P, T>>,
     ) -> FreqProxTermsWriterPerField<O, P, T>
     where
-        D1: Directory,
-        D2: Directory,
+        D: Directory,
     {
         let index_options = *field_info.get_index_options();
 
@@ -213,12 +212,9 @@ where
     pub(crate) fn get_next_per_field(&mut self) -> TermVectorsConsumerPerField<O, P, T> {
         self.next_per_field.take().unwrap()
     }
-    pub(crate) fn finish<D1, D2>(
-        &mut self,
-        term_vectors_consumer: &mut TermVectorsConsumer<D1, D2, O, P, T>,
-    ) where
-        D1: Directory,
-        D2: Directory,
+    pub(crate) fn finish<D>(&mut self, term_vectors_consumer: &mut TermVectorsConsumer<D, O, P, T>)
+    where
+        D: Directory,
     {
         if self.next_per_field.is_some() {
             self.next_per_field

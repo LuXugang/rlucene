@@ -167,6 +167,7 @@ where
                 }
             }
         }
+        let _ = self.writer.take();
         Ok(())
     }
 

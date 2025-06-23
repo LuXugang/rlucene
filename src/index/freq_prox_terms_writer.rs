@@ -62,22 +62,21 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-pub(crate) struct FreqProxTermsWriter<D1, D2, O, P, T>
+pub(crate) struct FreqProxTermsWriter<D, O, P, T>
 where
-    D1: Directory,
-    D2: Directory,
+    D: Directory,
 
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 {
-    pub(crate) next_terms_hash: Option<TermVectorsConsumer<D1, D2, O, P, T>>,
+    pub(crate) next_terms_hash: Option<TermVectorsConsumer<D, O, P, T>>,
     pub(crate) base: TermsHash,
 }
-impl<D1, D2, O, P, T> FreqProxTermsWriter<D1, D2, O, P, T>
+impl<D, O, P, T> FreqProxTermsWriter<D, O, P, T>
 where
-    D1: Directory,
-    D2: Directory,
+    D: Directory,
+
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
@@ -86,7 +85,7 @@ where
         int_block_allocator: AllocatorIntEnum<CounterEnumBorrow>,
         byte_block_allocator: AllocatorByteEnum<CounterEnumBorrow>,
         bytes_used: CounterEnumBorrow,
-        mut next_terms_hash: TermVectorsConsumer<D1, D2, O, P, T>,
+        mut next_terms_hash: TermVectorsConsumer<D, O, P, T>,
     ) -> Self {
         let mut base = TermsHash::new(int_block_allocator, byte_block_allocator, bytes_used);
         base.term_byte_pool = Some(base.byte_pool.clone());
@@ -99,12 +98,12 @@ where
     }
     fn apply_deletes(
         &self,
-        state: &mut SegmentWriteState<D2>,
+        state: &mut SegmentWriteState<D>,
         fields: FreqProxFields<O, P, T>,
     ) -> Result<()>
     where
-        D1: Directory,
-        D2: Directory,
+        D: Directory,
+
         O: OffsetAttribute,
         P: PayloadAttribute,
         T: TermFrequencyAttribute,
@@ -153,7 +152,7 @@ where
     fn flush<N, DM>(
         &mut self,
         fields_to_flush: HashMap<String, FreqProxTermsWriterPerField<O, P, T>>,
-        state: &mut SegmentWriteState<D2>,
+        state: &mut SegmentWriteState<D>,
         sort_map: Option<Rc<DM>>,
         _norms: &mut N,
         codec: &impl Codec,

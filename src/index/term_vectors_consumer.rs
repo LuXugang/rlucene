@@ -49,17 +49,17 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 
-pub(crate) struct TermVectorsConsumer<D1, D2, O, P, T>
+pub(crate) struct TermVectorsConsumer<D, O, P, T>
 where
-    D1: Directory,
-    D2: Directory,
+    D: Directory,
+
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 {
-    directory: Arc<Mutex<D1>>,
-    pub(crate) info: Rc<SegmentInfo<D2>>,
-    pub(crate) writer: Option<TermVectorsWriterEnum<D1>>,
+    directory: Arc<Mutex<D>>,
+    pub(crate) info: Rc<SegmentInfo<D>>,
+    pub(crate) writer: Option<TermVectorsWriterEnum<D>>,
     // Scratch term used by TermVectorsConsumerPerField.finishDocument.
     pub(crate) flush_term: BytesRef<Vec<u8>>,
     // Used by TermVectorsConsumerPerField when serializing the term vectors.
@@ -69,12 +69,12 @@ where
     num_vector_fields: i32,
     pub(crate) last_doc_id: i32,
     per_fields: Vec<TermVectorsConsumerPerField<O, P, T>>,
-
+    sub: Option<SortingTermVectorsConsumer<D>>,
     pub(crate) base: TermsHash,
 }
 
 #[cfg(test)]
-impl<O, P, T> Default for TermVectorsConsumer<DummyDirectory, DummyDirectory, O, P, T>
+impl<O, P, T> Default for TermVectorsConsumer<DummyDirectory, O, P, T>
 where
     O: OffsetAttribute,
     P: PayloadAttribute,
@@ -85,14 +85,19 @@ where
         let byte_block_allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
         let directory = Arc::new(Mutex::new(DummyDirectory));
         let info = Rc::new(SegmentInfo::default());
-        TermVectorsConsumer::new(int_block_allocator, byte_block_allocator, directory, info)
+        TermVectorsConsumer::new(
+            int_block_allocator,
+            byte_block_allocator,
+            directory,
+            info,
+            None,
+        )
     }
 }
 
-impl<D1, D2, O, P, T> TermVectorsConsumer<D1, D2, O, P, T>
+impl<D, O, P, T> TermVectorsConsumer<D, O, P, T>
 where
-    D1: Directory,
-    D2: Directory,
+    D: Directory,
 
     O: OffsetAttribute,
     P: PayloadAttribute,
@@ -101,8 +106,9 @@ where
     pub(crate) fn new(
         int_block_allocator: AllocatorIntEnum<CounterEnumBorrow>,
         byte_block_allocator: AllocatorByteEnum<CounterEnumBorrow>,
-        directory: Arc<Mutex<D1>>,
-        info: Rc<SegmentInfo<D2>>,
+        directory: Arc<Mutex<D>>,
+        info: Rc<SegmentInfo<D>>,
+        sub: Option<SortingTermVectorsConsumer<D>>,
     ) -> Self {
         let base = TermsHash::new(
             int_block_allocator,
@@ -124,6 +130,7 @@ where
             last_doc_id: 0,
             per_fields,
             base,
+            sub,
         }
     }
     fn reset_fields(&mut self) {
@@ -158,16 +165,35 @@ where
         self.init_term_vectors_writer(codec)?;
         self.fill(doc_id)?;
         // Append term vectors to the real outputs:
-        self.writer
-            .as_mut()
-            .unwrap()
-            .start_document(self.num_vector_fields)?;
+        match self.sub {
+            Some(ref mut sub) => {
+                if sub.writer.is_none() {
+                    sub.writer
+                        .as_mut()
+                        .unwrap()
+                        .start_document(self.num_vector_fields)?;
+                }
+            },
+            None => {
+                self.writer
+                    .as_mut()
+                    .unwrap()
+                    .start_document(self.num_vector_fields)?;
+            },
+        }
+
         let mut per_fields = std::mem::take(&mut self.per_fields);
         for i in 0..self.num_vector_fields as usize {
             per_fields[i].finish_document(self)?;
         }
-        self.writer.as_mut().unwrap().finish_document()?;
-
+        match self.sub {
+            Some(ref mut sub) => {
+                sub.writer.as_mut().unwrap().finish_document()?;
+            },
+            None => {
+                self.writer.as_mut().unwrap().finish_document()?;
+            },
+        }
         debug_assert_eq!(
             self.last_doc_id, doc_id,
             "last_doc_id = {}, doc_id = {}",
@@ -202,56 +228,76 @@ where
         self.per_fields[num_vector_fields] = field_to_flush;
         self.num_vector_fields += 1;
     }
-}
-
-impl<D1, D2, O, P, T> TermVectorsConsumerBase for TermVectorsConsumer<D1, D2, O, P, T>
-where
-    D1: Directory,
-    D2: Directory,
-
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-{
-    type Directory = D2;
-
-    fn flush<DM>(
+    pub(crate) fn flush<DM>(
         &mut self,
-        state: &mut SegmentWriteState<Self::Directory>,
+        state: &mut SegmentWriteState<D>,
         sort_map: &Option<Rc<DM>>,
         codec: &impl Codec,
     ) -> Result<()>
     where
         DM: DocMap,
     {
-        if self.writer.is_some() {
+        if self.writer.is_some()
+            || (self.sub.is_some() && self.sub.as_ref().unwrap().writer.is_some())
+        {
             let num_docs = state.segment_info.max_doc()?;
             debug_assert!(num_docs > 0);
             // At least one doc in this run had term vectors enabled
             self.fill(num_docs)?;
-            self.writer.as_mut().unwrap().finish(num_docs)?;
+            match self.sub {
+                Some(ref mut sub) => {
+                    sub.writer.as_mut().unwrap().finish(num_docs)?;
+                    let _ = sub.writer.take();
+                },
+                None => {
+                    self.writer.as_mut().unwrap().finish(num_docs)?;
+                    let _ = self.writer.take();
+                },
+            }
+
+            if let Some(ref mut sub) = self.sub {
+                sub.flush(state, sort_map, codec)?;
+            }
         }
+
         Ok(())
     }
 
     fn init_term_vectors_writer(&mut self, codec: &impl Codec) -> Result<()> {
-        if self.writer.is_none() {
-            let flush_info = FlushInfo::new(self.last_doc_id, self.base.bytes_used.borrow().get());
-            let context = IOContext::with_flush(flush_info)?;
+        match self.sub {
+            Some(ref mut sub) => {
+                if sub.writer.is_none() {
+                    sub.init_term_vectors_writer(
+                        self.last_doc_id,
+                        self.info.clone(),
+                        self.base.bytes_used.borrow().get(),
+                    )?;
+                }
+            },
+            None => {
+                if self.writer.is_none() {
+                    let flush_info =
+                        FlushInfo::new(self.last_doc_id, self.base.bytes_used.borrow().get());
+                    let context = IOContext::with_flush(flush_info)?;
 
-            self.writer = Option::from(codec.term_vectors_format().vectors_writer(
-                Arc::clone(&self.directory),
-                Rc::clone(&self.info),
-                &context,
-            )?);
-
-            self.last_doc_id = 0;
+                    self.writer = Option::from(codec.term_vectors_format().vectors_writer(
+                        Arc::clone(&self.directory),
+                        Rc::clone(&self.info),
+                        &context,
+                    )?)
+                }
+            },
         }
+
+        self.last_doc_id = 0;
         Ok(())
     }
 
-    fn abort(&mut self) -> Result<()> {
+    pub(crate) fn abort(&mut self) -> Result<()> {
         self.base.reset();
+        if let Some(ref mut sub) = self.sub {
+            sub.abort()?;
+        }
         Ok(())
     }
 }
@@ -266,57 +312,11 @@ pub(crate) trait TermVectorsConsumerBase {
     ) -> Result<()>
     where
         DM: DocMap;
-    fn init_term_vectors_writer(&mut self, codec: &impl Codec) -> Result<()>;
-    fn abort(&mut self) -> Result<()>;
-}
-
-pub enum TermVectorsConsumerEnum<D1, D2, O, P, T>
-where
-    D1: Directory,
-    D2: Directory,
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-{
-    Sort(SortingTermVectorsConsumer<D2, O, P, T>),
-    UnSort(TermVectorsConsumer<D1, D2, O, P, T>),
-}
-impl<D1, D2, O, P, T> TermVectorsConsumerBase for TermVectorsConsumerEnum<D1, D2, O, P, T>
-where
-    D1: Directory,
-    D2: Directory,
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-{
-    type Directory = D2;
-
-    fn flush<DM>(
+    fn init_term_vectors_writer(
         &mut self,
-        state: &mut SegmentWriteState<Self::Directory>,
-        sort_map: &Option<Rc<DM>>,
-        codec: &impl Codec,
-    ) -> Result<()>
-    where
-        DM: DocMap,
-    {
-        match self {
-            TermVectorsConsumerEnum::Sort(consumer) => consumer.flush(state, sort_map, codec),
-            TermVectorsConsumerEnum::UnSort(consumer) => consumer.flush(state, sort_map, codec),
-        }
-    }
-
-    fn init_term_vectors_writer(&mut self, codec: &impl Codec) -> Result<()> {
-        match self {
-            TermVectorsConsumerEnum::Sort(consumer) => consumer.init_term_vectors_writer(codec),
-            TermVectorsConsumerEnum::UnSort(consumer) => consumer.init_term_vectors_writer(codec),
-        }
-    }
-
-    fn abort(&mut self) -> Result<()> {
-        match self {
-            TermVectorsConsumerEnum::Sort(consumer) => consumer.abort(),
-            TermVectorsConsumerEnum::UnSort(consumer) => consumer.abort(),
-        }
-    }
+        last_doc_id: i32,
+        info: Rc<SegmentInfo<Self::Directory>>,
+        bytes_used: i64,
+    ) -> Result<()>;
+    fn abort(&mut self) -> Result<()>;
 }
