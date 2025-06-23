@@ -122,9 +122,9 @@ where
         DM: DocMap,
     {
         self.base.flush(state, sort_map.clone(), codec)?;
-        let mut dir = self.tmp_directory.lock();
+        let mut tmp_dir = self.tmp_directory.lock();
         let mut reader = self.stored_fields_format.as_ref().unwrap().fields_reader(
-            &mut *dir,
+            &mut *tmp_dir,
             state.segment_info.clone(),
             state.field_infos.clone(),
             &IOContext::default_io_context()?,
@@ -153,19 +153,19 @@ where
 
         sort_writer.finish(max_doc)?;
 
-        let values: Vec<String> = dir.get_temporary_files().values().cloned().collect();
-        let name: Vec<&str> = values.iter().map(String::as_str).collect();
-        IOUtils::delete_files(&mut *dir, name.as_slice())?;
+        let name_map: Vec<String> = tmp_dir.get_temporary_files().into_values().collect();
+        let names: Vec<&str> = name_map.iter().map(String::as_str).collect();
+        IOUtils::delete_files(&mut *tmp_dir, names.as_slice())?;
 
         Ok(())
     }
 
     fn abort(&mut self) -> Result<()> {
         self.base.abort()?;
-        let mut dir = self.tmp_directory.lock();
-        let values: Vec<String> = dir.get_temporary_files().values().cloned().collect();
-        let name: Vec<&str> = values.iter().map(String::as_str).collect();
-        IOUtils::delete_files(&mut *dir, name.as_slice())?;
+        let mut tmp_dir = self.tmp_directory.lock();
+        let name_map: Vec<String> = tmp_dir.get_temporary_files().into_values().collect();
+        let names: Vec<&str> = name_map.iter().map(String::as_str).collect();
+        IOUtils::delete_files(&mut *tmp_dir, names.as_slice())?;
         Ok(())
     }
 }

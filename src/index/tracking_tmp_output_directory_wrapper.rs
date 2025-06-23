@@ -41,8 +41,8 @@ where
             base: FilterDirectory::new(input),
         }
     }
-    pub fn get_temporary_files(&self) -> &HashMap<String, String> {
-        &self.file_names
+    pub fn get_temporary_files(&mut self) -> HashMap<String, String> {
+        std::mem::take(&mut self.file_names)
     }
 }
 

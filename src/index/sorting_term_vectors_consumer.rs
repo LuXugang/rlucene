@@ -129,9 +129,9 @@ where
                 Self::write_term_vectors(&mut writer, &vectors, &state.field_infos)?;
             }
             writer.finish(max_doc)?;
-            let values: Vec<String> = tmp_dir.get_temporary_files().values().cloned().collect();
-            let name: Vec<&str> = values.iter().map(String::as_str).collect();
-            IOUtils::delete_files(&mut *tmp_dir, name.as_slice())?;
+            let name_map: Vec<String> = tmp_dir.get_temporary_files().into_values().collect();
+            let names: Vec<&str> = name_map.iter().map(String::as_str).collect();
+            IOUtils::delete_files(&mut *tmp_dir, names.as_slice())?;
         }
         Ok(())
     }
@@ -160,10 +160,10 @@ where
     }
     pub(crate) fn abort(&mut self) -> Result<()> {
         self.base.abort();
-        let mut dir = self.tmp_directory.lock();
-        let values: Vec<String> = dir.get_temporary_files().values().cloned().collect();
-        let name: Vec<&str> = values.iter().map(String::as_str).collect();
-        IOUtils::delete_files(&mut *dir, name.as_slice())?;
+        let mut tmp_dir = self.tmp_directory.lock();
+        let name_map: Vec<String> = tmp_dir.get_temporary_files().into_values().collect();
+        let names: Vec<&str> = name_map.iter().map(String::as_str).collect();
+        IOUtils::delete_files(&mut *tmp_dir, names.as_slice())?;
         Ok(())
     }
     fn write_term_vectors<TVW, F>(
