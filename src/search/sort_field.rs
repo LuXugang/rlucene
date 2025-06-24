@@ -17,7 +17,9 @@
 #![allow(deprecated)]
 use crate::index::doc_values::{DocValues, EmptyNumeric};
 use crate::index::dummy::dummy_index_sorter::DummyIndexSorter;
-use crate::index::index_sorter::{IndexSorter, NumericDocValuesProvider};
+use crate::index::index_sorter::{
+    DoubleSorter, FloatSorter, IndexSorter, IntSorter, LongSorter, NumericDocValuesProvider,
+};
 use crate::index::leaf_reader::LeafReader;
 use crate::index::sort_field_provider::SortFieldProvider;
 use crate::search::field_comparator_source::FieldComparatorSourceEnum;
@@ -463,15 +465,24 @@ impl NumericDocValuesProviderImpl {
         NumericDocValuesProviderImpl { field }
     }
 }
-impl<LR> NumericDocValuesProvider<LR> for NumericDocValuesProviderImpl
-where
-    LR: LeafReader,
-{
-    type NumericDocValues = EitherNumericDocValues<LR::NumericDocValues, EmptyNumeric>;
-
-    fn get(&mut self, leaf_reader: &mut LR) -> Result<Self::NumericDocValues> {
+impl NumericDocValuesProvider for NumericDocValuesProviderImpl {
+    type NumericDocValues<LR>
+        = EitherNumericDocValues<LR::NumericDocValues, EmptyNumeric>
+    where
+        LR: LeafReader;
+    fn get<LR>(&mut self, leaf_reader: &mut LR) -> Result<Self::NumericDocValues<LR>>
+    where
+        LR: LeafReader,
+    {
         DocValues::get_numeric(leaf_reader, &self.field)
     }
+}
+
+pub(crate) enum IndexSorterEnum {
+    Int(IntSorter<NumericDocValuesProviderImpl>),
+    Long(LongSorter<NumericDocValuesProviderImpl>),
+    Double(DoubleSorter<NumericDocValuesProviderImpl>),
+    Float(FloatSorter<NumericDocValuesProviderImpl>),
 }
 
 pub struct Provider;

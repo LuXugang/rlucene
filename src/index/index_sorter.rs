@@ -22,33 +22,31 @@ use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::search::sort_field::MissingValueEnum;
 use crate::util::error::lucene_error::Result;
 use crate::util::ToInt;
-use std::marker::PhantomData;
 
 pub trait IndexSorter {
     fn get_provider_name(&self) -> &str;
 
     type DocComparator: DocComparator;
-    type LeafReader: LeafReader;
-    fn get_doc_comparator(
+    fn get_doc_comparator<LR>(
         &mut self,
-        leaf_reader: &mut Self::LeafReader,
+        leaf_reader: &mut LR,
         max_doc: i32,
-    ) -> Result<Option<Self::DocComparator>>;
+    ) -> Result<Option<Self::DocComparator>>
+    where
+        LR: LeafReader;
 }
 
 // DoubleSorter
 /// Sorts documents based on double values from a NumericDocValues instance.
-pub(crate) struct DoubleSorter<NP, LR> {
+pub(crate) struct DoubleSorter<NP> {
     provider_name: String,
     missing_value: Option<f64>,
     reverse_mul: i32,
     values_provider: NP,
-    phantom: PhantomData<LR>,
 }
-impl<NP, LR> DoubleSorter<NP, LR>
+impl<NP> DoubleSorter<NP>
 where
-    NP: NumericDocValuesProvider<LR>,
-    LR: LeafReader,
+    NP: NumericDocValuesProvider,
 {
     pub fn new(
         provider_name: String,
@@ -61,27 +59,27 @@ where
             missing_value,
             reverse_mul,
             values_provider,
-            phantom: PhantomData,
         }
     }
 }
-impl<NP, LR> IndexSorter for DoubleSorter<NP, LR>
+impl<NP> IndexSorter for DoubleSorter<NP>
 where
-    NP: NumericDocValuesProvider<LR>,
-    LR: LeafReader,
+    NP: NumericDocValuesProvider,
 {
     fn get_provider_name(&self) -> &str {
         &self.provider_name
     }
 
     type DocComparator = DocComparatorImplDouble;
-    type LeafReader = LR;
 
-    fn get_doc_comparator(
+    fn get_doc_comparator<LR>(
         &mut self,
         leaf_reader: &mut LR,
         max_doc: i32,
-    ) -> Result<Option<Self::DocComparator>> {
+    ) -> Result<Option<Self::DocComparator>>
+    where
+        LR: LeafReader,
+    {
         let mut dvs = self.values_provider.get(leaf_reader)?;
         let mut values = vec![0f64; max_doc as usize];
         if self.missing_value.is_some() {
@@ -120,17 +118,15 @@ impl DocComparator for DocComparatorImplDouble {
 
 // IntSorter
 /// Sorts documents based on integer values from a NumericDocValues instance */
-pub(crate) struct IntSorter<NP, LR> {
+pub(crate) struct IntSorter<NP> {
     provider_name: String,
     missing_value: Option<i32>,
     reverse_mul: i32,
     values_provider: NP,
-    phantom: PhantomData<LR>,
 }
-impl<NP, LR> IntSorter<NP, LR>
+impl<NP> IntSorter<NP>
 where
-    NP: NumericDocValuesProvider<LR>,
-    LR: LeafReader,
+    NP: NumericDocValuesProvider,
 {
     pub fn new(
         provider_name: String,
@@ -143,27 +139,27 @@ where
             missing_value,
             reverse_mul,
             values_provider,
-            phantom: PhantomData,
         }
     }
 }
-impl<NP, LR> IndexSorter for IntSorter<NP, LR>
+impl<NP> IndexSorter for IntSorter<NP>
 where
-    NP: NumericDocValuesProvider<LR>,
-    LR: LeafReader,
+    NP: NumericDocValuesProvider,
 {
     fn get_provider_name(&self) -> &str {
         &self.provider_name
     }
 
     type DocComparator = DocComparatorImplInt;
-    type LeafReader = LR;
 
-    fn get_doc_comparator(
+    fn get_doc_comparator<LR>(
         &mut self,
         leaf_reader: &mut LR,
         max_doc: i32,
-    ) -> Result<Option<Self::DocComparator>> {
+    ) -> Result<Option<Self::DocComparator>>
+    where
+        LR: LeafReader,
+    {
         let mut dvs = self.values_provider.get(leaf_reader)?;
         let mut values = vec![0i32; max_doc as usize];
         if let Some(mv) = self.missing_value {
@@ -201,17 +197,15 @@ impl DocComparator for DocComparatorImplInt {
 
 // LongSorter
 /// Sorts documents based on long values from a NumericDocValues instance
-pub(crate) struct LongSorter<NP, LR> {
+pub(crate) struct LongSorter<NP> {
     provider_name: String,
     missing_value: Option<i64>,
     reverse_mul: i32,
     values_provider: NP,
-    phantom: PhantomData<LR>,
 }
-impl<NP, LR> LongSorter<NP, LR>
+impl<NP> LongSorter<NP>
 where
-    NP: NumericDocValuesProvider<LR>,
-    LR: LeafReader,
+    NP: NumericDocValuesProvider,
 {
     pub fn new(
         provider_name: String,
@@ -224,28 +218,28 @@ where
             missing_value,
             reverse_mul: if reverse { -1 } else { 1 },
             values_provider,
-            phantom: PhantomData,
         }
     }
 }
 
-impl<NP, LR> IndexSorter for LongSorter<NP, LR>
+impl<NP> IndexSorter for LongSorter<NP>
 where
-    NP: NumericDocValuesProvider<LR>,
-    LR: LeafReader,
+    NP: NumericDocValuesProvider,
 {
     fn get_provider_name(&self) -> &str {
         &self.provider_name
     }
 
     type DocComparator = DocComparatorImplLong;
-    type LeafReader = LR;
 
-    fn get_doc_comparator(
+    fn get_doc_comparator<LR>(
         &mut self,
         leaf_reader: &mut LR,
         max_doc: i32,
-    ) -> Result<Option<Self::DocComparator>> {
+    ) -> Result<Option<Self::DocComparator>>
+    where
+        LR: LeafReader,
+    {
         let mut dvs = self.values_provider.get(leaf_reader)?;
         let mut values = vec![0i64; max_doc as usize];
         if let Some(mv) = self.missing_value {
@@ -286,18 +280,16 @@ impl DocComparator for DocComparatorImplLong {
 
 // FloatSorter
 /// Sorts documents based on float values from a NumericDocValues instance
-pub(crate) struct FloatSorter<NP, LR> {
+pub(crate) struct FloatSorter<NP> {
     provider_name: String,
     missing_value: Option<f32>,
     reverse_mul: i32,
     values_provider: NP,
-    phantom: PhantomData<LR>,
 }
 
-impl<NP, LR> FloatSorter<NP, LR>
+impl<NP> FloatSorter<NP>
 where
-    NP: NumericDocValuesProvider<LR>,
-    LR: LeafReader,
+    NP: NumericDocValuesProvider,
 {
     pub fn new(
         provider_name: String,
@@ -310,28 +302,28 @@ where
             missing_value,
             reverse_mul: if reverse { -1 } else { 1 },
             values_provider,
-            phantom: PhantomData,
         }
     }
 }
 
-impl<NP, LR> IndexSorter for FloatSorter<NP, LR>
+impl<NP> IndexSorter for FloatSorter<NP>
 where
-    NP: NumericDocValuesProvider<LR>,
-    LR: LeafReader,
+    NP: NumericDocValuesProvider,
 {
     fn get_provider_name(&self) -> &str {
         &self.provider_name
     }
 
     type DocComparator = DocComparatorImplFloat;
-    type LeafReader = LR;
 
-    fn get_doc_comparator(
+    fn get_doc_comparator<LR>(
         &mut self,
         leaf_reader: &mut LR,
         max_doc: i32,
-    ) -> Result<Option<Self::DocComparator>> {
+    ) -> Result<Option<Self::DocComparator>>
+    where
+        LR: LeafReader,
+    {
         let mut dvs = self.values_provider.get(leaf_reader)?;
         let mut values = vec![0f32; max_doc as usize];
         if let Some(mv) = self.missing_value {
@@ -373,18 +365,16 @@ impl DocComparator for DocComparatorImplFloat {
 
 // StringSorter
 /// Sorts documents based on short values from a NumericDocValues instance
-pub(crate) struct StringSorter<SP, LR> {
+pub(crate) struct StringSorter<SP> {
     provider_name: String,
     missing_value: MissingValueEnum,
     reverse_mul: i32,
     values_provider: SP,
-    phantom: PhantomData<LR>,
 }
 
-impl<SP, LR> StringSorter<SP, LR>
+impl<SP> StringSorter<SP>
 where
-    SP: SortedDocValuesProvider<LR>,
-    LR: LeafReader,
+    SP: SortedDocValuesProvider,
 {
     pub fn new(
         provider_name: String,
@@ -397,28 +387,28 @@ where
             missing_value,
             reverse_mul: if reverse { -1 } else { 1 },
             values_provider,
-            phantom: PhantomData,
         }
     }
 }
 
-impl<SP, LR> IndexSorter for StringSorter<SP, LR>
+impl<SP> IndexSorter for StringSorter<SP>
 where
-    SP: SortedDocValuesProvider<LR>,
-    LR: LeafReader,
+    SP: SortedDocValuesProvider,
 {
     fn get_provider_name(&self) -> &str {
         &self.provider_name
     }
 
     type DocComparator = DocComparatorImplString;
-    type LeafReader = LR;
 
-    fn get_doc_comparator(
+    fn get_doc_comparator<LR>(
         &mut self,
         leaf_reader: &mut LR,
         max_doc: i32,
-    ) -> Result<Option<Self::DocComparator>> {
+    ) -> Result<Option<Self::DocComparator>>
+    where
+        LR: LeafReader,
+    {
         let mut sorted = self.values_provider.get(leaf_reader)?;
         let missing_ord = match self.missing_value {
             MissingValueEnum::StringLast => i32::MAX,
@@ -469,23 +459,23 @@ pub(crate) trait DocComparator {
     fn compare(&mut self, doc_id1: i32, doc_id2: i32) -> Result<i32>;
 }
 /// Provide a NumericDocValues instance for a LeafReader
-pub(crate) trait NumericDocValuesProvider<LR>
-where
-    LR: LeafReader,
-{
+pub(crate) trait NumericDocValuesProvider {
     /// Returns the numeric value for the given doc ID.
-    type NumericDocValues: NumericDocValues;
+    type NumericDocValues<LR>: NumericDocValues
+    where
+        LR: LeafReader;
     /// Returns the NumericDocValues instance for this LeafReader
-    fn get(&mut self, leaf_reader: &mut LR) -> Result<Self::NumericDocValues>;
+    fn get<LR>(&mut self, leaf_reader: &mut LR) -> Result<Self::NumericDocValues<LR>>
+    where
+        LR: LeafReader;
 }
 /// Provide a SortedDocValues instance for a LeafReader
-pub(crate) trait SortedDocValuesProvider<LR>
-where
-    LR: LeafReader,
-{
+pub(crate) trait SortedDocValuesProvider {
     type SortedDocValues: SortedDocValues;
     /// Returns the SortedDocValues instance for this LeafReader
-    fn get(&mut self, leaf_reader: &mut LR) -> Result<Self::SortedDocValues>;
+    fn get<LR>(&mut self, leaf_reader: &mut LR) -> Result<Self::SortedDocValues>
+    where
+        LR: LeafReader;
 }
 
 #[cfg(test)]

@@ -15,23 +15,25 @@
  * limitations under the License.
  */
 use crate::index::dummy::doc_comparator::DummyDocComparator;
-use crate::index::dummy::dummy_leaf_reader::DummyLeafReader;
 use crate::index::index_sorter::IndexSorter;
+use crate::index::leaf_reader::LeafReader;
 
 pub struct DummyIndexSorter;
 impl IndexSorter for DummyIndexSorter {
     fn get_provider_name(&self) -> &str {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     type DocComparator = DummyDocComparator;
-    type LeafReader = DummyLeafReader;
 
-    fn get_doc_comparator(
+    fn get_doc_comparator<LR>(
         &mut self,
-        _leaf_reader: &mut Self::LeafReader,
+        _leaf_reader: &mut LR,
         _max_doc: i32,
-    ) -> crate::util::error::lucene_error::Result<Option<Self::DocComparator>> {
+    ) -> crate::util::error::lucene_error::Result<Option<Self::DocComparator>>
+    where
+        LR: LeafReader,
+    {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
