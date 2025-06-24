@@ -21,6 +21,8 @@ use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAt
 use crate::analysis::token_stream::TokenStream;
 use crate::codecs::doc_values_format::DocValuesFormat;
 use crate::codecs::norms_format::NormsFormat;
+use crate::codecs::points_format::PointsFormat;
+use crate::codecs::points_writer::PointsWriter;
 use crate::codecs::Codec;
 use crate::document::invertable_field::InvertableType;
 use crate::index::doc_values_skip_index_type::DocValuesSkipIndexType;
@@ -183,7 +185,7 @@ where
     where
         DM: DocMap,
     {
-        // let mut points_writer = None;
+        let mut points_writer = None;
         debug_assert!(self.field_hash.len() <= i32::MAX as usize);
 
         for bucket in 0..self.field_hash.len() {
@@ -194,12 +196,16 @@ where
                 if let Some(ref mut writer_enum) = per_field.point_values_writer {
                     // We could have initialized pointValuesWriter, but failed to write even a single doc
                     if field_info.get_point_dimension_count() > 0 {
-                        // if points_writer.is_none() {
-                        // lazy init
-                        // let fmt = self.index_writer_config.get_codec().points_format();
-                        // points_writer = Some(fmt.fields_writer(state)?);
-                        // }
-                        // per_field.point_values_writer.as_mut().unwrap().flush(state, sort_map.clone(), points_writer.as_mut().unwrap())?;
+                        if points_writer.is_none() {
+                            // lazy init
+                            let fmt = self.index_writer_config.get_codec().points_format();
+                            points_writer = Some(fmt.fields_writer(state)?);
+                        }
+                        per_field.point_values_writer.as_mut().unwrap().flush(
+                            state,
+                            sort_map.clone(),
+                            points_writer.as_mut().unwrap(),
+                        )?;
                     }
                 }
                 per_field.point_values_writer = None;
@@ -207,9 +213,9 @@ where
             }
         }
 
-        // if let Some(mut w) = points_writer {
-        //     w.finish()?;
-        // }
+        if let Some(mut w) = points_writer {
+            w.finish()?;
+        }
         Ok(())
     }
 
@@ -446,6 +452,106 @@ where
         }
         Ok(())
     }
+    pub fn index_doc_value<F>(
+        doc_id: i32,
+        fp: &mut PerField<O, P, T, TS>,
+        dv_type: DocValuesType,
+        field: &F,
+    ) -> Result<()>
+    where
+        F: IndexableField,
+    {
+        match fp.doc_values_writer.as_mut() {
+            Some(DocValuesWriterEnum::Numeric(writer)) => {
+                debug_assert_eq!(dv_type, DocValuesType::Numeric);
+                let num = field
+                    .numeric_value()?
+                    .ok_or_else(|| {
+                        LuceneError::illegal_argument(format!(
+                            "field=\"{}\": null value not allowed",
+                            fp.field_info.as_ref().unwrap().name
+                        ))
+                    })?
+                    .to_i64();
+                match num {
+                    Some(num) => {
+                        writer.add_value(doc_id, num)?;
+                    },
+                    _ => {
+                        return Err(LuceneError::illegal_argument(format!(
+                            "field=\"{}\": numeric value out of range: {:?}",
+                            fp.field_info.as_ref().unwrap().name,
+                            num
+                        )));
+                    },
+                }
+            },
+            Some(DocValuesWriterEnum::Binary(writer)) => {
+                debug_assert_eq!(dv_type, DocValuesType::Binary);
+                let bytes = field.binary_value()?.ok_or_else(|| {
+                    LuceneError::illegal_argument(format!(
+                        "field=\"{}\": null value not allowed",
+                        fp.field_info.as_ref().unwrap().name
+                    ))
+                })?;
+                writer.add_value(doc_id, &bytes)?;
+            },
+            Some(DocValuesWriterEnum::Sorted(writer)) => {
+                debug_assert_eq!(dv_type, DocValuesType::Sorted);
+                let bytes = field.binary_value()?.ok_or_else(|| {
+                    LuceneError::illegal_argument(format!(
+                        "field=\"{}\": null value not allowed",
+                        fp.field_info.as_ref().unwrap().name
+                    ))
+                })?;
+                writer.add_value(doc_id, &bytes)?;
+            },
+            Some(DocValuesWriterEnum::SortedNumeric(writer)) => {
+                debug_assert_eq!(dv_type, DocValuesType::SortedNumeric);
+                let num = field
+                    .numeric_value()?
+                    .ok_or_else(|| {
+                        LuceneError::illegal_argument(format!(
+                            "field=\"{}\": null value not allowed",
+                            fp.field_info.as_ref().unwrap().name
+                        ))
+                    })?
+                    .to_i64();
+
+                match num {
+                    Some(num) => {
+                        writer.add_value(doc_id, num)?;
+                    },
+                    _ => {
+                        return Err(LuceneError::illegal_argument(format!(
+                            "field=\"{}\": numeric value out of range: {:?}",
+                            fp.field_info.as_ref().unwrap().name,
+                            num
+                        )));
+                    },
+                }
+            },
+            Some(DocValuesWriterEnum::SortedSet(writer)) => {
+                debug_assert_eq!(dv_type, DocValuesType::SortedSet);
+                let bytes = field.binary_value()?.ok_or_else(|| {
+                    LuceneError::illegal_argument(format!(
+                        "field=\"{}\": null value not allowed",
+                        fp.field_info.as_ref().unwrap().name
+                    ))
+                })?;
+                writer.add_value(doc_id, &bytes)?;
+            },
+            None => {
+                return Err(LuceneError::illegal_state(format!(
+                    "field=\"{}\": no DocValuesWriter for type {:?}",
+                    fp.field_info.as_ref().unwrap().name,
+                    dv_type
+                )));
+            },
+        }
+        Ok(())
+    }
+
     fn get_per_field(&self, name: &str) -> Option<usize> {
         let hash_pos = CoreHelper::compute_hash(&name.to_string()) as usize & self.hash_mask;
         let mut per_field_index = self.field_hash[hash_pos];
