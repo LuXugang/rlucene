@@ -78,7 +78,7 @@ where
         Ok(())
     }
 
-    fn start_document(&mut self, codec: &impl Codec, doc_id: i32) -> Result<()> {
+    pub(crate) fn start_document(&mut self, codec: &impl Codec, doc_id: i32) -> Result<()> {
         debug_assert!(self.last_doc < doc_id);
         self.init_stored_fields_writer(codec)?;
 
@@ -126,7 +126,7 @@ where
         }
     }
 
-    fn finish_document(&mut self) -> Result<()> {
+    pub(crate) fn finish_document(&mut self) -> Result<()> {
         match self.sub {
             Some(ref mut sub) => {
                 let writer = sub.writer.as_mut().expect("sub writer must be initialized");

@@ -19,10 +19,13 @@ use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
 use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
 use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
 use crate::analysis::token_stream::TokenStream;
+use crate::codecs::doc_values_format::DocValuesFormat;
+use crate::codecs::norms_format::NormsFormat;
+use crate::codecs::Codec;
 use crate::document::invertable_field::InvertableType;
 use crate::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::index::doc_values_type::DocValuesType;
-use crate::index::doc_values_writer::DocValuesWriterEnum;
+use crate::index::doc_values_writer::{DocValuesWriter, DocValuesWriterEnum};
 use crate::index::field_info::FieldInfo;
 use crate::index::field_infos::build::Builder;
 use crate::index::field_invert_state::FieldInvertState;
@@ -36,6 +39,8 @@ use crate::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::index::norm_values_writer::NormValuesWriter;
 use crate::index::point_values_writer::PointValuesWriter;
 use crate::index::segment_info::SegmentInfo;
+use crate::index::segment_write_state::SegmentWriteState;
+use crate::index::sorter::DocMap;
 use crate::index::sorting_stored_fields_consumer::SortingStoredFieldsConsumer;
 use crate::index::sorting_term_vectors_consumer::SortingTermVectorsConsumer;
 use crate::index::stored_fields_consumer::StoredFieldsConsumer;
@@ -53,7 +58,8 @@ use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::int_block_pool::{ibp_util, AllocatorI32, AllocatorIntEnum};
 use crate::util::{
-    ByteBlockPool, ByteBlockPoolBorrow, Counter, CounterEnum, CounterEnumBorrow, SliceCopyOps,
+    ByteBlockPool, ByteBlockPoolBorrow, CoreHelper, Counter, CounterEnum, CounterEnumBorrow,
+    SliceCopyOps,
 };
 use parking_lot::Mutex;
 use std::cell::RefCell;
@@ -63,45 +69,46 @@ use std::fmt::Display;
 use std::rc::Rc;
 use std::sync::Arc;
 
-struct IndexingChain<D, O, P, T, TS>
+struct IndexingChain<D, O, P, T, TS, L>
 where
     D: Directory,
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
     TS: TokenStream,
+    L: LiveIndexWriterConfig,
 {
     bytes_used: CounterEnumBorrow,
     field_infos: Builder,
     terms_hash: FreqProxTermsWriter<D, O, P, T>,
     doc_values_byte_pool: ByteBlockPoolBorrow,
     stored_fields_consumer: StoredFieldsConsumer<D>,
-    field_hash: Vec<usize>,
+    field_hash: Vec<i32>,
     hash_mask: usize,
     total_field_count: usize,
     next_field_gen: i64,
     fields: Vec<usize>,
     doc_fields: Vec<Option<PerField<O, P, T, TS>>>,
     byte_block_allocator: STAllocatorByteEnum,
-    index_writer_config: Arc<LiveIndexWriterConfig>,
+    index_writer_config: Arc<L>,
     index_created_version_major: i32,
     has_hit_aborting_exception: bool,
 }
-impl<D, O, P, T, TS> IndexingChain<D, O, P, T, TS>
+impl<D, O, P, T, TS, L> IndexingChain<D, O, P, T, TS, L>
 where
     D: Directory,
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
-
     TS: TokenStream,
+    L: LiveIndexWriterConfig,
 {
     fn new(
         index_created_version_major: i32,
         segment_info: Rc<SegmentInfo<D>>,
         directory: Arc<Mutex<D>>,
         field_infos: Builder,
-        index_writer_config: Arc<LiveIndexWriterConfig>,
+        index_writer_config: Arc<L>,
     ) -> Self {
         let bytes_used = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
         let byte_block_allocator =
@@ -167,6 +174,178 @@ where
             has_hit_aborting_exception: false,
         }
     }
+    ///  Writes all buffered points.
+    pub fn write_points<DM>(
+        &mut self,
+        state: &SegmentWriteState<D>,
+        sort_map: Option<Rc<DM>>,
+    ) -> Result<()>
+    where
+        DM: DocMap,
+    {
+        // let mut points_writer = None;
+        debug_assert!(self.field_hash.len() <= i32::MAX as usize);
+
+        for bucket in 0..self.field_hash.len() {
+            let mut per_field_index = self.field_hash[bucket];
+            while per_field_index >= 0 {
+                let per_field = self.doc_fields[per_field_index as usize].as_mut().unwrap();
+                let field_info = per_field.field_info.as_ref().unwrap();
+                if let Some(ref mut writer_enum) = per_field.point_values_writer {
+                    // We could have initialized pointValuesWriter, but failed to write even a single doc
+                    if field_info.get_point_dimension_count() > 0 {
+                        // if points_writer.is_none() {
+                        // lazy init
+                        // let fmt = self.index_writer_config.get_codec().points_format();
+                        // points_writer = Some(fmt.fields_writer(state)?);
+                        // }
+                        // per_field.point_values_writer.as_mut().unwrap().flush(state, sort_map.clone(), points_writer.as_mut().unwrap())?;
+                    }
+                }
+                per_field.point_values_writer = None;
+                per_field_index = per_field.next;
+            }
+        }
+
+        // if let Some(mut w) = points_writer {
+        //     w.finish()?;
+        // }
+        Ok(())
+    }
+
+    /// Writes all buffered doc values.
+    fn write_doc_values<DM>(
+        &mut self,
+        state: &SegmentWriteState<D>,
+        sort_map: Option<Rc<DM>>,
+    ) -> Result<()>
+    where
+        DM: DocMap,
+    {
+        let mut dv_consumer = None;
+
+        // iterate hash buckets
+        let mut per_field_index;
+        debug_assert!(self.field_hash.len() <= i32::MAX as usize);
+        for bucket in 0..self.field_hash.len() {
+            per_field_index = self.field_hash[bucket];
+            while per_field_index >= 0 {
+                let per_field = self.doc_fields[per_field_index as usize].as_mut().unwrap();
+                let field_info = per_field.field_info.as_ref().unwrap();
+                if let Some(ref mut writer) = per_field.doc_values_writer {
+                    if *field_info.get_doc_values_type() != DocValuesType::None {
+                        return Err(LuceneError::illegal_state(format!(
+                            "segment= {}: field={} has no docvalues but wrote them",
+                            state.segment_info, field_info.name
+                        )));
+                    }
+                    if dv_consumer.is_none() {
+                        // lazy init
+                        let fmt = self.index_writer_config.get_codec().doc_values_format();
+                        dv_consumer = Some(fmt.fields_consumer(state)?);
+                    }
+                    // Since it’s only ever called once globally, we didn’t implement the DocValuesWriter trait for DocValuesWriterEnum.
+                    match writer {
+                        DocValuesWriterEnum::Binary(writer) => {
+                            writer.flush(state, sort_map.clone(), dv_consumer.as_mut().unwrap())?;
+                        },
+                        DocValuesWriterEnum::Numeric(writer) => {
+                            writer.flush(state, sort_map.clone(), dv_consumer.as_mut().unwrap())?;
+                        },
+                        DocValuesWriterEnum::SortedNumeric(writer) => {
+                            writer.flush(state, sort_map.clone(), dv_consumer.as_mut().unwrap())?;
+                        },
+                        DocValuesWriterEnum::Sorted(writer) => {
+                            writer.flush(state, sort_map.clone(), dv_consumer.as_mut().unwrap())?;
+                        },
+                        DocValuesWriterEnum::SortedSet(writer) => {
+                            writer.flush(state, sort_map.clone(), dv_consumer.as_mut().unwrap())?;
+                        },
+                    }
+                } else if *field_info.get_doc_values_type() == DocValuesType::None {
+                    return Err(LuceneError::illegal_state(format!(
+                        "segment= {}: fieldInfos has docValues but did not wrote them ",
+                        state.segment_info
+                    )));
+                }
+                per_field.doc_values_writer = None;
+                per_field_index = per_field.next;
+            }
+        }
+        if !state.field_infos.has_doc_values() {
+            return Err(LuceneError::illegal_state(format!(
+                "segment= {}: fieldInfos has no docValues but wrote them ",
+                state.segment_info
+            )));
+        } else if dv_consumer.is_none() {
+            return Err(LuceneError::illegal_state(format!(
+                "segment= {}: fieldInfos has docValues but did not wrote them ",
+                state.segment_info
+            )));
+        }
+
+        Ok(())
+    }
+
+    fn write_norms<DM>(
+        &mut self,
+        state: &SegmentWriteState<D>,
+        sort_map: Option<Rc<DM>>,
+    ) -> Result<()>
+    where
+        DM: DocMap,
+    {
+        if !state.field_infos.has_norms() {
+            return Ok(());
+        }
+
+        // open the norms consumer
+        let mut norms_consumer = {
+            let norm_format = self.index_writer_config.get_codec().norms_format();
+            norm_format.norms_consumer(state)?
+        };
+
+        let max_doc = state.segment_info.max_doc()?;
+        for fi in state.field_infos.iter() {
+            let per_field_index = self.get_per_field(&fi.name);
+            debug_assert!(per_field_index.is_some());
+            // we must check the final value of omitNorms for the fieldinfo: it could have
+            // changed for this field since the first time we added it.
+            if !fi.omits_norms() && *fi.get_index_options() != IndexOptions::None {
+                let per_field = &mut self.doc_fields[per_field_index.unwrap()];
+                match per_field {
+                    None => {
+                        debug_assert!(false, "per_field should not be None here");
+                    },
+                    Some(ref mut per_field) => {
+                        let norms = per_field.norms.as_mut().unwrap();
+                        norms.finish(max_doc);
+                        norms.flush(state, sort_map.clone(), &mut norms_consumer)?;
+                    },
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Calls `start_document` on the stored fields consumer, aborting the segment on error.
+    pub(crate) fn start_stored_fields(&mut self, doc_id: i32) -> Result<()> {
+        self.stored_fields_consumer
+            .start_document(self.index_writer_config.get_codec(), doc_id)
+            .map(|_| ())
+            .inspect_err(|e| {
+                self.has_hit_aborting_exception = true;
+            })
+    }
+    ///  Calls StoredFieldsWriter.finishDocument, aborting the segment if it hits any error .
+    pub(crate) fn finish_stored_fields(&mut self) -> Result<()> {
+        self.stored_fields_consumer
+            .finish_document()
+            .inspect_err(|e| {
+                self.has_hit_aborting_exception = true;
+            })
+    }
+
     fn update_doc_field_schema<FT>(
         field_name: &str,
         schema: &mut FieldSchema,
@@ -266,6 +445,18 @@ where
             )));
         }
         Ok(())
+    }
+    fn get_per_field(&self, name: &str) -> Option<usize> {
+        let hash_pos = CoreHelper::compute_hash(&name.to_string()) as usize & self.hash_mask;
+        let mut per_field_index = self.field_hash[hash_pos];
+        while per_field_index >= 0 {
+            let pf = self.doc_fields[per_field_index as usize].as_ref().unwrap();
+            if pf.field_name == name {
+                return Some(per_field_index as usize);
+            }
+            per_field_index = pf.next;
+        }
+        None
     }
 }
 

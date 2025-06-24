@@ -112,7 +112,7 @@ impl PointValuesWriter {
     pub(crate) fn get_num_docs(&self) -> usize {
         self.num_docs
     }
-    fn flush<D, DM, PW>(
+    pub(crate) fn flush<D, DM, PW>(
         &mut self,
         _state: &SegmentWriteState<D>,
         sort_map: Option<Rc<DM>>,

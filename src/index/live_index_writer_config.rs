@@ -14,12 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::codecs::lucene101_codec::Lucene101Codec;
+use crate::analysis::analyzer::Analyzer;
+use crate::codecs::Codec;
+use crate::search::similarities::similarities::Similarity;
 
-pub struct LiveIndexWriterConfig;
+pub trait LiveIndexWriterConfig {
+    type Analyzer: Analyzer;
+    fn get_analyzer(&self) -> &Self::Analyzer;
 
-impl LiveIndexWriterConfig {
-    pub fn get_code(&self) -> Lucene101Codec {
-        Lucene101Codec
-    }
+    type Similarity: Similarity;
+    fn get_similarity(&self) -> &Self::Similarity;
+
+    type Codec: Codec;
+    fn get_codec(&self) -> &Self::Codec;
 }

@@ -17,7 +17,6 @@
 use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::hash::{DefaultHasher, Hash, Hasher};
-use std::num::Wrapping;
 use std::rc::Rc;
 
 use bit_set::BitSet;
@@ -64,15 +63,13 @@ impl CoreHelper {
         *target = reset_fn(&old);
         old
     }
-    pub fn compute_hash<T>(value: &T) -> i64
+    pub fn compute_hash<T>(value: &T) -> u64
     where
         T: Hash,
     {
         let mut hasher = DefaultHasher::new();
         value.hash(&mut hasher);
-        let h = hasher.finish();
-        let reduced = (h ^ (h >> 32)) as i32;
-        Wrapping(reduced).0 as i64
+        hasher.finish()
     }
 }
 

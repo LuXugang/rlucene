@@ -84,7 +84,7 @@ impl NormValuesWriter {
         self.bytes_used = new_bytes_used;
         Ok(())
     }
-    pub(crate) fn finish(&mut self) {
+    pub(crate) fn finish(&mut self, _max_doc: i32) {
         self.docs_with_field.finish()
     }
 
@@ -99,7 +99,7 @@ impl NormValuesWriter {
         DM: DocMap,
         N: NormsConsumer,
     {
-        self.finish();
+        self.finish(state.segment_info.max_doc()?);
         let values = std::mem::take(&mut self.pending).build()?;
         let sorted = match sort_map {
             Some(sort_map) => {
