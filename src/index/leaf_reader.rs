@@ -14,4 +14,40 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub struct LeafReader;
+use crate::index::binary_doc_values::BinaryDocValues;
+use crate::index::doc_values_skipper::DocValuesSkipper;
+use crate::index::field_infos::FieldInfos;
+use crate::index::numeric_doc_values::NumericDocValues;
+use crate::index::sorted_doc_values::SortedDocValues;
+use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
+use crate::index::sorted_set_doc_values::SortedSetDocValues;
+use crate::util::error::lucene_error::Result;
+use std::rc::Rc;
+
+pub trait LeafReader {
+    type NumericDocValues: NumericDocValues;
+    fn get_numeric_doc_values(&self, field: &str) -> Result<Option<Self::NumericDocValues>>;
+
+    type BinaryDocValues: BinaryDocValues;
+    fn get_binary_doc_values(&self, field: &str) -> Result<Option<Self::BinaryDocValues>>;
+
+    type SortedDocValues: SortedDocValues;
+    fn get_sorted_doc_values(&self, field: &str) -> Result<Option<Self::SortedDocValues>>;
+
+    type SortedNumericDocValues: SortedNumericDocValues;
+    fn get_sorted_numeric_doc_values(
+        &self,
+        field: &str,
+    ) -> Result<Option<Self::SortedNumericDocValues>>;
+
+    type SortedSetDocValues: SortedSetDocValues;
+    fn get_sorted_set_doc_values(&self, field: &str) -> Result<Option<Self::SortedSetDocValues>>;
+
+    type NormValues: NumericDocValues;
+    fn get_norm_values(&self, field: &str) -> Result<Option<Self::NormValues>>;
+
+    type DocValuesSkipper: DocValuesSkipper;
+    fn get_doc_values_skipper(&self, field: &str) -> Result<Option<Self::DocValuesSkipper>>;
+
+    fn get_field_infos(&self) -> Result<&Rc<FieldInfos>>;
+}

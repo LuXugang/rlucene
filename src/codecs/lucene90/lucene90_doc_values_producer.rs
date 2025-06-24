@@ -38,7 +38,7 @@ use crate::codecs::lucene90_doc_values_format::{
 use crate::codecs::CodecUtil;
 use crate::index::base_terms_enum::BaseTermsEnum;
 use crate::index::binary_doc_values::BinaryDocValues;
-use crate::index::doc_values::{DocValues, EmptyBinary, EmptyNumeric};
+use crate::index::doc_values::DocValues;
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::index::doc_values_skipper::DocValuesSkipper;
@@ -524,7 +524,9 @@ where
     fn get_numeric(&mut self, entry: Rc<NumericEntry>) -> Result<Lucene90NumericDocValuesEnums<I>> {
         if entry.docs_with_field_offset == -2 {
             // empty
-            Ok(Lucene90NumericDocValuesEnums::Empty(EmptyNumeric::new()))
+            Ok(Lucene90NumericDocValuesEnums::Empty(
+                DocValues::empty_numeric(),
+            ))
         } else if entry.docs_with_field_offset == -1 {
             // dense
             let dense_numeric_doc_values_base_enum = if entry.bits_per_value == 0 {
@@ -871,8 +873,8 @@ where
         let entry = self.binaries.get(&field.number);
         match entry {
             Some(entry) => {
-                if entry.docs_with_field_offset == -1 {
-                    return Ok(Lucene90BinaryDocValuesEnum::Empty(EmptyBinary::new()));
+                if entry.docs_with_field_offset == -2 {
+                    return Ok(Lucene90BinaryDocValuesEnum::Empty(DocValues::empty_binary()));
                 }
                 let mut bytes_slice = self
                     .data

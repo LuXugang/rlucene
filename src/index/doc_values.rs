@@ -14,11 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::borrow::Cow;
-
 use crate::index::binary_doc_values::BinaryDocValues;
 use crate::index::doc_values_iterator::DocValuesIterator;
+use crate::index::doc_values_type::DocValuesType;
 use crate::index::dummy::dummy_terms_enum::DummyTermsEnum;
+use crate::index::leaf_reader::LeafReader;
 use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
 use crate::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
@@ -28,33 +28,44 @@ use crate::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::index::BytesRef;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::util::error::lucene_error::Result;
-
+use crate::util::either_enums::{
+    EitherBinaryDocValues, EitherNumericDocValues, EitherSortedDocValues,
+    EitherSortedNumericDocValues, EitherSortedSetDocValues,
+};
+use crate::util::error::lucene_error::{LuceneError, Result};
+use std::borrow::Cow;
+/// This struct contains utility methods and constants for DocValues
 pub struct DocValues;
 impl DocValues {
-    /// Returns a multi-valued view over the provided NumericDocValues.
-    pub fn singleton_numeric<N>(dv: N) -> Result<SingletonSortedNumericDocValues<N>>
-    where
-        N: NumericDocValues,
-    {
-        SingletonSortedNumericDocValues::new(dv)
+    /// An empty [`BinaryDocValues`] which returns no documents
+    pub fn empty_binary() -> EmptyBinary {
+        EmptyBinary::new()
     }
+    /// An empty [`NumericDocValues`] which returns no documents
+    pub fn empty_numeric() -> EmptyNumeric {
+        EmptyNumeric::new()
+    }
+    /// An empty SortedDocValues which returns empty BytesRef for every document
+    pub fn empty_sorted() -> EmptySorted {
+        EmptySorted::new()
+    }
+    /// An empty SortedNumericDocValues which returns zero values for every
+    /// document.
+    pub fn empty_sorted_numeric() -> Result<SingletonSortedNumericDocValues<EmptyNumeric>> {
+        Self::singleton_numeric(Self::empty_numeric())
+    }
+    /// An empty SortedDocValues which returns empty [`BytesRef`] for every
+    /// document.
+    pub fn empty_sorted_set() -> Result<SingletonSortedSetDocValues<EmptySorted>> {
+        Self::singleton_sorted(Self::empty_sorted())
+    }
+
     /// Returns a multi-valued view over the provided SortedDocValues.
     pub fn singleton_sorted<S>(dv: S) -> Result<SingletonSortedSetDocValues<S>>
     where
         S: SortedDocValues,
     {
         SingletonSortedSetDocValues::new(dv)
-    }
-    /// An empty SortedNumericDocValues which returns zero values for every
-    /// document.
-    pub fn empty_sorted_numeric() -> Result<SingletonSortedNumericDocValues<EmptyNumeric>> {
-        Self::singleton_numeric(EmptyNumeric::new())
-    }
-    /// An empty SortedDocValues which returns empty [`BytesRef`] for every
-    /// document.
-    pub fn empty_sorted_set() -> Result<SingletonSortedSetDocValues<EmptySorted>> {
-        Self::singleton_sorted(EmptySorted::new())
     }
 
     /// Returns a single-valued view of the SortedSetDocValues, if it was
@@ -72,25 +83,211 @@ impl DocValues {
             Ok(None)
         }
     }
+
     /// Returns a single-valued view of the SortedNumericDocValues, if it was
     /// previously wrapped with
     /// [`singleton_numeric`](DocValues::singleton_numeric), or null.
-    pub fn unwrap_singleton_sorted_numeric_doc_values<N>(
-        _dv: &mut impl SortedNumericDocValues,
-    ) -> Result<Option<N>>
+    pub fn unwrap_singleton_sorted_numeric_doc_values<SN>(
+        dv: &mut SN,
+    ) -> Result<Option<SN::NumericDocValues>>
+    where
+        SN: SortedNumericDocValues,
+    {
+        if dv.is_single_valued() {
+            Ok(dv.get_numeric_doc_values()?)
+        } else {
+            Ok(None)
+        }
+    }
+    /// Returns a multi-valued view over the provided NumericDocValues.
+    pub fn singleton_numeric<N>(dv: N) -> Result<SingletonSortedNumericDocValues<N>>
     where
         N: NumericDocValues,
     {
-        todo!()
-        // match dv {
-        //     SortedNumericDocValuesEnum::Singleton(singleton) => {
-        //         let inner = singleton.get_numeric_doc_values()?;
-        //         Ok(Some(inner))
-        //     }
-        //     _ => Ok(None),
-        // }
+        SingletonSortedNumericDocValues::new(dv)
+    }
+
+    fn check_field<LR>(reader: &LR, field: &str, expected: &[DocValuesType]) -> Result<()>
+    where
+        LR: LeafReader,
+    {
+        if let Some(fi) = reader.get_field_infos()?.field_info_by_name(field) {
+            let actual = *fi.get_doc_values_type();
+            if !expected.contains(&actual) {
+                let expected_str = if expected.len() == 1 {
+                    format!("={}", expected[0])
+                } else {
+                    format!("one of {:?}", expected)
+                };
+                return Err(LuceneError::illegal_state(format!(
+                    "unexpected docvalues type {} for field '{}' (expected {}). Re-index with correct docvalues type.",
+                    actual, field, expected_str
+                )));
+            }
+        }
+        Ok(())
+    }
+    /// Returns `NumericDocValues` for the field, or [`Self::empty_numeric()`] if it has none.
+    ///
+    /// # Returns
+    ///
+    /// A `NumericDocValues` instance, or an empty instance if `field` does not exist in this reader.
+    ///
+    /// # Error
+    ///
+    /// - IllegalStateException if `field` exists but was not indexed with doc values.  
+    /// - IllegalStateException if `field` has doc values but the type is not [`DocValuesType::Numeric`].  
+    pub fn get_numeric<LR>(
+        reader: &LR,
+        field: &str,
+    ) -> Result<EitherNumericDocValues<LR::NumericDocValues, EmptyNumeric>>
+    where
+        LR: LeafReader,
+    {
+        match reader.get_numeric_doc_values(field)? {
+            Some(dv) => Ok(EitherNumericDocValues::F(dv)),
+            None => {
+                Self::check_field(reader, field, &[DocValuesType::Numeric])?;
+                Ok(EitherNumericDocValues::S(Self::empty_numeric()))
+            },
+        }
+    }
+    /// Returns `BinaryDocValues` for the field, or [`Self::empty_binary()`] if it has none.
+    ///
+    /// # Returns
+    ///
+    /// A `BinaryDocValues` instance, or an empty instance if `field` does not exist in this reader.
+    ///
+    /// # Error
+    ///
+    /// - IllegalStateException if `field` exists but was not indexed with doc values.  
+    /// - IllegalStateException if `field` has doc values but the type is not [`DocValuesType::Binary`].  
+    pub fn get_binary<LR>(
+        reader: &LR,
+        field: &str,
+    ) -> Result<EitherBinaryDocValues<LR::BinaryDocValues, EmptyBinary>>
+    where
+        LR: LeafReader,
+    {
+        match reader.get_binary_doc_values(field)? {
+            Some(dv) => Ok(EitherBinaryDocValues::F(dv)),
+            None => {
+                Self::check_field(reader, field, &[DocValuesType::Binary])?;
+                Ok(EitherBinaryDocValues::S(Self::empty_binary()))
+            },
+        }
+    }
+    /// Returns `SortedDocValues` for the field, or [`Self::empty_sorted()`] if it has none.
+    ///
+    /// # Returns
+    ///
+    /// A `SortedDocValues` instance, or an empty instance if `field` does not exist in this reader.
+    ///
+    /// # Error
+    ///
+    /// - IllegalStateException if `field` exists but was not indexed with doc values.  
+    /// - IllegalStateException if `field` has doc values but the type is not [`DocValuesType::Sorted`].  
+    pub fn get_sorted<LR>(
+        reader: &LR,
+        field: &str,
+    ) -> Result<EitherSortedDocValues<LR::SortedDocValues, EmptySorted>>
+    where
+        LR: LeafReader,
+    {
+        match reader.get_sorted_doc_values(field)? {
+            Some(dv) => Ok(EitherSortedDocValues::F(dv)),
+            None => {
+                Self::check_field(reader, field, &[DocValuesType::Sorted])?;
+                Ok(EitherSortedDocValues::S(Self::empty_sorted()))
+            },
+        }
+    }
+    /// Returns `SortedNumericDocValues` for the field, or [`Self::empty_sorted_numeric()`] if it has none.
+    ///
+    /// # Returns
+    ///
+    /// A `SortedNumericDocValues` instance, or an empty instance if `field` does not exist in this reader.
+    ///
+    /// # Error
+    ///
+    /// - IllegalStateException if `field` exists but was not indexed with doc values.  
+    /// - IllegalStateException if `field` has doc values but the type is not [`DocValuesType::SortedNumeric`] or [`DocValuesType::Numeric`].  
+    pub fn get_sorted_numeric<LR>(
+        reader: &LR,
+        field: &str,
+    ) -> Result<
+        EitherSortedNumericDocValues<
+            LR::SortedNumericDocValues,
+            EitherSortedNumericDocValues<
+                SingletonSortedNumericDocValues<LR::NumericDocValues>,
+                SingletonSortedNumericDocValues<EmptyNumeric>,
+            >,
+        >,
+    >
+    where
+        LR: LeafReader,
+    {
+        match reader.get_sorted_numeric_doc_values(field)? {
+            Some(dv) => Ok(EitherSortedNumericDocValues::F(dv)),
+            None => {
+                let v = match reader.get_numeric_doc_values(field)? {
+                    Some(single) => {
+                        EitherSortedNumericDocValues::F(Self::singleton_numeric(single)?)
+                    },
+                    None => {
+                        Self::check_field(reader, field, &[DocValuesType::SortedNumeric])?;
+                        EitherSortedNumericDocValues::S(Self::empty_sorted_numeric()?)
+                    },
+                };
+                Ok(EitherSortedNumericDocValues::S(v))
+            },
+        }
+    }
+    /// Returns `SortedSetDocValues` for the field, or [`Self::empty_sorted_set()`] if it has none.
+    ///
+    /// # Returns
+    ///
+    /// A `SortedSetDocValues` instance, or an empty instance if `field` does not exist in this reader.
+    ///
+    /// # Error
+    ///
+    /// - IllegalStateException if `field` exists but was not indexed with doc values.  
+    /// - IllegalStateException if `field` has doc values but the type is not [`DocValuesType::SortedSet`] or [`DocValuesType::Sorted`].  
+    pub fn get_sorted_set<LR>(
+        reader: &LR,
+        field: &str,
+    ) -> Result<
+        EitherSortedSetDocValues<
+            LR::SortedSetDocValues,
+            EitherSortedSetDocValues<
+                SingletonSortedSetDocValues<LR::SortedDocValues>,
+                SingletonSortedSetDocValues<EmptySorted>,
+            >,
+        >,
+    >
+    where
+        LR: LeafReader,
+    {
+        match reader.get_sorted_set_doc_values(field)? {
+            Some(dv) => Ok(EitherSortedSetDocValues::F(dv)),
+            None => {
+                let v = match reader.get_sorted_doc_values(field)? {
+                    Some(sorted) => EitherSortedSetDocValues::F(Self::singleton_sorted(sorted)?),
+                    None => {
+                        Self::check_field(
+                            reader,
+                            field,
+                            &[DocValuesType::Sorted, DocValuesType::SortedSet],
+                        )?;
+                        EitherSortedSetDocValues::S(Self::empty_sorted_set()?)
+                    },
+                };
+                Ok(EitherSortedSetDocValues::S(v))
+            },
+        }
     }
 }
+
 /// An empty [`BinaryDocValues`] which returns no documents */
 pub struct EmptyBinary {
     doc: i32,
@@ -102,7 +299,7 @@ impl Default for EmptyBinary {
     }
 }
 impl EmptyBinary {
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self {
             doc: -1,
             bytes: BytesRef::default(),
@@ -156,7 +353,7 @@ impl Default for EmptyNumeric {
 }
 
 impl EmptyNumeric {
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self { doc: -1 }
     }
 }
@@ -204,7 +401,7 @@ impl Default for EmptySorted {
 }
 
 impl EmptySorted {
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self {
             doc: -1,
             empty: BytesRef::default(),

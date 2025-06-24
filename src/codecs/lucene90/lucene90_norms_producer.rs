@@ -25,7 +25,7 @@ use crate::codecs::lucene90::indexed_disi::IndexedDISI;
 use crate::codecs::lucene90_norms_format::Lucene90NormsFormat;
 use crate::codecs::norms_producer::NormsProducer;
 use crate::codecs::CodecUtil;
-use crate::index::doc_values::EmptyNumeric;
+use crate::index::doc_values::DocValues;
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::field_info::FieldInfo;
 use crate::index::field_infos::FieldInfos;
@@ -450,7 +450,7 @@ where
         if entry.docs_with_field_offset == -2 {
             // empty
             return Ok(Lucene90NormNumericDocValuesEnum::<I>::Empty(
-                EmptyNumeric::new(),
+                DocValues::empty_numeric(),
             ));
         }
 
