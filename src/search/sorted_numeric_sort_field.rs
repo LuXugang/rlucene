@@ -14,12 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::fmt::Display;
-use std::hash::{Hash, Hasher};
-
-use crate::index::index_sorter::{
-    DoubleSorter, FloatSorter, IndexSortEnum, IntSorter, LongSorter, StringSorter,
-};
+use crate::index::dummy::dummy_index_sorter::DummyIndexSorter;
 use crate::index::sort_field_provider::SortFieldProvider;
 use crate::search::sort_field::{MissingValueEnum, SortField, SortFieldType, SortFiledBase};
 use crate::search::sort_field_enum::SortFieldEnum;
@@ -27,6 +22,8 @@ use crate::search::sorted_numeric_selector::SortedNumericSelectorType;
 use crate::store::{DataInput, DataOutput};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::numeric_utils::NumericUtils;
+use std::fmt::Display;
+use std::hash::{Hash, Hasher};
 
 #[derive(Clone)]
 pub struct SortedNumericSortField {
@@ -111,25 +108,10 @@ impl SortFiledBase for SortedNumericSortField {
         Ok(())
     }
 
-    fn get_index_sorter(&self) -> Option<IndexSortEnum> {
-        match self.sort_field_type {
-            SortFieldType::Int => Some(IndexSortEnum::IntSorter(IntSorter {
-                provider_name: NumericProvider::NAME.to_string(),
-            })),
-            SortFieldType::Float => Some(IndexSortEnum::FloatSorter(FloatSorter {
-                provider_name: NumericProvider::NAME.to_string(),
-            })),
-            SortFieldType::Long => Some(IndexSortEnum::LongSorter(LongSorter {
-                provider_name: NumericProvider::NAME.to_string(),
-            })),
-            SortFieldType::Double => Some(IndexSortEnum::DoubleSorter(DoubleSorter {
-                provider_name: NumericProvider::NAME.to_string(),
-            })),
-            SortFieldType::String => Some(IndexSortEnum::StringSorter(StringSorter {
-                provider_name: NumericProvider::NAME.to_string(),
-            })),
-            _ => None,
-        }
+    type IndexSort = DummyIndexSorter;
+
+    fn get_index_sorter(&self) -> Option<Self::IndexSort> {
+        todo!()
     }
 
     fn serialize(&self, out: &mut impl DataOutput) -> Result<()> {

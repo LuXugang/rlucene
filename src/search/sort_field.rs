@@ -15,19 +15,20 @@
  * limitations under the License.
  */
 #![allow(deprecated)]
-use std::fmt;
-use std::fmt::Display;
-use std::hash::Hash;
-
-use crate::index::index_sorter::{
-    DoubleSorter, FloatSorter, IndexSortEnum, IntSorter, LongSorter, StringSorter,
-};
+use crate::index::doc_values::{DocValues, EmptyNumeric};
+use crate::index::dummy::dummy_index_sorter::DummyIndexSorter;
+use crate::index::index_sorter::{IndexSorter, NumericDocValuesProvider};
+use crate::index::leaf_reader::LeafReader;
 use crate::index::sort_field_provider::SortFieldProvider;
 use crate::search::field_comparator_source::FieldComparatorSourceEnum;
 use crate::search::sort_field_enum::SortFieldEnum;
 use crate::store::{DataInput, DataOutput};
+use crate::util::either_enums::EitherNumericDocValues;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::numeric_utils::NumericUtils;
+use std::fmt;
+use std::fmt::Display;
+use std::hash::Hash;
 
 /// Stores information about how to sort documents by terms in an individual
 /// field. Fields must be indexed to sort by them.
@@ -274,26 +275,13 @@ impl SortFiledBase for SortField {
 
         Ok(())
     }
-    fn get_index_sorter(&self) -> Option<IndexSortEnum> {
-        match self.field_type {
-            SortFieldType::Int => Some(IndexSortEnum::IntSorter(IntSorter {
-                provider_name: Provider::NAME.to_string(),
-            })),
-            SortFieldType::Float => Some(IndexSortEnum::FloatSorter(FloatSorter {
-                provider_name: Provider::NAME.to_string(),
-            })),
-            SortFieldType::Long => Some(IndexSortEnum::LongSorter(LongSorter {
-                provider_name: Provider::NAME.to_string(),
-            })),
-            SortFieldType::Double => Some(IndexSortEnum::DoubleSorter(DoubleSorter {
-                provider_name: Provider::NAME.to_string(),
-            })),
-            SortFieldType::String => Some(IndexSortEnum::StringSorter(StringSorter {
-                provider_name: Provider::NAME.to_string(),
-            })),
-            _ => None,
-        }
+
+    type IndexSort = DummyIndexSorter;
+
+    fn get_index_sorter(&self) -> Option<Self::IndexSort> {
+        todo!()
     }
+
     fn serialize(&self, out: &mut impl DataOutput) -> Result<()> {
         debug_assert!(self.fields.is_some());
         out.write_string(self.fields.as_ref().unwrap())?;
@@ -464,6 +452,25 @@ impl Hash for SortField {
         self.reverse.hash(state);
         self.comparator_source.hash(state);
         self.missing_value.hash(state);
+    }
+}
+// int
+pub(crate) struct NumericDocValuesProviderImpl {
+    field: String,
+}
+impl NumericDocValuesProviderImpl {
+    pub fn new(field: String) -> Self {
+        NumericDocValuesProviderImpl { field }
+    }
+}
+impl<LR> NumericDocValuesProvider<LR> for NumericDocValuesProviderImpl
+where
+    LR: LeafReader,
+{
+    type NumericDocValues = EitherNumericDocValues<LR::NumericDocValues, EmptyNumeric>;
+
+    fn get(&mut self, leaf_reader: &mut LR) -> Result<Self::NumericDocValues> {
+        DocValues::get_numeric(leaf_reader, &self.field)
     }
 }
 
@@ -736,6 +743,7 @@ impl Hash for MissingValueEnum {
 pub trait SortFiledBase {
     /// Set the value to use for documents that don't have a value.
     fn set_missing_value(&mut self, missing_value: Option<MissingValueEnum>) -> Result<()>;
-    fn get_index_sorter(&self) -> Option<IndexSortEnum>;
+    type IndexSort: IndexSorter;
+    fn get_index_sorter(&self) -> Option<Self::IndexSort>;
     fn serialize(&self, out: &mut impl DataOutput) -> Result<()>;
 }

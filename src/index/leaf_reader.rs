@@ -43,8 +43,8 @@ pub trait LeafReader {
     type SortedSetDocValues: SortedSetDocValues;
     fn get_sorted_set_doc_values(&self, field: &str) -> Result<Option<Self::SortedSetDocValues>>;
 
-    type NormValues: NumericDocValues;
-    fn get_norm_values(&self, field: &str) -> Result<Option<Self::NormValues>>;
+    type NormNumericDocValues: NumericDocValues;
+    fn get_norm_values(&self, field: &str) -> Result<Option<Self::NormNumericDocValues>>;
 
     type DocValuesSkipper: DocValuesSkipper;
     fn get_doc_values_skipper(&self, field: &str) -> Result<Option<Self::DocValuesSkipper>>;

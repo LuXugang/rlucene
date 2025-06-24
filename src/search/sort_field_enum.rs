@@ -14,16 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::fmt;
-use std::fmt::Display;
-use std::hash::Hash;
-
-use crate::index::index_sorter::IndexSortEnum;
+use crate::index::dummy::dummy_index_sorter::DummyIndexSorter;
 use crate::search::sort_field::{MissingValueEnum, SortField, SortFiledBase};
 use crate::search::sorted_numeric_sort_field::SortedNumericSortField;
 use crate::search::sorted_set_sort_field::SortedSetSortField;
 use crate::store::DataOutput;
 use crate::util::error::lucene_error::Result;
+use std::fmt;
+use std::fmt::Display;
+use std::hash::Hash;
 
 #[derive(Clone, PartialEq, Eq)]
 pub enum SortFieldEnum {
@@ -41,7 +40,9 @@ impl SortFiledBase for SortFieldEnum {
         }
     }
 
-    fn get_index_sorter(&self) -> Option<IndexSortEnum> {
+    type IndexSort = DummyIndexSorter;
+
+    fn get_index_sorter(&self) -> Option<Self::IndexSort> {
         match self {
             SortFieldEnum::SortedNumeric(sort_field) => sort_field.get_index_sorter(),
             SortFieldEnum::SortedSet(sort_field) => sort_field.get_index_sorter(),

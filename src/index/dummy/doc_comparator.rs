@@ -14,18 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod doc_comparator;
-pub(crate) mod dummy_doc_map;
-pub mod dummy_fields;
-pub mod dummy_impacts;
-pub mod dummy_impacts_enum;
-pub mod dummy_index_sorter;
-pub mod dummy_indexable_field_type;
-pub mod dummy_leaf_reader;
-pub mod dummy_point_tree;
-pub mod dummy_point_value_base;
-pub mod dummy_postings_enum;
-pub mod dummy_sub_base;
-pub mod dummy_term_state_type;
-pub mod dummy_terms;
-pub mod dummy_terms_enum;
+use crate::index::index_sorter::DocComparator;
+
+pub struct DummyDocComparator;
+impl DocComparator for DummyDocComparator {
+    fn compare(
+        &mut self,
+        _doc_id1: i32,
+        _doc_id2: i32,
+    ) -> crate::util::error::lucene_error::Result<i32> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+}

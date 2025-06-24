@@ -14,16 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::fmt::Display;
-use std::hash::{Hash, Hasher};
-
-use crate::index::index_sorter::{IndexSortEnum, StringSorter};
+use crate::index::dummy::dummy_index_sorter::DummyIndexSorter;
 use crate::index::sort_field_provider::SortFieldProvider;
 use crate::search::sort_field::{MissingValueEnum, SortField, SortFieldType, SortFiledBase};
 use crate::search::sort_field_enum::SortFieldEnum;
 use crate::search::sorted_set_selector::SortedSetSelectorType;
 use crate::store::{DataInput, DataOutput};
 use crate::util::error::lucene_error::{LuceneError, Result};
+use std::fmt::Display;
+use std::hash::{Hash, Hasher};
 
 #[derive(Clone)]
 pub struct SortedSetSortField {
@@ -113,10 +112,10 @@ impl SortFiledBase for SortedSetSortField {
         }
     }
 
-    fn get_index_sorter(&self) -> Option<IndexSortEnum> {
-        Some(IndexSortEnum::StringSorter(StringSorter {
-            provider_name: SetProvider::NAME.to_string(),
-        }))
+    type IndexSort = DummyIndexSorter;
+
+    fn get_index_sorter(&self) -> Option<Self::IndexSort> {
+        todo!()
     }
 
     fn serialize(&self, out: &mut impl DataOutput) -> Result<()> {
