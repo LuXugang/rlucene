@@ -22,6 +22,7 @@ use crate::codecs::field_infos_format::FieldInfosFormat;
 use crate::codecs::live_docs_format::LiveDocsFormat;
 use crate::codecs::lucene101_codec::Lucene101Codec;
 use crate::codecs::norms_format::NormsFormat;
+use crate::codecs::points_format::PointsFormat;
 use crate::codecs::postings_format::PostingsFormat;
 use crate::codecs::segment_info_format::SegmentInfoFormat;
 use crate::codecs::stored_fields_format::StoredFieldsFormat;
@@ -38,7 +39,7 @@ pub trait Codec {
     type NormsFormat: NormsFormat;
     type LiveDocsFormat: LiveDocsFormat;
     type CompoundFormat: CompoundFormat;
-    // type PointsFormat;
+    type PointsFormat: PointsFormat;
     // type KnnVectorsFormat;
     /// Encodes/decodes postings
     fn postings_format(&self) -> Self::PostingsFormat;
@@ -65,10 +66,10 @@ pub trait Codec {
 
     /// Encodes/decodes compound files
     fn compound_format(&self) -> Self::CompoundFormat;
-    //
-    // /// Encodes/decodes points index
-    // fn points_format(&self) -> &Self::PointsFormat;
-    //
+
+    /// Encodes/decodes points index
+    fn points_format(&self) -> Self::PointsFormat;
+
     // /// Encodes/decodes numeric vector fields
     // fn knn_vectors_format(&self) -> &Self::KnnVectorsFormat;
 

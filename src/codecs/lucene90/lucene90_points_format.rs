@@ -35,7 +35,12 @@ use crate::util::error::lucene_error::Result;
 ///
 /// [BKD paper]: https://www.cs.duke.edu/~pankaj/publications/papers/bkd-sstd.pdf
 /// [Lucene BKD wiki]: https://cwiki.apache.org/confluence/pages/viewpage.action?pageId=173081898
-pub(crate) struct Lucene90PointsFormat;
+pub struct Lucene90PointsFormat;
+impl Default for Lucene90PointsFormat {
+    fn default() -> Self {
+        Lucene90PointsFormat
+    }
+}
 
 impl Lucene90PointsFormat {
     pub(crate) const DATA_CODEC_NAME: &'static str = "Lucene90PointsFormatData";

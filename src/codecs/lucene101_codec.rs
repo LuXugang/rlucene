@@ -19,6 +19,7 @@ use crate::codecs::lucene90::lucene90_compound_format::Lucene90CompoundFormat;
 use crate::codecs::lucene90_doc_values_format::Lucene90DocValuesFormat;
 use crate::codecs::lucene90_live_docs_format::Lucene90LiveDocsFormat;
 use crate::codecs::lucene90_norms_format::Lucene90NormsFormat;
+use crate::codecs::lucene90_points_format::Lucene90PointsFormat;
 use crate::codecs::lucene90_stored_fields_format::Lucene90StoredFieldsFormat;
 use crate::codecs::lucene90_term_vectors_format::Lucene90TermVectorsFormat;
 use crate::codecs::lucene94::lucene94_field_infos_format::Lucene94FieldInfosFormat;
@@ -38,6 +39,7 @@ impl Codec for Lucene101Codec {
     type NormsFormat = Lucene90NormsFormat;
     type LiveDocsFormat = Lucene90LiveDocsFormat;
     type CompoundFormat = Lucene90CompoundFormat;
+    type PointsFormat = Lucene90PointsFormat;
 
     fn postings_format(&self) -> Self::PostingsFormat {
         Lucene101PostingsFormat::new()
@@ -73,6 +75,10 @@ impl Codec for Lucene101Codec {
 
     fn compound_format(&self) -> Self::CompoundFormat {
         Lucene90CompoundFormat
+    }
+
+    fn points_format(&self) -> Self::PointsFormat {
+        Lucene90PointsFormat
     }
 
     fn get_name(&self) -> &str {
