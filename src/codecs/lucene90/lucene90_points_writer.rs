@@ -14,38 +14,37 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::codecs::lucene90_points_writer::Lucene90PointWriter;
 use crate::codecs::points_reader::PointsReader;
+use crate::codecs::points_writer::PointsWriter;
 use crate::index::field_info::FieldInfo;
-use crate::util::error::lucene_error::Result;
+use crate::index::segment_write_state::SegmentWriteState;
+use crate::store::directory::Directory;
 use std::rc::Rc;
 
-pub trait PointsWriter {
-    /// Write all values contained in the provided reader
-    fn write_field<PR>(&mut self, field_info: &Rc<FieldInfo>, values: &mut PR) -> Result<()>
+pub struct Lucene90PointWriter;
+
+impl Lucene90PointWriter {
+    pub fn new<D>(state: &SegmentWriteState<D>) -> Self
     where
-        PR: PointsReader;
-
-    /// Called once at the end before close
-    fn finish(&mut self) -> Result<()>;
+        D: Directory,
+    {
+        todo!()
+    }
 }
 
-pub enum PointsWriterEnum {
-    Lucene90(Lucene90PointWriter),
-}
-impl PointsWriter for PointsWriterEnum {
-    fn write_field<PR>(&mut self, field_info: &Rc<FieldInfo>, values: &mut PR) -> Result<()>
+impl PointsWriter for Lucene90PointWriter {
+    fn write_field<PR>(
+        &mut self,
+        field_info: &Rc<FieldInfo>,
+        values: &mut PR,
+    ) -> crate::util::error::lucene_error::Result<()>
     where
         PR: PointsReader,
     {
-        match self {
-            PointsWriterEnum::Lucene90(writer) => writer.write_field(field_info, values),
-        }
+        todo!()
     }
 
-    fn finish(&mut self) -> Result<()> {
-        match self {
-            PointsWriterEnum::Lucene90(writer) => writer.finish(),
-        }
+    fn finish(&mut self) -> crate::util::error::lucene_error::Result<()> {
+        todo!()
     }
 }

@@ -14,7 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codecs::lucene90_points_reader::Lucene90PointsReader;
 use crate::index::point_values::{PointValues, PointValuesBase};
+use crate::store::IndexInput;
+use crate::util::bkd::bkd_reader::BKDReader;
 use crate::util::error::lucene_error::Result;
 /// Abstract API to visit point values.
 pub trait PointsReader {
@@ -36,5 +39,42 @@ pub trait PointsReader {
         Self: Sized,
     {
         Ok(None)
+    }
+}
+
+pub enum PointsReaderEnum<I>
+where
+    I: IndexInput,
+{
+    Lucene90(Lucene90PointsReader<I>),
+}
+impl<I> PointsReader for PointsReaderEnum<I>
+where
+    I: IndexInput,
+{
+    fn check_integrity(&mut self) -> Result<()> {
+        match self {
+            PointsReaderEnum::Lucene90(reader) => reader.check_integrity(),
+        }
+    }
+
+    type PointValuesBase = BKDReader<I>;
+
+    fn get_values(&mut self, field: &str) -> Result<PointValues<Self::PointValuesBase>> {
+        match self {
+            PointsReaderEnum::Lucene90(reader) => reader.get_values(field),
+        }
+    }
+
+    fn get_merge_instance(&self) -> Result<Option<Self>>
+    where
+        Self: Sized,
+    {
+        match self {
+            PointsReaderEnum::Lucene90(reader) => {
+                let merge_instance = reader.get_merge_instance()?;
+                Ok(merge_instance.map(PointsReaderEnum::Lucene90))
+            },
+        }
     }
 }

@@ -14,38 +14,45 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::codecs::lucene90_points_writer::Lucene90PointWriter;
 use crate::codecs::points_reader::PointsReader;
-use crate::index::field_info::FieldInfo;
+use crate::index::point_values::PointValues;
+use crate::index::segment_read_state::SegmentReadState;
+use crate::store::directory::Directory;
+use crate::store::IndexInput;
+use crate::util::bkd::bkd_reader::BKDReader;
 use crate::util::error::lucene_error::Result;
-use std::rc::Rc;
 
-pub trait PointsWriter {
-    /// Write all values contained in the provided reader
-    fn write_field<PR>(&mut self, field_info: &Rc<FieldInfo>, values: &mut PR) -> Result<()>
-    where
-        PR: PointsReader;
-
-    /// Called once at the end before close
-    fn finish(&mut self) -> Result<()>;
+pub struct Lucene90PointsReader<I>
+where
+    I: IndexInput,
+{
+    // TODO 填充值
+    input: I,
 }
 
-pub enum PointsWriterEnum {
-    Lucene90(Lucene90PointWriter),
-}
-impl PointsWriter for PointsWriterEnum {
-    fn write_field<PR>(&mut self, field_info: &Rc<FieldInfo>, values: &mut PR) -> Result<()>
+impl<I> Lucene90PointsReader<I>
+where
+    I: IndexInput,
+{
+    pub fn new<D>(state: &SegmentReadState<D>) -> Self
     where
-        PR: PointsReader,
+        D: Directory,
     {
-        match self {
-            PointsWriterEnum::Lucene90(writer) => writer.write_field(field_info, values),
-        }
+        todo!()
+    }
+}
+
+impl<I> PointsReader for Lucene90PointsReader<I>
+where
+    I: IndexInput,
+{
+    fn check_integrity(&mut self) -> Result<()> {
+        todo!()
     }
 
-    fn finish(&mut self) -> Result<()> {
-        match self {
-            PointsWriterEnum::Lucene90(writer) => writer.finish(),
-        }
+    type PointValuesBase = BKDReader<I>;
+
+    fn get_values(&mut self, field: &str) -> Result<PointValues<Self::PointValuesBase>> {
+        todo!()
     }
 }

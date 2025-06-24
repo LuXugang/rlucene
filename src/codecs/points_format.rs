@@ -14,4 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub struct PointsFormat;
+use crate::codecs::points_reader::PointsReaderEnum;
+use crate::codecs::points_writer::PointsWriterEnum;
+use crate::index::segment_read_state::SegmentReadState;
+use crate::index::segment_write_state::SegmentWriteState;
+use crate::store::directory::Directory;
+use crate::util::error::lucene_error::Result;
+
+pub trait PointsFormat {
+    fn fields_writer<D>(&self, state: &SegmentWriteState<D>) -> Result<PointsWriterEnum>
+    where
+        D: Directory;
+
+    fn fields_reader<D>(
+        &self,
+        state: &SegmentReadState<D>,
+    ) -> Result<PointsReaderEnum<D::IndexInputType>>
+    where
+        D: Directory;
+}
