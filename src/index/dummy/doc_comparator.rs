@@ -18,11 +18,7 @@ use crate::index::index_sorter::DocComparator;
 
 pub struct DummyDocComparator;
 impl DocComparator for DummyDocComparator {
-    fn compare(
-        &mut self,
-        _doc_id1: i32,
-        _doc_id2: i32,
-    ) -> crate::util::error::lucene_error::Result<i32> {
+    fn compare(&self, _doc_id1: i32, _doc_id2: i32) -> i32 {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

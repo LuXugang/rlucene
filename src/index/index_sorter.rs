@@ -120,11 +120,11 @@ impl DocComparatorImplDouble {
     }
 }
 impl DocComparator for DocComparatorImplDouble {
-    fn compare(&mut self, doc_id1: i32, doc_id2: i32) -> Result<i32> {
-        Ok(self.reverse_mul
+    fn compare(&self, doc_id1: i32, doc_id2: i32) -> i32 {
+        self.reverse_mul
             * self.values[doc_id1 as usize]
                 .total_cmp(&self.values[doc_id2 as usize])
-                .to_int())
+                .to_int()
     }
 }
 
@@ -211,11 +211,11 @@ impl DocComparatorImplInt {
     }
 }
 impl DocComparator for DocComparatorImplInt {
-    fn compare(&mut self, doc_id1: i32, doc_id2: i32) -> Result<i32> {
-        Ok(self.reverse_mul
+    fn compare(&self, doc_id1: i32, doc_id2: i32) -> i32 {
+        self.reverse_mul
             * self.values[doc_id1 as usize]
                 .cmp(&self.values[doc_id2 as usize])
-                .to_int())
+                .to_int()
     }
 }
 
@@ -306,11 +306,11 @@ impl DocComparatorImplLong {
 }
 
 impl DocComparator for DocComparatorImplLong {
-    fn compare(&mut self, doc_id1: i32, doc_id2: i32) -> Result<i32> {
-        Ok(self.reverse_mul
+    fn compare(&self, doc_id1: i32, doc_id2: i32) -> i32 {
+        self.reverse_mul
             * self.values[doc_id1 as usize]
                 .cmp(&self.values[doc_id2 as usize])
-                .to_int())
+                .to_int()
     }
 }
 
@@ -403,11 +403,11 @@ impl DocComparatorImplFloat {
 }
 
 impl DocComparator for DocComparatorImplFloat {
-    fn compare(&mut self, doc_id1: i32, doc_id2: i32) -> Result<i32> {
+    fn compare(&self, doc_id1: i32, doc_id2: i32) -> i32 {
         let v1 = self.values[doc_id1 as usize];
         let v2 = self.values[doc_id2 as usize];
         let ord = v1.total_cmp(&v2).to_int();
-        Ok(self.reverse_mul * ord)
+        self.reverse_mul * ord
     }
 }
 
@@ -488,11 +488,11 @@ impl DocComparatorImplString {
 }
 
 impl DocComparator for DocComparatorImplString {
-    fn compare(&mut self, doc_id1: i32, doc_id2: i32) -> Result<i32> {
+    fn compare(&self, doc_id1: i32, doc_id2: i32) -> i32 {
         let o1 = self.ords[doc_id1 as usize];
         let o2 = self.ords[doc_id2 as usize];
         let cmp = o1.cmp(&o2).to_int();
-        Ok(self.reverse_mul * cmp)
+        self.reverse_mul * cmp
     }
 }
 
@@ -504,7 +504,7 @@ pub trait ComparableProvider {
 /// A comparator of doc IDs, used for sorting documents within a segment
 pub trait DocComparator {
     /// Compare docID1 against docID2.
-    fn compare(&mut self, doc_id1: i32, doc_id2: i32) -> Result<i32>;
+    fn compare(&self, doc_id1: i32, doc_id2: i32) -> i32;
 }
 /// Provide a NumericDocValues instance for a LeafReader
 pub trait NumericDocValuesProvider {
@@ -536,7 +536,7 @@ pub enum DocComparatorEnum {
     String(DocComparatorImplString),
 }
 impl DocComparator for DocComparatorEnum {
-    fn compare(&mut self, doc_id1: i32, doc_id2: i32) -> Result<i32> {
+    fn compare(&self, doc_id1: i32, doc_id2: i32) -> i32 {
         match self {
             DocComparatorEnum::Int(cmp) => cmp.compare(doc_id1, doc_id2),
             DocComparatorEnum::Long(cmp) => cmp.compare(doc_id1, doc_id2),
