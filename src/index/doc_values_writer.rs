@@ -25,9 +25,10 @@ use crate::index::sorter::DocMap;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::directory::Directory;
 use crate::util::error::lucene_error::Result;
+use std::fmt::Display;
 use std::rc::Rc;
 
-pub(crate) trait DocValuesWriter {
+pub(crate) trait DocValuesWriter: Display {
     fn flush<D, DM, DC>(
         &mut self,
         _state: &SegmentWriteState<D>,
@@ -49,6 +50,17 @@ pub(crate) enum DocValuesWriterEnum {
     SortedNumeric(SortedNumericDocValuesWriter),
     Sorted(SortedDocValuesWriter),
     SortedSet(SortedSetDocValuesWriter),
+}
+impl Display for DocValuesWriterEnum {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DocValuesWriterEnum::Binary(writer) => writer.fmt(f),
+            DocValuesWriterEnum::Numeric(writer) => writer.fmt(f),
+            DocValuesWriterEnum::SortedNumeric(writer) => writer.fmt(f),
+            DocValuesWriterEnum::Sorted(writer) => writer.fmt(f),
+            DocValuesWriterEnum::SortedSet(writer) => writer.fmt(f),
+        }
+    }
 }
 // impl DocValuesWriter for DocValuesWriterEnum {
 //     fn flush<D, DM, DC>(

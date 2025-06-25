@@ -134,7 +134,7 @@ impl DocValues {
     /// - IllegalStateException if `field` exists but was not indexed with doc values.  
     /// - IllegalStateException if `field` has doc values but the type is not [`DocValuesType::Numeric`].  
     pub fn get_numeric<LR>(
-        reader: &LR,
+        reader: &mut LR,
         field: &str,
     ) -> Result<EitherNumericDocValues<LR::NumericDocValues, EmptyNumeric>>
     where
@@ -159,7 +159,7 @@ impl DocValues {
     /// - IllegalStateException if `field` exists but was not indexed with doc values.  
     /// - IllegalStateException if `field` has doc values but the type is not [`DocValuesType::Binary`].  
     pub fn get_binary<LR>(
-        reader: &LR,
+        reader: &mut LR,
         field: &str,
     ) -> Result<EitherBinaryDocValues<LR::BinaryDocValues, EmptyBinary>>
     where
@@ -184,7 +184,7 @@ impl DocValues {
     /// - IllegalStateException if `field` exists but was not indexed with doc values.  
     /// - IllegalStateException if `field` has doc values but the type is not [`DocValuesType::Sorted`].  
     pub fn get_sorted<LR>(
-        reader: &LR,
+        reader: &mut LR,
         field: &str,
     ) -> Result<EitherSortedDocValues<LR::SortedDocValues, EmptySorted>>
     where
@@ -209,7 +209,7 @@ impl DocValues {
     /// - IllegalStateException if `field` exists but was not indexed with doc values.  
     /// - IllegalStateException if `field` has doc values but the type is not [`DocValuesType::SortedNumeric`] or [`DocValuesType::Numeric`].  
     pub fn get_sorted_numeric<LR>(
-        reader: &LR,
+        reader: &mut LR,
         field: &str,
     ) -> Result<
         EitherSortedNumericDocValues<
@@ -250,7 +250,7 @@ impl DocValues {
     /// - IllegalStateException if `field` exists but was not indexed with doc values.  
     /// - IllegalStateException if `field` has doc values but the type is not [`DocValuesType::SortedSet`] or [`DocValuesType::Sorted`].  
     pub fn get_sorted_set<LR>(
-        reader: &LR,
+        reader: &mut LR,
         field: &str,
     ) -> Result<
         EitherSortedSetDocValues<

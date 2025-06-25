@@ -34,6 +34,7 @@ pub mod doc_id_merger;
 pub mod doc_values;
 pub(crate) mod doc_values_field_updates;
 pub mod doc_values_iterator;
+pub(crate) mod doc_values_leaf_reader;
 pub mod doc_values_skip_index_type;
 pub mod doc_values_skipper;
 pub mod doc_values_type;

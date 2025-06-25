@@ -53,6 +53,7 @@ use crate::util::packed::packed_long_values::{
 use crate::util::packed::{Mutable, PackedInts, Reader};
 use crate::util::{byte_block_pool_util, ByteBlockPoolBorrow, Counter};
 use std::borrow::Cow;
+use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 
 /// Buffers up pending `[u8]`s per doc, deref and sorting via int ord, then flushes when segment flushes.
@@ -273,6 +274,13 @@ impl SortedSetDocValuesWriter {
         }
     }
 }
+
+impl Display for SortedSetDocValuesWriter {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "SortedSetDocValuesWriter",)
+    }
+}
+
 impl DocValuesWriter for SortedSetDocValuesWriter {
     fn flush<D, DM, DC>(
         &mut self,

@@ -22,35 +22,28 @@ use crate::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNumericDoc
 use crate::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocValues;
 use crate::index::field_infos::FieldInfos;
 use crate::index::leaf_reader::LeafReader;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use std::rc::Rc;
 
-pub struct DummyLeafReader;
-impl LeafReader for DummyLeafReader {
+#[derive(Default)]
+pub(crate) struct DocValuesLeafReader;
+impl LeafReader for DocValuesLeafReader {
     type NumericDocValues = DummyNumericDocValues;
 
-    fn get_numeric_doc_values(
-        &mut self,
-        _field: &str,
-    ) -> crate::util::error::lucene_error::Result<Option<Self::NumericDocValues>> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
+    fn get_numeric_doc_values(&mut self, _field: &str) -> Result<Option<Self::NumericDocValues>> {
+        Err(LuceneError::unsupported_operation(""))
     }
 
     type BinaryDocValues = DummyBinaryDocValues;
 
-    fn get_binary_doc_values(
-        &mut self,
-        _field: &str,
-    ) -> crate::util::error::lucene_error::Result<Option<Self::BinaryDocValues>> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
+    fn get_binary_doc_values(&mut self, _field: &str) -> Result<Option<Self::BinaryDocValues>> {
+        Err(LuceneError::unsupported_operation(""))
     }
 
     type SortedDocValues = DummySortedDocValues;
 
-    fn get_sorted_doc_values(
-        &mut self,
-        _field: &str,
-    ) -> crate::util::error::lucene_error::Result<Option<Self::SortedDocValues>> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
+    fn get_sorted_doc_values(&mut self, _field: &str) -> Result<Option<Self::SortedDocValues>> {
+        Err(LuceneError::unsupported_operation(""))
     }
 
     type SortedNumericDocValues = DummySortedNumericDocValues;
@@ -58,8 +51,8 @@ impl LeafReader for DummyLeafReader {
     fn get_sorted_numeric_doc_values(
         &mut self,
         _field: &str,
-    ) -> crate::util::error::lucene_error::Result<Option<Self::SortedNumericDocValues>> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
+    ) -> Result<Option<Self::SortedNumericDocValues>> {
+        Err(LuceneError::unsupported_operation(""))
     }
 
     type SortedSetDocValues = DummySortedSetDocValues;
@@ -67,29 +60,23 @@ impl LeafReader for DummyLeafReader {
     fn get_sorted_set_doc_values(
         &mut self,
         _field: &str,
-    ) -> crate::util::error::lucene_error::Result<Option<Self::SortedSetDocValues>> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
+    ) -> Result<Option<Self::SortedSetDocValues>> {
+        Err(LuceneError::unsupported_operation(""))
     }
 
     type NormNumericDocValues = DummyNumericDocValues;
 
-    fn get_norm_values(
-        &mut self,
-        _field: &str,
-    ) -> crate::util::error::lucene_error::Result<Option<Self::NormNumericDocValues>> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
+    fn get_norm_values(&mut self, _field: &str) -> Result<Option<Self::NormNumericDocValues>> {
+        Err(LuceneError::unsupported_operation(""))
     }
 
     type DocValuesSkipper = DummyDocValuesSkipper;
 
-    fn get_doc_values_skipper(
-        &mut self,
-        _field: &str,
-    ) -> crate::util::error::lucene_error::Result<Option<Self::DocValuesSkipper>> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
+    fn get_doc_values_skipper(&mut self, _field: &str) -> Result<Option<Self::DocValuesSkipper>> {
+        Err(LuceneError::unsupported_operation(""))
     }
 
-    fn get_field_infos(&self) -> crate::util::error::lucene_error::Result<&Rc<FieldInfos>> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
+    fn get_field_infos(&self) -> Result<&Rc<FieldInfos>> {
+        Err(LuceneError::unsupported_operation(""))
     }
 }

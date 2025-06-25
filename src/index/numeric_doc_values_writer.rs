@@ -44,6 +44,7 @@ use crate::util::packed::packed_long_values::{
 use crate::util::packed::PackedInts;
 use crate::util::{Counter, CounterEnumBorrow};
 use std::cell::Cell;
+use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 
 /// Buffers up pending long per doc, then flushes when segment flushes.
@@ -105,6 +106,13 @@ impl NumericDocValuesWriter {
         self.docs_with_field.finish();
     }
 }
+
+impl Display for NumericDocValuesWriter {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "NumericDocValuesWriter",)
+    }
+}
+
 impl DocValuesWriter for NumericDocValuesWriter {
     fn flush<D, DM, DC>(
         &mut self,

@@ -25,24 +25,36 @@ use crate::codecs::points_format::PointsFormat;
 use crate::codecs::points_writer::PointsWriter;
 use crate::codecs::Codec;
 use crate::document::invertable_field::InvertableType;
+use crate::index::binary_doc_values_writer::BufferedBinaryDocValues;
+use crate::index::doc_values_leaf_reader::DocValuesLeafReader;
 use crate::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::index::doc_values_type::DocValuesType;
 use crate::index::doc_values_writer::{DocValuesWriter, DocValuesWriterEnum};
+use crate::index::docs_with_field_set::DocsWithFieldSetEnum;
 use crate::index::field_info::FieldInfo;
 use crate::index::field_infos::build::Builder;
+use crate::index::field_infos::FieldInfos;
 use crate::index::field_invert_state::FieldInvertState;
 use crate::index::freq_prox_terms_writer::FreqProxTermsWriter;
 use crate::index::freq_prox_terms_writer_per_field::FreqProxTermsWriterPerField;
 use crate::index::index_options::IndexOptions;
+use crate::index::index_sorter::{DocComparator, IndexSorter};
 use crate::index::index_writer::IndexWriter;
 use crate::index::indexable_field::IndexableField;
 use crate::index::indexable_field_type::IndexableFieldType;
+use crate::index::leaf_reader::LeafReader;
 use crate::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::index::norm_values_writer::NormValuesWriter;
+use crate::index::numeric_doc_values_writer::BufferedNumericDocValues;
 use crate::index::point_values_writer::PointValuesWriter;
 use crate::index::segment_info::SegmentInfo;
 use crate::index::segment_write_state::SegmentWriteState;
-use crate::index::sorter::DocMap;
+use crate::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
+use crate::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
+use crate::index::sorted_doc_values_writer::BufferedSortedDocValues;
+use crate::index::sorted_numeric_doc_values_writer::BufferedSortedNumericDocValues;
+use crate::index::sorted_set_doc_values_writer::BufferedSortedSetDocValues;
+use crate::index::sorter::{DocMap, DocMapImpl, Sorter};
 use crate::index::sorting_stored_fields_consumer::SortingStoredFieldsConsumer;
 use crate::index::sorting_term_vectors_consumer::SortingTermVectorsConsumer;
 use crate::index::stored_fields_consumer::StoredFieldsConsumer;
@@ -51,17 +63,25 @@ use crate::index::vector_encoding::VectorEncoding;
 use crate::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::index::BytesRef;
 use crate::search::similarities::similarities::Similarity;
+use crate::search::sort_field::SortFiledBase;
 use crate::store::directory::Directory;
 use crate::util::access::Access;
 use crate::util::allocator_byte::{
     AllocatorByteEnum, DirectTrackingAllocatorByte, STAllocatorByteEnum,
 };
+use crate::util::bit_set::{bit_set_util, BitSet};
 use crate::util::bit_util::BitUtil;
+use crate::util::either_enums::{
+    EitherBitSet, EitherDocComparator, EitherSortedNumericDocValues, EitherSortedSetDocValues,
+};
 use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::int_block_pool::{ibp_util, AllocatorI32, AllocatorIntEnum};
+use crate::util::paged_bytes::PagedBytesDataInput;
+use crate::util::sparse_fixed_bit_set::SparseFixedBitSet;
 use crate::util::{
     ByteBlockPool, ByteBlockPoolBorrow, CoreHelper, Counter, CounterEnum, CounterEnumBorrow,
-    SliceCopyOps,
+    SliceCopyOps, LUCENE_10_0_0,
 };
 use parking_lot::Mutex;
 use std::cell::RefCell;
@@ -70,6 +90,7 @@ use std::collections::HashMap;
 use std::fmt::Display;
 use std::rc::Rc;
 use std::sync::Arc;
+
 /// Default general purpose indexing chain, which handles indexing all types of fields.
 struct IndexingChain<D, O, P, T, TS, L>
 where
@@ -176,6 +197,75 @@ where
             has_hit_aborting_exception: false,
         }
     }
+    pub(crate) fn maybe_sort_segment(
+        &mut self,
+        state: &SegmentWriteState<D>,
+    ) -> Result<Option<Rc<DocMapImpl>>>
+    where
+        D: Directory,
+    {
+        let index_created_version_major = self.index_created_version_major;
+        let index_sort = state.segment_info.get_index_sort();
+        if index_sort.is_none() {
+            return Ok(None);
+        }
+
+        let mut doc_values_reader = DocValuesLeafReaderImpl::new(self);
+        let max_doc = state.segment_info.max_doc()?;
+        let has_blocks = state.segment_info.get_has_blocks();
+        let parent_field = state.field_infos.get_parent_field();
+        let use_parent = has_blocks && parent_field.is_some();
+        let parent_bit_set = if use_parent {
+            let parent_field = *parent_field.as_ref().unwrap();
+            match doc_values_reader.get_numeric_doc_values(parent_field)? {
+                Some(reader_values) => Some(Rc::new(bit_set_util::of(reader_values, max_doc)?)),
+                None => {
+                    return Err(LuceneError::corrupt_index(format!(
+                        "missing doc values for parent field {} IndexingChain",
+                        parent_field
+                    )))
+                },
+            }
+        } else {
+            None
+        };
+
+        if has_blocks
+            && parent_field.is_none()
+            && index_created_version_major >= LUCENE_10_0_0.major
+        {
+            return Err(LuceneError::corrupt_index(
+                format!(
+                    "parent field is not set but the index has blocks and uses index sorting. indexCreatedVersionMajor: {} \"IndexingChain\"",
+                    self.index_created_version_major
+                ),
+            ));
+        }
+        let mut comparators = Vec::new();
+        for sort_field in &index_sort.as_ref().unwrap().fields {
+            let mut sorter = sort_field.get_index_sorter()?.ok_or_else(|| {
+                LuceneError::unsupported_operation(format!(
+                    "Cannot sort index using sort field {}",
+                    sort_field
+                ))
+            })?;
+            let doc_comparator = sorter.get_doc_comparator(&mut doc_values_reader, max_doc)?;
+            let v = match &parent_bit_set {
+                Some(parent_bit_set) => EitherDocComparator::F(DocComparatorImpl::new(
+                    parent_bit_set.clone(),
+                    doc_comparator,
+                )),
+                None => EitherDocComparator::S(doc_comparator),
+            };
+            comparators.push(v);
+        }
+        // returns null if the documents are already sorted
+        match Sorter::sort(max_doc, comparators)? {
+            Some(doc_map) => Ok(Some(Rc::new(doc_map))),
+            None => Ok(None),
+        }
+    }
+
     ///  Writes all buffered points.
     pub fn write_points<DM>(
         &mut self,
@@ -1277,5 +1367,228 @@ impl FieldSchema {
             &self.point_num_bytes,
         )?;
         Ok(())
+    }
+}
+
+struct DocValuesLeafReaderImpl<'a, D, O, P, T, TS, L>
+where
+    D: Directory,
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+    TS: TokenStream,
+    L: LiveIndexWriterConfig,
+{
+    index_chain: &'a mut IndexingChain<D, O, P, T, TS, L>,
+    base: DocValuesLeafReader,
+}
+impl<'a, D, O, P, T, TS, L> DocValuesLeafReaderImpl<'a, D, O, P, T, TS, L>
+where
+    D: Directory,
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+    TS: TokenStream,
+    L: LiveIndexWriterConfig,
+{
+    fn new(index_chain: &'a mut IndexingChain<D, O, P, T, TS, L>) -> Self {
+        let base = DocValuesLeafReader;
+        DocValuesLeafReaderImpl { index_chain, base }
+    }
+}
+impl<'a, D, O, P, T, TS, L> LeafReader for DocValuesLeafReaderImpl<'a, D, O, P, T, TS, L>
+where
+    D: Directory,
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+    TS: TokenStream,
+    L: LiveIndexWriterConfig,
+{
+    type NumericDocValues = BufferedNumericDocValues;
+
+    fn get_numeric_doc_values(&mut self, field: &str) -> Result<Option<Self::NumericDocValues>> {
+        let pf_index = self.index_chain.get_per_field(field);
+        if pf_index.is_none() {
+            return Ok(None);
+        }
+        let pf = self.index_chain.doc_fields[pf_index.unwrap()]
+            .as_mut()
+            .unwrap();
+        if *pf.field_info.as_ref().unwrap().get_doc_values_type() == DocValuesType::Numeric {
+            match pf.doc_values_writer {
+                Some(DocValuesWriterEnum::Numeric(ref mut writer)) => {
+                    Ok(Option::from(writer.get_doc_values()?))
+                },
+                _ => Err(LuceneError::illegal_state(format!(
+                    "field=\"{}\": expected Numeric DocValuesWriter, found {}",
+                    pf.field_name,
+                    pf.doc_values_writer.as_ref().unwrap()
+                ))),
+            }
+        } else {
+            Ok(None)
+        }
+    }
+
+    type BinaryDocValues = BufferedBinaryDocValues<DocsWithFieldSetEnum, PagedBytesDataInput>;
+
+    fn get_binary_doc_values(&mut self, field: &str) -> Result<Option<Self::BinaryDocValues>> {
+        let pf_index = self.index_chain.get_per_field(field);
+        if pf_index.is_none() {
+            return Ok(None);
+        }
+        let pf = self.index_chain.doc_fields[pf_index.unwrap()]
+            .as_mut()
+            .unwrap();
+        if *pf.field_info.as_ref().unwrap().get_doc_values_type() == DocValuesType::Binary {
+            match pf.doc_values_writer {
+                Some(DocValuesWriterEnum::Binary(ref mut writer)) => {
+                    Ok(Option::from(writer.get_doc_values()?))
+                },
+                _ => Err(LuceneError::illegal_state(format!(
+                    "field=\"{}\": expected Binary DocValuesWriter, found {}",
+                    pf.field_name,
+                    pf.doc_values_writer.as_ref().unwrap()
+                ))),
+            }
+        } else {
+            Ok(None)
+        }
+    }
+
+    type SortedDocValues = BufferedSortedDocValues<DocsWithFieldSetEnum>;
+
+    fn get_sorted_doc_values(&mut self, field: &str) -> Result<Option<Self::SortedDocValues>> {
+        let pf_index = self.index_chain.get_per_field(field);
+        if pf_index.is_none() {
+            return Ok(None);
+        }
+        let pf = self.index_chain.doc_fields[pf_index.unwrap()]
+            .as_mut()
+            .unwrap();
+        if *pf.field_info.as_ref().unwrap().get_doc_values_type() == DocValuesType::Sorted {
+            match pf.doc_values_writer {
+                Some(DocValuesWriterEnum::Sorted(ref mut writer)) => {
+                    Ok(Option::from(writer.get_doc_values()?))
+                },
+                _ => Err(LuceneError::illegal_state(format!(
+                    "field=\"{}\": expected Sorted DocValuesWriter, found {}",
+                    pf.field_name,
+                    pf.doc_values_writer.as_ref().unwrap()
+                ))),
+            }
+        } else {
+            Ok(None)
+        }
+    }
+
+    type SortedNumericDocValues = EitherSortedNumericDocValues<
+        SingletonSortedNumericDocValues<BufferedNumericDocValues>,
+        BufferedSortedNumericDocValues<DocsWithFieldSetEnum>,
+    >;
+
+    fn get_sorted_numeric_doc_values(
+        &mut self,
+        field: &str,
+    ) -> Result<Option<Self::SortedNumericDocValues>> {
+        let pf_index = self.index_chain.get_per_field(field);
+        if pf_index.is_none() {
+            return Ok(None);
+        }
+        let pf = self.index_chain.doc_fields[pf_index.unwrap()]
+            .as_mut()
+            .unwrap();
+        if *pf.field_info.as_ref().unwrap().get_doc_values_type() == DocValuesType::SortedNumeric {
+            match pf.doc_values_writer {
+                Some(DocValuesWriterEnum::SortedNumeric(ref mut writer)) => {
+                    Ok(Option::from(writer.get_doc_values()?))
+                },
+                _ => Err(LuceneError::illegal_state(format!(
+                    "field=\"{}\": expected SortedNumeric DocValuesWriter, found {}",
+                    pf.field_name,
+                    pf.doc_values_writer.as_ref().unwrap()
+                ))),
+            }
+        } else {
+            Ok(None)
+        }
+    }
+
+    type SortedSetDocValues = EitherSortedSetDocValues<
+        SingletonSortedSetDocValues<BufferedSortedDocValues<DocsWithFieldSetEnum>>,
+        BufferedSortedSetDocValues<DocsWithFieldSetEnum>,
+    >;
+
+    fn get_sorted_set_doc_values(
+        &mut self,
+        field: &str,
+    ) -> Result<Option<Self::SortedSetDocValues>> {
+        let pf_index = self.index_chain.get_per_field(field);
+        if pf_index.is_none() {
+            return Ok(None);
+        }
+        let pf = self.index_chain.doc_fields[pf_index.unwrap()]
+            .as_mut()
+            .unwrap();
+        if *pf.field_info.as_ref().unwrap().get_doc_values_type() == DocValuesType::SortedSet {
+            match pf.doc_values_writer {
+                Some(DocValuesWriterEnum::SortedSet(ref mut writer)) => {
+                    Ok(Option::from(writer.get_doc_values()?))
+                },
+                _ => Err(LuceneError::illegal_state(format!(
+                    "field=\"{}\": expected SortedSet DocValuesWriter, found {}",
+                    pf.field_name,
+                    pf.doc_values_writer.as_ref().unwrap()
+                ))),
+            }
+        } else {
+            Ok(None)
+        }
+    }
+
+    type NormNumericDocValues = <DocValuesLeafReader as LeafReader>::NumericDocValues;
+
+    fn get_norm_values(&mut self, field: &str) -> Result<Option<Self::NormNumericDocValues>> {
+        self.base.get_norm_values(field)
+    }
+
+    type DocValuesSkipper = <DocValuesLeafReader as LeafReader>::DocValuesSkipper;
+
+    fn get_doc_values_skipper(&mut self, field: &str) -> Result<Option<Self::DocValuesSkipper>> {
+        self.base.get_doc_values_skipper(field)
+    }
+
+    fn get_field_infos(&self) -> Result<&Rc<FieldInfos>> {
+        self.base.get_field_infos()
+    }
+}
+
+struct DocComparatorImpl<DC>
+where
+    DC: DocComparator,
+{
+    parents: Rc<EitherBitSet<SparseFixedBitSet, FixedBitSet>>,
+    doc_comparator: DC,
+}
+impl<DC> DocComparatorImpl<DC>
+where
+    DC: DocComparator,
+{
+    fn new(parents: Rc<EitherBitSet<SparseFixedBitSet, FixedBitSet>>, doc_comparator: DC) -> Self {
+        DocComparatorImpl {
+            parents,
+            doc_comparator,
+        }
+    }
+}
+impl<DC> DocComparator for DocComparatorImpl<DC>
+where
+    DC: DocComparator,
+{
+    fn compare(&self, doc_id1: i32, doc_id2: i32) -> i32 {
+        let doc_id1 = self.parents.next_set_bit(doc_id1);
+        let doc_id2 = self.parents.next_set_bit(doc_id2);
+        self.doc_comparator.compare(doc_id1, doc_id2)
     }
 }

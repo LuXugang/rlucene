@@ -26,28 +26,31 @@ use std::rc::Rc;
 
 pub trait LeafReader {
     type NumericDocValues: NumericDocValues;
-    fn get_numeric_doc_values(&self, field: &str) -> Result<Option<Self::NumericDocValues>>;
+    fn get_numeric_doc_values(&mut self, field: &str) -> Result<Option<Self::NumericDocValues>>;
 
     type BinaryDocValues: BinaryDocValues;
-    fn get_binary_doc_values(&self, field: &str) -> Result<Option<Self::BinaryDocValues>>;
+    fn get_binary_doc_values(&mut self, field: &str) -> Result<Option<Self::BinaryDocValues>>;
 
     type SortedDocValues: SortedDocValues;
-    fn get_sorted_doc_values(&self, field: &str) -> Result<Option<Self::SortedDocValues>>;
+    fn get_sorted_doc_values(&mut self, field: &str) -> Result<Option<Self::SortedDocValues>>;
 
     type SortedNumericDocValues: SortedNumericDocValues;
     fn get_sorted_numeric_doc_values(
-        &self,
+        &mut self,
         field: &str,
     ) -> Result<Option<Self::SortedNumericDocValues>>;
 
     type SortedSetDocValues: SortedSetDocValues;
-    fn get_sorted_set_doc_values(&self, field: &str) -> Result<Option<Self::SortedSetDocValues>>;
+    fn get_sorted_set_doc_values(
+        &mut self,
+        field: &str,
+    ) -> Result<Option<Self::SortedSetDocValues>>;
 
     type NormNumericDocValues: NumericDocValues;
-    fn get_norm_values(&self, field: &str) -> Result<Option<Self::NormNumericDocValues>>;
+    fn get_norm_values(&mut self, field: &str) -> Result<Option<Self::NormNumericDocValues>>;
 
     type DocValuesSkipper: DocValuesSkipper;
-    fn get_doc_values_skipper(&self, field: &str) -> Result<Option<Self::DocValuesSkipper>>;
+    fn get_doc_values_skipper(&mut self, field: &str) -> Result<Option<Self::DocValuesSkipper>>;
 
     fn get_field_infos(&self) -> Result<&Rc<FieldInfos>>;
 }

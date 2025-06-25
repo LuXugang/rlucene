@@ -23,7 +23,7 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 
 #[derive(Clone)]
 pub struct Sort {
-    fields: Vec<SortFieldEnum>,
+    pub(crate) fields: Vec<SortFieldEnum>,
 }
 
 impl Sort {

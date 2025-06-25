@@ -223,8 +223,8 @@ impl FieldInfos {
 
     /// Returns the parent document field name if it exists; otherwise returns
     /// None.
-    pub fn get_parent_field(&self) -> Option<&String> {
-        self.parent_field.as_ref()
+    pub fn get_parent_field(&self) -> Option<&str> {
+        self.parent_field.as_deref()
     }
 
     /// Returns the number of fields.

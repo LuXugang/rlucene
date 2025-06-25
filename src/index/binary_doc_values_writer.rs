@@ -46,6 +46,7 @@ use crate::util::paged_bytes::{
 };
 use crate::util::{BytesRefArray, Counter, CounterEnum, CounterEnumBorrow, SortableBytesRefArray};
 use std::cell::RefCell;
+use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 
 /// Buffers up pending `[u8]` per doc, then flushes when segment flushes.
@@ -124,6 +125,12 @@ impl BinaryDocValuesWriter {
     }
     pub(crate) fn finish(&mut self) {
         self.docs_with_field.finish()
+    }
+}
+
+impl Display for BinaryDocValuesWriter {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "BinaryDocValuesWriter",)
     }
 }
 

@@ -49,6 +49,7 @@ use crate::util::packed::packed_long_values::{
 };
 use crate::util::packed::PackedInts;
 use crate::util::{Counter, CounterEnumBorrow};
+use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 
 /// Buffers up pending `[i64]` per doc, sorts, then flushes when segment flushes.
@@ -190,6 +191,13 @@ impl SortedNumericDocValuesWriter {
         self.docs_with_field.finish();
     }
 }
+
+impl Display for SortedNumericDocValuesWriter {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "SortedNumericDocValuesWriter",)
+    }
+}
+
 impl DocValuesWriter for SortedNumericDocValuesWriter {
     fn flush<D, DM, DC>(
         &mut self,
