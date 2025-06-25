@@ -14,8 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
-use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
 use crate::codecs::compressing::lucene90_compressing_term_vectors_format::Lucene90CompressingTermVectorsFormat;
 use crate::codecs::compression::compression_mode::CompressionModeEnum;
 use crate::codecs::term_vectors_format::TermVectorsFormat;
@@ -41,7 +39,7 @@ use crate::store::flush_info::FlushInfo;
 use crate::store::IOContext;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::{Counter, IOUtils, ToInt};
+use crate::util::{IOUtils, ToInt};
 use parking_lot::Mutex;
 use std::borrow::Cow;
 use std::rc::Rc;

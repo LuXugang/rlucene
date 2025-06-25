@@ -111,7 +111,7 @@ where
         self.metadata.as_ref().unwrap().save(meta_out)?;
         self.fst_reader.borrow_mut().write_to(out)
     }
-    pub fn save_with_same_data_out(&mut self, out: &mut impl DataOutput) -> Result<()> {
+    pub fn save_with_same_data_out(&self, out: &mut impl DataOutput) -> Result<()> {
         self.metadata.as_ref().unwrap().save(out)?;
         self.fst_reader.borrow_mut().write_to(out)
     }
@@ -1835,17 +1835,17 @@ mod tests {
         // let metadata = fst_compiler.compile()?;
         // let reader: DataOutputEnum<DummyDirectory> =
         //     fst_compiler.get_fst_reader()?;
-        // let mut fst = FST::from_fst_reader(metadata, Some(reader)).unwrap();
+        // let fst = FST::from_fst_reader(metadata, Some(reader)).unwrap();
         //
         //
         //
-        // let actual = Util::get_bytes(&mut fst, &key)?;
+        // let actual = Util::get_bytes(& fst, &key)?;
         // assert!(actual.is_some());
         //
         // let v:BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, "foobaz")?;
         //
         // let missing = Util::get_bytes(
-        //     &mut fst,
+        //     & fst,
         //     &v,
         // )?;
         // assert!(missing.is_none());
@@ -1891,11 +1891,11 @@ mod tests {
 
         let fst_metadata = fst_compiler.compile()?;
         let fst_reader: DataOutputEnum<DummyDirectory> = fst_compiler.get_fst_reader()?;
-        let mut fst = FST::from_fst_reader(fst_metadata, Some(fst_reader)).unwrap();
+        let fst = FST::from_fst_reader(fst_metadata, Some(fst_reader)).unwrap();
 
-        assert_eq!(*Util::get_bytes(&mut fst, &c)?.unwrap(), 13824324872317238);
-        assert_eq!(*Util::get_bytes(&mut fst, &b)?.unwrap(), 42);
-        assert_eq!(*Util::get_bytes(&mut fst, &a)?.unwrap(), 17);
+        assert_eq!(*Util::get_bytes(&fst, &c)?.unwrap(), 13824324872317238);
+        assert_eq!(*Util::get_bytes(&fst, &b)?.unwrap(), 42);
+        assert_eq!(*Util::get_bytes(&fst, &a)?.unwrap(), 17);
 
         let mut fst_enum = BytesRefFSTEnum::new(fst)?;
         let mut seek_result = fst_enum.seek_floor(a.clone())?;
@@ -1980,7 +1980,7 @@ mod tests {
         // Compile and load once
         let metadata = fst_compiler.compile()?;
         let fst_reader: DataOutputEnum<DummyDirectory> = fst_compiler.get_fst_reader()?;
-        let mut fst = FST::from_fst_reader(metadata, Some(fst_reader)).unwrap();
+        let fst = FST::from_fst_reader(metadata, Some(fst_reader)).unwrap();
 
         // Save into a single output
         let mut bytes = Vec::new();
@@ -2077,7 +2077,7 @@ mod tests {
         // Construct FST
         let metadata = fst_compiler.fst.metadata.take().unwrap();
 
-        let mut fst = FST::new(metadata, fst_compiler.get_fst_reader()?);
+        let fst = FST::new(metadata, fst_compiler.get_fst_reader()?);
 
         let mut random = random();
         let mut dir = new_directory(&mut random)?;
@@ -2086,7 +2086,7 @@ mod tests {
             fst.save_with_same_data_out(&mut out)?;
         }
         // skip string writer
-        check_stop_nodes(&mut fst, outputs.clone())?;
+        check_stop_nodes(&fst, outputs.clone())?;
 
         let mut in_file = dir.open_input("fst", &IOContext::default_io_context()?)?;
         let metadata = fst_util::read_metadata(&mut in_file, outputs.clone())?;
@@ -2165,11 +2165,11 @@ mod tests {
 
         let metadata = fst_compiler.compile()?;
         let fst_reader: DataOutputEnum<DummyDirectory> = fst_compiler.get_fst_reader()?;
-        let mut fst = FST::from_fst_reader(metadata, Some(fst_reader)).unwrap();
+        let fst = FST::from_fst_reader(metadata, Some(fst_reader)).unwrap();
 
         for arc in 0..6 {
             input.set_int_at(0, arc);
-            let result = Util::get_ints(&mut fst, input.get())?;
+            let result = Util::get_ints(&fst, input.get())?;
             assert!(result.is_some());
             let result = result.unwrap();
             assert_eq!(result.length, 300);
@@ -2208,11 +2208,11 @@ mod tests {
 
         let metadata = fst_compiler.compile()?;
         let reader: DataOutputEnum<DummyDirectory> = fst_compiler.get_fst_reader()?;
-        let mut fst = FST::from_fst_reader(metadata, Some(reader)).unwrap();
+        let fst = FST::from_fst_reader(metadata, Some(reader)).unwrap();
 
-        assert_eq!(*Util::get_bytes(&mut fst, &ab)?.unwrap(), 3);
-        assert_eq!(*Util::get_bytes(&mut fst, &ac)?.unwrap(), 5);
-        assert_eq!(*Util::get_bytes(&mut fst, &bd)?.unwrap(), 7);
+        assert_eq!(*Util::get_bytes(&fst, &ab)?.unwrap(), 3);
+        assert_eq!(*Util::get_bytes(&fst, &ac)?.unwrap(), 5);
+        assert_eq!(*Util::get_bytes(&fst, &bd)?.unwrap(), 7);
 
         Ok(())
     }

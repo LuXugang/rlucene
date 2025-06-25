@@ -34,7 +34,7 @@ impl<I> Lucene90PointsReader<I>
 where
     I: IndexInput,
 {
-    pub fn new<D>(state: &SegmentReadState<D>) -> Self
+    pub fn new<D>(_state: &SegmentReadState<D>) -> Self
     where
         D: Directory,
     {
@@ -52,7 +52,7 @@ where
 
     type PointValuesBase = BKDReader<I>;
 
-    fn get_values(&mut self, field: &str) -> Result<PointValues<Self::PointValuesBase>> {
+    fn get_values(&mut self, _field: &str) -> Result<PointValues<Self::PointValuesBase>> {
         todo!()
     }
 }

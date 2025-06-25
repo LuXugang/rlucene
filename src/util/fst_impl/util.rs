@@ -60,7 +60,7 @@ impl Util {
     }
     /// Looks up the output for this input, or `None` if the input is not
     /// accepted.
-    pub fn get_bytes<O, F, AV>(fst: &mut FST<O, F>, input: &BytesRef<AV>) -> Result<Option<O::V>>
+    pub fn get_bytes<O, F, AV>(fst: &FST<O, F>, input: &BytesRef<AV>) -> Result<Option<O::V>>
     where
         O: Outputs,
         F: FstReader,
@@ -145,7 +145,7 @@ impl Util {
 
     pub fn read_ceil_arc<O, F>(
         label: i32,
-        fst: &mut FST<O, F>,
+        fst: &FST<O, F>,
         follow: &Arc<O::V>,
         arc: &mut Arc<O::V>,
         in_reader: &mut F::FstBytesReader,
@@ -228,11 +228,7 @@ impl Util {
         }
     }
 
-    pub fn binary_search<O, F>(
-        fst: &mut FST<O, F>,
-        arc: &Arc<O::V>,
-        target_label: i32,
-    ) -> Result<i32>
+    pub fn binary_search<O, F>(fst: &FST<O, F>, arc: &Arc<O::V>, target_label: i32) -> Result<i32>
     where
         O: Outputs,
         F: FstReader,
@@ -358,24 +354,24 @@ mod tests {
             .into_iter()
             .map(|s| s.to_string())
             .collect::<Vec<_>>();
-        let mut fst = build_fst(&letters, true, false)?;
+        let fst = build_fst(&letters, true, false)?;
         let mut arc = Arc::default();
         fst.get_first_arc(&mut arc);
         let mut reader = fst.get_bytes_reader()?;
         fst.read_first_target_arc(&arc.clone(), &mut arc, &mut reader)?;
         for (i, s) in letters.iter().enumerate() {
             let label = s.chars().next().unwrap() as i32;
-            let found = Util::binary_search(&mut fst, &arc, label)?;
+            let found = Util::binary_search(&fst, &arc, label)?;
             assert_eq!(found, i as i32, "Failed to match '{}'", s);
         }
-        assert_eq!(Util::binary_search(&mut fst, &arc, ' ' as i32)?, -1);
+        assert_eq!(Util::binary_search(&fst, &arc, ' ' as i32)?, -1);
         assert_eq!(
-            Util::binary_search(&mut fst, &arc, '~' as i32)?,
+            Util::binary_search(&fst, &arc, '~' as i32)?,
             -1 - letters.len() as i32
         );
-        assert_eq!(Util::binary_search(&mut fst, &arc, 'B' as i32)?, -2);
-        assert_eq!(Util::binary_search(&mut fst, &arc, 'C' as i32)?, -2);
-        assert_eq!(Util::binary_search(&mut fst, &arc, 'P' as i32)?, -7);
+        assert_eq!(Util::binary_search(&fst, &arc, 'B' as i32)?, -2);
+        assert_eq!(Util::binary_search(&fst, &arc, 'C' as i32)?, -2);
+        assert_eq!(Util::binary_search(&fst, &arc, 'P' as i32)?, -7);
         Ok(())
     }
     #[test]
@@ -385,7 +381,7 @@ mod tests {
             .map(|s| s.to_string())
             .collect::<Vec<_>>();
 
-        let mut fst = build_fst(&letters, true, false)?;
+        let fst = build_fst(&letters, true, false)?;
 
         let mut first = Arc::default();
         fst.get_first_arc(&mut first);
@@ -393,20 +389,19 @@ mod tests {
         let mut reader = fst.get_bytes_reader()?;
         for s in &letters {
             let c = s.chars().next().unwrap() as i32;
-            let result = Util::read_ceil_arc(c, &mut fst, &first, &mut arc, &mut reader)?;
+            let result = Util::read_ceil_arc(c, &fst, &first, &mut arc, &mut reader)?;
             assert!(result.is_some());
             assert_eq!(arc.label(), c);
         }
 
         // in the middle
         let c = 'F' as i32;
-        let result = Util::read_ceil_arc(c, &mut fst, &first, &mut arc, &mut reader)?;
+        let result = Util::read_ceil_arc(c, &fst, &first, &mut arc, &mut reader)?;
         assert!(result.is_some());
         assert_eq!(arc.label(), c);
 
         // no following arcs
-        let result =
-            Util::read_ceil_arc('A' as i32, &mut fst, &arc.clone(), &mut arc, &mut reader)?;
+        let result = Util::read_ceil_arc('A' as i32, &fst, &arc.clone(), &mut arc, &mut reader)?;
         assert!(result.is_none());
 
         Ok(())
@@ -435,7 +430,7 @@ mod tests {
         allow_direct_addressing: bool,
     ) -> Result<()> {
         let words = letters.iter().map(|s| s.to_string()).collect::<Vec<_>>();
-        let mut fst = build_fst(&words, allow_array_arcs, allow_direct_addressing)?;
+        let fst = build_fst(&words, allow_array_arcs, allow_direct_addressing)?;
 
         let mut first = Arc::default();
         fst.get_first_arc(&mut first);
@@ -444,24 +439,23 @@ mod tests {
 
         for &letter in letters {
             let c = letter.chars().next().unwrap() as i32;
-            let result = Util::read_ceil_arc(c, &mut fst, &first, &mut arc, &mut reader)?;
+            let result = Util::read_ceil_arc(c, &fst, &first, &mut arc, &mut reader)?;
             assert!(result.is_some());
             assert_eq!(arc.label(), c);
         }
 
-        let result = Util::read_ceil_arc(' ' as i32, &mut fst, &first, &mut arc, &mut reader)?;
+        let result = Util::read_ceil_arc(' ' as i32, &fst, &first, &mut arc, &mut reader)?;
         assert!(result.is_some());
         assert_eq!(arc.label(), 'A' as i32);
 
-        let result = Util::read_ceil_arc('~' as i32, &mut fst, &first, &mut arc, &mut reader)?;
+        let result = Util::read_ceil_arc('~' as i32, &fst, &first, &mut arc, &mut reader)?;
         assert!(result.is_none());
 
-        let result = Util::read_ceil_arc('F' as i32, &mut fst, &first, &mut arc, &mut reader)?;
+        let result = Util::read_ceil_arc('F' as i32, &fst, &first, &mut arc, &mut reader)?;
         assert!(result.is_some());
         assert_eq!(arc.label(), 'J' as i32);
 
-        let result =
-            Util::read_ceil_arc('Z' as i32, &mut fst, &arc.clone(), &mut arc, &mut reader)?;
+        let result = Util::read_ceil_arc('Z' as i32, &fst, &arc.clone(), &mut arc, &mut reader)?;
         assert!(result.is_none());
 
         Ok(())

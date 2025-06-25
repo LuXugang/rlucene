@@ -123,7 +123,7 @@ where
         Ok(Some(output))
     }
     pub fn random_accepted_word<F, AV>(
-        fst: &mut FST<O, F>,
+        fst: &FST<O, F>,
         in_builder: &mut IntsRefBuilder<AV>,
         random: &mut impl Rng,
     ) -> Result<O::V>
@@ -218,12 +218,12 @@ where
                 Some(FSTEnums::FST1(fst))
             }
         } else if fst_metadata.is_some() {
-            let mut fst = FST::from_fst_reader(fst_metadata, Some(fst_compiler.get_fst_reader()?));
+            let fst = FST::from_fst_reader(fst_metadata, Some(fst_compiler.get_fst_reader()?));
             if random.random_bool(0.5) {
                 let ctx = new_io_context(&mut random)?;
                 {
                     let mut out = self.dir.borrow_mut().create_output("fst.bin", &ctx)?;
-                    if let Some(fst_ref) = &mut fst {
+                    if let Some(fst_ref) = &fst {
                         fst_ref.save_with_same_data_out(&mut out)?;
                     }
                 }

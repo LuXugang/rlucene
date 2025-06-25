@@ -122,7 +122,7 @@ impl SortFiledBase for SortedSetSortField {
 
     fn get_index_sorter(&self) -> Result<Option<Self::IndexSort>> {
         debug_assert!(self.parent_sort.get_field().is_some());
-        let missing_value = self.parent_sort.missing_value.as_ref().map(|v| v.clone());
+        let missing_value = self.parent_sort.missing_value.clone();
         Ok(Some(StringSorter::new(
             SetProvider::NAME.to_string(),
             missing_value,

@@ -35,7 +35,7 @@ use crate::index::segment_write_state::SegmentWriteState;
 use crate::index::sorter::DocMap;
 use crate::index::term::Term;
 use crate::index::term_state::TermStateEnum;
-use crate::index::term_vectors_consumer::{TermVectorsConsumer, TermVectorsConsumerBase};
+use crate::index::term_vectors_consumer::TermVectorsConsumer;
 use crate::index::terms::Terms;
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::index::terms_hash::TermsHash;

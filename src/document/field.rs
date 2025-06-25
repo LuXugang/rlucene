@@ -477,8 +477,8 @@ impl IndexableField for Field {
 
     fn token_stream<A>(
         &self,
-        analyzer: &A,
-        reuse: Option<Self::TokenStream>,
+        _analyzer: &A,
+        _reuse: Option<Self::TokenStream>,
     ) -> Result<Self::TokenStream>
     where
         A: Analyzer,

@@ -35,8 +35,8 @@ impl Lucene90PointWriter {
 impl PointsWriter for Lucene90PointWriter {
     fn write_field<PR>(
         &mut self,
-        field_info: &Rc<FieldInfo>,
-        values: &mut PR,
+        _field_info: &Rc<FieldInfo>,
+        _values: &mut PR,
     ) -> crate::util::error::lucene_error::Result<()>
     where
         PR: PointsReader,
