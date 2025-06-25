@@ -69,12 +69,12 @@ impl<T: BitSet> DocIdSetIterator for BitSetIterator<T> {
         self.advance(self.doc + 1)
     }
 
-    fn advance(&mut self, _target: i32) -> Result<i32> {
-        if _target >= self.length {
+    fn advance(&mut self, target: i32) -> Result<i32> {
+        if target >= self.length {
             self.doc = NO_MORE_DOCS;
             return Ok(self.doc);
         }
-        self.doc = self.bits.next_set_bit(_target);
+        self.doc = self.bits.next_set_bit(target);
         Ok(self.doc)
     }
 

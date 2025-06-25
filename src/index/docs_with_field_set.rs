@@ -114,10 +114,10 @@ impl DocIdSetIterator for DocsWithFieldSetEnum {
         }
     }
 
-    fn advance(&mut self, _target: i32) -> Result<i32> {
+    fn advance(&mut self, target: i32) -> Result<i32> {
         match self {
-            DocsWithFieldSetEnum::Dense(d) => d.advance(_target),
-            DocsWithFieldSetEnum::Sparse(s) => s.advance(_target),
+            DocsWithFieldSetEnum::Dense(d) => d.advance(target),
+            DocsWithFieldSetEnum::Sparse(s) => s.advance(target),
         }
     }
 

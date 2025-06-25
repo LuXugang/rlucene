@@ -160,8 +160,8 @@ impl DocIdSetIterator for AllDocIdSetIterator {
         Ok(self.doc)
     }
 
-    fn advance(&mut self, _target: i32) -> Result<i32> {
-        self.doc = _target;
+    fn advance(&mut self, target: i32) -> Result<i32> {
+        self.doc = target;
         if self.doc >= self.max_doc {
             self.doc = NO_MORE_DOCS
         }
@@ -217,13 +217,13 @@ impl DocIdSetIterator for Range {
         self.advance(self.doc + 1)
     }
 
-    fn advance(&mut self, _target: i32) -> Result<i32> {
-        if _target < self.min_doc {
+    fn advance(&mut self, target: i32) -> Result<i32> {
+        if target < self.min_doc {
             self.doc = self.min_doc;
-        } else if _target >= self.max_doc {
+        } else if target >= self.max_doc {
             self.doc = NO_MORE_DOCS
         } else {
-            self.doc = _target
+            self.doc = target
         }
         Ok(self.doc)
     }

@@ -119,19 +119,19 @@ impl DocIdSetIterator for IntArrayDocIdSetIterator {
         Ok(self.doc)
     }
 
-    fn advance(&mut self, _target: i32) -> Result<i32> {
+    fn advance(&mut self, target: i32) -> Result<i32> {
         let mut bound = 1;
         // given that we use this for small arrays only, this is very unlikely
         // to overflow
         while (self.i + bound < self.length)
-            && (self.docs[self.i as usize + bound as usize] < _target)
+            && (self.docs[self.i as usize + bound as usize] < target)
         {
             bound *= 2;
         }
         let mut start = self.i as usize + (bound / 2) as usize;
         let end = std::cmp::min(self.i + bound + 1, self.length - 1) as usize;
         let index = self.docs[start..end]
-            .binary_search(&_target)
+            .binary_search(&target)
             .unwrap_or_else(|index| index);
         start += index;
         self.doc = self.docs[start];

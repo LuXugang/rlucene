@@ -488,8 +488,8 @@ where
         self.iterator.next_doc()
     }
 
-    fn advance(&mut self, _target: i32) -> Result<i32> {
-        self.iterator.advance(_target)
+    fn advance(&mut self, target: i32) -> Result<i32> {
+        self.iterator.advance(target)
     }
 
     fn cost(&self) -> Result<i64> {
@@ -544,8 +544,8 @@ where
         self.iterator.next_doc()
     }
 
-    fn advance(&mut self, _target: i32) -> Result<i32> {
-        self.iterator.advance(_target)
+    fn advance(&mut self, target: i32) -> Result<i32> {
+        self.iterator.advance(target)
     }
 
     fn cost(&self) -> Result<i64> {

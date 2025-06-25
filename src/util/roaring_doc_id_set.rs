@@ -315,13 +315,13 @@ impl DocIdSetIterator for ShortArrayDISI {
         Ok(self.doc)
     }
 
-    fn advance(&mut self, _target: i32) -> Result<i32> {
+    fn advance(&mut self, target: i32) -> Result<i32> {
         let mut lo = self.i + 1;
         let mut hi = self.doc_ids.len() as i32 - 1;
         while lo <= hi {
             let mid = (lo + hi) >> 1;
             let mid_doc = self.doc_id_index(mid);
-            if mid_doc < _target {
+            if mid_doc < target {
                 lo = mid + 1;
             } else {
                 hi = mid - 1;
@@ -396,8 +396,8 @@ impl DocIdSetIterator for Iterator {
         Ok(self.doc)
     }
 
-    fn advance(&mut self, _target: i32) -> Result<i32> {
-        let target_block = _target >> 16;
+    fn advance(&mut self, target: i32) -> Result<i32> {
+        let target_block = target >> 16;
         if target_block != self.block {
             self.block = target_block;
             if self.block > self.doc_id_sets.len() as i32 {
@@ -413,7 +413,7 @@ impl DocIdSetIterator for Iterator {
                 .unwrap()
                 .iterator()?
         }
-        let sub_next = self.sub.as_mut().unwrap().advance(_target & 0xFFFF)?;
+        let sub_next = self.sub.as_mut().unwrap().advance(target & 0xFFFF)?;
         if sub_next == NO_MORE_DOCS {
             return self.first_doc_from_next_block();
         }
@@ -484,12 +484,12 @@ impl DocIdSetIterator for DocIdSetIteratorEnum {
         }
     }
 
-    fn advance(&mut self, _target: i32) -> Result<i32> {
+    fn advance(&mut self, target: i32) -> Result<i32> {
         match self {
-            DocIdSetIteratorEnum::Sparse(s) => s.advance(_target),
-            DocIdSetIteratorEnum::Medium(m) => m.advance(_target),
-            DocIdSetIteratorEnum::Dense(d) => d.advance(_target),
-            DocIdSetIteratorEnum::Empty(e) => e.advance(_target),
+            DocIdSetIteratorEnum::Sparse(s) => s.advance(target),
+            DocIdSetIteratorEnum::Medium(m) => m.advance(target),
+            DocIdSetIteratorEnum::Dense(d) => d.advance(target),
+            DocIdSetIteratorEnum::Empty(e) => e.advance(target),
         }
     }
 

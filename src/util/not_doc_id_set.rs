@@ -126,8 +126,8 @@ impl<D: DocIdSetIterator> DocIdSetIterator for NotDocDocIdSetIterator<D> {
         self.advance(self.doc + 1)
     }
 
-    fn advance(&mut self, _target: i32) -> Result<i32> {
-        self.doc = _target;
+    fn advance(&mut self, target: i32) -> Result<i32> {
+        self.doc = target;
         if self.doc > self.next_skipped_doc {
             self.next_skipped_doc = self.in_iterator.advance(self.doc)?;
         }

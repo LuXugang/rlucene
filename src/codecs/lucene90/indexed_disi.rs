@@ -1060,8 +1060,8 @@ where
         self.disi.next_doc()
     }
 
-    fn advance(&mut self, _target: i32) -> Result<i32> {
-        self.disi.advance(_target)
+    fn advance(&mut self, target: i32) -> Result<i32> {
+        self.disi.advance(target)
     }
 
     fn cost(&self) -> Result<i64> {

@@ -676,10 +676,10 @@ where
         }
     }
 
-    fn advance(&mut self, _target: i32) -> Result<i32> {
+    fn advance(&mut self, target: i32) -> Result<i32> {
         match self {
-            EitherSortedSetDocValues::F(t) => t.advance(_target),
-            EitherSortedSetDocValues::S(s) => s.advance(_target),
+            EitherSortedSetDocValues::F(t) => t.advance(target),
+            EitherSortedSetDocValues::S(s) => s.advance(target),
         }
     }
 
@@ -808,10 +808,10 @@ where
         }
     }
 
-    fn advance(&mut self, _target: i32) -> Result<i32> {
+    fn advance(&mut self, target: i32) -> Result<i32> {
         match self {
-            EitherBinaryDocValues::F(t) => t.advance(_target),
-            EitherBinaryDocValues::S(s) => s.advance(_target),
+            EitherBinaryDocValues::F(t) => t.advance(target),
+            EitherBinaryDocValues::S(s) => s.advance(target),
         }
     }
 
@@ -1328,11 +1328,11 @@ where
     S: NumericDocValues,
     T: NumericDocValues,
 {
-    fn advance_exact(&mut self, _target: i32) -> Result<bool> {
+    fn advance_exact(&mut self, target: i32) -> Result<bool> {
         match self {
-            Either3NumericDocValues::F(t) => t.advance_exact(_target),
-            Either3NumericDocValues::S(s) => s.advance_exact(_target),
-            Either3NumericDocValues::T(t) => t.advance_exact(_target),
+            Either3NumericDocValues::F(t) => t.advance_exact(target),
+            Either3NumericDocValues::S(s) => s.advance_exact(target),
+            Either3NumericDocValues::T(t) => t.advance_exact(target),
         }
     }
 }
@@ -1359,11 +1359,11 @@ where
         }
     }
 
-    fn advance(&mut self, _target: i32) -> Result<i32> {
+    fn advance(&mut self, target: i32) -> Result<i32> {
         match self {
-            Either3NumericDocValues::F(t) => t.advance(_target),
-            Either3NumericDocValues::S(s) => s.advance(_target),
-            Either3NumericDocValues::T(t) => t.advance(_target),
+            Either3NumericDocValues::F(t) => t.advance(target),
+            Either3NumericDocValues::S(s) => s.advance(target),
+            Either3NumericDocValues::T(t) => t.advance(target),
         }
     }
 

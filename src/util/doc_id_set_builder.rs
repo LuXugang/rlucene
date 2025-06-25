@@ -218,10 +218,10 @@ impl DocIdSetIterator for DocIdSetBuilderIterator {
         }
     }
 
-    fn advance(&mut self, _target: i32) -> Result<i32> {
+    fn advance(&mut self, target: i32) -> Result<i32> {
         match self {
-            DocIdSetBuilderIterator::BitSet(bit_set) => bit_set.advance(_target),
-            DocIdSetBuilderIterator::IntArray(int_array) => int_array.advance(_target),
+            DocIdSetBuilderIterator::BitSet(bit_set) => bit_set.advance(target),
+            DocIdSetBuilderIterator::IntArray(int_array) => int_array.advance(target),
         }
     }
 

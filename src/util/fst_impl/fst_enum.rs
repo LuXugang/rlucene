@@ -324,7 +324,7 @@ where
         sub: &mut impl FSTEnumBase<O, F>,
     ) -> Result<Option<usize>> {
         let mut arc = self.arcs[arc_index].take().unwrap();
-        let mut idx = Util::binary_search(&mut self.fst, &arc, target_label)?;
+        let mut idx = Util::binary_search(&self.fst, &arc, target_label)?;
 
         if idx >= 0 {
             self.fst.read_arc_by_index(&mut arc, reader, idx)?;
@@ -825,7 +825,7 @@ where
         debug_assert_eq!(arc.arc_idx(), 0);
 
         if arc.num_arcs() > 1 {
-            let idx = Util::binary_search(&mut self.fst, arc, target_label)?;
+            let idx = Util::binary_search(&self.fst, arc, target_label)?;
             debug_assert_ne!(idx, -1);
             if idx > 1 {
                 self.fst.read_arc_by_index(arc, reader, idx - 1)?;
@@ -845,7 +845,7 @@ where
     ) -> Result<Option<usize>> {
         let upto = arc_index;
         let mut arc = self.arcs[upto].take().unwrap();
-        let idx = Util::binary_search(&mut self.fst, &arc, target_label)?;
+        let idx = Util::binary_search(&self.fst, &arc, target_label)?;
 
         if idx >= 0 {
             self.fst.read_arc_by_index(&mut arc, reader, idx)?;

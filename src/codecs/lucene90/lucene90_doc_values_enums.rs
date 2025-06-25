@@ -45,11 +45,11 @@ impl<I> DocValuesIterator for Lucene90NumericDocValuesEnums<I>
 where
     I: IndexInput,
 {
-    fn advance_exact(&mut self, _target: i32) -> Result<bool> {
+    fn advance_exact(&mut self, target: i32) -> Result<bool> {
         match self {
-            Lucene90NumericDocValuesEnums::Dense(d) => d.advance_exact(_target),
-            Lucene90NumericDocValuesEnums::Sparse(s) => s.advance_exact(_target),
-            Lucene90NumericDocValuesEnums::Empty(e) => e.advance_exact(_target),
+            Lucene90NumericDocValuesEnums::Dense(d) => d.advance_exact(target),
+            Lucene90NumericDocValuesEnums::Sparse(s) => s.advance_exact(target),
+            Lucene90NumericDocValuesEnums::Empty(e) => e.advance_exact(target),
         }
     }
 }
@@ -74,11 +74,11 @@ where
         }
     }
 
-    fn advance(&mut self, _target: i32) -> Result<i32> {
+    fn advance(&mut self, target: i32) -> Result<i32> {
         match self {
-            Lucene90NumericDocValuesEnums::Dense(d) => d.advance(_target),
-            Lucene90NumericDocValuesEnums::Sparse(s) => s.advance(_target),
-            Lucene90NumericDocValuesEnums::Empty(e) => e.advance(_target),
+            Lucene90NumericDocValuesEnums::Dense(d) => d.advance(target),
+            Lucene90NumericDocValuesEnums::Sparse(s) => s.advance(target),
+            Lucene90NumericDocValuesEnums::Empty(e) => e.advance(target),
         }
     }
 
@@ -118,12 +118,12 @@ impl<I> DocValuesIterator for Lucene90SortedNumericDocValuesEnums<I>
 where
     I: IndexInput,
 {
-    fn advance_exact(&mut self, _target: i32) -> Result<bool> {
+    fn advance_exact(&mut self, target: i32) -> Result<bool> {
         match self {
-            Lucene90SortedNumericDocValuesEnums::Dense(d) => d.advance_exact(_target),
-            Lucene90SortedNumericDocValuesEnums::Sparse(s) => s.advance_exact(_target),
-            Lucene90SortedNumericDocValuesEnums::Singleton(s) => s.advance_exact(_target),
-            Lucene90SortedNumericDocValuesEnums::Empty(s) => s.advance_exact(_target),
+            Lucene90SortedNumericDocValuesEnums::Dense(d) => d.advance_exact(target),
+            Lucene90SortedNumericDocValuesEnums::Sparse(s) => s.advance_exact(target),
+            Lucene90SortedNumericDocValuesEnums::Singleton(s) => s.advance_exact(target),
+            Lucene90SortedNumericDocValuesEnums::Empty(s) => s.advance_exact(target),
         }
     }
 }
@@ -149,12 +149,12 @@ where
         }
     }
 
-    fn advance(&mut self, _target: i32) -> Result<i32> {
+    fn advance(&mut self, target: i32) -> Result<i32> {
         match self {
-            Lucene90SortedNumericDocValuesEnums::Dense(d) => d.advance(_target),
-            Lucene90SortedNumericDocValuesEnums::Sparse(s) => s.advance(_target),
-            Lucene90SortedNumericDocValuesEnums::Singleton(s) => s.advance(_target),
-            Lucene90SortedNumericDocValuesEnums::Empty(s) => s.advance(_target),
+            Lucene90SortedNumericDocValuesEnums::Dense(d) => d.advance(target),
+            Lucene90SortedNumericDocValuesEnums::Sparse(s) => s.advance(target),
+            Lucene90SortedNumericDocValuesEnums::Singleton(s) => s.advance(target),
+            Lucene90SortedNumericDocValuesEnums::Empty(s) => s.advance(target),
         }
     }
 
@@ -228,11 +228,11 @@ impl<I> DocValuesIterator for Lucene90BinaryDocValuesEnum<I>
 where
     I: IndexInput,
 {
-    fn advance_exact(&mut self, _target: i32) -> Result<bool> {
+    fn advance_exact(&mut self, target: i32) -> Result<bool> {
         match self {
-            Lucene90BinaryDocValuesEnum::Dense(d) => d.advance_exact(_target),
-            Lucene90BinaryDocValuesEnum::Sparse(s) => s.advance_exact(_target),
-            Lucene90BinaryDocValuesEnum::Empty(e) => e.advance_exact(_target),
+            Lucene90BinaryDocValuesEnum::Dense(d) => d.advance_exact(target),
+            Lucene90BinaryDocValuesEnum::Sparse(s) => s.advance_exact(target),
+            Lucene90BinaryDocValuesEnum::Empty(e) => e.advance_exact(target),
         }
     }
 }
@@ -257,11 +257,11 @@ where
         }
     }
 
-    fn advance(&mut self, _target: i32) -> Result<i32> {
+    fn advance(&mut self, target: i32) -> Result<i32> {
         match self {
-            Lucene90BinaryDocValuesEnum::Dense(d) => d.advance(_target),
-            Lucene90BinaryDocValuesEnum::Sparse(s) => s.advance(_target),
-            Lucene90BinaryDocValuesEnum::Empty(e) => e.advance(_target),
+            Lucene90BinaryDocValuesEnum::Dense(d) => d.advance(target),
+            Lucene90BinaryDocValuesEnum::Sparse(s) => s.advance(target),
+            Lucene90BinaryDocValuesEnum::Empty(e) => e.advance(target),
         }
     }
 
