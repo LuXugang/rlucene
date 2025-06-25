@@ -44,7 +44,7 @@ impl SortedSetSelector {
                 i32::MAX - 1
             )));
         }
-        let singleton = DocValues::unwrap_singleton_sorted_set_doc_values(&mut sorted_set)?;
+        let singleton = DocValues::unwrap_singleton_sorted(&mut sorted_set)?;
         match singleton {
             Some(single) => Ok(SortedDocValuesWrapEnum::Singleton(single)),
             None => {
