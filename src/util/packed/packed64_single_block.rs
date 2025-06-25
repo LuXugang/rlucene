@@ -78,8 +78,8 @@ impl<T> Reader for Packed64SingleBlock<T>
 where
     T: Packed64SingleBlockBase,
 {
-    fn get(&self, _index: i32) -> Result<i64> {
-        Ok(self.sub_reader.get(_index, &self.blocks))
+    fn get(&self, _index: i32) -> i64 {
+        self.sub_reader.get(_index, &self.blocks)
     }
 
     fn get_bulk(&self, mut index: i32, arr: &mut [i64], mut off: i32, mut len: i32) -> Result<i32> {
@@ -151,7 +151,7 @@ where
             // No progress so far => already at a block boundary but no full
             // block to get
             debug_assert_eq!(index, original_index, "Index mismatch");
-            self.default_get_bulk(index, arr, off, len)
+            Ok(self.default_get_bulk(index, arr, off, len))
         }
     }
 

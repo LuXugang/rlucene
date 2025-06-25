@@ -104,7 +104,7 @@ impl Packed64 {
 }
 
 impl Reader for Packed64 {
-    fn get(&self, index: i32) -> Result<i64> {
+    fn get(&self, index: i32) -> i64 {
         // The abstract index in a bit stream
         let major_bit_pos = (index as u64) * (self.bits_per_value as u64);
 
@@ -122,11 +122,11 @@ impl Reader for Packed64 {
             // let value3= (value & self.mask_right) as i64;
             // println!("value: {}, value1: {}, value2: {}, value3: {}", value,
             // value1, value2, value3);
-            return Ok(((self.blocks[element_pos] >> -end_bits) & self.mask_right) as i64);
+            return ((self.blocks[element_pos] >> -end_bits) & self.mask_right) as i64;
         }
-        Ok((((self.blocks[element_pos] << end_bits)
+        (((self.blocks[element_pos] << end_bits)
             | (self.blocks[element_pos + 1] >> (Self::BLOCK_SIZE as i64 - end_bits)))
-            & self.mask_right) as i64)
+            & self.mask_right) as i64
     }
 
     fn get_bulk(&self, mut index: i32, arr: &mut [i64], mut off: i32, mut len: i32) -> Result<i32> {
@@ -153,7 +153,7 @@ impl Reader for Packed64 {
                 if len == 0 {
                     return Ok(index - original_index);
                 }
-                arr[off as usize] = self.get(index)?;
+                arr[off as usize] = self.get(index);
                 off += 1;
                 index += 1;
                 len -= 1;
@@ -187,7 +187,7 @@ impl Reader for Packed64 {
             // No progress so far => already at a block boundary but no full
             // block to get
             debug_assert_eq!(index, original_index, "Index mismatch");
-            self.default_get_bulk(index, arr, off, len)
+            Ok(self.default_get_bulk(index, arr, off, len))
         }
     }
 

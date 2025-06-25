@@ -34,7 +34,7 @@ impl Accountable for PackedIntsReadEnum {
 }
 
 impl Reader for PackedIntsReadEnum {
-    fn get(&self, index: i32) -> Result<i64> {
+    fn get(&self, index: i32) -> i64 {
         match self {
             PackedIntsReadEnum::PackedReader(op) => op.get(index),
             PackedIntsReadEnum::NullReader(op) => op.get(index),

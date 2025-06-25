@@ -46,7 +46,7 @@ impl Accountable for MutableEnum {
     }
 }
 impl Reader for MutableEnum {
-    fn get(&self, index: i32) -> Result<i64> {
+    fn get(&self, index: i32) -> i64 {
         match self {
             MutableEnum::Packed(op) => op.get(index),
             MutableEnum::GrowableW(op) => op.get(index),

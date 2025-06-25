@@ -602,7 +602,7 @@ where
     fn init_count(&mut self) -> Result<()> {
         debug_assert!(self.ord_upto > 0);
         self.ord_upto = self.ords.offsets[self.doc_id as usize] - 1;
-        self.count = self.ords.doc_value_counts.get(self.doc_id)?.try_into()?;
+        self.count = self.ords.doc_value_counts.get(self.doc_id).try_into()?;
         Ok(())
     }
 }

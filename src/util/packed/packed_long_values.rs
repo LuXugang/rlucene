@@ -148,7 +148,7 @@ impl PackedLongValues {
         } else {
             0
         };
-        Ok(self.values[block as usize].get(element)? + value)
+        Ok(self.values[block as usize].get(element) + value)
     }
     pub fn iterator(&self) -> Result<PackedLongValuesIterator> {
         PackedLongValuesIterator::new(self.clone())

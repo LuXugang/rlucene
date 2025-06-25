@@ -308,7 +308,7 @@ impl PackedInts {
         let capacity = mem >> 3;
         if capacity == 0 {
             for i in 0..len {
-                dest.set(dest_pos + i, src.get(src_pos + i)?)?;
+                dest.set(dest_pos + i, src.get(src_pos + i))?;
             }
         } else if len > 0 {
             // Use bulk operations
@@ -723,7 +723,7 @@ pub trait Encoder {
 /// A read-only random access array of positive integers.
 pub trait Reader: Accountable {
     /// Get the value at the given index.
-    fn get(&self, _index: i32) -> Result<i64> {
+    fn get(&self, _index: i32) -> i64 {
         unimplemented!("get() must be implemented if it need to be used")
     }
 
@@ -731,9 +731,9 @@ pub trait Reader: Accountable {
     /// `index` into `arr[off.off+len]` and return the actual number of
     /// values that have been read.
     fn get_bulk(&self, index: i32, arr: &mut [i64], off: i32, len: i32) -> Result<i32> {
-        self.default_get_bulk(index, arr, off, len)
+        Ok(self.default_get_bulk(index, arr, off, len))
     }
-    fn default_get_bulk(&self, index: i32, arr: &mut [i64], off: i32, len: i32) -> Result<i32> {
+    fn default_get_bulk(&self, index: i32, arr: &mut [i64], off: i32, len: i32) -> i32 {
         debug_assert!(len > 0, "len must be > 0");
         debug_assert!(index < self.size(), "index out of bounds: {}", index);
         debug_assert!(
@@ -743,9 +743,9 @@ pub trait Reader: Accountable {
 
         let gets = std::cmp::min(self.size() - index, len);
         for (i, o) in (index..index + gets).zip(off..off + gets) {
-            arr[o as usize] = self.get(i)?;
+            arr[o as usize] = self.get(i);
         }
-        Ok(gets)
+        gets
     }
 
     /// Returns the number of values in the reader.
@@ -1009,8 +1009,8 @@ impl Accountable for NullReader {
     }
 }
 impl Reader for NullReader {
-    fn get(&self, _index: i32) -> Result<i64> {
-        Ok(0)
+    fn get(&self, _index: i32) -> i64 {
+        0
     }
 
     fn get_bulk(&self, index: i32, arr: &mut [i64], off: i32, mut len: i32) -> Result<i32> {
@@ -1425,8 +1425,8 @@ mod tests {
 
             for i in 0..value_count {
                 assert_eq!(
-                    packed1.get(i)?,
-                    packed2.get(i)?,
+                    packed1.get(i),
+                    packed2.get(i),
                     "Values at index {} differ, iter:{}",
                     i,
                     j
@@ -1496,7 +1496,7 @@ mod tests {
             };
 
             packed_int.set(i, value)?;
-            let retrieved_value = packed_int.get(i)?;
+            let retrieved_value = packed_int.get(i);
 
             if value != retrieved_value {
                 assert_eq!(
@@ -1539,8 +1539,8 @@ mod tests {
         for i in 0..value_count {
             for j in 1..length {
                 assert_eq!(
-                    packed_ints[0].get(i)?,
-                    packed_ints[j].get(i)?,
+                    packed_ints[0].get(i),
+                    packed_ints[j].get(i),
                     "{}. The value at index {} should be the same ",
                     message,
                     i
@@ -1554,10 +1554,10 @@ mod tests {
     fn test_secondary_block_change() -> Result<()> {
         let mut mutable = MutablePacked64Enum::P64(MutableImpl::new(Packed64::new(26, 5)));
         mutable.set(24, 31)?;
-        assert_eq!(mutable.get(24)?, 31, "The value #24 should be correct");
+        assert_eq!(mutable.get(24), 31, "The value #24 should be correct");
         mutable.set(4, 16)?;
         assert_eq!(
-            mutable.get(24)?,
+            mutable.get(24),
             31,
             "The value #24 should remain unchanged"
         );
@@ -1593,7 +1593,7 @@ mod tests {
                 for i in 0..packed.size() {
                     let expected_value: i64 = if i >= from && i < to { val } else { 1 };
 
-                    assert_eq!(packed.get(i)?, expected_value, "{}: i={}", msg, i);
+                    assert_eq!(packed.get(i), expected_value, "{}: i={}", msg, i);
                 }
             }
         }
@@ -1608,7 +1608,7 @@ mod tests {
         let packed_ints = NullReader::for_count(size);
         let random_index = TestUtil::next_int(&mut random, 0, size - 1);
         assert_eq!(
-            packed_ints.get(random_index)?,
+            packed_ints.get(random_index),
             0,
             "The value at random index {} should be 0",
             random_index
@@ -1676,7 +1676,7 @@ mod tests {
                     let m = format!("{}, i={}", msg, i);
                     if i >= off && i < off + gets as usize {
                         assert_eq!(
-                            ints.get((i - off + index) as i32)?,
+                            ints.get((i - off + index) as i32),
                             item,
                             "{}: value mismatch at index {}",
                             m,
@@ -1723,7 +1723,7 @@ mod tests {
                     let m = format!("{}, i={}", msg, i);
                     if i as usize >= index && (i as usize) < index + sets as usize {
                         assert_eq!(
-                            ints.get(i)?,
+                            ints.get(i),
                             arr[off - index + i as usize],
                             "{}: value mismatch at index {}",
                             m,
@@ -1731,7 +1731,7 @@ mod tests {
                         );
                     } else {
                         assert_eq!(
-                            ints.get(i)?,
+                            ints.get(i),
                             0,
                             "{}: array values outside range should be 0",
                             m
@@ -1766,15 +1766,15 @@ mod tests {
                         let m = format!("{}, i={}", msg, i);
                         if i >= off2 && i < off2 + len {
                             assert_eq!(
-                                r1.get(i - off2 + off1)?,
-                                r2.get(i)?,
+                                r1.get(i - off2 + off1),
+                                r2.get(i),
                                 "{}: Values mismatch at index {}",
                                 m,
                                 i
                             );
                         } else {
                             assert_eq!(
-                                r2.get(i)?,
+                                r2.get(i),
                                 0,
                                 "{}: Unexpected non-zero value at index {}",
                                 m,
@@ -1800,22 +1800,22 @@ mod tests {
         wrt.set(value_count - 10, 99)?;
         wrt.set(99, 999)?;
         wrt.set(value_count - 1, 1 << 10)?;
-        assert_eq!(wrt.get(value_count - 1)?, 1 << 10);
+        assert_eq!(wrt.get(value_count - 1), 1 << 10);
 
         wrt.set(99, (1 << 23) - 1)?;
-        assert_eq!(wrt.get(value_count - 1)?, 1 << 10);
+        assert_eq!(wrt.get(value_count - 1), 1 << 10);
 
         wrt.set(1, i64::MAX)?;
         wrt.set(2, -3)?;
         assert_eq!(wrt.get_bits_per_value(), 64);
-        assert_eq!(wrt.get(value_count - 1)?, 1 << 10);
-        assert_eq!(wrt.get(1)?, i64::MAX);
-        assert_eq!(wrt.get(2)?, -3);
-        assert_eq!(wrt.get(4)?, 2);
-        assert_eq!(wrt.get(99)?, (1 << 23) - 1);
-        assert_eq!(wrt.get(7)?, 10);
-        assert_eq!(wrt.get(value_count - 10)?, 99);
-        assert_eq!(wrt.get(value_count - 1)?, 1 << 10);
+        assert_eq!(wrt.get(value_count - 1), 1 << 10);
+        assert_eq!(wrt.get(1), i64::MAX);
+        assert_eq!(wrt.get(2), -3);
+        assert_eq!(wrt.get(4), 2);
+        assert_eq!(wrt.get(99), (1 << 23) - 1);
+        assert_eq!(wrt.get(7), 10);
+        assert_eq!(wrt.get(value_count - 10), 99);
+        assert_eq!(wrt.get(value_count - 1), 1 << 10);
 
         // TODO:
         // Check memory usage

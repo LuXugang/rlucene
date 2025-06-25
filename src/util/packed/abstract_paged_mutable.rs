@@ -181,7 +181,7 @@ where
         debug_assert!(index < self.size, "index={} size={}", index, self.size);
         let page_index = self.page_index(index);
         let index_in_page = self.index_in_page(index);
-        self.sub_mutables[page_index].get(index_in_page)
+        Ok(self.sub_mutables[page_index].get(index_in_page))
     }
 }
 impl<T> Accountable for AbstractPagedMutable<T>

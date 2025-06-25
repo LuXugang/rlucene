@@ -105,7 +105,7 @@ impl GrowableWriter {
 }
 
 impl Reader for GrowableWriter {
-    fn get(&self, index: i32) -> Result<i64> {
+    fn get(&self, index: i32) -> i64 {
         self.current.get(index)
     }
 
