@@ -15,16 +15,64 @@
  * limitations under the License.
  */
 use crate::index::index_sorter::DocComparator;
-use crate::util::error::lucene_error::Result;
+use crate::index::leaf_reader::LeafReader;
+use crate::index::sort::Sort;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::long_values::LongValues;
 use crate::util::packed::packed_long_values::PackedLongValues;
 use crate::util::packed::PackedInts;
 use crate::util::sorter::Sorter as ASorter;
 use crate::util::{SliceCopyOps, TimSorter, TimSorterBase, ToInt};
+use std::fmt::{Display, Formatter};
 
 /// Sorts documents of a given index by returning a permutation on the document IDs.
-pub struct Sorter;
+pub struct Sorter {
+    sort: Sort,
+}
 impl Sorter {
+    pub(crate) fn new(sort: Sort) -> Result<Self> {
+        if sort.needs_scores() {
+            return Err(LuceneError::illegal_argument(
+                "Cannot sort an index with a Sort that refers to the relevance score",
+            ));
+        }
+        Ok(Self { sort })
+    }
+
+    /// Check consistency of a [`DocMap`], useful for assertions.
+    pub(crate) fn is_consistent<DM>(doc_map: &DM) -> bool
+    where
+        DM: DocMap,
+    {
+        let max_doc = doc_map.size();
+        for i in 0..max_doc {
+            let new_id = doc_map.old_to_new(i);
+            let old_id = doc_map.new_to_old(new_id);
+            debug_assert!(
+                (0..max_doc).contains(&new_id),
+                "doc IDs must be in [0-{}), got {}",
+                max_doc,
+                new_id
+            );
+            debug_assert_eq!(
+                { i },
+                old_id,
+                "mapping is inconsistent: {} --oldToNew--> {} --newToOld--> {}",
+                i,
+                new_id,
+                old_id
+            );
+            if old_id != i || new_id < 0 || new_id >= max_doc {
+                return false;
+            }
+        }
+        true
+    }
+
+    /// Returns the identifier of this [`Sorter`].
+    pub fn get_id(&self) -> String {
+        self.sort.to_string()
+    }
     /// Computes the old-to-new permutation over the given comparator.
     fn sort_impl<DC>(max_doc: i32, comparator: DC) -> Result<Option<DocMapImpl>>
     where
@@ -75,6 +123,21 @@ impl Sorter {
 
         Ok(Some(DocMapImpl::new(new_to_old, old_to_new, max_doc)))
     }
+    /// Returns a mapping from the old document ID to its new location in the sorted index.
+    ///
+    /// Implementations can use [`sort(max_doc, comparator)`] to compute the old-to-new permutation
+    /// given a list of documents and their corresponding values.
+    ///
+    /// A return value of `None` indicates that the reader is already sorted.
+    ///
+    /// **Note:** Deleted documents are expected to appear in the mapping as well; they will
+    /// still be marked as deleted in the sorted view.
+    pub(crate) fn sort_with_reader<LR>(&self, _reader: &mut LR) -> Result<Option<DocMapImpl>>
+    where
+        LR: LeafReader,
+    {
+        todo!()
+    }
 
     pub(crate) fn sort<DC>(max_doc: i32, comparators: Vec<DC>) -> Result<Option<DocMapImpl>>
     where
@@ -82,6 +145,11 @@ impl Sorter {
     {
         let composite = DocComparatorImpl::new(comparators);
         Self::sort_impl(max_doc, composite)
+    }
+}
+impl Display for Sorter {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.get_id())
     }
 }
 
@@ -95,7 +163,7 @@ pub trait DocMap {
 
     /// Return the number of documents in this map.
     /// This must equal the number of documents in the sorted `LeafReader`.
-    fn size(&self) -> usize;
+    fn size(&self) -> i32;
 }
 
 struct DocValueSorter<'a, DC>
@@ -192,8 +260,8 @@ impl DocMap for DocMapImpl {
         self.new_to_old.get_immutable(doc_id as i64) as i32
     }
 
-    fn size(&self) -> usize {
-        self.max_doc as usize
+    fn size(&self) -> i32 {
+        self.max_doc
     }
 }
 
@@ -222,6 +290,7 @@ where
                 return comp;
             }
         }
-        doc_id1.cmp(&doc_id2).to_int() //// docid order tiebreak
+        // docid order tiebreak
+        doc_id1.cmp(&doc_id2).to_int()
     }
 }

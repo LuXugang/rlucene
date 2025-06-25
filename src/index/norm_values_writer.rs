@@ -103,7 +103,7 @@ impl NormValuesWriter {
         let values = std::mem::take(&mut self.pending).build()?;
         let sorted = match sort_map {
             Some(sort_map) => {
-                let dense = sort_map.size() == self.docs_with_field.cardinality() as usize;
+                let dense = sort_map.size() == self.docs_with_field.cardinality();
                 let iter = match self.docs_with_field.iterator()? {
                     Some(iter) => iter,
                     None => return Err(LuceneError::illegal_state("DocsWithFieldSet is None")),

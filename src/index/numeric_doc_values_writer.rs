@@ -251,15 +251,13 @@ pub(crate) mod ndvw_util {
         DM: DocMap,
     {
         let sorter = if let Some(sort_map) = sort_map {
-            let dense = sort_map.size() == docs_with_field.cardinality() as usize;
+            let dense = sort_map.size() == docs_with_field.cardinality();
             let iter = match docs_with_field.iterator()? {
                 Some(iter) => iter,
                 None => return Err(LuceneError::illegal_state("DocsWithFieldSet is None")),
             };
             let mut old_values = BufferedNumericDocValues::new(values, iter);
-            debug_assert!(sort_map.size() <= i32::MAX as usize);
-            let sorted =
-                sort_doc_values(sort_map.size() as i32, &*sort_map, &mut old_values, dense)?;
+            let sorted = sort_doc_values(sort_map.size(), &*sort_map, &mut old_values, dense)?;
             Some(sorted)
         } else {
             None

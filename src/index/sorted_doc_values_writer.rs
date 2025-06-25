@@ -267,7 +267,7 @@ pub(crate) mod sdvw_util {
             let mut old_values =
                 BufferedSortedDocValues::new(hash.clone(), &ords, ord_map.clone(), docs_iter);
             Some(Rc::new(SortedDocValuesWriter::sort_doc_values(
-                sort_map.size(),
+                sort_map.size() as usize,
                 &*sort_map,
                 &mut old_values,
             )?))

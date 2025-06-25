@@ -17,7 +17,7 @@
 use std::fmt;
 use std::fmt::Display;
 
-use crate::search::sort_field::SortField;
+use crate::search::sort_field::{SortField, SortFiledBase};
 use crate::search::sort_field_enum::SortFieldEnum;
 use crate::util::error::lucene_error::{LuceneError, Result};
 
@@ -35,6 +35,15 @@ impl Sort {
     /// Replace Java's `Sort.RELEVANCE` with this method.
     pub fn get_relevance() -> Result<Self> {
         Self::new()
+    }
+    /// Returns true if the relevance score is needed to sort documents.
+    pub fn needs_scores(&self) -> bool {
+        for sort_field in &self.fields {
+            if sort_field.needs_scores() {
+                return true;
+            }
+        }
+        false
     }
 }
 

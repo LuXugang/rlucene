@@ -27,7 +27,7 @@ impl DocMap for DummyDocMap {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn size(&self) -> usize {
+    fn size(&self) -> i32 {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

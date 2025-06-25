@@ -820,7 +820,8 @@ where
         self.upto = i as i32;
 
         let num_temp_slots = doc_map.size() / 8;
-        let mut sorter = DocOffsetSorter::new(&mut self.docs, &mut self.offsets, num_temp_slots);
+        let mut sorter =
+            DocOffsetSorter::new(&mut self.docs, &mut self.offsets, num_temp_slots as usize);
         sorter.sort(0, self.upto)?;
 
         self.posting_input = Some(self.buffer.get_data_input_owner());
