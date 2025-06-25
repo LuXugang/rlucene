@@ -279,6 +279,10 @@ impl SortFiledBase for SortField {
         Ok(())
     }
 
+    fn needs_scores(&self) -> bool {
+        self.sort_field_type == SortFieldType::Score
+    }
+
     type IndexSort = IndexSorterEnumSorter;
 
     fn get_index_sorter(&self) -> Result<Option<Self::IndexSort>> {
@@ -881,6 +885,8 @@ impl IndexSorter for IndexSorterEnumSorter {
 pub trait SortFiledBase {
     /// Set the value to use for documents that don't have a value.
     fn set_missing_value(&mut self, missing_value: Option<MissingValueEnum>) -> Result<()>;
+    /// Whether the relevance score is needed to sort documents.
+    fn needs_scores(&self) -> bool;
     type IndexSort: IndexSorter;
     /// Returns an [`IndexSorter`] used for sorting index segments by this `SortField`.
     ///

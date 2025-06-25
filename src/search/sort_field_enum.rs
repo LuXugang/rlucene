@@ -43,6 +43,14 @@ impl SortFiledBase for SortFieldEnum {
         }
     }
 
+    fn needs_scores(&self) -> bool {
+        match self {
+            SortFieldEnum::SortedNumeric(sort_field) => sort_field.needs_scores(),
+            SortFieldEnum::SortedSet(sort_field) => sort_field.needs_scores(),
+            SortFieldEnum::Sorter(sort_field) => sort_field.needs_scores(),
+        }
+    }
+
     type IndexSort = IndexSortEnum;
 
     fn get_index_sorter(&self) -> Result<Option<Self::IndexSort>> {

@@ -118,6 +118,10 @@ impl SortFiledBase for SortedSetSortField {
         }
     }
 
+    fn needs_scores(&self) -> bool {
+        self.parent_sort.needs_scores()
+    }
+
     type IndexSort = StringSorter<SortedDocValuesProviderImpl>;
 
     fn get_index_sorter(&self) -> Result<Option<Self::IndexSort>> {
