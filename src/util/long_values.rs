@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::error::lucene_error::Result;
 
 /// Abstraction over an array of longs.
 pub trait LongValues {
@@ -22,8 +22,8 @@ pub trait LongValues {
 
     /// Add an extra, immutable version of the method.
     /// If you need to call get in an immutable context, you can implement this method.
-    fn get_immutable(&self, _index: i64) -> Result<i64> {
-        Err(LuceneError::need_implemented(""))
+    fn get_immutable(&self, _index: i64) -> i64 {
+        unimplemented!("")
     }
 }
 

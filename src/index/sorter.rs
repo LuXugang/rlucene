@@ -16,9 +16,74 @@
  */
 use crate::index::index_sorter::DocComparator;
 use crate::util::error::lucene_error::Result;
-use crate::util::{SliceCopyOps, TimSorter, TimSorterBase};
+use crate::util::long_values::LongValues;
+use crate::util::packed::packed_long_values::PackedLongValues;
+use crate::util::packed::PackedInts;
+use crate::util::sorter::Sorter as ASorter;
+use crate::util::{SliceCopyOps, TimSorter, TimSorterBase, ToInt};
 
+/// Sorts documents of a given index by returning a permutation on the document IDs.
 pub struct Sorter;
+impl Sorter {
+    /// Computes the old-to-new permutation over the given comparator.
+    fn sort_impl<DC>(max_doc: i32, comparator: DC) -> Result<Option<DocMapImpl>>
+    where
+        DC: DocComparator,
+    {
+        // check if the index is sorted
+        let mut sorted = true;
+        for i in 1..max_doc {
+            if comparator.compare(i - 1, i) > 0 {
+                sorted = false;
+                break;
+            }
+        }
+        if sorted {
+            return Ok(None);
+        }
+
+        // sort doc IDs
+        let mut docs: Vec<i32> = (0..max_doc).collect();
+        let len = docs.len();
+        let mut sorter = DocValueSorter::new(&mut docs, comparator);
+        // It can be common to sort a reader, add docs, sort it again, ... and in
+        // that case timSort can save a lot of time
+        sorter.sort(0, max_doc)?; // docs is now the newToOld mapping
+
+        // The reason why we use MonotonicAppendingLongBuffer here is that it
+        // wastes very little memory if the index is in random order but can save
+        // a lot of memory if the index is already "almost" sorted
+        let mut new_to_old_builder =
+            PackedLongValues::monotonic_long_values_builder_default(PackedInts::COMPACT)?;
+        for &doc in &docs {
+            new_to_old_builder.add(doc as i64)?;
+        }
+        let new_to_old = new_to_old_builder.build()?;
+
+        // invert the docs mapping:
+        for i in 0..max_doc {
+            let old = new_to_old.get_immutable(i as i64);
+            docs[old as usize] = i;
+        } // docs is now the oldToNew mapping
+
+        let mut old_to_new_builder =
+            PackedLongValues::monotonic_long_values_builder_default(PackedInts::COMPACT)?;
+        for i in 0..max_doc {
+            old_to_new_builder.add(docs[i as usize] as i64)?;
+        }
+        let old_to_new = old_to_new_builder.build()?;
+
+        Ok(Some(DocMapImpl::new(new_to_old, old_to_new, max_doc)))
+    }
+
+    pub(crate) fn sort<DC>(max_doc: i32, comparators: Vec<DC>) -> Result<Option<DocMapImpl>>
+    where
+        DC: DocComparator,
+    {
+        let composite = DocComparatorImpl::new(comparators);
+        Self::sort_impl(max_doc, composite)
+    }
+}
 
 pub trait DocMap {
     /// Given a doc ID from the original index, return its ordinal in the sorted
@@ -31,21 +96,6 @@ pub trait DocMap {
     /// Return the number of documents in this map.
     /// This must equal the number of documents in the sorted `LeafReader`.
     fn size(&self) -> usize;
-}
-
-pub struct DummyDocMap;
-impl DocMap for DummyDocMap {
-    fn old_to_new(&self, _doc_id: i32) -> i32 {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
-
-    fn new_to_old(&self, _doc_id: i32) -> i32 {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
-
-    fn size(&self) -> usize {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
 }
 
 struct DocValueSorter<'a, DC>
@@ -117,5 +167,61 @@ where
 
     fn compare_pivot(&mut self, j: i32) -> Result<i32> {
         self.compare(self.pivot_index, j)
+    }
+}
+pub struct DocMapImpl {
+    old_to_new: PackedLongValues,
+    new_to_old: PackedLongValues,
+    max_doc: i32,
+}
+impl DocMapImpl {
+    pub fn new(old_to_new: PackedLongValues, new_to_old: PackedLongValues, max_doc: i32) -> Self {
+        DocMapImpl {
+            old_to_new,
+            new_to_old,
+            max_doc,
+        }
+    }
+}
+impl DocMap for DocMapImpl {
+    fn old_to_new(&self, doc_id: i32) -> i32 {
+        self.old_to_new.get_immutable(doc_id as i64) as i32
+    }
+
+    fn new_to_old(&self, doc_id: i32) -> i32 {
+        self.new_to_old.get_immutable(doc_id as i64) as i32
+    }
+
+    fn size(&self) -> usize {
+        self.max_doc as usize
+    }
+}
+
+struct DocComparatorImpl<DC>
+where
+    DC: DocComparator,
+{
+    comparators: Vec<DC>,
+}
+impl<DC> DocComparatorImpl<DC>
+where
+    DC: DocComparator,
+{
+    pub fn new(comparators: Vec<DC>) -> Self {
+        DocComparatorImpl { comparators }
+    }
+}
+impl<DC> DocComparator for DocComparatorImpl<DC>
+where
+    DC: DocComparator,
+{
+    fn compare(&self, doc_id1: i32, doc_id2: i32) -> i32 {
+        for cmp in self.comparators.iter() {
+            let comp = cmp.compare(doc_id1, doc_id2);
+            if comp != 0 {
+                return comp;
+            }
+        }
+        doc_id1.cmp(&doc_id2).to_int() //// docid order tiebreak
     }
 }

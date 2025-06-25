@@ -139,7 +139,7 @@ impl PackedLongValues {
         }
     }
 
-    fn get_value(&self, block: i32, element: i32, _value: i64) -> Result<i64> {
+    fn get_value(&self, block: i32, element: i32, _value: i64) -> i64 {
         let value = if self.sub_long_values.is_some() {
             self.sub_long_values
                 .as_ref()
@@ -148,7 +148,7 @@ impl PackedLongValues {
         } else {
             0
         };
-        Ok(self.values[block as usize].get(element) + value)
+        self.values[block as usize].get(element) + value
     }
     pub fn iterator(&self) -> PackedLongValuesIterator {
         PackedLongValuesIterator::new(self.clone())
@@ -162,10 +162,10 @@ impl Accountable for PackedLongValues {
 }
 impl LongValues for PackedLongValues {
     fn get(&mut self, index: i64) -> Result<i64> {
-        self.get_immutable(index)
+        Ok(self.get_immutable(index))
     }
 
-    fn get_immutable(&self, index: i64) -> Result<i64> {
+    fn get_immutable(&self, index: i64) -> i64 {
         debug_assert!(index >= 0);
         debug_assert!(index < self.size());
         let block = (index >> self.page_shift) as i32;
