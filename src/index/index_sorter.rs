@@ -31,7 +31,7 @@ pub trait IndexSorter {
         &mut self,
         leaf_reader: &mut LR,
         max_doc: i32,
-    ) -> Result<Option<Self::DocComparator>>
+    ) -> Result<Self::DocComparator>
     where
         LR: LeafReader;
 }
@@ -88,7 +88,7 @@ where
         &mut self,
         leaf_reader: &mut LR,
         max_doc: i32,
-    ) -> Result<Option<Self::DocComparator>>
+    ) -> Result<Self::DocComparator>
     where
         LR: LeafReader,
     {
@@ -104,7 +104,7 @@ where
             }
             values[doc_id as usize] = f64::from_bits(dvs.long_value()? as u64);
         }
-        Ok(Some(DocComparatorImplDouble::new(values, self.reverse_mul)))
+        Ok(DocComparatorImplDouble::new(values, self.reverse_mul))
     }
 }
 pub struct DocComparatorImplDouble {
@@ -180,7 +180,7 @@ where
         &mut self,
         leaf_reader: &mut LR,
         max_doc: i32,
-    ) -> Result<Option<Self::DocComparator>>
+    ) -> Result<Self::DocComparator>
     where
         LR: LeafReader,
     {
@@ -195,7 +195,7 @@ where
             }
             values[doc_id as usize] = dvs.long_value()? as i32;
         }
-        Ok(Some(DocComparatorImplInt::new(values, self.reverse_mul)))
+        Ok(DocComparatorImplInt::new(values, self.reverse_mul))
     }
 }
 pub struct DocComparatorImplInt {
@@ -272,7 +272,7 @@ where
         &mut self,
         leaf_reader: &mut LR,
         max_doc: i32,
-    ) -> Result<Option<Self::DocComparator>>
+    ) -> Result<Self::DocComparator>
     where
         LR: LeafReader,
     {
@@ -287,7 +287,7 @@ where
             }
             values[doc_id as usize] = dvs.long_value()?;
         }
-        Ok(Some(DocComparatorImplLong::new(values, self.reverse_mul)))
+        Ok(DocComparatorImplLong::new(values, self.reverse_mul))
     }
 }
 
@@ -368,7 +368,7 @@ where
         &mut self,
         leaf_reader: &mut LR,
         max_doc: i32,
-    ) -> Result<Option<Self::DocComparator>>
+    ) -> Result<Self::DocComparator>
     where
         LR: LeafReader,
     {
@@ -384,7 +384,7 @@ where
             let bits = dvs.long_value()? as u32;
             values[doc_id as usize] = f32::from_bits(bits);
         }
-        Ok(Some(DocComparatorImplFloat::new(values, self.reverse_mul)))
+        Ok(DocComparatorImplFloat::new(values, self.reverse_mul))
     }
 }
 
@@ -453,7 +453,7 @@ where
         &mut self,
         leaf_reader: &mut LR,
         max_doc: i32,
-    ) -> Result<Option<Self::DocComparator>>
+    ) -> Result<Self::DocComparator>
     where
         LR: LeafReader,
     {
@@ -472,7 +472,7 @@ where
             }
             ords[doc_id as usize] = sorted.ord_value()?;
         }
-        Ok(Some(DocComparatorImplString::new(ords, self.reverse_mul)))
+        Ok(DocComparatorImplString::new(ords, self.reverse_mul))
     }
 }
 

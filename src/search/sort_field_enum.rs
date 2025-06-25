@@ -147,15 +147,15 @@ impl IndexSorter for IndexSortEnum {
         &mut self,
         leaf_reader: &mut LR,
         max_doc: i32,
-    ) -> Result<Option<Self::DocComparator>>
+    ) -> Result<Self::DocComparator>
     where
         LR: LeafReader,
     {
         match self {
             IndexSortEnum::SortedNumeric(sorter) => sorter.get_doc_comparator(leaf_reader, max_doc),
-            IndexSortEnum::SortedSet(sorter) => Ok(sorter
-                .get_doc_comparator(leaf_reader, max_doc)?
-                .map(DocComparatorEnum::String)),
+            IndexSortEnum::SortedSet(sorter) => Ok(DocComparatorEnum::String(
+                sorter.get_doc_comparator(leaf_reader, max_doc)?,
+            )),
             IndexSortEnum::Sorter(sorter) => sorter.get_doc_comparator(leaf_reader, max_doc),
         }
     }

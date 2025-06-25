@@ -383,23 +383,23 @@ impl IndexSorter for IndexSorterNumeric {
         &mut self,
         leaf_reader: &mut LR,
         max_doc: i32,
-    ) -> Result<Option<Self::DocComparator>>
+    ) -> Result<Self::DocComparator>
     where
         LR: LeafReader,
     {
         match self {
-            IndexSorterNumeric::Int(i) => Ok(i
-                .get_doc_comparator(leaf_reader, max_doc)?
-                .map(DocComparatorEnum::Int)),
-            IndexSorterNumeric::Long(l) => Ok(l
-                .get_doc_comparator(leaf_reader, max_doc)?
-                .map(DocComparatorEnum::Long)),
-            IndexSorterNumeric::Double(d) => Ok(d
-                .get_doc_comparator(leaf_reader, max_doc)?
-                .map(DocComparatorEnum::Double)),
-            IndexSorterNumeric::Float(f) => Ok(f
-                .get_doc_comparator(leaf_reader, max_doc)?
-                .map(DocComparatorEnum::Float)),
+            IndexSorterNumeric::Int(i) => Ok(DocComparatorEnum::Int(
+                i.get_doc_comparator(leaf_reader, max_doc)?,
+            )),
+            IndexSorterNumeric::Long(l) => Ok(DocComparatorEnum::Long(
+                l.get_doc_comparator(leaf_reader, max_doc)?,
+            )),
+            IndexSorterNumeric::Double(d) => Ok(DocComparatorEnum::Double(
+                d.get_doc_comparator(leaf_reader, max_doc)?,
+            )),
+            IndexSorterNumeric::Float(f) => Ok(DocComparatorEnum::Float(
+                f.get_doc_comparator(leaf_reader, max_doc)?,
+            )),
         }
     }
 }

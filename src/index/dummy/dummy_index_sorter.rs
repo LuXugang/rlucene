@@ -30,7 +30,7 @@ impl IndexSorter for DummyIndexSorter {
         &mut self,
         _leaf_reader: &mut LR,
         _max_doc: i32,
-    ) -> crate::util::error::lucene_error::Result<Option<Self::DocComparator>>
+    ) -> crate::util::error::lucene_error::Result<Self::DocComparator>
     where
         LR: LeafReader,
     {
