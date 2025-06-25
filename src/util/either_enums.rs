@@ -27,7 +27,6 @@ use crate::index::postings_enum::PostingsEnum;
 use crate::index::sorted_doc_values::SortedDocValues;
 use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::index::sorted_set_doc_values::SortedSetDocValues;
-use crate::index::sorter::DocMap;
 use crate::index::term_state::{TermState, TermStateEnum};
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::index::BytesRef;
@@ -63,6 +62,9 @@ use std::fmt::{Display, Formatter};
 ///
 /// This approach avoids the overhead of `Box<dyn Trait>` and keeps all behavior
 /// statically resolved by the compiler.
+
+// Either2
+
 // ImpactsEnum
 pub enum EitherImpactsEnum<F, S> {
     F(F),
@@ -1158,6 +1160,91 @@ where
         match self {
             EitherMutablePointTree::F(t) => t.restore(i, j),
             EitherMutablePointTree::S(s) => s.restore(i, j),
+        }
+    }
+}
+
+// Either 3
+// NumericDocValues
+pub enum Either3NumericDocValues<F, S, T> {
+    F(F),
+    S(S),
+    T(T),
+}
+
+impl<F, S, T> DocValuesIterator for Either3NumericDocValues<F, S, T>
+where
+    F: NumericDocValues,
+    S: NumericDocValues,
+    T: NumericDocValues,
+{
+    fn advance_exact(&mut self, _target: i32) -> Result<bool> {
+        match self {
+            Either3NumericDocValues::F(t) => t.advance_exact(_target),
+            Either3NumericDocValues::S(s) => s.advance_exact(_target),
+            Either3NumericDocValues::T(t) => t.advance_exact(_target),
+        }
+    }
+}
+
+impl<F, S, T> DocIdSetIterator for Either3NumericDocValues<F, S, T>
+where
+    F: NumericDocValues,
+    S: NumericDocValues,
+    T: NumericDocValues,
+{
+    fn doc_id(&self) -> i32 {
+        match self {
+            Either3NumericDocValues::F(t) => t.doc_id(),
+            Either3NumericDocValues::S(s) => s.doc_id(),
+            Either3NumericDocValues::T(t) => t.doc_id(),
+        }
+    }
+
+    fn next_doc(&mut self) -> Result<i32> {
+        match self {
+            Either3NumericDocValues::F(t) => t.next_doc(),
+            Either3NumericDocValues::S(s) => s.next_doc(),
+            Either3NumericDocValues::T(t) => t.next_doc(),
+        }
+    }
+
+    fn advance(&mut self, _target: i32) -> Result<i32> {
+        match self {
+            Either3NumericDocValues::F(t) => t.advance(_target),
+            Either3NumericDocValues::S(s) => s.advance(_target),
+            Either3NumericDocValues::T(t) => t.advance(_target),
+        }
+    }
+
+    fn slow_advance(&mut self, target: i32) -> Result<i32> {
+        match self {
+            Either3NumericDocValues::F(t) => t.slow_advance(target),
+            Either3NumericDocValues::S(s) => s.slow_advance(target),
+            Either3NumericDocValues::T(t) => t.slow_advance(target),
+        }
+    }
+
+    fn cost(&self) -> Result<i64> {
+        match self {
+            Either3NumericDocValues::F(t) => t.cost(),
+            Either3NumericDocValues::S(s) => s.cost(),
+            Either3NumericDocValues::T(t) => t.cost(),
+        }
+    }
+}
+
+impl<F, S, T> NumericDocValues for Either3NumericDocValues<F, S, T>
+where
+    F: NumericDocValues,
+    S: NumericDocValues,
+    T: NumericDocValues,
+{
+    fn long_value(&mut self) -> Result<i64> {
+        match self {
+            Either3NumericDocValues::F(t) => t.long_value(),
+            Either3NumericDocValues::S(s) => s.long_value(),
+            Either3NumericDocValues::T(t) => t.long_value(),
         }
     }
 }
