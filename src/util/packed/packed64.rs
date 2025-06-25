@@ -219,7 +219,7 @@ impl Mutable for Packed64 {
         self.bits_per_value
     }
 
-    fn set(&mut self, index: i32, value: i64) -> Result<()> {
+    fn set(&mut self, index: i32, value: i64) {
         // The abstract index in a contiguous bit stream
         let major_bit_pos = (index as u64) * self.bits_per_value as u64;
         // The index in the backing blocks array
@@ -232,7 +232,7 @@ impl Mutable for Packed64 {
             // Single block case
             self.blocks[element_pos] = (self.blocks[element_pos] & !(self.mask_right << -end_bits))
                 | (value << -end_bits) as u64;
-            return Ok(());
+            return;
         }
 
         // Two blocks case
@@ -241,10 +241,9 @@ impl Mutable for Packed64 {
 
         self.blocks[element_pos + 1] = (self.blocks[element_pos + 1] & (!0u64 >> end_bits))
             | (value << (Self::BLOCK_SIZE as i64 - end_bits)) as u64;
-        Ok(())
     }
 
-    fn set_bulk(&mut self, mut index: i32, arr: &[i64], mut off: i32, mut len: i32) -> Result<i32> {
+    fn set_bulk(&mut self, mut index: i32, arr: &[i64], mut off: i32, mut len: i32) -> i32 {
         debug_assert!(len > 0, "len must be > 0 (got {})", len);
         debug_assert!(index < self.value_count, "index out of bounds");
         len = len.min(self.value_count - index);
@@ -262,15 +261,15 @@ impl Mutable for Packed64 {
         if offset_in_blocks != 0 {
             for _ in offset_in_blocks..Encoder::long_value_count(encoder) {
                 if len == 0 {
-                    return Ok(index - original_index);
+                    return index - original_index;
                 }
-                self.set(index, arr[off as usize])?;
+                self.set(index, arr[off as usize]);
                 index += 1;
                 off += 1;
                 len -= 1;
             }
             if len == 0 {
-                return Ok(index - original_index);
+                return index - original_index;
             }
         }
 
@@ -298,16 +297,16 @@ impl Mutable for Packed64 {
 
         if index > original_index {
             // Stay at the block boundary
-            Ok(index - original_index)
+            index - original_index
         } else {
             // No progress so far => already at a block boundary but no full
             // block to set
             debug_assert_eq!(index, original_index);
-            Ok(self.default_set_bulk(index, arr, off, len)?)
+            self.default_set_bulk(index, arr, off, len)
         }
     }
 
-    fn fill(&mut self, mut from_index: i32, to_index: i32, val: i64) -> Result<()> {
+    fn fill(&mut self, mut from_index: i32, to_index: i32, val: i64) {
         debug_assert!(
             PackedInts::unsigned_bits_required(val) <= self.bits_per_value,
             "Value requires more bits than allowed by bits_per_value"
@@ -321,16 +320,16 @@ impl Mutable for Packed64 {
         // If the span is too small, fall back to naive filling
         if span <= (3 * n_aligned_values) {
             for _ in from_index..to_index {
-                self.default_fill(from_index, to_index, val)?;
+                self.default_fill(from_index, to_index, val);
             }
-            return Ok(());
+            return;
         }
 
         // Fill the first values naively until the next block start
         let from_index_mod_n_aligned_values = from_index % n_aligned_values;
         if from_index_mod_n_aligned_values != 0 {
             for _ in from_index_mod_n_aligned_values..n_aligned_values {
-                self.set(from_index, val)?;
+                self.set(from_index, val);
                 from_index += 1;
             }
         }
@@ -343,7 +342,7 @@ impl Mutable for Packed64 {
         let n_aligned_values_blocks = {
             let mut values = Packed64::new(n_aligned_values, self.bits_per_value);
             for i in 0..n_aligned_values {
-                values.set(i, val)?;
+                values.set(i, val);
             }
             values.blocks
         };
@@ -359,13 +358,11 @@ impl Mutable for Packed64 {
 
         // Fill the gap
         for i in (((end_block as i64) << 6) / self.bits_per_value as i64)..to_index as i64 {
-            self.set(i as i32, val)?;
+            self.set(i as i32, val);
         }
-        Ok(())
     }
 
-    fn clear(&mut self) -> Result<()> {
+    fn clear(&mut self) {
         self.blocks.fill(0);
-        Ok(())
     }
 }

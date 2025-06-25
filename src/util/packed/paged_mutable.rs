@@ -50,11 +50,11 @@ impl PagedMutable {
     }
 }
 impl AbstractPagedMutableBase for PagedMutable {
-    fn new_mutable(&self, value_count: i32, bits_per_value: i32) -> Result<MutableEnum> {
+    fn new_mutable(&self, value_count: i32, bits_per_value: i32) -> MutableEnum {
         debug_assert!(self.bits_per_value >= bits_per_value);
         let sub_mutable =
-            PackedInts::get_mutable_impl(value_count, self.bits_per_value, self.format)?;
-        Ok(MutableEnum::Packed(sub_mutable))
+            PackedInts::get_mutable_impl(value_count, self.bits_per_value, self.format);
+        MutableEnum::Packed(sub_mutable)
     }
 
     type PagedMutableBase = PagedMutable;

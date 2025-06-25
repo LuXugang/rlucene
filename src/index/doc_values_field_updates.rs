@@ -97,8 +97,8 @@ impl DocValuesFieldInner {
     pub(crate) fn swap(&mut self, i: i32, j: i32) -> Result<()> {
         let tmp_doc = self.docs.get(j as i64)?;
         let value_i = self.docs.get(i as i64)?;
-        self.docs.set(j as i64, value_i)?;
-        self.docs.set(i as i64, tmp_doc)?;
+        self.docs.set(j as i64, value_i);
+        self.docs.set(i as i64, tmp_doc);
         Ok(())
     }
 }
@@ -193,9 +193,9 @@ where
                 inner.size,
                 PackedInts::bits_required((inner.size - 1) as i64)?,
                 PackedInts::DEFAULT,
-            )?;
+            );
             for i in 0..inner.size {
-                ords.set(i, i as i64)?
+                ords.set(i, i as i64)
             }
             let mut sorter = IntroSorterImpl {
                 ords: &mut ords,
@@ -252,7 +252,7 @@ where
             self.sub_update.grow(size + 1)?;
         }
         let value = ((doc as i64) << 1) | has_value_mask;
-        inner.docs.set(size as i64, value)?;
+        inner.docs.set(size as i64, value);
         inner.size += 1;
         Ok(inner.size - 1)
     }
@@ -395,8 +395,8 @@ where
     fn swap(&mut self, i: i32, j: i32) -> Result<()> {
         let tmp_ord = self.ords.get(i);
         let value = self.ords.get(j);
-        self.ords.set(i, value)?;
-        self.ords.set(j, tmp_ord)?;
+        self.ords.set(i, value);
+        self.ords.set(j, tmp_ord);
         self.inner.swap(i, j)?;
         self.sub_update.swap(i, j)?;
         Ok(())

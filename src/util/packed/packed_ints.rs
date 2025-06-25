@@ -153,7 +153,7 @@ impl PackedInts {
         value_count: i32,
         bits_per_value: i32,
         acceptable_overhead_ratio: f32,
-    ) -> Result<MutablePacked64Enum> {
+    ) -> MutablePacked64Enum {
         let format_and_bits =
             fastest_format_and_bits(value_count, bits_per_value, acceptable_overhead_ratio);
         PackedInts::get_mutable_impl(
@@ -165,18 +165,18 @@ impl PackedInts {
 
     /// Same as [`get_mutable`](PackedInts::get_mutable) with a pre-computed
     /// number of bits per value and format.
-    pub(crate) fn get_mutable_impl(
+    pub fn get_mutable_impl(
         value_count: i32,
         bits_per_value: i32,
         format: Format,
-    ) -> Result<MutablePacked64Enum> {
+    ) -> MutablePacked64Enum {
         debug_assert!(value_count >= 0);
         match format {
-            Format::PackedSingleBlock(_) => Ok(create(value_count, bits_per_value)?),
-            Format::Packed(_) => Ok(MutablePacked64Enum::P64(MutableImpl::new(Packed64::new(
+            Format::PackedSingleBlock(_) => create(value_count, bits_per_value),
+            Format::Packed(_) => MutablePacked64Enum::P64(MutableImpl::new(Packed64::new(
                 value_count,
                 bits_per_value,
-            )))),
+            ))),
         }
     }
     /// Expert: Create a packed integer array writer for the given output,
@@ -295,7 +295,7 @@ impl PackedInts {
         dest_pos: i32,
         len: i32,
         mem: i32,
-    ) -> Result<()> {
+    ) {
         debug_assert!(
             src_pos + len <= src.size(),
             "Source position and length out of bounds"
@@ -308,15 +308,14 @@ impl PackedInts {
         let capacity = mem >> 3;
         if capacity == 0 {
             for i in 0..len {
-                dest.set(dest_pos + i, src.get(src_pos + i))?;
+                dest.set(dest_pos + i, src.get(src_pos + i));
             }
         } else if len > 0 {
             // Use bulk operations
             let buf_size = capacity.min(len);
             let mut buf = vec![0; buf_size as usize];
-            PackedInts::copy_with_buffer(src, src_pos, dest, dest_pos, len, &mut buf)?;
+            PackedInts::copy_with_buffer(src, src_pos, dest, dest_pos, len, &mut buf);
         }
-        Ok(())
     }
     /// Same as `copy` but uses a pre-allocated buffer.
     pub fn copy_with_buffer(
@@ -326,7 +325,7 @@ impl PackedInts {
         mut dest_pos: i32,
         mut len: i32,
         buf: &mut [i64],
-    ) -> Result<()> {
+    ) {
         debug_assert!(!buf.is_empty(), "Buffer length must be greater than 0");
 
         let mut remaining = 0;
@@ -344,7 +343,7 @@ impl PackedInts {
             len -= read;
             remaining += read;
 
-            let written = dest.set_bulk(dest_pos, buf, 0, remaining)?;
+            let written = dest.set_bulk(dest_pos, buf, 0, remaining);
             debug_assert!(written > 0, "Write operation failed");
             dest_pos += written;
 
@@ -355,14 +354,13 @@ impl PackedInts {
         }
 
         while remaining > 0 {
-            let written = dest.set_bulk(dest_pos, buf, 0, remaining)?;
+            let written = dest.set_bulk(dest_pos, buf, 0, remaining);
             dest_pos += written;
             remaining -= written;
             if remaining > 0 {
                 buf.copy_within(written as usize..(written + remaining) as usize, 0);
             }
         }
-        Ok(())
     }
     /// Check that the block size is a power of 2, within the right bounds, and
     /// return its log in base 2.
@@ -874,7 +872,7 @@ pub trait Mutable: Reader + Display {
     /// * `index` - The position where the value should be set.
     /// * `value` - The value to be stored, which must conform to the
     ///   constraints of the array.
-    fn set(&mut self, _index: i32, _value: i64) -> Result<()> {
+    fn set(&mut self, _index: i32, _value: i64) {
         unimplemented!("set() must be implemented if it need to be used")
     }
     /// Sets a range of values in the array.
@@ -890,10 +888,10 @@ pub trait Mutable: Reader + Display {
     /// # Returns
     ///
     /// The actual number of values that have been set.
-    fn set_bulk(&mut self, index: i32, arr: &[i64], off: i32, len: i32) -> Result<i32> {
+    fn set_bulk(&mut self, index: i32, arr: &[i64], off: i32, len: i32) -> i32 {
         self.default_set_bulk(index, arr, off, len)
     }
-    fn default_set_bulk(&mut self, index: i32, arr: &[i64], off: i32, len: i32) -> Result<i32> {
+    fn default_set_bulk(&mut self, index: i32, arr: &[i64], off: i32, len: i32) -> i32 {
         debug_assert!(len > 0, "len must be > 0 (got {})", len);
         debug_assert!(
             index >= 0 && index < self.size(),
@@ -908,9 +906,9 @@ pub trait Mutable: Reader + Display {
         );
 
         for (i, o) in (index..index + len).zip(off..off + len) {
-            self.set(i, arr[o as usize])?;
+            self.set(i, arr[o as usize]);
         }
-        Ok(len)
+        len
     }
 
     /// Fills a range in the packed array with a specific value.
@@ -920,10 +918,10 @@ pub trait Mutable: Reader + Display {
     /// * `from_index` - The start index of the range to fill (inclusive).
     /// * `to_index` - The end index of the range to fill (exclusive).
     /// * `val` - The value to fill with.
-    fn fill(&mut self, from_index: i32, to_index: i32, val: i64) -> Result<()> {
+    fn fill(&mut self, from_index: i32, to_index: i32, val: i64) {
         self.default_fill(from_index, to_index, val)
     }
-    fn default_fill(&mut self, from_index: i32, to_index: i32, val: i64) -> Result<()> {
+    fn default_fill(&mut self, from_index: i32, to_index: i32, val: i64) {
         debug_assert!(val <= PackedInts::max_value(self.get_bits_per_value()));
         debug_assert!(
             from_index <= to_index,
@@ -932,13 +930,12 @@ pub trait Mutable: Reader + Display {
             to_index
         );
         for i in from_index..to_index {
-            self.set(i, val)?;
+            self.set(i, val);
         }
-        Ok(())
     }
 
     /// Sets all values in the packed array to 0.
-    fn clear(&mut self) -> Result<()> {
+    fn clear(&mut self) {
         self.fill(0, self.size(), 0)
     }
 }
@@ -1093,9 +1090,8 @@ mod tests {
     use crate::util::packed::paged_mutable::PagedMutable;
     use crate::util::packed::Format::{Packed, PackedSingleBlock};
     use crate::util::packed::{
-        create, is_supported, Decoder, Encoder, FormatBehavior, Mutable, MutableImpl, NullReader,
+        create, p64sb_util, Decoder, Encoder, FormatBehavior, Mutable, MutableImpl, NullReader,
         PackedImpl, PackedInts, PackedSingleBlockImpl, Reader, ReaderIterator, Writer,
-        MAX_SUPPORTED_BITS_PER_VALUE,
     };
     use crate::util::SliceCopyOps;
 
@@ -1354,7 +1350,7 @@ mod tests {
 
         for mut packed_int in packed_ints {
             for i in 0..packed_int.size() {
-                packed_int.set(i, (i + 1) as i64)?;
+                packed_int.set(i, (i + 1) as i64);
             }
         }
         let mut packed_ints = create_packed_ints(VALUE_COUNT, BITS_PER_VALUE)?;
@@ -1383,15 +1379,15 @@ mod tests {
             }
 
             let mut packed1 =
-                PackedInts::get_mutable(value_count as i32, bits1, PackedInts::COMPACT)?;
+                PackedInts::get_mutable(value_count as i32, bits1, PackedInts::COMPACT);
             let mut packed2 =
-                PackedInts::get_mutable(value_count as i32, bits2, PackedInts::COMPACT)?;
+                PackedInts::get_mutable(value_count as i32, bits2, PackedInts::COMPACT);
 
             let max_value = PackedInts::max_value(bits1);
             for i in 0..value_count {
                 let val = TestUtil::next_long(&mut random, 0, max_value);
-                packed1.set(i, val)?;
-                packed2.set(i, val)?;
+                packed1.set(i, val);
+                packed2.set(i, val);
             }
 
             let mut buffer = vec![0i64; value_count as usize];
@@ -1409,7 +1405,7 @@ mod tests {
                 if random.random_bool(0.5) {
                     let got = packed1.get_bulk(start, &mut buffer, offset, len);
                     assert!(got as i32 <= len);
-                    let sot = packed2.set_bulk(start, &buffer, offset, got as i32)?;
+                    let sot = packed2.set_bulk(start, &buffer, offset, got as i32);
                     assert!(sot <= got);
                 } else {
                     PackedInts::copy(
@@ -1419,7 +1415,7 @@ mod tests {
                         offset,
                         len,
                         random.random_range(1..=(10 * len)) as i32,
-                    )?;
+                    );
                 }
             }
 
@@ -1472,9 +1468,9 @@ mod tests {
         let mutable_impl = MutableImpl::new(packed64);
         packed_ints.push(MutablePacked64Enum::P64(mutable_impl));
 
-        for bpv in bits_per_value..=MAX_SUPPORTED_BITS_PER_VALUE {
-            if is_supported(bpv) {
-                packed_ints.push(create(value_count, bpv)?);
+        for bpv in bits_per_value..=p64sb_util::MAX_SUPPORTED_BITS_PER_VALUE {
+            if p64sb_util::is_supported(bpv) {
+                packed_ints.push(create(value_count, bpv));
             }
         }
 
@@ -1495,7 +1491,7 @@ mod tests {
                 TestUtil::next_long(&mut random, 0, max_value)
             };
 
-            packed_int.set(i, value)?;
+            packed_int.set(i, value);
             let retrieved_value = packed_int.get(i);
 
             if value != retrieved_value {
@@ -1553,9 +1549,9 @@ mod tests {
     #[test]
     fn test_secondary_block_change() -> Result<()> {
         let mut mutable = MutablePacked64Enum::P64(MutableImpl::new(Packed64::new(26, 5)));
-        mutable.set(24, 31)?;
+        mutable.set(24, 31);
         assert_eq!(mutable.get(24), 31, "The value #24 should be correct");
-        mutable.set(4, 16)?;
+        mutable.set(4, 16);
         assert_eq!(mutable.get(24), 31, "The value #24 should remain unchanged");
 
         Ok(())
@@ -1583,8 +1579,8 @@ mod tests {
                     packed, bpv, from, to, val
                 );
 
-                packed.fill(0, packed.size(), 1)?;
-                packed.fill(from, to, val)?;
+                packed.fill(0, packed.size(), 1);
+                packed.fill(from, to, val);
 
                 for i in 0..packed.size() {
                     let expected_value: i64 = if i >= from && i < to { val } else { 1 };
@@ -1649,7 +1645,7 @@ mod tests {
             let mut packed_ints = create_packed_ints(value_count, bpv)?;
             for ints in &mut packed_ints {
                 for i in 0..ints.size() {
-                    ints.set(i, (31 * i as i64 - 1099) & mask)?;
+                    ints.set(i, (31 * i as i64 - 1099) & mask);
                 }
                 let mut arr = vec![0i64; off + len];
                 let msg = format!(
@@ -1708,7 +1704,7 @@ mod tests {
                     "{} valueCount={}, index={}, len={}, off={}",
                     ints, value_count, index, len, off
                 );
-                let sets = ints.set_bulk(index as i32, &arr, off as i32, len as i32)?;
+                let sets = ints.set_bulk(index as i32, &arr, off as i32, len as i32);
                 assert!(sets > 0, "{}: gets should be greater than 0", msg);
                 assert!(
                     sets <= len as i32,
@@ -1750,14 +1746,14 @@ mod tests {
             let mask = PackedInts::max_value(bpv);
             for mut r1 in create_packed_ints(value_count as i32, bpv)? {
                 for i in 0..r1.size() {
-                    r1.set(i, (31 * i as i64 - 1023) & mask)?;
+                    r1.set(i, (31 * i as i64 - 1023) & mask);
                 }
                 for mut r2 in create_packed_ints(value_count as i32, bpv)? {
                     let msg = format!(
                         "src={}, dest={}, srcPos={}, destPos={}, len={}, mem={}",
                         r1, r2, off1, off2, len, mem
                     );
-                    PackedInts::copy(&mut r1, off1, &mut r2, off2, len, mem)?;
+                    PackedInts::copy(&mut r1, off1, &mut r2, off2, len, mem);
                     for i in 0..r2.size() {
                         let m = format!("{}, i={}", msg, i);
                         if i >= off2 && i < off2 + len {
@@ -1789,20 +1785,20 @@ mod tests {
         let mut random = random();
         let value_count = 113 + random.random_range(0..1112);
 
-        let mut wrt = GrowableWriter::new(1, value_count as i32, PackedInts::DEFAULT)?;
+        let mut wrt = GrowableWriter::new(1, value_count as i32, PackedInts::DEFAULT);
 
-        wrt.set(4, 2)?;
-        wrt.set(7, 10)?;
-        wrt.set(value_count - 10, 99)?;
-        wrt.set(99, 999)?;
-        wrt.set(value_count - 1, 1 << 10)?;
+        wrt.set(4, 2);
+        wrt.set(7, 10);
+        wrt.set(value_count - 10, 99);
+        wrt.set(99, 999);
+        wrt.set(value_count - 1, 1 << 10);
         assert_eq!(wrt.get(value_count - 1), 1 << 10);
 
-        wrt.set(99, (1 << 23) - 1)?;
+        wrt.set(99, (1 << 23) - 1);
         assert_eq!(wrt.get(value_count - 1), 1 << 10);
 
-        wrt.set(1, i64::MAX)?;
-        wrt.set(2, -3)?;
+        wrt.set(1, i64::MAX);
+        wrt.set(2, -3);
         assert_eq!(wrt.get_bits_per_value(), 64);
         assert_eq!(wrt.get(value_count - 1), 1 << 10);
         assert_eq!(wrt.get(1), i64::MAX);
@@ -1863,7 +1859,7 @@ mod tests {
 
         let mut values = buf.build()?;
         for i in (0..size).rev() {
-            writer.set(i, values.get(i)?)?;
+            writer.set(i, values.get(i)?);
         }
         for i in 0..size {
             assert_eq!(values.get(i)?, writer.get(i)?);
@@ -1940,7 +1936,7 @@ mod tests {
 
         let mut values = buf.build()?;
         for i in (0..size).rev() {
-            writer.set(i, values.get(i)?)?;
+            writer.set(i, values.get(i)?);
         }
         for i in 0..size {
             assert_eq!(values.get(i)?, writer.get(i)?);

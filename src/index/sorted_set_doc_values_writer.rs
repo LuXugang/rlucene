@@ -709,7 +709,7 @@ impl DocOrds {
         let mut builder =
             PackedLongValues::packed_long_values_builder_default(acceptable_overhead_ratio)?;
         let mut doc_value_counts =
-            GrowableWriter::new(bits_per_value, max_doc, acceptable_overhead_ratio)?;
+            GrowableWriter::new(bits_per_value, max_doc, acceptable_overhead_ratio);
         let mut ord_offset = 1i64;
         while let doc_id = old_values.next_doc()? {
             if doc_id == NO_MORE_DOCS {
@@ -723,7 +723,7 @@ impl DocOrds {
                 builder.add(old_values.next_ord()?)?;
             }
 
-            doc_value_counts.set(new_doc_id, ord_offset - start_offset)?;
+            doc_value_counts.set(new_doc_id, ord_offset - start_offset);
 
             if start_offset != ord_offset {
                 // do we have any values?

@@ -72,9 +72,8 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
 
     fn add_byte_ref(&mut self, _doc: i32, value: &BytesRef<Vec<u8>>, index: i32) -> Result<()> {
         let _guard = self.lock.lock();
-        self.offsets
-            .set(index as i64, self.values.length() as i64)?;
-        self.lengths.set(index as i64, value.length as i64)?;
+        self.offsets.set(index as i64, self.values.length() as i64);
+        self.lengths.set(index as i64, value.length as i64);
         self.values.append_ref(value);
         Ok(())
     }
@@ -102,13 +101,13 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
     fn swap(&mut self, i: i32, j: i32) -> Result<()> {
         let temp_offset = self.offsets.get(j as i64)?;
         let value = self.offsets.get(i as i64)?;
-        self.offsets.set(j as i64, value)?;
-        self.offsets.set(i as i64, temp_offset)?;
+        self.offsets.set(j as i64, value);
+        self.offsets.set(i as i64, temp_offset);
 
         let tem_length = self.lengths.get(j as i64)?;
         let length = self.lengths.get(i as i64)?;
-        self.lengths.set(j as i64, length)?;
-        self.lengths.set(i as i64, tem_length)?;
+        self.lengths.set(j as i64, length);
+        self.lengths.set(i as i64, tem_length);
         Ok(())
     }
 

@@ -199,7 +199,7 @@ impl Mutable for MutablePacked64Enum {
         }
     }
 
-    fn set(&mut self, index: i32, value: i64) -> Result<()> {
+    fn set(&mut self, index: i32, value: i64) {
         match self {
             MutablePacked64Enum::P64SingleBlock1(op) => op.sub_reader.set(index, value),
             MutablePacked64Enum::P64SingleBlock2(op) => op.sub_reader.set(index, value),
@@ -219,7 +219,7 @@ impl Mutable for MutablePacked64Enum {
         }
     }
 
-    fn set_bulk(&mut self, index: i32, arr: &[i64], off: i32, len: i32) -> Result<i32> {
+    fn set_bulk(&mut self, index: i32, arr: &[i64], off: i32, len: i32) -> i32 {
         match self {
             MutablePacked64Enum::P64SingleBlock1(op) => {
                 op.sub_reader.set_bulk(index, arr, off, len)
@@ -267,7 +267,7 @@ impl Mutable for MutablePacked64Enum {
         }
     }
 
-    fn fill(&mut self, from_index: i32, to_index: i32, val: i64) -> Result<()> {
+    fn fill(&mut self, from_index: i32, to_index: i32, val: i64) {
         match self {
             MutablePacked64Enum::P64SingleBlock1(op) => {
                 op.sub_reader.fill(from_index, to_index, val)
@@ -315,7 +315,7 @@ impl Mutable for MutablePacked64Enum {
         }
     }
 
-    fn clear(&mut self) -> Result<()> {
+    fn clear(&mut self) {
         match self {
             MutablePacked64Enum::P64SingleBlock1(op) => op.sub_reader.clear(),
             MutablePacked64Enum::P64SingleBlock2(op) => op.sub_reader.clear(),

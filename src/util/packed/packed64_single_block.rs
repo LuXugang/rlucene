@@ -17,7 +17,7 @@
 use std::fmt::{Display, Formatter};
 
 use crate::util::accountable::Accountable;
-use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::error::lucene_error::Result;
 use crate::util::packed::bulk_operation::bulk_operation_util;
 use crate::util::packed::format_behavior::PackedSingleBlockImpl;
 use crate::util::packed::mutable_packed64_enum::MutablePacked64Enum;
@@ -32,14 +32,17 @@ where
     bits_per_value: i32,
     sub_reader: T,
 }
-/// Checks if the given `bits_per_value` is supported.
-const SUPPORTED_BITS_PER_VALUE: [i32; 14] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 16, 21, 32];
-pub fn is_supported(bits_per_value: i32) -> bool {
-    SUPPORTED_BITS_PER_VALUE
-        .binary_search(&{ bits_per_value })
-        .is_ok()
+pub mod p64sb_util {
+    /// Checks if the given `bits_per_value` is supported.
+    const SUPPORTED_BITS_PER_VALUE: [i32; 14] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 16, 21, 32];
+    pub fn is_supported(bits_per_value: i32) -> bool {
+        SUPPORTED_BITS_PER_VALUE
+            .binary_search(&{ bits_per_value })
+            .is_ok()
+    }
+    pub const MAX_SUPPORTED_BITS_PER_VALUE: i32 = 32;
 }
-pub const MAX_SUPPORTED_BITS_PER_VALUE: i32 = 32;
+
 impl<T> Packed64SingleBlock<T>
 where
     T: Packed64SingleBlockBase,
@@ -59,7 +62,7 @@ where
             "bitsPerValue must be > 0 and <= 64"
         );
         debug_assert!(
-            is_supported(bits_per_value),
+            p64sb_util::is_supported(bits_per_value),
             "Unsupported bits_per_value: {}",
             bits_per_value
         );
@@ -159,96 +162,95 @@ where
         self.value_count
     }
 }
-pub(crate) fn create(value_count: i32, bits_per_value: i32) -> Result<MutablePacked64Enum> {
+pub fn create(value_count: i32, bits_per_value: i32) -> MutablePacked64Enum {
     match bits_per_value {
         1 => {
             let sub_reader =
                 Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock1 {});
             let reader = MutableImpl::new(sub_reader);
-            Ok(MutablePacked64Enum::P64SingleBlock1(reader))
+            MutablePacked64Enum::P64SingleBlock1(reader)
         },
         2 => {
             let sub_reader =
                 Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock2 {});
             let reader = MutableImpl::new(sub_reader);
-            Ok(MutablePacked64Enum::P64SingleBlock2(reader))
+            MutablePacked64Enum::P64SingleBlock2(reader)
         },
         3 => {
             let sub_reader =
                 Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock3 {});
             let reader = MutableImpl::new(sub_reader);
-            Ok(MutablePacked64Enum::P64SingleBlock3(reader))
+            MutablePacked64Enum::P64SingleBlock3(reader)
         },
         4 => {
             let sub_reader =
                 Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock4 {});
             let reader = MutableImpl::new(sub_reader);
-            Ok(MutablePacked64Enum::P64SingleBlock4(reader))
+            MutablePacked64Enum::P64SingleBlock4(reader)
         },
         5 => {
             let sub_reader =
                 Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock5 {});
             let reader = MutableImpl::new(sub_reader);
-            Ok(MutablePacked64Enum::P64SingleBlock5(reader))
+            MutablePacked64Enum::P64SingleBlock5(reader)
         },
         6 => {
             let sub_reader =
                 Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock6 {});
             let reader = MutableImpl::new(sub_reader);
-            Ok(MutablePacked64Enum::P64SingleBlock6(reader))
+            MutablePacked64Enum::P64SingleBlock6(reader)
         },
         7 => {
             let sub_reader =
                 Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock7 {});
             let reader = MutableImpl::new(sub_reader);
-            Ok(MutablePacked64Enum::P64SingleBlock7(reader))
+            MutablePacked64Enum::P64SingleBlock7(reader)
         },
         8 => {
             let sub_reader =
                 Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock8 {});
             let reader = MutableImpl::new(sub_reader);
-            Ok(MutablePacked64Enum::P64SingleBlock8(reader))
+            MutablePacked64Enum::P64SingleBlock8(reader)
         },
         9 => {
             let sub_reader =
                 Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock9 {});
             let reader = MutableImpl::new(sub_reader);
-            Ok(MutablePacked64Enum::P64SingleBlock9(reader))
+            MutablePacked64Enum::P64SingleBlock9(reader)
         },
         10 => {
             let sub_reader =
                 Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock10 {});
             let reader = MutableImpl::new(sub_reader);
-            Ok(MutablePacked64Enum::P64SingleBlock10(reader))
+            MutablePacked64Enum::P64SingleBlock10(reader)
         },
         12 => {
             let sub_reader =
                 Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock12 {});
             let reader = MutableImpl::new(sub_reader);
-            Ok(MutablePacked64Enum::P64SingleBlock12(reader))
+            MutablePacked64Enum::P64SingleBlock12(reader)
         },
         16 => {
             let sub_reader =
                 Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock16 {});
             let reader = MutableImpl::new(sub_reader);
-            Ok(MutablePacked64Enum::P64SingleBlock16(reader))
+            MutablePacked64Enum::P64SingleBlock16(reader)
         },
         21 => {
             let sub_reader =
                 Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock21 {});
             let reader = MutableImpl::new(sub_reader);
-            Ok(MutablePacked64Enum::P64SingleBlock21(reader))
+            MutablePacked64Enum::P64SingleBlock21(reader)
         },
         32 => {
             let sub_reader =
                 Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock32 {});
             let reader = MutableImpl::new(sub_reader);
-            Ok(MutablePacked64Enum::P64SingleBlock32(reader))
+            MutablePacked64Enum::P64SingleBlock32(reader)
         },
-        _ => Err(LuceneError::illegal_argument(format!(
-            "Unsupported number of bits per value:  {}",
-            bits_per_value
-        ))),
+        _ => {
+            unreachable!("should not be here")
+        },
     }
 }
 impl<T> Accountable for Packed64SingleBlock<T>
@@ -283,12 +285,11 @@ where
         self.bits_per_value
     }
 
-    fn set(&mut self, index: i32, value: i64) -> Result<()> {
+    fn set(&mut self, index: i32, value: i64) {
         self.sub_reader.set(index, value, &mut self.blocks);
-        Ok(())
     }
 
-    fn set_bulk(&mut self, mut index: i32, arr: &[i64], mut off: i32, mut len: i32) -> Result<i32> {
+    fn set_bulk(&mut self, mut index: i32, arr: &[i64], mut off: i32, mut len: i32) -> i32 {
         debug_assert!(len > 0, "len must be > 0 (got {})", len);
         debug_assert!(index < self.value_count, "index out of bounds");
         len = len.min(self.value_count - index);
@@ -306,7 +307,7 @@ where
         if offset_in_block != 0 {
             for _ in offset_in_block..values_per_block {
                 if len == 0 {
-                    return Ok(index - original_index);
+                    return index - original_index;
                 }
                 self.sub_reader
                     .set(index, arr[off as usize], &mut self.blocks);
@@ -315,7 +316,7 @@ where
                 len -= 1;
             }
             if len == 0 {
-                return Ok(index - original_index);
+                return index - original_index;
             }
         }
 
@@ -354,7 +355,7 @@ where
 
         if index > original_index {
             // Stay at the block boundary
-            Ok(index - original_index)
+            index - original_index
         } else {
             // No progress so far => already at a block boundary but no full
             // block to set
@@ -363,7 +364,7 @@ where
         }
     }
 
-    fn fill(&mut self, mut from_index: i32, to_index: i32, val: i64) -> Result<()> {
+    fn fill(&mut self, mut from_index: i32, to_index: i32, val: i64) {
         debug_assert!(from_index <= to_index, "from_index must be <= to_index");
         debug_assert!(
             PackedInts::unsigned_bits_required(val) <= self.bits_per_value,
@@ -375,16 +376,16 @@ where
         // If the range is too small, fallback to naive setting
         if to_index - from_index <= (values_per_block * 2) {
             for _ in from_index..to_index {
-                self.default_fill(from_index, to_index, val)?;
+                self.default_fill(from_index, to_index, val);
             }
-            return Ok(());
+            return;
         }
 
         // set values naively until the next block start
         let from_offset_in_block = from_index % values_per_block;
         if from_offset_in_block != 0 {
             for _ in from_offset_in_block..values_per_block {
-                self.set(from_index, val)?;
+                self.set(from_index, val);
                 from_index += 1;
             }
             debug_assert_eq!(from_index % values_per_block, 0);
@@ -404,14 +405,12 @@ where
 
         // Fill the gap at the end
         for i in (values_per_block * to_block)..to_index {
-            self.set(i, val)?;
+            self.set(i, val);
         }
-        Ok(())
     }
 
-    fn clear(&mut self) -> Result<()> {
+    fn clear(&mut self) {
         self.blocks.fill(0);
-        Ok(())
     }
 }
 

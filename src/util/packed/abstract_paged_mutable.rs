@@ -80,7 +80,7 @@ where
             };
             self.sub_mutables[i as usize] = self
                 .sub_reader
-                .new_mutable(value_count, self.sub_reader.bits_per_value())?;
+                .new_mutable(value_count, self.sub_reader.bits_per_value());
         }
         Ok(())
     }
@@ -106,7 +106,7 @@ where
         (index & self.page_mask as i64) as i32
     }
     /// Sets the value at the specified index.
-    pub fn set(&mut self, index: i64, value: i64) -> Result<()> {
+    pub fn set(&mut self, index: i64, value: i64) {
         debug_assert!(
             index < self.size,
             "Index out of bounds: index={} size={}",
@@ -141,7 +141,7 @@ where
             } else {
                 self.sub_reader.bits_per_value()
             };
-            copy.sub_mutables[i] = self.sub_reader.new_mutable(value_count, bpv)?;
+            copy.sub_mutables[i] = self.sub_reader.new_mutable(value_count, bpv);
 
             if i < num_common_pages {
                 let copy_length = std::cmp::min(value_count, self.sub_mutables[i].size());
@@ -152,7 +152,7 @@ where
                     0,
                     copy_length,
                     &mut copy_buffer,
-                )?;
+                );
             }
         }
         Ok(copy)
@@ -211,7 +211,7 @@ where
     }
 }
 pub(crate) trait AbstractPagedMutableBase: Default {
-    fn new_mutable(&self, value_count: i32, bits_per_value: i32) -> Result<MutableEnum>;
+    fn new_mutable(&self, value_count: i32, bits_per_value: i32) -> MutableEnum;
     type PagedMutableBase: AbstractPagedMutableBase;
     fn new_unfilled_copy(
         &self,

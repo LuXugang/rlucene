@@ -80,7 +80,7 @@ impl MonotonicLongValuesBuilder {
         Self::BASE_RAM_BYTES_USED
     }
 
-    pub(crate) fn pack(&mut self, values: &mut [i64], num_values: i32, block: i32) -> Result<()> {
+    pub(crate) fn pack(&mut self, values: &mut [i64], num_values: i32, block: i32) {
         let average = if num_values == 1 {
             0.0
         } else {
@@ -92,7 +92,6 @@ impl MonotonicLongValuesBuilder {
             *value -= expected(0, average, i as i32);
         }
         self.averages[block as usize] = average;
-        Ok(())
     }
 
     pub(crate) fn grow(&mut self, new_block_count: i32) -> Result<()> {

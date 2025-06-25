@@ -89,7 +89,8 @@ where
 {
     fn add_value(&mut self, _doc: i32, value: i64, index: i32) -> Result<()> {
         let _guard = self.lock.lock();
-        self.values.set(index as i64, value - self.min_value)
+        self.values.set(index as i64, value - self.min_value);
+        Ok(())
     }
 
     fn add_byte_ref(&mut self, _doc: i32, _value: &BytesRef<Vec<u8>>, _index: i32) -> Result<()> {
@@ -118,8 +119,8 @@ where
     fn swap(&mut self, i: i32, j: i32) -> Result<()> {
         let tmp_val = self.values.get(j as i64)?;
         let value = self.values.get(i as i64)?;
-        self.values.set(j as i64, value)?;
-        self.values.set(i as i64, tmp_val)?;
+        self.values.set(j as i64, value);
+        self.values.set(i as i64, tmp_val);
         Ok(())
     }
 

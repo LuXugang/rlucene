@@ -79,7 +79,7 @@ impl Mutable for MutableEnum {
         }
     }
 
-    fn set(&mut self, index: i32, value: i64) -> Result<()> {
+    fn set(&mut self, index: i32, value: i64) {
         match self {
             MutableEnum::Packed(op) => op.set(index, value),
             MutableEnum::GrowableW(op) => op.set(index, value),
@@ -87,7 +87,7 @@ impl Mutable for MutableEnum {
         }
     }
 
-    fn set_bulk(&mut self, index: i32, arr: &[i64], off: i32, len: i32) -> Result<i32> {
+    fn set_bulk(&mut self, index: i32, arr: &[i64], off: i32, len: i32) -> i32 {
         match self {
             MutableEnum::Packed(op) => op.set_bulk(index, arr, off, len),
             MutableEnum::GrowableW(op) => op.set_bulk(index, arr, off, len),
@@ -95,7 +95,7 @@ impl Mutable for MutableEnum {
         }
     }
 
-    fn fill(&mut self, from_index: i32, to_index: i32, val: i64) -> Result<()> {
+    fn fill(&mut self, from_index: i32, to_index: i32, val: i64) {
         match self {
             MutableEnum::Packed(op) => op.fill(from_index, to_index, val),
             MutableEnum::GrowableW(op) => op.fill(from_index, to_index, val),
@@ -103,7 +103,7 @@ impl Mutable for MutableEnum {
         }
     }
 
-    fn clear(&mut self) -> Result<()> {
+    fn clear(&mut self) {
         match self {
             MutableEnum::Packed(op) => op.clear(),
             MutableEnum::GrowableW(op) => op.clear(),
