@@ -151,7 +151,7 @@ impl DocValuesWriter for BinaryDocValuesWriter {
                     self.max_length as usize,
                     paged_bytes_util::get_data_input(&self.bytes_out.paged_bytes)?,
                     self.docs_with_field.iterator()?.unwrap(),
-                )?;
+                );
                 Some(BinaryDVs::new(
                     state.segment_info.max_doc()?,
                     &*sort_map,
@@ -179,12 +179,12 @@ impl DocValuesWriter for BinaryDocValuesWriter {
         if self.final_lengths.is_none() {
             self.final_lengths = Some(self.lengths.build()?);
         }
-        BufferedBinaryDocValues::new(
+        Ok(BufferedBinaryDocValues::new(
             self.final_lengths.as_ref().unwrap(),
             self.max_length as usize,
             paged_bytes_util::get_data_input(&self.bytes_out.paged_bytes)?,
             self.docs_with_field.iterator()?.unwrap(),
-        )
+        ))
     }
 }
 
@@ -235,7 +235,7 @@ impl DocValuesProducer for DocValuesProducerImpl {
                 self.max_length as usize,
                 paged_bytes_util::get_data_input(&self.paged_bytes)?,
                 self.docs_with_field.iterator()?.unwrap(),
-            )?)),
+            ))),
         }
     }
 
@@ -275,15 +275,15 @@ where
         max_length: usize,
         bytes_iter: DI,
         docs_with_field: D,
-    ) -> Result<Self> {
+    ) -> Self {
         let mut value = BytesRefBuilder::new();
         value.grow(max_length);
-        Ok(Self {
+        Self {
             value,
-            lengths_iterator: lengths.iterator()?,
+            lengths_iterator: lengths.iterator(),
             docs_with_field,
             bytes_iter,
-        })
+        }
     }
 }
 
@@ -299,7 +299,7 @@ where
     fn next_doc(&mut self) -> Result<i32> {
         let doc_id = self.docs_with_field.next_doc()?;
         if doc_id != NO_MORE_DOCS {
-            let length: i32 = self.lengths_iterator.next_value()?.try_into()?;
+            let length: i32 = self.lengths_iterator.next_value().try_into()?;
             self.value.set_length(length as usize);
             self.bytes_iter
                 .read_bytes(&mut self.value.bytes_ref.bytes, 0, length)?;

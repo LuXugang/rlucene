@@ -175,13 +175,13 @@ impl SortedNumericDocValuesWriter {
 
         match value_counts {
             None => {
-                let dv = BufferedNumericDocValues::new(values, iter)?;
+                let dv = BufferedNumericDocValues::new(values, iter);
                 Ok(EitherSortedNumericDocValues::F(
                     DocValues::singleton_numeric(dv)?,
                 ))
             },
             Some(value_counts) => {
-                let dv = BufferedSortedNumericDocValues::new(values, value_counts, iter)?;
+                let dv = BufferedSortedNumericDocValues::new(values, value_counts, iter);
                 Ok(EitherSortedNumericDocValues::S(dv))
             },
         }
@@ -445,14 +445,14 @@ where
         values: &PackedLongValues,
         value_counts: &PackedLongValues,
         docs_with_field: D,
-    ) -> Result<Self> {
-        Ok(Self {
-            values_iter: values.iterator()?,
-            value_counts_iter: value_counts.iterator()?,
+    ) -> Self {
+        Self {
+            values_iter: values.iterator(),
+            value_counts_iter: value_counts.iterator(),
             docs_with_field,
             value_count: 0,
             value_upto: 0,
-        })
+        }
     }
 }
 
@@ -475,12 +475,12 @@ where
 
     fn next_doc(&mut self) -> Result<i32> {
         for _ in self.value_upto..self.value_count {
-            self.values_iter.next_value()?;
+            self.values_iter.next_value();
         }
 
         let doc_id = self.docs_with_field.next_doc()?;
         if doc_id != NO_MORE_DOCS {
-            self.value_count = self.value_counts_iter.next_value()?.try_into()?;
+            self.value_count = self.value_counts_iter.next_value().try_into()?;
             self.value_upto = 0;
         }
         Ok(doc_id)
@@ -501,7 +501,7 @@ where
 {
     fn next_value(&mut self) -> Result<i64> {
         self.value_upto += 1;
-        self.values_iter.next_value()
+        Ok(self.values_iter.next_value())
     }
 
     fn doc_value_count(&mut self) -> Result<i32> {

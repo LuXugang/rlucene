@@ -129,7 +129,7 @@ impl Reader for Packed64 {
             & self.mask_right) as i64
     }
 
-    fn get_bulk(&self, mut index: i32, arr: &mut [i64], mut off: i32, mut len: i32) -> Result<i32> {
+    fn get_bulk(&self, mut index: i32, arr: &mut [i64], mut off: i32, mut len: i32) -> i32 {
         debug_assert!(len > 0, "len must be > 0 (got {})", len);
         debug_assert!(
             index >= 0 && index < self.value_count,
@@ -151,7 +151,7 @@ impl Reader for Packed64 {
         if offset_in_blocks != 0 {
             for _i in offset_in_blocks..Decoder::long_value_count(decoder) {
                 if len == 0 {
-                    return Ok(index - original_index);
+                    return index - original_index;
                 }
                 arr[off as usize] = self.get(index);
                 off += 1;
@@ -159,7 +159,7 @@ impl Reader for Packed64 {
                 len -= 1;
             }
             if len == 0 {
-                return Ok(index - original_index);
+                return index - original_index;
             }
         }
 
@@ -182,12 +182,12 @@ impl Reader for Packed64 {
 
         if index > original_index {
             // Stay at the block boundary
-            Ok(index - original_index)
+            index - original_index
         } else {
             // No progress so far => already at a block boundary but no full
             // block to get
             debug_assert_eq!(index, original_index, "Index mismatch");
-            Ok(self.default_get_bulk(index, arr, off, len))
+            self.default_get_bulk(index, arr, off, len)
         }
     }
 

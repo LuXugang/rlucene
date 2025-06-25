@@ -126,16 +126,16 @@ impl PackedLongValues {
         self.size
     }
 
-    fn decode_block(&self, block: i32, dest: &mut [i64], _count: i32) -> Result<i32> {
+    fn decode_block(&self, block: i32, dest: &mut [i64], _count: i32) -> i32 {
         let vals = &self.values[block as usize];
         let size = vals.size();
         let mut k = 0;
         while k < size {
-            k += vals.get_bulk(k, dest, k, size - k)?;
+            k += vals.get_bulk(k, dest, k, size - k);
         }
         match self.sub_long_values {
-            Some(ref sub) => Ok(sub.decode_block(block, dest, size)),
-            _ => Ok(size),
+            Some(ref sub) => sub.decode_block(block, dest, size),
+            _ => size,
         }
     }
 
@@ -150,7 +150,7 @@ impl PackedLongValues {
         };
         Ok(self.values[block as usize].get(element) + value)
     }
-    pub fn iterator(&self) -> Result<PackedLongValuesIterator> {
+    pub fn iterator(&self) -> PackedLongValuesIterator {
         PackedLongValuesIterator::new(self.clone())
     }
 }
@@ -387,7 +387,7 @@ pub struct PackedLongValuesIterator {
 }
 
 impl PackedLongValuesIterator {
-    pub fn new(packed_long_values: PackedLongValues) -> Result<Self> {
+    pub fn new(packed_long_values: PackedLongValues) -> Self {
         let current_values = vec![
             0;
             packed_long_values
@@ -402,35 +402,34 @@ impl PackedLongValuesIterator {
             p_off: 0,
             current_count: 0,
         };
-        iterator.fill_block()?;
-        Ok(iterator)
+        iterator.fill_block();
+        iterator
     }
 
-    fn fill_block(&mut self) -> Result<()> {
+    fn fill_block(&mut self) {
         if (self.v_off as usize) >= self.packed_long_values.values.len() {
             self.current_count = 0;
         } else {
             self.current_count =
                 self.packed_long_values
-                    .decode_block(self.v_off, &mut self.current_values, 0)?;
+                    .decode_block(self.v_off, &mut self.current_values, 0);
             debug_assert!(self.current_count > 0);
         }
-        Ok(())
     }
 
     pub fn has_next(&self) -> bool {
         self.p_off < self.current_count
     }
 
-    pub fn next_value(&mut self) -> Result<i64> {
+    pub fn next_value(&mut self) -> i64 {
         debug_assert!(self.has_next(), "No more values available");
         let result = self.current_values[self.p_off as usize];
         self.p_off += 1;
         if self.p_off == self.current_count {
             self.v_off += 1;
             self.p_off = 0;
-            self.fill_block()?;
+            self.fill_block();
         }
-        Ok(result)
+        result
     }
 }

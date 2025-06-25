@@ -54,7 +54,7 @@ impl Reader for MutableEnum {
         }
     }
 
-    fn get_bulk(&self, index: i32, arr: &mut [i64], off: i32, len: i32) -> Result<i32> {
+    fn get_bulk(&self, index: i32, arr: &mut [i64], off: i32, len: i32) -> i32 {
         match self {
             MutableEnum::Packed(op) => op.get_bulk(index, arr, off, len),
             MutableEnum::GrowableW(op) => op.get_bulk(index, arr, off, len),

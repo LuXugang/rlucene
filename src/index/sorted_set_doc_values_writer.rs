@@ -265,10 +265,10 @@ impl SortedSetDocValuesWriter {
                     ords_counts,
                     max_count,
                     docs_iter,
-                )?,
+                ),
             )),
             None => Ok(EitherSortedSetDocValues::F(DocValues::singleton_sorted(
-                BufferedSortedDocValues::new(hash, ords, ord_map, docs_iter)?,
+                BufferedSortedDocValues::new(hash, ords, ord_map, docs_iter),
             )?)),
         }
     }
@@ -486,18 +486,18 @@ where
         ord_counts: PackedLongValues,
         max_count: i32,
         docs_with_field: D,
-    ) -> Result<Self> {
-        Ok(Self {
+    ) -> Self {
+        Self {
             ord_map,
             hash,
             scratch: BytesRef::new(),
-            ords_iter: ords.iterator()?,
-            ord_counts_iter: ord_counts.iterator()?,
+            ords_iter: ords.iterator(),
+            ord_counts_iter: ord_counts.iterator(),
             docs_with_field,
             current_doc: vec![0; max_count as usize],
             ord_count: 0,
             ord_upto: 0,
-        })
+        }
     }
 }
 
@@ -512,11 +512,11 @@ where
     fn next_doc(&mut self) -> Result<i32> {
         let doc_id = self.docs_with_field.next_doc()?;
         if doc_id != NO_MORE_DOCS {
-            let count = self.ord_counts_iter.next_value()? as usize;
+            let count = self.ord_counts_iter.next_value() as usize;
             debug_assert!(count > 0);
             self.ord_count = count;
             for i in 0..count {
-                let raw: i32 = self.ords_iter.next_value()?.try_into()?;
+                let raw: i32 = self.ords_iter.next_value().try_into()?;
                 self.current_doc[i] = self.ord_map[raw as usize];
             }
             self.current_doc[..count].sort_unstable();

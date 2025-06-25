@@ -82,7 +82,7 @@ where
         self.sub_reader.get(_index, &self.blocks)
     }
 
-    fn get_bulk(&self, mut index: i32, arr: &mut [i64], mut off: i32, mut len: i32) -> Result<i32> {
+    fn get_bulk(&self, mut index: i32, arr: &mut [i64], mut off: i32, mut len: i32) -> i32 {
         debug_assert!(len > 0, "len must be > 0 (got {})", len);
         debug_assert!(index < self.value_count, "index out of bounds");
         len = len.min(self.value_count - index);
@@ -99,7 +99,7 @@ where
         if offset_in_block != 0 {
             for _ in offset_in_block..values_per_block {
                 if len == 0 {
-                    return Ok(index - original_index);
+                    return index - original_index;
                 }
                 arr[off as usize] = self.sub_reader.get(index, &self.blocks);
                 off += 1;
@@ -107,7 +107,7 @@ where
                 len -= 1;
             }
             if len == 0 {
-                return Ok(index - original_index);
+                return index - original_index;
             }
         }
 
@@ -146,12 +146,12 @@ where
 
         if index > original_index {
             // Stay at the block boundary
-            Ok(index - original_index)
+            index - original_index
         } else {
             // No progress so far => already at a block boundary but no full
             // block to get
             debug_assert_eq!(index, original_index, "Index mismatch");
-            Ok(self.default_get_bulk(index, arr, off, len))
+            self.default_get_bulk(index, arr, off, len)
         }
     }
 

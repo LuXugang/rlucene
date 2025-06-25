@@ -108,7 +108,7 @@ impl NormValuesWriter {
                     Some(iter) => iter,
                     None => return Err(LuceneError::illegal_state("DocsWithFieldSet is None")),
                 };
-                let mut buffer_norms = BufferedNorms::new(&values, iter)?;
+                let mut buffer_norms = BufferedNorms::new(&values, iter);
                 let sorted = ndvw_util::sort_doc_values(
                     state.segment_info.max_doc()?,
                     &*sort_map,
@@ -158,7 +158,7 @@ impl NormsProducer for NormsProducerImpl {
             None => Ok(EitherNumericDocValues::F(BufferedNorms::new(
                 &self.values,
                 self.docs_with_field.iterator()?.unwrap(),
-            )?)),
+            ))),
         }
     }
 
@@ -174,15 +174,12 @@ struct BufferedNorms {
     value: i64,
 }
 impl BufferedNorms {
-    pub(crate) fn new(
-        values: &PackedLongValues,
-        doc_with_field: DocsWithFieldSetEnum,
-    ) -> Result<Self> {
-        Ok(Self {
-            iter: values.iterator()?,
+    pub(crate) fn new(values: &PackedLongValues, doc_with_field: DocsWithFieldSetEnum) -> Self {
+        Self {
+            iter: values.iterator(),
             doc_with_field,
             value: 0,
-        })
+        }
     }
 }
 
@@ -200,7 +197,7 @@ impl DocIdSetIterator for BufferedNorms {
     fn next_doc(&mut self) -> Result<i32> {
         let doc_id = self.doc_with_field.next_doc()?;
         if doc_id != NO_MORE_DOCS {
-            self.value = self.iter.next_value()?;
+            self.value = self.iter.next_value();
         }
         Ok(doc_id)
     }

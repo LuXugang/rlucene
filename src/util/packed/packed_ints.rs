@@ -338,7 +338,7 @@ impl PackedInts {
                 buf,
                 remaining,
                 len.min(buf.len() as i32 - remaining),
-            )?;
+            );
             debug_assert!(read > 0, "Read operation failed");
             src_pos += read;
             len -= read;
@@ -730,8 +730,8 @@ pub trait Reader: Accountable {
     /// Bulk get: read at least one and at most `len` values starting from
     /// `index` into `arr[off.off+len]` and return the actual number of
     /// values that have been read.
-    fn get_bulk(&self, index: i32, arr: &mut [i64], off: i32, len: i32) -> Result<i32> {
-        Ok(self.default_get_bulk(index, arr, off, len))
+    fn get_bulk(&self, index: i32, arr: &mut [i64], off: i32, len: i32) -> i32 {
+        self.default_get_bulk(index, arr, off, len)
     }
     fn default_get_bulk(&self, index: i32, arr: &mut [i64], off: i32, len: i32) -> i32 {
         debug_assert!(len > 0, "len must be > 0");
@@ -1013,7 +1013,7 @@ impl Reader for NullReader {
         0
     }
 
-    fn get_bulk(&self, index: i32, arr: &mut [i64], off: i32, mut len: i32) -> Result<i32> {
+    fn get_bulk(&self, index: i32, arr: &mut [i64], off: i32, mut len: i32) -> i32 {
         debug_assert!(len > 0, "len must be > 0 (got {})", len);
         debug_assert!(
             index < self.value_count,
@@ -1029,7 +1029,7 @@ impl Reader for NullReader {
         );
 
         arr[off as usize..(off + len) as usize].fill(0);
-        Ok(len)
+        len
     }
 
     fn size(&self) -> i32 {
@@ -1407,7 +1407,7 @@ mod tests {
                 };
 
                 if random.random_bool(0.5) {
-                    let got = packed1.get_bulk(start, &mut buffer, offset, len)?;
+                    let got = packed1.get_bulk(start, &mut buffer, offset, len);
                     assert!(got as i32 <= len);
                     let sot = packed2.set_bulk(start, &buffer, offset, got as i32)?;
                     assert!(sot <= got);
@@ -1556,11 +1556,7 @@ mod tests {
         mutable.set(24, 31)?;
         assert_eq!(mutable.get(24), 31, "The value #24 should be correct");
         mutable.set(4, 16)?;
-        assert_eq!(
-            mutable.get(24),
-            31,
-            "The value #24 should remain unchanged"
-        );
+        assert_eq!(mutable.get(24), 31, "The value #24 should remain unchanged");
 
         Ok(())
     }
@@ -1614,7 +1610,7 @@ mod tests {
             random_index
         );
         let mut arr = vec![1i64; (size + 10) as usize];
-        let r = packed_ints.get_bulk(0, &mut arr, 0, size - 1)?;
+        let r = packed_ints.get_bulk(0, &mut arr, 0, size - 1);
         assert_eq!(
             r,
             (size - 1),
@@ -1624,7 +1620,7 @@ mod tests {
             assert_eq!(value, 0, "The value at position {} should be 0", i);
         }
         arr.fill(1);
-        let r = packed_ints.get_bulk(10, &mut arr, 0, size + 10)?;
+        let r = packed_ints.get_bulk(10, &mut arr, 0, size + 10);
         assert_eq!(
             r,
             (size - 10),
@@ -1660,7 +1656,7 @@ mod tests {
                     "{} valueCount={}, index={}, len={}, off={}",
                     ints, value_count, index, len, off
                 );
-                let gets = ints.get_bulk(index as i32, &mut arr, off as i32, len as i32)?;
+                let gets = ints.get_bulk(index as i32, &mut arr, off as i32, len as i32);
                 assert!(gets > 0, "{}: gets should be greater than 0", msg);
                 assert!(
                     gets <= len as i32,
@@ -2274,12 +2270,12 @@ mod tests {
                     assert_eq!(value, values.get(i as i64)?);
                 }
 
-                let mut it = values.iterator()?;
+                let mut it = values.iterator();
                 for &value in arr.iter() {
                     if random.random_bool(0.5) {
                         assert!(it.has_next());
                     }
-                    assert_eq!(value, it.next_value()?);
+                    assert_eq!(value, it.next_value());
                 }
                 assert!(!it.has_next());
 

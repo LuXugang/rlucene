@@ -109,7 +109,7 @@ impl Reader for MutablePacked64Enum {
         }
     }
 
-    fn get_bulk(&self, index: i32, arr: &mut [i64], off: i32, len: i32) -> Result<i32> {
+    fn get_bulk(&self, index: i32, arr: &mut [i64], off: i32, len: i32) -> i32 {
         match self {
             MutablePacked64Enum::P64SingleBlock1(op) => {
                 op.sub_reader.get_bulk(index, arr, off, len)

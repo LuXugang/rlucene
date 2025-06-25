@@ -227,12 +227,12 @@ impl DocValuesWriter for SortedDocValuesWriter {
 
     fn get_doc_values(&mut self) -> Result<Self::DocIdSetIterator> {
         self.finish()?;
-        BufferedSortedDocValues::new(
+        Ok(BufferedSortedDocValues::new(
             self.hash_rc.as_ref().unwrap().clone(),
             self.final_ords.as_ref().unwrap(),
             self.final_ord_map.as_ref().unwrap().clone(),
             self.docs_with_field.iterator()?.unwrap(),
-        )
+        ))
     }
 }
 
@@ -265,7 +265,7 @@ pub(crate) mod sdvw_util {
                 LuceneError::illegal_state("docsWithField.iterator() returned None")
             })?;
             let mut old_values =
-                BufferedSortedDocValues::new(hash.clone(), &ords, ord_map.clone(), docs_iter)?;
+                BufferedSortedDocValues::new(hash.clone(), &ords, ord_map.clone(), docs_iter);
             Some(Rc::new(SortedDocValuesWriter::sort_doc_values(
                 sort_map.size(),
                 &*sort_map,
@@ -330,7 +330,7 @@ impl DocValuesProducer for DocValuesProducerImpl {
             &self.ords,
             self.ord_map.clone(),
             self.docs_with_field.iterator()?.unwrap(),
-        )?;
+        );
         if self.sorted.is_none() {
             return Ok(EitherSortedDocValues::F(buf));
         }
@@ -366,15 +366,15 @@ where
         doc_to_ord: &PackedLongValues,
         ord_map: Rc<Vec<i32>>,
         docs_with_field: D,
-    ) -> Result<Self> {
-        Ok(Self {
+    ) -> Self {
+        Self {
             hash,
             scratch: BytesRef::new(),
             ord_map,
             ord: -1,
-            iter: doc_to_ord.iterator()?,
+            iter: doc_to_ord.iterator(),
             docs_with_field,
-        })
+        }
     }
 }
 
@@ -398,7 +398,7 @@ where
     fn next_doc(&mut self) -> Result<i32> {
         let doc_id = self.docs_with_field.next_doc()?;
         if doc_id != NO_MORE_DOCS {
-            let raw_ord: i32 = self.iter.next_value()?.try_into()?;
+            let raw_ord: i32 = self.iter.next_value().try_into()?;
             let mapped = self.ord_map[raw_ord as usize];
             self.ord = mapped;
         }

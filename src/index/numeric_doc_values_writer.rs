@@ -138,10 +138,10 @@ impl DocValuesWriter for NumericDocValuesWriter {
         if self.final_values.is_none() {
             self.final_values = Some(std::mem::take(&mut self.pending).build()?)
         }
-        BufferedNumericDocValues::new(
+        Ok(BufferedNumericDocValues::new(
             self.final_values.as_ref().unwrap(),
             self.docs_with_field.iterator()?.unwrap(),
-        )
+        ))
     }
 }
 pub(crate) struct DocValuesProducerImpl {
@@ -156,13 +156,13 @@ impl DocValuesProducerImpl {
         docs_with_field: DocsWithFieldSet,
         values: PackedLongValues,
         writer_field_info: Rc<FieldInfo>,
-    ) -> Result<Self> {
-        Ok(Self {
+    ) -> Self {
+        Self {
             sorted,
             docs_with_field,
             values,
             writer_field_info,
-        })
+        }
     }
 }
 impl DocValuesProducer for DocValuesProducerImpl {
@@ -180,7 +180,7 @@ impl DocValuesProducer for DocValuesProducerImpl {
             None => Ok(EitherNumericDocValues::F(BufferedNumericDocValues::new(
                 &self.values,
                 self.docs_with_field.iterator()?.unwrap(),
-            )?)),
+            ))),
         }
     }
 
@@ -256,7 +256,7 @@ pub(crate) mod ndvw_util {
                 Some(iter) => iter,
                 None => return Err(LuceneError::illegal_state("DocsWithFieldSet is None")),
             };
-            let mut old_values = BufferedNumericDocValues::new(values, iter)?;
+            let mut old_values = BufferedNumericDocValues::new(values, iter);
             debug_assert!(sort_map.size() <= i32::MAX as usize);
             let sorted =
                 sort_doc_values(sort_map.size() as i32, &*sort_map, &mut old_values, dense)?;
@@ -264,7 +264,12 @@ pub(crate) mod ndvw_util {
         } else {
             None
         };
-        DocValuesProducerImpl::new(sorter, docs_with_field, values.clone(), writer_field_info)
+        Ok(DocValuesProducerImpl::new(
+            sorter,
+            docs_with_field,
+            values.clone(),
+            writer_field_info,
+        ))
     }
 }
 // iterates over the values we have in ram
@@ -274,15 +279,12 @@ pub(crate) struct BufferedNumericDocValues {
     value: i64,
 }
 impl BufferedNumericDocValues {
-    pub(crate) fn new(
-        values: &PackedLongValues,
-        doc_with_field: DocsWithFieldSetEnum,
-    ) -> Result<Self> {
-        Ok(Self {
-            iter: values.iterator()?,
+    pub(crate) fn new(values: &PackedLongValues, doc_with_field: DocsWithFieldSetEnum) -> Self {
+        Self {
+            iter: values.iterator(),
             doc_with_field,
             value: 0,
-        })
+        }
     }
 }
 
@@ -296,7 +298,7 @@ impl DocIdSetIterator for BufferedNumericDocValues {
     fn next_doc(&mut self) -> Result<i32> {
         let doc_id = self.doc_with_field.next_doc()?;
         if doc_id != NO_MORE_DOCS {
-            self.value = self.iter.next_value()?;
+            self.value = self.iter.next_value();
         }
         Ok(doc_id)
     }
