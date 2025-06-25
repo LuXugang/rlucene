@@ -52,6 +52,7 @@ pub mod field_term_iterator;
 pub(crate) mod field_updates_buffer;
 pub mod fields;
 pub mod filter_leaf_reader;
+pub mod filter_numeric_doc_values;
 pub mod filtered_terms_enum;
 mod freq_prox_fields;
 pub(crate) mod freq_prox_terms_writer;
