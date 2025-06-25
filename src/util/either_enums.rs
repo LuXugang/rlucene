@@ -1178,11 +1178,17 @@ where
     S: BitSet,
 {
     fn get(&self, index: i32) -> bool {
-        todo!()
+        match self {
+            EitherBitSet::F(t) => t.get(index),
+            EitherBitSet::S(s) => s.get(index),
+        }
     }
 
     fn length(&self) -> i32 {
-        todo!()
+        match self {
+            EitherBitSet::F(t) => t.length(),
+            EitherBitSet::S(s) => s.length(),
+        }
     }
 }
 
