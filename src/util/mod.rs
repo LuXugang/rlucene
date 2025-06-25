@@ -33,7 +33,6 @@ pub mod automation;
 pub mod bit_doc_id_set;
 pub mod bit_set;
 pub mod bit_set_iterator;
-pub mod bit_set_type;
 pub mod bit_util;
 pub mod bits;
 pub mod bkd;

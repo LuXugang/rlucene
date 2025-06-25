@@ -16,8 +16,8 @@
  */
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::util::accountable::Accountable;
-use crate::util::bit_set_type::BitSetType;
 use crate::util::bits::Bits;
+use crate::util::either_enums::EitherBitSet;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::sparse_fixed_bit_set::SparseFixedBitSet;
@@ -27,15 +27,18 @@ pub trait BitSet: Bits + Accountable {
     /// Builds a [`BitSet`] from the content of the provided
     /// [`DocIdSetIterator`]. **Note**: This will fully consume the
     /// [`DocIdSetIterator`].
-    fn of(it: impl DocIdSetIterator, max_doc: i32) -> Result<BitSetType> {
+    fn of(
+        it: impl DocIdSetIterator,
+        max_doc: i32,
+    ) -> Result<EitherBitSet<SparseFixedBitSet, FixedBitSet>> {
         let cost = it.cost()?;
         let threshold = max_doc >> 7;
-        let mut set: BitSetType;
+        let mut set;
         if cost < (threshold as i64) {
-            set = BitSetType::Sparse(SparseFixedBitSet::new(max_doc)?);
+            set = EitherBitSet::F(SparseFixedBitSet::new(max_doc)?);
         } else {
             let result = FixedBitSet::new(max_doc);
-            set = BitSetType::Fixed(result);
+            set = EitherBitSet::S(result);
         };
         let _ = set.or(it);
         Ok(set)

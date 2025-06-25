@@ -1094,7 +1094,6 @@ mod tests {
     use crate::test::util::test_util::TestUtil;
     use crate::util::bit_set::BitSet;
     use crate::util::bit_set_iterator::BitSetIterator;
-    use crate::util::bit_set_type::BitSetType;
     use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::fixed_bit_set::FixedBitSet;
     use crate::util::sparse_fixed_bit_set::SparseFixedBitSet;
@@ -1676,7 +1675,7 @@ mod tests {
         let max_doc = last_doc + TestUtil::next_int(random, 1, 100);
         let cardinality = docs.approximate_cardinality();
         let bit_set_iterator = BitSetIterator::new(Rc::new(docs), cardinality as i64)?;
-        let set = <BitSetType as BitSet>::of(bit_set_iterator, max_doc)?;
+        let set = BitSet::of(bit_set_iterator, max_doc)?;
 
         let _ = do_test(set, dir, random)?;
         Ok(())
