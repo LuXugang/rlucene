@@ -144,9 +144,9 @@ where
         Ok(())
     }
 
-    pub(crate) fn abort(&mut self) {
+    pub(crate) fn abort(&mut self) -> Result<()> {
         self.base.reset();
-        self.next_terms_hash.as_mut().unwrap().abort();
+        self.next_terms_hash.as_mut().unwrap().abort()
     }
 
     fn flush<N, DM>(

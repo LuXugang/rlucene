@@ -38,7 +38,7 @@ pub trait IndexSorter {
 
 // DoubleSorter
 /// Sorts documents based on double values from a NumericDocValues instance.
-pub(crate) struct DoubleSorter<NP> {
+pub struct DoubleSorter<NP> {
     provider_name: String,
     missing_value: Option<f64>,
     reverse_mul: i32,
@@ -107,7 +107,7 @@ where
         Ok(Some(DocComparatorImplDouble::new(values, self.reverse_mul)))
     }
 }
-pub(crate) struct DocComparatorImplDouble {
+pub struct DocComparatorImplDouble {
     values: Vec<f64>,
     reverse_mul: i32,
 }
@@ -130,7 +130,7 @@ impl DocComparator for DocComparatorImplDouble {
 
 // IntSorter
 /// Sorts documents based on integer values from a NumericDocValues instance */
-pub(crate) struct IntSorter<NP> {
+pub struct IntSorter<NP> {
     provider_name: String,
     missing_value: Option<i32>,
     reverse_mul: i32,
@@ -198,7 +198,7 @@ where
         Ok(Some(DocComparatorImplInt::new(values, self.reverse_mul)))
     }
 }
-pub(crate) struct DocComparatorImplInt {
+pub struct DocComparatorImplInt {
     values: Vec<i32>,
     reverse_mul: i32,
 }
@@ -221,7 +221,7 @@ impl DocComparator for DocComparatorImplInt {
 
 // LongSorter
 /// Sorts documents based on long values from a NumericDocValues instance
-pub(crate) struct LongSorter<NP> {
+pub struct LongSorter<NP> {
     provider_name: String,
     missing_value: Option<i64>,
     reverse_mul: i32,
@@ -291,7 +291,7 @@ where
     }
 }
 
-pub(crate) struct DocComparatorImplLong {
+pub struct DocComparatorImplLong {
     values: Vec<i64>,
     reverse_mul: i32,
 }
@@ -316,7 +316,7 @@ impl DocComparator for DocComparatorImplLong {
 
 // FloatSorter
 /// Sorts documents based on float values from a NumericDocValues instance
-pub(crate) struct FloatSorter<NP> {
+pub struct FloatSorter<NP> {
     provider_name: String,
     missing_value: Option<f32>,
     reverse_mul: i32,
@@ -388,7 +388,7 @@ where
     }
 }
 
-pub(crate) struct DocComparatorImplFloat {
+pub struct DocComparatorImplFloat {
     values: Vec<f32>,
     reverse_mul: i32,
 }
@@ -497,17 +497,17 @@ impl DocComparator for DocComparatorImplString {
 }
 
 /// Used for sorting documents across segments
-pub(crate) trait ComparableProvider {
+pub trait ComparableProvider {
     /// Returns a long so that the natural ordering of long values matches the ordering of doc IDs for the given comparator
     fn get_as_comparable_long(&mut self, doc_id: i32) -> Result<i64>;
 }
 /// A comparator of doc IDs, used for sorting documents within a segment
-pub(crate) trait DocComparator {
+pub trait DocComparator {
     /// Compare docID1 against docID2.
     fn compare(&mut self, doc_id1: i32, doc_id2: i32) -> Result<i32>;
 }
 /// Provide a NumericDocValues instance for a LeafReader
-pub(crate) trait NumericDocValuesProvider {
+pub trait NumericDocValuesProvider {
     /// Returns the numeric value for the given doc ID.
     type NumericDocValues<LR>: NumericDocValues
     where
@@ -518,7 +518,7 @@ pub(crate) trait NumericDocValuesProvider {
         LR: LeafReader;
 }
 /// Provide a SortedDocValues instance for a LeafReader
-pub(crate) trait SortedDocValuesProvider {
+pub trait SortedDocValuesProvider {
     type SortedDocValues<LR>: SortedDocValues
     where
         LR: LeafReader;

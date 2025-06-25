@@ -316,7 +316,7 @@ impl PartialEq for SortedNumericSortField {
 }
 impl Eq for SortedNumericSortField {}
 
-pub(crate) struct NumericDocValuesProviderImpl {
+pub struct NumericDocValuesProviderImpl {
     selector: SortedNumericSelectorType,
     sort_field_type: SortFieldType,
     field: String,
