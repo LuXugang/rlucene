@@ -70,7 +70,7 @@ use std::collections::HashMap;
 use std::fmt::Display;
 use std::rc::Rc;
 use std::sync::Arc;
-
+/// Default general purpose indexing chain, which handles indexing all types of fields.
 struct IndexingChain<D, O, P, T, TS, L>
 where
     D: Directory,
