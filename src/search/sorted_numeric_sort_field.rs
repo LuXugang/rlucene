@@ -14,12 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::index::dummy::dummy_index_sorter::DummyIndexSorter;
+use crate::index::doc_values::{DocValues, EmptyNumeric};
+use crate::index::index_sorter::{
+    DocComparatorEnum, DoubleSorter, FloatSorter, IndexSorter, IntSorter, LongSorter,
+    NumericDocValuesProvider,
+};
+use crate::index::leaf_reader::LeafReader;
+use crate::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
 use crate::index::sort_field_provider::SortFieldProvider;
 use crate::search::sort_field::{MissingValueEnum, SortField, SortFieldType, SortFiledBase};
 use crate::search::sort_field_enum::SortFieldEnum;
-use crate::search::sorted_numeric_selector::SortedNumericSelectorType;
+use crate::search::sorted_numeric_selector::{
+    NumericDocValuesImpl, SortedNumericSelector, SortedNumericSelectorType,
+};
 use crate::store::{DataInput, DataOutput};
+use crate::util::either_enums::EitherSortedNumericDocValues;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::numeric_utils::NumericUtils;
 use std::fmt::Display;
@@ -27,6 +36,7 @@ use std::hash::{Hash, Hasher};
 
 #[derive(Clone)]
 pub struct SortedNumericSortField {
+    // TODO 可以移除
     sort_field_type: SortFieldType,
     selector: SortedNumericSelectorType,
     parent_sort: SortField,
@@ -108,10 +118,42 @@ impl SortFiledBase for SortedNumericSortField {
         Ok(())
     }
 
-    type IndexSort = DummyIndexSorter;
+    type IndexSort = IndexSorterNumeric;
 
-    fn get_index_sorter(&self) -> Option<Self::IndexSort> {
-        todo!()
+    fn get_index_sorter(&self) -> Result<Option<Self::IndexSort>> {
+        debug_assert!(self.parent_sort.get_field().is_some());
+        let get_value = NumericDocValuesProviderImpl::new(
+            self.selector,
+            self.sort_field_type,
+            self.parent_sort.get_field().unwrap().to_string(),
+        );
+        match self.sort_field_type {
+            SortFieldType::Int => Ok(Some(IndexSorterNumeric::Int(IntSorter::new(
+                NumericProvider::NAME.to_string(),
+                self.parent_sort.missing_value.clone(),
+                self.parent_sort.reverse,
+                get_value,
+            )?))),
+            SortFieldType::Long => Ok(Some(IndexSorterNumeric::Long(LongSorter::new(
+                NumericProvider::NAME.to_string(),
+                self.parent_sort.missing_value.clone(),
+                self.parent_sort.reverse,
+                get_value,
+            )?))),
+            SortFieldType::Double => Ok(Some(IndexSorterNumeric::Double(DoubleSorter::new(
+                NumericProvider::NAME.to_string(),
+                self.parent_sort.missing_value.clone(),
+                self.parent_sort.reverse,
+                get_value,
+            )?))),
+            SortFieldType::Float => Ok(Some(IndexSorterNumeric::Float(FloatSorter::new(
+                NumericProvider::NAME.to_string(),
+                self.parent_sort.missing_value.clone(),
+                self.parent_sort.reverse,
+                get_value,
+            )?))),
+            _ => Ok(None),
+        }
     }
 
     fn serialize(&self, out: &mut impl DataOutput) -> Result<()> {
@@ -273,3 +315,90 @@ impl PartialEq for SortedNumericSortField {
     }
 }
 impl Eq for SortedNumericSortField {}
+
+pub(crate) struct NumericDocValuesProviderImpl {
+    selector: SortedNumericSelectorType,
+    sort_field_type: SortFieldType,
+    field: String,
+}
+impl NumericDocValuesProviderImpl {
+    pub fn new(
+        selector: SortedNumericSelectorType,
+        sort_field_type: SortFieldType,
+        field: String,
+    ) -> Self {
+        Self {
+            selector,
+            sort_field_type,
+            field,
+        }
+    }
+}
+impl NumericDocValuesProvider for NumericDocValuesProviderImpl {
+    type NumericDocValues<LR>
+        = NumericDocValuesImpl<
+        EitherSortedNumericDocValues<
+            LR::SortedNumericDocValues,
+            EitherSortedNumericDocValues<
+                SingletonSortedNumericDocValues<LR::NumericDocValues>,
+                SingletonSortedNumericDocValues<EmptyNumeric>,
+            >,
+        >,
+    >
+    where
+        LR: LeafReader;
+
+    fn get<LR>(&mut self, leaf_reader: &mut LR) -> Result<Self::NumericDocValues<LR>>
+    where
+        LR: LeafReader,
+    {
+        SortedNumericSelector::wrap(
+            DocValues::get_sorted_numeric(leaf_reader, &self.field)?,
+            self.selector,
+            self.sort_field_type,
+        )
+    }
+}
+
+pub enum IndexSorterNumeric {
+    Int(IntSorter<NumericDocValuesProviderImpl>),
+    Long(LongSorter<NumericDocValuesProviderImpl>),
+    Double(DoubleSorter<NumericDocValuesProviderImpl>),
+    Float(FloatSorter<NumericDocValuesProviderImpl>),
+}
+impl IndexSorter for IndexSorterNumeric {
+    fn get_provider_name(&self) -> &str {
+        match self {
+            IndexSorterNumeric::Int(i) => i.get_provider_name(),
+            IndexSorterNumeric::Long(l) => l.get_provider_name(),
+            IndexSorterNumeric::Double(d) => d.get_provider_name(),
+            IndexSorterNumeric::Float(f) => f.get_provider_name(),
+        }
+    }
+
+    type DocComparator = DocComparatorEnum;
+
+    fn get_doc_comparator<LR>(
+        &mut self,
+        leaf_reader: &mut LR,
+        max_doc: i32,
+    ) -> Result<Option<Self::DocComparator>>
+    where
+        LR: LeafReader,
+    {
+        match self {
+            IndexSorterNumeric::Int(i) => Ok(i
+                .get_doc_comparator(leaf_reader, max_doc)?
+                .map(DocComparatorEnum::Int)),
+            IndexSorterNumeric::Long(l) => Ok(l
+                .get_doc_comparator(leaf_reader, max_doc)?
+                .map(DocComparatorEnum::Long)),
+            IndexSorterNumeric::Double(d) => Ok(d
+                .get_doc_comparator(leaf_reader, max_doc)?
+                .map(DocComparatorEnum::Double)),
+            IndexSorterNumeric::Float(f) => Ok(f
+                .get_doc_comparator(leaf_reader, max_doc)?
+                .map(DocComparatorEnum::Float)),
+        }
+    }
+}

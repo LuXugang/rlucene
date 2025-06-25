@@ -349,7 +349,7 @@ where
     }
 }
 
-type NumericDocValuesImpl<S: SortedNumericDocValues> = Either3NumericDocValues<
+pub type NumericDocValuesImpl<S: SortedNumericDocValues> = Either3NumericDocValues<
     FilterNumericDocValuesImpl1<
         Either3NumericDocValues<S::NumericDocValues, MinValue<S>, MaxValue<S>>,
     >,

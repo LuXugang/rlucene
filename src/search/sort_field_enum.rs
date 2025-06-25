@@ -14,10 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::index::dummy::dummy_index_sorter::DummyIndexSorter;
-use crate::search::sort_field::{MissingValueEnum, SortField, SortFiledBase};
-use crate::search::sorted_numeric_sort_field::SortedNumericSortField;
-use crate::search::sorted_set_sort_field::SortedSetSortField;
+use crate::index::index_sorter::{DocComparatorEnum, IndexSorter, StringSorter};
+use crate::index::leaf_reader::LeafReader;
+use crate::search::sort_field::{
+    IndexSorterEnumSorter, MissingValueEnum, SortField, SortFiledBase,
+};
+use crate::search::sorted_numeric_sort_field::{IndexSorterNumeric, SortedNumericSortField};
+use crate::search::sorted_set_sort_field::{SortedDocValuesProviderImpl, SortedSetSortField};
 use crate::store::DataOutput;
 use crate::util::error::lucene_error::Result;
 use std::fmt;
@@ -40,13 +43,22 @@ impl SortFiledBase for SortFieldEnum {
         }
     }
 
-    type IndexSort = DummyIndexSorter;
+    type IndexSort = IndexSortEnum;
 
-    fn get_index_sorter(&self) -> Option<Self::IndexSort> {
+    fn get_index_sorter(&self) -> Result<Option<Self::IndexSort>> {
         match self {
-            SortFieldEnum::SortedNumeric(sort_field) => sort_field.get_index_sorter(),
-            SortFieldEnum::SortedSet(sort_field) => sort_field.get_index_sorter(),
-            SortFieldEnum::Sorter(sort_field) => sort_field.get_index_sorter(),
+            SortFieldEnum::SortedNumeric(sort_field) => {
+                let sorter = sort_field.get_index_sorter()?;
+                Ok(sorter.map(IndexSortEnum::SortedNumeric))
+            },
+            SortFieldEnum::SortedSet(sort_field) => {
+                let sorter = sort_field.get_index_sorter()?;
+                Ok(sorter.map(IndexSortEnum::SortedSet))
+            },
+            SortFieldEnum::Sorter(sort_field) => {
+                let sorter = sort_field.get_index_sorter()?;
+                Ok(sorter.map(IndexSortEnum::Sorter))
+            },
         }
     }
 
@@ -104,5 +116,39 @@ pub trait SortFieldVecExt {
 impl SortFieldVecExt for Vec<SortFieldEnum> {
     fn push_sort_fields(&mut self, item: impl Into<SortFieldEnum>) {
         self.push(item.into());
+    }
+}
+
+pub enum IndexSortEnum {
+    SortedNumeric(IndexSorterNumeric),
+    SortedSet(StringSorter<SortedDocValuesProviderImpl>),
+    Sorter(IndexSorterEnumSorter),
+}
+impl IndexSorter for IndexSortEnum {
+    fn get_provider_name(&self) -> &str {
+        match self {
+            IndexSortEnum::SortedNumeric(sorter) => sorter.get_provider_name(),
+            IndexSortEnum::SortedSet(sorter) => sorter.get_provider_name(),
+            IndexSortEnum::Sorter(sorter) => sorter.get_provider_name(),
+        }
+    }
+
+    type DocComparator = DocComparatorEnum;
+
+    fn get_doc_comparator<LR>(
+        &mut self,
+        leaf_reader: &mut LR,
+        max_doc: i32,
+    ) -> Result<Option<Self::DocComparator>>
+    where
+        LR: LeafReader,
+    {
+        match self {
+            IndexSortEnum::SortedNumeric(sorter) => sorter.get_doc_comparator(leaf_reader, max_doc),
+            IndexSortEnum::SortedSet(sorter) => Ok(sorter
+                .get_doc_comparator(leaf_reader, max_doc)?
+                .map(DocComparatorEnum::String)),
+            IndexSortEnum::Sorter(sorter) => sorter.get_doc_comparator(leaf_reader, max_doc),
+        }
     }
 }

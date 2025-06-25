@@ -20,7 +20,7 @@ use crate::index::sorted_doc_values::SortedDocValues;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::search::sort_field::MissingValueEnum;
-use crate::util::error::lucene_error::Result;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::ToInt;
 
 pub trait IndexSorter {
@@ -50,16 +50,28 @@ where
 {
     pub fn new(
         provider_name: String,
-        missing_value: Option<f64>,
-        reverse_mul: i32,
+        missing_value: Option<MissingValueEnum>,
+        reverse: bool,
         values_provider: NP,
-    ) -> Self {
-        Self {
+    ) -> Result<Self> {
+        let missing_value = if let Some(mv) = missing_value {
+            match mv {
+                MissingValueEnum::Double(value) => Some(value),
+                _ => {
+                    return Err(LuceneError::illegal_state(
+                        "Missing value type mismatch for Double.".to_string(),
+                    ))
+                },
+            }
+        } else {
+            None
+        };
+        Ok(Self {
             provider_name,
             missing_value,
-            reverse_mul,
+            reverse_mul: if reverse { -1 } else { 1 },
             values_provider,
-        }
+        })
     }
 }
 impl<NP> IndexSorter for DoubleSorter<NP>
@@ -130,16 +142,28 @@ where
 {
     pub fn new(
         provider_name: String,
-        missing_value: Option<i32>,
-        reverse_mul: i32,
+        missing_value: Option<MissingValueEnum>,
+        reverse: bool,
         values_provider: NP,
-    ) -> Self {
-        Self {
+    ) -> Result<Self> {
+        let missing_value = if let Some(mv) = missing_value {
+            match mv {
+                MissingValueEnum::Int(value) => Some(value),
+                _ => {
+                    return Err(LuceneError::illegal_state(
+                        "Missing value type mismatch for INT.".to_string(),
+                    ))
+                },
+            }
+        } else {
+            None
+        };
+        Ok(Self {
             provider_name,
             missing_value,
-            reverse_mul,
+            reverse_mul: if reverse { -1 } else { 1 },
             values_provider,
-        }
+        })
     }
 }
 impl<NP> IndexSorter for IntSorter<NP>
@@ -209,16 +233,28 @@ where
 {
     pub fn new(
         provider_name: String,
-        missing_value: Option<i64>,
+        missing_value: Option<MissingValueEnum>,
         reverse: bool,
         values_provider: NP,
-    ) -> Self {
-        Self {
+    ) -> Result<Self> {
+        let missing_value = if let Some(mv) = missing_value {
+            match mv {
+                MissingValueEnum::Long(value) => Some(value),
+                _ => {
+                    return Err(LuceneError::illegal_state(
+                        "Missing value type mismatch for Long.".to_string(),
+                    ))
+                },
+            }
+        } else {
+            None
+        };
+        Ok(Self {
             provider_name,
             missing_value,
             reverse_mul: if reverse { -1 } else { 1 },
             values_provider,
-        }
+        })
     }
 }
 
@@ -293,16 +329,28 @@ where
 {
     pub fn new(
         provider_name: String,
-        missing_value: Option<f32>,
+        missing_value: Option<MissingValueEnum>,
         reverse: bool,
         values_provider: NP,
-    ) -> Self {
-        Self {
+    ) -> Result<Self> {
+        let missing_value = if let Some(mv) = missing_value {
+            match mv {
+                MissingValueEnum::Float(value) => Some(value),
+                _ => {
+                    return Err(LuceneError::illegal_state(
+                        "Missing value type mismatch for Float.".to_string(),
+                    ))
+                },
+            }
+        } else {
+            None
+        };
+        Ok(Self {
             provider_name,
             missing_value,
             reverse_mul: if reverse { -1 } else { 1 },
             values_provider,
-        }
+        })
     }
 }
 
@@ -365,9 +413,9 @@ impl DocComparator for DocComparatorImplFloat {
 
 // StringSorter
 /// Sorts documents based on short values from a NumericDocValues instance
-pub(crate) struct StringSorter<SP> {
+pub struct StringSorter<SP> {
     provider_name: String,
-    missing_value: MissingValueEnum,
+    missing_value: Option<MissingValueEnum>,
     reverse_mul: i32,
     values_provider: SP,
 }
@@ -378,7 +426,7 @@ where
 {
     pub fn new(
         provider_name: String,
-        missing_value: MissingValueEnum,
+        missing_value: Option<MissingValueEnum>,
         reverse: bool,
         values_provider: SP,
     ) -> Self {
@@ -411,7 +459,7 @@ where
     {
         let mut sorted = self.values_provider.get(leaf_reader)?;
         let missing_ord = match self.missing_value {
-            MissingValueEnum::StringLast => i32::MAX,
+            Some(MissingValueEnum::StringLast) => i32::MAX,
             _ => i32::MIN,
         };
 
@@ -428,7 +476,7 @@ where
     }
 }
 
-pub(crate) struct DocComparatorImplString {
+pub struct DocComparatorImplString {
     ords: Vec<i32>,
     reverse_mul: i32,
 }
@@ -471,11 +519,32 @@ pub(crate) trait NumericDocValuesProvider {
 }
 /// Provide a SortedDocValues instance for a LeafReader
 pub(crate) trait SortedDocValuesProvider {
-    type SortedDocValues: SortedDocValues;
-    /// Returns the SortedDocValues instance for this LeafReader
-    fn get<LR>(&mut self, leaf_reader: &mut LR) -> Result<Self::SortedDocValues>
+    type SortedDocValues<LR>: SortedDocValues
     where
         LR: LeafReader;
+    /// Returns the SortedDocValues instance for this LeafReader
+    fn get<LR>(&mut self, leaf_reader: &mut LR) -> Result<Self::SortedDocValues<LR>>
+    where
+        LR: LeafReader;
+}
+
+pub enum DocComparatorEnum {
+    Int(DocComparatorImplInt),
+    Long(DocComparatorImplLong),
+    Float(DocComparatorImplFloat),
+    Double(DocComparatorImplDouble),
+    String(DocComparatorImplString),
+}
+impl DocComparator for DocComparatorEnum {
+    fn compare(&mut self, doc_id1: i32, doc_id2: i32) -> Result<i32> {
+        match self {
+            DocComparatorEnum::Int(cmp) => cmp.compare(doc_id1, doc_id2),
+            DocComparatorEnum::Long(cmp) => cmp.compare(doc_id1, doc_id2),
+            DocComparatorEnum::Float(cmp) => cmp.compare(doc_id1, doc_id2),
+            DocComparatorEnum::Double(cmp) => cmp.compare(doc_id1, doc_id2),
+            DocComparatorEnum::String(cmp) => cmp.compare(doc_id1, doc_id2),
+        }
+    }
 }
 
 #[cfg(test)]

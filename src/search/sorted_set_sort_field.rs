@@ -14,12 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::index::dummy::dummy_index_sorter::DummyIndexSorter;
+use crate::index::doc_values::{DocValues, EmptySorted};
+use crate::index::index_sorter::{SortedDocValuesProvider, StringSorter};
+use crate::index::leaf_reader::LeafReader;
+use crate::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
 use crate::index::sort_field_provider::SortFieldProvider;
 use crate::search::sort_field::{MissingValueEnum, SortField, SortFieldType, SortFiledBase};
 use crate::search::sort_field_enum::SortFieldEnum;
-use crate::search::sorted_set_selector::SortedSetSelectorType;
+use crate::search::sorted_set_selector::{
+    SortedDocValuesWrapEnum, SortedSetSelector, SortedSetSelectorType,
+};
 use crate::store::{DataInput, DataOutput};
+use crate::util::either_enums::EitherSortedSetDocValues;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
@@ -112,10 +118,20 @@ impl SortFiledBase for SortedSetSortField {
         }
     }
 
-    type IndexSort = DummyIndexSorter;
+    type IndexSort = StringSorter<SortedDocValuesProviderImpl>;
 
-    fn get_index_sorter(&self) -> Option<Self::IndexSort> {
-        todo!()
+    fn get_index_sorter(&self) -> Result<Option<Self::IndexSort>> {
+        debug_assert!(self.parent_sort.get_field().is_some());
+        let missing_value = self.parent_sort.missing_value.as_ref().map(|v| v.clone());
+        Ok(Some(StringSorter::new(
+            SetProvider::NAME.to_string(),
+            missing_value,
+            self.parent_sort.reverse,
+            SortedDocValuesProviderImpl::new(
+                self.selector,
+                self.parent_sort.get_field().unwrap().to_string(),
+            ),
+        )))
     }
 
     fn serialize(&self, out: &mut impl DataOutput) -> Result<()> {
@@ -175,3 +191,38 @@ impl PartialEq for SortedSetSortField {
     }
 }
 impl Eq for SortedSetSortField {}
+
+pub struct SortedDocValuesProviderImpl {
+    selector: SortedSetSelectorType,
+    field: String,
+}
+impl SortedDocValuesProviderImpl {
+    pub fn new(selector: SortedSetSelectorType, field: String) -> Self {
+        SortedDocValuesProviderImpl { selector, field }
+    }
+}
+impl SortedDocValuesProvider for SortedDocValuesProviderImpl {
+    type SortedDocValues<LR>
+        = SortedDocValuesWrapEnum<
+        EitherSortedSetDocValues<
+            LR::SortedSetDocValues,
+            EitherSortedSetDocValues<
+                SingletonSortedSetDocValues<LR::SortedDocValues>,
+                SingletonSortedSetDocValues<EmptySorted>,
+            >,
+        >,
+    >
+    where
+        LR: LeafReader;
+
+    fn get<LR>(&mut self, leaf_reader: &mut LR) -> Result<Self::SortedDocValues<LR>>
+    where
+        LR: LeafReader,
+    {
+        let v = SortedSetSelector::wrap(
+            DocValues::get_sorted_set(leaf_reader, &self.field)?,
+            self.selector,
+        )?;
+        Ok(v)
+    }
+}

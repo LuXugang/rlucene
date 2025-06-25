@@ -15,17 +15,18 @@
  * limitations under the License.
  */
 #![allow(deprecated)]
-use crate::index::doc_values::{DocValues, EmptyNumeric};
-use crate::index::dummy::dummy_index_sorter::DummyIndexSorter;
+use crate::index::doc_values::{DocValues, EmptyNumeric, EmptySorted};
 use crate::index::index_sorter::{
-    DoubleSorter, FloatSorter, IndexSorter, IntSorter, LongSorter, NumericDocValuesProvider,
+    DocComparatorEnum, DoubleSorter, FloatSorter, IndexSorter, IntSorter, LongSorter,
+    NumericDocValuesProvider, SortedDocValuesProvider, StringSorter,
 };
 use crate::index::leaf_reader::LeafReader;
 use crate::index::sort_field_provider::SortFieldProvider;
 use crate::search::field_comparator_source::FieldComparatorSourceEnum;
 use crate::search::sort_field_enum::SortFieldEnum;
+use crate::search::sorted_numeric_sort_field::NumericProvider;
 use crate::store::{DataInput, DataOutput};
-use crate::util::either_enums::EitherNumericDocValues;
+use crate::util::either_enums::{EitherNumericDocValues, EitherSortedDocValues};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::numeric_utils::NumericUtils;
 use std::fmt;
@@ -278,10 +279,46 @@ impl SortFiledBase for SortField {
         Ok(())
     }
 
-    type IndexSort = DummyIndexSorter;
+    type IndexSort = IndexSorterEnumSorter;
 
-    fn get_index_sorter(&self) -> Option<Self::IndexSort> {
-        todo!()
+    fn get_index_sorter(&self) -> Result<Option<Self::IndexSort>> {
+        debug_assert!(self.fields.is_some());
+        let field = self.fields.as_ref().unwrap();
+        let get_value = NumericDocValuesProviderImpl1::new(field.to_string());
+        let v1 = SortedDocValuesProviderImpl::new(field.to_string());
+        match self.field_type {
+            SortFieldType::String => Ok(Some(IndexSorterEnumSorter::String(StringSorter::new(
+                NumericProvider::NAME.to_string(),
+                self.missing_value.clone(),
+                self.reverse,
+                v1,
+            )))),
+            SortFieldType::Int => Ok(Some(IndexSorterEnumSorter::Int(IntSorter::new(
+                NumericProvider::NAME.to_string(),
+                self.missing_value.clone(),
+                self.reverse,
+                get_value,
+            )?))),
+            SortFieldType::Long => Ok(Some(IndexSorterEnumSorter::Long(LongSorter::new(
+                NumericProvider::NAME.to_string(),
+                self.missing_value.clone(),
+                self.reverse,
+                get_value,
+            )?))),
+            SortFieldType::Double => Ok(Some(IndexSorterEnumSorter::Double(DoubleSorter::new(
+                NumericProvider::NAME.to_string(),
+                self.missing_value.clone(),
+                self.reverse,
+                get_value,
+            )?))),
+            SortFieldType::Float => Ok(Some(IndexSorterEnumSorter::Float(FloatSorter::new(
+                NumericProvider::NAME.to_string(),
+                self.missing_value.clone(),
+                self.reverse,
+                get_value,
+            )?))),
+            _ => Ok(None),
+        }
     }
 
     fn serialize(&self, out: &mut impl DataOutput) -> Result<()> {
@@ -751,10 +788,107 @@ impl Hash for MissingValueEnum {
     }
 }
 
+pub struct SortedDocValuesProviderImpl {
+    field: String,
+}
+impl SortedDocValuesProviderImpl {
+    pub fn new(field: String) -> Self {
+        SortedDocValuesProviderImpl { field }
+    }
+}
+impl SortedDocValuesProvider for SortedDocValuesProviderImpl {
+    type SortedDocValues<LR>
+        = EitherSortedDocValues<LR::SortedDocValues, EmptySorted>
+    where
+        LR: LeafReader;
+
+    fn get<LR>(&mut self, leaf_reader: &mut LR) -> Result<Self::SortedDocValues<LR>>
+    where
+        LR: LeafReader,
+    {
+        DocValues::get_sorted(leaf_reader, self.field.as_str())
+    }
+}
+pub struct NumericDocValuesProviderImpl1 {
+    field: String,
+}
+impl NumericDocValuesProviderImpl1 {
+    pub fn new(field: String) -> Self {
+        NumericDocValuesProviderImpl1 { field }
+    }
+}
+impl NumericDocValuesProvider for NumericDocValuesProviderImpl1 {
+    type NumericDocValues<LR>
+        = EitherNumericDocValues<LR::NumericDocValues, EmptyNumeric>
+    where
+        LR: LeafReader;
+
+    fn get<LR>(&mut self, leaf_reader: &mut LR) -> Result<Self::NumericDocValues<LR>>
+    where
+        LR: LeafReader,
+    {
+        DocValues::get_numeric(leaf_reader, &self.field)
+    }
+}
+pub enum IndexSorterEnumSorter {
+    String(StringSorter<SortedDocValuesProviderImpl>),
+    Int(IntSorter<NumericDocValuesProviderImpl1>),
+    Long(LongSorter<NumericDocValuesProviderImpl1>),
+    Double(DoubleSorter<NumericDocValuesProviderImpl1>),
+    Float(FloatSorter<NumericDocValuesProviderImpl1>),
+}
+impl IndexSorter for IndexSorterEnumSorter {
+    fn get_provider_name(&self) -> &str {
+        match self {
+            IndexSorterEnumSorter::String(_) => "SortedDocValuesProviderImpl",
+            IndexSorterEnumSorter::Int(_) => "NumericDocValuesProviderImpl1",
+            IndexSorterEnumSorter::Long(_) => "NumericDocValuesProviderImpl1",
+            IndexSorterEnumSorter::Double(_) => "NumericDocValuesProviderImpl1",
+            IndexSorterEnumSorter::Float(_) => "NumericDocValuesProviderImpl1",
+        }
+    }
+
+    type DocComparator = DocComparatorEnum;
+
+    fn get_doc_comparator<LR>(
+        &mut self,
+        leaf_reader: &mut LR,
+        max_doc: i32,
+    ) -> Result<Option<Self::DocComparator>>
+    where
+        LR: LeafReader,
+    {
+        match self {
+            IndexSorterEnumSorter::Int(i) => Ok(i
+                .get_doc_comparator(leaf_reader, max_doc)?
+                .map(DocComparatorEnum::Int)),
+            IndexSorterEnumSorter::Long(l) => Ok(l
+                .get_doc_comparator(leaf_reader, max_doc)?
+                .map(DocComparatorEnum::Long)),
+            IndexSorterEnumSorter::Double(d) => Ok(d
+                .get_doc_comparator(leaf_reader, max_doc)?
+                .map(DocComparatorEnum::Double)),
+            IndexSorterEnumSorter::Float(f) => Ok(f
+                .get_doc_comparator(leaf_reader, max_doc)?
+                .map(DocComparatorEnum::Float)),
+            IndexSorterEnumSorter::String(s) => Ok(s
+                .get_doc_comparator(leaf_reader, max_doc)?
+                .map(DocComparatorEnum::String)),
+        }
+    }
+}
+
 pub trait SortFiledBase {
     /// Set the value to use for documents that don't have a value.
     fn set_missing_value(&mut self, missing_value: Option<MissingValueEnum>) -> Result<()>;
     type IndexSort: IndexSorter;
-    fn get_index_sorter(&self) -> Option<Self::IndexSort>;
+    /// Returns an [`IndexSorter`] used for sorting index segments by this `SortField`.
+    ///
+    /// If this `SortField` cannot be used for index sorting (for example, if it uses scores or other
+    /// query-dependent values), returns `None`.
+    ///
+    /// SortFields that implement this method should also implement a companion [`SortFieldProvider`] to
+    /// serialize and deserialize the sort in index segment headers.
+    fn get_index_sorter(&self) -> Result<Option<Self::IndexSort>>;
     fn serialize(&self, out: &mut impl DataOutput) -> Result<()>;
 }

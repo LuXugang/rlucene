@@ -29,7 +29,7 @@ pub trait SortFieldProvider {
     fn write_sort_field(&self, sf: &SortFieldEnum, output: &mut impl DataOutput) -> Result<()>;
 }
 pub fn write(sf: &SortFieldEnum, output: &mut impl DataOutput) -> Result<()> {
-    if let Some(index_sort) = sf.get_index_sorter() {
+    if let Some(index_sort) = sf.get_index_sorter()? {
         let provider = for_name(index_sort.get_provider_name());
         provider.write_sort_field(sf, output)?;
     } else {

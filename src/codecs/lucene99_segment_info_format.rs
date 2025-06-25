@@ -242,7 +242,7 @@ impl Lucene99SegmentInfoFormat {
             output.write_vint(num_sort_fields as i32)?;
 
             for sort_field in sort_fields {
-                if let Some(sorter) = sort_field.get_index_sorter() {
+                if let Some(sorter) = sort_field.get_index_sorter()? {
                     output.write_string(sorter.get_provider_name())?;
                     write(sort_field, output)?;
                 } else {
