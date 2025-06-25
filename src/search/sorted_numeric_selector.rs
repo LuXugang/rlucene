@@ -22,6 +22,7 @@ use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::search::sort_field::SortFieldType;
+use crate::util::either_enums::Either3NumericDocValues;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::numeric_utils::NumericUtils;
 
@@ -38,7 +39,7 @@ impl SortedNumericSelector {
         mut sorted_numeric: S,
         selector: SortedNumericSelectorType,
         numeric_type: SortFieldType,
-    ) -> Result<NumericDocValuesEnumRet<S>>
+    ) -> Result<NumericDocValuesImpl<S>>
     where
         S: SortedNumericDocValues,
     {
@@ -55,26 +56,26 @@ impl SortedNumericSelector {
         }
 
         let view = if let Some(single) = DocValues::unwrap_singleton_numeric(&mut sorted_numeric)? {
-            NumericDocValuesEnum::Singleton(single)
+            Either3NumericDocValues::F(single)
         } else {
             match selector {
                 SortedNumericSelectorType::Min => {
-                    NumericDocValuesEnum::Min(MinValue::new(sorted_numeric))
+                    Either3NumericDocValues::S(MinValue::new(sorted_numeric))
                 },
                 SortedNumericSelectorType::Max => {
-                    NumericDocValuesEnum::Max(MaxValue::new(sorted_numeric))
+                    Either3NumericDocValues::T(MaxValue::new(sorted_numeric))
                 },
             }
         };
 
         match numeric_type {
-            SortFieldType::Float => Ok(NumericDocValuesEnumRet::Float(
+            SortFieldType::Float => Ok(Either3NumericDocValues::F(
                 FilterNumericDocValuesImpl1::new(view),
             )),
-            SortFieldType::Double => Ok(NumericDocValuesEnumRet::Double(
+            SortFieldType::Double => Ok(Either3NumericDocValues::S(
                 FilterNumericDocValuesImpl2::new(view),
             )),
-            _ => Ok(NumericDocValuesEnumRet::Other(view)),
+            _ => Ok(Either3NumericDocValues::T(view)),
         }
     }
 }
@@ -227,86 +228,6 @@ where
     }
 }
 
-pub enum NumericDocValuesEnumRet<S>
-where
-    S: SortedNumericDocValues,
-{
-    Other(NumericDocValuesEnum<S>),
-    Float(FilterNumericDocValuesImpl1<NumericDocValuesEnum<S>>),
-    Double(FilterNumericDocValuesImpl2<NumericDocValuesEnum<S>>),
-}
-
-impl<S> DocValuesIterator for NumericDocValuesEnumRet<S>
-where
-    S: SortedNumericDocValues,
-{
-    fn advance_exact(&mut self, target: i32) -> Result<bool> {
-        match self {
-            NumericDocValuesEnumRet::Other(inner) => inner.advance_exact(target),
-            NumericDocValuesEnumRet::Float(inner) => inner.advance_exact(target),
-            NumericDocValuesEnumRet::Double(inner) => inner.advance_exact(target),
-        }
-    }
-}
-
-impl<S> DocIdSetIterator for NumericDocValuesEnumRet<S>
-where
-    S: SortedNumericDocValues,
-{
-    fn doc_id(&self) -> i32 {
-        match self {
-            NumericDocValuesEnumRet::Other(inner) => inner.doc_id(),
-            NumericDocValuesEnumRet::Float(inner) => inner.doc_id(),
-            NumericDocValuesEnumRet::Double(inner) => inner.doc_id(),
-        }
-    }
-
-    fn next_doc(&mut self) -> Result<i32> {
-        match self {
-            NumericDocValuesEnumRet::Other(inner) => inner.next_doc(),
-            NumericDocValuesEnumRet::Float(inner) => inner.next_doc(),
-            NumericDocValuesEnumRet::Double(inner) => inner.next_doc(),
-        }
-    }
-
-    fn advance(&mut self, target: i32) -> Result<i32> {
-        match self {
-            NumericDocValuesEnumRet::Other(inner) => inner.advance(target),
-            NumericDocValuesEnumRet::Float(inner) => inner.advance(target),
-            NumericDocValuesEnumRet::Double(inner) => inner.advance(target),
-        }
-    }
-
-    fn slow_advance(&mut self, target: i32) -> Result<i32> {
-        match self {
-            NumericDocValuesEnumRet::Other(inner) => inner.slow_advance(target),
-            NumericDocValuesEnumRet::Float(inner) => inner.slow_advance(target),
-            NumericDocValuesEnumRet::Double(inner) => inner.slow_advance(target),
-        }
-    }
-
-    fn cost(&self) -> Result<i64> {
-        match self {
-            NumericDocValuesEnumRet::Other(inner) => inner.cost(),
-            NumericDocValuesEnumRet::Float(inner) => inner.cost(),
-            NumericDocValuesEnumRet::Double(inner) => inner.cost(),
-        }
-    }
-}
-
-impl<S> NumericDocValues for NumericDocValuesEnumRet<S>
-where
-    S: SortedNumericDocValues,
-{
-    fn long_value(&mut self) -> Result<i64> {
-        match self {
-            NumericDocValuesEnumRet::Other(inner) => inner.long_value(),
-            NumericDocValuesEnumRet::Float(inner) => inner.long_value(),
-            NumericDocValuesEnumRet::Double(inner) => inner.long_value(),
-        }
-    }
-}
-
 pub struct FilterNumericDocValuesImpl1<N>
 where
     N: NumericDocValues,
@@ -428,82 +349,12 @@ where
     }
 }
 
-pub enum NumericDocValuesEnum<S>
-where
-    S: SortedNumericDocValues,
-{
-    Singleton(S::NumericDocValues),
-    Min(MinValue<S>),
-    Max(MaxValue<S>),
-}
-
-impl<S> DocValuesIterator for NumericDocValuesEnum<S>
-where
-    S: SortedNumericDocValues,
-{
-    fn advance_exact(&mut self, target: i32) -> Result<bool> {
-        match self {
-            NumericDocValuesEnum::Singleton(inner) => inner.advance_exact(target),
-            NumericDocValuesEnum::Min(inner) => inner.advance_exact(target),
-            NumericDocValuesEnum::Max(inner) => inner.advance_exact(target),
-        }
-    }
-}
-
-impl<S> DocIdSetIterator for NumericDocValuesEnum<S>
-where
-    S: SortedNumericDocValues,
-{
-    fn doc_id(&self) -> i32 {
-        match self {
-            NumericDocValuesEnum::Singleton(inner) => inner.doc_id(),
-            NumericDocValuesEnum::Min(inner) => inner.doc_id(),
-            NumericDocValuesEnum::Max(inner) => inner.doc_id(),
-        }
-    }
-
-    fn next_doc(&mut self) -> Result<i32> {
-        match self {
-            NumericDocValuesEnum::Singleton(inner) => inner.next_doc(),
-            NumericDocValuesEnum::Min(inner) => inner.next_doc(),
-            NumericDocValuesEnum::Max(inner) => inner.next_doc(),
-        }
-    }
-
-    fn advance(&mut self, target: i32) -> Result<i32> {
-        match self {
-            NumericDocValuesEnum::Singleton(inner) => inner.advance(target),
-            NumericDocValuesEnum::Min(inner) => inner.advance(target),
-            NumericDocValuesEnum::Max(inner) => inner.advance(target),
-        }
-    }
-
-    fn slow_advance(&mut self, target: i32) -> Result<i32> {
-        match self {
-            NumericDocValuesEnum::Singleton(inner) => inner.slow_advance(target),
-            NumericDocValuesEnum::Min(inner) => inner.slow_advance(target),
-            NumericDocValuesEnum::Max(inner) => inner.slow_advance(target),
-        }
-    }
-
-    fn cost(&self) -> Result<i64> {
-        match self {
-            NumericDocValuesEnum::Singleton(inner) => inner.cost(),
-            NumericDocValuesEnum::Min(inner) => inner.cost(),
-            NumericDocValuesEnum::Max(inner) => inner.cost(),
-        }
-    }
-}
-
-impl<S> NumericDocValues for NumericDocValuesEnum<S>
-where
-    S: SortedNumericDocValues,
-{
-    fn long_value(&mut self) -> Result<i64> {
-        match self {
-            NumericDocValuesEnum::Singleton(inner) => inner.long_value(),
-            NumericDocValuesEnum::Min(inner) => inner.long_value(),
-            NumericDocValuesEnum::Max(inner) => inner.long_value(),
-        }
-    }
-}
+type NumericDocValuesImpl<S: SortedNumericDocValues> = Either3NumericDocValues<
+    FilterNumericDocValuesImpl1<
+        Either3NumericDocValues<S::NumericDocValues, MinValue<S>, MaxValue<S>>,
+    >,
+    FilterNumericDocValuesImpl2<
+        Either3NumericDocValues<S::NumericDocValues, MinValue<S>, MaxValue<S>>,
+    >,
+    Either3NumericDocValues<S::NumericDocValues, MinValue<S>, MaxValue<S>>,
+>;
