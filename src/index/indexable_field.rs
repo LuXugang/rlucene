@@ -16,9 +16,6 @@
  */
 // TODO: how to handle versioning here...?
 
-use std::fmt::Display;
-use std::rc::Rc;
-
 use crate::analysis::analyzer::Analyzer;
 use crate::analysis::token_stream::TokenStream;
 use crate::document::fields::ReaderEnum;
@@ -28,6 +25,9 @@ use crate::index::indexable_field_type::IndexableFieldType;
 use crate::index::BytesRef;
 use crate::util::error::lucene_error::Result;
 use crate::util::number::Number;
+use std::fmt::Display;
+use std::rc::Rc;
+use std::sync::Arc;
 
 /// Represents a single field for indexing. IndexWriter consumes
 /// `Iterable<IndexableField>` as a document.
@@ -39,7 +39,7 @@ pub trait IndexableField: Display {
 
     /// {@link IndexableFieldType} describing the properties of this field.
     type FieldType: IndexableFieldType;
-    fn field_type(&self) -> &Self::FieldType;
+    fn field_type(&self) -> Arc<Self::FieldType>;
     /// Creates the TokenStream used for indexing this field. If appropriate,
     /// implementations should use the given Analyzer to create the
     /// TokenStreams.

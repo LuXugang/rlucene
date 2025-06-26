@@ -469,8 +469,8 @@ impl IndexableField for Field {
     type FieldType = FieldType;
 
     /// Returns the [`FieldType`] for this field.
-    fn field_type(&self) -> &Self::FieldType {
-        &self.indexable_field_type
+    fn field_type(&self) -> Arc<Self::FieldType> {
+        self.indexable_field_type.clone()
     }
 
     type TokenStream = DummyTokenStream;

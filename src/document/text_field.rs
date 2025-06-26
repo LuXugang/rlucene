@@ -140,7 +140,7 @@ impl IndexableField for TextField {
 
     type FieldType = FieldType;
 
-    fn field_type(&self) -> &Self::FieldType {
+    fn field_type(&self) -> Arc<Self::FieldType> {
         self.parent_field.field_type()
     }
 
