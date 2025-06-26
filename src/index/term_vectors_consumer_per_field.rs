@@ -39,12 +39,7 @@ use crate::util::{ByteBlockPoolBorrow, CounterEnumBorrow};
 use std::cmp::Ordering;
 use std::rc::Rc;
 
-pub(crate) struct TermVectorsConsumerPerField<O, P, T>
-where
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-{
+pub(crate) struct TermVectorsConsumerPerField {
     field_info: Rc<FieldInfo>,
     do_vectors: bool,
     do_vector_positions: bool,
@@ -53,15 +48,9 @@ where
     term_byte_pool: BytesRefBlockPool<CounterEnumBorrow, ByteBlockPoolBorrow>,
     has_payloads: bool,
     field_name: String,
-    field_state: Rc<FieldInvertState<O, P, T>>,
     base: TermsHashPerField,
 }
-impl<O, P, T> Default for TermVectorsConsumerPerField<O, P, T>
-where
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-{
+impl Default for TermVectorsConsumerPerField {
     fn default() -> Self {
         TermVectorsConsumerPerField {
             field_info: Rc::new(FieldInfo::default()),
@@ -72,17 +61,11 @@ where
             term_byte_pool: BytesRefBlockPool::default(),
             has_payloads: false,
             field_name: String::new(),
-            field_state: Rc::new(FieldInvertState::default()),
             base: TermsHashPerField::default(),
         }
     }
 }
-impl<O, P, T> Clone for TermVectorsConsumerPerField<O, P, T>
-where
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-{
+impl Clone for TermVectorsConsumerPerField {
     // for padding
     fn clone(&self) -> Self {
         TermVectorsConsumerPerField {
@@ -94,23 +77,13 @@ where
             term_byte_pool: BytesRefBlockPool::default(),
             has_payloads: self.has_payloads,
             field_name: self.field_name.clone(),
-            field_state: Rc::clone(&self.field_state),
             base: TermsHashPerField::default(),
         }
     }
 }
 
-impl<O, P, T> TermVectorsConsumerPerField<O, P, T>
-where
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-{
-    pub(crate) fn new<D>(
-        field_invert_state: Rc<FieldInvertState<O, P, T>>,
-        terms_hash: &mut TermVectorsConsumer<D, O, P, T>,
-        field_info: Rc<FieldInfo>,
-    ) -> Self
+impl TermVectorsConsumerPerField {
+    pub(crate) fn new<D>(terms_hash: &mut TermVectorsConsumer<D>, field_info: Rc<FieldInfo>) -> Self
     where
         D: Directory,
     {
@@ -137,14 +110,13 @@ where
             ),
             has_payloads: false,
             field_name,
-            field_state: field_invert_state,
             base,
         }
     }
 
     pub(crate) fn finish_document<D>(
         &mut self,
-        term_vectors_consumer: &mut TermVectorsConsumer<D, O, P, T>,
+        term_vectors_consumer: &mut TermVectorsConsumer<D>,
     ) -> Result<()>
     where
         D: Directory,
@@ -243,22 +215,40 @@ where
     // because token text has already been "interned" into
     // textStart, so we hash by textStart.  term vectors use
     // this API.
-    pub(crate) fn add_with_text_start(&mut self, text_start: i32, doc_id: i32) -> Result<()> {
+    pub(crate) fn add_with_text_start<O, P, T>(
+        &mut self,
+        text_start: i32,
+        doc_id: i32,
+        state: &mut FieldInvertState<O, P, T>,
+    ) -> Result<()>
+    where
+        O: OffsetAttribute,
+        P: PayloadAttribute,
+        T: TermFrequencyAttribute,
+    {
         let term_id = self.base.bytes_hash.add_by_pool_offset(text_start)?;
         if term_id >= 0 {
             // First time we are seeing this token since we last
             // flushed the hash.
             self.base.init_stream_slices(term_id, doc_id)?;
-            self.new_term(term_id, doc_id)?;
+            self.new_term(term_id, doc_id, state)?;
         } else {
             self.base.position_stream_slice(term_id, doc_id)?;
-            self.add_term(term_id, doc_id)?;
+            self.add_term(term_id, doc_id, state)?;
         }
         Ok(())
     }
-    pub(crate) fn start<F>(&mut self, field: &F, first: bool) -> Result<bool>
+    pub(crate) fn start<F, O, P, T>(
+        &mut self,
+        field: &F,
+        first: bool,
+        field_state: &FieldInvertState<O, P, T>,
+    ) -> Result<bool>
     where
         F: IndexableField,
+        O: OffsetAttribute,
+        P: PayloadAttribute,
+        T: TermFrequencyAttribute,
     {
         debug_assert!(*field.field_type().index_options() != IndexOptions::None);
 
@@ -341,11 +331,15 @@ where
         }
 
         if self.do_vectors && self.do_vector_offsets {
-            debug_assert!(self.field_state.offset_attribute.is_some());
+            debug_assert!(field_state.offset_attribute.is_some());
         }
         Ok(self.do_vectors)
     }
-    pub(crate) fn write_prox(&mut self, term_id: usize) -> Result<()>
+    pub(crate) fn write_prox<O, P, T>(
+        &mut self,
+        term_id: usize,
+        field_state: &FieldInvertState<O, P, T>,
+    ) -> Result<()>
     where
         O: OffsetAttribute,
         P: PayloadAttribute,
@@ -364,9 +358,9 @@ where
         match postings {
             PostingsArrayEnum::TermVectors(postings) => {
                 if self.do_vector_offsets {
-                    let offset_attr = self.field_state.offset_attribute.as_ref().unwrap();
-                    let start_offset = self.field_state.offset + offset_attr.start_offset();
-                    let end_offset = self.field_state.offset + offset_attr.end_offset();
+                    let offset_attr = field_state.offset_attribute.as_ref().unwrap();
+                    let start_offset = field_state.offset + offset_attr.start_offset();
+                    let end_offset = field_state.offset + offset_attr.end_offset();
 
                     self.base
                         .write_vint(1, start_offset - postings.last_offsets[term_id])?;
@@ -375,9 +369,9 @@ where
                 }
 
                 if self.do_vector_positions {
-                    let payload_attribute = &self.field_state.payload_attribute;
+                    let payload_attribute = &field_state.payload_attribute;
 
-                    let pos = self.field_state.position - postings.last_positions[term_id];
+                    let pos = field_state.position - postings.last_positions[term_id];
 
                     if let Some(v) = payload_attribute {
                         let payload = v.get_payload();
@@ -398,7 +392,7 @@ where
                         self.base.write_vint(0, pos << 1)?;
                     }
 
-                    last_position = Some(self.field_state.position);
+                    last_position = Some(field_state.position);
                 }
             },
             _ => unreachable!("should not be here"),
@@ -425,8 +419,16 @@ where
 
         Ok(())
     }
-    pub(crate) fn get_term_freq(&self) -> Result<i32> {
-        let freq = if let Some(att) = &self.field_state.term_freq_attribute {
+    pub(crate) fn get_term_freq<O, P, T>(
+        &self,
+        field_state: &FieldInvertState<O, P, T>,
+    ) -> Result<i32>
+    where
+        O: OffsetAttribute,
+        P: PayloadAttribute,
+        T: TermFrequencyAttribute,
+    {
+        let freq = if let Some(att) = &field_state.term_freq_attribute {
             att.get_term_frequency()
         } else {
             return Ok(1);
@@ -449,7 +451,7 @@ where
 
         Ok(freq)
     }
-    pub(crate) fn finish<D>(self, term_vectors_consumer: &mut TermVectorsConsumer<D, O, P, T>)
+    pub(crate) fn finish<D>(self, term_vectors_consumer: &mut TermVectorsConsumer<D>)
     where
         D: Directory,
     {
@@ -460,55 +462,39 @@ where
     }
 }
 
-impl<O, P, T> Eq for TermVectorsConsumerPerField<O, P, T>
-where
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-{
-}
+impl Eq for TermVectorsConsumerPerField {}
 
-impl<O, P, T> PartialEq<Self> for TermVectorsConsumerPerField<O, P, T>
-where
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-{
+impl PartialEq<Self> for TermVectorsConsumerPerField {
     fn eq(&self, other: &Self) -> bool {
         todo!()
     }
 }
 
-impl<O, P, T> PartialOrd<Self> for TermVectorsConsumerPerField<O, P, T>
-where
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-{
+impl PartialOrd<Self> for TermVectorsConsumerPerField {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl<O, P, T> Ord for TermVectorsConsumerPerField<O, P, T>
-where
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-{
+impl Ord for TermVectorsConsumerPerField {
     fn cmp(&self, other: &Self) -> Ordering {
         self.field_name.cmp(&other.field_name)
     }
 }
-impl<O, P, T> TermsHashPerFieldBase for TermVectorsConsumerPerField<O, P, T>
-where
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-{
-    fn new_term(&mut self, term_id: i32, _doc_id: i32) -> Result<()> {
+impl TermsHashPerFieldBase for TermVectorsConsumerPerField {
+    fn new_term<O, P, T>(
+        &mut self,
+        term_id: i32,
+        _doc_id: i32,
+        field_state: &mut FieldInvertState<O, P, T>,
+    ) -> Result<()>
+    where
+        O: OffsetAttribute,
+        P: PayloadAttribute,
+        T: TermFrequencyAttribute,
+    {
         let term_id = term_id as usize;
-        let freq = self.get_term_freq()?;
+        let freq = self.get_term_freq(field_state)?;
         let postings_enum = self
             .base
             .bytes_hash
@@ -522,16 +508,26 @@ where
             postings.last_offsets[term_id] = 0;
             postings.last_positions[term_id] = 0;
 
-            self.write_prox(term_id)?;
+            self.write_prox(term_id, field_state)?;
         } else {
             unreachable!("Expected TermVectors postings");
         }
         Ok(())
     }
 
-    fn add_term(&mut self, term_id: i32, doc_id: i32) -> Result<()> {
+    fn add_term<O, P, T>(
+        &mut self,
+        term_id: i32,
+        doc_id: i32,
+        state: &mut FieldInvertState<O, P, T>,
+    ) -> Result<()>
+    where
+        O: OffsetAttribute,
+        P: PayloadAttribute,
+        T: TermFrequencyAttribute,
+    {
         let term_id = term_id as usize;
-        let freq = self.get_term_freq()?;
+        let freq = self.get_term_freq(state)?;
         let postings_enum = self
             .base
             .bytes_hash
@@ -543,7 +539,7 @@ where
 
         if let PostingsArrayEnum::TermVectors(postings) = postings_enum {
             postings.freqs[term_id] += freq;
-            self.write_prox(term_id)?;
+            self.write_prox(term_id, state)?;
         } else {
             unreachable!("Expected TermVectors postings");
         }

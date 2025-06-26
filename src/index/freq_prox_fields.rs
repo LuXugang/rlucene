@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
-use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
-use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
 use crate::index::automaton_terms_enum::AutomatonTermsEnum;
 use crate::index::base_terms_enum::BaseTermsEnum;
 use crate::index::byte_slice_reader::ByteSliceReader;
@@ -46,21 +44,11 @@ use std::rc::Rc;
 
 /// Implements limited (iterators only, no stats) [`Fields`](crate::index::fields::Fields) interface over the in-RAM buffered
 /// fields/terms/postings, to flush postings through the PostingsFormat.
-pub(crate) struct FreqProxFields<O, P, T>
-where
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-{
-    fields: HashMap<String, Rc<FreqProxTermsWriterPerField<O, P, T>>>,
+pub(crate) struct FreqProxFields {
+    fields: HashMap<String, Rc<FreqProxTermsWriterPerField>>,
 }
-impl<O, P, T> FreqProxFields<O, P, T>
-where
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-{
-    pub fn new(field_list: Vec<Rc<FreqProxTermsWriterPerField<O, P, T>>>) -> Self {
+impl FreqProxFields {
+    pub fn new(field_list: Vec<Rc<FreqProxTermsWriterPerField>>) -> Self {
         // NOTE: fields are already sorted by field name
         let mut fields = HashMap::with_capacity(field_list.len());
         for field in field_list {
@@ -70,17 +58,12 @@ where
         Self { fields }
     }
 }
-impl<O, P, T> Fields for FreqProxFields<O, P, T>
-where
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-{
+impl Fields for FreqProxFields {
     fn iterator(&self) -> impl Iterator<Item = &String> {
         self.fields.keys()
     }
 
-    type Terms = FreqProxTerms<O, P, T>;
+    type Terms = FreqProxTerms;
 
     fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
         let per_filed = self.fields.get(field);
@@ -95,12 +78,7 @@ where
     }
 }
 
-impl<O, P, T> Clone for FreqProxFields<O, P, T>
-where
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-{
+impl Clone for FreqProxFields {
     fn clone(&self) -> Self {
         Self {
             fields: self.fields.clone(),
@@ -108,31 +86,16 @@ where
     }
 }
 
-pub(crate) struct FreqProxTerms<O, P, T>
-where
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-{
-    terms: Rc<FreqProxTermsWriterPerField<O, P, T>>,
+pub(crate) struct FreqProxTerms {
+    terms: Rc<FreqProxTermsWriterPerField>,
 }
-impl<O, P, T> FreqProxTerms<O, P, T>
-where
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-{
-    pub fn new(terms: Rc<FreqProxTermsWriterPerField<O, P, T>>) -> Self {
+impl FreqProxTerms {
+    pub fn new(terms: Rc<FreqProxTermsWriterPerField>) -> Self {
         Self { terms }
     }
 }
-impl<O, P, T> Terms for FreqProxTerms<O, P, T>
-where
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-{
-    type TermsEnum = BaseTermsEnum<FreqProxTermsEnum<O, P, T>>;
+impl Terms for FreqProxTerms {
+    type TermsEnum = BaseTermsEnum<FreqProxTermsEnum>;
 
     fn iterator(&self) -> Result<Self::TermsEnum> {
         Ok(FreqProxTermsEnum::new(self.terms.clone()))
@@ -202,25 +165,15 @@ where
     }
 }
 
-pub(crate) struct FreqProxTermsEnum<O, P, T>
-where
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-{
-    terms: Rc<FreqProxTermsWriterPerField<O, P, T>>,
+pub(crate) struct FreqProxTermsEnum {
+    terms: Rc<FreqProxTermsWriterPerField>,
     terms_pool: BytesRefBlockPool<CounterEnumBorrow, ByteBlockPoolBorrow>,
     scratch: BytesRef<Vec<u8>>,
     num_terms: i32,
     ord: i32,
 }
-impl<O, P, T> FreqProxTermsEnum<O, P, T>
-where
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-{
-    fn new(terms: Rc<FreqProxTermsWriterPerField<O, P, T>>) -> BaseTermsEnum<Self> {
+impl FreqProxTermsEnum {
+    fn new(terms: Rc<FreqProxTermsWriterPerField>) -> BaseTermsEnum<Self> {
         let (num_terms, terms_pool) = {
             let num_terms = terms.base.get_num_terms();
             let terms_pool = BytesRefBlockPool::from_byte_block_pool(terms.base.byte_pool.clone());
@@ -240,12 +193,7 @@ where
     }
 }
 
-impl<O, P, T> BytesRefIterator for FreqProxTermsEnum<O, P, T>
-where
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-{
+impl BytesRefIterator for FreqProxTermsEnum {
     fn next(&mut self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
         self.ord += 1;
         if self.ord >= self.num_terms {
@@ -276,12 +224,7 @@ where
     }
 }
 
-impl<O, P, T> TermsEnum for FreqProxTermsEnum<O, P, T>
-where
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-{
+impl TermsEnum for FreqProxTermsEnum {
     fn seek_ceil(&mut self, text: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
         let postings_array_enum = &self
             .terms
@@ -387,8 +330,7 @@ where
         Err(LuceneError::unsupported_operation(""))
     }
 
-    type PostingsEnum =
-        EitherPostingsEnum<FreqProxPostingsEnum<O, P, T>, FreqProxDocsEnum<O, P, T>>;
+    type PostingsEnum = EitherPostingsEnum<FreqProxPostingsEnum, FreqProxDocsEnum>;
 
     fn postings_with_flags(
         &mut self,
@@ -449,13 +391,8 @@ where
     type TermState = DummyTermState;
 }
 
-pub(crate) struct FreqProxDocsEnum<O, P, T>
-where
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-{
-    pub terms: Rc<FreqProxTermsWriterPerField<O, P, T>>,
+pub(crate) struct FreqProxDocsEnum {
+    pub terms: Rc<FreqProxTermsWriterPerField>,
     pub reader: ByteSliceReader,
     pub read_term_freq: bool,
     pub doc_id: i32,
@@ -463,13 +400,8 @@ where
     pub ended: bool,
     pub term_id: i32,
 }
-impl<O, P, T> FreqProxDocsEnum<O, P, T>
-where
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-{
-    pub fn new(terms: Rc<FreqProxTermsWriterPerField<O, P, T>>) -> Self {
+impl FreqProxDocsEnum {
+    pub fn new(terms: Rc<FreqProxTermsWriterPerField>) -> Self {
         let read_term_freq = terms.has_freq;
         Self {
             terms,
@@ -489,12 +421,7 @@ where
     }
 }
 
-impl<O, P, T> DocIdSetIterator for FreqProxDocsEnum<O, P, T>
-where
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-{
+impl DocIdSetIterator for FreqProxDocsEnum {
     fn doc_id(&self) -> i32 {
         self.doc_id
     }
@@ -557,12 +484,7 @@ where
     }
 }
 
-impl<O, P, T> PostingsEnum for FreqProxDocsEnum<O, P, T>
-where
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-{
+impl PostingsEnum for FreqProxDocsEnum {
     fn freq(&mut self) -> Result<i32> {
         // Don't lie here ... don't want codecs writings lots
         // of wasted 1s into the index:
@@ -589,13 +511,8 @@ where
     }
 }
 
-pub(crate) struct FreqProxPostingsEnum<O, P, T>
-where
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-{
-    terms: Rc<FreqProxTermsWriterPerField<O, P, T>>,
+pub(crate) struct FreqProxPostingsEnum {
+    terms: Rc<FreqProxTermsWriterPerField>,
     reader: ByteSliceReader,
     pos_reader: ByteSliceReader,
     read_offsets: bool,
@@ -610,13 +527,8 @@ where
     has_payload: bool,
     payload: BytesRefBuilder<Vec<u8>>,
 }
-impl<O, P, T> FreqProxPostingsEnum<O, P, T>
-where
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-{
-    pub fn new(terms: Rc<FreqProxTermsWriterPerField<O, P, T>>) -> Self {
+impl FreqProxPostingsEnum {
+    pub fn new(terms: Rc<FreqProxTermsWriterPerField>) -> Self {
         let has_offsets = terms.has_offsets;
         Self {
             terms,
@@ -647,12 +559,7 @@ where
     }
 }
 
-impl<O, P, T> DocIdSetIterator for FreqProxPostingsEnum<O, P, T>
-where
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-{
+impl DocIdSetIterator for FreqProxPostingsEnum {
     fn doc_id(&self) -> i32 {
         self.doc_id
     }
@@ -717,12 +624,7 @@ where
     }
 }
 
-impl<O, P, T> PostingsEnum for FreqProxPostingsEnum<O, P, T>
-where
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-{
+impl PostingsEnum for FreqProxPostingsEnum {
     fn freq(&mut self) -> Result<i32> {
         Ok(self.freq)
     }

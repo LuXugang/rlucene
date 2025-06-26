@@ -14,8 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
+use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
+use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
 use crate::index::byte_slice_pool::ByteSlicePool;
 use crate::index::byte_slice_reader::ByteSliceReader;
+use crate::index::field_invert_state::FieldInvertState;
 use crate::index::freq_prox_terms_writer_per_field::{FreqProx, FreqProxPostingsArray};
 use crate::index::index_options::IndexOptions;
 use crate::index::parallel_postings_array::PostingsArrayEnum;
@@ -370,9 +374,27 @@ impl TermsHashPerField {
 
 pub(crate) trait TermsHashPerFieldBase {
     /// Called when a term is seen for the first time.
-    fn new_term(&mut self, term_id: i32, doc_id: i32) -> Result<()>;
+    fn new_term<O, P, T>(
+        &mut self,
+        term_id: i32,
+        doc_id: i32,
+        state: &mut FieldInvertState<O, P, T>,
+    ) -> Result<()>
+    where
+        O: OffsetAttribute,
+        P: PayloadAttribute,
+        T: TermFrequencyAttribute;
     /// Called when a previously seen term is seen again.
-    fn add_term(&mut self, term_id: i32, doc_id: i32) -> Result<()>;
+    fn add_term<O, P, T>(
+        &mut self,
+        term_id: i32,
+        doc_id: i32,
+        state: &mut FieldInvertState<O, P, T>,
+    ) -> Result<()>
+    where
+        O: OffsetAttribute,
+        P: PayloadAttribute,
+        T: TermFrequencyAttribute;
     /// Called when the postings array is initialized or resized.
     /// # Note
     /// In rust Lucene, we do not need to init new postings array
@@ -639,7 +661,7 @@ pub(crate) mod tests {
             dummy_value.as_bytes().to_vec(),
         )?);
         let mut base = hash.base.take().unwrap();
-        base.start(&dummy_filed, true)?;
+        base.start(&dummy_filed, true, &hash.field_state)?;
         // Pass `None` for the field as in the Java version (null)
 
         base.add_with_bytes_ref_with_test(
@@ -820,7 +842,10 @@ pub(crate) mod tests {
             "binary",
             dummy_value.as_bytes().to_vec(),
         )?);
-        hash.base.as_mut().unwrap().start(&dummy_filed, true)?;
+        hash.base
+            .as_mut()
+            .unwrap()
+            .start(&dummy_filed, true, &hash.field_state)?;
 
         #[derive(Clone)]
         struct Posting {
@@ -928,7 +953,7 @@ pub(crate) mod tests {
                 dummy_value.as_bytes().to_vec(),
             )?);
             let mut base = hash.base.take().unwrap();
-            base.start(&dummy_filed, true)?;
+            base.start(&dummy_filed, true, &hash.field_state)?;
             base.add_with_bytes_ref_with_test(
                 &new_bytes_ref_from_string(&mut random, "start")?,
                 0,
@@ -973,15 +998,14 @@ pub(crate) mod tests {
     }
 
     pub(crate) struct TermsHashPerFieldMock {
+        pub(crate) field_state: FieldInvertState<
+            DummyOffsetAttribute,
+            DummyPayloadAttribute,
+            DummyTermFrequencyAttribute,
+        >,
         new_called: AtomicI64,
         add_called: AtomicI64,
-        base: Option<
-            FreqProxTermsWriterPerField<
-                DummyOffsetAttribute,
-                DummyPayloadAttribute,
-                DummyTermFrequencyAttribute,
-            >,
-        >,
+        base: Option<FreqProxTermsWriterPerField>,
     }
     impl TermsHashPerFieldMock {
         #[allow(clippy::new_ret_no_self)]
@@ -990,7 +1014,7 @@ pub(crate) mod tests {
             let bytes_used = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
 
             let allocator_int = AllocatorIntEnum::DA(DirectAllocatorI32::new());
-            let mut writer: FreqProxTermsWriter<DummyDirectory, _, _, _> = FreqProxTermsWriter::new(
+            let mut writer: FreqProxTermsWriter<DummyDirectory> = FreqProxTermsWriter::new(
                 allocator_int,
                 allocator,
                 bytes_used,
@@ -1001,18 +1025,18 @@ pub(crate) mod tests {
             writer.base.term_byte_pool =
                 Some(Rc::new(RefCell::new(ByteBlockPool::new(allocator_term))));
 
-            let field_state = Rc::new(FieldInvertState::default());
+            let field_state: FieldInvertState<
+                DummyOffsetAttribute,
+                DummyPayloadAttribute,
+                DummyTermFrequencyAttribute,
+            > = FieldInvertState::default();
             let mut field_info = FieldInfo::default();
             field_info.index_options = IndexOptions::DocsAndFreqs;
 
-            let base = FreqProxTermsWriterPerField::new(
-                field_state,
-                &mut writer,
-                Rc::new(field_info),
-                None,
-            );
+            let base = FreqProxTermsWriterPerField::new(&mut writer, Rc::new(field_info), None);
 
             TermsHashPerFieldMock {
+                field_state,
                 new_called,
                 add_called,
                 base: Option::from(base),

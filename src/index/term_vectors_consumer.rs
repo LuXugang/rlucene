@@ -14,15 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
-use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
-use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
 use crate::codecs::term_vectors_format::TermVectorsFormat;
 use crate::codecs::term_vectors_writer::{TermVectorsWriter, TermVectorsWriterEnum};
 use crate::codecs::Codec;
 use crate::index::byte_slice_reader::ByteSliceReader;
 use crate::index::field_info::FieldInfo;
-use crate::index::field_invert_state::FieldInvertState;
 use crate::index::segment_info::SegmentInfo;
 use crate::index::segment_write_state::SegmentWriteState;
 use crate::index::sorter::DocMap;
@@ -49,13 +45,9 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 
-pub(crate) struct TermVectorsConsumer<D, O, P, T>
+pub(crate) struct TermVectorsConsumer<D>
 where
     D: Directory,
-
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
 {
     directory: Arc<Mutex<D>>,
     pub(crate) info: Rc<SegmentInfo<D>>,
@@ -68,18 +60,13 @@ where
     has_vectors: bool,
     num_vector_fields: i32,
     pub(crate) last_doc_id: i32,
-    per_fields: Vec<TermVectorsConsumerPerField<O, P, T>>,
+    per_fields: Vec<TermVectorsConsumerPerField>,
     sub: Option<SortingTermVectorsConsumer<D>>,
     pub(crate) base: TermsHash,
 }
 
 #[cfg(test)]
-impl<O, P, T> Default for TermVectorsConsumer<DummyDirectory, O, P, T>
-where
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-{
+impl Default for TermVectorsConsumer<DummyDirectory> {
     fn default() -> Self {
         let int_block_allocator = AllocatorIntEnum::DA(DirectAllocatorI32::new());
         let byte_block_allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
@@ -95,13 +82,9 @@ where
     }
 }
 
-impl<D, O, P, T> TermVectorsConsumer<D, O, P, T>
+impl<D> TermVectorsConsumer<D>
 where
     D: Directory,
-
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
 {
     pub(crate) fn new(
         int_block_allocator: AllocatorIntEnum<CounterEnumBorrow>,
@@ -209,17 +192,10 @@ where
         self.num_vector_fields = 0;
         Ok(())
     }
-    pub(crate) fn add_field(
-        &mut self,
-        field_invert_state: Rc<FieldInvertState<O, P, T>>,
-        field_info: Rc<FieldInfo>,
-    ) -> TermVectorsConsumerPerField<O, P, T> {
-        TermVectorsConsumerPerField::new(field_invert_state, self, field_info)
+    pub(crate) fn add_field(&mut self, field_info: Rc<FieldInfo>) -> TermVectorsConsumerPerField {
+        TermVectorsConsumerPerField::new(self, field_info)
     }
-    pub(crate) fn add_field_to_flush(
-        &mut self,
-        field_to_flush: TermVectorsConsumerPerField<O, P, T>,
-    ) {
+    pub(crate) fn add_field_to_flush(&mut self, field_to_flush: TermVectorsConsumerPerField) {
         let num_vector_fields = self.num_vector_fields as usize;
         if num_vector_fields == self.per_fields.len() {
             let new_size = ArrayUtil::oversize(num_vector_fields + 1, 0);

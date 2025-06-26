@@ -882,7 +882,7 @@ impl IndexSorter for IndexSorterEnumSorter {
     }
 }
 
-pub trait SortFiledBase {
+pub trait SortFiledBase: Display {
     /// Set the value to use for documents that don't have a value.
     fn set_missing_value(&mut self, missing_value: Option<MissingValueEnum>) -> Result<()>;
     /// Whether the relevance score is needed to sort documents.

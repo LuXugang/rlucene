@@ -28,6 +28,7 @@ use crate::index::{doc_id_merger_util, BytesRef, DocIDMerger, Sub, SubBase};
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::store::directory::Directory;
 use crate::store::{DataInput, IndexInput};
+use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::{LuceneError, Result};
 
 /// Codec API for writing stored fields:
@@ -399,6 +400,16 @@ where
     {
         match self {
             StoredFieldsWriterEnum::Lucene90(writer) => writer.merge(merge_state),
+        }
+    }
+}
+impl<D> Accountable for StoredFieldsWriterEnum<D>
+where
+    D: Directory,
+{
+    fn ram_bytes_used(&self) -> Result<i64> {
+        match self {
+            StoredFieldsWriterEnum::Lucene90(writer) => writer.ram_bytes_used(),
         }
     }
 }

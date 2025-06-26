@@ -26,6 +26,7 @@ use crate::codecs::points_writer::PointsWriter;
 use crate::codecs::Codec;
 use crate::document::invertable_field::InvertableType;
 use crate::index::binary_doc_values_writer::BufferedBinaryDocValues;
+use crate::index::doc_values::{DocValues, EmptyBinary, EmptyNumeric, EmptySorted};
 use crate::index::doc_values_leaf_reader::DocValuesLeafReader;
 use crate::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::index::doc_values_type::DocValuesType;
@@ -51,6 +52,7 @@ use crate::index::segment_info::SegmentInfo;
 use crate::index::segment_write_state::SegmentWriteState;
 use crate::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
 use crate::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
+use crate::index::sort::Sort;
 use crate::index::sorted_doc_values_writer::BufferedSortedDocValues;
 use crate::index::sorted_numeric_doc_values_writer::BufferedSortedNumericDocValues;
 use crate::index::sorted_set_doc_values_writer::BufferedSortedSetDocValues;
@@ -66,6 +68,7 @@ use crate::search::similarities::similarities::Similarity;
 use crate::search::sort_field::SortFiledBase;
 use crate::store::directory::Directory;
 use crate::util::access::Access;
+use crate::util::accountable::Accountable;
 use crate::util::allocator_byte::{
     AllocatorByteEnum, DirectTrackingAllocatorByte, STAllocatorByteEnum,
 };
@@ -103,7 +106,7 @@ where
 {
     bytes_used: CounterEnumBorrow,
     field_infos: Builder,
-    terms_hash: FreqProxTermsWriter<D, O, P, T>,
+    terms_hash: FreqProxTermsWriter<D>,
     doc_values_byte_pool: ByteBlockPoolBorrow,
     stored_fields_consumer: StoredFieldsConsumer<D>,
     field_hash: Vec<i32>,
@@ -142,7 +145,7 @@ where
         {
             (
                 StoredFieldsConsumer::new(Arc::clone(&directory), Rc::clone(&segment_info), None),
-                TermVectorsConsumer::<_, O, P, T>::new(
+                TermVectorsConsumer::new(
                     IntBlockAllocator::allocator_enum(bytes_used.clone()),
                     DirectTrackingAllocatorByte::allocator_enum(bytes_used.clone()),
                     Arc::clone(&directory),
@@ -210,7 +213,7 @@ where
             return Ok(None);
         }
 
-        let mut doc_values_reader = DocValuesLeafReaderImpl::new(self);
+        let mut doc_values_reader = DocValuesLeafReaderImpl1::new(self);
         let max_doc = state.segment_info.max_doc()?;
         let has_blocks = state.segment_info.get_has_blocks();
         let parent_field = state.field_infos.get_parent_field();
@@ -424,6 +427,11 @@ where
         Ok(())
     }
 
+    pub(crate) fn abort(&mut self) -> Result<()> {
+        // TODO
+        unimplemented!();
+    }
+
     /// Calls `start_document` on the stored fields consumer, aborting the segment on error.
     pub(crate) fn start_stored_fields(&mut self, doc_id: i32) -> Result<()> {
         self.stored_fields_consumer
@@ -542,6 +550,26 @@ where
         }
         Ok(())
     }
+
+    fn validate_index_sort_dv_type(
+        index_sort: &Sort,
+        field_to_validate: &str,
+        dv_type: &DocValuesType,
+    ) -> Result<()> {
+        for sort_field in index_sort.get_sort() {
+            let mut sorter = sort_field.get_index_sorter()?.ok_or_else(|| {
+                LuceneError::illegal_state(format!(
+                    "Cannot sort index with sort order {}",
+                    sort_field
+                ))
+            })?;
+            let mut doc_values_leaf_reader =
+                DocValuesLeafReaderImpl2::new(field_to_validate, dv_type, sort_field);
+            sorter.get_doc_comparator(&mut doc_values_leaf_reader, 0)?;
+        }
+        Ok(())
+    }
+
     pub fn index_doc_value<F>(
         doc_id: i32,
         fp: &mut PerField<O, P, T, TS>,
@@ -655,6 +683,20 @@ where
         None
     }
 }
+impl<D, O, P, T, TS, L> Accountable for IndexingChain<D, O, P, T, TS, L>
+where
+    D: Directory,
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+    TS: TokenStream,
+    L: LiveIndexWriterConfig,
+{
+    fn ram_bytes_used(&self) -> Result<i64> {
+        // TODO: memory calculation not implemented
+        todo!()
+    }
+}
 
 pub(crate) struct PerField<O, P, T, TS>
 where
@@ -669,7 +711,7 @@ where
     pub(crate) reserved: bool,
     pub(crate) field_info: Option<Rc<FieldInfo>>,
     pub(crate) invert_state: Option<FieldInvertState<O, P, T>>,
-    pub(crate) terms_hash_per_field: Option<FreqProxTermsWriterPerField<O, P, T>>,
+    pub(crate) terms_hash_per_field: Option<FreqProxTermsWriterPerField>,
     pub(crate) doc_values_writer: Option<DocValuesWriterEnum>,
     pub(crate) point_values_writer: Option<PointValuesWriter>,
     // pub(crate) knn_field_vectors_writer: Option<KnnFieldVectorsWriter>,
@@ -720,8 +762,8 @@ where
     }
     pub(crate) fn set_invert_state<D>(
         &mut self,
-        terms_hash: &mut FreqProxTermsWriter<D, O, P, T>,
-        term_vectors_writer: &mut TermVectorsConsumer<D, O, P, T>,
+        terms_hash: &mut FreqProxTermsWriter<D>,
+        term_vectors_writer: &mut TermVectorsConsumer<D>,
         bytes_used: CounterEnumBorrow,
     ) -> Result<()>
     where
@@ -754,7 +796,7 @@ where
     pub(crate) fn finish<D, S>(
         &mut self,
         doc_id: i32,
-        term_vectors_consumer: &mut TermVectorsConsumer<D, O, P, T>,
+        term_vectors_consumer: &mut TermVectorsConsumer<D>,
         similarity: &S,
     ) -> Result<()>
     where
@@ -859,7 +901,7 @@ where
                 // state.set_attribute_source(Some(&mut stream));
             }
             let terms_hash_per_field = self.terms_hash_per_field.as_mut().unwrap();
-            terms_hash_per_field.start(field, first)?;
+            terms_hash_per_field.start(field, first, self.invert_state.as_mut().unwrap())?;
 
             while stream.increment_token()? {
                 // If we hit an exception in stream.next below
@@ -943,7 +985,11 @@ where
                 // new segment:
                 if let Err(e) =
                     // TODO
-                    terms_hash_per_field.add_with_bytes_ref(&BytesRef::new(), doc_id)
+                    terms_hash_per_field.add_with_bytes_ref(
+                        &BytesRef::new(),
+                        doc_id,
+                        self.invert_state.as_mut().unwrap(),
+                    )
                 // terms_hash_per_field.add_with_bytes_ref(invert_state.term_attribute.as_ref().unwrap().get_bytes_ref(), doc_id)
                 {
                     let mut prefix = [0u8; 30];
@@ -1023,7 +1069,7 @@ where
         state.position += 1;
         state.length += 1;
         let terms_hash_per_field = self.terms_hash_per_field.as_mut().unwrap();
-        terms_hash_per_field.start(field, first)?;
+        terms_hash_per_field.start(field, first, state)?;
         match state.length.checked_add(1) {
             Some(new_length) => {
                 state.length = new_length;
@@ -1035,7 +1081,7 @@ where
             },
         }
 
-        if let Err(e) = terms_hash_per_field.add_with_bytes_ref(&binary_value, doc_id) {
+        if let Err(e) = terms_hash_per_field.add_with_bytes_ref(&binary_value, doc_id, state) {
             let mut prefix = [0u8; 30];
             prefix.copy_from(
                 &binary_value.bytes[binary_value.offset..binary_value.offset + 30],
@@ -1370,7 +1416,7 @@ impl FieldSchema {
     }
 }
 
-struct DocValuesLeafReaderImpl<'a, D, O, P, T, TS, L>
+struct DocValuesLeafReaderImpl1<'a, D, O, P, T, TS, L>
 where
     D: Directory,
     O: OffsetAttribute,
@@ -1382,7 +1428,7 @@ where
     index_chain: &'a mut IndexingChain<D, O, P, T, TS, L>,
     base: DocValuesLeafReader,
 }
-impl<'a, D, O, P, T, TS, L> DocValuesLeafReaderImpl<'a, D, O, P, T, TS, L>
+impl<'a, D, O, P, T, TS, L> DocValuesLeafReaderImpl1<'a, D, O, P, T, TS, L>
 where
     D: Directory,
     O: OffsetAttribute,
@@ -1393,10 +1439,10 @@ where
 {
     fn new(index_chain: &'a mut IndexingChain<D, O, P, T, TS, L>) -> Self {
         let base = DocValuesLeafReader;
-        DocValuesLeafReaderImpl { index_chain, base }
+        DocValuesLeafReaderImpl1 { index_chain, base }
     }
 }
-impl<'a, D, O, P, T, TS, L> LeafReader for DocValuesLeafReaderImpl<'a, D, O, P, T, TS, L>
+impl<'a, D, O, P, T, TS, L> LeafReader for DocValuesLeafReaderImpl1<'a, D, O, P, T, TS, L>
 where
     D: Directory,
     O: OffsetAttribute,
@@ -1545,6 +1591,115 @@ where
         } else {
             Ok(None)
         }
+    }
+
+    type NormNumericDocValues = <DocValuesLeafReader as LeafReader>::NumericDocValues;
+
+    fn get_norm_values(&mut self, field: &str) -> Result<Option<Self::NormNumericDocValues>> {
+        self.base.get_norm_values(field)
+    }
+
+    type DocValuesSkipper = <DocValuesLeafReader as LeafReader>::DocValuesSkipper;
+
+    fn get_doc_values_skipper(&mut self, field: &str) -> Result<Option<Self::DocValuesSkipper>> {
+        self.base.get_doc_values_skipper(field)
+    }
+
+    fn get_field_infos(&self) -> Result<&Rc<FieldInfos>> {
+        self.base.get_field_infos()
+    }
+}
+struct DocValuesLeafReaderImpl2<'a, SFB>
+where
+    SFB: SortFiledBase,
+{
+    field_to_validate: &'a str,
+    dv_type: &'a DocValuesType,
+    base: DocValuesLeafReader,
+    sort_field: &'a SFB,
+}
+impl<'a, SFB> DocValuesLeafReaderImpl2<'a, SFB>
+where
+    SFB: SortFiledBase,
+{
+    fn new(field_to_validate: &'a str, dv_type: &'a DocValuesType, sort_field: &'a SFB) -> Self {
+        let base = DocValuesLeafReader;
+        DocValuesLeafReaderImpl2 {
+            field_to_validate,
+            dv_type,
+            base,
+            sort_field,
+        }
+    }
+}
+impl<SFB> LeafReader for DocValuesLeafReaderImpl2<'_, SFB>
+where
+    SFB: SortFiledBase,
+{
+    type NumericDocValues = EmptyNumeric;
+
+    fn get_numeric_doc_values(&mut self, field: &str) -> Result<Option<Self::NumericDocValues>> {
+        if field == self.field_to_validate && *self.dv_type != DocValuesType::Numeric {
+            return Err(LuceneError::illegal_argument(format!(
+                "SortField {} expected field [{}] to be NUMERIC but it is [{}]",
+                self.sort_field, field, self.dv_type
+            )));
+        }
+        Ok(Some(DocValues::empty_numeric()))
+    }
+
+    type BinaryDocValues = EmptyBinary;
+
+    fn get_binary_doc_values(&mut self, field: &str) -> Result<Option<Self::BinaryDocValues>> {
+        if field == self.field_to_validate && *self.dv_type != DocValuesType::Binary {
+            return Err(LuceneError::illegal_argument(format!(
+                "SortField {} expected field [{}] to be BINARY but it is [{}]",
+                self.sort_field, field, self.dv_type
+            )));
+        }
+        Ok(Some(DocValues::empty_binary()))
+    }
+
+    type SortedDocValues = EmptySorted;
+
+    fn get_sorted_doc_values(&mut self, field: &str) -> Result<Option<Self::SortedDocValues>> {
+        if field == self.field_to_validate && *self.dv_type != DocValuesType::Sorted {
+            return Err(LuceneError::illegal_argument(format!(
+                "SortField {} expected field [{}] to be SORTED but it is [{}]",
+                self.sort_field, field, self.dv_type
+            )));
+        }
+        Ok(Some(DocValues::empty_sorted()))
+    }
+
+    type SortedNumericDocValues = SingletonSortedNumericDocValues<EmptyNumeric>;
+
+    fn get_sorted_numeric_doc_values(
+        &mut self,
+        field: &str,
+    ) -> Result<Option<Self::SortedNumericDocValues>> {
+        if field == self.field_to_validate && *self.dv_type != DocValuesType::SortedNumeric {
+            return Err(LuceneError::illegal_argument(format!(
+                "SortField {} expected field [{}] to be SORTED_NUMERIC but it is [{}]",
+                self.sort_field, field, self.dv_type
+            )));
+        }
+        Ok(Some(DocValues::empty_sorted_numeric()?))
+    }
+
+    type SortedSetDocValues = SingletonSortedSetDocValues<EmptySorted>;
+
+    fn get_sorted_set_doc_values(
+        &mut self,
+        field: &str,
+    ) -> Result<Option<Self::SortedSetDocValues>> {
+        if field == self.field_to_validate && *self.dv_type != DocValuesType::SortedSet {
+            return Err(LuceneError::illegal_argument(format!(
+                "SortField {} expected field [{}] to be SORTED_SET but it is [{}]",
+                self.sort_field, field, self.dv_type
+            )));
+        }
+        Ok(Some(DocValues::empty_sorted_set()?))
     }
 
     type NormNumericDocValues = <DocValuesLeafReader as LeafReader>::NumericDocValues;

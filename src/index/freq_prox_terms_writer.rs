@@ -16,13 +16,11 @@
  */
 use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
 use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
-use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
 use crate::codecs::norms_producer::NormsProducer;
 use crate::codecs::Codec;
 use crate::index::automaton_terms_enum::AutomatonTermsEnum;
 use crate::index::field_info::FieldInfo;
 use crate::index::field_infos::FieldInfos;
-use crate::index::field_invert_state::FieldInvertState;
 use crate::index::fields::Fields;
 use crate::index::filter_leaf_reader::{FilterFields, FilterTerms, FilterTermsEnum};
 use crate::index::filtered_terms_enum::FilteredTermsEnum;
@@ -62,30 +60,22 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-pub(crate) struct FreqProxTermsWriter<D, O, P, T>
+pub(crate) struct FreqProxTermsWriter<D>
 where
     D: Directory,
-
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
 {
-    pub(crate) next_terms_hash: Option<TermVectorsConsumer<D, O, P, T>>,
+    pub(crate) next_terms_hash: Option<TermVectorsConsumer<D>>,
     pub(crate) base: TermsHash,
 }
-impl<D, O, P, T> FreqProxTermsWriter<D, O, P, T>
+impl<D> FreqProxTermsWriter<D>
 where
     D: Directory,
-
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
 {
     pub(crate) fn new(
         int_block_allocator: AllocatorIntEnum<CounterEnumBorrow>,
         byte_block_allocator: AllocatorByteEnum<CounterEnumBorrow>,
         bytes_used: CounterEnumBorrow,
-        mut next_terms_hash: TermVectorsConsumer<D, O, P, T>,
+        mut next_terms_hash: TermVectorsConsumer<D>,
     ) -> Self {
         let mut base = TermsHash::new(int_block_allocator, byte_block_allocator, bytes_used);
         base.term_byte_pool = Some(base.byte_pool.clone());
@@ -96,17 +86,9 @@ where
             base,
         }
     }
-    fn apply_deletes(
-        &self,
-        state: &mut SegmentWriteState<D>,
-        fields: FreqProxFields<O, P, T>,
-    ) -> Result<()>
+    fn apply_deletes(&self, state: &mut SegmentWriteState<D>, fields: FreqProxFields) -> Result<()>
     where
         D: Directory,
-
-        O: OffsetAttribute,
-        P: PayloadAttribute,
-        T: TermFrequencyAttribute,
     {
         if let Some(seg_updates) = &mut state.seg_updates {
             let seg_deletes = &mut seg_updates.borrow_mut().delete_terms;
@@ -151,7 +133,7 @@ where
 
     fn flush<N, DM>(
         &mut self,
-        fields_to_flush: HashMap<String, FreqProxTermsWriterPerField<O, P, T>>,
+        fields_to_flush: HashMap<String, FreqProxTermsWriterPerField>,
         state: &mut SegmentWriteState<D>,
         sort_map: Option<Rc<DM>>,
         _norms: &mut N,
@@ -207,22 +189,13 @@ where
         }
         Ok(())
     }
-    pub(crate) fn add_field(
-        &mut self,
-        field_invert_state: Rc<FieldInvertState<O, P, T>>,
-        field_info: Rc<FieldInfo>,
-    ) -> FreqProxTermsWriterPerField<O, P, T>
-    where
-        O: OffsetAttribute,
-        P: PayloadAttribute,
-        T: TermFrequencyAttribute,
-    {
+    pub(crate) fn add_field(&mut self, field_info: Rc<FieldInfo>) -> FreqProxTermsWriterPerField {
         let next_per_field = self
             .next_terms_hash
             .as_mut()
             .unwrap()
-            .add_field(field_invert_state.clone(), field_info.clone());
-        FreqProxTermsWriterPerField::new(field_invert_state, self, field_info, Some(next_per_field))
+            .add_field(field_info.clone());
+        FreqProxTermsWriterPerField::new(self, field_info, Some(next_per_field))
     }
 }
 
