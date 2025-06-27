@@ -20,29 +20,26 @@ use std::sync::{
     Arc, Mutex,
 };
 
-use crate::index::buffered_updates::MTBufferedUpdates;
+use crate::index::buffered_updates::BufferedUpdates;
 use crate::index::buffered_updates_stream::SegmentState;
 use crate::index::field_updates_buffer::FieldUpdatesBuffer;
 use crate::index::fields::Fields;
 use crate::index::postings_enum::postings_enum_util;
 use crate::index::prefix_coded_terms::{PrefixCodedTerms, PrefixCodedTermsBuilder};
-use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::index::terms::Terms;
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::index::BytesRef;
 use crate::search::query::Query;
-use crate::store::directory::Directory;
 use crate::util::access::Access;
 use crate::util::accountable::Accountable;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::info_stream::{InfoStream, InfoStreamEnum};
-use crate::util::ToInt;
+use crate::util::{ByteBlockPool, CounterEnum, ToInt};
 
 #[allow(unused)]
-pub(crate) struct FrozenBufferedUpdates<D, Q, I>
+pub(crate) struct FrozenBufferedUpdates<Q, I>
 where
-    D: Directory,
     Q: Query,
     I: Access<InfoStreamEnum>,
 {
@@ -57,13 +54,13 @@ where
     field_updates_count: i32,
     bytes_used: i32,
     del_gen: i64,
-    private_segment: Option<Arc<SegmentCommitInfo<D>>>,
+    // SegmentInfo ID in SegmentCommitInfo
+    private_segment: Option<String>,
 }
 
 #[allow(unused)]
-impl<D, Q, I> FrozenBufferedUpdates<D, Q, I>
+impl<Q, I> FrozenBufferedUpdates<Q, I>
 where
-    D: Directory,
     Q: Query,
     I: Access<InfoStreamEnum>,
 {
@@ -74,11 +71,15 @@ where
     // Query we often undercount (say 24 bytes), plus int.
     const BYTES_PER_DEL_QUERY: i32 = 0;
 
-    pub fn new_sync(
+    pub fn new<C, B>(
         info_stream: I,
-        updates: &mut MTBufferedUpdates<Q>,
-        private_segment: Option<Arc<SegmentCommitInfo<D>>>,
-    ) -> Result<Self> {
+        updates: &mut BufferedUpdates<Q, C, B>,
+        private_segment: Option<String>,
+    ) -> Result<Self>
+    where
+        C: Access<CounterEnum>,
+        B: Access<ByteBlockPool<C>>,
+    {
         assert!(
             private_segment.is_none() || updates.delete_terms.is_empty(),
             "segment private packet should only have del queries"

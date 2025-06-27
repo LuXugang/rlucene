@@ -26,10 +26,9 @@ use crate::index::doc_values_update::{DocValuesUpdate, DocValuesUpdateBase};
 use crate::index::frozen_buffered_updates::FrozenBufferedUpdates;
 use crate::index::term::Term;
 use crate::search::query::Query;
-use crate::store::directory::Directory;
 use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::info_stream::{InfoStreamEnum, InfoStreamLock};
+use crate::util::info_stream::InfoStreamLock;
 
 /// [`DocumentsWriterDeleteQueue`] is a non-blocking linked pending deletes
 /// queue. Unlike other queue implementations, we only maintain the tail of the
@@ -88,7 +87,7 @@ where
     /// Generates the sequence number that IW returns to callers changing the
     /// index, showing the effective serialization of all operations.
     next_seq_no: Arc<AtomicI64>,
-    info_stream: Arc<Mutex<InfoStreamEnum>>,
+    info_stream: InfoStreamLock,
     start_seq_no: i64,
     previous_max_seq_id: i64,
 }
@@ -96,11 +95,11 @@ impl<Q> DocumentsWriterDeleteQueue<Q>
 where
     Q: Query,
 {
-    pub(crate) fn new(info_stream: Arc<Mutex<InfoStreamEnum>>) -> Self {
+    pub(crate) fn new(info_stream: InfoStreamLock) -> Self {
         Self::with_params(info_stream, 0, 1, 0)
     }
     pub(crate) fn with_params(
-        info_stream: Arc<Mutex<InfoStreamEnum>>,
+        info_stream: InfoStreamLock,
         generation: i64,
         start_seq_no: i64,
         previous_max_seq_id: i64,
@@ -233,13 +232,10 @@ where
         Ok(())
     }
 
-    pub(crate) fn freeze_global_buffer<D>(
+    pub(crate) fn freeze_global_buffer(
         &self,
         caller_slice: Option<&mut DeleteSlice<Q>>,
-    ) -> Result<Option<FrozenBufferedUpdates<D, Q, InfoStreamLock>>>
-    where
-        D: Directory,
-    {
+    ) -> Result<Option<FrozenBufferedUpdates<Q, InfoStreamLock>>> {
         let mut global_state = self.global_buffer_lock.write();
         self.ensure_open(global_state.closed)?;
         // Here we freeze the global buffer so we need to lock it, apply all
@@ -259,12 +255,9 @@ where
     /// This may freeze the global buffer unless the delete queue has already
     /// been closed. If the queue has been closed, this method will return
     /// `None`.
-    pub(crate) fn maybe_freeze_global_buffer<D>(
+    pub(crate) fn maybe_freeze_global_buffer(
         &self,
-    ) -> Result<Option<FrozenBufferedUpdates<D, Q, InfoStreamLock>>>
-    where
-        D: Directory,
-    {
+    ) -> Result<Option<FrozenBufferedUpdates<Q, InfoStreamLock>>> {
         let mut global_state = self.global_buffer_lock.write();
 
         if !global_state.closed {
@@ -282,21 +275,18 @@ where
         }
     }
 
-    fn freeze_global_buffer_internal<D>(
+    fn freeze_global_buffer_internal(
         &self,
         global_state: &mut RwLockWriteGuard<GlobalState<Q>>,
         current_tail: Arc<Node<Q>>,
-    ) -> Result<Option<FrozenBufferedUpdates<D, Q, InfoStreamLock>>>
-    where
-        D: Directory,
-    {
+    ) -> Result<Option<FrozenBufferedUpdates<Q, InfoStreamLock>>> {
         if !Arc::ptr_eq(&global_state.global_slice.slice_tail, &current_tail) {
             global_state.global_slice.slice_tail = current_tail;
             global_state.apply(buffered_updates_util::MAX_INT)?;
         }
 
         if global_state.global_buffered_updates.any() {
-            let packet = FrozenBufferedUpdates::new_sync(
+            let packet = FrozenBufferedUpdates::new(
                 self.info_stream.clone(),
                 &mut global_state.global_buffered_updates,
                 None,
@@ -974,7 +964,7 @@ mod tests {
     use crate::search::dummy::dummy_query::DummyQuery;
     use crate::search::query::Query;
     use crate::search::term_query::TermQuery;
-    use crate::store::dummy::dummy_directory::DummyDirectory;
+
     use crate::test::util::lucene_test_case::{random, random_multiplier};
     use crate::util::bytes_ref_iterator::BytesRefIterator;
     use crate::util::error::lucene_error::{LuceneError, Result};
@@ -1035,7 +1025,7 @@ mod tests {
         assert_eq!(unique_values, bd1_terms_set);
         assert_eq!(unique_values, bd2_terms_set);
 
-        let frozen: FrozenBufferedUpdates<DummyDirectory, DummyQuery, InfoStreamLock> =
+        let frozen: FrozenBufferedUpdates<DummyQuery, InfoStreamLock> =
             queue.freeze_global_buffer(None)?.unwrap();
         let mut iter = frozen.delete_terms.iterator();
         let mut frozen_set: HashSet<Term> = HashSet::new();
@@ -1114,7 +1104,7 @@ mod tests {
             assert!(queue.any_changes());
 
             if random.random_range(0..5) == 0 {
-                if let Some(frozen) = queue.freeze_global_buffer::<DummyDirectory>(None)? {
+                if let Some(frozen) = queue.freeze_global_buffer(None)? {
                     assert_eq!(terms_since_freeze, frozen.delete_terms.size());
                     assert_eq!(queries_since_freeze, frozen.delete_queries.len());
                     terms_since_freeze = 0;
@@ -1144,7 +1134,7 @@ mod tests {
         assert!(queue.any_changes());
         queue.try_apply_global_slice()?;
         assert!(queue.any_changes());
-        let frozen_global_buffer_wrap = queue.freeze_global_buffer::<DummyDirectory>(None)?;
+        let frozen_global_buffer_wrap = queue.freeze_global_buffer(None)?;
         assert!(frozen_global_buffer_wrap.is_some());
         let frozen_global_buffer = frozen_global_buffer_wrap.unwrap();
         assert!(frozen_global_buffer.any());
@@ -1204,7 +1194,7 @@ mod tests {
 
         queue.try_apply_global_slice()?;
         let mut frozen_set = HashSet::new();
-        let frozen = queue.freeze_global_buffer::<DummyDirectory>(None)?.unwrap();
+        let frozen = queue.freeze_global_buffer(None)?.unwrap();
         let mut iter = frozen.delete_terms.iterator();
         let mut builder = BytesRefBuilder::new();
         while let Some(byte_ref) = iter.next()? {
@@ -1230,7 +1220,7 @@ mod tests {
             }
             let result = queue.add_delete_term(vec![Term::from_text("foo".to_string(), "bar")]);
             assert!(matches!(result, Err(LuceneError::AlreadyClosed(_))));
-            let result = queue.freeze_global_buffer::<DummyDirectory>(None);
+            let result = queue.freeze_global_buffer(None);
             assert!(matches!(result, Err(LuceneError::AlreadyClosed(_))));
             let result = queue.add_delete_query(vec![Arc::new(TermQuery::new(Term::from_text(
                 "foo".to_string(),
@@ -1250,7 +1240,7 @@ mod tests {
             );
             let result = queue.add_doc_values_updates(vec![update]);
             assert!(matches!(result, Err(LuceneError::AlreadyClosed(_))));
-            let result = queue.maybe_freeze_global_buffer::<DummyDirectory>()?;
+            let result = queue.maybe_freeze_global_buffer()?;
             assert!(result.is_none());
             assert!(!queue.is_open());
         }
@@ -1263,7 +1253,7 @@ mod tests {
 
             assert!(queue.is_open());
             queue.try_apply_global_slice()?;
-            queue.freeze_global_buffer::<DummyDirectory>(None)?;
+            queue.freeze_global_buffer(None)?;
             queue.close()?;
             assert!(!queue.is_open());
         }
