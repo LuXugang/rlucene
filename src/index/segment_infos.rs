@@ -672,8 +672,8 @@ where
             out.write_bytes_with_len(segment_id, segment_id_len as i32)?;
             out.write_string(LATEST_CODEC.get_name())?;
 
-            CodecUtil::write_be_long(out, si_per_commit.del_gen)?;
-            let del_count = si_per_commit.del_count;
+            CodecUtil::write_be_long(out, si_per_commit.get_del_gen())?;
+            let del_count = si_per_commit.get_del_count();
             let max_doc = si.max_doc()?;
             if del_count < 0 || del_count > max_doc {
                 return Err(LuceneError::illegal_state(format!(
@@ -682,10 +682,10 @@ where
                 )));
             }
             CodecUtil::write_be_int(out, del_count)?;
-            CodecUtil::write_be_long(out, si_per_commit.field_infos_gen)?;
-            CodecUtil::write_be_long(out, si_per_commit.doc_values_gen)?;
+            CodecUtil::write_be_long(out, si_per_commit.get_field_infos_gen())?;
+            CodecUtil::write_be_long(out, si_per_commit.get_doc_values_gen())?;
 
-            let soft_del_count = si_per_commit.soft_del_count;
+            let soft_del_count = si_per_commit.get_soft_del_count();
             if soft_del_count < 0 || soft_del_count > max_doc {
                 return Err(LuceneError::illegal_state(format!(
                     "Cannot write segment: invalid maxDoc segment={} maxDoc={} softDelCount={}",
@@ -694,7 +694,7 @@ where
             }
             CodecUtil::write_be_int(out, soft_del_count)?;
 
-            if let Some(sci_id) = &si_per_commit.id {
+            if let Some(sci_id) = &si_per_commit.get_id() {
                 out.write_byte(1)?;
                 let sci_id_len = sci_id.len();
                 debug_assert_eq!(
@@ -709,9 +709,9 @@ where
                 out.write_byte(0)?;
             }
 
-            out.write_set_of_strings(&si_per_commit.field_infos_files)?;
+            out.write_set_of_strings(si_per_commit.get_field_infos_files())?;
 
-            let dv_updates_files = &si_per_commit.dv_updates_files;
+            let dv_updates_files = si_per_commit.get_doc_values_updates_files();
             let dv_updates_files_len = dv_updates_files.len();
             debug_assert!(dv_updates_files_len <= i32::MAX as usize);
             CodecUtil::write_be_int(out, dv_updates_files_len as i32)?;

@@ -32,51 +32,38 @@ where
 {
     /// The SegmentInfo that we wrap.
     pub info: Rc<SegmentInfo<D>>,
-
     /// Id that uniquely identifies this segment commit.
-    pub id: Option<Vec<u8>>,
-
+    id: Option<Vec<u8>>,
     /// How many deleted docs in the segment.
-    pub del_count: i32,
-
+    del_count: i32,
     /// How many soft-deleted docs in the segment that are not also
     /// hard-deleted.
-    pub soft_del_count: i32,
-
+    soft_del_count: i32,
     /// Generation number of the live docs file (-1 if there are no deletes
     /// yet).
-    pub del_gen: i64,
-
+    del_gen: i64,
     /// Normally 1 + del_gen, unless an exception was hit on the last attempt
     /// to write.
-    pub next_write_del_gen: i64,
-
+    next_write_del_gen: i64,
     /// Generation number of the FieldInfos (-1 if there are no updates).
-    pub field_infos_gen: i64,
-
+    field_infos_gen: i64,
     /// Normally 1 + field_infos_gen, unless an exception was hit on the last
     /// attempt to write.
-    pub next_write_field_infos_gen: i64,
-
+    next_write_field_infos_gen: i64,
     /// Generation number of the DocValues (-1 if there are no updates).
-    pub doc_values_gen: i64,
-
+    doc_values_gen: i64,
     /// Normally 1 + doc_values_gen, unless an exception was hit on the last
     /// attempt to write.
-    pub next_write_doc_values_gen: i64,
-
+    next_write_doc_values_gen: i64,
     /// Track the per-field DocValues update files.
-    pub dv_updates_files: HashMap<i32, HashSet<String>>,
-
+    dv_updates_files: HashMap<i32, HashSet<String>>,
     /// Track the FieldInfos update files.
-    pub field_infos_files: HashSet<String>,
-
+    field_infos_files: HashSet<String>,
     /// Size of the segment in bytes (-1 of unknown).
-    pub size_in_bytes: AtomicI64,
-
+    size_in_bytes: AtomicI64,
     /// Used in memory by IndexWriter to track buffered deletes. Not persisted
     /// to disk.
-    pub buffered_deletes_gen: i64,
+    buffered_deletes_gen: i64,
 }
 impl<D> SegmentCommitInfo<D>
 where
