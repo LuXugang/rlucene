@@ -44,8 +44,8 @@ where
             lock: Mutex::new(()),
         }
     }
-    pub fn get_written_files(&mut self) -> HashSet<String> {
-        self.created_filenames.clone()
+    pub fn get_created_files(&self) -> &HashSet<String> {
+        &self.created_filenames
     }
     pub fn clear_created_files(&mut self) {
         self.created_filenames.clear();

@@ -14,13 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cell::RefCell;
-use std::rc::Rc;
-
 use bit_set::BitSet;
 use num_bigint::{BigInt, Sign};
 use num_traits::Zero;
+use parking_lot::Mutex;
 use rand::{Rng, RngCore};
+use std::cell::RefCell;
+use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::codecs::mutable_point_tree::MutablePointTree;
 use crate::index::merge_state::{DocMap, DocMapEnum};
@@ -52,7 +53,7 @@ fn get_point_values<I: IndexInput>(index_input: Rc<RefCell<I>>) -> Result<BKDRea
 fn test_basic_ints_1d() -> Result<()> {
     let mut random = random();
     let config = Rc::new(BKDConfig::new(1, 1, 4, 2)?);
-    let dir = Rc::new(RefCell::new(new_directory(&mut random)?));
+    let dir = Arc::new(Mutex::new(new_directory(&mut random)?));
 
     {
         let mut writer = BKDWriter::new(100, dir.clone(), "tmp", config.clone(), 1.0, 100)?;
@@ -66,7 +67,7 @@ fn test_basic_ints_1d() -> Result<()> {
         let index_fp;
         {
             let out = Rc::new(RefCell::new(
-                dir.borrow_mut()
+                dir.lock()
                     .create_output("bkd", &IOContext::default_io_context()?)?,
             ));
             let finalizer = writer.finish(out.clone())?.unwrap();
@@ -78,7 +79,7 @@ fn test_basic_ints_1d() -> Result<()> {
 
         {
             let mut input = dir
-                .borrow_mut()
+                .lock()
                 .open_input("bkd", &IOContext::default_io_context()?)?;
             input.seek(index_fp)?;
             let sub_point_values = get_point_values(Rc::new(RefCell::new(input)))?;
@@ -115,7 +116,7 @@ fn test_basic_ints_1d() -> Result<()> {
 fn test_random_ints_n_dims() -> Result<()> {
     let mut random = random();
     let num_docs = at_least(&mut random, 1000);
-    let dir = Rc::new(RefCell::new(new_directory(&mut random)?));
+    let dir = Arc::new(Mutex::new(new_directory(&mut random)?));
 
     let num_dims = TestUtil::next_int(&mut random, 1, 5);
     let num_index_dims = TestUtil::next_int(&mut random, 1, num_dims);
@@ -166,7 +167,7 @@ fn test_random_ints_n_dims() -> Result<()> {
     let index_fp;
     {
         let out = Rc::new(RefCell::new(
-            dir.borrow_mut()
+            dir.lock()
                 .create_output("bkd", &IOContext::default_io_context()?)?,
         ));
         let finalizer = writer.finish(out.clone())?.unwrap();
@@ -178,7 +179,7 @@ fn test_random_ints_n_dims() -> Result<()> {
 
     {
         let mut input = dir
-            .borrow_mut()
+            .lock()
             .open_input("bkd", &IOContext::default_io_context()?)?;
         input.seek(index_fp)?;
         let sub_point_values = get_point_values(Rc::new(RefCell::new(input)))?;
@@ -254,7 +255,7 @@ fn test_random_ints_n_dims() -> Result<()> {
 fn test_big_int_n_dims() -> Result<()> {
     let mut random = random();
     let num_docs = at_least(&mut random, 1000);
-    let dir = Rc::new(RefCell::new(new_directory(&mut random)?));
+    let dir = Arc::new(Mutex::new(new_directory(&mut random)?));
 
     let num_bytes_per_dim = TestUtil::next_int(&mut random, 2, 30);
     let num_dims = TestUtil::next_int(&mut random, 1, 5);
@@ -305,7 +306,7 @@ fn test_big_int_n_dims() -> Result<()> {
     let index_fp;
     {
         let out = Rc::new(RefCell::new(
-            dir.borrow_mut()
+            dir.lock()
                 .create_output("bkd", &IOContext::default_io_context()?)?,
         ));
         let finalizer = writer.finish(out.clone())?.unwrap();
@@ -317,7 +318,7 @@ fn test_big_int_n_dims() -> Result<()> {
 
     {
         let mut input = dir
-            .borrow_mut()
+            .lock()
             .open_input("bkd", &IOContext::default_io_context()?)?;
         input.seek(index_fp)?;
         let sub_point_values = get_point_values(Rc::new(RefCell::new(input)))?;
@@ -405,7 +406,7 @@ fn test_random_binary_big() -> Result<()> {
 }
 #[test]
 fn test_too_little_heap() -> Result<()> {
-    let dir = Rc::new(RefCell::new(new_directory(&mut random())?));
+    let dir = Arc::new(Mutex::new(new_directory(&mut random())?));
 
     let err = BKDWriter::new(
         1,
@@ -817,7 +818,7 @@ fn verify_full<R: Rng + ?Sized>(
     num_bytes_per_dim: i32,
     max_points_in_leaf_node: i32,
 ) -> Result<()> {
-    let dir = Rc::new(RefCell::new(new_directory(random)?));
+    let dir = Arc::new(Mutex::new(new_directory(random)?));
     let max_mb: f64 = 3.0 + (3.0 * random.random::<f64>());
     verify_with_max_mb(
         random,
@@ -834,7 +835,7 @@ fn verify_full<R: Rng + ?Sized>(
 #[allow(clippy::too_many_arguments)]
 fn verify_with_max_mb<D: Directory, R: Rng + ?Sized>(
     random: &mut R,
-    dir: Rc<RefCell<D>>,
+    dir: Arc<Mutex<D>>,
     doc_values: &[Vec<Vec<u8>>],
     doc_ids: Option<Vec<i32>>,
     num_data_dims: i32,
@@ -881,7 +882,7 @@ fn verify_with_max_mb<D: Directory, R: Rng + ?Sized>(
     )?;
 
     let out = Rc::new(RefCell::new(
-        dir.borrow_mut()
+        dir.lock()
             .create_output("bkd", &IOContext::default_io_context()?)?,
     ));
 
@@ -983,7 +984,7 @@ fn verify_with_max_mb<D: Directory, R: Rng + ?Sized>(
         }
         drop(out);
         input = Rc::new(RefCell::new(
-            dir.borrow_mut()
+            dir.lock()
                 .open_input("bkd", &IOContext::default_io_context()?)?,
         ));
         seg += 1;
@@ -1009,7 +1010,7 @@ fn verify_with_max_mb<D: Directory, R: Rng + ?Sized>(
 
         {
             let out = Rc::new(RefCell::new(
-                dir.borrow_mut()
+                dir.lock()
                     .create_output("bkd2", &IOContext::default_io_context()?)?,
             ));
             let finalizer = writer
@@ -1019,7 +1020,7 @@ fn verify_with_max_mb<D: Directory, R: Rng + ?Sized>(
             writer.write_index(out.clone(), out.clone(), &finalizer)?;
         }
         input = Rc::new(RefCell::new(
-            dir.borrow_mut()
+            dir.lock()
                 .open_input("bkd2", &IOContext::default_io_context()?)?,
         ));
     } else {
@@ -1028,7 +1029,7 @@ fn verify_with_max_mb<D: Directory, R: Rng + ?Sized>(
         writer.write_index(out.clone(), out.clone(), &finalizer)?;
         drop(out);
         input = Rc::new(RefCell::new(
-            dir.borrow_mut()
+            dir.lock()
                 .open_input("bkd", &IOContext::default_io_context()?)?,
         ));
     }
@@ -1104,9 +1105,9 @@ fn verify_with_max_mb<D: Directory, R: Rng + ?Sized>(
         )?;
         assert_hits(&hits, &expected);
     }
-    dir.borrow_mut().delete_file("bkd")?;
+    dir.lock().delete_file("bkd")?;
     if to_merge.is_some() {
-        dir.borrow_mut().delete_file("bkd2")?;
+        dir.lock().delete_file("bkd2")?;
     }
 
     Ok(())
@@ -1385,7 +1386,7 @@ impl IntersectVisitor for IntersectVisitorMock2 {
 #[test]
 fn test_tie_break_order() -> Result<()> {
     let mut random = random();
-    let dir = Rc::new(RefCell::new(new_directory(&mut random)?));
+    let dir = Arc::new(Mutex::new(new_directory(&mut random)?));
     let num_docs = 10_000;
 
     let config = Rc::new(BKDConfig::new(1, 1, 4, 2)?);
@@ -1404,7 +1405,7 @@ fn test_tie_break_order() -> Result<()> {
     }
 
     let out = Rc::new(RefCell::new(
-        dir.borrow_mut()
+        dir.lock()
             .create_output("bkd", &IOContext::default_io_context()?)?,
     ));
 
@@ -1413,7 +1414,7 @@ fn test_tie_break_order() -> Result<()> {
     writer.write_index(out.clone(), out.clone(), &finalizer)?;
 
     let mut input = dir
-        .borrow_mut()
+        .lock()
         .open_input("bkd", &IOContext::default_io_context()?)?;
     input.seek(fp)?;
     let sub_point_values = get_point_values(Rc::new(RefCell::new(input)))?;
@@ -1471,7 +1472,7 @@ impl IntersectVisitor for IntersectVisitorMock3 {
 #[test]
 fn test_check_data_dim_optimal_order() -> Result<()> {
     let mut random = random();
-    let dir = Rc::new(RefCell::new(new_directory(&mut random)?));
+    let dir = Arc::new(Mutex::new(new_directory(&mut random)?));
     let num_values = at_least(&mut random, 5000);
     let max_points_in_leaf_node = TestUtil::next_int(&mut random, 50, 500);
     let num_bytes_per_dim = TestUtil::next_int(&mut random, 1, 4);
@@ -1517,7 +1518,7 @@ fn test_check_data_dim_optimal_order() -> Result<()> {
         }
 
         let out = Rc::new(RefCell::new(
-            dir.borrow_mut()
+            dir.lock()
                 .create_output("bkd", &IOContext::default_io_context()?)?,
         ));
         let finalizer = writer.finish(out.clone())?.unwrap();
@@ -1527,7 +1528,7 @@ fn test_check_data_dim_optimal_order() -> Result<()> {
     }
 
     let mut point_in = dir
-        .borrow_mut()
+        .lock()
         .open_input("bkd", &IOContext::default_io_context()?)?;
     point_in.seek(index_fp)?;
 
@@ -1579,7 +1580,7 @@ where
 #[test]
 fn test_2d_long_ords_offline() -> Result<()> {
     let mut random = random();
-    let dir = Rc::new(RefCell::new(new_directory(&mut random)?));
+    let dir = Arc::new(Mutex::new(new_directory(&mut random)?));
     let num_docs = 100_000;
 
     let config = Rc::new(BKDConfig::new(2, 2, 4, 2)?);
@@ -1601,7 +1602,7 @@ fn test_2d_long_ords_offline() -> Result<()> {
     let fp;
     {
         let out = Rc::new(RefCell::new(
-            dir.borrow_mut()
+            dir.lock()
                 .create_output("bkd", &IOContext::default_io_context()?)?,
         ));
         let finalizer = writer.finish(out.clone())?.unwrap();
@@ -1610,7 +1611,7 @@ fn test_2d_long_ords_offline() -> Result<()> {
     }
 
     let mut input = dir
-        .borrow_mut()
+        .lock()
         .open_input("bkd", &IOContext::default_io_context()?)?;
     input.seek(fp)?;
     let sub_point_values = get_point_values(Rc::new(RefCell::new(input)))?;
@@ -1677,7 +1678,7 @@ fn test_wasted_leading_bytes() -> Result<()> {
     let bytes_per_dim = point_values_util::MAX_NUM_BYTES;
     let bytes_used = TestUtil::next_int(&mut random, 1, 3);
 
-    let dir = Rc::new(RefCell::new(new_directory(&mut random)?));
+    let dir = Arc::new(Mutex::new(new_directory(&mut random)?));
     let num_docs = at_least(&mut random, 10000);
     let config = Rc::new(BKDConfig::new(num_dims, num_index_dims, bytes_per_dim, 32)?);
 
@@ -1704,7 +1705,7 @@ fn test_wasted_leading_bytes() -> Result<()> {
     let fp;
     {
         let out = Rc::new(RefCell::new(
-            dir.borrow_mut()
+            dir.lock()
                 .create_output("bkd", &IOContext::default_io_context()?)?,
         ));
 
@@ -1713,7 +1714,7 @@ fn test_wasted_leading_bytes() -> Result<()> {
         writer.write_index(out.clone(), out.clone(), &finalizer)?;
     }
     let mut input = dir
-        .borrow_mut()
+        .lock()
         .open_input("bkd", &IOContext::default_io_context()?)?;
     input.seek(fp)?;
     let sub_point_values = get_point_values(Rc::new(RefCell::new(input)))?;
@@ -1792,7 +1793,7 @@ impl IntersectVisitor for IntersectVisitorMock8<'_> {
 #[test]
 fn test_estimate_point_count() -> Result<()> {
     let mut random = random();
-    let dir = Rc::new(RefCell::new(new_directory(&mut random)?));
+    let dir = Arc::new(Mutex::new(new_directory(&mut random)?));
     let num_values = at_least(&mut random, 10_000);
     let max_points_in_leaf_node = TestUtil::next_int(&mut random, 50, 500);
     let num_bytes_per_dim = TestUtil::next_int(&mut random, 1, 4);
@@ -1833,7 +1834,7 @@ fn test_estimate_point_count() -> Result<()> {
     let index_fp;
     {
         let out = Rc::new(RefCell::new(
-            dir.borrow_mut()
+            dir.lock()
                 .create_output("bkd", &IOContext::default_io_context()?)?,
         ));
         let finalizer = writer.finish(out.clone())?.unwrap();
@@ -1842,7 +1843,7 @@ fn test_estimate_point_count() -> Result<()> {
     }
 
     let mut input = dir
-        .borrow_mut()
+        .lock()
         .open_input("bkd", &IOContext::default_io_context()?)?;
     input.seek(index_fp)?;
     let point_values = PointValues::new(get_point_values(Rc::new(RefCell::new(input)))?);
@@ -1933,7 +1934,7 @@ impl MutablePointTree for MutablePointTreeMock1 {
 #[test]
 fn test_total_point_count_validation() -> Result<()> {
     let mut random = random();
-    let dir = Rc::new(RefCell::new(new_directory(&mut random).unwrap()));
+    let dir = Arc::new(Mutex::new(new_directory(&mut random).unwrap()));
     let num_values = 10;
     let num_points_added = 50;
     let num_bytes_per_dim = TestUtil::next_int(&mut random, 1, 4);
@@ -1962,7 +1963,7 @@ fn test_total_point_count_validation() -> Result<()> {
         num_values as i64,
     )?;
     let out = Rc::new(RefCell::new(
-        dir.borrow_mut()
+        dir.lock()
             .create_output("bkd", &IOContext::default_io_context()?)?,
     ));
 
@@ -2036,7 +2037,7 @@ impl MutablePointTree for MutablePointTreeMock2 {
 #[test]
 fn test_too_many_points_1d() -> Result<()> {
     let mut random = random();
-    let dir = Rc::new(RefCell::new(new_directory(&mut random)?));
+    let dir = Arc::new(Mutex::new(new_directory(&mut random)?));
 
     let num_values = 10;
     let num_bytes_per_dim = TestUtil::next_int(&mut random, 1, 4);
@@ -2068,7 +2069,7 @@ fn test_too_many_points_1d() -> Result<()> {
     )?;
 
     let out = Rc::new(RefCell::new(
-        dir.borrow_mut()
+        dir.lock()
             .create_output("bkd", &IOContext::default_io_context()?)?,
     ));
 
