@@ -25,7 +25,8 @@ use crate::codecs::points_format::PointsFormat;
 use crate::codecs::points_writer::PointsWriter;
 use crate::codecs::Codec;
 use crate::document::invertable_field::InvertableType;
-use crate::index::binary_doc_values_writer::BufferedBinaryDocValues;
+use crate::document::stored_value::StoredValueType;
+use crate::index::binary_doc_values_writer::{BinaryDocValuesWriter, BufferedBinaryDocValues};
 use crate::index::doc_values::{DocValues, EmptyBinary, EmptyNumeric, EmptySorted};
 use crate::index::doc_values_leaf_reader::DocValuesLeafReader;
 use crate::index::doc_values_skip_index_type::DocValuesSkipIndexType;
@@ -46,16 +47,20 @@ use crate::index::indexable_field_type::IndexableFieldType;
 use crate::index::leaf_reader::LeafReader;
 use crate::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::index::norm_values_writer::NormValuesWriter;
-use crate::index::numeric_doc_values_writer::BufferedNumericDocValues;
+use crate::index::numeric_doc_values_writer::{BufferedNumericDocValues, NumericDocValuesWriter};
 use crate::index::point_values_writer::PointValuesWriter;
 use crate::index::segment_info::SegmentInfo;
 use crate::index::segment_write_state::SegmentWriteState;
 use crate::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
 use crate::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
 use crate::index::sort::Sort;
-use crate::index::sorted_doc_values_writer::BufferedSortedDocValues;
-use crate::index::sorted_numeric_doc_values_writer::BufferedSortedNumericDocValues;
-use crate::index::sorted_set_doc_values_writer::BufferedSortedSetDocValues;
+use crate::index::sorted_doc_values_writer::{BufferedSortedDocValues, SortedDocValuesWriter};
+use crate::index::sorted_numeric_doc_values_writer::{
+    BufferedSortedNumericDocValues, SortedNumericDocValuesWriter,
+};
+use crate::index::sorted_set_doc_values_writer::{
+    BufferedSortedSetDocValues, SortedSetDocValuesWriter,
+};
 use crate::index::sorter::{DocMap, DocMapImpl, Sorter};
 use crate::index::sorting_stored_fields_consumer::SortingStoredFieldsConsumer;
 use crate::index::sorting_term_vectors_consumer::SortingTermVectorsConsumer;
@@ -72,6 +77,7 @@ use crate::util::accountable::Accountable;
 use crate::util::allocator_byte::{
     AllocatorByteEnum, DirectTrackingAllocatorByte, STAllocatorByteEnum,
 };
+use crate::util::array_util::ArrayUtil;
 use crate::util::bit_set::{bit_set_util, BitSet};
 use crate::util::bit_util::BitUtil;
 use crate::util::either_enums::{
@@ -113,7 +119,7 @@ where
     hash_mask: usize,
     total_field_count: usize,
     next_field_gen: i64,
-    fields: Vec<usize>,
+    fields: Vec<i32>,
     doc_fields: Vec<Option<PerField<O, P, T, TS>>>,
     byte_block_allocator: STAllocatorByteEnum,
     index_writer_config: Arc<L>,
@@ -188,7 +194,7 @@ where
             terms_hash,
             doc_values_byte_pool,
             stored_fields_consumer,
-            field_hash: vec![0; 2],
+            field_hash: vec![-1; 2],
             hash_mask: 1,
             total_field_count: 0,
             next_field_gen: 0,
@@ -398,7 +404,6 @@ where
             return Ok(());
         }
 
-        // open the norms consumer
         let mut norms_consumer = {
             let norm_format = self.index_writer_config.get_codec().norms_format();
             norm_format.norms_consumer(state)?
@@ -428,8 +433,32 @@ where
     }
 
     pub(crate) fn abort(&mut self) -> Result<()> {
+        self.terms_hash.abort()?;
+        self.stored_fields_consumer.abort()?;
         // TODO
-        unimplemented!();
+        Ok(())
+    }
+
+    fn rehash(&mut self) {
+        let new_hash_size = self.field_hash.len() * 2;
+        debug_assert!(new_hash_size > self.field_hash.len());
+
+        let mut new_hash_array = vec![-1; new_hash_size];
+        let new_hash_mask = new_hash_size - 1;
+        for &idx in &self.field_hash {
+            let mut fp_idx = idx;
+            while fp_idx >= 0 {
+                let fp0 = self.doc_fields[fp_idx as usize].as_mut().unwrap();
+
+                let hash_pos2 = CoreHelper::compute_hash(&fp0.field_name) & new_hash_mask as u64;
+                let next_fp0 = fp0.next;
+                fp0.next = new_hash_array[hash_pos2 as usize];
+                new_hash_array[hash_pos2 as usize] = fp_idx;
+                fp_idx = next_fp0;
+            }
+        }
+        self.field_hash = new_hash_array;
+        self.hash_mask = new_hash_mask;
     }
 
     /// Calls `start_document` on the stored fields consumer, aborting the segment on error.
@@ -449,14 +478,350 @@ where
                 self.has_hit_aborting_exception = true;
             })
     }
+    pub(crate) fn process_document<F>(&mut self, doc_id: i32, document: &mut [F]) -> Result<()>
+    where
+        F: IndexableField<TokenStream = TS>,
+    {
+        // number of unique fields by names (collapses multiple field instances by the same name)
+        let mut field_count = 0;
+        // number of unique fields indexed with postings
+        let mut indexed_field_count = 0;
+        let field_gen = self.next_field_gen;
+        self.next_field_gen += 1;
+        let mut doc_field_idx: i32 = 0;
+        // NOTE: we need two passes here, in case there are
+        // multi-valued fields, because we must process all
+        // instances of a given field at once, since the
+        // analyzer is free to reuse TokenStream across fields
+        // (i.e., we cannot have more than one TokenStream
+        // running "at once"):
+        self.terms_hash.start_document()?;
+        self.start_stored_fields(doc_id)?;
 
-    fn update_doc_field_schema<FT>(
+        // 1st pass over doc fields – verify that doc schema matches the index schema
+        // build schema for each unique doc field
+        let result = (|| {
+            for field in document.iter() {
+                let field_type = field.field_type();
+                let is_reserved = field.is_reserved();
+                let pf_idx = self.get_or_add_per_field(field.name(), false);
+                {
+                    let pf = self.doc_fields[pf_idx as usize].as_mut().unwrap();
+
+                    if pf.reserved != is_reserved {
+                        return Err(LuceneError::illegal_argument(format!(
+                            "\"{}\" is a reserved field and should not be added to any document",
+                            field.name()
+                        )));
+                    }
+
+                    if pf.field_gen != field_gen {
+                        // first time we see this field in this document
+                        self.fields[field_count] = pf_idx;
+                        field_count += 1;
+                        pf.field_gen = field_gen;
+                        pf.reset(doc_id);
+                    }
+                }
+
+                if doc_field_idx as usize >= self.doc_fields.len() {
+                    self.oversize_doc_fields();
+                }
+                doc_field_idx += 1;
+                let pf = self.doc_fields[pf_idx as usize].as_mut().unwrap();
+                Self::update_doc_field_schema(field.name(), &mut pf.schema, &*field_type)?;
+            }
+
+            // For each field, if it's the first time we see this field in this segment,
+            // initialize its FieldInfo.
+            // If we have already seen this field, verify that its schema
+            // within the current doc matches its schema in the index.
+            for i in 0..field_count {
+                let idx = self.fields[i];
+                let pf = self.doc_fields[idx as usize].as_mut().unwrap();
+                if pf.field_info.is_none() {
+                    self.initialize_field_info(idx)?;
+                } else {
+                    pf.schema
+                        .assert_same_schema(pf.field_info.as_ref().unwrap())?;
+                }
+            }
+
+            // 2nd pass over doc fields – index each field
+            // also count the number of unique fields indexed with postings
+            doc_field_idx = 0;
+            for field in document.iter() {
+                if self.process_field(doc_id, field, doc_field_idx)? {
+                    self.fields[indexed_field_count] = doc_field_idx;
+                    indexed_field_count += 1;
+                }
+                doc_field_idx += 1;
+            }
+            Ok(())
+        })();
+        match result {
+            Ok(()) => {
+                debug_assert!(!self.has_hit_aborting_exception);
+                // Finish each indexed field name seen in the document:
+                for i in 0..indexed_field_count {
+                    let idx = self.fields[i];
+                    let pf = self.doc_fields[idx as usize].as_mut().unwrap();
+                    pf.finish(
+                        doc_id,
+                        self.terms_hash.next_terms_hash.as_mut().unwrap(),
+                        self.index_writer_config.get_similarity(),
+                    )?;
+                }
+                self.finish_stored_fields()?;
+                self.terms_hash
+                    .finish_document(doc_id, self.index_writer_config.get_codec())?;
+            },
+            Err(e) => {
+                return Err(e);
+            },
+        }
+        Ok(())
+    }
+    fn oversize_doc_fields(&mut self) {
+        let required = self.doc_fields.len() + 1;
+        // TODO: _bytes_per_element is padding value
+        let new_len = ArrayUtil::oversize(required, 1);
+        ArrayUtil::grow_with_len(&mut self.doc_fields, new_len);
+    }
+    pub(crate) fn initialize_field_info(&mut self, per_field_index: i32) -> Result<()> {
+        // Create and add a new fieldInfo to fieldInfos for this segment.
+        // During the creation of FieldInfo there is also verification of the correctness of all its
+        // parameters.
+
+        // If the fieldInfo doesn't exist in globalFieldNumbers for the whole index,
+        // it will be added there.
+        // If the field already exists in globalFieldNumbers (i.e. field present in other segments),
+        // we check consistency of its schema with schema for the whole index.
+        let pf = self.doc_fields[per_field_index as usize].as_mut().unwrap();
+        let s = &mut pf.schema;
+
+        // validate sort DV type
+        if let Some(index_sort) = &self.index_writer_config.get_index_sort() {
+            if s.doc_values_type != DocValuesType::None {
+                Self::validate_index_sort_dv_type(index_sort, &pf.field_name, &s.doc_values_type)?;
+            }
+        }
+        // TODO
+        // if s.vector_dimension != 0 {
+        //     let max_dim = self
+        //         .index_writer_config
+        //         .get_codec()
+        //         .knn_vectors_format()
+        //         .get_max_dimensions(&pf.field_name)?;
+        //     Self::validate_max_vector_dimension(&pf.field_name, s.vector_dimension, max_dim)?;
+        // }
+        let soft_deletes_field = match self.field_infos.get_soft_deletes_field_name() {
+            Some(name) if *name == pf.field_name => true,
+            _ => false,
+        };
+        let is_parent_field = match self.field_infos.get_parent_field_name() {
+            Some(name) if *name == pf.field_name => true,
+            _ => false,
+        };
+        let field_info = FieldInfo::new(
+            pf.field_name.clone(),
+            -1,
+            s.store_term_vector,
+            s.omit_norms,
+            false, // storePayloads is set up during indexing, if payloads were seen
+            s.index_options,
+            s.doc_values_type,
+            s.doc_values_skip_index,
+            -1,
+            Rc::new(RefCell::new(std::mem::take(&mut s.attributes))),
+            s.point_dimension_count,
+            s.point_index_dimension_count,
+            s.point_num_bytes,
+            s.vector_dimension,
+            s.vector_encoding,
+            s.vector_similarity_function,
+            soft_deletes_field,
+            is_parent_field,
+        );
+
+        let fi = self.field_infos.add(Rc::new(field_info))?;
+        pf.set_field_info(fi.clone());
+
+        if *fi.get_index_options() != IndexOptions::None {
+            pf.set_invert_state(&mut self.terms_hash, self.bytes_used.clone())?;
+        }
+
+        match fi.get_doc_values_type() {
+            DocValuesType::None => {},
+            DocValuesType::Numeric => {
+                pf.doc_values_writer = Some(DocValuesWriterEnum::Numeric(
+                    NumericDocValuesWriter::new(fi.clone(), self.bytes_used.clone())?,
+                ));
+            },
+            DocValuesType::Binary => {
+                pf.doc_values_writer = Some(DocValuesWriterEnum::Binary(
+                    BinaryDocValuesWriter::new(fi.clone(), self.bytes_used.clone())?,
+                ));
+            },
+            DocValuesType::Sorted => {
+                pf.doc_values_writer =
+                    Some(DocValuesWriterEnum::Sorted(SortedDocValuesWriter::new(
+                        fi.clone(),
+                        self.bytes_used.clone(),
+                        self.doc_values_byte_pool.clone(),
+                    )?));
+            },
+            DocValuesType::SortedNumeric => {
+                pf.doc_values_writer = Some(DocValuesWriterEnum::SortedNumeric(
+                    SortedNumericDocValuesWriter::new(fi.clone(), self.bytes_used.clone())?,
+                ));
+            },
+            DocValuesType::SortedSet => {
+                pf.doc_values_writer = Some(DocValuesWriterEnum::SortedSet(
+                    SortedSetDocValuesWriter::new(
+                        fi.clone(),
+                        self.bytes_used.clone(),
+                        self.doc_values_byte_pool.clone(),
+                    )?,
+                ));
+            },
+        }
+
+        if fi.get_point_dimension_count() != 0 {
+            pf.point_values_writer =
+                Some(PointValuesWriter::new(self.bytes_used.clone(), fi.clone())?);
+        }
+
+        // TODO
+        // if fi.get_vector_dimension() != 0 {
+        //     pf.knn_field_vectors_writer =
+        //         Some(self.vector_values_consumer.add_field(&fi).map_err(|e| {
+        //             self.has_hit_aborting_exception = true;
+        //             e
+        //         })?);
+        // }
+
+        Ok(())
+    }
+
+    fn process_field<F>(&mut self, doc_id: i32, field: &F, per_field_index: i32) -> Result<bool>
+    where
+        F: IndexableField<TokenStream = TS>,
+    {
+        let pf = self.doc_fields[per_field_index as usize].as_mut().unwrap();
+        let field_type = field.field_type();
+        let mut indexed_field = false;
+
+        // Invert indexed fields
+        if *field_type.index_options() != IndexOptions::None {
+            // first time we see this field in this doc
+            if pf.first {
+                pf.invert(doc_id, field, true, self.index_writer_config.get_analyzer())?;
+                pf.first = false;
+                indexed_field = true;
+            } else {
+                pf.invert(
+                    doc_id,
+                    field,
+                    false,
+                    self.index_writer_config.get_analyzer(),
+                )?;
+            }
+        }
+
+        // Add stored fields
+        if field_type.stored() {
+            let stored_value = field.stored_value()?.ok_or_else(|| {
+                LuceneError::illegal_argument("Cannot store a null value".to_string())
+            })?;
+            if stored_value.get_type() == StoredValueType::String
+                && stored_value.get_string_value()?.len()
+                    > IndexWriter::MAX_STORED_STRING_LENGTH as usize
+            {
+                return Err(LuceneError::illegal_argument(format!(
+                    "stored field \"{}\" is too large ({} characters) to store",
+                    field.name(),
+                    stored_value.get_string_value()?.len()
+                )));
+            }
+            self.stored_fields_consumer
+                .write_field(pf.field_info.as_ref().unwrap(), &stored_value)
+                .inspect_err(|e| {
+                    self.has_hit_aborting_exception = true;
+                })?;
+        }
+
+        let dv_type = *field_type.doc_values_type();
+        if dv_type != DocValuesType::None {
+            Self::index_doc_value(doc_id, pf, dv_type, field)?;
+        }
+
+        // points
+        if field_type.point_dimension_count() != 0 {
+            pf.point_values_writer
+                .as_mut()
+                .unwrap()
+                .add_packed_value(doc_id, field.binary_value()?.as_ref().unwrap())?;
+        }
+
+        // TODO:
+        // if field_type.vector_dimension() != 0 {
+        //     self.index_vector_value(
+        //         doc_id,
+        //         pf,
+        //         field_type.vector_encoding(),
+        //         field,
+        //     )?;
+        // }
+
+        Ok(indexed_field)
+    }
+    /// Returns a previously created [`PerField`], absorbing the type information from
+    /// [`FieldType`](crate::document::field_type::FieldType), and creates a new [`PerField`] if this field name wasn't seen yet.
+    pub(crate) fn get_or_add_per_field(&mut self, field_name: &str, reserved: bool) -> i32 {
+        let hash_pos = CoreHelper::compute_hash(field_name) as usize & self.hash_mask;
+        let mut per_field_index = self.field_hash[hash_pos];
+        let mut pf;
+        while per_field_index >= 0 {
+            pf = &self.doc_fields[per_field_index as usize];
+            let pf_as_ref = pf.as_ref().unwrap();
+            if pf_as_ref.field_name != field_name {
+                per_field_index = pf_as_ref.next;
+            }
+        }
+        if per_field_index < 0 {
+            let schema = FieldSchema::new(field_name);
+            let mut pf = PerField::new(
+                field_name,
+                self.index_created_version_major,
+                schema,
+                reserved,
+            );
+            pf.next = self.field_hash[hash_pos];
+            self.doc_fields.push(Some(pf));
+            per_field_index = self.doc_fields.len() as i32;
+            self.field_hash[hash_pos] = per_field_index;
+            self.total_field_count += 1;
+
+            if self.total_field_count >= (self.field_hash.len() >> 1) {
+                self.rehash();
+            }
+            if self.total_field_count > self.fields.len() {
+                // TODO:_bytes_per_element is padding value
+                let new_len = ArrayUtil::oversize(self.total_field_count, 1);
+                ArrayUtil::grow_with_len(&mut self.fields, new_len);
+            }
+        }
+        per_field_index
+    }
+    // update schema for field as seen in a particular document
+    fn update_doc_field_schema<IF>(
         field_name: &str,
         schema: &mut FieldSchema,
-        field_type: &FT,
+        field_type: &IF,
     ) -> Result<()>
     where
-        FT: IndexableFieldType,
+        IF: IndexableFieldType,
     {
         if *field_type.index_options() != IndexOptions::None {
             schema.set_index_options(
@@ -756,14 +1121,13 @@ where
         self.schema.reset(doc_id);
     }
 
-    pub(crate) fn set_field_info(&mut self, field_info: FieldInfo) {
+    pub(crate) fn set_field_info(&mut self, field_info: Rc<FieldInfo>) {
         assert!(self.field_info.is_none());
-        self.field_info = Some(Rc::new(field_info));
+        self.field_info = Some(field_info);
     }
     pub(crate) fn set_invert_state<D>(
         &mut self,
         terms_hash: &mut FreqProxTermsWriter<D>,
-        term_vectors_writer: &mut TermVectorsConsumer<D>,
         bytes_used: CounterEnumBorrow,
     ) -> Result<()>
     where
@@ -776,10 +1140,8 @@ where
             *fi.get_index_options(),
         );
         self.invert_state = Some(state);
-        // self.terms_hash_per_field = Some(terms_hash.add_field(
-        //     self.invert_state.as_ref().unwrap().clone(),
-        //     self.field_info.as_ref().unwrap().clone(),
-        // ));
+        self.terms_hash_per_field =
+            Some(terms_hash.add_field(self.field_info.as_ref().unwrap().clone()));
 
         if !fi.omits_norms() {
             // Even if no documents actually succeed in setting a norm, we still write norms for this
@@ -789,7 +1151,11 @@ where
         }
 
         if fi.has_term_vectors() {
-            term_vectors_writer.set_has_vectors();
+            terms_hash
+                .next_terms_hash
+                .as_mut()
+                .unwrap()
+                .set_has_vectors();
         }
         Ok(())
     }
@@ -990,7 +1356,6 @@ where
                         doc_id,
                         self.invert_state.as_mut().unwrap(),
                     )
-                // terms_hash_per_field.add_with_bytes_ref(invert_state.term_attribute.as_ref().unwrap().get_bytes_ref(), doc_id)
                 {
                     let mut prefix = [0u8; 30];
                     // TODO

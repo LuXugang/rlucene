@@ -113,16 +113,16 @@ where
         Ok(())
     }
 
-    fn write_field(&mut self, info: &FieldInfo, value: &StoredValue) -> Result<()> {
+    pub(crate) fn write_field(&mut self, info: &FieldInfo, value: &StoredValue) -> Result<()> {
         let writer = self.writer.as_mut().expect("writer must be initialized");
 
         match value.get_type() {
-            StoredValueType::INTEGER => writer.write_field_i32(info, value.get_int_value()?),
-            StoredValueType::LONG => writer.write_field_i64(info, value.get_long_value()?),
-            StoredValueType::FLOAT => writer.write_field_f32(info, value.get_float_value()?),
-            StoredValueType::DOUBLE => writer.write_field_f64(info, value.get_double_value()?),
-            StoredValueType::BINARY => writer.write_field_bytes(info, value.get_binary_value()?),
-            StoredValueType::STRING => writer.write_field_str(info, value.get_string_value()?),
+            StoredValueType::Integer => writer.write_field_i32(info, value.get_int_value()?),
+            StoredValueType::Long => writer.write_field_i64(info, value.get_long_value()?),
+            StoredValueType::Float => writer.write_field_f32(info, value.get_float_value()?),
+            StoredValueType::Double => writer.write_field_f64(info, value.get_double_value()?),
+            StoredValueType::Binary => writer.write_field_bytes(info, value.get_binary_value()?),
+            StoredValueType::String => writer.write_field_str(info, value.get_string_value()?),
         }
     }
 
@@ -171,7 +171,7 @@ where
         Ok(())
     }
 
-    fn abort(&mut self) -> Result<()> {
+    pub(crate) fn abort(&mut self) -> Result<()> {
         match self.sub {
             Some(ref mut sub) => sub.abort(),
             None => Ok(()),

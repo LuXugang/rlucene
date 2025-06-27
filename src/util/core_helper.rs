@@ -65,7 +65,7 @@ impl CoreHelper {
     }
     pub fn compute_hash<T>(value: &T) -> u64
     where
-        T: Hash,
+        T: Hash + ?Sized,
     {
         let mut hasher = DefaultHasher::new();
         value.hash(&mut hasher);

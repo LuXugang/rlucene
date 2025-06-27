@@ -87,6 +87,10 @@ pub trait IndexableField: Display {
     /// Describes how this field should be inverted. This must return a non-null
     /// value if the field indexes terms and postings.
     fn invertable_type(&self) -> &InvertableType;
+
+    fn is_reserved(&self) -> bool {
+        false
+    }
 }
 
 #[cfg(test)]

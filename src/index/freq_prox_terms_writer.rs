@@ -174,7 +174,7 @@ where
         }
         Ok(())
     }
-    fn finish_document(&mut self, doc_id: i32, codec: &impl Codec) -> Result<()> {
+    pub(crate) fn finish_document(&mut self, doc_id: i32, codec: &impl Codec) -> Result<()> {
         if self.next_terms_hash.is_some() {
             self.next_terms_hash
                 .as_mut()
@@ -183,7 +183,7 @@ where
         }
         Ok(())
     }
-    fn start_document(&mut self) -> Result<()> {
+    pub(crate) fn start_document(&mut self) -> Result<()> {
         if self.next_terms_hash.is_some() {
             self.next_terms_hash.as_mut().unwrap().start_document()?;
         }

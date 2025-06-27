@@ -23,6 +23,7 @@ impl UnicodeUtil {
     pub(crate) const UNI_SUR_HIGH_END: i32 = 0xDBFF;
     pub(crate) const UNI_SUR_LOW_START: i32 = 0xDC00;
     pub(crate) const UNI_SUR_LOW_END: i32 = 0xDFFF;
+    pub(crate) const MAX_UTF8_BYTES_PER_CHAR: i32 = 3;
     pub fn valid_utf16_string(s: &str) -> bool {
         let utf16: Vec<u16> = s.encode_utf16().collect();
         let mut i = 0;

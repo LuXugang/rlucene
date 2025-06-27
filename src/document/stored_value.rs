@@ -43,28 +43,28 @@ pub enum StoredValue {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StoredValueType {
     /// Type of integer values.
-    INTEGER,
+    Integer,
     /// Type of long values.
-    LONG,
+    Long,
     /// Type of float values.
-    FLOAT,
+    Float,
     /// Type of double values.
-    DOUBLE,
+    Double,
     /// Type of binary values.
-    BINARY,
+    Binary,
     /// Type of string values.
-    STRING,
+    String,
 }
 
 impl fmt::Display for StoredValueType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let type_str = match self {
-            StoredValueType::INTEGER => "INTEGER",
-            StoredValueType::LONG => "LONG",
-            StoredValueType::FLOAT => "FLOAT",
-            StoredValueType::DOUBLE => "DOUBLE",
-            StoredValueType::BINARY => "BINARY",
-            StoredValueType::STRING => "STRING",
+            StoredValueType::Integer => "INTEGER",
+            StoredValueType::Long => "LONG",
+            StoredValueType::Float => "FLOAT",
+            StoredValueType::Double => "DOUBLE",
+            StoredValueType::Binary => "BINARY",
+            StoredValueType::String => "STRING",
         };
         write!(f, "{}", type_str)
     }
@@ -104,12 +104,12 @@ impl StoredValue {
     /// Retrieve the type of the stored value.
     pub fn get_type(&self) -> StoredValueType {
         match self {
-            StoredValue::Integer(_) => StoredValueType::INTEGER,
-            StoredValue::Long(_) => StoredValueType::LONG,
-            StoredValue::Float(_) => StoredValueType::FLOAT,
-            StoredValue::Double(_) => StoredValueType::DOUBLE,
-            StoredValue::Binary(_) => StoredValueType::BINARY,
-            StoredValue::String(_) => StoredValueType::STRING,
+            StoredValue::Integer(_) => StoredValueType::Integer,
+            StoredValue::Long(_) => StoredValueType::Long,
+            StoredValue::Float(_) => StoredValueType::Float,
+            StoredValue::Double(_) => StoredValueType::Double,
+            StoredValue::Binary(_) => StoredValueType::Binary,
+            StoredValue::String(_) => StoredValueType::String,
         }
     }
 

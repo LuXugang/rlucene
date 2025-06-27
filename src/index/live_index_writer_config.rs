@@ -16,6 +16,7 @@
  */
 use crate::analysis::analyzer::Analyzer;
 use crate::codecs::Codec;
+use crate::index::sort::Sort;
 use crate::search::similarities::similarities::Similarity;
 
 pub trait LiveIndexWriterConfig {
@@ -27,4 +28,6 @@ pub trait LiveIndexWriterConfig {
 
     type Codec: Codec;
     fn get_codec(&self) -> &Self::Codec;
+
+    fn get_index_sort(&self) -> Option<Sort>;
 }

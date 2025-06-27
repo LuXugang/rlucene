@@ -15,7 +15,9 @@
  * limitations under the License.
  */
 use crate::index::merge_state::DocMap;
+use crate::util::array_util::ArrayUtil;
 use crate::util::byte_block_pool_util;
+use crate::util::unicode_util::UnicodeUtil;
 
 pub struct IndexWriter;
 
@@ -32,6 +34,8 @@ impl IndexWriter {
     pub const ACTUAL_MAX_DOCS: i32 = Self::MAX_DOCS;
 
     pub const MAX_TERM_LENGTH: i32 = byte_block_pool_util::BYTE_BLOCK_SIZE - 1;
+    pub const MAX_STORED_STRING_LENGTH: i32 =
+        ArrayUtil::MAX_ARRAY_LENGTH as i32 / UnicodeUtil::MAX_UTF8_BYTES_PER_CHAR;
     pub fn set_live_commit_data(&self) {}
 
     pub fn get_actual_max_docs() -> i32 {
