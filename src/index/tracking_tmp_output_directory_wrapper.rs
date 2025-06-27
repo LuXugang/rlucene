@@ -29,7 +29,7 @@ where
     D: Directory,
 {
     file_names: HashMap<String, String>,
-    base: FilterDirectory<D>,
+    base: FilterDirectory<D, Arc<Mutex<D>>>,
 }
 impl<D> TrackingTmpOutputDirectoryWrapper<D>
 where

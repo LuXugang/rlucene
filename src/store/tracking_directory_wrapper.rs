@@ -30,7 +30,7 @@ where
     D: Directory,
 {
     created_filenames: HashSet<String>,
-    base: FilterDirectory<D>,
+    base: FilterDirectory<D, Arc<Mutex<D>>>,
     lock: Mutex<()>,
 }
 impl<D> TrackingDirectoryWrapper<D>
@@ -85,7 +85,7 @@ where
         Ok(output)
     }
 
-    type IndexOutputType = <FilterDirectory<D> as Directory>::IndexOutputType;
+    type IndexOutputType = <FilterDirectory<D, Arc<Mutex<D>>> as Directory>::IndexOutputType;
 
     fn create_temp_output(
         &mut self,
@@ -112,7 +112,7 @@ where
         Ok(())
     }
 
-    type IndexInputType = <FilterDirectory<D> as Directory>::IndexInputType;
+    type IndexInputType = <FilterDirectory<D, Arc<Mutex<D>>> as Directory>::IndexInputType;
 
     fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInputType> {
         self.base.open_input(name, context)
@@ -125,7 +125,7 @@ where
         self.base.open_checksum_input(name)
     }
 
-    type Lock = <FilterDirectory<D> as Directory>::Lock;
+    type Lock = <FilterDirectory<D, Arc<Mutex<D>>> as Directory>::Lock;
 
     fn obtain_lock(&mut self, name: &str) -> Result<Self::Lock> {
         self.base.obtain_lock(name)

@@ -16,11 +16,12 @@
  */
 use crate::store::directory::Directory;
 use crate::store::IOContext;
+use crate::util::access::Access;
 use crate::util::error::lucene_error::Result;
-use parking_lot::Mutex;
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
-use std::sync::Arc;
+use std::marker::PhantomData;
+
 /// Directory implementation that delegates calls to another directory.
 ///
 /// This struct can be used to add limitations on top of an existing
@@ -33,51 +34,64 @@ use std::sync::Arc;
 /// [`BaseDirectory`](crate::store::base_directory::BaseDirectory) rather than
 /// trying to reuse functionality of existing [`Directory`]s by wrapping this
 /// one.
-pub struct FilterDirectory<D>
+pub struct FilterDirectory<D, A>
 where
     D: Directory,
+    A: Access<D>,
 {
-    pub(crate) delegate: Arc<Mutex<D>>,
+    pub(crate) delegate: A,
+    phantom: PhantomData<D>,
 }
-impl<D> FilterDirectory<D>
+impl<D, A> FilterDirectory<D, A>
 where
     D: Directory,
+    A: Access<D>,
 {
-    pub fn new(inner: Arc<Mutex<D>>) -> Self {
-        FilterDirectory { delegate: inner }
+    pub fn new(inner: A) -> Self {
+        FilterDirectory {
+            delegate: inner,
+            phantom: Default::default(),
+        }
     }
-    pub fn get_inner(&mut self) -> &mut Arc<Mutex<D>> {
+    pub fn get_inner(&mut self) -> &mut A {
         &mut self.delegate
     }
 }
 
-impl<D> Display for FilterDirectory<D>
+impl<D, A> Display for FilterDirectory<D, A>
 where
     D: Directory,
+    A: Access<D>,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "FilterDirectory({})", self.delegate.lock())
+        write!(
+            f,
+            "FilterDirectory({})",
+            self.delegate.access(|dir| dir.to_string())
+        )
     }
 }
 
-impl<D> Directory for FilterDirectory<D>
+impl<D, A> Directory for FilterDirectory<D, A>
 where
     D: Directory,
+    A: Access<D>,
 {
     fn list_all(&self) -> Result<Vec<String>> {
-        self.delegate.lock().list_all()
+        self.delegate.access(|dir| dir.list_all())
     }
 
     fn delete_file(&mut self, name: &str) -> Result<()> {
-        self.delegate.lock().delete_file(name)
+        self.delegate.access_mut(|dir| dir.delete_file(name))
     }
 
     fn file_length(&self, name: &str) -> Result<i64> {
-        self.delegate.lock().file_length(name)
+        self.delegate.access(|dir| dir.file_length(name))
     }
 
     fn create_output(&mut self, name: &str, context: &IOContext) -> Result<Self::IndexOutputType> {
-        self.delegate.lock().create_output(name, context)
+        self.delegate
+            .access_mut(|dir| dir.create_output(name, context))
     }
 
     type IndexOutputType = D::IndexOutputType;
@@ -89,35 +103,35 @@ where
         context: &IOContext,
     ) -> Result<Self::IndexOutputType> {
         self.delegate
-            .lock()
-            .create_temp_output(prefix, suffix, context)
+            .access_mut(|dir| dir.create_temp_output(prefix, suffix, context))
     }
 
     fn sync(&mut self, names: &[&str]) -> Result<()> {
-        self.delegate.lock().sync(names)
+        self.delegate.access_mut(|dir| dir.sync(names))
     }
 
     fn sync_metadata(&mut self) -> Result<()> {
-        self.delegate.lock().sync_metadata()
+        self.delegate.access_mut(|dir| dir.sync_metadata())
     }
 
     fn rename(&mut self, source: &str, dest: &str) -> Result<()> {
-        self.delegate.lock().rename(source, dest)
+        self.delegate.access_mut(|dir| dir.rename(source, dest))
     }
 
     type IndexInputType = D::IndexInputType;
 
     fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInputType> {
-        self.delegate.lock().open_input(name, context)
+        self.delegate
+            .access_mut(|dir| dir.open_input(name, context))
     }
 
     type Lock = D::Lock;
 
     fn obtain_lock(&mut self, name: &str) -> Result<Self::Lock> {
-        self.delegate.lock().obtain_lock(name)
+        self.delegate.access_mut(|dir| dir.obtain_lock(name))
     }
 
     fn get_pending_deletions(&mut self) -> Result<HashSet<String>> {
-        self.delegate.lock().get_pending_deletions()
+        self.delegate.access_mut(|dir| dir.get_pending_deletions())
     }
 }

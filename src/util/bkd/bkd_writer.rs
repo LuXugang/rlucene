@@ -141,7 +141,6 @@ where
         let bytes_per_dim = config.bytes_per_dim as usize;
         let packed_bytes_length = config.packed_bytes_length() as usize;
         let packed_index_bytes_length = config.packed_index_bytes_length() as usize;
-        //TODO: TrackingDirectoryWrapper实现后来修改这里
         // let temp_dir = TrackingDirectoryWrapper::new(temp_dir);
         let comparator = ArrayUtil::get_unsigned_comparator(bytes_per_dim);
         let equals_predicate = BKDUtil::get_equals_predicate(bytes_per_dim);
