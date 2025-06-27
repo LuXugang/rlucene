@@ -2035,6 +2035,44 @@ impl MutablePointTree for MutablePointTreeMock2 {
     }
 }
 #[test]
+fn test_too_many_points() -> Result<()> {
+    let mut random = random();
+    let dir = Arc::new(Mutex::new(new_directory(&mut random)?));
+
+    let num_values = 10;
+    let num_bytes_per_dim = TestUtil::next_int(&mut random, 1, 4) as usize;
+    let mut point_value = vec![0u8; num_bytes_per_dim];
+
+    let mut w = BKDWriter::new(
+        num_values as i32,
+        Arc::clone(&dir),
+        "_temp",
+        Rc::new(BKDConfig::new(1, 1, num_bytes_per_dim as i32, 2)?),
+        bkd_writer_util::DEFAULT_MAX_MB_SORT_IN_HEAP as f64,
+        num_values,
+    )?;
+
+    for i in 0..num_values {
+        random.fill_bytes(&mut point_value);
+        w.add(&point_value, i as i32)?;
+    }
+
+    random.fill_bytes(&mut point_value);
+    let err = w
+        .add(&point_value, num_values as i32)
+        .expect_err("expected IllegalStateException");
+    assert_eq!(
+        err.to_string(),
+        format!(
+            "totalPointCount={} was passed when we were created, but we just hit {} values",
+            num_values,
+            num_values + 1
+        )
+    );
+    Ok(())
+}
+
+#[test]
 fn test_too_many_points_1d() -> Result<()> {
     let mut random = random();
     let dir = Arc::new(Mutex::new(new_directory(&mut random)?));
