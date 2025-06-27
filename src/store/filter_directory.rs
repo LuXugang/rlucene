@@ -37,7 +37,7 @@ pub struct FilterDirectory<D>
 where
     D: Directory,
 {
-    delegate: Arc<Mutex<D>>,
+    pub(crate) delegate: Arc<Mutex<D>>,
 }
 impl<D> FilterDirectory<D>
 where
