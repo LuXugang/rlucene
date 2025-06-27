@@ -14,12 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::codecs::CodecUtil;
 use crate::store::directory::Directory;
-use crate::store::{DataOutput, IOContext, IndexOutput};
+use crate::store::{DataOutput, IOContext, IndexInput, IndexOutput};
 use crate::util::bkd::bkd_config::BKDConfig;
 use crate::util::bkd::offline_point_reader::OfflinePointReader;
 use crate::util::bkd::point_value::{PointValue, PointValueEnum};
@@ -27,12 +26,11 @@ use crate::util::bkd::point_writer::PointWriter;
 use crate::util::error::lucene_error::Result;
 
 /// Writes points to disk in a fixed-width format.
-pub struct OfflinePointWriter<D>
+pub struct OfflinePointWriter<O>
 where
-    D: Directory,
+    O: IndexOutput,
 {
-    pub temp_dir: Rc<RefCell<D>>,
-    pub out: Option<D::IndexOutputType>,
+    pub out: Option<O>,
     pub name: String,
     pub config: Rc<BKDConfig>,
     pub count: i64,
@@ -40,26 +38,28 @@ where
     pub expected_count: i64,
 }
 
-impl<D> OfflinePointWriter<D>
+impl<O> OfflinePointWriter<O>
 where
-    D: Directory,
+    O: IndexOutput,
 {
     /// Create a new writer with an unknown number of incoming points
-    pub fn new(
+    pub fn new<D>(
         config: Rc<BKDConfig>,
-        temp_dir: Rc<RefCell<D>>,
+        temp_dir: &mut D,
         temp_file_name_prefix: &str,
         desc: &str,
         expected_count: i64,
-    ) -> Result<Self> {
-        let out = temp_dir.borrow_mut().create_temp_output(
+    ) -> Result<Self>
+    where
+        D: Directory<IndexOutputType = O>,
+    {
+        let out = temp_dir.create_temp_output(
             temp_file_name_prefix,
             &format!("bkd_{}", desc),
             &IOContext::default_io_context()?,
         )?;
         let name = out.get_name().to_string();
         Ok(OfflinePointWriter {
-            temp_dir,
             out: Option::from(out),
             name,
             config,
@@ -69,12 +69,13 @@ where
         })
     }
 
-    pub fn get_reader_with_buffer(
+    pub fn get_reader_with_buffer<D: Directory>(
         &self,
         start: i64,
         length: i64,
         reusable_buffer: Vec<u8>,
-    ) -> Result<OfflinePointReader<D>> {
+        temp_dir: &mut D,
+    ) -> Result<OfflinePointReader<D::IndexInputType>> {
         debug_assert!(
             self.closed && self.out.is_none(),
             "point writer is still open and trying to get a reader"
@@ -94,7 +95,7 @@ where
         );
         let reader = OfflinePointReader::new(
             self.config.clone(),
-            self.temp_dir.clone(),
+            temp_dir,
             &self.name,
             start,
             length,
@@ -103,18 +104,18 @@ where
         Ok(reader)
     }
 }
-impl<D> Drop for OfflinePointWriter<D>
+impl<O> Drop for OfflinePointWriter<O>
 where
-    D: Directory,
+    O: IndexOutput,
 {
     fn drop(&mut self) {
         self.close();
     }
 }
 
-impl<D> std::fmt::Display for OfflinePointWriter<D>
+impl<O> std::fmt::Display for OfflinePointWriter<O>
 where
-    D: Directory,
+    O: IndexOutput,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
@@ -125,9 +126,9 @@ where
     }
 }
 
-impl<D> PointWriter for OfflinePointWriter<D>
+impl<O> PointWriter for OfflinePointWriter<O>
 where
-    D: Directory,
+    O: IndexOutput,
 {
     fn append_bytes(&mut self, packed_value: &[u8], doc_id: i32) -> Result<()> {
         debug_assert!(!self.closed, "Point writer is already closed");
@@ -176,19 +177,33 @@ where
         Ok(())
     }
 
-    type PointReader = OfflinePointReader<D>;
+    type PointReader<I>
+        = OfflinePointReader<I>
+    where
+        I: IndexInput;
 
-    fn get_reader(&mut self, start: i64, length: i64) -> Result<Self::PointReader> {
+    fn get_reader<D>(
+        &mut self,
+        start: i64,
+        length: i64,
+        temp_dir: &mut D,
+    ) -> Result<Self::PointReader<D::IndexInputType>>
+    where
+        D: Directory,
+    {
         let buffer = vec![0u8; self.config.bytes_per_doc() as usize];
-        self.get_reader_with_buffer(start, length, buffer)
+        self.get_reader_with_buffer(start, length, buffer, temp_dir)
     }
 
     fn count(&self) -> i64 {
         self.count
     }
 
-    fn destroy(&mut self) -> Result<()> {
-        self.temp_dir.borrow_mut().delete_file(&self.name)
+    fn destroy<D>(&mut self, dir: &mut D) -> Result<()>
+    where
+        D: Directory,
+    {
+        dir.delete_file(&self.name)
     }
 
     fn close(&mut self) {

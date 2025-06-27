@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-use crate::store::directory::Directory;
+use crate::store::IndexInput;
 use crate::util::bkd::heap_point_reader::HeapPointReader;
 use crate::util::bkd::offline_point_reader::OfflinePointReader;
 use crate::util::bkd::point_value::PointValueEnum;
@@ -39,16 +39,16 @@ pub trait PointReader {
     fn point_value(&mut self) -> &PointValueEnum;
 }
 
-pub enum PointReaderEnum<D>
+pub enum PointReaderEnum<I>
 where
-    D: Directory,
+    I: IndexInput,
 {
-    Offline(OfflinePointReader<D>),
+    Offline(OfflinePointReader<I>),
     Heap(HeapPointReader),
 }
-impl<D> PointReaderEnum<D>
+impl<I> PointReaderEnum<I>
 where
-    D: Directory,
+    I: IndexInput,
 {
     pub fn remove_points(&mut self) -> Option<PointValueEnum> {
         match self {
@@ -57,9 +57,9 @@ where
         }
     }
 }
-impl<D> PointReader for PointReaderEnum<D>
+impl<I> PointReader for PointReaderEnum<I>
 where
-    D: Directory,
+    I: IndexInput,
 {
     fn next(&mut self) -> Result<bool> {
         match self {

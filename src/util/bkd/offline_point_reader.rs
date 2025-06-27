@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::codecs::CodecUtil;
@@ -27,15 +26,15 @@ use crate::util::bkd::point_reader::PointReader;
 use crate::util::bkd::point_value::{PointValue, PointValueEnum};
 use crate::util::error::lucene_error::{LuceneError, Result};
 
-pub struct OfflinePointReader<D>
+pub struct OfflinePointReader<I>
 where
-    D: Directory,
+    I: IndexInput,
 {
     count_left: i64,
     // TODO:Perhaps we can use an enum here to encapsulate
     // BufferedChecksumIndexInput and other types of Input
-    input: Option<D::IndexInputType>,
-    check_sum_input: Option<BufferedChecksumIndexInput<D::IndexInputType>>,
+    input: Option<I>,
+    check_sum_input: Option<BufferedChecksumIndexInput<I>>,
     offset: i32,
     checked: bool,
     config: Rc<BKDConfig>,
@@ -47,24 +46,24 @@ where
     pub(crate) point_value: PointValueEnum,
 }
 
-impl<D> OfflinePointReader<D>
+impl<I> OfflinePointReader<I>
 where
-    D: Directory,
+    I: IndexInput,
 {
-    pub fn new(
+    pub fn new<D>(
         config: Rc<BKDConfig>,
-        temp_dir: Rc<RefCell<D>>,
+        temp_dir: &mut D,
         temp_file_name: &str,
         start: i64,
         length: i64,
         reusable_buffer: Vec<u8>,
     ) -> Result<Self>
     where
-        D: Directory,
+        D: Directory<IndexInputType = I>,
     {
         let bytes_per_doc = config.bytes_per_doc() as i64;
         let footer_length = CodecUtil::footer_length() as i64;
-        let file_length = temp_dir.borrow().file_length(temp_file_name)?;
+        let file_length = temp_dir.file_length(temp_file_name)?;
         if ((start + length) * bytes_per_doc + footer_length) > file_length {
             return Err(LuceneError::illegal_argument(format!(
                 "requested slice is beyond the length of this file: start={} length={} bytesPerDoc={} fileLength={} tempFileName={}",
@@ -87,19 +86,17 @@ where
         let max_point_on_heap = reusable_buffer_len as i32 / config.bytes_per_doc();
         let name = temp_file_name.to_string();
         let seek_fp = start * bytes_per_doc;
-        let (check_sum_input, input) = if start == 0
-            && (length * bytes_per_doc == file_length - footer_length)
-        {
-            let mut check_sum_input = temp_dir.borrow_mut().open_checksum_input(temp_file_name)?;
-            IndexInput::seek(&mut check_sum_input, seek_fp)?;
-            (Some(check_sum_input), None)
-        } else {
-            let mut input = temp_dir
-                .borrow_mut()
-                .open_input(temp_file_name, &IOContext::read_once_io_context()?)?;
-            input.seek(seek_fp)?;
-            (None, Some(input))
-        };
+        let (check_sum_input, input) =
+            if start == 0 && (length * bytes_per_doc == file_length - footer_length) {
+                let mut check_sum_input = temp_dir.open_checksum_input(temp_file_name)?;
+                IndexInput::seek(&mut check_sum_input, seek_fp)?;
+                (Some(check_sum_input), None)
+            } else {
+                let mut input =
+                    temp_dir.open_input(temp_file_name, &IOContext::read_once_io_context()?)?;
+                input.seek(seek_fp)?;
+                (None, Some(input))
+            };
 
         let count_left = length;
         let point_value = PointValueEnum::Offline(OfflinePointValue::new(&config, reusable_buffer));
@@ -118,9 +115,9 @@ where
         })
     }
 }
-impl<D> PointReader for OfflinePointReader<D>
+impl<I> PointReader for OfflinePointReader<I>
 where
-    D: Directory,
+    I: IndexInput,
 {
     fn next(&mut self) -> Result<bool> {
         let bytes_per_doc = self.config.bytes_per_doc();
@@ -199,9 +196,9 @@ where
         &self.point_value
     }
 }
-impl<D> Drop for OfflinePointReader<D>
+impl<I> Drop for OfflinePointReader<I>
 where
-    D: Directory,
+    I: IndexInput,
 {
     fn drop(&mut self) {
         if self.count_left == 0 && self.check_sum_input.is_some() && !self.checked {

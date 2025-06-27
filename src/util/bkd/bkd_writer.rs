@@ -85,7 +85,7 @@ where
     config: Rc<BKDConfig>,
     comparator: ByteArrayComparatorEnum,
     common_prefix_comparator: ByteArrayComparatorEnum,
-    temp_dir: Rc<RefCell<TrackingDirectoryWrapper<D>>>,
+    temp_dir: TrackingDirectoryWrapper<D>,
     temp_file_name_prefix: String,
     #[allow(unused)]
     max_mb_sort_in_heap: f64,
@@ -95,7 +95,8 @@ where
     scratch_bytes_ref2: BytesRef<Vec<u8>>,
     common_prefix_lengths: Vec<i32>,
     docs_seen: FixedBitSet,
-    point_writer: Option<PointWriterEnum<TrackingDirectoryWrapper<D>>>,
+    point_writer:
+        Option<PointWriterEnum<<TrackingDirectoryWrapper<D> as Directory>::IndexOutputType>>,
     finished: bool,
     max_points_sort_in_heap: i32,
     /// Minimum per-dim values, packed.
@@ -143,7 +144,7 @@ where
         let bytes_per_dim = config.bytes_per_dim as usize;
         let packed_bytes_length = config.packed_bytes_length() as usize;
         let packed_index_bytes_length = config.packed_index_bytes_length() as usize;
-        let temp_dir = Rc::new(RefCell::new(TrackingDirectoryWrapper::new(temp_dir)));
+        let temp_dir = TrackingDirectoryWrapper::new(temp_dir);
         let comparator = ArrayUtil::get_unsigned_comparator(bytes_per_dim);
         let equals_predicate = BKDUtil::get_equals_predicate(bytes_per_dim);
         let common_prefix_comparator = BKDUtil::get_prefix_length_comparator(bytes_per_dim);
@@ -223,7 +224,7 @@ where
         if self.total_point_count > self.max_points_sort_in_heap as i64 {
             let writer = OfflinePointWriter::new(
                 self.config.clone(),
-                self.temp_dir.clone(),
+                &mut self.temp_dir,
                 &self.temp_file_name_prefix,
                 "spill",
                 0,
@@ -639,7 +640,6 @@ where
         let mut radix_selector = BKDRadixSelector::new(
             self.config.clone(),
             self.max_points_sort_in_heap,
-            self.temp_dir.clone(),
             &self.temp_file_name_prefix,
         );
 
@@ -669,7 +669,7 @@ where
             );
             // If no exception, we should have cleaned everything up:
             debug_assert!(
-                self.temp_dir.borrow().get_created_files().is_empty(),
+                self.temp_dir.get_created_files().is_empty(),
                 "Temp directory should be empty"
             );
             Ok(())
@@ -677,12 +677,9 @@ where
         match result {
             Ok(_) => {},
             Err(e) => {
-                let temp_dir = self.temp_dir.borrow();
-                let filenames = temp_dir.get_created_files().iter().collect::<Vec<_>>();
-                IOUtils::delete_files_ignoring_exceptions(
-                    &mut *self.temp_dir.borrow_mut(),
-                    filenames.as_slice(),
-                );
+                let file_copy = self.temp_dir.get_created_files().clone();
+                let filenames = file_copy.iter().collect::<Vec<_>>();
+                IOUtils::delete_files_ignoring_exceptions(&mut self.temp_dir, filenames.as_slice());
                 return Err(e);
             },
         }
@@ -1330,7 +1327,7 @@ where
     fn verify_checksum(
         &self,
         prior_exception: &mut LuceneError,
-        writer: &PointWriterEnum<TrackingDirectoryWrapper<D>>,
+        writer: &PointWriterEnum<<TrackingDirectoryWrapper<D> as Directory>::IndexOutputType>,
     ) -> Result<()> {
         // TODO: we could improve this, to always validate checksum as we recurse, if we shared left and
         // right reader after recursing to children, and possibly within recursed children,
@@ -1338,13 +1335,8 @@ where
         // and would mean leaving readers (IndexInputs) open for longer:
         if let PointWriterEnum::Offline(writer) = writer {
             // We are reading from a temp file; go verify the checksum:
-            if self
-                .temp_dir
-                .borrow()
-                .get_created_files()
-                .contains(&writer.name)
-            {
-                let mut input = self.temp_dir.borrow().open_checksum_input(&writer.name)?;
+            if self.temp_dir.get_created_files().contains(&writer.name) {
+                let mut input = self.temp_dir.open_checksum_input(&writer.name)?;
                 CodecUtil::check_footer_with_error(&mut input, prior_exception);
             }
         }
@@ -1418,12 +1410,12 @@ where
     /// Pull a partition back into heap once the point count is low enough while
     /// recursing.
     fn switch_to_heap(
-        &self,
-        source: &mut PointWriterEnum<TrackingDirectoryWrapper<D>>,
-    ) -> Result<PointWriterEnum<TrackingDirectoryWrapper<D>>> {
+        &mut self,
+        source: &mut PointWriterEnum<<TrackingDirectoryWrapper<D> as Directory>::IndexOutputType>,
+    ) -> Result<PointWriterEnum<<TrackingDirectoryWrapper<D> as Directory>::IndexOutputType>> {
         let source_count = source.count();
         let count = source_count.try_into()?;
-        let mut reader = source.get_reader(0, source_count)?;
+        let mut reader = source.get_reader(0, source_count, &mut self.temp_dir)?;
         let mut writer = HeapPointWriter::new(self.config.clone(), count);
 
         let mut result: Result<_> = (|| {
@@ -1441,7 +1433,7 @@ where
             return Err(err);
         }
 
-        source.destroy()?;
+        source.destroy(&mut self.temp_dir)?;
         Ok(PointWriterEnum::Heap(writer))
     }
 
@@ -1727,15 +1719,16 @@ where
     }
 
     fn compute_packed_value_bounds(
-        &self,
-        slice: &PathSlice<TrackingDirectoryWrapper<D>>,
+        &mut self,
+        slice: &PathSlice<<TrackingDirectoryWrapper<D> as Directory>::IndexOutputType>,
         min_packed_value: &mut [u8],
         max_packed_value: &mut [u8],
     ) -> Result<()> {
-        let mut reader = slice
-            .writer
-            .borrow_mut()
-            .get_reader(slice.start, slice.count)?;
+        let mut reader =
+            slice
+                .writer
+                .borrow_mut()
+                .get_reader(slice.start, slice.count, &mut self.temp_dir)?;
 
         if !reader.next()? {
             slice.writer.borrow_mut().take_data(reader.remove_points());
@@ -1800,9 +1793,9 @@ where
         &mut self,
         leaves_offset: i32,
         num_leaves: i32,
-        points: &mut PathSlice<TrackingDirectoryWrapper<D>>,
+        points: &mut PathSlice<<TrackingDirectoryWrapper<D> as Directory>::IndexOutputType>,
         out: &mut impl IndexOutput,
-        radix_selector: &mut BKDRadixSelector<TrackingDirectoryWrapper<D>>,
+        radix_selector: &mut BKDRadixSelector,
         min_packed_value: &mut [u8],
         max_packed_value: &mut [u8],
         parent_splits: &mut [i32],
@@ -1957,6 +1950,7 @@ where
                 points.start + left_count,
                 split_dim,
                 common_prefix_len,
+                &mut self.temp_dir,
             )?;
 
             let right_offset = leaves_offset + num_left_leaf_nodes;
@@ -2068,7 +2062,7 @@ where
         self.finished = true;
         if let Some(PointWriterEnum::Offline(ref mut offline_point_writer)) = self.point_writer {
             if let Some(out) = offline_point_writer.out.take() {
-                self.temp_dir.borrow_mut().delete_file(out.get_name())?;
+                self.temp_dir.delete_file(out.get_name())?;
             }
         }
         Ok(())
@@ -2833,17 +2827,17 @@ where
         ))
     }
 }
-struct PackedValuesImpl3<D>
+struct PackedValuesImpl3<O>
 where
-    D: Directory,
+    O: IndexOutput,
 {
-    heap_source: Rc<RefCell<PointWriterEnum<D>>>,
+    heap_source: Rc<RefCell<PointWriterEnum<O>>>,
     bytes: Vec<u8>,
     from: i32,
 }
-impl<D> PackedValues for PackedValuesImpl3<D>
+impl<O> PackedValues for PackedValuesImpl3<O>
 where
-    D: Directory,
+    O: IndexOutput,
 {
     fn get_value(&mut self, i: i32) -> Result<(&[u8], i32, i32)> {
         match &mut *self.heap_source.borrow_mut() {

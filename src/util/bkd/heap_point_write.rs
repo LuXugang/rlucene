@@ -14,10 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::fmt;
-use std::fmt::{Display, Formatter};
-use std::rc::Rc;
-
+use crate::store::directory::Directory;
+use crate::store::IndexInput;
 use crate::util::array_util::{ArrayUtil, ByteArrayComparator, ByteArrayComparatorEnum};
 use crate::util::bit_util::BitUtil;
 use crate::util::bkd::bkd_config::BKDConfig;
@@ -26,6 +24,9 @@ use crate::util::bkd::point_value::{PointValue, PointValueEnum};
 use crate::util::bkd::point_writer::PointWriter;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::{CoreHelper, SliceCopyOps, ToInt};
+use std::fmt;
+use std::fmt::{Display, Formatter};
+use std::rc::Rc;
 
 /// Utility struct to write new points into in-heap arrays.
 pub struct HeapPointWriter {
@@ -362,9 +363,20 @@ impl PointWriter for HeapPointWriter {
         Ok(())
     }
 
-    type PointReader = HeapPointReader;
+    type PointReader<I>
+        = HeapPointReader
+    where
+        I: IndexInput;
 
-    fn get_reader(&mut self, start: i64, length: i64) -> Result<Self::PointReader> {
+    fn get_reader<D>(
+        &mut self,
+        start: i64,
+        length: i64,
+        _temp_dir: &mut D,
+    ) -> Result<Self::PointReader<D::IndexInputType>>
+    where
+        D: Directory,
+    {
         debug_assert!(
             self.closed,
             "point writer is still open and trying to get a reader"
@@ -402,7 +414,10 @@ impl PointWriter for HeapPointWriter {
         self.next_write as i64
     }
 
-    fn destroy(&mut self) -> Result<()> {
+    fn destroy<D>(&mut self, dir: &mut D) -> Result<()>
+    where
+        D: Directory,
+    {
         Ok(())
     }
 

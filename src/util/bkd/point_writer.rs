@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::store::directory::Directory;
+use crate::store::{IndexInput, IndexOutput};
 use crate::util::bkd::heap_point_write::HeapPointWriter;
 use crate::util::bkd::offline_point_write::OfflinePointWriter;
 use crate::util::bkd::point_reader::{PointReader, PointReaderEnum};
@@ -33,34 +34,48 @@ pub trait PointWriter {
 
     /// Returns a PointReader iterator to step through all previously added
     /// points
-    type PointReader: PointReader;
-    fn get_reader(&mut self, start_point: i64, length: i64) -> Result<Self::PointReader>;
+    type PointReader<I>: PointReader
+    where
+        I: IndexInput;
+    fn get_reader<D>(
+        &mut self,
+        start_point: i64,
+        length: i64,
+        temp_dir: &mut D,
+    ) -> Result<Self::PointReader<D::IndexInputType>>
+    where
+        D: Directory;
 
     /// Return the number of points in this writer
     fn count(&self) -> i64;
 
     /// Removes any temp files behind this writer
-    fn destroy(&mut self) -> Result<()>;
+    fn destroy<D>(&mut self, dir: &mut D) -> Result<()>
+    where
+        D: Directory;
 
     fn close(&mut self);
 }
 
-pub enum PointWriterEnum<D>
+pub enum PointWriterEnum<O>
 where
-    D: Directory,
+    O: IndexOutput,
 {
     Heap(HeapPointWriter),
-    Offline(OfflinePointWriter<D>),
+    Offline(OfflinePointWriter<O>),
 }
-impl<D> Default for PointWriterEnum<D>
+impl<O> Default for PointWriterEnum<O>
 where
-    D: Directory,
+    O: IndexOutput,
 {
     fn default() -> Self {
         PointWriterEnum::Heap(HeapPointWriter::default())
     }
 }
-impl<D: Directory> PointWriterEnum<D> {
+impl<O> PointWriterEnum<O>
+where
+    O: IndexOutput,
+{
     pub fn take_data(&mut self, v: Option<PointValueEnum>) {
         match self {
             PointWriterEnum::Offline(_) => {},
@@ -68,9 +83,9 @@ impl<D: Directory> PointWriterEnum<D> {
         }
     }
 }
-impl<D> PointWriter for PointWriterEnum<D>
+impl<O> PointWriter for PointWriterEnum<O>
 where
-    D: Directory,
+    O: IndexOutput,
 {
     fn append_bytes(&mut self, packed_value: &[u8], doc_id: i32) -> Result<()> {
         match self {
@@ -86,16 +101,31 @@ where
         }
     }
 
-    type PointReader = PointReaderEnum<D>;
+    type PointReader<I>
+        = PointReaderEnum<I>
+    where
+        I: IndexInput;
 
-    fn get_reader(&mut self, start_point: i64, length: i64) -> Result<Self::PointReader> {
+    fn get_reader<D: Directory>(
+        &mut self,
+        start_point: i64,
+        length: i64,
+        temp_dir: &mut D,
+    ) -> Result<Self::PointReader<D::IndexInputType>>
+    where
+        D: Directory,
+    {
         match self {
-            PointWriterEnum::Offline(offline) => Ok(PointReaderEnum::Offline(
-                offline.get_reader(start_point, length)?,
-            )),
-            PointWriterEnum::Heap(heap) => {
-                Ok(PointReaderEnum::Heap(heap.get_reader(start_point, length)?))
-            },
+            PointWriterEnum::Offline(offline) => Ok(PointReaderEnum::Offline(offline.get_reader(
+                start_point,
+                length,
+                temp_dir,
+            )?)),
+            PointWriterEnum::Heap(heap) => Ok(PointReaderEnum::Heap(heap.get_reader(
+                start_point,
+                length,
+                temp_dir,
+            )?)),
         }
     }
 
@@ -106,10 +136,13 @@ where
         }
     }
 
-    fn destroy(&mut self) -> Result<()> {
+    fn destroy<D>(&mut self, dir: &mut D) -> Result<()>
+    where
+        D: Directory,
+    {
         match self {
-            PointWriterEnum::Offline(offline) => offline.destroy(),
-            PointWriterEnum::Heap(heap) => heap.destroy(),
+            PointWriterEnum::Offline(offline) => offline.destroy(dir),
+            PointWriterEnum::Heap(heap) => heap.destroy(dir),
         }
     }
 

@@ -79,7 +79,6 @@ use crate::util::info_stream::{InfoStreamEnum, InfoStreamLock};
 /// [`BufferedUpdates`](BufferedUpdates)
 /// [`DeleteSlice`](crate::index::DeleteSlice)
 /// [`DocumentsWriterPerThread`](crate::index::documents_writer_per_thread::DocumentsWriterPerThread)
-#[allow(unused)]
 pub(crate) struct DocumentsWriterDeleteQueue<Q>
 where
     Q: Query,
@@ -93,7 +92,6 @@ where
     start_seq_no: i64,
     previous_max_seq_id: i64,
 }
-#[allow(unused)]
 impl<Q> DocumentsWriterDeleteQueue<Q>
 where
     Q: Query,
