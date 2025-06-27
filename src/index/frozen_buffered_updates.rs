@@ -33,18 +33,21 @@ use crate::search::query::Query;
 use crate::util::access::Access;
 use crate::util::accountable::Accountable;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
-use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::info_stream::{InfoStream, InfoStreamEnum};
+use crate::util::error::lucene_error::Result;
+use crate::util::info_stream::{InfoStream, InfoStreamLock};
 use crate::util::{ByteBlockPool, CounterEnum, ToInt};
-
-#[allow(unused)]
-pub(crate) struct FrozenBufferedUpdates<Q, I>
+/// Holds buffered deletes and updates by term or query, once pushed.
+///
+/// Pushed deletes/updates are write-once, so a more memory-efficient data structure is used
+/// to store them. We don’t keep document IDs because they are applied on flush.
+pub(crate) struct FrozenBufferedUpdates<Q>
 where
     Q: Query,
-    I: Access<InfoStreamEnum>,
 {
-    info_stream: I,
+    info_stream: InfoStreamLock,
+    // Terms, in sorted order:
     pub delete_terms: PrefixCodedTerms,
+    // Parallel array of deleted query, and the docIDUpto for each
     pub delete_queries: Vec<Arc<Q>>,
     delete_query_limits: Vec<i32>,
     applied: AtomicBool,
@@ -58,11 +61,9 @@ where
     private_segment: Option<String>,
 }
 
-#[allow(unused)]
-impl<Q, I> FrozenBufferedUpdates<Q, I>
+impl<Q> FrozenBufferedUpdates<Q>
 where
     Q: Query,
-    I: Access<InfoStreamEnum>,
 {
     // NOTE: we now apply this frozen packet immediately on creation, yet this
     // process is heavy, and runs in multiple threads, and this compression
@@ -72,7 +73,7 @@ where
     const BYTES_PER_DEL_QUERY: i32 = 0;
 
     pub fn new<C, B>(
-        info_stream: I,
+        info_stream: InfoStreamLock,
         updates: &mut BufferedUpdates<Q, C, B>,
         private_segment: Option<String>,
     ) -> Result<Self>
@@ -88,7 +89,7 @@ where
         let mut builder = PrefixCodedTermsBuilder::new();
         updates
             .delete_terms
-            .for_each_ordered(|term, _| builder.add_term(term));
+            .for_each_ordered(|term, _| builder.add_term(term))?;
         let delete_terms = builder.finish();
 
         let (delete_queries, delete_query_limits) = {
@@ -113,28 +114,24 @@ where
 
         // TODO: memory calculation not implemented
         let bytes_used = 0;
-
-        info_stream.access_mut(|info_stream_guard| {
-            if info_stream_guard.enabled("BD") {
-                let private_segment_msg = if private_segment.is_none() {
-                    "None".to_string()
-                } else {
-                    format!("; private segment {}", private_segment.as_ref().unwrap())
-                };
-                info_stream_guard.message(
-                    "BD",
-                    &format!(
-                        "compressed {} to {} bytes ({:.2}%) for deletes/updates; private segment {}",
-                        updates.ram_bytes_used()?,
-                        bytes_used,
-                        100.0 * bytes_used as f64 / updates.ram_bytes_used()? as f64,
-                        private_segment_msg
-                    ),
-                );
-            }
-            // Help the compiler infer types.
-            Ok::<(), LuceneError>(())
-        });
+        let mut info_stream_lock = info_stream.lock();
+        if info_stream_lock.enabled("BD") {
+            let private_segment_msg = if private_segment.is_none() {
+                "None".to_string()
+            } else {
+                format!("; private segment {}", private_segment.as_ref().unwrap())
+            };
+            info_stream_lock.message(
+                "BD",
+                &format!(
+                    "compressed {} to {} bytes ({:.2}%) for deletes/updates; private segment {}",
+                    updates.ram_bytes_used()?,
+                    bytes_used,
+                    100.0 * bytes_used as f64 / updates.ram_bytes_used()? as f64,
+                    private_segment_msg
+                ),
+            );
+        }
 
         Ok(Self {
             info_stream: info_stream.clone(),

@@ -235,7 +235,7 @@ where
     pub(crate) fn freeze_global_buffer(
         &self,
         caller_slice: Option<&mut DeleteSlice<Q>>,
-    ) -> Result<Option<FrozenBufferedUpdates<Q, InfoStreamLock>>> {
+    ) -> Result<Option<FrozenBufferedUpdates<Q>>> {
         let mut global_state = self.global_buffer_lock.write();
         self.ensure_open(global_state.closed)?;
         // Here we freeze the global buffer so we need to lock it, apply all
@@ -255,9 +255,7 @@ where
     /// This may freeze the global buffer unless the delete queue has already
     /// been closed. If the queue has been closed, this method will return
     /// `None`.
-    pub(crate) fn maybe_freeze_global_buffer(
-        &self,
-    ) -> Result<Option<FrozenBufferedUpdates<Q, InfoStreamLock>>> {
+    pub(crate) fn maybe_freeze_global_buffer(&self) -> Result<Option<FrozenBufferedUpdates<Q>>> {
         let mut global_state = self.global_buffer_lock.write();
 
         if !global_state.closed {
@@ -279,7 +277,7 @@ where
         &self,
         global_state: &mut RwLockWriteGuard<GlobalState<Q>>,
         current_tail: Arc<Node<Q>>,
-    ) -> Result<Option<FrozenBufferedUpdates<Q, InfoStreamLock>>> {
+    ) -> Result<Option<FrozenBufferedUpdates<Q>>> {
         if !Arc::ptr_eq(&global_state.global_slice.slice_tail, &current_tail) {
             global_state.global_slice.slice_tail = current_tail;
             global_state.apply(buffered_updates_util::MAX_INT)?;
@@ -968,7 +966,7 @@ mod tests {
     use crate::test::util::lucene_test_case::{random, random_multiplier};
     use crate::util::bytes_ref_iterator::BytesRefIterator;
     use crate::util::error::lucene_error::{LuceneError, Result};
-    use crate::util::info_stream::{get_default_info_stream, InfoStreamLock};
+    use crate::util::info_stream::get_default_info_stream;
 
     #[allow(dead_code)]
     pub struct TestDocumentsWriterDeleteQueue;
@@ -1025,8 +1023,7 @@ mod tests {
         assert_eq!(unique_values, bd1_terms_set);
         assert_eq!(unique_values, bd2_terms_set);
 
-        let frozen: FrozenBufferedUpdates<DummyQuery, InfoStreamLock> =
-            queue.freeze_global_buffer(None)?.unwrap();
+        let frozen = queue.freeze_global_buffer(None)?.unwrap();
         let mut iter = frozen.delete_terms.iterator();
         let mut frozen_set: HashSet<Term> = HashSet::new();
         let mut bytes_ref = BytesRefBuilder::new();

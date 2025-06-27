@@ -36,7 +36,7 @@ where
 {
     pub segment_info: SegmentCommitInfo<D>,
     pub field_infos: FieldInfos,
-    pub segment_updates: Option<FrozenBufferedUpdates<Q, InfoStreamLock>>,
+    pub segment_updates: Option<FrozenBufferedUpdates<Q>>,
     pub live_docs: FixedBitSet,
     pub sort_map: Option<Rc<DocMapImpl>>,
     pub del_count: i32,
