@@ -41,17 +41,19 @@ use crate::util::priority_queue::{Compare, PriorityQueue};
 use crate::util::sparse_fixed_bit_set::SparseFixedBitSet;
 use crate::util::{Sorter, ToInt};
 
-pub(crate) const PAGE_SIZE: i32 = 1024;
-const HAS_VALUE_MASK: i64 = 1;
-const HAS_NO_VALUE_MASK: i64 = 0;
-// we use the first bit of each value to mark if the doc has a value or not
-const SHIFT: i32 = 1;
+pub(crate) mod dvfu_util {
+    pub(crate) const PAGE_SIZE: i32 = 1024;
+    pub(super) const HAS_VALUE_MASK: i64 = 1;
+    pub(super) const HAS_NO_VALUE_MASK: i64 = 0;
+    // we use the first bit of each value to mark if the doc has a value or not
+    pub(super) const SHIFT: i32 = 1;
+}
 /// Holds updates for a single DocValues field, for a set of documents within
 /// one segment.
 ///
 /// # Note
 /// This is an experimental feature and may change in future versions.
-#[allow(unused)]
+
 pub(crate) struct DocValuesFieldUpdates<D>
 where
     D: DocValuesFieldUpdatesBase,
@@ -71,12 +73,15 @@ pub(crate) struct DocValuesFieldInner {
     pub docs: AbstractPagedMutable<PagedMutable>,
     pub size: i32,
 }
-#[allow(unused)]
+
 impl DocValuesFieldInner {
     pub(crate) fn new(bits_per_value: i32) -> Result<Self> {
-        let sub_mutable =
-            PagedMutable::with_overhead_ratio(PAGE_SIZE, bits_per_value, PackedInts::DEFAULT);
-        let writer = AbstractPagedMutable::new(1, PAGE_SIZE, sub_mutable)?;
+        let sub_mutable = PagedMutable::with_overhead_ratio(
+            dvfu_util::PAGE_SIZE,
+            bits_per_value,
+            PackedInts::DEFAULT,
+        );
+        let writer = AbstractPagedMutable::new(1, dvfu_util::PAGE_SIZE, sub_mutable)?;
         Ok(Self {
             finished: false,
             docs: writer,
@@ -102,7 +107,7 @@ impl DocValuesFieldInner {
         Ok(())
     }
 }
-#[allow(unused)]
+
 impl<D> DocValuesFieldUpdates<D>
 where
     D: DocValuesFieldUpdatesBase,
@@ -114,7 +119,7 @@ where
         doc_values_type: DocValuesType,
         sub_update: D,
     ) -> Result<Self> {
-        let bits_per_value = PackedInts::bits_required(max_doc as i64 - 1)? + SHIFT;
+        let bits_per_value = PackedInts::bits_required(max_doc as i64 - 1)? + dvfu_util::SHIFT;
         let inner = DocValuesFieldInner::new(bits_per_value)?;
         Ok(Self {
             field,
@@ -125,7 +130,7 @@ where
             sub_update,
         })
     }
-    #[allow(unused)]
+
     fn get_finished(&self) -> Result<bool> {
         let inner = self.inner.lock();
         Ok(inner.finished)
@@ -144,7 +149,7 @@ where
     /// # Warning
     /// In Java Lucene, these two methods are executed within the same critical
     /// section.However, from a logical perspective, this is not necessary.
-    #[allow(unused)]
+
     fn add_byte_ref(&mut self, doc: i32, value: &BytesRef<Vec<u8>>) -> Result<()> {
         let index = self.add(doc)?;
         self.sub_update.add_byte_ref(doc, value, index)
@@ -159,7 +164,7 @@ where
     /// This method prevents conditional calls to [`IteratorBase::long_value`]
     /// or [`IteratorBase::binary_value`], since the implementation knows
     /// whether it is a long value iterator or a binary value iterator.
-    #[allow(unused)]
+
     fn add_iterator<T>(&mut self, doc_id: i32, iterator: T) -> Result<()>
     where
         T: DocValuesFieldIterator,
@@ -223,12 +228,13 @@ where
         if self.sub_update.need_reset() {
             self.sub_update.reset(doc)
         } else {
-            self.add_internal(doc, HAS_NO_VALUE_MASK).map(|_| ())
+            self.add_internal(doc, dvfu_util::HAS_NO_VALUE_MASK)
+                .map(|_| ())
         }
     }
 
     pub(crate) fn add(&mut self, doc: i32) -> Result<i32> {
-        self.add_internal(doc, HAS_VALUE_MASK)
+        self.add_internal(doc, dvfu_util::HAS_VALUE_MASK)
     }
     fn add_internal(&mut self, doc: i32, has_value_mask: i64) -> Result<i32> {
         let mut inner = self.inner.lock();
@@ -282,7 +288,7 @@ where
         Ok(())
     }
 }
-#[allow(unused)]
+
 pub fn merged_iterator<T>(subs: Vec<T>) -> Result<Option<PriorityQueueIterator<T>>>
 where
     T: DocValuesFieldIterator,
@@ -316,7 +322,7 @@ where
         todo!()
     }
 }
-#[allow(unused)]
+
 pub(crate) trait DocValuesFieldUpdatesBase: Accountable {
     fn add_value(&mut self, doc: i32, value: i64, index: i32) -> Result<()>;
     fn add_byte_ref(&mut self, doc: i32, value: &BytesRef<Vec<u8>>, index: i32) -> Result<()>;
@@ -429,7 +435,7 @@ impl<D> IntroSorter for IntroSorterImpl<'_, D> where D: DocValuesFieldUpdatesBas
 ///
 /// Only documents with updates are returned by this iterator, and the documents
 /// are returned in increasing order.
-#[allow(unused)]
+
 pub trait DocValuesFieldIterator: DocValuesIterator + Default {
     fn get_binary_doc_values<T: DocValuesFieldIterator>(iterator: T) {
         BinaryDocValuesImpl::new(iterator);
@@ -507,7 +513,7 @@ where
 }
 
 /// Wraps the given iterator as a NumericDocValues instance.
-#[allow(unused)]
+
 pub(crate) struct NumericDocValuesImpl<T>
 where
     T: DocValuesFieldIterator,
@@ -746,12 +752,12 @@ where
             self.idx += 1;
         }
 
-        self.has_value = (long_doc & HAS_VALUE_MASK) > 0;
+        self.has_value = (long_doc & dvfu_util::HAS_VALUE_MASK) > 0;
         if self.has_value {
             self.sub.set(self.idx - 1)?;
         }
-        debug_assert!((long_doc as u64 >> SHIFT) <= i32::MAX as u64);
-        self.doc = (long_doc as u64 >> SHIFT) as i32;
+        debug_assert!((long_doc as u64 >> dvfu_util::SHIFT) <= i32::MAX as u64);
+        self.doc = (long_doc as u64 >> dvfu_util::SHIFT) as i32;
         Ok(self.doc)
     }
 }
@@ -802,7 +808,7 @@ where
     // for reuse iterator
     bit_set_iter: Option<Rc<SparseFixedBitSet>>,
 }
-#[allow(unused)]
+
 impl<S> SingleValueDocValuesFieldUpdates<S>
 where
     S: SingleValueDocValuesFieldUpdatesBase + Default,
@@ -925,7 +931,6 @@ where
     }
 }
 
-#[allow(unused)]
 pub trait SingleValueDocValuesFieldUpdatesBase {
     fn binary_value(&self) -> Result<&BytesRef<Vec<u8>>>;
     fn long_value(&self) -> Result<i64>;

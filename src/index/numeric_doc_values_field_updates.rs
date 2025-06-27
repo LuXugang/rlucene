@@ -19,8 +19,8 @@ use std::sync::Arc;
 use parking_lot::Mutex;
 
 use crate::index::doc_values_field_updates::{
-    AbstractIterator, AbstractIteratorBase, DocValuesFieldInner, DocValuesFieldIterator,
-    DocValuesFieldUpdatesBase, SingleValueDocValuesFieldUpdatesBase, PAGE_SIZE,
+    dvfu_util, AbstractIterator, AbstractIteratorBase, DocValuesFieldInner, DocValuesFieldIterator,
+    DocValuesFieldUpdatesBase, SingleValueDocValuesFieldUpdatesBase,
 };
 use crate::index::doc_values_type::DocValuesType;
 use crate::index::BytesRef;
@@ -44,7 +44,7 @@ where
 impl NumericDocValuesFieldUpdates<PagedGrowableWriter> {
     pub fn new() -> Result<NumericDocValuesFieldUpdates<PagedGrowableWriter>> {
         let sub_reader = PagedGrowableWriter::with_fill_page(1, PackedInts::DEFAULT);
-        let values = AbstractPagedMutable::new(1, PAGE_SIZE, sub_reader)?;
+        let values = AbstractPagedMutable::new(1, dvfu_util::PAGE_SIZE, sub_reader)?;
         Ok(NumericDocValuesFieldUpdates {
             values,
             min_value: 0,
@@ -63,9 +63,12 @@ impl NumericDocValuesFieldUpdates<PagedMutable> {
         >,
     > {
         let bits_per_value = PackedInts::unsigned_bits_required(max_value - min_value);
-        let sub_reader =
-            PagedMutable::with_overhead_ratio(PAGE_SIZE, bits_per_value, PackedInts::DEFAULT);
-        let values = AbstractPagedMutable::new(1, PAGE_SIZE, sub_reader)?;
+        let sub_reader = PagedMutable::with_overhead_ratio(
+            dvfu_util::PAGE_SIZE,
+            bits_per_value,
+            PackedInts::DEFAULT,
+        );
+        let values = AbstractPagedMutable::new(1, dvfu_util::PAGE_SIZE, sub_reader)?;
         Ok(NumericDocValuesFieldUpdates {
             values,
             min_value,

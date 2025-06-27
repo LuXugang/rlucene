@@ -19,8 +19,8 @@ use std::sync::Arc;
 use parking_lot::Mutex;
 
 use crate::index::doc_values_field_updates::{
-    AbstractIterator, AbstractIteratorBase, DocValuesFieldInner, DocValuesFieldIterator,
-    DocValuesFieldUpdatesBase, PAGE_SIZE,
+    dvfu_util, AbstractIterator, AbstractIteratorBase, DocValuesFieldInner, DocValuesFieldIterator,
+    DocValuesFieldUpdatesBase,
 };
 use crate::index::doc_values_type::DocValuesType;
 use crate::index::{BytesRef, BytesRefBuilder};
@@ -45,9 +45,9 @@ impl BinaryDocValuesFieldUpdates {
     #[allow(unused)]
     fn new() -> Result<BinaryDocValuesFieldUpdates> {
         let sub_reader1 = PagedGrowableWriter::with_fill_page(1, PackedInts::FAST);
-        let offsets = AbstractPagedMutable::new(1, PAGE_SIZE, sub_reader1)?;
+        let offsets = AbstractPagedMutable::new(1, dvfu_util::PAGE_SIZE, sub_reader1)?;
         let sub_reader2 = PagedGrowableWriter::with_fill_page(1, PackedInts::FAST);
-        let lengths = AbstractPagedMutable::new(1, PAGE_SIZE, sub_reader2)?;
+        let lengths = AbstractPagedMutable::new(1, dvfu_util::PAGE_SIZE, sub_reader2)?;
         Ok(BinaryDocValuesFieldUpdates {
             offsets,
             lengths,
