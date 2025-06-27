@@ -956,7 +956,7 @@ mod tests {
         DeleteSlice, DocumentsWriterDeleteQueue, NodeEnum, TermNodeArray,
     };
     use crate::index::field_term_iterator::FieldTermIterator;
-    use crate::index::frozen_buffered_updates::FrozenBufferedUpdates;
+
     use crate::index::term::Term;
     use crate::index::{BytesRef, BytesRefBuilder};
     use crate::search::dummy::dummy_query::DummyQuery;
