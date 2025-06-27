@@ -478,7 +478,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                     .read(dir.clone(), "_123", &id, &io_context)?;
             if info2.get_index_sort().is_some() {
                 assert!(info2.get_index_sort().is_some());
-                assert!(sort_clone.unwrap() == *info2.get_index_sort().as_ref().unwrap());
+                assert!(sort_clone.unwrap() == *info2.get_index_sort().unwrap());
             } else {
                 assert!(sort_clone.is_none())
             }

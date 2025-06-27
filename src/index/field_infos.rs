@@ -811,12 +811,12 @@ pub mod build {
             }
         }
 
-        pub fn get_soft_deletes_field_name(&self) -> &Option<String> {
-            &self.global_field_numbers.soft_deletes_field_name
+        pub fn get_soft_deletes_field_name(&self) -> Option<&String> {
+            self.global_field_numbers.soft_deletes_field_name.as_ref()
         }
 
-        pub fn get_parent_field_name(&self) -> &Option<String> {
-            &self.global_field_numbers.parent_field_name
+        pub fn get_parent_field_name(&self) -> Option<&String> {
+            self.global_field_numbers.parent_field_name.as_ref()
         }
 
         pub fn add(&mut self, fi: Rc<FieldInfo>) -> Result<Rc<FieldInfo>> {

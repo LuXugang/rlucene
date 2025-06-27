@@ -448,7 +448,7 @@ where
             cloned_dv_updates_files.insert(*key, value.clone());
         }
 
-        let id = self.get_id().map(|id| *id);
+        let id = self.get_id().copied();
         // Create the cloned instance
         SegmentCommitInfo {
             info: self.info.clone(),
