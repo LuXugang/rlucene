@@ -24,7 +24,7 @@ use crate::store::directory::Directory;
 use crate::store::{DataInput, DataOutput, IOContext, IndexOutput};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::packed::direct_monotonic_writer::DirectMonotonicWriter;
-use crate::util::IOUtils;
+use crate::util::{IOUtils, StringHelper};
 
 #[allow(unused)]
 pub(crate) struct FieldsIndexWriter<D>
@@ -36,7 +36,7 @@ where
     suffix: String,
     extension: String,
     codec_name: String,
-    id: [u8; 16],
+    id: [u8; StringHelper::ID_LENGTH],
     block_shift: i32,
     io_context: IOContext,
     // Using Option to wrap the IndexOutput makes it easier to release the
@@ -65,7 +65,7 @@ where
         suffix: &str,
         extension: &str,
         codec_name: &str,
-        id: [u8; 16],
+        id: [u8; StringHelper::ID_LENGTH],
         block_shift: i32,
         io_context: IOContext, // TODO:avoid copy? could wrap with Rc?
     ) -> Result<Self> {

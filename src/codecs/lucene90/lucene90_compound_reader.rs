@@ -25,6 +25,7 @@ use crate::index::IndexFileNames;
 use crate::store::directory::Directory;
 use crate::store::{IOContext, IndexInput, ReadAdvice, IO_CONTEXT_DEFAULT};
 use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::StringHelper;
 
 /// Offset/Length for a slice inside of a compound file
 pub struct FileEntry {
@@ -115,7 +116,7 @@ where
     }
     /// Helper method that reads CFS entries from an input stream.
     fn read_entries(
-        segment_id: &[u8],
+        segment_id: &[u8; StringHelper::ID_LENGTH],
         directory: &mut D,
         entries_file_name: &str,
     ) -> Result<(i32, HashMap<String, FileEntry>)> {

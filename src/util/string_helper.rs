@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use std::env;
-use std::fmt::Write;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::time::SystemTime;
 
@@ -276,24 +275,20 @@ impl StringHelper {
         })
     }
 
-    pub const ID_LENGTH: i32 = 16;
-    pub fn random_id() -> [u8; 16] {
+    pub const ID_LENGTH: usize = 16;
+    pub fn random_id() -> [u8; StringHelper::ID_LENGTH] {
         let mut rng = rand::rng();
-        rng.random::<[u8; 16]>()
+        rng.random::<[u8; StringHelper::ID_LENGTH]>()
     }
     /// Helper method to render an ID as a string for debugging.
     ///
     /// Returns the string `"null"` if the ID is `None`. Otherwise, returns a
     /// string representation for debugging. Never throws an exception. The
     /// returned string may indicate if the ID is definitely invalid.
-    pub fn id_to_string(id: Option<&[u8]>) -> String {
+    pub fn id_to_string(id: Option<&[u8; StringHelper::ID_LENGTH]>) -> String {
         if let Some(id) = id {
             let big_int = num_bigint::BigUint::from_bytes_be(id);
-            let mut result = big_int.to_str_radix(36);
-            if id.len() != StringHelper::ID_LENGTH as usize {
-                write!(&mut result, " (INVALID FORMAT)").unwrap();
-            }
-            result
+            big_int.to_str_radix(36)
         } else {
             "(null)".to_string()
         }

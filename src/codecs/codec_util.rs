@@ -128,17 +128,11 @@ impl CodecUtil {
         out: &mut impl DataOutput,
         codec: &str,
         version: i32,
-        id: &[u8],
+        id: &[u8; StringHelper::ID_LENGTH],
         suffix: &str,
     ) -> Result<()> {
-        if id.len() != StringHelper::ID_LENGTH as usize {
-            return Err(LuceneError::illegal_argument(format!(
-                "Invalid id: {}",
-                StringHelper::id_to_string(Option::from(id))
-            )));
-        }
         Self::write_header(out, codec, version)?;
-        out.write_bytes_range(id, 0, StringHelper::ID_LENGTH)?;
+        out.write_bytes_range(id, 0, StringHelper::ID_LENGTH as i32)?;
         let suffix_bytes: BytesRef<Vec<u8>> = BytesRef::from_string(suffix);
         if !suffix.is_ascii() || suffix_bytes.length >= 256 {
             return Err(LuceneError::illegal_argument(format!(
@@ -179,7 +173,7 @@ impl CodecUtil {
     /// - [`write_index_header`](CodecUtil::write_index_header)
     pub fn index_header_length(codec: &str, suffix: &str) -> i32 {
         debug_assert!(suffix.len() <= i32::MAX as usize);
-        Self::header_length(codec) + StringHelper::ID_LENGTH + 1 + (suffix.len() as i32)
+        Self::header_length(codec) + StringHelper::ID_LENGTH as i32 + 1 + (suffix.len() as i32)
     }
     /// Reads and validates a header previously written with
     /// [`write_header`](CodecUtil::write_header).
@@ -298,7 +292,7 @@ impl CodecUtil {
         codec: &str,
         min_version: i32,
         max_version: i32,
-        expected_id: &[u8],
+        expected_id: &[u8; StringHelper::ID_LENGTH],
         expected_suffix: &str,
     ) -> Result<i32> {
         let version = Self::check_header(data_input, codec, min_version, max_version)?;
@@ -331,7 +325,7 @@ impl CodecUtil {
     pub fn verify_and_copy_index_header(
         data_in: &mut impl IndexInput,
         data_out: &mut impl DataOutput,
-        expected_id: &[u8],
+        expected_id: &[u8; StringHelper::ID_LENGTH],
     ) -> Result<()> {
         if data_in.length() < (Self::footer_length() + Self::header_length("")) as i64 {
             return Err(LuceneError::corrupt_index(format!(
@@ -356,7 +350,7 @@ impl CodecUtil {
         Self::write_be_int(data_out, CodecUtil::CODEC_MAGIC)?;
         data_out.write_string(&codec)?;
         Self::write_be_int(data_out, version)?;
-        data_out.write_bytes_range(expected_id, 0, StringHelper::ID_LENGTH)?;
+        data_out.write_bytes_range(expected_id, 0, StringHelper::ID_LENGTH as i32)?;
         data_out.write_byte(suffix_length)?;
         data_out.write_bytes_range(&suffix_bytes, 0, suffix_length as i32)?;
         Ok(())
@@ -382,7 +376,7 @@ impl CodecUtil {
         data_input.seek(data_input.get_file_pointer() + StringHelper::ID_LENGTH as i64)?;
         let suffix_length = data_input.read_byte()?;
         let bytes_len =
-            Self::header_length(&codec) + StringHelper::ID_LENGTH + 1 + suffix_length as i32;
+            Self::header_length(&codec) + StringHelper::ID_LENGTH as i32 + 1 + suffix_length as i32;
 
         let mut bytes: Vec<u8> = vec![0u8; bytes_len as usize];
         data_input.seek(0)?;
@@ -413,15 +407,15 @@ impl CodecUtil {
     /// Expert: reads and verifies the object ID of an index header.
     pub fn check_index_header_id(
         data_input: &mut impl DataInput,
-        expected_id: &[u8],
+        expected_id: &[u8; StringHelper::ID_LENGTH],
     ) -> Result<()> {
-        let mut id: Vec<u8> = vec![0u8; StringHelper::ID_LENGTH as usize];
-        data_input.read_bytes(&mut id, 0, StringHelper::ID_LENGTH)?;
-        if id != expected_id {
+        let mut id = [0u8; StringHelper::ID_LENGTH];
+        data_input.read_bytes(&mut id, 0, StringHelper::ID_LENGTH as i32)?;
+        if id != *expected_id {
             return Err(LuceneError::corrupt_index(format!(
                 "file mismatch, expected id={}, got={} (resource={})",
                 StringHelper::id_to_string(Option::from(expected_id)),
-                StringHelper::id_to_string(Option::from(&id[0..id.len()])),
+                StringHelper::id_to_string(Option::from(&id)),
                 data_input
             )));
         }

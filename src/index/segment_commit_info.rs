@@ -33,7 +33,7 @@ where
     /// The SegmentInfo that we wrap.
     pub info: Rc<SegmentInfo<D>>,
     /// Id that uniquely identifies this segment commit.
-    id: Option<Vec<u8>>,
+    id: Option<[u8; StringHelper::ID_LENGTH]>,
     /// How many deleted docs in the segment.
     del_count: i32,
     /// How many soft-deleted docs in the segment that are not also
@@ -89,10 +89,10 @@ where
         del_gen: i64,
         field_infos_gen: i64,
         doc_values_gen: i64,
-        id: Option<Vec<u8>>,
+        id: Option<[u8; StringHelper::ID_LENGTH]>,
     ) -> Result<Self> {
         // Validate the ID length
-        if id.is_some() && id.as_ref().unwrap().len() != StringHelper::ID_LENGTH as usize {
+        if id.is_some() && id.as_ref().unwrap().len() != StringHelper::ID_LENGTH {
             return Err(LuceneError::illegal_argument(format!(
                 "Invalid ID: {:?}",
                 id.unwrap()
@@ -395,7 +395,7 @@ where
         if self.id.is_some() {
             s.push_str(&format!(
                 " :id={}",
-                StringHelper::id_to_string(Option::from(self.id.as_ref().unwrap().as_slice()))
+                StringHelper::id_to_string(self.id.as_ref())
             ));
         }
         s
@@ -414,16 +414,16 @@ where
     /// `id`.
     pub fn generation_advanced(&mut self) {
         self.size_in_bytes.store(-1, Ordering::SeqCst);
-        self.id = Option::from(Vec::from(StringHelper::random_id()));
+        self.id = Option::from(StringHelper::random_id());
     }
 
     /// Returns an ID that uniquely identifies this segment commit.
     /// If no ID is assigned, returns `None`.
-    pub fn get_id(&self) -> Option<Vec<u8>> {
+    pub fn get_id(&self) -> Option<&[u8; StringHelper::ID_LENGTH]> {
         if self.id.is_none() {
             None
         } else {
-            Some(self.id.clone()?)
+            self.id.as_ref()
         }
     }
 }
@@ -448,7 +448,7 @@ where
             cloned_dv_updates_files.insert(*key, value.clone());
         }
 
-        let id = self.get_id();
+        let id = self.get_id().map(|id| *id);
         // Create the cloned instance
         SegmentCommitInfo {
             info: self.info.clone(),

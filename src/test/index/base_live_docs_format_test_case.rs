@@ -125,7 +125,7 @@ pub trait BaseLiveDocsFormatTestCase {
             0,
             -1,
             -1,
-            Option::from(StringHelper::random_id().to_vec()),
+            Option::from(StringHelper::random_id()),
         )?;
         format.write_live_docs(
             &bits,
@@ -142,7 +142,7 @@ pub trait BaseLiveDocsFormatTestCase {
             1,
             -1,
             -1,
-            Option::from(StringHelper::random_id().to_vec()),
+            Option::from(StringHelper::random_id()),
         )?;
         let io_context = IOContext::read_once_io_context()?;
         let mut dir = dir.lock();

@@ -536,7 +536,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                     TestUtil::random_unicode_string(random),
                 );
             }
-            let mut id = [0; StringHelper::ID_LENGTH as usize];
+            let mut id = [0; StringHelper::ID_LENGTH];
             random.fill(&mut id[..]);
             let mut attributes = HashMap::new();
             let num_attributes = random.random_range(0..10);

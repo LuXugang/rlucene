@@ -48,7 +48,7 @@ where
     pub dir: Arc<Mutex<D>>,
     is_compound_file: bool,
     /// Id that uniquely identifies this segment.
-    id: [u8; 16],
+    id: [u8; StringHelper::ID_LENGTH],
     // Diff to Java Lucene: We need to ensure that there is only one Codec in
     // the index, Therefore, we do not need to explicitly define the Codec
     // in the SegmentInfo. pub(crate) codec: Option<Lucene101Codec>,
@@ -129,7 +129,7 @@ where
         has_blocks: bool,
         diagnostics: HashMap<String, String>,
         //TODO: type should be [u8,16],avoid heap allocation?
-        id: [u8; 16],
+        id: [u8; StringHelper::ID_LENGTH],
         attributes: HashMap<String, String>,
         index_sort: Option<Sort>,
     ) -> Result<SegmentInfo<D>> {
@@ -137,7 +137,7 @@ where
         //     !dir.is::<TrackingDirectoryWrapper>(),
         //     "dir should not be a TrackingDirectoryWrapper"
         // );
-        if id.len() != StringHelper::ID_LENGTH as usize {
+        if id.len() != StringHelper::ID_LENGTH {
             return Err(LuceneError::illegal_argument(format!(
                 "Invalid id: {:?}",
                 id
@@ -347,7 +347,7 @@ where
     }
 
     /// Returns the id that uniquely identifies this segment.
-    pub fn get_id(&self) -> &[u8; 16] {
+    pub fn get_id(&self) -> &[u8; StringHelper::ID_LENGTH] {
         &self.id
     }
 

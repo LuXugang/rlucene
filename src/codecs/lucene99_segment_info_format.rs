@@ -29,7 +29,7 @@ use crate::search::sort_field::SortFiledBase;
 use crate::store::directory::Directory;
 use crate::store::{DataInput, DataOutput, IOContext};
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::Version;
+use crate::util::{StringHelper, Version};
 
 /// Lucene 9.9 Segment info format.
 ///
@@ -93,7 +93,7 @@ impl Lucene99SegmentInfoFormat {
         dir: Arc<Mutex<D>>,
         input: &mut impl DataInput,
         segment: &str,
-        segment_id: &[u8; 16],
+        segment_id: &[u8; StringHelper::ID_LENGTH],
     ) -> Result<SegmentInfo<D>>
     where
         D: Directory,
@@ -264,7 +264,7 @@ impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
         &self,
         dir: Arc<Mutex<D>>,
         segment: &str,
-        segment_id: &[u8; 16],
+        segment_id: &[u8; StringHelper::ID_LENGTH],
         _context: &IOContext,
     ) -> Result<SegmentInfo<D>>
     where

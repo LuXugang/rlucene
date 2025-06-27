@@ -22,6 +22,7 @@ use crate::index::segment_info::SegmentInfo;
 use crate::store::directory::Directory;
 use crate::store::IOContext;
 use crate::util::error::lucene_error::Result;
+use crate::util::StringHelper;
 
 /// Expert: Controls the format of the [`SegmentInfo`] (segment metadata file).
 ///
@@ -47,7 +48,7 @@ pub trait SegmentInfoFormat {
         &self,
         directory: Arc<Mutex<D>>,
         segment_name: &str,
-        segment_id: &[u8; 16],
+        segment_id: &[u8; StringHelper::ID_LENGTH],
         context: &IOContext,
     ) -> Result<SegmentInfo<D>>
     where

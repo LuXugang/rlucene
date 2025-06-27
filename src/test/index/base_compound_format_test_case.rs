@@ -739,7 +739,7 @@ pub(crate) fn create_random_file<R: Rng + ?Sized>(
     dir: &mut impl Directory,
     name: &str,
     size: i32,
-    seg_id: &[u8],
+    seg_id: &[u8; StringHelper::ID_LENGTH],
 ) -> Result<()> {
     let mut os = dir.create_output(name, &new_io_context(random)?)?;
     CodecUtil::write_index_header(&mut os, "Foo", 0, seg_id, "suffix")?;
@@ -761,7 +761,7 @@ fn create_sequence_file<R: Rng + ?Sized>(
     name: &str,
     mut start: u8,
     size: i32,
-    seg_id: &[u8],
+    seg_id: &[u8; StringHelper::ID_LENGTH],
     seg_suffix: &str,
 ) -> Result<()> {
     let mut os = dir.create_output(name, &new_io_context(random)?)?;

@@ -125,26 +125,26 @@ where
     /// Counts how often the index has been changed.
     pub version: i64,
     /// Generation of the "segments_N" for the next commit.
-    pub generation: i64,
+    generation: i64,
     /// Generation of the "segments_N" file we last successfully read or wrote.
-    pub last_generation: i64,
+    last_generation: i64,
     /// Opaque `HashMap<String, String>` that user can specify during
     /// `IndexWriter.commit`.
     pub user_data: HashMap<String, String>,
     /// List of `SegmentCommitInfo` objects.
-    pub segments: Vec<SegmentCommitInfo<D>>,
+    segments: Vec<SegmentCommitInfo<D>>,
     /// ID for this commit; only written starting with Lucene 5.0.
-    pub id: Option<Vec<u8>>,
+    id: Option<[u8; StringHelper::ID_LENGTH]>,
     /// Which Lucene version wrote this commit?
-    pub lucene_version: Option<Version>,
+    lucene_version: Option<Version>,
     /// Version of the oldest segment in the index, or `None` if there are no
     /// segments.
-    pub min_segment_lucene_version: Option<Version>,
+    min_segment_lucene_version: Option<Version>,
     /// The Lucene version major that was used to create the index.
-    pub index_created_version_major: i32,
+    index_created_version_major: i32,
     // Only true after prepareCommit has been called and
     // before finishCommit is called
-    pending_commit: bool,
+    pub(crate) pending_commit: bool,
 }
 pub mod segment_infos_util {
     /// The version at the time when 8.0 was released.
@@ -219,8 +219,8 @@ where
 
     /// Since Lucene 5.0, every commit (`segments_N`) writes a unique id. This
     /// will return that id.
-    pub fn get_id(&self) -> Option<Vec<u8>> {
-        self.id.clone()
+    pub fn get_id(&self) -> Option<&[u8; StringHelper::ID_LENGTH]> {
+        self.id.as_ref()
     }
     /// Read a particular `segmentFileName`. This may throw an error if a commit
     /// is in process.
@@ -313,7 +313,7 @@ where
         )?;
 
         // Read the ID
-        let mut id = vec![0u8; StringHelper::ID_LENGTH as usize];
+        let mut id = [0u8; StringHelper::ID_LENGTH];
         let id_len = id.len();
         debug_assert!(id_len <= i32::MAX as usize);
         input.read_bytes(&mut id, 0, id_len as i32)?;
@@ -397,7 +397,7 @@ where
 
         for _ in 0..num_segments {
             let seg_name = input.read_string()?;
-            let mut segment_id = [0u8; StringHelper::ID_LENGTH as usize];
+            let mut segment_id = [0u8; StringHelper::ID_LENGTH];
             let segment_id_len = segment_id.len();
             debug_assert!(segment_id_len <= i32::MAX as usize);
             input.read_bytes(&mut segment_id, 0, segment_id_len as i32)?;
@@ -443,7 +443,7 @@ where
             let sci_id = if format > segment_infos_util::VERSION_74 {
                 match input.read_byte()? {
                     1 => {
-                        let mut id = vec![0u8; StringHelper::ID_LENGTH as usize];
+                        let mut id = [0u8; StringHelper::ID_LENGTH];
                         let id_len = id.len();
                         debug_assert!(id_len <= i32::MAX as usize);
                         input.read_bytes(&mut id, 0, id_len as i32)?;
@@ -662,7 +662,7 @@ where
             out.write_string(&si.name)?;
             let segment_id = si.get_id();
             let segment_id_len = segment_id.len();
-            if segment_id_len != StringHelper::ID_LENGTH as usize {
+            if segment_id_len != StringHelper::ID_LENGTH {
                 return Err(LuceneError::illegal_state(format!(
                     "Cannot write segment: invalid id segment={} id={:?}",
                     si.name, segment_id
@@ -694,12 +694,12 @@ where
             }
             CodecUtil::write_be_int(out, soft_del_count)?;
 
-            if let Some(sci_id) = &si_per_commit.get_id() {
+            if let Some(sci_id) = si_per_commit.get_id() {
                 out.write_byte(1)?;
                 let sci_id_len = sci_id.len();
                 debug_assert_eq!(
                     sci_id_len,
-                    StringHelper::ID_LENGTH as usize,
+                    StringHelper::ID_LENGTH,
                     "Invalid SegmentCommitInfo#id: {:?}",
                     sci_id
                 );
@@ -734,7 +734,7 @@ where
             last_generation: self.last_generation,
             user_data: self.user_data.clone(),
             segments: Vec::with_capacity(self.segments.len()),
-            id: self.id.clone(),
+            id: self.id,
             lucene_version: self.lucene_version.clone(),
             min_segment_lucene_version: self.min_segment_lucene_version.clone(),
             index_created_version_major: self.index_created_version_major,
@@ -1505,7 +1505,7 @@ mod tests {
             -1,
             -1,
             -1,
-            Some(Vec::from(StringHelper::random_id())),
+            Some(StringHelper::random_id()),
         )?;
 
         sis.add(commit_info)?;
@@ -1558,7 +1558,7 @@ mod tests {
             -1,
             -1,
             -1,
-            Some(Vec::from(StringHelper::random_id())),
+            Some(StringHelper::random_id()),
         )?;
         sis.add(commit_info_0)?;
 
@@ -1588,13 +1588,13 @@ mod tests {
             -1,
             -1,
             -1,
-            Some(Vec::from(StringHelper::random_id())),
+            Some(StringHelper::random_id()),
         )?;
         sis.add(commit_info_1)?;
         sis.commit(&mut *directory.lock())?;
 
-        let commit_info_id_0 = sis.info(0).unwrap().get_id().clone();
-        let commit_info_id_1 = sis.info(1).unwrap().get_id().clone();
+        let commit_info_id_0 = sis.info(0).unwrap().get_id().unwrap().clone();
+        let commit_info_id_1 = sis.info(1).unwrap().get_id().unwrap().clone();
 
         // Read back the latest commit
         let result = SegmentInfos::read_latest_commit(directory.clone())?.into_segment_infos();
@@ -1610,12 +1610,12 @@ mod tests {
         let actual1 = sis.info(0).unwrap().get_id();
         let actual2 = sis.info(1).unwrap().get_id();
         assert_eq!(
-            StringHelper::id_to_string(Option::from(commit_info_id_0.as_ref().unwrap().as_slice())),
-            StringHelper::id_to_string(Option::from(actual1.as_ref().unwrap().as_slice()))
+            StringHelper::id_to_string(Option::from(&commit_info_id_0)),
+            StringHelper::id_to_string(Option::from(actual1.unwrap()))
         );
         assert_eq!(
-            StringHelper::id_to_string(Option::from(commit_info_id_1.as_ref().unwrap().as_slice())),
-            StringHelper::id_to_string(Option::from(actual2.as_ref().unwrap().as_slice()))
+            StringHelper::id_to_string(Option::from(&commit_info_id_1)),
+            StringHelper::id_to_string(Option::from(actual2.unwrap()))
         );
 
         Ok(())
@@ -1748,51 +1748,50 @@ mod tests {
             Some(Sort::get_index_order()?),
         )?;
 
-        let mut commit_info =
-            SegmentCommitInfo::new(Rc::new(info), 0, 0, -1, -1, -1, Some(Vec::from(id)))?;
+        let mut commit_info = SegmentCommitInfo::new(Rc::new(info), 0, 0, -1, -1, -1, Some(id))?;
         assert_eq!(
-            StringHelper::id_to_string(Some(id.as_slice())),
+            StringHelper::id_to_string(Some(&id)),
             StringHelper::id_to_string(commit_info.get_id().as_deref())
         );
 
         commit_info.advance_del_gen();
         assert_ne!(
-            StringHelper::id_to_string(Some(id.as_slice())),
+            StringHelper::id_to_string(Some(&id)),
             StringHelper::id_to_string(commit_info.get_id().as_deref())
         );
 
-        let new_id = commit_info.get_id().clone();
+        let new_id = commit_info.get_id().unwrap().clone();
         commit_info.advance_doc_values_gen();
         assert_ne!(
-            StringHelper::id_to_string(new_id.as_deref()),
+            StringHelper::id_to_string(Some(&new_id)),
             StringHelper::id_to_string(commit_info.get_id().as_deref())
         );
 
-        let new_id = commit_info.get_id().clone();
+        let new_id = commit_info.get_id().unwrap().clone();
         commit_info.advance_field_infos_gen();
         assert_ne!(
-            StringHelper::id_to_string(new_id.as_deref()),
+            StringHelper::id_to_string(Some(&new_id)),
             StringHelper::id_to_string(commit_info.get_id().as_deref())
         );
 
         let clone = commit_info.clone();
-        let current_id = commit_info.get_id().clone();
+        let current_id = commit_info.get_id().unwrap().clone();
         assert_eq!(
-            StringHelper::id_to_string(current_id.as_deref()),
+            StringHelper::id_to_string(Some(&current_id)),
             StringHelper::id_to_string(commit_info.get_id().as_deref())
         );
         assert_eq!(
-            StringHelper::id_to_string(current_id.as_deref()),
+            StringHelper::id_to_string(Some(&current_id)),
             StringHelper::id_to_string(clone.get_id().as_deref())
         );
 
         commit_info.advance_field_infos_gen();
         assert_ne!(
-            StringHelper::id_to_string(current_id.as_deref()),
+            StringHelper::id_to_string(Some(&current_id)),
             StringHelper::id_to_string(commit_info.get_id().as_deref())
         );
         assert_eq!(
-            StringHelper::id_to_string(current_id.as_deref()),
+            StringHelper::id_to_string(Some(&current_id)),
             StringHelper::id_to_string(clone.get_id().as_deref()),
             "clone changed but shouldn't"
         );
@@ -1831,7 +1830,7 @@ mod tests {
             -1,
             -1,
             -1,
-            Some(Vec::from(StringHelper::random_id())),
+            Some(StringHelper::random_id()),
         )?;
         sis.add(commit_info_0)?;
 
@@ -1860,7 +1859,7 @@ mod tests {
             -1,
             -1,
             -1,
-            Some(Vec::from(StringHelper::random_id())),
+            Some(StringHelper::random_id()),
         )?;
         sis.add(commit_info_1)?;
 

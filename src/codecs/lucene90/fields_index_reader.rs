@@ -29,6 +29,7 @@ use crate::util::packed::direct_monotonic_reader::direct_monotonic::Meta;
 use crate::util::packed::direct_monotonic_reader::{
     direct_monotonic_reader_util, DirectMonotonicReader,
 };
+use crate::util::StringHelper;
 
 pub(crate) struct FieldsIndexReader<I>
 where
@@ -59,7 +60,7 @@ where
         suffix: &str,
         extension: &str,
         codec_name: &str,
-        id: &[u8],
+        id: &[u8; StringHelper::ID_LENGTH],
         meta_in: &mut impl IndexInput,
         context: &IOContext,
     ) -> Result<Self>
