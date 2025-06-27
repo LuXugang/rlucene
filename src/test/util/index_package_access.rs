@@ -18,6 +18,7 @@ use crate::index::field_info::FieldInfo;
 use crate::index::field_infos::build::Builder;
 use crate::index::field_infos::{FieldInfos, FieldNumbers};
 use crate::util::error::lucene_error::Result;
+use parking_lot::lock_api::Mutex;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -61,7 +62,7 @@ impl FieldInfosBuilderImpl {
     ) -> Result<Self> {
         let field_number = FieldNumbers::new(soft_deletes_field_name, parent_field_name)?;
         Ok(FieldInfosBuilderImpl {
-            builder: Builder::new(Arc::new(field_number)),
+            builder: Builder::new(Arc::new(Mutex::new(field_number))),
         })
     }
 }

@@ -373,19 +373,16 @@ pub(crate) struct FieldProperties {
 }
 
 pub(crate) struct FieldNumbers {
-    pub field_properties: Rc<RefCell<Property>>,
-    pub soft_deletes_field_name: Option<String>,
-    // The parent document field from IWC to mark parent document when indexing
-    pub parent_field_name: Option<String>,
-    // The soft-deletes field from IWC to enforce a single soft-deletes field
-}
-pub(crate) struct Property {
-    pub number_to_name: HashMap<i32, String>,
-    pub properties: HashMap<String, FieldProperties>,
+    number_to_name: HashMap<i32, String>,
+    field_properties: HashMap<String, FieldProperties>,
     // TODO: we should similarly catch an attempt to turn
     // norms back on after they were already committed; today
     // we silently discard the norm but this is badly trappy
-    pub lowest_unassigned_field_number: i32,
+    lowest_unassigned_field_number: i32,
+    soft_deletes_field_name: Option<String>,
+    // The parent document field from IWC to mark parent document when indexing
+    parent_field_name: Option<String>,
+    // The soft-deletes field from IWC to enforce a single soft-deletes field
 }
 
 #[allow(unused)]
@@ -402,69 +399,60 @@ impl FieldNumbers {
                 )));
             }
         }
-        let properties = Property {
-            number_to_name: HashMap::new(),
-            properties: HashMap::new(),
-            lowest_unassigned_field_number: -1,
-        };
+
         Ok(FieldNumbers {
-            field_properties: Rc::new(RefCell::new(properties)),
+            number_to_name: HashMap::new(),
+            field_properties: HashMap::new(),
+            lowest_unassigned_field_number: -1,
             soft_deletes_field_name,
             parent_field_name,
         })
     }
-    pub fn verify_field_info(&self, fi: &FieldInfo) -> Result<()> {
-        let field_properties_guard = self.field_properties.borrow();
+    pub(crate) fn verify_field_info(&self, fi: &FieldInfo) -> Result<()> {
         let field_name = fi.get_name();
         self.verify_soft_deleted_field_name(field_name, fi.is_soft_deletes_field())?;
         self.verify_parent_field_name(field_name, fi.is_parent_field())?;
-        if field_properties_guard.properties.contains_key(field_name) {
-            self.verify_same_schema(fi, &field_properties_guard.properties)?;
+        if self.field_properties.contains_key(field_name) {
+            self.verify_same_schema(fi)?;
         }
         Ok(())
     }
 
-    pub(crate) fn add_or_get(&self, fi: Rc<FieldInfo>) -> Result<i32> {
-        let mut field_properties_guard = self.field_properties.borrow_mut();
-        self.add_or_get_impl(fi, &mut field_properties_guard)
-    }
     /// Returns the global field number for the given field name. If the name
     /// does not exist yet it tries to add it with the given preferred field
     /// number assigned if possible otherwise the first unassigned field
     /// number is used as the field number.
-    pub(crate) fn add_or_get_impl(
-        &self,
-        fi: Rc<FieldInfo>,
-        field_properties: &mut Property,
-    ) -> Result<i32> {
+    pub(crate) fn add_or_get(&mut self, fi: Rc<FieldInfo>) -> Result<i32> {
         let field_name = fi.get_name();
         self.verify_soft_deleted_field_name(field_name, fi.is_soft_deletes_field())?;
         self.verify_parent_field_name(field_name, fi.is_parent_field())?;
-        match field_properties.properties.get(field_name) {
-            Some(fp) => {
-                self.verify_same_schema(&fi, &field_properties.properties)?;
-                Ok(fp.number)
+        let number = match self.field_properties.get(field_name) {
+            Some(field_properties) => {
+                self.verify_same_schema(&fi)?;
+                field_properties.number
             },
             None => {
                 // first time we see this field in this index
-                let field_number = if fi.number != -1
-                    && !field_properties.number_to_name.contains_key(&fi.number)
-                {
-                    fi.number
-                } else {
-                    loop {
-                        field_properties.lowest_unassigned_field_number += 1;
-                        if !field_properties
-                            .number_to_name
-                            .contains_key(&field_properties.lowest_unassigned_field_number)
-                        {
-                            break field_properties.lowest_unassigned_field_number;
+                let field_number =
+                    if fi.number != -1 && !self.number_to_name.contains_key(&fi.number) {
+                        // cool - we can use this number globally
+                        fi.number
+                    } else {
+                        // find a new FieldNumber
+                        loop {
+                            self.lowest_unassigned_field_number += 1;
+                            if !self
+                                .number_to_name
+                                .contains_key(&self.lowest_unassigned_field_number)
+                            {
+                                break;
+                            }
+                            // might not be up to date - lets do the work once needed
                         }
-                    }
-                };
+                        self.lowest_unassigned_field_number
+                    };
                 debug_assert!(field_number >= 0);
-                field_properties
-                    .number_to_name
+                self.number_to_name
                     .insert(field_number, field_name.to_string());
                 let index_options_props = if fi.get_index_options() != &IndexOptions::None {
                     Some(IndexOptionsProperties {
@@ -474,7 +462,7 @@ impl FieldNumbers {
                 } else {
                     None
                 };
-                let new_props = FieldProperties {
+                let field_properties = FieldProperties {
                     number: field_number,
                     index_options: *fi.get_index_options(),
                     index_options_properties: index_options_props,
@@ -491,13 +479,13 @@ impl FieldNumbers {
                         similarity_function: *fi.get_vector_similarity_function(),
                     },
                 };
-                let number = new_props.number;
-                field_properties
-                    .properties
-                    .insert(field_name.to_string(), new_props);
-                Ok(number)
+                let number = field_properties.number;
+                self.field_properties
+                    .insert(field_name.to_string(), field_properties);
+                number
             },
-        }
+        };
+        Ok(number)
     }
 
     fn verify_soft_deleted_field_name(
@@ -557,14 +545,9 @@ impl FieldNumbers {
         Ok(())
     }
 
-    fn verify_same_schema(
-        &self,
-        fi: &FieldInfo,
-        props: &HashMap<String, FieldProperties>,
-    ) -> Result<()> {
+    fn verify_same_schema(&self, fi: &FieldInfo) -> Result<()> {
         let field_name = fi.get_name();
-        debug_assert!(props.contains_key(field_name));
-        let field_properties = props.get(field_name).unwrap();
+        let field_properties = self.field_properties.get(field_name).unwrap();
         FieldInfo::verify_same_index_options(
             field_name,
             &field_properties.index_options,
@@ -642,14 +625,14 @@ impl FieldNumbers {
         dv_type: DocValuesType,
         field_must_exist: bool,
     ) -> Result<()> {
-        let mut field_properties_guard = self.field_properties.borrow_mut();
-        if !field_properties_guard.properties.contains_key(field_name) {
+        if !self.field_properties.contains_key(field_name) {
             if field_must_exist {
                 return Err(LuceneError::illegal_argument(format!(
                     "Can't update [{:?}] doc values; the field [{}] doesn't exist.",
                     dv_type, field_name
                 )));
             } else {
+                // create dv only field
                 let fi = FieldInfo::new(
                     field_name.to_string(),
                     -1,
@@ -674,12 +657,12 @@ impl FieldNumbers {
                         .as_ref()
                         .is_some_and(|s| s == field_name),
                 );
-                self.add_or_get_impl(Rc::new(fi), &mut field_properties_guard)?;
+                self.add_or_get(Rc::new(fi))?;
             }
         } else {
             // verify that field is doc values only field with the give doc
             // values type
-            let field_props = field_properties_guard.properties.get(field_name).unwrap();
+            let field_props = self.field_properties.get(field_name).unwrap();
             if dv_type != field_props.doc_values_type {
                 return Err(LuceneError::illegal_argument(format!(
                     "Can't update [{:?}] doc values; the field [{}] has inconsistent doc values' type of [{:?}].",
@@ -734,8 +717,7 @@ impl FieldNumbers {
         dv_type: DocValuesType,
         new_field_number: i32,
     ) -> Result<Option<FieldInfo>> {
-        let field_properties_guard = self.field_properties.borrow();
-        let field_props = field_properties_guard.properties.get(field_name);
+        let field_props = self.field_properties.get(field_name);
         if let Some(fp) = field_props {
             if dv_type != fp.doc_values_type {
                 return Ok(None);
@@ -773,18 +755,14 @@ impl FieldNumbers {
         }
     }
 
-    /// Returns a set of field names.
     pub fn get_field_names(&self) -> Result<HashSet<String>> {
-        let field_properties_guard = self.field_properties.borrow_mut();
-        Ok(field_properties_guard.properties.keys().cloned().collect())
+        Ok(self.field_properties.keys().cloned().collect())
     }
 
-    /// Clears the field numbers.
     pub fn clear(&mut self) -> Result<()> {
-        let mut field_properties_guard = self.field_properties.borrow_mut();
-        field_properties_guard.number_to_name.clear();
-        field_properties_guard.properties.clear();
-        field_properties_guard.lowest_unassigned_field_number = -1;
+        self.number_to_name.clear();
+        self.field_properties.clear();
+        self.lowest_unassigned_field_number = -1;
         Ok(())
     }
 }
@@ -792,18 +770,19 @@ pub mod build {
     use crate::index::field_info::FieldInfo;
     use crate::index::field_infos::{FieldInfos, FieldNumbers};
     use crate::util::error::lucene_error::Result;
+    use parking_lot::Mutex;
     use std::collections::HashMap;
     use std::rc::Rc;
     use std::sync::Arc;
 
     pub struct Builder {
         by_name: HashMap<String, Rc<FieldInfo>>,
-        global_field_numbers: Arc<FieldNumbers>,
+        global_field_numbers: Arc<Mutex<FieldNumbers>>,
         finished: bool,
     }
     #[allow(unused)]
     impl Builder {
-        pub(crate) fn new(global_field_numbers: Arc<FieldNumbers>) -> Self {
+        pub(crate) fn new(global_field_numbers: Arc<Mutex<FieldNumbers>>) -> Self {
             Self {
                 by_name: HashMap::new(),
                 global_field_numbers,
@@ -811,12 +790,23 @@ pub mod build {
             }
         }
 
-        pub fn get_soft_deletes_field_name(&self) -> Option<&String> {
-            self.global_field_numbers.soft_deletes_field_name.as_ref()
+        pub fn is_soft_deletes_field_name(&self, field_name: &str) -> bool {
+            match self
+                .global_field_numbers
+                .lock()
+                .soft_deletes_field_name
+                .as_ref()
+            {
+                Some(name) => *field_name == *name,
+                None => false,
+            }
         }
 
-        pub fn get_parent_field_name(&self) -> Option<&String> {
-            self.global_field_numbers.parent_field_name.as_ref()
+        pub fn is_parent_field_name(&self, field_name: &str) -> bool {
+            match self.global_field_numbers.lock().parent_field_name {
+                Some(ref name) => *field_name == *name,
+                _ => false,
+            }
         }
 
         pub fn add(&mut self, fi: Rc<FieldInfo>) -> Result<Rc<FieldInfo>> {
@@ -840,7 +830,7 @@ pub mod build {
 
             self.assert_not_finished();
 
-            let field_number = self.global_field_numbers.add_or_get(fi.clone())?;
+            let field_number = self.global_field_numbers.lock().add_or_get(fi.clone())?;
             let attributes = fi.properties.borrow().attributes.clone();
             let fi_new = Rc::new(FieldInfo::new(
                 fi.name.clone(),

@@ -615,14 +615,8 @@ where
         //         .get_max_dimensions(&pf.field_name)?;
         //     Self::validate_max_vector_dimension(&pf.field_name, s.vector_dimension, max_dim)?;
         // }
-        let soft_deletes_field = match self.field_infos.get_soft_deletes_field_name() {
-            Some(name) if *name == pf.field_name => true,
-            _ => false,
-        };
-        let is_parent_field = match self.field_infos.get_parent_field_name() {
-            Some(name) if *name == pf.field_name => true,
-            _ => false,
-        };
+        let soft_deletes_field = self.field_infos.is_soft_deletes_field_name(&pf.field_name);
+        let is_parent_field = self.field_infos.is_parent_field_name(&pf.field_name);
         let field_info = FieldInfo::new(
             pf.field_name.clone(),
             -1,
