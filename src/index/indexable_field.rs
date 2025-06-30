@@ -34,7 +34,6 @@ use crate::util::error::lucene_error::Result;
 use crate::util::number::Number;
 use std::fmt::Display;
 use std::rc::Rc;
-use std::sync::Arc;
 
 /// Represents a single field for indexing. IndexWriter consumes
 /// `Iterable<IndexableField>` as a document.
@@ -46,7 +45,7 @@ pub trait IndexableField: Display {
 
     /// {@link IndexableFieldType} describing the properties of this field.
     type FieldType: IndexableFieldType;
-    fn field_type(&self) -> Arc<Self::FieldType>;
+    fn field_type(&self) -> &Self::FieldType;
     /// Creates the TokenStream used for indexing this field. If appropriate,
     /// implementations should use the given Analyzer to create the
     /// TokenStreams.

@@ -69,7 +69,7 @@ impl IndexableField for Fields {
 
     type FieldType = FieldType;
 
-    fn field_type(&self) -> Arc<Self::FieldType> {
+    fn field_type(&self) -> &Self::FieldType {
         match self {
             Fields::Field(f) => f.field_type(),
             Fields::Text(f) => f.field_type(),

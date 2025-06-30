@@ -536,7 +536,7 @@ where
                 }
                 doc_field_idx += 1;
                 let pf = self.doc_fields[pf_idx as usize].as_mut().unwrap();
-                Self::update_doc_field_schema(field.name(), &mut pf.schema, &*field_type)?;
+                Self::update_doc_field_schema(field.name(), &mut pf.schema, field_type)?;
             }
 
             // For each field, if it's the first time we see this field in this segment,

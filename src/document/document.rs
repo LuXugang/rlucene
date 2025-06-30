@@ -262,7 +262,6 @@ impl IntoIterator for Document {
 #[cfg(test)]
 mod tests {
     use std::rc::Rc;
-    use std::sync::Arc;
 
     use crate::document::document::Document;
     use crate::document::field::{Field, Store};
@@ -292,7 +291,7 @@ mod tests {
 
         let mut ft = FieldType::new();
         ft.set_stored(true)?;
-        let ft_arc = Arc::new(ft);
+        let ft_arc = ft;
 
         let string_fld =
             Field::with_string("string", Rc::new(binary_val.to_string()), ft_arc.clone())?;
@@ -446,11 +445,9 @@ mod tests {
         let mut doc = Document::new();
         let mut stored = FieldType::new();
         stored.set_stored(true)?;
-        let stored = Arc::new(stored);
         let mut indexed_not_tokenized = FieldType::new();
         indexed_not_tokenized.set_index_options(IndexOptions::DocsAndFreqsAndPositions)?;
         indexed_not_tokenized.set_tokenized(false)?;
-        let indexed_not_tokenized = Arc::new(indexed_not_tokenized);
         doc.add(StringField::with_string("keyword", "test1", Store::Yes)?);
         doc.add(StringField::with_string("keyword", "test2", Store::Yes)?);
         doc.add(TextField::with_string("text", "test1", Store::Yes)?);

@@ -23,7 +23,6 @@
  */
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
-use std::sync::Arc;
 
 use once_cell::sync::Lazy;
 
@@ -39,12 +38,12 @@ use crate::util::error::lucene_error::Result;
 use crate::util::number::Number;
 
 /// Type for a stored-only field.
-static TYPE: Lazy<Arc<FieldType>> = Lazy::new(|| {
+static TYPE: Lazy<FieldType> = Lazy::new(|| {
     let mut ft = FieldType::new();
     ft.set_stored(true)
         .expect("set_stored(true) should never fail in this context");
     ft.freeze();
-    Arc::new(ft)
+    ft
 });
 /// A field whose value is stored so that
 /// [`IndexSearcher::stored_fields`](crate::search::index_searcher::IndexSearcher::stored_fields)
@@ -61,7 +60,7 @@ impl StoredField {
     /// - `name`: Field name.
     /// - `field_type`: Custom [`FieldType`] for this field.
     pub fn new(name: &str, file_type: FieldType) -> Self {
-        let parent_field = Field::new(name, Arc::new(file_type));
+        let parent_field = Field::new(name, file_type);
         Self { parent_field }
     }
     /// Expert: allows you to customize the [`FieldType`].
@@ -79,7 +78,7 @@ impl StoredField {
         bytes: Rc<BytesRef<Vec<u8>>>,
         file_type: FieldType,
     ) -> Result<Self> {
-        let parent_field = Field::with_bytes_ref(name, bytes.clone(), Arc::new(file_type))?;
+        let parent_field = Field::with_bytes_ref(name, bytes.clone(), file_type)?;
         Ok(Self { parent_field })
     }
     /// Creates a stored-only field with the given binary value.
@@ -95,7 +94,7 @@ impl StoredField {
         let len = value.len();
         debug_assert!(len <= i32::MAX as usize);
         let bytes_ref = Rc::new(BytesRef::from_slice(value, 0, len));
-        let parent_field = Field::with_bytes_ref(name, bytes_ref.clone(), Arc::clone(&TYPE))?;
+        let parent_field = Field::with_bytes_ref(name, bytes_ref.clone(), TYPE.clone())?;
         Ok(Self { parent_field })
     }
     /// Creates a stored-only field with the given binary value.
@@ -115,7 +114,7 @@ impl StoredField {
             offset as usize,
             length as usize,
         ));
-        let parent_field = Field::with_bytes_ref(name, bytes_ref.clone(), Arc::clone(&TYPE))?;
+        let parent_field = Field::with_bytes_ref(name, bytes_ref.clone(), TYPE.clone())?;
         Ok(Self { parent_field })
     }
     /// Creates a stored-only field with the given binary value.
@@ -128,7 +127,7 @@ impl StoredField {
     /// - `name`: Field name.
     /// - `value`: [`BytesRef`] pointing to binary content (**not copied**).
     pub fn with_bytes_ref(name: &str, value: Rc<BytesRef<Vec<u8>>>) -> Result<Self> {
-        let parent_field = Field::with_bytes_ref(name, value.clone(), Arc::clone(&TYPE))?;
+        let parent_field = Field::with_bytes_ref(name, value.clone(), TYPE.clone())?;
         Ok(Self { parent_field })
     }
     /// Creates a stored-only field with the given string value.
@@ -138,7 +137,7 @@ impl StoredField {
     /// - `value`: String value.
     pub fn with_string(name: &str, value: &str) -> Result<Self> {
         let value_str = Rc::new(value.to_string());
-        let parent_field = Field::with_string(name, value_str, Arc::clone(&TYPE))?;
+        let parent_field = Field::with_string(name, value_str, TYPE.clone())?;
         Ok(Self { parent_field })
     }
     /// Expert: allows customization of the [`FieldType`].
@@ -149,7 +148,7 @@ impl StoredField {
     /// - `field_type`: Custom [`FieldType`] for this field.
     pub fn with_string_and_type(name: &str, value: &str, file_type: FieldType) -> Result<Self> {
         let value_str = Rc::new(value.to_string());
-        let parent_field = Field::with_string(name, value_str, Arc::new(file_type))?;
+        let parent_field = Field::with_string(name, value_str, file_type)?;
         Ok(Self { parent_field })
     }
     /// Creates a stored-only field with the given i32 value.
@@ -159,7 +158,7 @@ impl StoredField {
     /// - `value`: i32 value.
     pub fn with_i32(name: &str, value: i32) -> Result<Self> {
         let fields_data = FieldDataEnum::Number(Number::I32(value));
-        let mut parent_field = Field::new(name, Arc::clone(&TYPE));
+        let mut parent_field = Field::new(name, TYPE.clone());
         parent_field.fields_data = Option::from(fields_data.clone());
         Ok(Self { parent_field })
     }
@@ -170,7 +169,7 @@ impl StoredField {
     /// - `value`: Long value.
     pub fn with_i64(name: &str, value: i64) -> Result<Self> {
         let fields_data = FieldDataEnum::Number(Number::I64(value));
-        let mut parent_field = Field::new(name, Arc::clone(&TYPE));
+        let mut parent_field = Field::new(name, TYPE.clone());
         parent_field.fields_data = Option::from(fields_data.clone());
         Ok(Self { parent_field })
     }
@@ -181,7 +180,7 @@ impl StoredField {
     /// - `value`: f32 value.
     pub fn with_f32(name: &str, value: f32) -> Result<Self> {
         let fields_data = FieldDataEnum::Number(Number::F32(value));
-        let mut parent_field = Field::new(name, Arc::clone(&TYPE));
+        let mut parent_field = Field::new(name, TYPE.clone());
         parent_field.fields_data = Option::from(fields_data.clone());
         Ok(Self { parent_field })
     }
@@ -192,7 +191,7 @@ impl StoredField {
     /// - `value`: f64 value.
     pub fn with_f64(name: &str, value: f64) -> Result<Self> {
         let fields_data = FieldDataEnum::Number(Number::F64(value));
-        let mut parent_field = Field::new(name, Arc::clone(&TYPE));
+        let mut parent_field = Field::new(name, TYPE.clone());
         parent_field.fields_data = Option::from(fields_data.clone());
         Ok(Self { parent_field })
     }
@@ -212,7 +211,7 @@ impl IndexableField for StoredField {
 
     type FieldType = FieldType;
 
-    fn field_type(&self) -> Arc<Self::FieldType> {
+    fn field_type(&self) -> &Self::FieldType {
         self.parent_field.field_type()
     }
 

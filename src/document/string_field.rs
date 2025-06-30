@@ -23,7 +23,6 @@
  */
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
-use std::sync::Arc;
 
 use once_cell::sync::Lazy;
 
@@ -40,7 +39,7 @@ use crate::util::error::lucene_error::Result;
 use crate::util::number::Number;
 
 /// Indexed, not tokenized, omits norms, indexes DOCS_ONLY, not stored.
-static TYPE_NOT_STORED: Lazy<Arc<FieldType>> = Lazy::new(|| {
+static TYPE_NOT_STORED: Lazy<FieldType> = Lazy::new(|| {
     let mut ft = FieldType::new();
     ft.set_omit_norms(true)
         .expect("set_omit_norms(true) should never fail in this context");
@@ -49,10 +48,10 @@ static TYPE_NOT_STORED: Lazy<Arc<FieldType>> = Lazy::new(|| {
     ft.set_tokenized(false)
         .expect("set_tokenized(false) should never fail in this context");
     ft.freeze();
-    Arc::new(ft)
+    ft
 });
 /// Indexed, not tokenized, omits norms, indexes DOCS_ONLY, stored.
-static TYPE_STORED: Lazy<Arc<FieldType>> = Lazy::new(|| {
+static TYPE_STORED: Lazy<FieldType> = Lazy::new(|| {
     let mut ft = FieldType::new();
     ft.set_omit_norms(true)
         .expect("set_omit_norms(true) should never fail in this context");
@@ -63,7 +62,7 @@ static TYPE_STORED: Lazy<Arc<FieldType>> = Lazy::new(|| {
     ft.set_tokenized(false)
         .expect("set_tokenized(false) should never fail in this context");
     ft.freeze();
-    Arc::new(ft)
+    ft
 });
 /// A field that is indexed but not tokenized: the entire string value is
 /// indexed as a single token. For example, this might be used for a `country`
@@ -87,12 +86,12 @@ impl StringField {
     pub fn with_string(name: &str, value: &str, store: Store) -> Result<Self> {
         let store = store.into();
         let field_type = if store {
-            Arc::clone(&TYPE_STORED)
+            TYPE_STORED.clone()
         } else {
-            Arc::clone(&TYPE_NOT_STORED)
+            TYPE_NOT_STORED.clone()
         };
         let value_str = Rc::new(value.to_string());
-        let parent_field = Field::with_string(name, value_str.clone(), field_type.clone())?;
+        let parent_field = Field::with_string(name, value_str.clone(), field_type)?;
         let binary_value = Rc::new(BytesRef::from_string(value));
         let stored_value = if store {
             None
@@ -117,11 +116,11 @@ impl StringField {
     pub fn with_bytes_ref(name: &str, value: Rc<BytesRef<Vec<u8>>>, store: Store) -> Result<Self> {
         let store = store.into();
         let field_type = if store {
-            Arc::clone(&TYPE_STORED)
+            TYPE_STORED.clone()
         } else {
-            Arc::clone(&TYPE_NOT_STORED)
+            TYPE_NOT_STORED.clone()
         };
-        let parent_field = Field::with_bytes_ref(name, value.clone(), field_type.clone())?;
+        let parent_field = Field::with_bytes_ref(name, value.clone(), field_type)?;
         let stored_value = if store {
             None
         } else {
@@ -170,7 +169,7 @@ impl IndexableField for StringField {
 
     type FieldType = FieldType;
 
-    fn field_type(&self) -> Arc<Self::FieldType> {
+    fn field_type(&self) -> &Self::FieldType {
         self.parent_field.field_type()
     }
 

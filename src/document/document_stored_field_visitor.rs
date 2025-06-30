@@ -99,7 +99,7 @@ impl StoredFieldVisitor for DocumentStoredFieldVisitor<'_> {
         value: &str,
         _writer: &mut impl StoredFieldsWriter,
     ) -> Result<()> {
-        let mut ft = FieldType::from_ref(&**text::TYPE_STORED)?;
+        let mut ft = FieldType::from_ref(&*text::TYPE_STORED)?;
         ft.set_store_term_vectors(field_info.has_term_vectors())?;
         ft.set_omit_norms(field_info.omits_norms())?;
         ft.set_index_options(*field_info.get_index_options())?;

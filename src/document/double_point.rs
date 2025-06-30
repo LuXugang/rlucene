@@ -23,7 +23,6 @@
  */
 use std::fmt;
 use std::rc::Rc;
-use std::sync::Arc;
 
 use crate::analysis::analyzer::Analyzer;
 use crate::document::field::{Field, FieldBase, FieldDataEnum};
@@ -48,8 +47,8 @@ impl DoublePoint {
         let len = packed.len();
         let value = Rc::new(BytesRef::from_slice(packed, 0, len));
         debug_assert!(len <= i32::MAX as usize);
-        let field_type = Arc::new(Self::get_type(point.len() as i32)?);
-        let parent_field = Field::with_bytes_ref(name, value, field_type.clone())?;
+        let field_type = Self::get_type(point.len() as i32)?;
+        let parent_field = Field::with_bytes_ref(name, value, field_type)?;
         Ok(DoublePoint { parent_field })
     }
 
@@ -114,7 +113,7 @@ impl IndexableField for DoublePoint {
 
     type FieldType = FieldType;
 
-    fn field_type(&self) -> Arc<Self::FieldType> {
+    fn field_type(&self) -> &Self::FieldType {
         self.parent_field.field_type()
     }
 

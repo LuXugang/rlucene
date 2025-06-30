@@ -73,7 +73,7 @@ use crate::util::number::Number;
 /// recommended not to make changes after field instantiation.
 pub struct Field {
     /// Field's type.
-    indexable_field_type: Arc<FieldType>,
+    indexable_field_type: FieldType,
     /// Field's name.
     name: String,
     /// Field's value.
@@ -90,7 +90,7 @@ impl Field {
     ///
     /// # Errors
     /// - Returns an error if either the `name` or `field_type` is `None`.
-    pub fn new(name: &str, indexable_field_type: Arc<FieldType>) -> Self {
+    pub fn new(name: &str, indexable_field_type: FieldType) -> Self {
         Self {
             indexable_field_type,
             name: name.to_string(),
@@ -110,7 +110,7 @@ impl Field {
     pub fn with_reader(
         name: &str,
         reader: ReaderEnum,
-        indexable_field_type: Arc<FieldType>,
+        indexable_field_type: FieldType,
     ) -> Result<Self> {
         if indexable_field_type.stored() {
             return Err(LuceneError::illegal_argument(
@@ -141,7 +141,7 @@ impl Field {
     pub fn with_token_stream(
         name: &str,
         token_stream: TokenStreamEnum,
-        indexable_field_type: Arc<FieldType>,
+        indexable_field_type: FieldType,
     ) -> Result<Self> {
         if !indexable_field_type.tokenized()
             || indexable_field_type.index_options() == &IndexOptions::None
@@ -177,7 +177,7 @@ impl Field {
     pub fn with_binary(
         name: &str,
         value: Vec<u8>,
-        indexable_field_type: Arc<FieldType>,
+        indexable_field_type: FieldType,
     ) -> Result<Self> {
         let len = value.len();
         Self::with_binary_range(name, value, 0, len, indexable_field_type)
@@ -202,7 +202,7 @@ impl Field {
         value: Vec<u8>,
         offset: usize,
         length: usize,
-        indexable_field_type: Arc<FieldType>,
+        indexable_field_type: FieldType,
     ) -> Result<Self> {
         let value = Rc::new(BytesRef::from_slice(value, offset, length));
         Self::with_bytes_ref(name, value, indexable_field_type)
@@ -223,7 +223,7 @@ impl Field {
     pub fn with_bytes_ref(
         name: &str,
         bytes: Rc<BytesRef<Vec<u8>>>,
-        indexable_field_type: Arc<FieldType>,
+        indexable_field_type: FieldType,
     ) -> Result<Self> {
         if indexable_field_type
             .index_options()
@@ -270,7 +270,7 @@ impl Field {
     pub fn with_string(
         name: &str,
         value: Rc<String>,
-        indexable_field_type: Arc<FieldType>,
+        indexable_field_type: FieldType,
     ) -> Result<Self> {
         if !indexable_field_type.stored()
             && indexable_field_type.index_options() == &IndexOptions::None
@@ -476,8 +476,8 @@ impl IndexableField for Field {
     type FieldType = FieldType;
 
     /// Returns the [`FieldType`] for this field.
-    fn field_type(&self) -> Arc<Self::FieldType> {
-        self.indexable_field_type.clone()
+    fn field_type(&self) -> &Self::FieldType {
+        &self.indexable_field_type
     }
 
     type TokenStream = DummyTokenStream;
@@ -959,7 +959,7 @@ mod tests {
     #[test]
     fn test_disabled_field() -> Result<()> {
         let ft = FieldType::new();
-        let result = Field::with_string("foo", Rc::new("".to_string()), Arc::new(ft));
+        let result = Field::with_string("foo", Rc::new("".to_string()), ft);
         assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
         Ok(())
     }
@@ -968,7 +968,7 @@ mod tests {
         let mut ft = FieldType::new();
         ft.set_tokenized(true)?;
         ft.set_index_options(IndexOptions::Docs)?;
-        let result = Field::with_bytes_ref("foo", Rc::new(BytesRef::new()), Arc::new(ft));
+        let result = Field::with_bytes_ref("foo", Rc::new(BytesRef::new()), ft);
         assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
         Ok(())
     }
@@ -977,7 +977,7 @@ mod tests {
         let mut ft = FieldType::new();
         ft.set_tokenized(false)?;
         ft.set_index_options(IndexOptions::DocsAndFreqsAndPositionsAndOffsets)?;
-        let result = Field::with_bytes_ref("foo", Rc::new(BytesRef::new()), Arc::new(ft));
+        let result = Field::with_bytes_ref("foo", Rc::new(BytesRef::new()), ft);
         assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
         Ok(())
     }
@@ -988,7 +988,7 @@ mod tests {
         ft.set_store_term_vectors(true)?;
         ft.set_store_term_vector_offsets(true)?;
         ft.set_store_term_vector_offsets(true)?;
-        let result = Field::with_bytes_ref("foo", Rc::new(BytesRef::new()), Arc::new(ft));
+        let result = Field::with_bytes_ref("foo", Rc::new(BytesRef::new()), ft);
         assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
         Ok(())
     }
