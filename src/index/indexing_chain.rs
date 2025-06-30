@@ -110,7 +110,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 /// Default general purpose indexing chain, which handles indexing all types of fields.
-struct IndexingChain<D, O, P, T, TS, L>
+pub(crate) struct IndexingChain<D, O, P, T, TS, L>
 where
     D: Directory,
     O: OffsetAttribute,

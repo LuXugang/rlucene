@@ -21,20 +21,64 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
+use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
+use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
+use crate::analysis::token_stream::TokenStream;
+use crate::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::index::buffered_updates::STBufferedUpdates;
+use crate::index::documents_writer_delete_queue::{DeleteSlice, DocumentsWriterDeleteQueue};
+use crate::index::field_infos::build::Builder;
 use crate::index::field_infos::FieldInfos;
 use crate::index::frozen_buffered_updates::FrozenBufferedUpdates;
+use crate::index::indexing_chain::{IndexingChain, ReservedField};
+use crate::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::index::segment_commit_info::SegmentCommitInfo;
+use crate::index::segment_info::SegmentInfo;
 use crate::index::sorter::DocMapImpl;
 use crate::search::query::Query;
 use crate::store::directory::Directory;
+use crate::store::tracking_directory_wrapper::TrackingDirectoryWrapper;
 use crate::util::error::lucene_error::Result;
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::info_stream::InfoStreamLock;
 use crate::util::StringHelper;
+use std::cell::OnceCell;
 use std::rc::Rc;
+use std::sync::atomic::AtomicI64;
+use std::sync::{Arc, Mutex};
 
-pub(crate) struct DocumentsWriterPerThread;
+pub struct DocumentsWriterPerThread<D, P, T, O, TS, L, Q>
+where
+    D: Directory,
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+    TS: TokenStream,
+    L: LiveIndexWriterConfig,
+    Q: Query,
+{
+    pub directory: TrackingDirectoryWrapper<D>,
+    pub indexing_chain: IndexingChain<D, O, P, T, TS, L>,
+    pub pending_updates: STBufferedUpdates<Q>,
+    pub segment_info: SegmentInfo<D>,
+    pub aborted: bool,
+    pub flush_pending: OnceCell<bool>,
+    pub last_committed_bytes_used: AtomicI64,
+    pub has_flushed: OnceCell<bool>,
+    pub field_infos: Builder,
+    pub info_stream: InfoStreamLock,
+    pub num_docs_in_ram: i32,
+    pub delete_queue: Arc<Mutex<DocumentsWriterDeleteQueue<Q>>>,
+    pub delete_slice: DeleteSlice<Q>,
+    pub pending_num_docs: AtomicI64,
+    pub index_writer_config: L,
+    pub enable_test_points: bool,
+    pub delete_doc_ids: Vec<i32>,
+    pub num_deleted_doc_ids: usize,
+    pub index_major_version_created: i32,
+    pub parent_field: ReservedField<NumericDocValuesField>,
+}
 
 pub(crate) struct FlushedSegment<D, Q>
 where
