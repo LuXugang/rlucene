@@ -21,13 +21,24 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
 */
-pub mod char_term_attribute;
-pub mod dummy;
-pub mod flags_attribute;
-pub mod offset_attribute;
-pub mod payload_attribute;
-pub mod position_increment_attribute;
-pub mod position_length_attribute;
-pub mod term_frequency_attribute;
-pub mod term_to_bytes_ref_attribute;
-pub mod type_attribute;
+use crate::util::attribute::Attribute;
+
+/// A Token’s lexical type. The default value is `"word"`.
+pub trait TypeAttribute: Attribute {
+    /// The default type.
+    const DEFAULT_TYPE: &'static str = "word";
+
+    /// Returns this Token’s lexical type. Defaults to `"word"`.
+    ///
+    /// # See
+    ///
+    /// [`set_type`](TypeAttribute::set_type)
+    fn type_value(&self) -> &str;
+
+    /// Set the lexical type.
+    ///
+    /// # See
+    ///
+    /// [`type`](TypeAttribute::type_value)
+    fn set_type(&mut self, type_: String);
+}

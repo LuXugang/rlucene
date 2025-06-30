@@ -1256,11 +1256,9 @@ where
          * but rather a finally that takes note of the problem.
          */
 
-        // obtain and reuse TokenStream
         let mut stream = field.token_stream(analyzer, self.token_stream.take())?;
 
         let mut succeeded = false;
-        // ensure end()/close() semantics
         let result = (|| {
             stream.reset()?;
             {

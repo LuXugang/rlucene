@@ -21,13 +21,16 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
 */
-pub mod char_term_attribute;
-pub mod dummy;
-pub mod flags_attribute;
-pub mod offset_attribute;
-pub mod payload_attribute;
-pub mod position_increment_attribute;
-pub mod position_length_attribute;
-pub mod term_frequency_attribute;
-pub mod term_to_bytes_ref_attribute;
-pub mod type_attribute;
+use crate::index::BytesRef;
+use crate::util::attribute::Attribute;
+use std::borrow::Cow;
+
+/// This attribute is requested by `TermsHashPerField` to index the contents. It can be used to
+/// customize the final `byte[]` encoding of terms.
+pub trait TermToBytesRefAttribute: Attribute {
+    /// Retrieve this attribute’s `BytesRef`. The bytes are updated from the current term.
+    /// The implementation may return a new instance or keep the previous one.
+    /// The returned reference stays valid only until the next call to
+    /// `increment_token()`.
+    fn get_bytes_ref(&mut self) -> Cow<BytesRef<Vec<u8>>>;
+}

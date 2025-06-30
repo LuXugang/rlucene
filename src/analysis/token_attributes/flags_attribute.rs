@@ -21,13 +21,18 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
 */
-pub mod char_term_attribute;
-pub mod dummy;
-pub mod flags_attribute;
-pub mod offset_attribute;
-pub mod payload_attribute;
-pub mod position_increment_attribute;
-pub mod position_length_attribute;
-pub mod term_frequency_attribute;
-pub mod term_to_bytes_ref_attribute;
-pub mod type_attribute;
+use crate::util::attribute::Attribute;
+
+/// This attribute can be used to pass different flags down the `Tokenizer` chain, e.g. from
+/// one `TokenFilter` to another one.
+///
+/// This is completely distinct from [`TypeAttribute`](crate::analysis::token_attributes::type_attribute::TypeAttribute), although they do share similar
+/// purposes. The flags can be used to encode information about the token for use by other
+/// `TokenFilter`s.
+
+pub trait FlagsAttribute: Attribute {
+    /// Get the bitset for any bits that have been set.
+    fn get_flags(&self) -> i32;
+    /// Set the flags to a new bitset.
+    fn set_flags(&mut self, flags: i32);
+}
