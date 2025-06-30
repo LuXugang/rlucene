@@ -20,7 +20,7 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
-*/
+ */
 use std::collections::VecDeque;
 
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
@@ -35,12 +35,12 @@ use crate::util::hnsw::hnsw_graph::{
 pub struct HnswUtil;
 impl HnswUtil {
     /*
-     For each level, check rooted components from previous level nodes, which are entry
-     points with the goal that each node should be reachable from *some* entry point.  For each entry
-     point, compute a spanning tree, recording the nodes in a single shared bitset.
+    For each level, check rooted components from previous level nodes, which are entry
+    points with the goal that each node should be reachable from *some* entry point.  For each entry
+    point, compute a spanning tree, recording the nodes in a single shared bitset.
 
-     Also record a bitset marking nodes that are not full to be used when reconnecting in order to
-     limit the search to include non-full nodes only.
+    Also record a bitset marking nodes that are not full to be used when reconnecting in order to
+    limit the search to include non-full nodes only.
     */
     /// Returns true if every node on every level is reachable from node 0.
     pub(crate) fn is_rooted<G: HnswGraph>(hnsw: &mut G) -> Result<bool> {

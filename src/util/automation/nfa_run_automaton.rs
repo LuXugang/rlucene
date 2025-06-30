@@ -20,7 +20,7 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
-*/
+ */
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
@@ -607,7 +607,7 @@ mod tests {
             let generator = match RandomAcceptedStrings::new(&dfa) {
                 Ok(g) => g,
                 Err(_) => continue, /* sometimes the automaton accept nothing and throw this
-                                     * exception */
+                                     * exception  */
             };
 
             for _ in 0..20 {

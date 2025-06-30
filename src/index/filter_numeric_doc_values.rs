@@ -20,7 +20,7 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
-*/
+ */
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::numeric_doc_values::NumericDocValues;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;

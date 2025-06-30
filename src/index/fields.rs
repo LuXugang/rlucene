@@ -20,7 +20,7 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
-*/
+ */
 use crate::index::terms::Terms;
 use crate::util::error::lucene_error::Result;
 /// Provides a [`Terms`] index for fields that have it, and lists which fields

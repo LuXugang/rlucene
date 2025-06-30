@@ -20,7 +20,7 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
-*/
+ */
 use crate::index::BytesRefBuilder;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::selector::Selector;
@@ -123,7 +123,7 @@ where
     }
 
     /** Return a number for the k-th character between 0 and {@link
-     * #HISTOGRAM_SIZE}. */
+     * #HISTOGRAM_SIZE}.  */
     fn get_bucket(&self, i: i32, k: i32) -> i32 {
         self.sub_selector.byte_at(i, k) + 1
     }

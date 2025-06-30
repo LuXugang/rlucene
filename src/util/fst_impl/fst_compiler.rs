@@ -20,7 +20,7 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
-*/
+ */
 use std::fmt::{Display, Formatter};
 
 use crate::store::directory::Directory;
@@ -542,7 +542,7 @@ where
             doFixedLengthArcs = false;
           }
         }
-        */
+         */
         if do_fixed_length_arcs {
             debug_assert!(max_bytes_per_arc > 0);
             let label_range = node_in.arcs[last_arc as usize].label - node_in.arcs[0].label + 1;

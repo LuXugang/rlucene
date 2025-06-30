@@ -20,7 +20,7 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
-*/
+ */
 use std::cmp::Ordering;
 use std::rc::Rc;
 
@@ -538,11 +538,11 @@ impl Ord for FreqProxTermsWriterPerField {
 pub(crate) struct FreqProxPostingsArray {
     pub(crate) size: usize,
     pub(crate) term_freqs: Option<Vec<i32>>, /* # times this term occurs in
-                                              * the current doc */
+                                              * the current doc  */
     pub(crate) last_doc_ids: Vec<i32>, // Last docID where this term occurred
     pub(crate) last_doc_codes: Vec<i32>, // Code for prior doc
     pub(crate) last_positions: Option<Vec<i32>>, /* Last position where this term
-                                        * occurred */
+                                        * occurred  */
     pub(crate) last_offsets: Option<Vec<i32>>, // Last endOffset where this term occurred
     pub(crate) parent: ParallelPostingsArray,
 }

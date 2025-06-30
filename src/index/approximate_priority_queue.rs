@@ -20,7 +20,7 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
-*/
+ */
 use std::vec::Vec;
 /// An approximate priority queue, which attempts to poll items by decreasing
 /// log of the weight, though exact ordering is not guaranteed. This struct

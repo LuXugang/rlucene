@@ -20,7 +20,7 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
-*/
+ */
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -31,7 +31,7 @@ use crate::util::access::Access;
 use crate::util::{byte_block_pool_util, Counter, CounterEnum, CounterEnumBorrow};
 
 /// A simple `Allocator` that never recycles, but tracks how much total RAM is
-/// in use. */
+/// in use.  */
 pub struct DirectTrackingAllocatorByte<C: Access<CounterEnum>> {
     block_size: usize,
     pub(crate) byte_used: C,
@@ -74,7 +74,7 @@ pub trait AllocatorByte {
     fn get_block_size(&self) -> usize;
 }
 
-/// A simple [`AllocatorByte`] that never recycles. */
+/// A simple [`AllocatorByte`] that never recycles.  */
 pub struct DirectAllocatorByte {
     block_size: usize,
 }

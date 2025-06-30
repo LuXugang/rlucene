@@ -20,7 +20,7 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
-*/
+ */
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::string::ToString;
@@ -1329,7 +1329,7 @@ mod tests {
                             version,
                             value_count as i32,
                             bpv,
-                            random.random_range(1..=65536), /* 缓冲区大小随机 */
+                            random.random_range(1..=65536), /* 缓冲区大小随机  */
                         )?;
 
                         for _ in 0..value_count {

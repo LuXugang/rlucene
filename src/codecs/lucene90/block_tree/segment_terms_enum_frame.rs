@@ -20,7 +20,7 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
-*/
+ */
 use std::rc::Rc;
 
 use crate::codecs::block_term_state::BlockTermStateEnum;
@@ -240,7 +240,7 @@ impl SegmentTermsEnumFrame {
     for any term in this block.  This enables terms-only
     intensive consumes (eg certain MTQs, respelling) to
     not pay the price of decoding metadata they won't
-    use. */
+    use.  */
     pub(crate) fn load_block<I, P>(
         frame_index: usize,
         ste: &mut SegmentTermsEnum<I, P>,

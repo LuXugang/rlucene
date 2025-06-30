@@ -20,7 +20,7 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
-*/
+ */
 use std::fmt;
 
 use rand::rngs::StdRng;
@@ -140,7 +140,7 @@ pub(crate) fn new_io_context_with_default<R: Rng + ?Sized>(
             random_num_docs,
             size.max(merge_info.get_estimated_merge_bytes()),
             random.random_bool(0.5), /* Randomly decide if it's an external
-                                      * merge */
+                                      * merge  */
             random.random_range(1..=100),
         ));
     } else {

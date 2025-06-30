@@ -20,7 +20,7 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
-*/
+ */
 use std::cmp::{max, min, Ordering};
 use std::sync::Arc;
 
@@ -67,10 +67,10 @@ pub(crate) struct FieldUpdatesBuffer {
     term_values: MTBytesRefArray,
     term_sort_state: Arc<SortState>,
     byte_values: Option<MTBytesRefArray>, /* this will be null if we are
-                                           * buffering numerics */
+                                           * buffering numerics  */
     docs_up_to: Vec<i32>,
     numeric_values: Option<Vec<i64>>, /* this will be null if we are
-                                       * buffering binaries */
+                                       * buffering binaries  */
     has_values: Option<FixedBitSet>,
     max_numeric: i64,
     min_numeric: i64,

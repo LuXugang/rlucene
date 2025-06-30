@@ -20,7 +20,7 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
-*/
+ */
 use crate::index::leaf_reader::LeafReader;
 use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::sorted_doc_values::SortedDocValues;
@@ -136,7 +136,7 @@ impl DocComparator for DocComparatorImplDouble {
 }
 
 // IntSorter
-/// Sorts documents based on integer values from a NumericDocValues instance */
+/// Sorts documents based on integer values from a NumericDocValues instance  */
 pub struct IntSorter<NP> {
     provider_name: String,
     missing_value: Option<i32>,

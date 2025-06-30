@@ -20,7 +20,7 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
-*/
+ */
 use std::hash::Hash;
 
 use crate::util::accountable::Accountable;
@@ -35,7 +35,7 @@ pub struct LongBitSet {
     bits: Vec<i64>, // Array of longs holding the bits
     num_bits: i64,  // The number of bits in use
     num_words: i32, /* The exact number of longs needed to hold numBits (<=
-                     * bits.length) */
+                     * bits.length)  */
 }
 impl LongBitSet {
     pub const MAX_NUM_BITS: i64 = 64 * ArrayUtil::MAX_ARRAY_LENGTH as i64;

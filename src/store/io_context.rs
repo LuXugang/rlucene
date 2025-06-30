@@ -20,7 +20,7 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
-*/
+ */
 use derive_getters::Getters;
 use once_cell::sync::Lazy;
 
@@ -143,10 +143,10 @@ impl IOContext {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Context {
-    /// Context for reads and writes that are associated with a merge. */
+    /// Context for reads and writes that are associated with a merge.  */
     Merge,
-    /// Context for writes that are associated with a segment flush. */
+    /// Context for writes that are associated with a segment flush.  */
     Flush,
-    /// Default context can be used for reading or writing. */
+    /// Default context can be used for reading or writing.  */
     Default,
 }

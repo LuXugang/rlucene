@@ -20,7 +20,7 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
-*/
+ */
 // TODO: should with mask
 pub fn flip_bit_range(bitset: &mut bit_set::BitSet, start: usize, end: usize) {
     for i in start..end {

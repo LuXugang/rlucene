@@ -20,7 +20,7 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
-*/
+ */
 use crate::index::BytesRef;
 use crate::util::error::lucene_error::Result;
 use crate::util::{BytesRefComparator, Comparator};
@@ -33,7 +33,7 @@ pub trait SortableBytesRefArray<'a> {
     /// Returns the number of values appended so far
     fn size(&self) -> i32;
     /// Sort all values by the provided comparator and return an iterator over
-    /// the sorted values */
+    /// the sorted values  */
     type Iter;
     fn iterator(
         &'a mut self,

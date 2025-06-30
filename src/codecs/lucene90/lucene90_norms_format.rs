@@ -20,7 +20,7 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
-*/
+ */
 use crate::codecs::lucene90::lucene90_norms_consumer::Lucene90NormsConsumer;
 use crate::codecs::lucene90_norms_producer::Lucene90NormsProducer;
 use crate::codecs::norms_consumer::NormsConsumerEnum;

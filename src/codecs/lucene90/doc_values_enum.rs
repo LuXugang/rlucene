@@ -20,7 +20,7 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
-*/
+ */
 pub mod norms {
     use crate::codecs::lucene90_norms_producer::{DenseNormsIterator, SparseNormsIterator};
     use crate::index::doc_values::EmptyNumeric;

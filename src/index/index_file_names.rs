@@ -20,7 +20,7 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
-*/
+ */
 use once_cell::sync::Lazy;
 use regex::Regex;
 
@@ -121,7 +121,7 @@ impl IndexFileNames {
         // ourselves or not, since there's only 1 '+' operator.
         filename.ends_with(&format!(".{}", ext))
     }
-    /// locates the boundary of the segment name, or -1 */
+    /// locates the boundary of the segment name, or -1  */
     pub fn index_of_segment_name(filename: &str) -> i32 {
         debug_assert!(filename.len() <= i32::MAX as usize);
         if let Some(idx) = filename[1..].find('_') {

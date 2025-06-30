@@ -20,7 +20,7 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
-*/
+ */
 use crate::codecs::lucene101::for_util::ForUtil;
 use crate::internal::vectorization::posting_decoding_util::PostingDecodingUtil;
 use crate::store::{DataInput, DataOutput, IndexInput};

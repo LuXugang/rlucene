@@ -20,7 +20,7 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
-*/
+ */
 use crate::index::binary_doc_values::BinaryDocValues;
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::doc_values_type::DocValuesType;
@@ -291,7 +291,7 @@ impl DocValues {
     }
 }
 
-/// An empty [`BinaryDocValues`] which returns no documents */
+/// An empty [`BinaryDocValues`] which returns no documents  */
 pub struct EmptyBinary {
     doc: i32,
     bytes: BytesRef<Vec<u8>>,
@@ -345,7 +345,7 @@ impl BinaryDocValues for EmptyBinary {
         Ok(&self.bytes)
     }
 }
-/// An empty [`NumericDocValues`] which returns no documents */
+/// An empty [`NumericDocValues`] which returns no documents  */
 pub struct EmptyNumeric {
     doc: i32,
 }

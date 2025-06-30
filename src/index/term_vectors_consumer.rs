@@ -20,7 +20,7 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
-*/
+ */
 use crate::codecs::term_vectors_format::TermVectorsFormat;
 use crate::codecs::term_vectors_writer::{TermVectorsWriter, TermVectorsWriterEnum};
 use crate::codecs::Codec;

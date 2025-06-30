@@ -20,7 +20,7 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
-*/
+ */
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -586,7 +586,7 @@ where
            (which means the graph level has changed as well), we need to reinsert the node
            to the newly introduced levels (repeating step 2,3 for new levels) and again try to
            promote the node to entry node.
-        */
+         */
         if self.frozen {
             return Err(LuceneError::illegal_state(
                 "Graph builder is already frozen",

@@ -20,7 +20,7 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
-*/
+ */
 use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -70,7 +70,7 @@ pub struct FieldInfo {
 pub struct Properties {
     pub(crate) attributes: Rc<RefCell<HashMap<String, String>>>,
     store_payloads: bool, /* whether this field stores payloads together
-                           * with term positions */
+                           * with term positions  */
     // True if any document indexed term vectors
     store_term_vector: bool,
 }

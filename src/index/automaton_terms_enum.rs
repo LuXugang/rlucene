@@ -20,7 +20,7 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
-*/
+ */
 use crate::index::filtered_terms_enum::{AcceptStatus, FilteredTermsEnumBase};
 use crate::index::{BytesRef, BytesRefBuilder};
 use crate::util::array_util::ArrayUtil;
@@ -228,10 +228,10 @@ impl AutomatonTermsEnum {
             if self.next_string_with_position(state, pos) {
                 return true;
             } else {
-                /* no more solutions exist from this useful portion, backtrack */
+                /* no more solutions exist from this useful portion, backtrack  */
                 let v = self.backtrack(pos);
                 if v < 0 {
-                    /* no more solutions at all */
+                    /* no more solutions at all  */
                     return false;
                 }
                 pos = v as usize;
@@ -241,7 +241,7 @@ impl AutomatonTermsEnum {
                 let new_state = self.byte_runnable.step(prev_state, byte);
 
                 if new_state >= 0 && self.byte_runnable.is_accept(new_state) {
-                    /* String is good to go as-is */
+                    /* String is good to go as-is  */
                     return true;
                 }
 

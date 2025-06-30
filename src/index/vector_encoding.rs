@@ -20,7 +20,7 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
-*/
+ */
 use strum_macros::{Display, EnumCount, FromRepr};
 /// The numeric datatype of the vector values.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, FromRepr, EnumCount, Display)]

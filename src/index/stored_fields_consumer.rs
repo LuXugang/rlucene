@@ -20,7 +20,7 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
-*/
+ */
 use crate::codecs::stored_fields_format::StoredFieldsFormat;
 use crate::codecs::stored_fields_writer::{StoredFieldsWriter, StoredFieldsWriterEnum};
 use crate::codecs::Codec;

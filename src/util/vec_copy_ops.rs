@@ -20,7 +20,7 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
-*/
+ */
 pub(crate) trait SliceCopyOps<T> {
     /// Copies elements from a source slice (`src`) into the current slice
     /// (`self`) starting at the specified offset.

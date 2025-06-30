@@ -20,7 +20,7 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
-*/
+ */
 use crate::index::indexing_chain::IntBlockAllocator;
 use crate::util::access::Access;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -164,7 +164,7 @@ pub trait AllocatorI32 {
     fn get_block_size(&self) -> usize;
 }
 
-/// A simple `AllocatorByte` that never recycles. */
+/// A simple `AllocatorByte` that never recycles.  */
 pub struct DirectAllocatorI32 {
     block_size: usize,
 }

@@ -20,7 +20,7 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
-*/
+ */
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::util::error::lucene_error::{LuceneError, Result};
 
@@ -147,7 +147,7 @@ impl DocIdSetIterator for EmptyDISI {
     }
 }
 
-/// A [`DocIdSetIterator`] that matches all documents up to `maxDoc - 1`. */
+/// A [`DocIdSetIterator`] that matches all documents up to `maxDoc - 1`.  */
 pub struct AllDocIdSetIterator {
     doc: i32,
     max_doc: i32,

@@ -20,7 +20,7 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
-*/
+ */
 use crate::index::buffered_updates::STBufferedUpdates;
 use crate::index::field_infos::FieldInfos;
 use crate::index::frozen_buffered_updates::FrozenBufferedUpdates;

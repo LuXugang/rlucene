@@ -20,7 +20,7 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
-*/
+ */
 #![allow(deprecated)]
 use crate::index::doc_values::{DocValues, EmptyNumeric, EmptySorted};
 use crate::index::index_sorter::{
@@ -686,10 +686,10 @@ impl Display for SortFieldType {
 #[derive(Clone)]
 pub enum MissingValueEnum {
     /// Pass this to `setMissingValue` to have missing string values sort
-    /// first. */
+    /// first.  */
     StringFirst,
     /// Pass this to `setMissingValue` to have missing string values sort last.
-    /// */
+    ///  */
     StringLast,
     Int(i32),
     Long(i64),

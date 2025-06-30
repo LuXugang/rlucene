@@ -20,7 +20,7 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
-*/
+ */
 use crate::codecs::dummy::dummy_binary_doc_values::DummyBinaryDocValues;
 use crate::codecs::dummy::dummy_doc_values_skipper::DummyDocValuesSkipper;
 use crate::codecs::dummy::dummy_numeric_doc_values::DummyNumericDocValues;

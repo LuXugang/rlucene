@@ -20,7 +20,7 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
-*/
+ */
 use crate::index::freq_prox_terms_writer_per_field::FreqProxPostingsArray;
 use crate::index::term_vectors_consumer_per_field::TermVectorsPostingsArray;
 use crate::util::array_util::ArrayUtil;
@@ -30,10 +30,10 @@ use crate::util::error::lucene_error::Result;
 pub(crate) struct ParallelPostingsArray {
     size: usize,
     pub(crate) text_starts: Vec<i32>, /* maps term ID to the term's text start in the
-                                       * bytesHash */
+                                       * bytesHash  */
     pub(crate) address_offset: Vec<i32>, // maps term ID to current stream address
     pub(crate) byte_starts: Vec<i32>,    /* maps term ID to stream start offset in the
-                                          * byte pool */
+                                          * byte pool  */
 }
 
 impl ParallelPostingsArray {

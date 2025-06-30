@@ -20,7 +20,7 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
-*/
+ */
 use std::borrow::Cow;
 use std::fmt;
 use std::rc::Rc;
@@ -64,33 +64,33 @@ use crate::util::packed::PackedInts;
 use crate::util::to_string_utils::ToStringUtils;
 use crate::util::{CoreHelper, SliceCopyOps, StringHelper, ToInt};
 /*
-  TODO:
+ TODO:
 
-    - Currently there is a one-to-one mapping of indexed
-      term to term block, but we could decouple the two, ie,
-      put more terms into the index than there are blocks.
-      The index would take up more RAM but then it'd be able
-      to avoid seeking more often and could make PK/FuzzyQ
-      faster if the additional indexed terms could store
-      the offset into the terms block.
+   - Currently there is a one-to-one mapping of indexed
+     term to term block, but we could decouple the two, ie,
+     put more terms into the index than there are blocks.
+     The index would take up more RAM but then it'd be able
+     to avoid seeking more often and could make PK/FuzzyQ
+     faster if the additional indexed terms could store
+     the offset into the terms block.
 
-    - The blocks are not written in true depth-first
-      order, meaning if you just next() the file pointer will
-      sometimes jump backwards.  For example, block foo* will
-      be written before block f* because it finished before.
-      This could possibly hurt performance if the terms dict is
-      not hot, since OSs anticipate sequential file access.  We
-      could fix the writer to re-order the blocks as a 2nd
-      pass.
+   - The blocks are not written in true depth-first
+     order, meaning if you just next() the file pointer will
+     sometimes jump backwards.  For example, block foo* will
+     be written before block f* because it finished before.
+     This could possibly hurt performance if the terms dict is
+     not hot, since OSs anticipate sequential file access.  We
+     could fix the writer to re-order the blocks as a 2nd
+     pass.
 
-    - Each block encodes the term suffixes packed
-      sequentially using a separate vInt per term, which is
-      1) wasteful and 2) slow (must linear scan to find a
-      particular suffix).  We should instead 1) make
-      random-access array so we can directly access the Nth
-      suffix, and 2) bulk-encode this array using bulk int[]
-      codecs; then at search time we can binary search when
-      we seek a particular term.
+   - Each block encodes the term suffixes packed
+     sequentially using a separate vInt per term, which is
+     1) wasteful and 2) slow (must linear scan to find a
+     particular suffix).  We should instead 1) make
+     random-access array so we can directly access the Nth
+     suffix, and 2) bulk-encode this array using bulk int[]
+     codecs; then at search time we can binary search when
+     we seek a particular term.
 */
 
 /// Block-based terms index and dictionary writer.

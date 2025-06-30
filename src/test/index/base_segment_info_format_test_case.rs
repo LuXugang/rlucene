@@ -20,7 +20,7 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
-*/
+ */
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
@@ -629,7 +629,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
     fn supports_has_blocks(&self) -> bool {
         true
     }
-    /// Whether this format records min versions. */
+    /// Whether this format records min versions.  */
     fn supports_min_version(&self) -> bool {
         true
     }

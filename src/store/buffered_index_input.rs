@@ -20,7 +20,7 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
-*/
+ */
 use std::fmt::{Display, Formatter};
 use std::io::Cursor;
 
@@ -33,7 +33,7 @@ use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::group_vint_util::GroupVIntUtil;
 use crate::util::{ReadableCursorExt, SliceCopyOps};
-/// Base implementation struct for buffered [`IndexInput`]. */
+/// Base implementation struct for buffered [`IndexInput`].  */
 pub struct BufferedIndexInput<T>
 where
     T: BufferedIndexInputBase<Slice = BufferedIndexInput<T>>,
@@ -54,7 +54,7 @@ pub mod buffered_index_input_util {
     /// Minimum buffer size allowed
     pub const MIN_BUFFER_SIZE: i32 = 8;
 
-    /// A buffer size for merges set to `MERGE_BUFFER_SIZE`. */
+    /// A buffer size for merges set to `MERGE_BUFFER_SIZE`.  */
     /// The normal read buffer size defaults to 1024, but
     /// increasing this during merging seems to yield
     /// performance gains.  However, we don't want to increase
