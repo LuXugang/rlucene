@@ -31,8 +31,9 @@ use crate::codecs::norms_format::NormsFormat;
 use crate::codecs::points_format::PointsFormat;
 use crate::codecs::points_writer::PointsWriter;
 use crate::codecs::Codec;
+use crate::document::fields::ReaderEnum;
 use crate::document::invertable_field::InvertableType;
-use crate::document::stored_value::StoredValueType;
+use crate::document::stored_value::{StoredValue, StoredValueType};
 use crate::index::binary_doc_values_writer::{BinaryDocValuesWriter, BufferedBinaryDocValues};
 use crate::index::doc_values::{DocValues, EmptyBinary, EmptyNumeric, EmptySorted};
 use crate::index::doc_values_leaf_reader::DocValuesLeafReader;
@@ -93,6 +94,7 @@ use crate::util::either_enums::{
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::int_block_pool::{ibp_util, AllocatorI32, AllocatorIntEnum};
+use crate::util::number::Number;
 use crate::util::paged_bytes::PagedBytesDataInput;
 use crate::util::sparse_fixed_bit_set::SparseFixedBitSet;
 use crate::util::{
@@ -103,7 +105,7 @@ use parking_lot::Mutex;
 use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::collections::HashMap;
-use std::fmt::Display;
+use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -1047,6 +1049,13 @@ where
             per_field_index = pf.next;
         }
         None
+    }
+    pub(crate) fn mark_as_reserved<IF>(&mut self, field: IF) -> ReservedField<IF>
+    where
+        IF: IndexableField,
+    {
+        self.get_or_add_per_field(field.name(), true);
+        ReservedField::new(field)
     }
 }
 impl<D, O, P, T, TS, L> Accountable for IndexingChain<D, O, P, T, TS, L>
@@ -2109,5 +2118,89 @@ where
         let doc_id1 = self.parents.next_set_bit(doc_id1);
         let doc_id2 = self.parents.next_set_bit(doc_id2);
         self.doc_comparator.compare(doc_id1, doc_id2)
+    }
+}
+
+pub(crate) struct ReservedField<T>
+where
+    T: IndexableField,
+{
+    delegate: T,
+}
+impl<T> ReservedField<T>
+where
+    T: IndexableField,
+{
+    pub(crate) fn new(delegate: T) -> Self {
+        ReservedField { delegate }
+    }
+}
+
+impl<T> Display for ReservedField<T>
+where
+    T: IndexableField,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "ReservedField: {}", self.delegate.name())
+    }
+}
+
+impl<T> IndexableField for ReservedField<T>
+where
+    T: IndexableField,
+{
+    fn name(&self) -> &str {
+        self.delegate.name()
+    }
+
+    type FieldType = <T as IndexableField>::FieldType;
+
+    fn field_type(&self) -> &Self::FieldType {
+        self.delegate.field_type()
+    }
+
+    type TokenStream = <T as IndexableField>::TokenStream;
+
+    fn token_stream<A>(
+        &self,
+        analyzer: &A,
+        reuse: Option<Self::TokenStream>,
+    ) -> Result<Self::TokenStream>
+    where
+        A: Analyzer,
+    {
+        self.delegate.token_stream(analyzer, reuse)
+    }
+
+    fn binary_value(&self) -> Result<Option<Rc<BytesRef<Vec<u8>>>>> {
+        self.delegate.binary_value()
+    }
+
+    fn string_value(&self) -> Result<Option<Rc<String>>> {
+        self.delegate.string_value()
+    }
+
+    fn get_char_sequence_value(&self) -> Result<Option<Rc<String>>> {
+        self.delegate.get_char_sequence_value()
+    }
+
+    fn reader_value(&self) -> Result<Option<ReaderEnum>> {
+        self.delegate.reader_value()
+    }
+
+    fn numeric_value(&self) -> Result<Option<Number>> {
+        self.delegate.numeric_value()
+    }
+
+    fn stored_value(&self) -> Result<Option<StoredValue>> {
+        self.delegate.stored_value()
+    }
+
+    fn invertable_type(&self) -> &InvertableType {
+        self.delegate.invertable_type()
+    }
+
+    fn is_reserved(&self) -> bool {
+        true
     }
 }
