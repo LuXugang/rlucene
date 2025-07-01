@@ -27,6 +27,7 @@ pub mod dummy_doc_map_sorter;
 pub mod dummy_fields;
 pub mod dummy_impacts;
 pub mod dummy_impacts_enum;
+pub mod dummy_index_commit;
 pub mod dummy_index_sorter;
 pub mod dummy_indexable_field_type;
 pub mod dummy_leaf_reader;

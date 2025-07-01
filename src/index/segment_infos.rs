@@ -33,7 +33,7 @@ use parking_lot::Mutex;
 use crate::codecs::lucene101_codec::Lucene101Codec;
 use crate::codecs::segment_info_format::SegmentInfoFormat;
 use crate::codecs::{get_default_code, Codec, CodecUtil, LATEST_CODEC};
-use crate::index::index_commit::{DummyIndexCommit, IndexCommit};
+use crate::index::index_commit::IndexCommit;
 use crate::index::index_writer::IndexWriter;
 use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::index::IndexFileNames;
@@ -1038,10 +1038,8 @@ where
     }
 
     /// Returns the number of `SegmentCommitInfo`s.
-    pub fn size(&self) -> i32 {
-        let len = self.segments.len();
-        debug_assert!(len <= i32::MAX as usize);
-        len as i32
+    pub fn size(&self) -> usize {
+        self.segments.len()
     }
 
     /// Appends the provided `SegmentCommitInfo` to the `segments` list.
@@ -1169,21 +1167,19 @@ where
     pub fn new(directory: Arc<Mutex<D>>, sub: F) -> Self {
         FindSegmentsFile { directory, sub }
     }
-    pub fn run(&self) -> Result<SegmentsFileEnum<D>> {
-        self.run_with_commit(None::<DummyIndexCommit>)
-    }
-    pub fn run_with_commit(&self, commit: Option<impl IndexCommit>) -> Result<SegmentsFileEnum<D>> {
-        if let Some(commit) = commit {
-            if !Arc::ptr_eq(&self.directory, &commit.get_directory()) {
-                return Err(LuceneError::illegal_state(
-                    "The specified commit does not match the specified Directory".to_string(),
-                ));
-            }
-            return self
-                .sub
-                .do_body(self.directory.clone(), commit.get_segments_file_name());
+    pub fn run_with_commit<IC>(&self, commit: &IC) -> Result<SegmentsFileEnum<D>>
+    where
+        IC: IndexCommit<Directory = D>,
+    {
+        if !Arc::ptr_eq(&self.directory, &commit.get_directory()) {
+            return Err(LuceneError::illegal_state(
+                "The specified commit does not match the specified Directory".to_string(),
+            ));
         }
-
+        self.sub
+            .do_body(self.directory.clone(), commit.get_segments_file_name())
+    }
+    pub fn run(&self) -> Result<SegmentsFileEnum<D>> {
         let mut last_gen: i64;
         let mut gen: i64 = -1;
         let mut exc: Option<LuceneError> = None;

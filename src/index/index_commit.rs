@@ -21,8 +21,8 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-use std::cmp::Ordering;
 use std::collections::HashMap;
+use std::fmt::Display;
 use std::sync::Arc;
 
 use crate::index::standard_directory_reader::StandardDirectoryReader;
@@ -30,15 +30,14 @@ use crate::store::directory::Directory;
 use crate::util::error::lucene_error::Result;
 use parking_lot::Mutex;
 
-pub trait IndexCommit: PartialEq + Eq + PartialOrd + Ord {
+pub trait IndexCommit: PartialEq + Eq + PartialOrd + Ord + Display {
     /// Returns the segments file (`segments_N`) associated with this commit point.
     fn get_segments_file_name(&self) -> &str;
     /// Returns all index files referenced by this commit point.
     fn get_file_names(&self) -> Result<&[String]>;
+    type Directory: Directory;
     /// Returns the [`Directory`] for the index.
-    fn get_directory<D>(&self) -> Arc<Mutex<D>>
-    where
-        D: Directory;
+    fn get_directory(&self) -> Arc<Mutex<Self::Directory>>;
     /// Delete this commit point. This only applies when using the commit point in the context of
     /// `IndexWriter`’s `IndexDeletionPolicy`.
     ///
@@ -61,61 +60,23 @@ pub trait IndexCommit: PartialEq + Eq + PartialOrd + Ord {
         None
     }
 }
-pub struct DummyIndexCommit;
+pub mod index_commit_util {
+    use crate::index::index_commit::IndexCommit;
+    use std::cmp::Ordering;
+    use std::sync::Arc;
 
-impl PartialEq for DummyIndexCommit {
-    fn eq(&self, other: &Self) -> bool {
-        todo!()
-    }
-}
-
-impl Eq for DummyIndexCommit {}
-
-impl PartialOrd for DummyIndexCommit {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        todo!()
-    }
-}
-
-impl Ord for DummyIndexCommit {
-    fn cmp(&self, other: &Self) -> Ordering {
-        todo!()
-    }
-}
-
-impl IndexCommit for DummyIndexCommit {
-    fn get_segments_file_name(&self) -> &str {
-        todo!()
-    }
-
-    fn delete(&mut self) -> Result<()> {
-        todo!()
-    }
-
-    fn is_deleted(&self) -> bool {
-        todo!()
-    }
-
-    fn get_segment_count(&self) -> usize {
-        todo!()
-    }
-
-    fn get_generation(&self) -> i64 {
-        todo!()
-    }
-
-    fn user_data(&self) -> &HashMap<String, String> {
-        todo!()
-    }
-
-    fn get_file_names(&self) -> Result<&[String]> {
-        todo!()
-    }
-
-    fn get_directory<D>(&self) -> Arc<Mutex<D>>
+    pub fn is_same_commit<T>(a: &T, b: &T) -> bool
     where
-        D: Directory,
+        T: IndexCommit,
     {
-        todo!()
+        Arc::ptr_eq(&a.get_directory(), &b.get_directory())
+            && a.get_generation() == b.get_generation()
+    }
+    pub fn cmp_commit<T>(a: &T, b: &T) -> Option<Ordering>
+    where
+        T: IndexCommit,
+    {
+        debug_assert!(Arc::ptr_eq(&a.get_directory(), &b.get_directory()));
+        Some(a.get_generation().cmp(&b.get_generation()))
     }
 }
