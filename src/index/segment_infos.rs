@@ -1181,7 +1181,7 @@ where
             }
             return self
                 .sub
-                .do_body(self.directory.clone(), &commit.get_segments_file_name());
+                .do_body(self.directory.clone(), commit.get_segments_file_name());
         }
 
         let mut last_gen: i64;

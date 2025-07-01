@@ -21,30 +21,101 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+use std::cmp::Ordering;
+use std::collections::HashMap;
 use std::sync::Arc;
 
+use crate::index::standard_directory_reader::StandardDirectoryReader;
+use crate::store::directory::Directory;
+use crate::util::error::lucene_error::Result;
 use parking_lot::Mutex;
 
-use crate::store::directory::Directory;
-
-pub trait IndexCommit {
+pub trait IndexCommit: PartialEq + Eq + PartialOrd + Ord {
+    /// Returns the segments file (`segments_N`) associated with this commit point.
+    fn get_segments_file_name(&self) -> &str;
+    /// Returns all index files referenced by this commit point.
+    fn get_file_names(&self) -> Result<&[String]>;
+    /// Returns the [`Directory`] for the index.
     fn get_directory<D>(&self) -> Arc<Mutex<D>>
     where
         D: Directory;
+    /// Delete this commit point. This only applies when using the commit point in the context of
+    /// `IndexWriter`’s `IndexDeletionPolicy`.
+    ///
+    /// Upon calling this, the writer is notified that this commit point should be deleted.
+    ///
+    /// Decision that a commit-point should be deleted is taken by the [`IndexDeletionPolicy`](crate::index::index_deletion_policy::IndexDeletionPolicy)
+    /// in effect and therefore this should only be called by its
+    /// [`IndexDeletionPolicy::on_init()`](crate::index::index_deletion_policy::IndexDeletionPolicy::on_init) or [`IndexDeletionPolicy::on_commit()`](crate::index::index_deletion_policy::IndexDeletionPolicy::on_commit) methods.
+    fn delete(&mut self) -> Result<()>;
+    /// Returns `true` if this commit should be deleted; this is only used by [`IndexWriter`](crate::index::index_writer::IndexWriter) after
+    /// invoking the [`IndexDeletionPolicy`](crate::index::index_deletion_policy::IndexDeletionPolicy).
+    fn is_deleted(&self) -> bool;
+    /// Returns number of segments referenced by this commit.
+    fn get_segment_count(&self) -> usize;
+    /// Returns the generation (the _N in segments_N) for this IndexCommit
+    fn get_generation(&self) -> i64;
+    /// Returns `user_data`, previously passed to [`IndexWriter::set_live_commit_data()`](crate::index::index_writer::IndexWriter::set_live_commit_data) for this commit. The map is `String` → `String`.
+    fn user_data(&self) -> &HashMap<String, String>;
+    fn get_reader(&self) -> Option<StandardDirectoryReader> {
+        None
+    }
+}
+pub struct DummyIndexCommit;
 
-    fn get_segments_file_name(&self) -> String;
+impl PartialEq for DummyIndexCommit {
+    fn eq(&self, other: &Self) -> bool {
+        todo!()
+    }
 }
 
-pub struct DummyIndexCommit;
+impl Eq for DummyIndexCommit {}
+
+impl PartialOrd for DummyIndexCommit {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        todo!()
+    }
+}
+
+impl Ord for DummyIndexCommit {
+    fn cmp(&self, other: &Self) -> Ordering {
+        todo!()
+    }
+}
+
 impl IndexCommit for DummyIndexCommit {
+    fn get_segments_file_name(&self) -> &str {
+        todo!()
+    }
+
+    fn delete(&mut self) -> Result<()> {
+        todo!()
+    }
+
+    fn is_deleted(&self) -> bool {
+        todo!()
+    }
+
+    fn get_segment_count(&self) -> usize {
+        todo!()
+    }
+
+    fn get_generation(&self) -> i64 {
+        todo!()
+    }
+
+    fn user_data(&self) -> &HashMap<String, String> {
+        todo!()
+    }
+
+    fn get_file_names(&self) -> Result<&[String]> {
+        todo!()
+    }
+
     fn get_directory<D>(&self) -> Arc<Mutex<D>>
     where
         D: Directory,
     {
-        todo!()
-    }
-
-    fn get_segments_file_name(&self) -> String {
         todo!()
     }
 }
