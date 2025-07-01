@@ -42,6 +42,8 @@ use crate::util::VersionError;
 
 #[derive(Debug, Error)]
 pub enum LuceneError {
+    #[error("parse int error: {0}")]
+    ParseIntError(#[from] std::num::ParseIntError),
     #[error("IO error: {0}")]
     Io(#[from] Error),
     #[error("conversion failed: {0}")]
