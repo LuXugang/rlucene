@@ -39,7 +39,7 @@ use crate::codecs::push_postings_writer_base::{FieldWriteOptions, PushPostingsWr
 use crate::codecs::CodecUtil;
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::field_info::FieldInfo;
-use crate::index::index_writer::IndexWriter;
+use crate::index::index_writer::index_writer_util;
 use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::postings_enum::PostingsEnum;
 use crate::index::segment_write_state::SegmentWriteState;
@@ -697,11 +697,11 @@ where
         end_offset: i32,
         options: &FieldWriteOptions,
     ) -> Result<()> {
-        if position > IndexWriter::MAX_POSITION {
+        if position > index_writer_util::MAX_POSITION {
             return Err(LuceneError::corrupt_index(format!(
                 "position={} is too large (> IndexWriter.MAX_POSITION={})  resource {}",
                 position,
-                IndexWriter::MAX_POSITION,
+                index_writer_util::MAX_POSITION,
                 self.doc_out
             )));
         }

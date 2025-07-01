@@ -21,6 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+use crate::util::error::lucene_error::Result;
 use once_cell::sync::Lazy;
 use regex::Regex;
 
@@ -153,7 +154,7 @@ impl IndexFileNames {
 
     /// Returns the generation from this file name, or 0 if there is no
     /// generation.
-    pub fn parse_generation(filename: &str) -> u64 {
+    pub fn parse_generation(filename: &str) -> Result<i64> {
         debug_assert!(filename.starts_with('_'), "Filename must start with '_'");
 
         let stripped = IndexFileNames::strip_extension(filename);
@@ -165,9 +166,9 @@ impl IndexFileNames {
         // segment_gen_codec_suffix.ext
         if parts.len() == 2 || parts.len() == 4 {
             // base-36
-            u64::from_str_radix(parts[1], 36).unwrap_or(0)
+            Ok(i64::from_str_radix(parts[1], 36)?)
         } else {
-            0
+            Ok(0)
         }
     }
     /// Parses the segment name out of the given file name.

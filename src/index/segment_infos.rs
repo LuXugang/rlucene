@@ -33,7 +33,7 @@ use crate::codecs::lucene101_codec::Lucene101Codec;
 use crate::codecs::segment_info_format::SegmentInfoFormat;
 use crate::codecs::{get_default_code, Codec, CodecUtil, LATEST_CODEC};
 use crate::index::index_commit::IndexCommit;
-use crate::index::index_writer::IndexWriter;
+use crate::index::index_writer::index_writer_util;
 use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::index::IndexFileNames;
 use crate::store::check_sum_index_input::ChecksumIndexInput;
@@ -260,7 +260,7 @@ pub mod segment_infos_util {
             let generation_str = &file_name[IndexFileNames::SEGMENTS.len() + 1..];
             match i64::from_str_radix(generation_str, 36) {
                 Ok(generation) => Ok(generation),
-                Err(_) => Err(LuceneError::illegal_argument(format!(
+                Err(_) => Err(LuceneError::number_format(format!(
                     "Failed to parse generation from file name: \"{file_name}\""
                 ))),
             }
@@ -629,10 +629,10 @@ where
         }
         infos.user_data = input.read_map_of_strings()?;
         // LUCENE-6299: check we are in bounds
-        if total_docs > IndexWriter::get_actual_max_docs() {
+        if total_docs > index_writer_util::get_actual_max_docs() {
             return Err(LuceneError::corrupt_index(format!(
                 "Too many documents: an index cannot exceed {} but readers have total maxDoc={}",
-                IndexWriter::get_actual_max_docs(),
+                index_writer_util::get_actual_max_docs(),
                 total_docs
             )));
         }
@@ -1044,7 +1044,7 @@ where
         }
 
         // Ensure we don't exceed the actual max document limit.
-        debug_assert!(count <= IndexWriter::get_actual_max_docs() as i64);
+        debug_assert!(count <= index_writer_util::get_actual_max_docs() as i64);
         Ok(count)
     }
     /// Call this before committing if changes have been made to the segments.
@@ -1125,8 +1125,8 @@ where
         self.segments.extend(infos);
     }
     /// Returns an iterator over the contained segments in order.
-    pub fn iter(&self) -> impl Iterator<Item = &SegmentCommitInfo<D>> {
-        self.segments.iter()
+    pub fn iter(&mut self) -> impl Iterator<Item = &mut SegmentCommitInfo<D>> {
+        self.segments.iter_mut()
     }
 
     /// Returns all contained segments as a non-mutable reference to the

@@ -30,7 +30,7 @@ use rand::Rng;
 
 use crate::codecs::live_docs_format::LiveDocsFormat;
 use crate::codecs::{Codec, LATEST_CODEC};
-use crate::index::index_writer::IndexWriter;
+use crate::index::index_writer::index_writer_util;
 use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::index::segment_info::SegmentInfo;
 use crate::store::IOContext;
@@ -65,8 +65,8 @@ pub trait BaseLiveDocsFormatTestCase {
     fn test_over_flow<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         Self::test_serialization(
             random,
-            IndexWriter::MAX_DOCS,
-            IndexWriter::MAX_DOCS - 7,
+            index_writer_util::MAX_DOCS,
+            index_writer_util::MAX_DOCS - 7,
             true,
         )?;
         Ok(())

@@ -21,8 +21,6 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
-use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
 use crate::codecs::norms_producer::NormsProducer;
 use crate::codecs::Codec;
 use crate::index::automaton_terms_enum::AutomatonTermsEnum;

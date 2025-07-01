@@ -1800,8 +1800,6 @@ mod tests {
 
         use rand::Rng;
 
-        use crate::store::directory::Directory;
-
         use crate::store::dummy::dummy_index_output::DummyIndexOutput;
         use crate::store::IndexOutput;
         use crate::test::util::lucene_test_case::{new_directory, random};

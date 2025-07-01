@@ -25,7 +25,7 @@ use std::rc::Rc;
 
 use crate::codecs::CodecUtil;
 use crate::store::directory::Directory;
-use crate::store::{DataOutput, IOContext, IndexInput, IndexOutput};
+use crate::store::{IOContext, IndexInput, IndexOutput};
 use crate::util::bkd::bkd_config::BKDConfig;
 use crate::util::bkd::offline_point_reader::OfflinePointReader;
 use crate::util::bkd::point_value::{PointValue, PointValueEnum};

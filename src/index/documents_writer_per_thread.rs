@@ -31,7 +31,7 @@ use crate::index::documents_writer_delete_queue::{DeleteSlice, DocumentsWriterDe
 use crate::index::field_infos::build::Builder;
 use crate::index::field_infos::FieldInfos;
 use crate::index::frozen_buffered_updates::FrozenBufferedUpdates;
-use crate::index::index_writer::IndexWriter;
+use crate::index::index_writer::index_writer_util;
 use crate::index::indexing_chain::{IndexingChain, ReservedField};
 use crate::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::index::segment_commit_info::SegmentCommitInfo;
@@ -112,7 +112,7 @@ where
             .fetch_add(1, Ordering::SeqCst)
             .wrapping_add(1);
 
-        let max = IndexWriter::ACTUAL_MAX_DOCS as i64;
+        let max = index_writer_util::ACTUAL_MAX_DOCS as i64;
         if new_count > max {
             self.pending_num_docs.fetch_sub(1, Ordering::SeqCst);
             return Err(LuceneError::illegal_argument(format!(

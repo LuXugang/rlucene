@@ -71,7 +71,7 @@ where
         if let Some(messenger) = &mut self.messenger {
             messenger.accept(
                 MsgType::Ref,
-                format!("IncRef \"{file_name}\": pre-incr count is {count}"),
+                &format!("IncRef \"{file_name}\": pre-incr count is {count}"),
             );
         }
     }
@@ -104,7 +104,7 @@ where
         if let Some(ref mut messenger) = self.messenger {
             messenger.accept(
                 MsgType::Ref,
-                format!("DecRef \"{file_name}\": pre-decr count is {count}"),
+                &format!("DecRef \"{file_name}\": pre-decr count is {count}"),
             );
         }
         v
@@ -150,7 +150,7 @@ where
                 if let Some(messenger) = &self.messenger {
                     messenger.accept(
                         MsgType::File,
-                        format!("removing unreferenced file \"{file_name}\""),
+                        &format!("removing unreferenced file \"{file_name}\""),
                     );
                 }
                 unrefed.insert(file_name.clone());
@@ -176,7 +176,7 @@ where
                 if let Some(messenger) = &self.messenger {
                     messenger.accept(
                         MsgType::File,
-                        format!("will delete new file \"{file_name}\""),
+                        &format!("will delete new file \"{file_name}\""),
                     );
                 }
                 to_delete.insert(file_name);
@@ -196,7 +196,7 @@ where
             if let Some(messenger) = &self.messenger {
                 messenger.accept(
                     MsgType::File,
-                    format!("will delete new file \"{file_name}\""),
+                    &format!("will delete new file \"{file_name}\""),
                 );
             }
             self.delete_file(file_name)?;
@@ -210,7 +210,7 @@ where
         if let Some(messenger) = &self.messenger {
             messenger.accept(
                 MsgType::File,
-                format!("now delete {} files: {:?}", files.len(), files),
+                &format!("now delete {} files: {:?}", files.len(), files),
             );
         }
 
@@ -313,7 +313,7 @@ impl RefCount {
 }
 
 pub trait Messenger {
-    fn accept(&self, msg_type: MsgType, message: String);
+    fn accept(&self, msg_type: MsgType, message: &String);
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MsgType {
