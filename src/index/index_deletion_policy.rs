@@ -21,4 +21,17 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-pub trait IndexDeletionPolicy {}
+use crate::index::index_commit::IndexCommit;
+use crate::util::error::lucene_error::Result;
+/// This [`IndexDeletionPolicy`] implementation keeps only the most recent commit and
+/// immediately removes all prior commits after a new commit is done. This is the default deletion
+/// policy.
+pub trait IndexDeletionPolicy {
+    /// Deletes all commits except the most recent one.
+    fn on_init<IC>(&mut self, commits: Vec<IC>) -> Result<()>;
+
+    /// Deletes all commits except the most recent one.
+    fn on_commit<IC>(&mut self, commits: Vec<IC>) -> Result<()>
+    where
+        IC: IndexCommit;
+}
