@@ -58,6 +58,7 @@ pub mod doc_id_set_builder;
 pub mod dummy;
 pub mod either_enums;
 pub mod error;
+pub mod file_deleter;
 pub mod fixed_bit_set;
 mod fixed_bits;
 pub mod fst_impl;
