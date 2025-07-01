@@ -23,10 +23,11 @@
  */
 use crate::index::index_commit::IndexCommit;
 use crate::util::error::lucene_error::Result;
+use std::fmt::Display;
 /// This [`IndexDeletionPolicy`] implementation keeps only the most recent commit and
 /// immediately removes all prior commits after a new commit is done. This is the default deletion
 /// policy.
-pub trait IndexDeletionPolicy {
+pub trait IndexDeletionPolicy: Display {
     /// Deletes all commits except the most recent one.
     fn on_init<IC>(&mut self, commits: &mut [IC]) -> Result<()>
     where

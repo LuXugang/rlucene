@@ -30,8 +30,9 @@ use std::sync::Arc;
 
 use parking_lot::Mutex;
 
+use crate::index::index_file_names_util::CODEC_FILE_PATTERN;
 use crate::index::sort::Sort;
-use crate::index::{IndexFileNames, CODEC_FILE_PATTERN};
+use crate::index::IndexFileNames;
 use crate::store::directory::Directory;
 #[cfg(test)]
 use crate::store::dummy::dummy_directory::DummyDirectory;

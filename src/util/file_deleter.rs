@@ -46,7 +46,7 @@ where
     D: Directory,
     M: Messenger,
 {
-    fn new(directory: Arc<Mutex<D>>, messenger: Option<M>) -> FileDeleter<D, M> {
+    pub(crate) fn new(directory: Arc<Mutex<D>>, messenger: Option<M>) -> FileDeleter<D, M> {
         FileDeleter {
             ref_counts: HashMap::new(),
             directory,

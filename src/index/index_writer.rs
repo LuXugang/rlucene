@@ -24,6 +24,7 @@
 use crate::index::index_deletion_policy::IndexDeletionPolicy;
 use crate::index::index_file_deleter::IndexFileDeleter;
 use crate::index::merge_state::DocMap;
+use crate::index::segment_infos::SegmentInfos;
 use crate::store::directory::Directory;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::error::lucene_error::Result;
@@ -36,9 +37,10 @@ where
     P: IndexDeletionPolicy,
 {
     tragedy: TragicException,
+    segment_infos: SegmentInfos<D>,
+    deleter: IndexFileDeleter<D, P>,
     closed: bool,
     closing: bool,
-    deleter: IndexFileDeleter<D, P>,
 }
 
 impl<D, P> IndexWriter<D, P>

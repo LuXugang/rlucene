@@ -23,8 +23,9 @@
  */
 use crate::index::index_commit::{index_commit_util, IndexCommit};
 use crate::index::index_deletion_policy::IndexDeletionPolicy;
-use crate::index::index_writer::{index_writer_util, IndexWriter};
-use crate::index::segment_infos::{segment_infos_util, SegmentInfos};
+use crate::index::index_file_names_util::CODEC_FILE_PATTERN;
+use crate::index::index_writer::IndexWriter;
+use crate::index::segment_infos::SegmentInfos;
 use crate::index::IndexFileNames;
 use crate::store::directory::Directory;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -32,10 +33,33 @@ use crate::util::file_deleter::{FileDeleter, Messenger, MsgType};
 use crate::util::info_stream::{InfoStream, InfoStreamLock};
 use parking_lot::Mutex;
 use std::cmp::Ordering;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
+/// This struct keeps track of each `SegmentInfos` instance that is still "live", either because it
+/// corresponds to a `segments_N` file in the `Directory` (a "commit", i.e. a committed
+/// `SegmentInfos`) or because it's an in-memory `SegmentInfos` that a writer is actively
+/// updating but has not yet committed. This struct uses simple reference counting to map the live
+/// `SegmentInfos` instances to individual files in the `Directory`.
+///
+/// The same directory file may be referenced by more than one `IndexCommit`, i.e. more than one
+/// `SegmentInfos`. Therefore we count how many commits reference each file. When all the commits
+/// referencing a certain file have been deleted, the refcount for that file becomes zero, and the
+/// file is deleted.
+///
+/// A separate deletion policy interface (`IndexDeletionPolicy`) is consulted on creation
+/// (`on_init`) and once per commit (`on_commit`), to decide when a commit should be removed.
+///
+/// It is the business of the `IndexDeletionPolicy` to choose when to delete commit points. The
+/// actual mechanics of file deletion, retrying, etc., derived from the deletion of commit points is
+/// the business of the `IndexFileDeleter`.
+///
+/// The current default deletion policy is [`KeepOnlyLastCommitDeletionPolicy`](crate::index::keep_only_last_commit_deletion_policy::KeepOnlyLastCommitDeletionPolicy), which removes all
+/// prior commits when a new commit has completed. This matches the behavior before 2.2.
+///
+/// Note that you must hold the `write.lock` before instantiating This struct. It opens `segments_N`
+/// file(s) directly with no retry logic.
 pub struct IndexFileDeleter<D, P>
 where
     D: Directory,
@@ -62,7 +86,6 @@ where
     /// Whether the starting commit was deleted.
     starting_commit_deleted: bool,
 
-    last_segment_infos: Option<SegmentInfos<D>>,
     verbose_ref_counts: bool,
     file_deleter: FileDeleter<D, MessengerImpl>,
 }
@@ -71,14 +94,432 @@ where
     D: Directory,
     P: IndexDeletionPolicy,
 {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        files: impl IntoIterator<Item = String>,
+        directory_orig: Arc<Mutex<D>>,
+        directory: Arc<Mutex<D>>,
+        policy: P,
+        mut segment_infos: SegmentInfos<D>,
+        info_stream: InfoStreamLock,
+        initial_index_exists: bool,
+        is_reader_init: bool,
+    ) -> Result<Self> {
+        // init fields
+        let commits = Vec::new();
+        let mut last_segment_infos: Option<SegmentInfos<D>> = None;
+
+        let current_segments_file = segment_infos.get_segments_file_name();
+        if info_stream.lock().enabled("IFD") {
+            info_stream.lock().message(
+                "IFD",
+                &format!(
+                    "init: current segments file is \"{current_segments_file:?}\"; deletionPolicy={policy}"
+                ),
+            );
+        }
+
+        // create file_deleter
+        let file_deleter = FileDeleter::new(
+            Arc::clone(&directory),
+            Some(MessengerImpl::new(info_stream.clone(), false)),
+        );
+
+        let mut index_file_deleter = Self {
+            commits,
+            last_files: Vec::new(),
+            commits_to_delete: Vec::new(),
+            info_stream,
+            directory_orig: directory_orig.clone(),
+            directory,
+            policy,
+            starting_commit_deleted: !initial_index_exists,
+            verbose_ref_counts: false,
+            file_deleter,
+        };
+        let mut current_commit_point = None;
+        if current_segments_file.is_some() {
+            let current_gen = segment_infos.get_generation();
+            for file in files {
+                if file.ends_with("write.lock") {
+                    continue;
+                }
+                let is_segments = file.starts_with(IndexFileNames::SEGMENTS);
+                if CODEC_FILE_PATTERN.is_match(&file)
+                    || is_segments
+                    || file.starts_with(IndexFileNames::PENDING_SEGMENTS)
+                {
+                    // Add this file to refCounts with initial count 0:
+                    index_file_deleter.file_deleter.init_ref_count(&file);
+                    if is_segments {
+                        // This is a commit (segments or segments_N), and
+                        // it's valid (<= the max gen).  Load it, then
+                        // incref all files it refers to:
+                        if index_file_deleter.info_stream.lock().enabled("IFD") {
+                            index_file_deleter
+                                .info_stream
+                                .lock()
+                                .message("IFD", &format!("init: load commit \"{file}\""));
+                        }
+                        let sis = SegmentInfos::read_commit(directory_orig.clone(), &file)?
+                            .into_segment_infos()
+                            .unwrap();
+                        let commit_point = CommitPoint::new(directory_orig.clone(), &sis)?;
+                        index_file_deleter.commits.push(commit_point);
+                        let index = index_file_deleter.commits.len();
+                        if sis.get_generation() == current_gen {
+                            current_commit_point = Some(index);
+                        }
+                        index_file_deleter.inc_ref_from_segment(&sis, true)?;
+
+                        if last_segment_infos.is_none()
+                            || sis.get_generation()
+                                > last_segment_infos.as_ref().unwrap().get_generation()
+                        {
+                            last_segment_infos = Some(sis);
+                        }
+                    }
+                }
+            }
+        }
+
+        if current_commit_point.is_none() && current_segments_file.is_some() && initial_index_exists
+        {
+            // We did not in fact see the segments_N file
+            // corresponding to the segmentInfos that was passed
+            // in.  Yet, it must exist, because our caller holds
+            // the write lock.  This can happen when the directory
+            // listing was stale (eg when index accessed via NFS
+            // client with stale directory listing cache).  So we
+            // try now to explicitly open this commit point:
+            let file = current_segments_file.unwrap();
+            let sis = SegmentInfos::read_commit(directory_orig.clone(), &file);
+            let sis = match sis {
+                Ok(sis) => sis.into_segment_infos().unwrap(),
+                Err(e) => {
+                    return Err(LuceneError::corrupt_index(format!(
+                        "unable to read current segments_N file {file},(resource={e})",
+                    )));
+                },
+            };
+            if index_file_deleter.info_stream.lock().enabled("IFD") {
+                index_file_deleter.info_stream.lock().message(
+                    "IFD",
+                    &format!(
+                        "forced open of current segments file {:?}",
+                        segment_infos.get_segments_file_name()
+                    ),
+                );
+            }
+            let commit_point = CommitPoint::new(directory_orig.clone(), &sis)?;
+            index_file_deleter.commits.push(commit_point);
+            current_commit_point = Some(index_file_deleter.commits.len());
+            index_file_deleter.inc_ref_from_segment(&sis, true)?;
+        }
+
+        if is_reader_init {
+            // Incoming SegmentInfos may have NRT changes not yet visible in the latest commit, so we have
+            // to protect its files from deletion too:
+            index_file_deleter.checkpoint(&segment_infos, false)?;
+        }
+
+        // keep commits sorted by generation
+        index_file_deleter.commits.sort_unstable();
+
+        let pending = directory_orig.lock().get_pending_deletions()?;
+        let relevant_files = index_file_deleter.file_deleter.get_all_files();
+        if !pending.is_empty() {
+            let relevant_files = relevant_files.chain(pending.iter());
+            index_file_deleter_util::inflate_gens(
+                &mut segment_infos,
+                relevant_files,
+                &index_file_deleter.info_stream,
+            )?;
+        } else {
+            index_file_deleter_util::inflate_gens(
+                &mut segment_infos,
+                relevant_files,
+                &index_file_deleter.info_stream,
+            )?;
+        }
+
+        // inflate gens and delete abandoned files
+        let unrefed = index_file_deleter.file_deleter.get_unrefed_files();
+        for file in &unrefed {
+            if file.starts_with(IndexFileNames::SEGMENTS) {
+                panic!("file \"{file}\" has refCount=0, which should never happen on init");
+            }
+            if index_file_deleter.info_stream.lock().enabled("IFD") {
+                index_file_deleter.info_stream.lock().message(
+                    "IFD",
+                    &format!("init: removing unreferenced file \"{file}\""),
+                );
+            }
+        }
+        index_file_deleter
+            .file_deleter
+            .delete_files_if_no_ref(unrefed)?;
+        // Finally, give policy a chance to remove things on
+        // startup:
+        index_file_deleter
+            .policy
+            .on_init(&mut index_file_deleter.commits)?;
+        // Always protect the incoming segmentInfos since
+        // sometime it may not be the most recent commit
+        index_file_deleter.checkpoint(&segment_infos, false)?;
+
+        index_file_deleter.starting_commit_deleted = match current_commit_point {
+            Some(index) => index_file_deleter.commits.get(index).unwrap().is_deleted(),
+            None => false,
+        };
+
+        index_file_deleter.delete_commits()?;
+        Ok(index_file_deleter)
+    }
+    fn ensure_open(&self, index_writer: &IndexWriter<D, P>) -> Result<()> {
+        index_writer.ensure_open(false)?;
+
+        let tragic_arc = index_writer.get_tragic_exception();
+        let tragic = tragic_arc.lock();
+        let error = tragic.as_ref();
+        if let Some(e) = error {
+            return Err(LuceneError::already_closed(format!(
+                "refusing to delete any files: this IndexWriter hit an unrecoverable exception: {e}",
+            )));
+        }
+
+        Ok(())
+    }
+    pub(crate) fn is_closed(&self, index_writer: &IndexWriter<D, P>) -> Result<bool> {
+        match self.ensure_open(index_writer) {
+            Ok(_) => Ok(false),
+            Err(e) => {
+                if matches!(e, LuceneError::AlreadyClosed(_)) {
+                    Ok(true)
+                } else {
+                    Err(e)
+                }
+            },
+        }
+    }
+    fn delete_commits(&mut self) -> Result<()> {
+        let size = self.commits_to_delete.len();
+        if size == 0 {
+            return Ok(());
+        }
+        // First decref all files that had been referred to by
+        // the now-deleted commits:
+        let commits_to_delete = std::mem::take(&mut self.commits_to_delete);
+        for mut commit in commits_to_delete {
+            if self.info_stream.lock().enabled("IFD") {
+                self.info_stream.lock().message(
+                    "IFD",
+                    &format!(
+                        "deleteCommits: now decRef commit \"{}\"",
+                        commit.get_segments_file_name()
+                    ),
+                );
+            }
+            self.dec_ref(std::mem::take(&mut commit.files))?
+        }
+
+        // Now compact commits to remove deleted ones (preserving the sort):
+        let mut write_to = 0;
+        for read_from in 0..self.commits.len() {
+            if !self.commits[read_from].deleted {
+                if write_to != read_from {
+                    self.commits.swap(read_from, write_to);
+                }
+                write_to += 1;
+            }
+        }
+        self.commits.truncate(write_to);
+        Ok(())
+    }
+
+    pub(crate) fn refresh(&mut self) -> Result<()> {
+        // debug_assert!(self.locked());
+        let mut to_delete = HashSet::new();
+
+        let files = self.directory.lock().list_all()?;
+
+        for file_name in files {
+            let is_lock_file = file_name.ends_with("write.lock");
+            let is_codec_match = CODEC_FILE_PATTERN.is_match(&file_name);
+            let is_segments = file_name.starts_with(IndexFileNames::SEGMENTS);
+            let is_pending_segments = file_name.starts_with(IndexFileNames::PENDING_SEGMENTS);
+
+            // we only try to clear out pending_segments_N during rollback(), because we don't
+            // ref-count it
+            // TODO: this is sneaky, should we do this, or change TestIWExceptions? rollback
+            // closes anyway, and
+            // any leftover file will be deleted/retried on next IW bootup anyway...
+            if !is_lock_file
+                && !self.file_deleter.exists(&file_name)
+                && (is_codec_match || is_segments || is_pending_segments)
+            {
+                let mut info_stream = self.info_stream.lock();
+                if info_stream.enabled("IFD") {
+                    info_stream.message(
+                        "IFD",
+                        &format!(
+                            "refresh: removing newly created unreferenced file \"{file_name}\""
+                        ),
+                    );
+                }
+                to_delete.insert(file_name);
+            }
+        }
+
+        self.file_deleter.delete_files_if_no_ref(to_delete)
+    }
+    pub fn close(&mut self) -> Result<()> {
+        if !self.last_files.is_empty() {
+            let files = std::mem::take(&mut self.last_files);
+            self.dec_ref(files)?;
+        }
+        Ok(())
+    }
+    fn assert_commits_are_not_deleted(&self, commits: &[CommitPoint<D>]) -> bool {
+        for commit in commits {
+            debug_assert!(
+                !commit.is_deleted(),
+                "Commit [{commit}] was deleted already"
+            );
+        }
+        true
+    }
+    pub(crate) fn revisit_policy(&mut self) -> Result<()> {
+        {
+            let mut info_stream = self.info_stream.lock();
+            if info_stream.enabled("IFD") {
+                info_stream.message("IFD", "now revisitPolicy");
+            }
+        }
+
+        if !self.commits.is_empty() {
+            debug_assert!(self.assert_commits_are_not_deleted(&self.commits));
+            self.policy.on_commit(&mut self.commits)?;
+            self.delete_commits()?;
+        }
+
+        Ok(())
+    }
+
+    pub fn checkpoint(&mut self, segment_infos: &SegmentInfos<D>, is_commit: bool) -> Result<()> {
+        let t0 = std::time::Instant::now();
+
+        {
+            let mut info_stream = self.info_stream.lock();
+            if info_stream.enabled("IFD") {
+                // TODO:
+            }
+        }
+        // Incref the files:
+        self.inc_ref_from_segment(segment_infos, is_commit)?;
+
+        if is_commit {
+            // Append to our commits list:
+            self.commits.push(CommitPoint::new(
+                Arc::clone(&self.directory_orig),
+                segment_infos,
+            )?);
+
+            debug_assert!(self.assert_commits_are_not_deleted(&self.commits));
+            self.policy.on_commit(&mut self.commits)?;
+            // Decref files for commits that were deleted by the policy:
+            self.delete_commits()?;
+        } else {
+            // DecRef old files from the last checkpoint, if any:
+            let files = std::mem::take(&mut self.last_files);
+            self.dec_ref(files)?;
+            // Save files so we can decr on next checkpoint/commit:
+            self.last_files = segment_infos.files(false)?.into_iter().collect();
+        }
+
+        {
+            let mut info_stream = self.info_stream.lock();
+            if info_stream.enabled("IFD") {
+                let elapsed_ms = t0.elapsed().as_millis();
+                info_stream.message("IFD", &format!("{elapsed_ms} ms to checkpoint"));
+            }
+        }
+
+        Ok(())
+    }
+    pub fn inc_ref_from_segment(
+        &mut self,
+        segment_infos: &SegmentInfos<D>,
+        is_commit: bool,
+    ) -> Result<()> {
+        for file_name in segment_infos.files(is_commit)? {
+            self.file_deleter.inc_ref_single(&file_name);
+        }
+
+        Ok(())
+    }
+
+    pub fn inc_ref_files(&mut self, files: impl IntoIterator<Item = String>) {
+        self.file_deleter.inc_ref(files);
+    }
+
+    pub(crate) fn dec_ref(&mut self, files: impl IntoIterator<Item = String>) -> Result<()> {
+        self.file_deleter.dec_ref(files)
+    }
+    pub(crate) fn dec_ref_from_segment(&mut self, segment_infos: &SegmentInfos<D>) -> Result<()> {
+        self.dec_ref(segment_infos.files(false)?)
+    }
+    pub fn exists(&self, file_name: &str) -> bool {
+        self.file_deleter.exists(file_name)
+    }
+    /// Deletes the specified files, but only if they are new (have not yet been incref'd)
+    pub(crate) fn delete_new_files(
+        &mut self,
+        files: impl IntoIterator<Item = String>,
+    ) -> Result<()> {
+        self.file_deleter.delete_files_if_no_ref(files)
+    }
+}
+impl<D, P> Drop for IndexFileDeleter<D, P>
+where
+    D: Directory,
+    P: IndexDeletionPolicy,
+{
+    fn drop(&mut self) {
+        let v = self.close();
+        match v {
+            Ok(_) => {},
+            Err(e) => {
+                let mut info_stream = self.info_stream.lock();
+                if info_stream.enabled("IFD") {
+                    info_stream.message("IFD", &format!("Error closing IndexFileDeleter: {e}"));
+                }
+            },
+        }
+    }
+}
+pub mod index_file_deleter_util {
+    use crate::index::index_writer::index_writer_util;
+    use crate::index::segment_infos::{segment_infos_util, SegmentInfos};
+    use crate::index::IndexFileNames;
+    use crate::store::directory::Directory;
+    use crate::util::error::lucene_error::LuceneError;
+    use crate::util::error::lucene_error::Result;
+    use crate::util::info_stream::{InfoStream, InfoStreamLock};
+    use std::collections::HashMap;
+
     /// Set all gens beyond what we currently see in the directory, to avoid double-write in cases
     /// where the previous `IndexWriter` did not gracefully close/rollback (e.g. OS/machine crashed or
     /// lost power).
-    fn inflate_gens(
+    pub(crate) fn inflate_gens<'a, D, I>(
         infos: &mut SegmentInfos<D>,
-        files: impl IntoIterator<Item = String>,
+        files: I,
         info_stream: &InfoStreamLock,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        D: Directory,
+        I: IntoIterator<Item = &'a String>,
+    {
         let mut max_segment_gen = i64::MIN;
         let mut max_segment_name = i64::MIN;
         // Confusingly, this is the union of liveDocs, field infos, doc values
@@ -92,7 +533,7 @@ where
             if file_name == index_writer_util::WRITE_LOCK_NAME {
                 continue;
             } else if file_name.starts_with(IndexFileNames::SEGMENTS) {
-                let v = segment_infos_util::generation_from_segments_file_name(&file_name);
+                let v = segment_infos_util::generation_from_segments_file_name(file_name);
                 match v {
                     Ok(gen) => {
                         max_segment_gen = max_segment_gen.max(gen);
@@ -120,7 +561,7 @@ where
                     },
                 }
             } else {
-                let segment_name = IndexFileNames::parse_segment_name(&file_name);
+                let segment_name = IndexFileNames::parse_segment_name(file_name);
                 debug_assert!(segment_name.starts_with('_'), "wtf? file={file_name}");
                 if file_name.to_lowercase().ends_with(".tmp") {
                     // A temp file: don't try to look at its gen
@@ -131,7 +572,7 @@ where
 
                 let mut cur_gen = *max_per_segment_gen.get(segment_name).unwrap_or(&0i64);
 
-                let v = IndexFileNames::parse_generation(&file_name);
+                let v = IndexFileNames::parse_generation(file_name);
                 match v {
                     Ok(gen) => {
                         cur_gen = cur_gen.max(gen);
@@ -165,7 +606,7 @@ where
             }
             infos.counter = desired;
         }
-        for info in infos.iter() {
+        for info in infos.iter_mut() {
             debug_assert!(max_per_segment_gen.contains_key(&info.info.name));
             let gen_long = *max_per_segment_gen.get(&info.info.name).unwrap();
 
@@ -221,32 +662,6 @@ where
             }
         }
         Ok(())
-    }
-    fn ensure_open(&self, index_writer: &IndexWriter<D, P>) -> Result<()> {
-        index_writer.ensure_open(false)?;
-
-        let tragic_arc = index_writer.get_tragic_exception();
-        let tragic = tragic_arc.lock();
-        let error = tragic.as_ref();
-        if let Some(e) = error {
-            return Err(LuceneError::already_closed(format!(
-                "refusing to delete any files: this IndexWriter hit an unrecoverable exception: {e}",
-            )));
-        }
-
-        Ok(())
-    }
-    pub(crate) fn is_closed(&self, index_writer: &IndexWriter<D, P>) -> Result<bool> {
-        match self.ensure_open(index_writer) {
-            Ok(_) => Ok(false),
-            Err(e) => {
-                if matches!(e, LuceneError::AlreadyClosed(_)) {
-                    Ok(true)
-                } else {
-                    Err(e)
-                }
-            },
-        }
     }
 }
 /// Holds details for each commit point. This struct is also passed to the deletion policy. Note: This struct has a natural ordering that is inconsistent with equals.

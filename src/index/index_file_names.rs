@@ -22,8 +22,6 @@
  * SOFTWARE.
  */
 use crate::util::error::lucene_error::Result;
-use once_cell::sync::Lazy;
-use regex::Regex;
 
 /// This struct contains useful constants representing filenames and extensions
 /// used by Lucene, as well as convenience methods for querying whether a file
@@ -204,6 +202,10 @@ impl IndexFileNames {
         }
     }
 }
+pub mod index_file_names_util {
+    use once_cell::sync::Lazy;
+    use regex::Regex;
 
-pub static CODEC_FILE_PATTERN: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"_[a-z0-9]+(_.*)?\..*").unwrap());
+    pub static CODEC_FILE_PATTERN: Lazy<Regex> =
+        Lazy::new(|| Regex::new(r"_[a-z0-9]+(_.*)?\..*").unwrap());
+}

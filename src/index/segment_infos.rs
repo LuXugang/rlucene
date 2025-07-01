@@ -1125,8 +1125,11 @@ where
         self.segments.extend(infos);
     }
     /// Returns an iterator over the contained segments in order.
-    pub fn iter(&mut self) -> impl Iterator<Item = &mut SegmentCommitInfo<D>> {
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut SegmentCommitInfo<D>> {
         self.segments.iter_mut()
+    }
+    pub fn iter(&self) -> impl Iterator<Item = &SegmentCommitInfo<D>> {
+        self.segments.iter()
     }
 
     /// Returns all contained segments as a non-mutable reference to the
@@ -1366,6 +1369,7 @@ pub trait FindSegmentsFileBase {
         D: Directory;
 }
 
+// TODO： important 不需要这个枚举吧？
 pub enum SegmentsFileEnum<D>
 where
     D: Directory,
