@@ -82,6 +82,7 @@ pub mod index_writer_config;
 pub mod indexable_field;
 pub mod indexable_field_type;
 pub(crate) mod indexing_chain;
+pub mod keep_only_last_commit_deletion_policy;
 pub mod knn_vector_values;
 pub mod leaf_metadata;
 pub mod leaf_reader;

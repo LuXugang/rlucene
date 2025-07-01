@@ -22,18 +22,27 @@
  * SOFTWARE.
  */
 use crate::index::index_commit::IndexCommit;
+use crate::index::index_deletion_policy::IndexDeletionPolicy;
 use crate::util::error::lucene_error::Result;
-/// This [`IndexDeletionPolicy`] implementation keeps only the most recent commit and
-/// immediately removes all prior commits after a new commit is done. This is the default deletion
-/// policy.
-pub trait IndexDeletionPolicy {
-    /// Deletes all commits except the most recent one.
+/// This [`IndexDeletionPolicy`] implementation keeps only the most recent commit and immediately removes all prior commits after a new commit is done. This is the default deletion policy.
+pub struct KeepOnlyLastCommitDeletionPolicy;
+impl IndexDeletionPolicy for KeepOnlyLastCommitDeletionPolicy {
     fn on_init<IC>(&mut self, commits: &mut [IC]) -> Result<()>
     where
-        IC: IndexCommit;
+        IC: IndexCommit,
+    {
+        self.on_commit(commits)
+    }
 
     /// Deletes all commits except the most recent one.
     fn on_commit<IC>(&mut self, commits: &mut [IC]) -> Result<()>
     where
-        IC: IndexCommit;
+        IC: IndexCommit,
+    {
+        let size = commits.len();
+        for i in 0..size {
+            commits[i].delete()?;
+        }
+        Ok(())
+    }
 }
