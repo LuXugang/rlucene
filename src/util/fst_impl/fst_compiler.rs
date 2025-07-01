@@ -130,8 +130,7 @@ where
     ) -> Result<Self> {
         if suffix_ram_limit_mb < 0.0 {
             return Err(LuceneError::illegal_argument(format!(
-                "ramLimitMB must be >= 0; got: {}",
-                suffix_ram_limit_mb
+                "ramLimitMB must be >= 0; got: {suffix_ram_limit_mb}"
             )));
         }
 
@@ -1138,8 +1137,7 @@ where
     pub fn suffix_ram_limit_mb(&mut self, mb: f64) -> Result<()> {
         if mb < 0f64 {
             return Err(LuceneError::illegal_argument(format!(
-                "suffix_ram_limit_mb must be >= 0; got: {}",
-                mb
+                "suffix_ram_limit_mb must be >= 0; got: {mb}"
             )));
         }
         self.suffix_ram_limit_mb = mb;
@@ -1239,7 +1237,7 @@ where
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             DataOutputEnum::FromDir(data_output) => {
-                write!(f, "{}", data_output)
+                write!(f, "{data_output}")
             },
             DataOutputEnum::ReadWriter(_) => {
                 write!(f, "ReadWriteDataOutput")

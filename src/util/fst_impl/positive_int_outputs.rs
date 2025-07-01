@@ -47,11 +47,7 @@ impl PositiveIntOutputs {
     }
 
     fn valid(&self, o: &Rc<i64>) -> bool {
-        debug_assert!(
-            NO_OUTPUT.with(|rc| Rc::ptr_eq(o, rc)) || **o > 0,
-            "o= {}",
-            o
-        );
+        debug_assert!(NO_OUTPUT.with(|rc| Rc::ptr_eq(o, rc)) || **o > 0, "o= {o}");
         true
     }
 }

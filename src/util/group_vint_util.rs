@@ -220,8 +220,7 @@ impl GroupVIntUtil {
         let result = pos - pos_start;
         debug_assert!(
             result <= i32::MAX as i64,
-            "result: {} exceeds i32::MAX",
-            result
+            "result: {result} exceeds i32::MAX"
         );
         Ok(result as i32)
     }
@@ -280,8 +279,7 @@ impl GroupVIntUtil {
         let result = pos - pos_start;
         debug_assert!(
             result <= i32::MAX as i64,
-            "result: {} exceeds i32::MAX",
-            result
+            "result: {result} exceeds i32::MAX"
         );
         Ok(result as i32)
     }
@@ -294,8 +292,7 @@ impl GroupVIntUtil {
     fn get_int(value: i64) -> Result<i32> {
         if value > 0xFFFFFFFF {
             Err(LuceneError::number_overflow(format!(
-                "value: {} is too large to be converted to i32",
-                value
+                "value: {value} is too large to be converted to i32"
             )))
         } else {
             Ok(value as i32)

@@ -314,8 +314,7 @@ impl FieldInfo {
     ) -> Result<()> {
         if index_options1 != index_options2 {
             return Err(LuceneError::illegal_argument(format!(
-                "cannot change field \"{}\" from index options={:?} to inconsistent index options={:?}",
-                field_name, index_options1, index_options2
+                "cannot change field \"{field_name}\" from index options={index_options1:?} to inconsistent index options={index_options2:?}"
             )));
         }
         Ok(())
@@ -329,8 +328,7 @@ impl FieldInfo {
     ) -> Result<()> {
         if doc_values_type1 != doc_values_type2 {
             return Err(LuceneError::illegal_argument(format!(
-                "cannot change field \"{}\" from doc values type={:?} to inconsistent doc values type={:?}",
-                field_name, doc_values_type1, doc_values_type2
+                "cannot change field \"{field_name}\" from doc values type={doc_values_type1:?} to inconsistent doc values type={doc_values_type2:?}"
             )));
         }
         Ok(())
@@ -344,8 +342,7 @@ impl FieldInfo {
     ) -> Result<()> {
         if skip_index1 != skip_index2 {
             return Err(LuceneError::illegal_argument(format!(
-                "cannot change field \"{}\" from docValuesSkipIndexType={:?} to inconsistent docValuesSkipIndexType={:?}",
-                field_name, skip_index1, skip_index2
+                "cannot change field \"{field_name}\" from docValuesSkipIndexType={skip_index1:?} to inconsistent docValuesSkipIndexType={skip_index2:?}"
             )));
         }
         Ok(())
@@ -359,8 +356,7 @@ impl FieldInfo {
     ) -> Result<()> {
         if store_term_vector1 != store_term_vector2 {
             return Err(LuceneError::illegal_argument(format!(
-                "cannot change field \"{}\" from storeTermVector={} to inconsistent storeTermVector={}",
-                field_name, store_term_vector1, store_term_vector2
+                "cannot change field \"{field_name}\" from storeTermVector={store_term_vector1} to inconsistent storeTermVector={store_term_vector2}"
             )));
         }
         Ok(())
@@ -374,8 +370,7 @@ impl FieldInfo {
     ) -> Result<()> {
         if omit_norms1 != omit_norms2 {
             return Err(LuceneError::illegal_argument(format!(
-                "cannot change field \"{}\" from omitNorms={} to inconsistent omitNorms={}",
-                field_name, omit_norms1, omit_norms2
+                "cannot change field \"{field_name}\" from omitNorms={omit_norms1} to inconsistent omitNorms={omit_norms2}"
             )));
         }
         Ok(())
@@ -396,8 +391,7 @@ impl FieldInfo {
             || num_bytes1 != num_bytes2
         {
             return Err(LuceneError::illegal_argument(format!(
-                "cannot change field \"{}\" from points dimensionCount={}, indexDimensionCount={}, numBytes={} to inconsistent dimensionCount={}, indexDimensionCount={}, numBytes={}",
-                field_name, point_dimension_count1, index_dimension_count1, num_bytes1, point_dimension_count2, index_dimension_count2, num_bytes2
+                "cannot change field \"{field_name}\" from points dimensionCount={point_dimension_count1}, indexDimensionCount={index_dimension_count1}, numBytes={num_bytes1} to inconsistent dimensionCount={point_dimension_count2}, indexDimensionCount={index_dimension_count2}, numBytes={num_bytes2}"
             )));
         }
         Ok(())
@@ -415,8 +409,7 @@ impl FieldInfo {
     ) -> Result<()> {
         if vd1 != vd2 || vsf1 != vsf2 || ve1 != ve2 {
             return Err(LuceneError::illegal_argument(format!(
-                "cannot change field \"{}\" from vector dimension={}, vector encoding={:?}, vector similarity function={:?} to inconsistent vector dimension={}, vector encoding={:?}, vector similarity function={:?}",
-                field_name, vd1, ve1, vsf1, vd2, ve2, vsf2
+                "cannot change field \"{field_name}\" from vector dimension={vd1}, vector encoding={ve1:?}, vector similarity function={vsf1:?} to inconsistent vector dimension={vd2}, vector encoding={ve2:?}, vector similarity function={vsf2:?}"
             )));
         }
         Ok(())

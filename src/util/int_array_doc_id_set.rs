@@ -54,8 +54,7 @@ impl IntArrayDocIdSet {
     pub fn new(docs: Vec<i32>, length: i32) -> Result<IntArrayDocIdSet> {
         if docs[length as usize] != NO_MORE_DOCS {
             return Err(LuceneError::illegal_argument(format!(
-                "last value must be {}",
-                NO_MORE_DOCS
+                "last value must be {NO_MORE_DOCS}"
             )));
         }
         debug_assert!(

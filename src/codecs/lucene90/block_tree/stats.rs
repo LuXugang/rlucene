@@ -199,7 +199,7 @@ impl Display for Stats {
             if count > 0 {
                 let v = CompressionAlgorithm::by_code(code as u8)
                     .expect("Invalid compression algorithm code");
-                compression_summary.push(format!("{:?}: {}", v, count));
+                compression_summary.push(format!("{v:?}: {count}"));
             }
         }
         let compression_ratio = if self.total_uncompressed_block_suffix_bytes > 0 {
@@ -246,7 +246,7 @@ impl Display for Stats {
             for (prefix, &count) in self.block_count_by_prefix_len.iter().enumerate() {
                 total += count;
                 if count > 0 {
-                    writeln!(f, "      {:2}: {}", prefix, count)?;
+                    writeln!(f, "      {prefix:2}: {count}")?;
                 }
             }
             debug_assert_eq!(self.total_block_count, total);

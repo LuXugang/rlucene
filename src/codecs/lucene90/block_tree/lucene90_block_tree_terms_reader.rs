@@ -170,8 +170,7 @@ where
             let num_fields = meta_in.read_vint()?;
             if num_fields < 0 {
                 return Err(LuceneError::corrupt_index(format!(
-                    "invalid numFields: {}",
-                    num_fields
+                    "invalid numFields: {num_fields}"
                 )));
             }
 
@@ -180,8 +179,7 @@ where
                 let num_terms = meta_in.read_vlong()?;
                 if num_terms <= 0 {
                     return Err(LuceneError::corrupt_index(format!(
-                        "Illegal numTerms for field number: {}",
-                        field
+                        "Illegal numTerms for field number: {field}"
                     )));
                 }
 
@@ -191,7 +189,7 @@ where
                         .field_infos
                         .field_info_by_number(field)?
                         .ok_or_else(|| {
-                            LuceneError::corrupt_index(format!("invalid field number: {}", field))
+                            LuceneError::corrupt_index(format!("invalid field number: {field}"))
                         })?;
 
                 let sum_total_term_freq = meta_in.read_vlong()?;
@@ -215,22 +213,19 @@ where
                 let max_doc = state.segment_info.max_doc()?;
                 if doc_count < 0 || doc_count > max_doc {
                     return Err(LuceneError::corrupt_index(format!(
-                        "invalid docCount: {} maxDoc: {}",
-                        doc_count, max_doc
+                        "invalid docCount: {doc_count} maxDoc: {max_doc}"
                     )));
                 }
 
                 if sum_doc_freq < doc_count as i64 {
                     return Err(LuceneError::corrupt_index(format!(
-                        "invalid sumDocFreq: {} docCount: {}",
-                        sum_doc_freq, doc_count
+                        "invalid sumDocFreq: {sum_doc_freq} docCount: {doc_count}"
                     )));
                 }
 
                 if sum_total_term_freq < sum_doc_freq {
                     return Err(LuceneError::corrupt_index(format!(
-                        "invalid sumTotalTermFreq: {} sumDocFreq: {}",
-                        sum_total_term_freq, sum_doc_freq
+                        "invalid sumTotalTermFreq: {sum_total_term_freq} sumDocFreq: {sum_doc_freq}"
                     )));
                 }
 
@@ -389,8 +384,7 @@ pub mod lucene90_bttr_util {
         let num_bytes = input.read_vint()?;
         if num_bytes < 0 {
             return Err(LuceneError::corrupt_index(format!(
-                "invalid bytes length: {} (resource={})",
-                num_bytes, input
+                "invalid bytes length: {num_bytes} (resource={input})"
             )));
         }
         let mut buffer = vec![0u8; num_bytes as usize];
@@ -412,8 +406,7 @@ pub mod lucene90_bttr_util {
                 .field_info_by_number(*field_number)?
                 .ok_or_else(|| {
                     LuceneError::illegal_state(format!(
-                        "Missing field info for field number {}",
-                        field_number
+                        "Missing field info for field number {field_number}"
                     ))
                 })?;
             field_names.push(field_info.name.clone());

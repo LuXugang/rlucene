@@ -223,7 +223,7 @@ pub trait DataOutput: Sized {
             } else {
                 left
             };
-            debug_assert!(to_copy <= i32::MAX as i64, "to_copy = {}", to_copy);
+            debug_assert!(to_copy <= i32::MAX as i64, "to_copy = {to_copy}");
             input.read_bytes(&mut buffer, 0, to_copy as i32)?;
             self.write_bytes_with_len(&buffer, to_copy as i32)?;
             left -= to_copy;

@@ -145,10 +145,7 @@ where
         //     "dir should not be a TrackingDirectoryWrapper"
         // );
         if id.len() != StringHelper::ID_LENGTH {
-            return Err(LuceneError::illegal_argument(format!(
-                "Invalid id: {:?}",
-                id
-            )));
+            return Err(LuceneError::illegal_argument(format!("Invalid id: {id:?}")));
         }
         Ok(SegmentInfo {
             dir,
@@ -394,8 +391,7 @@ where
 
             if file.to_lowercase().ends_with(".tmp") {
                 return Err(LuceneError::illegal_argument(format!(
-                    "Invalid codec filename '{}', cannot end with .tmp extension",
-                    file
+                    "Invalid codec filename '{file}', cannot end with .tmp extension"
                 )));
             }
         }

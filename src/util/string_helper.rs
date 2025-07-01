@@ -70,8 +70,7 @@ impl StringHelper {
 
                 if mismatch < 0 {
                     return Err(LuceneError::illegal_argument(format!(
-                        "terms out of order: priorTerm={}, currentTerm={}",
-                        prior_term, current_term
+                        "terms out of order: priorTerm={prior_term}, currentTerm={current_term}"
                     )));
                 }
                 Ok(mismatch)
@@ -314,8 +313,7 @@ impl StringHelper {
                 let x = v[ints.offset + i];
                 if !(0..=255).contains(&x) {
                     return Err(LuceneError::illegal_argument(format!(
-                        "int at pos={} with value={} is out-of-bounds for byte",
-                        i, x
+                        "int at pos={i} with value={x} is out-of-bounds for byte"
                     )));
                 }
                 bytes.access_mut(|v| {

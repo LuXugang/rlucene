@@ -49,10 +49,10 @@ pub enum Fields {
 impl Display for Fields {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Fields::Field(f1) => write!(f, "{}", f1),
-            Fields::Text(f1) => write!(f, "{}", f1),
-            Fields::String(f1) => write!(f, "{}", f1),
-            Fields::Stored(f1) => write!(f, "{}", f1),
+            Fields::Field(f1) => write!(f, "{f1}"),
+            Fields::Text(f1) => write!(f, "{f1}"),
+            Fields::String(f1) => write!(f, "{f1}"),
+            Fields::Stored(f1) => write!(f, "{f1}"),
         }
     }
 }

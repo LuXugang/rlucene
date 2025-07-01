@@ -52,8 +52,7 @@ impl PagedBytes {
     pub fn new(block_bits: usize) -> Self {
         debug_assert!(
             block_bits > 0 && block_bits <= 31,
-            "blockBits: {}",
-            block_bits
+            "blockBits: {block_bits}"
         );
         let block_size = 1 << block_bits;
         let block_mask = block_size - 1;
@@ -241,7 +240,7 @@ impl PagedBytesReader {
     ///
     /// Slices spanning more than two blocks are **not supported**.
     pub fn fill_slice(&self, b: &mut BytesRef<Vec<u8>>, start: usize, length: usize) {
-        assert!(length <= self.block_size + 1, "length={}", length);
+        assert!(length <= self.block_size + 1, "length={length}");
         b.length = length;
 
         if length == 0 {
@@ -389,8 +388,7 @@ impl DataInput for PagedBytesDataInput {
     fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
         if num_bytes < 0 {
             return Err(LuceneError::illegal_argument(format!(
-                "num_bytes must be >= 0, got {}",
-                num_bytes
+                "num_bytes must be >= 0, got {num_bytes}"
             )));
         }
         let skip_to = self.get_position() + num_bytes as usize;

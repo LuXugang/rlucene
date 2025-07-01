@@ -87,8 +87,7 @@ impl IOUtils {
                 #[cfg(any(target_os = "linux", target_os = "macos"))]
                 debug_assert!(
                     false,
-                    "On Linux and macOS, syncing a directory should not throw an error. Got: {}",
-                    _e
+                    "On Linux and macOS, syncing a directory should not throw an error. Got: {_e}"
                 );
                 return Ok(());
             }
@@ -103,7 +102,7 @@ impl IOUtils {
             file.sync_all().map_err(|e| {
                 LuceneError::io_with_path(
                     file_to_sync.to_string_lossy().to_string(),
-                    io::Error::new(e.kind(), format!("Failed to sync file: {}", e)),
+                    io::Error::new(e.kind(), format!("Failed to sync file: {e}")),
                 )
             })?;
         }

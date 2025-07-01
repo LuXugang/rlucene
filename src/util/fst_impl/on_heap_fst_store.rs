@@ -47,8 +47,7 @@ impl OnHeapFSTStore {
     pub fn new(max_block_bits: i32, input: &mut impl DataInput, num_bytes: i64) -> Result<Self> {
         if !(1..=30).contains(&max_block_bits) {
             return Err(LuceneError::illegal_argument(format!(
-                "max_block_bits should be in 1..=30; got {}",
-                max_block_bits
+                "max_block_bits should be in 1..=30; got {max_block_bits}"
             )));
         }
 
@@ -151,8 +150,8 @@ impl DataInput for FstBytesReaderEnum {
 impl Display for FstBytesReaderEnum {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            FstBytesReaderEnum::Reverse(reader) => write!(f, "{}", reader),
-            FstBytesReaderEnum::Bytes(reader) => write!(f, "{}", reader),
+            FstBytesReaderEnum::Reverse(reader) => write!(f, "{reader}"),
+            FstBytesReaderEnum::Bytes(reader) => write!(f, "{reader}"),
         }
     }
 }

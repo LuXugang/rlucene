@@ -157,7 +157,7 @@ where
             let new_length = if length < 128 {
                 // 1 byte to store length
                 buffer[buffer_upto as usize] = length as u8;
-                debug_assert!(length >= 0, "Length must be positive: {}", length);
+                debug_assert!(length >= 0, "Length must be positive: {length}");
                 buffer.copy_from(
                     &bytes.bytes[bytes.offset..bytes.offset + length as usize],
                     buffer_upto as usize + 1,

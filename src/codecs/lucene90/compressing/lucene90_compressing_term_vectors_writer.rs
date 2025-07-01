@@ -377,8 +377,7 @@ where
                     Ok(index) => index,
                     Err(_) => {
                         return Err(LuceneError::illegal_state(format!(
-                            "Field number {} not found in field_nums",
-                            field_num
+                            "Field number {field_num} not found in field_nums"
                         )));
                     },
                 };
@@ -406,8 +405,7 @@ where
                     Ok(index) => index,
                     Err(_) => {
                         return Err(LuceneError::illegal_state(format!(
-                            "field_num {} not found in field_nums",
-                            field_num
+                            "field_num {field_num} not found in field_nums"
                         )));
                     },
                 };

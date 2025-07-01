@@ -347,8 +347,7 @@ where
         let max_doc = self.info.max_doc()?;
         if del_count < 0 || del_count > max_doc {
             return Err(LuceneError::illegal_argument(format!(
-                "invalid delCount={} (maxDoc={})",
-                del_count, max_doc
+                "invalid delCount={del_count} (maxDoc={max_doc})"
             )));
         }
 
@@ -368,8 +367,7 @@ where
         let max_doc = self.info.max_doc()?;
         if soft_del_count < 0 || soft_del_count > max_doc {
             return Err(LuceneError::illegal_argument(format!(
-                "invalid softDelCount={} (maxDoc={})",
-                soft_del_count, max_doc
+                "invalid softDelCount={soft_del_count} (maxDoc={max_doc})"
             )));
         }
 

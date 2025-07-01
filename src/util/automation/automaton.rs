@@ -114,8 +114,7 @@ impl Automaton {
     pub fn set_accept(&mut self, state: i32, accept: bool) {
         debug_assert!(
             (0..self.get_num_states() as usize).contains(&(state as usize)),
-            "state {} out of bounds",
-            state
+            "state {state} out of bounds"
         );
         if accept {
             self.is_accept.insert(state as usize);
@@ -171,8 +170,7 @@ impl Automaton {
             let source = source as usize;
             if self.states[2 * source] != -1 {
                 return Err(LuceneError::illegal_state(format!(
-                    "from state ({}) already had transitions added",
-                    source
+                    "from state ({source}) already had transitions added"
                 )));
             }
             debug_assert!(self.states[2 * source + 1] == 0);
@@ -531,7 +529,7 @@ impl Automaton {
         if (0x21..=0x7e).contains(&c) && c != '\\' as i32 && c != '"' as i32 {
             write!(f, "{}", char::from_u32(c as u32).unwrap_or('?'))
         } else {
-            write!(f, "\\\\U{:08X}", c)
+            write!(f, "\\\\U{c:08X}")
         }
     }
 }
@@ -709,8 +707,7 @@ impl Builder {
     pub fn set_accept(&mut self, state: i32, accept: bool) {
         debug_assert!(
             (0..self.next_state).contains(&state),
-            "state {} out of bounds",
-            state
+            "state {state} out of bounds"
         );
         if accept {
             self.is_accept.insert(state as usize);

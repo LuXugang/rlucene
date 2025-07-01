@@ -154,9 +154,9 @@ impl BKDRadixSelector {
             Ok(partition)
         } else {
             let mut left =
-                self.get_point_writer(partition_point - from, &format!("left{}", dim), temp_dir)?;
+                self.get_point_writer(partition_point - from, &format!("left{dim}"), temp_dir)?;
             let mut right =
-                self.get_point_writer(to - partition_point, &format!("right{}", dim), temp_dir)?;
+                self.get_point_writer(to - partition_point, &format!("right{dim}"), temp_dir)?;
             let mut writer = points.writer.borrow_mut();
             if let PointWriterEnum::Offline(offline_point_writer) = &mut *writer {
                 let partition = self.build_histogram_and_partition(
@@ -677,7 +677,7 @@ impl BKDRadixSelector {
                 self.config.clone(),
                 temp_dir,
                 &self.temp_file_name_prefix,
-                &format!("delta{}", iteration),
+                &format!("delta{iteration}"),
                 delta,
             )?))
         }
@@ -786,7 +786,7 @@ where
     O: IndexOutput,
 {
     fn byte_at(&mut self, i: i32, k: i32) -> Result<i32> {
-        debug_assert!(k >= 0, "negative prefix {}", k);
+        debug_assert!(k >= 0, "negative prefix {k}");
         let pos = if k < self.dim_cmp_bytes {
             self.dim_offset + k
         } else {
@@ -957,7 +957,7 @@ where
     O: IndexOutput,
 {
     fn byte_at(&self, i: i32, k: i32) -> i32 {
-        debug_assert!(k >= 0, "negative prefix {}", k);
+        debug_assert!(k >= 0, "negative prefix {k}");
         let pos = if k < self.dim_cmp_bytes {
             self.dim_offset + k
         } else {

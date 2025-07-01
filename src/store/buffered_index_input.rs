@@ -115,8 +115,7 @@ where
     fn check_buffer_size(buffer_size: i32) -> Result<()> {
         if buffer_size < buffered_index_input_util::MIN_BUFFER_SIZE {
             return Err(LuceneError::illegal_argument(format!(
-                "bufferSize must be at least MIN_BUFFER_SIZE (got {})",
-                buffer_size
+                "bufferSize must be at least MIN_BUFFER_SIZE (got {buffer_size})"
             )));
         }
         Ok(())
@@ -170,7 +169,7 @@ where
 
         let new_length = end - start;
         if new_length == 0 {
-            return Err(LuceneError::eof(format!("read past EOF: {}", self)));
+            return Err(LuceneError::eof(format!("read past EOF: {self}")));
         }
 
         // valid data length in buffer
@@ -421,8 +420,7 @@ where
             let remaining_elements = remaining_len - readable_elements;
             if remaining_elements > 0 {
                 return Err(LuceneError::eof(format!(
-                    "read past EOF: expected {}, got {}",
-                    remaining_len, readable_elements
+                    "read past EOF: expected {remaining_len}, got {readable_elements}"
                 )));
             }
 
@@ -432,7 +430,7 @@ where
         // size, read directly from the underlying input
         let after = self.buffer_start + (self.length + remaining_bytes - unaligned_bytes) as i64;
         if after > self.sub_index_input.length() {
-            return Err(LuceneError::eof(format!("read past EOF: {}", self)));
+            return Err(LuceneError::eof(format!("read past EOF: {self}")));
         }
         // Prepare a temporary buffer to handle unaligned and remaining bytes.
         let mut temp_vec = vec![0; (remaining_bytes + unaligned_bytes) as usize];

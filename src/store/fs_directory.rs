@@ -239,8 +239,7 @@ where
         let pending_deletes = self.pending_deletes.lock();
         if pending_deletes.contains(name) {
             return Err(LuceneError::not_found(format!(
-                "file \"{}\" is pending delete and cannot be opened for read",
-                name
+                "file \"{name}\" is pending delete and cannot be opened for read"
             )));
         }
         Ok(())
@@ -273,8 +272,7 @@ where
         let mut pending_deletes = self.pending_deletes.lock();
         if pending_deletes.contains(name) {
             return Err(LuceneError::not_found(format!(
-                "file \"{}\" is already pending delete",
-                name
+                "file \"{name}\" is already pending delete"
             )));
         }
 
@@ -292,8 +290,7 @@ where
     fn file_length(&self, name: &str) -> Result<i64> {
         if self.pending_deletes.lock().contains(name) {
             return Err(LuceneError::not_found(format!(
-                "file \"{}\" is pending delete",
-                name
+                "file \"{name}\" is pending delete"
             )));
         }
 
@@ -412,8 +409,7 @@ where
         let mut pending_deletes = self.pending_deletes.lock();
         if pending_deletes.contains(source) {
             return Err(LuceneError::not_found(format!(
-                "File \"{}\" is pending delete and cannot be moved",
-                source
+                "File \"{source}\" is pending delete and cannot be moved"
             )));
         }
         Self::maybe_delete_pending_files(
@@ -505,10 +501,7 @@ where
             &mut pending_deletes,
             &mut self.ops_since_last_delete,
         ) {
-            eprintln!(
-                "Error while deleting pending files during drop, ignoring: {:?}",
-                e
-            );
+            eprintln!("Error while deleting pending files during drop, ignoring: {e:?}");
         }
     }
 }

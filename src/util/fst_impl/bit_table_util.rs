@@ -42,7 +42,7 @@ impl BitTableUtil {
     /// - `reader`: The [`FST::BytesReader`](BytesReader) used for reading. It
     ///   must be positioned at the beginning of the bit-table.
     pub fn is_bit_set(bit_index: i32, reader: &mut impl BytesReader) -> Result<bool> {
-        debug_assert!(bit_index >= 0, "bitIndex={}", bit_index);
+        debug_assert!(bit_index >= 0, "bitIndex={bit_index}");
         reader.skip_bytes((bit_index >> 3) as i64)?;
         let b = Self::read_byte(reader)?;
         let mask = 1u64 << (bit_index as u32 & (u8::BITS - 1));
@@ -55,7 +55,7 @@ impl BitTableUtil {
     /// - `reader`: The [`FST::BytesReader`](BytesReader) used for reading. It
     ///   must be positioned at the beginning of the bit-table.
     pub fn count_bits(bit_table_bytes: i32, reader: &mut impl BytesReader) -> Result<i32> {
-        debug_assert!(bit_table_bytes >= 0, "bitTableBytes={}", bit_table_bytes);
+        debug_assert!(bit_table_bytes >= 0, "bitTableBytes={bit_table_bytes}");
         let mut bit_count = 0;
         let num_long_blocks = bit_table_bytes >> 3;
         for _ in 0..num_long_blocks {
@@ -83,7 +83,7 @@ impl BitTableUtil {
     /// - `reader`: The [`FST::BytesReader`](BytesReader) used for reading. It
     ///   must be positioned at the beginning of the bit-table.
     pub fn count_bits_up_to(bit_index: i32, reader: &mut impl BytesReader) -> Result<i32> {
-        debug_assert!(bit_index >= 0, "bitIndex={}", bit_index);
+        debug_assert!(bit_index >= 0, "bitIndex={bit_index}");
         let mut bit_count = 0;
         let num_long_blocks = bit_index >> 6;
         for _ in 0..num_long_blocks {
@@ -130,9 +130,7 @@ impl BitTableUtil {
     ) -> Result<i32> {
         debug_assert!(
             bit_index >= -1 && bit_index < bit_table_bytes * i8::BITS as i32,
-            "bitIndex={} bitTableBytes={}",
-            bit_index,
-            bit_table_bytes
+            "bitIndex={bit_index} bitTableBytes={bit_table_bytes}"
         );
         let mut byte_index = bit_index / i8::BITS as i32;
         let mask: i32 = -1 << ((bit_index + 1) & (i8::BITS as i32 - 1));
@@ -174,7 +172,7 @@ impl BitTableUtil {
     /// The zero-based index of the previous set bit before `bit_index`, or `-1`
     /// if none exist.
     pub fn previous_bit_set(bit_index: i32, reader: &mut impl BytesReader) -> Result<i32> {
-        debug_assert!(bit_index >= 0, "bitIndex={}", bit_index);
+        debug_assert!(bit_index >= 0, "bitIndex={bit_index}");
         let mut byte_index = bit_index >> 3;
         reader.skip_bytes(byte_index as i64)?;
         let mask: i32 = (1 << (bit_index & (i8::BITS - 1) as i32)) - 1;
@@ -197,7 +195,7 @@ impl BitTableUtil {
     }
 
     fn read_up_to_8_bytes(num_bytes: i32, reader: &mut impl BytesReader) -> Result<u64> {
-        debug_assert!(num_bytes > 0 && num_bytes <= 8, "numBytes={}", num_bytes);
+        debug_assert!(num_bytes > 0 && num_bytes <= 8, "numBytes={num_bytes}");
         let mut l = Self::read_byte(reader)?;
         let mut shift = 0;
         let mut remaining = num_bytes - 1;

@@ -254,8 +254,7 @@ impl LZ4 {
 
         if dict_len > LZ4::MAX_DISTANCE {
             return Err(LuceneError::illegal_argument(format!(
-                "dictLen must not be greater than 64kB, but got {}",
-                dict_len
+                "dictLen must not be greater than 64kB, but got {dict_len}"
             )));
         }
 

@@ -79,44 +79,37 @@ impl CollectionStatistics {
     ) -> Result<Self> {
         if max_doc <= 0 {
             return Err(LuceneError::illegal_argument(format!(
-                "maxDoc must be positive, maxDoc: {}",
-                max_doc
+                "maxDoc must be positive, maxDoc: {max_doc}"
             )));
         }
         if doc_count <= 0 {
             return Err(LuceneError::illegal_argument(format!(
-                "docCount must be positive, docCount: {}",
-                doc_count
+                "docCount must be positive, docCount: {doc_count}"
             )));
         }
         if doc_count > max_doc {
             return Err(LuceneError::illegal_argument(format!(
-                "docCount must not exceed maxDoc, docCount: {}, maxDoc: {}",
-                doc_count, max_doc
+                "docCount must not exceed maxDoc, docCount: {doc_count}, maxDoc: {max_doc}"
             )));
         }
         if sum_doc_freq <= 0 {
             return Err(LuceneError::illegal_argument(format!(
-                "sumDocFreq must be positive, sumDocFreq: {}",
-                sum_doc_freq
+                "sumDocFreq must be positive, sumDocFreq: {sum_doc_freq}"
             )));
         }
         if sum_doc_freq < doc_count {
             return Err(LuceneError::illegal_argument(format!(
-                "sumDocFreq must be at least docCount, sumDocFreq: {}, docCount: {}",
-                sum_doc_freq, doc_count
+                "sumDocFreq must be at least docCount, sumDocFreq: {sum_doc_freq}, docCount: {doc_count}"
             )));
         }
         if sum_total_term_freq <= 0 {
             return Err(LuceneError::illegal_argument(format!(
-                "sumTotalTermFreq must be positive, sumTotalTermFreq: {}",
-                sum_total_term_freq
+                "sumTotalTermFreq must be positive, sumTotalTermFreq: {sum_total_term_freq}"
             )));
         }
         if sum_total_term_freq < sum_doc_freq {
             return Err(LuceneError::illegal_argument(format!(
-                "sumTotalTermFreq must be at least sumDocFreq, sumTotalTermFreq: {}, sumDocFreq: {}",
-                sum_total_term_freq, sum_doc_freq
+                "sumTotalTermFreq must be at least sumDocFreq, sumTotalTermFreq: {sum_total_term_freq}, sumDocFreq: {sum_doc_freq}"
             )));
         }
 

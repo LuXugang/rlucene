@@ -47,8 +47,7 @@ impl<T: BitSet> BitDocIdSet<T> {
     pub fn with_cost(set: Option<T>, cost: i64) -> Result<BitDocIdSet<T>> {
         if cost < 0 {
             return Err(LuceneError::illegal_argument(format!(
-                "cost must be >= 0, got {}",
-                cost
+                "cost must be >= 0, got {cost}"
             )));
         }
         Ok(BitDocIdSet {

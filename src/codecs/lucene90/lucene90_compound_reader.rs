@@ -108,8 +108,7 @@ where
         let length = IndexInput::length(&handle);
         if length != expected_length {
             return Err(LuceneError::corrupt_index(format!(
-                "length should be {} bytes, but is {} instead (resource={})",
-                expected_length, length, handle
+                "length should be {expected_length} bytes, but is {length} instead (resource={handle})"
             )));
         }
         let dir_fmt = directory.to_string();
@@ -159,8 +158,7 @@ where
             let id = entries_stream.read_string()?;
             if mapping.contains_key(&id) {
                 return Err(LuceneError::corrupt_index(format!(
-                    "Duplicate cfs entry id={} in CFS (resource={})",
-                    id, entries_stream
+                    "Duplicate cfs entry id={id} in CFS (resource={entries_stream})"
                 )));
             }
             let offset = entries_stream.read_long()?;
@@ -197,7 +195,7 @@ where
         let entry = self
             .entries
             .get(stripped_name)
-            .ok_or_else(|| LuceneError::not_found(format!("{} not found", name)))?;
+            .ok_or_else(|| LuceneError::not_found(format!("{name} not found")))?;
         Ok(entry.length)
     }
 

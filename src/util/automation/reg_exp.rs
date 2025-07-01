@@ -668,7 +668,7 @@ impl RegExp {
         use RegExpKind::*;
 
         let newline = "\n";
-        let indent_more = format!("{}  ", indent);
+        let indent_more = format!("{indent}  ");
 
         match self.kind {
             // binary
@@ -762,7 +762,7 @@ impl RegExp {
                     }
                 }
                 b.push_str(&s2);
-                b.push_str(&format!(">{}", newline));
+                b.push_str(&format!(">{newline}"));
             },
 
             AnyChar | AnyString | Empty | Automaton => {
@@ -904,8 +904,7 @@ impl RegExp {
     fn make_char_range(flags: i32, from: i32, to: i32) -> Result<Self> {
         if from > to {
             return Err(LuceneError::illegal_argument(format!(
-                "invalid range: from ({}) cannot be > to ({})",
-                from, to
+                "invalid range: from ({from}) cannot be > to ({to})"
             )));
         }
         Ok(RegExp::new_leaf_node(
@@ -1077,8 +1076,7 @@ impl RegExp {
 
                 if m != -1 && n > m {
                     return Err(LuceneError::illegal_argument(format!(
-                        "invalid repetition range (out of order): {}..{}",
-                        n, m
+                        "invalid repetition range (out of order): {n}..{m}"
                     )));
                 }
 
@@ -1152,8 +1150,7 @@ impl RegExp {
             Some('w') => RegExp::from_str("[a-zA-Z_0-9]"), // word
             Some('W') => RegExp::from_str("[^\\w]"),       // non-word
             Some(ch) => Err(LuceneError::illegal_argument(format!(
-                "invalid character class: \\{}",
-                ch
+                "invalid character class: \\{ch}"
             ))),
             None => Err(LuceneError::illegal_argument(
                 "invalid unicode value in .from",
@@ -1190,8 +1187,7 @@ impl RegExp {
                 let cp = self.next()?;
                 let ch = std::char::from_u32(cp as u32).unwrap_or('?');
                 return Err(LuceneError::illegal_argument(format!(
-                    "invalid character class \\{}",
-                    ch
+                    "invalid character class \\{ch}"
                 )));
             }
         }
@@ -1310,7 +1306,7 @@ impl fmt::Display for RegExp {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut s = String::new();
         self.to_string_builder(&mut s);
-        write!(f, "{}", s)
+        write!(f, "{s}")
     }
 }
 /// The type of expression represented by a RegExp node.

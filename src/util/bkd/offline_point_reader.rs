@@ -213,7 +213,7 @@ where
             match CodecUtil::check_footer(self.check_sum_input.as_mut().unwrap()) {
                 Ok(_) => {},
                 Err(e) => {
-                    eprintln!("Failed to check footer: {:?}", e);
+                    eprintln!("Failed to check footer: {e:?}");
                 },
             }
         }

@@ -143,8 +143,7 @@ impl FSLockFactory for NativeFSLockFactory {
         let mut lock_held = self.lock_held.lock();
         if !lock_held.insert(real_path_str.clone()) {
             return Err(LuceneError::lock_already_held(format!(
-                "Lock held by another program: {}",
-                real_path_str
+                "Lock held by another program: {real_path_str}"
             )));
         }
 
@@ -161,8 +160,7 @@ impl FSLockFactory for NativeFSLockFactory {
             Err(_) => {
                 lock_held.remove(&real_path_str);
                 Err(LuceneError::lock_held_by_other(format!(
-                    "Lock held by this virtual machine: {}",
-                    real_path_str
+                    "Lock held by this virtual machine: {real_path_str}"
                 )))
             },
         }
@@ -205,10 +203,7 @@ impl NativeFSLock {
                 Err(_) => "invalid time".to_string(),
             },
         );
-        format!(
-            "size: {} bytes, permissions: {:?}, modified: {}",
-            size, permissions, modified_time
-        )
+        format!("size: {size} bytes, permissions: {permissions:?}, modified: {modified_time}")
     }
 }
 

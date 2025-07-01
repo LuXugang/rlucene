@@ -202,20 +202,17 @@ where
 
             if num_chunks < num_dirty_chunks {
                 return Err(LuceneError::corrupt_index(format!(
-                    "Cannot have more dirty chunks than chunks: numChunks={}, numDirtyChunks={} (resource={})",
-                    num_chunks, num_dirty_chunks, meta
+                    "Cannot have more dirty chunks than chunks: numChunks={num_chunks}, numDirtyChunks={num_dirty_chunks} (resource={meta})"
                 )));
             }
             if (num_dirty_chunks == 0) != (num_dirty_docs == 0) {
                 return Err(LuceneError::corrupt_index(format!(
-                    "Cannot have dirty chunks without dirty docs or vice-versa: numDirtyChunks={}, numDirtyDocs={} (resource={})",
-                    num_dirty_chunks, num_dirty_docs, meta
+                    "Cannot have dirty chunks without dirty docs or vice-versa: numDirtyChunks={num_dirty_chunks}, numDirtyDocs={num_dirty_docs} (resource={meta})"
                 )));
             }
             if num_dirty_docs < num_dirty_chunks {
                 return Err(LuceneError::corrupt_index(format!(
-                    "Cannot have more dirty chunks than documents within dirty chunks: numDirtyChunks={}, numDirtyDocs={} (resource={})",
-                    num_dirty_chunks, num_dirty_docs, meta
+                    "Cannot have more dirty chunks than documents within dirty chunks: numDirtyChunks={num_dirty_chunks}, numDirtyDocs={num_dirty_docs} (resource={meta})"
                 )));
             }
 
@@ -586,8 +583,7 @@ where
                 ),
                 _ => {
                     return Err(LuceneError::illegal_state(format!(
-                        "invalid flag selector: {}",
-                        v
+                        "invalid flag selector: {v}"
                     )))
                 },
             };
@@ -1059,8 +1055,7 @@ impl TVFields {
                 },
                 None => {
                     return Err(LuceneError::illegal_state(format!(
-                        "Field number {} not found in field infos",
-                        field_num
+                        "Field number {field_num} not found in field infos"
                     )));
                 },
             }

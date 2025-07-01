@@ -109,8 +109,7 @@ where
                 Some(fi) => fi,
                 None => {
                     return Err(LuceneError::illegal_state(format!(
-                        "Field '{}' not found in FieldInfos",
-                        field_name
+                        "Field '{field_name}' not found in FieldInfos"
                     )));
                 },
             };

@@ -196,8 +196,7 @@ impl BufferedIndexInputBase for NIOFSIndexInput {
         // Ensure the entire requested length was read
         debug_assert_eq!(
             read_length, 0,
-            "Unexpected remaining length after read: {}",
-            read_length
+            "Unexpected remaining length after read: {read_length}"
         );
         Ok(())
     }

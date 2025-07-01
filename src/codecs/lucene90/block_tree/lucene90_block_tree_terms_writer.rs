@@ -344,22 +344,19 @@ where
     pub fn validate_settings(min_items_in_block: i32, max_items_in_block: i32) -> Result<()> {
         if min_items_in_block <= 1 {
             return Err(LuceneError::illegal_argument(format!(
-                "min_items_in_block must be >= 2; got {}",
-                min_items_in_block
+                "min_items_in_block must be >= 2; got {min_items_in_block}"
             )));
         }
 
         if min_items_in_block > max_items_in_block {
             return Err(LuceneError::illegal_argument(format!(
-                "max_items_in_block must be >= min_items_in_block; got max_items_in_block={}, min_items_in_block={}",
-                max_items_in_block, min_items_in_block
+                "max_items_in_block must be >= min_items_in_block; got max_items_in_block={max_items_in_block}, min_items_in_block={min_items_in_block}"
             )));
         }
 
         if 2 * (min_items_in_block - 1) > max_items_in_block {
             return Err(LuceneError::illegal_argument(format!(
-                "max_items_in_block must be at least 2*(min_items_in_block-1); got max_items_in_block={}, min_items_in_block={}",
-                max_items_in_block, min_items_in_block
+                "max_items_in_block must be at least 2*(min_items_in_block-1); got max_items_in_block={max_items_in_block}, min_items_in_block={min_items_in_block}"
             )));
         }
 
@@ -389,8 +386,7 @@ where
             let field_info = self.field_infos.field_info_by_name(field);
             if field_info.is_none() {
                 return Err(LuceneError::illegal_state(format!(
-                    "Missing fields:{}",
-                    field
+                    "Missing fields:{field}"
                 )));
             }
             let terms_opt = fields.terms(field)?;
@@ -476,7 +472,7 @@ impl PendingTerm {
 impl fmt::Display for PendingTerm {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = ToStringUtils::bytes_ref_to_string_from_bytes(self.term_bytes.clone().to_vec());
-        write!(f, "TERM: {}", s)
+        write!(f, "TERM: {s}")
     }
 }
 pub struct PendingBlock {
@@ -773,8 +769,7 @@ where
                                 // in this block
                                 debug_assert_eq!(
                                     last_suffix_lead_label, -1,
-                                    "i={} last_suffix_lead_label={}",
-                                    i, last_suffix_lead_label
+                                    "i={i} last_suffix_lead_label={last_suffix_lead_label}"
                                 );
                                 -1
                             } else {

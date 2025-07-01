@@ -127,8 +127,7 @@ impl Lucene99SegmentInfoFormat {
             },
             _ => {
                 return Err(LuceneError::corrupt_index(format!(
-                    "Illegal boolean value : {} (resource={})",
-                    has_min_version, input
+                    "Illegal boolean value : {has_min_version} (resource={input})"
                 )))
             },
         };
@@ -136,8 +135,7 @@ impl Lucene99SegmentInfoFormat {
         let doc_count = input.read_int()?;
         if doc_count < 0 {
             return Err(LuceneError::corrupt_index(format!(
-                "Invalid docCount: {} (resource={})",
-                doc_count, input
+                "Invalid docCount: {doc_count} (resource={input})"
             )));
         }
         let is_compound_file = input.read_byte()? == seg_info::YES as u8;
@@ -158,8 +156,7 @@ impl Lucene99SegmentInfoFormat {
             },
             std::cmp::Ordering::Less => {
                 return Err(LuceneError::corrupt_index(format!(
-                    "invalid index sort field count: {} (resource={})",
-                    num_sort_fields, input
+                    "invalid index sort field count: {num_sort_fields} (resource={input})"
                 )));
             },
             std::cmp::Ordering::Equal => None,
@@ -254,8 +251,7 @@ impl Lucene99SegmentInfoFormat {
                     write(sort_field, output)?;
                 } else {
                     return Err(LuceneError::illegal_argument(format!(
-                        "cannot serialize SortField {}",
-                        sort_field
+                        "cannot serialize SortField {sort_field}"
                     )));
                 }
             }
@@ -320,7 +316,7 @@ impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
         }
 
         si.ok_or_else(|| {
-            LuceneError::corrupt_index(format!("Failed to parse segment info for {}", segment))
+            LuceneError::corrupt_index(format!("Failed to parse segment info for {segment}"))
         })
     }
 

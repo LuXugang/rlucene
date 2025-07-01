@@ -94,7 +94,7 @@ where
 
         CodecUtil::check_index_header(
             &mut index_input,
-            &format!("{}Idx", codec_name),
+            &format!("{codec_name}Idx"),
             fields_index_writer_const::VERSION_START,
             fields_index_writer_const::VERSION_CURRENT,
             id,

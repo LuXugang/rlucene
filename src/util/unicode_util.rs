@@ -79,8 +79,7 @@ impl UnicodeUtil {
 
         if num_bytes == i32::MIN {
             return Err(LuceneError::illegal_argument(format!(
-                "Invalid UTF8 header byte: 0x{:X}",
-                lead_byte
+                "Invalid UTF8 header byte: 0x{lead_byte:X}"
             )));
         }
 
@@ -97,8 +96,7 @@ impl UnicodeUtil {
             4 => v = (lead_byte & 0b0000_0111) as i32,
             _ => {
                 return Err(LuceneError::illegal_argument(format!(
-                    "Invalid UTF8 header byte: 0x{:X}",
-                    lead_byte
+                    "Invalid UTF8 header byte: 0x{lead_byte:X}"
                 )));
             },
         }

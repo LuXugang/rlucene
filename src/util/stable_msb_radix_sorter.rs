@@ -135,10 +135,7 @@ where
     fn merge(&mut self, from: i32, to: i32, mid: i32) -> Result<()> {
         debug_assert!(
             to > mid && mid > from,
-            "Invalid indices: to={}, mid={}, from={}",
-            to,
-            mid,
-            from
+            "Invalid indices: to={to}, mid={mid}, from={from}"
         );
         // If already sorted, return early
         if self.delegate_sorter.compare(mid - 1, mid)? <= 0 {
@@ -156,11 +153,7 @@ where
                 index += 1;
 
                 if left == mid {
-                    debug_assert_eq!(
-                        index, right,
-                        "Index mismatch: index={}, right={}",
-                        index, right
-                    );
+                    debug_assert_eq!(index, right, "Index mismatch: index={index}, right={right}");
                     self.bulk_save(right, index, to - right);
                     break;
                 }

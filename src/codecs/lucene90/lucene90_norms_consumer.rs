@@ -148,7 +148,7 @@ where
         match result {
             Ok(_) => (),
             Err(e) => {
-                eprintln!("Failed to close Lucene90NormsConsumer: {:?}", e)
+                eprintln!("Failed to close Lucene90NormsConsumer: {e:?}")
             },
         }
     }

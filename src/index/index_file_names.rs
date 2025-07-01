@@ -65,7 +65,7 @@ impl IndexFileNames {
             Option::from(IndexFileNames::segment_file_name(base, "", ext))
         } else {
             // base-36
-            let gen_str = format!("{:x}", gen);
+            let gen_str = format!("{gen:x}");
             let mut res = String::with_capacity(base.len() + 6 + ext.len());
             res.push_str(base);
             res.push('_');
@@ -119,7 +119,7 @@ impl IndexFileNames {
     pub fn matches_extension(filename: &str, ext: &str) -> bool {
         // It doesn't make a difference whether we allocate a StringBuilder
         // ourselves or not, since there's only 1 '+' operator.
-        filename.ends_with(&format!(".{}", ext))
+        filename.ends_with(&format!(".{ext}"))
     }
     /// locates the boundary of the segment name, or -1  */
     pub fn index_of_segment_name(filename: &str) -> i32 {

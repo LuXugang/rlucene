@@ -186,7 +186,7 @@ impl fmt::Display for DoublePoint {
                         &bytes.bytes,
                         bytes.offset + dim as usize * BitUtil::DOUBLE_BYTES,
                     );
-                    write!(f, "{}", value)?;
+                    write!(f, "{value}")?;
                 }
             },
             _ => {

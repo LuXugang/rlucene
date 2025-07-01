@@ -247,7 +247,7 @@ pub trait DataInput: Sized + Display {
     /// [`DataOutput::write_string`](crate::store::data_output::DataOutput::write_string)
     fn read_string(&mut self) -> Result<String> {
         let length = self.read_vint()?;
-        debug_assert!(length >= 0, "Length must be positive: {}", length);
+        debug_assert!(length >= 0, "Length must be positive: {length}");
         let mut bytes = vec![0u8; length as usize];
         self.read_bytes(&mut bytes, 0, length)?;
         Ok(String::from_utf8(bytes)?)

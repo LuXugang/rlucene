@@ -257,7 +257,7 @@ pub trait Directory: Display + Sized {
 /// [`create_temp_output`](Directory)
 pub fn get_temp_file_name(prefix: &str, suffix: &str, counter: u64) -> String {
     //base-36
-    let counter_str = format!("{:x}", counter);
-    let full_suffix = format!("{}_{}", suffix, counter_str);
+    let counter_str = format!("{counter:x}");
+    let full_suffix = format!("{suffix}_{counter_str}");
     IndexFileNames::segment_file_name(prefix, &full_suffix, "tmp")
 }

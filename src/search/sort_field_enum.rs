@@ -90,10 +90,10 @@ impl Display for SortFieldEnum {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             SortFieldEnum::SortedNumeric(sort_field) => {
-                write!(f, "{}", sort_field)
+                write!(f, "{sort_field}")
             },
-            SortFieldEnum::SortedSet(sort_field) => write!(f, "{}", sort_field),
-            SortFieldEnum::Sorter(sort_field) => write!(f, "{}", sort_field),
+            SortFieldEnum::SortedSet(sort_field) => write!(f, "{sort_field}"),
+            SortFieldEnum::Sorter(sort_field) => write!(f, "{sort_field}"),
         }
     }
 }

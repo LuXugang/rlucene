@@ -57,17 +57,12 @@ impl Sorter {
             let old_id = doc_map.new_to_old(new_id);
             debug_assert!(
                 (0..max_doc).contains(&new_id),
-                "doc IDs must be in [0-{}), got {}",
-                max_doc,
-                new_id
+                "doc IDs must be in [0-{max_doc}), got {new_id}"
             );
             debug_assert_eq!(
                 { i },
                 old_id,
-                "mapping is inconsistent: {} --oldToNew--> {} --newToOld--> {}",
-                i,
-                new_id,
-                old_id
+                "mapping is inconsistent: {i} --oldToNew--> {new_id} --newToOld--> {old_id}"
             );
             if old_id != i || new_id < 0 || new_id >= max_doc {
                 return false;

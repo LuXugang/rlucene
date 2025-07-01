@@ -183,10 +183,9 @@ where
         let mut last_log = start;
 
         if self.info_stream.lock().enabled(HNSW_COMPONENT) {
-            self.info_stream.lock().message(
-                HNSW_COMPONENT,
-                &format!("addVectors [{} {})", min_ord, max_ord),
-            );
+            self.info_stream
+                .lock()
+                .message(HNSW_COMPONENT, &format!("addVectors [{min_ord} {max_ord})"));
         }
 
         for node in min_ord..max_ord {
@@ -208,7 +207,7 @@ where
             let elapsed_start = now.duration_since(start).as_millis();
             self.info_stream.lock().message(
                 HNSW_COMPONENT,
-                &format!("built {} in {}/{} ms", node, elapsed_t, elapsed_start),
+                &format!("built {node} in {elapsed_t}/{elapsed_start} ms"),
             );
         }
         now
@@ -373,7 +372,7 @@ where
                     if self.info_stream.lock().enabled(HNSW_COMPONENT) {
                         self.info_stream.lock().message(
                             HNSW_COMPONENT,
-                            &format!("connectComponents failed on level {}", level),
+                            &format!("connectComponents failed on level {level}"),
                         );
                     }
                 },
@@ -386,7 +385,7 @@ where
             let elapsed = start.elapsed().as_millis();
             self.info_stream
                 .lock()
-                .message(HNSW_COMPONENT, &format!("connectComponents {} ms", elapsed));
+                .message(HNSW_COMPONENT, &format!("connectComponents {elapsed} ms"));
         }
 
         Ok(())
@@ -437,7 +436,7 @@ where
                 if self.info_stream.lock().enabled(HNSW_COMPONENT) {
                     self.info_stream.lock().message(
                         HNSW_COMPONENT,
-                        &format!("connect component {:?} to {:?}", c, c0),
+                        &format!("connect component {c:?} to {c0:?}"),
                     );
                 }
 
@@ -560,7 +559,7 @@ where
         if self.info_stream.lock().enabled(HNSW_COMPONENT) {
             self.info_stream.lock().message(
                 HNSW_COMPONENT,
-                &format!("build graph from {} vectors", max_ord),
+                &format!("build graph from {max_ord} vectors"),
             );
         }
 
@@ -699,8 +698,7 @@ where
             if hnsw.num_levels()? == cur_max_level + 1 {
                 // This should never happen if all the calculations are correct
                 return Err(LuceneError::illegal_state(format!(
-                    "Unable to promote node {} at level {} as entry. Graph level {} has not changed.",
-                    node, node_level, cur_max_level
+                    "Unable to promote node {node} at level {node_level} as entry. Graph level {cur_max_level} has not changed."
                 )));
             }
         }

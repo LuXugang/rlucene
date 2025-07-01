@@ -52,7 +52,7 @@ impl DocValuesUpdate {
         doc_id_up_to: i32,
         sub_update: DocValuesUpdateEnum,
     ) -> Self {
-        debug_assert!(doc_id_up_to >= 0, "{} must be >= 0", doc_id_up_to);
+        debug_assert!(doc_id_up_to >= 0, "{doc_id_up_to} must be >= 0");
         let has_value = sub_update.has_value();
         DocValuesUpdate {
             doc_values_type,

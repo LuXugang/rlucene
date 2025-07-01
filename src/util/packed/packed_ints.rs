@@ -256,8 +256,7 @@ impl PackedInts {
     pub fn bits_required(max_value: i64) -> Result<i32> {
         if max_value < 0 {
             return Err(LuceneError::illegal_argument(format!(
-                "max_value must be non-negative (got {})",
-                max_value
+                "max_value must be non-negative (got {max_value})"
             )));
         }
         Ok(PackedInts::unsigned_bits_required(max_value))
@@ -378,15 +377,13 @@ impl PackedInts {
     ) -> Result<i32> {
         if block_size < min_block_size || block_size > max_block_size {
             return Err(LuceneError::illegal_argument(format!(
-                "block_size must be >= {} and <= {}, got {}",
-                min_block_size, max_block_size, block_size
+                "block_size must be >= {min_block_size} and <= {max_block_size}, got {block_size}"
             )));
         }
 
         if block_size & (block_size - 1) != 0 {
             return Err(LuceneError::illegal_argument(format!(
-                "block_size must be a power of two, got {}",
-                block_size
+                "block_size must be a power of two, got {block_size}"
             )));
         }
         let result = block_size.trailing_zeros();
@@ -410,8 +407,7 @@ impl PackedInts {
                 Ok(num_blocks as i32)
             },
             None => Err(LuceneError::illegal_argument(format!(
-                "multiply overflow:block_size:{}, num_blocks:{} ",
-                block_size, num_blocks
+                "multiply overflow:block_size:{block_size}, num_blocks:{num_blocks} "
             ))),
         }
     }
@@ -740,7 +736,7 @@ pub trait Reader: Accountable {
     }
     fn default_get_bulk(&self, index: i32, arr: &mut [i64], off: i32, len: i32) -> i32 {
         debug_assert!(len > 0, "len must be > 0");
-        debug_assert!(index < self.size(), "index out of bounds: {}", index);
+        debug_assert!(index < self.size(), "index out of bounds: {index}");
         debug_assert!(
             (off + len) as usize <= arr.len(),
             "offset + len exceeds array length"
@@ -899,11 +895,10 @@ pub trait Mutable: Reader + Display {
         self.default_set_bulk(index, arr, off, len)
     }
     fn default_set_bulk(&mut self, index: i32, arr: &[i64], off: i32, len: i32) -> i32 {
-        debug_assert!(len > 0, "len must be > 0 (got {})", len);
+        debug_assert!(len > 0, "len must be > 0 (got {len})");
         debug_assert!(
             index >= 0 && index < self.size(),
-            "Index out of bounds: {}",
-            index
+            "Index out of bounds: {index}"
         );
 
         let len = len.min(self.size() - index);
@@ -932,9 +927,7 @@ pub trait Mutable: Reader + Display {
         debug_assert!(val <= PackedInts::max_value(self.get_bits_per_value()));
         debug_assert!(
             from_index <= to_index,
-            "from_index must be <= to_index: {} > {}",
-            from_index,
-            to_index
+            "from_index must be <= to_index: {from_index} > {to_index}"
         );
         for i in from_index..to_index {
             self.set(i, val);
@@ -1018,7 +1011,7 @@ impl Reader for NullReader {
     }
 
     fn get_bulk(&self, index: i32, arr: &mut [i64], off: i32, mut len: i32) -> i32 {
-        debug_assert!(len > 0, "len must be > 0 (got {})", len);
+        debug_assert!(len > 0, "len must be > 0 (got {len})");
         debug_assert!(
             index < self.value_count,
             "index out of bounds (index={}, valueCount={})",

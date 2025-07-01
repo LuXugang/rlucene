@@ -122,8 +122,7 @@ impl LongsRef {
         }
         if length < 0 {
             return Err(LuceneError::illegal_state(format!(
-                "length is negative: {}",
-                length
+                "length is negative: {length}"
             )));
         }
 
@@ -136,8 +135,7 @@ impl LongsRef {
         }
         if offset < 0 {
             return Err(LuceneError::illegal_state(format!(
-                "offset is negative: {}",
-                offset
+                "offset is negative: {offset}"
             )));
         }
 
@@ -150,8 +148,7 @@ impl LongsRef {
         }
         if offset + length < 0 {
             return Err(LuceneError::illegal_state(format!(
-                "offset + length is negative: offset={}, length={}",
-                offset, length
+                "offset + length is negative: offset={offset}, length={length}"
             )));
         }
         if (offset + length) as usize > longs.len() {

@@ -82,20 +82,17 @@ impl BKDConfig {
         }
         if num_index_dims > num_dims {
             return Err(LuceneError::illegal_argument(format!(
-                "num_index_dims cannot exceed num_dims (got: {} vs {})",
-                num_dims, num_index_dims
+                "num_index_dims cannot exceed num_dims (got: {num_dims} vs {num_index_dims})"
             )));
         }
         if bytes_per_dim <= 0 {
             return Err(LuceneError::illegal_argument(format!(
-                "bytes_per_dim must be > 0; got {}",
-                bytes_per_dim
+                "bytes_per_dim must be > 0; got {bytes_per_dim}"
             )));
         }
         if max_points_in_leaf_node <= 0 {
             return Err(LuceneError::illegal_argument(format!(
-                "max_points_in_leaf_node must be > 0; got {}",
-                max_points_in_leaf_node
+                "max_points_in_leaf_node must be > 0; got {max_points_in_leaf_node}"
             )));
         }
         //TODO: Implement ArrayUtil::MAX_ARRAY_LENGTH

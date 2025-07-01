@@ -197,8 +197,7 @@ where
 
         if version != version2 {
             return Err(LuceneError::corrupt_index(format!(
-                "Format versions mismatch: meta={}, data={} (resource={})",
-                version, version2, data
+                "Format versions mismatch: meta={version}, data={version2} (resource={data})"
             )));
         }
         // NOTE: data file is too costly to verify checksum against all the
@@ -296,16 +295,14 @@ where
                         },
                         _ => {
                             return Err(LuceneError::corrupt_index(format!(
-                                "Invalid doc values type: {}",
-                                type_byte
+                                "Invalid doc values type: {type_byte}"
                             )));
                         },
                     }
                 },
                 None => {
                     return Err(LuceneError::corrupt_index(format!(
-                        "Field number {} not found in field infos, resource {}",
-                        field_number, meta
+                        "Field number {field_number} not found in field infos, resource {meta}"
                     )));
                 },
             }
@@ -344,8 +341,7 @@ where
         let table_size = meta.read_int()?;
         if table_size > 256 {
             return Err(LuceneError::corrupt_index(format!(
-                "invalid table size: {} resource {}",
-                table_size, meta
+                "invalid table size: {table_size} resource {meta}"
             )));
         }
 
@@ -436,8 +432,7 @@ where
             1 => SortedSetEntry::default(),
             _ => {
                 return Err(LuceneError::corrupt_index(format!(
-                    "Invalid multiValued flag: {} resource {}",
-                    multi_valued, meta
+                    "Invalid multiValued flag: {multi_valued} resource {meta}"
                 )))
             },
         };
@@ -1134,8 +1129,7 @@ where
                 }
             },
             None => Err(LuceneError::illegal_state(format!(
-                "Missing sorted set entry for field {}",
-                field_number
+                "Missing sorted set entry for field {field_number}"
             ))),
         }
     }
@@ -2838,8 +2832,7 @@ where
                 && index
                     <= ((self.entry.terms_dict_size - 1) as u64
                         >> self.entry.terms_dict_index_shift) as i64,
-            "index {} out of range",
-            index
+            "index {index} out of range"
         );
 
         let start = self.index_addresses.get(index)?;

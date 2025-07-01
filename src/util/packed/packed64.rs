@@ -137,7 +137,7 @@ impl Reader for Packed64 {
     }
 
     fn get_bulk(&self, mut index: i32, arr: &mut [i64], mut off: i32, mut len: i32) -> i32 {
-        debug_assert!(len > 0, "len must be > 0 (got {})", len);
+        debug_assert!(len > 0, "len must be > 0 (got {len})");
         debug_assert!(
             index >= 0 && index < self.value_count,
             "index out of bounds"
@@ -251,7 +251,7 @@ impl Mutable for Packed64 {
     }
 
     fn set_bulk(&mut self, mut index: i32, arr: &[i64], mut off: i32, mut len: i32) -> i32 {
-        debug_assert!(len > 0, "len must be > 0 (got {})", len);
+        debug_assert!(len > 0, "len must be > 0 (got {len})");
         debug_assert!(index < self.value_count, "index out of bounds");
         len = len.min(self.value_count - index);
         debug_assert!(

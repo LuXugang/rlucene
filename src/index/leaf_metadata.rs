@@ -49,14 +49,12 @@ impl LeafMetaData {
     ) -> Result<Self> {
         if created_version_major > LATEST.major {
             return Err(LuceneError::illegal_argument(format!(
-                "created_version_major is in the future: {}",
-                created_version_major
+                "created_version_major is in the future: {created_version_major}"
             )));
         }
         if created_version_major < 6 {
             return Err(LuceneError::illegal_argument(format!(
-                "created_version_major must be >= 6, got: {}",
-                created_version_major
+                "created_version_major must be >= 6, got: {created_version_major}"
             )));
         }
         if created_version_major >= 7 && min_version.is_none() {

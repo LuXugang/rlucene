@@ -378,9 +378,7 @@ where
         let mask = size - 1;
         debug_assert!(
             mask & size == 0,
-            "size must be a power-of-2; got size={} mask={}",
-            size,
-            mask
+            "size must be a power-of-2; got size={size} mask={mask}"
         );
         Self::build(fst_node_address_bits_per_value, 8, size, mask)
     }

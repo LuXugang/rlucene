@@ -343,8 +343,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
             }
             if min_max.max != 0 && gcd != 1 {
                 return Err(LuceneError::illegal_state(format!(
-                    "GCD compression should never be used on ordinals, found gcd={}",
-                    gcd
+                    "GCD compression should never be used on ordinals, found gcd={gcd}"
                 )));
             }
         }
@@ -1084,7 +1083,7 @@ where
         match result {
             Ok(_) => (),
             Err(e) => {
-                eprintln!("Failed to close Lucene90DocValuesConsumer: {:?}", e)
+                eprintln!("Failed to close Lucene90DocValuesConsumer: {e:?}")
             },
         }
     }

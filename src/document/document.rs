@@ -241,7 +241,7 @@ impl fmt::Display for Document {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Document<")?;
         for (i, field) in self.fields.iter().enumerate() {
-            write!(f, "{}", field)?;
+            write!(f, "{field}")?;
             if i != self.fields.len() - 1 {
                 write!(f, " ")?;
             }

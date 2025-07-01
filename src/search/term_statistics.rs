@@ -80,20 +80,17 @@ impl TermStatistics {
         // In Rust, BytesRef cannot be null, so no null check is needed.
         if doc_freq <= 0 {
             return Err(LuceneError::illegal_argument(format!(
-                "doc_freq must be positive, doc_freq: {}",
-                doc_freq
+                "doc_freq must be positive, doc_freq: {doc_freq}"
             )));
         }
         if total_term_freq <= 0 {
             return Err(LuceneError::illegal_argument(format!(
-                "total_term_freq must be positive, total_term_freq: {}",
-                total_term_freq
+                "total_term_freq must be positive, total_term_freq: {total_term_freq}"
             )));
         }
         if total_term_freq < doc_freq {
             return Err(LuceneError::illegal_argument(format!(
-                "total_term_freq must be at least doc_freq, total_term_freq: {}, doc_freq: {}",
-                total_term_freq, doc_freq
+                "total_term_freq must be at least doc_freq, total_term_freq: {total_term_freq}, doc_freq: {doc_freq}"
             )));
         }
         Ok(TermStatistics {

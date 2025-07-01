@@ -73,7 +73,7 @@ impl fmt::Display for StoredValueType {
             StoredValueType::Binary => "BINARY",
             StoredValueType::String => "STRING",
         };
-        write!(f, "{}", type_str)
+        write!(f, "{type_str}")
     }
 }
 

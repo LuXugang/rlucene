@@ -45,8 +45,7 @@ impl<T: BitSet> BitSetIterator<T> {
     pub fn new(bits: Rc<T>, cost: i64) -> Result<BitSetIterator<T>> {
         if cost < 0 {
             return Err(LuceneError::illegal_argument(format!(
-                "cost must be >= 0, got {}",
-                cost
+                "cost must be >= 0, got {cost}"
             )));
         }
         let length = bits.length();

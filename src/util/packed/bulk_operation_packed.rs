@@ -399,8 +399,7 @@ where
 
         debug_assert!(
             bits_left == 8,
-            "bits_left must be reset to 8, but was {}",
-            bits_left
+            "bits_left must be reset to 8, but was {bits_left}"
         );
     }
 
@@ -482,8 +481,7 @@ where
         }
         debug_assert!(
             bits_left == 8,
-            "bits_left must be reset to 8, but was {}",
-            bits_left
+            "bits_left must be reset to 8, but was {bits_left}"
         );
     }
 }

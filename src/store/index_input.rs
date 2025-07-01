@@ -69,8 +69,7 @@ pub trait IndexInput: DataInput + crate::util::clone::TryClone {
     fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
         if num_bytes < 0 {
             return Err(LuceneError::illegal_argument(format!(
-                "num_bytes must be >= 0, got {}",
-                num_bytes
+                "num_bytes must be >= 0, got {num_bytes}"
             )));
         }
         let skip_to = self.get_file_pointer() + num_bytes;
@@ -145,5 +144,5 @@ pub trait IndexInput: DataInput + crate::util::clone::TryClone {
 /// SubStruct call this to get the String for resourceDescription of a slice of
 /// this `IndexInput`.
 pub fn get_full_slice_description(slice_description: &str) -> String {
-    format!(" [slice={}] ", slice_description)
+    format!(" [slice={slice_description}] ")
 }

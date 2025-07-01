@@ -208,14 +208,12 @@ where
     fn verify_params(max_mb_sort_in_heap: f64, total_point_count: i64) -> Result<()> {
         if max_mb_sort_in_heap < 0.0 {
             return Err(LuceneError::illegal_argument(format!(
-                "maxMBSortInHeap must be >= 0.0 (got: {})",
-                max_mb_sort_in_heap
+                "maxMBSortInHeap must be >= 0.0 (got: {max_mb_sort_in_heap})"
             )));
         }
         if total_point_count < 0 {
             return Err(LuceneError::illegal_argument(format!(
-                "totalPointCount must be >= 0 (got: {})",
-                total_point_count
+                "totalPointCount must be >= 0 (got: {total_point_count})"
             )));
         }
         Ok(())
@@ -552,8 +550,7 @@ where
     fn get_num_left_leaf_nodes(&self, num_leaves: i32) -> i32 {
         debug_assert!(
             num_leaves > 1,
-            "get_num_left_leaf_nodes() called with {}",
-            num_leaves
+            "get_num_left_leaf_nodes() called with {num_leaves}"
         );
         // return the level that can be filled with this number of leaves
         let last_full_level = 31 - num_leaves.leading_zeros() as i32;
@@ -800,9 +797,7 @@ where
                 let delta = leaf_nodes.get_leaf_lp(leaves_offset) - min_block_fp;
                 debug_assert!(
                     leaf_nodes.num_leaves() == num_leaves || delta > 0,
-                    "expected delta > 0; got numLeaves = {} and delta={}",
-                    num_leaves,
-                    delta
+                    "expected delta > 0; got numLeaves = {num_leaves} and delta={delta}"
                 );
                 write_buffer.write_vlong(delta)?;
                 Ok(self.append_block(write_buffer, blocks))
@@ -819,9 +814,7 @@ where
                 let delta = left_block_fp - min_block_fp;
                 debug_assert!(
                     leaf_nodes.num_leaves() == num_leaves || delta > 0,
-                    "expected delta > 0; got numLeaves = {} and delta={}",
-                    num_leaves,
-                    delta
+                    "expected delta > 0; got numLeaves = {num_leaves} and delta={delta}"
                 );
                 write_buffer.write_vlong(delta)?;
             }
@@ -908,7 +901,7 @@ where
             if num_left_leaf_nodes != 1 {
                 write_buffer.write_vint(left_num_bytes)?;
             } else {
-                debug_assert!(left_num_bytes == 0, "leftNumBytes={}", left_num_bytes);
+                debug_assert!(left_num_bytes == 0, "leftNumBytes={left_num_bytes}");
             }
 
             let bytes2 = write_buffer.try_get_array_ownership();
@@ -2413,8 +2406,7 @@ fn value_in_order(
         if cmp == 0 && doc < last_doc {
             debug_assert!(
                 false,
-                "docs out of order: last doc={} current doc={} ord={}",
-                last_doc, doc, ord
+                "docs out of order: last doc={last_doc} current doc={doc} ord={ord}"
             );
         }
     }

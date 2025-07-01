@@ -127,8 +127,7 @@ where
     pub fn binary_search(&mut self, from_index: i64, to_index: i64, key: i64) -> Result<i64> {
         if from_index < 0 || from_index > to_index {
             return Err(LuceneError::illegal_argument(format!(
-                "fromIndex={}, toIndex={}",
-                from_index, to_index
+                "fromIndex={from_index}, toIndex={to_index}"
             )));
         }
         let mut lo = from_index;

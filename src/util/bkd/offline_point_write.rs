@@ -62,7 +62,7 @@ where
     {
         let out = temp_dir.create_temp_output(
             temp_file_name_prefix,
-            &format!("bkd_{}", desc),
+            &format!("bkd_{desc}"),
             &IOContext::default_io_context()?,
         )?;
         let name = out.get_name().to_string();
@@ -220,7 +220,7 @@ where
             match CodecUtil::write_footer(&mut out) {
                 Ok(_) => {},
                 Err(e) => {
-                    eprintln!("Failed to write footer: {:?}", e);
+                    eprintln!("Failed to write footer: {e:?}");
                 },
             };
         }

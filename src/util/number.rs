@@ -116,12 +116,12 @@ impl Number {
 impl fmt::Display for Number {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Number::U8(v) => write!(f, "{}", v),
-            Number::I16(v) => write!(f, "{}", v),
-            Number::I32(v) => write!(f, "{}", v),
-            Number::I64(v) => write!(f, "{}", v),
-            Number::F32(v) => write!(f, "{}", v),
-            Number::F64(v) => write!(f, "{}", v),
+            Number::U8(v) => write!(f, "{v}"),
+            Number::I16(v) => write!(f, "{v}"),
+            Number::I32(v) => write!(f, "{v}"),
+            Number::I64(v) => write!(f, "{v}"),
+            Number::F32(v) => write!(f, "{v}"),
+            Number::F64(v) => write!(f, "{v}"),
         }
     }
 }

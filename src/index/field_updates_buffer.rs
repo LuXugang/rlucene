@@ -393,9 +393,7 @@ impl FieldUpdatesBuffer {
     fn get_array_index(array_length: i32, index: i32) -> i32 {
         assert!(
             array_length == 1 || array_length > index,
-            "illegal array index length: {} index: {}",
-            array_length,
-            index
+            "illegal array index length: {array_length} index: {index}"
         );
         std::cmp::min(array_length - 1, index)
     }

@@ -155,8 +155,7 @@ impl Lucene94FieldInfosFormat {
         match DocValuesType::from_repr(b) {
             Some(dv) => Ok(dv),
             None => Err(LuceneError::corrupt_index(format!(
-                "invalid docvalues byte: {} (resource={})",
-                b, input
+                "invalid docvalues byte: {b} (resource={input})"
             ))),
         }
     }
@@ -168,8 +167,7 @@ impl Lucene94FieldInfosFormat {
         match DocValuesSkipIndexType::from_repr(b) {
             Some(dv) => Ok(dv),
             None => Err(LuceneError::corrupt_index(format!(
-                "invalid docvaluesskipindex byte: {} (resource={}) ",
-                b, input
+                "invalid docvaluesskipindex byte: {b} (resource={input}) "
             ))),
         }
     }
@@ -178,8 +176,7 @@ impl Lucene94FieldInfosFormat {
         match VectorEncoding::from_repr(b) {
             Some(ve) => Ok(ve),
             None => Err(LuceneError::corrupt_index(format!(
-                "invalid vector encoding: {} (resource={})",
-                b, input
+                "invalid vector encoding: {b} (resource={input})"
             ))),
         }
     }
@@ -188,8 +185,7 @@ impl Lucene94FieldInfosFormat {
         match VectorSimilarityFunction::from_repr(b) {
             Some(func) => Ok(func),
             None => Err(LuceneError::corrupt_index(format!(
-                "invalid distance function: {} (resource={})",
-                b, input
+                "invalid distance function: {b} (resource={input})"
             ))),
         }
     }
@@ -216,8 +212,7 @@ impl Lucene94FieldInfosFormat {
         match IndexOptions::from_repr(b) {
             Some(opt) => Ok(opt),
             None => Err(LuceneError::corrupt_index(format!(
-                "invalid IndexOptions byte: {} (resource={})",
-                b, input
+                "invalid IndexOptions byte: {b} (resource={input})"
             ))),
         }
     }
@@ -267,8 +262,7 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
                 let field_number = input.read_vint()?;
                 if field_number < 0 {
                     return Err(LuceneError::corrupt_index(format!(
-                        "invalid field number for field: {}, fieldNumber={} (resource={})",
-                        name, field_number, input
+                        "invalid field number for field: {name}, fieldNumber={field_number} (resource={input})"
                     )));
                 }
                 let bits = input.read_byte()?;
@@ -284,20 +278,17 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
 
                 if (bits & 0xC0) != 0 {
                     return Err(LuceneError::corrupt_index(format!(
-                        "unused bits are set \"{:b}\"",
-                        bits
+                        "unused bits are set \"{bits:b}\""
                     )));
                 }
                 if format < Self::FORMAT_PARENT_FIELD && (bits & 0xF0) != 0 {
                     return Err(LuceneError::corrupt_index(format!(
-                        "parent field bit is set but shouldn't \"{:b}\"",
-                        bits
+                        "parent field bit is set but shouldn't \"{bits:b}\""
                     )));
                 }
                 if format < Self::FORMAT_DOCVALUE_SKIPPER && (bits & Self::DOCVALUES_SKIPPER) != 0 {
                     return Err(LuceneError::corrupt_index(format!(
-                        "doc values skipper bit is set but shouldn't \"{:b}\"",
-                        bits
+                        "doc values skipper bit is set but shouldn't \"{bits:b}\""
                     )));
                 }
 

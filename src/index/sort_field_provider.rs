@@ -41,8 +41,7 @@ pub fn write(sf: &SortFieldEnum, output: &mut impl DataOutput) -> Result<()> {
         provider.write_sort_field(sf, output)?;
     } else {
         return Err(LuceneError::illegal_argument(format!(
-            "Cannot serialize sort field {}",
-            sf
+            "Cannot serialize sort field {sf}"
         )));
     }
     Ok(())

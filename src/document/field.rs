@@ -575,7 +575,7 @@ impl Display for Field {
         write!(f, "{}<{}:", self.indexable_field_type, self.name)?;
 
         if let Some(ref fields_data) = self.fields_data {
-            write!(f, "{:?}", fields_data)?;
+            write!(f, "{fields_data:?}")?;
         }
 
         write!(f, ">")

@@ -314,9 +314,9 @@ where
                 ));
             }
             if bytes_used != 0 {
-                s.push_str(&format!(" bytesUsed={}", bytes_used));
+                s.push_str(&format!(" bytesUsed={bytes_used}"));
             }
-            write!(f, "{}", s)
+            write!(f, "{s}")
         }
     }
 }

@@ -114,7 +114,7 @@ impl<'a, B: AsRef<[u8]>> ByteBuffersDataInput<'a, B> {
             if block_index as usize >= self.blocks.len()
                 || pos + bytes_read as i64 > self.length + self.offset
             {
-                return Err(LuceneError::eof(format!("{}", pos)));
+                return Err(LuceneError::eof(format!("{pos}")));
             }
 
             let block = self.blocks.get_mut(block_index as usize).unwrap();

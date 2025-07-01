@@ -168,8 +168,7 @@ impl FixedBitSet {
         let num_words = Self::bits2words(num_bits);
         if num_words as usize > stored_bits.len() {
             return Err(LuceneError::illegal_argument(format!(
-                "The given long array is too small  to hold {} bits",
-                num_words
+                "The given long array is too small  to hold {num_words} bits"
             )));
         }
         let result = FixedBitSet {
@@ -372,15 +371,11 @@ impl FixedBitSet {
     pub fn set_with_range(&mut self, start_index: i32, end_index: i32) {
         debug_assert!(
             start_index >= 0 && start_index < self.num_bits,
-            "start_index = {}, num_bits = {}",
-            start_index,
-            end_index
+            "start_index = {start_index}, num_bits = {end_index}"
         );
         debug_assert!(
             end_index >= 0 && end_index <= self.num_bits,
-            "end_index = {}, num_bits = {}",
-            end_index,
-            start_index
+            "end_index = {end_index}, num_bits = {start_index}"
         );
         if end_index <= start_index {
             return;
@@ -413,9 +408,7 @@ impl FixedBitSet {
         );
         debug_assert!(
             start < upper_bound,
-            "index = {}, upper_bound= {}",
-            start,
-            upper_bound
+            "index = {start}, upper_bound= {upper_bound}"
         );
         debug_assert!(
             upper_bound <= self.num_bits,

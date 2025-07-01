@@ -336,8 +336,8 @@ where
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            EitherTermState::F(t) => write!(f, "EitherTermState::F({})", t),
-            EitherTermState::S(s) => write!(f, "EitherTermState::S({})", s),
+            EitherTermState::F(t) => write!(f, "EitherTermState::F({t})"),
+            EitherTermState::S(s) => write!(f, "EitherTermState::S({s})"),
         }
     }
 }

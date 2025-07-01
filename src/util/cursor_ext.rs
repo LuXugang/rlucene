@@ -73,9 +73,7 @@ where
         }
         debug_assert!(
             position <= limit,
-            "Position ({}) exceeds specified limit ({})",
-            position,
-            limit
+            "Position ({position}) exceeds specified limit ({limit})"
         );
         limit.saturating_sub(position)
     }
@@ -148,8 +146,7 @@ fn perform_read(
 
     if position > total || position + len as u64 > total {
         return Err(LuceneError::illegal_argument(format!(
-            "Read out of bounds: position={}, len={}, total={}",
-            position, len, total
+            "Read out of bounds: position={position}, len={len}, total={total}"
         )));
     }
     if offset + len > dest.len() {

@@ -503,8 +503,7 @@ where
         );
         debug_assert!(
             BitTable::is_bit_set(range_index, arc, reader)?,
-            "bit not set at index {}",
-            range_index
+            "bit not set at index {range_index}"
         );
 
         let presence_index = BitTable::count_bits_up_to(range_index, arc, reader)?;
@@ -966,8 +965,7 @@ pub mod fst_util {
             2 => InputType::Byte4,
             invalid => {
                 return Err(LuceneError::corrupt_index(format!(
-                    "invalid input type {} (resource={})",
-                    invalid, meta_in
+                    "invalid input type {invalid} (resource={meta_in})"
                 )))
             },
         };

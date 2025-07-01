@@ -245,8 +245,7 @@ where
                 let index_options = self.field_infos.field_info_by_name(field);
                 if index_options.is_none() {
                     return Err(LuceneError::illegal_state(format!(
-                        "Field '{}' not found in field infos",
-                        field
+                        "Field '{field}' not found in field infos"
                     )));
                 }
                 let base = FilterTerms::new(terms);

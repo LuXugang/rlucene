@@ -522,8 +522,7 @@ where
 
                 if base != doc_id {
                     return Err(LuceneError::corrupt_index(format!(
-                        "invalid state: base={} != docID={} (resource {})",
-                        base, doc_id, raw_docs
+                        "invalid state: base={base} != docID={doc_id} (resource {raw_docs})"
                     )));
                 }
                 // write a new index entry and new header for this chunk.
@@ -535,8 +534,7 @@ where
                 self.doc_base += buffered_docs;
                 if doc_id > to_doc_id {
                     return Err(LuceneError::corrupt_index(format!(
-                        "invalid state: base={}, count={}, toDocID={} (resource {})",
-                        base, buffered_docs, to_doc_id, raw_docs
+                        "invalid state: base={base}, count={buffered_docs}, toDocID={to_doc_id} (resource {raw_docs})"
                     )));
                 }
                 // copy bytes until the next chunk boundary (or end of chunk

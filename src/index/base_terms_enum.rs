@@ -117,8 +117,7 @@ where
                 LuceneError::NotImplemented(_) => {
                     if !self.seek_exact(term)? {
                         return Err(LuceneError::illegal_argument(format!(
-                            "term= {} does not exist",
-                            term
+                            "term= {term} does not exist"
                         )));
                     };
                     Ok(())

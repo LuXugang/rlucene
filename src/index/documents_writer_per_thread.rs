@@ -116,8 +116,7 @@ where
         if new_count > max {
             self.pending_num_docs.fetch_sub(1, Ordering::SeqCst);
             return Err(LuceneError::illegal_argument(format!(
-                "number of documents in the index cannot exceed {}",
-                max
+                "number of documents in the index cannot exceed {max}"
             )));
         }
         Ok(())

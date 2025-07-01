@@ -62,8 +62,7 @@ impl BitUtil {
         );
         debug_assert!(
             (0..=Self::SHORT_BYTES).contains(&len),
-            "Invalid length: len={} (must be <= 2)",
-            len
+            "Invalid length: len={len} (must be <= 2)"
         );
 
         let value_be = value.to_be();
@@ -139,8 +138,7 @@ impl BitUtil {
         );
         debug_assert!(
             (0..=Self::INT_BYTES).contains(&len),
-            "Invalid length: len={} (must be <= 4)",
-            len
+            "Invalid length: len={len} (must be <= 4)"
         );
 
         let value_be = value.to_be();
@@ -174,8 +172,7 @@ impl BitUtil {
         );
         debug_assert!(
             (0..=Self::INT_BYTES).contains(&len),
-            "Invalid length: len={} (must be <= 4)",
-            len
+            "Invalid length: len={len} (must be <= 4)"
         );
 
         let value_le = value.to_le();

@@ -85,8 +85,7 @@ impl CodecUtil {
         let bytes: BytesRef<Vec<u8>> = BytesRef::from_string(codec);
         if bytes.length != codec.len() || bytes.length >= 128 {
             return Err(LuceneError::illegal_argument(format!(
-                "codec must be simple ASCII, less than 128 characters in length got {}",
-                codec
+                "codec must be simple ASCII, less than 128 characters in length got {codec}"
             )));
         }
         Self::write_be_int(out, CodecUtil::CODEC_MAGIC)?;
@@ -143,8 +142,7 @@ impl CodecUtil {
         let suffix_bytes: BytesRef<Vec<u8>> = BytesRef::from_string(suffix);
         if !suffix.is_ascii() || suffix_bytes.length >= 256 {
             return Err(LuceneError::illegal_argument(format!(
-                "suffix must be simple ASCII, less than 256 characters in length got {}",
-                suffix
+                "suffix must be simple ASCII, less than 256 characters in length got {suffix}"
             )));
         }
         out.write_byte(suffix_bytes.length as u8)?;
@@ -244,8 +242,7 @@ impl CodecUtil {
         let actual_codec = data_input.read_string()?;
         if actual_codec != codec {
             return Err(LuceneError::corrupt_index(format!(
-                "codec mismatch: actual codec={} vs expected codec={}",
-                actual_codec, codec
+                "codec mismatch: actual codec={actual_codec} vs expected codec={codec}"
             )));
         }
         let actual_version = Self::read_be_int(data_input)?;
@@ -254,8 +251,7 @@ impl CodecUtil {
         }
         if actual_version > max_version {
             return Err(LuceneError::index_format_too_new(format!(
-                "Format version is not supported (resource {}): {} (needs to be between {} and {}) ",
-                data_input, actual_version, min_version, max_version
+                "Format version is not supported (resource {data_input}): {actual_version} (needs to be between {min_version} and {max_version}) "
             )));
         }
         Ok(actual_version)
@@ -439,8 +435,7 @@ impl CodecUtil {
         let actual_suffix = String::from_utf8(suffix)?;
         if actual_suffix != expected_suffix {
             return Err(LuceneError::corrupt_index(format!(
-                "file mismatch, expected suffix={}, got={} (resource={})",
-                expected_suffix, actual_suffix, data_input
+                "file mismatch, expected suffix={expected_suffix}, got={actual_suffix} (resource={data_input})"
             )));
         }
         Ok(())
@@ -502,8 +497,7 @@ impl CodecUtil {
         let expected_checksum = Self::read_crc(checksum_in)?;
         if actual_checksum != expected_checksum {
             return Err(LuceneError::corrupt_index(format!(
-                "checksum failed (hardware problem?): expected={} but got={} (resource={})",
-                expected_checksum, actual_checksum, checksum_in
+                "checksum failed (hardware problem?): expected={expected_checksum} but got={actual_checksum} (resource={checksum_in})"
             )));
         }
         Ok(actual_checksum)
@@ -545,10 +539,7 @@ impl CodecUtil {
         if remaining < Self::footer_length() as i64 {
             // corruption caused us to read into the checksum footer already: we
             // can't proceed
-            error_message = format!( "{} cause by checksum status indeterminate: remaining={}, ; please run check index for more details: {} ",
-                                     error,
-                                     remaining,
-                                     checksum_in
+            error_message = format!( "{error} cause by checksum status indeterminate: remaining={remaining}, ; please run check index for more details: {checksum_in} "
             );
         } else {
             // otherwise, skip any unread bytes.
@@ -579,10 +570,7 @@ impl CodecUtil {
                     // see "JVM bug" in their logs
                     if !matches!(prior_error, LuceneError::IndexFormatTooOld(_)) {
                         error_message= format!(
-                            "checksum passed ({}). possibly transient resource issue, or a Lucene : {}, cause by: {}",
-                            checksum,
-                            checksum_in,
-                            error
+                            "checksum passed ({checksum}). possibly transient resource issue, or a Lucene : {checksum_in}, cause by: {error}"
                         );
                     }
                 }
@@ -686,8 +674,7 @@ impl CodecUtil {
         let algorithm_id = Self::read_be_int(input)?;
         if algorithm_id != 0 {
             return Err(LuceneError::corrupt_index(format!(
-                "codec footer mismatch: unknown algorithmID={} (resource={})",
-                algorithm_id, input
+                "codec footer mismatch: unknown algorithmID={algorithm_id} (resource={input})"
             )));
         }
         Ok(())
@@ -731,8 +718,7 @@ impl CodecUtil {
         let value = Self::read_be_long(input)?;
         if (value as u64) & 0xFFFFFFFF00000000 != 0 {
             return Err(LuceneError::corrupt_index(format!(
-                "Illegal CRC-32 checksum: {} (resource={})",
-                value, input
+                "Illegal CRC-32 checksum: {value} (resource={input})"
             )));
         }
         Ok(value)
@@ -748,8 +734,7 @@ impl CodecUtil {
         let value = out.get_checksum();
         if value & 0xFFFFFFFF00000000 != 0 {
             return Err(LuceneError::illegal_state(format!(
-                "Illegal CRC-32 checksum: {} +  (resource={})",
-                value, out
+                "Illegal CRC-32 checksum: {value} +  (resource={out})"
             )));
         }
         debug_assert!(value <= i64::MAX as u64);

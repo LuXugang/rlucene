@@ -120,11 +120,10 @@ impl DocValues {
                 let expected_str = if expected.len() == 1 {
                     format!("={}", expected[0])
                 } else {
-                    format!("one of {:?}", expected)
+                    format!("one of {expected:?}")
                 };
                 return Err(LuceneError::illegal_state(format!(
-                    "unexpected docvalues type {} for field '{}' (expected {}). Re-index with correct docvalues type.",
-                    actual, field, expected_str
+                    "unexpected docvalues type {actual} for field '{field}' (expected {expected_str}). Re-index with correct docvalues type."
                 )));
             }
         }

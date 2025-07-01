@@ -61,8 +61,8 @@ pub enum FSLockEnum {
 impl Display for FSLockEnum {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            FSLockEnum::Native(native_lock) => write!(f, "{}", native_lock),
-            FSLockEnum::Simple(simple_lock) => write!(f, "{}", simple_lock),
+            FSLockEnum::Native(native_lock) => write!(f, "{native_lock}"),
+            FSLockEnum::Simple(simple_lock) => write!(f, "{simple_lock}"),
         }
     }
 }

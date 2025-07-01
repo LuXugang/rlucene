@@ -108,8 +108,7 @@ impl SortedNumericSortField {
             0 => Ok(SortedNumericSelectorType::Min),
             1 => Ok(SortedNumericSelectorType::Max),
             _ => Err(LuceneError::illegal_argument(format!(
-                "Cannot deserialize SortedNumericSortField - unknown selector type: {}",
-                selector_type
+                "Cannot deserialize SortedNumericSortField - unknown selector type: {selector_type}"
             ))),
         }
     }
@@ -239,11 +238,11 @@ impl Display for SortedNumericSortField {
             buffer.push('!');
         }
         if let Some(missing_value) = &self.parent_sort.missing_value {
-            buffer.push_str(&format!(" missingValue={}", missing_value));
+            buffer.push_str(&format!(" missingValue={missing_value}"));
         }
         buffer.push_str(&format!(" selector={:?}", self.selector));
         buffer.push_str(&format!(" type={:?}", self.parent_sort.sort_field_type));
-        write!(f, "{}", buffer)
+        write!(f, "{buffer}")
     }
 }
 impl Hash for SortedNumericSortField {
@@ -298,8 +297,7 @@ impl SortFieldProvider for NumericProvider {
                 | SortFieldType::Score
                 | SortFieldType::String => {
                     return Err(LuceneError::illegal_state(format!(
-                        "Cannot deserialize sort of type {:?}",
-                        field_type
+                        "Cannot deserialize sort of type {field_type:?}"
                     )));
                 },
             }

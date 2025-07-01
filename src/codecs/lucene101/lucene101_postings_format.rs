@@ -314,20 +314,17 @@ impl Lucene101PostingsFormat {
     pub fn validate_settings(min_items_in_block: i32, max_items_in_block: i32) -> Result<()> {
         if min_items_in_block <= 1 {
             return Err(LuceneError::illegal_argument(format!(
-                "min_items_in_block must be >= 2; got {}",
-                min_items_in_block
+                "min_items_in_block must be >= 2; got {min_items_in_block}"
             )));
         }
         if max_items_in_block < min_items_in_block {
             return Err(LuceneError::illegal_argument(format!(
-                "max_items_in_block must be >= min_items_in_block; got max_items_in_block={} min_items_in_block={}",
-                max_items_in_block, min_items_in_block
+                "max_items_in_block must be >= min_items_in_block; got max_items_in_block={max_items_in_block} min_items_in_block={min_items_in_block}"
             )));
         }
         if max_items_in_block < 2 * (min_items_in_block - 1) {
             return Err(LuceneError::illegal_argument(format!(
-                "max_items_in_block must be at least 2*(min_items_in_block-1); got max_items_in_block={} min_items_in_block={}",
-                max_items_in_block, min_items_in_block
+                "max_items_in_block must be at least 2*(min_items_in_block-1); got max_items_in_block={max_items_in_block} min_items_in_block={min_items_in_block}"
             )));
         }
         Ok(())

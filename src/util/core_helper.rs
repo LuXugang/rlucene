@@ -37,13 +37,11 @@ impl CoreHelper {
     pub fn check_from_index_size(from_index: i32, size: i32, length: i32) -> Result<i32> {
         if from_index < 0 || size < 0 || length < 0 {
             Err(LuceneError::array_index_out_of_bounds(format!(
-                "from_index: {}, size: {}, and length {} must be non-negative",
-                from_index, size, length
+                "from_index: {from_index}, size: {size}, and length {length} must be non-negative"
             )))
         } else if size > length - from_index {
             Err(LuceneError::array_index_out_of_bounds(format!(
-                "size: {} is too large, from_index: {}, length: {}",
-                size, from_index, length
+                "size: {size} is too large, from_index: {from_index}, length: {length}"
             )))
         } else {
             Ok(from_index)

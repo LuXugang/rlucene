@@ -175,7 +175,7 @@ impl crate::util::clone::TryClone for ByteBuffersIndexInput<'_> {
         let slice = self.data_input.slice(0, self.data_input.length())?;
         Ok(ByteBuffersIndexInput::new(
             slice,
-            format!("(clone of) {}", self).as_str(),
+            format!("(clone of) {self}").as_str(),
         ))
     }
 }

@@ -99,8 +99,7 @@ impl LongBitSet {
         let num_words = Self::bits2words(num_bits)?;
         if num_words as usize > stored_bits.len() {
             return Err(LuceneError::illegal_argument(format!(
-                "The given long array is too small to hold {} bits",
-                num_bits
+                "The given long array is too small to hold {num_bits} bits"
             )));
         }
 

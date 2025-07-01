@@ -132,8 +132,7 @@ impl ByteBuffersDataOutput {
         }
         if min_bits_per_block > max_bits_per_block {
             return Err(LuceneError::illegal_argument(format!(
-                "minBitsPerBlock ({}) cannot exceed maxBitsPerBlock ({})",
-                min_bits_per_block, max_bits_per_block
+                "minBitsPerBlock ({min_bits_per_block}) cannot exceed maxBitsPerBlock ({max_bits_per_block})"
             )));
         }
         let block = Cursor::new(vec![0u8; 1 << min_bits_per_block]);

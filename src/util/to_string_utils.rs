@@ -32,7 +32,7 @@ impl ToStringUtils {
     pub fn byte_array(buffer: &mut String, bytes: &[u8]) {
         for (i, &b) in bytes.iter().enumerate() {
             use std::fmt::Write;
-            write!(buffer, "b[{}]={}", i, b).unwrap();
+            write!(buffer, "b[{i}]={b}").unwrap();
             if i < bytes.len() - 1 {
                 buffer.push(',');
             }

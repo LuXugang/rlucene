@@ -154,9 +154,7 @@ where
                 } {
                     debug_assert!(
                         (friend_ord as usize) < size,
-                        "friendOrd={} >= size={}",
-                        friend_ord,
-                        size
+                        "friendOrd={friend_ord} >= size={size}"
                     );
 
                     if self.visited.get_and_set(friend_ord) {
@@ -238,9 +236,7 @@ where
             } {
                 debug_assert!(
                     (friend_ord as usize) < size,
-                    "friendOrd={} >= size={}",
-                    friend_ord,
-                    size
+                    "friendOrd={friend_ord} >= size={size}"
                 );
 
                 if self.visited.get_and_set(friend_ord) {

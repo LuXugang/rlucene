@@ -443,7 +443,7 @@ where
         match result {
             Ok(_) => {},
             Err(e) => {
-                eprintln!("Failed to close: {}", e);
+                eprintln!("Failed to close: {e}");
             },
         }
     }
@@ -677,7 +677,7 @@ where
                     1
                 } else {
                     let n = norms.as_mut().unwrap().long_value()?;
-                    debug_assert!(n != 0, "norm for doc {} is zero", doc_id);
+                    debug_assert!(n != 0, "norm for doc {doc_id} is zero");
                     n
                 }
             } else {

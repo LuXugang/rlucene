@@ -49,8 +49,7 @@ impl CompressionAlgorithm {
             0x01 => Ok(CompressionAlgorithm::LowercaseAscii),
             0x02 => Ok(CompressionAlgorithm::Lz4),
             _ => Err(LuceneError::illegal_argument(format!(
-                "Illegal code for a compression algorithm: {}",
-                code
+                "Illegal code for a compression algorithm: {code}"
             ))),
         }
     }

@@ -331,8 +331,7 @@ pub trait Sorter {
 pub fn check_range(from: i32, to: i32) -> Result<()> {
     if to < from {
         return Err(LuceneError::illegal_argument(format!(
-            "'to' must be >= 'from', got from= {} and to= {}",
-            from, to
+            "'to' must be >= 'from', got from= {from} and to= {to}"
         )));
     }
     Ok(())

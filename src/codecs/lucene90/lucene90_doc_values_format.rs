@@ -198,8 +198,7 @@ impl Lucene90DocValuesFormat {
     pub fn new_with_skip_index_interval_size(skip_index_interval_size: i32) -> Result<Self> {
         if skip_index_interval_size < 2 {
             return Err(LuceneError::illegal_argument(format!(
-                "skip_index_interval_size must be > 1, got [{}]",
-                skip_index_interval_size
+                "skip_index_interval_size must be > 1, got [{skip_index_interval_size}]"
             )));
         }
         Ok(Self {

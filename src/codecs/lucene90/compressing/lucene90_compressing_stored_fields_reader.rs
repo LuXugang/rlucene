@@ -279,20 +279,17 @@ where
 
             if num_chunks < num_dirty_chunks {
                 return Err(LuceneError::corrupt_index(format!(
-                    "Cannot have more dirty chunks than chunks: numChunks={}, numDirtyChunks={} (resource={})",
-                    num_chunks, num_dirty_chunks, meta
+                    "Cannot have more dirty chunks than chunks: numChunks={num_chunks}, numDirtyChunks={num_dirty_chunks} (resource={meta})"
                 )));
             }
             if (num_dirty_chunks == 0) != (num_dirty_docs == 0) {
                 return Err(LuceneError::corrupt_index(format!(
-                    "Cannot have dirty chunks without dirty docs or vice-versa: numDirtyChunks={}, numDirtyDocs={} (resource={})",
-                    num_dirty_chunks, num_dirty_docs, meta
+                    "Cannot have dirty chunks without dirty docs or vice-versa: numDirtyChunks={num_dirty_chunks}, numDirtyDocs={num_dirty_docs} (resource={meta})"
                 )));
             }
             if num_dirty_docs < num_dirty_chunks {
                 return Err(LuceneError::corrupt_index(format!(
-                    "Cannot have more dirty chunks than documents within dirty chunks: numDirtyChunks={}, numDirtyDocs={} (resource={})",
-                    num_dirty_chunks, num_dirty_docs, meta
+                    "Cannot have more dirty chunks than documents within dirty chunks: numDirtyChunks={num_dirty_chunks}, numDirtyDocs={num_dirty_docs} (resource={meta})"
                 )));
             };
             CodecUtil::check_footer(&mut meta)?;
@@ -415,8 +412,7 @@ where
             },
             other => {
                 return Err(LuceneError::illegal_state(format!(
-                    "Unknown type flag: {:x}",
-                    other
+                    "Unknown type flag: {other:x}"
                 )));
             },
         }
@@ -442,8 +438,7 @@ where
             },
             other => {
                 return Err(LuceneError::illegal_state(format!(
-                    "Unknown type flag: {:x}",
-                    other
+                    "Unknown type flag: {other:x}"
                 )));
             },
         }
@@ -572,8 +567,7 @@ where
 
             debug_assert!(
                 bits <= lucene90_csfw_util::NUMERIC_DOUBLE,
-                "bits={:#x} is out of valid range",
-                bits
+                "bits={bits:#x} is out of valid range"
             );
             match field_info {
                 Some(field_info) => {
@@ -600,8 +594,7 @@ where
                 },
                 None => {
                     return Err(LuceneError::illegal_state(format!(
-                        "field_info is None with number: {}",
-                        field_number
+                        "field_info is None with number: {field_number}"
                     )))
                 },
             }
@@ -758,8 +751,7 @@ where
                 let stored_fields = self.num_stored_fields[i];
                 if (len == 0) != (stored_fields == 0) {
                     return Err(LuceneError::corrupt_index(format!(
-                        "length={}, numStoredFields={} (resource={})",
-                        len, stored_fields, stream
+                        "length={len}, numStoredFields={stored_fields} (resource={stream})"
                     )));
                 }
             }
@@ -1018,8 +1010,7 @@ where
     fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
         if num_bytes < 0 {
             return Err(LuceneError::illegal_argument(format!(
-                "num_bytes must be >= 0, got {}",
-                num_bytes
+                "num_bytes must be >= 0, got {num_bytes}"
             )));
         }
         let mut num_bytes = num_bytes as usize;
@@ -1047,8 +1038,8 @@ where
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            DataInputEnum::ByteArray(data_input) => write!(f, "{}", data_input),
-            DataInputEnum::Impl(data_input) => write!(f, "{}", data_input),
+            DataInputEnum::ByteArray(data_input) => write!(f, "{data_input}"),
+            DataInputEnum::Impl(data_input) => write!(f, "{data_input}"),
         }
     }
 }

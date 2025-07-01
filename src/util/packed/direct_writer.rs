@@ -215,8 +215,7 @@ where
             Ok(_) => (),
             Err(_) => {
                 return Err(LuceneError::illegal_argument(format!(
-                    "Unsupported bitsPerValue {}. Did you use bits_required?",
-                    bits_per_value
+                    "Unsupported bitsPerValue {bits_per_value}. Did you use bits_required?"
                 )))
             },
         }

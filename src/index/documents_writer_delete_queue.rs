@@ -115,9 +115,7 @@ where
         let value = previous_max_seq_id;
         debug_assert!(
             value <= start_seq_no,
-            "illegal max sequence ID: {} start was: {}",
-            value,
-            start_seq_no
+            "illegal max sequence ID: {value} start was: {start_seq_no}"
         );
         let global_slice = GlobalState::new(tail, generation);
 
@@ -349,9 +347,7 @@ where
         let seq_no = self.next_seq_no.fetch_add(1, Ordering::SeqCst);
         debug_assert!(
             seq_no <= max_seq_no,
-            "seq_no={} vs max_seq_no={}",
-            seq_no,
-            max_seq_no
+            "seq_no={seq_no} vs max_seq_no={max_seq_no}"
         );
         seq_no
     }
@@ -868,7 +864,7 @@ impl Display for DocValuesUpdatesNode {
             }
             sb.push(']');
         }
-        write!(f, "{}", sb)
+        write!(f, "{sb}")
     }
 }
 
@@ -917,12 +913,12 @@ where
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            NodeEnum::EmptyNode(node) => write!(f, "{}", node),
-            NodeEnum::TermNode(node) => write!(f, "{}", node),
-            NodeEnum::QueryNode(node) => write!(f, "{}", node),
-            NodeEnum::QueryNodeArray(node) => write!(f, "{}", node),
-            NodeEnum::TermNodeArray(node) => write!(f, "{}", node),
-            NodeEnum::DocValuesUpdatesNode(node) => write!(f, "{}", node),
+            NodeEnum::EmptyNode(node) => write!(f, "{node}"),
+            NodeEnum::TermNode(node) => write!(f, "{node}"),
+            NodeEnum::QueryNode(node) => write!(f, "{node}"),
+            NodeEnum::QueryNodeArray(node) => write!(f, "{node}"),
+            NodeEnum::TermNodeArray(node) => write!(f, "{node}"),
+            NodeEnum::DocValuesUpdatesNode(node) => write!(f, "{node}"),
         }
     }
 }

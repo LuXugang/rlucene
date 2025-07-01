@@ -236,8 +236,7 @@ impl FieldType {
         self.check_if_frozen()?;
         if dimension_count < 0 {
             return Err(LuceneError::illegal_argument(format!(
-                "dimensionCount must be >= 0; got {}",
-                dimension_count
+                "dimensionCount must be >= 0; got {dimension_count}"
             )));
         }
         if dimension_count > point_values_util::MAX_DIMENSIONS {
@@ -249,14 +248,12 @@ impl FieldType {
         }
         if index_dimension_count < 0 {
             return Err(LuceneError::illegal_argument(format!(
-                "indexDimensionCount must be >= 0; got {}",
-                index_dimension_count
+                "indexDimensionCount must be >= 0; got {index_dimension_count}"
             )));
         }
         if index_dimension_count > dimension_count {
             return Err(LuceneError::illegal_argument(format!(
-                "indexDimensionCount must be <= dimensionCount: {}; got {}",
-                dimension_count, index_dimension_count
+                "indexDimensionCount must be <= dimensionCount: {dimension_count}; got {index_dimension_count}"
             )));
         }
         if index_dimension_count > point_values_util::MAX_INDEX_DIMENSIONS {
@@ -268,8 +265,7 @@ impl FieldType {
         }
         if dimension_num_bytes < 0 {
             return Err(LuceneError::illegal_argument(format!(
-                "dimensionNumBytes must be >= 0; got {}",
-                dimension_num_bytes
+                "dimensionNumBytes must be >= 0; got {dimension_num_bytes}"
             )));
         }
         if dimension_num_bytes > point_values_util::MAX_NUM_BYTES {
@@ -282,25 +278,21 @@ impl FieldType {
         if dimension_count == 0 {
             if index_dimension_count != 0 {
                 return Err(LuceneError::illegal_argument(format!(
-                    "when dimensionCount is 0, indexDimensionCount must be 0; got {}",
-                    index_dimension_count
+                    "when dimensionCount is 0, indexDimensionCount must be 0; got {index_dimension_count}"
                 )));
             }
             if dimension_num_bytes != 0 {
                 return Err(LuceneError::illegal_argument(format!(
-                    "when dimensionCount is 0, dimensionNumBytes must be 0; got {}",
-                    dimension_num_bytes
+                    "when dimensionCount is 0, dimensionNumBytes must be 0; got {dimension_num_bytes}"
                 )));
             }
         } else if index_dimension_count == 0 {
             return Err(LuceneError::illegal_argument(format!(
-                "when dimensionCount is > 0, indexDimensionCount must be > 0; got {}",
-                index_dimension_count
+                "when dimensionCount is > 0, indexDimensionCount must be > 0; got {index_dimension_count}"
             )));
         } else if dimension_num_bytes == 0 {
             return Err(LuceneError::illegal_argument(format!(
-                "when dimensionNumBytes is 0, dimensionCount must be 0; got {}",
-                dimension_count
+                "when dimensionNumBytes is 0, dimensionCount must be 0; got {dimension_count}"
             )));
         }
 
@@ -321,8 +313,7 @@ impl FieldType {
         self.check_if_frozen()?;
         if num_dimensions <= 0 {
             return Err(LuceneError::illegal_argument(format!(
-                "vector numDimensions must be > 0; got {}",
-                num_dimensions
+                "vector numDimensions must be > 0; got {num_dimensions}"
             )));
         }
         self.vector_dimension = num_dimensions;
@@ -556,7 +547,7 @@ impl fmt::Display for FieldType {
             result.push_str(&format!("{:?}", self.doc_values_type));
         }
 
-        write!(f, "{}", result)
+        write!(f, "{result}")
     }
 }
 #[cfg(test)]

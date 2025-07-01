@@ -190,9 +190,7 @@ impl HnswUtil {
         assert_eq!(
             total,
             hnsw.get_nodes_on_level(level)?.size() as i32,
-            "Mismatch total={} vs node size on level {}",
-            total,
-            level
+            "Mismatch total={total} vs node size on level {level}"
         );
 
         Ok(components)

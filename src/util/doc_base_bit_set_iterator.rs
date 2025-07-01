@@ -43,14 +43,12 @@ impl DocBaseBitSetIterator {
     pub fn new(bits: FixedBitSet, cost: i64, doc_base: i32) -> Result<DocBaseBitSetIterator> {
         if cost < 0 {
             return Err(LuceneError::illegal_argument(format!(
-                "cost must be >= 0, got {}",
-                cost
+                "cost must be >= 0, got {cost}"
             )));
         }
         if (doc_base & 63) != 0 {
             return Err(LuceneError::illegal_argument(format!(
-                "docBase need to be a multiple of 64, got {}",
-                doc_base
+                "docBase need to be a multiple of 64, got {doc_base}"
             )));
         }
         let length = bits.length() + doc_base;

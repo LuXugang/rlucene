@@ -288,8 +288,7 @@ where
         } else {
             debug_assert!(
                 common_prefix_length == 0,
-                "Expected common_prefix_length to be 0, but found {}",
-                common_prefix_length
+                "Expected common_prefix_length to be 0, but found {common_prefix_length}"
             );
         }
         true

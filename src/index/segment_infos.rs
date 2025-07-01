@@ -175,14 +175,12 @@ where
     pub fn new(index_created_version_major: i32) -> Result<SegmentInfos<D>> {
         if index_created_version_major > LATEST.major {
             return Err(LuceneError::illegal_argument(format!(
-                "indexCreatedVersionMajor is in the future: {}",
-                index_created_version_major
+                "indexCreatedVersionMajor is in the future: {index_created_version_major}"
             )));
         }
         if index_created_version_major < 6 {
             return Err(LuceneError::illegal_argument(format!(
-                "indexCreatedVersionMajor must be >= 6, got: {}",
-                index_created_version_major
+                "indexCreatedVersionMajor must be >= 6, got: {index_created_version_major}"
             )));
         }
 
@@ -269,8 +267,7 @@ where
                 Ok(input) => input,
                 Err(e) => {
                     return Err(LuceneError::corrupt_index(format!(
-                        "Unexpected file read error while opening index: {}",
-                        e
+                        "Unexpected file read error while opening index: {e}"
                     )));
                 },
             };
@@ -284,8 +281,7 @@ where
         ) {
             Ok(commit) => Ok(SegmentsFileEnum::Segment(commit)),
             Err(e) => Err(LuceneError::corrupt_index(format!(
-                "Unexpected file read error while reading index: {:?}",
-                e
+                "Unexpected file read error while reading index: {e:?}"
             ))),
         }
     }
@@ -324,7 +320,7 @@ where
         let id_len = id.len();
         debug_assert!(id_len <= i32::MAX as usize);
         input.read_bytes(&mut id, 0, id_len as i32)?;
-        CodecUtil::check_index_header_suffix(input, &format!("{:x}", generation))?;
+        CodecUtil::check_index_header_suffix(input, &format!("{generation:x}"))?;
 
         let lucene_version =
             Version::from_bits(input.read_vint()?, input.read_vint()?, input.read_vint()?)?;
@@ -333,8 +329,7 @@ where
         debug_assert!(index_created_version >= 0);
         if lucene_version.major < index_created_version {
             return Err(LuceneError::corrupt_index(format!(
-                "Creation version [{}] can't be greater than the version that wrote the segment infos: [{}]",
-                index_created_version, lucene_version
+                "Creation version [{index_created_version}] can't be greater than the version that wrote the segment infos: [{lucene_version}]"
             )));
         }
 
@@ -346,7 +341,7 @@ where
                 if min_supported_major_version == *MIN_SUPPORTED_MAJOR{
                     "the current and previous major versions".to_string()
                 } else {
-                    format!("from version {} upwards", min_supported_major_version)
+                    format!("from version {min_supported_major_version} upwards")
                 });
             return Err(LuceneError::index_format_too_old(format!("Format version is not supported (resource {}): {}. This version of Lucene only supports indexes created with release {}.0 and later by default.", input, reason, *MIN_SUPPORTED_MAJOR)));
         }
@@ -386,8 +381,7 @@ where
         let num_segments = CodecUtil::read_be_int(input)?;
         if num_segments < 0 {
             return Err(LuceneError::corrupt_index(format!(
-                "Invalid segment count: {} (resource={})",
-                num_segments, input
+                "Invalid segment count: {num_segments} (resource={input})"
             )));
         }
 
@@ -424,8 +418,7 @@ where
             let del_count = CodecUtil::read_be_int(input)?;
             if del_count > max_doc {
                 return Err(LuceneError::corrupt_index(format!(
-                    "Invalid deletion count: {} vs maxDoc={}, (resource={})",
-                    del_count, max_doc, input
+                    "Invalid deletion count: {del_count} vs maxDoc={max_doc}, (resource={input})"
                 )));
             }
             let field_infos_gen = CodecUtil::read_be_long(input)?;
@@ -433,8 +426,7 @@ where
             let soft_del_count = CodecUtil::read_be_int(input)?;
             if soft_del_count > max_doc {
                 return Err(LuceneError::corrupt_index(format!(
-                    "Invalid soft deletion count: {} vs maxDoc={}, (resource={})",
-                    soft_del_count, max_doc, input
+                    "Invalid soft deletion count: {soft_del_count} vs maxDoc={max_doc}, (resource={input})"
                 )));
             }
 
@@ -459,8 +451,7 @@ where
                     0 => None,
                     marker => {
                         return Err(LuceneError::corrupt_index(format!(
-                            "Invalid SegmentCommitInfo ID marker: {}",
-                            marker
+                            "Invalid SegmentCommitInfo ID marker: {marker}"
                         )));
                     },
                 }
@@ -707,8 +698,7 @@ where
                 debug_assert_eq!(
                     sci_id_len,
                     StringHelper::ID_LENGTH,
-                    "Invalid SegmentCommitInfo#id: {:?}",
-                    sci_id
+                    "Invalid SegmentCommitInfo#id: {sci_id:?}"
                 );
                 debug_assert!(sci_id_len <= i32::MAX as usize);
                 out.write_bytes_range(sci_id, 0, sci_id_len as i32)?;
@@ -1046,8 +1036,7 @@ where
     pub fn add(&mut self, si: SegmentCommitInfo<D>) -> Result<()> {
         if self.index_created_version_major >= 7 && si.info.min_version.is_none() {
             return Err(LuceneError::illegal_argument(format!(
-                "All segments must record the minVersion for indices created on or after Lucene 7, but minVersion is missing for segment: {}",
-                si
+                "All segments must record the minVersion for indices created on or after Lucene 7, but minVersion is missing for segment: {si}"
             )));
         }
         self.segments.push(si);
@@ -1209,7 +1198,7 @@ where
             }
             gen = get_last_commit_generation(&files)?;
             if get_info_stream()?.is_some() {
-                message(&format!("directory listing gen={}", gen))?;
+                message(&format!("directory listing gen={gen}"))?;
             }
             if gen == -1 {
                 return Err(LuceneError::index_not_found(format!(
@@ -1228,8 +1217,7 @@ where
                 match self.sub.do_body(self.directory.clone(), &segment_file_name) {
                     Ok(result) => {
                         if get_info_stream()?.is_some() {
-                            message(&format!("success on {}", segment_file_name))
-                                .unwrap_or_default();
+                            message(&format!("success on {segment_file_name}")).unwrap_or_default();
                         }
                         return Ok(result);
                     },
@@ -1306,7 +1294,7 @@ pub fn message(msg: &str) -> Result<()> {
 
     if let Some(ref stream) = *info_stream {
         let mut stream = stream.lock();
-        writeln!(stream, "SIS: {}", msg)
+        writeln!(stream, "SIS: {msg}")
             .map_err(|e| LuceneError::io_with_path("Failed to write".to_string(), e))?;
     }
 
@@ -1396,14 +1384,12 @@ pub fn generation_from_segments_file_name(file_name: &str) -> Result<i64> {
         match i64::from_str_radix(generation_str, 36) {
             Ok(generation) => Ok(generation),
             Err(_) => Err(LuceneError::illegal_argument(format!(
-                "Failed to parse generation from file name: \"{}\"",
-                file_name
+                "Failed to parse generation from file name: \"{file_name}\""
             ))),
         }
     } else {
         Err(LuceneError::illegal_argument(format!(
-            "fileName \"{}\" is not a segments file",
-            file_name
+            "fileName \"{file_name}\" is not a segments file"
         )))
     }
 }

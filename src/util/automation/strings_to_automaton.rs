@@ -297,8 +297,7 @@ impl State {
     pub(crate) fn new_state(&mut self, label: i32) -> Result<Rc<RefCell<State>>> {
         debug_assert!(
             self.labels.binary_search(&label).is_err(),
-            "State already has transition labeled: {}",
-            label
+            "State already has transition labeled: {label}"
         );
         let mut labels_len = self.labels.len();
         let mut states_len = self.states.len();

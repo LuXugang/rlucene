@@ -43,7 +43,7 @@ where
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            CompoundDirectoryEnum::Lucene90(reader) => write!(f, "{}", reader),
+            CompoundDirectoryEnum::Lucene90(reader) => write!(f, "{reader}"),
         }
     }
 }

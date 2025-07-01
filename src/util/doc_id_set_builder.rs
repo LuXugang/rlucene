@@ -69,9 +69,7 @@ impl DocIdSetBuilder {
         };
         debug_assert!(
             num_values_per_doc >= 1f64,
-            "value_count = {} doc_count = {}",
-            value_count,
-            doc_count
+            "value_count = {value_count} doc_count = {doc_count}"
         );
         // For ridiculously small sets, we'll just use a sorted int[]
         // maxDoc >>> 7 is a good value if you want to save memory, lower values

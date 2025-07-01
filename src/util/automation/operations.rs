@@ -476,10 +476,7 @@ impl Operations {
         let num_states = a.get_num_states();
         debug_assert!(
             num_live <= num_states as usize,
-            "num_live = {}, num_states = {}, live = {:?}",
-            num_live,
-            num_states,
-            live_states
+            "num_live = {num_live}, num_states = {num_states}, live = {live_states:?}"
         );
         Ok(num_live < num_states as usize)
     }

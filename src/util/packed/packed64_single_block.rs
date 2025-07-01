@@ -70,8 +70,7 @@ where
         );
         debug_assert!(
             p64sb_util::is_supported(bits_per_value),
-            "Unsupported bits_per_value: {}",
-            bits_per_value
+            "Unsupported bits_per_value: {bits_per_value}"
         );
         let values_per_block = 64 / bits_per_value;
         let required_capacity = Self::required_capacity(value_count, values_per_block);
@@ -93,7 +92,7 @@ where
     }
 
     fn get_bulk(&self, mut index: i32, arr: &mut [i64], mut off: i32, mut len: i32) -> i32 {
-        debug_assert!(len > 0, "len must be > 0 (got {})", len);
+        debug_assert!(len > 0, "len must be > 0 (got {len})");
         debug_assert!(index < self.value_count, "index out of bounds");
         len = len.min(self.value_count - index);
         debug_assert!(
@@ -297,7 +296,7 @@ where
     }
 
     fn set_bulk(&mut self, mut index: i32, arr: &[i64], mut off: i32, mut len: i32) -> i32 {
-        debug_assert!(len > 0, "len must be > 0 (got {})", len);
+        debug_assert!(len > 0, "len must be > 0 (got {len})");
         debug_assert!(index < self.value_count, "index out of bounds");
         len = len.min(self.value_count - index);
         debug_assert!(

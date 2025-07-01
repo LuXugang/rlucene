@@ -345,8 +345,7 @@ impl SortFiledBase for SortField {
                     MissingValueEnum::StringFirst => out.write_int(1)?,
                     _ => {
                         return Err(LuceneError::illegal_argument(format!(
-                            "Cannot serialize missing value {} for type STRING",
-                            missing_value
+                            "Cannot serialize missing value {missing_value} for type STRING"
                         )));
                     },
                 },
@@ -355,8 +354,7 @@ impl SortFiledBase for SortField {
                         out.write_int(*value)?;
                     } else {
                         return Err(LuceneError::illegal_argument(format!(
-                            "Invalid missing value {} for type INT",
-                            missing_value
+                            "Invalid missing value {missing_value} for type INT"
                         )));
                     }
                 },
@@ -365,8 +363,7 @@ impl SortFiledBase for SortField {
                         out.write_long(*value)?;
                     } else {
                         return Err(LuceneError::illegal_argument(format!(
-                            "Invalid missing value {} for type LONG",
-                            missing_value
+                            "Invalid missing value {missing_value} for type LONG"
                         )));
                     }
                 },
@@ -375,8 +372,7 @@ impl SortFiledBase for SortField {
                         out.write_int(NumericUtils::float_to_sortable_int(*value))?;
                     } else {
                         return Err(LuceneError::illegal_argument(format!(
-                            "Invalid missing value {} for type FLOAT",
-                            missing_value
+                            "Invalid missing value {missing_value} for type FLOAT"
                         )));
                     }
                 },
@@ -385,8 +381,7 @@ impl SortFiledBase for SortField {
                         out.write_long(NumericUtils::double_to_sortable_long(*value))?;
                     } else {
                         return Err(LuceneError::illegal_argument(format!(
-                            "Invalid missing value {} for type DOUBLE",
-                            missing_value
+                            "Invalid missing value {missing_value} for type DOUBLE"
                         )));
                     }
                 },
@@ -456,7 +451,7 @@ impl Display for SortField {
                 }
                 buffer.push_str("\": ");
                 if let Some(ref comparator) = self.comparator_source {
-                    buffer.push_str(&format!("{}", comparator));
+                    buffer.push_str(&format!("{comparator}"));
                 }
                 buffer.push('>');
             },
@@ -480,9 +475,9 @@ impl Display for SortField {
         }
         if let Some(ref missing_value) = self.missing_value {
             buffer.push_str(" missingValue=");
-            buffer.push_str(&format!("{}", missing_value));
+            buffer.push_str(&format!("{missing_value}"));
         }
-        write!(f, "{}", buffer)
+        write!(f, "{buffer}")
     }
 }
 impl PartialEq for SortField {
@@ -653,8 +648,7 @@ impl SortFieldType {
             "StringVal" => Ok(SortFieldType::StringVal),
             "Rewritable" => Ok(SortFieldType::Rewritable),
             _ => Err(LuceneError::illegal_argument(format!(
-                "Can't deserialize SortField - unknown type {}",
-                type_str
+                "Can't deserialize SortField - unknown type {type_str}"
             ))),
         }
     }
@@ -763,13 +757,13 @@ impl Display for MissingValueEnum {
                 write!(f, "SortField.STRING_FIRST")
             },
             MissingValueEnum::StringLast => write!(f, "SortField.STRING_LAST"),
-            MissingValueEnum::Int(val) => write!(f, "SortField.INT({})", val),
-            MissingValueEnum::Long(val) => write!(f, "SortField.LONG({})", val),
+            MissingValueEnum::Int(val) => write!(f, "SortField.INT({val})"),
+            MissingValueEnum::Long(val) => write!(f, "SortField.LONG({val})"),
             MissingValueEnum::Float(val) => {
-                write!(f, "SortField.FLOAT({})", val)
+                write!(f, "SortField.FLOAT({val})")
             },
             MissingValueEnum::Double(val) => {
-                write!(f, "SortField.DOUBLE({})", val)
+                write!(f, "SortField.DOUBLE({val})")
             },
         }
     }

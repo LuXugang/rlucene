@@ -148,8 +148,7 @@ where
 
         if version != version2 {
             return Err(LuceneError::corrupt_index(format!(
-                "Format versions mismatch: meta={}, data={} (resource={})",
-                version, version2, data
+                "Format versions mismatch: meta={version}, data={version2} (resource={data})"
             )));
         }
         // NOTE: data file is too costly to verify checksum against all the
@@ -185,8 +184,7 @@ where
             match &info {
                 None => {
                     return Err(LuceneError::corrupt_index(format!(
-                        "invalid field number: {} (resource={})",
-                        field_number, meta
+                        "invalid field number: {field_number} (resource={meta})"
                     )));
                 },
                 Some(info) => {

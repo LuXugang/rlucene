@@ -78,22 +78,22 @@ where
     ) -> Result<Self> {
         let mut dir_guard = dir.lock();
         let mut docs_out =
-            dir_guard.create_temp_output(name, &format!("{}-doc_ids", codec_name), &io_context)?;
+            dir_guard.create_temp_output(name, &format!("{codec_name}-doc_ids"), &io_context)?;
         CodecUtil::write_header(
             &mut docs_out,
-            &format!("{}Docs", codec_name),
+            &format!("{codec_name}Docs"),
             fields_index_writer_const::VERSION_CURRENT,
         )?;
 
         let mut file_pointers_out = dir_guard.create_temp_output(
             name,
-            &format!("{}file_pointers", codec_name),
+            &format!("{codec_name}file_pointers"),
             &io_context,
         )?;
         drop(dir_guard);
         CodecUtil::write_header(
             &mut file_pointers_out,
-            &format!("{}FilePointers", codec_name),
+            &format!("{codec_name}FilePointers"),
             fields_index_writer_const::VERSION_CURRENT,
         )?;
 
@@ -277,7 +277,7 @@ where
         let mut dir = self.dir.lock();
         match IOUtils::delete_files(&mut *dir, files.as_slice()) {
             Ok(_) => (),
-            Err(e) => eprintln!("Failed to delete files: {:?}", e),
+            Err(e) => eprintln!("Failed to delete files: {e:?}"),
         }
         let _ = self.docs_out.take();
         let _ = self.file_pointers_out.take();

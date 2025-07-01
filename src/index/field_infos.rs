@@ -262,8 +262,7 @@ impl FieldInfos {
     pub fn field_info_by_number(&self, field_number: i32) -> Result<Option<Rc<FieldInfo>>> {
         if field_number < 0 {
             return Err(LuceneError::illegal_argument(format!(
-                "Illegal field number: {}",
-                field_number
+                "Illegal field number: {field_number}"
             )));
         }
         match self.by_number.get(field_number as usize) {
@@ -401,8 +400,7 @@ impl FieldNumbers {
         if let (Some(ref soft), Some(ref parent)) = (&soft_deletes_field_name, &parent_field_name) {
             if soft == parent {
                 return Err(LuceneError::illegal_argument(format!(
-                    "parent document and soft-deletes field can't be the same field \"{}\"",
-                    parent
+                    "parent document and soft-deletes field can't be the same field \"{parent}\""
                 )));
             }
         }
@@ -503,8 +501,7 @@ impl FieldNumbers {
         if is_soft_deletes_field {
             if self.soft_deletes_field_name.is_none() {
                 return Err(LuceneError::illegal_argument(format!(
-                    "this index has [{}] as soft-deletes already but soft-deletes field is not configured in IWC",
-                    field_name
+                    "this index has [{field_name}] as soft-deletes already but soft-deletes field is not configured in IWC"
                 )));
             } else if self.soft_deletes_field_name.as_ref().unwrap() != field_name {
                 return Err(LuceneError::illegal_argument(format!(
@@ -516,8 +513,7 @@ impl FieldNumbers {
         } else if let Some(ref soft_name) = self.soft_deletes_field_name {
             if soft_name == field_name {
                 return Err(LuceneError::illegal_argument(format!(
-                    "cannot configure [{}] as soft-deletes; this index uses [{}] as non-soft-deletes already",
-                    soft_name, field_name
+                    "cannot configure [{soft_name}] as soft-deletes; this index uses [{field_name}] as non-soft-deletes already"
                 )));
             }
         }
@@ -528,8 +524,7 @@ impl FieldNumbers {
         if is_parent_field {
             if self.parent_field_name.is_none() {
                 return Err(LuceneError::illegal_argument(format!(
-                    "can't add field [{}] as parent document field; this IndexWriter has no parent document field configured",
-                    field_name
+                    "can't add field [{field_name}] as parent document field; this IndexWriter has no parent document field configured"
                 )));
             } else if self.parent_field_name.as_ref().unwrap() != field_name {
                 return Err(LuceneError::illegal_argument(format!(
@@ -544,8 +539,7 @@ impl FieldNumbers {
             // (think addIndices)
             if parent == field_name {
                 return Err(LuceneError::illegal_argument(format!(
-                    "can't add field [{}] as non parent document field; this IndexWriter is configured with [{}] as parent document field",
-                    field_name, parent
+                    "can't add field [{field_name}] as non parent document field; this IndexWriter is configured with [{parent}] as parent document field"
                 )));
             }
         }
@@ -635,8 +629,7 @@ impl FieldNumbers {
         if !self.field_properties.contains_key(field_name) {
             if field_must_exist {
                 return Err(LuceneError::illegal_argument(format!(
-                    "Can't update [{:?}] doc values; the field [{}] doesn't exist.",
-                    dv_type, field_name
+                    "Can't update [{dv_type:?}] doc values; the field [{field_name}] doesn't exist."
                 )));
             } else {
                 // create dv only field
@@ -678,26 +671,22 @@ impl FieldNumbers {
             }
             if field_props.doc_values_skip_index != DocValuesSkipIndexType::None {
                 return Err(LuceneError::illegal_argument(format!(
-                    "Can't update [{:?}] doc values; the field [{}] must be doc values only field, but it has doc values skip index",
-                    dv_type, field_name
+                    "Can't update [{dv_type:?}] doc values; the field [{field_name}] must be doc values only field, but it has doc values skip index"
                 )));
             }
             if field_props.field_dimensions.dimension_count != 0 {
                 return Err(LuceneError::illegal_argument(format!(
-                        "Can't update [{:?}] doc values; the field [{}] must be doc values only field, but is also indexed with points.",
-                        dv_type, field_name
+                        "Can't update [{dv_type:?}] doc values; the field [{field_name}] must be doc values only field, but is also indexed with points."
                     )));
             }
             if field_props.index_options != IndexOptions::None {
                 return Err(LuceneError::illegal_argument(format!(
-                        "Can't update [{:?}] doc values; the field [{}] must be doc values only field, but is also indexed with postings.",
-                        dv_type, field_name
+                        "Can't update [{dv_type:?}] doc values; the field [{field_name}] must be doc values only field, but is also indexed with postings."
                     )));
             }
             if field_props.field_vector_properties.num_dimensions != 0 {
                 return Err(LuceneError::illegal_argument(format!(
-                        "Can't update [{:?}] doc values; the field [{}] must be doc values only field, but is also indexed with vectors.",
-                        dv_type, field_name
+                        "Can't update [{dv_type:?}] doc values; the field [{field_name}] must be doc values only field, but is also indexed with vectors."
                     )));
             }
         }

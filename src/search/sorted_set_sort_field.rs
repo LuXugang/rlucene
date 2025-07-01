@@ -87,8 +87,7 @@ impl SortedSetSortField {
             2 => Ok(SortedSetSelectorType::MiddleMin),
             3 => Ok(SortedSetSelectorType::MiddleMax),
             _ => Err(LuceneError::illegal_argument(format!(
-                "Cannot deserialize SortedSetSortField: unknown selector type {}",
-                selector_type
+                "Cannot deserialize SortedSetSortField: unknown selector type {selector_type}"
             ))),
         }
     }
@@ -105,10 +104,10 @@ impl Display for SortedSetSortField {
             buffer.push('!');
         }
         if let Some(missing_value) = &self.parent_sort.missing_value {
-            buffer.push_str(&format!(" missingValue={}", missing_value));
+            buffer.push_str(&format!(" missingValue={missing_value}"));
         }
         buffer.push_str(&format!(" selector={:?}", self.selector));
-        write!(f, "{}", buffer)
+        write!(f, "{buffer}")
     }
 }
 impl SortFiledBase for SortedSetSortField {

@@ -161,8 +161,7 @@ impl ArrayUtil {
             },
             Ordering::Less => {
                 return Err(LuceneError::array_index_out_of_bounds(format!(
-                    "new_length: {} is less than current_length: {}",
-                    new_length, current_length
+                    "new_length: {new_length} is less than current_length: {current_length}"
                 )));
             },
         }
@@ -202,8 +201,7 @@ impl ArrayUtil {
     {
         if min_length > max_length {
             return Err(LuceneError::illegal_argument(format!(
-                "requested minimum array length {} is larger than requested maximum array length {}",
-                min_length, max_length
+                "requested minimum array length {min_length} is larger than requested maximum array length {max_length}"
             )));
         }
         let current_length = vec.len();

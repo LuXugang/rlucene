@@ -239,8 +239,7 @@ where
                 Some(reader_values) => Some(Rc::new(bit_set_util::of(reader_values, max_doc)?)),
                 None => {
                     return Err(LuceneError::corrupt_index(format!(
-                        "missing doc values for parent field {} IndexingChain",
-                        parent_field
+                        "missing doc values for parent field {parent_field} IndexingChain"
                     )))
                 },
             }
@@ -263,8 +262,7 @@ where
         for sort_field in &index_sort.as_ref().unwrap().fields {
             let mut sorter = sort_field.get_index_sorter()?.ok_or_else(|| {
                 LuceneError::unsupported_operation(format!(
-                    "Cannot sort index using sort field {}",
-                    sort_field
+                    "Cannot sort index using sort field {sort_field}"
                 ))
             })?;
             let doc_comparator = sorter.get_doc_comparator(&mut doc_values_reader, max_doc)?;
@@ -880,26 +878,22 @@ where
     {
         if ft.store_term_vectors() {
             return Err(LuceneError::illegal_argument(format!(
-                "cannot store term vectors for a field that is not indexed (field=\"{}\")",
-                name
+                "cannot store term vectors for a field that is not indexed (field=\"{name}\")"
             )));
         }
         if ft.store_term_vector_positions() {
             return Err(LuceneError::illegal_argument(format!(
-                "cannot store term vector positions for a field that is not indexed (field=\"{}\")",
-                name
+                "cannot store term vector positions for a field that is not indexed (field=\"{name}\")"
             )));
         }
         if ft.store_term_vector_offsets() {
             return Err(LuceneError::illegal_argument(format!(
-                "cannot store term vector offsets for a field that is not indexed (field=\"{}\")",
-                name
+                "cannot store term vector offsets for a field that is not indexed (field=\"{name}\")"
             )));
         }
         if ft.store_term_vector_payloads() {
             return Err(LuceneError::illegal_argument(format!(
-                "cannot store term vector payloads for a field that is not indexed (field=\"{}\")",
-                name
+                "cannot store term vector payloads for a field that is not indexed (field=\"{name}\")"
             )));
         }
         Ok(())
@@ -912,8 +906,7 @@ where
     ) -> Result<()> {
         if vector_dim > max_vector_dim {
             return Err(LuceneError::illegal_argument(format!(
-                "Field [{}] vector's dimensions must be <= [{}]; got {}",
-                field_name, max_vector_dim, vector_dim
+                "Field [{field_name}] vector's dimensions must be <= [{max_vector_dim}]; got {vector_dim}"
             )));
         }
         Ok(())
@@ -927,8 +920,7 @@ where
         for sort_field in index_sort.get_sort() {
             let mut sorter = sort_field.get_index_sorter()?.ok_or_else(|| {
                 LuceneError::illegal_state(format!(
-                    "Cannot sort index with sort order {}",
-                    sort_field
+                    "Cannot sort index with sort order {sort_field}"
                 ))
             })?;
             let mut doc_values_leaf_reader =
@@ -1191,8 +1183,7 @@ where
                     let nv = similarity.compute_norm(state)?;
                     if nv == 0 {
                         return Err(LuceneError::illegal_state(format!(
-                            "Similarity {} returned 0 for non-empty field",
-                            similarity
+                            "Similarity {similarity} returned 0 for non-empty field"
                         )));
                     }
                     nv
@@ -1469,7 +1460,7 @@ where
             // if self.info_stream.is_enabled("IW") {
             //     self.info_stream.message("IW", &format!("ERROR: {}", msg));
             // }
-            return Err(LuceneError::illegal_state(format!("{} {}", msg, e)));
+            return Err(LuceneError::illegal_state(format!("{msg} {e}")));
         }
         Ok(())
     }

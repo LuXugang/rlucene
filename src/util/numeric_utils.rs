@@ -162,8 +162,7 @@ impl NumericUtils {
 
         if carry != 0 {
             return Err(LuceneError::illegal_argument(format!(
-                "a + b overflows bytesPerDim={}",
-                bytes_per_dim
+                "a + b overflows bytesPerDim={bytes_per_dim}"
             )));
         }
 
@@ -253,8 +252,7 @@ impl NumericUtils {
         let big_int_bytes = big_int.to_signed_bytes_be();
         if big_int_size < big_int_bytes.len() {
             return Err(LuceneError::illegal_argument(format!(
-                "BigInt {} requires more than {} bytes of storage",
-                big_int, big_int_size
+                "BigInt {big_int} requires more than {big_int_size} bytes of storage"
             )));
         }
         let mut full_big_int_bytes = vec![0u8; big_int_size];

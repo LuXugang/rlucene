@@ -51,8 +51,7 @@ impl<'a> LimitedFiniteStringsIterator<'a> {
     pub fn new(automaton: &'a Automaton, limit: i32) -> Result<Self> {
         if limit != -1 && limit <= 0 {
             return Err(LuceneError::illegal_argument(format!(
-                "limit must be -1 (which means no limit), or > 0; got: {}",
-                limit
+                "limit must be -1 (which means no limit), or > 0; got: {limit}"
             )));
         }
 

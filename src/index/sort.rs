@@ -121,7 +121,7 @@ impl Display for Sort {
             .map(|field| field.to_string())
             .collect::<Vec<_>>()
             .join(",");
-        write!(f, "{}", fields_string)
+        write!(f, "{fields_string}")
     }
 }
 impl PartialEq for Sort {

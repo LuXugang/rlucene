@@ -104,8 +104,7 @@ impl SmallFloat {
     pub fn long_to_int4(i: i64) -> Result<i32> {
         if i < 0 {
             return Err(LuceneError::illegal_argument(format!(
-                "Only supports positive values, got {}",
-                i
+                "Only supports positive values, got {i}"
             )));
         }
         let num_bits = 64 - i.leading_zeros();
@@ -143,8 +142,7 @@ impl SmallFloat {
     pub fn int_to_byte4(i: i32) -> Result<u8> {
         if i < 0 {
             return Err(LuceneError::illegal_argument(format!(
-                "Only supports positive values, got {}",
-                i
+                "Only supports positive values, got {i}"
             )));
         }
         if i < *NUM_FREE_VALUES {

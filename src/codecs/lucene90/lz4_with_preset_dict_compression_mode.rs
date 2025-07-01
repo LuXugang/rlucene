@@ -154,8 +154,7 @@ impl Decompressor for LZ4WithPresetDictDecompressor {
         // Read the dictionary
         if LZ4::decompress(input, dict_length, &mut self.buffer, 0)? != dict_length {
             return Err(LuceneError::corrupt_index(format!(
-                "Illegal dict length  (resource={})",
-                input
+                "Illegal dict length  (resource={input})"
             )));
         }
 

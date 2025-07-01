@@ -198,14 +198,12 @@ impl Range {
     pub fn new(min_doc: i32, max_doc: i32) -> Result<Range> {
         if min_doc >= max_doc {
             return Err(LuceneError::illegal_argument(format!(
-                "minDoc must be < maxDoc but got minDoc= {} maxDoc= {}",
-                min_doc, max_doc
+                "minDoc must be < maxDoc but got minDoc= {min_doc} maxDoc= {max_doc}"
             )));
         }
         if min_doc < 0 {
             return Err(LuceneError::illegal_argument(format!(
-                "minDoc must be >= 0 but got minDoc= {}",
-                min_doc
+                "minDoc must be >= 0 but got minDoc= {min_doc}"
             )));
         }
         Ok(Range {

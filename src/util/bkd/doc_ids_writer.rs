@@ -109,7 +109,7 @@ impl DocIdsWriter {
                 out.write_vint(doc_ids[start_index])?;
                 return Ok(());
             } else if min2max <= ((count) << 4) {
-                debug_assert!(min2max > count, "min2max: {}, count: {}", min2max, count);
+                debug_assert!(min2max > count, "min2max: {min2max}, count: {count}");
                 // Only trigger bitset optimization when max - min + 1 <= 16 *
                 // count in order to avoid expanding too much
                 // storage. A field with lower cardinality will
@@ -206,9 +206,7 @@ impl DocIdsWriter {
             let next_word_index = index >> 6;
             debug_assert!(
                 current_word_index <= next_word_index,
-                "current_word_index: {}, next_word_index: {}",
-                current_word_index,
-                next_word_index
+                "current_word_index: {current_word_index}, next_word_index: {next_word_index}"
             );
             if current_word_index < next_word_index {
                 out.write_long(current_word)?;
@@ -247,8 +245,7 @@ impl DocIdsWriter {
             DocIdsWriter::BPV_32 => Self::read_ints32(input, count, doc_ids),
             DocIdsWriter::LEGACY_DELTA_VINT => Self::read_legacy_delta_vints(input, count, doc_ids),
             _ => Err(LuceneError::illegal_state(format!(
-                "Unsupported number of bits per value: {}",
-                bpv
+                "Unsupported number of bits per value: {bpv}"
             ))),
         }
     }
@@ -319,7 +316,7 @@ impl DocIdsWriter {
             doc_ids[pos] = doc_id;
             pos += 1;
         }
-        debug_assert!(pos == count as usize, "pos: {}, count: {}", pos, count);
+        debug_assert!(pos == count as usize, "pos: {pos}, count: {count}");
         Ok(())
     }
 
@@ -386,8 +383,7 @@ impl DocIdsWriter {
                 Self::read_legacy_delta_vints_with_visitor(input, count, visitor)
             },
             _ => Err(LuceneError::illegal_state(format!(
-                "Unsupported number of bits per value: {}",
-                bpv
+                "Unsupported number of bits per value: {bpv}"
             ))),
         }
     }

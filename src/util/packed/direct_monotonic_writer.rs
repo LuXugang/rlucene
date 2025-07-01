@@ -79,8 +79,7 @@ where
 
         if num_values < 0 {
             return Err(LuceneError::illegal_argument(format!(
-                "numValues can't be negative, got {}",
-                num_values
+                "numValues can't be negative, got {num_values}"
             )));
         }
 

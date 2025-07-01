@@ -165,11 +165,11 @@ pub enum CompressionModeEnum {
 impl Display for CompressionModeEnum {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            CompressionModeEnum::Fast(mode) => write!(f, "{}", mode),
-            CompressionModeEnum::High(mode) => write!(f, "{}", mode),
-            CompressionModeEnum::Deflate(mode) => write!(f, "{}", mode),
-            CompressionModeEnum::LZ4Dict(mode) => write!(f, "{}", mode),
-            CompressionModeEnum::Impl(mode) => write!(f, "{}", mode),
+            CompressionModeEnum::Fast(mode) => write!(f, "{mode}"),
+            CompressionModeEnum::High(mode) => write!(f, "{mode}"),
+            CompressionModeEnum::Deflate(mode) => write!(f, "{mode}"),
+            CompressionModeEnum::LZ4Dict(mode) => write!(f, "{mode}"),
+            CompressionModeEnum::Impl(mode) => write!(f, "{mode}"),
         }
     }
 }
@@ -236,8 +236,7 @@ impl Decompressor for LZ4Decompressor {
         let decompressed_length = LZ4::decompress(input, offset + length, &mut bytes.bytes, 0)?;
         if decompressed_length > original_length {
             return Err(LuceneError::corrupt_index(format!(
-                "Corrupted: lengths mismatch: {} > {} (resource={})",
-                decompressed_length, original_length, input
+                "Corrupted: lengths mismatch: {decompressed_length} > {original_length} (resource={input})"
             )));
         }
         bytes.offset = offset as usize;

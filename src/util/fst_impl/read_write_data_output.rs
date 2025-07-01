@@ -258,8 +258,8 @@ impl DataInput for BytesReaderEnum {
 impl Display for BytesReaderEnum {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            BytesReaderEnum::Impl(inner) => write!(f, "{}", inner),
-            BytesReaderEnum::ReverseBytes(inner) => write!(f, "{}", inner),
+            BytesReaderEnum::Impl(inner) => write!(f, "{inner}"),
+            BytesReaderEnum::ReverseBytes(inner) => write!(f, "{inner}"),
         }
     }
 }

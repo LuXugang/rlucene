@@ -67,8 +67,7 @@ impl<T: PartialEq> ConcurrentApproximatePriorityQueue<T> {
     pub fn with_concurrency(concurrency: i32) -> Result<Self> {
         if !(MIN_CONCURRENCY..=MAX_CONCURRENCY).contains(&concurrency) {
             return Err(LuceneError::illegal_argument(format!(
-                "concurrency must be in [{}, {}], got {}",
-                MIN_CONCURRENCY, MAX_CONCURRENCY, concurrency
+                "concurrency must be in [{MIN_CONCURRENCY}, {MAX_CONCURRENCY}], got {concurrency}"
             )));
         }
         let mut queues = Vec::with_capacity(concurrency as usize);

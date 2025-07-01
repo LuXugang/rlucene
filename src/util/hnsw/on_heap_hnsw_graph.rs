@@ -337,8 +337,7 @@ impl HnswGraph for OnHeapHnswGraph {
 
         if size != (max_id + 1) as usize {
             return Err(LuceneError::illegal_state(format!(
-                "graph build not complete: size={}, maxNodeId={}",
-                size, max_id
+                "graph build not complete: size={size}, maxNodeId={max_id}"
             )));
         }
 
@@ -362,8 +361,7 @@ impl fmt::Display for OnHeapHnswGraph {
 
         write!(
             f,
-            "OnHeapHnswGraph(size={}, numLevels={}, entryNode={:?})",
-            size, num_levels, entry_node
+            "OnHeapHnswGraph(size={size}, numLevels={num_levels}, entryNode={entry_node:?})"
         )
     }
 }

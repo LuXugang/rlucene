@@ -163,8 +163,7 @@ impl StoredFieldsInts {
             32 => Self::read_ints32(input, count, values, offset)?,
             _ => {
                 return Err(LuceneError::illegal_state(format!(
-                    "Unsupported number of bits per value: {}",
-                    bpv
+                    "Unsupported number of bits per value: {bpv}"
                 )));
             },
         }

@@ -156,7 +156,7 @@ impl fmt::Display for RunAutomaton {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "initial state: 0")?;
         for i in 0..self.size {
-            write!(f, "state {}", i)?;
+            write!(f, "state {i}")?;
             if self.accept.get(i) {
                 writeln!(f, " [accept]:")?;
             } else {
@@ -179,7 +179,7 @@ impl fmt::Display for RunAutomaton {
                         write!(f, "-")?;
                         Automaton::append_char_string(max, f)?;
                     }
-                    writeln!(f, " -> {}", k)?;
+                    writeln!(f, " -> {k}")?;
                 }
             }
         }

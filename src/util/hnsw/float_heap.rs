@@ -40,8 +40,7 @@ impl FloatHeap {
     pub fn new(max_size: usize) -> Result<Self> {
         if max_size < 1 {
             return Err(LuceneError::illegal_argument(format!(
-                "max_size must be > 0; got: {}",
-                max_size
+                "max_size must be > 0; got: {max_size}"
             )));
         }
         Ok(Self {

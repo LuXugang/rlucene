@@ -41,8 +41,7 @@ pub trait ChecksumIndexInput: IndexInput {
         let cur_fp = self.get_file_pointer();
         if pos < cur_fp {
             return Err(LuceneError::illegal_state(format!(
-                "cannot seek backwards (pos= {}  getFilePointer()= {})",
-                pos, cur_fp
+                "cannot seek backwards (pos= {pos}  getFilePointer()= {cur_fp})"
             )));
         }
         self.skip_by_reading(pos - cur_fp)

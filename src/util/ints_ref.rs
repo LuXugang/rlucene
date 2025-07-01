@@ -247,7 +247,7 @@ where
                 if i > 0 {
                     write!(f, ", ")?;
                 }
-                write!(f, "{}", v)?;
+                write!(f, "{v}")?;
             }
             write!(f, "]")?;
             Ok(())

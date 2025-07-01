@@ -86,30 +86,26 @@ impl Version {
         // to make sure it fits in the 8 bits we encode it into:
         if !(0..=255).contains(&major) {
             return Err(IllegalArgumentError::new(format!(
-                "Illegal major version: {}",
-                major
+                "Illegal major version: {major}"
             )));
         }
         if !(0..=255).contains(&minor) {
             return Err(IllegalArgumentError::new(format!(
-                "Illegal minor version: {}",
-                minor
+                "Illegal minor version: {minor}"
             )));
         }
         if !(0..=255).contains(&bug_fix) {
             return Err(IllegalArgumentError::new(format!(
-                "Illegal bug fix version: {}",
-                bug_fix
+                "Illegal bug fix version: {bug_fix}"
             )));
         }
         if !(0..=2).contains(&prerelease) {
             return Err(IllegalArgumentError::new(format!(
-                "Illegal pre-release version: {}",
-                prerelease
+                "Illegal pre-release version: {prerelease}"
             )));
         }
         if prerelease != 0 && (minor != 0 || bug_fix != 0) {
-            return Err(IllegalArgumentError::new(format!("Prerelease version only supported with major release (got prerelease: {}, minor: {}, bug_fix: {})", prerelease, minor, bug_fix)));
+            return Err(IllegalArgumentError::new(format!("Prerelease version only supported with major release (got prerelease: {prerelease}, minor: {minor}, bug_fix: {bug_fix})")));
         }
         let encoded_value = (major << 18) | (minor << 10) | (bug_fix << 2) | prerelease;
         debug_assert!(Self::encoded_is_valid(
@@ -144,10 +140,7 @@ impl Version {
         let mut tokens = StrictStringTokenizer::new(version, '.');
         if !tokens.has_more_tokens() {
             return Err(VersionError::parse_error_with_pos(
-                format!(
-                    "Version is not in form major.minor.bugfix(.prerelease) (got: {})",
-                    version
-                ),
+                format!("Version is not in form major.minor.bugfix(.prerelease) (got: {version})"),
                 0,
             ));
         }
@@ -155,10 +148,7 @@ impl Version {
         let major = token.parse::<i32>();
         if major.is_err() {
             return Err(VersionError::parse_int_error(
-                format!(
-                    "Failed to parse major version from {} (got: {})",
-                    token, version
-                ),
+                format!("Failed to parse major version from {token} (got: {version})"),
                 major.unwrap_err(),
             ));
         }
@@ -166,10 +156,7 @@ impl Version {
         let minor = token.parse::<i32>();
         if minor.is_err() {
             return Err(VersionError::parse_int_error(
-                format!(
-                    "Failed to parse minor version from {} (got: {})",
-                    token, version
-                ),
+                format!("Failed to parse minor version from {token} (got: {version})"),
                 minor.unwrap_err(),
             ));
         }
@@ -179,10 +166,7 @@ impl Version {
             let bug_fix = token.parse::<i32>();
             if bug_fix.is_err() {
                 return Err(VersionError::parse_int_error(
-                    format!(
-                        "Failed to parse bug fix version from {} (got: {})",
-                        token, version
-                    ),
+                    format!("Failed to parse bug fix version from {token} (got: {version})"),
                     bug_fix.unwrap_err(),
                 ));
             }
@@ -194,10 +178,7 @@ impl Version {
             let prerelease = token.parse::<i32>();
             if prerelease.is_err() {
                 return Err(VersionError::parse_int_error(
-                    format!(
-                        "Failed to parse pre-release version from {} (got: {})",
-                        token, version
-                    ),
+                    format!("Failed to parse pre-release version from {token} (got: {version})"),
                     prerelease.unwrap_err(),
                 ));
             }
@@ -205,8 +186,7 @@ impl Version {
             if prerelease_value == 0 {
                 return Err(VersionError::parse_error_with_pos(
                     format!(
-                        "Invalid value {}  for prerelease; should be 1 or 2 (got: {})",
-                        prerelease_value, version
+                        "Invalid value {prerelease_value}  for prerelease; should be 1 or 2 (got: {version})"
                     ),
                     0,
                 ));
@@ -215,8 +195,7 @@ impl Version {
                 // too many tokens!
                 return Err(VersionError::parse_error_with_pos(
                     format!(
-                        "Version is not in form major.minor.bugfix(.prerelease) (got: {})",
-                        version
+                        "Version is not in form major.minor.bugfix(.prerelease) (got: {version})"
                     ),
                     0,
                 ));
@@ -230,7 +209,7 @@ impl Version {
         );
         if result.is_err() {
             return Err(VersionError::parse_error_with_error(
-                format!("failed to parse version string {}", version),
+                format!("failed to parse version string {version}"),
                 result.unwrap_err(),
             ));
         }
@@ -267,10 +246,7 @@ impl Version {
                 match Self::parse(&version) {
                     Ok(v) => Ok(v),
                     Err(e) => Err(VersionError::parse_error_with_pos(
-                        format!(
-                            "failed to parse lenient version string {}: {}",
-                            version_orig, e
-                        ),
+                        format!("failed to parse lenient version string {version_orig}: {e}"),
                         0,
                     )),
                 }

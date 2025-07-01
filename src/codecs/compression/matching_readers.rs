@@ -67,10 +67,7 @@ impl MatchingReaders {
         if info_stream.enabled("SM") {
             info_stream.message(
                 "SM",
-                &format!(
-                    "merge store matched_count={} vs {}",
-                    matched_count, num_readers
-                ),
+                &format!("merge store matched_count={matched_count} vs {num_readers}"),
             );
         }
         if matched_count as usize != num_readers {
