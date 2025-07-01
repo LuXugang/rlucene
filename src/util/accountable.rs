@@ -33,7 +33,10 @@ pub trait Accountable {
 
     /// Returns nested resources of this struct. The result should be a
     /// point-in-time snapshot (to avoid race conditions).
-    fn get_child_resources<T: Accountable>(&self) -> Vec<T> {
+    fn get_child_resources<A>(&self) -> Vec<A>
+    where
+        A: Accountable,
+    {
         vec![]
     }
 }

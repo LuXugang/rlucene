@@ -241,7 +241,7 @@ where
 
     pub(crate) fn freeze_global_buffer(
         &self,
-        caller_slice: Option<&mut DeleteSlice<Q>>,
+        caller_slice: &mut Option<DeleteSlice<Q>>,
     ) -> Result<Option<FrozenBufferedUpdates<Q>>> {
         let mut global_state = self.global_buffer_lock.write();
         self.ensure_open(global_state.closed)?;
@@ -1030,7 +1030,7 @@ mod tests {
         assert_eq!(unique_values, bd1_terms_set);
         assert_eq!(unique_values, bd2_terms_set);
 
-        let frozen = queue.freeze_global_buffer(None)?.unwrap();
+        let frozen = queue.freeze_global_buffer(&mut None)?.unwrap();
         let mut iter = frozen.delete_terms.iterator();
         let mut frozen_set: HashSet<Term> = HashSet::new();
         let mut bytes_ref = BytesRefBuilder::new();
@@ -1108,7 +1108,7 @@ mod tests {
             assert!(queue.any_changes());
 
             if random.random_range(0..5) == 0 {
-                if let Some(frozen) = queue.freeze_global_buffer(None)? {
+                if let Some(frozen) = queue.freeze_global_buffer(&mut None)? {
                     assert_eq!(terms_since_freeze, frozen.delete_terms.size());
                     assert_eq!(queries_since_freeze, frozen.delete_queries.len());
                     terms_since_freeze = 0;
@@ -1138,7 +1138,7 @@ mod tests {
         assert!(queue.any_changes());
         queue.try_apply_global_slice()?;
         assert!(queue.any_changes());
-        let frozen_global_buffer_wrap = queue.freeze_global_buffer(None)?;
+        let frozen_global_buffer_wrap = queue.freeze_global_buffer(&mut None)?;
         assert!(frozen_global_buffer_wrap.is_some());
         let frozen_global_buffer = frozen_global_buffer_wrap.unwrap();
         assert!(frozen_global_buffer.any());
@@ -1198,7 +1198,7 @@ mod tests {
 
         queue.try_apply_global_slice()?;
         let mut frozen_set = HashSet::new();
-        let frozen = queue.freeze_global_buffer(None)?.unwrap();
+        let frozen = queue.freeze_global_buffer(&mut None)?.unwrap();
         let mut iter = frozen.delete_terms.iterator();
         let mut builder = BytesRefBuilder::new();
         while let Some(byte_ref) = iter.next()? {
@@ -1224,7 +1224,7 @@ mod tests {
             }
             let result = queue.add_delete_term(vec![Term::from_text("foo".to_string(), "bar")]);
             assert!(matches!(result, Err(LuceneError::AlreadyClosed(_))));
-            let result = queue.freeze_global_buffer(None);
+            let result = queue.freeze_global_buffer(&mut None);
             assert!(matches!(result, Err(LuceneError::AlreadyClosed(_))));
             let result = queue.add_delete_query(vec![Arc::new(TermQuery::new(Term::from_text(
                 "foo".to_string(),
@@ -1257,7 +1257,7 @@ mod tests {
 
             assert!(queue.is_open());
             queue.try_apply_global_slice()?;
-            queue.freeze_global_buffer(None)?;
+            queue.freeze_global_buffer(&mut None)?;
             queue.close()?;
             assert!(!queue.is_open());
         }
