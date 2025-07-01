@@ -25,8 +25,8 @@ use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
 use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
 use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
 use crate::index::index_options::IndexOptions;
-/// This class tracks the number and position / offset parameters of terms being
-/// added to the index. The information collected in this class is also used to
+/// This struct tracks the number and position / offset parameters of terms being
+/// added to the index. The information collected in This struct is also used to
 /// calculate the normalization factor for a field.
 pub struct FieldInvertState<O, P, T>
 where

@@ -35,7 +35,7 @@ use crate::util::error::lucene_error::Result;
 use std::borrow::Cow;
 
 pub trait FilterLeafReader {}
-/// Base class for filtering [`Fields`] implementations.
+/// Base struct for filtering [`Fields`] implementations.
 pub struct FilterFields<F>
 where
     F: Fields,
@@ -70,7 +70,7 @@ where
     }
 }
 
-/// Base class for filtering [`Terms`] implementations.
+/// Base struct for filtering [`Terms`] implementations.
 ///
 /// **NOTE**: If the order of terms and documents is not changed, and if these terms are
 /// going to be intersected with automata, you could consider overriding [`Self::intersect`](Terms::intersect) for
@@ -156,7 +156,7 @@ where
     }
 }
 
-/// Base class for filtering `TermsEnum` implementations.
+/// Base struct for filtering `TermsEnum` implementations.
 pub struct FilterTermsEnum<T>
 where
     T: TermsEnum,

@@ -41,7 +41,7 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 ///   &TermState)`](BaseTermsEnum::seek_exact_with_state)
 ///
 /// In some cases, the default implementation may be slow and consume large
-/// amounts of memory, so subclasses SHOULD provide their own implementation if
+/// amounts of memory, so SubStruct SHOULD provide their own implementation if
 /// possible.
 pub struct BaseTermsEnum<S>
 where

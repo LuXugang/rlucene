@@ -142,7 +142,7 @@ pub trait IndexInput: DataInput + crate::util::clone::TryClone {
         Ok(())
     }
 }
-/// Subclasses call this to get the String for resourceDescription of a slice of
+/// SubStruct call this to get the String for resourceDescription of a slice of
 /// this `IndexInput`.
 pub fn get_full_slice_description(slice_description: &str) -> String {
     format!(" [slice={}] ", slice_description)

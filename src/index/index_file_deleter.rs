@@ -31,7 +31,7 @@ use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
-/// Holds details for each commit point. This class is also passed to the deletion policy. Note: this class has a natural ordering that is inconsistent with equals.
+/// Holds details for each commit point. This struct is also passed to the deletion policy. Note: This struct has a natural ordering that is inconsistent with equals.
 pub(crate) struct CommitPoint<D> {
     pub(crate) files: Vec<String>,
     pub(crate) segments_file_name: String,

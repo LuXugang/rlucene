@@ -175,7 +175,7 @@ where
             || self.field_updates_count > 0
     }
 }
-/// This class helps iterating a term dictionary and consuming all the docs for each term.  
+/// This struct helps iterating a term dictionary and consuming all the docs for each term.
 /// It accepts a (field, value) tuple and returns a [`DocIdSetIterator`](crate::search::doc_id_set_iterator::DocIdSetIterator) if the field has an entry  
 /// for the given value.  
 ///

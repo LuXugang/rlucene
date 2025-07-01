@@ -27,7 +27,7 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
-/// This class provides ability to track the reference counts of a set of index files and delete them
+/// This struct provides ability to track the reference counts of a set of index files and delete them
 /// when their counts decreased to 0.
 ///
 /// This struct is NOT thread-safe, the user should make sure the thread-safety themselves

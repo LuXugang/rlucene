@@ -389,7 +389,7 @@ where
 }
 
 pub trait Compare<T> {
-    /// Determines the ordering of objects in this priority queue. Subclasses
+    /// Determines the ordering of objects in this priority queue. SubStruct
     /// must define this method.
     ///
     /// # Arguments

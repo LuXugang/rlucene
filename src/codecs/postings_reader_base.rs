@@ -34,10 +34,10 @@ use crate::store::{DataInput, IndexInput};
 use crate::util::error::lucene_error::Result;
 
 /// The core terms dictionaries (BlockTermsReader, BlockTreeTermsReader)
-/// interact with a single instance of this class to manage creation of
+/// interact with a single instance of This struct to manage creation of
 /// [`PostingsEnum`] and
 /// [`ImpactsEnum`] instances. It
-/// provides an IndexInput (`termsIn`) where this class may read any previously
+/// provides an IndexInput (`termsIn`) where This struct may read any previously
 /// stored data that it had written in its corresponding
 /// [`PostingsWriterBase`](crate::codecs::postings_writer_base::PostingsWriterBase) at indexing time.
 // TODO: maybe move under blocktree?  but it's used by other terms dicts (e.g.

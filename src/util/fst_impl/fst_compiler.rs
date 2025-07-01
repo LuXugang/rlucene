@@ -51,7 +51,7 @@ use crate::util::{OutputIdentity, SliceCopyOps};
 /// <http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.24.3698>
 ///
 ///
-/// The parameterized type `T` is the output type. See the subclasses of
+/// The parameterized type `T` is the output type. See the SubStruct of
 /// [`Outputs`].
 ///
 ///
@@ -1046,7 +1046,7 @@ pub mod fst_compiler_util {
     }
 }
 
-/// This class is used for FST backed by non-FSTReader DataOutput. It does not
+/// This struct is used for FST backed by non-FSTReader DataOutput. It does not
 /// allow getting the reverse BytesReader nor writing to a DataOutput.
 pub(crate) struct NullFSTReader;
 impl Accountable for NullFSTReader {

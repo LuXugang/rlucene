@@ -42,7 +42,7 @@ use crate::util::fst_impl::outputs::{Outputs, OutputsBound};
 use crate::util::ints_ref::IntsRef;
 use crate::util::ints_ref_builder::IntsRefBuilder;
 use crate::util::ToInt;
-/// Helper class to test FSTs.
+/// Helper struct to test FSTs.
 pub struct FSTTester<D, R, O, S>
 where
     D: Directory,

@@ -27,7 +27,7 @@ use crate::util::error::lucene_error::Result;
 use derive_getters::Getters;
 /// Contains statistics for a specific term
 ///
-/// This class holds statistics for this term across all documents for scoring purposes:
+/// This struct holds statistics for this term across all documents for scoring purposes:
 ///
 /// - `doc_freq`: number of documents this term occurs in.
 /// - `total_term_freq`: number of tokens for this term.

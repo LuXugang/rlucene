@@ -31,7 +31,7 @@ use crate::util::numeric_utils::NumericUtils;
 /// The queue provides both fixed-size and unbounded operations via
 /// [`insert_with_overflow(i32, f32)`](NeighborQueue::insert_with_overflow) and
 /// [`add(i32, f32)`](NeighborQueue::add), and provides MIN and MAX heap
-/// subclasses.
+/// SubStruct.
 pub struct NeighborQueue {
     pub heap: LongHeap,
     pub order: Order,

@@ -322,7 +322,7 @@ where
     }
 }
 
-/// Inner class because it needs access to hash function and FST bytes.
+/// Inner struct because it needs access to hash function and FST bytes.
 pub struct PagedGrowableHash<T>
 where
     T: OutputsBound,

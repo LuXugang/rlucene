@@ -41,7 +41,7 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::number::Number;
 
 /// Expert: directly creates a field for a document. Most users should use one
-/// of the convenience subclasses:
+/// of the convenience SubStruct:
 ///
 /// - [`TextField`](crate::document::text_field::TextField):
 ///   [`Reader`](std::io::Read) or `String` indexed for full-text search.

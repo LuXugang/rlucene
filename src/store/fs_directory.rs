@@ -60,7 +60,7 @@ use crate::util::IOUtils;
 ///   `RAFDirectory` instead.
 ///
 /// # Note
-/// Accessing one of the above subclasses directly or indirectly from a thread
+/// Accessing one of the above SubStruct directly or indirectly from a thread
 /// while it's interrupted can cause the underlying channel to close
 /// immediately, leading to subsequent `ClosedChannelException` errors. If your
 /// application uses `Thread::interrupt()` or `Future::cancel()`, it's
@@ -168,7 +168,7 @@ where
         pending_deletes: &mut HashSet<String>,
     ) -> Result<()> {
         if !pending_deletes.is_empty() {
-            // TODO: we could fix IndexInputs from FSDirectory subclasses to
+            // TODO: we could fix IndexInputs from FSDirectory SubStruct to
             // call this when they are closed?
 
             // Clone the set since we mutate it in privateDeleteFile:

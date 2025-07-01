@@ -25,7 +25,7 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 
 /// Base struct for sorting algorithm implementations.
 ///
-/// There are a number of subclasses to choose from that vary in performance and [stability](https://en.wikipedia.org/wiki/Sorting_algorithm#Stability).
+/// There are a number of SubStruct to choose from that vary in performance and [stability](https://en.wikipedia.org/wiki/Sorting_algorithm#Stability).
 /// We suggest that you pick the first from this ranked list that meets your
 /// requirements:
 ///

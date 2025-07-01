@@ -776,7 +776,7 @@ impl Operations {
     ///
     /// **Note:** For full performance, use the
     /// [`RunAutomaton`](crate::util::automation::run_automaton::RunAutomaton)
-    /// class.
+    /// struct.
     #[allow(unused)]
     pub(crate) fn run_str(a: &Automaton, s: &str) -> bool {
         debug_assert!(a.is_deterministic());
@@ -803,7 +803,7 @@ impl Operations {
     ///
     /// **Note:** For full performance, use the
     /// [`RunAutomaton`](crate::util::automation::run_automaton::RunAutomaton)
-    /// class.
+    /// struct.
     pub(crate) fn run_ints_ref(a: &Automaton, s: &IntsRef<Vec<i32>>) -> bool {
         debug_assert!(a.is_deterministic());
 

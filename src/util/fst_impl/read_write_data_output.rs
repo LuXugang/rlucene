@@ -30,7 +30,7 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fst_impl::fst::BytesReader;
 use crate::util::fst_impl::fst_reader::FstReader;
 use crate::util::fst_impl::reverse_bytes_reader::ReverseBytesReader;
-/// An adapter class to use [`ByteBuffersDataOutput`] as a
+/// An adapter struct to use [`ByteBuffersDataOutput`] as a
 /// [`FSTReader`](FstReader). It allows the FST to be readable immediately after
 /// writing
 #[derive(Default)]

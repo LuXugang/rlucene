@@ -294,7 +294,7 @@ pub(crate) trait MultiLevelSkipListReaderAbstract {
 }
 #[allow(dead_code)]
 pub(crate) trait MultiLevelSkipListReaderBase {
-    /// Subclasses must implement the actual skip data encoding in this method.
+    /// SubStruct must implement the actual skip data encoding in this method.
     ///
     /// Parameters:
     /// - `level`: the level skip data shall be read from

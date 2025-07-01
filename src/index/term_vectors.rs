@@ -26,7 +26,7 @@ use crate::index::fields::Fields;
 use crate::util::error::lucene_error::Result;
 /// API for reading term vectors.
 ///
-/// **NOTE**: This class is not thread-safe and should only be consumed in the thread where it
+/// **NOTE**: This struct is not thread-safe and should only be consumed in the thread where it
 /// was acquired.
 pub trait TermVectors {
     /// Optional method: Give a hint to this [`TermVectors`] instance that the given document will
