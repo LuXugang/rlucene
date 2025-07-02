@@ -3,7 +3,7 @@ name = "rlucene"
 version = "0.1.0"
 edition = "2021"
 build = "build.rs"
-license = "MIT"
+license ="Apache-2.0"
 
 [dependencies]
 derive_getters = { path = "libs/derive_getters" }
