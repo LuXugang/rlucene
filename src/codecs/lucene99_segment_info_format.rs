@@ -155,7 +155,7 @@ impl Lucene99SegmentInfoFormat {
             std::cmp::Ordering::Equal => None,
         };
 
-        let si = SegmentInfo::new(
+        let mut si = SegmentInfo::new(
             dir,
             Option::from(version),
             min_version,
@@ -168,7 +168,7 @@ impl Lucene99SegmentInfoFormat {
             attributes,
             index_sort,
         )?;
-        si.set_files(files);
+        si.set_files(files)?;
         Ok(si)
     }
     fn write_segment_info<D>(output: &mut impl DataOutput, si: &SegmentInfo<D>) -> Result<()>
@@ -215,8 +215,7 @@ impl Lucene99SegmentInfoFormat {
         output.write_map_of_strings(si.get_diagnostics())?;
 
         {
-            let files_ref = si.files()?;
-            let files = &*files_ref.lock();
+            let files = si.files()?;
             for file in files {
                 if IndexFileNames::parse_segment_name(file) != si.name {
                     return Err(LuceneError::illegal_argument(format!(

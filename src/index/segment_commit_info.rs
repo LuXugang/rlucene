@@ -250,7 +250,7 @@ where
     /// Returns all files in use by this segment.
     pub fn files(&self) -> Result<HashSet<String>> {
         // Start from the wrapped info's files (deep copy):
-        let mut files = self.info.files()?.lock().clone();
+        let mut files = self.info.files()?.clone();
         // TODO we could rely on TrackingDir.getCreatedFiles() (like we do for
         // updates) and then maybe even be able to remove
         // LiveDocsFormat.files(). Must separately add any live docs

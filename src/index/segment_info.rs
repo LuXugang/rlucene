@@ -67,7 +67,7 @@ where
     has_blocks: bool,
     /// The SegmentCommitInfo wraps a SegmentInfo inside an Rc,
     /// but sometimes we need to modify the set_files of the SegmentInfo contained within the SegmentCommitInfo,
-    set_files: Arc<Mutex<HashSet<String>>>,
+    set_files: Option<HashSet<String>>,
 }
 
 #[cfg(test)]
@@ -85,7 +85,7 @@ impl Default for SegmentInfo<DummyDirectory> {
             version: None,
             min_version: None,
             has_blocks: false,
-            set_files: Arc::new(Mutex::new(HashSet::new())),
+            set_files: None,
         }
     }
 }
@@ -152,7 +152,7 @@ where
             id,
             attributes,
             index_sort,
-            set_files: Arc::new(Mutex::new(HashSet::new())),
+            set_files: None,
         })
     }
 }
@@ -253,22 +253,20 @@ where
     }
 
     /// Returns all files referenced by this SegmentInfo
-    pub fn files(&self) -> Result<Arc<Mutex<HashSet<String>>>> {
-        let files = self.set_files.lock();
-        if files.is_empty() {
-            Err(LuceneError::illegal_argument(format!(
-                "files were not computed yet; segment={} maxDoc={}",
+    pub fn files(&self) -> Result<&HashSet<String>> {
+        match self.set_files {
+            Some(ref files) => Ok(files),
+            None => Err(LuceneError::illegal_argument(format!(
+                "files were not set; segment={} maxDoc={}",
                 self.name, self.max_doc
-            )))
-        } else {
-            Ok(self.set_files.clone())
+            ))),
         }
     }
 
     /// Sets the files written for this segment.
-    pub fn set_files(&self, files: HashSet<String>) {
-        let mut guard = self.set_files.lock();
-        *guard = files;
+    pub fn set_files(&mut self, files: HashSet<String>) -> Result<()> {
+        self.set_files = Some(HashSet::new());
+        self.add_files(files)
     }
     /// Converts this segment information into a formatted string with deletions
     /// count.
@@ -358,9 +356,13 @@ where
         let files: Vec<String> = files.into_iter().collect();
         self.check_file_names(&files)?;
         let files: Vec<String> = files.into_iter().collect();
-        let mut set_files = self.set_files.lock();
-        for f in files {
-            set_files.insert(segment_info_util::named_for_this_segment(&self.name, f));
+        match self.set_files {
+            Some(ref mut set_files) => {
+                for f in files {
+                    set_files.insert(segment_info_util::named_for_this_segment(&self.name, f));
+                }
+            },
+            None => return Err(LuceneError::illegal_state("set_files was not initialized")),
         }
         Ok(())
     }

@@ -144,7 +144,7 @@ pub mod index_writer_util {
     pub(crate) fn create_compound_file<D, T, D2>(
         info_stream: &InfoStreamLock,
         directory: &mut TrackingDirectoryWrapper<D>,
-        info: &SegmentInfo<D2>,
+        info: &mut SegmentInfo<D2>,
         context: &IOContext,
         mut delete_files: T,
     ) -> Result<()>
@@ -177,7 +177,7 @@ pub mod index_writer_util {
             delete_files.accept(directory.get_created_files().clone())?;
         }
         // Replace all previous files with the CFS/CFE files:
-        info.set_files(directory.get_created_files().clone());
+        info.set_files(directory.get_created_files().clone())?;
 
         write_result
     }

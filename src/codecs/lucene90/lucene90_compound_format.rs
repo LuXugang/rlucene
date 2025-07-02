@@ -90,8 +90,7 @@ impl Lucene90CompoundFormat {
         let mut pq;
         {
             // write number of files
-            let files_ref = si.files()?;
-            let files = &*files_ref.lock();
+            let files = si.files()?;
             let num_files = files.len();
             debug_assert!(num_files <= i32::MAX as usize);
             entries.write_vint(num_files as i32)?;
@@ -375,7 +374,7 @@ mod tests {
         let dir = Arc::new(Mutex::new(new_directory(&mut random)?));
         let segment = "_123";
         let chunk = 1024; // internal buffer size used by the stream
-        let si = new_segment_info(&mut random, dir.clone(), segment)?;
+        let mut si = new_segment_info(&mut random, dir.clone(), segment)?;
 
         let seg_id = si.get_id();
         let mut ordered_files = Vec::new();
@@ -397,7 +396,7 @@ mod tests {
         let mut shuffled_files = ordered_files.clone();
         shuffled_files.shuffle(&mut random);
         let files = shuffled_files.into_iter().collect();
-        si.set_files(files);
+        si.set_files(files)?;
 
         {
             let mut directory = dir.lock();

@@ -66,7 +66,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             LATEST_CODEC
                 .segment_info_format()
                 .read(dir.clone(), "_123", &id, &io_context)?;
-        assert_eq!(info.files()?.lock().clone(), info2.files()?.lock().clone());
+        assert_eq!(*info.files()?, *info2.files()?);
         Ok(())
     }
     fn test_has_blocks<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
@@ -124,8 +124,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         LATEST_CODEC
             .segment_info_format()
             .write(&mut *dir.lock(), &mut info, &io_context)?;
-        let files = info.files()?;
-        let modified_files = files.lock();
+        let modified_files = info.files()?;
         assert!(modified_files.is_superset(&original_files));
         assert!(
             modified_files.len() > original_files.len(),
@@ -135,7 +134,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             LATEST_CODEC
                 .segment_info_format()
                 .read(dir.clone(), "_123", &id, &io_context)?;
-        assert_eq!(info.files()?.lock().clone(), info2.files()?.lock().clone());
+        assert_eq!(*info.files()?, *info2.files()?);
         // In Rust Lucene, SegmentInfo::files return an immutable Set,
         // so we do not need to verify this
         // let immutable_files = info2.files()?;
@@ -578,11 +577,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             "Directory references are not the same"
         );
         assert_eq!(expected.name, actual.name, "Segment names do not match");
-        assert_eq!(
-            expected.files()?.lock().clone(),
-            actual.files()?.lock().clone(),
-            "Files do not match"
-        );
+        assert_eq!(*expected.files()?, *actual.files()?, "Files do not match");
         assert_eq!(
             *expected.get_diagnostics(),
             *actual.get_diagnostics(),
