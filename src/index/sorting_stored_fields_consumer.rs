@@ -76,7 +76,10 @@ where
 {
     type Directory = D;
 
-    fn init_stored_fields_writer(&mut self, info: &mut SegmentInfo<Self::Directory>) -> Result<()> {
+    fn init_stored_fields_writer<D1>(&mut self, info: &mut SegmentInfo<D1>) -> Result<()>
+    where
+        D1: Directory,
+    {
         let stored_fields_format = Lucene90CompressingStoredFieldsFormat::new(
             "TempStoredFields",
             CompressionModeEnum::Impl(NoCompression),
@@ -93,15 +96,16 @@ where
         Ok(())
     }
 
-    fn flush<DM>(
+    fn flush<DM, D1>(
         &mut self,
         state: &SegmentWriteState<Self::Directory>,
         sort_map: Option<Rc<DM>>,
         codec: &impl Codec,
-        info: &mut SegmentInfo<Self::Directory>,
+        info: &mut SegmentInfo<D1>,
     ) -> Result<()>
     where
         DM: DocMap,
+        D1: Directory,
     {
         let mut tmp_dir = self.tmp_directory.lock();
         let mut reader = self.stored_fields_format.as_ref().unwrap().fields_reader(

@@ -45,16 +45,17 @@ where
     closed: bool,
 }
 impl<O: IndexOutput> Lucene90NormsConsumer<O> {
-    pub fn new<D>(
+    pub fn new<D, D1>(
         state: &SegmentWriteState<D>,
         data_codec: &str,
         data_extension: &str,
         meta_codec: &str,
         meta_extension: &str,
-        segment_info: &SegmentInfo<D>,
+        segment_info: &SegmentInfo<D1>,
     ) -> Result<Self>
     where
         D: Directory<IndexOutputType = O>,
+        D1: Directory,
     {
         let data_name = IndexFileNames::segment_file_name(
             &segment_info.name,

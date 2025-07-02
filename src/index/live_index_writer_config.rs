@@ -18,6 +18,7 @@ use crate::analysis::analyzer::Analyzer;
 use crate::codecs::Codec;
 use crate::index::sort::Sort;
 use crate::search::similarities::similarities::Similarity;
+use crate::util::info_stream::InfoStreamLock;
 
 pub trait LiveIndexWriterConfig {
     type Analyzer: Analyzer;
@@ -32,4 +33,8 @@ pub trait LiveIndexWriterConfig {
     fn get_index_sort(&self) -> Option<Sort>;
 
     fn get_use_compound_file(&self) -> bool;
+
+    fn get_soft_deletes_field(&self) -> Option<&str>;
+
+    fn get_info_stream(&self) -> InfoStreamLock;
 }

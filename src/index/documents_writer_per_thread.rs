@@ -18,8 +18,11 @@ use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
 use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
 use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
 use crate::analysis::token_stream::TokenStream;
+use crate::codecs::live_docs_format::LiveDocsFormat;
+use crate::codecs::segment_info_format::SegmentInfoFormat;
+use crate::codecs::{Codec, LATEST_CODEC};
 use crate::document::numeric_doc_values_field::NumericDocValuesField;
-use crate::index::buffered_updates::{MTBufferedUpdates, STBufferedUpdates};
+use crate::index::buffered_updates::MTBufferedUpdates;
 use crate::index::documents_writer::FlushNotifications;
 use crate::index::documents_writer_delete_queue::{DeleteSlice, DocumentsWriterDeleteQueue, Node};
 use crate::index::field_infos::build::Builder;
@@ -30,10 +33,13 @@ use crate::index::indexing_chain::{IndexingChain, ReservedField};
 use crate::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::index::segment_info::SegmentInfo;
+use crate::index::segment_write_state::SegmentWriteState;
 use crate::index::sorter::{DocMap, DocMapImpl};
 use crate::search::query::Query;
 use crate::store::directory::Directory;
+use crate::store::flush_info::FlushInfo;
 use crate::store::tracking_directory_wrapper::TrackingDirectoryWrapper;
+use crate::store::IOContext;
 use crate::util::accountable::Accountable;
 use crate::util::array_util::ArrayUtil;
 use crate::util::bit_set::BitSet;
@@ -43,6 +49,7 @@ use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::info_stream::{InfoStream, InfoStreamLock};
 use crate::util::io_consumer::IOConsumer;
 use crate::util::StringHelper;
+use parking_lot::Mutex;
 use std::cell::OnceCell;
 use std::collections::HashSet;
 use std::fmt;
@@ -62,8 +69,8 @@ where
     Q: Query,
 {
     // wrap with Option for std::mem::take()
-    pub(crate) directory: Option<TrackingDirectoryWrapper<D>>,
-    indexing_chain: IndexingChain<D, O, P, T, TS, L>,
+    pub(crate) directory: Arc<Mutex<TrackingDirectoryWrapper<D>>>,
+    indexing_chain: IndexingChain<TrackingDirectoryWrapper<D>, O, P, T, TS, L>,
     pending_updates: MTBufferedUpdates<Q>,
     segment_info: SegmentInfo<D>,
     aborted: bool,
@@ -242,6 +249,241 @@ where
             None => Err(LuceneError::illegal_state("global_updates is None"))?,
         }
     }
+    ///  Flush all pending docs to a new segment
+    pub(crate) fn flush<FN>(
+        &mut self,
+        flush_notifications: &mut FN,
+    ) -> Result<Option<FlushedSegment<D, Q>>>
+    where
+        FN: FlushNotifications,
+    {
+        debug_assert_eq!(self.flush_pending.get(), Some(&true));
+        debug_assert!(self.num_docs_in_ram > 0);
+        debug_assert!(
+            self.delete_slice.as_ref().is_none_or(|ds| ds.is_empty()),
+            "all deletes must be applied in prepareFlush"
+        );
+
+        self.segment_info.set_max_doc(self.num_docs_in_ram)?;
+
+        let mut flush_state = SegmentWriteState::new(
+            self.info_stream.clone(),
+            self.directory.clone(),
+            Rc::new(self.field_infos.finish()?),
+            Rc::new(IOContext::with_flush(FlushInfo::new(
+                self.num_docs_in_ram,
+                self.last_committed_bytes_used.load(Ordering::SeqCst),
+            ))?),
+        );
+
+        let start_mb_used =
+            self.last_committed_bytes_used.load(Ordering::SeqCst) as f64 / 1024.0 / 1024.0;
+
+        // Apply delete-by-docID now (delete-byDocID only
+        // happens when an exception is hit processing that
+        // doc, eg if analyzer has some problem w/ the text):
+        if self.num_deleted_doc_ids > 0 {
+            let mut live_docs = FixedBitSet::new(self.num_docs_in_ram);
+            live_docs.set_with_range(0, self.num_docs_in_ram);
+
+            for &doc_id in &self.delete_doc_ids {
+                live_docs.clear_with_index(doc_id);
+            }
+
+            flush_state.live_docs = Some(live_docs);
+            flush_state.del_count_on_flush = self.num_deleted_doc_ids;
+            self.delete_doc_ids.clear();
+            self.num_deleted_doc_ids = 0;
+        }
+
+        if self.aborted {
+            let mut info_stream = self.info_stream.lock();
+            if info_stream.enabled("DWPT") {
+                info_stream.message("DWPT", "flush: skip because aborting is set");
+            }
+            return Ok(None);
+        }
+
+        let t0 = std::time::Instant::now();
+
+        {
+            let mut info_stream = self.info_stream.lock();
+            if info_stream.enabled("DWPT") {
+                info_stream.message(
+                    "DWPT",
+                    &format!(
+                        "flush postings as segment {} numDocs={}",
+                        self.segment_info.name, self.num_docs_in_ram
+                    ),
+                );
+            }
+        }
+
+        // let result = (|| -> Result<Option<FlushedSegment<D, Q>>> {
+        //     let mut soft_deleted_docs =
+        //         if let Some(field) = self.index_writer_config.get_soft_deletes_field() {
+        //             self.indexing_chain.get_has_doc_values(field)?
+        //         } else {
+        //             None
+        //         };
+        //
+        //     let sort_map = self.indexing_chain.flush(
+        //         &mut flush_state,
+        //         &mut self.segment_info,
+        //         Some(&mut self.pending_updates),
+        //     )?;
+
+        //     // 3) 计算软删除数
+        //     flush_state.soft_del_count_on_flush = if let Some(ref mut iter) = soft_deleted_docs {
+        //         let cnt =
+        //             PendingSoftDeletes::count_soft_deletes(iter, flush_state.live_docs.as_ref());
+        //         debug_assert!(
+        //             flush_state.segment_info.max_doc() as usize
+        //                 >= (cnt + flush_state.del_count_on_flush) as usize
+        //         );
+        //         cnt
+        //     } else {
+        //         0
+        //     };
+        //
+        //     // 4) 清空全局 pending delete terms
+        //     self.pending_updates.clear_delete_terms();
+        //
+        //     // 5) 收集本次 flush 产生的文件列表
+        //     let files = self.directory.as_ref().unwrap().created_files()?;
+        //     self.segment_info.set_files(files);
+        //
+        //     // 6) 构建 SegmentCommitInfo
+        //     let segment_info_per_commit = SegmentCommitInfo::new(
+        //         self.segment_info.clone(),
+        //         0,
+        //         flush_state.soft_del_count_on_flush,
+        //         -1,
+        //         -1,
+        //         -1,
+        //         StringHelper::random_id(),
+        //     );
+        //
+        //     // 7) 日志：deleted / soft-deleted / 字段特性 / codec
+        //     {
+        //         let mut info = self.info_stream.lock();
+        //         if info.enabled("DWPT") {
+        //             info.message(
+        //                 "DWPT",
+        //                 &format!(
+        //                     "new segment has {} deleted docs",
+        //                     flush_state.del_count_on_flush
+        //                 ),
+        //             );
+        //             info.message(
+        //                 "DWPT",
+        //                 &format!(
+        //                     "new segment has {} soft-deleted docs",
+        //                     flush_state.soft_del_count_on_flush
+        //                 ),
+        //             );
+        //             info.message(
+        //                 "DWPT",
+        //                 &format!(
+        //                     "new segment has {}; {}; {}; {}; {}",
+        //                     if flush_state.field_infos.has_term_vectors() {
+        //                         "vectors"
+        //                     } else {
+        //                         "no vectors"
+        //                     },
+        //                     if flush_state.field_infos.has_norms() {
+        //                         "norms"
+        //                     } else {
+        //                         "no norms"
+        //                     },
+        //                     if flush_state.field_infos.has_doc_values() {
+        //                         "docValues"
+        //                     } else {
+        //                         "no docValues"
+        //                     },
+        //                     if flush_state.field_infos.has_prox() {
+        //                         "prox"
+        //                     } else {
+        //                         "no prox"
+        //                     },
+        //                     if flush_state.field_infos.has_freq() {
+        //                         "freqs"
+        //                     } else {
+        //                         "no freqs"
+        //                     }
+        //                 ),
+        //             );
+        //             info.message(
+        //                 "DWPT",
+        //                 &format!("flushedFiles={:?}", segment_info_per_commit.files()),
+        //             );
+        //             info.message("DWPT", &format!("flushed codec={}", self.codec.name()));
+        //         }
+        //     }
+        //
+        //     // 8) 本 segment 的 BufferedUpdates
+        //     let segment_deletes = if self.pending_updates.delete_queries.is_empty()
+        //         && self.pending_updates.num_field_updates.get() == 0
+        //     {
+        //         self.pending_updates.clear();
+        //         None
+        //     } else {
+        //         Some(self.pending_updates.clone())
+        //     };
+        //
+        //     // 9) 日志：ramUsed / newFlushedSize / docs/MB
+        //     {
+        //         let mut info = self.info_stream.lock();
+        //         if info.enabled("DWPT") {
+        //             let new_size_mb =
+        //                 segment_info_per_commit.size_in_bytes() as f64 / 1024.0 / 1024.0;
+        //             info.message(
+        //                 "DWPT",
+        //                 &format!(
+        //                     "flushed: segment={} ramUsed={:.2} MB newFlushedSize={:.2} MB docs/MB={:.2}",
+        //                     self.segment_info.name,
+        //                     start_mb_used,
+        //                     new_size_mb,
+        //                     flush_state.segment_info.max_doc() as f64 / new_size_mb
+        //                 ),
+        //             );
+        //         }
+        //     }
+        //
+        //     // 10) 构造 FlushedSegment 并 seal
+        //     let mut fs = FlushedSegment::new(
+        //         self.info_stream.clone(),
+        //         segment_info_per_commit,
+        //         flush_state.field_infos.clone(),
+        //         segment_deletes,
+        //         flush_state.live_docs.clone(),
+        //         flush_state.del_count_on_flush,
+        //         sort_map.clone(),
+        //     );
+        //     self.seal_flushed_segment(&mut fs, sort_map, flush_notifications)?;
+        //
+        //     // 11) 日志：flush 耗时
+        //     {
+        //         let mut info = self.info_stream.lock();
+        //         if info.enabled("DWPT") {
+        //             info.message(
+        //                 "DWPT",
+        //                 &format!("flush time {} ms", t0.elapsed().as_millis()),
+        //             );
+        //         }
+        //     }
+        //
+        //     Ok(Some(fs))
+        // })();
+        //
+        // // —— finally 部分 ——
+        // self.maybe_abort("flush", flush_notifications)?;
+        // self.has_flushed.set(true);
+        //
+        // result
+        todo!()
+    }
+
     fn maybe_abort<FN>(&mut self, location: &str, flush_notifications: &mut FN) -> Result<()>
     where
         FN: FlushNotifications,
@@ -283,112 +525,110 @@ where
         FN: FlushNotifications,
         DM: DocMap,
     {
-        // let mut new_segment = &mut flushed_segment.segment_info;
-        //
-        // // set diagnostics
-        // index_writer_util::set_diagnostics(&mut new_segment.info, index_writer_util::SOURCE_FLUSH);
-        //
-        // // prepare IOContext
-        // let info = &new_segment.info;
-        // let context = IOContext::with_flush(FlushInfo::new(
-        //     info.max_doc()?,
-        //     new_segment.size_in_bytes()?,
-        // ))?;
-        //
-        // let mut success = false;
-        // let result: Result<()> = (|| {
-        //     // compound file if needed
-        //     if self.index_writer_config.get_use_compound_file() {
-        //         let original_files = info.files()?.lock().clone();
-        //         let mut dir = TrackingDirectoryWrapper::new(Arc::new(Mutex::new(self.directory.take().unwrap())));
-        //         let info = new_segment.info.clone();
-        //         index_writer_util::create_compound_file(
-        //             &self.info_stream,
-        //             &mut dir,
-        //             &*info,
-        //             &context,
-        //             IOConsumerImpl::new(flush_notifications),
-        //         )?;
-        //         let dir = match Arc::try_unwrap(dir.base.delegate) {
-        //             Ok(mutex) => {
-        //                 mutex.into_inner()
-        //             }
-        //             Err(_) => return Err(LuceneError::illegal_state("TrackingDirectoryWrapper was not uniquely owned")),
-        //         };
-        //         self.directory = Some(dir);
-        //         self.files_to_delete.extend(original_files);
-        //         new_segment.info.set_use_compound_file(true);
-        //     }
-        //
-        //     // Have codec write SegmentInfo.  Must do this after
-        //     // creating CFS so that 1) .si isn't slurped into CFS,
-        //     // and 2) .si reflects useCompoundFile=true change
-        //     // above:
-        //         LATEST_CODEC
-        //         .segment_info_format()
-        //         .write(self.directory.as_mut().unwrap(), &mut new_segment.info, &context)?;
-        //
-        //     // TODO: ideally we would freeze newSegment here!!
-        //     // because any changes after writing the .si will be
-        //     // lost...
-        //
-        //     // Must write deleted docs after the CFS so we don't
-        //     // slurp the del file into CFS:
-        //     if let Some(live_docs) = &flushed_segment.live_docs {
-        //         let del_count = flushed_segment.del_count;
-        //         debug_assert!(del_count > 0);
-        //
-        //         if self.info_stream.lock().enabled("DWPT") {
-        //             self.info_stream.lock().message(
-        //                 "DWPT",
-        //                 &format!(
-        //                     "flush: write {} deletes gen={}",
-        //                     del_count,
-        //                     new_segment.get_del_gen()
-        //                 ),
-        //             );
-        //         }
-        //         match sort_map{
-        //             Some(map)  => {
-        //                 LATEST_CODEC.live_docs_format().write_live_docs(
-        //                     &Self::sort_live_docs(live_docs, &*map),
-        //                     self.directory.as_mut().unwrap(),
-        //                     new_segment,
-        //                     del_count,
-        //                     &context,
-        //                 )?;
-        //             },
-        //             None => {LATEST_CODEC.live_docs_format().write_live_docs(
-        //                 live_docs,
-        //                 self.directory.as_mut().unwrap(),
-        //                 new_segment,
-        //                 del_count,
-        //                 &context,
-        //             )?;},
-        //         }
-        //
-        //         new_segment.set_del_count(del_count)?;
-        //         new_segment.advance_del_gen();
-        //     }
-        //
-        //     success = true;
-        //     Ok(())
-        // })();
-        //
-        // if result.is_err() && !success {
-        //     if self.info_stream.lock().enabled("DWPT") {
-        //         self.info_stream.lock().message(
-        //             "DWPT",
-        //             &format!(
-        //                 "hit exception creating compound file for newly flushed segment {}",
-        //                 new_segment.info.name
-        //             ),
-        //         );
-        //     }
-        // }
+        let new_segment = &mut flushed_segment.segment_info;
 
-        // result
-        Ok(())
+        index_writer_util::set_diagnostics(&mut new_segment.info, index_writer_util::SOURCE_FLUSH);
+
+        let context = IOContext::with_flush(FlushInfo::new(
+            new_segment.info.max_doc()?,
+            new_segment.size_in_bytes()?,
+        ))?;
+
+        let result: Result<()> = (|| {
+            if self.index_writer_config.get_use_compound_file() {
+                let original_files = new_segment.info.files()?.clone();
+                let mut dir = TrackingDirectoryWrapper::new(self.directory.clone());
+                index_writer_util::create_compound_file(
+                    &self.info_stream,
+                    &mut dir,
+                    &mut new_segment.info,
+                    &context,
+                    IOConsumerImpl::new(flush_notifications),
+                )?;
+                self.files_to_delete.extend(original_files);
+                new_segment.info.set_use_compound_file(true);
+            }
+
+            // Have codec write SegmentInfo.  Must do this after
+            // creating CFS so that 1) .si isn't slurped into CFS,
+            // and 2) .si reflects useCompoundFile=true change
+            // above:
+            LATEST_CODEC.segment_info_format().write(
+                &mut *self.directory.lock(),
+                &mut new_segment.info,
+                &context,
+            )?;
+
+            // TODO: ideally we would freeze newSegment here!!
+            // because any changes after writing the .si will be
+            // lost...
+
+            // Must write deleted docs after the CFS so we don't
+            // slurp the del file into CFS:
+            if let Some(live_docs) = &flushed_segment.live_docs {
+                let del_count = flushed_segment.del_count;
+                debug_assert!(del_count > 0);
+
+                if self.info_stream.lock().enabled("DWPT") {
+                    self.info_stream.lock().message(
+                        "DWPT",
+                        &format!(
+                            "flush: write {} deletes gen={}",
+                            del_count,
+                            new_segment.get_del_gen()
+                        ),
+                    );
+                }
+                // TODO: we should prune the segment if it's 100%
+                // deleted... but merge will also catch it.
+
+                // TODO: in the NRT case it'd be better to hand
+                // this del vector over to the
+                // shortly-to-be-opened SegmentReader and let it
+                // carry the changes; there's no reason to use
+                // filesystem as intermediary here.
+                match sort_map {
+                    Some(map) => {
+                        LATEST_CODEC.live_docs_format().write_live_docs(
+                            &Self::sort_live_docs(live_docs, &*map),
+                            &mut *self.directory.lock(),
+                            new_segment,
+                            del_count,
+                            &context,
+                        )?;
+                    },
+                    None => {
+                        LATEST_CODEC.live_docs_format().write_live_docs(
+                            live_docs,
+                            &mut *self.directory.lock(),
+                            new_segment,
+                            del_count,
+                            &context,
+                        )?;
+                    },
+                }
+
+                new_segment.set_del_count(del_count)?;
+                new_segment.advance_del_gen();
+            }
+
+            Ok(())
+        })();
+
+        if result.is_err() && self.info_stream.lock().enabled("DWPT") {
+            self.info_stream.lock().message(
+                "DWPT",
+                &format!(
+                    "hit exception creating compound file for newly flushed segment {}",
+                    new_segment.info.name
+                ),
+            );
+        }
+        result
+    }
+
+    pub(crate) fn get_segment_info(&self) -> &SegmentInfo<D> {
+        &self.segment_info
     }
 
     /// Returns true iff this DWPT is marked as flush pending
@@ -475,7 +715,7 @@ where
         info_stream: InfoStreamLock,
         segment_info: SegmentCommitInfo<D>,
         field_infos: FieldInfos,
-        mut segment_updates: Option<STBufferedUpdates<Q>>,
+        mut segment_updates: Option<MTBufferedUpdates<Q>>,
         live_docs: Option<FixedBitSet>,
         del_count: i32,
         sort_map: Option<Rc<DocMapImpl>>,

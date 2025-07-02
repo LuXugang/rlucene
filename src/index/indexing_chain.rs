@@ -20,7 +20,9 @@ use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
 use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
 use crate::analysis::token_stream::TokenStream;
 use crate::codecs::doc_values_format::DocValuesFormat;
+use crate::codecs::field_infos_format::FieldInfosFormat;
 use crate::codecs::norms_format::NormsFormat;
+use crate::codecs::norms_producer::NormsProducer;
 use crate::codecs::points_format::PointsFormat;
 use crate::codecs::points_writer::PointsWriter;
 use crate::codecs::Codec;
@@ -28,11 +30,12 @@ use crate::document::fields::ReaderEnum;
 use crate::document::invertable_field::InvertableType;
 use crate::document::stored_value::{StoredValue, StoredValueType};
 use crate::index::binary_doc_values_writer::{BinaryDocValuesWriter, BufferedBinaryDocValues};
+use crate::index::buffered_updates::MTBufferedUpdates;
 use crate::index::doc_values::{DocValues, EmptyBinary, EmptyNumeric, EmptySorted};
 use crate::index::doc_values_leaf_reader::DocValuesLeafReader;
 use crate::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::index::doc_values_type::DocValuesType;
-use crate::index::doc_values_writer::{DocValuesWriter, DocValuesWriterEnum};
+use crate::index::doc_values_writer::{DocIdSetIteratorImpl, DocValuesWriter, DocValuesWriterEnum};
 use crate::index::docs_with_field_set::DocsWithFieldSetEnum;
 use crate::index::field_info::FieldInfo;
 use crate::index::field_infos::build::Builder;
@@ -51,6 +54,7 @@ use crate::index::norm_values_writer::NormValuesWriter;
 use crate::index::numeric_doc_values_writer::{BufferedNumericDocValues, NumericDocValuesWriter};
 use crate::index::point_values_writer::PointValuesWriter;
 use crate::index::segment_info::SegmentInfo;
+use crate::index::segment_read_state::SegmentReadState;
 use crate::index::segment_write_state::SegmentWriteState;
 use crate::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
 use crate::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
@@ -70,9 +74,11 @@ use crate::index::term_vectors_consumer::TermVectorsConsumer;
 use crate::index::vector_encoding::VectorEncoding;
 use crate::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::index::BytesRef;
+use crate::search::query::Query;
 use crate::search::similarities::similarities::Similarity;
 use crate::search::sort_field::SortFiledBase;
 use crate::store::directory::Directory;
+use crate::store::IOContext;
 use crate::util::access::Access;
 use crate::util::accountable::Accountable;
 use crate::util::allocator_byte::{
@@ -86,6 +92,7 @@ use crate::util::either_enums::{
 };
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
+use crate::util::info_stream::{InfoStream, InfoStreamLock};
 use crate::util::int_block_pool::{ibp_util, AllocatorI32, AllocatorIntEnum};
 use crate::util::number::Number;
 use crate::util::paged_bytes::PagedBytesDataInput;
@@ -101,6 +108,7 @@ use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 use std::sync::Arc;
+use std::time::Instant;
 
 /// Default general purpose indexing chain, which handles indexing all types of fields.
 pub(crate) struct IndexingChain<D, O, P, T, TS, L>
@@ -123,6 +131,7 @@ where
     next_field_gen: i64,
     fields: Vec<i32>,
     doc_fields: Vec<Option<PerField<O, P, T, TS>>>,
+    info_stream: InfoStreamLock,
     byte_block_allocator: STAllocatorByteEnum,
     index_writer_config: Arc<L>,
     index_created_version_major: i32,
@@ -183,7 +192,7 @@ where
         let doc_values_byte_pool = Rc::new(RefCell::new(ByteBlockPool::new(
             DirectTrackingAllocatorByte::allocator_enum(bytes_used.clone()),
         )));
-
+        let info_stream = index_writer_config.get_info_stream().clone();
         IndexingChain {
             bytes_used,
             field_infos,
@@ -197,18 +206,20 @@ where
             fields: vec![0; 1],
             doc_fields: vec![],
             byte_block_allocator,
+            info_stream,
             index_writer_config,
             index_created_version_major,
             has_hit_aborting_exception: false,
         }
     }
-    pub(crate) fn maybe_sort_segment(
+    pub(crate) fn maybe_sort_segment<D1>(
         &mut self,
         state: &SegmentWriteState<D>,
-        segment_info: &SegmentInfo<D>,
+        segment_info: &SegmentInfo<D1>,
     ) -> Result<Option<Rc<DocMapImpl>>>
     where
         D: Directory,
+        D1: Directory,
     {
         let index_created_version_major = self.index_created_version_major;
         let index_sort = segment_info.get_index_sort();
@@ -269,7 +280,158 @@ where
             None => Ok(None),
         }
     }
+    pub(crate) fn flush<Q, D1>(
+        &mut self,
+        state: &mut SegmentWriteState<D>,
+        segment_info: &mut SegmentInfo<D1>,
+        seg_updates: Option<&mut MTBufferedUpdates<Q>>,
+    ) -> Result<Option<Rc<DocMapImpl>>>
+    where
+        Q: Query,
+        D1: Directory,
+    {
+        // NOTE: caller (DocumentsWriterPerThread) handles
+        // aborting on any exception from this method
+        let sort_map = self.maybe_sort_segment(state, segment_info)?;
+        let max_doc = segment_info.max_doc()?;
+        let iw = &self.info_stream;
 
+        // write norms
+        let t0 = Instant::now();
+        self.write_norms(state, sort_map.clone(), segment_info)?;
+        if self.info_stream.lock().enabled("IW") {
+            self.info_stream.lock().message(
+                "IW",
+                &format!("{} ms to write norms", t0.elapsed().as_millis()),
+            );
+        }
+
+        let read_state = SegmentReadState::with_suffix(
+            state.directory.clone(),
+            state.field_infos.clone(),
+            Rc::new(IOContext::default_io_context()?),
+            &state.segment_suffix,
+        );
+
+        // write doc-values
+        let t0 = Instant::now();
+        self.write_doc_values(state, sort_map.clone(), segment_info)?;
+        if self.info_stream.lock().enabled("IW") {
+            self.info_stream.lock().message(
+                "IW",
+                &format!("{} ms to write docValues", t0.elapsed().as_millis()),
+            );
+        }
+
+        // write points
+        let t0 = Instant::now();
+        self.write_points(state, sort_map.clone())?;
+        if self.info_stream.lock().enabled("IW") {
+            self.info_stream.lock().message(
+                "IW",
+                &format!("{} ms to write points", t0.elapsed().as_millis()),
+            );
+        }
+
+        // write vectors
+        // let t0 = Instant::now();
+        // self.vector_values_consumer.flush(state, sort_map.clone(),segment_info)?;
+        // if self.info_stream.lock().enabled("IW") {
+        //     self.info_stream.lock().message("IW", &format!("{} ms to write vectors", t0.elapsed().as_millis()));
+        // }
+
+        // finish & flush stored fields
+        let t0 = Instant::now();
+        self.stored_fields_consumer.finish(
+            self.index_writer_config.get_codec(),
+            max_doc,
+            segment_info,
+        )?;
+        self.stored_fields_consumer
+            .flush(sort_map.clone(), segment_info)?;
+        if self.info_stream.lock().enabled("IW") {
+            self.info_stream.lock().message(
+                "IW",
+                &format!("{} ms to finish stored fields", t0.elapsed().as_millis()),
+            );
+        }
+
+        // collect fieldsToFlush
+        let mut fields_to_flush = HashMap::new();
+        for &idx in &self.field_hash {
+            let mut fp_idx = idx;
+            while fp_idx >= 0 {
+                let pf = self.doc_fields[fp_idx as usize].as_mut().unwrap();
+                if let Some(ref inv) = pf.invert_state {
+                    fields_to_flush.insert(
+                        pf.field_info.as_ref().unwrap().name.clone(),
+                        pf.terms_hash_per_field.take().unwrap(),
+                    );
+                }
+                fp_idx = pf.next;
+            }
+        }
+
+        let norms = if read_state.field_infos.has_norms() {
+            Some(
+                self.index_writer_config
+                    .get_codec()
+                    .norms_format()
+                    .norms_producer(&read_state, segment_info)?,
+            )
+        } else {
+            None
+        };
+        let mut norms_merge_instance = match norms {
+            // Use the merge instance in order to reuse the same IndexInput for all terms
+            Some(norms) => norms.get_merge_instance()?,
+            None => None,
+        };
+
+        // flush postings + vectors
+        let t0 = Instant::now();
+        self.terms_hash.flush(
+            fields_to_flush,
+            state,
+            sort_map.clone(),
+            norms_merge_instance.as_mut().unwrap(),
+            self.index_writer_config.get_codec(),
+            segment_info,
+            seg_updates,
+        )?;
+        if self.info_stream.lock().enabled("IW") {
+            self.info_stream.lock().message(
+                "IW",
+                &format!(
+                    "{} ms to write postings and finish vectors",
+                    t0.elapsed().as_millis()
+                ),
+            );
+        }
+        // Important to save after asking consumer to flush so
+        // consumer can alter the FieldInfo* if necessary.  EG,
+        // FreqProxTermsWriter does this with
+        // FieldInfo.storePayload.
+        let t0 = Instant::now();
+        self.index_writer_config
+            .get_codec()
+            .field_infos_format()
+            .write(
+                &mut *state.directory.lock(),
+                segment_info,
+                "",
+                &state.field_infos,
+                &IOContext::default_io_context()?,
+            )?;
+        if self.info_stream.lock().enabled("IW") {
+            self.info_stream.lock().message(
+                "IW",
+                &format!("{} ms to write fieldInfos", t0.elapsed().as_millis()),
+            );
+        }
+
+        Ok(sort_map)
+    }
     ///  Writes all buffered points.
     pub fn write_points<DM>(
         &mut self,
@@ -314,14 +476,15 @@ where
     }
 
     /// Writes all buffered doc values.
-    fn write_doc_values<DM>(
+    fn write_doc_values<DM, D1>(
         &mut self,
         state: &SegmentWriteState<D>,
         sort_map: Option<Rc<DM>>,
-        segment_info: &SegmentInfo<D>,
+        segment_info: &SegmentInfo<D1>,
     ) -> Result<()>
     where
         DM: DocMap,
+        D1: Directory,
     {
         let mut dv_consumer = None;
 
@@ -346,43 +509,11 @@ where
                         dv_consumer = Some(fmt.fields_consumer(state, segment_info)?);
                     }
                     // Since it’s only ever called once globally, we didn’t implement the DocValuesWriter trait for DocValuesWriterEnum.
-                    match writer {
-                        DocValuesWriterEnum::Binary(writer) => {
-                            writer.flush(
-                                sort_map.clone(),
-                                dv_consumer.as_mut().unwrap(),
-                                segment_info,
-                            )?;
-                        },
-                        DocValuesWriterEnum::Numeric(writer) => {
-                            writer.flush(
-                                sort_map.clone(),
-                                dv_consumer.as_mut().unwrap(),
-                                segment_info,
-                            )?;
-                        },
-                        DocValuesWriterEnum::SortedNumeric(writer) => {
-                            writer.flush(
-                                sort_map.clone(),
-                                dv_consumer.as_mut().unwrap(),
-                                segment_info,
-                            )?;
-                        },
-                        DocValuesWriterEnum::Sorted(writer) => {
-                            writer.flush(
-                                sort_map.clone(),
-                                dv_consumer.as_mut().unwrap(),
-                                segment_info,
-                            )?;
-                        },
-                        DocValuesWriterEnum::SortedSet(writer) => {
-                            writer.flush(
-                                sort_map.clone(),
-                                dv_consumer.as_mut().unwrap(),
-                                segment_info,
-                            )?;
-                        },
-                    }
+                    writer.flush(
+                        sort_map.clone(),
+                        dv_consumer.as_mut().unwrap(),
+                        segment_info,
+                    )?;
                 } else if *field_info.get_doc_values_type() == DocValuesType::None {
                     return Err(LuceneError::illegal_state(format!(
                         "segment= {segment_info}: fieldInfos has docValues but did not wrote them "
@@ -405,14 +536,15 @@ where
         Ok(())
     }
 
-    fn write_norms<DM>(
+    fn write_norms<DM, D1>(
         &mut self,
         state: &SegmentWriteState<D>,
         sort_map: Option<Rc<DM>>,
-        segment_info: &SegmentInfo<D>,
+        segment_info: &SegmentInfo<D1>,
     ) -> Result<()>
     where
         DM: DocMap,
+        D1: Directory,
     {
         if !state.field_infos.has_norms() {
             return Ok(());
@@ -1067,6 +1199,21 @@ where
     {
         self.get_or_add_per_field(field.name(), true);
         ReservedField::new(field)
+    }
+    pub(crate) fn get_has_doc_values(
+        &mut self,
+        field: &str,
+    ) -> Result<Option<DocIdSetIteratorImpl>> {
+        if let Some(idx) = self.get_per_field(field) {
+            let pf = self.doc_fields[idx].as_mut().unwrap();
+            if let Some(ref mut writer_enum) = pf.doc_values_writer {
+                if *pf.field_info.as_ref().unwrap().get_doc_values_type() == DocValuesType::None {
+                    return Ok(None);
+                }
+                return Ok(Some(writer_enum.get_doc_values()?));
+            }
+        }
+        Ok(None)
     }
 }
 impl<D, O, P, T, TS, L> Accountable for IndexingChain<D, O, P, T, TS, L>

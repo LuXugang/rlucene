@@ -105,13 +105,14 @@ impl Lucene90NormsFormat {
     pub(crate) const VERSION_CURRENT: i32 = Self::VERSION_START;
 }
 impl NormsFormat for Lucene90NormsFormat {
-    fn norms_consumer<D>(
+    fn norms_consumer<D, D1>(
         &self,
         state: &SegmentWriteState<D>,
-        segment_info: &SegmentInfo<D>,
+        segment_info: &SegmentInfo<D1>,
     ) -> Result<NormsConsumerEnum<D::IndexOutputType>>
     where
         D: Directory,
+        D1: Directory,
     {
         let norms_consumer = Lucene90NormsConsumer::new(
             state,
@@ -124,13 +125,14 @@ impl NormsFormat for Lucene90NormsFormat {
         Ok(NormsConsumerEnum::Lucene90(norms_consumer))
     }
 
-    fn norms_producer<D>(
+    fn norms_producer<D, D1>(
         &self,
         state: &SegmentReadState<D>,
-        segment_info: &SegmentInfo<D>,
+        segment_info: &SegmentInfo<D1>,
     ) -> Result<NormsProducerEnum<D::IndexInputType>>
     where
         D: Directory,
+        D1: Directory,
     {
         let norms_producer = Lucene90NormsProducer::new(
             state,

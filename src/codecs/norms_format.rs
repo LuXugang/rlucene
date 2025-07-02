@@ -28,13 +28,14 @@ pub trait NormsFormat {
     ///
     /// # Arguments
     /// * `state` - The write state containing segment info, directory, etc.
-    fn norms_consumer<D>(
+    fn norms_consumer<D, D1>(
         &self,
         state: &SegmentWriteState<D>,
-        segment_info: &SegmentInfo<D>,
+        segment_info: &SegmentInfo<D1>,
     ) -> Result<NormsConsumerEnum<D::IndexOutputType>>
     where
-        D: Directory;
+        D: Directory,
+        D1: Directory;
 
     /// Returns a [`NormsProducer`](crate::codecs::norms_producer::NormsProducer) to read norms from the index.
     ///
@@ -49,11 +50,12 @@ pub trait NormsFormat {
     ///
     /// - I/O errors are expected and will automatically trigger a retry of
     ///   segment opening logic using the newly revised segments.
-    fn norms_producer<D>(
+    fn norms_producer<D, D1>(
         &self,
         state: &SegmentReadState<D>,
-        segment_info: &SegmentInfo<D>,
+        segment_info: &SegmentInfo<D1>,
     ) -> Result<NormsProducerEnum<D::IndexInputType>>
     where
-        D: Directory;
+        D: Directory,
+        D1: Directory;
 }

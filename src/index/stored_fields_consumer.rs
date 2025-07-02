@@ -54,11 +54,14 @@ where
             sub,
         }
     }
-    fn init_stored_fields_writer(
+    fn init_stored_fields_writer<D1>(
         &mut self,
         codec: &impl Codec,
-        info: &mut SegmentInfo<D>,
-    ) -> Result<()> {
+        info: &mut SegmentInfo<D1>,
+    ) -> Result<()>
+    where
+        D1: Directory,
+    {
         match self.sub {
             Some(ref mut sub) => {
                 if sub.writer.is_none() {
@@ -79,12 +82,15 @@ where
         Ok(())
     }
 
-    pub(crate) fn start_document(
+    pub(crate) fn start_document<D1>(
         &mut self,
         codec: &impl Codec,
         doc_id: i32,
-        info: &mut SegmentInfo<D>,
-    ) -> Result<()> {
+        info: &mut SegmentInfo<D1>,
+    ) -> Result<()>
+    where
+        D1: Directory,
+    {
         debug_assert!(self.last_doc < doc_id);
         self.init_stored_fields_writer(codec, info)?;
 
@@ -146,12 +152,15 @@ where
         Ok(())
     }
 
-    fn finish(
+    pub(crate) fn finish<D1>(
         &mut self,
         codec: &impl Codec,
         max_doc: i32,
-        info: &mut SegmentInfo<D>,
-    ) -> Result<()> {
+        info: &mut SegmentInfo<D1>,
+    ) -> Result<()>
+    where
+        D1: Directory,
+    {
         while self.last_doc < max_doc - 1 {
             self.start_document(codec, self.last_doc + 1, info)?;
             self.finish_document()?;
@@ -159,9 +168,14 @@ where
         Ok(())
     }
 
-    fn flush<DM>(&mut self, _sort_map: Option<Rc<DM>>, info: &SegmentInfo<D>) -> Result<()>
+    pub(crate) fn flush<DM, D1>(
+        &mut self,
+        _sort_map: Option<Rc<DM>>,
+        info: &SegmentInfo<D1>,
+    ) -> Result<()>
     where
         DM: DocMap,
+        D1: Directory,
     {
         match self.sub {
             Some(ref mut sub) => {
@@ -186,15 +200,18 @@ where
 
 pub(crate) trait StoredFieldsConsumerBase {
     type Directory: Directory;
-    fn init_stored_fields_writer(&mut self, info: &mut SegmentInfo<Self::Directory>) -> Result<()>;
-    fn flush<DM>(
+    fn init_stored_fields_writer<D1>(&mut self, info: &mut SegmentInfo<D1>) -> Result<()>
+    where
+        D1: Directory;
+    fn flush<DM, D1>(
         &mut self,
         state: &SegmentWriteState<Self::Directory>,
         sort_map: Option<Rc<DM>>,
         codec: &impl Codec,
-        info: &mut SegmentInfo<Self::Directory>,
+        info: &mut SegmentInfo<D1>,
     ) -> Result<()>
     where
-        DM: DocMap;
+        DM: DocMap,
+        D1: Directory;
     fn abort(&mut self) -> Result<()>;
 }

@@ -17,7 +17,7 @@
 use crate::codecs::norms_producer::NormsProducer;
 use crate::codecs::Codec;
 use crate::index::automaton_terms_enum::AutomatonTermsEnum;
-use crate::index::buffered_updates::STBufferedUpdates;
+use crate::index::buffered_updates::MTBufferedUpdates;
 use crate::index::field_info::FieldInfo;
 use crate::index::field_infos::FieldInfos;
 use crate::index::fields::Fields;
@@ -87,15 +87,15 @@ where
             base,
         }
     }
-    fn apply_deletes<Q>(
+    fn apply_deletes<Q, D1>(
         &self,
         state: &mut SegmentWriteState<D>,
         fields: FreqProxFields,
-        segment_info: &SegmentInfo<D>,
-        seg_updates: Option<&mut STBufferedUpdates<Q>>,
+        segment_info: &SegmentInfo<D1>,
+        seg_updates: Option<&mut MTBufferedUpdates<Q>>,
     ) -> Result<()>
     where
-        D: Directory,
+        D1: Directory,
         Q: Query,
     {
         if let Some(seg_updates) = seg_updates {
@@ -139,20 +139,21 @@ where
         self.next_terms_hash.as_mut().unwrap().abort()
     }
 
-    fn flush<N, DM, Q>(
+    pub(crate) fn flush<N, DM, Q, D1>(
         &mut self,
         fields_to_flush: HashMap<String, FreqProxTermsWriterPerField>,
         state: &mut SegmentWriteState<D>,
         sort_map: Option<Rc<DM>>,
         _norms: &mut N,
         codec: &impl Codec,
-        info: &SegmentInfo<D>,
-        seg_updates: Option<&mut STBufferedUpdates<Q>>,
+        info: &SegmentInfo<D1>,
+        seg_updates: Option<&mut MTBufferedUpdates<Q>>,
     ) -> Result<()>
     where
         N: NormsProducer,
         DM: DocMap,
         Q: Query,
+        D1: Directory,
     {
         if let Some(term_vector_consumer) = self.next_terms_hash.as_mut() {
             term_vector_consumer.flush(state, &sort_map, codec, info)?;

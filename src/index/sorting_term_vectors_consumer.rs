@@ -196,15 +196,16 @@ where
 {
     type Directory = D;
 
-    fn flush<DM>(
+    fn flush<DM, D1>(
         &mut self,
-        state: &mut SegmentWriteState<Self::Directory>,
+        state: &SegmentWriteState<Self::Directory>,
         sort_map: &Option<Rc<DM>>,
         codec: &impl Codec,
-        segment_info: &SegmentInfo<D>,
+        segment_info: &SegmentInfo<D1>,
     ) -> Result<()>
     where
         DM: DocMap,
+        D1: Directory,
     {
         {
             let mut tmp_dir = self.tmp_directory.lock();

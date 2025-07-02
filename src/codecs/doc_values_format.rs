@@ -29,13 +29,14 @@ use crate::util::error::lucene_error::Result;
 pub trait DocValuesFormat: Display {
     type DocValuesConsumer<T: IndexOutput>: DocValuesConsumer;
     /// Returns a [`DocValuesConsumer`] to write docvalues to the index.
-    fn fields_consumer<D>(
+    fn fields_consumer<D, D1>(
         &self,
         state: &SegmentWriteState<D>,
-        segment_info: &SegmentInfo<D>,
+        segment_info: &SegmentInfo<D1>,
     ) -> Result<Self::DocValuesConsumer<D::IndexOutputType>>
     where
-        D: Directory;
+        D: Directory,
+        D1: Directory;
 
     type DocValuesProducer<T: IndexInput>: DocValuesProducer;
     /// Returns a [`DocValuesProducer`] to read docvalues from the index.

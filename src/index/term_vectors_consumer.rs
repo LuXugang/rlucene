@@ -199,15 +199,16 @@ where
         self.per_fields[num_vector_fields] = field_to_flush;
         self.num_vector_fields += 1;
     }
-    pub(crate) fn flush<DM>(
+    pub(crate) fn flush<DM, D1>(
         &mut self,
-        state: &mut SegmentWriteState<D>,
+        state: &SegmentWriteState<D>,
         sort_map: &Option<Rc<DM>>,
         codec: &impl Codec,
-        info: &SegmentInfo<D>,
+        info: &SegmentInfo<D1>,
     ) -> Result<()>
     where
         DM: DocMap,
+        D1: Directory,
     {
         if self.writer.is_some()
             || (self.sub.is_some() && self.sub.as_ref().unwrap().writer.is_some())
@@ -280,15 +281,16 @@ where
 
 pub(crate) trait TermVectorsConsumerBase {
     type Directory: Directory;
-    fn flush<DM>(
+    fn flush<DM, D1>(
         &mut self,
-        state: &mut SegmentWriteState<Self::Directory>,
+        state: &SegmentWriteState<Self::Directory>,
         sort_map: &Option<Rc<DM>>,
         codec: &impl Codec,
-        info: &SegmentInfo<Self::Directory>,
+        info: &SegmentInfo<D1>,
     ) -> Result<()>
     where
-        DM: DocMap;
+        DM: DocMap,
+        D1: Directory;
     fn init_term_vectors_writer(
         &mut self,
         last_doc_id: i32,
