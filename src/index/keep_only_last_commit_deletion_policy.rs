@@ -28,7 +28,7 @@ impl Display for KeepOnlyLastCommitDeletionPolicy {
 }
 
 impl IndexDeletionPolicy for KeepOnlyLastCommitDeletionPolicy {
-    fn on_init<IC>(&mut self, commits: &mut [IC]) -> Result<()>
+    fn on_init<IC>(&self, commits: &mut [IC]) -> Result<()>
     where
         IC: IndexCommit,
     {
@@ -36,7 +36,7 @@ impl IndexDeletionPolicy for KeepOnlyLastCommitDeletionPolicy {
     }
 
     /// Deletes all commits except the most recent one.
-    fn on_commit<IC>(&mut self, commits: &mut [IC]) -> Result<()>
+    fn on_commit<IC>(&self, commits: &mut [IC]) -> Result<()>
     where
         IC: IndexCommit,
     {

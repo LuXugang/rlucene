@@ -74,7 +74,7 @@ where
     info_stream: InfoStreamLock,
     directory_orig: Arc<Mutex<D>>,
     directory: Arc<Mutex<D>>,
-    policy: P,
+    policy: Arc<P>,
 
     /// Whether the starting commit was deleted.
     starting_commit_deleted: bool,
@@ -92,7 +92,7 @@ where
         files: impl IntoIterator<Item = String>,
         directory_orig: Arc<Mutex<D>>,
         directory: Arc<Mutex<D>>,
-        policy: P,
+        policy: Arc<P>,
         mut segment_infos: SegmentInfos<D>,
         info_stream: InfoStreamLock,
         initial_index_exists: bool,
