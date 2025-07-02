@@ -30,6 +30,7 @@ use crate::index::field_infos::FieldInfos;
 use crate::index::fields::Fields;
 use crate::index::index_options::IndexOptions;
 use crate::index::postings_enum::PostingsEnum;
+use crate::index::segment_info::SegmentInfo;
 use crate::index::segment_write_state::SegmentWriteState;
 use crate::index::terms::Terms;
 use crate::index::terms_enum::TermsEnum;
@@ -230,6 +231,7 @@ where
         postings_writer: PW,
         min_items_in_block: i32,
         max_items_in_block: i32,
+        segment_info: &SegmentInfo<D>,
     ) -> Result<Self>
     where
         D: Directory<IndexOutputType = O>,
@@ -240,6 +242,7 @@ where
             min_items_in_block,
             max_items_in_block,
             lucene90_bttr_util::VERSION_CURRENT,
+            segment_info,
         )
     }
     /// Expert constructor that allows configuring the version, used for bw tests
@@ -249,6 +252,7 @@ where
         min_items_in_block: i32,
         max_items_in_block: i32,
         version: i32,
+        segment_info: &SegmentInfo<D>,
     ) -> Result<Self>
     where
         D: Directory<IndexOutputType = O>,
@@ -266,11 +270,11 @@ where
             )));
         }
 
-        let max_doc = state.segment_info.max_doc()?;
+        let max_doc = segment_info.max_doc()?;
         let field_infos = Rc::clone(&state.field_infos);
 
         let terms_name = IndexFileNames::segment_file_name(
-            &state.segment_info.name,
+            &segment_info.name,
             &state.segment_suffix,
             lucene90_bttr_util::TERMS_EXTENSION,
         );
@@ -282,11 +286,11 @@ where
             &mut terms_out,
             lucene90_bttr_util::TERMS_CODEC_NAME,
             version,
-            state.segment_info.get_id(),
+            segment_info.get_id(),
             &state.segment_suffix,
         )?;
         let index_name = IndexFileNames::segment_file_name(
-            &state.segment_info.name,
+            &segment_info.name,
             &state.segment_suffix,
             lucene90_bttr_util::TERMS_INDEX_EXTENSION,
         );
@@ -298,11 +302,11 @@ where
             &mut index_out,
             lucene90_bttr_util::TERMS_INDEX_CODEC_NAME,
             version,
-            state.segment_info.get_id(),
+            segment_info.get_id(),
             &state.segment_suffix,
         )?;
         let meta_name = IndexFileNames::segment_file_name(
-            &state.segment_info.name,
+            &segment_info.name,
             &state.segment_suffix,
             lucene90_bttr_util::TERMS_META_EXTENSION,
         );
@@ -314,11 +318,11 @@ where
             &mut meta_out,
             lucene90_bttr_util::TERMS_META_CODEC_NAME,
             version,
-            state.segment_info.get_id(),
+            segment_info.get_id(),
             &state.segment_suffix,
         )?;
 
-        postings_writer.init(&mut meta_out, state)?;
+        postings_writer.init(&mut meta_out, state, segment_info)?;
 
         Ok(Self {
             meta_out,

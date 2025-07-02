@@ -17,7 +17,7 @@
 use crate::codecs::doc_values_consumer::DocValuesConsumer;
 use crate::index::binary_doc_values_writer::BinaryDocValuesWriter;
 use crate::index::numeric_doc_values_writer::NumericDocValuesWriter;
-use crate::index::segment_write_state::SegmentWriteState;
+use crate::index::segment_info::SegmentInfo;
 use crate::index::sorted_doc_values_writer::SortedDocValuesWriter;
 use crate::index::sorted_numeric_doc_values_writer::SortedNumericDocValuesWriter;
 use crate::index::sorted_set_doc_values_writer::SortedSetDocValuesWriter;
@@ -31,9 +31,9 @@ use std::rc::Rc;
 pub(crate) trait DocValuesWriter: Display {
     fn flush<D, DM, DC>(
         &mut self,
-        _state: &SegmentWriteState<D>,
         sort_map: Option<Rc<DM>>,
         dv_consumer: &mut DC,
+        segment_info: &SegmentInfo<D>,
     ) -> Result<()>
     where
         D: Directory,

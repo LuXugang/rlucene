@@ -16,6 +16,7 @@
  */
 use crate::codecs::norms_consumer::NormsConsumerEnum;
 use crate::codecs::norms_producer::NormsProducerEnum;
+use crate::index::segment_info::SegmentInfo;
 use crate::index::segment_read_state::SegmentReadState;
 use crate::index::segment_write_state::SegmentWriteState;
 use crate::store::directory::Directory;
@@ -30,6 +31,7 @@ pub trait NormsFormat {
     fn norms_consumer<D>(
         &self,
         state: &SegmentWriteState<D>,
+        segment_info: &SegmentInfo<D>,
     ) -> Result<NormsConsumerEnum<D::IndexOutputType>>
     where
         D: Directory;

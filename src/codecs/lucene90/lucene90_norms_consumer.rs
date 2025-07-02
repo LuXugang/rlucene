@@ -23,6 +23,7 @@ use crate::codecs::norms_producer::NormsProducer;
 use crate::codecs::CodecUtil;
 use crate::index::field_info::FieldInfo;
 use crate::index::numeric_doc_values::NumericDocValues;
+use crate::index::segment_info::SegmentInfo;
 use crate::index::segment_write_state::SegmentWriteState;
 use crate::index::IndexFileNames;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
@@ -50,12 +51,13 @@ impl<O: IndexOutput> Lucene90NormsConsumer<O> {
         data_extension: &str,
         meta_codec: &str,
         meta_extension: &str,
+        segment_info: &SegmentInfo<D>,
     ) -> Result<Self>
     where
         D: Directory<IndexOutputType = O>,
     {
         let data_name = IndexFileNames::segment_file_name(
-            &state.segment_info.name,
+            &segment_info.name,
             &state.segment_suffix,
             data_extension,
         );
@@ -65,12 +67,12 @@ impl<O: IndexOutput> Lucene90NormsConsumer<O> {
             &mut data,
             data_codec,
             Lucene90NormsFormat::VERSION_CURRENT,
-            state.segment_info.get_id(),
+            segment_info.get_id(),
             &state.segment_suffix,
         )?;
 
         let meta_name = IndexFileNames::segment_file_name(
-            &state.segment_info.name,
+            &segment_info.name,
             &state.segment_suffix,
             meta_extension,
         );
@@ -79,11 +81,11 @@ impl<O: IndexOutput> Lucene90NormsConsumer<O> {
             &mut meta,
             meta_codec,
             Lucene90NormsFormat::VERSION_CURRENT,
-            state.segment_info.get_id(),
+            segment_info.get_id(),
             &state.segment_suffix,
         )?;
 
-        let max_doc = state.segment_info.max_doc()?;
+        let max_doc = segment_info.max_doc()?;
 
         Ok(Self {
             data,

@@ -42,9 +42,6 @@ where
     /// Directory where this segment will be written to.
     pub directory: Arc<Mutex<D>>,
 
-    /// SegmentInfo describing this segment.
-    pub segment_info: Rc<SegmentInfo<D>>,
-
     /// FieldInfos describing all fields in this segment.
     pub field_infos: Rc<FieldInfos>,
 
@@ -96,7 +93,6 @@ where
         Self::with_suffix(
             info_stream,
             directory,
-            segment_info,
             field_infos,
             seg_updates,
             context,
@@ -108,7 +104,6 @@ where
     pub(crate) fn with_suffix(
         info_stream: InfoStreamLock,
         directory: Arc<Mutex<D>>,
-        segment_info: Rc<SegmentInfo<D>>,
         field_infos: Rc<FieldInfos>,
         seg_updates: Option<STBufferedUpdates<DummyQuery>>,
         context: Rc<IOContext>,
@@ -119,7 +114,6 @@ where
         Self {
             info_stream,
             directory,
-            segment_info,
             field_infos,
             seg_updates,
             context,
@@ -135,7 +129,6 @@ where
         Self {
             info_stream: state.info_stream.clone(),
             directory: Arc::clone(&state.directory),
-            segment_info: Rc::clone(&state.segment_info),
             field_infos: Rc::clone(&state.field_infos),
             seg_updates: state.seg_updates.clone(),
             context: Rc::clone(&state.context),

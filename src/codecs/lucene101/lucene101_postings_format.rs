@@ -28,6 +28,7 @@ use crate::codecs::lucene101::lucene101_postings_reader::Lucene101PostingsReader
 use crate::codecs::lucene101::lucene101_postings_writer::Lucene101PostingsWriter;
 use crate::codecs::postings_format::PostingsFormat;
 use crate::codecs::push_postings_writer_base::PushPostingsWriterBase;
+use crate::index::segment_info::SegmentInfo;
 use crate::index::segment_read_state::SegmentReadState;
 use crate::index::segment_write_state::SegmentWriteState;
 use crate::index::term_state::{TermState, TermStateEnum};
@@ -328,13 +329,16 @@ impl PostingsFormat for Lucene101PostingsFormat {
     fn fields_consumer<D: Directory>(
         &self,
         state: &SegmentWriteState<D>,
+        segment_info: &SegmentInfo<D>,
     ) -> Result<FieldsConsumerEnum<D::IndexOutputType>> {
-        let posting_writer = PushPostingsWriterBase::new(Lucene101PostingsWriter::new(state)?);
+        let posting_writer =
+            PushPostingsWriterBase::new(Lucene101PostingsWriter::new(state, segment_info)?);
         let ret = FieldsConsumerEnum::Lucene90(Lucene90BlockTreeTermsWriter::new(
             state,
             posting_writer,
             self.min_term_block_size,
             self.max_term_block_size,
+            segment_info,
         )?);
         Ok(ret)
     }

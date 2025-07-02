@@ -212,7 +212,7 @@ where
         if self.writer.is_some()
             || (self.sub.is_some() && self.sub.as_ref().unwrap().writer.is_some())
         {
-            let num_docs = state.segment_info.max_doc()?;
+            let num_docs = info.max_doc()?;
             debug_assert!(num_docs > 0);
             // At least one doc in this run had term vectors enabled
             self.fill(num_docs)?;

@@ -26,7 +26,7 @@ use crate::index::doc_values_writer::DocValuesWriter;
 use crate::index::docs_with_field_set::{DocsWithFieldSet, DocsWithFieldSetEnum};
 use crate::index::field_info::FieldInfo;
 use crate::index::numeric_doc_values::NumericDocValues;
-use crate::index::segment_write_state::SegmentWriteState;
+use crate::index::segment_info::SegmentInfo;
 use crate::index::sorter::DocMap;
 use crate::search::doc_id_set::DocIdSet;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
@@ -116,9 +116,9 @@ impl Display for NumericDocValuesWriter {
 impl DocValuesWriter for NumericDocValuesWriter {
     fn flush<D, DM, DC>(
         &mut self,
-        _state: &SegmentWriteState<D>,
         sort_map: Option<Rc<DM>>,
         dv_consumer: &mut DC,
+        _segment_info: &SegmentInfo<D>,
     ) -> Result<()>
     where
         D: Directory,

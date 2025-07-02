@@ -29,7 +29,7 @@ use crate::index::field_info::FieldInfo;
 use crate::index::numeric_doc_values_writer::{
     ndvw_util, BufferedNumericDocValues, DocValuesProducerImpl, SortingNumericDocValues,
 };
-use crate::index::segment_write_state::SegmentWriteState;
+use crate::index::segment_info::SegmentInfo;
 use crate::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
 use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::index::sorted_numeric_doc_values_writer::sndvw_util::LongValues;
@@ -201,9 +201,9 @@ impl Display for SortedNumericDocValuesWriter {
 impl DocValuesWriter for SortedNumericDocValuesWriter {
     fn flush<D, DM, DC>(
         &mut self,
-        state: &SegmentWriteState<D>,
         sort_map: Option<Rc<DM>>,
         dv_consumer: &mut DC,
+        segment_info: &SegmentInfo<D>,
     ) -> Result<()>
     where
         D: Directory,
@@ -244,7 +244,7 @@ impl DocValuesWriter for SortedNumericDocValuesWriter {
                 &self.docs_with_field,
             )?;
             Some(LongValues::new(
-                state.segment_info.max_doc()? as usize,
+                segment_info.max_doc()? as usize,
                 &sort_map,
                 &mut v,
                 PackedInts::FASTEST,

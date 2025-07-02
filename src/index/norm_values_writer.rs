@@ -21,7 +21,7 @@ use crate::index::docs_with_field_set::{DocsWithFieldSet, DocsWithFieldSetEnum};
 use crate::index::field_info::FieldInfo;
 use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::numeric_doc_values_writer::{ndvw_util, NumericDVs, SortingNumericDocValues};
-use crate::index::segment_write_state::SegmentWriteState;
+use crate::index::segment_info::SegmentInfo;
 use crate::index::sorter::DocMap;
 use crate::search::doc_id_set::DocIdSet;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
@@ -90,16 +90,16 @@ impl NormValuesWriter {
 
     pub(crate) fn flush<D, DM, N>(
         &mut self,
-        state: &SegmentWriteState<D>,
         sort_map: Option<Rc<DM>>,
         norms_consumer: &mut N,
+        segment_info: &SegmentInfo<D>,
     ) -> Result<()>
     where
         D: Directory,
         DM: DocMap,
         N: NormsConsumer,
     {
-        self.finish(state.segment_info.max_doc()?);
+        self.finish(segment_info.max_doc()?);
         let values = std::mem::take(&mut self.pending).build()?;
         let sorted = match sort_map {
             Some(sort_map) => {
@@ -110,7 +110,7 @@ impl NormValuesWriter {
                 };
                 let mut buffer_norms = BufferedNorms::new(&values, iter);
                 let sorted = ndvw_util::sort_doc_values(
-                    state.segment_info.max_doc()?,
+                    segment_info.max_doc()?,
                     &*sort_map,
                     &mut buffer_norms,
                     dense,

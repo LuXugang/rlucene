@@ -16,6 +16,7 @@
  */
 use crate::codecs::fields_consumer::FieldsConsumerEnum;
 use crate::codecs::fields_producer::FieldsProducerEnum;
+use crate::index::segment_info::SegmentInfo;
 use crate::index::segment_read_state::SegmentReadState;
 use crate::index::segment_write_state::SegmentWriteState;
 use crate::store::directory::Directory;
@@ -26,6 +27,7 @@ pub trait PostingsFormat {
     fn fields_consumer<D: Directory>(
         &self,
         state: &SegmentWriteState<D>,
+        segment_info: &SegmentInfo<D>,
     ) -> Result<FieldsConsumerEnum<D::IndexOutputType>>;
     /// Reads a segment. **NOTE**: by the time this call returns, it must hold open any files it will need
     /// to use; else, those files may be deleted. Additionally, required files may be deleted during

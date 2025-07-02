@@ -205,19 +205,20 @@ where
     pub(crate) fn maybe_sort_segment(
         &mut self,
         state: &SegmentWriteState<D>,
+        segment_info: &SegmentInfo<D>,
     ) -> Result<Option<Rc<DocMapImpl>>>
     where
         D: Directory,
     {
         let index_created_version_major = self.index_created_version_major;
-        let index_sort = state.segment_info.get_index_sort();
+        let index_sort = segment_info.get_index_sort();
         if index_sort.is_none() {
             return Ok(None);
         }
 
         let mut doc_values_reader = DocValuesLeafReaderImpl1::new(self);
-        let max_doc = state.segment_info.max_doc()?;
-        let has_blocks = state.segment_info.get_has_blocks();
+        let max_doc = segment_info.max_doc()?;
+        let has_blocks = segment_info.get_has_blocks();
         let parent_field = state.field_infos.get_parent_field();
         let use_parent = has_blocks && parent_field.is_some();
         let parent_bit_set = if use_parent {
@@ -317,6 +318,7 @@ where
         &mut self,
         state: &SegmentWriteState<D>,
         sort_map: Option<Rc<DM>>,
+        segment_info: &SegmentInfo<D>,
     ) -> Result<()>
     where
         DM: DocMap,
@@ -335,36 +337,55 @@ where
                     if *field_info.get_doc_values_type() != DocValuesType::None {
                         return Err(LuceneError::illegal_state(format!(
                             "segment= {}: field={} has no docvalues but wrote them",
-                            state.segment_info, field_info.name
+                            segment_info, field_info.name
                         )));
                     }
                     if dv_consumer.is_none() {
                         // lazy init
                         let fmt = self.index_writer_config.get_codec().doc_values_format();
-                        dv_consumer = Some(fmt.fields_consumer(state)?);
+                        dv_consumer = Some(fmt.fields_consumer(state, segment_info)?);
                     }
                     // Since it’s only ever called once globally, we didn’t implement the DocValuesWriter trait for DocValuesWriterEnum.
                     match writer {
                         DocValuesWriterEnum::Binary(writer) => {
-                            writer.flush(state, sort_map.clone(), dv_consumer.as_mut().unwrap())?;
+                            writer.flush(
+                                sort_map.clone(),
+                                dv_consumer.as_mut().unwrap(),
+                                segment_info,
+                            )?;
                         },
                         DocValuesWriterEnum::Numeric(writer) => {
-                            writer.flush(state, sort_map.clone(), dv_consumer.as_mut().unwrap())?;
+                            writer.flush(
+                                sort_map.clone(),
+                                dv_consumer.as_mut().unwrap(),
+                                segment_info,
+                            )?;
                         },
                         DocValuesWriterEnum::SortedNumeric(writer) => {
-                            writer.flush(state, sort_map.clone(), dv_consumer.as_mut().unwrap())?;
+                            writer.flush(
+                                sort_map.clone(),
+                                dv_consumer.as_mut().unwrap(),
+                                segment_info,
+                            )?;
                         },
                         DocValuesWriterEnum::Sorted(writer) => {
-                            writer.flush(state, sort_map.clone(), dv_consumer.as_mut().unwrap())?;
+                            writer.flush(
+                                sort_map.clone(),
+                                dv_consumer.as_mut().unwrap(),
+                                segment_info,
+                            )?;
                         },
                         DocValuesWriterEnum::SortedSet(writer) => {
-                            writer.flush(state, sort_map.clone(), dv_consumer.as_mut().unwrap())?;
+                            writer.flush(
+                                sort_map.clone(),
+                                dv_consumer.as_mut().unwrap(),
+                                segment_info,
+                            )?;
                         },
                     }
                 } else if *field_info.get_doc_values_type() == DocValuesType::None {
                     return Err(LuceneError::illegal_state(format!(
-                        "segment= {}: fieldInfos has docValues but did not wrote them ",
-                        state.segment_info
+                        "segment= {segment_info}: fieldInfos has docValues but did not wrote them "
                     )));
                 }
                 per_field.doc_values_writer = None;
@@ -373,13 +394,11 @@ where
         }
         if !state.field_infos.has_doc_values() {
             return Err(LuceneError::illegal_state(format!(
-                "segment= {}: fieldInfos has no docValues but wrote them ",
-                state.segment_info
+                "segment= {segment_info}: fieldInfos has no docValues but wrote them "
             )));
         } else if dv_consumer.is_none() {
             return Err(LuceneError::illegal_state(format!(
-                "segment= {}: fieldInfos has docValues but did not wrote them ",
-                state.segment_info
+                "segment= {segment_info}: fieldInfos has docValues but did not wrote them "
             )));
         }
 
@@ -390,6 +409,7 @@ where
         &mut self,
         state: &SegmentWriteState<D>,
         sort_map: Option<Rc<DM>>,
+        segment_info: &SegmentInfo<D>,
     ) -> Result<()>
     where
         DM: DocMap,
@@ -400,10 +420,10 @@ where
 
         let mut norms_consumer = {
             let norm_format = self.index_writer_config.get_codec().norms_format();
-            norm_format.norms_consumer(state)?
+            norm_format.norms_consumer(state, segment_info)?
         };
 
-        let max_doc = state.segment_info.max_doc()?;
+        let max_doc = segment_info.max_doc()?;
         for fi in state.field_infos.iter() {
             let per_field_index = self.get_per_field(&fi.name);
             debug_assert!(per_field_index.is_some());
@@ -418,7 +438,7 @@ where
                     Some(ref mut per_field) => {
                         let norms = per_field.norms.as_mut().unwrap();
                         norms.finish(max_doc);
-                        norms.flush(state, sort_map.clone(), &mut norms_consumer)?;
+                        norms.flush(sort_map.clone(), &mut norms_consumer, segment_info)?;
                     },
                 }
             }

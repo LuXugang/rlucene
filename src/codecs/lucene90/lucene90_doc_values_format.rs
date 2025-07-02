@@ -21,6 +21,7 @@ use once_cell::sync::Lazy;
 use crate::codecs::doc_values_format::DocValuesFormat;
 use crate::codecs::lucene90_doc_values_consumer::Lucene90DocValuesConsumer;
 use crate::codecs::lucene90_doc_values_producer::Lucene90DocValuesProducer;
+use crate::index::segment_info::SegmentInfo;
 use crate::index::segment_read_state::SegmentReadState;
 use crate::index::segment_write_state::SegmentWriteState;
 use crate::store::directory::Directory;
@@ -224,6 +225,7 @@ impl DocValuesFormat for Lucene90DocValuesFormat {
     fn fields_consumer<D>(
         &self,
         state: &SegmentWriteState<D>,
+        segment_info: &SegmentInfo<D>,
     ) -> Result<Self::DocValuesConsumer<D::IndexOutputType>>
     where
         D: Directory,
@@ -235,6 +237,7 @@ impl DocValuesFormat for Lucene90DocValuesFormat {
             Self::DATA_EXTENSION,
             Self::META_CODEC,
             Self::META_EXTENSION,
+            segment_info,
         )
     }
 

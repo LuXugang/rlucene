@@ -201,7 +201,7 @@ where
         state: &mut SegmentWriteState<Self::Directory>,
         sort_map: &Option<Rc<DM>>,
         codec: &impl Codec,
-        info: &SegmentInfo<D>,
+        segment_info: &SegmentInfo<D>,
     ) -> Result<()>
     where
         DM: DocMap,
@@ -210,7 +210,7 @@ where
             let mut tmp_dir = self.tmp_directory.lock();
             let mut reader = self.stored_fields_format.as_mut().unwrap().vectors_reader(
                 &mut *tmp_dir,
-                info,
+                segment_info,
                 state.field_infos.clone(),
                 &IOContext::default_io_context()?,
             )?;
@@ -219,12 +219,12 @@ where
             // order here.
             let mut writer = codec.term_vectors_format().vectors_writer(
                 state.directory.clone(),
-                info,
+                segment_info,
                 &state.context.clone(),
             )?;
 
             reader.check_integrity()?;
-            let max_doc = state.segment_info.max_doc()?;
+            let max_doc = segment_info.max_doc()?;
             for doc_id in 0..max_doc {
                 let read_id = match sort_map {
                     Some(sm) => sm.new_to_old(doc_id),

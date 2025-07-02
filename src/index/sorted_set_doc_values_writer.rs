@@ -25,7 +25,7 @@ use crate::index::doc_values::DocValues;
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::doc_values_writer::DocValuesWriter;
 use crate::index::docs_with_field_set::DocsWithFieldSetEnum;
-use crate::index::segment_write_state::SegmentWriteState;
+use crate::index::segment_info::SegmentInfo;
 use crate::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
 use crate::index::sorted_doc_values_terms_enum::SortedDocValuesTermsEnum;
 use crate::index::sorted_doc_values_writer::{
@@ -284,9 +284,9 @@ impl Display for SortedSetDocValuesWriter {
 impl DocValuesWriter for SortedSetDocValuesWriter {
     fn flush<D, DM, DC>(
         &mut self,
-        state: &SegmentWriteState<D>,
         sort_map: Option<Rc<DM>>,
         dv_consumer: &mut DC,
+        segment_info: &SegmentInfo<D>,
     ) -> Result<()>
     where
         D: Directory,
@@ -314,7 +314,7 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
 
         let doc_ords = if let Some(map) = sort_map {
             Some(DocOrds::new(
-                state.segment_info.max_doc()?,
+                segment_info.max_doc()?,
                 &*map,
                 &mut SortedSetDocValuesWriter::get_values(
                     ord_map.clone(),

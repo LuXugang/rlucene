@@ -26,7 +26,7 @@ use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::doc_values_writer::DocValuesWriter;
 use crate::index::docs_with_field_set::{DocsWithFieldSet, DocsWithFieldSetEnum};
 use crate::index::field_info::FieldInfo;
-use crate::index::segment_write_state::SegmentWriteState;
+use crate::index::segment_info::SegmentInfo;
 use crate::index::sorter::DocMap;
 use crate::index::{BytesRef, BytesRefBuilder};
 use crate::search::doc_id_set::DocIdSet;
@@ -137,9 +137,9 @@ impl Display for BinaryDocValuesWriter {
 impl DocValuesWriter for BinaryDocValuesWriter {
     fn flush<D, DM, DC>(
         &mut self,
-        state: &SegmentWriteState<D>,
         sort_map: Option<Rc<DM>>,
         dv_consumer: &mut DC,
+        segment_info: &SegmentInfo<D>,
     ) -> Result<()>
     where
         D: Directory,
@@ -160,7 +160,7 @@ impl DocValuesWriter for BinaryDocValuesWriter {
                     self.docs_with_field.iterator()?.unwrap(),
                 );
                 Some(BinaryDVs::new(
-                    state.segment_info.max_doc()?,
+                    segment_info.max_doc()?,
                     &*sort_map,
                     &mut buffered_binary_doc_values,
                 )?)

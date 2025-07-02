@@ -19,6 +19,7 @@ use crate::codecs::lucene90_norms_producer::Lucene90NormsProducer;
 use crate::codecs::norms_consumer::NormsConsumerEnum;
 use crate::codecs::norms_format::NormsFormat;
 use crate::codecs::norms_producer::NormsProducerEnum;
+use crate::index::segment_info::SegmentInfo;
 use crate::index::segment_read_state::SegmentReadState;
 use crate::index::segment_write_state::SegmentWriteState;
 use crate::store::directory::Directory;
@@ -107,6 +108,7 @@ impl NormsFormat for Lucene90NormsFormat {
     fn norms_consumer<D>(
         &self,
         state: &SegmentWriteState<D>,
+        segment_info: &SegmentInfo<D>,
     ) -> Result<NormsConsumerEnum<D::IndexOutputType>>
     where
         D: Directory,
@@ -117,6 +119,7 @@ impl NormsFormat for Lucene90NormsFormat {
             Self::DATA_EXTENSION,
             Self::METADATA_CODEC,
             Self::METADATA_EXTENSION,
+            segment_info,
         )?;
         Ok(NormsConsumerEnum::Lucene90(norms_consumer))
     }

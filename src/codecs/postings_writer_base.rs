@@ -21,6 +21,7 @@ use crate::codecs::block_term_state::BlockTermStateEnum;
 use crate::codecs::norms_producer::NormsProducer;
 use crate::index::field_info::FieldInfo;
 use crate::index::postings_enum::PostingsEnum;
+use crate::index::segment_info::SegmentInfo;
 use crate::index::segment_write_state::SegmentWriteState;
 use crate::index::terms_enum::TermsEnum;
 use crate::index::BytesRef;
@@ -45,6 +46,7 @@ pub trait PostingsWriterBase {
         &mut self,
         terms_out: &mut impl IndexOutput,
         state: &SegmentWriteState<D>,
+        segment_info: &SegmentInfo<D>,
     ) -> Result<()>;
 
     /// Write all postings for one term; use the provided [`TermsEnum`] to pull

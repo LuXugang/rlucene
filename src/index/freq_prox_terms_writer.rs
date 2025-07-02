@@ -85,7 +85,12 @@ where
             base,
         }
     }
-    fn apply_deletes(&self, state: &mut SegmentWriteState<D>, fields: FreqProxFields) -> Result<()>
+    fn apply_deletes(
+        &self,
+        state: &mut SegmentWriteState<D>,
+        fields: FreqProxFields,
+        segment_info: &SegmentInfo<D>,
+    ) -> Result<()>
     where
         D: Directory,
     {
@@ -107,7 +112,7 @@ where
                             break;
                         }
 
-                        let max_doc = state.segment_info.max_doc()?;
+                        let max_doc = segment_info.max_doc()?;
                         let live_docs = state.live_docs.get_or_insert_with(|| {
                             let mut bits = FixedBitSet::new(max_doc);
                             bits.set_with_range(0, max_doc);
@@ -161,7 +166,7 @@ where
         // Sort by field name
         CollectionUtil::intro_sort(&mut all_fields)?;
         let fields = FreqProxFields::new(all_fields);
-        self.apply_deletes(state, fields.clone())?;
+        self.apply_deletes(state, fields.clone(), info)?;
 
         if let Some(doc_map) = &sort_map {
             let filter_fields = FilterFieldsImpl::new(

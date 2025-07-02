@@ -23,6 +23,7 @@ use crate::codecs::postings_writer_base::PostingsWriterBase;
 use crate::index::field_info::FieldInfo;
 use crate::index::index_options::IndexOptions;
 use crate::index::postings_enum::{postings_enum_util, PostingsEnum};
+use crate::index::segment_info::SegmentInfo;
 use crate::index::segment_write_state::SegmentWriteState;
 use crate::index::terms_enum::TermsEnum;
 use crate::index::BytesRef;
@@ -101,8 +102,9 @@ where
         &mut self,
         terms_out: &mut impl IndexOutput,
         state: &SegmentWriteState<D>,
+        segment_info: &SegmentInfo<D>,
     ) -> Result<()> {
-        self.sub.init(terms_out, state)
+        self.sub.init(terms_out, state, segment_info)
     }
 
     fn write_term<N: NormsProducer, PE: PostingsEnum>(

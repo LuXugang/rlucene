@@ -159,23 +159,17 @@ where
         Ok(())
     }
 
-    fn flush<DM>(&mut self, state: &SegmentWriteState<D>, _sort_map: Option<Rc<DM>>) -> Result<()>
+    fn flush<DM>(&mut self, _sort_map: Option<Rc<DM>>, info: &SegmentInfo<D>) -> Result<()>
     where
         DM: DocMap,
     {
         match self.sub {
             Some(ref mut sub) => {
-                sub.writer
-                    .as_mut()
-                    .unwrap()
-                    .finish(state.segment_info.max_doc()?)?;
+                sub.writer.as_mut().unwrap().finish(info.max_doc()?)?;
                 let _ = sub.writer.take();
             },
             None => {
-                self.writer
-                    .as_mut()
-                    .unwrap()
-                    .finish(state.segment_info.max_doc()?)?;
+                self.writer.as_mut().unwrap().finish(info.max_doc()?)?;
                 let _ = self.writer.take();
             },
         }

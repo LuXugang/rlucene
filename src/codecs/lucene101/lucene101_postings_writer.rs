@@ -35,6 +35,7 @@ use crate::index::field_info::FieldInfo;
 use crate::index::index_writer::index_writer_util;
 use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::postings_enum::PostingsEnum;
+use crate::index::segment_info::SegmentInfo;
 use crate::index::segment_write_state::SegmentWriteState;
 use crate::index::terms_enum::TermsEnum;
 use crate::index::{BytesRef, IndexFileNames};
@@ -117,17 +118,17 @@ impl<O> Lucene101PostingsWriter<O>
 where
     O: IndexOutput,
 {
-    pub fn new<D>(state: &SegmentWriteState<D>) -> Result<Self>
+    pub fn new<D>(state: &SegmentWriteState<D>, segment_info: &SegmentInfo<D>) -> Result<Self>
     where
         D: Directory<IndexOutputType = O>,
     {
         let meta_file = IndexFileNames::segment_file_name(
-            &state.segment_info.name,
+            &segment_info.name,
             &state.segment_suffix,
             Lucene101PostingsFormat::META_EXTENSION,
         );
         let doc_file = IndexFileNames::segment_file_name(
-            &state.segment_info.name,
+            &segment_info.name,
             &state.segment_suffix,
             Lucene101PostingsFormat::DOC_EXTENSION,
         );
@@ -139,14 +140,14 @@ where
             &mut meta_out,
             Lucene101PostingsFormat::META_CODEC,
             Lucene101PostingsFormat::VERSION_CURRENT,
-            state.segment_info.get_id(),
+            segment_info.get_id(),
             &state.segment_suffix,
         )?;
         CodecUtil::write_index_header(
             &mut doc_out,
             Lucene101PostingsFormat::DOC_CODEC,
             Lucene101PostingsFormat::VERSION_CURRENT,
-            state.segment_info.get_id(),
+            segment_info.get_id(),
             &state.segment_suffix,
         )?;
 
@@ -164,7 +165,7 @@ where
 
         if state.field_infos.has_prox() {
             let pos_file = IndexFileNames::segment_file_name(
-                &state.segment_info.name,
+                &segment_info.name,
                 &state.segment_suffix,
                 Lucene101PostingsFormat::POS_EXTENSION,
             );
@@ -173,7 +174,7 @@ where
                 &mut pos_out_opt,
                 Lucene101PostingsFormat::POS_CODEC,
                 Lucene101PostingsFormat::VERSION_CURRENT,
-                state.segment_info.get_id(),
+                segment_info.get_id(),
                 &state.segment_suffix,
             )?;
             pos_out = Some(pos_out_opt);
@@ -191,7 +192,7 @@ where
 
             if state.field_infos.has_payloads() || state.field_infos.has_offsets() {
                 let pay_file = IndexFileNames::segment_file_name(
-                    &state.segment_info.name,
+                    &segment_info.name,
                     &state.segment_suffix,
                     Lucene101PostingsFormat::PAY_EXTENSION,
                 );
@@ -200,7 +201,7 @@ where
                     &mut pay_out_opt,
                     Lucene101PostingsFormat::PAY_CODEC,
                     Lucene101PostingsFormat::VERSION_CURRENT,
-                    state.segment_info.get_id(),
+                    segment_info.get_id(),
                     &state.segment_suffix,
                 )?;
                 pay_out = Some(pay_out_opt);
@@ -457,12 +458,13 @@ where
         &mut self,
         terms_out: &mut impl IndexOutput,
         state: &SegmentWriteState<D>,
+        segment_info: &SegmentInfo<D>,
     ) -> Result<()> {
         CodecUtil::write_index_header(
             terms_out,
             Lucene101PostingsFormat::TERMS_CODEC,
             Lucene101PostingsFormat::VERSION_CURRENT,
-            state.segment_info.get_id(),
+            segment_info.get_id(),
             &state.segment_suffix,
         )?;
         terms_out.write_vint(Lucene101PostingsFormat::BLOCK_SIZE as i32)?;
