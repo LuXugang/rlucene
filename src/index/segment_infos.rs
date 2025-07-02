@@ -16,7 +16,6 @@
  */
 use std::collections::{HashMap, HashSet};
 use std::fmt;
-use std::rc::Rc;
 use std::sync::Arc;
 
 use once_cell::sync::Lazy;
@@ -598,7 +597,7 @@ where
             }
 
             let mut si_per_commit = SegmentCommitInfo::new(
-                Rc::new(info),
+                info,
                 del_count,
                 soft_del_count,
                 del_gen,
@@ -1403,7 +1402,7 @@ impl FindSegmentsFileBase for FindSegmentsFileImpl {
 #[cfg(test)]
 mod tests {
     use std::collections::{HashMap, HashSet};
-    use std::rc::Rc;
+
     use std::sync::Arc;
 
     use parking_lot::Mutex;
@@ -1493,15 +1492,8 @@ mod tests {
             .segment_info_format()
             .write(&mut *directory.lock(), &mut info, &io_context)?;
 
-        let commit_info = SegmentCommitInfo::new(
-            Rc::new(info),
-            0,
-            0,
-            -1,
-            -1,
-            -1,
-            Some(StringHelper::random_id()),
-        )?;
+        let commit_info =
+            SegmentCommitInfo::new(info, 0, 0, -1, -1, -1, Some(StringHelper::random_id()))?;
 
         sis.add(commit_info)?;
         sis.commit(&mut *directory.lock())?;
@@ -1546,15 +1538,8 @@ mod tests {
             .segment_info_format()
             .write(&mut *directory.lock(), &mut info_0, &io_context)?;
 
-        let commit_info_0 = SegmentCommitInfo::new(
-            Rc::new(info_0),
-            0,
-            0,
-            -1,
-            -1,
-            -1,
-            Some(StringHelper::random_id()),
-        )?;
+        let commit_info_0 =
+            SegmentCommitInfo::new(info_0, 0, 0, -1, -1, -1, Some(StringHelper::random_id()))?;
         sis.add(commit_info_0)?;
 
         // Second Segment
@@ -1571,20 +1556,13 @@ mod tests {
             HashMap::new(),
             None,
         )?;
-        info_1.set_files(HashSet::new());
+        info_1.set_files(HashSet::new())?;
         codec
             .segment_info_format()
             .write(&mut *directory.lock(), &mut info_1, &io_context)?;
 
-        let commit_info_1 = SegmentCommitInfo::new(
-            Rc::new(info_1),
-            0,
-            0,
-            -1,
-            -1,
-            -1,
-            Some(StringHelper::random_id()),
-        )?;
+        let commit_info_1 =
+            SegmentCommitInfo::new(info_1, 0, 0, -1, -1, -1, Some(StringHelper::random_id()))?;
         sis.add(commit_info_1)?;
         sis.commit(&mut *directory.lock())?;
 
@@ -1743,7 +1721,7 @@ mod tests {
             Some(Sort::get_index_order()?),
         )?;
 
-        let mut commit_info = SegmentCommitInfo::new(Rc::new(info), 0, 0, -1, -1, -1, Some(id))?;
+        let mut commit_info = SegmentCommitInfo::new(info, 0, 0, -1, -1, -1, Some(id))?;
         assert_eq!(
             StringHelper::id_to_string(Some(&id)),
             StringHelper::id_to_string(commit_info.get_id().as_deref())
@@ -1818,15 +1796,8 @@ mod tests {
         codec
             .segment_info_format()
             .write(&mut *dir.lock(), &mut info_0, &io_context)?;
-        let commit_info_0 = SegmentCommitInfo::new(
-            Rc::new(info_0),
-            0,
-            0,
-            -1,
-            -1,
-            -1,
-            Some(StringHelper::random_id()),
-        )?;
+        let commit_info_0 =
+            SegmentCommitInfo::new(info_0, 0, 0, -1, -1, -1, Some(StringHelper::random_id()))?;
         sis.add(commit_info_0)?;
 
         // Add second SegmentCommitInfo
@@ -1843,19 +1814,12 @@ mod tests {
             HashMap::new(),
             None,
         )?;
-        info_1.set_files(HashSet::new());
+        info_1.set_files(HashSet::new())?;
         codec
             .segment_info_format()
             .write(&mut *dir.lock(), &mut info_1, &io_context)?;
-        let commit_info_1 = SegmentCommitInfo::new(
-            Rc::new(info_1),
-            0,
-            0,
-            -1,
-            -1,
-            -1,
-            Some(StringHelper::random_id()),
-        )?;
+        let commit_info_1 =
+            SegmentCommitInfo::new(info_1, 0, 0, -1, -1, -1, Some(StringHelper::random_id()))?;
         sis.add(commit_info_1)?;
 
         sis.commit(&mut *dir.lock())?;

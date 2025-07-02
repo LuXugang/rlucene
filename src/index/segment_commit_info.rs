@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use std::collections::{HashMap, HashSet};
-use std::rc::Rc;
 use std::sync::atomic::{AtomicI64, Ordering};
 
 use crate::codecs::codec::Codec;
@@ -31,7 +30,7 @@ where
     D: Directory,
 {
     /// The SegmentInfo that we wrap.
-    pub info: Rc<SegmentInfo<D>>,
+    pub info: SegmentInfo<D>,
     /// Id that uniquely identifies this segment commit.
     id: Option<[u8; StringHelper::ID_LENGTH]>,
     /// How many deleted docs in the segment.
@@ -83,7 +82,7 @@ where
     ///   updates files).
     /// - `ID`: ID that uniquely identifies this segment commit.
     pub fn new(
-        info: Rc<SegmentInfo<D>>,
+        info: SegmentInfo<D>,
         del_count: i32,
         soft_del_count: i32,
         del_gen: i64,

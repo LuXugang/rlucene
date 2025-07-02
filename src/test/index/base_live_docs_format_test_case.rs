@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use std::collections::HashMap;
-use std::rc::Rc;
 use std::sync::Arc;
 
 use parking_lot::Mutex;
@@ -118,15 +117,8 @@ pub trait BaseLiveDocsFormatTestCase {
         )?;
         let io_context = IOContext::default_io_context()?;
         let si1 = si.clone();
-        let mut sci = SegmentCommitInfo::new(
-            Rc::new(si),
-            0,
-            0,
-            0,
-            -1,
-            -1,
-            Option::from(StringHelper::random_id()),
-        )?;
+        let mut sci =
+            SegmentCommitInfo::new(si, 0, 0, 0, -1, -1, Option::from(StringHelper::random_id()))?;
         format.write_live_docs(
             &bits,
             &mut *dir.lock(),
@@ -136,7 +128,7 @@ pub trait BaseLiveDocsFormatTestCase {
         )?;
 
         sci = SegmentCommitInfo::new(
-            Rc::new(si1),
+            si1,
             max_doc - num_live_docs,
             0,
             1,
