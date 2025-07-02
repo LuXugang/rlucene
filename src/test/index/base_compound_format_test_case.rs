@@ -35,7 +35,7 @@ use crate::util::{StringHelper, LATEST};
 pub trait BaseCompoundFormatTestCase {
     fn test_empty<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let dir = Arc::new(Mutex::new(new_directory(random)?));
-        let mut si = new_segment_info(random, dir.clone(), "_123")?;
+        let si = new_segment_info(random, dir.clone(), "_123")?;
         si.set_files(HashSet::new());
         LATEST_CODEC
             .compound_format()
@@ -53,7 +53,7 @@ pub trait BaseCompoundFormatTestCase {
         for (i, &size) in data.iter().enumerate() {
             let test_file = format!("_{}.test", i);
             let dir = Arc::new(Mutex::new(new_directory(random)?));
-            let mut si = new_segment_info(random, dir.clone(), &format!("_{}", i))?;
+            let si = new_segment_info(random, dir.clone(), &format!("_{}", i))?;
             create_sequence_file(
                 random,
                 &mut *dir.lock(),
@@ -87,7 +87,7 @@ pub trait BaseCompoundFormatTestCase {
     fn test_two_files<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let files = ["_123.d1", "_123.d2"];
         let dir = Arc::new(Mutex::new(new_directory(random)?));
-        let mut si = new_segment_info(random, dir.clone(), "_123")?;
+        let si = new_segment_info(random, dir.clone(), "_123")?;
 
         create_sequence_file(
             random,
@@ -151,7 +151,7 @@ pub trait BaseCompoundFormatTestCase {
     /// attempting to create an output.
     fn test_create_output_disabled<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let dir = Arc::new(Mutex::new(new_directory(random)?));
-        let mut si = new_segment_info(random, dir.clone(), "_123")?;
+        let si = new_segment_info(random, dir.clone(), "_123")?;
         si.set_files(HashSet::new());
         LATEST_CODEC
             .compound_format()
@@ -173,7 +173,7 @@ pub trait BaseCompoundFormatTestCase {
             .lock()
             .create_output(testfile, &IOContext::default_io_context()?)?;
         out.write_int(3)?;
-        let mut si = new_segment_info(random, dir.clone(), "_123")?;
+        let si = new_segment_info(random, dir.clone(), "_123")?;
         si.set_files(HashSet::new());
         LATEST_CODEC
             .compound_format()
@@ -193,7 +193,7 @@ pub trait BaseCompoundFormatTestCase {
             .lock()
             .create_output(testfile, &IOContext::default_io_context()?)?;
         out.write_int(3)?;
-        let mut si = new_segment_info(random, dir.clone(), "_123")?;
+        let si = new_segment_info(random, dir.clone(), "_123")?;
         si.set_files(HashSet::new());
         LATEST_CODEC
             .compound_format()
@@ -213,7 +213,7 @@ pub trait BaseCompoundFormatTestCase {
             .lock()
             .create_output(testfile, &IOContext::default_io_context()?)?;
         out.write_int(3)?;
-        let mut si = new_segment_info(random, dir.clone(), "_123")?;
+        let si = new_segment_info(random, dir.clone(), "_123")?;
         si.set_files(HashSet::new());
         LATEST_CODEC
             .compound_format()
@@ -235,7 +235,7 @@ pub trait BaseCompoundFormatTestCase {
             .lock()
             .create_output(testfile, &IOContext::default_io_context()?)?;
         out.write_int(3)?;
-        let mut si = new_segment_info(random, dir.clone(), "_123")?;
+        let si = new_segment_info(random, dir.clone(), "_123")?;
         si.set_files(HashSet::new());
         LATEST_CODEC
             .compound_format()
@@ -257,7 +257,7 @@ pub trait BaseCompoundFormatTestCase {
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let segment = "_123";
         let chunk = 1024; // internal buffer size used by the stream
-        let mut si = new_segment_info(random, dir.clone(), "_123")?;
+        let si = new_segment_info(random, dir.clone(), "_123")?;
         let seg_id = si.get_id();
         create_random_file(
             random,
@@ -366,7 +366,7 @@ pub trait BaseCompoundFormatTestCase {
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let file_count = at_least(random, 500) as usize;
         let mut files = Vec::new();
-        let mut si = new_segment_info(random, dir.clone(), "_123")?;
+        let si = new_segment_info(random, dir.clone(), "_123")?;
         for file_idx in 0..file_count {
             let file = format!("_123.{}", file_idx);
             files.push(file.clone());
@@ -597,7 +597,7 @@ pub trait BaseCompoundFormatTestCase {
     ) -> Result<()> {
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let sub_file = "_123.xyz";
-        let mut si = new_segment_info(random, dir.clone(), "_123")?;
+        let si = new_segment_info(random, dir.clone(), "_123")?;
         create_sequence_file(
             random,
             &mut *dir.lock(),
@@ -639,7 +639,7 @@ pub trait BaseCompoundFormatTestCase {
             }
         }
 
-        let mut si = new_segment_info(random, dir.clone(), "_123")?;
+        let si = new_segment_info(random, dir.clone(), "_123")?;
         let mut hash_set_file = HashSet::new();
         hash_set_file.insert(sub_file.to_string());
         si.set_files(hash_set_file);
@@ -662,7 +662,7 @@ pub trait BaseCompoundFormatTestCase {
         let sub_file = "_123.xyz";
 
         // wrong checksum
-        let mut si = new_segment_info(random, dir.clone(), "_123")?;
+        let si = new_segment_info(random, dir.clone(), "_123")?;
         {
             let mut os = dir
                 .lock()
@@ -866,7 +866,7 @@ where
     D: Directory,
 {
     let mut files = HashSet::new();
-    let mut si = new_segment_info(random, dir.clone(), "_123")?;
+    let si = new_segment_info(random, dir.clone(), "_123")?;
 
     // Create 20 sequential files
     for i in 0..20 {

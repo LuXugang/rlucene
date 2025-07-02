@@ -155,7 +155,7 @@ impl Lucene99SegmentInfoFormat {
             std::cmp::Ordering::Equal => None,
         };
 
-        let mut si = SegmentInfo::new(
+        let si = SegmentInfo::new(
             dir,
             Option::from(version),
             min_version,
@@ -216,7 +216,7 @@ impl Lucene99SegmentInfoFormat {
 
         {
             let files_ref = si.files()?;
-            let files = &*files_ref.borrow();
+            let files = &*files_ref.lock();
             for file in files {
                 if IndexFileNames::parse_segment_name(file) != si.name {
                     return Err(LuceneError::illegal_argument(format!(

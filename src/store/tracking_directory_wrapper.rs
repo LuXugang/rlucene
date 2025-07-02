@@ -30,7 +30,7 @@ where
     D: Directory,
 {
     created_filenames: HashSet<String>,
-    base: FilterDirectory<D, Arc<Mutex<D>>>,
+    pub(crate) base: FilterDirectory<D, Arc<Mutex<D>>>,
     lock: Mutex<()>,
 }
 impl<D> TrackingDirectoryWrapper<D>

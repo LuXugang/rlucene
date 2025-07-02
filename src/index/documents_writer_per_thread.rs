@@ -20,6 +20,7 @@ use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAt
 use crate::analysis::token_stream::TokenStream;
 use crate::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::index::buffered_updates::{MTBufferedUpdates, STBufferedUpdates};
+use crate::index::documents_writer::FlushNotifications;
 use crate::index::documents_writer_delete_queue::{DeleteSlice, DocumentsWriterDeleteQueue, Node};
 use crate::index::field_infos::build::Builder;
 use crate::index::field_infos::FieldInfos;
@@ -40,6 +41,7 @@ use crate::util::bits::Bits;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::info_stream::{InfoStream, InfoStreamLock};
+use crate::util::io_consumer::IOConsumer;
 use crate::util::StringHelper;
 use std::cell::OnceCell;
 use std::collections::HashSet;
@@ -59,7 +61,8 @@ where
     L: LiveIndexWriterConfig,
     Q: Query,
 {
-    pub(crate) directory: TrackingDirectoryWrapper<D>,
+    // wrap with Option for std::mem::take()
+    pub(crate) directory: Option<TrackingDirectoryWrapper<D>>,
     indexing_chain: IndexingChain<D, O, P, T, TS, L>,
     pending_updates: MTBufferedUpdates<Q>,
     segment_info: SegmentInfo<D>,
@@ -80,6 +83,7 @@ where
     index_major_version_created: i32,
     parent_field: ReservedField<NumericDocValuesField>,
     files_to_delete: HashSet<String>,
+    aborting_exception: Option<LuceneError>,
 }
 impl<D, P, T, O, TS, L, Q> DocumentsWriterPerThread<D, P, T, O, TS, L, Q>
 where
@@ -91,6 +95,39 @@ where
     L: LiveIndexWriterConfig,
     Q: Query,
 {
+    fn on_aborting_exception(&mut self, throwable: LuceneError) {
+        debug_assert!(
+            self.aborting_exception.is_none(),
+            "aborting exception has already been set"
+        );
+        self.aborting_exception = Some(throwable);
+    }
+    pub(crate) fn abort(&mut self) -> Result<()> {
+        self.aborted = true;
+        self.pending_num_docs
+            .fetch_add(-(self.num_docs_in_ram as i64), Ordering::SeqCst);
+
+        {
+            let mut info_stream = self.info_stream.lock();
+            if info_stream.enabled("DWPT") {
+                info_stream.message("DWPT", "now abort");
+            }
+        }
+
+        let abort_result = (|| {
+            self.indexing_chain.abort()?;
+            Ok(())
+        })();
+        self.pending_updates.clear();
+
+        {
+            let mut info_stream = self.info_stream.lock();
+            if info_stream.enabled("DWPT") {
+                info_stream.message("DWPT", "done abort");
+            }
+        }
+        abort_result
+    }
     pub(crate) fn test_point(&self, message: &str) {
         if self.enable_test_points {
             let mut info_stream = self.info_stream.lock();
@@ -182,18 +219,20 @@ where
         // confounding exception).
         Ok(())
     }
+    /// Returns the number of RAM resident documents in this [`DocumentsWriterPerThread`]
     pub fn get_num_docs_in_ram(&self) -> i32 {
         self.num_docs_in_ram
     }
+    /// Prepares this DWPT for flushing. This method will freeze and return the [`DocumentsWriterDeleteQueue`]’s global buffer and apply all pending deletes to this DWPT.
     pub(crate) fn prepare_flush(&mut self) -> Result<FrozenBufferedUpdates<Q>> {
         debug_assert!(self.num_docs_in_ram > 0);
 
         let global_updates = self
             .delete_queue
             .freeze_global_buffer(&mut self.delete_slice)?;
-        let delete_slice = self.delete_slice.as_mut().unwrap();
-
-        if !delete_slice.is_empty() {
+        // deleteSlice can possibly be null if we have hit non-aborting exceptions during indexing and never succeeded adding a document
+        if let Some(delete_slice) = self.delete_slice.as_mut() {
+            // apply all deletes before we flush and release the delete slice
             delete_slice.apply(&mut self.pending_updates, self.num_docs_in_ram)?;
             debug_assert!(delete_slice.is_empty());
             delete_slice.reset();
@@ -203,10 +242,25 @@ where
             None => Err(LuceneError::illegal_state("global_updates is None"))?,
         }
     }
+    fn maybe_abort<FN>(&mut self, location: &str, flush_notifications: &mut FN) -> Result<()>
+    where
+        FN: FlushNotifications,
+    {
+        match self.aborting_exception {
+            Some(_) if !self.aborted => {
+                // if we are not already aborted, we can abort
+                let result = self.abort();
+                flush_notifications
+                    .on_tragic_event(self.aborting_exception.take().unwrap(), location);
+                result
+            },
+            _ => Ok(()),
+        }
+    }
     pub(crate) fn pending_files_to_delete(&self) -> &HashSet<String> {
         &self.files_to_delete
     }
-    fn sort_live_docs(live_docs: &impl Bits, sort_map: &DocMapImpl) -> FixedBitSet {
+    fn sort_live_docs(live_docs: &impl Bits, sort_map: &impl DocMap) -> FixedBitSet {
         let live_docs_len = live_docs.length();
         let mut sorted_live_docs = FixedBitSet::new(live_docs_len);
         sorted_live_docs.set_with_range(0, live_docs_len);
@@ -218,6 +272,125 @@ where
         }
         sorted_live_docs
     }
+    /// Seals the `SegmentInfo` for the new flushed segment and persists the deleted documents [`FixedBitSet`].
+    pub(crate) fn seal_flushed_segment<FN, DM>(
+        &mut self,
+        flushed_segment: &mut FlushedSegment<D, Q>,
+        sort_map: Option<Rc<DM>>,
+        flush_notifications: &mut FN,
+    ) -> Result<()>
+    where
+        FN: FlushNotifications,
+        DM: DocMap,
+    {
+        // let mut new_segment = &mut flushed_segment.segment_info;
+        //
+        // // set diagnostics
+        // index_writer_util::set_diagnostics(&mut new_segment.info, index_writer_util::SOURCE_FLUSH);
+        //
+        // // prepare IOContext
+        // let info = &new_segment.info;
+        // let context = IOContext::with_flush(FlushInfo::new(
+        //     info.max_doc()?,
+        //     new_segment.size_in_bytes()?,
+        // ))?;
+        //
+        // let mut success = false;
+        // let result: Result<()> = (|| {
+        //     // compound file if needed
+        //     if self.index_writer_config.get_use_compound_file() {
+        //         let original_files = info.files()?.lock().clone();
+        //         let mut dir = TrackingDirectoryWrapper::new(Arc::new(Mutex::new(self.directory.take().unwrap())));
+        //         let info = new_segment.info.clone();
+        //         index_writer_util::create_compound_file(
+        //             &self.info_stream,
+        //             &mut dir,
+        //             &*info,
+        //             &context,
+        //             IOConsumerImpl::new(flush_notifications),
+        //         )?;
+        //         let dir = match Arc::try_unwrap(dir.base.delegate) {
+        //             Ok(mutex) => {
+        //                 mutex.into_inner()
+        //             }
+        //             Err(_) => return Err(LuceneError::illegal_state("TrackingDirectoryWrapper was not uniquely owned")),
+        //         };
+        //         self.directory = Some(dir);
+        //         self.files_to_delete.extend(original_files);
+        //         new_segment.info.set_use_compound_file(true);
+        //     }
+        //
+        //     // Have codec write SegmentInfo.  Must do this after
+        //     // creating CFS so that 1) .si isn't slurped into CFS,
+        //     // and 2) .si reflects useCompoundFile=true change
+        //     // above:
+        //         LATEST_CODEC
+        //         .segment_info_format()
+        //         .write(self.directory.as_mut().unwrap(), &mut new_segment.info, &context)?;
+        //
+        //     // TODO: ideally we would freeze newSegment here!!
+        //     // because any changes after writing the .si will be
+        //     // lost...
+        //
+        //     // Must write deleted docs after the CFS so we don't
+        //     // slurp the del file into CFS:
+        //     if let Some(live_docs) = &flushed_segment.live_docs {
+        //         let del_count = flushed_segment.del_count;
+        //         debug_assert!(del_count > 0);
+        //
+        //         if self.info_stream.lock().enabled("DWPT") {
+        //             self.info_stream.lock().message(
+        //                 "DWPT",
+        //                 &format!(
+        //                     "flush: write {} deletes gen={}",
+        //                     del_count,
+        //                     new_segment.get_del_gen()
+        //                 ),
+        //             );
+        //         }
+        //         match sort_map{
+        //             Some(map)  => {
+        //                 LATEST_CODEC.live_docs_format().write_live_docs(
+        //                     &Self::sort_live_docs(live_docs, &*map),
+        //                     self.directory.as_mut().unwrap(),
+        //                     new_segment,
+        //                     del_count,
+        //                     &context,
+        //                 )?;
+        //             },
+        //             None => {LATEST_CODEC.live_docs_format().write_live_docs(
+        //                 live_docs,
+        //                 self.directory.as_mut().unwrap(),
+        //                 new_segment,
+        //                 del_count,
+        //                 &context,
+        //             )?;},
+        //         }
+        //
+        //         new_segment.set_del_count(del_count)?;
+        //         new_segment.advance_del_gen();
+        //     }
+        //
+        //     success = true;
+        //     Ok(())
+        // })();
+        //
+        // if result.is_err() && !success {
+        //     if self.info_stream.lock().enabled("DWPT") {
+        //         self.info_stream.lock().message(
+        //             "DWPT",
+        //             &format!(
+        //                 "hit exception creating compound file for newly flushed segment {}",
+        //                 new_segment.info.name
+        //             ),
+        //         );
+        //     }
+        // }
+
+        // result
+        Ok(())
+    }
+
     /// Returns true iff this DWPT is marked as flush pending
     pub(crate) fn is_flush_pending(&self) -> &bool {
         self.flush_pending.get().unwrap_or(&false)
@@ -289,7 +462,7 @@ where
     segment_info: SegmentCommitInfo<D>,
     field_infos: FieldInfos,
     segment_updates: Option<FrozenBufferedUpdates<Q>>,
-    live_docs: FixedBitSet,
+    live_docs: Option<FixedBitSet>,
     sort_map: Option<Rc<DocMapImpl>>,
     del_count: i32,
 }
@@ -303,7 +476,7 @@ where
         segment_info: SegmentCommitInfo<D>,
         field_infos: FieldInfos,
         mut segment_updates: Option<STBufferedUpdates<Q>>,
-        live_docs: FixedBitSet,
+        live_docs: Option<FixedBitSet>,
         del_count: i32,
         sort_map: Option<Rc<DocMapImpl>>,
     ) -> Result<Self> {
@@ -324,5 +497,33 @@ where
             del_count,
             sort_map,
         })
+    }
+}
+
+pub struct IOConsumerImpl<'a, FN>
+where
+    FN: FlushNotifications,
+{
+    flush_notifications: &'a mut FN,
+}
+impl<'a, FN> IOConsumerImpl<'a, FN>
+where
+    FN: FlushNotifications,
+{
+    pub fn new(flush_notifications: &'a mut FN) -> Self {
+        IOConsumerImpl {
+            flush_notifications,
+        }
+    }
+}
+impl<FN> IOConsumer for IOConsumerImpl<'_, FN>
+where
+    FN: FlushNotifications,
+{
+    type V = HashSet<String>;
+
+    fn accept(&mut self, input: Self::V) -> Result<()> {
+        self.flush_notifications.delete_unused_files(input);
+        Ok(())
     }
 }

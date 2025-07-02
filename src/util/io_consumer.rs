@@ -14,22 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::analysis::analyzer::Analyzer;
-use crate::codecs::Codec;
-use crate::index::sort::Sort;
-use crate::search::similarities::similarities::Similarity;
-
-pub trait LiveIndexWriterConfig {
-    type Analyzer: Analyzer;
-    fn get_analyzer(&self) -> &Self::Analyzer;
-
-    type Similarity: Similarity;
-    fn get_similarity(&self) -> &Self::Similarity;
-
-    type Codec: Codec;
-    fn get_codec(&self) -> &Self::Codec;
-
-    fn get_index_sort(&self) -> Option<Sort>;
-
-    fn get_use_compound_file(&self) -> bool;
+use crate::util::error::lucene_error::Result;
+/// An IO operation with a single input that may throw an Error.
+pub trait IOConsumer {
+    /// Performs this operation on the given argument.
+    type V;
+    fn accept(&mut self, input: Self::V) -> Result<()>;
 }

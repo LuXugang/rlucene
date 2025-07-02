@@ -14,18 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
-use std::rc::Rc;
 use std::sync::Arc;
 
 use parking_lot::Mutex;
 
 use crate::index::index_file_names_util::CODEC_FILE_PATTERN;
 use crate::index::sort::Sort;
-use crate::index::IndexFileNames;
 use crate::store::directory::Directory;
 #[cfg(test)]
 use crate::store::dummy::dummy_directory::DummyDirectory;
@@ -68,7 +65,9 @@ where
     /// segments that have been merged into this segment.
     pub(crate) min_version: Option<Version>,
     has_blocks: bool,
-    set_files: Option<Rc<RefCell<HashSet<String>>>>,
+    /// The SegmentCommitInfo wraps a SegmentInfo inside an Rc,
+    /// but sometimes we need to modify the set_files of the SegmentInfo contained within the SegmentCommitInfo,
+    set_files: Arc<Mutex<HashSet<String>>>,
 }
 
 #[cfg(test)]
@@ -86,7 +85,7 @@ impl Default for SegmentInfo<DummyDirectory> {
             version: None,
             min_version: None,
             has_blocks: false,
-            set_files: None,
+            set_files: Arc::new(Mutex::new(HashSet::new())),
         }
     }
 }
@@ -153,7 +152,7 @@ where
             id,
             attributes: Arc::new(Mutex::new(attributes)),
             index_sort,
-            set_files: None,
+            set_files: Arc::new(Mutex::new(HashSet::new())),
         })
     }
 }
@@ -254,19 +253,22 @@ where
     }
 
     /// Returns all files referenced by this SegmentInfo
-    pub fn files(&self) -> Result<Rc<RefCell<HashSet<String>>>> {
-        match self.set_files {
-            Some(ref _set_files) => Ok(self.set_files.as_ref().unwrap().clone()),
-            None => Err(LuceneError::illegal_argument(format!(
+    pub fn files(&self) -> Result<Arc<Mutex<HashSet<String>>>> {
+        let files = self.set_files.lock();
+        if files.is_empty() {
+            Err(LuceneError::illegal_argument(format!(
                 "files were not computed yet; segment={} maxDoc={}",
                 self.name, self.max_doc
-            ))),
+            )))
+        } else {
+            Ok(self.set_files.clone())
         }
     }
 
-    /// Sets the files for this segment
-    pub fn set_files(&mut self, files: HashSet<String>) {
-        self.set_files = Some(Rc::new(RefCell::new(files)));
+    /// Sets the files written for this segment.
+    pub fn set_files(&self, files: HashSet<String>) {
+        let mut guard = self.set_files.lock();
+        *guard = files;
     }
     /// Converts this segment information into a formatted string with deletions
     /// count.
@@ -350,20 +352,17 @@ where
     }
 
     /// Add these files to the set of files written for this segment.
-    pub fn add_files(&mut self, files: HashSet<String>) -> Result<()> {
+    pub fn add_files<I>(&mut self, files: I) -> Result<()>
+    where
+        I: IntoIterator<Item = String>,
+    {
+        let files: Vec<String> = files.into_iter().collect();
         self.check_file_names(&files)?;
-        debug_assert!(self.set_files.is_some());
-        let transformed_files: HashSet<String> = files
-            .into_iter()
-            .map(|file| self.named_for_this_segment(file))
-            .collect();
-        if let Some(set_files) = &mut self.set_files {
-            let set_files = &mut *set_files.borrow_mut();
-            for file in transformed_files {
-                set_files.insert(file);
-            }
+        let files: Vec<String> = files.into_iter().collect();
+        let mut set_files = self.set_files.lock();
+        for f in files {
+            set_files.insert(segment_info_util::named_for_this_segment(&self.name, f));
         }
-
         Ok(())
     }
 
@@ -372,7 +371,10 @@ where
         self.add_files(HashSet::from([file]))
     }
 
-    fn check_file_names(&self, files: &HashSet<String>) -> Result<()> {
+    fn check_file_names<'a, I>(&self, files: I) -> Result<()>
+    where
+        I: IntoIterator<Item = &'a String>,
+    {
         for file in files {
             // Check if the file name matches the codec file pattern
             if !CODEC_FILE_PATTERN.is_match(file) {
@@ -392,11 +394,7 @@ where
 
         Ok(())
     }
-    /// Strips any segment name from the file and renames it with this segment.
-    /// This is because "segment names" can change, e.g., by addIndexes(Dir).
-    pub fn named_for_this_segment(&self, file: String) -> String {
-        format!("{}{}", self.name, IndexFileNames::strip_segment_name(&file))
-    }
+
     /// Get a codec attribute value, or None if it does not exist.
     pub fn get_attribute(&self, key: &str) -> Option<String> {
         let attributes = self.attributes.lock();
@@ -477,5 +475,14 @@ where
             has_blocks: self.has_blocks,
             set_files: self.set_files.clone(),
         }
+    }
+}
+pub mod segment_info_util {
+    use crate::index::IndexFileNames;
+
+    /// Strips any segment name from the file and renames it with this segment.
+    /// This is because "segment names" can change, e.g., by addIndexes(Dir).
+    pub fn named_for_this_segment(name: &str, file: String) -> String {
+        format!("{}{}", name, IndexFileNames::strip_segment_name(&file))
     }
 }

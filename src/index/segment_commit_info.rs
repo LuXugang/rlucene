@@ -21,7 +21,7 @@ use std::sync::atomic::{AtomicI64, Ordering};
 use crate::codecs::codec::Codec;
 use crate::codecs::live_docs_format::LiveDocsFormat;
 use crate::codecs::LATEST_CODEC;
-use crate::index::segment_info::SegmentInfo;
+use crate::index::segment_info::{segment_info_util, SegmentInfo};
 use crate::store::directory::Directory;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::StringHelper;
@@ -139,7 +139,7 @@ where
         for (key, file_set) in dv_updates_files {
             let renamed_set: HashSet<String> = file_set
                 .into_iter()
-                .map(|file| self.info.named_for_this_segment(file))
+                .map(|file| segment_info_util::named_for_this_segment(&self.info.name, file))
                 .collect();
             self.dv_updates_files.insert(key, renamed_set);
         }
@@ -154,7 +154,10 @@ where
         self.field_infos_files.clear();
         for file in field_infos_files {
             self.field_infos_files
-                .insert(self.info.named_for_this_segment(file));
+                .insert(segment_info_util::named_for_this_segment(
+                    &self.info.name,
+                    file,
+                ));
         }
     }
 
@@ -247,8 +250,7 @@ where
     /// Returns all files in use by this segment.
     pub fn files(&self) -> Result<HashSet<String>> {
         // Start from the wrapped info's files (deep copy):
-        let files = self.info.files()?;
-        let mut files: HashSet<String> = files.borrow().clone();
+        let mut files = self.info.files()?.lock().clone();
         // TODO we could rely on TrackingDir.getCreatedFiles() (like we do for
         // updates) and then maybe even be able to remove
         // LiveDocsFormat.files(). Must separately add any live docs

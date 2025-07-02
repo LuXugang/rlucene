@@ -296,6 +296,7 @@ where
         }
     }
     fn delete_commits(&mut self) -> Result<()> {
+        // TODO：important 这里应该总是为0 因为 没有将commits_to_delete作为CommitPoint的字段
         let size = self.commits_to_delete.len();
         if size == 0 {
             return Ok(());
