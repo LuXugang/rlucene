@@ -14,6 +14,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use once_cell::sync::Lazy;
+use os_info::Info;
+/// Some useful constants.
+pub struct Constants;
 
-#[allow(unused)]
-struct Constants;
+impl Constants {
+    /// operating system type
+    pub fn os_name() -> String {
+        OS_INFO.os_type().to_string()
+    }
+    /// operating system architecture
+    pub fn os_arch() -> String {
+        match OS_INFO.architecture() {
+            Some(arch) => arch.to_string(),
+            None => "unknown".to_string(),
+        }
+    }
+    /// operating system version
+    pub fn os_version() -> String {
+        OS_INFO.version().to_string()
+    }
+}
+pub(crate) static OS_INFO: Lazy<Info> = Lazy::new(os_info::get);
