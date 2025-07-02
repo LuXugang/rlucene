@@ -46,7 +46,7 @@ pub trait StoredFieldsFormat {
     fn fields_writer<D1, D2>(
         &self,
         directory: Arc<Mutex<D1>>,
-        segment_info: &SegmentInfo<D2>,
+        segment_info: &mut SegmentInfo<D2>,
         context: &IOContext,
     ) -> Result<StoredFieldsWriterEnum<D1>>
     where
@@ -79,7 +79,7 @@ impl StoredFieldsFormat for StoredFieldsFormatEnum {
     fn fields_writer<D1, D2>(
         &self,
         directory: Arc<Mutex<D1>>,
-        segment_info: &SegmentInfo<D2>,
+        segment_info: &mut SegmentInfo<D2>,
         context: &IOContext,
     ) -> Result<StoredFieldsWriterEnum<D1>>
     where

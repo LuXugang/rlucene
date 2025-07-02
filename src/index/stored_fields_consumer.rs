@@ -57,7 +57,7 @@ where
     fn init_stored_fields_writer(
         &mut self,
         codec: &impl Codec,
-        info: &SegmentInfo<D>,
+        info: &mut SegmentInfo<D>,
     ) -> Result<()> {
         match self.sub {
             Some(ref mut sub) => {
@@ -83,7 +83,7 @@ where
         &mut self,
         codec: &impl Codec,
         doc_id: i32,
-        info: &SegmentInfo<D>,
+        info: &mut SegmentInfo<D>,
     ) -> Result<()> {
         debug_assert!(self.last_doc < doc_id);
         self.init_stored_fields_writer(codec, info)?;
@@ -146,7 +146,12 @@ where
         Ok(())
     }
 
-    fn finish(&mut self, codec: &impl Codec, max_doc: i32, info: &SegmentInfo<D>) -> Result<()> {
+    fn finish(
+        &mut self,
+        codec: &impl Codec,
+        max_doc: i32,
+        info: &mut SegmentInfo<D>,
+    ) -> Result<()> {
         while self.last_doc < max_doc - 1 {
             self.start_document(codec, self.last_doc + 1, info)?;
             self.finish_document()?;
@@ -187,13 +192,13 @@ where
 
 pub(crate) trait StoredFieldsConsumerBase {
     type Directory: Directory;
-    fn init_stored_fields_writer(&mut self, info: &SegmentInfo<Self::Directory>) -> Result<()>;
+    fn init_stored_fields_writer(&mut self, info: &mut SegmentInfo<Self::Directory>) -> Result<()>;
     fn flush<DM>(
         &mut self,
         state: &SegmentWriteState<Self::Directory>,
         sort_map: Option<Rc<DM>>,
         codec: &impl Codec,
-        info: &SegmentInfo<Self::Directory>,
+        info: &mut SegmentInfo<Self::Directory>,
     ) -> Result<()>
     where
         DM: DocMap;

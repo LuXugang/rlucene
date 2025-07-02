@@ -217,9 +217,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             LATEST_CODEC
                 .segment_info_format()
                 .read(dir.clone(), "_123", &id, &io_context)?;
-        let info2_attributes = info2.get_attributes()?;
-        let info2_values = info2_attributes.lock();
-        assert_eq!(attributes, *info2_values);
+        assert_eq!(attributes, *info2.get_attributes()?);
         // 在 Rust Lucene 中，attributes
         // 的返回值是不可变的，因此不需要检查修改是否被禁止。
         // 如果需要，可以解除注释并尝试修改
@@ -611,8 +609,8 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             "Versions do not match"
         );
         assert_eq!(
-            *expected.get_attributes()?.lock(),
-            *actual.get_attributes()?.lock(),
+            *expected.get_attributes()?,
+            *actual.get_attributes()?,
             "Attributes do not match"
         );
         Ok(())

@@ -227,11 +227,7 @@ impl Lucene99SegmentInfoFormat {
             }
             output.write_set_of_strings(files)?;
         }
-        {
-            let attributes = si.get_attributes()?;
-            let values = attributes.lock();
-            output.write_map_of_strings(&values)?;
-        }
+        output.write_map_of_strings(si.get_attributes()?)?;
 
         if let Some(index_sort) = si.get_index_sort() {
             let sort_fields = index_sort.get_sort();

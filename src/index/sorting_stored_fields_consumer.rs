@@ -76,7 +76,7 @@ where
 {
     type Directory = D;
 
-    fn init_stored_fields_writer(&mut self, info: &SegmentInfo<Self::Directory>) -> Result<()> {
+    fn init_stored_fields_writer(&mut self, info: &mut SegmentInfo<Self::Directory>) -> Result<()> {
         let stored_fields_format = Lucene90CompressingStoredFieldsFormat::new(
             "TempStoredFields",
             CompressionModeEnum::Impl(NoCompression),
@@ -98,7 +98,7 @@ where
         state: &SegmentWriteState<Self::Directory>,
         sort_map: Option<Rc<DM>>,
         codec: &impl Codec,
-        info: &SegmentInfo<D>,
+        info: &mut SegmentInfo<Self::Directory>,
     ) -> Result<()>
     where
         DM: DocMap,
@@ -106,7 +106,7 @@ where
         let mut tmp_dir = self.tmp_directory.lock();
         let mut reader = self.stored_fields_format.as_ref().unwrap().fields_reader(
             &mut *tmp_dir,
-            &*state.segment_info,
+            info,
             state.field_infos.clone(),
             &IOContext::default_io_context()?,
         )?;
@@ -114,13 +114,13 @@ where
         // sequential access while we consume stored fields in random order here.
         let mut sort_writer = codec.stored_fields_format().fields_writer(
             state.directory.clone(),
-            &*state.segment_info,
+            info,
             &state.context,
         )?;
 
         reader.check_integrity()?;
         let mut visitor = CopyVisitor;
-        let max_doc = state.segment_info.max_doc()?;
+        let max_doc = info.max_doc()?;
         for doc_id in 0..max_doc {
             sort_writer.start_document()?;
             let mapped_doc = if let Some(sort_map) = &sort_map {

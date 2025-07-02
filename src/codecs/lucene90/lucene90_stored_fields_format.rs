@@ -175,7 +175,7 @@ impl StoredFieldsFormat for Lucene90StoredFieldsFormat {
     fn fields_writer<D1, D2>(
         &self,
         directory: Arc<Mutex<D1>>,
-        segment_info: &SegmentInfo<D2>,
+        segment_info: &mut SegmentInfo<D2>,
         context: &IOContext,
     ) -> Result<StoredFieldsWriterEnum<D1>>
     where
@@ -221,8 +221,8 @@ impl Mode {
             Mode::BestCompression => "BEST_COMPRESSION",
         }
     }
-    fn from_name(name: String) -> Result<Self> {
-        match name.as_str() {
+    fn from_name(name: &str) -> Result<Self> {
+        match name {
             "BEST_SPEED" => Ok(Mode::BestSpeed),
             "BEST_COMPRESSION" => Ok(Mode::BestCompression),
             _ => Err(LuceneError::illegal_state("unknown mode name")),

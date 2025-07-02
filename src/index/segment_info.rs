@@ -51,7 +51,7 @@ where
     // the index, Therefore, we do not need to explicitly define the Codec
     // in the SegmentInfo. pub(crate) codec: Option<Lucene101Codec>,
     diagnostics: HashMap<String, String>,
-    attributes: Arc<Mutex<HashMap<String, String>>>,
+    attributes: HashMap<String, String>,
     index_sort: Option<Sort>,
     /// Tracks the Lucene version this segment was created with, since 3.1.
     /// Null indicates an older than 3.0 index, and it's used to detect a
@@ -80,7 +80,7 @@ impl Default for SegmentInfo<DummyDirectory> {
             is_compound_file: false,
             id: [0; 16],
             diagnostics: HashMap::new(),
-            attributes: Arc::new(Mutex::new(HashMap::new())),
+            attributes: HashMap::new(),
             index_sort: None,
             version: None,
             min_version: None,
@@ -150,7 +150,7 @@ where
             has_blocks,
             diagnostics,
             id,
-            attributes: Arc::new(Mutex::new(attributes)),
+            attributes,
             index_sort,
             set_files: Arc::new(Mutex::new(HashSet::new())),
         })
@@ -327,10 +327,9 @@ where
             s.push(']');
         }
 
-        let attributes = self.attributes.lock();
-        if !attributes.is_empty() {
+        if !self.attributes.is_empty() {
             s.push_str(":[attributes=");
-            s.push_str(&format!("{:?}", *attributes));
+            s.push_str(&format!("{:?}", self.attributes));
             s.push(']');
         }
         s
@@ -396,9 +395,8 @@ where
     }
 
     /// Get a codec attribute value, or None if it does not exist.
-    pub fn get_attribute(&self, key: &str) -> Option<String> {
-        let attributes = self.attributes.lock();
-        attributes.get(key).cloned()
+    pub fn get_attribute(&self, key: &str) -> Option<&str> {
+        self.attributes.get(key).map(|v| v.as_str())
     }
     /// Puts a codec attribute value.
     ///
@@ -409,17 +407,16 @@ where
     /// If a value already exists for the field, it will be replaced with the
     /// new value. This method ensures thread safety by making a
     /// copy-on-write for every attribute change.
-    pub fn put_attribute(&self, key: String, value: String) -> Option<String> {
+    pub fn put_attribute(&mut self, key: String, value: String) -> Option<String> {
         // This needs to be thread-safe because multiple threads may be updating
         // (different) attributes at the same time due to concurrent
         // merging, plus some threads may be calling toString() on
         // segment info while other threads are updating attributes.
-        let mut attributes = self.attributes.lock();
-        attributes.insert(key, value)
+        self.attributes.insert(key, value)
     }
     /// Returns the internal codec attributes map.
-    pub fn get_attributes(&self) -> Result<Arc<Mutex<HashMap<String, String>>>> {
-        Ok(self.attributes.clone())
+    pub fn get_attributes(&self) -> Result<&HashMap<String, String>> {
+        Ok(&self.attributes)
     }
 
     /// Returns the sort order of this segment, or None if the index has no

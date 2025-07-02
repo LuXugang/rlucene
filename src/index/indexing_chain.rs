@@ -456,7 +456,11 @@ where
     }
 
     /// Calls `start_document` on the stored fields consumer, aborting the segment on error.
-    pub(crate) fn start_stored_fields(&mut self, doc_id: i32, info: &SegmentInfo<D>) -> Result<()> {
+    pub(crate) fn start_stored_fields(
+        &mut self,
+        doc_id: i32,
+        info: &mut SegmentInfo<D>,
+    ) -> Result<()> {
         self.stored_fields_consumer
             .start_document(self.index_writer_config.get_codec(), doc_id, info)
             .map(|_| ())
@@ -476,7 +480,7 @@ where
         &mut self,
         doc_id: i32,
         document: &mut [F],
-        info: &SegmentInfo<D>,
+        info: &mut SegmentInfo<D>,
     ) -> Result<()>
     where
         F: IndexableField<TokenStream = TS>,
