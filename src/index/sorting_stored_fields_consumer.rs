@@ -106,7 +106,7 @@ where
         let mut tmp_dir = self.tmp_directory.lock();
         let mut reader = self.stored_fields_format.as_ref().unwrap().fields_reader(
             &mut *tmp_dir,
-            state.segment_info.clone(),
+            &*state.segment_info,
             state.field_infos.clone(),
             &IOContext::default_io_context()?,
         )?;
@@ -114,7 +114,7 @@ where
         // sequential access while we consume stored fields in random order here.
         let mut sort_writer = codec.stored_fields_format().fields_writer(
             state.directory.clone(),
-            info,
+            &*state.segment_info,
             &state.context,
         )?;
 

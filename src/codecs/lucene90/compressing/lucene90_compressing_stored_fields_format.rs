@@ -151,7 +151,7 @@ impl StoredFieldsFormat for Lucene90CompressingStoredFieldsFormat {
     fn fields_reader<D1, D2>(
         &self,
         directory: &mut D1,
-        segment_info: Rc<SegmentInfo<D2>>,
+        segment_info: &SegmentInfo<D2>,
         field_infos: Rc<FieldInfos>,
         context: &IOContext,
     ) -> Result<StoredFieldsReaderEnum<D1::IndexInputType>>
@@ -162,7 +162,7 @@ impl StoredFieldsFormat for Lucene90CompressingStoredFieldsFormat {
         Ok(StoredFieldsReaderEnum::Lucene90(
             Lucene90CompressingStoredFieldsReader::new(
                 directory,
-                &*segment_info,
+                segment_info,
                 &self.segment_suffix,
                 field_infos,
                 context,
