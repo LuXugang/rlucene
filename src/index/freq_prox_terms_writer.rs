@@ -17,6 +17,7 @@
 use crate::codecs::norms_producer::NormsProducer;
 use crate::codecs::Codec;
 use crate::index::automaton_terms_enum::AutomatonTermsEnum;
+use crate::index::buffered_updates::STBufferedUpdates;
 use crate::index::field_info::FieldInfo;
 use crate::index::field_infos::FieldInfos;
 use crate::index::fields::Fields;
@@ -39,6 +40,7 @@ use crate::index::terms_hash::TermsHash;
 use crate::index::BytesRef;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::search::query::Query;
 use crate::store::byte_buffers_data_input::ByteBuffersDataInputOwned;
 use crate::store::directory::Directory;
 use crate::store::{ByteBuffersDataOutput, DataInput, DataOutput};
@@ -85,17 +87,19 @@ where
             base,
         }
     }
-    fn apply_deletes(
+    fn apply_deletes<Q>(
         &self,
         state: &mut SegmentWriteState<D>,
         fields: FreqProxFields,
         segment_info: &SegmentInfo<D>,
+        seg_updates: Option<&mut STBufferedUpdates<Q>>,
     ) -> Result<()>
     where
         D: Directory,
+        Q: Query,
     {
-        if let Some(seg_updates) = &mut state.seg_updates {
-            let seg_deletes = &mut seg_updates.borrow_mut().delete_terms;
+        if let Some(seg_updates) = seg_updates {
+            let seg_deletes = &mut seg_updates.delete_terms;
 
             if seg_deletes.size() == 0 {
                 return Ok(());
@@ -135,7 +139,7 @@ where
         self.next_terms_hash.as_mut().unwrap().abort()
     }
 
-    fn flush<N, DM>(
+    fn flush<N, DM, Q>(
         &mut self,
         fields_to_flush: HashMap<String, FreqProxTermsWriterPerField>,
         state: &mut SegmentWriteState<D>,
@@ -143,10 +147,12 @@ where
         _norms: &mut N,
         codec: &impl Codec,
         info: &SegmentInfo<D>,
+        seg_updates: Option<&mut STBufferedUpdates<Q>>,
     ) -> Result<()>
     where
         N: NormsProducer,
         DM: DocMap,
+        Q: Query,
     {
         if let Some(term_vector_consumer) = self.next_terms_hash.as_mut() {
             term_vector_consumer.flush(state, &sort_map, codec, info)?;
@@ -166,7 +172,7 @@ where
         // Sort by field name
         CollectionUtil::intro_sort(&mut all_fields)?;
         let fields = FreqProxFields::new(all_fields);
-        self.apply_deletes(state, fields.clone(), info)?;
+        self.apply_deletes(state, fields.clone(), info, seg_updates)?;
 
         if let Some(doc_map) = &sort_map {
             let filter_fields = FilterFieldsImpl::new(

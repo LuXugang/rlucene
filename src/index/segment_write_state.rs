@@ -14,16 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 
 use parking_lot::Mutex;
 
-use crate::index::buffered_updates::STBufferedUpdates;
 use crate::index::field_infos::FieldInfos;
-use crate::index::segment_info::SegmentInfo;
-use crate::search::dummy::dummy_query::DummyQuery;
 use crate::store::directory::Directory;
 use crate::store::IOContext;
 use crate::util::fixed_bit_set::FixedBitSet;
@@ -50,12 +46,6 @@ where
 
     /// Number of only soft deleted documents set while flushing the segment.
     pub soft_del_count_on_flush: i32,
-
-    /// Deletes and updates to apply while we are flushing the segment.
-    /// A Term is enrolled here if it was deleted/updated at one point,
-    /// and it's mapped to the docIDUpto, meaning any docID < docIDUpto
-    /// containing this term should be deleted/updated.
-    pub(crate) seg_updates: Option<Rc<RefCell<STBufferedUpdates<DummyQuery>>>>,
 
     /// FixedBitSet recording live documents; this is only set if there
     /// is one or more deleted documents.
@@ -85,19 +75,10 @@ where
     pub(crate) fn new(
         info_stream: InfoStreamLock,
         directory: Arc<Mutex<D>>,
-        segment_info: Rc<SegmentInfo<D>>,
         field_infos: Rc<FieldInfos>,
-        seg_updates: Option<STBufferedUpdates<DummyQuery>>,
         context: Rc<IOContext>,
     ) -> Self {
-        Self::with_suffix(
-            info_stream,
-            directory,
-            field_infos,
-            seg_updates,
-            context,
-            "",
-        )
+        Self::with_suffix(info_stream, directory, field_infos, context, "")
     }
 
     /// Constructor with segment suffix.
@@ -105,17 +86,14 @@ where
         info_stream: InfoStreamLock,
         directory: Arc<Mutex<D>>,
         field_infos: Rc<FieldInfos>,
-        seg_updates: Option<STBufferedUpdates<DummyQuery>>,
         context: Rc<IOContext>,
         segment_suffix: &str,
     ) -> Self {
-        let seg_updates = seg_updates.map(|u| Rc::new(RefCell::new(u)));
         debug_assert!(Self::assert_segment_suffix(segment_suffix));
         Self {
             info_stream,
             directory,
             field_infos,
-            seg_updates,
             context,
             segment_suffix: segment_suffix.to_string(),
             del_count_on_flush: 0,
@@ -130,7 +108,6 @@ where
             info_stream: state.info_stream.clone(),
             directory: Arc::clone(&state.directory),
             field_infos: Rc::clone(&state.field_infos),
-            seg_updates: state.seg_updates.clone(),
             context: Rc::clone(&state.context),
             segment_suffix,
             del_count_on_flush: state.del_count_on_flush,
