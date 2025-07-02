@@ -76,7 +76,7 @@ where
 {
     type Directory = D;
 
-    fn init_stored_fields_writer(&mut self, info: Rc<SegmentInfo<Self::Directory>>) -> Result<()> {
+    fn init_stored_fields_writer(&mut self, info: &SegmentInfo<Self::Directory>) -> Result<()> {
         let stored_fields_format = Lucene90CompressingStoredFieldsFormat::new(
             "TempStoredFields",
             CompressionModeEnum::Impl(NoCompression),
@@ -86,7 +86,7 @@ where
         )?;
         self.writer = Some(stored_fields_format.fields_writer(
             self.tmp_directory.clone(),
-            info.clone(),
+            info,
             &IOContext::default_io_context()?,
         )?);
         self.stored_fields_format = Some(stored_fields_format);
@@ -98,6 +98,7 @@ where
         state: &SegmentWriteState<Self::Directory>,
         sort_map: Option<Rc<DM>>,
         codec: &impl Codec,
+        info: &SegmentInfo<D>,
     ) -> Result<()>
     where
         DM: DocMap,
@@ -113,7 +114,7 @@ where
         // sequential access while we consume stored fields in random order here.
         let mut sort_writer = codec.stored_fields_format().fields_writer(
             state.directory.clone(),
-            state.segment_info.clone(),
+            info,
             &state.context,
         )?;
 

@@ -132,7 +132,7 @@ impl TermVectorsFormat for Lucene90TermVectorsFormat {
     fn vectors_reader<D1, D2>(
         &self,
         directory: &mut D1,
-        segment_info: Rc<SegmentInfo<D2>>,
+        segment_info: &SegmentInfo<D2>,
         field_infos: Rc<FieldInfos>,
         context: &IOContext,
     ) -> Result<TermVectorsReaderEnum<D1::IndexInputType>>
@@ -147,7 +147,7 @@ impl TermVectorsFormat for Lucene90TermVectorsFormat {
     fn vectors_writer<D1, D2>(
         &self,
         directory: Arc<Mutex<D1>>,
-        segment_info: Rc<SegmentInfo<D2>>,
+        segment_info: &SegmentInfo<D2>,
         context: &IOContext,
     ) -> Result<TermVectorsWriterEnum<D1>>
     where

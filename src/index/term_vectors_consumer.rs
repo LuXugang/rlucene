@@ -50,7 +50,6 @@ where
     D: Directory,
 {
     directory: Arc<Mutex<D>>,
-    pub(crate) info: Rc<SegmentInfo<D>>,
     pub(crate) writer: Option<TermVectorsWriterEnum<D>>,
     // Scratch term used by TermVectorsConsumerPerField.finishDocument.
     pub(crate) flush_term: BytesRef<Vec<u8>>,
@@ -71,14 +70,7 @@ impl Default for TermVectorsConsumer<DummyDirectory> {
         let int_block_allocator = AllocatorIntEnum::DA(DirectAllocatorI32::new());
         let byte_block_allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
         let directory = Arc::new(Mutex::new(DummyDirectory));
-        let info = Rc::new(SegmentInfo::default());
-        TermVectorsConsumer::new(
-            int_block_allocator,
-            byte_block_allocator,
-            directory,
-            info,
-            None,
-        )
+        TermVectorsConsumer::new(int_block_allocator, byte_block_allocator, directory, None)
     }
 }
 
@@ -90,7 +82,6 @@ where
         int_block_allocator: AllocatorIntEnum<CounterEnumBorrow>,
         byte_block_allocator: AllocatorByteEnum<CounterEnumBorrow>,
         directory: Arc<Mutex<D>>,
-        info: Rc<SegmentInfo<D>>,
         sub: Option<SortingTermVectorsConsumer<D>>,
     ) -> Self {
         let base = TermsHash::new(
@@ -103,7 +94,6 @@ where
 
         TermVectorsConsumer {
             directory,
-            info,
             writer: None,
             flush_term: BytesRef::default(),
             vector_slice_reader_pos: Some(ByteSliceReader::new()),
@@ -138,14 +128,19 @@ where
     pub(crate) fn set_has_vectors(&mut self) {
         self.has_vectors = true;
     }
-    pub(crate) fn finish_document(&mut self, doc_id: i32, codec: &impl Codec) -> Result<()> {
+    pub(crate) fn finish_document(
+        &mut self,
+        doc_id: i32,
+        codec: &impl Codec,
+        info: &SegmentInfo<D>,
+    ) -> Result<()> {
         if !self.has_vectors {
             return Ok(());
         }
 
         ArrayUtil::intro_sort_with_range(&mut self.per_fields, 0, self.num_vector_fields)?;
 
-        self.init_term_vectors_writer(codec)?;
+        self.init_term_vectors_writer(codec, info)?;
         self.fill(doc_id)?;
         // Append term vectors to the real outputs:
         match self.sub {
@@ -209,6 +204,7 @@ where
         state: &mut SegmentWriteState<D>,
         sort_map: &Option<Rc<DM>>,
         codec: &impl Codec,
+        info: &SegmentInfo<D>,
     ) -> Result<()>
     where
         DM: DocMap,
@@ -232,20 +228,24 @@ where
             }
 
             if let Some(ref mut sub) = self.sub {
-                sub.flush(state, sort_map, codec)?;
+                sub.flush(state, sort_map, codec, info)?;
             }
         }
 
         Ok(())
     }
 
-    fn init_term_vectors_writer(&mut self, codec: &impl Codec) -> Result<()> {
+    fn init_term_vectors_writer(
+        &mut self,
+        codec: &impl Codec,
+        info: &SegmentInfo<D>,
+    ) -> Result<()> {
         match self.sub {
             Some(ref mut sub) => {
                 if sub.writer.is_none() {
                     sub.init_term_vectors_writer(
                         self.last_doc_id,
-                        self.info.clone(),
+                        info,
                         self.base.bytes_used.borrow().get(),
                     )?;
                 }
@@ -258,7 +258,7 @@ where
 
                     self.writer = Option::from(codec.term_vectors_format().vectors_writer(
                         Arc::clone(&self.directory),
-                        Rc::clone(&self.info),
+                        info,
                         &context,
                     )?)
                 }
@@ -285,13 +285,14 @@ pub(crate) trait TermVectorsConsumerBase {
         state: &mut SegmentWriteState<Self::Directory>,
         sort_map: &Option<Rc<DM>>,
         codec: &impl Codec,
+        info: &SegmentInfo<Self::Directory>,
     ) -> Result<()>
     where
         DM: DocMap;
     fn init_term_vectors_writer(
         &mut self,
         last_doc_id: i32,
-        info: Rc<SegmentInfo<Self::Directory>>,
+        info: &SegmentInfo<Self::Directory>,
         bytes_used: i64,
     ) -> Result<()>;
     fn abort(&mut self) -> Result<()>;

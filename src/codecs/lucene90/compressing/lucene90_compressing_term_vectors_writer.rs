@@ -38,7 +38,6 @@ use crate::util::{SliceCopyOps, StringHelper};
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use std::collections::{HashSet, VecDeque};
-use std::rc::Rc;
 use std::sync::Arc;
 
 pub(crate) static FLAGS_BITS: Lazy<i32> = Lazy::new(|| {
@@ -96,7 +95,7 @@ where
     #[allow(clippy::too_many_arguments)]
     pub fn new<D1>(
         directory: Arc<Mutex<D>>,
-        si: Rc<SegmentInfo<D1>>,
+        si: &SegmentInfo<D1>,
         segment_suffix: &str,
         context: &IOContext,
         format_name: &str,

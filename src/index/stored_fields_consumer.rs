@@ -35,7 +35,6 @@ where
     D: Directory,
 {
     directory: Arc<Mutex<D>>,
-    pub(crate) info: Rc<SegmentInfo<D>>,
     pub(crate) writer: Option<StoredFieldsWriterEnum<D>>,
     last_doc: i32,
     sub: Option<SortingStoredFieldsConsumer<D>>,
@@ -46,29 +45,31 @@ where
 {
     pub(crate) fn new(
         directory: Arc<Mutex<D>>,
-        info: Rc<SegmentInfo<D>>,
         sub: Option<SortingStoredFieldsConsumer<D>>,
     ) -> Self {
         Self {
             directory,
-            info,
             writer: None,
             last_doc: -1,
             sub,
         }
     }
-    fn init_stored_fields_writer(&mut self, codec: &impl Codec) -> Result<()> {
+    fn init_stored_fields_writer(
+        &mut self,
+        codec: &impl Codec,
+        info: &SegmentInfo<D>,
+    ) -> Result<()> {
         match self.sub {
             Some(ref mut sub) => {
                 if sub.writer.is_none() {
-                    sub.init_stored_fields_writer(self.info.clone())?;
+                    sub.init_stored_fields_writer(info)?;
                 }
             },
             None => {
                 if self.writer.is_none() {
                     let writer = codec.stored_fields_format().fields_writer(
                         self.directory.clone(),
-                        self.info.clone(),
+                        info,
                         &IOContext::default_io_context()?,
                     )?;
                     self.writer = Some(writer);
@@ -78,9 +79,14 @@ where
         Ok(())
     }
 
-    pub(crate) fn start_document(&mut self, codec: &impl Codec, doc_id: i32) -> Result<()> {
+    pub(crate) fn start_document(
+        &mut self,
+        codec: &impl Codec,
+        doc_id: i32,
+        info: &SegmentInfo<D>,
+    ) -> Result<()> {
         debug_assert!(self.last_doc < doc_id);
-        self.init_stored_fields_writer(codec)?;
+        self.init_stored_fields_writer(codec, info)?;
 
         match self.sub {
             Some(ref mut sub) => {
@@ -140,9 +146,9 @@ where
         Ok(())
     }
 
-    fn finish(&mut self, codec: &impl Codec, max_doc: i32) -> Result<()> {
+    fn finish(&mut self, codec: &impl Codec, max_doc: i32, info: &SegmentInfo<D>) -> Result<()> {
         while self.last_doc < max_doc - 1 {
-            self.start_document(codec, self.last_doc + 1)?;
+            self.start_document(codec, self.last_doc + 1, info)?;
             self.finish_document()?;
         }
         Ok(())
@@ -181,12 +187,13 @@ where
 
 pub(crate) trait StoredFieldsConsumerBase {
     type Directory: Directory;
-    fn init_stored_fields_writer(&mut self, info: Rc<SegmentInfo<Self::Directory>>) -> Result<()>;
+    fn init_stored_fields_writer(&mut self, info: &SegmentInfo<Self::Directory>) -> Result<()>;
     fn flush<DM>(
         &mut self,
         state: &SegmentWriteState<Self::Directory>,
         sort_map: Option<Rc<DM>>,
         codec: &impl Codec,
+        info: &SegmentInfo<Self::Directory>,
     ) -> Result<()>
     where
         DM: DocMap;

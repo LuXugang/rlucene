@@ -27,6 +27,7 @@ use crate::index::freq_prox_terms_writer_per_field::FreqProxTermsWriterPerField;
 use crate::index::frozen_buffered_updates::{TermDocsIterator, TermsProviderImpl1};
 use crate::index::index_options::IndexOptions;
 use crate::index::postings_enum::{postings_enum_util, PostingsEnum};
+use crate::index::segment_info::SegmentInfo;
 use crate::index::segment_write_state::SegmentWriteState;
 use crate::index::sorter::DocMap;
 use crate::index::term::Term;
@@ -136,13 +137,14 @@ where
         sort_map: Option<Rc<DM>>,
         _norms: &mut N,
         codec: &impl Codec,
+        info: &SegmentInfo<D>,
     ) -> Result<()>
     where
         N: NormsProducer,
         DM: DocMap,
     {
         if let Some(term_vector_consumer) = self.next_terms_hash.as_mut() {
-            term_vector_consumer.flush(state, &sort_map, codec)?;
+            term_vector_consumer.flush(state, &sort_map, codec, info)?;
         }
         if !state.field_infos.has_postings() {
             return Ok(());
@@ -172,12 +174,17 @@ where
         }
         Ok(())
     }
-    pub(crate) fn finish_document(&mut self, doc_id: i32, codec: &impl Codec) -> Result<()> {
+    pub(crate) fn finish_document(
+        &mut self,
+        doc_id: i32,
+        codec: &impl Codec,
+        info: &SegmentInfo<D>,
+    ) -> Result<()> {
         if self.next_terms_hash.is_some() {
             self.next_terms_hash
                 .as_mut()
                 .unwrap()
-                .finish_document(doc_id, codec)?;
+                .finish_document(doc_id, codec, info)?;
         }
         Ok(())
     }

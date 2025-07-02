@@ -258,7 +258,7 @@ where
     #[allow(clippy::too_many_arguments)]
     pub fn new<D1>(
         directory: Arc<Mutex<D>>,
-        si: Rc<SegmentInfo<D1>>,
+        si: &SegmentInfo<D1>,
         segment_suffix: &str,
         context: &IOContext,
         format_name: &str,

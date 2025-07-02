@@ -139,7 +139,7 @@ where
 {
     fn new(
         index_created_version_major: i32,
-        segment_info: Rc<SegmentInfo<D>>,
+        segment_info: &SegmentInfo<D>,
         directory: Arc<Mutex<D>>,
         field_infos: Builder,
         index_writer_config: Arc<L>,
@@ -152,12 +152,11 @@ where
             .is_none()
         {
             (
-                StoredFieldsConsumer::new(Arc::clone(&directory), Rc::clone(&segment_info), None),
+                StoredFieldsConsumer::new(Arc::clone(&directory), None),
                 TermVectorsConsumer::new(
                     IntBlockAllocator::allocator_enum(bytes_used.clone()),
                     DirectTrackingAllocatorByte::allocator_enum(bytes_used.clone()),
                     Arc::clone(&directory),
-                    Rc::clone(&segment_info),
                     None,
                 ),
             )
@@ -165,16 +164,11 @@ where
             let stored_fields_consumer_sub = SortingStoredFieldsConsumer::new(directory.clone());
             let term_vector_consumer_sub = SortingTermVectorsConsumer::new(directory.clone());
             (
-                StoredFieldsConsumer::new(
-                    Arc::clone(&directory),
-                    Rc::clone(&segment_info),
-                    Some(stored_fields_consumer_sub),
-                ),
+                StoredFieldsConsumer::new(Arc::clone(&directory), Some(stored_fields_consumer_sub)),
                 TermVectorsConsumer::new(
                     IntBlockAllocator::allocator_enum(bytes_used.clone()),
                     DirectTrackingAllocatorByte::allocator_enum(bytes_used.clone()),
                     Arc::clone(&directory),
-                    Rc::clone(&segment_info),
                     Some(term_vector_consumer_sub),
                 ),
             )
@@ -462,9 +456,9 @@ where
     }
 
     /// Calls `start_document` on the stored fields consumer, aborting the segment on error.
-    pub(crate) fn start_stored_fields(&mut self, doc_id: i32) -> Result<()> {
+    pub(crate) fn start_stored_fields(&mut self, doc_id: i32, info: &SegmentInfo<D>) -> Result<()> {
         self.stored_fields_consumer
-            .start_document(self.index_writer_config.get_codec(), doc_id)
+            .start_document(self.index_writer_config.get_codec(), doc_id, info)
             .map(|_| ())
             .inspect_err(|e| {
                 self.has_hit_aborting_exception = true;
@@ -478,7 +472,12 @@ where
                 self.has_hit_aborting_exception = true;
             })
     }
-    pub(crate) fn process_document<F>(&mut self, doc_id: i32, document: &mut [F]) -> Result<()>
+    pub(crate) fn process_document<F>(
+        &mut self,
+        doc_id: i32,
+        document: &mut [F],
+        info: &SegmentInfo<D>,
+    ) -> Result<()>
     where
         F: IndexableField<TokenStream = TS>,
     {
@@ -496,7 +495,7 @@ where
         // (i.e., we cannot have more than one TokenStream
         // running "at once"):
         self.terms_hash.start_document()?;
-        self.start_stored_fields(doc_id)?;
+        self.start_stored_fields(doc_id, info)?;
 
         // 1st pass over doc fields – verify that doc schema matches the index schema
         // build schema for each unique doc field
@@ -573,8 +572,11 @@ where
                     )?;
                 }
                 self.finish_stored_fields()?;
-                self.terms_hash
-                    .finish_document(doc_id, self.index_writer_config.get_codec())?;
+                self.terms_hash.finish_document(
+                    doc_id,
+                    self.index_writer_config.get_codec(),
+                    info,
+                )?;
             },
             Err(e) => {
                 return Err(e);

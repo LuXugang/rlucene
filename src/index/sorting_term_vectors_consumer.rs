@@ -201,6 +201,7 @@ where
         state: &mut SegmentWriteState<Self::Directory>,
         sort_map: &Option<Rc<DM>>,
         codec: &impl Codec,
+        info: &SegmentInfo<D>,
     ) -> Result<()>
     where
         DM: DocMap,
@@ -209,7 +210,7 @@ where
             let mut tmp_dir = self.tmp_directory.lock();
             let mut reader = self.stored_fields_format.as_mut().unwrap().vectors_reader(
                 &mut *tmp_dir,
-                state.segment_info.clone(),
+                info,
                 state.field_infos.clone(),
                 &IOContext::default_io_context()?,
             )?;
@@ -218,7 +219,7 @@ where
             // order here.
             let mut writer = codec.term_vectors_format().vectors_writer(
                 state.directory.clone(),
-                state.segment_info.clone(),
+                info,
                 &state.context.clone(),
             )?;
 
@@ -243,7 +244,7 @@ where
     fn init_term_vectors_writer(
         &mut self,
         last_doc_id: i32,
-        info: Rc<SegmentInfo<Self::Directory>>,
+        info: &SegmentInfo<Self::Directory>,
         bytes_used: i64,
     ) -> Result<()> {
         let context = IOContext::with_flush(FlushInfo::new(last_doc_id, bytes_used))?;
@@ -257,7 +258,7 @@ where
         )?;
         self.writer = Option::from(term_vectors_format.vectors_writer(
             self.tmp_directory.clone(),
-            info.clone(),
+            info,
             &context,
         )?);
         Ok(())
