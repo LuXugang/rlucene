@@ -20,7 +20,6 @@ use std::sync::Arc;
 use parking_lot::Mutex;
 
 use crate::index::field_infos::FieldInfos;
-use crate::index::segment_info::SegmentInfo;
 use crate::store::directory::Directory;
 use crate::store::IOContext;
 
@@ -33,9 +32,6 @@ where
 {
     /// Directory where this segment is read from.
     pub directory: Arc<Mutex<D>>,
-
-    /// SegmentInfo describing this segment.
-    pub segment_info: Rc<SegmentInfo<D>>,
 
     /// FieldInfos describing all fields in this segment.
     pub field_infos: Rc<FieldInfos>,
@@ -54,24 +50,21 @@ where
     /// Creates a SegmentReadState with an empty segment suffix.
     pub fn new(
         directory: Arc<Mutex<D>>,
-        segment_info: Rc<SegmentInfo<D>>,
         field_infos: Rc<FieldInfos>,
         context: Rc<IOContext>,
     ) -> Self {
-        Self::with_suffix(directory, segment_info, field_infos, context, "")
+        Self::with_suffix(directory, field_infos, context, "")
     }
 
     /// Creates a SegmentReadState with a custom segment suffix.
     pub fn with_suffix(
         directory: Arc<Mutex<D>>,
-        segment_info: Rc<SegmentInfo<D>>,
         field_infos: Rc<FieldInfos>,
         context: Rc<IOContext>,
         segment_suffix: &str,
     ) -> Self {
         Self {
             directory,
-            segment_info,
             field_infos,
             context,
             segment_suffix: segment_suffix.to_string(),
@@ -83,7 +76,6 @@ where
     pub fn copy_with_suffix(other: &SegmentReadState<D>, segment_suffix: &str) -> Self {
         Self {
             directory: Arc::clone(&other.directory),
-            segment_info: other.segment_info.clone(),
             field_infos: other.field_infos.clone(),
             context: other.context.clone(),
             segment_suffix: segment_suffix.to_string(),

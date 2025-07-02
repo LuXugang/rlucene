@@ -21,6 +21,7 @@ use crate::codecs::block_term_state::BlockTermStateEnum;
 use crate::index::field_info::FieldInfo;
 use crate::index::impacts_enum::ImpactsEnum;
 use crate::index::postings_enum::PostingsEnum;
+use crate::index::segment_info::SegmentInfo;
 use crate::index::segment_read_state::SegmentReadState;
 use crate::store::directory::Directory;
 use crate::store::{DataInput, IndexInput};
@@ -40,7 +41,12 @@ use crate::util::error::lucene_error::Result;
 pub trait PostingsReaderBase: Display {
     /// Performs any initialization, such as reading and verifying the header
     /// from the provided terms dictionary [`IndexInput`].
-    fn init<D>(&self, terms_in: &mut impl IndexInput, state: &SegmentReadState<D>) -> Result<()>
+    fn init<D>(
+        &self,
+        terms_in: &mut impl IndexInput,
+        state: &SegmentReadState<D>,
+        segment_info: &SegmentInfo<D>,
+    ) -> Result<()>
     where
         D: Directory;
 

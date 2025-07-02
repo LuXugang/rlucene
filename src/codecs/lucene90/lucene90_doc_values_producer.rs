@@ -49,6 +49,7 @@ use crate::index::dummy::dummy_terms_enum::DummyTermsEnum;
 use crate::index::field_info::FieldInfo;
 use crate::index::field_infos::FieldInfos;
 use crate::index::numeric_doc_values::NumericDocValues;
+use crate::index::segment_info::SegmentInfo;
 use crate::index::segment_read_state::SegmentReadState;
 use crate::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
 use crate::index::sorted_doc_values::SortedDocValues;
@@ -104,17 +105,18 @@ where
         data_extension: &str,
         meta_codec: &str,
         meta_extension: &str,
+        segment_info: &SegmentInfo<D>,
     ) -> Result<Self>
     where
         D: Directory<IndexInputType = I>,
     {
         let meta_name = IndexFileNames::segment_file_name(
-            &state.segment_info.name,
+            &segment_info.name,
             &state.segment_suffix,
             meta_extension,
         );
 
-        let max_doc = state.segment_info.max_doc()?;
+        let max_doc = segment_info.max_doc()?;
         let mut version = -1;
 
         let mut numerics = HashMap::new();
@@ -135,7 +137,7 @@ where
                 meta_codec,
                 Lucene90DocValuesFormat::VERSION_START,
                 Lucene90DocValuesFormat::VERSION_CURRENT,
-                state.segment_info.get_id(),
+                segment_info.get_id(),
                 &state.segment_suffix,
             ) {
                 Ok(v) => {
@@ -164,7 +166,7 @@ where
         }
 
         let data_name = IndexFileNames::segment_file_name(
-            &state.segment_info.name,
+            &segment_info.name,
             &state.segment_suffix,
             data_extension,
         );
@@ -184,7 +186,7 @@ where
             data_codec,
             Lucene90DocValuesFormat::VERSION_START,
             Lucene90DocValuesFormat::VERSION_CURRENT,
-            state.segment_info.get_id(),
+            segment_info.get_id(),
             &state.segment_suffix,
         )?;
 

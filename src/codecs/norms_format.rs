@@ -52,6 +52,7 @@ pub trait NormsFormat {
     fn norms_producer<D>(
         &self,
         state: &SegmentReadState<D>,
+        segment_info: &SegmentInfo<D>,
     ) -> Result<NormsProducerEnum<D::IndexInputType>>
     where
         D: Directory;

@@ -38,6 +38,7 @@ use crate::index::impacts_enum::ImpactsEnum;
 use crate::index::impacts_source::ImpactsSource;
 use crate::index::index_options::IndexOptions;
 use crate::index::postings_enum::{postings_enum_util, PostingsEnum};
+use crate::index::segment_info::SegmentInfo;
 use crate::index::segment_read_state::SegmentReadState;
 use crate::index::{BytesRef, IndexFileNames};
 use crate::internal::vectorization::posting_decoding_util::PostingDecodingUtil;
@@ -68,12 +69,12 @@ impl<I> Lucene101PostingsReader<I>
 where
     I: IndexInput,
 {
-    pub fn new<D>(state: &SegmentReadState<D>) -> Result<Self>
+    pub fn new<D>(state: &SegmentReadState<D>, segment_info: &SegmentInfo<D>) -> Result<Self>
     where
         D: Directory<IndexInputType = I>,
     {
         let meta_name = IndexFileNames::segment_file_name(
-            &state.segment_info.name,
+            &segment_info.name,
             &state.segment_suffix,
             Lucene101PostingsFormat::META_EXTENSION,
         );
@@ -95,7 +96,7 @@ where
                     Lucene101PostingsFormat::META_CODEC,
                     Lucene101PostingsFormat::VERSION_START,
                     Lucene101PostingsFormat::VERSION_CURRENT,
-                    state.segment_info.get_id(),
+                    segment_info.get_id(),
                     &state.segment_suffix,
                 )?;
                 max_num_impacts_at_level0 = meta_in.read_int()?;
@@ -138,7 +139,7 @@ where
         // for FOOTER_MAGIC + algorithmID. This is cheap and can detect some
         // forms of corruption such as file truncation.
         let doc_name = IndexFileNames::segment_file_name(
-            &state.segment_info.name,
+            &segment_info.name,
             &state.segment_suffix,
             Lucene101PostingsFormat::DOC_EXTENSION,
         );
@@ -153,7 +154,7 @@ where
             Lucene101PostingsFormat::DOC_CODEC,
             version,
             version,
-            state.segment_info.get_id(),
+            segment_info.get_id(),
             &state.segment_suffix,
         )?;
         CodecUtil::retrieve_checksum_with_expected(&mut doc_in, expected_doc_file_length)?;
@@ -162,7 +163,7 @@ where
         let mut pay_in_opt: Option<I> = None;
         if state.field_infos.has_prox() {
             let pos_name = IndexFileNames::segment_file_name(
-                &state.segment_info.name,
+                &segment_info.name,
                 &state.segment_suffix,
                 Lucene101PostingsFormat::POS_EXTENSION,
             );
@@ -175,7 +176,7 @@ where
                 Lucene101PostingsFormat::POS_CODEC,
                 version,
                 version,
-                state.segment_info.get_id(),
+                segment_info.get_id(),
                 &state.segment_suffix,
             )?;
             CodecUtil::retrieve_checksum_with_expected(&mut pos_in, expected_pos_file_length)?;
@@ -183,7 +184,7 @@ where
 
             if state.field_infos.has_payloads() || state.field_infos.has_offsets() {
                 let pay_name = IndexFileNames::segment_file_name(
-                    &state.segment_info.name,
+                    &segment_info.name,
                     &state.segment_suffix,
                     Lucene101PostingsFormat::PAY_EXTENSION,
                 );
@@ -196,7 +197,7 @@ where
                     Lucene101PostingsFormat::PAY_CODEC,
                     version,
                     version,
-                    state.segment_info.get_id(),
+                    segment_info.get_id(),
                     &state.segment_suffix,
                 )?;
                 CodecUtil::retrieve_checksum_with_expected(&mut pay, expected_pay_file_length)?;
@@ -234,7 +235,12 @@ impl<I> PostingsReaderBase for Lucene101PostingsReader<I>
 where
     I: IndexInput,
 {
-    fn init<D>(&self, terms_in: &mut impl IndexInput, state: &SegmentReadState<D>) -> Result<()>
+    fn init<D>(
+        &self,
+        terms_in: &mut impl IndexInput,
+        state: &SegmentReadState<D>,
+        segment_info: &SegmentInfo<D>,
+    ) -> Result<()>
     where
         D: Directory,
     {
@@ -244,7 +250,7 @@ where
             Lucene101PostingsFormat::TERMS_CODEC,
             Lucene101PostingsFormat::VERSION_START,
             Lucene101PostingsFormat::VERSION_CURRENT,
-            state.segment_info.get_id(),
+            segment_info.get_id(),
             &state.segment_suffix,
         )?;
         let index_block_size = terms_in.read_vint()?;

@@ -37,5 +37,6 @@ pub trait PostingsFormat {
     fn fields_producer<D: Directory>(
         &self,
         state: &SegmentReadState<D>,
+        segment_info: &SegmentInfo<D>,
     ) -> Result<FieldsProducerEnum<D::IndexInputType>>;
 }

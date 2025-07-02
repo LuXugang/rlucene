@@ -127,6 +127,7 @@ impl NormsFormat for Lucene90NormsFormat {
     fn norms_producer<D>(
         &self,
         state: &SegmentReadState<D>,
+        segment_info: &SegmentInfo<D>,
     ) -> Result<NormsProducerEnum<D::IndexInputType>>
     where
         D: Directory,
@@ -137,6 +138,7 @@ impl NormsFormat for Lucene90NormsFormat {
             Self::DATA_EXTENSION,
             Self::METADATA_CODEC,
             Self::METADATA_EXTENSION,
+            segment_info,
         )?;
         Ok(NormsProducerEnum::Lucene90(norms_producer))
     }

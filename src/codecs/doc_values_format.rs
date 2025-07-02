@@ -50,6 +50,7 @@ pub trait DocValuesFormat: Display {
     fn fields_producer<D>(
         &self,
         state: &SegmentReadState<D>,
+        segment_info: &SegmentInfo<D>,
     ) -> Result<Self::DocValuesProducer<D::IndexInputType>>
     where
         D: Directory;

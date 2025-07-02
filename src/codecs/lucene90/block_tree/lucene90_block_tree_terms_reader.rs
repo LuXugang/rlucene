@@ -27,6 +27,7 @@ use crate::codecs::CodecUtil;
 use crate::index::field_infos::FieldInfos;
 use crate::index::fields::Fields;
 use crate::index::index_options::IndexOptions;
+use crate::index::segment_info::SegmentInfo;
 use crate::index::segment_read_state::SegmentReadState;
 use crate::index::IndexFileNames;
 use crate::store::directory::Directory;
@@ -82,11 +83,15 @@ where
     I: IndexInput,
     PR: PostingsReaderBase,
 {
-    pub fn new<D>(postings_reader: PR, state: &SegmentReadState<D>) -> Result<Self>
+    pub fn new<D>(
+        postings_reader: PR,
+        state: &SegmentReadState<D>,
+        segment_info: &SegmentInfo<D>,
+    ) -> Result<Self>
     where
         D: Directory<IndexInputType = I>,
     {
-        let segment = state.segment_info.name.clone();
+        let segment = segment_info.name.clone();
 
         let terms_name = IndexFileNames::segment_file_name(
             &segment,
@@ -104,7 +109,7 @@ where
             lucene90_bttr_util::TERMS_CODEC_NAME,
             lucene90_bttr_util::VERSION_START,
             lucene90_bttr_util::VERSION_CURRENT,
-            state.segment_info.get_id(),
+            segment_info.get_id(),
             &state.segment_suffix,
         )?;
 
@@ -124,7 +129,7 @@ where
             lucene90_bttr_util::TERMS_INDEX_CODEC_NAME,
             version,
             version,
-            state.segment_info.get_id(),
+            segment_info.get_id(),
             &state.segment_suffix,
         )?;
 
@@ -155,10 +160,12 @@ where
                 lucene90_bttr_util::TERMS_META_CODEC_NAME,
                 version,
                 version,
-                state.segment_info.get_id(),
+                segment_info.get_id(),
                 &state.segment_suffix,
             )?;
-            terms_reader.postings_reader.init(&mut meta_in, state)?;
+            terms_reader
+                .postings_reader
+                .init(&mut meta_in, state, segment_info)?;
 
             let num_fields = meta_in.read_vint()?;
             if num_fields < 0 {
@@ -203,7 +210,7 @@ where
                     max_term = min_term.clone();
                 }
 
-                let max_doc = state.segment_info.max_doc()?;
+                let max_doc = segment_info.max_doc()?;
                 if doc_count < 0 || doc_count > max_doc {
                     return Err(LuceneError::corrupt_index(format!(
                         "invalid docCount: {doc_count} maxDoc: {max_doc}"

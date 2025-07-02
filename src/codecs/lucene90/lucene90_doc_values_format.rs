@@ -246,6 +246,7 @@ impl DocValuesFormat for Lucene90DocValuesFormat {
     fn fields_producer<D>(
         &self,
         state: &SegmentReadState<D>,
+        segment_info: &SegmentInfo<D>,
     ) -> Result<Self::DocValuesProducer<D::IndexInputType>>
     where
         D: Directory,
@@ -256,6 +257,7 @@ impl DocValuesFormat for Lucene90DocValuesFormat {
             Self::DATA_EXTENSION,
             Self::META_CODEC,
             Self::META_EXTENSION,
+            segment_info,
         )
     }
 }
