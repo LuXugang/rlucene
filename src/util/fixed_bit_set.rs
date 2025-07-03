@@ -642,10 +642,12 @@ impl BitSet for FixedBitSet {
         //TODO: this is a naive implementation, we can optimize it from Java
         // Lucene
         bit_set_util::check_unpositioned(iter)?;
-        let mut doc = iter.next_doc()?;
-        while doc != NO_MORE_DOCS {
+        loop {
+            let doc = iter.next_doc()?;
+            if doc == NO_MORE_DOCS {
+                break;
+            }
             self.set(doc);
-            doc = iter.next_doc()?;
         }
         Ok(())
     }

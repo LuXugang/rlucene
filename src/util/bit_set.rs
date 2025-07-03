@@ -76,14 +76,14 @@ pub trait BitSet: Bits + Accountable {
     /// the iterator after this operation terminates is undefined.
     fn or<T: DocIdSetIterator>(&mut self, iter: &mut T) -> Result<()>;
 
-    fn default_or<T: DocIdSetIterator>(&mut self, mut iter: T) -> Result<()> {
-        //TODO: this is a naive implementation, we can optimize it from Java
-        // Lucene
-        bit_set_util::check_unpositioned(&iter)?;
-        let mut doc = iter.next_doc()?;
-        while doc != NO_MORE_DOCS {
+    fn default_or<T: DocIdSetIterator>(&mut self, iter: &mut T) -> Result<()> {
+        bit_set_util::check_unpositioned(iter)?;
+        loop {
+            let doc = iter.next_doc()?;
+            if doc == NO_MORE_DOCS {
+                break;
+            }
             self.set(doc);
-            doc = iter.next_doc()?;
         }
         Ok(())
     }
