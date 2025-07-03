@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::util::accountable::Accountable;
 use crate::util::bits::Bits;
@@ -73,7 +74,19 @@ pub trait BitSet: Bits + Accountable {
 
     /// Performs in-place OR of the bits provided by the iterator. The state of
     /// the iterator after this operation terminates is undefined.
-    fn or<T: DocIdSetIterator>(&mut self, iter: T) -> Result<()>;
+    fn or<T: DocIdSetIterator>(&mut self, iter: &mut T) -> Result<()>;
+
+    fn default_or<T: DocIdSetIterator>(&mut self, mut iter: T) -> Result<()> {
+        //TODO: this is a naive implementation, we can optimize it from Java
+        // Lucene
+        bit_set_util::check_unpositioned(&iter)?;
+        let mut doc = iter.next_doc()?;
+        while doc != NO_MORE_DOCS {
+            self.set(doc);
+            doc = iter.next_doc()?;
+        }
+        Ok(())
+    }
 
     fn ensure_capacity(&mut self, _num_bits: i32) {}
 }
@@ -90,7 +103,7 @@ pub mod bit_set_util {
     /// [`DocIdSetIterator`]. **Note**: This will fully consume the
     /// [`DocIdSetIterator`].
     pub fn of(
-        it: impl DocIdSetIterator,
+        it: &mut impl DocIdSetIterator,
         max_doc: i32,
     ) -> Result<EitherBitSet<SparseFixedBitSet, FixedBitSet>> {
         let cost = it.cost()?;

@@ -638,10 +638,10 @@ impl BitSet for FixedBitSet {
         }
     }
 
-    fn or<T: DocIdSetIterator>(&mut self, mut iter: T) -> Result<()> {
+    fn or<T: DocIdSetIterator>(&mut self, iter: &mut T) -> Result<()> {
         //TODO: this is a naive implementation, we can optimize it from Java
         // Lucene
-        bit_set_util::check_unpositioned(&iter)?;
+        bit_set_util::check_unpositioned(iter)?;
         let mut doc = iter.next_doc()?;
         while doc != NO_MORE_DOCS {
             self.set(doc);

@@ -352,7 +352,7 @@ impl BitSet for RustUtilBitSet {
         NO_MORE_DOCS
     }
 
-    fn or<T: DocIdSetIterator>(&mut self, _iter: T) -> Result<()> {
+    fn or<T: DocIdSetIterator>(&mut self, _iter: &mut T) -> Result<()> {
         todo!()
     }
 }

@@ -1674,8 +1674,8 @@ mod tests {
 
         let max_doc = last_doc + TestUtil::next_int(random, 1, 100);
         let cardinality = docs.approximate_cardinality();
-        let bit_set_iterator = BitSetIterator::new(Rc::new(docs), cardinality as i64)?;
-        let set = bit_set_util::of(bit_set_iterator, max_doc)?;
+        let mut bit_set_iterator = BitSetIterator::new(Rc::new(docs), cardinality as i64)?;
+        let set = bit_set_util::of(&mut bit_set_iterator, max_doc)?;
 
         let _ = do_test(set, dir, random)?;
         Ok(())

@@ -1281,7 +1281,7 @@ where
         }
     }
 
-    fn or<T: DocIdSetIterator>(&mut self, iter: T) -> Result<()> {
+    fn or<T: DocIdSetIterator>(&mut self, iter: &mut T) -> Result<()> {
         match self {
             EitherBitSet::F(t) => t.or(iter),
             EitherBitSet::S(s) => s.or(iter),

@@ -78,7 +78,7 @@ impl DocIdSetBuilder {
             counter: 0,
         }
     }
-    pub fn add_disi<D: DocIdSetIterator>(&mut self, mut iter: impl DocIdSetIterator) -> Result<()> {
+    pub fn add_disi(&mut self, iter: &mut impl DocIdSetIterator) -> Result<()> {
         let cost = std::cmp::min(iter.cost()?, i32::MAX as i64);
         self.grow(cost as i32);
         if self.bit_set.is_some() {
@@ -245,9 +245,7 @@ mod tests {
     use crate::util::bit_set::BitSet;
     use crate::util::bit_set_iterator::BitSetIterator;
     use crate::util::bits::Bits;
-    use crate::util::doc_id_set_builder::{
-        DocIdSetBuilder, DocIdSetBuilderEnum, DocIdSetBuilderIterator,
-    };
+    use crate::util::doc_id_set_builder::{DocIdSetBuilder, DocIdSetBuilderEnum};
     use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::fixed_bit_set::FixedBitSet;
     use crate::util::int_array_doc_id_set::IntArrayDocIdSet;
@@ -323,8 +321,8 @@ mod tests {
                 doc += base_inc + random.random_range(0..10000);
             }
             let roaring_doc_id_set = b.build();
-            let iter = roaring_doc_id_set.iterator()?.unwrap();
-            builder.add_disi::<DocIdSetBuilderIterator>(iter)?;
+            let mut iter = roaring_doc_id_set.iterator()?.unwrap();
+            builder.add_disi(&mut iter)?;
         }
         let result = builder.build()?;
         let enum_type1 = "BitDocIdSet<FixedBitSet>";
@@ -354,8 +352,8 @@ mod tests {
                 doc += 1 + random.random_range(0..100);
             }
             let roaring_doc_id_set = b.build();
-            let iter = roaring_doc_id_set.iterator()?.unwrap();
-            builder.add_disi::<DocIdSetBuilderIterator>(iter)?;
+            let mut iter = roaring_doc_id_set.iterator()?.unwrap();
+            builder.add_disi(&mut iter)?;
         }
         let result = builder.build()?;
         let enum_type1 = "BitDocIdSet<FixedBitSet>";
@@ -462,8 +460,8 @@ mod tests {
             let docs = Rc::new(docs);
             // We provide a cost of 0 here to make sure the builder can deal
             // with wrong costs
-            let bit_doc_id_set = BitSetIterator::new(docs, 0)?;
-            builder.add_disi::<DocIdSetBuilderIterator>(bit_doc_id_set)?;
+            let mut bit_doc_id_set = BitSetIterator::new(docs, 0)?;
+            builder.add_disi(&mut bit_doc_id_set)?;
         }
         let bit_doc_id_set = BitDocIdSet::new(Some(expected))?;
         assert_equals(Some(bit_doc_id_set), Some(builder.build()?))?;
@@ -535,7 +533,7 @@ mod tests {
         let max_doc = 1000000;
         let mut builder = DocIdSetBuilder::new(max_doc);
         for i in 0..1000000 >> 6 {
-            builder.add_disi::<Range>(Range::new(i, i + 1)?)?;
+            builder.add_disi(&mut Range::new(i, i + 1)?)?;
         }
         let set = builder.build()?;
         let enum_type1 = "BitDocIdSet<FixedBitSet>";

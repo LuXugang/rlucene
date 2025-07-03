@@ -235,7 +235,9 @@ where
         let parent_bit_set = if use_parent {
             let parent_field = *parent_field.as_ref().unwrap();
             match doc_values_reader.get_numeric_doc_values(parent_field)? {
-                Some(reader_values) => Some(Rc::new(bit_set_util::of(reader_values, max_doc)?)),
+                Some(ref mut reader_values) => {
+                    Some(Rc::new(bit_set_util::of(reader_values, max_doc)?))
+                },
                 None => {
                     return Err(LuceneError::corrupt_index(format!(
                         "missing doc values for parent field {parent_field} IndexingChain"
