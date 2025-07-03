@@ -24,6 +24,7 @@ use crate::util::error::lucene_error::Result;
 
 /// Format for live/deleted documents
 pub trait LiveDocsFormat {
+    type Bits: Bits;
     /// Reads live docs bits from the specified directory.
     ///
     /// # Arguments
@@ -38,7 +39,7 @@ pub trait LiveDocsFormat {
         dir: &mut impl Directory,
         info: &SegmentCommitInfo<D>,
         context: &IOContext,
-    ) -> Result<impl Bits>
+    ) -> Result<Self::Bits>
     where
         D: Directory;
 

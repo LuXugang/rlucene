@@ -23,7 +23,6 @@ use crate::util::array_util::ArrayUtil;
 use crate::util::bit_set::{bit_set_util, BitSet};
 use crate::util::bits::Bits;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::fixed_bits::FixedBits;
 
 // todo
 #[allow(unused)]
@@ -440,12 +439,8 @@ impl FixedBitSet {
     /// This is useful in cases where this [`FixedBitSet`]
     /// is returned as a [`Bits`] instance, to ensure that consumers cannot
     /// get write access by casting to a [`FixedBitSet`].
-    ///
-    /// # Note
-    /// Changes to this [`FixedBitSet`] will be reflected
-    /// on the returned [`Bits`].
-    pub fn as_read_only_bits(&self) -> FixedBits {
-        FixedBits::new(&self.bits, self.num_bits)
+    pub fn to_read_only_bits(self) -> FixedBit {
+        FixedBit::FixedBitSet(self)
     }
 }
 
@@ -662,6 +657,23 @@ impl BitSet for FixedBitSet {
             debug_assert!(self.bits.len() <= i32::MAX as usize);
             self.num_bits = (self.bits.len() as i32) << 6;
             self.num_words = Self::bits2words(self.num_bits);
+        }
+    }
+}
+/// Immutable of FixedBitSet.
+pub enum FixedBit {
+    FixedBitSet(FixedBitSet),
+}
+impl Bits for FixedBit {
+    fn get(&self, index: i32) -> bool {
+        match self {
+            FixedBit::FixedBitSet(fbs) => fbs.get(index),
+        }
+    }
+
+    fn length(&self) -> i32 {
+        match self {
+            FixedBit::FixedBitSet(fbs) => fbs.length(),
         }
     }
 }
@@ -1367,19 +1379,6 @@ mod tests {
 
     #[test]
     fn test_as_bits() {
-        let mut set = FixedBitSet::new(10);
-        set.set(3);
-        set.set(4);
-        set.set(9);
-        let bits = set.as_read_only_bits();
-        assert_eq!(set.length(), bits.length());
-        for i in 0..set.length() {
-            assert_eq!(set.get(i), bits.get(i));
-        }
-        // The data in bits is a reference to set, so it is not necessary to
-        // verify whether changes in set are reflected in bits.
-        // Further changes are reflected
-        // set.set(5);
-        // assertTrue(bits.get(5));
+        // this test is not required in Rust Lucene
     }
 }

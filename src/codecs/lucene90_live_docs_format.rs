@@ -27,7 +27,7 @@ use crate::store::{IOContext, IndexInput, IndexOutput};
 use crate::util::bit_set::BitSet;
 use crate::util::bits::Bits;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::fixed_bit_set::FixedBitSet;
+use crate::util::fixed_bit_set::{FixedBit, FixedBitSet};
 
 /// Lucene 9.0 live docs format
 ///
@@ -98,12 +98,14 @@ impl Lucene90LiveDocsFormat {
 }
 
 impl LiveDocsFormat for Lucene90LiveDocsFormat {
+    type Bits = FixedBit;
+
     fn read_live_docs<D>(
         &self,
         directory: &mut impl Directory,
         info: &SegmentCommitInfo<D>,
         _context: &IOContext,
-    ) -> Result<impl Bits>
+    ) -> Result<Self::Bits>
     where
         D: Directory,
     {
@@ -136,7 +138,7 @@ impl LiveDocsFormat for Lucene90LiveDocsFormat {
                     info.get_del_count()
                 )));
             }
-            Ok(fbs)
+            Ok(fbs.to_read_only_bits())
         })();
         match result {
             Ok(_) => {

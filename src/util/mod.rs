@@ -53,7 +53,6 @@ pub mod either_enums;
 pub mod error;
 pub mod file_deleter;
 pub mod fixed_bit_set;
-mod fixed_bits;
 pub mod fst_impl;
 pub mod group_vint_util;
 pub mod hnsw;
