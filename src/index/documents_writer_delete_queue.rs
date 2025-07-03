@@ -523,7 +523,7 @@ where
             tail: tail.clone(),
             global_slice: DeleteSlice::new(tail),
             generation,
-            global_buffered_updates: BufferedUpdates::new_sync("global".to_string()),
+            global_buffered_updates: BufferedUpdates::new_sync("global"),
             max_seq_no: i64::MAX,
             advanced: false,
             closed: false,
@@ -979,8 +979,8 @@ mod tests {
         }
         let mut slice1 = queue.new_slice();
         let mut slice2 = queue.new_slice();
-        let mut bd1 = BufferedUpdates::new_sync("bd1".to_string());
-        let mut bd2 = BufferedUpdates::new_sync("bd2".to_string());
+        let mut bd1 = BufferedUpdates::new_sync("bd1");
+        let mut bd2 = BufferedUpdates::new_sync("bd2");
         let mut last1 = 0;
         let mut last2 = 0;
         let mut unique_values = HashSet::new();
@@ -1276,7 +1276,7 @@ mod tests {
             barrier: Arc<Barrier>,
         ) -> Result<Self> {
             let slice = queue.new_slice();
-            let deletes = Arc::new(Mutex::new(BufferedUpdates::new_sync("deletes".to_string())));
+            let deletes = Arc::new(Mutex::new(BufferedUpdates::new_sync("deletes")));
 
             Ok(UpdateThread {
                 queue,

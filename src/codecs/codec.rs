@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use once_cell::sync::Lazy;
+use std::fmt::Display;
 
 use crate::codecs::compound_format::CompoundFormat;
 use crate::codecs::doc_values_format::DocValuesFormat;
@@ -29,7 +30,7 @@ use crate::codecs::stored_fields_format::StoredFieldsFormat;
 use crate::codecs::term_vectors_format::TermVectorsFormat;
 
 pub static LATEST_CODEC: Lazy<Lucene101Codec> = Lazy::new(|| Lucene101Codec);
-pub trait Codec {
+pub trait Codec: Display {
     type PostingsFormat: PostingsFormat;
     type DocValuesFormat: DocValuesFormat;
     type StoredFieldsFormat: StoredFieldsFormat;

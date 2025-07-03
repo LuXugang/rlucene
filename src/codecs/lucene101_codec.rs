@@ -25,9 +25,16 @@ use crate::codecs::lucene90_term_vectors_format::Lucene90TermVectorsFormat;
 use crate::codecs::lucene94::lucene94_field_infos_format::Lucene94FieldInfosFormat;
 use crate::codecs::lucene99_segment_info_format::Lucene99SegmentInfoFormat;
 use crate::codecs::Codec;
+use std::fmt::{Display, Formatter};
 
 #[derive(Clone)]
 pub struct Lucene101Codec;
+
+impl Display for Lucene101Codec {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Lucene101Codec")
+    }
+}
 
 impl Codec for Lucene101Codec {
     type PostingsFormat = Lucene101PostingsFormat;

@@ -42,7 +42,7 @@ where
     pub field_infos: Rc<FieldInfos>,
 
     /// Number of deleted documents set while flushing the segment.
-    pub del_count_on_flush: usize,
+    pub del_count_on_flush: i32,
 
     /// Number of only soft deleted documents set while flushing the segment.
     pub soft_del_count_on_flush: i32,

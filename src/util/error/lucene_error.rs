@@ -106,7 +106,6 @@ pub enum LuceneError {
     #[error("{0}")]
     NoSuchElement(#[from] NoSuchElementError),
 }
-
 macro_rules! error_ctor {
     ($fn_name:ident, $variant:ident, $error_type:ty) => {
         pub fn $fn_name(msg: impl Into<String>) -> Self {

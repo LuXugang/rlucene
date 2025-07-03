@@ -90,14 +90,6 @@ where
         doc_values_gen: i64,
         id: Option<[u8; StringHelper::ID_LENGTH]>,
     ) -> Result<Self> {
-        // Validate the ID length
-        if id.is_some() && id.as_ref().unwrap().len() != StringHelper::ID_LENGTH {
-            return Err(LuceneError::illegal_argument(format!(
-                "Invalid ID: {:?}",
-                id.unwrap()
-            )));
-        }
-
         Ok(Self {
             info,
             del_count,

@@ -89,7 +89,7 @@ where
     Q: Query,
 {
     /// Creates a new `BufferedUpdates` instance.
-    pub(crate) fn new_sync(segment_name: String) -> Self {
+    pub(crate) fn new_sync(segment_name: &str) -> Self {
         Self {
             num_field_updates: AtomicI32::new(0),
             delete_terms: DeletedTerms::new_sync(),
@@ -99,7 +99,7 @@ where
             field_updates_bytes_used: Arc::new(Mutex::new(CounterEnum::new_counter(true))),
             verbose_deletes: false,
             gen: 0,
-            segment_name,
+            segment_name: segment_name.to_string(),
         }
     }
     pub(crate) fn add_binary_update(
@@ -627,7 +627,7 @@ mod tests {
     #[test]
     fn test_ram_bytes_used() -> Result<()> {
         let mut random = random();
-        let mut bu = BufferedUpdates::new_sync("seg1".to_string());
+        let mut bu = BufferedUpdates::new_sync("seg1");
 
         // TODO
         // assert_eq!(bu.ram_bytes_used(), 0);

@@ -128,15 +128,10 @@ where
         is_compound_file: bool,
         has_blocks: bool,
         diagnostics: HashMap<String, String>,
-        //TODO: type should be [u8,16],avoid heap allocation?
         id: [u8; StringHelper::ID_LENGTH],
         attributes: HashMap<String, String>,
         index_sort: Option<Sort>,
     ) -> Result<SegmentInfo<D>> {
-        // debug_assert!(
-        //     !dir.is::<TrackingDirectoryWrapper>(),
-        //     "dir should not be a TrackingDirectoryWrapper"
-        // );
         if id.len() != StringHelper::ID_LENGTH {
             return Err(LuceneError::illegal_argument(format!("Invalid id: {id:?}")));
         }
@@ -425,6 +420,23 @@ where
     /// sort.
     pub fn get_index_sort(&self) -> Option<&Sort> {
         self.index_sort.as_ref()
+    }
+
+    pub(crate) fn dummy(dir: Arc<Mutex<D>>) -> Self {
+        SegmentInfo {
+            name: String::new(),
+            max_doc: 0,
+            dir,
+            is_compound_file: false,
+            id: [0u8; StringHelper::ID_LENGTH],
+            diagnostics: HashMap::new(),
+            attributes: HashMap::new(),
+            index_sort: None,
+            version: None,
+            min_version: None,
+            has_blocks: false,
+            set_files: None,
+        }
     }
 }
 impl<D> Display for SegmentInfo<D>
