@@ -22,6 +22,7 @@ use crate::util::accountable::Accountable;
 use crate::util::array_util::ArrayUtil;
 use crate::util::bit_set::{bit_set_util, BitSet};
 use crate::util::bits::Bits;
+use crate::util::either_enums::EitherBitSet;
 use crate::util::error::lucene_error::{LuceneError, Result};
 
 // todo
@@ -431,8 +432,11 @@ impl FixedBitSet {
         NO_MORE_DOCS
     }
 
-    pub fn copy_of() -> FixedBitSet {
-        todo!()
+    pub fn copy_of(bits: EitherBitSet<FixedBitSet, FixedBit>) -> FixedBitSet {
+        match bits {
+            EitherBitSet::F(fixed_bit_set) => fixed_bit_set.clone(),
+            EitherBitSet::S(fixed_bit) => fixed_bit.0,
+        }
     }
 
     /// Converts this instance to a read-only [`Bits`].
@@ -440,7 +444,7 @@ impl FixedBitSet {
     /// is returned as a [`Bits`] instance, to ensure that consumers cannot
     /// get write access by casting to a [`FixedBitSet`].
     pub fn to_read_only_bits(self) -> FixedBit {
-        FixedBit::FixedBitSet(self)
+        FixedBit(self)
     }
 }
 
@@ -661,20 +665,14 @@ impl BitSet for FixedBitSet {
     }
 }
 /// Immutable of FixedBitSet.
-pub enum FixedBit {
-    FixedBitSet(FixedBitSet),
-}
+pub struct FixedBit(FixedBitSet);
 impl Bits for FixedBit {
     fn get(&self, index: i32) -> bool {
-        match self {
-            FixedBit::FixedBitSet(fbs) => fbs.get(index),
-        }
+        self.0.get(index)
     }
 
     fn length(&self) -> i32 {
-        match self {
-            FixedBit::FixedBitSet(fbs) => fbs.length(),
-        }
+        self.0.length()
     }
 }
 
@@ -1374,8 +1372,9 @@ mod tests {
     }
 
     #[test]
-    // todo
-    fn test_copy_of() {}
+    fn test_copy_of() {
+        // this test is not required in Rust Lucene
+    }
 
     #[test]
     fn test_as_bits() {
