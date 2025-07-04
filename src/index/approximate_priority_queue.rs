@@ -14,22 +14,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::index::lockable_concurrent_approximate_priority_queue::Lock;
 use std::vec::Vec;
+
 /// An approximate priority queue, which attempts to poll items by decreasing
 /// log of the weight, though exact ordering is not guaranteed. This struct
 /// doesn't support null elements.
-pub(crate) struct ApproximatePriorityQueue<T> {
+pub(crate) struct ApproximatePriorityQueue<T>
+where
+    T: PartialEq + Lock,
+{
     /// Indexes between 0 and 63 are sparsely populated, and indexes that are
     /// greater than or equal to 64 are densely populated
     /// Items close to the beginning of this list are more likely to have a
     /// higher weight.
-    slots: Vec<Option<T>>,
+    pub(crate) slots: Vec<Option<T>>,
     /// A bitset where ones indicate that the corresponding index in `slots` is
     /// taken.
     used_slots: i64,
 }
 #[allow(unused)]
-impl<T: PartialEq> ApproximatePriorityQueue<T> {
+impl<T> ApproximatePriorityQueue<T>
+where
+    T: PartialEq + Lock,
+{
     pub(crate) fn new() -> Self {
         let mut slots = Vec::with_capacity(i64::BITS as usize);
         slots.resize_with(i64::BITS as usize, || None);
@@ -55,8 +63,11 @@ impl<T: PartialEq> ApproximatePriorityQueue<T> {
             self.used_slots |= 1 << destination_slot;
             debug_assert!(self.slots[destination_slot].is_none());
             self.slots[destination_slot] = Some(entry);
+            self.slots[destination_slot].as_mut().unwrap().unlock();
         } else {
             self.slots.push(Some(entry));
+            let len = self.slots.len() - 1;
+            self.slots[len].as_mut().unwrap().unlock();
         }
     }
     /// Return an entry matching the predicate. This will usually be one of the
@@ -137,6 +148,37 @@ impl<T: PartialEq> ApproximatePriorityQueue<T> {
 #[cfg(test)]
 mod tests {
     use crate::index::approximate_priority_queue::ApproximatePriorityQueue;
+    use crate::index::lockable_concurrent_approximate_priority_queue::Lock;
+    use crate::util::error::lucene_error::Result;
+
+    impl Lock for i64 {
+        fn lock(&self) -> Result<()> {
+            todo!()
+        }
+
+        fn try_lock(&self) -> bool {
+            unreachable!()
+        }
+        fn unlock(&self) {}
+
+        fn is_locked(&self) -> bool {
+            unreachable!()
+        }
+    }
+    impl Lock for u64 {
+        fn lock(&self) -> Result<()> {
+            todo!()
+        }
+
+        fn try_lock(&self) -> bool {
+            unreachable!()
+        }
+        fn unlock(&self) {}
+
+        fn is_locked(&self) -> bool {
+            unreachable!()
+        }
+    }
 
     #[test]
     fn test_basics() {

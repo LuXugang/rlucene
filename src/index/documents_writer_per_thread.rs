@@ -69,7 +69,6 @@ where
     L: LiveIndexWriterConfig,
     Q: Query,
 {
-    // wrap with Option for std::mem::take()
     pub(crate) directory: Arc<Mutex<TrackingDirectoryWrapper<D>>>,
     indexing_chain: IndexingChain<TrackingDirectoryWrapper<D>, O, P, T, TS, L>,
     pending_updates: MTBufferedUpdates<Q>,

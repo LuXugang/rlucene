@@ -21,6 +21,7 @@ use std::hash::{Hash, Hasher};
 use parking_lot::Mutex;
 
 use crate::index::approximate_priority_queue::ApproximatePriorityQueue;
+use crate::index::lockable_concurrent_approximate_priority_queue::Lock;
 use crate::util::error::lucene_error::{LuceneError, Result};
 
 const MIN_CONCURRENCY: i32 = 1;
@@ -31,13 +32,16 @@ const MAX_CONCURRENCY: i32 = 256;
 /// subs is computed dynamically based on hardware concurrency.
 pub struct ConcurrentApproximatePriorityQueue<T>
 where
-    T: PartialEq,
+    T: PartialEq + Lock,
 {
     concurrency: i32,
-    queues: Vec<Mutex<ApproximatePriorityQueue<T>>>,
+    pub(crate) queues: Vec<Mutex<ApproximatePriorityQueue<T>>>,
 }
 #[allow(unused)]
-impl<T: PartialEq> ConcurrentApproximatePriorityQueue<T> {
+impl<T> ConcurrentApproximatePriorityQueue<T>
+where
+    T: PartialEq + Lock,
+{
     fn get_concurrency() -> i32 {
         let core_count = std::thread::available_parallelism()
             .map(|n| n.get())
@@ -91,7 +95,7 @@ impl<T: PartialEq> ConcurrentApproximatePriorityQueue<T> {
         }
         let index = (thread_hash % self.concurrency) as usize;
         let mut queue = self.queues[index].lock();
-        queue.add(entry, weight);
+        queue.add(entry, weight)
     }
 
     pub fn poll<F>(&self, predicate: F) -> Option<T>
@@ -152,9 +156,24 @@ mod tests {
     use crate::index::concurrent_approximate_priority_queue::{
         ConcurrentApproximatePriorityQueue, MAX_CONCURRENCY, MIN_CONCURRENCY,
     };
+    use crate::index::lockable_concurrent_approximate_priority_queue::Lock;
     use crate::test::util::lucene_test_case::random;
     use crate::test::util::test_util::TestUtil;
     use crate::util::error::lucene_error::Result;
+    impl Lock for i32 {
+        fn lock(&self) -> Result<()> {
+            unreachable!()
+        }
+
+        fn try_lock(&self) -> bool {
+            unreachable!()
+        }
+        fn unlock(&self) {}
+
+        fn is_locked(&self) -> bool {
+            unreachable!()
+        }
+    }
 
     #[test]
     fn test_poll_from_same_thread() -> Result<()> {
