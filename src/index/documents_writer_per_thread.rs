@@ -31,6 +31,7 @@ use crate::index::frozen_buffered_updates::FrozenBufferedUpdates;
 use crate::index::index_writer::index_writer_util;
 use crate::index::indexing_chain::{IndexingChain, ReservedField};
 use crate::index::live_index_writer_config::LiveIndexWriterConfig;
+use crate::index::lockable_concurrent_approximate_priority_queue::Lock;
 use crate::index::pending_soft_deletes::pending_soft_deletes_util;
 use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::index::segment_info::SegmentInfo;
@@ -56,7 +57,7 @@ use std::collections::HashSet;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
-use std::sync::atomic::{AtomicI64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
 use std::sync::Arc;
 
 pub(crate) struct DocumentsWriterPerThread<D, P, T, O, TS, L, Q>
@@ -91,6 +92,7 @@ where
     parent_field: ReservedField<NumericDocValuesField>,
     files_to_delete: HashSet<String>,
     aborting_exception: Option<LuceneError>,
+    lock: AtomicBool,
 }
 impl<D, P, T, O, TS, L, Q> DocumentsWriterPerThread<D, P, T, O, TS, L, Q>
 where
@@ -731,6 +733,41 @@ where
             self.delete_queue,
             self.num_deleted_doc_ids,
         )
+    }
+}
+impl<D, P, T, O, TS, L, Q> Lock for DocumentsWriterPerThread<D, P, T, O, TS, L, Q>
+where
+    D: Directory,
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+    TS: TokenStream,
+    L: LiveIndexWriterConfig,
+    Q: Query,
+{
+    fn lock(&self) -> Result<()> {
+        // When creating a DWPT and when reading a DPWT, the DPWT must be locked;
+        // however, only newly created DWPTs may call lock(), whereas reused DWPTs use try_lock().
+        // so current dwpt's lock should be always false.
+        if self.lock.load(Ordering::SeqCst) {
+            return Err(LuceneError::illegal_state("Lock already acquired"));
+        }
+        self.lock.store(true, Ordering::SeqCst);
+        Ok(())
+    }
+
+    fn try_lock(&self) -> bool {
+        self.lock
+            .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
+            .is_ok()
+    }
+
+    fn unlock(&self) {
+        self.lock.store(false, Ordering::SeqCst)
+    }
+
+    fn is_locked(&self) -> bool {
+        self.lock.load(Ordering::SeqCst)
     }
 }
 
