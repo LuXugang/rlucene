@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::index::lockable_concurrent_approximate_priority_queue::Lock;
+use std::collections::HashMap;
 use std::vec::Vec;
 
 /// An approximate priority queue, which attempts to poll items by decreasing
@@ -22,7 +23,7 @@ use std::vec::Vec;
 /// doesn't support null elements.
 pub(crate) struct ApproximatePriorityQueue<T>
 where
-    T: PartialEq + Lock,
+    T: PartialEq + Lock + IdentityId,
 {
     /// Indexes between 0 and 63 are sparsely populated, and indexes that are
     /// greater than or equal to 64 are densely populated
@@ -32,11 +33,11 @@ where
     /// A bitset where ones indicate that the corresponding index in `slots` is
     /// taken.
     used_slots: i64,
+    pub(crate) map_to_idx: HashMap<String, usize>,
 }
-#[allow(unused)]
 impl<T> ApproximatePriorityQueue<T>
 where
-    T: PartialEq + Lock,
+    T: PartialEq + Lock + IdentityId,
 {
     pub(crate) fn new() -> Self {
         let mut slots = Vec::with_capacity(i64::BITS as usize);
@@ -44,6 +45,7 @@ where
         ApproximatePriorityQueue {
             slots,
             used_slots: 0,
+            map_to_idx: HashMap::new(),
         }
     }
     /// Add an entry to this queue that has the provided weight.
@@ -62,12 +64,15 @@ where
         if destination_slot < i64::BITS as usize {
             self.used_slots |= 1 << destination_slot;
             debug_assert!(self.slots[destination_slot].is_none());
+            self.map_to_idx
+                .insert(entry.id().to_string(), destination_slot);
+            entry.unlock();
             self.slots[destination_slot] = Some(entry);
-            self.slots[destination_slot].as_mut().unwrap().unlock();
         } else {
+            let len = self.slots.len();
+            self.map_to_idx.insert(entry.id().to_string(), len);
+            entry.unlock();
             self.slots.push(Some(entry));
-            let len = self.slots.len() - 1;
-            self.slots[len].as_mut().unwrap().unlock();
         }
     }
     /// Return an entry matching the predicate. This will usually be one of the
@@ -89,6 +94,7 @@ where
             if let Some(ref entry) = self.slots[next_used_slot] {
                 if predicate(entry) {
                     self.used_slots &= !(1 << next_used_slot);
+                    self.map_to_idx.remove(entry.id());
                     return self.slots[next_used_slot].take();
                 } else {
                     next_slot = next_used_slot + 1;
@@ -103,6 +109,7 @@ where
         for i in (i64::BITS as usize..self.slots.len()).rev() {
             if let Some(ref entry) = self.slots[i] {
                 if predicate(entry) {
+                    self.map_to_idx.remove(entry.id());
                     return self.slots.remove(i);
                 }
             }
@@ -125,35 +132,38 @@ where
         self.used_slots == 0 && self.slots.len() == i64::BITS as usize
     }
 
-    pub(crate) fn remove(&mut self, o: &T) -> bool {
-        if let Some(index) = self.slots.iter().position(|item| {
-            if let Some(ref x) = item {
-                x == o
-            } else {
-                false
-            }
-        }) {
-            if index < i64::BITS as usize {
-                self.used_slots &= !(1 << index);
-                self.slots[index] = None;
-            } else {
-                self.slots.remove(index);
-            }
-            true
-        } else {
-            false
+    pub(crate) fn remove(&mut self, o: &str) -> bool {
+        match self.map_to_idx.get(o) {
+            Some(&index) => {
+                if index < i64::BITS as usize {
+                    self.used_slots &= !(1 << index);
+                    self.slots[index] = None;
+                } else {
+                    self.slots.remove(index);
+                }
+                self.map_to_idx.remove(o);
+                true
+            },
+            None => false,
         }
     }
+    pub(crate) fn get_idx(&self, id: &str) -> Option<usize> {
+        self.map_to_idx.get(id).copied()
+    }
+}
+
+pub(crate) trait IdentityId {
+    fn id(&self) -> &str;
 }
 #[cfg(test)]
 mod tests {
-    use crate::index::approximate_priority_queue::ApproximatePriorityQueue;
+    use crate::index::approximate_priority_queue::{ApproximatePriorityQueue, IdentityId};
     use crate::index::lockable_concurrent_approximate_priority_queue::Lock;
     use crate::util::error::lucene_error::Result;
 
     impl Lock for i64 {
         fn lock(&self) -> Result<()> {
-            todo!()
+            unreachable!()
         }
 
         fn try_lock(&self) -> bool {
@@ -179,7 +189,16 @@ mod tests {
             unreachable!()
         }
     }
-
+    impl IdentityId for u64 {
+        fn id(&self) -> &str {
+            ""
+        }
+    }
+    impl IdentityId for i64 {
+        fn id(&self) -> &str {
+            ""
+        }
+    }
     #[test]
     fn test_basics() {
         let mut pq = ApproximatePriorityQueue::<i64>::new();
@@ -260,17 +279,54 @@ mod tests {
 
     #[test]
     fn test_remove() {
-        let mut pq = ApproximatePriorityQueue::<u64>::new();
-        pq.add(8, 8);
-        pq.add(32, 32);
-        pq.add(0, 0);
+        struct U64Wrapper {
+            data: u64,
+            id: String,
+        }
+        impl U64Wrapper {
+            fn new(data: u64) -> Self {
+                U64Wrapper {
+                    data,
+                    id: data.to_string(),
+                }
+            }
+        }
+        impl Lock for U64Wrapper {
+            fn lock(&self) -> Result<()> {
+                todo!()
+            }
 
-        assert!(!pq.remove(&16));
-        assert!(!pq.remove(&9));
-        assert!(pq.remove(&8));
-        assert!(pq.remove(&0));
-        assert!(!pq.remove(&0));
-        assert!(pq.remove(&32));
+            fn try_lock(&self) -> bool {
+                unreachable!()
+            }
+            fn unlock(&self) {}
+
+            fn is_locked(&self) -> bool {
+                unreachable!()
+            }
+        }
+        impl IdentityId for U64Wrapper {
+            fn id(&self) -> &str {
+                &self.id
+            }
+        }
+        impl PartialEq for U64Wrapper {
+            fn eq(&self, other: &Self) -> bool {
+                self.data == other.data
+            }
+        }
+        let mut pq = ApproximatePriorityQueue::<U64Wrapper>::new();
+        pq.add(U64Wrapper::new(8), 8);
+        pq.add(U64Wrapper::new(32), 32);
+        pq.add(U64Wrapper::new(0), 0);
+
+        assert!(!pq.remove(&U64Wrapper::new(16).id));
+        assert!(!pq.remove(&U64Wrapper::new(9).id));
+        assert!(pq.remove(&U64Wrapper::new(8).id));
+        assert!(pq.remove(&U64Wrapper::new(0).id));
+        assert!(!pq.remove(&U64Wrapper::new(0).id));
+        assert!(pq.remove(&U64Wrapper::new(32).id));
         assert!(pq.is_empty());
+        assert!(pq.map_to_idx.is_empty());
     }
 }

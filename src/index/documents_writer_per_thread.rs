@@ -22,6 +22,7 @@ use crate::codecs::live_docs_format::LiveDocsFormat;
 use crate::codecs::segment_info_format::SegmentInfoFormat;
 use crate::codecs::{Codec, LATEST_CODEC};
 use crate::document::numeric_doc_values_field::NumericDocValuesField;
+use crate::index::approximate_priority_queue::IdentityId;
 use crate::index::buffered_updates::{BufferedUpdates, MTBufferedUpdates};
 use crate::index::documents_writer::FlushNotifications;
 use crate::index::documents_writer_delete_queue::{DeleteSlice, DocumentsWriterDeleteQueue, Node};
@@ -93,6 +94,7 @@ where
     files_to_delete: HashSet<String>,
     aborting_exception: Option<LuceneError>,
     lock: AtomicBool,
+    id: String,
 }
 impl<D, P, T, O, TS, L, Q> DocumentsWriterPerThread<D, P, T, O, TS, L, Q>
 where
@@ -689,6 +691,20 @@ where
     /// Returns `true` iff this DWPT has been flushed
     pub(crate) fn has_flushed(&self) -> &bool {
         self.has_flushed.get().unwrap_or(&true)
+    }
+}
+impl<D, P, T, O, TS, L, Q> IdentityId for DocumentsWriterPerThread<D, P, T, O, TS, L, Q>
+where
+    D: Directory,
+    O: OffsetAttribute,
+    P: PayloadAttribute,
+    T: TermFrequencyAttribute,
+    TS: TokenStream,
+    L: LiveIndexWriterConfig,
+    Q: Query,
+{
+    fn id(&self) -> &str {
+        &self.id
     }
 }
 impl<D, P, T, O, TS, L, Q> Accountable for DocumentsWriterPerThread<D, P, T, O, TS, L, Q>

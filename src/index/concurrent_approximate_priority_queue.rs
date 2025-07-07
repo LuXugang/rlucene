@@ -20,29 +20,29 @@ use std::hash::{Hash, Hasher};
 
 use parking_lot::Mutex;
 
-use crate::index::approximate_priority_queue::ApproximatePriorityQueue;
+use crate::index::approximate_priority_queue::{ApproximatePriorityQueue, IdentityId};
 use crate::index::lockable_concurrent_approximate_priority_queue::Lock;
 use crate::util::error::lucene_error::{LuceneError, Result};
 
-const MIN_CONCURRENCY: i32 = 1;
-const MAX_CONCURRENCY: i32 = 256;
+const MIN_CONCURRENCY: usize = 1;
+const MAX_CONCURRENCY: usize = 256;
 /// Concurrent version of [`ApproximatePriorityQueue`], which trades a bit more
 /// of ordering for better concurrency by maintaining multiple sub
 /// [`ApproximatePriorityQueue`]s that are locked independently. The number of
 /// subs is computed dynamically based on hardware concurrency.
 pub struct ConcurrentApproximatePriorityQueue<T>
 where
-    T: PartialEq + Lock,
+    T: PartialEq + Lock + IdentityId,
 {
-    concurrency: i32,
+    concurrency: usize,
     pub(crate) queues: Vec<Mutex<ApproximatePriorityQueue<T>>>,
 }
 #[allow(unused)]
 impl<T> ConcurrentApproximatePriorityQueue<T>
 where
-    T: PartialEq + Lock,
+    T: PartialEq + Lock + IdentityId,
 {
-    fn get_concurrency() -> i32 {
+    fn get_concurrency() -> usize {
         let core_count = std::thread::available_parallelism()
             .map(|n| n.get())
             .unwrap_or(1);
@@ -50,24 +50,23 @@ where
         // core. The trade-off is that if we set the concurrency too
         // high then we'll completely lose the bias towards larger
         // DWPTs. And if we set it too low then we risk seeing contention.
-        debug_assert!(core_count <= i32::MAX as usize);
-        let mut concurrency = (core_count as i32) / 4;
+        let mut concurrency = core_count / 4;
         concurrency = max(MIN_CONCURRENCY, concurrency);
         concurrency = min(MAX_CONCURRENCY, concurrency);
         concurrency
     }
 
-    pub fn new() -> Result<Self> {
+    pub(crate) fn new() -> Result<Self> {
         Self::with_concurrency(Self::get_concurrency())
     }
 
-    pub fn with_concurrency(concurrency: i32) -> Result<Self> {
+    pub(crate) fn with_concurrency(concurrency: usize) -> Result<Self> {
         if !(MIN_CONCURRENCY..=MAX_CONCURRENCY).contains(&concurrency) {
             return Err(LuceneError::illegal_argument(format!(
                 "concurrency must be in [{MIN_CONCURRENCY}, {MAX_CONCURRENCY}], got {concurrency}"
             )));
         }
-        let mut queues = Vec::with_capacity(concurrency as usize);
+        let mut queues = Vec::with_capacity(concurrency);
         for _ in 0..concurrency {
             queues.push(Mutex::new(ApproximatePriorityQueue::new()));
         }
@@ -77,34 +76,34 @@ where
         })
     }
 
-    fn thread_hash() -> i32 {
+    fn thread_hash() -> usize {
         let thread_id = std::thread::current().id();
         let mut hasher = DefaultHasher::new();
         thread_id.hash(&mut hasher);
-        ((hasher.finish() as usize) & 0xFFFF) as i32
+        ((hasher.finish() as usize) & 0xFFFF)
     }
 
-    pub fn add(&self, entry: T, weight: i64) {
+    pub(crate) fn add(&self, entry: T, weight: i64) {
         let thread_hash = Self::thread_hash();
         for i in 0..self.concurrency {
-            let index = ((thread_hash + i) % self.concurrency) as usize;
+            let index = ((thread_hash + i) % self.concurrency);
             if let Some(mut queue) = self.queues[index].try_lock() {
                 queue.add(entry, weight);
                 return;
             }
         }
-        let index = (thread_hash % self.concurrency) as usize;
+        let index = (thread_hash % self.concurrency);
         let mut queue = self.queues[index].lock();
         queue.add(entry, weight)
     }
 
-    pub fn poll<F>(&self, predicate: F) -> Option<T>
+    pub(crate) fn poll<F>(&self, predicate: F) -> Option<T>
     where
         F: Fn(&T) -> bool,
     {
         let thread_hash = Self::thread_hash();
         for i in 0..self.concurrency {
-            let index = ((thread_hash + i) % self.concurrency) as usize;
+            let index = ((thread_hash + i) % self.concurrency);
             if let Some(mut queue) = self.queues[index].try_lock() {
                 if let Some(entry) = queue.poll(&predicate) {
                     return Some(entry);
@@ -112,7 +111,7 @@ where
             }
         }
         for i in 0..self.concurrency {
-            let index = ((thread_hash + i) % self.concurrency) as usize;
+            let index = ((thread_hash + i) % self.concurrency);
             let mut queue = self.queues[index].lock();
             if let Some(entry) = queue.poll(&predicate) {
                 return Some(entry);
@@ -121,10 +120,7 @@ where
         None
     }
 
-    pub fn contains(&self, o: &T) -> bool
-    where
-        T: PartialEq,
-    {
+    pub(crate) fn contains(&self, o: &T) -> bool {
         for mutex in &self.queues {
             let queue = mutex.lock();
             if queue.contains(o) {
@@ -134,10 +130,7 @@ where
         false
     }
 
-    pub fn remove(&self, o: &T) -> bool
-    where
-        T: PartialEq,
-    {
+    pub(crate) fn remove(&self, o: &str) -> bool {
         for mutex in &self.queues {
             let mut queue = mutex.lock();
             if queue.remove(o) {
@@ -146,13 +139,18 @@ where
         }
         false
     }
+    pub(crate) fn get_index(&self, o: &str) -> Option<usize> {
+        if let Some(mutex) = self.queues.iter().next() {
+            let mut queue = mutex.lock();
+            return queue.get_idx(o);
+        }
+        None
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::sync::{mpsc, Arc};
-    use std::thread;
-
+    use crate::index::approximate_priority_queue::IdentityId;
     use crate::index::concurrent_approximate_priority_queue::{
         ConcurrentApproximatePriorityQueue, MAX_CONCURRENCY, MIN_CONCURRENCY,
     };
@@ -160,6 +158,8 @@ mod tests {
     use crate::test::util::lucene_test_case::random;
     use crate::test::util::test_util::TestUtil;
     use crate::util::error::lucene_error::Result;
+    use std::sync::{mpsc, Arc};
+    use std::thread;
     impl Lock for i32 {
         fn lock(&self) -> Result<()> {
             unreachable!()
@@ -174,11 +174,18 @@ mod tests {
             unreachable!()
         }
     }
+    impl IdentityId for i32 {
+        fn id(&self) -> &str {
+            ""
+        }
+    }
 
     #[test]
     fn test_poll_from_same_thread() -> Result<()> {
         let mut random = random();
-        let concurrency = TestUtil::next_int(&mut random, MIN_CONCURRENCY, MAX_CONCURRENCY);
+        let concurrency =
+            TestUtil::next_int(&mut random, MIN_CONCURRENCY as i32, MAX_CONCURRENCY as i32)
+                as usize;
         let pq = ConcurrentApproximatePriorityQueue::<i32>::with_concurrency(concurrency)?;
 
         pq.add(3, 3);
@@ -194,7 +201,9 @@ mod tests {
     #[test]
     fn test_poll_from_different_thread() -> Result<()> {
         let mut random = random();
-        let concurrency = TestUtil::next_int(&mut random, MIN_CONCURRENCY, MAX_CONCURRENCY);
+        let concurrency =
+            TestUtil::next_int(&mut random, MIN_CONCURRENCY as i32, MAX_CONCURRENCY as i32)
+                as usize;
         let pq = Arc::new(ConcurrentApproximatePriorityQueue::<i32>::with_concurrency(
             concurrency,
         )?);
@@ -217,7 +226,7 @@ mod tests {
     #[test]
     fn test_current_lock_is_busy() -> Result<()> {
         let mut random = random();
-        let concurrency = TestUtil::next_int(&mut random, 2, MAX_CONCURRENCY);
+        let concurrency = TestUtil::next_int(&mut random, 2, MAX_CONCURRENCY as i32) as usize;
         let pq = Arc::new(ConcurrentApproximatePriorityQueue::<i32>::with_concurrency(
             concurrency,
         )?);

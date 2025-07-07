@@ -14,22 +14,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::index::approximate_priority_queue::IdentityId;
 use crate::index::concurrent_approximate_priority_queue::ConcurrentApproximatePriorityQueue;
 use crate::util::error::lucene_error::Result;
 use std::sync::atomic::{AtomicI32, Ordering};
+
 /// A `ConcurrentApproximatePriorityQueue` of [`Lock`] objects.
 pub(crate) struct LockableConcurrentApproximatePriorityQueue<T>
 where
-    T: PartialEq + Lock,
+    T: PartialEq + Lock + IdentityId,
 {
     queue: ConcurrentApproximatePriorityQueue<T>,
     add_and_unlock_counter: AtomicI32,
 }
 impl<T> LockableConcurrentApproximatePriorityQueue<T>
 where
-    T: PartialEq + Lock,
+    T: PartialEq + Lock + IdentityId,
 {
-    pub(crate) fn with_concurrency(concurrency: i32) -> Result<Self> {
+    pub(crate) fn with_concurrency(concurrency: usize) -> Result<Self> {
         Ok(Self {
             queue: ConcurrentApproximatePriorityQueue::with_concurrency(concurrency)?,
             add_and_unlock_counter: AtomicI32::new(0),
@@ -56,7 +58,7 @@ where
         None
     }
     /// Remove an entry from the queue.
-    pub(crate) fn remove(&self, o: &T) -> bool {
+    pub(crate) fn remove(&mut self, o: &str) -> bool {
         self.queue.remove(o)
     }
     ///  Only used for assertions
@@ -81,6 +83,7 @@ pub(crate) trait Lock {
 
 #[cfg(test)]
 mod tests {
+    use crate::index::approximate_priority_queue::IdentityId;
     use crate::index::lockable_concurrent_approximate_priority_queue::{
         Lock, LockableConcurrentApproximatePriorityQueue,
     };
@@ -101,6 +104,11 @@ mod tests {
                 weight: 0,
                 lock: AtomicBool::new(false),
             }
+        }
+    }
+    impl IdentityId for WeightedLock {
+        fn id(&self) -> &str {
+            ""
         }
     }
     impl Lock for WeightedLock {
