@@ -803,7 +803,8 @@ where
     Q: Query,
 {
     fn ram_bytes_used(&self) -> Result<i64> {
-        todo!()
+        // TODO
+        Ok(0)
     }
 
     fn get_child_resources<A>(&self) -> Vec<A>

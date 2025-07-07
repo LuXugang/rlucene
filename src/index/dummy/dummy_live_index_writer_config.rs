@@ -1,0 +1,86 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+use crate::analysis::dummy::dummy_analyzer::DummyAnalyzer;
+use crate::codecs::lucene101_codec::Lucene101Codec;
+use crate::index::live_index_writer_config::LiveIndexWriterConfig;
+use crate::index::sort::Sort;
+use crate::search::dummy::dummy_similarity::DummySimilarity;
+use crate::util::info_stream::{InfoStreamEnum, InfoStreamLock, NoOutput};
+use parking_lot::Mutex;
+use std::sync::Arc;
+
+pub struct DummyLiveIndexWriterConfig {
+    info_stream: InfoStreamLock,
+    codec: Lucene101Codec,
+    analyzer: DummyAnalyzer,
+    similarity: DummySimilarity,
+}
+impl Default for DummyLiveIndexWriterConfig {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl DummyLiveIndexWriterConfig {
+    pub fn new() -> Self {
+        DummyLiveIndexWriterConfig {
+            info_stream: Arc::new(Mutex::new(InfoStreamEnum::NoOutput(NoOutput))),
+            codec: Lucene101Codec,
+            analyzer: DummyAnalyzer,
+            similarity: DummySimilarity,
+        }
+    }
+}
+impl LiveIndexWriterConfig for DummyLiveIndexWriterConfig {
+    type Analyzer = DummyAnalyzer;
+
+    fn get_analyzer(&self) -> &Self::Analyzer {
+        &self.analyzer
+    }
+
+    type Similarity = DummySimilarity;
+
+    fn get_similarity(&self) -> &Self::Similarity {
+        &self.similarity
+    }
+
+    type Codec = Lucene101Codec;
+
+    fn get_codec(&self) -> &Self::Codec {
+        &self.codec
+    }
+
+    fn get_index_sort(&self) -> Option<Sort> {
+        None
+    }
+
+    fn get_use_compound_file(&self) -> bool {
+        false
+    }
+
+    fn get_soft_deletes_field(&self) -> Option<&str> {
+        None
+    }
+
+    fn get_info_stream(&self) -> InfoStreamLock {
+        self.info_stream.clone()
+    }
+
+    fn get_parent_field(&self) -> Option<&str> {
+        None
+    }
+}

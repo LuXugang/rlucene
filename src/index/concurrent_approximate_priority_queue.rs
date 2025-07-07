@@ -149,7 +149,14 @@ where
     pub(crate) fn lock(&self, id: &str) -> Result<()> {
         for mutex in &self.queues {
             let mut queue = mutex.lock();
-            queue.lock(id)?
+            match queue.lock(id) {
+                Ok(v) => {
+                    if v {
+                        return Ok(());
+                    }
+                },
+                Err(e) => return Err(e),
+            }
         }
         Err(LuceneError::illegal_argument(format!(
             "No entry found with id: {id}"
@@ -158,7 +165,14 @@ where
     pub(crate) fn unlock(&self, id: &str) -> Result<()> {
         for mutex in &self.queues {
             let mut queue = mutex.lock();
-            queue.unlock(id)?
+            match queue.unlock(id) {
+                Ok(v) => {
+                    if v {
+                        return Ok(());
+                    }
+                },
+                Err(e) => return Err(e),
+            }
         }
         Err(LuceneError::illegal_argument(format!(
             "No entry found with id: {id}"

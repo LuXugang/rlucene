@@ -46,7 +46,7 @@ where
     TS: TokenStream,
     L: LiveIndexWriterConfig,
     Q: Query,
-    F: Fn() -> DocumentsWriterPerThread<D, P, T, O, TS, L, Q>,
+    F: Fn() -> Result<DocumentsWriterPerThread<D, P, T, O, TS, L, Q>>,
 {
     inner: Mutex<State>,
     free_list:
@@ -68,7 +68,7 @@ where
     TS: TokenStream,
     L: LiveIndexWriterConfig,
     Q: Query,
-    F: Fn() -> DocumentsWriterPerThread<D, P, T, O, TS, L, Q>,
+    F: Fn() -> Result<DocumentsWriterPerThread<D, P, T, O, TS, L, Q>>,
 {
     pub fn new(dwpt_factory: F) -> Result<Self> {
         let inner = Mutex::new(State {
@@ -123,7 +123,7 @@ where
         // end of the world it's violating the contract that we don't release any new DWPT after this
         // pool is closed
         self.ensure_open()?;
-        let dwpt = (self.dwpt_factory)();
+        let dwpt = (self.dwpt_factory)()?;
         dwpt.lock()?;
         inner.dwpts.insert(dwpt.id().to_string());
         Ok(dwpt)
@@ -187,7 +187,7 @@ where
         for id in inner.dwpts.iter() {
             if predicate(id) {
                 self.free_list.lock(id)?;
-                if self.is_registered(id) {
+                if self.is_registered_with_state(id, &inner) {
                     list.push(id.clone());
                 } else {
                     self.free_list.unlock(id)?
@@ -215,9 +215,167 @@ where
     ///  Returns `true` if this DWPT is still part of the pool
     pub(crate) fn is_registered(&self, per_thread: &str) -> bool {
         let inner = self.inner.lock();
-        inner.dwpts.contains(per_thread)
+        self.is_registered_with_state(per_thread, &inner)
+    }
+    fn is_registered_with_state(&self, per_thread: &str, state: &State) -> bool {
+        state.dwpts.contains(per_thread)
     }
     pub fn close(&mut self) {
         self.closed.store(true, Ordering::SeqCst);
+    }
+}
+#[cfg(test)]
+mod tests {
+    use crate::analysis::dummy::dummy_token_stream::DummyTokenStream;
+    use crate::analysis::token_attributes::dummy::dummy_offset_attribute::DummyOffsetAttribute;
+    use crate::analysis::token_attributes::dummy::dummy_payload_attribute::DummyPayloadAttribute;
+    use crate::analysis::token_attributes::dummy::dummy_term_frequency_attribute::DummyTermFrequencyAttribute;
+    use crate::index::approximate_priority_queue::IdentityId;
+    use crate::index::documents_writer_delete_queue::DocumentsWriterDeleteQueue;
+    use crate::index::documents_writer_per_thread::DocumentsWriterPerThread;
+    use crate::index::documents_writer_per_thread_pool::DocumentsWriterPerThreadPool;
+    use crate::index::dummy::dummy_live_index_writer_config::DummyLiveIndexWriterConfig;
+    use crate::index::field_infos::build::Builder;
+    use crate::index::field_infos::FieldNumbers;
+    use crate::search::dummy::dummy_query::DummyQuery;
+    use crate::store::nio_fs_directory::NIOFSDirectory;
+    use crate::store::{FSDirectory, NativeFSLockFactory};
+    use crate::test::util::lucene_test_case::{new_directory, random};
+    use crate::util::error::lucene_error::Result;
+    use crate::util::info_stream::{InfoStreamEnum, NoOutput};
+    use crate::util::LATEST;
+    use parking_lot::Mutex;
+    use std::sync::atomic::AtomicI64;
+    use std::sync::Arc;
+
+    #[test]
+    fn test_lock_release_and_close() -> Result<()> {
+        let mut random = random();
+        let directory = Arc::new(Mutex::new(new_directory(&mut random)?));
+        // TODO: LuceneTestCase::newIndexWriterConfig 为实现
+        let dummy_config = Arc::new(DummyLiveIndexWriterConfig::new());
+        let mut pool = DocumentsWriterPerThreadPool::new(move || {
+            DocumentsWriterPerThread::<
+                FSDirectory<NativeFSLockFactory, NIOFSDirectory>,
+                DummyPayloadAttribute,
+                DummyTermFrequencyAttribute,
+                DummyOffsetAttribute,
+                DummyTokenStream,
+                DummyLiveIndexWriterConfig,
+                DummyQuery,
+            >::new(
+                LATEST.major,
+                "",
+                directory.clone(),
+                directory.clone(),
+                dummy_config.clone(),
+                Arc::new(DocumentsWriterDeleteQueue::new(Arc::new(Mutex::new(
+                    InfoStreamEnum::NoOutput(NoOutput),
+                )))),
+                Builder::new(Arc::new(Mutex::new(FieldNumbers::new(None, None)?))),
+                AtomicI64::new(0),
+                false,
+            )
+        })?;
+
+        let first = pool.get_and_lock()?;
+        assert_eq!(pool.size(), 1);
+
+        let second = pool.get_and_lock()?;
+        assert_eq!(pool.size(), 2);
+
+        let first_id = first.id().to_string();
+        pool.mark_as_free_and_unlock(first)?;
+        assert_eq!(pool.size(), 2);
+
+        let third = pool.get_and_lock()?;
+        assert_eq!(first_id, third.id().to_string());
+        assert_eq!(pool.size(), 2);
+
+        pool.checkout(third.id());
+        assert_eq!(pool.size(), 1);
+
+        pool.close();
+        assert_eq!(pool.size(), 1);
+
+        pool.mark_as_free_and_unlock(second)?;
+        assert_eq!(pool.size(), 1);
+
+        let v = pool.filter_and_lock(|_| true)?;
+        for dwpt in v {
+            pool.checkout(&dwpt);
+            // dwpt.unlock()?;
+        }
+        assert_eq!(pool.size(), 0);
+        Ok(())
+    }
+    #[test]
+    fn test_close_while_new_writers_locked() -> Result<()> {
+        // use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
+        // use std::thread;
+        // use std::time::Duration;
+        //
+        // let mut random = random();
+        // let directory = Arc::new(Mutex::new(new_directory(&mut random)?));
+        // let dummy_config = Arc::new(DummyLiveIndexWriterConfig::new());
+        //
+        // let mut pool = Arc::new(DocumentsWriterPerThreadPool::new(move || {
+        //     DocumentsWriterPerThread::<
+        //         FSDirectory<NativeFSLockFactory, NIOFSDirectory>,
+        //         DummyPayloadAttribute,
+        //         DummyTermFrequencyAttribute,
+        //         DummyOffsetAttribute,
+        //         DummyTokenStream,
+        //         DummyLiveIndexWriterConfig,
+        //         DummyQuery,
+        //     >::new(
+        //         LATEST.major,
+        //         "",
+        //         directory.clone(),
+        //         directory.clone(),
+        //         dummy_config.clone(),
+        //         Arc::new(DocumentsWriterDeleteQueue::new(Arc::new(Mutex::new(
+        //             InfoStreamEnum::NoOutput(NoOutput),
+        //         )))),
+        //         Builder::new(Arc::new(Mutex::new(FieldNumbers::new(None, None)?))),
+        //         AtomicI64::new(0),
+        //         false,
+        //     )
+        // })?);
+        //
+        // let first = pool.get_and_lock()?;
+        // pool.lock_new_writers();
+        //
+        // let ready = Arc::new(AtomicBool::new(false));
+        // let ready_clone = ready.clone();
+        // let pool_clone = pool.clone();
+        //
+        // let handle = thread::spawn(move || {
+        //     ready_clone.store(true, Ordering::SeqCst);
+        //     let result = pool_clone.new_writer();
+        //     assert!(matches!(result, Err(LuceneError::AlreadyClosed(_))));
+        // });
+        //
+        // while !ready.load(Ordering::SeqCst) {
+        //     thread::sleep(Duration::from_millis(10));
+        // }
+        //
+        // thread::sleep(Duration::from_millis(1000));
+        //
+        // first.unlock();
+        // pool.close();
+        // pool.unlock_new_writers();
+        //
+        // let writers = pool.filter_and_lock(|_| true)?;
+        // for dwpt in writers {
+        //     pool.checkout(&dwpt);
+        //     // dwpt.unlock()?;
+        // }
+        //
+        // assert_eq!(pool.size(), 0);
+        // handle.join().unwrap();
+        //
+        // Ok(())
+        todo!()
     }
 }

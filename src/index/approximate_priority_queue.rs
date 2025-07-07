@@ -145,17 +145,19 @@ where
     pub(crate) fn get_idx(&self, id: &str) -> Option<usize> {
         self.map_to_idx.get(id).copied()
     }
-    pub(crate) fn lock(&self, id: &str) -> Result<()> {
+    pub(crate) fn lock(&self, id: &str) -> Result<bool> {
         if let Some(&index) = self.map_to_idx.get(id) {
             self.slots[index].as_ref().unwrap().lock()?;
+            return Ok(true);
         }
-        Ok(())
+        Ok(false)
     }
-    pub(crate) fn unlock(&self, id: &str) -> Result<()> {
+    pub(crate) fn unlock(&self, id: &str) -> Result<bool> {
         if let Some(&index) = self.map_to_idx.get(id) {
             self.slots[index].as_ref().unwrap().unlock();
+            return Ok(true);
         }
-        Ok(())
+        Ok(false)
     }
 }
 

@@ -16,3 +16,5 @@
  */
 pub mod dummy_disi;
 pub mod dummy_query;
+pub mod dummy_similarity;
+pub mod dumy_sim_scorer;
