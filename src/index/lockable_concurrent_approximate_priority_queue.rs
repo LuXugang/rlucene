@@ -72,6 +72,12 @@ where
         self.queue.add(entry, weight);
         self.add_and_unlock_counter.fetch_add(1, Ordering::SeqCst);
     }
+    pub(crate) fn lock(&self, id: &str) -> Result<()> {
+        self.queue.lock(id)
+    }
+    pub(crate) fn unlock(&self, id: &str) -> Result<()> {
+        self.queue.unlock(id)
+    }
 }
 
 pub(crate) trait Lock {

@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::index::lockable_concurrent_approximate_priority_queue::Lock;
+use crate::util::error::lucene_error::Result;
 use std::collections::HashMap;
 use std::vec::Vec;
 
@@ -143,6 +144,18 @@ where
     }
     pub(crate) fn get_idx(&self, id: &str) -> Option<usize> {
         self.map_to_idx.get(id).copied()
+    }
+    pub(crate) fn lock(&self, id: &str) -> Result<()> {
+        if let Some(&index) = self.map_to_idx.get(id) {
+            self.slots[index].as_ref().unwrap().lock()?;
+        }
+        Ok(())
+    }
+    pub(crate) fn unlock(&self, id: &str) -> Result<()> {
+        if let Some(&index) = self.map_to_idx.get(id) {
+            self.slots[index].as_ref().unwrap().unlock();
+        }
+        Ok(())
     }
 }
 

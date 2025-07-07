@@ -105,7 +105,6 @@ where
     TS: TokenStream,
     L: LiveIndexWriterConfig,
     Q: Query,
-    SegmentInfo<D>: Default,
 {
     fn on_aborting_exception(&mut self, throwable: LuceneError) {
         debug_assert!(
@@ -113,6 +112,9 @@ where
             "aborting exception has already been set"
         );
         self.aborting_exception = Some(throwable);
+    }
+    pub(crate) fn is_aborted(&self) -> bool {
+        self.aborted
     }
     pub(crate) fn abort(&mut self) -> Result<()> {
         self.aborted = true;
