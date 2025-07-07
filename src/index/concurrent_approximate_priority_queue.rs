@@ -32,7 +32,7 @@ const MAX_CONCURRENCY: usize = 256;
 /// subs is computed dynamically based on hardware concurrency.
 pub struct ConcurrentApproximatePriorityQueue<T>
 where
-    T: PartialEq + Lock + IdentityId,
+    T: Lock + IdentityId,
 {
     concurrency: usize,
     pub(crate) queues: Vec<Mutex<ApproximatePriorityQueue<T>>>,
@@ -40,7 +40,7 @@ where
 #[allow(unused)]
 impl<T> ConcurrentApproximatePriorityQueue<T>
 where
-    T: PartialEq + Lock + IdentityId,
+    T: Lock + IdentityId,
 {
     fn get_concurrency() -> usize {
         let core_count = std::thread::available_parallelism()
@@ -120,7 +120,7 @@ where
         None
     }
 
-    pub(crate) fn contains(&self, o: &T) -> bool {
+    pub(crate) fn contains(&self, o: &str) -> bool {
         for mutex in &self.queues {
             let queue = mutex.lock();
             if queue.contains(o) {
@@ -140,7 +140,7 @@ where
         false
     }
     pub(crate) fn get_index(&self, o: &str) -> Option<usize> {
-        if let Some(mutex) = self.queues.iter().next() {
+        if let Some(mutex) = self.queues.first() {
             let mut queue = mutex.lock();
             return queue.get_idx(o);
         }

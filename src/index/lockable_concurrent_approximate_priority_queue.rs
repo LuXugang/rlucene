@@ -22,14 +22,14 @@ use std::sync::atomic::{AtomicI32, Ordering};
 /// A `ConcurrentApproximatePriorityQueue` of [`Lock`] objects.
 pub(crate) struct LockableConcurrentApproximatePriorityQueue<T>
 where
-    T: PartialEq + Lock + IdentityId,
+    T: Lock + IdentityId,
 {
     queue: ConcurrentApproximatePriorityQueue<T>,
     add_and_unlock_counter: AtomicI32,
 }
 impl<T> LockableConcurrentApproximatePriorityQueue<T>
 where
-    T: PartialEq + Lock + IdentityId,
+    T: Lock + IdentityId,
 {
     pub(crate) fn with_concurrency(concurrency: usize) -> Result<Self> {
         Ok(Self {
@@ -62,7 +62,7 @@ where
         self.queue.remove(o)
     }
     ///  Only used for assertions
-    pub(crate) fn contains(&self, o: &T) -> bool {
+    pub(crate) fn contains(&self, o: &str) -> bool {
         self.queue.contains(o)
     }
 

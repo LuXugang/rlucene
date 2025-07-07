@@ -23,7 +23,7 @@ use std::vec::Vec;
 /// doesn't support null elements.
 pub(crate) struct ApproximatePriorityQueue<T>
 where
-    T: PartialEq + Lock + IdentityId,
+    T: Lock + IdentityId,
 {
     /// Indexes between 0 and 63 are sparsely populated, and indexes that are
     /// greater than or equal to 64 are densely populated
@@ -37,7 +37,7 @@ where
 }
 impl<T> ApproximatePriorityQueue<T>
 where
-    T: PartialEq + Lock + IdentityId,
+    T: Lock + IdentityId,
 {
     pub(crate) fn new() -> Self {
         let mut slots = Vec::with_capacity(i64::BITS as usize);
@@ -66,13 +66,13 @@ where
             debug_assert!(self.slots[destination_slot].is_none());
             self.map_to_idx
                 .insert(entry.id().to_string(), destination_slot);
-            entry.unlock();
             self.slots[destination_slot] = Some(entry);
+            self.slots[destination_slot].as_mut().unwrap().unlock();
         } else {
             let len = self.slots.len();
             self.map_to_idx.insert(entry.id().to_string(), len);
-            entry.unlock();
             self.slots.push(Some(entry));
+            self.slots[len].as_mut().unwrap().unlock();
         }
     }
     /// Return an entry matching the predicate. This will usually be one of the
@@ -118,14 +118,8 @@ where
         None
     }
     // Only used for assertions
-    pub(crate) fn contains(&self, o: &T) -> bool {
-        self.slots.iter().any(|item| {
-            if let Some(ref x) = item {
-                x == o
-            } else {
-                false
-            }
-        })
+    pub(crate) fn contains(&self, o: &str) -> bool {
+        self.map_to_idx.contains_key(o)
     }
 
     pub(crate) fn is_empty(&self) -> bool {
