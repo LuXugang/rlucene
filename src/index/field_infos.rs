@@ -384,7 +384,6 @@ pub(crate) struct FieldNumbers {
     // The soft-deletes field from IWC to enforce a single soft-deletes field
 }
 
-#[allow(unused)]
 impl FieldNumbers {
     pub(crate) fn new(
         soft_deletes_field_name: Option<String>,
@@ -769,7 +768,6 @@ pub mod build {
         global_field_numbers: Arc<Mutex<FieldNumbers>>,
         finished: bool,
     }
-    #[allow(unused)]
     impl Builder {
         pub(crate) fn new(global_field_numbers: Arc<Mutex<FieldNumbers>>) -> Self {
             Self {

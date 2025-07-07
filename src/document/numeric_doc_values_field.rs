@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::analysis::analyzer::Analyzer;
-use crate::document::field::Field;
+use crate::document::field::{Field, FieldDataEnum};
 use crate::document::field_type::FieldType;
 use crate::document::fields::ReaderEnum;
 use crate::document::invertable_field::InvertableType;
@@ -46,6 +46,16 @@ static INDEXED_TYPE: Lazy<FieldType> = Lazy::new(|| {
 });
 pub struct NumericDocValuesField {
     parent_field: Field,
+}
+impl NumericDocValuesField {
+    pub fn new(name: &str, value: i64) -> Self {
+        Self::new_with_type(name, value, TYPE.clone())
+    }
+    pub fn new_with_type(name: &str, value: i64, file_type: FieldType) -> Self {
+        let mut parent_field = Field::new(name, file_type);
+        parent_field.fields_data = Option::from(FieldDataEnum::Number(Number::I64(value)));
+        Self { parent_field }
+    }
 }
 
 impl Display for NumericDocValuesField {

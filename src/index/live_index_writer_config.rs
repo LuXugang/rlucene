@@ -37,4 +37,6 @@ pub trait LiveIndexWriterConfig {
     fn get_soft_deletes_field(&self) -> Option<&str>;
 
     fn get_info_stream(&self) -> InfoStreamLock;
+
+    fn get_parent_field(&self) -> Option<&str>;
 }

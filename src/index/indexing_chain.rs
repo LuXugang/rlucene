@@ -121,7 +121,6 @@ where
     L: LiveIndexWriterConfig,
 {
     bytes_used: CounterEnumBorrow,
-    field_infos: Builder,
     terms_hash: FreqProxTermsWriter<D>,
     doc_values_byte_pool: ByteBlockPoolBorrow,
     stored_fields_consumer: StoredFieldsConsumer<D>,
@@ -146,13 +145,15 @@ where
     TS: TokenStream,
     L: LiveIndexWriterConfig,
 {
-    fn new(
+    pub(crate) fn new<D1>(
         index_created_version_major: i32,
-        segment_info: &SegmentInfo<D>,
+        segment_info: &SegmentInfo<D1>,
         directory: Arc<Mutex<D>>,
-        field_infos: Builder,
         index_writer_config: Arc<L>,
-    ) -> Self {
+    ) -> Self
+    where
+        D1: Directory,
+    {
         let bytes_used = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
         let byte_block_allocator =
             AllocatorByteEnum::DTA(DirectTrackingAllocatorByte::new(bytes_used.clone()));
@@ -195,7 +196,6 @@ where
         let info_stream = index_writer_config.get_info_stream().clone();
         IndexingChain {
             bytes_used,
-            field_infos,
             terms_hash,
             doc_values_byte_pool,
             stored_fields_consumer,
@@ -635,6 +635,7 @@ where
         doc_id: i32,
         document: &mut [F],
         info: &mut SegmentInfo<D>,
+        field_infos: &mut Builder,
     ) -> Result<()>
     where
         F: IndexableField<TokenStream = TS>,
@@ -697,7 +698,7 @@ where
                 let idx = self.fields[i];
                 let pf = self.doc_fields[idx as usize].as_mut().unwrap();
                 if pf.field_info.is_none() {
-                    self.initialize_field_info(idx)?;
+                    self.initialize_field_info(idx, field_infos)?;
                 } else {
                     pf.schema
                         .assert_same_schema(pf.field_info.as_ref().unwrap())?;
@@ -748,7 +749,11 @@ where
         let new_len = ArrayUtil::oversize(required, 1);
         ArrayUtil::grow_with_len(&mut self.doc_fields, new_len);
     }
-    pub(crate) fn initialize_field_info(&mut self, per_field_index: i32) -> Result<()> {
+    pub(crate) fn initialize_field_info(
+        &mut self,
+        per_field_index: i32,
+        field_infos: &mut Builder,
+    ) -> Result<()> {
         // Create and add a new fieldInfo to fieldInfos for this segment.
         // During the creation of FieldInfo there is also verification of the correctness of all its
         // parameters.
@@ -775,8 +780,8 @@ where
         //         .get_max_dimensions(&pf.field_name)?;
         //     Self::validate_max_vector_dimension(&pf.field_name, s.vector_dimension, max_dim)?;
         // }
-        let soft_deletes_field = self.field_infos.is_soft_deletes_field_name(&pf.field_name);
-        let is_parent_field = self.field_infos.is_parent_field_name(&pf.field_name);
+        let soft_deletes_field = field_infos.is_soft_deletes_field_name(&pf.field_name);
+        let is_parent_field = field_infos.is_parent_field_name(&pf.field_name);
         let field_info = FieldInfo::new(
             pf.field_name.clone(),
             -1,
@@ -798,7 +803,7 @@ where
             is_parent_field,
         );
 
-        let fi = self.field_infos.add(Rc::new(field_info))?;
+        let fi = field_infos.add(Rc::new(field_info))?;
         pf.set_field_info(fi.clone());
 
         if *fi.get_index_options() != IndexOptions::None {

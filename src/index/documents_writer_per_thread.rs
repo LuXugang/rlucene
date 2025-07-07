@@ -51,10 +51,10 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::info_stream::{InfoStream, InfoStreamLock};
 use crate::util::io_consumer::IOConsumer;
-use crate::util::StringHelper;
+use crate::util::{StringHelper, LATEST};
 use parking_lot::Mutex;
 use std::cell::OnceCell;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
@@ -85,12 +85,12 @@ where
     pub(crate) delete_queue: Arc<DocumentsWriterDeleteQueue<Q>>,
     delete_slice: Option<DeleteSlice<Q>>,
     pending_num_docs: AtomicI64,
-    index_writer_config: L,
+    index_writer_config: Arc<L>,
     enable_test_points: bool,
     delete_doc_ids: Vec<i32>,
     num_deleted_doc_ids: i32,
     index_major_version_created: i32,
-    parent_field: ReservedField<NumericDocValuesField>,
+    parent_field: Option<ReservedField<NumericDocValuesField>>,
     files_to_delete: HashSet<String>,
     aborting_exception: Option<LuceneError>,
     lock: AtomicBool,
@@ -142,6 +142,89 @@ where
         }
         abort_result
     }
+    pub(crate) fn new(
+        index_major_version_created: i32,
+        segment_name: &str,
+        directory_orig: Arc<Mutex<D>>,
+        directory: Arc<Mutex<D>>,
+        index_writer_config: Arc<L>,
+        delete_queue: Arc<DocumentsWriterDeleteQueue<Q>>,
+        field_infos: Builder,
+        pending_num_docs: AtomicI64,
+        enable_test_points: bool,
+    ) -> Result<Self> {
+        let info_stream = index_writer_config.get_info_stream();
+        let tracking_dir = TrackingDirectoryWrapper::new(directory.clone());
+        let directory_wrapped = Arc::new(Mutex::new(tracking_dir));
+        let pending_updates = MTBufferedUpdates::new_sync(segment_name);
+        let delete_slice = Some(delete_queue.new_slice());
+        let random_id = StringHelper::random_id();
+        let id = StringHelper::id_to_string(Some(&random_id));
+        let segment_info = SegmentInfo::new(
+            directory_orig.clone(),
+            Some((*LATEST).clone()),
+            Some((*LATEST).clone()),
+            segment_name,
+            -1,
+            false,
+            false,
+            HashMap::new(),
+            random_id,
+            HashMap::new(),
+            index_writer_config.get_index_sort(),
+        )?;
+
+        if info_stream.lock().enabled("DWPT") {
+            info_stream.lock().message(
+                "DWPT",
+                &format!(
+                    "{} init seg={} delQueue={}",
+                    std::thread::current().name().unwrap_or(""),
+                    segment_name,
+                    delete_queue
+                ),
+            );
+        }
+
+        let mut indexing_chain = IndexingChain::new(
+            index_major_version_created,
+            &segment_info,
+            directory_wrapped.clone(),
+            index_writer_config.clone(),
+        );
+
+        let parent_field = index_writer_config
+            .get_parent_field()
+            .map(|pf| indexing_chain.mark_as_reserved(NumericDocValuesField::new(pf, -1)));
+
+        Ok(DocumentsWriterPerThread {
+            directory: directory_wrapped,
+            indexing_chain,
+            pending_updates,
+            segment_info,
+            aborted: false,
+            flush_pending: OnceCell::new(),
+            last_committed_bytes_used: AtomicI64::new(0),
+            has_flushed: OnceCell::new(),
+            field_infos,
+            info_stream,
+            num_docs_in_ram: 0,
+            delete_queue,
+            delete_slice,
+            pending_num_docs,
+            index_writer_config,
+            enable_test_points,
+            delete_doc_ids: Vec::new(),
+            num_deleted_doc_ids: 0,
+            index_major_version_created,
+            parent_field,
+            files_to_delete: HashSet::new(),
+            aborting_exception: None,
+            lock: AtomicBool::new(false),
+            id,
+        })
+    }
+
     pub(crate) fn test_point(&self, message: &str) {
         if self.enable_test_points {
             let mut info_stream = self.info_stream.lock();
