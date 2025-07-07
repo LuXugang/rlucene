@@ -106,7 +106,7 @@ pub trait BaseLiveDocsFormatTestCase {
             dir.clone(),
             Option::from(LATEST.clone()),
             Option::from(LATEST.clone()),
-            "foo".to_string(),
+            "foo",
             max_doc,
             rand::random(),
             false,

@@ -370,7 +370,7 @@ pub trait BaseFieldInfoFormatTestCase {
             dir,
             Some((*LATEST).clone()),
             min_version,
-            name.to_string(),
+            name,
             10_000,
             false,
             false,

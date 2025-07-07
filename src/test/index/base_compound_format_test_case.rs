@@ -722,7 +722,7 @@ pub(crate) fn new_segment_info<D: Directory, R: Rng + ?Sized>(
         dir,
         Some((*LATEST).clone()),
         min_version,
-        name.to_string(),
+        name,
         10_000,
         false,
         false,
