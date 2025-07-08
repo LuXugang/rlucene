@@ -156,7 +156,7 @@ impl FieldInfo {
                     )));
                 }
             } else {
-                if self.properties.lock().store_term_vector {
+                if properties.store_term_vector {
                     return Err(LuceneError::illegal_argument(format!(
                         "non-indexed field '{}' cannot store term vectors",
                         self.name
