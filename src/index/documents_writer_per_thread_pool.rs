@@ -89,7 +89,7 @@ where
         inner.dwpts.len()
     }
 
-    pub(crate) fn lock_new_writers(&mut self) {
+    pub(crate) fn lock_new_writers(&self) {
         // this is similar to a semaphore - we need to acquire all permits ie. takenWriterPermits must
         // be == 0
         // any call to lockNewWriters() must be followed by unlockNewWriters() otherwise we will
@@ -201,7 +201,7 @@ where
     /// # Returns
     ///
     /// `true` if the DWPT was removed; `false` otherwise.
-    pub(crate) fn checkout(&mut self, per_thread: &str) -> bool {
+    pub(crate) fn checkout(&self, per_thread: &str) -> bool {
         let mut inner = self.inner.lock();
 
         if inner.dwpts.remove(per_thread) {
@@ -220,7 +220,7 @@ where
     fn is_registered_with_state(&self, per_thread: &str, state: &State) -> bool {
         state.dwpts.contains(per_thread)
     }
-    pub fn close(&mut self) {
+    pub fn close(&self) {
         self.closed.store(true, Ordering::SeqCst);
     }
 }
@@ -238,11 +238,12 @@ mod tests {
     use crate::index::field_infos::build::Builder;
     use crate::index::field_infos::FieldNumbers;
 
+    use crate::index::lockable_concurrent_approximate_priority_queue::Lock;
     use crate::search::dummy::dummy_query::DummyQuery;
     use crate::store::nio_fs_directory::NIOFSDirectory;
     use crate::store::{FSDirectory, NativeFSLockFactory};
     use crate::test::util::lucene_test_case::{new_directory, random};
-    use crate::util::error::lucene_error::Result;
+    use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::info_stream::{InfoStreamEnum, NoOutput};
     use crate::util::LATEST;
     use parking_lot::Mutex;
@@ -255,7 +256,7 @@ mod tests {
         let directory = Arc::new(Mutex::new(new_directory(&mut random)?));
         // TODO: LuceneTestCase::newIndexWriterConfig 为实现
         let dummy_config = Arc::new(DummyLiveIndexWriterConfig::new());
-        let mut pool = DocumentsWriterPerThreadPool::new(move || {
+        let pool = DocumentsWriterPerThreadPool::new(move || {
             DocumentsWriterPerThread::<
                 FSDirectory<NativeFSLockFactory, NIOFSDirectory>,
                 DummyPayloadAttribute,
@@ -312,73 +313,75 @@ mod tests {
     }
     #[test]
     fn test_close_while_new_writers_locked() -> Result<()> {
-        // use std::sync::{
-        //     atomic::{AtomicBool, Ordering},
-        //     Arc,
-        // };
-        // use std::thread;
-        // use std::time::Duration;
-        //
-        // let mut random = random();
-        // let directory = Arc::new(Mutex::new(new_directory(&mut random)?));
-        // let dummy_config = Arc::new(DummyLiveIndexWriterConfig::new());
-        //
-        // let mut pool = Arc::new(DocumentsWriterPerThreadPool::new(move || {
-        //     DocumentsWriterPerThread::<
-        //         FSDirectory<NativeFSLockFactory, NIOFSDirectory>,
-        //         DummyPayloadAttribute,
-        //         DummyTermFrequencyAttribute,
-        //         DummyOffsetAttribute,
-        //         DummyTokenStream,
-        //         DummyLiveIndexWriterConfig,
-        //         DummyQuery,
-        //     >::new(
-        //         LATEST.major,
-        //         "",
-        //         directory.clone(),
-        //         directory.clone(),
-        //         dummy_config.clone(),
-        //         Arc::new(DocumentsWriterDeleteQueue::new(Arc::new(Mutex::new(
-        //             InfoStreamEnum::NoOutput(NoOutput),
-        //         )))),
-        //         Builder::new(Arc::new(Mutex::new(FieldNumbers::new(None, None)?))),
-        //         AtomicI64::new(0),
-        //         false,
-        //     )
-        // })?);
-        //
-        // let first = pool.get_and_lock()?;
-        // pool.lock_new_writers();
-        //
-        // let ready = Arc::new(AtomicBool::new(false));
-        // let ready_clone = ready.clone();
-        // let pool_clone = pool.clone();
-        //
-        // let handle = thread::spawn(move || {
-        //     ready_clone.store(true, Ordering::SeqCst);
-        //     let result = pool_clone.new_writer();
-        //     assert!(matches!(result, Err(LuceneError::AlreadyClosed(_))));
-        // });
-        //
-        // while !ready.load(Ordering::SeqCst) {
-        //     thread::sleep(Duration::from_millis(10));
-        // }
-        //
-        // thread::sleep(Duration::from_millis(1000));
-        //
-        // first.unlock();
-        // pool.close();
-        // pool.unlock_new_writers();
-        //
-        // let writers = pool.filter_and_lock(|_| true)?;
-        // for dwpt in writers {
-        //     pool.checkout(&dwpt);
-        //     // dwpt.unlock()?;
-        // }
-        //
-        // assert_eq!(pool.size(), 0);
-        // handle.join().unwrap();
+        use std::sync::{
+            atomic::{AtomicBool, Ordering},
+            Arc,
+        };
+        use std::thread;
+        use std::time::Duration;
 
+        let mut random = random();
+        let directory = Arc::new(Mutex::new(new_directory(&mut random)?));
+        let dummy_config = Arc::new(DummyLiveIndexWriterConfig::new());
+
+        let pool = Arc::new(DocumentsWriterPerThreadPool::new(move || {
+            DocumentsWriterPerThread::<
+                FSDirectory<NativeFSLockFactory, NIOFSDirectory>,
+                DummyPayloadAttribute,
+                DummyTermFrequencyAttribute,
+                DummyOffsetAttribute,
+                DummyTokenStream,
+                DummyLiveIndexWriterConfig,
+                DummyQuery,
+            >::new(
+                LATEST.major,
+                "",
+                directory.clone(),
+                directory.clone(),
+                dummy_config.clone(),
+                Arc::new(DocumentsWriterDeleteQueue::new(Arc::new(Mutex::new(
+                    InfoStreamEnum::NoOutput(NoOutput),
+                )))),
+                Builder::new(Arc::new(Mutex::new(FieldNumbers::new(None, None)?))),
+                AtomicI64::new(0),
+                false,
+            )
+        })?);
+
+        let first = pool.get_and_lock()?;
+        pool.lock_new_writers();
+
+        let ready = Arc::new(AtomicBool::new(false));
+        let ready_clone = ready.clone();
+        let pool_clone = pool.clone();
+
+        let handle = thread::spawn(move || {
+            ready_clone.store(true, Ordering::SeqCst);
+            let result = pool_clone.get_and_lock();
+            assert!(matches!(result, Err(LuceneError::AlreadyClosed(_))));
+        });
+
+        while !ready.load(Ordering::SeqCst) {
+            thread::sleep(Duration::from_millis(10));
+        }
+
+        thread::sleep(Duration::from_millis(1000));
+
+        first.unlock();
+        pool.close();
+        pool.unlock_new_writers();
+
+        handle.join().unwrap();
+        let ids = {
+            let inner = pool.inner.lock();
+            inner.dwpts.iter().cloned().collect::<Vec<_>>()
+        };
+        for dwpt in ids {
+            pool.checkout(&dwpt);
+            // dwpt.unlock()?;
+        }
+
+        assert_eq!(pool.size(), 0);
         Ok(())
     }
 }
