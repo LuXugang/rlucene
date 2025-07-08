@@ -24,18 +24,18 @@ use crate::util::packed::delta_packed_long_values::{
 use crate::util::packed::monotonic_long_values::MonotonicLongValuesBuilder;
 use crate::util::packed::read_enum::PackedIntsReadEnum;
 use crate::util::packed::{Mutable, NullReader, PackedInts, Reader};
-use std::rc::Rc;
+use std::sync::Arc;
 
 /// Utility struct to compress integers into a [`LongValues`] instance.
 #[derive(Clone)]
 pub struct PackedLongValues {
     page_shift: i32,
     pub(crate) page_mask: i32,
-    pub(crate) values: Vec<Rc<PackedIntsReadEnum>>,
+    pub(crate) values: Vec<Arc<PackedIntsReadEnum>>,
     pub(crate) size: i64,
     #[allow(unused)]
     ram_bytes_used: i64,
-    sub_long_values: Option<Rc<DeltaPackedLongValues>>,
+    sub_long_values: Option<Arc<DeltaPackedLongValues>>,
 }
 const MIN_PAGE_SIZE: i32 = 64;
 // More than 1M doesn't really makes sense with these appending buffers
@@ -111,8 +111,8 @@ impl PackedLongValues {
         ram_bytes_used: i64,
         sub_packed_long_values: Option<DeltaPackedLongValues>,
     ) -> Self {
-        let sub_long_values = sub_packed_long_values.map(Rc::new);
-        let values: Vec<Rc<PackedIntsReadEnum>> = values.into_iter().map(Rc::new).collect();
+        let sub_long_values = sub_packed_long_values.map(Arc::new);
+        let values: Vec<Arc<PackedIntsReadEnum>> = values.into_iter().map(Arc::new).collect();
         Self {
             page_shift,
             page_mask,

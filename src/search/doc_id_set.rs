@@ -14,12 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::rc::Rc;
-
 use crate::search::doc_id_set_iterator::{AllDocIdSetIterator, DocIdSetIterator, EmptyDISI};
 use crate::util::accountable::Accountable;
 use crate::util::bits::{Bits, MatchAllBits, MatchNoBits};
 use crate::util::error::lucene_error::Result;
+use std::sync::Arc;
 
 /// A `DocIdSet` contains a set of document IDs.
 /// Implementing types must provide an [`iterator`](DocIdSet::iterator) method
@@ -52,19 +51,19 @@ pub trait DocIdSet: Accountable {
     /// [`FixedBitSet`](crate::util::fixed_bit_set::FixedBitSet),
     /// which return themselves if used as a [`DocIdSet`].
     type BitType: Bits;
-    fn bits(&self) -> Option<Rc<Self::BitType>>;
+    fn bits(&self) -> Option<Arc<Self::BitType>>;
 }
 
 /// A [`DocIdSet`] that matches all document IDs up to a specified document
 /// (exclusive).
 struct All {
     max_doc: i32,
-    bits: Option<Rc<MatchAllBits>>,
+    bits: Option<Arc<MatchAllBits>>,
 }
 impl All {
     #[allow(unused)]
     fn new(max_doc: i32) -> Self {
-        let bits = Some(Rc::new(MatchAllBits::new(max_doc)));
+        let bits = Some(Arc::new(MatchAllBits::new(max_doc)));
         All { max_doc, bits }
     }
 }
@@ -78,7 +77,7 @@ impl DocIdSet for All {
 
     type BitType = MatchAllBits;
 
-    fn bits(&self) -> Option<Rc<Self::BitType>> {
+    fn bits(&self) -> Option<Arc<Self::BitType>> {
         self.bits.clone()
     }
 }
@@ -104,7 +103,7 @@ impl DocIdSet for EmptyDocIdSet {
 
     type BitType = MatchNoBits;
 
-    fn bits(&self) -> Option<Rc<Self::BitType>> {
+    fn bits(&self) -> Option<Arc<Self::BitType>> {
         None
     }
 }

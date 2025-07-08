@@ -14,8 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::rc::Rc;
-
 use crate::search::doc_id_set::DocIdSet;
 use crate::search::doc_id_set_iterator::{AllDocIdSetIterator, DocIdSetIterator};
 use crate::util::accountable::Accountable;
@@ -24,6 +22,7 @@ use crate::util::bit_set_iterator::BitSetIterator;
 use crate::util::bits::MatchNoBits;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
+use std::sync::Arc;
 
 /// Accumulator for documents that have a value for a field.
 /// This is optimized for the case where all documents have a value.
@@ -31,7 +30,7 @@ pub struct DocsWithFieldSet {
     set: Option<FixedBitSet>,
     cardinality: i32,
     last_doc_id: i32,
-    set_iter: Option<Rc<FixedBitSet>>,
+    set_iter: Option<Arc<FixedBitSet>>,
     finish: bool,
 }
 impl Default for DocsWithFieldSet {
@@ -64,7 +63,7 @@ impl DocsWithFieldSet {
         if self.set.is_some() || self.set_iter.is_some() {
             if self.set_iter.is_some() {
                 self.finish = false;
-                let fixed_set = match Rc::try_unwrap(self.set_iter.take().unwrap()) {
+                let fixed_set = match Arc::try_unwrap(self.set_iter.take().unwrap()) {
                     Ok(value) => value,
                     Err(_) => return Err(LuceneError::illegal_state("Rc count should be 1")),
                 };
@@ -91,7 +90,7 @@ impl DocsWithFieldSet {
     pub fn finish(&mut self) {
         self.finish = true;
         if self.set_iter.is_none() {
-            self.set_iter = Some(Rc::new(self.set.take().unwrap()));
+            self.set_iter = Some(Arc::new(self.set.take().unwrap()));
         }
     }
 }
@@ -160,7 +159,7 @@ impl DocIdSet for DocsWithFieldSet {
 
     type BitType = MatchNoBits;
 
-    fn bits(&self) -> Option<Rc<Self::BitType>> {
+    fn bits(&self) -> Option<Arc<Self::BitType>> {
         None
     }
 }

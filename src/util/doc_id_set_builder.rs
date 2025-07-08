@@ -14,8 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::rc::Rc;
-
 use crate::search::doc_id_set::DocIdSet;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
@@ -26,6 +24,7 @@ use crate::util::bit_set_iterator::BitSetIterator;
 use crate::util::error::lucene_error::Result;
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::int_array_doc_id_set::{IntArrayDocIdSet, IntArrayDocIdSetIterator};
+use std::sync::Arc;
 
 /// A builder of [`DocIdSet`]s. Initially, it uses a sparse structure to gather
 /// documents, and then upgrades to a non-sparse bit set once enough hits match.
@@ -190,7 +189,7 @@ impl DocIdSet for DocIdSetBuilderEnum {
 
     type BitType = FixedBitSet;
 
-    fn bits(&self) -> Option<Rc<Self::BitType>> {
+    fn bits(&self) -> Option<Arc<Self::BitType>> {
         match self {
             DocIdSetBuilderEnum::BitDoc(bit_doc_id_set) => Some(bit_doc_id_set.bits().unwrap()),
             DocIdSetBuilderEnum::IntArray(_) => None,
@@ -233,9 +232,6 @@ impl DocIdSetIterator for DocIdSetBuilderIterator {
 
 #[cfg(test)]
 mod tests {
-    use rand::Rng;
-    use std::rc::Rc;
-
     use crate::search::doc_id_set::DocIdSet;
     use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::search::doc_id_set_iterator::{DocIdSetIterator, Range};
@@ -250,6 +246,9 @@ mod tests {
     use crate::util::fixed_bit_set::FixedBitSet;
     use crate::util::int_array_doc_id_set::IntArrayDocIdSet;
     use crate::util::roaring_doc_id_set::builder::Builder;
+    use rand::Rng;
+
+    use std::sync::Arc;
 
     #[allow(dead_code)] // for quick search
     struct TestDocIdSetBuilder {}
@@ -388,7 +387,7 @@ mod tests {
                     c += 1
                 }
             }
-            let docs = Rc::new(docs);
+            let docs = Arc::new(docs);
             let mut array = vec![0; num_docs as usize + random.random_range(0..100)];
             let mut j = {
                 let mut it = BitSetIterator::new(docs.clone(), 0)?;
@@ -402,7 +401,7 @@ mod tests {
                 j
             };
 
-            let docs = match Rc::try_unwrap(docs) {
+            let docs = match Arc::try_unwrap(docs) {
                 Ok(value) => value,
                 Err(_) => return Err(LuceneError::illegal_state("Rc count should be 1")),
             };
@@ -457,7 +456,7 @@ mod tests {
                 docs.set(doc);
             }
             expected.or(&docs);
-            let docs = Rc::new(docs);
+            let docs = Arc::new(docs);
             // We provide a cost of 0 here to make sure the builder can deal
             // with wrong costs
             let mut bit_doc_id_set = BitSetIterator::new(docs, 0)?;

@@ -237,6 +237,7 @@ mod tests {
     use crate::index::dummy::dummy_live_index_writer_config::DummyLiveIndexWriterConfig;
     use crate::index::field_infos::build::Builder;
     use crate::index::field_infos::FieldNumbers;
+
     use crate::search::dummy::dummy_query::DummyQuery;
     use crate::store::nio_fs_directory::NIOFSDirectory;
     use crate::store::{FSDirectory, NativeFSLockFactory};
@@ -311,7 +312,10 @@ mod tests {
     }
     #[test]
     fn test_close_while_new_writers_locked() -> Result<()> {
-        // use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
+        // use std::sync::{
+        //     atomic::{AtomicBool, Ordering},
+        //     Arc,
+        // };
         // use std::thread;
         // use std::time::Duration;
         //
@@ -374,7 +378,7 @@ mod tests {
         //
         // assert_eq!(pool.size(), 0);
         // handle.join().unwrap();
-        //
+
         Ok(())
     }
 }

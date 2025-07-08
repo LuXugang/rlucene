@@ -14,14 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::rc::Rc;
-
 use crate::search::doc_id_set::DocIdSet;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::util::accountable::Accountable;
 use crate::util::bits::MatchNoBits;
 use crate::util::error::lucene_error::{LuceneError, Result};
+use std::rc::Rc;
+use std::sync::Arc;
 
 // TODO
 #[allow(unused)]
@@ -80,7 +80,7 @@ impl DocIdSet for IntArrayDocIdSet {
 
     type BitType = MatchNoBits;
 
-    fn bits(&self) -> Option<Rc<Self::BitType>> {
+    fn bits(&self) -> Option<Arc<Self::BitType>> {
         None
     }
 }

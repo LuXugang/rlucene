@@ -680,10 +680,6 @@ impl Bits for FixedBit {
 
 #[cfg(test)]
 mod tests {
-    use rand::Rng;
-    use std::hash::{DefaultHasher, Hash, Hasher};
-    use std::rc::Rc;
-
     use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::search::doc_id_set_iterator::DocIdSetIterator;
     use crate::test::util::base_bit_set_test_case::{
@@ -699,6 +695,10 @@ mod tests {
     use crate::util::fixed_bit_set::FixedBitSet;
     use crate::util::int_array_doc_id_set::IntArrayDocIdSetIterator;
     use crate::util::sparse_fixed_bit_set::SparseFixedBitSet;
+    use rand::Rng;
+    use std::hash::{DefaultHasher, Hash, Hasher};
+    use std::rc::Rc;
+    use std::sync::Arc;
 
     struct TestFixedBitSet;
 
@@ -908,7 +908,7 @@ mod tests {
         b: FixedBitSet,
     ) -> Result<FixedBitSet> {
         assert_eq!(a.len(), b.cardinality() as usize);
-        let b = Rc::new(b);
+        let b = Arc::new(b);
         {
             let mut iterator = BitSetIterator::new(b.clone(), 0)?;
             let iter = a.iter();
@@ -922,7 +922,7 @@ mod tests {
             }
             assert_eq!(iterator.next_doc()?, NO_MORE_DOCS);
         }
-        let b = match Rc::try_unwrap(b) {
+        let b = match Arc::try_unwrap(b) {
             Ok(value) => value,
             Err(_) => return Err(LuceneError::illegal_state("Rc count should be 1")),
         };
@@ -1292,7 +1292,7 @@ mod tests {
         {
             // test BitSetIterator
             let mut fixed_bit_set2 = make_fixed_bitset(&mut random, &bits2, num_bits2)?;
-            let fixed_bit = Rc::new(make_fixed_bitset(&mut random, &bits1, num_bits1)?);
+            let fixed_bit = Arc::new(make_fixed_bitset(&mut random, &bits1, num_bits1)?);
             let disi = BitSetIterator::new(fixed_bit, count1 as i64)?;
             fixed_bit_set2.and_not_iter(disi)?;
             do_get(&bitset2, &fixed_bit_set2);

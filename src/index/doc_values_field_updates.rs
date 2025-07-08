@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::rc::Rc;
 use std::sync::Arc;
 
 use parking_lot::Mutex;
@@ -806,7 +805,7 @@ where
     lock: Mutex<()>,
     dov_values_type: DocValuesType,
     // for reuse iterator
-    bit_set_iter: Option<Rc<SparseFixedBitSet>>,
+    bit_set_iter: Option<Arc<SparseFixedBitSet>>,
 }
 
 impl<S> SingleValueDocValuesFieldUpdates<S>
@@ -883,7 +882,7 @@ where
         _del_gen: i64,
     ) -> Result<impl DocValuesFieldIterator> {
         if self.bit_set_iter.is_none() {
-            self.bit_set_iter = Some(Rc::new(std::mem::take(&mut self.bit_set)));
+            self.bit_set_iter = Some(Arc::new(std::mem::take(&mut self.bit_set)));
         }
         let iterator = BitSetIterator::new(
             self.bit_set_iter.as_ref().unwrap().clone(),

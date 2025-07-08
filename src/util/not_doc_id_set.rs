@@ -14,14 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::rc::Rc;
-
 use crate::search::doc_id_set::DocIdSet;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::util::accountable::Accountable;
 use crate::util::bits::Bits;
 use crate::util::error::lucene_error::Result;
+use std::sync::Arc;
 
 #[allow(unused)]
 const BASE_RAM_BYTES_USED: i64 = 0;
@@ -72,19 +71,19 @@ where
 
     type BitType = NotDocIdBits<T::BitType>;
 
-    fn bits(&self) -> Option<Rc<Self::BitType>> {
+    fn bits(&self) -> Option<Arc<Self::BitType>> {
         self.set
             .bits()
-            .map(|in_bit_rc| Rc::new(NotDocIdBits::new(in_bit_rc)))
+            .map(|in_bit_rc| Arc::new(NotDocIdBits::new(in_bit_rc)))
     }
 }
 
 pub struct NotDocIdBits<B: Bits> {
-    in_bit: Rc<B>,
+    in_bit: Arc<B>,
 }
 
 impl<B: Bits> NotDocIdBits<B> {
-    pub fn new(in_bits: Rc<B>) -> NotDocIdBits<B> {
+    pub fn new(in_bits: Arc<B>) -> NotDocIdBits<B> {
         NotDocIdBits { in_bit: in_bits }
     }
 }

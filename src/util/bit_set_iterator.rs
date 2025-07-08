@@ -18,7 +18,7 @@ use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::util::bit_set::BitSet;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use std::rc::Rc;
+use std::sync::Arc;
 
 /// A [`DocIdSetIterator`] which iterates over set bits in a bit set.
 ///
@@ -28,14 +28,14 @@ pub struct BitSetIterator<T>
 where
     T: BitSet,
 {
-    pub(crate) bits: Rc<T>,
+    pub(crate) bits: Arc<T>,
     length: i32,
     cost: i64,
     doc: i32,
 }
 
 impl<T: BitSet> BitSetIterator<T> {
-    pub fn new(bits: Rc<T>, cost: i64) -> Result<BitSetIterator<T>> {
+    pub fn new(bits: Arc<T>, cost: i64) -> Result<BitSetIterator<T>> {
         if cost < 0 {
             return Err(LuceneError::illegal_argument(format!(
                 "cost must be >= 0, got {cost}"
@@ -54,7 +54,7 @@ impl<T: BitSet> BitSetIterator<T> {
     fn set_doc_id(&mut self, doc_id: i32) {
         self.doc = doc_id;
     }
-    pub fn get_bit_set(&self) -> Rc<T> {
+    pub fn get_bit_set(&self) -> Arc<T> {
         self.bits.clone()
     }
 }
