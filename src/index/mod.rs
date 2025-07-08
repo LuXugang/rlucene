@@ -45,6 +45,7 @@ mod documents_writer;
 pub(crate) mod documents_writer_delete_queue;
 pub(crate) mod documents_writer_per_thread;
 pub(crate) mod documents_writer_per_thread_pool;
+pub(crate) mod documents_writer_stall_control;
 pub mod dummy;
 pub mod empty_doc_values_producer;
 pub mod field_info;
