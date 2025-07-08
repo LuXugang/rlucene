@@ -566,7 +566,7 @@ pub(crate) mod tests {
     use crate::analysis::token_attributes::dummy::dummy_term_frequency_attribute::DummyTermFrequencyAttribute;
     use parking_lot::Mutex;
     use std::collections::{BTreeMap, HashMap};
-    use std::rc::Rc;
+
     use std::sync::atomic::{AtomicI64, Ordering};
     use std::sync::Arc;
 
@@ -1032,7 +1032,7 @@ pub(crate) mod tests {
             let mut field_info = FieldInfo::default();
             field_info.index_options = IndexOptions::DocsAndFreqs;
 
-            let base = FreqProxTermsWriterPerField::new(&mut writer, Rc::new(field_info), None);
+            let base = FreqProxTermsWriterPerField::new(&mut writer, Arc::new(field_info), None);
 
             TermsHashPerFieldMock {
                 field_state,

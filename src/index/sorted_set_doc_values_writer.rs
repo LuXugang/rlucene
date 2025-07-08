@@ -65,7 +65,7 @@ pub(crate) struct SortedSetDocValuesWriter {
     docs_with_field: DocsWithFieldSet,
     iw_bytes_used: CounterEnumLock,
     bytes_used: i64, // this only tracks differences in 'pending' and 'pendingCounts'
-    field_info: Rc<FieldInfo>,
+    field_info: Arc<FieldInfo>,
 
     current_doc: i32,
     current_values: Vec<i32>,
@@ -84,7 +84,7 @@ pub(crate) struct SortedSetDocValuesWriter {
 
 impl SortedSetDocValuesWriter {
     pub(crate) fn new(
-        field_info: Rc<FieldInfo>,
+        field_info: Arc<FieldInfo>,
         iw_bytes_used: CounterEnumLock,
         pool: ByteBlockPoolLock,
     ) -> Result<Self> {
@@ -364,7 +364,7 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
     }
 }
 pub(crate) struct DocValuesProducerImpl1 {
-    field_info: Rc<FieldInfo>,
+    field_info: Arc<FieldInfo>,
     ord_map: Arc<Vec<i32>>,
     hash: Arc<MTBytesRefHash>,
     ords: PackedLongValues,
@@ -376,7 +376,7 @@ pub(crate) struct DocValuesProducerImpl1 {
 impl DocValuesProducerImpl1 {
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
-        field_info: Rc<FieldInfo>,
+        field_info: Arc<FieldInfo>,
         ord_map: Arc<Vec<i32>>,
         hash: Arc<MTBytesRefHash>,
         ords: PackedLongValues,
@@ -415,8 +415,8 @@ impl DocValuesProducer for DocValuesProducerImpl1 {
         >,
     >;
 
-    fn get_sorted_set(&mut self, field_info: &Rc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
-        if Rc::ptr_eq(&self.field_info, field_info) {
+    fn get_sorted_set(&mut self, field_info: &Arc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
+        if Arc::ptr_eq(&self.field_info, field_info) {
             return Err(LuceneError::illegal_argument("wrong fieldInfo"));
         }
         let buf = SortedSetDocValuesWriter::get_values(
@@ -463,7 +463,7 @@ impl DocValuesProducer for DocValuesProducerImpl2 {
         >,
     >;
 
-    fn get_sorted_set(&mut self, field_info: &Rc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
+    fn get_sorted_set(&mut self, field_info: &Arc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
         DocValues::singleton_sorted(self.single_value_producer.get_sorted(field_info)?)
     }
 

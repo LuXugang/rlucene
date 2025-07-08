@@ -37,9 +37,11 @@ use crate::util::paged_bytes::{
 use crate::util::{Counter, CounterEnumLock, SliceCopyOps};
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::Arc;
+
 /// Buffers up pending byte[][] value(s) per doc, then flushes when segment flushes.
 pub(crate) struct PointValuesWriter {
-    field_info: Rc<FieldInfo>,
+    field_info: Arc<FieldInfo>,
     bytes_out: PagedBytesDataOutput,
     iw_bytes_used: CounterEnumLock,
     doc_ids: Vec<i32>,
@@ -50,7 +52,7 @@ pub(crate) struct PointValuesWriter {
 }
 
 impl PointValuesWriter {
-    pub(crate) fn new(iw_bytes_used: CounterEnumLock, field_info: Rc<FieldInfo>) -> Result<Self> {
+    pub(crate) fn new(iw_bytes_used: CounterEnumLock, field_info: Arc<FieldInfo>) -> Result<Self> {
         let bytes = PagedBytes::new(12);
         let bytes_out = paged_bytes_util::get_data_output(bytes)?;
         let doc_ids = vec![0; 16];
@@ -151,7 +153,7 @@ where
             MutableSortingPointValues<MutablePointTreeImpl, DM>,
         >,
     >,
-    field_info: Rc<FieldInfo>,
+    field_info: Arc<FieldInfo>,
 }
 impl<DM> PointsReaderImpl<DM>
 where
@@ -162,7 +164,7 @@ where
             MutablePointTreeImpl,
             MutableSortingPointValues<MutablePointTreeImpl, DM>,
         >,
-        field_info: Rc<FieldInfo>,
+        field_info: Arc<FieldInfo>,
     ) -> Self {
         Self {
             values: RefCell::new(values),

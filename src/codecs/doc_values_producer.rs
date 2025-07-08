@@ -14,8 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::rc::Rc;
-
 use crate::codecs::lucene90::lucene90_doc_values_enums::Lucene90NumericDocValuesEnums;
 use crate::codecs::lucene90_doc_values_enums::{
     Lucene90BinaryDocValuesEnum, Lucene90SortedNumericDocValuesEnums,
@@ -34,6 +32,7 @@ use crate::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::store::IndexInput;
 use crate::util::either_enums::EitherSortedSetDocValues;
 use crate::util::error::lucene_error::{LuceneError, Result};
+use std::sync::Arc;
 
 /// A trait that produces numeric, binary, sorted, sorted set, and sorted
 /// numeric doc values.
@@ -43,7 +42,7 @@ pub trait DocValuesProducer {
     /// not be thread-safe: it will only be used by a single thread. The
     /// behavior is undefined if the doc values type of the given field is
     /// not [`DocValuesType::NUMERIC`](crate::index::doc_values_type::DocValuesType::Numeric).
-    fn get_numeric(&mut self, _field: &Rc<FieldInfo>) -> Result<Self::NumericDocValues> {
+    fn get_numeric(&mut self, _field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
         Err(LuceneError::need_implemented(""))
     }
     type BinaryDocValues: BinaryDocValues;
@@ -53,7 +52,7 @@ pub trait DocValuesProducer {
     /// not
     /// [`DocValuesType::BINARY`](crate::index::doc_values_type::DocValuesType::Binary).
     /// The return value is never `null`.
-    fn get_binary(&mut self, _field: &Rc<FieldInfo>) -> Result<Self::BinaryDocValues> {
+    fn get_binary(&mut self, _field: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
         Err(LuceneError::need_implemented(""))
     }
     type SortedDocValues: SortedDocValues;
@@ -63,7 +62,7 @@ pub trait DocValuesProducer {
     /// not
     /// [`DocValuesType::SORTED`](crate::index::doc_values_type::DocValuesType::Sorted).
     /// The return value is never `null`.
-    fn get_sorted(&mut self, _field: &Rc<FieldInfo>) -> Result<Self::SortedDocValues> {
+    fn get_sorted(&mut self, _field: &Arc<FieldInfo>) -> Result<Self::SortedDocValues> {
         Err(LuceneError::need_implemented(""))
     }
     type SortedNumericDocValues: SortedNumericDocValues;
@@ -74,7 +73,7 @@ pub trait DocValuesProducer {
     /// The return value is never `null`.
     fn get_sorted_numeric(
         &mut self,
-        _field: &Rc<FieldInfo>,
+        _field: &Arc<FieldInfo>,
     ) -> Result<Self::SortedNumericDocValues> {
         Err(LuceneError::need_implemented(""))
     }
@@ -86,7 +85,7 @@ pub trait DocValuesProducer {
     /// is not
     /// [`DocValuesType::SORTED_SET`](crate::index::doc_values_type::DocValuesType::SortedSet).
     /// The return value is never `null`.
-    fn get_sorted_set(&mut self, _field: &Rc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
+    fn get_sorted_set(&mut self, _field: &Arc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
         Err(LuceneError::need_implemented(""))
     }
     type DocValuesSkipper: DocValuesSkipper;
@@ -95,7 +94,7 @@ pub trait DocValuesProducer {
     /// The return value is undefined if
     /// [`FieldInfo::doc_values_skip_index_type()`](FieldInfo::doc_values_skip_index_type) returns
     /// [`DocValuesSkipIndexType::NONE`](crate::index::doc_values_skip_index_type::DocValuesSkipIndexType::None).
-    fn get_skipper(&mut self, _field: &Rc<FieldInfo>) -> Result<Self::DocValuesSkipper> {
+    fn get_skipper(&mut self, _field: &Arc<FieldInfo>) -> Result<Self::DocValuesSkipper> {
         Err(LuceneError::need_implemented(""))
     }
     /// Checks consistency of this producer.
@@ -131,15 +130,15 @@ where
 {
     type NumericDocValues = Lucene90NumericDocValuesEnums<I>;
 
-    fn get_numeric(&mut self, _field: &Rc<FieldInfo>) -> Result<Self::NumericDocValues> {
+    fn get_numeric(&mut self, field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
         match self {
-            DocValuesProducerEnum::Lucene90(lucene90) => lucene90.get_numeric(_field),
+            DocValuesProducerEnum::Lucene90(lucene90) => lucene90.get_numeric(field),
         }
     }
 
     type BinaryDocValues = Lucene90BinaryDocValuesEnum<I>;
 
-    fn get_binary(&mut self, _field: &Rc<FieldInfo>) -> Result<Self::BinaryDocValues> {
+    fn get_binary(&mut self, _field: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
         match self {
             DocValuesProducerEnum::Lucene90(lucene90) => lucene90.get_binary(_field),
         }
@@ -147,7 +146,7 @@ where
 
     type SortedDocValues = BaseSortedDocValues<I>;
 
-    fn get_sorted(&mut self, _field: &Rc<FieldInfo>) -> Result<Self::SortedDocValues> {
+    fn get_sorted(&mut self, _field: &Arc<FieldInfo>) -> Result<Self::SortedDocValues> {
         match self {
             DocValuesProducerEnum::Lucene90(lucene90) => lucene90.get_sorted(_field),
         }
@@ -157,7 +156,7 @@ where
 
     fn get_sorted_numeric(
         &mut self,
-        _field: &Rc<FieldInfo>,
+        _field: &Arc<FieldInfo>,
     ) -> Result<Self::SortedNumericDocValues> {
         match self {
             DocValuesProducerEnum::Lucene90(lucene90) => lucene90.get_sorted_numeric(_field),
@@ -169,7 +168,7 @@ where
         BaseSortedSetDocValues<I>,
     >;
 
-    fn get_sorted_set(&mut self, _field: &Rc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
+    fn get_sorted_set(&mut self, _field: &Arc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
         match self {
             DocValuesProducerEnum::Lucene90(lucene90) => lucene90.get_sorted_set(_field),
         }
@@ -177,7 +176,7 @@ where
 
     type DocValuesSkipper = DocValuesSkipperImpl<I>;
 
-    fn get_skipper(&mut self, _field: &Rc<FieldInfo>) -> Result<Self::DocValuesSkipper> {
+    fn get_skipper(&mut self, _field: &Arc<FieldInfo>) -> Result<Self::DocValuesSkipper> {
         match self {
             DocValuesProducerEnum::Lucene90(lucene90) => lucene90.get_skipper(_field),
         }

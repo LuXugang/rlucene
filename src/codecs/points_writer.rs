@@ -18,11 +18,11 @@ use crate::codecs::lucene90_points_writer::Lucene90PointWriter;
 use crate::codecs::points_reader::PointsReader;
 use crate::index::field_info::FieldInfo;
 use crate::util::error::lucene_error::Result;
-use std::rc::Rc;
+use std::sync::Arc;
 
 pub trait PointsWriter {
     /// Write all values contained in the provided reader
-    fn write_field<PR>(&mut self, field_info: &Rc<FieldInfo>, values: &mut PR) -> Result<()>
+    fn write_field<PR>(&mut self, field_info: &Arc<FieldInfo>, values: &mut PR) -> Result<()>
     where
         PR: PointsReader;
 
@@ -34,7 +34,7 @@ pub enum PointsWriterEnum {
     Lucene90(Lucene90PointWriter),
 }
 impl PointsWriter for PointsWriterEnum {
-    fn write_field<PR>(&mut self, field_info: &Rc<FieldInfo>, values: &mut PR) -> Result<()>
+    fn write_field<PR>(&mut self, field_info: &Arc<FieldInfo>, values: &mut PR) -> Result<()>
     where
         PR: PointsReader,
     {

@@ -14,9 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cell::RefCell;
-use std::rc::Rc;
-
 use crate::codecs::compressing::lucene90_compressing_stored_fields_writer::Lucene90CompressingStoredFieldsWriter;
 use crate::codecs::stored_fields_reader::StoredFieldsReader;
 use crate::index::field_info::FieldInfo;
@@ -30,6 +27,9 @@ use crate::store::directory::Directory;
 use crate::store::{DataInput, IndexInput};
 use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::{LuceneError, Result};
+use std::cell::RefCell;
+use std::rc::Rc;
+use std::sync::Arc;
 
 /// Codec API for writing stored fields:
 ///
@@ -222,7 +222,7 @@ impl MergeVisitor {
         }
         Ok(Self { remapper: None })
     }
-    fn remap(&self, field: Rc<FieldInfo>) -> Result<Rc<FieldInfo>> {
+    fn remap(&self, field: Arc<FieldInfo>) -> Result<Arc<FieldInfo>> {
         if let Some(ref remapper) = self.remapper {
             // field numbers are not aligned, we need to remap to the new field
             // number
@@ -241,7 +241,7 @@ impl MergeVisitor {
 impl StoredFieldVisitor for MergeVisitor {
     fn binary_field_with_input(
         &mut self,
-        field_info: Rc<FieldInfo>,
+        field_info: Arc<FieldInfo>,
         input: &mut impl DataInput,
         length: i32,
         writer: &mut impl StoredFieldsWriter,
@@ -251,7 +251,7 @@ impl StoredFieldVisitor for MergeVisitor {
 
     fn binary_field(
         &mut self,
-        field_info: Rc<FieldInfo>,
+        field_info: Arc<FieldInfo>,
         value: Vec<u8>,
         writer: &mut impl StoredFieldsWriter,
     ) -> Result<()> {
@@ -260,7 +260,7 @@ impl StoredFieldVisitor for MergeVisitor {
 
     fn string_field(
         &mut self,
-        field_info: Rc<FieldInfo>,
+        field_info: Arc<FieldInfo>,
         value: &str,
         writer: &mut impl StoredFieldsWriter,
     ) -> Result<()> {
@@ -269,7 +269,7 @@ impl StoredFieldVisitor for MergeVisitor {
 
     fn int_field(
         &mut self,
-        field_info: Rc<FieldInfo>,
+        field_info: Arc<FieldInfo>,
         value: i32,
         writer: &mut impl StoredFieldsWriter,
     ) -> Result<()> {
@@ -278,7 +278,7 @@ impl StoredFieldVisitor for MergeVisitor {
 
     fn long_field(
         &mut self,
-        field_info: Rc<FieldInfo>,
+        field_info: Arc<FieldInfo>,
         value: i64,
         writer: &mut impl StoredFieldsWriter,
     ) -> Result<()> {
@@ -287,7 +287,7 @@ impl StoredFieldVisitor for MergeVisitor {
 
     fn float_field(
         &mut self,
-        field_info: Rc<FieldInfo>,
+        field_info: Arc<FieldInfo>,
         value: f32,
         writer: &mut impl StoredFieldsWriter,
     ) -> Result<()> {
@@ -296,7 +296,7 @@ impl StoredFieldVisitor for MergeVisitor {
 
     fn double_field(
         &mut self,
-        field_info: Rc<FieldInfo>,
+        field_info: Arc<FieldInfo>,
         value: f64,
         writer: &mut impl StoredFieldsWriter,
     ) -> Result<()> {
@@ -305,7 +305,7 @@ impl StoredFieldVisitor for MergeVisitor {
 
     fn needs_field(
         &mut self,
-        _field_info: Rc<FieldInfo>,
+        _field_info: Arc<FieldInfo>,
         _writer: &mut impl StoredFieldsWriter,
     ) -> Result<Status> {
         Ok(Status::Yes)

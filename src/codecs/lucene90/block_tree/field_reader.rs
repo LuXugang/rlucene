@@ -14,11 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::borrow::Cow;
-use std::cell::RefCell;
-use std::fmt;
-use std::rc::Rc;
-
 use crate::codecs::lucene90::block_tree::lucene90_block_tree_terms_reader::{
     lucene90_bttr_util, TermsReader,
 };
@@ -40,6 +35,11 @@ use crate::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs;
 use crate::util::fst_impl::fst::{fst_util, FST};
 use crate::util::fst_impl::off_heap_fst_store::OffHeapFSTStore;
 use crate::util::ToInt;
+use std::borrow::Cow;
+use std::cell::RefCell;
+use std::fmt;
+use std::rc::Rc;
+use std::sync::Arc;
 
 /// BlockTree's implementation of [`Terms`].
 #[allow(clippy::type_complexity)]
@@ -49,7 +49,7 @@ where
     PR: PostingsReaderBase,
 {
     pub(crate) num_terms: i64,
-    pub(crate) field_info: Rc<FieldInfo>,
+    pub(crate) field_info: Arc<FieldInfo>,
     pub(crate) sum_total_term_freq: i64,
     pub(crate) sum_doc_freq: i64,
     pub(crate) doc_count: i32,
@@ -68,7 +68,7 @@ where
     #[allow(clippy::too_many_arguments)]
     pub fn new<I1: IndexInput>(
         parent: Rc<TermsReader<I, PR>>,
-        field_info: Rc<FieldInfo>,
+        field_info: Arc<FieldInfo>,
         num_terms: i64,
         root_code: BytesRef<Vec<u8>>,
         sum_total_term_freq: i64,
@@ -248,7 +248,7 @@ where
     fn clone(&self) -> Self {
         Self {
             num_terms: self.num_terms,
-            field_info: Rc::clone(&self.field_info),
+            field_info: self.field_info.clone(),
             sum_total_term_freq: self.sum_total_term_freq,
             sum_doc_freq: self.sum_doc_freq,
             doc_count: self.doc_count,

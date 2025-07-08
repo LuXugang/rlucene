@@ -14,9 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::collections::{HashMap, HashSet};
-use std::rc::Rc;
-
 use crate::codecs::doc_values_consumer::DocValuesConsumer;
 use crate::codecs::doc_values_producer::DocValuesProducer;
 use crate::codecs::dummy::dummy_binary_doc_values::DummyBinaryDocValues;
@@ -60,6 +57,8 @@ use crate::util::math_util::MathUtil;
 use crate::util::packed::direct_monotonic_writer::DirectMonotonicWriter;
 use crate::util::packed::direct_writer::{direct_writer_util, DirectWriter};
 use crate::util::{CoreHelper, StringHelper};
+use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 
 /// writer for [`Lucene90DocValuesFormat`].
 pub struct Lucene90DocValuesConsumer<O>
@@ -127,7 +126,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     }
     fn write_skip_index(
         &mut self,
-        field: &Rc<FieldInfo>,
+        field: &Arc<FieldInfo>,
         values_producer: &mut impl DocValuesProducer,
     ) -> Result<()> {
         debug_assert!(*field.doc_values_skip_index_type() != DocValuesSkipIndexType::None);
@@ -272,7 +271,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     }
     fn write_values(
         &mut self,
-        field: &Rc<FieldInfo>,
+        field: &Arc<FieldInfo>,
         values_producer: &mut impl DocValuesProducer,
         ords: bool,
     ) -> Result<(i32, i64)> {
@@ -579,7 +578,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     }
     fn do_add_sorted_field<D>(
         &mut self,
-        field: &Rc<FieldInfo>,
+        field: &Arc<FieldInfo>,
         mut values_producer: D,
         add_type_byte: bool,
     ) -> Result<D>
@@ -827,7 +826,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     }
     fn do_add_sorted_numeric_field(
         &mut self,
-        field: &Rc<FieldInfo>,
+        field: &Arc<FieldInfo>,
         values_producer: &mut impl DocValuesProducer,
         ords: bool,
     ) -> Result<()> {
@@ -909,7 +908,7 @@ impl<O> DocValuesConsumer for Lucene90DocValuesConsumer<O>
 where
     O: IndexOutput,
 {
-    fn add_numeric_field<D>(&mut self, field: &Rc<FieldInfo>, values_producer: D) -> Result<D>
+    fn add_numeric_field<D>(&mut self, field: &Arc<FieldInfo>, values_producer: D) -> Result<D>
     where
         D: DocValuesProducer,
     {
@@ -928,7 +927,7 @@ where
         Ok(producer.values_producer.take().unwrap())
     }
 
-    fn add_binary_field<D>(&mut self, field: &Rc<FieldInfo>, values_producer: &mut D) -> Result<()>
+    fn add_binary_field<D>(&mut self, field: &Arc<FieldInfo>, values_producer: &mut D) -> Result<()>
     where
         D: DocValuesProducer,
     {
@@ -1017,7 +1016,7 @@ where
         Ok(())
     }
 
-    fn add_sorted_field<D>(&mut self, field: &Rc<FieldInfo>, values_producer: D) -> Result<D>
+    fn add_sorted_field<D>(&mut self, field: &Arc<FieldInfo>, values_producer: D) -> Result<D>
     where
         D: DocValuesProducer,
     {
@@ -1028,7 +1027,7 @@ where
 
     fn add_sorted_numeric_field<D>(
         &mut self,
-        field: &Rc<FieldInfo>,
+        field: &Arc<FieldInfo>,
         values_producer: &mut D,
     ) -> Result<()>
     where
@@ -1043,7 +1042,7 @@ where
 
     fn add_sorted_set_field<D>(
         &mut self,
-        field: &Rc<FieldInfo>,
+        field: &Arc<FieldInfo>,
         mut values_producer: D,
     ) -> Result<D>
     where
@@ -1230,7 +1229,7 @@ where
 
     fn get_sorted_numeric(
         &mut self,
-        field: &Rc<FieldInfo>,
+        field: &Arc<FieldInfo>,
     ) -> Result<Self::SortedNumericDocValues> {
         let v = self.values_producer.as_mut().unwrap().get_numeric(field)?;
         DocValues::singleton_numeric(v)
@@ -1256,7 +1255,7 @@ where
 
     fn get_sorted_numeric(
         &mut self,
-        field: &Rc<FieldInfo>,
+        field: &Arc<FieldInfo>,
     ) -> Result<Self::SortedNumericDocValues> {
         let sorted = self.values_producer.as_mut().unwrap().get_sorted(field)?;
         let sorted_ords = NumericDocValuesImpl { sorted };
@@ -1281,7 +1280,7 @@ where
     type BinaryDocValues = DummyBinaryDocValues;
     type SortedDocValues = SortedDocValuesWrapEnum<D::SortedSetDocValues>;
 
-    fn get_sorted(&mut self, field: &Rc<FieldInfo>) -> Result<Self::SortedDocValues> {
+    fn get_sorted(&mut self, field: &Arc<FieldInfo>) -> Result<Self::SortedDocValues> {
         let sorted_set = self
             .values_producer
             .as_mut()
@@ -1312,7 +1311,7 @@ where
 
     fn get_sorted_numeric(
         &mut self,
-        field: &Rc<FieldInfo>,
+        field: &Arc<FieldInfo>,
     ) -> Result<Self::SortedNumericDocValues> {
         let value = self
             .values_producer

@@ -46,6 +46,7 @@ use crate::util::{Counter, CounterEnumLock};
 use std::cell::Cell;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
+use std::sync::Arc;
 
 /// Buffers up pending long per doc, then flushes when segment flushes.
 pub(crate) struct NumericDocValuesWriter {
@@ -54,12 +55,12 @@ pub(crate) struct NumericDocValuesWriter {
     iw_bytes_used: CounterEnumLock,
     bytes_used: i64,
     docs_with_field: DocsWithFieldSet,
-    field_info: Rc<FieldInfo>,
+    field_info: Arc<FieldInfo>,
     last_doc_id: i32,
 }
 
 impl NumericDocValuesWriter {
-    pub(crate) fn new(field_info: Rc<FieldInfo>, iw_bytes_used: CounterEnumLock) -> Result<Self> {
+    pub(crate) fn new(field_info: Arc<FieldInfo>, iw_bytes_used: CounterEnumLock) -> Result<Self> {
         let pending =
             PackedLongValues::delta_packed_long_values_builder_default(PackedInts::COMPACT)?;
         let docs_with_field = DocsWithFieldSet::new();
@@ -156,14 +157,14 @@ pub(crate) struct DocValuesProducerImpl {
     sorted: Option<NumericDVs<FixedBitSet>>,
     docs_with_field: DocsWithFieldSet,
     values: PackedLongValues,
-    writer_field_info: Rc<FieldInfo>,
+    writer_field_info: Arc<FieldInfo>,
 }
 impl DocValuesProducerImpl {
     pub(crate) fn new(
         sorted: Option<NumericDVs<FixedBitSet>>,
         docs_with_field: DocsWithFieldSet,
         values: PackedLongValues,
-        writer_field_info: Rc<FieldInfo>,
+        writer_field_info: Arc<FieldInfo>,
     ) -> Self {
         Self {
             sorted,
@@ -177,8 +178,8 @@ impl DocValuesProducer for DocValuesProducerImpl {
     type NumericDocValues =
         EitherNumericDocValues<BufferedNumericDocValues, SortingNumericDocValues<FixedBitSet>>;
 
-    fn get_numeric(&mut self, field_info: &Rc<FieldInfo>) -> Result<Self::NumericDocValues> {
-        if !Rc::ptr_eq(field_info, &self.writer_field_info) {
+    fn get_numeric(&mut self, field_info: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
+        if !Arc::ptr_eq(field_info, &self.writer_field_info) {
             return Err(LuceneError::illegal_argument("wrong fieldInfo"));
         }
         match self.sorted {
@@ -214,6 +215,7 @@ pub(crate) mod ndvw_util {
     use crate::util::fixed_bit_set::FixedBitSet;
     use crate::util::packed::packed_long_values::PackedLongValues;
     use std::rc::Rc;
+    use std::sync::Arc;
 
     pub(crate) fn sort_doc_values<DV, M>(
         max_doc: i32,
@@ -250,7 +252,7 @@ pub(crate) mod ndvw_util {
     }
 
     pub(crate) fn get_doc_values_producer<DM>(
-        writer_field_info: Rc<FieldInfo>,
+        writer_field_info: Arc<FieldInfo>,
         values: &PackedLongValues,
         docs_with_field: DocsWithFieldSet,
         sort_map: Option<Rc<DM>>,

@@ -14,8 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::rc::Rc;
-
 use crate::codecs::indexed_disi::indexed_disi_util;
 use crate::codecs::lucene90_norms_format::Lucene90NormsFormat;
 use crate::codecs::norms_consumer::NormsConsumer;
@@ -32,6 +30,7 @@ use crate::store::directory::Directory;
 use crate::store::IndexOutput;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::error::lucene_error::Result;
+use std::sync::Arc;
 
 /// Writer for
 /// [`Lucene90NormsFormat`](crate::codecs::lucene90::lucene90_norms_format).
@@ -155,7 +154,7 @@ where
 {
     fn add_norms_field(
         &mut self,
-        field: &Rc<FieldInfo>,
+        field: &Arc<FieldInfo>,
         norms_producer: &mut impl NormsProducer,
     ) -> Result<()> {
         let mut num_docs_with_value = 0;

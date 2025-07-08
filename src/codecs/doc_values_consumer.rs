@@ -14,9 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cell::RefCell;
-use std::rc::Rc;
-
 use crate::codecs::doc_values_producer::DocValuesProducer;
 use crate::codecs::dummy::dummy_binary_doc_values::DummyBinaryDocValues;
 use crate::codecs::dummy::dummy_doc_values_skipper::DummyDocValuesSkipper;
@@ -42,31 +39,38 @@ use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::IndexInput;
 use crate::util::either_enums::EitherSortedNumericDocValues;
 use crate::util::error::lucene_error::{LuceneError, Result};
+use std::cell::RefCell;
+use std::rc::Rc;
+use std::sync::Arc;
 
 pub trait DocValuesConsumer {
-    fn add_numeric_field<D>(&mut self, field: &Rc<FieldInfo>, values_producer: D) -> Result<D>
+    fn add_numeric_field<D>(&mut self, field: &Arc<FieldInfo>, values_producer: D) -> Result<D>
     where
         D: DocValuesProducer;
-    fn add_binary_field<D>(&mut self, field: &Rc<FieldInfo>, values_producer: &mut D) -> Result<()>
-    where
-        D: DocValuesProducer;
-    fn add_sorted_field<D>(&mut self, field: &Rc<FieldInfo>, values_producer: D) -> Result<D>
-    where
-        D: DocValuesProducer;
-    fn add_sorted_numeric_field<D>(
+    fn add_binary_field<D>(
         &mut self,
-        field: &Rc<FieldInfo>,
+        field: &Arc<FieldInfo>,
         values_producer: &mut D,
     ) -> Result<()>
     where
         D: DocValuesProducer;
-    fn add_sorted_set_field<D>(&mut self, field: &Rc<FieldInfo>, values_producer: D) -> Result<D>
+    fn add_sorted_field<D>(&mut self, field: &Arc<FieldInfo>, values_producer: D) -> Result<D>
+    where
+        D: DocValuesProducer;
+    fn add_sorted_numeric_field<D>(
+        &mut self,
+        field: &Arc<FieldInfo>,
+        values_producer: &mut D,
+    ) -> Result<()>
+    where
+        D: DocValuesProducer;
+    fn add_sorted_set_field<D>(&mut self, field: &Arc<FieldInfo>, values_producer: D) -> Result<D>
     where
         D: DocValuesProducer;
 
     fn merge_numeric_field<I>(
         &mut self,
-        merge_field_info: &Rc<FieldInfo>,
+        merge_field_info: &Arc<FieldInfo>,
         merge_state: &mut MergeState<I>,
     ) -> Result<()>
     where
@@ -81,7 +85,7 @@ pub trait DocValuesConsumer {
     }
     fn merge_binary_filed<I: IndexInput>(
         &mut self,
-        merge_field_info: &Rc<FieldInfo>,
+        merge_field_info: &Arc<FieldInfo>,
         merge_state: &mut MergeState<I>,
     ) -> Result<()> {
         let mut producer = EmptyDocValuesProducerMerge2 {
@@ -92,7 +96,7 @@ pub trait DocValuesConsumer {
     }
     fn merge_sorted_numeric_field<I: IndexInput>(
         &mut self,
-        merge_field_info: &Rc<FieldInfo>,
+        merge_field_info: &Arc<FieldInfo>,
         merge_state: &mut MergeState<I>,
     ) -> Result<()> {
         let mut producer = EmptyDocValuesProducerMerge3 {
@@ -103,14 +107,14 @@ pub trait DocValuesConsumer {
     }
     fn merge_sorted_field<I: IndexInput>(
         &mut self,
-        _merge_field_info: &Rc<FieldInfo>,
+        _merge_field_info: &Arc<FieldInfo>,
         _merge_state: &mut MergeState<I>,
     ) -> Result<()> {
         todo!()
     }
     fn merge_sorted_set_field<I: IndexInput>(
         &mut self,
-        _merge_field_info: &Rc<FieldInfo>,
+        _merge_field_info: &Arc<FieldInfo>,
         _merge_state: &mut MergeState<I>,
     ) -> Result<()> {
         todo!()
@@ -257,7 +261,7 @@ pub(crate) struct EmptyDocValuesProducerMerge1<'a, I>
 where
     I: IndexInput,
 {
-    merge_field_info: Rc<FieldInfo>,
+    merge_field_info: Arc<FieldInfo>,
     merge_state: &'a mut MergeState<I>,
 }
 impl<I> DocValuesProducer for EmptyDocValuesProducerMerge1<'_, I>
@@ -266,8 +270,8 @@ where
 {
     type NumericDocValues = NumericDocValuesMerge<I>;
 
-    fn get_numeric(&mut self, field_info: &Rc<FieldInfo>) -> Result<Self::NumericDocValues> {
-        if Rc::ptr_eq(field_info, &self.merge_field_info) {
+    fn get_numeric(&mut self, field_info: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
+        if Arc::ptr_eq(field_info, &self.merge_field_info) {
             return Err(LuceneError::illegal_argument("wrong fieldInfo"));
         }
 
@@ -425,7 +429,7 @@ pub(crate) struct EmptyDocValuesProducerMerge2<'a, I>
 where
     I: IndexInput,
 {
-    merge_field_info: Rc<FieldInfo>,
+    merge_field_info: Arc<FieldInfo>,
     merge_state: &'a mut MergeState<I>,
 }
 impl<I> DocValuesProducer for EmptyDocValuesProducerMerge2<'_, I>
@@ -435,8 +439,8 @@ where
     type NumericDocValues = DummyNumericDocValues;
     type BinaryDocValues = BinaryDocValuesMerge<I>;
 
-    fn get_binary(&mut self, field_info: &Rc<FieldInfo>) -> Result<Self::BinaryDocValues> {
-        if Rc::ptr_eq(field_info, &self.merge_field_info) {
+    fn get_binary(&mut self, field_info: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
+        if Arc::ptr_eq(field_info, &self.merge_field_info) {
             return Err(LuceneError::illegal_argument("wrong fieldInfo"));
         }
 
@@ -612,7 +616,7 @@ pub(crate) struct EmptyDocValuesProducerMerge3<'a, I>
 where
     I: IndexInput,
 {
-    merge_field_info: Rc<FieldInfo>,
+    merge_field_info: Arc<FieldInfo>,
     merge_state: &'a mut MergeState<I>,
 }
 impl<I> DocValuesProducer for EmptyDocValuesProducerMerge3<'_, I>
@@ -629,9 +633,9 @@ where
 
     fn get_sorted_numeric(
         &mut self,
-        field_info: &Rc<FieldInfo>,
+        field_info: &Arc<FieldInfo>,
     ) -> Result<Self::SortedNumericDocValues> {
-        if Rc::ptr_eq(field_info, &self.merge_field_info) {
+        if Arc::ptr_eq(field_info, &self.merge_field_info) {
             return Err(LuceneError::illegal_argument("wrong FieldInfo"));
         }
         // We must make new iterators + DocIDMerger for each iterator:

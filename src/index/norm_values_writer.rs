@@ -37,6 +37,7 @@ use crate::util::packed::packed_long_values::{
 use crate::util::packed::PackedInts;
 use crate::util::{Counter, CounterEnumLock};
 use std::rc::Rc;
+use std::sync::Arc;
 
 /// Buffers up pending long per doc, then flushes when segment flushes.
 pub(crate) struct NormValuesWriter {
@@ -44,11 +45,11 @@ pub(crate) struct NormValuesWriter {
     pending: PackedLongValuesBuilder,
     iw_bytes_used: CounterEnumLock,
     bytes_used: i64,
-    field_info: Rc<FieldInfo>,
+    field_info: Arc<FieldInfo>,
     last_doc_id: i32,
 }
 impl NormValuesWriter {
-    pub(crate) fn new(field_info: Rc<FieldInfo>, iw_bytes_used: CounterEnumLock) -> Result<Self> {
+    pub(crate) fn new(field_info: Arc<FieldInfo>, iw_bytes_used: CounterEnumLock) -> Result<Self> {
         Ok(Self {
             docs_with_field: DocsWithFieldSet::new(),
             pending: PackedLongValues::delta_packed_long_values_builder_default(
@@ -150,7 +151,7 @@ impl NormsProducer for NormsProducerImpl {
     type NumericDocValues =
         EitherNumericDocValues<BufferedNorms, SortingNumericDocValues<FixedBitSet>>;
 
-    fn get_norms(&mut self, _field_info2: &Rc<FieldInfo>) -> Result<Self::NumericDocValues> {
+    fn get_norms(&mut self, _field_info2: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
         match &self.sorted {
             Some(sorted) => Ok(EitherNumericDocValues::S(SortingNumericDocValues::new(
                 sorted.clone(),

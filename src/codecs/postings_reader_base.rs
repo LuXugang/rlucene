@@ -14,9 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::fmt::Display;
-use std::rc::Rc;
-
 use crate::codecs::block_term_state::BlockTermStateEnum;
 use crate::index::field_info::FieldInfo;
 use crate::index::impacts_enum::ImpactsEnum;
@@ -26,6 +23,8 @@ use crate::index::segment_read_state::SegmentReadState;
 use crate::store::directory::Directory;
 use crate::store::{DataInput, IndexInput};
 use crate::util::error::lucene_error::Result;
+use std::fmt::Display;
+use std::sync::Arc;
 
 /// The core terms dictionaries (BlockTermsReader, BlockTreeTermsReader)
 /// interact with a single instance of This struct to manage creation of
@@ -61,7 +60,7 @@ pub trait PostingsReaderBase: Display {
     fn decode_term(
         &self,
         input: &mut impl DataInput,
-        field_info: &Rc<FieldInfo>,
+        field_info: &Arc<FieldInfo>,
         state: &mut BlockTermStateEnum,
         absolute: bool,
     ) -> Result<()>;

@@ -14,9 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cell::RefCell;
-use std::rc::Rc;
-
 use crate::codecs::doc_values_enum::norms::Lucene90NormNumericDocValuesEnum;
 use crate::codecs::lucene90_norms_consumer::Lucene90NormsConsumer;
 use crate::codecs::norms_producer::NormsProducer;
@@ -29,6 +26,9 @@ use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::{IndexInput, IndexOutput};
 use crate::util::error::lucene_error::{LuceneError, Result};
+use std::cell::RefCell;
+use std::rc::Rc;
+use std::sync::Arc;
 
 /// Consumes normalization values.
 ///
@@ -55,7 +55,7 @@ pub trait NormsConsumer {
     /// If an I/O error occurs during writing.
     fn add_norms_field(
         &mut self,
-        field: &Rc<FieldInfo>,
+        field: &Arc<FieldInfo>,
         norms_producer: &mut impl NormsProducer,
     ) -> Result<()>;
     /// Merges in the fields from the readers in `merge_state`.
@@ -89,7 +89,7 @@ pub trait NormsConsumer {
     /// that merges and filters deleted documents on the fly.
     fn merge_norms_field<I>(
         &mut self,
-        merge_field_info: &Rc<FieldInfo>,
+        merge_field_info: &Arc<FieldInfo>,
         merge_state: &mut MergeState<I>,
     ) -> Result<()>
     where
@@ -110,7 +110,7 @@ struct NormsProducerMerge<'a, I>
 where
     I: IndexInput,
 {
-    merge_field_info: Rc<FieldInfo>,
+    merge_field_info: Arc<FieldInfo>,
     merge_state: &'a mut MergeState<I>,
 }
 impl<I> NormsProducer for NormsProducerMerge<'_, I>
@@ -119,8 +119,8 @@ where
 {
     type NumericDocValues = NumericDocValuesMerge<I>;
 
-    fn get_norms(&mut self, field_info: &Rc<FieldInfo>) -> Result<Self::NumericDocValues> {
-        if Rc::ptr_eq(field_info, &self.merge_field_info) {
+    fn get_norms(&mut self, field_info: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
+        if Arc::ptr_eq(field_info, &self.merge_field_info) {
             return Err(LuceneError::illegal_argument("wrong fieldInfo"));
         }
 
@@ -280,7 +280,7 @@ where
 {
     fn add_norms_field(
         &mut self,
-        field: &Rc<FieldInfo>,
+        field: &Arc<FieldInfo>,
         norms_producer: &mut impl NormsProducer,
     ) -> Result<()> {
         match self {

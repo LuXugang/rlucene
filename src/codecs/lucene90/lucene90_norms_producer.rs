@@ -14,11 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cell::RefCell;
-use std::collections::HashMap;
-use std::fmt::{Display, Formatter};
-use std::rc::Rc;
-
 use crate::codecs::doc_values_enum::norms::Lucene90NormNumericDocValuesEnum;
 use crate::codecs::indexed_disi::indexed_disi_util;
 use crate::codecs::lucene90::indexed_disi::IndexedDISI;
@@ -42,6 +37,11 @@ use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{DataInput, IndexInput, ReadAdvice};
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::fmt::{Display, Formatter};
+use std::rc::Rc;
+use std::sync::Arc;
 
 /// Reader for [`Lucene90NormsFormat`]
 pub struct Lucene90NormsProducer<I>
@@ -256,7 +256,7 @@ where
     }
     fn get_disi_jump_table(
         &mut self,
-        field: &Rc<FieldInfo>,
+        field: &Arc<FieldInfo>,
         entry: &NormsEntry,
     ) -> Result<Rc<RefCell<I::RandomAccessSlice>>> {
         if self.merging {
@@ -445,7 +445,7 @@ where
 {
     type NumericDocValues = Lucene90NormNumericDocValuesEnum<I>;
 
-    fn get_norms(&mut self, field: &Rc<FieldInfo>) -> Result<Lucene90NormNumericDocValuesEnum<I>> {
+    fn get_norms(&mut self, field: &Arc<FieldInfo>) -> Result<Lucene90NormNumericDocValuesEnum<I>> {
         // copy on stack is acceptable, of course we could have a better way
         let entry = self.norms.get(&field.number).unwrap().clone();
         if entry.docs_with_field_offset == -2 {

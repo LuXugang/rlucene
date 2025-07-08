@@ -14,9 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::borrow::Cow;
-use std::rc::Rc;
-
 use crate::codecs::block_term_state::BlockTermStateEnum;
 use crate::codecs::norms_producer::NormsProducer;
 use crate::index::field_info::FieldInfo;
@@ -29,6 +26,8 @@ use crate::store::directory::Directory;
 use crate::store::{DataOutput, IndexOutput};
 use crate::util::error::lucene_error::Result;
 use crate::util::fixed_bit_set::FixedBitSet;
+use std::borrow::Cow;
+use std::sync::Arc;
 
 /// Trait that plugs into term dictionaries, such as
 /// [`Lucene90BlockTreeTermsWriter`](crate::codecs::lucene90::lucene90_block_trree_terms_writer::Lucene90BlockTreeTermsWriter),
@@ -81,5 +80,5 @@ pub trait PostingsWriterBase {
     ) -> Result<()>;
 
     /// Sets the current field for writing.
-    fn set_field(&mut self, field_info: Rc<FieldInfo>);
+    fn set_field(&mut self, field_info: Arc<FieldInfo>);
 }

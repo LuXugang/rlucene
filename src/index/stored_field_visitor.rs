@@ -14,12 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::rc::Rc;
-
 use crate::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::index::field_info::FieldInfo;
 use crate::store::DataInput;
 use crate::util::error::lucene_error::Result;
+use std::sync::Arc;
 
 /// Expert: provides a low-level means of accessing the stored field values in
 /// an index.
@@ -39,7 +38,7 @@ pub trait StoredFieldVisitor {
     /// delegates to `binary_field`.
     fn binary_field_with_input(
         &mut self,
-        field_info: Rc<FieldInfo>,
+        field_info: Arc<FieldInfo>,
         input: &mut impl DataInput,
         length: i32,
         writer: &mut impl StoredFieldsWriter,
@@ -52,7 +51,7 @@ pub trait StoredFieldVisitor {
     /// Process a binary field.
     fn binary_field(
         &mut self,
-        _field_info: Rc<FieldInfo>,
+        _field_info: Arc<FieldInfo>,
         _value: Vec<u8>,
         _writer: &mut impl StoredFieldsWriter,
     ) -> Result<()> {
@@ -62,7 +61,7 @@ pub trait StoredFieldVisitor {
     /// Process a string field.
     fn string_field(
         &mut self,
-        _field_info: Rc<FieldInfo>,
+        _field_info: Arc<FieldInfo>,
         _value: &str,
         _writer: &mut impl StoredFieldsWriter,
     ) -> Result<()> {
@@ -72,7 +71,7 @@ pub trait StoredFieldVisitor {
     /// Process an int numeric field.
     fn int_field(
         &mut self,
-        _field_info: Rc<FieldInfo>,
+        _field_info: Arc<FieldInfo>,
         _value: i32,
         _writer: &mut impl StoredFieldsWriter,
     ) -> Result<()> {
@@ -82,7 +81,7 @@ pub trait StoredFieldVisitor {
     /// Process a long numeric field.
     fn long_field(
         &mut self,
-        _field_info: Rc<FieldInfo>,
+        _field_info: Arc<FieldInfo>,
         _value: i64,
         _writer: &mut impl StoredFieldsWriter,
     ) -> Result<()> {
@@ -92,7 +91,7 @@ pub trait StoredFieldVisitor {
     /// Process a float numeric field.
     fn float_field(
         &mut self,
-        _field_info: Rc<FieldInfo>,
+        _field_info: Arc<FieldInfo>,
         _value: f32,
         _writer: &mut impl StoredFieldsWriter,
     ) -> Result<()> {
@@ -102,7 +101,7 @@ pub trait StoredFieldVisitor {
     /// Process a double numeric field.
     fn double_field(
         &mut self,
-        _field_info: Rc<FieldInfo>,
+        _field_info: Arc<FieldInfo>,
         _value: f64,
         _writer: &mut impl StoredFieldsWriter,
     ) -> Result<()> {
@@ -113,7 +112,7 @@ pub trait StoredFieldVisitor {
     /// Returns a [`Status`] representing whether to visit, skip, or stop.
     fn needs_field(
         &mut self,
-        field_info: Rc<FieldInfo>,
+        field_info: Arc<FieldInfo>,
         _writer: &mut impl StoredFieldsWriter,
     ) -> Result<Status>;
 }

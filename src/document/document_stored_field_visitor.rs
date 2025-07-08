@@ -14,9 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::collections::HashSet;
-use std::rc::Rc;
-
 use crate::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::document::document::Document;
 use crate::document::field_type::FieldType;
@@ -25,6 +22,8 @@ use crate::document::text_field::text;
 use crate::index::field_info::FieldInfo;
 use crate::index::stored_field_visitor::{Status, StoredFieldVisitor};
 use crate::util::error::lucene_error::Result;
+use std::collections::HashSet;
+use std::sync::Arc;
 
 /// A [`StoredFieldVisitor`] that creates a [`Document`] from stored fields.
 ///
@@ -77,7 +76,7 @@ impl<'a> DocumentStoredFieldVisitor<'a> {
 impl StoredFieldVisitor for DocumentStoredFieldVisitor<'_> {
     fn binary_field(
         &mut self,
-        field_info: Rc<FieldInfo>,
+        field_info: Arc<FieldInfo>,
         value: Vec<u8>,
         _writer: &mut impl StoredFieldsWriter,
     ) -> Result<()> {
@@ -88,7 +87,7 @@ impl StoredFieldVisitor for DocumentStoredFieldVisitor<'_> {
 
     fn string_field(
         &mut self,
-        field_info: Rc<FieldInfo>,
+        field_info: Arc<FieldInfo>,
         value: &str,
         _writer: &mut impl StoredFieldsWriter,
     ) -> Result<()> {
@@ -106,7 +105,7 @@ impl StoredFieldVisitor for DocumentStoredFieldVisitor<'_> {
 
     fn int_field(
         &mut self,
-        field_info: Rc<FieldInfo>,
+        field_info: Arc<FieldInfo>,
         value: i32,
         _writer: &mut impl StoredFieldsWriter,
     ) -> Result<()> {
@@ -117,7 +116,7 @@ impl StoredFieldVisitor for DocumentStoredFieldVisitor<'_> {
 
     fn long_field(
         &mut self,
-        field_info: Rc<FieldInfo>,
+        field_info: Arc<FieldInfo>,
         value: i64,
         _writer: &mut impl StoredFieldsWriter,
     ) -> Result<()> {
@@ -128,7 +127,7 @@ impl StoredFieldVisitor for DocumentStoredFieldVisitor<'_> {
 
     fn float_field(
         &mut self,
-        field_info: Rc<FieldInfo>,
+        field_info: Arc<FieldInfo>,
         value: f32,
         _writer: &mut impl StoredFieldsWriter,
     ) -> Result<()> {
@@ -139,7 +138,7 @@ impl StoredFieldVisitor for DocumentStoredFieldVisitor<'_> {
 
     fn double_field(
         &mut self,
-        field_info: Rc<FieldInfo>,
+        field_info: Arc<FieldInfo>,
         value: f64,
         _writer: &mut impl StoredFieldsWriter,
     ) -> Result<()> {
@@ -150,7 +149,7 @@ impl StoredFieldVisitor for DocumentStoredFieldVisitor<'_> {
 
     fn needs_field(
         &mut self,
-        field_info: Rc<FieldInfo>,
+        field_info: Arc<FieldInfo>,
         _writer: &mut impl StoredFieldsWriter,
     ) -> Result<Status> {
         match self.fields_to_add {

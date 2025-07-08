@@ -14,12 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cell::RefCell;
-use std::clone::Clone;
-use std::cmp::min;
-use std::fmt::{Display, Formatter};
-use std::rc::Rc;
-
 use crate::codecs::compressing::lucene90_compressing_stored_fields_writer::{
     lucene90_csfw_util, TYPE_BITS, TYPE_MASK,
 };
@@ -45,6 +39,12 @@ use crate::util::array_util::ArrayUtil;
 use crate::util::clone::TryClone as OtherClone;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::{CoreHelper, SliceCopyOps};
+use std::cell::RefCell;
+use std::clone::Clone;
+use std::cmp::min;
+use std::fmt::{Display, Formatter};
+use std::rc::Rc;
+use std::sync::Arc;
 
 const PREFETCH_CACHE_SIZE: usize = 1 << 4;
 const PREFETCH_CACHE_MASK: usize = PREFETCH_CACHE_SIZE - 1;
@@ -374,7 +374,7 @@ where
     pub fn read_field(
         input: &mut impl DataInput,
         visitor: &mut impl StoredFieldVisitor,
-        info: Rc<FieldInfo>,
+        info: Arc<FieldInfo>,
         bits: i32,
         writer: &mut impl StoredFieldsWriter,
     ) -> Result<()> {

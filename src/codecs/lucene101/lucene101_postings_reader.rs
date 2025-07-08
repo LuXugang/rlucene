@@ -14,13 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use once_cell::sync::Lazy;
-use std::borrow::Cow;
-use std::cell::RefCell;
-use std::fmt::{Display, Formatter};
-use std::rc::Rc;
-use std::{fmt, ptr};
-
 use crate::codecs::block_term_state::BlockTermStateEnum;
 use crate::codecs::lucene101::for_delta_util::ForDeltaUtil;
 use crate::codecs::lucene101::for_util::ForUtil;
@@ -52,6 +45,13 @@ use crate::util::array_util::ArrayUtil;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::{CoreHelper, SliceCopyOps, ToUsizeExact};
+use once_cell::sync::Lazy;
+use std::borrow::Cow;
+use std::cell::RefCell;
+use std::fmt::{Display, Formatter};
+use std::rc::Rc;
+use std::sync::Arc;
+use std::{fmt, ptr};
 
 pub struct Lucene101PostingsReader<I>
 where
@@ -272,7 +272,7 @@ where
     fn decode_term(
         &self,
         input: &mut impl DataInput,
-        field_info: &Rc<FieldInfo>,
+        field_info: &Arc<FieldInfo>,
         state: &mut BlockTermStateEnum,
         absolute: bool,
     ) -> Result<()> {

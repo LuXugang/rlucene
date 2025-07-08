@@ -37,10 +37,10 @@ use crate::util::bytes_ref_block_pool::BytesRefBlockPool;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::{ByteBlockPoolLock, CounterEnumLock};
 use std::cmp::Ordering;
-use std::rc::Rc;
+use std::sync::Arc;
 
 pub(crate) struct TermVectorsConsumerPerField {
-    field_info: Rc<FieldInfo>,
+    field_info: Arc<FieldInfo>,
     do_vectors: bool,
     do_vector_positions: bool,
     do_vector_offsets: bool,
@@ -53,7 +53,7 @@ pub(crate) struct TermVectorsConsumerPerField {
 impl Default for TermVectorsConsumerPerField {
     fn default() -> Self {
         TermVectorsConsumerPerField {
-            field_info: Rc::new(FieldInfo::default()),
+            field_info: Arc::new(FieldInfo::default()),
             do_vectors: false,
             do_vector_positions: false,
             do_vector_offsets: false,
@@ -69,7 +69,7 @@ impl Clone for TermVectorsConsumerPerField {
     // for padding
     fn clone(&self) -> Self {
         TermVectorsConsumerPerField {
-            field_info: Rc::clone(&self.field_info),
+            field_info: self.field_info.clone(),
             do_vectors: self.do_vectors,
             do_vector_positions: self.do_vector_positions,
             do_vector_offsets: self.do_vector_offsets,
@@ -83,7 +83,10 @@ impl Clone for TermVectorsConsumerPerField {
 }
 
 impl TermVectorsConsumerPerField {
-    pub(crate) fn new<D>(terms_hash: &mut TermVectorsConsumer<D>, field_info: Rc<FieldInfo>) -> Self
+    pub(crate) fn new<D>(
+        terms_hash: &mut TermVectorsConsumer<D>,
+        field_info: Arc<FieldInfo>,
+    ) -> Self
     where
         D: Directory,
     {

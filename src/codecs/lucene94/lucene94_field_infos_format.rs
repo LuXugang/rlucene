@@ -14,10 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cell::RefCell;
-use std::collections::HashMap;
-use std::rc::Rc;
-
 use crate::codecs::field_infos_format::FieldInfosFormat;
 use crate::codecs::CodecUtil;
 use crate::index::doc_values_skip_index_type::DocValuesSkipIndexType;
@@ -32,6 +28,10 @@ use crate::index::IndexFileNames;
 use crate::store::directory::Directory;
 use crate::store::{DataInput, DataOutput, IOContext, IndexInput};
 use crate::util::error::lucene_error::{LuceneError, Result};
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::rc::Rc;
+use std::sync::Arc;
 
 /// Lucene 9.0 Field Infos format.
 ///
@@ -335,7 +335,7 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
                     is_parent_field,
                 );
                 field_info.check_consistency()?;
-                infos.push(Rc::new(field_info));
+                infos.push(Arc::new(field_info));
             }
             Ok(infos)
         })();

@@ -160,7 +160,7 @@ pub(crate) struct CopyVisitor;
 impl StoredFieldVisitor for CopyVisitor {
     fn binary_field_with_input(
         &mut self,
-        field_info: Rc<FieldInfo>,
+        field_info: Arc<FieldInfo>,
         input: &mut impl DataInput,
         length: i32,
         writer: &mut impl StoredFieldsWriter,
@@ -170,7 +170,7 @@ impl StoredFieldVisitor for CopyVisitor {
 
     fn binary_field(
         &mut self,
-        field_info: Rc<FieldInfo>,
+        field_info: Arc<FieldInfo>,
         value: Vec<u8>,
         writer: &mut impl StoredFieldsWriter,
     ) -> Result<()> {
@@ -179,7 +179,7 @@ impl StoredFieldVisitor for CopyVisitor {
 
     fn string_field(
         &mut self,
-        field_info: Rc<FieldInfo>,
+        field_info: Arc<FieldInfo>,
         value: &str,
         writer: &mut impl StoredFieldsWriter,
     ) -> Result<()> {
@@ -188,7 +188,7 @@ impl StoredFieldVisitor for CopyVisitor {
 
     fn int_field(
         &mut self,
-        field_info: Rc<FieldInfo>,
+        field_info: Arc<FieldInfo>,
         value: i32,
         writer: &mut impl StoredFieldsWriter,
     ) -> Result<()> {
@@ -197,7 +197,7 @@ impl StoredFieldVisitor for CopyVisitor {
 
     fn long_field(
         &mut self,
-        field_info: Rc<FieldInfo>,
+        field_info: Arc<FieldInfo>,
         value: i64,
         writer: &mut impl StoredFieldsWriter,
     ) -> Result<()> {
@@ -206,7 +206,7 @@ impl StoredFieldVisitor for CopyVisitor {
 
     fn float_field(
         &mut self,
-        field_info: Rc<FieldInfo>,
+        field_info: Arc<FieldInfo>,
         value: f32,
         writer: &mut impl StoredFieldsWriter,
     ) -> Result<()> {
@@ -215,7 +215,7 @@ impl StoredFieldVisitor for CopyVisitor {
 
     fn double_field(
         &mut self,
-        field_info: Rc<FieldInfo>,
+        field_info: Arc<FieldInfo>,
         value: f64,
         writer: &mut impl StoredFieldsWriter,
     ) -> Result<()> {
@@ -224,7 +224,7 @@ impl StoredFieldVisitor for CopyVisitor {
 
     fn needs_field(
         &mut self,
-        _field_info: Rc<FieldInfo>,
+        _field_info: Arc<FieldInfo>,
         _writer: &mut impl StoredFieldsWriter,
     ) -> Result<Status> {
         Ok(Status::Yes)

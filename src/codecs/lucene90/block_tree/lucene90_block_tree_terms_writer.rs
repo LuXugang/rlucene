@@ -14,10 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::borrow::Cow;
-use std::fmt;
-use std::rc::Rc;
-
 use crate::codecs::block_term_state::BlockTermStateEnum;
 use crate::codecs::block_tree::compression_algorithm::CompressionAlgorithm;
 use crate::codecs::block_tree::lucene90_block_tree_terms_reader::lucene90_bttr_util;
@@ -57,6 +53,10 @@ use crate::util::ints_ref_builder::IntsRefBuilder;
 use crate::util::packed::PackedInts;
 use crate::util::to_string_utils::ToStringUtils;
 use crate::util::{CoreHelper, SliceCopyOps, StringHelper, ToInt};
+use std::borrow::Cow;
+use std::fmt;
+use std::rc::Rc;
+use std::sync::Arc;
 /*
  TODO:
 
@@ -655,7 +655,7 @@ where
     O: IndexOutput,
     PW: PostingsWriterBase,
 {
-    field_info: Rc<FieldInfo>,
+    field_info: Arc<FieldInfo>,
     num_terms: i64,
     docs_seen: FixedBitSet,
     sum_total_term_freq: i64,
@@ -697,7 +697,7 @@ where
     PW: PostingsWriterBase,
 {
     fn new(
-        field_info: Rc<FieldInfo>,
+        field_info: Arc<FieldInfo>,
         max_doc: i32,
         postings_writer: &'a mut PW,
         min_items_in_block: i32,

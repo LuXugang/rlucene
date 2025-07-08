@@ -803,7 +803,7 @@ where
             is_parent_field,
         );
 
-        let fi = field_infos.add(Rc::new(field_info))?;
+        let fi = field_infos.add(Arc::new(field_info))?;
         pf.set_field_info(fi.clone());
 
         if *fi.get_index_options() != IndexOptions::None {
@@ -1249,7 +1249,7 @@ where
     pub(crate) index_created_version_major: i32,
     pub(crate) schema: FieldSchema,
     pub(crate) reserved: bool,
-    pub(crate) field_info: Option<Rc<FieldInfo>>,
+    pub(crate) field_info: Option<Arc<FieldInfo>>,
     pub(crate) invert_state: Option<FieldInvertState<O, P, T>>,
     pub(crate) terms_hash_per_field: Option<FreqProxTermsWriterPerField>,
     pub(crate) doc_values_writer: Option<DocValuesWriterEnum>,
@@ -1296,7 +1296,7 @@ where
         self.schema.reset(doc_id);
     }
 
-    pub(crate) fn set_field_info(&mut self, field_info: Rc<FieldInfo>) {
+    pub(crate) fn set_field_info(&mut self, field_info: Arc<FieldInfo>) {
         assert!(self.field_info.is_none());
         self.field_info = Some(field_info);
     }
@@ -1308,7 +1308,7 @@ where
     where
         D: Directory,
     {
-        let fi = Rc::clone(self.field_info.as_ref().unwrap());
+        let fi = self.field_info.as_ref().unwrap().clone();
         let state = FieldInvertState::new(
             self.index_created_version_major,
             fi.name.clone(),

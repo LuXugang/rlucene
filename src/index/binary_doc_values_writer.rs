@@ -50,10 +50,11 @@ use crate::util::{
 use std::cell::RefCell;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
+use std::sync::Arc;
 
 /// Buffers up pending `[u8]` per doc, then flushes when segment flushes.
 pub(crate) struct BinaryDocValuesWriter {
-    field_info: Rc<FieldInfo>,
+    field_info: Arc<FieldInfo>,
     bytes_out: PagedBytesDataOutput,
     iw_bytes_used: CounterEnumLock,
     lengths: PackedLongValuesBuilder,
@@ -65,7 +66,7 @@ pub(crate) struct BinaryDocValuesWriter {
 }
 
 impl BinaryDocValuesWriter {
-    pub(crate) fn new(field_info: Rc<FieldInfo>, iw_bytes_used: CounterEnumLock) -> Result<Self> {
+    pub(crate) fn new(field_info: Arc<FieldInfo>, iw_bytes_used: CounterEnumLock) -> Result<Self> {
         let bytes = PagedBytes::new(bdvw_util::BLOCK_BITS);
         let bytes_out = paged_bytes_util::get_data_output(bytes)?;
         let lengths =
@@ -198,7 +199,7 @@ impl DocValuesWriter for BinaryDocValuesWriter {
 }
 
 pub(crate) struct DocValuesProducerImpl {
-    field_info: Rc<FieldInfo>,
+    field_info: Arc<FieldInfo>,
     final_lengths: PackedLongValues,
     max_length: i32,
     paged_bytes: PagedBytes,
@@ -207,7 +208,7 @@ pub(crate) struct DocValuesProducerImpl {
 }
 impl DocValuesProducerImpl {
     pub(crate) fn new(
-        field_info: Rc<FieldInfo>,
+        field_info: Arc<FieldInfo>,
         final_lengths: PackedLongValues,
         max_length: i32,
         paged_bytes: PagedBytes,
@@ -231,8 +232,8 @@ impl DocValuesProducer for DocValuesProducerImpl {
         BufferedBinaryDocValues<DocsWithFieldSetEnum, PagedBytesDataInput>,
     >;
 
-    fn get_binary(&mut self, field_info: &Rc<FieldInfo>) -> Result<Self::BinaryDocValues> {
-        if Rc::ptr_eq(field_info, &self.field_info) {
+    fn get_binary(&mut self, field_info: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
+        if Arc::ptr_eq(field_info, &self.field_info) {
             return Err(LuceneError::illegal_argument("wrong fieldInfo"));
         }
         match &self.sorted {

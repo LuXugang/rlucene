@@ -58,7 +58,7 @@ pub(crate) struct SortedDocValuesWriter {
     docs_with_field: DocsWithFieldSet,
     iw_bytes_used: CounterEnumLock,
     bytes_used: i64, // this currently only tracks differences in 'pending'
-    field_info: Rc<FieldInfo>,
+    field_info: Arc<FieldInfo>,
     last_doc_id: i32,
 
     final_ords: Option<PackedLongValues>,
@@ -72,7 +72,7 @@ pub(crate) struct SortedDocValuesWriter {
 
 impl SortedDocValuesWriter {
     pub(crate) fn new(
-        field_info: Rc<FieldInfo>,
+        field_info: Arc<FieldInfo>,
         iw_bytes_used: CounterEnumLock,
         pool: ByteBlockPoolLock,
     ) -> Result<Self> {
@@ -262,7 +262,7 @@ pub(crate) mod sdvw_util {
     use std::sync::Arc;
 
     pub(crate) fn get_doc_values_producer<DM>(
-        writer_field_info: Rc<FieldInfo>,
+        writer_field_info: Arc<FieldInfo>,
         hash: Arc<MTBytesRefHash>,
         ords: PackedLongValues,
         ord_map: Arc<Vec<i32>>,
@@ -303,7 +303,7 @@ pub(crate) struct DocValuesProducerImpl {
     ords: PackedLongValues,
     ord_map: Arc<Vec<i32>>,
     docs_with_field: DocsWithFieldSet,
-    writer_field_info: Rc<FieldInfo>,
+    writer_field_info: Arc<FieldInfo>,
     sorted: Option<Rc<Vec<i32>>>,
 }
 impl DocValuesProducerImpl {
@@ -312,7 +312,7 @@ impl DocValuesProducerImpl {
         ords: PackedLongValues,
         ord_map: Arc<Vec<i32>>,
         docs_with_field: DocsWithFieldSet,
-        writer_field_info: Rc<FieldInfo>,
+        writer_field_info: Arc<FieldInfo>,
         sorted: Option<Rc<Vec<i32>>>,
     ) -> Result<Self> {
         Ok(Self {
@@ -333,8 +333,8 @@ impl DocValuesProducer for DocValuesProducerImpl {
         SortingSortedDocValues<BufferedSortedDocValues<DocsWithFieldSetEnum>>,
     >;
 
-    fn get_sorted(&mut self, field_info_in: &Rc<FieldInfo>) -> Result<Self::SortedDocValues> {
-        if Rc::ptr_eq(&self.writer_field_info, field_info_in) {
+    fn get_sorted(&mut self, field_info_in: &Arc<FieldInfo>) -> Result<Self::SortedDocValues> {
+        if Arc::ptr_eq(&self.writer_field_info, field_info_in) {
             return Err(LuceneError::illegal_argument("wrong fieldInfo"));
         }
         let buf = BufferedSortedDocValues::new(

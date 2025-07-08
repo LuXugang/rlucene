@@ -14,11 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::rc::Rc;
-
 use crate::codecs::dummy::dummy_numeric_doc_values::DummyNumericDocValues;
 use crate::codecs::norms_producer::NormsProducer;
 use crate::index::field_info::FieldInfo;
+use std::sync::Arc;
 
 pub struct DummyNormsProducer;
 impl NormsProducer for DummyNormsProducer {
@@ -26,7 +25,7 @@ impl NormsProducer for DummyNormsProducer {
 
     fn get_norms(
         &mut self,
-        _field: &Rc<FieldInfo>,
+        _field: &Arc<FieldInfo>,
     ) -> crate::util::error::lucene_error::Result<Self::NumericDocValues> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }

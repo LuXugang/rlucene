@@ -55,7 +55,7 @@ pub trait BaseFieldInfoFormatTestCase {
         let codec = get_default_code();
         let segment_info = Self::new_segment_info(random, dir.clone(), "_123")?;
 
-        let fi = Rc::new(Self::create_field_info());
+        let fi = Arc::new(Self::create_field_info());
         Self::add_attributes(&fi);
 
         let infos = IndexPackageAccessImpl
@@ -213,7 +213,7 @@ pub trait BaseFieldInfoFormatTestCase {
                 parent_field,
             );
             Self::add_attributes(&fi);
-            builder.add(Rc::new(fi))?;
+            builder.add(Arc::new(fi))?;
         }
 
         let infos = builder.finish()?;

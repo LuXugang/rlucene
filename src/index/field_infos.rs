@@ -14,10 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
-use std::rc::Rc;
-
 use crate::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::index::doc_values_type::DocValuesType;
 use crate::index::field_info::FieldInfo;
@@ -25,6 +21,10 @@ use crate::index::index_options::IndexOptions;
 use crate::index::vector_encoding::VectorEncoding;
 use crate::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::util::error::lucene_error::{LuceneError, Result};
+use std::cell::RefCell;
+use std::collections::{HashMap, HashSet};
+use std::rc::Rc;
+use std::sync::Arc;
 
 /// Collection of FieldInfos (accessible by number or by name).
 ///
@@ -43,15 +43,15 @@ pub struct FieldInfos {
     pub soft_deletes_field: Option<String>,
 
     pub parent_field: Option<String>,
-    pub by_number: Vec<Rc<FieldInfo>>,
-    pub by_name: HashMap<String, Rc<FieldInfo>>,
-    pub values: Vec<Rc<FieldInfo>>,
+    pub by_number: Vec<Arc<FieldInfo>>,
+    pub by_name: HashMap<String, Arc<FieldInfo>>,
+    pub values: Vec<Arc<FieldInfo>>,
 }
 
 impl FieldInfos {
     /// Constructs a new FieldInfos from an array of FieldInfo objects. The
     /// array can be used directly as the backing structure.
-    pub fn new(mut infos: Vec<Rc<FieldInfo>>) -> Result<Self> {
+    pub fn new(mut infos: Vec<Arc<FieldInfo>>) -> Result<Self> {
         let mut has_term_vectors = false;
         let mut has_postings = false;
         let mut has_prox = false;
@@ -145,7 +145,7 @@ impl FieldInfos {
                 }
             }
         }
-        let by_number: Vec<Rc<FieldInfo>> = infos.clone();
+        let by_number: Vec<Arc<FieldInfo>> = infos.clone();
 
         Ok(FieldInfos {
             has_freq,
@@ -234,14 +234,14 @@ impl FieldInfos {
 
     /// Returns an iterator over all the FieldInfo objects present, ordered by
     /// ascending field number.
-    pub fn iter(&self) -> impl Iterator<Item = &Rc<FieldInfo>> {
+    pub fn iter(&self) -> impl Iterator<Item = &Arc<FieldInfo>> {
         self.values.iter()
     }
 
     /// Return the FieldInfo object referenced by the field name.
     ///
     /// Returns None if the given field name doesn't exist.
-    pub fn field_info_by_name(&self, field_name: &str) -> Option<Rc<FieldInfo>> {
+    pub fn field_info_by_name(&self, field_name: &str) -> Option<Arc<FieldInfo>> {
         self.by_name.get(field_name).cloned()
     }
 
@@ -252,7 +252,7 @@ impl FieldInfos {
     /// # Panics
     ///
     /// Panics if field_number is negative.
-    pub fn field_info_by_number(&self, field_number: i32) -> Result<Option<Rc<FieldInfo>>> {
+    pub fn field_info_by_number(&self, field_number: i32) -> Result<Option<Arc<FieldInfo>>> {
         if field_number < 0 {
             return Err(LuceneError::illegal_argument(format!(
                 "Illegal field number: {field_number}"
@@ -265,8 +265,8 @@ impl FieldInfos {
     }
 }
 impl<'a> IntoIterator for &'a FieldInfos {
-    type Item = &'a Rc<FieldInfo>;
-    type IntoIter = std::slice::Iter<'a, Rc<FieldInfo>>;
+    type Item = &'a Arc<FieldInfo>;
+    type IntoIter = std::slice::Iter<'a, Arc<FieldInfo>>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.values.iter()
@@ -419,7 +419,7 @@ impl FieldNumbers {
     /// does not exist yet it tries to add it with the given preferred field
     /// number assigned if possible otherwise the first unassigned field
     /// number is used as the field number.
-    pub(crate) fn add_or_get(&mut self, fi: Rc<FieldInfo>) -> Result<i32> {
+    pub(crate) fn add_or_get(&mut self, fi: Arc<FieldInfo>) -> Result<i32> {
         let field_name = fi.get_name();
         self.verify_soft_deleted_field_name(field_name, fi.is_soft_deletes_field())?;
         self.verify_parent_field_name(field_name, fi.is_parent_field())?;
@@ -649,7 +649,7 @@ impl FieldNumbers {
                         .as_ref()
                         .is_some_and(|s| s == field_name),
                 );
-                self.add_or_get(Rc::new(fi))?;
+                self.add_or_get(Arc::new(fi))?;
             }
         } else {
             // verify that field is doc values only field with the give doc
@@ -760,11 +760,11 @@ pub mod build {
     use crate::util::error::lucene_error::Result;
     use parking_lot::Mutex;
     use std::collections::HashMap;
-    use std::rc::Rc;
+
     use std::sync::Arc;
 
     pub struct Builder {
-        by_name: HashMap<String, Rc<FieldInfo>>,
+        by_name: HashMap<String, Arc<FieldInfo>>,
         global_field_numbers: Arc<Mutex<FieldNumbers>>,
         finished: bool,
     }
@@ -796,11 +796,15 @@ pub mod build {
             }
         }
 
-        pub fn add(&mut self, fi: Rc<FieldInfo>) -> Result<Rc<FieldInfo>> {
+        pub fn add(&mut self, fi: Arc<FieldInfo>) -> Result<Arc<FieldInfo>> {
             self.add_with_dv_gen(fi, -1)
         }
 
-        pub fn add_with_dv_gen(&mut self, fi: Rc<FieldInfo>, dv_gen: i64) -> Result<Rc<FieldInfo>> {
+        pub fn add_with_dv_gen(
+            &mut self,
+            fi: Arc<FieldInfo>,
+            dv_gen: i64,
+        ) -> Result<Arc<FieldInfo>> {
             if let Some(cur_fi) = self.field_info(&fi.name) {
                 cur_fi.verify_same_schema(&fi)?;
 
@@ -819,7 +823,7 @@ pub mod build {
 
             let field_number = self.global_field_numbers.lock().add_or_get(fi.clone())?;
             let attributes = fi.properties.borrow().attributes.clone();
-            let fi_new = Rc::new(FieldInfo::new(
+            let fi_new = Arc::new(FieldInfo::new(
                 fi.name.clone(),
                 field_number,
                 fi.has_term_vectors(),
@@ -843,7 +847,7 @@ pub mod build {
             self.by_name.insert(fi_new.name.clone(), fi_new.clone());
             Ok(fi_new)
         }
-        pub fn field_info(&self, field_name: &str) -> Option<Rc<FieldInfo>> {
+        pub fn field_info(&self, field_name: &str) -> Option<Arc<FieldInfo>> {
             self.by_name.get(field_name).cloned()
         }
         fn assert_not_finished(&self) {
@@ -860,10 +864,6 @@ pub mod build {
 
 #[cfg(test)]
 mod tests {
-    use std::cell::RefCell;
-    use std::collections::HashMap;
-    use std::rc::Rc;
-
     use crate::index::doc_values_skip_index_type::DocValuesSkipIndexType;
     use crate::index::doc_values_type::DocValuesType;
     use crate::index::field_info::FieldInfo;
@@ -872,6 +872,10 @@ mod tests {
     use crate::index::vector_encoding::VectorEncoding;
     use crate::index::vector_similarity_function::VectorSimilarityFunction;
     use crate::util::error::lucene_error::Result;
+    use std::cell::RefCell;
+    use std::collections::HashMap;
+    use std::rc::Rc;
+    use std::sync::Arc;
 
     #[allow(dead_code)] // for quick search
     struct TestFieldInfos;
@@ -927,9 +931,9 @@ mod tests {
                 false,
                 false,
             );
-            field_numbers.add_or_get(Rc::new(fi))?;
+            field_numbers.add_or_get(Arc::new(fi))?;
         }
-        let idx = field_numbers.add_or_get(Rc::new(FieldInfo::new(
+        let idx = field_numbers.add_or_get(Arc::new(FieldInfo::new(
             "EleventhField".to_string(),
             -1,
             false,
@@ -952,7 +956,7 @@ mod tests {
         assert_eq!(10, idx, "Field numbers 0 through 9 were allocated");
 
         field_numbers.clear()?;
-        let idx = field_numbers.add_or_get(Rc::new(FieldInfo::new(
+        let idx = field_numbers.add_or_get(Arc::new(FieldInfo::new(
             "PostClearField".to_string(),
             -1,
             false,

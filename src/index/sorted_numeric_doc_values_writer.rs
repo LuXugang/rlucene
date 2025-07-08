@@ -51,6 +51,7 @@ use crate::util::packed::PackedInts;
 use crate::util::{Counter, CounterEnumLock};
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
+use std::sync::Arc;
 
 /// Buffers up pending `[i64]` per doc, sorts, then flushes when segment flushes.
 pub(crate) struct SortedNumericDocValuesWriter {
@@ -59,7 +60,7 @@ pub(crate) struct SortedNumericDocValuesWriter {
     docs_with_field: DocsWithFieldSet,
     iw_bytes_used: CounterEnumLock,
     bytes_used: i64, // this only tracks differences in 'pending' and 'pendingCounts'
-    field_info: Rc<FieldInfo>,
+    field_info: Arc<FieldInfo>,
     current_doc: i32,
     current_values: Vec<i64>,
     current_upto: usize,
@@ -69,7 +70,7 @@ pub(crate) struct SortedNumericDocValuesWriter {
 }
 
 impl SortedNumericDocValuesWriter {
-    pub(crate) fn new(field_info: Rc<FieldInfo>, iw_bytes_used: CounterEnumLock) -> Result<Self> {
+    pub(crate) fn new(field_info: Arc<FieldInfo>, iw_bytes_used: CounterEnumLock) -> Result<Self> {
         let current_values = vec![0i64; 8];
         let docs_with_field = DocsWithFieldSet::new();
         let pending =
@@ -306,7 +307,7 @@ impl DocValuesProducer for DocValuesProducerImpl1 {
 
     fn get_sorted_numeric(
         &mut self,
-        field_info_in: &Rc<FieldInfo>,
+        field_info_in: &Arc<FieldInfo>,
     ) -> Result<Self::SortedNumericDocValues> {
         let v = self.single_value_producer.get_numeric(field_info_in)?;
         DocValues::singleton_numeric(v)
@@ -317,7 +318,7 @@ impl DocValuesProducer for DocValuesProducerImpl1 {
 }
 
 pub(crate) struct DocValuesProducerImpl2 {
-    field_info: Rc<FieldInfo>,
+    field_info: Arc<FieldInfo>,
     docs_with_field: DocsWithFieldSet,
     values: PackedLongValues,
     sorted: Option<LongValues>,
@@ -325,7 +326,7 @@ pub(crate) struct DocValuesProducerImpl2 {
 }
 impl DocValuesProducerImpl2 {
     fn new(
-        field_info: Rc<FieldInfo>,
+        field_info: Arc<FieldInfo>,
         docs_with_field: DocsWithFieldSet,
         values: PackedLongValues,
         sorted: Option<LongValues>,
@@ -359,9 +360,9 @@ impl DocValuesProducer for DocValuesProducerImpl2 {
 
     fn get_sorted_numeric(
         &mut self,
-        field_info_in: &Rc<FieldInfo>,
+        field_info_in: &Arc<FieldInfo>,
     ) -> Result<Self::SortedNumericDocValues> {
-        if !Rc::ptr_eq(&self.field_info, field_info_in) {
+        if !Arc::ptr_eq(&self.field_info, field_info_in) {
             return Err(LuceneError::illegal_state("wrong fieldInfo"));
         }
         let buf = SortedNumericDocValuesWriter::get_values(

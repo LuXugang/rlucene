@@ -14,9 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cmp::Ordering;
-use std::rc::Rc;
-
 use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
 use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
 use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
@@ -41,11 +38,13 @@ use crate::util::array_util::ArrayUtil;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::ToInt;
+use std::cmp::Ordering;
+use std::sync::Arc;
 // TODO: break into separate freq and prox writers as
 // codecs; make separate container (tii/tis/skip/*) that can
 // be configured as any number of files 1..N
 pub(crate) struct FreqProxTermsWriterPerField {
-    field_info: Rc<FieldInfo>,
+    field_info: Arc<FieldInfo>,
     pub(crate) has_freq: bool,
     pub(crate) has_prox: bool,
     pub(crate) has_offsets: bool,
@@ -59,7 +58,7 @@ pub(crate) struct FreqProxTermsWriterPerField {
 impl FreqProxTermsWriterPerField {
     pub fn new<D>(
         terms_hash: &mut FreqProxTermsWriter<D>,
-        field_info: Rc<FieldInfo>,
+        field_info: Arc<FieldInfo>,
         next_per_field: Option<TermVectorsConsumerPerField>,
     ) -> FreqProxTermsWriterPerField
     where

@@ -19,7 +19,7 @@ use crate::codecs::points_writer::PointsWriter;
 use crate::index::field_info::FieldInfo;
 use crate::index::segment_write_state::SegmentWriteState;
 use crate::store::directory::Directory;
-use std::rc::Rc;
+use std::sync::Arc;
 
 pub struct Lucene90PointWriter;
 
@@ -35,7 +35,7 @@ impl Lucene90PointWriter {
 impl PointsWriter for Lucene90PointWriter {
     fn write_field<PR>(
         &mut self,
-        _field_info: &Rc<FieldInfo>,
+        _field_info: &Arc<FieldInfo>,
         _values: &mut PR,
     ) -> crate::util::error::lucene_error::Result<()>
     where

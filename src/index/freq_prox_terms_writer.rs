@@ -60,6 +60,7 @@ use crate::util::{CounterEnumLock, SliceCopyOps, Sorter, TimSorter, TimSorterBas
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::sync::Arc;
 
 pub(crate) struct FreqProxTermsWriter<D>
 where
@@ -206,7 +207,7 @@ where
         }
         Ok(())
     }
-    pub(crate) fn add_field(&mut self, field_info: Rc<FieldInfo>) -> FreqProxTermsWriterPerField {
+    pub(crate) fn add_field(&mut self, field_info: Arc<FieldInfo>) -> FreqProxTermsWriterPerField {
         let next_per_field = self
             .next_terms_hash
             .as_mut()

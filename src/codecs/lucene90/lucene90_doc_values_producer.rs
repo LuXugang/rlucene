@@ -14,11 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::borrow::Cow;
-use std::cell::RefCell;
-use std::collections::HashMap;
-use std::rc::Rc;
-
 use crate::codecs::doc_values_producer::DocValuesProducer;
 use crate::codecs::dummy::dummy_numeric_doc_values::DummyNumericDocValues;
 use crate::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
@@ -78,6 +73,11 @@ use crate::util::packed::direct_monotonic_reader::{
 };
 use crate::util::packed::direct_reader::{DirectPackedEnum, DirectReader};
 use crate::util::{SliceCopyOps, ToInt};
+use std::borrow::Cow;
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::rc::Rc;
+use std::sync::Arc;
 
 pub struct Lucene90DocValuesProducer<I>
 where
@@ -853,7 +853,7 @@ where
 {
     type NumericDocValues = Lucene90NumericDocValuesEnums<I>;
 
-    fn get_numeric(&mut self, field: &Rc<FieldInfo>) -> Result<Lucene90NumericDocValuesEnums<I>> {
+    fn get_numeric(&mut self, field: &Arc<FieldInfo>) -> Result<Lucene90NumericDocValuesEnums<I>> {
         let entry = self.numerics.get(&field.number);
         match entry {
             Some(entry) => self.get_numeric(entry.clone()),
@@ -866,7 +866,7 @@ where
 
     type BinaryDocValues = Lucene90BinaryDocValuesEnum<I>;
 
-    fn get_binary(&mut self, field: &Rc<FieldInfo>) -> Result<Self::BinaryDocValues> {
+    fn get_binary(&mut self, field: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
         let entry = self.binaries.get(&field.number);
         match entry {
             Some(entry) => {
@@ -992,7 +992,7 @@ where
 
     type SortedDocValues = BaseSortedDocValues<I>;
 
-    fn get_sorted(&mut self, field: &Rc<FieldInfo>) -> Result<Self::SortedDocValues> {
+    fn get_sorted(&mut self, field: &Arc<FieldInfo>) -> Result<Self::SortedDocValues> {
         let entry = self.sorted.get(&field.number);
         match entry {
             Some(entry) => Ok(self.get_sorted(entry.clone())?),
@@ -1007,7 +1007,7 @@ where
 
     fn get_sorted_numeric(
         &mut self,
-        field: &Rc<FieldInfo>,
+        field: &Arc<FieldInfo>,
     ) -> Result<Self::SortedNumericDocValues> {
         let entry = self.sorted_numerics.get(&field.number);
         match entry {
@@ -1024,7 +1024,7 @@ where
         BaseSortedSetDocValues<I>,
     >;
 
-    fn get_sorted_set(&mut self, field: &Rc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
+    fn get_sorted_set(&mut self, field: &Arc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
         let field_number = field.number;
         let entry = self.sorted_sets.get(&field_number);
         match entry {
@@ -1131,7 +1131,7 @@ where
 
     type DocValuesSkipper = DocValuesSkipperImpl<I>;
 
-    fn get_skipper(&mut self, field: &Rc<FieldInfo>) -> Result<Self::DocValuesSkipper> {
+    fn get_skipper(&mut self, field: &Arc<FieldInfo>) -> Result<Self::DocValuesSkipper> {
         let entry = self.skippers.get(&field.number);
         match entry {
             Some(entry) => {

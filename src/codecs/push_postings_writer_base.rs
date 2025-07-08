@@ -14,9 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::borrow::Cow;
-use std::rc::Rc;
-
 use crate::codecs::block_term_state::BlockTermStateEnum;
 use crate::codecs::norms_producer::NormsProducer;
 use crate::codecs::postings_writer_base::PostingsWriterBase;
@@ -33,6 +30,8 @@ use crate::store::{DataOutput, IndexOutput};
 use crate::util::bit_set::BitSet;
 use crate::util::error::lucene_error::Result;
 use crate::util::fixed_bit_set::FixedBitSet;
+use std::borrow::Cow;
+use std::sync::Arc;
 
 /// Extension of [`PostingsWriterBase`], adding a push API for writing each
 /// element of the postings. This API is somewhat analogous to an XML SAX API,
@@ -49,7 +48,7 @@ where
     enum_flags: i32,
 
     /// `FieldInfo` of current field being written.
-    pub(crate) field_info: Option<Rc<FieldInfo>>,
+    pub(crate) field_info: Option<Arc<FieldInfo>>,
 
     /// `IndexOptions` of current field being written.
     pub(crate) index_options: IndexOptions,
@@ -196,7 +195,7 @@ where
     /// Sets the current field for writing, and returns the fixed length of
     /// `&[i64]` metadata (which is fixed per field), called when the
     /// writing switches to another field.
-    fn set_field(&mut self, field_info: Rc<FieldInfo>) {
+    fn set_field(&mut self, field_info: Arc<FieldInfo>) {
         self.index_options = *field_info.get_index_options();
         let options = &mut self.options;
         options.write_freqs = self.index_options >= IndexOptions::DocsAndFreqs;

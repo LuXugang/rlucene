@@ -19,7 +19,6 @@ use crate::index::field_infos::build::Builder;
 use crate::index::field_infos::{FieldInfos, FieldNumbers};
 use crate::util::error::lucene_error::Result;
 use parking_lot::lock_api::Mutex;
-use std::rc::Rc;
 use std::sync::Arc;
 
 pub(crate) trait IndexPackageAccess {
@@ -35,7 +34,7 @@ pub(crate) trait IndexPackageAccess {
     // fn check_impacts(&self, impacts: Impacts, max: i32);
 }
 pub(crate) trait FieldInfosBuilder {
-    fn add(&mut self, fi: Rc<FieldInfo>) -> Result<&mut Self>;
+    fn add(&mut self, fi: Arc<FieldInfo>) -> Result<&mut Self>;
     fn finish(&mut self) -> Result<FieldInfos>;
 }
 
@@ -67,7 +66,7 @@ impl FieldInfosBuilderImpl {
     }
 }
 impl FieldInfosBuilder for FieldInfosBuilderImpl {
-    fn add(&mut self, fi: Rc<FieldInfo>) -> Result<&mut Self> {
+    fn add(&mut self, fi: Arc<FieldInfo>) -> Result<&mut Self> {
         self.builder.add(fi)?;
         Ok(self)
     }

@@ -14,10 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::borrow::Cow;
-use std::default::Default;
-use std::rc::Rc;
-
 use crate::codecs::block_term_state::BlockTermStateEnum;
 use crate::codecs::competitive_impact_accumulator::CompetitiveImpactAccumulator;
 use crate::codecs::lucene101::for_delta_util::ForDeltaUtil;
@@ -46,6 +42,9 @@ use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::SliceCopyOps;
+use std::borrow::Cow;
+use std::default::Default;
+use std::sync::Arc;
 
 /// Writer for
 /// [`Lucene101PostingsFormat`](crate::codecs::lucene101::lucene101_postings_format)
@@ -492,7 +491,7 @@ where
         Err(LuceneError::unreachable("should not be called"))
     }
 
-    fn set_field(&mut self, field_info: Rc<FieldInfo>) {
+    fn set_field(&mut self, field_info: Arc<FieldInfo>) {
         self.last_state = IntBlockTermState::default();
         self.field_has_norms = field_info.has_norms();
     }
