@@ -102,7 +102,6 @@ use crate::util::{
     SliceCopyOps, LUCENE_10_0_0,
 };
 use parking_lot::Mutex;
-use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
@@ -792,7 +791,7 @@ where
             s.doc_values_type,
             s.doc_values_skip_index,
             -1,
-            Rc::new(RefCell::new(std::mem::take(&mut s.attributes))),
+            Arc::new(Mutex::new(std::mem::take(&mut s.attributes))),
             s.point_dimension_count,
             s.point_index_dimension_count,
             s.point_num_bytes,

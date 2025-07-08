@@ -30,7 +30,7 @@ use crate::index::field_infos::build::Builder;
 use crate::index::field_infos::FieldInfos;
 use crate::index::frozen_buffered_updates::FrozenBufferedUpdates;
 use crate::index::index_writer::index_writer_util;
-use crate::index::indexing_chain::{IndexingChain, ReservedField};
+use crate::index::indexing_chain::IndexingChain;
 use crate::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::index::lockable_concurrent_approximate_priority_queue::Lock;
 use crate::index::pending_soft_deletes::pending_soft_deletes_util;
@@ -90,7 +90,6 @@ where
     delete_doc_ids: Vec<i32>,
     num_deleted_doc_ids: i32,
     index_major_version_created: i32,
-    parent_field: Option<ReservedField<NumericDocValuesField>>,
     files_to_delete: HashSet<String>,
     aborting_exception: Option<LuceneError>,
     lock: AtomicBool,
@@ -193,6 +192,7 @@ where
             index_writer_config.clone(),
         );
 
+        // TODO: 应该在updateDocuments期间调用
         let parent_field = index_writer_config
             .get_parent_field()
             .map(|pf| indexing_chain.mark_as_reserved(NumericDocValuesField::new(pf, -1)));
@@ -217,7 +217,6 @@ where
             delete_doc_ids: Vec::new(),
             num_deleted_doc_ids: 0,
             index_major_version_created,
-            parent_field,
             files_to_delete: HashSet::new(),
             aborting_exception: None,
             lock: AtomicBool::new(false),

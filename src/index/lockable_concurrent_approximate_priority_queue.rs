@@ -58,7 +58,7 @@ where
         None
     }
     /// Remove an entry from the queue.
-    pub(crate) fn remove(&mut self, o: &str) -> bool {
+    pub(crate) fn remove(&self, o: &str) -> bool {
         self.queue.remove(o)
     }
     ///  Only used for assertions

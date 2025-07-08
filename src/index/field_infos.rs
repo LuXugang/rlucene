@@ -21,9 +21,8 @@ use crate::index::index_options::IndexOptions;
 use crate::index::vector_encoding::VectorEncoding;
 use crate::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use std::cell::RefCell;
+use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
-use std::rc::Rc;
 use std::sync::Arc;
 
 /// Collection of FieldInfos (accessible by number or by name).
@@ -635,7 +634,7 @@ impl FieldNumbers {
                     dv_type,
                     DocValuesSkipIndexType::None,
                     -1,
-                    Rc::new(RefCell::new(HashMap::new())),
+                    Arc::new(Mutex::new(HashMap::new())),
                     0,
                     0,
                     0,
@@ -728,7 +727,7 @@ impl FieldNumbers {
                 dv_type,
                 DocValuesSkipIndexType::None,
                 -1,
-                Rc::new(RefCell::new(HashMap::new())),
+                Arc::new(Mutex::new(HashMap::new())),
                 0,
                 0,
                 0,
@@ -808,8 +807,8 @@ pub mod build {
             if let Some(cur_fi) = self.field_info(&fi.name) {
                 cur_fi.verify_same_schema(&fi)?;
 
-                let properties = fi.properties.borrow();
-                let attributes_guard = properties.attributes.borrow_mut();
+                let properties = fi.properties.lock();
+                let attributes_guard = properties.attributes.lock();
                 for (k, v) in attributes_guard.iter() {
                     cur_fi.put_attribute(k.clone(), v.clone());
                 }
@@ -822,7 +821,7 @@ pub mod build {
             self.assert_not_finished();
 
             let field_number = self.global_field_numbers.lock().add_or_get(fi.clone())?;
-            let attributes = fi.properties.borrow().attributes.clone();
+            let attributes = fi.properties.lock().attributes.clone();
             let fi_new = Arc::new(FieldInfo::new(
                 fi.name.clone(),
                 field_number,
@@ -872,9 +871,10 @@ mod tests {
     use crate::index::vector_encoding::VectorEncoding;
     use crate::index::vector_similarity_function::VectorSimilarityFunction;
     use crate::util::error::lucene_error::Result;
-    use std::cell::RefCell;
+
     use std::collections::HashMap;
-    use std::rc::Rc;
+
+    use parking_lot::Mutex;
     use std::sync::Arc;
 
     #[allow(dead_code)] // for quick search
@@ -921,7 +921,7 @@ mod tests {
                 DocValuesType::None,
                 DocValuesSkipIndexType::None,
                 -1,
-                Rc::new(RefCell::new(HashMap::new())),
+                Arc::new(Mutex::new(HashMap::new())),
                 0,
                 0,
                 0,
@@ -943,7 +943,7 @@ mod tests {
             DocValuesType::None,
             DocValuesSkipIndexType::None,
             -1,
-            Rc::new(RefCell::new(HashMap::new())),
+            Arc::new(Mutex::new(HashMap::new())),
             0,
             0,
             0,
@@ -966,7 +966,7 @@ mod tests {
             DocValuesType::None,
             DocValuesSkipIndexType::None,
             -1,
-            Rc::new(RefCell::new(HashMap::new())),
+            Arc::new(Mutex::new(HashMap::new())),
             0,
             0,
             0,

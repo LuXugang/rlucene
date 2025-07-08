@@ -14,12 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::rc::Rc;
-
 use crate::store::{DataInput, DataOutput};
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::CoreHelper;
+use std::sync::Arc;
 
 /// LZ4 compression and decompression routines.
 ///
@@ -241,7 +240,7 @@ impl LZ4 {
         ht: &mut HashTableEnum,
     ) -> Result<Vec<u8>> {
         // Ensure the indices are valid
-        let bytes = Rc::new(bytes);
+        let bytes = Arc::new(bytes);
         CoreHelper::check_from_index_size(dict_off, dict_len, bytes.len() as i32)?;
         CoreHelper::check_from_index_size(dict_off + dict_len, len, bytes.len() as i32)?;
 
@@ -311,14 +310,14 @@ impl LZ4 {
                 anchor = off;
             }
             // for return ownership
-            ht.reset(Rc::new(vec![]), 0, 0)?;
+            ht.reset(Arc::new(vec![]), 0, 0)?;
         }
 
         // Handle last literals
         let literal_len = end - anchor;
         assert!(literal_len >= LZ4::LAST_LITERALS || literal_len == len);
         LZ4::encode_last_literals(bytes.as_slice(), anchor, literal_len, out)?;
-        match Rc::try_unwrap(bytes) {
+        match Arc::try_unwrap(bytes) {
             Ok(vec) => Ok(vec),
             Err(_) => Err(LuceneError::illegal_state("bytes's rc count should be 1")),
         }
@@ -328,7 +327,7 @@ impl LZ4 {
 /// A record of previous occurrences of sequences of 4 bytes.
 pub trait HashTable {
     /// Reset this hash table in order to compress the given content.
-    fn reset(&mut self, b: Rc<Vec<u8>>, off: i32, len: i32) -> Result<()>;
+    fn reset(&mut self, b: Arc<Vec<u8>>, off: i32, len: i32) -> Result<()>;
 
     /// Init `dict_len` bytes to be used as a dictionary.
     fn init_dictionary(&mut self, dict_len: i32);
@@ -457,7 +456,7 @@ impl Table for TableEnum {
 /// Simple lossy `HashTable` that only stores the last occurrence for each hash
 /// on `2^14` bytes of memory.
 pub struct FastCompressionHashTable {
-    bytes: Rc<Vec<u8>>,
+    bytes: Arc<Vec<u8>>,
     base: i32,
     last_off: i32,
     end: i32,
@@ -475,7 +474,7 @@ impl FastCompressionHashTable {
     /// Sole constructor
     pub fn new() -> Self {
         FastCompressionHashTable {
-            bytes: Rc::new(vec![]),
+            bytes: Arc::new(vec![]),
             base: 0,
             last_off: 0,
             end: 0,
@@ -485,7 +484,7 @@ impl FastCompressionHashTable {
     }
 }
 impl HashTable for FastCompressionHashTable {
-    fn reset(&mut self, bytes: Rc<Vec<u8>>, off: i32, len: i32) -> Result<()> {
+    fn reset(&mut self, bytes: Arc<Vec<u8>>, off: i32, len: i32) -> Result<()> {
         CoreHelper::check_from_index_size(off, len, bytes.len() as i32)?;
         self.bytes = bytes;
         self.base = off;
@@ -574,7 +573,7 @@ impl HashTable for FastCompressionHashTable {
 /// sequences in the last 2^16 bytes, which makes it much more likely to find
 /// matches than FastCompressionHashTable.
 pub struct HighCompressionHashTable {
-    bytes: Rc<Vec<u8>>,
+    bytes: Arc<Vec<u8>>,
     base: i32,
     next: i32,
     end: i32,
@@ -595,7 +594,7 @@ impl HighCompressionHashTable {
     /// Sole constructor
     pub fn new() -> Self {
         HighCompressionHashTable {
-            bytes: Rc::new(vec![]),
+            bytes: Arc::new(vec![]),
             base: 0,
             next: 0,
             end: 0,
@@ -616,7 +615,7 @@ impl HighCompressionHashTable {
     }
 }
 impl HashTable for HighCompressionHashTable {
-    fn reset(&mut self, bytes: Rc<Vec<u8>>, off: i32, len: i32) -> Result<()> {
+    fn reset(&mut self, bytes: Arc<Vec<u8>>, off: i32, len: i32) -> Result<()> {
         CoreHelper::check_from_index_size(off, len, bytes.len() as i32)?;
 
         if self.end - self.base < self.chain_table.len() as i32 {
@@ -719,7 +718,7 @@ pub enum HashTableEnum {
     High(HighCompressionHashTable),
 }
 impl HashTable for HashTableEnum {
-    fn reset(&mut self, b: Rc<Vec<u8>>, off: i32, len: i32) -> Result<()> {
+    fn reset(&mut self, b: Arc<Vec<u8>>, off: i32, len: i32) -> Result<()> {
         match self {
             HashTableEnum::Fast(table) => table.reset(b, off, len),
             HashTableEnum::High(table) => table.reset(b, off, len),
@@ -757,9 +756,9 @@ impl HashTable for HashTableEnum {
 
 #[cfg(test)]
 mod tests {
-    use std::rc::Rc;
 
     use rand::Rng;
+    use std::sync::Arc;
 
     use crate::store::{ByteArrayDataInput, ByteBuffersDataOutput, DataOutput};
     use crate::test::util::lucene_test_case::random;
@@ -1269,7 +1268,7 @@ mod tests {
         }
     }
     impl HashTable for AssertingHashTable {
-        fn reset(&mut self, b: Rc<Vec<u8>>, off: i32, len: i32) -> Result<()> {
+        fn reset(&mut self, b: Arc<Vec<u8>>, off: i32, len: i32) -> Result<()> {
             self.ht.reset(b, off, len)?;
             assert!(self.ht.assert_reset());
             Ok(())

@@ -14,9 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
-use std::rc::Rc;
 use std::sync::Arc;
 
 use parking_lot::Mutex;
@@ -202,7 +200,7 @@ pub trait BaseFieldInfoFormatTestCase {
                 *field_type.doc_values_type(),
                 *doc_values_skip_index_type,
                 -1,
-                Rc::new(RefCell::new(HashMap::new())),
+                Arc::new(Mutex::new(HashMap::new())),
                 field_type.point_dimension_count(),
                 field_type.point_index_dimension_count(),
                 field_type.point_num_bytes(),
@@ -394,7 +392,7 @@ pub trait BaseFieldInfoFormatTestCase {
             DocValuesType::None,
             DocValuesSkipIndexType::None,
             -1,
-            Rc::new(RefCell::new(HashMap::new())),
+            Arc::new(Mutex::new(HashMap::new())),
             0,
             0,
             0,

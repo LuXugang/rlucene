@@ -14,23 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::fmt;
-use std::fmt::{Display, Formatter};
-use std::rc::Rc;
-
 use crate::index::BytesRef;
 use crate::store::{DataInput, DataOutput, IndexInput};
 use crate::util::accountable::Accountable;
 use crate::util::array_util::ArrayUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::SliceCopyOps;
+use std::fmt;
+use std::fmt::{Display, Formatter};
+use std::rc::Rc;
+use std::sync::Arc;
 /// Represents a logical byte[] as a series of pages. You can write-once into
 /// the logical byte[] (append only), using copy, and then retrieve slices
 /// (BytesRef) into it using fill.
 #[derive(Default)]
 pub struct PagedBytes {
     blocks: Vec<Vec<u8>>,
-    blocks_rc: Option<Vec<Rc<Vec<u8>>>>,
+    blocks_rc: Option<Vec<Arc<Vec<u8>>>>,
     num_blocks: usize,
     block_size: usize,
     block_bits: usize,
@@ -150,7 +150,7 @@ impl PagedBytes {
 
         let mut block = Vec::new();
         for i in 0..self.num_blocks {
-            block.push(Rc::new(std::mem::take(&mut self.blocks[i])));
+            block.push(Arc::new(std::mem::take(&mut self.blocks[i])));
         }
         self.blocks_rc = Some(block);
 
@@ -206,7 +206,7 @@ pub mod paged_bytes_util {
 /// Provides methods to read BytesRefs from a frozen PagedBytes.
 #[derive(Clone, Default)]
 pub struct PagedBytesReader {
-    blocks: Vec<Rc<Vec<u8>>>,
+    blocks: Vec<Arc<Vec<u8>>>,
     block_bits: usize,
     block_mask: usize,
     block_size: usize,
@@ -291,7 +291,7 @@ pub struct PagedBytesDataInput {
     block_size: usize,
     block_bits: usize,
     block_mask: usize,
-    blocks: Vec<Rc<Vec<u8>>>,
+    blocks: Vec<Arc<Vec<u8>>>,
 }
 
 impl PagedBytesDataInput {
