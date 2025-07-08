@@ -18,13 +18,12 @@ use std::fmt::{Display, Formatter};
 
 use crate::index::byte_slice_pool::ByteSlicePool;
 use crate::store::{DataInput, DataOutput};
-use crate::util::access::BorrowExt;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::{byte_block_pool_util, ByteBlockPoolBorrow, SliceCopyOps};
+use crate::util::{byte_block_pool_util, ByteBlockPoolLock, SliceCopyOps};
 
 pub(crate) struct ByteSliceReader {
-    pool: Option<ByteBlockPoolBorrow>,
+    pool: Option<ByteBlockPoolLock>,
     buffer_upto: i32,
     upto: i32,
     limit: i32,
@@ -45,7 +44,7 @@ impl ByteSliceReader {
             end_index: 0,
         }
     }
-    pub(crate) fn init(&mut self, pool: ByteBlockPoolBorrow, start_index: i32, end_index: i32) {
+    pub(crate) fn init(&mut self, pool: ByteBlockPoolLock, start_index: i32, end_index: i32) {
         debug_assert!(end_index - start_index >= 0);
         debug_assert!(start_index >= 0);
         debug_assert!(end_index >= 0);
@@ -81,7 +80,7 @@ impl ByteSliceReader {
         // Skip to our next slice
 
         debug_assert!(self.pool.is_some());
-        let mut pool = self.pool.access_mut();
+        let mut pool = self.pool.as_mut().unwrap().lock();
         let buffer = pool.get_buffer(self.buffer_upto);
         let next_index = BitUtil::get_i32_le(buffer, self.limit as usize);
         self.level = ByteSlicePool::NEXT_LEVEL_ARRAY[self.level as usize];
@@ -118,7 +117,7 @@ impl DataInput for ByteSliceReader {
             self.next_slice();
         }
         debug_assert!(self.pool.is_some());
-        let mut pool = self.pool.access_mut();
+        let mut pool = self.pool.as_mut().unwrap().lock();
         let byte = pool.get_buffer(self.buffer_upto)[self.upto as usize];
         self.upto += 1;
         Ok(byte)
@@ -132,7 +131,7 @@ impl DataInput for ByteSliceReader {
             if num_left < len {
                 // Read entire slice
                 {
-                    let mut pool = self.pool.access_mut();
+                    let mut pool = self.pool.as_mut().unwrap().lock();
                     let buffer = pool.get_buffer(self.buffer_upto);
                     b.copy_from(
                         &buffer[self.upto as usize..self.upto as usize + num_left as usize],
@@ -143,7 +142,7 @@ impl DataInput for ByteSliceReader {
                 len -= num_left;
                 self.next_slice();
             } else {
-                let mut pool = self.pool.access_mut();
+                let mut pool = self.pool.as_mut().unwrap().lock();
                 // This slice is the last one
                 let buffer = pool.get_buffer(self.buffer_upto);
                 b.copy_from(
@@ -180,10 +179,10 @@ impl DataInput for ByteSliceReader {
 
 #[cfg(test)]
 mod tests {
-    use std::cell::RefCell;
-    use std::rc::Rc;
 
+    use parking_lot::Mutex;
     use rand::Rng;
+    use std::sync::Arc;
 
     use crate::index::byte_slice_pool::ByteSlicePool;
     use crate::index::byte_slice_reader::ByteSliceReader;
@@ -192,7 +191,7 @@ mod tests {
     use crate::test::util::test_util::TestUtil;
     use crate::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
     use crate::util::error::lucene_error::Result;
-    use crate::util::{ByteBlockPool, CounterEnumBorrow};
+    use crate::util::{ByteBlockPool, CounterEnumLock};
 
     #[allow(dead_code)] // for quick search
     struct TestByteSliceReader;
@@ -200,12 +199,12 @@ mod tests {
     #[allow(clippy::type_complexity)]
     pub fn before_class<R: Rng + ?Sized>(
         random: &mut R,
-    ) -> Result<(Vec<u8>, ByteBlockPool<CounterEnumBorrow>, i32)> {
+    ) -> Result<(Vec<u8>, ByteBlockPool<CounterEnumLock>, i32)> {
         let len = 100; // You can adjust this value if needed
         let random_data: Vec<u8> = (0..len).map(|_| random.random()).collect(); // Fill RANDOM_DATA with random bytes
 
         let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
-        let mut block_pool = ByteBlockPool::new(allocator);
+        let mut block_pool = ByteBlockPool::new_sync(allocator);
         block_pool.next_buffer()?;
 
         let mut slice_pool = ByteSlicePool::default();
@@ -230,7 +229,7 @@ mod tests {
         let mut random = random();
         let (random_data, block_pool, block_pool_end) = before_class(&mut random)?;
         let mut reader = ByteSliceReader::new();
-        reader.init(Rc::new(RefCell::new(block_pool)), 0, block_pool_end);
+        reader.init(Arc::new(Mutex::new(block_pool)), 0, block_pool_end);
         for &expected in random_data.iter() {
             let byte = reader.read_byte()?;
             assert_eq!(byte, expected);
@@ -244,7 +243,7 @@ mod tests {
         let mut slice_reader = ByteSliceReader::new();
         let max_skip_to = random_data.len() as i32 - 1;
         let iterations = at_least(&mut random, 10);
-        let block_pool = Rc::new(RefCell::new(block_pool));
+        let block_pool = Arc::new(Mutex::new(block_pool));
         for _ in 0..iterations {
             slice_reader.init(block_pool.clone(), 0, block_pool_end);
             // Skip random chunks of bytes until exhausted

@@ -28,13 +28,13 @@ use crate::util::access::Access;
 use crate::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
 use crate::util::bytes_ref_hash::{BytesRefHash, BytesStartArray};
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::int_block_pool::{ibp_util, IntBlockPool, IntBlockPoolBorrow};
+use crate::util::int_block_pool::{ibp_util, IntBlockPool, IntBlockPoolLock};
 use crate::util::{
-    byte_block_pool_util, ByteBlockPool, ByteBlockPoolBorrow, Counter, CounterEnum,
-    CounterEnumBorrow, SliceCopyOps,
+    byte_block_pool_util, ByteBlockPool, ByteBlockPoolLock, Counter, CounterEnum, CounterEnumLock,
+    SliceCopyOps,
 };
-use std::cell::RefCell;
-use std::rc::Rc;
+use parking_lot::Mutex;
+use std::sync::Arc;
 
 /// This struct stores streams of information per term without knowing the size
 /// of the stream ahead of time. Each stream typically encodes one level of
@@ -45,8 +45,8 @@ use std::rc::Rc;
 /// [`BytesRefHash`]. Once this is done, internal data structures point to the
 /// current offset of each stream that can be written to.
 pub struct TermsHashPerField {
-    int_pool: IntBlockPoolBorrow,
-    pub(crate) byte_pool: ByteBlockPoolBorrow,
+    int_pool: IntBlockPoolLock,
+    pub(crate) byte_pool: ByteBlockPoolLock,
     slice_pool: ByteSlicePool,
     // for each term we store an integer per stream that points into the
     // bytePool above the address is updated once data is written to the
@@ -63,7 +63,7 @@ pub struct TermsHashPerField {
     // parent hash in the case that this TermsHashPerField is hashing term
     // vectors.
     pub(crate) bytes_hash:
-        BytesRefHash<CounterEnumBorrow, ByteBlockPoolBorrow, PostingsBytesStartArray>,
+        BytesRefHash<CounterEnumLock, ByteBlockPoolLock, PostingsBytesStartArray>,
     last_doc_id: i32, // only used with debug/asserts
     pub(crate) do_next_call: bool,
     pub(crate) field_name: String,
@@ -73,9 +73,9 @@ impl Default for TermsHashPerField {
     // for padding
     fn default() -> Self {
         let postings_array_wrapper = PostingsArrayWrapper::default();
-        let bytes_used = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
+        let bytes_used = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
         let byte_starts = PostingsBytesStartArray::new(postings_array_wrapper, bytes_used);
-        let term_byte_pool = Rc::new(RefCell::new(ByteBlockPool::new(AllocatorByteEnum::DA(
+        let term_byte_pool = Arc::new(Mutex::new(ByteBlockPool::new_sync(AllocatorByteEnum::DA(
             DirectAllocatorByte::new(),
         ))));
         let byte_pool = term_byte_pool.clone();
@@ -86,7 +86,7 @@ impl Default for TermsHashPerField {
             byte_starts,
         );
         TermsHashPerField {
-            int_pool: Rc::new(RefCell::new(IntBlockPool::default())),
+            int_pool: Arc::new(Mutex::new(IntBlockPool::default())),
             byte_pool,
             slice_pool: ByteSlicePool,
             term_stream_address_buffer_index: 0,
@@ -107,10 +107,10 @@ impl TermsHashPerField {
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         stream_count: i32,
-        int_pool: IntBlockPoolBorrow,
-        byte_pool: ByteBlockPoolBorrow,
-        term_byte_pool: ByteBlockPoolBorrow,
-        bytes_used: CounterEnumBorrow,
+        int_pool: IntBlockPoolLock,
+        byte_pool: ByteBlockPoolLock,
+        term_byte_pool: ByteBlockPoolLock,
+        bytes_used: CounterEnumLock,
         postings_array_wrapper: PostingsArrayWrapper,
         field_name: String,
         index_options: IndexOptions,
@@ -153,7 +153,7 @@ impl TermsHashPerField {
         let offset_in_address_buffer = stream_start_offset & ibp_util::INT_BLOCK_MASK;
         let addr;
         {
-            let mut int_pool = self.int_pool.borrow_mut();
+            let mut int_pool = self.int_pool.lock();
             let stream_address_buffer = int_pool.get_buffer(buffer_index);
             addr = stream_address_buffer[(offset_in_address_buffer + stream) as usize];
         }
@@ -181,10 +181,10 @@ impl TermsHashPerField {
 
     pub(crate) fn write_byte(&self, stream: i32, b: u8) -> Result<()> {
         let stream_address = (self.stream_address_offset + stream) as usize;
-        let mut int_pool = self.int_pool.borrow_mut();
+        let mut int_pool = self.int_pool.lock();
         let term_stream_address_buffer = int_pool.get_buffer(self.term_stream_address_buffer_index);
         let upto = term_stream_address_buffer[stream_address];
-        let mut byte_pool = self.byte_pool.borrow_mut();
+        let mut byte_pool = self.byte_pool.lock();
         let block_index = upto >> byte_block_pool_util::BYTE_BLOCK_SHIFT;
         debug_assert!(block_index <= byte_pool.buffer_upto);
         let bytes = byte_pool.get_buffer(block_index);
@@ -194,16 +194,14 @@ impl TermsHashPerField {
         let mut byte_pool;
         let new_offset = if value != 0 {
             // End of slice; allocate a new one
-            let allocated_offset = self.slice_pool.alloc_slice(
-                block_index,
-                offset,
-                &mut self.byte_pool.borrow_mut(),
-            )?;
-            byte_pool = self.byte_pool.borrow_mut();
+            let allocated_offset =
+                self.slice_pool
+                    .alloc_slice(block_index, offset, &mut self.byte_pool.lock())?;
+            byte_pool = self.byte_pool.lock();
             term_stream_address_buffer[stream_address] = allocated_offset + byte_pool.byte_offset;
             allocated_offset
         } else {
-            byte_pool = self.byte_pool.borrow_mut();
+            byte_pool = self.byte_pool.lock();
             offset
         };
         let bytes = byte_pool.get_buffer_mut(block_index);
@@ -221,11 +219,11 @@ impl TermsHashPerField {
         let end = offset + len;
         let stream_address = (self.stream_address_offset + stream) as usize;
 
-        let mut int_pool = self.int_pool.borrow_mut();
+        let mut int_pool = self.int_pool.lock();
         let term_stream_address_buffer = int_pool.get_buffer(self.term_stream_address_buffer_index);
         let upto = term_stream_address_buffer[stream_address];
         {
-            let mut byte_pool = self.byte_pool.borrow_mut();
+            let mut byte_pool = self.byte_pool.lock();
             let mut block_index = upto >> byte_block_pool_util::BYTE_BLOCK_SHIFT;
             debug_assert!(block_index <= byte_pool.buffer_upto);
             let slice = byte_pool.get_buffer_mut(block_index);
@@ -244,11 +242,11 @@ impl TermsHashPerField {
                 let offset_and_length = self.slice_pool.alloc_known_size_slice(
                     block_index,
                     slice_offset as i32,
-                    &mut self.byte_pool.borrow_mut(),
+                    &mut self.byte_pool.lock(),
                 )?;
                 slice_offset = (offset_and_length >> 8) as usize;
                 let slice_length = offset_and_length & 0xff;
-                let mut byte_pool = self.byte_pool.borrow_mut();
+                let mut byte_pool = self.byte_pool.lock();
                 let buffer_upto = byte_pool.buffer_upto;
                 block_index = buffer_upto;
                 let slice = byte_pool.get_buffer_mut(buffer_upto);
@@ -295,7 +293,7 @@ impl TermsHashPerField {
     pub(crate) fn init_stream_slices(&mut self, term_id: i32, _doc_id: i32) -> Result<()> {
         let byte_offset;
         {
-            let mut byte_pool = self.byte_pool.borrow_mut();
+            let mut byte_pool = self.byte_pool.lock();
             if byte_block_pool_util::BYTE_BLOCK_SIZE - byte_pool.byte_upto
                 < 2 * self.stream_count * ByteSlicePool::FIRST_LEVEL_SIZE
             {
@@ -306,7 +304,7 @@ impl TermsHashPerField {
             byte_offset = byte_pool.byte_offset;
         }
         {
-            let mut int_pool = self.int_pool.borrow_mut();
+            let mut int_pool = self.int_pool.lock();
             if self.stream_count + int_pool.int_upto > ibp_util::INT_BLOCK_SIZE {
                 int_pool.next_buffer()?;
             }
@@ -327,10 +325,9 @@ impl TermsHashPerField {
             let term_stream_address_buffer =
                 int_pool.get_buffer(self.term_stream_address_buffer_index);
             for i in 0..self.stream_count as usize {
-                let upto = self.slice_pool.new_slice(
-                    ByteSlicePool::FIRST_LEVEL_SIZE,
-                    &mut self.byte_pool.borrow_mut(),
-                )?;
+                let upto = self
+                    .slice_pool
+                    .new_slice(ByteSlicePool::FIRST_LEVEL_SIZE, &mut self.byte_pool.lock())?;
                 term_stream_address_buffer[self.stream_address_offset as usize + i] =
                     upto + byte_offset;
             }
@@ -444,11 +441,11 @@ pub mod terms_hash_per_field_util {
 }
 pub(crate) struct PostingsBytesStartArray {
     pub(crate) per_field: PostingsArrayWrapper,
-    bytes_used: CounterEnumBorrow,
+    bytes_used: CounterEnumLock,
 }
 #[allow(unused)]
 impl PostingsBytesStartArray {
-    pub(crate) fn new(per_field: PostingsArrayWrapper, bytes_used: CounterEnumBorrow) -> Self {
+    pub(crate) fn new(per_field: PostingsArrayWrapper, bytes_used: CounterEnumLock) -> Self {
         Self {
             per_field,
             bytes_used,
@@ -495,7 +492,7 @@ impl BytesStartArray for PostingsBytesStartArray {
         }
     }
 
-    type Counter = CounterEnumBorrow;
+    type Counter = CounterEnumLock;
 
     fn bytes_used(&mut self) -> Self::Counter {
         self.bytes_used.clone()
@@ -563,14 +560,15 @@ impl TermsHashPerFieldType {
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use std::cell::RefCell;
-    use std::collections::{BTreeMap, HashMap};
-    use std::rc::Rc;
-    use std::sync::atomic::{AtomicI64, Ordering};
 
     use crate::analysis::token_attributes::dummy::dummy_offset_attribute::DummyOffsetAttribute;
     use crate::analysis::token_attributes::dummy::dummy_payload_attribute::DummyPayloadAttribute;
     use crate::analysis::token_attributes::dummy::dummy_term_frequency_attribute::DummyTermFrequencyAttribute;
+    use parking_lot::Mutex;
+    use std::collections::{BTreeMap, HashMap};
+    use std::rc::Rc;
+    use std::sync::atomic::{AtomicI64, Ordering};
+    use std::sync::Arc;
 
     use crate::document::fields::Fields;
     use crate::document::stored_field::StoredField;
@@ -983,7 +981,7 @@ pub(crate) mod tests {
                 let byte_offset;
                 let byte_upto;
                 {
-                    let byte_pool = byte_block_pool.borrow_mut();
+                    let byte_pool = byte_block_pool.lock();
                     byte_offset = byte_pool.byte_offset;
                     byte_upto = byte_pool.byte_upto;
                 }
@@ -1011,7 +1009,7 @@ pub(crate) mod tests {
         #[allow(clippy::new_ret_no_self)]
         pub(crate) fn new(new_called: AtomicI64, add_called: AtomicI64) -> Self {
             let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
-            let bytes_used = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
+            let bytes_used = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
 
             let allocator_int = AllocatorIntEnum::DA(DirectAllocatorI32::new());
             let mut writer: FreqProxTermsWriter<DummyDirectory> = FreqProxTermsWriter::new(
@@ -1022,8 +1020,9 @@ pub(crate) mod tests {
             );
 
             let allocator_term = AllocatorByteEnum::DA(DirectAllocatorByte::new());
-            writer.base.term_byte_pool =
-                Some(Rc::new(RefCell::new(ByteBlockPool::new(allocator_term))));
+            writer.base.term_byte_pool = Some(Arc::new(Mutex::new(ByteBlockPool::new_sync(
+                allocator_term,
+            ))));
 
             let field_state: FieldInvertState<
                 DummyOffsetAttribute,

@@ -48,7 +48,7 @@ use crate::util::packed::packed_long_values::{
     PackedLongValues, PackedLongValuesBuilder, PackedLongValuesIterator,
 };
 use crate::util::packed::PackedInts;
-use crate::util::{Counter, CounterEnumBorrow};
+use crate::util::{Counter, CounterEnumLock};
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 
@@ -57,7 +57,7 @@ pub(crate) struct SortedNumericDocValuesWriter {
     pending: PackedLongValuesBuilder, // stream of all values
     pending_counts: Option<PackedLongValuesBuilder>, // count of values per doc
     docs_with_field: DocsWithFieldSet,
-    iw_bytes_used: CounterEnumBorrow,
+    iw_bytes_used: CounterEnumLock,
     bytes_used: i64, // this only tracks differences in 'pending' and 'pendingCounts'
     field_info: Rc<FieldInfo>,
     current_doc: i32,
@@ -69,7 +69,7 @@ pub(crate) struct SortedNumericDocValuesWriter {
 }
 
 impl SortedNumericDocValuesWriter {
-    pub(crate) fn new(field_info: Rc<FieldInfo>, iw_bytes_used: CounterEnumBorrow) -> Result<Self> {
+    pub(crate) fn new(field_info: Rc<FieldInfo>, iw_bytes_used: CounterEnumLock) -> Result<Self> {
         let current_values = vec![0i64; 8];
         let docs_with_field = DocsWithFieldSet::new();
         let pending =
@@ -78,7 +78,7 @@ impl SortedNumericDocValuesWriter {
         // TODO:  memory calculation not implemented
         let bytes_used = pending.ram_bytes_used()? + docs_with_field.ram_bytes_used()?;
 
-        iw_bytes_used.borrow_mut().add_and_get(bytes_used);
+        iw_bytes_used.lock().add_and_get(bytes_used);
 
         Ok(Self {
             pending,
@@ -154,7 +154,7 @@ impl SortedNumericDocValuesWriter {
             + self.docs_with_field.ram_bytes_used()?;
 
         self.iw_bytes_used
-            .borrow_mut()
+            .lock()
             .add_and_get(new_bytes_used - self.bytes_used);
         self.bytes_used = new_bytes_used;
         Ok(())

@@ -82,7 +82,7 @@ use crate::store::IOContext;
 use crate::util::access::Access;
 use crate::util::accountable::Accountable;
 use crate::util::allocator_byte::{
-    AllocatorByteEnum, DirectTrackingAllocatorByte, STAllocatorByteEnum,
+    AllocatorByteEnum, DirectTrackingAllocatorByte, MTAllocatorByteEnum,
 };
 use crate::util::array_util::ArrayUtil;
 use crate::util::bit_set::{bit_set_util, BitSet};
@@ -98,7 +98,7 @@ use crate::util::number::Number;
 use crate::util::paged_bytes::PagedBytesDataInput;
 use crate::util::sparse_fixed_bit_set::SparseFixedBitSet;
 use crate::util::{
-    ByteBlockPool, ByteBlockPoolBorrow, CoreHelper, Counter, CounterEnum, CounterEnumBorrow,
+    ByteBlockPool, ByteBlockPoolLock, CoreHelper, Counter, CounterEnum, CounterEnumLock,
     SliceCopyOps, LUCENE_10_0_0,
 };
 use parking_lot::Mutex;
@@ -120,9 +120,9 @@ where
     TS: TokenStream,
     L: LiveIndexWriterConfig,
 {
-    bytes_used: CounterEnumBorrow,
+    bytes_used: CounterEnumLock,
     terms_hash: FreqProxTermsWriter<D>,
-    doc_values_byte_pool: ByteBlockPoolBorrow,
+    doc_values_byte_pool: ByteBlockPoolLock,
     stored_fields_consumer: StoredFieldsConsumer<D>,
     field_hash: Vec<i32>,
     hash_mask: usize,
@@ -131,7 +131,7 @@ where
     fields: Vec<i32>,
     doc_fields: Vec<Option<PerField<O, P, T, TS>>>,
     info_stream: InfoStreamLock,
-    byte_block_allocator: STAllocatorByteEnum,
+    byte_block_allocator: MTAllocatorByteEnum,
     index_writer_config: Arc<L>,
     index_created_version_major: i32,
     has_hit_aborting_exception: bool,
@@ -154,7 +154,7 @@ where
     where
         D1: Directory,
     {
-        let bytes_used = Rc::new(RefCell::new(CounterEnum::new_counter(false)));
+        let bytes_used = Arc::new(Mutex::new(CounterEnum::new_counter(false)));
         let byte_block_allocator =
             AllocatorByteEnum::DTA(DirectTrackingAllocatorByte::new(bytes_used.clone()));
         let (stored_fields_consumer, term_vectors_writer) = if segment_info
@@ -190,7 +190,7 @@ where
             bytes_used.clone(),
             term_vectors_writer,
         );
-        let doc_values_byte_pool = Rc::new(RefCell::new(ByteBlockPool::new(
+        let doc_values_byte_pool = Arc::new(Mutex::new(ByteBlockPool::new_sync(
             DirectTrackingAllocatorByte::allocator_enum(bytes_used.clone()),
         )));
         let info_stream = index_writer_config.get_info_stream().clone();
@@ -1303,7 +1303,7 @@ where
     pub(crate) fn set_invert_state<D>(
         &mut self,
         terms_hash: &mut FreqProxTermsWriter<D>,
-        bytes_used: CounterEnumBorrow,
+        bytes_used: CounterEnumLock,
     ) -> Result<()>
     where
         D: Directory,

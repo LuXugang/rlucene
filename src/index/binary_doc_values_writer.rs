@@ -44,7 +44,9 @@ use crate::util::packed::PackedInts;
 use crate::util::paged_bytes::{
     paged_bytes_util, PagedBytes, PagedBytesDataInput, PagedBytesDataOutput,
 };
-use crate::util::{BytesRefArray, Counter, CounterEnum, CounterEnumBorrow, SortableBytesRefArray};
+use crate::util::{
+    BytesRefArray, Counter, CounterEnum, CounterEnumBorrow, CounterEnumLock, SortableBytesRefArray,
+};
 use std::cell::RefCell;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
@@ -53,7 +55,7 @@ use std::rc::Rc;
 pub(crate) struct BinaryDocValuesWriter {
     field_info: Rc<FieldInfo>,
     bytes_out: PagedBytesDataOutput,
-    iw_bytes_used: CounterEnumBorrow,
+    iw_bytes_used: CounterEnumLock,
     lengths: PackedLongValuesBuilder,
     docs_with_field: DocsWithFieldSet,
     bytes_used: i64,
@@ -63,7 +65,7 @@ pub(crate) struct BinaryDocValuesWriter {
 }
 
 impl BinaryDocValuesWriter {
-    pub(crate) fn new(field_info: Rc<FieldInfo>, iw_bytes_used: CounterEnumBorrow) -> Result<Self> {
+    pub(crate) fn new(field_info: Rc<FieldInfo>, iw_bytes_used: CounterEnumLock) -> Result<Self> {
         let bytes = PagedBytes::new(bdvw_util::BLOCK_BITS);
         let bytes_out = paged_bytes_util::get_data_output(bytes)?;
         let lengths =
@@ -71,7 +73,7 @@ impl BinaryDocValuesWriter {
         let docs_with_field = DocsWithFieldSet::new();
 
         let bytes_used = lengths.ram_bytes_used()? + docs_with_field.ram_bytes_used()?;
-        iw_bytes_used.borrow_mut().add_and_get(bytes_used);
+        iw_bytes_used.lock().add_and_get(bytes_used);
 
         Ok(Self {
             field_info,
@@ -118,7 +120,7 @@ impl BinaryDocValuesWriter {
             + self.bytes_out.paged_bytes.ram_bytes_used()?
             + self.docs_with_field.ram_bytes_used()?;
         self.iw_bytes_used
-            .borrow_mut()
+            .lock()
             .add_and_get(new_bytes_used - self.bytes_used);
         self.bytes_used = new_bytes_used;
         Ok(())

@@ -36,7 +36,7 @@ use crate::util::bytes_ref_block_pool::BytesRefBlockPool;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::either_enums::EitherPostingsEnum;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::{ByteBlockPoolBorrow, CounterEnumBorrow, ToInt};
+use crate::util::{ByteBlockPoolLock, CounterEnumLock, ToInt};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -166,7 +166,7 @@ impl Terms for FreqProxTerms {
 
 pub(crate) struct FreqProxTermsEnum {
     terms: Rc<FreqProxTermsWriterPerField>,
-    terms_pool: BytesRefBlockPool<CounterEnumBorrow, ByteBlockPoolBorrow>,
+    terms_pool: BytesRefBlockPool<CounterEnumLock, ByteBlockPoolLock>,
     scratch: BytesRef<Vec<u8>>,
     num_terms: i32,
     ord: i32,

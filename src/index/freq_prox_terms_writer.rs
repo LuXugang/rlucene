@@ -56,7 +56,7 @@ use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::int_block_pool::AllocatorIntEnum;
 use crate::util::lsb_radix_sorter::LSBRadixSorter;
 use crate::util::packed::PackedInts;
-use crate::util::{CounterEnumBorrow, SliceCopyOps, Sorter, TimSorter, TimSorterBase, ToInt};
+use crate::util::{CounterEnumLock, SliceCopyOps, Sorter, TimSorter, TimSorterBase, ToInt};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -73,9 +73,9 @@ where
     D: Directory,
 {
     pub(crate) fn new(
-        int_block_allocator: AllocatorIntEnum<CounterEnumBorrow>,
-        byte_block_allocator: AllocatorByteEnum<CounterEnumBorrow>,
-        bytes_used: CounterEnumBorrow,
+        int_block_allocator: AllocatorIntEnum<CounterEnumLock>,
+        byte_block_allocator: AllocatorByteEnum<CounterEnumLock>,
+        bytes_used: CounterEnumLock,
         mut next_terms_hash: TermVectorsConsumer<D>,
     ) -> Self {
         let mut base = TermsHash::new(int_block_allocator, byte_block_allocator, bytes_used);

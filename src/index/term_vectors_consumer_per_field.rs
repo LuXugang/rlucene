@@ -35,7 +35,7 @@ use crate::util::array_util::ArrayUtil;
 use crate::util::bit_util::BitUtil;
 use crate::util::bytes_ref_block_pool::BytesRefBlockPool;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::{ByteBlockPoolBorrow, CounterEnumBorrow};
+use crate::util::{ByteBlockPoolLock, CounterEnumLock};
 use std::cmp::Ordering;
 use std::rc::Rc;
 
@@ -45,7 +45,7 @@ pub(crate) struct TermVectorsConsumerPerField {
     do_vector_positions: bool,
     do_vector_offsets: bool,
     do_vector_payloads: bool,
-    term_byte_pool: BytesRefBlockPool<CounterEnumBorrow, ByteBlockPoolBorrow>,
+    term_byte_pool: BytesRefBlockPool<CounterEnumLock, ByteBlockPoolLock>,
     has_payloads: bool,
     field_name: String,
     base: TermsHashPerField,

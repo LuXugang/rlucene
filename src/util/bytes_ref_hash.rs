@@ -505,6 +505,12 @@ impl Default for STBytesRefHash {
         BytesRefHash::new()
     }
 }
+// used for std::mem::take(&mut MTBytesRefHash)
+impl Default for MTBytesRefHash {
+    fn default() -> Self {
+        BytesRefHash::new_sync()
+    }
+}
 
 /// for single-threaded scenarios
 pub(crate) type STBytesRefHash =

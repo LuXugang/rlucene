@@ -57,6 +57,11 @@ impl Default for BytesRefBlockPool<CounterEnumBorrow, ByteBlockPoolBorrow> {
         Self::new()
     }
 }
+impl Default for BytesRefBlockPool<CounterEnumLock, ByteBlockPoolLock> {
+    fn default() -> Self {
+        Self::new_sync()
+    }
+}
 
 impl BytesRefBlockPool<CounterEnumBorrow, ByteBlockPoolBorrow> {
     pub fn new() -> BytesRefBlockPool<CounterEnumBorrow, ByteBlockPoolBorrow> {
@@ -75,7 +80,6 @@ where
     B: Access<ByteBlockPool<C>>,
 {
     // TODO: memory calculation not implemented
-    #[allow(unused)]
     const BASE_RAM_BYTES: i32 = 0;
     pub fn from_byte_block_pool(byte_block_pool: B) -> BytesRefBlockPool<C, B> {
         BytesRefBlockPool {

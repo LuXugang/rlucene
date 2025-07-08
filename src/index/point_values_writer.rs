@@ -34,14 +34,14 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::paged_bytes::{
     paged_bytes_util, PagedBytes, PagedBytesDataOutput, PagedBytesReader,
 };
-use crate::util::{Counter, CounterEnumBorrow, SliceCopyOps};
+use crate::util::{Counter, CounterEnumLock, SliceCopyOps};
 use std::cell::RefCell;
 use std::rc::Rc;
 /// Buffers up pending byte[][] value(s) per doc, then flushes when segment flushes.
 pub(crate) struct PointValuesWriter {
     field_info: Rc<FieldInfo>,
     bytes_out: PagedBytesDataOutput,
-    iw_bytes_used: CounterEnumBorrow,
+    iw_bytes_used: CounterEnumLock,
     doc_ids: Vec<i32>,
     num_points: usize,
     num_docs: usize,
@@ -50,12 +50,12 @@ pub(crate) struct PointValuesWriter {
 }
 
 impl PointValuesWriter {
-    pub(crate) fn new(iw_bytes_used: CounterEnumBorrow, field_info: Rc<FieldInfo>) -> Result<Self> {
+    pub(crate) fn new(iw_bytes_used: CounterEnumLock, field_info: Rc<FieldInfo>) -> Result<Self> {
         let bytes = PagedBytes::new(12);
         let bytes_out = paged_bytes_util::get_data_output(bytes)?;
         let doc_ids = vec![0; 16];
         iw_bytes_used
-            .borrow_mut()
+            .lock()
             .add_and_get((16 * BitUtil::INT_BYTES) as i64);
         let packed_bytes_length =
             (field_info.get_point_dimension_count() + field_info.get_point_num_bytes()) as usize;
@@ -88,14 +88,14 @@ impl PointValuesWriter {
         if self.doc_ids.len() == self.num_points {
             ArrayUtil::grow_with_len(&mut self.doc_ids, self.num_points + 1);
             self.iw_bytes_used
-                .borrow_mut()
+                .lock()
                 .add_and_get(((self.doc_ids.len() - self.num_points) * BitUtil::INT_BYTES) as i64);
         }
 
         let bytes_ram_bytes_used_before = self.bytes_out.paged_bytes.ram_bytes_used()?;
         self.bytes_out
             .write_bytes_range(&value.bytes, value.offset as i32, value.length as i32)?;
-        self.iw_bytes_used.borrow_mut().add_and_get(
+        self.iw_bytes_used.lock().add_and_get(
             self.bytes_out.paged_bytes.ram_bytes_used()? - bytes_ram_bytes_used_before,
         );
 

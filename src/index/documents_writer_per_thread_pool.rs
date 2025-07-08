@@ -375,7 +375,6 @@ mod tests {
         // assert_eq!(pool.size(), 0);
         // handle.join().unwrap();
         //
-        // Ok(())
-        todo!()
+        Ok(())
     }
 }

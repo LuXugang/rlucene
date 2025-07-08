@@ -41,8 +41,7 @@ use crate::store::directory::Directory;
 use crate::util::accountable::Accountable;
 use crate::util::array_util::ArrayUtil;
 use crate::util::bit_util::BitUtil;
-use crate::util::bytes_ref_hash::{brh_util, BytesRefHash, DirectBytesStartArray, STBytesRefHash};
-use crate::util::counter::CounterEnumBorrow;
+use crate::util::bytes_ref_hash::{brh_util, BytesRefHash, DirectBytesStartArray, MTBytesRefHash};
 use crate::util::either_enums::{EitherSortedDocValues, EitherSortedSetDocValues};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::long_values::LongValues;
@@ -51,19 +50,20 @@ use crate::util::packed::packed_long_values::{
     PackedLongValues, PackedLongValuesBuilder, PackedLongValuesIterator,
 };
 use crate::util::packed::{Mutable, PackedInts, Reader};
-use crate::util::{byte_block_pool_util, ByteBlockPoolBorrow, Counter};
+use crate::util::{byte_block_pool_util, ByteBlockPoolLock, Counter, CounterEnumLock};
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
+use std::sync::Arc;
 
 /// Buffers up pending `[u8]`s per doc, deref and sorting via int ord, then flushes when segment flushes.
 pub(crate) struct SortedSetDocValuesWriter {
-    hash: STBytesRefHash,
-    hash_rc: Option<Rc<STBytesRefHash>>,
+    hash: MTBytesRefHash,
+    hash_rc: Option<Arc<MTBytesRefHash>>,
     pending: PackedLongValuesBuilder, // stream of all termIDs
     pending_counts: Option<PackedLongValuesBuilder>, // termIDs per doc
     docs_with_field: DocsWithFieldSet,
-    iw_bytes_used: CounterEnumBorrow,
+    iw_bytes_used: CounterEnumLock,
     bytes_used: i64, // this only tracks differences in 'pending' and 'pendingCounts'
     field_info: Rc<FieldInfo>,
 
@@ -79,17 +79,19 @@ pub(crate) struct SortedSetDocValuesWriter {
     // Instead of storing the sorted array,
     // we can simply define an `is_sorted` field to indicate whether the BytesRefHash::sort method has been called.
     is_sorted: bool,
-    final_ord_map: Option<Rc<Vec<i32>>>,
+    final_ord_map: Option<Arc<Vec<i32>>>,
 }
 
 impl SortedSetDocValuesWriter {
     pub(crate) fn new(
         field_info: Rc<FieldInfo>,
-        iw_bytes_used: CounterEnumBorrow,
-        pool: ByteBlockPoolBorrow,
+        iw_bytes_used: CounterEnumLock,
+        pool: ByteBlockPoolLock,
     ) -> Result<Self> {
-        let bytes_start_array =
-            DirectBytesStartArray::with_counter(brh_util::DEFAULT_CAPACITY, iw_bytes_used.clone());
+        let bytes_start_array = DirectBytesStartArray::with_counter_sync(
+            brh_util::DEFAULT_CAPACITY,
+            iw_bytes_used.clone(),
+        );
         let hash = BytesRefHash::from_bytes_start_array(
             pool,
             brh_util::DEFAULT_CAPACITY,
@@ -100,7 +102,7 @@ impl SortedSetDocValuesWriter {
         let docs_with_field = DocsWithFieldSet::new();
         // TODO: memory calculation not implemented
         let bytes_used = pending.ram_bytes_used()? + docs_with_field.ram_bytes_used()?;
-        iw_bytes_used.borrow_mut().add_and_get(bytes_used);
+        iw_bytes_used.lock().add_and_get(bytes_used);
         Ok(Self {
             hash,
             hash_rc: None,
@@ -183,13 +185,13 @@ impl SortedSetDocValuesWriter {
             //    TODO: can this same OOM happen in THPF?
             // 2. when flushing, we need 1 int per value (slot in the ordMap).
             self.iw_bytes_used
-                .borrow_mut()
+                .lock()
                 .add_and_get((2 * BitUtil::INT_BYTES) as i64);
         }
         if self.current_upto == self.current_values.len() {
             let old_cap = self.current_values.len();
             ArrayUtil::grow_with_len(&mut self.current_values, old_cap + 1);
-            self.iw_bytes_used.borrow_mut().add_and_get(
+            self.iw_bytes_used.lock().add_and_get(
                 ((self.current_values.len() - self.current_upto) * BitUtil::INT_BYTES) as i64,
             );
         }
@@ -208,7 +210,7 @@ impl SortedSetDocValuesWriter {
         let new_used =
             self.pending.ram_bytes_used()? + pc_used + self.docs_with_field.ram_bytes_used()?;
         self.iw_bytes_used
-            .borrow_mut()
+            .lock()
             .add_and_get(new_used - self.bytes_used);
         self.bytes_used = new_used;
         Ok(())
@@ -234,16 +236,16 @@ impl SortedSetDocValuesWriter {
                 let index = self.hash.ids[ord] as usize;
                 ord_map[index] = ord as i32;
             }
-            self.hash_rc = Some(Rc::new(std::mem::take(&mut self.hash)));
-            self.final_ord_map = Some(Rc::new(ord_map));
+            self.hash_rc = Some(Arc::new(std::mem::take(&mut self.hash)));
+            self.final_ord_map = Some(Arc::new(ord_map));
         } else {
             debug_assert!(self.is_sorted);
         }
         Ok(())
     }
     pub(crate) fn get_values(
-        ord_map: Rc<Vec<i32>>,
-        hash: Rc<STBytesRefHash>,
+        ord_map: Arc<Vec<i32>>,
+        hash: Arc<MTBytesRefHash>,
         ords: &PackedLongValues,
         ord_counts: Option<PackedLongValues>,
         max_count: i32,
@@ -363,8 +365,8 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
 }
 pub(crate) struct DocValuesProducerImpl1 {
     field_info: Rc<FieldInfo>,
-    ord_map: Rc<Vec<i32>>,
-    hash: Rc<STBytesRefHash>,
+    ord_map: Arc<Vec<i32>>,
+    hash: Arc<MTBytesRefHash>,
     ords: PackedLongValues,
     ord_counts: Option<PackedLongValues>,
     max_count: i32,
@@ -375,8 +377,8 @@ impl DocValuesProducerImpl1 {
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         field_info: Rc<FieldInfo>,
-        ord_map: Rc<Vec<i32>>,
-        hash: Rc<STBytesRefHash>,
+        ord_map: Arc<Vec<i32>>,
+        hash: Arc<MTBytesRefHash>,
         ords: PackedLongValues,
         ord_counts: Option<PackedLongValues>,
         max_count: i32,
@@ -472,8 +474,8 @@ pub(crate) struct BufferedSortedSetDocValues<D>
 where
     D: DocIdSetIterator,
 {
-    ord_map: Rc<Vec<i32>>,
-    hash: Rc<STBytesRefHash>,
+    ord_map: Arc<Vec<i32>>,
+    hash: Arc<MTBytesRefHash>,
     scratch: BytesRef<Vec<u8>>,
     ords_iter: PackedLongValuesIterator,
     ord_counts_iter: PackedLongValuesIterator,
@@ -488,8 +490,8 @@ where
     D: DocIdSetIterator,
 {
     pub(crate) fn new(
-        ord_map: Rc<Vec<i32>>,
-        hash: Rc<STBytesRefHash>,
+        ord_map: Arc<Vec<i32>>,
+        hash: Arc<MTBytesRefHash>,
         ords: &PackedLongValues,
         ord_counts: PackedLongValues,
         max_count: i32,

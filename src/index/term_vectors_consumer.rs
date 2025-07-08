@@ -39,9 +39,8 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::int_block_pool::AllocatorIntEnum;
 #[cfg(test)]
 use crate::util::int_block_pool::DirectAllocatorI32;
-use crate::util::{Counter, CounterEnum, CounterEnumBorrow};
+use crate::util::{Counter, CounterEnum, CounterEnumLock};
 use parking_lot::Mutex;
-use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -79,15 +78,15 @@ where
     D: Directory,
 {
     pub(crate) fn new(
-        int_block_allocator: AllocatorIntEnum<CounterEnumBorrow>,
-        byte_block_allocator: AllocatorByteEnum<CounterEnumBorrow>,
+        int_block_allocator: AllocatorIntEnum<CounterEnumLock>,
+        byte_block_allocator: AllocatorByteEnum<CounterEnumLock>,
         directory: Arc<Mutex<D>>,
         sub: Option<SortingTermVectorsConsumer<D>>,
     ) -> Self {
         let base = TermsHash::new(
             int_block_allocator,
             byte_block_allocator,
-            Rc::new(RefCell::new(CounterEnum::new_counter(false))),
+            Arc::new(Mutex::new(CounterEnum::new_counter(false))),
         );
 
         let per_fields = vec![TermVectorsConsumerPerField::default(); 1];
@@ -247,14 +246,14 @@ where
                     sub.init_term_vectors_writer(
                         self.last_doc_id,
                         info,
-                        self.base.bytes_used.borrow().get(),
+                        self.base.bytes_used.lock().get(),
                     )?;
                 }
             },
             None => {
                 if self.writer.is_none() {
                     let flush_info =
-                        FlushInfo::new(self.last_doc_id, self.base.bytes_used.borrow().get());
+                        FlushInfo::new(self.last_doc_id, self.base.bytes_used.lock().get());
                     let context = IOContext::with_flush(flush_info)?;
 
                     self.writer = Option::from(codec.term_vectors_format().vectors_writer(

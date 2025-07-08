@@ -15,34 +15,34 @@
  * limitations under the License.
  */
 use crate::util::allocator_byte::AllocatorByteEnum;
-use crate::util::int_block_pool::{AllocatorIntEnum, IntBlockPool, IntBlockPoolBorrow};
-use crate::util::{ByteBlockPool, ByteBlockPoolBorrow, CounterEnumBorrow};
-use std::cell::RefCell;
-use std::rc::Rc;
+use crate::util::int_block_pool::{AllocatorIntEnum, IntBlockPool, IntBlockPoolLock};
+use crate::util::{ByteBlockPool, ByteBlockPoolLock, CounterEnumLock};
+use parking_lot::Mutex;
+use std::sync::Arc;
 
 pub struct TermsHash {
-    pub(crate) int_pool: IntBlockPoolBorrow,
-    pub(crate) byte_pool: ByteBlockPoolBorrow,
-    pub(crate) term_byte_pool: Option<ByteBlockPoolBorrow>,
-    pub(crate) bytes_used: CounterEnumBorrow,
+    pub(crate) int_pool: IntBlockPoolLock,
+    pub(crate) byte_pool: ByteBlockPoolLock,
+    pub(crate) term_byte_pool: Option<ByteBlockPoolLock>,
+    pub(crate) bytes_used: CounterEnumLock,
 }
 impl TermsHash {
     pub(crate) fn new(
-        int_block_allocator: AllocatorIntEnum<CounterEnumBorrow>,
-        byte_block_allocator: AllocatorByteEnum<CounterEnumBorrow>,
-        bytes_used: CounterEnumBorrow,
+        int_block_allocator: AllocatorIntEnum<CounterEnumLock>,
+        byte_block_allocator: AllocatorByteEnum<CounterEnumLock>,
+        bytes_used: CounterEnumLock,
     ) -> Self {
         Self {
-            int_pool: Rc::new(RefCell::new(IntBlockPool::with_allocator(
+            int_pool: Arc::new(Mutex::new(IntBlockPool::with_allocator(
                 int_block_allocator,
             ))),
-            byte_pool: Rc::new(RefCell::new(ByteBlockPool::new(byte_block_allocator))),
+            byte_pool: Arc::new(Mutex::new(ByteBlockPool::new_sync(byte_block_allocator))),
             term_byte_pool: None,
             bytes_used,
         }
     }
     pub(crate) fn reset(&mut self) {
-        self.int_pool.borrow_mut().reset(false, false);
-        self.byte_pool.borrow_mut().reset(false, false)
+        self.int_pool.lock().reset(false, false);
+        self.byte_pool.lock().reset(false, false)
     }
 }
