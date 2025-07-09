@@ -20,22 +20,20 @@ use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAt
 use crate::analysis::token_stream::TokenStream;
 use crate::index::documents_writer_flush_control::DocumentsWriterFlushControl;
 use crate::index::documents_writer_per_thread::DocumentsWriterPerThread;
-use crate::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::search::query::Query;
 use crate::store::directory::Directory;
 use crate::util::error::lucene_error::Result;
 
 pub(crate) trait FlushPolicy {
-    fn on_change<D, P, T, O, TS, L, Q, F>(
+    fn on_change<D, P, T, O, TS, Q, F>(
         &self,
-        control: DocumentsWriterFlushControl<D, P, T, O, TS, L, Q, F>,
+        control: DocumentsWriterFlushControl<D, P, T, O, TS, Q, F>,
     ) where
         D: Directory,
         O: OffsetAttribute,
         P: PayloadAttribute,
         T: TermFrequencyAttribute,
         TS: TokenStream,
-        L: LiveIndexWriterConfig,
         Q: Query,
-        F: Fn() -> Result<DocumentsWriterPerThread<D, P, T, O, TS, L, Q>>;
+        F: Fn() -> Result<DocumentsWriterPerThread<D, P, T, O, TS, Q>>;
 }

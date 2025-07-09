@@ -110,14 +110,13 @@ use std::sync::Arc;
 use std::time::Instant;
 
 /// Default general purpose indexing chain, which handles indexing all types of fields.
-pub(crate) struct IndexingChain<D, O, P, T, TS, L>
+pub(crate) struct IndexingChain<D, O, P, T, TS>
 where
     D: Directory,
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
     TS: TokenStream,
-    L: LiveIndexWriterConfig,
 {
     bytes_used: CounterEnumLock,
     terms_hash: FreqProxTermsWriter<D>,
@@ -131,24 +130,22 @@ where
     doc_fields: Vec<Option<PerField<O, P, T, TS>>>,
     info_stream: InfoStreamLock,
     byte_block_allocator: MTAllocatorByteEnum,
-    index_writer_config: Arc<L>,
     index_created_version_major: i32,
     has_hit_aborting_exception: bool,
 }
-impl<D, O, P, T, TS, L> IndexingChain<D, O, P, T, TS, L>
+impl<D, O, P, T, TS> IndexingChain<D, O, P, T, TS>
 where
     D: Directory,
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
     TS: TokenStream,
-    L: LiveIndexWriterConfig,
 {
     pub(crate) fn new<D1>(
         index_created_version_major: i32,
         segment_info: &SegmentInfo<D1>,
         directory: Arc<Mutex<D>>,
-        index_writer_config: Arc<L>,
+        index_writer_config: &impl LiveIndexWriterConfig,
     ) -> Self
     where
         D1: Directory,
@@ -206,7 +203,6 @@ where
             doc_fields: vec![],
             byte_block_allocator,
             info_stream,
-            index_writer_config,
             index_created_version_major,
             has_hit_aborting_exception: false,
         }
@@ -286,6 +282,7 @@ where
         state: &mut SegmentWriteState<D>,
         segment_info: &mut SegmentInfo<D1>,
         seg_updates: Option<&mut MTBufferedUpdates<Q>>,
+        index_writer_config: &impl LiveIndexWriterConfig,
     ) -> Result<Option<Rc<DocMapImpl>>>
     where
         Q: Query,
@@ -299,7 +296,7 @@ where
 
         // write norms
         let t0 = Instant::now();
-        self.write_norms(state, sort_map.clone(), segment_info)?;
+        self.write_norms(state, sort_map.clone(), segment_info, index_writer_config)?;
         if self.info_stream.lock().enabled("IW") {
             self.info_stream.lock().message(
                 "IW",
@@ -316,7 +313,7 @@ where
 
         // write doc-values
         let t0 = Instant::now();
-        self.write_doc_values(state, sort_map.clone(), segment_info)?;
+        self.write_doc_values(state, sort_map.clone(), segment_info, index_writer_config)?;
         if self.info_stream.lock().enabled("IW") {
             self.info_stream.lock().message(
                 "IW",
@@ -326,7 +323,7 @@ where
 
         // write points
         let t0 = Instant::now();
-        self.write_points(state, sort_map.clone())?;
+        self.write_points(state, sort_map.clone(), index_writer_config)?;
         if self.info_stream.lock().enabled("IW") {
             self.info_stream.lock().message(
                 "IW",
@@ -344,7 +341,7 @@ where
         // finish & flush stored fields
         let t0 = Instant::now();
         self.stored_fields_consumer.finish(
-            self.index_writer_config.get_codec(),
+            index_writer_config.get_codec(),
             max_doc,
             segment_info,
         )?;
@@ -375,7 +372,7 @@ where
 
         let norms = if read_state.field_infos.has_norms() {
             Some(
-                self.index_writer_config
+                index_writer_config
                     .get_codec()
                     .norms_format()
                     .norms_producer(&read_state, segment_info)?,
@@ -396,7 +393,7 @@ where
             state,
             sort_map.clone(),
             norms_merge_instance.as_mut().unwrap(),
-            self.index_writer_config.get_codec(),
+            index_writer_config.get_codec(),
             segment_info,
             seg_updates,
         )?;
@@ -414,16 +411,13 @@ where
         // FreqProxTermsWriter does this with
         // FieldInfo.storePayload.
         let t0 = Instant::now();
-        self.index_writer_config
-            .get_codec()
-            .field_infos_format()
-            .write(
-                &mut *state.directory.lock(),
-                segment_info,
-                "",
-                &state.field_infos,
-                &IOContext::default_io_context()?,
-            )?;
+        index_writer_config.get_codec().field_infos_format().write(
+            &mut *state.directory.lock(),
+            segment_info,
+            "",
+            &state.field_infos,
+            &IOContext::default_io_context()?,
+        )?;
         if self.info_stream.lock().enabled("IW") {
             self.info_stream.lock().message(
                 "IW",
@@ -438,6 +432,7 @@ where
         &mut self,
         state: &SegmentWriteState<D>,
         sort_map: Option<Rc<DM>>,
+        index_writer_config: &impl LiveIndexWriterConfig,
     ) -> Result<()>
     where
         DM: DocMap,
@@ -455,7 +450,7 @@ where
                     if field_info.get_point_dimension_count() > 0 {
                         if points_writer.is_none() {
                             // lazy init
-                            let fmt = self.index_writer_config.get_codec().points_format();
+                            let fmt = index_writer_config.get_codec().points_format();
                             points_writer = Some(fmt.fields_writer(state)?);
                         }
                         per_field.point_values_writer.as_mut().unwrap().flush(
@@ -482,6 +477,7 @@ where
         state: &SegmentWriteState<D>,
         sort_map: Option<Rc<DM>>,
         segment_info: &SegmentInfo<D1>,
+        index_writer_config: &impl LiveIndexWriterConfig,
     ) -> Result<()>
     where
         DM: DocMap,
@@ -506,7 +502,7 @@ where
                     }
                     if dv_consumer.is_none() {
                         // lazy init
-                        let fmt = self.index_writer_config.get_codec().doc_values_format();
+                        let fmt = index_writer_config.get_codec().doc_values_format();
                         dv_consumer = Some(fmt.fields_consumer(state, segment_info)?);
                     }
                     // Since it’s only ever called once globally, we didn’t implement the DocValuesWriter trait for DocValuesWriterEnum.
@@ -542,6 +538,7 @@ where
         state: &SegmentWriteState<D>,
         sort_map: Option<Rc<DM>>,
         segment_info: &SegmentInfo<D1>,
+        index_writer_config: &impl LiveIndexWriterConfig,
     ) -> Result<()>
     where
         DM: DocMap,
@@ -552,7 +549,7 @@ where
         }
 
         let mut norms_consumer = {
-            let norm_format = self.index_writer_config.get_codec().norms_format();
+            let norm_format = index_writer_config.get_codec().norms_format();
             norm_format.norms_consumer(state, segment_info)?
         };
 
@@ -613,9 +610,10 @@ where
         &mut self,
         doc_id: i32,
         info: &mut SegmentInfo<D>,
+        index_writer_config: &impl LiveIndexWriterConfig,
     ) -> Result<()> {
         self.stored_fields_consumer
-            .start_document(self.index_writer_config.get_codec(), doc_id, info)
+            .start_document(index_writer_config.get_codec(), doc_id, info)
             .map(|_| ())
             .inspect_err(|e| {
                 self.has_hit_aborting_exception = true;
@@ -635,6 +633,7 @@ where
         document: &mut [F],
         info: &mut SegmentInfo<D>,
         field_infos: &mut Builder,
+        index_writer_config: &impl LiveIndexWriterConfig,
     ) -> Result<()>
     where
         F: IndexableField<TokenStream = TS>,
@@ -653,7 +652,7 @@ where
         // (i.e., we cannot have more than one TokenStream
         // running "at once"):
         self.terms_hash.start_document()?;
-        self.start_stored_fields(doc_id, info)?;
+        self.start_stored_fields(doc_id, info, index_writer_config)?;
 
         // 1st pass over doc fields – verify that doc schema matches the index schema
         // build schema for each unique doc field
@@ -697,7 +696,7 @@ where
                 let idx = self.fields[i];
                 let pf = self.doc_fields[idx as usize].as_mut().unwrap();
                 if pf.field_info.is_none() {
-                    self.initialize_field_info(idx, field_infos)?;
+                    self.initialize_field_info(idx, field_infos, index_writer_config)?;
                 } else {
                     pf.schema
                         .assert_same_schema(pf.field_info.as_ref().unwrap())?;
@@ -708,7 +707,7 @@ where
             // also count the number of unique fields indexed with postings
             doc_field_idx = 0;
             for field in document.iter() {
-                if self.process_field(doc_id, field, doc_field_idx)? {
+                if self.process_field(doc_id, field, doc_field_idx, index_writer_config)? {
                     self.fields[indexed_field_count] = doc_field_idx;
                     indexed_field_count += 1;
                 }
@@ -726,15 +725,12 @@ where
                     pf.finish(
                         doc_id,
                         self.terms_hash.next_terms_hash.as_mut().unwrap(),
-                        self.index_writer_config.get_similarity(),
+                        index_writer_config.get_similarity(),
                     )?;
                 }
                 self.finish_stored_fields()?;
-                self.terms_hash.finish_document(
-                    doc_id,
-                    self.index_writer_config.get_codec(),
-                    info,
-                )?;
+                self.terms_hash
+                    .finish_document(doc_id, index_writer_config.get_codec(), info)?;
             },
             Err(e) => {
                 return Err(e);
@@ -752,6 +748,7 @@ where
         &mut self,
         per_field_index: i32,
         field_infos: &mut Builder,
+        index_writer_config: &impl LiveIndexWriterConfig,
     ) -> Result<()> {
         // Create and add a new fieldInfo to fieldInfos for this segment.
         // During the creation of FieldInfo there is also verification of the correctness of all its
@@ -765,7 +762,7 @@ where
         let s = &mut pf.schema;
 
         // validate sort DV type
-        if let Some(index_sort) = &self.index_writer_config.get_index_sort() {
+        if let Some(index_sort) = &index_writer_config.get_index_sort() {
             if s.doc_values_type != DocValuesType::None {
                 Self::validate_index_sort_dv_type(index_sort, &pf.field_name, &s.doc_values_type)?;
             }
@@ -862,7 +859,13 @@ where
         Ok(())
     }
 
-    fn process_field<F>(&mut self, doc_id: i32, field: &F, per_field_index: i32) -> Result<bool>
+    fn process_field<F>(
+        &mut self,
+        doc_id: i32,
+        field: &F,
+        per_field_index: i32,
+        index_writer_config: &impl LiveIndexWriterConfig,
+    ) -> Result<bool>
     where
         F: IndexableField<TokenStream = TS>,
     {
@@ -874,16 +877,11 @@ where
         if *field_type.index_options() != IndexOptions::None {
             // first time we see this field in this doc
             if pf.first {
-                pf.invert(doc_id, field, true, self.index_writer_config.get_analyzer())?;
+                pf.invert(doc_id, field, true, index_writer_config.get_analyzer())?;
                 pf.first = false;
                 indexed_field = true;
             } else {
-                pf.invert(
-                    doc_id,
-                    field,
-                    false,
-                    self.index_writer_config.get_analyzer(),
-                )?;
+                pf.invert(doc_id, field, false, index_writer_config.get_analyzer())?;
             }
         }
 
@@ -1222,14 +1220,13 @@ where
         Ok(None)
     }
 }
-impl<D, O, P, T, TS, L> Accountable for IndexingChain<D, O, P, T, TS, L>
+impl<D, O, P, T, TS> Accountable for IndexingChain<D, O, P, T, TS>
 where
     D: Directory,
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
     TS: TokenStream,
-    L: LiveIndexWriterConfig,
 {
     fn ram_bytes_used(&self) -> Result<i64> {
         // TODO: memory calculation not implemented
@@ -1952,40 +1949,37 @@ impl FieldSchema {
     }
 }
 
-struct DocValuesLeafReaderImpl1<'a, D, O, P, T, TS, L>
+struct DocValuesLeafReaderImpl1<'a, D, O, P, T, TS>
 where
     D: Directory,
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
     TS: TokenStream,
-    L: LiveIndexWriterConfig,
 {
-    index_chain: &'a mut IndexingChain<D, O, P, T, TS, L>,
+    index_chain: &'a mut IndexingChain<D, O, P, T, TS>,
     base: DocValuesLeafReader,
 }
-impl<'a, D, O, P, T, TS, L> DocValuesLeafReaderImpl1<'a, D, O, P, T, TS, L>
+impl<'a, D, O, P, T, TS> DocValuesLeafReaderImpl1<'a, D, O, P, T, TS>
 where
     D: Directory,
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
     TS: TokenStream,
-    L: LiveIndexWriterConfig,
 {
-    fn new(index_chain: &'a mut IndexingChain<D, O, P, T, TS, L>) -> Self {
+    fn new(index_chain: &'a mut IndexingChain<D, O, P, T, TS>) -> Self {
         let base = DocValuesLeafReader;
         DocValuesLeafReaderImpl1 { index_chain, base }
     }
 }
-impl<'a, D, O, P, T, TS, L> LeafReader for DocValuesLeafReaderImpl1<'a, D, O, P, T, TS, L>
+impl<'a, D, O, P, T, TS> LeafReader for DocValuesLeafReaderImpl1<'a, D, O, P, T, TS>
 where
     D: Directory,
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
     TS: TokenStream,
-    L: LiveIndexWriterConfig,
 {
     type NumericDocValues = BufferedNumericDocValues;
 

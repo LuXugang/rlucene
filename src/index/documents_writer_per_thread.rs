@@ -61,18 +61,17 @@ use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
 use std::sync::Arc;
 
-pub(crate) struct DocumentsWriterPerThread<D, P, T, O, TS, L, Q>
+pub(crate) struct DocumentsWriterPerThread<D, P, T, O, TS, Q>
 where
     D: Directory,
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
     TS: TokenStream,
-    L: LiveIndexWriterConfig,
     Q: Query,
 {
     pub(crate) directory: Arc<Mutex<TrackingDirectoryWrapper<D>>>,
-    indexing_chain: IndexingChain<TrackingDirectoryWrapper<D>, O, P, T, TS, L>,
+    indexing_chain: IndexingChain<TrackingDirectoryWrapper<D>, O, P, T, TS>,
     pending_updates: MTBufferedUpdates<Q>,
     segment_info: SegmentInfo<D>,
     aborted: bool,
@@ -85,7 +84,6 @@ where
     pub(crate) delete_queue: Arc<DocumentsWriterDeleteQueue<Q>>,
     delete_slice: Option<DeleteSlice<Q>>,
     pending_num_docs: AtomicI64,
-    index_writer_config: Arc<L>,
     enable_test_points: bool,
     delete_doc_ids: Vec<i32>,
     num_deleted_doc_ids: i32,
@@ -95,14 +93,13 @@ where
     lock: AtomicBool,
     id: String,
 }
-impl<D, P, T, O, TS, L, Q> DocumentsWriterPerThread<D, P, T, O, TS, L, Q>
+impl<D, P, T, O, TS, Q> DocumentsWriterPerThread<D, P, T, O, TS, Q>
 where
     D: Directory,
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
     TS: TokenStream,
-    L: LiveIndexWriterConfig,
     Q: Query,
 {
     fn on_aborting_exception(&mut self, throwable: LuceneError) {
@@ -146,7 +143,7 @@ where
         segment_name: &str,
         directory_orig: Arc<Mutex<D>>,
         directory: Arc<Mutex<D>>,
-        index_writer_config: Arc<L>,
+        index_writer_config: &impl LiveIndexWriterConfig,
         delete_queue: Arc<DocumentsWriterDeleteQueue<Q>>,
         field_infos: Builder,
         pending_num_docs: AtomicI64,
@@ -189,7 +186,7 @@ where
             index_major_version_created,
             &segment_info,
             directory_wrapped.clone(),
-            index_writer_config.clone(),
+            index_writer_config,
         );
 
         // TODO: 应该在updateDocuments期间调用
@@ -212,7 +209,6 @@ where
             delete_queue,
             delete_slice,
             pending_num_docs,
-            index_writer_config,
             enable_test_points,
             delete_doc_ids: Vec::new(),
             num_deleted_doc_ids: 0,
@@ -343,6 +339,7 @@ where
     pub(crate) fn flush<FN>(
         &mut self,
         flush_notifications: &mut FN,
+        index_writer_config: &impl LiveIndexWriterConfig,
     ) -> Result<Option<FlushedSegment<D, Q>>>
     where
         FN: FlushNotifications,
@@ -411,7 +408,7 @@ where
 
         let result = (|| -> Result<Option<FlushedSegment<D, Q>>> {
             let mut soft_deleted_docs =
-                if let Some(field) = self.index_writer_config.get_soft_deletes_field() {
+                if let Some(field) = index_writer_config.get_soft_deletes_field() {
                     self.indexing_chain.get_has_doc_values(field)?
                 } else {
                     None
@@ -421,6 +418,7 @@ where
                 &mut flush_state,
                 &mut self.segment_info,
                 Some(&mut self.pending_updates),
+                index_writer_config,
             )?;
 
             flush_state.soft_del_count_on_flush = if let Some(ref mut iter) = soft_deleted_docs {
@@ -507,7 +505,7 @@ where
                     );
                     info.message(
                         "DWPT",
-                        &format!("flushed codec={}", self.index_writer_config.get_codec()),
+                        &format!("flushed codec={}", index_writer_config.get_codec()),
                     );
                 }
             }
@@ -555,7 +553,7 @@ where
                 flush_state.del_count_on_flush,
                 sort_map.clone(),
             )?;
-            self.seal_flushed_segment(&mut fs, sort_map, flush_notifications)?;
+            self.seal_flushed_segment(&mut fs, sort_map, flush_notifications, index_writer_config)?;
 
             {
                 let mut info = self.info_stream.lock();
@@ -618,6 +616,7 @@ where
         flushed_segment: &mut FlushedSegment<D, Q>,
         sort_map: Option<Rc<DM>>,
         flush_notifications: &mut FN,
+        index_writer_config: &impl LiveIndexWriterConfig,
     ) -> Result<()>
     where
         FN: FlushNotifications,
@@ -633,7 +632,7 @@ where
         ))?;
 
         let result: Result<()> = (|| {
-            if self.index_writer_config.get_use_compound_file() {
+            if index_writer_config.get_use_compound_file() {
                 let original_files = new_segment.info.files()?.clone();
                 let mut dir = TrackingDirectoryWrapper::new(self.directory.clone());
                 index_writer_util::create_compound_file(
@@ -777,28 +776,28 @@ where
         self.has_flushed.get().unwrap_or(&true)
     }
 }
-impl<D, P, T, O, TS, L, Q> IdentityId for DocumentsWriterPerThread<D, P, T, O, TS, L, Q>
+impl<D, P, T, O, TS, Q> IdentityId for DocumentsWriterPerThread<D, P, T, O, TS, Q>
 where
     D: Directory,
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
     TS: TokenStream,
-    L: LiveIndexWriterConfig,
+
     Q: Query,
 {
     fn id(&self) -> &str {
         &self.id
     }
 }
-impl<D, P, T, O, TS, L, Q> Accountable for DocumentsWriterPerThread<D, P, T, O, TS, L, Q>
+impl<D, P, T, O, TS, Q> Accountable for DocumentsWriterPerThread<D, P, T, O, TS, Q>
 where
     D: Directory,
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
     TS: TokenStream,
-    L: LiveIndexWriterConfig,
+
     Q: Query,
 {
     fn ram_bytes_used(&self) -> Result<i64> {
@@ -813,14 +812,14 @@ where
         todo!()
     }
 }
-impl<D, P, T, O, TS, L, Q> Display for DocumentsWriterPerThread<D, P, T, O, TS, L, Q>
+impl<D, P, T, O, TS, Q> Display for DocumentsWriterPerThread<D, P, T, O, TS, Q>
 where
     D: Directory,
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
     TS: TokenStream,
-    L: LiveIndexWriterConfig,
+
     Q: Query,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -836,14 +835,14 @@ where
         )
     }
 }
-impl<D, P, T, O, TS, L, Q> Lock for DocumentsWriterPerThread<D, P, T, O, TS, L, Q>
+impl<D, P, T, O, TS, Q> Lock for DocumentsWriterPerThread<D, P, T, O, TS, Q>
 where
     D: Directory,
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
     TS: TokenStream,
-    L: LiveIndexWriterConfig,
+
     Q: Query,
 {
     fn lock(&self) -> Result<()> {
