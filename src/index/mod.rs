@@ -58,6 +58,7 @@ pub mod fields;
 pub mod filter_leaf_reader;
 pub mod filter_numeric_doc_values;
 pub mod filtered_terms_enum;
+pub(crate) mod flush_policy;
 mod freq_prox_fields;
 pub(crate) mod freq_prox_terms_writer;
 pub(crate) mod freq_prox_terms_writer_per_field;
