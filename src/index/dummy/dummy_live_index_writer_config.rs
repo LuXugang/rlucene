@@ -83,4 +83,8 @@ impl LiveIndexWriterConfig for DummyLiveIndexWriterConfig {
     fn get_parent_field(&self) -> Option<&str> {
         None
     }
+
+    fn get_flush_policy(&self) -> Option<&str> {
+        todo!()
+    }
 }
