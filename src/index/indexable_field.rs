@@ -60,7 +60,7 @@ pub trait IndexableField: Display {
         &self,
         analyzer: &A,
         reuse: Option<Self::TokenStream>,
-    ) -> Result<Self::TokenStream>
+    ) -> Result<Option<Self::TokenStream>>
     where
         A: Analyzer;
     /// Non-null if this field has a binary value.

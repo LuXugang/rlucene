@@ -1425,7 +1425,9 @@ where
          * but rather a finally that takes note of the problem.
          */
 
-        let mut stream = field.token_stream(analyzer, self.token_stream.take())?;
+        let mut stream = field
+            .token_stream(analyzer, self.token_stream.take())?
+            .ok_or_else(|| LuceneError::illegal_state("token_stream is None".to_string()))?;
 
         let mut succeeded = false;
         let result = (|| {
@@ -2322,7 +2324,7 @@ where
         &self,
         analyzer: &A,
         reuse: Option<Self::TokenStream>,
-    ) -> Result<Self::TokenStream>
+    ) -> Result<Option<Self::TokenStream>>
     where
         A: Analyzer,
     {

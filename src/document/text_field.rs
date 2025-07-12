@@ -148,7 +148,7 @@ impl IndexableField for TextField {
         &self,
         analyzer: &A,
         reuse: Option<Self::TokenStream>,
-    ) -> Result<Self::TokenStream>
+    ) -> Result<Option<Self::TokenStream>>
     where
         A: Analyzer,
     {
