@@ -1416,7 +1416,6 @@ where
                 // consume a docID
                 let attribute_source = stream.get_attribute_source();
                 let invert_state = self.invert_state.as_mut().unwrap();
-                // TODO
                 let pos_incr = attribute_source.get_position_increment().ok_or_else(|| {
                     LuceneError::illegal_state("PositionIncrementAttribute is None".to_string())
                 })?;
@@ -1490,20 +1489,17 @@ where
                 // internal state of the terms hash is now
                 // corrupt and should not be flushed to a
                 // new segment:
-                if let Err(e) =
-                    // TODO
-                    terms_hash_per_field.add_with_bytes_ref(
-                        &BytesRef::new(),
-                        doc_id,
-                        self.invert_state.as_mut().unwrap(),
-                        attribute_source,
-                    )
-                {
+                let bytes_ref = attribute_source.get_bytes_ref().ok_or_else(|| {
+                    LuceneError::illegal_state("BytesRef is None in attribute_source".to_string())
+                })?;
+                if let Err(e) = terms_hash_per_field.add_with_bytes_ref(
+                    &bytes_ref,
+                    doc_id,
+                    self.invert_state.as_mut().unwrap(),
+                    attribute_source,
+                ) {
                     let mut prefix = [0u8; 30];
-                    // TODO
-                    let big_term: BytesRef<Vec<u8>> = BytesRef::new();
-                    // let big_term =invert_state.term_attribute.as_ref().unwrap().get_bytes_ref();
-                    prefix.copy_from(&big_term.bytes[big_term.offset..big_term.offset + 30], 0);
+                    prefix.copy_from(&bytes_ref.bytes[bytes_ref.offset..bytes_ref.offset + 30], 0);
                     return Err(LuceneError::illegal_argument(format!(
                         "Document contains at least one immense term in field=\"{}\" (whose UTF8 encoding is longer than the max length {}), all of which were skipped. Please correct the analyzer to not produce such terms. The prefix of the first immense term is: '{:?}...', original message: {}",
                         self.field_info.as_ref().unwrap().name,

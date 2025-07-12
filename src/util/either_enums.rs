@@ -1354,7 +1354,7 @@ where
         }
     }
 
-    fn get_bytes_ref(&mut self) -> Option<Cow<BytesRef<Vec<u8>>>> {
+    fn get_bytes_ref(&self) -> Option<Cow<BytesRef<Vec<u8>>>> {
         match self {
             EitherAttributeSource::F(t) => t.get_bytes_ref(),
             EitherAttributeSource::S(s) => s.get_bytes_ref(),

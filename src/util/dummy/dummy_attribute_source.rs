@@ -36,7 +36,7 @@ impl AttributeSource for DummyAttributeSource {
         unimplemented!("start_offset() must be implemented if it needs to be used")
     }
 
-    fn get_bytes_ref(&mut self) -> Option<Cow<BytesRef<Vec<u8>>>> {
+    fn get_bytes_ref(&self) -> Option<Cow<BytesRef<Vec<u8>>>> {
         unimplemented!("start_offset() must be implemented if it needs to be used")
     }
 
