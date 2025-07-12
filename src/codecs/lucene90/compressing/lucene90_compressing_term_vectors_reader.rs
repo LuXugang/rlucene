@@ -52,6 +52,7 @@ use crate::util::array_util::ArrayUtil;
 use crate::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::clone::TryClone;
+use crate::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::long_values::LongValues;
 use crate::util::packed::block_packed_reader_iterator::BlockPackedReaderIterator;
@@ -1358,6 +1359,8 @@ impl BytesRefIterator for TVTermsEnum {
 }
 
 impl TermsEnum for TVTermsEnum {
+    type AttributeSource = DummyAttributeSource;
+
     fn seek_ceil(&mut self, text: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
         if self.ord < self.num_terms && self.ord >= 0 {
             let cmp = self.term.cmp(text).to_int();

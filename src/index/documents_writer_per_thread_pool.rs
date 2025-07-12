@@ -14,9 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
-use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
-use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
 use crate::index::approximate_priority_queue::IdentityId;
 use crate::index::documents_writer_per_thread::DocumentsWriterPerThread;
 use crate::index::indexable_field::IndexableField;
@@ -37,19 +34,15 @@ use std::sync::atomic::{AtomicBool, Ordering};
 /// assignments might differ from document to document.
 ///
 /// Once a [`DocumentsWriterPerThread`] is selected for flush, it will be checked out of the thread pool and won’t be reused for indexing. See [`checkout`](DocumentsWriterPerThreadPool::checkout)
-pub(crate) struct DocumentsWriterPerThreadPool<D, P, T, O, IF, Q, F>
+pub(crate) struct DocumentsWriterPerThreadPool<D, IF, Q, F>
 where
     D: Directory,
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
     IF: IndexableField,
     Q: Query,
-    F: Fn() -> Result<DocumentsWriterPerThread<D, P, T, O, IF, Q>>,
+    F: Fn() -> Result<DocumentsWriterPerThread<D, IF, Q>>,
 {
     inner: Mutex<State>,
-    free_list:
-        LockableConcurrentApproximatePriorityQueue<DocumentsWriterPerThread<D, P, T, O, IF, Q>>,
+    free_list: LockableConcurrentApproximatePriorityQueue<DocumentsWriterPerThread<D, IF, Q>>,
     dwpt_factory: F,
     pausing: Condvar,
     closed: AtomicBool,
@@ -58,15 +51,12 @@ pub(crate) struct State {
     dwpts: HashSet<String>,
     taken_writer_permits: i32,
 }
-impl<D, P, T, O, IF, Q, F> DocumentsWriterPerThreadPool<D, P, T, O, IF, Q, F>
+impl<D, IF, Q, F> DocumentsWriterPerThreadPool<D, IF, Q, F>
 where
     D: Directory,
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
     IF: IndexableField,
     Q: Query,
-    F: Fn() -> Result<DocumentsWriterPerThread<D, P, T, O, IF, Q>>,
+    F: Fn() -> Result<DocumentsWriterPerThread<D, IF, Q>>,
 {
     pub fn new(dwpt_factory: F) -> Result<Self> {
         let inner = Mutex::new(State {
@@ -108,7 +98,7 @@ where
     }
 
     /// Returns a new already locked [`DocumentsWriterPerThread`]
-    pub(crate) fn new_writer(&self) -> Result<DocumentsWriterPerThread<D, P, T, O, IF, Q>> {
+    pub(crate) fn new_writer(&self) -> Result<DocumentsWriterPerThread<D, IF, Q>> {
         let mut inner = self.inner.lock();
         debug_assert!(inner.taken_writer_permits >= 0);
         while inner.taken_writer_permits > 0 {
@@ -128,7 +118,7 @@ where
     }
     /// This method is used by `DocumentsWriter`/`FlushControl` to obtain a DWPT to do an indexing
     /// operation (add/updateDocument).
-    pub(crate) fn get_and_lock(&self) -> Result<DocumentsWriterPerThread<D, P, T, O, IF, Q>> {
+    pub(crate) fn get_and_lock(&self) -> Result<DocumentsWriterPerThread<D, IF, Q>> {
         self.ensure_open()?;
 
         if let Some(dwpt) = self.free_list.lock_and_poll() {
@@ -148,13 +138,13 @@ where
         Ok(())
     }
 
-    pub(crate) fn contains(&self, state: &DocumentsWriterPerThread<D, P, T, O, IF, Q>) -> bool {
+    pub(crate) fn contains(&self, state: &DocumentsWriterPerThread<D, IF, Q>) -> bool {
         let inner = self.inner.lock();
         inner.dwpts.contains(state.id())
     }
     pub(crate) fn mark_as_free_and_unlock(
         &self,
-        state: DocumentsWriterPerThread<D, P, T, O, IF, Q>,
+        state: DocumentsWriterPerThread<D, IF, Q>,
     ) -> Result<()> {
         let ram_bytes_used = state.ram_bytes_used()?;
 
@@ -225,9 +215,6 @@ where
 #[cfg(test)]
 mod tests {
 
-    use crate::analysis::token_attributes::dummy::dummy_offset_attribute::DummyOffsetAttribute;
-    use crate::analysis::token_attributes::dummy::dummy_payload_attribute::DummyPayloadAttribute;
-    use crate::analysis::token_attributes::dummy::dummy_term_frequency_attribute::DummyTermFrequencyAttribute;
     use crate::index::approximate_priority_queue::IdentityId;
     use crate::index::documents_writer_delete_queue::DocumentsWriterDeleteQueue;
     use crate::index::documents_writer_per_thread::DocumentsWriterPerThread;
@@ -258,9 +245,6 @@ mod tests {
         let pool = DocumentsWriterPerThreadPool::new(move || {
             DocumentsWriterPerThread::<
                 FSDirectory<NativeFSLockFactory, NIOFSDirectory>,
-                DummyPayloadAttribute,
-                DummyTermFrequencyAttribute,
-                DummyOffsetAttribute,
                 DummyIndexableField,
                 DummyQuery,
             >::new(
@@ -325,9 +309,6 @@ mod tests {
         let pool = Arc::new(DocumentsWriterPerThreadPool::new(move || {
             DocumentsWriterPerThread::<
                 FSDirectory<NativeFSLockFactory, NIOFSDirectory>,
-                DummyPayloadAttribute,
-                DummyTermFrequencyAttribute,
-                DummyOffsetAttribute,
                 DummyIndexableField,
                 DummyQuery,
             >::new(

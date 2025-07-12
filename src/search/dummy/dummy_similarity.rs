@@ -14,9 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
-use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
-use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
 use crate::index::field_invert_state::FieldInvertState;
 use crate::search::collection_statistics::CollectionStatistics;
 use crate::search::dummy::dumy_sim_scorer::DummySimScorer;
@@ -37,15 +34,10 @@ impl Similarity for DummySimilarity {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn compute_norm<O, P, T>(
+    fn compute_norm(
         &self,
-        _state: &FieldInvertState<O, P, T>,
-    ) -> crate::util::error::lucene_error::Result<i64>
-    where
-        O: OffsetAttribute,
-        P: PayloadAttribute,
-        T: TermFrequencyAttribute,
-    {
+        _state: &FieldInvertState,
+    ) -> crate::util::error::lucene_error::Result<i64> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

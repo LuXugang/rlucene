@@ -19,6 +19,7 @@ use crate::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::index::dummy::dummy_term_state_type::DummyTermState;
 use crate::index::terms_enum::TermsEnum;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
+use crate::util::dummy::dummy_attribute_source::DummyAttributeSource;
 
 /// Implements a [`TermsEnum`](TermsEnum) wrapping a provided
 /// [`SortedDocValues`](SortedDocValues).
@@ -27,6 +28,8 @@ pub struct SortedDocValuesTermsEnum;
 impl BytesRefIterator for SortedDocValuesTermsEnum {}
 
 impl TermsEnum for SortedDocValuesTermsEnum {
+    type AttributeSource = DummyAttributeSource;
+
     type PostingsEnum = DummyPostingsEnum;
     type ImpactsEnum = DummyImpactsEnum;
     type TermState = DummyTermState;

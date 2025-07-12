@@ -14,19 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
-use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
-use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
 use crate::index::index_options::IndexOptions;
 /// This struct tracks the number and position / offset parameters of terms being
 /// added to the index. The information collected in This struct is also used to
 /// calculate the normalization factor for a field.
-pub struct FieldInvertState<O, P, T>
-where
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-{
+pub struct FieldInvertState {
     index_created_version_major: i32,
     name: String,
     index_options: IndexOptions,
@@ -39,16 +31,8 @@ where
     // we must track these across field instances (multi-valued case)
     pub(crate) last_start_offset: i32,
     pub(crate) last_position: i32,
-    pub(crate) offset_attribute: Option<O>,
-    pub(crate) payload_attribute: Option<P>,
-    pub(crate) term_freq_attribute: Option<T>,
 }
-impl<O, P, T> Default for FieldInvertState<O, P, T>
-where
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-{
+impl Default for FieldInvertState {
     fn default() -> Self {
         FieldInvertState {
             index_created_version_major: 6,
@@ -62,19 +46,11 @@ where
             unique_term_count: 0,
             last_start_offset: 0,
             last_position: 0,
-            offset_attribute: None,
-            payload_attribute: None,
-            term_freq_attribute: None,
         }
     }
 }
 
-impl<O, P, T> FieldInvertState<O, P, T>
-where
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-{
+impl FieldInvertState {
     /// Creates {code FieldInvertState} for the specified field name.
     pub fn new(
         index_created_version_major: i32,
@@ -93,9 +69,6 @@ where
             offset: 0,
             last_start_offset: 0,
             last_position: 0,
-            offset_attribute: None,
-            payload_attribute: None,
-            term_freq_attribute: None,
         }
     }
     /// Creates {code FieldInvertState} for the specified field name and values

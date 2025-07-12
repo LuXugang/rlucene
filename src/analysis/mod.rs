@@ -16,7 +16,6 @@
  */
 
 pub mod analyzer;
-pub mod attribute_source;
 pub mod dummy;
 pub mod token_attributes;
 pub mod token_stream;

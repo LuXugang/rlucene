@@ -21,7 +21,6 @@ use crate::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::index::term_state::TermStateEnum;
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::index::BytesRef;
-use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::error::lucene_error::Result;
@@ -140,7 +139,9 @@ where
     T: TermsEnum,
     F: FilteredTermsEnumBase,
 {
-    fn attributes(&self) -> Result<&AttributeSource> {
+    type AttributeSource = T::AttributeSource;
+
+    fn attributes(&self) -> Result<Self::AttributeSource> {
         self.tenum.attributes()
     }
 

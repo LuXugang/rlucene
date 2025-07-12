@@ -38,8 +38,9 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 /// successfully call [`next()`](BytesRefIterator::next) or one of the `seek`
 /// methods.
 pub trait TermsEnum: BytesRefIterator {
+    type AttributeSource: AttributeSource;
     /// Returns the related attribute source.
-    fn attributes(&self) -> Result<&AttributeSource> {
+    fn attributes(&self) -> Result<Self::AttributeSource> {
         Err(LuceneError::need_implemented(""))
     }
     /// Attempts to seek to the exact term.

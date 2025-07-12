@@ -14,13 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::attribute_source::AttributeSource;
-use crate::util::error::lucene_error::Result;
-pub trait TokenStream {
-    fn increment_token(&mut self) -> Result<bool>;
-    fn end(&mut self) -> Result<()>;
-    fn reset(&mut self) -> Result<()>;
-    fn close(&mut self) -> Result<()>;
-    type AttributeSource: AttributeSource;
-    fn get_attribute_source(&self) -> &Self::AttributeSource;
+use crate::analysis::token_attributes::position_increment_attribute::PositionIncrementAttribute;
+use crate::util::attribute::Attribute;
+
+pub struct DummyPositionIncrementAttribute;
+
+impl Attribute for DummyPositionIncrementAttribute {}
+
+impl PositionIncrementAttribute for DummyPositionIncrementAttribute {
+    fn set_position_increment(
+        &mut self,
+        _position_increment: i32,
+    ) -> crate::util::error::lucene_error::Result<()> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn get_position_increment(&self) -> i32 {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
 }

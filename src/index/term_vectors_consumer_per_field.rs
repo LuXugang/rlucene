@@ -32,6 +32,7 @@ use crate::index::terms_hash_per_field::{
 };
 use crate::store::directory::Directory;
 use crate::util::array_util::ArrayUtil;
+use crate::util::attribute_source::AttributeSource;
 use crate::util::bit_util::BitUtil;
 use crate::util::bytes_ref_block_pool::BytesRefBlockPool;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -218,40 +219,28 @@ impl TermVectorsConsumerPerField {
     // because token text has already been "interned" into
     // textStart, so we hash by textStart.  term vectors use
     // this API.
-    pub(crate) fn add_with_text_start<O, P, T>(
+    pub(crate) fn add_with_text_start(
         &mut self,
         text_start: i32,
         doc_id: i32,
-        state: &mut FieldInvertState<O, P, T>,
-    ) -> Result<()>
-    where
-        O: OffsetAttribute,
-        P: PayloadAttribute,
-        T: TermFrequencyAttribute,
-    {
+        state: &mut FieldInvertState,
+        attribute_source: &impl AttributeSource,
+    ) -> Result<()> {
         let term_id = self.base.bytes_hash.add_by_pool_offset(text_start)?;
         if term_id >= 0 {
             // First time we are seeing this token since we last
             // flushed the hash.
             self.base.init_stream_slices(term_id, doc_id)?;
-            self.new_term(term_id, doc_id, state)?;
+            self.new_term(term_id, doc_id, state, attribute_source)?;
         } else {
             self.base.position_stream_slice(term_id, doc_id)?;
-            self.add_term(term_id, doc_id, state)?;
+            self.add_term(term_id, doc_id, state, attribute_source)?;
         }
         Ok(())
     }
-    pub(crate) fn start<F, O, P, T>(
-        &mut self,
-        field: &F,
-        first: bool,
-        field_state: &FieldInvertState<O, P, T>,
-    ) -> Result<bool>
+    pub(crate) fn start<F>(&mut self, field: &F, first: bool) -> Result<bool>
     where
         F: IndexableField,
-        O: OffsetAttribute,
-        P: PayloadAttribute,
-        T: TermFrequencyAttribute,
     {
         debug_assert!(*field.field_type().index_options() != IndexOptions::None);
 
@@ -332,22 +321,14 @@ impl TermVectorsConsumerPerField {
                 )));
             }
         }
-
-        if self.do_vectors && self.do_vector_offsets {
-            debug_assert!(field_state.offset_attribute.is_some());
-        }
         Ok(self.do_vectors)
     }
-    pub(crate) fn write_prox<O, P, T>(
+    pub(crate) fn write_prox(
         &mut self,
         term_id: usize,
-        field_state: &FieldInvertState<O, P, T>,
-    ) -> Result<()>
-    where
-        O: OffsetAttribute,
-        P: PayloadAttribute,
-        T: TermFrequencyAttribute,
-    {
+        field_state: &FieldInvertState,
+        attribute_source: &impl AttributeSource,
+    ) -> Result<()> {
         let postings = self
             .base
             .bytes_hash
@@ -361,9 +342,17 @@ impl TermVectorsConsumerPerField {
         match postings {
             PostingsArrayEnum::TermVectors(postings) => {
                 if self.do_vector_offsets {
-                    let offset_attr = field_state.offset_attribute.as_ref().unwrap();
-                    let start_offset = field_state.offset + offset_attr.start_offset();
-                    let end_offset = field_state.offset + offset_attr.end_offset();
+                    let (start, end) = attribute_source
+                        .start_offset()
+                        .zip(attribute_source.end_offset())
+                        .ok_or_else(|| {
+                            LuceneError::illegal_state(
+                                "missing start or end offset in attribute_source".to_string(),
+                            )
+                        })?;
+
+                    let start_offset = field_state.offset + start;
+                    let end_offset = field_state.offset + end;
 
                     self.base
                         .write_vint(1, start_offset - postings.last_offsets[term_id])?;
@@ -372,12 +361,9 @@ impl TermVectorsConsumerPerField {
                 }
 
                 if self.do_vector_positions {
-                    let payload_attribute = &field_state.payload_attribute;
-
                     let pos = field_state.position - postings.last_positions[term_id];
 
-                    if let Some(v) = payload_attribute {
-                        let payload = v.get_payload();
+                    if let Some(payload) = attribute_source.get_payload() {
                         if payload.length > 0 {
                             self.base.write_vint(0, (pos << 1) | 1)?;
                             self.base.write_vint(0, payload.length as i32)?;
@@ -422,17 +408,9 @@ impl TermVectorsConsumerPerField {
 
         Ok(())
     }
-    pub(crate) fn get_term_freq<O, P, T>(
-        &self,
-        field_state: &FieldInvertState<O, P, T>,
-    ) -> Result<i32>
-    where
-        O: OffsetAttribute,
-        P: PayloadAttribute,
-        T: TermFrequencyAttribute,
-    {
-        let freq = if let Some(att) = &field_state.term_freq_attribute {
-            att.get_term_frequency()
+    pub(crate) fn get_term_freq(&self, attribute_source: &impl AttributeSource) -> Result<i32> {
+        let freq = if let Some(att) = attribute_source.get_term_frequency() {
+            att
         } else {
             return Ok(1);
         };
@@ -485,19 +463,15 @@ impl Ord for TermVectorsConsumerPerField {
     }
 }
 impl TermsHashPerFieldBase for TermVectorsConsumerPerField {
-    fn new_term<O, P, T>(
+    fn new_term(
         &mut self,
         term_id: i32,
         _doc_id: i32,
-        field_state: &mut FieldInvertState<O, P, T>,
-    ) -> Result<()>
-    where
-        O: OffsetAttribute,
-        P: PayloadAttribute,
-        T: TermFrequencyAttribute,
-    {
+        field_state: &mut FieldInvertState,
+        attribute_source: &impl AttributeSource,
+    ) -> Result<()> {
         let term_id = term_id as usize;
-        let freq = self.get_term_freq(field_state)?;
+        let freq = self.get_term_freq(attribute_source)?;
         let postings_enum = self
             .base
             .bytes_hash
@@ -511,26 +485,22 @@ impl TermsHashPerFieldBase for TermVectorsConsumerPerField {
             postings.last_offsets[term_id] = 0;
             postings.last_positions[term_id] = 0;
 
-            self.write_prox(term_id, field_state)?;
+            self.write_prox(term_id, field_state, attribute_source)?;
         } else {
             unreachable!("Expected TermVectors postings");
         }
         Ok(())
     }
 
-    fn add_term<O, P, T>(
+    fn add_term(
         &mut self,
         term_id: i32,
-        doc_id: i32,
-        state: &mut FieldInvertState<O, P, T>,
-    ) -> Result<()>
-    where
-        O: OffsetAttribute,
-        P: PayloadAttribute,
-        T: TermFrequencyAttribute,
-    {
+        _doc_id: i32,
+        state: &mut FieldInvertState,
+        attribute_source: &impl AttributeSource,
+    ) -> Result<()> {
         let term_id = term_id as usize;
-        let freq = self.get_term_freq(state)?;
+        let freq = self.get_term_freq(attribute_source)?;
         let postings_enum = self
             .base
             .bytes_hash
@@ -542,7 +512,7 @@ impl TermsHashPerFieldBase for TermVectorsConsumerPerField {
 
         if let PostingsArrayEnum::TermVectors(postings) = postings_enum {
             postings.freqs[term_id] += freq;
-            self.write_prox(term_id, state)?;
+            self.write_prox(term_id, state, attribute_source)?;
         } else {
             unreachable!("Expected TermVectors postings");
         }

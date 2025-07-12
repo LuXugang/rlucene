@@ -59,10 +59,10 @@ use crate::store::directory::Directory;
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{ByteArrayDataInput, DataInput, IndexInput, ReadAdvice};
 use crate::util::access::AccessVec;
-use crate::util::attribute_source::AttributeSource;
 use crate::util::bit_util::BitUtil;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::compress::lz4::LZ4;
+use crate::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::util::either_enums::EitherSortedSetDocValues;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::error::lucene_error::Result;
@@ -3048,7 +3048,9 @@ impl<I> TermsEnum for TermsDict<I>
 where
     I: IndexInput,
 {
-    fn attributes(&self) -> Result<&AttributeSource> {
+    type AttributeSource = DummyAttributeSource;
+
+    fn attributes(&self) -> Result<Self::AttributeSource> {
         Err(LuceneError::not_implemented(""))
     }
 

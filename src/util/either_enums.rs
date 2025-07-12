@@ -861,10 +861,12 @@ where
     F: TermsEnum,
     S: TermsEnum,
 {
-    fn attributes(&self) -> Result<&AttributeSource> {
+    type AttributeSource = EitherAttributeSource<F::AttributeSource, S::AttributeSource>;
+
+    fn attributes(&self) -> Result<Self::AttributeSource> {
         match self {
-            EitherTermsEnum::F(t) => t.attributes(),
-            EitherTermsEnum::S(s) => s.attributes(),
+            EitherTermsEnum::F(t) => Ok(EitherAttributeSource::F(t.attributes()?)),
+            EitherTermsEnum::S(s) => Ok(EitherAttributeSource::S(s.attributes()?)),
         }
     }
 
@@ -1310,6 +1312,59 @@ where
         match self {
             EitherDocComparator::F(t) => t.compare(doc_id1, doc_id2),
             EitherDocComparator::S(s) => s.compare(doc_id1, doc_id2),
+        }
+    }
+}
+
+// AttributeSource
+pub enum EitherAttributeSource<F, S> {
+    F(F),
+    S(S),
+}
+impl<F, S> AttributeSource for EitherAttributeSource<F, S>
+where
+    F: AttributeSource,
+    S: AttributeSource,
+{
+    fn start_offset(&self) -> Option<i32> {
+        match self {
+            EitherAttributeSource::F(t) => t.start_offset(),
+            EitherAttributeSource::S(s) => s.start_offset(),
+        }
+    }
+
+    fn end_offset(&self) -> Option<i32> {
+        match self {
+            EitherAttributeSource::F(t) => t.end_offset(),
+            EitherAttributeSource::S(s) => s.end_offset(),
+        }
+    }
+
+    fn get_position_increment(&self) -> Option<i32> {
+        match self {
+            EitherAttributeSource::F(t) => t.get_position_increment(),
+            EitherAttributeSource::S(s) => s.get_position_increment(),
+        }
+    }
+
+    fn get_payload(&self) -> Option<&BytesRef<Vec<u8>>> {
+        match self {
+            EitherAttributeSource::F(t) => t.get_payload(),
+            EitherAttributeSource::S(s) => s.get_payload(),
+        }
+    }
+
+    fn get_bytes_ref(&mut self) -> Option<Cow<BytesRef<Vec<u8>>>> {
+        match self {
+            EitherAttributeSource::F(t) => t.get_bytes_ref(),
+            EitherAttributeSource::S(s) => s.get_bytes_ref(),
+        }
+    }
+
+    fn get_term_frequency(&self) -> Option<i32> {
+        match self {
+            EitherAttributeSource::F(t) => t.get_term_frequency(),
+            EitherAttributeSource::S(s) => s.get_term_frequency(),
         }
     }
 }

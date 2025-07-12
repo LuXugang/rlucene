@@ -14,13 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::attribute_source::AttributeSource;
-use crate::util::error::lucene_error::Result;
-pub trait TokenStream {
-    fn increment_token(&mut self) -> Result<bool>;
-    fn end(&mut self) -> Result<()>;
-    fn reset(&mut self) -> Result<()>;
-    fn close(&mut self) -> Result<()>;
-    type AttributeSource: AttributeSource;
-    fn get_attribute_source(&self) -> &Self::AttributeSource;
+use crate::analysis::token_attributes::term_to_bytes_ref_attribute::TermToBytesRefAttribute;
+use crate::index::BytesRef;
+use crate::util::attribute::Attribute;
+use std::borrow::Cow;
+
+pub struct DummyTermToBytesRefAttribute;
+
+impl Attribute for DummyTermToBytesRefAttribute {}
+
+impl TermToBytesRefAttribute for DummyTermToBytesRefAttribute {
+    fn get_bytes_ref(&mut self) -> Cow<BytesRef<Vec<u8>>> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
 }

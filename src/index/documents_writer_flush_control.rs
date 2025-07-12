@@ -14,9 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
-use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
-use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
 use crate::index::documents_writer_per_thread::DocumentsWriterPerThread;
 use crate::index::documents_writer_per_thread_pool::DocumentsWriterPerThreadPool;
 use crate::index::documents_writer_stall_control::DocumentsWriterStallControl;
@@ -28,15 +25,12 @@ use crate::util::info_stream::InfoStreamLock;
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64};
 
-pub(crate) struct DocumentsWriterFlushControl<D, P, T, O, IF, Q, F>
+pub(crate) struct DocumentsWriterFlushControl<D, IF, Q, F>
 where
     D: Directory,
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
     IF: IndexableField,
     Q: Query,
-    F: Fn() -> Result<DocumentsWriterPerThread<D, P, T, O, IF, Q>>,
+    F: Fn() -> Result<DocumentsWriterPerThread<D, IF, Q>>,
 {
     hard_max_bytes_per_dwpt: i64,
     active_bytes: i64,
@@ -46,9 +40,9 @@ where
     flush_deletes: AtomicBool,
     full_flush: bool,
     full_flush_mark_done: bool,
-    flush_queue: VecDeque<DocumentsWriterPerThread<D, P, T, O, IF, Q>>,
-    blocked_flushes: VecDeque<DocumentsWriterPerThread<D, P, T, O, IF, Q>>,
-    flushing_writers: Vec<DocumentsWriterPerThread<D, P, T, O, IF, Q>>,
+    flush_queue: VecDeque<DocumentsWriterPerThread<D, IF, Q>>,
+    blocked_flushes: VecDeque<DocumentsWriterPerThread<D, IF, Q>>,
+    flushing_writers: Vec<DocumentsWriterPerThread<D, IF, Q>>,
     max_configured_ram_buffer: f64,
     peak_active_bytes: i64,
     peak_flush_bytes: i64,
@@ -56,7 +50,7 @@ where
     peak_delta: i64,
     flush_by_ram_was_disabled: bool,
     stall_control: DocumentsWriterStallControl,
-    per_thread_pool: DocumentsWriterPerThreadPool<D, P, T, O, IF, Q, F>,
+    per_thread_pool: DocumentsWriterPerThreadPool<D, IF, Q, F>,
     closed: bool,
     info_stream: InfoStreamLock,
 }

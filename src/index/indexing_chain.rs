@@ -16,7 +16,6 @@
  */
 use crate::analysis::analyzer::Analyzer;
 use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
-use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
 use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
 use crate::analysis::token_stream::TokenStream;
 use crate::codecs::doc_values_format::DocValuesFormat;
@@ -85,6 +84,7 @@ use crate::util::allocator_byte::{
     AllocatorByteEnum, DirectTrackingAllocatorByte, MTAllocatorByteEnum,
 };
 use crate::util::array_util::ArrayUtil;
+use crate::util::attribute_source::{AttributeSource, EmptyAttributeSource};
 use crate::util::bit_set::{bit_set_util, BitSet};
 use crate::util::bit_util::BitUtil;
 use crate::util::either_enums::{
@@ -110,12 +110,9 @@ use std::sync::Arc;
 use std::time::Instant;
 
 /// Default general purpose indexing chain, which handles indexing all types of fields.
-pub(crate) struct IndexingChain<D, O, P, T, IF>
+pub(crate) struct IndexingChain<D, IF>
 where
     D: Directory,
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
     IF: IndexableField,
 {
     bytes_used: CounterEnumLock,
@@ -127,18 +124,15 @@ where
     total_field_count: usize,
     next_field_gen: i64,
     fields: Vec<i32>,
-    doc_fields: Vec<Option<PerField<O, P, T, IF>>>,
+    doc_fields: Vec<Option<PerField<IF>>>,
     info_stream: InfoStreamLock,
     byte_block_allocator: MTAllocatorByteEnum,
     index_created_version_major: i32,
     has_hit_aborting_exception: bool,
 }
-impl<D, O, P, T, IF> IndexingChain<D, O, P, T, IF>
+impl<D, IF> IndexingChain<D, IF>
 where
     D: Directory,
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
     IF: IndexableField,
 {
     pub(crate) fn new<D1>(
@@ -1081,7 +1075,7 @@ where
 
     pub fn index_doc_value(
         doc_id: i32,
-        fp: &mut PerField<O, P, T, IF>,
+        fp: &mut PerField<IF>,
         dv_type: DocValuesType,
         field: &IF,
     ) -> Result<()> {
@@ -1208,12 +1202,9 @@ where
         Ok(None)
     }
 }
-impl<D, O, P, T, IF> Accountable for IndexingChain<D, O, P, T, IF>
+impl<D, IF> Accountable for IndexingChain<D, IF>
 where
     D: Directory,
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
     IF: IndexableField,
 {
     fn ram_bytes_used(&self) -> Result<i64> {
@@ -1222,11 +1213,8 @@ where
     }
 }
 
-pub(crate) struct PerField<O, P, T, IF>
+pub(crate) struct PerField<IF>
 where
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
     IF: IndexableField,
 {
     pub(crate) field_name: String,
@@ -1234,7 +1222,7 @@ where
     pub(crate) schema: FieldSchema,
     pub(crate) reserved: bool,
     pub(crate) field_info: Option<Arc<FieldInfo>>,
-    pub(crate) invert_state: Option<FieldInvertState<O, P, T>>,
+    pub(crate) invert_state: Option<FieldInvertState>,
     pub(crate) terms_hash_per_field: Option<FreqProxTermsWriterPerField>,
     pub(crate) doc_values_writer: Option<DocValuesWriterEnum>,
     pub(crate) point_values_writer: Option<PointValuesWriter>,
@@ -1245,11 +1233,8 @@ where
     pub(crate) token_stream: Option<IF::TokenStream>,
     pub(crate) first: bool,
 }
-impl<O, P, T, IF> PerField<O, P, T, IF>
+impl<IF> PerField<IF>
 where
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
     IF: IndexableField,
 {
     pub(crate) fn new(
@@ -1418,12 +1403,9 @@ where
         let mut succeeded = false;
         let result = (|| {
             stream.reset()?;
-            {
-                let state = self.invert_state.as_mut().unwrap();
-                // state.set_attribute_source(Some(&mut stream));
-            }
+
             let terms_hash_per_field = self.terms_hash_per_field.as_mut().unwrap();
-            terms_hash_per_field.start(field, first, self.invert_state.as_mut().unwrap())?;
+            terms_hash_per_field.start(field, first)?;
 
             while stream.increment_token()? {
                 // If we hit an exception in stream.next below
@@ -1432,10 +1414,12 @@ where
                 // non-aborting and (above) this one document
                 // will be marked as deleted, but still
                 // consume a docID
+                let attribute_source = stream.get_attribute_source();
                 let invert_state = self.invert_state.as_mut().unwrap();
                 // TODO
-                let pos_incr = 0;
-                // let pos_incr = state.pos_incr_attribute.get_position_increment();
+                let pos_incr = attribute_source.get_position_increment().ok_or_else(|| {
+                    LuceneError::illegal_state("PositionIncrementAttribute is None".to_string())
+                })?;
                 invert_state.position += pos_incr;
                 if invert_state.position < invert_state.last_position {
                     if pos_incr == 0 {
@@ -1468,14 +1452,17 @@ where
                 }
                 invert_state.last_position = invert_state.position;
 
-                let start_offset = invert_state.offset
-                    + invert_state
-                        .offset_attribute
-                        .as_ref()
-                        .unwrap()
-                        .start_offset();
-                let end_offset = invert_state.offset
-                    + invert_state.offset_attribute.as_ref().unwrap().end_offset();
+                let (start, end) = attribute_source
+                    .start_offset()
+                    .zip(attribute_source.end_offset())
+                    .ok_or_else(|| {
+                        LuceneError::illegal_state(
+                            "missing start or end offset in attribute_source".to_string(),
+                        )
+                    })?;
+                let start_offset = invert_state.offset + start;
+                let end_offset = invert_state.offset + end;
+
                 if start_offset < invert_state.last_start_offset || end_offset < start_offset {
                     return Err(LuceneError::illegal_argument(format!(
                         "startOffset must be non-negative, and endOffset must be >= startOffset, and offsets must not go backwards offsets: start={} end={} last_start={} for field {}",
@@ -1488,11 +1475,9 @@ where
                 invert_state.last_start_offset = start_offset;
 
                 // update length
-                let tf = invert_state
-                    .term_freq_attribute
-                    .as_ref()
-                    .unwrap()
-                    .get_term_frequency();
+                let tf = attribute_source.get_term_frequency().ok_or_else(|| {
+                    LuceneError::illegal_argument("term frequency is None".to_string())
+                })?;
                 invert_state.length = invert_state.length.checked_add(tf).ok_or_else(|| {
                     LuceneError::number_overflow(format!(
                         "too many tokens for field {}",
@@ -1511,6 +1496,7 @@ where
                         &BytesRef::new(),
                         doc_id,
                         self.invert_state.as_mut().unwrap(),
+                        attribute_source,
                     )
                 {
                     let mut prefix = [0u8; 30];
@@ -1529,15 +1515,15 @@ where
             }
             // trigger streams to perform end-of-stream operations
             stream.end()?;
-            {
-                // when we come back around to the field...
-                let invert_state = self.invert_state.as_mut().unwrap();
-                // TODO
-                invert_state.position += 0;
-                // invert_state.position += invert_state.pos_incr_attribute.as_ref().unwrap().get_position_increment();
-                invert_state.offset += invert_state.offset_attribute.as_ref().unwrap().end_offset();
-            }
-
+            // when we come back around to the field...
+            let invert_state = self.invert_state.as_mut().unwrap();
+            // TODO
+            invert_state.position += stream
+                .get_attribute_source()
+                .get_position_increment()
+                .as_ref()
+                .unwrap();
+            invert_state.offset += stream.get_attribute_source().end_offset().as_ref().unwrap();
             succeeded = true;
             Ok(())
         })();
@@ -1590,7 +1576,7 @@ where
         state.position += 1;
         state.length += 1;
         let terms_hash_per_field = self.terms_hash_per_field.as_mut().unwrap();
-        terms_hash_per_field.start(field, first, state)?;
+        terms_hash_per_field.start(field, first)?;
         match state.length.checked_add(1) {
             Some(new_length) => {
                 state.length = new_length;
@@ -1601,8 +1587,10 @@ where
                 ));
             },
         }
-
-        if let Err(e) = terms_hash_per_field.add_with_bytes_ref(&binary_value, doc_id, state) {
+        let attribute_source = EmptyAttributeSource;
+        if let Err(e) =
+            terms_hash_per_field.add_with_bytes_ref(&binary_value, doc_id, state, &attribute_source)
+        {
             let mut prefix = [0u8; 30];
             prefix.copy_from(
                 &binary_value.bytes[binary_value.offset..binary_value.offset + 30],
@@ -1623,46 +1611,26 @@ where
     }
 }
 
-impl<O, P, T, IF> PartialEq for PerField<O, P, T, IF>
+impl<IF> PartialEq for PerField<IF>
 where
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-
     IF: IndexableField,
 {
     fn eq(&self, other: &Self) -> bool {
         self.field_name == other.field_name
     }
 }
-impl<O, P, T, IF> Eq for PerField<O, P, T, IF>
+impl<IF> Eq for PerField<IF> where IF: IndexableField {}
+
+impl<IF> PartialOrd for PerField<IF>
 where
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-
-    IF: IndexableField,
-{
-}
-
-impl<O, P, T, IF> PartialOrd for PerField<O, P, T, IF>
-where
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-
     IF: IndexableField,
 {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.field_name.cmp(&other.field_name))
     }
 }
-impl<O, P, T, IF> Ord for PerField<O, P, T, IF>
+impl<IF> Ord for PerField<IF>
 where
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
-
     IF: IndexableField,
 {
     fn cmp(&self, other: &Self) -> Ordering {
@@ -1937,36 +1905,27 @@ impl FieldSchema {
     }
 }
 
-struct DocValuesLeafReaderImpl1<'a, D, O, P, T, IF>
+struct DocValuesLeafReaderImpl1<'a, D, IF>
 where
     D: Directory,
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
     IF: IndexableField,
 {
-    index_chain: &'a mut IndexingChain<D, O, P, T, IF>,
+    index_chain: &'a mut IndexingChain<D, IF>,
     base: DocValuesLeafReader,
 }
-impl<'a, D, O, P, T, IF> DocValuesLeafReaderImpl1<'a, D, O, P, T, IF>
+impl<'a, D, IF> DocValuesLeafReaderImpl1<'a, D, IF>
 where
     D: Directory,
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
     IF: IndexableField,
 {
-    fn new(index_chain: &'a mut IndexingChain<D, O, P, T, IF>) -> Self {
+    fn new(index_chain: &'a mut IndexingChain<D, IF>) -> Self {
         let base = DocValuesLeafReader;
         DocValuesLeafReaderImpl1 { index_chain, base }
     }
 }
-impl<'a, D, O, P, T, IF> LeafReader for DocValuesLeafReaderImpl1<'a, D, O, P, T, IF>
+impl<'a, D, IF> LeafReader for DocValuesLeafReaderImpl1<'a, D, IF>
 where
     D: Directory,
-    O: OffsetAttribute,
-    P: PayloadAttribute,
-    T: TermFrequencyAttribute,
     IF: IndexableField,
 {
     type NumericDocValues = BufferedNumericDocValues;

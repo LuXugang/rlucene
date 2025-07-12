@@ -20,9 +20,9 @@ use std::fmt::{Debug, Display, Formatter};
 use crate::index::term_state::{TermState, TermStateEnum};
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::index::BytesRef;
-use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
-use crate::util::either_enums::EitherTermState;
+use crate::util::dummy::dummy_attribute_source::DummyAttributeSource;
+use crate::util::either_enums::{EitherAttributeSource, EitherTermState};
 use crate::util::error::lucene_error::{LuceneError, Result};
 
 /// A base `TermsEnum` that provides default implementations for:
@@ -40,7 +40,6 @@ pub struct BaseTermsEnum<S>
 where
     S: TermsEnum,
 {
-    atts: AttributeSource,
     sub: S,
 }
 impl<S> BaseTermsEnum<S>
@@ -48,10 +47,7 @@ where
     S: TermsEnum,
 {
     pub fn new(sub: S) -> Self {
-        Self {
-            atts: AttributeSource::new(),
-            sub,
-        }
+        Self { sub }
     }
 }
 
@@ -61,11 +57,15 @@ impl<S> TermsEnum for BaseTermsEnum<S>
 where
     S: TermsEnum,
 {
-    fn attributes(&self) -> Result<&AttributeSource> {
+    type AttributeSource = EitherAttributeSource<S::AttributeSource, DummyAttributeSource>;
+
+    fn attributes(&self) -> Result<Self::AttributeSource> {
         match self.sub.attributes() {
-            Ok(v) => Ok(v),
+            Ok(v) => Ok(EitherAttributeSource::F(v)),
             Err(e) => match e {
-                LuceneError::NotImplemented(_) => Ok(&self.atts),
+                LuceneError::NotImplemented(_) => {
+                    Ok(EitherAttributeSource::S(DummyAttributeSource))
+                },
                 _ => Err(e),
             },
         }

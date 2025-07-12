@@ -19,27 +19,12 @@ use crate::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::index::term_state::TermStateEnum;
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::index::BytesRef;
-use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
+use crate::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::util::error::lucene_error::Result;
 use std::borrow::Cow;
 
-pub struct DummyTermsEnum {
-    atts: AttributeSource,
-}
-impl Default for DummyTermsEnum {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl DummyTermsEnum {
-    pub fn new() -> Self {
-        Self {
-            atts: AttributeSource::new(),
-        }
-    }
-}
+pub struct DummyTermsEnum;
 impl BytesRefIterator for DummyTermsEnum {
     fn next(&mut self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
@@ -47,7 +32,9 @@ impl BytesRefIterator for DummyTermsEnum {
 }
 
 impl TermsEnum for DummyTermsEnum {
-    fn attributes(&self) -> Result<&AttributeSource> {
+    type AttributeSource = DummyAttributeSource;
+
+    fn attributes(&self) -> Result<Self::AttributeSource> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

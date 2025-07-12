@@ -21,7 +21,6 @@ use crate::index::term_state::TermStateEnum;
 use crate::index::terms::Terms;
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::index::BytesRef;
-use crate::util::attribute_source::AttributeSource;
 use crate::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::Result;
@@ -178,7 +177,9 @@ impl<T> TermsEnum for FilterTermsEnum<T>
 where
     T: TermsEnum,
 {
-    fn attributes(&self) -> Result<&AttributeSource> {
+    type AttributeSource = T::AttributeSource;
+
+    fn attributes(&self) -> Result<Self::AttributeSource> {
         self.terms_enum.attributes()
     }
 

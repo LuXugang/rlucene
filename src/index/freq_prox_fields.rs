@@ -34,6 +34,7 @@ use crate::store::DataInput;
 use crate::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::util::bytes_ref_block_pool::BytesRefBlockPool;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
+use crate::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::util::either_enums::EitherPostingsEnum;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::{ByteBlockPoolLock, CounterEnumLock, ToInt};
@@ -224,6 +225,8 @@ impl BytesRefIterator for FreqProxTermsEnum {
 }
 
 impl TermsEnum for FreqProxTermsEnum {
+    type AttributeSource = DummyAttributeSource;
+
     fn seek_ceil(&mut self, text: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
         let postings_array_enum = &self
             .terms

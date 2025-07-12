@@ -424,7 +424,9 @@ where
     T: TermsEnum,
     D: DocMap,
 {
-    fn attributes(&self) -> Result<&AttributeSource> {
+    type AttributeSource = <FilterTermsEnum<T> as TermsEnum>::AttributeSource;
+
+    fn attributes(&self) -> Result<Self::AttributeSource> {
         self.base.attributes()
     }
 

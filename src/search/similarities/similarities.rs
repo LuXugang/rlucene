@@ -14,9 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
-use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
-use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
 use crate::index::field_invert_state::FieldInvertState;
 use crate::index::index_options::IndexOptions;
 use crate::search::collection_statistics::CollectionStatistics;
@@ -119,12 +116,7 @@ pub trait Similarity: Display {
     /// # Returns
     ///
     /// A `u8` norm value, suitable for storage in the index.
-    fn compute_norm<O, P, T>(&self, state: &FieldInvertState<O, P, T>) -> Result<i64>
-    where
-        O: OffsetAttribute,
-        P: PayloadAttribute,
-        T: TermFrequencyAttribute,
-    {
+    fn compute_norm(&self, state: &FieldInvertState) -> Result<i64> {
         let num_terms = if state.get_index_options() == IndexOptions::Docs {
             state.get_unique_term_count()
         } else if self.get_discount_overlaps() {

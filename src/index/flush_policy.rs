@@ -14,9 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
-use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
-use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
 use crate::index::documents_writer_flush_control::DocumentsWriterFlushControl;
 use crate::index::documents_writer_per_thread::DocumentsWriterPerThread;
 use crate::index::indexable_field::IndexableField;
@@ -25,15 +22,11 @@ use crate::store::directory::Directory;
 use crate::util::error::lucene_error::Result;
 
 pub(crate) trait FlushPolicy {
-    fn on_change<D, P, T, O, IF, Q, F>(
-        &self,
-        control: DocumentsWriterFlushControl<D, P, T, O, IF, Q, F>,
-    ) where
+    fn on_change<D, IF, Q, F>(&self, control: DocumentsWriterFlushControl<D, IF, Q, F>)
+    where
         D: Directory,
-        O: OffsetAttribute,
-        P: PayloadAttribute,
-        T: TermFrequencyAttribute,
+
         IF: IndexableField,
         Q: Query,
-        F: Fn() -> Result<DocumentsWriterPerThread<D, P, T, O, IF, Q>>;
+        F: Fn() -> Result<DocumentsWriterPerThread<D, IF, Q>>;
 }

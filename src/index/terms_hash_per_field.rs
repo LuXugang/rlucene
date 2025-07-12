@@ -14,9 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
-use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
-use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
 use crate::index::byte_slice_pool::ByteSlicePool;
 use crate::index::byte_slice_reader::ByteSliceReader;
 use crate::index::field_invert_state::FieldInvertState;
@@ -26,6 +23,7 @@ use crate::index::parallel_postings_array::PostingsArrayEnum;
 use crate::index::term_vectors_consumer_per_field::TermVectorsPostingsArray;
 use crate::util::access::Access;
 use crate::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
+use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_hash::{BytesRefHash, BytesStartArray};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::int_block_pool::{ibp_util, IntBlockPool, IntBlockPoolLock};
@@ -371,27 +369,21 @@ impl TermsHashPerField {
 
 pub(crate) trait TermsHashPerFieldBase {
     /// Called when a term is seen for the first time.
-    fn new_term<O, P, T>(
+    fn new_term(
         &mut self,
         term_id: i32,
         doc_id: i32,
-        state: &mut FieldInvertState<O, P, T>,
-    ) -> Result<()>
-    where
-        O: OffsetAttribute,
-        P: PayloadAttribute,
-        T: TermFrequencyAttribute;
+        state: &mut FieldInvertState,
+        attribute_source: &impl AttributeSource,
+    ) -> Result<()>;
     /// Called when a previously seen term is seen again.
-    fn add_term<O, P, T>(
+    fn add_term(
         &mut self,
         term_id: i32,
         doc_id: i32,
-        state: &mut FieldInvertState<O, P, T>,
-    ) -> Result<()>
-    where
-        O: OffsetAttribute,
-        P: PayloadAttribute,
-        T: TermFrequencyAttribute;
+        state: &mut FieldInvertState,
+        attribute_source: &impl AttributeSource,
+    ) -> Result<()>;
     /// Called when the postings array is initialized or resized.
     /// # Note
     /// In rust Lucene, we do not need to init new postings array
@@ -561,9 +553,6 @@ impl TermsHashPerFieldType {
 #[cfg(test)]
 pub(crate) mod tests {
 
-    use crate::analysis::token_attributes::dummy::dummy_offset_attribute::DummyOffsetAttribute;
-    use crate::analysis::token_attributes::dummy::dummy_payload_attribute::DummyPayloadAttribute;
-    use crate::analysis::token_attributes::dummy::dummy_term_frequency_attribute::DummyTermFrequencyAttribute;
     use parking_lot::Mutex;
     use std::collections::{BTreeMap, HashMap};
 
@@ -587,6 +576,7 @@ pub(crate) mod tests {
     use crate::test::util::lucene_test_case::{new_bytes_ref_from_string, random};
     use crate::test::util::test_util::TestUtil;
     use crate::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
+    use crate::util::attribute_source::EmptyAttributeSource;
     use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::int_block_pool::{AllocatorIntEnum, DirectAllocatorI32};
     use crate::util::{ByteBlockPool, CounterEnum};
@@ -659,76 +649,90 @@ pub(crate) mod tests {
             dummy_value.as_bytes().to_vec(),
         )?);
         let mut base = hash.base.take().unwrap();
-        base.start(&dummy_filed, true, &hash.field_state)?;
+        base.start(&dummy_filed, true)?;
         // Pass `None` for the field as in the Java version (null)
 
+        let attribute_source = EmptyAttributeSource;
         base.add_with_bytes_ref_with_test(
             &new_bytes_ref_from_string(&mut random, "start")?,
             0,
             &mut hash,
+            &attribute_source,
         )?;
         base.add_with_bytes_ref_with_test(
             &new_bytes_ref_from_string(&mut random, "foo")?,
             0,
             &mut hash,
+            &attribute_source,
         )?;
         base.add_with_bytes_ref_with_test(
             &new_bytes_ref_from_string(&mut random, "bar")?,
             0,
             &mut hash,
+            &attribute_source,
         )?;
         // base.finish();
         base.add_with_bytes_ref_with_test(
             &new_bytes_ref_from_string(&mut random, "bar")?,
             1,
             &mut hash,
+            &attribute_source,
         )?;
         base.add_with_bytes_ref_with_test(
             &new_bytes_ref_from_string(&mut random, "foobar")?,
             1,
             &mut hash,
+            &attribute_source,
         )?;
         base.add_with_bytes_ref_with_test(
             &new_bytes_ref_from_string(&mut random, "bar")?,
             1,
             &mut hash,
+            &attribute_source,
         )?;
         base.add_with_bytes_ref_with_test(
             &new_bytes_ref_from_string(&mut random, "bar")?,
             1,
             &mut hash,
+            &attribute_source,
         )?;
         base.add_with_bytes_ref_with_test(
             &new_bytes_ref_from_string(&mut random, "foobar")?,
             1,
             &mut hash,
+            &attribute_source,
         )?;
         base.add_with_bytes_ref_with_test(
             &new_bytes_ref_from_string(&mut random, "verylongfoobarbaz")?,
             1,
             &mut hash,
+            &attribute_source,
         )?;
         // base.finish();
         base.add_with_bytes_ref_with_test(
             &new_bytes_ref_from_string(&mut random, "verylongfoobarbaz")?,
             2,
             &mut hash,
+            &attribute_source,
         )?;
         base.add_with_bytes_ref_with_test(
             &new_bytes_ref_from_string(&mut random, "boom")?,
             2,
             &mut hash,
+            &attribute_source,
         )?;
         // base.finish();
         base.add_with_bytes_ref_with_test(
             &new_bytes_ref_from_string(&mut random, "verylongfoobarbaz")?,
             3,
             &mut hash,
+            &attribute_source,
         )?;
         base.add_with_bytes_ref_with_test(
             &new_bytes_ref_from_string(&mut random, "end")?,
             3,
             &mut hash,
+            &attribute_source,
         )?;
         // base.finish();
 
@@ -840,10 +844,7 @@ pub(crate) mod tests {
             "binary",
             dummy_value.as_bytes().to_vec(),
         )?);
-        hash.base
-            .as_mut()
-            .unwrap()
-            .start(&dummy_filed, true, &hash.field_state)?;
+        hash.base.as_mut().unwrap().start(&dummy_filed, true)?;
 
         #[derive(Clone)]
         struct Posting {
@@ -897,7 +898,7 @@ pub(crate) mod tests {
                     .entry(doc)
                     .and_modify(|v| *v += 1)
                     .or_insert(1);
-                base.add_with_bytes_ref_with_test(ref_, doc, &mut hash)?;
+                base.add_with_bytes_ref_with_test(ref_, doc, &mut hash, &EmptyAttributeSource)?;
             }
             // base.finish();
         }
@@ -940,7 +941,7 @@ pub(crate) mod tests {
     #[test]
     fn test_write_bytes() -> Result<()> {
         let mut random = random();
-
+        let attribute_source = EmptyAttributeSource;
         for _ in 0..100 {
             let new_called = AtomicI64::new(0);
             let add_called = AtomicI64::new(0);
@@ -951,11 +952,12 @@ pub(crate) mod tests {
                 dummy_value.as_bytes().to_vec(),
             )?);
             let mut base = hash.base.take().unwrap();
-            base.start(&dummy_filed, true, &hash.field_state)?;
+            base.start(&dummy_filed, true)?;
             base.add_with_bytes_ref_with_test(
                 &new_bytes_ref_from_string(&mut random, "start")?,
                 0,
                 &mut hash,
+                &attribute_source,
             )?;
 
             let size = random.random_range(50_000..=100_000);
@@ -996,11 +998,7 @@ pub(crate) mod tests {
     }
 
     pub(crate) struct TermsHashPerFieldMock {
-        pub(crate) field_state: FieldInvertState<
-            DummyOffsetAttribute,
-            DummyPayloadAttribute,
-            DummyTermFrequencyAttribute,
-        >,
+        pub(crate) field_state: FieldInvertState,
         new_called: AtomicI64,
         add_called: AtomicI64,
         base: Option<FreqProxTermsWriterPerField>,
@@ -1024,11 +1022,7 @@ pub(crate) mod tests {
                 allocator_term,
             ))));
 
-            let field_state: FieldInvertState<
-                DummyOffsetAttribute,
-                DummyPayloadAttribute,
-                DummyTermFrequencyAttribute,
-            > = FieldInvertState::default();
+            let field_state = FieldInvertState::default();
             let mut field_info = FieldInfo::default();
             field_info.index_options = IndexOptions::DocsAndFreqs;
 

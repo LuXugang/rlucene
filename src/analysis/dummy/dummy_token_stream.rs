@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::analysis::token_stream::TokenStream;
+use crate::util::dummy::dummy_attribute_source::DummyAttributeSource;
 
 #[derive(Debug)]
 pub struct DummyTokenStream;
@@ -33,6 +34,12 @@ impl TokenStream for DummyTokenStream {
     }
 
     fn close(&mut self) -> crate::util::error::lucene_error::Result<()> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    type AttributeSource = DummyAttributeSource;
+
+    fn get_attribute_source(&self) -> &Self::AttributeSource {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

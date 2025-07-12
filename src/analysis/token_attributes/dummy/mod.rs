@@ -16,4 +16,6 @@
  */
 pub mod dummy_offset_attribute;
 pub mod dummy_payload_attribute;
+pub mod dummy_position_increment_attribute;
 pub mod dummy_term_frequency_attribute;
+pub mod dummy_term_to_bytes_ref_attribute;

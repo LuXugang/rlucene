@@ -15,38 +15,32 @@
  * limitations under the License.
  */
 use crate::index::BytesRef;
+use crate::util::attribute_source::AttributeSource;
 use std::borrow::Cow;
 
-pub trait AttributeSource {
-    // OffsetAttribute
+pub struct DummyAttributeSource;
+impl AttributeSource for DummyAttributeSource {
     fn start_offset(&self) -> Option<i32> {
-        None
+        unimplemented!("start_offset() must be implemented if it needs to be used")
     }
 
     fn end_offset(&self) -> Option<i32> {
-        None
+        unimplemented!("start_offset() must be implemented if it needs to be used")
     }
 
-    // PositionIncrementAttribute
     fn get_position_increment(&self) -> Option<i32> {
-        None
+        unimplemented!("start_offset() must be implemented if it needs to be used")
     }
 
-    // PayloadAttribute;
     fn get_payload(&self) -> Option<&BytesRef<Vec<u8>>> {
-        None
+        unimplemented!("start_offset() must be implemented if it needs to be used")
     }
 
-    // TermToBytesRefAttribute;
     fn get_bytes_ref(&mut self) -> Option<Cow<BytesRef<Vec<u8>>>> {
-        None
+        unimplemented!("start_offset() must be implemented if it needs to be used")
     }
 
-    // TermFrequencyAttribute;
     fn get_term_frequency(&self) -> Option<i32> {
-        None
+        unimplemented!("start_offset() must be implemented if it needs to be used")
     }
 }
-
-pub struct EmptyAttributeSource;
-impl AttributeSource for EmptyAttributeSource {}

@@ -32,6 +32,7 @@ use crate::store::{ByteArrayDataInput, DataInput, IndexInput};
 use crate::util::array_util::ArrayUtil;
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
+use crate::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fst_impl::fst::Arc;
 use crate::util::fst_impl::reverse_random_access_reader::ReverseRandomAccessReader;
@@ -591,7 +592,9 @@ where
     I: IndexInput,
     P: PostingsReaderBase,
 {
-    fn attributes(&self) -> Result<&AttributeSource> {
+    type AttributeSource = DummyAttributeSource;
+
+    fn attributes(&self) -> Result<Self::AttributeSource> {
         Err(LuceneError::not_implemented(""))
     }
 
