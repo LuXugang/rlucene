@@ -23,24 +23,28 @@ use crate::analysis::token_attributes::term_to_bytes_ref_attribute::TermToBytesR
 pub trait AttributeSource {
     type OffsetAttribute: OffsetAttribute;
     fn get_offset_attribute(&self) -> &Self::OffsetAttribute {
-        unimplemented!("this method must be implemented if it need to be used")
+        unimplemented!("get_offset_attribute()  must be implemented if it needs to be used")
     }
 
     type PositionIncrementAttribute: PositionIncrementAttribute;
     fn get_position_increment_attribute(&self) -> &Self::PositionIncrementAttribute {
-        unimplemented!("this method must be implemented if it need to be used")
+        unimplemented!(
+            "get_position_increment_attribute() must be implemented if it needs to be used"
+        )
     }
     type PayloadAttribute: PayloadAttribute;
     fn get_payload_attribute(&self) -> &Self::PayloadAttribute {
-        unimplemented!("this method must be implemented if it need to be used")
+        unimplemented!("get_payload_attribute() must be implemented if it needs to be used")
     }
 
     type TermToBytesRefAttribute: TermToBytesRefAttribute;
     fn get_term_to_bytes_ref_attribute(&self) -> &Self::TermToBytesRefAttribute {
-        unimplemented!("this method must be implemented if it need to be used")
+        unimplemented!(
+            "get_term_to_bytes_ref_attribute() must be implemented if it needs to be used"
+        )
     }
     type TermFrequencyAttribute: TermFrequencyAttribute;
     fn get_term_frequency_attribute(&self) -> &Self::TermFrequencyAttribute {
-        unimplemented!("this method must be implemented if it need to be used")
+        unimplemented!("get_term_frequency_attribute() must be implemented if it needs to be used")
     }
 }

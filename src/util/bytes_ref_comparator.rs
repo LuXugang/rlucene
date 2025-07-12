@@ -29,7 +29,7 @@ pub trait BytesRefComparator {
     /// only be called with a value of `i` between `0` (inclusive) and
     /// `compared_bytes_count` (exclusive).
     fn byte_at(&self, _bytes_ref: &BytesRef<Vec<u8>>, _i: i32) -> i32 {
-        unimplemented!("byte_at must be implemented if it need to be used")
+        unimplemented!("byte_at must be implemented if it needs to be used")
     }
     fn compare_with_offset(&self, o1: &BytesRef<Vec<u8>>, o2: &BytesRef<Vec<u8>>, k: i32) -> i32 {
         for i in k..self.compared_bytes_count() {
@@ -44,7 +44,7 @@ pub trait BytesRefComparator {
         0
     }
     fn compared_bytes_count(&self) -> i32 {
-        unimplemented!("compared_bytes_count must be implemented if it need to be used")
+        unimplemented!("compared_bytes_count must be implemented if it needs to be used")
     }
 }
 

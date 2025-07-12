@@ -404,7 +404,7 @@ pub trait MSBRadixSorterBase: Sorter {
     /// accommodate the `-1` case, which differs from Java's default integer
     /// handling.
     fn byte_at(&mut self, _i: i32, _k: i32) -> Result<i32> {
-        unimplemented!("byte_at() must be implemented if it need to be used")
+        unimplemented!("byte_at() must be implemented if it needs to be used")
     }
 
     fn get_fallback_sorter(&mut self, k: i32, length: i32) -> impl Sorter

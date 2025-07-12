@@ -498,25 +498,25 @@ pub trait Decoder {
     /// The minimum number of long blocks to encode in a single iteration, when
     /// using long encoding.
     fn long_block_count(&self) -> i32 {
-        unimplemented!("long_block_count() must be implemented if it need to be used")
+        unimplemented!("long_block_count() must be implemented if it needs to be used")
     }
 
     /// The number of values that can be stored in `long_block_count()` long
     /// blocks.
     fn long_value_count(&self) -> i32 {
-        unimplemented!("long_value_count() must be implemented if it need to be used")
+        unimplemented!("long_value_count() must be implemented if it needs to be used")
     }
 
     /// The minimum number of byte blocks to encode in a single iteration, when
     /// using byte encoding.
     fn byte_block_count(&self) -> i32 {
-        unimplemented!("byte_block_count() must be implemented if it need to be used")
+        unimplemented!("byte_block_count() must be implemented if it needs to be used")
     }
 
     /// The number of values that can be stored in `byte_block_count()` byte
     /// blocks.
     fn byte_value_count(&self) -> i32 {
-        unimplemented!("byte_value_count() must be implemented if it need to be used")
+        unimplemented!("byte_value_count() must be implemented if it needs to be used")
     }
 
     /// Read `iterations * block_count()` blocks from `blocks`, decode them, and
@@ -537,7 +537,7 @@ pub trait Decoder {
         _values_offset: usize,
         _iterations: i32,
     ) {
-        unimplemented!("decode_long_to_long() must be implemented if it need to be used")
+        unimplemented!("decode_long_to_long() must be implemented if it needs to be used")
     }
 
     /// Read `8 * iterations * block_count()` blocks from `blocks`, decode them,
@@ -558,7 +558,7 @@ pub trait Decoder {
         _values_offset: usize,
         _iterations: i32,
     ) {
-        unimplemented!("decode_byte_to_long() must be implemented if it need to be used")
+        unimplemented!("decode_byte_to_long() must be implemented if it needs to be used")
     }
 
     /// Read `iterations * block_count()` blocks from `blocks`, decode them, and
@@ -579,7 +579,7 @@ pub trait Decoder {
         _values_offset: usize,
         _iterations: i32,
     ) {
-        unimplemented!("decode_long_to_int() must be implemented if it need to be used")
+        unimplemented!("decode_long_to_int() must be implemented if it needs to be used")
     }
 
     /// Read `8 * iterations * block_count()` blocks from `blocks`, decode them,
@@ -608,25 +608,25 @@ pub trait Encoder {
     /// The minimum number of long blocks to encode in a single iteration, when
     /// using long encoding.
     fn long_block_count(&self) -> i32 {
-        unimplemented!("long_block_count() must be implemented if it need to be used")
+        unimplemented!("long_block_count() must be implemented if it needs to be used")
     }
 
     /// The number of values that can be stored in `long_block_count()` long
     /// blocks.
     fn long_value_count(&self) -> i32 {
-        unimplemented!("long_value_count() must be implemented if it need to be used")
+        unimplemented!("long_value_count() must be implemented if it needs to be used")
     }
 
     /// The minimum number of byte blocks to encode in a single iteration, when
     /// using byte encoding.
     fn byte_block_count(&self) -> i32 {
-        unimplemented!("byte_block_count() must be implemented if it need to be used")
+        unimplemented!("byte_block_count() must be implemented if it needs to be used")
     }
 
     /// The number of values that can be stored in `byte_block_count()` byte
     /// blocks.
     fn byte_value_count(&self) -> i32 {
-        unimplemented!("byte_value_count() must be implemented if it need to be used")
+        unimplemented!("byte_value_count() must be implemented if it needs to be used")
     }
 
     /// Read `iterations * value_count()` values from `values`, encode them, and
@@ -647,7 +647,7 @@ pub trait Encoder {
         _blocks_offset: usize,
         _iterations: i32,
     ) {
-        unimplemented!("encode_long_to_long() must be implemented if it need to be used")
+        unimplemented!("encode_long_to_long() must be implemented if it needs to be used")
     }
 
     /// Read `iterations * value_count()` values from `values`, encode them, and
@@ -668,7 +668,7 @@ pub trait Encoder {
         _blocks_offset: usize,
         _iterations: i32,
     ) {
-        unimplemented!("encode_long_to_byte() must be implemented if it need to be used")
+        unimplemented!("encode_long_to_byte() must be implemented if it needs to be used")
     }
 
     /// Read `iterations * value_count()` values from `values`, encode them, and
@@ -689,7 +689,7 @@ pub trait Encoder {
         _blocks_offset: usize,
         _iterations: i32,
     ) {
-        unimplemented!("encode_int_to_long() must be implemented if it need to be used")
+        unimplemented!("encode_int_to_long() must be implemented if it needs to be used")
     }
 
     /// Read `iterations * value_count()` values from `values`, encode them, and
@@ -710,7 +710,7 @@ pub trait Encoder {
         _blocks_offset: usize,
         _iterations: i32,
     ) {
-        unimplemented!("encode_int_to_byte() must be implemented if it need to be used")
+        unimplemented!("encode_int_to_byte() must be implemented if it needs to be used")
     }
 }
 
@@ -718,7 +718,7 @@ pub trait Encoder {
 pub trait Reader: Accountable {
     /// Get the value at the given index.
     fn get(&self, _index: i32) -> i64 {
-        unimplemented!("get() must be implemented if it need to be used")
+        unimplemented!("get() must be implemented if it needs to be used")
     }
 
     /// Bulk get: read at least one and at most `len` values starting from
@@ -744,7 +744,7 @@ pub trait Reader: Accountable {
 
     /// Returns the number of values in the reader.
     fn size(&self) -> i32 {
-        unimplemented!("size() must be implemented if it need to be used")
+        unimplemented!("size() must be implemented if it needs to be used")
     }
 }
 /// Run-once iterator interface to decode previously saved PackedInts.
@@ -755,7 +755,7 @@ pub trait ReaderIterator: Display {
     ///
     /// Returns an error if there is an issue decoding the next value.
     fn next(&mut self) -> Result<i64> {
-        unimplemented!("next() must be implemented if it need to be used")
+        unimplemented!("next() must be implemented if it needs to be used")
     }
 
     /// Returns at least 1 and at most `count` next values.
@@ -773,12 +773,12 @@ pub trait ReaderIterator: Display {
 
     /// Returns the number of bits per value.
     fn get_bits_per_value(&self) -> i32 {
-        unimplemented!("get_bits_per_value() must be implemented if it need to be used")
+        unimplemented!("get_bits_per_value() must be implemented if it needs to be used")
     }
 
     /// Returns the total number of values.
     fn size(&self) -> i32 {
-        unimplemented!("size() must be implemented if it need to be used")
+        unimplemented!("size() must be implemented if it needs to be used")
     }
 
     /// Returns the current position.
@@ -858,7 +858,7 @@ pub trait Mutable: Reader + Display {
     /// #values` as implementations are free to use non-space-optimal
     /// packing of bits.
     fn get_bits_per_value(&self) -> i32 {
-        unimplemented!("get_bits_per_value() must be implemented if it need to be used")
+        unimplemented!("get_bits_per_value() must be implemented if it needs to be used")
     }
 
     /// Sets the value at the given index in the array.
@@ -869,7 +869,7 @@ pub trait Mutable: Reader + Display {
     /// * `value` - The value to be stored, which must conform to the
     ///   constraints of the array.
     fn set(&mut self, _index: i32, _value: i64) {
-        unimplemented!("set() must be implemented if it need to be used")
+        unimplemented!("set() must be implemented if it needs to be used")
     }
     /// Sets a range of values in the array.
     ///

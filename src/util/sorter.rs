@@ -37,14 +37,14 @@ pub trait Sorter {
     /// Compare entries found in slots i and j
     fn compare(&mut self, _i: i32, _j: i32) -> Result<i32> {
         Err(LuceneError::illegal_state(
-            "compare() must be implemented if it need to be used",
+            "compare() must be implemented if it needs to be used",
         ))
     }
 
     /// Swap values at slots <code>i</code> and `j`.
     fn swap(&mut self, _i: i32, _j: i32) -> Result<()> {
         Err(LuceneError::illegal_state(
-            "swap() must be implemented if it need to be used",
+            "swap() must be implemented if it needs to be used",
         ))
     }
 
@@ -52,7 +52,7 @@ pub trait Sorter {
     /// `comparePivot(i32)`.
     fn set_pivot(&mut self, _i: i32) -> Result<()> {
         Err(LuceneError::illegal_state(
-            "set_pivot() must be implemented if it need to be used",
+            "set_pivot() must be implemented if it needs to be used",
         ))
     }
 
@@ -60,7 +60,7 @@ pub trait Sorter {
     /// compare(i, j).
     fn compare_pivot(&mut self, _i: i32) -> Result<i32> {
         Err(LuceneError::illegal_state(
-            "compare_pivot() must be implemented if it need to be used",
+            "compare_pivot() must be implemented if it needs to be used",
         ))
     }
 
@@ -68,7 +68,7 @@ pub trait Sorter {
     /// (exclusive).
     fn sort(&mut self, _from: i32, _to: i32) -> Result<()> {
         Err(LuceneError::illegal_state(
-            "sort() must be implemented if it need to be used",
+            "sort() must be implemented if it needs to be used",
         ))
     }
 
