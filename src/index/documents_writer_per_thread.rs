@@ -21,7 +21,6 @@ use crate::analysis::token_stream::TokenStream;
 use crate::codecs::live_docs_format::LiveDocsFormat;
 use crate::codecs::segment_info_format::SegmentInfoFormat;
 use crate::codecs::{Codec, LATEST_CODEC};
-use crate::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::index::approximate_priority_queue::IdentityId;
 use crate::index::buffered_updates::{BufferedUpdates, MTBufferedUpdates};
 use crate::index::documents_writer::FlushNotifications;
@@ -30,6 +29,7 @@ use crate::index::field_infos::build::Builder;
 use crate::index::field_infos::FieldInfos;
 use crate::index::frozen_buffered_updates::FrozenBufferedUpdates;
 use crate::index::index_writer::index_writer_util;
+use crate::index::indexable_field::IndexableField;
 use crate::index::indexing_chain::IndexingChain;
 use crate::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::index::lockable_concurrent_approximate_priority_queue::Lock;
@@ -61,17 +61,17 @@ use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
 use std::sync::Arc;
 
-pub(crate) struct DocumentsWriterPerThread<D, P, T, O, TS, Q>
+pub(crate) struct DocumentsWriterPerThread<D, P, T, O, IF, Q>
 where
     D: Directory,
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
-    TS: TokenStream,
+    IF: IndexableField,
     Q: Query,
 {
     pub(crate) directory: Arc<Mutex<TrackingDirectoryWrapper<D>>>,
-    indexing_chain: IndexingChain<TrackingDirectoryWrapper<D>, O, P, T, TS>,
+    indexing_chain: IndexingChain<TrackingDirectoryWrapper<D>, O, P, T, IF>,
     pending_updates: MTBufferedUpdates<Q>,
     segment_info: SegmentInfo<D>,
     aborted: bool,
@@ -93,13 +93,13 @@ where
     lock: AtomicBool,
     id: String,
 }
-impl<D, P, T, O, TS, Q> DocumentsWriterPerThread<D, P, T, O, TS, Q>
+impl<D, P, T, O, IF, Q> DocumentsWriterPerThread<D, P, T, O, IF, Q>
 where
     D: Directory,
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
-    TS: TokenStream,
+    IF: IndexableField,
     Q: Query,
 {
     fn on_aborting_exception(&mut self, throwable: LuceneError) {
@@ -182,7 +182,7 @@ where
             );
         }
 
-        let mut indexing_chain = IndexingChain::new(
+        let indexing_chain = IndexingChain::new(
             index_major_version_created,
             &segment_info,
             directory_wrapped.clone(),
@@ -190,9 +190,9 @@ where
         );
 
         // TODO: 应该在updateDocuments期间调用
-        let parent_field = index_writer_config
-            .get_parent_field()
-            .map(|pf| indexing_chain.mark_as_reserved(NumericDocValuesField::new(pf, -1)));
+        // let parent_field = index_writer_config
+        //     .get_parent_field()
+        //     .map(|pf| indexing_chain.mark_as_reserved(NumericDocValuesField::new(pf, -1)));
 
         Ok(DocumentsWriterPerThread {
             directory: directory_wrapped,
@@ -776,13 +776,13 @@ where
         self.has_flushed.get().unwrap_or(&true)
     }
 }
-impl<D, P, T, O, TS, Q> IdentityId for DocumentsWriterPerThread<D, P, T, O, TS, Q>
+impl<D, P, T, O, IF, Q> IdentityId for DocumentsWriterPerThread<D, P, T, O, IF, Q>
 where
     D: Directory,
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
-    TS: TokenStream,
+    IF: IndexableField,
 
     Q: Query,
 {
@@ -790,13 +790,13 @@ where
         &self.id
     }
 }
-impl<D, P, T, O, TS, Q> Accountable for DocumentsWriterPerThread<D, P, T, O, TS, Q>
+impl<D, P, T, O, IF, Q> Accountable for DocumentsWriterPerThread<D, P, T, O, IF, Q>
 where
     D: Directory,
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
-    TS: TokenStream,
+    IF: IndexableField,
 
     Q: Query,
 {
@@ -812,13 +812,13 @@ where
         todo!()
     }
 }
-impl<D, P, T, O, TS, Q> Display for DocumentsWriterPerThread<D, P, T, O, TS, Q>
+impl<D, P, T, O, IF, Q> Display for DocumentsWriterPerThread<D, P, T, O, IF, Q>
 where
     D: Directory,
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
-    TS: TokenStream,
+    IF: IndexableField,
 
     Q: Query,
 {
@@ -835,13 +835,13 @@ where
         )
     }
 }
-impl<D, P, T, O, TS, Q> Lock for DocumentsWriterPerThread<D, P, T, O, TS, Q>
+impl<D, P, T, O, IF, Q> Lock for DocumentsWriterPerThread<D, P, T, O, IF, Q>
 where
     D: Directory,
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
-    TS: TokenStream,
+    IF: IndexableField,
 
     Q: Query,
 {

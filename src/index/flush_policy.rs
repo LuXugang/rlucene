@@ -17,23 +17,23 @@
 use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
 use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
 use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
-use crate::analysis::token_stream::TokenStream;
 use crate::index::documents_writer_flush_control::DocumentsWriterFlushControl;
 use crate::index::documents_writer_per_thread::DocumentsWriterPerThread;
+use crate::index::indexable_field::IndexableField;
 use crate::search::query::Query;
 use crate::store::directory::Directory;
 use crate::util::error::lucene_error::Result;
 
 pub(crate) trait FlushPolicy {
-    fn on_change<D, P, T, O, TS, Q, F>(
+    fn on_change<D, P, T, O, IF, Q, F>(
         &self,
-        control: DocumentsWriterFlushControl<D, P, T, O, TS, Q, F>,
+        control: DocumentsWriterFlushControl<D, P, T, O, IF, Q, F>,
     ) where
         D: Directory,
         O: OffsetAttribute,
         P: PayloadAttribute,
         T: TermFrequencyAttribute,
-        TS: TokenStream,
+        IF: IndexableField,
         Q: Query,
-        F: Fn() -> Result<DocumentsWriterPerThread<D, P, T, O, TS, Q>>;
+        F: Fn() -> Result<DocumentsWriterPerThread<D, P, T, O, IF, Q>>;
 }

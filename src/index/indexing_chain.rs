@@ -110,13 +110,13 @@ use std::sync::Arc;
 use std::time::Instant;
 
 /// Default general purpose indexing chain, which handles indexing all types of fields.
-pub(crate) struct IndexingChain<D, O, P, T, TS>
+pub(crate) struct IndexingChain<D, O, P, T, IF>
 where
     D: Directory,
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
-    TS: TokenStream,
+    IF: IndexableField,
 {
     bytes_used: CounterEnumLock,
     terms_hash: FreqProxTermsWriter<D>,
@@ -127,19 +127,19 @@ where
     total_field_count: usize,
     next_field_gen: i64,
     fields: Vec<i32>,
-    doc_fields: Vec<Option<PerField<O, P, T, TS>>>,
+    doc_fields: Vec<Option<PerField<O, P, T, IF>>>,
     info_stream: InfoStreamLock,
     byte_block_allocator: MTAllocatorByteEnum,
     index_created_version_major: i32,
     has_hit_aborting_exception: bool,
 }
-impl<D, O, P, T, TS> IndexingChain<D, O, P, T, TS>
+impl<D, O, P, T, IF> IndexingChain<D, O, P, T, IF>
 where
     D: Directory,
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
-    TS: TokenStream,
+    IF: IndexableField,
 {
     pub(crate) fn new<D1>(
         index_created_version_major: i32,
@@ -627,17 +627,14 @@ where
                 self.has_hit_aborting_exception = true;
             })
     }
-    pub(crate) fn process_document<F>(
+    pub(crate) fn process_document(
         &mut self,
         doc_id: i32,
-        document: &mut [F],
+        document: &mut [IF],
         info: &mut SegmentInfo<D>,
         field_infos: &mut Builder,
         index_writer_config: &impl LiveIndexWriterConfig,
-    ) -> Result<()>
-    where
-        F: IndexableField<TokenStream = TS>,
-    {
+    ) -> Result<()> {
         // number of unique fields by names (collapses multiple field instances by the same name)
         let mut field_count = 0;
         // number of unique fields indexed with postings
@@ -859,16 +856,13 @@ where
         Ok(())
     }
 
-    fn process_field<F>(
+    fn process_field(
         &mut self,
         doc_id: i32,
-        field: &F,
+        field: &IF,
         per_field_index: i32,
         index_writer_config: &impl LiveIndexWriterConfig,
-    ) -> Result<bool>
-    where
-        F: IndexableField<TokenStream = TS>,
-    {
+    ) -> Result<bool> {
         let pf = self.doc_fields[per_field_index as usize].as_mut().unwrap();
         let field_type = field.field_type();
         let mut indexed_field = false;
@@ -971,13 +965,13 @@ where
         per_field_index
     }
     // update schema for field as seen in a particular document
-    fn update_doc_field_schema<IF>(
+    fn update_doc_field_schema<IFT>(
         field_name: &str,
         schema: &mut FieldSchema,
-        field_type: &IF,
+        field_type: &IFT,
     ) -> Result<()>
     where
-        IF: IndexableFieldType,
+        IFT: IndexableFieldType,
     {
         if *field_type.index_options() != IndexOptions::None {
             schema.set_index_options(
@@ -1085,15 +1079,12 @@ where
         Ok(())
     }
 
-    pub fn index_doc_value<F>(
+    pub fn index_doc_value(
         doc_id: i32,
-        fp: &mut PerField<O, P, T, TS>,
+        fp: &mut PerField<O, P, T, IF>,
         dv_type: DocValuesType,
-        field: &F,
-    ) -> Result<()>
-    where
-        F: IndexableField,
-    {
+        field: &IF,
+    ) -> Result<()> {
         match fp.doc_values_writer.as_mut() {
             Some(DocValuesWriterEnum::Numeric(writer)) => {
                 debug_assert_eq!(dv_type, DocValuesType::Numeric);
@@ -1197,10 +1188,7 @@ where
         }
         None
     }
-    pub(crate) fn mark_as_reserved<IF>(&mut self, field: IF) -> ReservedField<IF>
-    where
-        IF: IndexableField,
-    {
+    pub(crate) fn mark_as_reserved(&mut self, field: IF) -> ReservedField<IF> {
         self.get_or_add_per_field(field.name(), true);
         ReservedField::new(field)
     }
@@ -1220,13 +1208,13 @@ where
         Ok(None)
     }
 }
-impl<D, O, P, T, TS> Accountable for IndexingChain<D, O, P, T, TS>
+impl<D, O, P, T, IF> Accountable for IndexingChain<D, O, P, T, IF>
 where
     D: Directory,
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
-    TS: TokenStream,
+    IF: IndexableField,
 {
     fn ram_bytes_used(&self) -> Result<i64> {
         // TODO: memory calculation not implemented
@@ -1234,12 +1222,12 @@ where
     }
 }
 
-pub(crate) struct PerField<O, P, T, TS>
+pub(crate) struct PerField<O, P, T, IF>
 where
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
-    TS: TokenStream,
+    IF: IndexableField,
 {
     pub(crate) field_name: String,
     pub(crate) index_created_version_major: i32,
@@ -1254,15 +1242,15 @@ where
     pub(crate) field_gen: i64,
     pub(crate) next: i32,
     pub(crate) norms: Option<NormValuesWriter>,
-    pub(crate) token_stream: Option<TS>,
+    pub(crate) token_stream: Option<IF::TokenStream>,
     pub(crate) first: bool,
 }
-impl<O, P, T, TS> PerField<O, P, T, TS>
+impl<O, P, T, IF> PerField<O, P, T, IF>
 where
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
-    TS: TokenStream,
+    IF: IndexableField,
 {
     pub(crate) fn new(
         field_name: impl Into<String>,
@@ -1368,15 +1356,14 @@ where
     }
     /// Inverts one field for one document; first is true if this is the first time we are seeing
     /// this field name in this document.
-    pub(crate) fn invert<F, A>(
+    pub(crate) fn invert<A>(
         &mut self,
         doc_id: i32,
-        field: &F,
+        field: &IF,
         first: bool,
         analyzer: &A,
     ) -> Result<()>
     where
-        F: IndexableField<TokenStream = TS>,
         A: Analyzer,
     {
         debug_assert!(
@@ -1407,16 +1394,15 @@ where
 
         Ok(())
     }
-    fn invert_token_stream<A, F>(
+    fn invert_token_stream<A>(
         &mut self,
         doc_id: i32,
-        field: &F,
+        field: &IF,
         first: bool,
         analyzer: &A,
     ) -> Result<()>
     where
         A: Analyzer,
-        F: IndexableField<TokenStream = TS>,
     {
         let analyzed = field.field_type().tokenized();
         /*
@@ -1637,47 +1623,47 @@ where
     }
 }
 
-impl<O, P, T, TS> PartialEq for PerField<O, P, T, TS>
+impl<O, P, T, IF> PartialEq for PerField<O, P, T, IF>
 where
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 
-    TS: TokenStream,
+    IF: IndexableField,
 {
     fn eq(&self, other: &Self) -> bool {
         self.field_name == other.field_name
     }
 }
-impl<O, P, T, TS> Eq for PerField<O, P, T, TS>
+impl<O, P, T, IF> Eq for PerField<O, P, T, IF>
 where
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 
-    TS: TokenStream,
+    IF: IndexableField,
 {
 }
 
-impl<O, P, T, TS> PartialOrd for PerField<O, P, T, TS>
+impl<O, P, T, IF> PartialOrd for PerField<O, P, T, IF>
 where
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 
-    TS: TokenStream,
+    IF: IndexableField,
 {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.field_name.cmp(&other.field_name))
     }
 }
-impl<O, P, T, TS> Ord for PerField<O, P, T, TS>
+impl<O, P, T, IF> Ord for PerField<O, P, T, IF>
 where
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
 
-    TS: TokenStream,
+    IF: IndexableField,
 {
     fn cmp(&self, other: &Self) -> Ordering {
         self.field_name.cmp(&other.field_name)
@@ -1951,37 +1937,37 @@ impl FieldSchema {
     }
 }
 
-struct DocValuesLeafReaderImpl1<'a, D, O, P, T, TS>
+struct DocValuesLeafReaderImpl1<'a, D, O, P, T, IF>
 where
     D: Directory,
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
-    TS: TokenStream,
+    IF: IndexableField,
 {
-    index_chain: &'a mut IndexingChain<D, O, P, T, TS>,
+    index_chain: &'a mut IndexingChain<D, O, P, T, IF>,
     base: DocValuesLeafReader,
 }
-impl<'a, D, O, P, T, TS> DocValuesLeafReaderImpl1<'a, D, O, P, T, TS>
+impl<'a, D, O, P, T, IF> DocValuesLeafReaderImpl1<'a, D, O, P, T, IF>
 where
     D: Directory,
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
-    TS: TokenStream,
+    IF: IndexableField,
 {
-    fn new(index_chain: &'a mut IndexingChain<D, O, P, T, TS>) -> Self {
+    fn new(index_chain: &'a mut IndexingChain<D, O, P, T, IF>) -> Self {
         let base = DocValuesLeafReader;
         DocValuesLeafReaderImpl1 { index_chain, base }
     }
 }
-impl<'a, D, O, P, T, TS> LeafReader for DocValuesLeafReaderImpl1<'a, D, O, P, T, TS>
+impl<'a, D, O, P, T, IF> LeafReader for DocValuesLeafReaderImpl1<'a, D, O, P, T, IF>
 where
     D: Directory,
     O: OffsetAttribute,
     P: PayloadAttribute,
     T: TermFrequencyAttribute,
-    TS: TokenStream,
+    IF: IndexableField,
 {
     type NumericDocValues = BufferedNumericDocValues;
 
