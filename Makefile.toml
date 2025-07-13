@@ -46,7 +46,7 @@ script = [
         if stdout.trim().is_empty() {
             println!("✅ ✅ ✅ Working directory clean. All changes committed.");
         } else {
-            eprintln!("❌ ❌ ❌ Uncommitted changes detected. Please commit your work first.");
+            eprintln!("❌ ❌ ❌ Uncommitted changes detected after code Check. Please commit your work first.");
             eprintln!("{}", stdout);
             std::process::exit(1);
         }
