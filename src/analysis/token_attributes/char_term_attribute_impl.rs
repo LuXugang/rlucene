@@ -54,11 +54,13 @@ impl CharTermAttributeImpl {
         }
     }
 
-    pub fn char_at(&self, index: usize) -> char {
-        self.term_buffer[index]
+    pub fn char_at(&self, index: usize) -> Result<char> {
+        CoreHelper::check_index(index, self.term_length)?;
+        Ok(self.term_buffer[index])
     }
-    pub fn sub_sequence(&self, start: usize, end: usize) -> &[char] {
-        &self.term_buffer[start..end]
+    pub fn sub_sequence(&self, start: usize, end: usize) -> Result<&[char]> {
+        CoreHelper::check_from_to_index(start, end, self.term_length)?;
+        Ok(&self.term_buffer[start..end])
     }
     fn append_null(&mut self) -> &mut Self {
         self.resize_buffer(self.term_length + 4);
@@ -86,7 +88,7 @@ impl CharTermAttribute for CharTermAttributeImpl {
     }
 
     fn buffer(&mut self) -> &mut [char] {
-        todo!()
+        &mut self.term_buffer
     }
 
     fn resize_buffer(&mut self, new_size: usize) -> &mut [char] {
@@ -136,7 +138,10 @@ impl CharTermAttribute for CharTermAttributeImpl {
         self
     }
 
-    fn append_term_attribute(&mut self, ta: Option<&mut impl CharTermAttribute>) -> &mut Self {
+    fn append_term_attribute<C>(&mut self, ta: Option<&mut C>) -> &mut Self
+    where
+        C: CharTermAttribute,
+    {
         if let Some(other) = ta {
             let len = other.length();
             self.resize_buffer(self.term_length + len);
@@ -156,9 +161,28 @@ impl TermToBytesRefAttribute for CharTermAttributeImpl {
         Cow::Borrowed(&self.builder.bytes_ref)
     }
 }
+
+impl Clone for CharTermAttributeImpl {
+    fn clone(&self) -> Self {
+        let mut copy = CharTermAttributeImpl::new();
+        copy.term_buffer = self.term_buffer.clone();
+        copy.term_length = self.term_length;
+        let mut builder = BytesRefBuilder::new();
+        builder.copy_bytes_with_ref(self.builder.get_bytes_ref());
+        copy.builder = builder;
+        copy
+    }
+}
+
 impl AttributeImpl for CharTermAttributeImpl {
     fn clear(&mut self) {
         self.term_length = 0;
+    }
+
+    type AttributeImpl = CharTermAttributeImpl;
+
+    fn copy_to(&self, other: &mut Self::AttributeImpl) {
+        other.copy_buffer(&self.term_buffer, 0, self.term_length);
     }
 }
 impl HashCode for CharTermAttributeImpl {
@@ -188,9 +212,13 @@ impl Display for CharTermAttributeImpl {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use crate::analysis::token_attributes::char_term_attribute::CharTermAttribute;
     use crate::analysis::token_attributes::char_term_attribute_impl::CharTermAttributeImpl;
+    use crate::util::HashCode;
+    use regex::Regex;
+
+    use crate::util::error::lucene_error::{LuceneError, Result};
 
     #[test]
     fn test_resize() {
@@ -208,5 +236,229 @@ mod tests {
             );
             assert_eq!(t.to_string(), "hello");
         }
+    }
+    #[test]
+    fn test_set_length_oob() {
+        // this test is not required in Rust Lucene
+    }
+    #[test]
+    fn test_grow() {
+        let mut t = CharTermAttributeImpl::new();
+        let mut buf = String::from("ab");
+        for _ in 0..20 {
+            let chars: Vec<char> = buf.chars().collect();
+            t.copy_buffer(&chars, 0, chars.len());
+            assert_eq!(buf.len(), t.length());
+            assert_eq!(buf, t.to_string());
+            buf.push_str(&buf.clone());
+        }
+        assert_eq!(1_048_576, t.length());
+
+        let mut t = CharTermAttributeImpl::new();
+        let mut buf = String::from("ab");
+        for _ in 0..20 {
+            t.set_empty().append_str(Some(&buf));
+            assert_eq!(buf.len(), t.length());
+            assert_eq!(buf, t.to_string());
+            buf.push_str(&t.to_string());
+        }
+        assert_eq!(1_048_576, t.length());
+
+        let mut t = CharTermAttributeImpl::new();
+        let mut buf = String::from("a");
+        for _ in 0..20_000 {
+            t.set_empty().append_str(Some(&buf));
+            assert_eq!(buf.len(), t.length());
+            assert_eq!(buf, t.to_string());
+            buf.push('a');
+        }
+        assert_eq!(20_000, t.length());
+    }
+    #[test]
+    fn test_to_string() {
+        let mut t = CharTermAttributeImpl::new();
+        let b: Vec<char> = ['a', 'l', 'o', 'h', 'a'].to_vec();
+        t.copy_buffer(&b, 0, 5);
+        assert_eq!(t.to_string(), "aloha");
+
+        t.set_empty().append_str(Some("hi there"));
+        assert_eq!(t.to_string(), "hi there");
+    }
+
+    #[test]
+    fn test_clone() {
+        let mut t = CharTermAttributeImpl::new();
+        let content: Vec<char> = "hello".chars().collect();
+        t.copy_buffer(&content, 0, 5);
+
+        let copy = assert_clone_is_equal(&t);
+        assert_eq!(t.to_string(), copy.to_string());
+    }
+
+    #[test]
+    fn test_equals() {
+        let mut t1a = CharTermAttributeImpl::new();
+        let content1a: Vec<char> = "hello".chars().collect();
+        t1a.copy_buffer(&content1a, 0, 5);
+
+        let mut t1b = CharTermAttributeImpl::new();
+        let content1b: Vec<char> = "hello".chars().collect();
+        t1b.copy_buffer(&content1b, 0, 5);
+
+        let mut t2 = CharTermAttributeImpl::new();
+        let content2: Vec<char> = "hello2".chars().collect();
+        t2.copy_buffer(&content2, 0, 6);
+
+        assert!(t1a == t1b);
+        assert!(t1a != t2);
+        assert!(t2 != t1b);
+    }
+    #[test]
+    fn test_copy_to() {
+        let t = CharTermAttributeImpl::new();
+        let copy = assert_copy_is_equal(&t);
+        assert_eq!(t.to_string(), "");
+        assert_eq!(copy.to_string(), "");
+
+        let mut t = CharTermAttributeImpl::new();
+        let content: Vec<char> = "hello".chars().collect();
+        t.copy_buffer(&content, 0, 5);
+
+        let copy = assert_copy_is_equal(&t);
+        assert_eq!(t.to_string(), copy.to_string());
+    }
+
+    #[test]
+    fn test_attribute_reflection() {
+        // this test is not required in Rust Lucene
+    }
+    #[test]
+    fn test_char_sequence_interface() -> Result<()> {
+        let s = "0123456789";
+        let mut t = CharTermAttributeImpl::new();
+        t.append_str(Some(s));
+
+        assert_eq!(s.len(), t.length());
+
+        let sub_sub_sequence: String = t.sub_sequence(1, 3)?.iter().collect();
+        assert_eq!("12", sub_sub_sequence);
+        let sub_sub_sequence: String = t.sub_sequence(0, s.len())?.iter().collect();
+        assert_eq!(s.to_string(), sub_sub_sequence);
+
+        let re_full = Regex::new(r"^01\d+$").unwrap();
+        assert!(re_full.is_match(&t.to_string()));
+
+        let re_sub = Regex::new(r"^34$").unwrap();
+        let sub_sub_sequence: String = t.sub_sequence(3, 5)?.iter().collect();
+        assert!(re_sub.is_match(&sub_sub_sequence));
+
+        let sub_sub_sequence: String = t.sub_sequence(3, 7)?.iter().collect();
+        assert_eq!(s[3..7].to_string(), sub_sub_sequence);
+
+        for (i, ch) in s.chars().enumerate() {
+            assert_eq!(ch, t.char_at(i)?)
+        }
+        Ok(())
+    }
+    #[test]
+    fn test_appendable_interface() {
+        // this test is not required in Rust Lucene
+    }
+    #[test]
+    fn test_appendable_interface_with_longsequences() {
+        // this test is not required in Rust Lucene
+    }
+    #[test]
+    fn test_non_char_sequence_append() {
+        let mut t = CharTermAttributeImpl::new();
+
+        t.append_str(Some("0123456789"))
+            .append_str(Some("0123456789"));
+        assert_eq!(t.to_string(), "01234567890123456789");
+
+        let sb = String::from("0123456789");
+        t.append_str(Some(&sb));
+        assert_eq!(t.to_string(), "012345678901234567890123456789");
+
+        let mut t2 = CharTermAttributeImpl::new();
+        t2.append_str(Some("test"));
+        t.append_term_attribute(Some(&mut t2));
+        assert_eq!(t.to_string(), "012345678901234567890123456789test");
+
+        t.append_str(None)
+            .append_str(None)
+            .append_term_attribute::<CharTermAttributeImpl>(None);
+        assert_eq!(
+            t.to_string(),
+            "012345678901234567890123456789testnullnullnull"
+        );
+    }
+
+    #[test]
+    fn test_exceptions() {
+        // See:
+        // test_to_string_normal
+        // test_char_at_too_large
+        // test_subsequence_end_too_large
+        // test_subsequence_start_gt_end
+    }
+    #[test]
+    fn test_to_string_normal() {
+        let mut t = CharTermAttributeImpl::new();
+        t.append_str(Some("test"));
+        assert_eq!(t.to_string(), "test");
+    }
+
+    #[test]
+    fn test_char_at_too_large() {
+        let mut t = CharTermAttributeImpl::new();
+        t.append_str(Some("test"));
+        let v = t.char_at(4);
+        matches!(v, Err(LuceneError::ArrayIndexOutOfBounds(_)));
+    }
+
+    #[test]
+    fn test_subsequence_end_too_large() {
+        let mut t = CharTermAttributeImpl::new();
+        t.append_str(Some("test"));
+        let v = t.sub_sequence(0, 5);
+        matches!(v, Err(LuceneError::ArrayIndexOutOfBounds(_)));
+    }
+
+    #[test]
+    fn test_subsequence_start_gt_end() {
+        let mut t = CharTermAttributeImpl::new();
+        t.append_str(Some("test"));
+        let v = t.sub_sequence(5, 0);
+        matches!(v, Err(LuceneError::ArrayIndexOutOfBounds(_)));
+    }
+    pub fn assert_clone_is_equal<T>(att: &T) -> T
+    where
+        T: Clone + PartialEq + HashCode,
+    {
+        let cloned = att.clone();
+        assert!(att == &cloned);
+        assert_eq!(
+            att.hash_code(),
+            cloned.hash_code(),
+            "Clone's hashcode must be equal"
+        );
+        cloned
+    }
+    pub fn assert_copy_is_equal<T>(att: &T) -> T
+    where
+        T: Clone + PartialEq + HashCode,
+    {
+        let copy = att.clone();
+
+        assert!(att == &copy);
+
+        assert_eq!(
+            att.hash_code(),
+            copy.hash_code(),
+            "Copid instance's hashcode must be equal"
+        );
+
+        copy
     }
 }

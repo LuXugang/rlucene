@@ -90,6 +90,7 @@ pub trait CharTermAttribute: Attribute {
     /// # Returns
     ///
     /// `self` for chaining.
-    fn append_term_attribute(&mut self, term_att: Option<&mut impl CharTermAttribute>)
-        -> &mut Self;
+    fn append_term_attribute<C>(&mut self, term_att: Option<&mut C>) -> &mut Self
+    where
+        C: CharTermAttribute;
 }

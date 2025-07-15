@@ -16,10 +16,12 @@
  */
 use crate::util::attribute::Attribute;
 
-pub trait AttributeImpl: Attribute {
+pub trait AttributeImpl: Attribute + Clone {
     fn clear(&mut self);
 
     fn end(&mut self) {
         self.clear()
     }
+    type AttributeImpl: AttributeImpl;
+    fn copy_to(&self, other: &mut Self::AttributeImpl);
 }

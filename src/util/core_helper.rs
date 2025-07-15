@@ -40,6 +40,22 @@ impl CoreHelper {
             Ok(from_index)
         }
     }
+    pub fn check_from_to_index(from_index: usize, to_index: usize, length: usize) -> Result<usize> {
+        if from_index > to_index || to_index > length {
+            return Err(LuceneError::array_index_out_of_bounds(format!(
+                "index out of bounds: from_index={from_index} to_index={to_index} length={length}"
+            )));
+        }
+        Ok(from_index)
+    }
+    pub fn check_index(index: usize, length: usize) -> Result<usize> {
+        if index >= length {
+            return Err(LuceneError::array_index_out_of_bounds(format!(
+                "index out of bounds: index={index} length={length}"
+            )));
+        }
+        Ok(index)
+    }
     pub fn miss_match<T: PartialEq>(a: &[T], b: &[T]) -> i32 {
         let miss_match = a.iter().zip(b.iter()).position(|(x, y)| x != y);
         match miss_match {
