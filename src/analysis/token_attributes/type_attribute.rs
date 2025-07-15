@@ -18,9 +18,6 @@ use crate::util::attribute::Attribute;
 
 /// A Token’s lexical type. The default value is `"word"`.
 pub trait TypeAttribute: Attribute {
-    /// The default type.
-    const DEFAULT_TYPE: &'static str = "word";
-
     /// Returns this Token’s lexical type. Defaults to `"word"`.
     ///
     /// # See
@@ -33,5 +30,9 @@ pub trait TypeAttribute: Attribute {
     /// # See
     ///
     /// [`type`](TypeAttribute::type_value)
-    fn set_type(&mut self, type_: String);
+    fn set_type(&mut self, type_: &str);
+}
+pub mod ta_util {
+    /// The default type.
+    pub const DEFAULT_TYPE: &str = "word";
 }

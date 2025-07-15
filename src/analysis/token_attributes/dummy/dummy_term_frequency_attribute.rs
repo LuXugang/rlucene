@@ -16,13 +16,14 @@
  */
 use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
 use crate::util::attribute::Attribute;
+use crate::util::error::lucene_error::Result;
 
 pub struct DummyTermFrequencyAttribute;
 
 impl Attribute for DummyTermFrequencyAttribute {}
 
 impl TermFrequencyAttribute for DummyTermFrequencyAttribute {
-    fn set_term_frequency(&mut self, _term_frequency: i32) {
+    fn set_term_frequency(&mut self, _term_frequency: i32) -> Result<()> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

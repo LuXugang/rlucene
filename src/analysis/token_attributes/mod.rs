@@ -15,10 +15,11 @@
  * limitations under the License.
  */
 pub mod char_term_attribute;
-mod char_term_attribute_impl;
+pub mod char_term_attribute_impl;
 pub mod dummy;
 pub mod flags_attribute;
 pub mod offset_attribute;
+pub mod packed_token_attribute_impl;
 pub mod payload_attribute;
 pub mod position_increment_attribute;
 pub mod position_length_attribute;

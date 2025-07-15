@@ -21,9 +21,10 @@ use crate::util::array_util::ArrayUtil;
 use crate::util::attribute::Attribute;
 use crate::util::attribute_impl::AttributeImpl;
 use crate::util::error::lucene_error::Result;
-use crate::util::{CoreHelper, HashCode, SliceCopyOps};
+use crate::util::{CoreHelper, SliceCopyOps};
 use std::borrow::Cow;
 use std::fmt::Display;
+use std::hash::Hash;
 
 /// Default implementation of [`CharTermAttribute`].
 pub struct CharTermAttributeImpl {
@@ -32,6 +33,12 @@ pub struct CharTermAttributeImpl {
     /// May be used by subclasses to convert to different charsets / encodings for implementing [`get_bytes_ref`](Self::get_bytes_ref).
     pub(crate) builder: BytesRefBuilder<Vec<u8>>,
 }
+impl Default for CharTermAttributeImpl {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CharTermAttributeImpl {
     const MIN_BUFFER_SIZE: usize = 10;
 
@@ -181,19 +188,14 @@ impl AttributeImpl for CharTermAttributeImpl {
 
     type AttributeImpl = CharTermAttributeImpl;
 
-    fn copy_to(&self, other: &mut Self::AttributeImpl) {
+    fn copy_to(&mut self, other: &mut Self::AttributeImpl) {
         other.copy_buffer(&self.term_buffer, 0, self.term_length);
     }
 }
-impl HashCode for CharTermAttributeImpl {
-    fn hash_code(&self) -> i32 {
-        let mut code = self.term_length as i32;
-        code = code.wrapping_mul(31).wrapping_add(ArrayUtil::hash_code(
-            &self.term_buffer,
-            0,
-            self.term_length,
-        ));
-        code
+impl Hash for CharTermAttributeImpl {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.term_length.hash(state);
+        self.term_buffer.hash(state);
     }
 }
 impl PartialEq for CharTermAttributeImpl {
@@ -215,8 +217,9 @@ impl Display for CharTermAttributeImpl {
 pub mod tests {
     use crate::analysis::token_attributes::char_term_attribute::CharTermAttribute;
     use crate::analysis::token_attributes::char_term_attribute_impl::CharTermAttributeImpl;
-    use crate::util::HashCode;
+
     use regex::Regex;
+    use std::hash::{DefaultHasher, Hash, Hasher};
 
     use crate::util::error::lucene_error::{LuceneError, Result};
 
@@ -434,28 +437,36 @@ pub mod tests {
     }
     pub fn assert_clone_is_equal<T>(att: &T) -> T
     where
-        T: Clone + PartialEq + HashCode,
+        T: Clone + PartialEq + Hash,
     {
         let cloned = att.clone();
         assert!(att == &cloned);
+        let mut hash1 = DefaultHasher::new();
+        att.hash(&mut hash1);
+        let mut hash2 = DefaultHasher::new();
+        cloned.hash(&mut hash2);
         assert_eq!(
-            att.hash_code(),
-            cloned.hash_code(),
+            hash1.finish(),
+            hash2.finish(),
             "Clone's hashcode must be equal"
         );
         cloned
     }
     pub fn assert_copy_is_equal<T>(att: &T) -> T
     where
-        T: Clone + PartialEq + HashCode,
+        T: Clone + PartialEq + Hash,
     {
         let copy = att.clone();
 
         assert!(att == &copy);
 
+        let mut hash1 = DefaultHasher::new();
+        att.hash(&mut hash1);
+        let mut hash2 = DefaultHasher::new();
+        copy.hash(&mut hash2);
         assert_eq!(
-            att.hash_code(),
-            copy.hash_code(),
+            hash1.finish(),
+            hash2.finish(),
             "Copid instance's hashcode must be equal"
         );
 
