@@ -223,6 +223,9 @@ pub mod tests {
 
     use crate::util::error::lucene_error::{LuceneError, Result};
 
+    #[allow(deprecated)] // for quick search
+    struct TestCharTermAttributeImpl;
+
     #[test]
     fn test_resize() {
         let mut t = CharTermAttributeImpl::new();

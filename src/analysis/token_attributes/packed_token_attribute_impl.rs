@@ -215,3 +215,52 @@ impl PartialEq for PackedTokenAttributeImpl {
             && self.type_ == other.type_
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::analysis::token_attributes::char_term_attribute::CharTermAttribute;
+    use crate::analysis::token_attributes::char_term_attribute_impl::tests::{
+        assert_clone_is_equal, assert_copy_is_equal,
+    };
+    use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
+    use crate::analysis::token_attributes::packed_token_attribute_impl::PackedTokenAttributeImpl;
+    use crate::util::error::lucene_error::Result;
+
+    #[allow(dead_code)] // for quick search
+    struct TestPackedTokenAttributeImpl;
+    #[test]
+    fn test_clone() -> Result<()> {
+        let mut t = PackedTokenAttributeImpl::new();
+        t.set_offset(0, 5)?;
+        let content: Vec<char> = "hello".chars().collect();
+        t.base.copy_buffer(&content, 0, 5);
+        let copy = assert_clone_is_equal(&t);
+        assert_eq!(t.base.to_string(), copy.base.to_string());
+        Ok(())
+    }
+    #[test]
+    fn test_copy_to() -> Result<()> {
+        let t = PackedTokenAttributeImpl::new();
+        let mut copy = assert_copy_is_equal(&t);
+        assert_eq!(t.base.to_string(), "");
+        assert_eq!(copy.base.to_string(), "");
+
+        let mut t = PackedTokenAttributeImpl::new();
+        t.set_offset(0, 5)?;
+        let content: Vec<char> = "hello".chars().collect();
+        t.base.copy_buffer(&content, 0, 5);
+
+        copy = assert_copy_is_equal(&t);
+        assert_eq!(t.base.to_string(), copy.base.to_string());
+
+        Ok(())
+    }
+    #[test]
+    fn test_packed_token_attribute_factory() {
+        // this test is not required in Rust Lucene
+    }
+    #[test]
+    fn test_attribute_reflection() {
+        // this test is not required in Rust Lucene
+    }
+}
