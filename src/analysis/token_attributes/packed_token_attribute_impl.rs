@@ -24,6 +24,7 @@ use crate::analysis::token_attributes::type_attribute::{ta_util, TypeAttribute};
 use crate::util::attribute::Attribute;
 use crate::util::attribute_impl::AttributeImpl;
 use crate::util::error::lucene_error::{LuceneError, Result};
+use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
 /// Default implementation of the common attributes used by Lucene:
 ///
@@ -147,6 +148,56 @@ impl TermFrequencyAttribute for PackedTokenAttributeImpl {
         self.term_frequency
     }
 }
+impl CharTermAttribute for PackedTokenAttributeImpl {
+    fn length(&self) -> usize {
+        self.base.length()
+    }
+
+    fn copy_buffer(&mut self, buffer: &[char], offset: usize, length: usize) {
+        self.base.copy_buffer(buffer, offset, length);
+    }
+
+    fn buffer(&mut self) -> &mut [char] {
+        self.base.buffer()
+    }
+
+    fn resize_buffer(&mut self, new_size: usize) -> &mut [char] {
+        self.base.resize_buffer(new_size)
+    }
+
+    fn set_length(&mut self, length: usize) -> Result<&mut Self> {
+        self.base.set_length(length)?;
+        Ok(self)
+    }
+
+    fn set_empty(&mut self) -> &mut Self {
+        self.base.set_empty();
+        self
+    }
+
+    fn append_range(&mut self, csq: &str, start: usize, end: usize) -> &mut Self {
+        self.base.append_range(csq, start, end);
+        self
+    }
+
+    fn append_char(&mut self, c: char) -> &mut Self {
+        self.base.append_char(c);
+        self
+    }
+
+    fn append_str(&mut self, s: Option<&str>) -> &mut Self {
+        self.base.append_str(s);
+        self
+    }
+
+    fn append_term_attribute<C>(&mut self, term_att: Option<&mut C>) -> &mut Self
+    where
+        C: CharTermAttribute,
+    {
+        self.base.append_term_attribute(term_att);
+        self
+    }
+}
 
 impl Clone for PackedTokenAttributeImpl {
     fn clone(&self) -> Self {
@@ -215,6 +266,11 @@ impl PartialEq for PackedTokenAttributeImpl {
             && self.type_ == other.type_
     }
 }
+impl Display for PackedTokenAttributeImpl {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        self.base.fmt(f)
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -233,25 +289,25 @@ mod tests {
         let mut t = PackedTokenAttributeImpl::new();
         t.set_offset(0, 5)?;
         let content: Vec<char> = "hello".chars().collect();
-        t.base.copy_buffer(&content, 0, 5);
+        t.copy_buffer(&content, 0, 5);
         let copy = assert_clone_is_equal(&t);
-        assert_eq!(t.base.to_string(), copy.base.to_string());
+        assert_eq!(t.to_string(), copy.to_string());
         Ok(())
     }
     #[test]
     fn test_copy_to() -> Result<()> {
         let t = PackedTokenAttributeImpl::new();
         let mut copy = assert_copy_is_equal(&t);
-        assert_eq!(t.base.to_string(), "");
-        assert_eq!(copy.base.to_string(), "");
+        assert_eq!(t.to_string(), "");
+        assert_eq!(copy.to_string(), "");
 
         let mut t = PackedTokenAttributeImpl::new();
         t.set_offset(0, 5)?;
         let content: Vec<char> = "hello".chars().collect();
-        t.base.copy_buffer(&content, 0, 5);
+        t.copy_buffer(&content, 0, 5);
 
         copy = assert_copy_is_equal(&t);
-        assert_eq!(t.base.to_string(), copy.base.to_string());
+        assert_eq!(t.to_string(), copy.to_string());
 
         Ok(())
     }
