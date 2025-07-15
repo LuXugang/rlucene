@@ -235,9 +235,12 @@ impl ArrayUtil {
     }
     /// Returns the hash of chars in the range from `start` (inclusive) to `end`
     /// (inclusive).
-    #[cfg(feature = "not_required_in_rust_lucene")]
-    pub fn hash_code(_array: &[char], _start: usize, _end: usize) -> i32 {
-        unimplemented!()
+    pub fn hash_code(array: &[char], start: usize, end: usize) -> i32 {
+        let mut code: i32 = 0;
+        for i in (start..end).rev() {
+            code = code.wrapping_mul(31).wrapping_add(array[i] as i32);
+        }
+        code
     }
 
     /// Swaps the values stored in indices `i` and `j` of the given slice.

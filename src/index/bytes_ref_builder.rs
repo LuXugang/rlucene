@@ -160,6 +160,18 @@ where
         self.bytes_ref.length = len;
         self.bytes_ref.offset = 0;
     }
+    pub fn copy_chars_with_chars(&mut self, s: &[char], off: usize, len: usize) {
+        let len = 4 * len; // 4 bytes per char in UTF-8
+        let mut bytes = Vec::with_capacity(len);
+        for &c in &s[off..off + len] {
+            let mut buf = [0u8; 4];
+            let encoded_str = c.encode_utf8(&mut buf);
+            bytes.extend_from_slice(encoded_str.as_bytes());
+        }
+        self.bytes_ref.bytes = AV::from_vec(bytes);
+        self.bytes_ref.length = len;
+        self.bytes_ref.offset = 0;
+    }
 
     /// Return a BytesRef that points to the internal content of this builder.
     /// Any update to  the content of this builder might invalidate the

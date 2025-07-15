@@ -15,9 +15,11 @@
  * limitations under the License.
  */
 use crate::util::attribute::Attribute;
+use crate::util::error::lucene_error::Result;
 
 /// The term text of a `Token`.
 pub trait CharTermAttribute: Attribute {
+    fn length(&self) -> usize;
     /// Copies the contents of `buffer[offset..offset+length]` into the internal term buffer.
     ///
     /// # Parameters
@@ -51,7 +53,7 @@ pub trait CharTermAttribute: Attribute {
     /// # Returns
     ///
     /// `self` for chaining.
-    fn set_length(&mut self, length: usize) -> &mut Self;
+    fn set_length(&mut self, length: usize) -> Result<&mut Self>;
 
     /// Resets the term buffer to zero length.
     ///
@@ -61,13 +63,6 @@ pub trait CharTermAttribute: Attribute {
     ///
     /// `self` for chaining.
     fn set_empty(&mut self) -> &mut Self;
-
-    /// Appends the given `CharSequence` to this term.
-    ///
-    /// # Returns
-    ///
-    /// `self` for chaining.
-    fn append(&mut self, csq: &str) -> &mut Self;
 
     /// Appends the subsequence `csq[start..end]` to this term.
     ///
@@ -88,19 +83,13 @@ pub trait CharTermAttribute: Attribute {
     /// # Returns
     ///
     /// `self` for chaining.
-    fn append_str(&mut self, s: &str) -> &mut Self;
-
-    /// Appends the specified `StringBuilder` to this term.
-    ///
-    /// # Returns
-    ///
-    /// `self` for chaining.
-    fn append_string_builder(&mut self, sb: &String) -> &mut Self;
+    fn append_str(&mut self, s: Option<&str>) -> &mut Self;
 
     /// Appends the contents of another `CharTermAttribute` to this term.
     ///
     /// # Returns
     ///
     /// `self` for chaining.
-    fn append_term_attribute(&mut self, term_att: &impl CharTermAttribute) -> &mut Self;
+    fn append_term_attribute(&mut self, term_att: Option<&mut impl CharTermAttribute>)
+        -> &mut Self;
 }

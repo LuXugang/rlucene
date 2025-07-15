@@ -14,14 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod char_term_attribute;
-mod char_term_attribute_impl;
-pub mod dummy;
-pub mod flags_attribute;
-pub mod offset_attribute;
-pub mod payload_attribute;
-pub mod position_increment_attribute;
-pub mod position_length_attribute;
-pub mod term_frequency_attribute;
-pub mod term_to_bytes_ref_attribute;
-pub mod type_attribute;
+use crate::util::attribute::Attribute;
+
+pub trait AttributeImpl: Attribute {
+    fn clear(&mut self);
+
+    fn end(&mut self) {
+        self.clear()
+    }
+}
