@@ -44,6 +44,7 @@ pub mod docs_with_field_set;
 mod documents_writer;
 pub(crate) mod documents_writer_delete_queue;
 pub(crate) mod documents_writer_flush_control;
+mod documents_writer_flush_queue;
 pub(crate) mod documents_writer_per_thread;
 pub(crate) mod documents_writer_per_thread_pool;
 pub(crate) mod documents_writer_stall_control;

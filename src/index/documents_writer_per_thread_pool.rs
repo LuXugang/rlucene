@@ -236,6 +236,9 @@ mod tests {
     use std::sync::atomic::AtomicI64;
     use std::sync::Arc;
 
+    #[allow(dead_code)] // for quick search
+    struct TestDocumentsWriterPerThreadPool;
+
     #[test]
     fn test_lock_release_and_close() -> Result<()> {
         let mut random = random();
