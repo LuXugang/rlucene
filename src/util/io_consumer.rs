@@ -16,8 +16,7 @@
  */
 use crate::util::error::lucene_error::Result;
 /// An IO operation with a single input that may throw an Error.
-pub trait IOConsumer {
+pub trait IOConsumer<T> {
     /// Performs this operation on the given argument.
-    type V;
-    fn accept(&mut self, input: Self::V) -> Result<()>;
+    fn accept(&mut self, input: T) -> Result<()>;
 }

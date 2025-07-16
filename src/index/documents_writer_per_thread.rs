@@ -912,13 +912,11 @@ where
         }
     }
 }
-impl<FN> IOConsumer for IOConsumerImpl<'_, FN>
+impl<FN> IOConsumer<HashSet<String>> for IOConsumerImpl<'_, FN>
 where
     FN: FlushNotifications,
 {
-    type V = HashSet<String>;
-
-    fn accept(&mut self, input: Self::V) -> Result<()> {
+    fn accept(&mut self, input: HashSet<String>) -> Result<()> {
         self.flush_notifications.delete_unused_files(input);
         Ok(())
     }

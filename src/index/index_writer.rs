@@ -151,7 +151,7 @@ pub mod index_writer_util {
     where
         D: Directory,
         D2: Directory,
-        T: IOConsumer<V = HashSet<String>>,
+        T: IOConsumer<HashSet<String>>,
     {
         // maybe this check is not needed, but why take the risk?
         if !directory.get_created_files().is_empty() {
