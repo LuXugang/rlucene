@@ -94,6 +94,7 @@ pub(crate) mod stable_string_sorter;
 pub mod strict_string_tokenizer;
 pub mod string_helper;
 pub(crate) mod string_sorter;
+pub mod supplier;
 pub mod tim_sorter;
 pub mod to_string_utils;
 pub mod unicode_util;
