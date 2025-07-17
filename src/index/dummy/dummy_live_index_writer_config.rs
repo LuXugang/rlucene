@@ -87,4 +87,12 @@ impl LiveIndexWriterConfig for DummyLiveIndexWriterConfig {
     fn get_flush_policy(&self) -> Option<&str> {
         todo!()
     }
+
+    fn get_ram_buffer_size_mb(&self) -> f64 {
+        todo!()
+    }
+
+    fn get_ram_per_thread_hard_limit_mb(&self) -> i32 {
+        todo!()
+    }
 }

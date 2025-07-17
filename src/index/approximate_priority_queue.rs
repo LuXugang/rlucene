@@ -167,8 +167,10 @@ pub(crate) trait IdentityId {
 #[cfg(test)]
 mod tests {
     use crate::index::approximate_priority_queue::{ApproximatePriorityQueue, IdentityId};
-    use crate::index::lockable_concurrent_approximate_priority_queue::Lock;
+    use crate::index::lockable_concurrent_approximate_priority_queue::{FlushState, Lock};
     use crate::util::error::lucene_error::Result;
+
+    impl FlushState for i64 {}
 
     impl Lock for i64 {
         fn lock(&self) -> Result<()> {
@@ -184,6 +186,9 @@ mod tests {
             unreachable!()
         }
     }
+
+    impl FlushState for u64 {}
+
     impl Lock for u64 {
         fn lock(&self) -> Result<()> {
             todo!()
@@ -300,6 +305,7 @@ mod tests {
                 }
             }
         }
+        impl FlushState for U64Wrapper {}
         impl Lock for U64Wrapper {
             fn lock(&self) -> Result<()> {
                 todo!()

@@ -57,6 +57,18 @@ where
         }
         None
     }
+    pub(crate) fn lock_and_poll_flush(&self) -> Option<T> {
+        loop {
+            let prev = self.add_and_unlock_counter.load(Ordering::SeqCst);
+            if let Some(entry) = self.queue.poll(|e| e.is_flush_pending() && e.try_lock()) {
+                return Some(entry);
+            }
+            if prev == self.add_and_unlock_counter.load(Ordering::SeqCst) {
+                break;
+            }
+        }
+        None
+    }
     /// Remove an entry from the queue.
     pub(crate) fn remove(&self, o: &str) -> bool {
         self.queue.remove(o)
@@ -80,18 +92,23 @@ where
     }
 }
 
-pub(crate) trait Lock {
+pub(crate) trait Lock: FlushState {
     fn lock(&self) -> Result<()>;
     fn try_lock(&self) -> bool;
     fn unlock(&self);
     fn is_locked(&self) -> bool;
+}
+pub(crate) trait FlushState {
+    fn is_flush_pending(&self) -> bool {
+        false
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::index::approximate_priority_queue::IdentityId;
     use crate::index::lockable_concurrent_approximate_priority_queue::{
-        Lock, LockableConcurrentApproximatePriorityQueue,
+        FlushState, Lock, LockableConcurrentApproximatePriorityQueue,
     };
     use crate::test::util::lucene_test_case::random;
     use crate::util::error::lucene_error::{LuceneError, Result};
@@ -117,6 +134,9 @@ mod tests {
             ""
         }
     }
+
+    impl FlushState for WeightedLock {}
+
     impl Lock for WeightedLock {
         fn lock(&self) -> Result<()> {
             if self.lock.load(Ordering::SeqCst) {

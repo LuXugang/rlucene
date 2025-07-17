@@ -41,14 +41,14 @@ where
     Q: Query,
     F: Fn() -> Result<DocumentsWriterPerThread<D, IF, Q>>,
 {
-    inner: Mutex<State>,
+    pub(crate) inner: Mutex<State>,
     free_list: LockableConcurrentApproximatePriorityQueue<DocumentsWriterPerThread<D, IF, Q>>,
     dwpt_factory: F,
     pausing: Condvar,
     closed: AtomicBool,
 }
 pub(crate) struct State {
-    dwpts: HashSet<String>,
+    pub(crate) dwpts: HashSet<String>,
     taken_writer_permits: i32,
 }
 impl<D, IF, Q, F> DocumentsWriterPerThreadPool<D, IF, Q, F>
@@ -210,6 +210,21 @@ where
     }
     pub fn close(&self) {
         self.closed.store(true, Ordering::SeqCst);
+    }
+
+    pub(crate) fn get_flush_pending_dwpt(
+        &self,
+    ) -> Result<Option<DocumentsWriterPerThread<D, IF, Q>>> {
+        let dwpt = self.free_list.lock_and_poll_flush();
+        if let Some(dwpt) = dwpt {
+            if self.is_registered(dwpt.id()) {
+                return Ok(Some(dwpt));
+            } else {
+                let ram_bytes_used = dwpt.ram_bytes_used()?;
+                self.free_list.add_and_unlock(dwpt, ram_bytes_used);
+            }
+        }
+        Ok(None)
     }
 }
 #[cfg(test)]

@@ -186,12 +186,15 @@ mod tests {
     use crate::index::concurrent_approximate_priority_queue::{
         ConcurrentApproximatePriorityQueue, MAX_CONCURRENCY, MIN_CONCURRENCY,
     };
-    use crate::index::lockable_concurrent_approximate_priority_queue::Lock;
+    use crate::index::lockable_concurrent_approximate_priority_queue::{FlushState, Lock};
     use crate::test::util::lucene_test_case::random;
     use crate::test::util::test_util::TestUtil;
     use crate::util::error::lucene_error::Result;
     use std::sync::{mpsc, Arc};
     use std::thread;
+
+    impl FlushState for i32 {}
+
     impl Lock for i32 {
         fn lock(&self) -> Result<()> {
             unreachable!()

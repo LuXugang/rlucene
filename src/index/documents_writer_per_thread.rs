@@ -29,7 +29,7 @@ use crate::index::index_writer::index_writer_util;
 use crate::index::indexable_field::IndexableField;
 use crate::index::indexing_chain::IndexingChain;
 use crate::index::live_index_writer_config::LiveIndexWriterConfig;
-use crate::index::lockable_concurrent_approximate_priority_queue::Lock;
+use crate::index::lockable_concurrent_approximate_priority_queue::{FlushState, Lock};
 use crate::index::pending_soft_deletes::pending_soft_deletes_util;
 use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::index::segment_info::SegmentInfo;
@@ -817,6 +817,18 @@ where
         )
     }
 }
+
+impl<D, IF, Q> FlushState for DocumentsWriterPerThread<D, IF, Q>
+where
+    D: Directory,
+    IF: IndexableField,
+    Q: Query,
+{
+    fn is_flush_pending(&self) -> bool {
+        *self.is_flush_pending()
+    }
+}
+
 impl<D, IF, Q> Lock for DocumentsWriterPerThread<D, IF, Q>
 where
     D: Directory,

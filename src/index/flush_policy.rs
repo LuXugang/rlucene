@@ -14,19 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::index::documents_writer_flush_control::DocumentsWriterFlushControl;
 use crate::index::documents_writer_per_thread::DocumentsWriterPerThread;
 use crate::index::indexable_field::IndexableField;
 use crate::search::query::Query;
 use crate::store::directory::Directory;
-use crate::util::error::lucene_error::Result;
 
 pub(crate) trait FlushPolicy {
-    fn on_change<D, IF, Q, F>(&self, control: DocumentsWriterFlushControl<D, IF, Q, F>)
+    fn on_change<D, IF, Q>(&self, per_thread: Option<&DocumentsWriterPerThread<D, IF, Q>>)
     where
         D: Directory,
-
         IF: IndexableField,
-        Q: Query,
-        F: Fn() -> Result<DocumentsWriterPerThread<D, IF, Q>>;
+        Q: Query;
 }
