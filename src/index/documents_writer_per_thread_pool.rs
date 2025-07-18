@@ -112,7 +112,7 @@ where
         // pool is closed
         self.ensure_open()?;
         let dwpt = (self.dwpt_factory)()?;
-        dwpt.lock()?;
+        dwpt.lock();
         inner.dwpts.insert(dwpt.id().to_string());
         Ok(dwpt)
     }

@@ -93,7 +93,7 @@ where
 }
 
 pub(crate) trait Lock: FlushState {
-    fn lock(&self) -> Result<()>;
+    fn lock(&self);
     fn try_lock(&self) -> bool;
     fn unlock(&self);
     fn is_locked(&self) -> bool;
@@ -111,21 +111,24 @@ mod tests {
         FlushState, Lock, LockableConcurrentApproximatePriorityQueue,
     };
     use crate::test::util::lucene_test_case::random;
-    use crate::util::error::lucene_error::{LuceneError, Result};
+
     use rand::Rng;
-    use std::sync::atomic::{AtomicBool, Ordering};
+
+    use parking_lot::{Condvar, Mutex};
     use std::sync::{Arc, Barrier};
     use std::thread;
 
     struct WeightedLock {
         weight: i64,
-        lock: AtomicBool,
+        cvar: Condvar,
+        available: Mutex<bool>,
     }
     impl WeightedLock {
         fn new() -> Self {
             Self {
                 weight: 0,
-                lock: AtomicBool::new(false),
+                cvar: Condvar::new(),
+                available: Mutex::new(true),
             }
         }
     }
@@ -138,26 +141,33 @@ mod tests {
     impl FlushState for WeightedLock {}
 
     impl Lock for WeightedLock {
-        fn lock(&self) -> Result<()> {
-            if self.lock.load(Ordering::SeqCst) {
-                return Err(LuceneError::illegal_state("Lock already acquired"));
+        fn lock(&self) {
+            let mut guard = self.available.lock();
+            while !*guard {
+                self.cvar.wait(&mut guard);
             }
-            self.lock.store(true, Ordering::SeqCst);
-            Ok(())
+            *guard = false;
         }
 
         fn try_lock(&self) -> bool {
-            self.lock
-                .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
-                .is_ok()
+            let mut flag = self.available.lock();
+            if *flag {
+                *flag = false;
+                true
+            } else {
+                false
+            }
         }
 
         fn unlock(&self) {
-            self.lock.store(false, Ordering::SeqCst)
+            let mut guard = self.available.lock();
+            *guard = true;
+            self.cvar.notify_one();
         }
 
         fn is_locked(&self) -> bool {
-            self.lock.load(Ordering::SeqCst)
+            let flag = self.available.lock();
+            !*flag
         }
     }
     impl PartialEq for WeightedLock {
@@ -184,7 +194,7 @@ mod tests {
                 handles.push(thread::spawn(move || {
                     b.wait();
                     let mut lock = WeightedLock::new();
-                    lock.lock().expect("TODO: panic message");
+                    lock.lock();
                     lock.weight += 1;
                     let weight = lock.weight;
                     q.add_and_unlock(lock, weight);

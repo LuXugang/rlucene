@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::analysis::token_stream::TokenStream;
 use crate::codecs::live_docs_format::LiveDocsFormat;
 use crate::codecs::segment_info_format::SegmentInfoFormat;
 use crate::codecs::{Codec, LATEST_CODEC};
@@ -49,13 +48,13 @@ use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::info_stream::{InfoStream, InfoStreamLock};
 use crate::util::io_consumer::IOConsumer;
 use crate::util::{StringHelper, LATEST};
-use parking_lot::Mutex;
+use parking_lot::{Condvar, Mutex};
 use std::cell::OnceCell;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
-use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
+use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::Arc;
 
 pub(crate) struct DocumentsWriterPerThread<D, IF, Q>
@@ -84,8 +83,9 @@ where
     index_major_version_created: i32,
     files_to_delete: HashSet<String>,
     aborting_exception: Option<LuceneError>,
-    lock: AtomicBool,
     id: String,
+    cvar: Condvar,
+    available: Mutex<bool>,
 }
 impl<D, IF, Q> DocumentsWriterPerThread<D, IF, Q>
 where
@@ -206,8 +206,9 @@ where
             index_major_version_created,
             files_to_delete: HashSet::new(),
             aborting_exception: None,
-            lock: AtomicBool::new(false),
             id,
+            cvar: Condvar::new(),
+            available: Mutex::new(true),
         })
     }
 
@@ -836,29 +837,33 @@ where
 
     Q: Query,
 {
-    fn lock(&self) -> Result<()> {
-        // When creating a DWPT and when reading a DPWT, the DPWT must be locked;
-        // however, only newly created DWPTs may call lock(), whereas reused DWPTs use try_lock().
-        // so current dwpt's lock should be always false.
-        if self.lock.load(Ordering::SeqCst) {
-            return Err(LuceneError::illegal_state("Lock already acquired"));
+    fn lock(&self) {
+        let mut guard = self.available.lock();
+        while !*guard {
+            self.cvar.wait(&mut guard);
         }
-        self.lock.store(true, Ordering::SeqCst);
-        Ok(())
+        *guard = false;
     }
 
     fn try_lock(&self) -> bool {
-        self.lock
-            .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
-            .is_ok()
+        let mut flag = self.available.lock();
+        if *flag {
+            *flag = false;
+            true
+        } else {
+            false
+        }
     }
 
     fn unlock(&self) {
-        self.lock.store(false, Ordering::SeqCst)
+        let mut guard = self.available.lock();
+        *guard = true;
+        self.cvar.notify_one();
     }
 
     fn is_locked(&self) -> bool {
-        self.lock.load(Ordering::SeqCst)
+        let flag = self.available.lock();
+        !*flag
     }
 }
 

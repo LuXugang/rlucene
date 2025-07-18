@@ -147,7 +147,7 @@ where
     }
     pub(crate) fn lock(&self, id: &str) -> Result<bool> {
         if let Some(&index) = self.map_to_idx.get(id) {
-            self.slots[index].as_ref().unwrap().lock()?;
+            self.slots[index].as_ref().unwrap().lock();
             return Ok(true);
         }
         Ok(false)
@@ -168,12 +168,11 @@ pub(crate) trait IdentityId {
 mod tests {
     use crate::index::approximate_priority_queue::{ApproximatePriorityQueue, IdentityId};
     use crate::index::lockable_concurrent_approximate_priority_queue::{FlushState, Lock};
-    use crate::util::error::lucene_error::Result;
 
     impl FlushState for i64 {}
 
     impl Lock for i64 {
-        fn lock(&self) -> Result<()> {
+        fn lock(&self) {
             unreachable!()
         }
 
@@ -190,8 +189,8 @@ mod tests {
     impl FlushState for u64 {}
 
     impl Lock for u64 {
-        fn lock(&self) -> Result<()> {
-            todo!()
+        fn lock(&self) {
+            unreachable!()
         }
 
         fn try_lock(&self) -> bool {
@@ -307,8 +306,8 @@ mod tests {
         }
         impl FlushState for U64Wrapper {}
         impl Lock for U64Wrapper {
-            fn lock(&self) -> Result<()> {
-                todo!()
+            fn lock(&self) {
+                unreachable!()
             }
 
             fn try_lock(&self) -> bool {

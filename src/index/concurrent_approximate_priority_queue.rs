@@ -196,7 +196,7 @@ mod tests {
     impl FlushState for i32 {}
 
     impl Lock for i32 {
-        fn lock(&self) -> Result<()> {
+        fn lock(&self) {
             unreachable!()
         }
 
