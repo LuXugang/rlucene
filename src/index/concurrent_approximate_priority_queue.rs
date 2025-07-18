@@ -130,14 +130,15 @@ where
         false
     }
 
-    pub(crate) fn remove(&self, o: &str) -> bool {
+    pub(crate) fn remove(&self, o: &str) -> Option<T> {
         for mutex in &self.queues {
             let mut queue = mutex.lock();
-            if queue.remove(o) {
-                return true;
+            match queue.remove(o) {
+                Some(entry) => return Some(entry),
+                None => continue,
             }
         }
-        false
+        None
     }
     pub(crate) fn get_index(&self, o: &str) -> Option<usize> {
         if let Some(mutex) = self.queues.first() {

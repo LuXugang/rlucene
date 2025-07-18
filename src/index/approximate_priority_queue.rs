@@ -127,19 +127,19 @@ where
         self.used_slots == 0 && self.slots.len() == i64::BITS as usize
     }
 
-    pub(crate) fn remove(&mut self, o: &str) -> bool {
+    pub(crate) fn remove(&mut self, o: &str) -> Option<T> {
         match self.map_to_idx.get(o) {
             Some(&index) => {
-                if index < i64::BITS as usize {
+                let t = if index < i64::BITS as usize {
                     self.used_slots &= !(1 << index);
-                    self.slots[index] = None;
+                    self.slots[index].take().unwrap()
                 } else {
-                    self.slots.remove(index);
-                }
+                    self.slots.remove(index).unwrap()
+                };
                 self.map_to_idx.remove(o);
-                true
+                Some(t)
             },
-            None => false,
+            None => None,
         }
     }
     pub(crate) fn get_idx(&self, id: &str) -> Option<usize> {
@@ -334,12 +334,12 @@ mod tests {
         pq.add(U64Wrapper::new(32), 32);
         pq.add(U64Wrapper::new(0), 0);
 
-        assert!(!pq.remove(&U64Wrapper::new(16).id));
-        assert!(!pq.remove(&U64Wrapper::new(9).id));
-        assert!(pq.remove(&U64Wrapper::new(8).id));
-        assert!(pq.remove(&U64Wrapper::new(0).id));
-        assert!(!pq.remove(&U64Wrapper::new(0).id));
-        assert!(pq.remove(&U64Wrapper::new(32).id));
+        assert!(pq.remove(&U64Wrapper::new(16).id).is_none());
+        assert!(pq.remove(&U64Wrapper::new(9).id).is_none());
+        assert!(pq.remove(&U64Wrapper::new(8).id).is_some());
+        assert!(pq.remove(&U64Wrapper::new(0).id).is_some());
+        assert!(pq.remove(&U64Wrapper::new(0).id).is_none());
+        assert!(pq.remove(&U64Wrapper::new(32).id).is_some());
         assert!(pq.is_empty());
         assert!(pq.map_to_idx.is_empty());
     }

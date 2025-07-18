@@ -70,7 +70,7 @@ where
         None
     }
     /// Remove an entry from the queue.
-    pub(crate) fn remove(&self, o: &str) -> bool {
+    pub(crate) fn remove(&self, o: &str) -> Option<T> {
         self.queue.remove(o)
     }
     ///  Only used for assertions
