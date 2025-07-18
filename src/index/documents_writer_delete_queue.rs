@@ -83,7 +83,7 @@ where
     Q: Query,
 {
     pub global_buffer_lock: RwLock<GlobalState<Q>>,
-    generation: i64,
+    pub(crate) generation: i64,
     /// Generates the sequence number that IW returns to callers changing the
     /// index, showing the effective serialization of all operations.
     next_seq_no: Arc<AtomicI64>,

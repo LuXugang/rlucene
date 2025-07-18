@@ -25,7 +25,7 @@ use crate::store::directory::Directory;
 use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use parking_lot::{Condvar, Mutex};
-use std::collections::HashSet;
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 /// [`DocumentsWriterPerThreadPool`] controls [`DocumentsWriterPerThread`] instances and their thread assignments during indexing.
@@ -48,7 +48,7 @@ where
     closed: AtomicBool,
 }
 pub(crate) struct State {
-    pub(crate) dwpts: HashSet<String>,
+    pub(crate) dwpts: HashMap<String, i64>,
     taken_writer_permits: i32,
 }
 impl<D, IF, Q, F> DocumentsWriterPerThreadPool<D, IF, Q, F>
@@ -60,7 +60,7 @@ where
 {
     pub fn new(dwpt_factory: F) -> Result<Self> {
         let inner = Mutex::new(State {
-            dwpts: HashSet::new(),
+            dwpts: HashMap::new(),
             taken_writer_permits: 0,
         });
         Ok(Self {
@@ -112,8 +112,9 @@ where
         // pool is closed
         self.ensure_open()?;
         let dwpt = (self.dwpt_factory)()?;
+        let delete_queue_gen = dwpt.delete_queue.generation;
         dwpt.lock();
-        inner.dwpts.insert(dwpt.id().to_string());
+        inner.dwpts.insert(dwpt.id().to_string(), delete_queue_gen);
         Ok(dwpt)
     }
     /// This method is used by `DocumentsWriter`/`FlushControl` to obtain a DWPT to do an indexing
@@ -140,7 +141,7 @@ where
 
     pub(crate) fn contains(&self, state: &DocumentsWriterPerThread<D, IF, Q>) -> bool {
         let inner = self.inner.lock();
-        inner.dwpts.contains(state.id())
+        inner.dwpts.contains_key(state.id())
     }
     pub(crate) fn mark_as_free_and_unlock(
         &self,
@@ -168,12 +169,12 @@ where
     /// All returned DWPTs are already locked, and [`is_registered`](Self::is_registered) will return `true` for each one.
     pub(crate) fn filter_and_lock<F1>(&self, predicate: F1) -> Result<Vec<String>>
     where
-        F1: Fn(&str) -> bool,
+        F1: Fn(&str, i64) -> bool,
     {
         let mut list = Vec::new();
         let inner = self.inner.lock();
-        for id in inner.dwpts.iter() {
-            if predicate(id) {
+        for (id, gen) in inner.dwpts.iter() {
+            if predicate(id, *gen) {
                 self.free_list.lock(id)?;
                 if self.is_registered_with_state(id, &inner) {
                     list.push(id.clone());
@@ -192,7 +193,7 @@ where
     pub(crate) fn checkout(&self, per_thread: &str) -> bool {
         let mut inner = self.inner.lock();
 
-        if inner.dwpts.remove(per_thread) {
+        if inner.dwpts.remove(per_thread).is_some() {
             self.free_list.remove(per_thread);
             true
         } else {
@@ -206,7 +207,7 @@ where
         self.is_registered_with_state(per_thread, &inner)
     }
     fn is_registered_with_state(&self, per_thread: &str, state: &State) -> bool {
-        state.dwpts.contains(per_thread)
+        state.dwpts.contains_key(per_thread)
     }
     pub fn close(&self) {
         self.closed.store(true, Ordering::SeqCst);
@@ -303,7 +304,7 @@ mod tests {
         pool.mark_as_free_and_unlock(second)?;
         assert_eq!(pool.size(), 1);
 
-        let v = pool.filter_and_lock(|_| true)?;
+        let v = pool.filter_and_lock(|_, _| true)?;
         for dwpt in v {
             pool.checkout(&dwpt);
             // dwpt.unlock()?;
@@ -370,7 +371,7 @@ mod tests {
         handle.join().unwrap();
         let ids = {
             let inner = pool.inner.lock();
-            inner.dwpts.iter().cloned().collect::<Vec<_>>()
+            inner.dwpts.keys().cloned().collect::<Vec<_>>()
         };
         for dwpt in ids {
             pool.checkout(&dwpt);
