@@ -45,4 +45,6 @@ pub trait LiveIndexWriterConfig {
     fn get_ram_buffer_size_mb(&self) -> f64;
 
     fn get_ram_per_thread_hard_limit_mb(&self) -> i32;
+
+    fn get_max_buffered_docs(&self) -> i32;
 }

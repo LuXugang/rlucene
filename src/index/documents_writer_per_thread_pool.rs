@@ -176,13 +176,15 @@ where
         for (id, gen) in inner.dwpts.iter() {
             if predicate(id, *gen) {
                 self.free_list.lock(id)?;
-                if self.is_registered_with_state(id, &inner) {
+                if self.is_registered_with_state(id, Some(&inner)) {
                     list.push(id.clone());
                 } else {
                     self.free_list.unlock(id)?
                 }
             }
         }
+        // locked dwpt are safely remove from `free_list`
+        // TODO
         Ok(list)
     }
     /// Removes the given DWPT from the pool unless it has already been removed.
@@ -204,9 +206,13 @@ where
     ///  Returns `true` if this DWPT is still part of the pool
     pub(crate) fn is_registered(&self, per_thread: &str) -> bool {
         let inner = self.inner.lock();
-        self.is_registered_with_state(per_thread, &inner)
+        self.is_registered_with_state(per_thread, Some(&inner))
     }
-    fn is_registered_with_state(&self, per_thread: &str, state: &State) -> bool {
+    fn is_registered_with_state(&self, per_thread: &str, state: Option<&State>) -> bool {
+        let state = match state {
+            Some(s) => s,
+            None => &*self.inner.lock(),
+        };
         state.dwpts.contains_key(per_thread)
     }
     pub fn close(&self) {

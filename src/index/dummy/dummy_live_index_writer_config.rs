@@ -95,4 +95,8 @@ impl LiveIndexWriterConfig for DummyLiveIndexWriterConfig {
     fn get_ram_per_thread_hard_limit_mb(&self) -> i32 {
         todo!()
     }
+
+    fn get_max_buffered_docs(&self) -> i32 {
+        todo!()
+    }
 }
