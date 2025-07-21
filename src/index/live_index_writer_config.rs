@@ -16,6 +16,7 @@
  */
 use crate::analysis::analyzer::Analyzer;
 use crate::codecs::Codec;
+use crate::index::flush_policy::FlushPolicy;
 use crate::index::sort::Sort;
 use crate::search::similarities::similarities::Similarity;
 use crate::util::info_stream::InfoStreamLock;
@@ -40,7 +41,8 @@ pub trait LiveIndexWriterConfig {
 
     fn get_parent_field(&self) -> Option<&str>;
 
-    fn get_flush_policy(&self) -> Option<&str>;
+    type FlushPolicy: FlushPolicy;
+    fn get_flush_policy(&self) -> &Self::FlushPolicy;
 
     fn get_ram_buffer_size_mb(&self) -> f64;
 

@@ -16,6 +16,7 @@
  */
 use crate::analysis::dummy::dummy_analyzer::DummyAnalyzer;
 use crate::codecs::lucene101_codec::Lucene101Codec;
+use crate::index::dummy::dummy_flush_policy::DummyFlushPolicy;
 use crate::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::index::sort::Sort;
 use crate::search::dummy::dummy_similarity::DummySimilarity;
@@ -84,8 +85,10 @@ impl LiveIndexWriterConfig for DummyLiveIndexWriterConfig {
         None
     }
 
-    fn get_flush_policy(&self) -> Option<&str> {
-        todo!()
+    type FlushPolicy = DummyFlushPolicy;
+
+    fn get_flush_policy(&self) -> &Self::FlushPolicy {
+        &DummyFlushPolicy
     }
 
     fn get_ram_buffer_size_mb(&self) -> f64 {

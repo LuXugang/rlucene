@@ -76,7 +76,7 @@ where
     num_docs_in_ram: i32,
     pub(crate) delete_queue: Arc<DocumentsWriterDeleteQueue<Q>>,
     delete_slice: Option<DeleteSlice<Q>>,
-    pending_num_docs: AtomicI64,
+    pending_num_docs: Arc<AtomicI64>,
     enable_test_points: bool,
     delete_doc_ids: Vec<i32>,
     num_deleted_doc_ids: i32,
@@ -173,7 +173,7 @@ where
         index_writer_config: &impl LiveIndexWriterConfig,
         delete_queue: Arc<DocumentsWriterDeleteQueue<Q>>,
         field_infos: Builder,
-        pending_num_docs: AtomicI64,
+        pending_num_docs: Arc<AtomicI64>,
         enable_test_points: bool,
     ) -> Result<Self> {
         let info_stream = index_writer_config.get_info_stream();
