@@ -14,8 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::index::lockable_concurrent_approximate_priority_queue::Lock;
-use crate::util::error::lucene_error::Result;
+use crate::index::lockable_concurrent_approximate_priority_queue::{FlushState, Lock};
 use std::collections::HashMap;
 use std::vec::Vec;
 
@@ -24,7 +23,7 @@ use std::vec::Vec;
 /// doesn't support null elements.
 pub(crate) struct ApproximatePriorityQueue<T>
 where
-    T: Lock + IdentityId,
+    T: Lock + IdentityId + FlushState,
 {
     /// Indexes between 0 and 63 are sparsely populated, and indexes that are
     /// greater than or equal to 64 are densely populated
@@ -38,7 +37,7 @@ where
 }
 impl<T> ApproximatePriorityQueue<T>
 where
-    T: Lock + IdentityId,
+    T: Lock + IdentityId + FlushState,
 {
     pub(crate) fn new() -> Self {
         let mut slots = Vec::with_capacity(i64::BITS as usize);
@@ -144,20 +143,6 @@ where
     }
     pub(crate) fn get_idx(&self, id: &str) -> Option<usize> {
         self.map_to_idx.get(id).copied()
-    }
-    pub(crate) fn lock(&self, id: &str) -> Result<bool> {
-        if let Some(&index) = self.map_to_idx.get(id) {
-            self.slots[index].as_ref().unwrap().lock();
-            return Ok(true);
-        }
-        Ok(false)
-    }
-    pub(crate) fn unlock(&self, id: &str) -> Result<bool> {
-        if let Some(&index) = self.map_to_idx.get(id) {
-            self.slots[index].as_ref().unwrap().unlock();
-            return Ok(true);
-        }
-        Ok(false)
     }
 }
 

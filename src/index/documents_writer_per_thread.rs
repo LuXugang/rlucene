@@ -84,9 +84,45 @@ where
     files_to_delete: HashSet<String>,
     aborting_exception: Option<LuceneError>,
     id: String,
+    pub(crate) state: Arc<State>,
+}
+
+pub(crate) struct State {
     cvar: Condvar,
     available: Mutex<bool>,
 }
+
+impl Lock for State {
+    fn lock(&self) {
+        let mut guard = self.available.lock();
+        while !*guard {
+            self.cvar.wait(&mut guard);
+        }
+        *guard = false;
+    }
+
+    fn try_lock(&self) -> bool {
+        let mut flag = self.available.lock();
+        if *flag {
+            *flag = false;
+            true
+        } else {
+            false
+        }
+    }
+
+    fn unlock(&self) {
+        let mut guard = self.available.lock();
+        *guard = true;
+        self.cvar.notify_one();
+    }
+
+    fn is_locked(&self) -> bool {
+        let flag = self.available.lock();
+        !*flag
+    }
+}
+
 impl<D, IF, Q> DocumentsWriterPerThread<D, IF, Q>
 where
     D: Directory,
@@ -185,6 +221,11 @@ where
         //     .get_parent_field()
         //     .map(|pf| indexing_chain.mark_as_reserved(NumericDocValuesField::new(pf, -1)));
 
+        let state = State {
+            cvar: Condvar::new(),
+            available: Mutex::new(true),
+        };
+
         Ok(DocumentsWriterPerThread {
             directory: directory_wrapped,
             indexing_chain,
@@ -206,9 +247,8 @@ where
             index_major_version_created,
             files_to_delete: HashSet::new(),
             aborting_exception: None,
-            id,
-            cvar: Condvar::new(),
-            available: Mutex::new(true),
+            id: id.clone(),
+            state: Arc::new(state),
         })
     }
 
@@ -838,32 +878,19 @@ where
     Q: Query,
 {
     fn lock(&self) {
-        let mut guard = self.available.lock();
-        while !*guard {
-            self.cvar.wait(&mut guard);
-        }
-        *guard = false;
+        self.state.lock()
     }
 
     fn try_lock(&self) -> bool {
-        let mut flag = self.available.lock();
-        if *flag {
-            *flag = false;
-            true
-        } else {
-            false
-        }
+        self.state.try_lock()
     }
 
     fn unlock(&self) {
-        let mut guard = self.available.lock();
-        *guard = true;
-        self.cvar.notify_one();
+        self.state.unlock()
     }
 
     fn is_locked(&self) -> bool {
-        let flag = self.available.lock();
-        !*flag
+        self.state.is_locked()
     }
 }
 

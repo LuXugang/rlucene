@@ -22,14 +22,14 @@ use std::sync::atomic::{AtomicI32, Ordering};
 /// A `ConcurrentApproximatePriorityQueue` of [`Lock`] objects.
 pub(crate) struct LockableConcurrentApproximatePriorityQueue<T>
 where
-    T: Lock + IdentityId,
+    T: Lock + IdentityId + FlushState,
 {
     queue: ConcurrentApproximatePriorityQueue<T>,
     add_and_unlock_counter: AtomicI32,
 }
 impl<T> LockableConcurrentApproximatePriorityQueue<T>
 where
-    T: Lock + IdentityId,
+    T: Lock + IdentityId + FlushState,
 {
     pub(crate) fn with_concurrency(concurrency: usize) -> Result<Self> {
         Ok(Self {
@@ -84,15 +84,9 @@ where
         self.queue.add(entry, weight);
         self.add_and_unlock_counter.fetch_add(1, Ordering::SeqCst);
     }
-    pub(crate) fn lock(&self, id: &str) -> Result<()> {
-        self.queue.lock(id)
-    }
-    pub(crate) fn unlock(&self, id: &str) -> Result<()> {
-        self.queue.unlock(id)
-    }
 }
 
-pub(crate) trait Lock: FlushState {
+pub(crate) trait Lock {
     fn lock(&self);
     fn try_lock(&self) -> bool;
     fn unlock(&self);

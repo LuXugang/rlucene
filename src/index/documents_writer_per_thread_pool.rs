@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::index::approximate_priority_queue::IdentityId;
-use crate::index::documents_writer_per_thread::DocumentsWriterPerThread;
+use crate::index::documents_writer_per_thread::{DocumentsWriterPerThread, State};
 use crate::index::indexable_field::IndexableField;
 use crate::index::lockable_concurrent_approximate_priority_queue::{
     Lock, LockableConcurrentApproximatePriorityQueue,
@@ -27,6 +27,7 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 use parking_lot::{Condvar, Mutex};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 /// [`DocumentsWriterPerThreadPool`] controls [`DocumentsWriterPerThread`] instances and their thread assignments during indexing.
 /// Each [`DocumentsWriterPerThread`] is obtained from the pool and exclusively used for indexing a single document or list of documents by the obtaining thread.
@@ -41,15 +42,19 @@ where
     Q: Query,
     F: Fn() -> Result<DocumentsWriterPerThread<D, IF, Q>>,
 {
-    pub(crate) inner: Mutex<State>,
+    pub(crate) inner: Mutex<Inner>,
     free_list: LockableConcurrentApproximatePriorityQueue<DocumentsWriterPerThread<D, IF, Q>>,
     dwpt_factory: F,
     pausing: Condvar,
     closed: AtomicBool,
 }
-pub(crate) struct State {
-    pub(crate) dwpts: HashMap<String, i64>,
+pub(crate) struct Inner {
+    pub(crate) dwpts: HashMap<String, Dwpts>,
     taken_writer_permits: i32,
+}
+pub(crate) struct Dwpts {
+    gen: i64,
+    state: Arc<State>,
 }
 impl<D, IF, Q, F> DocumentsWriterPerThreadPool<D, IF, Q, F>
 where
@@ -59,7 +64,7 @@ where
     F: Fn() -> Result<DocumentsWriterPerThread<D, IF, Q>>,
 {
     pub fn new(dwpt_factory: F) -> Result<Self> {
-        let inner = Mutex::new(State {
+        let inner = Mutex::new(Inner {
             dwpts: HashMap::new(),
             taken_writer_permits: 0,
         });
@@ -114,7 +119,11 @@ where
         let dwpt = (self.dwpt_factory)()?;
         let delete_queue_gen = dwpt.delete_queue.generation;
         dwpt.lock();
-        inner.dwpts.insert(dwpt.id().to_string(), delete_queue_gen);
+        let dwpts = Dwpts {
+            gen: delete_queue_gen,
+            state: dwpt.state.clone(),
+        };
+        inner.dwpts.insert(dwpt.id().to_string(), dwpts);
         Ok(dwpt)
     }
     /// This method is used by `DocumentsWriter`/`FlushControl` to obtain a DWPT to do an indexing
@@ -167,25 +176,36 @@ where
     }
     /// Filters all `DocumentsWriterPerThread`s that the given predicate applies to and that can be checked out of the pool via [`checkout`](Self::checkout).
     /// All returned DWPTs are already locked, and [`is_registered`](Self::is_registered) will return `true` for each one.
-    pub(crate) fn filter_and_lock<F1>(&self, predicate: F1) -> Result<Vec<String>>
+    pub(crate) fn filter_and_lock<F1>(
+        &self,
+        predicate: F1,
+    ) -> Result<Vec<DocumentsWriterPerThread<D, IF, Q>>>
     where
         F1: Fn(&str, i64) -> bool,
     {
         let mut list = Vec::new();
         let inner = self.inner.lock();
-        for (id, gen) in inner.dwpts.iter() {
-            if predicate(id, *gen) {
-                self.free_list.lock(id)?;
+        for (id, state) in inner.dwpts.iter() {
+            if predicate(id, state.gen) {
+                state.state.lock();
                 if self.is_registered_with_state(id, Some(&inner)) {
                     list.push(id.clone());
                 } else {
-                    self.free_list.unlock(id)?
+                    state.state.unlock();
                 }
             }
         }
         // locked dwpt are safely remove from `free_list`
-        // TODO
-        Ok(list)
+        let mut result = Vec::new();
+        for id in list {
+            let dwpt = self.free_list.remove(&id);
+            debug_assert!(
+                dwpt.is_some() && dwpt.as_ref().unwrap().is_locked(),
+                "DWPT {id} is not locked, but it was expected to be locked"
+            );
+            result.push(dwpt.unwrap());
+        }
+        Ok(result)
     }
     /// Removes the given DWPT from the pool unless it has already been removed.
     ///
@@ -208,7 +228,7 @@ where
         let inner = self.inner.lock();
         self.is_registered_with_state(per_thread, Some(&inner))
     }
-    fn is_registered_with_state(&self, per_thread: &str, state: Option<&State>) -> bool {
+    fn is_registered_with_state(&self, per_thread: &str, state: Option<&Inner>) -> bool {
         let state = match state {
             Some(s) => s,
             None => &*self.inner.lock(),
@@ -217,21 +237,6 @@ where
     }
     pub fn close(&self) {
         self.closed.store(true, Ordering::SeqCst);
-    }
-
-    pub(crate) fn get_flush_pending_dwpt(
-        &self,
-    ) -> Result<Option<DocumentsWriterPerThread<D, IF, Q>>> {
-        let dwpt = self.free_list.lock_and_poll_flush();
-        if let Some(dwpt) = dwpt {
-            if self.is_registered(dwpt.id()) {
-                return Ok(Some(dwpt));
-            } else {
-                let ram_bytes_used = dwpt.ram_bytes_used()?;
-                self.free_list.add_and_unlock(dwpt, ram_bytes_used);
-            }
-        }
-        Ok(None)
     }
 }
 #[cfg(test)]
@@ -312,8 +317,9 @@ mod tests {
 
         let v = pool.filter_and_lock(|_, _| true)?;
         for dwpt in v {
-            pool.checkout(&dwpt);
-            // dwpt.unlock()?;
+            pool.checkout(&dwpt.id());
+            assert!(dwpt.state.is_locked());
+            dwpt.unlock();
         }
         assert_eq!(pool.size(), 0);
         Ok(())

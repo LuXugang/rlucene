@@ -421,7 +421,6 @@ where
         let _ = self.update_stall_state(&mut inner);
         let checked_out = inner.per_thread_pool.checkout(per_thread.id());
         debug_assert!(checked_out);
-        ()
     }
     /// To be called only by the owner of this object's monitor lock
     fn checkout_and_block(
@@ -493,23 +492,11 @@ where
     }
     pub fn try_get_next_pending_flush(
         &self,
-        num_pending: i32,
-        full_flush: bool,
-        inner: Option<&mut Inner<D, IF, Q, F, FP>>,
+        _num_pending: i32,
+        _full_flush: bool,
+        _inner: Option<&mut Inner<D, IF, Q, F, FP>>,
     ) -> Result<Option<DocumentsWriterPerThread<D, IF, Q>>> {
-        let inner = if let Some(inner) = inner {
-            inner
-        } else {
-            &mut *self.lock.lock()
-        };
-        if num_pending > 0 && !full_flush {
-            match inner.per_thread_pool.get_flush_pending_dwpt()? {
-                Some(dwpt) => {
-                    return Ok(Some(self.check_out_for_flush(dwpt, inner)));
-                },
-                None => return Ok(None),
-            }
-        }
+        // TODO:
         Ok(None)
     }
     pub fn close(&self) {

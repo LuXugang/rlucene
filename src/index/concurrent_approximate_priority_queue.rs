@@ -21,7 +21,7 @@ use std::hash::{Hash, Hasher};
 use parking_lot::Mutex;
 
 use crate::index::approximate_priority_queue::{ApproximatePriorityQueue, IdentityId};
-use crate::index::lockable_concurrent_approximate_priority_queue::Lock;
+use crate::index::lockable_concurrent_approximate_priority_queue::{FlushState, Lock};
 use crate::util::error::lucene_error::{LuceneError, Result};
 
 const MIN_CONCURRENCY: usize = 1;
@@ -32,7 +32,7 @@ const MAX_CONCURRENCY: usize = 256;
 /// subs is computed dynamically based on hardware concurrency.
 pub struct ConcurrentApproximatePriorityQueue<T>
 where
-    T: Lock + IdentityId,
+    T: Lock + IdentityId + FlushState,
 {
     concurrency: usize,
     pub(crate) queues: Vec<Mutex<ApproximatePriorityQueue<T>>>,
@@ -40,7 +40,7 @@ where
 #[allow(unused)]
 impl<T> ConcurrentApproximatePriorityQueue<T>
 where
-    T: Lock + IdentityId,
+    T: Lock + IdentityId + FlushState,
 {
     fn get_concurrency() -> usize {
         let core_count = std::thread::available_parallelism()
@@ -146,38 +146,6 @@ where
             return queue.get_idx(o);
         }
         None
-    }
-    pub(crate) fn lock(&self, id: &str) -> Result<()> {
-        for mutex in &self.queues {
-            let mut queue = mutex.lock();
-            match queue.lock(id) {
-                Ok(v) => {
-                    if v {
-                        return Ok(());
-                    }
-                },
-                Err(e) => return Err(e),
-            }
-        }
-        Err(LuceneError::illegal_argument(format!(
-            "No entry found with id: {id}"
-        )))
-    }
-    pub(crate) fn unlock(&self, id: &str) -> Result<()> {
-        for mutex in &self.queues {
-            let mut queue = mutex.lock();
-            match queue.unlock(id) {
-                Ok(v) => {
-                    if v {
-                        return Ok(());
-                    }
-                },
-                Err(e) => return Err(e),
-            }
-        }
-        Err(LuceneError::illegal_argument(format!(
-            "No entry found with id: {id}"
-        )))
     }
 }
 
