@@ -14,13 +14,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::index::documents_writer_delete_queue::DocumentsWriterDeleteQueue;
 use crate::index::segment_info::SegmentInfo;
+use crate::search::query::Query;
 use crate::store::directory::Directory;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::error::lucene_error::Result;
+use std::sync::Arc;
 
-#[allow(unused)]
-pub(crate) struct DocumentsWriter;
+pub(crate) struct DocumentsWriter<Q>
+where
+    Q: Query,
+{
+    pub(crate) delete_queue: Arc<DocumentsWriterDeleteQueue<Q>>,
+}
+impl<Q> DocumentsWriter<Q>
+where
+    Q: Query,
+{
+    pub(crate) fn reset_delete_queue(&self, max_num_pending_ops: usize) -> i64 {
+        todo!()
+    }
+}
 
 pub(crate) trait FlushNotifications {
     /// Called when files were written to disk that are not used anymore.

@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::index::approximate_priority_queue::IdentityId;
+use crate::index::documents_writer::DocumentsWriter;
 use crate::index::documents_writer_delete_queue::DocumentsWriterDeleteQueue;
 use crate::index::documents_writer_per_thread::DocumentsWriterPerThread;
 use crate::index::documents_writer_per_thread_pool::DocumentsWriterPerThreadPool;
@@ -504,16 +505,6 @@ where
         inner.closed = true;
     }
 
-    pub fn assert_blocked_flushes(
-        &self,
-        flushing_queue: &Arc<DocumentsWriterDeleteQueue<Q>>,
-    ) -> bool {
-        let inner = self.lock.lock();
-        for blocked in inner.blocked_flushes.iter() {
-            debug_assert!(Arc::ptr_eq(&blocked.delete_queue, flushing_queue),);
-        }
-        true
-    }
     /// Returns heap bytes currently consumed by buffered deletes/updates that would be freed if we pushed all deletes.
     /// This does not include bytes consumed by already pushed delete/update packets.
     pub(crate) fn get_delete_bytes_used(
@@ -569,11 +560,91 @@ where
                     inner.full_flush,
                     inner.full_flush_mark_done
                 );
-            // TODO: 要把per_thread扔回去
+            inner.per_thread_pool.mark_as_free_and_unlock(per_thread)?;
         }
     }
+    pub(crate) fn mark_for_full_flush(
+        &mut self,
+        documents_writer: &mut DocumentsWriter<Q>,
+    ) -> Result<i64> {
+        let flushing_queue;
+        let seq_no = {
+            let mut inner = self.lock.lock();
+            debug_assert!(
+                !inner.full_flush,
+                "called mark_for_full_flush while already in full flush"
+            );
+            debug_assert!(
+                !inner.full_flush_mark_done,
+                "fullFlushMarkDone is already true"
+            );
+
+            inner.full_flush = true;
+            flushing_queue = documents_writer.delete_queue.clone();
+            // Set a new delete queue - all subsequent DWPT will use this queue until
+            // we do another full flush
+            inner.per_thread_pool.lock_new_writers();
+            // no new thread-states while we do a flush otherwise the seqNo
+            // accounting might be off
+
+            let size = inner.per_thread_pool.size();
+            // Insert a gap in seqNo of current active thread count, in the worst case each of those
+            // threads now have one operation in flight.  It's fine
+            // if we have some sequence numbers that were never assigned:
+            let seq_no = documents_writer.reset_delete_queue(size);
+            inner.per_thread_pool.unlock_new_writers();
+            seq_no
+        };
+
+        let mut full_flush_buffer = Vec::new();
+        let dwpts = {
+            let inner = self.lock.lock();
+            inner
+                .per_thread_pool
+                .filter_and_lock(|_, gen| gen == flushing_queue.generation)?
+        };
+
+        for mut next in dwpts {
+            if next.get_num_docs_in_ram() > 0 {
+                let flushing_dwpt = {
+                    if !next.is_flush_pending() {
+                        self.set_flush_pending(&mut next)?;
+                    }
+                    let mut inner = self.lock.lock();
+                    next.unlock();
+                    self.check_out_for_flush(next, &mut inner)
+                };
+                full_flush_buffer.push(flushing_dwpt);
+            } else {
+                next.unlock();
+                let checked_out = self.lock.lock().per_thread_pool.checkout(next.id());
+                debug_assert!(checked_out);
+            }
+        }
+
+        {
+            // make sure we move all DWPT that are where concurrently marked as
+            // pending and moved to blocked are moved over to the flushQueue. There is
+            // a chance that this happens since we marking DWPT for full flush without
+            // blocking indexing
+            let mut inner = self.lock.lock();
+            self.prune_blocked_queue(&flushing_queue, &mut inner);
+            debug_assert!(self.assert_blocked_flushes(&documents_writer.delete_queue));
+            inner.flush_queue.extend(full_flush_buffer);
+            self.update_stall_state(&mut inner);
+            inner.full_flush_mark_done = true;
+        }
+
+        debug_assert!(self.assert_active_delete_queue(&documents_writer.delete_queue));
+        debug_assert!(flushing_queue.get_last_sequence_number() <= flushing_queue.get_max_seq_no());
+
+        Ok(seq_no)
+    }
     pub fn assert_active_delete_queue(&self, queue: &Arc<DocumentsWriterDeleteQueue<Q>>) -> bool {
-        // TODO
+        let inner = self.lock.lock();
+        for next in inner.per_thread_pool.inner.lock().dwpts.values() {
+            debug_assert!(next.gen == queue.generation);
+        }
         true
     }
 
@@ -599,6 +670,39 @@ where
             inner.flush_queue.push_back(dwpt);
         }
     }
+    fn finish_full_flush(&self, documents_writer: &DocumentsWriter<Q>) {
+        let mut inner = self.lock.lock();
+        debug_assert!(inner.full_flush);
+        debug_assert!(inner.flush_queue.is_empty());
+        debug_assert!(
+            inner.flushing_writers.is_empty(),
+            "flushing_writers must be empty"
+        );
+
+        if !inner.blocked_flushes.is_empty() {
+            debug_assert!(self.assert_blocked_flushes(&documents_writer.delete_queue),);
+            self.prune_blocked_queue(&documents_writer.delete_queue, &mut inner);
+            debug_assert!(
+                inner.blocked_flushes.is_empty(),
+                "blocked_flushes must be empty after pruning"
+            );
+        }
+
+        inner.full_flush_mark_done = false;
+        inner.full_flush = false;
+        let _ = self.update_stall_state(&mut inner);
+    }
+    pub(crate) fn assert_blocked_flushes(
+        &self,
+        flushing_queue: &Arc<DocumentsWriterDeleteQueue<Q>>,
+    ) -> bool {
+        let inner = self.lock.lock();
+        for blocked in inner.blocked_flushes.iter() {
+            debug_assert!(Arc::ptr_eq(&blocked.delete_queue, flushing_queue),);
+        }
+        true
+    }
+
     /// Returns `true` if a full flush is currently running
     pub fn is_full_flush(&self) -> bool {
         let inner = self.lock.lock();

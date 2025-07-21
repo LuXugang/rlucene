@@ -53,7 +53,7 @@ pub(crate) struct Inner {
     taken_writer_permits: i32,
 }
 pub(crate) struct Dwpts {
-    gen: i64,
+    pub(crate) gen: i64,
     state: Arc<State>,
 }
 impl<D, IF, Q, F> DocumentsWriterPerThreadPool<D, IF, Q, F>
