@@ -155,8 +155,52 @@ where
             Ok(())
         }
     }
+
+    pub(crate) fn abort(&self) {
+        // TODO
+    }
+
+    pub(crate) fn flush_one_dwpt(&mut self) -> Result<bool> {
+        {
+            let mut info_stream = self.info_stream.lock();
+            if info_stream.enabled("DW") {
+                info_stream.message("DW", "startFlushOneDWPT");
+            }
+        }
+
+        if !self.maybe_flush()? {
+            // if let Some(dwpt) = self.flush_control.checkout_largest_non_pending_writer() {
+            //     self.do_flush(dwpt)?;
+            //     return Ok(true);
+            // }
+            // return Ok(false);
+            unimplemented!()
+        }
+        Ok(true)
+    }
+
+    /// Locks all currently active DWPT and aborts them.
+    /// The returned Closeable should be closed once the locks for the aborted DWPTs can be released.
+    fn lock_and_abort_all(&self) {
+        // TODO
+    }
+    /// Returns how many documents were aborted.
+    fn abort_documents_writer_per_thread(
+        &self,
+        mut per_thread: DocumentsWriterPerThread<D, IF, Q>,
+    ) -> Result<()> {
+        debug_assert!(self.lock.is_locked());
+
+        let num = per_thread.get_num_docs_in_ram();
+        self.subtract_flushed_num_docs(num);
+
+        per_thread.abort()?;
+        self.flush_control.do_on_abort(&per_thread);
+
+        Ok(())
+    }
     /// returns the maximum sequence number for all previously completed operations
-    pub(crate) fn max_completed_sequence_number(&self) -> i64 {
+    pub(crate) fn get_max_completed_sequence_number(&self) -> i64 {
         let inner = self.lock.lock();
         inner.delete_queue.get_max_completed_seq_no()
     }
@@ -195,6 +239,27 @@ where
         let delete_queue = self.lock.lock().delete_queue.clone();
         delete_queue.any_changes()
     }
+    fn close(&self) {
+        self.closed.store(true, Ordering::SeqCst);
+        // TODO
+    }
+    fn pre_update(&mut self) -> Result<bool> {
+        self.ensure_open()?;
+        let mut has_events = false;
+
+        while self.flush_control.any_stalled_threads()
+            || (self.config.get_check_pending_flush_on_update()
+                && self.flush_control.num_queued_flushes() > 0)
+        {
+            // Help out flushing any queued DWPTs so we can un-stall:
+            // Try pickup pending threads here if possible
+            // no need to loop over the next pending flushes... doFlush will take care of this
+            has_events |= self.maybe_flush()?;
+            self.flush_control.wait_if_stalled();
+        }
+
+        Ok(has_events)
+    }
 
     fn post_update(
         &self,
@@ -209,6 +274,9 @@ where
             has_events |= self.maybe_flush()?;
         }
         Ok(has_events)
+    }
+    pub(crate) fn update_documents(&self) {
+        // TODO
     }
 
     fn maybe_flush(&self) -> Result<bool> {
@@ -414,7 +482,7 @@ where
             }
         }
 
-        let (flushing_queue, seq_no) = {
+        let (flushing_delete_queue, seq_no) = {
             let inner = self.lock.lock();
             let pending = self.any_changes();
             self.pending_changes_in_current_full_flush
@@ -431,36 +499,46 @@ where
             let current_full_flush_del_queue =
                 self.lock.lock().current_full_flush_del_queue.clone();
             current_full_flush_del_queue.is_some()
-                && !Arc::ptr_eq(&flushing_queue, &current_full_flush_del_queue.unwrap())
+                && !Arc::ptr_eq(
+                    &flushing_delete_queue,
+                    &current_full_flush_del_queue.unwrap(),
+                )
         });
 
-        let mut anything = false;
-        anything |= self.maybe_flush()?;
-        // self.flush_control.wait_for_flush();
-        // if !anything && flushing_queue.any_changes() {
-        //     if self.info_stream.lock().enabled("DW") {
-        //         let name = thread::current().name().unwrap_or("<unnamed>");
-        //         self.info_stream.lock().message(
-        //             "DW",
-        //             &format!("{}: flush naked frozen global deletes", name),
-        //         );
-        //     }
-        //     debug_assert!(self.assert_ticket_queue_modification(&flushing_queue));
-        //     self.ticket_queue
-        //         .add_ticket(move || self.maybe_freeze_global_buffer(&flushing_queue))?;
-        // }
-        // debug_assert!(!flushing_queue.any_changes());
-        //
-        // {
-        //     let _g = self.lock.lock();
-        //     debug_assert!(Arc::ptr_eq(
-        //         &flushing_queue,
-        //         self.current_full_flush_del_queue.as_ref().unwrap()
-        //     ));
-        //     flushing_queue.close();
-        // }
+        let mut anything_flushed = false;
+        anything_flushed |= self.maybe_flush()?;
+        // If a concurrent flush is still in flight wait for it
+        self.flush_control.wait_for_flush();
+        if !anything_flushed && flushing_delete_queue.any_changes() {
+            {
+                let mut info_stream = self.info_stream.lock();
+                if info_stream.enabled("DW") {
+                    let v = thread::current();
+                    let name = v.name().unwrap_or("<unnamed>");
+                    info_stream
+                        .message("DW", &format!("{name}: flush naked frozen global deletes"));
+                }
+            }
 
-        Ok(if anything { -seq_no } else { seq_no })
+            debug_assert!(self.assert_ticket_queue_modification(&flushing_delete_queue));
+            let supplier = SupplierImpl::new(flushing_delete_queue.clone());
+            self.ticket_queue.add_ticket(supplier)?;
+        }
+        // we can't assert that we don't have any tickets in the queue since we might add a
+        // DocumentsWriterDeleteQueue
+        // concurrently if we have very small ram buffers this happens quite frequently
+        debug_assert!(!flushing_delete_queue.any_changes());
+        {
+            let inner = self.lock.lock();
+            debug_assert!(Arc::ptr_eq(
+                &flushing_delete_queue,
+                inner.current_full_flush_del_queue.as_ref().unwrap()
+            ));
+            // all DWPT have been processed and this queue has been fully flushed to the
+            // ticket-queue
+            flushing_delete_queue.close()?;
+        }
+        Ok(if anything_flushed { -seq_no } else { seq_no })
     }
     pub(crate) fn finish_full_flush(&mut self, success: bool) -> Result<()> {
         let mut info_stream = self.info_stream.lock();

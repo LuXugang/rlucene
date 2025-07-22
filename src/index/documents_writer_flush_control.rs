@@ -741,12 +741,12 @@ where
         self.stall_control.any_stalled_threads()
     }
 
-    pub(crate) fn peak_active_bytes(&self) -> i64 {
+    pub(crate) fn get_peak_active_bytes(&self) -> i64 {
         let inner = self.lock.lock();
         inner.peak_active_bytes
     }
 
-    pub(crate) fn peak_net_bytes(&self) -> i64 {
+    pub(crate) fn get_peak_net_bytes(&self) -> i64 {
         let inner = self.lock.lock();
         inner.peak_net_bytes
     }
