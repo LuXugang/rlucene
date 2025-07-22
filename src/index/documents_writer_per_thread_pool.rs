@@ -102,7 +102,7 @@ where
     /// Returns a new already locked [`DocumentsWriterPerThread`]
     pub(crate) fn new_writer<S>(
         &self,
-        dwpt_factory: &S,
+        dwpt_factory: &mut S,
     ) -> Result<DocumentsWriterPerThread<D, IF, Q>>
     where
         S: Supplier<DocumentsWriterPerThread<D, IF, Q>>,
@@ -133,7 +133,7 @@ where
     /// operation (add/updateDocument).
     pub(crate) fn get_and_lock<S>(
         &self,
-        dwpt_factory: &S,
+        dwpt_factory: &mut S,
     ) -> Result<DocumentsWriterPerThread<D, IF, Q>>
     where
         S: Supplier<DocumentsWriterPerThread<D, IF, Q>>,
@@ -288,7 +288,7 @@ mod tests {
         > for DwptSupplier
     {
         fn get(
-            &self,
+            &mut self,
         ) -> Result<
             DocumentsWriterPerThread<
                 FSDirectory<NativeFSLockFactory, NIOFSDirectory>,
@@ -319,18 +319,18 @@ mod tests {
     #[test]
     fn test_lock_release_and_close() -> Result<()> {
         let pool = DocumentsWriterPerThreadPool::new()?;
-        let supplier = DwptSupplier::default();
-        let first = pool.get_and_lock(&supplier)?;
+        let mut supplier = DwptSupplier::default();
+        let first = pool.get_and_lock(&mut supplier)?;
         assert_eq!(pool.size(), 1);
 
-        let second = pool.get_and_lock(&supplier)?;
+        let second = pool.get_and_lock(&mut supplier)?;
         assert_eq!(pool.size(), 2);
 
         let first_id = first.id().to_string();
         pool.mark_as_free_and_unlock(first)?;
         assert_eq!(pool.size(), 2);
 
-        let third = pool.get_and_lock(&supplier)?;
+        let third = pool.get_and_lock(&mut supplier)?;
         assert_eq!(first_id, third.id().to_string());
         assert_eq!(pool.size(), 2);
 
@@ -364,10 +364,10 @@ mod tests {
         let mut random = random();
         let directory = Arc::new(Mutex::new(new_directory(&mut random)?));
         let dummy_config = DummyLiveIndexWriterConfig::new();
-        let supplier = DwptSupplier::default();
+        let mut supplier = DwptSupplier::default();
         let pool = Arc::new(DocumentsWriterPerThreadPool::new()?);
 
-        let first = pool.get_and_lock(&supplier)?;
+        let first = pool.get_and_lock(&mut supplier)?;
         pool.lock_new_writers();
 
         let ready = Arc::new(AtomicBool::new(false));
@@ -376,7 +376,7 @@ mod tests {
 
         let handle = thread::spawn(move || {
             ready_clone.store(true, Ordering::SeqCst);
-            let result = pool_clone.get_and_lock(&supplier);
+            let result = pool_clone.get_and_lock(&mut supplier);
             assert!(matches!(result, Err(LuceneError::AlreadyClosed(_))));
         });
 

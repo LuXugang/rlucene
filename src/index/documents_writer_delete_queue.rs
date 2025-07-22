@@ -189,7 +189,7 @@ where
         }
         global_state.tail = new_node;
 
-        Ok(self.get_next_sequence_number(global_state.max_seq_no))
+        Ok(self.get_next_sequence_number(Some(&global_state)))
     }
 
     pub(crate) fn any_changes(&self) -> bool {
@@ -302,7 +302,7 @@ where
     pub(crate) fn update_slice(&self, slice: &mut DeleteSlice<Q>) -> Result<i64> {
         let global_state = self.global_buffer_lock.read();
         self.ensure_open(global_state.closed)?;
-        let mut seq_no = self.get_next_sequence_number(global_state.max_seq_no);
+        let mut seq_no = self.get_next_sequence_number(Some(&global_state));
         if !Arc::ptr_eq(&slice.slice_tail, &global_state.tail) {
             // new deletes arrived since we last checked
             slice.slice_tail = global_state.tail.clone();
@@ -336,11 +336,17 @@ where
         !global_state.closed
     }
 
-    pub(crate) fn get_next_sequence_number(&self, max_seq_no: i64) -> i64 {
+    pub(crate) fn get_next_sequence_number(&self, global_state: Option<&GlobalState<Q>>) -> i64 {
+        let global_state = match global_state {
+            Some(state) => state,
+            None => &*self.global_buffer_lock.read(),
+        };
         let seq_no = self.next_seq_no.fetch_add(1, Ordering::SeqCst);
         debug_assert!(
-            seq_no <= max_seq_no,
-            "seq_no={seq_no} vs max_seq_no={max_seq_no}"
+            seq_no <= global_state.max_seq_no,
+            "seq_no={} vs max_seq_no={}",
+            seq_no,
+            global_state.max_seq_no
         );
         seq_no
     }

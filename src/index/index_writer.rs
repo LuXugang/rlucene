@@ -192,33 +192,33 @@ impl DocMap for DocMapIndexWriter {
 
 pub(crate) struct FlushNotificationsImpl;
 impl FlushNotifications for FlushNotificationsImpl {
-    fn delete_unused_files<I>(&mut self, files: I)
+    fn delete_unused_files<I>(&self, files: I)
     where
         I: IntoIterator<Item = String>,
     {
         todo!()
     }
 
-    fn flush_failed<D>(&mut self, info: &SegmentInfo<D>)
+    fn flush_failed<D>(&self, info: &SegmentInfo<D>)
     where
         D: Directory,
     {
         todo!()
     }
 
-    fn after_segments_flushed(&mut self) -> Result<()> {
+    fn after_segments_flushed(&self) -> Result<()> {
         todo!()
     }
 
-    fn on_tragic_event(&mut self, event: LuceneError, message: &str) {
+    fn on_tragic_event(&self, event: LuceneError, message: &str) {
         todo!()
     }
 
-    fn on_deletes_applied(&mut self) {
+    fn on_deletes_applied(&self) {
         todo!()
     }
 
-    fn on_ticket_backlog(&mut self) {
+    fn on_ticket_backlog(&self) {
         todo!()
     }
 }

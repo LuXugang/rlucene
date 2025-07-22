@@ -102,4 +102,8 @@ impl LiveIndexWriterConfig for DummyLiveIndexWriterConfig {
     fn get_max_buffered_docs(&self) -> i32 {
         todo!()
     }
+
+    fn get_check_pending_flush_on_update(&self) -> bool {
+        todo!()
+    }
 }

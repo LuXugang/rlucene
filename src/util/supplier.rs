@@ -16,5 +16,5 @@
  */
 use crate::util::error::lucene_error::Result;
 pub trait Supplier<T> {
-    fn get(&self) -> Result<T>;
+    fn get(&mut self) -> Result<T>;
 }

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::index::approximate_priority_queue::IdentityId;
-use crate::index::documents_writer::DocumentsWriter;
+use crate::index::documents_writer::{DocumentsWriter, FlushNotifications};
 use crate::index::documents_writer_delete_queue::DocumentsWriterDeleteQueue;
 use crate::index::documents_writer_per_thread::DocumentsWriterPerThread;
 use crate::index::documents_writer_per_thread_pool::DocumentsWriterPerThreadPool;
@@ -47,7 +47,7 @@ where
 {
     flush_deletes: AtomicBool,
     info_stream: InfoStreamLock,
-    lock: Mutex<Inner<D, IF, Q>>,
+    pub(crate) lock: Mutex<Inner<D, IF, Q>>,
     config: Arc<L>,
     stall_control: DocumentsWriterStallControl,
     pausing: Condvar,
@@ -111,7 +111,7 @@ where
         guard.active_bytes
     }
 
-    pub(crate) fn flushing_bytes(&self) -> i64 {
+    pub(crate) fn get_flushing_bytes(&self) -> i64 {
         let guard = self.lock.lock();
         guard.flush_bytes.load(Ordering::SeqCst)
     }
@@ -257,7 +257,7 @@ where
             } else {
                 inner.active_bytes += delta;
                 self.update_peaks(delta, &mut inner);
-                flush_policy.on_change(Some(&per_thread));
+                flush_policy.on_change(self, Some(&per_thread));
                 if !per_thread.is_flush_pending()
                     && per_thread.ram_bytes_used()? > inner.hard_max_bytes_per_dwpt
                 {
@@ -350,7 +350,7 @@ where
                         &format!(
                             "now stalling flushes: netBytes: {:.1} MB flushBytes: {:.1} MB fullFlush: {}",
                             (self.net_bytes() as f64) / 1024.0 / 1024.0,
-                            (self.flushing_bytes() as f64) / 1024.0 / 1024.0,
+                            (self.get_flushing_bytes() as f64) / 1024.0 / 1024.0,
                             inner.full_flush
                         ),
                     );
@@ -366,7 +366,7 @@ where
                             "done stalling flushes for {:.1} msec: netBytes: {:.1} MB flushBytes: {:.1} MB fullFlush: {}",
                             elapsed,
                             (self.net_bytes() as f64) / 1024.0 / 1024.0,
-                            (self.flushing_bytes() as f64) / 1024.0 / 1024.0,
+                            (self.get_flushing_bytes() as f64) / 1024.0 / 1024.0,
                             inner.full_flush
                         ),
                     );
@@ -460,7 +460,7 @@ where
         );
         inner.flushing_writers.push(id);
     }
-    pub fn next_pending_flush(
+    pub(crate) fn next_pending_flush(
         &self,
         inner: Option<&mut Inner<D, IF, Q>>,
     ) -> (Option<DocumentsWriterPerThread<D, IF, Q>>, bool, i32) {
@@ -484,7 +484,7 @@ where
             inner.num_pending.load(Ordering::SeqCst),
         )
     }
-    pub fn try_get_next_pending_flush(
+    pub(crate) fn try_get_next_pending_flush(
         &self,
         _num_pending: i32,
         _full_flush: bool,
@@ -496,6 +496,14 @@ where
     pub fn close(&self) {
         let mut inner = self.lock.lock();
         inner.closed = true;
+    }
+
+    pub(crate) fn do_on_delete<FP>(&self, flush_policy: &FP)
+    where
+        FP: FlushPolicy,
+    {
+        let _ = self.lock.lock();
+        flush_policy.on_change(self, None)
     }
 
     /// Returns heap bytes currently consumed by buffered deletes/updates that would be freed if we pushed all deletes.
@@ -528,7 +536,7 @@ where
     pub fn obtain_and_lock<S>(
         &self,
         delete_queue: &Arc<DocumentsWriterDeleteQueue<Q>>,
-        dwpt_factory: S,
+        mut dwpt_factory: S,
     ) -> Result<DocumentsWriterPerThread<D, IF, Q>>
     where
         S: Supplier<DocumentsWriterPerThread<D, IF, Q>>,
@@ -539,7 +547,7 @@ where
                 return Err(LuceneError::already_closed("flush control is closed"));
             }
 
-            let per_thread = inner.per_thread_pool.get_and_lock(&dwpt_factory)?;
+            let per_thread = inner.per_thread_pool.get_and_lock(&mut dwpt_factory)?;
             if Arc::ptr_eq(&per_thread.delete_queue, delete_queue) {
                 // simply return the DWPT even in a flush all case since we already hold the lock and the
                 // DWPT is not stale
@@ -560,9 +568,9 @@ where
             inner.per_thread_pool.mark_as_free_and_unlock(per_thread)?;
         }
     }
-    pub(crate) fn mark_for_full_flush(
-        &mut self,
-        documents_writer: &mut DocumentsWriter<Q>,
+    pub(crate) fn mark_for_full_flush<FN: FlushNotifications>(
+        &self,
+        documents_writer: &DocumentsWriter<D, IF, Q, L, FN>,
     ) -> Result<i64> {
         let flushing_queue;
         let seq_no = {
@@ -577,7 +585,8 @@ where
             );
 
             inner.full_flush = true;
-            flushing_queue = documents_writer.delete_queue.clone();
+            let mut documents_writer_inner = documents_writer.lock.lock();
+            flushing_queue = documents_writer_inner.delete_queue.clone();
             // Set a new delete queue - all subsequent DWPT will use this queue until
             // we do another full flush
             inner.per_thread_pool.lock_new_writers();
@@ -585,10 +594,12 @@ where
             // accounting might be off
 
             let size = inner.per_thread_pool.size();
+            debug_assert!(size <= i64::MAX as usize);
             // Insert a gap in seqNo of current active thread count, in the worst case each of those
             // threads now have one operation in flight.  It's fine
             // if we have some sequence numbers that were never assigned:
-            let seq_no = documents_writer.reset_delete_queue(size);
+            let seq_no =
+                documents_writer.reset_delete_queue(&mut *documents_writer_inner, size as i64)?;
             inner.per_thread_pool.unlock_new_writers();
             seq_no
         };
@@ -626,13 +637,13 @@ where
             // blocking indexing
             let mut inner = self.lock.lock();
             self.prune_blocked_queue(&flushing_queue, &mut inner);
-            debug_assert!(self.assert_blocked_flushes(&documents_writer.delete_queue));
+            debug_assert!(self.assert_blocked_flushes(&documents_writer.lock.lock().delete_queue));
             inner.flush_queue.extend(full_flush_buffer);
             self.update_stall_state(&mut inner);
             inner.full_flush_mark_done = true;
         }
 
-        debug_assert!(self.assert_active_delete_queue(&documents_writer.delete_queue));
+        debug_assert!(self.assert_active_delete_queue(&documents_writer.lock.lock().delete_queue));
         debug_assert!(flushing_queue.get_last_sequence_number() <= flushing_queue.get_max_seq_no());
 
         Ok(seq_no)
@@ -667,7 +678,7 @@ where
             inner.flush_queue.push_back(dwpt);
         }
     }
-    fn finish_full_flush(&self, documents_writer: &DocumentsWriter<Q>) {
+    pub(crate) fn finish_full_flush(&self, delete_queue: &Arc<DocumentsWriterDeleteQueue<Q>>) {
         let mut inner = self.lock.lock();
         debug_assert!(inner.full_flush);
         debug_assert!(inner.flush_queue.is_empty());
@@ -677,8 +688,8 @@ where
         );
 
         if !inner.blocked_flushes.is_empty() {
-            debug_assert!(self.assert_blocked_flushes(&documents_writer.delete_queue),);
-            self.prune_blocked_queue(&documents_writer.delete_queue, &mut inner);
+            debug_assert!(self.assert_blocked_flushes(delete_queue),);
+            self.prune_blocked_queue(delete_queue, &mut inner);
             debug_assert!(
                 inner.blocked_flushes.is_empty(),
                 "blocked_flushes must be empty after pruning"

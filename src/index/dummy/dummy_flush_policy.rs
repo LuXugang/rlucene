@@ -14,19 +14,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::index::documents_writer_flush_control::DocumentsWriterFlushControl;
 use crate::index::documents_writer_per_thread::DocumentsWriterPerThread;
 use crate::index::flush_policy::FlushPolicy;
 use crate::index::indexable_field::IndexableField;
+use crate::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::search::query::Query;
 use crate::store::directory::Directory;
 
 pub struct DummyFlushPolicy;
 impl FlushPolicy for DummyFlushPolicy {
-    fn on_change<D, IF, Q>(&self, _per_thread: Option<&DocumentsWriterPerThread<D, IF, Q>>)
-    where
+    fn on_change<D, IF, Q, L>(
+        &self,
+        _control: &DocumentsWriterFlushControl<D, IF, Q, L>,
+        _per_thread: Option<&DocumentsWriterPerThread<D, IF, Q>>,
+    ) where
         D: Directory,
         IF: IndexableField,
         Q: Query,
+        L: LiveIndexWriterConfig,
     {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }

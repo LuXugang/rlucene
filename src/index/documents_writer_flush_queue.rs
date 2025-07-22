@@ -30,7 +30,7 @@ where
     D: Directory,
     Q: Query,
 {
-    inner: Mutex<Inner<D, Q>>,
+    pub(crate) inner: Mutex<Inner<D, Q>>,
     // we track tickets separately since count must be present even before the ticket is
     // constructed ie. queue.size would not reflect it.
     ticket_count: AtomicI32,
@@ -41,7 +41,7 @@ where
     D: Directory,
     Q: Query,
 {
-    queue: VecDeque<FlushTicket<D, Q>>,
+    pub(crate) queue: VecDeque<FlushTicket<D, Q>>,
 }
 impl<D, Q> DocumentsWriterFlushQueue<D, Q>
 where
@@ -57,7 +57,7 @@ where
             purge_lock: ReentrantMutex::new(()),
         }
     }
-    pub(crate) fn add_ticket<S>(&self, ticket_supplier: S) -> Result<Option<usize>>
+    pub(crate) fn add_ticket<S>(&self, mut ticket_supplier: S) -> Result<Option<usize>>
     where
         S: Supplier<Option<FlushTicket<D, Q>>>,
     {

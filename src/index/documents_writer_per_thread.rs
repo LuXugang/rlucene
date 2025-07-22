@@ -368,13 +368,14 @@ where
         }
     }
     ///  Flush all pending docs to a new segment
-    pub(crate) fn flush<FN>(
+    pub(crate) fn flush<FN, L>(
         &mut self,
-        flush_notifications: &mut FN,
-        index_writer_config: &impl LiveIndexWriterConfig,
+        flush_notifications: &FN,
+        index_writer_config: &L,
     ) -> Result<Option<FlushedSegment<D, Q>>>
     where
         FN: FlushNotifications,
+        L: LiveIndexWriterConfig,
     {
         debug_assert_eq!(self.flush_pending.get(), Some(&true));
         debug_assert!(self.num_docs_in_ram > 0);
@@ -612,7 +613,7 @@ where
         result
     }
 
-    fn maybe_abort<FN>(&mut self, location: &str, flush_notifications: &mut FN) -> Result<()>
+    fn maybe_abort<FN>(&mut self, location: &str, flush_notifications: &FN) -> Result<()>
     where
         FN: FlushNotifications,
     {
@@ -647,7 +648,7 @@ where
         &mut self,
         flushed_segment: &mut FlushedSegment<D, Q>,
         sort_map: Option<Rc<DM>>,
-        flush_notifications: &mut FN,
+        flush_notifications: &FN,
         index_writer_config: &impl LiveIndexWriterConfig,
     ) -> Result<()>
     where
@@ -944,13 +945,13 @@ pub struct IOConsumerImpl<'a, FN>
 where
     FN: FlushNotifications,
 {
-    flush_notifications: &'a mut FN,
+    flush_notifications: &'a FN,
 }
 impl<'a, FN> IOConsumerImpl<'a, FN>
 where
     FN: FlushNotifications,
 {
-    pub fn new(flush_notifications: &'a mut FN) -> Self {
+    pub fn new(flush_notifications: &'a FN) -> Self {
         IOConsumerImpl {
             flush_notifications,
         }
