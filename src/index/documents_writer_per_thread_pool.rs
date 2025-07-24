@@ -262,6 +262,8 @@ mod tests {
     use crate::index::dummy::dummy_indexable_field::DummyIndexableField;
     use crate::index::lockable_concurrent_approximate_priority_queue::Lock;
     use crate::search::dummy::dummy_query::DummyQuery;
+    use crate::store::directory::Directory;
+    use crate::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
     use crate::store::nio_fs_directory::NIOFSDirectory;
     use crate::store::{FSDirectory, NativeFSLockFactory};
     use crate::test::util::lucene_test_case::{new_directory, random};
@@ -297,13 +299,18 @@ mod tests {
             >,
         > {
             let mut random = random();
-            let directory = Arc::new(Mutex::new(new_directory(&mut random)?));
+            let directory_orig = Arc::new(Mutex::new(new_directory(&mut random)?));
+            let lock = directory_orig.lock().obtain_lock("")?;
+            let directory = Arc::new(Mutex::new(LockValidatingDirectoryWrapper::new(
+                directory_orig.clone(),
+                lock,
+            )));
             // TODO: LuceneTestCase::newIndexWriterConfig 为实现
             let dummy_config = DummyLiveIndexWriterConfig::new();
             DocumentsWriterPerThread::new(
                 LATEST.major,
                 "",
-                directory.clone(),
+                directory_orig.clone(),
                 directory.clone(),
                 &dummy_config,
                 Arc::new(DocumentsWriterDeleteQueue::new(Arc::new(Mutex::new(

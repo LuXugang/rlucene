@@ -30,6 +30,7 @@ use crate::index::segment_info::SegmentInfo;
 use crate::index::term::Term;
 use crate::search::query::Query;
 use crate::store::directory::Directory;
+use crate::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
 use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::error::lucene_error::Result;
@@ -40,6 +41,7 @@ use parking_lot::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64, Ordering};
 use std::sync::Arc;
 use std::thread;
+
 /// This struct accepts multiple added documents and directly writes segment files.
 ///
 /// Each added document is passed to the indexing chain, which processes the document into
@@ -102,7 +104,7 @@ where
     pub(crate) lock: Mutex<Inner<Q>>,
     flush_control: DocumentsWriterFlushControl<D, IF, Q, L>,
     index_created_version_major: i32,
-    directory: Arc<Mutex<D>>,
+    directory: Arc<Mutex<LockValidatingDirectoryWrapper<D>>>,
     directory_orig: Arc<Mutex<D>>,
     enable_test_points: bool,
     global_field_number_map: Arc<Mutex<FieldNumbers>>,
@@ -816,7 +818,7 @@ where
 {
     index_major_version_created: i32,
     directory_orig: Arc<Mutex<D>>,
-    directory: Arc<Mutex<D>>,
+    directory: Arc<Mutex<LockValidatingDirectoryWrapper<D>>>,
     config: Arc<L>,
     delete_queue: Arc<DocumentsWriterDeleteQueue<Q>>,
     pending_num_docs: Arc<AtomicI64>,
@@ -832,7 +834,7 @@ where
     pub(crate) fn new(
         index_major_version_created: i32,
         directory_orig: Arc<Mutex<D>>,
-        directory: Arc<Mutex<D>>,
+        directory: Arc<Mutex<LockValidatingDirectoryWrapper<D>>>,
         config: Arc<L>,
         delete_queue: Arc<DocumentsWriterDeleteQueue<Q>>,
         field_numbers: Arc<Mutex<FieldNumbers>>,

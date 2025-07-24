@@ -37,6 +37,7 @@ use crate::index::sorter::{DocMap, DocMapImpl};
 use crate::search::query::Query;
 use crate::store::directory::Directory;
 use crate::store::flush_info::FlushInfo;
+use crate::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
 use crate::store::tracking_directory_wrapper::TrackingDirectoryWrapper;
 use crate::store::IOContext;
 use crate::util::accountable::Accountable;
@@ -63,8 +64,8 @@ where
     IF: IndexableField,
     Q: Query,
 {
-    pub(crate) directory: Arc<Mutex<TrackingDirectoryWrapper<D>>>,
-    indexing_chain: IndexingChain<TrackingDirectoryWrapper<D>, IF>,
+    pub(crate) directory: Arc<Mutex<TrackingDirectoryWrapper<LockValidatingDirectoryWrapper<D>>>>,
+    indexing_chain: IndexingChain<TrackingDirectoryWrapper<LockValidatingDirectoryWrapper<D>>, IF>,
     pending_updates: MTBufferedUpdates<Q>,
     segment_info: SegmentInfo<D>,
     pub(crate) aborted: Arc<AtomicBool>,
@@ -169,7 +170,7 @@ where
         index_major_version_created: i32,
         segment_name: &str,
         directory_orig: Arc<Mutex<D>>,
-        directory: Arc<Mutex<D>>,
+        directory: Arc<Mutex<LockValidatingDirectoryWrapper<D>>>,
         index_writer_config: &L,
         delete_queue: Arc<DocumentsWriterDeleteQueue<Q>>,
         field_infos: Builder,
