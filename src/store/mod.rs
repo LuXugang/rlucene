@@ -43,6 +43,7 @@ pub mod index_output;
 pub mod io_context;
 pub mod lock;
 pub mod lock_factory;
+mod lock_validating_directory_wrapper;
 pub mod merge_info;
 pub mod mmap_directory;
 pub mod native_fs_lock_factory;
