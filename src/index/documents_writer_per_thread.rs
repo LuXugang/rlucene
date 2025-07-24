@@ -54,8 +54,8 @@ use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
-use std::sync::atomic::{AtomicI64, Ordering};
-use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
+use std::sync::{Arc, OnceLock};
 
 pub(crate) struct DocumentsWriterPerThread<D, IF, Q>
 where
@@ -67,8 +67,8 @@ where
     indexing_chain: IndexingChain<TrackingDirectoryWrapper<D>, IF>,
     pending_updates: MTBufferedUpdates<Q>,
     segment_info: SegmentInfo<D>,
-    aborted: bool,
-    flush_pending: OnceCell<bool>,
+    pub(crate) aborted: Arc<AtomicBool>,
+    pub(crate) flush_pending: Arc<OnceLock<bool>>,
     last_committed_bytes_used: AtomicI64,
     has_flushed: OnceCell<bool>,
     field_infos: Builder,
@@ -137,10 +137,10 @@ where
         self.aborting_exception = Some(throwable);
     }
     pub(crate) fn is_aborted(&self) -> bool {
-        self.aborted
+        self.aborted.load(Ordering::SeqCst)
     }
     pub(crate) fn abort(&mut self) -> Result<()> {
-        self.aborted = true;
+        self.aborted.store(true, Ordering::SeqCst);
         self.pending_num_docs
             .fetch_add(-(self.num_docs_in_ram as i64), Ordering::SeqCst);
 
@@ -165,12 +165,12 @@ where
         }
         abort_result
     }
-    pub(crate) fn new(
+    pub(crate) fn new<L: LiveIndexWriterConfig>(
         index_major_version_created: i32,
         segment_name: &str,
         directory_orig: Arc<Mutex<D>>,
         directory: Arc<Mutex<D>>,
-        index_writer_config: &impl LiveIndexWriterConfig,
+        index_writer_config: &L,
         delete_queue: Arc<DocumentsWriterDeleteQueue<Q>>,
         field_infos: Builder,
         pending_num_docs: Arc<AtomicI64>,
@@ -231,8 +231,8 @@ where
             indexing_chain,
             pending_updates,
             segment_info,
-            aborted: false,
-            flush_pending: OnceCell::new(),
+            aborted: Arc::new(AtomicBool::new(false)),
+            flush_pending: Arc::new(OnceLock::new()),
             last_committed_bytes_used: AtomicI64::new(0),
             has_flushed: OnceCell::new(),
             field_infos,
@@ -416,7 +416,7 @@ where
             self.num_deleted_doc_ids = 0;
         }
 
-        if self.aborted {
+        if self.aborted.load(Ordering::SeqCst) {
             let mut info_stream = self.info_stream.lock();
             if info_stream.enabled("DWPT") {
                 info_stream.message("DWPT", "flush: skip because aborting is set");
@@ -618,7 +618,7 @@ where
         FN: FlushNotifications,
     {
         match self.aborting_exception {
-            Some(_) if !self.aborted => {
+            Some(_) if !self.aborted.load(Ordering::SeqCst) => {
                 // if we are not already aborted, we can abort
                 let result = self.abort();
                 flush_notifications
@@ -852,7 +852,7 @@ where
             "DocumentsWriterPerThread [pendingDeletes={}, segment={}, aborted={}, numDocsInRAM={}, deleteQueue={}, {} deleted docIds]",
             self.pending_updates,
             self.segment_info.name,
-            self.aborted,
+            self.aborted.load(Ordering::SeqCst),
             self.num_docs_in_ram,
             self.delete_queue,
             self.num_deleted_doc_ids,

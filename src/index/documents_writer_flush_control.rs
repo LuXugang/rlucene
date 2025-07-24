@@ -224,8 +224,11 @@ where
     pub(crate) fn do_after_document<FP>(
         &mut self,
         mut per_thread: DocumentsWriterPerThread<D, IF, Q>,
-        flush_policy: FP,
-    ) -> Result<Option<DocumentsWriterPerThread<D, IF, Q>>>
+        flush_policy: &FP,
+    ) -> Result<(
+        Option<DocumentsWriterPerThread<D, IF, Q>>,
+        Option<DocumentsWriterPerThread<D, IF, Q>>,
+    )>
     where
         FP: FlushPolicy,
     {
@@ -236,7 +239,7 @@ where
             && delta < self.ram_buffer_granularity()
         {
             // Skip accounting for now, we'll come back to it later when the delta is bigger
-            return Ok(None);
+            return Ok((None, Some(per_thread)));
         }
         let mut inner = self.lock.lock();
         let result = (|| {
@@ -281,18 +284,20 @@ where
         inner: &mut Inner<D, IF, Q>,
         per_thread: DocumentsWriterPerThread<D, IF, Q>,
         mark_pending: bool,
-    ) -> Result<Option<DocumentsWriterPerThread<D, IF, Q>>> {
+    ) -> Result<(
+        Option<DocumentsWriterPerThread<D, IF, Q>>,
+        Option<DocumentsWriterPerThread<D, IF, Q>>,
+    )> {
         if inner.full_flush {
             if *per_thread.is_flush_pending() {
                 self.checkout_and_block(per_thread, inner);
                 match self.next_pending_flush(Some(inner)) {
-                    (Some(dwpt), _, _) => return Ok(Some(dwpt)),
+                    (Some(dwpt), _, _) => return Ok((Some(dwpt), None)),
                     (None, full_flush, num_pending) => {
-                        return self.try_get_next_pending_flush(
-                            num_pending,
-                            full_flush,
-                            Some(inner),
-                        )
+                        return Ok((
+                            self.try_get_next_pending_flush(num_pending, full_flush, Some(inner))?,
+                            None,
+                        ))
                     },
                 }
             }
@@ -302,10 +307,10 @@ where
                 self.set_flush_pending(&per_thread)?;
             }
             if *per_thread.is_flush_pending() {
-                return Ok(Some(self.check_out_for_flush(per_thread, inner)));
+                return Ok((None, Some(self.check_out_for_flush(per_thread, inner))));
             }
         }
-        Ok(None)
+        Ok((None, Some(per_thread)))
     }
     fn assert_num_docs_since_stalled(&self, stalled: bool, inner: &mut Inner<D, IF, Q>) -> bool {
         //  updates the number of documents "finished" while we are in a stalled state.

@@ -14,14 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::index::approximate_priority_queue::IdentityId;
 use crate::index::doc_values_update::DocValuesUpdate;
-use crate::index::documents_writer_delete_queue::DocumentsWriterDeleteQueue;
+use crate::index::documents_writer_delete_queue::{DocumentsWriterDeleteQueue, Node};
 use crate::index::documents_writer_flush_control::DocumentsWriterFlushControl;
 use crate::index::documents_writer_flush_queue::{DocumentsWriterFlushQueue, FlushTicket};
 use crate::index::documents_writer_per_thread::DocumentsWriterPerThread;
 use crate::index::documents_writer_per_thread_pool::DocumentsWriterPerThreadPool;
+use crate::index::field_infos::build::Builder;
+use crate::index::field_infos::FieldNumbers;
 use crate::index::indexable_field::IndexableField;
 use crate::index::live_index_writer_config::LiveIndexWriterConfig;
+use crate::index::lockable_concurrent_approximate_priority_queue::Lock;
 use crate::index::segment_info::SegmentInfo;
 use crate::index::term::Term;
 use crate::search::query::Query;
@@ -36,7 +40,44 @@ use parking_lot::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64, Ordering};
 use std::sync::Arc;
 use std::thread;
-
+/// This struct accepts multiple added documents and directly writes segment files.
+///
+/// Each added document is passed to the indexing chain, which processes the document into
+/// the different codec formats. Some formats write bytes to files immediately (e.g. stored fields
+/// and term vectors), while others are buffered by the indexing chain and written only on flush.
+///
+/// Once we have used our allowed RAM buffer, or the number of added docs is large enough (in the
+/// case we are flushing by doc count instead of RAM usage), we create a real segment and flush it to
+/// the `Directory`.
+///
+/// Threads:
+///
+/// Multiple threads are allowed into `add_document` at once. There is an initial synchronized call
+/// to [`DocumentsWriterFlushControl::obtain_and_lock()`] which allocates a DWPT for this indexing
+/// thread. The same thread will not necessarily get the same DWPT over time. Then `update_documents` is
+/// called on that DWPT without synchronization (most of the “heavy lifting” is in this call). Once a
+/// DWPT fills up enough RAM or holds enough documents in memory, the DWPT is checked out for flush and
+/// all changes are written to the directory. Each DWPT corresponds to one segment being written.
+///
+/// When `flush` is called by `IndexWriter`, we check out all DWPTs associated with the
+/// current [`DocumentsWriterDeleteQueue`] out of the [`DocumentsWriterPerThreadPool`] and
+/// write them to disk. The flush process can piggyback on incoming indexing threads or even block
+/// them from adding documents if flushing can’t keep up with new documents being added. Unless the
+/// stall control kicks in to block indexing threads, flushes happen concurrently with indexing requests.
+///
+/// Exceptions:
+///
+/// Because this struct directly updates in-memory posting lists, and flushes stored fields and
+/// term vectors directly to files in the directory, there are limited times when an
+/// exception can corrupt this state. For example, a disk full while flushing stored fields can leave
+/// the file in a corrupt state. Or an OOM exception while appending to the in-memory posting lists
+/// can corrupt that posting list. We call such errors “aborting exceptions.” In these cases we
+/// must call `abort()` to discard all docs added since the last flush.
+///
+/// All other exceptions (“non-aborting exceptions”) can still partially update the index
+/// structures. These updates are consistent but represent only a part of the document seen up
+/// until the exception was hit. When this happens, we immediately mark the document as deleted so
+/// that the document is always atomically (“all or none”) added to the index.
 pub(crate) struct DocumentsWriter<D, IF, Q, L, FN>
 where
     D: Directory,
@@ -60,6 +101,11 @@ where
     per_thread_pool: DocumentsWriterPerThreadPool<D, IF, Q>,
     pub(crate) lock: Mutex<Inner<Q>>,
     flush_control: DocumentsWriterFlushControl<D, IF, Q, L>,
+    index_created_version_major: i32,
+    directory: Arc<Mutex<D>>,
+    directory_orig: Arc<Mutex<D>>,
+    enable_test_points: bool,
+    global_field_number_map: Arc<Mutex<FieldNumbers>>,
 }
 pub(crate) struct Inner<Q>
 where
@@ -275,8 +321,88 @@ where
         }
         Ok(has_events)
     }
-    pub(crate) fn update_documents(&self) {
-        // TODO
+    fn update_documents<I, J>(&mut self, docs: I, del_node: &Node<Q>) -> Result<i64>
+    where
+        I: IntoIterator<Item = J>,
+        J: IntoIterator<Item = IF>,
+    {
+        let has_events = self.pre_update()?;
+
+        let delete_queue = self.lock.lock().delete_queue.clone();
+        let dwpt_factory = SupplierImpl2::new(
+            self.index_created_version_major,
+            self.directory_orig.clone(),
+            self.directory.clone(),
+            self.config.clone(),
+            delete_queue.clone(),
+            self.global_field_number_map.clone(),
+            self.pending_num_docs.clone(),
+            self.enable_test_points,
+        );
+        let dwpt = self
+            .flush_control
+            .obtain_and_lock(&delete_queue, dwpt_factory)?;
+        let mut flushing_dwpt_opt = None;
+        let mut seq_no = 0;
+        let result = (|| {
+            // This must happen after we've pulled the DWPT because IW.close
+            // waits for all DWPT to be released:
+            self.ensure_open()?;
+            let result: Result<()> = {
+                // TODO
+                seq_no = 0;
+                Ok(())
+            };
+            if dwpt.is_aborted() {
+                self.flush_control.do_on_abort(&dwpt);
+            }
+            // TODO: 这段代码有点问题 回头用测试才能调试
+            let dwpt_id = dwpt.id().to_string();
+            let dwpt_lock_state = dwpt.state.clone();
+            let dwpt_delete_queue = dwpt.delete_queue.clone();
+            let dwpt_abort = dwpt.aborted.clone();
+            let dpwt_pending_state = dwpt.flush_pending.clone();
+            let dwpt = if result.is_ok() {
+                let (new_dwpt, old_dwpt) = self
+                    .flush_control
+                    .do_after_document(dwpt, self.config.get_flush_policy())?;
+                debug_assert!(!(new_dwpt.is_some() && old_dwpt.is_some()));
+                flushing_dwpt_opt = new_dwpt;
+                old_dwpt
+            } else {
+                Option::from(dwpt)
+            };
+            {
+                // If a flush is occurring, we don't want to allow this dwpt to be reused
+                // If it is aborted, we shouldn't allow it to be reused
+                // If the deleteQueue is advanced, this means the maximum seqNo has been set and it cannot be
+                // reused
+                let _ = self.flush_control.lock.lock();
+                if *dpwt_pending_state.get().unwrap_or(&false)
+                    || dwpt_abort.load(Ordering::SeqCst)
+                    || dwpt_delete_queue.is_advanced()
+                {
+                    dwpt_lock_state.unlock();
+                    if dwpt.is_some() {
+                        debug_assert!(flushing_dwpt_opt.is_none());
+                        flushing_dwpt_opt = dwpt;
+                    }
+                } else {
+                    debug_assert!(dwpt.is_some());
+                    debug_assert!(dwpt.as_ref().unwrap().id() == dwpt_id);
+                    self.per_thread_pool
+                        .mark_as_free_and_unlock(dwpt.unwrap())?;
+                }
+            }
+            result
+        })();
+        if result.is_err() {
+            return Err(result.unwrap_err());
+        }
+        if self.post_update(flushing_dwpt_opt, has_events)? {
+            seq_no = -seq_no;
+        }
+        Ok(seq_no)
     }
 
     fn maybe_flush(&self) -> Result<bool> {
@@ -679,5 +805,72 @@ where
     fn get(&mut self) -> Result<Option<FlushTicket<D, Q>>> {
         let frozen_buffered_updates = self.dwpt.prepare_flush()?;
         Ok(Some(FlushTicket::new(frozen_buffered_updates, false)))
+    }
+}
+
+struct SupplierImpl2<D, Q, L>
+where
+    D: Directory,
+    Q: Query,
+    L: LiveIndexWriterConfig,
+{
+    index_major_version_created: i32,
+    directory_orig: Arc<Mutex<D>>,
+    directory: Arc<Mutex<D>>,
+    config: Arc<L>,
+    delete_queue: Arc<DocumentsWriterDeleteQueue<Q>>,
+    pending_num_docs: Arc<AtomicI64>,
+    enable_test_points: bool,
+    field_numbers: Arc<Mutex<FieldNumbers>>,
+}
+impl<D, Q, L> SupplierImpl2<D, Q, L>
+where
+    D: Directory,
+    Q: Query,
+    L: LiveIndexWriterConfig,
+{
+    pub(crate) fn new(
+        index_major_version_created: i32,
+        directory_orig: Arc<Mutex<D>>,
+        directory: Arc<Mutex<D>>,
+        config: Arc<L>,
+        delete_queue: Arc<DocumentsWriterDeleteQueue<Q>>,
+        field_numbers: Arc<Mutex<FieldNumbers>>,
+        pending_num_docs: Arc<AtomicI64>,
+        enable_test_points: bool,
+    ) -> Self {
+        SupplierImpl2 {
+            index_major_version_created,
+            directory_orig,
+            directory,
+            config,
+            delete_queue,
+            pending_num_docs,
+            enable_test_points,
+            field_numbers,
+        }
+    }
+}
+impl<D, Q, L, IF> Supplier<DocumentsWriterPerThread<D, IF, Q>> for SupplierImpl2<D, Q, L>
+where
+    D: Directory,
+    Q: Query,
+    L: LiveIndexWriterConfig,
+    IF: IndexableField,
+{
+    fn get(&mut self) -> Result<DocumentsWriterPerThread<D, IF, Q>> {
+        let infos = Builder::new(self.field_numbers.clone());
+        let dwpt = DocumentsWriterPerThread::new(
+            self.index_major_version_created,
+            "",
+            self.directory_orig.clone(),
+            self.directory.clone(),
+            &*self.config,
+            self.delete_queue.clone(),
+            infos,
+            self.pending_num_docs.clone(),
+            self.enable_test_points,
+        )?;
+        Ok(dwpt)
     }
 }
