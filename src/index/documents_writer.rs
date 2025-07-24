@@ -100,7 +100,7 @@ where
     // isCurrent while there are actually changes currently committed. See also
     // #anyChanges() & #flushAllThreads
     pending_changes_in_current_full_flush: AtomicBool,
-    per_thread_pool: DocumentsWriterPerThreadPool<D, IF, Q>,
+    pub(crate) per_thread_pool: DocumentsWriterPerThreadPool<D, IF, Q>,
     pub(crate) lock: Mutex<Inner<Q>>,
     flush_control: DocumentsWriterFlushControl<D, IF, Q, L>,
     index_created_version_major: i32,
@@ -243,7 +243,8 @@ where
         self.subtract_flushed_num_docs(num);
 
         per_thread.abort()?;
-        self.flush_control.do_on_abort(&per_thread);
+        self.flush_control
+            .do_on_abort(&per_thread, &self.per_thread_pool);
 
         Ok(())
     }
@@ -341,9 +342,11 @@ where
             self.pending_num_docs.clone(),
             self.enable_test_points,
         );
-        let dwpt = self
-            .flush_control
-            .obtain_and_lock(&delete_queue, dwpt_factory)?;
+        let dwpt = self.flush_control.obtain_and_lock(
+            &delete_queue,
+            dwpt_factory,
+            &self.per_thread_pool,
+        )?;
         let mut flushing_dwpt_opt = None;
         let mut seq_no = 0;
         let result = (|| {
@@ -356,7 +359,7 @@ where
                 Ok(())
             };
             if dwpt.is_aborted() {
-                self.flush_control.do_on_abort(&dwpt);
+                self.flush_control.do_on_abort(&dwpt, &self.per_thread_pool);
             }
             // TODO: 这段代码有点问题 回头用测试才能调试
             let dwpt_id = dwpt.id().to_string();
@@ -365,9 +368,11 @@ where
             let dwpt_abort = dwpt.aborted.clone();
             let dpwt_pending_state = dwpt.flush_pending.clone();
             let dwpt = if result.is_ok() {
-                let (new_dwpt, old_dwpt) = self
-                    .flush_control
-                    .do_after_document(dwpt, self.config.get_flush_policy())?;
+                let (new_dwpt, old_dwpt) = self.flush_control.do_after_document(
+                    dwpt,
+                    self.config.get_flush_policy(),
+                    &self.per_thread_pool,
+                )?;
                 debug_assert!(!(new_dwpt.is_some() && old_dwpt.is_some()));
                 flushing_dwpt_opt = new_dwpt;
                 old_dwpt

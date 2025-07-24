@@ -85,7 +85,6 @@ where
     // future by
     // polling the flushQueue
     flushing_writers: Vec<String>,
-    per_thread_pool: DocumentsWriterPerThreadPool<D, IF, Q>,
     closed: bool,
     stall_start_ns: Instant,
     // only with assert
@@ -106,6 +105,40 @@ where
     Q: Query,
     L: LiveIndexWriterConfig,
 {
+    fn new(config: Arc<L>) -> Self {
+        // Initialize the Inner state with defaults
+        let inner = Inner {
+            flush_by_ram_was_disabled: false,
+            max_configured_ram_buffer: config.get_ram_buffer_size_mb(),
+            hard_max_bytes_per_dwpt: (config.get_ram_per_thread_hard_limit_mb() * 1024 * 1024)
+                as i64,
+            active_bytes: 0,
+            flush_bytes: AtomicI64::new(0),
+            num_pending: AtomicI32::new(0),
+            full_flush: false,
+            full_flush_mark_done: false,
+            flush_queue: VecDeque::new(),
+            blocked_flushes: VecDeque::new(),
+            flushing_writers: Vec::new(),
+            closed: false,
+            stall_start_ns: Instant::now(),
+            peak_active_bytes: 0,
+            peak_flush_bytes: 0,
+            peak_net_bytes: 0,
+            peak_delta: 0,
+            num_docs_since_stalled: 0,
+        };
+
+        DocumentsWriterFlushControl {
+            flush_deletes: AtomicBool::new(false),
+            info_stream: config.get_info_stream(),
+            lock: Mutex::new(inner),
+            config,
+            stall_control: DocumentsWriterStallControl::new(),
+            pausing: Condvar::new(),
+        }
+    }
+
     pub fn active_bytes(&self) -> i64 {
         let guard = self.lock.lock();
         guard.active_bytes
@@ -225,6 +258,7 @@ where
         &mut self,
         mut per_thread: DocumentsWriterPerThread<D, IF, Q>,
         flush_policy: &FP,
+        per_thread_pool: &DocumentsWriterPerThreadPool<D, IF, Q>,
     ) -> Result<(
         Option<DocumentsWriterPerThread<D, IF, Q>>,
         Option<DocumentsWriterPerThread<D, IF, Q>>,
@@ -266,10 +300,10 @@ where
                 {
                     // Safety check to prevent a single DWPT exceeding its RAM limit. This
                     // is super important since we can not address more than 2048 MB per DWPT
-                    self.set_flush_pending(&mut per_thread)?;
+                    self.set_flush_pending(&mut per_thread, Some(&mut inner))?;
                 }
             }
-            self.checkout(&mut inner, per_thread, false)
+            self.checkout(&mut inner, per_thread, false, per_thread_pool)
         })();
 
         let stall = self.update_stall_state(&mut inner);
@@ -284,13 +318,14 @@ where
         inner: &mut Inner<D, IF, Q>,
         per_thread: DocumentsWriterPerThread<D, IF, Q>,
         mark_pending: bool,
+        per_thread_pool: &DocumentsWriterPerThreadPool<D, IF, Q>,
     ) -> Result<(
         Option<DocumentsWriterPerThread<D, IF, Q>>,
         Option<DocumentsWriterPerThread<D, IF, Q>>,
     )> {
         if inner.full_flush {
             if *per_thread.is_flush_pending() {
-                self.checkout_and_block(per_thread, inner);
+                self.checkout_and_block(per_thread, inner, per_thread_pool);
                 match self.next_pending_flush(Some(inner)) {
                     (Some(dwpt), _, _) => return Ok((Some(dwpt), None)),
                     (None, full_flush, num_pending) => {
@@ -304,10 +339,13 @@ where
         } else {
             if mark_pending {
                 debug_assert!(!per_thread.is_flush_pending());
-                self.set_flush_pending(&per_thread)?;
+                self.set_flush_pending(&per_thread, Some(inner))?;
             }
             if *per_thread.is_flush_pending() {
-                return Ok((None, Some(self.check_out_for_flush(per_thread, inner))));
+                return Ok((
+                    None,
+                    Some(self.check_out_for_flush(per_thread, inner, per_thread_pool)),
+                ));
             }
         }
         Ok((None, Some(per_thread)))
@@ -390,8 +428,15 @@ where
     }
     /// Sets flush pending state on the given [`DocumentsWriterPerThread`].
     /// The [`DocumentsWriterPerThread`] must have indexed at least on Document and must not be already pending.
-    pub fn set_flush_pending(&self, per_thread: &DocumentsWriterPerThread<D, IF, Q>) -> Result<()> {
-        let mut inner = self.lock.lock();
+    pub fn set_flush_pending(
+        &self,
+        per_thread: &DocumentsWriterPerThread<D, IF, Q>,
+        inner: Option<&mut Inner<D, IF, Q>>,
+    ) -> Result<()> {
+        let inner = match inner {
+            Some(inner) => inner,
+            None => &mut *self.lock.lock(),
+        };
         debug_assert!(!per_thread.is_flush_pending());
         if per_thread.get_num_docs_in_ram() > 0 {
             per_thread.set_flush_pending()?;
@@ -399,14 +444,18 @@ where
             inner.flush_bytes.fetch_add(bytes, Ordering::SeqCst);
             inner.active_bytes -= bytes;
             inner.num_pending.fetch_add(1, Ordering::SeqCst);
-            assert!(self.assert_memory(&mut inner));
+            assert!(self.assert_memory(inner));
         }
         Ok(())
     }
-    pub fn do_on_abort(&self, per_thread: &DocumentsWriterPerThread<D, IF, Q>) {
+    pub fn do_on_abort(
+        &self,
+        per_thread: &DocumentsWriterPerThread<D, IF, Q>,
+        per_thread_pool: &DocumentsWriterPerThreadPool<D, IF, Q>,
+    ) {
         let mut inner = self.lock.lock();
         {
-            debug_assert!(inner.per_thread_pool.is_registered(per_thread.id()));
+            debug_assert!(per_thread_pool.is_registered(per_thread.id()));
             let bytes = per_thread.get_last_committed_bytes_used();
             if *per_thread.is_flush_pending() {
                 inner.flush_bytes.fetch_sub(bytes, Ordering::SeqCst);
@@ -418,7 +467,7 @@ where
         };
 
         let _ = self.update_stall_state(&mut inner);
-        let checked_out = inner.per_thread_pool.checkout(per_thread.id());
+        let checked_out = per_thread_pool.checkout(per_thread.id());
         debug_assert!(checked_out);
     }
     /// To be called only by the owner of this object's monitor lock
@@ -426,9 +475,10 @@ where
         &self,
         per_thread: DocumentsWriterPerThread<D, IF, Q>,
         inner: &mut Inner<D, IF, Q>,
+        per_thread_pool: &DocumentsWriterPerThreadPool<D, IF, Q>,
     ) {
         let id = per_thread.id();
-        debug_assert!(inner.per_thread_pool.is_registered(id));
+        debug_assert!(per_thread_pool.is_registered(id));
         debug_assert!(
             per_thread.is_flush_pending(),
             "can not block non-pending threadstate"
@@ -436,7 +486,7 @@ where
         debug_assert!(inner.full_flush, "can not block if fullFlush == false");
 
         inner.num_pending.fetch_sub(1, Ordering::SeqCst);
-        let checked_out = inner.per_thread_pool.checkout(id);
+        let checked_out = per_thread_pool.checkout(id);
         inner.blocked_flushes.push_back(per_thread);
         debug_assert!(checked_out);
     }
@@ -444,13 +494,14 @@ where
         &self,
         per_thread: DocumentsWriterPerThread<D, IF, Q>,
         inner: &mut Inner<D, IF, Q>,
+        per_thread_pool: &DocumentsWriterPerThreadPool<D, IF, Q>,
     ) -> DocumentsWriterPerThread<D, IF, Q> {
         debug_assert!(per_thread.is_flush_pending());
-        debug_assert!(inner.per_thread_pool.is_registered(per_thread.id()));
+        debug_assert!(per_thread_pool.is_registered(per_thread.id()));
         let result = {
             self.add_flushing_dwpt(per_thread.id(), inner);
             inner.num_pending.fetch_sub(1, Ordering::SeqCst);
-            let checked_out = inner.per_thread_pool.checkout(per_thread.id());
+            let checked_out = per_thread_pool.checkout(per_thread.id());
             debug_assert!(checked_out);
             per_thread
         };
@@ -542,17 +593,20 @@ where
         &self,
         delete_queue: &Arc<DocumentsWriterDeleteQueue<Q>>,
         mut dwpt_factory: S,
+        per_thread_pool: &DocumentsWriterPerThreadPool<D, IF, Q>,
     ) -> Result<DocumentsWriterPerThread<D, IF, Q>>
     where
         S: Supplier<DocumentsWriterPerThread<D, IF, Q>>,
     {
         loop {
-            let inner = self.lock.lock();
-            if inner.closed {
-                return Err(LuceneError::already_closed("flush control is closed"));
+            {
+                let inner = self.lock.lock();
+                if inner.closed {
+                    return Err(LuceneError::already_closed("flush control is closed"));
+                }
             }
 
-            let per_thread = inner.per_thread_pool.get_and_lock(&mut dwpt_factory)?;
+            let per_thread = per_thread_pool.get_and_lock(&mut dwpt_factory)?;
             if Arc::ptr_eq(&per_thread.delete_queue, delete_queue) {
                 // simply return the DWPT even in a flush all case since we already hold the lock and the
                 // DWPT is not stale
@@ -564,13 +618,17 @@ where
                 return Ok(per_thread);
             }
 
-            debug_assert!(
+            #[cfg(debug_assertions)]
+            {
+                let inner = self.lock.lock();
+                debug_assert!(
                     inner.full_flush && !inner.full_flush_mark_done,
                     "found a stale DWPT but full flush mark phase is already done fullFlush: {} markDone: {}",
                     inner.full_flush,
                     inner.full_flush_mark_done
                 );
-            inner.per_thread_pool.mark_as_free_and_unlock(per_thread)?;
+            }
+            per_thread_pool.mark_as_free_and_unlock(per_thread)?;
         }
     }
     pub(crate) fn mark_for_full_flush<FN: FlushNotifications>(
@@ -594,25 +652,24 @@ where
             flushing_queue = documents_writer_inner.delete_queue.clone();
             // Set a new delete queue - all subsequent DWPT will use this queue until
             // we do another full flush
-            inner.per_thread_pool.lock_new_writers();
+            documents_writer.per_thread_pool.lock_new_writers();
             // no new thread-states while we do a flush otherwise the seqNo
             // accounting might be off
 
-            let size = inner.per_thread_pool.size();
+            let size = documents_writer.per_thread_pool.size();
             debug_assert!(size <= i64::MAX as usize);
             // Insert a gap in seqNo of current active thread count, in the worst case each of those
             // threads now have one operation in flight.  It's fine
             // if we have some sequence numbers that were never assigned:
             let seq_no =
                 documents_writer.reset_delete_queue(&mut *documents_writer_inner, size as i64)?;
-            inner.per_thread_pool.unlock_new_writers();
+            documents_writer.per_thread_pool.unlock_new_writers();
             seq_no
         };
 
         let mut full_flush_buffer = Vec::new();
         let dwpts = {
-            let inner = self.lock.lock();
-            inner
+            documents_writer
                 .per_thread_pool
                 .filter_and_lock(|_, gen| gen == flushing_queue.generation)?
         };
@@ -620,17 +677,17 @@ where
         for mut next in dwpts {
             if next.get_num_docs_in_ram() > 0 {
                 let flushing_dwpt = {
-                    if !next.is_flush_pending() {
-                        self.set_flush_pending(&mut next)?;
-                    }
                     let mut inner = self.lock.lock();
+                    if !next.is_flush_pending() {
+                        self.set_flush_pending(&mut next, Some(&mut inner))?;
+                    }
                     next.unlock();
-                    self.check_out_for_flush(next, &mut inner)
+                    self.check_out_for_flush(next, &mut inner, &documents_writer.per_thread_pool)
                 };
                 full_flush_buffer.push(flushing_dwpt);
             } else {
                 next.unlock();
-                let checked_out = self.lock.lock().per_thread_pool.checkout(next.id());
+                let checked_out = documents_writer.per_thread_pool.checkout(next.id());
                 debug_assert!(checked_out);
             }
         }
@@ -648,14 +705,20 @@ where
             inner.full_flush_mark_done = true;
         }
 
-        debug_assert!(self.assert_active_delete_queue(&documents_writer.lock.lock().delete_queue));
+        debug_assert!(self.assert_active_delete_queue(
+            &documents_writer.lock.lock().delete_queue,
+            &documents_writer.per_thread_pool
+        ));
         debug_assert!(flushing_queue.get_last_sequence_number() <= flushing_queue.get_max_seq_no());
 
         Ok(seq_no)
     }
-    pub fn assert_active_delete_queue(&self, queue: &Arc<DocumentsWriterDeleteQueue<Q>>) -> bool {
-        let inner = self.lock.lock();
-        for next in inner.per_thread_pool.inner.lock().dwpts.values() {
+    pub fn assert_active_delete_queue(
+        &self,
+        queue: &Arc<DocumentsWriterDeleteQueue<Q>>,
+        per_thread_pool: &DocumentsWriterPerThreadPool<D, IF, Q>,
+    ) -> bool {
+        for next in per_thread_pool.inner.lock().dwpts.values() {
             debug_assert!(next.gen == queue.generation);
         }
         true
