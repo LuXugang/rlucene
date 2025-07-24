@@ -105,7 +105,7 @@ where
     Q: Query,
     L: LiveIndexWriterConfig,
 {
-    fn new(config: Arc<L>) -> Self {
+    pub(crate) fn new(config: Arc<L>) -> Self {
         // Initialize the Inner state with defaults
         let inner = Inner {
             flush_by_ram_was_disabled: false,

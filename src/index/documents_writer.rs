@@ -124,20 +124,54 @@ where
     L: LiveIndexWriterConfig,
     FN: FlushNotifications,
 {
-    pub fn delete_queries(&self, queries: Vec<Q>) -> Result<i64> {
+    fn new(
+        flush_notifications: FN,
+        index_created_version_major: i32,
+        pending_num_docs: Arc<AtomicI64>,
+        enable_test_points: bool,
+        config: Arc<L>,
+        directory_orig: D,
+        directory: LockValidatingDirectoryWrapper<D>,
+        global_field_number_map: Arc<Mutex<FieldNumbers>>,
+    ) -> Result<Self> {
+        let info_stream = config.get_info_stream();
+        let delete_queue = Arc::new(DocumentsWriterDeleteQueue::new(info_stream.clone()));
+        Ok(DocumentsWriter {
+            pending_num_docs,
+            flush_notifications,
+            closed: AtomicBool::new(false),
+            info_stream,
+            config: config.clone(),
+            num_docs_in_ram: AtomicI32::new(0),
+            ticket_queue: DocumentsWriterFlushQueue::new(),
+            pending_changes_in_current_full_flush: AtomicBool::new(false),
+            per_thread_pool: DocumentsWriterPerThreadPool::new()?,
+            lock: Mutex::new(Inner {
+                delete_queue: delete_queue.clone(),
+                current_full_flush_del_queue: None,
+            }),
+            flush_control: DocumentsWriterFlushControl::new(config),
+            index_created_version_major,
+            directory: Arc::new(Mutex::new(directory)),
+            directory_orig: Arc::new(Mutex::new(directory_orig)),
+            enable_test_points,
+            global_field_number_map,
+        })
+    }
+    pub(crate) fn delete_queries(&self, queries: Vec<Q>) -> Result<i64> {
         self.apply_delete_or_update(|upd| {
             upd.add_delete_query(queries.into_iter().map(Arc::new).collect())
         })
     }
 
-    pub fn delete_terms(&self, terms: Vec<Term>) -> Result<i64> {
+    pub(crate) fn delete_terms(&self, terms: Vec<Term>) -> Result<i64> {
         self.apply_delete_or_update(|upd| upd.add_delete_term(terms))
     }
 
-    pub fn update_doc_values(&self, updates: Vec<DocValuesUpdate>) -> Result<i64> {
+    pub(crate) fn update_doc_values(&self, updates: Vec<DocValuesUpdate>) -> Result<i64> {
         self.apply_delete_or_update(|upd| upd.add_doc_values_updates(updates))
     }
-    pub fn apply_delete_or_update<F>(&self, func: F) -> Result<i64>
+    fn apply_delete_or_update<F>(&self, func: F) -> Result<i64>
     where
         F: FnOnce(&DocumentsWriterDeleteQueue<Q>) -> Result<i64>,
     {
