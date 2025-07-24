@@ -109,7 +109,7 @@ where
         // Initialize the Inner state with defaults
         let inner = Inner {
             flush_by_ram_was_disabled: false,
-            max_configured_ram_buffer: config.get_ram_buffer_size_mb(),
+            max_configured_ram_buffer: 0f64,
             hard_max_bytes_per_dwpt: (config.get_ram_per_thread_hard_limit_mb() * 1024 * 1024)
                 as i64,
             active_bytes: 0,
