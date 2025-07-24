@@ -18,7 +18,7 @@ use std::fmt::{Display, Formatter};
 use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::Arc;
 
-use parking_lot::{Mutex, RwLock, RwLockWriteGuard};
+use parking_lot::Mutex;
 
 use crate::index::buffered_updates::{buffered_updates_util, BufferedUpdates, MTBufferedUpdates};
 use crate::index::doc_values_type::DocValuesType;
@@ -82,7 +82,7 @@ pub(crate) struct DocumentsWriterDeleteQueue<Q>
 where
     Q: Query,
 {
-    pub global_buffer_lock: RwLock<GlobalState<Q>>,
+    pub global_buffer_lock: Mutex<GlobalState<Q>>,
     pub(crate) generation: i64,
     /// Generates the sequence number that IW returns to callers changing the
     /// index, showing the effective serialization of all operations.
@@ -90,6 +90,47 @@ where
     info_stream: InfoStreamLock,
     start_seq_no: i64,
     previous_max_seq_id: i64,
+    max_seq_no: AtomicI64,
+}
+pub(crate) struct GlobalState<Q>
+where
+    Q: Query,
+{
+    tail: Arc<Node<Q>>,
+    /// Used to record deletes against all prior (already written to disk)
+    /// segments. Whenever any segment flushes, we bundle up this set of
+    /// deletes and insert into the buffered updates stream before the
+    /// newly flushed segment(s).
+    global_slice: DeleteSlice<Q>,
+    #[allow(unused)]
+    generation: i64,
+    global_buffered_updates: MTBufferedUpdates<Q>,
+    advanced: bool,
+    closed: bool,
+}
+impl<Q> GlobalState<Q>
+where
+    Q: Query,
+{
+    fn new(tail: Arc<Node<Q>>, generation: i64) -> Self {
+        Self {
+            tail: tail.clone(),
+            global_slice: DeleteSlice::new(tail),
+            generation,
+            global_buffered_updates: BufferedUpdates::new_sync("global"),
+            advanced: false,
+            closed: false,
+        }
+    }
+}
+impl<Q> GlobalState<Q>
+where
+    Q: Query,
+{
+    pub(crate) fn apply(&mut self, doc_id_upto: i32) -> Result<()> {
+        self.global_slice
+            .apply(&mut self.global_buffered_updates, doc_id_upto)
+    }
 }
 impl<Q> DocumentsWriterDeleteQueue<Q>
 where
@@ -113,12 +154,13 @@ where
         let global_slice = GlobalState::new(tail, generation);
 
         Self {
-            global_buffer_lock: RwLock::new(global_slice),
+            global_buffer_lock: Mutex::new(global_slice),
             generation,
             next_seq_no: Arc::new(AtomicI64::new(start_seq_no)),
             info_stream,
             start_seq_no,
             previous_max_seq_id,
+            max_seq_no: AtomicI64::new(i64::MAX),
         }
     }
     pub(crate) fn add_delete_query(&self, queries: Vec<Arc<Q>>) -> Result<i64> {
@@ -154,6 +196,7 @@ where
             updates.to_vec(),
         )))
     }
+    /// invariant for document update
     pub(crate) fn add_with_slice(
         &self,
         delete_node: Arc<Node<Q>>,
@@ -181,7 +224,7 @@ where
     }
 
     pub(crate) fn add_node(&self, new_node: Arc<Node<Q>>) -> Result<i64> {
-        let mut global_state = self.global_buffer_lock.write();
+        let mut global_state = self.global_buffer_lock.lock();
         self.ensure_open(global_state.closed)?;
         {
             let mut tail_next_guard = global_state.tail.next.lock();
@@ -189,28 +232,25 @@ where
         }
         global_state.tail = new_node;
 
-        Ok(self.get_next_sequence_number(Some(&global_state)))
+        Ok(self.get_next_sequence_number())
     }
 
-    pub(crate) fn any_changes(&self) -> bool {
-        let global_state = self.global_buffer_lock.write();
-        self.any_changes_with_lock(&global_state)
-    }
-    pub(crate) fn any_changes_with_lock(
-        &self,
-        global_state: &RwLockWriteGuard<GlobalState<Q>>,
-    ) -> bool {
+    pub(crate) fn any_changes(&self, global_state: Option<&GlobalState<Q>>) -> bool {
+        let global_state = match global_state {
+            Some(state) => state,
+            None => &self.global_buffer_lock.lock(),
+        };
         //  Check if all items in the global slice were applied,
         //  if the global slice is up-to-date,
         //  and if `global_buffered_updates` has changes.
-        let tail_next = global_state.tail.next.lock();
         global_state.global_buffered_updates.any()
             || !global_state.global_slice.is_empty()
             || !Arc::ptr_eq(&global_state.global_slice.slice_tail, &global_state.tail)
-            || tail_next.is_some()
+            || global_state.tail.next.lock().is_some()
     }
+
     pub(crate) fn try_apply_global_slice(&self) -> Result<()> {
-        match self.global_buffer_lock.try_write() {
+        match self.global_buffer_lock.try_lock() {
             Some(mut global_state) => {
                 self.ensure_open(global_state.closed)?;
                 // The global buffer must be locked, but we don't need to update
@@ -234,7 +274,7 @@ where
         &self,
         caller_slice: &mut Option<DeleteSlice<Q>>,
     ) -> Result<Option<FrozenBufferedUpdates<Q>>> {
-        let mut global_state = self.global_buffer_lock.write();
+        let mut global_state = self.global_buffer_lock.lock();
         self.ensure_open(global_state.closed)?;
         // Here we freeze the global buffer so we need to lock it, apply all
         // deletes in the queue and reset the global slice to let the GC prune
@@ -254,7 +294,7 @@ where
     /// been closed. If the queue has been closed, this method will return
     /// `None`.
     pub(crate) fn maybe_freeze_global_buffer(&self) -> Result<Option<FrozenBufferedUpdates<Q>>> {
-        let mut global_state = self.global_buffer_lock.write();
+        let mut global_state = self.global_buffer_lock.lock();
 
         if !global_state.closed {
             // Here we freeze the global buffer so we need to lock it,
@@ -264,7 +304,7 @@ where
             self.freeze_global_buffer_internal(&mut global_state, current_tail)
         } else {
             debug_assert!(
-                !self.any_changes_with_lock(&global_state),
+                !self.any_changes(Some(&global_state)),
                 "We are closed but have changes"
             );
             Ok(None)
@@ -273,9 +313,10 @@ where
 
     fn freeze_global_buffer_internal(
         &self,
-        global_state: &mut RwLockWriteGuard<GlobalState<Q>>,
+        global_state: &mut GlobalState<Q>,
         current_tail: Arc<Node<Q>>,
     ) -> Result<Option<FrozenBufferedUpdates<Q>>> {
+        debug_assert!(self.global_buffer_lock.is_locked());
         if !Arc::ptr_eq(&global_state.global_slice.slice_tail, &current_tail) {
             global_state.global_slice.slice_tail = current_tail;
             global_state.apply(buffered_updates_util::MAX_INT)?;
@@ -295,14 +336,14 @@ where
         }
     }
     pub(crate) fn new_slice(&self) -> DeleteSlice<Q> {
-        let global_state = self.global_buffer_lock.read();
-        DeleteSlice::new(global_state.tail.clone())
+        let global_state = self.global_buffer_lock.lock().tail.clone();
+        DeleteSlice::new(global_state)
     }
     /// Negative result means there were new deletes since we last applied.
     pub(crate) fn update_slice(&self, slice: &mut DeleteSlice<Q>) -> Result<i64> {
-        let global_state = self.global_buffer_lock.read();
+        let global_state = self.global_buffer_lock.lock();
         self.ensure_open(global_state.closed)?;
-        let mut seq_no = self.get_next_sequence_number(Some(&global_state));
+        let mut seq_no = self.get_next_sequence_number();
         if !Arc::ptr_eq(&slice.slice_tail, &global_state.tail) {
             // new deletes arrived since we last checked
             slice.slice_tail = global_state.tail.clone();
@@ -312,10 +353,7 @@ where
     }
 
     /// Just like updateSlice, but does not assign a sequence number.
-    pub(crate) fn update_slice_no_seq_no(
-        &self,
-        global_state: &mut RwLockWriteGuard<GlobalState<Q>>,
-    ) -> bool {
+    pub(crate) fn update_slice_no_seq_no(&self, global_state: &mut GlobalState<Q>) -> bool {
         if !Arc::ptr_eq(&global_state.global_slice.slice_tail, &global_state.tail) {
             // New deletes arrived since the last check
             global_state.global_slice.slice_tail = global_state.tail.clone();
@@ -332,28 +370,24 @@ where
         Ok(())
     }
     pub(crate) fn is_open(&self) -> bool {
-        let global_state = self.global_buffer_lock.read();
+        let global_state = self.global_buffer_lock.lock();
         !global_state.closed
     }
 
-    pub(crate) fn get_next_sequence_number(&self, global_state: Option<&GlobalState<Q>>) -> i64 {
-        let global_state = match global_state {
-            Some(state) => state,
-            None => &*self.global_buffer_lock.read(),
-        };
+    pub(crate) fn get_next_sequence_number(&self) -> i64 {
         let seq_no = self.next_seq_no.fetch_add(1, Ordering::SeqCst);
         debug_assert!(
-            seq_no <= global_state.max_seq_no,
+            seq_no <= self.max_seq_no.load(Ordering::SeqCst),
             "seq_no={} vs max_seq_no={}",
             seq_no,
-            global_state.max_seq_no
+            self.max_seq_no.load(Ordering::SeqCst)
         );
         seq_no
     }
     pub(crate) fn close(&self) -> Result<()> {
-        let mut global_state = self.global_buffer_lock.write();
+        let mut global_state = self.global_buffer_lock.lock();
 
-        if self.any_changes_with_lock(&global_state) {
+        if self.any_changes(Some(&global_state)) {
             return Err(LuceneError::illegal_state(
                 "Can't close queue unless all changes are applied".to_string(),
             ));
@@ -362,28 +396,28 @@ where
 
         let seq_no = self.next_seq_no.load(Ordering::SeqCst);
         debug_assert!(
-            seq_no <= global_state.max_seq_no,
+            seq_no <= self.max_seq_no.load(Ordering::SeqCst),
             "maxSeqNo must be greater or equal to {} but was {}",
             seq_no,
-            global_state.max_seq_no
+            self.max_seq_no.load(Ordering::SeqCst)
         );
         self.next_seq_no
-            .store(global_state.max_seq_no + 1, Ordering::SeqCst);
+            .store(self.max_seq_no.load(Ordering::SeqCst) + 1, Ordering::SeqCst);
         Ok(())
     }
     #[cfg(feature = "test_only")]
     pub(crate) fn num_global_term_deletes(&self) -> i32 {
-        let global_state = self.global_buffer_lock.read();
+        let global_state = self.global_buffer_lock.lock();
         global_state.global_buffered_updates.delete_terms.size()
     }
     pub(crate) fn clear(&self) {
-        let mut global_state = self.global_buffer_lock.write();
+        let mut global_state = self.global_buffer_lock.lock();
         global_state.global_slice.slice_head = global_state.tail.clone();
         global_state.global_slice.slice_tail = global_state.tail.clone();
         global_state.global_buffered_updates.clear();
     }
     pub(crate) fn get_buffered_updates_terms_size(&self) -> Result<i32> {
-        let mut global_state = self.global_buffer_lock.write();
+        let mut global_state = self.global_buffer_lock.lock();
 
         let current_tail = global_state.tail.clone();
 
@@ -437,7 +471,7 @@ where
         &self,
         max_num_pending_ops: i64,
     ) -> Result<DocumentsWriterDeleteQueue<Q>> {
-        let mut global_state = self.global_buffer_lock.write();
+        let mut global_state = self.global_buffer_lock.lock();
         if global_state.advanced {
             return Err(LuceneError::illegal_state(
                 "queue was already advanced".to_string(),
@@ -447,7 +481,7 @@ where
 
         let seq_no = self.get_last_sequence_number() + max_num_pending_ops + 1;
 
-        global_state.max_seq_no = seq_no;
+        self.max_seq_no.store(seq_no, Ordering::SeqCst);
 
         // we use a static method to get this lambda since we previously
         // introduced a memory leak since it would
@@ -466,13 +500,12 @@ where
     /// Returns the maximum sequence number for this queue.
     /// This value will change once this queue is advanced.
     pub(crate) fn get_max_seq_no(&self) -> i64 {
-        let global_state = self.global_buffer_lock.read();
-        global_state.max_seq_no
+        self.max_seq_no.load(Ordering::SeqCst)
     }
 
     /// Returns `true` if the queue has been advanced.
     pub(crate) fn is_advanced(&self) -> bool {
-        let global_state = self.global_buffer_lock.read();
+        let global_state = self.global_buffer_lock.lock();
         global_state.advanced
     }
 }
@@ -501,48 +534,6 @@ where
     fn ram_bytes_used(&self) -> Result<i64> {
         //TODO: memory calculation not implemented
         Ok(0)
-    }
-}
-pub(crate) struct GlobalState<Q>
-where
-    Q: Query,
-{
-    tail: Arc<Node<Q>>,
-    /// Used to record deletes against all prior (already written to disk)
-    /// segments. Whenever any segment flushes, we bundle up this set of
-    /// deletes and insert into the buffered updates stream before the
-    /// newly flushed segment(s).
-    global_slice: DeleteSlice<Q>,
-    #[allow(unused)]
-    generation: i64,
-    global_buffered_updates: MTBufferedUpdates<Q>,
-    max_seq_no: i64,
-    advanced: bool,
-    closed: bool,
-}
-impl<Q> GlobalState<Q>
-where
-    Q: Query,
-{
-    fn new(tail: Arc<Node<Q>>, generation: i64) -> Self {
-        Self {
-            tail: tail.clone(),
-            global_slice: DeleteSlice::new(tail),
-            generation,
-            global_buffered_updates: BufferedUpdates::new_sync("global"),
-            max_seq_no: i64::MAX,
-            advanced: false,
-            closed: false,
-        }
-    }
-}
-impl<Q> GlobalState<Q>
-where
-    Q: Query,
-{
-    pub(crate) fn apply(&mut self, doc_id_upto: i32) -> Result<()> {
-        self.global_slice
-            .apply(&mut self.global_buffered_updates, doc_id_upto)
     }
 }
 
@@ -1060,9 +1051,9 @@ mod tests {
     fn test_clear() -> Result<()> {
         let mut random = random();
         let queue = DocumentsWriterDeleteQueue::new(get_default_info_stream());
-        assert!(!queue.any_changes());
+        assert!(!queue.any_changes(None));
         queue.clear();
-        assert!(!queue.any_changes());
+        assert!(!queue.any_changes(None));
         let size = 200 + random.random_range(0..500) * random_multiplier();
         for i in 0..size {
             let term = Term::from_text("id".to_string(), &i.to_string());
@@ -1071,12 +1062,12 @@ mod tests {
             } else {
                 queue.add_delete_term(vec![term.clone()])?;
             }
-            assert!(queue.any_changes());
+            assert!(queue.any_changes(None));
 
             if random.random_range(0..10) == 0 {
                 queue.clear();
                 queue.try_apply_global_slice()?;
-                assert!(!queue.any_changes());
+                assert!(!queue.any_changes(None));
             }
         }
 
@@ -1100,7 +1091,7 @@ mod tests {
                 terms_since_freeze += 1;
             }
 
-            assert!(queue.any_changes());
+            assert!(queue.any_changes(None));
 
             if random.random_range(0..5) == 0 {
                 if let Some(frozen) = queue.freeze_global_buffer(&mut None)? {
@@ -1108,7 +1099,7 @@ mod tests {
                     assert_eq!(queries_since_freeze, frozen.delete_queries.len());
                     terms_since_freeze = 0;
                     queries_since_freeze = 0;
-                    assert!(!queue.any_changes());
+                    assert!(!queue.any_changes(None));
                 }
             }
         }
@@ -1130,15 +1121,15 @@ mod tests {
         drop(lock);
         handle.join().unwrap();
         let queue = queue.lock();
-        assert!(queue.any_changes());
+        assert!(queue.any_changes(None));
         queue.try_apply_global_slice()?;
-        assert!(queue.any_changes());
+        assert!(queue.any_changes(None));
         let frozen_global_buffer_wrap = queue.freeze_global_buffer(&mut None)?;
         assert!(frozen_global_buffer_wrap.is_some());
         let frozen_global_buffer = frozen_global_buffer_wrap.unwrap();
         assert!(frozen_global_buffer.any());
         assert_eq!(1, frozen_global_buffer.delete_terms.size());
-        assert!(!queue.any_changes());
+        assert!(!queue.any_changes(None));
         Ok(())
     }
     #[test]

@@ -320,7 +320,7 @@ where
     }
     pub(crate) fn any_deletions(&self) -> bool {
         let delete_queue = self.lock.lock().delete_queue.clone();
-        delete_queue.any_changes()
+        delete_queue.any_changes(None)
     }
     fn close(&self) {
         self.closed.store(true, Ordering::SeqCst);
@@ -567,7 +567,7 @@ where
     }
     pub(crate) fn get_next_sequence_number(&self) -> i64 {
         let delete_queue = self.lock.lock().delete_queue.clone();
-        delete_queue.get_next_sequence_number(None)
+        delete_queue.get_next_sequence_number()
     }
 
     pub(crate) fn reset_delete_queue(
@@ -676,7 +676,7 @@ where
         anything_flushed |= self.maybe_flush()?;
         // If a concurrent flush is still in flight wait for it
         self.flush_control.wait_for_flush();
-        if !anything_flushed && flushing_delete_queue.any_changes() {
+        if !anything_flushed && flushing_delete_queue.any_changes(None) {
             {
                 let mut info_stream = self.info_stream.lock();
                 if info_stream.enabled("DW") {
@@ -694,7 +694,7 @@ where
         // we can't assert that we don't have any tickets in the queue since we might add a
         // DocumentsWriterDeleteQueue
         // concurrently if we have very small ram buffers this happens quite frequently
-        debug_assert!(!flushing_delete_queue.any_changes());
+        debug_assert!(!flushing_delete_queue.any_changes(None));
         {
             let inner = self.lock.lock();
             debug_assert!(Arc::ptr_eq(
