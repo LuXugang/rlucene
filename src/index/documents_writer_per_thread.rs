@@ -17,6 +17,8 @@
 use crate::codecs::live_docs_format::LiveDocsFormat;
 use crate::codecs::segment_info_format::SegmentInfoFormat;
 use crate::codecs::{Codec, LATEST_CODEC};
+use crate::document::fields::Fields;
+use crate::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::index::approximate_priority_queue::IdentityId;
 use crate::index::buffered_updates::{BufferedUpdates, MTBufferedUpdates};
 use crate::index::documents_writer::FlushNotifications;
@@ -26,7 +28,7 @@ use crate::index::field_infos::FieldInfos;
 use crate::index::frozen_buffered_updates::FrozenBufferedUpdates;
 use crate::index::index_writer::index_writer_util;
 use crate::index::indexable_field::IndexableField;
-use crate::index::indexing_chain::IndexingChain;
+use crate::index::indexing_chain::{IndexingChain, ReservedField};
 use crate::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::index::lockable_concurrent_approximate_priority_queue::{FlushState, Lock};
 use crate::index::pending_soft_deletes::pending_soft_deletes_util;
@@ -54,9 +56,11 @@ use std::cell::OnceCell;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fmt::{Display, Formatter};
+use std::iter::{once, Chain, Once};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
 use std::sync::{Arc, OnceLock};
+use std::vec::IntoIter;
 
 pub(crate) struct DocumentsWriterPerThread<D, IF, Q>
 where
@@ -86,6 +90,7 @@ where
     aborting_exception: Option<LuceneError>,
     id: String,
     pub(crate) state: Arc<State>,
+    parent_field: Option<String>,
 }
 
 pub(crate) struct State {
@@ -226,6 +231,9 @@ where
             cvar: Condvar::new(),
             available: Mutex::new(true),
         };
+        let parent_field = index_writer_config
+            .get_parent_field()
+            .map(|parent_field| parent_field.to_string());
 
         Ok(DocumentsWriterPerThread {
             directory: directory_wrapped,
@@ -250,6 +258,7 @@ where
             aborting_exception: None,
             id: id.clone(),
             state: Arc::new(state),
+            parent_field,
         })
     }
 
@@ -965,5 +974,33 @@ where
     fn accept(&mut self, input: HashSet<String>) -> Result<()> {
         self.flush_notifications.delete_unused_files(input);
         Ok(())
+    }
+}
+
+pub(crate) struct DocWrapper<B> {
+    doc: B,
+    parent_field: String,
+}
+impl<B> DocWrapper<B>
+where
+    B: IntoIterator<Item = Fields, IntoIter = IntoIter<Fields>>,
+{
+    pub fn new(doc: B, parent_field: String) -> Self {
+        DocWrapper { doc, parent_field }
+    }
+}
+impl<B> IntoIterator for DocWrapper<B>
+where
+    B: IntoIterator<Item = Fields, IntoIter = IntoIter<Fields>>,
+{
+    type Item = Fields;
+    type IntoIter = Chain<Once<Fields>, B::IntoIter>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        let parent_field = Fields::Reverse(ReservedField::new(NumericDocValuesField::new(
+            &self.parent_field,
+            -1,
+        )));
+        once(parent_field).chain(self.doc)
     }
 }

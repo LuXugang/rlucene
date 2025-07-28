@@ -24,11 +24,13 @@ use crate::analysis::dummy::dummy_token_stream::DummyTokenStream;
 use crate::document::field::Field;
 use crate::document::field_type::FieldType;
 use crate::document::invertable_field::InvertableType;
+use crate::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::document::stored_field::StoredField;
 use crate::document::stored_value::StoredValue;
 use crate::document::string_field::StringField;
 use crate::document::text_field::TextField;
 use crate::index::indexable_field::IndexableField;
+use crate::index::indexing_chain::ReservedField;
 use crate::index::BytesRef;
 use crate::util::error::lucene_error::Result;
 use crate::util::number::Number;
@@ -38,6 +40,8 @@ pub enum Fields {
     Text(TextField),
     String(StringField),
     Stored(StoredField),
+    NumericDocValues(NumericDocValuesField),
+    Reverse(ReservedField<NumericDocValuesField>),
 }
 impl Display for Fields {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -46,6 +50,8 @@ impl Display for Fields {
             Fields::Text(f1) => write!(f, "{f1}"),
             Fields::String(f1) => write!(f, "{f1}"),
             Fields::Stored(f1) => write!(f, "{f1}"),
+            Fields::NumericDocValues(f1) => write!(f, "{f1}"),
+            Fields::Reverse(f1) => write!(f, "{f1}"),
         }
     }
 }
@@ -57,6 +63,8 @@ impl IndexableField for Fields {
             Fields::Text(f) => f.name(),
             Fields::String(f) => f.name(),
             Fields::Stored(f) => f.name(),
+            Fields::NumericDocValues(f) => f.name(),
+            Fields::Reverse(f) => f.name(),
         }
     }
 
@@ -68,6 +76,8 @@ impl IndexableField for Fields {
             Fields::Text(f) => f.field_type(),
             Fields::String(f) => f.field_type(),
             Fields::Stored(f) => f.field_type(),
+            Fields::NumericDocValues(f) => f.field_type(),
+            Fields::Reverse(f) => f.field_type(),
         }
     }
 
@@ -86,6 +96,8 @@ impl IndexableField for Fields {
             Fields::Text(f) => f.token_stream(analyzer, reuse),
             Fields::String(f) => f.token_stream(analyzer, reuse),
             Fields::Stored(f) => f.token_stream(analyzer, reuse),
+            Fields::NumericDocValues(f) => f.token_stream(analyzer, reuse),
+            Fields::Reverse(f) => f.token_stream(analyzer, reuse),
         }
     }
 
@@ -95,6 +107,8 @@ impl IndexableField for Fields {
             Fields::Text(f) => f.binary_value(),
             Fields::String(f) => f.binary_value(),
             Fields::Stored(f) => f.binary_value(),
+            Fields::NumericDocValues(f) => f.binary_value(),
+            Fields::Reverse(f) => f.binary_value(),
         }
     }
 
@@ -104,6 +118,8 @@ impl IndexableField for Fields {
             Fields::Text(f) => f.string_value(),
             Fields::String(f) => f.string_value(),
             Fields::Stored(f) => f.string_value(),
+            Fields::NumericDocValues(f) => f.string_value(),
+            Fields::Reverse(f) => f.string_value(),
         }
     }
 
@@ -113,6 +129,8 @@ impl IndexableField for Fields {
             Fields::Text(f) => f.get_char_sequence_value(),
             Fields::String(f) => f.get_char_sequence_value(),
             Fields::Stored(f) => f.get_char_sequence_value(),
+            Fields::NumericDocValues(f) => f.get_char_sequence_value(),
+            Fields::Reverse(f) => f.get_char_sequence_value(),
         }
     }
 
@@ -122,6 +140,8 @@ impl IndexableField for Fields {
             Fields::Text(f) => f.reader_value(),
             Fields::String(f) => f.reader_value(),
             Fields::Stored(f) => f.reader_value(),
+            Fields::NumericDocValues(f) => f.reader_value(),
+            Fields::Reverse(f) => f.reader_value(),
         }
     }
 
@@ -131,6 +151,8 @@ impl IndexableField for Fields {
             Fields::Text(f) => f.numeric_value(),
             Fields::String(f) => f.numeric_value(),
             Fields::Stored(f) => f.numeric_value(),
+            Fields::NumericDocValues(f) => f.numeric_value(),
+            Fields::Reverse(f) => f.numeric_value(),
         }
     }
 
@@ -140,6 +162,8 @@ impl IndexableField for Fields {
             Fields::Text(f) => f.stored_value(),
             Fields::String(f) => f.stored_value(),
             Fields::Stored(f) => f.stored_value(),
+            Fields::NumericDocValues(f) => f.stored_value(),
+            Fields::Reverse(f) => f.stored_value(),
         }
     }
 
@@ -149,6 +173,8 @@ impl IndexableField for Fields {
             Fields::Text(f) => f.invertable_type(),
             Fields::String(f) => f.invertable_type(),
             Fields::Stored(f) => f.invertable_type(),
+            Fields::NumericDocValues(f) => f.invertable_type(),
+            Fields::Reverse(f) => f.invertable_type(),
         }
     }
 }
