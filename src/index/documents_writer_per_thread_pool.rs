@@ -266,20 +266,27 @@ mod tests {
     use crate::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
     use crate::store::nio_fs_directory::NIOFSDirectory;
     use crate::store::{FSDirectory, NativeFSLockFactory};
-    use crate::test::util::lucene_test_case::{new_directory, random};
+    use crate::test::util::lucene_test_case::{new_directory, random, random_from_seed};
     use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::info_stream::{InfoStreamEnum, NoOutput};
     use crate::util::supplier::Supplier;
     use crate::util::LATEST;
     use parking_lot::Mutex;
+    use rand::Rng;
     use std::sync::atomic::AtomicI64;
     use std::sync::Arc;
 
     #[allow(dead_code)] // for quick search
     struct TestDocumentsWriterPerThreadPool;
 
-    #[derive(Default)]
-    struct DwptSupplier {}
+    struct DwptSupplier {
+        seed: u64,
+    }
+    impl DwptSupplier {
+        pub fn new(seed: u64) -> Self {
+            Self { seed }
+        }
+    }
     impl
         Supplier<
             DocumentsWriterPerThread<
@@ -298,7 +305,7 @@ mod tests {
                 DummyQuery,
             >,
         > {
-            let mut random = random();
+            let mut random = random_from_seed(self.seed);
             let directory_orig = Arc::new(Mutex::new(new_directory(&mut random)?));
             let lock = directory_orig.lock().obtain_lock("")?;
             let directory = Arc::new(Mutex::new(LockValidatingDirectoryWrapper::new(
@@ -325,8 +332,9 @@ mod tests {
 
     #[test]
     fn test_lock_release_and_close() -> Result<()> {
+        let mut random = random();
         let pool = DocumentsWriterPerThreadPool::new()?;
-        let mut supplier = DwptSupplier::default();
+        let mut supplier = DwptSupplier::new(random.random());
         let first = pool.get_and_lock(&mut supplier)?;
         assert_eq!(pool.size(), 1);
 
@@ -371,7 +379,7 @@ mod tests {
         let mut random = random();
         let directory = Arc::new(Mutex::new(new_directory(&mut random)?));
         let dummy_config = DummyLiveIndexWriterConfig::new();
-        let mut supplier = DwptSupplier::default();
+        let mut supplier = DwptSupplier::new(random.random());
         let pool = Arc::new(DocumentsWriterPerThreadPool::new()?);
 
         let first = pool.get_and_lock(&mut supplier)?;
