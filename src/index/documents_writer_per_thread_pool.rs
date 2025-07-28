@@ -307,7 +307,7 @@ mod tests {
         > {
             let mut random = random_from_seed(self.seed);
             let directory_orig = Arc::new(Mutex::new(new_directory(&mut random)?));
-            let lock = directory_orig.lock().obtain_lock("")?;
+            let lock = directory_orig.lock().obtain_lock("test")?;
             let directory = Arc::new(Mutex::new(LockValidatingDirectoryWrapper::new(
                 directory_orig.clone(),
                 lock,
@@ -317,8 +317,8 @@ mod tests {
             DocumentsWriterPerThread::new(
                 LATEST.major,
                 "",
-                directory_orig.clone(),
-                directory.clone(),
+                directory_orig,
+                directory,
                 &dummy_config,
                 Arc::new(DocumentsWriterDeleteQueue::new(Arc::new(Mutex::new(
                     InfoStreamEnum::NoOutput(NoOutput),
@@ -377,8 +377,6 @@ mod tests {
         use std::time::Duration;
 
         let mut random = random();
-        let directory = Arc::new(Mutex::new(new_directory(&mut random)?));
-        let dummy_config = DummyLiveIndexWriterConfig::new();
         let mut supplier = DwptSupplier::new(random.random());
         let pool = Arc::new(DocumentsWriterPerThreadPool::new()?);
 
