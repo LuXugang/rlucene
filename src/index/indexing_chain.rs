@@ -600,12 +600,15 @@ where
     }
 
     /// Calls `start_document` on the stored fields consumer, aborting the segment on error.
-    pub(crate) fn start_stored_fields(
+    pub(crate) fn start_stored_fields<D1>(
         &mut self,
         doc_id: i32,
-        info: &mut SegmentInfo<D>,
+        info: &mut SegmentInfo<D1>,
         index_writer_config: &impl LiveIndexWriterConfig,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        D1: Directory,
+    {
         self.stored_fields_consumer
             .start_document(index_writer_config.get_codec(), doc_id, info)
             .map(|_| ())
@@ -621,14 +624,18 @@ where
                 self.has_hit_aborting_exception = true;
             })
     }
-    pub(crate) fn process_document(
+    pub(crate) fn process_document<DF, D1>(
         &mut self,
         doc_id: i32,
-        document: &mut [IF],
-        info: &mut SegmentInfo<D>,
+        document: DF,
+        info: &mut SegmentInfo<D1>,
         field_infos: &mut Builder,
         index_writer_config: &impl LiveIndexWriterConfig,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        DF: IntoIterator<Item = IF>,
+        D1: Directory,
+    {
         // number of unique fields by names (collapses multiple field instances by the same name)
         let mut field_count = 0;
         // number of unique fields indexed with postings
@@ -645,10 +652,11 @@ where
         self.terms_hash.start_document()?;
         self.start_stored_fields(doc_id, info, index_writer_config)?;
 
+        let fields: Vec<IF> = document.into_iter().collect();
         // 1st pass over doc fields – verify that doc schema matches the index schema
         // build schema for each unique doc field
         let result = (|| {
-            for field in document.iter() {
+            for field in &fields {
                 let field_type = field.field_type();
                 let is_reserved = field.is_reserved();
                 let pf_idx = self.get_or_add_per_field(field.name(), false);
@@ -697,7 +705,7 @@ where
             // 2nd pass over doc fields – index each field
             // also count the number of unique fields indexed with postings
             doc_field_idx = 0;
-            for field in document.iter() {
+            for field in &fields {
                 if self.process_field(doc_id, field, doc_field_idx, index_writer_config)? {
                     self.fields[indexed_field_count] = doc_field_idx;
                     indexed_field_count += 1;

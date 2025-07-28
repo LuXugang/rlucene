@@ -50,17 +50,16 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::info_stream::{InfoStream, InfoStreamLock};
 use crate::util::io_consumer::IOConsumer;
-use crate::util::{StringHelper, LATEST};
+use crate::util::{StringHelper, LATEST, LUCENE_10_0_0};
 use parking_lot::{Condvar, Mutex};
 use std::cell::OnceCell;
 use std::collections::{HashMap, HashSet};
-use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::iter::{once, Chain, Once};
 use std::rc::Rc;
-use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64, Ordering};
 use std::sync::{Arc, OnceLock};
-use std::vec::IntoIter;
+use std::{fmt, thread};
 
 pub(crate) struct DocumentsWriterPerThread<D, IF, Q>
 where
@@ -285,6 +284,107 @@ where
         }
         Ok(())
     }
+    fn update_documents<DI, DF, FN, L>(
+        &mut self,
+        docs: DI,
+        delete_node: Option<Arc<Node<Q>>>,
+        flush_notifications: &mut FN,
+        index_writer_config: &L,
+        num_docs_in_ram: &mut AtomicI32,
+    ) -> Result<i64>
+    where
+        DI: IntoIterator<Item = DF>,
+        DF: IntoIterator<Item = IF>,
+        FN: FlushNotifications,
+        L: LiveIndexWriterConfig,
+    {
+        self.test_point("DocumentsWriterPerThread addDocuments start");
+        debug_assert!(
+            self.aborting_exception.is_none(),
+            "DWPT has hit aborting exception but is still indexing"
+        );
+
+        {
+            let mut info_stream = self.info_stream.lock();
+            if info_stream.enabled("DWPT") {
+                info_stream.message(
+                    "DWPT",
+                    &format!(
+                        "{} update delTerm={} docID={} seg={} ",
+                        thread::current().name().unwrap_or(""),
+                        match delete_node {
+                            Some(ref node) => node.to_string(),
+                            None => "none".to_string(),
+                        },
+                        self.num_docs_in_ram,
+                        self.segment_info.name
+                    ),
+                );
+            }
+        }
+
+        let docs_in_ram_before = self.num_docs_in_ram;
+        let mut all_docs_indexed = false;
+        let result = (|| -> Result<i64> {
+            for doc in docs {
+                match &self.parent_field {
+                    Some(parent) => {
+                        // TODO
+                        self.reserve_one_doc()?;
+                        num_docs_in_ram.store(1, Ordering::SeqCst);
+                        self.num_docs_in_ram += 1;
+                        self.indexing_chain.process_document(
+                            self.num_docs_in_ram - 1,
+                            doc,
+                            &mut self.segment_info,
+                            &mut self.field_infos,
+                            index_writer_config,
+                        )?;
+                    },
+                    None => {
+                        if self.segment_info.index_sort.is_some()
+                            && self.index_major_version_created >= LUCENE_10_0_0.major
+                        {
+                            return Err(LuceneError::illegal_argument(
+                               "a parent field must be set in order to use document blocks with index sorting; see IndexWriterConfig#set_parent_field",
+                           ));
+                        } else {
+                            self.reserve_one_doc()?;
+                            num_docs_in_ram.store(1, Ordering::SeqCst);
+                            self.num_docs_in_ram += 1;
+                            self.indexing_chain.process_document(
+                                self.num_docs_in_ram - 1,
+                                doc,
+                                &mut self.segment_info,
+                                &mut self.field_infos,
+                                index_writer_config,
+                            )?;
+                        }
+                    },
+                }
+            }
+
+            let num_docs = self.num_docs_in_ram - docs_in_ram_before;
+            if num_docs > 1 {
+                self.segment_info.set_has_blocks();
+            }
+
+            all_docs_indexed = true;
+            let written = self.finish_documents(delete_node, docs_in_ram_before)?;
+            Ok(written)
+        })();
+
+        if result.is_err() && !all_docs_indexed && !self.aborted.load(Ordering::SeqCst) {
+            // the iterator threw an exception that is not aborting
+            // go and mark all docs from this block as deleted
+            let to_delete = self.num_docs_in_ram - docs_in_ram_before;
+            self.delete_last_docs(to_delete)?;
+        }
+        self.maybe_abort("updateDocuments", flush_notifications)?;
+
+        result
+    }
+
     fn finish_documents(
         &mut self,
         delete_node: Option<Arc<Node<Q>>>,
@@ -983,7 +1083,7 @@ pub(crate) struct DocWrapper<B> {
 }
 impl<B> DocWrapper<B>
 where
-    B: IntoIterator<Item = Fields, IntoIter = IntoIter<Fields>>,
+    B: IntoIterator<Item = Fields>,
 {
     pub fn new(doc: B, parent_field: String) -> Self {
         DocWrapper { doc, parent_field }
@@ -991,7 +1091,7 @@ where
 }
 impl<B> IntoIterator for DocWrapper<B>
 where
-    B: IntoIterator<Item = Fields, IntoIter = IntoIter<Fields>>,
+    B: IntoIterator<Item = Fields>,
 {
     type Item = Fields;
     type IntoIter = Chain<Once<Fields>, B::IntoIter>;

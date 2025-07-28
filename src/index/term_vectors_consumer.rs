@@ -127,12 +127,15 @@ where
     pub(crate) fn set_has_vectors(&mut self) {
         self.has_vectors = true;
     }
-    pub(crate) fn finish_document(
+    pub(crate) fn finish_document<D1>(
         &mut self,
         doc_id: i32,
         codec: &impl Codec,
-        info: &SegmentInfo<D>,
-    ) -> Result<()> {
+        info: &SegmentInfo<D1>,
+    ) -> Result<()>
+    where
+        D1: Directory,
+    {
         if !self.has_vectors {
             return Ok(());
         }
@@ -235,11 +238,14 @@ where
         Ok(())
     }
 
-    fn init_term_vectors_writer(
+    fn init_term_vectors_writer<D1>(
         &mut self,
         codec: &impl Codec,
-        info: &SegmentInfo<D>,
-    ) -> Result<()> {
+        info: &SegmentInfo<D1>,
+    ) -> Result<()>
+    where
+        D1: Directory,
+    {
         match self.sub {
             Some(ref mut sub) => {
                 if sub.writer.is_none() {
@@ -290,11 +296,13 @@ pub(crate) trait TermVectorsConsumerBase {
     where
         DM: DocMap,
         D1: Directory;
-    fn init_term_vectors_writer(
+    fn init_term_vectors_writer<D1>(
         &mut self,
         last_doc_id: i32,
-        info: &SegmentInfo<Self::Directory>,
+        info: &SegmentInfo<D1>,
         bytes_used: i64,
-    ) -> Result<()>;
+    ) -> Result<()>
+    where
+        D1: Directory;
     fn abort(&mut self) -> Result<()>;
 }

@@ -52,7 +52,7 @@ where
     // in the SegmentInfo. pub(crate) codec: Option<Lucene101Codec>,
     diagnostics: HashMap<String, String>,
     attributes: HashMap<String, String>,
-    index_sort: Option<Sort>,
+    pub(crate) index_sort: Option<Sort>,
     /// Tracks the Lucene version this segment was created with, since 3.1.
     /// Null indicates an older than 3.0 index, and it's used to detect a
     /// too-old index. The format expected is "x.y" - "2.x" for pre-3.0

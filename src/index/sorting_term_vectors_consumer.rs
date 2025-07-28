@@ -242,12 +242,15 @@ where
         Ok(())
     }
 
-    fn init_term_vectors_writer(
+    fn init_term_vectors_writer<D1>(
         &mut self,
         last_doc_id: i32,
-        info: &SegmentInfo<Self::Directory>,
+        info: &SegmentInfo<D1>,
         bytes_used: i64,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        D1: Directory,
+    {
         let context = IOContext::with_flush(FlushInfo::new(last_doc_id, bytes_used))?;
         let term_vectors_format = Lucene90CompressingTermVectorsFormat::new(
             "TempTermVectors",

@@ -187,12 +187,15 @@ where
         }
         Ok(())
     }
-    pub(crate) fn finish_document(
+    pub(crate) fn finish_document<D1>(
         &mut self,
         doc_id: i32,
         codec: &impl Codec,
-        info: &SegmentInfo<D>,
-    ) -> Result<()> {
+        info: &SegmentInfo<D1>,
+    ) -> Result<()>
+    where
+        D1: Directory,
+    {
         if self.next_terms_hash.is_some() {
             self.next_terms_hash
                 .as_mut()
