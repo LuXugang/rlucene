@@ -2,3 +2,4 @@
 .idea/
 /xtask/target/
 Cargo.lock
+src/.DS_Store
