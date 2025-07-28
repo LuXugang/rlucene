@@ -29,6 +29,8 @@ pub mod dummy;
 pub mod field_infos_format;
 pub mod fields_consumer;
 pub mod fields_producer;
+pub mod knn_field_vectors_writer;
+pub mod knn_vectors_writer;
 pub mod live_docs_format;
 pub mod lucene101;
 pub mod lucene101_codec;
