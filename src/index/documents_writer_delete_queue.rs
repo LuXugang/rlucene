@@ -183,15 +183,15 @@ where
         self.try_apply_global_slice()?;
         Ok(seq_no)
     }
-    pub(crate) fn new_node_for_term(term: Term) -> Node<Q> {
+    pub(crate) fn new_node_with_term(term: Term) -> Node<Q> {
         Node::new(NodeEnum::TermNode(TermNode::new(term)))
     }
 
-    pub(crate) fn new_node_for_query(query: Q) -> Node<Q> {
+    pub(crate) fn new_node_with_query(query: Q) -> Node<Q> {
         Node::new(NodeEnum::QueryNode(QueryNode::new(Arc::new(query))))
     }
 
-    pub(crate) fn new_node_for_doc_values(updates: &[DocValuesUpdate]) -> Node<Q> {
+    pub(crate) fn new_node_with_doc_values(updates: &[DocValuesUpdate]) -> Node<Q> {
         Node::new(NodeEnum::DocValuesUpdatesNode(DocValuesUpdatesNode::new(
             updates.to_vec(),
         )))
@@ -1289,7 +1289,7 @@ mod tests {
             let mut i = 0;
             while i < self.ids.len() {
                 let term = Term::from_text("id".to_string(), &self.ids[i].to_string());
-                let term_node = Arc::new(DocumentsWriterDeleteQueue::new_node_for_term(term));
+                let term_node = Arc::new(DocumentsWriterDeleteQueue::new_node_with_term(term));
                 self.queue
                     .add_with_slice(term_node.clone(), &mut self.slice)?;
                 assert!(self.slice.is_tail(&term_node));
