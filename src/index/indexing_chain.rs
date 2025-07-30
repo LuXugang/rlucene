@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::analysis::analyzer::Analyzer;
-use crate::analysis::dummy::dummy_token_stream::DummyTokenStream;
 use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
 use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
 use crate::analysis::token_stream::TokenStream;
@@ -1236,7 +1235,7 @@ pub(crate) struct PerField {
     pub(crate) field_gen: i64,
     pub(crate) next: i32,
     pub(crate) norms: Option<NormValuesWriter>,
-    pub(crate) token_stream: Option<DummyTokenStream>,
+    pub(crate) token_stream: Option<<Fields as IndexableField>::TokenStream>,
     pub(crate) first: bool,
 }
 impl PerField {

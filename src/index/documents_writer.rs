@@ -237,11 +237,6 @@ where
             Ok(())
         }
     }
-
-    pub(crate) fn abort(&self) {
-        // TODO
-    }
-
     pub(crate) fn flush_one_dwpt(&mut self) -> Result<bool> {
         {
             let mut info_stream = self.info_stream.lock();
@@ -358,10 +353,10 @@ where
         }
         Ok(has_events)
     }
-    fn update_documents<I, J>(&mut self, docs: I, del_node: &Node<Q>) -> Result<i64>
+    fn update_documents<DI, DF>(&mut self, docs: DI, del_node: Option<Arc<Node<Q>>>) -> Result<i64>
     where
-        I: IntoIterator<Item = J>,
-        J: IntoIterator<Item = Fields>,
+        DI: IntoIterator<Item = DF>,
+        DF: IntoIterator<Item = Fields>,
     {
         let has_events = self.pre_update()?;
 
@@ -376,7 +371,7 @@ where
             self.pending_num_docs.clone(),
             self.enable_test_points,
         );
-        let dwpt = self.flush_control.obtain_and_lock(
+        let mut dwpt = self.flush_control.obtain_and_lock(
             &delete_queue,
             dwpt_factory,
             &self.per_thread_pool,
@@ -388,7 +383,13 @@ where
             // waits for all DWPT to be released:
             self.ensure_open()?;
             let result: Result<()> = {
-                // TODO
+                dwpt.update_documents(
+                    docs,
+                    del_node,
+                    &mut self.flush_notifications,
+                    &*self.config,
+                    &mut self.num_docs_in_ram,
+                )?;
                 seq_no = 0;
                 Ok(())
             };

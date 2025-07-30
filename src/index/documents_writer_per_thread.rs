@@ -27,7 +27,6 @@ use crate::index::field_infos::build::Builder;
 use crate::index::field_infos::FieldInfos;
 use crate::index::frozen_buffered_updates::FrozenBufferedUpdates;
 use crate::index::index_writer::index_writer_util;
-use crate::index::indexable_field::IndexableField;
 use crate::index::indexing_chain::{IndexingChain, ReservedField};
 use crate::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::index::lockable_concurrent_approximate_priority_queue::{FlushState, Lock};
@@ -283,7 +282,7 @@ where
         }
         Ok(())
     }
-    fn update_documents<DI, DF, FN, L>(
+    pub(crate) fn update_documents<DI, DF, FN, L>(
         &mut self,
         docs: DI,
         delete_node: Option<Arc<Node<Q>>>,
@@ -328,13 +327,13 @@ where
             for doc in docs {
                 match &self.parent_field {
                     Some(parent) => {
-                        // TODO
+                        let doc_wrapper = DocWrapper::new(doc, parent.clone());
                         self.reserve_one_doc()?;
                         num_docs_in_ram.store(1, Ordering::SeqCst);
                         self.num_docs_in_ram += 1;
                         self.indexing_chain.process_document(
                             self.num_docs_in_ram - 1,
-                            doc,
+                            doc_wrapper,
                             &mut self.segment_info,
                             &mut self.field_infos,
                             index_writer_config,
@@ -380,7 +379,6 @@ where
             self.delete_last_docs(to_delete)?;
         }
         self.maybe_abort("updateDocuments", flush_notifications)?;
-
         result
     }
 
