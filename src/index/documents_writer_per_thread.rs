@@ -61,14 +61,13 @@ use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64, Ordering};
 use std::sync::{Arc, OnceLock};
 use std::{fmt, thread};
 
-pub(crate) struct DocumentsWriterPerThread<D, IF, Q>
+pub(crate) struct DocumentsWriterPerThread<D, Q>
 where
     D: Directory,
-    IF: IndexableField,
     Q: Query,
 {
     pub(crate) directory: Arc<Mutex<TrackingDirectoryWrapper<LockValidatingDirectoryWrapper<D>>>>,
-    indexing_chain: IndexingChain<TrackingDirectoryWrapper<LockValidatingDirectoryWrapper<D>>, IF>,
+    indexing_chain: IndexingChain<TrackingDirectoryWrapper<LockValidatingDirectoryWrapper<D>>>,
     pending_updates: MTBufferedUpdates<Q>,
     segment_info: SegmentInfo<D>,
     pub(crate) aborted: Arc<AtomicBool>,
@@ -128,10 +127,10 @@ impl Lock for State {
     }
 }
 
-impl<D, IF, Q> DocumentsWriterPerThread<D, IF, Q>
+impl<D, Q> DocumentsWriterPerThread<D, Q>
 where
     D: Directory,
-    IF: IndexableField,
+
     Q: Query,
 {
     fn on_aborting_exception(&mut self, throwable: LuceneError) {
@@ -294,7 +293,7 @@ where
     ) -> Result<i64>
     where
         DI: IntoIterator<Item = DF>,
-        DF: IntoIterator<Item = IF>,
+        DF: IntoIterator<Item = Fields>,
         FN: FlushNotifications,
         L: LiveIndexWriterConfig,
     {
@@ -919,10 +918,9 @@ where
         self.has_flushed.get().unwrap_or(&true)
     }
 }
-impl<D, IF, Q> IdentityId for DocumentsWriterPerThread<D, IF, Q>
+impl<D, Q> IdentityId for DocumentsWriterPerThread<D, Q>
 where
     D: Directory,
-    IF: IndexableField,
 
     Q: Query,
 {
@@ -930,10 +928,9 @@ where
         &self.id
     }
 }
-impl<D, IF, Q> Accountable for DocumentsWriterPerThread<D, IF, Q>
+impl<D, Q> Accountable for DocumentsWriterPerThread<D, Q>
 where
     D: Directory,
-    IF: IndexableField,
 
     Q: Query,
 {
@@ -949,10 +946,9 @@ where
         todo!()
     }
 }
-impl<D, IF, Q> Display for DocumentsWriterPerThread<D, IF, Q>
+impl<D, Q> Display for DocumentsWriterPerThread<D, Q>
 where
     D: Directory,
-    IF: IndexableField,
 
     Q: Query,
 {
@@ -970,10 +966,10 @@ where
     }
 }
 
-impl<D, IF, Q> FlushState for DocumentsWriterPerThread<D, IF, Q>
+impl<D, Q> FlushState for DocumentsWriterPerThread<D, Q>
 where
     D: Directory,
-    IF: IndexableField,
+
     Q: Query,
 {
     fn is_flush_pending(&self) -> bool {
@@ -981,10 +977,9 @@ where
     }
 }
 
-impl<D, IF, Q> Lock for DocumentsWriterPerThread<D, IF, Q>
+impl<D, Q> Lock for DocumentsWriterPerThread<D, Q>
 where
     D: Directory,
-    IF: IndexableField,
 
     Q: Query,
 {

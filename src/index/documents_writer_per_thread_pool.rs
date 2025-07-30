@@ -16,7 +16,6 @@
  */
 use crate::index::approximate_priority_queue::IdentityId;
 use crate::index::documents_writer_per_thread::{DocumentsWriterPerThread, State};
-use crate::index::indexable_field::IndexableField;
 use crate::index::lockable_concurrent_approximate_priority_queue::{
     Lock, LockableConcurrentApproximatePriorityQueue,
 };
@@ -36,14 +35,13 @@ use std::sync::Arc;
 /// assignments might differ from document to document.
 ///
 /// Once a [`DocumentsWriterPerThread`] is selected for flush, it will be checked out of the thread pool and won’t be reused for indexing. See [`checkout`](DocumentsWriterPerThreadPool::checkout)
-pub(crate) struct DocumentsWriterPerThreadPool<D, IF, Q>
+pub(crate) struct DocumentsWriterPerThreadPool<D, Q>
 where
     D: Directory,
-    IF: IndexableField,
     Q: Query,
 {
     pub(crate) inner: Mutex<Inner>,
-    free_list: LockableConcurrentApproximatePriorityQueue<DocumentsWriterPerThread<D, IF, Q>>,
+    free_list: LockableConcurrentApproximatePriorityQueue<DocumentsWriterPerThread<D, Q>>,
     pausing: Condvar,
     closed: AtomicBool,
 }
@@ -55,10 +53,10 @@ pub(crate) struct Dwpts {
     pub(crate) gen: i64,
     state: Arc<State>,
 }
-impl<D, IF, Q> DocumentsWriterPerThreadPool<D, IF, Q>
+impl<D, Q> DocumentsWriterPerThreadPool<D, Q>
 where
     D: Directory,
-    IF: IndexableField,
+
     Q: Query,
 {
     pub fn new() -> Result<Self> {
@@ -103,9 +101,9 @@ where
     pub(crate) fn new_writer<S>(
         &self,
         dwpt_factory: &mut S,
-    ) -> Result<DocumentsWriterPerThread<D, IF, Q>>
+    ) -> Result<DocumentsWriterPerThread<D, Q>>
     where
-        S: Supplier<DocumentsWriterPerThread<D, IF, Q>>,
+        S: Supplier<DocumentsWriterPerThread<D, Q>>,
     {
         let mut inner = self.inner.lock();
         debug_assert!(inner.taken_writer_permits >= 0);
@@ -134,9 +132,9 @@ where
     pub(crate) fn get_and_lock<S>(
         &self,
         dwpt_factory: &mut S,
-    ) -> Result<DocumentsWriterPerThread<D, IF, Q>>
+    ) -> Result<DocumentsWriterPerThread<D, Q>>
     where
-        S: Supplier<DocumentsWriterPerThread<D, IF, Q>>,
+        S: Supplier<DocumentsWriterPerThread<D, Q>>,
     {
         self.ensure_open()?;
 
@@ -157,13 +155,13 @@ where
         Ok(())
     }
 
-    pub(crate) fn contains(&self, state: &DocumentsWriterPerThread<D, IF, Q>) -> bool {
+    pub(crate) fn contains(&self, state: &DocumentsWriterPerThread<D, Q>) -> bool {
         let inner = self.inner.lock();
         inner.dwpts.contains_key(state.id())
     }
     pub(crate) fn mark_as_free_and_unlock(
         &self,
-        state: DocumentsWriterPerThread<D, IF, Q>,
+        state: DocumentsWriterPerThread<D, Q>,
     ) -> Result<()> {
         let ram_bytes_used = state.ram_bytes_used()?;
 
@@ -188,7 +186,7 @@ where
     pub(crate) fn filter_and_lock<F1>(
         &self,
         predicate: F1,
-    ) -> Result<Vec<DocumentsWriterPerThread<D, IF, Q>>>
+    ) -> Result<Vec<DocumentsWriterPerThread<D, Q>>>
     where
         F1: Fn(&str, i64) -> bool,
     {
@@ -259,7 +257,6 @@ mod tests {
     use crate::index::field_infos::build::Builder;
     use crate::index::field_infos::FieldNumbers;
 
-    use crate::index::dummy::dummy_indexable_field::DummyIndexableField;
     use crate::index::lockable_concurrent_approximate_priority_queue::Lock;
     use crate::search::dummy::dummy_query::DummyQuery;
     use crate::store::directory::Directory;
@@ -289,21 +286,13 @@ mod tests {
     }
     impl
         Supplier<
-            DocumentsWriterPerThread<
-                FSDirectory<NativeFSLockFactory, NIOFSDirectory>,
-                DummyIndexableField,
-                DummyQuery,
-            >,
+            DocumentsWriterPerThread<FSDirectory<NativeFSLockFactory, NIOFSDirectory>, DummyQuery>,
         > for DwptSupplier
     {
         fn get(
             &mut self,
         ) -> Result<
-            DocumentsWriterPerThread<
-                FSDirectory<NativeFSLockFactory, NIOFSDirectory>,
-                DummyIndexableField,
-                DummyQuery,
-            >,
+            DocumentsWriterPerThread<FSDirectory<NativeFSLockFactory, NIOFSDirectory>, DummyQuery>,
         > {
             let mut random = random_from_seed(self.seed);
             let directory_orig = Arc::new(Mutex::new(new_directory(&mut random)?));

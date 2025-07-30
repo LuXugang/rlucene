@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::document::fields::Fields;
 use crate::index::approximate_priority_queue::IdentityId;
 use crate::index::doc_values_update::DocValuesUpdate;
 use crate::index::documents_writer_delete_queue::{DocumentsWriterDeleteQueue, Node};
@@ -80,10 +81,9 @@ use std::thread;
 /// structures. These updates are consistent but represent only a part of the document seen up
 /// until the exception was hit. When this happens, we immediately mark the document as deleted so
 /// that the document is always atomically (“all or none”) added to the index.
-pub(crate) struct DocumentsWriter<D, IF, Q, L, FN>
+pub(crate) struct DocumentsWriter<D, Q, L, FN>
 where
     D: Directory,
-    IF: IndexableField,
     Q: Query,
     L: LiveIndexWriterConfig,
     FN: FlushNotifications,
@@ -100,9 +100,9 @@ where
     // isCurrent while there are actually changes currently committed. See also
     // #anyChanges() & #flushAllThreads
     pending_changes_in_current_full_flush: AtomicBool,
-    pub(crate) per_thread_pool: DocumentsWriterPerThreadPool<D, IF, Q>,
+    pub(crate) per_thread_pool: DocumentsWriterPerThreadPool<D, Q>,
     pub(crate) lock: Mutex<Inner<Q>>,
-    flush_control: DocumentsWriterFlushControl<D, IF, Q, L>,
+    flush_control: DocumentsWriterFlushControl<D, Q, L>,
     index_created_version_major: i32,
     directory: Arc<Mutex<LockValidatingDirectoryWrapper<D>>>,
     directory_orig: Arc<Mutex<D>>,
@@ -116,10 +116,10 @@ where
     pub(crate) delete_queue: Arc<DocumentsWriterDeleteQueue<Q>>,
     current_full_flush_del_queue: Option<Arc<DocumentsWriterDeleteQueue<Q>>>,
 }
-impl<D, IF, Q, L, FN> DocumentsWriter<D, IF, Q, L, FN>
+impl<D, Q, L, FN> DocumentsWriter<D, Q, L, FN>
 where
     D: Directory,
-    IF: IndexableField,
+
     Q: Query,
     L: LiveIndexWriterConfig,
     FN: FlushNotifications,
@@ -269,7 +269,7 @@ where
     /// Returns how many documents were aborted.
     fn abort_documents_writer_per_thread(
         &self,
-        mut per_thread: DocumentsWriterPerThread<D, IF, Q>,
+        mut per_thread: DocumentsWriterPerThread<D, Q>,
     ) -> Result<()> {
         debug_assert!(self.lock.is_locked());
 
@@ -346,7 +346,7 @@ where
 
     fn post_update(
         &self,
-        flushing_dwpt: Option<DocumentsWriterPerThread<D, IF, Q>>,
+        flushing_dwpt: Option<DocumentsWriterPerThread<D, Q>>,
         mut has_events: bool,
     ) -> Result<bool> {
         has_events |= self.apply_all_deletes(None)?;
@@ -361,7 +361,7 @@ where
     fn update_documents<I, J>(&mut self, docs: I, del_node: &Node<Q>) -> Result<i64>
     where
         I: IntoIterator<Item = J>,
-        J: IntoIterator<Item = IF>,
+        J: IntoIterator<Item = Fields>,
     {
         let has_events = self.pre_update()?;
 
@@ -462,7 +462,7 @@ where
             Ok(false)
         }
     }
-    fn do_flush(&self, mut flushing_dwpt: DocumentsWriterPerThread<D, IF, Q>) -> Result<()> {
+    fn do_flush(&self, mut flushing_dwpt: DocumentsWriterPerThread<D, Q>) -> Result<()> {
         loop {
             assert!(!flushing_dwpt.has_flushed(),);
             {
@@ -742,10 +742,10 @@ where
         self.flush_control.get_flushing_bytes()
     }
 }
-impl<D, IF, Q, L, FN> Accountable for DocumentsWriter<D, IF, Q, L, FN>
+impl<D, Q, L, FN> Accountable for DocumentsWriter<D, Q, L, FN>
 where
     D: Directory,
-    IF: IndexableField,
+
     Q: Query,
     L: LiveIndexWriterConfig,
     FN: FlushNotifications,
@@ -819,28 +819,27 @@ where
     }
 }
 
-struct SupplierImpl1<'a, D, IF, Q>
+struct SupplierImpl1<'a, D, Q>
 where
     D: Directory,
-    IF: IndexableField,
     Q: Query,
 {
-    dwpt: &'a mut DocumentsWriterPerThread<D, IF, Q>,
+    dwpt: &'a mut DocumentsWriterPerThread<D, Q>,
 }
-impl<'a, D, IF, Q> SupplierImpl1<'a, D, IF, Q>
+impl<'a, D, Q> SupplierImpl1<'a, D, Q>
 where
     D: Directory,
-    IF: IndexableField,
+
     Q: Query,
 {
-    pub(crate) fn new(dwpt: &'a mut DocumentsWriterPerThread<D, IF, Q>) -> Self {
+    pub(crate) fn new(dwpt: &'a mut DocumentsWriterPerThread<D, Q>) -> Self {
         SupplierImpl1 { dwpt }
     }
 }
-impl<'a, D, IF, Q> Supplier<Option<FlushTicket<D, Q>>> for SupplierImpl1<'a, D, IF, Q>
+impl<'a, D, Q> Supplier<Option<FlushTicket<D, Q>>> for SupplierImpl1<'a, D, Q>
 where
     D: Directory,
-    IF: IndexableField,
+
     Q: Query,
 {
     fn get(&mut self) -> Result<Option<FlushTicket<D, Q>>> {
@@ -892,14 +891,13 @@ where
         }
     }
 }
-impl<D, Q, L, IF> Supplier<DocumentsWriterPerThread<D, IF, Q>> for SupplierImpl2<D, Q, L>
+impl<D, Q, L> Supplier<DocumentsWriterPerThread<D, Q>> for SupplierImpl2<D, Q, L>
 where
     D: Directory,
     Q: Query,
     L: LiveIndexWriterConfig,
-    IF: IndexableField,
 {
-    fn get(&mut self) -> Result<DocumentsWriterPerThread<D, IF, Q>> {
+    fn get(&mut self) -> Result<DocumentsWriterPerThread<D, Q>> {
         let infos = Builder::new(self.field_numbers.clone());
         let dwpt = DocumentsWriterPerThread::new(
             self.index_major_version_created,
