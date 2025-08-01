@@ -459,6 +459,10 @@ impl Bits for FixedBitSet {
     fn length(&self) -> i32 {
         self.num_bits
     }
+
+    fn copy_of(&self) -> FixedBitSet {
+        self.clone()
+    }
 }
 
 impl Accountable for FixedBitSet {
@@ -668,6 +672,10 @@ impl Bits for FixedBit {
 
     fn length(&self) -> i32 {
         self.0.length()
+    }
+
+    fn copy_of(&self) -> FixedBitSet {
+        self.0.clone()
     }
 }
 

@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::util::bit_set::BitSet;
+use crate::util::fixed_bit_set::FixedBitSet;
 
 /// Interface for `BitSet`-like structures.
 ///
@@ -33,6 +35,19 @@ pub trait Bits {
 
     /// Returns the number of bits in this set
     fn length(&self) -> i32;
+
+    /// Make a copy of the given bits.
+    fn copy_of(&self) -> FixedBitSet {
+        let length = self.length();
+        let mut bit_set = FixedBitSet::new(length);
+        bit_set.set_with_range(0, length);
+        for i in 0..length {
+            if !self.get(i) {
+                bit_set.clear_with_index(i);
+            }
+        }
+        bit_set
+    }
 }
 
 /// Bits impl of the specified length with all bits set.

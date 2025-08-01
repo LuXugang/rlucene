@@ -38,6 +38,7 @@ use crate::util::bit_set::BitSet;
 use crate::util::bits::Bits;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::fixed_bit_set::FixedBitSet;
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 
@@ -1191,6 +1192,13 @@ where
         match self {
             EitherBitSet::F(t) => t.length(),
             EitherBitSet::S(s) => s.length(),
+        }
+    }
+
+    fn copy_of(&self) -> FixedBitSet {
+        match self {
+            EitherBitSet::F(t) => t.copy_of(),
+            EitherBitSet::S(s) => s.copy_of(),
         }
     }
 }
