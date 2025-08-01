@@ -2077,6 +2077,12 @@ where
     fn get_field_infos(&self) -> Result<&Rc<FieldInfos>> {
         self.base.get_field_infos()
     }
+
+    type Bits = <DocValuesLeafReader as LeafReader>::Bits;
+
+    fn get_live_docs(&self) -> Result<Self::Bits> {
+        self.base.get_live_docs()
+    }
 }
 struct DocValuesLeafReaderImpl2<'a, SFB>
 where
@@ -2185,6 +2191,12 @@ where
 
     fn get_field_infos(&self) -> Result<&Rc<FieldInfos>> {
         self.base.get_field_infos()
+    }
+
+    type Bits = <DocValuesLeafReader as LeafReader>::Bits;
+
+    fn get_live_docs(&self) -> Result<Self::Bits> {
+        self.base.get_live_docs()
     }
 }
 

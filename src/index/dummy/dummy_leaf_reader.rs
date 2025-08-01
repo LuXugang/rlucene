@@ -22,6 +22,7 @@ use crate::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNumericDoc
 use crate::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocValues;
 use crate::index::field_infos::FieldInfos;
 use crate::index::leaf_reader::LeafReader;
+use crate::util::dummy::dummy_bits::DummyBits;
 use std::rc::Rc;
 
 pub struct DummyLeafReader;
@@ -90,6 +91,12 @@ impl LeafReader for DummyLeafReader {
     }
 
     fn get_field_infos(&self) -> crate::util::error::lucene_error::Result<&Rc<FieldInfos>> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    type Bits = DummyBits;
+
+    fn get_live_docs(&self) -> crate::util::error::lucene_error::Result<Self::Bits> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

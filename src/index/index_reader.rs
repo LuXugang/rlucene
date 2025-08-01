@@ -16,4 +16,6 @@
  */
 pub trait IndexReader {
     fn max_doc(&self) -> i32;
+
+    fn num_deleted_docs(&self) -> i32;
 }

@@ -342,6 +342,9 @@ where
     pub fn get_id(&self) -> &[u8; StringHelper::ID_LENGTH] {
         &self.id
     }
+    pub fn get_id_str(&self) -> String {
+        StringHelper::id_to_string(Some(&self.id))
+    }
 
     /// Add these files to the set of files written for this segment.
     pub fn add_files<I>(&mut self, files: I) -> Result<()>

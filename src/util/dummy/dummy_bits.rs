@@ -14,7 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod dummy_attribute_source;
-pub mod dummy_bits;
-pub mod dummy_counter;
-pub mod dummy_read;
+use crate::util::bits::Bits;
+
+#[derive(Clone)]
+pub struct DummyBits;
+impl Bits for DummyBits {
+    fn get(&self, _index: i32) -> bool {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn length(&self) -> i32 {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+}

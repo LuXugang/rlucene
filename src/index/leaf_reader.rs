@@ -21,6 +21,7 @@ use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::sorted_doc_values::SortedDocValues;
 use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::index::sorted_set_doc_values::SortedSetDocValues;
+use crate::util::bits::Bits;
 use crate::util::error::lucene_error::Result;
 use std::rc::Rc;
 
@@ -53,4 +54,7 @@ pub trait LeafReader {
     fn get_doc_values_skipper(&mut self, field: &str) -> Result<Option<Self::DocValuesSkipper>>;
 
     fn get_field_infos(&self) -> Result<&Rc<FieldInfos>>;
+
+    type Bits: Bits;
+    fn get_live_docs(&self) -> Result<Self::Bits>;
 }

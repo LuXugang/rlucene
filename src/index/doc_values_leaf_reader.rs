@@ -22,6 +22,7 @@ use crate::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNumericDoc
 use crate::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocValues;
 use crate::index::field_infos::FieldInfos;
 use crate::index::leaf_reader::LeafReader;
+use crate::util::dummy::dummy_bits::DummyBits;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use std::rc::Rc;
 
@@ -77,6 +78,12 @@ impl LeafReader for DocValuesLeafReader {
     }
 
     fn get_field_infos(&self) -> Result<&Rc<FieldInfos>> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
+    type Bits = DummyBits;
+
+    fn get_live_docs(&self) -> Result<Self::Bits> {
         Err(LuceneError::unsupported_operation(""))
     }
 }
