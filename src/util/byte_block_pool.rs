@@ -39,6 +39,7 @@ use crate::util::{CounterEnum, CounterEnumBorrow, CounterEnumLock, SliceCopyOps}
 ///
 /// # Note
 /// This is an internal API.
+#[derive(Debug)]
 pub struct ByteBlockPool<A>
 where
     A: Access<CounterEnum>,

@@ -15,6 +15,9 @@
  * limitations under the License.
  */
 use std::collections::HashMap;
+use std::fmt;
+use std::fmt::{Display, Formatter};
+use std::hash::Hash;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc, Mutex,
@@ -35,11 +38,12 @@ use crate::util::accountable::Accountable;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::Result;
 use crate::util::info_stream::{InfoStream, InfoStreamLock};
-use crate::util::{ByteBlockPool, CounterEnum, ToInt};
+use crate::util::{ByteBlockPool, CounterEnum, StringHelper, ToInt};
 /// Holds buffered deletes and updates by term or query, once pushed.
 ///
 /// Pushed deletes/updates are write-once, so a more memory-efficient data structure is used
 /// to store them. We don’t keep document IDs because they are applied on flush.
+#[derive(Debug)]
 pub(crate) struct FrozenBufferedUpdates<Q>
 where
     Q: Query,
@@ -50,15 +54,16 @@ where
     // Parallel array of deleted query, and the docIDUpto for each
     pub delete_queries: Vec<Arc<Q>>,
     delete_query_limits: Vec<i32>,
-    applied: AtomicBool,
+    pub(crate) applied: AtomicBool,
     pub(crate) apply_lock: Mutex<()>,
     field_updates: HashMap<String, FieldUpdatesBuffer>,
-    total_del_count: i64,
+    pub(crate) total_del_count: i64,
     field_updates_count: i32,
-    bytes_used: i32,
+    pub(crate) bytes_used: i32,
     del_gen: i64,
     // SegmentInfo ID in SegmentCommitInfo
     private_segment: Option<String>,
+    id: String,
 }
 
 impl<Q> FrozenBufferedUpdates<Q>
@@ -132,7 +137,7 @@ where
                 ),
             );
         }
-
+        let id = StringHelper::id_to_string(Some(&StringHelper::random_id()));
         Ok(Self {
             info_stream: info_stream.clone(),
             delete_terms,
@@ -146,6 +151,7 @@ where
             field_updates_count,
             del_gen: 0,
             private_segment,
+            id,
         })
     }
 
@@ -162,12 +168,69 @@ where
     pub(crate) fn apply(&self, _seg_states: SegmentState) {
         unimplemented!()
     }
+    pub fn set_del_gen(&mut self, del_gen: i64) {
+        debug_assert!(
+            self.del_gen == -1,
+            "del_gen was already previously set to {}",
+            self.del_gen
+        );
+        self.del_gen = del_gen;
+        self.delete_terms.set_del_gen(del_gen);
+    }
+
+    pub fn del_gen(&self) -> i64 {
+        debug_assert!(self.del_gen != -1);
+        self.del_gen
+    }
     pub(crate) fn any(&self) -> bool {
         self.delete_terms.size() > 0
             || !self.delete_queries.is_empty()
             || self.field_updates_count > 0
     }
 }
+impl<Q> Display for FrozenBufferedUpdates<Q>
+where
+    Q: Query,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "delGen={}", self.del_gen)?;
+        if self.delete_terms.size() != 0 {
+            write!(f, " unique deleteTerms={}", self.delete_terms.size())?;
+        }
+        if !self.delete_queries.is_empty() {
+            write!(f, " numDeleteQueries={}", self.delete_queries.len())?;
+        }
+        if self.field_updates_count > 0 {
+            write!(f, " fieldUpdates={}", self.field_updates_count)?;
+        }
+        if self.bytes_used != 0 {
+            write!(f, " bytesUsed={}", self.bytes_used)?;
+        }
+        if let Some(ref seg) = self.private_segment {
+            write!(f, " privateSegment={seg}")?;
+        }
+
+        Ok(())
+    }
+}
+impl<Q> Hash for FrozenBufferedUpdates<Q>
+where
+    Q: Query,
+{
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
+}
+impl<Q> PartialEq for FrozenBufferedUpdates<Q>
+where
+    Q: Query,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+impl<Q> Eq for FrozenBufferedUpdates<Q> where Q: Query {}
+
 /// This struct helps iterating a term dictionary and consuming all the docs for each term.
 /// It accepts a (field, value) tuple and returns a [`DocIdSetIterator`](crate::search::doc_id_set_iterator::DocIdSetIterator) if the field has an entry  
 /// for the given value.  

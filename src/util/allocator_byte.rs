@@ -25,6 +25,7 @@ use crate::util::{byte_block_pool_util, Counter, CounterEnum, CounterEnumBorrow}
 
 /// A simple `Allocator` that never recycles, but tracks how much total RAM is
 /// in use.  */
+#[derive(Debug)]
 pub struct DirectTrackingAllocatorByte<C: Access<CounterEnum>> {
     block_size: usize,
     pub(crate) byte_used: C,
@@ -68,6 +69,7 @@ pub trait AllocatorByte {
 }
 
 /// A simple [`AllocatorByte`] that never recycles.  */
+#[derive(Debug)]
 pub struct DirectAllocatorByte {
     block_size: usize,
 }
@@ -98,6 +100,7 @@ impl AllocatorByte for DirectAllocatorByte {
     }
 }
 
+#[derive(Debug)]
 pub enum AllocatorByteEnum<C>
 where
     C: Access<CounterEnum>,

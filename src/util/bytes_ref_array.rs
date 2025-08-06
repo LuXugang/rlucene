@@ -39,6 +39,7 @@ use crate::util::{
 ///
 /// # Internal
 /// This is an internal and experimental component.
+#[derive(Debug)]
 pub struct BytesRefArray<A>
 where
     A: Access<CounterEnum>,
@@ -291,7 +292,7 @@ where
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct SortState {
     pub indices: Option<Vec<i32>>,
 }

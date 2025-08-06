@@ -18,7 +18,7 @@ use std::fmt::Display;
 
 use crate::search::query::Query;
 
-#[derive(Eq, Hash, PartialEq)]
+#[derive(Eq, Hash, PartialEq, Debug)]
 pub struct DummyQuery {}
 impl Query for DummyQuery {}
 impl Display for DummyQuery {

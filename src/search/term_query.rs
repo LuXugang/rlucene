@@ -19,7 +19,7 @@ use std::fmt::Display;
 use crate::index::term::Term;
 use crate::search::query::Query;
 
-#[derive(Eq, Hash, PartialEq)]
+#[derive(Eq, Hash, PartialEq, Debug)]
 pub struct TermQuery {
     term: Term,
 }

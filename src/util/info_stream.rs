@@ -39,7 +39,7 @@ static DEFAULT_INFOSTREAM: Lazy<Arc<Mutex<InfoStreamEnum>>> =
     Lazy::new(|| Arc::new(Mutex::new(InfoStreamEnum::NoOutput(NoOutput))));
 
 /// Instance of InfoStream that does no logging at all.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct NoOutput;
 
 impl InfoStream for NoOutput {
@@ -69,7 +69,7 @@ pub fn set_default(info_stream: InfoStreamEnum) {
     let mut lock = DEFAULT_INFOSTREAM.lock();
     *lock = info_stream;
 }
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum InfoStreamEnum {
     NoOutput(NoOutput),
 }

@@ -16,6 +16,7 @@
  */
 use crate::util::Counter;
 
+#[derive(Debug)]
 pub struct DummyCounter;
 impl Counter for DummyCounter {
     fn add_and_get(&mut self, _delta: i64) -> i64 {

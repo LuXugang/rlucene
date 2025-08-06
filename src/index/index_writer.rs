@@ -15,11 +15,13 @@
  * limitations under the License.
  */
 use crate::index::documents_writer::FlushNotifications;
+use crate::index::frozen_buffered_updates::FrozenBufferedUpdates;
 use crate::index::index_deletion_policy::IndexDeletionPolicy;
 use crate::index::index_file_deleter::IndexFileDeleter;
 use crate::index::merge_state::DocMap;
 use crate::index::segment_info::SegmentInfo;
 use crate::index::segment_infos::SegmentInfos;
+use crate::search::query::Query;
 use crate::store::directory::Directory;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::error::lucene_error::Result;
@@ -63,6 +65,18 @@ where
     }
     pub(crate) fn is_deleter_closed(&self) -> Result<bool> {
         self.deleter.is_closed(self)
+    }
+    pub(crate) fn try_apply<Q>(&mut self, _updates: &mut FrozenBufferedUpdates<Q>) -> Result<bool>
+    where
+        Q: Query,
+    {
+        todo!()
+    }
+    pub(crate) fn force_apply<Q>(&mut self, _updates: &mut FrozenBufferedUpdates<Q>) -> Result<bool>
+    where
+        Q: Query,
+    {
+        todo!()
     }
 }
 pub(crate) type TragicException = Arc<Mutex<Option<LuceneError>>>;

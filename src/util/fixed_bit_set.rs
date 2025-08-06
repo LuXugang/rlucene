@@ -36,6 +36,7 @@ const FIXED_BIT_SET_BASE_RAM_BYTES_USED: i64 = 0;
 ///
 /// # Note
 /// This is an internal API.
+#[derive(Debug)]
 pub struct FixedBitSet {
     // Array of longs holding the bits
     bits: Vec<i64>,

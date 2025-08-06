@@ -38,7 +38,7 @@ pub trait Counter {
     /// The counter's current value.
     fn get(&self) -> i64;
 }
-
+#[derive(Debug)]
 pub struct AtomicCounter {
     count: AtomicI64,
 }
@@ -65,6 +65,7 @@ impl Counter for AtomicCounter {
         self.count.load(std::sync::atomic::Ordering::SeqCst)
     }
 }
+#[derive(Debug)]
 pub struct SerialCounter {
     count: i64,
 }
@@ -89,6 +90,7 @@ impl Counter for SerialCounter {
     }
 }
 
+#[derive(Debug)]
 pub enum CounterEnum {
     Atomic(AtomicCounter),
     Serial(SerialCounter),

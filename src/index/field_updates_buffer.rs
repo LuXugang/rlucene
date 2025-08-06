@@ -48,6 +48,7 @@ use crate::util::{
 /// Along the same lines, this implementation optimizes the case when all
 /// updates have a value. Lastly, if all updates share the same value for a
 /// numeric field, we only store the value once.
+#[derive(Debug)]
 pub(crate) struct FieldUpdatesBuffer {
     bytes_used: CounterEnumLock,
     num_updates: i32,
