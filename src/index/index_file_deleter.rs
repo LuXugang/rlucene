@@ -21,6 +21,7 @@ use crate::index::index_writer::IndexWriter;
 use crate::index::segment_infos::SegmentInfos;
 use crate::index::IndexFileNames;
 use crate::store::directory::Directory;
+use crate::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::file_deleter::{FileDeleter, Messenger, MsgType};
 use crate::util::info_stream::{InfoStream, InfoStreamLock};
@@ -73,7 +74,7 @@ where
 
     info_stream: InfoStreamLock,
     directory_orig: Arc<Mutex<D>>,
-    directory: Arc<Mutex<D>>,
+    directory: Arc<Mutex<LockValidatingDirectoryWrapper<D>>>,
     policy: Arc<P>,
 
     /// Whether the starting commit was deleted.
@@ -91,7 +92,7 @@ where
     pub fn new(
         files: impl IntoIterator<Item = String>,
         directory_orig: Arc<Mutex<D>>,
-        directory: Arc<Mutex<D>>,
+        directory: Arc<Mutex<LockValidatingDirectoryWrapper<D>>>,
         policy: Arc<P>,
         mut segment_infos: SegmentInfos<D>,
         info_stream: InfoStreamLock,

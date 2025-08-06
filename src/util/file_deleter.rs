@@ -16,10 +16,12 @@
  */
 use crate::index::IndexFileNames;
 use crate::store::directory::Directory;
+use crate::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
+
 /// This struct provides ability to track the reference counts of a set of index files and delete them
 /// when their counts decreased to 0.
 ///
@@ -30,7 +32,7 @@ where
     M: Messenger,
 {
     ref_counts: HashMap<String, RefCount>,
-    directory: Arc<Mutex<D>>,
+    directory: Arc<Mutex<LockValidatingDirectoryWrapper<D>>>,
     ///  user specified message consumer, first argument will be message type second argument will be the actual message
     messenger: Option<M>,
 }
@@ -39,7 +41,10 @@ where
     D: Directory,
     M: Messenger,
 {
-    pub(crate) fn new(directory: Arc<Mutex<D>>, messenger: Option<M>) -> FileDeleter<D, M> {
+    pub(crate) fn new(
+        directory: Arc<Mutex<LockValidatingDirectoryWrapper<D>>>,
+        messenger: Option<M>,
+    ) -> FileDeleter<D, M> {
         FileDeleter {
             ref_counts: HashMap::new(),
             directory,
