@@ -88,6 +88,8 @@ where
     D: Directory,
     P: IndexDeletionPolicy,
 {
+    /// Initialize the deleter: find all previous commits in the Directory, incref the files they reference, call the policy to let it delete commits.
+    /// This will remove any files not referenced by any of the commits.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         files: impl IntoIterator<Item = String>,
@@ -296,6 +298,7 @@ where
             },
         }
     }
+    /// Remove the CommitPoints in the commitsToDelete List by DecRef'ing all files from each SegmentInfos.
     fn delete_commits(&mut self) -> Result<()> {
         // TODO：important 这里应该总是为0 因为 没有将commits_to_delete作为CommitPoint的字段
         let size = self.commits_to_delete.len();
@@ -332,6 +335,9 @@ where
         Ok(())
     }
 
+    /// Writer calls this when it has hit an error and had to roll back, to tell us that there may now be unreferenced files in the filesystem.
+    /// So we re-list the filesystem and delete such files.
+    /// If segmentName is non-null, we will only delete files corresponding to that segment.
     pub(crate) fn refresh(&mut self) -> Result<()> {
         // debug_assert!(self.locked());
         let mut to_delete = HashSet::new();
@@ -384,6 +390,10 @@ where
         }
         true
     }
+    /// Revisits the `IndexDeletionPolicy` by calling its [`IndexDeletionPolicy::on_commit()`] again with the known commits.
+    /// This is useful when using a deletion policy that holds onto index commits.
+    /// The application may know that some commits are no longer held by the policy and call `IndexWriter::delete_unused_files()`,
+    /// which will attempt to delete those unused commits again.
     pub(crate) fn revisit_policy(&mut self) -> Result<()> {
         {
             let mut info_stream = self.info_stream.lock();
@@ -400,7 +410,18 @@ where
 
         Ok(())
     }
-
+    /// For definition of “check point” see `IndexWriter` comments: “Clarification: Check Points (and commits)”.
+    ///
+    /// Writer calls this when it has made a “consistent change” to the index, meaning new files are
+    /// written to the index and the in-memory `SegmentInfos` have been modified to point to those files.
+    ///
+    /// This may or may not be a commit (`segments_N` may or may not have been written).
+    ///
+    /// We simply incref the files referenced by the new `SegmentInfos` and decref the files we had
+    /// previously seen (if any).
+    ///
+    /// If this is a commit, we also call the policy to give it a chance to remove other commits. If
+    /// any commits are removed, we decref their files as well.
     pub fn checkpoint(&mut self, segment_infos: &SegmentInfos<D>, is_commit: bool) -> Result<()> {
         let t0 = std::time::Instant::now();
 
@@ -458,6 +479,7 @@ where
         self.file_deleter.inc_ref(files);
     }
 
+    /// Decrefs all provided files, even on exception; throws first exception hit, if any.
     pub(crate) fn dec_ref(&mut self, files: impl IntoIterator<Item = String>) -> Result<()> {
         self.file_deleter.dec_ref(files)
     }
@@ -659,7 +681,8 @@ pub mod index_file_deleter_util {
         Ok(())
     }
 }
-/// Holds details for each commit point. This struct is also passed to the deletion policy. Note: This struct has a natural ordering that is inconsistent with equals.
+/// Holds details for each commit point. This struct is also passed to the deletion policy.
+/// Note: This struct has a natural ordering that is inconsistent with equals.
 pub(crate) struct CommitPoint<D> {
     pub(crate) files: Vec<String>,
     pub(crate) segments_file_name: String,
@@ -758,6 +781,7 @@ where
         self.directory_orig.clone()
     }
 
+    /// Called only be the deletion policy, to remove this commit point from the index.
     fn delete(&mut self) -> Result<()> {
         todo!()
     }
