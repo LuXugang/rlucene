@@ -93,7 +93,7 @@ pub trait BitSet: Bits + Accountable {
 pub mod bit_set_util {
     use crate::search::doc_id_set_iterator::DocIdSetIterator;
     use crate::util::bit_set::BitSet;
-    use crate::util::either_enums::EitherBitSet;
+    use crate::util::either_enums::EitherBits;
     use crate::util::error::lucene_error::LuceneError;
     use crate::util::error::lucene_error::Result;
     use crate::util::fixed_bit_set::FixedBitSet;
@@ -105,15 +105,15 @@ pub mod bit_set_util {
     pub fn of(
         it: &mut impl DocIdSetIterator,
         max_doc: i32,
-    ) -> Result<EitherBitSet<SparseFixedBitSet, FixedBitSet>> {
+    ) -> Result<EitherBits<SparseFixedBitSet, FixedBitSet>> {
         let cost = it.cost()?;
         let threshold = max_doc >> 7;
         let mut set;
         if cost < (threshold as i64) {
-            set = EitherBitSet::F(SparseFixedBitSet::new(max_doc)?);
+            set = EitherBits::F(SparseFixedBitSet::new(max_doc)?);
         } else {
             let result = FixedBitSet::new(max_doc);
-            set = EitherBitSet::S(result);
+            set = EitherBits::S(result);
         };
         let _ = set.or(it);
         Ok(set)

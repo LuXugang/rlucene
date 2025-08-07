@@ -88,7 +88,7 @@ use crate::util::attribute_source::{AttributeSource, EmptyAttributeSource};
 use crate::util::bit_set::{bit_set_util, BitSet};
 use crate::util::bit_util::BitUtil;
 use crate::util::either_enums::{
-    EitherBitSet, EitherDocComparator, EitherSortedNumericDocValues, EitherSortedSetDocValues,
+    EitherBits, EitherDocComparator, EitherSortedNumericDocValues, EitherSortedSetDocValues,
 };
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
@@ -2204,14 +2204,14 @@ struct DocComparatorImpl<DC>
 where
     DC: DocComparator,
 {
-    parents: Rc<EitherBitSet<SparseFixedBitSet, FixedBitSet>>,
+    parents: Rc<EitherBits<SparseFixedBitSet, FixedBitSet>>,
     doc_comparator: DC,
 }
 impl<DC> DocComparatorImpl<DC>
 where
     DC: DocComparator,
 {
-    fn new(parents: Rc<EitherBitSet<SparseFixedBitSet, FixedBitSet>>, doc_comparator: DC) -> Self {
+    fn new(parents: Rc<EitherBits<SparseFixedBitSet, FixedBitSet>>, doc_comparator: DC) -> Self {
         DocComparatorImpl {
             parents,
             doc_comparator,

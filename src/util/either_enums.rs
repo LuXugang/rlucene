@@ -1171,137 +1171,137 @@ where
     }
 }
 // BitSet
-pub enum EitherBitSet<F, S> {
+pub enum EitherBits<F, S> {
     F(F),
     S(S),
 }
 
-impl<F, S> Bits for EitherBitSet<F, S>
+impl<F, S> Bits for EitherBits<F, S>
 where
-    F: BitSet,
-    S: BitSet,
+    F: Bits,
+    S: Bits,
 {
     fn get(&self, index: i32) -> bool {
         match self {
-            EitherBitSet::F(t) => t.get(index),
-            EitherBitSet::S(s) => s.get(index),
+            EitherBits::F(t) => t.get(index),
+            EitherBits::S(s) => s.get(index),
         }
     }
 
     fn length(&self) -> i32 {
         match self {
-            EitherBitSet::F(t) => t.length(),
-            EitherBitSet::S(s) => s.length(),
+            EitherBits::F(t) => t.length(),
+            EitherBits::S(s) => s.length(),
         }
     }
 
     fn copy_of(&self) -> FixedBitSet {
         match self {
-            EitherBitSet::F(t) => t.copy_of(),
-            EitherBitSet::S(s) => s.copy_of(),
+            EitherBits::F(t) => t.copy_of(),
+            EitherBits::S(s) => s.copy_of(),
         }
     }
 }
 
-impl<F, S> Accountable for EitherBitSet<F, S>
+impl<F, S> Accountable for EitherBits<F, S>
 where
     F: BitSet,
     S: BitSet,
 {
     fn ram_bytes_used(&self) -> Result<i64> {
         match self {
-            EitherBitSet::F(t) => t.ram_bytes_used(),
-            EitherBitSet::S(s) => s.ram_bytes_used(),
+            EitherBits::F(t) => t.ram_bytes_used(),
+            EitherBits::S(s) => s.ram_bytes_used(),
         }
     }
 }
 
-impl<F, S> BitSet for EitherBitSet<F, S>
+impl<F, S> BitSet for EitherBits<F, S>
 where
     F: BitSet,
     S: BitSet,
 {
     fn clear(&mut self) {
         match self {
-            EitherBitSet::F(t) => t.clear(),
-            EitherBitSet::S(s) => s.clear(),
+            EitherBits::F(t) => t.clear(),
+            EitherBits::S(s) => s.clear(),
         }
     }
 
     fn set(&mut self, i: i32) {
         match self {
-            EitherBitSet::F(t) => t.set(i),
-            EitherBitSet::S(s) => s.set(i),
+            EitherBits::F(t) => t.set(i),
+            EitherBits::S(s) => s.set(i),
         }
     }
 
     fn get_and_set(&mut self, i: i32) -> bool {
         match self {
-            EitherBitSet::F(t) => t.get_and_set(i),
-            EitherBitSet::S(s) => s.get_and_set(i),
+            EitherBits::F(t) => t.get_and_set(i),
+            EitherBits::S(s) => s.get_and_set(i),
         }
     }
 
     fn clear_with_index(&mut self, i: i32) {
         match self {
-            EitherBitSet::F(t) => t.clear_with_index(i),
-            EitherBitSet::S(s) => s.clear_with_index(i),
+            EitherBits::F(t) => t.clear_with_index(i),
+            EitherBits::S(s) => s.clear_with_index(i),
         }
     }
 
     fn clear_range(&mut self, start_index: i32, end_index: i32) {
         match self {
-            EitherBitSet::F(t) => t.clear_range(start_index, end_index),
-            EitherBitSet::S(s) => s.clear_range(start_index, end_index),
+            EitherBits::F(t) => t.clear_range(start_index, end_index),
+            EitherBits::S(s) => s.clear_range(start_index, end_index),
         }
     }
 
     fn cardinality(&self) -> i32 {
         match self {
-            EitherBitSet::F(t) => t.cardinality(),
-            EitherBitSet::S(s) => s.cardinality(),
+            EitherBits::F(t) => t.cardinality(),
+            EitherBits::S(s) => s.cardinality(),
         }
     }
 
     fn approximate_cardinality(&self) -> i32 {
         match self {
-            EitherBitSet::F(t) => t.approximate_cardinality(),
-            EitherBitSet::S(s) => s.approximate_cardinality(),
+            EitherBits::F(t) => t.approximate_cardinality(),
+            EitherBits::S(s) => s.approximate_cardinality(),
         }
     }
 
     fn prev_set_bit(&self, index: i32) -> i32 {
         match self {
-            EitherBitSet::F(t) => t.prev_set_bit(index),
-            EitherBitSet::S(s) => s.prev_set_bit(index),
+            EitherBits::F(t) => t.prev_set_bit(index),
+            EitherBits::S(s) => s.prev_set_bit(index),
         }
     }
 
     fn next_set_bit(&self, index: i32) -> i32 {
         match self {
-            EitherBitSet::F(t) => t.next_set_bit(index),
-            EitherBitSet::S(s) => s.next_set_bit(index),
+            EitherBits::F(t) => t.next_set_bit(index),
+            EitherBits::S(s) => s.next_set_bit(index),
         }
     }
 
     fn next_set_bit_range(&self, start: i32, end: i32) -> i32 {
         match self {
-            EitherBitSet::F(t) => t.next_set_bit_range(start, end),
-            EitherBitSet::S(s) => s.next_set_bit_range(start, end),
+            EitherBits::F(t) => t.next_set_bit_range(start, end),
+            EitherBits::S(s) => s.next_set_bit_range(start, end),
         }
     }
 
     fn or<T: DocIdSetIterator>(&mut self, iter: &mut T) -> Result<()> {
         match self {
-            EitherBitSet::F(t) => t.or(iter),
-            EitherBitSet::S(s) => s.or(iter),
+            EitherBits::F(t) => t.or(iter),
+            EitherBits::S(s) => s.or(iter),
         }
     }
 
     fn ensure_capacity(&mut self, _num_bits: i32) {
         match self {
-            EitherBitSet::F(t) => t.ensure_capacity(_num_bits),
-            EitherBitSet::S(s) => s.ensure_capacity(_num_bits),
+            EitherBits::F(t) => t.ensure_capacity(_num_bits),
+            EitherBits::S(s) => s.ensure_capacity(_num_bits),
         }
     }
 }
