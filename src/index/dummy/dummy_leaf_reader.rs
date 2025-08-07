@@ -21,36 +21,40 @@ use crate::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNumericDocValues;
 use crate::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocValues;
 use crate::index::field_infos::FieldInfos;
+use crate::index::index_reader::IndexReader;
 use crate::index::leaf_reader::LeafReader;
 use crate::util::dummy::dummy_bits::DummyBits;
+use crate::util::error::lucene_error::Result;
 use std::rc::Rc;
 
 pub struct DummyLeafReader;
+
+impl IndexReader for DummyLeafReader {
+    fn max_doc(&self) -> Result<i32> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn num_docs(&self) -> Result<i32> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+}
+
 impl LeafReader for DummyLeafReader {
     type NumericDocValues = DummyNumericDocValues;
 
-    fn get_numeric_doc_values(
-        &mut self,
-        _field: &str,
-    ) -> crate::util::error::lucene_error::Result<Option<Self::NumericDocValues>> {
+    fn get_numeric_doc_values(&mut self, _field: &str) -> Result<Option<Self::NumericDocValues>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     type BinaryDocValues = DummyBinaryDocValues;
 
-    fn get_binary_doc_values(
-        &mut self,
-        _field: &str,
-    ) -> crate::util::error::lucene_error::Result<Option<Self::BinaryDocValues>> {
+    fn get_binary_doc_values(&mut self, _field: &str) -> Result<Option<Self::BinaryDocValues>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     type SortedDocValues = DummySortedDocValues;
 
-    fn get_sorted_doc_values(
-        &mut self,
-        _field: &str,
-    ) -> crate::util::error::lucene_error::Result<Option<Self::SortedDocValues>> {
+    fn get_sorted_doc_values(&mut self, _field: &str) -> Result<Option<Self::SortedDocValues>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
@@ -59,7 +63,7 @@ impl LeafReader for DummyLeafReader {
     fn get_sorted_numeric_doc_values(
         &mut self,
         _field: &str,
-    ) -> crate::util::error::lucene_error::Result<Option<Self::SortedNumericDocValues>> {
+    ) -> Result<Option<Self::SortedNumericDocValues>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
@@ -68,35 +72,29 @@ impl LeafReader for DummyLeafReader {
     fn get_sorted_set_doc_values(
         &mut self,
         _field: &str,
-    ) -> crate::util::error::lucene_error::Result<Option<Self::SortedSetDocValues>> {
+    ) -> Result<Option<Self::SortedSetDocValues>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     type NormNumericDocValues = DummyNumericDocValues;
 
-    fn get_norm_values(
-        &mut self,
-        _field: &str,
-    ) -> crate::util::error::lucene_error::Result<Option<Self::NormNumericDocValues>> {
+    fn get_norm_values(&mut self, _field: &str) -> Result<Option<Self::NormNumericDocValues>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     type DocValuesSkipper = DummyDocValuesSkipper;
 
-    fn get_doc_values_skipper(
-        &mut self,
-        _field: &str,
-    ) -> crate::util::error::lucene_error::Result<Option<Self::DocValuesSkipper>> {
+    fn get_doc_values_skipper(&mut self, _field: &str) -> Result<Option<Self::DocValuesSkipper>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn get_field_infos(&self) -> crate::util::error::lucene_error::Result<&Rc<FieldInfos>> {
+    fn get_field_infos(&self) -> Result<&Rc<FieldInfos>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     type Bits = DummyBits;
 
-    fn get_live_docs(&self) -> crate::util::error::lucene_error::Result<Self::Bits> {
+    fn get_live_docs(&self) -> Result<Self::Bits> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

@@ -38,11 +38,11 @@ impl<LF> IndexReader for SegmentReader<LF>
 where
     LF: LiveDocsFormat,
 {
-    fn max_doc(&self) -> i32 {
+    fn max_doc(&self) -> Result<i32> {
         todo!()
     }
 
-    fn num_deleted_docs(&self) -> i32 {
+    fn num_docs(&self) -> Result<i32> {
         todo!()
     }
 }

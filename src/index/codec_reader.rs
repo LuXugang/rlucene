@@ -14,13 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::lucene_error::Result;
-pub trait IndexReader {
-    fn max_doc(&self) -> Result<i32>;
+use crate::index::leaf_reader::LeafReader;
 
-    fn num_docs(&self) -> Result<i32>;
-
-    fn num_deleted_docs(&self) -> Result<i32> {
-        Ok(self.max_doc()? - self.num_docs()?)
-    }
-}
+pub trait CodecReader: LeafReader {}

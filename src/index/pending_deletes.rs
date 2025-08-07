@@ -56,7 +56,7 @@ where
             true,
             info.info.max_doc()?,
         );
-        v.pending_delete_count = reader.num_deleted_docs() - info.get_del_count();
+        v.pending_delete_count = reader.num_deleted_docs()? - info.get_del_count();
         Ok(v)
     }
     pub(crate) fn new<D>(info: &SegmentCommitInfo<D>) -> Result<Self>

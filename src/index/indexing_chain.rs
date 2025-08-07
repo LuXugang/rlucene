@@ -43,6 +43,7 @@ use crate::index::field_invert_state::FieldInvertState;
 use crate::index::freq_prox_terms_writer::FreqProxTermsWriter;
 use crate::index::freq_prox_terms_writer_per_field::FreqProxTermsWriterPerField;
 use crate::index::index_options::IndexOptions;
+use crate::index::index_reader::IndexReader;
 use crate::index::index_sorter::{DocComparator, IndexSorter};
 use crate::index::index_writer::index_writer_util;
 use crate::index::indexable_field::IndexableField;
@@ -1916,6 +1917,20 @@ where
         DocValuesLeafReaderImpl1 { index_chain, base }
     }
 }
+
+impl<D> IndexReader for DocValuesLeafReaderImpl1<'_, D>
+where
+    D: Directory,
+{
+    fn max_doc(&self) -> Result<i32> {
+        self.base.max_doc()
+    }
+
+    fn num_docs(&self) -> Result<i32> {
+        self.base.num_docs()
+    }
+}
+
 impl<'a, D> LeafReader for DocValuesLeafReaderImpl1<'a, D>
 where
     D: Directory,
@@ -2107,6 +2122,20 @@ where
         }
     }
 }
+
+impl<SFB> IndexReader for DocValuesLeafReaderImpl2<'_, SFB>
+where
+    SFB: SortFiledBase,
+{
+    fn max_doc(&self) -> Result<i32> {
+        self.base.max_doc()
+    }
+
+    fn num_docs(&self) -> Result<i32> {
+        self.base.num_docs()
+    }
+}
+
 impl<SFB> LeafReader for DocValuesLeafReaderImpl2<'_, SFB>
 where
     SFB: SortFiledBase,

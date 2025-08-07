@@ -17,6 +17,7 @@
 use crate::index::binary_doc_values::BinaryDocValues;
 use crate::index::doc_values_skipper::DocValuesSkipper;
 use crate::index::field_infos::FieldInfos;
+use crate::index::index_reader::IndexReader;
 use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::sorted_doc_values::SortedDocValues;
 use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
@@ -25,7 +26,7 @@ use crate::util::bits::Bits;
 use crate::util::error::lucene_error::Result;
 use std::rc::Rc;
 
-pub trait LeafReader {
+pub trait LeafReader: IndexReader {
     type NumericDocValues: NumericDocValues;
     fn get_numeric_doc_values(&mut self, field: &str) -> Result<Option<Self::NumericDocValues>>;
 

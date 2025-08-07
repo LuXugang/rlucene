@@ -21,6 +21,7 @@ use crate::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNumericDocValues;
 use crate::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocValues;
 use crate::index::field_infos::FieldInfos;
+use crate::index::index_reader::IndexReader;
 use crate::index::leaf_reader::LeafReader;
 use crate::util::dummy::dummy_bits::DummyBits;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -28,6 +29,17 @@ use std::rc::Rc;
 
 #[derive(Default)]
 pub(crate) struct DocValuesLeafReader;
+
+impl IndexReader for DocValuesLeafReader {
+    fn max_doc(&self) -> Result<i32> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
+    fn num_docs(&self) -> Result<i32> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+}
+
 impl LeafReader for DocValuesLeafReader {
     type NumericDocValues = DummyNumericDocValues;
 

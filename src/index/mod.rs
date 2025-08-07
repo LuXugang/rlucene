@@ -29,6 +29,7 @@ pub(crate) mod binary_doc_values_writer;
 mod buffered_updates_stream;
 mod byte_slice_pool;
 mod byte_slice_reader;
+pub mod codec_reader;
 pub(crate) mod concurrent_approximate_priority_queue;
 pub mod doc_id_merger;
 pub mod doc_values;
