@@ -441,6 +441,7 @@ where
 
         let id = self.get_id().copied();
         // Create the cloned instance
+        // TODO: 这里不对 info不应该调用clone Java中克隆后的SegmentCommitInfo有相同的SegmentInfo引用,是否用Arc封装SegmentInfo
         SegmentCommitInfo {
             info: self.info.clone(),
             id,
