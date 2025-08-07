@@ -16,6 +16,7 @@
  */
 use crate::util::bit_set::BitSet;
 use crate::util::fixed_bit_set::FixedBitSet;
+use std::sync::Arc;
 
 /// Interface for `BitSet`-like structures.
 ///
@@ -92,5 +93,22 @@ impl Bits for BitsEnum {
 
     fn length(&self) -> i32 {
         todo!()
+    }
+}
+
+impl<T> Bits for Arc<T>
+where
+    T: Bits,
+{
+    fn get(&self, index: i32) -> bool {
+        (**self).get(index)
+    }
+
+    fn length(&self) -> i32 {
+        (**self).length()
+    }
+
+    fn copy_of(&self) -> FixedBitSet {
+        (**self).copy_of()
     }
 }

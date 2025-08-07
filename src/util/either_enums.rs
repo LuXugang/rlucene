@@ -1170,7 +1170,7 @@ where
         }
     }
 }
-// BitSet
+// Bits
 pub enum EitherBits<F, S> {
     F(F),
     S(S),

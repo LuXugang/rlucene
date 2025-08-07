@@ -14,13 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::collections::HashSet;
-
 use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::store::directory::Directory;
 use crate::store::IOContext;
 use crate::util::bits::Bits;
 use crate::util::error::lucene_error::Result;
+use std::collections::HashSet;
 
 /// Format for live/deleted documents
 pub trait LiveDocsFormat {

@@ -15,16 +15,24 @@
  * limitations under the License.
  */
 use crate::codecs::live_docs_format::LiveDocsFormat;
+use crate::codecs::{get_default_code, Codec};
+use crate::index::codec_reader::CodecReader;
 use crate::index::index_reader::IndexReader;
 use crate::index::leaf_reader::LeafReader;
 use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::index::segment_reader::SegmentReader;
 use crate::store::directory::Directory;
+use crate::store::tracking_directory_wrapper::TrackingDirectoryWrapper;
+use crate::store::IOContext;
 use crate::util::bits::Bits;
 use crate::util::either_enums::EitherBits;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
+use crate::util::IOUtils;
+use parking_lot::Mutex;
 use std::fmt;
+use std::sync::Arc;
+
 /// This class handles accounting and applying pending deletes for live segment readers
 pub(crate) struct PendingDeletes<L>
 where
@@ -32,7 +40,7 @@ where
 {
     // SegmentInfo#id
     pub(crate) info_id: String,
-    live_docs: Option<EitherBits<L::Bits, FixedBitSet>>,
+    live_docs: Option<EitherBits<Arc<L::Bits>, FixedBitSet>>,
     writeable_live_docs: bool,
     pub(crate) pending_delete_count: i32,
     live_docs_initialized: bool,
@@ -52,7 +60,7 @@ where
     {
         let mut v = Self::with(
             info.info.get_id_str(),
-            Some(EitherBits::F(reader.get_live_docs()?)),
+            reader.get_live_docs()?.map(EitherBits::F),
             true,
             info.info.max_doc()?,
         );
@@ -79,7 +87,7 @@ where
 
     pub(crate) fn with(
         info_id: String,
-        live_docs: Option<EitherBits<L::Bits, FixedBitSet>>,
+        live_docs: Option<EitherBits<Arc<L::Bits>, FixedBitSet>>,
         live_docs_initialized: bool,
         max_doc: i32,
     ) -> Self {
@@ -138,14 +146,14 @@ where
         Ok(did_delete)
     }
     /// Returns a snapshot of the current live docs.
-    pub(crate) fn get_live_docs(&mut self) -> Option<&EitherBits<L::Bits, FixedBitSet>> {
+    pub(crate) fn get_live_docs(&mut self) -> Option<&EitherBits<Arc<L::Bits>, FixedBitSet>> {
         // Prevent modifications to the returned live docs
         self.writeable_live_docs = false;
         self.live_docs.as_ref()
     }
 
     /// Returns a snapshot of the hard live docs.
-    pub(crate) fn get_hard_live_docs(&mut self) -> Option<&EitherBits<L::Bits, FixedBitSet>> {
+    pub(crate) fn get_hard_live_docs(&mut self) -> Option<&EitherBits<Arc<L::Bits>, FixedBitSet>> {
         self.get_live_docs()
     }
 
@@ -182,10 +190,179 @@ where
 
         true
     }
-
     /// Resets the pending docs
     pub(crate) fn drop_changes(&mut self) {
         self.pending_delete_count = 0;
+    }
+    /// Writes the live docs to disk and returns `true` if any new docs were written.
+    pub(crate) fn write_live_docs<D>(
+        &mut self,
+        dir: Arc<Mutex<D>>,
+        info: &mut SegmentCommitInfo<D>,
+    ) -> Result<bool>
+    where
+        D: Directory,
+    {
+        if self.pending_delete_count == 0 {
+            return Ok(false);
+        }
+
+        let live_docs = match self.live_docs.as_ref() {
+            Some(ld) => ld,
+            None => return Err(LuceneError::illegal_state("liveDocs must be initialized")),
+        };
+        // We have new deletes
+        debug_assert_eq!(
+            live_docs.length(),
+            info.info.max_doc()?,
+            "liveDocs.length must match maxDoc"
+        );
+        // Do this so we can delete any created files on
+        // exception; this saves all codecs from having to do
+        // it:
+        let mut tracking_dir = TrackingDirectoryWrapper::new(dir);
+        // We can write directly to the actual name (vs to a
+        // .tmp & renaming it) because the file is not live
+        // until segments file is written:
+        let write_res = (|| -> Result<()> {
+            let codec = get_default_code();
+            codec.live_docs_format().write_live_docs(
+                live_docs,
+                &mut tracking_dir,
+                info,
+                self.pending_delete_count,
+                &IOContext::default_io_context()?,
+            )?;
+            Ok(())
+        })();
+
+        if let Err(err) = write_res {
+            // Advance only the nextWriteDelGen so that a 2nd
+            // attempt to write will write to a new file
+            info.advance_next_write_del_gen();
+            // Delete any partially created file(s):
+            for file in tracking_dir.get_created_files() {
+                IOUtils::delete_files_ignoring_exceptions(
+                    &mut *tracking_dir.base.delegate.lock(),
+                    &[file],
+                );
+            }
+            return Err(err);
+        }
+        // If we hit an exc in the line above (eg disk full)
+        // then info's delGen remains pointing to the previous
+        // (successfully written) del docs:
+        info.advance_del_gen();
+        let new_del_count = info.get_del_count() + self.pending_delete_count;
+        info.set_del_count(new_del_count)?;
+        self.drop_changes();
+
+        Ok(true)
+    }
+    pub(crate) fn is_fully_deleted<F, LF, D>(
+        &self,
+        _reader_io_supplier: F,
+        info: &SegmentCommitInfo<D>,
+    ) -> Result<bool>
+    where
+        F: Fn() -> Arc<SegmentReader<LF>>,
+        LF: LiveDocsFormat<Bits = L::Bits>,
+        D: Directory,
+    {
+        Ok(self.get_del_count(info) == info.info.max_doc()?)
+    }
+
+    /// Returns true if the given reader needs to be refreshed to see the latest deletes
+    pub(crate) fn needs_refresh<D>(
+        &mut self,
+        reader: &impl CodecReader<Bits = L::Bits>,
+        info: &SegmentCommitInfo<D>,
+    ) -> Result<bool>
+    where
+        D: Directory,
+    {
+        let same_live_docs = match (reader.get_live_docs()?, self.get_live_docs()) {
+            (None, None) => true,
+            (Some(reader_bits), Some(EitherBits::F(current_bits))) => {
+                Arc::ptr_eq(&reader_bits, current_bits)
+            },
+            _ => false,
+        };
+        Ok(!same_live_docs || reader.num_deleted_docs()? != self.get_del_count(info))
+    }
+
+    /// Returns the number of deleted docs in the segment.
+    pub(crate) fn get_del_count<D>(&self, info: &SegmentCommitInfo<D>) -> i32
+    where
+        D: Directory,
+    {
+        info.get_del_count() + info.get_soft_del_count() + self.num_pending_deletes()
+    }
+    /// Returns the number of live documents in this segment
+    pub(crate) fn num_docs<D>(&self, info: &SegmentCommitInfo<D>) -> Result<i32>
+    where
+        D: Directory,
+    {
+        let max_doc = info.info.max_doc()?;
+        Ok(max_doc - self.get_del_count(info))
+    }
+
+    // Call only from assert!
+    pub(crate) fn verify_doc_counts<D>(
+        &mut self,
+        reader: &impl CodecReader,
+        info: &SegmentCommitInfo<D>,
+    ) -> Result<bool>
+    where
+        D: Directory,
+    {
+        let max_doc = info.info.max_doc()?;
+        let mut count = 0;
+        if let Some(bits) = self.get_live_docs() {
+            for doc_id in 0..max_doc {
+                if bits.get(doc_id) {
+                    count += 1;
+                }
+            }
+        } else {
+            count = max_doc;
+        }
+
+        debug_assert_eq!(
+            self.num_docs(info)?,
+            count,
+            "info.maxDoc={} info.getDelCount={} info.getSoftDelCount={} pendingDeletes={} count={} numDocs={}",
+            max_doc,
+            info.get_del_count(),
+            info.get_soft_del_count(),
+            self.num_pending_deletes(),
+            count,
+            self.num_docs(info)?
+        );
+
+        debug_assert_eq!(
+            reader.num_docs()?,
+            self.num_docs(info)?,
+            "reader.numDocs={} numDocs={}",
+            reader.num_docs()?,
+            self.num_docs(info)?
+        );
+
+        debug_assert!(
+            reader.num_deleted_docs()? <= max_doc,
+            "delCount={} info.maxDoc={} pendingDeleteCount={} info.getDelCount={}",
+            reader.num_deleted_docs()?,
+            max_doc,
+            self.num_pending_deletes(),
+            info.get_del_count()
+        );
+        Ok(true)
+    }
+    /// Returns `true` if this `PendingDeletes` must be initialized before [`delete`](Self::delete);
+    /// otherwise it is ready to accept deletes.
+    /// A `PendingDeletes` can be initialized by providing it a reader via [`on_new_reader`](Self::on_new_reader).
+    pub(crate) fn must_init_on_delete(&self) -> bool {
+        false
     }
 }
 impl<L> fmt::Display for PendingDeletes<L>

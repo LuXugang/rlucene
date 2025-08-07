@@ -2095,7 +2095,7 @@ where
 
     type Bits = <DocValuesLeafReader as LeafReader>::Bits;
 
-    fn get_live_docs(&self) -> Result<Self::Bits> {
+    fn get_live_docs(&self) -> Result<Option<Arc<Self::Bits>>> {
         self.base.get_live_docs()
     }
 }
@@ -2224,7 +2224,7 @@ where
 
     type Bits = <DocValuesLeafReader as LeafReader>::Bits;
 
-    fn get_live_docs(&self) -> Result<Self::Bits> {
+    fn get_live_docs(&self) -> Result<Option<Arc<Self::Bits>>> {
         self.base.get_live_docs()
     }
 }

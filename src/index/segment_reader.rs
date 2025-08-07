@@ -26,6 +26,7 @@ use crate::index::index_reader::IndexReader;
 use crate::index::leaf_reader::LeafReader;
 use crate::util::error::lucene_error::Result;
 use std::rc::Rc;
+use std::sync::Arc;
 
 pub struct SegmentReader<LF>
 where
@@ -104,7 +105,7 @@ where
 
     type Bits = LF::Bits;
 
-    fn get_live_docs(&self) -> Result<Self::Bits> {
+    fn get_live_docs(&self) -> Result<Option<Arc<Self::Bits>>> {
         todo!()
     }
 }
