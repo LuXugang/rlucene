@@ -57,11 +57,7 @@ impl NumericDocValuesFieldUpdates<PagedMutable> {
     pub(crate) fn with_range(
         min_value: i64,
         max_value: i64,
-    ) -> Result<
-        NumericDocValuesFieldUpdates<
-            impl AbstractPagedMutableBase<PagedMutableBase = PagedMutable>,
-        >,
-    > {
+    ) -> Result<NumericDocValuesFieldUpdates<impl AbstractPagedMutableBase>> {
         let bits_per_value = PackedInts::unsigned_bits_required(max_value - min_value);
         let sub_reader = PagedMutable::with_overhead_ratio(
             dvfu_util::PAGE_SIZE,
@@ -79,7 +75,7 @@ impl NumericDocValuesFieldUpdates<PagedMutable> {
 
 impl<T> Accountable for NumericDocValuesFieldUpdates<T>
 where
-    T: AbstractPagedMutableBase<PagedMutableBase = T>,
+    T: AbstractPagedMutableBase,
 {
     fn ram_bytes_used(&self) -> Result<i64> {
         todo!()
@@ -88,7 +84,7 @@ where
 
 impl<T> DocValuesFieldUpdatesBase for NumericDocValuesFieldUpdates<T>
 where
-    T: AbstractPagedMutableBase<PagedMutableBase = T> + Default,
+    T: AbstractPagedMutableBase + Default,
 {
     fn add_value(&mut self, _doc: i32, value: i64, index: i32) -> Result<()> {
         let _guard = self.lock.lock();
@@ -147,7 +143,7 @@ where
 #[derive(Default)]
 pub(crate) struct AbstractIteratorBaseImpl<'a, T>
 where
-    T: AbstractPagedMutableBase<PagedMutableBase = T>,
+    T: AbstractPagedMutableBase,
 {
     values: Option<&'a mut AbstractPagedMutable<T>>,
     value: i64,
@@ -155,7 +151,7 @@ where
 }
 impl<'a, T> AbstractIteratorBaseImpl<'a, T>
 where
-    T: AbstractPagedMutableBase<PagedMutableBase = T>,
+    T: AbstractPagedMutableBase,
 {
     pub(crate) fn new(
         values: Option<&'a mut AbstractPagedMutable<T>>,
@@ -172,7 +168,7 @@ where
 }
 impl<T> AbstractIteratorBase for AbstractIteratorBaseImpl<'_, T>
 where
-    T: AbstractPagedMutableBase<PagedMutableBase = T>,
+    T: AbstractPagedMutableBase,
 {
     fn set(&mut self, idx: i64) -> Result<()> {
         self.value = self.values.as_mut().unwrap().get(idx)? + self.min_value;

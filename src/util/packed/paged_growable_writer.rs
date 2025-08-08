@@ -56,12 +56,11 @@ impl AbstractPagedMutableBase for PagedGrowableWriter {
         ))
     }
 
-    type PagedMutableBase = PagedGrowableWriter;
     fn new_unfilled_copy(
         &self,
         new_size: i64,
         page_size: i32,
-    ) -> Result<AbstractPagedMutable<Self::PagedMutableBase>> {
+    ) -> Result<AbstractPagedMutable<Self>> {
         let sub_read =
             PagedGrowableWriter::new(self.bits_per_value, self.acceptable_overhead_ratio, false);
         AbstractPagedMutable::new(new_size, page_size, sub_read)

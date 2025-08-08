@@ -45,7 +45,7 @@ where
 
 impl<T> AbstractPagedMutable<T>
 where
-    T: AbstractPagedMutableBase<PagedMutableBase = T>,
+    T: AbstractPagedMutableBase,
 {
     pub fn new(size: i64, page_size: i32, sub_reader: T) -> Result<AbstractPagedMutable<T>> {
         let page_shift = PackedInts::check_block_size(page_size, MIN_BLOCK_SIZE, MAX_BLOCK_SIZE)?;
@@ -175,7 +175,7 @@ where
 }
 impl<T> LongValues for AbstractPagedMutable<T>
 where
-    T: AbstractPagedMutableBase<PagedMutableBase = T>,
+    T: AbstractPagedMutableBase,
 {
     fn get(&mut self, index: i64) -> Result<i64> {
         debug_assert!(index < self.size, "index={} size={}", index, self.size);
@@ -186,7 +186,7 @@ where
 }
 impl<T> Accountable for AbstractPagedMutable<T>
 where
-    T: AbstractPagedMutableBase<PagedMutableBase = T>,
+    T: AbstractPagedMutableBase,
 {
     fn ram_bytes_used(&self) -> Result<i64> {
         let mut byte_used = self.base_ram_bytes_used();
@@ -198,7 +198,7 @@ where
 }
 impl<T> Display for AbstractPagedMutable<T>
 where
-    T: AbstractPagedMutableBase<PagedMutableBase = T> + Display,
+    T: AbstractPagedMutableBase + Display,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
@@ -210,14 +210,15 @@ where
         )
     }
 }
-pub(crate) trait AbstractPagedMutableBase: Default {
+pub(crate) trait AbstractPagedMutableBase {
     fn new_mutable(&self, value_count: i32, bits_per_value: i32) -> MutableEnum;
-    type PagedMutableBase: AbstractPagedMutableBase;
     fn new_unfilled_copy(
         &self,
         new_size: i64,
         page_size: i32,
-    ) -> Result<AbstractPagedMutable<Self::PagedMutableBase>>;
+    ) -> Result<AbstractPagedMutable<Self>>
+    where
+        Self: Sized;
     fn base_ram_bytes_used_base(&self) -> i64;
     fn fill_pages(&self) -> bool;
     fn bits_per_value(&self) -> i32;

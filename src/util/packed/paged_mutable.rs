@@ -57,13 +57,11 @@ impl AbstractPagedMutableBase for PagedMutable {
         MutableEnum::Packed(sub_mutable)
     }
 
-    type PagedMutableBase = PagedMutable;
-
     fn new_unfilled_copy(
         &self,
         new_size: i64,
         page_size: i32,
-    ) -> Result<AbstractPagedMutable<Self::PagedMutableBase>> {
+    ) -> Result<AbstractPagedMutable<Self>> {
         let sub_reader = PagedMutable::with_bits_and_format(self.bits_per_value, self.format);
         AbstractPagedMutable::new(new_size, page_size, sub_reader)
     }
