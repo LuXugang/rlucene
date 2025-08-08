@@ -28,11 +28,12 @@ use crate::util::error::lucene_error::Result;
 use std::rc::Rc;
 use std::sync::Arc;
 
+#[derive(Default)] // for test
 pub struct SegmentReader<LF>
 where
     LF: LiveDocsFormat,
 {
-    live_docs: LF::Bits,
+    live_docs: Option<LF::Bits>,
 }
 
 impl<LF> IndexReader for SegmentReader<LF>

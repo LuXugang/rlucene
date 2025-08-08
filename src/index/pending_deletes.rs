@@ -27,7 +27,7 @@ use crate::store::IOContext;
 use crate::util::bits::Bits;
 use crate::util::either_enums::EitherBits;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::fixed_bit_set::FixedBitSet;
+use crate::util::fixed_bit_set::{FixedBit, FixedBitSet};
 use crate::util::IOUtils;
 use parking_lot::Mutex;
 use std::fmt;
@@ -40,7 +40,7 @@ where
 {
     // SegmentInfo#id
     pub(crate) info_id: String,
-    live_docs: Option<EitherBits<Arc<L::Bits>, FixedBitSet>>,
+    live_docs: Option<EitherBits<Arc<L::Bits>, EitherBits<Arc<FixedBit>, FixedBitSet>>>,
     writeable_live_docs: bool,
     pub(crate) pending_delete_count: i32,
     live_docs_initialized: bool,
@@ -87,7 +87,7 @@ where
 
     pub(crate) fn with(
         info_id: String,
-        live_docs: Option<EitherBits<Arc<L::Bits>, FixedBitSet>>,
+        live_docs: Option<EitherBits<Arc<L::Bits>, EitherBits<Arc<FixedBit>, FixedBitSet>>>,
         live_docs_initialized: bool,
         max_doc: i32,
     ) -> Self {
@@ -109,15 +109,22 @@ where
         );
         if !self.writeable_live_docs {
             self.live_docs = if self.live_docs.is_some() {
-                Some(EitherBits::S(self.live_docs.take().unwrap().copy_of()))
+                Some(EitherBits::S(EitherBits::S(
+                    self.live_docs.take().unwrap().copy_of(),
+                )))
             } else {
                 let mut v = FixedBitSet::new(self.max_doc);
                 v.set_with_range(0, self.max_doc);
-                Some(EitherBits::S(v))
+                Some(EitherBits::S(EitherBits::S(v)))
             };
         }
         match self.live_docs.as_mut().unwrap() {
-            EitherBits::S(bs) => Ok(bs),
+            EitherBits::S(bs) => match bs {
+                EitherBits::F(_) => Err(LuceneError::illegal_state(
+                    "live_docs should be FixedBitSet ",
+                )),
+                EitherBits::S(ref mut v) => Ok(v),
+            },
             EitherBits::F(_) => Err(LuceneError::illegal_state(
                 "live_docs should be FixedBitSet ",
             )),
@@ -146,14 +153,31 @@ where
         Ok(did_delete)
     }
     /// Returns a snapshot of the current live docs.
-    pub(crate) fn get_live_docs(&mut self) -> Option<&EitherBits<Arc<L::Bits>, FixedBitSet>> {
+    pub(crate) fn get_live_docs(&mut self) -> Option<EitherBits<Arc<L::Bits>, Arc<FixedBit>>> {
         // Prevent modifications to the returned live docs
         self.writeable_live_docs = false;
-        self.live_docs.as_ref()
+        match self.live_docs.take() {
+            Some(EitherBits::F(bits)) => {
+                self.live_docs = Some(EitherBits::F(bits.clone()));
+                Some(EitherBits::F(bits))
+            },
+            Some(EitherBits::S(bits)) => match bits {
+                EitherBits::F(fixed_bits) => {
+                    self.live_docs = Some(EitherBits::S(EitherBits::F(fixed_bits.clone())));
+                    Some(EitherBits::S(fixed_bits))
+                },
+                EitherBits::S(fixed_bit_set) => {
+                    let v = Arc::new(fixed_bit_set.to_read_only_bits());
+                    self.live_docs = Some(EitherBits::S(EitherBits::F(v.clone())));
+                    Some(EitherBits::S(v))
+                },
+            },
+            None => None,
+        }
     }
 
     /// Returns a snapshot of the hard live docs.
-    pub(crate) fn get_hard_live_docs(&mut self) -> Option<&EitherBits<Arc<L::Bits>, FixedBitSet>> {
+    pub(crate) fn get_hard_live_docs(&mut self) -> Option<EitherBits<Arc<L::Bits>, Arc<FixedBit>>> {
         self.get_live_docs()
     }
 
@@ -266,7 +290,7 @@ where
     ) -> Result<bool>
     where
         F: Fn() -> Arc<SegmentReader<LF>>,
-        LF: LiveDocsFormat<Bits = L::Bits>,
+        LF: LiveDocsFormat,
         D: Directory,
     {
         Ok(self.get_del_count(info) == info.info.max_doc()?)
@@ -284,7 +308,7 @@ where
         let same_live_docs = match (reader.get_live_docs()?, self.get_live_docs()) {
             (None, None) => true,
             (Some(reader_bits), Some(EitherBits::F(current_bits))) => {
-                Arc::ptr_eq(&reader_bits, current_bits)
+                Arc::ptr_eq(&reader_bits, &current_bits)
             },
             _ => false,
         };
@@ -375,5 +399,227 @@ where
             "PendingDeletes(seg={} numPendingDeletes={} writeable={})",
             self.info_id, self.pending_delete_count, self.writeable_live_docs
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::codecs::field_infos_format::FieldInfosFormat;
+    use crate::codecs::live_docs_format::LiveDocsFormat;
+    use crate::codecs::{get_default_code, Codec};
+    use crate::index::dummy::dummy_leaf_reader::DummyLeafReader;
+    use crate::index::field_infos::FieldInfos;
+    use crate::index::pending_deletes::PendingDeletes;
+    use crate::index::segment_commit_info::SegmentCommitInfo;
+    use crate::index::segment_info::SegmentInfo;
+    use crate::index::segment_reader::SegmentReader;
+
+    use crate::codecs::lucene90_live_docs_format::Lucene90LiveDocsFormat;
+    use crate::store::directory::Directory;
+    use crate::store::IOContext;
+    use crate::test::util::lucene_test_case::{new_directory, random};
+    use crate::util::bits::Bits;
+    use crate::util::error::lucene_error::Result;
+    use crate::util::{StringHelper, LATEST};
+    use parking_lot::Mutex;
+    use rand::Rng;
+    use std::collections::HashMap;
+    use std::sync::Arc;
+
+    #[allow(dead_code)] // for quick search
+    struct TestPendingDeletes;
+
+    fn new_pending_deletes<D>(
+        commit_info: &SegmentCommitInfo<D>,
+    ) -> Result<PendingDeletes<DummyLeafReader>>
+    where
+        D: Directory,
+    {
+        PendingDeletes::new(commit_info)
+    }
+    #[test]
+    fn test_delete_doc() -> Result<()> {
+        // TODO: ByteBuffersDirectory 没有实现
+        let mut random = random();
+        let dir = Arc::new(Mutex::new(new_directory(&mut random)?));
+        let si = SegmentInfo::new(
+            dir.clone(),
+            Some((*LATEST).clone()),
+            Some((*LATEST).clone()),
+            "test",
+            10,
+            false,
+            false,
+            HashMap::new(),
+            StringHelper::random_id(),
+            HashMap::new(),
+            None,
+        )?;
+        let commit_info =
+            SegmentCommitInfo::new(si, 0, 0, -1, -1, -1, Some(StringHelper::random_id()))?;
+
+        let mut deletes = new_pending_deletes(&commit_info)?;
+        assert!(deletes.get_live_docs().is_none());
+
+        let doc_to_delete = random.random_range(0..=7);
+        assert!(deletes.delete(doc_to_delete)?);
+        let mut live_docs = deletes.get_live_docs().unwrap();
+        assert_eq!(deletes.num_pending_deletes(), 1);
+
+        assert!(!live_docs.get(doc_to_delete));
+        assert!(!deletes.delete(doc_to_delete)?);
+
+        assert!(live_docs.get(8));
+        assert!(deletes.delete(8)?);
+        assert!(live_docs.get(8));
+        assert_eq!(deletes.num_pending_deletes(), 2);
+
+        assert!(live_docs.get(9));
+        assert!(deletes.delete(9)?);
+        assert!(live_docs.get(9));
+
+        live_docs = deletes.get_live_docs().unwrap();
+        assert!(!live_docs.get(8));
+        assert!(!live_docs.get(9));
+        assert!(!live_docs.get(doc_to_delete));
+        assert_eq!(deletes.num_pending_deletes(), 3);
+        Ok(())
+    }
+    #[test]
+    fn test_write_live_docs() -> Result<()> {
+        // TODO: ByteBuffersDirectory 没有实现
+        let mut random = random();
+        let dir = Arc::new(Mutex::new(new_directory(&mut random)?));
+        let si = SegmentInfo::new(
+            dir.clone(),
+            Some((*LATEST).clone()),
+            Some((*LATEST).clone()),
+            "test",
+            6,
+            false,
+            false,
+            HashMap::new(),
+            StringHelper::random_id(),
+            HashMap::new(),
+            None,
+        )?;
+        let mut commit_info =
+            SegmentCommitInfo::new(si, 0, 0, -1, -1, -1, Some(StringHelper::random_id()))?;
+
+        let mut deletes = new_pending_deletes(&commit_info)?;
+        assert!(!deletes.write_live_docs(dir.clone(), &mut commit_info)?);
+        assert_eq!(dir.lock().list_all()?.len(), 0);
+
+        let second_doc_deletes: bool = random.random_bool(0.5);
+        deletes.delete(5)?;
+        if second_doc_deletes {
+            let _ = deletes.get_live_docs();
+            deletes.delete(2)?;
+        }
+
+        assert_eq!(commit_info.get_del_gen(), -1);
+        assert_eq!(commit_info.get_del_count(), 0);
+
+        let expected_pending = if second_doc_deletes { 2 } else { 1 };
+        assert_eq!(deletes.num_pending_deletes(), expected_pending);
+
+        assert!(deletes.write_live_docs(dir.clone(), &mut commit_info)?);
+        assert_eq!(dir.lock().list_all()?.len(), 1);
+
+        let codec = get_default_code();
+        let live_docs = codec.live_docs_format().read_live_docs(
+            &mut *dir.lock(),
+            &commit_info,
+            &IOContext::default_io_context()?,
+        )?;
+        assert!(!live_docs.get(5));
+        if second_doc_deletes {
+            assert!(!live_docs.get(2));
+        } else {
+            assert!(live_docs.get(2));
+        }
+        for doc in &[0, 1, 3, 4] {
+            assert!(live_docs.get(*doc));
+        }
+
+        assert_eq!(deletes.num_pending_deletes(), 0);
+        assert_eq!(commit_info.get_del_count(), expected_pending);
+        assert_eq!(commit_info.get_del_gen(), 1);
+
+        deletes.delete(0)?;
+        assert!(deletes.write_live_docs(dir.clone(), &mut commit_info)?);
+        assert_eq!(dir.lock().list_all()?.len(), 2);
+
+        let live_docs = codec.live_docs_format().read_live_docs(
+            &mut *dir.lock(),
+            &commit_info,
+            &IOContext::default_io_context()?,
+        )?;
+        assert!(!live_docs.get(5));
+        if second_doc_deletes {
+            assert!(!live_docs.get(2));
+        } else {
+            assert!(live_docs.get(2));
+        }
+        assert!(!live_docs.get(0));
+        for doc in &[1, 3, 4] {
+            assert!(live_docs.get(*doc));
+        }
+
+        assert_eq!(deletes.num_pending_deletes(), 0);
+        let expected_total = expected_pending + 1;
+        assert_eq!(commit_info.get_del_count(), expected_total);
+        assert_eq!(commit_info.get_del_gen(), 2);
+
+        Ok(())
+    }
+    #[test]
+    fn test_is_fully_deleted() -> Result<()> {
+        // TODO: ByteBuffersDirectory 没有实现
+        let mut random = random();
+        let dir = Arc::new(Mutex::new(new_directory(&mut random)?));
+        let si = SegmentInfo::new(
+            dir.clone(),
+            Some((*LATEST).clone()),
+            Some((*LATEST).clone()),
+            "test",
+            3,
+            false,
+            false,
+            HashMap::new(),
+            StringHelper::random_id(),
+            HashMap::new(),
+            None,
+        )?;
+        let mut commit_info =
+            SegmentCommitInfo::new(si, 0, 0, -1, -1, -1, Some(StringHelper::random_id()))?;
+
+        let codec = get_default_code();
+        let field_infos = FieldInfos::new(Vec::new())?;
+        codec.field_infos_format().write(
+            &mut *dir.lock(),
+            &commit_info.info,
+            "",
+            &field_infos,
+            &IOContext::default_io_context()?,
+        )?;
+
+        let mut deletes = new_pending_deletes(&commit_info)?;
+
+        for i in 0..3 {
+            assert!(deletes.delete(i)?);
+            if random.random_bool(0.5) {
+                assert!(deletes.write_live_docs(dir.clone(), &mut commit_info)?);
+            }
+            assert_eq!(
+                i == 2,
+                deletes.is_fully_deleted(
+                    || Arc::<SegmentReader<Lucene90LiveDocsFormat>>::new(SegmentReader::default()),
+                    &commit_info
+                )?
+            );
+        }
+
+        Ok(())
     }
 }

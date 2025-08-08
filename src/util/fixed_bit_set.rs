@@ -28,7 +28,6 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 #[allow(unused)]
 const FIXED_BIT_SET_BASE_RAM_BYTES_USED: i64 = 0;
 
-#[derive(Default)]
 /// `BitSet` of fixed length (`num_bits`), backed by accessible (`get_bits`)
 /// `long[]`, accessed with an `int` index, implementing [`Bits`] and
 /// [`DocIdSet`](crate::search::doc_id_set). If you need to manage more than
@@ -36,7 +35,7 @@ const FIXED_BIT_SET_BASE_RAM_BYTES_USED: i64 = 0;
 ///
 /// # Note
 /// This is an internal API.
-#[derive(Debug)]
+#[derive(Default, Debug)]
 pub struct FixedBitSet {
     // Array of longs holding the bits
     bits: Vec<i64>,
@@ -664,7 +663,7 @@ impl BitSet for FixedBitSet {
     }
 }
 /// Immutable of FixedBitSet.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct FixedBit(FixedBitSet);
 impl Bits for FixedBit {
     fn get(&self, index: i32) -> bool {
