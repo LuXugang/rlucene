@@ -43,7 +43,7 @@ where
     live_docs: Option<EitherBits<Arc<L::Bits>, EitherBits<Arc<FixedBit>, FixedBitSet>>>,
     writeable_live_docs: bool,
     pub(crate) pending_delete_count: i32,
-    live_docs_initialized: bool,
+    pub(crate) live_docs_initialized: bool,
     max_doc: i32,
 }
 impl<L> PendingDeletes<L>
@@ -235,6 +235,7 @@ where
             Some(ld) => ld,
             None => return Err(LuceneError::illegal_state("liveDocs must be initialized")),
         };
+        debug_assert!(info.info.max_doc()? == self.max_doc);
         // We have new deletes
         debug_assert_eq!(
             live_docs.length(),
@@ -293,6 +294,7 @@ where
         LF: LiveDocsFormat,
         D: Directory,
     {
+        debug_assert!(info.info.max_doc()? == self.max_doc);
         Ok(self.get_del_count(info) == info.info.max_doc()?)
     }
 
@@ -327,6 +329,7 @@ where
     where
         D: Directory,
     {
+        debug_assert!(info.info.max_doc()? == self.max_doc);
         let max_doc = info.info.max_doc()?;
         Ok(max_doc - self.get_del_count(info))
     }
@@ -340,6 +343,7 @@ where
     where
         D: Directory,
     {
+        debug_assert!(info.info.max_doc()? == self.max_doc);
         let max_doc = info.info.max_doc()?;
         let mut count = 0;
         if let Some(bits) = self.get_live_docs() {
