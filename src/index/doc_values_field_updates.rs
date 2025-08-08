@@ -436,12 +436,6 @@ impl<D> IntroSorter for IntroSorterImpl<'_, D> where D: DocValuesFieldUpdatesBas
 /// are returned in increasing order.
 
 pub trait DocValuesFieldIterator: DocValuesIterator + Default {
-    fn get_binary_doc_values<T: DocValuesFieldIterator>(iterator: T) {
-        BinaryDocValuesImpl::new(iterator);
-    }
-    fn get_numeric_doc_values<T: DocValuesFieldIterator>(iterator: T) {
-        NumericDocValuesImpl::new(iterator);
-    }
     /// Returns a long value for the current document if this iterator is a long
     /// iterator.
     fn long_value(&mut self) -> Result<i64>;
@@ -456,6 +450,21 @@ pub trait DocValuesFieldIterator: DocValuesIterator + Default {
     /// Returns true if this document has a value.
     fn has_value(&mut self) -> bool;
 }
+
+pub(crate) mod dvfi_util {
+    use crate::index::doc_values_field_updates::{
+        BinaryDocValuesImpl, DocValuesFieldIterator, NumericDocValuesImpl,
+    };
+    /// Wraps the given iterator as a BinaryDocValues instance.
+    fn get_binary_doc_values<T: DocValuesFieldIterator>(iterator: T) {
+        BinaryDocValuesImpl::new(iterator);
+    }
+    /// Wraps the given iterator as a NumericDocValues instance.
+    fn get_numeric_doc_values<T: DocValuesFieldIterator>(iterator: T) {
+        NumericDocValuesImpl::new(iterator);
+    }
+}
+
 /// Wraps the given iterator as a BinaryDocValues instance.
 pub(crate) struct BinaryDocValuesImpl<T>
 where
