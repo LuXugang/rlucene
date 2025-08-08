@@ -26,7 +26,7 @@ use crate::index::index_writer::index_writer_util;
 use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::index::segment_info::SegmentInfo;
 use crate::store::IOContext;
-use crate::test::util::lucene_test_case::new_directory;
+use crate::test::util::lucene_test_case::lucene_test_case_util::new_directory;
 use crate::test::util::test_util::TestUtil;
 use crate::util::bit_set::BitSet;
 use crate::util::bits::Bits;

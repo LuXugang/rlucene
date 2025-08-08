@@ -187,7 +187,7 @@ mod tests {
     use crate::index::byte_slice_pool::ByteSlicePool;
     use crate::index::byte_slice_reader::ByteSliceReader;
     use crate::store::DataInput;
-    use crate::test::util::lucene_test_case::{at_least, random};
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
     use crate::test::util::test_util::TestUtil;
     use crate::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
     use crate::util::error::lucene_error::Result;

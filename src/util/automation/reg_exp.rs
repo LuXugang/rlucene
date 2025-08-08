@@ -1378,7 +1378,7 @@ mod tests {
 
     use crate::index::BytesRef;
     use crate::test::util::automaton::automaton_test_util::AutomatonTestUtil;
-    use crate::test::util::lucene_test_case::random;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
     use crate::util::automation::automata::Automata;
     use crate::util::automation::automaton::Automaton;
     use crate::util::automation::automaton_provider::AutomatonProvider;

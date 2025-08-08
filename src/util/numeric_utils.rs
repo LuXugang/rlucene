@@ -309,7 +309,7 @@ mod tests {
     use rand::Rng;
 
     use crate::index::BytesRef;
-    use crate::test::util::lucene_test_case::{at_least, random};
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
     use crate::test::util::test_util::TestUtil;
     use crate::util::bit_util::BitUtil;
     use crate::util::error::lucene_error::Result;

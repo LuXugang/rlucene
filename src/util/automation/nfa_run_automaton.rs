@@ -565,7 +565,7 @@ mod tests {
     use crate::test::util::automaton::automaton_test_util::{
         AutomatonTestUtil, RandomAcceptedStrings,
     };
-    use crate::test::util::lucene_test_case::random;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
     use crate::util::automation::automaton::Automaton;
     use crate::util::automation::nfa_run_automaton::NFARunAutomaton;
     use crate::util::automation::operations::Operations;

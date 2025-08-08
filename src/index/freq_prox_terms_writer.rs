@@ -972,7 +972,7 @@ mod tests {
     use rand::Rng;
 
     use crate::index::freq_prox_terms_writer::DocOffsetSorter;
-    use crate::test::util::lucene_test_case::{is_night_mode, random};
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{is_night_mode, random};
     use crate::test::util::test_util::TestUtil;
     use crate::util::Sorter;
 

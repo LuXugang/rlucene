@@ -417,7 +417,7 @@ mod tests {
     use crate::codecs::lucene90_live_docs_format::Lucene90LiveDocsFormat;
     use crate::store::directory::Directory;
     use crate::store::IOContext;
-    use crate::test::util::lucene_test_case::{new_directory, random};
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{new_directory, random};
     use crate::util::bits::Bits;
     use crate::util::error::lucene_error::Result;
     use crate::util::{StringHelper, LATEST};

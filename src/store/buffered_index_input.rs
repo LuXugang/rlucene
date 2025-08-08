@@ -837,7 +837,7 @@ mod tests {
     use crate::store::{
         buffered_index_input_util, BufferedIndexInput, BufferedIndexInputBase, DataInput,
     };
-    use crate::test::util::lucene_test_case::random;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
     use crate::util::bit_util::BitUtil;
     use crate::util::clone::TryClone as OtherClone;
     use crate::util::error::lucene_error::{LuceneError, Result};

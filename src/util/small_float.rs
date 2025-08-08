@@ -254,7 +254,7 @@ mod tests {
     }
     use rand::Rng;
 
-    use crate::test::util::lucene_test_case::{at_least, random};
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
     use crate::test::util::test_util::TestUtil;
 
     #[test]

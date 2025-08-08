@@ -23,7 +23,7 @@ use crate::store::directory::Directory;
 use crate::store::dummy::dummy_index_output::DummyIndexOutput;
 use crate::store::index_output::IndexOutput;
 use crate::store::{IOContext, IndexInput};
-use crate::test::util::lucene_test_case::{at_least, new_directory, random};
+use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, new_directory, random};
 use crate::test::util::test_util::TestUtil;
 use crate::util::array_util::ArrayUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};

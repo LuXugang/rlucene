@@ -16,23 +16,7 @@
  */
 use std::fmt;
 
-use rand::rngs::StdRng;
-use rand::{Rng, SeedableRng};
-use tempfile::TempDir;
-
-use crate::index::BytesRef;
-use crate::store::directory::Directory;
-use crate::store::flush_info::FlushInfo;
-use crate::store::merge_info::MergeInfo;
-use crate::store::nio_fs_directory::NIOFSDirectory;
-use crate::store::{
-    FSDirectory, IOContext, NativeFSLockFactory, IO_CONTEXT_DEFAULT, IO_CONTEXT_READ_ONCE,
-};
 use crate::test::util::lucene_test_case::EnvConfig::{Multiplier, NightMode, TestSeed};
-use crate::test::util::test_util::TestUtil;
-use crate::util::access::AccessVec;
-use crate::util::error::lucene_error::Result;
-use crate::util::SliceCopyOps;
 
 #[allow(dead_code)] // for quick search
 pub struct LuceneTestCase;
@@ -60,245 +44,269 @@ impl fmt::Display for EnvConfig {
     }
 }
 
-pub(crate) fn random_multiplier() -> i32 {
-    let multiplier = std::env::var(Multiplier.to_string()).ok();
-
-    multiplier
-        .and_then(|v| v.parse::<i32>().ok())
-        .unwrap_or(default_random_multiplier())
-}
-
-fn default_random_multiplier() -> i32 {
-    if is_night_mode() {
-        2
-    } else {
-        1
-    }
-}
-/// Returns a number of at least `i`
-///
-/// The actual number returned will be influenced by whether `TEST_NIGHTLY` is
-/// active and `RANDOM_MULTIPLIER`, but also with some random fudge.
-pub(crate) fn at_least<R: Rng + ?Sized>(random: &mut R, i: i32) -> i32 {
-    let min = i * random_multiplier();
-    let max = min + (min / 2);
-    TestUtil::next_int(random, min, max)
-}
-
-pub(crate) fn rarely<R: Rng + ?Sized>(random: &mut R) -> bool {
-    let mut p = if is_night_mode() { 5 } else { 1 };
-    p += (p as f64 * (random_multiplier() as f64).ln()).round() as i32;
-    let min = 100 - p.min(20); // Never more than 20% chance
-    random.random_range(0..100) >= min
-}
-
-// TODO: When we have implemented multiple directories, we need to select one
-// randomly. Currently, we choose NIOFSDirectory.
-pub(crate) fn new_directory<R: Rng + ?Sized>(
-    _random: &mut R,
-) -> Result<FSDirectory<NativeFSLockFactory, NIOFSDirectory>> {
-    let temp_dir = TempDir::new()?;
-    let sub_directory = NIOFSDirectory::new();
-    FSDirectory::new(temp_dir.into_path(), sub_directory)
-}
-
-pub(crate) fn new_io_context<R: Rng + ?Sized>(random: &mut R) -> Result<IOContext> {
-    new_io_context_with_default(random, &IO_CONTEXT_DEFAULT)
-}
-
-pub(crate) fn new_io_context_with_default<R: Rng + ?Sized>(
-    random: &mut R,
-    old_context: &IOContext,
-) -> Result<IOContext> {
-    if *old_context == *IO_CONTEXT_READ_ONCE {
-        // Don't modify the READONCE SINGLETON
-        return Ok(old_context.clone());
-    }
-
-    // Generate random parameters
-    let random_num_docs: i32 = random.random_range(0..4192);
-    let size = random.random_range(0..512) * random_num_docs as i64;
-
-    if let Some(flush_info) = &old_context.flush_info {
-        // Always return at least the estimatedSegmentSize of the incoming
-        // IOContext
-        Ok(IOContext::with_flush(FlushInfo::new(
-            random_num_docs,
-            size.max(flush_info.get_estimated_segment_size()),
-        ))?)
-    } else if let Some(merge_info) = &old_context.merge_info {
-        // Always return at least the estimatedMergeBytes of the incoming
-        // IOContext
-        return IOContext::with_merge(MergeInfo::new(
-            random_num_docs,
-            size.max(merge_info.get_estimated_merge_bytes()),
-            random.random_bool(0.5), /* Randomly decide if it's an external
-                                      * merge  */
-            random.random_range(1..=100),
-        ));
-    } else {
-        // Make a totally random IOContext, except READONCE which has semantic
-        // implications
-        let context_type = random.random_range(0..3);
-        match context_type {
-            0 => Ok(IOContext::default_io_context()?),
-            1 => Ok(IOContext::with_merge(MergeInfo::new(
-                random_num_docs,
-                size,
-                true,
-                -1,
-            ))?),
-            2 => Ok(IOContext::with_flush(FlushInfo::new(
-                random_num_docs,
-                size,
-            ))?),
-            _ => Ok(IOContext::default_io_context()?),
-        }
-    }
-}
-pub(crate) fn slow_file_exists(dir: &impl Directory, name: &str) -> Result<bool> {
-    let result = dir.open_input(name, &IOContext::default_io_context()?);
-    match result {
-        Ok(_) => Ok(true),
-        Err(_) => Ok(false),
-    }
-}
-/// Creates a `BytesRef` holding UTF-8 bytes for the incoming string,
-/// that sometimes uses a non-zero offset and non-zero end-padding to
-/// tickle latent bugs that fail to look at `BytesRef.offset`.
-pub(crate) fn new_bytes_ref_from_string<R: Rng + ?Sized, AV: AccessVec<u8>>(
-    random: &mut R,
-    s: &str,
-) -> Result<BytesRef<AV>> {
-    let bytes = s.as_bytes();
-    new_bytes_ref(random, bytes, 0, bytes.len() as i32)
-}
-
-/// Creates a copy of the incoming `BytesRef` that sometimes uses a non-zero
-/// offset, and non-zero end-padding, to tickle latent bugs that fail to look at
-/// `BytesRef.offset`.
-pub(crate) fn new_bytes_ref_from_bytes_ref<R: Rng + ?Sized, AV: AccessVec<u8>>(
-    random: &mut R,
-    b: &BytesRef<AV>,
-) -> Result<BytesRef<AV>> {
-    assert!(b.is_valid()?);
-    b.bytes
-        .access(|bytes| new_bytes_ref(random, bytes, b.offset as i32, b.length as i32))
-}
-
-/// Creates a random `BytesRef` from the incoming bytes, sometimes using a
-/// non-zero offset, and non-zero end-padding, to tickle latent bugs that fail
-/// to look at `BytesRef.offset`.
-pub(crate) fn new_bytes_ref_from_bytes<R: Rng + ?Sized, AV: AccessVec<u8>>(
-    random: &mut R,
-    bytes_in: &[u8],
-) -> Result<BytesRef<AV>> {
-    new_bytes_ref(random, bytes_in, 0, bytes_in.len() as i32)
-}
-
-/// Creates a random empty `BytesRef` that sometimes uses a non-zero offset, and
-/// non-zero end-padding, to tickle latent bugs that fail to look at
-/// `BytesRef.offset`.
-pub(crate) fn new_bytes_ref_empty<R: Rng + ?Sized, AV: AccessVec<u8>>(
-    random: &mut R,
-) -> Result<BytesRef<AV>> {
-    // Calling the existing `new_bytes_ref` function
-    new_bytes_ref(random, &[], 0, 0)
-}
-
-/// Creates a random empty `BytesRef`, with at least the requested length of
-/// bytes free, that sometimes uses a non-zero offset and non-zero end-padding
-/// to tickle latent bugs that fail to look at `BytesRef.offset`.
-pub(crate) fn new_bytes_ref_with_length<R: Rng + ?Sized, AV: AccessVec<u8>>(
-    byte_length: i32,
-    random: &mut R,
-) -> Result<BytesRef<AV>> {
-    let bytes_in = vec![0u8; byte_length as usize];
-    new_bytes_ref(random, &bytes_in, 0, byte_length)
-}
-
-/// Creates a copy of the incoming bytes slice that sometimes uses a non-zero
-/// {@code offset}, and non-zero end-padding, to tickle latent bugs that fail to
-/// look at {@code BytesRef.offset}.
-pub(crate) fn new_bytes_ref<R: Rng + ?Sized, AV: AccessVec<u8>>(
-    random: &mut R,
-    bytes_in: &[u8],
-    offset: i32,
-    length: i32,
-) -> Result<BytesRef<AV>> {
-    assert!(
-        bytes_in.len() >= (offset + length) as usize,
-        "got offset={} length={} bytesIn.length={}",
-        offset,
-        length,
-        bytes_in.len()
-    );
-    // Randomly set a non-zero offset
-    let start_offset = if random.random_bool(0.5) {
-        random.random_range(1..=20)
-    } else {
-        0
+pub mod lucene_test_case_util {
+    use crate::index::BytesRef;
+    use crate::store::directory::Directory;
+    use crate::store::flush_info::FlushInfo;
+    use crate::store::merge_info::MergeInfo;
+    use crate::store::nio_fs_directory::NIOFSDirectory;
+    use crate::store::{
+        FSDirectory, IOContext, NativeFSLockFactory, IO_CONTEXT_DEFAULT, IO_CONTEXT_READ_ONCE,
     };
+    use crate::test::util::lucene_test_case::EnvConfig::{Multiplier, NightMode, TestSeed};
+    use crate::test::util::test_util::TestUtil;
+    use crate::util::access::AccessVec;
+    use crate::util::SliceCopyOps;
+    use rand::prelude::StdRng;
+    use rand::{Rng, SeedableRng};
+    use tempfile::TempDir;
 
-    // Randomly set an end padding (between 1 and 20)
-    let end_padding = if random.random_bool(0.5) {
-        random.random_range(1..=20)
-    } else {
-        0
-    };
+    pub(crate) fn random_multiplier() -> i32 {
+        let multiplier = std::env::var(Multiplier.to_string()).ok();
 
-    let mut bytes = vec![0u8; (start_offset + length + end_padding) as usize];
-
-    bytes.copy_from(
-        &bytes_in[offset as usize..(offset + length) as usize],
-        start_offset as usize,
-    );
-    // Create a BytesRef and return it
-    let vec = AV::from_vec(bytes);
-    let it = BytesRef {
-        bytes: vec,
-        offset: start_offset as usize,
-        length: length as usize,
-    };
-    assert!(it.is_valid()?);
-
-    if random.random_range(1..=17) == 7 {
-        return it
-            .bytes
-            .access(|bytes| new_bytes_ref(random, bytes, it.offset as i32, it.length as i32));
+        multiplier
+            .and_then(|v| v.parse::<i32>().ok())
+            .unwrap_or(default_random_multiplier())
     }
-    Ok(it)
-}
 
-/// Retrieves the seed from the environment variable "tests.seed".
-/// If the environment variable is not set or cannot be parsed as a `u64`,
-/// it generates a random seed and logs the result.
-///
-/// # Returns
-/// A valid `u64` seed.
-pub(crate) fn get_seed_from_env() -> u64 {
-    if let Ok(seed_str) = std::env::var(TestSeed.to_string()) {
-        if let Ok(seed) = seed_str.parse::<u64>() {
-            println!("Using Global Seed from environment: '{}'", seed);
-            return seed;
+    fn default_random_multiplier() -> i32 {
+        if is_night_mode() {
+            2
         } else {
-            println!("Environment variable tests.seed is invalid: '{}'", seed_str);
+            1
         }
     }
+    /// Returns a number of at least `i`
+    ///
+    /// The actual number returned will be influenced by whether `TEST_NIGHTLY` is
+    /// active and `RANDOM_MULTIPLIER`, but also with some random fudge.
+    pub(crate) fn at_least<R: Rng + ?Sized>(random: &mut R, i: i32) -> i32 {
+        let min = i * random_multiplier();
+        let max = min + (min / 2);
+        TestUtil::next_int(random, min, max)
+    }
 
-    let seed = rand::rng().random_range(0..u64::MAX);
-    println!("Generated random seed : {}", seed);
-    seed
-}
+    pub(crate) fn rarely<R: Rng + ?Sized>(random: &mut R) -> bool {
+        let mut p = if is_night_mode() { 5 } else { 1 };
+        p += (p as f64 * (random_multiplier() as f64).ln()).round() as i32;
+        let min = 100 - p.min(20); // Never more than 20% chance
+        random.random_range(0..100) >= min
+    }
 
-pub(crate) fn random() -> StdRng {
-    StdRng::seed_from_u64(get_seed_from_env())
-}
+    // TODO: When we have implemented multiple directories, we need to select one
+    // randomly. Currently, we choose NIOFSDirectory.
+    pub(crate) fn new_directory<R: Rng + ?Sized>(
+        _random: &mut R,
+    ) -> crate::util::error::lucene_error::Result<FSDirectory<NativeFSLockFactory, NIOFSDirectory>>
+    {
+        let temp_dir = TempDir::new()?;
+        let sub_directory = NIOFSDirectory::new();
+        FSDirectory::new(temp_dir.into_path(), sub_directory)
+    }
 
-pub(crate) fn random_from_seed(seed: u64) -> StdRng {
-    StdRng::seed_from_u64(seed)
-}
+    pub(crate) fn new_io_context<R: Rng + ?Sized>(
+        random: &mut R,
+    ) -> crate::util::error::lucene_error::Result<IOContext> {
+        new_io_context_with_default(random, &IO_CONTEXT_DEFAULT)
+    }
 
-pub fn is_night_mode() -> bool {
-    std::env::var(NightMode.to_string()).is_ok_and(|v| v == "true")
+    pub(crate) fn new_io_context_with_default<R: Rng + ?Sized>(
+        random: &mut R,
+        old_context: &IOContext,
+    ) -> crate::util::error::lucene_error::Result<IOContext> {
+        if *old_context == *IO_CONTEXT_READ_ONCE {
+            // Don't modify the READONCE SINGLETON
+            return Ok(old_context.clone());
+        }
+
+        // Generate random parameters
+        let random_num_docs: i32 = random.random_range(0..4192);
+        let size = random.random_range(0..512) * random_num_docs as i64;
+
+        if let Some(flush_info) = &old_context.flush_info {
+            // Always return at least the estimatedSegmentSize of the incoming
+            // IOContext
+            Ok(IOContext::with_flush(FlushInfo::new(
+                random_num_docs,
+                size.max(flush_info.get_estimated_segment_size()),
+            ))?)
+        } else if let Some(merge_info) = &old_context.merge_info {
+            // Always return at least the estimatedMergeBytes of the incoming
+            // IOContext
+            return IOContext::with_merge(MergeInfo::new(
+                random_num_docs,
+                size.max(merge_info.get_estimated_merge_bytes()),
+                random.random_bool(0.5), /* Randomly decide if it's an external
+                                          * merge  */
+                random.random_range(1..=100),
+            ));
+        } else {
+            // Make a totally random IOContext, except READONCE which has semantic
+            // implications
+            let context_type = random.random_range(0..3);
+            match context_type {
+                0 => Ok(IOContext::default_io_context()?),
+                1 => Ok(IOContext::with_merge(MergeInfo::new(
+                    random_num_docs,
+                    size,
+                    true,
+                    -1,
+                ))?),
+                2 => Ok(IOContext::with_flush(FlushInfo::new(
+                    random_num_docs,
+                    size,
+                ))?),
+                _ => Ok(IOContext::default_io_context()?),
+            }
+        }
+    }
+    pub(crate) fn slow_file_exists(
+        dir: &impl Directory,
+        name: &str,
+    ) -> crate::util::error::lucene_error::Result<bool> {
+        let result = dir.open_input(name, &IOContext::default_io_context()?);
+        match result {
+            Ok(_) => Ok(true),
+            Err(_) => Ok(false),
+        }
+    }
+    /// Creates a `BytesRef` holding UTF-8 bytes for the incoming string,
+    /// that sometimes uses a non-zero offset and non-zero end-padding to
+    /// tickle latent bugs that fail to look at `BytesRef.offset`.
+    pub(crate) fn new_bytes_ref_from_string<R: Rng + ?Sized, AV: AccessVec<u8>>(
+        random: &mut R,
+        s: &str,
+    ) -> crate::util::error::lucene_error::Result<BytesRef<AV>> {
+        let bytes = s.as_bytes();
+        new_bytes_ref(random, bytes, 0, bytes.len() as i32)
+    }
+
+    /// Creates a copy of the incoming `BytesRef` that sometimes uses a non-zero
+    /// offset, and non-zero end-padding, to tickle latent bugs that fail to look at
+    /// `BytesRef.offset`.
+    pub(crate) fn new_bytes_ref_from_bytes_ref<R: Rng + ?Sized, AV: AccessVec<u8>>(
+        random: &mut R,
+        b: &BytesRef<AV>,
+    ) -> crate::util::error::lucene_error::Result<BytesRef<AV>> {
+        assert!(b.is_valid()?);
+        b.bytes
+            .access(|bytes| new_bytes_ref(random, bytes, b.offset as i32, b.length as i32))
+    }
+
+    /// Creates a random `BytesRef` from the incoming bytes, sometimes using a
+    /// non-zero offset, and non-zero end-padding, to tickle latent bugs that fail
+    /// to look at `BytesRef.offset`.
+    pub(crate) fn new_bytes_ref_from_bytes<R: Rng + ?Sized, AV: AccessVec<u8>>(
+        random: &mut R,
+        bytes_in: &[u8],
+    ) -> crate::util::error::lucene_error::Result<BytesRef<AV>> {
+        new_bytes_ref(random, bytes_in, 0, bytes_in.len() as i32)
+    }
+
+    /// Creates a random empty `BytesRef` that sometimes uses a non-zero offset, and
+    /// non-zero end-padding, to tickle latent bugs that fail to look at
+    /// `BytesRef.offset`.
+    pub(crate) fn new_bytes_ref_empty<R: Rng + ?Sized, AV: AccessVec<u8>>(
+        random: &mut R,
+    ) -> crate::util::error::lucene_error::Result<BytesRef<AV>> {
+        // Calling the existing `new_bytes_ref` function
+        new_bytes_ref(random, &[], 0, 0)
+    }
+
+    /// Creates a random empty `BytesRef`, with at least the requested length of
+    /// bytes free, that sometimes uses a non-zero offset and non-zero end-padding
+    /// to tickle latent bugs that fail to look at `BytesRef.offset`.
+    pub(crate) fn new_bytes_ref_with_length<R: Rng + ?Sized, AV: AccessVec<u8>>(
+        byte_length: i32,
+        random: &mut R,
+    ) -> crate::util::error::lucene_error::Result<BytesRef<AV>> {
+        let bytes_in = vec![0u8; byte_length as usize];
+        new_bytes_ref(random, &bytes_in, 0, byte_length)
+    }
+
+    /// Creates a copy of the incoming bytes slice that sometimes uses a non-zero
+    /// {@code offset}, and non-zero end-padding, to tickle latent bugs that fail to
+    /// look at {@code BytesRef.offset}.
+    pub(crate) fn new_bytes_ref<R: Rng + ?Sized, AV: AccessVec<u8>>(
+        random: &mut R,
+        bytes_in: &[u8],
+        offset: i32,
+        length: i32,
+    ) -> crate::util::error::lucene_error::Result<BytesRef<AV>> {
+        assert!(
+            bytes_in.len() >= (offset + length) as usize,
+            "got offset={} length={} bytesIn.length={}",
+            offset,
+            length,
+            bytes_in.len()
+        );
+        // Randomly set a non-zero offset
+        let start_offset = if random.random_bool(0.5) {
+            random.random_range(1..=20)
+        } else {
+            0
+        };
+
+        // Randomly set an end padding (between 1 and 20)
+        let end_padding = if random.random_bool(0.5) {
+            random.random_range(1..=20)
+        } else {
+            0
+        };
+
+        let mut bytes = vec![0u8; (start_offset + length + end_padding) as usize];
+
+        bytes.copy_from(
+            &bytes_in[offset as usize..(offset + length) as usize],
+            start_offset as usize,
+        );
+        // Create a BytesRef and return it
+        let vec = AV::from_vec(bytes);
+        let it = BytesRef {
+            bytes: vec,
+            offset: start_offset as usize,
+            length: length as usize,
+        };
+        assert!(it.is_valid()?);
+
+        if random.random_range(1..=17) == 7 {
+            return it
+                .bytes
+                .access(|bytes| new_bytes_ref(random, bytes, it.offset as i32, it.length as i32));
+        }
+        Ok(it)
+    }
+
+    /// Retrieves the seed from the environment variable "tests.seed".
+    /// If the environment variable is not set or cannot be parsed as a `u64`,
+    /// it generates a random seed and logs the result.
+    ///
+    /// # Returns
+    /// A valid `u64` seed.
+    pub(crate) fn get_seed_from_env() -> u64 {
+        if let Ok(seed_str) = std::env::var(TestSeed.to_string()) {
+            if let Ok(seed) = seed_str.parse::<u64>() {
+                println!("Using Global Seed from environment: '{}'", seed);
+                return seed;
+            } else {
+                println!("Environment variable tests.seed is invalid: '{}'", seed_str);
+            }
+        }
+
+        let seed = rand::rng().random_range(0..u64::MAX);
+        println!("Generated random seed : {}", seed);
+        seed
+    }
+
+    pub(crate) fn random() -> StdRng {
+        StdRng::seed_from_u64(get_seed_from_env())
+    }
+
+    pub(crate) fn random_from_seed(seed: u64) -> StdRng {
+        StdRng::seed_from_u64(seed)
+    }
+
+    pub fn is_night_mode() -> bool {
+        std::env::var(NightMode.to_string()).is_ok_and(|v| v == "true")
+    }
 }

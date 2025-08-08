@@ -213,7 +213,7 @@ impl<T, C: Comparator<T>> IntroSorter for ListIntroSorter<'_, T, C> {}
 
 #[cfg(test)]
 mod tests {
-    use crate::test::util::lucene_test_case::{at_least, random};
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
     use crate::util::collection_util::CollectionUtil;
     use crate::util::error::lucene_error::Result;
     use crate::util::ReverseOrder;

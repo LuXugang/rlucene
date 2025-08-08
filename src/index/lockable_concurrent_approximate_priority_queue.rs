@@ -104,7 +104,7 @@ mod tests {
     use crate::index::lockable_concurrent_approximate_priority_queue::{
         FlushState, Lock, LockableConcurrentApproximatePriorityQueue,
     };
-    use crate::test::util::lucene_test_case::random;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
 
     use rand::Rng;
 

@@ -149,7 +149,7 @@ mod tests {
     use rand::prelude::IndexedRandom;
     use rand::Rng;
 
-    use crate::test::util::lucene_test_case::{at_least, random};
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
     use crate::util::math_util::MathUtil;
 
     /// List of prime numbers.

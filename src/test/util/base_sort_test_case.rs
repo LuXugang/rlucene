@@ -21,7 +21,7 @@ use rand::Rng;
 use crate::test::util::base_sort_test_case::Strategy::{
     Random, RandomLowCardinality, RandomMediumCardinality,
 };
-use crate::test::util::lucene_test_case::rarely;
+use crate::test::util::lucene_test_case::lucene_test_case_util::rarely;
 use crate::test::util::test_util::TestUtil;
 use crate::util::error::lucene_error::Result;
 use crate::util::{Comparator, Sorter, ToInt, COMPARATOR_TYPE};

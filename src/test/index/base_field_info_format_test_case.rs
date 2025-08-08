@@ -39,7 +39,7 @@ use crate::store::IOContext;
 use crate::test::util::index_package_access::{
     FieldInfosBuilder, IndexPackageAccess, IndexPackageAccessImpl,
 };
-use crate::test::util::lucene_test_case::{at_least, new_directory};
+use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, new_directory};
 use crate::test::util::test_util::TestUtil;
 use crate::util::error::lucene_error::Result;
 use crate::util::{StringHelper, LATEST};

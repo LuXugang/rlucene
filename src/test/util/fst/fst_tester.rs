@@ -23,7 +23,9 @@ use rand::Rng;
 
 use crate::store::directory::Directory;
 use crate::store::IOContext;
-use crate::test::util::lucene_test_case::{at_least, new_io_context, random_from_seed};
+use crate::test::util::lucene_test_case::lucene_test_case_util::{
+    at_least, new_io_context, random_from_seed,
+};
 use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fst_impl::fst::{fst_util, Arc, InputType, FST};

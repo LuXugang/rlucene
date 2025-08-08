@@ -263,7 +263,9 @@ mod tests {
     use crate::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
     use crate::store::nio_fs_directory::NIOFSDirectory;
     use crate::store::{FSDirectory, NativeFSLockFactory};
-    use crate::test::util::lucene_test_case::{new_directory, random, random_from_seed};
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        new_directory, random, random_from_seed,
+    };
     use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::info_stream::{InfoStreamEnum, NoOutput};
     use crate::util::supplier::Supplier;

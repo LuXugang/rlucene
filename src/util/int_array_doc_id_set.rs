@@ -153,7 +153,7 @@ mod tests {
     use crate::test::util::base_doc_id_set_test_case::{
         BaseDocIdSetTestCase, BaseDocIdSetTestCaseSupperImpl,
     };
-    use crate::test::util::lucene_test_case::random;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
     use crate::util::error::lucene_error::Result;
     use crate::util::int_array_doc_id_set::IntArrayDocIdSet;
 

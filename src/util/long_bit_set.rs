@@ -530,7 +530,9 @@ mod tests {
     use rand::Rng;
 
     use crate::test::util::id_set_common::{clear_range, flip_bit, flip_bit_range, set_range};
-    use crate::test::util::lucene_test_case::{at_least, is_night_mode, random, random_multiplier};
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        at_least, is_night_mode, random, random_multiplier,
+    };
     use crate::test::util::test_util::TestUtil;
     use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::long_bit_set::LongBitSet;

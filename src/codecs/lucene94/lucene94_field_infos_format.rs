@@ -424,7 +424,7 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
 #[cfg(test)]
 mod tests {
     use crate::test::index::base_field_info_format_test_case::BaseFieldInfoFormatTestCase;
-    use crate::test::util::lucene_test_case::random;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
     use crate::util::error::lucene_error::Result;
 
     pub struct TestLucene94FieldInfosFormat;

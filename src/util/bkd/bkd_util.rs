@@ -141,7 +141,7 @@ impl ByteArrayPredicate for ByteArrayPredicateEnum {
 mod tests {
     use rand::Rng;
 
-    use crate::test::util::lucene_test_case::random;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
     use crate::test::util::test_util::TestUtil;
     use crate::util::bit_util::BitUtil;
     use crate::util::bkd::bkd_util::BKDUtil;

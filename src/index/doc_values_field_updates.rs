@@ -1060,7 +1060,7 @@ mod tests {
     };
     use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::search::doc_id_set_iterator::DocIdSetIterator;
-    use crate::test::util::lucene_test_case::{random, rarely};
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{random, rarely};
     use crate::util::error::lucene_error::Result;
 
     #[allow(dead_code)] // for quick search

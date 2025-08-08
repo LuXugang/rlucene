@@ -235,7 +235,9 @@ mod tests {
     use crate::search::doc_id_set::DocIdSet;
     use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::search::doc_id_set_iterator::{DocIdSetIterator, Range};
-    use crate::test::util::lucene_test_case::{is_night_mode, random, rarely};
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        is_night_mode, random, rarely,
+    };
     use crate::test::util::test_util::TestUtil;
     use crate::util::bit_doc_id_set::BitDocIdSet;
     use crate::util::bit_set::BitSet;

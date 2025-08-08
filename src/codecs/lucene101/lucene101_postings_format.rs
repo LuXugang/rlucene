@@ -454,7 +454,7 @@ mod tests {
     use crate::store::directory::Directory;
     use crate::store::{ByteArrayDataInput, ByteArrayDataOutput, DataInput, IOContext, IndexInput};
     use crate::test::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
-    use crate::test::util::lucene_test_case::{new_directory, random};
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{new_directory, random};
     use crate::util::error::lucene_error::Result;
 
     struct TestLucene101PostingsFormat;

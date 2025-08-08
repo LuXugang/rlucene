@@ -1064,8 +1064,12 @@ mod tests {
     use crate::store::{
         ByteArrayDataInput, DataInput, DataOutput, IndexInput, IndexOutput, IO_CONTEXT_DEFAULT,
     };
-    use crate::test::util::lucene_test_case::{at_least, is_night_mode, random_from_seed};
-    use crate::test::util::lucene_test_case::{new_directory, new_io_context, random, rarely};
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        at_least, is_night_mode, random_from_seed,
+    };
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        new_directory, new_io_context, random, rarely,
+    };
     use crate::test::util::test_util::TestUtil;
     use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::long_values::LongValues;

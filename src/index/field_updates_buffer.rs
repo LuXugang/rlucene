@@ -628,7 +628,7 @@ mod tests {
     use crate::index::field_updates_buffer::FieldUpdatesBuffer;
     use crate::index::term::Term;
     use crate::index::BytesRef;
-    use crate::test::util::lucene_test_case::{random, rarely};
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{random, rarely};
     use crate::test::util::test_util::TestUtil;
     use crate::util::error::lucene_error::Result;
     use crate::util::CounterEnum;

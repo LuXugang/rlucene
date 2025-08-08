@@ -324,7 +324,7 @@ pub mod tests {
     use crate::index::doc_id_merger_util::of;
     use crate::index::merge_state::{DocMap, DocMapEnum};
     use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-    use crate::test::util::lucene_test_case::random;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
     use crate::test::util::test_util::TestUtil;
     use crate::util::bit_set::BitSet;
     use crate::util::bits::Bits;

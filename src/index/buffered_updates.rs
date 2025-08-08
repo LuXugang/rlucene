@@ -617,7 +617,7 @@ mod tests {
     use crate::index::term::Term;
     use crate::index::BytesRef;
     use crate::search::term_query::TermQuery;
-    use crate::test::util::lucene_test_case::{at_least, random};
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
     use crate::util::accountable::Accountable;
     use crate::util::error::lucene_error::Result;
 

@@ -484,7 +484,7 @@ mod tests {
 
     use crate::index::{BytesRef, BytesRefBuilder};
     use crate::test::util::common_method::assert_vecs_equal;
-    use crate::test::util::lucene_test_case::{at_least, random};
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
     use crate::test::util::test_util::TestUtil;
     use crate::util::error::lucene_error::Result;
     use crate::util::{MSBRadixSorter, MSBRadixSorterBase, SliceCopyOps, Sorter};

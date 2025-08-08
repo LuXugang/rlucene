@@ -380,7 +380,7 @@ impl EntryNode {
 mod tests {
     use rand::Rng;
 
-    use crate::test::util::lucene_test_case::random;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
     use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::hnsw::hnsw_graph::{HnswGraph, NodesIterator};
     use crate::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph;

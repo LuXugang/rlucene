@@ -454,7 +454,9 @@ mod tests {
     use crate::index::BytesRef;
     use crate::store::byte_buffers_data_input::ByteBuffersDataInput;
     use crate::store::{ByteArrayDataInput, ByteArrayDataOutput};
-    use crate::test::util::lucene_test_case::{at_least, is_night_mode, random};
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        at_least, is_night_mode, random,
+    };
     use crate::test::util::test_util::TestUtil;
     use crate::util::array_util::ArrayUtil;
     use crate::util::error::lucene_error::Result;

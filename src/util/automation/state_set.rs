@@ -137,7 +137,7 @@ impl Hash for StateSetHashKey {
 mod tests {
     use rand::Rng;
 
-    use crate::test::util::lucene_test_case::random;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
     use crate::util::automation::int_set::IntSet;
     use crate::util::automation::state_set::StateSet;
     use crate::util::error::lucene_error::Result;

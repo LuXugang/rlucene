@@ -555,7 +555,7 @@ mod tests {
     use crate::index::point_values::point_values_util;
     use crate::index::vector_encoding::VectorEncoding;
     use crate::index::vector_similarity_function::VectorSimilarityFunction;
-    use crate::test::util::lucene_test_case::random;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
     use crate::util::error::lucene_error::Result;
 
     #[allow(dead_code)] // for quick search

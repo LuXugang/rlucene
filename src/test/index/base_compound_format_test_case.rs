@@ -27,7 +27,9 @@ use crate::store::directory::Directory;
 use crate::store::IndexOutput;
 use crate::store::{DataInput, DataOutput, IOContext};
 use crate::store::{IndexInput, IO_CONTEXT_DEFAULT};
-use crate::test::util::lucene_test_case::{at_least, new_directory, new_io_context};
+use crate::test::util::lucene_test_case::lucene_test_case_util::{
+    at_least, new_directory, new_io_context,
+};
 use crate::util::clone::TryClone as OtherClone;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::{StringHelper, LATEST};

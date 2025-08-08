@@ -344,8 +344,9 @@ pub static GOOD_FAST_HASH_SEED: Lazy<i32> = Lazy::new(|| {
 #[cfg(test)]
 mod tests {
     use crate::index::BytesRef;
-    use crate::test::util::lucene_test_case::new_bytes_ref_from_string;
-    use crate::test::util::lucene_test_case::random;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        new_bytes_ref_from_string, random,
+    };
     use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::StringHelper;
 

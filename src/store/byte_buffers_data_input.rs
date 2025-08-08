@@ -392,8 +392,8 @@ mod tests {
     use crate::store::random_access_input::RandomAccessInput;
     use crate::store::{ByteBuffersDataOutput, DataInput};
     use crate::test::store::base_data_output_test_case::add_random_data;
-    use crate::test::util::lucene_test_case::is_night_mode;
-    use crate::test::util::lucene_test_case::random;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::is_night_mode;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
     use crate::util::error::lucene_error::Result;
 
     #[allow(dead_code)] // for quick search

@@ -486,7 +486,9 @@ mod tests {
     use crate::index::point_values::{IntersectVisitor, Relation};
     use crate::store::directory::Directory;
     use crate::store::{DataOutput, IOContext, IndexInput, IndexOutput};
-    use crate::test::util::lucene_test_case::{at_least, new_directory, random};
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        at_least, new_directory, random,
+    };
     use crate::test::util::test_util::TestUtil;
     use crate::util::bkd::doc_ids_writer::DocIdsWriter;
     use crate::util::error::lucene_error::{LuceneError, Result};

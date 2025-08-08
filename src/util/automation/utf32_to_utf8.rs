@@ -384,7 +384,9 @@ mod tests {
     use crate::test::util::automaton::automaton_test_util::{
         AutomatonTestUtil, RandomAcceptedStrings,
     };
-    use crate::test::util::lucene_test_case::{at_least, new_bytes_ref_from_string, random};
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        at_least, new_bytes_ref_from_string, random,
+    };
     use crate::test::util::test_util::TestUtil;
     use crate::util::automation::automata::Automata;
     use crate::util::automation::automaton::Automaton;

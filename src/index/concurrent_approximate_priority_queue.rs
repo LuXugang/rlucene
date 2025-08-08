@@ -156,7 +156,7 @@ mod tests {
         ConcurrentApproximatePriorityQueue, MAX_CONCURRENCY, MIN_CONCURRENCY,
     };
     use crate::index::lockable_concurrent_approximate_priority_queue::{FlushState, Lock};
-    use crate::test::util::lucene_test_case::random;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
     use crate::test::util::test_util::TestUtil;
     use crate::util::error::lucene_error::Result;
     use std::sync::{mpsc, Arc};

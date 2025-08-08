@@ -227,8 +227,8 @@ mod tests {
     use crate::test::index::base_compound_format_test_case::{
         create_random_file, new_segment_info, BaseCompoundFormatTestCase,
     };
-    use crate::test::util::lucene_test_case::new_directory;
-    use crate::test::util::lucene_test_case::random;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::new_directory;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
     use crate::util::error::lucene_error::Result;
 
     pub struct TestLucene90CompoundFormat;

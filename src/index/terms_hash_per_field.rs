@@ -573,7 +573,9 @@ pub(crate) mod tests {
     use crate::index::BytesRef;
     use crate::store::dummy::dummy_directory::DummyDirectory;
     use crate::store::DataInput;
-    use crate::test::util::lucene_test_case::{new_bytes_ref_from_string, random};
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        new_bytes_ref_from_string, random,
+    };
     use crate::test::util::test_util::TestUtil;
     use crate::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
     use crate::util::attribute_source::EmptyAttributeSource;

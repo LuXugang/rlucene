@@ -22,7 +22,9 @@ use rand::Rng;
 use crate::store::data_output::DataOutput;
 use crate::store::directory::Directory;
 use crate::store::{IOContext, IndexInput};
-use crate::test::util::lucene_test_case::{is_night_mode, new_directory, random};
+use crate::test::util::lucene_test_case::lucene_test_case_util::{
+    is_night_mode, new_directory, random,
+};
 use crate::test::util::test_util::TestUtil;
 use crate::util::error::lucene_error::Result;
 use crate::util::long_values::LongValues;

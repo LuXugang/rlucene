@@ -130,7 +130,7 @@ impl DocumentsWriterStallControl {
 #[cfg(test)]
 mod tests {
     use crate::index::documents_writer_stall_control::DocumentsWriterStallControl;
-    use crate::test::util::lucene_test_case::{at_least, is_night_mode};
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, is_night_mode};
     use crate::util::error::lucene_error::Result;
     use parking_lot::{Condvar, Mutex};
     use rand::{thread_rng, Rng};

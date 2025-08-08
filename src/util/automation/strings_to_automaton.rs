@@ -380,7 +380,7 @@ mod tests {
     use crate::index::{BytesRef, BytesRefBuilder};
     use crate::test::util::automaton::automaton_test_util::AutomatonTestUtil;
     use crate::test::util::automaton::minimization_operation::MinimizationOperations;
-    use crate::test::util::lucene_test_case::{
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
         is_night_mode, new_bytes_ref_from_bytes_ref, new_bytes_ref_from_string, random,
     };
     use crate::test::util::test_util::TestUtil;

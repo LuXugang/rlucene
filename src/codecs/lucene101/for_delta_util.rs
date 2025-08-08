@@ -673,7 +673,7 @@ mod tests {
     use crate::internal::vectorization::posting_decoding_util::PostingDecodingUtil;
     use crate::store::directory::Directory;
     use crate::store::{IOContext, IndexInput, IndexOutput};
-    use crate::test::util::lucene_test_case::{new_directory, random};
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{new_directory, random};
     use crate::test::util::test_util::TestUtil;
     use crate::util::error::lucene_error::Result;
     use crate::util::packed::PackedInts;

@@ -761,7 +761,7 @@ mod tests {
     use std::sync::Arc;
 
     use crate::store::{ByteArrayDataInput, ByteBuffersDataOutput, DataOutput};
-    use crate::test::util::lucene_test_case::random;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
     use crate::test::util::test_util::TestUtil;
     use crate::util::array_util::ArrayUtil;
     use crate::util::compress::lz4::{FastCompressionHashTable, HighCompressionHashTable, LZ4};

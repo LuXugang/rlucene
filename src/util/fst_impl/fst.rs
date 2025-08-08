@@ -1431,7 +1431,7 @@ mod tests {
     use crate::test::util::fst::fst_tester::{
         fst_tester_util, DummyFSTTesterBaseImpl, FSTTester, InputOutput,
     };
-    use crate::test::util::lucene_test_case::{
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
         at_least, is_night_mode, new_bytes_ref_from_string, new_directory, random, random_from_seed,
     };
     use crate::test::util::test_util::TestUtil;

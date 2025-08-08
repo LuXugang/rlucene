@@ -1096,7 +1096,9 @@ mod tests {
 
         use crate::store::directory::Directory;
 
-        use crate::test::util::lucene_test_case::{at_least, new_directory, random};
+        use crate::test::util::lucene_test_case::lucene_test_case_util::{
+            at_least, new_directory, random,
+        };
         use crate::test::util::test_util::TestUtil;
         use crate::util::bit_util::BitUtil;
         use crate::util::bkd::bkd_config::BKDConfig;
@@ -1795,7 +1797,7 @@ mod tests {
 
         use crate::store::dummy::dummy_index_output::DummyIndexOutput;
         use crate::store::IndexOutput;
-        use crate::test::util::lucene_test_case::{new_directory, random};
+        use crate::test::util::lucene_test_case::lucene_test_case_util::{new_directory, random};
         use crate::test::util::test_util::TestUtil;
         use crate::util::bkd::bkd_config::BKDConfig;
         use crate::util::bkd::bkd_radix_selector::BKDRadixSelector;

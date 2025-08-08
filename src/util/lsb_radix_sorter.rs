@@ -130,7 +130,7 @@ impl LSBRadixSorter {
 mod tests {
     use rand::Rng;
 
-    use crate::test::util::lucene_test_case::random;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
     use crate::test::util::test_util::TestUtil;
     use crate::util::error::lucene_error::Result;
     use crate::util::lsb_radix_sorter::LSBRadixSorter;

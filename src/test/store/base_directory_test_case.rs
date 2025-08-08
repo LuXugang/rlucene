@@ -34,8 +34,8 @@ use crate::store::DataInput;
 use crate::store::IndexInput;
 use crate::store::IndexOutput;
 use crate::store::{DataOutput, IOContext};
-use crate::test::util::lucene_test_case::{at_least, is_night_mode};
-use crate::test::util::lucene_test_case::{
+use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, is_night_mode};
+use crate::test::util::lucene_test_case::lucene_test_case_util::{
     new_directory, new_io_context, random_from_seed, slow_file_exists,
 };
 use crate::test::util::test_util::TestUtil;

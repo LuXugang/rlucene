@@ -86,7 +86,7 @@ mod tests {
     use crate::codecs::lucene101::postings_util::PostingsUtil;
     use crate::store::directory::Directory;
     use crate::store::IOContext;
-    use crate::test::util::lucene_test_case::{new_directory, random};
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{new_directory, random};
     use crate::util::error::lucene_error::Result;
 
     // checks for bug described in https://github.com/apache/lucene/issues/13373

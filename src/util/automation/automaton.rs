@@ -935,7 +935,7 @@ mod tests {
         AutomatonTestUtil, RandomAcceptedStrings,
     };
     use crate::test::util::automaton::minimization_operation::MinimizationOperations;
-    use crate::test::util::lucene_test_case::{
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
         at_least, new_bytes_ref, new_bytes_ref_empty, new_bytes_ref_from_string, random,
         random_from_seed,
     };

@@ -34,7 +34,7 @@ use crate::search::sorted_set_sort_field::SortedSetSortField;
 use crate::store::directory::Directory;
 use crate::store::IOContext;
 use crate::test::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
-use crate::test::util::lucene_test_case::{at_least, new_directory};
+use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, new_directory};
 use crate::test::util::test_util::TestUtil;
 use crate::util::error::lucene_error::Result;
 use crate::util::{StringHelper, Version};

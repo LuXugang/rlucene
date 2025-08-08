@@ -474,7 +474,7 @@ mod tests {
     use rand::Rng;
 
     use crate::test::util::base_sort_test_case::{BaseSortTestCase, Entry};
-    use crate::test::util::lucene_test_case::random;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
     use crate::test::util::test_util::TestUtil;
     use crate::util::array_tim_sorter::ArrayTimSorter;
     use crate::util::{Comparator, NaturalOrder, Sorter};

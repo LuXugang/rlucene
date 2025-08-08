@@ -1418,8 +1418,8 @@ mod tests {
     use crate::store::directory::Directory;
     use crate::store::dummy::dummy_directory::DummyDirectory;
     use crate::store::{DataInput, DataOutput, IOContext, IndexInput};
-    use crate::test::util::lucene_test_case::new_directory;
-    use crate::test::util::lucene_test_case::random;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::new_directory;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
     use crate::test::util::test_util::TestUtil;
     use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::{StringHelper, LATEST, LUCENE_10_0_0, LUCENE_11_0_0};

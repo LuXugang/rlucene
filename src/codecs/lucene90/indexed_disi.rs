@@ -1092,7 +1092,9 @@ mod tests {
     use crate::search::doc_id_set_iterator::DocIdSetIterator;
     use crate::store::directory::Directory;
     use crate::store::{IOContext, IndexInput, IndexOutput};
-    use crate::test::util::lucene_test_case::{at_least, new_directory, random, rarely};
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        at_least, new_directory, random, rarely,
+    };
     use crate::test::util::test_util::TestUtil;
     use crate::util::bit_set::{bit_set_util, BitSet};
     use crate::util::bit_set_iterator::BitSetIterator;

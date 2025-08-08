@@ -109,7 +109,9 @@ mod tests {
     use crate::store::directory::Directory;
     use crate::store::output_stream_data_output::OutputStreamDataOutput;
     use crate::store::{ByteArrayDataInput, DataOutput, IOContext};
-    use crate::test::util::lucene_test_case::{at_least, is_night_mode, new_directory, random};
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        at_least, is_night_mode, new_directory, random,
+    };
     use crate::test::util::test_util::TestUtil;
     use crate::util::error::lucene_error::Result;
     use crate::util::fst_impl::growable_byte_array_data_output::GrowableByteArrayDataOutput;

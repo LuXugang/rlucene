@@ -687,7 +687,7 @@ mod tests {
         BaseBitSetTestCase, BaseBitSetTestCaseSupperImpl, RustUtilBitSet,
     };
     use crate::test::util::id_set_common::{clear_range, flip_bit, flip_bit_range, set_range};
-    use crate::test::util::lucene_test_case::{is_night_mode, random};
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{is_night_mode, random};
     use crate::util::bit_set::BitSet;
     use crate::util::bit_set_iterator::BitSetIterator;
     use crate::util::bits::Bits;

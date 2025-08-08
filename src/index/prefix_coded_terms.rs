@@ -265,7 +265,7 @@ mod tests {
     use crate::index::field_term_iterator::FieldTermIterator;
     use crate::index::prefix_coded_terms::PrefixCodedTermsBuilder;
     use crate::index::term::Term;
-    use crate::test::util::lucene_test_case::{at_least, random};
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
     use crate::test::util::test_util::TestUtil;
     use crate::util::bytes_ref_iterator::BytesRefIterator;
     use crate::util::error::lucene_error::Result;

@@ -956,7 +956,7 @@ mod tests {
     use crate::search::query::Query;
     use crate::search::term_query::TermQuery;
 
-    use crate::test::util::lucene_test_case::{random, random_multiplier};
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{random, random_multiplier};
     use crate::util::bytes_ref_iterator::BytesRefIterator;
     use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::info_stream::get_default_info_stream;

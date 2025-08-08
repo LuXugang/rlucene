@@ -611,7 +611,7 @@ mod tests {
     use crate::test::util::base_bit_set_test_case::{
         BaseBitSetTestCase, BaseBitSetTestCaseSupperImpl, RustUtilBitSet,
     };
-    use crate::test::util::lucene_test_case::random;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
     use crate::util::bit_set::BitSet;
     use crate::util::bits::Bits;
     use crate::util::sparse_fixed_bit_set::SparseFixedBitSet;

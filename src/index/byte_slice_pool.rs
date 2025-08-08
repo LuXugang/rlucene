@@ -169,7 +169,7 @@ mod tests {
     use std::sync::Arc;
 
     use crate::index::byte_slice_pool::ByteSlicePool;
-    use crate::test::util::lucene_test_case::random;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
     use crate::test::util::test_util::TestUtil;
     use crate::util::allocator_byte::{
         AllocatorByteEnum, DirectAllocatorByte, DirectTrackingAllocatorByte,

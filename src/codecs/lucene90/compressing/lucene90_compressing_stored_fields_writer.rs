@@ -920,7 +920,7 @@ mod tests {
     use crate::codecs::compressing::lucene90_compressing_stored_fields_reader::lucene90_csfr_util;
     use crate::codecs::compressing::lucene90_compressing_stored_fields_writer::lucene90_csfw_util;
     use crate::store::{ByteArrayDataInput, ByteArrayDataOutput};
-    use crate::test::util::lucene_test_case::random;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
     use crate::util::error::lucene_error::Result;
     #[allow(dead_code)] // for quick search
     struct TestCompressingStoredFieldsFormat;

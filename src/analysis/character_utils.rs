@@ -171,11 +171,12 @@ impl CharacterBuffer {
 #[cfg(test)]
 mod tests {
     use crate::analysis::character_utils::CharacterUtils;
-    use crate::test::util::lucene_test_case::random;
+    use crate::test::util::lucene_test_case::lucene_test_case_util::random;
     use crate::test::util::test_util::TestUtil;
     use crate::util::array_util::ArrayUtil;
     use crate::util::error::lucene_error::{LuceneError, Result};
     use std::io::Cursor;
+
     #[test]
     fn test_lower_upper() -> Result<()> {
         let data = "ABc".to_string();
