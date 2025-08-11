@@ -331,7 +331,7 @@ pub(crate) trait DocValuesFieldUpdatesBase: Accountable {
         doc_id: i32,
         iterator: &mut T,
     ) -> Result<()>;
-    /// Returns an iterator for updated documents and their values.
+    /// This method could be called once
     fn iterator(
         &mut self,
         inner: Arc<Mutex<DocValuesFieldInner>>,
@@ -794,7 +794,7 @@ pub trait AbstractIteratorBase {
 }
 
 pub(crate) struct SingleValueDocValuesFieldUpdates {
-    sub_update: Arc<SingleValueNumericDocValuesFieldUpdates>,
+    sub_update: SingleValueNumericDocValuesFieldUpdates,
     bit_set: SparseFixedBitSet,
     has_no_value: Option<SparseFixedBitSet>,
     max_doc: i32,
@@ -802,15 +802,12 @@ pub(crate) struct SingleValueDocValuesFieldUpdates {
     has_at_least_one_value: bool,
     lock: Mutex<()>,
     dov_values_type: DocValuesType,
-    // for reuse iterator
-    bit_set_iter: Option<Arc<SparseFixedBitSet>>,
-    // for reuse iterator
-    has_no_value_iter: Option<Arc<SparseFixedBitSet>>,
+    finished: bool,
 }
 
 impl SingleValueDocValuesFieldUpdates {
     pub fn new(
-        sub: Arc<SingleValueNumericDocValuesFieldUpdates>,
+        sub: SingleValueNumericDocValuesFieldUpdates,
         max_doc: i32,
         del_gen: i64,
         dov_values_type: DocValuesType,
@@ -824,8 +821,7 @@ impl SingleValueDocValuesFieldUpdates {
             has_at_least_one_value: false,
             lock: Mutex::new(()),
             dov_values_type,
-            bit_set_iter: None,
-            has_no_value_iter: None,
+            finished: false,
         })
     }
     pub fn binary_value(&self) -> Result<&BytesRef<Vec<u8>>> {
@@ -844,11 +840,12 @@ impl Accountable for SingleValueDocValuesFieldUpdates {
 
 impl DocValuesFieldUpdatesBase for SingleValueDocValuesFieldUpdates {
     fn add_value(&mut self, doc: i32, value: i64, _index: i32) -> Result<()> {
+        if self.finished {
+            return Err(LuceneError::illegal_state(
+                "Cannot add new data after iterator is called",
+            ));
+        }
         debug_assert!(self.sub_update.long_value()? == value);
-        debug_assert!(
-            self.bit_set_iter.is_none(),
-            "after calling iterator(), you must not add any more data"
-        );
         self.bit_set.set(doc);
 
         self.has_at_least_one_value = true;
@@ -860,10 +857,6 @@ impl DocValuesFieldUpdatesBase for SingleValueDocValuesFieldUpdates {
 
     fn add_byte_ref(&mut self, doc: i32, value: &BytesRef<Vec<u8>>, _index: i32) -> Result<()> {
         debug_assert!(self.sub_update.binary_value()? == value);
-        debug_assert!(
-            self.bit_set_iter.is_none(),
-            "After calling iterator(), you must not add any more data"
-        );
         self.bit_set.set(doc);
         self.has_at_least_one_value = true;
         if self.has_no_value.is_some() {
@@ -885,31 +878,22 @@ impl DocValuesFieldUpdatesBase for SingleValueDocValuesFieldUpdates {
         _inner: Arc<Mutex<DocValuesFieldInner>>,
         _del_gen: i64,
     ) -> Result<impl DocValuesFieldIterator> {
-        if self.bit_set_iter.is_none() {
-            self.bit_set_iter = Some(Arc::new(std::mem::take(&mut self.bit_set)));
-        }
-        if self.has_no_value_iter.is_none() && self.has_no_value.is_some() {
-            self.has_no_value_iter =
-                Some(Arc::new(std::mem::take(&mut self.has_no_value).unwrap()));
-        }
+        debug_assert!(!self.finished);
+        self.finished = true;
         let iterator = BitSetIterator::new(
-            self.bit_set_iter.as_ref().unwrap().clone(),
+            Arc::new(std::mem::take(&mut self.bit_set)),
             self.max_doc as i64,
         )?;
         SingleValueDocValuesFieldUpdatesIterator::new(
             iterator,
             self.del_gen,
-            self.has_no_value_iter.clone(),
-            self.sub_update.clone(),
+            self.has_no_value.take(),
+            std::mem::take(&mut self.sub_update),
         )
     }
 
     fn reset(&mut self, doc: i32) -> Result<()> {
         let _guide = self.lock.lock();
-        debug_assert!(
-            self.bit_set_iter.is_none(),
-            "After calling iterator(), you must not add any more data"
-        );
         self.bit_set.set(doc);
         self.has_at_least_one_value = true;
         if self.has_no_value.is_none() {
@@ -948,9 +932,9 @@ pub trait SingleValueDocValuesFieldUpdatesBase {
 }
 pub struct SingleValueDocValuesFieldUpdatesIterator {
     del_gen: i64,
-    has_no_value: Option<Arc<SparseFixedBitSet>>,
+    has_no_value: Option<SparseFixedBitSet>,
     iterator: BitSetIterator<SparseFixedBitSet>,
-    single: Arc<SingleValueNumericDocValuesFieldUpdates>,
+    single: SingleValueNumericDocValuesFieldUpdates,
 }
 impl SingleValueDocValuesFieldUpdatesIterator {
     /// Creates a new instance of `SingleValueDocValuesFieldUpdatesIterator`.
@@ -961,8 +945,8 @@ impl SingleValueDocValuesFieldUpdatesIterator {
     pub fn new(
         iterator: BitSetIterator<SparseFixedBitSet>,
         del_gen: i64,
-        has_no_value: Option<Arc<SparseFixedBitSet>>,
-        single: Arc<SingleValueNumericDocValuesFieldUpdates>,
+        has_no_value: Option<SparseFixedBitSet>,
+        single: SingleValueNumericDocValuesFieldUpdates,
     ) -> Result<Self> {
         Ok(Self {
             del_gen,
@@ -985,18 +969,18 @@ impl Default for SingleValueDocValuesFieldUpdatesIterator {
             has_no_value: None,
             iterator: BitSetIterator::new(Arc::new(SparseFixedBitSet::default()), 1)
                 .expect("should never fail"),
-            single: Arc::new(SingleValueNumericDocValuesFieldUpdates::default()),
+            single: SingleValueNumericDocValuesFieldUpdates::default(),
         }
     }
 }
 
 impl DocValuesFieldIterator for SingleValueDocValuesFieldUpdatesIterator {
     fn long_value(&mut self) -> Result<i64> {
-        self.single.as_ref().long_value()
+        self.single.long_value()
     }
 
     fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
-        self.single.as_ref().binary_value()
+        self.single.binary_value()
     }
 
     fn del_gen(&self) -> i64 {
@@ -1255,7 +1239,7 @@ mod tests {
         let max_doc: i32 = 1 + random.random_range(0..1000);
         let value = random.random::<i64>();
 
-        let sub_update1 = Arc::new(SingleValueNumericDocValuesFieldUpdates::new(value));
+        let sub_update1 = SingleValueNumericDocValuesFieldUpdates::new(value);
         let sub_type = sub_update1.sub_type();
         let sub_update2 =
             SingleValueDocValuesFieldUpdates::new(sub_update1, max_doc, del_gen, sub_type)?;
