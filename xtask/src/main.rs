@@ -16,8 +16,11 @@
  */
 mod tasks;
 
-use std::path::{Path, PathBuf};
-use std::{env, fs, process};
+use std::{
+    env, fs,
+    path::{Path, PathBuf},
+    process::{self, Command},
+};
 
 fn find_file(dir: &Path, file_name: &str) -> Option<PathBuf> {
     for entry in fs::read_dir(dir).expect("Failed to read directory") {
@@ -35,62 +38,121 @@ fn find_file(dir: &Path, file_name: &str) -> Option<PathBuf> {
     }
     None
 }
-fn main() {
-    let project_dir = env::current_dir().unwrap();
-    let xtask_dir = project_dir.join("xtask");
-    let task_file = find_file(&xtask_dir, "tasks.txt").expect("Task file not found: tasks.txt");
 
-    if !task_file.exists() {
-        eprintln!("Task file not found: tasks.txt");
+fn run_cargo(args: &[&str]) {
+    let status = Command::new("cargo")
+        .args(args)
+        .status()
+        .expect("failed to run cargo");
+    if !status.success() {
+        process::exit(status.code().unwrap_or(1));
+    }
+}
+
+/// Check if the Rust version is correct.
+fn check_rust_version() {
+    const REQUIRED: &str = "1.89.0";
+    let output = Command::new("rustc")
+        .arg("--version")
+        .output()
+        .expect("failed to execute rustc");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    if !stdout.contains(REQUIRED) {
+        eprintln!(
+            " ❌ ❌ ❌ Rust version mismatch: expected {}, got: {}",
+            REQUIRED,
+            stdout.trim()
+        );
+        process::exit(1);
+    } else {
+        println!(" ✅ ✅ ✅ Rust version OK: {}", stdout.trim());
+    }
+}
+/// Check if there are uncommitted changes.
+fn check_uncommitted() {
+    let output = Command::new("git")
+        .args(["status", "--porcelain"])
+        .output()
+        .expect("failed to execute git");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    if stdout.trim().is_empty() {
+        println!("✅ ✅ ✅ Working directory clean. All changes committed.");
+    } else {
+        eprintln!(
+            "❌ ❌ ❌ Uncommitted changes detected after code Check. Please commit your work first."
+        );
+        eprintln!("{}", stdout);
         process::exit(1);
     }
-    let content = fs::read_to_string(task_file).expect("Failed to read tasks.txt");
-    for line in content.lines() {
-        let task = line.trim();
-        if task.is_empty() || task.starts_with('#') {
-            // skip empty lines and comments
-            continue;
-        }
+}
 
-        println!("Executing task: {}", task);
+/// format code
+fn tidy() {
+    license_check();
+    check_rust_version();
+    run_cargo(&["clippy", "--fix"]);
+    run_cargo(&["fix", "--allow-dirty", "--allow-staged"]);
+    run_cargo(&["fmt"]);
+}
 
-        let src_dir = project_dir.join("src");
-        // let test_dir = project_dir.join("tests");
-        match task {
-            "license-check" => {
-                let license_path = find_file(&xtask_dir, "LICENSE_HEADER");
-                let license_header_path: String =
-                    license_path.as_ref().unwrap().to_str().unwrap().to_string();
-                if license_path.is_none() {
-                    eprintln!("LICENSE_HEADER file not found: LICENSE_HEADER");
-                    process::exit(1);
-                }
+/// Before submitting a PR, run this command to format and test the code.
+fn commit() {
+    tidy();
+    check_uncommitted();
+    run_cargo(&["test"]);
+}
+/// CI task for Github actions
+fn ci() {
+    tidy();
+    check_uncommitted();
+    run_cargo(&["test", "--verbose", "--features", "test_log_verbose,nightly"]);
+}
 
-                let license_text =
-                    tasks::license::license_checker::load_license_text(license_path.unwrap().as_path());
+fn license_check() {
+    let project_dir = env::current_dir().unwrap();
+    let xtask_dir = project_dir.join("xtask");
 
-                println!("Checking licenses in src/ and test/...");
+    let license_path = find_file(&xtask_dir, "LICENSE_HEADER");
+    let license_header_path: String =
+        license_path.as_ref().unwrap().to_str().unwrap().to_string();
+    if license_path.is_none() {
+        eprintln!("LICENSE_HEADER file not found: LICENSE_HEADER");
+        process::exit(1);
+    }
 
-                let src_valid =
-                    tasks::license::license_checker::check_licenses_in_dir(&src_dir, &license_text);
-                // let test_valid =
-                //     tasks::license::license_checker::check_licenses_in_dir(&test_dir, &license_text);
+    let license_text =
+        tasks::license::license_checker::load_license_text(license_path.unwrap().as_path());
 
-                // if src_valid && test_valid {
-                    if src_valid{
-                    eprintln!("\x1b[32mAll files have the correct license header\x1b[0m.");
-                } else {
-                    eprintln!(
-                        "License check failed: you should copy the correct license header from \x1b[31m{}\x1b[0m",
-                        license_header_path
-                    );
-                    process::exit(1);
-                }
-            }
+    let src_dir = project_dir.join("src");
 
-            _ => {
-                eprintln!("\x1b[31mUnknown task: {}\x1b[31m", task);
-            }
+    let src_valid =
+        tasks::license::license_checker::check_licenses_in_dir(&src_dir, &license_text);
+
+    if src_valid {
+        eprintln!("\x1b[32mAll files have the correct license header\x1b[0m.");
+    } else {
+        eprintln!(
+            "License check failed: you should copy the correct license header from \x1b[31m{}\x1b[0m",
+            license_header_path
+        );
+        process::exit(1);
+    }
+}
+
+fn main() {
+    let mut args = env::args().skip(1);
+    match args.next().as_deref() {
+        Some("tidy") => tidy(),
+        Some("commit") => commit(),
+        Some("ci") => ci(),
+        Some("check-uncommitted") => check_uncommitted(),
+        Some("check-rust-version") => check_rust_version(),
+        Some("license-check") => license_check(),
+        _ => {
+            eprintln!(
+                "Available commands: tidy, commit, ci, format, clippy, fix, test, test-light, check-uncommitted, check-rust-version, license-check"
+            );
+            process::exit(1);
         }
     }
 }

@@ -1,2 +1,8 @@
 [alias]
 xtask = "run --manifest-path xtask/Cargo.toml --"
+# format code
+tidy  = "xtask tidy"
+# Last command before submitting a PR
+commit = "xtask commit"
+# Github Actions CI
+ci = "xtask ci"
