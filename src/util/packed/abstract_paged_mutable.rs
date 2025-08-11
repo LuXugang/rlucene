@@ -221,6 +221,12 @@ pub enum AbstractPagedMutableBaseEnum {
     Mutable(PagedMutable),
     GrowableWriter(PagedGrowableWriter),
 }
+impl Default for AbstractPagedMutableBaseEnum {
+    /// for padding using
+    fn default() -> Self {
+        AbstractPagedMutableBaseEnum::Mutable(PagedMutable::default())
+    }
+}
 impl AbstractPagedMutableBase for AbstractPagedMutableBaseEnum {
     fn new_mutable(&self, value_count: i32, bits_per_value: i32) -> MutableEnum {
         match self {

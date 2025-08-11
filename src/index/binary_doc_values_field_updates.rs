@@ -20,7 +20,7 @@ use parking_lot::Mutex;
 
 use crate::index::doc_values_field_updates::{
     AbstractIterator, AbstractIteratorBase, DocValuesFieldInner, DocValuesFieldIterator,
-    DocValuesFieldUpdatesBase, dvfu_util,
+    DocValuesFieldIteratorEnum, DocValuesFieldUpdatesBase, dvfu_util,
 };
 use crate::index::doc_values_type::DocValuesType;
 use crate::index::{BytesRef, BytesRefBuilder};
@@ -97,7 +97,7 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
         &mut self,
         inner: Arc<Mutex<DocValuesFieldInner>>,
         del_gen: i64,
-    ) -> Result<impl DocValuesFieldIterator> {
+    ) -> Result<DocValuesFieldIteratorEnum> {
         debug_assert!(!self.finished);
         self.finished = true;
         let base = AbstractIteratorBinary::new(
@@ -105,7 +105,9 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
             std::mem::take(&mut self.lengths),
             self.values.get_bytes_owner(),
         );
-        Ok(AbstractIterator::new(inner, del_gen, base))
+        Ok(DocValuesFieldIteratorEnum::AbstractBinary(
+            AbstractIterator::new(inner, del_gen, base),
+        ))
     }
     fn swap(&mut self, i: i32, j: i32) -> Result<()> {
         let temp_offset = self.offsets.get(j as i64)?;

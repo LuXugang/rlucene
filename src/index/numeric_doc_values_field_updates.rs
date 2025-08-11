@@ -21,31 +21,32 @@ use parking_lot::Mutex;
 use crate::index::BytesRef;
 use crate::index::doc_values_field_updates::{
     AbstractIterator, AbstractIteratorBase, DocValuesFieldInner, DocValuesFieldIterator,
-    DocValuesFieldUpdatesBase, SingleValueDocValuesFieldUpdatesBase, dvfu_util,
+    DocValuesFieldIteratorEnum, DocValuesFieldUpdatesBase, SingleValueDocValuesFieldUpdatesBase,
+    dvfu_util,
 };
 use crate::index::doc_values_type::DocValuesType;
 use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::long_values::LongValues;
 use crate::util::packed::PackedInts;
-use crate::util::packed::abstract_paged_mutable::{AbstractPagedMutable, AbstractPagedMutableBase};
+use crate::util::packed::abstract_paged_mutable::{
+    AbstractPagedMutable, AbstractPagedMutableBaseEnum,
+};
 use crate::util::packed::paged_growable_writer::PagedGrowableWriter;
 use crate::util::packed::paged_mutable::PagedMutable;
 
 /// A `DocValuesFieldUpdates` which holds updates of documents, of a single `NumericDocValuesField`.
-pub(crate) struct NumericDocValuesFieldUpdates<T>
-where
-    T: AbstractPagedMutableBase,
-{
-    values: AbstractPagedMutable<T>,
+pub(crate) struct NumericDocValuesFieldUpdates {
+    values: AbstractPagedMutable<AbstractPagedMutableBaseEnum>,
     min_value: i64,
     lock: Mutex<()>,
     finished: bool,
 }
-
-impl NumericDocValuesFieldUpdates<PagedGrowableWriter> {
-    pub fn new() -> Result<NumericDocValuesFieldUpdates<PagedGrowableWriter>> {
-        let sub_reader = PagedGrowableWriter::with_fill_page(1, PackedInts::DEFAULT);
+impl NumericDocValuesFieldUpdates {
+    pub(crate) fn new() -> Result<NumericDocValuesFieldUpdates> {
+        let sub_reader = AbstractPagedMutableBaseEnum::GrowableWriter(
+            PagedGrowableWriter::with_fill_page(1, PackedInts::DEFAULT),
+        );
         let values = AbstractPagedMutable::new(1, dvfu_util::PAGE_SIZE, sub_reader)?;
         Ok(NumericDocValuesFieldUpdates {
             values,
@@ -54,19 +55,16 @@ impl NumericDocValuesFieldUpdates<PagedGrowableWriter> {
             finished: false,
         })
     }
-}
-
-impl NumericDocValuesFieldUpdates<PagedMutable> {
     pub(crate) fn with_range(
         min_value: i64,
         max_value: i64,
-    ) -> Result<NumericDocValuesFieldUpdates<impl AbstractPagedMutableBase>> {
+    ) -> Result<NumericDocValuesFieldUpdates> {
         let bits_per_value = PackedInts::unsigned_bits_required(max_value - min_value);
-        let sub_reader = PagedMutable::with_overhead_ratio(
+        let sub_reader = AbstractPagedMutableBaseEnum::Mutable(PagedMutable::with_overhead_ratio(
             dvfu_util::PAGE_SIZE,
             bits_per_value,
             PackedInts::DEFAULT,
-        );
+        ));
         let values = AbstractPagedMutable::new(1, dvfu_util::PAGE_SIZE, sub_reader)?;
         Ok(NumericDocValuesFieldUpdates {
             values,
@@ -77,19 +75,7 @@ impl NumericDocValuesFieldUpdates<PagedMutable> {
     }
 }
 
-impl<T> Accountable for NumericDocValuesFieldUpdates<T>
-where
-    T: AbstractPagedMutableBase,
-{
-    fn ram_bytes_used(&self) -> Result<i64> {
-        todo!()
-    }
-}
-
-impl<T> DocValuesFieldUpdatesBase for NumericDocValuesFieldUpdates<T>
-where
-    T: AbstractPagedMutableBase + Default,
-{
+impl DocValuesFieldUpdatesBase for NumericDocValuesFieldUpdates {
     fn add_value(&mut self, _doc: i32, value: i64, index: i32) -> Result<()> {
         if self.finished {
             return Err(LuceneError::illegal_state(
@@ -119,12 +105,14 @@ where
         &mut self,
         inner: Arc<Mutex<DocValuesFieldInner>>,
         del_gen: i64,
-    ) -> Result<impl DocValuesFieldIterator> {
+    ) -> Result<DocValuesFieldIteratorEnum> {
         debug_assert!(!self.finished);
         self.finished = true;
         let base =
             AbstractIteratorNumeric::new(std::mem::take(&mut self.values), 0, self.min_value);
-        Ok(AbstractIterator::new(inner, del_gen, base))
+        Ok(DocValuesFieldIteratorEnum::AbstractNumeric(
+            AbstractIterator::new(inner, del_gen, base),
+        ))
     }
 
     fn swap(&mut self, i: i32, j: i32) -> Result<()> {
@@ -152,20 +140,24 @@ where
         DocValuesType::Numeric
     }
 }
+
+impl Accountable for NumericDocValuesFieldUpdates {
+    fn ram_bytes_used(&self) -> Result<i64> {
+        todo!()
+    }
+}
 #[derive(Default)]
-pub(crate) struct AbstractIteratorNumeric<T>
-where
-    T: AbstractPagedMutableBase,
-{
-    values: AbstractPagedMutable<T>,
+pub(crate) struct AbstractIteratorNumeric {
+    values: AbstractPagedMutable<AbstractPagedMutableBaseEnum>,
     value: i64,
     min_value: i64,
 }
-impl<T> AbstractIteratorNumeric<T>
-where
-    T: AbstractPagedMutableBase,
-{
-    pub(crate) fn new(values: AbstractPagedMutable<T>, value: i64, min_value: i64) -> Self {
+impl AbstractIteratorNumeric {
+    pub(crate) fn new(
+        values: AbstractPagedMutable<AbstractPagedMutableBaseEnum>,
+        value: i64,
+        min_value: i64,
+    ) -> Self {
         AbstractIteratorNumeric {
             values,
             value,
@@ -173,10 +165,7 @@ where
         }
     }
 }
-impl<T> AbstractIteratorBase for AbstractIteratorNumeric<T>
-where
-    T: AbstractPagedMutableBase,
-{
+impl AbstractIteratorBase for AbstractIteratorNumeric {
     fn set(&mut self, idx: i64) -> Result<()> {
         self.value = self.values.get(idx)? + self.min_value;
         Ok(())
