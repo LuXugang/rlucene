@@ -32,6 +32,7 @@ use crate::util::packed::abstract_paged_mutable::{AbstractPagedMutable, Abstract
 use crate::util::packed::paged_growable_writer::PagedGrowableWriter;
 use crate::util::packed::paged_mutable::PagedMutable;
 
+/// A `DocValuesFieldUpdates` which holds updates of documents, of a single `NumericDocValuesField`.
 pub(crate) struct NumericDocValuesFieldUpdates<T>
 where
     T: AbstractPagedMutableBase,
@@ -39,8 +40,9 @@ where
     values: AbstractPagedMutable<T>,
     min_value: i64,
     lock: Mutex<()>,
+    finished: bool,
 }
-#[allow(unused)]
+
 impl NumericDocValuesFieldUpdates<PagedGrowableWriter> {
     pub fn new() -> Result<NumericDocValuesFieldUpdates<PagedGrowableWriter>> {
         let sub_reader = PagedGrowableWriter::with_fill_page(1, PackedInts::DEFAULT);
@@ -49,10 +51,11 @@ impl NumericDocValuesFieldUpdates<PagedGrowableWriter> {
             values,
             min_value: 0,
             lock: Mutex::new(()),
+            finished: false,
         })
     }
 }
-#[allow(unused)]
+
 impl NumericDocValuesFieldUpdates<PagedMutable> {
     pub(crate) fn with_range(
         min_value: i64,
@@ -69,6 +72,7 @@ impl NumericDocValuesFieldUpdates<PagedMutable> {
             values,
             min_value,
             lock: Mutex::new(()),
+            finished: false,
         })
     }
 }
@@ -87,6 +91,11 @@ where
     T: AbstractPagedMutableBase + Default,
 {
     fn add_value(&mut self, _doc: i32, value: i64, index: i32) -> Result<()> {
+        if self.finished {
+            return Err(LuceneError::illegal_state(
+                "Cannot add new data after iterator is called",
+            ));
+        }
         let _guard = self.lock.lock();
         self.values.set(index as i64, value - self.min_value);
         Ok(())
@@ -111,7 +120,10 @@ where
         inner: Arc<Mutex<DocValuesFieldInner>>,
         del_gen: i64,
     ) -> Result<impl DocValuesFieldIterator> {
-        let base = AbstractIteratorBaseImpl::new(Some(&mut self.values), 0, self.min_value);
+        debug_assert!(!self.finished);
+        self.finished = true;
+        let base =
+            AbstractIteratorBaseImpl::new(std::mem::take(&mut self.values), 0, self.min_value);
         Ok(AbstractIterator::new(inner, del_gen, base))
     }
 
@@ -141,24 +153,19 @@ where
     }
 }
 #[derive(Default)]
-pub(crate) struct AbstractIteratorBaseImpl<'a, T>
+pub(crate) struct AbstractIteratorBaseImpl<T>
 where
     T: AbstractPagedMutableBase,
 {
-    values: Option<&'a mut AbstractPagedMutable<T>>,
+    values: AbstractPagedMutable<T>,
     value: i64,
     min_value: i64,
 }
-impl<'a, T> AbstractIteratorBaseImpl<'a, T>
+impl<T> AbstractIteratorBaseImpl<T>
 where
     T: AbstractPagedMutableBase,
 {
-    pub(crate) fn new(
-        values: Option<&'a mut AbstractPagedMutable<T>>,
-        value: i64,
-        min_value: i64,
-    ) -> Self {
-        debug_assert!(values.is_some());
+    pub(crate) fn new(values: AbstractPagedMutable<T>, value: i64, min_value: i64) -> Self {
         AbstractIteratorBaseImpl {
             values,
             value,
@@ -166,12 +173,12 @@ where
         }
     }
 }
-impl<T> AbstractIteratorBase for AbstractIteratorBaseImpl<'_, T>
+impl<T> AbstractIteratorBase for AbstractIteratorBaseImpl<T>
 where
     T: AbstractPagedMutableBase,
 {
     fn set(&mut self, idx: i64) -> Result<()> {
-        self.value = self.values.as_mut().unwrap().get(idx)? + self.min_value;
+        self.value = self.values.get(idx)? + self.min_value;
         Ok(())
     }
 
