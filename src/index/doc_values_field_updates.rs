@@ -20,12 +20,14 @@ use parking_lot::Mutex;
 
 use crate::index::BytesRef;
 use crate::index::binary_doc_values::BinaryDocValues;
-use crate::index::binary_doc_values_field_updates::AbstractIteratorBinary;
+use crate::index::binary_doc_values_field_updates::{
+    AbstractIteratorBinary, BinaryDocValuesFieldUpdates,
+};
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::doc_values_type::DocValuesType;
 use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::numeric_doc_values_field_updates::{
-    AbstractIteratorNumeric, SingleValueNumericDocValuesFieldUpdates,
+    AbstractIteratorNumeric, NumericDocValuesFieldUpdates, SingleValueNumericDocValuesFieldUpdates,
 };
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
@@ -1116,6 +1118,12 @@ impl DocIdSetIterator for SingleValueDocValuesFieldUpdatesIterator {
     fn next_doc(&mut self) -> Result<i32> {
         self.iterator.next_doc()
     }
+}
+
+pub enum DocValuesFieldUpdatesEnum {
+    Numeric(DocValuesFieldUpdates<NumericDocValuesFieldUpdates>),
+    Binary(DocValuesFieldUpdates<BinaryDocValuesFieldUpdates>),
+    SingleValue(DocValuesFieldUpdates<SingleValueDocValuesFieldUpdates>),
 }
 
 #[cfg(test)]
