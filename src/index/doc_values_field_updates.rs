@@ -576,32 +576,19 @@ where
     }
 }
 
-pub(crate) struct IteratorPQCmp<T>
-where
-    T: DocValuesFieldIterator,
-{
-    _t: std::marker::PhantomData<T>,
-}
-impl<T> Default for IteratorPQCmp<T>
-where
-    T: DocValuesFieldIterator,
-{
+pub(crate) struct IteratorPQCmp;
+impl Default for IteratorPQCmp {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T> IteratorPQCmp<T>
-where
-    T: DocValuesFieldIterator,
-{
+impl IteratorPQCmp {
     pub fn new() -> Self {
-        Self {
-            _t: std::marker::PhantomData,
-        }
+        Self {}
     }
 }
-impl<T> Compare<T> for IteratorPQCmp<T>
+impl<T> Compare<T> for IteratorPQCmp
 where
     T: DocValuesFieldIterator,
 {
@@ -623,14 +610,14 @@ pub(crate) struct PriorityQueueIterator<T>
 where
     T: DocValuesFieldIterator,
 {
-    queue: PriorityQueue<T, IteratorPQCmp<T>>,
+    queue: PriorityQueue<T, IteratorPQCmp>,
     doc: i32,
 }
 impl<T> PriorityQueueIterator<T>
 where
     T: DocValuesFieldIterator,
 {
-    pub fn new(queue: PriorityQueue<T, IteratorPQCmp<T>>) -> Result<Self> {
+    pub fn new(queue: PriorityQueue<T, IteratorPQCmp>) -> Result<Self> {
         Ok(Self { queue, doc: -1 })
     }
 }
