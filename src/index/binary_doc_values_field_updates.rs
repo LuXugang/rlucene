@@ -81,7 +81,7 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
     fn add_iterator<T: DocValuesFieldIterator>(
         &mut self,
         doc_id: i32,
-        mut iterator: T,
+        iterator: &mut T,
     ) -> Result<()> {
         self.add_byte_ref(doc_id, iterator.binary_value()?, 0)
     }

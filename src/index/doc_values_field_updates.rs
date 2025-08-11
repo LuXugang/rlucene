@@ -165,7 +165,7 @@ where
     /// or [`IteratorBase::binary_value`], since the implementation knows
     /// whether it is a long value iterator or a binary value iterator.
 
-    fn add_iterator<T>(&mut self, doc_id: i32, iterator: T) -> Result<()>
+    fn add_iterator<T>(&mut self, doc_id: i32, iterator: &mut T) -> Result<()>
     where
         T: DocValuesFieldIterator,
     {
@@ -326,7 +326,11 @@ where
 pub(crate) trait DocValuesFieldUpdatesBase: Accountable {
     fn add_value(&mut self, doc: i32, value: i64, index: i32) -> Result<()>;
     fn add_byte_ref(&mut self, doc: i32, value: &BytesRef<Vec<u8>>, index: i32) -> Result<()>;
-    fn add_iterator<T: DocValuesFieldIterator>(&mut self, doc_id: i32, iterator: T) -> Result<()>;
+    fn add_iterator<T: DocValuesFieldIterator>(
+        &mut self,
+        doc_id: i32,
+        iterator: &mut T,
+    ) -> Result<()>;
     /// Returns an iterator for updated documents and their values.
     fn iterator(
         &mut self,
@@ -871,7 +875,7 @@ impl DocValuesFieldUpdatesBase for SingleValueDocValuesFieldUpdates {
     fn add_iterator<T: DocValuesFieldIterator>(
         &mut self,
         _doc_id: i32,
-        _iterator: T,
+        _iterator: &mut T,
     ) -> Result<()> {
         unreachable!("add_iterator is not supported")
     }

@@ -101,7 +101,7 @@ where
     fn add_iterator<I: DocValuesFieldIterator>(
         &mut self,
         doc_id: i32,
-        mut iterator: I,
+        iterator: &mut I,
     ) -> Result<()> {
         self.add_value(doc_id, iterator.long_value()?, 0)
     }
