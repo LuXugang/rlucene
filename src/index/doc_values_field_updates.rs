@@ -23,6 +23,7 @@ use crate::index::binary_doc_values::BinaryDocValues;
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::doc_values_type::DocValuesType;
 use crate::index::numeric_doc_values::NumericDocValues;
+use crate::index::numeric_doc_values_field_updates::SingleValueNumericDocValuesFieldUpdates;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::util::accountable::Accountable;
@@ -788,11 +789,8 @@ pub trait AbstractIteratorBase {
     fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>>;
 }
 
-pub(crate) struct SingleValueDocValuesFieldUpdates<S>
-where
-    S: SingleValueDocValuesFieldUpdatesBase + Default,
-{
-    sub_update: S,
+pub(crate) struct SingleValueDocValuesFieldUpdates {
+    sub_update: Arc<SingleValueNumericDocValuesFieldUpdates>,
     bit_set: SparseFixedBitSet,
     has_no_value: Option<SparseFixedBitSet>,
     max_doc: i32,
@@ -802,13 +800,17 @@ where
     dov_values_type: DocValuesType,
     // for reuse iterator
     bit_set_iter: Option<Arc<SparseFixedBitSet>>,
+    // for reuse iterator
+    has_no_value_iter: Option<Arc<SparseFixedBitSet>>,
 }
 
-impl<S> SingleValueDocValuesFieldUpdates<S>
-where
-    S: SingleValueDocValuesFieldUpdatesBase + Default,
-{
-    pub fn new(sub: S, max_doc: i32, del_gen: i64, dov_values_type: DocValuesType) -> Result<Self> {
+impl SingleValueDocValuesFieldUpdates {
+    pub fn new(
+        sub: Arc<SingleValueNumericDocValuesFieldUpdates>,
+        max_doc: i32,
+        del_gen: i64,
+        dov_values_type: DocValuesType,
+    ) -> Result<Self> {
         Ok(Self {
             sub_update: sub,
             bit_set: SparseFixedBitSet::new(max_doc)?,
@@ -819,6 +821,7 @@ where
             lock: Mutex::new(()),
             dov_values_type,
             bit_set_iter: None,
+            has_no_value_iter: None,
         })
     }
     pub fn binary_value(&self) -> Result<&BytesRef<Vec<u8>>> {
@@ -829,19 +832,13 @@ where
     }
 }
 
-impl<S> Accountable for SingleValueDocValuesFieldUpdates<S>
-where
-    S: Default + SingleValueDocValuesFieldUpdatesBase,
-{
+impl Accountable for SingleValueDocValuesFieldUpdates {
     fn ram_bytes_used(&self) -> Result<i64> {
         todo!()
     }
 }
 
-impl<S> DocValuesFieldUpdatesBase for SingleValueDocValuesFieldUpdates<S>
-where
-    S: SingleValueDocValuesFieldUpdatesBase + Default,
-{
+impl DocValuesFieldUpdatesBase for SingleValueDocValuesFieldUpdates {
     fn add_value(&mut self, doc: i32, value: i64, _index: i32) -> Result<()> {
         debug_assert!(self.sub_update.long_value()? == value);
         debug_assert!(self.bit_set_iter.is_none());
@@ -880,15 +877,19 @@ where
         if self.bit_set_iter.is_none() {
             self.bit_set_iter = Some(Arc::new(std::mem::take(&mut self.bit_set)));
         }
+        if self.has_no_value_iter.is_none() && self.has_no_value.is_some() {
+            self.has_no_value_iter =
+                Some(Arc::new(std::mem::take(&mut self.has_no_value).unwrap()));
+        }
         let iterator = BitSetIterator::new(
             self.bit_set_iter.as_ref().unwrap().clone(),
             self.max_doc as i64,
         )?;
         SingleValueDocValuesFieldUpdatesIterator::new(
-            Some(iterator),
+            iterator,
             self.del_gen,
-            self.has_no_value.as_mut(),
-            Some(&mut self.sub_update),
+            self.has_no_value_iter.clone(),
+            self.sub_update.clone(),
         )
     }
 
@@ -931,33 +932,24 @@ pub trait SingleValueDocValuesFieldUpdatesBase {
     fn long_value(&self) -> Result<i64>;
     fn sub_type(&self) -> DocValuesType;
 }
-/// # Note
-/// To implement Default, we wrap the mutable reference fields here with Option.
-pub struct SingleValueDocValuesFieldUpdatesIterator<'a, S>
-where
-    S: SingleValueDocValuesFieldUpdatesBase + Default,
-{
+pub struct SingleValueDocValuesFieldUpdatesIterator {
     del_gen: i64,
-    has_no_value: Option<&'a mut SparseFixedBitSet>,
-    iterator: Option<BitSetIterator<SparseFixedBitSet>>,
-    single: Option<&'a mut S>,
+    has_no_value: Option<Arc<SparseFixedBitSet>>,
+    iterator: BitSetIterator<SparseFixedBitSet>,
+    single: Arc<SingleValueNumericDocValuesFieldUpdates>,
 }
-impl<'a, S> SingleValueDocValuesFieldUpdatesIterator<'a, S>
-where
-    S: SingleValueDocValuesFieldUpdatesBase + Default,
-{
+impl SingleValueDocValuesFieldUpdatesIterator {
     /// Creates a new instance of `SingleValueDocValuesFieldUpdatesIterator`.
     ///
     /// # Note
     /// Avoid using the `Default` trait. This constructor should be used
     /// instead.
     pub fn new(
-        iterator: Option<BitSetIterator<SparseFixedBitSet>>,
+        iterator: BitSetIterator<SparseFixedBitSet>,
         del_gen: i64,
-        has_no_value: Option<&'a mut SparseFixedBitSet>,
-        single: Option<&'a mut S>,
+        has_no_value: Option<Arc<SparseFixedBitSet>>,
+        single: Arc<SingleValueNumericDocValuesFieldUpdates>,
     ) -> Result<Self> {
-        debug_assert!(single.is_some());
         Ok(Self {
             del_gen,
             has_no_value,
@@ -967,15 +959,9 @@ where
     }
 }
 
-impl<S> DocValuesIterator for SingleValueDocValuesFieldUpdatesIterator<'_, S> where
-    S: SingleValueDocValuesFieldUpdatesBase + Default
-{
-}
+impl DocValuesIterator for SingleValueDocValuesFieldUpdatesIterator {}
 
-impl<S> Default for SingleValueDocValuesFieldUpdatesIterator<'_, S>
-where
-    S: SingleValueDocValuesFieldUpdatesBase + Default,
-{
+impl Default for SingleValueDocValuesFieldUpdatesIterator {
     /// # Warning
     /// Implementing Default is solely for enabling sorting within the
     /// PriorityQueue.
@@ -983,22 +969,20 @@ where
         Self {
             del_gen: 0,
             has_no_value: None,
-            iterator: None,
-            single: None,
+            iterator: BitSetIterator::new(Arc::new(SparseFixedBitSet::default()), 1)
+                .expect("should never fail"),
+            single: Arc::new(SingleValueNumericDocValuesFieldUpdates::default()),
         }
     }
 }
 
-impl<S> DocValuesFieldIterator for SingleValueDocValuesFieldUpdatesIterator<'_, S>
-where
-    S: SingleValueDocValuesFieldUpdatesBase + Default,
-{
+impl DocValuesFieldIterator for SingleValueDocValuesFieldUpdatesIterator {
     fn long_value(&mut self) -> Result<i64> {
-        self.single.as_ref().unwrap().long_value()
+        self.single.as_ref().long_value()
     }
 
     fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
-        self.single.as_ref().unwrap().binary_value()
+        self.single.as_ref().binary_value()
     }
 
     fn del_gen(&self) -> i64 {
@@ -1011,34 +995,24 @@ where
                 .has_no_value
                 .as_mut()
                 .unwrap()
-                .get(self.iterator.as_ref().unwrap().doc_id())
+                .get(self.iterator.doc_id())
         } else {
             true
         }
     }
 }
-impl<S> DocIdSetIterator for SingleValueDocValuesFieldUpdatesIterator<'_, S>
-where
-    S: SingleValueDocValuesFieldUpdatesBase + Default,
-{
+impl DocIdSetIterator for SingleValueDocValuesFieldUpdatesIterator {
     /// # Warning
     /// Since SingleValueDocValuesFieldUpdatesIterator may be used for
     /// PriorityQueue sorting, and PriorityQueue requires elements to
     /// implement Default, only SingleValueDocValuesFieldUpdatesIterator
     /// instances generated via Default will have their iterator set to None.
     fn doc_id(&self) -> i32 {
-        if self.iterator.is_none() {
-            // The smaller the document ID, the higher its sorting priority.
-            // Therefore, we set the document ID to the maximum value in this
-            // case.
-            i32::MAX
-        } else {
-            self.iterator.as_ref().unwrap().doc_id()
-        }
+        self.iterator.doc_id()
     }
 
     fn next_doc(&mut self) -> Result<i32> {
-        self.iterator.as_mut().unwrap().next_doc()
+        self.iterator.next_doc()
     }
 }
 
@@ -1046,6 +1020,7 @@ where
 mod tests {
     use rand::Rng;
     use rand::prelude::SliceRandom;
+    use std::sync::Arc;
 
     use crate::index::doc_values_field_updates::{
         DocValuesFieldIterator, DocValuesFieldUpdates, DocValuesFieldUpdatesBase,
@@ -1266,7 +1241,7 @@ mod tests {
         let max_doc: i32 = 1 + random.random_range(0..1000);
         let value = random.random::<i64>();
 
-        let sub_update1 = SingleValueNumericDocValuesFieldUpdates::new(value);
+        let sub_update1 = Arc::new(SingleValueNumericDocValuesFieldUpdates::new(value));
         let sub_type = sub_update1.sub_type();
         let sub_update2 =
             SingleValueDocValuesFieldUpdates::new(sub_update1, max_doc, del_gen, sub_type)?;

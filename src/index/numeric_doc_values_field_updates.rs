@@ -188,7 +188,6 @@ where
 pub struct SingleValueNumericDocValuesFieldUpdates {
     value: i64,
 }
-#[allow(unused)]
 impl SingleValueNumericDocValuesFieldUpdates {
     pub(crate) fn new(value: i64) -> SingleValueNumericDocValuesFieldUpdates {
         SingleValueNumericDocValuesFieldUpdates { value }
