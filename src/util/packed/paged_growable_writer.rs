@@ -14,8 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::lucene_error::Result;
-use crate::util::packed::abstract_paged_mutable::{AbstractPagedMutable, AbstractPagedMutableBase};
+use crate::util::packed::abstract_paged_mutable::AbstractPagedMutableBase;
 use crate::util::packed::growable_writer::GrowableWriter;
 use crate::util::packed::mutable_enum::MutableEnum;
 /// A [`PagedGrowableWriter`]. This structure slices data into fixed-size blocks
@@ -30,7 +29,7 @@ use crate::util::packed::mutable_enum::MutableEnum;
 /// # Lucene Internal
 /// This is an internal utility for use within the Lucene system.
 #[derive(Default)]
-pub(crate) struct PagedGrowableWriter {
+pub struct PagedGrowableWriter {
     acceptable_overhead_ratio: f32,
     bits_per_value: i32,
     fill_page: bool,
@@ -56,14 +55,8 @@ impl AbstractPagedMutableBase for PagedGrowableWriter {
         ))
     }
 
-    fn new_unfilled_copy(
-        &self,
-        new_size: i64,
-        page_size: i32,
-    ) -> Result<AbstractPagedMutable<Self>> {
-        let sub_read =
-            PagedGrowableWriter::new(self.bits_per_value, self.acceptable_overhead_ratio, false);
-        AbstractPagedMutable::new(new_size, page_size, sub_read)
+    fn new_unfilled_copy(&self) -> Self {
+        PagedGrowableWriter::new(self.bits_per_value, self.acceptable_overhead_ratio, false)
     }
 
     fn base_ram_bytes_used_base(&self) -> i64 {

@@ -20,6 +20,8 @@ use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::Result;
 use crate::util::long_values::LongValues;
 use crate::util::packed::mutable_enum::MutableEnum;
+use crate::util::packed::paged_growable_writer::PagedGrowableWriter;
+use crate::util::packed::paged_mutable::PagedMutable;
 use crate::util::packed::{DummyMutable, Mutable, PackedInts, Reader};
 
 const MIN_BLOCK_SIZE: i32 = 1 << 6;
@@ -120,9 +122,8 @@ where
     /// this buffer. This is much more efficient than creating a new
     /// instance and copying values one by one.
     pub fn resize(&mut self, new_size: i64) -> Result<AbstractPagedMutable<T>> {
-        let mut copy = self
-            .sub_reader
-            .new_unfilled_copy(new_size, self.page_size())?;
+        let sub = self.sub_reader.new_unfilled_copy();
+        let mut copy = AbstractPagedMutable::new(new_size, self.page_size(), sub)?;
         let num_common_pages = std::cmp::min(copy.sub_mutables.len(), self.sub_mutables.len());
         let mut copy_buffer = vec![0i64; 1024];
         for i in 0..copy.sub_mutables.len() {
@@ -208,14 +209,57 @@ where
 }
 pub(crate) trait AbstractPagedMutableBase {
     fn new_mutable(&self, value_count: i32, bits_per_value: i32) -> MutableEnum;
-    fn new_unfilled_copy(
-        &self,
-        new_size: i64,
-        page_size: i32,
-    ) -> Result<AbstractPagedMutable<Self>>
+    fn new_unfilled_copy(&self) -> Self
     where
         Self: Sized;
     fn base_ram_bytes_used_base(&self) -> i64;
     fn fill_pages(&self) -> bool;
     fn bits_per_value(&self) -> i32;
+}
+
+pub enum AbstractPagedMutableBaseEnum {
+    Mutable(PagedMutable),
+    GrowableWriter(PagedGrowableWriter),
+}
+impl AbstractPagedMutableBase for AbstractPagedMutableBaseEnum {
+    fn new_mutable(&self, value_count: i32, bits_per_value: i32) -> MutableEnum {
+        match self {
+            AbstractPagedMutableBaseEnum::Mutable(m) => m.new_mutable(value_count, bits_per_value),
+            AbstractPagedMutableBaseEnum::GrowableWriter(g) => {
+                g.new_mutable(value_count, bits_per_value)
+            },
+        }
+    }
+
+    fn new_unfilled_copy(&self) -> Self {
+        match self {
+            AbstractPagedMutableBaseEnum::Mutable(m) => {
+                AbstractPagedMutableBaseEnum::Mutable(m.new_unfilled_copy())
+            },
+            AbstractPagedMutableBaseEnum::GrowableWriter(g) => {
+                AbstractPagedMutableBaseEnum::GrowableWriter(g.new_unfilled_copy())
+            },
+        }
+    }
+
+    fn base_ram_bytes_used_base(&self) -> i64 {
+        match self {
+            AbstractPagedMutableBaseEnum::Mutable(m) => m.base_ram_bytes_used_base(),
+            AbstractPagedMutableBaseEnum::GrowableWriter(g) => g.base_ram_bytes_used_base(),
+        }
+    }
+
+    fn fill_pages(&self) -> bool {
+        match self {
+            AbstractPagedMutableBaseEnum::Mutable(m) => m.fill_pages(),
+            AbstractPagedMutableBaseEnum::GrowableWriter(g) => g.fill_pages(),
+        }
+    }
+
+    fn bits_per_value(&self) -> i32 {
+        match self {
+            AbstractPagedMutableBaseEnum::Mutable(m) => m.bits_per_value(),
+            AbstractPagedMutableBaseEnum::GrowableWriter(g) => g.bits_per_value(),
+        }
+    }
 }

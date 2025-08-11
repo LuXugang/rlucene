@@ -14,8 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::error::lucene_error::Result;
-use crate::util::packed::abstract_paged_mutable::{AbstractPagedMutable, AbstractPagedMutableBase};
+use crate::util::packed::abstract_paged_mutable::AbstractPagedMutableBase;
 use crate::util::packed::mutable_enum::MutableEnum;
 use crate::util::packed::{Format, FormatAndBits, PackedInts, fastest_format_and_bits};
 /// A `PagedMutable`. This structure slices data into fixed-size blocks which
@@ -57,13 +56,8 @@ impl AbstractPagedMutableBase for PagedMutable {
         MutableEnum::Packed(sub_mutable)
     }
 
-    fn new_unfilled_copy(
-        &self,
-        new_size: i64,
-        page_size: i32,
-    ) -> Result<AbstractPagedMutable<Self>> {
-        let sub_reader = PagedMutable::with_bits_and_format(self.bits_per_value, self.format);
-        AbstractPagedMutable::new(new_size, page_size, sub_reader)
+    fn new_unfilled_copy(&self) -> Self {
+        PagedMutable::with_bits_and_format(self.bits_per_value, self.format)
     }
 
     fn base_ram_bytes_used_base(&self) -> i64 {
