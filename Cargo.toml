@@ -11,13 +11,13 @@ crc32fast = "1.4.2"
 byteorder = "1.5.0"
 thiserror = "2.0.12"
 num-bigint = "0.4.6"
-regex = "1.11.1"
+regex = { version = "1.11.1", default-features = false, features = ["std", "unicode"] }
 once_cell = "1.21.1"
 rand = "0.9.0"
 fs2 = "0.4.3"
-chrono = "0.4.40"
+chrono = { version = "0.4.40", default-features = false, features = ["clock", "std"] }
 num-traits = "0.2.19"
-flate2 = "1.1.0"
+flate2 = { version = "1.1.0", default-features = false, features = ["rust_backend"] }
 strum = "0.27.1"
 strum_macros = "0.27.1"
 parking_lot = "0.12.3"
