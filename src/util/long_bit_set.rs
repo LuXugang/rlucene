@@ -784,19 +784,23 @@ mod tests {
     fn test_too_large() {
         let result = LongBitSet::new(LongBitSet::MAX_NUM_BITS + 1);
         assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("num_bits must be 0"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("num_bits must be 0")
+        );
     }
     #[test]
     fn test_negative_num_bits() {
         let result = LongBitSet::new(-17);
         assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("num_bits must be 0"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("num_bits must be 0")
+        );
     }
     #[test]
     fn test_small_bitsets() -> Result<()> {

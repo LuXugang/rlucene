@@ -14,13 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codecs::CodecUtil;
 use crate::codecs::compound_directory::CompoundDirectory;
 use crate::codecs::compound_directory_enum::CompoundDirectoryEnum;
 use crate::codecs::compound_format::CompoundFormat;
 use crate::codecs::lucene90_compound_reader::Lucene90CompoundReader;
-use crate::codecs::CodecUtil;
-use crate::index::segment_info::SegmentInfo;
 use crate::index::IndexFileNames;
+use crate::index::segment_info::SegmentInfo;
 use crate::store::directory::Directory;
 use crate::store::{IOContext, IndexInput, IndexOutput};
 use crate::util::bit_util::BitUtil;
@@ -217,15 +217,15 @@ mod tests {
     use std::sync::Arc;
 
     use parking_lot::Mutex;
-    use rand::prelude::SliceRandom;
     use rand::Rng;
+    use rand::prelude::SliceRandom;
 
-    use crate::codecs::{Codec, CodecUtil, CompoundFormat, Lucene90CompoundFormat, LATEST_CODEC};
+    use crate::codecs::{Codec, CodecUtil, CompoundFormat, LATEST_CODEC, Lucene90CompoundFormat};
     use crate::index::IndexFileNames;
     use crate::store::directory::Directory;
     use crate::store::{DataInput, IO_CONTEXT_DEFAULT};
     use crate::test::index::base_compound_format_test_case::{
-        create_random_file, new_segment_info, BaseCompoundFormatTestCase,
+        BaseCompoundFormatTestCase, create_random_file, new_segment_info,
     };
     use crate::test::util::lucene_test_case::lucene_test_case_util::new_directory;
     use crate::test::util::lucene_test_case::lucene_test_case_util::random;

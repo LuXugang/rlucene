@@ -14,8 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::index::postings_enum::PostingsEnum;
 use crate::index::BytesRef;
+use crate::index::postings_enum::PostingsEnum;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::util::error::lucene_error::Result;
 use std::borrow::Cow;

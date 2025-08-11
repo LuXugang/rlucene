@@ -16,10 +16,10 @@
  */
 use std::borrow::Cow;
 
-use crate::index::impacts_enum::ImpactsEnum;
-use crate::index::postings_enum::{postings_enum_util, PostingsEnum};
-use crate::index::term_state::{TermState, TermStateEnum};
 use crate::index::BytesRef;
+use crate::index::impacts_enum::ImpactsEnum;
+use crate::index::postings_enum::{PostingsEnum, postings_enum_util};
+use crate::index::term_state::{TermState, TermStateEnum};
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};

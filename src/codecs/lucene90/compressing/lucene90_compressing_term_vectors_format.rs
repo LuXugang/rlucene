@@ -22,8 +22,8 @@ use crate::codecs::term_vectors_reader::TermVectorsReaderEnum;
 use crate::codecs::term_vectors_writer::TermVectorsWriterEnum;
 use crate::index::field_infos::FieldInfos;
 use crate::index::segment_info::SegmentInfo;
-use crate::store::directory::Directory;
 use crate::store::IOContext;
+use crate::store::directory::Directory;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::error::lucene_error::Result;
 use parking_lot::Mutex;
@@ -151,10 +151,7 @@ impl fmt::Display for Lucene90CompressingTermVectorsFormat {
         write!(
             f,
             "Lucene90CompressingTermVectorsFormat(compressionMode={}, chunkSize={}, maxDocsPerChunk={}, blockSize={})",
-            self.compression_mode,
-            self.chunk_size,
-            self.max_docs_per_chunk,
-            self.block_size
+            self.compression_mode, self.chunk_size, self.max_docs_per_chunk, self.block_size
         )
     }
 }

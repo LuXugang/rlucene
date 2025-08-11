@@ -22,8 +22,8 @@ use crate::index::documents_writer_flush_control::DocumentsWriterFlushControl;
 use crate::index::documents_writer_flush_queue::{DocumentsWriterFlushQueue, FlushTicket};
 use crate::index::documents_writer_per_thread::DocumentsWriterPerThread;
 use crate::index::documents_writer_per_thread_pool::DocumentsWriterPerThreadPool;
-use crate::index::field_infos::build::Builder;
 use crate::index::field_infos::FieldNumbers;
+use crate::index::field_infos::build::Builder;
 use crate::index::indexable_field::IndexableField;
 use crate::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::index::lockable_concurrent_approximate_priority_queue::Lock;
@@ -39,8 +39,8 @@ use crate::util::info_stream::{InfoStream, InfoStreamLock};
 use crate::util::io_consumer::IOConsumer;
 use crate::util::supplier::Supplier;
 use parking_lot::Mutex;
-use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64, Ordering};
 use std::thread;
 
 /// This struct accepts multiple added documents and directly writes segment files.
@@ -119,7 +119,6 @@ where
 impl<D, Q, L, FN> DocumentsWriter<D, Q, L, FN>
 where
     D: Directory,
-
     Q: Query,
     L: LiveIndexWriterConfig,
     FN: FlushNotifications,
@@ -746,7 +745,6 @@ where
 impl<D, Q, L, FN> Accountable for DocumentsWriter<D, Q, L, FN>
 where
     D: Directory,
-
     Q: Query,
     L: LiveIndexWriterConfig,
     FN: FlushNotifications,
@@ -829,7 +827,6 @@ where
 impl<'a, D, Q> SupplierImpl1<'a, D, Q>
 where
     D: Directory,
-
     Q: Query,
 {
     pub(crate) fn new(dwpt: &'a mut DocumentsWriterPerThread<D, Q>) -> Self {
@@ -839,7 +836,6 @@ where
 impl<'a, D, Q> Supplier<Option<FlushTicket<D, Q>>> for SupplierImpl1<'a, D, Q>
 where
     D: Directory,
-
     Q: Query,
 {
     fn get(&mut self) -> Result<Option<FlushTicket<D, Q>>> {

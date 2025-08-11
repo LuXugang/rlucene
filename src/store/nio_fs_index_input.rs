@@ -19,9 +19,9 @@ use std::fs::File;
 use std::io::{Cursor, Read, Seek, SeekFrom};
 
 use crate::store::index_input::get_full_slice_description;
-use crate::store::{buffered_index_input_util, BufferedIndexInput, BufferedIndexInputBase};
-use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::store::{BufferedIndexInput, BufferedIndexInputBase, buffered_index_input_util};
 use crate::util::ReadableCursorExt;
+use crate::util::error::lucene_error::{LuceneError, Result};
 
 const CHUNK_SIZE: usize = 16384;
 pub struct NIOFSIndexInput {

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codecs::CodecUtil;
 use crate::codecs::doc_values_consumer::DocValuesConsumer;
 use crate::codecs::doc_values_producer::DocValuesProducer;
 use crate::codecs::dummy::dummy_binary_doc_values::DummyBinaryDocValues;
@@ -24,7 +25,6 @@ use crate::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNumericDoc
 use crate::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocValues;
 use crate::codecs::indexed_disi::indexed_disi_util;
 use crate::codecs::lucene90_doc_values_format::Lucene90DocValuesFormat;
-use crate::codecs::CodecUtil;
 use crate::index::binary_doc_values::BinaryDocValues;
 use crate::index::doc_values::DocValues;
 use crate::index::doc_values_iterator::DocValuesIterator;
@@ -38,8 +38,8 @@ use crate::index::sorted_doc_values::SortedDocValues;
 use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::index::{BytesRefBuilder, IndexFileNames};
-use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::sorted_set_selector::{
     SortedDocValuesWrapEnum, SortedSetSelector, SortedSetSelectorType,
 };
@@ -55,7 +55,7 @@ use crate::util::compress::lz4::{FastCompressionHashTable, HashTableEnum, LZ4};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::math_util::MathUtil;
 use crate::util::packed::direct_monotonic_writer::DirectMonotonicWriter;
-use crate::util::packed::direct_writer::{direct_writer_util, DirectWriter};
+use crate::util::packed::direct_writer::{DirectWriter, direct_writer_util};
 use crate::util::{CoreHelper, StringHelper};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -314,10 +314,11 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
                     block_min_max.next_block();
                 }
 
-                if let Some(set) = unique_values.as_mut() {
-                    if set.insert(v) && set.len() > 256 {
-                        unique_values = None;
-                    }
+                if let Some(set) = unique_values.as_mut()
+                    && set.insert(v)
+                    && set.len() > 256
+                {
+                    unique_values = None;
                 }
             }
 

@@ -14,17 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codecs::Codec;
 use crate::codecs::stored_fields_format::StoredFieldsFormat;
 use crate::codecs::stored_fields_writer::{StoredFieldsWriter, StoredFieldsWriterEnum};
-use crate::codecs::Codec;
 use crate::document::stored_value::{StoredValue, StoredValueType};
 use crate::index::field_info::FieldInfo;
 use crate::index::segment_info::SegmentInfo;
 use crate::index::segment_write_state::SegmentWriteState;
 use crate::index::sorter::DocMap;
 use crate::index::sorting_stored_fields_consumer::SortingStoredFieldsConsumer;
-use crate::store::directory::Directory;
 use crate::store::IOContext;
+use crate::store::directory::Directory;
 use crate::util::error::lucene_error::Result;
 use parking_lot::Mutex;
 use std::rc::Rc;

@@ -20,7 +20,7 @@ use crate::index::byte_slice_pool::ByteSlicePool;
 use crate::store::{DataInput, DataOutput};
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::{byte_block_pool_util, ByteBlockPoolLock, SliceCopyOps};
+use crate::util::{ByteBlockPoolLock, SliceCopyOps, byte_block_pool_util};
 
 pub(crate) struct ByteSliceReader {
     pool: Option<ByteBlockPoolLock>,

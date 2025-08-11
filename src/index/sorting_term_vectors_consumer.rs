@@ -14,15 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codecs::Codec;
 use crate::codecs::compressing::lucene90_compressing_term_vectors_format::Lucene90CompressingTermVectorsFormat;
 use crate::codecs::compression::compression_mode::CompressionModeEnum;
 use crate::codecs::term_vectors_format::TermVectorsFormat;
 use crate::codecs::term_vectors_reader::TermVectorsReader;
 use crate::codecs::term_vectors_writer::{TermVectorsWriter, TermVectorsWriterEnum};
-use crate::codecs::Codec;
 use crate::index::field_infos::FieldInfos;
 use crate::index::fields::Fields;
-use crate::index::postings_enum::{postings_enum_util, PostingsEnum};
+use crate::index::postings_enum::{PostingsEnum, postings_enum_util};
 use crate::index::segment_info::SegmentInfo;
 use crate::index::segment_write_state::SegmentWriteState;
 use crate::index::sorter::DocMap;
@@ -32,11 +32,11 @@ use crate::index::term_vectors_consumer::TermVectorsConsumerBase;
 use crate::index::terms::Terms;
 use crate::index::terms_enum::TermsEnum;
 use crate::index::tracking_tmp_output_directory_wrapper::TrackingTmpOutputDirectoryWrapper;
-use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::store::IOContext;
 use crate::store::directory::Directory;
 use crate::store::flush_info::FlushInfo;
-use crate::store::IOContext;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::{IOUtils, ToInt};

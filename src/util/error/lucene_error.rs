@@ -22,6 +22,7 @@ use std::string::FromUtf8Error;
 
 use thiserror::Error;
 
+use crate::util::VersionError;
 use crate::util::error::parse::Parse;
 use crate::util::error::{
     AlreadyClosedError, ArrayIndexOutOfBoundsError, BufferAllocationError, CorruptIndexError, Eof,
@@ -31,7 +32,6 @@ use crate::util::error::{
     NotImplementedError, NumberFormatError, NumberOverflow, TooComplexToDeterminizeError,
     UnreachableError, UnsupportedOperationError,
 };
-use crate::util::VersionError;
 
 #[derive(Debug, Error)]
 pub enum LuceneError {

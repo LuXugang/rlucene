@@ -189,7 +189,7 @@ where
                 if next_mapped_doc != NO_MORE_DOCS {
                     self.queue.add(sub.clone());
                 } // else all docs in this sub were deleted; do not add it to the
-                  // queue!
+                // queue!
             }
         }
 

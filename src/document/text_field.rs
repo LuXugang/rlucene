@@ -24,8 +24,8 @@ use crate::document::field_type::FieldType;
 use crate::document::fields::{ReaderEnum, TokenStreamEnum};
 use crate::document::invertable_field::InvertableType;
 use crate::document::stored_value::StoredValue;
-use crate::index::indexable_field::IndexableField;
 use crate::index::BytesRef;
+use crate::index::indexable_field::IndexableField;
 use crate::util::error::lucene_error::Result;
 use crate::util::number::Number;
 

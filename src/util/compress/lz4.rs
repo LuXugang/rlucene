@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 use crate::store::{DataInput, DataOutput};
+use crate::util::CoreHelper;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::CoreHelper;
 use std::sync::Arc;
 
 /// LZ4 compression and decompression routines.
@@ -763,11 +763,11 @@ mod tests {
     use crate::store::{ByteArrayDataInput, ByteBuffersDataOutput, DataOutput};
     use crate::test::util::lucene_test_case::lucene_test_case_util::random;
     use crate::test::util::test_util::TestUtil;
+    use crate::util::SliceCopyOps;
     use crate::util::array_util::ArrayUtil;
     use crate::util::compress::lz4::{FastCompressionHashTable, HighCompressionHashTable, LZ4};
     use crate::util::compress::lz4::{HashTable, HashTableEnum};
     use crate::util::error::lucene_error::Result;
-    use crate::util::SliceCopyOps;
 
     struct TestFastLZ4;
     impl LZ4TestCase for TestFastLZ4 {

@@ -88,8 +88,8 @@ impl BitTableUtil {
             let num_remaining_bytes = (remaining_bits + (i8::BITS - 1) as i32) >> 3;
             // Prepare a mask with 1s on the right up to bitIndex exclusive.
             let mask = (1u64 << bit_index) - 1; // Shifts are mod 64.
-                                                // Count the bits set only within the mask part, so up to bitIndex
-                                                // exclusive.
+            // Count the bits set only within the mask part, so up to bitIndex
+            // exclusive.
             let l = Self::read_up_to_8_bytes(num_remaining_bytes, reader)?;
             bit_count += (l & mask).count_ones() as i32;
         }
@@ -255,7 +255,9 @@ mod tests {
                         BitTableUtil::count_bits_up_to(bit_index + 1, &mut reader(&bits))? + 1,
                         BitTableUtil::count_bits_up_to(next_index + 1, &mut reader(&bits))?,
                         "Next bit set at next_index={} so expected bit count diff of 1 (i={} bitIndex={})",
-                        next_index, i, bit_index
+                        next_index,
+                        i,
+                        bit_index
                     );
                 }
             }
@@ -312,7 +314,11 @@ mod tests {
                         expected_previous_bit_count,
                         BitTableUtil::count_bits_up_to(previous_index + 1, &mut reader(&bits))?,
                         "Previous bit set at previous_index={} with current bitCount={} so expected previousBitCount={} (i={} bitIndex={})",
-                        previous_index, bit_count, expected_previous_bit_count, i, bit_index
+                        previous_index,
+                        bit_count,
+                        expected_previous_bit_count,
+                        i,
+                        bit_index
                     );
                 }
             }

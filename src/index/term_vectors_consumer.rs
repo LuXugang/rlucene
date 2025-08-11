@@ -14,9 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codecs::Codec;
 use crate::codecs::term_vectors_format::TermVectorsFormat;
 use crate::codecs::term_vectors_writer::{TermVectorsWriter, TermVectorsWriterEnum};
-use crate::codecs::Codec;
+use crate::index::BytesRef;
 use crate::index::byte_slice_reader::ByteSliceReader;
 use crate::index::field_info::FieldInfo;
 use crate::index::segment_info::SegmentInfo;
@@ -25,12 +26,11 @@ use crate::index::sorter::DocMap;
 use crate::index::sorting_term_vectors_consumer::SortingTermVectorsConsumer;
 use crate::index::term_vectors_consumer_per_field::TermVectorsConsumerPerField;
 use crate::index::terms_hash::TermsHash;
-use crate::index::BytesRef;
+use crate::store::IOContext;
 use crate::store::directory::Directory;
 #[cfg(test)]
 use crate::store::dummy::dummy_directory::DummyDirectory;
 use crate::store::flush_info::FlushInfo;
-use crate::store::IOContext;
 use crate::util::allocator_byte::AllocatorByteEnum;
 #[cfg(test)]
 use crate::util::allocator_byte::DirectAllocatorByte;

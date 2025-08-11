@@ -20,7 +20,7 @@ use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
 use crate::analysis::token_attributes::position_increment_attribute::PositionIncrementAttribute;
 use crate::analysis::token_attributes::position_length_attribute::PositionLengthAttribute;
 use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
-use crate::analysis::token_attributes::type_attribute::{ta_util, TypeAttribute};
+use crate::analysis::token_attributes::type_attribute::{TypeAttribute, ta_util};
 use crate::util::attribute::Attribute;
 use crate::util::attribute_impl::AttributeImpl;
 use crate::util::error::lucene_error::{LuceneError, Result};

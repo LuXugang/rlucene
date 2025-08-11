@@ -19,8 +19,8 @@ use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::filter_numeric_doc_values::FilterNumericDocValues;
 use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
-use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::sort_field::SortFieldType;
 use crate::util::either_enums::Either3NumericDocValues;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -51,7 +51,7 @@ impl SortedNumericSelector {
             _ => {
                 return Err(LuceneError::illegal_argument(
                     "numericType must be a numeric type",
-                ))
+                ));
             },
         }
 

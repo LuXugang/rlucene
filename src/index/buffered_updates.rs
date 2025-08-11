@@ -20,15 +20,15 @@ use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::rc::Rc;
-use std::sync::atomic::AtomicI32;
 use std::sync::Arc;
+use std::sync::atomic::AtomicI32;
 
 use parking_lot::Mutex;
 
+use crate::index::BytesRef;
 use crate::index::doc_values_update::DocValuesUpdate;
 use crate::index::field_updates_buffer::FieldUpdatesBuffer;
 use crate::index::term::Term;
-use crate::index::BytesRef;
 use crate::search::query::Query;
 use crate::util::access::Access;
 use crate::util::accountable::Accountable;
@@ -599,11 +599,7 @@ where
     }
     fn get(&self, key: &BytesRef<Vec<u8>>) -> i32 {
         let e = self.bytes_ref_hash.find(key);
-        if e == -1 {
-            -1
-        } else {
-            self.values[e as usize]
-        }
+        if e == -1 { -1 } else { self.values[e as usize] }
     }
 }
 #[cfg(test)]
@@ -613,9 +609,9 @@ mod tests {
 
     use rand::{Rng, RngCore};
 
+    use crate::index::BytesRef;
     use crate::index::buffered_updates::{BufferedUpdates, DeletedTerms};
     use crate::index::term::Term;
-    use crate::index::BytesRef;
     use crate::search::term_query::TermQuery;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
     use crate::util::accountable::Accountable;

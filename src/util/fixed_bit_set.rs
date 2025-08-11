@@ -16,11 +16,11 @@
  */
 use std::hash::{Hash, Hasher};
 
-use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::util::accountable::Accountable;
 use crate::util::array_util::ArrayUtil;
-use crate::util::bit_set::{bit_set_util, BitSet};
+use crate::util::bit_set::{BitSet, bit_set_util};
 use crate::util::bits::Bits;
 use crate::util::error::lucene_error::{LuceneError, Result};
 
@@ -627,11 +627,7 @@ impl BitSet for FixedBitSet {
     /// `upper_bound` is a hard requirement.
     fn next_set_bit_range(&self, start: i32, upper_bound: i32) -> i32 {
         let res = self.next_set_bit_impl(start, upper_bound);
-        if res < upper_bound {
-            res
-        } else {
-            NO_MORE_DOCS
-        }
+        if res < upper_bound { res } else { NO_MORE_DOCS }
     }
 
     fn or<T: DocIdSetIterator>(&mut self, iter: &mut T) -> Result<()> {
@@ -681,8 +677,8 @@ impl Bits for FixedBit {
 
 #[cfg(test)]
 mod tests {
-    use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::search::doc_id_set_iterator::DocIdSetIterator;
+    use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::test::util::base_bit_set_test_case::{
         BaseBitSetTestCase, BaseBitSetTestCaseSupperImpl, RustUtilBitSet,
     };

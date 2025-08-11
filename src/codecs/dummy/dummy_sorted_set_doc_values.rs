@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 use crate::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
+use crate::index::BytesRef;
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::dummy::dummy_terms_enum::DummyTermsEnum;
 use crate::index::sorted_set_doc_values::SortedSetDocValues;
-use crate::index::BytesRef;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::util::error::lucene_error::Result;
 use std::borrow::Cow;

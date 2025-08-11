@@ -176,8 +176,8 @@ mod tests {
 
     use crate::index::docs_with_field_set::DocsWithFieldSet;
     use crate::search::doc_id_set::DocIdSet;
-    use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::search::doc_id_set_iterator::DocIdSetIterator;
+    use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::test::util::lucene_test_case::lucene_test_case_util::random;
     use crate::test::util::test_util::TestUtil;
     use crate::util::error::lucene_error::Result;

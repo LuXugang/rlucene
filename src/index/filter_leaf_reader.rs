@@ -14,13 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::index::BytesRef;
 use crate::index::automaton_terms_enum::AutomatonTermsEnum;
 use crate::index::fields::Fields;
 use crate::index::filtered_terms_enum::{FilteredTermsEnum, FilteredTermsEnumBase};
 use crate::index::term_state::TermStateEnum;
 use crate::index::terms::Terms;
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
-use crate::index::BytesRef;
 use crate::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::Result;

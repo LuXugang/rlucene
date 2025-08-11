@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-use crate::util::array_util::ArrayUtil;
 use crate::util::SliceCopyOps;
+use crate::util::array_util::ArrayUtil;
 
 mod lsb_radix_sorter_util {
     pub(super) const INSERTION_SORT_THRESHOLD: usize = 30;

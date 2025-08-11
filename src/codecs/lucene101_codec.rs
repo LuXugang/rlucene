@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::codecs::lucene101::lucene101_postings_format::Lucene101PostingsFormat;
+use crate::codecs::Codec;
 use crate::codecs::lucene90::lucene90_compound_format::Lucene90CompoundFormat;
 use crate::codecs::lucene90_doc_values_format::Lucene90DocValuesFormat;
 use crate::codecs::lucene90_live_docs_format::Lucene90LiveDocsFormat;
@@ -24,7 +24,7 @@ use crate::codecs::lucene90_stored_fields_format::Lucene90StoredFieldsFormat;
 use crate::codecs::lucene90_term_vectors_format::Lucene90TermVectorsFormat;
 use crate::codecs::lucene94::lucene94_field_infos_format::Lucene94FieldInfosFormat;
 use crate::codecs::lucene99_segment_info_format::Lucene99SegmentInfoFormat;
-use crate::codecs::Codec;
+use crate::codecs::lucene101::lucene101_postings_format::Lucene101PostingsFormat;
 use std::fmt::{Display, Formatter};
 
 #[derive(Clone)]

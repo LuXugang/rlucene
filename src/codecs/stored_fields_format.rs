@@ -24,8 +24,8 @@ use crate::codecs::stored_fields_reader::StoredFieldsReaderEnum;
 use crate::codecs::stored_fields_writer::StoredFieldsWriterEnum;
 use crate::index::field_infos::FieldInfos;
 use crate::index::segment_info::SegmentInfo;
-use crate::store::directory::Directory;
 use crate::store::IOContext;
+use crate::store::directory::Directory;
 use crate::util::error::lucene_error::Result;
 
 /// Controls the format of stored fields.

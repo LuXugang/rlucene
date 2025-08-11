@@ -18,10 +18,10 @@ use std::any::type_name;
 use std::fmt::{Display, Formatter};
 
 use crate::store::data_input::DataInput;
+use crate::util::SliceCopyOps;
 use crate::util::access::AccessVec;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::Result;
-use crate::util::SliceCopyOps;
 
 #[derive(Default)]
 /// `DataInput` backed by a byte array.

@@ -21,9 +21,9 @@ use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::field_info::FieldInfo;
 use crate::index::merge_state::{DocMapEnum, MergeState};
 use crate::index::numeric_doc_values::NumericDocValues;
-use crate::index::{doc_id_merger_util, DocIDMerger, DocIDMergerEnum, Sub, SubBase};
-use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::index::{DocIDMerger, DocIDMergerEnum, Sub, SubBase, doc_id_merger_util};
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::store::{IndexInput, IndexOutput};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use std::cell::RefCell;
@@ -134,10 +134,10 @@ where
             if let Some(norms_producer) = norms_producer_opt {
                 let reader_field_info =
                     self.merge_state.field_infos[i].field_info_by_name(&self.merge_field_info.name);
-                if let Some(reader_field_info) = &reader_field_info {
-                    if reader_field_info.has_norms() {
-                        norms = Some(norms_producer.get_norms(reader_field_info)?);
-                    }
+                if let Some(reader_field_info) = &reader_field_info
+                    && reader_field_info.has_norms()
+                {
+                    norms = Some(norms_producer.get_norms(reader_field_info)?);
                 }
             }
 

@@ -23,16 +23,16 @@ use rand::Rng;
 use crate::codecs::compound_directory::CompoundDirectory;
 use crate::codecs::{Codec, CodecUtil, CompoundFormat, LATEST_CODEC};
 use crate::index::segment_info::SegmentInfo;
-use crate::store::directory::Directory;
 use crate::store::IndexOutput;
+use crate::store::directory::Directory;
 use crate::store::{DataInput, DataOutput, IOContext};
-use crate::store::{IndexInput, IO_CONTEXT_DEFAULT};
+use crate::store::{IO_CONTEXT_DEFAULT, IndexInput};
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
     at_least, new_directory, new_io_context,
 };
 use crate::util::clone::TryClone as OtherClone;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::{StringHelper, LATEST};
+use crate::util::{LATEST, StringHelper};
 
 pub trait BaseCompoundFormatTestCase {
     fn test_empty<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
@@ -696,9 +696,10 @@ pub trait BaseCompoundFormatTestCase {
         match result {
             Ok(_) => unreachable!(),
             Err(e) => {
-                assert!(e
-                    .to_string()
-                    .contains("checksum failed (hardware problem?)"));
+                assert!(
+                    e.to_string()
+                        .contains("checksum failed (hardware problem?)")
+                );
                 Ok(())
             },
         }

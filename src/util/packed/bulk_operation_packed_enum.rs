@@ -16,7 +16,17 @@
  */
 use crate::util::packed::bulk_operation::BulkOperation;
 use crate::util::packed::bulk_operation_packed::BulkOperationPacked;
+use crate::util::packed::bulk_operation_packed_dummy::BulkOperationPackedDummy;
+use crate::util::packed::bulk_operation_packed_single_block::BulkOperationPackedSingleBlock;
 use crate::util::packed::bulk_operation_packed1::BulkOperationPacked1;
+use crate::util::packed::bulk_operation_packed2::BulkOperationPacked2;
+use crate::util::packed::bulk_operation_packed3::BulkOperationPacked3;
+use crate::util::packed::bulk_operation_packed4::BulkOperationPacked4;
+use crate::util::packed::bulk_operation_packed5::BulkOperationPacked5;
+use crate::util::packed::bulk_operation_packed6::BulkOperationPacked6;
+use crate::util::packed::bulk_operation_packed7::BulkOperationPacked7;
+use crate::util::packed::bulk_operation_packed8::BulkOperationPacked8;
+use crate::util::packed::bulk_operation_packed9::BulkOperationPacked9;
 use crate::util::packed::bulk_operation_packed10::BulkOperationPacked10;
 use crate::util::packed::bulk_operation_packed11::BulkOperationPacked11;
 use crate::util::packed::bulk_operation_packed12::BulkOperationPacked12;
@@ -27,21 +37,11 @@ use crate::util::packed::bulk_operation_packed16::BulkOperationPacked16;
 use crate::util::packed::bulk_operation_packed17::BulkOperationPacked17;
 use crate::util::packed::bulk_operation_packed18::BulkOperationPacked18;
 use crate::util::packed::bulk_operation_packed19::BulkOperationPacked19;
-use crate::util::packed::bulk_operation_packed2::BulkOperationPacked2;
 use crate::util::packed::bulk_operation_packed20::BulkOperationPacked20;
 use crate::util::packed::bulk_operation_packed21::BulkOperationPacked21;
 use crate::util::packed::bulk_operation_packed22::BulkOperationPacked22;
 use crate::util::packed::bulk_operation_packed23::BulkOperationPacked23;
 use crate::util::packed::bulk_operation_packed24::BulkOperationPacked24;
-use crate::util::packed::bulk_operation_packed3::BulkOperationPacked3;
-use crate::util::packed::bulk_operation_packed4::BulkOperationPacked4;
-use crate::util::packed::bulk_operation_packed5::BulkOperationPacked5;
-use crate::util::packed::bulk_operation_packed6::BulkOperationPacked6;
-use crate::util::packed::bulk_operation_packed7::BulkOperationPacked7;
-use crate::util::packed::bulk_operation_packed8::BulkOperationPacked8;
-use crate::util::packed::bulk_operation_packed9::BulkOperationPacked9;
-use crate::util::packed::bulk_operation_packed_dummy::BulkOperationPackedDummy;
-use crate::util::packed::bulk_operation_packed_single_block::BulkOperationPackedSingleBlock;
 use crate::util::packed::{Decoder, Encoder};
 
 pub(crate) enum BulkOperationPackedEnum {

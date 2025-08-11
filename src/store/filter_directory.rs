@@ -14,8 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::store::directory::Directory;
 use crate::store::IOContext;
+use crate::store::directory::Directory;
 use crate::util::access::Access;
 use crate::util::error::lucene_error::Result;
 use std::collections::HashSet;

@@ -20,9 +20,9 @@ use crate::codecs::lucene101::for_util::ForUtil;
 use crate::codecs::lucene101::pfor_util::PForUtil;
 use crate::internal::vectorization::posting_decoding_util::PostingDecodingUtil;
 use crate::store::{DataOutput, IndexInput};
+use crate::util::SliceCopyOps;
 use crate::util::error::lucene_error::Result;
 use crate::util::packed::PackedInts;
-use crate::util::SliceCopyOps;
 
 static IDENTITY_PLUS_ONE: Lazy<Vec<i32>> = Lazy::new(|| (1..=ForUtil::BLOCK_SIZE as i32).collect());
 

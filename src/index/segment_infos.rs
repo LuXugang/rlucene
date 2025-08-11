@@ -23,17 +23,17 @@ use parking_lot::Mutex;
 
 use crate::codecs::lucene101_codec::Lucene101Codec;
 use crate::codecs::segment_info_format::SegmentInfoFormat;
-use crate::codecs::{get_default_code, Codec, CodecUtil, LATEST_CODEC};
+use crate::codecs::{Codec, CodecUtil, LATEST_CODEC, get_default_code};
+use crate::index::IndexFileNames;
 use crate::index::index_commit::IndexCommit;
 use crate::index::index_writer::index_writer_util;
 use crate::index::segment_commit_info::SegmentCommitInfo;
-use crate::index::IndexFileNames;
 use crate::store::check_sum_index_input::ChecksumIndexInput;
 use crate::store::directory::Directory;
-use crate::store::{DataInput, IndexOutput, IO_CONTEXT_DEFAULT};
+use crate::store::{DataInput, IO_CONTEXT_DEFAULT, IndexOutput};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::output_enum::OutputEnum;
-use crate::util::{IOUtils, StringHelper, Version, LATEST, MIN_SUPPORTED_MAJOR};
+use crate::util::{IOUtils, LATEST, MIN_SUPPORTED_MAJOR, StringHelper, Version};
 
 static INFO_STREAM: Lazy<Mutex<Option<Arc<Mutex<OutputEnum>>>>> = Lazy::new(|| Mutex::new(None));
 
@@ -145,8 +145,8 @@ where
     pub(crate) pending_commit: bool,
 }
 pub mod segment_infos_util {
-    use crate::index::segment_infos::{segment_infos_util, INFO_STREAM};
     use crate::index::IndexFileNames;
+    use crate::index::segment_infos::{INFO_STREAM, segment_infos_util};
     use crate::store::directory::Directory;
     use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::output_enum::OutputEnum;
@@ -406,7 +406,14 @@ where
         // Read the magic number
         let magic = CodecUtil::read_be_int(input)?;
         if magic != CodecUtil::CODEC_MAGIC {
-            return Err(LuceneError::index_format_too_old(format!("Format version is not supported (resource {}): {} (needs to be between {} and {}). This version of Lucene only supports indexes created with release {}.0 and later", input, magic, CodecUtil::CODEC_MAGIC, CodecUtil::CODEC_MAGIC, *MIN_SUPPORTED_MAJOR)));
+            return Err(LuceneError::index_format_too_old(format!(
+                "Format version is not supported (resource {}): {} (needs to be between {} and {}). This version of Lucene only supports indexes created with release {}.0 and later",
+                input,
+                magic,
+                CodecUtil::CODEC_MAGIC,
+                CodecUtil::CODEC_MAGIC,
+                *MIN_SUPPORTED_MAJOR
+            )));
         }
         let format = CodecUtil::check_header_no_magic(
             input,
@@ -438,12 +445,16 @@ where
                 "This index was initially created with Lucene {}.x while the current version is {} and Lucene only supports reading {}",
                 index_created_version,
                 *LATEST,
-                if min_supported_major_version == *MIN_SUPPORTED_MAJOR{
+                if min_supported_major_version == *MIN_SUPPORTED_MAJOR {
                     "the current and previous major versions".to_string()
                 } else {
                     format!("from version {min_supported_major_version} upwards")
-                });
-            return Err(LuceneError::index_format_too_old(format!("Format version is not supported (resource {}): {}. This version of Lucene only supports indexes created with release {}.0 and later by default.", input, reason, *MIN_SUPPORTED_MAJOR)));
+                }
+            );
+            return Err(LuceneError::index_format_too_old(format!(
+                "Format version is not supported (resource {}): {}. This version of Lucene only supports indexes created with release {}.0 and later by default.",
+                input, reason, *MIN_SUPPORTED_MAJOR
+            )));
         }
 
         let mut infos = Self::new(index_created_version)?;
@@ -590,8 +601,7 @@ where
                 if info.get_min_version().is_none() {
                     return Err(LuceneError::corrupt_index(format!(
                         "segments infos must record minVersion with indexCreatedVersionMajor={} (resource={})",
-                        infos.index_created_version_major,
-                        input
+                        infos.index_created_version_major, input
                     )));
                 }
             }
@@ -928,10 +938,8 @@ where
     /// collection is recomputed on each invocation.
     pub fn files(&self, include_segments_file: bool) -> Result<HashSet<String>> {
         let mut files = HashSet::new();
-        if include_segments_file {
-            if let Some(segment_file_name) = self.get_segments_file_name() {
-                files.insert(segment_file_name);
-            }
+        if include_segments_file && let Some(segment_file_name) = self.get_segments_file_name() {
+            files.insert(segment_file_name);
         }
         for segment_commit_info in &self.segments {
             files.extend(segment_commit_info.files()?);
@@ -1409,12 +1417,12 @@ mod tests {
     use rand::Rng;
 
     use crate::codecs::segment_info_format::SegmentInfoFormat;
-    use crate::codecs::{get_default_code, Codec, CodecUtil};
+    use crate::codecs::{Codec, CodecUtil, get_default_code};
+    use crate::index::IndexFileNames;
     use crate::index::segment_commit_info::SegmentCommitInfo;
     use crate::index::segment_info::SegmentInfo;
     use crate::index::segment_infos::SegmentInfos;
     use crate::index::sort::Sort;
-    use crate::index::IndexFileNames;
     use crate::store::directory::Directory;
     use crate::store::dummy::dummy_directory::DummyDirectory;
     use crate::store::{DataInput, DataOutput, IOContext, IndexInput};
@@ -1422,7 +1430,7 @@ mod tests {
     use crate::test::util::lucene_test_case::lucene_test_case_util::random;
     use crate::test::util::test_util::TestUtil;
     use crate::util::error::lucene_error::{LuceneError, Result};
-    use crate::util::{StringHelper, LATEST, LUCENE_10_0_0, LUCENE_11_0_0};
+    use crate::util::{LATEST, LUCENE_10_0_0, LUCENE_11_0_0, StringHelper};
 
     #[allow(dead_code)] // for quick search
     pub struct TestSegmentInfos;
@@ -1432,9 +1440,10 @@ mod tests {
         let result = SegmentInfos::<DummyDirectory>::new(5);
         assert!(result.is_err());
         if let Err(err) = result {
-            assert!(err
-                .to_string()
-                .contains("indexCreatedVersionMajor must be >= 6"));
+            assert!(
+                err.to_string()
+                    .contains("indexCreatedVersionMajor must be >= 6")
+            );
         }
 
         // Test for an indexCreatedVersionMajor greater than LATEST.major

@@ -121,8 +121,8 @@ where
 }
 pub mod indexed_disi_util {
     use crate::codecs::indexed_disi::{DocIndexIteratorImpl, IndexedDISI};
-    use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::search::doc_id_set_iterator::DocIdSetIterator;
+    use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::store::{DataInput, IndexInput, IndexOutput};
     use crate::util::array_util::ArrayUtil;
     use crate::util::bit_set::BitSet;
@@ -680,30 +680,30 @@ where
         let block_index = target_block >> 16;
         // If the destination block is 2 blocks or more ahead, we use the
         // jump-table.
-        if let Some(jump_table_rc) = &mut self.jump_table {
-            if block_index >= (self.block >> 16) + 2 {
-                // If the jumpTableEntryCount is exceeded, there are no further
-                // bits. Last entry is always NO_MORE_DOCS
-                let in_range_block_index = if block_index < self.jump_table_entry_count {
-                    block_index
-                } else {
-                    self.jump_table_entry_count - 1
-                };
+        if let Some(jump_table_rc) = &mut self.jump_table
+            && block_index >= (self.block >> 16) + 2
+        {
+            // If the jumpTableEntryCount is exceeded, there are no further
+            // bits. Last entry is always NO_MORE_DOCS
+            let in_range_block_index = if block_index < self.jump_table_entry_count {
+                block_index
+            } else {
+                self.jump_table_entry_count - 1
+            };
 
-                let jump_pos = in_range_block_index as i64 * BitUtil::INT_BYTES as i64 * 2;
-                let index;
-                let offset;
-                {
-                    let mut jump_table = jump_table_rc.borrow_mut();
-                    index = jump_table.read_int(jump_pos)?;
-                    offset = jump_table.read_int(jump_pos + BitUtil::INT_BYTES as i64)?;
-                }
-                // -1 to compensate for the always-added 1 in readBlockHeader
-                self.next_block_index = index - 1;
-                self.slice.borrow_mut().seek(offset as i64)?;
-                self.read_block_header()?;
-                return Ok(());
+            let jump_pos = in_range_block_index as i64 * BitUtil::INT_BYTES as i64 * 2;
+            let index;
+            let offset;
+            {
+                let mut jump_table = jump_table_rc.borrow_mut();
+                index = jump_table.read_int(jump_pos)?;
+                offset = jump_table.read_int(jump_pos + BitUtil::INT_BYTES as i64)?;
             }
+            // -1 to compensate for the always-added 1 in readBlockHeader
+            self.next_block_index = index - 1;
+            self.slice.borrow_mut().seek(offset as i64)?;
+            self.read_block_header()?;
+            return Ok(());
         }
         // Fallback to iteration of blocks
         while self.block < target_block {
@@ -1088,15 +1088,15 @@ mod tests {
 
     use crate::codecs::indexed_disi::indexed_disi_util;
     use crate::codecs::lucene90::indexed_disi::{IndexedDISI, Method};
-    use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::search::doc_id_set_iterator::DocIdSetIterator;
+    use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::store::directory::Directory;
     use crate::store::{IOContext, IndexInput, IndexOutput};
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
         at_least, new_directory, random, rarely,
     };
     use crate::test::util::test_util::TestUtil;
-    use crate::util::bit_set::{bit_set_util, BitSet};
+    use crate::util::bit_set::{BitSet, bit_set_util};
     use crate::util::bit_set_iterator::BitSetIterator;
     use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::fixed_bit_set::FixedBitSet;

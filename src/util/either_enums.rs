@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::codecs::mutable_point_tree::MutablePointTree;
+use crate::index::BytesRef;
 use crate::index::binary_doc_values::BinaryDocValues;
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::impact::Impact;
@@ -30,7 +31,6 @@ use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::index::term_state::{TermState, TermStateEnum};
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
-use crate::index::BytesRef;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::util::accountable::Accountable;
 use crate::util::attribute_source::AttributeSource;

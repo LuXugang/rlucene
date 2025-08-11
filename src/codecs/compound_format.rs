@@ -16,8 +16,8 @@
  */
 use crate::codecs::compound_directory::CompoundDirectory;
 use crate::index::segment_info::SegmentInfo;
-use crate::store::directory::Directory;
 use crate::store::IOContext;
+use crate::store::directory::Directory;
 use crate::util::error::lucene_error::Result;
 
 /// Encodes/decodes compound files

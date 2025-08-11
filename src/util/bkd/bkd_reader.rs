@@ -18,18 +18,18 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::codecs::CodecUtil;
-use crate::index::point_values::{IntersectVisitor, PointTree, PointValuesBase, Relation};
 use crate::index::BytesRef;
-use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::index::point_values::{IntersectVisitor, PointTree, PointValuesBase, Relation};
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::store::{DataInput, IndexInput};
+use crate::util::SliceCopyOps;
 use crate::util::array_util::{ArrayUtil, ByteArrayComparator};
 use crate::util::bkd::bkd_config::BKDConfig;
 use crate::util::bkd::bkd_writer::bkd_writer_util;
 use crate::util::bkd::doc_ids_writer::DocIdsWriter;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::math_util::MathUtil;
-use crate::util::SliceCopyOps;
 
 /// Handles reading a block KD-tree in byte[] space previously written with
 /// `BKDWriter`

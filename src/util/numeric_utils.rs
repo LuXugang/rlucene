@@ -16,9 +16,9 @@
  */
 use num_bigint::{BigInt, Sign};
 
+use crate::util::SliceCopyOps;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::SliceCopyOps;
 
 pub struct NumericUtils;
 
@@ -311,10 +311,10 @@ mod tests {
     use crate::index::BytesRef;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
     use crate::test::util::test_util::TestUtil;
+    use crate::util::SliceCopyOps;
     use crate::util::bit_util::BitUtil;
     use crate::util::error::lucene_error::Result;
     use crate::util::numeric_utils::NumericUtils;
-    use crate::util::SliceCopyOps;
 
     #[allow(dead_code)] // for quick search
     pub struct TestNumericUtils;
@@ -1159,10 +1159,6 @@ mod tests {
     }
 
     fn to_positive_nan<T: Float>(value: T) -> T {
-        if value.is_nan() {
-            Float::nan()
-        } else {
-            value
-        }
+        if value.is_nan() { Float::nan() } else { value }
     }
 }

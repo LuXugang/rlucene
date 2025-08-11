@@ -14,11 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codecs::CodecUtil;
 use crate::codecs::compressing::lucene90_compressing_term_vectors_writer::lucene90_ctvw_util::{
     OFFSETS, PAYLOADS, POSITIONS,
 };
 use crate::codecs::compressing::lucene90_compressing_term_vectors_writer::{
-    lucene90_ctvw_util, FLAGS_BITS,
+    FLAGS_BITS, lucene90_ctvw_util,
 };
 use crate::codecs::compression::compression_mode::{
     CompressionModeBase, CompressionModeEnum, DecompressorEnum,
@@ -27,27 +28,27 @@ use crate::codecs::compression::decompressor::Decompressor;
 use crate::codecs::lucene90::fields_index::{FieldsIndex, FieldsIndexEnum};
 use crate::codecs::lucene90::fields_index_reader::FieldsIndexReader;
 use crate::codecs::term_vectors_reader::{TermVectorsReader, TermVectorsReaderEnum};
-use crate::codecs::CodecUtil;
 use crate::index::automaton_terms_enum::AutomatonTermsEnum;
 use crate::index::base_terms_enum::BaseTermsEnum;
 use crate::index::dummy::dummy_term_state_type::DummyTermState;
 use crate::index::field_infos::FieldInfos;
 use crate::index::fields::Fields;
 use crate::index::filtered_terms_enum::{FilteredTermsEnum, FilteredTermsEnumBase};
-use crate::index::postings_enum::{postings_enum_util, PostingsEnum};
+use crate::index::postings_enum::{PostingsEnum, postings_enum_util};
 use crate::index::segment_info::SegmentInfo;
 use crate::index::slow_impacts_enum::SlowImpactsEnum;
 use crate::index::term_vectors::TermVectors;
 use crate::index::terms::Terms;
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::index::{BytesRef, IndexFileNames};
-use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::store::byte_buffers_data_input::{ByteBuffersDataInput, ByteBuffersDataInputOwned};
 use crate::store::directory::Directory;
 use crate::store::{
     ByteArrayDataInput, ByteBuffersDataOutput, DataInput, IOContext, IndexInput, ReadAdvice,
 };
+use crate::util::ToInt;
 use crate::util::array_util::ArrayUtil;
 use crate::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
@@ -55,12 +56,11 @@ use crate::util::clone::TryClone;
 use crate::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::long_values::LongValues;
+use crate::util::packed::Format::Packed;
 use crate::util::packed::block_packed_reader_iterator::BlockPackedReaderIterator;
 use crate::util::packed::direct_reader::DirectReader;
-use crate::util::packed::direct_writer::{direct_writer_util, DirectWriter};
-use crate::util::packed::Format::Packed;
+use crate::util::packed::direct_writer::{DirectWriter, direct_writer_util};
 use crate::util::packed::{PackedImpl, PackedInts, ReaderIterator};
-use crate::util::ToInt;
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::io::Cursor;
@@ -300,7 +300,9 @@ where
 
     pub(crate) fn num_dirty_docs(&self) -> Result<i64> {
         if self.version != lucene90_ctvw_util::VERSION_CURRENT {
-            return Err(LuceneError::illegal_state("get_num_dirty_docs should only ever get called when the reader is on the current version"));
+            return Err(LuceneError::illegal_state(
+                "get_num_dirty_docs should only ever get called when the reader is on the current version",
+            ));
         }
         debug_assert!(self.num_dirty_docs >= 0);
         Ok(self.num_dirty_docs)
@@ -308,7 +310,9 @@ where
 
     pub(crate) fn num_dirty_chunks(&self) -> Result<i64> {
         if self.version != lucene90_ctvw_util::VERSION_CURRENT {
-            return Err(LuceneError::illegal_state("get_num_dirty_chunks should only ever get called when the reader is on the current version"));
+            return Err(LuceneError::illegal_state(
+                "get_num_dirty_chunks should only ever get called when the reader is on the current version",
+            ));
         }
         debug_assert!(self.num_dirty_chunks >= 0);
         Ok(self.num_dirty_chunks)
@@ -316,7 +320,9 @@ where
 
     pub(crate) fn num_chunks(&self) -> Result<i64> {
         if self.version != lucene90_ctvw_util::VERSION_CURRENT {
-            return Err(LuceneError::illegal_state("get_num_chunks should only ever get called when the reader is on the current version"));
+            return Err(LuceneError::illegal_state(
+                "get_num_chunks should only ever get called when the reader is on the current version",
+            ));
         }
         debug_assert!(self.num_chunks >= 0);
         Ok(self.num_chunks)
@@ -578,7 +584,7 @@ where
                 _ => {
                     return Err(LuceneError::illegal_state(format!(
                         "invalid flag selector: {v}"
-                    )))
+                    )));
                 },
             };
             for i in 0..num_fields {

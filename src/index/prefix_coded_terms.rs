@@ -25,11 +25,11 @@ use crate::index::{BytesRef, BytesRefBuilder};
 use crate::store::byte_buffers_data_input::{ByteBuffersDataInput, ByteBuffersDataInputRef};
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{ByteBuffersDataOutput, DataInput, DataOutput};
+use crate::util::StringHelper;
 use crate::util::access::AccessVec;
 use crate::util::accountable::Accountable;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::StringHelper;
 
 /// Prefix codes term instances (prefixes are shared). This is expected to be
 /// faster to build than an FST and might also be more compact if there are no

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codecs::CodecUtil;
 use crate::codecs::block_term_state::BlockTermStateEnum;
 use crate::codecs::competitive_impact_accumulator::CompetitiveImpactAccumulator;
 use crate::codecs::lucene101::for_delta_util::ForDeltaUtil;
@@ -25,7 +26,6 @@ use crate::codecs::lucene101::postings_util::PostingsUtil;
 use crate::codecs::norms_producer::NormsProducer;
 use crate::codecs::postings_writer_base::PostingsWriterBase;
 use crate::codecs::push_postings_writer_base::{FieldWriteOptions, PushPostingsWriterBaseAbstract};
-use crate::codecs::CodecUtil;
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::field_info::FieldInfo;
 use crate::index::index_writer::index_writer_util;
@@ -37,11 +37,11 @@ use crate::index::terms_enum::TermsEnum;
 use crate::index::{BytesRef, IndexFileNames};
 use crate::store::directory::Directory;
 use crate::store::{ByteBuffersDataOutput, DataOutput, IndexOutput};
+use crate::util::SliceCopyOps;
 use crate::util::array_util::ArrayUtil;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
-use crate::util::SliceCopyOps;
 use std::borrow::Cow;
 use std::default::Default;
 use std::sync::Arc;
@@ -506,17 +506,17 @@ where
 
     fn start_term(&mut self, options: &FieldWriteOptions) -> Result<()> {
         self.doc_start_fp = self.doc_out.get_file_pointer();
-        if options.write_positions {
-            if let Some(ref pos_out) = self.pos_out {
-                self.pos_start_fp = pos_out.get_file_pointer();
-                self.level0_last_pos_fp = self.pos_start_fp;
-                self.level1_last_pos_fp = self.pos_start_fp;
-                if options.write_payloads || options.write_offsets {
-                    let pay_fp = self.pay_out.as_ref().unwrap().get_file_pointer();
-                    self.pay_start_fp = pay_fp;
-                    self.level0_last_pay_fp = pay_fp;
-                    self.level1_last_pay_fp = pay_fp;
-                }
+        if options.write_positions
+            && let Some(ref pos_out) = self.pos_out
+        {
+            self.pos_start_fp = pos_out.get_file_pointer();
+            self.level0_last_pos_fp = self.pos_start_fp;
+            self.level1_last_pos_fp = self.pos_start_fp;
+            if options.write_payloads || options.write_offsets {
+                let pay_fp = self.pay_out.as_ref().unwrap().get_file_pointer();
+                self.pay_start_fp = pay_fp;
+                self.level0_last_pay_fp = pay_fp;
+                self.level1_last_pay_fp = pay_fp;
             }
         }
         self.last_doc_id = -1;
@@ -538,7 +538,7 @@ where
             _ => {
                 return Err(LuceneError::illegal_state(
                     "not IntBlockTermState".to_string(),
-                ))
+                ));
             },
         };
         debug_assert!(state.base.doc_freq > 0);
@@ -789,7 +789,7 @@ where
             _ => {
                 return Err(LuceneError::illegal_state(
                     "not IntBlockTermState".to_string(),
-                ))
+                ));
             },
         };
         if absolute {

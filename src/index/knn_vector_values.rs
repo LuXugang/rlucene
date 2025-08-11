@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 use crate::index::vector_encoding::VectorEncoding;
-use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::util::bits::Bits;
 use crate::util::error::lucene_error::{LuceneError, Result};
 /// This struct abstracts addressing of document vector values indexed as

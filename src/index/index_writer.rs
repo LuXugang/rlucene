@@ -84,16 +84,16 @@ pub(crate) type TragicException = Arc<Mutex<Option<LuceneError>>>;
 pub mod index_writer_util {
     use crate::codecs::{Codec, CompoundFormat, LATEST_CODEC};
     use crate::index::segment_info::SegmentInfo;
+    use crate::store::IOContext;
     use crate::store::directory::Directory;
     use crate::store::tracking_directory_wrapper::TrackingDirectoryWrapper;
-    use crate::store::IOContext;
     use crate::util::array_util::ArrayUtil;
     use crate::util::constants::Constants;
     use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::info_stream::{InfoStream, InfoStreamLock};
     use crate::util::io_consumer::IOConsumer;
     use crate::util::unicode_util::UnicodeUtil;
-    use crate::util::{byte_block_pool_util, LATEST};
+    use crate::util::{LATEST, byte_block_pool_util};
     use std::collections::{HashMap, HashSet};
 
     /// Maximum number of documents. In Java Lucene, We subtract 128 to ensure

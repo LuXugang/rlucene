@@ -25,11 +25,11 @@ use crate::index::BytesRef;
 use crate::store::byte_buffers_data_input::ByteBuffersDataInput;
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{ByteBuffersDataOutput, DataInput, DataOutput};
+use crate::util::SliceCopyOps;
 use crate::util::array_util::ArrayUtil;
 use crate::util::clone::TryClone;
 use crate::util::compress::lz4::{FastCompressionHashTable, HashTableEnum, LZ4};
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::SliceCopyOps;
 
 pub struct LZ4WithPresetDictCompressionMode;
 impl LZ4WithPresetDictCompressionMode {

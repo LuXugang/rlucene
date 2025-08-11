@@ -16,9 +16,9 @@
  */
 use std::fmt::Display;
 
+use crate::index::BytesRef;
 use crate::index::doc_values_type::DocValuesType;
 use crate::index::term::Term;
-use crate::index::BytesRef;
 use crate::store::DataOutput;
 use crate::util::error::lucene_error::Result;
 

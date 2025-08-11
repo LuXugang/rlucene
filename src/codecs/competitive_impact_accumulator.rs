@@ -100,10 +100,10 @@ impl CompetitiveImpactAccumulator {
     }
 
     fn add_entry(new_entry: Impact, freq_norm_pairs: &mut BTreeSet<Impact>) {
-        if let Some(next) = freq_norm_pairs.range(&new_entry..).next() {
-            if (next.norm as u64) <= (new_entry.norm as u64) {
-                return;
-            }
+        if let Some(next) = freq_norm_pairs.range(&new_entry..).next()
+            && (next.norm as u64) <= (new_entry.norm as u64)
+        {
+            return;
         }
         freq_norm_pairs.insert(new_entry.clone());
         // TODO: drain_filter is not stable in Rust 1.86.0

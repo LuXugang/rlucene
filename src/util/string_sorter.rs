@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::index::{BytesRef, BytesRefBuilder};
-use crate::util::bytes_ref_comparator::{BytesRefComparator, BYTES_REF_COMPARATOR_TYPE};
+use crate::util::bytes_ref_comparator::{BYTES_REF_COMPARATOR_TYPE, BytesRefComparator};
 use crate::util::error::lucene_error::Result;
 use crate::util::intro_sorter::IntroSorter;
 use crate::util::{Comparator, MSBRadixSorter, MSBRadixSorterBase, Sorter};

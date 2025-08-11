@@ -27,8 +27,8 @@ use crate::codecs::stored_fields_reader::StoredFieldsReaderEnum;
 use crate::codecs::stored_fields_writer::StoredFieldsWriterEnum;
 use crate::index::field_infos::FieldInfos;
 use crate::index::segment_info::SegmentInfo;
-use crate::store::directory::Directory;
 use crate::store::IOContext;
+use crate::store::directory::Directory;
 use crate::util::error::lucene_error::{LuceneError, Result};
 
 /// Lucene 9.0 stored fields format.
@@ -185,16 +185,16 @@ impl StoredFieldsFormat for Lucene90StoredFieldsFormat {
         let previous =
             segment_info.put_attribute(Self::MODE_KEY.to_string(), self.mode.name().to_string());
 
-        if let Some(prev) = previous {
-            if prev != *self.mode.name() {
-                return Err(LuceneError::illegal_state(format!(
-                    "found existing value for {} for segment: {}, old={}, new={}",
-                    Self::MODE_KEY,
-                    segment_info.name,
-                    prev,
-                    self.mode.name()
-                )));
-            }
+        if let Some(prev) = previous
+            && prev != *self.mode.name()
+        {
+            return Err(LuceneError::illegal_state(format!(
+                "found existing value for {} for segment: {}, old={}, new={}",
+                Self::MODE_KEY,
+                segment_info.name,
+                prev,
+                self.mode.name()
+            )));
         }
         let format = self.stored_fields_format_impl(&self.mode)?;
         format.fields_writer(directory, segment_info, context)

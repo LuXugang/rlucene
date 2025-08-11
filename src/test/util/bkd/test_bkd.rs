@@ -24,13 +24,13 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use crate::codecs::mutable_point_tree::MutablePointTree;
+use crate::index::BytesRef;
 use crate::index::merge_state::{DocMap, DocMapEnum};
 use crate::index::point_values::{
-    point_values_util, IntersectVisitor, PointTree, PointValues, PointValuesBase, Relation,
+    IntersectVisitor, PointTree, PointValues, PointValuesBase, Relation, point_values_util,
 };
-use crate::index::BytesRef;
-use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::store::directory::Directory;
 use crate::store::{IOContext, IndexInput, IndexOutput};
 use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, new_directory, random};
@@ -38,7 +38,7 @@ use crate::test::util::test_util::TestUtil;
 use crate::util::bit_util::BitUtil;
 use crate::util::bkd::bkd_config::BKDConfig;
 use crate::util::bkd::bkd_reader::BKDReader;
-use crate::util::bkd::bkd_writer::{bkd_writer_util, BKDWriter};
+use crate::util::bkd::bkd_writer::{BKDWriter, bkd_writer_util};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::numeric_utils::NumericUtils;
 use crate::util::{SliceCopyOps, ToInt};
@@ -419,7 +419,9 @@ fn test_too_little_heap() -> Result<()> {
     assert!(err.is_err());
     if let Err(err) = err {
         let err_msg = format!("{:?}", err);
-        assert!(err_msg.contains("either increase maxMBSortInHeap or decrease maxPointsInLeafNode"));
+        assert!(
+            err_msg.contains("either increase maxMBSortInHeap or decrease maxPointsInLeafNode")
+        );
     }
     Ok(())
 }
@@ -848,9 +850,14 @@ fn verify_with_max_mb<D: Directory, R: Rng + ?Sized>(
 
     if cfg!(feature = "test_log_verbose") {
         println!(
-                "TEST: numValues={} numDataDims={} numIndexDims={} numBytesPerDim={} maxPointsInLeafNode={} maxMB={}",
-                num_values, num_data_dims, num_index_dims, num_bytes_per_dim, max_points_in_leaf_node, max_mb
-            );
+            "TEST: numValues={} numDataDims={} numIndexDims={} numBytesPerDim={} maxPointsInLeafNode={} maxMB={}",
+            num_values,
+            num_data_dims,
+            num_index_dims,
+            num_bytes_per_dim,
+            max_points_in_leaf_node,
+            max_mb
+        );
     }
 
     let mut to_merge: Option<Vec<i64>> = None;
@@ -1219,11 +1226,7 @@ fn random_big_int<R: Rng + ?Sized>(num_bytes: usize, random: &mut R) -> BigInt {
 
     let x = BigInt::from_bytes_be(Sign::Plus, &bytes);
 
-    if random.random_bool(0.5) {
-        -x
-    } else {
-        x
-    }
+    if random.random_bool(0.5) { -x } else { x }
 }
 
 // TODO:

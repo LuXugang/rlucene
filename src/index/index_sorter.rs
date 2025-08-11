@@ -17,11 +17,11 @@
 use crate::index::leaf_reader::LeafReader;
 use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::sorted_doc_values::SortedDocValues;
-use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::sort_field::MissingValueEnum;
-use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::ToInt;
+use crate::util::error::lucene_error::{LuceneError, Result};
 
 pub trait IndexSorter {
     fn get_provider_name(&self) -> &str;
@@ -60,7 +60,7 @@ where
                 _ => {
                     return Err(LuceneError::illegal_state(
                         "Missing value type mismatch for Double.".to_string(),
-                    ))
+                    ));
                 },
             }
         } else {
@@ -152,7 +152,7 @@ where
                 _ => {
                     return Err(LuceneError::illegal_state(
                         "Missing value type mismatch for INT.".to_string(),
-                    ))
+                    ));
                 },
             }
         } else {
@@ -243,7 +243,7 @@ where
                 _ => {
                     return Err(LuceneError::illegal_state(
                         "Missing value type mismatch for Long.".to_string(),
-                    ))
+                    ));
                 },
             }
         } else {
@@ -339,7 +339,7 @@ where
                 _ => {
                     return Err(LuceneError::illegal_state(
                         "Missing value type mismatch for Float.".to_string(),
-                    ))
+                    ));
                 },
             }
         } else {

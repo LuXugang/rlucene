@@ -145,7 +145,7 @@ impl StringsToAutomaton {
 
         while let Some(b) = input.next()? {
             builder.add(&b, as_binary)?; // b: Cow<BytesRef<Vec<u8>>> ->
-                                         // &BytesRef<Vec<u8>>
+            // &BytesRef<Vec<u8>>
         }
 
         builder.complete_and_convert()
@@ -162,13 +162,13 @@ impl StringsToAutomaton {
 
         debug_assert!(self.state_registry.is_some(), "Automaton already built.");
 
-        if let Some(prev) = &mut self.previous {
-            if prev.bytes_ref.cmp(current) == std::cmp::Ordering::Greater {
-                return Err(LuceneError::illegal_argument(format!(
-                    "Input must be in sorted UTF-8 order: {} >= {}",
-                    prev.bytes_ref, current
-                )));
-            }
+        if let Some(prev) = &mut self.previous
+            && prev.bytes_ref.cmp(current) == std::cmp::Ordering::Greater
+        {
+            return Err(LuceneError::illegal_argument(format!(
+                "Input must be in sorted UTF-8 order: {} >= {}",
+                prev.bytes_ref, current
+            )));
         }
         self.set_previous(current);
         let mut code_point = UTF8CodePoint::default();

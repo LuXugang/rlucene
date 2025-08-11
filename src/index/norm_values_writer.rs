@@ -20,21 +20,21 @@ use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::docs_with_field_set::{DocsWithFieldSet, DocsWithFieldSetEnum};
 use crate::index::field_info::FieldInfo;
 use crate::index::numeric_doc_values::NumericDocValues;
-use crate::index::numeric_doc_values_writer::{ndvw_util, NumericDVs, SortingNumericDocValues};
+use crate::index::numeric_doc_values_writer::{NumericDVs, SortingNumericDocValues, ndvw_util};
 use crate::index::segment_info::SegmentInfo;
 use crate::index::sorter::DocMap;
 use crate::search::doc_id_set::DocIdSet;
-use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::store::directory::Directory;
 use crate::util::accountable::Accountable;
 use crate::util::either_enums::EitherNumericDocValues;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
+use crate::util::packed::PackedInts;
 use crate::util::packed::packed_long_values::{
     PackedLongValues, PackedLongValuesBuilder, PackedLongValuesIterator,
 };
-use crate::util::packed::PackedInts;
 use crate::util::{Counter, CounterEnumLock};
 use std::rc::Rc;
 use std::sync::Arc;

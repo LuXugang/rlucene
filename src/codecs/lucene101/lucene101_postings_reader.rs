@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codecs::CodecUtil;
 use crate::codecs::block_term_state::BlockTermStateEnum;
 use crate::codecs::lucene101::for_delta_util::ForDeltaUtil;
 use crate::codecs::lucene101::for_util::ForUtil;
@@ -23,21 +24,20 @@ use crate::codecs::lucene101::lucene101_postings_format::{
 use crate::codecs::lucene101::pfor_util::PForUtil;
 use crate::codecs::lucene101::postings_util::PostingsUtil;
 use crate::codecs::postings_reader_base::PostingsReaderBase;
-use crate::codecs::CodecUtil;
 use crate::index::field_info::FieldInfo;
 use crate::index::impact::Impact;
 use crate::index::impacts::Impacts;
 use crate::index::impacts_enum::ImpactsEnum;
 use crate::index::impacts_source::ImpactsSource;
 use crate::index::index_options::IndexOptions;
-use crate::index::postings_enum::{postings_enum_util, PostingsEnum};
+use crate::index::postings_enum::{PostingsEnum, postings_enum_util};
 use crate::index::segment_info::SegmentInfo;
 use crate::index::segment_read_state::SegmentReadState;
 use crate::index::{BytesRef, IndexFileNames};
 use crate::internal::vectorization::posting_decoding_util::PostingDecodingUtil;
 use crate::internal::vectorization::vectorization_provider::vectorization_provider_util;
-use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::store::directory::Directory;
 use crate::store::{ByteArrayDataInput, DataInput, IndexInput, ReadAdvice};
 use crate::util::access::BorrowExt;
@@ -281,7 +281,7 @@ where
             _ => {
                 return Err(LuceneError::illegal_state(
                     "BlockTermStateEnum's type is not Int",
-                ))
+                ));
             },
         };
         if absolute {
@@ -343,7 +343,7 @@ where
             _ => {
                 return Err(LuceneError::illegal_state(
                     "BlockTermStateEnum's type is not Int",
-                ))
+                ));
             },
         }
         Ok(Some(block))

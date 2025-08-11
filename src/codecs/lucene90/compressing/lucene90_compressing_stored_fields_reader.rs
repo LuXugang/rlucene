@@ -14,8 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codecs::CodecUtil;
 use crate::codecs::compressing::lucene90_compressing_stored_fields_writer::{
-    lucene90_csfw_util, TYPE_BITS, TYPE_MASK,
+    TYPE_BITS, TYPE_MASK, lucene90_csfw_util,
 };
 use crate::codecs::compressing::stored_fields_ints::StoredFieldsInts;
 use crate::codecs::compression::compression_mode::{
@@ -26,7 +27,6 @@ use crate::codecs::lucene90::fields_index::{FieldsIndex, FieldsIndexEnum};
 use crate::codecs::lucene90::fields_index_reader::FieldsIndexReader;
 use crate::codecs::stored_fields_reader::{StoredFieldsReader, StoredFieldsReaderEnum};
 use crate::codecs::stored_fields_writer::StoredFieldsWriter;
-use crate::codecs::CodecUtil;
 use crate::index::field_info::FieldInfo;
 use crate::index::field_infos::FieldInfos;
 use crate::index::segment_info::SegmentInfo;
@@ -588,7 +588,7 @@ where
                 None => {
                     return Err(LuceneError::illegal_state(format!(
                         "field_info is None with number: {field_number}"
-                    )))
+                    )));
                 },
             }
         }
@@ -816,7 +816,7 @@ where
                 None => {
                     return Err(LuceneError::illegal_state(
                         "bytes is None, but merging is true",
-                    ))
+                    ));
                 },
             }
         } else {

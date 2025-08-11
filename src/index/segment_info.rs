@@ -26,9 +26,9 @@ use crate::index::sort::Sort;
 use crate::store::directory::Directory;
 #[cfg(test)]
 use crate::store::dummy::dummy_directory::DummyDirectory;
+use crate::util::StringHelper;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::version::Version;
-use crate::util::StringHelper;
 
 /// Information about a segment such as its name, directory, and files related
 /// to the segment.

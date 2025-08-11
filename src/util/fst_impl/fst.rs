@@ -959,7 +959,7 @@ pub mod fst_util {
             invalid => {
                 return Err(LuceneError::corrupt_index(format!(
                     "invalid input type {invalid} (resource={meta_in})"
-                )))
+                )));
             },
         };
 
@@ -1429,7 +1429,7 @@ mod tests {
     use crate::store::output_stream_data_output::OutputStreamDataOutput;
     use crate::store::{ByteArrayDataInput, FSDirectory, IOContext, NativeFSLockFactory};
     use crate::test::util::fst::fst_tester::{
-        fst_tester_util, DummyFSTTesterBaseImpl, FSTTester, InputOutput,
+        DummyFSTTesterBaseImpl, FSTTester, InputOutput, fst_tester_util,
     };
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
         at_least, is_night_mode, new_bytes_ref_from_string, new_directory, random, random_from_seed,
@@ -1438,7 +1438,7 @@ mod tests {
     use crate::util::error::lucene_error::Result;
     use crate::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs;
     use crate::util::fst_impl::bytes_ref_fst_enum::BytesRefFSTEnum;
-    use crate::util::fst_impl::fst::{fst_util, InputType, FST};
+    use crate::util::fst_impl::fst::{FST, InputType, fst_util};
     use crate::util::fst_impl::fst_compiler::{
         Builder, CompiledNode, DataOutputEnum, NodeEnum, UnCompiledNode,
     };

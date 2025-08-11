@@ -16,8 +16,8 @@
  */
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::atomic::AtomicI64;
 use std::sync::Arc;
+use std::sync::atomic::AtomicI64;
 
 use parking_lot::Mutex;
 

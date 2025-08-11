@@ -17,12 +17,12 @@
 
 use std::borrow::Cow;
 
+use crate::index::BytesRef;
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::sorted_doc_values::SortedDocValues;
 use crate::index::terms_enum::TermsEnum;
-use crate::index::BytesRef;
-use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::ToInt;
+use crate::util::error::lucene_error::{LuceneError, Result};
 
 /// A multi-valued version of
 /// [`SortedDocValues`](crate::index::sorted_doc_values::SortedDocValues).

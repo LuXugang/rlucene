@@ -23,8 +23,8 @@ use crate::index::approximate_priority_queue::IdentityId;
 use crate::index::buffered_updates::{BufferedUpdates, MTBufferedUpdates};
 use crate::index::documents_writer::FlushNotifications;
 use crate::index::documents_writer_delete_queue::{DeleteSlice, DocumentsWriterDeleteQueue, Node};
-use crate::index::field_infos::build::Builder;
 use crate::index::field_infos::FieldInfos;
+use crate::index::field_infos::build::Builder;
 use crate::index::frozen_buffered_updates::FrozenBufferedUpdates;
 use crate::index::index_writer::index_writer_util;
 use crate::index::indexing_chain::{IndexingChain, ReservedField};
@@ -36,11 +36,11 @@ use crate::index::segment_info::SegmentInfo;
 use crate::index::segment_write_state::SegmentWriteState;
 use crate::index::sorter::{DocMap, DocMapImpl};
 use crate::search::query::Query;
+use crate::store::IOContext;
 use crate::store::directory::Directory;
 use crate::store::flush_info::FlushInfo;
 use crate::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
 use crate::store::tracking_directory_wrapper::TrackingDirectoryWrapper;
-use crate::store::IOContext;
 use crate::util::accountable::Accountable;
 use crate::util::array_util::ArrayUtil;
 use crate::util::bit_set::BitSet;
@@ -49,12 +49,12 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::info_stream::{InfoStream, InfoStreamLock};
 use crate::util::io_consumer::IOConsumer;
-use crate::util::{StringHelper, LATEST, LUCENE_10_0_0};
+use crate::util::{LATEST, LUCENE_10_0_0, StringHelper};
 use parking_lot::{Condvar, Mutex};
 use std::cell::OnceCell;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
-use std::iter::{once, Chain, Once};
+use std::iter::{Chain, Once, once};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64, Ordering};
 use std::sync::{Arc, OnceLock};
@@ -129,7 +129,6 @@ impl Lock for State {
 impl<D, Q> DocumentsWriterPerThread<D, Q>
 where
     D: Directory,
-
     Q: Query,
 {
     fn on_aborting_exception(&mut self, throwable: LuceneError) {
@@ -344,8 +343,8 @@ where
                             && self.index_major_version_created >= LUCENE_10_0_0.major
                         {
                             return Err(LuceneError::illegal_argument(
-                               "a parent field must be set in order to use document blocks with index sorting; see IndexWriterConfig#set_parent_field",
-                           ));
+                                "a parent field must be set in order to use document blocks with index sorting; see IndexWriterConfig#set_parent_field",
+                            ));
                         } else {
                             self.reserve_one_doc()?;
                             num_docs_in_ram.store(1, Ordering::SeqCst);
@@ -919,7 +918,6 @@ where
 impl<D, Q> IdentityId for DocumentsWriterPerThread<D, Q>
 where
     D: Directory,
-
     Q: Query,
 {
     fn id(&self) -> &str {
@@ -929,7 +927,6 @@ where
 impl<D, Q> Accountable for DocumentsWriterPerThread<D, Q>
 where
     D: Directory,
-
     Q: Query,
 {
     fn ram_bytes_used(&self) -> Result<i64> {
@@ -947,7 +944,6 @@ where
 impl<D, Q> Display for DocumentsWriterPerThread<D, Q>
 where
     D: Directory,
-
     Q: Query,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -967,7 +963,6 @@ where
 impl<D, Q> FlushState for DocumentsWriterPerThread<D, Q>
 where
     D: Directory,
-
     Q: Query,
 {
     fn is_flush_pending(&self) -> bool {
@@ -978,7 +973,6 @@ where
 impl<D, Q> Lock for DocumentsWriterPerThread<D, Q>
 where
     D: Directory,
-
     Q: Query,
 {
     fn lock(&self) {

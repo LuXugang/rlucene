@@ -245,8 +245,8 @@ pub(crate) mod tests {
     use crate::util::automation::finite_strings_iterator::{
         FiniteStringsIterator, FiniteStringsIteratorBase,
     };
-    use crate::util::automation::operations::tests::TestOperations;
     use crate::util::automation::operations::Operations;
+    use crate::util::automation::operations::tests::TestOperations;
     use crate::util::automation::reg_exp::RegExp;
     use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::fst_impl::util::Util;

@@ -17,7 +17,7 @@
 use rand::Rng;
 
 use crate::store::data_output::DataOutput;
-use crate::store::{align_offset, IndexOutput, OutputStreamIndexOutput};
+use crate::store::{IndexOutput, OutputStreamIndexOutput, align_offset};
 use crate::test::util::lucene_test_case::lucene_test_case_util::{random, random_multiplier};
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::Result;

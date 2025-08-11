@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::util::error::lucene_error::Result;
-use crate::util::{check_range, sorter_util, Sorter};
+use crate::util::{Sorter, check_range, sorter_util};
 
 pub struct InPlaceMergeSorter<S>
 where

@@ -14,8 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::BytesRef;
+use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
 
 pub trait BinaryDocValues: DocValuesIterator {

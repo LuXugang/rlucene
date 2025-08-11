@@ -17,10 +17,10 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 
+use crate::store::DataInput;
 use crate::store::byte_buffers_data_input::ByteBuffersDataInputRef;
 use crate::store::index_input::IndexInput;
 use crate::store::random_access_input::RandomAccessInput;
-use crate::store::DataInput;
 use crate::util::error::lucene_error::Result;
 
 /// An [`IndexInput`] implementing [`RandomAccessInput`]

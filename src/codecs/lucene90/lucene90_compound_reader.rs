@@ -17,15 +17,15 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 
+use crate::codecs::CodecUtil;
 use crate::codecs::compound_directory::CompoundDirectoryBase;
 use crate::codecs::lucene90::lucene90_compound_format::Lucene90CompoundFormat;
-use crate::codecs::CodecUtil;
-use crate::index::segment_info::SegmentInfo;
 use crate::index::IndexFileNames;
+use crate::index::segment_info::SegmentInfo;
 use crate::store::directory::Directory;
-use crate::store::{IOContext, IndexInput, ReadAdvice, IO_CONTEXT_DEFAULT};
-use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::store::{IO_CONTEXT_DEFAULT, IOContext, IndexInput, ReadAdvice};
 use crate::util::StringHelper;
+use crate::util::error::lucene_error::{LuceneError, Result};
 
 /// Offset/Length for a slice inside of a compound file
 pub struct FileEntry {
@@ -250,7 +250,10 @@ where
                 );
                 return Err(LuceneError::not_found(format!(
                     "No sub-file with id {} found in compound file \"{}\" (fileName={} files: {:?})",
-                    id, dat_file_name, name, self.entries.keys()
+                    id,
+                    dat_file_name,
+                    name,
+                    self.entries.keys()
                 )));
             },
         };

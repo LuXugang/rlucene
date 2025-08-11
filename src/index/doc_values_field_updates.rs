@@ -18,13 +18,13 @@ use std::sync::Arc;
 
 use parking_lot::Mutex;
 
+use crate::index::BytesRef;
 use crate::index::binary_doc_values::BinaryDocValues;
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::doc_values_type::DocValuesType;
 use crate::index::numeric_doc_values::NumericDocValues;
-use crate::index::BytesRef;
-use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::util::accountable::Accountable;
 use crate::util::bit_set::BitSet;
 use crate::util::bit_set_iterator::BitSetIterator;
@@ -1057,18 +1057,18 @@ where
 
 #[cfg(test)]
 mod tests {
-    use rand::prelude::SliceRandom;
     use rand::Rng;
+    use rand::prelude::SliceRandom;
 
     use crate::index::doc_values_field_updates::{
-        merged_iterator, DocValuesFieldIterator, DocValuesFieldUpdates, DocValuesFieldUpdatesBase,
-        SingleValueDocValuesFieldUpdates, SingleValueDocValuesFieldUpdatesBase,
+        DocValuesFieldIterator, DocValuesFieldUpdates, DocValuesFieldUpdatesBase,
+        SingleValueDocValuesFieldUpdates, SingleValueDocValuesFieldUpdatesBase, merged_iterator,
     };
     use crate::index::numeric_doc_values_field_updates::{
         NumericDocValuesFieldUpdates, SingleValueNumericDocValuesFieldUpdates,
     };
-    use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::search::doc_id_set_iterator::DocIdSetIterator;
+    use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{random, rarely};
     use crate::util::error::lucene_error::Result;
 

@@ -16,8 +16,8 @@
  */
 use std::fmt::{Display, Formatter};
 
-use crate::store::simple_fs_lock::SimpleFSLock;
 use crate::store::NativeFSLock;
+use crate::store::simple_fs_lock::SimpleFSLock;
 use crate::util::error::lucene_error::Result;
 
 /// An interprocess mutex lock.

@@ -14,9 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::util::SliceCopyOps;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::error::lucene_error::Result;
-use crate::util::SliceCopyOps;
 use std::io::{Read, Take};
 
 pub struct CharacterUtils;

@@ -146,8 +146,8 @@ mod tests {
     use num_bigint::BigInt;
     use num_integer::Integer;
     use num_traits::{FromPrimitive, ToPrimitive};
-    use rand::prelude::IndexedRandom;
     use rand::Rng;
+    use rand::prelude::IndexedRandom;
 
     use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
     use crate::util::math_util::MathUtil;

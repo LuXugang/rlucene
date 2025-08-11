@@ -18,8 +18,8 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use parking_lot::Mutex;
-use rand_chacha::rand_core::RngCore;
 use rand_chacha::ChaCha20Rng;
+use rand_chacha::rand_core::RngCore;
 
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::knn_collector::KnnCollector;

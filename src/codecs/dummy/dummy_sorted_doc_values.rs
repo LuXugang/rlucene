@@ -16,10 +16,10 @@
  */
 use std::borrow::Cow;
 
+use crate::index::BytesRef;
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::dummy::dummy_terms_enum::DummyTermsEnum;
 use crate::index::sorted_doc_values::SortedDocValues;
-use crate::index::BytesRef;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::util::error::lucene_error::Result;
 

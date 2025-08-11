@@ -17,14 +17,14 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use crate::util::OptionTakeExt;
 use crate::util::array_util::ArrayUtil;
 use crate::util::error::lucene_error::Result;
-use crate::util::fst_impl::fst::{fst_util, FST};
+use crate::util::fst_impl::fst::{FST, fst_util};
 use crate::util::fst_impl::fst_enum::{FSTEnum, FSTEnumBase, InputOutput};
 use crate::util::fst_impl::fst_reader::FstReader;
 use crate::util::fst_impl::outputs::Outputs;
 use crate::util::ints_ref::IntsRef;
-use crate::util::OptionTakeExt;
 
 /// Enumerates all input (`IntsRef`) + output pairs in an FST.
 pub struct IntsRefFSTEnum<O, F>
@@ -117,16 +117,14 @@ where
         debug_assert!(self.target.length <= i32::MAX as usize);
         base.target_length = self.target.length as i32;
 
-        let result = if base.do_seek_exact(self)? {
+        if base.do_seek_exact(self)? {
             debug_assert_eq!(base.upto, 1 + self.target.length);
             self.base = Some(base);
             self.set_result()
         } else {
             self.base = Some(base);
             Ok(None)
-        };
-
-        result
+        }
     }
 
     fn set_result(&mut self) -> Result<Option<&InputOutput<O::V, RcIntsRef>>> {

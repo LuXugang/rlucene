@@ -28,8 +28,8 @@ use crate::codecs::stored_fields_reader::StoredFieldsReaderEnum;
 use crate::codecs::stored_fields_writer::StoredFieldsWriterEnum;
 use crate::index::field_infos::FieldInfos;
 use crate::index::segment_info::SegmentInfo;
-use crate::store::directory::Directory;
 use crate::store::IOContext;
+use crate::store::directory::Directory;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::error::lucene_error::Result;
 use crate::util::packed::direct_monotonic_writer::direct_monotonic_writer_util;
@@ -202,10 +202,7 @@ impl fmt::Display for Lucene90CompressingStoredFieldsFormat {
         write!(
             f,
             "Lucene90CompressingStoredFieldsFormat(compressionMode={}, chunkSize={}, maxDocsPerChunk={}, blockShift={})",
-            self.compression_mode,
-            self.chunk_size,
-            self.max_docs_per_chunk,
-            self.block_shift
+            self.compression_mode, self.chunk_size, self.max_docs_per_chunk, self.block_shift
         )
     }
 }

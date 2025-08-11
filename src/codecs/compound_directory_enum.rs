@@ -44,7 +44,6 @@ where
 impl<D> Directory for CompoundDirectoryEnum<D>
 where
     D: Directory,
-
     CompoundDirectoryEnum<D>: Display,
 {
     fn list_all(&self) -> Result<Vec<String>> {

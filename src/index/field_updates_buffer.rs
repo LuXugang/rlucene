@@ -14,12 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cmp::{max, min, Ordering};
+use std::cmp::{Ordering, max, min};
 use std::sync::Arc;
 
+use crate::index::BytesRef;
 use crate::index::doc_values_update::{DocValuesUpdate, DocValuesUpdateBase};
 use crate::index::term::Term;
-use crate::index::BytesRef;
 use crate::util::access::Access;
 use crate::util::accountable::Accountable;
 use crate::util::array_util::ArrayUtil;
@@ -374,10 +374,10 @@ impl FieldUpdatesBuffer {
         self.is_numeric && self.numeric_values.as_ref().unwrap().len() == 1
     }
     pub(crate) fn get_numeric_value(&self, idx: i32) -> i64 {
-        if let Some(ref has_values) = self.has_values {
-            if !has_values.get(idx) {
-                return 0;
-            }
+        if let Some(ref has_values) = self.has_values
+            && !has_values.get(idx)
+        {
+            return 0;
         }
         assert!(self.numeric_values.is_some());
         let length = self.numeric_values.as_ref().unwrap().len();
@@ -620,6 +620,7 @@ mod tests {
     use parking_lot::Mutex;
     use rand::Rng;
 
+    use crate::index::BytesRef;
     use crate::index::buffered_updates::buffered_updates_util;
     use crate::index::doc_values_type::DocValuesType;
     use crate::index::doc_values_update::{
@@ -627,11 +628,10 @@ mod tests {
     };
     use crate::index::field_updates_buffer::FieldUpdatesBuffer;
     use crate::index::term::Term;
-    use crate::index::BytesRef;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{random, rarely};
     use crate::test::util::test_util::TestUtil;
-    use crate::util::error::lucene_error::Result;
     use crate::util::CounterEnum;
+    use crate::util::error::lucene_error::Result;
 
     #[allow(dead_code)] // for quick search
     pub struct TestFieldUpdatesBuffer;

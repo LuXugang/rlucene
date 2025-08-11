@@ -277,48 +277,47 @@ impl Automata {
 
         let max_ref = max.as_ref();
 
-        if let Some(max_ref) = max_ref {
-            if StringHelper::starts_with_byte_ref(max_ref, min)
-                && Automata::suffix_is_zeros(max_ref, min.length)
-            {
-                let mut max_length = max_ref.length;
+        if let Some(max_ref) = max_ref
+            && StringHelper::starts_with_byte_ref(max_ref, min)
+            && Automata::suffix_is_zeros(max_ref, min.length)
+        {
+            let mut max_length = max_ref.length;
 
-                debug_assert!(max_length > min.length);
-                if !max_inclusive {
-                    max_length -= 1;
-                }
-
-                if max_length == min.length {
-                    if !min_inclusive {
-                        return Automata::make_empty();
-                    } else {
-                        return Automata::make_binary(min);
-                    }
-                }
-
-                let mut a = Automaton::new();
-                let mut last_state = a.create_state();
-                for i in 0..min.length {
-                    let state = a.create_state();
-                    let label = min.bytes[min.offset + i] as i32;
-                    a.add_transition_label(last_state, state, label)?;
-                    last_state = state;
-                }
-
-                if min_inclusive {
-                    a.set_accept(last_state, true);
-                }
-
-                for _ in min.length..max_length {
-                    let state = a.create_state();
-                    a.add_transition_label(last_state, state, 0)?;
-                    a.set_accept(state, true);
-                    last_state = state;
-                }
-
-                a.finish_state()?;
-                return Ok(a);
+            debug_assert!(max_length > min.length);
+            if !max_inclusive {
+                max_length -= 1;
             }
+
+            if max_length == min.length {
+                if !min_inclusive {
+                    return Automata::make_empty();
+                } else {
+                    return Automata::make_binary(min);
+                }
+            }
+
+            let mut a = Automaton::new();
+            let mut last_state = a.create_state();
+            for i in 0..min.length {
+                let state = a.create_state();
+                let label = min.bytes[min.offset + i] as i32;
+                a.add_transition_label(last_state, state, label)?;
+                last_state = state;
+            }
+
+            if min_inclusive {
+                a.set_accept(last_state, true);
+            }
+
+            for _ in min.length..max_length {
+                let state = a.create_state();
+                a.add_transition_label(last_state, state, 0)?;
+                a.set_accept(state, true);
+                last_state = state;
+            }
+
+            a.finish_state()?;
+            return Ok(a);
         }
 
         // General case:

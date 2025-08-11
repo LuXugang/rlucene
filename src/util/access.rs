@@ -20,8 +20,8 @@ use std::sync::Arc;
 
 use parking_lot::{Mutex, MutexGuard};
 
-use crate::util::array_util::ArrayUtil;
 use crate::util::SliceCopyOps;
+use crate::util::array_util::ArrayUtil;
 
 /// Provides a unified interface for accessing shared data, abstracting over
 /// single-threaded (`Rc<RefCell<T>>`) and multi-threaded (`Arc<Mutex<T>>`)

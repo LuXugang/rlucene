@@ -17,7 +17,7 @@
 use crate::index::field_invert_state::FieldInvertState;
 use crate::index::index_options::IndexOptions;
 use crate::search::collection_statistics::CollectionStatistics;
-use crate::search::explanation::{explanation_util, Explanation};
+use crate::search::explanation::{Explanation, explanation_util};
 use crate::search::term_statistics::TermStatistics;
 use crate::util::error::lucene_error::Result;
 use crate::util::number::Number;

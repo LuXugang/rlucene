@@ -14,12 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::index::index_commit::{index_commit_util, IndexCommit};
+use crate::index::IndexFileNames;
+use crate::index::index_commit::{IndexCommit, index_commit_util};
 use crate::index::index_deletion_policy::IndexDeletionPolicy;
 use crate::index::index_file_names_util::CODEC_FILE_PATTERN;
 use crate::index::index_writer::IndexWriter;
 use crate::index::segment_infos::SegmentInfos;
-use crate::index::IndexFileNames;
 use crate::store::directory::Directory;
 use crate::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -516,9 +516,9 @@ where
     }
 }
 pub mod index_file_deleter_util {
-    use crate::index::index_writer::index_writer_util;
-    use crate::index::segment_infos::{segment_infos_util, SegmentInfos};
     use crate::index::IndexFileNames;
+    use crate::index::index_writer::index_writer_util;
+    use crate::index::segment_infos::{SegmentInfos, segment_infos_util};
     use crate::store::directory::Directory;
     use crate::util::error::lucene_error::LuceneError;
     use crate::util::error::lucene_error::Result;

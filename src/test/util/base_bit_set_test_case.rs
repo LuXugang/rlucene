@@ -18,8 +18,8 @@ use std::collections::HashSet;
 
 use rand::Rng;
 
-use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::test::util::id_set_common;
 use crate::test::util::id_set_common::clear_range;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
@@ -61,7 +61,7 @@ pub fn random_set_impl<R: Rng + ?Sized>(
 }
 pub trait BaseBitSetTestCase {
     fn copy_of(&self, bs: &RustUtilBitSet, length: i32)
-        -> (impl BitSet, Option<SparseFixedBitSet>);
+    -> (impl BitSet, Option<SparseFixedBitSet>);
     fn assert_equals(
         &self,
         set1: &RustUtilBitSet,

@@ -32,7 +32,7 @@ use crate::util::bit_set::BitSet;
 use crate::util::bits::Bits;
 use crate::util::error::lucene_error::Result;
 use crate::util::fixed_bit_set::FixedBitSet;
-use crate::util::{StringHelper, LATEST};
+use crate::util::{LATEST, StringHelper};
 
 pub trait BaseLiveDocsFormatTestCase {
     fn test_dense_live_docs<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {

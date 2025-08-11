@@ -19,10 +19,11 @@ use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::hash::Hash;
 use std::sync::{
-    atomic::{AtomicBool, Ordering},
     Arc, Mutex,
+    atomic::{AtomicBool, Ordering},
 };
 
+use crate::index::BytesRef;
 use crate::index::buffered_updates::BufferedUpdates;
 use crate::index::buffered_updates_stream::SegmentState;
 use crate::index::field_updates_buffer::FieldUpdatesBuffer;
@@ -31,7 +32,6 @@ use crate::index::postings_enum::postings_enum_util;
 use crate::index::prefix_coded_terms::{PrefixCodedTerms, PrefixCodedTermsBuilder};
 use crate::index::terms::Terms;
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
-use crate::index::BytesRef;
 use crate::search::query::Query;
 use crate::util::access::Access;
 use crate::util::accountable::Accountable;

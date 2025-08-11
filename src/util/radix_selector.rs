@@ -374,7 +374,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::cmp::{min, Ordering};
+    use std::cmp::{Ordering, min};
 
     use rand::Rng;
 

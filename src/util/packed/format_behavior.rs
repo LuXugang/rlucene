@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::packed::{p64sb_util, Format};
+use crate::util::packed::{Format, p64sb_util};
 
 pub trait FormatBehavior {
     fn get_id(&self) -> u32;

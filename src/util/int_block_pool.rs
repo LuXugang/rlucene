@@ -226,11 +226,11 @@ mod tests {
     use rand::Rng;
 
     use crate::test::util::lucene_test_case::lucene_test_case_util::random;
+    use crate::util::CounterEnumBorrow;
     use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::int_block_pool::{
-        ibp_util, AllocatorIntEnum, DirectAllocatorI32, IntBlockPool,
+        AllocatorIntEnum, DirectAllocatorI32, IntBlockPool, ibp_util,
     };
-    use crate::util::CounterEnumBorrow;
 
     #[test]
     fn test_write_read_reset() -> Result<()> {

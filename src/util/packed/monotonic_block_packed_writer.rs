@@ -16,11 +16,11 @@
  */
 use crate::store::DataOutput;
 use crate::util::error::lucene_error::Result;
+use crate::util::packed::PackedInts;
 use crate::util::packed::abstract_block_packed_writer::{
-    write_values, AbstractBlockPackedWriterBase,
+    AbstractBlockPackedWriterBase, write_values,
 };
 use crate::util::packed::monotonic_block_packed_reader::expected;
-use crate::util::packed::PackedInts;
 /// A writer for large monotonically increasing sequences of positive longs.
 ///
 /// The sequence is divided into fixed-size blocks, and for each block, values

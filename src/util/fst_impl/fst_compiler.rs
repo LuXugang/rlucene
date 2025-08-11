@@ -23,7 +23,7 @@ use crate::util::array_util::ArrayUtil;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fst_impl::dummy::dummy_bytes_reader::DummyBytesReader;
-use crate::util::fst_impl::fst::{fst_util, FSTMetadata, InputType, FST};
+use crate::util::fst_impl::fst::{FST, FSTMetadata, InputType, fst_util};
 use crate::util::fst_impl::fst_reader::FstReader;
 use crate::util::fst_impl::growable_byte_array_data_output::GrowableByteArrayDataOutput;
 use crate::util::fst_impl::node_hash::NodeHash;

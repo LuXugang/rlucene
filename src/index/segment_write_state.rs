@@ -20,8 +20,8 @@ use std::sync::Arc;
 use parking_lot::Mutex;
 
 use crate::index::field_infos::FieldInfos;
-use crate::store::directory::Directory;
 use crate::store::IOContext;
+use crate::store::directory::Directory;
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::info_stream::InfoStreamLock;
 

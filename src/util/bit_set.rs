@@ -14,8 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::util::accountable::Accountable;
 use crate::util::bits::Bits;
 use crate::util::error::lucene_error::Result;
@@ -121,7 +121,10 @@ pub mod bit_set_util {
     ///Assert that the current doc is -1.
     pub(crate) fn check_unpositioned(iter: &impl DocIdSetIterator) -> Result<()> {
         if iter.doc_id() != -1 {
-            return Err(LuceneError::illegal_state( format!("This operation only works with an unpositioned iterator, got current position = {}", iter.doc_id())));
+            return Err(LuceneError::illegal_state(format!(
+                "This operation only works with an unpositioned iterator, got current position = {}",
+                iter.doc_id()
+            )));
         }
         Ok(())
     }

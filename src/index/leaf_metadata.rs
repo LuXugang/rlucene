@@ -18,7 +18,7 @@ use derive_getters::Getters;
 
 use crate::index::sort::Sort;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::version::{Version, LATEST};
+use crate::util::version::{LATEST, Version};
 
 #[derive(Getters)]
 pub struct LeafMetaData {

@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 use crate::index::segment_commit_info::SegmentCommitInfo;
-use crate::store::directory::Directory;
 use crate::store::IOContext;
+use crate::store::directory::Directory;
 use crate::util::bits::Bits;
 use crate::util::error::lucene_error::Result;
 use std::collections::HashSet;

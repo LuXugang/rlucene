@@ -263,7 +263,7 @@ where
         self.current_offset = 0;
         self.offsets.clear();
         self.pool.reset(false, true) // no need to 0 fill the buffers we control
-                                     // the allocator
+        // the allocator
     }
 
     fn size(&self) -> i32 {

@@ -234,10 +234,10 @@ impl HnswUtil {
                 stack.push_back(friend_ord);
             }
 
-            if friend_count < max_conn {
-                if let Some(nfc) = not_fully_connected {
-                    nfc.set(node);
-                }
+            if friend_count < max_conn
+                && let Some(nfc) = not_fully_connected
+            {
+                nfc.set(node);
             }
         }
 

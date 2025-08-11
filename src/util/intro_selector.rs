@@ -14,8 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use rand::rngs::ThreadRng;
 use rand::Rng;
+use rand::rngs::ThreadRng;
 
 use crate::util::error::lucene_error::Result;
 use crate::util::intro_sorter::SINGLE_MEDIAN_THRESHOLD;

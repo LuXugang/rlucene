@@ -17,9 +17,9 @@
 use derive_getters::Getters;
 use once_cell::sync::Lazy;
 
+use crate::store::ReadAdvice;
 use crate::store::flush_info::FlushInfo;
 use crate::store::merge_info::MergeInfo;
-use crate::store::ReadAdvice;
 use crate::util::error::lucene_error::{LuceneError, Result};
 
 /// A default context for normal reads/writes. Use

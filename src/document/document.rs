@@ -19,8 +19,8 @@ use std::rc::Rc;
 use std::vec::IntoIter;
 
 use crate::document::fields::Fields;
-use crate::index::indexable_field::IndexableField;
 use crate::index::BytesRef;
+use crate::index::indexable_field::IndexableField;
 use crate::util::error::lucene_error::Result;
 
 /// Documents are the unit of indexing and search.

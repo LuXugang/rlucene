@@ -22,7 +22,7 @@ use rand::Rng;
 use strum::EnumCount;
 
 use crate::codecs::field_infos_format::FieldInfosFormat;
-use crate::codecs::{get_default_code, Codec};
+use crate::codecs::{Codec, get_default_code};
 use crate::document::field_type::FieldType;
 use crate::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::index::doc_values_type::DocValuesType;
@@ -34,15 +34,15 @@ use crate::index::point_values::point_values_util;
 use crate::index::segment_info::SegmentInfo;
 use crate::index::vector_encoding::VectorEncoding;
 use crate::index::vector_similarity_function::VectorSimilarityFunction;
-use crate::store::directory::Directory;
 use crate::store::IOContext;
+use crate::store::directory::Directory;
 use crate::test::util::index_package_access::{
     FieldInfosBuilder, IndexPackageAccess, IndexPackageAccessImpl,
 };
 use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, new_directory};
 use crate::test::util::test_util::TestUtil;
 use crate::util::error::lucene_error::Result;
-use crate::util::{StringHelper, LATEST};
+use crate::util::{LATEST, StringHelper};
 
 pub trait BaseFieldInfoFormatTestCase {
     fn support_doc_values_skip_index(&self) -> bool {

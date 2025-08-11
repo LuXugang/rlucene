@@ -14,11 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::util::CoreHelper;
 use crate::util::array_util::{
     ByteArrayComparatorEnum, CommonPrefixLength4, CommonPrefixLength8, CommonPrefixLengthN,
 };
 use crate::util::bit_util::BitUtil;
-use crate::util::CoreHelper;
 
 pub(crate) struct BKDUtil;
 
@@ -90,11 +90,7 @@ impl BKDUtil {
         let slice_b = &b[b_offset..b_offset + num_bytes];
         let cmp = CoreHelper::miss_match(slice_a, slice_b);
         debug_assert!(num_bytes <= i32::MAX as usize);
-        if cmp == -1 {
-            num_bytes as i32
-        } else {
-            cmp
-        }
+        if cmp == -1 { num_bytes as i32 } else { cmp }
     }
 }
 
@@ -143,9 +139,9 @@ mod tests {
 
     use crate::test::util::lucene_test_case::lucene_test_case_util::random;
     use crate::test::util::test_util::TestUtil;
+    use crate::util::SliceCopyOps;
     use crate::util::bit_util::BitUtil;
     use crate::util::bkd::bkd_util::BKDUtil;
-    use crate::util::SliceCopyOps;
 
     #[allow(dead_code)] // for quick search
     struct TestBKDUtil;

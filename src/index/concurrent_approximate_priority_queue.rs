@@ -104,10 +104,10 @@ where
         let thread_hash = Self::thread_hash();
         for i in 0..self.concurrency {
             let index = ((thread_hash + i) % self.concurrency);
-            if let Some(mut queue) = self.queues[index].try_lock() {
-                if let Some(entry) = queue.poll(&predicate) {
-                    return Some(entry);
-                }
+            if let Some(mut queue) = self.queues[index].try_lock()
+                && let Some(entry) = queue.poll(&predicate)
+            {
+                return Some(entry);
             }
         }
         for i in 0..self.concurrency {
@@ -159,7 +159,7 @@ mod tests {
     use crate::test::util::lucene_test_case::lucene_test_case_util::random;
     use crate::test::util::test_util::TestUtil;
     use crate::util::error::lucene_error::Result;
-    use std::sync::{mpsc, Arc};
+    use std::sync::{Arc, mpsc};
     use std::thread;
 
     impl FlushState for i32 {}

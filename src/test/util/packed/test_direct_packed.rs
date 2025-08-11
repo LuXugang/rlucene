@@ -28,9 +28,9 @@ use crate::test::util::lucene_test_case::lucene_test_case_util::{
 use crate::test::util::test_util::TestUtil;
 use crate::util::error::lucene_error::Result;
 use crate::util::long_values::LongValues;
-use crate::util::packed::direct_reader::DirectReader;
-use crate::util::packed::direct_writer::{direct_writer_util, DirectWriter};
 use crate::util::packed::PackedInts;
+use crate::util::packed::direct_reader::DirectReader;
+use crate::util::packed::direct_writer::{DirectWriter, direct_writer_util};
 
 #[allow(dead_code)] // for quick search
 pub struct TestDirectPacked;

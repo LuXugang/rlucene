@@ -14,20 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codecs::CodecUtil;
 use crate::codecs::indexed_disi::indexed_disi_util;
 use crate::codecs::lucene90_norms_format::Lucene90NormsFormat;
 use crate::codecs::norms_consumer::NormsConsumer;
 use crate::codecs::norms_producer::NormsProducer;
-use crate::codecs::CodecUtil;
+use crate::index::IndexFileNames;
 use crate::index::field_info::FieldInfo;
 use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::segment_info::SegmentInfo;
 use crate::index::segment_write_state::SegmentWriteState;
-use crate::index::IndexFileNames;
-use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::store::directory::Directory;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::store::IndexOutput;
+use crate::store::directory::Directory;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::error::lucene_error::Result;
 use std::sync::Arc;

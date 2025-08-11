@@ -17,8 +17,8 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use crate::store::directory::Directory;
 use crate::store::IndexOutput;
+use crate::store::directory::Directory;
 use crate::util::bit_util::BitUtil;
 use crate::util::bkd::bkd_config::BKDConfig;
 use crate::util::bkd::heap_point_write::HeapPointWriter;
@@ -1795,8 +1795,8 @@ mod tests {
 
         use rand::Rng;
 
-        use crate::store::dummy::dummy_index_output::DummyIndexOutput;
         use crate::store::IndexOutput;
+        use crate::store::dummy::dummy_index_output::DummyIndexOutput;
         use crate::test::util::lucene_test_case::lucene_test_case_util::{new_directory, random};
         use crate::test::util::test_util::TestUtil;
         use crate::util::bkd::bkd_config::BKDConfig;

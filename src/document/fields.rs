@@ -29,9 +29,9 @@ use crate::document::stored_field::StoredField;
 use crate::document::stored_value::StoredValue;
 use crate::document::string_field::StringField;
 use crate::document::text_field::TextField;
+use crate::index::BytesRef;
 use crate::index::indexable_field::IndexableField;
 use crate::index::indexing_chain::ReservedField;
-use crate::index::BytesRef;
 use crate::util::error::lucene_error::Result;
 use crate::util::number::Number;
 

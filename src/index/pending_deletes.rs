@@ -15,20 +15,20 @@
  * limitations under the License.
  */
 use crate::codecs::live_docs_format::LiveDocsFormat;
-use crate::codecs::{get_default_code, Codec};
+use crate::codecs::{Codec, get_default_code};
 use crate::index::codec_reader::CodecReader;
 use crate::index::index_reader::IndexReader;
 use crate::index::leaf_reader::LeafReader;
 use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::index::segment_reader::SegmentReader;
+use crate::store::IOContext;
 use crate::store::directory::Directory;
 use crate::store::tracking_directory_wrapper::TrackingDirectoryWrapper;
-use crate::store::IOContext;
+use crate::util::IOUtils;
 use crate::util::bits::Bits;
 use crate::util::either_enums::EitherBits;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::{FixedBit, FixedBitSet};
-use crate::util::IOUtils;
 use parking_lot::Mutex;
 use std::fmt;
 use std::sync::Arc;
@@ -413,7 +413,7 @@ where
 mod tests {
     use crate::codecs::field_infos_format::FieldInfosFormat;
     use crate::codecs::live_docs_format::LiveDocsFormat;
-    use crate::codecs::{get_default_code, Codec};
+    use crate::codecs::{Codec, get_default_code};
     use crate::index::dummy::dummy_leaf_reader::DummyLeafReader;
     use crate::index::field_infos::FieldInfos;
     use crate::index::pending_deletes::PendingDeletes;
@@ -422,12 +422,12 @@ mod tests {
     use crate::index::segment_reader::SegmentReader;
 
     use crate::codecs::lucene90_live_docs_format::Lucene90LiveDocsFormat;
-    use crate::store::directory::Directory;
     use crate::store::IOContext;
+    use crate::store::directory::Directory;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{new_directory, random};
     use crate::util::bits::Bits;
     use crate::util::error::lucene_error::Result;
-    use crate::util::{StringHelper, LATEST};
+    use crate::util::{LATEST, StringHelper};
     use parking_lot::Mutex;
     use rand::Rng;
     use std::collections::HashMap;

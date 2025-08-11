@@ -16,10 +16,10 @@
  */
 use crate::index::BytesRef;
 use crate::store::{DataInput, DataOutput, IndexInput};
+use crate::util::SliceCopyOps;
 use crate::util::accountable::Accountable;
 use crate::util::array_util::ArrayUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::SliceCopyOps;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
@@ -475,7 +475,7 @@ mod tests {
     use crate::test::util::test_util::TestUtil;
     use crate::util::clone::TryClone;
     use crate::util::error::lucene_error::Result;
-    use crate::util::paged_bytes::{paged_bytes_util, PagedBytes};
+    use crate::util::paged_bytes::{PagedBytes, paged_bytes_util};
 
     #[allow(dead_code)] // for quick search
     struct TestPagedBytes;

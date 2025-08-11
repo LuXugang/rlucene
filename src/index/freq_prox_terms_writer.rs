@@ -14,8 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::codecs::norms_producer::NormsProducer;
 use crate::codecs::Codec;
+use crate::codecs::norms_producer::NormsProducer;
+use crate::index::BytesRef;
 use crate::index::automaton_terms_enum::AutomatonTermsEnum;
 use crate::index::buffered_updates::MTBufferedUpdates;
 use crate::index::field_info::FieldInfo;
@@ -27,7 +28,7 @@ use crate::index::freq_prox_fields::FreqProxFields;
 use crate::index::freq_prox_terms_writer_per_field::FreqProxTermsWriterPerField;
 use crate::index::frozen_buffered_updates::{TermDocsIterator, TermsProviderImpl1};
 use crate::index::index_options::IndexOptions;
-use crate::index::postings_enum::{postings_enum_util, PostingsEnum};
+use crate::index::postings_enum::{PostingsEnum, postings_enum_util};
 use crate::index::segment_info::SegmentInfo;
 use crate::index::segment_write_state::SegmentWriteState;
 use crate::index::sorter::DocMap;
@@ -37,9 +38,8 @@ use crate::index::term_vectors_consumer::TermVectorsConsumer;
 use crate::index::terms::Terms;
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::index::terms_hash::TermsHash;
-use crate::index::BytesRef;
-use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::query::Query;
 use crate::store::byte_buffers_data_input::ByteBuffersDataInputOwned;
 use crate::store::directory::Directory;
@@ -968,8 +968,8 @@ where
 mod tests {
     use std::collections::HashMap;
 
-    use rand::prelude::SliceRandom;
     use rand::Rng;
+    use rand::prelude::SliceRandom;
 
     use crate::index::freq_prox_terms_writer::DocOffsetSorter;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{is_night_mode, random};

@@ -17,19 +17,19 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use crate::codecs::CodecUtil;
 use crate::codecs::lucene90::fields_index::FieldsIndex;
 use crate::codecs::lucene90::fields_index_writer::fields_index_writer_const;
-use crate::codecs::CodecUtil;
 use crate::index::IndexFileNames;
 use crate::store::directory::Directory;
 use crate::store::{IOContext, IndexInput, ReadAdvice};
+use crate::util::StringHelper;
 use crate::util::error::lucene_error::Result;
 use crate::util::long_values::LongValues;
 use crate::util::packed::direct_monotonic_reader::direct_monotonic::Meta;
 use crate::util::packed::direct_monotonic_reader::{
-    direct_monotonic_reader_util, DirectMonotonicReader,
+    DirectMonotonicReader, direct_monotonic_reader_util,
 };
-use crate::util::StringHelper;
 
 pub(crate) struct FieldsIndexReader<I>
 where

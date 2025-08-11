@@ -18,7 +18,7 @@
 use std::cmp::{max, min};
 
 use crate::util::error::lucene_error::Result;
-use crate::util::{sorter, Sorter};
+use crate::util::{Sorter, sorter};
 
 const MIN_RUN: i32 = 32;
 const THRESHOLD: i32 = 64;

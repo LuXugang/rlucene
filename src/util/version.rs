@@ -98,7 +98,9 @@ impl Version {
             )));
         }
         if prerelease != 0 && (minor != 0 || bug_fix != 0) {
-            return Err(IllegalArgumentError::new(format!("Prerelease version only supported with major release (got prerelease: {prerelease}, minor: {minor}, bug_fix: {bug_fix})")));
+            return Err(IllegalArgumentError::new(format!(
+                "Prerelease version only supported with major release (got prerelease: {prerelease}, minor: {minor}, bug_fix: {bug_fix})"
+            )));
         }
         let encoded_value = (major << 18) | (minor << 10) | (bug_fix << 2) | prerelease;
         debug_assert!(Self::encoded_is_valid(
@@ -335,7 +337,7 @@ mod tests {
     use crate::test::util::lucene_test_case::lucene_test_case_util::random;
     use crate::util::error::lucene_error::Result;
     use crate::util::{
-        Version, LATEST, LUCENE_10_0_0, LUCENE_10_1_0, LUCENE_11_0_0, LUCENE_CURRENT,
+        LATEST, LUCENE_10_0_0, LUCENE_10_1_0, LUCENE_11_0_0, LUCENE_CURRENT, Version,
     };
 
     #[allow(dead_code)] // for quick search

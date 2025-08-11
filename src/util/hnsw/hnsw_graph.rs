@@ -17,9 +17,9 @@
 use std::sync::Arc;
 
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::util::SliceCopyOps;
 use crate::util::error::lucene_error::Result;
 use crate::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph;
-use crate::util::SliceCopyOps;
 /// Hierarchical Navigable Small World (HNSW) graph.
 ///
 /// Provides efficient approximate nearest neighbor search for high-dimensional

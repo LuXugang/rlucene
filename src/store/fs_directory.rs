@@ -18,21 +18,21 @@ use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use std::fs::File;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::sync::atomic::Ordering::SeqCst;
 use std::sync::atomic::{AtomicU32, AtomicU64};
-use std::sync::Arc;
 use std::{fs, io};
 
 use parking_lot::Mutex;
 
 use crate::store::base_directory::BaseDirectory;
-use crate::store::directory::{get_temp_file_name, Directory};
+use crate::store::directory::{Directory, get_temp_file_name};
 use crate::store::fs_directory_base::FSDirectoryBase;
 use crate::store::lock::Lock;
 use crate::store::lock_factory::LockFactory;
 use crate::store::{IOContext, NativeFSLockFactory, OutputStreamIndexOutput};
-use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::IOUtils;
+use crate::util::error::lucene_error::{LuceneError, Result};
 
 /// Base trait for `Directory` implementations that store index files in the
 /// file system. There are currently two core implementations:
@@ -67,7 +67,6 @@ use crate::util::IOUtils;
 pub struct FSDirectory<D, T>
 where
     D: LockFactory,
-
     T: FSDirectoryBase,
 {
     directory: PathBuf,
@@ -84,7 +83,6 @@ where
 impl<D, T> FSDirectory<D, T>
 where
     D: LockFactory,
-
     T: FSDirectoryBase,
 {
     pub fn with_lock_factory(
@@ -112,10 +110,10 @@ where
             let entry = entry?;
             let name = entry.file_name().to_string_lossy().to_string();
 
-            if let Some(skip) = &skip_names {
-                if skip.contains(&name) {
-                    continue;
-                }
+            if let Some(skip) = &skip_names
+                && skip.contains(&name)
+            {
+                continue;
             }
 
             entries.push(name);
@@ -253,7 +251,6 @@ where
 impl<D, T> Directory for FSDirectory<D, T>
 where
     D: LockFactory,
-
     T: FSDirectoryBase,
 {
     fn list_all(&self) -> Result<Vec<String>> {
@@ -414,7 +411,7 @@ where
         if pending_deletes.remove(dest) {
             Self::private_delete_file(&self.directory, dest, true, &mut pending_deletes)?; // try again to delete it - this is the best effort
             pending_deletes.remove(dest); // watch out if the delete fails, it's
-                                          // back in here
+            // back in here
         }
 
         let source_path = self.directory.join(source);
@@ -457,7 +454,6 @@ where
 impl<D, T> Display for FSDirectory<D, T>
 where
     D: LockFactory,
-
     T: FSDirectoryBase,
 {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
@@ -474,7 +470,6 @@ where
 impl<D, T> BaseDirectory for FSDirectory<D, T>
 where
     D: LockFactory,
-
     T: FSDirectoryBase,
 {
     fn obtain_lock(&mut self, name: &str) -> Result<impl Lock> {
@@ -484,7 +479,6 @@ where
 impl<D, T> Drop for FSDirectory<D, T>
 where
     D: LockFactory,
-
     T: FSDirectoryBase,
 {
     fn drop(&mut self) {

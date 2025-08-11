@@ -14,8 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::codecs::field_infos_format::FieldInfosFormat;
 use crate::codecs::CodecUtil;
+use crate::codecs::field_infos_format::FieldInfosFormat;
+use crate::index::IndexFileNames;
 use crate::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::index::doc_values_type::DocValuesType;
 use crate::index::field_info::FieldInfo;
@@ -24,7 +25,6 @@ use crate::index::index_options::IndexOptions;
 use crate::index::segment_info::SegmentInfo;
 use crate::index::vector_encoding::VectorEncoding;
 use crate::index::vector_similarity_function::VectorSimilarityFunction;
-use crate::index::IndexFileNames;
 use crate::store::directory::Directory;
 use crate::store::{DataInput, DataOutput, IOContext, IndexInput};
 use crate::util::error::lucene_error::{LuceneError, Result};

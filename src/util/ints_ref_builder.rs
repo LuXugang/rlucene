@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 use crate::index::BytesRef;
+use crate::util::SliceCopyOps;
 use crate::util::access::AccessVec;
 use crate::util::array_util::ArrayUtil;
 use crate::util::ints_ref::IntsRef;
-use crate::util::SliceCopyOps;
 
 /// A builder for [`IntsRef`] instances.
 ///

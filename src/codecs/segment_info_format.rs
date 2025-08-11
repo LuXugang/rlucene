@@ -19,10 +19,10 @@ use std::sync::Arc;
 use parking_lot::Mutex;
 
 use crate::index::segment_info::SegmentInfo;
-use crate::store::directory::Directory;
 use crate::store::IOContext;
-use crate::util::error::lucene_error::Result;
+use crate::store::directory::Directory;
 use crate::util::StringHelper;
+use crate::util::error::lucene_error::Result;
 
 /// Expert: Controls the format of the [`SegmentInfo`] (segment metadata file).
 ///

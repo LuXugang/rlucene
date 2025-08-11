@@ -15,12 +15,12 @@
  * limitations under the License.
  */
 use std::fmt::{Display, Formatter};
-use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicI64, Ordering};
 
 use parking_lot::Mutex;
 
-use crate::index::buffered_updates::{buffered_updates_util, BufferedUpdates, MTBufferedUpdates};
+use crate::index::buffered_updates::{BufferedUpdates, MTBufferedUpdates, buffered_updates_util};
 use crate::index::doc_values_type::DocValuesType;
 use crate::index::doc_values_update::{DocValuesUpdate, DocValuesUpdateBase};
 use crate::index::frozen_buffered_updates::FrozenBufferedUpdates;
@@ -847,10 +847,10 @@ impl Display for DocValuesUpdatesNode {
                     update.sub_update.value_to_string()
                 ));
             }
-            if let Some(last_char) = sb.pop() {
-                if last_char != ',' {
-                    sb.push(last_char);
-                }
+            if let Some(last_char) = sb.pop()
+                && last_char != ','
+            {
+                sb.push(last_char);
             }
             sb.push(']');
         }
@@ -939,7 +939,7 @@ mod tests {
     use rand::Rng;
 
     use crate::index::buffered_updates::{
-        buffered_updates_util, BufferedUpdates, BufferedUpdatesLock, MTBufferedUpdates,
+        BufferedUpdates, BufferedUpdatesLock, MTBufferedUpdates, buffered_updates_util,
     };
     use crate::index::doc_values_type::DocValuesType;
     use crate::index::doc_values_update::{

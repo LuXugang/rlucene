@@ -30,9 +30,9 @@ use crate::util::bytes_ref_block_pool::BytesRefBlockPool;
 use crate::util::error::lucene_error::Result;
 use crate::util::{
     ByteBlockPool, ByteBlockPoolBorrow, ByteBlockPoolLock, BytesRefComparator, Comparator, Counter,
-    CounterEnum, CounterEnumBorrow, CounterEnumLock, MSBRadixSorter, MSBRadixSorterBase, Natural,
-    Sorter, StringHelper, StringSorter, StringSorterBase, GOOD_FAST_HASH_SEED, HISTOGRAM_SIZE,
-    LEVEL_THRESHOLD,
+    CounterEnum, CounterEnumBorrow, CounterEnumLock, GOOD_FAST_HASH_SEED, HISTOGRAM_SIZE,
+    LEVEL_THRESHOLD, MSBRadixSorter, MSBRadixSorterBase, Natural, Sorter, StringHelper,
+    StringSorter, StringSorterBase,
 };
 
 /// `BytesRefHash` is a special purpose hash-map like data structure optimized
@@ -523,7 +523,6 @@ pub(crate) struct StringSorterImpl<'a, C, B, BSA>
 where
     C: Access<CounterEnum>,
     B: Access<ByteBlockPool<C>>,
-
     BSA: BytesStartArray,
 {
     tmp_offset: i32,
@@ -537,7 +536,6 @@ impl<'a, C, B, BSA> StringSorterImpl<'a, C, B, BSA>
 where
     C: Access<CounterEnum>,
     B: Access<ByteBlockPool<C>>,
-
     BSA: BytesStartArray,
 {
     pub fn new(
@@ -568,7 +566,6 @@ impl<C, B, BSA> MSBRadixSorterBase for StringSorterImpl<'_, C, B, BSA>
 where
     C: Access<CounterEnum>,
     B: Access<ByteBlockPool<C>>,
-
     BSA: BytesStartArray,
 {
     fn byte_at(&mut self, i: i32, k: i32) -> Result<i32> {
@@ -632,7 +629,6 @@ impl<C, B, BSA> Sorter for StringSorterImpl<'_, C, B, BSA>
 where
     C: Access<CounterEnum>,
     B: Access<ByteBlockPool<C>>,
-
     BSA: BytesStartArray,
 {
     fn swap(&mut self, i: i32, j: i32) -> Result<()> {
@@ -644,7 +640,6 @@ impl<C, B, BSA> StringSorterBase for StringSorterImpl<'_, C, B, BSA>
 where
     C: Access<CounterEnum>,
     B: Access<ByteBlockPool<C>>,
-
     BSA: BytesStartArray,
 {
     fn get(
@@ -883,7 +878,7 @@ mod tests {
     use crate::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
     use crate::util::bytes_ref_hash::{BytesRefHash, DirectBytesStartArray, MTBytesRefHash};
     use crate::util::error::lucene_error::{LuceneError, Result};
-    use crate::util::{byte_block_pool_util, ByteBlockPool, ByteBlockPoolLock};
+    use crate::util::{ByteBlockPool, ByteBlockPoolLock, byte_block_pool_util};
 
     #[allow(dead_code)] // for quick search
     pub struct TestBytesRefHash;

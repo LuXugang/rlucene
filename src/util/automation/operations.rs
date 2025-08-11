@@ -26,6 +26,7 @@ use bit_set::BitSet;
 use crate::index::{BytesRef, BytesRefBuilder};
 use crate::internal::hppc::bit_mixer::BitMixer;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::util::BitSetExt;
 use crate::util::array_util::ArrayUtil;
 use crate::util::automation::automata::Automata;
 use crate::util::automation::automaton::{Automaton, Builder};
@@ -41,7 +42,6 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::ints_ref::IntsRef;
 use crate::util::ints_ref_builder::IntsRefBuilder;
-use crate::util::BitSetExt;
 
 /// Automata operations.
 pub struct Operations;
@@ -577,7 +577,12 @@ impl Operations {
         while let Some(mut s) = worklist.pop_front() {
             effort_spent += s.get_array().len() as u64;
             if effort_spent >= effort_limit {
-                return Err(LuceneError::too_complex_to_determinize(format!("Determinizing automaton with {}, states and {} transitions would require more than {} effort.",a.get_num_states(), a.get_num_transitions(), work_limit)));
+                return Err(LuceneError::too_complex_to_determinize(format!(
+                    "Determinizing automaton with {}, states and {} transitions would require more than {} effort.",
+                    a.get_num_states(),
+                    a.get_num_transitions(),
+                    work_limit
+                )));
             }
 
             // Collate outgoing transitions:
@@ -1563,10 +1568,12 @@ pub(crate) mod tests {
         let a = generate_random_automaton(true, &mut random)?;
         let result = Operations::topo_sort_states(&a);
         assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("input automaton has a cycle"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("input automaton has a cycle")
+        );
         Ok(())
     }
     #[test]
@@ -1672,10 +1679,12 @@ pub(crate) mod tests {
 
         let result = AutomatonTestUtil::is_finite(&a);
         assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("input automaton is too large"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("input automaton is too large")
+        );
 
         Ok(())
     }

@@ -17,19 +17,19 @@
 use std::fmt::{Display, Formatter};
 use std::io::{Read, Write};
 
+use flate2::Compression;
 use flate2::read::DeflateDecoder;
 use flate2::write::DeflateEncoder;
-use flate2::Compression;
 
 use crate::codecs::compression::compressor::Compressor;
 use crate::codecs::compression::decompressor::Decompressor;
 use crate::codecs::lz4_with_preset_dict_compression_mode::{
     LZ4WithPresetDictCompressionMode, LZ4WithPresetDictCompressor, LZ4WithPresetDictDecompressor,
 };
+use crate::index::BytesRef;
 use crate::index::sorting_stored_fields_consumer::{
     CompressorImpl, DecompressorImpl, NoCompression,
 };
-use crate::index::BytesRef;
 use crate::store::byte_buffers_data_input::ByteBuffersDataInput;
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{DataInput, DataOutput};

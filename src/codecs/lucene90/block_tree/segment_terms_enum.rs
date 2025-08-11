@@ -29,6 +29,7 @@ use crate::index::terms::Terms;
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::index::{BytesRef, BytesRefBuilder};
 use crate::store::{ByteArrayDataInput, DataInput, IndexInput};
+use crate::util::ToInt;
 use crate::util::array_util::ArrayUtil;
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
@@ -36,7 +37,6 @@ use crate::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fst_impl::fst::Arc;
 use crate::util::fst_impl::reverse_random_access_reader::ReverseRandomAccessReader;
-use crate::util::ToInt;
 
 /// Iterates through terms in this field.
 pub struct SegmentTermsEnum<I, P>
@@ -819,15 +819,15 @@ where
         other_state: &TermStateEnum,
     ) -> Result<()> {
         debug_assert!(self.clear_eof());
-        if target.cmp(self.term.get_bytes_mut_ref()).to_int() != 0 || !self.term_exists {
-            if let TermStateEnum::Block(_) = other_state {
-                self.static_frame.state.copy_from(other_state)?;
-                self.current_frame_idx = self.static_frame_idx;
-                self.term.copy_bytes_with_ref(target);
-                self.static_frame.meta_data_upto = self.static_frame.get_term_block_ord();
-                debug_assert!(self.static_frame.meta_data_upto > 0);
-                self.valid_index_prefix = 0;
-            }
+        if (target.cmp(self.term.get_bytes_mut_ref()).to_int() != 0 || !self.term_exists)
+            && let TermStateEnum::Block(_) = other_state
+        {
+            self.static_frame.state.copy_from(other_state)?;
+            self.current_frame_idx = self.static_frame_idx;
+            self.term.copy_bytes_with_ref(target);
+            self.static_frame.meta_data_upto = self.static_frame.get_term_block_ord();
+            debug_assert!(self.static_frame.meta_data_upto > 0);
+            self.valid_index_prefix = 0;
         }
         Ok(())
     }

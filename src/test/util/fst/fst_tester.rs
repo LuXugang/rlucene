@@ -21,14 +21,15 @@ use std::rc::Rc;
 
 use rand::Rng;
 
-use crate::store::directory::Directory;
 use crate::store::IOContext;
+use crate::store::directory::Directory;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
     at_least, new_io_context, random_from_seed,
 };
+use crate::util::ToInt;
 use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::fst_impl::fst::{fst_util, Arc, InputType, FST};
+use crate::util::fst_impl::fst::{Arc, FST, InputType, fst_util};
 use crate::util::fst_impl::fst_compiler::{Builder, DataOutputEnum};
 use crate::util::fst_impl::fst_reader::FstReader;
 use crate::util::fst_impl::ints_ref_fst_enum::IntsRefFSTEnum;
@@ -36,7 +37,6 @@ use crate::util::fst_impl::on_heap_fst_store::OnHeapFSTStore;
 use crate::util::fst_impl::outputs::{Outputs, OutputsBound};
 use crate::util::ints_ref::IntsRef;
 use crate::util::ints_ref_builder::IntsRefBuilder;
-use crate::util::ToInt;
 /// Helper struct to test FSTs.
 pub struct FSTTester<D, R, O, S>
 where

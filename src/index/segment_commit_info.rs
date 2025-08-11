@@ -17,13 +17,13 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicI64, Ordering};
 
+use crate::codecs::LATEST_CODEC;
 use crate::codecs::codec::Codec;
 use crate::codecs::live_docs_format::LiveDocsFormat;
-use crate::codecs::LATEST_CODEC;
-use crate::index::segment_info::{segment_info_util, SegmentInfo};
+use crate::index::segment_info::{SegmentInfo, segment_info_util};
 use crate::store::directory::Directory;
-use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::StringHelper;
+use crate::util::error::lucene_error::{LuceneError, Result};
 
 pub struct SegmentCommitInfo<D>
 where

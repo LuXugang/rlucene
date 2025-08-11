@@ -559,11 +559,7 @@ impl TransitionAccessor for Automaton {
         debug_assert!(state >= 0);
         debug_assert!(state < self.get_num_states());
         let count = self.states[2 * state as usize + 1];
-        if count == -1 {
-            0
-        } else {
-            count
-        }
+        if count == -1 { 0 } else { count }
     }
 
     fn get_transition(&self, state: i32, index: i32, t: &mut Transition) {
@@ -927,8 +923,8 @@ mod tests {
     use std::borrow::Cow;
     use std::collections::{BTreeSet, HashSet};
 
-    use rand::prelude::SliceRandom;
     use rand::Rng;
+    use rand::prelude::SliceRandom;
 
     use crate::index::{BytesRef, BytesRefBuilder};
     use crate::test::util::automaton::automaton_test_util::{
@@ -940,10 +936,11 @@ mod tests {
         random_from_seed,
     };
     use crate::test::util::test_util::TestUtil;
+    use crate::util::ToInt;
     use crate::util::automation::automata::Automata;
     use crate::util::automation::automaton::{Automaton, Builder};
-    use crate::util::automation::operations::tests::TestOperations;
     use crate::util::automation::operations::Operations;
+    use crate::util::automation::operations::tests::TestOperations;
     use crate::util::automation::reg_exp::RegExp;
     use crate::util::automation::transition::Transition;
     use crate::util::automation::transition_accessor::TransitionAccessor;
@@ -953,7 +950,6 @@ mod tests {
     use crate::util::ints_ref::IntsRef;
     use crate::util::ints_ref_builder::IntsRefBuilder;
     use crate::util::unicode_util::UnicodeUtil;
-    use crate::util::ToInt;
 
     #[allow(dead_code)] // for quick search
     struct TestAutomaton;
@@ -1126,10 +1122,12 @@ mod tests {
 
         let result = Operations::get_common_prefix(&with_dead_states);
         assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .eq("input automaton has dead states"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .eq("input automaton has dead states")
+        );
 
         Ok(())
     }

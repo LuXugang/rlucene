@@ -17,22 +17,22 @@
 use crate::codecs::mutable_point_tree::MutablePointTree;
 use crate::codecs::points_reader::PointsReader;
 use crate::codecs::points_writer::PointsWriter;
+use crate::index::BytesRef;
 use crate::index::field_info::FieldInfo;
 use crate::index::point_values::{
     IntersectVisitor, PointTree, PointValues, PointValuesBase, Relation,
 };
 use crate::index::segment_write_state::SegmentWriteState;
 use crate::index::sorter::DocMap;
-use crate::index::BytesRef;
-use crate::store::directory::Directory;
 use crate::store::DataOutput;
+use crate::store::directory::Directory;
 use crate::util::accountable::Accountable;
 use crate::util::array_util::ArrayUtil;
 use crate::util::bit_util::BitUtil;
 use crate::util::either_enums::EitherMutablePointTree;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::paged_bytes::{
-    paged_bytes_util, PagedBytes, PagedBytesDataOutput, PagedBytesReader,
+    PagedBytes, PagedBytesDataOutput, PagedBytesReader, paged_bytes_util,
 };
 use crate::util::{Counter, CounterEnumLock, SliceCopyOps};
 use std::cell::RefCell;

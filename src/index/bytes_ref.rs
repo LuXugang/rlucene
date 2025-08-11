@@ -21,7 +21,7 @@ use std::rc::Rc;
 
 use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::{HashCode, StringHelper, GOOD_FAST_HASH_SEED};
+use crate::util::{GOOD_FAST_HASH_SEED, HashCode, StringHelper};
 use crate::with_other;
 
 /// Represents a `&[u8]` as a slice (offset + length) into an existing byte
@@ -254,8 +254,8 @@ where
 mod tests {
     use std::ptr;
 
-    use rand::distr::Alphanumeric;
     use rand::Rng;
+    use rand::distr::Alphanumeric;
 
     use crate::index::BytesRef;
     use crate::test::util::lucene_test_case::lucene_test_case_util::random;

@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 use crate::index::bytes_ref::BytesRef;
+use crate::util::SliceCopyOps;
 use crate::util::access::AccessVec;
 use crate::util::array_util::ArrayUtil;
-use crate::util::SliceCopyOps;
 
 /// A builder for {@link BytesRef} instances.
 pub struct BytesRefBuilder<AV>

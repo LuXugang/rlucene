@@ -26,10 +26,10 @@ use crate::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_hash::{BytesRefHash, BytesStartArray};
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::int_block_pool::{ibp_util, IntBlockPool, IntBlockPoolLock};
+use crate::util::int_block_pool::{IntBlockPool, IntBlockPoolLock, ibp_util};
 use crate::util::{
-    byte_block_pool_util, ByteBlockPool, ByteBlockPoolLock, Counter, CounterEnum, CounterEnumLock,
-    SliceCopyOps,
+    ByteBlockPool, ByteBlockPoolLock, Counter, CounterEnum, CounterEnumLock, SliceCopyOps,
+    byte_block_pool_util,
 };
 use parking_lot::Mutex;
 use std::sync::Arc;
@@ -556,11 +556,12 @@ pub(crate) mod tests {
     use parking_lot::Mutex;
     use std::collections::{BTreeMap, HashMap};
 
-    use std::sync::atomic::{AtomicI64, Ordering};
     use std::sync::Arc;
+    use std::sync::atomic::{AtomicI64, Ordering};
 
     use crate::document::fields::Fields;
     use crate::document::stored_field::StoredField;
+    use crate::index::BytesRef;
     use crate::index::byte_slice_reader::ByteSliceReader;
     use crate::index::field_info::FieldInfo;
     use crate::index::field_invert_state::FieldInvertState;
@@ -570,9 +571,8 @@ pub(crate) mod tests {
     use crate::index::parallel_postings_array::PostingsArrayEnum;
     use crate::index::term_vectors_consumer::TermVectorsConsumer;
     use crate::index::terms_hash_per_field::{PostingsArrayWrapper, TermsHashPerField};
-    use crate::index::BytesRef;
-    use crate::store::dummy::dummy_directory::DummyDirectory;
     use crate::store::DataInput;
+    use crate::store::dummy::dummy_directory::DummyDirectory;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
         new_bytes_ref_from_string, random,
     };
@@ -582,9 +582,9 @@ pub(crate) mod tests {
     use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::int_block_pool::{AllocatorIntEnum, DirectAllocatorI32};
     use crate::util::{ByteBlockPool, CounterEnum};
+    use rand::Rng;
     use rand::distr::Alphanumeric;
     use rand::prelude::SliceRandom;
-    use rand::Rng;
 
     #[allow(dead_code)] // for quick search
     struct TestTermsHashPerField;

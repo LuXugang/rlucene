@@ -14,12 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::index::BytesRef;
 use crate::index::automaton_terms_enum::AutomatonTermsEnum;
 use crate::index::dummy::dummy_terms_enum::DummyTermsEnum;
 use crate::index::filtered_terms_enum::FilteredTermsEnum;
 use crate::index::terms::Terms;
 use crate::index::terms_enum::TermsEnum;
-use crate::index::BytesRef;
 use crate::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::util::error::lucene_error::Result;
 use std::borrow::Cow;

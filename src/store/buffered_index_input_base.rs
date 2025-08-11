@@ -16,8 +16,8 @@
  */
 use std::io::Cursor;
 
-use crate::store::random_access_input::RandomAccessInput;
 use crate::store::IndexInput;
+use crate::store::random_access_input::RandomAccessInput;
 use crate::util::error::lucene_error::Result;
 
 pub trait BufferedIndexInputBase: crate::util::clone::TryClone {
@@ -34,7 +34,7 @@ pub trait BufferedIndexInputBase: crate::util::clone::TryClone {
     /// # Arguments
     /// * `b` - The buffer to read bytes into.
     fn read_internal(&mut self, b: &mut Cursor<Vec<u8>>, len: i64, file_pointer: i64)
-        -> Result<()>;
+    -> Result<()>;
 
     /// Creates a slice of this index input, with the given description, offset,
     /// and length. The slice is positioned at the beginning.

@@ -18,10 +18,10 @@ use std::collections::HashSet;
 
 use num_bigint::BigInt;
 
-use crate::codecs::live_docs_format::LiveDocsFormat;
 use crate::codecs::CodecUtil;
-use crate::index::segment_commit_info::SegmentCommitInfo;
+use crate::codecs::live_docs_format::LiveDocsFormat;
 use crate::index::IndexFileNames;
+use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::store::directory::Directory;
 use crate::store::{IOContext, IndexInput, IndexOutput};
 use crate::util::bit_set::BitSet;

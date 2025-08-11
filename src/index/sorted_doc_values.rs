@@ -16,11 +16,11 @@
  */
 use std::borrow::Cow;
 
+use crate::index::BytesRef;
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::terms_enum::TermsEnum;
-use crate::index::BytesRef;
-use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::ToInt;
+use crate::util::error::lucene_error::{LuceneError, Result};
 
 /// A per-document `byte[]` with presorted values. This is fundamentally an
 /// iterator over the `int` ord values per document, with random access APIs to

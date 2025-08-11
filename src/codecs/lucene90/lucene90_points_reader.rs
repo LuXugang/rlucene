@@ -17,8 +17,8 @@
 use crate::codecs::points_reader::PointsReader;
 use crate::index::point_values::PointValues;
 use crate::index::segment_read_state::SegmentReadState;
-use crate::store::directory::Directory;
 use crate::store::IndexInput;
+use crate::store::directory::Directory;
 use crate::util::bkd::bkd_reader::BKDReader;
 use crate::util::error::lucene_error::Result;
 

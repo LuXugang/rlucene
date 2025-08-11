@@ -17,13 +17,13 @@
 use crate::codecs::block_term_state::BlockTermStateEnum;
 use crate::codecs::norms_producer::NormsProducer;
 use crate::codecs::postings_writer_base::PostingsWriterBase;
+use crate::index::BytesRef;
 use crate::index::field_info::FieldInfo;
 use crate::index::index_options::IndexOptions;
-use crate::index::postings_enum::{postings_enum_util, PostingsEnum};
+use crate::index::postings_enum::{PostingsEnum, postings_enum_util};
 use crate::index::segment_info::SegmentInfo;
 use crate::index::segment_write_state::SegmentWriteState;
 use crate::index::terms_enum::TermsEnum;
-use crate::index::BytesRef;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::store::directory::Directory;
 use crate::store::{DataOutput, IndexOutput};

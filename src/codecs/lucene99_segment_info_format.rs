@@ -18,13 +18,13 @@ use std::sync::Arc;
 
 use parking_lot::Mutex;
 
-use crate::codecs::segment_info_format::SegmentInfoFormat;
 use crate::codecs::CodecUtil;
-use crate::index::index_sorter::IndexSorter;
-use crate::index::segment_info::{seg_info, SegmentInfo};
-use crate::index::sort::Sort;
-use crate::index::sort_field_provider::{for_name, write, SortFieldProvider};
+use crate::codecs::segment_info_format::SegmentInfoFormat;
 use crate::index::IndexFileNames;
+use crate::index::index_sorter::IndexSorter;
+use crate::index::segment_info::{SegmentInfo, seg_info};
+use crate::index::sort::Sort;
+use crate::index::sort_field_provider::{SortFieldProvider, for_name, write};
 use crate::search::sort_field::SortFiledBase;
 use crate::store::directory::Directory;
 use crate::store::{DataInput, DataOutput, IOContext};
@@ -121,7 +121,7 @@ impl Lucene99SegmentInfoFormat {
             _ => {
                 return Err(LuceneError::corrupt_index(format!(
                     "Illegal boolean value : {has_min_version} (resource={input})"
-                )))
+                )));
             },
         };
 
@@ -339,7 +339,7 @@ mod tests {
     use crate::test::index::base_segment_info_format_test_case::BaseSegmentInfoFormatTestCase;
     use crate::test::util::lucene_test_case::lucene_test_case_util::random;
     use crate::util::error::lucene_error::Result;
-    use crate::util::{Version, LATEST};
+    use crate::util::{LATEST, Version};
 
     pub struct TestLucene99SegmentInfoFormat;
 

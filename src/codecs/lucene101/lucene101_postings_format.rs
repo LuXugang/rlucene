@@ -19,7 +19,7 @@ use std::fmt::{Display, Formatter};
 use crate::codecs::block_term_state::{BlockTermState, BlockTermStateEnum};
 use crate::codecs::block_tree::lucene90_block_tree_terms_reader::Lucene90BlockTreeTermsReader;
 use crate::codecs::block_tree::lucene90_block_tree_terms_writer::{
-    lucene90_bttw_util, Lucene90BlockTreeTermsWriter,
+    Lucene90BlockTreeTermsWriter, lucene90_bttw_util,
 };
 use crate::codecs::fields_consumer::FieldsConsumerEnum;
 use crate::codecs::fields_producer::FieldsProducerEnum;
@@ -447,7 +447,7 @@ mod tests {
 
     use crate::codecs::competitive_impact_accumulator::CompetitiveImpactAccumulator;
     use crate::codecs::lucene101::lucene101_postings_reader::{
-        lucene101_pr_util, MutableImpactList,
+        MutableImpactList, lucene101_pr_util,
     };
     use crate::codecs::lucene101::lucene101_postings_writer::lucene101_pw_util;
     use crate::index::impact::Impact;

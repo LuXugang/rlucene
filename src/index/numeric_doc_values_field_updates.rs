@@ -18,19 +18,19 @@ use std::sync::Arc;
 
 use parking_lot::Mutex;
 
+use crate::index::BytesRef;
 use crate::index::doc_values_field_updates::{
-    dvfu_util, AbstractIterator, AbstractIteratorBase, DocValuesFieldInner, DocValuesFieldIterator,
-    DocValuesFieldUpdatesBase, SingleValueDocValuesFieldUpdatesBase,
+    AbstractIterator, AbstractIteratorBase, DocValuesFieldInner, DocValuesFieldIterator,
+    DocValuesFieldUpdatesBase, SingleValueDocValuesFieldUpdatesBase, dvfu_util,
 };
 use crate::index::doc_values_type::DocValuesType;
-use crate::index::BytesRef;
 use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::long_values::LongValues;
+use crate::util::packed::PackedInts;
 use crate::util::packed::abstract_paged_mutable::{AbstractPagedMutable, AbstractPagedMutableBase};
 use crate::util::packed::paged_growable_writer::PagedGrowableWriter;
 use crate::util::packed::paged_mutable::PagedMutable;
-use crate::util::packed::PackedInts;
 
 pub(crate) struct NumericDocValuesFieldUpdates<T>
 where

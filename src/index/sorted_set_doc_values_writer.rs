@@ -29,19 +29,19 @@ use crate::index::segment_info::SegmentInfo;
 use crate::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
 use crate::index::sorted_doc_values_terms_enum::SortedDocValuesTermsEnum;
 use crate::index::sorted_doc_values_writer::{
-    sdvw_util, BufferedSortedDocValues, SortingSortedDocValues,
+    BufferedSortedDocValues, SortingSortedDocValues, sdvw_util,
 };
 use crate::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::index::sorter::DocMap;
-use crate::index::{docs_with_field_set::DocsWithFieldSet, field_info::FieldInfo, BytesRef};
+use crate::index::{BytesRef, docs_with_field_set::DocsWithFieldSet, field_info::FieldInfo};
 use crate::search::doc_id_set::DocIdSet;
-use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::store::directory::Directory;
 use crate::util::accountable::Accountable;
 use crate::util::array_util::ArrayUtil;
 use crate::util::bit_util::BitUtil;
-use crate::util::bytes_ref_hash::{brh_util, BytesRefHash, DirectBytesStartArray, MTBytesRefHash};
+use crate::util::bytes_ref_hash::{BytesRefHash, DirectBytesStartArray, MTBytesRefHash, brh_util};
 use crate::util::either_enums::{EitherSortedDocValues, EitherSortedSetDocValues};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::long_values::LongValues;
@@ -50,7 +50,7 @@ use crate::util::packed::packed_long_values::{
     PackedLongValues, PackedLongValuesBuilder, PackedLongValuesIterator,
 };
 use crate::util::packed::{Mutable, PackedInts, Reader};
-use crate::util::{byte_block_pool_util, ByteBlockPoolLock, Counter, CounterEnumLock};
+use crate::util::{ByteBlockPoolLock, Counter, CounterEnumLock, byte_block_pool_util};
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;

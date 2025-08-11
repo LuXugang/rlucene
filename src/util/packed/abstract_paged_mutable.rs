@@ -86,11 +86,7 @@ where
     }
     fn last_page_size(&self, size: i64) -> i32 {
         let sz = self.index_in_page(size);
-        if sz == 0 {
-            self.page_size()
-        } else {
-            sz
-        }
+        if sz == 0 { self.page_size() } else { sz }
     }
     fn page_size(&self) -> i32 {
         self.page_mask + 1

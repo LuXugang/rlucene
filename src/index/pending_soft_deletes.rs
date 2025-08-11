@@ -16,14 +16,14 @@
  */
 use crate::codecs::field_infos_format::FieldInfosFormat;
 use crate::codecs::live_docs_format::LiveDocsFormat;
-use crate::codecs::{get_default_code, Codec, CompoundFormat};
+use crate::codecs::{Codec, CompoundFormat, get_default_code};
 use crate::index::field_infos::FieldInfos;
 use crate::index::leaf_reader::LeafReader;
 use crate::index::pending_deletes::PendingDeletes;
 use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::index::segment_reader::SegmentReader;
-use crate::store::directory::Directory;
 use crate::store::IOContext;
+use crate::store::directory::Directory;
 use crate::util::either_enums::EitherBits;
 use crate::util::error::lucene_error::Result;
 use crate::util::fixed_bit_set::FixedBit;
@@ -249,8 +249,8 @@ where
     }
 }
 pub(crate) mod pending_soft_deletes_util {
-    use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::search::doc_id_set_iterator::DocIdSetIterator;
+    use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::util::bits::Bits;
     use crate::util::error::lucene_error::Result;
     pub(crate) fn count_soft_deletes(

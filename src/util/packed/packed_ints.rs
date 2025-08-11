@@ -26,10 +26,10 @@ use crate::util::packed::bulk_operation::bulk_operation_util;
 use crate::util::packed::bulk_operation_packed_enum::BulkOperationPackedEnum;
 use crate::util::packed::format_behavior::{PackedImpl, PackedSingleBlockImpl};
 use crate::util::packed::mutable_packed64_enum::MutablePacked64Enum;
-use crate::util::packed::packed64::Packed64;
-use crate::util::packed::packed64_single_block::create;
 use crate::util::packed::packed_reader_iterator::PackedReaderIterator;
 use crate::util::packed::packed_writer::PackedWriter;
+use crate::util::packed::packed64::Packed64;
+use crate::util::packed::packed64_single_block::create;
 
 pub struct PackedInts;
 impl PackedInts {
@@ -1062,7 +1062,7 @@ mod tests {
 
     use crate::store::directory::Directory;
     use crate::store::{
-        ByteArrayDataInput, DataInput, DataOutput, IndexInput, IndexOutput, IO_CONTEXT_DEFAULT,
+        ByteArrayDataInput, DataInput, DataOutput, IO_CONTEXT_DEFAULT, IndexInput, IndexOutput,
     };
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
         at_least, is_night_mode, random_from_seed,
@@ -1071,8 +1071,10 @@ mod tests {
         new_directory, new_io_context, random, rarely,
     };
     use crate::test::util::test_util::TestUtil;
+    use crate::util::SliceCopyOps;
     use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::long_values::LongValues;
+    use crate::util::packed::Format::{Packed, PackedSingleBlock};
     use crate::util::packed::abstract_block_packed_writer::AbstractBlockPackedWriter;
     use crate::util::packed::abstract_paged_mutable::AbstractPagedMutable;
     use crate::util::packed::block_packed_reader_iterator::BlockPackedReaderIterator;
@@ -1081,16 +1083,14 @@ mod tests {
     use crate::util::packed::monotonic_block_packed_reader::MonotonicBlockPackedReader;
     use crate::util::packed::monotonic_block_packed_writer::MonotonicBlockPackedWriter;
     use crate::util::packed::mutable_packed64_enum::MutablePacked64Enum;
-    use crate::util::packed::packed64::Packed64;
     use crate::util::packed::packed_long_values::{PackedLongValues, PackedLongValuesBuilder};
+    use crate::util::packed::packed64::Packed64;
     use crate::util::packed::paged_growable_writer::PagedGrowableWriter;
     use crate::util::packed::paged_mutable::PagedMutable;
-    use crate::util::packed::Format::{Packed, PackedSingleBlock};
     use crate::util::packed::{
-        create, p64sb_util, Decoder, Encoder, FormatBehavior, Mutable, MutableImpl, NullReader,
-        PackedImpl, PackedInts, PackedSingleBlockImpl, Reader, ReaderIterator, Writer,
+        Decoder, Encoder, FormatBehavior, Mutable, MutableImpl, NullReader, PackedImpl, PackedInts,
+        PackedSingleBlockImpl, Reader, ReaderIterator, Writer, create, p64sb_util,
     };
-    use crate::util::SliceCopyOps;
 
     #[allow(dead_code)] // for quick search
     struct TestPackedInts;

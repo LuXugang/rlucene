@@ -17,10 +17,10 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
 
+use crate::util::CoreHelper;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::Result;
 use crate::util::group_vint_util::GroupVIntUtil;
-use crate::util::CoreHelper;
 
 /// Base trait for performing read operations on Lucene's low-level data types.
 ///

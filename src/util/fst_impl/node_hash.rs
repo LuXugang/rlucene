@@ -15,18 +15,18 @@
  * limitations under the License.
  */
 use crate::store::directory::Directory;
+use crate::util::ByteBlockPool;
 use crate::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fst_impl::byte_block_pool_reverse_bytes_reader::ByteBlockPoolReverseBytesReader;
-use crate::util::fst_impl::fst::{fst_util, Arc, BitTable, BytesReader, FST};
+use crate::util::fst_impl::fst::{Arc, BitTable, BytesReader, FST, fst_util};
 use crate::util::fst_impl::fst_compiler::{FSTCompiler, NodeEnum, NullFSTReader, UnCompiledNode};
 use crate::util::fst_impl::fst_reader::FstReader;
 use crate::util::fst_impl::outputs::{Outputs, OutputsBound};
 use crate::util::long_values::LongValues;
+use crate::util::packed::PackedInts;
 use crate::util::packed::abstract_paged_mutable::AbstractPagedMutable;
 use crate::util::packed::paged_growable_writer::PagedGrowableWriter;
-use crate::util::packed::PackedInts;
-use crate::util::ByteBlockPool;
 // TODO: any way to make a reverse suffix lookup (msokolov's idea) instead of
 // more costly hash? hmmm, though, hash is not so wasteful
 // since it does not have to store value of each entry: the value is the node

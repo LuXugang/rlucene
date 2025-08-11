@@ -16,14 +16,14 @@
  */
 use std::borrow::Cow;
 
+use crate::index::BytesRef;
 use crate::index::doc_values::DocValues;
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::sorted_doc_values::SortedDocValues;
 use crate::index::sorted_doc_values_terms_enum::SortedDocValuesTermsEnum;
 use crate::index::sorted_set_doc_values::SortedSetDocValues;
-use crate::index::BytesRef;
-use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::util::error::lucene_error::{LuceneError, Result};
 
 /// Selects a value from the document's set to use as the representative value.

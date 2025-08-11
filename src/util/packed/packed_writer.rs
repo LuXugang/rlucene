@@ -16,7 +16,7 @@
  */
 use crate::store::DataOutput;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::packed::bulk_operation::{bulk_operation_util, BulkOperation};
+use crate::util::packed::bulk_operation::{BulkOperation, bulk_operation_util};
 use crate::util::packed::bulk_operation_packed_enum::BulkOperationPackedEnum;
 use crate::util::packed::format_behavior::FormatBehavior;
 use crate::util::packed::{Encoder, Format, PackedInts, Writer};

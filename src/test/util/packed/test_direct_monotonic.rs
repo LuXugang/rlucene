@@ -29,10 +29,10 @@ use crate::util::array_util::ArrayUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::long_values::LongValues;
 use crate::util::packed::direct_monotonic_reader::{
-    direct_monotonic_reader_util, DirectMonotonicReader,
+    DirectMonotonicReader, direct_monotonic_reader_util,
 };
 use crate::util::packed::direct_monotonic_writer::{
-    direct_monotonic_writer_util, DirectMonotonicWriter,
+    DirectMonotonicWriter, direct_monotonic_writer_util,
 };
 
 #[allow(dead_code)] // for quick search

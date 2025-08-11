@@ -14,13 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codecs::CodecUtil;
 use crate::codecs::compression::compression_mode::{
     CompressionModeBase, CompressionModeEnum, CompressorEnum,
 };
 use crate::codecs::compression::compressor::Compressor;
 use crate::codecs::lucene90::fields_index_writer::FieldsIndexWriter;
 use crate::codecs::term_vectors_writer::TermVectorsWriter;
-use crate::codecs::CodecUtil;
 use crate::index::field_info::FieldInfo;
 use crate::index::segment_info::SegmentInfo;
 use crate::index::{BytesRef, IndexFileNames};
@@ -29,10 +29,10 @@ use crate::store::{ByteBuffersDataOutput, DataInput, DataOutput, IOContext, Inde
 use crate::util::accountable::Accountable;
 use crate::util::array_util::ArrayUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::packed::Format::Packed;
 use crate::util::packed::abstract_block_packed_writer::AbstractBlockPackedWriter;
 use crate::util::packed::block_packed_writer::BlockPackedWriter;
-use crate::util::packed::direct_writer::{direct_writer_util, DirectWriter};
-use crate::util::packed::Format::Packed;
+use crate::util::packed::direct_writer::{DirectWriter, direct_writer_util};
 use crate::util::packed::{PackedImpl, PackedInts, Writer};
 use crate::util::{SliceCopyOps, StringHelper};
 use once_cell::sync::Lazy;
@@ -573,7 +573,7 @@ where
                             return Err(LuceneError::illegal_state(format!(
                                 "field_num {} not found in field_nums",
                                 field.field_num
-                            )))
+                            )));
                         },
                     };
 
@@ -620,7 +620,7 @@ where
                             return Err(LuceneError::illegal_state(format!(
                                 "field_num {} not found",
                                 field.field_num
-                            )))
+                            )));
                         },
                     };
                     let cpt = chars_per_term[field_num_off];

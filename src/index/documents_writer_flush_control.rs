@@ -33,14 +33,13 @@ use crate::util::supplier::Supplier;
 use parking_lot::{Condvar, Mutex};
 use std::collections::VecDeque;
 use std::fmt;
-use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64, Ordering};
 use std::time::Instant;
 
 pub(crate) struct DocumentsWriterFlushControl<D, Q, L>
 where
     D: Directory,
-
     Q: Query,
     L: LiveIndexWriterConfig,
 {
@@ -54,7 +53,6 @@ where
 pub(crate) struct Inner<D, Q>
 where
     D: Directory,
-
     Q: Query,
 {
     // only with assert
@@ -100,7 +98,6 @@ where
 impl<D, Q, L> DocumentsWriterFlushControl<D, Q, L>
 where
     D: Directory,
-
     Q: Query,
     L: LiveIndexWriterConfig,
 {
@@ -331,7 +328,7 @@ where
                         return Ok((
                             self.try_get_next_pending_flush(num_pending, full_flush, Some(inner))?,
                             None,
-                        ))
+                        ));
                     },
                 }
             }
@@ -821,9 +818,7 @@ where
 impl<D, Q, L> Drop for DocumentsWriterFlushControl<D, Q, L>
 where
     D: Directory,
-
     Q: Query,
-
     L: LiveIndexWriterConfig,
 {
     fn drop(&mut self) {
@@ -833,9 +828,7 @@ where
 impl<D, Q, L> fmt::Display for DocumentsWriterFlushControl<D, Q, L>
 where
     D: Directory,
-
     Q: Query,
-
     L: LiveIndexWriterConfig,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

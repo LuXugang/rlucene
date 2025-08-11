@@ -21,8 +21,8 @@ use std::marker::PhantomData;
 
 use byteorder::{ByteOrder, LE};
 
-use crate::store::random_access_input::RandomAccessInput;
 use crate::store::DataInput;
+use crate::store::random_access_input::RandomAccessInput;
 use crate::util::accountable::Accountable;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -386,8 +386,8 @@ where
 #[cfg(test)]
 mod tests {
     use rand::Rng;
-    use rand_xoshiro::rand_core::SeedableRng;
     use rand_xoshiro::Xoroshiro128Plus;
+    use rand_xoshiro::rand_core::SeedableRng;
 
     use crate::store::random_access_input::RandomAccessInput;
     use crate::store::{ByteBuffersDataOutput, DataInput};

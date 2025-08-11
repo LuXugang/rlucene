@@ -14,8 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::codecs::mutable_point_tree::MutablePointTree;
 use crate::codecs::CodecUtil;
+use crate::codecs::mutable_point_tree::MutablePointTree;
 use crate::index::merge_state::{DocMap, DocMapEnum};
 use crate::index::point_values::{
     IntersectVisitor, PointTree, PointValues, PointValuesBase, Relation,
@@ -114,7 +114,7 @@ where
 pub mod bkd_writer_util {
     pub const CODEC_NAME: &str = "BKD";
     pub const VERSION_START: i32 = 4; // version used by Lucene 7.0
-                                      // pub const VERSION_CURRENT: i32 = VERSION_START;
+    // pub const VERSION_CURRENT: i32 = VERSION_START;
     pub const VERSION_LEAF_STORES_BOUNDS: i32 = 5;
     pub const VERSION_SELECTIVE_INDEXING: i32 = 6;
     pub const VERSION_LOW_CARDINALITY_LEAVES: i32 = 7;
@@ -167,9 +167,7 @@ where
             return Err(LuceneError::illegal_argument(format!(
                 "maxMBSortInHeap={} only allows for maxPointsSortInHeap={}, but this is less than maxPointsInLeafNode={}; \
                 either increase maxMBSortInHeap or decrease maxPointsInLeafNode",
-                max_mb_sort_in_heap,
-                max_points_sort_in_heap,
-                config.max_points_in_leaf_node
+                max_mb_sort_in_heap, max_points_sort_in_heap, config.max_points_in_leaf_node
             )));
         }
 
@@ -2053,10 +2051,10 @@ where
     }
     pub fn close(&mut self) -> Result<()> {
         self.finished = true;
-        if let Some(PointWriterEnum::Offline(ref mut offline_point_writer)) = self.point_writer {
-            if let Some(out) = offline_point_writer.out.take() {
-                self.temp_dir.delete_file(out.get_name())?;
-            }
+        if let Some(PointWriterEnum::Offline(ref mut offline_point_writer)) = self.point_writer
+            && let Some(out) = offline_point_writer.out.take()
+        {
+            self.temp_dir.delete_file(out.get_name())?;
         }
         Ok(())
     }

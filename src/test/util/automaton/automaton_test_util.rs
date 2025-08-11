@@ -20,8 +20,8 @@ use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
 use bit_set::BitSet;
-use rand::prelude::IndexedRandom;
 use rand::Rng;
+use rand::prelude::IndexedRandom;
 
 use crate::util::automation::automaton::{Automaton, Builder};
 use crate::util::automation::operations::Operations;

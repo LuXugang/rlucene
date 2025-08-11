@@ -805,31 +805,32 @@ impl RegExp {
         }
 
         if exp1.kind == RegExpKind::Concatenation {
-            if let Some(e2) = &exp1.exp2 {
-                if is_str_or_char(e2) && is_str_or_char(&exp2) {
-                    let rexp1 = *exp1.exp1.take().unwrap();
-                    let rexp2 = RegExp::make_string_concat(flags, e2, &exp2);
-                    return RegExp::new_container_node(
-                        flags,
-                        RegExpKind::Concatenation,
-                        Some(rexp1),
-                        Some(rexp2),
-                    );
-                }
+            if let Some(e2) = &exp1.exp2
+                && is_str_or_char(e2)
+                && is_str_or_char(&exp2)
+            {
+                let rexp1 = *exp1.exp1.take().unwrap();
+                let rexp2 = RegExp::make_string_concat(flags, e2, &exp2);
+                return RegExp::new_container_node(
+                    flags,
+                    RegExpKind::Concatenation,
+                    Some(rexp1),
+                    Some(rexp2),
+                );
             }
-        } else if exp2.kind == RegExpKind::Concatenation {
-            if let Some(e1) = &exp2.exp1 {
-                if is_str_or_char(&exp1) && is_str_or_char(e1) {
-                    let rexp1 = RegExp::make_string_concat(flags, &exp1, e1);
-                    let rexp2 = *exp2.exp2.take().unwrap();
-                    return RegExp::new_container_node(
-                        flags,
-                        RegExpKind::Concatenation,
-                        Some(rexp1),
-                        Some(rexp2),
-                    );
-                }
-            }
+        } else if exp2.kind == RegExpKind::Concatenation
+            && let Some(e1) = &exp2.exp1
+            && is_str_or_char(&exp1)
+            && is_str_or_char(e1)
+        {
+            let rexp1 = RegExp::make_string_concat(flags, &exp1, e1);
+            let rexp2 = *exp2.exp2.take().unwrap();
+            return RegExp::new_container_node(
+                flags,
+                RegExpKind::Concatenation,
+                Some(rexp1),
+                Some(rexp2),
+            );
         }
 
         RegExp::new_container_node(flags, RegExpKind::Concatenation, Some(exp1), Some(exp2))
@@ -941,11 +942,11 @@ impl RegExp {
     }
 
     fn match_char(&mut self, c: char) -> bool {
-        if let Some(next_ch) = self.original_string[self.pos..].chars().next() {
-            if next_ch == c {
-                self.pos += next_ch.len_utf8();
-                return true;
-            }
+        if let Some(next_ch) = self.original_string[self.pos..].chars().next()
+            && next_ch == c
+        {
+            self.pos += next_ch.len_utf8();
+            return true;
         }
         false
     }
@@ -1628,10 +1629,11 @@ mod tests {
                 ch,
                 err
             );
-            assert!(err
-                .unwrap_err()
-                .to_string()
-                .contains("invalid character class"));
+            assert!(
+                err.unwrap_err()
+                    .to_string()
+                    .contains("invalid character class")
+            );
         }
     }
 

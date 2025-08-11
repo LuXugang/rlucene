@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 use crate::store::data_output::DataOutput;
+use crate::util::SliceCopyOps;
 use crate::util::access::AccessVec;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::Result;
-use crate::util::SliceCopyOps;
 
 /// `DataOutput` backed by a byte array.
 ///

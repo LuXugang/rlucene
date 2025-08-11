@@ -17,8 +17,8 @@
 use std::fmt::Display;
 use std::path::Path;
 
-use crate::store::index_input::IndexInput;
 use crate::store::IOContext;
+use crate::store::index_input::IndexInput;
 use crate::util::error::lucene_error::Result;
 
 pub trait FSDirectoryBase: Display {

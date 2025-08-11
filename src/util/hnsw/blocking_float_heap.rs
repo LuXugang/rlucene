@@ -186,7 +186,7 @@ mod tests {
     use std::time::Duration;
 
     use parking_lot::Mutex;
-    use rand::{rng, Rng};
+    use rand::{Rng, rng};
 
     use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
     use crate::util::error::lucene_error::Result;

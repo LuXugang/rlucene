@@ -93,8 +93,8 @@ impl Accountable for RoaringDocIdSet {
     }
 }
 pub mod builder {
-    use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::search::doc_id_set_iterator::DocIdSetIterator;
+    use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
     use crate::util::bit_doc_id_set::BitDocIdSet;
     use crate::util::bit_set::BitSet;
     use crate::util::bits::Bits;
@@ -103,7 +103,7 @@ pub mod builder {
     use crate::util::fixed_bit_set::FixedBitSet;
     use crate::util::not_doc_id_set::NotDocIdSet;
     use crate::util::roaring_doc_id_set::{
-        DocIdSetEnum, RoaringDocIdSet, ShortArrayDocIdSet, BLOCK_SIZE, MAX_ARRAY_LENGTH,
+        BLOCK_SIZE, DocIdSetEnum, MAX_ARRAY_LENGTH, RoaringDocIdSet, ShortArrayDocIdSet,
     };
 
     pub struct Builder {

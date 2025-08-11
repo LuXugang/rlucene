@@ -16,7 +16,7 @@
  */
 use crate::util::array_util::ArrayUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::fst_impl::fst::{fst_util, Arc, BitTable, FST};
+use crate::util::fst_impl::fst::{Arc, BitTable, FST, fst_util};
 use crate::util::fst_impl::fst_reader::FstReader;
 use crate::util::fst_impl::outputs::Outputs;
 use crate::util::fst_impl::util::Util;

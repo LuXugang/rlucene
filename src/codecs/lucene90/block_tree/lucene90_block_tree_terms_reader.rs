@@ -20,16 +20,16 @@ use std::fmt;
 use std::fmt::Display;
 use std::rc::Rc;
 
+use crate::codecs::CodecUtil;
 use crate::codecs::fields_producer::FieldsProducer;
 use crate::codecs::lucene90::block_tree::field_reader::FieldReader;
 use crate::codecs::postings_reader_base::PostingsReaderBase;
-use crate::codecs::CodecUtil;
+use crate::index::IndexFileNames;
 use crate::index::field_infos::FieldInfos;
 use crate::index::fields::Fields;
 use crate::index::index_options::IndexOptions;
 use crate::index::segment_info::SegmentInfo;
 use crate::index::segment_read_state::SegmentReadState;
-use crate::index::IndexFileNames;
 use crate::store::directory::Directory;
 use crate::store::{DataInput, IndexInput, ReadAdvice};
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -347,8 +347,8 @@ pub mod lucene90_bttr_util {
 
     use crate::codecs::block_tree::field_reader::FieldReader;
     use crate::codecs::postings_reader_base::PostingsReaderBase;
-    use crate::index::field_infos::FieldInfos;
     use crate::index::BytesRef;
+    use crate::index::field_infos::FieldInfos;
     use crate::store::IndexInput;
     use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs;

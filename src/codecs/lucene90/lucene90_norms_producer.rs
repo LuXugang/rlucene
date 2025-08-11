@@ -14,12 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codecs::CodecUtil;
 use crate::codecs::doc_values_enum::norms::Lucene90NormNumericDocValuesEnum;
 use crate::codecs::indexed_disi::indexed_disi_util;
 use crate::codecs::lucene90::indexed_disi::IndexedDISI;
 use crate::codecs::lucene90_norms_format::Lucene90NormsFormat;
 use crate::codecs::norms_producer::NormsProducer;
-use crate::codecs::CodecUtil;
+use crate::index::IndexFileNames;
 use crate::index::doc_values::DocValues;
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::field_info::FieldInfo;
@@ -27,9 +28,8 @@ use crate::index::field_infos::FieldInfos;
 use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::segment_info::SegmentInfo;
 use crate::index::segment_read_state::SegmentReadState;
-use crate::index::IndexFileNames;
-use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::store::directory::Directory;
 use crate::store::dummy::dummy_index_input::DummyIndexInput;
 use crate::store::dummy::dummy_random_access_input::DummyRandomAccessInput;
@@ -234,10 +234,10 @@ where
         field: &FieldInfo,
         entry: &NormsEntry,
     ) -> Result<Rc<RefCell<I::RandomAccessSlice>>> {
-        if self.merging {
-            if let Some(existing) = self.data_inputs.get(&field.number) {
-                return Ok(Rc::clone(existing));
-            }
+        if self.merging
+            && let Some(existing) = self.data_inputs.get(&field.number)
+        {
+            return Ok(Rc::clone(existing));
         }
         let length = entry.num_docs_with_field as i64 * entry.bytes_per_norm as i64;
         let mut slice = self.data.random_access_slice(entry.norms_offset, length)?;
@@ -259,10 +259,10 @@ where
         field: &Arc<FieldInfo>,
         entry: &NormsEntry,
     ) -> Result<Rc<RefCell<I::RandomAccessSlice>>> {
-        if self.merging {
-            if let Some(jump_table) = self.disi_jump_tables.get(&field.number) {
-                return Ok(Rc::clone(jump_table));
-            }
+        if self.merging
+            && let Some(jump_table) = self.disi_jump_tables.get(&field.number)
+        {
+            return Ok(Rc::clone(jump_table));
         }
 
         let jump_table = indexed_disi_util::create_jump_table(

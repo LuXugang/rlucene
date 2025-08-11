@@ -84,8 +84,8 @@ mod tests {
 
     use crate::codecs::lucene101::for_util::ForUtil;
     use crate::codecs::lucene101::postings_util::PostingsUtil;
-    use crate::store::directory::Directory;
     use crate::store::IOContext;
+    use crate::store::directory::Directory;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{new_directory, random};
     use crate::util::error::lucene_error::Result;
 

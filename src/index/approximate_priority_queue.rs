@@ -107,11 +107,11 @@ where
         // Resizing operations are also less costly on lists when items are
         // closer to the end of the list.
         for i in (i64::BITS as usize..self.slots.len()).rev() {
-            if let Some(ref entry) = self.slots[i] {
-                if predicate(entry) {
-                    self.map_to_idx.remove(entry.id());
-                    return self.slots.remove(i);
-                }
+            if let Some(ref entry) = self.slots[i]
+                && predicate(entry)
+            {
+                self.map_to_idx.remove(entry.id());
+                return self.slots.remove(i);
             }
         }
         // No entry matching the predicate was found.

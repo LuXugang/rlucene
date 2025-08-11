@@ -51,12 +51,12 @@ pub mod lucene_test_case_util {
     use crate::store::merge_info::MergeInfo;
     use crate::store::nio_fs_directory::NIOFSDirectory;
     use crate::store::{
-        FSDirectory, IOContext, NativeFSLockFactory, IO_CONTEXT_DEFAULT, IO_CONTEXT_READ_ONCE,
+        FSDirectory, IO_CONTEXT_DEFAULT, IO_CONTEXT_READ_ONCE, IOContext, NativeFSLockFactory,
     };
     use crate::test::util::lucene_test_case::EnvConfig::{Multiplier, NightMode, TestSeed};
     use crate::test::util::test_util::TestUtil;
-    use crate::util::access::AccessVec;
     use crate::util::SliceCopyOps;
+    use crate::util::access::AccessVec;
     use rand::prelude::StdRng;
     use rand::{Rng, SeedableRng};
     use tempfile::TempDir;
@@ -70,11 +70,7 @@ pub mod lucene_test_case_util {
     }
 
     fn default_random_multiplier() -> i32 {
-        if is_night_mode() {
-            2
-        } else {
-            1
-        }
+        if is_night_mode() { 2 } else { 1 }
     }
     /// Returns a number of at least `i`
     ///

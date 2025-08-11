@@ -21,7 +21,7 @@ use crate::index::field_infos::FieldInfos;
 use crate::index::merge_state::{DocMapEnum, MergeState};
 use crate::index::stored_field_visitor::{Status, StoredFieldVisitor};
 use crate::index::stored_fields::StoredFields;
-use crate::index::{doc_id_merger_util, BytesRef, DocIDMerger, Sub, SubBase};
+use crate::index::{BytesRef, DocIDMerger, Sub, SubBase, doc_id_merger_util};
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::store::directory::Directory;
 use crate::store::{DataInput, IndexInput};

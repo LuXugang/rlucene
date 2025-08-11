@@ -19,9 +19,9 @@ use std::io::{Cursor, Seek};
 
 use byteorder::WriteBytesExt;
 
+use crate::store::DataInput;
 use crate::store::byte_buffers_data_input::{ByteBuffersDataInput, ByteBuffersDataInputOwned};
 use crate::store::data_output::DataOutput;
-use crate::store::DataInput;
 use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::{ReadableCursorExt, WritableCursorExt};
@@ -507,7 +507,7 @@ mod tests {
 
     use crate::store::data_output::DataOutput;
     use crate::store::{ByteArrayDataInput, ByteBuffersDataOutput};
-    use crate::test::store::base_data_output_test_case::{add_random_data, BaseDataOutputTestCase};
+    use crate::test::store::base_data_output_test_case::{BaseDataOutputTestCase, add_random_data};
     use crate::test::util::lucene_test_case::lucene_test_case_util::is_night_mode;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{random, random_from_seed};
     use crate::util::error::lucene_error::Result;

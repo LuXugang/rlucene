@@ -14,8 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::store::byte_buffers_data_input::ByteBuffersDataInput;
 use crate::store::DataOutput;
+use crate::store::byte_buffers_data_input::ByteBuffersDataInput;
 use crate::util::error::lucene_error::Result;
 
 /// A data compressor.

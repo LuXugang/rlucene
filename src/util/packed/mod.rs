@@ -70,5 +70,5 @@ pub mod paged_mutable;
 mod read_enum;
 
 pub use format_behavior::*;
-pub use packed64_single_block::*;
 pub use packed_ints::*;
+pub use packed64_single_block::*;

@@ -29,8 +29,8 @@ use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::segment_info::SegmentInfo;
 use crate::index::sorter::DocMap;
 use crate::search::doc_id_set::DocIdSet;
-use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::store::directory::Directory;
 use crate::util::accountable::Accountable;
 use crate::util::bit_set::BitSet;
@@ -38,10 +38,10 @@ use crate::util::either_enums::EitherNumericDocValues;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::error::lucene_error::Result;
 use crate::util::fixed_bit_set::FixedBitSet;
+use crate::util::packed::PackedInts;
 use crate::util::packed::packed_long_values::{
     PackedLongValues, PackedLongValuesBuilder, PackedLongValuesIterator,
 };
-use crate::util::packed::PackedInts;
 use crate::util::{Counter, CounterEnumLock};
 use std::cell::Cell;
 use std::fmt::{Display, Formatter};

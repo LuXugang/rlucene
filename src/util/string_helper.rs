@@ -22,11 +22,11 @@ use once_cell::sync::Lazy;
 use rand::Rng;
 
 use crate::index::BytesRef;
+use crate::util::CoreHelper;
 use crate::util::access::AccessVec;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::ints_ref::IntsRef;
-use crate::util::CoreHelper;
 use crate::with_other;
 
 /// Methods for manipulating strings.
@@ -347,8 +347,8 @@ mod tests {
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
         new_bytes_ref_from_string, random,
     };
-    use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::StringHelper;
+    use crate::util::error::lucene_error::{LuceneError, Result};
 
     #[allow(dead_code)] // for quick search
     pub struct TestStringHelper;

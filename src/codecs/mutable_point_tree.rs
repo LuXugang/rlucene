@@ -14,8 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::index::point_values::PointTree;
 use crate::index::BytesRef;
+use crate::index::point_values::PointTree;
 
 /// One leaf [PointTree] whose order of points can be changed.
 /// This trait is useful for codecs to optimize flush.

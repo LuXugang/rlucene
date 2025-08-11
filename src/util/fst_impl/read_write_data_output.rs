@@ -75,7 +75,9 @@ impl FstReader for ReadWriteDataOutput {
 
     fn get_reverse_bytes_reader(&self) -> Result<Self::FstBytesReader> {
         if !self.finish {
-            return Err(LuceneError::illegal_state("Call ReadWriteDataOutput#init_byte_buffer before Call ReadWriteDataOutput#get_reverse_bytes_reader"));
+            return Err(LuceneError::illegal_state(
+                "Call ReadWriteDataOutput#init_byte_buffer before Call ReadWriteDataOutput#get_reverse_bytes_reader",
+            ));
         }
         if self.byte_buffers.is_some() && self.byte_buffer.is_none() {
             let buffers = self.byte_buffers.as_ref().unwrap().clone();

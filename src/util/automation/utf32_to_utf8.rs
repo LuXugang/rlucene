@@ -393,8 +393,8 @@ mod tests {
     use crate::util::automation::byte_run_automaton::ByteRunAutomaton;
     use crate::util::automation::byte_runnable::ByteRunnable;
     use crate::util::automation::character_run_automaton::CharacterRunAutomaton;
-    use crate::util::automation::operations::tests::TestOperations;
     use crate::util::automation::operations::Operations;
+    use crate::util::automation::operations::tests::TestOperations;
     use crate::util::automation::reg_exp::RegExp;
     use crate::util::automation::utf32_to_utf8::UTF32ToUTF8;
     use crate::util::error::lucene_error::{LuceneError, Result};

@@ -424,7 +424,9 @@ impl FieldInfo {
         if index_dimension_count > point_values_util::MAX_INDEX_DIMENSIONS {
             return Err(LuceneError::illegal_argument(format!(
                 "point index dimension count must be < point_values_util::MAX_INDEX_DIMENSIONS  (= {}); got {} for field=\"{}\"",
-                point_values_util::MAX_INDEX_DIMENSIONS , index_dimension_count, self.name
+                point_values_util::MAX_INDEX_DIMENSIONS,
+                index_dimension_count,
+                self.name
             )));
         }
         if index_dimension_count > dimension_count {
@@ -442,7 +444,9 @@ impl FieldInfo {
         if num_bytes > point_values_util::MAX_NUM_BYTES {
             return Err(LuceneError::illegal_argument(format!(
                 "point numBytes must be <= point_values_util::MAX_NUM_BYTES  (= {}); got {} for field=\"{}\"",
-                point_values_util::MAX_NUM_BYTES , num_bytes, self.name
+                point_values_util::MAX_NUM_BYTES,
+                num_bytes,
+                self.name
             )));
         }
         if self.point_dimension_count != 0 && self.point_dimension_count != dimension_count {

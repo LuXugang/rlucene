@@ -29,8 +29,8 @@ use crate::util::bit_util::BitUtil;
 use crate::util::bytes_ref_hash::BytesRefHash;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::{
-    byte_block_pool_util, ByteBlockPool, ByteBlockPoolBorrow, ByteBlockPoolLock, CounterEnum,
-    CounterEnumBorrow, CounterEnumLock, SliceCopyOps,
+    ByteBlockPool, ByteBlockPoolBorrow, ByteBlockPoolLock, CounterEnum, CounterEnumBorrow,
+    CounterEnumLock, SliceCopyOps, byte_block_pool_util,
 };
 
 pub struct BytesRefBlockPool<C, B>

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::util::error::lucene_error::Result;
-use crate::util::sorter::{check_range, Sorter};
+use crate::util::sorter::{Sorter, check_range};
 use crate::util::sorter_util;
 
 /// Below this size threshold, the partition selection is simplified to a single

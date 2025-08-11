@@ -14,14 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::index::BytesRef;
 use crate::index::impact::Impact;
 use crate::index::impacts::Impacts;
 use crate::index::impacts_enum::ImpactsEnum;
 use crate::index::impacts_source::ImpactsSource;
 use crate::index::postings_enum::PostingsEnum;
-use crate::index::BytesRef;
-use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::util::error::lucene_error::Result;
 use std::borrow::Cow;
 /// [`ImpactsEnum`] that doesn't index impacts but implements the API in a legal way.

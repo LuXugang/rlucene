@@ -26,8 +26,8 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::supplier::Supplier;
 use parking_lot::{Condvar, Mutex};
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 /// [`DocumentsWriterPerThreadPool`] controls [`DocumentsWriterPerThread`] instances and their thread assignments during indexing.
 /// Each [`DocumentsWriterPerThread`] is obtained from the pool and exclusively used for indexing a single document or list of documents by the obtaining thread.
@@ -56,7 +56,6 @@ pub(crate) struct Dwpts {
 impl<D, Q> DocumentsWriterPerThreadPool<D, Q>
 where
     D: Directory,
-
     Q: Query,
 {
     pub fn new() -> Result<Self> {
@@ -254,8 +253,8 @@ mod tests {
     use crate::index::documents_writer_per_thread::DocumentsWriterPerThread;
     use crate::index::documents_writer_per_thread_pool::DocumentsWriterPerThreadPool;
     use crate::index::dummy::dummy_live_index_writer_config::DummyLiveIndexWriterConfig;
-    use crate::index::field_infos::build::Builder;
     use crate::index::field_infos::FieldNumbers;
+    use crate::index::field_infos::build::Builder;
 
     use crate::index::lockable_concurrent_approximate_priority_queue::Lock;
     use crate::search::dummy::dummy_query::DummyQuery;
@@ -266,14 +265,14 @@ mod tests {
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
         new_directory, random, random_from_seed,
     };
+    use crate::util::LATEST;
     use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::info_stream::{InfoStreamEnum, NoOutput};
     use crate::util::supplier::Supplier;
-    use crate::util::LATEST;
     use parking_lot::Mutex;
     use rand::Rng;
-    use std::sync::atomic::AtomicI64;
     use std::sync::Arc;
+    use std::sync::atomic::AtomicI64;
 
     #[allow(dead_code)] // for quick search
     struct TestDocumentsWriterPerThreadPool;
@@ -361,8 +360,8 @@ mod tests {
     #[test]
     fn test_close_while_new_writers_locked() -> Result<()> {
         use std::sync::{
-            atomic::{AtomicBool, Ordering},
             Arc,
+            atomic::{AtomicBool, Ordering},
         };
         use std::thread;
         use std::time::Duration;

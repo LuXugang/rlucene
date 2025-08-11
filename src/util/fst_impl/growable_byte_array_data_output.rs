@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 use crate::store::DataOutput;
+use crate::util::SliceCopyOps;
 use crate::util::accountable::Accountable;
 use crate::util::array_util::ArrayUtil;
 use crate::util::error::lucene_error::Result;
-use crate::util::SliceCopyOps;
 // Storing a single contiguous byte[] for the current node of the FST we are
 // writing. The byte[] will only grow, never shrink.
 // Note: This is only safe for usage that is bounded in the number of bytes
@@ -113,9 +113,9 @@ mod tests {
         at_least, is_night_mode, new_directory, random,
     };
     use crate::test::util::test_util::TestUtil;
+    use crate::util::SliceCopyOps;
     use crate::util::error::lucene_error::Result;
     use crate::util::fst_impl::growable_byte_array_data_output::GrowableByteArrayDataOutput;
-    use crate::util::SliceCopyOps;
 
     #[test]
     fn test_random() -> Result<()> {

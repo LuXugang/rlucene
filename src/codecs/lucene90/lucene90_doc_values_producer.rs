@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codecs::CodecUtil;
 use crate::codecs::doc_values_producer::DocValuesProducer;
 use crate::codecs::dummy::dummy_numeric_doc_values::DummyNumericDocValues;
 use crate::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
@@ -30,7 +31,6 @@ use crate::codecs::lucene90_doc_values_enums::Lucene90BinaryDocValuesEnum;
 use crate::codecs::lucene90_doc_values_format::{
     Lucene90DocValuesFormat, SKIP_INDEX_JUMP_LENGTH_PER_LEVEL,
 };
-use crate::codecs::CodecUtil;
 use crate::index::base_terms_enum::BaseTermsEnum;
 use crate::index::binary_doc_values::BinaryDocValues;
 use crate::index::doc_values::DocValues;
@@ -53,8 +53,8 @@ use crate::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::index::term_state::TermStateEnum;
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::index::{BytesRef, IndexFileNames};
-use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::store::directory::Directory;
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{ByteArrayDataInput, DataInput, IndexInput, ReadAdvice};
@@ -69,7 +69,7 @@ use crate::util::error::lucene_error::Result;
 use crate::util::long_values::{LongValues, Zeroes};
 use crate::util::packed::direct_monotonic_reader::direct_monotonic::Meta;
 use crate::util::packed::direct_monotonic_reader::{
-    direct_monotonic_reader_util, DirectMonotonicReader,
+    DirectMonotonicReader, direct_monotonic_reader_util,
 };
 use crate::util::packed::direct_reader::{DirectPackedEnum, DirectReader};
 use crate::util::{SliceCopyOps, ToInt};
@@ -428,7 +428,7 @@ where
             _ => {
                 return Err(LuceneError::corrupt_index(format!(
                     "Invalid multiValued flag: {multi_valued} resource {meta}"
-                )))
+                )));
             },
         };
         let mut ords_entry = SortedNumericEntry::default();
@@ -1574,13 +1574,13 @@ where
         if self.block != block {
             loop {
                 let bits_per_value;
-                if let Some(ref mut rank_slice) = self.rank_slice {
-                    if block != self.block + 1 {
-                        self.block_end_offset = rank_slice
-                            .read_long(block * BitUtil::LONG_BYTES as i64)?
-                            - self.entry.values_offset;
-                        self.block = block - 1;
-                    }
+                if let Some(ref mut rank_slice) = self.rank_slice
+                    && block != self.block + 1
+                {
+                    self.block_end_offset = rank_slice
+                        .read_long(block * BitUtil::LONG_BYTES as i64)?
+                        - self.entry.values_offset;
+                    self.block = block - 1;
                 }
 
                 {

@@ -16,8 +16,8 @@
  */
 use std::path::Path;
 
-use crate::store::lock_factory::LockFactory;
 use crate::store::NativeFSLockFactory;
+use crate::store::lock_factory::LockFactory;
 use crate::util::error::lucene_error::Result;
 
 /// Base struct for file-system-based locking implementation.

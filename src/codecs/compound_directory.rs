@@ -58,7 +58,6 @@ where
 impl<D> Directory for CompoundDirectory<D>
 where
     D: Directory,
-
     CompoundDirectory<D>: Display,
 {
     fn list_all(&self) -> Result<Vec<String>> {

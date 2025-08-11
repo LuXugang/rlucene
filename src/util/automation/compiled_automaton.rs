@@ -17,6 +17,7 @@
 use std::borrow::Cow;
 
 use crate::index::{BytesRef, BytesRefBuilder};
+use crate::util::StringHelper;
 use crate::util::automation::automaton::Automaton;
 use crate::util::automation::byte_run_automaton::ByteRunAutomaton;
 use crate::util::automation::byte_runnable::{ByteRunnable, ByteRunnableEnum};
@@ -27,7 +28,6 @@ use crate::util::automation::transition_accessor::{TransitionAccessor, Transitio
 use crate::util::automation::utf32_to_utf8::UTF32ToUTF8;
 use crate::util::error::lucene_error::Result;
 use crate::util::unicode_util::UnicodeUtil;
-use crate::util::StringHelper;
 
 /// Automata are compiled into different internal forms for the most efficient
 /// execution depending upon the language they accept.

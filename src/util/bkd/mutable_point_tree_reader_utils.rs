@@ -419,8 +419,8 @@ pub(crate) mod tests {
     use rand::Rng;
 
     use crate::codecs::mutable_point_tree::MutablePointTree;
-    use crate::index::point_values::PointTree;
     use crate::index::BytesRef;
+    use crate::index::point_values::PointTree;
     use crate::test::util::lucene_test_case::lucene_test_case_util::random;
     use crate::test::util::test_util::TestUtil;
     use crate::util::bkd::bkd_config::BKDConfig;

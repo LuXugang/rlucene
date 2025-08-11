@@ -17,11 +17,11 @@
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 
+use crate::store::IOContext;
 use crate::store::directory::Directory;
 use crate::store::dummy::dummy_index_input::DummyIndexInput;
 use crate::store::dummy::dummy_index_output::DummyIndexOutput;
 use crate::store::dummy::dummy_lock::DummyLock;
-use crate::store::IOContext;
 use crate::util::error::lucene_error::Result;
 
 pub struct DummyDirectory;

@@ -14,13 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codecs::CodecUtil;
 use crate::codecs::block_term_state::BlockTermStateEnum;
 use crate::codecs::block_tree::compression_algorithm::CompressionAlgorithm;
 use crate::codecs::block_tree::lucene90_block_tree_terms_reader::lucene90_bttr_util;
 use crate::codecs::fields_consumer::FieldsConsumer;
 use crate::codecs::norms_producer::NormsProducer;
 use crate::codecs::postings_writer_base::PostingsWriterBase;
-use crate::codecs::CodecUtil;
 use crate::index::field_info::FieldInfo;
 use crate::index::field_infos::FieldInfos;
 use crate::index::fields::Fields;
@@ -44,9 +44,9 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs;
 use crate::util::fst_impl::bytes_ref_fst_enum::BytesRefFSTEnum;
-use crate::util::fst_impl::fst::{fst_util, InputType, FST};
+use crate::util::fst_impl::fst::{FST, InputType, fst_util};
 use crate::util::fst_impl::fst_compiler::{
-    fst_compiler_util, Builder, DataOutputEnum, FSTCompiler,
+    Builder, DataOutputEnum, FSTCompiler, fst_compiler_util,
 };
 use crate::util::fst_impl::util::Util;
 use crate::util::ints_ref_builder::IntsRefBuilder;

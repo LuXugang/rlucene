@@ -388,12 +388,12 @@ impl FieldNumbers {
         soft_deletes_field_name: Option<String>,
         parent_field_name: Option<String>,
     ) -> Result<Self> {
-        if let (Some(soft), Some(parent)) = (&soft_deletes_field_name, &parent_field_name) {
-            if soft == parent {
-                return Err(LuceneError::illegal_argument(format!(
-                    "parent document and soft-deletes field can't be the same field \"{parent}\""
-                )));
-            }
+        if let (Some(soft), Some(parent)) = (&soft_deletes_field_name, &parent_field_name)
+            && soft == parent
+        {
+            return Err(LuceneError::illegal_argument(format!(
+                "parent document and soft-deletes field can't be the same field \"{parent}\""
+            )));
         }
 
         Ok(FieldNumbers {
@@ -501,12 +501,12 @@ impl FieldNumbers {
                     field_name
                 )));
             }
-        } else if let Some(ref soft_name) = self.soft_deletes_field_name {
-            if soft_name == field_name {
-                return Err(LuceneError::illegal_argument(format!(
-                    "cannot configure [{soft_name}] as soft-deletes; this index uses [{field_name}] as non-soft-deletes already"
-                )));
-            }
+        } else if let Some(ref soft_name) = self.soft_deletes_field_name
+            && soft_name == field_name
+        {
+            return Err(LuceneError::illegal_argument(format!(
+                "cannot configure [{soft_name}] as soft-deletes; this index uses [{field_name}] as non-soft-deletes already"
+            )));
         }
         Ok(())
     }
@@ -667,18 +667,18 @@ impl FieldNumbers {
             }
             if field_props.field_dimensions.dimension_count != 0 {
                 return Err(LuceneError::illegal_argument(format!(
-                        "Can't update [{dv_type:?}] doc values; the field [{field_name}] must be doc values only field, but is also indexed with points."
-                    )));
+                    "Can't update [{dv_type:?}] doc values; the field [{field_name}] must be doc values only field, but is also indexed with points."
+                )));
             }
             if field_props.index_options != IndexOptions::None {
                 return Err(LuceneError::illegal_argument(format!(
-                        "Can't update [{dv_type:?}] doc values; the field [{field_name}] must be doc values only field, but is also indexed with postings."
-                    )));
+                    "Can't update [{dv_type:?}] doc values; the field [{field_name}] must be doc values only field, but is also indexed with postings."
+                )));
             }
             if field_props.field_vector_properties.num_dimensions != 0 {
                 return Err(LuceneError::illegal_argument(format!(
-                        "Can't update [{dv_type:?}] doc values; the field [{field_name}] must be doc values only field, but is also indexed with vectors."
-                    )));
+                    "Can't update [{dv_type:?}] doc values; the field [{field_name}] must be doc values only field, but is also indexed with vectors."
+                )));
             }
         }
         Ok(())

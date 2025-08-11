@@ -17,7 +17,7 @@
 use crate::index::BytesRefBuilder;
 use crate::util::error::lucene_error::Result;
 use crate::util::intro_sorter::IntroSorter;
-use crate::util::{check_range, Sorter};
+use crate::util::{Sorter, check_range};
 
 /// After this many levels of recursion, we fall back to introsort.
 /// This protects against poor performance when there are long common prefixes,

@@ -22,9 +22,9 @@ use crate::store::check_sum_index_input::ChecksumIndexInput;
 use crate::store::data_output::DataOutput;
 use crate::store::index_input::IndexInput;
 use crate::store::{DataInput, IndexOutput};
+use crate::util::StringHelper;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::version::MIN_SUPPORTED_MAJOR;
-use crate::util::StringHelper;
 
 /// Utility struct for reading and writing versioned headers.
 ///
@@ -240,7 +240,10 @@ impl CodecUtil {
         }
         let actual_version = Self::read_be_int(data_input)?;
         if actual_version < min_version {
-            return Err(LuceneError::index_format_too_old(format!("Format version is not supported (resource {}): {} (needs to be between {} and {}). This version of Lucene only supports indexes created with release {}.0 and later", data_input, actual_version, min_version, max_version, *MIN_SUPPORTED_MAJOR)));
+            return Err(LuceneError::index_format_too_old(format!(
+                "Format version is not supported (resource {}): {} (needs to be between {} and {}). This version of Lucene only supports indexes created with release {}.0 and later",
+                data_input, actual_version, min_version, max_version, *MIN_SUPPORTED_MAJOR
+            )));
         }
         if actual_version > max_version {
             return Err(LuceneError::index_format_too_new(format!(
@@ -326,14 +329,16 @@ impl CodecUtil {
         if data_in.length() < (Self::footer_length() + Self::header_length("")) as i64 {
             return Err(LuceneError::corrupt_index(format!(
                 "compound sub-files must have a valid codec header and footer: file is too small ({} bytes): (resource={})",
-                data_in.length(),data_in
+                data_in.length(),
+                data_in
             )));
         }
         let actual_header = Self::read_be_int(data_in)?;
         if actual_header != CodecUtil::CODEC_MAGIC {
             return Err(LuceneError::corrupt_index(format!(
                 "compound sub-files must have a valid codec header and footer: codec header mismatch: actual header={} vs expected header={}",
-                actual_header, CodecUtil::CODEC_MAGIC
+                actual_header,
+                CodecUtil::CODEC_MAGIC
             )));
         }
 
@@ -532,7 +537,8 @@ impl CodecUtil {
         if remaining < Self::footer_length() as i64 {
             // corruption caused us to read into the checksum footer already: we
             // can't proceed
-            error_message = format!( "{error} cause by checksum status indeterminate: remaining={remaining}, ; please run check index for more details: {checksum_in} "
+            error_message = format!(
+                "{error} cause by checksum status indeterminate: remaining={remaining}, ; please run check index for more details: {checksum_in} "
             );
         } else {
             // otherwise, skip any unread bytes.
@@ -562,7 +568,7 @@ impl CodecUtil {
                     // this may tend to unnecessarily alarm people who
                     // see "JVM bug" in their logs
                     if !matches!(prior_error, LuceneError::IndexFormatTooOld(_)) {
-                        error_message= format!(
+                        error_message = format!(
                             "checksum passed ({checksum}). possibly transient resource issue, or a Lucene : {checksum_in}, cause by: {error}"
                         );
                     }
@@ -661,7 +667,9 @@ impl CodecUtil {
         if magic != CodecUtil::FOOTER_MAGIC {
             return Err(LuceneError::corrupt_index(format!(
                 "codec footer mismatch  (file truncated?): actual footer={} vs expected footer={} (resource={})",
-                magic, CodecUtil::FOOTER_MAGIC, input
+                magic,
+                CodecUtil::FOOTER_MAGIC,
+                input
             )));
         }
         let algorithm_id = Self::read_be_int(input)?;
@@ -790,8 +798,8 @@ mod tests {
         ByteBuffersDataOutput, ByteBuffersIndexInput, ByteBuffersIndexOutput, DataInput,
         DataOutput, IndexOutput,
     };
-    use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::StringHelper;
+    use crate::util::error::lucene_error::{LuceneError, Result};
 
     #[allow(dead_code)] // for quick search
     struct TestCodecUtil;
@@ -958,7 +966,7 @@ mod tests {
             CodecUtil::write_be_int(&mut output, CodecUtil::FOOTER_MAGIC)?;
             CodecUtil::write_be_int(&mut output, 0)?;
             CodecUtil::write_be_long(&mut output, 1234567)?; // write a bogus
-                                                             // checksum
+            // checksum
         }
         let mut input = BufferedChecksumIndexInput::new(ByteBuffersIndexInput::new(
             out.get_data_input(),

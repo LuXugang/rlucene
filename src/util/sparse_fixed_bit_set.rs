@@ -14,13 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::util::SliceCopyOps;
 use crate::util::accountable::Accountable;
-use crate::util::bit_set::{bit_set_util, BitSet};
+use crate::util::bit_set::{BitSet, bit_set_util};
 use crate::util::bits::Bits;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::SliceCopyOps;
 
 // TODO
 #[allow(unused)]
@@ -532,9 +532,9 @@ impl BitSet for SparseFixedBitSet {
         let total_longs = (self.length + 63) >> 6; //  total number of longs in the space
         debug_assert!(total_longs >= self.non_zero_long_count);
         let zero_longs = total_longs - self.non_zero_long_count; // number of longs that are zero
-                                                                 // No need to guard against division by zero, it will return +Infinity
-                                                                 // and things will work as
-                                                                 // expected
+        // No need to guard against division by zero, it will return +Infinity
+        // and things will work as
+        // expected
         let estimate =
             (total_longs as f64 * (total_longs as f64 / zero_longs as f64).ln()).round() as i64;
         std::cmp::min(self.length as i64, estimate) as i32
@@ -583,11 +583,7 @@ impl BitSet for SparseFixedBitSet {
     /// `upper_bound` is a hard requirement.
     fn next_set_bit_range(&self, start: i32, upper_bound: i32) -> i32 {
         let res = self.next_set_bit_in_range_impl(start, upper_bound);
-        if res < upper_bound {
-            res
-        } else {
-            NO_MORE_DOCS
-        }
+        if res < upper_bound { res } else { NO_MORE_DOCS }
     }
 
     fn or<T: DocIdSetIterator>(&mut self, iter: &mut T) -> Result<()> {

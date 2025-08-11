@@ -23,6 +23,7 @@ use std::sync::Arc;
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 
+use crate::codecs::CodecUtil;
 use crate::codecs::compressing::lucene90_compressing_stored_fields_reader::Lucene90CompressingStoredFieldsReader;
 use crate::codecs::compressing::stored_fields_ints::StoredFieldsInts;
 use crate::codecs::compression::compression_mode::{
@@ -34,12 +35,11 @@ use crate::codecs::lucene90::fields_index::FieldsIndex;
 use crate::codecs::lucene90::fields_index_writer::FieldsIndexWriter;
 use crate::codecs::stored_fields_reader::{StoredFieldsReader, StoredFieldsReaderEnum};
 use crate::codecs::stored_fields_writer::{MergeVisitor, StoredFieldsWriter};
-use crate::codecs::CodecUtil;
 use crate::index::field_info::FieldInfo;
 use crate::index::merge_state::{DocMapEnum, MergeState};
 use crate::index::segment_info::SegmentInfo;
 use crate::index::stored_fields::StoredFields;
-use crate::index::{doc_id_merger_util, BytesRef, DocIDMerger, IndexFileNames, Sub, SubBase};
+use crate::index::{BytesRef, DocIDMerger, IndexFileNames, Sub, SubBase, doc_id_merger_util};
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::store::directory::Directory;
 use crate::store::random_access_input::RandomAccessInput;
@@ -811,7 +811,7 @@ where
                         _ => {
                             return Err(LuceneError::illegal_state(
                                 "Invalid reader type".to_string(),
-                            ))
+                            ));
                         },
                     };
                     self.copy_one_doc(lucene_90, sub.sub.doc_id)?;
@@ -829,7 +829,7 @@ where
                         None => {
                             return Err(LuceneError::illegal_state(
                                 "Visitor must exist for VISITOR strategy".to_string(),
-                            ))
+                            ));
                         },
                     }
                 },
@@ -1099,7 +1099,7 @@ mod tests {
                 // check that compression actually works
                 if (-16..=15).contains(&i) {
                     assert_eq!(output.get_position(), 1); // single byte
-                                                          // compression
+                    // compression
                 }
 
                 output.reset()?;

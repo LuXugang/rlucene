@@ -209,7 +209,7 @@ where
             Err(_) => {
                 return Err(LuceneError::illegal_argument(format!(
                     "Unsupported bitsPerValue {bits_per_value}. Did you use bits_required?"
-                )))
+                )));
             },
         }
         DirectWriter::new(output, num_values, bits_per_value)

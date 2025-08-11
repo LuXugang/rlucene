@@ -15,12 +15,12 @@
  * limitations under the License.
  */
 use rand::Rng;
-use rand_xoshiro::rand_core::SeedableRng;
 use rand_xoshiro::Xoroshiro128Plus;
+use rand_xoshiro::rand_core::SeedableRng;
 
+use crate::store::DataInput;
 use crate::store::data_output::DataOutput;
 use crate::store::output_stream_data_output::OutputStreamDataOutput;
-use crate::store::DataInput;
 use crate::util::error::lucene_error::Result;
 
 pub trait BaseDataOutputTestCase {

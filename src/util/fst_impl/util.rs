@@ -21,7 +21,7 @@ use crate::index::{BytesRef, BytesRefBuilder};
 use crate::store::DataInput;
 use crate::util::access::AccessVec;
 use crate::util::error::lucene_error::Result;
-use crate::util::fst_impl::fst::{fst_util, Arc, BitTable, BytesReader, InputType, FST};
+use crate::util::fst_impl::fst::{Arc, BitTable, BytesReader, FST, InputType, fst_util};
 use crate::util::fst_impl::fst_reader::FstReader;
 use crate::util::fst_impl::outputs::{Outputs, OutputsBound};
 use crate::util::ints_ref::IntsRef;
@@ -339,7 +339,7 @@ mod tests {
     use crate::store::dummy::dummy_directory::DummyDirectory;
     use crate::util::error::lucene_error::Result;
     use crate::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs;
-    use crate::util::fst_impl::fst::{Arc, InputType, FST};
+    use crate::util::fst_impl::fst::{Arc, FST, InputType};
     use crate::util::fst_impl::fst_compiler::{Builder, DataOutputEnum};
     use crate::util::fst_impl::outputs::Outputs;
     use crate::util::fst_impl::util::Util;

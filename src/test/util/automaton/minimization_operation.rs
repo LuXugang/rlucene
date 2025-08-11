@@ -21,12 +21,12 @@ use std::rc::Rc;
 
 use bit_set::BitSet;
 
+use crate::util::BitSetExt;
 use crate::util::automation::automaton::Automaton;
 use crate::util::automation::operations::Operations;
 use crate::util::automation::transition::Transition;
 use crate::util::automation::transition_accessor::TransitionAccessor;
 use crate::util::error::lucene_error::Result;
-use crate::util::BitSetExt;
 
 /// Operations for minimizing automata.
 pub struct MinimizationOperations;

@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 use std::fmt;
-use std::sync::atomic::{AtomicI32, AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicI32, AtomicUsize, Ordering};
 
 use parking_lot::RwLock;
 

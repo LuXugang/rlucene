@@ -25,11 +25,11 @@ use crate::document::field_type::FieldType;
 use crate::document::fields::{ReaderEnum, TokenStreamEnum};
 use crate::document::invertable_field::InvertableType;
 use crate::document::stored_value::StoredValue;
+use crate::index::BytesRef;
 use crate::index::doc_values_type::DocValuesType;
 use crate::index::index_options::IndexOptions;
 use crate::index::indexable_field::IndexableField;
 use crate::index::indexable_field_type::IndexableFieldType;
-use crate::index::BytesRef;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::number::Number;
 
@@ -240,7 +240,9 @@ impl Field {
             && indexable_field_type.doc_values_type() == &DocValuesType::None
             && !indexable_field_type.stored()
         {
-            return Err(LuceneError::illegal_argument("it doesn't make sense to have a field that is neither indexed, nor doc-valued, nor stored"));
+            return Err(LuceneError::illegal_argument(
+                "it doesn't make sense to have a field that is neither indexed, nor doc-valued, nor stored",
+            ));
         }
         Ok(Field {
             indexable_field_type,
@@ -663,9 +665,9 @@ mod tests {
     use crate::document::field::{Field, FieldBase};
     use crate::document::field_type::FieldType;
     use crate::document::fields::{ReaderEnum, TokenStreamEnum};
+    use crate::index::BytesRef;
     use crate::index::index_options::IndexOptions;
     use crate::index::indexable_field::IndexableField;
-    use crate::index::BytesRef;
     use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::number::Number;
 
@@ -734,9 +736,10 @@ mod tests {
         assert!(result.is_err() || matches!(result, Ok(Some(_)) if false));
 
         if let Err(err) = result {
-            assert!(err
-                .to_string()
-                .contains("cannot convert to a single numeric value"));
+            assert!(
+                err.to_string()
+                    .contains("cannot convert to a single numeric value")
+            );
         }
 
         assert_eq!(field.to_string(), "DoublePoint <foo:6,7>");

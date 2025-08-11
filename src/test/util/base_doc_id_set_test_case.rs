@@ -17,8 +17,8 @@
 use rand::Rng;
 
 use crate::search::doc_id_set::DocIdSet;
-use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::test::util::base_bit_set_test_case::random_set;
 use crate::test::util::lucene_test_case::lucene_test_case_util::is_night_mode;
 use crate::test::util::test_util::TestUtil;

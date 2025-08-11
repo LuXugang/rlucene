@@ -17,10 +17,10 @@
 use std::borrow::Cow;
 use std::fmt::Debug;
 
+use crate::index::BytesRef;
 use crate::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::index::term_state::TermStateEnum;
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
-use crate::index::BytesRef;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::error::lucene_error::Result;

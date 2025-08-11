@@ -16,7 +16,7 @@
  */
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::{byte_block_pool_util, ByteBlockPool, CounterEnumLock};
+use crate::util::{ByteBlockPool, CounterEnumLock, byte_block_pool_util};
 
 /// struct that Posting and PostingVector use to write interleaved byte streams
 /// into shared fixed-size byte[] arrays. The idea is to allocate slices of
@@ -177,7 +177,7 @@ mod tests {
     use crate::util::bit_util::BitUtil;
     use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::{
-        byte_block_pool_util, ByteBlockPool, ByteBlockPoolLock, CounterEnum, SliceCopyOps,
+        ByteBlockPool, ByteBlockPoolLock, CounterEnum, SliceCopyOps, byte_block_pool_util,
     };
 
     #[test]

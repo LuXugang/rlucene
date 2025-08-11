@@ -17,8 +17,8 @@
 use crate::codecs::compressing::lucene90_compressing_term_vectors_writer::Lucene90CompressingTermVectorsWriter;
 use crate::index::field_info::FieldInfo;
 use crate::index::{BytesRef, BytesRefBuilder};
-use crate::store::directory::Directory;
 use crate::store::DataInput;
+use crate::store::directory::Directory;
 use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::Result;
 

@@ -133,9 +133,9 @@ mod tests {
     use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, is_night_mode};
     use crate::util::error::lucene_error::Result;
     use parking_lot::{Condvar, Mutex};
-    use rand::{thread_rng, Rng};
-    use std::sync::atomic::{AtomicBool, Ordering};
+    use rand::{Rng, thread_rng};
     use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, Ordering};
     use std::thread;
     use std::thread::{JoinHandle, ThreadId};
     use std::time::Duration;

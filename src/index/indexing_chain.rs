@@ -18,16 +18,17 @@ use crate::analysis::analyzer::Analyzer;
 use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
 use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
 use crate::analysis::token_stream::TokenStream;
+use crate::codecs::Codec;
 use crate::codecs::doc_values_format::DocValuesFormat;
 use crate::codecs::field_infos_format::FieldInfosFormat;
 use crate::codecs::norms_format::NormsFormat;
 use crate::codecs::norms_producer::NormsProducer;
 use crate::codecs::points_format::PointsFormat;
 use crate::codecs::points_writer::PointsWriter;
-use crate::codecs::Codec;
 use crate::document::fields::{Fields, ReaderEnum};
 use crate::document::invertable_field::InvertableType;
 use crate::document::stored_value::{StoredValue, StoredValueType};
+use crate::index::BytesRef;
 use crate::index::binary_doc_values_writer::{BinaryDocValuesWriter, BufferedBinaryDocValues};
 use crate::index::buffered_updates::MTBufferedUpdates;
 use crate::index::doc_values::{DocValues, EmptyBinary, EmptyNumeric, EmptySorted};
@@ -37,8 +38,8 @@ use crate::index::doc_values_type::DocValuesType;
 use crate::index::doc_values_writer::{DocIdSetIteratorImpl, DocValuesWriter, DocValuesWriterEnum};
 use crate::index::docs_with_field_set::DocsWithFieldSetEnum;
 use crate::index::field_info::FieldInfo;
-use crate::index::field_infos::build::Builder;
 use crate::index::field_infos::FieldInfos;
+use crate::index::field_infos::build::Builder;
 use crate::index::field_invert_state::FieldInvertState;
 use crate::index::freq_prox_terms_writer::FreqProxTermsWriter;
 use crate::index::freq_prox_terms_writer_per_field::FreqProxTermsWriterPerField;
@@ -73,12 +74,11 @@ use crate::index::stored_fields_consumer::StoredFieldsConsumer;
 use crate::index::term_vectors_consumer::TermVectorsConsumer;
 use crate::index::vector_encoding::VectorEncoding;
 use crate::index::vector_similarity_function::VectorSimilarityFunction;
-use crate::index::BytesRef;
 use crate::search::query::Query;
 use crate::search::similarities::similarities::Similarity;
 use crate::search::sort_field::SortFiledBase;
-use crate::store::directory::Directory;
 use crate::store::IOContext;
+use crate::store::directory::Directory;
 use crate::util::access::Access;
 use crate::util::accountable::Accountable;
 use crate::util::allocator_byte::{
@@ -86,7 +86,7 @@ use crate::util::allocator_byte::{
 };
 use crate::util::array_util::ArrayUtil;
 use crate::util::attribute_source::{AttributeSource, EmptyAttributeSource};
-use crate::util::bit_set::{bit_set_util, BitSet};
+use crate::util::bit_set::{BitSet, bit_set_util};
 use crate::util::bit_util::BitUtil;
 use crate::util::either_enums::{
     EitherBits, EitherDocComparator, EitherSortedNumericDocValues, EitherSortedSetDocValues,
@@ -94,13 +94,13 @@ use crate::util::either_enums::{
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::info_stream::{InfoStream, InfoStreamLock};
-use crate::util::int_block_pool::{ibp_util, AllocatorI32, AllocatorIntEnum};
+use crate::util::int_block_pool::{AllocatorI32, AllocatorIntEnum, ibp_util};
 use crate::util::number::Number;
 use crate::util::paged_bytes::PagedBytesDataInput;
 use crate::util::sparse_fixed_bit_set::SparseFixedBitSet;
 use crate::util::{
     ByteBlockPool, ByteBlockPoolLock, CoreHelper, Counter, CounterEnum, CounterEnumLock,
-    SliceCopyOps, LUCENE_10_0_0,
+    LUCENE_10_0_0, SliceCopyOps,
 };
 use parking_lot::Mutex;
 use std::cmp::Ordering;
@@ -229,7 +229,7 @@ where
                 None => {
                     return Err(LuceneError::corrupt_index(format!(
                         "missing doc values for parent field {parent_field} IndexingChain"
-                    )))
+                    )));
                 },
             }
         } else {
@@ -240,12 +240,10 @@ where
             && parent_field.is_none()
             && index_created_version_major >= LUCENE_10_0_0.major
         {
-            return Err(LuceneError::corrupt_index(
-                format!(
-                    "parent field is not set but the index has blocks and uses index sorting. indexCreatedVersionMajor: {} \"IndexingChain\"",
-                    self.index_created_version_major
-                ),
-            ));
+            return Err(LuceneError::corrupt_index(format!(
+                "parent field is not set but the index has blocks and uses index sorting. indexCreatedVersionMajor: {} \"IndexingChain\"",
+                self.index_created_version_major
+            )));
         }
         let mut comparators = Vec::new();
         for sort_field in &index_sort.as_ref().unwrap().fields {
@@ -760,10 +758,10 @@ where
         let s = &mut pf.schema;
 
         // validate sort DV type
-        if let Some(index_sort) = &index_writer_config.get_index_sort() {
-            if s.doc_values_type != DocValuesType::None {
-                Self::validate_index_sort_dv_type(index_sort, &pf.field_name, &s.doc_values_type)?;
-            }
+        if let Some(index_sort) = &index_writer_config.get_index_sort()
+            && s.doc_values_type != DocValuesType::None
+        {
+            Self::validate_index_sort_dv_type(index_sort, &pf.field_name, &s.doc_values_type)?;
         }
         // TODO
         // if s.vector_dimension != 0 {
@@ -1013,10 +1011,10 @@ where
             )?;
         }
 
-        if let Some(attrs) = field_type.get_attributes() {
-            if !attrs.is_empty() {
-                schema.update_attributes(attrs.clone());
-            }
+        if let Some(attrs) = field_type.get_attributes()
+            && !attrs.is_empty()
+        {
+            schema.update_attributes(attrs.clone());
         }
 
         Ok(())
@@ -1444,7 +1442,10 @@ impl PerField {
                     } else {
                         return Err(LuceneError::illegal_argument(format!(
                             "position overflowed Integer.MAX_VALUE (got posIncr={} last_position={} position={}) for field '{}'",
-                            pos_incr, invert_state.last_position, invert_state.position, field.name()
+                            pos_incr,
+                            invert_state.last_position,
+                            invert_state.position,
+                            field.name()
                         )));
                     }
                 } else if invert_state.position > index_writer_util::MAX_POSITION {

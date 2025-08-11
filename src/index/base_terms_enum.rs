@@ -17,9 +17,9 @@
 use std::borrow::Cow;
 use std::fmt::{Debug, Display, Formatter};
 
+use crate::index::BytesRef;
 use crate::index::term_state::{TermState, TermStateEnum};
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
-use crate::index::BytesRef;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::util::either_enums::{EitherAttributeSource, EitherTermState};

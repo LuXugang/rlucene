@@ -17,6 +17,7 @@
 use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
 use crate::analysis::token_attributes::payload_attribute::PayloadAttribute;
 use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
+use crate::index::BytesRef;
 use crate::index::field_info::FieldInfo;
 use crate::index::field_invert_state::FieldInvertState;
 use crate::index::freq_prox_terms_writer::FreqProxTermsWriter;
@@ -32,13 +33,12 @@ use crate::index::terms_hash_per_field::tests::TermsHashPerFieldMock;
 use crate::index::terms_hash_per_field::{
     PostingsArrayWrapper, TermsHashPerField, TermsHashPerFieldBase, TermsHashPerFieldType,
 };
-use crate::index::BytesRef;
 use crate::store::directory::Directory;
+use crate::util::ToInt;
 use crate::util::array_util::ArrayUtil;
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::ToInt;
 use std::cmp::Ordering;
 use std::sync::Arc;
 
@@ -404,13 +404,13 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
                 if !self.has_freq {
                     debug_assert!(postings.term_freqs.is_none());
 
-                    if let Some(attr) = attribute_source.get_term_frequency() {
-                        if attr != 1 {
-                            return Err(LuceneError::illegal_state(format!(
-                                "field \"{}\": must index term freq while using custom TermFrequencyAttribute",
-                                self.field_info.name
-                            )));
-                        }
+                    if let Some(attr) = attribute_source.get_term_frequency()
+                        && attr != 1
+                    {
+                        return Err(LuceneError::illegal_state(format!(
+                            "field \"{}\": must index term freq while using custom TermFrequencyAttribute",
+                            self.field_info.name
+                        )));
                     }
 
                     if doc_id != postings.last_doc_ids[term_id] {

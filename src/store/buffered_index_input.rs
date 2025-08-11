@@ -328,7 +328,7 @@ where
         let total_bytes = len * type_size;
         let mut elements_read = 0; // Tracks the number of elements read so far.
         let mut unaligned_bytes = 0; // Tracks bytes that cannot form a complete element.
-                                     // Check if the position is within the current buffer range
+        // Check if the position is within the current buffer range
         if pos >= self.buffer_start && pos < self.buffer_start + self.length as i64 {
             debug_assert!((pos - self.buffer_start) <= i32::MAX as i64);
             let buffer_offset = (pos - self.buffer_start) as i32;
@@ -835,13 +835,13 @@ mod tests {
     use crate::store::index_input::IndexInput;
     use crate::store::random_access_input::RandomAccessInput;
     use crate::store::{
-        buffered_index_input_util, BufferedIndexInput, BufferedIndexInputBase, DataInput,
+        BufferedIndexInput, BufferedIndexInputBase, DataInput, buffered_index_input_util,
     };
     use crate::test::util::lucene_test_case::lucene_test_case_util::random;
+    use crate::util::ReadableCursorExt;
     use crate::util::bit_util::BitUtil;
     use crate::util::clone::TryClone as OtherClone;
     use crate::util::error::lucene_error::{LuceneError, Result};
-    use crate::util::ReadableCursorExt;
 
     #[allow(dead_code)] // for quick search
     struct TestBufferedIndexInput;
@@ -934,7 +934,7 @@ mod tests {
         let offset = size % 10; // arbitrary offset
         if buffer.len() < (offset + size) as usize {
             buffer.resize((offset + size) as usize, 0); // Grow the buffer as
-                                                        // needed
+            // needed
         }
 
         assert_eq!(

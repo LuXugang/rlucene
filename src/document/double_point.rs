@@ -23,9 +23,9 @@ use crate::document::field_type::FieldType;
 use crate::document::fields::ReaderEnum;
 use crate::document::invertable_field::InvertableType;
 use crate::document::stored_value::StoredValue;
+use crate::index::BytesRef;
 use crate::index::indexable_field::IndexableField;
 use crate::index::indexable_field_type::IndexableFieldType;
-use crate::index::BytesRef;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::number::Number;
@@ -54,7 +54,7 @@ impl DoublePoint {
     /// Change the values of this field
     pub fn set_double_values(&mut self, point: &[f64]) -> Result<()> {
         if self.parent_field.field_type().point_dimension_count() as usize != point.len() {
-            return Err(LuceneError::illegal_argument( format!(
+            return Err(LuceneError::illegal_argument(format!(
                 "this field (name={}) uses {} dimensions; cannot change to (incoming) {} dimensions",
                 self.parent_field.name(),
                 self.parent_field.field_type().point_dimension_count(),

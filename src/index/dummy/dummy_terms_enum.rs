@@ -14,11 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::index::BytesRef;
 use crate::index::dummy::dummy_impacts_enum::DummyImpactsEnum;
 use crate::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::index::term_state::TermStateEnum;
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
-use crate::index::BytesRef;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::util::error::lucene_error::Result;

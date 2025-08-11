@@ -14,10 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::store::IOContext;
 use crate::store::buffered_checksum_index_input::BufferedChecksumIndexInput;
 use crate::store::directory::Directory;
 use crate::store::filter_directory::FilterDirectory;
-use crate::store::IOContext;
 use crate::util::error::lucene_error::Result;
 use parking_lot::Mutex;
 use std::collections::HashSet;

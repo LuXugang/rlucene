@@ -21,7 +21,7 @@ use std::sync::Arc;
 use parking_lot::Mutex;
 
 use crate::util::access::Access;
-use crate::util::{byte_block_pool_util, Counter, CounterEnum, CounterEnumBorrow};
+use crate::util::{Counter, CounterEnum, CounterEnumBorrow, byte_block_pool_util};
 
 /// A simple `Allocator` that never recycles, but tracks how much total RAM is
 /// in use.  */

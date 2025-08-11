@@ -15,16 +15,16 @@
  * limitations under the License.
  */
 use crate::index::point_values::IntersectVisitor;
-use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::store::{DataOutput, IndexInput};
+use crate::util::CoreHelper;
 use crate::util::array_util::ArrayUtil;
 use crate::util::doc_base_bit_set_iterator::DocBaseBitSetIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::ints_ref::IntsRef;
 use crate::util::longs_ref::LongsRef;
-use crate::util::CoreHelper;
 
 pub struct DocIdsWriter {
     scratch: Vec<i32>,
