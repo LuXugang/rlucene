@@ -841,8 +841,12 @@ impl Accountable for SingleValueDocValuesFieldUpdates {
 impl DocValuesFieldUpdatesBase for SingleValueDocValuesFieldUpdates {
     fn add_value(&mut self, doc: i32, value: i64, _index: i32) -> Result<()> {
         debug_assert!(self.sub_update.long_value()? == value);
-        debug_assert!(self.bit_set_iter.is_none());
+        debug_assert!(
+            self.bit_set_iter.is_none(),
+            "after calling iterator(), you must not add any more data"
+        );
         self.bit_set.set(doc);
+
         self.has_at_least_one_value = true;
         if self.has_no_value.is_some() {
             self.has_no_value.as_mut().unwrap().clear_with_index(doc);
@@ -852,7 +856,10 @@ impl DocValuesFieldUpdatesBase for SingleValueDocValuesFieldUpdates {
 
     fn add_byte_ref(&mut self, doc: i32, value: &BytesRef<Vec<u8>>, _index: i32) -> Result<()> {
         debug_assert!(self.sub_update.binary_value()? == value);
-        debug_assert!(self.bit_set_iter.is_none());
+        debug_assert!(
+            self.bit_set_iter.is_none(),
+            "After calling iterator(), you must not add any more data"
+        );
         self.bit_set.set(doc);
         self.has_at_least_one_value = true;
         if self.has_no_value.is_some() {
@@ -895,7 +902,10 @@ impl DocValuesFieldUpdatesBase for SingleValueDocValuesFieldUpdates {
 
     fn reset(&mut self, doc: i32) -> Result<()> {
         let _guide = self.lock.lock();
-        debug_assert!(self.bit_set_iter.is_none());
+        debug_assert!(
+            self.bit_set_iter.is_none(),
+            "After calling iterator(), you must not add any more data"
+        );
         self.bit_set.set(doc);
         self.has_at_least_one_value = true;
         if self.has_no_value.is_none() {
