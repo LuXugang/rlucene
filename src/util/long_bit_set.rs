@@ -679,7 +679,7 @@ mod tests {
             do_prev_set_bit(random, &aa, &bb);
 
             // bitwise ops
-            if let (Some(ref a0), Some(ref b0)) = (&a0, &b0) {
+            if let (Some(a0), Some(b0)) = (&a0, &b0) {
                 if b0.length() <= b.length() {
                     assert_eq!(a.len(), b.cardinality() as usize);
 

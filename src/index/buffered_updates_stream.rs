@@ -231,9 +231,9 @@ where
 
     pub(crate) fn get_next_gen(&self) -> i64 {
         let mut inner = self.inner.lock();
-        let gen = inner.next_gen;
+        let r#gen = inner.next_gen;
         inner.next_gen += 1;
-        gen
+        r#gen
     }
     // only for assert
     fn check_delete_stats(&self) -> bool {

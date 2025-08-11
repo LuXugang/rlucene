@@ -1257,7 +1257,7 @@ where
     fn get_reverse_bytes_reader(&self) -> Result<Self::FstBytesReader> {
         match self {
             DataOutputEnum::FromDir(_) => Err(LuceneError::unsupported_operation("".to_string())),
-            DataOutputEnum::ReadWriter(ref rw) => {
+            DataOutputEnum::ReadWriter(rw) => {
                 let reader = rw.get_reverse_bytes_reader()?;
                 Ok(reader)
             },
@@ -1285,7 +1285,7 @@ where
     fn write_byte(&mut self, b: u8) -> Result<()> {
         match self {
             DataOutputEnum::FromDir(data_output) => data_output.write_byte(b),
-            DataOutputEnum::ReadWriter(ref mut rw) => rw.write_byte(b),
+            DataOutputEnum::ReadWriter(rw) => rw.write_byte(b),
         }
     }
 
@@ -1294,7 +1294,7 @@ where
             DataOutputEnum::FromDir(data_output) => {
                 data_output.write_bytes_range(b, offset, length)
             },
-            DataOutputEnum::ReadWriter(ref mut rw) => rw.write_bytes_range(b, offset, length),
+            DataOutputEnum::ReadWriter(rw) => rw.write_bytes_range(b, offset, length),
         }
     }
 }

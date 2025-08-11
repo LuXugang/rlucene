@@ -57,7 +57,7 @@ pub type STBytesRefArray = BytesRefArray<CounterEnumBorrow>;
 pub type MTBytesRefArray = BytesRefArray<CounterEnumLock>;
 
 macro_rules! impl_bytes_ref_array {
-    ($enum_ty:ty, $method:ident, $pool_ctor:ident, $ret:ty, $doc:expr) => {
+    ($enum_ty:ty, $method:ident, $pool_ctor:ident, $ret:ty, $doc:expr_2021) => {
         impl BytesRefArray<$enum_ty> {
             #[doc = $doc]
             pub fn $method(byte_used: $enum_ty) -> Result<$ret> {

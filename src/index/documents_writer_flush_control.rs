@@ -670,7 +670,7 @@ where
         let dwpts = {
             documents_writer
                 .per_thread_pool
-                .filter_and_lock(|_, gen| gen == flushing_queue.generation)?
+                .filter_and_lock(|_, r#gen| r#gen == flushing_queue.generation)?
         };
 
         for mut next in dwpts {
@@ -718,7 +718,7 @@ where
         per_thread_pool: &DocumentsWriterPerThreadPool<D, Q>,
     ) -> bool {
         for next in per_thread_pool.inner.lock().dwpts.values() {
-            debug_assert!(next.gen == queue.generation);
+            debug_assert!(next.r#gen == queue.generation);
         }
         true
     }

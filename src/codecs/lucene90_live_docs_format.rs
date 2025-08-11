@@ -109,11 +109,11 @@ impl LiveDocsFormat for Lucene90LiveDocsFormat {
     where
         D: Directory,
     {
-        let gen = info.get_del_gen();
+        let r#gen = info.get_del_gen();
         let name = IndexFileNames::file_name_from_generation(
             &info.info.name,
             Lucene90LiveDocsFormat::EXTENSION,
-            gen,
+            r#gen,
         );
         let length = info.info.max_doc()?;
         debug_assert!(name.is_some());
@@ -126,7 +126,7 @@ impl LiveDocsFormat for Lucene90LiveDocsFormat {
                 Lucene90LiveDocsFormat::VERSION_START,
                 Lucene90LiveDocsFormat::VERSION_CURRENT,
                 info.info.get_id(),
-                &BigInt::from(gen).to_str_radix(36).to_string(),
+                &BigInt::from(r#gen).to_str_radix(36).to_string(),
             )?;
 
             let fbs = Self::read_fixed_bit_set(&mut input, length)?;
@@ -160,11 +160,11 @@ impl LiveDocsFormat for Lucene90LiveDocsFormat {
     where
         D: Directory,
     {
-        let gen = info.get_next_del_gen();
+        let r#gen = info.get_next_del_gen();
         let name = IndexFileNames::file_name_from_generation(
             &info.info.name,
             Lucene90LiveDocsFormat::EXTENSION,
-            gen,
+            r#gen,
         );
         debug_assert!(name.is_some());
         let del_count: i32;
@@ -175,7 +175,7 @@ impl LiveDocsFormat for Lucene90LiveDocsFormat {
                 Lucene90LiveDocsFormat::CODEC_NAME,
                 Lucene90LiveDocsFormat::VERSION_CURRENT,
                 info.info.get_id(),
-                &BigInt::from(gen).to_str_radix(36).to_string(),
+                &BigInt::from(r#gen).to_str_radix(36).to_string(),
             )?;
 
             del_count = Self::write_bits(&mut output, bits)?;

@@ -1815,7 +1815,7 @@ where
 
             let mut sorted_dim = 0;
             match &mut *heap_source.borrow_mut() {
-                PointWriterEnum::Heap(ref mut heap_source) => {
+                PointWriterEnum::Heap(heap_source) => {
                     self.compute_common_prefix_length(heap_source, from, to);
                     let mut sorted_dim_cardinality = i32::MAX;
                     let mut used_bytes = vec![None; self.config.num_dims as usize];
@@ -1863,7 +1863,7 @@ where
             )?;
             let count = to - from;
             match &mut *heap_source.borrow_mut() {
-                PointWriterEnum::Heap(ref mut heap_source) => {
+                PointWriterEnum::Heap(heap_source) => {
                     leaf_cardinality =
                         heap_source.compute_cardinality(from, to, &self.common_prefix_lengths);
                     leaf_block_fps[leaves_offset as usize] = out.get_file_pointer();
@@ -2833,7 +2833,7 @@ where
 {
     fn get_value(&mut self, i: i32) -> Result<(&[u8], i32, i32)> {
         match &mut *self.heap_source.borrow_mut() {
-            PointWriterEnum::Heap(ref mut heap_source) => {
+            PointWriterEnum::Heap(heap_source) => {
                 let (v, offset, length) = heap_source
                     .get_packed_value_slice(self.from + i)
                     .packed_value();

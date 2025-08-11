@@ -277,7 +277,7 @@ where
         absolute: bool,
     ) -> Result<()> {
         let term_state = match state {
-            BlockTermStateEnum::Int(ref mut state) => state,
+            BlockTermStateEnum::Int(state) => state,
             _ => {
                 return Err(LuceneError::illegal_state(
                     "BlockTermStateEnum's type is not Int",
@@ -337,7 +337,7 @@ where
         }
         let mut block = BlockPostingsEnum::new(field_info, flags, false, self)?;
         match state {
-            BlockTermStateEnum::Int(ref term_state) => {
+            BlockTermStateEnum::Int(term_state) => {
                 block.reset(term_state, flags, self)?;
             },
             _ => {
@@ -358,7 +358,7 @@ where
         flags: i32,
     ) -> Result<Self::ImpactsEnum> {
         match state {
-            BlockTermStateEnum::Int(ref term_state) => {
+            BlockTermStateEnum::Int(term_state) => {
                 let mut block = BlockPostingsEnum::new(field_info, flags, true, self)?;
                 block.reset(term_state, flags, self)?;
                 Ok(block)

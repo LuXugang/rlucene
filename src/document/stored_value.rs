@@ -115,7 +115,7 @@ impl StoredValue {
 
     /// Set an integer value.
     pub fn set_int_value(&mut self, value: i32) -> Result<()> {
-        if let StoredValue::Integer(ref mut v) = self {
+        if let StoredValue::Integer(v) = self {
             *v = value;
             Ok(())
         } else {
@@ -128,7 +128,7 @@ impl StoredValue {
 
     /// Set a long value.
     pub fn set_long_value(&mut self, value: i64) -> Result<()> {
-        if let StoredValue::Long(ref mut v) = self {
+        if let StoredValue::Long(v) = self {
             *v = value;
             Ok(())
         } else {
@@ -141,7 +141,7 @@ impl StoredValue {
 
     /// Set a float value.
     pub fn set_float_value(&mut self, value: f32) -> Result<()> {
-        if let StoredValue::Float(ref mut v) = self {
+        if let StoredValue::Float(v) = self {
             *v = value;
             Ok(())
         } else {
@@ -154,7 +154,7 @@ impl StoredValue {
 
     /// Set a double value.
     pub fn set_double_value(&mut self, value: f64) -> Result<()> {
-        if let StoredValue::Double(ref mut v) = self {
+        if let StoredValue::Double(v) = self {
             *v = value;
             Ok(())
         } else {
@@ -167,7 +167,7 @@ impl StoredValue {
 
     /// Set a binary value.
     pub fn set_binary_value(&mut self, value: Rc<BytesRef<Vec<u8>>>) -> Result<()> {
-        if let StoredValue::Binary(ref mut v) = self {
+        if let StoredValue::Binary(v) = self {
             *v = value;
             Ok(())
         } else {
@@ -180,7 +180,7 @@ impl StoredValue {
 
     /// Set a string value.
     pub fn set_string_value(&mut self, value: Rc<String>) -> Result<()> {
-        if let StoredValue::String(ref mut v) = self {
+        if let StoredValue::String(v) = self {
             *v = value;
             Ok(())
         } else {
@@ -241,7 +241,7 @@ impl StoredValue {
 
     /// Retrieve a binary value.
     pub fn get_binary_value(&self) -> Result<&Rc<BytesRef<Vec<u8>>>> {
-        if let StoredValue::Binary(ref v) = self {
+        if let StoredValue::Binary(v) = self {
             Ok(v)
         } else {
             Err(LuceneError::illegal_argument(format!(
@@ -253,7 +253,7 @@ impl StoredValue {
 
     /// Retrieve a string value.
     pub fn get_string_value(&self) -> Result<&String> {
-        if let StoredValue::String(ref v) = self {
+        if let StoredValue::String(v) = self {
             Ok(v)
         } else {
             Err(LuceneError::illegal_argument(format!(

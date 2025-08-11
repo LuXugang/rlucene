@@ -109,7 +109,7 @@ where
         };
 
         match fallback_table {
-            Some(ref mut fallback_table) => {
+            Some(fallback_table) => {
                 let mut hash_slot = hash & fallback_table.mask;
                 let mut c = 0;
 

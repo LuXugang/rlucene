@@ -812,11 +812,11 @@ where
 {
     fn get(&mut self) -> Result<Option<FlushTicket<D, Q>>> {
         // it's maybeFreezeGlobalBuffer(DocumentsWriterDeleteQueue deleteQueue)'s logic in Java Lucene
-        if let Some(frozen_updates) = self.delete_queue.maybe_freeze_global_buffer()? {
+        match self.delete_queue.maybe_freeze_global_buffer()? { Some(frozen_updates) => {
             Ok(Some(FlushTicket::new(frozen_updates, false)))
-        } else {
+        } _ => {
             Ok(None)
-        }
+        }}
     }
 }
 

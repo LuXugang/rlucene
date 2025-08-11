@@ -49,11 +49,11 @@ impl IndexFileNames {
     /// * `base` - Main part of the file name.
     /// * `ext` - Extension of the filename.
     /// * `gen` - Generation.
-    pub fn file_name_from_generation(base: &str, ext: &str, gen: i64) -> Option<String> {
-        if gen == -1 {
+    pub fn file_name_from_generation(base: &str, ext: &str, r#gen: i64) -> Option<String> {
+        if r#gen == -1 {
             return None;
         }
-        if gen == 0 {
+        if r#gen == 0 {
             Option::from(IndexFileNames::segment_file_name(base, "", ext))
         } else {
             // base-36

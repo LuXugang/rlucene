@@ -22,7 +22,7 @@ args = ["clippy", "--fix"]
 [tasks.fix]
 command = "cargo"
 #args = ["clippy", "--fix", "--", "-D", "warnings"]
-args = ["fix", "--allow-dirty", "--allow-staged"]
+args = ["fix", "--allow-dirty", "--allow-staged", "--edition"]
 
 [tasks.test]
 command = "cargo"

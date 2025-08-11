@@ -552,8 +552,8 @@ pub mod index_file_deleter_util {
             } else if file_name.starts_with(IndexFileNames::SEGMENTS) {
                 let v = segment_infos_util::generation_from_segments_file_name(file_name);
                 match v {
-                    Ok(gen) => {
-                        max_segment_gen = max_segment_gen.max(gen);
+                    Ok(r#gen) => {
+                        max_segment_gen = max_segment_gen.max(r#gen);
                     },
                     Err(e) => {
                         // trash file: we have to handle this since we allow anything starting with 'segments'
@@ -566,8 +566,8 @@ pub mod index_file_deleter_util {
             } else if file_name.starts_with(IndexFileNames::PENDING_SEGMENTS) {
                 let v = segment_infos_util::generation_from_segments_file_name(&file_name[8..]);
                 match v {
-                    Ok(gen) => {
-                        max_segment_gen = max_segment_gen.max(gen);
+                    Ok(r#gen) => {
+                        max_segment_gen = max_segment_gen.max(r#gen);
                     },
                     Err(e) => {
                         // trash file: we have to handle this since we allow anything starting with
@@ -591,8 +591,8 @@ pub mod index_file_deleter_util {
 
                 let v = IndexFileNames::parse_generation(file_name);
                 match v {
-                    Ok(gen) => {
-                        cur_gen = cur_gen.max(gen);
+                    Ok(r#gen) => {
+                        cur_gen = cur_gen.max(r#gen);
                     },
                     Err(e) => {
                         // trash file: we have to handle this since codec regex is only so good

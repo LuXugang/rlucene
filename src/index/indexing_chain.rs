@@ -558,7 +558,7 @@ where
                     None => {
                         debug_assert!(false, "per_field should not be None here");
                     },
-                    Some(ref mut per_field) => {
+                    Some(per_field) => {
                         let norms = per_field.norms.as_mut().unwrap();
                         norms.finish(max_doc);
                         norms.flush(sort_map.clone(), &mut norms_consumer, segment_info)?;

@@ -182,7 +182,7 @@ impl DocValuesUpdateEnum {
     pub fn get_binary(&self) -> Option<&BinaryDocValuesUpdate> {
         debug_assert!(matches!(self, DocValuesUpdateEnum::Binary(_)));
         match self {
-            DocValuesUpdateEnum::Binary(ref b) => Some(b),
+            DocValuesUpdateEnum::Binary(b) => Some(b),
             _ => None,
         }
     }
@@ -190,7 +190,7 @@ impl DocValuesUpdateEnum {
     pub fn get_numeric(&self) -> Option<&NumericDocValuesUpdate> {
         debug_assert!(matches!(self, DocValuesUpdateEnum::Numeric(_)));
         match self {
-            DocValuesUpdateEnum::Numeric(ref n) => Some(n),
+            DocValuesUpdateEnum::Numeric(n) => Some(n),
             _ => None,
         }
     }

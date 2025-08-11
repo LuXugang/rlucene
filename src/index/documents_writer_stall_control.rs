@@ -277,7 +277,7 @@ mod tests {
                 *lock.lock()
             });
 
-            if rng.gen::<f32>() <= check_point_probability {
+            if rng.r#gen::<f32>() <= check_point_probability {
                 sync.reset(num_stallers + num_releasers, total_threads);
                 check_point.store(true, Ordering::SeqCst);
             }

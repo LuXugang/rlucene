@@ -50,7 +50,7 @@ pub(crate) struct Inner {
     taken_writer_permits: i32,
 }
 pub(crate) struct Dwpts {
-    pub(crate) gen: i64,
+    pub(crate) r#gen: i64,
     state: Arc<State>,
 }
 impl<D, Q> DocumentsWriterPerThreadPool<D, Q>
@@ -121,7 +121,7 @@ where
         let delete_queue_gen = dwpt.delete_queue.generation;
         dwpt.lock();
         let dwpts = Dwpts {
-            gen: delete_queue_gen,
+            r#gen: delete_queue_gen,
             state: dwpt.state.clone(),
         };
         inner.dwpts.insert(dwpt.id().to_string(), dwpts);
@@ -193,7 +193,7 @@ where
         let mut list = Vec::new();
         let inner = self.inner.lock();
         for (id, state) in inner.dwpts.iter() {
-            if predicate(id, state.gen) {
+            if predicate(id, state.r#gen) {
                 state.state.lock();
                 if self.is_registered_with_state(id, Some(&inner)) {
                     list.push(id.clone());

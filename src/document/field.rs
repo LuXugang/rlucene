@@ -487,7 +487,7 @@ impl IndexableField for Field {
     }
 
     fn binary_value(&self) -> Result<Option<Rc<BytesRef<Vec<u8>>>>> {
-        if let Some(FieldDataEnum::Binary(ref bytes)) = &self.fields_data {
+        if let Some(FieldDataEnum::Binary(bytes)) = &self.fields_data {
             Ok(Some(bytes.clone()))
         } else {
             Ok(None)
@@ -500,7 +500,7 @@ impl IndexableField for Field {
     /// Exactly one of `string_value()`, `reader_value()`, or `binary_value()`
     /// must be set.
     fn string_value(&self) -> Result<Option<Rc<String>>> {
-        if let Some(FieldDataEnum::String(ref s)) = &self.fields_data {
+        if let Some(FieldDataEnum::String(s)) = &self.fields_data {
             Ok(Some(s.clone()))
         } else if let Some(FieldDataEnum::Number(val)) = &self.fields_data {
             Ok(Some(Rc::from(val.as_string())))
@@ -510,7 +510,7 @@ impl IndexableField for Field {
     }
 
     fn get_char_sequence_value(&self) -> Result<Option<Rc<String>>> {
-        if let Some(FieldDataEnum::String(ref s)) = &self.fields_data {
+        if let Some(FieldDataEnum::String(s)) = &self.fields_data {
             Ok(Some(s.clone()))
         } else {
             self.string_value()
@@ -527,7 +527,7 @@ impl IndexableField for Field {
     }
 
     fn numeric_value(&self) -> Result<Option<Number>> {
-        if let Some(FieldDataEnum::Number(ref n)) = &self.fields_data {
+        if let Some(FieldDataEnum::Number(n)) = &self.fields_data {
             Ok(Some(*n))
         } else {
             Ok(None)

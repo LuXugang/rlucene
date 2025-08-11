@@ -388,7 +388,7 @@ impl FieldNumbers {
         soft_deletes_field_name: Option<String>,
         parent_field_name: Option<String>,
     ) -> Result<Self> {
-        if let (Some(ref soft), Some(ref parent)) = (&soft_deletes_field_name, &parent_field_name) {
+        if let (Some(soft), Some(parent)) = (&soft_deletes_field_name, &parent_field_name) {
             if soft == parent {
                 return Err(LuceneError::illegal_argument(format!(
                     "parent document and soft-deletes field can't be the same field \"{parent}\""

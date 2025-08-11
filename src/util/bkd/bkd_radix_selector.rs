@@ -682,10 +682,10 @@ impl BKDRadixSelector {
         right: &mut PointWriterEnum<O>,
     ) -> i32 {
         let mut points_used = 0;
-        if let PointWriterEnum::Heap(ref heap_writer) = left {
+        if let &mut PointWriterEnum::Heap(ref heap_writer) = left {
             points_used += heap_writer.size;
         }
-        if let PointWriterEnum::Heap(ref heap_writer) = right {
+        if let &mut PointWriterEnum::Heap(ref heap_writer) = right {
             points_used += heap_writer.size;
         }
         debug_assert!(self.max_points_sort_in_heap >= points_used);

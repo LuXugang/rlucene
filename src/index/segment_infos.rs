@@ -201,9 +201,9 @@ pub mod segment_infos_util {
                 // skipping this file here helps deliver the right exception when opening an old index
                 && !file.starts_with(OLD_SEGMENTS_GEN)
             {
-                let gen = generation_from_segments_file_name(file)?;
-                if gen > max {
-                    max = gen;
+                let r#gen = generation_from_segments_file_name(file)?;
+                if r#gen > max {
+                    max = r#gen;
                 }
             }
         }
@@ -1273,7 +1273,7 @@ where
     }
     pub fn run(&self) -> Result<SegmentsFileEnum<D>> {
         let mut last_gen: i64;
-        let mut gen: i64 = -1;
+        let mut r#gen: i64 = -1;
         let mut exc: Option<LuceneError> = None;
         // Loop until we succeed in calling doBody() without
         // hitting an IOException.  An IOException most likely
@@ -1286,7 +1286,7 @@ where
         // don't, then the original error is real and we throw
         // it.
         loop {
-            last_gen = gen;
+            last_gen = r#gen;
             let mut files;
             let mut files2;
             {
@@ -1299,19 +1299,19 @@ where
             if files != files2 {
                 continue;
             }
-            gen = segment_infos_util::get_last_commit_generation(&files)?;
+            r#gen = segment_infos_util::get_last_commit_generation(&files)?;
             if segment_infos_util::get_info_stream()?.is_some() {
                 segment_infos_util::message(&format!("directory listing gen={gen}"))?;
             }
-            if gen == -1 {
+            if r#gen == -1 {
                 return Err(LuceneError::index_not_found(format!(
                     "No segments* file found in the {}: files: {:?}",
                     self.directory.lock(),
                     files
                 )));
-            } else if gen > last_gen {
+            } else if r#gen > last_gen {
                 let segment_file_name =
-                    IndexFileNames::file_name_from_generation(IndexFileNames::SEGMENTS, "", gen)
+                    IndexFileNames::file_name_from_generation(IndexFileNames::SEGMENTS, "", r#gen)
                         .ok_or_else(|| {
                             LuceneError::illegal_state(
                                 "Failed to generate segment file name.".to_string(),
@@ -1335,7 +1335,7 @@ where
                                 "primary Exception on '{}': {}; will retry: gen = {}",
                                 segment_file_name,
                                 exc.as_ref().unwrap(),
-                                gen
+                                r#gen
                             ))
                             .unwrap_or_default();
                         }

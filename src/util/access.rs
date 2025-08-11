@@ -344,10 +344,10 @@ where
 
 #[macro_export]
 macro_rules! with_other {
-    (mut, $x:expr, $y:expr, |$ia:ident, $ib:ident| $body:expr) => {
+    (mut, $x:expr_2021, $y:expr_2021, |$ia:ident, $ib:ident| $body:expr_2021) => {
         $x.access_mut(|$ia| $y.access(|$ib| $body))
     };
-    ($x:expr, $y:expr, |$ia:ident, $ib:ident| $body:expr) => {
+    ($x:expr_2021, $y:expr_2021, |$ia:ident, $ib:ident| $body:expr_2021) => {
         $x.access(|$ia| $y.access(|$ib| $body))
     };
 }

@@ -72,7 +72,7 @@ where
     bytes_used: C,
     field_updates_bytes_used: C,
     verbose_deletes: bool,
-    gen: i64,
+    r#gen: i64,
     #[allow(unused)]
     segment_name: String,
 }
@@ -98,7 +98,7 @@ where
             bytes_used: Arc::new(Mutex::new(CounterEnum::new_counter(true))),
             field_updates_bytes_used: Arc::new(Mutex::new(CounterEnum::new_counter(true))),
             verbose_deletes: false,
-            gen: 0,
+            r#gen: 0,
             segment_name: segment_name.to_string(),
         }
     }
@@ -200,7 +200,7 @@ where
             bytes_used: Rc::new(RefCell::new(CounterEnum::new_counter(true))),
             field_updates_bytes_used: Rc::new(RefCell::new(CounterEnum::new_counter(true))),
             verbose_deletes: false,
-            gen: 0,
+            r#gen: 0,
             segment_name,
         }
     }
@@ -278,14 +278,14 @@ where
             write!(
                 f,
                 "gen={} deleteTerms={} deleteQueries={} fieldUpdates={} bytesUsed={}",
-                self.gen,
+                self.r#gen,
                 self.delete_terms,
                 self.delete_queries.len(),
                 self.field_updates.len(),
                 bytes_used
             )
         } else {
-            let mut s = format!("gen={}", self.gen);
+            let mut s = format!("gen={}", self.r#gen);
             if !self.delete_terms.is_empty() {
                 s.push_str(&format!(
                     " {} unique deleted terms",
@@ -335,8 +335,8 @@ macro_rules! impl_deleted_terms {
         $Type:ident,
         new = $new_fn:ident,
         put = $put_fn:ident,
-        bytes_wrap = $bytes_wrap:expr,
-        pool_wrap  = $pool_wrap:expr,
+        bytes_wrap = $bytes_wrap:expr_2021,
+        pool_wrap  = $pool_wrap:expr_2021,
         pool_ctor  = $pool_ctor:ident,
         map_ctor   = $map_ctor:ident
     ) => {
