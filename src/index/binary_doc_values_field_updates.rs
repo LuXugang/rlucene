@@ -100,7 +100,7 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
     ) -> Result<impl DocValuesFieldIterator> {
         debug_assert!(!self.finished);
         self.finished = true;
-        let base = AbstractIteratorBaseImpl::new(
+        let base = AbstractIteratorBinary::new(
             std::mem::take(&mut self.offsets),
             std::mem::take(&mut self.lengths),
             self.values.get_bytes_owner(),
@@ -149,7 +149,7 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
 /// Implementing Default is solely for enabling sorting within the
 /// PriorityQueue.
 #[derive(Default)]
-pub struct AbstractIteratorBaseImpl {
+pub struct AbstractIteratorBinary {
     offsets: AbstractPagedMutable<PagedGrowableWriter>,
     offset: i32,
     lengths: AbstractPagedMutable<PagedGrowableWriter>,
@@ -157,13 +157,13 @@ pub struct AbstractIteratorBaseImpl {
     values: BytesRef<Vec<u8>>,
 }
 
-impl<'a> AbstractIteratorBaseImpl {
+impl<'a> AbstractIteratorBinary {
     pub fn new(
         offsets: AbstractPagedMutable<PagedGrowableWriter>,
         lengths: AbstractPagedMutable<PagedGrowableWriter>,
         values: BytesRef<Vec<u8>>,
-    ) -> AbstractIteratorBaseImpl {
-        AbstractIteratorBaseImpl {
+    ) -> AbstractIteratorBinary {
+        AbstractIteratorBinary {
             offsets,
             offset: 0,
             lengths,
@@ -172,7 +172,7 @@ impl<'a> AbstractIteratorBaseImpl {
         }
     }
 }
-impl AbstractIteratorBase for AbstractIteratorBaseImpl {
+impl AbstractIteratorBase for AbstractIteratorBinary {
     fn set(&mut self, idx: i64) -> Result<()> {
         debug_assert!(self.offsets.get(idx)? <= i32::MAX as i64);
         self.offset = self.offsets.get(idx)? as i32;

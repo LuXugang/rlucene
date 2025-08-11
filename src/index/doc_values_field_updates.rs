@@ -20,10 +20,13 @@ use parking_lot::Mutex;
 
 use crate::index::BytesRef;
 use crate::index::binary_doc_values::BinaryDocValues;
+use crate::index::binary_doc_values_field_updates::AbstractIteratorBinary;
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::doc_values_type::DocValuesType;
 use crate::index::numeric_doc_values::NumericDocValues;
-use crate::index::numeric_doc_values_field_updates::SingleValueNumericDocValuesFieldUpdates;
+use crate::index::numeric_doc_values_field_updates::{
+    AbstractIteratorNumeric, SingleValueNumericDocValuesFieldUpdates,
+};
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::util::accountable::Accountable;
@@ -35,6 +38,7 @@ use crate::util::intro_sorter::IntroSorter;
 use crate::util::long_values::LongValues;
 use crate::util::packed::abstract_paged_mutable::AbstractPagedMutable;
 use crate::util::packed::mutable_packed64_enum::MutablePacked64Enum;
+use crate::util::packed::paged_growable_writer::PagedGrowableWriter;
 use crate::util::packed::paged_mutable::PagedMutable;
 use crate::util::packed::{Mutable, PackedInts, Reader};
 use crate::util::priority_queue::{Compare, PriorityQueue};
@@ -454,6 +458,120 @@ pub trait DocValuesFieldIterator: DocValuesIterator + Default {
 
     /// Returns true if this document has a value.
     fn has_value(&mut self) -> bool;
+}
+pub enum DocValuesFieldIteratorEnum {
+    AbstractBinary(AbstractIterator<AbstractIteratorBinary>),
+    AbstractNumericGrowableWriter(AbstractIterator<AbstractIteratorNumeric<PagedGrowableWriter>>),
+    AbstractNumericPagedMutable(AbstractIterator<AbstractIteratorNumeric<PagedMutable>>),
+    SingleValue(SingleValueDocValuesFieldUpdatesIterator),
+}
+
+impl DocValuesIterator for DocValuesFieldIteratorEnum {
+    fn advance_exact(&mut self, target: i32) -> Result<bool> {
+        match self {
+            DocValuesFieldIteratorEnum::AbstractBinary(it) => it.advance_exact(target),
+            DocValuesFieldIteratorEnum::AbstractNumericGrowableWriter(it) => {
+                it.advance_exact(target)
+            },
+            DocValuesFieldIteratorEnum::AbstractNumericPagedMutable(it) => it.advance_exact(target),
+            DocValuesFieldIteratorEnum::SingleValue(it) => it.advance_exact(target),
+        }
+    }
+}
+
+impl DocIdSetIterator for DocValuesFieldIteratorEnum {
+    fn doc_id(&self) -> i32 {
+        match self {
+            DocValuesFieldIteratorEnum::AbstractBinary(it) => it.doc_id(),
+            DocValuesFieldIteratorEnum::AbstractNumericGrowableWriter(it) => it.doc_id(),
+            DocValuesFieldIteratorEnum::AbstractNumericPagedMutable(it) => it.doc_id(),
+            DocValuesFieldIteratorEnum::SingleValue(it) => it.doc_id(),
+        }
+    }
+
+    fn next_doc(&mut self) -> Result<i32> {
+        match self {
+            DocValuesFieldIteratorEnum::AbstractBinary(it) => it.next_doc(),
+            DocValuesFieldIteratorEnum::AbstractNumericGrowableWriter(it) => it.next_doc(),
+            DocValuesFieldIteratorEnum::AbstractNumericPagedMutable(it) => it.next_doc(),
+            DocValuesFieldIteratorEnum::SingleValue(it) => it.next_doc(),
+        }
+    }
+
+    fn advance(&mut self, target: i32) -> Result<i32> {
+        match self {
+            DocValuesFieldIteratorEnum::AbstractBinary(it) => it.advance(target),
+            DocValuesFieldIteratorEnum::AbstractNumericGrowableWriter(it) => it.advance(target),
+            DocValuesFieldIteratorEnum::AbstractNumericPagedMutable(it) => it.advance(target),
+            DocValuesFieldIteratorEnum::SingleValue(it) => it.slow_advance(target),
+        }
+    }
+
+    fn slow_advance(&mut self, target: i32) -> Result<i32> {
+        match self {
+            DocValuesFieldIteratorEnum::AbstractBinary(it) => it.slow_advance(target),
+            DocValuesFieldIteratorEnum::AbstractNumericGrowableWriter(it) => {
+                it.slow_advance(target)
+            },
+            DocValuesFieldIteratorEnum::AbstractNumericPagedMutable(it) => it.slow_advance(target),
+            DocValuesFieldIteratorEnum::SingleValue(it) => it.slow_advance(target),
+        }
+    }
+
+    fn cost(&self) -> Result<i64> {
+        match self {
+            DocValuesFieldIteratorEnum::AbstractBinary(it) => it.cost(),
+            DocValuesFieldIteratorEnum::AbstractNumericGrowableWriter(it) => it.cost(),
+            DocValuesFieldIteratorEnum::AbstractNumericPagedMutable(it) => it.cost(),
+            DocValuesFieldIteratorEnum::SingleValue(it) => it.cost(),
+        }
+    }
+}
+
+impl Default for DocValuesFieldIteratorEnum {
+    fn default() -> Self {
+        todo!()
+    }
+}
+
+impl DocValuesFieldIterator for DocValuesFieldIteratorEnum {
+    fn long_value(&mut self) -> Result<i64> {
+        match self {
+            DocValuesFieldIteratorEnum::AbstractBinary(_) => Err(LuceneError::illegal_state(
+                "long_value is not supported for binary doc values".to_string(),
+            )),
+            DocValuesFieldIteratorEnum::AbstractNumericGrowableWriter(it) => it.long_value(),
+            DocValuesFieldIteratorEnum::AbstractNumericPagedMutable(it) => it.long_value(),
+            DocValuesFieldIteratorEnum::SingleValue(it) => it.long_value(),
+        }
+    }
+
+    fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
+        match self {
+            DocValuesFieldIteratorEnum::AbstractBinary(it) => it.binary_value(),
+            DocValuesFieldIteratorEnum::AbstractNumericGrowableWriter(it) => it.binary_value(),
+            DocValuesFieldIteratorEnum::AbstractNumericPagedMutable(it) => it.binary_value(),
+            DocValuesFieldIteratorEnum::SingleValue(it) => it.binary_value(),
+        }
+    }
+
+    fn del_gen(&self) -> i64 {
+        match self {
+            DocValuesFieldIteratorEnum::AbstractBinary(it) => it.del_gen(),
+            DocValuesFieldIteratorEnum::AbstractNumericGrowableWriter(it) => it.del_gen(),
+            DocValuesFieldIteratorEnum::AbstractNumericPagedMutable(it) => it.del_gen(),
+            DocValuesFieldIteratorEnum::SingleValue(it) => it.del_gen(),
+        }
+    }
+
+    fn has_value(&mut self) -> bool {
+        match self {
+            DocValuesFieldIteratorEnum::AbstractBinary(it) => it.has_value(),
+            DocValuesFieldIteratorEnum::AbstractNumericGrowableWriter(it) => it.has_value(),
+            DocValuesFieldIteratorEnum::AbstractNumericPagedMutable(it) => it.has_value(),
+            DocValuesFieldIteratorEnum::SingleValue(it) => it.has_value(),
+        }
+    }
 }
 
 pub(crate) mod dvfi_util {

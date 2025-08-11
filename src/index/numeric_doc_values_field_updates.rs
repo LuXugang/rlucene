@@ -123,7 +123,7 @@ where
         debug_assert!(!self.finished);
         self.finished = true;
         let base =
-            AbstractIteratorBaseImpl::new(std::mem::take(&mut self.values), 0, self.min_value);
+            AbstractIteratorNumeric::new(std::mem::take(&mut self.values), 0, self.min_value);
         Ok(AbstractIterator::new(inner, del_gen, base))
     }
 
@@ -153,7 +153,7 @@ where
     }
 }
 #[derive(Default)]
-pub(crate) struct AbstractIteratorBaseImpl<T>
+pub(crate) struct AbstractIteratorNumeric<T>
 where
     T: AbstractPagedMutableBase,
 {
@@ -161,19 +161,19 @@ where
     value: i64,
     min_value: i64,
 }
-impl<T> AbstractIteratorBaseImpl<T>
+impl<T> AbstractIteratorNumeric<T>
 where
     T: AbstractPagedMutableBase,
 {
     pub(crate) fn new(values: AbstractPagedMutable<T>, value: i64, min_value: i64) -> Self {
-        AbstractIteratorBaseImpl {
+        AbstractIteratorNumeric {
             values,
             value,
             min_value,
         }
     }
 }
-impl<T> AbstractIteratorBase for AbstractIteratorBaseImpl<T>
+impl<T> AbstractIteratorBase for AbstractIteratorNumeric<T>
 where
     T: AbstractPagedMutableBase,
 {
