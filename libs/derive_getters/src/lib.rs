@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, DeriveInput, Type};
+use syn::{DeriveInput, Type, parse_macro_input};
 
 #[proc_macro_derive(Getters)]
 pub fn derive_getters(input: TokenStream) -> TokenStream {
