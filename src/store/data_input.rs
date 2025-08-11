@@ -280,7 +280,7 @@ pub trait DataInput: Sized + Display {
         } else if count == 1 {
             let mut map = HashMap::new();
             map.insert(self.read_string()?, self.read_string()?);
-            return Ok(map);
+            Ok(map)
         } else {
             let mut map: HashMap<String, String> = HashMap::with_capacity(count as usize);
             for _ in 0..count {

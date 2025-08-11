@@ -854,9 +854,9 @@ impl Sorter for MinMaxDestSorter<'_> {
         if i_dest < j_dest {
             Ok(-1)
         } else if i_dest > j_dest {
-            return Ok(1);
+            Ok(1)
         } else {
-            return Ok(0);
+            Ok(0)
         }
     }
 

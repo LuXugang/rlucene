@@ -578,9 +578,9 @@ where
                     }
                 }
             };
-            return Ok(Lucene90NumericDocValuesEnums::Dense(
+            Ok(Lucene90NumericDocValuesEnums::Dense(
                 DenseNumericDocValues::new(dense_numeric_doc_values_base_enum, self.max_doc),
-            ));
+            ))
         } else {
             let disi = IndexedDISI::new(
                 &mut self.data,

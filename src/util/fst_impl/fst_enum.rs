@@ -420,7 +420,7 @@ where
         } else if arc.label() > target_label {
             self.arcs[upto] = Some(arc);
             self.push_first(sub)?;
-            return Ok(None);
+            Ok(None)
         } else if arc.is_last() {
             self.arcs[upto] = Some(arc);
             if self.upto == 0 {
@@ -441,7 +441,7 @@ where
                 }
                 self.upto -= 1;
             }
-            return Ok(None);
+            Ok(None)
         } else {
             self.fst.read_next_arc(&mut arc, &mut self.fst_reader)?;
             self.arcs[upto] = Some(arc);
@@ -606,7 +606,7 @@ where
             debug_assert!(arc.is_last());
             self.arcs[upto] = Some(arc);
             self.push_last(sub)?;
-            return Ok(None);
+            Ok(None)
         } else {
             if BitTable::is_bit_set(target_index, &arc, reader)? {
                 self.fst
@@ -880,7 +880,7 @@ where
             self.arcs[upto] = Some(arc);
             let result = self.backtrack_to_floor_arc(upto, target_label, reader, sub)?;
             debug_assert!(result.is_none());
-            return Ok(None);
+            Ok(None)
         } else {
             let floor_idx = -2 - idx;
             self.fst.read_arc_by_index(&mut arc, reader, floor_idx)?;

@@ -1191,9 +1191,9 @@ impl RegExp {
         if self.match_char('.') {
             Ok(RegExp::make_any_char(self.flags))
         } else if self.check(RegExp::EMPTY) && self.match_char('#') {
-            return Ok(RegExp::make_empty(self.flags));
+            Ok(RegExp::make_empty(self.flags))
         } else if self.check(RegExp::ANYSTRING) && self.match_char('@') {
-            return Ok(RegExp::make_any_string(self.flags));
+            Ok(RegExp::make_any_string(self.flags))
         } else if self.match_char('"') {
             let start = self.pos;
             while self.more() && !self.peek("\"") {
@@ -1206,7 +1206,7 @@ impl RegExp {
                 )));
             }
             let s = self.original_string[start..(self.pos - 1)].to_string();
-            return Ok(RegExp::make_string(self.flags, &s));
+            Ok(RegExp::make_string(self.flags, &s))
         } else if self.match_char('(') {
             if self.match_char(')') {
                 return Ok(RegExp::make_string(self.flags, ""));
@@ -1218,7 +1218,7 @@ impl RegExp {
                     self.pos
                 )));
             }
-            return Ok(e);
+            Ok(e)
         } else if (self.check(RegExp::AUTOMATON) || self.check(RegExp::INTERVAL))
             && self.match_char('<')
         {
@@ -1271,7 +1271,7 @@ impl RegExp {
                 } else {
                     (imax, imin)
                 };
-                return Ok(RegExp::make_interval(self.flags, min, max, digits));
+                Ok(RegExp::make_interval(self.flags, min, max, digits))
             } else {
                 if !self.check(RegExp::AUTOMATON) {
                     return Err(LuceneError::illegal_argument(format!(
@@ -1279,14 +1279,14 @@ impl RegExp {
                         self.pos - 1
                     )));
                 }
-                return Ok(RegExp::make_automaton(self.flags, &s));
+                Ok(RegExp::make_automaton(self.flags, &s))
             }
         } else {
             if let Some(predefined) = self.match_predefined_character_class()? {
                 return Ok(predefined);
             }
             let ch = self.parse_char_exp()?;
-            return Ok(RegExp::make_char(self.flags, ch));
+            Ok(RegExp::make_char(self.flags, ch))
         }
     }
     fn parse_char_exp(&mut self) -> Result<i32> {

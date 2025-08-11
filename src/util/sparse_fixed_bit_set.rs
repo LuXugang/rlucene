@@ -477,13 +477,13 @@ impl BitSet for SparseFixedBitSet {
             // bits that has no bit that is set yet. So let's
             // initialize a new block:
             self.insert_block(i4096, i64bit as i64, i);
-            return false;
+            false
         } else {
             // in that case we found a block of 4096 bits that has some values,
             // but the sub-block of 64 bits that we are interested
             // in has no value yet, so we need to insert a new long
             self.insert_long(i4096, i64bit as i64, i, index);
-            return false;
+            false
         }
     }
 
