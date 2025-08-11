@@ -89,7 +89,7 @@ impl DocValuesFieldUpdatesBase for NumericDocValuesFieldUpdates {
 
     fn add_byte_ref(&mut self, _doc: i32, _value: &BytesRef<Vec<u8>>, _index: i32) -> Result<()> {
         Err(LuceneError::unreachable(
-            "umericDocValuesFieldUpdates does not support add_byte_ref",
+            "numericDocValuesFieldUpdates does not support add_byte_ref",
         ))
     }
 
