@@ -294,7 +294,7 @@ where
     }
 }
 
-pub fn merged_iterator<T>(subs: Vec<T>) -> Result<Option<PriorityQueueIterator<T>>>
+pub fn merged_iterator<T>(subs: Vec<T>) -> Result<Option<MergedIterator<T>>>
 where
     T: DocValuesFieldIterator,
 {
@@ -316,7 +316,7 @@ where
     if queue.size() == 0 {
         return Ok(None);
     }
-    let value = PriorityQueueIterator::new(queue)?;
+    let value = MergedIterator::new(queue)?;
     Ok(Some(value))
 }
 impl<D> Accountable for DocValuesFieldUpdates<D>
@@ -715,14 +715,14 @@ where
     }
 }
 
-pub(crate) struct PriorityQueueIterator<T>
+pub(crate) struct MergedIterator<T>
 where
     T: DocValuesFieldIterator,
 {
     queue: PriorityQueue<T, IteratorPQCmp>,
     doc: i32,
 }
-impl<T> PriorityQueueIterator<T>
+impl<T> MergedIterator<T>
 where
     T: DocValuesFieldIterator,
 {
@@ -731,9 +731,9 @@ where
     }
 }
 
-impl<T> DocValuesIterator for PriorityQueueIterator<T> where T: DocValuesFieldIterator {}
+impl<T> DocValuesIterator for MergedIterator<T> where T: DocValuesFieldIterator {}
 
-impl<T> DocValuesFieldIterator for PriorityQueueIterator<T>
+impl<T> DocValuesFieldIterator for MergedIterator<T>
 where
     T: DocValuesFieldIterator,
 {
@@ -753,7 +753,7 @@ where
         self.queue.top().has_value()
     }
 }
-impl<T> DocIdSetIterator for PriorityQueueIterator<T>
+impl<T> DocIdSetIterator for MergedIterator<T>
 where
     T: DocValuesFieldIterator,
 {
@@ -786,7 +786,7 @@ where
         Ok(self.doc)
     }
 }
-impl<T> Default for PriorityQueueIterator<T>
+impl<T> Default for MergedIterator<T>
 where
     T: DocValuesFieldIterator,
 {
