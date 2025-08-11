@@ -274,17 +274,20 @@ where
         if field.is_some() && self.field.as_ref() != field.as_ref() {
             self.field = field.take();
 
-            match self.provider.terms(field.as_ref().unwrap())? { Some(terms) => {
-                let mut terms_enum = terms.iterator()?;
-                if self.sorted_terms {
-                    // need to reset otherwise we fail the assertSorted below since we sort per field
-                    debug_assert!(self.last_term.is_none());
-                    self.reader_term = Option::from(terms_enum.next()?.unwrap().into_owned());
-                }
-                self.terms_enum = Some(terms_enum);
-            } _ => {
-                self.terms_enum = None;
-            }}
+            match self.provider.terms(field.as_ref().unwrap())? {
+                Some(terms) => {
+                    let mut terms_enum = terms.iterator()?;
+                    if self.sorted_terms {
+                        // need to reset otherwise we fail the assertSorted below since we sort per field
+                        debug_assert!(self.last_term.is_none());
+                        self.reader_term = Option::from(terms_enum.next()?.unwrap().into_owned());
+                    }
+                    self.terms_enum = Some(terms_enum);
+                },
+                _ => {
+                    self.terms_enum = None;
+                },
+            }
         }
         Ok(())
     }

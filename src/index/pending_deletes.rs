@@ -346,15 +346,18 @@ where
         debug_assert!(info.info.max_doc()? == self.max_doc);
         let max_doc = info.info.max_doc()?;
         let mut count = 0;
-        match self.get_live_docs() { Some(bits) => {
-            for doc_id in 0..max_doc {
-                if bits.get(doc_id) {
-                    count += 1;
+        match self.get_live_docs() {
+            Some(bits) => {
+                for doc_id in 0..max_doc {
+                    if bits.get(doc_id) {
+                        count += 1;
+                    }
                 }
-            }
-        } _ => {
-            count = max_doc;
-        }}
+            },
+            _ => {
+                count = max_doc;
+            },
+        }
 
         debug_assert_eq!(
             self.num_docs(info)?,

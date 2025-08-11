@@ -55,18 +55,17 @@ impl SortedNumericSelector {
             },
         }
 
-        let view = match DocValues::unwrap_singleton_numeric(&mut sorted_numeric)? { Some(single) => {
-            Either3NumericDocValues::F(single)
-        } _ => {
-            match selector {
+        let view = match DocValues::unwrap_singleton_numeric(&mut sorted_numeric)? {
+            Some(single) => Either3NumericDocValues::F(single),
+            _ => match selector {
                 SortedNumericSelectorType::Min => {
                     Either3NumericDocValues::S(MinValue::new(sorted_numeric))
                 },
                 SortedNumericSelectorType::Max => {
                     Either3NumericDocValues::T(MaxValue::new(sorted_numeric))
                 },
-            }
-        }};
+            },
+        };
 
         match numeric_type {
             SortFieldType::Float => Ok(Either3NumericDocValues::F(
