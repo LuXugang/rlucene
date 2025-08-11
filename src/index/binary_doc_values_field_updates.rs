@@ -40,9 +40,10 @@ pub(crate) struct BinaryDocValuesFieldUpdates {
     lengths: AbstractPagedMutable<PagedGrowableWriter>,
     values: BytesRefBuilder<Vec<u8>>,
     lock: Mutex<()>,
+    // Indicates whether iterator is called, then not allowed add new data
+    finished: bool,
 }
 impl BinaryDocValuesFieldUpdates {
-    #[allow(unused)]
     fn new() -> Result<BinaryDocValuesFieldUpdates> {
         let sub_reader1 = PagedGrowableWriter::with_fill_page(1, PackedInts::FAST);
         let offsets = AbstractPagedMutable::new(1, dvfu_util::PAGE_SIZE, sub_reader1)?;
@@ -53,6 +54,7 @@ impl BinaryDocValuesFieldUpdates {
             lengths,
             values: BytesRefBuilder::new(),
             lock: Mutex::new(()),
+            finished: false,
         })
     }
 }
@@ -71,6 +73,11 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
     }
 
     fn add_byte_ref(&mut self, _doc: i32, value: &BytesRef<Vec<u8>>, index: i32) -> Result<()> {
+        if self.finished {
+            return Err(LuceneError::illegal_state(
+                "Cannot add new data after iterator is called",
+            ));
+        }
         let _guard = self.lock.lock();
         self.offsets.set(index as i64, self.values.length() as i64);
         self.lengths.set(index as i64, value.length as i64);
@@ -91,10 +98,12 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
         inner: Arc<Mutex<DocValuesFieldInner>>,
         del_gen: i64,
     ) -> Result<impl DocValuesFieldIterator> {
+        debug_assert!(!self.finished);
+        self.finished = true;
         let base = AbstractIteratorBaseImpl::new(
-            Some(&mut self.offsets),
-            Some(&mut self.lengths),
-            Some(self.values.get_bytes_mut_ref()),
+            std::mem::take(&mut self.offsets),
+            std::mem::take(&mut self.lengths),
+            self.values.get_bytes_owner(),
         );
         Ok(AbstractIterator::new(inner, del_gen, base))
     }
@@ -140,20 +149,20 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
 /// Implementing Default is solely for enabling sorting within the
 /// PriorityQueue.
 #[derive(Default)]
-pub struct AbstractIteratorBaseImpl<'a> {
-    offsets: Option<&'a mut AbstractPagedMutable<PagedGrowableWriter>>,
+pub struct AbstractIteratorBaseImpl {
+    offsets: AbstractPagedMutable<PagedGrowableWriter>,
     offset: i32,
-    lengths: Option<&'a mut AbstractPagedMutable<PagedGrowableWriter>>,
+    lengths: AbstractPagedMutable<PagedGrowableWriter>,
     length: i32,
-    values: Option<&'a mut BytesRef<Vec<u8>>>,
+    values: BytesRef<Vec<u8>>,
 }
-#[allow(unused)]
-impl<'a> AbstractIteratorBaseImpl<'a> {
+
+impl<'a> AbstractIteratorBaseImpl {
     pub fn new(
-        offsets: Option<&'a mut AbstractPagedMutable<PagedGrowableWriter>>,
-        lengths: Option<&'a mut AbstractPagedMutable<PagedGrowableWriter>>,
-        values: Option<&'a mut BytesRef<Vec<u8>>>,
-    ) -> AbstractIteratorBaseImpl<'a> {
+        offsets: AbstractPagedMutable<PagedGrowableWriter>,
+        lengths: AbstractPagedMutable<PagedGrowableWriter>,
+        values: BytesRef<Vec<u8>>,
+    ) -> AbstractIteratorBaseImpl {
         AbstractIteratorBaseImpl {
             offsets,
             offset: 0,
@@ -163,14 +172,12 @@ impl<'a> AbstractIteratorBaseImpl<'a> {
         }
     }
 }
-impl AbstractIteratorBase for AbstractIteratorBaseImpl<'_> {
+impl AbstractIteratorBase for AbstractIteratorBaseImpl {
     fn set(&mut self, idx: i64) -> Result<()> {
-        debug_assert!(self.offsets.is_some());
-        debug_assert!(self.lengths.is_some());
-        debug_assert!(self.offsets.as_mut().unwrap().get(idx)? <= i32::MAX as i64);
-        self.offset = self.offsets.as_mut().unwrap().get(idx)? as i32;
-        debug_assert!(self.lengths.as_mut().unwrap().get(idx)? <= i32::MAX as i64);
-        self.length = self.lengths.as_mut().unwrap().get(idx)? as i32;
+        debug_assert!(self.offsets.get(idx)? <= i32::MAX as i64);
+        self.offset = self.offsets.get(idx)? as i32;
+        debug_assert!(self.lengths.get(idx)? <= i32::MAX as i64);
+        self.length = self.lengths.get(idx)? as i32;
         Ok(())
     }
 
@@ -181,9 +188,8 @@ impl AbstractIteratorBase for AbstractIteratorBaseImpl<'_> {
     }
 
     fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
-        debug_assert!(self.values.is_some());
-        self.values.as_mut().unwrap().offset = self.offset as usize;
-        self.values.as_mut().unwrap().length = self.length as usize;
-        Ok(self.values.as_mut().unwrap())
+        self.values.offset = self.offset as usize;
+        self.values.length = self.length as usize;
+        Ok(&self.values)
     }
 }
