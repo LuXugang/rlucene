@@ -6,8 +6,6 @@ hard_tabs = false
 reorder_imports = true
 # Put a trailing comma after a block based match arm (non-block arms are not affected)
 match_block_trailing_comma = true
-# Specify the Rust edition for formatting.
-edition = "2024"
 # Unix or Windows line endings
 newline_style = "Unix"
 # Merge multiple derives into a single one.
