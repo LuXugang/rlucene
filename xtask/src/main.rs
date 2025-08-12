@@ -174,7 +174,7 @@ fn main() {
         Some("license-check") => license_check(),
         _ => {
             eprintln!(
-                "Available commands: tidy, commit, ci, format, clippy, fix, test, test-light, check-uncommitted, check-rust-version, license-check"
+                "Available commands: tidy, commit, ci, check-uncommitted, check-rust-version, license-check"
             );
             process::exit(1);
         },
