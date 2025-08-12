@@ -141,10 +141,18 @@ fn license_check() {
         tasks::license::license_checker::load_license_text(license_path.unwrap().as_path());
 
     let src_dir = project_dir.join("src");
+    let libs_dir = project_dir.join("libs");
+    let examples_dir = project_dir.join("examples");
 
     let src_valid = tasks::license::license_checker::check_licenses_in_dir(&src_dir, &license_text);
+    let libs_valid =
+        tasks::license::license_checker::check_licenses_in_dir(&libs_dir, &license_text);
+    let xtask_valid =
+        tasks::license::license_checker::check_licenses_in_dir(&xtask_dir, &license_text);
+    let examples_valid =
+        tasks::license::license_checker::check_licenses_in_dir(&examples_dir, &license_text);
 
-    if src_valid {
+    if src_valid && libs_valid && xtask_valid && examples_valid {
         eprintln!("\x1b[32mAll files have the correct license header\x1b[0m.");
     } else {
         eprintln!(
