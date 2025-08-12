@@ -118,7 +118,12 @@ fn commit() {
 fn ci() {
     tidy();
     check_uncommitted();
-    run_cargo(&["test", "--verbose", "--features", "test_log_verbose,nightly"]);
+    run_cargo(&[
+        "test",
+        "--verbose",
+        "--features",
+        "test_log_verbose,nightly",
+    ]);
 }
 
 fn license_check() {
@@ -126,8 +131,7 @@ fn license_check() {
     let xtask_dir = project_dir.join("xtask");
 
     let license_path = find_file(&xtask_dir, "LICENSE_HEADER");
-    let license_header_path: String =
-        license_path.as_ref().unwrap().to_str().unwrap().to_string();
+    let license_header_path: String = license_path.as_ref().unwrap().to_str().unwrap().to_string();
     if license_path.is_none() {
         eprintln!("LICENSE_HEADER file not found: LICENSE_HEADER");
         process::exit(1);
@@ -138,8 +142,7 @@ fn license_check() {
 
     let src_dir = project_dir.join("src");
 
-    let src_valid =
-        tasks::license::license_checker::check_licenses_in_dir(&src_dir, &license_text);
+    let src_valid = tasks::license::license_checker::check_licenses_in_dir(&src_dir, &license_text);
 
     if src_valid {
         eprintln!("\x1b[32mAll files have the correct license header\x1b[0m.");
@@ -166,6 +169,6 @@ fn main() {
                 "Available commands: tidy, commit, ci, format, clippy, fix, test, test-light, check-uncommitted, check-rust-version, license-check"
             );
             process::exit(1);
-        }
+        },
     }
 }
