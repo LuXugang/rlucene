@@ -51,16 +51,29 @@ fn run_cargo(args: &[&str]) {
 
 /// Check if the Rust version is correct.
 fn check_rust_version() {
-    const REQUIRED: &str = "1.89.0";
+    let required = fs::read_to_string("Cargo.toml")
+        .expect("failed to read Cargo.toml")
+        .lines()
+        .find_map(|line| {
+            let line = line.trim();
+            if line.starts_with("rust-version") {
+                line.split('=')
+                    .nth(1)
+                    .map(|v| v.trim().trim_matches('"').to_string())
+            } else {
+                None
+            }
+        })
+        .expect("rust-version not specified in Cargo.toml");
     let output = Command::new("rustc")
         .arg("--version")
         .output()
         .expect("failed to execute rustc");
     let stdout = String::from_utf8_lossy(&output.stdout);
-    if !stdout.contains(REQUIRED) {
+    if !stdout.contains(&required) {
         eprintln!(
             " ❌ ❌ ❌ Rust version mismatch: expected {}, got: {}",
-            REQUIRED,
+            required,
             stdout.trim()
         );
         process::exit(1);
