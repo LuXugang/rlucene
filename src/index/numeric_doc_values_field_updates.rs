@@ -131,8 +131,8 @@ impl DocValuesFieldUpdatesBase for NumericDocValuesFieldUpdates {
         Ok(())
     }
 
-    fn resize(&mut self, _size: i32) -> Result<()> {
-        self.values = self.values.resize(_size as i64)?;
+    fn resize(&mut self, size: i32) -> Result<()> {
+        self.values = self.values.resize(size as i64)?;
         Ok(())
     }
 

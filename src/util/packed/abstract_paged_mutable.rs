@@ -121,7 +121,7 @@ where
     /// Create a new copy of size <code>newSize</code> based on the content of
     /// this buffer. This is much more efficient than creating a new
     /// instance and copying values one by one.
-    pub fn resize(&mut self, new_size: i64) -> Result<AbstractPagedMutable<T>> {
+    pub fn resize(&self, new_size: i64) -> Result<AbstractPagedMutable<T>> {
         let sub = self.sub_reader.new_unfilled_copy();
         let mut copy = AbstractPagedMutable::new(new_size, self.page_size(), sub)?;
         let num_common_pages = std::cmp::min(copy.sub_mutables.len(), self.sub_mutables.len());
@@ -154,7 +154,7 @@ where
         }
         Ok(copy)
     }
-    pub fn grow_with_size(&mut self, min_size: i64) -> Result<Option<AbstractPagedMutable<T>>> {
+    pub fn grow_with_size(&self, min_size: i64) -> Result<Option<AbstractPagedMutable<T>>> {
         if min_size <= self.size {
             return Ok(None);
         }
@@ -166,7 +166,7 @@ where
         Ok(Some(self.resize(new_size)?))
     }
     #[allow(unused)]
-    pub fn grow(&mut self) -> Result<Option<AbstractPagedMutable<T>>> {
+    pub fn grow(&self) -> Result<Option<AbstractPagedMutable<T>>> {
         self.grow_with_size(self.size() << 1)
     }
 }
