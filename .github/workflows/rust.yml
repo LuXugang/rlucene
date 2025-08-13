@@ -6,21 +6,11 @@ on:
   pull_request:
     branches: [ "main" ]
 
-env:
-  RUST_TOOLCHAIN: "1.89.0"
-
 jobs:
   ci:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Rust toolchain (${{ env.RUST_TOOLCHAIN }})
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: ${{ env.RUST_TOOLCHAIN }}
-          components: clippy, rustfmt
-          override: true
-      - name: Run xtask ci
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - name: Run xtask CI
         run: cargo xtask ci
