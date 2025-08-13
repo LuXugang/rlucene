@@ -175,12 +175,11 @@ impl<'a> AbstractIteratorBinary {
     }
 }
 impl AbstractIteratorBase for AbstractIteratorBinary {
-    fn set(&mut self, idx: i64) -> Result<()> {
-        debug_assert!(self.offsets.get(idx)? <= i32::MAX as i64);
-        self.offset = self.offsets.get(idx)? as i32;
-        debug_assert!(self.lengths.get(idx)? <= i32::MAX as i64);
-        self.length = self.lengths.get(idx)? as i32;
-        Ok(())
+    fn set(&mut self, idx: i64) {
+        debug_assert!(self.offsets.get_immutable(idx) <= i32::MAX as i64);
+        self.offset = self.offsets.get_immutable(idx) as i32;
+        debug_assert!(self.lengths.get_immutable(idx) <= i32::MAX as i64);
+        self.length = self.lengths.get_immutable(idx) as i32;
     }
 
     fn long_value(&mut self) -> Result<i64> {

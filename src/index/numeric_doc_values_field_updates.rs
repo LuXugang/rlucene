@@ -166,9 +166,8 @@ impl AbstractIteratorNumeric {
     }
 }
 impl AbstractIteratorBase for AbstractIteratorNumeric {
-    fn set(&mut self, idx: i64) -> Result<()> {
-        self.value = self.values.get(idx)? + self.min_value;
-        Ok(())
+    fn set(&mut self, idx: i64) {
+        self.value = self.values.get_immutable(idx) + self.min_value;
     }
 
     fn long_value(&mut self) -> Result<i64> {
