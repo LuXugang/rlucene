@@ -39,6 +39,7 @@ use crate::util::bits::Bits;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
+use crate::util::long_values::LongValues;
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 
@@ -1373,6 +1374,30 @@ where
         match self {
             EitherAttributeSource::F(t) => t.get_term_frequency(),
             EitherAttributeSource::S(s) => s.get_term_frequency(),
+        }
+    }
+}
+// LongValues
+pub enum EitherLongValues<F, S> {
+    F(F),
+    S(S),
+}
+impl<F, S> LongValues for EitherLongValues<F, S>
+where
+    F: LongValues,
+    S: LongValues,
+{
+    fn get(&mut self, index: i64) -> Result<i64> {
+        match self {
+            EitherLongValues::F(t) => t.get(index),
+            EitherLongValues::S(s) => s.get(index),
+        }
+    }
+
+    fn get_immutable(&self, _index: i64) -> i64 {
+        match self {
+            EitherLongValues::F(t) => t.get_immutable(_index),
+            EitherLongValues::S(s) => s.get_immutable(_index),
         }
     }
 }

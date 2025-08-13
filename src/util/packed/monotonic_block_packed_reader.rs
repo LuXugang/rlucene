@@ -18,6 +18,7 @@ use std::fmt::Display;
 
 use crate::store::IndexInput;
 use crate::util::accountable::Accountable;
+use crate::util::either_enums::EitherLongValues;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::long_values::{LongValues, Zeroes};
 use crate::util::packed::abstract_block_packed_writer::{MAX_BLOCK_SIZE, MIN_BLOCK_SIZE};
@@ -39,7 +40,7 @@ pub struct MonotonicBlockPackedReader {
     value_count: i64,
     min_values: Vec<i64>,
     averages: Vec<f32>,
-    sub_readers: Vec<LongValuesEnum>,
+    sub_readers: Vec<EitherLongValues<Zeroes, MonotonicLongValues>>,
     sum_bpv: i64,
     total_byte_count: i64,
 }
@@ -64,7 +65,9 @@ impl MonotonicBlockPackedReader {
         let num_blocks = PackedInts::num_blocks(value_count, block_size)?;
         let mut min_values = vec![0; num_blocks as usize];
         let mut averages = vec![0.0; num_blocks as usize];
-        let mut sub_readers = vec![LongValuesEnum::ZeroesLongValues(Zeroes); num_blocks as usize];
+        let mut sub_readers: Vec<_> = (0..num_blocks)
+            .map(|_| EitherLongValues::F(Zeroes))
+            .collect();
         let mut sum_bpv: i64 = 0;
         let mut total_byte_count = 0;
         for i in 0..num_blocks as usize {
@@ -79,8 +82,8 @@ impl MonotonicBlockPackedReader {
             }
 
             if bits_per_value == 0 {
-                // Zero-filled reader
-                sub_readers.push(LongValuesEnum::ZeroesLongValues(Zeroes));
+                // sub_readers inited with Zeroes,so no-op here
+                continue;
             } else {
                 let size = std::cmp::min(
                     block_size,
@@ -97,7 +100,7 @@ impl MonotonicBlockPackedReader {
                 input.read_bytes(&mut blocks, 0, byte_count as i32)?;
                 let mask_right = (1u64 << bits_per_value) - 1;
                 let bpv_minus_block_size = bits_per_value - BLOCK_SIZE;
-                sub_readers[i] = LongValuesEnum::Monotonic(MonotonicLongValues {
+                sub_readers[i] = EitherLongValues::S(MonotonicLongValues {
                     bits_per_values: bits_per_value,
                     bpv_minus_block_size,
                     blocks,
@@ -126,7 +129,6 @@ pub fn expected(origin: i64, average: f32, index: i32) -> i64 {
     origin + (average * index as f32).round() as i64
 }
 
-#[derive(Clone)]
 pub struct MonotonicLongValues {
     bits_per_values: i32,
     bpv_minus_block_size: i32,
@@ -196,19 +198,5 @@ impl Accountable for MonotonicBlockPackedReader {
         size_in_bytes += RamUsageEstimator::size_of_vec(&self.averages);
         size_in_bytes += self.total_byte_count;
         Ok(size_in_bytes)
-    }
-}
-#[derive(Clone)]
-#[allow(dead_code)]
-pub enum LongValuesEnum {
-    Monotonic(MonotonicLongValues),
-    ZeroesLongValues(Zeroes),
-}
-impl LongValues for LongValuesEnum {
-    fn get(&mut self, index: i64) -> Result<i64> {
-        match self {
-            LongValuesEnum::Monotonic(mlv) => mlv.get(index),
-            LongValuesEnum::ZeroesLongValues(zlv) => zlv.get(index),
-        }
     }
 }

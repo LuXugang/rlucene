@@ -27,7 +27,6 @@ pub trait LongValues {
     }
 }
 
-#[derive(Clone)]
 pub struct Zeroes;
 impl LongValues for Zeroes {
     fn get(&mut self, _index: i64) -> Result<i64> {
