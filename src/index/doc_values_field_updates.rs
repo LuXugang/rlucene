@@ -1125,6 +1125,39 @@ pub enum DocValuesFieldUpdatesEnum {
     Binary(DocValuesFieldUpdates<BinaryDocValuesFieldUpdates>),
     SingleValue(DocValuesFieldUpdates<SingleValueDocValuesFieldUpdates>),
 }
+impl DocValuesFieldUpdatesEnum {
+    pub(crate) fn field(&self) -> &str {
+        match self {
+            DocValuesFieldUpdatesEnum::Numeric(u) => &u.field,
+            DocValuesFieldUpdatesEnum::Binary(u) => &u.field,
+            DocValuesFieldUpdatesEnum::SingleValue(u) => &u.field,
+        }
+    }
+
+    pub(crate) fn get_finished(&self) -> Result<bool> {
+        match self {
+            DocValuesFieldUpdatesEnum::Numeric(u) => u.get_finished(),
+            DocValuesFieldUpdatesEnum::Binary(u) => u.get_finished(),
+            DocValuesFieldUpdatesEnum::SingleValue(u) => u.get_finished(),
+        }
+    }
+
+    pub(crate) fn ram_bytes_used(&self) -> Result<i64> {
+        match self {
+            DocValuesFieldUpdatesEnum::Numeric(u) => u.ram_bytes_used(),
+            DocValuesFieldUpdatesEnum::Binary(u) => u.ram_bytes_used(),
+            DocValuesFieldUpdatesEnum::SingleValue(u) => u.ram_bytes_used(),
+        }
+    }
+
+    pub(crate) fn del_gen(&self) -> i64 {
+        match self {
+            DocValuesFieldUpdatesEnum::Numeric(u) => u.del_gen,
+            DocValuesFieldUpdatesEnum::Binary(u) => u.del_gen,
+            DocValuesFieldUpdatesEnum::SingleValue(u) => u.del_gen,
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
