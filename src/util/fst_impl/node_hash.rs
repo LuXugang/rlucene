@@ -114,7 +114,7 @@ where
                 let mut c = 0;
 
                 loop {
-                    let node_address = fallback_table.get_node_address(hash_slot)?;
+                    let node_address = fallback_table.get_node_address(hash_slot);
                     if node_address == 0 {
                         // not found
                         return Ok(0);
@@ -162,7 +162,7 @@ where
         loop {
             let mut node_address = {
                 let node_hash = &mut fst_compiler.dedup_hash;
-                node_hash.primary_table.get_node_address(hash_slot)?
+                node_hash.primary_table.get_node_address(hash_slot)
             };
             if node_address == 0 {
                 // not in primary, check fallback
@@ -176,7 +176,7 @@ where
                     // it was already in fallback -- promote to primary
                     node_hash
                         .primary_table
-                        .set_node_address(hash_slot, node_address)?;
+                        .set_node_address(hash_slot, node_address);
                     node_hash.primary_table.copy_fallback_node_bytes(
                         hash_slot,
                         node_hash.fallback_table.as_mut().unwrap(),
@@ -197,7 +197,7 @@ where
                     let node_hash = &mut fst_compiler.dedup_hash;
                     node_hash
                         .primary_table
-                        .set_node_address(hash_slot, node_address)?;
+                        .set_node_address(hash_slot, node_address);
                     {
                         let pos = fst_compiler.scratch_bytes.get_position();
                         node_hash.primary_table.copy_node_bytes(
@@ -345,12 +345,12 @@ impl Inner {
         &mut self,
         node_address: i64,
         hash_slot: i64,
-    ) -> Result<&mut ByteBlockPoolReverseBytesReader> {
-        debug_assert_eq!(self.fst_node_address.get(hash_slot)?, node_address);
-        let local_address = self.copied_node_address.get(hash_slot)?;
+    ) -> &mut ByteBlockPoolReverseBytesReader {
+        debug_assert_eq!(self.fst_node_address.get_immutable(hash_slot), node_address);
+        let local_address = self.copied_node_address.get_immutable(hash_slot);
         self.bytes_reader
             .set_pos_delta(node_address - local_address);
-        Ok(&mut self.bytes_reader)
+        &mut self.bytes_reader
     }
 }
 
@@ -419,7 +419,7 @@ where
     ///
     /// The copied byte array
     pub fn get_bytes(&mut self, hash_slot: i64, length: i32) -> Result<Vec<u8>> {
-        let address = self.inner.copied_node_address.get(hash_slot)?;
+        let address = self.inner.copied_node_address.get_immutable(hash_slot);
         debug_assert!(address - length as i64 + 1 >= 0);
 
         let mut buf = vec![0u8; length as usize];
@@ -430,15 +430,14 @@ where
         Ok(buf)
     }
     /// Get the node address from the provided hash slot.
-    pub fn get_node_address(&mut self, hash_slot: i64) -> Result<i64> {
-        self.inner.fst_node_address.get(hash_slot)
+    pub fn get_node_address(&mut self, hash_slot: i64) -> i64 {
+        self.inner.fst_node_address.get_immutable(hash_slot)
     }
     /// Set the node address for the given hash slot.
-    pub fn set_node_address(&mut self, hash_slot: i64, node_address: i64) -> Result<()> {
-        debug_assert_eq!(self.inner.fst_node_address.get(hash_slot)?, 0);
+    pub fn set_node_address(&mut self, hash_slot: i64, node_address: i64) {
+        debug_assert_eq!(self.inner.fst_node_address.get_immutable(hash_slot), 0);
         self.inner.fst_node_address.set(hash_slot, node_address);
         self.count += 1;
-        Ok(())
     }
     /// Copy the node bytes from the FST.
     pub(crate) fn copy_node_bytes(
@@ -447,7 +446,7 @@ where
         bytes: &[u8],
         length: i32,
     ) -> Result<()> {
-        debug_assert_eq!(self.inner.copied_node_address.get(hash_slot)?, 0);
+        debug_assert_eq!(self.inner.copied_node_address.get_immutable(hash_slot), 0);
 
         let copied_nodes = &mut self.inner.bytes_reader.buf;
         copied_nodes.append_range(bytes, 0, length)?;
@@ -465,12 +464,12 @@ where
         fallback_hash_slot: i64,
         node_length: i32,
     ) -> Result<()> {
-        debug_assert_eq!(self.inner.copied_node_address.get(hash_slot)?, 0);
+        debug_assert_eq!(self.inner.copied_node_address.get_immutable(hash_slot), 0);
 
         let fallback_address = fallback_table
             .inner
             .copied_node_address
-            .get(fallback_hash_slot)?;
+            .get_immutable(fallback_hash_slot);
         // fallbackAddress is the last offset of the node, but we need to copy
         // the bytes from the start address
         let fallback_start_address = fallback_address - node_length as i64 + 1;
@@ -516,15 +515,15 @@ where
         let new_mask = new_fst_node_address.size() - 1;
 
         for idx in 0..self.inner.fst_node_address.size() {
-            let address = self.inner.fst_node_address.get(idx)?;
+            let address = self.inner.fst_node_address.get_immutable(idx);
             if address != 0 {
                 let mut hash_slot = self.hash(address, idx, fst)? & new_mask;
                 let mut c = 0;
                 loop {
-                    if new_fst_node_address.get(hash_slot)? == 0 {
+                    if new_fst_node_address.get_immutable(hash_slot) == 0 {
                         new_fst_node_address.set(hash_slot, address);
                         new_copied_node_address
-                            .set(hash_slot, self.inner.copied_node_address.get(idx)?);
+                            .set(hash_slot, self.inner.copied_node_address.get_immutable(idx));
                         break;
                     }
                     // quadratic probe
@@ -548,7 +547,7 @@ where
         const PRIME: i64 = 31;
         let mut h: i64 = 0;
 
-        let reader = self.inner.get_bytes_reader(node_address, hash_slot)?;
+        let reader = self.inner.get_bytes_reader(node_address, hash_slot);
 
         fst.read_first_real_target_arc(node_address, &mut self.scratch_arc, reader)?;
 
@@ -592,7 +591,7 @@ where
     where
         O: Outputs<V = T>,
     {
-        let in_reader = self.inner.get_bytes_reader(address, hash_slot)?;
+        let in_reader = self.inner.get_bytes_reader(address, hash_slot);
         fst.read_first_real_target_arc(address, &mut self.scratch_arc, in_reader)?;
         // fail fast for a node with fixed length arcs
         if self.scratch_arc.bytes_per_arc() != 0 {

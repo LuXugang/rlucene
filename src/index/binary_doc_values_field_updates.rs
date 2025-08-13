@@ -159,7 +159,7 @@ pub struct AbstractIteratorBinary {
     values: BytesRef<Vec<u8>>,
 }
 
-impl<'a> AbstractIteratorBinary {
+impl AbstractIteratorBinary {
     pub fn new(
         offsets: AbstractPagedMutable<PagedGrowableWriter>,
         lengths: AbstractPagedMutable<PagedGrowableWriter>,
