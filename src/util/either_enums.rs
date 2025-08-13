@@ -1394,7 +1394,7 @@ where
         }
     }
 
-    fn get_immutable(&self, _index: i64) -> i64 {
+    fn get_immutable(&self, _index: i64) -> Result<i64> {
         match self {
             EitherLongValues::F(t) => t.get_immutable(_index),
             EitherLongValues::S(s) => s.get_immutable(_index),

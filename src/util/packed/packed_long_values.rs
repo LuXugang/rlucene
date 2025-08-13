@@ -162,16 +162,15 @@ impl Accountable for PackedLongValues {
 }
 impl LongValues for PackedLongValues {
     fn get(&mut self, index: i64) -> Result<i64> {
-        Ok(self.get_immutable(index))
+        self.get_immutable(index)
     }
 
-    fn get_immutable(&self, index: i64) -> i64 {
+    fn get_immutable(&self, index: i64) -> Result<i64> {
         debug_assert!(index >= 0);
         debug_assert!(index < self.size());
         let block = (index >> self.page_shift) as i32;
         let element = (index & self.page_mask as i64) as i32;
-
-        self.get_value(block, element, 0)
+        Ok(self.get_value(block, element, 0))
     }
 }
 

@@ -858,7 +858,7 @@ where
 
         self.has_value = (long_doc & dvfu_util::HAS_VALUE_MASK) > 0;
         if self.has_value {
-            self.sub.set(self.idx - 1);
+            self.sub.set(self.idx - 1)?;
         }
         debug_assert!((long_doc as u64 >> dvfu_util::SHIFT) <= i32::MAX as u64);
         self.doc = (long_doc as u64 >> dvfu_util::SHIFT) as i32;
@@ -892,7 +892,7 @@ pub trait AbstractIteratorBase {
     /// # Arguments
     ///
     /// * `idx` - The internal index to set the value to.
-    fn set(&mut self, idx: i64);
+    fn set(&mut self, idx: i64) -> Result<()>;
     fn long_value(&mut self) -> Result<i64>;
     fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>>;
 }

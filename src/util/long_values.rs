@@ -22,7 +22,7 @@ pub trait LongValues {
 
     /// Add an extra, immutable version of the method.
     /// If you need to call get in an immutable context, you can implement this method.
-    fn get_immutable(&self, _index: i64) -> i64 {
+    fn get_immutable(&self, _index: i64) -> Result<i64> {
         unimplemented!("")
     }
 }
