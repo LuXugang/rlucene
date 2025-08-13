@@ -48,39 +48,6 @@ fn run_cargo(args: &[&str]) {
         process::exit(status.code().unwrap_or(1));
     }
 }
-
-/// Check if the Rust version is correct.
-fn check_rust_version() {
-    let required = fs::read_to_string("Cargo.toml")
-        .expect("failed to read Cargo.toml")
-        .lines()
-        .find_map(|line| {
-            let line = line.trim();
-            if line.starts_with("rust-version") {
-                line.split('=')
-                    .nth(1)
-                    .map(|v| v.trim().trim_matches('"').to_string())
-            } else {
-                None
-            }
-        })
-        .expect("rust-version not specified in Cargo.toml");
-    let output = Command::new("rustc")
-        .arg("--version")
-        .output()
-        .expect("failed to execute rustc");
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    if !stdout.contains(&required) {
-        eprintln!(
-            " ❌ ❌ ❌ Rust version mismatch: expected {}, got: {}",
-            required,
-            stdout.trim()
-        );
-        process::exit(1);
-    } else {
-        println!(" ✅ ✅ ✅ Rust version OK: {}", stdout.trim());
-    }
-}
 /// Check if there are uncommitted changes.
 fn check_uncommitted() {
     let output = Command::new("git")
@@ -102,7 +69,6 @@ fn check_uncommitted() {
 /// format code
 fn tidy() {
     license_check();
-    check_rust_version();
     run_cargo(&["clippy", "--fix"]);
     run_cargo(&["fix", "--allow-dirty", "--allow-staged"]);
     run_cargo(&["fmt"]);
@@ -170,7 +136,6 @@ fn main() {
         Some("commit") => commit(),
         Some("ci") => ci(),
         Some("check-uncommitted") => check_uncommitted(),
-        Some("check-rust-version") => check_rust_version(),
         Some("license-check") => license_check(),
         _ => {
             eprintln!(

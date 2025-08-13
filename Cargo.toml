@@ -3,7 +3,6 @@ name = "rlucene"
 version = "0.1.0"
 edition = "2024"
 license ="Apache-2.0"
-rust-version = "1.89.0"
 
 [dependencies]
 derive_getters = { path = "libs/derive_getters" }
