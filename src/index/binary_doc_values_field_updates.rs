@@ -15,12 +15,11 @@
  * limitations under the License.
  */
 use std::rc::Rc;
-use std::sync::Arc;
 
 use parking_lot::Mutex;
 
 use crate::index::doc_values_field_updates::{
-    AbstractIterator, AbstractIteratorBase, DocValuesFieldInner, DocValuesFieldIterator,
+    AbstractIterator, AbstractIteratorBase, DocValuesFieldInnerIter, DocValuesFieldIterator,
     DocValuesFieldIteratorEnum, DocValuesFieldUpdatesBase, dvfu_util,
 };
 use crate::index::doc_values_type::DocValuesType;
@@ -98,7 +97,7 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
 
     fn iterator(
         &self,
-        inner: Arc<Mutex<DocValuesFieldInner>>,
+        inner: DocValuesFieldInnerIter,
         del_gen: i64,
     ) -> Result<DocValuesFieldIteratorEnum> {
         debug_assert!(self.offsets_iter.is_some() && self.lengths_iter.is_some());

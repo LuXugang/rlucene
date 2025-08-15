@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use std::rc::Rc;
-use std::sync::Arc;
 
 use parking_lot::Mutex;
 
@@ -64,20 +63,35 @@ pub(crate) struct DocValuesFieldUpdates<D>
 where
     D: DocValuesFieldUpdatesBase,
 {
-    pub field: String,
-    pub doc_values_type: DocValuesType,
-    pub del_gen: i64,
+    pub(crate) field: String,
+    pub(crate) doc_values_type: DocValuesType,
+    pub(crate) del_gen: i64,
     max_doc: i32,
-    // TODO: if DocValuesFieldUpdates is not for multi-thread, should use
-    // Rc<RefCell>
-    inner: Arc<Mutex<DocValuesFieldInner>>,
-    pub sub_update: D,
+    inner: Mutex<DocValuesFieldInner>,
+    pub(crate) sub_update: D,
 }
 #[derive(Default)]
 pub(crate) struct DocValuesFieldInner {
-    pub finished: bool,
+    finished: bool,
     pub docs: AbstractPagedMutable<PagedMutable>,
-    pub size: i32,
+    pub(crate) size: i32,
+    // for reused iterator
+    pub docs_iter: Option<Rc<AbstractPagedMutable<PagedMutable>>>,
+}
+
+pub(crate) struct DocValuesFieldInnerIter {
+    size: i32,
+    // for reused iterator
+    docs: Rc<AbstractPagedMutable<PagedMutable>>,
+}
+// padding Implement for sort in PriorityQueue
+impl Default for DocValuesFieldInnerIter {
+    fn default() -> Self {
+        DocValuesFieldInnerIter {
+            size: 0,
+            docs: Rc::new(AbstractPagedMutable::default()),
+        }
+    }
 }
 
 impl DocValuesFieldInner {
@@ -92,6 +106,7 @@ impl DocValuesFieldInner {
             finished: false,
             docs: writer,
             size: 0,
+            docs_iter: None,
         })
     }
     pub(crate) fn resize(&mut self, size: i32) -> Result<()> {
@@ -132,7 +147,7 @@ where
             doc_values_type,
             del_gen,
             max_doc,
-            inner: Arc::new(Mutex::new(inner)),
+            inner: Mutex::new(inner),
             sub_update,
         })
     }
@@ -163,7 +178,12 @@ where
     /// Returns an iterator for updated documents and their values.
     pub(crate) fn iterator(&self) -> Result<DocValuesFieldIteratorEnum> {
         self.ensure_finished()?;
-        self.sub_update.iterator(self.inner.clone(), self.del_gen)
+        let inner = self.inner.lock();
+        let v = DocValuesFieldInnerIter {
+            size: inner.size,
+            docs: inner.docs_iter.as_ref().unwrap().clone(),
+        };
+        self.sub_update.iterator(v, self.del_gen)
     }
     /// Adds the value for the given `doc_id`.
     ///
@@ -217,6 +237,7 @@ where
             };
             sorter.sort(0, size)?;
         }
+        inner.docs_iter = Some(Rc::new(std::mem::take(&mut inner.docs)));
         self.sub_update.finish();
         Ok(())
     }
@@ -342,7 +363,7 @@ pub(crate) trait DocValuesFieldUpdatesBase: Accountable {
     /// This method could be called once
     fn iterator(
         &self,
-        inner: Arc<Mutex<DocValuesFieldInner>>,
+        inner: DocValuesFieldInnerIter,
         del_gen: i64,
     ) -> Result<DocValuesFieldIteratorEnum>;
     fn swap(&mut self, _i: i32, _j: i32) -> Result<()> {
@@ -806,7 +827,7 @@ pub(crate) struct AbstractIterator<A>
 where
     A: AbstractIteratorBase + Default,
 {
-    inner: Arc<Mutex<DocValuesFieldInner>>,
+    inner: DocValuesFieldInnerIter,
     idx: i64,
     doc: i32,
     del_gen: i64,
@@ -818,7 +839,7 @@ impl<A> AbstractIterator<A>
 where
     A: AbstractIteratorBase + Default,
 {
-    pub fn new(inner: Arc<Mutex<DocValuesFieldInner>>, del_gen: i64, sub: A) -> Self {
+    pub fn new(inner: DocValuesFieldInnerIter, del_gen: i64, sub: A) -> Self {
         AbstractIterator {
             inner,
             idx: 0,
@@ -841,17 +862,16 @@ where
     }
 
     fn next_doc(&mut self) -> Result<i32> {
-        let mut inner = self.inner.lock();
-        if self.idx >= inner.size as i64 {
+        if self.idx >= self.inner.size as i64 {
             self.doc = NO_MORE_DOCS;
             return Ok(self.doc);
         }
-        let mut long_doc = inner.docs.get(self.idx)?;
+        let mut long_doc = self.inner.docs.get_immutable(self.idx)?;
         self.idx += 1;
 
-        while self.idx < inner.size as i64 {
+        while self.idx < self.inner.size as i64 {
             // Scan forward to last update to this doc
-            let next_long_doc = inner.docs.get(self.idx)?;
+            let next_long_doc = self.inner.docs.get_immutable(self.idx)?;
             if (long_doc as u64 >> 1) != (next_long_doc as u64 >> 1) {
                 break;
             }
@@ -988,7 +1008,7 @@ impl DocValuesFieldUpdatesBase for SingleValueDocValuesFieldUpdates {
 
     fn iterator(
         &self,
-        _inner: Arc<Mutex<DocValuesFieldInner>>,
+        _inner: DocValuesFieldInnerIter,
         _del_gen: i64,
     ) -> Result<DocValuesFieldIteratorEnum> {
         let iterator = BitSetIterator::new(
