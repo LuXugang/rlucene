@@ -24,7 +24,7 @@ use crate::util::bit_set_iterator::BitSetIterator;
 use crate::util::error::lucene_error::Result;
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::int_array_doc_id_set::{IntArrayDocIdSet, IntArrayDocIdSetIterator};
-use std::sync::Arc;
+use std::rc::Rc;
 
 /// A builder of [`DocIdSet`]s. Initially, it uses a sparse structure to gather
 /// documents, and then upgrades to a non-sparse bit set once enough hits match.
@@ -189,7 +189,7 @@ impl DocIdSet for DocIdSetBuilderEnum {
 
     type BitType = FixedBitSet;
 
-    fn bits(&self) -> Option<Arc<Self::BitType>> {
+    fn bits(&self) -> Option<Rc<Self::BitType>> {
         match self {
             DocIdSetBuilderEnum::BitDoc(bit_doc_id_set) => Some(bit_doc_id_set.bits().unwrap()),
             DocIdSetBuilderEnum::IntArray(_) => None,
@@ -197,7 +197,7 @@ impl DocIdSet for DocIdSetBuilderEnum {
     }
 }
 pub enum DocIdSetBuilderIterator {
-    BitSet(BitSetIterator<FixedBitSet, Arc<FixedBitSet>>),
+    BitSet(BitSetIterator<FixedBitSet, Rc<FixedBitSet>>),
     IntArray(IntArrayDocIdSetIterator),
 }
 impl DocIdSetIterator for DocIdSetBuilderIterator {
@@ -249,6 +249,7 @@ mod tests {
     use crate::util::int_array_doc_id_set::IntArrayDocIdSet;
     use crate::util::roaring_doc_id_set::builder::Builder;
     use rand::Rng;
+    use std::rc::Rc;
 
     use std::sync::Arc;
 
@@ -389,7 +390,7 @@ mod tests {
                     c += 1
                 }
             }
-            let docs = Arc::new(docs);
+            let docs = Rc::new(docs);
             let mut array = vec![0; num_docs as usize + random.random_range(0..100)];
             let mut j = {
                 let mut it = BitSetIterator::new(docs.clone(), 0)?;
@@ -403,7 +404,7 @@ mod tests {
                 j
             };
 
-            let docs = match Arc::try_unwrap(docs) {
+            let docs = match Rc::try_unwrap(docs) {
                 Ok(value) => value,
                 Err(_) => return Err(LuceneError::illegal_state("Rc count should be 1")),
             };
@@ -458,7 +459,7 @@ mod tests {
                 docs.set(doc);
             }
             expected.or(&docs);
-            let docs = Arc::new(docs);
+            let docs = Rc::new(docs);
             // We provide a cost of 0 here to make sure the builder can deal
             // with wrong costs
             let mut bit_doc_id_set = BitSetIterator::new(docs, 0)?;

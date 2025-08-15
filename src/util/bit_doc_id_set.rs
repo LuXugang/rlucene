@@ -19,7 +19,7 @@ use crate::util::accountable::Accountable;
 use crate::util::bit_set::BitSet;
 use crate::util::bit_set_iterator::BitSetIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use std::sync::Arc;
+use std::rc::Rc;
 
 //TODO
 #[allow(unused)]
@@ -30,7 +30,7 @@ const BASE_RAM_BYTES_USED: i64 = 0;
 /// # Note
 /// This is an internal API.
 pub struct BitDocIdSet<T: BitSet> {
-    set: Option<Arc<T>>,
+    set: Rc<T>,
     pub(crate) cost: i64,
 }
 /// Wraps the given [`BitSet`] as a [`DocIdSet`].
@@ -43,7 +43,7 @@ impl<T: BitSet> BitDocIdSet<T> {
             )));
         }
         Ok(BitDocIdSet {
-            set: Some(Arc::new(set.unwrap())),
+            set: Rc::new(set.unwrap()),
             cost,
         })
     }
@@ -60,7 +60,7 @@ where
     T: BitSet + Clone,
 {
     fn ram_bytes_used(&self) -> Result<i64> {
-        self.set.as_ref().unwrap().ram_bytes_used()
+        self.set.ram_bytes_used()
     }
 }
 
@@ -68,19 +68,16 @@ impl<T> DocIdSet for BitDocIdSet<T>
 where
     T: BitSet + Clone,
 {
-    type DocIdSetIterator = BitSetIterator<T, Arc<T>>;
+    type DocIdSetIterator = BitSetIterator<T, Rc<T>>;
 
     fn iterator(&self) -> Result<Option<Self::DocIdSetIterator>> {
-        Ok(self
-            .set
-            .as_ref()
-            .map(|set| BitSetIterator::new(set.clone(), self.cost).unwrap()))
+        Ok(Some(BitSetIterator::new(self.set.clone(), self.cost)?))
     }
 
     type BitType = T;
 
-    fn bits(&self) -> Option<Arc<Self::BitType>> {
-        self.set.clone()
+    fn bits(&self) -> Option<Rc<Self::BitType>> {
+        Some(self.set.clone())
     }
 }
 

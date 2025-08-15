@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::rc::Rc;
 use std::sync::Arc;
 
 use parking_lot::Mutex;
@@ -985,7 +986,7 @@ impl DocValuesFieldUpdatesBase for SingleValueDocValuesFieldUpdates {
         debug_assert!(!self.finished);
         self.finished = true;
         let iterator = BitSetIterator::new(
-            Arc::new(std::mem::take(&mut self.bit_set)),
+            Rc::new(std::mem::take(&mut self.bit_set)),
             self.max_doc as i64,
         )?;
         Ok(DocValuesFieldIteratorEnum::SingleValue(
@@ -1039,7 +1040,7 @@ pub trait SingleValueDocValuesFieldUpdatesBase {
 pub struct SingleValueDocValuesFieldUpdatesIterator {
     del_gen: i64,
     has_no_value: Option<SparseFixedBitSet>,
-    iterator: BitSetIterator<SparseFixedBitSet, Arc<SparseFixedBitSet>>,
+    iterator: BitSetIterator<SparseFixedBitSet, Rc<SparseFixedBitSet>>,
     single: SingleValueNumericDocValuesFieldUpdates,
 }
 impl SingleValueDocValuesFieldUpdatesIterator {
@@ -1049,7 +1050,7 @@ impl SingleValueDocValuesFieldUpdatesIterator {
     /// Avoid using the `Default` trait. This constructor should be used
     /// instead.
     pub fn new(
-        iterator: BitSetIterator<SparseFixedBitSet, Arc<SparseFixedBitSet>>,
+        iterator: BitSetIterator<SparseFixedBitSet, Rc<SparseFixedBitSet>>,
         del_gen: i64,
         has_no_value: Option<SparseFixedBitSet>,
         single: SingleValueNumericDocValuesFieldUpdates,
@@ -1073,7 +1074,7 @@ impl Default for SingleValueDocValuesFieldUpdatesIterator {
         Self {
             del_gen: 0,
             has_no_value: None,
-            iterator: BitSetIterator::new(Arc::new(SparseFixedBitSet::default()), 1)
+            iterator: BitSetIterator::new(Rc::new(SparseFixedBitSet::default()), 1)
                 .expect("should never fail"),
             single: SingleValueNumericDocValuesFieldUpdates::default(),
         }

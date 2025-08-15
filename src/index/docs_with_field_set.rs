@@ -22,6 +22,7 @@ use crate::util::bit_set_iterator::BitSetIterator;
 use crate::util::bits::MatchNoBits;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
+use std::rc::Rc;
 use std::sync::Arc;
 
 /// Accumulator for documents that have a value for a field.
@@ -159,7 +160,7 @@ impl DocIdSet for DocsWithFieldSet {
 
     type BitType = MatchNoBits;
 
-    fn bits(&self) -> Option<Arc<Self::BitType>> {
+    fn bits(&self) -> Option<Rc<Self::BitType>> {
         None
     }
 }

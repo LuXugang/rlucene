@@ -20,7 +20,7 @@ use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::util::accountable::Accountable;
 use crate::util::bits::Bits;
 use crate::util::error::lucene_error::Result;
-use std::sync::Arc;
+use std::rc::Rc;
 
 #[allow(unused)]
 const BASE_RAM_BYTES_USED: i64 = 0;
@@ -71,19 +71,19 @@ where
 
     type BitType = NotDocIdBits<T::BitType>;
 
-    fn bits(&self) -> Option<Arc<Self::BitType>> {
+    fn bits(&self) -> Option<Rc<Self::BitType>> {
         self.set
             .bits()
-            .map(|in_bit_rc| Arc::new(NotDocIdBits::new(in_bit_rc)))
+            .map(|in_bit_rc| Rc::new(NotDocIdBits::new(in_bit_rc)))
     }
 }
 
 pub struct NotDocIdBits<B: Bits> {
-    in_bit: Arc<B>,
+    in_bit: Rc<B>,
 }
 
 impl<B: Bits> NotDocIdBits<B> {
-    pub fn new(in_bits: Arc<B>) -> NotDocIdBits<B> {
+    pub fn new(in_bits: Rc<B>) -> NotDocIdBits<B> {
         NotDocIdBits { in_bit: in_bits }
     }
 }

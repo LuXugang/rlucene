@@ -131,8 +131,7 @@ pub mod indexed_disi_util {
     use crate::util::error::lucene_error::LuceneError;
     use crate::util::error::lucene_error::Result;
     use crate::util::fixed_bit_set::FixedBitSet;
-
-    use std::sync::Arc;
+    use std::rc::Rc;
 
     // jump-table time/space trade-offs to consider:
     // The block offsets and the block indexes could be stored in more
@@ -389,7 +388,7 @@ pub mod indexed_disi_util {
                 }
             }
         } else {
-            let mut iter = BitSetIterator::new(Arc::new(buffer), cardinality as i64)?;
+            let mut iter = BitSetIterator::new(Rc::new(buffer), cardinality as i64)?;
             let mut doc;
             while {
                 doc = iter.next_doc()?;
@@ -397,7 +396,7 @@ pub mod indexed_disi_util {
             } {
                 out.write_short(doc as i16)?;
             }
-            buffer = match Arc::try_unwrap(iter.bits) {
+            buffer = match Rc::try_unwrap(iter.bits) {
                 Ok(value) => value,
                 Err(_) => return Err(LuceneError::illegal_state("Rc count shoud be 1")),
             };
@@ -1163,7 +1162,7 @@ mod tests {
     }
 
     fn assert_advance_beyond_end<B: BitSet>(set: B, dir: &mut impl Directory) -> Result<()> {
-        let set = Arc::new(set);
+        let set = Rc::new(set);
         let cardinality = set.cardinality();
         let dense_rank_power = 9;
         let mut out = dir.create_output("bar", &IOContext::default_io_context()?)?;
@@ -1225,7 +1224,7 @@ mod tests {
         } else {
             (random.random_range(0..7) + 7) as i8
         };
-        let set = Arc::new(create_set_with_random_blocks(&mut random, BLOCKS)?);
+        let set = Rc::new(create_set_with_random_blocks(&mut random, BLOCKS)?);
         let cardinality = set.cardinality();
         let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
         let jump_table_entry_count = indexed_disi_util::write_bitset_with_dense_rank_power(
@@ -1313,7 +1312,7 @@ mod tests {
         set: B,
         dir: &mut impl Directory,
     ) -> Result<B> {
-        let set = Arc::new(set);
+        let set = Rc::new(set);
         let cardinality = set.cardinality();
         let dense_rank_power = if rarely(random) {
             -1
@@ -1360,7 +1359,7 @@ mod tests {
                 assert_ne!(i, doc);
             }
         }
-        let set = match Arc::try_unwrap(set) {
+        let set = match Rc::try_unwrap(set) {
             Ok(value) => value,
             Err(_) => return Err(LuceneError::illegal_state("Rc count shoud be 1")),
         };
@@ -1445,7 +1444,7 @@ mod tests {
         };
 
         set.set_with_range(start, start + indexed_disi_util::MAX_ARRAY_LENGTH);
-        let set = Arc::new(set);
+        let set = Rc::new(set);
         let mut out = dir.create_output("sparse", &IOContext::default_io_context()?)?;
         let jump_table_entry_count = {
             indexed_disi_util::write_bitset_with_dense_rank_power(
@@ -1457,7 +1456,7 @@ mod tests {
         let length = out.get_file_pointer();
         drop(out);
 
-        let mut set = match Arc::try_unwrap(set) {
+        let mut set = match Rc::try_unwrap(set) {
             Ok(value) => value,
             Err(_) => return Err(LuceneError::illegal_state("Rc count should be 1")),
         };
@@ -1479,7 +1478,7 @@ mod tests {
         set = do_test(set, &mut dir, &mut random)?;
 
         set.set(start + indexed_disi_util::MAX_ARRAY_LENGTH + random.random_range(0..100));
-        let set = Arc::new(set);
+        let set = Rc::new(set);
         let mut out = dir.create_output("bar", &IOContext::default_io_context()?)?;
         {
             indexed_disi_util::write_bitset_with_dense_rank_power(
@@ -1491,7 +1490,7 @@ mod tests {
                 dense_rank_power,
             )?;
         }
-        let set = match Arc::try_unwrap(set) {
+        let set = match Rc::try_unwrap(set) {
             Ok(value) => value,
             Err(_) => return Err(LuceneError::illegal_state("Rc count should be 1")),
         };
@@ -1588,7 +1587,7 @@ mod tests {
         let mut random = random();
         let mut dir = new_directory(&mut random)?;
         let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
-        let set = Arc::new(set);
+        let set = Rc::new(set);
         let jump_count = indexed_disi_util::write_bitset_with_dense_rank_power(
             &mut BitSetIterator::new(set.clone(), set.cardinality() as i64)?,
             &mut out,
@@ -1626,7 +1625,7 @@ mod tests {
 
         let mut dir = new_directory(&mut random)?;
         let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
-        let set = Arc::new(set);
+        let set = Rc::new(set);
         let jump_table_entry_count = indexed_disi_util::write_bitset_with_dense_rank_power(
             &mut BitSetIterator::new(set.clone(), cardinality)?,
             &mut out,
@@ -1679,7 +1678,7 @@ mod tests {
 
         let max_doc = last_doc + TestUtil::next_int(random, 1, 100);
         let cardinality = docs.approximate_cardinality();
-        let mut bit_set_iterator = BitSetIterator::new(Arc::new(docs), cardinality as i64)?;
+        let mut bit_set_iterator = BitSetIterator::new(Rc::new(docs), cardinality as i64)?;
         let set = bit_set_util::of(&mut bit_set_iterator, max_doc)?;
 
         let _ = do_test(set, dir, random)?;
@@ -1692,7 +1691,7 @@ mod tests {
         random: &mut R,
     ) -> Result<B> {
         let cardinality = set.cardinality() as i64;
-        let set = Arc::new(set);
+        let set = Rc::new(set);
         let dense_rank_power = if rarely(random) {
             -1
         } else {
@@ -1756,7 +1755,7 @@ mod tests {
         }
 
         dir.delete_file("foo")?;
-        let set = match Arc::try_unwrap(set) {
+        let set = match Rc::try_unwrap(set) {
             Ok(value) => value,
             Err(_) => return Err(LuceneError::illegal_state("Rc count should be 1")),
         };
