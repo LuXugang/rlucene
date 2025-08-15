@@ -461,7 +461,7 @@ impl DocIdSet for DocIdSetEnum {
 
 enum DocIdSetIteratorEnum {
     Sparse(ShortArrayDISI),
-    Medium(BitSetIterator<FixedBitSet>),
+    Medium(BitSetIterator<FixedBitSet, Arc<FixedBitSet>>),
     Dense(NotDocDocIdSetIterator<ShortArrayDISI>),
     Empty(EmptyDISI),
 }

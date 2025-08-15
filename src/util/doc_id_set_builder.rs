@@ -197,7 +197,7 @@ impl DocIdSet for DocIdSetBuilderEnum {
     }
 }
 pub enum DocIdSetBuilderIterator {
-    BitSet(BitSetIterator<FixedBitSet>),
+    BitSet(BitSetIterator<FixedBitSet, Arc<FixedBitSet>>),
     IntArray(IntArrayDocIdSetIterator),
 }
 impl DocIdSetIterator for DocIdSetBuilderIterator {

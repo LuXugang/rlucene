@@ -16,37 +16,45 @@
  */
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::util::access::Read;
 use crate::util::bit_set::BitSet;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use std::sync::Arc;
+use std::marker::PhantomData;
 
 /// A [`DocIdSetIterator`] which iterates over set bits in a bit set.
 ///
 /// # Note
 /// This is an internal API.
-pub struct BitSetIterator<T>
+pub struct BitSetIterator<T, R>
 where
     T: BitSet,
+    R: Read<T>,
 {
-    pub(crate) bits: Arc<T>,
+    pub(crate) bits: R,
     length: i32,
     cost: i64,
     doc: i32,
+    phantom: PhantomData<T>,
 }
 
-impl<T: BitSet> BitSetIterator<T> {
-    pub fn new(bits: Arc<T>, cost: i64) -> Result<BitSetIterator<T>> {
+impl<T, R> BitSetIterator<T, R>
+where
+    T: BitSet,
+    R: Read<T>,
+{
+    pub fn new(bits: R, cost: i64) -> Result<BitSetIterator<T, R>> {
         if cost < 0 {
             return Err(LuceneError::illegal_argument(format!(
                 "cost must be >= 0, got {cost}"
             )));
         }
-        let length = bits.length();
+        let length = bits.access(|b| b.length());
         Ok(BitSetIterator {
             bits,
             length,
             cost,
             doc: -1,
+            phantom: PhantomData,
         })
     }
     // Set the current doc id that this iterator is on.
@@ -54,12 +62,16 @@ impl<T: BitSet> BitSetIterator<T> {
     fn set_doc_id(&mut self, doc_id: i32) {
         self.doc = doc_id;
     }
-    pub fn get_bit_set(&self) -> Arc<T> {
+    pub fn get_bit_set(&self) -> R {
         self.bits.clone()
     }
 }
 
-impl<T: BitSet> DocIdSetIterator for BitSetIterator<T> {
+impl<T, R> DocIdSetIterator for BitSetIterator<T, R>
+where
+    T: BitSet,
+    R: Read<T>,
+{
     fn doc_id(&self) -> i32 {
         self.doc
     }
@@ -73,7 +85,7 @@ impl<T: BitSet> DocIdSetIterator for BitSetIterator<T> {
             self.doc = NO_MORE_DOCS;
             return Ok(self.doc);
         }
-        self.doc = self.bits.next_set_bit(target);
+        self.doc = self.bits.access(|b| b.next_set_bit(target));
         Ok(self.doc)
     }
 

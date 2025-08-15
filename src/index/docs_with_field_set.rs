@@ -96,7 +96,7 @@ impl DocsWithFieldSet {
 }
 pub enum DocsWithFieldSetEnum {
     Dense(AllDocIdSetIterator),
-    Sparse(BitSetIterator<FixedBitSet>),
+    Sparse(BitSetIterator<FixedBitSet, Arc<FixedBitSet>>),
 }
 impl DocIdSetIterator for DocsWithFieldSetEnum {
     fn doc_id(&self) -> i32 {

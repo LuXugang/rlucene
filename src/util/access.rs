@@ -114,6 +114,21 @@ impl<T> Access<T> for Arc<Mutex<T>> {
         f(&mut *guard)
     }
 }
+pub trait Read<T>: Clone {
+    fn access<R>(&self, f: impl FnOnce(&T) -> R) -> R;
+}
+
+impl<T> Read<T> for Rc<T> {
+    fn access<R>(&self, f: impl FnOnce(&T) -> R) -> R {
+        f(self.as_ref())
+    }
+}
+
+impl<T> Read<T> for Arc<T> {
+    fn access<R>(&self, f: impl FnOnce(&T) -> R) -> R {
+        f(self.as_ref())
+    }
+}
 
 /// Similar to the `Access` trait, but specifically for `Vec<T>`.
 pub trait AccessVec<T>: Clone + Default {

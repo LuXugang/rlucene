@@ -68,7 +68,7 @@ impl<T> DocIdSet for BitDocIdSet<T>
 where
     T: BitSet + Clone,
 {
-    type DocIdSetIterator = BitSetIterator<T>;
+    type DocIdSetIterator = BitSetIterator<T, Arc<T>>;
 
     fn iterator(&self) -> Result<Option<Self::DocIdSetIterator>> {
         Ok(self
