@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::rc::Rc;
 use std::sync::Arc;
 
 use parking_lot::Mutex;
@@ -40,8 +41,9 @@ pub(crate) struct BinaryDocValuesFieldUpdates {
     lengths: AbstractPagedMutable<PagedGrowableWriter>,
     values: BytesRefBuilder<Vec<u8>>,
     lock: Mutex<()>,
-    // Indicates whether iterator is called, then not allowed add new data
-    finished: bool,
+
+    offsets_iter: Option<Rc<AbstractPagedMutable<PagedGrowableWriter>>>,
+    lengths_iter: Option<Rc<AbstractPagedMutable<PagedGrowableWriter>>>,
 }
 impl BinaryDocValuesFieldUpdates {
     fn new() -> Result<BinaryDocValuesFieldUpdates> {
@@ -54,7 +56,8 @@ impl BinaryDocValuesFieldUpdates {
             lengths,
             values: BytesRefBuilder::new(),
             lock: Mutex::new(()),
-            finished: false,
+            offsets_iter: None,
+            lengths_iter: None,
         })
     }
 }
@@ -66,6 +69,11 @@ impl Accountable for BinaryDocValuesFieldUpdates {
 }
 
 impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
+    fn finish(&mut self) {
+        self.offsets_iter = Some(Rc::new(std::mem::take(&mut self.offsets)));
+        self.lengths_iter = Some(Rc::new(std::mem::take(&mut self.lengths)));
+    }
+
     fn add_value(&mut self, _doc: i32, _value: i64, _index: i32) -> Result<()> {
         Err(LuceneError::unreachable(
             "BinaryDocValuesFieldUpdates does not support add_value",
@@ -73,11 +81,6 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
     }
 
     fn add_byte_ref(&mut self, _doc: i32, value: &BytesRef<Vec<u8>>, index: i32) -> Result<()> {
-        if self.finished {
-            return Err(LuceneError::illegal_state(
-                "Cannot add new data after iterator is called",
-            ));
-        }
         let _guard = self.lock.lock();
         self.offsets.set(index as i64, self.values.length() as i64);
         self.lengths.set(index as i64, value.length as i64);
@@ -94,16 +97,16 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
     }
 
     fn iterator(
-        &mut self,
+        &self,
         inner: Arc<Mutex<DocValuesFieldInner>>,
         del_gen: i64,
     ) -> Result<DocValuesFieldIteratorEnum> {
-        debug_assert!(!self.finished);
-        self.finished = true;
+        debug_assert!(self.offsets_iter.is_some() && self.lengths_iter.is_some());
         let base = AbstractIteratorBinary::new(
-            std::mem::take(&mut self.offsets),
-            std::mem::take(&mut self.lengths),
-            self.values.get_bytes_owner(),
+            self.offsets_iter.as_ref().unwrap().clone(),
+            self.lengths_iter.as_ref().unwrap().clone(),
+            // TODO: avoid copy here if iterator is called busy
+            self.values.get_bytes_ref_copy(),
         );
         Ok(DocValuesFieldIteratorEnum::AbstractBinary(
             AbstractIterator::new(inner, del_gen, base),
@@ -152,17 +155,17 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
 /// PriorityQueue.
 #[derive(Default)]
 pub struct AbstractIteratorBinary {
-    offsets: AbstractPagedMutable<PagedGrowableWriter>,
+    offsets: Rc<AbstractPagedMutable<PagedGrowableWriter>>,
     offset: i32,
-    lengths: AbstractPagedMutable<PagedGrowableWriter>,
+    lengths: Rc<AbstractPagedMutable<PagedGrowableWriter>>,
     length: i32,
     values: BytesRef<Vec<u8>>,
 }
 
 impl AbstractIteratorBinary {
     pub fn new(
-        offsets: AbstractPagedMutable<PagedGrowableWriter>,
-        lengths: AbstractPagedMutable<PagedGrowableWriter>,
+        offsets: Rc<AbstractPagedMutable<PagedGrowableWriter>>,
+        lengths: Rc<AbstractPagedMutable<PagedGrowableWriter>>,
         values: BytesRef<Vec<u8>>,
     ) -> AbstractIteratorBinary {
         AbstractIteratorBinary {

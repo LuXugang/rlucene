@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::rc::Rc;
 use std::sync::Arc;
 
 use parking_lot::Mutex;
@@ -40,7 +41,8 @@ pub(crate) struct NumericDocValuesFieldUpdates {
     values: AbstractPagedMutable<AbstractPagedMutableBaseEnum>,
     min_value: i64,
     lock: Mutex<()>,
-    finished: bool,
+
+    values_iter: Option<Rc<AbstractPagedMutable<AbstractPagedMutableBaseEnum>>>,
 }
 impl NumericDocValuesFieldUpdates {
     pub(crate) fn new() -> Result<NumericDocValuesFieldUpdates> {
@@ -52,7 +54,7 @@ impl NumericDocValuesFieldUpdates {
             values,
             min_value: 0,
             lock: Mutex::new(()),
-            finished: false,
+            values_iter: None,
         })
     }
     pub(crate) fn with_range(
@@ -70,18 +72,17 @@ impl NumericDocValuesFieldUpdates {
             values,
             min_value,
             lock: Mutex::new(()),
-            finished: false,
+            values_iter: None,
         })
     }
 }
 
 impl DocValuesFieldUpdatesBase for NumericDocValuesFieldUpdates {
+    fn finish(&mut self) {
+        self.values_iter = Some(Rc::new(std::mem::take(&mut self.values)));
+    }
+
     fn add_value(&mut self, _doc: i32, value: i64, index: i32) -> Result<()> {
-        if self.finished {
-            return Err(LuceneError::illegal_state(
-                "Cannot add new data after iterator is called",
-            ));
-        }
         let _guard = self.lock.lock();
         self.values.set(index as i64, value - self.min_value);
         Ok(())
@@ -102,14 +103,16 @@ impl DocValuesFieldUpdatesBase for NumericDocValuesFieldUpdates {
     }
 
     fn iterator(
-        &mut self,
+        &self,
         inner: Arc<Mutex<DocValuesFieldInner>>,
         del_gen: i64,
     ) -> Result<DocValuesFieldIteratorEnum> {
-        debug_assert!(!self.finished);
-        self.finished = true;
-        let base =
-            AbstractIteratorNumeric::new(std::mem::take(&mut self.values), 0, self.min_value);
+        debug_assert!(self.values_iter.is_some());
+        let base = AbstractIteratorNumeric::new(
+            self.values_iter.as_ref().unwrap().clone(),
+            0,
+            self.min_value,
+        );
         Ok(DocValuesFieldIteratorEnum::AbstractNumeric(
             AbstractIterator::new(inner, del_gen, base),
         ))
@@ -148,13 +151,13 @@ impl Accountable for NumericDocValuesFieldUpdates {
 }
 #[derive(Default)]
 pub(crate) struct AbstractIteratorNumeric {
-    values: AbstractPagedMutable<AbstractPagedMutableBaseEnum>,
+    values: Rc<AbstractPagedMutable<AbstractPagedMutableBaseEnum>>,
     value: i64,
     min_value: i64,
 }
 impl AbstractIteratorNumeric {
     pub(crate) fn new(
-        values: AbstractPagedMutable<AbstractPagedMutableBaseEnum>,
+        values: Rc<AbstractPagedMutable<AbstractPagedMutableBaseEnum>>,
         value: i64,
         min_value: i64,
     ) -> Self {
