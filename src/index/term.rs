@@ -36,10 +36,7 @@ impl Term {
     }
 
     /// Constructs a Term with the given field and the bytes from a builder.
-    pub fn from_bytes_ref_builder(
-        fld: String,
-        mut bytes_builder: BytesRefBuilder<Vec<u8>>,
-    ) -> Self {
+    pub fn from_bytes_ref_builder(fld: String, bytes_builder: BytesRefBuilder<Vec<u8>>) -> Self {
         Self::new(fld, bytes_builder.get_bytes_ref_copy())
     }
 

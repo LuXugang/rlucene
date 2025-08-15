@@ -196,7 +196,7 @@ where
         std::mem::take(&mut self.bytes_ref)
     }
     /// Build a new BytesRef that has the same content as this buffer.
-    pub fn get_bytes_ref_copy(&mut self) -> BytesRef<AV> {
+    pub fn get_bytes_ref_copy(&self) -> BytesRef<AV> {
         BytesRef::from_bytes(self.bytes_ref.bytes.slice_clone(0, self.bytes_ref.length))
     }
 }

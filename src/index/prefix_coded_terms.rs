@@ -174,7 +174,7 @@ impl PrefixCodedTermsBuilder {
             suffix,
         )?;
         self.last_term_bytes.copy_bytes_with_ref(bytes);
-        self.last_term.bytes = self.last_term_bytes.get_bytes_ref_copy();
+        self.last_term.bytes = self.last_term_bytes.get_bytes_owner();
         self.last_term.field = field;
         self.size += 1;
 
@@ -190,7 +190,6 @@ impl PrefixCodedTermsBuilder {
 pub struct TermIterator<'a> {
     input: ByteBuffersDataInputRef<'a>,
     builder: BytesRefBuilder<Vec<u8>>,
-    bytes: BytesRef<Vec<u8>>,
     end: i64,
     del_gen: i64,
     field: String,
@@ -198,13 +197,11 @@ pub struct TermIterator<'a> {
 
 impl<'a> TermIterator<'a> {
     pub fn new(del_gen: i64, input: ByteBuffersDataInputRef<'a>) -> Self {
-        let mut builder = BytesRefBuilder::new();
-        let bytes = builder.get_bytes_ref_copy();
+        let builder = BytesRefBuilder::new();
         let end = input.length();
         Self {
             input,
             builder,
-            bytes,
             end,
             del_gen,
             field: "".to_string(),
@@ -221,7 +218,6 @@ impl<'a> TermIterator<'a> {
         })?;
 
         self.builder.set_length(len);
-        self.bytes = self.builder.get_bytes_ref_copy();
         Ok(())
     }
 }
@@ -237,7 +233,7 @@ impl BytesRefIterator for TermIterator<'_> {
             let prefix = code >> 1;
             let suffix = self.input.read_vint()?;
             self.read_term_bytes(prefix, suffix)?;
-            return Ok(Some(Cow::Borrowed(&self.bytes)));
+            return Ok(Some(Cow::Borrowed(&self.builder.bytes_ref)));
         } else {
             self.field.clear();
         }
@@ -304,7 +300,7 @@ mod tests {
 
         for _ in 0..nterms {
             let field = TestUtil::random_unicode_string_with_len(&mut random, 2);
-            let text = TestUtil::random_unicode_string_with_len(&mut random, 0);
+            let text = TestUtil::random_unicode_string(&mut random);
             let term = Term::from_text(field, &text);
             terms.insert(term);
         }
