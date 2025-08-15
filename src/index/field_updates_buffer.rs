@@ -20,7 +20,7 @@ use std::sync::Arc;
 use crate::index::BytesRef;
 use crate::index::doc_values_update::{DocValuesUpdate, DocValuesUpdateBase};
 use crate::index::term::Term;
-use crate::util::access::Access;
+use crate::util::access::SharedAccess;
 use crate::util::accountable::Accountable;
 use crate::util::array_util::ArrayUtil;
 use crate::util::bit_set::BitSet;

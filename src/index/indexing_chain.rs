@@ -79,7 +79,7 @@ use crate::search::similarities::similarities::Similarity;
 use crate::search::sort_field::SortFiledBase;
 use crate::store::IOContext;
 use crate::store::directory::Directory;
-use crate::util::access::Access;
+use crate::util::access::SharedAccess;
 use crate::util::accountable::Accountable;
 use crate::util::allocator_byte::{
     AllocatorByteEnum, DirectTrackingAllocatorByte, MTAllocatorByteEnum,
@@ -1637,14 +1637,14 @@ impl Ord for PerField {
 
 pub(crate) struct IntBlockAllocator<C>
 where
-    C: Access<CounterEnum>,
+    C: SharedAccess<CounterEnum>,
 {
     block_size: usize,
     pub(crate) byte_used: C,
 }
 impl<C> IntBlockAllocator<C>
 where
-    C: Access<CounterEnum>,
+    C: SharedAccess<CounterEnum>,
 {
     fn new(byte_used: C) -> Self {
         IntBlockAllocator {
@@ -1658,7 +1658,7 @@ where
 }
 impl<C> AllocatorI32 for IntBlockAllocator<C>
 where
-    C: Access<CounterEnum>,
+    C: SharedAccess<CounterEnum>,
 {
     fn recycle_int_blocks(&mut self, _blocks: &[Vec<i32>], _offset: usize, length: usize) {
         self.byte_used.access_mut(|byte_used| {

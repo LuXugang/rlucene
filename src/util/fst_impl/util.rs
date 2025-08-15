@@ -19,7 +19,7 @@ use std::fmt::Display;
 
 use crate::index::{BytesRef, BytesRefBuilder};
 use crate::store::DataInput;
-use crate::util::access::AccessVec;
+use crate::util::access::SharedAccessVec;
 use crate::util::error::lucene_error::Result;
 use crate::util::fst_impl::fst::{Arc, BitTable, BytesReader, FST, InputType, fst_util};
 use crate::util::fst_impl::fst_reader::FstReader;
@@ -35,7 +35,7 @@ impl Util {
     where
         O: Outputs,
         F: FstReader,
-        AV: AccessVec<i32>,
+        AV: SharedAccessVec<i32>,
     {
         let mut arc = Arc::default();
         fst.get_first_arc(&mut arc);
@@ -64,7 +64,7 @@ impl Util {
     where
         O: Outputs,
         F: FstReader,
-        AV: AccessVec<u8>,
+        AV: SharedAccessVec<u8>,
     {
         assert_eq!(fst.metadata.as_ref().unwrap().input_type, InputType::Byte1);
 
@@ -89,14 +89,14 @@ impl Util {
             Ok(None)
         }
     }
-    pub fn get_utf32<AV: AccessVec<i32>>(s: &str, scratch: &mut IntsRefBuilder<AV>) {
+    pub fn get_utf32<AV: SharedAccessVec<i32>>(s: &str, scratch: &mut IntsRefBuilder<AV>) {
         let len = s.len();
         Self::get_utf32_with_slice(s, 0, len, scratch);
     }
     /// Decodes the Unicode codepoints from the provided `char[]` and places
     /// them into the provided scratch `IntsRef`, which must not be `None`,
     /// and returns it.
-    pub fn get_utf32_with_slice<AV: AccessVec<i32>>(
+    pub fn get_utf32_with_slice<AV: SharedAccessVec<i32>>(
         s: &str,
         offset: usize,
         length: usize,
@@ -112,7 +112,7 @@ impl Util {
     }
     /// Just takes unsigned byte values from the BytesRef and converts into an
     /// IntsRef.
-    pub fn get_ints_ref<AV1: AccessVec<u8>, AV2: AccessVec<i32>>(
+    pub fn get_ints_ref<AV1: SharedAccessVec<u8>, AV2: SharedAccessVec<i32>>(
         input: &BytesRef<AV1>,
         scratch: &mut IntsRefBuilder<AV2>,
     ) {
@@ -127,7 +127,7 @@ impl Util {
     }
     /// Just converts IntsRef to BytesRef; you must ensure the int values fit
     /// into a byte.
-    pub fn get_bytes_ref<AV1: AccessVec<i32>, AV2: AccessVec<u8>>(
+    pub fn get_bytes_ref<AV1: SharedAccessVec<i32>, AV2: SharedAccessVec<u8>>(
         input: &IntsRef<AV1>,
         scratch: &mut BytesRefBuilder<AV2>,
     ) -> Result<BytesRef<AV2>> {

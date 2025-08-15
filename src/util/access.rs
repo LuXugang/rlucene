@@ -34,7 +34,7 @@ use crate::util::array_util::ArrayUtil;
 /// ### Use Case
 /// This trait is especially useful when you have components or fields that may
 /// be used in either single-threaded or multi-threaded contexts. By defining
-/// them in terms of `Access<T>`, you can:
+/// them in terms of `SharedAccess<T>`, you can:
 ///
 /// - Use `Rc<RefCell<T>>` in single-threaded mode for better performance (no
 ///   locking).
@@ -44,7 +44,7 @@ use crate::util::array_util::ArrayUtil;
 ///
 /// ### Example
 /// ```rust
-/// use rlucene::util::access::Access;
+/// use rlucene::util::access::SharedAccess;
 /// use rlucene::util::error::lucene_error::{LuceneError, Result};
 /// struct MyStruct;
 /// impl MyStruct{
@@ -52,7 +52,7 @@ use crate::util::array_util::ArrayUtil;
 ///     }
 /// }
 ///
-/// fn update_state<S: Access<MyStruct>>(state: &mut S) -> Result<()> {
+/// fn update_state<S: SharedAccess<MyStruct>>(state: &mut S) -> Result<()> {
 ///     state.access_mut(|s| {
 ///         s.do_something();
 ///        // Help the compiler infer types.
@@ -69,7 +69,7 @@ use crate::util::array_util::ArrayUtil;
 /// Then depending on your runtime context:
 /// - `Rc<RefCell<MyStruct>>` can implement `Access<MyStruct>` for local use
 /// - `Arc<Mutex<MyStruct>>` can implement `Access<MyStruct>` for concurrent use
-pub trait Access<T>: Clone {
+pub trait SharedAccess<T>: Clone {
     fn access<F, R>(&self, f: F) -> R
     where
         F: FnOnce(&T) -> R;
@@ -79,7 +79,7 @@ pub trait Access<T>: Clone {
         F: FnOnce(&mut T) -> R;
 }
 
-impl<T> Access<T> for Rc<RefCell<T>> {
+impl<T> SharedAccess<T> for Rc<RefCell<T>> {
     fn access<F, R>(&self, f: F) -> R
     where
         F: FnOnce(&T) -> R,
@@ -97,7 +97,7 @@ impl<T> Access<T> for Rc<RefCell<T>> {
     }
 }
 
-impl<T> Access<T> for Arc<Mutex<T>> {
+impl<T> SharedAccess<T> for Arc<Mutex<T>> {
     fn access<F, R>(&self, f: F) -> R
     where
         F: FnOnce(&T) -> R,
@@ -114,24 +114,24 @@ impl<T> Access<T> for Arc<Mutex<T>> {
         f(&mut *guard)
     }
 }
-pub trait Read<T>: Clone {
+pub trait SharedReadOnly<T>: Clone {
     fn access<R>(&self, f: impl FnOnce(&T) -> R) -> R;
 }
 
-impl<T> Read<T> for Rc<T> {
+impl<T> SharedReadOnly<T> for Rc<T> {
     fn access<R>(&self, f: impl FnOnce(&T) -> R) -> R {
         f(self.as_ref())
     }
 }
 
-impl<T> Read<T> for Arc<T> {
+impl<T> SharedReadOnly<T> for Arc<T> {
     fn access<R>(&self, f: impl FnOnce(&T) -> R) -> R {
         f(self.as_ref())
     }
 }
 
 /// Similar to the `Access` trait, but specifically for `Vec<T>`.
-pub trait AccessVec<T>: Clone + Default {
+pub trait SharedAccessVec<T>: Clone + Default {
     fn access<F, R>(&self, f: F) -> R
     where
         F: FnOnce(&Vec<T>) -> R;
@@ -146,7 +146,7 @@ pub trait AccessVec<T>: Clone + Default {
 }
 
 // Vec<T>
-impl<T> AccessVec<T> for Vec<T>
+impl<T> SharedAccessVec<T> for Vec<T>
 where
     T: Clone + Default,
 {
@@ -185,7 +185,7 @@ where
     }
 }
 // Rc<Vec<T>>
-impl<T> AccessVec<T> for Rc<Vec<T>>
+impl<T> SharedAccessVec<T> for Rc<Vec<T>>
 where
     T: Clone + Default,
 {
@@ -225,7 +225,7 @@ where
     }
 }
 // Arc<Vec<T>>
-impl<T> AccessVec<T> for Arc<Vec<T>>
+impl<T> SharedAccessVec<T> for Arc<Vec<T>>
 where
     T: Clone + Default,
 {
@@ -265,7 +265,7 @@ where
     }
 }
 // Rc<RefCell<Vec<T>>>
-impl<T> AccessVec<T> for Rc<RefCell<Vec<T>>>
+impl<T> SharedAccessVec<T> for Rc<RefCell<Vec<T>>>
 where
     T: Clone + Default,
 {
@@ -311,7 +311,7 @@ where
     }
 }
 // Arc<Mutex<Vec<T>>>
-impl<T> AccessVec<T> for Arc<Mutex<Vec<T>>>
+impl<T> SharedAccessVec<T> for Arc<Mutex<Vec<T>>>
 where
     T: Clone + Default,
 {

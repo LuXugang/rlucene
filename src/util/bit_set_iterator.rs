@@ -16,7 +16,7 @@
  */
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-use crate::util::access::Read;
+use crate::util::access::SharedReadOnly;
 use crate::util::bit_set::BitSet;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use std::marker::PhantomData;
@@ -28,7 +28,7 @@ use std::marker::PhantomData;
 pub struct BitSetIterator<T, R>
 where
     T: BitSet,
-    R: Read<T>,
+    R: SharedReadOnly<T>,
 {
     pub(crate) bits: R,
     length: i32,
@@ -40,7 +40,7 @@ where
 impl<T, R> BitSetIterator<T, R>
 where
     T: BitSet,
-    R: Read<T>,
+    R: SharedReadOnly<T>,
 {
     pub fn new(bits: R, cost: i64) -> Result<BitSetIterator<T, R>> {
         if cost < 0 {
@@ -70,7 +70,7 @@ where
 impl<T, R> DocIdSetIterator for BitSetIterator<T, R>
 where
     T: BitSet,
-    R: Read<T>,
+    R: SharedReadOnly<T>,
 {
     fn doc_id(&self) -> i32 {
         self.doc

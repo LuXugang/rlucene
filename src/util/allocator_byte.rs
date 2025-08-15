@@ -20,18 +20,18 @@ use std::sync::Arc;
 
 use parking_lot::Mutex;
 
-use crate::util::access::Access;
+use crate::util::access::SharedAccess;
 use crate::util::{Counter, CounterEnum, CounterEnumBorrow, byte_block_pool_util};
 
 /// A simple `Allocator` that never recycles, but tracks how much total RAM is
 /// in use.  */
 #[derive(Debug)]
-pub struct DirectTrackingAllocatorByte<C: Access<CounterEnum>> {
+pub struct DirectTrackingAllocatorByte<C: SharedAccess<CounterEnum>> {
     block_size: usize,
     pub(crate) byte_used: C,
 }
 
-impl<C: Access<CounterEnum>> DirectTrackingAllocatorByte<C> {
+impl<C: SharedAccess<CounterEnum>> DirectTrackingAllocatorByte<C> {
     pub fn new(byte_used: C) -> Self {
         DirectTrackingAllocatorByte {
             block_size: byte_block_pool_util::BYTE_BLOCK_SIZE as usize,
@@ -43,7 +43,7 @@ impl<C: Access<CounterEnum>> DirectTrackingAllocatorByte<C> {
     }
 }
 
-impl<C: Access<CounterEnum>> AllocatorByte for DirectTrackingAllocatorByte<C> {
+impl<C: SharedAccess<CounterEnum>> AllocatorByte for DirectTrackingAllocatorByte<C> {
     fn recycle_byte_blocks(&mut self, _blocks: &[Vec<u8>], start: usize, end: usize) {
         let delta = (end - start) as i64 * self.block_size as i64;
         self.byte_used
@@ -103,14 +103,14 @@ impl AllocatorByte for DirectAllocatorByte {
 #[derive(Debug)]
 pub enum AllocatorByteEnum<C>
 where
-    C: Access<CounterEnum>,
+    C: SharedAccess<CounterEnum>,
 {
     DA(DirectAllocatorByte),
     DTA(DirectTrackingAllocatorByte<C>),
 }
 impl<C> AllocatorByteEnum<C>
 where
-    C: Access<CounterEnum>,
+    C: SharedAccess<CounterEnum>,
 {
     pub fn get_used(&self) -> i64 {
         match self {
@@ -121,7 +121,7 @@ where
 }
 impl<C> AllocatorByte for AllocatorByteEnum<C>
 where
-    C: Access<CounterEnum>,
+    C: SharedAccess<CounterEnum>,
 {
     fn recycle_byte_blocks(&mut self, blocks: &[Vec<u8>], start: usize, end: usize) {
         match self {
@@ -148,7 +148,7 @@ pub type STAllocatorByteEnum = AllocatorByteEnum<CounterEnumBorrow>;
 pub type MTAllocatorByteEnum = AllocatorByteEnum<Arc<Mutex<CounterEnum>>>;
 #[allow(unused)]
 pub(crate) trait Allocator {
-    type CounterAccess: Access<CounterEnum>;
+    type CounterAccess: SharedAccess<CounterEnum>;
     type Handle: Clone;
 
     fn new_allocator(allocator: AllocatorByteEnum<Self::CounterAccess>) -> Self::Handle;
@@ -160,7 +160,7 @@ pub(crate) trait Allocator {
 
 impl<C> Allocator for Rc<RefCell<AllocatorByteEnum<C>>>
 where
-    C: Access<CounterEnum>,
+    C: SharedAccess<CounterEnum>,
 {
     type CounterAccess = C;
     type Handle = Rc<RefCell<AllocatorByteEnum<C>>>;
@@ -188,7 +188,7 @@ where
 
 impl<C> Allocator for Arc<Mutex<AllocatorByteEnum<C>>>
 where
-    C: Access<CounterEnum>,
+    C: SharedAccess<CounterEnum>,
 {
     type CounterAccess = C;
     type Handle = Arc<Mutex<AllocatorByteEnum<C>>>;

@@ -56,7 +56,7 @@ pub mod lucene_test_case_util {
     use crate::test::util::lucene_test_case::EnvConfig::{Multiplier, NightMode, TestSeed};
     use crate::test::util::test_util::TestUtil;
     use crate::util::SliceCopyOps;
-    use crate::util::access::AccessVec;
+    use crate::util::access::SharedAccessVec;
     use rand::prelude::StdRng;
     use rand::{Rng, SeedableRng};
     use tempfile::TempDir;
@@ -169,7 +169,7 @@ pub mod lucene_test_case_util {
     /// Creates a `BytesRef` holding UTF-8 bytes for the incoming string,
     /// that sometimes uses a non-zero offset and non-zero end-padding to
     /// tickle latent bugs that fail to look at `BytesRef.offset`.
-    pub(crate) fn new_bytes_ref_from_string<R: Rng + ?Sized, AV: AccessVec<u8>>(
+    pub(crate) fn new_bytes_ref_from_string<R: Rng + ?Sized, AV: SharedAccessVec<u8>>(
         random: &mut R,
         s: &str,
     ) -> crate::util::error::lucene_error::Result<BytesRef<AV>> {
@@ -180,7 +180,7 @@ pub mod lucene_test_case_util {
     /// Creates a copy of the incoming `BytesRef` that sometimes uses a non-zero
     /// offset, and non-zero end-padding, to tickle latent bugs that fail to look at
     /// `BytesRef.offset`.
-    pub(crate) fn new_bytes_ref_from_bytes_ref<R: Rng + ?Sized, AV: AccessVec<u8>>(
+    pub(crate) fn new_bytes_ref_from_bytes_ref<R: Rng + ?Sized, AV: SharedAccessVec<u8>>(
         random: &mut R,
         b: &BytesRef<AV>,
     ) -> crate::util::error::lucene_error::Result<BytesRef<AV>> {
@@ -192,7 +192,7 @@ pub mod lucene_test_case_util {
     /// Creates a random `BytesRef` from the incoming bytes, sometimes using a
     /// non-zero offset, and non-zero end-padding, to tickle latent bugs that fail
     /// to look at `BytesRef.offset`.
-    pub(crate) fn new_bytes_ref_from_bytes<R: Rng + ?Sized, AV: AccessVec<u8>>(
+    pub(crate) fn new_bytes_ref_from_bytes<R: Rng + ?Sized, AV: SharedAccessVec<u8>>(
         random: &mut R,
         bytes_in: &[u8],
     ) -> crate::util::error::lucene_error::Result<BytesRef<AV>> {
@@ -202,7 +202,7 @@ pub mod lucene_test_case_util {
     /// Creates a random empty `BytesRef` that sometimes uses a non-zero offset, and
     /// non-zero end-padding, to tickle latent bugs that fail to look at
     /// `BytesRef.offset`.
-    pub(crate) fn new_bytes_ref_empty<R: Rng + ?Sized, AV: AccessVec<u8>>(
+    pub(crate) fn new_bytes_ref_empty<R: Rng + ?Sized, AV: SharedAccessVec<u8>>(
         random: &mut R,
     ) -> crate::util::error::lucene_error::Result<BytesRef<AV>> {
         // Calling the existing `new_bytes_ref` function
@@ -212,7 +212,7 @@ pub mod lucene_test_case_util {
     /// Creates a random empty `BytesRef`, with at least the requested length of
     /// bytes free, that sometimes uses a non-zero offset and non-zero end-padding
     /// to tickle latent bugs that fail to look at `BytesRef.offset`.
-    pub(crate) fn new_bytes_ref_with_length<R: Rng + ?Sized, AV: AccessVec<u8>>(
+    pub(crate) fn new_bytes_ref_with_length<R: Rng + ?Sized, AV: SharedAccessVec<u8>>(
         byte_length: i32,
         random: &mut R,
     ) -> crate::util::error::lucene_error::Result<BytesRef<AV>> {
@@ -223,7 +223,7 @@ pub mod lucene_test_case_util {
     /// Creates a copy of the incoming bytes slice that sometimes uses a non-zero
     /// {@code offset}, and non-zero end-padding, to tickle latent bugs that fail to
     /// look at {@code BytesRef.offset}.
-    pub(crate) fn new_bytes_ref<R: Rng + ?Sized, AV: AccessVec<u8>>(
+    pub(crate) fn new_bytes_ref<R: Rng + ?Sized, AV: SharedAccessVec<u8>>(
         random: &mut R,
         bytes_in: &[u8],
         offset: i32,

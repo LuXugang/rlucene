@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::index::indexing_chain::IntBlockAllocator;
-use crate::util::access::Access;
+use crate::util::access::SharedAccess;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::{CounterEnum, CounterEnumBorrow, CounterEnumLock};
 use parking_lot::Mutex;
@@ -26,7 +26,7 @@ use std::sync::Arc;
 /// A pool for int blocks similar to `ByteBlockPool`.
 pub struct IntBlockPool<C>
 where
-    C: Access<CounterEnum>,
+    C: SharedAccess<CounterEnum>,
 {
     /// array of buffers currently used in the pool. Buffers are allocated if
     /// needed don't modify this outside of this struct
@@ -42,7 +42,7 @@ where
 }
 impl<C> Default for IntBlockPool<C>
 where
-    C: Access<CounterEnum>,
+    C: SharedAccess<CounterEnum>,
 {
     fn default() -> Self {
         Self::new()
@@ -51,7 +51,7 @@ where
 
 impl<C> IntBlockPool<C>
 where
-    C: Access<CounterEnum>,
+    C: SharedAccess<CounterEnum>,
 {
     /// Creates a new `IntBlockPool` with a default `Allocator`.
     ///
@@ -189,14 +189,14 @@ impl AllocatorI32 for DirectAllocatorI32 {
 }
 pub enum AllocatorIntEnum<C>
 where
-    C: Access<CounterEnum>,
+    C: SharedAccess<CounterEnum>,
 {
     DA(DirectAllocatorI32),
     IBA(IntBlockAllocator<C>),
 }
 impl<C> AllocatorI32 for AllocatorIntEnum<C>
 where
-    C: Access<CounterEnum>,
+    C: SharedAccess<CounterEnum>,
 {
     fn recycle_int_blocks(&mut self, blocks: &[Vec<i32>], start: usize, end: usize) {
         match self {

@@ -21,7 +21,7 @@ use std::sync::Arc;
 use parking_lot::Mutex;
 
 use crate::index::{BytesRef, BytesRefBuilder};
-use crate::util::access::Access;
+use crate::util::access::SharedAccess;
 use crate::util::accountable::Accountable;
 use crate::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
 use crate::util::array_util::ArrayUtil;
@@ -50,8 +50,8 @@ use crate::util::{
 /// [`byte_block_pool_util::BYTE_BLOCK_SIZE`]: byte_block_pool_util::BYTE_BLOCK_SIZE
 pub(crate) struct BytesRefHash<C, B, BSA>
 where
-    C: Access<CounterEnum>,
-    B: Access<ByteBlockPool<C>>,
+    C: SharedAccess<CounterEnum>,
+    B: SharedAccess<ByteBlockPool<C>>,
     BSA: BytesStartArray<Counter = C>,
 {
     pool: BytesRefBlockPool<C, B>,
@@ -96,8 +96,8 @@ impl STBytesRefHash {
 
 impl<C, B, BSA> BytesRefHash<C, B, BSA>
 where
-    C: Access<CounterEnum>,
-    B: Access<ByteBlockPool<C>>,
+    C: SharedAccess<CounterEnum>,
+    B: SharedAccess<ByteBlockPool<C>>,
     BSA: BytesStartArray<Counter = C>,
 {
     pub fn from_bytes_start_array(pool: B, capacity: i32, mut bytes_start_array: BSA) -> Self {
@@ -489,8 +489,8 @@ where
 }
 impl<C, B, BSA> Accountable for BytesRefHash<C, B, BSA>
 where
-    C: Access<CounterEnum>,
-    B: Access<ByteBlockPool<C>>,
+    C: SharedAccess<CounterEnum>,
+    B: SharedAccess<ByteBlockPool<C>>,
     BSA: BytesStartArray<Counter = C>,
 {
     fn ram_bytes_used(&self) -> Result<i64> {
@@ -521,8 +521,8 @@ pub(crate) type MTBytesRefHash =
 
 pub(crate) struct StringSorterImpl<'a, C, B, BSA>
 where
-    C: Access<CounterEnum>,
-    B: Access<ByteBlockPool<C>>,
+    C: SharedAccess<CounterEnum>,
+    B: SharedAccess<ByteBlockPool<C>>,
     BSA: BytesStartArray,
 {
     tmp_offset: i32,
@@ -534,8 +534,8 @@ where
 }
 impl<'a, C, B, BSA> StringSorterImpl<'a, C, B, BSA>
 where
-    C: Access<CounterEnum>,
-    B: Access<ByteBlockPool<C>>,
+    C: SharedAccess<CounterEnum>,
+    B: SharedAccess<ByteBlockPool<C>>,
     BSA: BytesStartArray,
 {
     pub fn new(
@@ -564,8 +564,8 @@ where
 }
 impl<C, B, BSA> MSBRadixSorterBase for StringSorterImpl<'_, C, B, BSA>
 where
-    C: Access<CounterEnum>,
-    B: Access<ByteBlockPool<C>>,
+    C: SharedAccess<CounterEnum>,
+    B: SharedAccess<ByteBlockPool<C>>,
     BSA: BytesStartArray,
 {
     fn byte_at(&mut self, i: i32, k: i32) -> Result<i32> {
@@ -627,8 +627,8 @@ where
 }
 impl<C, B, BSA> Sorter for StringSorterImpl<'_, C, B, BSA>
 where
-    C: Access<CounterEnum>,
-    B: Access<ByteBlockPool<C>>,
+    C: SharedAccess<CounterEnum>,
+    B: SharedAccess<ByteBlockPool<C>>,
     BSA: BytesStartArray,
 {
     fn swap(&mut self, i: i32, j: i32) -> Result<()> {
@@ -638,8 +638,8 @@ where
 }
 impl<C, B, BSA> StringSorterBase for StringSorterImpl<'_, C, B, BSA>
 where
-    C: Access<CounterEnum>,
-    B: Access<ByteBlockPool<C>>,
+    C: SharedAccess<CounterEnum>,
+    B: SharedAccess<ByteBlockPool<C>>,
     BSA: BytesStartArray,
 {
     fn get(
@@ -692,7 +692,7 @@ pub trait BytesStartArray {
     ///
     /// # Returns
     /// A reference holding the number of bytes used by this `BytesStartArray`.
-    type Counter: Access<CounterEnum>;
+    type Counter: SharedAccess<CounterEnum>;
     fn bytes_used(&mut self) -> Self::Counter;
     fn get_value(&self, index: usize) -> i32;
     fn set_value(&mut self, index: usize, value: i32);
@@ -702,7 +702,7 @@ pub trait BytesStartArray {
 /// `Counter` instance.
 pub struct DirectBytesStartArray<C>
 where
-    C: Access<CounterEnum>,
+    C: SharedAccess<CounterEnum>,
 {
     init_size: i32,
     bytes_start: Vec<i32>,
@@ -741,7 +741,7 @@ impl DirectBytesStartArray<CounterEnumLock> {
 
 impl<C> BytesStartArray for DirectBytesStartArray<C>
 where
-    C: Access<CounterEnum>,
+    C: SharedAccess<CounterEnum>,
 {
     fn init(&mut self) {
         self.bytes_start =

@@ -47,7 +47,7 @@ use crate::store::directory::Directory;
 use crate::store::{
     ByteArrayDataOutput, ByteBuffersDataOutput, ByteBuffersIndexOutput, DataOutput, IndexOutput,
 };
-use crate::util::access::AccessVec;
+use crate::util::access::SharedAccessVec;
 use crate::util::array_util::ArrayUtil;
 use crate::util::bit_util::BitUtil;
 use crate::util::bytes_ref_iterator::BytesRefIterator;

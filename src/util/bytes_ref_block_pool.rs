@@ -22,7 +22,7 @@ use std::sync::Arc;
 use parking_lot::Mutex;
 
 use crate::index::BytesRef;
-use crate::util::access::Access;
+use crate::util::access::SharedAccess;
 use crate::util::accountable::Accountable;
 use crate::util::allocator_byte::{DirectAllocatorByte, MTAllocatorByteEnum, STAllocatorByteEnum};
 use crate::util::bit_util::BitUtil;
@@ -35,8 +35,8 @@ use crate::util::{
 
 pub struct BytesRefBlockPool<C, B>
 where
-    C: Access<CounterEnum>,
-    B: Access<ByteBlockPool<C>>,
+    C: SharedAccess<CounterEnum>,
+    B: SharedAccess<ByteBlockPool<C>>,
 {
     byte_block_pool: B,
     _phantom: PhantomData<C>,
@@ -76,8 +76,8 @@ impl BytesRefBlockPool<CounterEnumBorrow, ByteBlockPoolBorrow> {
 
 impl<C, B> BytesRefBlockPool<C, B>
 where
-    C: Access<CounterEnum>,
-    B: Access<ByteBlockPool<C>>,
+    C: SharedAccess<CounterEnum>,
+    B: SharedAccess<ByteBlockPool<C>>,
 {
     // TODO: memory calculation not implemented
     const BASE_RAM_BYTES: i32 = 0;
@@ -216,8 +216,8 @@ where
 }
 impl<C, B> Accountable for BytesRefBlockPool<C, B>
 where
-    C: Access<CounterEnum>,
-    B: Access<ByteBlockPool<C>>,
+    C: SharedAccess<CounterEnum>,
+    B: SharedAccess<ByteBlockPool<C>>,
 {
     fn ram_bytes_used(&self) -> Result<i64> {
         let result = self.byte_block_pool.access(|pool| pool.ram_bytes_used());

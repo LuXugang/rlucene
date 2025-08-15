@@ -18,7 +18,7 @@ use std::borrow::Cow;
 use std::sync::Arc;
 
 use crate::index::{BytesRef, BytesRefBuilder};
-use crate::util::access::{Access, AccessVec};
+use crate::util::access::{SharedAccess, SharedAccessVec};
 use crate::util::accountable::Accountable;
 use crate::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
 use crate::util::bit_util::BitUtil;
@@ -42,7 +42,7 @@ use crate::util::{
 #[derive(Debug)]
 pub struct BytesRefArray<A>
 where
-    A: Access<CounterEnum>,
+    A: SharedAccess<CounterEnum>,
 {
     pool: ByteBlockPool<A>,
     offsets: Vec<i32>,
@@ -85,7 +85,7 @@ impl_bytes_ref_array!(
 
 impl<A> BytesRefArray<A>
 where
-    A: Access<CounterEnum>,
+    A: SharedAccess<CounterEnum>,
 {
     fn new_impl(mut pool: ByteBlockPool<A>, byte_used: A) -> Result<BytesRefArray<A>> {
         pool.next_buffer()?;
@@ -146,7 +146,7 @@ where
     /// Used only by the sorting function below to set a [`BytesRef`] with the
     /// specified slice, avoiding copying bytes in the common case when the
     /// slice is contained in a single block in the byte block pool.
-    fn set_bytes_ref<AV: AccessVec<u8>>(
+    fn set_bytes_ref<AV: SharedAccessVec<u8>>(
         &self,
         spare: &mut BytesRefBuilder<AV>,
         result: &mut BytesRef<AV>,
@@ -246,7 +246,7 @@ where
 /// [`BytesRefArray`]
 impl<'a, A> SortableBytesRefArray<'a> for BytesRefArray<A>
 where
-    A: Access<CounterEnum> + 'a,
+    A: SharedAccess<CounterEnum> + 'a,
 {
     fn append(&mut self, bytes: &BytesRef<Vec<u8>>) -> Result<i32> {
         self.pool.append_bytes_ref(bytes)?;
@@ -309,7 +309,7 @@ impl Accountable for SortState {
 
 pub struct IndexedBytesRefIteratorImpl<'a, A>
 where
-    A: Access<CounterEnum>,
+    A: SharedAccess<CounterEnum>,
 {
     pos: i32,
     pub(crate) ord: i32,
@@ -320,7 +320,7 @@ where
 }
 impl<'a, A> IndexedBytesRefIteratorImpl<'a, A>
 where
-    A: Access<CounterEnum>,
+    A: SharedAccess<CounterEnum>,
     BytesRefArray<A>: SortableBytesRefArray<'a>,
 {
     fn new(
@@ -342,7 +342,7 @@ where
 }
 impl<A> BytesRefIterator for IndexedBytesRefIteratorImpl<'_, A>
 where
-    A: Access<CounterEnum>,
+    A: SharedAccess<CounterEnum>,
 {
     fn next(&mut self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
         let mut result = BytesRef::new();
@@ -363,7 +363,7 @@ where
 }
 impl<A> IndexedBytesRefIterator for IndexedBytesRefIteratorImpl<'_, A>
 where
-    A: Access<CounterEnum>,
+    A: SharedAccess<CounterEnum>,
 {
     fn ord(&self) -> i32 {
         self.ord
@@ -383,7 +383,7 @@ pub trait IndexedBytesRefIterator {
 
 struct StableStringSorterImpl<'a, A>
 where
-    A: Access<CounterEnum>,
+    A: SharedAccess<CounterEnum>,
 {
     tmp: Vec<i32>,
     ordered_entries: &'a mut [i32],
@@ -391,7 +391,7 @@ where
 }
 impl<A> Sorter for StableStringSorterImpl<'_, A>
 where
-    A: Access<CounterEnum>,
+    A: SharedAccess<CounterEnum>,
 {
     fn swap(&mut self, i: i32, j: i32) -> Result<()> {
         self.ordered_entries.swap(i as usize, j as usize);
@@ -401,7 +401,7 @@ where
 
 impl<A> StringSorterBase for StableStringSorterImpl<'_, A>
 where
-    A: Access<CounterEnum>,
+    A: SharedAccess<CounterEnum>,
 {
     fn get(
         &mut self,
@@ -416,7 +416,7 @@ where
 
 impl<A> StableStringSorterBase for StableStringSorterImpl<'_, A>
 where
-    A: Access<CounterEnum>,
+    A: SharedAccess<CounterEnum>,
 {
     fn save(&mut self, i: i32, j: i32) {
         self.tmp[j as usize] = self.ordered_entries[i as usize];
@@ -426,18 +426,18 @@ where
             .copy_from(&self.tmp[i as usize..j as usize], i as usize);
     }
 }
-impl<A> MSBRadixSorterBase for StableStringSorterImpl<'_, A> where A: Access<CounterEnum> {}
+impl<A> MSBRadixSorterBase for StableStringSorterImpl<'_, A> where A: SharedAccess<CounterEnum> {}
 
 struct StringSorterImpl<'a, A>
 where
-    A: Access<CounterEnum>,
+    A: SharedAccess<CounterEnum>,
 {
     ordered_entries: &'a mut [i32],
     bytes_ref_array: &'a mut BytesRefArray<A>,
 }
 impl<A> Sorter for StringSorterImpl<'_, A>
 where
-    A: Access<CounterEnum>,
+    A: SharedAccess<CounterEnum>,
 {
     fn swap(&mut self, i: i32, j: i32) -> Result<()> {
         self.ordered_entries.swap(i as usize, j as usize);
@@ -446,7 +446,7 @@ where
 }
 impl<A> StringSorterBase for StringSorterImpl<'_, A>
 where
-    A: Access<CounterEnum>,
+    A: SharedAccess<CounterEnum>,
 {
     fn get(
         &mut self,

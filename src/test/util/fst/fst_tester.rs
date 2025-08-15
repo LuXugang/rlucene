@@ -27,7 +27,7 @@ use crate::test::util::lucene_test_case::lucene_test_case_util::{
     at_least, new_io_context, random_from_seed,
 };
 use crate::util::ToInt;
-use crate::util::access::AccessVec;
+use crate::util::access::SharedAccessVec;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fst_impl::fst::{Arc, FST, InputType, fst_util};
 use crate::util::fst_impl::fst_compiler::{Builder, DataOutputEnum};
@@ -91,7 +91,7 @@ where
     ) -> Result<Option<O::V>>
     where
         F: FstReader,
-        AV: AccessVec<i32>,
+        AV: SharedAccessVec<i32>,
     {
         assert!(prefix_length.is_none() || prefix_length.as_ref().unwrap().len() == 1);
         let mut arc = Arc::default();
@@ -131,7 +131,7 @@ where
     ) -> Result<O::V>
     where
         F: FstReader,
-        AV: AccessVec<i32>,
+        AV: SharedAccessVec<i32>,
     {
         let mut arc = Arc::default();
         fst.get_first_arc(&mut arc);
@@ -750,20 +750,20 @@ pub mod fst_tester_util {
 
     use crate::index::BytesRef;
     use crate::test::util::test_util::TestUtil;
-    use crate::util::access::AccessVec;
+    use crate::util::access::SharedAccessVec;
     use crate::util::error::lucene_error::Result;
     use crate::util::ints_ref::IntsRef;
     use crate::util::ints_ref_builder::IntsRefBuilder;
     use crate::util::unicode_util::UnicodeUtil;
 
-    pub fn input_to_string<AV: AccessVec<i32>>(
+    pub fn input_to_string<AV: SharedAccessVec<i32>>(
         input_mode: i32,
         term: &IntsRef<AV>,
     ) -> Result<String> {
         input_to_string_with_flag(input_mode, term, true)
     }
 
-    pub fn input_to_string_with_flag<AV: AccessVec<i32>>(
+    pub fn input_to_string_with_flag<AV: SharedAccessVec<i32>>(
         input_mode: i32,
         term: &IntsRef<AV>,
         is_valid_unicode: bool,
@@ -782,7 +782,7 @@ pub mod fst_tester_util {
         }
     }
 
-    pub fn get_bytes_ref<AV: AccessVec<i32>>(ir: &IntsRef<AV>) -> BytesRef<Vec<u8>> {
+    pub fn get_bytes_ref<AV: SharedAccessVec<i32>>(ir: &IntsRef<AV>) -> BytesRef<Vec<u8>> {
         let len = ir.length;
         let mut bytes = vec![0u8; len];
 
@@ -822,12 +822,15 @@ pub mod fst_tester_util {
 
         buffer
     }
-    pub fn to_ints_ref_from_string<AV: AccessVec<i32>>(s: &str, input_mode: i32) -> IntsRef<AV> {
+    pub fn to_ints_ref_from_string<AV: SharedAccessVec<i32>>(
+        s: &str,
+        input_mode: i32,
+    ) -> IntsRef<AV> {
         let mut ir = IntsRefBuilder::default();
         to_ints_ref_from_string_with_builder(s, input_mode, &mut ir)
     }
 
-    pub fn to_ints_ref_from_string_with_builder<AV: AccessVec<i32>>(
+    pub fn to_ints_ref_from_string_with_builder<AV: SharedAccessVec<i32>>(
         s: &str,
         input_mode: i32,
         ir: &mut IntsRefBuilder<AV>,
@@ -842,7 +845,7 @@ pub mod fst_tester_util {
         }
     }
 
-    pub fn to_ints_ref_utf32<AV: AccessVec<i32>>(
+    pub fn to_ints_ref_utf32<AV: SharedAccessVec<i32>>(
         s: &str,
         ir: &mut IntsRefBuilder<AV>,
     ) -> IntsRef<AV> {
@@ -853,7 +856,7 @@ pub mod fst_tester_util {
         ir.get().clone()
     }
 
-    pub fn to_ints_ref_from_bytes<AV: AccessVec<i32>>(
+    pub fn to_ints_ref_from_bytes<AV: SharedAccessVec<i32>>(
         br: &BytesRef<Vec<u8>>,
         ir: &mut IntsRefBuilder<AV>,
     ) -> IntsRef<AV> {
@@ -865,7 +868,7 @@ pub mod fst_tester_util {
         }
         ir.get_owner()
     }
-    pub fn to_ints_ref<AV1: AccessVec<u8>, AV2: AccessVec<i32>>(
+    pub fn to_ints_ref<AV1: SharedAccessVec<u8>, AV2: SharedAccessVec<i32>>(
         br: &BytesRef<AV1>,
         ir: &mut IntsRefBuilder<AV2>,
     ) -> IntsRef<AV2> {
@@ -883,7 +886,7 @@ pub mod fst_tester_util {
 pub struct InputOutput<T, AV>
 where
     T: OutputsBound,
-    AV: AccessVec<i32>,
+    AV: SharedAccessVec<i32>,
 {
     pub input: IntsRef<AV>,
     pub output: T,
@@ -892,7 +895,7 @@ where
 impl<T, AV> InputOutput<T, AV>
 where
     T: OutputsBound,
-    AV: AccessVec<i32>,
+    AV: SharedAccessVec<i32>,
 {
     pub fn new(input: IntsRef<AV>, output: T) -> Self {
         Self { input, output }
@@ -901,16 +904,16 @@ where
 impl<T: PartialEq, AV> PartialEq for InputOutput<T, AV>
 where
     T: OutputsBound,
-    AV: AccessVec<i32>,
+    AV: SharedAccessVec<i32>,
 {
     fn eq(&self, other: &Self) -> bool {
         self.input == other.input
     }
 }
 
-impl<T: Eq, AV: AccessVec<i32>> Eq for InputOutput<T, AV> where T: OutputsBound {}
+impl<T: Eq, AV: SharedAccessVec<i32>> Eq for InputOutput<T, AV> where T: OutputsBound {}
 
-impl<T: Ord, AV: AccessVec<i32>> PartialOrd<Self> for InputOutput<T, AV>
+impl<T: Ord, AV: SharedAccessVec<i32>> PartialOrd<Self> for InputOutput<T, AV>
 where
     T: OutputsBound,
 {
@@ -919,7 +922,7 @@ where
     }
 }
 
-impl<T: Ord, AV: AccessVec<i32>> Ord for InputOutput<T, AV>
+impl<T: Ord, AV: SharedAccessVec<i32>> Ord for InputOutput<T, AV>
 where
     T: OutputsBound,
 {

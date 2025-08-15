@@ -19,7 +19,7 @@ use std::fmt::{Debug, Display};
 use std::hash::Hash;
 use std::rc::Rc;
 
-use crate::util::access::AccessVec;
+use crate::util::access::SharedAccessVec;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::{GOOD_FAST_HASH_SEED, HashCode, StringHelper};
 use crate::with_other;
@@ -40,7 +40,7 @@ use crate::with_other;
 #[derive(Debug, Default)]
 pub struct BytesRef<AV>
 where
-    AV: AccessVec<u8>,
+    AV: SharedAccessVec<u8>,
 {
     /// The contents of the BytesRef
     pub bytes: AV,
@@ -66,7 +66,7 @@ impl BytesRef<Rc<Vec<u8>>> {
 
 impl<AV> BytesRef<AV>
 where
-    AV: AccessVec<u8>,
+    AV: SharedAccessVec<u8>,
 {
     pub fn new() -> Self {
         BytesRef {
@@ -171,18 +171,18 @@ where
 }
 impl<AV> PartialOrd for BytesRef<AV>
 where
-    AV: AccessVec<u8>,
+    AV: SharedAccessVec<u8>,
 {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl<AV> Eq for BytesRef<AV> where AV: AccessVec<u8> {}
+impl<AV> Eq for BytesRef<AV> where AV: SharedAccessVec<u8> {}
 
 impl<AV> Ord for BytesRef<AV>
 where
-    AV: AccessVec<u8>,
+    AV: SharedAccessVec<u8>,
 {
     fn cmp(&self, other: &Self) -> Ordering {
         with_other!(self.bytes, other.bytes, |bytes, other_bytes| {
@@ -194,7 +194,7 @@ where
 
 impl<AV> Clone for BytesRef<AV>
 where
-    AV: AccessVec<u8>,
+    AV: SharedAccessVec<u8>,
 {
     fn clone(&self) -> Self {
         BytesRef {
@@ -206,7 +206,7 @@ where
 }
 impl<AV> Hash for BytesRef<AV>
 where
-    AV: AccessVec<u8>,
+    AV: SharedAccessVec<u8>,
 {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         let hash = StringHelper::murmurhash3_x86_32(self, *GOOD_FAST_HASH_SEED);
@@ -215,7 +215,7 @@ where
 }
 impl<AV> PartialEq for BytesRef<AV>
 where
-    AV: AccessVec<u8>,
+    AV: SharedAccessVec<u8>,
 {
     fn eq(&self, other: &Self) -> bool {
         self.bytes_equals(other)
@@ -223,7 +223,7 @@ where
 }
 impl<AV> Display for BytesRef<AV>
 where
-    AV: AccessVec<u8>,
+    AV: SharedAccessVec<u8>,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         self.bytes.access(|bytes| {
@@ -243,7 +243,7 @@ where
 }
 impl<AV> HashCode for BytesRef<AV>
 where
-    AV: AccessVec<u8>,
+    AV: SharedAccessVec<u8>,
 {
     fn hash_code(&self) -> i32 {
         StringHelper::murmurhash3_x86_32(self, *GOOD_FAST_HASH_SEED)

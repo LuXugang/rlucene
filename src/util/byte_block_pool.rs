@@ -21,7 +21,7 @@ use std::sync::Arc;
 use parking_lot::Mutex;
 
 use crate::index::{BytesRef, BytesRefBuilder};
-use crate::util::access::{Access, AccessVec};
+use crate::util::access::{SharedAccess, SharedAccessVec};
 use crate::util::accountable::Accountable;
 use crate::util::allocator_byte::{
     AllocatorByte, AllocatorByteEnum, MTAllocatorByteEnum, STAllocatorByteEnum,
@@ -42,7 +42,7 @@ use crate::util::{CounterEnum, CounterEnumBorrow, CounterEnumLock, SliceCopyOps}
 #[derive(Debug)]
 pub struct ByteBlockPool<A>
 where
-    A: Access<CounterEnum>,
+    A: SharedAccess<CounterEnum>,
 {
     buffers: Vec<Vec<u8>>,
     // Current head buffer's index
@@ -101,7 +101,7 @@ impl_byte_block_pool!(CounterEnumLock, MTAllocatorByteEnum, new_sync);
 
 impl<A> ByteBlockPool<A>
 where
-    A: Access<CounterEnum>,
+    A: SharedAccess<CounterEnum>,
 {
     /// Expert: Resets the pool to its initial state, while optionally reusing
     /// the first buffer. Buffers that are not reused are reclaimed by
@@ -184,7 +184,7 @@ where
     /// However, we still retain the interface definitions from Java Lucene to
     /// maintain consistency with the original implementation as much as
     /// possible.
-    pub fn set_bytes_ref<AV: AccessVec<u8>>(
+    pub fn set_bytes_ref<AV: SharedAccessVec<u8>>(
         &self,
         _builder: &mut BytesRefBuilder<AV>,
         result: &mut BytesRef<AV>,
@@ -217,7 +217,10 @@ where
         Ok(())
     }
     /// Appends the bytes in the provided BytesRef at the current position.
-    pub fn append_bytes_ref<AV: AccessVec<u8>>(&mut self, bytes: &BytesRef<AV>) -> Result<()> {
+    pub fn append_bytes_ref<AV: SharedAccessVec<u8>>(
+        &mut self,
+        bytes: &BytesRef<AV>,
+    ) -> Result<()> {
         bytes.bytes.access(|bytes_ref| {
             self.append_range(bytes_ref, bytes.offset as i32, bytes.length as i32)
         })
@@ -382,7 +385,7 @@ where
 }
 impl<A> Accountable for ByteBlockPool<A>
 where
-    A: Access<CounterEnum>,
+    A: SharedAccess<CounterEnum>,
 {
     fn ram_bytes_used(&self) -> Result<i64> {
         todo!()

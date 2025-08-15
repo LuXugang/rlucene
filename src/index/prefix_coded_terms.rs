@@ -26,7 +26,7 @@ use crate::store::byte_buffers_data_input::{ByteBuffersDataInput, ByteBuffersDat
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{ByteBuffersDataOutput, DataInput, DataOutput};
 use crate::util::StringHelper;
-use crate::util::access::AccessVec;
+use crate::util::access::SharedAccessVec;
 use crate::util::accountable::Accountable;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};

@@ -1095,7 +1095,7 @@ mod tests {
         at_least, new_directory, random, rarely,
     };
     use crate::test::util::test_util::TestUtil;
-    use crate::util::access::Read;
+    use crate::util::access::SharedReadOnly;
     use crate::util::bit_set::{BitSet, bit_set_util};
     use crate::util::bit_set_iterator::BitSetIterator;
     use crate::util::error::lucene_error::{LuceneError, Result};
@@ -1762,7 +1762,12 @@ mod tests {
         Ok(set)
     }
 
-    fn assert_advance_exact_randomized<I: IndexInput, T: BitSet, R: Rng + ?Sized, B: Read<T>>(
+    fn assert_advance_exact_randomized<
+        I: IndexInput,
+        T: BitSet,
+        R: Rng + ?Sized,
+        B: SharedReadOnly<T>,
+    >(
         random: &mut R,
         disi: &mut IndexedDISI<I>,
         disi2: &mut BitSetIterator<T, B>,
@@ -1796,7 +1801,7 @@ mod tests {
 
         Ok(())
     }
-    fn assert_single_step_equality<I: IndexInput, T: BitSet, B: Read<T>>(
+    fn assert_single_step_equality<I: IndexInput, T: BitSet, B: SharedReadOnly<T>>(
         disi: &mut IndexedDISI<I>,
         disi2: &mut BitSetIterator<T, B>,
     ) -> Result<()> {
@@ -1813,7 +1818,7 @@ mod tests {
         assert_eq!(NO_MORE_DOCS, disi.next_doc()?);
         Ok(())
     }
-    fn assert_advance_equality<I: IndexInput, T: BitSet, B: Read<T>>(
+    fn assert_advance_equality<I: IndexInput, T: BitSet, B: SharedReadOnly<T>>(
         disi: &mut IndexedDISI<I>,
         disi2: &mut BitSetIterator<T, B>,
         step: i32,

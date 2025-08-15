@@ -23,7 +23,7 @@ use rand::Rng;
 
 use crate::index::BytesRef;
 use crate::util::CoreHelper;
-use crate::util::access::AccessVec;
+use crate::util::access::SharedAccessVec;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::ints_ref::IntsRef;
@@ -47,7 +47,7 @@ impl StringHelper {
     /// # Returns
     ///
     /// The number of common elements (from the start of each).
-    pub fn bytes_difference<AV: AccessVec<u8>>(
+    pub fn bytes_difference<AV: SharedAccessVec<u8>>(
         prior_term: &BytesRef<AV>,
         current_term: &BytesRef<AV>,
     ) -> Result<i32> {
@@ -82,7 +82,7 @@ impl StringHelper {
     /// # Returns
     ///
     /// The length needed for the sort key.
-    pub fn sort_key_length<AV: AccessVec<u8>>(
+    pub fn sort_key_length<AV: SharedAccessVec<u8>>(
         prior_term: &BytesRef<AV>,
         current_term: &BytesRef<AV>,
     ) -> Result<i32> {
@@ -103,7 +103,7 @@ impl StringHelper {
     /// `true` if `ref_bytes` starts with the given `prefix`, otherwise `false`.
     pub fn starts_with_byte_array<AV>(ref_bytes: &[u8], prefix: &BytesRef<AV>) -> bool
     where
-        AV: AccessVec<u8>,
+        AV: SharedAccessVec<u8>,
     {
         // Not long enough to start with the prefix
         if ref_bytes.len() < prefix.length {
@@ -128,7 +128,7 @@ impl StringHelper {
     /// `true` if `ref_bytes` starts with the given `prefix`, otherwise `false`.
     pub fn starts_with_byte_ref<AV>(ref_bytes: &BytesRef<AV>, prefix: &BytesRef<AV>) -> bool
     where
-        AV: AccessVec<u8>,
+        AV: SharedAccessVec<u8>,
     {
         with_other!(
             ref_bytes.bytes,
@@ -178,7 +178,7 @@ impl StringHelper {
     /// `True` if `ref` ends with the given `suffix`, otherwise `false`.
     pub fn ends_with<AV>(ref_bytes: &BytesRef<AV>, suffix: &BytesRef<AV>) -> bool
     where
-        AV: AccessVec<u8>,
+        AV: SharedAccessVec<u8>,
     {
         with_other!(
             ref_bytes.bytes,
@@ -267,7 +267,7 @@ impl StringHelper {
     }
     pub fn murmurhash3_x86_32<AV>(bytes: &BytesRef<AV>, seed: i32) -> i32
     where
-        AV: AccessVec<u8>,
+        AV: SharedAccessVec<u8>,
     {
         bytes.bytes.access(|bytes_ref| {
             Self::murmurhash3_x86_32_with_byte(bytes_ref, bytes.offset, bytes.length, seed)
@@ -297,7 +297,7 @@ impl StringHelper {
     ///
     /// Throws an [`IllegalArgument`](crate::util::error::IllegalArgumentError)
     /// if any int value is out of bounds for a byte.
-    pub fn ints_ref_to_bytes_ref<AV: AccessVec<i32>, AV1: AccessVec<u8>>(
+    pub fn ints_ref_to_bytes_ref<AV: SharedAccessVec<i32>, AV1: SharedAccessVec<u8>>(
         ints: &IntsRef<AV>,
     ) -> Result<BytesRef<AV1>> {
         let mut bytes = AV1::with_capacity(ints.length);

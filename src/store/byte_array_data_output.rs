@@ -16,7 +16,7 @@
  */
 use crate::store::data_output::DataOutput;
 use crate::util::SliceCopyOps;
-use crate::util::access::AccessVec;
+use crate::util::access::SharedAccessVec;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::Result;
 
@@ -31,7 +31,7 @@ use crate::util::error::lucene_error::Result;
 #[derive(Default)]
 pub struct ByteArrayDataOutput<AV>
 where
-    AV: AccessVec<u8>,
+    AV: SharedAccessVec<u8>,
 {
     pub bytes: AV,
     pos: usize,
@@ -40,7 +40,7 @@ where
 
 impl<AV> ByteArrayDataOutput<AV>
 where
-    AV: AccessVec<u8>,
+    AV: SharedAccessVec<u8>,
 {
     pub fn new() -> Self {
         Self::default()
@@ -75,7 +75,7 @@ where
 
 impl<AV> DataOutput for ByteArrayDataOutput<AV>
 where
-    AV: AccessVec<u8>,
+    AV: SharedAccessVec<u8>,
 {
     fn write_byte(&mut self, b: u8) -> Result<()> {
         debug_assert!(self.pos < self.limit);

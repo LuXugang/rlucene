@@ -16,19 +16,19 @@
  */
 use crate::index::bytes_ref::BytesRef;
 use crate::util::SliceCopyOps;
-use crate::util::access::AccessVec;
+use crate::util::access::SharedAccessVec;
 use crate::util::array_util::ArrayUtil;
 
 /// A builder for {@link BytesRef} instances.
 pub struct BytesRefBuilder<AV>
 where
-    AV: AccessVec<u8>,
+    AV: SharedAccessVec<u8>,
 {
     pub(crate) bytes_ref: BytesRef<AV>,
 }
 impl<AV> Default for BytesRefBuilder<AV>
 where
-    AV: AccessVec<u8>,
+    AV: SharedAccessVec<u8>,
 {
     fn default() -> Self {
         Self::new()
@@ -37,7 +37,7 @@ where
 
 impl<AV> BytesRefBuilder<AV>
 where
-    AV: AccessVec<u8>,
+    AV: SharedAccessVec<u8>,
 {
     pub fn new() -> BytesRefBuilder<AV> {
         BytesRefBuilder {

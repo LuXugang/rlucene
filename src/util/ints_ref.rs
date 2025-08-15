@@ -20,7 +20,7 @@ use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
-use crate::util::access::AccessVec;
+use crate::util::access::SharedAccessVec;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::{Comparator, HashCode, ToInt};
 use crate::with_other;
@@ -28,7 +28,7 @@ use crate::with_other;
 /// length.
 ///
 /// `IntsRef<AV>` provides a flexible abstraction for referencing a sub-slice of
-/// integers, where `AV` is a container implementing [`AccessVec<i32>`].
+/// integers, where `AV` is a container implementing [`SharedAccessVec<i32>`].
 ///
 /// This design supports different memory access models:
 ///
@@ -47,7 +47,7 @@ use crate::with_other;
 /// modes, abstracting over access, mutation, cloning, and construction.
 /// Represents int[], as a slice (offset + length) into an existing int[].
 #[derive(Debug)]
-pub struct IntsRef<AV: AccessVec<i32>> {
+pub struct IntsRef<AV: SharedAccessVec<i32>> {
     /// The contents of the IntsRef
     pub ints: AV,
     /// Offset of first valid integer.
@@ -57,7 +57,7 @@ pub struct IntsRef<AV: AccessVec<i32>> {
 }
 impl<AV> Default for IntsRef<AV>
 where
-    AV: AccessVec<i32>,
+    AV: SharedAccessVec<i32>,
 {
     fn default() -> Self {
         Self::new()
@@ -82,7 +82,7 @@ impl IntsRef<Rc<Vec<i32>>> {
 
 impl<AV> IntsRef<AV>
 where
-    AV: AccessVec<i32>,
+    AV: SharedAccessVec<i32>,
 {
     /// Create an IntsRef with `EMPTY_INTS`.
     pub fn new() -> Self {
@@ -160,7 +160,7 @@ where
 }
 impl<AV> Clone for IntsRef<AV>
 where
-    AV: AccessVec<i32>,
+    AV: SharedAccessVec<i32>,
 {
     /// Returns a shallow clone of this instance (the underlying ints are
     /// **not** copied and will be shared by both the returned object and
@@ -175,7 +175,7 @@ where
 }
 impl<AV> PartialOrd for IntsRef<AV>
 where
-    AV: AccessVec<i32>,
+    AV: SharedAccessVec<i32>,
 {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
@@ -183,7 +183,7 @@ where
 }
 impl<AV> Ord for IntsRef<AV>
 where
-    AV: AccessVec<i32>,
+    AV: SharedAccessVec<i32>,
 {
     fn cmp(&self, other: &Self) -> Ordering {
         with_other!(self.ints, other.ints, |ints_bytes, other_bytes| {
@@ -195,17 +195,17 @@ where
 }
 impl<AV> PartialEq for IntsRef<AV>
 where
-    AV: AccessVec<i32>,
+    AV: SharedAccessVec<i32>,
 {
     fn eq(&self, other: &Self) -> bool {
         self.ints_equals(other)
             .expect("IntsRef PartialEq#eq failed")
     }
 }
-impl<AV> Eq for IntsRef<AV> where AV: AccessVec<i32> {}
+impl<AV> Eq for IntsRef<AV> where AV: SharedAccessVec<i32> {}
 impl<AV> Hash for IntsRef<AV>
 where
-    AV: AccessVec<i32>,
+    AV: SharedAccessVec<i32>,
 {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.ints.access(|ints| {
@@ -216,7 +216,7 @@ where
 }
 impl<AV> Comparator<IntsRef<AV>> for IntsRef<AV>
 where
-    AV: AccessVec<i32>,
+    AV: SharedAccessVec<i32>,
 {
     const TYPE: &'static str = "IntsRefComparator";
 
@@ -230,7 +230,7 @@ where
 }
 impl<AV> Display for IntsRef<AV>
 where
-    AV: AccessVec<i32>,
+    AV: SharedAccessVec<i32>,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         self.ints.access(|ints| {
@@ -249,7 +249,7 @@ where
 }
 impl<AV> HashCode for IntsRef<AV>
 where
-    AV: AccessVec<i32>,
+    AV: SharedAccessVec<i32>,
 {
     fn hash_code(&self) -> i32 {
         const PRIME: i32 = 31;

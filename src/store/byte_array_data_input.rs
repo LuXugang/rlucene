@@ -19,7 +19,7 @@ use std::fmt::{Display, Formatter};
 
 use crate::store::data_input::DataInput;
 use crate::util::SliceCopyOps;
-use crate::util::access::AccessVec;
+use crate::util::access::SharedAccessVec;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::Result;
 
@@ -33,7 +33,7 @@ use crate::util::error::lucene_error::Result;
 /// This is an experimental API.
 pub struct ByteArrayDataInput<AV>
 where
-    AV: AccessVec<u8>,
+    AV: SharedAccessVec<u8>,
 {
     pub(crate) bytes: AV,
     pos: usize,
@@ -41,7 +41,7 @@ where
 }
 impl<AV> ByteArrayDataInput<AV>
 where
-    AV: AccessVec<u8>,
+    AV: SharedAccessVec<u8>,
 {
     pub fn new() -> Self {
         Self::default()
@@ -91,7 +91,7 @@ where
 
 impl<AV> Display for ByteArrayDataInput<AV>
 where
-    AV: AccessVec<u8>,
+    AV: SharedAccessVec<u8>,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let address = self as *const Self as usize;
@@ -101,7 +101,7 @@ where
 
 impl<AV> DataInput for ByteArrayDataInput<AV>
 where
-    AV: AccessVec<u8>,
+    AV: SharedAccessVec<u8>,
 {
     fn read_byte(&mut self) -> Result<u8> {
         self.bytes.access(|bytes| {

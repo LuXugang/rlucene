@@ -30,7 +30,7 @@ use crate::index::doc_values_update::DocValuesUpdate;
 use crate::index::field_updates_buffer::FieldUpdatesBuffer;
 use crate::index::term::Term;
 use crate::search::query::Query;
-use crate::util::access::Access;
+use crate::util::access::SharedAccess;
 use crate::util::accountable::Accountable;
 use crate::util::allocator_byte::{AllocatorByteEnum, DirectTrackingAllocatorByte};
 use crate::util::array_util::ArrayUtil;
@@ -62,8 +62,8 @@ const BYTES_PER_DEL_QUERY: i64 = 0;
 pub(crate) struct BufferedUpdates<Q, C, B>
 where
     Q: Query,
-    C: Access<CounterEnum>,
-    B: Access<ByteBlockPool<C>>,
+    C: SharedAccess<CounterEnum>,
+    B: SharedAccess<ByteBlockPool<C>>,
 {
     pub(crate) num_field_updates: AtomicI32,
     pub delete_terms: DeletedTerms<C, B>,
@@ -210,8 +210,8 @@ where
 impl<Q, C, B> BufferedUpdates<Q, C, B>
 where
     Q: Query,
-    C: Access<CounterEnum>,
-    B: Access<ByteBlockPool<C>>,
+    C: SharedAccess<CounterEnum>,
+    B: SharedAccess<ByteBlockPool<C>>,
 {
     pub(crate) fn add_query(&mut self, query: Arc<Q>, doc_id_upto: i32) {
         if self
@@ -258,8 +258,8 @@ where
 impl<Q, C, B> Accountable for BufferedUpdates<Q, C, B>
 where
     Q: Query,
-    C: Access<CounterEnum>,
-    B: Access<ByteBlockPool<C>>,
+    C: SharedAccess<CounterEnum>,
+    B: SharedAccess<ByteBlockPool<C>>,
 {
     fn ram_bytes_used(&self) -> Result<i64> {
         // TODO: memory calculation not implemented
@@ -269,8 +269,8 @@ where
 impl<Q, C, B> fmt::Display for BufferedUpdates<Q, C, B>
 where
     Q: Query + fmt::Display,
-    C: Access<CounterEnum>,
-    B: Access<ByteBlockPool<C>>,
+    C: SharedAccess<CounterEnum>,
+    B: SharedAccess<ByteBlockPool<C>>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let bytes_used = self.bytes_used.access(|bytes_used| bytes_used.get());
@@ -322,8 +322,8 @@ pub type BufferedUpdatesBorrow<Q> = Rc<RefCell<STBufferedUpdates<Q>>>;
 
 pub(crate) struct DeletedTerms<C, B>
 where
-    C: Access<CounterEnum>,
-    B: Access<ByteBlockPool<C>>,
+    C: SharedAccess<CounterEnum>,
+    B: SharedAccess<ByteBlockPool<C>>,
 {
     bytes_used: C,
     pool: B,
@@ -394,8 +394,8 @@ pub type STDeletedTerms = DeletedTerms<CounterEnumBorrow, ByteBlockPoolBorrow>;
 #[allow(unused)]
 impl<C, B> DeletedTerms<C, B>
 where
-    C: Access<CounterEnum>,
-    B: Access<ByteBlockPool<C>>,
+    C: SharedAccess<CounterEnum>,
+    B: SharedAccess<ByteBlockPool<C>>,
 {
     /// Creates a new instance of `DeletedTerms`.
     fn new_impl(pool: B, bytes_used: C) -> Self {
@@ -483,8 +483,8 @@ pub trait DeletedTermConsumer {
 }
 impl<C, B> Accountable for DeletedTerms<C, B>
 where
-    C: Access<CounterEnum>,
-    B: Access<ByteBlockPool<C>>,
+    C: SharedAccess<CounterEnum>,
+    B: SharedAccess<ByteBlockPool<C>>,
 {
     fn ram_bytes_used(&self) -> Result<i64> {
         // TODO: memory calculation not implemented
@@ -493,8 +493,8 @@ where
 }
 impl<C, B> fmt::Display for DeletedTerms<C, B>
 where
-    C: Access<CounterEnum>,
-    B: Access<ByteBlockPool<C>>,
+    C: SharedAccess<CounterEnum>,
+    B: SharedAccess<ByteBlockPool<C>>,
 {
     /// Used for `BufferedUpdates::VERBOSE_DELETES`.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -510,8 +510,8 @@ where
 #[allow(unused)]
 struct BytesRefIntMap<C, B>
 where
-    C: Access<CounterEnum>,
-    B: Access<ByteBlockPool<C>>,
+    C: SharedAccess<CounterEnum>,
+    B: SharedAccess<ByteBlockPool<C>>,
 {
     counter: C,
     pub(crate) bytes_ref_hash: BytesRefHash<C, B, DirectBytesStartArray<C>>,
@@ -555,8 +555,8 @@ impl_bytes_ref_int_map_new!(
 
 impl<C, B> BytesRefIntMap<C, B>
 where
-    C: Access<CounterEnum>,
-    B: Access<ByteBlockPool<C>>,
+    C: SharedAccess<CounterEnum>,
+    B: SharedAccess<ByteBlockPool<C>>,
 {
     fn new_impl(counter: C, bytes_ref_hash: BytesRefHash<C, B, DirectBytesStartArray<C>>) -> Self {
         let values = vec![0; brh_util::DEFAULT_CAPACITY as usize];

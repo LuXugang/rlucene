@@ -21,7 +21,7 @@ use crate::index::freq_prox_terms_writer_per_field::{FreqProx, FreqProxPostingsA
 use crate::index::index_options::IndexOptions;
 use crate::index::parallel_postings_array::PostingsArrayEnum;
 use crate::index::term_vectors_consumer_per_field::TermVectorsPostingsArray;
-use crate::util::access::Access;
+use crate::util::access::SharedAccess;
 use crate::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_hash::{BytesRefHash, BytesStartArray};

@@ -33,7 +33,7 @@ use crate::index::prefix_coded_terms::{PrefixCodedTerms, PrefixCodedTermsBuilder
 use crate::index::terms::Terms;
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::search::query::Query;
-use crate::util::access::Access;
+use crate::util::access::SharedAccess;
 use crate::util::accountable::Accountable;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::Result;
@@ -83,8 +83,8 @@ where
         private_segment: Option<String>,
     ) -> Result<Self>
     where
-        C: Access<CounterEnum>,
-        B: Access<ByteBlockPool<C>>,
+        C: SharedAccess<CounterEnum>,
+        B: SharedAccess<ByteBlockPool<C>>,
     {
         assert!(
             private_segment.is_none() || updates.delete_terms.is_empty(),

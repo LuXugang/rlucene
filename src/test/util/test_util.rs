@@ -22,7 +22,7 @@ use rand::prelude::IndexedRandom;
 use rand::{Rng, random_range};
 
 use crate::index::BytesRef;
-use crate::util::access::AccessVec;
+use crate::util::access::SharedAccessVec;
 
 pub struct TestUtil;
 const BLOCK_STARTS: &[u32] = &[
@@ -416,13 +416,15 @@ impl TestUtil {
     }
 
     /// Returns a random binary term.
-    pub fn random_binary_term<AV: AccessVec<u8>, R: Rng + ?Sized>(rng: &mut R) -> BytesRef<AV> {
+    pub fn random_binary_term<AV: SharedAccessVec<u8>, R: Rng + ?Sized>(
+        rng: &mut R,
+    ) -> BytesRef<AV> {
         let len = rng.random_range(0..15);
         Self::random_binary_term_with_len(rng, len)
     }
 
     ///  Returns a random binary with a given length
-    pub fn random_binary_term_with_len<AV: AccessVec<u8>, R: Rng + ?Sized>(
+    pub fn random_binary_term_with_len<AV: SharedAccessVec<u8>, R: Rng + ?Sized>(
         random: &mut R,
         length: usize,
     ) -> BytesRef<AV> {

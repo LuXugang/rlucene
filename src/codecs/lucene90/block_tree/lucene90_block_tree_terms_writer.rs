@@ -34,7 +34,7 @@ use crate::index::{BytesRef, BytesRefBuilder, IndexFileNames};
 use crate::store::directory::Directory;
 use crate::store::dummy::dummy_directory::DummyDirectory;
 use crate::store::{ByteArrayDataOutput, ByteBuffersDataOutput, DataOutput, IndexOutput};
-use crate::util::access::AccessVec;
+use crate::util::access::SharedAccessVec;
 use crate::util::array_util::ArrayUtil;
 use crate::util::bit_set::BitSet;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
@@ -1290,7 +1290,7 @@ where
 
         Ok(())
     }
-    fn write_bytes_ref<AV: AccessVec<u8>>(
+    fn write_bytes_ref<AV: SharedAccessVec<u8>>(
         &self,
         out: &mut impl DataOutput,
         bytes: &BytesRef<AV>,
