@@ -31,8 +31,8 @@ pub trait CharTermAttribute: Attribute {
 
     /// Returns the internal term buffer which you can directly alter.
     ///
-    /// If the buffer is too small for your token, use [`resize_buffer`] to grow it.
-    /// After altering the buffer be sure to call [`set_length`] to record the number
+    /// If the buffer is too small for your token, use [`resize_buffer`](Self::resize_buffer) to grow it.
+    /// After altering the buffer be sure to call [`set_length`](Self::set_length) to record the number
     /// of valid characters placed into it.
     ///
     /// **Note:** the returned slice may be larger than the valid length.
@@ -48,7 +48,7 @@ pub trait CharTermAttribute: Attribute {
     /// Sets the number of valid characters (length of the term) in the term buffer.
     ///
     /// Use this to truncate the buffer or to synchronize with external buffer manipulation.
-    /// To grow the buffer, call [`resize_buffer`] first.
+    /// To grow the buffer, call [`resize_buffer`](Self::resize_buffer) first.
     ///
     /// # Returns
     ///

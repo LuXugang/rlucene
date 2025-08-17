@@ -25,7 +25,7 @@ use crate::util::ToInt;
 use crate::util::error::lucene_error::{LuceneError, Result};
 
 /// A multi-valued version of
-/// [`SortedDocValues`](crate::index::sorted_doc_values::SortedDocValues).
+/// [`SortedDocValues`].
 ///
 /// Per-Document values in a `SortedSetDocValues` are deduplicated,
 /// dereferenced, and sorted into a dictionary of unique values. A pointer to

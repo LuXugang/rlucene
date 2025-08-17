@@ -45,7 +45,7 @@ use std::sync::Arc;
 /// **File formats**
 ///
 /// 1. **Vector metadata file** (`.tvm`):
-///    - VectorMeta (.tvm) → <Header>, PackedIntsVersion, ChunkSize, ChunkIndexMetadata, ChunkCount, DirtyChunkCount, DirtyDocsCount, Footer
+///    - VectorMeta (.tvm) → Header, PackedIntsVersion, ChunkSize, ChunkIndexMetadata, ChunkCount, DirtyChunkCount, DirtyDocsCount, Footer
 ///    -  Header → [IndexHeader](crate::codecs::codec_util::CodecUtil::write_index_header)
 ///    -  PackedIntsVersion, ChunkSize → [`VInt`](crate::store::data_output::DataOutput::write_vint)
 ///    -  ChunkCount, DirtyChunkCount, DirtyDocsCount → [`Vlong`](crate::store::data_output::DataOutput::write_vlong)
@@ -61,12 +61,12 @@ use std::sync::Arc;
 ///    - Stores terms, frequencies, positions, offsets and payloads for every document
 ///    - Accumulates data in memory until the buffer grows beyond 4 KB, then flushes using LZ4 for terms/payloads and `BlockPackedWriter` for positions
 ///    - **Detailed format**:
-///      - VectorData (.tvd) → <Header>, <Chunk>^ChunkCount, Footer
+///      - VectorData (.tvd) → Header, Chunk^ChunkCount, Footer
 ///      - Header → [IndexHeader](crate::codecs::codec_util::CodecUtil::write_index_header)
-///      - Chunk → DocBase, ChunkDocs, <NumFields>, <FieldNums>, <FieldNumOffs>, <Flags>, <NumTerms>, <TermLengths>, <TermFreqs>, <Positions>, <StartOffsets>, <Lengths>, <PayloadLengths>, <TermAndPayloads>
+///      - Chunk → DocBase, ChunkDocs, NumFields, FieldNums, FieldNumOffs, Flags, NumTerms, TermLengths, TermFreqs, Positions, StartOffsets, Lengths, PayloadLengths, TermAndPayloads
 ///      - NumFields → DocNumFields^ChunkDocs
 ///      - FieldNums → FieldNumDelta^TotalDistinctFields
-///      - Flags → Bit <FieldFlags>
+///      - Flags → Bit FieldFlags
 ///      - FieldFlags → either Flag^TotalDistinctFields or Flag^TotalFields
 ///      - NumTerms → FieldNumTerms^TotalFields
 ///      - TermLengths → PrefixLength^TotalTerms, SuffixLength^TotalTerms
@@ -75,8 +75,8 @@ use std::sync::Arc;
 ///      - StartOffsets → (AvgCharsPerTerm^TotalDistinctFields), StartOffsetDelta^TotalOffsets
 ///      - Lengths → LengthMinusTermLength^TotalOffsets
 ///      - PayloadLengths → PayloadLength^TotalPayloads
-///      - TermAndPayloads → LZ4-compressed representation of <FieldTermsAndPayloads>^TotalFields
-///      - <FieldTermsAndPayloads> → Terms (Payloads)
+///      - TermAndPayloads → LZ4-compressed representation of FieldTermsAndPayloads^TotalFields
+///      - FieldTermsAndPayloads → Terms (Payloads)
 ///      - DocBase, ChunkDocs, DocNumFields → [`VInt`](crate::store::data_output::DataOutput::write_vint)
 ///      - AvgCharsPerTerm → [`Int`](crate::store::data_output::DataOutput::write_int)
 ///      - DocNumFields (≥1), FieldNumOffs → PackedInts array
@@ -100,7 +100,7 @@ use std::sync::Arc;
 ///      - TotalPayloads is sum of payload counts across fields
 ///
 /// 3. **Vector index file** (`.tvx`):
-///    -  VectorIndex (.tvx) → <Header>, <ChunkIndex>, Footer
+///    -  VectorIndex (.tvx) → Header, ChunkIndex, Footer
 ///    -  Header → [IndexHeader](crate::codecs::codec_util::CodecUtil::write_index_header)
 ///    -  ChunkIndex → [`FieldsIndexWriter`](crate::codecs::lucene90::fields_index_writer::FieldsIndexWriter)
 ///    -  Footer → [`CodecFooter`](crate::codecs::codec_util::CodecUtil::write_footer)

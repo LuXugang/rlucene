@@ -163,7 +163,7 @@ pub trait SimScorer {
     ///
     /// - `freq` is the sloppy term frequency for this document; it must be finite and positive.
     /// - `norm` is the encoded normalization factor (as returned by
-    ///   [`Similarity::compute_norm`](Similarity::compute_norm))
+    ///   [`Similarity::compute_norm`]
     ///   or `1` if norms are disabled; it is never `0`.
     ///
     /// # Scoring Guarantees

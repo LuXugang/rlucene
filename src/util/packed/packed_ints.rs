@@ -149,7 +149,7 @@ impl PackedInts {
     ///
     /// # Returns
     /// A mutable packed integer array.
-    pub(crate) fn get_mutable(
+    pub fn get_mutable(
         value_count: i32,
         bits_per_value: i32,
         acceptable_overhead_ratio: f32,
