@@ -44,6 +44,7 @@ where
             lock: Mutex::new(()),
         }
     }
+    // TODO: 是不是应该转移所有权，并且断言这个方法只能调用一次
     pub fn get_created_files(&self) -> &HashSet<String> {
         &self.created_filenames
     }

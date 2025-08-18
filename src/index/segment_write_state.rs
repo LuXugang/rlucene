@@ -33,7 +33,7 @@ where
     D: Directory,
 {
     /// InfoStream used for debugging messages.
-    pub info_stream: InfoStreamLock,
+    pub info_stream: Option<InfoStreamLock>,
 
     /// Directory where this segment will be written to.
     pub directory: Arc<Mutex<D>>,
@@ -73,7 +73,7 @@ where
 {
     /// Constructor without suffix.
     pub(crate) fn new(
-        info_stream: InfoStreamLock,
+        info_stream: Option<InfoStreamLock>,
         directory: Arc<Mutex<D>>,
         field_infos: Rc<FieldInfos>,
         context: Rc<IOContext>,
@@ -83,7 +83,7 @@ where
 
     /// Constructor with segment suffix.
     pub(crate) fn with_suffix(
-        info_stream: InfoStreamLock,
+        info_stream: Option<InfoStreamLock>,
         directory: Arc<Mutex<D>>,
         field_infos: Rc<FieldInfos>,
         context: Rc<IOContext>,

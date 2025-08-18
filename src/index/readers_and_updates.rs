@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codecs::doc_values_consumer::DocValuesConsumer;
+use crate::codecs::doc_values_format::DocValuesFormat;
 use crate::codecs::doc_values_producer::DocValuesProducer;
 use crate::codecs::dummy::dummy_binary_doc_values::DummyBinaryDocValues;
 use crate::codecs::dummy::dummy_doc_values_skipper::DummyDocValuesSkipper;
@@ -21,6 +23,7 @@ use crate::codecs::dummy::dummy_numeric_doc_values::DummyNumericDocValues;
 use crate::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNumericDocValues;
 use crate::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocValues;
+use crate::codecs::field_infos_format::FieldInfosFormat;
 use crate::codecs::live_docs_format::LiveDocsFormat;
 use crate::index::BytesRef;
 use crate::index::binary_doc_values::BinaryDocValues;
@@ -30,22 +33,29 @@ use crate::index::doc_values_field_updates::{
     DocValuesFieldUpdatesEnum, MergedIterator, NumericDocValuesDVFU,
 };
 use crate::index::doc_values_iterator::DocValuesIterator;
+use crate::index::doc_values_type::DocValuesType;
 use crate::index::field_info::FieldInfo;
+use crate::index::field_infos::FieldInfos;
 use crate::index::leaf_reader::LeafReader;
 use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::pending_deletes::PendingDeletes;
 use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::index::segment_reader::SegmentReader;
+use crate::index::segment_write_state::SegmentWriteState;
 use crate::index::sorter::DocMapImpl;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::store::IOContext;
 use crate::store::directory::Directory;
+use crate::store::flush_info::FlushInfo;
+use crate::store::tracking_directory_wrapper::TrackingDirectoryWrapper;
 use crate::util::either_enums::{EitherBits, EitherDocIdSetIterator};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBit;
 use crate::util::function::Function;
+use crate::util::info_stream::InfoStream;
 use parking_lot::Mutex;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicI32, AtomicI64, Ordering};
@@ -251,6 +261,159 @@ where
         let mut inner = self.inner.lock();
         inner.pending_deletes.write_live_docs(dir, info)
     }
+
+    pub fn handle_dv_updates<D, F>(
+        &self,
+        infos: &FieldInfos,
+        dir: Arc<Mutex<D>>,
+        dv_format: &F,
+        reader: &mut SegmentReader<LF>,
+        field_files: &mut HashMap<i32, HashSet<String>>,
+        max_del_gen: i64,
+        info_stream: &mut impl InfoStream,
+        info: &mut SegmentCommitInfo<D>,
+    ) -> Result<()>
+    where
+        D: Directory,
+        F: DocValuesFormat,
+    {
+        let inner = self.inner.lock();
+
+        for (field, updates) in inner.pending_dv_updates.iter() {
+            let ty = updates[0].tp();
+            debug_assert!(
+                matches!(ty, DocValuesType::Numeric | DocValuesType::Binary),
+                "unsupported type: {:?}",
+                ty
+            );
+
+            let mut updates_to_apply = Vec::new();
+            let mut bytes: i64 = 0;
+
+            for update in updates {
+                if update.del_gen() <= max_del_gen {
+                    // safe to apply this one
+                    bytes += update.ram_bytes_used()?;
+                    updates_to_apply.push(update.clone());
+                }
+            }
+
+            if updates_to_apply.is_empty() {
+                // nothing to apply yet
+                continue;
+            }
+
+            if info_stream.enabled("BD") {
+                info_stream.message(
+                    "BD",
+                    &format!(
+                        "now write {} pending numeric DV updates for field={}, seg={}, bytes={:.3} MB",
+                        updates_to_apply.len(),
+                        field,
+                        info,
+                        (bytes as f64) / 1024.0 / 1024.0
+                    ),
+                );
+            }
+
+            let next_doc_values_gen = info.get_next_doc_values_gen();
+            let segment_suffix = num_bigint::BigInt::from(next_doc_values_gen)
+                .to_str_radix(36)
+                .to_string();
+            let updates_context = Rc::new(IOContext::with_flush(FlushInfo::new(
+                info.info.max_doc()?,
+                bytes,
+            ))?);
+
+            let field_info = infos
+                .field_info_by_name(field)
+                .ok_or_else(|| LuceneError::illegal_argument("fieldInfo is None"))?;
+            field_info.set_doc_values_gen(next_doc_values_gen)?;
+
+            let field_infos = Rc::new(FieldInfos::new(vec![field_info.clone()])?);
+
+            let tracking_dir = Arc::new(Mutex::new(TrackingDirectoryWrapper::new(dir.clone())));
+
+            let state = SegmentWriteState::with_suffix(
+                None,
+                tracking_dir,
+                field_infos,
+                updates_context,
+                &segment_suffix,
+            );
+
+            {
+                let mut fields_consumer = dv_format.fields_consumer(&state, &info.info)?;
+
+                let update_supplier = FunctionImpl::new(field_info.clone(), updates_to_apply);
+
+                inner
+                    .pending_deletes
+                    .on_doc_values_update(&field_info, update_supplier.apply(&field_info)?);
+                if *ty == DocValuesType::Binary {
+                    let mut v = DocValuesProducerBinary::new(
+                        update_supplier,
+                        field,
+                        reader,
+                        field_info.clone(),
+                    );
+                    fields_consumer.add_binary_field(&field_info, &mut v)?
+                } else {
+                    let mut v = DocValuesProducerNumeric::new(
+                        update_supplier,
+                        field,
+                        reader,
+                        field_info.clone(),
+                    );
+                    fields_consumer.add_numeric_field(&field_info, &mut v)?;
+                }
+
+                drop(fields_consumer);
+            }
+
+            info.advance_doc_values_gen();
+            debug_assert!(!field_files.contains_key(&field_info.number));
+            field_files.insert(
+                field_info.number,
+                state.directory.lock().get_created_files().clone(),
+            );
+        }
+        Ok(())
+    }
+
+    fn write_field_infos_gen<D, F>(
+        &self,
+        field_infos: &FieldInfos,
+        dir: Arc<Mutex<D>>,
+        infos_format: &F,
+        info: &mut SegmentCommitInfo<D>,
+    ) -> Result<HashSet<String>>
+    where
+        D: Directory,
+        F: FieldInfosFormat,
+    {
+        let next_field_infos_gen = info.get_next_field_infos_gen();
+        let segment_suffix = num_bigint::BigInt::from(next_field_infos_gen).to_str_radix(36);
+        // we write approximately that many bytes (based on Lucene46DVF):
+        // HEADER + FOOTER: 40
+        // 90 bytes per-field (over estimating long name and attributes map)
+        let est_infos_size = 40 + 90 * (field_infos.size() as i64);
+        // IOContext for a flush with estimated size
+        let flush_info = FlushInfo::new(info.info.max_doc()?, est_infos_size);
+        let infos_context = IOContext::with_flush(flush_info)?;
+        // separately also track which files were created for this gen
+        let mut tracking_dir = TrackingDirectoryWrapper::new(dir);
+        infos_format.write(
+            &mut tracking_dir,
+            &info.info,
+            &segment_suffix,
+            field_infos,
+            &infos_context,
+        )?;
+        info.advance_field_infos_gen();
+        Ok(tracking_dir.get_created_files().clone())
+    }
+
     /// Drops all merging updates.
     /// Called from IndexWriter after this segment finished merging (whether successfully or not).
     pub fn drop_merging_updates(&self, inner: Option<&mut Inner<L, LF>>) {
@@ -521,14 +684,14 @@ where
 
 struct DocValuesProducerBinary<'a, LF: LiveDocsFormat> {
     update_supplier: FunctionImpl,
-    field: String,
+    field: &'a str,
     reader: &'a mut SegmentReader<LF>,
     field_info: Arc<FieldInfo>,
 }
 impl<'a, LF: LiveDocsFormat> DocValuesProducerBinary<'a, LF> {
     pub fn new(
         update_supplier: FunctionImpl,
-        field: String,
+        field: &'a str,
         reader: &'a mut SegmentReader<LF>,
         field_info: Arc<FieldInfo>,
     ) -> Self {
@@ -555,7 +718,7 @@ impl<'a, LF: LiveDocsFormat> DocValuesProducer for DocValuesProducerBinary<'a, L
             },
         };
         let merged_doc_values = MergedDocValues::new(
-            self.reader.get_binary_doc_values(&self.field)?,
+            self.reader.get_binary_doc_values(self.field)?,
             EitherDocIdSetIterator::F(BinaryDocValuesDVFU::new(iterator)),
         );
         Ok(BinaryDocValuesImpl::new(merged_doc_values))
@@ -568,7 +731,7 @@ impl<'a, LF: LiveDocsFormat> DocValuesProducer for DocValuesProducerBinary<'a, L
 }
 struct DocValuesProducerNumeric<'a, LF: LiveDocsFormat> {
     update_supplier: FunctionImpl,
-    field: String,
+    field: &'a str,
     reader: &'a mut SegmentReader<LF>,
     field_info: Arc<FieldInfo>,
 }
@@ -576,7 +739,7 @@ struct DocValuesProducerNumeric<'a, LF: LiveDocsFormat> {
 impl<'a, LF: LiveDocsFormat> DocValuesProducerNumeric<'a, LF> {
     pub fn new(
         update_supplier: FunctionImpl,
-        field: String,
+        field: &'a str,
         reader: &'a mut SegmentReader<LF>,
         field_info: Arc<FieldInfo>,
     ) -> Self {
@@ -602,7 +765,7 @@ impl<'a, LF: LiveDocsFormat> DocValuesProducer for DocValuesProducerNumeric<'a, 
         };
 
         let merged_doc_values = MergedDocValues::new(
-            self.reader.get_numeric_doc_values(&self.field)?,
+            self.reader.get_numeric_doc_values(self.field)?,
             EitherDocIdSetIterator::S(NumericDocValuesDVFU::new(iterator)),
         );
         // Merge sort of the original doc values with updated doc values:

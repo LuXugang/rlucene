@@ -1161,6 +1161,13 @@ pub enum DocValuesFieldUpdatesEnum {
     SingleValue(DocValuesFieldUpdates<SingleValueDocValuesFieldUpdates>),
 }
 impl DocValuesFieldUpdatesEnum {
+    pub(crate) fn tp(&self) -> &DocValuesType {
+        match self {
+            DocValuesFieldUpdatesEnum::Numeric(u) => &u.doc_values_type,
+            DocValuesFieldUpdatesEnum::Binary(u) => &u.doc_values_type,
+            DocValuesFieldUpdatesEnum::SingleValue(u) => &u.doc_values_type,
+        }
+    }
     pub(crate) fn field(&self) -> &str {
         match self {
             DocValuesFieldUpdatesEnum::Numeric(u) => &u.field,

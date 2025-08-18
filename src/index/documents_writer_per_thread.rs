@@ -493,7 +493,7 @@ where
         self.segment_info.set_max_doc(self.num_docs_in_ram)?;
 
         let mut flush_state = SegmentWriteState::new(
-            self.info_stream.clone(),
+            Some(self.info_stream.clone()),
             self.directory.clone(),
             Rc::new(self.field_infos.finish()?),
             Rc::new(IOContext::with_flush(FlushInfo::new(

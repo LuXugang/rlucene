@@ -25,6 +25,7 @@ use parking_lot::Mutex;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::atomic::AtomicI64;
 
 ///  Access to the Field Info file that describes document fields and whether or
 /// not they are indexed.  Each segment has a separate Field Info file. Objects
@@ -45,7 +46,7 @@ pub struct FieldInfo {
     omit_norms: bool, // omit norms associated with indexed fields
     pub(crate) index_options: IndexOptions,
     pub(crate) properties: Arc<Mutex<Properties>>,
-    dv_gen: i64,
+    dv_gen: AtomicI64,
     ///  If both of these are positive it means this field indexed points (see
     /// [`PointsFormat`](crate::codecs::points_format::PointsFormat)).
     point_dimension_count: i32,
@@ -122,7 +123,7 @@ impl FieldInfo {
             omit_norms,
             index_options,
             properties,
-            dv_gen,
+            dv_gen: AtomicI64::new(dv_gen),
             point_dimension_count,
             point_index_dimension_count,
             point_num_bytes,
@@ -186,7 +187,9 @@ impl FieldInfo {
                 self.name, self.doc_values_skip_index, self.doc_values_type
             )));
         }
-        if self.dv_gen != -1 && self.doc_values_type == DocValuesType::None {
+        if self.dv_gen.load(std::sync::atomic::Ordering::SeqCst) != -1
+            && self.doc_values_type == DocValuesType::None
+        {
             return Err(LuceneError::illegal_argument(format!(
                 "field '{}' cannot have a docvalues update generation without having docvalues",
                 self.name
@@ -551,8 +554,9 @@ impl FieldInfo {
     }
 
     /// Sets the docValues generation of this field.
-    pub fn set_doc_values_gen(&mut self, dv_gen: i64) -> Result<()> {
-        self.dv_gen = dv_gen;
+    pub fn set_doc_values_gen(&self, dv_gen: i64) -> Result<()> {
+        self.dv_gen
+            .store(dv_gen, std::sync::atomic::Ordering::SeqCst);
         self.check_consistency()?;
         Ok(())
     }
@@ -560,7 +564,7 @@ impl FieldInfo {
     /// Returns the docValues generation of this field, or -1 if no docValues
     /// updates exist for it.
     pub fn get_doc_values_gen(&self) -> i64 {
-        self.dv_gen
+        self.dv_gen.load(std::sync::atomic::Ordering::SeqCst)
     }
 
     /// Set store term vectors
