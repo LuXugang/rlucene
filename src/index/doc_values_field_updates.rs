@@ -770,11 +770,11 @@ where
     T: DocValuesFieldIterator,
 {
     fn long_value(&mut self) -> Result<i64> {
-        self.queue.top().long_value()
+        self.queue.top_mut().long_value()
     }
 
     fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
-        self.queue.top().binary_value()
+        self.queue.top_mut().binary_value()
     }
 
     fn del_gen(&self) -> i64 {
@@ -782,7 +782,7 @@ where
     }
 
     fn has_value(&mut self) -> bool {
-        self.queue.top().has_value()
+        self.queue.top_mut().has_value()
     }
 }
 impl<T> DocIdSetIterator for MergedIterator<T>
@@ -799,7 +799,7 @@ where
                 self.doc = NO_MORE_DOCS;
                 break;
             }
-            let new_doc = self.queue.top().doc_id();
+            let new_doc = self.queue.top_mut().doc_id();
 
             if new_doc != self.doc {
                 // Ensure the new document ID is greater than the current
@@ -809,7 +809,7 @@ where
                 break;
             }
 
-            if self.queue.top().next_doc()? == NO_MORE_DOCS {
+            if self.queue.top_mut().next_doc()? == NO_MORE_DOCS {
                 self.queue.pop();
             } else {
                 self.queue.update_top();

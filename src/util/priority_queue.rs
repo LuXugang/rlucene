@@ -237,11 +237,14 @@ where
     }
 
     /// Returns the least element of the PriorityQueue in constant time.
-    pub fn top(&mut self) -> &mut T {
+    pub fn top_mut(&mut self) -> &mut T {
         // We don't need to check size here: if maxSize is 0,
         // then heap is length 2 array with both entries null.
         // If size is 0 then heap[1] is already null.
         &mut self.heap[1]
+    }
+    pub fn top(&mut self) -> &T {
+        &self.heap[1]
     }
 
     /// Removes and returns the least element of the PriorityQueue in log(size)
@@ -416,12 +419,17 @@ mod tests {
     }
     #[test]
     fn test_zero_sized_queue() {
+        let mut random = random();
         let mut pq = PriorityQueue::new(0, I32Compare).unwrap();
         assert_eq!(1, pq.insert_with_overflow(1).unwrap());
         assert_eq!(0, pq.size());
 
         pq.add(1);
-        assert_eq!(1, *pq.top())
+        match random.random_bool(0.5){
+            true => assert_eq!(1, *pq.top_mut()),
+            false => assert_eq!(1, *pq.top())
+        }
+
     }
 
     #[derive(Default)]
@@ -535,7 +543,11 @@ mod tests {
         assert_eq!(pq.insert_with_overflow(i5).unwrap(), i3);
         assert_eq!(pq.insert_with_overflow(i6).unwrap(), i6);
         assert_eq!(size as usize, pq.size());
-        assert_eq!(2, *pq.top());
+        let mut random = random();
+        match random.random_bool(0.5)  {
+            true => assert_eq!(2, *pq.top_mut()),
+            false => assert_eq!(2, *pq.top()),
+        }
     }
 
     #[test]
@@ -618,7 +630,10 @@ mod tests {
                     assert_eq!(evicted_value, last_least.unwrap());
                 }
             }
-            let new_least = pq.top();
+           let new_least =  match random.random_bool(0.5) {
+                true => pq.top_mut(),
+                false => pq.top(),
+            };
             if last_least.is_some() && *new_least != new_entry && *new_least != last_least.unwrap()
             {
                 // If there has been a change of least entry and it wasn't our
@@ -640,7 +655,10 @@ mod tests {
             sds.push(new_entry);
             assert_eq!(pq.insert_with_overflow(new_entry), None);
             check_validity(&pq);
-            let new_least = pq.top();
+            let new_least = match random.random_bool(0.5) {
+                true => pq.top_mut(),
+                false => pq.top(),
+            };
             if object_to_remove != last_least.unwrap()
                 && last_least.is_some()
                 && *new_least != new_entry
