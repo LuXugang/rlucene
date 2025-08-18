@@ -130,13 +130,13 @@ impl DocValuesWriter for NumericDocValuesWriter {
         if self.final_values.is_none() {
             self.final_values = Some(std::mem::take(&mut self.pending).build()?)
         }
-        let producer = ndvw_util::get_doc_values_producer(
+        let mut producer = ndvw_util::get_doc_values_producer(
             self.field_info.clone(),
             self.final_values.as_ref().unwrap(),
             std::mem::take(&mut self.docs_with_field),
             sort_map,
         )?;
-        let _ = dv_consumer.add_numeric_field(&self.field_info, producer)?;
+        dv_consumer.add_numeric_field(&self.field_info, &mut producer)?;
         Ok(())
     }
 

@@ -309,8 +309,8 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
                 std::mem::take(&mut self.docs_with_field),
                 sort_map,
             )?;
-            let producer = DocValuesProducerImpl2::new(single_value_producer);
-            dv_consumer.add_sorted_set_field(&self.field_info, producer)?;
+            let mut producer = DocValuesProducerImpl2::new(single_value_producer);
+            dv_consumer.add_sorted_set_field(&self.field_info, &mut producer)?;
             return Ok(());
         }
 
@@ -332,7 +332,7 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
         } else {
             None
         };
-        let producer = DocValuesProducerImpl1::new(
+        let mut producer = DocValuesProducerImpl1::new(
             self.field_info.clone(),
             ord_map,
             self.hash_rc.clone().unwrap(),
@@ -342,7 +342,7 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
             std::mem::take(&mut self.docs_with_field),
             doc_ords,
         );
-        let _ = dv_consumer.add_sorted_set_field(&self.field_info, producer)?;
+        dv_consumer.add_sorted_set_field(&self.field_info, &mut producer)?;
         Ok(())
     }
 

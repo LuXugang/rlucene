@@ -44,7 +44,11 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 pub trait DocValuesConsumer {
-    fn add_numeric_field<D>(&mut self, field: &Arc<FieldInfo>, values_producer: D) -> Result<D>
+    fn add_numeric_field<D>(
+        &mut self,
+        field: &Arc<FieldInfo>,
+        values_producer: &mut D,
+    ) -> Result<()>
     where
         D: DocValuesProducer;
     fn add_binary_field<D>(
@@ -54,7 +58,11 @@ pub trait DocValuesConsumer {
     ) -> Result<()>
     where
         D: DocValuesProducer;
-    fn add_sorted_field<D>(&mut self, field: &Arc<FieldInfo>, values_producer: D) -> Result<D>
+    fn add_sorted_field<D>(
+        &mut self,
+        field: &Arc<FieldInfo>,
+        values_producer: &mut D,
+    ) -> Result<()>
     where
         D: DocValuesProducer;
     fn add_sorted_numeric_field<D>(
@@ -64,7 +72,11 @@ pub trait DocValuesConsumer {
     ) -> Result<()>
     where
         D: DocValuesProducer;
-    fn add_sorted_set_field<D>(&mut self, field: &Arc<FieldInfo>, values_producer: D) -> Result<D>
+    fn add_sorted_set_field<D>(
+        &mut self,
+        field: &Arc<FieldInfo>,
+        values_producer: &mut D,
+    ) -> Result<()>
     where
         D: DocValuesProducer;
 
@@ -76,11 +88,11 @@ pub trait DocValuesConsumer {
     where
         I: IndexInput,
     {
-        let producer = EmptyDocValuesProducerMerge1 {
+        let mut producer = EmptyDocValuesProducerMerge1 {
             merge_field_info: merge_field_info.clone(),
             merge_state,
         };
-        let _ = self.add_numeric_field(merge_field_info, producer);
+        self.add_numeric_field(merge_field_info, &mut producer)?;
         Ok(())
     }
     fn merge_binary_filed<I: IndexInput>(
