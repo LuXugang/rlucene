@@ -594,26 +594,26 @@ impl DocValuesFieldIterator for DocValuesFieldIteratorEnum {
 
 pub(crate) mod dvfi_util {
     use crate::index::doc_values_field_updates::{
-        BinaryDocValuesImpl, DocValuesFieldIterator, NumericDocValuesImpl,
+        BinaryDocValuesDVFU, DocValuesFieldIterator, NumericDocValuesDVFU,
     };
     /// Wraps the given iterator as a BinaryDocValues instance.
     fn get_binary_doc_values<T: DocValuesFieldIterator>(iterator: T) {
-        BinaryDocValuesImpl::new(iterator);
+        BinaryDocValuesDVFU::new(iterator);
     }
     /// Wraps the given iterator as a NumericDocValues instance.
     fn get_numeric_doc_values<T: DocValuesFieldIterator>(iterator: T) {
-        NumericDocValuesImpl::new(iterator);
+        NumericDocValuesDVFU::new(iterator);
     }
 }
 
 /// Wraps the given iterator as a BinaryDocValues instance.
-pub(crate) struct BinaryDocValuesImpl<T>
+pub(crate) struct BinaryDocValuesDVFU<T>
 where
     T: DocValuesFieldIterator,
 {
-    iterator: T,
+    pub(crate) iterator: T,
 }
-impl<T> BinaryDocValuesImpl<T>
+impl<T> BinaryDocValuesDVFU<T>
 where
     T: DocValuesFieldIterator,
 {
@@ -622,7 +622,7 @@ where
     }
 }
 
-impl<T> DocValuesIterator for BinaryDocValuesImpl<T>
+impl<T> DocValuesIterator for BinaryDocValuesDVFU<T>
 where
     T: DocValuesFieldIterator,
 {
@@ -631,7 +631,7 @@ where
     }
 }
 
-impl<T> DocIdSetIterator for BinaryDocValuesImpl<T>
+impl<T> DocIdSetIterator for BinaryDocValuesDVFU<T>
 where
     T: DocValuesFieldIterator,
 {
@@ -652,7 +652,7 @@ where
     }
 }
 
-impl<T> BinaryDocValues for BinaryDocValuesImpl<T>
+impl<T> BinaryDocValues for BinaryDocValuesDVFU<T>
 where
     T: DocValuesFieldIterator,
 {
@@ -663,13 +663,13 @@ where
 
 /// Wraps the given iterator as a NumericDocValues instance.
 
-pub(crate) struct NumericDocValuesImpl<T>
+pub(crate) struct NumericDocValuesDVFU<T>
 where
     T: DocValuesFieldIterator,
 {
-    iterator: T,
+    pub(crate) iterator: T,
 }
-impl<T> NumericDocValuesImpl<T>
+impl<T> NumericDocValuesDVFU<T>
 where
     T: DocValuesFieldIterator,
 {
@@ -678,7 +678,7 @@ where
     }
 }
 
-impl<T> DocValuesIterator for NumericDocValuesImpl<T>
+impl<T> DocValuesIterator for NumericDocValuesDVFU<T>
 where
     T: DocValuesFieldIterator,
 {
@@ -687,7 +687,7 @@ where
     }
 }
 
-impl<T> DocIdSetIterator for NumericDocValuesImpl<T>
+impl<T> DocIdSetIterator for NumericDocValuesDVFU<T>
 where
     T: DocValuesFieldIterator,
 {
@@ -708,7 +708,7 @@ where
     }
 }
 
-impl<T> NumericDocValues for NumericDocValuesImpl<T>
+impl<T> NumericDocValues for NumericDocValuesDVFU<T>
 where
     T: DocValuesFieldIterator,
 {
@@ -1190,6 +1190,13 @@ impl DocValuesFieldUpdatesEnum {
             DocValuesFieldUpdatesEnum::Numeric(u) => u.del_gen,
             DocValuesFieldUpdatesEnum::Binary(u) => u.del_gen,
             DocValuesFieldUpdatesEnum::SingleValue(u) => u.del_gen,
+        }
+    }
+    pub(crate) fn iterator(&self) -> Result<DocValuesFieldIteratorEnum> {
+        match self {
+            DocValuesFieldUpdatesEnum::Numeric(u) => u.iterator(),
+            DocValuesFieldUpdatesEnum::Binary(u) => u.iterator(),
+            DocValuesFieldUpdatesEnum::SingleValue(u) => u.iterator(),
         }
     }
 }

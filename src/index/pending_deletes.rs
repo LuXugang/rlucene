@@ -17,6 +17,8 @@
 use crate::codecs::live_docs_format::LiveDocsFormat;
 use crate::codecs::{Codec, get_default_code};
 use crate::index::codec_reader::CodecReader;
+use crate::index::doc_values_field_updates::{DocValuesFieldIteratorEnum, MergedIterator};
+use crate::index::field_info::FieldInfo;
 use crate::index::index_reader::IndexReader;
 use crate::index::leaf_reader::LeafReader;
 use crate::index::segment_commit_info::SegmentCommitInfo;
@@ -296,6 +298,13 @@ where
     {
         debug_assert!(info.info.max_doc()? == self.max_doc);
         Ok(self.get_del_count(info) == info.info.max_doc()?)
+    }
+
+    pub(crate) fn on_doc_values_update(
+        &self,
+        info: &FieldInfo,
+        iterator: Option<Option<MergedIterator<DocValuesFieldIteratorEnum>>>,
+    ) {
     }
 
     /// Returns true if the given reader needs to be refreshed to see the latest deletes
