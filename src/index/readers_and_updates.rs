@@ -375,7 +375,7 @@ where
             debug_assert!(!field_files.contains_key(&field_info.number));
             field_files.insert(
                 field_info.number,
-                state.directory.lock().get_created_files().clone(),
+                state.directory.lock().take_created_files(),
             );
         }
         Ok(())
@@ -411,7 +411,7 @@ where
             &infos_context,
         )?;
         info.advance_field_infos_gen();
-        Ok(tracking_dir.get_created_files().clone())
+        Ok(tracking_dir.take_created_files())
     }
 
     /// Drops all merging updates.

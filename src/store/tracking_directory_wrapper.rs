@@ -32,11 +32,14 @@ where
     created_filenames: HashSet<String>,
     pub(crate) base: FilterDirectory<D, Arc<Mutex<D>>>,
     lock: Mutex<()>,
+    #[cfg(debug_assertions)]
+    taken: bool,
 }
 impl<D> TrackingDirectoryWrapper<D>
 where
     D: Directory,
 {
+    #[cfg(not(debug_assertions))]
     pub fn new(input: Arc<Mutex<D>>) -> Self {
         TrackingDirectoryWrapper {
             created_filenames: HashSet::new(),
@@ -44,9 +47,30 @@ where
             lock: Mutex::new(()),
         }
     }
-    // TODO: 是不是应该转移所有权，并且断言这个方法只能调用一次
+    #[cfg(debug_assertions)]
+    pub fn new(input: Arc<Mutex<D>>) -> Self {
+        TrackingDirectoryWrapper {
+            created_filenames: HashSet::new(),
+            base: FilterDirectory::new(input),
+            lock: Mutex::new(()),
+            taken: false,
+        }
+    }
+
     pub fn get_created_files(&self) -> &HashSet<String> {
         &self.created_filenames
+    }
+    pub fn take_created_files(&mut self) -> HashSet<String> {
+        #[cfg(debug_assertions)]
+        if !self.taken {
+            self.taken = true;
+        } else {
+            debug_assert!(
+                false,
+                "TrackingDirectoryWrapper::take_created_files called multiple times"
+            );
+        }
+        std::mem::take(&mut self.created_filenames)
     }
     pub fn clear_created_files(&mut self) {
         self.created_filenames.clear();

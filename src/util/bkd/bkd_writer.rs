@@ -672,7 +672,7 @@ where
         match result {
             Ok(_) => {},
             Err(e) => {
-                let file_copy = self.temp_dir.get_created_files().clone();
+                let file_copy = self.temp_dir.take_created_files();
                 let filenames = file_copy.iter().collect::<Vec<_>>();
                 IOUtils::delete_files_ignoring_exceptions(&mut self.temp_dir, filenames.as_slice());
                 return Err(e);
