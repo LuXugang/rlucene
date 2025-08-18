@@ -56,8 +56,8 @@ impl<D> Directory for LockValidatingDirectoryWrapper<D>
 where
     D: Directory,
 {
-    type IndexOutputType = <FilterDirectory<D, Arc<Mutex<D>>> as Directory>::IndexOutputType;
-    type IndexInputType = <FilterDirectory<D, Arc<Mutex<D>>> as Directory>::IndexInputType;
+    type IndexOutput = <FilterDirectory<D, Arc<Mutex<D>>> as Directory>::IndexOutput;
+    type IndexInput = <FilterDirectory<D, Arc<Mutex<D>>> as Directory>::IndexInput;
     type Lock = <FilterDirectory<D, Arc<Mutex<D>>> as Directory>::Lock;
 
     fn list_all(&self) -> Result<Vec<String>> {
@@ -73,7 +73,7 @@ where
         self.base.delegate.lock().delete_file(name)
     }
 
-    fn create_output(&mut self, name: &str, context: &IOContext) -> Result<Self::IndexOutputType> {
+    fn create_output(&mut self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
         self.write_lock.ensure_valid()?;
         self.base.delegate.lock().create_output(name, context)
     }
@@ -83,7 +83,7 @@ where
         prefix: &str,
         suffix: &str,
         context: &IOContext,
-    ) -> Result<Self::IndexOutputType> {
+    ) -> Result<Self::IndexOutput> {
         self.write_lock.ensure_valid()?;
         self.base
             .delegate
@@ -106,7 +106,7 @@ where
         self.base.delegate.lock().rename(source, dest)
     }
 
-    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInputType> {
+    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
         self.base.open_input(name, context)
     }
 
@@ -143,7 +143,7 @@ where
     fn open_checksum_input(
         &self,
         name: &str,
-    ) -> Result<BufferedChecksumIndexInput<Self::IndexInputType>> {
+    ) -> Result<BufferedChecksumIndexInput<Self::IndexInput>> {
         self.base.open_checksum_input(name)
     }
 }

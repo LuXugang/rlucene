@@ -104,20 +104,20 @@ where
         self.base.file_length(name)
     }
 
-    fn create_output(&mut self, name: &str, context: &IOContext) -> Result<Self::IndexOutputType> {
+    fn create_output(&mut self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
         let output = self.base.delegate.lock().create_output(name, context)?;
         self.created_filenames.insert(name.to_string());
         Ok(output)
     }
 
-    type IndexOutputType = <FilterDirectory<D, Arc<Mutex<D>>> as Directory>::IndexOutputType;
+    type IndexOutput = <FilterDirectory<D, Arc<Mutex<D>>> as Directory>::IndexOutput;
 
     fn create_temp_output(
         &mut self,
         prefix: &str,
         suffix: &str,
         context: &IOContext,
-    ) -> Result<Self::IndexOutputType> {
+    ) -> Result<Self::IndexOutput> {
         self.base.create_temp_output(prefix, suffix, context)
     }
 
@@ -137,16 +137,16 @@ where
         Ok(())
     }
 
-    type IndexInputType = <FilterDirectory<D, Arc<Mutex<D>>> as Directory>::IndexInputType;
+    type IndexInput = <FilterDirectory<D, Arc<Mutex<D>>> as Directory>::IndexInput;
 
-    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInputType> {
+    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
         self.base.open_input(name, context)
     }
 
     fn open_checksum_input(
         &self,
         name: &str,
-    ) -> Result<BufferedChecksumIndexInput<Self::IndexInputType>> {
+    ) -> Result<BufferedChecksumIndexInput<Self::IndexInput>> {
         self.base.open_checksum_input(name)
     }
 

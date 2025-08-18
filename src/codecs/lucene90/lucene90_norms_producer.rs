@@ -72,7 +72,7 @@ where
         segment_info: &SegmentInfo<D1>,
     ) -> Result<Self>
     where
-        D: Directory<IndexInputType = I>,
+        D: Directory<IndexInput = I>,
         D1: Directory,
     {
         let max_doc = segment_info.max_doc()?;

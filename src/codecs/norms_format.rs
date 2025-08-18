@@ -32,7 +32,7 @@ pub trait NormsFormat {
         &self,
         state: &SegmentWriteState<D>,
         segment_info: &SegmentInfo<D1>,
-    ) -> Result<NormsConsumerEnum<D::IndexOutputType>>
+    ) -> Result<NormsConsumerEnum<D::IndexOutput>>
     where
         D: Directory,
         D1: Directory;
@@ -54,7 +54,7 @@ pub trait NormsFormat {
         &self,
         state: &SegmentReadState<D>,
         segment_info: &SegmentInfo<D1>,
-    ) -> Result<NormsProducerEnum<D::IndexInputType>>
+    ) -> Result<NormsProducerEnum<D::IndexInput>>
     where
         D: Directory,
         D1: Directory;

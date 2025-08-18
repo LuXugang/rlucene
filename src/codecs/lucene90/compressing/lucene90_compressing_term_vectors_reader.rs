@@ -122,7 +122,7 @@ where
         compression_mode: CompressionModeEnum,
     ) -> Result<Self>
     where
-        D1: Directory<IndexInputType = I>,
+        D1: Directory<IndexInput = I>,
         D2: Directory,
     {
         let segment = &si.name;

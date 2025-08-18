@@ -29,7 +29,7 @@ pub trait PointsFormat {
     fn fields_reader<D>(
         &self,
         state: &SegmentReadState<D>,
-    ) -> Result<PointsReaderEnum<D::IndexInputType>>
+    ) -> Result<PointsReaderEnum<D::IndexInput>>
     where
         D: Directory;
 }

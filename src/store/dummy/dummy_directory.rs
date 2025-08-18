@@ -47,13 +47,13 @@ impl Directory for DummyDirectory {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    type IndexOutputType = DummyIndexOutput;
+    type IndexOutput = DummyIndexOutput;
     fn create_temp_output(
         &mut self,
         _prefix: &str,
         _suffix: &str,
         _context: &IOContext,
-    ) -> Result<Self::IndexOutputType> {
+    ) -> Result<Self::IndexOutput> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
@@ -69,9 +69,9 @@ impl Directory for DummyDirectory {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    type IndexInputType = DummyIndexInput;
+    type IndexInput = DummyIndexInput;
 
-    fn open_input(&self, _name: &str, _context: &IOContext) -> Result<Self::IndexInputType> {
+    fn open_input(&self, _name: &str, _context: &IOContext) -> Result<Self::IndexInput> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

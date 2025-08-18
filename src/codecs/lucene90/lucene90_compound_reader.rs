@@ -44,7 +44,7 @@ where
 {
     segment_name: String,
     entries: HashMap<String, FileEntry>,
-    handle: D::IndexInputType,
+    handle: D::IndexInput,
     #[allow(unused)]
     version: i32,
     dir_fmt: String,
@@ -192,24 +192,20 @@ where
         Ok(entry.length)
     }
 
-    fn create_output(
-        &mut self,
-        _name: &str,
-        _context: &IOContext,
-    ) -> Result<Self::IndexOutputType> {
+    fn create_output(&mut self, _name: &str, _context: &IOContext) -> Result<Self::IndexOutput> {
         Err(LuceneError::illegal_state(
             "create_output() wrapped by CompoundDirectory, this method should never not be called"
                 .to_string(),
         ))
     }
 
-    type IndexOutputType = D::IndexOutputType;
+    type IndexOutput = D::IndexOutput;
     fn create_temp_output(
         &mut self,
         _prefix: &str,
         _suffix: &str,
         _context: &IOContext,
-    ) -> Result<Self::IndexOutputType> {
+    ) -> Result<Self::IndexOutput> {
         Err(LuceneError::illegal_state(
             "create_temp_output() wrapped by CompoundDirectory, this method should never not be called".to_string(),
         ))
@@ -236,9 +232,9 @@ where
         ))
     }
 
-    type IndexInputType = <D::IndexInputType as IndexInput>::Slice;
+    type IndexInput = <D::IndexInput as IndexInput>::Slice;
 
-    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInputType> {
+    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
         let id = IndexFileNames::strip_segment_name(name);
         let entry = match self.entries.get(id) {
             Some(entry) => entry,

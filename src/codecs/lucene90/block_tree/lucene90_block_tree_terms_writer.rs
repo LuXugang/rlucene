@@ -234,7 +234,7 @@ where
         segment_info: &SegmentInfo<D>,
     ) -> Result<Self>
     where
-        D: Directory<IndexOutputType = O>,
+        D: Directory<IndexOutput = O>,
     {
         Self::new_with_version(
             state,
@@ -255,7 +255,7 @@ where
         segment_info: &SegmentInfo<D>,
     ) -> Result<Self>
     where
-        D: Directory<IndexOutputType = O>,
+        D: Directory<IndexOutput = O>,
     {
         Self::validate_settings(min_items_in_block, max_items_in_block)?;
 

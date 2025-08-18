@@ -63,8 +63,8 @@ where
 {
     segment: String,
     index_writer: FieldsIndexWriter<D>,
-    meta_stream: D::IndexOutputType,
-    fields_stream: D::IndexOutputType,
+    meta_stream: D::IndexOutput,
+    fields_stream: D::IndexOutput,
     compressor: CompressorEnum,
     compression_mode: CompressionModeEnum,
     chunk_size: i32,

@@ -65,7 +65,7 @@ where
         context: &IOContext,
     ) -> Result<Self>
     where
-        D: Directory<IndexInputType = I>,
+        D: Directory<IndexInput = I>,
     {
         let max_doc = meta_in.read_int()?;
         let block_shift = meta_in.read_int()?;

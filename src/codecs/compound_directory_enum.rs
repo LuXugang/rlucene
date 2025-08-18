@@ -64,20 +64,20 @@ where
         }
     }
 
-    fn create_output(&mut self, name: &str, context: &IOContext) -> Result<Self::IndexOutputType> {
+    fn create_output(&mut self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
         match self {
             CompoundDirectoryEnum::Lucene90(reader) => reader.create_output(name, context),
         }
     }
 
-    type IndexOutputType = D::IndexOutputType;
+    type IndexOutput = D::IndexOutput;
 
     fn create_temp_output(
         &mut self,
         prefix: &str,
         suffix: &str,
         context: &IOContext,
-    ) -> Result<Self::IndexOutputType> {
+    ) -> Result<Self::IndexOutput> {
         match self {
             CompoundDirectoryEnum::Lucene90(reader) => {
                 reader.create_temp_output(prefix, suffix, context)
@@ -103,9 +103,9 @@ where
         }
     }
 
-    type IndexInputType = <D::IndexInputType as IndexInput>::Slice;
+    type IndexInput = <D::IndexInput as IndexInput>::Slice;
 
-    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInputType> {
+    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
         match self {
             CompoundDirectoryEnum::Lucene90(reader) => reader.open_input(name, context),
         }

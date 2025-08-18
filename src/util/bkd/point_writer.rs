@@ -42,7 +42,7 @@ pub trait PointWriter {
         start_point: i64,
         length: i64,
         temp_dir: &mut D,
-    ) -> Result<Self::PointReader<D::IndexInputType>>
+    ) -> Result<Self::PointReader<D::IndexInput>>
     where
         D: Directory;
 
@@ -111,7 +111,7 @@ where
         start_point: i64,
         length: i64,
         temp_dir: &mut D,
-    ) -> Result<Self::PointReader<D::IndexInputType>>
+    ) -> Result<Self::PointReader<D::IndexInput>>
     where
         D: Directory,
     {

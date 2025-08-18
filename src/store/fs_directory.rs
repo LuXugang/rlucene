@@ -292,7 +292,7 @@ where
         debug_assert!(length <= i64::MAX as u64);
         Ok(length as i64)
     }
-    fn create_output(&mut self, name: &str, _context: &IOContext) -> Result<Self::IndexOutputType> {
+    fn create_output(&mut self, name: &str, _context: &IOContext) -> Result<Self::IndexOutput> {
         let mut pending_deletes = self.pending_deletes.lock();
         Self::maybe_delete_pending_files(
             &self.directory,
@@ -322,13 +322,13 @@ where
         )
     }
 
-    type IndexOutputType = OutputStreamIndexOutput<File>;
+    type IndexOutput = OutputStreamIndexOutput<File>;
     fn create_temp_output(
         &mut self,
         prefix: &str,
         suffix: &str,
         _context: &IOContext,
-    ) -> Result<Self::IndexOutputType> {
+    ) -> Result<Self::IndexOutput> {
         let mut pending_deletes = self.pending_deletes.lock();
         Self::maybe_delete_pending_files(
             &self.directory,
@@ -422,8 +422,8 @@ where
         Ok(())
     }
 
-    type IndexInputType = T::Output;
-    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInputType> {
+    type IndexInput = T::Output;
+    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
         self.ensure_can_read(name)?;
         self.sub_fs_directory
             .open_input(name, context, &self.directory)

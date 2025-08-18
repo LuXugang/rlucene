@@ -74,23 +74,19 @@ where
         self.sub_compound_dir.file_length(name)
     }
 
-    fn create_output(
-        &mut self,
-        _name: &str,
-        _context: &IOContext,
-    ) -> Result<Self::IndexOutputType> {
+    fn create_output(&mut self, _name: &str, _context: &IOContext) -> Result<Self::IndexOutput> {
         Err(LuceneError::unsupported_operation(
             "create_output".to_string(),
         ))
     }
 
-    type IndexOutputType = DummyIndexOutput;
+    type IndexOutput = DummyIndexOutput;
     fn create_temp_output(
         &mut self,
         _prefix: &str,
         _suffix: &str,
         _context: &IOContext,
-    ) -> Result<Self::IndexOutputType> {
+    ) -> Result<Self::IndexOutput> {
         Err(LuceneError::unsupported_operation(
             "create_temp_output".to_string(),
         ))
@@ -108,9 +104,9 @@ where
         Err(LuceneError::unsupported_operation("rename".to_string()))
     }
 
-    type IndexInputType = <D::IndexInputType as IndexInput>::Slice;
+    type IndexInput = <D::IndexInput as IndexInput>::Slice;
 
-    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInputType> {
+    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
         self.sub_compound_dir.open_input(name, context)
     }
 

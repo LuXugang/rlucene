@@ -109,8 +109,8 @@ impl BKDRadixSelector {
     #[allow(clippy::too_many_arguments)]
     pub fn select<D: Directory>(
         &mut self,
-        points: &mut PathSlice<D::IndexOutputType>,
-        partition_slices: &mut Vec<PathSlice<D::IndexOutputType>>,
+        points: &mut PathSlice<D::IndexOutput>,
+        partition_slices: &mut Vec<PathSlice<D::IndexOutput>>,
         from: i64,
         to: i64,
         partition_point: i64,
@@ -199,7 +199,7 @@ impl BKDRadixSelector {
 
     fn find_common_prefix_and_histogram<D: Directory>(
         &mut self,
-        points: &mut OfflinePointWriter<D::IndexOutputType>,
+        points: &mut OfflinePointWriter<D::IndexOutput>,
         from: i64,
         to: i64,
         dim: i32,
@@ -335,9 +335,9 @@ impl BKDRadixSelector {
     #[allow(clippy::too_many_arguments)]
     fn build_histogram_and_partition<D: Directory>(
         &mut self,
-        points: &mut OfflinePointWriter<D::IndexOutputType>,
-        left: &mut PointWriterEnum<D::IndexOutputType>,
-        right: &mut PointWriterEnum<D::IndexOutputType>,
+        points: &mut OfflinePointWriter<D::IndexOutput>,
+        left: &mut PointWriterEnum<D::IndexOutput>,
+        right: &mut PointWriterEnum<D::IndexOutput>,
         from: i64,
         to: i64,
         partition_point: i64,
@@ -465,10 +465,10 @@ impl BKDRadixSelector {
     #[allow(clippy::too_many_arguments)]
     fn offline_partition<D: Directory>(
         &mut self,
-        points: &mut OfflinePointWriter<D::IndexOutputType>,
-        left: &mut PointWriterEnum<D::IndexOutputType>,
-        right: &mut PointWriterEnum<D::IndexOutputType>,
-        mut delta_points: Option<&mut PointWriterEnum<D::IndexOutputType>>,
+        points: &mut OfflinePointWriter<D::IndexOutput>,
+        left: &mut PointWriterEnum<D::IndexOutput>,
+        right: &mut PointWriterEnum<D::IndexOutput>,
+        mut delta_points: Option<&mut PointWriterEnum<D::IndexOutput>>,
         from: i64,
         to: i64,
         dim: i32,
@@ -649,12 +649,12 @@ impl BKDRadixSelector {
 
     fn get_delta_point_writer<D: Directory>(
         &mut self,
-        left: &mut PointWriterEnum<D::IndexOutputType>,
-        right: &mut PointWriterEnum<D::IndexOutputType>,
+        left: &mut PointWriterEnum<D::IndexOutput>,
+        right: &mut PointWriterEnum<D::IndexOutput>,
         delta: i64,
         iteration: i32,
         temp_dir: &mut D,
-    ) -> Result<PointWriterEnum<D::IndexOutputType>> {
+    ) -> Result<PointWriterEnum<D::IndexOutput>> {
         if delta >= i32::MAX as i64 {
             return Err(LuceneError::number_overflow(
                 "Delta is too large".to_string(),
@@ -698,7 +698,7 @@ impl BKDRadixSelector {
         count: i64,
         desc: &str,
         temp_dir: &mut D,
-    ) -> Result<PointWriterEnum<D::IndexOutputType>> {
+    ) -> Result<PointWriterEnum<D::IndexOutput>> {
         // As we recurse, we hold two on-heap point writers at any point.
         // Therefore the max size for these objects is half of the total
         // points we can have on-heap.
@@ -1391,7 +1391,7 @@ mod tests {
             random: &mut R,
             config: Rc<BKDConfig>,
             dir: &mut D,
-            points: &mut PointWriterEnum<D::IndexOutputType>,
+            points: &mut PointWriterEnum<D::IndexOutput>,
             start: i64,
             end: i64,
             middle: i64,
@@ -1505,8 +1505,8 @@ mod tests {
             random: &mut R,
             config: Rc<BKDConfig>,
             dir: &mut D,
-            points: &mut PointWriterEnum<D::IndexOutputType>,
-        ) -> Result<PointWriterEnum<D::IndexOutputType>> {
+            points: &mut PointWriterEnum<D::IndexOutput>,
+        ) -> Result<PointWriterEnum<D::IndexOutput>> {
             let mut copy = get_random_point_writer(random, config, dir, points.count())?;
             let count = points.count();
             let mut reader = points.get_reader(0, count, dir)?;
@@ -1522,7 +1522,7 @@ mod tests {
         /// returns a common prefix length equal or lower than the current one.
         fn get_random_common_prefix<D: Directory, R: Rng + ?Sized>(
             config: Rc<BKDConfig>,
-            input_slice: &PathSlice<D::IndexOutputType>,
+            input_slice: &PathSlice<D::IndexOutput>,
             split_dim: i32,
             random: &mut R,
             dir: &mut D,
@@ -1551,7 +1551,7 @@ mod tests {
             config: Rc<BKDConfig>,
             dir: &mut D,
             num_points: i64,
-        ) -> Result<PointWriterEnum<D::IndexOutputType>> {
+        ) -> Result<PointWriterEnum<D::IndexOutput>> {
             assert!(num_points <= i32::MAX as i64);
             if num_points < 4096 && random.random_bool(0.5) {
                 Ok(PointWriterEnum::Heap(HeapPointWriter::new(
@@ -1571,7 +1571,7 @@ mod tests {
 
         fn get_min<D: Directory>(
             config: Rc<BKDConfig>,
-            path_slice: &PathSlice<D::IndexOutputType>,
+            path_slice: &PathSlice<D::IndexOutput>,
             dimension: i32,
             dir: &mut D,
         ) -> Result<Vec<u8>> {
@@ -1602,7 +1602,7 @@ mod tests {
 
         fn get_min_doc_id<D: Directory>(
             config: Rc<BKDConfig>,
-            p: &PathSlice<D::IndexOutputType>,
+            p: &PathSlice<D::IndexOutput>,
             dimension: i32,
             partition_point: &[u8],
             data_dim: &[u8],
@@ -1643,7 +1643,7 @@ mod tests {
 
         fn get_min_data_dimension<D: Directory>(
             config: Rc<BKDConfig>,
-            p: &PathSlice<D::IndexOutputType>,
+            p: &PathSlice<D::IndexOutput>,
             min_dim: &[u8],
             split_dim: i32,
             dir: &mut D,
@@ -1678,7 +1678,7 @@ mod tests {
 
         fn get_max<D: Directory>(
             config: Rc<BKDConfig>,
-            p: &PathSlice<D::IndexOutputType>,
+            p: &PathSlice<D::IndexOutput>,
             dimension: i32,
             dir: &mut D,
         ) -> Result<Vec<u8>> {
@@ -1702,7 +1702,7 @@ mod tests {
 
         fn get_max_data_dimension<D: Directory>(
             config: Rc<BKDConfig>,
-            p: &PathSlice<D::IndexOutputType>,
+            p: &PathSlice<D::IndexOutput>,
             max_dim: &[u8],
             split_dim: i32,
             dir: &mut D,
@@ -1737,7 +1737,7 @@ mod tests {
 
         fn get_max_doc_id<D: Directory>(
             config: Rc<BKDConfig>,
-            p: &PathSlice<D::IndexOutputType>,
+            p: &PathSlice<D::IndexOutput>,
             dimension: i32,
             partition_point: &[u8],
             data_dim: &[u8],

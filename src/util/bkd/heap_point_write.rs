@@ -373,7 +373,7 @@ impl PointWriter for HeapPointWriter {
         start: i64,
         length: i64,
         _temp_dir: &mut D,
-    ) -> Result<Self::PointReader<D::IndexInputType>>
+    ) -> Result<Self::PointReader<D::IndexInput>>
     where
         D: Directory,
     {

@@ -42,8 +42,8 @@ where
     // Using Option to wrap the IndexOutput makes it easier to release the
     // resource, which avoids the need to implement the IndexOutput's
     // Default trait.
-    docs_out: Option<D::IndexOutputType>,
-    file_pointers_out: Option<D::IndexOutputType>,
+    docs_out: Option<D::IndexOutput>,
+    file_pointers_out: Option<D::IndexOutput>,
     total_docs: i32,
     total_chunks: i32,
     previous_fp: i64,
@@ -125,7 +125,7 @@ where
         &mut self,
         num_docs: i32,
         max_pointer: i64,
-        meta_out: &mut D::IndexOutputType,
+        meta_out: &mut D::IndexOutput,
     ) -> Result<()> {
         if num_docs != self.total_docs {
             return Err(LuceneError::illegal_state(format!(

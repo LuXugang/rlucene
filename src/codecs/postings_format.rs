@@ -28,7 +28,7 @@ pub trait PostingsFormat {
         &self,
         state: &SegmentWriteState<D>,
         segment_info: &SegmentInfo<D>,
-    ) -> Result<FieldsConsumerEnum<D::IndexOutputType>>;
+    ) -> Result<FieldsConsumerEnum<D::IndexOutput>>;
     /// Reads a segment. **NOTE**: by the time this call returns, it must hold open any files it will need
     /// to use; else, those files may be deleted. Additionally, required files may be deleted during
     /// the execution of this call before there is a chance to open them. Under these circumstances an
@@ -38,5 +38,5 @@ pub trait PostingsFormat {
         &self,
         state: &SegmentReadState<D>,
         segment_info: &SegmentInfo<D>,
-    ) -> Result<FieldsProducerEnum<D::IndexInputType>>;
+    ) -> Result<FieldsProducerEnum<D::IndexInput>>;
 }

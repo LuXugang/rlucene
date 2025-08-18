@@ -330,7 +330,7 @@ impl PostingsFormat for Lucene101PostingsFormat {
         &self,
         state: &SegmentWriteState<D>,
         segment_info: &SegmentInfo<D>,
-    ) -> Result<FieldsConsumerEnum<D::IndexOutputType>> {
+    ) -> Result<FieldsConsumerEnum<D::IndexOutput>> {
         let posting_writer =
             PushPostingsWriterBase::new(Lucene101PostingsWriter::new(state, segment_info)?);
         let ret = FieldsConsumerEnum::Lucene90(Lucene90BlockTreeTermsWriter::new(
@@ -347,7 +347,7 @@ impl PostingsFormat for Lucene101PostingsFormat {
         &self,
         state: &SegmentReadState<D>,
         segment_info: &SegmentInfo<D>,
-    ) -> Result<FieldsProducerEnum<D::IndexInputType>> {
+    ) -> Result<FieldsProducerEnum<D::IndexInput>> {
         let postings_reader = Lucene101PostingsReader::new(state, segment_info)?;
         let ret = FieldsProducerEnum::Lucene90(Lucene90BlockTreeTermsReader::new(
             postings_reader,

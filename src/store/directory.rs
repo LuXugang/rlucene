@@ -93,7 +93,7 @@ pub trait Directory: Display + Sized {
     ///
     /// # Arguments
     /// * `name` - The name of the file to create.
-    fn create_output(&mut self, name: &str, context: &IOContext) -> Result<Self::IndexOutputType>;
+    fn create_output(&mut self, name: &str, context: &IOContext) -> Result<Self::IndexOutput>;
 
     /// Creates a new, empty, temporary file in the directory and returns an
     /// `IndexOutput` instance for appending data to this file.
@@ -105,13 +105,13 @@ pub trait Directory: Display + Sized {
     /// # Arguments
     /// * `prefix` - The prefix for the temporary file name.
     /// * `suffix` - The suffix for the temporary file name.
-    type IndexOutputType: IndexOutput;
+    type IndexOutput: IndexOutput;
     fn create_temp_output(
         &mut self,
         prefix: &str,
         suffix: &str,
         context: &IOContext,
-    ) -> Result<Self::IndexOutputType>;
+    ) -> Result<Self::IndexOutput>;
     /// Ensures that any writings to these files are moved to stable storage
     /// (made durable).
     ///
@@ -155,8 +155,8 @@ pub trait Directory: Display + Sized {
     ///
     /// # Arguments
     /// * `name` - The name of an existing file.
-    type IndexInputType: IndexInput;
-    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInputType>;
+    type IndexInput: IndexInput;
+    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput>;
 
     /// Opens a checksum-computing stream for reading an existing file.
     ///
@@ -172,7 +172,7 @@ pub trait Directory: Display + Sized {
     fn open_checksum_input(
         &self,
         name: &str,
-    ) -> Result<BufferedChecksumIndexInput<Self::IndexInputType>> {
+    ) -> Result<BufferedChecksumIndexInput<Self::IndexInput>> {
         Ok(BufferedChecksumIndexInput::new(
             self.open_input(name, &IOContext::read_once_io_context()?)?,
         ))

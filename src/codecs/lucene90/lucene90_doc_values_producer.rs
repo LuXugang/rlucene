@@ -108,7 +108,7 @@ where
         segment_info: &SegmentInfo<D>,
     ) -> Result<Self>
     where
-        D: Directory<IndexInputType = I>,
+        D: Directory<IndexInput = I>,
     {
         let meta_name = IndexFileNames::segment_file_name(
             &segment_info.name,

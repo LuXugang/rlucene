@@ -119,7 +119,7 @@ where
 {
     pub fn new<D>(state: &SegmentWriteState<D>, segment_info: &SegmentInfo<D>) -> Result<Self>
     where
-        D: Directory<IndexOutputType = O>,
+        D: Directory<IndexOutput = O>,
     {
         let meta_file = IndexFileNames::segment_file_name(
             &segment_info.name,

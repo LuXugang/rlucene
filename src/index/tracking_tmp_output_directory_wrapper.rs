@@ -71,21 +71,21 @@ where
         self.base.file_length(name)
     }
 
-    fn create_output(&mut self, name: &str, context: &IOContext) -> Result<Self::IndexOutputType> {
+    fn create_output(&mut self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
         let output = self.base.create_temp_output(name, "", context)?;
         self.file_names
             .insert(name.to_string(), output.get_name().to_string());
         Ok(output)
     }
 
-    type IndexOutputType = D::IndexOutputType;
+    type IndexOutput = D::IndexOutput;
 
     fn create_temp_output(
         &mut self,
         prefix: &str,
         suffix: &str,
         context: &IOContext,
-    ) -> Result<Self::IndexOutputType> {
+    ) -> Result<Self::IndexOutput> {
         self.base.create_temp_output(prefix, suffix, context)
     }
 
@@ -101,9 +101,9 @@ where
         self.base.rename(source, dest)
     }
 
-    type IndexInputType = D::IndexInputType;
+    type IndexInput = D::IndexInput;
 
-    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInputType> {
+    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
         let tmp_name = self
             .file_names
             .get(name)
@@ -115,7 +115,7 @@ where
     fn open_checksum_input(
         &self,
         name: &str,
-    ) -> Result<BufferedChecksumIndexInput<Self::IndexInputType>> {
+    ) -> Result<BufferedChecksumIndexInput<Self::IndexInput>> {
         self.base.open_checksum_input(name)
     }
 

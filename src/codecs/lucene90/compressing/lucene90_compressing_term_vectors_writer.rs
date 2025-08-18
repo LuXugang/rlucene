@@ -54,8 +54,8 @@ where
 {
     segment: String,
     index_writer: FieldsIndexWriter<D>,
-    meta_stream: D::IndexOutputType,
-    vectors_stream: D::IndexOutputType,
+    meta_stream: D::IndexOutput,
+    vectors_stream: D::IndexOutput,
     compression_mode: CompressionModeEnum,
     compressor: CompressorEnum,
     chunk_size: i32,

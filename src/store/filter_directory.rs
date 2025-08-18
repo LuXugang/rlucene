@@ -89,19 +89,19 @@ where
         self.delegate.access(|dir| dir.file_length(name))
     }
 
-    fn create_output(&mut self, name: &str, context: &IOContext) -> Result<Self::IndexOutputType> {
+    fn create_output(&mut self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
         self.delegate
             .access_mut(|dir| dir.create_output(name, context))
     }
 
-    type IndexOutputType = D::IndexOutputType;
+    type IndexOutput = D::IndexOutput;
 
     fn create_temp_output(
         &mut self,
         prefix: &str,
         suffix: &str,
         context: &IOContext,
-    ) -> Result<Self::IndexOutputType> {
+    ) -> Result<Self::IndexOutput> {
         self.delegate
             .access_mut(|dir| dir.create_temp_output(prefix, suffix, context))
     }
@@ -118,9 +118,9 @@ where
         self.delegate.access_mut(|dir| dir.rename(source, dest))
     }
 
-    type IndexInputType = D::IndexInputType;
+    type IndexInput = D::IndexInput;
 
-    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInputType> {
+    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
         self.delegate
             .access_mut(|dir| dir.open_input(name, context))
     }

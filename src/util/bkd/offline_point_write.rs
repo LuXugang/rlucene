@@ -51,7 +51,7 @@ where
         expected_count: i64,
     ) -> Result<Self>
     where
-        D: Directory<IndexOutputType = O>,
+        D: Directory<IndexOutput = O>,
     {
         let out = temp_dir.create_temp_output(
             temp_file_name_prefix,
@@ -75,7 +75,7 @@ where
         length: i64,
         reusable_buffer: Vec<u8>,
         temp_dir: &mut D,
-    ) -> Result<OfflinePointReader<D::IndexInputType>> {
+    ) -> Result<OfflinePointReader<D::IndexInput>> {
         debug_assert!(
             self.closed && self.out.is_none(),
             "point writer is still open and trying to get a reader"
@@ -187,7 +187,7 @@ where
         start: i64,
         length: i64,
         temp_dir: &mut D,
-    ) -> Result<Self::PointReader<D::IndexInputType>>
+    ) -> Result<Self::PointReader<D::IndexInput>>
     where
         D: Directory,
     {

@@ -95,8 +95,7 @@ where
     scratch_bytes_ref2: BytesRef<Vec<u8>>,
     common_prefix_lengths: Vec<i32>,
     docs_seen: FixedBitSet,
-    point_writer:
-        Option<PointWriterEnum<<TrackingDirectoryWrapper<D> as Directory>::IndexOutputType>>,
+    point_writer: Option<PointWriterEnum<<TrackingDirectoryWrapper<D> as Directory>::IndexOutput>>,
     finished: bool,
     max_points_sort_in_heap: i32,
     /// Minimum per-dim values, packed.
@@ -294,7 +293,7 @@ where
     /// method does not use transient disk in order to reorder points.
     pub fn write_field<M>(
         &mut self,
-        data_out: Rc<RefCell<D::IndexOutputType>>,
+        data_out: Rc<RefCell<D::IndexOutput>>,
         reader: Rc<RefCell<M>>,
         filename: &str,
     ) -> Result<Option<IORunnable>>
@@ -371,7 +370,7 @@ where
     /// median value and partition other values around it.
     pub fn write_field_n_dims<M>(
         &mut self,
-        data_out: Rc<RefCell<D::IndexOutputType>>,
+        data_out: Rc<RefCell<D::IndexOutput>>,
         values: Rc<RefCell<M>>,
     ) -> Result<Option<IORunnable>>
     where
@@ -466,7 +465,7 @@ where
     /// same writing logic as we use at merge time.
     fn write_field_1dim<M>(
         &mut self,
-        data_out: Rc<RefCell<D::IndexOutputType>>,
+        data_out: Rc<RefCell<D::IndexOutput>>,
         _field_name: &str,
         reader: Rc<RefCell<M>>,
     ) -> Result<Option<IORunnable>>
@@ -488,9 +487,9 @@ where
     /// containing dimensional values were deleted.
     pub fn merge<S>(
         &mut self,
-        _meta_out: Rc<RefCell<D::IndexOutputType>>,
-        _index_out: Rc<RefCell<D::IndexOutputType>>,
-        data_out: Rc<RefCell<D::IndexOutputType>>,
+        _meta_out: Rc<RefCell<D::IndexOutput>>,
+        _index_out: Rc<RefCell<D::IndexOutput>>,
+        data_out: Rc<RefCell<D::IndexOutput>>,
         doc_maps: Option<Vec<Rc<DocMapEnum>>>,
         readers: Vec<PointValues<S>>,
     ) -> Result<Option<IORunnable>>
@@ -578,7 +577,7 @@ where
     /// has been added, or `None` otherwise.
     pub fn finish(
         &mut self,
-        data_out: Rc<RefCell<<TrackingDirectoryWrapper<D> as Directory>::IndexOutputType>>,
+        data_out: Rc<RefCell<<TrackingDirectoryWrapper<D> as Directory>::IndexOutput>>,
     ) -> Result<Option<IORunnable>> {
         if self.finished {
             return Err(LuceneError::illegal_state("already finished".to_string()));
@@ -927,8 +926,8 @@ where
     }
     pub fn write_index(
         &self,
-        meta_out: Rc<RefCell<D::IndexOutputType>>,
-        index_out: Rc<RefCell<D::IndexOutputType>>,
+        meta_out: Rc<RefCell<D::IndexOutput>>,
+        index_out: Rc<RefCell<D::IndexOutput>>,
         data: &IORunnable,
     ) -> Result<()> {
         let packed_index = self.pack_index(&data.leaf_nodes)?;
@@ -936,8 +935,8 @@ where
     }
     pub fn write_index_with_packed_index(
         &self,
-        meta_out: Rc<RefCell<D::IndexOutputType>>,
-        index_out: Rc<RefCell<D::IndexOutputType>>,
+        meta_out: Rc<RefCell<D::IndexOutput>>,
+        index_out: Rc<RefCell<D::IndexOutput>>,
         packed_index: &[u8],
         data: &IORunnable,
     ) -> Result<()> {
@@ -1318,7 +1317,7 @@ where
     fn verify_checksum(
         &self,
         prior_exception: &mut LuceneError,
-        writer: &PointWriterEnum<<TrackingDirectoryWrapper<D> as Directory>::IndexOutputType>,
+        writer: &PointWriterEnum<<TrackingDirectoryWrapper<D> as Directory>::IndexOutput>,
     ) -> Result<()> {
         // TODO: we could improve this, to always validate checksum as we recurse, if we shared left and
         // right reader after recursing to children, and possibly within recursed children,
@@ -1402,8 +1401,8 @@ where
     /// recursing.
     fn switch_to_heap(
         &mut self,
-        source: &mut PointWriterEnum<<TrackingDirectoryWrapper<D> as Directory>::IndexOutputType>,
-    ) -> Result<PointWriterEnum<<TrackingDirectoryWrapper<D> as Directory>::IndexOutputType>> {
+        source: &mut PointWriterEnum<<TrackingDirectoryWrapper<D> as Directory>::IndexOutput>,
+    ) -> Result<PointWriterEnum<<TrackingDirectoryWrapper<D> as Directory>::IndexOutput>> {
         let source_count = source.count();
         let count = source_count.try_into()?;
         let mut reader = source.get_reader(0, source_count, &mut self.temp_dir)?;
@@ -1711,7 +1710,7 @@ where
 
     fn compute_packed_value_bounds(
         &mut self,
-        slice: &PathSlice<<TrackingDirectoryWrapper<D> as Directory>::IndexOutputType>,
+        slice: &PathSlice<<TrackingDirectoryWrapper<D> as Directory>::IndexOutput>,
         min_packed_value: &mut [u8],
         max_packed_value: &mut [u8],
     ) -> Result<()> {
@@ -1784,7 +1783,7 @@ where
         &mut self,
         leaves_offset: i32,
         num_leaves: i32,
-        points: &mut PathSlice<<TrackingDirectoryWrapper<D> as Directory>::IndexOutputType>,
+        points: &mut PathSlice<<TrackingDirectoryWrapper<D> as Directory>::IndexOutput>,
         out: &mut impl IndexOutput,
         radix_selector: &mut BKDRadixSelector,
         min_packed_value: &mut [u8],
@@ -2065,7 +2064,7 @@ pub struct OneDimensionBKDWriter<'a, D>
 where
     D: Directory,
 {
-    data_out: Rc<RefCell<D::IndexOutputType>>,
+    data_out: Rc<RefCell<D::IndexOutput>>,
     data_start_fp: i64,
     leaf_block_fps: Vec<i64>,
     leaf_block_start_values: Vec<Vec<u8>>,
@@ -2086,7 +2085,7 @@ where
     D: Directory,
 {
     pub fn new(
-        data_out: Rc<RefCell<D::IndexOutputType>>,
+        data_out: Rc<RefCell<D::IndexOutput>>,
         bkd_writer: &'a mut BKDWriter<D>,
     ) -> Result<Self> {
         if bkd_writer.config.num_index_dims != 1 {

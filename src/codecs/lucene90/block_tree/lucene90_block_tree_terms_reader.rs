@@ -89,7 +89,7 @@ where
         segment_info: &SegmentInfo<D>,
     ) -> Result<Self>
     where
-        D: Directory<IndexInputType = I>,
+        D: Directory<IndexInput = I>,
     {
         let segment = segment_info.name.clone();
 

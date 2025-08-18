@@ -226,7 +226,7 @@ impl DocValuesFormat for Lucene90DocValuesFormat {
         &self,
         state: &SegmentWriteState<D>,
         segment_info: &SegmentInfo<D1>,
-    ) -> Result<Self::DocValuesConsumer<D::IndexOutputType>>
+    ) -> Result<Self::DocValuesConsumer<D::IndexOutput>>
     where
         D: Directory,
         D1: Directory,
@@ -248,7 +248,7 @@ impl DocValuesFormat for Lucene90DocValuesFormat {
         &self,
         state: &SegmentReadState<D>,
         segment_info: &SegmentInfo<D>,
-    ) -> Result<Self::DocValuesProducer<D::IndexInputType>>
+    ) -> Result<Self::DocValuesProducer<D::IndexInput>>
     where
         D: Directory,
     {

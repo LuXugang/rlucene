@@ -102,7 +102,7 @@ impl TermVectorsFormat for Lucene90CompressingTermVectorsFormat {
         segment_info: &SegmentInfo<D2>,
         field_infos: Rc<FieldInfos>,
         context: &IOContext,
-    ) -> Result<TermVectorsReaderEnum<D1::IndexInputType>>
+    ) -> Result<TermVectorsReaderEnum<D1::IndexInput>>
     where
         D1: Directory,
         D2: Directory,

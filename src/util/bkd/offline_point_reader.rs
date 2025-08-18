@@ -59,7 +59,7 @@ where
         reusable_buffer: Vec<u8>,
     ) -> Result<Self>
     where
-        D: Directory<IndexInputType = I>,
+        D: Directory<IndexInput = I>,
     {
         let bytes_per_doc = config.bytes_per_doc() as i64;
         let footer_length = CodecUtil::footer_length() as i64;

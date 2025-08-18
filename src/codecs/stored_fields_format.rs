@@ -37,7 +37,7 @@ pub trait StoredFieldsFormat {
         segment_info: &SegmentInfo<D2>,
         field_infos: Rc<FieldInfos>,
         context: &IOContext,
-    ) -> Result<StoredFieldsReaderEnum<D1::IndexInputType>>
+    ) -> Result<StoredFieldsReaderEnum<D1::IndexInput>>
     where
         D1: Directory,
         D2: Directory;
@@ -64,7 +64,7 @@ impl StoredFieldsFormat for StoredFieldsFormatEnum {
         segment_info: &SegmentInfo<D2>,
         field_infos: Rc<FieldInfos>,
         context: &IOContext,
-    ) -> Result<StoredFieldsReaderEnum<D1::IndexInputType>>
+    ) -> Result<StoredFieldsReaderEnum<D1::IndexInput>>
     where
         D1: Directory,
         D2: Directory,

@@ -1220,7 +1220,7 @@ pub enum DataOutputEnum<D>
 where
     D: Directory,
 {
-    FromDir(D::IndexOutputType),
+    FromDir(D::IndexOutput),
     ReadWriter(ReadWriteDataOutput),
 }
 impl<D> Display for DataOutputEnum<D>
