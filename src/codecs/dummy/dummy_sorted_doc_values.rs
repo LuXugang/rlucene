@@ -25,7 +25,11 @@ use crate::util::error::lucene_error::Result;
 
 pub struct DummySortedDocValues;
 
-impl DocValuesIterator for DummySortedDocValues {}
+impl DocValuesIterator for DummySortedDocValues {
+    fn advance_exact(&mut self, _target: i32) -> Result<bool> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+}
 
 impl DocIdSetIterator for DummySortedDocValues {
     fn doc_id(&self) -> i32 {
@@ -33,6 +37,18 @@ impl DocIdSetIterator for DummySortedDocValues {
     }
 
     fn next_doc(&mut self) -> Result<i32> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn advance(&mut self, _target: i32) -> Result<i32> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn slow_advance(&mut self, target: i32) -> Result<i32> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn cost(&self) -> Result<i64> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
