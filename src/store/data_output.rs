@@ -292,3 +292,132 @@ pub trait DataOutput: Sized {
     }
 }
 const COPY_BUFFER_SIZE: i32 = 16384;
+
+pub enum EitherDataOutput<F, S> {
+    F(F),
+    S(S),
+}
+impl<F, S> DataOutput for EitherDataOutput<F, S>
+where
+    F: DataOutput,
+    S: DataOutput,
+{
+    fn write_byte(&mut self, b: u8) -> Result<()> {
+        match self {
+            EitherDataOutput::F(f) => f.write_byte(b),
+            EitherDataOutput::S(s) => s.write_byte(b),
+        }
+    }
+
+    fn write_bytes_with_len(&mut self, b: &[u8], len: i32) -> Result<()> {
+        match self {
+            EitherDataOutput::F(f) => f.write_bytes_with_len(b, len),
+            EitherDataOutput::S(s) => s.write_bytes_with_len(b, len),
+        }
+    }
+
+    fn write_bytes_range(&mut self, b: &[u8], offset: i32, length: i32) -> Result<()> {
+        match self {
+            EitherDataOutput::F(f) => f.write_bytes_range(b, offset, length),
+            EitherDataOutput::S(s) => s.write_bytes_range(b, offset, length),
+        }
+    }
+
+    fn write_int(&mut self, i: i32) -> Result<()> {
+        match self {
+            EitherDataOutput::F(f) => f.write_int(i),
+            EitherDataOutput::S(s) => s.write_int(i),
+        }
+    }
+
+    fn write_short(&mut self, i: i16) -> Result<()> {
+        match self {
+            EitherDataOutput::F(f) => f.write_short(i),
+            EitherDataOutput::S(s) => s.write_short(i),
+        }
+    }
+
+    fn write_vint(&mut self, i: i32) -> Result<()> {
+        match self {
+            EitherDataOutput::F(f) => f.write_vint(i),
+            EitherDataOutput::S(s) => s.write_vint(i),
+        }
+    }
+
+    fn write_zint(&mut self, i: i32) -> Result<()> {
+        match self {
+            EitherDataOutput::F(f) => f.write_zint(i),
+            EitherDataOutput::S(s) => s.write_zint(i),
+        }
+    }
+
+    fn write_long(&mut self, i: i64) -> Result<()> {
+        match self {
+            EitherDataOutput::F(f) => f.write_long(i),
+            EitherDataOutput::S(s) => s.write_long(i),
+        }
+    }
+
+    fn write_vlong(&mut self, i: i64) -> Result<()> {
+        match self {
+            EitherDataOutput::F(f) => f.write_vlong(i),
+            EitherDataOutput::S(s) => s.write_vlong(i),
+        }
+    }
+
+    fn write_signed_vlong(&mut self, i: i64) -> Result<()> {
+        match self {
+            EitherDataOutput::F(f) => f.write_signed_vlong(i),
+            EitherDataOutput::S(s) => s.write_signed_vlong(i),
+        }
+    }
+
+    fn write_zlong(&mut self, i: i64) -> Result<()> {
+        match self {
+            EitherDataOutput::F(f) => f.write_zlong(i),
+            EitherDataOutput::S(s) => s.write_zlong(i),
+        }
+    }
+
+    fn write_string(&mut self, s: &str) -> Result<()> {
+        match self {
+            EitherDataOutput::F(f) => f.write_string(s),
+            EitherDataOutput::S(s1) => s1.write_string(s),
+        }
+    }
+
+    fn copy_bytes(&mut self, input: &mut impl DataInput, num_bytes: i64) -> Result<()> {
+        match self {
+            EitherDataOutput::F(f) => f.copy_bytes(input, num_bytes),
+            EitherDataOutput::S(s) => s.copy_bytes(input, num_bytes),
+        }
+    }
+
+    fn write_map_of_strings(&mut self, map: &HashMap<String, String>) -> Result<()> {
+        match self {
+            EitherDataOutput::F(f) => f.write_map_of_strings(map),
+            EitherDataOutput::S(s) => s.write_map_of_strings(map),
+        }
+    }
+
+    fn write_set_of_strings(&mut self, set: &HashSet<String>) -> Result<()> {
+        match self {
+            EitherDataOutput::F(f) => f.write_set_of_strings(set),
+            EitherDataOutput::S(s) => s.write_set_of_strings(set),
+        }
+    }
+
+    fn write_group_vints_i64(&mut self, values: &mut [i64], limit: i32) -> Result<()> {
+        match self {
+            EitherDataOutput::F(f) => f.write_group_vints_i64(values, limit),
+            EitherDataOutput::S(s) => s.write_group_vints_i64(values, limit),
+        }
+    }
+
+    fn write_group_vints_i32(&mut self, values: &mut [i32], limit: i32) -> Result<()> {
+        match self {
+            EitherDataOutput::F(f) => f.write_group_vints_i32(values, limit),
+            EitherDataOutput::S(s) => s.write_group_vints_i32(values, limit),
+        }
+    }
+}
