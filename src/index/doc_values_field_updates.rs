@@ -47,11 +47,44 @@ use crate::util::sparse_fixed_bit_set::SparseFixedBitSet;
 use crate::util::{Sorter, ToInt};
 
 pub(crate) mod dvfu_util {
+    use crate::index::doc_values_field_updates::{
+        DocValuesFieldIterator, IteratorPQCmp, MergedIterator,
+    };
+    use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+    use crate::util::priority_queue::PriorityQueue;
+
     pub(crate) const PAGE_SIZE: i32 = 1024;
     pub(super) const HAS_VALUE_MASK: i64 = 1;
     pub(super) const HAS_NO_VALUE_MASK: i64 = 0;
     // we use the first bit of each value to mark if the doc has a value or not
     pub(super) const SHIFT: i32 = 1;
+    pub fn merged_iterator<T>(
+        subs: Vec<T>,
+    ) -> crate::util::error::lucene_error::Result<Option<MergedIterator<T>>>
+    where
+        T: DocValuesFieldIterator,
+    {
+        // Due to the characteristics of the Rust language, to reduce complexity,
+        // we add the element to the queue for processing even if there is only one
+        // element. if subs.len() == 1 {
+        //
+        // }
+
+        // Priority queue to sort iterators by doc_id and del_gen
+        let mut queue = PriorityQueue::new(subs.len() as i32, IteratorPQCmp::new())?;
+
+        for mut sub in subs {
+            if sub.next_doc()? != NO_MORE_DOCS {
+                queue.add(sub);
+            }
+        }
+
+        if queue.size() == 0 {
+            return Ok(None);
+        }
+        let value = MergedIterator::new(queue)?;
+        Ok(Some(value))
+    }
 }
 /// Holds updates for a single DocValues field, for a set of documents within
 /// one segment.
@@ -317,31 +350,6 @@ where
     }
 }
 
-pub fn merged_iterator<T>(subs: Vec<T>) -> Result<Option<MergedIterator<T>>>
-where
-    T: DocValuesFieldIterator,
-{
-    // Due to the characteristics of the Rust language, to reduce complexity,
-    // we add the element to the queue for processing even if there is only one
-    // element. if subs.len() == 1 {
-    //
-    // }
-
-    // Priority queue to sort iterators by doc_id and del_gen
-    let mut queue = PriorityQueue::new(subs.len() as i32, IteratorPQCmp::new())?;
-
-    for mut sub in subs {
-        if sub.next_doc()? != NO_MORE_DOCS {
-            queue.add(sub);
-        }
-    }
-
-    if queue.size() == 0 {
-        return Ok(None);
-    }
-    let value = MergedIterator::new(queue)?;
-    Ok(Some(value))
-}
 impl<D> Accountable for DocValuesFieldUpdates<D>
 where
     D: DocValuesFieldUpdatesBase,
@@ -1192,9 +1200,10 @@ mod tests {
     use rand::prelude::SliceRandom;
     use std::sync::Arc;
 
+    use crate::index::doc_values_field_updates::dvfu_util::merged_iterator;
     use crate::index::doc_values_field_updates::{
         DocValuesFieldIterator, DocValuesFieldUpdates, DocValuesFieldUpdatesBase,
-        SingleValueDocValuesFieldUpdates, SingleValueDocValuesFieldUpdatesBase, merged_iterator,
+        SingleValueDocValuesFieldUpdates, SingleValueDocValuesFieldUpdatesBase,
     };
     use crate::index::numeric_doc_values_field_updates::{
         NumericDocValuesFieldUpdates, SingleValueNumericDocValuesFieldUpdates,
