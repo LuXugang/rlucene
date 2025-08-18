@@ -490,7 +490,7 @@ pub trait DocValuesFieldIterator: DocValuesIterator + Default {
     fn del_gen(&self) -> i64;
 
     /// Returns true if this document has a value.
-    fn has_value(&mut self) -> bool;
+    fn has_value(&self) -> bool;
 }
 pub enum DocValuesFieldIteratorEnum {
     AbstractBinary(AbstractIterator<AbstractIteratorBinary>),
@@ -583,7 +583,7 @@ impl DocValuesFieldIterator for DocValuesFieldIteratorEnum {
         }
     }
 
-    fn has_value(&mut self) -> bool {
+    fn has_value(&self) -> bool {
         match self {
             DocValuesFieldIteratorEnum::AbstractBinary(it) => it.has_value(),
             DocValuesFieldIteratorEnum::AbstractNumeric(it) => it.has_value(),
@@ -781,8 +781,8 @@ where
         unreachable!("del_gen is not supported")
     }
 
-    fn has_value(&mut self) -> bool {
-        self.queue.top_mut().has_value()
+    fn has_value(&self) -> bool {
+        self.queue.top().has_value()
     }
 }
 impl<T> DocIdSetIterator for MergedIterator<T>
@@ -799,7 +799,7 @@ where
                 self.doc = NO_MORE_DOCS;
                 break;
             }
-            let new_doc = self.queue.top_mut().doc_id();
+            let new_doc = self.queue.top().doc_id();
 
             if new_doc != self.doc {
                 // Ensure the new document ID is greater than the current
@@ -913,7 +913,7 @@ where
         self.del_gen
     }
 
-    fn has_value(&mut self) -> bool {
+    fn has_value(&self) -> bool {
         self.has_value
     }
 }
@@ -1128,11 +1128,11 @@ impl DocValuesFieldIterator for SingleValueDocValuesFieldUpdatesIterator {
         self.del_gen
     }
 
-    fn has_value(&mut self) -> bool {
+    fn has_value(&self) -> bool {
         if self.has_no_value.is_some() {
             !self
                 .has_no_value
-                .as_mut()
+                .as_ref()
                 .unwrap()
                 .get(self.iterator.doc_id())
         } else {

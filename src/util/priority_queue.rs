@@ -243,7 +243,7 @@ where
         // If size is 0 then heap[1] is already null.
         &mut self.heap[1]
     }
-    pub fn top(&mut self) -> &T {
+    pub fn top(&self) -> &T {
         &self.heap[1]
     }
 
@@ -425,11 +425,10 @@ mod tests {
         assert_eq!(0, pq.size());
 
         pq.add(1);
-        match random.random_bool(0.5){
+        match random.random_bool(0.5) {
             true => assert_eq!(1, *pq.top_mut()),
-            false => assert_eq!(1, *pq.top())
+            false => assert_eq!(1, *pq.top()),
         }
-
     }
 
     #[derive(Default)]
@@ -544,7 +543,7 @@ mod tests {
         assert_eq!(pq.insert_with_overflow(i6).unwrap(), i6);
         assert_eq!(size as usize, pq.size());
         let mut random = random();
-        match random.random_bool(0.5)  {
+        match random.random_bool(0.5) {
             true => assert_eq!(2, *pq.top_mut()),
             false => assert_eq!(2, *pq.top()),
         }
@@ -630,7 +629,7 @@ mod tests {
                     assert_eq!(evicted_value, last_least.unwrap());
                 }
             }
-           let new_least =  match random.random_bool(0.5) {
+            let new_least = match random.random_bool(0.5) {
                 true => pq.top_mut(),
                 false => pq.top(),
             };
