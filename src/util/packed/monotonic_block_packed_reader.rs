@@ -18,8 +18,8 @@ use std::fmt::Display;
 
 use crate::store::IndexInput;
 use crate::util::accountable::Accountable;
-use crate::util::either_enums::EitherLongValues;
 use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::long_values::EitherLongValues;
 use crate::util::long_values::{LongValues, Zeroes};
 use crate::util::packed::abstract_block_packed_writer::{MAX_BLOCK_SIZE, MIN_BLOCK_SIZE};
 use crate::util::packed::{Format, FormatBehavior, PackedImpl, PackedInts};

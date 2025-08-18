@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 use crate::index::BytesRef;
-use crate::index::point_values::PointTree;
+use crate::index::point_values::{IntersectVisitor, PointTree};
+use crate::util::error::lucene_error;
 
 /// One leaf [PointTree] whose order of points can be changed.
 /// This trait is useful for codecs to optimize flush.
@@ -39,4 +40,139 @@ pub trait MutablePointTree: PointTree {
     /// Restore values between i-th and j-th (excluding) in temporary storage
     /// into original storage.
     fn restore(&mut self, i: usize, j: usize);
+}
+
+// MutablePointTree
+pub enum EitherMutablePointTree<F, S> {
+    F(F),
+    S(S),
+}
+
+impl<F, S> PointTree for EitherMutablePointTree<F, S>
+where
+    F: MutablePointTree,
+    S: MutablePointTree,
+{
+    fn move_to_child(&mut self) -> lucene_error::Result<bool> {
+        match self {
+            EitherMutablePointTree::F(t) => t.move_to_child(),
+            EitherMutablePointTree::S(s) => s.move_to_child(),
+        }
+    }
+
+    fn move_to_sibling(&mut self) -> lucene_error::Result<bool> {
+        match self {
+            EitherMutablePointTree::F(t) => t.move_to_sibling(),
+            EitherMutablePointTree::S(s) => s.move_to_sibling(),
+        }
+    }
+
+    fn move_to_parent(&mut self) -> lucene_error::Result<bool> {
+        match self {
+            EitherMutablePointTree::F(t) => t.move_to_parent(),
+            EitherMutablePointTree::S(s) => s.move_to_parent(),
+        }
+    }
+
+    fn get_min_packed_value(&self) -> lucene_error::Result<&[u8]> {
+        match self {
+            EitherMutablePointTree::F(t) => t.get_min_packed_value(),
+            EitherMutablePointTree::S(s) => s.get_min_packed_value(),
+        }
+    }
+
+    fn get_max_packed_value(&self) -> lucene_error::Result<&[u8]> {
+        match self {
+            EitherMutablePointTree::F(t) => t.get_max_packed_value(),
+            EitherMutablePointTree::S(s) => s.get_max_packed_value(),
+        }
+    }
+
+    fn size(&self) -> lucene_error::Result<i64> {
+        match self {
+            EitherMutablePointTree::F(t) => t.size(),
+            EitherMutablePointTree::S(s) => s.size(),
+        }
+    }
+
+    fn visit_doc_ids<IV>(&mut self, visitor: &mut IV) -> lucene_error::Result<()>
+    where
+        IV: IntersectVisitor,
+    {
+        match self {
+            EitherMutablePointTree::F(t) => t.visit_doc_ids(visitor),
+            EitherMutablePointTree::S(s) => s.visit_doc_ids(visitor),
+        }
+    }
+
+    fn visit_doc_values<IV>(&mut self, visitor: &mut IV) -> lucene_error::Result<()>
+    where
+        IV: IntersectVisitor,
+    {
+        match self {
+            EitherMutablePointTree::F(t) => t.visit_doc_values(visitor),
+            EitherMutablePointTree::S(s) => s.visit_doc_values(visitor),
+        }
+    }
+}
+
+impl<F, S> Clone for EitherMutablePointTree<F, S>
+where
+    F: MutablePointTree,
+    S: MutablePointTree,
+{
+    fn clone(&self) -> Self {
+        match self {
+            EitherMutablePointTree::F(t) => EitherMutablePointTree::F(t.clone()),
+            EitherMutablePointTree::S(s) => EitherMutablePointTree::S(s.clone()),
+        }
+    }
+}
+
+impl<F, S> MutablePointTree for EitherMutablePointTree<F, S>
+where
+    F: MutablePointTree,
+    S: MutablePointTree,
+{
+    fn get_value(&self, i: usize, packed_value: &mut BytesRef<Vec<u8>>) {
+        match self {
+            EitherMutablePointTree::F(t) => t.get_value(i, packed_value),
+            EitherMutablePointTree::S(s) => s.get_value(i, packed_value),
+        }
+    }
+
+    fn get_byte_at(&self, i: usize, k: usize) -> u8 {
+        match self {
+            EitherMutablePointTree::F(t) => t.get_byte_at(i, k),
+            EitherMutablePointTree::S(s) => s.get_byte_at(i, k),
+        }
+    }
+
+    fn get_doc_id(&self, i: usize) -> i32 {
+        match self {
+            EitherMutablePointTree::F(t) => t.get_doc_id(i),
+            EitherMutablePointTree::S(s) => s.get_doc_id(i),
+        }
+    }
+
+    fn swap(&mut self, i: usize, j: usize) {
+        match self {
+            EitherMutablePointTree::F(t) => t.swap(i, j),
+            EitherMutablePointTree::S(s) => s.swap(i, j),
+        }
+    }
+
+    fn save(&mut self, i: usize, j: usize) {
+        match self {
+            EitherMutablePointTree::F(t) => t.save(i, j),
+            EitherMutablePointTree::S(s) => s.save(i, j),
+        }
+    }
+
+    fn restore(&mut self, i: usize, j: usize) {
+        match self {
+            EitherMutablePointTree::F(t) => t.restore(i, j),
+            EitherMutablePointTree::S(s) => s.restore(i, j),
+        }
+    }
 }

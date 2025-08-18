@@ -23,12 +23,12 @@ use crate::index::BytesRef;
 use crate::index::binary_doc_values::BinaryDocValues;
 use crate::index::doc_values::{EmptyBinary, EmptyNumeric};
 use crate::index::doc_values_iterator::DocValuesIterator;
+use crate::index::numeric_doc_values::EitherNumericDocValues;
 use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
 use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::IndexInput;
-use crate::util::either_enums::EitherNumericDocValues;
 use crate::util::error::lucene_error::Result;
 
 // 1. NumericDocValues

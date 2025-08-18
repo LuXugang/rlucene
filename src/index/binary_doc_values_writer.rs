@@ -22,6 +22,7 @@ use crate::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNumericDocValues;
 use crate::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocValues;
 use crate::index::binary_doc_values::BinaryDocValues;
+use crate::index::binary_doc_values::EitherBinaryDocValues;
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::doc_values_writer::DocValuesWriter;
 use crate::index::docs_with_field_set::{DocsWithFieldSet, DocsWithFieldSetEnum};
@@ -35,7 +36,6 @@ use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::store::directory::Directory;
 use crate::store::{DataInput, DataOutput};
 use crate::util::accountable::Accountable;
-use crate::util::either_enums::EitherBinaryDocValues;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::packed::PackedInts;
 use crate::util::packed::packed_long_values::{

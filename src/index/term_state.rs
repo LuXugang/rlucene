@@ -53,3 +53,48 @@ impl TermState for TermStateEnum {
         todo!()
     }
 }
+
+// TermState
+pub enum EitherTermState<F, S> {
+    F(F),
+    S(S),
+}
+
+impl<F, S> Display for EitherTermState<F, S>
+where
+    F: TermState,
+    S: TermState,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            EitherTermState::F(t) => write!(f, "EitherTermState::F({t})"),
+            EitherTermState::S(s) => write!(f, "EitherTermState::S({s})"),
+        }
+    }
+}
+
+impl<F, S> Clone for EitherTermState<F, S>
+where
+    F: TermState,
+    S: TermState,
+{
+    fn clone(&self) -> Self {
+        match self {
+            EitherTermState::F(t) => EitherTermState::F(t.clone()),
+            EitherTermState::S(s) => EitherTermState::S(s.clone()),
+        }
+    }
+}
+
+impl<F, S> TermState for EitherTermState<F, S>
+where
+    F: TermState,
+    S: TermState,
+{
+    fn copy_from(&mut self, other: &TermStateEnum) -> Result<()> {
+        match self {
+            EitherTermState::F(t) => t.copy_from(other),
+            EitherTermState::S(s) => s.copy_from(other),
+        }
+    }
+}

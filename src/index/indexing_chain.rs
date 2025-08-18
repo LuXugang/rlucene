@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 use crate::analysis::analyzer::Analyzer;
-use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
-use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
 use crate::analysis::token_stream::TokenStream;
 use crate::codecs::Codec;
 use crate::codecs::doc_values_format::DocValuesFormat;
@@ -45,6 +43,7 @@ use crate::index::freq_prox_terms_writer::FreqProxTermsWriter;
 use crate::index::freq_prox_terms_writer_per_field::FreqProxTermsWriterPerField;
 use crate::index::index_options::IndexOptions;
 use crate::index::index_reader::IndexReader;
+use crate::index::index_sorter::EitherDocComparator;
 use crate::index::index_sorter::{DocComparator, IndexSorter};
 use crate::index::index_writer::index_writer_util;
 use crate::index::indexable_field::IndexableField;
@@ -61,11 +60,12 @@ use crate::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDoc
 use crate::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
 use crate::index::sort::Sort;
 use crate::index::sorted_doc_values_writer::{BufferedSortedDocValues, SortedDocValuesWriter};
+use crate::index::sorted_numeric_doc_values::EitherSortedNumericDocValues;
 use crate::index::sorted_numeric_doc_values_writer::{
     BufferedSortedNumericDocValues, SortedNumericDocValuesWriter,
 };
 use crate::index::sorted_set_doc_values_writer::{
-    BufferedSortedSetDocValues, SortedSetDocValuesWriter,
+    BufferedSortedSetDocValues, EitherSortedSetDocValues, SortedSetDocValuesWriter,
 };
 use crate::index::sorter::{DocMap, DocMapImpl, Sorter};
 use crate::index::sorting_stored_fields_consumer::SortingStoredFieldsConsumer;
@@ -86,11 +86,9 @@ use crate::util::allocator_byte::{
 };
 use crate::util::array_util::ArrayUtil;
 use crate::util::attribute_source::{AttributeSource, EmptyAttributeSource};
+use crate::util::bit_set::EitherBitSet;
 use crate::util::bit_set::{BitSet, bit_set_util};
 use crate::util::bit_util::BitUtil;
-use crate::util::either_enums::{
-    EitherBits, EitherDocComparator, EitherSortedNumericDocValues, EitherSortedSetDocValues,
-};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::info_stream::{InfoStream, InfoStreamLock};
@@ -2234,14 +2232,14 @@ struct DocComparatorImpl<DC>
 where
     DC: DocComparator,
 {
-    parents: Rc<EitherBits<SparseFixedBitSet, FixedBitSet>>,
+    parents: Rc<EitherBitSet<SparseFixedBitSet, FixedBitSet>>,
     doc_comparator: DC,
 }
 impl<DC> DocComparatorImpl<DC>
 where
     DC: DocComparator,
 {
-    fn new(parents: Rc<EitherBits<SparseFixedBitSet, FixedBitSet>>, doc_comparator: DC) -> Self {
+    fn new(parents: Rc<EitherBitSet<SparseFixedBitSet, FixedBitSet>>, doc_comparator: DC) -> Self {
         DocComparatorImpl {
             parents,
             doc_comparator,

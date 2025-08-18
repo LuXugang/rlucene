@@ -22,16 +22,17 @@ use crate::index::segment_info::SegmentInfo;
 use crate::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
 use crate::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
 use crate::index::sorted_doc_values_writer::{BufferedSortedDocValues, SortedDocValuesWriter};
+use crate::index::sorted_numeric_doc_values::EitherSortedNumericDocValues;
 use crate::index::sorted_numeric_doc_values_writer::{
     BufferedSortedNumericDocValues, SortedNumericDocValuesWriter,
 };
+use crate::index::sorted_set_doc_values_writer::EitherSortedSetDocValues;
 use crate::index::sorted_set_doc_values_writer::{
     BufferedSortedSetDocValues, SortedSetDocValuesWriter,
 };
 use crate::index::sorter::DocMap;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::directory::Directory;
-use crate::util::either_enums::{EitherSortedNumericDocValues, EitherSortedSetDocValues};
 use crate::util::error::lucene_error::Result;
 use crate::util::paged_bytes::PagedBytesDataInput;
 use std::fmt::Display;

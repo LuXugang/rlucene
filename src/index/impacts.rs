@@ -45,20 +45,42 @@ pub trait Impacts {
     /// NOTE: There is no guarantee that these impacts actually appear in
     /// postings, only that they trigger scores that are greater than or
     /// equal to the impacts that actually appear in postings.
-    fn get_impacts(&mut self, level: i32) -> Result<Cow<[Impact]>>;
+    fn get_impacts(&'_ mut self, level: i32) -> Result<Cow<'_, [Impact]>>;
 }
 
-pub enum ImpactsEnums {}
-impl Impacts for ImpactsEnums {
+// Impacts
+pub enum EitherImpacts<F, S>
+where
+    F: Impacts,
+    S: Impacts,
+{
+    F(F),
+    S(S),
+}
+
+impl<F, S> Impacts for EitherImpacts<F, S>
+where
+    F: Impacts,
+    S: Impacts,
+{
     fn num_levels(&self) -> i32 {
-        todo!()
+        match self {
+            EitherImpacts::F(t) => t.num_levels(),
+            EitherImpacts::S(s) => s.num_levels(),
+        }
     }
 
-    fn get_doc_id_up_to(&self, _level: i32) -> i32 {
-        todo!()
+    fn get_doc_id_up_to(&self, level: i32) -> i32 {
+        match self {
+            EitherImpacts::F(t) => t.get_doc_id_up_to(level),
+            EitherImpacts::S(s) => s.get_doc_id_up_to(level),
+        }
     }
 
-    fn get_impacts(&mut self, _level: i32) -> Result<Cow<[Impact]>> {
-        todo!()
+    fn get_impacts(&'_ mut self, level: i32) -> Result<Cow<'_, [Impact]>> {
+        match self {
+            EitherImpacts::F(t) => t.get_impacts(level),
+            EitherImpacts::S(s) => s.get_impacts(level),
+        }
     }
 }

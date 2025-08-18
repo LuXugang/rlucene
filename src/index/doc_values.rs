@@ -16,24 +16,25 @@
  */
 use crate::index::BytesRef;
 use crate::index::binary_doc_values::BinaryDocValues;
+use crate::index::binary_doc_values::EitherBinaryDocValues;
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::doc_values_type::DocValuesType;
 use crate::index::dummy::dummy_terms_enum::DummyTermsEnum;
 use crate::index::leaf_reader::LeafReader;
-use crate::index::numeric_doc_values::NumericDocValues;
+use crate::index::numeric_doc_values::{EitherNumericDocValues, NumericDocValues};
 use crate::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
 use crate::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
-use crate::index::sorted_doc_values::SortedDocValues;
-use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
+use crate::index::sorted_doc_values::{EitherSortedDocValues, SortedDocValues};
+use crate::index::sorted_numeric_doc_values::{
+    EitherSortedNumericDocValues, SortedNumericDocValues,
+};
 use crate::index::sorted_set_doc_values::SortedSetDocValues;
+use crate::index::sorted_set_doc_values_writer::EitherSortedSetDocValues;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-use crate::util::either_enums::{
-    EitherBinaryDocValues, EitherNumericDocValues, EitherSortedDocValues,
-    EitherSortedNumericDocValues, EitherSortedSetDocValues,
-};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use std::borrow::Cow;
+
 /// This struct contains utility methods and constants for DocValues
 pub struct DocValues;
 impl DocValues {

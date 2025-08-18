@@ -21,12 +21,13 @@ use crate::index::index_sorter::{
     NumericDocValuesProvider, SortedDocValuesProvider, StringSorter,
 };
 use crate::index::leaf_reader::LeafReader;
+use crate::index::numeric_doc_values::EitherNumericDocValues;
 use crate::index::sort_field_provider::SortFieldProvider;
+use crate::index::sorted_doc_values::EitherSortedDocValues;
 use crate::search::field_comparator_source::FieldComparatorSourceEnum;
 use crate::search::sort_field_enum::SortFieldEnum;
 use crate::search::sorted_numeric_sort_field::NumericProvider;
 use crate::store::{DataInput, DataOutput};
-use crate::util::either_enums::{EitherNumericDocValues, EitherSortedDocValues};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::numeric_utils::NumericUtils;
 use std::fmt;

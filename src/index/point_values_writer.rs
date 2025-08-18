@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codecs::mutable_point_tree::EitherMutablePointTree;
 use crate::codecs::mutable_point_tree::MutablePointTree;
 use crate::codecs::points_reader::PointsReader;
 use crate::codecs::points_writer::PointsWriter;
@@ -29,7 +30,6 @@ use crate::store::directory::Directory;
 use crate::util::accountable::Accountable;
 use crate::util::array_util::ArrayUtil;
 use crate::util::bit_util::BitUtil;
-use crate::util::either_enums::EitherMutablePointTree;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::paged_bytes::{
     PagedBytes, PagedBytesDataOutput, PagedBytesReader, paged_bytes_util,

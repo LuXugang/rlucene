@@ -18,11 +18,11 @@ use std::borrow::Cow;
 use std::fmt::{Debug, Display, Formatter};
 
 use crate::index::BytesRef;
-use crate::index::term_state::{TermState, TermStateEnum};
+use crate::index::term_state::{EitherTermState, TermState, TermStateEnum};
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
+use crate::util::attribute_source::EitherAttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::dummy::dummy_attribute_source::DummyAttributeSource;
-use crate::util::either_enums::{EitherAttributeSource, EitherTermState};
 use crate::util::error::lucene_error::{LuceneError, Result};
 
 /// A base `TermsEnum` that provides default implementations for:

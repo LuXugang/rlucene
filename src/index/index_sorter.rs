@@ -783,3 +783,22 @@ mod tests {
     }
     impl MSBRadixSorterBase for StableStringSorterTestImpl<'_> {}
 }
+
+// DocComparator
+pub enum EitherDocComparator<F, S> {
+    F(F),
+    S(S),
+}
+
+impl<F, S> DocComparator for EitherDocComparator<F, S>
+where
+    F: DocComparator,
+    S: DocComparator,
+{
+    fn compare(&self, doc_id1: i32, doc_id2: i32) -> i32 {
+        match self {
+            EitherDocComparator::F(t) => t.compare(doc_id1, doc_id2),
+            EitherDocComparator::S(s) => s.compare(doc_id1, doc_id2),
+        }
+    }
+}

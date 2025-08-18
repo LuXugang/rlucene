@@ -18,7 +18,9 @@ use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::util::accountable::Accountable;
 use crate::util::bits::Bits;
+use crate::util::error::lucene_error;
 use crate::util::error::lucene_error::Result;
+use crate::util::fixed_bit_set::FixedBitSet;
 
 /// Base implementation for a bit set.
 pub trait BitSet: Bits + Accountable {
@@ -93,7 +95,7 @@ pub trait BitSet: Bits + Accountable {
 pub mod bit_set_util {
     use crate::search::doc_id_set_iterator::DocIdSetIterator;
     use crate::util::bit_set::BitSet;
-    use crate::util::either_enums::EitherBits;
+    use crate::util::bit_set::EitherBitSet;
     use crate::util::error::lucene_error::LuceneError;
     use crate::util::error::lucene_error::Result;
     use crate::util::fixed_bit_set::FixedBitSet;
@@ -105,15 +107,15 @@ pub mod bit_set_util {
     pub fn of(
         it: &mut impl DocIdSetIterator,
         max_doc: i32,
-    ) -> Result<EitherBits<SparseFixedBitSet, FixedBitSet>> {
+    ) -> Result<EitherBitSet<SparseFixedBitSet, FixedBitSet>> {
         let cost = it.cost()?;
         let threshold = max_doc >> 7;
         let mut set;
         if cost < (threshold as i64) {
-            set = EitherBits::F(SparseFixedBitSet::new(max_doc)?);
+            set = EitherBitSet::F(SparseFixedBitSet::new(max_doc)?);
         } else {
             let result = FixedBitSet::new(max_doc);
-            set = EitherBits::S(result);
+            set = EitherBitSet::S(result);
         };
         let _ = set.or(it);
         Ok(set)
@@ -127,5 +129,141 @@ pub mod bit_set_util {
             )));
         }
         Ok(())
+    }
+}
+
+// BitSet
+pub enum EitherBitSet<F, S> {
+    F(F),
+    S(S),
+}
+
+impl<F, S> Bits for EitherBitSet<F, S>
+where
+    F: BitSet,
+    S: BitSet,
+{
+    fn get(&self, index: i32) -> bool {
+        match self {
+            EitherBitSet::F(t) => t.get(index),
+            EitherBitSet::S(s) => s.get(index),
+        }
+    }
+
+    fn length(&self) -> i32 {
+        match self {
+            EitherBitSet::F(t) => t.length(),
+            EitherBitSet::S(s) => s.length(),
+        }
+    }
+
+    fn copy_of(&self) -> FixedBitSet {
+        match self {
+            EitherBitSet::F(t) => t.copy_of(),
+            EitherBitSet::S(s) => s.copy_of(),
+        }
+    }
+}
+
+impl<F, S> Accountable for EitherBitSet<F, S>
+where
+    F: BitSet,
+    S: BitSet,
+{
+    fn ram_bytes_used(&self) -> lucene_error::Result<i64> {
+        match self {
+            EitherBitSet::F(t) => t.ram_bytes_used(),
+            EitherBitSet::S(s) => s.ram_bytes_used(),
+        }
+    }
+}
+
+impl<F, S> BitSet for EitherBitSet<F, S>
+where
+    F: BitSet,
+    S: BitSet,
+{
+    fn clear(&mut self) {
+        match self {
+            EitherBitSet::F(t) => t.clear(),
+            EitherBitSet::S(s) => s.clear(),
+        }
+    }
+
+    fn set(&mut self, i: i32) {
+        match self {
+            EitherBitSet::F(t) => t.set(i),
+            EitherBitSet::S(s) => s.set(i),
+        }
+    }
+
+    fn get_and_set(&mut self, i: i32) -> bool {
+        match self {
+            EitherBitSet::F(t) => t.get_and_set(i),
+            EitherBitSet::S(s) => s.get_and_set(i),
+        }
+    }
+
+    fn clear_with_index(&mut self, i: i32) {
+        match self {
+            EitherBitSet::F(t) => t.clear_with_index(i),
+            EitherBitSet::S(s) => s.clear_with_index(i),
+        }
+    }
+
+    fn clear_range(&mut self, start_index: i32, end_index: i32) {
+        match self {
+            EitherBitSet::F(t) => t.clear_range(start_index, end_index),
+            EitherBitSet::S(s) => s.clear_range(start_index, end_index),
+        }
+    }
+
+    fn cardinality(&self) -> i32 {
+        match self {
+            EitherBitSet::F(t) => t.cardinality(),
+            EitherBitSet::S(s) => s.cardinality(),
+        }
+    }
+
+    fn approximate_cardinality(&self) -> i32 {
+        match self {
+            EitherBitSet::F(t) => t.approximate_cardinality(),
+            EitherBitSet::S(s) => s.approximate_cardinality(),
+        }
+    }
+
+    fn prev_set_bit(&self, index: i32) -> i32 {
+        match self {
+            EitherBitSet::F(t) => t.prev_set_bit(index),
+            EitherBitSet::S(s) => s.prev_set_bit(index),
+        }
+    }
+
+    fn next_set_bit(&self, index: i32) -> i32 {
+        match self {
+            EitherBitSet::F(t) => t.next_set_bit(index),
+            EitherBitSet::S(s) => s.next_set_bit(index),
+        }
+    }
+
+    fn next_set_bit_range(&self, start: i32, end: i32) -> i32 {
+        match self {
+            EitherBitSet::F(t) => t.next_set_bit_range(start, end),
+            EitherBitSet::S(s) => s.next_set_bit_range(start, end),
+        }
+    }
+
+    fn or<T: DocIdSetIterator>(&mut self, iter: &mut T) -> lucene_error::Result<()> {
+        match self {
+            EitherBitSet::F(t) => t.or(iter),
+            EitherBitSet::S(s) => s.or(iter),
+        }
+    }
+
+    fn ensure_capacity(&mut self, _num_bits: i32) {
+        match self {
+            EitherBitSet::F(t) => t.ensure_capacity(_num_bits),
+            EitherBitSet::S(s) => s.ensure_capacity(_num_bits),
+        }
     }
 }

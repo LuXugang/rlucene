@@ -65,3 +65,91 @@ pub mod postings_enum_util {
         (flags & (feature as i32)) == (feature as i32)
     }
 }
+
+// PostingsEnum
+pub enum EitherPostingsEnum<F, S> {
+    F(F),
+    S(S),
+}
+
+impl<F, S> DocIdSetIterator for EitherPostingsEnum<F, S>
+where
+    F: PostingsEnum,
+    S: PostingsEnum,
+{
+    fn doc_id(&self) -> i32 {
+        match self {
+            EitherPostingsEnum::F(t) => t.doc_id(),
+            EitherPostingsEnum::S(s) => s.doc_id(),
+        }
+    }
+
+    fn next_doc(&mut self) -> Result<i32> {
+        match self {
+            EitherPostingsEnum::F(t) => t.next_doc(),
+            EitherPostingsEnum::S(s) => s.next_doc(),
+        }
+    }
+
+    fn advance(&mut self, target: i32) -> Result<i32> {
+        match self {
+            EitherPostingsEnum::F(t) => t.advance(target),
+            EitherPostingsEnum::S(s) => s.advance(target),
+        }
+    }
+
+    fn slow_advance(&mut self, target: i32) -> Result<i32> {
+        match self {
+            EitherPostingsEnum::F(t) => t.slow_advance(target),
+            EitherPostingsEnum::S(s) => s.slow_advance(target),
+        }
+    }
+
+    fn cost(&self) -> Result<i64> {
+        match self {
+            EitherPostingsEnum::F(t) => t.cost(),
+            EitherPostingsEnum::S(s) => s.cost(),
+        }
+    }
+}
+
+impl<F, S> PostingsEnum for EitherPostingsEnum<F, S>
+where
+    F: PostingsEnum,
+    S: PostingsEnum,
+{
+    fn freq(&mut self) -> Result<i32> {
+        match self {
+            EitherPostingsEnum::F(t) => t.freq(),
+            EitherPostingsEnum::S(s) => s.freq(),
+        }
+    }
+
+    fn next_position(&mut self) -> Result<i32> {
+        match self {
+            EitherPostingsEnum::F(t) => t.next_position(),
+            EitherPostingsEnum::S(s) => s.next_position(),
+        }
+    }
+
+    fn start_offset(&self) -> Result<i32> {
+        match self {
+            EitherPostingsEnum::F(t) => t.start_offset(),
+            EitherPostingsEnum::S(s) => s.start_offset(),
+        }
+    }
+
+    fn end_offset(&self) -> Result<i32> {
+        match self {
+            EitherPostingsEnum::F(t) => t.end_offset(),
+            EitherPostingsEnum::S(s) => s.end_offset(),
+        }
+    }
+
+    fn get_payload(&self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
+        match self {
+            EitherPostingsEnum::F(t) => t.get_payload(),
+            EitherPostingsEnum::S(s) => s.get_payload(),
+        }
+    }
+}

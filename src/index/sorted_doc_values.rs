@@ -18,7 +18,9 @@ use std::borrow::Cow;
 
 use crate::index::BytesRef;
 use crate::index::doc_values_iterator::DocValuesIterator;
+use crate::index::terms_enum::EitherTermsEnum;
 use crate::index::terms_enum::TermsEnum;
+use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::util::ToInt;
 use crate::util::error::lucene_error::{LuceneError, Result};
 
@@ -100,4 +102,113 @@ pub trait SortedDocValues: DocValuesIterator {
     }
     // TODO:
     // intersect not Implemented
+}
+
+// SortedDocValues
+pub enum EitherSortedDocValues<F, S> {
+    F(F),
+    S(S),
+}
+
+impl<F, S> DocValuesIterator for EitherSortedDocValues<F, S>
+where
+    F: SortedDocValues,
+    S: SortedDocValues,
+{
+    fn advance_exact(&mut self, target: i32) -> Result<bool> {
+        match self {
+            EitherSortedDocValues::F(t) => t.advance_exact(target),
+            EitherSortedDocValues::S(s) => s.advance_exact(target),
+        }
+    }
+}
+
+impl<F, S> DocIdSetIterator for EitherSortedDocValues<F, S>
+where
+    F: SortedDocValues,
+    S: SortedDocValues,
+{
+    fn doc_id(&self) -> i32 {
+        match self {
+            EitherSortedDocValues::F(t) => t.doc_id(),
+            EitherSortedDocValues::S(s) => s.doc_id(),
+        }
+    }
+
+    fn next_doc(&mut self) -> Result<i32> {
+        match self {
+            EitherSortedDocValues::F(t) => t.next_doc(),
+            EitherSortedDocValues::S(s) => s.next_doc(),
+        }
+    }
+
+    fn advance(&mut self, target: i32) -> Result<i32> {
+        match self {
+            EitherSortedDocValues::F(t) => t.advance(target),
+            EitherSortedDocValues::S(s) => s.advance(target),
+        }
+    }
+
+    fn slow_advance(&mut self, target: i32) -> Result<i32> {
+        match self {
+            EitherSortedDocValues::F(t) => t.slow_advance(target),
+            EitherSortedDocValues::S(s) => s.slow_advance(target),
+        }
+    }
+
+    fn cost(&self) -> Result<i64> {
+        match self {
+            EitherSortedDocValues::F(t) => t.cost(),
+            EitherSortedDocValues::S(s) => s.cost(),
+        }
+    }
+}
+
+impl<F, S> SortedDocValues for EitherSortedDocValues<F, S>
+where
+    F: SortedDocValues,
+    S: SortedDocValues,
+{
+    fn ord_value(&mut self) -> Result<i32> {
+        match self {
+            EitherSortedDocValues::F(t) => t.ord_value(),
+            EitherSortedDocValues::S(s) => s.ord_value(),
+        }
+    }
+
+    fn lookup_ord(&mut self, _ord: i32) -> Result<Cow<BytesRef<Vec<u8>>>> {
+        match self {
+            EitherSortedDocValues::F(t) => t.lookup_ord(_ord),
+            EitherSortedDocValues::S(s) => s.lookup_ord(_ord),
+        }
+    }
+
+    fn get_value_count(&mut self) -> Result<i32> {
+        match self {
+            EitherSortedDocValues::F(t) => t.get_value_count(),
+            EitherSortedDocValues::S(s) => s.get_value_count(),
+        }
+    }
+
+    fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
+        match self {
+            EitherSortedDocValues::F(t) => t.lookup_term(key),
+            EitherSortedDocValues::S(s) => s.lookup_term(key),
+        }
+    }
+
+    type TermsEnum = EitherTermsEnum<F::TermsEnum, S::TermsEnum>;
+
+    fn terms_enum(&mut self) -> Result<Self::TermsEnum> {
+        match self {
+            EitherSortedDocValues::F(t) => {
+                let terms_enum = t.terms_enum()?;
+                Ok(EitherTermsEnum::F(terms_enum))
+            },
+            EitherSortedDocValues::S(s) => {
+                let terms_enum = s.terms_enum()?;
+                Ok(EitherTermsEnum::S(terms_enum))
+            },
+        }
+    }
 }

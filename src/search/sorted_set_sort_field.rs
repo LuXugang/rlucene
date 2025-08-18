@@ -19,13 +19,13 @@ use crate::index::index_sorter::{SortedDocValuesProvider, StringSorter};
 use crate::index::leaf_reader::LeafReader;
 use crate::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
 use crate::index::sort_field_provider::SortFieldProvider;
+use crate::index::sorted_set_doc_values_writer::EitherSortedSetDocValues;
 use crate::search::sort_field::{MissingValueEnum, SortField, SortFieldType, SortFiledBase};
 use crate::search::sort_field_enum::SortFieldEnum;
 use crate::search::sorted_set_selector::{
     SortedDocValuesWrapEnum, SortedSetSelector, SortedSetSelectorType,
 };
 use crate::store::{DataInput, DataOutput};
-use crate::util::either_enums::EitherSortedSetDocValues;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};

@@ -17,10 +17,11 @@
 use std::borrow::Cow;
 
 use crate::index::BytesRef;
-use crate::index::impacts_enum::ImpactsEnum;
-use crate::index::postings_enum::{PostingsEnum, postings_enum_util};
-use crate::index::term_state::{TermState, TermStateEnum};
+use crate::index::impacts_enum::{EitherImpactsEnum, ImpactsEnum};
+use crate::index::postings_enum::{EitherPostingsEnum, PostingsEnum, postings_enum_util};
+use crate::index::term_state::{EitherTermState, TermState, TermStateEnum};
 use crate::util::attribute_source::AttributeSource;
+use crate::util::attribute_source::EitherAttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
 
@@ -205,4 +206,197 @@ pub enum SeekStatus {
     Found,
     /// A different term was found after the requested term.
     NotFound,
+}
+
+// TermsEnum
+pub enum EitherTermsEnum<F, S> {
+    F(F),
+    S(S),
+}
+
+impl<F, S> BytesRefIterator for EitherTermsEnum<F, S>
+where
+    F: TermsEnum,
+    S: TermsEnum,
+{
+}
+
+impl<F, S> TermsEnum for EitherTermsEnum<F, S>
+where
+    F: TermsEnum,
+    S: TermsEnum,
+{
+    type AttributeSource = EitherAttributeSource<F::AttributeSource, S::AttributeSource>;
+
+    fn attributes(&self) -> Result<Self::AttributeSource> {
+        match self {
+            EitherTermsEnum::F(t) => Ok(EitherAttributeSource::F(t.attributes()?)),
+            EitherTermsEnum::S(s) => Ok(EitherAttributeSource::S(s.attributes()?)),
+        }
+    }
+
+    fn seek_exact(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<bool> {
+        match self {
+            EitherTermsEnum::F(t) => t.seek_exact(_term),
+            EitherTermsEnum::S(s) => s.seek_exact(_term),
+        }
+    }
+
+    fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<bool> {
+        match self {
+            EitherTermsEnum::F(t) => t.prepare_seek_exact(_text),
+            EitherTermsEnum::S(s) => s.prepare_seek_exact(_text),
+        }
+    }
+
+    fn seek_ceil(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+        match self {
+            EitherTermsEnum::F(t) => t.seek_ceil(_term),
+            EitherTermsEnum::S(s) => s.seek_ceil(_term),
+        }
+    }
+
+    fn seek_exact_with_ord(&mut self, _ord: i64) -> Result<()> {
+        match self {
+            EitherTermsEnum::F(t) => t.seek_exact_with_ord(_ord),
+            EitherTermsEnum::S(s) => s.seek_exact_with_ord(_ord),
+        }
+    }
+
+    fn seek_exact_with_state(
+        &mut self,
+        _term: &BytesRef<Vec<u8>>,
+        _state: &TermStateEnum,
+    ) -> Result<()> {
+        match self {
+            EitherTermsEnum::F(t) => t.seek_exact_with_state(_term, _state),
+            EitherTermsEnum::S(s) => s.seek_exact_with_state(_term, _state),
+        }
+    }
+
+    fn term(&self) -> Result<Cow<BytesRef<Vec<u8>>>> {
+        match self {
+            EitherTermsEnum::F(t) => t.term(),
+            EitherTermsEnum::S(s) => s.term(),
+        }
+    }
+
+    fn ord(&self) -> Result<i64> {
+        match self {
+            EitherTermsEnum::F(t) => t.ord(),
+            EitherTermsEnum::S(s) => s.ord(),
+        }
+    }
+
+    fn doc_freq(&mut self) -> Result<i32> {
+        match self {
+            EitherTermsEnum::F(t) => t.doc_freq(),
+            EitherTermsEnum::S(s) => s.doc_freq(),
+        }
+    }
+
+    fn total_term_freq(&mut self) -> Result<i64> {
+        match self {
+            EitherTermsEnum::F(t) => t.total_term_freq(),
+            EitherTermsEnum::S(s) => s.total_term_freq(),
+        }
+    }
+
+    type PostingsEnum = EitherPostingsEnum<F::PostingsEnum, S::PostingsEnum>;
+
+    fn postings(&mut self, reuse: Option<Self::PostingsEnum>) -> Result<Self::PostingsEnum> {
+        match self {
+            EitherTermsEnum::F(t) => match reuse {
+                Some(EitherPostingsEnum::F(v)) => {
+                    let postings_enum = t.postings(Some(v))?;
+                    Ok(EitherPostingsEnum::F(postings_enum))
+                },
+                None => {
+                    let postings_enum = t.postings(None)?;
+                    Ok(EitherPostingsEnum::F(postings_enum))
+                },
+                _ => Err(LuceneError::illegal_state(
+                    "EitherTermsEnum::F expected EitherPostingsEnum::F for reuse".to_string(),
+                )),
+            },
+            EitherTermsEnum::S(s) => match reuse {
+                Some(EitherPostingsEnum::S(v)) => {
+                    let postings_enum = s.postings(Some(v))?;
+                    Ok(EitherPostingsEnum::S(postings_enum))
+                },
+                None => {
+                    let postings_enum = s.postings(None)?;
+                    Ok(EitherPostingsEnum::S(postings_enum))
+                },
+                _ => Err(LuceneError::illegal_state(
+                    "EitherTermsEnum::S expected EitherPostingsEnum::S for reuse".to_string(),
+                )),
+            },
+        }
+    }
+
+    fn postings_with_flags(
+        &mut self,
+        reuse: Option<Self::PostingsEnum>,
+        flags: i32,
+    ) -> Result<Self::PostingsEnum> {
+        match self {
+            EitherTermsEnum::F(t) => match reuse {
+                Some(EitherPostingsEnum::F(v)) => {
+                    let postings_enum = t.postings_with_flags(Some(v), flags)?;
+                    Ok(EitherPostingsEnum::F(postings_enum))
+                },
+                None => {
+                    let postings_enum = t.postings_with_flags(None, flags)?;
+                    Ok(EitherPostingsEnum::F(postings_enum))
+                },
+                _ => Err(LuceneError::illegal_state(
+                    "EitherTermsEnum::F expected EitherPostingsEnum::F for reuse".to_string(),
+                )),
+            },
+            EitherTermsEnum::S(s) => match reuse {
+                Some(EitherPostingsEnum::S(v)) => {
+                    let postings_enum = s.postings_with_flags(Some(v), flags)?;
+                    Ok(EitherPostingsEnum::S(postings_enum))
+                },
+                None => {
+                    let postings_enum = s.postings_with_flags(None, flags)?;
+                    Ok(EitherPostingsEnum::S(postings_enum))
+                },
+                _ => Err(LuceneError::illegal_state(
+                    "EitherTermsEnum::S expected EitherPostingsEnum::S for reuse".to_string(),
+                )),
+            },
+        }
+    }
+
+    type ImpactsEnum = EitherImpactsEnum<F::ImpactsEnum, S::ImpactsEnum>;
+
+    fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnum> {
+        match self {
+            EitherTermsEnum::F(t) => {
+                let impacts_enum = t.impacts(flags)?;
+                Ok(EitherImpactsEnum::F(impacts_enum))
+            },
+            EitherTermsEnum::S(s) => {
+                let impacts_enum = s.impacts(flags)?;
+                Ok(EitherImpactsEnum::S(impacts_enum))
+            },
+        }
+    }
+
+    type TermState = EitherTermState<F::TermState, S::TermState>;
+
+    fn term_state(&mut self) -> Result<Self::TermState> {
+        match self {
+            EitherTermsEnum::F(t) => {
+                let term_state = t.term_state()?;
+                Ok(EitherTermState::F(term_state))
+            },
+            EitherTermsEnum::S(s) => {
+                let term_state = s.term_state()?;
+                Ok(EitherTermState::S(term_state))
+            },
+        }
+    }
 }

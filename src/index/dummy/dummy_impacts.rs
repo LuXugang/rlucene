@@ -30,7 +30,7 @@ impl Impacts for DummyImpacts {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn get_impacts(&mut self, _level: i32) -> Result<Cow<[Impact]>> {
+    fn get_impacts(&'_ mut self, _level: i32) -> Result<Cow<'_, [Impact]>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

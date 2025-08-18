@@ -26,11 +26,13 @@ use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::doc_values_writer::DocValuesWriter;
 use crate::index::docs_with_field_set::{DocsWithFieldSet, DocsWithFieldSetEnum};
 use crate::index::field_info::FieldInfo;
+use crate::index::numeric_doc_values::EitherNumericDocValues;
 use crate::index::numeric_doc_values_writer::{
     BufferedNumericDocValues, DocValuesProducerImpl, SortingNumericDocValues, ndvw_util,
 };
 use crate::index::segment_info::SegmentInfo;
 use crate::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
+use crate::index::sorted_numeric_doc_values::EitherSortedNumericDocValues;
 use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::index::sorted_numeric_doc_values_writer::sndvw_util::LongValues;
 use crate::index::sorter::DocMap;
@@ -40,7 +42,6 @@ use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::store::directory::Directory;
 use crate::util::accountable::Accountable;
 use crate::util::array_util::ArrayUtil;
-use crate::util::either_enums::{EitherNumericDocValues, EitherSortedNumericDocValues};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::long_values::LongValues as OtherLongValues;

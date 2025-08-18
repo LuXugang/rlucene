@@ -24,7 +24,7 @@ use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::index::segment_reader::SegmentReader;
 use crate::store::IOContext;
 use crate::store::directory::Directory;
-use crate::util::either_enums::EitherBits;
+use crate::util::bits::EitherBits;
 use crate::util::error::lucene_error::Result;
 use crate::util::fixed_bit_set::FixedBit;
 use num_bigint::BigInt;

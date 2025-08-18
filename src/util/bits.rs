@@ -17,7 +17,6 @@
 use crate::util::bit_set::BitSet;
 use crate::util::fixed_bit_set::FixedBitSet;
 use std::sync::Arc;
-
 /// Interface for `BitSet`-like structures.
 ///
 /// # Note
@@ -82,6 +81,37 @@ impl Bits for MatchNoBits {
 
     fn length(&self) -> i32 {
         self.len
+    }
+}
+
+pub enum EitherBits<F, S> {
+    F(F),
+    S(S),
+}
+impl<F, S> Bits for EitherBits<F, S>
+where
+    F: Bits,
+    S: Bits,
+{
+    fn get(&self, index: i32) -> bool {
+        match self {
+            EitherBits::F(t) => t.get(index),
+            EitherBits::S(s) => s.get(index),
+        }
+    }
+
+    fn length(&self) -> i32 {
+        match self {
+            EitherBits::F(t) => t.length(),
+            EitherBits::S(s) => s.length(),
+        }
+    }
+
+    fn copy_of(&self) -> FixedBitSet {
+        match self {
+            EitherBits::F(t) => t.copy_of(),
+            EitherBits::S(s) => s.copy_of(),
+        }
     }
 }
 

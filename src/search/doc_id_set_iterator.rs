@@ -235,6 +235,53 @@ pub mod disi_const {
     pub const NO_MORE_DOCS: i32 = i32::MAX;
 }
 
+// DocIdSetIterator
+pub enum EitherDocIdSetIterator<F, S> {
+    F(F),
+    S(S),
+}
+
+impl<F, S> DocIdSetIterator for EitherDocIdSetIterator<F, S>
+where
+    F: DocIdSetIterator,
+    S: DocIdSetIterator,
+{
+    fn doc_id(&self) -> i32 {
+        match self {
+            EitherDocIdSetIterator::F(t) => t.doc_id(),
+            EitherDocIdSetIterator::S(s) => s.doc_id(),
+        }
+    }
+
+    fn next_doc(&mut self) -> Result<i32> {
+        match self {
+            EitherDocIdSetIterator::F(t) => t.next_doc(),
+            EitherDocIdSetIterator::S(s) => s.next_doc(),
+        }
+    }
+
+    fn advance(&mut self, target: i32) -> Result<i32> {
+        match self {
+            EitherDocIdSetIterator::F(t) => t.advance(target),
+            EitherDocIdSetIterator::S(s) => s.advance(target),
+        }
+    }
+
+    fn slow_advance(&mut self, target: i32) -> Result<i32> {
+        match self {
+            EitherDocIdSetIterator::F(t) => t.slow_advance(target),
+            EitherDocIdSetIterator::S(s) => s.slow_advance(target),
+        }
+    }
+
+    fn cost(&self) -> Result<i64> {
+        match self {
+            EitherDocIdSetIterator::F(t) => t.cost(),
+            EitherDocIdSetIterator::S(s) => s.cost(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
