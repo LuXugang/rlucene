@@ -14,8 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::fmt::Display;
+use std::collections::{HashMap, HashSet};
+use std::fmt::{Display, Formatter};
 
+use crate::store::DataInput;
 use crate::store::data_output::DataOutput;
 use crate::util::error::lucene_error::{LuceneError, Result};
 
@@ -76,4 +78,181 @@ pub fn align_offset(offset: i64, alignment_bytes: i32) -> Result<i64> {
         ));
     }
     Ok((offset + alignment_bytes as i64 - 1) & !(alignment_bytes as i64 - 1))
+}
+
+pub enum EitherIndexOutput<F, S> {
+    F(F),
+    S(S),
+}
+
+impl<F, S> DataOutput for EitherIndexOutput<F, S>
+where
+    F: IndexOutput,
+    S: IndexOutput,
+{
+    fn write_byte(&mut self, b: u8) -> Result<()> {
+        match self {
+            EitherIndexOutput::F(f) => f.write_byte(b),
+            EitherIndexOutput::S(s) => s.write_byte(b),
+        }
+    }
+
+    fn write_bytes_with_len(&mut self, b: &[u8], len: i32) -> Result<()> {
+        match self {
+            EitherIndexOutput::F(f) => f.write_bytes_with_len(b, len),
+            EitherIndexOutput::S(s) => s.write_bytes_with_len(b, len),
+        }
+    }
+
+    fn write_bytes_range(&mut self, b: &[u8], offset: i32, length: i32) -> Result<()> {
+        match self {
+            EitherIndexOutput::F(f) => f.write_bytes_range(b, offset, length),
+            EitherIndexOutput::S(s) => s.write_bytes_range(b, offset, length),
+        }
+    }
+
+    fn write_int(&mut self, i: i32) -> Result<()> {
+        match self {
+            EitherIndexOutput::F(f) => f.write_int(i),
+            EitherIndexOutput::S(s) => s.write_int(i),
+        }
+    }
+
+    fn write_short(&mut self, i: i16) -> Result<()> {
+        match self {
+            EitherIndexOutput::F(f) => f.write_short(i),
+            EitherIndexOutput::S(s) => s.write_short(i),
+        }
+    }
+
+    fn write_vint(&mut self, i: i32) -> Result<()> {
+        match self {
+            EitherIndexOutput::F(f) => f.write_vint(i),
+            EitherIndexOutput::S(s) => s.write_vint(i),
+        }
+    }
+
+    fn write_zint(&mut self, i: i32) -> Result<()> {
+        match self {
+            EitherIndexOutput::F(f) => f.write_zint(i),
+            EitherIndexOutput::S(s) => s.write_zint(i),
+        }
+    }
+
+    fn write_long(&mut self, i: i64) -> Result<()> {
+        match self {
+            EitherIndexOutput::F(f) => f.write_long(i),
+            EitherIndexOutput::S(s) => s.write_long(i),
+        }
+    }
+
+    fn write_vlong(&mut self, i: i64) -> Result<()> {
+        match self {
+            EitherIndexOutput::F(f) => f.write_vlong(i),
+            EitherIndexOutput::S(s) => s.write_vlong(i),
+        }
+    }
+
+    fn write_signed_vlong(&mut self, i: i64) -> Result<()> {
+        match self {
+            EitherIndexOutput::F(f) => f.write_signed_vlong(i),
+            EitherIndexOutput::S(s) => s.write_signed_vlong(i),
+        }
+    }
+
+    fn write_zlong(&mut self, i: i64) -> Result<()> {
+        match self {
+            EitherIndexOutput::F(f) => f.write_zlong(i),
+            EitherIndexOutput::S(s) => s.write_zlong(i),
+        }
+    }
+
+    fn write_string(&mut self, s: &str) -> Result<()> {
+        match self {
+            EitherIndexOutput::F(f) => f.write_string(s),
+            EitherIndexOutput::S(s1) => s1.write_string(s),
+        }
+    }
+
+    fn copy_bytes(&mut self, input: &mut impl DataInput, num_bytes: i64) -> Result<()> {
+        match self {
+            EitherIndexOutput::F(f) => f.copy_bytes(input, num_bytes),
+            EitherIndexOutput::S(s) => s.copy_bytes(input, num_bytes),
+        }
+    }
+
+    fn write_map_of_strings(&mut self, map: &HashMap<String, String>) -> Result<()> {
+        match self {
+            EitherIndexOutput::F(f) => f.write_map_of_strings(map),
+            EitherIndexOutput::S(s) => s.write_map_of_strings(map),
+        }
+    }
+
+    fn write_set_of_strings(&mut self, set: &HashSet<String>) -> Result<()> {
+        match self {
+            EitherIndexOutput::F(f) => f.write_set_of_strings(set),
+            EitherIndexOutput::S(s) => s.write_set_of_strings(set),
+        }
+    }
+
+    fn write_group_vints_i64(&mut self, values: &mut [i64], limit: i32) -> Result<()> {
+        match self {
+            EitherIndexOutput::F(f) => f.write_group_vints_i64(values, limit),
+            EitherIndexOutput::S(s) => s.write_group_vints_i64(values, limit),
+        }
+    }
+
+    fn write_group_vints_i32(&mut self, values: &mut [i32], limit: i32) -> Result<()> {
+        match self {
+            EitherIndexOutput::F(f) => f.write_group_vints_i32(values, limit),
+            EitherIndexOutput::S(s) => s.write_group_vints_i32(values, limit),
+        }
+    }
+}
+
+impl<F, S> Display for EitherIndexOutput<F, S>
+where
+    F: IndexOutput,
+    S: IndexOutput,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            EitherIndexOutput::F(t) => t.fmt(f),
+            EitherIndexOutput::S(s) => s.fmt(f),
+        }
+    }
+}
+
+impl<F, S> IndexOutput for EitherIndexOutput<F, S>
+where
+    F: IndexOutput,
+    S: IndexOutput,
+{
+    fn get_file_pointer(&self) -> i64 {
+        match self {
+            EitherIndexOutput::F(t) => t.get_file_pointer(),
+            EitherIndexOutput::S(s) => s.get_file_pointer(),
+        }
+    }
+
+    fn get_checksum(&mut self) -> u64 {
+        match self {
+            EitherIndexOutput::F(t) => t.get_checksum(),
+            EitherIndexOutput::S(s) => s.get_checksum(),
+        }
+    }
+
+    fn get_name(&self) -> &str {
+        match self {
+            EitherIndexOutput::F(t) => t.get_name(),
+            EitherIndexOutput::S(s) => s.get_name(),
+        }
+    }
+
+    fn align_file_pointer(&mut self, alignment_bytes: i32) -> Result<i64> {
+        match self {
+            EitherIndexOutput::F(t) => t.align_file_pointer(alignment_bytes),
+            EitherIndexOutput::S(s) => s.align_file_pointer(alignment_bytes),
+        }
+    }
 }
