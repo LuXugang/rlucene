@@ -358,14 +358,8 @@ where
         &self,
         name: &str,
     ) -> Result<BufferedChecksumIndexInput<Self::IndexInput>> {
-        match self {
-            EitherDirectory::F(f) => Ok(BufferedChecksumIndexInput::new(EitherIndexInput::F(
-                f.open_input(name, &IOContext::read_once_io_context()?)?,
-            ))),
-            EitherDirectory::S(s) => Ok(BufferedChecksumIndexInput::new(EitherIndexInput::S(
-                s.open_input(name, &IOContext::read_once_io_context()?)?,
-            ))),
-        }
+        let input = self.open_input(name, &IOContext::default_io_context()?)?;
+        Ok(BufferedChecksumIndexInput::new(input))
     }
 
     type Lock = EitherLock<F::Lock, S::Lock>;

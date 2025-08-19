@@ -18,8 +18,6 @@ use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 
 use crate::store::directory::Directory;
-use crate::store::dummy::dummy_index_output::DummyIndexOutput;
-use crate::store::dummy::dummy_lock::DummyLock;
 use crate::store::{IOContext, IndexInput};
 use crate::util::error::lucene_error::{LuceneError, Result};
 /// A read-only [`Directory`] that provides a view over a compound file.
@@ -57,7 +55,6 @@ where
 impl<D> Directory for CompoundDirectory<D>
 where
     D: Directory,
-    CompoundDirectory<D>: Display,
 {
     fn list_all(&self) -> Result<Vec<String>> {
         self.sub_compound_dir.list_all()
@@ -79,7 +76,7 @@ where
         ))
     }
 
-    type IndexOutput = DummyIndexOutput;
+    type IndexOutput = D::IndexOutput;
     fn create_temp_output(
         &mut self,
         _prefix: &str,
@@ -109,7 +106,7 @@ where
         self.sub_compound_dir.open_input(name, context)
     }
 
-    type Lock = DummyLock;
+    type Lock = D::Lock;
 
     fn obtain_lock(&mut self, _name: &str) -> Result<Self::Lock> {
         Err(LuceneError::unsupported_operation(

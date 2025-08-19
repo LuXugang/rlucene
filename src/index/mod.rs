@@ -105,6 +105,7 @@ pub mod postings_enum;
 pub mod prefix_coded_terms;
 mod readers_and_updates;
 pub mod segment_commit_info;
+mod segment_core_readers;
 pub mod segment_info;
 pub mod segment_infos;
 pub mod segment_read_state;
