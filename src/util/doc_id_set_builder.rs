@@ -423,7 +423,8 @@ mod tests {
 
             // add docs out of order
             let mut builder = DocIdSetBuilder::new(max_doc);
-            for j in 0..array.len() {
+            let mut j = 0;
+            while j < array.len() {
                 let l = TestUtil::next_int(&mut random, 1, (array.len() - j) as i32);
                 let mut k = 0;
                 let mut budget = 0;
@@ -436,6 +437,7 @@ mod tests {
                     builder.add_doc(array[j]);
                     budget -= 1;
                     k += 1;
+                    j += 1;
                 }
             }
             i <<= 1;
