@@ -41,3 +41,62 @@ pub trait RandomAccessInput {
     ///  Prefetch data in the background.
     fn prefetch(&mut self, pos: i64, len: i64) -> Result<()>;
 }
+
+pub enum EitherRandomAccessInput<F, S> {
+    F(F),
+    S(S),
+}
+impl<F, S> RandomAccessInput for EitherRandomAccessInput<F, S>
+where
+    F: RandomAccessInput,
+    S: RandomAccessInput,
+{
+    fn length(&self) -> i64 {
+        match self {
+            EitherRandomAccessInput::F(f) => f.length(),
+            EitherRandomAccessInput::S(s) => s.length(),
+        }
+    }
+
+    fn read_byte(&mut self, pos: i64) -> Result<u8> {
+        match self {
+            EitherRandomAccessInput::F(f) => f.read_byte(pos),
+            EitherRandomAccessInput::S(s) => s.read_byte(pos),
+        }
+    }
+
+    fn read_bytes(&mut self, pos: i64, buf: &mut [u8], offset: i32, len: i32) -> Result<()> {
+        match self {
+            EitherRandomAccessInput::F(f) => f.read_bytes(pos, buf, offset, len),
+            EitherRandomAccessInput::S(s) => s.read_bytes(pos, buf, offset, len),
+        }
+    }
+
+    fn read_short(&mut self, pos: i64) -> Result<i16> {
+        match self {
+            EitherRandomAccessInput::F(f) => f.read_short(pos),
+            EitherRandomAccessInput::S(s) => s.read_short(pos),
+        }
+    }
+
+    fn read_int(&mut self, pos: i64) -> Result<i32> {
+        match self {
+            EitherRandomAccessInput::F(f) => f.read_int(pos),
+            EitherRandomAccessInput::S(s) => s.read_int(pos),
+        }
+    }
+
+    fn read_long(&mut self, pos: i64) -> Result<i64> {
+        match self {
+            EitherRandomAccessInput::F(f) => f.read_long(pos),
+            EitherRandomAccessInput::S(s) => s.read_long(pos),
+        }
+    }
+
+    fn prefetch(&mut self, pos: i64, len: i64) -> Result<()> {
+        match self {
+            EitherRandomAccessInput::F(f) => f.prefetch(pos, len),
+            EitherRandomAccessInput::S(s) => s.prefetch(pos, len),
+        }
+    }
+}
