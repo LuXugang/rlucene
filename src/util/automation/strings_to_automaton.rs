@@ -501,7 +501,8 @@ mod tests {
             let size = random.random_range(500..2000);
             let mut terms = HashSet::with_capacity(size);
 
-            while terms.len() < size {
+            let mut j = 0;
+            while j < size {
                 if allow_binary && random.random_range(0..10) < 2 {
                     // Sometimes random bytes term that isn't necessarily valid unicode
                     let v = TestUtil::random_binary_term(random);
@@ -510,10 +511,11 @@ mod tests {
                     let s = TestUtil::random_realistic_unicode_string(random);
                     terms.insert(new_bytes_ref_from_string(random, &s)?);
                 }
+                j += 1;
             }
 
             let mut sorted: Vec<_> = terms.into_iter().collect();
-            sorted.sort();
+            sorted.sort_unstable();
 
             let a = build(random, sorted.clone(), allow_binary)?;
             check_automaton(&sorted, a, allow_binary)?;
