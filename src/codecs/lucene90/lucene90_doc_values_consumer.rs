@@ -91,7 +91,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
             &state.segment_suffix,
             data_extension,
         );
-        let mut data = state.directory.create_output(&data_name, &state.context)?;
+        let mut data = state.directory.create_output(&data_name, state.context)?;
         CodecUtil::write_index_header(
             &mut data,
             data_codec,
@@ -105,7 +105,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
             &state.segment_suffix,
             meta_extension,
         );
-        let mut meta = state.directory.create_output(&meta_name, &state.context)?;
+        let mut meta = state.directory.create_output(&meta_name, state.context)?;
         CodecUtil::write_index_header(
             &mut meta,
             meta_codec,

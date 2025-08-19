@@ -495,14 +495,15 @@ where
         let result = (|| -> Result<Option<FlushedSegment<D, Q>>> {
             let (mut fs, sort_map, t0) = {
                 let dir = &mut *self.directory.lock();
+                let io_context = IOContext::with_flush(FlushInfo::new(
+                    self.num_docs_in_ram,
+                    self.last_committed_bytes_used.load(Ordering::SeqCst),
+                ))?;
                 let mut flush_state = SegmentWriteState::new(
                     Some(self.info_stream.clone()),
                     dir,
                     Rc::new(self.field_infos.finish()?),
-                    Rc::new(IOContext::with_flush(FlushInfo::new(
-                        self.num_docs_in_ram,
-                        self.last_committed_bytes_used.load(Ordering::SeqCst),
-                    ))?),
+                    &io_context,
                 );
 
                 let start_mb_used =

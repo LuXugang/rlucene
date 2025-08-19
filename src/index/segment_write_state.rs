@@ -61,7 +61,7 @@ where
 
     /// IOContext for all writes; you should pass this to
     /// Directory::create_output.
-    pub context: Rc<IOContext>,
+    pub context: &'a IOContext,
 }
 #[allow(unused)]
 impl<'a, D> SegmentWriteState<'a, D>
@@ -73,7 +73,7 @@ where
         info_stream: Option<InfoStreamLock>,
         directory: &'a mut D,
         field_infos: Rc<FieldInfos>,
-        context: Rc<IOContext>,
+        context: &'a IOContext,
     ) -> Self {
         Self::with_suffix(info_stream, directory, field_infos, context, "")
     }
@@ -83,7 +83,7 @@ where
         info_stream: Option<InfoStreamLock>,
         directory: &'a mut D,
         field_infos: Rc<FieldInfos>,
-        context: Rc<IOContext>,
+        context: &'a IOContext,
         segment_suffix: &str,
     ) -> Self {
         debug_assert!(Self::assert_segment_suffix(segment_suffix));
@@ -108,7 +108,7 @@ where
             info_stream: state.info_stream.clone(),
             directory: state.directory,
             field_infos: Rc::clone(&state.field_infos),
-            context: Rc::clone(&state.context),
+            context: state.context,
             segment_suffix,
             del_count_on_flush: state.del_count_on_flush,
             soft_del_count_on_flush: state.soft_del_count_on_flush,

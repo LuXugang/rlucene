@@ -321,10 +321,8 @@ where
             let segment_suffix = num_bigint::BigInt::from(next_doc_values_gen)
                 .to_str_radix(36)
                 .to_string();
-            let updates_context = Rc::new(IOContext::with_flush(FlushInfo::new(
-                info.info.max_doc()?,
-                bytes,
-            ))?);
+            let updates_context =
+                IOContext::with_flush(FlushInfo::new(info.info.max_doc()?, bytes))?;
 
             let field_info = infos
                 .field_info_by_name(field)
@@ -339,7 +337,7 @@ where
                 None,
                 &mut tracking_dir,
                 field_infos,
-                updates_context,
+                &updates_context,
                 &segment_suffix,
             );
 

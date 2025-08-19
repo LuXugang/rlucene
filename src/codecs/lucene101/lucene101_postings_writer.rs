@@ -132,8 +132,8 @@ where
             Lucene101PostingsFormat::DOC_EXTENSION,
         );
 
-        let mut meta_out = state.directory.create_output(&meta_file, &state.context)?;
-        let mut doc_out = state.directory.create_output(&doc_file, &state.context)?;
+        let mut meta_out = state.directory.create_output(&meta_file, state.context)?;
+        let mut doc_out = state.directory.create_output(&doc_file, state.context)?;
         CodecUtil::write_index_header(
             &mut meta_out,
             Lucene101PostingsFormat::META_CODEC,
@@ -167,7 +167,7 @@ where
                 &state.segment_suffix,
                 Lucene101PostingsFormat::POS_EXTENSION,
             );
-            let mut pos_out_opt = state.directory.create_output(&pos_file, &state.context)?;
+            let mut pos_out_opt = state.directory.create_output(&pos_file, state.context)?;
             CodecUtil::write_index_header(
                 &mut pos_out_opt,
                 Lucene101PostingsFormat::POS_CODEC,
@@ -194,7 +194,7 @@ where
                     &state.segment_suffix,
                     Lucene101PostingsFormat::PAY_EXTENSION,
                 );
-                let mut pay_out_opt = state.directory.create_output(&pay_file, &state.context)?;
+                let mut pay_out_opt = state.directory.create_output(&pay_file, state.context)?;
                 CodecUtil::write_index_header(
                     &mut pay_out_opt,
                     Lucene101PostingsFormat::PAY_CODEC,

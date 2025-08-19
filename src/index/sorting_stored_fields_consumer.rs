@@ -119,7 +119,7 @@ where
         let mut sort_writer =
             codec
                 .stored_fields_format()
-                .fields_writer(state.directory, info, &state.context)?;
+                .fields_writer(state.directory, info, state.context)?;
 
         reader.check_integrity()?;
         let mut visitor = CopyVisitor;
