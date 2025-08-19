@@ -14,10 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::fmt::{Display, Formatter};
+use std::fmt::{Display, Formatter, Pointer};
 
-use crate::store::NativeFSLock;
-use crate::store::simple_fs_lock::SimpleFSLock;
 use crate::util::error::lucene_error::Result;
 
 /// An interprocess mutex lock.
@@ -46,25 +44,33 @@ pub trait Lock: Display {
     fn ensure_valid(&self) -> Result<()>;
 }
 
-pub enum FSLockEnum {
-    Native(NativeFSLock),
-    Simple(SimpleFSLock),
+pub enum EitherLock<F, S> {
+    F(F),
+    S(S),
 }
 
-impl Display for FSLockEnum {
+impl<F, S> Display for EitherLock<F, S>
+where
+    F: Lock,
+    S: Lock,
+{
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            FSLockEnum::Native(native_lock) => write!(f, "{native_lock}"),
-            FSLockEnum::Simple(simple_lock) => write!(f, "{simple_lock}"),
+            EitherLock::F(f_lock) => f_lock.fmt(f),
+            EitherLock::S(s) => s.fmt(f),
         }
     }
 }
 
-impl Lock for FSLockEnum {
+impl<F, S> Lock for EitherLock<F, S>
+where
+    F: Lock,
+    S: Lock,
+{
     fn ensure_valid(&self) -> Result<()> {
         match self {
-            FSLockEnum::Native(native_lock) => native_lock.ensure_valid(),
-            FSLockEnum::Simple(simple_lock) => simple_lock.ensure_valid(),
+            EitherLock::F(f) => f.ensure_valid(),
+            EitherLock::S(s) => s.ensure_valid(),
         }
     }
 }
