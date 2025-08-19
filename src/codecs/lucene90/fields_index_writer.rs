@@ -26,7 +26,6 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::packed::direct_monotonic_writer::DirectMonotonicWriter;
 use crate::util::{IOUtils, StringHelper};
 
-#[allow(unused)]
 pub(crate) struct FieldsIndexWriter<D>
 where
     D: Directory,
@@ -53,7 +52,6 @@ pub(crate) mod fields_index_writer_const {
     pub(crate) const VERSION_CURRENT: i32 = 0;
 }
 
-#[allow(unused)]
 impl<D> FieldsIndexWriter<D>
 where
     D: Directory,
@@ -93,8 +91,8 @@ where
         Ok(FieldsIndexWriter {
             dir,
             name: name.to_string(),
-            suffix: name.to_string(),
-            extension: name.to_string(),
+            suffix: suffix.to_string(),
+            extension: extension.to_string(),
             codec_name: codec_name.to_string(),
             id,
             block_shift,
