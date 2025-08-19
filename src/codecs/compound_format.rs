@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::codecs::compound_directory::CompoundDirectory;
 use crate::index::segment_info::SegmentInfo;
 use crate::store::IOContext;
 use crate::store::directory::Directory;
@@ -23,11 +22,14 @@ use crate::util::error::lucene_error::Result;
 /// Encodes/decodes compound files
 pub trait CompoundFormat {
     /// Returns a read-only view of the compound files in this segment.
+    type Directory<D>: Directory
+    where
+        D: Directory;
     fn get_compound_reader<D>(
         &self,
         dir: &mut D,
         si: &SegmentInfo<D>,
-    ) -> Result<CompoundDirectory<D>>
+    ) -> Result<Self::Directory<D>>
     where
         D: Directory;
 
@@ -38,11 +40,13 @@ pub trait CompoundFormat {
     /// written using
     /// [`CodecUtil::write_index_header`](crate::codecs::codec_util::CodecUtil::write_index_header)
     /// and [`CodecUtil::write_footer`](crate::codecs::codec_util::CodecUtil::write_footer).
-    fn write<D: Directory>(
+    fn write<D>(
         &self,
         dir: &mut impl Directory,
         si: &SegmentInfo<D>,
         context: &IOContext,
-    ) -> Result<()>;
+    ) -> Result<()>
+    where
+        D: Directory;
 }
 pub struct SizedFileQueue;

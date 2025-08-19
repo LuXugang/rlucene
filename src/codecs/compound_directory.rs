@@ -17,7 +17,6 @@
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 
-use crate::codecs::compound_directory_enum::CompoundDirectoryEnum;
 use crate::store::directory::Directory;
 use crate::store::dummy::dummy_index_output::DummyIndexOutput;
 use crate::store::dummy::dummy_lock::DummyLock;
@@ -34,14 +33,14 @@ pub struct CompoundDirectory<D>
 where
     D: Directory,
 {
-    sub_compound_dir: CompoundDirectoryEnum<D>,
+    sub_compound_dir: D,
 }
 
 impl<D> CompoundDirectory<D>
 where
     D: Directory,
 {
-    pub fn new(sub_compound_dir: CompoundDirectoryEnum<D>) -> Self {
+    pub fn new(sub_compound_dir: D) -> Self {
         CompoundDirectory { sub_compound_dir }
     }
 }
@@ -104,7 +103,7 @@ where
         Err(LuceneError::unsupported_operation("rename".to_string()))
     }
 
-    type IndexInput = <D::IndexInput as IndexInput>::Slice;
+    type IndexInput = D::IndexInput;
 
     fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
         self.sub_compound_dir.open_input(name, context)
@@ -113,7 +112,7 @@ where
     type Lock = DummyLock;
 
     fn obtain_lock(&mut self, _name: &str) -> Result<Self::Lock> {
-        Err::<DummyLock, LuceneError>(LuceneError::unsupported_operation(
+        Err(LuceneError::unsupported_operation(
             "obtain_lock".to_string(),
         ))
     }

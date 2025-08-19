@@ -21,6 +21,7 @@ use parking_lot::Mutex;
 use rand::Rng;
 
 use crate::codecs::compound_directory::CompoundDirectory;
+use crate::codecs::lucene90_compound_reader::Lucene90CompoundReader;
 use crate::codecs::{Codec, CodecUtil, CompoundFormat, LATEST_CODEC};
 use crate::index::segment_info::SegmentInfo;
 use crate::store::IndexOutput;
@@ -864,7 +865,7 @@ fn assert_equal_arrays(msg: &str, expected: &[u8], test: &[u8], start: usize, le
 fn create_large_cfs<D, R: Rng + ?Sized>(
     random: &mut R,
     dir: Arc<Mutex<D>>,
-) -> Result<CompoundDirectory<D>>
+) -> Result<CompoundDirectory<Lucene90CompoundReader<D>>>
 where
     D: Directory,
 {
@@ -885,7 +886,7 @@ where
         )?;
         files.insert(file_name);
     }
-    si.set_files(files);
+    si.set_files(files)?;
     LATEST_CODEC
         .compound_format()
         .write(&mut *dir.lock(), &si, &IO_CONTEXT_DEFAULT)?;

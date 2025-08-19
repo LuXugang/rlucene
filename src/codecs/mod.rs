@@ -19,7 +19,6 @@ pub mod codec;
 pub mod codec_util;
 mod competitive_impact_accumulator;
 pub mod compound_directory;
-pub mod compound_directory_enum;
 pub mod compound_format;
 pub mod compression;
 pub mod doc_values_consumer;

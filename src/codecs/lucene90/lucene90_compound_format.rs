@@ -16,7 +16,6 @@
  */
 use crate::codecs::CodecUtil;
 use crate::codecs::compound_directory::CompoundDirectory;
-use crate::codecs::compound_directory_enum::CompoundDirectoryEnum;
 use crate::codecs::compound_format::CompoundFormat;
 use crate::codecs::lucene90_compound_reader::Lucene90CompoundReader;
 use crate::index::IndexFileNames;
@@ -138,25 +137,29 @@ impl Lucene90CompoundFormat {
 }
 
 impl CompoundFormat for Lucene90CompoundFormat {
-    fn get_compound_reader<D>(
-        &self,
-        dir: &mut D,
-        si: &SegmentInfo<D>,
-    ) -> Result<CompoundDirectory<D>>
+    type Directory<D>
+        = CompoundDirectory<Lucene90CompoundReader<D>>
+    where
+        D: Directory;
+
+    fn get_compound_reader<D>(&self, dir: &mut D, si: &SegmentInfo<D>) -> Result<Self::Directory<D>>
     where
         D: Directory,
     {
-        Ok(CompoundDirectory::new(CompoundDirectoryEnum::Lucene90(
-            Lucene90CompoundReader::new(dir, si)?,
-        )))
+        Ok(CompoundDirectory::new(Lucene90CompoundReader::new(
+            dir, si,
+        )?))
     }
 
-    fn write<D: Directory>(
+    fn write<D>(
         &self,
         dir: &mut impl Directory,
         si: &SegmentInfo<D>,
         context: &IOContext,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        D: Directory,
+    {
         let data_file =
             IndexFileNames::segment_file_name(&si.name, "", Lucene90CompoundFormat::DATA_EXTENSION);
         let entries_file = IndexFileNames::segment_file_name(
