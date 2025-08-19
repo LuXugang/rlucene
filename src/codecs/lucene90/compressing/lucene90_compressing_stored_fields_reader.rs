@@ -652,6 +652,7 @@ where
     /// Creates a new `BlockState` with default values.
     fn new(
         merging: bool,
+        // TODO: 应该不需要有这个字段
         fields_stream: Rc<RefCell<I>>,
         decompressor: DecompressorEnum,
         chunk_size: i32,
