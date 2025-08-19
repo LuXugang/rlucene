@@ -40,12 +40,12 @@ impl HnswLock {
         v1.wrapping_mul(31).wrapping_add(v2 as usize)
     }
 
-    pub fn read(&self, level: usize, node: i32) -> RwLockReadGuard<()> {
+    pub fn read(&'_ self, level: usize, node: i32) -> RwLockReadGuard<'_, ()> {
         let lock_id = Self::hash(level, node) % Self::NUM_LOCKS;
         self.locks[lock_id].read()
     }
 
-    pub fn write(&self, level: usize, node: i32) -> RwLockWriteGuard<()> {
+    pub fn write(&'_ self, level: usize, node: i32) -> RwLockWriteGuard<'_, ()> {
         let lock_id = Self::hash(level, node) % Self::NUM_LOCKS;
         self.locks[lock_id].write()
     }

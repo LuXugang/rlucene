@@ -121,7 +121,7 @@ where
         Ok(1)
     }
 
-    fn lookup_ord(&mut self, ord: i64) -> Result<Cow<BytesRef<Vec<u8>>>> {
+    fn lookup_ord(&mut self, ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
         self.inner.as_mut().unwrap().lookup_ord(ord as i32)
     }
 

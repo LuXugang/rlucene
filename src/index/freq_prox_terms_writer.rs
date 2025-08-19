@@ -457,7 +457,7 @@ where
         self.base.seek_exact_with_state(term, state)
     }
 
-    fn term(&self) -> Result<Cow<BytesRef<Vec<u8>>>> {
+    fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
         self.base.term()
     }
 
@@ -639,7 +639,7 @@ where
         Ok(-1)
     }
 
-    fn get_payload(&self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
+    fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
         Ok(None)
     }
 }
@@ -956,7 +956,7 @@ where
         Ok(self.end_offset)
     }
 
-    fn get_payload(&self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
+    fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
         if self.payload.length == 0 {
             Ok(None)
         } else {

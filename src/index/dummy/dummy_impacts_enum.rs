@@ -42,7 +42,7 @@ impl PostingsEnum for DummyImpactsEnum {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn get_payload(&self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
+    fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

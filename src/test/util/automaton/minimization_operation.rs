@@ -40,7 +40,10 @@ impl MinimizationOperations {
     ///   prevent memory exhaustion. Use
     ///   [`Operations::DEFAULT_DETERMINIZE_WORK_LIMIT`](Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)
     ///   as a decent default if you don't otherwise know what to specify.
-    pub(crate) fn minimize(a: &Automaton, determinize_work_limit: usize) -> Result<Cow<Automaton>> {
+    pub(crate) fn minimize(
+        a: &Automaton,
+        determinize_work_limit: usize,
+    ) -> Result<Cow<'_, Automaton>> {
         if a.get_num_states() == 0 || (!a.is_accept(0) && a.get_num_transitions_with_state(0) == 0)
         {
             return Ok(Cow::Owned(Automaton::new()));

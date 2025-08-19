@@ -114,7 +114,7 @@ pub trait TermsEnum: BytesRefIterator {
     }
 
     /// Returns current term. Do not call this when the enum is unpositioned.
-    fn term(&self) -> Result<Cow<BytesRef<Vec<u8>>>> {
+    fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
         Err(LuceneError::need_implemented(""))
     }
     /// Returns ordinal position for the current term.
@@ -274,7 +274,7 @@ where
         }
     }
 
-    fn term(&self) -> Result<Cow<BytesRef<Vec<u8>>>> {
+    fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
         match self {
             EitherTermsEnum::F(t) => t.term(),
             EitherTermsEnum::S(s) => s.term(),

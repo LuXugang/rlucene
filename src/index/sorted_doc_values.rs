@@ -52,7 +52,7 @@ pub trait SortedDocValues: DocValuesIterator {
     ///
     /// # Returns
     /// The dictionary value corresponding to the ordinal.
-    fn lookup_ord(&mut self, _ord: i32) -> Result<Cow<BytesRef<Vec<u8>>>> {
+    fn lookup_ord(&mut self, _ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
         Err(LuceneError::need_implemented(
             "this method is not implemented",
         ))
@@ -176,7 +176,7 @@ where
         }
     }
 
-    fn lookup_ord(&mut self, _ord: i32) -> Result<Cow<BytesRef<Vec<u8>>>> {
+    fn lookup_ord(&mut self, _ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
         match self {
             EitherSortedDocValues::F(t) => t.lookup_ord(_ord),
             EitherSortedDocValues::S(s) => s.lookup_ord(_ord),

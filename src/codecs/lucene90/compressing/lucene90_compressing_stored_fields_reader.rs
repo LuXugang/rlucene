@@ -437,7 +437,7 @@ where
         }
         Ok(())
     }
-    pub(crate) fn serialized_document(&mut self, doc_id: i32) -> Result<SerializedDocument<I>> {
+    pub(crate) fn serialized_document(&mut self, doc_id: i32) -> Result<SerializedDocument<'_, I>> {
         if !self.state.contains(doc_id) {
             let pointer = self.index_reader.get_start_pointer(doc_id)?;
             self.fields_stream.borrow_mut().seek(pointer)?;
@@ -796,7 +796,7 @@ where
     }
     /// Get the serialized representation of the given docID.
     /// This docID has to be contained in the current block.
-    pub fn document(&mut self, doc_id: i32) -> Result<SerializedDocument<I>> {
+    pub fn document(&mut self, doc_id: i32) -> Result<SerializedDocument<'_, I>> {
         if !self.contains(doc_id) {
             return Err(LuceneError::illegal_argument(""));
         }

@@ -168,7 +168,7 @@ impl<T> BytesRefIterator for FilterTermsEnum<T>
 where
     T: TermsEnum,
 {
-    fn next(&mut self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
+    fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
         self.terms_enum.next()
     }
 }
@@ -203,7 +203,7 @@ where
         self.terms_enum.seek_exact_with_state(term, state)
     }
 
-    fn term(&self) -> Result<Cow<BytesRef<Vec<u8>>>> {
+    fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
         self.terms_enum.term()
     }
 

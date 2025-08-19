@@ -158,7 +158,7 @@ impl AutomatonTestUtil {
     }
 
     /// return a random NFA/DFA for testing
-    pub fn random_automaton<R: Rng + ?Sized>(random: &mut R) -> Result<Cow<Automaton>> {
+    pub fn random_automaton<R: Rng + ?Sized>(random: &mut R) -> Result<Cow<'_, Automaton>> {
         let a1 = AutomatonTestUtil::random_single_automaton(random)?;
         let a2 = AutomatonTestUtil::random_single_automaton(random)?;
 
@@ -205,7 +205,7 @@ impl AutomatonTestUtil {
      * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
      */
     /// Simple, original brics implementation of Brzozowski minimize()
-    pub fn minimize_simple(a: &Automaton) -> Result<Cow<Automaton>> {
+    pub fn minimize_simple(a: &Automaton) -> Result<Cow<'_, Automaton>> {
         let mut initial_set = BTreeSet::new();
         let v = Operations::reverse_with_initial_states(a, Option::from(&mut initial_set))?;
         let a = Self::determinize_simple_with_set(&v, Rc::new(initial_set.clone()))?;
@@ -218,7 +218,7 @@ impl AutomatonTestUtil {
         }
     }
     /// Simple, original brics implementation of determinize()
-    pub fn determinize_simple(a: &Automaton) -> Result<Cow<Automaton>> {
+    pub fn determinize_simple(a: &Automaton) -> Result<Cow<'_, Automaton>> {
         let mut initial_set = BTreeSet::new();
         initial_set.insert(0);
         Self::determinize_simple_with_set(a, Rc::new(initial_set))
@@ -228,7 +228,7 @@ impl AutomatonTestUtil {
     pub fn determinize_simple_with_set(
         a: &Automaton,
         initial_set: Rc<BTreeSet<i32>>,
-    ) -> Result<Cow<Automaton>> {
+    ) -> Result<Cow<'_, Automaton>> {
         if a.get_num_states() == 0 {
             return Ok(Cow::Borrowed(a));
         }

@@ -194,7 +194,7 @@ impl FreqProxTermsEnum {
 }
 
 impl BytesRefIterator for FreqProxTermsEnum {
-    fn next(&mut self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
+    fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
         self.ord += 1;
         if self.ord >= self.num_terms {
             return Ok(None);
@@ -310,7 +310,7 @@ impl TermsEnum for FreqProxTermsEnum {
         Ok(())
     }
 
-    fn term(&self) -> Result<Cow<BytesRef<Vec<u8>>>> {
+    fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
         Ok(Cow::Borrowed(&self.scratch))
     }
 
@@ -508,7 +508,7 @@ impl PostingsEnum for FreqProxDocsEnum {
         Ok(-1)
     }
 
-    fn get_payload(&self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
+    fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
         Ok(None)
     }
 }
@@ -677,7 +677,7 @@ impl PostingsEnum for FreqProxPostingsEnum {
         Ok(self.end_offset)
     }
 
-    fn get_payload(&self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
+    fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
         if !self.has_payload {
             return Err(LuceneError::unsupported_operation(
                 "Payloads not indexed".to_string(),

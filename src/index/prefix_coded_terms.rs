@@ -67,7 +67,7 @@ impl PrefixCodedTerms {
         self.size
     }
 
-    pub fn iterator(&self) -> TermIterator {
+    pub fn iterator(&self) -> TermIterator<'_> {
         let content = self
             .content
             .iter()
@@ -223,7 +223,7 @@ impl<'a> TermIterator<'a> {
 }
 
 impl BytesRefIterator for TermIterator<'_> {
-    fn next(&mut self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
+    fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
         if self.input.position() < self.end {
             let code = self.input.read_vint()?;
             let new_field = (code & 1) != 0;

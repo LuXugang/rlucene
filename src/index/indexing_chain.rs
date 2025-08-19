@@ -1633,12 +1633,12 @@ impl Ord for PerField {
     }
 }
 
-pub(crate) struct IntBlockAllocator<C>
+pub struct IntBlockAllocator<C>
 where
     C: SharedAccess<CounterEnum>,
 {
     block_size: usize,
-    pub(crate) byte_used: C,
+    pub byte_used: C,
 }
 impl<C> IntBlockAllocator<C>
 where

@@ -64,7 +64,7 @@ where
         }
     }
 
-    fn get_payload(&self) -> lucene_error::Result<Option<Cow<BytesRef<Vec<u8>>>>> {
+    fn get_payload(&self) -> lucene_error::Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
         match self {
             EitherImpactsEnum::F(t) => t.get_payload(),
             EitherImpactsEnum::S(s) => s.get_payload(),

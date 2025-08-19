@@ -434,7 +434,7 @@ where
         Ok(self.ord)
     }
 
-    fn lookup_ord(&mut self, ord: i32) -> Result<Cow<BytesRef<Vec<u8>>>> {
+    fn lookup_ord(&mut self, ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
         debug_assert!(ord >= 0 && (ord as usize) < self.hash.ids.len());
         let index = self.hash.ids[ord as usize];
         debug_assert!(
@@ -525,7 +525,7 @@ where
         Ok(self.ords[self.doc_id as usize])
     }
 
-    fn lookup_ord(&mut self, ord: i32) -> Result<Cow<BytesRef<Vec<u8>>>> {
+    fn lookup_ord(&mut self, ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
         self.input.lookup_ord(ord)
     }
 

@@ -162,7 +162,7 @@ impl CharTermAttribute for CharTermAttributeImpl {
     }
 }
 impl TermToBytesRefAttribute for CharTermAttributeImpl {
-    fn get_bytes_ref(&mut self) -> Cow<BytesRef<Vec<u8>>> {
+    fn get_bytes_ref(&mut self) -> Cow<'_, BytesRef<Vec<u8>>> {
         self.builder
             .copy_chars_with_chars(&self.term_buffer, 0, self.term_length);
         Cow::Borrowed(&self.builder.bytes_ref)

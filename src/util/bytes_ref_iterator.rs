@@ -47,7 +47,7 @@ pub trait BytesRefIterator {
     /// caller, while preserving performance by avoiding unnecessary
     /// allocations. # Errors
     /// Returns an `std::io::Error` if there is a low-level I/O error.
-    fn next(&mut self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
+    fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
         Err(LuceneError::need_implemented("this method need implement"))
     }
 }
@@ -55,7 +55,7 @@ pub trait BytesRefIterator {
 pub struct EmptyBytesRefIterator;
 
 impl BytesRefIterator for EmptyBytesRefIterator {
-    fn next(&mut self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
+    fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
         Ok(None)
     }
 }

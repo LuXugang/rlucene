@@ -90,7 +90,7 @@ where
     T: TermsEnum,
     F: FilteredTermsEnumBase,
 {
-    fn next(&mut self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
+    fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
         loop {
             if self.do_seek {
                 self.do_seek = false;
@@ -167,7 +167,7 @@ where
         ))
     }
 
-    fn term(&self) -> Result<Cow<BytesRef<Vec<u8>>>> {
+    fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
         self.tenum.term()
     }
 

@@ -102,7 +102,7 @@ impl<'a> FiniteStringsIterator<'a> {
     }
 }
 impl FiniteStringsIteratorBase for FiniteStringsIterator<'_> {
-    fn next(&mut self) -> Result<Option<Cow<IntsRef<Vec<i32>>>>> {
+    fn next(&mut self) -> Result<Option<Cow<'_, IntsRef<Vec<i32>>>>> {
         // Special case the empty string, as usual:
         if self.emit_empty_string {
             self.emit_empty_string = false;
@@ -166,7 +166,7 @@ pub(crate) trait FiniteStringsIteratorBase {
     /// Returns:
     /// - The next finite string, or `None` if no more finite strings are
     ///   available.
-    fn next(&mut self) -> Result<Option<Cow<IntsRef<Vec<i32>>>>>;
+    fn next(&mut self) -> Result<Option<Cow<'_, IntsRef<Vec<i32>>>>>;
 }
 
 #[derive(Debug)]

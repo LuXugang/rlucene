@@ -369,15 +369,15 @@ macro_rules! with_other {
 /// A trait for ergonomic, read/write access to `Rc<RefCell<T>>` and variants.
 ///
 /// `access()` returns a shared borrow (`Ref<T>`);
-/// `access_mut()` returns a mutable borrow (`RefMut<T>`).
+/// `access_mut()` returns a mutable borrow (`RefMut<'_,T>`).
 ///
 /// # Panics
 ///
 /// If implemented on `Option<Rc<RefCell<T>>>`, the value must be `Some`.
 /// Calling `.access()` or `.access_mut()` on `None` will panic.
 pub trait BorrowExt<T> {
-    fn access(&self) -> Ref<T>;
-    fn access_mut(&self) -> RefMut<T>;
+    fn access(&self) -> Ref<'_, T>;
+    fn access_mut(&self) -> RefMut<'_, T>;
 }
 /// Implementation for `Option<Rc<RefCell<T>>>`
 ///
@@ -386,12 +386,12 @@ pub trait BorrowExt<T> {
 /// Will panic if the `Option` is `None`.
 impl<T> BorrowExt<T> for Option<Rc<RefCell<T>>> {
     #[inline]
-    fn access(&self) -> Ref<T> {
+    fn access(&self) -> Ref<'_, T> {
         self.as_ref().unwrap().borrow()
     }
 
     #[inline]
-    fn access_mut(&self) -> RefMut<T> {
+    fn access_mut(&self) -> RefMut<'_, T> {
         self.as_ref().unwrap().borrow_mut()
     }
 }
@@ -405,8 +405,8 @@ impl<T> BorrowExt<T> for Option<Rc<RefCell<T>>> {
 /// If implemented on `Option<Arc<Mutex<T>>>`, the value must be `Some`.
 /// Calling `.access()` or `.access_mut()` on `None` will panic.
 pub trait MutexAccess<T> {
-    fn access(&self) -> MutexGuard<T>;
-    fn access_mut(&self) -> MutexGuard<T>;
+    fn access(&self) -> MutexGuard<'_, T>;
+    fn access_mut(&self) -> MutexGuard<'_, T>;
 }
 /// Implementation for `Option<Arc<Mutex<T>>>`
 ///
@@ -415,12 +415,12 @@ pub trait MutexAccess<T> {
 /// Will panic if the `Option` is `None`.
 impl<T> MutexAccess<T> for Option<Arc<Mutex<T>>> {
     #[inline]
-    fn access(&self) -> MutexGuard<T> {
+    fn access(&self) -> MutexGuard<'_, T> {
         self.as_ref().unwrap().lock()
     }
 
     #[inline]
-    fn access_mut(&self) -> MutexGuard<T> {
+    fn access_mut(&self) -> MutexGuard<'_, T> {
         self.as_ref().unwrap().lock()
     }
 }

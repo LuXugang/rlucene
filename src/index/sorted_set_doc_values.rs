@@ -58,7 +58,7 @@ pub trait SortedSetDocValues: DocValuesIterator {
     /// * `ord` - Ordinal to lookup
     ///
     /// See also: [`next_ord`](SortedSetDocValues::next_ord)
-    fn lookup_ord(&mut self, _ord: i64) -> Result<Cow<BytesRef<Vec<u8>>>> {
+    fn lookup_ord(&mut self, _ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
         Err(LuceneError::need_implemented(
             "this method is not implemented",
         ))

@@ -149,7 +149,7 @@ impl PackedInts {
     ///
     /// # Returns
     /// A mutable packed integer array.
-    pub fn get_mutable(
+    pub(crate) fn get_mutable(
         value_count: i32,
         bits_per_value: i32,
         acceptable_overhead_ratio: f32,
@@ -165,7 +165,7 @@ impl PackedInts {
 
     /// Same as [`get_mutable`](PackedInts::get_mutable) with a pre-computed
     /// number of bits per value and format.
-    pub fn get_mutable_impl(
+    pub(crate) fn get_mutable_impl(
         value_count: i32,
         bits_per_value: i32,
         format: Format,

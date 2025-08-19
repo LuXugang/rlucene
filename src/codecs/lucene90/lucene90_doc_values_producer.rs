@@ -2346,7 +2346,7 @@ where
         self.sub.ord_value()
     }
 
-    fn lookup_ord(&mut self, ord: i32) -> Result<Cow<BytesRef<Vec<u8>>>> {
+    fn lookup_ord(&mut self, ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
         self.terms_enum.seek_exact_with_ord(ord as i64)?;
         self.terms_enum.term()
     }
@@ -2696,7 +2696,7 @@ where
         self.sub.doc_value_count()
     }
 
-    fn lookup_ord(&mut self, ord: i64) -> Result<Cow<BytesRef<Vec<u8>>>> {
+    fn lookup_ord(&mut self, ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
         self.terms_enum.seek_exact_with_ord(ord)?;
         self.terms_enum.term()
     }
@@ -3012,7 +3012,7 @@ impl<I> BytesRefIterator for TermsDict<I>
 where
     I: IndexInput,
 {
-    fn next(&mut self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
+    fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
         self.ord += 1;
         if self.ord >= self.entry.terms_dict_size {
             return Ok(None);
@@ -3121,7 +3121,7 @@ where
         Err(LuceneError::not_implemented(""))
     }
 
-    fn term(&self) -> Result<Cow<BytesRef<Vec<u8>>>> {
+    fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
         Ok(Cow::Borrowed(&self.term))
     }
 

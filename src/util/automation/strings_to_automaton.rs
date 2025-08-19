@@ -144,7 +144,7 @@ impl StringsToAutomaton {
         let mut builder = StringsToAutomaton::new();
 
         while let Some(b) = input.next()? {
-            builder.add(&b, as_binary)?; // b: Cow<BytesRef<Vec<u8>>> ->
+            builder.add(&b, as_binary)?; // b: Cow<'_, BytesRef<Vec<u8>>> ->
             // &BytesRef<Vec<u8>>
         }
 
@@ -604,7 +604,7 @@ mod tests {
         it: std::vec::IntoIter<BytesRef<Vec<u8>>>,
     }
     impl BytesRefIterator for TermIterator {
-        fn next(&mut self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
+        fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
             match self.it.next() {
                 Some(b) => Ok(Some(Cow::Owned(b))),
                 None => Ok(None),

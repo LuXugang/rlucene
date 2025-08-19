@@ -467,7 +467,7 @@ where
     I: IndexInput,
     P: PostingsReaderBase,
 {
-    fn next(&mut self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
+    fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
         let input_none = { self.input.is_none() };
         if input_none {
             let arc = if let Some(index) = self.fr.index.as_ref() {
@@ -832,7 +832,7 @@ where
         Ok(())
     }
 
-    fn term(&self) -> Result<Cow<BytesRef<Vec<u8>>>> {
+    fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
         debug_assert!(!self.eof);
         Ok(Cow::Borrowed(&self.term.bytes_ref))
     }

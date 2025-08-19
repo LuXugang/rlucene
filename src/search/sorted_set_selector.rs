@@ -161,7 +161,7 @@ where
         Ok(self.ord)
     }
 
-    fn lookup_ord(&mut self, ord: i32) -> Result<Cow<BytesRef<Vec<u8>>>> {
+    fn lookup_ord(&mut self, ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
         self.inner.lookup_ord(ord as i64)
     }
 
@@ -249,7 +249,7 @@ where
         Ok(self.ord)
     }
 
-    fn lookup_ord(&mut self, ord: i32) -> Result<Cow<BytesRef<Vec<u8>>>> {
+    fn lookup_ord(&mut self, ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
         self.inner.lookup_ord(ord as i64)
     }
 
@@ -340,7 +340,7 @@ where
         Ok(self.ord)
     }
 
-    fn lookup_ord(&mut self, ord: i32) -> Result<Cow<BytesRef<Vec<u8>>>> {
+    fn lookup_ord(&mut self, ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
         self.inner.lookup_ord(ord as i64)
     }
 
@@ -430,7 +430,7 @@ where
         Ok(self.ord)
     }
 
-    fn lookup_ord(&mut self, ord: i32) -> Result<Cow<BytesRef<Vec<u8>>>> {
+    fn lookup_ord(&mut self, ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
         self.inner.lookup_ord(ord as i64)
     }
 
@@ -539,7 +539,7 @@ where
         }
     }
 
-    fn lookup_ord(&mut self, ord: i32) -> Result<Cow<BytesRef<Vec<u8>>>> {
+    fn lookup_ord(&mut self, ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
         match self {
             SortedDocValuesWrapEnum::Singleton(single) => single.lookup_ord(ord),
             SortedDocValuesWrapEnum::Min(min) => min.lookup_ord(ord),

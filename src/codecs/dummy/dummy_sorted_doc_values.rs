@@ -58,7 +58,7 @@ impl SortedDocValues for DummySortedDocValues {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn lookup_ord(&mut self, _ord: i32) -> Result<Cow<BytesRef<Vec<u8>>>> {
+    fn lookup_ord(&mut self, _ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

@@ -357,7 +357,7 @@ impl FieldUpdatesBuffer {
         );
         true
     }
-    pub(crate) fn iterator(&self) -> Result<BufferedUpdateIterator> {
+    pub(crate) fn iterator(&self) -> Result<BufferedUpdateIterator<'_>> {
         if !self.finished {
             return Err(LuceneError::illegal_state(
                 "Buffer was not finished".to_string(),

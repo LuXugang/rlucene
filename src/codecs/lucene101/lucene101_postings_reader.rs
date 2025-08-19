@@ -1373,7 +1373,7 @@ where
         }
     }
 
-    fn get_payload(&self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
+    fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
         if !self.needs_payloads || self.payload_length == 0 {
             Ok(None)
         } else {
@@ -1522,7 +1522,7 @@ impl Impacts for ImpactsImpl {
         }
     }
 
-    fn get_impacts(&'_ mut self, level: i32) -> Result<Cow<[Impact]>> {
+    fn get_impacts(&'_ mut self, level: i32) -> Result<Cow<'_, [Impact]>> {
         if self.index_has_freq {
             // We don't reuse level0_impacts and level1_impacts like Java Lucene does.
             if level == 0 && self.level0_last_doc_id != NO_MORE_DOCS {

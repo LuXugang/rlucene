@@ -61,7 +61,7 @@ where
         self.delegate.end_offset()
     }
 
-    fn get_payload(&self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
+    fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
         self.delegate.get_payload()
     }
 }

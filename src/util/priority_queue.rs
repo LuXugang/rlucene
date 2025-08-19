@@ -345,7 +345,7 @@ where
         &self.heap
     }
 
-    pub fn iterator(&self) -> PriorityQueueIterator<T, C> {
+    pub fn iterator(&'_ self) -> PriorityQueueIterator<'_, T, C> {
         PriorityQueueIterator::new(self)
     }
 }

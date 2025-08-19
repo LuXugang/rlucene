@@ -564,7 +564,7 @@ where
         Ok(ord)
     }
 
-    fn lookup_ord(&mut self, ord: i64) -> Result<Cow<BytesRef<Vec<u8>>>> {
+    fn lookup_ord(&mut self, ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
         debug_assert!(ord >= 0 && (ord as usize) < self.ord_map.len());
         let idx: i32 = ord.try_into()?;
         let hash_idx = self.hash.ids[idx as usize];
@@ -677,7 +677,7 @@ where
         Ok(self.count)
     }
 
-    fn lookup_ord(&mut self, ord: i64) -> Result<Cow<BytesRef<Vec<u8>>>> {
+    fn lookup_ord(&mut self, ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
         self.input.lookup_ord(ord)
     }
 
@@ -824,7 +824,7 @@ where
         }
     }
 
-    fn lookup_ord(&mut self, _ord: i64) -> Result<Cow<BytesRef<Vec<u8>>>> {
+    fn lookup_ord(&mut self, _ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
         match self {
             EitherSortedSetDocValues::F(t) => t.lookup_ord(_ord),
             EitherSortedSetDocValues::S(s) => s.lookup_ord(_ord),

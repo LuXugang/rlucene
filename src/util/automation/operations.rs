@@ -144,7 +144,7 @@ impl Operations {
     /// language of the given automaton. This may create a dead state.
     ///
     /// Complexity: linear in the number of states.
-    pub fn optional(a: &Automaton) -> Result<Cow<Automaton>> {
+    pub fn optional(a: &Automaton) -> Result<Cow<'_, Automaton>> {
         // If the initial state already accepts, return as is
         if a.is_accept(0) {
             return Ok(Cow::Borrowed(a));
@@ -189,7 +189,7 @@ impl Operations {
     /// Never modifies the input automaton language.
     ///
     /// Complexity: linear in the number of states.
-    pub fn repeat(a: &Automaton) -> Result<Cow<Automaton>> {
+    pub fn repeat(a: &Automaton) -> Result<Cow<'_, Automaton>> {
         if a.get_num_states() == 0 {
             // Repeating the empty automata will still only accept the empty automata.
             return Ok(Cow::Borrowed(a));
@@ -259,7 +259,7 @@ impl Operations {
     /// of the language of the given automaton.
     ///
     /// Complexity: linear in the number of states and in `min`.
-    pub fn repeat_count(a: &Automaton, count: i32) -> Result<Cow<Automaton>> {
+    pub fn repeat_count(a: &Automaton, count: i32) -> Result<Cow<'_, Automaton>> {
         if count == 0 {
             return Operations::repeat(a);
         }
@@ -543,7 +543,7 @@ impl Operations {
     /// Errors:
     /// - Returns [`TooComplexToDeterminizeError`](crate::util::error::TooComplexToDeterminizeError) if determinizing requires
     ///   more than `work_limit` units of effort.
-    pub fn determinize(a: &Automaton, work_limit: usize) -> Result<Cow<Automaton>> {
+    pub fn determinize(a: &'_ Automaton, work_limit: usize) -> Result<Cow<'_, Automaton>> {
         if a.is_deterministic() || a.get_num_states() <= 1 {
             return Ok(Cow::Borrowed(a));
         }
@@ -895,7 +895,7 @@ impl Operations {
     /// Removes transitions to dead states.
     /// A state is considered "dead" if it is not reachable from the initial
     /// state or if no accept state is reachable from it.
-    pub fn remove_dead_states(a: &Automaton) -> Result<Cow<Automaton>> {
+    pub fn remove_dead_states(a: &'_ Automaton) -> Result<Cow<'_, Automaton>> {
         let num_states = a.get_num_states() as usize;
         let live_set = Operations::get_live_states(a)?;
         if live_set.len() == num_states {
@@ -1910,7 +1910,7 @@ pub(crate) mod tests {
         Ok(())
     }
 
-    fn naive_repeat(a: &Automaton) -> Result<Cow<Automaton>> {
+    fn naive_repeat(a: &Automaton) -> Result<Cow<'_, Automaton>> {
         if a.get_num_states() == 0 {
             return Ok(Cow::Borrowed(a));
         }

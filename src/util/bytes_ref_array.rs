@@ -209,7 +209,7 @@ where
         }
         Ok(SortState::new(Some(ordered_entries)))
     }
-    pub fn iterator(&self) -> IndexedBytesRefIteratorImpl<A> {
+    pub fn iterator(&'_ self) -> IndexedBytesRefIteratorImpl<'_, A> {
         self.iterator_with_state(Arc::from(SortState::new(None)))
     }
     /// Returns an [`IndexedBytesRefIteratorImpl`] with point-in-time semantics.
@@ -227,9 +227,9 @@ where
     ///
     /// [`BytesRef`]
     pub fn iterator_with_state(
-        &self,
+        &'_ self,
         sort_state: Arc<SortState>,
-    ) -> IndexedBytesRefIteratorImpl<A> {
+    ) -> IndexedBytesRefIteratorImpl<'_, A> {
         IndexedBytesRefIteratorImpl::new(sort_state, self)
     }
 }
@@ -344,7 +344,7 @@ impl<A> BytesRefIterator for IndexedBytesRefIteratorImpl<'_, A>
 where
     A: SharedAccess<CounterEnum>,
 {
-    fn next(&mut self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
+    fn next(&'_ mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
         let mut result = BytesRef::new();
         self.pos += 1;
         if self.pos < self.size {

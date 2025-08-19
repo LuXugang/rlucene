@@ -61,7 +61,7 @@ impl<'a> LimitedFiniteStringsIterator<'a> {
     }
 }
 impl FiniteStringsIteratorBase for LimitedFiniteStringsIterator<'_> {
-    fn next(&mut self) -> Result<Option<Cow<IntsRef<Vec<i32>>>>> {
+    fn next(&mut self) -> Result<Option<Cow<'_, IntsRef<Vec<i32>>>>> {
         if self.count >= self.limit {
             return Ok(None);
         }

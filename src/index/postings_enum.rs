@@ -49,7 +49,7 @@ pub trait PostingsEnum: DocIdSetIterator {
 
     /// Returns the payload at this position, or None if no payload was indexed.
     /// Do not modify the returned bytes.
-    fn get_payload(&self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>>;
+    fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>>;
 }
 
 pub mod postings_enum_util {
@@ -146,7 +146,7 @@ where
         }
     }
 
-    fn get_payload(&self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
+    fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
         match self {
             EitherPostingsEnum::F(t) => t.get_payload(),
             EitherPostingsEnum::S(s) => s.get_payload(),

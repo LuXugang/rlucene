@@ -1338,7 +1338,7 @@ impl TVTermsEnum {
 }
 
 impl BytesRefIterator for TVTermsEnum {
-    fn next(&mut self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
+    fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
         if self.ord == self.num_terms - 1 {
             return Ok(None);
         } else {
@@ -1398,7 +1398,7 @@ impl TermsEnum for TVTermsEnum {
         Err(LuceneError::unsupported_operation(""))
     }
 
-    fn term(&self) -> Result<Cow<BytesRef<Vec<u8>>>> {
+    fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
         Ok(Cow::Borrowed(&self.term))
     }
 
@@ -1589,7 +1589,7 @@ impl PostingsEnum for TVPostingsEnum {
         }
     }
 
-    fn get_payload(&self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
+    fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
         self.check_position()?;
         if self.payload_index.is_empty() || self.payload.length == 0 {
             Ok(None)

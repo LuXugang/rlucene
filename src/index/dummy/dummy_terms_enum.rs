@@ -26,7 +26,7 @@ use std::borrow::Cow;
 
 pub struct DummyTermsEnum;
 impl BytesRefIterator for DummyTermsEnum {
-    fn next(&mut self) -> Result<Option<Cow<BytesRef<Vec<u8>>>>> {
+    fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
@@ -54,7 +54,7 @@ impl TermsEnum for DummyTermsEnum {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn term(&self) -> Result<Cow<BytesRef<Vec<u8>>>> {
+    fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

@@ -56,7 +56,7 @@ impl ByteRunAutomaton {
         Self::new_with_bool(a, false)
     }
 
-    fn convert(a: &Automaton) -> Result<Cow<Automaton>> {
+    fn convert(a: &Automaton) -> Result<Cow<'_, Automaton>> {
         if !a.is_deterministic() {
             panic!("Automaton must be deterministic");
         }

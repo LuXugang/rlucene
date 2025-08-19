@@ -529,7 +529,7 @@ pub mod indexed_disi_util {
     }
     ///  Returns an iterator that delegates to the IndexedDISI. Advancing this
     /// iterator will advance the underlying IndexedDISI, and vice-versa.
-    pub fn get_doc_index_iterator<D, I>(disi: &mut IndexedDISI<I>) -> DocIndexIteratorImpl<I>
+    pub fn get_doc_index_iterator<D, I>(disi: &mut IndexedDISI<I>) -> DocIndexIteratorImpl<'_, I>
     where
         I: IndexInput,
     {

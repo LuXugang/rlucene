@@ -161,7 +161,7 @@ where
         self.value_count
     }
 }
-pub fn create(value_count: i32, bits_per_value: i32) -> MutablePacked64Enum {
+pub(crate) fn create(value_count: i32, bits_per_value: i32) -> MutablePacked64Enum {
     match bits_per_value {
         1 => {
             let sub_reader =
