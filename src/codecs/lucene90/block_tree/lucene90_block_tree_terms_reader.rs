@@ -83,13 +83,14 @@ where
     I: IndexInput,
     PR: PostingsReaderBase,
 {
-    pub fn new<D>(
+    pub fn new<D1, D2>(
         postings_reader: PR,
-        state: &SegmentReadState<D>,
-        segment_info: &SegmentInfo<D>,
+        state: &SegmentReadState<D1>,
+        segment_info: &SegmentInfo<D2>,
     ) -> Result<Self>
     where
-        D: Directory<IndexInput = I>,
+        D1: Directory<IndexInput = I>,
+        D2: Directory,
     {
         let segment = segment_info.name.clone();
 

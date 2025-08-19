@@ -40,14 +40,15 @@ use std::sync::Arc;
 pub trait PostingsReaderBase: Display {
     /// Performs any initialization, such as reading and verifying the header
     /// from the provided terms dictionary [`IndexInput`].
-    fn init<D>(
+    fn init<D1, D2>(
         &self,
         terms_in: &mut impl IndexInput,
-        state: &SegmentReadState<D>,
-        segment_info: &SegmentInfo<D>,
+        state: &SegmentReadState<D1>,
+        segment_info: &SegmentInfo<D2>,
     ) -> Result<()>
     where
-        D: Directory;
+        D1: Directory,
+        D2: Directory;
 
     /// Return a newly created empty `TermState`.
     // TODO: 这里是不是应该返回关联类型

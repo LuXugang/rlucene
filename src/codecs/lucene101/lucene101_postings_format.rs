@@ -343,11 +343,11 @@ impl PostingsFormat for Lucene101PostingsFormat {
         Ok(ret)
     }
 
-    fn fields_producer<D: Directory>(
+    fn fields_producer<D1: Directory, D2: Directory>(
         &self,
-        state: &SegmentReadState<D>,
-        segment_info: &SegmentInfo<D>,
-    ) -> Result<FieldsProducerEnum<D::IndexInput>> {
+        state: &SegmentReadState<D1>,
+        segment_info: &SegmentInfo<D2>,
+    ) -> Result<FieldsProducerEnum<D1::IndexInput>> {
         let postings_reader = Lucene101PostingsReader::new(state, segment_info)?;
         let ret = FieldsProducerEnum::Lucene90(Lucene90BlockTreeTermsReader::new(
             postings_reader,

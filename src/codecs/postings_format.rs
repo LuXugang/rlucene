@@ -34,9 +34,9 @@ pub trait PostingsFormat {
     /// the execution of this call before there is a chance to open them. Under these circumstances an
     /// `IOException` should be returned by the implementation. IO exceptions are expected and will
     /// automatically cause a retry of the segment opening logic with the newly revised segments.
-    fn fields_producer<D: Directory>(
+    fn fields_producer<D1: Directory, D2: Directory>(
         &self,
-        state: &SegmentReadState<D>,
-        segment_info: &SegmentInfo<D>,
-    ) -> Result<FieldsProducerEnum<D::IndexInput>>;
+        state: &SegmentReadState<D1>,
+        segment_info: &SegmentInfo<D2>,
+    ) -> Result<FieldsProducerEnum<D1::IndexInput>>;
 }

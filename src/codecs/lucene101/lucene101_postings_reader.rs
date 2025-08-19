@@ -69,9 +69,10 @@ impl<I> Lucene101PostingsReader<I>
 where
     I: IndexInput,
 {
-    pub fn new<D>(state: &SegmentReadState<D>, segment_info: &SegmentInfo<D>) -> Result<Self>
+    pub fn new<D1, D2>(state: &SegmentReadState<D1>, segment_info: &SegmentInfo<D2>) -> Result<Self>
     where
-        D: Directory<IndexInput = I>,
+        D1: Directory<IndexInput = I>,
+        D2: Directory,
     {
         let meta_name = IndexFileNames::segment_file_name(
             &segment_info.name,
@@ -229,14 +230,15 @@ impl<I> PostingsReaderBase for Lucene101PostingsReader<I>
 where
     I: IndexInput,
 {
-    fn init<D>(
+    fn init<D1, D2>(
         &self,
         terms_in: &mut impl IndexInput,
-        state: &SegmentReadState<D>,
-        segment_info: &SegmentInfo<D>,
+        state: &SegmentReadState<D1>,
+        segment_info: &SegmentInfo<D2>,
     ) -> Result<()>
     where
-        D: Directory,
+        D1: Directory,
+        D2: Directory,
     {
         // Make sure we are talking to the matching postings writer
         CodecUtil::check_index_header(
