@@ -88,7 +88,7 @@ where
         let mut expected_pay_file_length = 0;
         let mut meta_in_opt = None;
         let result = (|| {
-            let meta_in = state.directory.lock().open_checksum_input(&meta_name)?;
+            let meta_in = state.directory.open_checksum_input(&meta_name)?;
             meta_in_opt = Some(meta_in);
             if let Some(ref mut meta_in) = meta_in_opt {
                 version = CodecUtil::check_index_header(
@@ -145,7 +145,7 @@ where
         );
         // Postings have a forward-only access pattern, so pass
         // ReadAdvice.NORMAL to perform readahead.
-        let mut doc_in = state.directory.lock().open_input(
+        let mut doc_in = state.directory.open_input(
             &doc_name,
             &state.context.with_read_advice(ReadAdvice::Normal)?,
         )?;
@@ -167,10 +167,7 @@ where
                 &state.segment_suffix,
                 Lucene101PostingsFormat::POS_EXTENSION,
             );
-            let mut pos_in = state
-                .directory
-                .lock()
-                .open_input(&pos_name, &state.context)?;
+            let mut pos_in = state.directory.open_input(&pos_name, &state.context)?;
             CodecUtil::check_index_header(
                 &mut pos_in,
                 Lucene101PostingsFormat::POS_CODEC,
@@ -188,10 +185,7 @@ where
                     &state.segment_suffix,
                     Lucene101PostingsFormat::PAY_EXTENSION,
                 );
-                let mut pay = state
-                    .directory
-                    .lock()
-                    .open_input(&pay_name, &state.context)?;
+                let mut pay = state.directory.open_input(&pay_name, &state.context)?;
                 CodecUtil::check_index_header(
                     &mut pay,
                     Lucene101PostingsFormat::PAY_CODEC,

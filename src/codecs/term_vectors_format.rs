@@ -21,9 +21,7 @@ use crate::index::segment_info::SegmentInfo;
 use crate::store::IOContext;
 use crate::store::directory::Directory;
 use crate::util::error::lucene_error::Result;
-use parking_lot::Mutex;
 use std::rc::Rc;
-use std::sync::Arc;
 
 /// Controls the format of term vectors
 pub trait TermVectorsFormat {
@@ -41,7 +39,7 @@ pub trait TermVectorsFormat {
     /// Returns a [`TermVectorsWriter`](crate::codecs::term_vectors_writer::TermVectorsWriter) to write term vectors.
     fn vectors_writer<D1, D2>(
         &self,
-        directory: Arc<Mutex<D1>>,
+        directory: &mut D1,
         segment_info: &SegmentInfo<D2>,
         context: &IOContext,
     ) -> Result<TermVectorsWriterEnum<D1>>

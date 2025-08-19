@@ -14,23 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::sync::Arc;
-
-use parking_lot::Mutex;
+use std::fs;
 
 use crate::codecs::CodecUtil;
 use crate::index::IndexFileNames;
 use crate::store::directory::Directory;
 use crate::store::{DataInput, DataOutput, IOContext, IndexOutput};
+use crate::util::StringHelper;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::packed::direct_monotonic_writer::DirectMonotonicWriter;
-use crate::util::{IOUtils, StringHelper};
 
 pub(crate) struct FieldsIndexWriter<D>
 where
     D: Directory,
 {
-    dir: Arc<Mutex<D>>,
     name: String,
     suffix: String,
     extension: String,
@@ -58,7 +55,7 @@ where
 {
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
-        dir: Arc<Mutex<D>>,
+        dir: &mut D,
         name: &str,
         suffix: &str,
         extension: &str,
@@ -67,21 +64,16 @@ where
         block_shift: i32,
         io_context: IOContext, // TODO:avoid copy? could wrap with Rc?
     ) -> Result<Self> {
-        let mut dir_guard = dir.lock();
         let mut docs_out =
-            dir_guard.create_temp_output(name, &format!("{codec_name}-doc_ids"), &io_context)?;
+            dir.create_temp_output(name, &format!("{codec_name}-doc_ids"), &io_context)?;
         CodecUtil::write_header(
             &mut docs_out,
             &format!("{codec_name}Docs"),
             fields_index_writer_const::VERSION_CURRENT,
         )?;
 
-        let mut file_pointers_out = dir_guard.create_temp_output(
-            name,
-            &format!("{codec_name}file_pointers"),
-            &io_context,
-        )?;
-        drop(dir_guard);
+        let mut file_pointers_out =
+            dir.create_temp_output(name, &format!("{codec_name}file_pointers"), &io_context)?;
         CodecUtil::write_header(
             &mut file_pointers_out,
             &format!("{codec_name}FilePointers"),
@@ -89,7 +81,6 @@ where
         )?;
 
         Ok(FieldsIndexWriter {
-            dir,
             name: name.to_string(),
             suffix: suffix.to_string(),
             extension: extension.to_string(),
@@ -119,12 +110,16 @@ where
         Ok(())
     }
 
-    pub(crate) fn finish(
+    pub(crate) fn finish<D1>(
         &mut self,
         num_docs: i32,
         max_pointer: i64,
         meta_out: &mut D::IndexOutput,
-    ) -> Result<()> {
+        dir: &mut D1,
+    ) -> Result<()>
+    where
+        D1: Directory,
+    {
         if num_docs != self.total_docs {
             return Err(LuceneError::illegal_state(format!(
                 "Expected {} docs, but got {}",
@@ -146,7 +141,6 @@ where
             let _ = std::mem::take(&mut self.file_pointers_out);
         }
 
-        let mut dir = self.dir.lock();
         let mut data_out = dir.create_output(
             &IndexFileNames::segment_file_name(&self.name, &self.suffix, &self.extension),
             &self.io_context,
@@ -258,17 +252,21 @@ where
     D: Directory,
 {
     fn drop(&mut self) {
-        let mut files = Vec::new();
         if self.docs_out.is_some() {
-            files.push(self.docs_out.as_ref().unwrap().get_name());
+            match fs::remove_file(self.docs_out.as_ref().unwrap().get_name()) {
+                Ok(_) => {},
+                Err(e) => {
+                    debug_assert!(false, "Failed to delete docs file: {:?}", e);
+                },
+            }
         }
         if self.file_pointers_out.is_some() {
-            files.push(self.file_pointers_out.as_ref().unwrap().get_name());
-        }
-        let mut dir = self.dir.lock();
-        match IOUtils::delete_files(&mut *dir, files.as_slice()) {
-            Ok(_) => (),
-            Err(e) => eprintln!("Failed to delete files: {e:?}"),
+            match fs::remove_file(self.file_pointers_out.as_ref().unwrap().get_name()) {
+                Ok(_) => {},
+                Err(e) => {
+                    debug_assert!(false, "Failed to delete file pointers file: {:?}", e);
+                },
+            }
         }
         let _ = self.docs_out.take();
         let _ = self.file_pointers_out.take();

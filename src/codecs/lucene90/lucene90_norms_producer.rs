@@ -86,7 +86,7 @@ where
         // Read in the entries from the metadata file
         let mut norms = HashMap::new();
         {
-            let dir = state.directory.lock();
+            let dir = &state.directory;
             let mut input = dir.open_checksum_input(&meta_name)?;
 
             let mut prior_error = None;
@@ -124,7 +124,7 @@ where
         // to perform readahead
         let mut data;
         {
-            let dir = state.directory.lock();
+            let dir = &state.directory;
             data = dir.open_input(
                 &data_name,
                 &state.context.with_read_advice(ReadAdvice::Normal)?,

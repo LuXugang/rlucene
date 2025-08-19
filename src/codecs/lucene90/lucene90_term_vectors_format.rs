@@ -24,10 +24,8 @@ use crate::index::segment_info::SegmentInfo;
 use crate::store::IOContext;
 use crate::store::directory::Directory;
 use crate::util::error::lucene_error::Result;
-use parking_lot::Mutex;
 use std::fmt::Display;
 use std::rc::Rc;
-use std::sync::Arc;
 /// Lucene 9.0 TermVectorsFormat.
 ///
 /// Very similarly to Lucene90StoredFieldsFormat, this format is based on compressed
@@ -146,7 +144,7 @@ impl TermVectorsFormat for Lucene90TermVectorsFormat {
 
     fn vectors_writer<D1, D2>(
         &self,
-        directory: Arc<Mutex<D1>>,
+        directory: &mut D1,
         segment_info: &SegmentInfo<D2>,
         context: &IOContext,
     ) -> Result<TermVectorsWriterEnum<D1>>

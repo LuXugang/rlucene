@@ -26,10 +26,8 @@ use crate::store::IOContext;
 use crate::store::directory::Directory;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::error::lucene_error::Result;
-use parking_lot::Mutex;
 use std::fmt;
 use std::rc::Rc;
-use std::sync::Arc;
 /// A [`TermVectorsFormat`] that compresses chunks of documents together in order to improve the compression ratio.
 pub struct Lucene90CompressingTermVectorsFormat {
     format_name: String,
@@ -122,7 +120,7 @@ impl TermVectorsFormat for Lucene90CompressingTermVectorsFormat {
 
     fn vectors_writer<D1, D2>(
         &self,
-        directory: Arc<Mutex<D1>>,
+        directory: &mut D1,
         segment_info: &SegmentInfo<D2>,
         context: &IOContext,
     ) -> Result<TermVectorsWriterEnum<D1>>

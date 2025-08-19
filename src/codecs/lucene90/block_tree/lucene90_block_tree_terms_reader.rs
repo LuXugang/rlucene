@@ -99,10 +99,7 @@ where
             lucene90_bttr_util::TERMS_EXTENSION,
         );
 
-        let mut terms_in = state
-            .directory
-            .lock()
-            .open_input(&terms_name, &state.context)?;
+        let mut terms_in = state.directory.open_input(&terms_name, &state.context)?;
 
         let version = CodecUtil::check_index_header(
             &mut terms_in,
@@ -119,7 +116,7 @@ where
             lucene90_bttr_util::TERMS_INDEX_EXTENSION,
         );
 
-        let mut index_in = state.directory.lock().open_input(
+        let mut index_in = state.directory.open_input(
             &index_name,
             &state.context.with_read_advice(ReadAdvice::RandomPreload)?,
         )?;
@@ -144,7 +141,7 @@ where
         let mut terms_length = -1i64;
 
         let mut prior_error = None;
-        let mut meta_in = state.directory.lock().open_checksum_input(&meta_name)?;
+        let mut meta_in = state.directory.open_checksum_input(&meta_name)?;
         let index_in = Rc::new(RefCell::new(index_in));
         let mut terms_reader = TermsReader {
             terms_in,

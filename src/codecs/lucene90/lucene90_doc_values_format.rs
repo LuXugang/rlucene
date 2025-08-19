@@ -224,7 +224,7 @@ impl DocValuesFormat for Lucene90DocValuesFormat {
 
     fn fields_consumer<D, D1>(
         &self,
-        state: &SegmentWriteState<D>,
+        state: &mut SegmentWriteState<D>,
         segment_info: &SegmentInfo<D1>,
     ) -> Result<Self::DocValuesConsumer<D::IndexOutput>>
     where

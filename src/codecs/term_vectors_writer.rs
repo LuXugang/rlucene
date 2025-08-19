@@ -55,7 +55,9 @@ pub trait TermVectorsWriter: Accountable {
         payload: Option<&BytesRef<Vec<u8>>>,
     ) -> Result<()>;
 
-    fn finish(&mut self, num_docs: i32) -> Result<()>;
+    fn finish<D>(&mut self, num_docs: i32, dir: &mut D) -> Result<()>
+    where
+        D: Directory;
 
     fn add_prox(
         &mut self,
@@ -199,9 +201,12 @@ where
         }
     }
 
-    fn finish(&mut self, num_docs: i32) -> Result<()> {
+    fn finish<D1>(&mut self, num_docs: i32, dir: &mut D1) -> Result<()>
+    where
+        D1: Directory,
+    {
         match self {
-            TermVectorsWriterEnum::Lucene90(writer) => writer.finish(num_docs),
+            TermVectorsWriterEnum::Lucene90(writer) => writer.finish(num_docs, dir),
         }
     }
 

@@ -15,9 +15,6 @@
  * limitations under the License.
  */
 use std::rc::Rc;
-use std::sync::Arc;
-
-use parking_lot::Mutex;
 
 use crate::index::field_infos::FieldInfos;
 use crate::store::IOContext;
@@ -26,12 +23,12 @@ use crate::store::directory::Directory;
 /// Holder struct for common parameters used during read.
 ///
 /// @lucene.experimental
-pub struct SegmentReadState<D>
+pub struct SegmentReadState<'a, D>
 where
     D: Directory,
 {
     /// Directory where this segment is read from.
-    pub directory: Arc<Mutex<D>>,
+    pub directory: &'a mut D,
 
     /// FieldInfos describing all fields in this segment.
     pub field_infos: Rc<FieldInfos>,
@@ -43,22 +40,18 @@ where
     pub segment_suffix: String,
 }
 
-impl<D> SegmentReadState<D>
+impl<'a, D> SegmentReadState<'a, D>
 where
     D: Directory,
 {
     /// Creates a SegmentReadState with an empty segment suffix.
-    pub fn new(
-        directory: Arc<Mutex<D>>,
-        field_infos: Rc<FieldInfos>,
-        context: Rc<IOContext>,
-    ) -> Self {
+    pub fn new(directory: &'a mut D, field_infos: Rc<FieldInfos>, context: Rc<IOContext>) -> Self {
         Self::with_suffix(directory, field_infos, context, "")
     }
 
     /// Creates a SegmentReadState with a custom segment suffix.
     pub fn with_suffix(
-        directory: Arc<Mutex<D>>,
+        directory: &'a mut D,
         field_infos: Rc<FieldInfos>,
         context: Rc<IOContext>,
         segment_suffix: &str,
@@ -73,9 +66,9 @@ where
 
     /// Creates a copy of an existing SegmentReadState with a different segment
     /// suffix.
-    pub fn copy_with_suffix(other: &SegmentReadState<D>, segment_suffix: &str) -> Self {
+    pub fn copy_with_suffix(other: &'a mut SegmentReadState<'_, D>, segment_suffix: &str) -> Self {
         Self {
-            directory: Arc::clone(&other.directory),
+            directory: other.directory,
             field_infos: other.field_infos.clone(),
             context: other.context.clone(),
             segment_suffix: segment_suffix.to_string(),

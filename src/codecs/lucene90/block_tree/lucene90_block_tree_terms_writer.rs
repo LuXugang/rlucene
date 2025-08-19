@@ -227,7 +227,7 @@ where
     /// `min_items_per_block` and `max_items_per_block`, though in some cases the blocks may be smaller than the
     /// min.
     pub fn new<D>(
-        state: &SegmentWriteState<D>,
+        state: &mut SegmentWriteState<D>,
         postings_writer: PW,
         min_items_in_block: i32,
         max_items_in_block: i32,
@@ -247,7 +247,7 @@ where
     }
     /// Expert constructor that allows configuring the version, used for bw tests
     pub fn new_with_version<D>(
-        state: &SegmentWriteState<D>,
+        state: &mut SegmentWriteState<D>,
         mut postings_writer: PW,
         min_items_in_block: i32,
         max_items_in_block: i32,
@@ -278,10 +278,7 @@ where
             &state.segment_suffix,
             lucene90_bttr_util::TERMS_EXTENSION,
         );
-        let mut terms_out = state
-            .directory
-            .lock()
-            .create_output(&terms_name, &state.context)?;
+        let mut terms_out = state.directory.create_output(&terms_name, &state.context)?;
         CodecUtil::write_index_header(
             &mut terms_out,
             lucene90_bttr_util::TERMS_CODEC_NAME,
@@ -294,10 +291,7 @@ where
             &state.segment_suffix,
             lucene90_bttr_util::TERMS_INDEX_EXTENSION,
         );
-        let mut index_out = state
-            .directory
-            .lock()
-            .create_output(&index_name, &state.context)?;
+        let mut index_out = state.directory.create_output(&index_name, &state.context)?;
         CodecUtil::write_index_header(
             &mut index_out,
             lucene90_bttr_util::TERMS_INDEX_CODEC_NAME,
@@ -310,10 +304,7 @@ where
             &state.segment_suffix,
             lucene90_bttr_util::TERMS_META_EXTENSION,
         );
-        let mut meta_out = state
-            .directory
-            .lock()
-            .create_output(&meta_name, &state.context)?;
+        let mut meta_out = state.directory.create_output(&meta_name, &state.context)?;
         CodecUtil::write_index_header(
             &mut meta_out,
             lucene90_bttr_util::TERMS_META_CODEC_NAME,

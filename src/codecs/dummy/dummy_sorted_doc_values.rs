@@ -44,7 +44,7 @@ impl DocIdSetIterator for DummySortedDocValues {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    fn slow_advance(&mut self, _target: i32) -> Result<i32> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

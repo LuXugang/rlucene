@@ -36,9 +36,7 @@ use crate::util::packed::direct_writer::{DirectWriter, direct_writer_util};
 use crate::util::packed::{PackedImpl, PackedInts, Writer};
 use crate::util::{SliceCopyOps, StringHelper};
 use once_cell::sync::Lazy;
-use parking_lot::Mutex;
 use std::collections::{HashSet, VecDeque};
-use std::sync::Arc;
 
 pub(crate) static FLAGS_BITS: Lazy<i32> = Lazy::new(|| {
     PackedInts::bits_required(
@@ -94,7 +92,7 @@ where
 {
     #[allow(clippy::too_many_arguments)]
     pub fn new<D1>(
-        directory: Arc<Mutex<D>>,
+        directory: &mut D,
         si: &SegmentInfo<D1>,
         segment_suffix: &str,
         context: &IOContext,
@@ -113,7 +111,7 @@ where
         let segment = si.name.clone();
         let compressor = compression_mode.new_compressor();
 
-        let mut meta_stream = directory.lock().create_output(
+        let mut meta_stream = directory.create_output(
             &IndexFileNames::segment_file_name(
                 &segment,
                 segment_suffix,
@@ -136,7 +134,7 @@ where
             meta_stream.get_file_pointer()
         );
 
-        let mut vectors_stream = directory.lock().create_output(
+        let mut vectors_stream = directory.create_output(
             &IndexFileNames::segment_file_name(
                 &segment,
                 segment_suffix,
@@ -844,7 +842,10 @@ where
         Ok(())
     }
 
-    fn finish(&mut self, num_docs: i32) -> Result<()> {
+    fn finish<D1>(&mut self, num_docs: i32, dir: &mut D1) -> Result<()>
+    where
+        D1: Directory,
+    {
         if !self.pending_docs.is_empty() {
             self.flush(true)?;
         }
@@ -860,6 +861,7 @@ where
             num_docs,
             self.vectors_stream.get_file_pointer(),
             &mut self.meta_stream,
+            dir,
         )?;
 
         self.meta_stream.write_vlong(self.num_chunks)?;

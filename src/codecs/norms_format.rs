@@ -30,7 +30,7 @@ pub trait NormsFormat {
     /// * `state` - The write state containing segment info, directory, etc.
     fn norms_consumer<D, D1>(
         &self,
-        state: &SegmentWriteState<D>,
+        state: &mut SegmentWriteState<D>,
         segment_info: &SegmentInfo<D1>,
     ) -> Result<NormsConsumerEnum<D::IndexOutput>>
     where

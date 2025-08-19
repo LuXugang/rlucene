@@ -121,7 +121,7 @@ impl CharTermAttribute for CharTermAttributeImpl {
         self
     }
 
-    fn append_range(&mut self, csq: &str, start: usize, end: usize) -> &mut Self {
+    fn append_range(&mut self, _csq: &str, _start: usize, _end: usize) -> &mut Self {
         todo!()
     }
 

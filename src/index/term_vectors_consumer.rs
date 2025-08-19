@@ -203,7 +203,7 @@ where
     }
     pub(crate) fn flush<DM, D1>(
         &mut self,
-        state: &SegmentWriteState<D>,
+        state: &mut SegmentWriteState<D>,
         sort_map: &Option<Rc<DM>>,
         codec: &impl Codec,
         info: &SegmentInfo<D1>,
@@ -221,11 +221,17 @@ where
             self.fill(num_docs)?;
             match self.sub {
                 Some(ref mut sub) => {
-                    sub.writer.as_mut().unwrap().finish(num_docs)?;
+                    sub.writer
+                        .as_mut()
+                        .unwrap()
+                        .finish(num_docs, state.directory)?;
                     let _ = sub.writer.take();
                 },
                 None => {
-                    self.writer.as_mut().unwrap().finish(num_docs)?;
+                    self.writer
+                        .as_mut()
+                        .unwrap()
+                        .finish(num_docs, state.directory)?;
                     let _ = self.writer.take();
                 },
             }
@@ -263,7 +269,7 @@ where
                     let context = IOContext::with_flush(flush_info)?;
 
                     self.writer = Option::from(codec.term_vectors_format().vectors_writer(
-                        Arc::clone(&self.directory),
+                        &mut *self.directory.lock(),
                         info,
                         &context,
                     )?)
@@ -288,7 +294,7 @@ pub(crate) trait TermVectorsConsumerBase {
     type Directory: Directory;
     fn flush<DM, D1>(
         &mut self,
-        state: &SegmentWriteState<Self::Directory>,
+        state: &mut SegmentWriteState<Self::Directory>,
         sort_map: &Option<Rc<DM>>,
         codec: &impl Codec,
         info: &SegmentInfo<D1>,

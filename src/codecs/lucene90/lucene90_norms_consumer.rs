@@ -45,7 +45,7 @@ where
 }
 impl<O: IndexOutput> Lucene90NormsConsumer<O> {
     pub fn new<D, D1>(
-        state: &SegmentWriteState<D>,
+        state: &mut SegmentWriteState<D>,
         data_codec: &str,
         data_extension: &str,
         meta_codec: &str,
@@ -61,8 +61,7 @@ impl<O: IndexOutput> Lucene90NormsConsumer<O> {
             &state.segment_suffix,
             data_extension,
         );
-        let mut dir = state.directory.lock();
-        let mut data = dir.create_output(&data_name, &state.context)?;
+        let mut data = state.directory.create_output(&data_name, &state.context)?;
         CodecUtil::write_index_header(
             &mut data,
             data_codec,
@@ -76,7 +75,7 @@ impl<O: IndexOutput> Lucene90NormsConsumer<O> {
             &state.segment_suffix,
             meta_extension,
         );
-        let mut meta = dir.create_output(&meta_name, &state.context)?;
+        let mut meta = state.directory.create_output(&meta_name, &state.context)?;
         CodecUtil::write_index_header(
             &mut meta,
             meta_codec,

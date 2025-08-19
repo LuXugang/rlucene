@@ -333,18 +333,18 @@ where
 
             let field_infos = Rc::new(FieldInfos::new(vec![field_info.clone()])?);
 
-            let tracking_dir = Arc::new(Mutex::new(TrackingDirectoryWrapper::new(dir.clone())));
+            let mut tracking_dir = TrackingDirectoryWrapper::new(dir.clone());
 
-            let state = SegmentWriteState::with_suffix(
+            let mut state = SegmentWriteState::with_suffix(
                 None,
-                tracking_dir,
+                &mut tracking_dir,
                 field_infos,
                 updates_context,
                 &segment_suffix,
             );
 
             {
-                let mut fields_consumer = dv_format.fields_consumer(&state, &info.info)?;
+                let mut fields_consumer = dv_format.fields_consumer(&mut state, &info.info)?;
 
                 let update_supplier = FunctionImpl::new(field_info.clone(), updates_to_apply);
 
@@ -374,10 +374,7 @@ where
 
             info.advance_doc_values_gen();
             debug_assert!(!field_files.contains_key(&field_info.number));
-            field_files.insert(
-                field_info.number,
-                state.directory.lock().take_created_files(),
-            );
+            field_files.insert(field_info.number, state.directory.take_created_files());
         }
         Ok(())
     }

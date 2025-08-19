@@ -18,10 +18,8 @@ use std::cell::RefCell;
 use std::env;
 use std::mem::discriminant;
 use std::rc::Rc;
-use std::sync::Arc;
 
 use once_cell::sync::Lazy;
-use parking_lot::Mutex;
 
 use crate::codecs::CodecUtil;
 use crate::codecs::compressing::lucene90_compressing_stored_fields_reader::Lucene90CompressingStoredFieldsReader;
@@ -257,7 +255,7 @@ where
 {
     #[allow(clippy::too_many_arguments)]
     pub fn new<D1>(
-        directory: Arc<Mutex<D>>,
+        directory: &mut D,
         si: &SegmentInfo<D1>,
         segment_suffix: &str,
         context: &IOContext,
@@ -282,15 +280,14 @@ where
         let mut meta_stream;
         let mut fields_stream;
         {
-            let mut dir = directory.lock();
-            meta_stream = dir.create_output(&meta_file, context)?;
+            meta_stream = directory.create_output(&meta_file, context)?;
 
             let fields_file = IndexFileNames::segment_file_name(
                 &segment,
                 segment_suffix,
                 lucene90_csfw_util::FIELDS_EXTENSION,
             );
-            fields_stream = dir.create_output(&fields_file, context)?;
+            fields_stream = directory.create_output(&fields_file, context)?;
         }
 
         let index_writer = FieldsIndexWriter::new(
@@ -727,7 +724,10 @@ where
         self.buffered_docs.write_string(value)?;
         Ok(())
     }
-    fn finish(&mut self, num_docs: i32) -> Result<()> {
+    fn finish<D1>(&mut self, num_docs: i32, dir: &mut D1) -> Result<()>
+    where
+        D1: Directory,
+    {
         if self.num_buffered_docs > 0 {
             self.flush(true)?;
         } else {
@@ -745,6 +745,7 @@ where
             num_docs,
             self.fields_stream.get_file_pointer(),
             &mut self.meta_stream,
+            dir,
         )?;
 
         self.meta_stream.write_vlong(self.num_chunks)?;
@@ -759,9 +760,10 @@ where
         Ok(())
     }
 
-    fn merge<I>(&mut self, merge_state: &mut MergeState<I>) -> Result<i32>
+    fn merge<I, D1>(&mut self, merge_state: &mut MergeState<I>, dir: &mut D1) -> Result<i32>
     where
         I: IndexInput,
+        D1: Directory,
         Self: Sized,
     {
         let matching_readers = MatchingReaders::new(merge_state)?;
@@ -836,7 +838,7 @@ where
             }
         }
 
-        self.finish(doc_count)?;
+        self.finish(doc_count, dir)?;
         Ok(doc_count)
     }
 }

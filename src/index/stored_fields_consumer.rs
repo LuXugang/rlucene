@@ -71,7 +71,7 @@ where
             None => {
                 if self.writer.is_none() {
                     let writer = codec.stored_fields_format().fields_writer(
-                        self.directory.clone(),
+                        &mut *self.directory.lock(),
                         info,
                         &IOContext::default_io_context()?,
                     )?;
@@ -172,6 +172,7 @@ where
         &mut self,
         _sort_map: Option<Rc<DM>>,
         info: &SegmentInfo<D1>,
+        dir: &mut D,
     ) -> Result<()>
     where
         DM: DocMap,
@@ -179,11 +180,12 @@ where
     {
         match self.sub {
             Some(ref mut sub) => {
-                sub.writer.as_mut().unwrap().finish(info.max_doc()?)?;
+                sub.writer.as_mut().unwrap().finish(info.max_doc()?, dir)?;
                 let _ = sub.writer.take();
+                unimplemented!("这里要调用sub的flush方法");
             },
             None => {
-                self.writer.as_mut().unwrap().finish(info.max_doc()?)?;
+                self.writer.as_mut().unwrap().finish(info.max_doc()?, dir)?;
                 let _ = self.writer.take();
             },
         }
@@ -205,7 +207,7 @@ pub(crate) trait StoredFieldsConsumerBase {
         D1: Directory;
     fn flush<DM, D1>(
         &mut self,
-        state: &SegmentWriteState<Self::Directory>,
+        state: &mut SegmentWriteState<Self::Directory>,
         sort_map: Option<Rc<DM>>,
         codec: &impl Codec,
         info: &mut SegmentInfo<D1>,

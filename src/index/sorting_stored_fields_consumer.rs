@@ -88,7 +88,7 @@ where
             10,
         )?;
         self.writer = Some(stored_fields_format.fields_writer(
-            self.tmp_directory.clone(),
+            &mut *self.tmp_directory.lock(),
             info,
             &IOContext::default_io_context()?,
         )?);
@@ -98,7 +98,7 @@ where
 
     fn flush<DM, D1>(
         &mut self,
-        state: &SegmentWriteState<Self::Directory>,
+        state: &mut SegmentWriteState<Self::Directory>,
         sort_map: Option<Rc<DM>>,
         codec: &impl Codec,
         info: &mut SegmentInfo<D1>,
@@ -116,11 +116,10 @@ where
         )?;
         // Don't pull a merge instance, since merge instances optimize for
         // sequential access while we consume stored fields in random order here.
-        let mut sort_writer = codec.stored_fields_format().fields_writer(
-            state.directory.clone(),
-            info,
-            &state.context,
-        )?;
+        let mut sort_writer =
+            codec
+                .stored_fields_format()
+                .fields_writer(state.directory, info, &state.context)?;
 
         reader.check_integrity()?;
         let mut visitor = CopyVisitor;
@@ -136,7 +135,7 @@ where
             sort_writer.finish_document()?;
         }
 
-        sort_writer.finish(max_doc)?;
+        sort_writer.finish(max_doc, state.directory)?;
 
         let name_map: Vec<String> = tmp_dir.get_temporary_files().into_values().collect();
         let names: Vec<&str> = name_map.iter().map(String::as_str).collect();

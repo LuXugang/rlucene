@@ -26,7 +26,7 @@ pub trait PostingsFormat {
     /// Writes a new segment
     fn fields_consumer<D: Directory>(
         &self,
-        state: &SegmentWriteState<D>,
+        state: &mut SegmentWriteState<D>,
         segment_info: &SegmentInfo<D>,
     ) -> Result<FieldsConsumerEnum<D::IndexOutput>>;
     /// Reads a segment. **NOTE**: by the time this call returns, it must hold open any files it will need

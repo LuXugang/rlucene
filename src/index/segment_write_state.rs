@@ -15,9 +15,6 @@
  * limitations under the License.
  */
 use std::rc::Rc;
-use std::sync::Arc;
-
-use parking_lot::Mutex;
 
 use crate::index::field_infos::FieldInfos;
 use crate::store::IOContext;
@@ -28,7 +25,7 @@ use crate::util::info_stream::InfoStreamLock;
 /// Holder struct for common parameters used during write.
 ///
 /// @lucene.experimental
-pub struct SegmentWriteState<D>
+pub struct SegmentWriteState<'a, D>
 where
     D: Directory,
 {
@@ -36,7 +33,7 @@ where
     pub info_stream: Option<InfoStreamLock>,
 
     /// Directory where this segment will be written to.
-    pub directory: Arc<Mutex<D>>,
+    pub directory: &'a mut D,
 
     /// FieldInfos describing all fields in this segment.
     pub field_infos: Rc<FieldInfos>,
@@ -67,14 +64,14 @@ where
     pub context: Rc<IOContext>,
 }
 #[allow(unused)]
-impl<D> SegmentWriteState<D>
+impl<'a, D> SegmentWriteState<'a, D>
 where
     D: Directory,
 {
     /// Constructor without suffix.
     pub(crate) fn new(
         info_stream: Option<InfoStreamLock>,
-        directory: Arc<Mutex<D>>,
+        directory: &'a mut D,
         field_infos: Rc<FieldInfos>,
         context: Rc<IOContext>,
     ) -> Self {
@@ -84,7 +81,7 @@ where
     /// Constructor with segment suffix.
     pub(crate) fn with_suffix(
         info_stream: Option<InfoStreamLock>,
-        directory: Arc<Mutex<D>>,
+        directory: &'a mut D,
         field_infos: Rc<FieldInfos>,
         context: Rc<IOContext>,
         segment_suffix: &str,
@@ -103,10 +100,13 @@ where
     }
 
     /// Create a shallow copy of SegmentWriteState with a new segment suffix.
-    pub fn copy_with_suffix(state: &SegmentWriteState<D>, segment_suffix: String) -> Self {
+    pub fn copy_with_suffix(
+        state: &'a mut SegmentWriteState<'a, D>,
+        segment_suffix: String,
+    ) -> Self {
         Self {
             info_stream: state.info_stream.clone(),
-            directory: Arc::clone(&state.directory),
+            directory: state.directory,
             field_infos: Rc::clone(&state.field_infos),
             context: Rc::clone(&state.context),
             segment_suffix,

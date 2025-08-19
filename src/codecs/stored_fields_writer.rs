@@ -94,16 +94,19 @@ pub trait StoredFieldsWriter {
      * but a Codec should check that this is the case to detect the JRE bug
      * described in LUCENE-1282.
      */
-    fn finish(&mut self, num_docs: i32) -> Result<()>;
+    fn finish<D>(&mut self, num_docs: i32, dir: &mut D) -> Result<()>
+    where
+        D: Directory;
     /// Merges in the stored fields from the readers in `mergeState`. The
     /// default implementation skips over deleted documents, and uses
     /// [`startDocument()`](StoredFieldsWriter::start_document), `writeField`,
     /// and [`finish(int)`](StoredFieldsWriter::finish), returning the number of
     /// documents that were written. Implementations can override this
     /// method for more sophisticated merging (bulk-byte copying, etc).
-    fn merge<I>(&mut self, merge_state: &mut MergeState<I>) -> Result<i32>
+    fn merge<I, D>(&mut self, merge_state: &mut MergeState<I>, dir: &mut D) -> Result<i32>
     where
         I: IndexInput,
+        D: Directory,
         Self: Sized,
     {
         let mut subs = Vec::with_capacity(merge_state.stored_fields_readers.len());
@@ -137,7 +140,7 @@ pub trait StoredFieldsWriter {
             doc_count += 1;
         }
 
-        self.finish(doc_count)?;
+        self.finish(doc_count, dir)?;
         Ok(doc_count)
     }
 }
@@ -387,19 +390,23 @@ where
         }
     }
 
-    fn finish(&mut self, num_docs: i32) -> Result<()> {
+    fn finish<D1>(&mut self, num_docs: i32, dir: &mut D1) -> Result<()>
+    where
+        D1: Directory,
+    {
         match self {
-            StoredFieldsWriterEnum::Lucene90(writer) => writer.finish(num_docs),
+            StoredFieldsWriterEnum::Lucene90(writer) => writer.finish(num_docs, dir),
         }
     }
 
-    fn merge<I>(&mut self, merge_state: &mut MergeState<I>) -> Result<i32>
+    fn merge<I, D1>(&mut self, merge_state: &mut MergeState<I>, dir: &mut D1) -> Result<i32>
     where
         I: IndexInput,
+        D1: Directory,
         Self: Sized,
     {
         match self {
-            StoredFieldsWriterEnum::Lucene90(writer) => writer.merge(merge_state),
+            StoredFieldsWriterEnum::Lucene90(writer) => writer.merge(merge_state, dir),
         }
     }
 }

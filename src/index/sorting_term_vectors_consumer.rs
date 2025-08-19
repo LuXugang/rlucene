@@ -198,7 +198,7 @@ where
 
     fn flush<DM, D1>(
         &mut self,
-        state: &SegmentWriteState<Self::Directory>,
+        state: &mut SegmentWriteState<Self::Directory>,
         sort_map: &Option<Rc<DM>>,
         codec: &impl Codec,
         segment_info: &SegmentInfo<D1>,
@@ -219,7 +219,7 @@ where
             // sequential access while term vectors will likely be accessed in random
             // order here.
             let mut writer = codec.term_vectors_format().vectors_writer(
-                state.directory.clone(),
+                state.directory,
                 segment_info,
                 &state.context.clone(),
             )?;
@@ -234,7 +234,7 @@ where
                 let vectors = reader.get(read_id)?;
                 Self::write_term_vectors(&mut writer, &vectors, &state.field_infos)?;
             }
-            writer.finish(max_doc)?;
+            writer.finish(max_doc, state.directory)?;
             let name_map: Vec<String> = tmp_dir.get_temporary_files().into_values().collect();
             let names: Vec<&str> = name_map.iter().map(String::as_str).collect();
             IOUtils::delete_files(&mut *tmp_dir, names.as_slice())?;
@@ -261,7 +261,7 @@ where
             10,
         )?;
         self.writer = Option::from(term_vectors_format.vectors_writer(
-            self.tmp_directory.clone(),
+            &mut *self.tmp_directory.lock(),
             info,
             &context,
         )?);

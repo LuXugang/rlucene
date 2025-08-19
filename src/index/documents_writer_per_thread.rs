@@ -492,206 +492,210 @@ where
 
         self.segment_info.set_max_doc(self.num_docs_in_ram)?;
 
-        let mut flush_state = SegmentWriteState::new(
-            Some(self.info_stream.clone()),
-            self.directory.clone(),
-            Rc::new(self.field_infos.finish()?),
-            Rc::new(IOContext::with_flush(FlushInfo::new(
-                self.num_docs_in_ram,
-                self.last_committed_bytes_used.load(Ordering::SeqCst),
-            ))?),
-        );
-
-        let start_mb_used =
-            self.last_committed_bytes_used.load(Ordering::SeqCst) as f64 / 1024.0 / 1024.0;
-
-        // Apply delete-by-docID now (delete-byDocID only
-        // happens when an exception is hit processing that
-        // doc, eg if analyzer has some problem w/ the text):
-        if self.num_deleted_doc_ids > 0 {
-            let mut live_docs = FixedBitSet::new(self.num_docs_in_ram);
-            live_docs.set_with_range(0, self.num_docs_in_ram);
-
-            for &doc_id in &self.delete_doc_ids {
-                live_docs.clear_with_index(doc_id);
-            }
-
-            flush_state.live_docs = Some(live_docs);
-            flush_state.del_count_on_flush = self.num_deleted_doc_ids;
-            self.delete_doc_ids.clear();
-            self.num_deleted_doc_ids = 0;
-        }
-
-        if self.aborted.load(Ordering::SeqCst) {
-            let mut info_stream = self.info_stream.lock();
-            if info_stream.enabled("DWPT") {
-                info_stream.message("DWPT", "flush: skip because aborting is set");
-            }
-            return Ok(None);
-        }
-
-        let t0 = std::time::Instant::now();
-
-        {
-            let mut info_stream = self.info_stream.lock();
-            if info_stream.enabled("DWPT") {
-                info_stream.message(
-                    "DWPT",
-                    &format!(
-                        "flush postings as segment {} numDocs={}",
-                        self.segment_info.name, self.num_docs_in_ram
-                    ),
-                );
-            }
-        }
-
         let result = (|| -> Result<Option<FlushedSegment<D, Q>>> {
-            let mut soft_deleted_docs =
-                if let Some(field) = index_writer_config.get_soft_deletes_field() {
-                    self.indexing_chain.get_has_doc_values(field)?
+            let (mut fs, sort_map, t0) = {
+                let dir = &mut *self.directory.lock();
+                let mut flush_state = SegmentWriteState::new(
+                    Some(self.info_stream.clone()),
+                    dir,
+                    Rc::new(self.field_infos.finish()?),
+                    Rc::new(IOContext::with_flush(FlushInfo::new(
+                        self.num_docs_in_ram,
+                        self.last_committed_bytes_used.load(Ordering::SeqCst),
+                    ))?),
+                );
+
+                let start_mb_used =
+                    self.last_committed_bytes_used.load(Ordering::SeqCst) as f64 / 1024.0 / 1024.0;
+
+                // Apply delete-by-docID now (delete-byDocID only
+                // happens when an exception is hit processing that
+                // doc, eg if analyzer has some problem w/ the text):
+                if self.num_deleted_doc_ids > 0 {
+                    let mut live_docs = FixedBitSet::new(self.num_docs_in_ram);
+                    live_docs.set_with_range(0, self.num_docs_in_ram);
+
+                    for &doc_id in &self.delete_doc_ids {
+                        live_docs.clear_with_index(doc_id);
+                    }
+
+                    flush_state.live_docs = Some(live_docs);
+                    flush_state.del_count_on_flush = self.num_deleted_doc_ids;
+                    self.delete_doc_ids.clear();
+                    self.num_deleted_doc_ids = 0;
+                }
+
+                if self.aborted.load(Ordering::SeqCst) {
+                    let mut info_stream = self.info_stream.lock();
+                    if info_stream.enabled("DWPT") {
+                        info_stream.message("DWPT", "flush: skip because aborting is set");
+                    }
+                    return Ok(None);
+                }
+
+                let t0 = std::time::Instant::now();
+
+                {
+                    let mut info_stream = self.info_stream.lock();
+                    if info_stream.enabled("DWPT") {
+                        info_stream.message(
+                            "DWPT",
+                            &format!(
+                                "flush postings as segment {} numDocs={}",
+                                self.segment_info.name, self.num_docs_in_ram
+                            ),
+                        );
+                    }
+                }
+                let mut soft_deleted_docs =
+                    if let Some(field) = index_writer_config.get_soft_deletes_field() {
+                        self.indexing_chain.get_has_doc_values(field)?
+                    } else {
+                        None
+                    };
+
+                let sort_map = self.indexing_chain.flush(
+                    &mut flush_state,
+                    &mut self.segment_info,
+                    Some(&mut self.pending_updates),
+                    index_writer_config,
+                )?;
+
+                flush_state.soft_del_count_on_flush = if let Some(ref mut iter) = soft_deleted_docs
+                {
+                    let cnt = pending_soft_deletes_util::count_soft_deletes(
+                        Some(iter),
+                        flush_state.live_docs.as_ref(),
+                    )?;
+                    debug_assert!(
+                        self.segment_info.max_doc()? >= (cnt + flush_state.del_count_on_flush)
+                    );
+                    cnt
                 } else {
-                    None
+                    0
                 };
 
-            let sort_map = self.indexing_chain.flush(
-                &mut flush_state,
-                &mut self.segment_info,
-                Some(&mut self.pending_updates),
-                index_writer_config,
-            )?;
+                // We clear this here because we already resolved them (private to this segment) when writing
+                // postings:
+                self.pending_updates.clear_delete_terms();
+                let files = self.directory.lock().take_created_files();
+                self.segment_info.set_files(files)?;
 
-            flush_state.soft_del_count_on_flush = if let Some(ref mut iter) = soft_deleted_docs {
-                let cnt = pending_soft_deletes_util::count_soft_deletes(
-                    Some(iter),
-                    flush_state.live_docs.as_ref(),
+                let dir = self.segment_info.dir.clone();
+                let segment_info_per_commit = SegmentCommitInfo::new(
+                    std::mem::replace(&mut self.segment_info, SegmentInfo::dummy(dir)),
+                    0,
+                    flush_state.soft_del_count_on_flush,
+                    -1,
+                    -1,
+                    -1,
+                    Some(StringHelper::random_id()),
                 )?;
-                debug_assert!(
-                    self.segment_info.max_doc()? >= (cnt + flush_state.del_count_on_flush)
-                );
-                cnt
-            } else {
-                0
-            };
 
-            // We clear this here because we already resolved them (private to this segment) when writing
-            // postings:
-            self.pending_updates.clear_delete_terms();
-            let files = self.directory.lock().take_created_files();
-            self.segment_info.set_files(files)?;
-
-            let dir = self.segment_info.dir.clone();
-            let segment_info_per_commit = SegmentCommitInfo::new(
-                std::mem::replace(&mut self.segment_info, SegmentInfo::dummy(dir)),
-                0,
-                flush_state.soft_del_count_on_flush,
-                -1,
-                -1,
-                -1,
-                Some(StringHelper::random_id()),
-            )?;
-
-            {
-                let mut info = self.info_stream.lock();
-                if info.enabled("DWPT") {
-                    info.message(
-                        "DWPT",
-                        &format!(
-                            "new segment has {} deleted docs",
-                            flush_state.del_count_on_flush
-                        ),
-                    );
-                    info.message(
-                        "DWPT",
-                        &format!(
-                            "new segment has {} soft-deleted docs",
-                            flush_state.soft_del_count_on_flush
-                        ),
-                    );
-                    info.message(
-                        "DWPT",
-                        &format!(
-                            "new segment has {}; {}; {}; {}; {}",
-                            if flush_state.field_infos.has_term_vectors() {
-                                "vectors"
-                            } else {
-                                "no vectors"
-                            },
-                            if flush_state.field_infos.has_norms() {
-                                "norms"
-                            } else {
-                                "no norms"
-                            },
-                            if flush_state.field_infos.has_doc_values() {
-                                "docValues"
-                            } else {
-                                "no docValues"
-                            },
-                            if flush_state.field_infos.has_prox() {
-                                "prox"
-                            } else {
-                                "no prox"
-                            },
-                            if flush_state.field_infos.has_freq() {
-                                "freqs"
-                            } else {
-                                "no freqs"
-                            }
-                        ),
-                    );
-                    info.message(
-                        "DWPT",
-                        &format!("flushedFiles={:?}", segment_info_per_commit.files()),
-                    );
-                    info.message(
-                        "DWPT",
-                        &format!("flushed codec={}", index_writer_config.get_codec()),
-                    );
+                {
+                    let mut info = self.info_stream.lock();
+                    if info.enabled("DWPT") {
+                        info.message(
+                            "DWPT",
+                            &format!(
+                                "new segment has {} deleted docs",
+                                flush_state.del_count_on_flush
+                            ),
+                        );
+                        info.message(
+                            "DWPT",
+                            &format!(
+                                "new segment has {} soft-deleted docs",
+                                flush_state.soft_del_count_on_flush
+                            ),
+                        );
+                        info.message(
+                            "DWPT",
+                            &format!(
+                                "new segment has {}; {}; {}; {}; {}",
+                                if flush_state.field_infos.has_term_vectors() {
+                                    "vectors"
+                                } else {
+                                    "no vectors"
+                                },
+                                if flush_state.field_infos.has_norms() {
+                                    "norms"
+                                } else {
+                                    "no norms"
+                                },
+                                if flush_state.field_infos.has_doc_values() {
+                                    "docValues"
+                                } else {
+                                    "no docValues"
+                                },
+                                if flush_state.field_infos.has_prox() {
+                                    "prox"
+                                } else {
+                                    "no prox"
+                                },
+                                if flush_state.field_infos.has_freq() {
+                                    "freqs"
+                                } else {
+                                    "no freqs"
+                                }
+                            ),
+                        );
+                        info.message(
+                            "DWPT",
+                            &format!("flushedFiles={:?}", segment_info_per_commit.files()),
+                        );
+                        info.message(
+                            "DWPT",
+                            &format!("flushed codec={}", index_writer_config.get_codec()),
+                        );
+                    }
                 }
-            }
 
-            let segment_deletes = if self.pending_updates.delete_queries.is_empty()
-                && self
-                    .pending_updates
-                    .num_field_updates
-                    .load(Ordering::SeqCst)
-                    == 0
-            {
-                self.pending_updates.clear();
-                None
-            } else {
-                Some(std::mem::replace(
-                    &mut self.pending_updates,
-                    BufferedUpdates::new_sync("dummy"),
-                ))
-            };
+                let segment_deletes = if self.pending_updates.delete_queries.is_empty()
+                    && self
+                        .pending_updates
+                        .num_field_updates
+                        .load(Ordering::SeqCst)
+                        == 0
+                {
+                    self.pending_updates.clear();
+                    None
+                } else {
+                    Some(std::mem::replace(
+                        &mut self.pending_updates,
+                        BufferedUpdates::new_sync("dummy"),
+                    ))
+                };
 
-            {
-                let mut info = self.info_stream.lock();
-                if info.enabled("DWPT") {
-                    let new_size_mb =
-                        segment_info_per_commit.size_in_bytes()? as f64 / 1024.0 / 1024.0;
-                    info.message(
-                        "DWPT",
-                        &format!(
-                            "flushed: segment={} ramUsed={:.2} MB newFlushedSize={:.2} MB docs/MB={:.2}",
-                            self.segment_info.name,
-                            start_mb_used,
-                            new_size_mb,
-                            segment_info_per_commit.info.max_doc()? as f64 / new_size_mb
-                        ),
-                    );
+                {
+                    let mut info = self.info_stream.lock();
+                    if info.enabled("DWPT") {
+                        let new_size_mb =
+                            segment_info_per_commit.size_in_bytes()? as f64 / 1024.0 / 1024.0;
+                        info.message(
+                            "DWPT",
+                            &format!(
+                                "flushed: segment={} ramUsed={:.2} MB newFlushedSize={:.2} MB docs/MB={:.2}",
+                                self.segment_info.name,
+                                start_mb_used,
+                                new_size_mb,
+                                segment_info_per_commit.info.max_doc()? as f64 / new_size_mb
+                            ),
+                        );
+                    }
                 }
-            }
 
-            let mut fs = FlushedSegment::new(
-                self.info_stream.clone(),
-                segment_info_per_commit,
-                flush_state.field_infos.clone(),
-                segment_deletes,
-                flush_state.live_docs.take(),
-                flush_state.del_count_on_flush,
-                sort_map.clone(),
-            )?;
+                let fs = FlushedSegment::new(
+                    self.info_stream.clone(),
+                    segment_info_per_commit,
+                    flush_state.field_infos.clone(),
+                    segment_deletes,
+                    flush_state.live_docs.take(),
+                    flush_state.del_count_on_flush,
+                    sort_map.clone(),
+                )?;
+                (fs, sort_map, t0)
+            };
             self.seal_flushed_segment(&mut fs, sort_map, flush_notifications, index_writer_config)?;
 
             {

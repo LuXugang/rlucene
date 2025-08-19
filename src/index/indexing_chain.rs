@@ -293,13 +293,6 @@ where
             );
         }
 
-        let read_state = SegmentReadState::with_suffix(
-            state.directory.clone(),
-            state.field_infos.clone(),
-            Rc::new(IOContext::default_io_context()?),
-            &state.segment_suffix,
-        );
-
         // write doc-values
         let t0 = Instant::now();
         self.write_doc_values(state, sort_map.clone(), segment_info, index_writer_config)?;
@@ -335,7 +328,7 @@ where
             segment_info,
         )?;
         self.stored_fields_consumer
-            .flush(sort_map.clone(), segment_info)?;
+            .flush(sort_map.clone(), segment_info, state.directory)?;
         if self.info_stream.lock().enabled("IW") {
             self.info_stream.lock().message(
                 "IW",
@@ -358,7 +351,12 @@ where
                 fp_idx = pf.next;
             }
         }
-
+        let read_state = SegmentReadState::with_suffix(
+            state.directory,
+            state.field_infos.clone(),
+            Rc::new(IOContext::default_io_context()?),
+            &state.segment_suffix,
+        );
         let norms = if read_state.field_infos.has_norms() {
             Some(
                 index_writer_config
@@ -401,7 +399,7 @@ where
         // FieldInfo.storePayload.
         let t0 = Instant::now();
         index_writer_config.get_codec().field_infos_format().write(
-            &mut *state.directory.lock(),
+            state.directory,
             segment_info,
             "",
             &state.field_infos,
@@ -463,7 +461,7 @@ where
     /// Writes all buffered doc values.
     fn write_doc_values<DM, D1>(
         &mut self,
-        state: &SegmentWriteState<D>,
+        state: &mut SegmentWriteState<D>,
         sort_map: Option<Rc<DM>>,
         segment_info: &SegmentInfo<D1>,
         index_writer_config: &impl LiveIndexWriterConfig,
@@ -524,7 +522,7 @@ where
 
     fn write_norms<DM, D1>(
         &mut self,
-        state: &SegmentWriteState<D>,
+        state: &mut SegmentWriteState<D>,
         sort_map: Option<Rc<DM>>,
         segment_info: &SegmentInfo<D1>,
         index_writer_config: &impl LiveIndexWriterConfig,
