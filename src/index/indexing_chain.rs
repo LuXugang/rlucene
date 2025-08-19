@@ -351,10 +351,11 @@ where
                 fp_idx = pf.next;
             }
         }
+        let io_context = IOContext::default_io_context()?;
         let read_state = SegmentReadState::with_suffix(
             state.directory,
             state.field_infos.clone(),
-            Rc::new(IOContext::default_io_context()?),
+            &io_context,
             &state.segment_suffix,
         );
         let norms = if read_state.field_infos.has_norms() {

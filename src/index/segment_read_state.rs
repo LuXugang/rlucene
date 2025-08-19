@@ -34,7 +34,7 @@ where
     pub field_infos: Rc<FieldInfos>,
 
     /// IOContext to pass to Directory::open_input.
-    pub context: Rc<IOContext>,
+    pub context: &'a IOContext,
 
     /// Unique suffix for any postings files read for this segment.
     pub segment_suffix: String,
@@ -45,7 +45,7 @@ where
     D: Directory,
 {
     /// Creates a SegmentReadState with an empty segment suffix.
-    pub fn new(directory: &'a mut D, field_infos: Rc<FieldInfos>, context: Rc<IOContext>) -> Self {
+    pub fn new(directory: &'a mut D, field_infos: Rc<FieldInfos>, context: &'a IOContext) -> Self {
         Self::with_suffix(directory, field_infos, context, "")
     }
 
@@ -53,7 +53,7 @@ where
     pub fn with_suffix(
         directory: &'a mut D,
         field_infos: Rc<FieldInfos>,
-        context: Rc<IOContext>,
+        context: &'a IOContext,
         segment_suffix: &str,
     ) -> Self {
         Self {
@@ -70,7 +70,7 @@ where
         Self {
             directory: other.directory,
             field_infos: other.field_infos.clone(),
-            context: other.context.clone(),
+            context: other.context,
             segment_suffix: segment_suffix.to_string(),
         }
     }

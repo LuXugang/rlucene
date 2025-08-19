@@ -74,7 +74,7 @@ where
     pub(crate) fn new(
         dir: Arc<Mutex<D>>,
         si: SegmentCommitInfo<D>,
-        context: Rc<IOContext>,
+        context: &IOContext,
     ) -> Result<Self> {
         let codec = get_default_code();
         let use_compound_file = si.info.get_use_compound_file();
@@ -101,14 +101,14 @@ where
                 &mut cfs_dir,
                 &si.info,
                 "",
-                &context,
+                context,
             )?);
 
             let fields_reader_orig = codec.stored_fields_format().fields_reader(
                 &mut cfs_dir,
                 &si.info,
                 core_field_infos.clone(),
-                &context,
+                context,
             )?;
 
             let term_vectors_reader_orig = if core_field_infos.has_term_vectors() {
@@ -116,14 +116,13 @@ where
                     &mut cfs_dir,
                     &si.info,
                     core_field_infos.clone(),
-                    &context,
+                    context,
                 )?)
             } else {
                 None
             };
 
-            let read_state =
-                SegmentReadState::new(&mut cfs_dir, core_field_infos.clone(), context.clone());
+            let read_state = SegmentReadState::new(&mut cfs_dir, core_field_infos.clone(), context);
 
             let fields = if core_field_infos.has_postings() {
                 Some(

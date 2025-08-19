@@ -100,7 +100,7 @@ where
             lucene90_bttr_util::TERMS_EXTENSION,
         );
 
-        let mut terms_in = state.directory.open_input(&terms_name, &state.context)?;
+        let mut terms_in = state.directory.open_input(&terms_name, state.context)?;
 
         let version = CodecUtil::check_index_header(
             &mut terms_in,

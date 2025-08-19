@@ -168,7 +168,7 @@ where
                 &state.segment_suffix,
                 Lucene101PostingsFormat::POS_EXTENSION,
             );
-            let mut pos_in = state.directory.open_input(&pos_name, &state.context)?;
+            let mut pos_in = state.directory.open_input(&pos_name, state.context)?;
             CodecUtil::check_index_header(
                 &mut pos_in,
                 Lucene101PostingsFormat::POS_CODEC,
@@ -186,7 +186,7 @@ where
                     &state.segment_suffix,
                     Lucene101PostingsFormat::PAY_EXTENSION,
                 );
-                let mut pay = state.directory.open_input(&pay_name, &state.context)?;
+                let mut pay = state.directory.open_input(&pay_name, state.context)?;
                 CodecUtil::check_index_header(
                     &mut pay,
                     Lucene101PostingsFormat::PAY_CODEC,
