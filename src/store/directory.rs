@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use std::collections::HashSet;
-use std::fmt::Display;
+use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
 use parking_lot::Mutex;
@@ -24,8 +24,8 @@ use crate::index::IndexFileNames;
 use crate::store::buffered_checksum_index_input::BufferedChecksumIndexInput;
 use crate::store::data_output::DataOutput;
 use crate::store::index_input::IndexInput;
-use crate::store::lock::Lock;
-use crate::store::{IOContext, IndexOutput};
+use crate::store::lock::{EitherLock, Lock};
+use crate::store::{EitherIndexInput, EitherIndexOutput, IOContext, IndexOutput};
 use crate::util::error::lucene_error::Result;
 
 /// A `Directory` provides an abstraction layer for storing a list of files.
@@ -253,4 +253,161 @@ pub fn get_temp_file_name(prefix: &str, suffix: &str, counter: u64) -> String {
     let counter_str = format!("{counter:x}");
     let full_suffix = format!("{suffix}_{counter_str}");
     IndexFileNames::segment_file_name(prefix, &full_suffix, "tmp")
+}
+
+pub enum EitherDirectory<F, S> {
+    F(F),
+    S(S),
+}
+
+impl<F, S> Display for EitherDirectory<F, S>
+where
+    F: Directory,
+    S: Directory,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            EitherDirectory::F(f_dir) => f_dir.fmt(f),
+            EitherDirectory::S(s_dir) => s_dir.fmt(f),
+        }
+    }
+}
+
+impl<F, S> Directory for EitherDirectory<F, S>
+where
+    F: Directory,
+    S: Directory,
+{
+    fn list_all(&self) -> Result<Vec<String>> {
+        match self {
+            EitherDirectory::F(f) => f.list_all(),
+            EitherDirectory::S(s) => s.list_all(),
+        }
+    }
+
+    fn delete_file(&mut self, name: &str) -> Result<()> {
+        match self {
+            EitherDirectory::F(f) => f.delete_file(name),
+            EitherDirectory::S(s) => s.delete_file(name),
+        }
+    }
+
+    fn file_length(&self, name: &str) -> Result<i64> {
+        match self {
+            EitherDirectory::F(f) => f.file_length(name),
+            EitherDirectory::S(s) => s.file_length(name),
+        }
+    }
+
+    fn create_output(&mut self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
+        match self {
+            EitherDirectory::F(f) => Ok(EitherIndexOutput::F(f.create_output(name, context)?)),
+            EitherDirectory::S(s) => Ok(EitherIndexOutput::S(s.create_output(name, context)?)),
+        }
+    }
+
+    type IndexOutput = EitherIndexOutput<F::IndexOutput, S::IndexOutput>;
+
+    fn create_temp_output(
+        &mut self,
+        prefix: &str,
+        suffix: &str,
+        context: &IOContext,
+    ) -> Result<Self::IndexOutput> {
+        match self {
+            EitherDirectory::F(f) => Ok(EitherIndexOutput::F(
+                f.create_temp_output(prefix, suffix, context)?,
+            )),
+            EitherDirectory::S(s) => Ok(EitherIndexOutput::S(
+                s.create_temp_output(prefix, suffix, context)?,
+            )),
+        }
+    }
+
+    fn sync(&mut self, names: &[&str]) -> Result<()> {
+        match self {
+            EitherDirectory::F(f) => f.sync(names),
+            EitherDirectory::S(s) => s.sync(names),
+        }
+    }
+
+    fn sync_metadata(&mut self) -> Result<()> {
+        match self {
+            EitherDirectory::F(f) => f.sync_metadata(),
+            EitherDirectory::S(s) => s.sync_metadata(),
+        }
+    }
+
+    fn rename(&mut self, source: &str, dest: &str) -> Result<()> {
+        match self {
+            EitherDirectory::F(f) => f.rename(source, dest),
+            EitherDirectory::S(s) => s.rename(source, dest),
+        }
+    }
+
+    type IndexInput = EitherIndexInput<F::IndexInput, S::IndexInput>;
+
+    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
+        match self {
+            EitherDirectory::F(f) => Ok(EitherIndexInput::F(f.open_input(name, context)?)),
+            EitherDirectory::S(s) => Ok(EitherIndexInput::S(s.open_input(name, context)?)),
+        }
+    }
+
+    fn open_checksum_input(
+        &self,
+        name: &str,
+    ) -> Result<BufferedChecksumIndexInput<Self::IndexInput>> {
+        match self {
+            EitherDirectory::F(f) => Ok(BufferedChecksumIndexInput::new(EitherIndexInput::F(
+                f.open_input(name, &IOContext::read_once_io_context()?)?,
+            ))),
+            EitherDirectory::S(s) => Ok(BufferedChecksumIndexInput::new(EitherIndexInput::S(
+                s.open_input(name, &IOContext::read_once_io_context()?)?,
+            ))),
+        }
+    }
+
+    type Lock = EitherLock<F::Lock, S::Lock>;
+
+    fn obtain_lock(&mut self, name: &str) -> Result<Self::Lock> {
+        match self {
+            EitherDirectory::F(f) => Ok(EitherLock::F(f.obtain_lock(name)?)),
+            EitherDirectory::S(s) => Ok(EitherLock::S(s.obtain_lock(name)?)),
+        }
+    }
+
+    fn copy_from<T: Directory>(
+        &mut self,
+        from: Arc<Mutex<T>>,
+        src: &str,
+        dest: &str,
+        context: &IOContext,
+    ) -> Result<()> {
+        match self {
+            EitherDirectory::F(f) => f.copy_from(from, src, dest, context),
+            EitherDirectory::S(s) => s.copy_from(from, src, dest, context),
+        }
+    }
+
+    fn delete_files_ignoring_exceptions(&mut self, files: &[String]) {
+        match self {
+            EitherDirectory::F(f) => f.delete_files_ignoring_exceptions(files),
+            EitherDirectory::S(s) => s.delete_files_ignoring_exceptions(files),
+        }
+    }
+
+    fn get_pending_deletions(&mut self) -> Result<HashSet<String>> {
+        match self {
+            EitherDirectory::F(f) => f.get_pending_deletions(),
+            EitherDirectory::S(s) => s.get_pending_deletions(),
+        }
+    }
+    #[cfg(feature = "test_only")]
+    fn is_fs_directory(&self) -> bool {
+        match self {
+            EitherDirectory::F(f) => f.is_fs_directory(),
+            EitherDirectory::S(s) => s.is_fs_directory(),
+        }
+    }
 }
