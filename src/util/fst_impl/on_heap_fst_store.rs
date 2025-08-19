@@ -14,16 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 
 use crate::store::{DataInput, DataOutput};
 use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::fst_impl::fst::BytesReader;
+use crate::util::fst_impl::fst::EitherBytesReader;
 use crate::util::fst_impl::fst_compiler::fst_compiler_util;
 use crate::util::fst_impl::fst_reader::FstReader;
-use crate::util::fst_impl::read_write_data_output::{BytesReaderEnum, ReadWriteDataOutput};
+use crate::util::fst_impl::read_write_data_output::{BytesReaderImpl, ReadWriteDataOutput};
 use crate::util::fst_impl::reverse_bytes_reader::ReverseBytesReader;
 /// Provides storage of finite state machine (FST), using byte array or byte
 /// store allocated on heap.
@@ -70,17 +69,20 @@ impl Accountable for OnHeapFSTStore {
 }
 
 impl FstReader for OnHeapFSTStore {
-    type FstBytesReader = FstBytesReaderEnum;
+    type FstBytesReader = EitherBytesReader<
+        ReverseBytesReader,
+        EitherBytesReader<BytesReaderImpl, ReverseBytesReader>,
+    >;
 
     fn get_reverse_bytes_reader(&self) -> Result<Self::FstBytesReader> {
         if let Some(bytes_array) = &self.bytes_array {
-            return Ok(FstBytesReaderEnum::Reverse(ReverseBytesReader::new(
+            return Ok(EitherBytesReader::F(ReverseBytesReader::new(
                 bytes_array.clone(),
             )));
         }
 
         if let Some(data_output) = &self.data_output {
-            Ok(FstBytesReaderEnum::Bytes(
+            Ok(EitherBytesReader::S(
                 data_output.get_reverse_bytes_reader()?,
             ))
         } else {
@@ -109,58 +111,6 @@ impl FstReader for OnHeapFSTStore {
     fn init_reader(&mut self) {
         if let Some(data_output) = &mut self.data_output {
             data_output.init_reader();
-        }
-    }
-}
-pub enum FstBytesReaderEnum {
-    Reverse(ReverseBytesReader),
-    Bytes(BytesReaderEnum),
-}
-
-impl DataInput for FstBytesReaderEnum {
-    fn read_byte(&mut self) -> Result<u8> {
-        match self {
-            FstBytesReaderEnum::Reverse(reader) => reader.read_byte(),
-            FstBytesReaderEnum::Bytes(reader) => reader.read_byte(),
-        }
-    }
-
-    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()> {
-        match self {
-            FstBytesReaderEnum::Reverse(reader) => reader.read_bytes(b, offset, len),
-            FstBytesReaderEnum::Bytes(reader) => reader.read_bytes(b, offset, len),
-        }
-    }
-
-    fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
-        match self {
-            FstBytesReaderEnum::Reverse(reader) => reader.skip_bytes(num_bytes),
-            FstBytesReaderEnum::Bytes(reader) => reader.skip_bytes(num_bytes),
-        }
-    }
-}
-
-impl Display for FstBytesReaderEnum {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            FstBytesReaderEnum::Reverse(reader) => write!(f, "{reader}"),
-            FstBytesReaderEnum::Bytes(reader) => write!(f, "{reader}"),
-        }
-    }
-}
-
-impl BytesReader for FstBytesReaderEnum {
-    fn get_position(&self) -> i64 {
-        match self {
-            FstBytesReaderEnum::Reverse(reader) => reader.get_position(),
-            FstBytesReaderEnum::Bytes(reader) => reader.get_position(),
-        }
-    }
-
-    fn set_position(&mut self, pos: i64) {
-        match self {
-            FstBytesReaderEnum::Reverse(reader) => reader.set_position(pos),
-            FstBytesReaderEnum::Bytes(reader) => reader.set_position(pos),
         }
     }
 }

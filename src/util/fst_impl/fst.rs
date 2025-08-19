@@ -1412,6 +1412,75 @@ pub trait BytesReader: DataInput {
     fn set_position(&mut self, pos: i64);
 }
 
+pub enum EitherBytesReader<F, S> {
+    F(F),
+    S(S),
+}
+
+impl<F, S> DataInput for EitherBytesReader<F, S>
+where
+    F: BytesReader,
+    S: BytesReader,
+{
+    fn read_byte(&mut self) -> Result<u8> {
+        match self {
+            EitherBytesReader::F(reader) => reader.read_byte(),
+            EitherBytesReader::S(reader) => reader.read_byte(),
+        }
+    }
+
+    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()> {
+        match self {
+            EitherBytesReader::F(reader) => reader.read_bytes(b, offset, len),
+            EitherBytesReader::S(reader) => reader.read_bytes(b, offset, len),
+        }
+    }
+
+    fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
+        match self {
+            EitherBytesReader::F(reader) => reader.skip_bytes(num_bytes),
+            EitherBytesReader::S(reader) => reader.skip_bytes(num_bytes),
+        }
+    }
+}
+
+impl<F, S> Display for EitherBytesReader<F, S>
+where
+    F: BytesReader,
+    S: BytesReader,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            EitherBytesReader::F(reader) => {
+                write!(f, "EitherBytesReader(F: {})", reader.get_position())
+            },
+            EitherBytesReader::S(reader) => {
+                write!(f, "EitherBytesReader(S: {})", reader.get_position())
+            },
+        }
+    }
+}
+
+impl<F, S> BytesReader for EitherBytesReader<F, S>
+where
+    F: BytesReader,
+    S: BytesReader,
+{
+    fn get_position(&self) -> i64 {
+        match self {
+            EitherBytesReader::F(reader) => reader.get_position(),
+            EitherBytesReader::S(reader) => reader.get_position(),
+        }
+    }
+
+    fn set_position(&mut self, pos: i64) {
+        match self {
+            EitherBytesReader::F(reader) => reader.set_position(pos),
+            EitherBytesReader::S(reader) => reader.set_position(pos),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::cell::RefCell;

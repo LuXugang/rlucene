@@ -23,12 +23,13 @@ use crate::util::array_util::ArrayUtil;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fst_impl::dummy::dummy_bytes_reader::DummyBytesReader;
-use crate::util::fst_impl::fst::{FST, FSTMetadata, InputType, fst_util};
+use crate::util::fst_impl::fst::{EitherBytesReader, FST, FSTMetadata, InputType, fst_util};
 use crate::util::fst_impl::fst_reader::FstReader;
 use crate::util::fst_impl::growable_byte_array_data_output::GrowableByteArrayDataOutput;
 use crate::util::fst_impl::node_hash::NodeHash;
 use crate::util::fst_impl::outputs::{Outputs, OutputsBound};
-use crate::util::fst_impl::read_write_data_output::{BytesReaderEnum, ReadWriteDataOutput};
+use crate::util::fst_impl::read_write_data_output::{BytesReaderImpl, ReadWriteDataOutput};
+use crate::util::fst_impl::reverse_bytes_reader::ReverseBytesReader;
 use crate::util::ints_ref::IntsRef;
 use crate::util::ints_ref_builder::IntsRefBuilder;
 use crate::util::{OutputIdentity, SliceCopyOps};
@@ -1252,7 +1253,7 @@ impl<D> FstReader for DataOutputEnum<D>
 where
     D: Directory,
 {
-    type FstBytesReader = BytesReaderEnum;
+    type FstBytesReader = EitherBytesReader<BytesReaderImpl, ReverseBytesReader>;
 
     fn get_reverse_bytes_reader(&self) -> Result<Self::FstBytesReader> {
         match self {

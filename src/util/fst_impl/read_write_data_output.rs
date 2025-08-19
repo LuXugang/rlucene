@@ -20,7 +20,7 @@ use std::rc::Rc;
 use crate::store::{ByteBuffersDataOutput, DataInput, DataOutput};
 use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::fst_impl::fst::BytesReader;
+use crate::util::fst_impl::fst::{BytesReader, EitherBytesReader};
 use crate::util::fst_impl::fst_reader::FstReader;
 use crate::util::fst_impl::reverse_bytes_reader::ReverseBytesReader;
 /// An adapter struct to use [`ByteBuffersDataOutput`] as a
@@ -71,7 +71,7 @@ impl Accountable for ReadWriteDataOutput {
 }
 
 impl FstReader for ReadWriteDataOutput {
-    type FstBytesReader = BytesReaderEnum;
+    type FstBytesReader = EitherBytesReader<BytesReaderImpl, ReverseBytesReader>;
 
     fn get_reverse_bytes_reader(&self) -> Result<Self::FstBytesReader> {
         if !self.finish {
@@ -81,7 +81,7 @@ impl FstReader for ReadWriteDataOutput {
         }
         if self.byte_buffers.is_some() && self.byte_buffer.is_none() {
             let buffers = self.byte_buffers.as_ref().unwrap().clone();
-            Ok(BytesReaderEnum::Impl(BytesReaderImpl::new(
+            Ok(EitherBytesReader::F(BytesReaderImpl::new(
                 buffers,
                 self.block_bits,
                 self.block_size,
@@ -89,9 +89,7 @@ impl FstReader for ReadWriteDataOutput {
             )))
         } else if self.byte_buffer.is_some() && self.byte_buffers.is_none() {
             let buffer = self.byte_buffer.as_ref().unwrap().clone();
-            Ok(BytesReaderEnum::ReverseBytes(ReverseBytesReader::new(
-                buffer,
-            )))
+            Ok(EitherBytesReader::S(ReverseBytesReader::new(buffer)))
         } else {
             Err(LuceneError::illegal_state(
                 "Only one buffer is some".to_string(),
@@ -219,58 +217,5 @@ impl BytesReader for BytesReaderImpl {
             pos,
             self.get_position()
         );
-    }
-}
-
-pub enum BytesReaderEnum {
-    Impl(BytesReaderImpl),
-    ReverseBytes(ReverseBytesReader),
-}
-
-impl DataInput for BytesReaderEnum {
-    fn read_byte(&mut self) -> Result<u8> {
-        match self {
-            BytesReaderEnum::Impl(reader) => reader.read_byte(),
-            BytesReaderEnum::ReverseBytes(reader) => reader.read_byte(),
-        }
-    }
-
-    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()> {
-        match self {
-            BytesReaderEnum::Impl(reader) => reader.read_bytes(b, offset, len),
-            BytesReaderEnum::ReverseBytes(reader) => reader.read_bytes(b, offset, len),
-        }
-    }
-
-    fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
-        match self {
-            BytesReaderEnum::Impl(reader) => reader.skip_bytes(num_bytes),
-            BytesReaderEnum::ReverseBytes(reader) => reader.skip_bytes(num_bytes),
-        }
-    }
-}
-
-impl Display for BytesReaderEnum {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            BytesReaderEnum::Impl(inner) => write!(f, "{inner}"),
-            BytesReaderEnum::ReverseBytes(inner) => write!(f, "{inner}"),
-        }
-    }
-}
-
-impl BytesReader for BytesReaderEnum {
-    fn get_position(&self) -> i64 {
-        match self {
-            BytesReaderEnum::Impl(reader) => reader.get_position(),
-            BytesReaderEnum::ReverseBytes(reader) => reader.get_position(),
-        }
-    }
-
-    fn set_position(&mut self, pos: i64) {
-        match self {
-            BytesReaderEnum::Impl(reader) => reader.set_position(pos),
-            BytesReaderEnum::ReverseBytes(reader) => reader.set_position(pos),
-        }
     }
 }
