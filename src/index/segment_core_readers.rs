@@ -43,7 +43,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicI32, Ordering};
 
-type CfsOrBaseInput<D> = EitherIndexInput<
+pub(crate) type CfsOrBaseInput<D> = EitherIndexInput<
     <<D as Directory>::IndexInput as IndexInput>::Slice,
     <D as Directory>::IndexInput,
 >;
@@ -194,7 +194,7 @@ where
     }
 }
 
-pub enum EitherDir<'a, D>
+pub(crate) enum EitherDir<'a, D>
 where
     D: Directory,
 {

@@ -83,6 +83,7 @@ pub(crate) mod paged_bytes;
 pub mod priority_queue;
 mod radix_selector;
 pub mod ram_usage_estimator;
+pub(crate) mod ref_count;
 pub mod roaring_doc_id_set;
 pub mod selector;
 pub mod small_float;

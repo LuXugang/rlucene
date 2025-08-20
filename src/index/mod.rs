@@ -106,6 +106,7 @@ pub mod prefix_coded_terms;
 mod readers_and_updates;
 pub mod segment_commit_info;
 mod segment_core_readers;
+mod segment_doc_values;
 pub mod segment_info;
 pub mod segment_infos;
 pub mod segment_read_state;
