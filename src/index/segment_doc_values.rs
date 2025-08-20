@@ -106,15 +106,18 @@ where
         }
     }
     ///  Decrement the reference count of the given [`DocValuesProducer`](crate::codecs::doc_values_producer::DocValuesProducer) generations.
-    pub(crate) fn dec_ref(&self, gens: &[i64]) {
+    pub(crate) fn dec_ref(&self, gens: &[i64]) -> Result<()> {
         let mut inner = self.inner.lock();
 
         for &r#gen in gens {
             if let Some(dvp) = inner.gen_dv_producers.get_mut(&r#gen) {
-                dvp.dec_ref()
+                if dvp.dec_ref()? {
+                    inner.gen_dv_producers.remove(&r#gen);
+                }
             } else {
                 debug_assert!(false, "gen={} not found in gen_dv_producers", r#gen);
             }
         }
+        Ok(())
     }
 }
