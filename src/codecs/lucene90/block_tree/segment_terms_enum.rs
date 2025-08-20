@@ -31,7 +31,6 @@ use crate::index::{BytesRef, BytesRefBuilder};
 use crate::store::{ByteArrayDataInput, DataInput, IndexInput};
 use crate::util::ToInt;
 use crate::util::array_util::ArrayUtil;
-use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::util::error::lucene_error::{LuceneError, Result};

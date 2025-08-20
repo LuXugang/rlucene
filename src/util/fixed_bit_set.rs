@@ -695,7 +695,6 @@ mod tests {
     use rand::Rng;
     use std::hash::{DefaultHasher, Hash, Hasher};
     use std::rc::Rc;
-    use std::sync::Arc;
 
     struct TestFixedBitSet;
 

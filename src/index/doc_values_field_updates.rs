@@ -1212,7 +1212,6 @@ impl DocValuesFieldUpdatesEnum {
 mod tests {
     use rand::Rng;
     use rand::prelude::SliceRandom;
-    use std::sync::Arc;
 
     use crate::index::doc_values_field_updates::dvfu_util::merged_iterator;
     use crate::index::doc_values_field_updates::{

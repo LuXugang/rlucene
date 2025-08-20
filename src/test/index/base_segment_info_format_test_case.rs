@@ -58,7 +58,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             HashMap::new(),
             None,
         )?;
-        info.set_files(HashSet::new());
+        info.set_files(HashSet::new())?;
         LATEST_CODEC
             .segment_info_format()
             .write(&mut *dir.lock(), &mut info, &io_context)?;
@@ -88,7 +88,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             HashMap::new(),
             None,
         )?;
-        info.set_files(HashSet::new());
+        info.set_files(HashSet::new())?;
         LATEST_CODEC
             .segment_info_format()
             .write(&mut *dir.lock(), &mut info, &io_context)?;
@@ -120,7 +120,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             None,
         )?;
         let original_files: HashSet<String> = ["_123.a".to_string()].iter().cloned().collect();
-        info.set_files(original_files.clone());
+        info.set_files(original_files.clone())?;
         LATEST_CODEC
             .segment_info_format()
             .write(&mut *dir.lock(), &mut info, &io_context)?;
@@ -167,7 +167,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             HashMap::new(),
             None,
         )?;
-        info.set_files(HashSet::new());
+        info.set_files(HashSet::new())?;
         LATEST_CODEC
             .segment_info_format()
             .write(&mut *dir.lock(), &mut info, &io_context)?;
@@ -208,7 +208,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             attributes.clone(),
             None,
         )?;
-        info.set_files(HashSet::new());
+        info.set_files(HashSet::new())?;
         LATEST_CODEC
             .segment_info_format()
             .write(&mut *dir.lock(), &mut info, &io_context)?;
@@ -249,7 +249,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             HashMap::new(),
             None,
         )?;
-        info.set_files(HashSet::new());
+        info.set_files(HashSet::new())?;
         LATEST_CODEC
             .segment_info_format()
             .write(&mut *dir.lock(), &mut info, &io_context)?;
@@ -282,7 +282,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                     HashMap::new(),
                     None,
                 )?;
-                info.set_files(HashSet::new());
+                info.set_files(HashSet::new())?;
                 LATEST_CODEC.segment_info_format().write(
                     &mut *dir.lock(),
                     &mut info,
@@ -465,7 +465,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                 HashMap::new(),
                 sort,
             )?;
-            info.set_files(HashSet::new());
+            info.set_files(HashSet::new())?;
             LATEST_CODEC
                 .segment_info_format()
                 .write(&mut *dir.lock(), &mut info, &io_context)?;

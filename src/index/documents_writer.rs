@@ -24,7 +24,6 @@ use crate::index::documents_writer_per_thread::DocumentsWriterPerThread;
 use crate::index::documents_writer_per_thread_pool::DocumentsWriterPerThreadPool;
 use crate::index::field_infos::FieldNumbers;
 use crate::index::field_infos::build::Builder;
-use crate::index::indexable_field::IndexableField;
 use crate::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::index::lockable_concurrent_approximate_priority_queue::Lock;
 use crate::index::segment_info::SegmentInfo;

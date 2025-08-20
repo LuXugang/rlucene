@@ -281,7 +281,6 @@ where
         // aborting on any exception from this method
         let sort_map = self.maybe_sort_segment(state, segment_info)?;
         let max_doc = segment_info.max_doc()?;
-        let iw = &self.info_stream;
 
         // write norms
         let t0 = Instant::now();

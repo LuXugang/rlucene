@@ -174,7 +174,7 @@ impl<'a, DC> DocValueSorter<'a, DC>
 where
     DC: DocComparator,
 {
-    pub fn new(docs: &'a mut [i32], comparator: DC) -> TimSorter<DocValueSorter<DC>> {
+    pub fn new(docs: &'a mut [i32], comparator: DC) -> TimSorter<DocValueSorter<'a, DC>> {
         let max_temp_slots = docs.len() / 64;
         let tmp = vec![0i32; max_temp_slots];
         let sub = DocValueSorter {

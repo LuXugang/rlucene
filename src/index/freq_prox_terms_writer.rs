@@ -47,7 +47,6 @@ use crate::store::directory::Directory;
 use crate::store::{ByteBuffersDataOutput, DataInput, DataOutput};
 use crate::util::allocator_byte::AllocatorByteEnum;
 use crate::util::array_util::ArrayUtil;
-use crate::util::attribute_source::AttributeSource;
 use crate::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::collection_util::CollectionUtil;

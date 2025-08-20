@@ -251,8 +251,6 @@ mod tests {
     use rand::Rng;
     use std::rc::Rc;
 
-    use std::sync::Arc;
-
     #[allow(dead_code)] // for quick search
     struct TestDocIdSetBuilder {}
     #[test]

@@ -1496,7 +1496,7 @@ mod tests {
             HashMap::new(),
             None,
         )?;
-        info.set_files(HashSet::new());
+        info.set_files(HashSet::new())?;
         codec
             .segment_info_format()
             .write(&mut *directory.lock(), &mut info, &io_context)?;
@@ -1542,7 +1542,7 @@ mod tests {
             HashMap::new(),
             None,
         )?;
-        info_0.set_files(HashSet::new());
+        info_0.set_files(HashSet::new())?;
         codec
             .segment_info_format()
             .write(&mut *directory.lock(), &mut info_0, &io_context)?;
@@ -1801,7 +1801,7 @@ mod tests {
             HashMap::new(),
             None,
         )?;
-        info_0.set_files(HashSet::new());
+        info_0.set_files(HashSet::new())?;
         codec
             .segment_info_format()
             .write(&mut *dir.lock(), &mut info_0, &io_context)?;

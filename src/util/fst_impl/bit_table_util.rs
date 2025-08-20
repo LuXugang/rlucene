@@ -344,7 +344,7 @@ mod tests {
     }
 
     /// Creates a `BytesReader` for the given byte slice.
-    fn reader(bits: &[u8]) -> BytesReaderImpl {
+    fn reader(bits: &[u8]) -> BytesReaderImpl<'_> {
         BytesReaderImpl::new(bits)
     }
 

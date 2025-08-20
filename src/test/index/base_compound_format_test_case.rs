@@ -345,7 +345,7 @@ pub trait BaseCompoundFormatTestCase {
             .into_iter()
             .filter(|file| file.starts_with(segment))
             .collect();
-        si.set_files(files.iter().cloned().collect());
+        si.set_files(files.iter().cloned().collect())?;
         LATEST_CODEC
             .compound_format()
             .write(&mut *dir.lock(), &si, &IO_CONTEXT_DEFAULT)?;
@@ -379,7 +379,7 @@ pub trait BaseCompoundFormatTestCase {
             CodecUtil::write_footer(&mut out)?;
         }
         let file_sets = files.iter().cloned().collect();
-        si.set_files(file_sets);
+        si.set_files(file_sets)?;
         LATEST_CODEC
             .compound_format()
             .write(&mut *dir.lock(), &si, &IO_CONTEXT_DEFAULT)?;
@@ -612,7 +612,7 @@ pub trait BaseCompoundFormatTestCase {
         )?;
         let mut hash_set_file = HashSet::new();
         hash_set_file.insert(sub_file.to_string());
-        si.set_files(hash_set_file);
+        si.set_files(hash_set_file)?;
         LATEST_CODEC
             .compound_format()
             .write(&mut *dir.lock(), &si, &IO_CONTEXT_DEFAULT)?;
@@ -645,7 +645,7 @@ pub trait BaseCompoundFormatTestCase {
         let mut si = new_segment_info(random, dir.clone(), "_123")?;
         let mut hash_set_file = HashSet::new();
         hash_set_file.insert(sub_file.to_string());
-        si.set_files(hash_set_file);
+        si.set_files(hash_set_file)?;
 
         let result =
             LATEST_CODEC
@@ -685,7 +685,7 @@ pub trait BaseCompoundFormatTestCase {
 
         let mut hash_set_file = HashSet::new();
         hash_set_file.insert(sub_file.to_string());
-        si.set_files(hash_set_file);
+        si.set_files(hash_set_file)?;
 
         let result =
             LATEST_CODEC

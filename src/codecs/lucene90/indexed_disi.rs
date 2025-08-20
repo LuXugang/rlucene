@@ -1083,7 +1083,6 @@ mod tests {
     use rand::Rng;
     use std::cell::RefCell;
     use std::rc::Rc;
-    use std::sync::Arc;
 
     use crate::codecs::indexed_disi::indexed_disi_util;
     use crate::codecs::lucene90::indexed_disi::{IndexedDISI, Method};

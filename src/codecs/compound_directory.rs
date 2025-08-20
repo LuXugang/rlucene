@@ -17,8 +17,8 @@
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 
+use crate::store::IOContext;
 use crate::store::directory::Directory;
-use crate::store::{IOContext, IndexInput};
 use crate::util::error::lucene_error::{LuceneError, Result};
 /// A read-only [`Directory`] that provides a view over a compound file.
 ///
