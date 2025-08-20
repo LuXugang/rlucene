@@ -276,7 +276,7 @@ where
         let jump_table_rc = Rc::new(RefCell::new(jump_table.unwrap()));
         if self.merging {
             self.disi_jump_tables
-                .insert(field.number, Rc::clone(&jump_table_rc.clone()));
+                .insert(field.number, Rc::clone(&jump_table_rc));
         }
 
         Ok(jump_table_rc)
