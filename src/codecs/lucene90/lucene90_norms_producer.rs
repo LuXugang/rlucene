@@ -266,7 +266,7 @@ where
         }
 
         let jump_table = indexed_disi_util::create_jump_table(
-            &mut self.data,
+            &self.data,
             entry.docs_with_field_offset,
             entry.docs_with_field_length,
             entry.jump_table_entry_count as i32,
@@ -287,14 +287,14 @@ where
     I: IndexInput,
 {
     fn get_disi_input(
-        &mut self,
+        &self,
         _field: &FieldInfo,
         entry: &NormsEntry,
     ) -> Result<Rc<RefCell<I::Slice>>> {
         // TODO: Due to the generic constraints, following the Java Lucene
         // implementation currently makes it impossible to cache the Slice.
         let input = indexed_disi_util::create_block_slice(
-            &mut self.data,
+            &self.data,
             "docs",
             entry.docs_with_field_offset,
             entry.docs_with_field_length,

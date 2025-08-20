@@ -313,7 +313,7 @@ pub mod indexed_disi_util {
     /// Returns an error if a `RandomAccessInput` could not be created from the
     /// slice.
     pub fn create_block_slice<I: IndexInput>(
-        slice: &mut I,
+        slice: &I,
         slice_description: &str,
         offset: i64,
         length: i64,
@@ -345,7 +345,7 @@ pub mod indexed_disi_util {
     /// Returns an error if a `RandomAccessInput` could not be created from the
     /// slice.
     pub fn create_jump_table<I: IndexInput>(
-        slice: &mut I,
+        slice: &I,
         offset: i64,
         length: i64,
         jump_table_entry_count: i32,
@@ -561,7 +561,7 @@ where
     ///   the value passed to `write_bit_set` when writing.
     /// - `cost`: Typically the number of logical doc IDs.
     pub fn new(
-        index_input: &mut I,
+        index_input: &I,
         offset: i64,
         length: i64,
         jump_table_entry_count: i32,
@@ -1181,9 +1181,9 @@ mod tests {
             index += 1;
         }
 
-        let mut input = dir.open_input("bar", &IOContext::default_io_context()?)?;
+        let input = dir.open_input("bar", &IOContext::default_io_context()?)?;
         let mut disi = IndexedDISI::new(
-            &mut input,
+            &input,
             0,
             length,
             jump_count as i32,
@@ -1234,10 +1234,10 @@ mod tests {
         let length = out.get_file_pointer();
         drop(out);
 
-        let mut full_input = dir.open_input("foo", &IOContext::default_io_context()?)?;
+        let full_input = dir.open_input("foo", &IOContext::default_io_context()?)?;
         test_position_not_zero_extra(
             &mut random,
-            &mut full_input,
+            &full_input,
             dense_rank_power,
             length,
             jump_table_entry_count,
@@ -1247,7 +1247,7 @@ mod tests {
     }
     fn test_position_not_zero_extra<I: IndexInput, R: Rng + ?Sized>(
         random: &mut R,
-        full_input: &mut I,
+        full_input: &I,
         dense_rank_power: i8,
         length: i64,
         jump_table_entry_count: i32,
@@ -1330,10 +1330,10 @@ mod tests {
         let length = out.get_file_pointer();
         drop(out);
 
-        let mut input = dir.open_input("foo", &IOContext::default_io_context()?)?;
+        let input = dir.open_input("foo", &IOContext::default_io_context()?)?;
         for i in 0..set.length() {
             let mut disi = IndexedDISI::new(
-                &mut input,
+                &input,
                 0,
                 length,
                 jump_table_entry_count,
@@ -1343,7 +1343,7 @@ mod tests {
             assert_eq!(set.get(i), disi.advance_exact(i)?);
 
             let mut disi2 = IndexedDISI::new(
-                &mut input,
+                &input,
                 0,
                 length,
                 jump_table_entry_count,
@@ -1461,9 +1461,9 @@ mod tests {
         };
 
         {
-            let mut input = dir.open_input("sparse", &IOContext::default_io_context()?)?;
+            let input = dir.open_input("sparse", &IOContext::default_io_context()?)?;
             let mut disi = IndexedDISI::new(
-                &mut input,
+                &input,
                 0,
                 length,
                 jump_table_entry_count,
@@ -1497,9 +1497,9 @@ mod tests {
         drop(out);
 
         {
-            let mut input = dir.open_input("bar", &IOContext::default_io_context()?)?;
+            let input = dir.open_input("bar", &IOContext::default_io_context()?)?;
             let mut disi = IndexedDISI::new(
-                &mut input,
+                &input,
                 0,
                 length,
                 jump_table_entry_count,
@@ -1595,9 +1595,9 @@ mod tests {
         let length = out.get_file_pointer();
         drop(out);
 
-        let mut input = dir.open_input("foo", &IOContext::default_io_context()?)?;
+        let input = dir.open_input("foo", &IOContext::default_io_context()?)?;
         let _ = IndexedDISI::new(
-            &mut input,
+            &input,
             0,
             length,
             jump_count,
@@ -1634,9 +1634,9 @@ mod tests {
         drop(out);
 
         let mut disi2 = BitSetIterator::new(set.clone(), cardinality)?;
-        let mut input = dir.open_input("foo", &IOContext::default_io_context()?)?;
+        let input = dir.open_input("foo", &IOContext::default_io_context()?)?;
         let mut disi = IndexedDISI::new(
-            &mut input,
+            &input,
             0,
             length,
             jump_table_entry_count,
@@ -1711,9 +1711,9 @@ mod tests {
         }
 
         {
-            let mut input = dir.open_input("foo", &IOContext::default_io_context()?)?;
+            let input = dir.open_input("foo", &IOContext::default_io_context()?)?;
             let mut disi = IndexedDISI::new(
-                &mut input,
+                &input,
                 0,
                 length,
                 jump_table_entry_count,
@@ -1725,9 +1725,9 @@ mod tests {
         }
 
         for &step in &[1, 10, 100, 1000, 10000, 100000] {
-            let mut input = dir.open_input("foo", &IOContext::default_io_context()?)?;
+            let input = dir.open_input("foo", &IOContext::default_io_context()?)?;
             let mut disi = IndexedDISI::new(
-                &mut input,
+                &input,
                 0,
                 length,
                 jump_table_entry_count,
@@ -1739,9 +1739,9 @@ mod tests {
         }
 
         for &step in &[10, 100, 1000, 10000, 100000] {
-            let mut input = dir.open_input("foo", &IOContext::default_io_context()?)?;
+            let input = dir.open_input("foo", &IOContext::default_io_context()?)?;
             let mut disi = IndexedDISI::new(
-                &mut input,
+                &input,
                 0,
                 length,
                 jump_table_entry_count,

@@ -581,7 +581,7 @@ where
             ))
         } else {
             let disi = IndexedDISI::new(
-                &mut self.data,
+                &self.data,
                 entry.docs_with_field_offset,
                 entry.docs_with_field_length,
                 entry.jump_table_entry_count as i32,
@@ -735,7 +735,7 @@ where
                 BaseSortedDocValuesEnum::Dense(DenseBaseSortedDocValues::new(self.max_doc, values))
             } else {
                 let disi = IndexedDISI::new(
-                    &mut self.data,
+                    &self.data,
                     ords_entry.docs_with_field_offset,
                     ords_entry.docs_with_field_length,
                     ords_entry.jump_table_entry_count as i32,
@@ -797,7 +797,7 @@ where
         } else {
             // sparse
             let disi = IndexedDISI::new(
-                &mut self.data,
+                &self.data,
                 entry.base.docs_with_field_offset,
                 entry.base.docs_with_field_length,
                 entry.base.jump_table_entry_count as i32,
@@ -926,7 +926,7 @@ where
                     ))
                 } else {
                     let disi = IndexedDISI::new(
-                        &mut self.data,
+                        &self.data,
                         entry.docs_with_field_offset,
                         entry.docs_with_field_length,
                         entry.jump_table_entry_count as i32,
@@ -1089,7 +1089,7 @@ where
                             } else {
                                 //sparse
                                 let disi = IndexedDISI::new(
-                                    &mut self.data,
+                                    &self.data,
                                     ords_entry.base.docs_with_field_offset,
                                     ords_entry.base.docs_with_field_length,
                                     ords_entry.base.jump_table_entry_count as i32,
