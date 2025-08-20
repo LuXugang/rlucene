@@ -244,13 +244,14 @@ impl DocValuesFormat for Lucene90DocValuesFormat {
 
     type DocValuesProducer<T: IndexInput> = Lucene90DocValuesProducer<T>;
 
-    fn fields_producer<D>(
+    fn fields_producer<D, D1>(
         &self,
         state: &SegmentReadState<D>,
-        segment_info: &SegmentInfo<D>,
+        segment_info: &SegmentInfo<D1>,
     ) -> Result<Self::DocValuesProducer<D::IndexInput>>
     where
         D: Directory,
+        D1: Directory,
     {
         Lucene90DocValuesProducer::new(
             state,

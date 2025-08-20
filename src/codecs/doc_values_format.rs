@@ -48,11 +48,12 @@ pub trait DocValuesFormat: Display {
     /// io error should be returned by the implementation. IOExceptions are
     /// expected and will automatically cause a retry of the segment opening
     /// logic with the newly revised segments.
-    fn fields_producer<D>(
+    fn fields_producer<D, D1>(
         &self,
         state: &SegmentReadState<D>,
-        segment_info: &SegmentInfo<D>,
+        segment_info: &SegmentInfo<D1>,
     ) -> Result<Self::DocValuesProducer<D::IndexInput>>
     where
-        D: Directory;
+        D: Directory,
+        D1: Directory;
 }
