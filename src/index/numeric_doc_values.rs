@@ -28,160 +28,66 @@ pub trait NumericDocValues: DocValuesIterator {
     fn long_value(&mut self) -> Result<i64>;
 }
 
-// NumericDocValues
-pub enum EitherNumericDocValues<F, S> {
-    F(F),
-    S(S),
+macro_rules! either_numeric_docvalues {
+    ($vis:vis $name:ident { $( $Variant:ident : $T:ident ),+ $(,)? }) => {
+        $vis enum $name<$( $T ),+> {
+            $( $Variant($T), )+
+        }
+
+        impl<$( $T ),+> DocValuesIterator for $name<$( $T ),+>
+        where
+            $( $T: NumericDocValues ),+
+        {
+            fn advance_exact(&mut self, target: i32) -> Result<bool> {
+                match self {
+                    $( Self::$Variant(inner) => inner.advance_exact(target), )+
+                }
+            }
+        }
+
+        impl<$( $T ),+> DocIdSetIterator for $name<$( $T ),+>
+        where
+            $( $T: NumericDocValues ),+
+        {
+            fn doc_id(&self) -> i32 {
+                match self {
+                    $( Self::$Variant(inner) => inner.doc_id(), )+
+                }
+            }
+            fn next_doc(&mut self) -> Result<i32> {
+                match self {
+                    $( Self::$Variant(inner) => inner.next_doc(), )+
+                }
+            }
+            fn advance(&mut self, target: i32) -> Result<i32> {
+                match self {
+                    $( Self::$Variant(inner) => inner.advance(target), )+
+                }
+            }
+            fn slow_advance(&mut self, target: i32) -> Result<i32> {
+                match self {
+                    $( Self::$Variant(inner) => inner.slow_advance(target), )+
+                }
+            }
+            fn cost(&self) -> Result<i64> {
+                match self {
+                    $( Self::$Variant(inner) => inner.cost(), )+
+                }
+            }
+        }
+
+        // --- NumericDocValues ---
+        impl<$( $T ),+> NumericDocValues for $name<$( $T ),+>
+        where
+            $( $T: NumericDocValues ),+
+        {
+            fn long_value(&mut self) -> Result<i64> {
+                match self {
+                    $( Self::$Variant(inner) => inner.long_value(), )+
+                }
+            }
+        }
+    };
 }
-
-impl<F, S> DocValuesIterator for EitherNumericDocValues<F, S>
-where
-    F: NumericDocValues,
-    S: NumericDocValues,
-{
-    fn advance_exact(&mut self, target: i32) -> Result<bool> {
-        match self {
-            EitherNumericDocValues::F(t) => t.advance_exact(target),
-            EitherNumericDocValues::S(s) => s.advance_exact(target),
-        }
-    }
-}
-
-impl<F, S> DocIdSetIterator for EitherNumericDocValues<F, S>
-where
-    F: NumericDocValues,
-    S: NumericDocValues,
-{
-    fn doc_id(&self) -> i32 {
-        match self {
-            EitherNumericDocValues::F(t) => t.doc_id(),
-            EitherNumericDocValues::S(s) => s.doc_id(),
-        }
-    }
-
-    fn next_doc(&mut self) -> Result<i32> {
-        match self {
-            EitherNumericDocValues::F(t) => t.next_doc(),
-            EitherNumericDocValues::S(s) => s.next_doc(),
-        }
-    }
-
-    fn advance(&mut self, target: i32) -> Result<i32> {
-        match self {
-            EitherNumericDocValues::F(t) => t.advance(target),
-            EitherNumericDocValues::S(s) => s.advance(target),
-        }
-    }
-
-    fn slow_advance(&mut self, target: i32) -> Result<i32> {
-        match self {
-            EitherNumericDocValues::F(t) => t.slow_advance(target),
-            EitherNumericDocValues::S(s) => s.slow_advance(target),
-        }
-    }
-
-    fn cost(&self) -> Result<i64> {
-        match self {
-            EitherNumericDocValues::F(t) => t.cost(),
-            EitherNumericDocValues::S(s) => s.cost(),
-        }
-    }
-}
-
-impl<F, S> NumericDocValues for EitherNumericDocValues<F, S>
-where
-    F: NumericDocValues,
-    S: NumericDocValues,
-{
-    fn long_value(&mut self) -> Result<i64> {
-        match self {
-            EitherNumericDocValues::F(t) => t.long_value(),
-            EitherNumericDocValues::S(s) => s.long_value(),
-        }
-    }
-}
-
-// Either 3
-// NumericDocValues
-pub enum Either3NumericDocValues<F, S, T> {
-    F(F),
-    S(S),
-    T(T),
-}
-
-impl<F, S, T> DocValuesIterator for Either3NumericDocValues<F, S, T>
-where
-    F: NumericDocValues,
-    S: NumericDocValues,
-    T: NumericDocValues,
-{
-    fn advance_exact(&mut self, target: i32) -> Result<bool> {
-        match self {
-            Either3NumericDocValues::F(t) => t.advance_exact(target),
-            Either3NumericDocValues::S(s) => s.advance_exact(target),
-            Either3NumericDocValues::T(t) => t.advance_exact(target),
-        }
-    }
-}
-
-impl<F, S, T> DocIdSetIterator for Either3NumericDocValues<F, S, T>
-where
-    F: NumericDocValues,
-    S: NumericDocValues,
-    T: NumericDocValues,
-{
-    fn doc_id(&self) -> i32 {
-        match self {
-            Either3NumericDocValues::F(t) => t.doc_id(),
-            Either3NumericDocValues::S(s) => s.doc_id(),
-            Either3NumericDocValues::T(t) => t.doc_id(),
-        }
-    }
-
-    fn next_doc(&mut self) -> Result<i32> {
-        match self {
-            Either3NumericDocValues::F(t) => t.next_doc(),
-            Either3NumericDocValues::S(s) => s.next_doc(),
-            Either3NumericDocValues::T(t) => t.next_doc(),
-        }
-    }
-
-    fn advance(&mut self, target: i32) -> Result<i32> {
-        match self {
-            Either3NumericDocValues::F(t) => t.advance(target),
-            Either3NumericDocValues::S(s) => s.advance(target),
-            Either3NumericDocValues::T(t) => t.advance(target),
-        }
-    }
-
-    fn slow_advance(&mut self, target: i32) -> Result<i32> {
-        match self {
-            Either3NumericDocValues::F(t) => t.slow_advance(target),
-            Either3NumericDocValues::S(s) => s.slow_advance(target),
-            Either3NumericDocValues::T(t) => t.slow_advance(target),
-        }
-    }
-
-    fn cost(&self) -> Result<i64> {
-        match self {
-            Either3NumericDocValues::F(t) => t.cost(),
-            Either3NumericDocValues::S(s) => s.cost(),
-            Either3NumericDocValues::T(t) => t.cost(),
-        }
-    }
-}
-
-impl<F, S, T> NumericDocValues for Either3NumericDocValues<F, S, T>
-where
-    F: NumericDocValues,
-    S: NumericDocValues,
-    T: NumericDocValues,
-{
-    fn long_value(&mut self) -> Result<i64> {
-        match self {
-            Either3NumericDocValues::F(t) => t.long_value(),
-            Either3NumericDocValues::S(s) => s.long_value(),
-            Either3NumericDocValues::T(t) => t.long_value(),
-        }
-    }
-}
+either_numeric_docvalues!(pub EitherNumericDocValues { F: F, S: S });
+either_numeric_docvalues!(pub Either3NumericDocValues { F: F, S: S, T: T });
