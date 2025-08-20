@@ -126,7 +126,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     fn write_skip_index(
         &mut self,
         field: &Arc<FieldInfo>,
-        values_producer: &mut impl DocValuesProducer,
+        values_producer: &impl DocValuesProducer,
     ) -> Result<()> {
         debug_assert!(*field.doc_values_skip_index_type() != DocValuesSkipIndexType::None);
         let start = self.data.get_file_pointer();
@@ -271,7 +271,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     fn write_values(
         &mut self,
         field: &Arc<FieldInfo>,
-        values_producer: &mut impl DocValuesProducer,
+        values_producer: &impl DocValuesProducer,
         ords: bool,
     ) -> Result<(i32, i64)> {
         let mut values = values_producer.get_sorted_numeric(field)?;
@@ -579,7 +579,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     fn do_add_sorted_field<D>(
         &mut self,
         field: &Arc<FieldInfo>,
-        values_producer: &mut D,
+        values_producer: &D,
         add_type_byte: bool,
     ) -> Result<()>
     where
@@ -824,7 +824,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     fn do_add_sorted_numeric_field(
         &mut self,
         field: &Arc<FieldInfo>,
-        values_producer: &mut impl DocValuesProducer,
+        values_producer: &impl DocValuesProducer,
         ords: bool,
     ) -> Result<()> {
         if *field.doc_values_skip_index_type() != DocValuesSkipIndexType::None {
@@ -905,11 +905,7 @@ impl<O> DocValuesConsumer for Lucene90DocValuesConsumer<O>
 where
     O: IndexOutput,
 {
-    fn add_numeric_field<D>(
-        &mut self,
-        field: &Arc<FieldInfo>,
-        values_producer: &mut D,
-    ) -> Result<()>
+    fn add_numeric_field<D>(&mut self, field: &Arc<FieldInfo>, values_producer: &D) -> Result<()>
     where
         D: DocValuesProducer,
     {
@@ -928,7 +924,7 @@ where
         Ok(())
     }
 
-    fn add_binary_field<D>(&mut self, field: &Arc<FieldInfo>, values_producer: &mut D) -> Result<()>
+    fn add_binary_field<D>(&mut self, field: &Arc<FieldInfo>, values_producer: &D) -> Result<()>
     where
         D: DocValuesProducer,
     {
@@ -1017,7 +1013,7 @@ where
         Ok(())
     }
 
-    fn add_sorted_field<D>(&mut self, field: &Arc<FieldInfo>, values_producer: &mut D) -> Result<()>
+    fn add_sorted_field<D>(&mut self, field: &Arc<FieldInfo>, values_producer: &D) -> Result<()>
     where
         D: DocValuesProducer,
     {
@@ -1030,7 +1026,7 @@ where
     fn add_sorted_numeric_field<D>(
         &mut self,
         field: &Arc<FieldInfo>,
-        values_producer: &mut D,
+        values_producer: &D,
     ) -> Result<()>
     where
         D: DocValuesProducer,
@@ -1042,11 +1038,7 @@ where
         Ok(())
     }
 
-    fn add_sorted_set_field<D>(
-        &mut self,
-        field: &Arc<FieldInfo>,
-        values_producer: &mut D,
-    ) -> Result<()>
+    fn add_sorted_set_field<D>(&mut self, field: &Arc<FieldInfo>, values_producer: &D) -> Result<()>
     where
         D: DocValuesProducer,
     {
@@ -1213,7 +1205,7 @@ where
     D: DocValuesProducer,
 {
     // wrap with `Option` for std::mem::take
-    values_producer: Option<&'a mut D>,
+    values_producer: Option<&'a D>,
 }
 impl<D> DocValuesProducer for EmptyDocValuesProducerSub1<'_, D>
 where
@@ -1235,7 +1227,7 @@ struct EmptyDocValuesProducerSub2<'a, D>
 where
     D: DocValuesProducer,
 {
-    values_producer: &'a mut D,
+    values_producer: &'a D,
 }
 impl<D> DocValuesProducer for EmptyDocValuesProducerSub2<'_, D>
 where
@@ -1261,7 +1253,7 @@ pub struct EmptyDocValuesProducerSub3<'a, D>
 where
     D: DocValuesProducer,
 {
-    values_producer: &'a mut D,
+    values_producer: &'a D,
 }
 impl<D> DocValuesProducer for EmptyDocValuesProducerSub3<'_, D>
 where
@@ -1285,7 +1277,7 @@ pub struct EmptyDocValuesProducerSub4<'a, D>
 where
     D: DocValuesProducer,
 {
-    values_producer: &'a mut D,
+    values_producer: &'a D,
 }
 impl<D> DocValuesProducer for EmptyDocValuesProducerSub4<'_, D>
 where

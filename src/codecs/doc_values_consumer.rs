@@ -44,38 +44,26 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 pub trait DocValuesConsumer {
-    fn add_numeric_field<D>(
-        &mut self,
-        field: &Arc<FieldInfo>,
-        values_producer: &mut D,
-    ) -> Result<()>
+    fn add_numeric_field<D>(&mut self, field: &Arc<FieldInfo>, values_producer: &D) -> Result<()>
     where
         D: DocValuesProducer;
-    fn add_binary_field<D>(
-        &mut self,
-        field: &Arc<FieldInfo>,
-        values_producer: &mut D,
-    ) -> Result<()>
+    fn add_binary_field<D>(&mut self, field: &Arc<FieldInfo>, values_producer: &D) -> Result<()>
     where
         D: DocValuesProducer;
-    fn add_sorted_field<D>(
-        &mut self,
-        field: &Arc<FieldInfo>,
-        values_producer: &mut D,
-    ) -> Result<()>
+    fn add_sorted_field<D>(&mut self, field: &Arc<FieldInfo>, values_producer: &D) -> Result<()>
     where
         D: DocValuesProducer;
     fn add_sorted_numeric_field<D>(
         &mut self,
         field: &Arc<FieldInfo>,
-        values_producer: &mut D,
+        values_producer: &D,
     ) -> Result<()>
     where
         D: DocValuesProducer;
     fn add_sorted_set_field<D>(
         &mut self,
         field: &Arc<FieldInfo>,
-        values_producer: &mut D,
+        values_producer: &D,
     ) -> Result<()>
     where
         D: DocValuesProducer;
