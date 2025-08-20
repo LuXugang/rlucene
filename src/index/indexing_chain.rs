@@ -277,6 +277,9 @@ where
         Q: Query,
         D1: Directory,
     {
+        // Rust-Lucene–specific method: its purpose is to make all DocValuesWriter instances call finished() first,
+        // so that DocValuesWriter::get_doc_values can be an immutable (&self) method.
+        self.finish_doc_values_writer()?;
         // NOTE: caller (DocumentsWriterPerThread) handles
         // aborting on any exception from this method
         let sort_map = self.maybe_sort_segment(state, segment_info)?;
@@ -454,6 +457,20 @@ where
 
         if let Some(mut w) = points_writer {
             w.finish()?;
+        }
+        Ok(())
+    }
+    // Finishes all doc values writers.
+    fn finish_doc_values_writer(&mut self) -> Result<()> {
+        let mut per_field_index;
+        for i in 0..self.field_hash.len() {
+            per_field_index = self.field_hash[i];
+            while per_field_index >= 0 {
+                let per_field = self.doc_fields[per_field_index as usize].as_mut().unwrap();
+                if let Some(ref mut writer) = per_field.doc_values_writer {
+                    writer.finish()?;
+                }
+            }
         }
         Ok(())
     }
