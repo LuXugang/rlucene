@@ -1153,22 +1153,22 @@ where
         Ok(())
     }
 
-    // fn get_merge_instance(&mut self) ->
-    // Result<Option<DocValuesProducerEnum<I>>> {
-    //     Ok(Some(DocValuesProducerEnum::Lucene90(
-    //         Lucene90DocValuesProducer::new_with_merging(
-    //             self.numerics.clone(),
-    //             self.binaries.clone(),
-    //             self.sorted.clone(),
-    //             self.sorted_sets.clone(),
-    //             self.sorted_numerics.clone(),
-    //             self.skippers.clone(),
-    //             &self.data,
-    //             self.max_doc,
-    //             self.version,
-    //         )?,
-    //     )))
-    // }
+    fn get_merge_instance(&self) -> Result<Option<Self>>
+    where
+        Self: Sized,
+    {
+        Ok(Some(Lucene90DocValuesProducer::new_with_merging(
+            self.numerics.clone(),
+            self.binaries.clone(),
+            self.sorted.clone(),
+            self.sorted_sets.clone(),
+            self.sorted_numerics.clone(),
+            self.skippers.clone(),
+            &self.data,
+            self.max_doc,
+            self.version,
+        )?))
+    }
 }
 #[derive(Debug, Clone, Copy)]
 pub struct DocValuesSkipperEntry {

@@ -101,20 +101,19 @@ pub trait DocValuesProducer {
     fn check_integrity(&self) -> Result<()> {
         Err(LuceneError::need_implemented(""))
     }
+    /// Returns an instance optimized for merging. This instance may only be consumed in the thread
+    /// that called [`get_merge_instance()`](DocValuesProducer::get_merge_instance).
+    /// The default implementation returns `self`.
+    /// # Note
+    /// Returning None means returning itself.
+    fn get_merge_instance(&self) -> Result<Option<Self>>
+    where
+        Self: Sized,
+    {
+        Ok(None)
+    }
 }
 
-// pub trait DocValuesProducerBase<I> where I: IndexInput {
-//     type DocValuesProducer = DocValuesProducer<>
-//     /// Returns an instance optimized for merging. This instance may only be
-// consumed in the thread     /// that called
-// [`get_merge_instance()`](DocValuesProducer::get_merge_instance).     ///
-//     /// The default implementation returns `self`.
-//     /// # Note
-//     /// Returning None means returning itself.
-//     fn get_merge_instance(&mut self) ->
-// Result<Option<DocValuesProducerEnum<I>>> {         Ok(None)
-//     }
-// }
 pub enum DocValuesProducerEnum<I>
 where
     I: IndexInput,
@@ -179,6 +178,22 @@ where
     fn check_integrity(&self) -> Result<()> {
         match self {
             DocValuesProducerEnum::Lucene90(lucene90) => lucene90.check_integrity(),
+        }
+    }
+
+    fn get_merge_instance(&self) -> Result<Option<Self>>
+    where
+        Self: Sized,
+    {
+        match self {
+            DocValuesProducerEnum::Lucene90(lucene90) => {
+                let merge_instance = lucene90.get_merge_instance()?;
+                if let Some(instance) = merge_instance {
+                    Ok(Some(DocValuesProducerEnum::Lucene90(instance)))
+                } else {
+                    Ok(None)
+                }
+            },
         }
     }
 }
