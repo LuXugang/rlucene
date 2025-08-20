@@ -27,7 +27,7 @@ use crate::codecs::compression::compression_mode::{
 use crate::codecs::compression::decompressor::Decompressor;
 use crate::codecs::lucene90::fields_index::{FieldsIndex, FieldsIndexEnum};
 use crate::codecs::lucene90::fields_index_reader::FieldsIndexReader;
-use crate::codecs::term_vectors_reader::{TermVectorsReader, TermVectorsReaderEnum};
+use crate::codecs::term_vectors_reader::TermVectorsReader;
 use crate::index::automaton_terms_enum::AutomatonTermsEnum;
 use crate::index::base_terms_enum::BaseTermsEnum;
 use crate::index::dummy::dummy_term_state_type::DummyTermState;
@@ -971,7 +971,7 @@ where
     }
 }
 
-impl<I> TermVectorsReader<I> for Lucene90CompressingTermVectorsReader<I>
+impl<I> TermVectorsReader for Lucene90CompressingTermVectorsReader<I>
 where
     I: IndexInput,
 {
@@ -981,10 +981,13 @@ where
         Ok(())
     }
 
-    fn get_merge_instance(&self) -> Result<Option<TermVectorsReaderEnum<I>>> {
-        Ok(Some(TermVectorsReaderEnum::Lucene90(
-            Lucene90CompressingTermVectorsReader::new_with_reader(self)?,
-        )))
+    fn get_merge_instance(&self) -> Result<Option<Self>>
+    where
+        Self: Sized,
+    {
+        Ok(Some(Lucene90CompressingTermVectorsReader::new_with_reader(
+            self,
+        )?))
     }
 }
 

@@ -22,10 +22,7 @@ use crate::store::IndexInput;
 use crate::util::clone::TryClone;
 use crate::util::error::lucene_error::Result;
 /// Codec API for reading term vectors:
-pub trait TermVectorsReader<I>: TermVectors + TryClone
-where
-    I: IndexInput,
-{
+pub trait TermVectorsReader: TermVectors + TryClone {
     /// Checks consistency of this reader.
     ///
     /// Note that this may be costly in terms of I/O, e.g. may involve computing
@@ -35,7 +32,10 @@ where
     /// Returns an instance optimized for merging.
     ///
     /// This instance may only be used from the thread that acquires it.
-    fn get_merge_instance(&self) -> Result<Option<TermVectorsReaderEnum<I>>> {
+    fn get_merge_instance(&self) -> Result<Option<Self>>
+    where
+        Self: Sized,
+    {
         Ok(None)
     }
 }
@@ -76,7 +76,7 @@ where
     }
 }
 
-impl<I> TermVectorsReader<I> for TermVectorsReaderEnum<I>
+impl<I> TermVectorsReader for TermVectorsReaderEnum<I>
 where
     I: IndexInput,
 {
@@ -88,7 +88,10 @@ where
 
     fn get_merge_instance(&self) -> Result<Option<TermVectorsReaderEnum<I>>> {
         match self {
-            TermVectorsReaderEnum::Lucene90(reader) => reader.get_merge_instance(),
+            TermVectorsReaderEnum::Lucene90(reader) => {
+                let merge_instance = reader.get_merge_instance()?;
+                Ok(merge_instance.map(TermVectorsReaderEnum::Lucene90))
+            },
         }
     }
 }
