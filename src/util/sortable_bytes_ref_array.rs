@@ -29,7 +29,7 @@ pub trait SortableBytesRefArray<'a> {
     /// the sorted values  */
     type Iter;
     fn iterator(
-        &'a mut self,
+        &'a self,
         comp: impl BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
     ) -> Result<Self::Iter>;
 }

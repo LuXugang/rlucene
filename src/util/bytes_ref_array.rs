@@ -184,7 +184,7 @@ where
     /// A [`SortState`] that can be used in
     /// [`BytesRefArray::iterator_with_state`] with the given sort state.
     pub fn sort(
-        &mut self,
+        &self,
         comp: impl BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
         stable: bool,
     ) -> Result<SortState> {
@@ -284,7 +284,7 @@ where
     type Iter = IndexedBytesRefIteratorImpl<'a, A>;
 
     fn iterator(
-        &'a mut self,
+        &'a self,
         comp: impl BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
     ) -> Result<Self::Iter> {
         let ords = self.sort(comp, false)?;
@@ -387,7 +387,7 @@ where
 {
     tmp: Vec<i32>,
     ordered_entries: &'a mut [i32],
-    bytes_ref_array: &'a mut BytesRefArray<A>,
+    bytes_ref_array: &'a BytesRefArray<A>,
 }
 impl<A> Sorter for StableStringSorterImpl<'_, A>
 where
@@ -433,7 +433,7 @@ where
     A: SharedAccess<CounterEnum>,
 {
     ordered_entries: &'a mut [i32],
-    bytes_ref_array: &'a mut BytesRefArray<A>,
+    bytes_ref_array: &'a BytesRefArray<A>,
 }
 impl<A> Sorter for StringSorterImpl<'_, A>
 where
