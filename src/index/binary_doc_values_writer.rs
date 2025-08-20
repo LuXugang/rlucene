@@ -126,9 +126,6 @@ impl BinaryDocValuesWriter {
         self.bytes_used = new_bytes_used;
         Ok(())
     }
-    pub(crate) fn finish(&mut self) {
-        self.docs_with_field.finish()
-    }
 }
 
 impl Display for BinaryDocValuesWriter {
@@ -149,8 +146,9 @@ impl DocValuesWriter for BinaryDocValuesWriter {
         DM: DocMap,
         DC: DocValuesConsumer,
     {
-        self.finish();
         self.bytes_out.paged_bytes.freeze(false)?;
+        // final_lengths should always not None here, because we call finish() before flush()
+        // but we still keep the check here for consistent with Java Lucene.
         if self.final_lengths.is_none() {
             self.final_lengths = Some(self.lengths.build()?);
         }
@@ -184,10 +182,11 @@ impl DocValuesWriter for BinaryDocValuesWriter {
 
     type DocIdSetIterator = BufferedBinaryDocValues<DocsWithFieldSetEnum, PagedBytesDataInput>;
 
-    fn get_doc_values(&mut self) -> Result<Self::DocIdSetIterator> {
-        self.finish();
+    fn get_doc_values(&self) -> Result<Self::DocIdSetIterator> {
         if self.final_lengths.is_none() {
-            self.final_lengths = Some(self.lengths.build()?);
+            return Err(LuceneError::illegal_state(
+                "must be finished before getting doc values".to_string(),
+            ));
         }
         Ok(BufferedBinaryDocValues::new(
             self.final_lengths.as_ref().unwrap(),
@@ -195,6 +194,14 @@ impl DocValuesWriter for BinaryDocValuesWriter {
             paged_bytes_util::get_data_input(&self.bytes_out.paged_bytes)?,
             self.docs_with_field.iterator()?.unwrap(),
         ))
+    }
+
+    fn finish(&mut self) -> Result<()> {
+        self.docs_with_field.finish();
+        if self.final_lengths.is_none() {
+            self.final_lengths = Some(self.lengths.build()?);
+        }
+        Ok(())
     }
 }
 

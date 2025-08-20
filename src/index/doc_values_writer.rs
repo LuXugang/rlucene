@@ -51,7 +51,8 @@ pub(crate) trait DocValuesWriter: Display {
         DC: DocValuesConsumer;
 
     type DocIdSetIterator: DocIdSetIterator;
-    fn get_doc_values(&mut self) -> Result<Self::DocIdSetIterator>;
+    fn get_doc_values(&self) -> Result<Self::DocIdSetIterator>;
+    fn finish(&mut self) -> Result<()>;
 }
 
 pub(crate) enum DocValuesWriterEnum {
@@ -105,7 +106,7 @@ impl DocValuesWriter for DocValuesWriterEnum {
 
     type DocIdSetIterator = DocIdSetIteratorImpl;
 
-    fn get_doc_values(&mut self) -> Result<Self::DocIdSetIterator> {
+    fn get_doc_values(&self) -> Result<Self::DocIdSetIterator> {
         match self {
             DocValuesWriterEnum::Binary(writer) => {
                 Ok(DocIdSetIteratorImpl::Binary(writer.get_doc_values()?))
@@ -122,6 +123,16 @@ impl DocValuesWriter for DocValuesWriterEnum {
             DocValuesWriterEnum::SortedSet(writer) => {
                 Ok(DocIdSetIteratorImpl::SortedSet(writer.get_doc_values()?))
             },
+        }
+    }
+
+    fn finish(&mut self) -> Result<()> {
+        match self {
+            DocValuesWriterEnum::Binary(writer) => writer.finish(),
+            DocValuesWriterEnum::Numeric(writer) => writer.finish(),
+            DocValuesWriterEnum::SortedNumeric(writer) => writer.finish(),
+            DocValuesWriterEnum::Sorted(writer) => writer.finish(),
+            DocValuesWriterEnum::SortedSet(writer) => writer.finish(),
         }
     }
 }

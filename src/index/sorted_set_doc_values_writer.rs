@@ -217,33 +217,6 @@ impl SortedSetDocValuesWriter {
         Ok(())
     }
 
-    pub(crate) fn finish(&mut self) -> Result<()> {
-        self.docs_with_field.finish();
-        if self.final_ords.is_none() {
-            debug_assert!(
-                self.final_ord_counts.is_none() && !self.is_sorted && self.final_ord_map.is_none()
-            );
-            self.finish_current_doc()?;
-            let value_count = self.hash.size();
-            self.final_ords = Some(self.pending.build()?);
-            self.final_ord_counts = match std::mem::take(&mut self.pending_counts) {
-                Some(mut pc) => Some(pc.build()?),
-                None => None,
-            };
-            self.hash.sort()?;
-            self.is_sorted = true;
-            let mut ord_map = vec![0; value_count as usize];
-            for ord in 0..value_count as usize {
-                let index = self.hash.ids[ord] as usize;
-                ord_map[index] = ord as i32;
-            }
-            self.hash_rc = Some(Arc::new(std::mem::take(&mut self.hash)));
-            self.final_ord_map = Some(Arc::new(ord_map));
-        } else {
-            debug_assert!(self.is_sorted);
-        }
-        Ok(())
-    }
     pub(crate) fn get_values(
         ord_map: Arc<Vec<i32>>,
         hash: Arc<MTBytesRefHash>,
@@ -296,7 +269,8 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
         DM: DocMap,
         DC: DocValuesConsumer,
     {
-        self.finish()?;
+        // `final_ords` should always not None here, because we call finish() before flush()
+        // but we still keep the check here for consistent with Java Lucene.
         let ords = self.final_ords.take().unwrap();
         let ord_counts = self.final_ord_counts.take();
         let ord_map = self.final_ord_map.take().unwrap();
@@ -352,8 +326,12 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
         BufferedSortedSetDocValues<DocsWithFieldSetEnum>,
     >;
 
-    fn get_doc_values(&mut self) -> Result<Self::DocIdSetIterator> {
-        self.finish()?;
+    fn get_doc_values(&self) -> Result<Self::DocIdSetIterator> {
+        if self.final_ords.is_none() {
+            return Err(LuceneError::illegal_state(
+                "must be finished before getting doc values".to_string(),
+            ));
+        }
         SortedSetDocValuesWriter::get_values(
             self.final_ord_map.as_ref().unwrap().clone(),
             self.hash_rc.clone().unwrap(),
@@ -362,6 +340,34 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
             self.max_count,
             &self.docs_with_field,
         )
+    }
+
+    fn finish(&mut self) -> Result<()> {
+        self.docs_with_field.finish();
+        if self.final_ords.is_none() {
+            debug_assert!(
+                self.final_ord_counts.is_none() && !self.is_sorted && self.final_ord_map.is_none()
+            );
+            self.finish_current_doc()?;
+            let value_count = self.hash.size();
+            self.final_ords = Some(self.pending.build()?);
+            self.final_ord_counts = match std::mem::take(&mut self.pending_counts) {
+                Some(mut pc) => Some(pc.build()?),
+                None => None,
+            };
+            self.hash.sort()?;
+            self.is_sorted = true;
+            let mut ord_map = vec![0; value_count as usize];
+            for ord in 0..value_count as usize {
+                let index = self.hash.ids[ord] as usize;
+                ord_map[index] = ord as i32;
+            }
+            self.hash_rc = Some(Arc::new(std::mem::take(&mut self.hash)));
+            self.final_ord_map = Some(Arc::new(ord_map));
+        } else {
+            debug_assert!(self.is_sorted);
+        }
+        Ok(())
     }
 }
 pub(crate) struct DocValuesProducerImpl1 {

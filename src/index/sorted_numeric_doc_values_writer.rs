@@ -189,9 +189,6 @@ impl SortedNumericDocValuesWriter {
             },
         }
     }
-    pub(crate) fn finish(&mut self) {
-        self.docs_with_field.finish();
-    }
 }
 
 impl Display for SortedNumericDocValuesWriter {
@@ -212,7 +209,8 @@ impl DocValuesWriter for SortedNumericDocValuesWriter {
         DM: DocMap,
         DC: DocValuesConsumer,
     {
-        self.finish();
+        // `final_values` should always not None here, because we call finish() before flush()
+        // but we still keep the check here for consistent with Java Lucene.
         let (values, value_counts) = if self.final_values.is_none() {
             self.finish_current_doc()?;
             let values = self.pending.build()?;
@@ -270,8 +268,21 @@ impl DocValuesWriter for SortedNumericDocValuesWriter {
         BufferedSortedNumericDocValues<DocsWithFieldSetEnum>,
     >;
 
-    fn get_doc_values(&mut self) -> Result<Self::DocIdSetIterator> {
-        self.finish();
+    fn get_doc_values(&self) -> Result<Self::DocIdSetIterator> {
+        if self.final_values.is_none() {
+            return Err(LuceneError::illegal_state(
+                "must be finished before getting doc values".to_string(),
+            ));
+        }
+        SortedNumericDocValuesWriter::get_values(
+            self.final_values.as_ref().unwrap(),
+            &self.final_values_count,
+            &self.docs_with_field,
+        )
+    }
+
+    fn finish(&mut self) -> Result<()> {
+        self.docs_with_field.finish();
         if self.final_values.is_none() {
             debug_assert!(self.final_values_count.is_none());
             self.finish_current_doc()?;
@@ -281,11 +292,7 @@ impl DocValuesWriter for SortedNumericDocValuesWriter {
                 None => None,
             };
         }
-        SortedNumericDocValuesWriter::get_values(
-            self.final_values.as_ref().unwrap(),
-            &self.final_values_count,
-            &self.docs_with_field,
-        )
+        Ok(())
     }
 }
 pub(crate) struct DocValuesProducerImpl1 {

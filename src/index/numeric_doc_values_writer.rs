@@ -103,9 +103,6 @@ impl NumericDocValuesWriter {
         self.bytes_used = new_bytes_used;
         Ok(())
     }
-    pub(crate) fn finish(&mut self) {
-        self.docs_with_field.finish();
-    }
 }
 
 impl Display for NumericDocValuesWriter {
@@ -126,7 +123,8 @@ impl DocValuesWriter for NumericDocValuesWriter {
         DM: DocMap,
         DC: DocValuesConsumer,
     {
-        self.finish();
+        // `final_values` should always not None here, because we call finish() before flush()
+        // but we still keep the check here for consistent with Java Lucene.
         if self.final_values.is_none() {
             self.final_values = Some(std::mem::take(&mut self.pending).build()?)
         }
@@ -142,15 +140,24 @@ impl DocValuesWriter for NumericDocValuesWriter {
 
     type DocIdSetIterator = BufferedNumericDocValues;
 
-    fn get_doc_values(&mut self) -> Result<Self::DocIdSetIterator> {
-        self.finish();
+    fn get_doc_values(&self) -> Result<Self::DocIdSetIterator> {
         if self.final_values.is_none() {
-            self.final_values = Some(std::mem::take(&mut self.pending).build()?)
+            return Err(LuceneError::illegal_state(
+                "must be finished before getting doc values".to_string(),
+            ));
         }
         Ok(BufferedNumericDocValues::new(
             self.final_values.as_ref().unwrap(),
             self.docs_with_field.iterator()?.unwrap(),
         ))
+    }
+
+    fn finish(&mut self) -> Result<()> {
+        self.docs_with_field.finish();
+        if self.final_values.is_none() {
+            self.final_values = Some(std::mem::take(&mut self.pending).build()?)
+        }
+        Ok(())
     }
 }
 pub(crate) struct DocValuesProducerImpl {

@@ -156,28 +156,6 @@ impl SortedDocValuesWriter {
         Ok(())
     }
 
-    fn finish(&mut self) -> Result<()> {
-        self.docs_with_field.finish();
-        if self.is_sorted {
-            let value_count = self.hash.size();
-            self.update_bytes_used()?;
-            debug_assert!(self.final_ord_map.is_none() && self.final_ords.is_none());
-
-            self.hash.sort()?;
-            self.is_sorted = true;
-            let ords = self.pending.build()?;
-
-            let mut ord_map = vec![0i32; value_count as usize];
-            for ord in 0..value_count as usize {
-                let index = self.hash.ids[ord] as usize;
-                ord_map[index] = ord as i32;
-            }
-            self.hash_rc = Some(Arc::new(std::mem::take(&mut self.hash)));
-            self.final_ords = Some(ords);
-            self.final_ord_map = Some(Arc::new(ord_map));
-        }
-        Ok(())
-    }
     fn sort_doc_values<SDV, DM>(
         max_doc: usize,
         sort_map: &DM,
@@ -219,7 +197,11 @@ impl DocValuesWriter for SortedDocValuesWriter {
         DM: DocMap,
         DC: DocValuesConsumer,
     {
-        self.finish()?;
+        if !self.is_sorted {
+            return Err(LuceneError::illegal_state(
+                "must be finished before getting doc values".to_string(),
+            ));
+        }
         dv_consumer.add_sorted_field(
             &self.field_info,
             &mut sdvw_util::get_doc_values_producer(
@@ -236,14 +218,41 @@ impl DocValuesWriter for SortedDocValuesWriter {
 
     type DocIdSetIterator = BufferedSortedDocValues<DocsWithFieldSetEnum>;
 
-    fn get_doc_values(&mut self) -> Result<Self::DocIdSetIterator> {
-        self.finish()?;
+    fn get_doc_values(&self) -> Result<Self::DocIdSetIterator> {
+        if !self.is_sorted {
+            return Err(LuceneError::illegal_state(
+                "must be finished before getting doc values".to_string(),
+            ));
+        }
         Ok(BufferedSortedDocValues::new(
             self.hash_rc.as_ref().unwrap().clone(),
             self.final_ords.as_ref().unwrap(),
             self.final_ord_map.as_ref().unwrap().clone(),
             self.docs_with_field.iterator()?.unwrap(),
         ))
+    }
+
+    fn finish(&mut self) -> Result<()> {
+        self.docs_with_field.finish();
+        if !self.is_sorted {
+            let value_count = self.hash.size();
+            self.update_bytes_used()?;
+            debug_assert!(self.final_ord_map.is_none() && self.final_ords.is_none());
+
+            self.hash.sort()?;
+            self.is_sorted = true;
+            let ords = self.pending.build()?;
+
+            let mut ord_map = vec![0i32; value_count as usize];
+            for ord in 0..value_count as usize {
+                let index = self.hash.ids[ord] as usize;
+                ord_map[index] = ord as i32;
+            }
+            self.hash_rc = Some(Arc::new(std::mem::take(&mut self.hash)));
+            self.final_ords = Some(ords);
+            self.final_ord_map = Some(Arc::new(ord_map));
+        }
+        Ok(())
     }
 }
 
