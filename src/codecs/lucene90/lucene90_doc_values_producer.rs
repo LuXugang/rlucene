@@ -2746,11 +2746,7 @@ where
 {
     const LZ4_DECOMPRESSOR_PADDING: i32 = 7;
 
-    pub fn new(
-        entry: Rc<TermsDictEntry>,
-        data: &I,
-        merging: bool,
-    ) -> Result<BaseTermsEnum<Self>> {
+    pub fn new(entry: Rc<TermsDictEntry>, data: &I, merging: bool) -> Result<BaseTermsEnum<Self>> {
         let addresses_slice = Rc::new(RefCell::new(
             data.random_access_slice(entry.terms_addresses_offset, entry.terms_addresses_length)?,
         ));

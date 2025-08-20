@@ -250,7 +250,7 @@ impl SortedSetDocValuesWriter {
         ords: &PackedLongValues,
         ord_counts: Option<PackedLongValues>,
         max_count: i32,
-        docs_with_field: &mut DocsWithFieldSet,
+        docs_with_field: &DocsWithFieldSet,
     ) -> Result<
         EitherSortedSetDocValues<
             SingletonSortedSetDocValues<BufferedSortedDocValues<DocsWithFieldSetEnum>>,
@@ -325,7 +325,7 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
                     &ords,
                     ord_counts.clone(),
                     self.max_count,
-                    &mut self.docs_with_field,
+                    &self.docs_with_field,
                 )?,
                 PackedInts::FASTEST,
                 PackedInts::bits_required(self.max_count as i64)?,
@@ -360,7 +360,7 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
             self.final_ords.as_ref().unwrap(),
             self.final_ord_counts.clone(),
             self.max_count,
-            &mut self.docs_with_field,
+            &self.docs_with_field,
         )
     }
 }
@@ -426,7 +426,7 @@ impl DocValuesProducer for DocValuesProducerImpl1 {
             &self.ords,
             self.ord_counts.clone(),
             self.max_count,
-            &mut self.docs_with_field,
+            &self.docs_with_field,
         )?;
         match &self.doc_ords {
             Some(ords) => Ok(EitherSortedSetDocValues::S(SortingSortedSetDocValues::new(
