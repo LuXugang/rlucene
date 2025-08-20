@@ -744,12 +744,12 @@ where
                 )?;
                 BaseSortedDocValuesEnum::Sparse(SparseBaseSortedDocValues::new(disi, values))
             };
-            return BaseSortedDocValues::new(entry.clone(), &mut self.data, sub, self.merging);
+            return BaseSortedDocValues::new(entry.clone(), &self.data, sub, self.merging);
         }
 
         let ords = self.get_numeric(ords_entry.clone())?;
         let sub = BaseSortedDocValuesEnum::Impl(BaseSortedDocValuesImpl::new(ords));
-        BaseSortedDocValues::new(entry.clone(), &mut self.data, sub, self.merging)
+        BaseSortedDocValues::new(entry.clone(), &self.data, sub, self.merging)
     }
 
     fn get_sorted_numeric(
@@ -1102,7 +1102,7 @@ where
                             };
                             return Ok(EitherSortedSetDocValues::S(BaseSortedSetDocValues::new(
                                 entry_clone.clone(),
-                                &mut self.data,
+                                &self.data,
                                 sbu,
                                 self.merging,
                             )?));
@@ -1113,7 +1113,7 @@ where
                             BaseSortedSetDocValuesEnum::Impl(BaseSortedSetDocValuesImpl::new(ords));
                         Ok(EitherSortedSetDocValues::S(BaseSortedSetDocValues::new(
                             entry_clone,
-                            &mut self.data,
+                            &self.data,
                             sub,
                             self.merging,
                         )?))
@@ -2293,7 +2293,7 @@ where
 {
     fn new(
         entry: Rc<SortedEntry>,
-        data: &mut I,
+        data: &I,
         sub: BaseSortedDocValuesEnum<I>,
         merging: bool,
     ) -> Result<Self> {
@@ -2631,7 +2631,7 @@ where
 {
     fn new(
         entry: Rc<SortedSetEntry>,
-        data: &mut I,
+        data: &I,
         sub: BaseSortedSetDocValuesEnum<I>,
         merging: bool,
     ) -> Result<Self> {
@@ -2748,7 +2748,7 @@ where
 
     pub fn new(
         entry: Rc<TermsDictEntry>,
-        data: &mut I,
+        data: &I,
         merging: bool,
     ) -> Result<BaseTermsEnum<Self>> {
         let addresses_slice = Rc::new(RefCell::new(
