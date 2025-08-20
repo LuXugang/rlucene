@@ -31,7 +31,7 @@ use crate::index::sorted_set_doc_values_writer::{
     BufferedSortedSetDocValues, SortedSetDocValuesWriter,
 };
 use crate::index::sorter::DocMap;
-use crate::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::search::doc_id_set_iterator::{DocIdSetIterator, EitherDocIdSetIterator5};
 use crate::store::directory::Directory;
 use crate::util::error::lucene_error::Result;
 use crate::util::paged_bytes::PagedBytesDataInput;
@@ -104,24 +104,24 @@ impl DocValuesWriter for DocValuesWriterEnum {
         }
     }
 
-    type DocIdSetIterator = DocIdSetIteratorImpl;
+    type DocIdSetIterator = DocValuesWriterDISI;
 
     fn get_doc_values(&self) -> Result<Self::DocIdSetIterator> {
         match self {
             DocValuesWriterEnum::Binary(writer) => {
-                Ok(DocIdSetIteratorImpl::Binary(writer.get_doc_values()?))
+                Ok(EitherDocIdSetIterator5::F(writer.get_doc_values()?))
             },
             DocValuesWriterEnum::Numeric(writer) => {
-                Ok(DocIdSetIteratorImpl::Numeric(writer.get_doc_values()?))
+                Ok(EitherDocIdSetIterator5::S(writer.get_doc_values()?))
             },
-            DocValuesWriterEnum::SortedNumeric(writer) => Ok(DocIdSetIteratorImpl::SortedNumeric(
-                writer.get_doc_values()?,
-            )),
+            DocValuesWriterEnum::SortedNumeric(writer) => {
+                Ok(EitherDocIdSetIterator5::T(writer.get_doc_values()?))
+            },
             DocValuesWriterEnum::Sorted(writer) => {
-                Ok(DocIdSetIteratorImpl::Sorted(writer.get_doc_values()?))
+                Ok(EitherDocIdSetIterator5::U(writer.get_doc_values()?))
             },
             DocValuesWriterEnum::SortedSet(writer) => {
-                Ok(DocIdSetIteratorImpl::SortedSet(writer.get_doc_values()?))
+                Ok(EitherDocIdSetIterator5::V(writer.get_doc_values()?))
             },
         }
     }
@@ -136,72 +136,16 @@ impl DocValuesWriter for DocValuesWriterEnum {
         }
     }
 }
-
-pub(crate) enum DocIdSetIteratorImpl {
-    Binary(BufferedBinaryDocValues<DocsWithFieldSetEnum, PagedBytesDataInput>),
-    Numeric(BufferedNumericDocValues),
-    SortedNumeric(
-        EitherSortedNumericDocValues<
-            SingletonSortedNumericDocValues<BufferedNumericDocValues>,
-            BufferedSortedNumericDocValues<DocsWithFieldSetEnum>,
-        >,
-    ),
-    Sorted(BufferedSortedDocValues<DocsWithFieldSetEnum>),
-    SortedSet(
-        EitherSortedSetDocValues<
-            SingletonSortedSetDocValues<BufferedSortedDocValues<DocsWithFieldSetEnum>>,
-            BufferedSortedSetDocValues<DocsWithFieldSetEnum>,
-        >,
-    ),
-}
-impl DocIdSetIterator for DocIdSetIteratorImpl {
-    fn doc_id(&self) -> i32 {
-        match self {
-            DocIdSetIteratorImpl::Binary(iter) => iter.doc_id(),
-            DocIdSetIteratorImpl::Numeric(iter) => iter.doc_id(),
-            DocIdSetIteratorImpl::SortedNumeric(iter) => iter.doc_id(),
-            DocIdSetIteratorImpl::Sorted(iter) => iter.doc_id(),
-            DocIdSetIteratorImpl::SortedSet(iter) => iter.doc_id(),
-        }
-    }
-
-    fn next_doc(&mut self) -> Result<i32> {
-        match self {
-            DocIdSetIteratorImpl::Binary(iter) => iter.next_doc(),
-            DocIdSetIteratorImpl::Numeric(iter) => iter.next_doc(),
-            DocIdSetIteratorImpl::SortedNumeric(iter) => iter.next_doc(),
-            DocIdSetIteratorImpl::Sorted(iter) => iter.next_doc(),
-            DocIdSetIteratorImpl::SortedSet(iter) => iter.next_doc(),
-        }
-    }
-
-    fn advance(&mut self, _target: i32) -> Result<i32> {
-        match self {
-            DocIdSetIteratorImpl::Binary(iter) => iter.advance(_target),
-            DocIdSetIteratorImpl::Numeric(iter) => iter.advance(_target),
-            DocIdSetIteratorImpl::SortedNumeric(iter) => iter.advance(_target),
-            DocIdSetIteratorImpl::Sorted(iter) => iter.advance(_target),
-            DocIdSetIteratorImpl::SortedSet(iter) => iter.advance(_target),
-        }
-    }
-
-    fn slow_advance(&mut self, target: i32) -> Result<i32> {
-        match self {
-            DocIdSetIteratorImpl::Binary(iter) => iter.slow_advance(target),
-            DocIdSetIteratorImpl::Numeric(iter) => iter.slow_advance(target),
-            DocIdSetIteratorImpl::SortedNumeric(iter) => iter.slow_advance(target),
-            DocIdSetIteratorImpl::Sorted(iter) => iter.slow_advance(target),
-            DocIdSetIteratorImpl::SortedSet(iter) => iter.slow_advance(target),
-        }
-    }
-
-    fn cost(&self) -> Result<i64> {
-        match self {
-            DocIdSetIteratorImpl::Binary(iter) => iter.cost(),
-            DocIdSetIteratorImpl::Numeric(iter) => iter.cost(),
-            DocIdSetIteratorImpl::SortedNumeric(iter) => iter.cost(),
-            DocIdSetIteratorImpl::Sorted(iter) => iter.cost(),
-            DocIdSetIteratorImpl::SortedSet(iter) => iter.cost(),
-        }
-    }
-}
+pub(crate) type DocValuesWriterDISI = EitherDocIdSetIterator5<
+    BufferedBinaryDocValues<DocsWithFieldSetEnum, PagedBytesDataInput>,
+    BufferedNumericDocValues,
+    EitherSortedNumericDocValues<
+        SingletonSortedNumericDocValues<BufferedNumericDocValues>,
+        BufferedSortedNumericDocValues<DocsWithFieldSetEnum>,
+    >,
+    BufferedSortedDocValues<DocsWithFieldSetEnum>,
+    EitherSortedSetDocValues<
+        SingletonSortedSetDocValues<BufferedSortedDocValues<DocsWithFieldSetEnum>>,
+        BufferedSortedSetDocValues<DocsWithFieldSetEnum>,
+    >,
+>;

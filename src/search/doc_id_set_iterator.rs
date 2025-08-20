@@ -234,53 +234,55 @@ pub mod disi_const {
     /// it means there are no more documents in the iterator.
     pub const NO_MORE_DOCS: i32 = i32::MAX;
 }
+macro_rules! either_docidsetiterator_named {
+    ($vis:vis $name:ident { $( $Variant:ident : $T:ident ),+ $(,)? }) => {
+        $vis enum $name<$( $T ),+> {
+            $( $Variant($T), )+
+        }
 
-// DocIdSetIterator
-pub enum EitherDocIdSetIterator<F, S> {
-    F(F),
-    S(S),
+        impl<$( $T ),+> DocIdSetIterator for $name<$( $T ),+>
+        where
+            $( $T: DocIdSetIterator ),+
+        {
+
+            fn doc_id(&self) -> i32 {
+                match self {
+                    $( Self::$Variant(inner) => inner.doc_id(), )+
+                }
+            }
+
+
+            fn next_doc(&mut self) -> Result<i32> {
+                match self {
+                    $( Self::$Variant(inner) => inner.next_doc(), )+
+                }
+            }
+
+
+            fn advance(&mut self, target: i32) -> Result<i32> {
+                match self {
+                    $( Self::$Variant(inner) => inner.advance(target), )+
+                }
+            }
+
+
+            fn slow_advance(&mut self, target: i32) -> Result<i32> {
+                match self {
+                    $( Self::$Variant(inner) => inner.slow_advance(target), )+
+                }
+            }
+
+
+            fn cost(&self) -> Result<i64> {
+                match self {
+                    $( Self::$Variant(inner) => inner.cost(), )+
+                }
+            }
+        }
+    };
 }
-
-impl<F, S> DocIdSetIterator for EitherDocIdSetIterator<F, S>
-where
-    F: DocIdSetIterator,
-    S: DocIdSetIterator,
-{
-    fn doc_id(&self) -> i32 {
-        match self {
-            EitherDocIdSetIterator::F(t) => t.doc_id(),
-            EitherDocIdSetIterator::S(s) => s.doc_id(),
-        }
-    }
-
-    fn next_doc(&mut self) -> Result<i32> {
-        match self {
-            EitherDocIdSetIterator::F(t) => t.next_doc(),
-            EitherDocIdSetIterator::S(s) => s.next_doc(),
-        }
-    }
-
-    fn advance(&mut self, target: i32) -> Result<i32> {
-        match self {
-            EitherDocIdSetIterator::F(t) => t.advance(target),
-            EitherDocIdSetIterator::S(s) => s.advance(target),
-        }
-    }
-
-    fn slow_advance(&mut self, target: i32) -> Result<i32> {
-        match self {
-            EitherDocIdSetIterator::F(t) => t.slow_advance(target),
-            EitherDocIdSetIterator::S(s) => s.slow_advance(target),
-        }
-    }
-
-    fn cost(&self) -> Result<i64> {
-        match self {
-            EitherDocIdSetIterator::F(t) => t.cost(),
-            EitherDocIdSetIterator::S(s) => s.cost(),
-        }
-    }
-}
+either_docidsetiterator_named!(pub EitherDocIdSetIterator { F: F, S: S});
+either_docidsetiterator_named!(pub(crate) EitherDocIdSetIterator5 { F: F, S: S, T: T, U: U, V: V });
 
 #[cfg(test)]
 mod tests {

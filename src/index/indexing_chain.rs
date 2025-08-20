@@ -33,7 +33,7 @@ use crate::index::doc_values::{DocValues, EmptyBinary, EmptyNumeric, EmptySorted
 use crate::index::doc_values_leaf_reader::DocValuesLeafReader;
 use crate::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::index::doc_values_type::DocValuesType;
-use crate::index::doc_values_writer::{DocIdSetIteratorImpl, DocValuesWriter, DocValuesWriterEnum};
+use crate::index::doc_values_writer::{DocValuesWriter, DocValuesWriterDISI, DocValuesWriterEnum};
 use crate::index::docs_with_field_set::DocsWithFieldSetEnum;
 use crate::index::field_info::FieldInfo;
 use crate::index::field_infos::FieldInfos;
@@ -1210,7 +1210,7 @@ where
     pub(crate) fn get_has_doc_values(
         &mut self,
         field: &str,
-    ) -> Result<Option<DocIdSetIteratorImpl>> {
+    ) -> Result<Option<DocValuesWriterDISI>> {
         if let Some(idx) = self.get_per_field(field) {
             let pf = self.doc_fields[idx].as_mut().unwrap();
             if let Some(ref writer_enum) = pf.doc_values_writer {
