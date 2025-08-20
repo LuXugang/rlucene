@@ -86,8 +86,7 @@ where
         // Read in the entries from the metadata file
         let mut norms = HashMap::new();
         {
-            let dir = &state.directory;
-            let mut input = dir.open_checksum_input(&meta_name)?;
+            let mut input = state.directory.open_checksum_input(&meta_name)?;
 
             let mut prior_error = None;
 
@@ -122,14 +121,10 @@ where
 
         // Norms have a forward-only access pattern, so pass ReadAdvice::Normal
         // to perform readahead
-        let mut data;
-        {
-            let dir = &state.directory;
-            data = dir.open_input(
-                &data_name,
-                &state.context.with_read_advice(ReadAdvice::Normal)?,
-            )?;
-        }
+        let mut data = state.directory.open_input(
+            &data_name,
+            &state.context.with_read_advice(ReadAdvice::Normal)?,
+        )?;
 
         // Check header again in the data file
 
