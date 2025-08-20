@@ -1224,11 +1224,8 @@ where
     type SortedDocValues = DummySortedDocValues;
     type SortedNumericDocValues = SingletonSortedNumericDocValues<D::NumericDocValues>;
 
-    fn get_sorted_numeric(
-        &mut self,
-        field: &Arc<FieldInfo>,
-    ) -> Result<Self::SortedNumericDocValues> {
-        let v = self.values_producer.as_mut().unwrap().get_numeric(field)?;
+    fn get_sorted_numeric(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedNumericDocValues> {
+        let v = self.values_producer.as_ref().unwrap().get_numeric(field)?;
         DocValues::singleton_numeric(v)
     }
     type SortedSetDocValues = DummySortedSetDocValues;
@@ -1250,10 +1247,7 @@ where
     type SortedNumericDocValues =
         SingletonSortedNumericDocValues<NumericDocValuesImpl<D::SortedDocValues>>;
 
-    fn get_sorted_numeric(
-        &mut self,
-        field: &Arc<FieldInfo>,
-    ) -> Result<Self::SortedNumericDocValues> {
+    fn get_sorted_numeric(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedNumericDocValues> {
         let sorted = self.values_producer.get_sorted(field)?;
         let sorted_ords = NumericDocValuesImpl { sorted };
         DocValues::singleton_numeric(sorted_ords)
@@ -1277,7 +1271,7 @@ where
     type BinaryDocValues = DummyBinaryDocValues;
     type SortedDocValues = SortedDocValuesWrapEnum<D::SortedSetDocValues>;
 
-    fn get_sorted(&mut self, field: &Arc<FieldInfo>) -> Result<Self::SortedDocValues> {
+    fn get_sorted(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedDocValues> {
         let sorted_set = self.values_producer.get_sorted_set(field)?;
         SortedSetSelector::wrap(sorted_set, SortedSetSelectorType::Min)
     }
@@ -1302,10 +1296,7 @@ where
     type SortedDocValues = DummySortedDocValues;
     type SortedNumericDocValues = SortedNumericDocValuesImpl<D>;
 
-    fn get_sorted_numeric(
-        &mut self,
-        field: &Arc<FieldInfo>,
-    ) -> Result<Self::SortedNumericDocValues> {
+    fn get_sorted_numeric(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedNumericDocValues> {
         let value = self.values_producer.get_sorted_set(field)?;
         Ok(SortedNumericDocValuesImpl {
             ords: vec![],

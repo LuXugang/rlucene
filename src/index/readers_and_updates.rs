@@ -704,7 +704,7 @@ impl<'a, LF: LiveDocsFormat> DocValuesProducer for DocValuesProducerBinary<'a, L
     type NumericDocValues = DummyNumericDocValues;
     type BinaryDocValues = BinaryDocValuesImpl<LF>;
 
-    fn get_binary(&mut self, _field: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
+    fn get_binary(&self, _field: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
         let iterator = match self.update_supplier.apply(&self.field_info)? {
             Some(it) => it,
             None => {
@@ -750,7 +750,7 @@ impl<'a, LF: LiveDocsFormat> DocValuesProducerNumeric<'a, LF> {
 
 impl<'a, LF: LiveDocsFormat> DocValuesProducer for DocValuesProducerNumeric<'a, LF> {
     type NumericDocValues = NumericDocValuesImpl<LF>;
-    fn get_numeric(&mut self, _field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
+    fn get_numeric(&self, _field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
         let iterator = match self.update_supplier.apply(&self.field_info)? {
             Some(it) => it,
             None => {

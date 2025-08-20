@@ -43,26 +43,26 @@ impl IndexReader for DummyLeafReader {
 impl LeafReader for DummyLeafReader {
     type NumericDocValues = DummyNumericDocValues;
 
-    fn get_numeric_doc_values(&mut self, _field: &str) -> Result<Option<Self::NumericDocValues>> {
+    fn get_numeric_doc_values(&self, _field: &str) -> Result<Option<Self::NumericDocValues>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     type BinaryDocValues = DummyBinaryDocValues;
 
-    fn get_binary_doc_values(&mut self, _field: &str) -> Result<Option<Self::BinaryDocValues>> {
+    fn get_binary_doc_values(&self, _field: &str) -> Result<Option<Self::BinaryDocValues>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     type SortedDocValues = DummySortedDocValues;
 
-    fn get_sorted_doc_values(&mut self, _field: &str) -> Result<Option<Self::SortedDocValues>> {
+    fn get_sorted_doc_values(&self, _field: &str) -> Result<Option<Self::SortedDocValues>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     type SortedNumericDocValues = DummySortedNumericDocValues;
 
     fn get_sorted_numeric_doc_values(
-        &mut self,
+        &self,
         _field: &str,
     ) -> Result<Option<Self::SortedNumericDocValues>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
@@ -70,22 +70,19 @@ impl LeafReader for DummyLeafReader {
 
     type SortedSetDocValues = DummySortedSetDocValues;
 
-    fn get_sorted_set_doc_values(
-        &mut self,
-        _field: &str,
-    ) -> Result<Option<Self::SortedSetDocValues>> {
+    fn get_sorted_set_doc_values(&self, _field: &str) -> Result<Option<Self::SortedSetDocValues>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     type NormNumericDocValues = DummyNumericDocValues;
 
-    fn get_norm_values(&mut self, _field: &str) -> Result<Option<Self::NormNumericDocValues>> {
+    fn get_norm_values(&self, _field: &str) -> Result<Option<Self::NormNumericDocValues>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     type DocValuesSkipper = DummyDocValuesSkipper;
 
-    fn get_doc_values_skipper(&mut self, _field: &str) -> Result<Option<Self::DocValuesSkipper>> {
+    fn get_doc_values_skipper(&self, _field: &str) -> Result<Option<Self::DocValuesSkipper>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

@@ -282,7 +282,7 @@ where
 {
     type NumericDocValues = NumericDocValuesMerge<I>;
 
-    fn get_numeric(&mut self, field_info: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
+    fn get_numeric(&self, field_info: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
         if Arc::ptr_eq(field_info, &self.merge_field_info) {
             return Err(LuceneError::illegal_argument("wrong fieldInfo"));
         }
@@ -293,7 +293,7 @@ where
         );
         for i in 0..self.merge_state.doc_values_producers.len() {
             let mut values = None;
-            let doc_values_producer_opt = &mut self.merge_state.doc_values_producers[i];
+            let doc_values_producer_opt = &self.merge_state.doc_values_producers[i];
             if let Some(doc_values_producer) = doc_values_producer_opt {
                 let reader_field_info =
                     self.merge_state.field_infos[i].field_info_by_name(&self.merge_field_info.name);
@@ -451,7 +451,7 @@ where
     type NumericDocValues = DummyNumericDocValues;
     type BinaryDocValues = BinaryDocValuesMerge<I>;
 
-    fn get_binary(&mut self, field_info: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
+    fn get_binary(&self, field_info: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
         if Arc::ptr_eq(field_info, &self.merge_field_info) {
             return Err(LuceneError::illegal_argument("wrong fieldInfo"));
         }
@@ -464,7 +464,7 @@ where
 
         for i in 0..self.merge_state.doc_values_producers.len() {
             let mut values = None;
-            let doc_values_producer_opt = &mut self.merge_state.doc_values_producers[i];
+            let doc_values_producer_opt = &self.merge_state.doc_values_producers[i];
 
             if let Some(doc_values_producer) = doc_values_producer_opt {
                 let reader_field_info =
@@ -644,7 +644,7 @@ where
     >;
 
     fn get_sorted_numeric(
-        &mut self,
+        &self,
         field_info: &Arc<FieldInfo>,
     ) -> Result<Self::SortedNumericDocValues> {
         if Arc::ptr_eq(field_info, &self.merge_field_info) {
@@ -657,7 +657,7 @@ where
 
         for i in 0..self.merge_state.doc_values_producers.len() {
             let mut values = None;
-            let doc_values_producer_opt = &mut self.merge_state.doc_values_producers[i];
+            let doc_values_producer_opt = &self.merge_state.doc_values_producers[i];
             if let Some(doc_values_producer) = doc_values_producer_opt {
                 let reader_field_info =
                     self.merge_state.field_infos[i].field_info_by_name(&self.merge_field_info.name);

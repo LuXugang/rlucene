@@ -239,7 +239,7 @@ impl DocValuesProducer for DocValuesProducerImpl {
         BufferedBinaryDocValues<DocsWithFieldSetEnum, PagedBytesDataInput>,
     >;
 
-    fn get_binary(&mut self, field_info: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
+    fn get_binary(&self, field_info: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
         if Arc::ptr_eq(field_info, &self.field_info) {
             return Err(LuceneError::illegal_argument("wrong fieldInfo"));
         }

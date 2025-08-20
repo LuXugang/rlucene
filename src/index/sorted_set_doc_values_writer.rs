@@ -422,7 +422,7 @@ impl DocValuesProducer for DocValuesProducerImpl1 {
         >,
     >;
 
-    fn get_sorted_set(&mut self, field_info: &Arc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
+    fn get_sorted_set(&self, field_info: &Arc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
         if Arc::ptr_eq(&self.field_info, field_info) {
             return Err(LuceneError::illegal_argument("wrong fieldInfo"));
         }
@@ -470,7 +470,7 @@ impl DocValuesProducer for DocValuesProducerImpl2 {
         >,
     >;
 
-    fn get_sorted_set(&mut self, field_info: &Arc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
+    fn get_sorted_set(&self, field_info: &Arc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
         DocValues::singleton_sorted(self.single_value_producer.get_sorted(field_info)?)
     }
 

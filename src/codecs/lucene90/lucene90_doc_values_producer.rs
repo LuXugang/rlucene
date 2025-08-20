@@ -516,7 +516,7 @@ where
         Ok(())
     }
 
-    fn get_numeric(&mut self, entry: Rc<NumericEntry>) -> Result<Lucene90NumericDocValuesEnums<I>> {
+    fn get_numeric(&self, entry: Rc<NumericEntry>) -> Result<Lucene90NumericDocValuesEnums<I>> {
         if entry.docs_with_field_offset == -2 {
             // empty
             Ok(Lucene90NumericDocValuesEnums::Empty(
@@ -648,7 +648,7 @@ where
             ))
         }
     }
-    fn get_numeric_values(&mut self, entry: &Rc<NumericEntry>) -> Result<LongValuesEnum<I>>
+    fn get_numeric_values(&self, entry: &Rc<NumericEntry>) -> Result<LongValuesEnum<I>>
     where
         I: IndexInput,
     {
@@ -705,7 +705,7 @@ where
         Ok(long_values)
     }
 
-    fn get_sorted(&mut self, entry: Rc<SortedEntry>) -> Result<BaseSortedDocValues<I>> {
+    fn get_sorted(&self, entry: Rc<SortedEntry>) -> Result<BaseSortedDocValues<I>> {
         let ords_entry = &entry.ords_entry;
 
         if ords_entry.block_shift < 0 && ords_entry.bits_per_value > 0 {
@@ -753,7 +753,7 @@ where
     }
 
     fn get_sorted_numeric(
-        &mut self,
+        &self,
         entry: &SortedNumericEntry,
     ) -> Result<Lucene90SortedNumericDocValuesEnums<I>>
     where
@@ -851,7 +851,7 @@ where
 {
     type NumericDocValues = Lucene90NumericDocValuesEnums<I>;
 
-    fn get_numeric(&mut self, field: &Arc<FieldInfo>) -> Result<Lucene90NumericDocValuesEnums<I>> {
+    fn get_numeric(&self, field: &Arc<FieldInfo>) -> Result<Lucene90NumericDocValuesEnums<I>> {
         let entry = self.numerics.get(&field.number);
         match entry {
             Some(entry) => self.get_numeric(entry.clone()),
@@ -864,7 +864,7 @@ where
 
     type BinaryDocValues = Lucene90BinaryDocValuesEnum<I>;
 
-    fn get_binary(&mut self, field: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
+    fn get_binary(&self, field: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
         let entry = self.binaries.get(&field.number);
         match entry {
             Some(entry) => {
@@ -990,7 +990,7 @@ where
 
     type SortedDocValues = BaseSortedDocValues<I>;
 
-    fn get_sorted(&mut self, field: &Arc<FieldInfo>) -> Result<Self::SortedDocValues> {
+    fn get_sorted(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedDocValues> {
         let entry = self.sorted.get(&field.number);
         match entry {
             Some(entry) => Ok(self.get_sorted(entry.clone())?),
@@ -1003,10 +1003,7 @@ where
 
     type SortedNumericDocValues = Lucene90SortedNumericDocValuesEnums<I>;
 
-    fn get_sorted_numeric(
-        &mut self,
-        field: &Arc<FieldInfo>,
-    ) -> Result<Self::SortedNumericDocValues> {
+    fn get_sorted_numeric(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedNumericDocValues> {
         let entry = self.sorted_numerics.get(&field.number);
         match entry {
             Some(entry) => self.get_sorted_numeric(&entry.clone()),
@@ -1022,7 +1019,7 @@ where
         BaseSortedSetDocValues<I>,
     >;
 
-    fn get_sorted_set(&mut self, field: &Arc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
+    fn get_sorted_set(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
         let field_number = field.number;
         let entry = self.sorted_sets.get(&field_number);
         match entry {
@@ -1129,7 +1126,7 @@ where
 
     type DocValuesSkipper = DocValuesSkipperImpl<I>;
 
-    fn get_skipper(&mut self, field: &Arc<FieldInfo>) -> Result<Self::DocValuesSkipper> {
+    fn get_skipper(&self, field: &Arc<FieldInfo>) -> Result<Self::DocValuesSkipper> {
         let entry = self.skippers.get(&field.number);
         match entry {
             Some(entry) => {

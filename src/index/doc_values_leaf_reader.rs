@@ -44,26 +44,26 @@ impl IndexReader for DocValuesLeafReader {
 impl LeafReader for DocValuesLeafReader {
     type NumericDocValues = DummyNumericDocValues;
 
-    fn get_numeric_doc_values(&mut self, _field: &str) -> Result<Option<Self::NumericDocValues>> {
+    fn get_numeric_doc_values(&self, _field: &str) -> Result<Option<Self::NumericDocValues>> {
         Err(LuceneError::unsupported_operation(""))
     }
 
     type BinaryDocValues = DummyBinaryDocValues;
 
-    fn get_binary_doc_values(&mut self, _field: &str) -> Result<Option<Self::BinaryDocValues>> {
+    fn get_binary_doc_values(&self, _field: &str) -> Result<Option<Self::BinaryDocValues>> {
         Err(LuceneError::unsupported_operation(""))
     }
 
     type SortedDocValues = DummySortedDocValues;
 
-    fn get_sorted_doc_values(&mut self, _field: &str) -> Result<Option<Self::SortedDocValues>> {
+    fn get_sorted_doc_values(&self, _field: &str) -> Result<Option<Self::SortedDocValues>> {
         Err(LuceneError::unsupported_operation(""))
     }
 
     type SortedNumericDocValues = DummySortedNumericDocValues;
 
     fn get_sorted_numeric_doc_values(
-        &mut self,
+        &self,
         _field: &str,
     ) -> Result<Option<Self::SortedNumericDocValues>> {
         Err(LuceneError::unsupported_operation(""))
@@ -71,22 +71,19 @@ impl LeafReader for DocValuesLeafReader {
 
     type SortedSetDocValues = DummySortedSetDocValues;
 
-    fn get_sorted_set_doc_values(
-        &mut self,
-        _field: &str,
-    ) -> Result<Option<Self::SortedSetDocValues>> {
+    fn get_sorted_set_doc_values(&self, _field: &str) -> Result<Option<Self::SortedSetDocValues>> {
         Err(LuceneError::unsupported_operation(""))
     }
 
     type NormNumericDocValues = DummyNumericDocValues;
 
-    fn get_norm_values(&mut self, _field: &str) -> Result<Option<Self::NormNumericDocValues>> {
+    fn get_norm_values(&self, _field: &str) -> Result<Option<Self::NormNumericDocValues>> {
         Err(LuceneError::unsupported_operation(""))
     }
 
     type DocValuesSkipper = DummyDocValuesSkipper;
 
-    fn get_doc_values_skipper(&mut self, _field: &str) -> Result<Option<Self::DocValuesSkipper>> {
+    fn get_doc_values_skipper(&self, _field: &str) -> Result<Option<Self::DocValuesSkipper>> {
         Err(LuceneError::unsupported_operation(""))
     }
 

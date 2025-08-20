@@ -314,7 +314,7 @@ impl DocValuesProducer for DocValuesProducerImpl1 {
     >;
 
     fn get_sorted_numeric(
-        &mut self,
+        &self,
         field_info_in: &Arc<FieldInfo>,
     ) -> Result<Self::SortedNumericDocValues> {
         let v = self.single_value_producer.get_numeric(field_info_in)?;
@@ -367,7 +367,7 @@ impl DocValuesProducer for DocValuesProducerImpl2 {
     >;
 
     fn get_sorted_numeric(
-        &mut self,
+        &self,
         field_info_in: &Arc<FieldInfo>,
     ) -> Result<Self::SortedNumericDocValues> {
         if !Arc::ptr_eq(&self.field_info, field_info_in) {

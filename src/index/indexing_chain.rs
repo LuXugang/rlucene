@@ -435,7 +435,7 @@ where
             while per_field_index >= 0 {
                 let per_field = self.doc_fields[per_field_index as usize].as_mut().unwrap();
                 let field_info = per_field.field_info.as_ref().unwrap();
-                if let Some(ref mut writer_enum) = per_field.point_values_writer {
+                if let Some(ref writer_enum) = per_field.point_values_writer {
                     // We could have initialized pointValuesWriter, but failed to write even a single doc
                     if field_info.get_point_dimension_count() > 0 {
                         if points_writer.is_none() {
@@ -1213,7 +1213,7 @@ where
     ) -> Result<Option<DocIdSetIteratorImpl>> {
         if let Some(idx) = self.get_per_field(field) {
             let pf = self.doc_fields[idx].as_mut().unwrap();
-            if let Some(ref mut writer_enum) = pf.doc_values_writer {
+            if let Some(ref writer_enum) = pf.doc_values_writer {
                 if *pf.field_info.as_ref().unwrap().get_doc_values_type() == DocValuesType::None {
                     return Ok(None);
                 }
@@ -1951,17 +1951,17 @@ where
 {
     type NumericDocValues = BufferedNumericDocValues;
 
-    fn get_numeric_doc_values(&mut self, field: &str) -> Result<Option<Self::NumericDocValues>> {
+    fn get_numeric_doc_values(&self, field: &str) -> Result<Option<Self::NumericDocValues>> {
         let pf_index = self.index_chain.get_per_field(field);
         if pf_index.is_none() {
             return Ok(None);
         }
         let pf = self.index_chain.doc_fields[pf_index.unwrap()]
-            .as_mut()
+            .as_ref()
             .unwrap();
         if *pf.field_info.as_ref().unwrap().get_doc_values_type() == DocValuesType::Numeric {
             match pf.doc_values_writer {
-                Some(DocValuesWriterEnum::Numeric(ref mut writer)) => {
+                Some(DocValuesWriterEnum::Numeric(ref writer)) => {
                     Ok(Option::from(writer.get_doc_values()?))
                 },
                 _ => Err(LuceneError::illegal_state(format!(
@@ -1977,17 +1977,17 @@ where
 
     type BinaryDocValues = BufferedBinaryDocValues<DocsWithFieldSetEnum, PagedBytesDataInput>;
 
-    fn get_binary_doc_values(&mut self, field: &str) -> Result<Option<Self::BinaryDocValues>> {
+    fn get_binary_doc_values(&self, field: &str) -> Result<Option<Self::BinaryDocValues>> {
         let pf_index = self.index_chain.get_per_field(field);
         if pf_index.is_none() {
             return Ok(None);
         }
         let pf = self.index_chain.doc_fields[pf_index.unwrap()]
-            .as_mut()
+            .as_ref()
             .unwrap();
         if *pf.field_info.as_ref().unwrap().get_doc_values_type() == DocValuesType::Binary {
             match pf.doc_values_writer {
-                Some(DocValuesWriterEnum::Binary(ref mut writer)) => {
+                Some(DocValuesWriterEnum::Binary(ref writer)) => {
                     Ok(Option::from(writer.get_doc_values()?))
                 },
                 _ => Err(LuceneError::illegal_state(format!(
@@ -2003,17 +2003,17 @@ where
 
     type SortedDocValues = BufferedSortedDocValues<DocsWithFieldSetEnum>;
 
-    fn get_sorted_doc_values(&mut self, field: &str) -> Result<Option<Self::SortedDocValues>> {
+    fn get_sorted_doc_values(&self, field: &str) -> Result<Option<Self::SortedDocValues>> {
         let pf_index = self.index_chain.get_per_field(field);
         if pf_index.is_none() {
             return Ok(None);
         }
         let pf = self.index_chain.doc_fields[pf_index.unwrap()]
-            .as_mut()
+            .as_ref()
             .unwrap();
         if *pf.field_info.as_ref().unwrap().get_doc_values_type() == DocValuesType::Sorted {
             match pf.doc_values_writer {
-                Some(DocValuesWriterEnum::Sorted(ref mut writer)) => {
+                Some(DocValuesWriterEnum::Sorted(ref writer)) => {
                     Ok(Option::from(writer.get_doc_values()?))
                 },
                 _ => Err(LuceneError::illegal_state(format!(
@@ -2033,7 +2033,7 @@ where
     >;
 
     fn get_sorted_numeric_doc_values(
-        &mut self,
+        &self,
         field: &str,
     ) -> Result<Option<Self::SortedNumericDocValues>> {
         let pf_index = self.index_chain.get_per_field(field);
@@ -2041,11 +2041,11 @@ where
             return Ok(None);
         }
         let pf = self.index_chain.doc_fields[pf_index.unwrap()]
-            .as_mut()
+            .as_ref()
             .unwrap();
         if *pf.field_info.as_ref().unwrap().get_doc_values_type() == DocValuesType::SortedNumeric {
             match pf.doc_values_writer {
-                Some(DocValuesWriterEnum::SortedNumeric(ref mut writer)) => {
+                Some(DocValuesWriterEnum::SortedNumeric(ref writer)) => {
                     Ok(Option::from(writer.get_doc_values()?))
                 },
                 _ => Err(LuceneError::illegal_state(format!(
@@ -2064,20 +2064,17 @@ where
         BufferedSortedSetDocValues<DocsWithFieldSetEnum>,
     >;
 
-    fn get_sorted_set_doc_values(
-        &mut self,
-        field: &str,
-    ) -> Result<Option<Self::SortedSetDocValues>> {
+    fn get_sorted_set_doc_values(&self, field: &str) -> Result<Option<Self::SortedSetDocValues>> {
         let pf_index = self.index_chain.get_per_field(field);
         if pf_index.is_none() {
             return Ok(None);
         }
         let pf = self.index_chain.doc_fields[pf_index.unwrap()]
-            .as_mut()
+            .as_ref()
             .unwrap();
         if *pf.field_info.as_ref().unwrap().get_doc_values_type() == DocValuesType::SortedSet {
             match pf.doc_values_writer {
-                Some(DocValuesWriterEnum::SortedSet(ref mut writer)) => {
+                Some(DocValuesWriterEnum::SortedSet(ref writer)) => {
                     Ok(Option::from(writer.get_doc_values()?))
                 },
                 _ => Err(LuceneError::illegal_state(format!(
@@ -2093,13 +2090,13 @@ where
 
     type NormNumericDocValues = <DocValuesLeafReader as LeafReader>::NumericDocValues;
 
-    fn get_norm_values(&mut self, field: &str) -> Result<Option<Self::NormNumericDocValues>> {
+    fn get_norm_values(&self, field: &str) -> Result<Option<Self::NormNumericDocValues>> {
         self.base.get_norm_values(field)
     }
 
     type DocValuesSkipper = <DocValuesLeafReader as LeafReader>::DocValuesSkipper;
 
-    fn get_doc_values_skipper(&mut self, field: &str) -> Result<Option<Self::DocValuesSkipper>> {
+    fn get_doc_values_skipper(&self, field: &str) -> Result<Option<Self::DocValuesSkipper>> {
         self.base.get_doc_values_skipper(field)
     }
 
@@ -2156,7 +2153,7 @@ where
 {
     type NumericDocValues = EmptyNumeric;
 
-    fn get_numeric_doc_values(&mut self, field: &str) -> Result<Option<Self::NumericDocValues>> {
+    fn get_numeric_doc_values(&self, field: &str) -> Result<Option<Self::NumericDocValues>> {
         if field == self.field_to_validate && *self.dv_type != DocValuesType::Numeric {
             return Err(LuceneError::illegal_argument(format!(
                 "SortField {} expected field [{}] to be NUMERIC but it is [{}]",
@@ -2168,7 +2165,7 @@ where
 
     type BinaryDocValues = EmptyBinary;
 
-    fn get_binary_doc_values(&mut self, field: &str) -> Result<Option<Self::BinaryDocValues>> {
+    fn get_binary_doc_values(&self, field: &str) -> Result<Option<Self::BinaryDocValues>> {
         if field == self.field_to_validate && *self.dv_type != DocValuesType::Binary {
             return Err(LuceneError::illegal_argument(format!(
                 "SortField {} expected field [{}] to be BINARY but it is [{}]",
@@ -2180,7 +2177,7 @@ where
 
     type SortedDocValues = EmptySorted;
 
-    fn get_sorted_doc_values(&mut self, field: &str) -> Result<Option<Self::SortedDocValues>> {
+    fn get_sorted_doc_values(&self, field: &str) -> Result<Option<Self::SortedDocValues>> {
         if field == self.field_to_validate && *self.dv_type != DocValuesType::Sorted {
             return Err(LuceneError::illegal_argument(format!(
                 "SortField {} expected field [{}] to be SORTED but it is [{}]",
@@ -2193,7 +2190,7 @@ where
     type SortedNumericDocValues = SingletonSortedNumericDocValues<EmptyNumeric>;
 
     fn get_sorted_numeric_doc_values(
-        &mut self,
+        &self,
         field: &str,
     ) -> Result<Option<Self::SortedNumericDocValues>> {
         if field == self.field_to_validate && *self.dv_type != DocValuesType::SortedNumeric {
@@ -2207,10 +2204,7 @@ where
 
     type SortedSetDocValues = SingletonSortedSetDocValues<EmptySorted>;
 
-    fn get_sorted_set_doc_values(
-        &mut self,
-        field: &str,
-    ) -> Result<Option<Self::SortedSetDocValues>> {
+    fn get_sorted_set_doc_values(&self, field: &str) -> Result<Option<Self::SortedSetDocValues>> {
         if field == self.field_to_validate && *self.dv_type != DocValuesType::SortedSet {
             return Err(LuceneError::illegal_argument(format!(
                 "SortField {} expected field [{}] to be SORTED_SET but it is [{}]",
@@ -2222,13 +2216,13 @@ where
 
     type NormNumericDocValues = <DocValuesLeafReader as LeafReader>::NumericDocValues;
 
-    fn get_norm_values(&mut self, field: &str) -> Result<Option<Self::NormNumericDocValues>> {
+    fn get_norm_values(&self, field: &str) -> Result<Option<Self::NormNumericDocValues>> {
         self.base.get_norm_values(field)
     }
 
     type DocValuesSkipper = <DocValuesLeafReader as LeafReader>::DocValuesSkipper;
 
-    fn get_doc_values_skipper(&mut self, field: &str) -> Result<Option<Self::DocValuesSkipper>> {
+    fn get_doc_values_skipper(&self, field: &str) -> Result<Option<Self::DocValuesSkipper>> {
         self.base.get_doc_values_skipper(field)
     }
 

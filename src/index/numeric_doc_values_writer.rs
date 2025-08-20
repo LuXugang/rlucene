@@ -185,7 +185,7 @@ impl DocValuesProducer for DocValuesProducerImpl {
     type NumericDocValues =
         EitherNumericDocValues<BufferedNumericDocValues, SortingNumericDocValues<FixedBitSet>>;
 
-    fn get_numeric(&mut self, field_info: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
+    fn get_numeric(&self, field_info: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
         if !Arc::ptr_eq(field_info, &self.writer_field_info) {
             return Err(LuceneError::illegal_argument("wrong fieldInfo"));
         }
