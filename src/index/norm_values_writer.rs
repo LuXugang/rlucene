@@ -17,7 +17,7 @@
 use crate::codecs::norms_consumer::NormsConsumer;
 use crate::codecs::norms_producer::NormsProducer;
 use crate::index::doc_values_iterator::DocValuesIterator;
-use crate::index::docs_with_field_set::{DocsWithFieldSet, DocsWithFieldSetEnum};
+use crate::index::docs_with_field_set::{DocsWithFieldSet, DocsWithFieldSetDISI};
 use crate::index::field_info::FieldInfo;
 use crate::index::numeric_doc_values::EitherNumericDocValues;
 use crate::index::numeric_doc_values::NumericDocValues;
@@ -171,11 +171,11 @@ impl NormsProducer for NormsProducerImpl {
 /// iterates over the values we have in ram
 struct BufferedNorms {
     iter: PackedLongValuesIterator,
-    doc_with_field: DocsWithFieldSetEnum,
+    doc_with_field: DocsWithFieldSetDISI,
     value: i64,
 }
 impl BufferedNorms {
-    pub(crate) fn new(values: &PackedLongValues, doc_with_field: DocsWithFieldSetEnum) -> Self {
+    pub(crate) fn new(values: &PackedLongValues, doc_with_field: DocsWithFieldSetDISI) -> Self {
         Self {
             iter: values.iterator(),
             doc_with_field,

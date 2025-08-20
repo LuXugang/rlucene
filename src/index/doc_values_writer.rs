@@ -16,7 +16,7 @@
  */
 use crate::codecs::doc_values_consumer::DocValuesConsumer;
 use crate::index::binary_doc_values_writer::{BinaryDocValuesWriter, BufferedBinaryDocValues};
-use crate::index::docs_with_field_set::DocsWithFieldSetEnum;
+use crate::index::docs_with_field_set::DocsWithFieldSetDISI;
 use crate::index::numeric_doc_values_writer::{BufferedNumericDocValues, NumericDocValuesWriter};
 use crate::index::segment_info::SegmentInfo;
 use crate::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
@@ -137,15 +137,15 @@ impl DocValuesWriter for DocValuesWriterEnum {
     }
 }
 pub(crate) type DocValuesWriterDISI = EitherDocIdSetIterator5<
-    BufferedBinaryDocValues<DocsWithFieldSetEnum, PagedBytesDataInput>,
+    BufferedBinaryDocValues<DocsWithFieldSetDISI, PagedBytesDataInput>,
     BufferedNumericDocValues,
     EitherSortedNumericDocValues<
         SingletonSortedNumericDocValues<BufferedNumericDocValues>,
-        BufferedSortedNumericDocValues<DocsWithFieldSetEnum>,
+        BufferedSortedNumericDocValues<DocsWithFieldSetDISI>,
     >,
-    BufferedSortedDocValues<DocsWithFieldSetEnum>,
+    BufferedSortedDocValues<DocsWithFieldSetDISI>,
     EitherSortedSetDocValues<
-        SingletonSortedSetDocValues<BufferedSortedDocValues<DocsWithFieldSetEnum>>,
-        BufferedSortedSetDocValues<DocsWithFieldSetEnum>,
+        SingletonSortedSetDocValues<BufferedSortedDocValues<DocsWithFieldSetDISI>>,
+        BufferedSortedSetDocValues<DocsWithFieldSetDISI>,
     >,
 >;

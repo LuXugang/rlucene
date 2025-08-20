@@ -34,7 +34,7 @@ use crate::index::doc_values_leaf_reader::DocValuesLeafReader;
 use crate::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::index::doc_values_type::DocValuesType;
 use crate::index::doc_values_writer::{DocValuesWriter, DocValuesWriterDISI, DocValuesWriterEnum};
-use crate::index::docs_with_field_set::DocsWithFieldSetEnum;
+use crate::index::docs_with_field_set::DocsWithFieldSetDISI;
 use crate::index::field_info::FieldInfo;
 use crate::index::field_infos::FieldInfos;
 use crate::index::field_infos::build::Builder;
@@ -1975,7 +1975,7 @@ where
         }
     }
 
-    type BinaryDocValues = BufferedBinaryDocValues<DocsWithFieldSetEnum, PagedBytesDataInput>;
+    type BinaryDocValues = BufferedBinaryDocValues<DocsWithFieldSetDISI, PagedBytesDataInput>;
 
     fn get_binary_doc_values(&self, field: &str) -> Result<Option<Self::BinaryDocValues>> {
         let pf_index = self.index_chain.get_per_field(field);
@@ -2001,7 +2001,7 @@ where
         }
     }
 
-    type SortedDocValues = BufferedSortedDocValues<DocsWithFieldSetEnum>;
+    type SortedDocValues = BufferedSortedDocValues<DocsWithFieldSetDISI>;
 
     fn get_sorted_doc_values(&self, field: &str) -> Result<Option<Self::SortedDocValues>> {
         let pf_index = self.index_chain.get_per_field(field);
@@ -2029,7 +2029,7 @@ where
 
     type SortedNumericDocValues = EitherSortedNumericDocValues<
         SingletonSortedNumericDocValues<BufferedNumericDocValues>,
-        BufferedSortedNumericDocValues<DocsWithFieldSetEnum>,
+        BufferedSortedNumericDocValues<DocsWithFieldSetDISI>,
     >;
 
     fn get_sorted_numeric_doc_values(
@@ -2060,8 +2060,8 @@ where
     }
 
     type SortedSetDocValues = EitherSortedSetDocValues<
-        SingletonSortedSetDocValues<BufferedSortedDocValues<DocsWithFieldSetEnum>>,
-        BufferedSortedSetDocValues<DocsWithFieldSetEnum>,
+        SingletonSortedSetDocValues<BufferedSortedDocValues<DocsWithFieldSetDISI>>,
+        BufferedSortedSetDocValues<DocsWithFieldSetDISI>,
     >;
 
     fn get_sorted_set_doc_values(&self, field: &str) -> Result<Option<Self::SortedSetDocValues>> {

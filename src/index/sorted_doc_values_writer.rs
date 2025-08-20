@@ -24,7 +24,7 @@ use crate::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocValues;
 use crate::index::BytesRef;
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::doc_values_writer::DocValuesWriter;
-use crate::index::docs_with_field_set::{DocsWithFieldSet, DocsWithFieldSetEnum};
+use crate::index::docs_with_field_set::{DocsWithFieldSet, DocsWithFieldSetDISI};
 use crate::index::field_info::FieldInfo;
 use crate::index::segment_info::SegmentInfo;
 use crate::index::sorted_doc_values::EitherSortedDocValues;
@@ -216,7 +216,7 @@ impl DocValuesWriter for SortedDocValuesWriter {
         Ok(())
     }
 
-    type DocIdSetIterator = BufferedSortedDocValues<DocsWithFieldSetEnum>;
+    type DocIdSetIterator = BufferedSortedDocValues<DocsWithFieldSetDISI>;
 
     fn get_doc_values(&self) -> Result<Self::DocIdSetIterator> {
         if !self.is_sorted {
@@ -338,8 +338,8 @@ impl DocValuesProducer for DocValuesProducerImpl {
     type NumericDocValues = DummyNumericDocValues;
     type BinaryDocValues = DummyBinaryDocValues;
     type SortedDocValues = EitherSortedDocValues<
-        BufferedSortedDocValues<DocsWithFieldSetEnum>,
-        SortingSortedDocValues<BufferedSortedDocValues<DocsWithFieldSetEnum>>,
+        BufferedSortedDocValues<DocsWithFieldSetDISI>,
+        SortingSortedDocValues<BufferedSortedDocValues<DocsWithFieldSetDISI>>,
     >;
 
     fn get_sorted(&self, field_info_in: &Arc<FieldInfo>) -> Result<Self::SortedDocValues> {

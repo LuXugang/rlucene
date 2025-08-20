@@ -24,7 +24,7 @@ use crate::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNumericDoc
 use crate::index::doc_values::DocValues;
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::doc_values_writer::DocValuesWriter;
-use crate::index::docs_with_field_set::DocsWithFieldSetEnum;
+use crate::index::docs_with_field_set::DocsWithFieldSetDISI;
 use crate::index::segment_info::SegmentInfo;
 use crate::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
 use crate::index::sorted_doc_values::EitherSortedDocValues;
@@ -226,8 +226,8 @@ impl SortedSetDocValuesWriter {
         docs_with_field: &DocsWithFieldSet,
     ) -> Result<
         EitherSortedSetDocValues<
-            SingletonSortedSetDocValues<BufferedSortedDocValues<DocsWithFieldSetEnum>>,
-            BufferedSortedSetDocValues<DocsWithFieldSetEnum>,
+            SingletonSortedSetDocValues<BufferedSortedDocValues<DocsWithFieldSetDISI>>,
+            BufferedSortedSetDocValues<DocsWithFieldSetDISI>,
         >,
     > {
         let docs_iter = docs_with_field
@@ -322,8 +322,8 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
     }
 
     type DocIdSetIterator = EitherSortedSetDocValues<
-        SingletonSortedSetDocValues<BufferedSortedDocValues<DocsWithFieldSetEnum>>,
-        BufferedSortedSetDocValues<DocsWithFieldSetEnum>,
+        SingletonSortedSetDocValues<BufferedSortedDocValues<DocsWithFieldSetDISI>>,
+        BufferedSortedSetDocValues<DocsWithFieldSetDISI>,
     >;
 
     fn get_doc_values(&self) -> Result<Self::DocIdSetIterator> {
@@ -411,13 +411,13 @@ impl DocValuesProducer for DocValuesProducerImpl1 {
     type SortedNumericDocValues = DummySortedNumericDocValues;
     type SortedSetDocValues = EitherSortedSetDocValues<
         EitherSortedSetDocValues<
-            SingletonSortedSetDocValues<BufferedSortedDocValues<DocsWithFieldSetEnum>>,
-            BufferedSortedSetDocValues<DocsWithFieldSetEnum>,
+            SingletonSortedSetDocValues<BufferedSortedDocValues<DocsWithFieldSetDISI>>,
+            BufferedSortedSetDocValues<DocsWithFieldSetDISI>,
         >,
         SortingSortedSetDocValues<
             EitherSortedSetDocValues<
-                SingletonSortedSetDocValues<BufferedSortedDocValues<DocsWithFieldSetEnum>>,
-                BufferedSortedSetDocValues<DocsWithFieldSetEnum>,
+                SingletonSortedSetDocValues<BufferedSortedDocValues<DocsWithFieldSetDISI>>,
+                BufferedSortedSetDocValues<DocsWithFieldSetDISI>,
             >,
         >,
     >;
@@ -465,8 +465,8 @@ impl DocValuesProducer for DocValuesProducerImpl2 {
     type SortedNumericDocValues = DummySortedNumericDocValues;
     type SortedSetDocValues = SingletonSortedSetDocValues<
         EitherSortedDocValues<
-            BufferedSortedDocValues<DocsWithFieldSetEnum>,
-            SortingSortedDocValues<BufferedSortedDocValues<DocsWithFieldSetEnum>>,
+            BufferedSortedDocValues<DocsWithFieldSetDISI>,
+            SortingSortedDocValues<BufferedSortedDocValues<DocsWithFieldSetDISI>>,
         >,
     >;
 

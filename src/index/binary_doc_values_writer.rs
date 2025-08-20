@@ -25,7 +25,7 @@ use crate::index::binary_doc_values::BinaryDocValues;
 use crate::index::binary_doc_values::EitherBinaryDocValues;
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::doc_values_writer::DocValuesWriter;
-use crate::index::docs_with_field_set::{DocsWithFieldSet, DocsWithFieldSetEnum};
+use crate::index::docs_with_field_set::{DocsWithFieldSet, DocsWithFieldSetDISI};
 use crate::index::field_info::FieldInfo;
 use crate::index::segment_info::SegmentInfo;
 use crate::index::sorter::DocMap;
@@ -180,7 +180,7 @@ impl DocValuesWriter for BinaryDocValuesWriter {
         dv_consumer.add_binary_field(&self.field_info, &mut producer)
     }
 
-    type DocIdSetIterator = BufferedBinaryDocValues<DocsWithFieldSetEnum, PagedBytesDataInput>;
+    type DocIdSetIterator = BufferedBinaryDocValues<DocsWithFieldSetDISI, PagedBytesDataInput>;
 
     fn get_doc_values(&self) -> Result<Self::DocIdSetIterator> {
         if self.final_lengths.is_none() {
@@ -236,7 +236,7 @@ impl DocValuesProducer for DocValuesProducerImpl {
     type NumericDocValues = DummyNumericDocValues;
     type BinaryDocValues = EitherBinaryDocValues<
         SortingBinaryDocValues,
-        BufferedBinaryDocValues<DocsWithFieldSetEnum, PagedBytesDataInput>,
+        BufferedBinaryDocValues<DocsWithFieldSetDISI, PagedBytesDataInput>,
     >;
 
     fn get_binary(&self, field_info: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {

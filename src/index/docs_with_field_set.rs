@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::search::doc_id_set::DocIdSet;
-use crate::search::doc_id_set_iterator::{AllDocIdSetIterator, DocIdSetIterator};
+use crate::search::doc_id_set_iterator::{AllDocIdSetIterator, EitherDocIdSetIterator};
 use crate::util::accountable::Accountable;
 use crate::util::bit_set::BitSet;
 use crate::util::bit_set_iterator::BitSetIterator;
@@ -95,39 +95,6 @@ impl DocsWithFieldSet {
         }
     }
 }
-pub enum DocsWithFieldSetEnum {
-    Dense(AllDocIdSetIterator),
-    Sparse(BitSetIterator<FixedBitSet, Arc<FixedBitSet>>),
-}
-impl DocIdSetIterator for DocsWithFieldSetEnum {
-    fn doc_id(&self) -> i32 {
-        match self {
-            DocsWithFieldSetEnum::Dense(d) => d.doc_id(),
-            DocsWithFieldSetEnum::Sparse(s) => s.doc_id(),
-        }
-    }
-
-    fn next_doc(&mut self) -> Result<i32> {
-        match self {
-            DocsWithFieldSetEnum::Dense(d) => d.next_doc(),
-            DocsWithFieldSetEnum::Sparse(s) => s.next_doc(),
-        }
-    }
-
-    fn advance(&mut self, target: i32) -> Result<i32> {
-        match self {
-            DocsWithFieldSetEnum::Dense(d) => d.advance(target),
-            DocsWithFieldSetEnum::Sparse(s) => s.advance(target),
-        }
-    }
-
-    fn cost(&self) -> Result<i64> {
-        match self {
-            DocsWithFieldSetEnum::Dense(d) => d.cost(),
-            DocsWithFieldSetEnum::Sparse(s) => s.cost(),
-        }
-    }
-}
 
 impl Accountable for DocsWithFieldSet {
     fn ram_bytes_used(&self) -> Result<i64> {
@@ -135,8 +102,11 @@ impl Accountable for DocsWithFieldSet {
     }
 }
 
+pub(crate) type DocsWithFieldSetDISI =
+    EitherDocIdSetIterator<AllDocIdSetIterator, BitSetIterator<FixedBitSet, Arc<FixedBitSet>>>;
+
 impl DocIdSet for DocsWithFieldSet {
-    type DocIdSetIterator = DocsWithFieldSetEnum;
+    type DocIdSetIterator = DocsWithFieldSetDISI;
 
     fn iterator(&self) -> Result<Option<Self::DocIdSetIterator>> {
         if self.set.is_some() || self.set_iter.is_some() {
@@ -147,12 +117,12 @@ impl DocIdSet for DocsWithFieldSet {
                 ));
             }
             debug_assert!(self.cardinality > 0);
-            Ok(Some(DocsWithFieldSetEnum::Sparse(BitSetIterator::new(
+            Ok(Some(EitherDocIdSetIterator::S(BitSetIterator::new(
                 self.set_iter.as_ref().unwrap().clone(),
                 self.cardinality as i64,
             )?)))
         } else {
-            Ok(Some(DocsWithFieldSetEnum::Dense(AllDocIdSetIterator::new(
+            Ok(Some(EitherDocIdSetIterator::F(AllDocIdSetIterator::new(
                 self.cardinality,
             ))))
         }

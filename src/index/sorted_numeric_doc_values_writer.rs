@@ -24,7 +24,7 @@ use crate::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocValues;
 use crate::index::doc_values::DocValues;
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::doc_values_writer::DocValuesWriter;
-use crate::index::docs_with_field_set::{DocsWithFieldSet, DocsWithFieldSetEnum};
+use crate::index::docs_with_field_set::{DocsWithFieldSet, DocsWithFieldSetDISI};
 use crate::index::field_info::FieldInfo;
 use crate::index::numeric_doc_values::EitherNumericDocValues;
 use crate::index::numeric_doc_values_writer::{
@@ -169,7 +169,7 @@ impl SortedNumericDocValuesWriter {
     ) -> Result<
         EitherSortedNumericDocValues<
             SingletonSortedNumericDocValues<BufferedNumericDocValues>,
-            BufferedSortedNumericDocValues<DocsWithFieldSetEnum>,
+            BufferedSortedNumericDocValues<DocsWithFieldSetDISI>,
         >,
     > {
         let iter = docs_with_field
@@ -265,7 +265,7 @@ impl DocValuesWriter for SortedNumericDocValuesWriter {
 
     type DocIdSetIterator = EitherSortedNumericDocValues<
         SingletonSortedNumericDocValues<BufferedNumericDocValues>,
-        BufferedSortedNumericDocValues<DocsWithFieldSetEnum>,
+        BufferedSortedNumericDocValues<DocsWithFieldSetDISI>,
     >;
 
     fn get_doc_values(&self) -> Result<Self::DocIdSetIterator> {
@@ -356,12 +356,12 @@ impl DocValuesProducer for DocValuesProducerImpl2 {
     type SortedNumericDocValues = EitherSortedNumericDocValues<
         EitherSortedNumericDocValues<
             SingletonSortedNumericDocValues<BufferedNumericDocValues>,
-            BufferedSortedNumericDocValues<DocsWithFieldSetEnum>,
+            BufferedSortedNumericDocValues<DocsWithFieldSetDISI>,
         >,
         SortingSortedNumericDocValues<
             EitherSortedNumericDocValues<
                 SingletonSortedNumericDocValues<BufferedNumericDocValues>,
-                BufferedSortedNumericDocValues<DocsWithFieldSetEnum>,
+                BufferedSortedNumericDocValues<DocsWithFieldSetDISI>,
             >,
         >,
     >;
