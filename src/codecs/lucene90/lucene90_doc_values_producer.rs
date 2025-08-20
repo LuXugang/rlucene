@@ -539,7 +539,7 @@ where
                 }
                 if entry.block_shift >= 0 {
                     let vbpv_reader =
-                        VaryingBPVReader::new(entry.clone(), slice, &mut self.data, self.merging)?;
+                        VaryingBPVReader::new(entry.clone(), slice, &self.data, self.merging)?;
                     DenseNumericDocValuesSubEnum::Dense1(DenseNumericDocValuesBaseImpl1 {
                         vbpv_reader,
                     })
@@ -606,7 +606,7 @@ where
                         vbpv_reader: VaryingBPVReader::new(
                             entry.clone(),
                             slice,
-                            &mut self.data,
+                            &self.data,
                             self.merging,
                         )?,
                     })
@@ -668,7 +668,7 @@ where
                     vbpv_reader: VaryingBPVReader::new(
                         entry.clone(),
                         slice,
-                        &mut self.data,
+                        &self.data,
                         self.merging,
                     )?,
                 })
@@ -1530,7 +1530,7 @@ where
     fn new(
         entry: Rc<NumericEntry>,
         slice: I::RandomAccessSlice,
-        data: &mut I,
+        data: &I,
         merging: bool,
     ) -> Result<Self> {
         let rank_slice = if entry.value_jump_table_offset == -1 {

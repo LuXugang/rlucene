@@ -185,7 +185,7 @@ impl DocValuesWriter for BinaryDocValuesWriter {
     type DocIdSetIterator = BufferedBinaryDocValues<DocsWithFieldSetEnum, PagedBytesDataInput>;
 
     fn get_doc_values(&mut self) -> Result<Self::DocIdSetIterator> {
-        self.docs_with_field.finish();
+        self.finish();
         if self.final_lengths.is_none() {
             self.final_lengths = Some(self.lengths.build()?);
         }
