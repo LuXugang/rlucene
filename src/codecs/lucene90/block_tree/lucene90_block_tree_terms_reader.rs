@@ -322,7 +322,7 @@ where
     }
 }
 
-impl<I, PR> FieldsProducer<I> for Lucene90BlockTreeTermsReader<I, PR>
+impl<I, PR> FieldsProducer for Lucene90BlockTreeTermsReader<I, PR>
 where
     I: IndexInput,
     PR: PostingsReaderBase,

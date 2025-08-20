@@ -18,10 +18,7 @@ use crate::codecs::block_tree::lucene90_block_tree_terms_reader::Lucene90BlockTr
 use crate::codecs::lucene101::lucene101_postings_reader::Lucene101PostingsReader;
 use crate::store::IndexInput;
 use crate::util::error::lucene_error::Result;
-pub trait FieldsProducer<I>
-where
-    I: IndexInput,
-{
+pub trait FieldsProducer {
     fn close(&mut self) -> Result<()>;
     /// Checks consistency of this reader.
     ///
@@ -31,7 +28,10 @@ where
     /// Returns an instance optimized for merging. This instance may only be
     /// cloned # Note
     /// Returning None means returning itself.
-    fn get_merge_instance(&self) -> Result<Option<FieldsProducerEnum<I>>> {
+    fn get_merge_instance(&self) -> Result<Option<Self>>
+    where
+        Self: Sized,
+    {
         Ok(None)
     }
 }
@@ -42,7 +42,7 @@ where
 {
     Lucene90(Lucene90BlockTreeTermsReader<I, Lucene101PostingsReader<I>>),
 }
-impl<I> FieldsProducer<I> for FieldsProducerEnum<I>
+impl<I> FieldsProducer for FieldsProducerEnum<I>
 where
     I: IndexInput,
 {
@@ -60,7 +60,10 @@ where
 
     fn get_merge_instance(&self) -> Result<Option<FieldsProducerEnum<I>>> {
         match self {
-            FieldsProducerEnum::Lucene90(reader) => reader.get_merge_instance(),
+            FieldsProducerEnum::Lucene90(reader) => {
+                let merge_instance = reader.get_merge_instance()?;
+                Ok(merge_instance.map(FieldsProducerEnum::Lucene90))
+            },
         }
     }
 }
