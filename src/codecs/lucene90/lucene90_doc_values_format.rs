@@ -222,14 +222,14 @@ impl Display for Lucene90DocValuesFormat {
 impl DocValuesFormat for Lucene90DocValuesFormat {
     type DocValuesConsumer<T: IndexOutput> = Lucene90DocValuesConsumer<T>;
 
-    fn fields_consumer<D, D1>(
+    fn fields_consumer<D1, D2>(
         &self,
-        state: &mut SegmentWriteState<D>,
-        segment_info: &SegmentInfo<D1>,
-    ) -> Result<Self::DocValuesConsumer<D::IndexOutput>>
+        state: &mut SegmentWriteState<D1>,
+        segment_info: &SegmentInfo<D2>,
+    ) -> Result<Self::DocValuesConsumer<D1::IndexOutput>>
     where
-        D: Directory,
         D1: Directory,
+        D2: Directory,
     {
         Lucene90DocValuesConsumer::new(
             state,
@@ -244,14 +244,14 @@ impl DocValuesFormat for Lucene90DocValuesFormat {
 
     type DocValuesProducer<T: IndexInput> = Lucene90DocValuesProducer<T>;
 
-    fn fields_producer<D, D1>(
+    fn fields_producer<D1, D2>(
         &self,
-        state: &SegmentReadState<D>,
-        segment_info: &SegmentInfo<D1>,
-    ) -> Result<Self::DocValuesProducer<D::IndexInput>>
+        state: &SegmentReadState<D1>,
+        segment_info: &SegmentInfo<D2>,
+    ) -> Result<Self::DocValuesProducer<D1::IndexInput>>
     where
-        D: Directory,
         D1: Directory,
+        D2: Directory,
     {
         Lucene90DocValuesProducer::new(
             state,

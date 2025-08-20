@@ -29,14 +29,14 @@ use crate::util::error::lucene_error::Result;
 pub trait DocValuesFormat: Display {
     type DocValuesConsumer<T: IndexOutput>: DocValuesConsumer;
     /// Returns a [`DocValuesConsumer`] to write docvalues to the index.
-    fn fields_consumer<D, D1>(
+    fn fields_consumer<D1, D2>(
         &self,
-        state: &mut SegmentWriteState<D>,
-        segment_info: &SegmentInfo<D1>,
-    ) -> Result<Self::DocValuesConsumer<D::IndexOutput>>
+        state: &mut SegmentWriteState<D1>,
+        segment_info: &SegmentInfo<D2>,
+    ) -> Result<Self::DocValuesConsumer<D1::IndexOutput>>
     where
-        D: Directory,
-        D1: Directory;
+        D1: Directory,
+        D2: Directory;
 
     type DocValuesProducer<T: IndexInput>: DocValuesProducer;
     /// Returns a [`DocValuesProducer`] to read docvalues from the index.
@@ -48,12 +48,12 @@ pub trait DocValuesFormat: Display {
     /// io error should be returned by the implementation. IOExceptions are
     /// expected and will automatically cause a retry of the segment opening
     /// logic with the newly revised segments.
-    fn fields_producer<D, D1>(
+    fn fields_producer<D1, D2>(
         &self,
-        state: &SegmentReadState<D>,
-        segment_info: &SegmentInfo<D1>,
-    ) -> Result<Self::DocValuesProducer<D::IndexInput>>
+        state: &SegmentReadState<D1>,
+        segment_info: &SegmentInfo<D2>,
+    ) -> Result<Self::DocValuesProducer<D1::IndexInput>>
     where
-        D: Directory,
-        D1: Directory;
+        D1: Directory,
+        D2: Directory;
 }

@@ -63,17 +63,17 @@ impl<I> Lucene90NormsProducer<I>
 where
     I: IndexInput,
 {
-    pub fn new<D, D1>(
-        state: &SegmentReadState<D>,
+    pub fn new<D1, D2>(
+        state: &SegmentReadState<D1>,
         data_codec: &str,
         data_extension: &str,
         meta_codec: &str,
         meta_extension: &str,
-        segment_info: &SegmentInfo<D1>,
+        segment_info: &SegmentInfo<D2>,
     ) -> Result<Self>
     where
-        D: Directory<IndexInput = I>,
-        D1: Directory,
+        D1: Directory<IndexInput = I>,
+        D2: Directory,
     {
         let max_doc = segment_info.max_doc()?;
         let meta_name = IndexFileNames::segment_file_name(
