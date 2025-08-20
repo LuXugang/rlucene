@@ -31,10 +31,7 @@ use crate::util::error::lucene_error::Result;
 /// StoredFieldVisitor)`](StoredFields::document_with_visitor) to read the
 /// stored fields for a document, implement `clone()`(creating clones of any
 /// IndexInputs used, etc)
-pub trait StoredFieldsReader<I>: StoredFields + TryClone
-where
-    I: IndexInput,
-{
+pub trait StoredFieldsReader: StoredFields + TryClone {
     /// Checks consistency of this reader.
     ///
     /// Note that this may be costly in terms of I/O, e.g. may involve computing
@@ -43,7 +40,10 @@ where
     /// Returns an instance optimized for merging. This instance may only be
     /// cloned # Note
     /// Returning None means returning itself.
-    fn get_merge_instance(&self) -> Result<Option<StoredFieldsReaderEnum<I>>> {
+    fn get_merge_instance(&self) -> Result<Option<Self>>
+    where
+        Self: Sized,
+    {
         Ok(None)
     }
 }
@@ -114,7 +114,7 @@ where
     }
 }
 
-impl<I> StoredFieldsReader<I> for StoredFieldsReaderEnum<I>
+impl<I> StoredFieldsReader for StoredFieldsReaderEnum<I>
 where
     I: IndexInput,
 {
@@ -126,7 +126,14 @@ where
 
     fn get_merge_instance(&self) -> Result<Option<StoredFieldsReaderEnum<I>>> {
         match self {
-            StoredFieldsReaderEnum::Lucene90(reader) => reader.get_merge_instance(),
+            StoredFieldsReaderEnum::Lucene90(reader) => {
+                let merge_instance = reader.get_merge_instance()?;
+                if let Some(instance) = merge_instance {
+                    Ok(Some(StoredFieldsReaderEnum::Lucene90(instance)))
+                } else {
+                    Ok(None)
+                }
+            },
         }
     }
 }

@@ -25,7 +25,7 @@ use crate::codecs::compression::compression_mode::{
 use crate::codecs::compression::decompressor::Decompressor;
 use crate::codecs::lucene90::fields_index::{FieldsIndex, FieldsIndexEnum};
 use crate::codecs::lucene90::fields_index_reader::FieldsIndexReader;
-use crate::codecs::stored_fields_reader::{StoredFieldsReader, StoredFieldsReaderEnum};
+use crate::codecs::stored_fields_reader::StoredFieldsReader;
 use crate::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::index::field_info::FieldInfo;
 use crate::index::field_infos::FieldInfos;
@@ -596,7 +596,7 @@ where
     }
 }
 
-impl<I> StoredFieldsReader<I> for Lucene90CompressingStoredFieldsReader<I>
+impl<I> StoredFieldsReader for Lucene90CompressingStoredFieldsReader<I>
 where
     I: IndexInput,
 {
@@ -606,11 +606,14 @@ where
         Ok(())
     }
 
-    fn get_merge_instance(&self) -> Result<Option<StoredFieldsReaderEnum<I>>> {
+    fn get_merge_instance(&self) -> Result<Option<Self>>
+    where
+        Self: Sized,
+    {
         self.ensure_open()?;
-        Ok(Some(StoredFieldsReaderEnum::Lucene90(
+        Ok(Some(
             Lucene90CompressingStoredFieldsReader::new_with_reader(self, true)?,
-        )))
+        ))
     }
 }
 impl<I> crate::util::clone::TryClone for Lucene90CompressingStoredFieldsReader<I>
