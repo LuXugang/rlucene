@@ -21,7 +21,7 @@ use crate::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::codecs::indexed_disi::IndexedDISI;
 use crate::codecs::lucene90::dov_values_inner_enum::{
     BaseSortedDocValuesEnum, BaseSortedSetDocValuesEnum, DenseBinaryDocValuesBaseEnum,
-    DenseNumericDocValuesSubEnum, LongValuesEnum, SparseBinaryDocValuesBaseEnum,
+    DenseNumericDocValuesSubEnum, LongValuesEnums, SparseBinaryDocValuesBaseEnum,
     SparseNumericDocValuesSubEnum,
 };
 use crate::codecs::lucene90_doc_values_format::{
@@ -647,12 +647,12 @@ where
             ))
         }
     }
-    fn get_numeric_values(&self, entry: &Rc<NumericEntry>) -> Result<LongValuesEnum<I>>
+    fn get_numeric_values(&self, entry: &Rc<NumericEntry>) -> Result<LongValuesEnums<I>>
     where
         I: IndexInput,
     {
         let long_values = if entry.bits_per_value == 0 {
-            LongValuesEnum::Impl(LongValuesImpl {
+            LongValuesEnums::A(LongValuesImpl {
                 min_values: entry.min_value,
             })
         } else {
@@ -663,7 +663,7 @@ where
                 slice.prefetch(0, 1)?
             }
             if entry.block_shift >= 0 {
-                LongValuesEnum::Impl1(LongValuesImpl1 {
+                LongValuesEnums::B(LongValuesImpl1 {
                     vbpv_reader: VaryingBPVReader::new(
                         entry.clone(),
                         slice,
@@ -680,19 +680,19 @@ where
                     entry.num_values,
                 )?;
                 match entry.table {
-                    Some(ref table) => LongValuesEnum::Impl2(LongValuesImpl2 {
+                    Some(ref table) => LongValuesEnums::C(LongValuesImpl2 {
                         table: table.clone(),
                         values,
                     }),
                     None => {
                         if entry.gcd == 1 && entry.min_value == 0 {
-                            LongValuesEnum::Impl3(LongValuesImpl3 {
+                            LongValuesEnums::D(LongValuesImpl3 {
                                 values,
                                 gcd: entry.gcd,
                                 min_value: entry.min_value,
                             })
                         } else {
-                            LongValuesEnum::Impl4(LongValuesImpl4 {
+                            LongValuesEnums::E(LongValuesImpl4 {
                                 values,
                                 min_value: entry.min_value,
                             })
@@ -3151,7 +3151,7 @@ where
     end: i64,
     doc: i32,
     count: i32,
-    values: LongValuesEnum<I>,
+    values: LongValuesEnums<I>,
     addresses: DirectMonotonicReader<I::RandomAccessSlice>,
 }
 impl<I> DenseSortedNumericDocValues<I>
@@ -3162,7 +3162,7 @@ where
         max_doc: i32,
         start: i64,
         end: i64,
-        values: LongValuesEnum<I>,
+        values: LongValuesEnums<I>,
         addresses: DirectMonotonicReader<I::RandomAccessSlice>,
     ) -> Self {
         Self {
@@ -3241,7 +3241,7 @@ where
     I: IndexInput,
 {
     disi: IndexedDISI<I>,
-    values: LongValuesEnum<I>,
+    values: LongValuesEnums<I>,
     addresses: DirectMonotonicReader<I::RandomAccessSlice>,
     set: bool,
     start: i64,
@@ -3254,7 +3254,7 @@ where
 {
     pub fn new(
         disi: IndexedDISI<I>,
-        values: LongValuesEnum<I>,
+        values: LongValuesEnums<I>,
         addresses: DirectMonotonicReader<I::RandomAccessSlice>,
     ) -> Self {
         Self {

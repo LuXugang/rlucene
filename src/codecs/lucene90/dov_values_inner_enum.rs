@@ -39,7 +39,7 @@ use crate::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::store::IndexInput;
 use crate::util::error::lucene_error::Result;
-use crate::util::long_values::LongValues;
+use crate::util::long_values::Either5LongValues;
 
 pub enum BaseSortedDocValuesEnum<I>
 where
@@ -244,32 +244,13 @@ where
         }
     }
 }
-
-pub enum LongValuesEnum<I>
-where
-    I: IndexInput,
-{
-    Impl(LongValuesImpl),
-    Impl1(LongValuesImpl1<I>),
-    Impl2(LongValuesImpl2<I>),
-    Impl3(LongValuesImpl3<I>),
-    Impl4(LongValuesImpl4<I>),
-}
-
-impl<I> LongValues for LongValuesEnum<I>
-where
-    I: IndexInput,
-{
-    fn get(&mut self, index: i64) -> Result<i64> {
-        match self {
-            LongValuesEnum::Impl(sub) => sub.get(index),
-            LongValuesEnum::Impl1(sub) => sub.get(index),
-            LongValuesEnum::Impl2(sub) => sub.get(index),
-            LongValuesEnum::Impl3(sub) => sub.get(index),
-            LongValuesEnum::Impl4(sub) => sub.get(index),
-        }
-    }
-}
+pub type LongValuesEnums<I> = Either5LongValues<
+    LongValuesImpl,
+    LongValuesImpl1<I>,
+    LongValuesImpl2<I>,
+    LongValuesImpl3<I>,
+    LongValuesImpl4<I>,
+>;
 
 pub enum SparseNumericDocValuesSubEnum<I>
 where
