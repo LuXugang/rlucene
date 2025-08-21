@@ -20,7 +20,7 @@ use std::rc::Rc;
 use crate::store::random_access_input::RandomAccessInput;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::Result;
-use crate::util::long_values::{LongValues, Zeroes};
+use crate::util::long_values::{Either16LongValues, LongValues, Zeroes};
 /// Retrieves an instance previously written by `DirectWriter`.
 ///
 /// # See also
@@ -51,20 +51,20 @@ impl DirectReader {
         R: RandomAccessInput,
     {
         match bits_per_value {
-            1 => DirectPackedEnum::DirectPackedReader1(DirectPackedReader1::new(slice, offset)),
-            2 => DirectPackedEnum::DirectPackedReader2(DirectPackedReader2::new(slice, offset)),
-            4 => DirectPackedEnum::DirectPackedReader4(DirectPackedReader4::new(slice, offset)),
-            8 => DirectPackedEnum::DirectPackedReader8(DirectPackedReader8::new(slice, offset)),
-            12 => DirectPackedEnum::DirectPackedReader12(DirectPackedReader12::new(slice, offset)),
-            16 => DirectPackedEnum::DirectPackedReader16(DirectPackedReader16::new(slice, offset)),
-            20 => DirectPackedEnum::DirectPackedReader20(DirectPackedReader20::new(slice, offset)),
-            24 => DirectPackedEnum::DirectPackedReader24(DirectPackedReader24::new(slice, offset)),
-            28 => DirectPackedEnum::DirectPackedReader28(DirectPackedReader28::new(slice, offset)),
-            32 => DirectPackedEnum::DirectPackedReader32(DirectPackedReader32::new(slice, offset)),
-            40 => DirectPackedEnum::DirectPackedReader40(DirectPackedReader40::new(slice, offset)),
-            48 => DirectPackedEnum::DirectPackedReader48(DirectPackedReader48::new(slice, offset)),
-            56 => DirectPackedEnum::DirectPackedReader56(DirectPackedReader56::new(slice, offset)),
-            64 => DirectPackedEnum::DirectPackedReader64(DirectPackedReader64::new(slice, offset)),
+            1 => DirectPackedEnum::A(DirectPackedReader1::new(slice, offset)),
+            2 => DirectPackedEnum::B(DirectPackedReader2::new(slice, offset)),
+            4 => DirectPackedEnum::C(DirectPackedReader4::new(slice, offset)),
+            8 => DirectPackedEnum::D(DirectPackedReader8::new(slice, offset)),
+            12 => DirectPackedEnum::E(DirectPackedReader12::new(slice, offset)),
+            16 => DirectPackedEnum::F(DirectPackedReader16::new(slice, offset)),
+            20 => DirectPackedEnum::G(DirectPackedReader20::new(slice, offset)),
+            24 => DirectPackedEnum::H(DirectPackedReader24::new(slice, offset)),
+            28 => DirectPackedEnum::I(DirectPackedReader28::new(slice, offset)),
+            32 => DirectPackedEnum::J(DirectPackedReader32::new(slice, offset)),
+            40 => DirectPackedEnum::K(DirectPackedReader40::new(slice, offset)),
+            48 => DirectPackedEnum::L(DirectPackedReader48::new(slice, offset)),
+            56 => DirectPackedEnum::M(DirectPackedReader56::new(slice, offset)),
+            64 => DirectPackedEnum::N(DirectPackedReader64::new(slice, offset)),
             _ => unreachable!(),
         }
     }
@@ -92,7 +92,7 @@ impl DirectReader {
     where
         R: RandomAccessInput,
     {
-        DirectPackedEnum::LongValuesImpl(LongValuesImpl::new(
+        DirectPackedEnum::O(LongValuesImpl::new(
             slice,
             bits_per_value,
             num_values,
@@ -651,49 +651,21 @@ where
     }
 }
 
-pub(crate) enum DirectPackedEnum<R>
-where
-    R: RandomAccessInput,
-{
-    DirectPackedReader1(DirectPackedReader1<R>),
-    DirectPackedReader2(DirectPackedReader2<R>),
-    DirectPackedReader4(DirectPackedReader4<R>),
-    DirectPackedReader8(DirectPackedReader8<R>),
-    DirectPackedReader12(DirectPackedReader12<R>),
-    DirectPackedReader16(DirectPackedReader16<R>),
-    DirectPackedReader20(DirectPackedReader20<R>),
-    DirectPackedReader24(DirectPackedReader24<R>),
-    DirectPackedReader28(DirectPackedReader28<R>),
-    DirectPackedReader32(DirectPackedReader32<R>),
-    DirectPackedReader40(DirectPackedReader40<R>),
-    DirectPackedReader48(DirectPackedReader48<R>),
-    DirectPackedReader56(DirectPackedReader56<R>),
-    DirectPackedReader64(DirectPackedReader64<R>),
-    LongValuesImpl(LongValuesImpl<R>),
-    Zeroes(Zeroes),
-}
-impl<R> LongValues for DirectPackedEnum<R>
-where
-    R: RandomAccessInput,
-{
-    fn get_immutable(&self, index: i64) -> Result<i64> {
-        match self {
-            DirectPackedEnum::DirectPackedReader1(reader) => reader.get_immutable(index),
-            DirectPackedEnum::DirectPackedReader2(reader) => reader.get_immutable(index),
-            DirectPackedEnum::DirectPackedReader4(reader) => reader.get_immutable(index),
-            DirectPackedEnum::DirectPackedReader8(reader) => reader.get_immutable(index),
-            DirectPackedEnum::DirectPackedReader12(reader) => reader.get_immutable(index),
-            DirectPackedEnum::DirectPackedReader16(reader) => reader.get_immutable(index),
-            DirectPackedEnum::DirectPackedReader20(reader) => reader.get_immutable(index),
-            DirectPackedEnum::DirectPackedReader24(reader) => reader.get_immutable(index),
-            DirectPackedEnum::DirectPackedReader28(reader) => reader.get_immutable(index),
-            DirectPackedEnum::DirectPackedReader32(reader) => reader.get_immutable(index),
-            DirectPackedEnum::DirectPackedReader40(reader) => reader.get_immutable(index),
-            DirectPackedEnum::DirectPackedReader48(reader) => reader.get_immutable(index),
-            DirectPackedEnum::DirectPackedReader56(reader) => reader.get_immutable(index),
-            DirectPackedEnum::DirectPackedReader64(reader) => reader.get_immutable(index),
-            DirectPackedEnum::LongValuesImpl(reader) => reader.get_immutable(index),
-            DirectPackedEnum::Zeroes(reader) => reader.get_immutable(index),
-        }
-    }
-}
+pub(crate) type DirectPackedEnum<R> = Either16LongValues<
+    DirectPackedReader1<R>,
+    DirectPackedReader2<R>,
+    DirectPackedReader4<R>,
+    DirectPackedReader8<R>,
+    DirectPackedReader12<R>,
+    DirectPackedReader16<R>,
+    DirectPackedReader20<R>,
+    DirectPackedReader24<R>,
+    DirectPackedReader28<R>,
+    DirectPackedReader32<R>,
+    DirectPackedReader40<R>,
+    DirectPackedReader48<R>,
+    DirectPackedReader56<R>,
+    DirectPackedReader64<R>,
+    LongValuesImpl<R>,
+    Zeroes,
+>;

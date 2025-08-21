@@ -1603,7 +1603,7 @@ where
                     .try_into()?;
 
                     self.values = if bits_per_value == 0 {
-                        Some(DirectPackedEnum::Zeroes(Zeroes))
+                        Some(DirectPackedEnum::P(Zeroes))
                     } else {
                         Some(lucene90_dvp_util::get_direct_reader_instance::<I>(
                             self.merging,

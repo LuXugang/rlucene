@@ -46,28 +46,29 @@ impl LongValues for Identity {
     }
 }
 
-// LongValues
-pub enum Either2LongValues<F, S> {
-    F(F),
-    S(S),
-}
-
-impl<F, S> LongValues for Either2LongValues<F, S>
-where
-    F: LongValues,
-    S: LongValues,
-{
-    fn get(&mut self, index: i64) -> Result<i64> {
-        match self {
-            Either2LongValues::F(t) => t.get(index),
-            Either2LongValues::S(s) => s.get(index),
+macro_rules! either_long_values {
+    ($vis:vis $name:ident { $( $Variant:ident : $T:ident ),+ $(,)? }) => {
+        $vis enum $name<$( $T ),+> {
+            $( $Variant($T), )+
         }
-    }
 
-    fn get_immutable(&self, _index: i64) -> Result<i64> {
-        match self {
-            Either2LongValues::F(t) => t.get_immutable(_index),
-            Either2LongValues::S(s) => s.get_immutable(_index),
+        impl<$( $T ),+> LongValues for $name<$( $T ),+>
+        where
+            $( $T: LongValues ),+
+        {
+            fn get(&mut self, index: i64) -> Result<i64> {
+                match self {
+                    $( Self::$Variant(inner) => inner.get(index), )+
+                }
+            }
+
+            fn get_immutable(&self, index: i64) -> Result<i64> {
+                match self {
+                    $( Self::$Variant(inner) => inner.get_immutable(index), )+
+                }
+            }
         }
-    }
+    };
 }
+either_long_values!(pub Either2LongValues { F: F, S: S });
+either_long_values!(pub Either16LongValues { A:A,B:B,C:C,D:D,E:E,F:F,G:G,H:H,I:I,J:J,K:K,L:L,M:M,N:N,O:O,P:P});
