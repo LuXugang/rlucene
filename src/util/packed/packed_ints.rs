@@ -2494,7 +2494,7 @@ mod tests {
                 file_pointer = out.get_file_pointer();
             }
             let mut input = dir.open_input("out.bin", &IO_CONTEXT_DEFAULT)?;
-            let mut reader = MonotonicBlockPackedReader::of(
+            let reader = MonotonicBlockPackedReader::of(
                 &mut input,
                 PackedInts::VERSION_CURRENT,
                 block_size,
@@ -2502,7 +2502,7 @@ mod tests {
             )?;
             assert_eq!(file_pointer, input.get_file_pointer());
             for (i, &value) in values.iter().enumerate().take(value_count) {
-                assert_eq!(value, reader.get(i as i64)?);
+                assert_eq!(value, reader.get_immutable(i as i64)?);
             }
         }
 

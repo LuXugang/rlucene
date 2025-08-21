@@ -136,7 +136,7 @@ pub struct MonotonicLongValues {
     mask_right: u64,
 }
 impl LongValues for MonotonicLongValues {
-    fn get(&mut self, index: i64) -> Result<i64> {
+    fn get_immutable(&self, index: i64) -> Result<i64> {
         // The abstract index in a bit stream
         let major_bit_pos = index * self.bits_per_values as i64;
         // The offset of the first block in the backing byte-array
@@ -159,7 +159,7 @@ impl LongValues for MonotonicLongValues {
     }
 }
 impl LongValues for MonotonicBlockPackedReader {
-    fn get(&mut self, index: i64) -> Result<i64> {
+    fn get_immutable(&self, index: i64) -> Result<i64> {
         debug_assert!(
             index < self.value_count,
             "Index out of bounds: {} >= {}",
@@ -169,7 +169,7 @@ impl LongValues for MonotonicBlockPackedReader {
         let block = (index >> self.block_shift) as usize;
         let idx = index & self.block_mask as i64;
         let expected_value = expected(self.min_values[block], self.averages[block], idx as i32);
-        let sub_reader_value = self.sub_readers[block].get(idx)?;
+        let sub_reader_value = self.sub_readers[block].get_immutable(idx)?;
 
         Ok(expected_value + sub_reader_value)
     }
