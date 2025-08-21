@@ -46,13 +46,13 @@ impl<I> PointsReader for Lucene90PointsReader<I>
 where
     I: IndexInput,
 {
-    fn check_integrity(&mut self) -> Result<()> {
+    fn check_integrity(&self) -> Result<()> {
         todo!()
     }
 
     type PointValuesBase = BKDReader<I>;
 
-    fn get_values(&mut self, _field: &str) -> Result<PointValues<Self::PointValuesBase>> {
+    fn get_values(&self, _field: &str) -> Result<PointValues<Self::PointValuesBase>> {
         todo!()
     }
 }

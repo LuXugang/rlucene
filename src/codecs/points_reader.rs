@@ -25,10 +25,10 @@ pub trait PointsReader {
     ///
     /// Note that this may be costly in terms of I/O, e.g. may involve computing
     /// a checksum value against large data files.
-    fn check_integrity(&mut self) -> Result<()>;
+    fn check_integrity(&self) -> Result<()>;
 
     type PointValuesBase: PointValuesBase;
-    fn get_values(&mut self, field: &str) -> Result<PointValues<Self::PointValuesBase>>;
+    fn get_values(&self, field: &str) -> Result<PointValues<Self::PointValuesBase>>;
 
     /// Returns an instance optimized for merging. This instance may only be
     /// cloned
@@ -52,7 +52,7 @@ impl<I> PointsReader for PointsReaderEnum<I>
 where
     I: IndexInput,
 {
-    fn check_integrity(&mut self) -> Result<()> {
+    fn check_integrity(&self) -> Result<()> {
         match self {
             PointsReaderEnum::Lucene90(reader) => reader.check_integrity(),
         }
@@ -60,7 +60,7 @@ where
 
     type PointValuesBase = BKDReader<I>;
 
-    fn get_values(&mut self, field: &str) -> Result<PointValues<Self::PointValuesBase>> {
+    fn get_values(&self, field: &str) -> Result<PointValues<Self::PointValuesBase>> {
         match self {
             PointsReaderEnum::Lucene90(reader) => reader.get_values(field),
         }

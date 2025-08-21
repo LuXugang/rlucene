@@ -176,13 +176,13 @@ impl<DM> PointsReader for PointsReaderImpl<DM>
 where
     DM: DocMap,
 {
-    fn check_integrity(&mut self) -> Result<()> {
+    fn check_integrity(&self) -> Result<()> {
         Err(LuceneError::unsupported_operation(""))
     }
 
     type PointValuesBase = PointValuesImpl<DM>;
 
-    fn get_values(&mut self, field_name: &str) -> Result<PointValues<Self::PointValuesBase>> {
+    fn get_values(&self, field_name: &str) -> Result<PointValues<Self::PointValuesBase>> {
         if !field_name.eq(self.field_info.name.as_str()) {
             return Err(LuceneError::illegal_argument("fieldName must be the same"));
         }
