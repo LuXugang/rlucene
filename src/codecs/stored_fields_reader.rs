@@ -36,7 +36,7 @@ pub trait StoredFieldsReader: StoredFields + TryClone {
     ///
     /// Note that this may be costly in terms of I/O, e.g. may involve computing
     /// a checksum value against large data files.
-    fn check_integrity(&mut self) -> Result<()>;
+    fn check_integrity(&self) -> Result<()>;
     /// Returns an instance optimized for merging. This instance may only be
     /// cloned # Note
     /// Returning None means returning itself.
@@ -118,7 +118,7 @@ impl<I> StoredFieldsReader for StoredFieldsReaderEnum<I>
 where
     I: IndexInput,
 {
-    fn check_integrity(&mut self) -> Result<()> {
+    fn check_integrity(&self) -> Result<()> {
         match self {
             StoredFieldsReaderEnum::Lucene90(reader) => reader.check_integrity(),
         }

@@ -600,7 +600,7 @@ impl<I> StoredFieldsReader for Lucene90CompressingStoredFieldsReader<I>
 where
     I: IndexInput,
 {
-    fn check_integrity(&mut self) -> Result<()> {
+    fn check_integrity(&self) -> Result<()> {
         self.index_reader.check_integrity()?;
         CodecUtil::checksum_entire_file(&*self.fields_stream.borrow())?;
         Ok(())
