@@ -24,7 +24,7 @@ pub trait FieldsProducer {
     ///
     /// Note that this may be costly in terms of I/O, e.g. may involve computing
     /// a checksum value against large data files.
-    fn check_integrity(&mut self) -> Result<()>;
+    fn check_integrity(&self) -> Result<()>;
     /// Returns an instance optimized for merging. This instance may only be
     /// cloned # Note
     /// Returning None means returning itself.
@@ -52,7 +52,7 @@ where
         }
     }
 
-    fn check_integrity(&mut self) -> Result<()> {
+    fn check_integrity(&self) -> Result<()> {
         match self {
             FieldsProducerEnum::Lucene90(reader) => reader.check_integrity(),
         }

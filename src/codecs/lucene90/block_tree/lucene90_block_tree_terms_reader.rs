@@ -332,7 +332,7 @@ where
         Ok(())
     }
 
-    fn check_integrity(&mut self) -> Result<()> {
+    fn check_integrity(&self) -> Result<()> {
         CodecUtil::checksum_entire_file(&*self.index_in.borrow())?;
         CodecUtil::checksum_entire_file(&self.terms_reader.terms_in)?;
         self.terms_reader.postings_reader.check_integrity()
