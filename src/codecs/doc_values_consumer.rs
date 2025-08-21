@@ -22,7 +22,7 @@ use crate::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNumericDocValues;
 use crate::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocValues;
 use crate::codecs::lucene90_doc_values_enums::{
-    Lucene90BinaryDocValuesEnum, Lucene90NumericDocValuesEnum, Lucene90SortedNumericDocValuesEnums,
+    Lucene90BinaryDocValuesEnum, Lucene90NumericDocValuesEnum, Lucene90SortedNumericDocValues,
 };
 use crate::index::binary_doc_values::{BinaryDocValues, EitherBinaryDocValues3};
 use crate::index::doc_values::DocValues;
@@ -495,7 +495,7 @@ struct SortedNumericDocValuesSub<I>
 where
     I: IndexInput,
 {
-    values: Lucene90SortedNumericDocValuesEnums<I>,
+    values: Lucene90SortedNumericDocValues<I>,
     doc_map: Rc<DocMapEnum>,
 }
 
@@ -503,7 +503,7 @@ impl<I> SortedNumericDocValuesSub<I>
 where
     I: IndexInput,
 {
-    fn new(doc_map: Rc<DocMapEnum>, values: Lucene90SortedNumericDocValuesEnums<I>) -> Self {
+    fn new(doc_map: Rc<DocMapEnum>, values: Lucene90SortedNumericDocValues<I>) -> Self {
         debug_assert!(values.doc_id() == -1);
         SortedNumericDocValuesSub { values, doc_map }
     }
@@ -528,9 +528,7 @@ where
     // for padding use
     fn default() -> Self {
         SortedNumericDocValuesSub {
-            values: Lucene90SortedNumericDocValuesEnums::Empty(
-                DocValues::empty_sorted_numeric().unwrap(),
-            ),
+            values: Lucene90SortedNumericDocValues::U(DocValues::empty_sorted_numeric().unwrap()),
             doc_map: Rc::new(DocMapEnum::default()),
         }
     }
@@ -657,19 +655,14 @@ where
             }
 
             if values.is_none() {
-                values = Some(Lucene90SortedNumericDocValuesEnums::Empty(
+                values = Some(Lucene90SortedNumericDocValues::U(
                     DocValues::empty_sorted_numeric()?,
                 ));
             }
             {
                 let values_ref = values.as_ref().unwrap();
                 cost += values_ref.cost()?;
-                if all_singletons
-                    && matches!(
-                        values_ref,
-                        Lucene90SortedNumericDocValuesEnums::Singleton(_)
-                    )
-                {
+                if all_singletons && matches!(values_ref, Lucene90SortedNumericDocValues::T(_)) {
                     all_singletons = false;
                 }
             }
@@ -689,7 +682,7 @@ where
             for sub in &subs {
                 let mut sub = sub.borrow_mut();
                 let single_valued_values = match &mut sub.sub.values {
-                    Lucene90SortedNumericDocValuesEnums::Singleton(inner) => {
+                    Lucene90SortedNumericDocValues::T(inner) => {
                         inner.get_numeric_doc_values()?.unwrap()
                     },
                     _ => return Err(LuceneError::unreachable("")),

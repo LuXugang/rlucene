@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::codecs::lucene90_doc_values_enums::{
-    Lucene90BinaryDocValuesEnum, Lucene90NumericDocValuesEnum, Lucene90SortedNumericDocValuesEnums,
+    Lucene90BinaryDocValuesEnum, Lucene90NumericDocValuesEnum, Lucene90SortedNumericDocValues,
 };
 use crate::codecs::lucene90_doc_values_producer::{
     BaseSortedDocValues, BaseSortedSetDocValues, DocValuesSkipperImpl, Lucene90DocValuesProducer,
@@ -147,7 +147,7 @@ where
         }
     }
 
-    type SortedNumericDocValues = Lucene90SortedNumericDocValuesEnums<I>;
+    type SortedNumericDocValues = Lucene90SortedNumericDocValues<I>;
 
     fn get_sorted_numeric(&self, _field: &Arc<FieldInfo>) -> Result<Self::SortedNumericDocValues> {
         match self {

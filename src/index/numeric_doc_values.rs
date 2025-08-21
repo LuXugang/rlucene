@@ -91,3 +91,4 @@ macro_rules! either_numeric_docvalues {
 }
 either_numeric_docvalues!(pub EitherNumericDocValues { F: F, S: S });
 either_numeric_docvalues!(pub Either3NumericDocValues { F: F, S: S, T: T });
+either_numeric_docvalues!(pub Either4NumericDocValues { F: F, S: S, T: T, U: U });

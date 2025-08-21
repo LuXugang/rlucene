@@ -15,7 +15,9 @@
  * limitations under the License.
  */
 use crate::index::doc_values_iterator::DocValuesIterator;
-use crate::index::numeric_doc_values::{EitherNumericDocValues, NumericDocValues};
+use crate::index::numeric_doc_values::{
+    Either4NumericDocValues, EitherNumericDocValues, NumericDocValues,
+};
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::util::error::lucene_error::Result;
 /// A list of per-document numeric values, sorted according to i64's cmp.
@@ -41,104 +43,96 @@ pub trait SortedNumericDocValues: DocValuesIterator {
     }
 }
 
-// SortedNumericDocValues
-pub enum EitherSortedNumericDocValues<F, S> {
-    F(F),
-    S(S),
+macro_rules! either_sorted_numeric_docvalues {
+    ($vis:vis $name:ident => $numdv:ident { $( $Variant:ident : $T:ident ),+ $(,)? }) => {
+        $vis enum $name<$( $T ),+> { $( $Variant($T), )+ }
+
+        // --- DocValuesIterator ---
+        impl<$( $T ),+> DocValuesIterator for $name<$( $T ),+>
+        where
+            $( $T: SortedNumericDocValues ),+
+        {
+            #[inline]
+            fn advance_exact(&mut self, target: i32) -> Result<bool> {
+                match self {
+                    $( Self::$Variant(inner) => inner.advance_exact(target), )+
+                }
+            }
+        }
+
+        impl<$( $T ),+> DocIdSetIterator for $name<$( $T ),+>
+        where
+            $( $T: SortedNumericDocValues ),+
+        {
+            #[inline]
+            fn doc_id(&self) -> i32 {
+                match self { $( Self::$Variant(inner) => inner.doc_id(), )+ }
+            }
+            #[inline]
+            fn next_doc(&mut self) -> Result<i32> {
+                match self { $( Self::$Variant(inner) => inner.next_doc(), )+ }
+            }
+            #[inline]
+            fn advance(&mut self, target: i32) -> Result<i32> {
+                match self { $( Self::$Variant(inner) => inner.advance(target), )+ }
+            }
+            #[inline]
+            fn slow_advance(&mut self, target: i32) -> Result<i32> {
+                match self { $( Self::$Variant(inner) => inner.slow_advance(target), )+ }
+            }
+            #[inline]
+            fn cost(&self) -> Result<i64> {
+                match self { $( Self::$Variant(inner) => inner.cost(), )+ }
+            }
+        }
+
+        impl<$( $T ),+> SortedNumericDocValues for $name<$( $T ),+>
+        where
+            $( $T: SortedNumericDocValues ),+
+        {
+            #[inline]
+            fn next_value(&mut self) -> Result<i64> {
+                match self { $( Self::$Variant(inner) => inner.next_value(), )+ }
+            }
+            #[inline]
+            fn doc_value_count(&mut self) -> Result<i32> {
+                match self { $( Self::$Variant(inner) => inner.doc_value_count(), )+ }
+            }
+            #[inline]
+            fn is_single_valued(&self) -> bool {
+                match self { $( Self::$Variant(inner) => inner.is_single_valued(), )+ }
+            }
+
+            type NumericDocValues = $numdv<$( $T::NumericDocValues ),+>;
+
+            #[inline]
+            fn get_numeric_doc_values(&mut self) -> Result<Option<Self::NumericDocValues>> {
+                match self {
+                    $( Self::$Variant(inner) => {
+                        let ndv = inner.get_numeric_doc_values()?;
+                        Ok(ndv.map($numdv::$Variant))
+                    } ),+
+                }
+            }
+        }
+    };
 }
-
-impl<F, S> DocValuesIterator for EitherSortedNumericDocValues<F, S>
-where
-    F: SortedNumericDocValues,
-    S: SortedNumericDocValues,
-{
-    fn advance_exact(&mut self, target: i32) -> Result<bool> {
-        match self {
-            EitherSortedNumericDocValues::F(t) => t.advance_exact(target),
-            EitherSortedNumericDocValues::S(s) => s.advance_exact(target),
-        }
+either_sorted_numeric_docvalues!(
+    pub EitherSortedNumericDocValues
+    => EitherNumericDocValues
+    {
+        F: F,
+        S: S
     }
-}
+);
 
-impl<F, S> DocIdSetIterator for EitherSortedNumericDocValues<F, S>
-where
-    F: SortedNumericDocValues,
-    S: SortedNumericDocValues,
-{
-    fn doc_id(&self) -> i32 {
-        match self {
-            EitherSortedNumericDocValues::F(t) => t.doc_id(),
-            EitherSortedNumericDocValues::S(s) => s.doc_id(),
-        }
+either_sorted_numeric_docvalues!(
+    pub Either4SortedNumericDocValues
+    => Either4NumericDocValues
+    {
+        F: F,
+        S: S,
+        T:T,
+        U:U,
     }
-
-    fn next_doc(&mut self) -> Result<i32> {
-        match self {
-            EitherSortedNumericDocValues::F(t) => t.next_doc(),
-            EitherSortedNumericDocValues::S(s) => s.next_doc(),
-        }
-    }
-
-    fn advance(&mut self, target: i32) -> Result<i32> {
-        match self {
-            EitherSortedNumericDocValues::F(t) => t.advance(target),
-            EitherSortedNumericDocValues::S(s) => s.advance(target),
-        }
-    }
-
-    fn slow_advance(&mut self, target: i32) -> Result<i32> {
-        match self {
-            EitherSortedNumericDocValues::F(t) => t.slow_advance(target),
-            EitherSortedNumericDocValues::S(s) => s.slow_advance(target),
-        }
-    }
-
-    fn cost(&self) -> Result<i64> {
-        match self {
-            EitherSortedNumericDocValues::F(t) => t.cost(),
-            EitherSortedNumericDocValues::S(s) => s.cost(),
-        }
-    }
-}
-
-impl<F, S> SortedNumericDocValues for EitherSortedNumericDocValues<F, S>
-where
-    F: SortedNumericDocValues,
-    S: SortedNumericDocValues,
-{
-    fn next_value(&mut self) -> Result<i64> {
-        match self {
-            EitherSortedNumericDocValues::F(t) => t.next_value(),
-            EitherSortedNumericDocValues::S(s) => s.next_value(),
-        }
-    }
-
-    fn doc_value_count(&mut self) -> Result<i32> {
-        match self {
-            EitherSortedNumericDocValues::F(t) => t.doc_value_count(),
-            EitherSortedNumericDocValues::S(s) => s.doc_value_count(),
-        }
-    }
-
-    fn is_single_valued(&self) -> bool {
-        match self {
-            EitherSortedNumericDocValues::F(t) => t.is_single_valued(),
-            EitherSortedNumericDocValues::S(s) => s.is_single_valued(),
-        }
-    }
-
-    type NumericDocValues = EitherNumericDocValues<F::NumericDocValues, S::NumericDocValues>;
-
-    fn get_numeric_doc_values(&mut self) -> Result<Option<Self::NumericDocValues>> {
-        match self {
-            EitherSortedNumericDocValues::F(t) => {
-                let sorted_doc_values = t.get_numeric_doc_values()?;
-                Ok(sorted_doc_values.map(EitherNumericDocValues::F))
-            },
-            EitherSortedNumericDocValues::S(s) => {
-                let sorted_doc_values = s.get_numeric_doc_values()?;
-                Ok(sorted_doc_values.map(EitherNumericDocValues::S))
-            },
-        }
-    }
-}
+);

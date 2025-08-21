@@ -24,7 +24,7 @@ use crate::codecs::lucene90::dov_values_inner_enum::{
     DenseNumericDocValuesSubEnum, LongValuesEnum, SparseBinaryDocValuesBaseEnum,
     SparseNumericDocValuesSubEnum,
 };
-use crate::codecs::lucene90::lucene90_doc_values_enums::Lucene90SortedNumericDocValuesEnums;
+use crate::codecs::lucene90::lucene90_doc_values_enums::Lucene90SortedNumericDocValues;
 use crate::codecs::lucene90_doc_values_enums::{
     Lucene90BinaryDocValuesEnum, Lucene90NumericDocValuesEnum,
 };
@@ -755,12 +755,12 @@ where
     fn get_sorted_numeric(
         &self,
         entry: &SortedNumericEntry,
-    ) -> Result<Lucene90SortedNumericDocValuesEnums<I>>
+    ) -> Result<Lucene90SortedNumericDocValues<I>>
     where
         I: IndexInput,
     {
         if entry.base.num_values == entry.num_docs_with_field as i64 {
-            return Ok(Lucene90SortedNumericDocValuesEnums::Singleton(
+            return Ok(Lucene90SortedNumericDocValues::T(
                 DocValues::singleton_numeric(self.get_numeric(entry.base.clone())?)?,
             ));
         }
@@ -791,7 +791,7 @@ where
 
         if entry.base.docs_with_field_offset == -1 {
             // dense
-            Ok(Lucene90SortedNumericDocValuesEnums::Dense(
+            Ok(Lucene90SortedNumericDocValues::F(
                 DenseSortedNumericDocValues::new(self.max_doc, 0, 0, values, addresses),
             ))
         } else {
@@ -805,7 +805,7 @@ where
                 entry.num_docs_with_field as i64,
             )?;
 
-            Ok(Lucene90SortedNumericDocValuesEnums::Sparse(
+            Ok(Lucene90SortedNumericDocValues::S(
                 SpareSortedNumericDocValues::new(disi, values, addresses),
             ))
         }
@@ -1002,7 +1002,7 @@ where
         }
     }
 
-    type SortedNumericDocValues = Lucene90SortedNumericDocValuesEnums<I>;
+    type SortedNumericDocValues = Lucene90SortedNumericDocValues<I>;
 
     fn get_sorted_numeric(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedNumericDocValues> {
         let entry = self.sorted_numerics.get(&field.number);
@@ -2557,13 +2557,13 @@ pub struct BaseSortedSetDocValuesImpl<I>
 where
     I: IndexInput,
 {
-    ords: Lucene90SortedNumericDocValuesEnums<I>,
+    ords: Lucene90SortedNumericDocValues<I>,
 }
 impl<I> BaseSortedSetDocValuesImpl<I>
 where
     I: IndexInput,
 {
-    fn new(ords: Lucene90SortedNumericDocValuesEnums<I>) -> Self {
+    fn new(ords: Lucene90SortedNumericDocValues<I>) -> Self {
         Self { ords }
     }
 }
