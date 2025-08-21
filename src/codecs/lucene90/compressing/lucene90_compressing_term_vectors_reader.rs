@@ -975,7 +975,7 @@ impl<I> TermVectorsReader for Lucene90CompressingTermVectorsReader<I>
 where
     I: IndexInput,
 {
-    fn check_integrity(&mut self) -> Result<()> {
+    fn check_integrity(&self) -> Result<()> {
         self.index_reader.check_integrity()?;
         let _ = CodecUtil::checksum_entire_file(&self.vectors_stream)?;
         Ok(())

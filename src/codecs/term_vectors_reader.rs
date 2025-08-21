@@ -27,7 +27,7 @@ pub trait TermVectorsReader: TermVectors + TryClone {
     ///
     /// Note that this may be costly in terms of I/O, e.g. may involve computing
     /// a checksum value against large data files.
-    fn check_integrity(&mut self) -> Result<()>;
+    fn check_integrity(&self) -> Result<()>;
 
     /// Returns an instance optimized for merging.
     ///
@@ -80,7 +80,7 @@ impl<I> TermVectorsReader for TermVectorsReaderEnum<I>
 where
     I: IndexInput,
 {
-    fn check_integrity(&mut self) -> Result<()> {
+    fn check_integrity(&self) -> Result<()> {
         match self {
             TermVectorsReaderEnum::Lucene90(reader) => reader.check_integrity(),
         }
