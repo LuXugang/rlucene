@@ -22,7 +22,7 @@ use crate::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNumericDocValues;
 use crate::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocValues;
 use crate::codecs::lucene90_doc_values_enums::{
-    Lucene90BinaryDocValuesEnum, Lucene90NumericDocValuesEnums, Lucene90SortedNumericDocValuesEnums,
+    Lucene90BinaryDocValuesEnum, Lucene90NumericDocValuesEnum, Lucene90SortedNumericDocValuesEnums,
 };
 use crate::index::binary_doc_values::{BinaryDocValues, EitherBinaryDocValues3};
 use crate::index::doc_values::DocValues;
@@ -157,7 +157,7 @@ struct NumericDocValuesSub<I>
 where
     I: IndexInput,
 {
-    values: Lucene90NumericDocValuesEnums<I>,
+    values: Lucene90NumericDocValuesEnum<I>,
     doc_map: Rc<DocMapEnum>,
 }
 #[allow(unused)]
@@ -165,7 +165,7 @@ impl<I> NumericDocValuesSub<I>
 where
     I: IndexInput,
 {
-    fn new(doc_map: Rc<DocMapEnum>, values: Lucene90NumericDocValuesEnums<I>) -> Self {
+    fn new(doc_map: Rc<DocMapEnum>, values: Lucene90NumericDocValuesEnum<I>) -> Self {
         debug_assert!(values.doc_id() == -1);
         NumericDocValuesSub { values, doc_map }
     }
@@ -188,7 +188,7 @@ where
 {
     fn default() -> Self {
         NumericDocValuesSub {
-            values: Lucene90NumericDocValuesEnums::Empty(Default::default()),
+            values: Lucene90NumericDocValuesEnum::T(Default::default()),
             doc_map: Rc::new(DocMapEnum::default()),
         }
     }

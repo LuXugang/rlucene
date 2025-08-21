@@ -22,8 +22,7 @@ use crate::codecs::lucene90_doc_values_producer::{
 use crate::index::binary_doc_values::EitherBinaryDocValues3;
 use crate::index::doc_values::{EmptyBinary, EmptyNumeric};
 use crate::index::doc_values_iterator::DocValuesIterator;
-use crate::index::numeric_doc_values::EitherNumericDocValues;
-use crate::index::numeric_doc_values::NumericDocValues;
+use crate::index::numeric_doc_values::{Either3NumericDocValues, EitherNumericDocValues};
 use crate::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
 use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
@@ -31,77 +30,8 @@ use crate::store::IndexInput;
 use crate::util::error::lucene_error::Result;
 
 // 1. NumericDocValues
-pub enum Lucene90NumericDocValuesEnums<I>
-where
-    I: IndexInput,
-{
-    Dense(DenseNumericDocValues<I>),
-    Sparse(SparseNumericDocValues<I>),
-    Empty(EmptyNumeric),
-}
-
-impl<I> DocValuesIterator for Lucene90NumericDocValuesEnums<I>
-where
-    I: IndexInput,
-{
-    fn advance_exact(&mut self, target: i32) -> Result<bool> {
-        match self {
-            Lucene90NumericDocValuesEnums::Dense(d) => d.advance_exact(target),
-            Lucene90NumericDocValuesEnums::Sparse(s) => s.advance_exact(target),
-            Lucene90NumericDocValuesEnums::Empty(e) => e.advance_exact(target),
-        }
-    }
-}
-
-impl<I> DocIdSetIterator for Lucene90NumericDocValuesEnums<I>
-where
-    I: IndexInput,
-{
-    fn doc_id(&self) -> i32 {
-        match self {
-            Lucene90NumericDocValuesEnums::Dense(d) => d.doc_id(),
-            Lucene90NumericDocValuesEnums::Sparse(s) => s.doc_id(),
-            Lucene90NumericDocValuesEnums::Empty(e) => e.doc_id(),
-        }
-    }
-
-    fn next_doc(&mut self) -> Result<i32> {
-        match self {
-            Lucene90NumericDocValuesEnums::Dense(d) => d.next_doc(),
-            Lucene90NumericDocValuesEnums::Sparse(s) => s.next_doc(),
-            Lucene90NumericDocValuesEnums::Empty(e) => e.next_doc(),
-        }
-    }
-
-    fn advance(&mut self, target: i32) -> Result<i32> {
-        match self {
-            Lucene90NumericDocValuesEnums::Dense(d) => d.advance(target),
-            Lucene90NumericDocValuesEnums::Sparse(s) => s.advance(target),
-            Lucene90NumericDocValuesEnums::Empty(e) => e.advance(target),
-        }
-    }
-
-    fn cost(&self) -> Result<i64> {
-        match self {
-            Lucene90NumericDocValuesEnums::Dense(d) => d.cost(),
-            Lucene90NumericDocValuesEnums::Sparse(s) => s.cost(),
-            Lucene90NumericDocValuesEnums::Empty(e) => e.cost(),
-        }
-    }
-}
-
-impl<I> NumericDocValues for Lucene90NumericDocValuesEnums<I>
-where
-    I: IndexInput,
-{
-    fn long_value(&mut self) -> Result<i64> {
-        match self {
-            Lucene90NumericDocValuesEnums::Dense(d) => d.long_value(),
-            Lucene90NumericDocValuesEnums::Sparse(s) => s.long_value(),
-            Lucene90NumericDocValuesEnums::Empty(e) => e.long_value(),
-        }
-    }
-}
+pub type Lucene90NumericDocValuesEnum<I> =
+    Either3NumericDocValues<DenseNumericDocValues<I>, SparseNumericDocValues<I>, EmptyNumeric>;
 // 2.SortedNumericDocValues
 pub enum Lucene90SortedNumericDocValuesEnums<I>
 where
@@ -109,7 +39,7 @@ where
 {
     Dense(DenseSortedNumericDocValues<I>),
     Sparse(SpareSortedNumericDocValues<I>),
-    Singleton(SingletonSortedNumericDocValues<Lucene90NumericDocValuesEnums<I>>),
+    Singleton(SingletonSortedNumericDocValues<Lucene90NumericDocValuesEnum<I>>),
     Empty(SingletonSortedNumericDocValues<EmptyNumeric>),
 }
 
@@ -200,7 +130,7 @@ where
     }
 
     type NumericDocValues =
-        EitherNumericDocValues<Lucene90NumericDocValuesEnums<I>, DummyNumericDocValues>;
+        EitherNumericDocValues<Lucene90NumericDocValuesEnum<I>, DummyNumericDocValues>;
 
     fn get_numeric_doc_values(&mut self) -> Result<Option<Self::NumericDocValues>> {
         match self {

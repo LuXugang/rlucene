@@ -14,9 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::codecs::lucene90::lucene90_doc_values_enums::Lucene90NumericDocValuesEnums;
 use crate::codecs::lucene90_doc_values_enums::{
-    Lucene90BinaryDocValuesEnum, Lucene90SortedNumericDocValuesEnums,
+    Lucene90BinaryDocValuesEnum, Lucene90NumericDocValuesEnum, Lucene90SortedNumericDocValuesEnums,
 };
 use crate::codecs::lucene90_doc_values_producer::{
     BaseSortedDocValues, BaseSortedSetDocValues, DocValuesSkipperImpl, Lucene90DocValuesProducer,
@@ -124,7 +123,7 @@ impl<I> DocValuesProducer for DocValuesProducerEnum<I>
 where
     I: IndexInput,
 {
-    type NumericDocValues = Lucene90NumericDocValuesEnums<I>;
+    type NumericDocValues = Lucene90NumericDocValuesEnum<I>;
 
     fn get_numeric(&self, field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
         match self {

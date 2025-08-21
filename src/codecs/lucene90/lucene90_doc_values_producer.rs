@@ -24,10 +24,10 @@ use crate::codecs::lucene90::dov_values_inner_enum::{
     DenseNumericDocValuesSubEnum, LongValuesEnum, SparseBinaryDocValuesBaseEnum,
     SparseNumericDocValuesSubEnum,
 };
-use crate::codecs::lucene90::lucene90_doc_values_enums::{
-    Lucene90NumericDocValuesEnums, Lucene90SortedNumericDocValuesEnums,
+use crate::codecs::lucene90::lucene90_doc_values_enums::Lucene90SortedNumericDocValuesEnums;
+use crate::codecs::lucene90_doc_values_enums::{
+    Lucene90BinaryDocValuesEnum, Lucene90NumericDocValuesEnum,
 };
-use crate::codecs::lucene90_doc_values_enums::Lucene90BinaryDocValuesEnum;
 use crate::codecs::lucene90_doc_values_format::{
     Lucene90DocValuesFormat, SKIP_INDEX_JUMP_LENGTH_PER_LEVEL,
 };
@@ -517,12 +517,10 @@ where
         Ok(())
     }
 
-    fn get_numeric(&self, entry: Rc<NumericEntry>) -> Result<Lucene90NumericDocValuesEnums<I>> {
+    fn get_numeric(&self, entry: Rc<NumericEntry>) -> Result<Lucene90NumericDocValuesEnum<I>> {
         if entry.docs_with_field_offset == -2 {
             // empty
-            Ok(Lucene90NumericDocValuesEnums::Empty(
-                DocValues::empty_numeric(),
-            ))
+            Ok(Lucene90NumericDocValuesEnum::T(DocValues::empty_numeric()))
         } else if entry.docs_with_field_offset == -1 {
             // dense
             let dense_numeric_doc_values_base_enum = if entry.bits_per_value == 0 {
@@ -577,9 +575,10 @@ where
                     }
                 }
             };
-            Ok(Lucene90NumericDocValuesEnums::Dense(
-                DenseNumericDocValues::new(dense_numeric_doc_values_base_enum, self.max_doc),
-            ))
+            Ok(Lucene90NumericDocValuesEnum::F(DenseNumericDocValues::new(
+                dense_numeric_doc_values_base_enum,
+                self.max_doc,
+            )))
         } else {
             let disi = IndexedDISI::new(
                 &self.data,
@@ -644,7 +643,7 @@ where
                     }
                 }
             };
-            Ok(Lucene90NumericDocValuesEnums::Sparse(
+            Ok(Lucene90NumericDocValuesEnum::S(
                 SparseNumericDocValues::new(sparse_numeric_doc_values_base_enum, disi),
             ))
         }
@@ -850,9 +849,9 @@ impl<I> DocValuesProducer for Lucene90DocValuesProducer<I>
 where
     I: IndexInput,
 {
-    type NumericDocValues = Lucene90NumericDocValuesEnums<I>;
+    type NumericDocValues = Lucene90NumericDocValuesEnum<I>;
 
-    fn get_numeric(&self, field: &Arc<FieldInfo>) -> Result<Lucene90NumericDocValuesEnums<I>> {
+    fn get_numeric(&self, field: &Arc<FieldInfo>) -> Result<Lucene90NumericDocValuesEnum<I>> {
         let entry = self.numerics.get(&field.number);
         match entry {
             Some(entry) => self.get_numeric(entry.clone()),
@@ -2224,13 +2223,13 @@ pub struct BaseSortedDocValuesImpl<I>
 where
     I: IndexInput,
 {
-    ords: Lucene90NumericDocValuesEnums<I>,
+    ords: Lucene90NumericDocValuesEnum<I>,
 }
 impl<I> BaseSortedDocValuesImpl<I>
 where
     I: IndexInput,
 {
-    fn new(ords: Lucene90NumericDocValuesEnums<I>) -> Self {
+    fn new(ords: Lucene90NumericDocValuesEnum<I>) -> Self {
         Self { ords }
     }
 }

@@ -18,7 +18,7 @@ use crate::codecs::compound_directory::CompoundDirectory;
 use crate::codecs::doc_values_producer::DocValuesProducer;
 use crate::codecs::lucene90_compound_reader::Lucene90CompoundReader;
 use crate::codecs::lucene90_doc_values_enums::{
-    Lucene90BinaryDocValuesEnum, Lucene90NumericDocValuesEnums, Lucene90SortedNumericDocValuesEnums,
+    Lucene90BinaryDocValuesEnum, Lucene90NumericDocValuesEnum, Lucene90SortedNumericDocValuesEnums,
 };
 use crate::codecs::lucene90_doc_values_producer::{
     BaseSortedDocValues, BaseSortedSetDocValues, DocValuesSkipperImpl, Lucene90DocValuesProducer,
@@ -128,7 +128,7 @@ impl<D> DocValuesProducer for SegmentDocValuesProducer<D>
 where
     D: Directory,
 {
-    type NumericDocValues = Lucene90NumericDocValuesEnums<CfsOrBaseInput<D>>;
+    type NumericDocValues = Lucene90NumericDocValuesEnum<CfsOrBaseInput<D>>;
 
     fn get_numeric(&self, field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
         let dv_producer = self.dv_producers_by_field.get(&field.number);
