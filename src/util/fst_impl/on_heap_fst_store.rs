@@ -76,13 +76,13 @@ impl FstReader for OnHeapFSTStore {
 
     fn get_reverse_bytes_reader(&self) -> Result<Self::FstBytesReader> {
         if let Some(bytes_array) = &self.bytes_array {
-            return Ok(Either2BytesReader::F(ReverseBytesReader::new(
+            return Ok(Either2BytesReader::A(ReverseBytesReader::new(
                 bytes_array.clone(),
             )));
         }
 
         if let Some(data_output) = &self.data_output {
-            Ok(Either2BytesReader::S(
+            Ok(Either2BytesReader::B(
                 data_output.get_reverse_bytes_reader()?,
             ))
         } else {

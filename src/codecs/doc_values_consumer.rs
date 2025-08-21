@@ -188,7 +188,7 @@ where
 {
     fn default() -> Self {
         NumericDocValuesSub {
-            values: Lucene90NumericDocValuesEnum::T(Default::default()),
+            values: Lucene90NumericDocValuesEnum::C(Default::default()),
             doc_map: Rc::new(DocMapEnum::default()),
         }
     }
@@ -348,7 +348,7 @@ where
 {
     fn default() -> Self {
         BinaryDocValuesSub {
-            values: Either3BinaryDocValues::T(Default::default()),
+            values: Either3BinaryDocValues::C(Default::default()),
             doc_map: Rc::new(DocMapEnum::default()),
         }
     }
@@ -528,7 +528,7 @@ where
     // for padding use
     fn default() -> Self {
         SortedNumericDocValuesSub {
-            values: Lucene90SortedNumericDocValuesEnum::U(
+            values: Lucene90SortedNumericDocValuesEnum::D(
                 DocValues::empty_sorted_numeric().unwrap(),
             ),
             doc_map: Rc::new(DocMapEnum::default()),
@@ -657,14 +657,14 @@ where
             }
 
             if values.is_none() {
-                values = Some(Lucene90SortedNumericDocValuesEnum::U(
+                values = Some(Lucene90SortedNumericDocValuesEnum::D(
                     DocValues::empty_sorted_numeric()?,
                 ));
             }
             {
                 let values_ref = values.as_ref().unwrap();
                 cost += values_ref.cost()?;
-                if all_singletons && matches!(values_ref, Lucene90SortedNumericDocValuesEnum::T(_))
+                if all_singletons && matches!(values_ref, Lucene90SortedNumericDocValuesEnum::C(_))
                 {
                     all_singletons = false;
                 }
@@ -685,7 +685,7 @@ where
             for sub in &subs {
                 let mut sub = sub.borrow_mut();
                 let single_valued_values = match &mut sub.sub.values {
-                    Lucene90SortedNumericDocValuesEnum::T(inner) => {
+                    Lucene90SortedNumericDocValuesEnum::C(inner) => {
                         inner.get_numeric_doc_values()?.unwrap()
                     },
                     _ => return Err(LuceneError::unreachable("")),
@@ -699,12 +699,12 @@ where
                 single_valued_subs,
                 self.merge_state.needs_index_sort,
             )?;
-            return Ok(Either2SortedNumericDocValues::F(
+            return Ok(Either2SortedNumericDocValues::A(
                 DocValues::singleton_numeric(dv)?,
             ));
         }
         let doc_id_merger = doc_id_merger_util::of(subs, self.merge_state.needs_index_sort)?;
-        Ok(Either2SortedNumericDocValues::S(
+        Ok(Either2SortedNumericDocValues::B(
             SortedNumericDocValuesMerge {
                 doc_id: -1,
                 current_sub: None,

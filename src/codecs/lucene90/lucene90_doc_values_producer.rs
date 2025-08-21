@@ -519,7 +519,7 @@ where
     fn get_numeric(&self, entry: Rc<NumericEntry>) -> Result<Lucene90NumericDocValuesEnum<I>> {
         if entry.docs_with_field_offset == -2 {
             // empty
-            Ok(Lucene90NumericDocValuesEnum::T(DocValues::empty_numeric()))
+            Ok(Lucene90NumericDocValuesEnum::C(DocValues::empty_numeric()))
         } else if entry.docs_with_field_offset == -1 {
             // dense
             let dense_numeric_doc_values_base_enum = if entry.bits_per_value == 0 {
@@ -574,7 +574,7 @@ where
                     }
                 }
             };
-            Ok(Lucene90NumericDocValuesEnum::F(DenseNumericDocValues::new(
+            Ok(Lucene90NumericDocValuesEnum::A(DenseNumericDocValues::new(
                 dense_numeric_doc_values_base_enum,
                 self.max_doc,
             )))
@@ -642,7 +642,7 @@ where
                     }
                 }
             };
-            Ok(Lucene90NumericDocValuesEnum::S(
+            Ok(Lucene90NumericDocValuesEnum::B(
                 SparseNumericDocValues::new(sparse_numeric_doc_values_base_enum, disi),
             ))
         }
@@ -759,7 +759,7 @@ where
         I: IndexInput,
     {
         if entry.base.num_values == entry.num_docs_with_field as i64 {
-            return Ok(Lucene90SortedNumericDocValuesEnum::T(
+            return Ok(Lucene90SortedNumericDocValuesEnum::C(
                 DocValues::singleton_numeric(self.get_numeric(entry.base.clone())?)?,
             ));
         }
@@ -790,7 +790,7 @@ where
 
         if entry.base.docs_with_field_offset == -1 {
             // dense
-            Ok(Lucene90SortedNumericDocValuesEnum::F(
+            Ok(Lucene90SortedNumericDocValuesEnum::A(
                 DenseSortedNumericDocValues::new(self.max_doc, 0, 0, values, addresses),
             ))
         } else {
@@ -804,7 +804,7 @@ where
                 entry.num_docs_with_field as i64,
             )?;
 
-            Ok(Lucene90SortedNumericDocValuesEnum::S(
+            Ok(Lucene90SortedNumericDocValuesEnum::B(
                 SpareSortedNumericDocValues::new(disi, values, addresses),
             ))
         }
@@ -868,7 +868,7 @@ where
         match entry {
             Some(entry) => {
                 if entry.docs_with_field_offset == -2 {
-                    return Ok(Either3BinaryDocValues::T(DocValues::empty_binary()));
+                    return Ok(Either3BinaryDocValues::C(DocValues::empty_binary()));
                 }
                 let mut bytes_slice = self
                     .data
@@ -920,7 +920,7 @@ where
                             },
                         }
                     };
-                    Ok(Either3BinaryDocValues::F(DenseBinaryDocValues::new(
+                    Ok(Either3BinaryDocValues::A(DenseBinaryDocValues::new(
                         dense,
                         self.max_doc,
                     )))
@@ -976,7 +976,7 @@ where
                             addresses,
                         })
                     };
-                    Ok(Either3BinaryDocValues::S(SparseBinaryDocValues::new(
+                    Ok(Either3BinaryDocValues::B(SparseBinaryDocValues::new(
                         sub, disi,
                     )))
                 }
@@ -1025,7 +1025,7 @@ where
                 if let Some(ref single_value_entry) = entry.single_value_entry {
                     let singleton =
                         DocValues::singleton_sorted(self.get_sorted(single_value_entry.clone())?)?;
-                    return Ok(Either2SortedSetDocValues::F(singleton));
+                    return Ok(Either2SortedSetDocValues::A(singleton));
                 }
                 // Specialize the common case for ordinals: single block of
                 // packed integers.
@@ -1094,7 +1094,7 @@ where
                                     SparseBaseSortedSetDocValues::new(disi, values, addresses),
                                 )
                             };
-                            return Ok(Either2SortedSetDocValues::S(BaseSortedSetDocValues::new(
+                            return Ok(Either2SortedSetDocValues::B(BaseSortedSetDocValues::new(
                                 entry_clone.clone(),
                                 &self.data,
                                 sbu,
@@ -1105,7 +1105,7 @@ where
                         let ords = self.get_sorted_numeric(&ords_entry_clone)?;
                         let sub =
                             BaseSortedSetDocValuesEnum::Impl(BaseSortedSetDocValuesImpl::new(ords));
-                        Ok(Either2SortedSetDocValues::S(BaseSortedSetDocValues::new(
+                        Ok(Either2SortedSetDocValues::B(BaseSortedSetDocValues::new(
                             entry_clone,
                             &self.data,
                             sub,

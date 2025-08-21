@@ -121,8 +121,8 @@ either_sorted_numeric_docvalues!(
     pub Either2SortedNumericDocValues
     => Either2NumericDocValues
     {
-        F: F,
-        S: S
+        A: A,
+        B: B
     }
 );
 
@@ -130,9 +130,9 @@ either_sorted_numeric_docvalues!(
     pub Either4SortedNumericDocValues
     => Either4NumericDocValues
     {
-        F: F,
-        S: S,
-        T:T,
-        U:U,
+        A: A,
+        B: B,
+        C:C,
+        D:D,
     }
 );

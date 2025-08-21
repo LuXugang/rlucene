@@ -179,13 +179,13 @@ impl SortedNumericDocValuesWriter {
         match value_counts {
             None => {
                 let dv = BufferedNumericDocValues::new(values, iter);
-                Ok(Either2SortedNumericDocValues::F(
+                Ok(Either2SortedNumericDocValues::A(
                     DocValues::singleton_numeric(dv)?,
                 ))
             },
             Some(value_counts) => {
                 let dv = BufferedSortedNumericDocValues::new(values, value_counts, iter);
-                Ok(Either2SortedNumericDocValues::S(dv))
+                Ok(Either2SortedNumericDocValues::B(dv))
             },
         }
     }
@@ -379,10 +379,10 @@ impl DocValuesProducer for DocValuesProducerImpl2 {
             &self.docs_with_field,
         )?;
         match &self.sorted {
-            Some(sorted) => Ok(Either2SortedNumericDocValues::S(
+            Some(sorted) => Ok(Either2SortedNumericDocValues::B(
                 SortingSortedNumericDocValues::new(buf, sorted.clone()),
             )),
-            None => Ok(Either2SortedNumericDocValues::F(buf)),
+            None => Ok(Either2SortedNumericDocValues::A(buf)),
         }
     }
 

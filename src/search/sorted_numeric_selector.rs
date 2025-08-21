@@ -56,25 +56,25 @@ impl SortedNumericSelector {
         }
 
         let view = match DocValues::unwrap_singleton_numeric(&mut sorted_numeric)? {
-            Some(single) => Either3NumericDocValues::F(single),
+            Some(single) => Either3NumericDocValues::A(single),
             _ => match selector {
                 SortedNumericSelectorType::Min => {
-                    Either3NumericDocValues::S(MinValue::new(sorted_numeric))
+                    Either3NumericDocValues::B(MinValue::new(sorted_numeric))
                 },
                 SortedNumericSelectorType::Max => {
-                    Either3NumericDocValues::T(MaxValue::new(sorted_numeric))
+                    Either3NumericDocValues::C(MaxValue::new(sorted_numeric))
                 },
             },
         };
 
         match numeric_type {
-            SortFieldType::Float => Ok(Either3NumericDocValues::F(
+            SortFieldType::Float => Ok(Either3NumericDocValues::A(
                 FilterNumericDocValuesImpl1::new(view),
             )),
-            SortFieldType::Double => Ok(Either3NumericDocValues::S(
+            SortFieldType::Double => Ok(Either3NumericDocValues::B(
                 FilterNumericDocValuesImpl2::new(view),
             )),
-            _ => Ok(Either3NumericDocValues::T(view)),
+            _ => Ok(Either3NumericDocValues::C(view)),
         }
     }
 }

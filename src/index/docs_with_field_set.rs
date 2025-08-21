@@ -117,12 +117,12 @@ impl DocIdSet for DocsWithFieldSet {
                 ));
             }
             debug_assert!(self.cardinality > 0);
-            Ok(Some(Either2DocIdSetIterator::S(BitSetIterator::new(
+            Ok(Some(Either2DocIdSetIterator::B(BitSetIterator::new(
                 self.set_iter.as_ref().unwrap().clone(),
                 self.cardinality as i64,
             )?)))
         } else {
-            Ok(Some(Either2DocIdSetIterator::F(AllDocIdSetIterator::new(
+            Ok(Some(Either2DocIdSetIterator::A(AllDocIdSetIterator::new(
                 self.cardinality,
             ))))
         }

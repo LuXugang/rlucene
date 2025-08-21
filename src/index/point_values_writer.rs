@@ -134,9 +134,9 @@ impl PointValuesWriter {
         );
         let values = match sort_map {
             Some(doc_map) => {
-                Either2MutablePointTree::S(MutableSortingPointValues::new(points, doc_map))
+                Either2MutablePointTree::B(MutableSortingPointValues::new(points, doc_map))
             },
-            None => Either2MutablePointTree::F(points),
+            None => Either2MutablePointTree::A(points),
         };
         let mut reader = PointsReaderImpl::new(values, self.field_info.clone());
 
@@ -212,7 +212,7 @@ where
     DM: DocMap,
 {
     fn default() -> Self {
-        Either2MutablePointTree::F(MutablePointTreeImpl::default())
+        Either2MutablePointTree::A(MutablePointTreeImpl::default())
     }
 }
 

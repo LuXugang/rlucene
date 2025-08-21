@@ -293,131 +293,131 @@ pub trait DataOutput: Sized {
 }
 const COPY_BUFFER_SIZE: i32 = 16384;
 
-pub enum Either2DataOutput<F, S> {
-    F(F),
-    S(S),
+pub enum Either2DataOutput<A, B> {
+    A(A),
+    B(B),
 }
-impl<F, S> DataOutput for Either2DataOutput<F, S>
+impl<A, B> DataOutput for Either2DataOutput<A, B>
 where
-    F: DataOutput,
-    S: DataOutput,
+    A: DataOutput,
+    B: DataOutput,
 {
     fn write_byte(&mut self, b: u8) -> Result<()> {
         match self {
-            Either2DataOutput::F(f) => f.write_byte(b),
-            Either2DataOutput::S(s) => s.write_byte(b),
+            Either2DataOutput::A(f) => f.write_byte(b),
+            Either2DataOutput::B(s) => s.write_byte(b),
         }
     }
 
     fn write_bytes_with_len(&mut self, b: &[u8], len: i32) -> Result<()> {
         match self {
-            Either2DataOutput::F(f) => f.write_bytes_with_len(b, len),
-            Either2DataOutput::S(s) => s.write_bytes_with_len(b, len),
+            Either2DataOutput::A(f) => f.write_bytes_with_len(b, len),
+            Either2DataOutput::B(s) => s.write_bytes_with_len(b, len),
         }
     }
 
     fn write_bytes_range(&mut self, b: &[u8], offset: i32, length: i32) -> Result<()> {
         match self {
-            Either2DataOutput::F(f) => f.write_bytes_range(b, offset, length),
-            Either2DataOutput::S(s) => s.write_bytes_range(b, offset, length),
+            Either2DataOutput::A(f) => f.write_bytes_range(b, offset, length),
+            Either2DataOutput::B(s) => s.write_bytes_range(b, offset, length),
         }
     }
 
     fn write_int(&mut self, i: i32) -> Result<()> {
         match self {
-            Either2DataOutput::F(f) => f.write_int(i),
-            Either2DataOutput::S(s) => s.write_int(i),
+            Either2DataOutput::A(f) => f.write_int(i),
+            Either2DataOutput::B(s) => s.write_int(i),
         }
     }
 
     fn write_short(&mut self, i: i16) -> Result<()> {
         match self {
-            Either2DataOutput::F(f) => f.write_short(i),
-            Either2DataOutput::S(s) => s.write_short(i),
+            Either2DataOutput::A(f) => f.write_short(i),
+            Either2DataOutput::B(s) => s.write_short(i),
         }
     }
 
     fn write_vint(&mut self, i: i32) -> Result<()> {
         match self {
-            Either2DataOutput::F(f) => f.write_vint(i),
-            Either2DataOutput::S(s) => s.write_vint(i),
+            Either2DataOutput::A(f) => f.write_vint(i),
+            Either2DataOutput::B(s) => s.write_vint(i),
         }
     }
 
     fn write_zint(&mut self, i: i32) -> Result<()> {
         match self {
-            Either2DataOutput::F(f) => f.write_zint(i),
-            Either2DataOutput::S(s) => s.write_zint(i),
+            Either2DataOutput::A(f) => f.write_zint(i),
+            Either2DataOutput::B(s) => s.write_zint(i),
         }
     }
 
     fn write_long(&mut self, i: i64) -> Result<()> {
         match self {
-            Either2DataOutput::F(f) => f.write_long(i),
-            Either2DataOutput::S(s) => s.write_long(i),
+            Either2DataOutput::A(f) => f.write_long(i),
+            Either2DataOutput::B(s) => s.write_long(i),
         }
     }
 
     fn write_vlong(&mut self, i: i64) -> Result<()> {
         match self {
-            Either2DataOutput::F(f) => f.write_vlong(i),
-            Either2DataOutput::S(s) => s.write_vlong(i),
+            Either2DataOutput::A(f) => f.write_vlong(i),
+            Either2DataOutput::B(s) => s.write_vlong(i),
         }
     }
 
     fn write_signed_vlong(&mut self, i: i64) -> Result<()> {
         match self {
-            Either2DataOutput::F(f) => f.write_signed_vlong(i),
-            Either2DataOutput::S(s) => s.write_signed_vlong(i),
+            Either2DataOutput::A(f) => f.write_signed_vlong(i),
+            Either2DataOutput::B(s) => s.write_signed_vlong(i),
         }
     }
 
     fn write_zlong(&mut self, i: i64) -> Result<()> {
         match self {
-            Either2DataOutput::F(f) => f.write_zlong(i),
-            Either2DataOutput::S(s) => s.write_zlong(i),
+            Either2DataOutput::A(f) => f.write_zlong(i),
+            Either2DataOutput::B(s) => s.write_zlong(i),
         }
     }
 
     fn write_string(&mut self, s: &str) -> Result<()> {
         match self {
-            Either2DataOutput::F(f) => f.write_string(s),
-            Either2DataOutput::S(s1) => s1.write_string(s),
+            Either2DataOutput::A(f) => f.write_string(s),
+            Either2DataOutput::B(s1) => s1.write_string(s),
         }
     }
 
     fn copy_bytes(&mut self, input: &mut impl DataInput, num_bytes: i64) -> Result<()> {
         match self {
-            Either2DataOutput::F(f) => f.copy_bytes(input, num_bytes),
-            Either2DataOutput::S(s) => s.copy_bytes(input, num_bytes),
+            Either2DataOutput::A(f) => f.copy_bytes(input, num_bytes),
+            Either2DataOutput::B(s) => s.copy_bytes(input, num_bytes),
         }
     }
 
     fn write_map_of_strings(&mut self, map: &HashMap<String, String>) -> Result<()> {
         match self {
-            Either2DataOutput::F(f) => f.write_map_of_strings(map),
-            Either2DataOutput::S(s) => s.write_map_of_strings(map),
+            Either2DataOutput::A(f) => f.write_map_of_strings(map),
+            Either2DataOutput::B(s) => s.write_map_of_strings(map),
         }
     }
 
     fn write_set_of_strings(&mut self, set: &HashSet<String>) -> Result<()> {
         match self {
-            Either2DataOutput::F(f) => f.write_set_of_strings(set),
-            Either2DataOutput::S(s) => s.write_set_of_strings(set),
+            Either2DataOutput::A(f) => f.write_set_of_strings(set),
+            Either2DataOutput::B(s) => s.write_set_of_strings(set),
         }
     }
 
     fn write_group_vints_i64(&mut self, values: &mut [i64], limit: i32) -> Result<()> {
         match self {
-            Either2DataOutput::F(f) => f.write_group_vints_i64(values, limit),
-            Either2DataOutput::S(s) => s.write_group_vints_i64(values, limit),
+            Either2DataOutput::A(f) => f.write_group_vints_i64(values, limit),
+            Either2DataOutput::B(s) => s.write_group_vints_i64(values, limit),
         }
     }
 
     fn write_group_vints_i32(&mut self, values: &mut [i32], limit: i32) -> Result<()> {
         match self {
-            Either2DataOutput::F(f) => f.write_group_vints_i32(values, limit),
-            Either2DataOutput::S(s) => s.write_group_vints_i32(values, limit),
+            Either2DataOutput::A(f) => f.write_group_vints_i32(values, limit),
+            Either2DataOutput::B(s) => s.write_group_vints_i32(values, limit),
         }
     }
 }

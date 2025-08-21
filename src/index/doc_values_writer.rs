@@ -109,19 +109,19 @@ impl DocValuesWriter for DocValuesWriterEnum {
     fn get_doc_values(&self) -> Result<Self::DocIdSetIterator> {
         match self {
             DocValuesWriterEnum::Binary(writer) => {
-                Ok(Either5DocIdSetIterator::F(writer.get_doc_values()?))
+                Ok(Either5DocIdSetIterator::A(writer.get_doc_values()?))
             },
             DocValuesWriterEnum::Numeric(writer) => {
-                Ok(Either5DocIdSetIterator::S(writer.get_doc_values()?))
+                Ok(Either5DocIdSetIterator::B(writer.get_doc_values()?))
             },
             DocValuesWriterEnum::SortedNumeric(writer) => {
-                Ok(Either5DocIdSetIterator::T(writer.get_doc_values()?))
+                Ok(Either5DocIdSetIterator::C(writer.get_doc_values()?))
             },
             DocValuesWriterEnum::Sorted(writer) => {
-                Ok(Either5DocIdSetIterator::U(writer.get_doc_values()?))
+                Ok(Either5DocIdSetIterator::D(writer.get_doc_values()?))
             },
             DocValuesWriterEnum::SortedSet(writer) => {
-                Ok(Either5DocIdSetIterator::V(writer.get_doc_values()?))
+                Ok(Either5DocIdSetIterator::E(writer.get_doc_values()?))
             },
         }
     }

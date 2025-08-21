@@ -141,10 +141,10 @@ impl DocValues {
         LR: LeafReader,
     {
         match reader.get_numeric_doc_values(field)? {
-            Some(dv) => Ok(Either2NumericDocValues::F(dv)),
+            Some(dv) => Ok(Either2NumericDocValues::A(dv)),
             None => {
                 Self::check_field(reader, field, &[DocValuesType::Numeric])?;
-                Ok(Either2NumericDocValues::S(Self::empty_numeric()))
+                Ok(Either2NumericDocValues::B(Self::empty_numeric()))
             },
         }
     }
@@ -166,10 +166,10 @@ impl DocValues {
         LR: LeafReader,
     {
         match reader.get_binary_doc_values(field)? {
-            Some(dv) => Ok(Either2BinaryDocValues::F(dv)),
+            Some(dv) => Ok(Either2BinaryDocValues::A(dv)),
             None => {
                 Self::check_field(reader, field, &[DocValuesType::Binary])?;
-                Ok(Either2BinaryDocValues::S(Self::empty_binary()))
+                Ok(Either2BinaryDocValues::B(Self::empty_binary()))
             },
         }
     }
@@ -191,10 +191,10 @@ impl DocValues {
         LR: LeafReader,
     {
         match reader.get_sorted_doc_values(field)? {
-            Some(dv) => Ok(Either2SortedDocValues::F(dv)),
+            Some(dv) => Ok(Either2SortedDocValues::A(dv)),
             None => {
                 Self::check_field(reader, field, &[DocValuesType::Sorted])?;
-                Ok(Either2SortedDocValues::S(Self::empty_sorted()))
+                Ok(Either2SortedDocValues::B(Self::empty_sorted()))
             },
         }
     }
@@ -224,18 +224,18 @@ impl DocValues {
         LR: LeafReader,
     {
         match reader.get_sorted_numeric_doc_values(field)? {
-            Some(dv) => Ok(Either2SortedNumericDocValues::F(dv)),
+            Some(dv) => Ok(Either2SortedNumericDocValues::A(dv)),
             None => {
                 let v = match reader.get_numeric_doc_values(field)? {
                     Some(single) => {
-                        Either2SortedNumericDocValues::F(Self::singleton_numeric(single)?)
+                        Either2SortedNumericDocValues::A(Self::singleton_numeric(single)?)
                     },
                     None => {
                         Self::check_field(reader, field, &[DocValuesType::SortedNumeric])?;
-                        Either2SortedNumericDocValues::S(Self::empty_sorted_numeric()?)
+                        Either2SortedNumericDocValues::B(Self::empty_sorted_numeric()?)
                     },
                 };
-                Ok(Either2SortedNumericDocValues::S(v))
+                Ok(Either2SortedNumericDocValues::B(v))
             },
         }
     }
@@ -265,20 +265,20 @@ impl DocValues {
         LR: LeafReader,
     {
         match reader.get_sorted_set_doc_values(field)? {
-            Some(dv) => Ok(Either2SortedSetDocValues::F(dv)),
+            Some(dv) => Ok(Either2SortedSetDocValues::A(dv)),
             None => {
                 let v = match reader.get_sorted_doc_values(field)? {
-                    Some(sorted) => Either2SortedSetDocValues::F(Self::singleton_sorted(sorted)?),
+                    Some(sorted) => Either2SortedSetDocValues::A(Self::singleton_sorted(sorted)?),
                     None => {
                         Self::check_field(
                             reader,
                             field,
                             &[DocValuesType::Sorted, DocValuesType::SortedSet],
                         )?;
-                        Either2SortedSetDocValues::S(Self::empty_sorted_set()?)
+                        Either2SortedSetDocValues::B(Self::empty_sorted_set()?)
                     },
                 };
-                Ok(Either2SortedSetDocValues::S(v))
+                Ok(Either2SortedSetDocValues::B(v))
             },
         }
     }

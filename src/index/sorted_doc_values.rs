@@ -187,5 +187,5 @@ macro_rules! either_sorted_docvalues {
 either_sorted_docvalues!(
     pub Either2SortedDocValues
     => Either2TermsEnum
-    { F: F, S: S }
+    { A: A, B: B }
 );

@@ -255,58 +255,58 @@ pub fn get_temp_file_name(prefix: &str, suffix: &str, counter: u64) -> String {
     IndexFileNames::segment_file_name(prefix, &full_suffix, "tmp")
 }
 
-pub enum Either2Directory<F, S> {
-    F(F),
-    S(S),
+pub enum Either2Directory<A, B> {
+    A(A),
+    B(B),
 }
 
-impl<F, S> Display for Either2Directory<F, S>
+impl<A, B> Display for Either2Directory<A, B>
 where
-    F: Directory,
-    S: Directory,
+    A: Directory,
+    B: Directory,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Either2Directory::F(f_dir) => f_dir.fmt(f),
-            Either2Directory::S(s_dir) => s_dir.fmt(f),
+            Either2Directory::A(f_dir) => f_dir.fmt(f),
+            Either2Directory::B(s_dir) => s_dir.fmt(f),
         }
     }
 }
 
-impl<F, S> Directory for Either2Directory<F, S>
+impl<A, B> Directory for Either2Directory<A, B>
 where
-    F: Directory,
-    S: Directory,
+    A: Directory,
+    B: Directory,
 {
     fn list_all(&self) -> Result<Vec<String>> {
         match self {
-            Either2Directory::F(f) => f.list_all(),
-            Either2Directory::S(s) => s.list_all(),
+            Either2Directory::A(f) => f.list_all(),
+            Either2Directory::B(s) => s.list_all(),
         }
     }
 
     fn delete_file(&mut self, name: &str) -> Result<()> {
         match self {
-            Either2Directory::F(f) => f.delete_file(name),
-            Either2Directory::S(s) => s.delete_file(name),
+            Either2Directory::A(f) => f.delete_file(name),
+            Either2Directory::B(s) => s.delete_file(name),
         }
     }
 
     fn file_length(&self, name: &str) -> Result<i64> {
         match self {
-            Either2Directory::F(f) => f.file_length(name),
-            Either2Directory::S(s) => s.file_length(name),
+            Either2Directory::A(f) => f.file_length(name),
+            Either2Directory::B(s) => s.file_length(name),
         }
     }
 
     fn create_output(&mut self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
         match self {
-            Either2Directory::F(f) => Ok(Either2IndexOutput::F(f.create_output(name, context)?)),
-            Either2Directory::S(s) => Ok(Either2IndexOutput::S(s.create_output(name, context)?)),
+            Either2Directory::A(f) => Ok(Either2IndexOutput::A(f.create_output(name, context)?)),
+            Either2Directory::B(s) => Ok(Either2IndexOutput::B(s.create_output(name, context)?)),
         }
     }
 
-    type IndexOutput = Either2IndexOutput<F::IndexOutput, S::IndexOutput>;
+    type IndexOutput = Either2IndexOutput<A::IndexOutput, B::IndexOutput>;
 
     fn create_temp_output(
         &mut self,
@@ -315,10 +315,10 @@ where
         context: &IOContext,
     ) -> Result<Self::IndexOutput> {
         match self {
-            Either2Directory::F(f) => Ok(Either2IndexOutput::F(
+            Either2Directory::A(f) => Ok(Either2IndexOutput::A(
                 f.create_temp_output(prefix, suffix, context)?,
             )),
-            Either2Directory::S(s) => Ok(Either2IndexOutput::S(
+            Either2Directory::B(s) => Ok(Either2IndexOutput::B(
                 s.create_temp_output(prefix, suffix, context)?,
             )),
         }
@@ -326,31 +326,31 @@ where
 
     fn sync(&mut self, names: &[&str]) -> Result<()> {
         match self {
-            Either2Directory::F(f) => f.sync(names),
-            Either2Directory::S(s) => s.sync(names),
+            Either2Directory::A(f) => f.sync(names),
+            Either2Directory::B(s) => s.sync(names),
         }
     }
 
     fn sync_metadata(&mut self) -> Result<()> {
         match self {
-            Either2Directory::F(f) => f.sync_metadata(),
-            Either2Directory::S(s) => s.sync_metadata(),
+            Either2Directory::A(f) => f.sync_metadata(),
+            Either2Directory::B(s) => s.sync_metadata(),
         }
     }
 
     fn rename(&mut self, source: &str, dest: &str) -> Result<()> {
         match self {
-            Either2Directory::F(f) => f.rename(source, dest),
-            Either2Directory::S(s) => s.rename(source, dest),
+            Either2Directory::A(f) => f.rename(source, dest),
+            Either2Directory::B(s) => s.rename(source, dest),
         }
     }
 
-    type IndexInput = Either2IndexInput<F::IndexInput, S::IndexInput>;
+    type IndexInput = Either2IndexInput<A::IndexInput, B::IndexInput>;
 
     fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
         match self {
-            Either2Directory::F(f) => Ok(Either2IndexInput::F(f.open_input(name, context)?)),
-            Either2Directory::S(s) => Ok(Either2IndexInput::S(s.open_input(name, context)?)),
+            Either2Directory::A(f) => Ok(Either2IndexInput::A(f.open_input(name, context)?)),
+            Either2Directory::B(s) => Ok(Either2IndexInput::B(s.open_input(name, context)?)),
         }
     }
 
@@ -362,12 +362,12 @@ where
         Ok(BufferedChecksumIndexInput::new(input))
     }
 
-    type Lock = Either2Lock<F::Lock, S::Lock>;
+    type Lock = Either2Lock<A::Lock, B::Lock>;
 
     fn obtain_lock(&mut self, name: &str) -> Result<Self::Lock> {
         match self {
-            Either2Directory::F(f) => Ok(Either2Lock::F(f.obtain_lock(name)?)),
-            Either2Directory::S(s) => Ok(Either2Lock::S(s.obtain_lock(name)?)),
+            Either2Directory::A(f) => Ok(Either2Lock::A(f.obtain_lock(name)?)),
+            Either2Directory::B(s) => Ok(Either2Lock::B(s.obtain_lock(name)?)),
         }
     }
 
@@ -379,29 +379,29 @@ where
         context: &IOContext,
     ) -> Result<()> {
         match self {
-            Either2Directory::F(f) => f.copy_from(from, src, dest, context),
-            Either2Directory::S(s) => s.copy_from(from, src, dest, context),
+            Either2Directory::A(f) => f.copy_from(from, src, dest, context),
+            Either2Directory::B(s) => s.copy_from(from, src, dest, context),
         }
     }
 
     fn delete_files_ignoring_exceptions(&mut self, files: &[String]) {
         match self {
-            Either2Directory::F(f) => f.delete_files_ignoring_exceptions(files),
-            Either2Directory::S(s) => s.delete_files_ignoring_exceptions(files),
+            Either2Directory::A(f) => f.delete_files_ignoring_exceptions(files),
+            Either2Directory::B(s) => s.delete_files_ignoring_exceptions(files),
         }
     }
 
     fn get_pending_deletions(&mut self) -> Result<HashSet<String>> {
         match self {
-            Either2Directory::F(f) => f.get_pending_deletions(),
-            Either2Directory::S(s) => s.get_pending_deletions(),
+            Either2Directory::A(f) => f.get_pending_deletions(),
+            Either2Directory::B(s) => s.get_pending_deletions(),
         }
     }
     #[cfg(feature = "test_only")]
     fn is_fs_directory(&self) -> bool {
         match self {
-            Either2Directory::F(f) => f.is_fs_directory(),
-            Either2Directory::S(s) => s.is_fs_directory(),
+            Either2Directory::A(f) => f.is_fs_directory(),
+            Either2Directory::B(s) => s.is_fs_directory(),
         }
     }
 }

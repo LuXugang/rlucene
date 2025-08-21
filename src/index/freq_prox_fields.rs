@@ -362,12 +362,12 @@ impl TermsEnum for FreqProxTermsEnum {
             }
 
             let mut pos_enum = match reuse {
-                Some(Either2PostingsEnum::F(p)) => p,
-                Some(Either2PostingsEnum::S(_)) => FreqProxPostingsEnum::new(self.terms.clone()),
+                Some(Either2PostingsEnum::A(p)) => p,
+                Some(Either2PostingsEnum::B(_)) => FreqProxPostingsEnum::new(self.terms.clone()),
                 None => return Err(LuceneError::illegal_state("reuse is none")),
             };
             pos_enum.reset(sorted_term_ids[self.ord as usize]);
-            return Ok(Either2PostingsEnum::F(pos_enum));
+            return Ok(Either2PostingsEnum::A(pos_enum));
         }
 
         if has_freq && !postings_enum_util::feature_requested(flags, postings_enum_util::FREQS) {
@@ -376,12 +376,12 @@ impl TermsEnum for FreqProxTermsEnum {
             return Err(LuceneError::illegal_state("did not index freq"));
         };
         let mut docs_enum = match reuse {
-            Some(Either2PostingsEnum::S(p)) => p,
-            Some(Either2PostingsEnum::F(_)) => FreqProxDocsEnum::new(self.terms.clone()),
+            Some(Either2PostingsEnum::B(p)) => p,
+            Some(Either2PostingsEnum::A(_)) => FreqProxDocsEnum::new(self.terms.clone()),
             None => return Err(LuceneError::illegal_state("reuse is none")),
         };
         docs_enum.reset(sorted_term_ids[self.ord as usize]);
-        Ok(Either2PostingsEnum::S(docs_enum))
+        Ok(Either2PostingsEnum::B(docs_enum))
     }
 
     type ImpactsEnum = DummyImpactsEnum;

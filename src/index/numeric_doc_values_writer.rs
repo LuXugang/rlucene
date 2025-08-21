@@ -190,10 +190,10 @@ impl DocValuesProducer for DocValuesProducerImpl {
             return Err(LuceneError::illegal_argument("wrong fieldInfo"));
         }
         match self.sorted {
-            Some(ref sorted) => Ok(Either2NumericDocValues::S(SortingNumericDocValues::new(
+            Some(ref sorted) => Ok(Either2NumericDocValues::B(SortingNumericDocValues::new(
                 sorted.clone(),
             ))),
-            None => Ok(Either2NumericDocValues::F(BufferedNumericDocValues::new(
+            None => Ok(Either2NumericDocValues::A(BufferedNumericDocValues::new(
                 &self.values,
                 self.docs_with_field.iterator()?.unwrap(),
             ))),

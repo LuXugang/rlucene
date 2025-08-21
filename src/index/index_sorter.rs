@@ -785,20 +785,20 @@ mod tests {
 }
 
 // DocComparator
-pub enum Either2DocComparator<F, S> {
-    F(F),
-    S(S),
+pub enum Either2DocComparator<A, B> {
+    A(A),
+    B(B),
 }
 
-impl<F, S> DocComparator for Either2DocComparator<F, S>
+impl<A, B> DocComparator for Either2DocComparator<A, B>
 where
-    F: DocComparator,
-    S: DocComparator,
+    A: DocComparator,
+    B: DocComparator,
 {
     fn compare(&self, doc_id1: i32, doc_id2: i32) -> i32 {
         match self {
-            Either2DocComparator::F(t) => t.compare(doc_id1, doc_id2),
-            Either2DocComparator::S(s) => s.compare(doc_id1, doc_id2),
+            Either2DocComparator::A(t) => t.compare(doc_id1, doc_id2),
+            Either2DocComparator::B(s) => s.compare(doc_id1, doc_id2),
         }
     }
 }

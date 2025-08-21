@@ -1412,71 +1412,71 @@ pub trait BytesReader: DataInput {
     fn set_position(&mut self, pos: i64);
 }
 
-pub enum Either2BytesReader<F, S> {
-    F(F),
-    S(S),
+pub enum Either2BytesReader<A, B> {
+    A(A),
+    B(B),
 }
 
-impl<F, S> DataInput for Either2BytesReader<F, S>
+impl<A, B> DataInput for Either2BytesReader<A, B>
 where
-    F: BytesReader,
-    S: BytesReader,
+    A: BytesReader,
+    B: BytesReader,
 {
     fn read_byte(&mut self) -> Result<u8> {
         match self {
-            Either2BytesReader::F(reader) => reader.read_byte(),
-            Either2BytesReader::S(reader) => reader.read_byte(),
+            Either2BytesReader::A(reader) => reader.read_byte(),
+            Either2BytesReader::B(reader) => reader.read_byte(),
         }
     }
 
     fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()> {
         match self {
-            Either2BytesReader::F(reader) => reader.read_bytes(b, offset, len),
-            Either2BytesReader::S(reader) => reader.read_bytes(b, offset, len),
+            Either2BytesReader::A(reader) => reader.read_bytes(b, offset, len),
+            Either2BytesReader::B(reader) => reader.read_bytes(b, offset, len),
         }
     }
 
     fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
         match self {
-            Either2BytesReader::F(reader) => reader.skip_bytes(num_bytes),
-            Either2BytesReader::S(reader) => reader.skip_bytes(num_bytes),
+            Either2BytesReader::A(reader) => reader.skip_bytes(num_bytes),
+            Either2BytesReader::B(reader) => reader.skip_bytes(num_bytes),
         }
     }
 }
 
-impl<F, S> Display for Either2BytesReader<F, S>
+impl<A, B> Display for Either2BytesReader<A, B>
 where
-    F: BytesReader,
-    S: BytesReader,
+    A: BytesReader,
+    B: BytesReader,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Either2BytesReader::F(reader) => {
+            Either2BytesReader::A(reader) => {
                 write!(f, "EitherBytesReader(F: {})", reader.get_position())
             },
-            Either2BytesReader::S(reader) => {
+            Either2BytesReader::B(reader) => {
                 write!(f, "EitherBytesReader(S: {})", reader.get_position())
             },
         }
     }
 }
 
-impl<F, S> BytesReader for Either2BytesReader<F, S>
+impl<A, B> BytesReader for Either2BytesReader<A, B>
 where
-    F: BytesReader,
-    S: BytesReader,
+    A: BytesReader,
+    B: BytesReader,
 {
     fn get_position(&self) -> i64 {
         match self {
-            Either2BytesReader::F(reader) => reader.get_position(),
-            Either2BytesReader::S(reader) => reader.get_position(),
+            Either2BytesReader::A(reader) => reader.get_position(),
+            Either2BytesReader::B(reader) => reader.get_position(),
         }
     }
 
     fn set_position(&mut self, pos: i64) {
         match self {
-            Either2BytesReader::F(reader) => reader.set_position(pos),
-            Either2BytesReader::S(reader) => reader.set_position(pos),
+            Either2BytesReader::A(reader) => reader.set_position(pos),
+            Either2BytesReader::B(reader) => reader.set_position(pos),
         }
     }
 }

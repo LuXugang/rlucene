@@ -353,9 +353,9 @@ impl DocValuesProducer for DocValuesProducerImpl {
             self.docs_with_field.iterator()?.unwrap(),
         );
         if self.sorted.is_none() {
-            return Ok(Either2SortedDocValues::F(buf));
+            return Ok(Either2SortedDocValues::A(buf));
         }
-        Ok(Either2SortedDocValues::S(SortingSortedDocValues::new(
+        Ok(Either2SortedDocValues::B(SortingSortedDocValues::new(
             buf,
             self.sorted.as_ref().unwrap().clone(),
         )))

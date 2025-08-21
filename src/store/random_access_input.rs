@@ -42,61 +42,61 @@ pub trait RandomAccessInput {
     fn prefetch(&mut self, pos: i64, len: i64) -> Result<()>;
 }
 
-pub enum Either2RandomAccessInput<F, S> {
-    F(F),
-    S(S),
+pub enum Either2RandomAccessInput<A, B> {
+    A(A),
+    B(B),
 }
-impl<F, S> RandomAccessInput for Either2RandomAccessInput<F, S>
+impl<A, B> RandomAccessInput for Either2RandomAccessInput<A, B>
 where
-    F: RandomAccessInput,
-    S: RandomAccessInput,
+    A: RandomAccessInput,
+    B: RandomAccessInput,
 {
     fn length(&self) -> i64 {
         match self {
-            Either2RandomAccessInput::F(f) => f.length(),
-            Either2RandomAccessInput::S(s) => s.length(),
+            Either2RandomAccessInput::A(f) => f.length(),
+            Either2RandomAccessInput::B(s) => s.length(),
         }
     }
 
     fn read_byte(&mut self, pos: i64) -> Result<u8> {
         match self {
-            Either2RandomAccessInput::F(f) => f.read_byte(pos),
-            Either2RandomAccessInput::S(s) => s.read_byte(pos),
+            Either2RandomAccessInput::A(f) => f.read_byte(pos),
+            Either2RandomAccessInput::B(s) => s.read_byte(pos),
         }
     }
 
     fn read_bytes(&mut self, pos: i64, buf: &mut [u8], offset: i32, len: i32) -> Result<()> {
         match self {
-            Either2RandomAccessInput::F(f) => f.read_bytes(pos, buf, offset, len),
-            Either2RandomAccessInput::S(s) => s.read_bytes(pos, buf, offset, len),
+            Either2RandomAccessInput::A(f) => f.read_bytes(pos, buf, offset, len),
+            Either2RandomAccessInput::B(s) => s.read_bytes(pos, buf, offset, len),
         }
     }
 
     fn read_short(&mut self, pos: i64) -> Result<i16> {
         match self {
-            Either2RandomAccessInput::F(f) => f.read_short(pos),
-            Either2RandomAccessInput::S(s) => s.read_short(pos),
+            Either2RandomAccessInput::A(f) => f.read_short(pos),
+            Either2RandomAccessInput::B(s) => s.read_short(pos),
         }
     }
 
     fn read_int(&mut self, pos: i64) -> Result<i32> {
         match self {
-            Either2RandomAccessInput::F(f) => f.read_int(pos),
-            Either2RandomAccessInput::S(s) => s.read_int(pos),
+            Either2RandomAccessInput::A(f) => f.read_int(pos),
+            Either2RandomAccessInput::B(s) => s.read_int(pos),
         }
     }
 
     fn read_long(&mut self, pos: i64) -> Result<i64> {
         match self {
-            Either2RandomAccessInput::F(f) => f.read_long(pos),
-            Either2RandomAccessInput::S(s) => s.read_long(pos),
+            Either2RandomAccessInput::A(f) => f.read_long(pos),
+            Either2RandomAccessInput::B(s) => s.read_long(pos),
         }
     }
 
     fn prefetch(&mut self, pos: i64, len: i64) -> Result<()> {
         match self {
-            Either2RandomAccessInput::F(f) => f.prefetch(pos, len),
-            Either2RandomAccessInput::S(s) => s.prefetch(pos, len),
+            Either2RandomAccessInput::A(f) => f.prefetch(pos, len),
+            Either2RandomAccessInput::B(s) => s.prefetch(pos, len),
         }
     }
 }

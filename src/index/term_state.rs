@@ -55,46 +55,46 @@ impl TermState for TermStateEnum {
 }
 
 // TermState
-pub enum Either2TermState<F, S> {
-    F(F),
-    S(S),
+pub enum Either2TermState<A, B> {
+    A(A),
+    B(B),
 }
 
-impl<F, S> Display for Either2TermState<F, S>
+impl<A, B> Display for Either2TermState<A, B>
 where
-    F: TermState,
-    S: TermState,
+    A: TermState,
+    B: TermState,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Either2TermState::F(t) => write!(f, "EitherTermState::F({t})"),
-            Either2TermState::S(s) => write!(f, "EitherTermState::S({s})"),
+            Either2TermState::A(t) => write!(f, "EitherTermState::A({t})"),
+            Either2TermState::B(s) => write!(f, "EitherTermState::B({s})"),
         }
     }
 }
 
-impl<F, S> Clone for Either2TermState<F, S>
+impl<A, B> Clone for Either2TermState<A, B>
 where
-    F: TermState,
-    S: TermState,
+    A: TermState,
+    B: TermState,
 {
     fn clone(&self) -> Self {
         match self {
-            Either2TermState::F(t) => Either2TermState::F(t.clone()),
-            Either2TermState::S(s) => Either2TermState::S(s.clone()),
+            Either2TermState::A(t) => Either2TermState::A(t.clone()),
+            Either2TermState::B(s) => Either2TermState::B(s.clone()),
         }
     }
 }
 
-impl<F, S> TermState for Either2TermState<F, S>
+impl<A, B> TermState for Either2TermState<A, B>
 where
-    F: TermState,
-    S: TermState,
+    A: TermState,
+    B: TermState,
 {
     fn copy_from(&mut self, other: &TermStateEnum) -> Result<()> {
         match self {
-            Either2TermState::F(t) => t.copy_from(other),
-            Either2TermState::S(s) => s.copy_from(other),
+            Either2TermState::A(t) => t.copy_from(other),
+            Either2TermState::B(s) => s.copy_from(other),
         }
     }
 }

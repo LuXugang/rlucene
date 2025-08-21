@@ -61,7 +61,7 @@ where
     {
         let mut v = Self::with(
             info.info.get_id_str(),
-            reader.get_live_docs()?.map(Either2Bits::F),
+            reader.get_live_docs()?.map(Either2Bits::A),
             true,
             info.info.max_doc()?,
         );
@@ -110,23 +110,23 @@ where
         );
         if !self.writeable_live_docs {
             self.live_docs = if self.live_docs.is_some() {
-                Some(Either2Bits::S(Either2Bits::S(
+                Some(Either2Bits::B(Either2Bits::B(
                     self.live_docs.take().unwrap().copy_of(),
                 )))
             } else {
                 let mut v = FixedBitSet::new(self.max_doc);
                 v.set_with_range(0, self.max_doc);
-                Some(Either2Bits::S(Either2Bits::S(v)))
+                Some(Either2Bits::B(Either2Bits::B(v)))
             };
         }
         match self.live_docs.as_mut().unwrap() {
-            Either2Bits::S(bs) => match bs {
-                Either2Bits::F(_) => Err(LuceneError::illegal_state(
+            Either2Bits::B(bs) => match bs {
+                Either2Bits::A(_) => Err(LuceneError::illegal_state(
                     "live_docs should be FixedBitSet ",
                 )),
-                Either2Bits::S(v) => Ok(v),
+                Either2Bits::B(v) => Ok(v),
             },
-            Either2Bits::F(_) => Err(LuceneError::illegal_state(
+            Either2Bits::A(_) => Err(LuceneError::illegal_state(
                 "live_docs should be FixedBitSet ",
             )),
         }
@@ -158,19 +158,19 @@ where
         // Prevent modifications to the returned live docs
         self.writeable_live_docs = false;
         match self.live_docs.take() {
-            Some(Either2Bits::F(bits)) => {
-                self.live_docs = Some(Either2Bits::F(bits.clone()));
-                Some(Either2Bits::F(bits))
+            Some(Either2Bits::A(bits)) => {
+                self.live_docs = Some(Either2Bits::A(bits.clone()));
+                Some(Either2Bits::A(bits))
             },
-            Some(Either2Bits::S(bits)) => match bits {
-                Either2Bits::F(fixed_bits) => {
-                    self.live_docs = Some(Either2Bits::S(Either2Bits::F(fixed_bits.clone())));
-                    Some(Either2Bits::S(fixed_bits))
+            Some(Either2Bits::B(bits)) => match bits {
+                Either2Bits::A(fixed_bits) => {
+                    self.live_docs = Some(Either2Bits::B(Either2Bits::A(fixed_bits.clone())));
+                    Some(Either2Bits::B(fixed_bits))
                 },
-                Either2Bits::S(fixed_bit_set) => {
+                Either2Bits::B(fixed_bit_set) => {
                     let v = Arc::new(fixed_bit_set.to_read_only_bits());
-                    self.live_docs = Some(Either2Bits::S(Either2Bits::F(v.clone())));
-                    Some(Either2Bits::S(v))
+                    self.live_docs = Some(Either2Bits::B(Either2Bits::A(v.clone())));
+                    Some(Either2Bits::B(v))
                 },
             },
             None => None,
@@ -319,7 +319,7 @@ where
     {
         let same_live_docs = match (reader.get_live_docs()?, self.get_live_docs()) {
             (None, None) => true,
-            (Some(reader_bits), Some(Either2Bits::F(current_bits))) => {
+            (Some(reader_bits), Some(Either2Bits::A(current_bits))) => {
                 Arc::ptr_eq(&reader_bits, &current_bits)
             },
             _ => false,

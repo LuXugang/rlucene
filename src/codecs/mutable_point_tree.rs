@@ -43,55 +43,55 @@ pub trait MutablePointTree: PointTree {
 }
 
 // MutablePointTree
-pub enum Either2MutablePointTree<F, S> {
-    F(F),
-    S(S),
+pub enum Either2MutablePointTree<A, B> {
+    A(A),
+    B(B),
 }
 
-impl<F, S> PointTree for Either2MutablePointTree<F, S>
+impl<A, B> PointTree for Either2MutablePointTree<A, B>
 where
-    F: MutablePointTree,
-    S: MutablePointTree,
+    A: MutablePointTree,
+    B: MutablePointTree,
 {
     fn move_to_child(&mut self) -> lucene_error::Result<bool> {
         match self {
-            Either2MutablePointTree::F(t) => t.move_to_child(),
-            Either2MutablePointTree::S(s) => s.move_to_child(),
+            Either2MutablePointTree::A(t) => t.move_to_child(),
+            Either2MutablePointTree::B(s) => s.move_to_child(),
         }
     }
 
     fn move_to_sibling(&mut self) -> lucene_error::Result<bool> {
         match self {
-            Either2MutablePointTree::F(t) => t.move_to_sibling(),
-            Either2MutablePointTree::S(s) => s.move_to_sibling(),
+            Either2MutablePointTree::A(t) => t.move_to_sibling(),
+            Either2MutablePointTree::B(s) => s.move_to_sibling(),
         }
     }
 
     fn move_to_parent(&mut self) -> lucene_error::Result<bool> {
         match self {
-            Either2MutablePointTree::F(t) => t.move_to_parent(),
-            Either2MutablePointTree::S(s) => s.move_to_parent(),
+            Either2MutablePointTree::A(t) => t.move_to_parent(),
+            Either2MutablePointTree::B(s) => s.move_to_parent(),
         }
     }
 
     fn get_min_packed_value(&self) -> lucene_error::Result<&[u8]> {
         match self {
-            Either2MutablePointTree::F(t) => t.get_min_packed_value(),
-            Either2MutablePointTree::S(s) => s.get_min_packed_value(),
+            Either2MutablePointTree::A(t) => t.get_min_packed_value(),
+            Either2MutablePointTree::B(s) => s.get_min_packed_value(),
         }
     }
 
     fn get_max_packed_value(&self) -> lucene_error::Result<&[u8]> {
         match self {
-            Either2MutablePointTree::F(t) => t.get_max_packed_value(),
-            Either2MutablePointTree::S(s) => s.get_max_packed_value(),
+            Either2MutablePointTree::A(t) => t.get_max_packed_value(),
+            Either2MutablePointTree::B(s) => s.get_max_packed_value(),
         }
     }
 
     fn size(&self) -> lucene_error::Result<i64> {
         match self {
-            Either2MutablePointTree::F(t) => t.size(),
-            Either2MutablePointTree::S(s) => s.size(),
+            Either2MutablePointTree::A(t) => t.size(),
+            Either2MutablePointTree::B(s) => s.size(),
         }
     }
 
@@ -100,8 +100,8 @@ where
         IV: IntersectVisitor,
     {
         match self {
-            Either2MutablePointTree::F(t) => t.visit_doc_ids(visitor),
-            Either2MutablePointTree::S(s) => s.visit_doc_ids(visitor),
+            Either2MutablePointTree::A(t) => t.visit_doc_ids(visitor),
+            Either2MutablePointTree::B(s) => s.visit_doc_ids(visitor),
         }
     }
 
@@ -110,69 +110,69 @@ where
         IV: IntersectVisitor,
     {
         match self {
-            Either2MutablePointTree::F(t) => t.visit_doc_values(visitor),
-            Either2MutablePointTree::S(s) => s.visit_doc_values(visitor),
+            Either2MutablePointTree::A(t) => t.visit_doc_values(visitor),
+            Either2MutablePointTree::B(s) => s.visit_doc_values(visitor),
         }
     }
 }
 
-impl<F, S> Clone for Either2MutablePointTree<F, S>
+impl<A, B> Clone for Either2MutablePointTree<A, B>
 where
-    F: MutablePointTree,
-    S: MutablePointTree,
+    A: MutablePointTree,
+    B: MutablePointTree,
 {
     fn clone(&self) -> Self {
         match self {
-            Either2MutablePointTree::F(t) => Either2MutablePointTree::F(t.clone()),
-            Either2MutablePointTree::S(s) => Either2MutablePointTree::S(s.clone()),
+            Either2MutablePointTree::A(t) => Either2MutablePointTree::A(t.clone()),
+            Either2MutablePointTree::B(s) => Either2MutablePointTree::B(s.clone()),
         }
     }
 }
 
-impl<F, S> MutablePointTree for Either2MutablePointTree<F, S>
+impl<A, B> MutablePointTree for Either2MutablePointTree<A, B>
 where
-    F: MutablePointTree,
-    S: MutablePointTree,
+    A: MutablePointTree,
+    B: MutablePointTree,
 {
     fn get_value(&self, i: usize, packed_value: &mut BytesRef<Vec<u8>>) {
         match self {
-            Either2MutablePointTree::F(t) => t.get_value(i, packed_value),
-            Either2MutablePointTree::S(s) => s.get_value(i, packed_value),
+            Either2MutablePointTree::A(t) => t.get_value(i, packed_value),
+            Either2MutablePointTree::B(s) => s.get_value(i, packed_value),
         }
     }
 
     fn get_byte_at(&self, i: usize, k: usize) -> u8 {
         match self {
-            Either2MutablePointTree::F(t) => t.get_byte_at(i, k),
-            Either2MutablePointTree::S(s) => s.get_byte_at(i, k),
+            Either2MutablePointTree::A(t) => t.get_byte_at(i, k),
+            Either2MutablePointTree::B(s) => s.get_byte_at(i, k),
         }
     }
 
     fn get_doc_id(&self, i: usize) -> i32 {
         match self {
-            Either2MutablePointTree::F(t) => t.get_doc_id(i),
-            Either2MutablePointTree::S(s) => s.get_doc_id(i),
+            Either2MutablePointTree::A(t) => t.get_doc_id(i),
+            Either2MutablePointTree::B(s) => s.get_doc_id(i),
         }
     }
 
     fn swap(&mut self, i: usize, j: usize) {
         match self {
-            Either2MutablePointTree::F(t) => t.swap(i, j),
-            Either2MutablePointTree::S(s) => s.swap(i, j),
+            Either2MutablePointTree::A(t) => t.swap(i, j),
+            Either2MutablePointTree::B(s) => s.swap(i, j),
         }
     }
 
     fn save(&mut self, i: usize, j: usize) {
         match self {
-            Either2MutablePointTree::F(t) => t.save(i, j),
-            Either2MutablePointTree::S(s) => s.save(i, j),
+            Either2MutablePointTree::A(t) => t.save(i, j),
+            Either2MutablePointTree::B(s) => s.save(i, j),
         }
     }
 
     fn restore(&mut self, i: usize, j: usize) {
         match self {
-            Either2MutablePointTree::F(t) => t.restore(i, j),
-            Either2MutablePointTree::S(s) => s.restore(i, j),
+            Either2MutablePointTree::A(t) => t.restore(i, j),
+            Either2MutablePointTree::B(s) => s.restore(i, j),
         }
     }
 }

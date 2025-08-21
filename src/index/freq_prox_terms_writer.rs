@@ -484,7 +484,7 @@ where
 
         if self.index_options >= IndexOptions::DocsAndFreqs && feature_freqs {
             let mut wrap_reuse = match reuse {
-                Some(Either2PostingsEnum::F(sorting_enum)) => sorting_enum,
+                Some(Either2PostingsEnum::A(sorting_enum)) => sorting_enum,
                 _ => SortingPostingsEnum::new(),
             };
             let in_reuse = wrap_reuse.postings_enum.take();
@@ -511,17 +511,17 @@ where
                 store_positions,
                 store_offsets,
             )?;
-            return Ok(Either2PostingsEnum::F(wrap_reuse));
+            return Ok(Either2PostingsEnum::A(wrap_reuse));
         }
 
         let mut wrap_reuse = match reuse {
-            Some(Either2PostingsEnum::S(sorting_enum)) => sorting_enum,
+            Some(Either2PostingsEnum::B(sorting_enum)) => sorting_enum,
             _ => SortingDocsEnum::new(),
         };
         let in_reuse = wrap_reuse.postings_enum.take();
         let in_docs = self.base.postings_with_flags(in_reuse, flags)?;
         wrap_reuse.reset(&*self.doc_map, in_docs)?;
-        Ok(Either2PostingsEnum::S(wrap_reuse))
+        Ok(Either2PostingsEnum::B(wrap_reuse))
     }
 
     type ImpactsEnum = T::ImpactsEnum;

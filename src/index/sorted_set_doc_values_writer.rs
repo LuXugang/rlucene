@@ -234,7 +234,7 @@ impl SortedSetDocValuesWriter {
             .iterator()?
             .ok_or_else(|| LuceneError::illegal_state("docsWithField.iterator() returned None"))?;
         match ord_counts {
-            Some(ords_counts) => Ok(Either2SortedSetDocValues::S(
+            Some(ords_counts) => Ok(Either2SortedSetDocValues::B(
                 BufferedSortedSetDocValues::new(
                     ord_map,
                     hash,
@@ -244,7 +244,7 @@ impl SortedSetDocValuesWriter {
                     docs_iter,
                 ),
             )),
-            None => Ok(Either2SortedSetDocValues::F(DocValues::singleton_sorted(
+            None => Ok(Either2SortedSetDocValues::A(DocValues::singleton_sorted(
                 BufferedSortedDocValues::new(hash, ords, ord_map, docs_iter),
             )?)),
         }
@@ -435,10 +435,10 @@ impl DocValuesProducer for DocValuesProducerImpl1 {
             &self.docs_with_field,
         )?;
         match &self.doc_ords {
-            Some(ords) => Ok(Either2SortedSetDocValues::S(
+            Some(ords) => Ok(Either2SortedSetDocValues::B(
                 SortingSortedSetDocValues::new(buf, ords.clone()),
             )),
-            None => Ok(Either2SortedSetDocValues::F(buf)),
+            None => Ok(Either2SortedSetDocValues::A(buf)),
         }
     }
 
@@ -757,132 +757,132 @@ impl DocOrds {
 }
 
 // SortedSetDocValues
-pub enum Either2SortedSetDocValues<F, S> {
-    F(F),
-    S(S),
+pub enum Either2SortedSetDocValues<A, B> {
+    A(A),
+    B(B),
 }
 
-impl<F, S> DocValuesIterator for Either2SortedSetDocValues<F, S>
+impl<A, B> DocValuesIterator for Either2SortedSetDocValues<A, B>
 where
-    F: SortedSetDocValues,
-    S: SortedSetDocValues,
+    A: SortedSetDocValues,
+    B: SortedSetDocValues,
 {
 }
 
-impl<F, S> DocIdSetIterator for Either2SortedSetDocValues<F, S>
+impl<A, B> DocIdSetIterator for Either2SortedSetDocValues<A, B>
 where
-    F: SortedSetDocValues,
-    S: SortedSetDocValues,
+    A: SortedSetDocValues,
+    B: SortedSetDocValues,
 {
     fn doc_id(&self) -> i32 {
         match self {
-            Either2SortedSetDocValues::F(t) => t.doc_id(),
-            Either2SortedSetDocValues::S(s) => s.doc_id(),
+            Either2SortedSetDocValues::A(t) => t.doc_id(),
+            Either2SortedSetDocValues::B(s) => s.doc_id(),
         }
     }
 
     fn next_doc(&mut self) -> Result<i32> {
         match self {
-            Either2SortedSetDocValues::F(t) => t.next_doc(),
-            Either2SortedSetDocValues::S(s) => s.next_doc(),
+            Either2SortedSetDocValues::A(t) => t.next_doc(),
+            Either2SortedSetDocValues::B(s) => s.next_doc(),
         }
     }
 
     fn advance(&mut self, target: i32) -> Result<i32> {
         match self {
-            Either2SortedSetDocValues::F(t) => t.advance(target),
-            Either2SortedSetDocValues::S(s) => s.advance(target),
+            Either2SortedSetDocValues::A(t) => t.advance(target),
+            Either2SortedSetDocValues::B(s) => s.advance(target),
         }
     }
 
     fn slow_advance(&mut self, target: i32) -> Result<i32> {
         match self {
-            Either2SortedSetDocValues::F(t) => t.slow_advance(target),
-            Either2SortedSetDocValues::S(s) => s.slow_advance(target),
+            Either2SortedSetDocValues::A(t) => t.slow_advance(target),
+            Either2SortedSetDocValues::B(s) => s.slow_advance(target),
         }
     }
 
     fn cost(&self) -> Result<i64> {
         match self {
-            Either2SortedSetDocValues::F(t) => t.cost(),
-            Either2SortedSetDocValues::S(s) => s.cost(),
+            Either2SortedSetDocValues::A(t) => t.cost(),
+            Either2SortedSetDocValues::B(s) => s.cost(),
         }
     }
 }
 
-impl<F, S> SortedSetDocValues for Either2SortedSetDocValues<F, S>
+impl<A, B> SortedSetDocValues for Either2SortedSetDocValues<A, B>
 where
-    F: SortedSetDocValues,
-    S: SortedSetDocValues,
+    A: SortedSetDocValues,
+    B: SortedSetDocValues,
 {
     fn next_ord(&mut self) -> Result<i64> {
         match self {
-            Either2SortedSetDocValues::F(t) => t.next_ord(),
-            Either2SortedSetDocValues::S(s) => s.next_ord(),
+            Either2SortedSetDocValues::A(t) => t.next_ord(),
+            Either2SortedSetDocValues::B(s) => s.next_ord(),
         }
     }
 
     fn doc_value_count(&mut self) -> Result<i32> {
         match self {
-            Either2SortedSetDocValues::F(t) => t.doc_value_count(),
-            Either2SortedSetDocValues::S(s) => s.doc_value_count(),
+            Either2SortedSetDocValues::A(t) => t.doc_value_count(),
+            Either2SortedSetDocValues::B(s) => s.doc_value_count(),
         }
     }
 
     fn lookup_ord(&mut self, _ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
         match self {
-            Either2SortedSetDocValues::F(t) => t.lookup_ord(_ord),
-            Either2SortedSetDocValues::S(s) => s.lookup_ord(_ord),
+            Either2SortedSetDocValues::A(t) => t.lookup_ord(_ord),
+            Either2SortedSetDocValues::B(s) => s.lookup_ord(_ord),
         }
     }
 
     fn get_value_count(&mut self) -> Result<i64> {
         match self {
-            Either2SortedSetDocValues::F(t) => t.get_value_count(),
-            Either2SortedSetDocValues::S(s) => s.get_value_count(),
+            Either2SortedSetDocValues::A(t) => t.get_value_count(),
+            Either2SortedSetDocValues::B(s) => s.get_value_count(),
         }
     }
 
     fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i64> {
         match self {
-            Either2SortedSetDocValues::F(t) => t.lookup_term(key),
-            Either2SortedSetDocValues::S(s) => s.lookup_term(key),
+            Either2SortedSetDocValues::A(t) => t.lookup_term(key),
+            Either2SortedSetDocValues::B(s) => s.lookup_term(key),
         }
     }
 
-    type TermsEnum = Either2TermsEnum<F::TermsEnum, S::TermsEnum>;
+    type TermsEnum = Either2TermsEnum<A::TermsEnum, B::TermsEnum>;
 
     fn terms_enum(&mut self) -> Result<Self::TermsEnum> {
         match self {
-            Either2SortedSetDocValues::F(t) => {
+            Either2SortedSetDocValues::A(t) => {
                 let terms_enum = t.terms_enum()?;
-                Ok(Either2TermsEnum::F(terms_enum))
+                Ok(Either2TermsEnum::A(terms_enum))
             },
-            Either2SortedSetDocValues::S(s) => {
+            Either2SortedSetDocValues::B(s) => {
                 let terms_enum = s.terms_enum()?;
-                Ok(Either2TermsEnum::S(terms_enum))
+                Ok(Either2TermsEnum::B(terms_enum))
             },
         }
     }
 
     fn is_single_valued(&self) -> bool {
         match self {
-            Either2SortedSetDocValues::F(t) => t.is_single_valued(),
-            Either2SortedSetDocValues::S(s) => s.is_single_valued(),
+            Either2SortedSetDocValues::A(t) => t.is_single_valued(),
+            Either2SortedSetDocValues::B(s) => s.is_single_valued(),
         }
     }
 
-    type SortedDocValues = Either2SortedDocValues<F::SortedDocValues, S::SortedDocValues>;
+    type SortedDocValues = Either2SortedDocValues<A::SortedDocValues, B::SortedDocValues>;
 
     fn get_sorted_doc_values(&mut self) -> Result<Option<Self::SortedDocValues>> {
         match self {
-            Either2SortedSetDocValues::F(t) => {
+            Either2SortedSetDocValues::A(t) => {
                 let sorted_doc_values = t.get_sorted_doc_values()?;
-                Ok(sorted_doc_values.map(Either2SortedDocValues::F))
+                Ok(sorted_doc_values.map(Either2SortedDocValues::A))
             },
-            Either2SortedSetDocValues::S(s) => {
+            Either2SortedSetDocValues::B(s) => {
                 let sorted_doc_values = s.get_sorted_doc_values()?;
-                Ok(sorted_doc_values.map(Either2SortedDocValues::S))
+                Ok(sorted_doc_values.map(Either2SortedDocValues::B))
             },
         }
     }

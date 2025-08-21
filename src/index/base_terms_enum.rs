@@ -61,10 +61,10 @@ where
 
     fn attributes(&self) -> Result<Self::AttributeSource> {
         match self.sub.attributes() {
-            Ok(v) => Ok(Either2AttributeSource::F(v)),
+            Ok(v) => Ok(Either2AttributeSource::A(v)),
             Err(e) => match e {
                 LuceneError::NotImplemented(_) => {
-                    Ok(Either2AttributeSource::S(DummyAttributeSource))
+                    Ok(Either2AttributeSource::B(DummyAttributeSource))
                 },
                 _ => Err(e),
             },
@@ -160,9 +160,9 @@ where
 
     fn term_state(&mut self) -> Result<Self::TermState> {
         match self.sub.term_state() {
-            Ok(v) => Ok(Either2TermState::S(v)),
+            Ok(v) => Ok(Either2TermState::B(v)),
             Err(e) => match e {
-                LuceneError::NotImplemented(_) => Ok(Either2TermState::F(TermStateImpl1)),
+                LuceneError::NotImplemented(_) => Ok(Either2TermState::A(TermStateImpl1)),
                 _ => Err(e),
             },
         }

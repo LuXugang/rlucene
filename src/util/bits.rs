@@ -84,33 +84,33 @@ impl Bits for MatchNoBits {
     }
 }
 
-pub enum Either2Bits<F, S> {
-    F(F),
-    S(S),
+pub enum Either2Bits<A, B> {
+    A(A),
+    B(B),
 }
-impl<F, S> Bits for Either2Bits<F, S>
+impl<A, B> Bits for Either2Bits<A, B>
 where
-    F: Bits,
-    S: Bits,
+    A: Bits,
+    B: Bits,
 {
     fn get(&self, index: i32) -> bool {
         match self {
-            Either2Bits::F(t) => t.get(index),
-            Either2Bits::S(s) => s.get(index),
+            Either2Bits::A(t) => t.get(index),
+            Either2Bits::B(s) => s.get(index),
         }
     }
 
     fn length(&self) -> i32 {
         match self {
-            Either2Bits::F(t) => t.length(),
-            Either2Bits::S(s) => s.length(),
+            Either2Bits::A(t) => t.length(),
+            Either2Bits::B(s) => s.length(),
         }
     }
 
     fn copy_of(&self) -> FixedBitSet {
         match self {
-            Either2Bits::F(t) => t.copy_of(),
-            Either2Bits::S(s) => s.copy_of(),
+            Either2Bits::A(t) => t.copy_of(),
+            Either2Bits::B(s) => s.copy_of(),
         }
     }
 }

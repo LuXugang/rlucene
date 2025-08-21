@@ -503,8 +503,8 @@ where
                 if self.doc_id_out != NO_MORE_DOCS {
                     self.current_values_supplier = Some(CurrentSource::Update);
                     has_value = match self.update_doc_values {
-                        Either2DocIdSetIterator::F(ref mut dv) => dv.iterator.has_value(),
-                        Either2DocIdSetIterator::S(ref mut dv) => dv.iterator.has_value(),
+                        Either2DocIdSetIterator::A(ref mut dv) => dv.iterator.has_value(),
+                        Either2DocIdSetIterator::B(ref mut dv) => dv.iterator.has_value(),
                     };
                 } else {
                     has_value = true;
@@ -595,8 +595,8 @@ where
                 }
             },
             Some(CurrentSource::Update) => match self.merged_doc_values.update_doc_values {
-                Either2DocIdSetIterator::F(ref mut dv) => dv.binary_value(),
-                Either2DocIdSetIterator::S(_) => Err(LuceneError::illegal_state(
+                Either2DocIdSetIterator::A(ref mut dv) => dv.binary_value(),
+                Either2DocIdSetIterator::B(_) => Err(LuceneError::illegal_state(
                     "update doc values should be BinaryDocValuesDVFU",
                 )),
             },
@@ -668,10 +668,10 @@ where
                 }
             },
             Some(CurrentSource::Update) => match self.merged_doc_values.update_doc_values {
-                Either2DocIdSetIterator::F(_) => Err(LuceneError::illegal_state(
+                Either2DocIdSetIterator::A(_) => Err(LuceneError::illegal_state(
                     "update doc values should be BinaryDocValuesDVFU",
                 )),
-                Either2DocIdSetIterator::S(ref mut dv) => dv.long_value(),
+                Either2DocIdSetIterator::B(ref mut dv) => dv.long_value(),
             },
             None => Err(LuceneError::illegal_state("no current values supplier set")),
         }
@@ -715,7 +715,7 @@ impl<'a, LF: LiveDocsFormat> DocValuesProducer for DocValuesProducerBinary<'a, L
         };
         let merged_doc_values = MergedDocValues::new(
             self.reader.get_binary_doc_values(self.field)?,
-            Either2DocIdSetIterator::F(BinaryDocValuesDVFU::new(iterator)),
+            Either2DocIdSetIterator::A(BinaryDocValuesDVFU::new(iterator)),
         );
         Ok(BinaryDocValuesImpl::new(merged_doc_values))
     }
@@ -762,7 +762,7 @@ impl<'a, LF: LiveDocsFormat> DocValuesProducer for DocValuesProducerNumeric<'a, 
 
         let merged_doc_values = MergedDocValues::new(
             self.reader.get_numeric_doc_values(self.field)?,
-            Either2DocIdSetIterator::S(NumericDocValuesDVFU::new(iterator)),
+            Either2DocIdSetIterator::B(NumericDocValuesDVFU::new(iterator)),
         );
         // Merge sort of the original doc values with updated doc values:
         Ok(NumericDocValuesImpl::new(merged_doc_values))

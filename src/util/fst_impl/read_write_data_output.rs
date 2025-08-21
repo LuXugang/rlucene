@@ -81,7 +81,7 @@ impl FstReader for ReadWriteDataOutput {
         }
         if self.byte_buffers.is_some() && self.byte_buffer.is_none() {
             let buffers = self.byte_buffers.as_ref().unwrap().clone();
-            Ok(Either2BytesReader::F(BytesReaderImpl::new(
+            Ok(Either2BytesReader::A(BytesReaderImpl::new(
                 buffers,
                 self.block_bits,
                 self.block_size,
@@ -89,7 +89,7 @@ impl FstReader for ReadWriteDataOutput {
             )))
         } else if self.byte_buffer.is_some() && self.byte_buffers.is_none() {
             let buffer = self.byte_buffer.as_ref().unwrap().clone();
-            Ok(Either2BytesReader::S(ReverseBytesReader::new(buffer)))
+            Ok(Either2BytesReader::B(ReverseBytesReader::new(buffer)))
         } else {
             Err(LuceneError::illegal_state(
                 "Only one buffer is some".to_string(),

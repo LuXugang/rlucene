@@ -153,10 +153,10 @@ impl NormsProducer for NormsProducerImpl {
 
     fn get_norms(&mut self, _field_info2: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
         match &self.sorted {
-            Some(sorted) => Ok(Either2NumericDocValues::S(SortingNumericDocValues::new(
+            Some(sorted) => Ok(Either2NumericDocValues::B(SortingNumericDocValues::new(
                 sorted.clone(),
             ))),
-            None => Ok(Either2NumericDocValues::F(BufferedNorms::new(
+            None => Ok(Either2NumericDocValues::A(BufferedNorms::new(
                 &self.values,
                 self.docs_with_field.iterator()?.unwrap(),
             ))),

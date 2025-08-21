@@ -112,10 +112,10 @@ pub mod bit_set_util {
         let threshold = max_doc >> 7;
         let mut set;
         if cost < (threshold as i64) {
-            set = Either2BitSet::F(SparseFixedBitSet::new(max_doc)?);
+            set = Either2BitSet::A(SparseFixedBitSet::new(max_doc)?);
         } else {
             let result = FixedBitSet::new(max_doc);
-            set = Either2BitSet::S(result);
+            set = Either2BitSet::B(result);
         };
         let _ = set.or(it);
         Ok(set)
@@ -133,137 +133,137 @@ pub mod bit_set_util {
 }
 
 // BitSet
-pub enum Either2BitSet<F, S> {
-    F(F),
-    S(S),
+pub enum Either2BitSet<A, B> {
+    A(A),
+    B(B),
 }
 
-impl<F, S> Bits for Either2BitSet<F, S>
+impl<A, B> Bits for Either2BitSet<A, B>
 where
-    F: BitSet,
-    S: BitSet,
+    A: BitSet,
+    B: BitSet,
 {
     fn get(&self, index: i32) -> bool {
         match self {
-            Either2BitSet::F(t) => t.get(index),
-            Either2BitSet::S(s) => s.get(index),
+            Either2BitSet::A(t) => t.get(index),
+            Either2BitSet::B(s) => s.get(index),
         }
     }
 
     fn length(&self) -> i32 {
         match self {
-            Either2BitSet::F(t) => t.length(),
-            Either2BitSet::S(s) => s.length(),
+            Either2BitSet::A(t) => t.length(),
+            Either2BitSet::B(s) => s.length(),
         }
     }
 
     fn copy_of(&self) -> FixedBitSet {
         match self {
-            Either2BitSet::F(t) => t.copy_of(),
-            Either2BitSet::S(s) => s.copy_of(),
+            Either2BitSet::A(t) => t.copy_of(),
+            Either2BitSet::B(s) => s.copy_of(),
         }
     }
 }
 
-impl<F, S> Accountable for Either2BitSet<F, S>
+impl<A, B> Accountable for Either2BitSet<A, B>
 where
-    F: BitSet,
-    S: BitSet,
+    A: BitSet,
+    B: BitSet,
 {
     fn ram_bytes_used(&self) -> lucene_error::Result<i64> {
         match self {
-            Either2BitSet::F(t) => t.ram_bytes_used(),
-            Either2BitSet::S(s) => s.ram_bytes_used(),
+            Either2BitSet::A(t) => t.ram_bytes_used(),
+            Either2BitSet::B(s) => s.ram_bytes_used(),
         }
     }
 }
 
-impl<F, S> BitSet for Either2BitSet<F, S>
+impl<A, B> BitSet for Either2BitSet<A, B>
 where
-    F: BitSet,
-    S: BitSet,
+    A: BitSet,
+    B: BitSet,
 {
     fn clear(&mut self) {
         match self {
-            Either2BitSet::F(t) => t.clear(),
-            Either2BitSet::S(s) => s.clear(),
+            Either2BitSet::A(t) => t.clear(),
+            Either2BitSet::B(s) => s.clear(),
         }
     }
 
     fn set(&mut self, i: i32) {
         match self {
-            Either2BitSet::F(t) => t.set(i),
-            Either2BitSet::S(s) => s.set(i),
+            Either2BitSet::A(t) => t.set(i),
+            Either2BitSet::B(s) => s.set(i),
         }
     }
 
     fn get_and_set(&mut self, i: i32) -> bool {
         match self {
-            Either2BitSet::F(t) => t.get_and_set(i),
-            Either2BitSet::S(s) => s.get_and_set(i),
+            Either2BitSet::A(t) => t.get_and_set(i),
+            Either2BitSet::B(s) => s.get_and_set(i),
         }
     }
 
     fn clear_with_index(&mut self, i: i32) {
         match self {
-            Either2BitSet::F(t) => t.clear_with_index(i),
-            Either2BitSet::S(s) => s.clear_with_index(i),
+            Either2BitSet::A(t) => t.clear_with_index(i),
+            Either2BitSet::B(s) => s.clear_with_index(i),
         }
     }
 
     fn clear_range(&mut self, start_index: i32, end_index: i32) {
         match self {
-            Either2BitSet::F(t) => t.clear_range(start_index, end_index),
-            Either2BitSet::S(s) => s.clear_range(start_index, end_index),
+            Either2BitSet::A(t) => t.clear_range(start_index, end_index),
+            Either2BitSet::B(s) => s.clear_range(start_index, end_index),
         }
     }
 
     fn cardinality(&self) -> i32 {
         match self {
-            Either2BitSet::F(t) => t.cardinality(),
-            Either2BitSet::S(s) => s.cardinality(),
+            Either2BitSet::A(t) => t.cardinality(),
+            Either2BitSet::B(s) => s.cardinality(),
         }
     }
 
     fn approximate_cardinality(&self) -> i32 {
         match self {
-            Either2BitSet::F(t) => t.approximate_cardinality(),
-            Either2BitSet::S(s) => s.approximate_cardinality(),
+            Either2BitSet::A(t) => t.approximate_cardinality(),
+            Either2BitSet::B(s) => s.approximate_cardinality(),
         }
     }
 
     fn prev_set_bit(&self, index: i32) -> i32 {
         match self {
-            Either2BitSet::F(t) => t.prev_set_bit(index),
-            Either2BitSet::S(s) => s.prev_set_bit(index),
+            Either2BitSet::A(t) => t.prev_set_bit(index),
+            Either2BitSet::B(s) => s.prev_set_bit(index),
         }
     }
 
     fn next_set_bit(&self, index: i32) -> i32 {
         match self {
-            Either2BitSet::F(t) => t.next_set_bit(index),
-            Either2BitSet::S(s) => s.next_set_bit(index),
+            Either2BitSet::A(t) => t.next_set_bit(index),
+            Either2BitSet::B(s) => s.next_set_bit(index),
         }
     }
 
     fn next_set_bit_range(&self, start: i32, end: i32) -> i32 {
         match self {
-            Either2BitSet::F(t) => t.next_set_bit_range(start, end),
-            Either2BitSet::S(s) => s.next_set_bit_range(start, end),
+            Either2BitSet::A(t) => t.next_set_bit_range(start, end),
+            Either2BitSet::B(s) => s.next_set_bit_range(start, end),
         }
     }
 
     fn or<T: DocIdSetIterator>(&mut self, iter: &mut T) -> lucene_error::Result<()> {
         match self {
-            Either2BitSet::F(t) => t.or(iter),
-            Either2BitSet::S(s) => s.or(iter),
+            Either2BitSet::A(t) => t.or(iter),
+            Either2BitSet::B(s) => s.or(iter),
         }
     }
 
     fn ensure_capacity(&mut self, _num_bits: i32) {
         match self {
-            Either2BitSet::F(t) => t.ensure_capacity(_num_bits),
-            Either2BitSet::S(s) => s.ensure_capacity(_num_bits),
+            Either2BitSet::A(t) => t.ensure_capacity(_num_bits),
+            Either2BitSet::B(s) => s.ensure_capacity(_num_bits),
         }
     }
 }

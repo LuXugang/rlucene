@@ -143,27 +143,27 @@ pub fn get_full_slice_description(slice_description: &str) -> String {
     format!(" [slice={slice_description}] ")
 }
 
-pub enum Either2IndexInput<F, S> {
-    F(F),
-    S(S),
+pub enum Either2IndexInput<A, B> {
+    A(A),
+    B(B),
 }
 
-impl<F, S> DataInput for Either2IndexInput<F, S>
+impl<A, B> DataInput for Either2IndexInput<A, B>
 where
-    F: IndexInput,
-    S: IndexInput,
+    A: IndexInput,
+    B: IndexInput,
 {
     fn read_byte(&mut self) -> Result<u8> {
         match self {
-            Either2IndexInput::F(f) => f.read_byte(),
-            Either2IndexInput::S(s) => s.read_byte(),
+            Either2IndexInput::A(f) => f.read_byte(),
+            Either2IndexInput::B(s) => s.read_byte(),
         }
     }
 
     fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()> {
         match self {
-            Either2IndexInput::F(f) => f.read_bytes(b, offset, len),
-            Either2IndexInput::S(s) => s.read_bytes(b, offset, len),
+            Either2IndexInput::A(f) => f.read_bytes(b, offset, len),
+            Either2IndexInput::B(s) => s.read_bytes(b, offset, len),
         }
     }
 
@@ -175,235 +175,235 @@ where
         _use_buffer: bool,
     ) -> Result<()> {
         match self {
-            Either2IndexInput::F(f) => f.read_bytes_with_buffer(b, offset, len, _use_buffer),
-            Either2IndexInput::S(s) => s.read_bytes_with_buffer(b, offset, len, _use_buffer),
+            Either2IndexInput::A(f) => f.read_bytes_with_buffer(b, offset, len, _use_buffer),
+            Either2IndexInput::B(s) => s.read_bytes_with_buffer(b, offset, len, _use_buffer),
         }
     }
 
     fn read_short(&mut self) -> Result<i16> {
         match self {
-            Either2IndexInput::F(f) => f.read_short(),
-            Either2IndexInput::S(s) => s.read_short(),
+            Either2IndexInput::A(f) => f.read_short(),
+            Either2IndexInput::B(s) => s.read_short(),
         }
     }
 
     fn default_read_short(&mut self) -> Result<i16> {
         match self {
-            Either2IndexInput::F(f) => f.default_read_short(),
-            Either2IndexInput::S(s) => s.default_read_short(),
+            Either2IndexInput::A(f) => f.default_read_short(),
+            Either2IndexInput::B(s) => s.default_read_short(),
         }
     }
 
     fn read_int(&mut self) -> Result<i32> {
         match self {
-            Either2IndexInput::F(f) => f.read_int(),
-            Either2IndexInput::S(s) => s.read_int(),
+            Either2IndexInput::A(f) => f.read_int(),
+            Either2IndexInput::B(s) => s.read_int(),
         }
     }
 
     fn default_read_int(&mut self) -> Result<i32> {
         match self {
-            Either2IndexInput::F(f) => f.default_read_int(),
-            Either2IndexInput::S(s) => s.default_read_int(),
+            Either2IndexInput::A(f) => f.default_read_int(),
+            Either2IndexInput::B(s) => s.default_read_int(),
         }
     }
 
     fn read_group_vint(&mut self, dst: &mut [i32], offset: i32) -> Result<()> {
         match self {
-            Either2IndexInput::F(f) => f.read_group_vint(dst, offset),
-            Either2IndexInput::S(s) => s.read_group_vint(dst, offset),
+            Either2IndexInput::A(f) => f.read_group_vint(dst, offset),
+            Either2IndexInput::B(s) => s.read_group_vint(dst, offset),
         }
     }
 
     fn default_read_group_vint(&mut self, dst: &mut [i32], offset: i32) -> Result<()> {
         match self {
-            Either2IndexInput::F(f) => f.default_read_group_vint(dst, offset),
-            Either2IndexInput::S(s) => s.default_read_group_vint(dst, offset),
+            Either2IndexInput::A(f) => f.default_read_group_vint(dst, offset),
+            Either2IndexInput::B(s) => s.default_read_group_vint(dst, offset),
         }
     }
 
     fn read_vint(&mut self) -> Result<i32> {
         match self {
-            Either2IndexInput::F(f) => f.read_vint(),
-            Either2IndexInput::S(s) => s.read_vint(),
+            Either2IndexInput::A(f) => f.read_vint(),
+            Either2IndexInput::B(s) => s.read_vint(),
         }
     }
 
     fn read_zint(&mut self) -> Result<i32> {
         match self {
-            Either2IndexInput::F(f) => f.read_zint(),
-            Either2IndexInput::S(s) => s.read_zint(),
+            Either2IndexInput::A(f) => f.read_zint(),
+            Either2IndexInput::B(s) => s.read_zint(),
         }
     }
 
     fn read_long(&mut self) -> Result<i64> {
         match self {
-            Either2IndexInput::F(f) => f.read_long(),
-            Either2IndexInput::S(s) => s.read_long(),
+            Either2IndexInput::A(f) => f.read_long(),
+            Either2IndexInput::B(s) => s.read_long(),
         }
     }
 
     fn default_read_long(&mut self) -> Result<i64> {
         match self {
-            Either2IndexInput::F(f) => f.default_read_long(),
-            Either2IndexInput::S(s) => s.default_read_long(),
+            Either2IndexInput::A(f) => f.default_read_long(),
+            Either2IndexInput::B(s) => s.default_read_long(),
         }
     }
 
     fn read_longs(&mut self, dst: &mut [i64], offset: i32, len: i32) -> Result<()> {
         match self {
-            Either2IndexInput::F(f) => f.read_longs(dst, offset, len),
-            Either2IndexInput::S(s) => s.read_longs(dst, offset, len),
+            Either2IndexInput::A(f) => f.read_longs(dst, offset, len),
+            Either2IndexInput::B(s) => s.read_longs(dst, offset, len),
         }
     }
 
     fn read_ints(&mut self, dst: &mut [i32], offset: i32, len: i32) -> Result<()> {
         match self {
-            Either2IndexInput::F(f) => f.read_ints(dst, offset, len),
-            Either2IndexInput::S(s) => s.read_ints(dst, offset, len),
+            Either2IndexInput::A(f) => f.read_ints(dst, offset, len),
+            Either2IndexInput::B(s) => s.read_ints(dst, offset, len),
         }
     }
 
     fn read_floats(&mut self, dst: &mut [f32], offset: i32, len: i32) -> Result<()> {
         match self {
-            Either2IndexInput::F(f) => f.read_floats(dst, offset, len),
-            Either2IndexInput::S(s) => s.read_floats(dst, offset, len),
+            Either2IndexInput::A(f) => f.read_floats(dst, offset, len),
+            Either2IndexInput::B(s) => s.read_floats(dst, offset, len),
         }
     }
 
     fn read_vlong(&mut self) -> Result<i64> {
         match self {
-            Either2IndexInput::F(f) => f.read_vlong(),
-            Either2IndexInput::S(s) => s.read_vlong(),
+            Either2IndexInput::A(f) => f.read_vlong(),
+            Either2IndexInput::B(s) => s.read_vlong(),
         }
     }
 
     fn read_zlong(&mut self) -> Result<i64> {
         match self {
-            Either2IndexInput::F(f) => f.read_zlong(),
-            Either2IndexInput::S(s) => s.read_zlong(),
+            Either2IndexInput::A(f) => f.read_zlong(),
+            Either2IndexInput::B(s) => s.read_zlong(),
         }
     }
 
     fn read_string(&mut self) -> Result<String> {
         match self {
-            Either2IndexInput::F(f) => f.read_string(),
-            Either2IndexInput::S(s) => s.read_string(),
+            Either2IndexInput::A(f) => f.read_string(),
+            Either2IndexInput::B(s) => s.read_string(),
         }
     }
 
     fn read_map_of_strings(&mut self) -> Result<HashMap<String, String>> {
         match self {
-            Either2IndexInput::F(f) => f.read_map_of_strings(),
-            Either2IndexInput::S(s) => s.read_map_of_strings(),
+            Either2IndexInput::A(f) => f.read_map_of_strings(),
+            Either2IndexInput::B(s) => s.read_map_of_strings(),
         }
     }
 
     fn read_set_of_strings(&mut self) -> Result<HashSet<String>> {
         match self {
-            Either2IndexInput::F(f) => f.read_set_of_strings(),
-            Either2IndexInput::S(s) => s.read_set_of_strings(),
+            Either2IndexInput::A(f) => f.read_set_of_strings(),
+            Either2IndexInput::B(s) => s.read_set_of_strings(),
         }
     }
 
     fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
         match self {
-            Either2IndexInput::F(f) => DataInput::skip_bytes(f, num_bytes),
-            Either2IndexInput::S(s) => DataInput::skip_bytes(s, num_bytes),
+            Either2IndexInput::A(f) => DataInput::skip_bytes(f, num_bytes),
+            Either2IndexInput::B(s) => DataInput::skip_bytes(s, num_bytes),
         }
     }
 
     fn is_index_input(&self) -> bool {
         match self {
-            Either2IndexInput::F(f) => f.is_index_input(),
-            Either2IndexInput::S(s) => s.is_index_input(),
+            Either2IndexInput::A(f) => f.is_index_input(),
+            Either2IndexInput::B(s) => s.is_index_input(),
         }
     }
 
     fn seek_in_data_input(&mut self, _pos: i64) -> Result<()> {
         match self {
-            Either2IndexInput::F(f) => f.seek_in_data_input(_pos),
-            Either2IndexInput::S(s) => s.seek_in_data_input(_pos),
+            Either2IndexInput::A(f) => f.seek_in_data_input(_pos),
+            Either2IndexInput::B(s) => s.seek_in_data_input(_pos),
         }
     }
 
     fn get_file_pointer_in_data_input(&self) -> i64 {
         match self {
-            Either2IndexInput::F(f) => f.get_file_pointer_in_data_input(),
-            Either2IndexInput::S(s) => s.get_file_pointer_in_data_input(),
+            Either2IndexInput::A(f) => f.get_file_pointer_in_data_input(),
+            Either2IndexInput::B(s) => s.get_file_pointer_in_data_input(),
         }
     }
 }
 
-impl<F, S> Display for Either2IndexInput<F, S>
+impl<A, B> Display for Either2IndexInput<A, B>
 where
-    F: IndexInput,
-    S: IndexInput,
+    A: IndexInput,
+    B: IndexInput,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         todo!()
     }
 }
 
-impl<F, S> TryClone for Either2IndexInput<F, S>
+impl<A, B> TryClone for Either2IndexInput<A, B>
 where
-    F: IndexInput,
-    S: IndexInput,
+    A: IndexInput,
+    B: IndexInput,
 {
     fn try_clone(&self) -> Result<Self>
     where
         Self: Sized,
     {
         match self {
-            Either2IndexInput::F(f) => Ok(Either2IndexInput::F(f.try_clone()?)),
-            Either2IndexInput::S(s) => Ok(Either2IndexInput::S(s.try_clone()?)),
+            Either2IndexInput::A(f) => Ok(Either2IndexInput::A(f.try_clone()?)),
+            Either2IndexInput::B(s) => Ok(Either2IndexInput::B(s.try_clone()?)),
         }
     }
 }
 
-impl<F, S> IndexInput for Either2IndexInput<F, S>
+impl<A, B> IndexInput for Either2IndexInput<A, B>
 where
-    F: IndexInput,
-    S: IndexInput,
+    A: IndexInput,
+    B: IndexInput,
 {
     fn get_file_pointer(&self) -> i64 {
         match self {
-            Either2IndexInput::F(f) => f.get_file_pointer(),
-            Either2IndexInput::S(s) => s.get_file_pointer(),
+            Either2IndexInput::A(f) => f.get_file_pointer(),
+            Either2IndexInput::B(s) => s.get_file_pointer(),
         }
     }
 
     fn seek(&mut self, pos: i64) -> Result<()> {
         match self {
-            Either2IndexInput::F(f) => f.seek(pos),
-            Either2IndexInput::S(s) => s.seek(pos),
+            Either2IndexInput::A(f) => f.seek(pos),
+            Either2IndexInput::B(s) => s.seek(pos),
         }
     }
 
     fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
         match self {
-            Either2IndexInput::F(f) => IndexInput::skip_bytes(f, num_bytes),
-            Either2IndexInput::S(s) => IndexInput::skip_bytes(s, num_bytes),
+            Either2IndexInput::A(f) => IndexInput::skip_bytes(f, num_bytes),
+            Either2IndexInput::B(s) => IndexInput::skip_bytes(s, num_bytes),
         }
     }
 
     fn length(&self) -> i64 {
         match self {
-            Either2IndexInput::F(f) => f.length(),
-            Either2IndexInput::S(s) => s.length(),
+            Either2IndexInput::A(f) => f.length(),
+            Either2IndexInput::B(s) => s.length(),
         }
     }
 
-    type Slice = Either2IndexInput<F::Slice, S::Slice>;
+    type Slice = Either2IndexInput<A::Slice, B::Slice>;
 
     fn slice(&self, slice_description: &str, offset: i64, length: i64) -> Result<Self::Slice> {
         match self {
-            Either2IndexInput::F(f) => Ok(Either2IndexInput::F(f.slice(
+            Either2IndexInput::A(f) => Ok(Either2IndexInput::A(f.slice(
                 slice_description,
                 offset,
                 length,
             )?)),
-            Either2IndexInput::S(s) => Ok(Either2IndexInput::S(s.slice(
+            Either2IndexInput::B(s) => Ok(Either2IndexInput::B(s.slice(
                 slice_description,
                 offset,
                 length,
@@ -419,13 +419,13 @@ where
         read_advice: &ReadAdvice,
     ) -> Result<Self::Slice> {
         match self {
-            Either2IndexInput::F(f) => Ok(Either2IndexInput::F(f.slice_with_read_advice(
+            Either2IndexInput::A(f) => Ok(Either2IndexInput::A(f.slice_with_read_advice(
                 description,
                 offset,
                 length,
                 read_advice,
             )?)),
-            Either2IndexInput::S(s) => Ok(Either2IndexInput::S(s.slice_with_read_advice(
+            Either2IndexInput::B(s) => Ok(Either2IndexInput::B(s.slice_with_read_advice(
                 description,
                 offset,
                 length,
@@ -442,13 +442,13 @@ where
         _read_advice: &ReadAdvice,
     ) -> Result<Self::Slice> {
         match self {
-            Either2IndexInput::F(f) => Ok(Either2IndexInput::F(f.default_slice_with_read_advice(
+            Either2IndexInput::A(f) => Ok(Either2IndexInput::A(f.default_slice_with_read_advice(
                 description,
                 offset,
                 length,
                 _read_advice,
             )?)),
-            Either2IndexInput::S(s) => Ok(Either2IndexInput::S(s.default_slice_with_read_advice(
+            Either2IndexInput::B(s) => Ok(Either2IndexInput::B(s.default_slice_with_read_advice(
                 description,
                 offset,
                 length,
@@ -457,14 +457,14 @@ where
         }
     }
 
-    type RandomAccessSlice = Either2RandomAccessInput<F::RandomAccessSlice, S::RandomAccessSlice>;
+    type RandomAccessSlice = Either2RandomAccessInput<A::RandomAccessSlice, B::RandomAccessSlice>;
 
     fn random_access_slice(&self, offset: i64, length: i64) -> Result<Self::RandomAccessSlice> {
         match self {
-            Either2IndexInput::F(f) => Ok(Either2RandomAccessInput::F(
+            Either2IndexInput::A(f) => Ok(Either2RandomAccessInput::A(
                 f.random_access_slice(offset, length)?,
             )),
-            Either2IndexInput::S(s) => Ok(Either2RandomAccessInput::S(
+            Either2IndexInput::B(s) => Ok(Either2RandomAccessInput::B(
                 s.random_access_slice(offset, length)?,
             )),
         }
@@ -472,15 +472,15 @@ where
 
     fn prefetch(&mut self, pos: i64, len: i64) -> Result<()> {
         match self {
-            Either2IndexInput::F(f) => f.prefetch(pos, len),
-            Either2IndexInput::S(s) => s.prefetch(pos, len),
+            Either2IndexInput::A(f) => f.prefetch(pos, len),
+            Either2IndexInput::B(s) => s.prefetch(pos, len),
         }
     }
 
     fn default_prefetch(&mut self, _pos: i64, _len: i64) -> Result<()> {
         match self {
-            Either2IndexInput::F(f) => f.default_prefetch(_pos, _len),
-            Either2IndexInput::S(s) => s.default_prefetch(_pos, _len),
+            Either2IndexInput::A(f) => f.default_prefetch(_pos, _len),
+            Either2IndexInput::B(s) => s.default_prefetch(_pos, _len),
         }
     }
 }

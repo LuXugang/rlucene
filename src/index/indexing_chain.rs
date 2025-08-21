@@ -252,11 +252,11 @@ where
             })?;
             let doc_comparator = sorter.get_doc_comparator(&mut doc_values_reader, max_doc)?;
             let v = match &parent_bit_set {
-                Some(parent_bit_set) => Either2DocComparator::F(DocComparatorImpl::new(
+                Some(parent_bit_set) => Either2DocComparator::A(DocComparatorImpl::new(
                     parent_bit_set.clone(),
                     doc_comparator,
                 )),
-                None => Either2DocComparator::S(doc_comparator),
+                None => Either2DocComparator::B(doc_comparator),
             };
             comparators.push(v);
         }

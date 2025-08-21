@@ -89,6 +89,6 @@ macro_rules! either_numeric_docvalues {
         }
     };
 }
-either_numeric_docvalues!(pub Either2NumericDocValues { F: F, S: S });
-either_numeric_docvalues!(pub Either3NumericDocValues { F: F, S: S, T: T });
-either_numeric_docvalues!(pub Either4NumericDocValues { F: F, S: S, T: T, U: U });
+either_numeric_docvalues!(pub Either2NumericDocValues { A: F, B: B });
+either_numeric_docvalues!(pub Either3NumericDocValues { A: F, B: B, C: C });
+either_numeric_docvalues!(pub Either4NumericDocValues { A: F, B: B, C: C, D: D });

@@ -287,11 +287,11 @@ where
         match self {
             Either2Dir::Base(dir) => {
                 let input = dir.open_input(name, context)?;
-                Ok(Either2IndexInput::S(input))
+                Ok(Either2IndexInput::B(input))
             },
             Either2Dir::Cfs(cfs) => {
                 let input = cfs.open_input(name, context)?;
-                Ok(Either2IndexInput::F(input))
+                Ok(Either2IndexInput::A(input))
             },
         }
     }

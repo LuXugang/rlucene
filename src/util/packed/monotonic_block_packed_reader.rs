@@ -66,7 +66,7 @@ impl MonotonicBlockPackedReader {
         let mut min_values = vec![0; num_blocks as usize];
         let mut averages = vec![0.0; num_blocks as usize];
         let mut sub_readers: Vec<_> = (0..num_blocks)
-            .map(|_| Either2LongValues::F(Zeroes))
+            .map(|_| Either2LongValues::A(Zeroes))
             .collect();
         let mut sum_bpv: i64 = 0;
         let mut total_byte_count = 0;
@@ -100,7 +100,7 @@ impl MonotonicBlockPackedReader {
                 input.read_bytes(&mut blocks, 0, byte_count as i32)?;
                 let mask_right = (1u64 << bits_per_value) - 1;
                 let bpv_minus_block_size = bits_per_value - BLOCK_SIZE;
-                sub_readers[i] = Either2LongValues::S(MonotonicLongValues {
+                sub_readers[i] = Either2LongValues::B(MonotonicLongValues {
                     bits_per_values: bits_per_value,
                     bpv_minus_block_size,
                     blocks,
