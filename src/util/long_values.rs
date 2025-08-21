@@ -34,6 +34,10 @@ impl LongValues for Zeroes {
     fn get(&mut self, _index: i64) -> Result<i64> {
         Ok(0)
     }
+
+    fn get_immutable(&self, _index: i64) -> Result<i64> {
+        Ok(0)
+    }
 }
 pub struct Identity;
 impl LongValues for Identity {

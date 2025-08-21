@@ -70,7 +70,6 @@ impl DirectReader {
     }
     /// Retrieves an instance specialized for merges, typically faster for
     /// sequential access but slower for random access.
-    #[allow(unused)]
     pub(crate) fn get_merge_instance<R>(
         slice: Rc<RefCell<R>>,
         bits_per_value: i32,
@@ -138,7 +137,7 @@ where
         let mut slice = self.slice.borrow_mut();
         if index >= self.num_values - DirectReader::MERGE_BUFFER_SIZE as i64 {
             // 128 values left or less
-            let mut slow_instance = DirectReader::get_instance_with_offset(
+            let slow_instance = DirectReader::get_instance_with_offset(
                 self.slice.clone(),
                 self.bits_per_value,
                 self.base_offset,
@@ -146,7 +145,7 @@ where
             drop(slice);
             let num_values_last_block = (self.num_values - index) as usize;
             for i in 0..num_values_last_block {
-                self.buffer[i].set(slow_instance.get(index + i as i64)?);
+                self.buffer[i].set(slow_instance.get_immutable(index + i as i64)?);
             }
         } else if (self.bits_per_value & 0x07) == 0 {
             // bitsPerValue is a multiple of 8
@@ -237,7 +236,7 @@ impl<R> LongValues for DirectPackedReader1<R>
 where
     R: RandomAccessInput,
 {
-    fn get(&mut self, index: i64) -> Result<i64> {
+    fn get_immutable(&self, index: i64) -> Result<i64> {
         let shift = (index & 7) as i32;
         let mut slice = self.input.borrow_mut();
         let result = (slice.read_byte(self.offset + (index >> 3))? >> shift) & 0x1;
@@ -266,7 +265,7 @@ impl<R> LongValues for DirectPackedReader2<R>
 where
     R: RandomAccessInput,
 {
-    fn get(&mut self, index: i64) -> Result<i64> {
+    fn get_immutable(&self, index: i64) -> Result<i64> {
         debug_assert!(index >= 0);
         let shift = ((index & 3) as i32) << 1;
         let mut slice = self.input.borrow_mut();
@@ -297,7 +296,7 @@ impl<R> LongValues for DirectPackedReader4<R>
 where
     R: RandomAccessInput,
 {
-    fn get(&mut self, index: i64) -> Result<i64> {
+    fn get_immutable(&self, index: i64) -> Result<i64> {
         debug_assert!(index >= 0);
         let shift = ((index & 1) as i32) << 2;
         let mut slice = self.input.borrow_mut();
@@ -329,7 +328,7 @@ impl<R> LongValues for DirectPackedReader8<R>
 where
     R: RandomAccessInput,
 {
-    fn get(&mut self, index: i64) -> Result<i64> {
+    fn get_immutable(&self, index: i64) -> Result<i64> {
         debug_assert!(index >= 0);
         let mut slice = self.input.borrow_mut();
 
@@ -360,7 +359,7 @@ impl<R> LongValues for DirectPackedReader12<R>
 where
     R: RandomAccessInput,
 {
-    fn get(&mut self, index: i64) -> Result<i64> {
+    fn get_immutable(&self, index: i64) -> Result<i64> {
         debug_assert!(index >= 0);
         let off = (index * 12) >> 3;
         let shift = ((index & 1) as i32) << 2;
@@ -393,7 +392,7 @@ impl<R> LongValues for DirectPackedReader16<R>
 where
     R: RandomAccessInput,
 {
-    fn get(&mut self, index: i64) -> Result<i64> {
+    fn get_immutable(&self, index: i64) -> Result<i64> {
         debug_assert!(index >= 0);
         let mut slice = self.input.borrow_mut();
 
@@ -422,7 +421,7 @@ impl<R> LongValues for DirectPackedReader20<R>
 where
     R: RandomAccessInput,
 {
-    fn get(&mut self, index: i64) -> Result<i64> {
+    fn get_immutable(&self, index: i64) -> Result<i64> {
         debug_assert!(index >= 0);
         let off = (index * 20) >> 3;
         let shift = ((index & 1) as i32) << 2;
@@ -455,7 +454,7 @@ impl<R> LongValues for DirectPackedReader24<R>
 where
     R: RandomAccessInput,
 {
-    fn get(&mut self, index: i64) -> Result<i64> {
+    fn get_immutable(&self, index: i64) -> Result<i64> {
         debug_assert!(index >= 0);
         let mut slice = self.input.borrow_mut();
 
@@ -486,7 +485,7 @@ impl<R> LongValues for DirectPackedReader28<R>
 where
     R: RandomAccessInput,
 {
-    fn get(&mut self, index: i64) -> Result<i64> {
+    fn get_immutable(&self, index: i64) -> Result<i64> {
         debug_assert!(index >= 0);
         let off = (index * 28) >> 3;
         let shift = ((index & 1) as i32) << 2;
@@ -519,7 +518,7 @@ impl<R> LongValues for DirectPackedReader32<R>
 where
     R: RandomAccessInput,
 {
-    fn get(&mut self, index: i64) -> Result<i64> {
+    fn get_immutable(&self, index: i64) -> Result<i64> {
         debug_assert!(index >= 0);
         let mut slice = self.input.borrow_mut();
 
@@ -550,7 +549,7 @@ impl<R> LongValues for DirectPackedReader40<R>
 where
     R: RandomAccessInput,
 {
-    fn get(&mut self, index: i64) -> Result<i64> {
+    fn get_immutable(&self, index: i64) -> Result<i64> {
         debug_assert!(index >= 0);
         let mut slice = self.input.borrow_mut();
 
@@ -581,7 +580,7 @@ impl<R> LongValues for DirectPackedReader48<R>
 where
     R: RandomAccessInput,
 {
-    fn get(&mut self, index: i64) -> Result<i64> {
+    fn get_immutable(&self, index: i64) -> Result<i64> {
         debug_assert!(index >= 0);
         let mut slice = self.input.borrow_mut();
 
@@ -612,7 +611,7 @@ impl<R> LongValues for DirectPackedReader56<R>
 where
     R: RandomAccessInput,
 {
-    fn get(&mut self, index: i64) -> Result<i64> {
+    fn get_immutable(&self, index: i64) -> Result<i64> {
         debug_assert!(index >= 0);
         let mut slice = self.input.borrow_mut();
 
@@ -643,7 +642,7 @@ impl<R> LongValues for DirectPackedReader64<R>
 where
     R: RandomAccessInput,
 {
-    fn get(&mut self, index: i64) -> Result<i64> {
+    fn get_immutable(&self, index: i64) -> Result<i64> {
         debug_assert!(index >= 0);
         let mut slice = self.input.borrow_mut();
 
@@ -677,24 +676,24 @@ impl<R> LongValues for DirectPackedEnum<R>
 where
     R: RandomAccessInput,
 {
-    fn get(&mut self, index: i64) -> Result<i64> {
+    fn get_immutable(&self, index: i64) -> Result<i64> {
         match self {
-            DirectPackedEnum::DirectPackedReader1(reader) => reader.get(index),
-            DirectPackedEnum::DirectPackedReader2(reader) => reader.get(index),
-            DirectPackedEnum::DirectPackedReader4(reader) => reader.get(index),
-            DirectPackedEnum::DirectPackedReader8(reader) => reader.get(index),
-            DirectPackedEnum::DirectPackedReader12(reader) => reader.get(index),
-            DirectPackedEnum::DirectPackedReader16(reader) => reader.get(index),
-            DirectPackedEnum::DirectPackedReader20(reader) => reader.get(index),
-            DirectPackedEnum::DirectPackedReader24(reader) => reader.get(index),
-            DirectPackedEnum::DirectPackedReader28(reader) => reader.get(index),
-            DirectPackedEnum::DirectPackedReader32(reader) => reader.get(index),
-            DirectPackedEnum::DirectPackedReader40(reader) => reader.get(index),
-            DirectPackedEnum::DirectPackedReader48(reader) => reader.get(index),
-            DirectPackedEnum::DirectPackedReader56(reader) => reader.get(index),
-            DirectPackedEnum::DirectPackedReader64(reader) => reader.get(index),
-            DirectPackedEnum::LongValuesImpl(reader) => reader.get(index),
-            DirectPackedEnum::Zeroes(reader) => reader.get(index),
+            DirectPackedEnum::DirectPackedReader1(reader) => reader.get_immutable(index),
+            DirectPackedEnum::DirectPackedReader2(reader) => reader.get_immutable(index),
+            DirectPackedEnum::DirectPackedReader4(reader) => reader.get_immutable(index),
+            DirectPackedEnum::DirectPackedReader8(reader) => reader.get_immutable(index),
+            DirectPackedEnum::DirectPackedReader12(reader) => reader.get_immutable(index),
+            DirectPackedEnum::DirectPackedReader16(reader) => reader.get_immutable(index),
+            DirectPackedEnum::DirectPackedReader20(reader) => reader.get_immutable(index),
+            DirectPackedEnum::DirectPackedReader24(reader) => reader.get_immutable(index),
+            DirectPackedEnum::DirectPackedReader28(reader) => reader.get_immutable(index),
+            DirectPackedEnum::DirectPackedReader32(reader) => reader.get_immutable(index),
+            DirectPackedEnum::DirectPackedReader40(reader) => reader.get_immutable(index),
+            DirectPackedEnum::DirectPackedReader48(reader) => reader.get_immutable(index),
+            DirectPackedEnum::DirectPackedReader56(reader) => reader.get_immutable(index),
+            DirectPackedEnum::DirectPackedReader64(reader) => reader.get_immutable(index),
+            DirectPackedEnum::LongValuesImpl(reader) => reader.get_immutable(index),
+            DirectPackedEnum::Zeroes(reader) => reader.get_immutable(index),
         }
     }
 }

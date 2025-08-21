@@ -1619,7 +1619,9 @@ where
             }
         }
         match self.values {
-            Some(ref mut values) => Ok(self.mul * values.get(index & self.mask)? + self.delta),
+            Some(ref values) => {
+                Ok(self.mul * values.get_immutable(index & self.mask)? + self.delta)
+            },
             None => Err(LuceneError::illegal_state(
                 "values should not be None".to_string(),
             )),
@@ -1794,7 +1796,7 @@ where
     I: IndexInput,
 {
     fn long_value(&mut self, doc: i32) -> Result<i64> {
-        Ok(self.table[self.values.get(doc as i64)? as usize])
+        Ok(self.table[self.values.get_immutable(doc as i64)? as usize])
     }
 }
 pub struct DenseNumericDocValuesBaseImpl3<I>
@@ -1808,7 +1810,7 @@ where
     I: IndexInput,
 {
     fn long_value(&mut self, doc: i32) -> Result<i64> {
-        self.values.get(doc as i64)
+        self.values.get_immutable(doc as i64)
     }
 }
 pub struct DenseNumericDocValuesBaseImpl4<I>
@@ -1824,7 +1826,7 @@ where
     I: IndexInput,
 {
     fn long_value(&mut self, doc: i32) -> Result<i64> {
-        Ok(self.mul * self.values.get(doc as i64)? + self.delta)
+        Ok(self.mul * self.values.get_immutable(doc as i64)? + self.delta)
     }
 }
 
@@ -1880,7 +1882,7 @@ where
     where
         I: IndexInput,
     {
-        Ok(self.table[self.values.get(disi.index() as i64)? as usize])
+        Ok(self.table[self.values.get_immutable(disi.index() as i64)? as usize])
     }
 }
 pub struct SparseNumericDocValuesBaseImpl3<I>
@@ -1897,7 +1899,7 @@ where
     where
         I: IndexInput,
     {
-        self.values.get(disi.index() as i64)
+        self.values.get_immutable(disi.index() as i64)
     }
 }
 pub struct SparseNumericDocValuesBaseImpl4<I>
@@ -1916,7 +1918,7 @@ where
     where
         I: IndexInput,
     {
-        Ok(self.mul * self.values.get(disi.index() as i64)? + self.delta)
+        Ok(self.mul * self.values.get_immutable(disi.index() as i64)? + self.delta)
     }
 }
 
@@ -1954,7 +1956,7 @@ where
     I: IndexInput,
 {
     fn get(&mut self, index: i64) -> Result<i64> {
-        Ok(self.table[self.values.get(index)? as usize])
+        Ok(self.table[self.values.get_immutable(index)? as usize])
     }
 }
 pub struct LongValuesImpl3<I>
@@ -1970,7 +1972,7 @@ where
     I: IndexInput,
 {
     fn get(&mut self, index: i64) -> Result<i64> {
-        Ok(self.gcd * self.values.get(index)? + self.min_value)
+        Ok(self.gcd * self.values.get_immutable(index)? + self.min_value)
     }
 }
 pub struct LongValuesImpl4<I>
@@ -1985,7 +1987,7 @@ where
     I: IndexInput,
 {
     fn get(&mut self, index: i64) -> Result<i64> {
-        Ok(self.values.get(index)? + self.min_value)
+        Ok(self.values.get_immutable(index)? + self.min_value)
     }
 }
 

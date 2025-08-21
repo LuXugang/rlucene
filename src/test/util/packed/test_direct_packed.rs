@@ -54,11 +54,11 @@ fn test_simple() -> Result<()> {
     let slice = input.random_access_slice(0, input.length())?;
     let mut reader =
         DirectReader::get_instance_with_offset(Rc::new(RefCell::new(slice)), bits_per_value, 0);
-    assert_eq!(1, reader.get(0)?);
-    assert_eq!(0, reader.get(1)?);
-    assert_eq!(2, reader.get(2)?);
-    assert_eq!(1, reader.get(3)?);
-    assert_eq!(2, reader.get(4)?);
+    assert_eq!(1, reader.get_immutable(0)?);
+    assert_eq!(0, reader.get_immutable(1)?);
+    assert_eq!(2, reader.get_immutable(2)?);
+    assert_eq!(1, reader.get_immutable(3)?);
+    assert_eq!(2, reader.get_immutable(4)?);
     Ok(())
 }
 /// test exception is delivered if you add the wrong number of values.
@@ -164,7 +164,7 @@ fn do_test_bpv<R: Rng + ?Sized>(
             DirectReader::get_instance_with_offset(slice.clone(), bits_required, offset)
         };
         for (j, &expected) in original.iter().enumerate() {
-            assert_eq!(expected, reader.get(j as i64)?, "bpv={}", bpv);
+            assert_eq!(expected, reader.get_immutable(j as i64)?, "bpv={}", bpv);
         }
     }
     Ok(())

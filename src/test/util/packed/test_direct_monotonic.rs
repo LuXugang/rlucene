@@ -118,9 +118,9 @@ pub fn test_simple() -> Result<()> {
         let meta =
             direct_monotonic_reader_util::load_meta(&mut meta_in, num_values as i64, block_shift)?;
         let slice = Rc::new(RefCell::new(data_in.random_access_slice(0, data_length)?));
-        let mut values = DirectMonotonicReader::get_instance(&meta, slice)?;
+        let values = DirectMonotonicReader::get_instance(&meta, slice)?;
         for (i, &v) in actual_values.iter().enumerate() {
-            assert_eq!(v, values.get(i as i64)?);
+            assert_eq!(v, values.get_immutable(i as i64)?);
         }
     }
     Ok(())
@@ -165,9 +165,9 @@ pub fn test_constant_slope() -> Result<()> {
         let meta =
             direct_monotonic_reader_util::load_meta(&mut meta_in, num_values as i64, block_shift)?;
         let slice = Rc::new(RefCell::new(data_in.random_access_slice(0, data_length)?));
-        let mut values = DirectMonotonicReader::get_instance(&meta, slice)?;
+        let values = DirectMonotonicReader::get_instance(&meta, slice)?;
         for (i, &v) in actual_values.iter().enumerate() {
-            assert_eq!(v, values.get(i as i64)?);
+            assert_eq!(v, values.get_immutable(i as i64)?);
         }
         assert_eq!(0, data_in.get_file_pointer());
     }
@@ -211,9 +211,9 @@ pub fn test_zero_values_small_blob_shift() -> Result<()> {
         assert_eq!(meta_in.length(), meta_in.get_file_pointer());
         meta_in.seek(0)?;
         let slice = Rc::new(RefCell::new(data_in.random_access_slice(0, data_length)?));
-        let mut values = DirectMonotonicReader::get_instance(&meta, slice)?;
+        let values = DirectMonotonicReader::get_instance(&meta, slice)?;
         for _ in 0..num_values {
-            assert_eq!(0, values.get(0)?);
+            assert_eq!(0, values.get_immutable(0)?);
         }
         assert_eq!(0, data_in.get_file_pointer());
     }
@@ -286,10 +286,9 @@ fn do_test_random<R: Rng + ?Sized>(random: &mut R, merging: bool) -> Result<()> 
                 block_shift,
             )?;
             let slice = Rc::new(RefCell::new(data_in.random_access_slice(0, data_length)?));
-            let mut values =
-                DirectMonotonicReader::get_instance_with_merging(&meta, slice, merging)?;
+            let values = DirectMonotonicReader::get_instance_with_merging(&meta, slice, merging)?;
             for (i, &v) in actual_values.iter().enumerate() {
-                assert_eq!(v, values.get(i as i64)?);
+                assert_eq!(v, values.get_immutable(i as i64)?);
             }
         }
     }

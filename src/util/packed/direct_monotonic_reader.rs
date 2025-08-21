@@ -117,7 +117,7 @@ where
         }
     }
 
-    pub fn binary_search(&mut self, from_index: i64, to_index: i64, key: i64) -> Result<i64> {
+    pub fn binary_search(&self, from_index: i64, to_index: i64, key: i64) -> Result<i64> {
         if from_index < 0 || from_index > to_index {
             return Err(LuceneError::illegal_argument(format!(
                 "fromIndex={from_index}, toIndex={to_index}"
@@ -136,7 +136,7 @@ where
             } else if bounds[0] > key {
                 hi = mid - 1;
             } else {
-                let mid_val = self.get(mid)?;
+                let mid_val = self.get_immutable(mid)?;
                 match mid_val.cmp(&key) {
                     std::cmp::Ordering::Less => lo = mid + 1,
                     std::cmp::Ordering::Greater => hi = mid - 1,
@@ -193,10 +193,10 @@ impl<R> LongValues for DirectMonotonicReader<R>
 where
     R: RandomAccessInput,
 {
-    fn get(&mut self, index: i64) -> Result<i64> {
+    fn get_immutable(&self, index: i64) -> Result<i64> {
         let block = ((index as u64) >> self.block_shift) as usize;
         let block_index = index & self.block_mask;
-        let delta = self.readers[block].get(block_index)?;
+        let delta = self.readers[block].get_immutable(block_index)?;
         Ok(self.mins[block] + ((self.avgs[block] * (block_index as f32)) as i64) + delta)
     }
 }
