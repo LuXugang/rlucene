@@ -21,7 +21,7 @@ use crate::codecs::dummy::dummy_numeric_doc_values::DummyNumericDocValues;
 use crate::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNumericDocValues;
 use crate::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocValues;
-use crate::codecs::lucene90_doc_values_enums::{
+use crate::codecs::lucene90::lucene90_doc_values_producer::{
     Lucene90BinaryDocValuesEnum, Lucene90NumericDocValuesEnum, Lucene90SortedNumericDocValues,
 };
 use crate::index::binary_doc_values::{BinaryDocValues, EitherBinaryDocValues3};

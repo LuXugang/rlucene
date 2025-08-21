@@ -16,10 +16,10 @@
  */
 use crate::codecs::compound_directory::CompoundDirectory;
 use crate::codecs::doc_values_producer::DocValuesProducer;
-use crate::codecs::lucene90_compound_reader::Lucene90CompoundReader;
-use crate::codecs::lucene90_doc_values_enums::{
+use crate::codecs::lucene90::lucene90_doc_values_producer::{
     Lucene90BinaryDocValuesEnum, Lucene90NumericDocValuesEnum, Lucene90SortedNumericDocValues,
 };
+use crate::codecs::lucene90_compound_reader::Lucene90CompoundReader;
 use crate::codecs::lucene90_doc_values_producer::{
     BaseSortedDocValues, BaseSortedSetDocValues, DocValuesSkipperImpl, Lucene90DocValuesProducer,
 };

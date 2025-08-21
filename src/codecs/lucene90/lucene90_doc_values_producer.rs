@@ -24,16 +24,12 @@ use crate::codecs::lucene90::dov_values_inner_enum::{
     DenseNumericDocValuesSubEnum, LongValuesEnum, SparseBinaryDocValuesBaseEnum,
     SparseNumericDocValuesSubEnum,
 };
-use crate::codecs::lucene90::lucene90_doc_values_enums::Lucene90SortedNumericDocValues;
-use crate::codecs::lucene90_doc_values_enums::{
-    Lucene90BinaryDocValuesEnum, Lucene90NumericDocValuesEnum,
-};
 use crate::codecs::lucene90_doc_values_format::{
     Lucene90DocValuesFormat, SKIP_INDEX_JUMP_LENGTH_PER_LEVEL,
 };
 use crate::index::base_terms_enum::BaseTermsEnum;
 use crate::index::binary_doc_values::{BinaryDocValues, EitherBinaryDocValues3};
-use crate::index::doc_values::DocValues;
+use crate::index::doc_values::{DocValues, EmptyBinary, EmptyNumeric};
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::index::doc_values_skipper::DocValuesSkipper;
@@ -43,12 +39,15 @@ use crate::index::dummy::dummy_term_state_type::DummyTermState;
 use crate::index::dummy::dummy_terms_enum::DummyTermsEnum;
 use crate::index::field_info::FieldInfo;
 use crate::index::field_infos::FieldInfos;
-use crate::index::numeric_doc_values::NumericDocValues;
+use crate::index::numeric_doc_values::{Either3NumericDocValues, NumericDocValues};
 use crate::index::segment_info::SegmentInfo;
 use crate::index::segment_read_state::SegmentReadState;
+use crate::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
 use crate::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
 use crate::index::sorted_doc_values::SortedDocValues;
-use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
+use crate::index::sorted_numeric_doc_values::{
+    Either4SortedNumericDocValues, SortedNumericDocValues,
+};
 use crate::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::index::sorted_set_doc_values_writer::EitherSortedSetDocValues;
 use crate::index::term_state::TermStateEnum;
@@ -3331,3 +3330,17 @@ where
 
     type NumericDocValues = DummyNumericDocValues;
 }
+
+// 1. NumericDocValues
+pub type Lucene90NumericDocValuesEnum<I> =
+    Either3NumericDocValues<DenseNumericDocValues<I>, SparseNumericDocValues<I>, EmptyNumeric>;
+// 2.SortedNumericDocValues
+pub type Lucene90SortedNumericDocValues<I> = Either4SortedNumericDocValues<
+    DenseSortedNumericDocValues<I>,
+    SpareSortedNumericDocValues<I>,
+    SingletonSortedNumericDocValues<Lucene90NumericDocValuesEnum<I>>,
+    SingletonSortedNumericDocValues<EmptyNumeric>,
+>;
+// 3. BinaryDocValues
+pub type Lucene90BinaryDocValuesEnum<I> =
+    EitherBinaryDocValues3<DenseBinaryDocValues<I>, SparseBinaryDocValues<I>, EmptyBinary>;
