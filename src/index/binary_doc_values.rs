@@ -32,68 +32,60 @@ pub trait BinaryDocValues: DocValuesIterator {
 }
 
 // BinaryDocValues
-pub enum EitherBinaryDocValues<F, S> {
-    F(F),
-    S(S),
+macro_rules! either_binary_docvalues {
+    ($vis:vis $name:ident { $( $Variant:ident : $T:ident ),+ $(,)? }) => {
+        $vis enum $name<$( $T ),+> {
+            $( $Variant($T), )+
+        }
+
+        impl<$( $T ),+> DocValuesIterator for $name<$( $T ),+>
+        where
+            $( $T: BinaryDocValues ),+
+        {}
+
+        impl<$( $T ),+> DocIdSetIterator for $name<$( $T ),+>
+        where
+            $( $T: BinaryDocValues ),+
+        {
+            fn doc_id(&self) -> i32 {
+                match self {
+                    $( Self::$Variant(inner) => inner.doc_id(), )+
+                }
+            }
+            fn next_doc(&mut self) -> Result<i32> {
+                match self {
+                    $( Self::$Variant(inner) => inner.next_doc(), )+
+                }
+            }
+            fn advance(&mut self, target: i32) -> Result<i32> {
+                match self {
+                    $( Self::$Variant(inner) => inner.advance(target), )+
+                }
+            }
+            fn slow_advance(&mut self, target: i32) -> Result<i32> {
+                match self {
+                    $( Self::$Variant(inner) => inner.slow_advance(target), )+
+                }
+            }
+            fn cost(&self) -> Result<i64> {
+                match self {
+                    $( Self::$Variant(inner) => inner.cost(), )+
+                }
+            }
+        }
+
+        impl<$( $T ),+> BinaryDocValues for $name<$( $T ),+>
+        where
+            $( $T: BinaryDocValues ),+
+        {
+            #[inline]
+            fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
+                match self {
+                    $( Self::$Variant(inner) => inner.binary_value(), )+
+                }
+            }
+        }
+    };
 }
-
-impl<F, S> DocValuesIterator for EitherBinaryDocValues<F, S>
-where
-    F: BinaryDocValues,
-    S: BinaryDocValues,
-{
-}
-
-impl<F, S> DocIdSetIterator for EitherBinaryDocValues<F, S>
-where
-    F: BinaryDocValues,
-    S: BinaryDocValues,
-{
-    fn doc_id(&self) -> i32 {
-        match self {
-            EitherBinaryDocValues::F(t) => t.doc_id(),
-            EitherBinaryDocValues::S(s) => s.doc_id(),
-        }
-    }
-
-    fn next_doc(&mut self) -> Result<i32> {
-        match self {
-            EitherBinaryDocValues::F(t) => t.next_doc(),
-            EitherBinaryDocValues::S(s) => s.next_doc(),
-        }
-    }
-
-    fn advance(&mut self, target: i32) -> Result<i32> {
-        match self {
-            EitherBinaryDocValues::F(t) => t.advance(target),
-            EitherBinaryDocValues::S(s) => s.advance(target),
-        }
-    }
-
-    fn slow_advance(&mut self, target: i32) -> Result<i32> {
-        match self {
-            EitherBinaryDocValues::F(t) => t.slow_advance(target),
-            EitherBinaryDocValues::S(s) => s.slow_advance(target),
-        }
-    }
-
-    fn cost(&self) -> Result<i64> {
-        match self {
-            EitherBinaryDocValues::F(t) => t.cost(),
-            EitherBinaryDocValues::S(s) => s.cost(),
-        }
-    }
-}
-
-impl<F, S> BinaryDocValues for EitherBinaryDocValues<F, S>
-where
-    F: BinaryDocValues,
-    S: BinaryDocValues,
-{
-    fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
-        match self {
-            EitherBinaryDocValues::F(t) => t.binary_value(),
-            EitherBinaryDocValues::S(s) => s.binary_value(),
-        }
-    }
-}
+either_binary_docvalues!(pub EitherBinaryDocValues { F: F, S: S });
+either_binary_docvalues!(pub EitherBinaryDocValues3 { F: F, S: S, T:T });

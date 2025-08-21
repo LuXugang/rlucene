@@ -32,7 +32,7 @@ use crate::codecs::lucene90_doc_values_format::{
     Lucene90DocValuesFormat, SKIP_INDEX_JUMP_LENGTH_PER_LEVEL,
 };
 use crate::index::base_terms_enum::BaseTermsEnum;
-use crate::index::binary_doc_values::BinaryDocValues;
+use crate::index::binary_doc_values::{BinaryDocValues, EitherBinaryDocValues3};
 use crate::index::doc_values::DocValues;
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::doc_values_skip_index_type::DocValuesSkipIndexType;
@@ -870,7 +870,7 @@ where
         match entry {
             Some(entry) => {
                 if entry.docs_with_field_offset == -2 {
-                    return Ok(Lucene90BinaryDocValuesEnum::Empty(DocValues::empty_binary()));
+                    return Ok(EitherBinaryDocValues3::T(DocValues::empty_binary()));
                 }
                 let mut bytes_slice = self
                     .data
@@ -922,9 +922,10 @@ where
                             },
                         }
                     };
-                    Ok(Lucene90BinaryDocValuesEnum::Dense(
-                        DenseBinaryDocValues::new(dense, self.max_doc),
-                    ))
+                    Ok(EitherBinaryDocValues3::F(DenseBinaryDocValues::new(
+                        dense,
+                        self.max_doc,
+                    )))
                 } else {
                     let disi = IndexedDISI::new(
                         &self.data,
@@ -977,9 +978,9 @@ where
                             addresses,
                         })
                     };
-                    Ok(Lucene90BinaryDocValuesEnum::Sparse(
-                        SparseBinaryDocValues::new(sub, disi),
-                    ))
+                    Ok(EitherBinaryDocValues3::S(SparseBinaryDocValues::new(
+                        sub, disi,
+                    )))
                 }
             },
             None => Err(LuceneError::illegal_state(format!(

@@ -19,8 +19,7 @@ use crate::codecs::lucene90_doc_values_producer::{
     DenseBinaryDocValues, DenseNumericDocValues, DenseSortedNumericDocValues,
     SpareSortedNumericDocValues, SparseBinaryDocValues, SparseNumericDocValues,
 };
-use crate::index::BytesRef;
-use crate::index::binary_doc_values::BinaryDocValues;
+use crate::index::binary_doc_values::EitherBinaryDocValues3;
 use crate::index::doc_values::{EmptyBinary, EmptyNumeric};
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::numeric_doc_values::EitherNumericDocValues;
@@ -214,75 +213,6 @@ where
     }
 }
 
-// 5.BinaryDocValues
-pub enum Lucene90BinaryDocValuesEnum<I>
-where
-    I: IndexInput,
-{
-    Dense(DenseBinaryDocValues<I>),
-    Sparse(SparseBinaryDocValues<I>),
-    Empty(EmptyBinary),
-}
-
-impl<I> DocValuesIterator for Lucene90BinaryDocValuesEnum<I>
-where
-    I: IndexInput,
-{
-    fn advance_exact(&mut self, target: i32) -> Result<bool> {
-        match self {
-            Lucene90BinaryDocValuesEnum::Dense(d) => d.advance_exact(target),
-            Lucene90BinaryDocValuesEnum::Sparse(s) => s.advance_exact(target),
-            Lucene90BinaryDocValuesEnum::Empty(e) => e.advance_exact(target),
-        }
-    }
-}
-
-impl<I> DocIdSetIterator for Lucene90BinaryDocValuesEnum<I>
-where
-    I: IndexInput,
-{
-    fn doc_id(&self) -> i32 {
-        match self {
-            Lucene90BinaryDocValuesEnum::Dense(d) => d.doc_id(),
-            Lucene90BinaryDocValuesEnum::Sparse(s) => s.doc_id(),
-            Lucene90BinaryDocValuesEnum::Empty(e) => e.doc_id(),
-        }
-    }
-
-    fn next_doc(&mut self) -> Result<i32> {
-        match self {
-            Lucene90BinaryDocValuesEnum::Dense(d) => d.next_doc(),
-            Lucene90BinaryDocValuesEnum::Sparse(s) => s.next_doc(),
-            Lucene90BinaryDocValuesEnum::Empty(e) => e.next_doc(),
-        }
-    }
-
-    fn advance(&mut self, target: i32) -> Result<i32> {
-        match self {
-            Lucene90BinaryDocValuesEnum::Dense(d) => d.advance(target),
-            Lucene90BinaryDocValuesEnum::Sparse(s) => s.advance(target),
-            Lucene90BinaryDocValuesEnum::Empty(e) => e.advance(target),
-        }
-    }
-
-    fn cost(&self) -> Result<i64> {
-        match self {
-            Lucene90BinaryDocValuesEnum::Dense(d) => d.cost(),
-            Lucene90BinaryDocValuesEnum::Sparse(s) => s.cost(),
-            Lucene90BinaryDocValuesEnum::Empty(e) => e.cost(),
-        }
-    }
-}
-
-impl<I> BinaryDocValues for Lucene90BinaryDocValuesEnum<I>
-where
-    I: IndexInput,
-{
-    fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
-        match self {
-            Lucene90BinaryDocValuesEnum::Dense(d) => d.binary_value(),
-            Lucene90BinaryDocValuesEnum::Sparse(s) => s.binary_value(),
-            Lucene90BinaryDocValuesEnum::Empty(e) => e.binary_value(),
-        }
-    }
-}
+// 3. BinaryDocValues
+pub type Lucene90BinaryDocValuesEnum<I> =
+    EitherBinaryDocValues3<DenseBinaryDocValues<I>, SparseBinaryDocValues<I>, EmptyBinary>;

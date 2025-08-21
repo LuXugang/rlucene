@@ -24,7 +24,7 @@ use crate::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocValues;
 use crate::codecs::lucene90_doc_values_enums::{
     Lucene90BinaryDocValuesEnum, Lucene90NumericDocValuesEnums, Lucene90SortedNumericDocValuesEnums,
 };
-use crate::index::binary_doc_values::BinaryDocValues;
+use crate::index::binary_doc_values::{BinaryDocValues, EitherBinaryDocValues3};
 use crate::index::doc_values::DocValues;
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::doc_values_type::DocValuesType;
@@ -348,7 +348,7 @@ where
 {
     fn default() -> Self {
         BinaryDocValuesSub {
-            values: Lucene90BinaryDocValuesEnum::Empty(Default::default()),
+            values: EitherBinaryDocValues3::T(Default::default()),
             doc_map: Rc::new(DocMapEnum::default()),
         }
     }

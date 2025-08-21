@@ -38,6 +38,7 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 use std::sync::Arc;
+
 /// Encapsulates multiple producers when there are docvalues updates as one producer
 pub(crate) struct SegmentDocValuesProducer<D>
 where
