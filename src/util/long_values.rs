@@ -39,12 +39,6 @@ impl LongValues for Zeroes {
         Ok(0)
     }
 }
-pub struct Identity;
-impl LongValues for Identity {
-    fn get(&mut self, index: i64) -> Result<i64> {
-        Ok(index)
-    }
-}
 
 macro_rules! either_long_values {
     ($vis:vis $name:ident { $( $Variant:ident : $T:ident ),+ $(,)? }) => {
