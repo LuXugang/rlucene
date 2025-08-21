@@ -1014,10 +1014,7 @@ where
         }
     }
 
-    type SortedSetDocValues = EitherSortedSetDocValues<
-        SingletonSortedSetDocValues<BaseSortedDocValues<I>>,
-        BaseSortedSetDocValues<I>,
-    >;
+    type SortedSetDocValues = Lucene90SortedSetDocValuesEnum<I>;
 
     fn get_sorted_set(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
         let field_number = field.number;
@@ -3344,3 +3341,9 @@ pub type Lucene90SortedNumericDocValues<I> = Either4SortedNumericDocValues<
 // 3. BinaryDocValues
 pub type Lucene90BinaryDocValuesEnum<I> =
     EitherBinaryDocValues3<DenseBinaryDocValues<I>, SparseBinaryDocValues<I>, EmptyBinary>;
+
+// 4. SortedSetDocValues
+pub type Lucene90SortedSetDocValuesEnum<I> = EitherSortedSetDocValues<
+    SingletonSortedSetDocValues<BaseSortedDocValues<I>>,
+    BaseSortedSetDocValues<I>,
+>;

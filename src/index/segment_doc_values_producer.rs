@@ -21,7 +21,8 @@ use crate::codecs::lucene90::lucene90_doc_values_producer::{
 };
 use crate::codecs::lucene90_compound_reader::Lucene90CompoundReader;
 use crate::codecs::lucene90_doc_values_producer::{
-    BaseSortedDocValues, BaseSortedSetDocValues, DocValuesSkipperImpl, Lucene90DocValuesProducer,
+    BaseSortedDocValues, DocValuesSkipperImpl, Lucene90DocValuesProducer,
+    Lucene90SortedSetDocValuesEnum,
 };
 use crate::index::doc_values_type::DocValuesType;
 use crate::index::field_info::FieldInfo;
@@ -29,8 +30,6 @@ use crate::index::field_infos::FieldInfos;
 use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::index::segment_core_readers::CfsOrBaseInput;
 use crate::index::segment_doc_values::SegmentDocValues;
-use crate::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
-use crate::index::sorted_set_doc_values_writer::EitherSortedSetDocValues;
 use crate::store::directory::Directory;
 use crate::util::IdentityRc;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -160,10 +159,7 @@ where
         dv_producer.as_ref().unwrap().get_sorted_numeric(field)
     }
 
-    type SortedSetDocValues = EitherSortedSetDocValues<
-        SingletonSortedSetDocValues<BaseSortedDocValues<CfsOrBaseInput<D>>>,
-        BaseSortedSetDocValues<CfsOrBaseInput<D>>,
-    >;
+    type SortedSetDocValues = Lucene90SortedSetDocValuesEnum<CfsOrBaseInput<D>>;
 
     fn get_sorted_set(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
         let dv_producer = self.dv_producers_by_field.get(&field.number);
