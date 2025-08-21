@@ -175,7 +175,7 @@ impl<I> FieldsIndex for FieldsIndexReader<I>
 where
     I: IndexInput,
 {
-    fn get_block_id(&mut self, doc_id: i32) -> Result<i64> {
+    fn get_block_id(&self, doc_id: i32) -> Result<i64> {
         assert!(doc_id >= 0 && doc_id < self.max_doc);
         let block_index = self
             .docs
@@ -188,15 +188,15 @@ where
         Ok(block_index)
     }
 
-    fn get_block_start_pointer(&mut self, block_id: i64) -> Result<i64> {
-        self.start_pointers.get(block_id)
+    fn get_block_start_pointer(&self, block_id: i64) -> Result<i64> {
+        self.start_pointers.get_immutable(block_id)
     }
 
-    fn get_block_length(&mut self, block_id: i64) -> Result<i64> {
+    fn get_block_length(&self, block_id: i64) -> Result<i64> {
         let end_pointer = if block_id == (self.num_chunks - 1) as i64 {
             self.max_pointer
         } else {
-            self.start_pointers.get(block_id + 1)?
+            self.start_pointers.get_immutable(block_id + 1)?
         };
         Ok(end_pointer - self.get_block_start_pointer(block_id)?)
     }
