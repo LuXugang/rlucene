@@ -125,5 +125,5 @@ pub trait CompoundDirectoryBase {
     /// # Note
     /// This operation may be costly in terms of I/O. For example, it might
     /// compute checksum values against large data files.
-    fn check_integrity(&mut self) -> Result<()>;
+    fn check_integrity(&self) -> Result<()>;
 }

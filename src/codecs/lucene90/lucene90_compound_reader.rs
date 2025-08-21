@@ -292,7 +292,7 @@ impl<D> CompoundDirectoryBase for Lucene90CompoundReader<D>
 where
     D: Directory,
 {
-    fn check_integrity(&mut self) -> Result<()> {
+    fn check_integrity(&self) -> Result<()> {
         let _ = CodecUtil::checksum_entire_file(&self.handle)?;
         Ok(())
     }
