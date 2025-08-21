@@ -201,7 +201,7 @@ where
         Ok(end_pointer - self.get_block_start_pointer(block_id)?)
     }
 
-    fn check_integrity(&mut self) -> Result<()> {
+    fn check_integrity(&self) -> Result<()> {
         CodecUtil::checksum_entire_file(&self.index_input)?;
         Ok(())
     }

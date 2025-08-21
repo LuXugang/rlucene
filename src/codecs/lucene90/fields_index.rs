@@ -18,7 +18,6 @@ use crate::codecs::lucene90::fields_index_reader::FieldsIndexReader;
 use crate::store::IndexInput;
 use crate::util::clone::TryClone;
 use crate::util::error::lucene_error::Result;
-#[allow(unused)]
 pub(crate) trait FieldsIndex: TryClone {
     /// Get the ID of the block that contains the given docID.
     fn get_block_id(&mut self, doc_id: i32) -> Result<i64>;
@@ -38,7 +37,7 @@ pub(crate) trait FieldsIndex: TryClone {
     }
 
     /// Check the integrity of the index.
-    fn check_integrity(&mut self) -> Result<()>;
+    fn check_integrity(&self) -> Result<()>;
 }
 
 pub(crate) enum FieldsIndexEnum<I>
@@ -93,7 +92,7 @@ where
         }
     }
 
-    fn check_integrity(&mut self) -> Result<()> {
+    fn check_integrity(&self) -> Result<()> {
         match self {
             FieldsIndexEnum::Lucene90(reader) => reader.check_integrity(),
         }
