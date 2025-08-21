@@ -174,10 +174,6 @@ impl<T> LongValues for AbstractPagedMutable<T>
 where
     T: AbstractPagedMutableBase,
 {
-    fn get(&mut self, index: i64) -> Result<i64> {
-        self.get_immutable(index)
-    }
-
     fn get_immutable(&self, index: i64) -> Result<i64> {
         debug_assert!(index < self.size, "index={} size={}", index, self.size);
         let page_index = self.page_index(index);

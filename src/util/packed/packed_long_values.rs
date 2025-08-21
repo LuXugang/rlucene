@@ -161,10 +161,6 @@ impl Accountable for PackedLongValues {
     }
 }
 impl LongValues for PackedLongValues {
-    fn get(&mut self, index: i64) -> Result<i64> {
-        self.get_immutable(index)
-    }
-
     fn get_immutable(&self, index: i64) -> Result<i64> {
         debug_assert!(index >= 0);
         debug_assert!(index < self.size());

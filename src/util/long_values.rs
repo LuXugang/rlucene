@@ -18,7 +18,9 @@ use crate::util::error::lucene_error::Result;
 
 /// Abstraction over an array of longs.
 pub trait LongValues {
-    fn get(&mut self, index: i64) -> Result<i64>;
+    fn get(&mut self, _index: i64) -> Result<i64> {
+        unimplemented!("")
+    }
 
     /// Add an extra, immutable version of the method.
     /// If you need to call get in an immutable context, you can implement this method.

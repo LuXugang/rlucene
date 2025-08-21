@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use crate::store::random_access_input::RandomAccessInput;
@@ -110,8 +110,8 @@ where
     bits_per_value: i32,
     num_values: i64,
     base_offset: i64,
-    buffer: Vec<i64>,
-    block_index: i64,
+    buffer: Vec<Cell<i64>>,
+    block_index: Cell<i64>,
 }
 impl<R> LongValuesImpl<R>
 where
@@ -128,12 +128,12 @@ where
             bits_per_value,
             num_values,
             base_offset,
-            buffer: vec![0; DirectReader::MERGE_BUFFER_SIZE as usize],
-            block_index: -1,
+            buffer: vec![Cell::new(-1); DirectReader::MERGE_BUFFER_SIZE as usize],
+            block_index: Cell::new(-1),
         }
     }
 
-    fn fill_buffer(&mut self, index: i64) -> Result<()> {
+    fn fill_buffer(&self, index: i64) -> Result<()> {
         // NOTE: we're not allowed to read more than 3 bytes past the last value
         let mut slice = self.slice.borrow_mut();
         if index >= self.num_values - DirectReader::MERGE_BUFFER_SIZE as i64 {
@@ -146,7 +146,7 @@ where
             drop(slice);
             let num_values_last_block = (self.num_values - index) as usize;
             for i in 0..num_values_last_block {
-                self.buffer[i] = slow_instance.get(index + i as i64)?;
+                self.buffer[i].set(slow_instance.get(index + i as i64)?);
             }
         } else if (self.bits_per_value & 0x07) == 0 {
             // bitsPerValue is a multiple of 8
@@ -159,13 +159,13 @@ where
             let mut offset = self.base_offset + (index * self.bits_per_value as i64) / 8;
             for i in 0..DirectReader::MERGE_BUFFER_SIZE as usize {
                 if self.bits_per_value > i32::BITS as i32 {
-                    self.buffer[i] = slice.read_long(offset)? & mask;
+                    self.buffer[i].set(slice.read_long(offset)? & mask);
                 } else if self.bits_per_value > i16::BITS as i32 {
-                    self.buffer[i] = (slice.read_int(offset)? as u32 as i64) & mask;
+                    self.buffer[i].set((slice.read_int(offset)? as u32 as i64) & mask);
                 } else if self.bits_per_value > i8::BITS as i32 {
-                    self.buffer[i] = slice.read_short(offset)? as u16 as i64;
+                    self.buffer[i].set(slice.read_short(offset)? as u16 as i64);
                 } else {
-                    self.buffer[i] = slice.read_byte(offset)? as i64;
+                    self.buffer[i].set(slice.read_byte(offset)? as i64);
                 }
                 offset += bytes_per_value as i64;
             }
@@ -178,7 +178,7 @@ where
             for _ in 0..(2 * self.bits_per_value) {
                 let bits = slice.read_long(offset)?;
                 for j in 0..values_per_long {
-                    self.buffer[i] = (bits as u64 >> (j * self.bits_per_value)) as i64 & mask;
+                    self.buffer[i].set((bits as u64 >> (j * self.bits_per_value)) as i64 & mask);
                     i += 1;
                 }
                 offset += BitUtil::LONG_BYTES as i64;
@@ -194,8 +194,8 @@ where
                 } else {
                     slice.read_int(offset)? as i64
                 };
-                self.buffer[i] = l & mask;
-                self.buffer[i + 1] = (l as u64 >> self.bits_per_value) as i64 & mask;
+                self.buffer[i].set(l & mask);
+                self.buffer[i + 1].set((l as u64 >> self.bits_per_value) as i64 & mask);
                 offset += num_bytes_for_2_values as i64;
             }
         }
@@ -206,15 +206,15 @@ impl<R> LongValues for LongValuesImpl<R>
 where
     R: RandomAccessInput,
 {
-    fn get(&mut self, index: i64) -> Result<i64> {
+    fn get_immutable(&self, index: i64) -> Result<i64> {
         debug_assert!(index >= 0);
         debug_assert!(index < self.num_values);
         let block_index = index >> DirectReader::MERGE_BUFFER_SHIFT;
-        if self.block_index != block_index {
+        if self.block_index.get() != block_index {
             self.fill_buffer(block_index << DirectReader::MERGE_BUFFER_SHIFT)?;
-            self.block_index = block_index;
+            self.block_index.set(block_index);
         }
-        Ok(self.buffer[(index & DirectReader::MERGE_BUFFER_MASK as i64) as usize])
+        Ok(self.buffer[(index & DirectReader::MERGE_BUFFER_MASK as i64) as usize].get())
     }
 }
 
