@@ -754,12 +754,12 @@ where
     fn get_sorted_numeric(
         &self,
         entry: &SortedNumericEntry,
-    ) -> Result<Lucene90SortedNumericDocValues<I>>
+    ) -> Result<Lucene90SortedNumericDocValuesEnum<I>>
     where
         I: IndexInput,
     {
         if entry.base.num_values == entry.num_docs_with_field as i64 {
-            return Ok(Lucene90SortedNumericDocValues::T(
+            return Ok(Lucene90SortedNumericDocValuesEnum::T(
                 DocValues::singleton_numeric(self.get_numeric(entry.base.clone())?)?,
             ));
         }
@@ -790,7 +790,7 @@ where
 
         if entry.base.docs_with_field_offset == -1 {
             // dense
-            Ok(Lucene90SortedNumericDocValues::F(
+            Ok(Lucene90SortedNumericDocValuesEnum::F(
                 DenseSortedNumericDocValues::new(self.max_doc, 0, 0, values, addresses),
             ))
         } else {
@@ -804,7 +804,7 @@ where
                 entry.num_docs_with_field as i64,
             )?;
 
-            Ok(Lucene90SortedNumericDocValues::S(
+            Ok(Lucene90SortedNumericDocValuesEnum::S(
                 SpareSortedNumericDocValues::new(disi, values, addresses),
             ))
         }
@@ -1001,7 +1001,7 @@ where
         }
     }
 
-    type SortedNumericDocValues = Lucene90SortedNumericDocValues<I>;
+    type SortedNumericDocValues = Lucene90SortedNumericDocValuesEnum<I>;
 
     fn get_sorted_numeric(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedNumericDocValues> {
         let entry = self.sorted_numerics.get(&field.number);
@@ -2553,13 +2553,13 @@ pub struct BaseSortedSetDocValuesImpl<I>
 where
     I: IndexInput,
 {
-    ords: Lucene90SortedNumericDocValues<I>,
+    ords: Lucene90SortedNumericDocValuesEnum<I>,
 }
 impl<I> BaseSortedSetDocValuesImpl<I>
 where
     I: IndexInput,
 {
-    fn new(ords: Lucene90SortedNumericDocValues<I>) -> Self {
+    fn new(ords: Lucene90SortedNumericDocValuesEnum<I>) -> Self {
         Self { ords }
     }
 }
@@ -3332,7 +3332,7 @@ where
 pub type Lucene90NumericDocValuesEnum<I> =
     Either3NumericDocValues<DenseNumericDocValues<I>, SparseNumericDocValues<I>, EmptyNumeric>;
 // 2.SortedNumericDocValues
-pub type Lucene90SortedNumericDocValues<I> = Either4SortedNumericDocValues<
+pub type Lucene90SortedNumericDocValuesEnum<I> = Either4SortedNumericDocValues<
     DenseSortedNumericDocValues<I>,
     SpareSortedNumericDocValues<I>,
     SingletonSortedNumericDocValues<Lucene90NumericDocValuesEnum<I>>,
