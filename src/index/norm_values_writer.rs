@@ -163,7 +163,7 @@ impl NormsProducer for NormsProducerImpl {
         }
     }
 
-    fn check_integrity(&mut self) -> Result<()> {
+    fn check_integrity(&self) -> Result<()> {
         Ok(())
     }
 }

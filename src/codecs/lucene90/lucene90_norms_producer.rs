@@ -565,7 +565,7 @@ where
         }
     }
 
-    fn check_integrity(&mut self) -> Result<()> {
+    fn check_integrity(&self) -> Result<()> {
         let _ = CodecUtil::checksum_entire_file(&self.data);
         Ok(())
     }

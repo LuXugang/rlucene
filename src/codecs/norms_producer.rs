@@ -37,7 +37,7 @@ pub trait NormsProducer {
     ///
     /// Note: this may be expensive in terms of I/O,
     /// for example it might compute a checksum over large data files.
-    fn check_integrity(&mut self) -> Result<()>;
+    fn check_integrity(&self) -> Result<()>;
 
     /// Returns an instance optimized for merging.
     ///
@@ -72,7 +72,7 @@ where
         }
     }
 
-    fn check_integrity(&mut self) -> Result<()> {
+    fn check_integrity(&self) -> Result<()> {
         match self {
             NormsProducerEnum::Lucene90(producer) => producer.check_integrity(),
         }
