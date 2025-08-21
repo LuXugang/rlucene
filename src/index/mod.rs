@@ -107,6 +107,7 @@ mod readers_and_updates;
 pub mod segment_commit_info;
 mod segment_core_readers;
 mod segment_doc_values;
+pub(crate) mod segment_doc_values_producer;
 pub mod segment_info;
 pub mod segment_infos;
 pub mod segment_read_state;

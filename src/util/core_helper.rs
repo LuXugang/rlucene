@@ -277,3 +277,25 @@ impl HashCode for Rc<i64> {
         (**self).hash_code()
     }
 }
+
+#[derive(Clone)]
+pub struct IdentityRc<T> {
+    pub object: Rc<T>,
+}
+impl<T> IdentityRc<T> {
+    pub fn new(object: Rc<T>) -> Self {
+        Self { object }
+    }
+}
+impl<T> PartialEq for IdentityRc<T> {
+    fn eq(&self, other: &Self) -> bool {
+        Rc::as_ptr(&self.object) == Rc::as_ptr(&other.object)
+    }
+}
+impl<T> Eq for IdentityRc<T> {}
+
+impl<T> Hash for IdentityRc<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        Rc::as_ptr(&self.object).hash(state)
+    }
+}
