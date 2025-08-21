@@ -78,7 +78,7 @@ macro_rules! either_binary_docvalues {
         where
             $( $T: BinaryDocValues ),+
         {
-            #[inline]
+
             fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
                 match self {
                     $( Self::$Variant(inner) => inner.binary_value(), )+

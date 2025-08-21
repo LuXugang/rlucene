@@ -113,7 +113,7 @@ macro_rules! either_sorted_docvalues {
         where
             $( $T: SortedDocValues ),+
         {
-            #[inline]
+
             fn advance_exact(&mut self, target: i32) -> Result<bool> {
                 match self {
                     $( Self::$Variant(inner) => inner.advance_exact(target), )+
@@ -126,23 +126,23 @@ macro_rules! either_sorted_docvalues {
         where
             $( $T: SortedDocValues ),+
         {
-            #[inline]
+
             fn doc_id(&self) -> i32 {
                 match self { $( Self::$Variant(inner) => inner.doc_id(), )+ }
             }
-            #[inline]
+
             fn next_doc(&mut self) -> Result<i32> {
                 match self { $( Self::$Variant(inner) => inner.next_doc(), )+ }
             }
-            #[inline]
+
             fn advance(&mut self, target: i32) -> Result<i32> {
                 match self { $( Self::$Variant(inner) => inner.advance(target), )+ }
             }
-            #[inline]
+
             fn slow_advance(&mut self, target: i32) -> Result<i32> {
                 match self { $( Self::$Variant(inner) => inner.slow_advance(target), )+ }
             }
-            #[inline]
+
             fn cost(&self) -> Result<i64> {
                 match self { $( Self::$Variant(inner) => inner.cost(), )+ }
             }
@@ -153,26 +153,26 @@ macro_rules! either_sorted_docvalues {
         where
             $( $T: SortedDocValues ),+
         {
-            #[inline]
+
             fn ord_value(&mut self) -> Result<i32> {
                 match self { $( Self::$Variant(inner) => inner.ord_value(), )+ }
             }
-            #[inline]
+
             fn lookup_ord(&mut self, _ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
                 match self { $( Self::$Variant(inner) => inner.lookup_ord(_ord), )+ }
             }
-            #[inline]
+
             fn get_value_count(&mut self) -> Result<i32> {
                 match self { $( Self::$Variant(inner) => inner.get_value_count(), )+ }
             }
-            #[inline]
+
             fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
                 match self { $( Self::$Variant(inner) => inner.lookup_term(key), )+ }
             }
 
             type TermsEnum = $terms_enum<$( $T::TermsEnum ),+>;
 
-            #[inline]
+
             fn terms_enum(&mut self) -> Result<Self::TermsEnum> {
                 match self {
                     $( Self::$Variant(inner) => {

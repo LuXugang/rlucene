@@ -52,7 +52,7 @@ macro_rules! either_sorted_numeric_docvalues {
         where
             $( $T: SortedNumericDocValues ),+
         {
-            #[inline]
+
             fn advance_exact(&mut self, target: i32) -> Result<bool> {
                 match self {
                     $( Self::$Variant(inner) => inner.advance_exact(target), )+
@@ -64,23 +64,23 @@ macro_rules! either_sorted_numeric_docvalues {
         where
             $( $T: SortedNumericDocValues ),+
         {
-            #[inline]
+
             fn doc_id(&self) -> i32 {
                 match self { $( Self::$Variant(inner) => inner.doc_id(), )+ }
             }
-            #[inline]
+
             fn next_doc(&mut self) -> Result<i32> {
                 match self { $( Self::$Variant(inner) => inner.next_doc(), )+ }
             }
-            #[inline]
+
             fn advance(&mut self, target: i32) -> Result<i32> {
                 match self { $( Self::$Variant(inner) => inner.advance(target), )+ }
             }
-            #[inline]
+
             fn slow_advance(&mut self, target: i32) -> Result<i32> {
                 match self { $( Self::$Variant(inner) => inner.slow_advance(target), )+ }
             }
-            #[inline]
+
             fn cost(&self) -> Result<i64> {
                 match self { $( Self::$Variant(inner) => inner.cost(), )+ }
             }
@@ -90,22 +90,22 @@ macro_rules! either_sorted_numeric_docvalues {
         where
             $( $T: SortedNumericDocValues ),+
         {
-            #[inline]
+
             fn next_value(&mut self) -> Result<i64> {
                 match self { $( Self::$Variant(inner) => inner.next_value(), )+ }
             }
-            #[inline]
+
             fn doc_value_count(&mut self) -> Result<i32> {
                 match self { $( Self::$Variant(inner) => inner.doc_value_count(), )+ }
             }
-            #[inline]
+
             fn is_single_valued(&self) -> bool {
                 match self { $( Self::$Variant(inner) => inner.is_single_valued(), )+ }
             }
 
             type NumericDocValues = $numdv<$( $T::NumericDocValues ),+>;
 
-            #[inline]
+
             fn get_numeric_doc_values(&mut self) -> Result<Option<Self::NumericDocValues>> {
                 match self {
                     $( Self::$Variant(inner) => {
