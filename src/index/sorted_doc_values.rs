@@ -18,7 +18,7 @@ use std::borrow::Cow;
 
 use crate::index::BytesRef;
 use crate::index::doc_values_iterator::DocValuesIterator;
-use crate::index::terms_enum::EitherTermsEnum;
+use crate::index::terms_enum::Either2TermsEnum;
 use crate::index::terms_enum::TermsEnum;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::util::ToInt;
@@ -185,7 +185,7 @@ macro_rules! either_sorted_docvalues {
     };
 }
 either_sorted_docvalues!(
-    pub EitherSortedDocValues
-    => EitherTermsEnum
+    pub Either2SortedDocValues
+    => Either2TermsEnum
     { F: F, S: S }
 );

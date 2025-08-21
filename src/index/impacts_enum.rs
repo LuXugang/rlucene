@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::index::BytesRef;
-use crate::index::impacts::EitherImpacts;
+use crate::index::impacts::Either2Impacts;
 use crate::index::impacts_source::ImpactsSource;
 use crate::index::postings_enum::PostingsEnum;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
@@ -26,122 +26,122 @@ use std::borrow::Cow;
 /// impacts.
 pub trait ImpactsEnum: PostingsEnum + ImpactsSource {}
 
-pub enum EitherImpactsEnum<F, S> {
+pub enum Either2ImpactsEnum<F, S> {
     F(F),
     S(S),
 }
 
-impl<F, S> PostingsEnum for EitherImpactsEnum<F, S>
+impl<F, S> PostingsEnum for Either2ImpactsEnum<F, S>
 where
     F: ImpactsEnum,
     S: ImpactsEnum,
 {
     fn freq(&mut self) -> lucene_error::Result<i32> {
         match self {
-            EitherImpactsEnum::F(t) => t.freq(),
-            EitherImpactsEnum::S(s) => s.freq(),
+            Either2ImpactsEnum::F(t) => t.freq(),
+            Either2ImpactsEnum::S(s) => s.freq(),
         }
     }
 
     fn next_position(&mut self) -> lucene_error::Result<i32> {
         match self {
-            EitherImpactsEnum::F(t) => t.next_position(),
-            EitherImpactsEnum::S(s) => s.next_position(),
+            Either2ImpactsEnum::F(t) => t.next_position(),
+            Either2ImpactsEnum::S(s) => s.next_position(),
         }
     }
 
     fn start_offset(&self) -> lucene_error::Result<i32> {
         match self {
-            EitherImpactsEnum::F(t) => t.start_offset(),
-            EitherImpactsEnum::S(s) => s.start_offset(),
+            Either2ImpactsEnum::F(t) => t.start_offset(),
+            Either2ImpactsEnum::S(s) => s.start_offset(),
         }
     }
 
     fn end_offset(&self) -> lucene_error::Result<i32> {
         match self {
-            EitherImpactsEnum::F(t) => t.end_offset(),
-            EitherImpactsEnum::S(s) => s.end_offset(),
+            Either2ImpactsEnum::F(t) => t.end_offset(),
+            Either2ImpactsEnum::S(s) => s.end_offset(),
         }
     }
 
     fn get_payload(&self) -> lucene_error::Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
         match self {
-            EitherImpactsEnum::F(t) => t.get_payload(),
-            EitherImpactsEnum::S(s) => s.get_payload(),
+            Either2ImpactsEnum::F(t) => t.get_payload(),
+            Either2ImpactsEnum::S(s) => s.get_payload(),
         }
     }
 }
 
-impl<F, S> DocIdSetIterator for EitherImpactsEnum<F, S>
+impl<F, S> DocIdSetIterator for Either2ImpactsEnum<F, S>
 where
     F: ImpactsEnum,
     S: ImpactsEnum,
 {
     fn doc_id(&self) -> i32 {
         match self {
-            EitherImpactsEnum::F(t) => t.doc_id(),
-            EitherImpactsEnum::S(s) => s.doc_id(),
+            Either2ImpactsEnum::F(t) => t.doc_id(),
+            Either2ImpactsEnum::S(s) => s.doc_id(),
         }
     }
 
     fn next_doc(&mut self) -> lucene_error::Result<i32> {
         match self {
-            EitherImpactsEnum::F(t) => t.next_doc(),
-            EitherImpactsEnum::S(s) => s.next_doc(),
+            Either2ImpactsEnum::F(t) => t.next_doc(),
+            Either2ImpactsEnum::S(s) => s.next_doc(),
         }
     }
 
     fn advance(&mut self, target: i32) -> lucene_error::Result<i32> {
         match self {
-            EitherImpactsEnum::F(t) => t.advance(target),
-            EitherImpactsEnum::S(s) => s.advance(target),
+            Either2ImpactsEnum::F(t) => t.advance(target),
+            Either2ImpactsEnum::S(s) => s.advance(target),
         }
     }
 
     fn slow_advance(&mut self, target: i32) -> lucene_error::Result<i32> {
         match self {
-            EitherImpactsEnum::F(t) => t.slow_advance(target),
-            EitherImpactsEnum::S(s) => s.slow_advance(target),
+            Either2ImpactsEnum::F(t) => t.slow_advance(target),
+            Either2ImpactsEnum::S(s) => s.slow_advance(target),
         }
     }
 
     fn cost(&self) -> lucene_error::Result<i64> {
         match self {
-            EitherImpactsEnum::F(t) => t.cost(),
-            EitherImpactsEnum::S(s) => s.cost(),
+            Either2ImpactsEnum::F(t) => t.cost(),
+            Either2ImpactsEnum::S(s) => s.cost(),
         }
     }
 }
 
-impl<F, S> ImpactsSource for EitherImpactsEnum<F, S>
+impl<F, S> ImpactsSource for Either2ImpactsEnum<F, S>
 where
     S: ImpactsEnum,
     F: ImpactsEnum,
 {
     fn advance_shallow(&mut self, target: i32) -> lucene_error::Result<()> {
         match self {
-            EitherImpactsEnum::F(t) => t.advance_shallow(target),
-            EitherImpactsEnum::S(s) => s.advance_shallow(target),
+            Either2ImpactsEnum::F(t) => t.advance_shallow(target),
+            Either2ImpactsEnum::S(s) => s.advance_shallow(target),
         }
     }
 
-    type Impacts = EitherImpacts<F::Impacts, S::Impacts>;
+    type Impacts = Either2Impacts<F::Impacts, S::Impacts>;
 
     fn get_impacts(&mut self) -> lucene_error::Result<Self::Impacts> {
         match self {
-            EitherImpactsEnum::F(t) => {
+            Either2ImpactsEnum::F(t) => {
                 let impacts = t.get_impacts()?;
-                Ok(EitherImpacts::F(impacts))
+                Ok(Either2Impacts::F(impacts))
             },
-            EitherImpactsEnum::S(s) => {
+            Either2ImpactsEnum::S(s) => {
                 let impacts = s.get_impacts()?;
-                Ok(EitherImpacts::S(impacts))
+                Ok(Either2Impacts::S(impacts))
             },
         }
     }
 }
 
-impl<F, S> ImpactsEnum for EitherImpactsEnum<F, S>
+impl<F, S> ImpactsEnum for Either2ImpactsEnum<F, S>
 where
     F: ImpactsEnum,
     S: ImpactsEnum,

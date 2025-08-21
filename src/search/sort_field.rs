@@ -21,9 +21,9 @@ use crate::index::index_sorter::{
     NumericDocValuesProvider, SortedDocValuesProvider, StringSorter,
 };
 use crate::index::leaf_reader::LeafReader;
-use crate::index::numeric_doc_values::EitherNumericDocValues;
+use crate::index::numeric_doc_values::Either2NumericDocValues;
 use crate::index::sort_field_provider::SortFieldProvider;
-use crate::index::sorted_doc_values::EitherSortedDocValues;
+use crate::index::sorted_doc_values::Either2SortedDocValues;
 use crate::search::field_comparator_source::FieldComparatorSourceEnum;
 use crate::search::sort_field_enum::SortFieldEnum;
 use crate::search::sorted_numeric_sort_field::NumericProvider;
@@ -504,7 +504,7 @@ impl NumericDocValuesProviderImpl {
 }
 impl NumericDocValuesProvider for NumericDocValuesProviderImpl {
     type NumericDocValues<LR>
-        = EitherNumericDocValues<LR::NumericDocValues, EmptyNumeric>
+        = Either2NumericDocValues<LR::NumericDocValues, EmptyNumeric>
     where
         LR: LeafReader;
     fn get<LR>(&mut self, leaf_reader: &mut LR) -> Result<Self::NumericDocValues<LR>>
@@ -797,7 +797,7 @@ impl SortedDocValuesProviderImpl {
 }
 impl SortedDocValuesProvider for SortedDocValuesProviderImpl {
     type SortedDocValues<LR>
-        = EitherSortedDocValues<LR::SortedDocValues, EmptySorted>
+        = Either2SortedDocValues<LR::SortedDocValues, EmptySorted>
     where
         LR: LeafReader;
 
@@ -818,7 +818,7 @@ impl NumericDocValuesProviderImpl1 {
 }
 impl NumericDocValuesProvider for NumericDocValuesProviderImpl1 {
     type NumericDocValues<LR>
-        = EitherNumericDocValues<LR::NumericDocValues, EmptyNumeric>
+        = Either2NumericDocValues<LR::NumericDocValues, EmptyNumeric>
     where
         LR: LeafReader;
 

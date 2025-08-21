@@ -87,5 +87,5 @@ macro_rules! either_binary_docvalues {
         }
     };
 }
-either_binary_docvalues!(pub EitherBinaryDocValues { F: F, S: S });
-either_binary_docvalues!(pub EitherBinaryDocValues3 { F: F, S: S, T:T });
+either_binary_docvalues!(pub Either2BinaryDocValues { F: F, S: S });
+either_binary_docvalues!(pub Either3BinaryDocValues { F: F, S: S, T:T });

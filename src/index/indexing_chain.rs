@@ -43,7 +43,7 @@ use crate::index::freq_prox_terms_writer::FreqProxTermsWriter;
 use crate::index::freq_prox_terms_writer_per_field::FreqProxTermsWriterPerField;
 use crate::index::index_options::IndexOptions;
 use crate::index::index_reader::IndexReader;
-use crate::index::index_sorter::EitherDocComparator;
+use crate::index::index_sorter::Either2DocComparator;
 use crate::index::index_sorter::{DocComparator, IndexSorter};
 use crate::index::index_writer::index_writer_util;
 use crate::index::indexable_field::IndexableField;
@@ -60,12 +60,12 @@ use crate::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDoc
 use crate::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
 use crate::index::sort::Sort;
 use crate::index::sorted_doc_values_writer::{BufferedSortedDocValues, SortedDocValuesWriter};
-use crate::index::sorted_numeric_doc_values::EitherSortedNumericDocValues;
+use crate::index::sorted_numeric_doc_values::Either2SortedNumericDocValues;
 use crate::index::sorted_numeric_doc_values_writer::{
     BufferedSortedNumericDocValues, SortedNumericDocValuesWriter,
 };
 use crate::index::sorted_set_doc_values_writer::{
-    BufferedSortedSetDocValues, EitherSortedSetDocValues, SortedSetDocValuesWriter,
+    BufferedSortedSetDocValues, Either2SortedSetDocValues, SortedSetDocValuesWriter,
 };
 use crate::index::sorter::{DocMap, DocMapImpl, Sorter};
 use crate::index::sorting_stored_fields_consumer::SortingStoredFieldsConsumer;
@@ -86,7 +86,7 @@ use crate::util::allocator_byte::{
 };
 use crate::util::array_util::ArrayUtil;
 use crate::util::attribute_source::{AttributeSource, EmptyAttributeSource};
-use crate::util::bit_set::EitherBitSet;
+use crate::util::bit_set::Either2BitSet;
 use crate::util::bit_set::{BitSet, bit_set_util};
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -252,11 +252,11 @@ where
             })?;
             let doc_comparator = sorter.get_doc_comparator(&mut doc_values_reader, max_doc)?;
             let v = match &parent_bit_set {
-                Some(parent_bit_set) => EitherDocComparator::F(DocComparatorImpl::new(
+                Some(parent_bit_set) => Either2DocComparator::F(DocComparatorImpl::new(
                     parent_bit_set.clone(),
                     doc_comparator,
                 )),
-                None => EitherDocComparator::S(doc_comparator),
+                None => Either2DocComparator::S(doc_comparator),
             };
             comparators.push(v);
         }
@@ -2027,7 +2027,7 @@ where
         }
     }
 
-    type SortedNumericDocValues = EitherSortedNumericDocValues<
+    type SortedNumericDocValues = Either2SortedNumericDocValues<
         SingletonSortedNumericDocValues<BufferedNumericDocValues>,
         BufferedSortedNumericDocValues<DocsWithFieldSetDISI>,
     >;
@@ -2059,7 +2059,7 @@ where
         }
     }
 
-    type SortedSetDocValues = EitherSortedSetDocValues<
+    type SortedSetDocValues = Either2SortedSetDocValues<
         SingletonSortedSetDocValues<BufferedSortedDocValues<DocsWithFieldSetDISI>>,
         BufferedSortedSetDocValues<DocsWithFieldSetDISI>,
     >;
@@ -2241,14 +2241,14 @@ struct DocComparatorImpl<DC>
 where
     DC: DocComparator,
 {
-    parents: Rc<EitherBitSet<SparseFixedBitSet, FixedBitSet>>,
+    parents: Rc<Either2BitSet<SparseFixedBitSet, FixedBitSet>>,
     doc_comparator: DC,
 }
 impl<DC> DocComparatorImpl<DC>
 where
     DC: DocComparator,
 {
-    fn new(parents: Rc<EitherBitSet<SparseFixedBitSet, FixedBitSet>>, doc_comparator: DC) -> Self {
+    fn new(parents: Rc<Either2BitSet<SparseFixedBitSet, FixedBitSet>>, doc_comparator: DC) -> Self {
         DocComparatorImpl {
             parents,
             doc_comparator,

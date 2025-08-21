@@ -27,7 +27,7 @@ use crate::store::IOContext;
 use crate::store::directory::Directory;
 use crate::store::tracking_directory_wrapper::TrackingDirectoryWrapper;
 use crate::util::IOUtils;
-use crate::util::bits::{Bits, EitherBits};
+use crate::util::bits::{Bits, Either2Bits};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::{FixedBit, FixedBitSet};
 use parking_lot::Mutex;
@@ -41,7 +41,7 @@ where
 {
     // SegmentInfo#id
     pub(crate) info_id: String,
-    live_docs: Option<EitherBits<Arc<L::Bits>, EitherBits<Arc<FixedBit>, FixedBitSet>>>,
+    live_docs: Option<Either2Bits<Arc<L::Bits>, Either2Bits<Arc<FixedBit>, FixedBitSet>>>,
     writeable_live_docs: bool,
     pub(crate) pending_delete_count: i32,
     pub(crate) live_docs_initialized: bool,
@@ -61,7 +61,7 @@ where
     {
         let mut v = Self::with(
             info.info.get_id_str(),
-            reader.get_live_docs()?.map(EitherBits::F),
+            reader.get_live_docs()?.map(Either2Bits::F),
             true,
             info.info.max_doc()?,
         );
@@ -88,7 +88,7 @@ where
 
     pub(crate) fn with(
         info_id: String,
-        live_docs: Option<EitherBits<Arc<L::Bits>, EitherBits<Arc<FixedBit>, FixedBitSet>>>,
+        live_docs: Option<Either2Bits<Arc<L::Bits>, Either2Bits<Arc<FixedBit>, FixedBitSet>>>,
         live_docs_initialized: bool,
         max_doc: i32,
     ) -> Self {
@@ -110,23 +110,23 @@ where
         );
         if !self.writeable_live_docs {
             self.live_docs = if self.live_docs.is_some() {
-                Some(EitherBits::S(EitherBits::S(
+                Some(Either2Bits::S(Either2Bits::S(
                     self.live_docs.take().unwrap().copy_of(),
                 )))
             } else {
                 let mut v = FixedBitSet::new(self.max_doc);
                 v.set_with_range(0, self.max_doc);
-                Some(EitherBits::S(EitherBits::S(v)))
+                Some(Either2Bits::S(Either2Bits::S(v)))
             };
         }
         match self.live_docs.as_mut().unwrap() {
-            EitherBits::S(bs) => match bs {
-                EitherBits::F(_) => Err(LuceneError::illegal_state(
+            Either2Bits::S(bs) => match bs {
+                Either2Bits::F(_) => Err(LuceneError::illegal_state(
                     "live_docs should be FixedBitSet ",
                 )),
-                EitherBits::S(v) => Ok(v),
+                Either2Bits::S(v) => Ok(v),
             },
-            EitherBits::F(_) => Err(LuceneError::illegal_state(
+            Either2Bits::F(_) => Err(LuceneError::illegal_state(
                 "live_docs should be FixedBitSet ",
             )),
         }
@@ -154,23 +154,23 @@ where
         Ok(did_delete)
     }
     /// Returns a snapshot of the current live docs.
-    pub(crate) fn get_live_docs(&mut self) -> Option<EitherBits<Arc<L::Bits>, Arc<FixedBit>>> {
+    pub(crate) fn get_live_docs(&mut self) -> Option<Either2Bits<Arc<L::Bits>, Arc<FixedBit>>> {
         // Prevent modifications to the returned live docs
         self.writeable_live_docs = false;
         match self.live_docs.take() {
-            Some(EitherBits::F(bits)) => {
-                self.live_docs = Some(EitherBits::F(bits.clone()));
-                Some(EitherBits::F(bits))
+            Some(Either2Bits::F(bits)) => {
+                self.live_docs = Some(Either2Bits::F(bits.clone()));
+                Some(Either2Bits::F(bits))
             },
-            Some(EitherBits::S(bits)) => match bits {
-                EitherBits::F(fixed_bits) => {
-                    self.live_docs = Some(EitherBits::S(EitherBits::F(fixed_bits.clone())));
-                    Some(EitherBits::S(fixed_bits))
+            Some(Either2Bits::S(bits)) => match bits {
+                Either2Bits::F(fixed_bits) => {
+                    self.live_docs = Some(Either2Bits::S(Either2Bits::F(fixed_bits.clone())));
+                    Some(Either2Bits::S(fixed_bits))
                 },
-                EitherBits::S(fixed_bit_set) => {
+                Either2Bits::S(fixed_bit_set) => {
                     let v = Arc::new(fixed_bit_set.to_read_only_bits());
-                    self.live_docs = Some(EitherBits::S(EitherBits::F(v.clone())));
-                    Some(EitherBits::S(v))
+                    self.live_docs = Some(Either2Bits::S(Either2Bits::F(v.clone())));
+                    Some(Either2Bits::S(v))
                 },
             },
             None => None,
@@ -178,7 +178,9 @@ where
     }
 
     /// Returns a snapshot of the hard live docs.
-    pub(crate) fn get_hard_live_docs(&mut self) -> Option<EitherBits<Arc<L::Bits>, Arc<FixedBit>>> {
+    pub(crate) fn get_hard_live_docs(
+        &mut self,
+    ) -> Option<Either2Bits<Arc<L::Bits>, Arc<FixedBit>>> {
         self.get_live_docs()
     }
 
@@ -317,7 +319,7 @@ where
     {
         let same_live_docs = match (reader.get_live_docs()?, self.get_live_docs()) {
             (None, None) => true,
-            (Some(reader_bits), Some(EitherBits::F(current_bits))) => {
+            (Some(reader_bits), Some(Either2Bits::F(current_bits))) => {
                 Arc::ptr_eq(&reader_bits, &current_bits)
             },
             _ => false,

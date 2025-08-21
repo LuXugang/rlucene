@@ -22,7 +22,7 @@ use crate::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNumericDocValues;
 use crate::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocValues;
 use crate::index::binary_doc_values::BinaryDocValues;
-use crate::index::binary_doc_values::EitherBinaryDocValues;
+use crate::index::binary_doc_values::Either2BinaryDocValues;
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::doc_values_writer::DocValuesWriter;
 use crate::index::docs_with_field_set::{DocsWithFieldSet, DocsWithFieldSetDISI};
@@ -234,7 +234,7 @@ impl DocValuesProducerImpl {
 }
 impl DocValuesProducer for DocValuesProducerImpl {
     type NumericDocValues = DummyNumericDocValues;
-    type BinaryDocValues = EitherBinaryDocValues<
+    type BinaryDocValues = Either2BinaryDocValues<
         SortingBinaryDocValues,
         BufferedBinaryDocValues<DocsWithFieldSetDISI, PagedBytesDataInput>,
     >;
@@ -244,10 +244,10 @@ impl DocValuesProducer for DocValuesProducerImpl {
             return Err(LuceneError::illegal_argument("wrong fieldInfo"));
         }
         match &self.sorted {
-            Some(sorted) => Ok(EitherBinaryDocValues::F(SortingBinaryDocValues::new(
+            Some(sorted) => Ok(Either2BinaryDocValues::F(SortingBinaryDocValues::new(
                 sorted.clone(),
             ))),
-            None => Ok(EitherBinaryDocValues::S(BufferedBinaryDocValues::new(
+            None => Ok(Either2BinaryDocValues::S(BufferedBinaryDocValues::new(
                 &self.final_lengths,
                 self.max_length as usize,
                 paged_bytes_util::get_data_input(&self.paged_bytes)?,

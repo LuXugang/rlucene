@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::search::doc_id_set::DocIdSet;
-use crate::search::doc_id_set_iterator::{AllDocIdSetIterator, EitherDocIdSetIterator};
+use crate::search::doc_id_set_iterator::{AllDocIdSetIterator, Either2DocIdSetIterator};
 use crate::util::accountable::Accountable;
 use crate::util::bit_set::BitSet;
 use crate::util::bit_set_iterator::BitSetIterator;
@@ -103,7 +103,7 @@ impl Accountable for DocsWithFieldSet {
 }
 
 pub(crate) type DocsWithFieldSetDISI =
-    EitherDocIdSetIterator<AllDocIdSetIterator, BitSetIterator<FixedBitSet, Arc<FixedBitSet>>>;
+    Either2DocIdSetIterator<AllDocIdSetIterator, BitSetIterator<FixedBitSet, Arc<FixedBitSet>>>;
 
 impl DocIdSet for DocsWithFieldSet {
     type DocIdSetIterator = DocsWithFieldSetDISI;
@@ -117,12 +117,12 @@ impl DocIdSet for DocsWithFieldSet {
                 ));
             }
             debug_assert!(self.cardinality > 0);
-            Ok(Some(EitherDocIdSetIterator::S(BitSetIterator::new(
+            Ok(Some(Either2DocIdSetIterator::S(BitSetIterator::new(
                 self.set_iter.as_ref().unwrap().clone(),
                 self.cardinality as i64,
             )?)))
         } else {
-            Ok(Some(EitherDocIdSetIterator::F(AllDocIdSetIterator::new(
+            Ok(Some(Either2DocIdSetIterator::F(AllDocIdSetIterator::new(
                 self.cardinality,
             ))))
         }

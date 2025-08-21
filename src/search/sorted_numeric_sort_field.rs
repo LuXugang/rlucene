@@ -22,7 +22,7 @@ use crate::index::index_sorter::{
 use crate::index::leaf_reader::LeafReader;
 use crate::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
 use crate::index::sort_field_provider::SortFieldProvider;
-use crate::index::sorted_numeric_doc_values::EitherSortedNumericDocValues;
+use crate::index::sorted_numeric_doc_values::Either2SortedNumericDocValues;
 use crate::search::sort_field::{MissingValueEnum, SortField, SortFieldType, SortFiledBase};
 use crate::search::sort_field_enum::SortFieldEnum;
 use crate::search::sorted_numeric_selector::{
@@ -336,9 +336,9 @@ impl NumericDocValuesProviderImpl {
 impl NumericDocValuesProvider for NumericDocValuesProviderImpl {
     type NumericDocValues<LR>
         = NumericDocValuesImpl<
-        EitherSortedNumericDocValues<
+        Either2SortedNumericDocValues<
             LR::SortedNumericDocValues,
-            EitherSortedNumericDocValues<
+            Either2SortedNumericDocValues<
                 SingletonSortedNumericDocValues<LR::NumericDocValues>,
                 SingletonSortedNumericDocValues<EmptyNumeric>,
             >,

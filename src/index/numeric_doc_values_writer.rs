@@ -25,7 +25,7 @@ use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::doc_values_writer::DocValuesWriter;
 use crate::index::docs_with_field_set::{DocsWithFieldSet, DocsWithFieldSetDISI};
 use crate::index::field_info::FieldInfo;
-use crate::index::numeric_doc_values::EitherNumericDocValues;
+use crate::index::numeric_doc_values::Either2NumericDocValues;
 use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::segment_info::SegmentInfo;
 use crate::index::sorter::DocMap;
@@ -183,17 +183,17 @@ impl DocValuesProducerImpl {
 }
 impl DocValuesProducer for DocValuesProducerImpl {
     type NumericDocValues =
-        EitherNumericDocValues<BufferedNumericDocValues, SortingNumericDocValues<FixedBitSet>>;
+        Either2NumericDocValues<BufferedNumericDocValues, SortingNumericDocValues<FixedBitSet>>;
 
     fn get_numeric(&self, field_info: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
         if !Arc::ptr_eq(field_info, &self.writer_field_info) {
             return Err(LuceneError::illegal_argument("wrong fieldInfo"));
         }
         match self.sorted {
-            Some(ref sorted) => Ok(EitherNumericDocValues::S(SortingNumericDocValues::new(
+            Some(ref sorted) => Ok(Either2NumericDocValues::S(SortingNumericDocValues::new(
                 sorted.clone(),
             ))),
-            None => Ok(EitherNumericDocValues::F(BufferedNumericDocValues::new(
+            None => Ok(Either2NumericDocValues::F(BufferedNumericDocValues::new(
                 &self.values,
                 self.docs_with_field.iterator()?.unwrap(),
             ))),

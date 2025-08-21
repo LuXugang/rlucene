@@ -41,27 +41,27 @@ impl LongValues for Identity {
 }
 
 // LongValues
-pub enum EitherLongValues<F, S> {
+pub enum Either2LongValues<F, S> {
     F(F),
     S(S),
 }
 
-impl<F, S> LongValues for EitherLongValues<F, S>
+impl<F, S> LongValues for Either2LongValues<F, S>
 where
     F: LongValues,
     S: LongValues,
 {
     fn get(&mut self, index: i64) -> Result<i64> {
         match self {
-            EitherLongValues::F(t) => t.get(index),
-            EitherLongValues::S(s) => s.get(index),
+            Either2LongValues::F(t) => t.get(index),
+            Either2LongValues::S(s) => s.get(index),
         }
     }
 
     fn get_immutable(&self, _index: i64) -> Result<i64> {
         match self {
-            EitherLongValues::F(t) => t.get_immutable(_index),
-            EitherLongValues::S(s) => s.get_immutable(_index),
+            Either2LongValues::F(t) => t.get_immutable(_index),
+            Either2LongValues::S(s) => s.get_immutable(_index),
         }
     }
 }

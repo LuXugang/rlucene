@@ -16,20 +16,20 @@
  */
 use crate::index::BytesRef;
 use crate::index::binary_doc_values::BinaryDocValues;
-use crate::index::binary_doc_values::EitherBinaryDocValues;
+use crate::index::binary_doc_values::Either2BinaryDocValues;
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::doc_values_type::DocValuesType;
 use crate::index::dummy::dummy_terms_enum::DummyTermsEnum;
 use crate::index::leaf_reader::LeafReader;
-use crate::index::numeric_doc_values::{EitherNumericDocValues, NumericDocValues};
+use crate::index::numeric_doc_values::{Either2NumericDocValues, NumericDocValues};
 use crate::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
 use crate::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
-use crate::index::sorted_doc_values::{EitherSortedDocValues, SortedDocValues};
+use crate::index::sorted_doc_values::{Either2SortedDocValues, SortedDocValues};
 use crate::index::sorted_numeric_doc_values::{
-    EitherSortedNumericDocValues, SortedNumericDocValues,
+    Either2SortedNumericDocValues, SortedNumericDocValues,
 };
 use crate::index::sorted_set_doc_values::SortedSetDocValues;
-use crate::index::sorted_set_doc_values_writer::EitherSortedSetDocValues;
+use crate::index::sorted_set_doc_values_writer::Either2SortedSetDocValues;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -136,15 +136,15 @@ impl DocValues {
     pub fn get_numeric<LR>(
         reader: &mut LR,
         field: &str,
-    ) -> Result<EitherNumericDocValues<LR::NumericDocValues, EmptyNumeric>>
+    ) -> Result<Either2NumericDocValues<LR::NumericDocValues, EmptyNumeric>>
     where
         LR: LeafReader,
     {
         match reader.get_numeric_doc_values(field)? {
-            Some(dv) => Ok(EitherNumericDocValues::F(dv)),
+            Some(dv) => Ok(Either2NumericDocValues::F(dv)),
             None => {
                 Self::check_field(reader, field, &[DocValuesType::Numeric])?;
-                Ok(EitherNumericDocValues::S(Self::empty_numeric()))
+                Ok(Either2NumericDocValues::S(Self::empty_numeric()))
             },
         }
     }
@@ -161,15 +161,15 @@ impl DocValues {
     pub fn get_binary<LR>(
         reader: &mut LR,
         field: &str,
-    ) -> Result<EitherBinaryDocValues<LR::BinaryDocValues, EmptyBinary>>
+    ) -> Result<Either2BinaryDocValues<LR::BinaryDocValues, EmptyBinary>>
     where
         LR: LeafReader,
     {
         match reader.get_binary_doc_values(field)? {
-            Some(dv) => Ok(EitherBinaryDocValues::F(dv)),
+            Some(dv) => Ok(Either2BinaryDocValues::F(dv)),
             None => {
                 Self::check_field(reader, field, &[DocValuesType::Binary])?;
-                Ok(EitherBinaryDocValues::S(Self::empty_binary()))
+                Ok(Either2BinaryDocValues::S(Self::empty_binary()))
             },
         }
     }
@@ -186,15 +186,15 @@ impl DocValues {
     pub fn get_sorted<LR>(
         reader: &mut LR,
         field: &str,
-    ) -> Result<EitherSortedDocValues<LR::SortedDocValues, EmptySorted>>
+    ) -> Result<Either2SortedDocValues<LR::SortedDocValues, EmptySorted>>
     where
         LR: LeafReader,
     {
         match reader.get_sorted_doc_values(field)? {
-            Some(dv) => Ok(EitherSortedDocValues::F(dv)),
+            Some(dv) => Ok(Either2SortedDocValues::F(dv)),
             None => {
                 Self::check_field(reader, field, &[DocValuesType::Sorted])?;
-                Ok(EitherSortedDocValues::S(Self::empty_sorted()))
+                Ok(Either2SortedDocValues::S(Self::empty_sorted()))
             },
         }
     }
@@ -212,9 +212,9 @@ impl DocValues {
         reader: &mut LR,
         field: &str,
     ) -> Result<
-        EitherSortedNumericDocValues<
+        Either2SortedNumericDocValues<
             LR::SortedNumericDocValues,
-            EitherSortedNumericDocValues<
+            Either2SortedNumericDocValues<
                 SingletonSortedNumericDocValues<LR::NumericDocValues>,
                 SingletonSortedNumericDocValues<EmptyNumeric>,
             >,
@@ -224,18 +224,18 @@ impl DocValues {
         LR: LeafReader,
     {
         match reader.get_sorted_numeric_doc_values(field)? {
-            Some(dv) => Ok(EitherSortedNumericDocValues::F(dv)),
+            Some(dv) => Ok(Either2SortedNumericDocValues::F(dv)),
             None => {
                 let v = match reader.get_numeric_doc_values(field)? {
                     Some(single) => {
-                        EitherSortedNumericDocValues::F(Self::singleton_numeric(single)?)
+                        Either2SortedNumericDocValues::F(Self::singleton_numeric(single)?)
                     },
                     None => {
                         Self::check_field(reader, field, &[DocValuesType::SortedNumeric])?;
-                        EitherSortedNumericDocValues::S(Self::empty_sorted_numeric()?)
+                        Either2SortedNumericDocValues::S(Self::empty_sorted_numeric()?)
                     },
                 };
-                Ok(EitherSortedNumericDocValues::S(v))
+                Ok(Either2SortedNumericDocValues::S(v))
             },
         }
     }
@@ -253,9 +253,9 @@ impl DocValues {
         reader: &mut LR,
         field: &str,
     ) -> Result<
-        EitherSortedSetDocValues<
+        Either2SortedSetDocValues<
             LR::SortedSetDocValues,
-            EitherSortedSetDocValues<
+            Either2SortedSetDocValues<
                 SingletonSortedSetDocValues<LR::SortedDocValues>,
                 SingletonSortedSetDocValues<EmptySorted>,
             >,
@@ -265,20 +265,20 @@ impl DocValues {
         LR: LeafReader,
     {
         match reader.get_sorted_set_doc_values(field)? {
-            Some(dv) => Ok(EitherSortedSetDocValues::F(dv)),
+            Some(dv) => Ok(Either2SortedSetDocValues::F(dv)),
             None => {
                 let v = match reader.get_sorted_doc_values(field)? {
-                    Some(sorted) => EitherSortedSetDocValues::F(Self::singleton_sorted(sorted)?),
+                    Some(sorted) => Either2SortedSetDocValues::F(Self::singleton_sorted(sorted)?),
                     None => {
                         Self::check_field(
                             reader,
                             field,
                             &[DocValuesType::Sorted, DocValuesType::SortedSet],
                         )?;
-                        EitherSortedSetDocValues::S(Self::empty_sorted_set()?)
+                        Either2SortedSetDocValues::S(Self::empty_sorted_set()?)
                     },
                 };
-                Ok(EitherSortedSetDocValues::S(v))
+                Ok(Either2SortedSetDocValues::S(v))
             },
         }
     }

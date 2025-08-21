@@ -24,7 +24,7 @@ use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::index::segment_reader::SegmentReader;
 use crate::store::IOContext;
 use crate::store::directory::Directory;
-use crate::util::bits::EitherBits;
+use crate::util::bits::Either2Bits;
 use crate::util::error::lucene_error::Result;
 use crate::util::fixed_bit_set::FixedBit;
 use num_bigint::BigInt;
@@ -219,7 +219,9 @@ where
         }
     }
 
-    pub(crate) fn get_hard_live_docs(&mut self) -> Option<EitherBits<Arc<L::Bits>, Arc<FixedBit>>> {
+    pub(crate) fn get_hard_live_docs(
+        &mut self,
+    ) -> Option<Either2Bits<Arc<L::Bits>, Arc<FixedBit>>> {
         match self.field {
             Some(_) => self.hard_deletes.get_live_docs(),
             None => self.base.get_hard_live_docs(),

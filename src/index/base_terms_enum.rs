@@ -18,9 +18,9 @@ use std::borrow::Cow;
 use std::fmt::{Debug, Display, Formatter};
 
 use crate::index::BytesRef;
-use crate::index::term_state::{EitherTermState, TermState, TermStateEnum};
+use crate::index::term_state::{Either2TermState, TermState, TermStateEnum};
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
-use crate::util::attribute_source::EitherAttributeSource;
+use crate::util::attribute_source::Either2AttributeSource;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -57,14 +57,14 @@ impl<S> TermsEnum for BaseTermsEnum<S>
 where
     S: TermsEnum,
 {
-    type AttributeSource = EitherAttributeSource<S::AttributeSource, DummyAttributeSource>;
+    type AttributeSource = Either2AttributeSource<S::AttributeSource, DummyAttributeSource>;
 
     fn attributes(&self) -> Result<Self::AttributeSource> {
         match self.sub.attributes() {
-            Ok(v) => Ok(EitherAttributeSource::F(v)),
+            Ok(v) => Ok(Either2AttributeSource::F(v)),
             Err(e) => match e {
                 LuceneError::NotImplemented(_) => {
-                    Ok(EitherAttributeSource::S(DummyAttributeSource))
+                    Ok(Either2AttributeSource::S(DummyAttributeSource))
                 },
                 _ => Err(e),
             },
@@ -156,13 +156,13 @@ where
         self.sub.impacts(flags)
     }
 
-    type TermState = EitherTermState<TermStateImpl1, S::TermState>;
+    type TermState = Either2TermState<TermStateImpl1, S::TermState>;
 
     fn term_state(&mut self) -> Result<Self::TermState> {
         match self.sub.term_state() {
-            Ok(v) => Ok(EitherTermState::S(v)),
+            Ok(v) => Ok(Either2TermState::S(v)),
             Err(e) => match e {
-                LuceneError::NotImplemented(_) => Ok(EitherTermState::F(TermStateImpl1)),
+                LuceneError::NotImplemented(_) => Ok(Either2TermState::F(TermStateImpl1)),
                 _ => Err(e),
             },
         }

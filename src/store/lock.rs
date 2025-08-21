@@ -44,33 +44,33 @@ pub trait Lock: Display {
     fn ensure_valid(&self) -> Result<()>;
 }
 
-pub enum EitherLock<F, S> {
+pub enum Either2Lock<F, S> {
     F(F),
     S(S),
 }
 
-impl<F, S> Display for EitherLock<F, S>
+impl<F, S> Display for Either2Lock<F, S>
 where
     F: Lock,
     S: Lock,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            EitherLock::F(f_lock) => f_lock.fmt(f),
-            EitherLock::S(s) => s.fmt(f),
+            Either2Lock::F(f_lock) => f_lock.fmt(f),
+            Either2Lock::S(s) => s.fmt(f),
         }
     }
 }
 
-impl<F, S> Lock for EitherLock<F, S>
+impl<F, S> Lock for Either2Lock<F, S>
 where
     F: Lock,
     S: Lock,
 {
     fn ensure_valid(&self) -> Result<()> {
         match self {
-            EitherLock::F(f) => f.ensure_valid(),
-            EitherLock::S(s) => s.ensure_valid(),
+            Either2Lock::F(f) => f.ensure_valid(),
+            Either2Lock::S(s) => s.ensure_valid(),
         }
     }
 }

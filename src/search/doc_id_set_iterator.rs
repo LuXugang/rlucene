@@ -281,8 +281,8 @@ macro_rules! either_docidsetiterator_named {
         }
     };
 }
-either_docidsetiterator_named!(pub EitherDocIdSetIterator { F: F, S: S});
-either_docidsetiterator_named!(pub(crate) EitherDocIdSetIterator5 { F: F, S: S, T: T, U: U, V: V });
+either_docidsetiterator_named!(pub Either2DocIdSetIterator { F: F, S: S});
+either_docidsetiterator_named!(pub(crate) Either5DocIdSetIterator { F: F, S: S, T: T, U: U, V: V });
 
 #[cfg(test)]
 mod tests {

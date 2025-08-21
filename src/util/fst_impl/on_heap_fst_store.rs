@@ -19,7 +19,7 @@ use std::rc::Rc;
 use crate::store::{DataInput, DataOutput};
 use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::fst_impl::fst::EitherBytesReader;
+use crate::util::fst_impl::fst::Either2BytesReader;
 use crate::util::fst_impl::fst_compiler::fst_compiler_util;
 use crate::util::fst_impl::fst_reader::FstReader;
 use crate::util::fst_impl::read_write_data_output::{BytesReaderImpl, ReadWriteDataOutput};
@@ -69,20 +69,20 @@ impl Accountable for OnHeapFSTStore {
 }
 
 impl FstReader for OnHeapFSTStore {
-    type FstBytesReader = EitherBytesReader<
+    type FstBytesReader = Either2BytesReader<
         ReverseBytesReader,
-        EitherBytesReader<BytesReaderImpl, ReverseBytesReader>,
+        Either2BytesReader<BytesReaderImpl, ReverseBytesReader>,
     >;
 
     fn get_reverse_bytes_reader(&self) -> Result<Self::FstBytesReader> {
         if let Some(bytes_array) = &self.bytes_array {
-            return Ok(EitherBytesReader::F(ReverseBytesReader::new(
+            return Ok(Either2BytesReader::F(ReverseBytesReader::new(
                 bytes_array.clone(),
             )));
         }
 
         if let Some(data_output) = &self.data_output {
-            Ok(EitherBytesReader::S(
+            Ok(Either2BytesReader::S(
                 data_output.get_reverse_bytes_reader()?,
             ))
         } else {

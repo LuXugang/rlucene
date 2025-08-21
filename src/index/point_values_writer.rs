@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::codecs::mutable_point_tree::EitherMutablePointTree;
+use crate::codecs::mutable_point_tree::Either2MutablePointTree;
 use crate::codecs::mutable_point_tree::MutablePointTree;
 use crate::codecs::points_reader::PointsReader;
 use crate::codecs::points_writer::PointsWriter;
@@ -134,9 +134,9 @@ impl PointValuesWriter {
         );
         let values = match sort_map {
             Some(doc_map) => {
-                EitherMutablePointTree::S(MutableSortingPointValues::new(points, doc_map))
+                Either2MutablePointTree::S(MutableSortingPointValues::new(points, doc_map))
             },
-            None => EitherMutablePointTree::F(points),
+            None => Either2MutablePointTree::F(points),
         };
         let mut reader = PointsReaderImpl::new(values, self.field_info.clone());
 
@@ -148,7 +148,7 @@ where
     DM: DocMap,
 {
     values: RefCell<
-        EitherMutablePointTree<
+        Either2MutablePointTree<
             MutablePointTreeImpl,
             MutableSortingPointValues<MutablePointTreeImpl, DM>,
         >,
@@ -160,7 +160,7 @@ where
     DM: DocMap,
 {
     pub(crate) fn new(
-        values: EitherMutablePointTree<
+        values: Either2MutablePointTree<
             MutablePointTreeImpl,
             MutableSortingPointValues<MutablePointTreeImpl, DM>,
         >,
@@ -196,7 +196,7 @@ where
     DM: DocMap,
 {
     values: RefCell<
-        EitherMutablePointTree<
+        Either2MutablePointTree<
             MutablePointTreeImpl,
             MutableSortingPointValues<MutablePointTreeImpl, DM>,
         >,
@@ -204,7 +204,7 @@ where
 }
 // for padding
 impl<DM> Default
-    for EitherMutablePointTree<
+    for Either2MutablePointTree<
         MutablePointTreeImpl,
         MutableSortingPointValues<MutablePointTreeImpl, DM>,
     >
@@ -212,7 +212,7 @@ where
     DM: DocMap,
 {
     fn default() -> Self {
-        EitherMutablePointTree::F(MutablePointTreeImpl::default())
+        Either2MutablePointTree::F(MutablePointTreeImpl::default())
     }
 }
 
@@ -221,7 +221,7 @@ where
     DM: DocMap,
 {
     pub(crate) fn new(
-        values: EitherMutablePointTree<
+        values: Either2MutablePointTree<
             MutablePointTreeImpl,
             MutableSortingPointValues<MutablePointTreeImpl, DM>,
         >,
@@ -263,7 +263,7 @@ where
         Err(LuceneError::unsupported_operation(""))
     }
 
-    type PointTree = EitherMutablePointTree<
+    type PointTree = Either2MutablePointTree<
         MutablePointTreeImpl,
         MutableSortingPointValues<MutablePointTreeImpl, DM>,
     >;

@@ -28,7 +28,7 @@ use crate::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
 use crate::index::sorted_doc_values::SortedDocValues;
 use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::index::sorted_set_doc_values::SortedSetDocValues;
-use crate::index::sorted_set_doc_values_writer::EitherSortedSetDocValues;
+use crate::index::sorted_set_doc_values_writer::Either2SortedSetDocValues;
 use crate::store::IndexInput;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use std::sync::Arc;
@@ -155,7 +155,7 @@ where
         }
     }
 
-    type SortedSetDocValues = EitherSortedSetDocValues<
+    type SortedSetDocValues = Either2SortedSetDocValues<
         SingletonSortedSetDocValues<BaseSortedDocValues<I>>,
         BaseSortedSetDocValues<I>,
     >;

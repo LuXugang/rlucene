@@ -28,7 +28,7 @@ use crate::index::freq_prox_fields::FreqProxFields;
 use crate::index::freq_prox_terms_writer_per_field::FreqProxTermsWriterPerField;
 use crate::index::frozen_buffered_updates::{TermDocsIterator, TermsProviderImpl1};
 use crate::index::index_options::IndexOptions;
-use crate::index::postings_enum::EitherPostingsEnum;
+use crate::index::postings_enum::Either2PostingsEnum;
 use crate::index::postings_enum::{PostingsEnum, postings_enum_util};
 use crate::index::segment_info::SegmentInfo;
 use crate::index::segment_write_state::SegmentWriteState;
@@ -473,7 +473,7 @@ where
     }
 
     type PostingsEnum =
-        EitherPostingsEnum<SortingPostingsEnum<T::PostingsEnum>, SortingDocsEnum<T::PostingsEnum>>;
+        Either2PostingsEnum<SortingPostingsEnum<T::PostingsEnum>, SortingDocsEnum<T::PostingsEnum>>;
 
     fn postings_with_flags(
         &mut self,
@@ -484,7 +484,7 @@ where
 
         if self.index_options >= IndexOptions::DocsAndFreqs && feature_freqs {
             let mut wrap_reuse = match reuse {
-                Some(EitherPostingsEnum::F(sorting_enum)) => sorting_enum,
+                Some(Either2PostingsEnum::F(sorting_enum)) => sorting_enum,
                 _ => SortingPostingsEnum::new(),
             };
             let in_reuse = wrap_reuse.postings_enum.take();
@@ -511,17 +511,17 @@ where
                 store_positions,
                 store_offsets,
             )?;
-            return Ok(EitherPostingsEnum::F(wrap_reuse));
+            return Ok(Either2PostingsEnum::F(wrap_reuse));
         }
 
         let mut wrap_reuse = match reuse {
-            Some(EitherPostingsEnum::S(sorting_enum)) => sorting_enum,
+            Some(Either2PostingsEnum::S(sorting_enum)) => sorting_enum,
             _ => SortingDocsEnum::new(),
         };
         let in_reuse = wrap_reuse.postings_enum.take();
         let in_docs = self.base.postings_with_flags(in_reuse, flags)?;
         wrap_reuse.reset(&*self.doc_map, in_docs)?;
-        Ok(EitherPostingsEnum::S(wrap_reuse))
+        Ok(Either2PostingsEnum::S(wrap_reuse))
     }
 
     type ImpactsEnum = T::ImpactsEnum;

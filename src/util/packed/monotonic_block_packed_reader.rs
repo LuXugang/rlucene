@@ -19,7 +19,7 @@ use std::fmt::Display;
 use crate::store::IndexInput;
 use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::long_values::EitherLongValues;
+use crate::util::long_values::Either2LongValues;
 use crate::util::long_values::{LongValues, Zeroes};
 use crate::util::packed::abstract_block_packed_writer::{MAX_BLOCK_SIZE, MIN_BLOCK_SIZE};
 use crate::util::packed::{Format, FormatBehavior, PackedImpl, PackedInts};
@@ -40,7 +40,7 @@ pub struct MonotonicBlockPackedReader {
     value_count: i64,
     min_values: Vec<i64>,
     averages: Vec<f32>,
-    sub_readers: Vec<EitherLongValues<Zeroes, MonotonicLongValues>>,
+    sub_readers: Vec<Either2LongValues<Zeroes, MonotonicLongValues>>,
     sum_bpv: i64,
     total_byte_count: i64,
 }
@@ -66,7 +66,7 @@ impl MonotonicBlockPackedReader {
         let mut min_values = vec![0; num_blocks as usize];
         let mut averages = vec![0.0; num_blocks as usize];
         let mut sub_readers: Vec<_> = (0..num_blocks)
-            .map(|_| EitherLongValues::F(Zeroes))
+            .map(|_| Either2LongValues::F(Zeroes))
             .collect();
         let mut sum_bpv: i64 = 0;
         let mut total_byte_count = 0;
@@ -100,7 +100,7 @@ impl MonotonicBlockPackedReader {
                 input.read_bytes(&mut blocks, 0, byte_count as i32)?;
                 let mask_right = (1u64 << bits_per_value) - 1;
                 let bpv_minus_block_size = bits_per_value - BLOCK_SIZE;
-                sub_readers[i] = EitherLongValues::S(MonotonicLongValues {
+                sub_readers[i] = Either2LongValues::S(MonotonicLongValues {
                     bits_per_values: bits_per_value,
                     bpv_minus_block_size,
                     blocks,

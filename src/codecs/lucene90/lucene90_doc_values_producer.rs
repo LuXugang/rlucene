@@ -28,7 +28,7 @@ use crate::codecs::lucene90_doc_values_format::{
     Lucene90DocValuesFormat, SKIP_INDEX_JUMP_LENGTH_PER_LEVEL,
 };
 use crate::index::base_terms_enum::BaseTermsEnum;
-use crate::index::binary_doc_values::{BinaryDocValues, EitherBinaryDocValues3};
+use crate::index::binary_doc_values::{BinaryDocValues, Either3BinaryDocValues};
 use crate::index::doc_values::{DocValues, EmptyBinary, EmptyNumeric};
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::doc_values_skip_index_type::DocValuesSkipIndexType;
@@ -49,7 +49,7 @@ use crate::index::sorted_numeric_doc_values::{
     Either4SortedNumericDocValues, SortedNumericDocValues,
 };
 use crate::index::sorted_set_doc_values::SortedSetDocValues;
-use crate::index::sorted_set_doc_values_writer::EitherSortedSetDocValues;
+use crate::index::sorted_set_doc_values_writer::Either2SortedSetDocValues;
 use crate::index::term_state::TermStateEnum;
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::index::{BytesRef, IndexFileNames};
@@ -868,7 +868,7 @@ where
         match entry {
             Some(entry) => {
                 if entry.docs_with_field_offset == -2 {
-                    return Ok(EitherBinaryDocValues3::T(DocValues::empty_binary()));
+                    return Ok(Either3BinaryDocValues::T(DocValues::empty_binary()));
                 }
                 let mut bytes_slice = self
                     .data
@@ -920,7 +920,7 @@ where
                             },
                         }
                     };
-                    Ok(EitherBinaryDocValues3::F(DenseBinaryDocValues::new(
+                    Ok(Either3BinaryDocValues::F(DenseBinaryDocValues::new(
                         dense,
                         self.max_doc,
                     )))
@@ -976,7 +976,7 @@ where
                             addresses,
                         })
                     };
-                    Ok(EitherBinaryDocValues3::S(SparseBinaryDocValues::new(
+                    Ok(Either3BinaryDocValues::S(SparseBinaryDocValues::new(
                         sub, disi,
                     )))
                 }
@@ -1025,7 +1025,7 @@ where
                 if let Some(ref single_value_entry) = entry.single_value_entry {
                     let singleton =
                         DocValues::singleton_sorted(self.get_sorted(single_value_entry.clone())?)?;
-                    return Ok(EitherSortedSetDocValues::F(singleton));
+                    return Ok(Either2SortedSetDocValues::F(singleton));
                 }
                 // Specialize the common case for ordinals: single block of
                 // packed integers.
@@ -1094,7 +1094,7 @@ where
                                     SparseBaseSortedSetDocValues::new(disi, values, addresses),
                                 )
                             };
-                            return Ok(EitherSortedSetDocValues::S(BaseSortedSetDocValues::new(
+                            return Ok(Either2SortedSetDocValues::S(BaseSortedSetDocValues::new(
                                 entry_clone.clone(),
                                 &self.data,
                                 sbu,
@@ -1105,7 +1105,7 @@ where
                         let ords = self.get_sorted_numeric(&ords_entry_clone)?;
                         let sub =
                             BaseSortedSetDocValuesEnum::Impl(BaseSortedSetDocValuesImpl::new(ords));
-                        Ok(EitherSortedSetDocValues::S(BaseSortedSetDocValues::new(
+                        Ok(Either2SortedSetDocValues::S(BaseSortedSetDocValues::new(
                             entry_clone,
                             &self.data,
                             sub,
@@ -3340,10 +3340,10 @@ pub type Lucene90SortedNumericDocValuesEnum<I> = Either4SortedNumericDocValues<
 >;
 // 3. BinaryDocValues
 pub type Lucene90BinaryDocValuesEnum<I> =
-    EitherBinaryDocValues3<DenseBinaryDocValues<I>, SparseBinaryDocValues<I>, EmptyBinary>;
+    Either3BinaryDocValues<DenseBinaryDocValues<I>, SparseBinaryDocValues<I>, EmptyBinary>;
 
 // 4. SortedSetDocValues
-pub type Lucene90SortedSetDocValuesEnum<I> = EitherSortedSetDocValues<
+pub type Lucene90SortedSetDocValuesEnum<I> = Either2SortedSetDocValues<
     SingletonSortedSetDocValues<BaseSortedDocValues<I>>,
     BaseSortedSetDocValues<I>,
 >;

@@ -24,7 +24,7 @@ use crate::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocValues;
 use crate::codecs::lucene90::lucene90_doc_values_producer::{
     Lucene90BinaryDocValuesEnum, Lucene90NumericDocValuesEnum, Lucene90SortedNumericDocValuesEnum,
 };
-use crate::index::binary_doc_values::{BinaryDocValues, EitherBinaryDocValues3};
+use crate::index::binary_doc_values::{BinaryDocValues, Either3BinaryDocValues};
 use crate::index::doc_values::DocValues;
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::doc_values_type::DocValuesType;
@@ -32,7 +32,7 @@ use crate::index::field_info::FieldInfo;
 use crate::index::merge_state::{DocMapEnum, MergeState};
 use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
-use crate::index::sorted_numeric_doc_values::EitherSortedNumericDocValues;
+use crate::index::sorted_numeric_doc_values::Either2SortedNumericDocValues;
 use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::index::{BytesRef, DocIDMerger, DocIDMergerEnum, Sub, SubBase, doc_id_merger_util};
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
@@ -348,7 +348,7 @@ where
 {
     fn default() -> Self {
         BinaryDocValuesSub {
-            values: EitherBinaryDocValues3::T(Default::default()),
+            values: Either3BinaryDocValues::T(Default::default()),
             doc_map: Rc::new(DocMapEnum::default()),
         }
     }
@@ -626,7 +626,7 @@ where
     type NumericDocValues = DummyNumericDocValues;
     type BinaryDocValues = DummyBinaryDocValues;
     type SortedDocValues = DummySortedDocValues;
-    type SortedNumericDocValues = EitherSortedNumericDocValues<
+    type SortedNumericDocValues = Either2SortedNumericDocValues<
         SingletonSortedNumericDocValues<NumericDocValuesMerge<I>>,
         SortedNumericDocValuesMerge<I>,
     >;
@@ -699,12 +699,12 @@ where
                 single_valued_subs,
                 self.merge_state.needs_index_sort,
             )?;
-            return Ok(EitherSortedNumericDocValues::F(
+            return Ok(Either2SortedNumericDocValues::F(
                 DocValues::singleton_numeric(dv)?,
             ));
         }
         let doc_id_merger = doc_id_merger_util::of(subs, self.merge_state.needs_index_sort)?;
-        Ok(EitherSortedNumericDocValues::S(
+        Ok(Either2SortedNumericDocValues::S(
             SortedNumericDocValuesMerge {
                 doc_id: -1,
                 current_sub: None,
