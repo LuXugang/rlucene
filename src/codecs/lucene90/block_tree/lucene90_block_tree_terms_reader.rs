@@ -327,11 +327,6 @@ where
     I: IndexInput,
     PR: PostingsReaderBase,
 {
-    fn close(&mut self) -> Result<()> {
-        self.field_map.clear();
-        Ok(())
-    }
-
     fn check_integrity(&self) -> Result<()> {
         CodecUtil::checksum_entire_file(&*self.index_in.borrow())?;
         CodecUtil::checksum_entire_file(&self.terms_reader.terms_in)?;

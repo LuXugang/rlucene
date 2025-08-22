@@ -19,7 +19,6 @@ use crate::codecs::lucene101::lucene101_postings_reader::Lucene101PostingsReader
 use crate::store::IndexInput;
 use crate::util::error::lucene_error::Result;
 pub trait FieldsProducer {
-    fn close(&mut self) -> Result<()>;
     /// Checks consistency of this reader.
     ///
     /// Note that this may be costly in terms of I/O, e.g. may involve computing
@@ -46,12 +45,6 @@ impl<I> FieldsProducer for FieldsProducerEnum<I>
 where
     I: IndexInput,
 {
-    fn close(&mut self) -> Result<()> {
-        match self {
-            FieldsProducerEnum::Lucene90(reader) => reader.close(),
-        }
-    }
-
     fn check_integrity(&self) -> Result<()> {
         match self {
             FieldsProducerEnum::Lucene90(reader) => reader.check_integrity(),
