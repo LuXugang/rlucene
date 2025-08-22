@@ -84,7 +84,7 @@ impl<'a, B: AsRef<[u8]>> ByteBuffersDataInput<'a, B> {
         value as i32
     }
     fn read_buffer<T, C>(
-        &mut self,
+        &self,
         mut pos: i64,
         len: i32,
         output: &mut [T],
@@ -110,7 +110,7 @@ impl<'a, B: AsRef<[u8]>> ByteBuffersDataInput<'a, B> {
                 return Err(LuceneError::eof(format!("{pos}")));
             }
 
-            let block = self.blocks.get_mut(block_index as usize).unwrap();
+            let block = self.blocks.get(block_index as usize).unwrap();
             let available =
                 block.remain_between(block_offset as u64, block.get_ref().as_ref().len() as u64);
 
@@ -144,20 +144,20 @@ impl<'a, B: AsRef<[u8]>> ByteBuffersDataInput<'a, B> {
 
         Ok(())
     }
-    fn read_longs(&mut self, pos: i64, len: i32, output: &mut [i64]) -> Result<()> {
+    fn do_read_longs(&self, pos: i64, len: i32, output: &mut [i64]) -> Result<()> {
         self.read_buffer(pos, len, output, BitUtil::LONG_BYTES as i32, LE::read_i64)
     }
-    fn read_bytes(&mut self, pos: i64, len: i32, output: &mut [u8]) -> Result<()> {
+    fn do_read_bytes(&self, pos: i64, len: i32, output: &mut [u8]) -> Result<()> {
         // This closure is not expected to be called under any circumstances.
         self.read_buffer(pos, len, output, 1, |_| unreachable!())
     }
-    fn read_ints(&mut self, pos: i64, len: i32, output: &mut [i32]) -> Result<()> {
+    fn do_read_ints(&self, pos: i64, len: i32, output: &mut [i32]) -> Result<()> {
         self.read_buffer(pos, len, output, BitUtil::INT_BYTES as i32, LE::read_i32)
     }
-    fn read_shorts(&mut self, pos: i64, len: i32, output: &mut [i16]) -> Result<()> {
+    fn do_read_shorts(&self, pos: i64, len: i32, output: &mut [i16]) -> Result<()> {
         self.read_buffer(pos, len, output, BitUtil::SHORT_BYTES as i32, LE::read_i16)
     }
-    fn read_floats(&mut self, pos: i64, len: i32, output: &mut [f32]) -> Result<()> {
+    fn do_read_floats(&self, pos: i64, len: i32, output: &mut [f32]) -> Result<()> {
         self.read_buffer(pos, len, output, BitUtil::FLOAT_BYTES as i32, LE::read_f32)
     }
 
@@ -257,26 +257,26 @@ where
 {
     fn read_byte(&mut self) -> Result<u8> {
         let mut bytes = [0; 1];
-        self.read_bytes(self.pos, 1, &mut bytes)?;
+        self.do_read_bytes(self.pos, 1, &mut bytes)?;
         self.pos += 1;
         Ok(bytes[0])
     }
     fn read_bytes(&mut self, arr: &mut [u8], off: i32, len: i32) -> Result<()> {
-        self.read_bytes(self.pos, len, &mut arr[off as usize..(off + len) as usize])?;
+        self.do_read_bytes(self.pos, len, &mut arr[off as usize..(off + len) as usize])?;
         self.pos += len as i64;
         Ok(())
     }
 
     fn read_short(&mut self) -> Result<i16> {
         let mut output = [0; 1];
-        self.read_shorts(self.pos, 1, &mut output)?;
+        self.do_read_shorts(self.pos, 1, &mut output)?;
         self.pos += BitUtil::SHORT_BYTES as i64;
         Ok(output[0])
     }
 
     fn read_int(&mut self) -> Result<i32> {
         let mut output = [0; 1];
-        self.read_ints(self.pos, 1, &mut output)?;
+        self.do_read_ints(self.pos, 1, &mut output)?;
         self.pos += BitUtil::INT_BYTES as i64;
         Ok(output[0])
     }
@@ -300,13 +300,13 @@ where
     }
     fn read_long(&mut self) -> Result<i64> {
         let mut output = [0; 1];
-        self.read_longs(self.pos, 1, &mut output)?;
+        self.do_read_longs(self.pos, 1, &mut output)?;
         self.pos += BitUtil::LONG_BYTES as i64;
         Ok(output[0])
     }
 
     fn read_longs(&mut self, dst: &mut [i64], offset: i32, len: i32) -> Result<()> {
-        self.read_longs(
+        self.do_read_longs(
             self.pos,
             len,
             &mut dst[offset as usize..(offset + len) as usize],
@@ -316,7 +316,7 @@ where
     }
 
     fn read_floats(&mut self, dst: &mut [f32], offset: i32, len: i32) -> Result<()> {
-        self.read_floats(
+        self.do_read_floats(
             self.pos,
             len,
             &mut dst[offset as usize..(offset + len) as usize],
@@ -344,28 +344,28 @@ where
     fn read_byte(&mut self, pos: i64) -> Result<u8> {
         let pos = pos + self.offset;
         let mut bytes = [0; 1];
-        self.read_bytes(pos, 1, &mut bytes)?;
+        self.do_read_bytes(pos, 1, &mut bytes)?;
         Ok(bytes[0])
     }
 
     fn read_short(&mut self, pos: i64) -> Result<i16> {
         let pos = pos + self.offset;
         let mut bytes = [0; BitUtil::SHORT_BYTES];
-        self.read_shorts(pos, 1, &mut bytes)?;
+        self.do_read_shorts(pos, 1, &mut bytes)?;
         Ok(bytes[0])
     }
 
     fn read_int(&mut self, pos: i64) -> Result<i32> {
         let pos = pos + self.offset;
         let mut bytes = [0; BitUtil::INT_BYTES];
-        self.read_ints(pos, 1, &mut bytes)?;
+        self.do_read_ints(pos, 1, &mut bytes)?;
         Ok(bytes[0])
     }
 
     fn read_long(&mut self, pos: i64) -> Result<i64> {
         let pos = pos + self.offset;
         let mut bytes = [0; BitUtil::LONG_BYTES];
-        self.read_longs(pos, 1, &mut bytes)?;
+        self.do_read_longs(pos, 1, &mut bytes)?;
         Ok(bytes[0])
     }
 
