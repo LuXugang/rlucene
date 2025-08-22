@@ -19,11 +19,12 @@ use crate::codecs::lucene90_norms_producer::Lucene90NormsProducer;
 use crate::index::field_info::FieldInfo;
 use crate::index::numeric_doc_values::NumericDocValues;
 use crate::store::IndexInput;
+use crate::util::CoreHelper;
 use crate::util::error::lucene_error::Result;
 use std::sync::Arc;
 
 /// A trait that produces field normalization values.
-pub trait NormsProducer {
+pub trait NormsProducer: Clone {
     type NumericDocValues: NumericDocValues;
     /// Returns `NumericDocValues` for the given field.
     ///
@@ -60,6 +61,20 @@ where
 {
     Lucene90(Lucene90NormsProducer<I>),
 }
+
+impl<I> Clone for NormsProducerEnum<I>
+where
+    I: IndexInput,
+{
+    fn clone(&self) -> Self {
+        unreachable!(
+            "{} {}",
+            std::any::type_name::<Self>(),
+            CoreHelper::CLONE_WARRING
+        )
+    }
+}
+
 impl<I> NormsProducer for NormsProducerEnum<I>
 where
     I: IndexInput,

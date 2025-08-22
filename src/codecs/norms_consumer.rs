@@ -25,6 +25,7 @@ use crate::index::{DocIDMerger, DocIDMergerEnum, Sub, SubBase, doc_id_merger_uti
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::store::{IndexInput, IndexOutput};
+use crate::util::CoreHelper;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -113,6 +114,20 @@ where
     merge_field_info: Arc<FieldInfo>,
     merge_state: &'a mut MergeState<I>,
 }
+
+impl<I> Clone for NormsProducerMerge<'_, I>
+where
+    I: IndexInput,
+{
+    fn clone(&self) -> Self {
+        unreachable!(
+            "{} {}",
+            std::any::type_name::<Self>(),
+            CoreHelper::CLONE_WARRING
+        )
+    }
+}
+
 impl<I> NormsProducer for NormsProducerMerge<'_, I>
 where
     I: IndexInput,

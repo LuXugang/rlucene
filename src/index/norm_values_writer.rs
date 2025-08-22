@@ -35,7 +35,7 @@ use crate::util::packed::PackedInts;
 use crate::util::packed::packed_long_values::{
     PackedLongValues, PackedLongValuesBuilder, PackedLongValuesIterator,
 };
-use crate::util::{Counter, CounterEnumLock};
+use crate::util::{CoreHelper, Counter, CounterEnumLock};
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -147,6 +147,17 @@ impl NormsProducerImpl {
         })
     }
 }
+
+impl Clone for NormsProducerImpl {
+    fn clone(&self) -> Self {
+        unreachable!(
+            "{} {}",
+            std::any::type_name::<Self>(),
+            CoreHelper::CLONE_WARRING
+        )
+    }
+}
+
 impl NormsProducer for NormsProducerImpl {
     type NumericDocValues =
         Either2NumericDocValues<BufferedNorms, SortingNumericDocValues<FixedBitSet>>;

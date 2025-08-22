@@ -35,6 +35,7 @@ use crate::store::dummy::dummy_index_input::DummyIndexInput;
 use crate::store::dummy::dummy_random_access_input::DummyRandomAccessInput;
 use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{DataInput, IndexInput, ReadAdvice};
+use crate::util::CoreHelper;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use std::cell::RefCell;
@@ -434,6 +435,19 @@ where
         // Not delegating to the wrapped instance on purpose. This is only used
         // for merging.
         Ok(())
+    }
+}
+
+impl<I> Clone for Lucene90NormsProducer<I>
+where
+    I: IndexInput,
+{
+    fn clone(&self) -> Self {
+        unreachable!(
+            "{} {}",
+            std::any::type_name::<Self>(),
+            CoreHelper::CLONE_WARRING
+        )
     }
 }
 
