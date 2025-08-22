@@ -322,6 +322,19 @@ where
     }
 }
 
+impl<I, PR> Clone for Lucene90BlockTreeTermsReader<I, PR>
+where
+    I: IndexInput,
+    PR: PostingsReaderBase,
+{
+    fn clone(&self) -> Self {
+        unreachable!(
+            "Lucene90BlockTreeTermsReader does not implement the Clone logic.
+The purpose of implementing the Clone trait is to make it could be used with Cow"
+        )
+    }
+}
+
 impl<I, PR> FieldsProducer for Lucene90BlockTreeTermsReader<I, PR>
 where
     I: IndexInput,

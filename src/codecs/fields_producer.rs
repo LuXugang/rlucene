@@ -18,7 +18,7 @@ use crate::codecs::block_tree::lucene90_block_tree_terms_reader::Lucene90BlockTr
 use crate::codecs::lucene101::lucene101_postings_reader::Lucene101PostingsReader;
 use crate::store::IndexInput;
 use crate::util::error::lucene_error::Result;
-pub trait FieldsProducer {
+pub trait FieldsProducer: Clone {
     /// Checks consistency of this reader.
     ///
     /// Note that this may be costly in terms of I/O, e.g. may involve computing
@@ -41,6 +41,19 @@ where
 {
     Lucene90(Lucene90BlockTreeTermsReader<I, Lucene101PostingsReader<I>>),
 }
+
+impl<I> Clone for FieldsProducerEnum<I>
+where
+    I: IndexInput,
+{
+    fn clone(&self) -> Self {
+        unreachable!(
+            "FieldsProducerEnum does not implement the Clone logic.
+The purpose of implementing the Clone trait is to make it could be used with Cow"
+        )
+    }
+}
+
 impl<I> FieldsProducer for FieldsProducerEnum<I>
 where
     I: IndexInput,
