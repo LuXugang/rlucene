@@ -54,6 +54,12 @@ impl Hash for StatePair {
 
 impl fmt::Display for StatePair {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "StatePair(s1={} s2={})", self.s1, self.s2)
+        write!(
+            f,
+            "{}(s1={} s2={})",
+            std::any::type_name::<Self>(),
+            self.s1,
+            self.s2
+        )
     }
 }

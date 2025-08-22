@@ -1051,7 +1051,7 @@ impl Accountable for DummyMutable {
 }
 impl Display for DummyMutable {
     fn fmt(&self, _f: &mut Formatter<'_>) -> fmt::Result {
-        unreachable!("DummyMutable should not be displayed")
+        unreachable!("{} should not be displayed", std::any::type_name::<Self>())
     }
 }
 impl Mutable for DummyMutable {}

@@ -253,7 +253,7 @@ impl SortedSetDocValuesWriter {
 
 impl Display for SortedSetDocValuesWriter {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "SortedSetDocValuesWriter",)
+        write!(f, "{}", std::any::type_name::<Self>())
     }
 }
 

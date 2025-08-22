@@ -413,8 +413,11 @@ where
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "PendingDeletes(seg={} numPendingDeletes={} writeable={})",
-            self.info_id, self.pending_delete_count, self.writeable_live_docs
+            "{}(seg={} numPendingDeletes={} writeable={})",
+            std::any::type_name::<Self>(),
+            self.info_id,
+            self.pending_delete_count,
+            self.writeable_live_docs
         )
     }
 }

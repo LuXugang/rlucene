@@ -51,7 +51,7 @@ where
     D: Directory,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "TrackingTmpOutputDirectoryWrapper({})", self.base)
+        write!(f, "{}({})", std::any::type_name::<Self>(), self.base)
     }
 }
 

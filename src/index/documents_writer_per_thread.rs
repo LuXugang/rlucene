@@ -954,7 +954,8 @@ where
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "DocumentsWriterPerThread [pendingDeletes={}, segment={}, aborted={}, numDocsInRAM={}, deleteQueue={}, {} deleted docIds]",
+            "{} [pendingDeletes={}, segment={}, aborted={}, numDocsInRAM={}, deleteQueue={}, {} deleted docIds]",
+            std::any::type_name::<Self>(),
             self.pending_updates,
             self.segment_info.name,
             self.aborted.load(Ordering::SeqCst),

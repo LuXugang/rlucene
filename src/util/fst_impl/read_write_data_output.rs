@@ -190,11 +190,7 @@ impl DataInput for BytesReaderImpl {
 
 impl Display for BytesReaderImpl {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "ReadWriteDataOutput#BytesReaderImpl({})",
-            self.block_bits
-        )
+        write!(f, "{}({})", std::any::type_name::<Self>(), self.block_bits)
     }
 }
 

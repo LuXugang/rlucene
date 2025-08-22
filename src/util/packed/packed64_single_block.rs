@@ -268,7 +268,8 @@ where
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "Packed64SingleBlock(bitsPerValue={}, size={}, blocks={})",
+            "{}(bitsPerValue={}, size={}, blocks={})",
+            std::any::type_name::<Self>(),
             self.bits_per_value,
             self.value_count,
             self.blocks.len()

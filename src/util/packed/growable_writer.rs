@@ -125,7 +125,7 @@ impl Accountable for GrowableWriter {
 
 impl Display for GrowableWriter {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "GrowableWriter")
+        write!(f, "{}", std::any::type_name::<Self>())
     }
 }
 

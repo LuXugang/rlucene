@@ -48,7 +48,7 @@ where
     D: Directory,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "LockValidatingDirectoryWrapper({})", self.base)
+        write!(f, "{}({})", std::any::type_name::<Self>(), self.base)
     }
 }
 

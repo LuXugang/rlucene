@@ -119,6 +119,6 @@ impl Outputs for PositiveIntOutputs {
 
 impl Display for PositiveIntOutputs {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "PositiveIntOutputs")
+        write!(f, "{}", std::any::type_name::<Self>())
     }
 }

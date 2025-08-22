@@ -2290,7 +2290,12 @@ where
     T: IndexableField,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "ReservedField: {}", self.delegate.name())
+        write!(
+            f,
+            "{}: {}",
+            std::any::type_name::<Self>(),
+            self.delegate.name()
+        )
     }
 }
 

@@ -144,6 +144,6 @@ where
     D: DataInput,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "PackedReaderIterator")
+        write!(f, "{}", std::any::type_name::<Self>())
     }
 }

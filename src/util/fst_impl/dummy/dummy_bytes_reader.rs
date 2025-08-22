@@ -45,7 +45,7 @@ impl DataInput for DummyBytesReader {
 
 impl Display for DummyBytesReader {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "DummyBytesReader")
+        write!(f, "{}", std::any::type_name::<Self>())
     }
 }
 

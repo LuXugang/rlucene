@@ -152,6 +152,6 @@ impl Outputs for IntSequenceOutputs {
 
 impl Display for IntSequenceOutputs {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "IntSequenceOutputs")
+        write!(f, "{}", std::any::type_name::<Self>())
     }
 }

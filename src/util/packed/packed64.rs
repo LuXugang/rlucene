@@ -206,7 +206,8 @@ impl Display for Packed64 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "Packed64(bitsPerValue={}, size={}, blocks={})",
+            "{}(bitsPerValue={}, size={}, blocks={})",
+            std::any::type_name::<Self>(),
             self.bits_per_value,
             self.size(),
             self.blocks.len()

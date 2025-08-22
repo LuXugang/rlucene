@@ -107,7 +107,7 @@ impl NumericDocValuesWriter {
 
 impl Display for NumericDocValuesWriter {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "NumericDocValuesWriter",)
+        write!(f, "{}", std::any::type_name::<Self>())
     }
 }
 

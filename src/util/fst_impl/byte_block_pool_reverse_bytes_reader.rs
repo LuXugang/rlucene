@@ -67,7 +67,7 @@ impl DataInput for ByteBlockPoolReverseBytesReader {
 
 impl Display for ByteBlockPoolReverseBytesReader {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "ByteBlockPoolReverseBytesReader")
+        write!(f, "{}", std::any::type_name::<Self>())
     }
 }
 

@@ -27,7 +27,7 @@ pub struct OrdTermState {
 }
 impl Display for OrdTermState {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "OrdTermState ord={} ", self.ord)
+        write!(f, "{} ord={} ", std::any::type_name::<Self>(), self.ord)
     }
 }
 

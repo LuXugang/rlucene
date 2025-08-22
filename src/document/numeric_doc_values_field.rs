@@ -62,7 +62,8 @@ impl Display for NumericDocValuesField {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "NumericDocValuesField(name: {}, value: {:?})",
+            "{}(name: {}, value: {:?})",
+            std::any::type_name::<Self>(),
             self.parent_field.name(),
             self.numeric_value()
         )

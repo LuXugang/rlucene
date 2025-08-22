@@ -181,7 +181,7 @@ impl SortedDocValuesWriter {
 
 impl Display for SortedDocValuesWriter {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "SortedDocValuesWriter",)
+        write!(f, "{}", std::any::type_name::<Self>())
     }
 }
 

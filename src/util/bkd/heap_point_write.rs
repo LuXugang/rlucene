@@ -441,8 +441,10 @@ impl Display for HeapPointWriter {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "HeapPointWriter(count={} size={})",
-            self.next_write, self.size
+            "{}(count={} size={})",
+            std::any::type_name::<Self>(),
+            self.next_write,
+            self.size
         )
     }
 }

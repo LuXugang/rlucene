@@ -232,7 +232,7 @@ impl Document {
 impl fmt::Display for Document {
     /// Prints the fields of a document for human consumption.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Document<")?;
+        write!(f, "{}<", std::any::type_name::<Self>())?;
         for (i, field) in self.fields.iter().enumerate() {
             write!(f, "{field}")?;
             if i != self.fields.len() - 1 {

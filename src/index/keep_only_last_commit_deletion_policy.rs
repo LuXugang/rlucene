@@ -23,7 +23,7 @@ pub struct KeepOnlyLastCommitDeletionPolicy;
 
 impl Display for KeepOnlyLastCommitDeletionPolicy {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "KeepOnlyLastCommitDeletionPolicy")
+        write!(f, "{}", std::any::type_name::<Self>())
     }
 }
 

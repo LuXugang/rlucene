@@ -105,7 +105,7 @@ impl ByteSliceReader {
 
 impl Display for ByteSliceReader {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "ByteSliceReader")
+        write!(f, "{}", std::any::type_name::<Self>())
     }
 }
 

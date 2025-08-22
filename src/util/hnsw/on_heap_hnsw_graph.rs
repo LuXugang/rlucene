@@ -354,7 +354,8 @@ impl fmt::Display for OnHeapHnswGraph {
 
         write!(
             f,
-            "OnHeapHnswGraph(size={size}, numLevels={num_levels}, entryNode={entry_node:?})"
+            "{}(size={size}, numLevels={num_levels}, entryNode={entry_node:?})",
+            std::any::type_name::<Self>()
         )
     }
 }

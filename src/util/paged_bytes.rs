@@ -281,7 +281,12 @@ impl Accountable for PagedBytesReader {
 }
 impl fmt::Display for PagedBytes {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "PagedBytes(blocksize={})", self.block_size)
+        write!(
+            f,
+            "{}(blocksize={})",
+            std::any::type_name::<Self>(),
+            self.block_size
+        )
     }
 }
 /// Input that transparently iterates over pages
@@ -325,8 +330,11 @@ impl Display for PagedBytesDataInput {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "PagedBytesDataInput(blocks={:?}, current_block_index={}, current_block_upto={})",
-            self.blocks, self.current_block_index, self.current_block_upto
+            "{}(blocks={:?}, current_block_index={}, current_block_upto={})",
+            std::any::type_name::<Self>(),
+            self.blocks,
+            self.current_block_index,
+            self.current_block_upto
         )
     }
 }

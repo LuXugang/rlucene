@@ -827,7 +827,8 @@ where
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "FST(input={:?}, output={})",
+            "{}(input={:?}, output={})",
+            std::any::type_name::<Self>(),
             self.metadata.as_ref().unwrap().input_type,
             self.outputs
         )

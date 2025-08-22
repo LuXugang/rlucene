@@ -186,6 +186,11 @@ impl IndexableField for TextField {
 
 impl fmt::Display for TextField {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "TextField(name: {})", self.parent_field.name())
+        write!(
+            f,
+            "{}(name: {})",
+            std::any::type_name::<Self>(),
+            self.parent_field.name()
+        )
     }
 }

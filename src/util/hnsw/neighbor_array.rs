@@ -366,7 +366,7 @@ impl NeighborArray {
 }
 impl fmt::Display for NeighborArray {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "NeighborArray[{}]", self.size)
+        write!(f, "{}[{}]", std::any::type_name::<Self>(), self.size)
     }
 }
 

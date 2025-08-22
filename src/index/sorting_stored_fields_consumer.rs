@@ -233,7 +233,7 @@ pub struct NoCompression;
 
 impl Display for NoCompression {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "CompressionModeImpl")
+        write!(f, "{}", std::any::type_name::<Self>())
     }
 }
 

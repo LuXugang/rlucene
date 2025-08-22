@@ -193,7 +193,7 @@ impl SortedNumericDocValuesWriter {
 
 impl Display for SortedNumericDocValuesWriter {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "SortedNumericDocValuesWriter",)
+        write!(f, "{}", std::any::type_name::<Self>())
     }
 }
 

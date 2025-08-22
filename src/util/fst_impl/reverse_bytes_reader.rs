@@ -67,6 +67,6 @@ impl BytesReader for ReverseBytesReader {
 
 impl std::fmt::Display for ReverseBytesReader {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "ReverseBytesReader")
+        write!(f, "{}", std::any::type_name::<Self>())
     }
 }

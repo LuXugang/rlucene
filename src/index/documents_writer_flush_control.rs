@@ -837,7 +837,8 @@ where
         let flush = inner.flush_bytes.load(Ordering::SeqCst);
         write!(
             f,
-            "DocumentsWriterFlushControl [activeBytes={active}, flushBytes={flush}]"
+            "{} [activeBytes={active}, flushBytes={flush}]",
+            std::any::type_name::<Self>()
         )
     }
 }

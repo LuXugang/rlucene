@@ -184,7 +184,8 @@ impl Display for MonotonicBlockPackedReader {
         };
         write!(
             f,
-            "MonotonicBlockPackedReader(blocksize={}, size={}, avgBPV={})",
+            "{}(blocksize={}, size={}, avgBPV={})",
+            std::any::type_name::<Self>(),
             1 << self.block_shift,
             self.value_count,
             avg_bpv

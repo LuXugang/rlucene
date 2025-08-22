@@ -241,7 +241,8 @@ where
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "PendingSoftDeletes(seg={:?} numPendingDeletes={} field={:?} dvGeneration={} hardDeletes={})",
+            "{}(seg={:?} numPendingDeletes={} field={:?} dvGeneration={} hardDeletes={})",
+            std::any::type_name::<Self>(),
             self.base.info_id,
             self.base.pending_delete_count,
             self.field,

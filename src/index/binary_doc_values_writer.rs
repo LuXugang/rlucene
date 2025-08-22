@@ -131,7 +131,7 @@ impl BinaryDocValuesWriter {
 
 impl Display for BinaryDocValuesWriter {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "BinaryDocValuesWriter",)
+        write!(f, "{}", std::any::type_name::<Self>())
     }
 }
 

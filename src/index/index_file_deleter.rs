@@ -757,7 +757,8 @@ where
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "IndexFileDeleter.CommitPoint({})",
+            "{}({})",
+            std::any::type_name::<Self>(),
             self.segments_file_name
         )
     }

@@ -120,8 +120,10 @@ where
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "OfflinePointWriter(count={} tempFileName={})",
-            self.count, self.name
+            "{}(count={} tempFileName={})",
+            std::any::type_name::<Self>(),
+            self.count,
+            self.name
         )
     }
 }
