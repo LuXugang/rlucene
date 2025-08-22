@@ -54,9 +54,9 @@ where
     data: I,
     merging: bool,
     #[allow(unused)]
-    disi_inputs: HashMap<i32, Rc<RefCell<I::Slice>>>,
-    disi_jump_tables: HashMap<i32, Rc<RefCell<I::RandomAccessSlice>>>,
-    data_inputs: HashMap<i32, Rc<RefCell<I::RandomAccessSlice>>>,
+    disi_inputs: RefCell<HashMap<i32, Rc<RefCell<I::Slice>>>>,
+    disi_jump_tables: RefCell<HashMap<i32, Rc<RefCell<I::RandomAccessSlice>>>>,
+    data_inputs: RefCell<HashMap<i32, Rc<RefCell<I::RandomAccessSlice>>>>,
 }
 
 impl<I> Lucene90NormsProducer<I>
@@ -154,9 +154,9 @@ where
             max_doc,
             data,
             merging: false,
-            disi_inputs: HashMap::new(),
-            disi_jump_tables: HashMap::new(),
-            data_inputs: HashMap::new(),
+            disi_inputs: HashMap::new().into(),
+            disi_jump_tables: HashMap::new().into(),
+            data_inputs: HashMap::new().into(),
         })
     }
     fn read_fields(
@@ -230,7 +230,7 @@ where
         entry: &NormsEntry,
     ) -> Result<Rc<RefCell<I::RandomAccessSlice>>> {
         if self.merging
-            && let Some(existing) = self.data_inputs.get(&field.number)
+            && let Some(existing) = self.data_inputs.borrow().get(&field.number)
         {
             return Ok(Rc::clone(existing));
         }
@@ -244,7 +244,9 @@ where
 
         let slice_rc = Rc::new(RefCell::new(slice));
         if self.merging {
-            self.data_inputs.insert(field.number, Rc::clone(&slice_rc));
+            self.data_inputs
+                .borrow_mut()
+                .insert(field.number, Rc::clone(&slice_rc));
         }
 
         Ok(slice_rc)
@@ -255,7 +257,7 @@ where
         entry: &NormsEntry,
     ) -> Result<Rc<RefCell<I::RandomAccessSlice>>> {
         if self.merging
-            && let Some(jump_table) = self.disi_jump_tables.get(&field.number)
+            && let Some(jump_table) = self.disi_jump_tables.borrow().get(&field.number)
         {
             return Ok(Rc::clone(jump_table));
         }
@@ -271,6 +273,7 @@ where
         let jump_table_rc = Rc::new(RefCell::new(jump_table.unwrap()));
         if self.merging {
             self.disi_jump_tables
+                .borrow_mut()
                 .insert(field.number, Rc::clone(&jump_table_rc));
         }
 
