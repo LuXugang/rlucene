@@ -596,6 +596,16 @@ where
     }
 }
 
+impl<I> Clone for Lucene90CompressingStoredFieldsReader<I>
+where
+    I: IndexInput,
+{
+    fn clone(&self) -> Self {
+        self.ensure_open().expect("should be open");
+        Lucene90CompressingStoredFieldsReader::new_with_reader(self, false).expect("should be ok")
+    }
+}
+
 impl<I> StoredFieldsReader for Lucene90CompressingStoredFieldsReader<I>
 where
     I: IndexInput,
@@ -614,18 +624,6 @@ where
         Ok(Some(
             Lucene90CompressingStoredFieldsReader::new_with_reader(self, true)?,
         ))
-    }
-}
-impl<I> crate::util::clone::TryClone for Lucene90CompressingStoredFieldsReader<I>
-where
-    I: IndexInput,
-{
-    fn try_clone(&self) -> Result<Self>
-    where
-        Self: Sized,
-    {
-        self.ensure_open()?;
-        Lucene90CompressingStoredFieldsReader::new_with_reader(self, false)
     }
 }
 

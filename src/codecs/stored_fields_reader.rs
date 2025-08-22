@@ -31,7 +31,7 @@ use crate::util::error::lucene_error::Result;
 /// StoredFieldVisitor)`](StoredFields::document_with_visitor) to read the
 /// stored fields for a document, implement `clone()`(creating clones of any
 /// IndexInputs used, etc)
-pub trait StoredFieldsReader: StoredFields + TryClone {
+pub trait StoredFieldsReader: StoredFields + Clone {
     /// Checks consistency of this reader.
     ///
     /// Note that this may be costly in terms of I/O, e.g. may involve computing
@@ -98,17 +98,14 @@ where
     }
 }
 
-impl<I> TryClone for StoredFieldsReaderEnum<I>
+impl<I> Clone for StoredFieldsReaderEnum<I>
 where
     I: IndexInput,
 {
-    fn try_clone(&self) -> Result<Self>
-    where
-        Self: Sized,
-    {
+    fn clone(&self) -> Self {
         match self {
             StoredFieldsReaderEnum::Lucene90(reader) => {
-                Ok(StoredFieldsReaderEnum::Lucene90(reader.try_clone()?))
+                StoredFieldsReaderEnum::Lucene90(reader.clone())
             },
         }
     }
