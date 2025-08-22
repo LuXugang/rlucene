@@ -27,6 +27,8 @@ use crate::util::ints_ref::IntsRef;
 
 pub struct CoreHelper;
 impl CoreHelper {
+    pub const CLONE_WARRING: &'static str = "does not implement the Clone logic.
+The purpose of implementing the Clone trait is to make it could be used with Cow";
     pub fn check_from_index_size(from_index: i32, size: i32, length: i32) -> Result<i32> {
         if from_index < 0 || size < 0 || length < 0 {
             Err(LuceneError::array_index_out_of_bounds(format!(

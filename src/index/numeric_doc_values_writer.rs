@@ -42,7 +42,7 @@ use crate::util::packed::PackedInts;
 use crate::util::packed::packed_long_values::{
     PackedLongValues, PackedLongValuesBuilder, PackedLongValuesIterator,
 };
-use crate::util::{Counter, CounterEnumLock};
+use crate::util::{CoreHelper, Counter, CounterEnumLock};
 use std::cell::Cell;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
@@ -181,6 +181,17 @@ impl DocValuesProducerImpl {
         }
     }
 }
+
+impl Clone for DocValuesProducerImpl {
+    fn clone(&self) -> Self {
+        unreachable!(
+            "{} {}",
+            std::any::type_name::<Self>(),
+            CoreHelper::CLONE_WARRING
+        )
+    }
+}
+
 impl DocValuesProducer for DocValuesProducerImpl {
     type NumericDocValues =
         Either2NumericDocValues<BufferedNumericDocValues, SortingNumericDocValues<FixedBitSet>>;

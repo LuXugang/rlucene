@@ -45,7 +45,8 @@ use crate::util::paged_bytes::{
     PagedBytes, PagedBytesDataInput, PagedBytesDataOutput, paged_bytes_util,
 };
 use crate::util::{
-    BytesRefArray, Counter, CounterEnum, CounterEnumBorrow, CounterEnumLock, SortableBytesRefArray,
+    BytesRefArray, CoreHelper, Counter, CounterEnum, CounterEnumBorrow, CounterEnumLock,
+    SortableBytesRefArray,
 };
 use std::cell::RefCell;
 use std::fmt::{Display, Formatter};
@@ -232,6 +233,17 @@ impl DocValuesProducerImpl {
         })
     }
 }
+
+impl Clone for DocValuesProducerImpl {
+    fn clone(&self) -> Self {
+        unreachable!(
+            "{} {}",
+            std::any::type_name::<Self>(),
+            CoreHelper::CLONE_WARRING
+        )
+    }
+}
+
 impl DocValuesProducer for DocValuesProducerImpl {
     type NumericDocValues = DummyNumericDocValues;
     type BinaryDocValues = Either2BinaryDocValues<

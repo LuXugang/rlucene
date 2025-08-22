@@ -38,6 +38,7 @@ use crate::index::{BytesRef, DocIDMerger, DocIDMergerEnum, Sub, SubBase, doc_id_
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::store::IndexInput;
+use crate::util::CoreHelper;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -264,6 +265,20 @@ where
     merge_field_info: Arc<FieldInfo>,
     merge_state: &'a mut MergeState<I>,
 }
+
+impl<I> Clone for EmptyDocValuesProducerMerge1<'_, I>
+where
+    I: IndexInput,
+{
+    fn clone(&self) -> Self {
+        unreachable!(
+            "{} {}",
+            std::any::type_name::<Self>(),
+            CoreHelper::CLONE_WARRING
+        )
+    }
+}
+
 impl<I> DocValuesProducer for EmptyDocValuesProducerMerge1<'_, I>
 where
     I: IndexInput,
@@ -432,6 +447,20 @@ where
     merge_field_info: Arc<FieldInfo>,
     merge_state: &'a mut MergeState<I>,
 }
+
+impl<I> Clone for EmptyDocValuesProducerMerge2<'_, I>
+where
+    I: IndexInput,
+{
+    fn clone(&self) -> Self {
+        unreachable!(
+            "{} {}",
+            std::any::type_name::<Self>(),
+            CoreHelper::CLONE_WARRING
+        )
+    }
+}
+
 impl<I> DocValuesProducer for EmptyDocValuesProducerMerge2<'_, I>
 where
     I: IndexInput,
@@ -619,6 +648,20 @@ where
     merge_field_info: Arc<FieldInfo>,
     merge_state: &'a mut MergeState<I>,
 }
+
+impl<I> Clone for EmptyDocValuesProducerMerge3<'_, I>
+where
+    I: IndexInput,
+{
+    fn clone(&self) -> Self {
+        unreachable!(
+            "{} {}",
+            std::any::type_name::<Self>(),
+            CoreHelper::CLONE_WARRING
+        )
+    }
+}
+
 impl<I> DocValuesProducer for EmptyDocValuesProducerMerge3<'_, I>
 where
     I: IndexInput,

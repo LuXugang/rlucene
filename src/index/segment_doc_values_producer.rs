@@ -31,8 +31,8 @@ use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::index::segment_core_readers::CfsOrBaseInput;
 use crate::index::segment_doc_values::SegmentDocValues;
 use crate::store::directory::Directory;
-use crate::util::IdentityRc;
 use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::{CoreHelper, IdentityRc};
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
@@ -120,6 +120,19 @@ where
             dv_producers,
             dv_gens,
         })
+    }
+}
+
+impl<D> Clone for SegmentDocValuesProducer<D>
+where
+    D: Directory,
+{
+    fn clone(&self) -> Self {
+        unreachable!(
+            "{} {}",
+            std::any::type_name::<Self>(),
+            CoreHelper::CLONE_WARRING
+        )
     }
 }
 

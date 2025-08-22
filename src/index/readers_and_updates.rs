@@ -50,6 +50,7 @@ use crate::store::IOContext;
 use crate::store::directory::Directory;
 use crate::store::flush_info::FlushInfo;
 use crate::store::tracking_directory_wrapper::TrackingDirectoryWrapper;
+use crate::util::CoreHelper;
 use crate::util::bits::Either2Bits;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBit;
@@ -700,6 +701,16 @@ impl<'a, LF: LiveDocsFormat> DocValuesProducerBinary<'a, LF> {
     }
 }
 
+impl<LF: LiveDocsFormat> Clone for DocValuesProducerBinary<'_, LF> {
+    fn clone(&self) -> Self {
+        unreachable!(
+            "{} {}",
+            std::any::type_name::<Self>(),
+            CoreHelper::CLONE_WARRING
+        )
+    }
+}
+
 impl<'a, LF: LiveDocsFormat> DocValuesProducer for DocValuesProducerBinary<'a, LF> {
     type NumericDocValues = DummyNumericDocValues;
     type BinaryDocValues = BinaryDocValuesImpl<LF>;
@@ -745,6 +756,16 @@ impl<'a, LF: LiveDocsFormat> DocValuesProducerNumeric<'a, LF> {
             reader,
             field_info,
         }
+    }
+}
+
+impl<LF: LiveDocsFormat> Clone for DocValuesProducerNumeric<'_, LF> {
+    fn clone(&self) -> Self {
+        unreachable!(
+            "{} {}",
+            std::any::type_name::<Self>(),
+            CoreHelper::CLONE_WARRING
+        )
     }
 }
 

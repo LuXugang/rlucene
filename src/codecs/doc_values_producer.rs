@@ -35,7 +35,7 @@ use std::sync::Arc;
 
 /// A trait that produces numeric, binary, sorted, sorted set, and sorted
 /// numeric doc values.
-pub trait DocValuesProducer {
+pub trait DocValuesProducer: Clone {
     type NumericDocValues: NumericDocValues;
     /// Returns [`NumericDocValues`] for this field. The returned instance need
     /// not be thread-safe: it will only be used by a single thread. The
@@ -119,6 +119,19 @@ where
 {
     Lucene90(Lucene90DocValuesProducer<I>),
 }
+
+impl<I> Clone for DocValuesProducerEnum<I>
+where
+    I: IndexInput,
+{
+    fn clone(&self) -> Self {
+        unreachable!(
+            "DocValuesProducerEnum does not implement the Clone logic.
+The purpose of implementing the Clone trait is to make it could be used with Cow"
+        )
+    }
+}
+
 impl<I> DocValuesProducer for DocValuesProducerEnum<I>
 where
     I: IndexInput,

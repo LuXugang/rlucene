@@ -32,6 +32,7 @@ use crate::index::segment_info::SegmentInfo;
 use crate::index::segment_read_state::SegmentReadState;
 use crate::store::directory::Directory;
 use crate::store::{DataInput, IndexInput, ReadAdvice};
+use crate::util::CoreHelper;
 use crate::util::error::lucene_error::{LuceneError, Result};
 /// A block-based terms index and dictionary that assigns terms to variable
 /// length blocks according to how they share prefixes. The terms index is a
@@ -329,8 +330,9 @@ where
 {
     fn clone(&self) -> Self {
         unreachable!(
-            "Lucene90BlockTreeTermsReader does not implement the Clone logic.
-The purpose of implementing the Clone trait is to make it could be used with Cow"
+            "{} {}",
+            std::any::type_name::<Self>(),
+            CoreHelper::CLONE_WARRING
         )
     }
 }

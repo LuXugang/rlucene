@@ -1207,6 +1207,20 @@ where
     // wrap with `Option` for std::mem::take
     values_producer: Option<&'a D>,
 }
+
+impl<D> Clone for EmptyDocValuesProducerSub1<'_, D>
+where
+    D: DocValuesProducer,
+{
+    fn clone(&self) -> Self {
+        unreachable!(
+            "{} {}",
+            std::any::type_name::<Self>(),
+            CoreHelper::CLONE_WARRING
+        )
+    }
+}
+
 impl<D> DocValuesProducer for EmptyDocValuesProducerSub1<'_, D>
 where
     D: DocValuesProducer,
@@ -1229,6 +1243,20 @@ where
 {
     values_producer: &'a D,
 }
+
+impl<D> Clone for EmptyDocValuesProducerSub2<'_, D>
+where
+    D: DocValuesProducer,
+{
+    fn clone(&self) -> Self {
+        unreachable!(
+            "{} {}",
+            std::any::type_name::<Self>(),
+            CoreHelper::CLONE_WARRING
+        )
+    }
+}
+
 impl<D> DocValuesProducer for EmptyDocValuesProducerSub2<'_, D>
 where
     D: DocValuesProducer,
@@ -1255,6 +1283,20 @@ where
 {
     values_producer: &'a D,
 }
+
+impl<D> Clone for EmptyDocValuesProducerSub3<'_, D>
+where
+    D: DocValuesProducer,
+{
+    fn clone(&self) -> Self {
+        unreachable!(
+            "{} {}",
+            std::any::type_name::<Self>(),
+            CoreHelper::CLONE_WARRING
+        )
+    }
+}
+
 impl<D> DocValuesProducer for EmptyDocValuesProducerSub3<'_, D>
 where
     D: DocValuesProducer,
@@ -1279,6 +1321,20 @@ where
 {
     values_producer: &'a D,
 }
+
+impl<D> Clone for EmptyDocValuesProducerSub4<'_, D>
+where
+    D: DocValuesProducer,
+{
+    fn clone(&self) -> Self {
+        unreachable!(
+            "{} {}",
+            std::any::type_name::<Self>(),
+            CoreHelper::CLONE_WARRING
+        )
+    }
+}
+
 impl<D> DocValuesProducer for EmptyDocValuesProducerSub4<'_, D>
 where
     D: DocValuesProducer,

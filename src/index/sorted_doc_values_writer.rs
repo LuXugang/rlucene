@@ -44,7 +44,7 @@ use crate::util::packed::PackedInts;
 use crate::util::packed::packed_long_values::{
     PackedLongValues, PackedLongValuesBuilder, PackedLongValuesIterator,
 };
-use crate::util::{ByteBlockPoolLock, Counter, CounterEnumLock, byte_block_pool_util};
+use crate::util::{ByteBlockPoolLock, CoreHelper, Counter, CounterEnumLock, byte_block_pool_util};
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
@@ -334,6 +334,17 @@ impl DocValuesProducerImpl {
         })
     }
 }
+
+impl Clone for DocValuesProducerImpl {
+    fn clone(&self) -> Self {
+        unreachable!(
+            "{} {}",
+            std::any::type_name::<Self>(),
+            CoreHelper::CLONE_WARRING
+        )
+    }
+}
+
 impl DocValuesProducer for DocValuesProducerImpl {
     type NumericDocValues = DummyNumericDocValues;
     type BinaryDocValues = DummyBinaryDocValues;

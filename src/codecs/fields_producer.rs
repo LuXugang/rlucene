@@ -17,6 +17,7 @@
 use crate::codecs::block_tree::lucene90_block_tree_terms_reader::Lucene90BlockTreeTermsReader;
 use crate::codecs::lucene101::lucene101_postings_reader::Lucene101PostingsReader;
 use crate::store::IndexInput;
+use crate::util::CoreHelper;
 use crate::util::error::lucene_error::Result;
 pub trait FieldsProducer: Clone {
     /// Checks consistency of this reader.
@@ -48,8 +49,9 @@ where
 {
     fn clone(&self) -> Self {
         unreachable!(
-            "FieldsProducerEnum does not implement the Clone logic.
-The purpose of implementing the Clone trait is to make it could be used with Cow"
+            "{} {}",
+            std::any::type_name::<Self>(),
+            CoreHelper::CLONE_WARRING
         )
     }
 }
