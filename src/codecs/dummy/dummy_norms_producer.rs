@@ -24,7 +24,7 @@ impl NormsProducer for DummyNormsProducer {
     type NumericDocValues = DummyNumericDocValues;
 
     fn get_norms(
-        &mut self,
+        &self,
         _field: &Arc<FieldInfo>,
     ) -> crate::util::error::lucene_error::Result<Self::NumericDocValues> {
         unreachable!("Dummy implementation: this method should never be called in real usage")

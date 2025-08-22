@@ -151,7 +151,7 @@ impl NormsProducer for NormsProducerImpl {
     type NumericDocValues =
         Either2NumericDocValues<BufferedNorms, SortingNumericDocValues<FixedBitSet>>;
 
-    fn get_norms(&mut self, _field_info2: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
+    fn get_norms(&self, _field_info2: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
         match &self.sorted {
             Some(sorted) => Ok(Either2NumericDocValues::B(SortingNumericDocValues::new(
                 sorted.clone(),

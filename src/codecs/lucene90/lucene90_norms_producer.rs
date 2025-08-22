@@ -225,7 +225,7 @@ where
         Ok(norms)
     }
     fn get_data_input(
-        &mut self,
+        &self,
         field: &FieldInfo,
         entry: &NormsEntry,
     ) -> Result<Rc<RefCell<I::RandomAccessSlice>>> {
@@ -252,7 +252,7 @@ where
         Ok(slice_rc)
     }
     fn get_disi_jump_table(
-        &mut self,
+        &self,
         field: &Arc<FieldInfo>,
         entry: &NormsEntry,
     ) -> Result<Rc<RefCell<I::RandomAccessSlice>>> {
@@ -443,7 +443,7 @@ where
 {
     type NumericDocValues = Lucene90NormNumericDocValuesEnum<I>;
 
-    fn get_norms(&mut self, field: &Arc<FieldInfo>) -> Result<Lucene90NormNumericDocValuesEnum<I>> {
+    fn get_norms(&self, field: &Arc<FieldInfo>) -> Result<Lucene90NormNumericDocValuesEnum<I>> {
         // copy on stack is acceptable, of course we could have a better way
         let entry = self.norms.get(&field.number).unwrap().clone();
         if entry.docs_with_field_offset == -2 {
