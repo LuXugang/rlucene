@@ -39,7 +39,6 @@ use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{DataInput, DataOutput, IOContext};
 use crate::util::IOUtils;
 use crate::util::array_util::ArrayUtil;
-use crate::util::clone::TryClone;
 use crate::util::error::lucene_error::Result;
 use parking_lot::Mutex;
 use std::fmt::{Display, Formatter};
@@ -267,12 +266,9 @@ impl Compressor for CompressorImpl {
 }
 pub struct DecompressorImpl;
 
-impl TryClone for DecompressorImpl {
-    fn try_clone(&self) -> Result<Self>
-    where
-        Self: Sized,
-    {
-        Ok(DecompressorImpl)
+impl Clone for DecompressorImpl {
+    fn clone(&self) -> Self {
+        DecompressorImpl
     }
 }
 

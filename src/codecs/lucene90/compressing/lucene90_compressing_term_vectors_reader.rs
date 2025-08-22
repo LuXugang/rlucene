@@ -256,7 +256,7 @@ where
             index_reader: reader.index_reader.try_clone()?,
             packed_ints_version: reader.packed_ints_version,
             compression_mode: reader.compression_mode.clone(),
-            decompressor: reader.decompressor.try_clone()?,
+            decompressor: reader.decompressor.clone(),
             chunk_size: reader.chunk_size,
             num_docs: reader.num_docs,
             version: reader.version,
