@@ -34,7 +34,7 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::paged_bytes::{
     PagedBytes, PagedBytesDataOutput, PagedBytesReader, paged_bytes_util,
 };
-use crate::util::{Counter, CounterEnumLock, SliceCopyOps};
+use crate::util::{CoreHelper, Counter, CounterEnumLock, SliceCopyOps};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -172,6 +172,20 @@ where
         }
     }
 }
+
+impl<DM> Clone for PointsReaderImpl<DM>
+where
+    DM: DocMap,
+{
+    fn clone(&self) -> Self {
+        unreachable!(
+            "{} {}",
+            std::any::type_name::<Self>(),
+            CoreHelper::CLONE_WARRING
+        )
+    }
+}
+
 impl<DM> PointsReader for PointsReaderImpl<DM>
 where
     DM: DocMap,

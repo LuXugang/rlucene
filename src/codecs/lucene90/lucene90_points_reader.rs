@@ -19,6 +19,7 @@ use crate::index::point_values::PointValues;
 use crate::index::segment_read_state::SegmentReadState;
 use crate::store::IndexInput;
 use crate::store::directory::Directory;
+use crate::util::CoreHelper;
 use crate::util::bkd::bkd_reader::BKDReader;
 use crate::util::error::lucene_error::Result;
 
@@ -39,6 +40,19 @@ where
         D: Directory,
     {
         todo!()
+    }
+}
+
+impl<I> Clone for Lucene90PointsReader<I>
+where
+    I: IndexInput,
+{
+    fn clone(&self) -> Self {
+        unreachable!(
+            "{} {}",
+            std::any::type_name::<Self>(),
+            CoreHelper::CLONE_WARRING
+        )
     }
 }
 

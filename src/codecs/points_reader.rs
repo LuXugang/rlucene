@@ -17,10 +17,11 @@
 use crate::codecs::lucene90_points_reader::Lucene90PointsReader;
 use crate::index::point_values::{PointValues, PointValuesBase};
 use crate::store::IndexInput;
+use crate::util::CoreHelper;
 use crate::util::bkd::bkd_reader::BKDReader;
 use crate::util::error::lucene_error::Result;
 /// Abstract API to visit point values.
-pub trait PointsReader {
+pub trait PointsReader: Clone {
     /// Checks consistency of this reader.
     ///
     /// Note that this may be costly in terms of I/O, e.g. may involve computing
@@ -48,6 +49,20 @@ where
 {
     Lucene90(Lucene90PointsReader<I>),
 }
+
+impl<I> Clone for PointsReaderEnum<I>
+where
+    I: IndexInput,
+{
+    fn clone(&self) -> Self {
+        unreachable!(
+            "{} {}",
+            std::any::type_name::<Self>(),
+            CoreHelper::CLONE_WARRING
+        )
+    }
+}
+
 impl<I> PointsReader for PointsReaderEnum<I>
 where
     I: IndexInput,
