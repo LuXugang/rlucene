@@ -19,10 +19,9 @@ use crate::codecs::compressing::lucene90_compressing_term_vectors_reader::{
 };
 use crate::index::term_vectors::TermVectors;
 use crate::store::IndexInput;
-use crate::util::clone::TryClone;
 use crate::util::error::lucene_error::Result;
 /// Codec API for reading term vectors:
-pub trait TermVectorsReader: TermVectors + TryClone {
+pub trait TermVectorsReader: TermVectors + Clone {
     /// Checks consistency of this reader.
     ///
     /// Note that this may be costly in terms of I/O, e.g. may involve computing
@@ -60,17 +59,14 @@ where
     }
 }
 
-impl<I> TryClone for TermVectorsReaderEnum<I>
+impl<I> Clone for TermVectorsReaderEnum<I>
 where
     I: IndexInput,
 {
-    fn try_clone(&self) -> Result<Self>
-    where
-        Self: Sized,
-    {
+    fn clone(&self) -> Self {
         match self {
             TermVectorsReaderEnum::Lucene90(reader) => {
-                Ok(TermVectorsReaderEnum::Lucene90(reader.try_clone()?))
+                TermVectorsReaderEnum::Lucene90(reader.clone())
             },
         }
     }

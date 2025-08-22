@@ -959,15 +959,12 @@ where
     }
 }
 
-impl<I> TryClone for Lucene90CompressingTermVectorsReader<I>
+impl<I> Clone for Lucene90CompressingTermVectorsReader<I>
 where
     I: IndexInput,
 {
-    fn try_clone(&self) -> Result<Self>
-    where
-        Self: Sized,
-    {
-        Lucene90CompressingTermVectorsReader::new_with_reader(self)
+    fn clone(&self) -> Self {
+        Lucene90CompressingTermVectorsReader::new_with_reader(self).expect("should be ok")
     }
 }
 
