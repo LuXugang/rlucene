@@ -372,12 +372,16 @@ where
         };
         let mut norms_merge_instance = match norms {
             // Use the merge instance in order to reuse the same IndexInput for all terms
-            Some(norms) => norms.get_merge_instance()?,
+            Some(norms) => match norms.get_merge_instance()? {
+                Some(norms_merge_instance) => Some(norms_merge_instance),
+                None => Some(norms),
+            },
             None => None,
         };
 
         // flush postings + vectors
         let t0 = Instant::now();
+        // TODO: IMPORTANT这里有问题 norms_merge_instance 可能为None
         self.terms_hash.flush(
             fields_to_flush,
             state,
