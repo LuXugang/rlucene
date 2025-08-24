@@ -37,7 +37,7 @@ where
     concurrency: usize,
     pub(crate) queues: Vec<Mutex<ApproximatePriorityQueue<T>>>,
 }
-#[allow(unused)]
+
 impl<T> ConcurrentApproximatePriorityQueue<T>
 where
     T: Lock + IdentityId + FlushState,
@@ -80,19 +80,19 @@ where
         let thread_id = std::thread::current().id();
         let mut hasher = DefaultHasher::new();
         thread_id.hash(&mut hasher);
-        ((hasher.finish() as usize) & 0xFFFF)
+        (hasher.finish() as usize) & 0xFFFF
     }
 
     pub(crate) fn add(&self, entry: T, weight: i64) {
         let thread_hash = Self::thread_hash();
         for i in 0..self.concurrency {
-            let index = ((thread_hash + i) % self.concurrency);
+            let index = (thread_hash + i) % self.concurrency;
             if let Some(mut queue) = self.queues[index].try_lock() {
                 queue.add(entry, weight);
                 return;
             }
         }
-        let index = (thread_hash % self.concurrency);
+        let index = thread_hash % self.concurrency;
         let mut queue = self.queues[index].lock();
         queue.add(entry, weight)
     }
@@ -103,7 +103,7 @@ where
     {
         let thread_hash = Self::thread_hash();
         for i in 0..self.concurrency {
-            let index = ((thread_hash + i) % self.concurrency);
+            let index = (thread_hash + i) % self.concurrency;
             if let Some(mut queue) = self.queues[index].try_lock()
                 && let Some(entry) = queue.poll(&predicate)
             {
@@ -111,7 +111,7 @@ where
             }
         }
         for i in 0..self.concurrency {
-            let index = ((thread_hash + i) % self.concurrency);
+            let index = (thread_hash + i) % self.concurrency;
             let mut queue = self.queues[index].lock();
             if let Some(entry) = queue.poll(&predicate) {
                 return Some(entry);
@@ -142,7 +142,7 @@ where
     }
     pub(crate) fn get_index(&self, o: &str) -> Option<usize> {
         if let Some(mutex) = self.queues.first() {
-            let mut queue = mutex.lock();
+            let queue = mutex.lock();
             return queue.get_idx(o);
         }
         None

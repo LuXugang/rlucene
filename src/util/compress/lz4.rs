@@ -28,9 +28,9 @@ use std::sync::Arc;
 /// algorithm, and only retains a better hash table that remembers about more
 /// occurrences of a previous 4-bytes sequence, and removes all the logic about
 /// handling of the case when overlapping matches are found.
-#[allow(unused)]
+
 pub struct LZ4;
-#[allow(unused)]
+
 impl LZ4 {
     /// Window size: this is the maximum supported distance between two strings
     /// so that LZ4 can replace the second one by a reference to the first

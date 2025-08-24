@@ -34,10 +34,8 @@ pub trait Accountable {
     }
 }
 
-#[allow(unused)]
 struct EmptyAccountable;
 impl EmptyAccountable {
-    #[allow(unused)]
     pub fn new() -> Self {
         EmptyAccountable
     }

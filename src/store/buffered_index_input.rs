@@ -821,7 +821,6 @@ where
     }
 }
 
-#[allow(unused)]
 struct SlicedIndexInput {}
 
 #[cfg(test)]

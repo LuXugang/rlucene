@@ -484,7 +484,6 @@ where
         self.chunk_size
     }
 
-    #[allow(unused)]
     pub fn num_docs(&self) -> i32 {
         self.num_docs
     }

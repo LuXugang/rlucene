@@ -267,8 +267,8 @@ mod tests {
     use crate::index::indexable_field_type::IndexableFieldType;
     use crate::util::error::lucene_error::Result;
 
-    #[allow(dead_code)]
-    struct TestDocument; // for quick search
+    #[allow(dead_code)] // for quick search
+    struct TestDocument;
 
     /// Tests the [`Document::remove_field`] method for a brand-new `Document`
     /// that has not been indexed yet.

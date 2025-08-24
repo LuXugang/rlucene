@@ -55,7 +55,7 @@ where
         }
     }
     #[cfg(feature = "test_only")]
-    #[allow(unused)]
+
     pub(crate) fn get_delegate_sorter(&self) -> &T {
         &self.delegate_sorter
     }

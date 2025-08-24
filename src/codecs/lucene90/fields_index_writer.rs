@@ -177,7 +177,7 @@ where
                 )?;
                 let mut doc = 0;
                 docs.add(doc)?;
-                for i in 0..self.total_chunks {
+                for _ in 0..self.total_chunks {
                     doc += docs_in.read_vint()? as i64;
                     docs.add(doc)?;
                 }

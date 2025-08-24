@@ -209,7 +209,6 @@ pub struct LZ4WithPresetDictCompressor {
 }
 
 impl LZ4WithPresetDictCompressor {
-    #[allow(unused)]
     fn new() -> Self {
         LZ4WithPresetDictCompressor {
             compressed: ByteBuffersDataOutput::new_resettable_instance(),

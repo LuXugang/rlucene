@@ -30,7 +30,7 @@ where
     pub fst: FST<O, F>,
     pub(crate) arcs: Vec<Option<Arc<O::V>>>,
     pub(crate) output: Vec<O::V>,
-    #[allow(unused)]
+
     pub(crate) no_output: O::V,
     pub(crate) fst_reader: F::FstBytesReader,
     pub(crate) upto: usize,

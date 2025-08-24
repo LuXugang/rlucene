@@ -235,7 +235,6 @@ pub trait BaseBitSetTestCaseSupperImpl {
 }
 
 //TODO
-#[allow(dead_code)]
 fn random_copy<R: Rng + ?Sized>(_random: &mut R, _set: impl BitSet, _num_bits: i32) {
     todo!()
 }

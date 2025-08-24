@@ -348,12 +348,24 @@ where
     }
 }
 
-pub type NumericDocValuesImpl<S: SortedNumericDocValues> = Either3NumericDocValues<
+pub type NumericDocValuesImpl<S> = Either3NumericDocValues<
     FilterNumericDocValuesImpl1<
-        Either3NumericDocValues<S::NumericDocValues, MinValue<S>, MaxValue<S>>,
+        Either3NumericDocValues<
+            <S as SortedNumericDocValues>::NumericDocValues,
+            MinValue<S>,
+            MaxValue<S>,
+        >,
     >,
     FilterNumericDocValuesImpl2<
-        Either3NumericDocValues<S::NumericDocValues, MinValue<S>, MaxValue<S>>,
+        Either3NumericDocValues<
+            <S as SortedNumericDocValues>::NumericDocValues,
+            MinValue<S>,
+            MaxValue<S>,
+        >,
     >,
-    Either3NumericDocValues<S::NumericDocValues, MinValue<S>, MaxValue<S>>,
+    Either3NumericDocValues<
+        <S as SortedNumericDocValues>::NumericDocValues,
+        MinValue<S>,
+        MaxValue<S>,
+    >,
 >;

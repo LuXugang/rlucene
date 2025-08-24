@@ -54,19 +54,19 @@ where
 {
     type NumericDocValues = DummyNumericDocValues;
 
-    fn get_numeric_doc_values(&self, field: &str) -> Result<Option<Self::NumericDocValues>> {
+    fn get_numeric_doc_values(&self, _field: &str) -> Result<Option<Self::NumericDocValues>> {
         todo!()
     }
 
     type BinaryDocValues = DummyBinaryDocValues;
 
-    fn get_binary_doc_values(&self, field: &str) -> Result<Option<Self::BinaryDocValues>> {
+    fn get_binary_doc_values(&self, _field: &str) -> Result<Option<Self::BinaryDocValues>> {
         todo!()
     }
 
     type SortedDocValues = DummySortedDocValues;
 
-    fn get_sorted_doc_values(&self, field: &str) -> Result<Option<Self::SortedDocValues>> {
+    fn get_sorted_doc_values(&self, _field: &str) -> Result<Option<Self::SortedDocValues>> {
         todo!()
     }
 
@@ -74,26 +74,26 @@ where
 
     fn get_sorted_numeric_doc_values(
         &self,
-        field: &str,
+        _field: &str,
     ) -> Result<Option<Self::SortedNumericDocValues>> {
         todo!()
     }
 
     type SortedSetDocValues = DummySortedSetDocValues;
 
-    fn get_sorted_set_doc_values(&self, field: &str) -> Result<Option<Self::SortedSetDocValues>> {
+    fn get_sorted_set_doc_values(&self, _field: &str) -> Result<Option<Self::SortedSetDocValues>> {
         todo!()
     }
 
     type NormNumericDocValues = DummyNumericDocValues;
 
-    fn get_norm_values(&self, field: &str) -> Result<Option<Self::NormNumericDocValues>> {
+    fn get_norm_values(&self, _field: &str) -> Result<Option<Self::NormNumericDocValues>> {
         todo!()
     }
 
     type DocValuesSkipper = DummyDocValuesSkipper;
 
-    fn get_doc_values_skipper(&self, field: &str) -> Result<Option<Self::DocValuesSkipper>> {
+    fn get_doc_values_skipper(&self, _field: &str) -> Result<Option<Self::DocValuesSkipper>> {
         todo!()
     }
 

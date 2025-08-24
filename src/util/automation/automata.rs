@@ -85,7 +85,7 @@ impl Automata {
 
     /// Appends a transition accepting any single Unicode codepoint from the
     /// given state, returning the new state.
-    #[allow(unused)]
+
     pub fn append_any_char(a: &mut Automaton, state: i32) -> Result<i32> {
         let new_state = a.create_state();
         a.add_transition(state, new_state, char::MIN as i32, char::MAX as i32)?;
@@ -100,7 +100,7 @@ impl Automata {
 
     /// Appends a transition accepting a specific codepoint from the given
     /// state, returning the new state.
-    #[allow(unused)]
+
     pub fn append_char(a: &mut Automaton, state: i32, c: i32) -> Result<i32> {
         let new_state = a.create_state();
         a.add_transition(state, new_state, c, c)?;

@@ -369,7 +369,6 @@ mod tests {
     struct SliceReader {
         has_started: bool,
         block_pool: ByteBlockPoolLock,
-        #[allow(dead_code)]
         slice_pool: Arc<Mutex<ByteSlicePool>>,
 
         size: i32,

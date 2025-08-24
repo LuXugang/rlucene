@@ -137,7 +137,7 @@ impl DocIdSet for DocsWithFieldSet {
 
 mod dwfs_util {
     //TODO
-    #[allow(unused)]
+
     pub(super) const BASE_RAM_BYTES_USED: i64 = 0;
 }
 

@@ -38,7 +38,6 @@ where
     base: Option<FSTEnum<O, F>>,
 }
 
-#[allow(unused)]
 impl<O, F> BytesRefFSTEnum<O, F>
 where
     O: Outputs,

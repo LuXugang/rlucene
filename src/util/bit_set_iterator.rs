@@ -58,7 +58,7 @@ where
         })
     }
     // Set the current doc id that this iterator is on.
-    #[allow(unused)]
+
     fn set_doc_id(&mut self, doc_id: i32) {
         self.doc = doc_id;
     }
@@ -101,14 +101,13 @@ pub mod bsi_util {
     use crate::util::sparse_fixed_bit_set::SparseFixedBitSet;
     use std::any::TypeId;
 
-    #[allow(unused)]
     fn equal_disi_type<T1: DocIdSetIterator + 'static, T2: DocIdSetIterator + 'static>(
         _it1: &T1,
         _it2: &T2,
     ) -> bool {
         TypeId::of::<T1>() == TypeId::of::<T2>()
     }
-    #[allow(unused)]
+
     fn equal_bit_set_type<T1: BitSet + 'static, T2: BitSet + 'static>(
         _it1: &T1,
         _it2: &T2,
@@ -136,7 +135,7 @@ pub mod bsi_util {
     /// If the provided iterator wraps a [`SparseFixedBitSet`] returns it,
     /// otherwise returns `None`.
     pub fn get_sparse_fixed_bit_set_or_null<B: BitSet>(
-        iterator: impl DocIdSetIterator + 'static,
+        _iterator: impl DocIdSetIterator + 'static,
     ) -> Option<SparseFixedBitSet> {
         todo!()
     }

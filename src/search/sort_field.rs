@@ -58,7 +58,6 @@ pub struct SortField {
     /// Indicates if sort should be optimized with indexed data. Set to true by
     /// default.
     #[deprecated(since = "10.0.0")]
-    #[allow(unused)]
     optimize_sort_with_indexed_data: bool,
 }
 

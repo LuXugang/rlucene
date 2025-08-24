@@ -95,6 +95,6 @@ pub trait IndexableField: Display {
 #[cfg(test)]
 mod tests {
     // TODO : IndexWriter not implemented
-    #[allow(dead_code)]
+    #[allow(dead_code)] // for quick search
     struct TestIndexableField;
 }

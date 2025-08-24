@@ -63,7 +63,7 @@ where
     /// Directory::create_output.
     pub context: &'a IOContext,
 }
-#[allow(unused)]
+
 impl<'a, D> SegmentWriteState<'a, D>
 where
     D: Directory,

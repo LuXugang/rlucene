@@ -77,7 +77,7 @@ use std::sync::Arc;
 ///
 /// **NOTE**: This can write at most `i32::MAX * config.max_points_in_leaf_node
 /// / config.bytes_per_dim` total points.
-#[allow(unused)]
+
 pub struct BKDWriter<D>
 where
     D: Directory,
@@ -87,7 +87,7 @@ where
     common_prefix_comparator: ByteArrayComparatorEnum,
     temp_dir: TrackingDirectoryWrapper<D>,
     temp_file_name_prefix: String,
-    #[allow(unused)]
+
     max_mb_sort_in_heap: f64,
     scratch_diff: Vec<u8>,
     scratch: Vec<u8>,
@@ -125,7 +125,7 @@ pub mod bkd_writer_util {
     /// Default maximum heap to use, before spilling to (slower) disk.
     pub const DEFAULT_MAX_MB_SORT_IN_HEAP: f32 = 16.0;
 }
-#[allow(unused)]
+
 impl<D> BKDWriter<D>
 where
     D: Directory,
@@ -638,7 +638,6 @@ where
         );
 
         let data_start_fp = data_out.borrow().get_file_pointer();
-        let mut success = false;
 
         let result = (|| -> Result<()> {
             let mut parent_splits = vec![0i32; self.config.num_index_dims as usize];
@@ -1092,7 +1091,7 @@ where
             self.write_actual_bounds(out, count, packed_values)?;
         }
 
-        let (bytes_ref, offset, length) = packed_values.get_value(0)?;
+        let (bytes_ref, offset, _) = packed_values.get_value(0)?;
         self.scratch.copy_from(
             &bytes_ref[offset as usize..(offset + self.config.packed_bytes_length()) as usize],
             0,
@@ -1100,7 +1099,7 @@ where
 
         let mut cardinality = 1;
         for i in 1..count {
-            let (bytes_ref, offset, length) = packed_values.get_value(i)?;
+            let (bytes_ref, offset, _) = packed_values.get_value(i)?;
             for dim in 0..self.config.num_dims {
                 let start = (dim * self.config.bytes_per_dim) as usize;
                 if !self.equals_predicate.test(
@@ -1408,7 +1407,7 @@ where
         let mut reader = source.get_reader(0, source_count, &mut self.temp_dir)?;
         let mut writer = HeapPointWriter::new(self.config.clone(), count);
 
-        let mut result: Result<_> = (|| {
+        let result: Result<_> = (|| {
             for _ in 0..count {
                 let has_next = reader.next()?;
                 debug_assert!(has_next);
@@ -2059,7 +2058,6 @@ where
     }
 }
 
-#[allow(unused)]
 pub struct OneDimensionBKDWriter<'a, D>
 where
     D: Directory,
@@ -2079,7 +2077,6 @@ where
     bkd_writer: &'a mut BKDWriter<D>,
 }
 
-#[allow(unused)]
 impl<'a, D> OneDimensionBKDWriter<'a, D>
 where
     D: Directory,
@@ -2553,7 +2550,7 @@ struct MergeIntersectsVisitor {
     doc_ids: Vec<i32>,
     packed_bytes_length: i32,
 }
-#[allow(unused)]
+
 impl MergeIntersectsVisitor {
     fn new(packed_bytes_length: i32) -> Self {
         Self {
@@ -2750,7 +2747,7 @@ pub struct IORunnable {
     count_per_leaf: i32,
     data_start_fp: i64,
 }
-#[allow(unused)]
+
 struct IntersectVisitorImpl<'a, D>
 where
     D: Directory,

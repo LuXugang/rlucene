@@ -22,7 +22,6 @@ use crate::util::bits::Bits;
 use crate::util::error::lucene_error::Result;
 use std::rc::Rc;
 
-#[allow(unused)]
 const BASE_RAM_BYTES_USED: i64 = 0;
 /// This [`DocIdSet`] encodes the negation of another
 /// [`DocIdSet`]. It is cacheable and supports random-access

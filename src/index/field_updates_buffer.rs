@@ -95,7 +95,7 @@ impl FieldUpdatesBuffer {
             }
             // Help the compiler infer types.
             Ok::<(), LuceneError>(())
-        });
+        })?;
         let mut buffer = FieldUpdatesBuffer {
             bytes_used: bytes_used.clone(),
             num_updates: 1,
@@ -140,7 +140,7 @@ impl FieldUpdatesBuffer {
         buffer.max_numeric = max_numeric;
         buffer.min_numeric = min_numeric;
         {
-            let bytes_used_guard = buffer
+            buffer
                 .bytes_used
                 .lock()
                 .add_and_get(BitUtil::LONG_BYTES as i64);
@@ -270,7 +270,7 @@ impl FieldUpdatesBuffer {
                     }
                 }
                 // TODO: memory calculation not implemented
-                let bytes_used = self.bytes_used.lock().add_and_get(0);
+                self.bytes_used.lock().add_and_get(0);
             }
             numeric_values[ord as usize] = value;
         }

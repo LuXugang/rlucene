@@ -42,7 +42,7 @@ use crate::util::{
 };
 
 //TODO
-#[allow(unused)]
+
 const BYTES_PER_DEL_QUERY: i64 = 0;
 
 /// Holds buffered deletes and updates, including deletions by docID, term, or
@@ -58,7 +58,6 @@ const BYTES_PER_DEL_QUERY: i64 = 0;
 /// - Instances of this structure are accessed either via a private instance on
 ///   `DocumentWriterPerThread`, or through synchronized code in the
 ///   `DocumentsWriterDeleteQueue`.
-#[allow(dead_code)]
 pub(crate) struct BufferedUpdates<Q, C, B>
 where
     Q: Query,
@@ -73,7 +72,7 @@ where
     field_updates_bytes_used: C,
     verbose_deletes: bool,
     r#gen: i64,
-    #[allow(unused)]
+
     segment_name: String,
 }
 pub mod buffered_updates_util {
@@ -83,7 +82,7 @@ pub mod buffered_updates_util {
     pub const BYTES_PER_DEL_QUERY: i32 = 0;
     pub const MAX_INT: i32 = i32::MAX;
 }
-#[allow(unused)]
+
 impl<Q> MTBufferedUpdates<Q>
 where
     Q: Query,
@@ -185,7 +184,7 @@ where
         self.delete_terms.put_sync(term, doc_id_upto)
     }
 }
-#[allow(unused)]
+
 impl<Q> STBufferedUpdates<Q>
 where
     Q: Query,
@@ -206,7 +205,6 @@ where
     }
 }
 
-#[allow(unused)]
 impl<Q, C, B> BufferedUpdates<Q, C, B>
 where
     Q: Query,
@@ -219,8 +217,7 @@ where
             .insert(query.clone(), doc_id_upto)
             .is_none()
         {
-            let mut bytes_used_guard = self
-                .bytes_used
+            self.bytes_used
                 .access_mut(|bytes_used| bytes_used.add_and_get(BYTES_PER_DEL_QUERY));
         }
     }
@@ -391,7 +388,6 @@ impl_deleted_terms!(
 pub type MTDeletedTerms = DeletedTerms<CounterEnumLock, ByteBlockPoolLock>;
 pub type STDeletedTerms = DeletedTerms<CounterEnumBorrow, ByteBlockPoolBorrow>;
 
-#[allow(unused)]
 impl<C, B> DeletedTerms<C, B>
 where
     C: SharedAccess<CounterEnum>,
@@ -477,7 +473,7 @@ where
         self.pool.clone()
     }
 }
-#[allow(unused)]
+
 pub trait DeletedTermConsumer {
     fn accept(&mut self, term: &Term, doc_id: i32) -> Result<()>;
 }
@@ -507,7 +503,6 @@ where
     }
 }
 
-#[allow(unused)]
 struct BytesRefIntMap<C, B>
 where
     C: SharedAccess<CounterEnum>,

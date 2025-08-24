@@ -67,7 +67,7 @@ pub struct StringField {
     binary_value: Rc<BytesRef<Vec<u8>>>,
     stored_value: Option<StoredValue>,
 }
-#[allow(unused)]
+
 impl StringField {
     /// Creates a new textual `StringField`, indexing the provided string value
     /// as a single token.

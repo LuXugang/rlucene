@@ -203,7 +203,7 @@ impl LongBitSet {
     }
 
     /// Returns the previous value of the bit at `index`, and clears it.
-    #[allow(unused)]
+
     pub fn get_and_clear(&mut self, index: i64) -> bool {
         debug_assert!(
             index >= 0 && index < self.num_bits,
@@ -346,7 +346,7 @@ impl LongBitSet {
     /// low cost.
     ///
     /// This depends on the ghost bits being clear!
-    #[allow(unused)]
+
     pub fn scan_is_empty(&self) -> bool {
         for i in 0..self.num_words as usize {
             if self.bits[i] != 0 {

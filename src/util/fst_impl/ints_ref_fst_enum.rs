@@ -37,7 +37,7 @@ where
     pub(crate) target: IntsRef<Rc<RefCell<Vec<i32>>>>,
     pub base: Option<FSTEnum<O, F>>,
 }
-#[allow(unused)]
+
 impl<O, F> IntsRefFSTEnum<O, F>
 where
     O: Outputs,

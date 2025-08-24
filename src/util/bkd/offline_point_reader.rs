@@ -41,7 +41,6 @@ where
     points_in_buffer: i32,
     max_point_on_heap: i32,
     // File name we are reading
-    #[allow(unused)]
     name: String,
     pub(crate) point_value: PointValueEnum,
 }
@@ -214,7 +213,7 @@ where
 }
 
 /// Reusable implementation for a point value offline.
-#[allow(unused)]
+
 pub(crate) struct OfflinePointValue {
     pub(crate) offset: i32,
     pub(crate) value: Vec<u8>,

@@ -248,7 +248,7 @@ where
     values: Lucene90NormNumericDocValuesEnum<I>,
     doc_map: Rc<DocMapEnum>,
 }
-#[allow(unused)]
+
 impl<I> NumericDocValuesSub<I>
 where
     I: IndexInput,

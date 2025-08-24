@@ -25,7 +25,6 @@ pub(crate) struct DeltaPackedLongValues {
 }
 
 impl DeltaPackedLongValues {
-    #[allow(dead_code)]
     const BASE_RAM_BYTES_USED: u64 = 0;
     pub(crate) fn new(mins: Vec<i64>, sub_reader: Option<MonotonicLongValues>) -> Self {
         Self {
@@ -65,7 +64,6 @@ impl Default for DeltaPackedLongValuesBuilder {
 
 impl DeltaPackedLongValuesBuilder {
     // TODO
-    #[allow(dead_code)]
     const BASE_RAM_BYTES_USED: u64 = 0;
     pub(crate) fn new() -> DeltaPackedLongValuesBuilder {
         Self::with_sub_builder(None)
@@ -118,7 +116,6 @@ impl DeltaPackedLongValuesBuilder {
         // TODO: memory calculation not implemented
         Ok(())
     }
-    #[allow(dead_code)]
     fn base_ram_bytes_used(&self) -> u64 {
         todo!()
     }

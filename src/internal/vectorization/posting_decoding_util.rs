@@ -24,7 +24,7 @@ pub struct PostingDecodingUtil<I: IndexInput> {
     /// The wrapper {@link IndexInput}.
     pub input: Rc<RefCell<I>>,
 }
-#[allow(unused)]
+
 impl<I: IndexInput> PostingDecodingUtil<I> {
     /// Sole constructor, called by sub-classes.
     pub fn new(input: Rc<RefCell<I>>) -> Self {

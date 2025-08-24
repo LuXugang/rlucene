@@ -1691,7 +1691,7 @@ mod tests {
     /// - test the `to_string()` output and parse tree,
     /// - test the resulting automaton's language,
     /// - and whether it is deterministic.
-    #[allow(dead_code)]
+    #[allow(dead_code)] // for quick search
     struct TestRegExpParsing;
     #[test]
     fn test_any_char() -> Result<()> {

@@ -352,7 +352,7 @@ impl TermsHashPerField {
         true
     }
 
-    pub(crate) fn position_stream_slice(&mut self, term_id: i32, doc_id: i32) -> Result<i32> {
+    pub(crate) fn position_stream_slice(&mut self, term_id: i32, _doc_id: i32) -> Result<i32> {
         let term_id = (-term_id) - 1;
         let postings_array_wrapper = &self.bytes_hash.bytes_start_array.per_field;
         debug_assert!(postings_array_wrapper.postings_array.is_some());
@@ -435,7 +435,7 @@ pub(crate) struct PostingsBytesStartArray {
     pub(crate) per_field: PostingsArrayWrapper,
     bytes_used: CounterEnumLock,
 }
-#[allow(unused)]
+
 impl PostingsBytesStartArray {
     pub(crate) fn new(per_field: PostingsArrayWrapper, bytes_used: CounterEnumLock) -> Self {
         Self {

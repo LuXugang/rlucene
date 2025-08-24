@@ -14,9 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#[allow(unused)]
+
 pub struct IndexSearcher;
-#[allow(unused)]
+
 impl IndexSearcher {
     pub fn stored_fields(&self) {}
 }

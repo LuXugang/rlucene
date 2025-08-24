@@ -303,8 +303,8 @@ where
 
     pub(crate) fn on_doc_values_update(
         &self,
-        info: &FieldInfo,
-        iterator: Option<MergedIterator<DocValuesFieldIteratorEnum>>,
+        _info: &FieldInfo,
+        _iterator: Option<MergedIterator<DocValuesFieldIteratorEnum>>,
     ) {
     }
 

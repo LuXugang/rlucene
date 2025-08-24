@@ -592,7 +592,6 @@ where
                 let version = reader.get_version();
                 (false, version != lucene90_csfw_util::VERSION_CURRENT)
             },
-            _ => (true, false),
         };
         if !matching_readers.matching_readers[reader_index]
             || is_lucene90_compressing_stored_fields_reader
@@ -601,20 +600,17 @@ where
             return Ok(MergeStrategy::Visitor);
         }
 
-        if let StoredFieldsReaderEnum::Lucene90(reader) = &candidate {
-            return if *BULK_MERGE_ENABLED
-                && discriminant(reader.get_compression_mode())
-                    == discriminant(&self.compression_mode)
-                && reader.get_chunk_size() == self.chunk_size
-                && merge_state.live_docs[reader_index].is_none()
-                && !self.too_dirty(reader)?
-            {
-                Ok(MergeStrategy::Bulk)
-            } else {
-                Ok(MergeStrategy::Doc)
-            };
+        let StoredFieldsReaderEnum::Lucene90(reader) = &candidate;
+        if *BULK_MERGE_ENABLED
+            && discriminant(reader.get_compression_mode()) == discriminant(&self.compression_mode)
+            && reader.get_chunk_size() == self.chunk_size
+            && merge_state.live_docs[reader_index].is_none()
+            && !self.too_dirty(reader)?
+        {
+            Ok(MergeStrategy::Bulk)
+        } else {
+            Ok(MergeStrategy::Doc)
         }
-        Err(LuceneError::illegal_state("should not be here"))
     }
 }
 pub static BULK_MERGE_ENABLED_SYSPROP: &str =
@@ -808,14 +804,7 @@ where
                     doc_count += to_doc_id - from_doc;
                 },
                 MergeStrategy::Doc => {
-                    let lucene_90 = match reader {
-                        StoredFieldsReaderEnum::Lucene90(reader) => reader,
-                        _ => {
-                            return Err(LuceneError::illegal_state(
-                                "Invalid reader type".to_string(),
-                            ));
-                        },
-                    };
+                    let StoredFieldsReaderEnum::Lucene90(lucene_90) = reader;
                     self.copy_one_doc(lucene_90, sub.sub.doc_id)?;
                     doc_count += 1;
                 },

@@ -171,7 +171,7 @@ pub mod indexed_disi_util {
     ///
     /// # Errors
     /// Returns an error if writing to the output fails.
-    #[allow(unused)]
+
     pub(crate) fn write_bitset<O>(it: &mut impl DocIdSetIterator, out: &mut O) -> Result<i16>
     where
         O: IndexOutput,
@@ -289,7 +289,7 @@ pub mod indexed_disi_util {
         )?;
 
         buffer.set(NO_MORE_DOCS & 0xFFFF);
-        buffer = flush(NO_MORE_DOCS >> 16, buffer, 1, dense_rank_power, out)?;
+        let _ = flush(NO_MORE_DOCS >> 16, buffer, 1, dense_rank_power, out)?;
 
         flush_block_jumps(&jumps, last_block + 1, out)
     }

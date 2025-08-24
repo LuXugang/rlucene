@@ -61,6 +61,5 @@ impl BytesRefIterator for EmptyBytesRefIterator {
 }
 
 impl EmptyBytesRefIterator {
-    #[allow(unused)]
     pub const EMPTY: Self = EmptyBytesRefIterator;
 }

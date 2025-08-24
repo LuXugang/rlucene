@@ -414,7 +414,7 @@ impl PointWriter for HeapPointWriter {
         self.next_write as i64
     }
 
-    fn destroy<D>(&mut self, dir: &mut D) -> Result<()>
+    fn destroy<D>(&mut self, _dir: &mut D) -> Result<()>
     where
         D: Directory,
     {

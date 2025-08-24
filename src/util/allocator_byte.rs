@@ -146,7 +146,7 @@ where
 pub type STAllocatorByteEnum = AllocatorByteEnum<CounterEnumBorrow>;
 /// for multi-threaded scenarios
 pub type MTAllocatorByteEnum = AllocatorByteEnum<Arc<Mutex<CounterEnum>>>;
-#[allow(unused)]
+
 pub(crate) trait Allocator {
     type CounterAccess: SharedAccess<CounterEnum>;
     type Handle: Clone;

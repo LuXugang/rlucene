@@ -26,7 +26,6 @@ pub struct ReverseBytesReader {
     pos: i32,
 }
 
-#[allow(unused)]
 impl ReverseBytesReader {
     pub fn new(bytes: Rc<Vec<u8>>) -> Self {
         Self { bytes, pos: 0 }

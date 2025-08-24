@@ -22,7 +22,7 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 use std::rc::Rc;
 
 //TODO
-#[allow(unused)]
+
 const BASE_RAM_BYTES_USED: i64 = 0;
 
 /// Implementation of the [`DocIdSet`] interface on top of a [`BitSet`].

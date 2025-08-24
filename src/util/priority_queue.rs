@@ -340,7 +340,7 @@ where
     ///
     /// # Note
     /// This is an internal API.
-    #[allow(unused)]
+
     fn get_heap_array(&self) -> &Vec<T> {
         &self.heap
     }

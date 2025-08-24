@@ -33,7 +33,7 @@ pub struct PackedLongValues {
     pub(crate) page_mask: i32,
     pub(crate) values: Vec<Arc<PackedIntsReadEnum>>,
     pub(crate) size: i64,
-    #[allow(unused)]
+
     ram_bytes_used: i64,
     sub_long_values: Option<Arc<DeltaPackedLongValues>>,
 }
@@ -190,7 +190,6 @@ pub(crate) const INITIAL_PAGE_COUNT: i32 = 16;
 /// A Builder for a [`PackedLongValues`] instance.
 impl PackedLongValuesBuilder {
     // TODO
-    #[allow(dead_code)]
     const BASE_RAM_BYTES_USED: i64 = 0;
     pub fn new(page_size: i32, acceptable_overhead_ratio: f32) -> Result<PackedLongValuesBuilder> {
         Self::with_sub_builder(page_size, acceptable_overhead_ratio, None)
@@ -309,7 +308,6 @@ impl PackedLongValuesBuilder {
         self.pending_off = 0;
         Ok(())
     }
-    #[allow(dead_code)]
     fn base_ram_bytes_used(&self) -> i64 {
         // TODO
         todo!()

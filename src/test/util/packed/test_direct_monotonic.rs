@@ -362,7 +362,7 @@ fn do_test_monotonic_binary_search_against_long_array<R: Rng + ?Sized>(
         let slice = Rc::new(RefCell::new(
             data_in.random_access_slice(0, dir.file_length("data")?)?,
         ));
-        let mut reader = DirectMonotonicReader::get_instance(&meta, slice.clone())?;
+        let reader = DirectMonotonicReader::get_instance(&meta, slice.clone())?;
 
         if array.is_empty() {
             assert_eq!(-1, reader.binary_search(0, array.len() as i64, 42)?);

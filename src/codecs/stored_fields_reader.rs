@@ -22,7 +22,6 @@ use crate::document::document::Document;
 use crate::index::stored_field_visitor::StoredFieldVisitor;
 use crate::index::stored_fields::StoredFields;
 use crate::store::IndexInput;
-use crate::util::clone::TryClone;
 use crate::util::error::lucene_error::Result;
 
 /// Codec API for reading stored fields.

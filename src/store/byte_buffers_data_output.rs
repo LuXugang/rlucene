@@ -298,7 +298,7 @@ impl ByteBuffersDataOutput {
         let data = old_blocks.into_iter().collect();
         (size, data)
     }
-    #[allow(unused)]
+
     pub fn get_writeable_buffer_list(&mut self) -> Vec<&mut Cursor<Vec<u8>>> {
         todo!()
     }
@@ -496,7 +496,7 @@ fn compute_block_size_bits_for(bytes: i64) -> i32 {
 }
 
 #[cfg(feature = "not_required_in_rust_lucene")]
-#[allow(unused)]
+
 fn write_long_string(_byte_len: usize, _s: String) {
     unimplemented!()
 }

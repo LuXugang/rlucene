@@ -87,7 +87,7 @@ impl<P> ImpactsSource for SlowImpactsEnum<P>
 where
     P: PostingsEnum,
 {
-    fn advance_shallow(&mut self, target: i32) -> Result<()> {
+    fn advance_shallow(&mut self, _target: i32) -> Result<()> {
         Ok(())
     }
 

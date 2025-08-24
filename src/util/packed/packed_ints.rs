@@ -466,9 +466,9 @@ pub struct FormatAndBits {
 /// # Returns
 ///
 /// A `FormatAndBits` struct containing the selected format and bits per value.
-#[allow(unused)] // `value_count` is not used in Java Lucene
+// `value_count` is not used in Java Lucene
 pub fn fastest_format_and_bits(
-    mut value_count: i32,
+    value_count: i32,
     bits_per_value: i32,
     mut acceptable_overhead_ratio: f32,
 ) -> FormatAndBits {
@@ -1855,7 +1855,7 @@ mod tests {
         )?;
         assert_eq!(writer.size(), size);
 
-        let mut values = buf.build()?;
+        let values = buf.build()?;
         for i in (0..size).rev() {
             writer.set(i, values.get_immutable(i)?);
         }
@@ -1869,7 +1869,7 @@ mod tests {
         // writer.ram_bytes_used() as f64).abs() < 8.0 );
 
         let new_size = TestUtil::next_long(&mut random, writer.size() / 2, writer.size() * 3 / 2);
-        let mut copy = writer.resize(new_size)?;
+        let copy = writer.resize(new_size)?;
         for i in 0..copy.size() {
             if i < writer.size() {
                 assert_eq!(writer.get_immutable(i)?, copy.get_immutable(i)?);
@@ -1882,7 +1882,7 @@ mod tests {
         let grow = writer.grow_with_size(grow_size)?;
         let grow_len;
         if grow.is_some() {
-            let mut new_writer = grow.unwrap();
+            let new_writer = grow.unwrap();
             grow_len = new_writer.size();
             for i in 0..grow_len {
                 if i < writer.size() {
@@ -1932,7 +1932,7 @@ mod tests {
 
         assert_eq!(writer.size(), size);
 
-        let mut values = buf.build()?;
+        let values = buf.build()?;
         for i in (0..size).rev() {
             writer.set(i, values.get_immutable(i)?);
         }
@@ -1947,7 +1947,7 @@ mod tests {
         // writer.ram_bytes_used() as f64).abs() < 8.0 );
 
         let new_size = TestUtil::next_long(&mut random, writer.size() / 2, writer.size() * 3 / 2);
-        let mut copy = writer.resize(new_size)?;
+        let copy = writer.resize(new_size)?;
         for i in 0..copy.size() {
             if i < writer.size() {
                 assert_eq!(writer.get_immutable(i)?, copy.get_immutable(i)?);
@@ -1960,7 +1960,7 @@ mod tests {
         let grow_wrapper = writer.grow_with_size(grow_size)?;
         let grow_len;
         if let Some(g) = grow_wrapper {
-            let mut grow = g;
+            let grow = g;
             grow_len = grow.size();
             for i in 0..grow_len {
                 if i < writer.size() {
@@ -2169,7 +2169,6 @@ mod tests {
     fn test_packed_long_values_on_zeros() {
         // TOOD
     }
-    #[allow(dead_code)]
     enum DataType {
         Packed,
         DeltaPacked,
@@ -2257,7 +2256,7 @@ mod tests {
 
                 assert_eq!(arr.len(), buf.size() as usize);
 
-                let mut values = buf.build()?;
+                let values = buf.build()?;
                 assert_eq!(arr.len(), values.size() as usize);
 
                 for (i, &value) in arr.iter().enumerate() {

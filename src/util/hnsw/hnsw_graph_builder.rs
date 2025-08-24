@@ -211,11 +211,7 @@ where
         node: i32,
         candidates: &NeighborArray,
     ) -> Result<()> {
-        let HnswGraphEnums::OnHeap(hnsw) = &mut self.hnsw else {
-            return Err(LuceneError::illegal_state(
-                "Only OnHeap variant is supported",
-            ));
-        };
+        let HnswGraphEnums::OnHeap(hnsw) = &mut self.hnsw;
         /* For each of the beamWidth nearest candidates (going from best to worst),
          * select it only if it is closer to target than it is to any of the
          * already-selected neighbors (ie selected in this method,
@@ -704,7 +700,6 @@ where
     fn get_graph(&mut self) -> &mut OnHeapHnswGraph {
         match &mut self.hnsw {
             HnswGraphEnums::OnHeap(graph) => graph,
-            _ => unreachable!(),
         }
     }
 

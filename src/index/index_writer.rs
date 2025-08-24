@@ -206,14 +206,14 @@ impl DocMap for DocMapIndexWriter {
 
 pub(crate) struct FlushNotificationsImpl;
 impl FlushNotifications for FlushNotificationsImpl {
-    fn delete_unused_files<'a, I>(&self, files: I)
+    fn delete_unused_files<'a, I>(&self, _files: I)
     where
         I: IntoIterator<Item = &'a String>,
     {
         todo!()
     }
 
-    fn flush_failed<D>(&self, info: &SegmentInfo<D>)
+    fn flush_failed<D>(&self, _info: &SegmentInfo<D>)
     where
         D: Directory,
     {
@@ -224,7 +224,7 @@ impl FlushNotifications for FlushNotificationsImpl {
         todo!()
     }
 
-    fn on_tragic_event(&self, event: LuceneError, message: &str) {
+    fn on_tragic_event(&self, _event: LuceneError, _message: &str) {
         todo!()
     }
 

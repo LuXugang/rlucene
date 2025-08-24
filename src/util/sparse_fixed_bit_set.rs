@@ -23,9 +23,9 @@ use crate::util::bits::Bits;
 use crate::util::error::lucene_error::{LuceneError, Result};
 
 // TODO
-#[allow(unused)]
+
 const SPARSE_FIXED_BIT_SET_BASE_RAM_BYTES_USED: i64 = 0;
-#[allow(unused)]
+
 const SINGLE_ELEMENT_ARRAY_BYTES_USED: i64 = 0;
 const MASK_4096: i32 = (1 << 12) - 1;
 
@@ -300,7 +300,7 @@ impl SparseFixedBitSet {
             non_zero_long_count - (current_index & index).count_ones() as i32;
     }
     /// [`or`](#method.or) implementation that works best when `it` is dense.
-    #[allow(unused)]
+
     fn or_dense(&mut self, mut it: impl DocIdSetIterator) -> Result<()> {
         bit_set_util::check_unpositioned(&it)?;
         // The goal here is to try to take advantage of the ordering of
@@ -379,7 +379,7 @@ fn oversize(s: i32) -> i32 {
     }
     new_size
 }
-#[allow(unused)]
+
 fn long_bits(index: i64, bits: &[u64], i64: i32) -> i64 {
     if ((index as u64) & (1_u64 << (i64 % 64))) == 0 {
         0
@@ -765,7 +765,7 @@ mod tests {
         assert_eq!(num_docs, set.approximate_cardinality());
     }
     #[test]
-    #[allow(unused)]
+
     fn test_ram_bytes_used() {
         // todo
     }

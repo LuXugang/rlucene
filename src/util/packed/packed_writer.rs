@@ -41,7 +41,6 @@ impl<'a, T> PackedWriter<'a, T>
 where
     T: DataOutput,
 {
-    #[allow(unused)]
     pub fn new(
         format: Format,
         data_output: &'a mut T,

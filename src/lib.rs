@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#![cfg_attr(debug_assertions, allow(dead_code, unused_variables))]
+#![cfg_attr(debug_assertions, allow(dead_code))]
 #![allow(deprecated)]
 pub mod analysis;
 pub mod codecs;

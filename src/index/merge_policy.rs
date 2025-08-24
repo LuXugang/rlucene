@@ -24,7 +24,7 @@ use parking_lot::{Condvar, Mutex};
 pub struct MergePolicy;
 /// Reason for pausing the merge thread.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[allow(unused)]
+
 pub enum PauseReason {
     /// Stopped (because of throughput rate set to 0, typically).
     Stopped,
@@ -35,7 +35,7 @@ pub enum PauseReason {
 }
 /// Progress and state for an executing merge. This struct encapsulates the
 /// logic to pause and resume the merge thread or to abort the merge entirely.
-#[allow(unused)]
+
 pub struct OneMergeProgress {
     pause_lock: Mutex<()>,
     pausing: Condvar,
@@ -49,14 +49,13 @@ pub struct OneMergeProgress {
 }
 
 #[derive(Default)]
-#[allow(unused)]
+
 struct PauseTimes {
     stopped: AtomicU64,
     paused: AtomicU64,
     other: AtomicU64,
 }
 
-#[allow(unused)]
 impl OneMergeProgress {
     /// Creates a new merge progress info.
     pub fn new() -> Arc<Self> {

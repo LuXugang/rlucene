@@ -54,7 +54,7 @@ pub struct BKDRadixSelector {
     // BKD tree configuration
     config: Rc<BKDConfig>,
 }
-#[allow(unused)]
+
 impl BKDRadixSelector {
     // size of the histogram
     const HISTOGRAM_SIZE: usize = 256;
@@ -218,7 +218,7 @@ impl BKDRadixSelector {
         reader.next()?;
         {
             let point_value = reader.point_value();
-            let (value, packed_value_offset, length) = point_value.packed_value_doc_id_bytes();
+            let (value, packed_value_offset, _) = point_value.packed_value_doc_id_bytes();
 
             let mut start = (packed_value_offset + offset) as usize;
             let mut end = start + self.config.bytes_per_dim as usize;

@@ -74,7 +74,7 @@ where
                 Ok(None)
             }
         })();
-        result.inspect_err(|e| {
+        result.inspect_err(|_| {
             self.dec_tickets();
         })
     }

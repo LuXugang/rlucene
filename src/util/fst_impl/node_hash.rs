@@ -707,7 +707,7 @@ mod tests {
 
     use crate::util::fst_impl::node_hash::PagedGrowableHash;
 
-    #[allow(dead_code)]
+    #[allow(dead_code)] // for quick search
     struct TestNodeHash;
     #[test]
     fn test_copy_fallback_node_bytes() -> Result<()> {

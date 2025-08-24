@@ -16,7 +16,7 @@
  */
 /// Not thorough, but tries to test determinism correctness somewhat randomly,
 /// by determinizing a huge random lexicon.
-#[allow(dead_code)]
+#[allow(dead_code)] // for quick search
 struct TestDeterminizeLexicon;
 #[cfg(test)]
 mod tests {

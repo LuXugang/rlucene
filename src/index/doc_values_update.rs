@@ -36,7 +36,6 @@ pub struct DocValuesUpdate {
     pub sub_update: DocValuesUpdateEnum,
 }
 impl DocValuesUpdate {
-    #[allow(unused)]
     const RAW_SIZE_IN_BYTES: i32 = 0;
     pub fn new(
         doc_values_type: DocValuesType,
@@ -57,11 +56,9 @@ impl DocValuesUpdate {
         }
     }
 
-    #[allow(unused)]
     pub(crate) fn has_value(&self) -> bool {
         self.has_value
     }
-    #[allow(dead_code)]
     fn size_in_bytes(&self) -> i32 {
         unimplemented!("Not used in Java Lucene, so we did not implement it")
     }
@@ -112,7 +109,6 @@ pub struct BinaryDocValuesUpdate {
     value: Option<BytesRef<Vec<u8>>>,
 }
 impl BinaryDocValuesUpdate {
-    #[allow(unused)]
     const RAW_VALUE_SIZE_IN_BYTES: i32 = 0;
     pub fn new(value: Option<BytesRef<Vec<u8>>>) -> Self {
         BinaryDocValuesUpdate { value }

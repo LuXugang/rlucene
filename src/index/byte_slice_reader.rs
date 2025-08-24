@@ -31,7 +31,7 @@ pub(crate) struct ByteSliceReader {
     buffer_offset: i32,
     end_index: i32,
 }
-#[allow(unused)]
+
 impl ByteSliceReader {
     pub(crate) fn new() -> Self {
         ByteSliceReader {

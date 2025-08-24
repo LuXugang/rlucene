@@ -16,7 +16,6 @@
  */
 use std::fmt;
 use std::rc::Rc;
-use std::sync::Arc;
 
 use crate::analysis::analyzer::Analyzer;
 use crate::document::field::{Field, FieldBase, Store};
@@ -68,7 +67,6 @@ pub struct TextField {
     stored_value: Option<StoredValue>,
 }
 
-#[allow(unused)]
 impl TextField {
     /// Creates a new un-stored `TextField` with a `ReaderEnum` value.
     ///
@@ -76,7 +74,6 @@ impl TextField {
     /// - `name`: Field name.
     /// - `reader`: `ReaderEnum` value.
     pub fn with_reader(name: &str, reader: ReaderEnum) -> Result<Self> {
-        let name_arc = Arc::new(name.to_string());
         let parent_field = Field::with_reader(name, reader, text::TYPE_NOT_STORED.clone())?;
         Ok(Self {
             parent_field,

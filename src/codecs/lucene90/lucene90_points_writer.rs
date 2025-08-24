@@ -24,7 +24,7 @@ use std::sync::Arc;
 pub struct Lucene90PointWriter;
 
 impl Lucene90PointWriter {
-    pub fn new<D>(state: &SegmentWriteState<D>) -> Self
+    pub fn new<D>(_state: &SegmentWriteState<D>) -> Self
     where
         D: Directory,
     {

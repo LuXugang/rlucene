@@ -1550,7 +1550,7 @@ where
     count: &'a mut [i32],
     random: &'a mut R,
 }
-#[allow(unused)]
+
 impl<'a, R> IntersectVisitorMock4<'a, R>
 where
     R: Rng + ?Sized,

@@ -57,7 +57,7 @@ impl GrowableWriter {
             PackedInts::max_value(bits_per_value)
         }
     }
-    #[allow(unused)]
+
     pub fn get_mutable(&self) -> &MutablePacked64Enum {
         &self.current
     }
@@ -83,7 +83,7 @@ impl GrowableWriter {
         self.current = next;
         self.current_mask = Self::mask(self.current.get_bits_per_value());
     }
-    #[allow(unused)]
+
     pub fn resize(&mut self, new_size: i32) -> GrowableWriter {
         let mut next = GrowableWriter::new(
             self.current.get_bits_per_value(),

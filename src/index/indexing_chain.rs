@@ -344,7 +344,7 @@ where
             let mut fp_idx = idx;
             while fp_idx >= 0 {
                 let pf = self.doc_fields[fp_idx as usize].as_mut().unwrap();
-                if let Some(ref inv) = pf.invert_state {
+                if pf.invert_state.is_some() {
                     fields_to_flush.insert(
                         pf.field_info.as_ref().unwrap().name.clone(),
                         pf.terms_hash_per_field.take().unwrap(),
@@ -626,7 +626,7 @@ where
         self.stored_fields_consumer
             .start_document(index_writer_config.get_codec(), doc_id, info)
             .map(|_| ())
-            .inspect_err(|e| {
+            .inspect_err(|_| {
                 self.has_hit_aborting_exception = true;
             })
     }
@@ -634,7 +634,7 @@ where
     pub(crate) fn finish_stored_fields(&mut self) -> Result<()> {
         self.stored_fields_consumer
             .finish_document()
-            .inspect_err(|e| {
+            .inspect_err(|_| {
                 self.has_hit_aborting_exception = true;
             })
     }

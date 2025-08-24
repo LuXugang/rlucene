@@ -60,7 +60,6 @@ impl<'a> DocumentStoredFieldVisitor<'a> {
         }
     }
 
-    #[allow(unused)]
     pub fn get_document_ref(&self) -> &Document {
         &self.doc
     }

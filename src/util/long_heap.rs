@@ -168,7 +168,7 @@ impl LongHeap {
         self.heap[i] = value;
     }
     /// Pushes all elements from another heap into this heap.
-    #[allow(unused)]
+
     pub fn push_all(&mut self, other: &LongHeap) {
         for i in 1..=other.size {
             self.push(other.heap[i]);
@@ -196,7 +196,7 @@ mod tests {
     use crate::test::util::lucene_test_case::lucene_test_case_util::random;
     use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::long_heap::LongHeap;
-    #[allow(dead_code)]
+    #[allow(dead_code)] // for quick search
     struct TestLongHeap;
     /// Checks that the heap property is maintained.
     fn check_validity(heap: &LongHeap) {

@@ -45,7 +45,7 @@ where
     segment_name: String,
     entries: HashMap<String, FileEntry>,
     handle: D::IndexInput,
-    #[allow(unused)]
+
     version: i32,
     dir_fmt: String,
 }

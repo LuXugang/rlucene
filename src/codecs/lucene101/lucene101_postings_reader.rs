@@ -486,7 +486,7 @@ where
     max_impact_num_bytes_at_level0: i32,
     max_impact_num_bytes_at_level1: i32,
 }
-#[allow(unused)]
+
 impl<I> BlockPostingsEnum<I>
 where
     I: IndexInput,

@@ -42,7 +42,7 @@ pub struct PrefixCodedTerms {
     content_len: i64,
     size: i64,
     del_gen: i64,
-    #[allow(unused)]
+
     lazy_hash: i32,
 }
 

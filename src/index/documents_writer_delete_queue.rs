@@ -102,7 +102,7 @@ where
     /// deletes and insert into the buffered updates stream before the
     /// newly flushed segment(s).
     global_slice: DeleteSlice<Q>,
-    #[allow(unused)]
+
     generation: i64,
     global_buffered_updates: MTBufferedUpdates<Q>,
     advanced: bool,
@@ -538,7 +538,7 @@ where
 }
 
 /// A delete slice for buffered updates.
-#[allow(unused)]
+
 pub(crate) struct DeleteSlice<Q>
 where
     Q: Query,
@@ -546,7 +546,7 @@ where
     slice_head: Arc<Node<Q>>, // Head of the slice
     slice_tail: Arc<Node<Q>>, // Tail of the slice
 }
-#[allow(unused)]
+
 impl<Q> DeleteSlice<Q>
 where
     Q: Query,
@@ -777,7 +777,7 @@ where
 pub(crate) struct TermNodeArray {
     item: Vec<Term>,
 }
-#[allow(unused)]
+
 impl TermNodeArray {
     pub(crate) fn new(nodes: Vec<Term>) -> Self {
         Self { item: nodes }
@@ -801,7 +801,7 @@ impl Display for TermNodeArray {
 }
 
 // doc values update node
-#[allow(unused)]
+
 pub(crate) struct DocValuesUpdatesNode {
     item: Vec<DocValuesUpdate>,
 }
@@ -858,7 +858,6 @@ impl Display for DocValuesUpdatesNode {
     }
 }
 
-#[allow(unused)]
 pub(crate) enum NodeEnum<Q>
 where
     Q: Query,
@@ -870,7 +869,7 @@ where
     TermNodeArray(TermNodeArray),
     DocValuesUpdatesNode(DocValuesUpdatesNode),
 }
-#[allow(unused)]
+
 impl<Q> NodeEnum<Q>
 where
     Q: Query,
@@ -922,7 +921,7 @@ where
             "sentinel item must never be applied".to_string(),
         ))
     }
-    #[allow(unused)]
+
     fn is_delete(&self) -> bool {
         true
     }
@@ -961,7 +960,7 @@ mod tests {
     use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::info_stream::get_default_info_stream;
 
-    #[allow(dead_code)]
+    #[allow(dead_code)] // for quick search
     pub struct TestDocumentsWriterDeleteQueue;
 
     #[test]

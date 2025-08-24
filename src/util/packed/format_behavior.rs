@@ -54,7 +54,7 @@ pub trait FormatBehavior {
         );
         0.0
     }
-    #[allow(unused)]
+
     fn overhead_ratio(&self, bits_per_value: i32) -> f32 {
         debug_assert!(
             self.is_supported(bits_per_value),

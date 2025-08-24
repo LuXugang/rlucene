@@ -106,7 +106,7 @@ pub trait BaseDocIdSetTestCase {
     ) -> Result<()>;
 }
 // todo
-#[allow(unused)]
+
 fn ram_bytes_used(_set: impl DocIdSet, _length: i32) -> i64 {
     0
 }

@@ -165,7 +165,7 @@ where
         let new_size = min_size + extra;
         Ok(Some(self.resize(new_size)?))
     }
-    #[allow(unused)]
+
     pub fn grow(&self) -> Result<Option<AbstractPagedMutable<T>>> {
         self.grow_with_size(self.size() << 1)
     }

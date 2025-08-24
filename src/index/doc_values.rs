@@ -313,7 +313,7 @@ impl DocIdSetIterator for EmptyBinary {
         Ok(self.doc)
     }
 
-    fn advance(&mut self, target: i32) -> Result<i32> {
+    fn advance(&mut self, _target: i32) -> Result<i32> {
         self.doc = NO_MORE_DOCS;
         Ok(self.doc)
     }

@@ -726,7 +726,7 @@ pub trait BaseDirectoryTestCase {
 
         Ok(())
     }
-    #[allow(unused)]
+
     fn test_detect_close(&self) -> Result<()> {
         //in Rust, it is not necessary to explicitly call close.
         // Resources are automatically closed when they go out of scope,
@@ -985,7 +985,7 @@ pub trait BaseDirectoryTestCase {
 
         Ok(())
     }
-    #[allow(unused)]
+
     fn test_no_dir(&self) -> Result<()> {
         // TODO
         unimplemented!("DirectoryReader not Implemented")
@@ -1612,13 +1612,13 @@ pub trait BaseDirectoryTestCase {
     /// This test ensures that double-closing an `IndexOutput` does not cause
     /// any issues. Rust Lucene automatically closes resources when they go
     /// out of scope, so this test is not applicable.
-    #[allow(unused)]
+
     fn test_double_close_output<R: Rng + ?Sized>(&self, _random: &mut R) -> Result<()> {
         Ok(())
     }
     /// Rust Lucene automatically closes resources when they go out of scope, so
     /// this test is not applicable.
-    #[allow(unused)]
+
     fn test_double_close_input(&self) -> Result<()> {
         Ok(())
     }

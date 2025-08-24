@@ -499,7 +499,7 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
 impl Eq for FreqProxTermsWriterPerField {}
 
 impl PartialEq<Self> for FreqProxTermsWriterPerField {
-    fn eq(&self, other: &Self) -> bool {
+    fn eq(&self, _other: &Self) -> bool {
         todo!()
     }
 }

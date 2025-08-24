@@ -25,7 +25,7 @@ use crate::util::bits::Bits;
 use crate::util::error::lucene_error::{LuceneError, Result};
 
 // todo
-#[allow(unused)]
+
 const FIXED_BIT_SET_BASE_RAM_BYTES_USED: i64 = 0;
 
 /// `BitSet` of fixed length (`num_bits`), backed by accessible (`get_bits`)
@@ -215,7 +215,6 @@ impl FixedBitSet {
         self.or_impl(0, &other.bits, other.num_words);
     }
 
-    #[allow(unused)]
     fn or_offset(&mut self, other_offset_words: i32, other: &FixedBitSet) {
         self.or_impl(other_offset_words, &other.bits, other.num_words);
     }
@@ -238,7 +237,6 @@ impl FixedBitSet {
     pub fn xor(&mut self, other: &FixedBitSet) {
         self.xor_impl(&other.bits, other.num_words);
     }
-    #[allow(dead_code)]
     pub fn xor_disi(&self, _iter: impl DocIdSetIterator) {
         // not used in Java Lucene, so we did not impl it
         todo!()
@@ -299,7 +297,6 @@ impl FixedBitSet {
         self.and_not_impl(0, &other.bits, other.num_words)
     }
 
-    #[allow(unused)]
     fn and_not_offset(&mut self, other_offset_words: i32, other: &FixedBitSet) {
         self.and_not_impl(other_offset_words, &other.bits, other.num_words);
     }

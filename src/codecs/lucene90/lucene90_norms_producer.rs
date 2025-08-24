@@ -54,7 +54,7 @@ where
     max_doc: i32,
     data: I,
     merging: bool,
-    #[allow(unused)]
+
     disi_inputs: RefCell<HashMap<i32, Rc<RefCell<I::Slice>>>>,
     disi_jump_tables: RefCell<HashMap<i32, Rc<RefCell<I::RandomAccessSlice>>>>,
     data_inputs: RefCell<HashMap<i32, Rc<RefCell<I::RandomAccessSlice>>>>,
@@ -344,7 +344,7 @@ where
         write!(f, "Lucene90NormsProducer(fields={})", self.norms.len())
     }
 }
-#[allow(unused)]
+
 pub struct IndexInputImpl<I>
 where
     I: IndexInput,
@@ -352,7 +352,7 @@ where
     inf: Rc<RefCell<I::Slice>>,
     offset: i64,
 }
-#[allow(unused)]
+
 impl<I> DataInput for IndexInputImpl<I>
 where
     I: IndexInput,

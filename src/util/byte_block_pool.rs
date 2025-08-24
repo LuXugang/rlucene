@@ -57,7 +57,7 @@ where
 }
 pub mod byte_block_pool_util {
     //TODO
-    #[allow(unused)]
+
     const BASE_RAM_BYTES: i64 = 0;
     /// Finds the index of the buffer containing a byte, given an offset to that
     /// byte.

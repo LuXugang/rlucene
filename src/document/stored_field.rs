@@ -45,7 +45,7 @@ static TYPE: Lazy<FieldType> = Lazy::new(|| {
 pub struct StoredField {
     parent_field: Field,
 }
-#[allow(unused)]
+
 impl StoredField {
     /// Expert: allows you to customize the [`FieldType`].
     ///

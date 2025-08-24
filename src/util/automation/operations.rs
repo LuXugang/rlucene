@@ -483,7 +483,7 @@ impl Operations {
         Ok(!reachable_from_initial.is_empty())
     }
     /// Returns true if there are dead states that reach an accept state.
-    #[allow(unused)]
+
     pub fn has_dead_states_to_accept(a: &Automaton) -> Result<bool> {
         let reachable_from_initial = Operations::get_live_states_from_initial(a);
         let mut reachable_from_accept = Operations::get_live_states_to_accept(a)?;
@@ -772,7 +772,7 @@ impl Operations {
     /// **Note:** For full performance, use the
     /// [`RunAutomaton`](crate::util::automation::run_automaton::RunAutomaton)
     /// struct.
-    #[allow(unused)]
+
     pub(crate) fn run_str(a: &Automaton, s: &str) -> bool {
         debug_assert!(a.is_deterministic());
 

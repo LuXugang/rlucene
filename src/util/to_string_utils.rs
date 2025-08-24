@@ -21,7 +21,6 @@ use crate::util::access::SharedAccessVec;
 pub struct ToStringUtils;
 
 impl ToStringUtils {
-    #[allow(unused)]
     pub fn byte_array(buffer: &mut String, bytes: &[u8]) {
         for (i, &b) in bytes.iter().enumerate() {
             use std::fmt::Write;
@@ -32,12 +31,10 @@ impl ToStringUtils {
         }
     }
 
-    #[allow(dead_code)]
     const HEX: [char; 16] = [
         '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f',
     ];
 
-    #[allow(dead_code)]
     pub fn long_hex(_x: u64) -> String {
         // not used in Java Lucene
         "".to_string()

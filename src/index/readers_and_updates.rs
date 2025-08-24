@@ -199,7 +199,7 @@ where
             .sum()
     }
 
-    pub fn release<D>(&self, sr: &SegmentReader<LF>, info: &SegmentCommitInfo<D>) -> Result<()>
+    pub fn release<D>(&self, _sr: &SegmentReader<LF>, info: &SegmentCommitInfo<D>) -> Result<()>
     where
         D: Directory,
     {
@@ -220,7 +220,7 @@ where
     pub fn drop_readers(&self) -> Result<()> {
         let mut inner = self.inner.lock();
 
-        if let Some(reader) = inner.reader.take() {
+        if let Some(_) = inner.reader.take() {
             // TODO
         }
         self.dec_ref();

@@ -189,7 +189,8 @@ where
         if let Some(mv) = self.missing_value {
             values.fill(mv);
         }
-        while let doc_id = dvs.next_doc()? {
+        loop {
+            let doc_id = dvs.next_doc()?;
             if doc_id == NO_MORE_DOCS {
                 break;
             }
@@ -281,7 +282,8 @@ where
         if let Some(mv) = self.missing_value {
             values.fill(mv);
         }
-        while let doc_id = dvs.next_doc()? {
+        loop {
+            let doc_id = dvs.next_doc()?;
             if doc_id == NO_MORE_DOCS {
                 break;
             }
@@ -377,7 +379,8 @@ where
         if let Some(mv) = self.missing_value {
             values.fill(mv);
         }
-        while let doc_id = dvs.next_doc()? {
+        loop {
+            let doc_id = dvs.next_doc()?;
             if doc_id == NO_MORE_DOCS {
                 break;
             }

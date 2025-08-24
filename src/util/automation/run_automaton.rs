@@ -107,7 +107,6 @@ impl RunAutomaton {
         self.accept.get(state)
     }
 
-    #[allow(unused)]
     /// Returns array of codepoint class interval start points. The array should
     /// not be modified by the caller.
     pub fn char_intervals(&self) -> &[i32] {

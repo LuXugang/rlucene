@@ -704,7 +704,6 @@ where
         Ok(fst_enum)
     }
 
-    #[allow(dead_code)]
     pub fn verify_unpruned<F>(
         &self,
         _input_mode: i32,

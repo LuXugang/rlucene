@@ -52,7 +52,7 @@ fn test_simple() -> Result<()> {
     }
     let input = dir.open_input("foo", &IOContext::default_io_context()?)?;
     let slice = input.random_access_slice(0, input.length())?;
-    let mut reader =
+    let reader =
         DirectReader::get_instance_with_offset(Rc::new(RefCell::new(slice)), bits_per_value, 0);
     assert_eq!(1, reader.get_immutable(0)?);
     assert_eq!(0, reader.get_immutable(1)?);
@@ -153,7 +153,7 @@ fn do_test_bpv<R: Rng + ?Sized>(
 
         let input = directory.open_input(&name, &IOContext::default_io_context()?)?;
         let slice = Rc::new(RefCell::new(input.random_access_slice(0, input.length())?));
-        let mut reader = if merge {
+        let reader = if merge {
             DirectReader::get_merge_instance_with_base_offset(
                 slice.clone(),
                 bits_required,
