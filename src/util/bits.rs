@@ -142,3 +142,17 @@ where
         (**self).copy_of()
     }
 }
+
+impl<T: Bits + ?Sized> Bits for &T {
+    fn get(&self, index: i32) -> bool {
+        <T as Bits>::get(*self, index)
+    }
+
+    fn length(&self) -> i32 {
+        <T as Bits>::length(*self)
+    }
+
+    fn copy_of(&self) -> FixedBitSet {
+        <T as Bits>::copy_of(*self)
+    }
+}

@@ -190,5 +190,3 @@ where
         todo!()
     }
 }
-type Either2Dir<'a, D> =
-    Either2Directory<&'a mut D, &'a mut CompoundDirectory<Lucene90CompoundReader<D>>>;

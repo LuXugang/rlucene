@@ -25,7 +25,7 @@ use crate::util::accountable::Accountable;
 use crate::util::array_util::ArrayUtil;
 use crate::util::bit_set::BitSet;
 use crate::util::bit_util::BitUtil;
-use crate::util::bits::{Bits, MatchAllBits};
+use crate::util::bits::{Bits, Either2Bits, MatchAllBits};
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
@@ -72,11 +72,10 @@ pub(crate) struct FieldUpdatesBuffer {
     is_numeric: bool,
     finished: bool,
 }
-#[allow(unused)]
+
 impl FieldUpdatesBuffer {
-    #[allow(unused)]
     const SELF_SHALLOW_SIZE: i64 = 0;
-    #[allow(unused)]
+
     const STRING_SHALLOW_SIZE: i64 = 0;
     fn new(
         bytes_used: CounterEnumLock,
@@ -141,7 +140,7 @@ impl FieldUpdatesBuffer {
         buffer.max_numeric = max_numeric;
         buffer.min_numeric = min_numeric;
         {
-            let mut bytes_used_guard = buffer
+            let bytes_used_guard = buffer
                 .bytes_used
                 .lock()
                 .add_and_get(BitUtil::LONG_BYTES as i64);
@@ -229,7 +228,7 @@ impl FieldUpdatesBuffer {
                     }
                 }
                 // TODO: memory calculation not implemented
-                let mut bytes_used = self.bytes_used.lock().add_and_get(0);
+                let bytes_used = self.bytes_used.lock().add_and_get(0);
             }
             self.docs_up_to[ord as usize] = doc_upto;
         }
@@ -271,7 +270,7 @@ impl FieldUpdatesBuffer {
                     }
                 }
                 // TODO: memory calculation not implemented
-                let mut bytes_used = self.bytes_used.lock().add_and_get(0);
+                let bytes_used = self.bytes_used.lock().add_and_get(0);
             }
             numeric_values[ord as usize] = value;
         }
@@ -393,20 +392,19 @@ impl FieldUpdatesBuffer {
     }
 }
 /// An iterator that iterates over all updates in insertion order.
-#[allow(unused)]
+
 pub struct BufferedUpdateIterator<'a> {
     term_values_iterator: IndexedBytesRefIteratorImpl<'a, CounterEnumLock>,
     look_ahead_term_iterator: Option<IndexedBytesRefIteratorImpl<'a, CounterEnumLock>>,
     byte_values_iterator: Option<IndexedBytesRefIteratorImpl<'a, CounterEnumLock>>,
     buffered_update: BufferedUpdate,
-    updates_with_value: Option<BitsEnum<'a>>,
+    updates_with_value: Option<UpdateBits<'a>>,
     fields_length: i32,
     docs_upto_length: i32,
     numeric_values_length: i32,
     field_updates_buffer: &'a FieldUpdatesBuffer,
 }
 
-#[allow(unused)]
 impl<'a> BufferedUpdateIterator<'a> {
     pub fn new(field_updates_buffer: &'a FieldUpdatesBuffer) -> Self {
         let term_values_iterator = field_updates_buffer
@@ -434,9 +432,9 @@ impl<'a> BufferedUpdateIterator<'a> {
             )
         };
         let updates_with_value = if let Some(item) = &field_updates_buffer.has_values {
-            BitsEnum::Fixed(item)
+            UpdateBits::B(item)
         } else {
-            BitsEnum::All(MatchAllBits::new(field_updates_buffer.num_updates))
+            UpdateBits::A(MatchAllBits::new(field_updates_buffer.num_updates))
         };
         let fields_length = field_updates_buffer.fields.len();
         let docs_upto_length = field_updates_buffer.docs_up_to.len();
@@ -563,7 +561,7 @@ impl<'a> BufferedUpdateIterator<'a> {
 /// this struct should not be use in map or other data-structures that use
 /// hashCode / equals
 #[derive(Default, Clone)]
-#[allow(unused)]
+
 pub struct BufferedUpdate {
     /// the max document ID this update should be applied to.
     pub doc_up_to: i32,
@@ -579,7 +577,6 @@ pub struct BufferedUpdate {
     pub term_value: Option<BytesRef<Vec<u8>>>,
 }
 
-#[allow(unused)]
 impl BufferedUpdate {
     pub fn new(
         doc_up_to: i32,
@@ -599,18 +596,8 @@ impl BufferedUpdate {
         }
     }
 }
-pub enum BitsEnum<'a> {
-    All(MatchAllBits),
-    Fixed(&'a FixedBitSet),
-}
-impl BitsEnum<'_> {
-    fn get(&self, idx: i32) -> bool {
-        match self {
-            BitsEnum::All(all) => all.get(idx),
-            BitsEnum::Fixed(fixed) => fixed.get(idx),
-        }
-    }
-}
+
+type UpdateBits<'a> = Either2Bits<MatchAllBits, &'a FixedBitSet>;
 
 #[cfg(test)]
 mod tests {
