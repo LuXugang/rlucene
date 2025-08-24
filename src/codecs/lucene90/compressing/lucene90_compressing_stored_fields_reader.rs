@@ -34,7 +34,9 @@ use crate::index::stored_field_visitor::{Status, StoredFieldVisitor};
 use crate::index::stored_fields::StoredFields;
 use crate::index::{BytesRef, IndexFileNames};
 use crate::store::directory::Directory;
-use crate::store::{ByteArrayDataInput, DataInput, IOContext, IndexInput, ReadAdvice};
+use crate::store::{
+    ByteArrayDataInput, DataInput, Either2DataInput, IOContext, IndexInput, ReadAdvice,
+};
 use crate::util::array_util::ArrayUtil;
 use crate::util::clone::TryClone as OtherClone;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -826,9 +828,9 @@ where
         };
 
         let document_input = if length == 0 {
-            DataInputEnum::ByteArray(ByteArrayDataInput::new())
+            Either2DataInput::A(ByteArrayDataInput::new())
         } else if self.merging {
-            DataInputEnum::ByteArray(ByteArrayDataInput::with_range(
+            Either2DataInput::A(ByteArrayDataInput::with_range(
                 std::mem::take(&mut bytes.bytes),
                 bytes.offset + offset as usize,
                 length,
@@ -845,7 +847,7 @@ where
                     min(length as i32, self.chunk_size - offset),
                     &mut bytes,
                 )?;
-                DataInputEnum::Impl(DataInputImpl::new(
+                Either2DataInput::B(DataInputImpl::new(
                     &mut self.decompressor,
                     self.chunk_size,
                     Rc::clone(&self.fields_stream),
@@ -861,7 +863,7 @@ where
                     &mut bytes,
                 )?;
                 debug_assert_eq!(bytes.length, length);
-                DataInputEnum::ByteArray(ByteArrayDataInput::with_range(
+                Either2DataInput::A(ByteArrayDataInput::with_range(
                     std::mem::take(&mut bytes.bytes),
                     bytes.offset,
                     bytes.length,
@@ -877,6 +879,7 @@ where
     }
 }
 
+type DataInputs<'a, I> = Either2DataInput<ByteArrayDataInput<Vec<u8>>, DataInputImpl<'a, I>>;
 /// A serialized document. You need to decode its input to get an actual
 /// `Document`.
 pub struct SerializedDocument<'a, I>
@@ -884,7 +887,7 @@ where
     I: IndexInput,
 {
     /// The serialized data input.
-    pub(crate) input: DataInputEnum<'a, I>,
+    pub(crate) input: DataInputs<'a, I>,
 
     /// The number of bytes on which the document is encoded.
     pub(crate) length: i32,
@@ -897,7 +900,7 @@ impl<'a, I> SerializedDocument<'a, I>
 where
     I: IndexInput,
 {
-    fn new(input: DataInputEnum<'a, I>, length: i32, num_stored_fields: i32) -> Self {
+    fn new(input: DataInputs<'a, I>, length: i32, num_stored_fields: i32) -> Self {
         SerializedDocument {
             input,
             length,
@@ -1017,50 +1020,5 @@ where
         self.bytes.offset += num_bytes;
         self.bytes.length -= num_bytes;
         Ok(())
-    }
-}
-pub enum DataInputEnum<'a, I>
-where
-    I: IndexInput,
-{
-    ByteArray(ByteArrayDataInput<Vec<u8>>),
-    Impl(DataInputImpl<'a, I>),
-}
-
-impl<I> Display for DataInputEnum<'_, I>
-where
-    I: IndexInput,
-{
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            DataInputEnum::ByteArray(data_input) => write!(f, "{data_input}"),
-            DataInputEnum::Impl(data_input) => write!(f, "{data_input}"),
-        }
-    }
-}
-
-impl<I> DataInput for DataInputEnum<'_, I>
-where
-    I: IndexInput,
-{
-    fn read_byte(&mut self) -> Result<u8> {
-        match self {
-            DataInputEnum::ByteArray(data_input) => data_input.read_byte(),
-            DataInputEnum::Impl(data_input) => data_input.read_byte(),
-        }
-    }
-
-    fn read_bytes(&mut self, b: &mut [u8], offset: i32, len: i32) -> Result<()> {
-        match self {
-            DataInputEnum::ByteArray(data_input) => data_input.read_bytes(b, offset, len),
-            DataInputEnum::Impl(data_input) => data_input.read_bytes(b, offset, len),
-        }
-    }
-
-    fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
-        match self {
-            DataInputEnum::ByteArray(data_input) => data_input.skip_bytes(num_bytes),
-            DataInputEnum::Impl(data_input) => data_input.skip_bytes(num_bytes),
-        }
     }
 }

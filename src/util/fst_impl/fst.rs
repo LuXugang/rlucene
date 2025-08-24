@@ -1490,11 +1490,9 @@ mod tests {
 
     use rand::Rng;
 
-    use crate::codecs::compressing::lucene90_compressing_stored_fields_reader::DataInputEnum;
     use crate::index::BytesRef;
     use crate::store::directory::Directory;
     use crate::store::dummy::dummy_directory::DummyDirectory;
-    use crate::store::dummy::dummy_index_input::DummyIndexInput;
     use crate::store::nio_fs_directory::NIOFSDirectory;
     use crate::store::output_stream_data_output::OutputStreamDataOutput;
     use crate::store::{ByteArrayDataInput, FSDirectory, IOContext, NativeFSLockFactory};
@@ -2059,10 +2057,7 @@ mod tests {
         // Load it back using split input (force FSTStore path)
         let mut input = ByteArrayDataInput::with_bytes(bytes);
         let metadata = fst_util::read_metadata(&mut input, outputs.clone())?;
-        let mut loaded_fst = FST::from_on_heap_store(
-            metadata,
-            &mut DataInputEnum::<DummyIndexInput>::ByteArray(input),
-        )?;
+        let mut loaded_fst = FST::from_on_heap_store(metadata, &mut input)?;
 
         // Save again, now to separate outputs
         let mut metdata_os = Vec::new();
@@ -2075,12 +2070,9 @@ mod tests {
 
         // Load again using split inputs
         let mut meta_in = ByteArrayDataInput::with_bytes(metdata_os);
-        let data_in = ByteArrayDataInput::with_bytes(data_os_os);
+        let mut data_in = ByteArrayDataInput::with_bytes(data_os_os);
         let metadata = fst_util::read_metadata(&mut meta_in, outputs.clone())?;
-        let mut loaded_fst = FST::from_on_heap_store(
-            metadata,
-            &mut DataInputEnum::<DummyIndexInput>::ByteArray(data_in),
-        )?;
+        let mut loaded_fst = FST::from_on_heap_store(metadata, &mut data_in)?;
 
         Util::get_ints_ref(&key1, &mut scratch);
         assert_eq!(*Util::get_bytes(&mut loaded_fst, &key1)?.unwrap(), 22);
