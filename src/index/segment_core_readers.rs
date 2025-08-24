@@ -31,14 +31,11 @@ use crate::codecs::{Codec, CompoundFormat, get_default_code};
 use crate::index::field_infos::FieldInfos;
 use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::index::segment_read_state::SegmentReadState;
-use crate::store::buffered_checksum_index_input::BufferedChecksumIndexInput;
-use crate::store::directory::Directory;
+use crate::store::directory::{Directory, Either2Directory};
 use crate::store::{Either2IndexInput, IOContext, IndexInput};
 use crate::util::error::lucene_error::{LuceneError, Result};
 
 use parking_lot::Mutex;
-use std::collections::HashSet;
-use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicI32, Ordering};
@@ -91,9 +88,9 @@ where
             };
 
             let mut cfs_dir = if cfs_reader.is_some() {
-                Either2Dir::Cfs(cfs_reader.as_mut().unwrap())
+                Either2Directory::A(cfs_reader.as_mut().unwrap())
             } else {
-                Either2Dir::Base(&mut *dir.lock())
+                Either2Directory::B(&mut *dir.lock())
             };
 
             let segment = si.info.name.to_string();
@@ -193,157 +190,5 @@ where
         todo!()
     }
 }
-
-pub(crate) enum Either2Dir<'a, D>
-where
-    D: Directory,
-{
-    Base(&'a mut D),
-    Cfs(&'a mut CompoundDirectory<Lucene90CompoundReader<D>>),
-}
-
-impl<D> Display for Either2Dir<'_, D>
-where
-    D: Directory,
-{
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Either2Dir::Base(dir) => write!(f, "{}", dir),
-            Either2Dir::Cfs(cfs) => write!(f, "{}", cfs),
-        }
-    }
-}
-
-impl<'a, D> Directory for Either2Dir<'a, D>
-where
-    D: Directory,
-{
-    fn list_all(&self) -> Result<Vec<String>> {
-        match self {
-            Either2Dir::Base(dir) => dir.list_all(),
-            Either2Dir::Cfs(cfs) => cfs.list_all(),
-        }
-    }
-
-    fn delete_file(&mut self, name: &str) -> Result<()> {
-        match self {
-            Either2Dir::Base(dir) => dir.delete_file(name),
-            Either2Dir::Cfs(cfs) => cfs.delete_file(name),
-        }
-    }
-
-    fn file_length(&self, name: &str) -> Result<i64> {
-        match self {
-            Either2Dir::Base(dir) => dir.file_length(name),
-            Either2Dir::Cfs(cfs) => cfs.file_length(name),
-        }
-    }
-
-    fn create_output(&mut self, _name: &str, _context: &IOContext) -> Result<Self::IndexOutput> {
-        match self {
-            Either2Dir::Base(dir) => dir.create_output(_name, _context),
-            Either2Dir::Cfs(cfs) => cfs.create_output(_name, _context),
-        }
-    }
-
-    type IndexOutput = D::IndexOutput;
-
-    fn create_temp_output(
-        &mut self,
-        _prefix: &str,
-        _suffix: &str,
-        _context: &IOContext,
-    ) -> Result<Self::IndexOutput> {
-        match self {
-            Either2Dir::Base(dir) => dir.create_temp_output(_prefix, _suffix, _context),
-            Either2Dir::Cfs(cfs) => cfs.create_temp_output(_prefix, _suffix, _context),
-        }
-    }
-
-    fn sync(&mut self, names: &[&str]) -> Result<()> {
-        match self {
-            Either2Dir::Base(dir) => dir.sync(names),
-            Either2Dir::Cfs(cfs) => cfs.sync(names),
-        }
-    }
-
-    fn sync_metadata(&mut self) -> Result<()> {
-        match self {
-            Either2Dir::Base(dir) => dir.sync_metadata(),
-            Either2Dir::Cfs(cfs) => cfs.sync_metadata(),
-        }
-    }
-
-    fn rename(&mut self, source: &str, dest: &str) -> Result<()> {
-        match self {
-            Either2Dir::Base(dir) => dir.rename(source, dest),
-            Either2Dir::Cfs(cfs) => cfs.rename(source, dest),
-        }
-    }
-
-    type IndexInput = CfsOrBaseInput<D>;
-
-    fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
-        match self {
-            Either2Dir::Base(dir) => {
-                let input = dir.open_input(name, context)?;
-                Ok(Either2IndexInput::B(input))
-            },
-            Either2Dir::Cfs(cfs) => {
-                let input = cfs.open_input(name, context)?;
-                Ok(Either2IndexInput::A(input))
-            },
-        }
-    }
-
-    fn open_checksum_input(
-        &self,
-        name: &str,
-    ) -> Result<BufferedChecksumIndexInput<Self::IndexInput>> {
-        let input = self.open_input(name, &IOContext::default_io_context()?)?;
-        Ok(BufferedChecksumIndexInput::new(input))
-    }
-
-    type Lock = D::Lock;
-
-    fn obtain_lock(&mut self, name: &str) -> Result<Self::Lock> {
-        match self {
-            Either2Dir::Base(dir) => dir.obtain_lock(name),
-            Either2Dir::Cfs(cfs) => cfs.obtain_lock(name),
-        }
-    }
-
-    fn copy_from<T: Directory>(
-        &mut self,
-        from: Arc<Mutex<T>>,
-        src: &str,
-        dest: &str,
-        context: &IOContext,
-    ) -> Result<()> {
-        match self {
-            Either2Dir::Base(dir) => dir.copy_from(from, src, dest, context),
-            Either2Dir::Cfs(cfs) => cfs.copy_from(from, src, dest, context),
-        }
-    }
-
-    fn delete_files_ignoring_exceptions(&mut self, files: &[String]) {
-        match self {
-            Either2Dir::Base(dir) => dir.delete_files_ignoring_exceptions(files),
-            Either2Dir::Cfs(cfs) => cfs.delete_files_ignoring_exceptions(files),
-        }
-    }
-
-    fn get_pending_deletions(&mut self) -> Result<HashSet<String>> {
-        match self {
-            Either2Dir::Base(dir) => dir.get_pending_deletions(),
-            Either2Dir::Cfs(cfs) => cfs.get_pending_deletions(),
-        }
-    }
-
-    fn is_fs_directory(&self) -> bool {
-        match self {
-            Either2Dir::Base(dir) => dir.is_fs_directory(),
-            Either2Dir::Cfs(cfs) => cfs.is_fs_directory(),
-        }
-    }
-}
+type Either2Dir<'a, D> =
+    Either2Directory<&'a mut D, &'a mut CompoundDirectory<Lucene90CompoundReader<D>>>;

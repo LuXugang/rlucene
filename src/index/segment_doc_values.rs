@@ -21,10 +21,10 @@ use crate::codecs::lucene90_doc_values_producer::Lucene90DocValuesProducer;
 use crate::codecs::{Codec, get_default_code};
 use crate::index::field_infos::FieldInfos;
 use crate::index::segment_commit_info::SegmentCommitInfo;
-use crate::index::segment_core_readers::{CfsOrBaseInput, Either2Dir};
+use crate::index::segment_core_readers::CfsOrBaseInput;
 use crate::index::segment_read_state::SegmentReadState;
 use crate::store::IOContext;
-use crate::store::directory::Directory;
+use crate::store::directory::{Directory, Either2Directory};
 use crate::util::error::lucene_error::Result;
 use crate::util::ref_count::RefCount;
 use parking_lot::Mutex;
@@ -65,13 +65,13 @@ where
     where
         D: Directory,
     {
-        let mut dv_dir = Either2Dir::Cfs(dir);
+        let mut dv_dir = Either2Directory::A(dir);
         let mut segment_suffix = "".to_string();
 
         let base_dir = &mut *si.info.dir.lock();
         if r#gen != -1 {
             // gen'd files are written outside CFS, so use SegInfo directory
-            dv_dir = Either2Dir::Base(base_dir);
+            dv_dir = Either2Directory::B(base_dir);
             segment_suffix = format!("{:x}", r#gen);
         }
 

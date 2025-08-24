@@ -405,3 +405,63 @@ where
         }
     }
 }
+impl<D: Directory + ?Sized> Directory for &mut D {
+    fn list_all(&self) -> Result<Vec<String>> {
+        (**self).list_all()
+    }
+    fn delete_file(&mut self, name: &str) -> Result<()> {
+        (**self).delete_file(name)
+    }
+    fn file_length(&self, name: &str) -> Result<i64> {
+        (**self).file_length(name)
+    }
+
+    fn create_output(&mut self, name: &str, ctx: &IOContext) -> Result<Self::IndexOutput> {
+        (**self).create_output(name, ctx)
+    }
+    type IndexOutput = D::IndexOutput;
+    fn create_temp_output(
+        &mut self,
+        p: &str,
+        s: &str,
+        ctx: &IOContext,
+    ) -> Result<Self::IndexOutput> {
+        (**self).create_temp_output(p, s, ctx)
+    }
+    fn sync(&mut self, names: &[&str]) -> Result<()> {
+        (**self).sync(names)
+    }
+    fn sync_metadata(&mut self) -> Result<()> {
+        (**self).sync_metadata()
+    }
+    fn rename(&mut self, src: &str, dst: &str) -> Result<()> {
+        (**self).rename(src, dst)
+    }
+    type IndexInput = D::IndexInput;
+    fn open_input(&self, name: &str, ctx: &IOContext) -> Result<Self::IndexInput> {
+        (**self).open_input(name, ctx)
+    }
+    type Lock = D::Lock;
+    fn obtain_lock(&mut self, name: &str) -> Result<Self::Lock> {
+        (**self).obtain_lock(name)
+    }
+    fn copy_from<T: Directory>(
+        &mut self,
+        from: Arc<Mutex<T>>,
+        src: &str,
+        dst: &str,
+        ctx: &IOContext,
+    ) -> Result<()> {
+        (**self).copy_from(from, src, dst, ctx)
+    }
+    fn delete_files_ignoring_exceptions(&mut self, files: &[String]) {
+        (**self).delete_files_ignoring_exceptions(files)
+    }
+    fn get_pending_deletions(&mut self) -> Result<HashSet<String>> {
+        (**self).get_pending_deletions()
+    }
+    #[cfg(feature = "test_only")]
+    fn is_fs_directory(&self) -> bool {
+        (**self).is_fs_directory()
+    }
+}
