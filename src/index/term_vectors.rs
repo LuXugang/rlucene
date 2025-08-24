@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::index::dummy::dummy_fields::DummyFields;
-use crate::index::fields::Fields;
+use crate::index::fields::{Either2Fields, Fields};
 use crate::util::error::lucene_error::Result;
 /// API for reading term vectors.
 ///
@@ -65,3 +65,38 @@ impl TermVectors for EmptyTermVectors {
         Ok(None)
     }
 }
+macro_rules! either_term_vectors {
+    ($vis:vis $name:ident => { fe: $fe:ident } { $( $Variant:ident : $T:ident ),+ $(,)? }) => {
+        $vis enum $name<$( $T ),+> {
+            $( $Variant($T), )+
+        }
+
+        impl<$( $T ),+> TermVectors for $name<$( $T ),+>
+        where
+            $( $T: TermVectors ),+
+        {
+            type Fields = $fe<$( <$T as TermVectors>::Fields ),+>;
+
+            fn prefetch(&mut self, doc_id: i32) -> Result<()> {
+                match self {
+                    $( Self::$Variant(inner) => inner.prefetch(doc_id), )+
+                }
+            }
+
+            fn get(&mut self, doc: i32) -> Result<Option<Self::Fields>> {
+                match self {
+                    $(
+                        Self::$Variant(inner) => {
+                            let fields = inner.get(doc)?;
+                            Ok(fields.map($fe::$Variant))
+                        }
+                    ),+
+                }
+            }
+        }
+    };
+}
+
+either_term_vectors!(
+    pub Either2TermVectors => { fe: Either2Fields } { A: A, B: B }
+);
