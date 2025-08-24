@@ -18,7 +18,7 @@ use std::borrow::Cow;
 
 use crate::index::automaton_terms_enum::AutomatonTermsEnum;
 use crate::index::filtered_terms_enum::FilteredTermsEnum;
-use crate::index::terms_enum::{SeekStatus, TermsEnum};
+use crate::index::terms_enum::{Either2TermsEnum, SeekStatus, TermsEnum};
 use crate::index::{BytesRef, BytesRefBuilder};
 use crate::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
@@ -198,3 +198,84 @@ pub trait Terms {
         ))
     }
 }
+
+macro_rules! either_terms {
+    ($vis:vis $name:ident => { te: $te:ident, ie: $ie:ident } { $( $Variant:ident : $T:ident ),+ $(,)? }) => {
+        $vis enum $name<$( $T ),+> {
+            $( $Variant($T), )+
+        }
+
+        impl<$( $T ),+> Terms for $name<$( $T ),+>
+        where
+            $( $T: Terms ),+
+        {
+            type TermsEnum     = $te<$( <$T as Terms>::TermsEnum ),+>;
+            type IntersectIter = $ie<$( <$T as Terms>::IntersectIter ),+>;
+
+
+            fn iterator(&self) -> Result<Self::TermsEnum> {
+                match self {
+                    $(
+                        Self::$Variant(inner) => {
+                            let it = inner.iterator()?;
+                            Ok($te::$Variant(it))
+                        }
+                    ),+
+                }
+            }
+            fn intersect(
+                &self,
+                ca: &mut CompiledAutomaton,
+                start: Option<BytesRef<Vec<u8>>>
+            ) -> Result<Self::IntersectIter> {
+                match self {
+                    $(
+                        Self::$Variant(inner) => {
+                            let it = inner.intersect(ca, start)?;
+                            Ok($ie::$Variant(it))
+                        }
+                    ),+
+                }
+            }
+
+
+            fn size(&self) -> Result<i64> {
+                match self { $( Self::$Variant(inner) => inner.size(), )+ }
+            }
+
+            fn get_doc_count(&self) -> Result<i32> {
+                match self { $( Self::$Variant(inner) => inner.get_doc_count(), )+ }
+            }
+
+            fn get_sum_doc_freq(&self) -> Result<i64> {
+                match self { $( Self::$Variant(inner) => inner.get_sum_doc_freq(), )+ }
+            }
+
+            fn get_sum_total_term_freq(&self) -> Result<i64> {
+                match self { $( Self::$Variant(inner) => inner.get_sum_total_term_freq(), )+ }
+            }
+
+
+            fn has_freqs(&self) -> bool {
+                match self { $( Self::$Variant(inner) => inner.has_freqs(), )+ }
+            }
+
+            fn has_offsets(&self) -> bool {
+                match self { $( Self::$Variant(inner) => inner.has_offsets(), )+ }
+            }
+
+            fn has_positions(&self) -> bool {
+                match self { $( Self::$Variant(inner) => inner.has_positions(), )+ }
+            }
+
+            fn has_payloads(&self) -> bool {
+                match self { $( Self::$Variant(inner) => inner.has_payloads(), )+ }
+            }
+        }
+    };
+}
+either_terms!(
+    pub Either2Terms
+    => { te: Either2TermsEnum, ie: Either2TermsEnum }
+    { A:A,B:B}
+);
