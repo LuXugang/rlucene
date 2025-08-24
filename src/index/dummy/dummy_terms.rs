@@ -106,8 +106,4 @@ impl Terms for DummyTerms {
     fn get_stats(&self) -> Result<String> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
-
-    fn type_name(&self) -> &'static str {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
 }

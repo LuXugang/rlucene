@@ -190,16 +190,11 @@ pub trait Terms {
     fn get_stats(&self) -> Result<String> {
         Ok(format!(
             "impl={},size={},docCount={},sumTotalTermFreq={},sumDocFreq={}",
-            self.type_name(),
+            std::any::type_name::<Self>(),
             self.size()?,
             self.get_doc_count()?,
             self.get_sum_total_term_freq()?,
             self.get_sum_doc_freq()?
         ))
-    }
-
-    /// Helper to get the type name of the implementation.
-    fn type_name(&self) -> &'static str {
-        std::any::type_name::<Self>()
     }
 }

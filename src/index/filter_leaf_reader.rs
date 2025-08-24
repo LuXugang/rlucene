@@ -142,10 +142,6 @@ where
     fn get_stats(&self) -> Result<String> {
         self.inner.get_stats()
     }
-
-    fn type_name(&self) -> &'static str {
-        "FilterTerms"
-    }
 }
 
 /// Base struct for filtering `TermsEnum` implementations.

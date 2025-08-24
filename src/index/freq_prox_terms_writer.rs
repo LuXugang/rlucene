@@ -380,10 +380,6 @@ where
     fn get_stats(&self) -> Result<String> {
         self.base.get_stats()
     }
-
-    fn type_name(&self) -> &'static str {
-        "SortingTerms"
-    }
 }
 
 // SortingTermsEnum

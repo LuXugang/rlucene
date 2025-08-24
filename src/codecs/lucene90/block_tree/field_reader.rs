@@ -217,10 +217,6 @@ where
     {
         Ok(Option::from(Cow::Borrowed(&*self.max_term)))
     }
-
-    fn get_stats(&self) -> Result<String> {
-        todo!()
-    }
 }
 impl<I, PR> fmt::Display for FieldReader<I, PR>
 where
