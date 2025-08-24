@@ -114,9 +114,9 @@ where
         self.base.obtain_lock(name)
     }
 
-    fn copy_from<TT: Directory>(
+    fn copy_from(
         &mut self,
-        from: Arc<Mutex<TT>>,
+        from: &mut impl Directory,
         src: &str,
         dest: &str,
         context: &IOContext,

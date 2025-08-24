@@ -16,9 +16,6 @@
  */
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
-use std::sync::Arc;
-
-use parking_lot::Mutex;
 
 use crate::index::IndexFileNames;
 use crate::store::buffered_checksum_index_input::BufferedChecksumIndexInput;
@@ -199,29 +196,24 @@ pub trait Directory: Display + Sized {
     /// * `from` - The directory containing the source file.
     /// * `dest` - The destination file in this directory.
     /// * `io_context` - The I/O context used for opening the destination file.
-    fn copy_from<T: Directory>(
+    fn copy_from(
         &mut self,
-        from: Arc<Mutex<T>>,
+        from: &mut impl Directory,
         src: &str,
         dest: &str,
         context: &IOContext,
     ) -> Result<()> {
-        let mut success = false;
-
         let result = (|| -> Result<()> {
-            let dir = from.lock();
-            let mut is = dir.open_input(src, &IOContext::read_once_io_context()?)?;
+            let mut is = from.open_input(src, &IOContext::read_once_io_context()?)?;
             let mut os = self.create_output(dest, context)?;
             let length = IndexInput::length(&is);
             os.copy_bytes(&mut is, length)?;
-            success = true;
             Ok(())
         })();
 
-        if !success {
+        if result.is_err() {
             self.delete_files_ignoring_exceptions(&[dest.to_string()]);
         }
-
         result
     }
     fn delete_files_ignoring_exceptions(&mut self, files: &[String]) {
@@ -371,9 +363,9 @@ where
         }
     }
 
-    fn copy_from<T: Directory>(
+    fn copy_from(
         &mut self,
-        from: Arc<Mutex<T>>,
+        from: &mut impl Directory,
         src: &str,
         dest: &str,
         context: &IOContext,
@@ -445,9 +437,9 @@ impl<D: Directory + ?Sized> Directory for &mut D {
     fn obtain_lock(&mut self, name: &str) -> Result<Self::Lock> {
         (**self).obtain_lock(name)
     }
-    fn copy_from<T: Directory>(
+    fn copy_from(
         &mut self,
-        from: Arc<Mutex<T>>,
+        from: &mut impl Directory,
         src: &str,
         dst: &str,
         ctx: &IOContext,

@@ -1839,7 +1839,7 @@ mod tests {
         let io_context = IOContext::read_once_io_context()?;
         {
             let mut corrupt_directory = corrupt_dir.lock();
-            let directory = dir.lock();
+            let directory = &mut *dir.lock();
             for file in directory.list_all()? {
                 if file.starts_with(IndexFileNames::SEGMENTS) {
                     {
@@ -1875,7 +1875,7 @@ mod tests {
                     }
                     corrupt = true;
                 } else if file.eq("extra0") {
-                    corrupt_directory.copy_from(dir.clone(), &file, &file, &io_context)?;
+                    corrupt_directory.copy_from(directory, &file, &file, &io_context)?;
                 }
             }
         }
