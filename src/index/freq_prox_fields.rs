@@ -59,7 +59,10 @@ impl FreqProxFields {
     }
 }
 impl Fields for FreqProxFields {
-    fn iterator(&self) -> impl Iterator<Item = &String> {
+    type FieldIter<'a> =
+        std::collections::hash_map::Keys<'a, String, Rc<FreqProxTermsWriterPerField>>;
+
+    fn iterator(&self) -> Self::FieldIter<'_> {
         self.fields.keys()
     }
 

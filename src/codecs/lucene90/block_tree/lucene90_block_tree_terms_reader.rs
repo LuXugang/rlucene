@@ -292,7 +292,13 @@ where
     I: IndexInput,
     PR: PostingsReaderBase,
 {
-    fn iterator(&self) -> impl Iterator<Item = &String> {
+    type FieldIter<'a>
+        = std::slice::Iter<'a, String>
+    where
+        I: 'a,
+        PR: 'a;
+
+    fn iterator(&self) -> Self::FieldIter<'_> {
         self.field_list.iter()
     }
 

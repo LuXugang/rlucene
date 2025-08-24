@@ -47,7 +47,12 @@ impl<F> Fields for FilterFields<F>
 where
     F: Fields,
 {
-    fn iterator(&self) -> impl Iterator<Item = &String> {
+    type FieldIter<'a>
+        = F::FieldIter<'a>
+    where
+        F: 'a;
+
+    fn iterator(&self) -> Self::FieldIter<'_> {
         self.inner.iterator()
     }
 

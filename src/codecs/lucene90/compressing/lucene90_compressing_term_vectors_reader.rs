@@ -1084,7 +1084,9 @@ impl TVFields {
     }
 }
 impl Fields for TVFields {
-    fn iterator(&self) -> impl Iterator<Item = &String> {
+    type FieldIter<'a> = std::slice::Iter<'a, String>;
+
+    fn iterator(&self) -> Self::FieldIter<'_> {
         self.names.iter()
     }
 

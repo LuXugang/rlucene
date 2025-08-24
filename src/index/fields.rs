@@ -25,7 +25,11 @@ use crate::util::error::lucene_error::Result;
 pub trait Fields {
     /// Returns an iterator that will step through all field names.
     /// This will not return `None`.
-    fn iterator(&self) -> impl Iterator<Item = &String>;
+    type FieldIter<'a>: Iterator<Item = &'a String>
+    where
+        Self: 'a;
+
+    fn iterator(&self) -> Self::FieldIter<'_>;
 
     type Terms: Terms;
     /// Get the [`Terms`] for this field. This will return `None` if the field

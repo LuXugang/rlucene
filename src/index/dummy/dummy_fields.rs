@@ -21,7 +21,9 @@ use std::iter;
 
 pub struct DummyFields;
 impl Fields for DummyFields {
-    fn iterator(&self) -> impl Iterator<Item = &String> {
+    type FieldIter<'a> = iter::Empty<&'a String>;
+
+    fn iterator(&self) -> Self::FieldIter<'_> {
         iter::empty()
     }
 

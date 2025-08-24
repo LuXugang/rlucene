@@ -246,7 +246,13 @@ where
     F: Fields,
     D: DocMap,
 {
-    fn iterator(&self) -> impl Iterator<Item = &String> {
+    type FieldIter<'a>
+        = F::FieldIter<'a>
+    where
+        F: 'a,
+        D: 'a;
+
+    fn iterator(&self) -> Self::FieldIter<'_> {
         self.base.iterator()
     }
 
