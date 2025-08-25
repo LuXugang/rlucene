@@ -14,12 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codecs::block_tree::field_reader::FieldReader;
 use crate::codecs::block_tree::lucene90_block_tree_terms_reader::Lucene90BlockTreeTermsReader;
 use crate::codecs::lucene101::lucene101_postings_reader::Lucene101PostingsReader;
+use crate::index::fields::Fields;
 use crate::store::IndexInput;
 use crate::util::CoreHelper;
 use crate::util::error::lucene_error::Result;
-pub trait FieldsProducer: Clone {
+pub trait FieldsProducer: Fields + Clone {
     /// Checks consistency of this reader.
     ///
     /// Note that this may be costly in terms of I/O, e.g. may involve computing
@@ -53,6 +55,36 @@ where
             std::any::type_name::<Self>(),
             CoreHelper::CLONE_WARRING
         )
+    }
+}
+
+impl<I> Fields for FieldsProducerEnum<I>
+where
+    I: IndexInput,
+{
+    type FieldIter<'a>
+        = std::slice::Iter<'a, String>
+    where
+        Self: 'a;
+
+    fn iterator(&self) -> Self::FieldIter<'_> {
+        match self {
+            FieldsProducerEnum::Lucene90(reader) => reader.iterator(),
+        }
+    }
+
+    type Terms = FieldReader<I, Lucene101PostingsReader<I>>;
+
+    fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
+        match self {
+            FieldsProducerEnum::Lucene90(reader) => reader.terms(field),
+        }
+    }
+
+    fn size(&self) -> Result<i32> {
+        match self {
+            FieldsProducerEnum::Lucene90(reader) => reader.size(),
+        }
     }
 }
 
