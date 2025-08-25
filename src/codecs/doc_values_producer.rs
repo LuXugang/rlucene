@@ -21,11 +21,16 @@ use crate::codecs::lucene90_doc_values_producer::{
     BaseSortedDocValues, BaseSortedSetDocValues, DocValuesSkipperImpl, Lucene90DocValuesProducer,
 };
 use crate::index::binary_doc_values::BinaryDocValues;
+use crate::index::binary_doc_values::Either2BinaryDocValues;
 use crate::index::doc_values_skipper::DocValuesSkipper;
+use crate::index::doc_values_skipper::Either2DocValuesSkipper;
 use crate::index::field_info::FieldInfo;
+use crate::index::numeric_doc_values::Either2NumericDocValues;
 use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
+use crate::index::sorted_doc_values::Either2SortedDocValues;
 use crate::index::sorted_doc_values::SortedDocValues;
+use crate::index::sorted_numeric_doc_values::Either2SortedNumericDocValues;
 use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::index::sorted_set_doc_values_writer::Either2SortedSetDocValues;
@@ -260,3 +265,111 @@ where
         Ok(Some(v))
     }
 }
+macro_rules! either_docvaluesproducer {
+    ($vis:vis $name:ident { A: $A:ident, B: $B:ident }) => {
+        #[derive(Clone)]
+        $vis enum $name<$A, $B> {
+            A($A),
+            B($B),
+        }
+
+        impl<$A, $B> DocValuesProducer for $name<$A, $B>
+        where
+            $A: DocValuesProducer,
+            $B: DocValuesProducer,
+        {
+            type NumericDocValues =
+                Either2NumericDocValues<$A::NumericDocValues, $B::NumericDocValues>;
+
+            fn get_numeric(&self, field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
+                match self {
+                    $name::A(inner) => inner.get_numeric(field).map(Either2NumericDocValues::A),
+                    $name::B(inner) => inner.get_numeric(field).map(Either2NumericDocValues::B),
+                }
+            }
+
+            type BinaryDocValues =
+                Either2BinaryDocValues<$A::BinaryDocValues, $B::BinaryDocValues>;
+
+            fn get_binary(&self, field: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
+                match self {
+                    $name::A(inner) => inner.get_binary(field).map(Either2BinaryDocValues::A),
+                    $name::B(inner) => inner.get_binary(field).map(Either2BinaryDocValues::B),
+                }
+            }
+
+            type SortedDocValues =
+                Either2SortedDocValues<$A::SortedDocValues, $B::SortedDocValues>;
+
+            fn get_sorted(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedDocValues> {
+                match self {
+                    $name::A(inner) => inner.get_sorted(field).map(Either2SortedDocValues::A),
+                    $name::B(inner) => inner.get_sorted(field).map(Either2SortedDocValues::B),
+                }
+            }
+
+            type SortedNumericDocValues = Either2SortedNumericDocValues<
+                $A::SortedNumericDocValues,
+                $B::SortedNumericDocValues,
+            >;
+
+            fn get_sorted_numeric(
+                &self,
+                field: &Arc<FieldInfo>,
+            ) -> Result<Self::SortedNumericDocValues> {
+                match self {
+                    $name::A(inner) => inner
+                        .get_sorted_numeric(field)
+                        .map(Either2SortedNumericDocValues::A),
+                    $name::B(inner) => inner
+                        .get_sorted_numeric(field)
+                        .map(Either2SortedNumericDocValues::B),
+                }
+            }
+
+            type SortedSetDocValues =
+                Either2SortedSetDocValues<$A::SortedSetDocValues, $B::SortedSetDocValues>;
+
+            fn get_sorted_set(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
+                match self {
+                    $name::A(inner) => inner.get_sorted_set(field).map(Either2SortedSetDocValues::A),
+                    $name::B(inner) => inner.get_sorted_set(field).map(Either2SortedSetDocValues::B),
+                }
+            }
+
+            type DocValuesSkipper =
+                Either2DocValuesSkipper<$A::DocValuesSkipper, $B::DocValuesSkipper>;
+
+            fn get_skipper(&self, field: &Arc<FieldInfo>) -> Result<Self::DocValuesSkipper> {
+                match self {
+                    $name::A(inner) => inner.get_skipper(field).map(Either2DocValuesSkipper::A),
+                    $name::B(inner) => inner.get_skipper(field).map(Either2DocValuesSkipper::B),
+                }
+            }
+
+            fn check_integrity(&self) -> Result<()> {
+                match self {
+                    $name::A(inner) => inner.check_integrity(),
+                    $name::B(inner) => inner.check_integrity(),
+                }
+            }
+
+            fn get_merge_instance(&self) -> Result<Option<Self>>
+            where
+                Self: Sized,
+            {
+                match self {
+                    $name::A(inner) => match inner.get_merge_instance()? {
+                        Some(instance) => Ok(Some($name::A(instance))),
+                        None => Ok(None),
+                    },
+                    $name::B(inner) => match inner.get_merge_instance()? {
+                        Some(instance) => Ok(Some($name::B(instance))),
+                        None => Ok(None),
+                    },
+                }
+            }
+        }
+    };
+}
+either_docvaluesproducer!(pub Either2DocValuesProducer { A: A, B: B });
