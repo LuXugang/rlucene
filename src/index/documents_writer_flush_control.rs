@@ -296,7 +296,7 @@ where
                 {
                     // Safety check to prevent a single DWPT exceeding its RAM limit. This
                     // is super important since we can not address more than 2048 MB per DWPT
-                    self.set_flush_pending(&mut per_thread, Some(&mut inner))?;
+                    self.set_flush_pending(&per_thread, Some(&mut inner))?;
                 }
             }
             self.checkout(&mut inner, per_thread, false, per_thread_pool)
@@ -670,12 +670,12 @@ where
                 .filter_and_lock(|_, r#gen| r#gen == flushing_queue.generation)?
         };
 
-        for mut next in dwpts {
+        for next in dwpts {
             if next.get_num_docs_in_ram() > 0 {
                 let flushing_dwpt = {
                     let mut inner = self.lock.lock();
                     if !next.is_flush_pending() {
-                        self.set_flush_pending(&mut next, Some(&mut inner))?;
+                        self.set_flush_pending(&next, Some(&mut inner))?;
                     }
                     next.unlock();
                     self.check_out_for_flush(next, &mut inner, &documents_writer.per_thread_pool)

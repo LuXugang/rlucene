@@ -284,8 +284,8 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
                 std::mem::take(&mut self.docs_with_field),
                 sort_map,
             )?;
-            let mut producer = DocValuesProducerImpl2::new(single_value_producer);
-            dv_consumer.add_sorted_set_field(&self.field_info, &mut producer)?;
+            let producer = DocValuesProducerImpl2::new(single_value_producer);
+            dv_consumer.add_sorted_set_field(&self.field_info, &producer)?;
             return Ok(());
         }
 
@@ -307,7 +307,7 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
         } else {
             None
         };
-        let mut producer = DocValuesProducerImpl1::new(
+        let producer = DocValuesProducerImpl1::new(
             self.field_info.clone(),
             ord_map,
             self.hash_rc.clone().unwrap(),
@@ -317,7 +317,7 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
             std::mem::take(&mut self.docs_with_field),
             doc_ords,
         );
-        dv_consumer.add_sorted_set_field(&self.field_info, &mut producer)?;
+        dv_consumer.add_sorted_set_field(&self.field_info, &producer)?;
         Ok(())
     }
 
@@ -749,14 +749,17 @@ impl DocOrds {
         let mut doc_value_counts =
             GrowableWriter::new(bits_per_value, max_doc, acceptable_overhead_ratio);
         let mut ord_offset = 1i64;
-        while let doc_id = old_values.next_doc()? {
+        loop {
+            let doc_id = old_values.next_doc()?;
             if doc_id == NO_MORE_DOCS {
                 break;
             }
+
             let new_doc_id = sort_map.old_to_new(doc_id);
             let start_offset = ord_offset;
             let doc_value_count = old_values.doc_value_count()?;
             ord_offset += doc_value_count as i64;
+
             for _ in 0..doc_value_count {
                 builder.add(old_values.next_ord()?)?;
             }

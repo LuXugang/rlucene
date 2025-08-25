@@ -87,7 +87,6 @@ impl Sorter {
 
         // sort doc IDs
         let mut docs: Vec<i32> = (0..max_doc).collect();
-        let len = docs.len();
         let mut sorter = DocValueSorter::new(&mut docs, comparator);
         // It can be common to sort a reader, add docs, sort it again, ... and in
         // that case timSort can save a lot of time

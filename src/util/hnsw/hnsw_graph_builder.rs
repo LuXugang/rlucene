@@ -660,12 +660,8 @@ where
             }
 
             // then do connections from bottom up
-            for i in 0..scratch_per_level.len() {
-                self.add_diverse_neighbors(
-                    i + lowest_unset_level,
-                    node,
-                    &mut scratch_per_level[i],
-                )?;
+            for (i, scratch) in scratch_per_level.iter_mut().enumerate() {
+                self.add_diverse_neighbors(i + lowest_unset_level, node, scratch)?;
             }
 
             lowest_unset_level = scratch_per_level.len() + 1;

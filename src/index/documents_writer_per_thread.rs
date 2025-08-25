@@ -167,6 +167,7 @@ where
         }
         abort_result
     }
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn new<L: LiveIndexWriterConfig>(
         index_major_version_created: i32,
         segment_name: &str,

@@ -141,40 +141,43 @@ impl Version {
         }
         let mut token = tokens.next_token()?;
         let major = token.parse::<i32>();
-        if major.is_err() {
+        if let Err(e) = major {
             return Err(VersionError::parse_int_error(
                 format!("Failed to parse major version from {token} (got: {version})"),
-                major.unwrap_err(),
+                e,
             ));
         }
+
         token = tokens.next_token()?;
         let minor = token.parse::<i32>();
-        if minor.is_err() {
+        if let Err(e) = minor {
             return Err(VersionError::parse_int_error(
                 format!("Failed to parse minor version from {token} (got: {version})"),
-                minor.unwrap_err(),
+                e,
             ));
         }
+
         let mut bug_fix_value: i32 = 0;
         if tokens.has_more_tokens() {
             token = tokens.next_token()?;
             let bug_fix = token.parse::<i32>();
-            if bug_fix.is_err() {
+            if let Err(e) = bug_fix {
                 return Err(VersionError::parse_int_error(
                     format!("Failed to parse bug fix version from {token} (got: {version})"),
-                    bug_fix.unwrap_err(),
+                    e,
                 ));
             }
+
             bug_fix_value = bug_fix.unwrap();
         }
         let mut prerelease_value: i32 = 0;
         if tokens.has_more_tokens() {
             token = tokens.next_token()?;
             let prerelease = token.parse::<i32>();
-            if prerelease.is_err() {
+            if let Err(e) = prerelease {
                 return Err(VersionError::parse_int_error(
                     format!("Failed to parse pre-release version from {token} (got: {version})"),
-                    prerelease.unwrap_err(),
+                    e,
                 ));
             }
             prerelease_value = prerelease.unwrap();
@@ -202,10 +205,10 @@ impl Version {
             bug_fix_value,
             prerelease_value,
         );
-        if result.is_err() {
+        if let Err(e) = result {
             return Err(VersionError::parse_error_with_error(
                 format!("failed to parse version string {version}"),
-                result.unwrap_err(),
+                e,
             ));
         }
         debug_assert!(result.is_ok());
@@ -323,7 +326,6 @@ impl VersionError {
 }
 
 #[cfg(feature = "not_required_in_rust_lucene")]
-
 fn get_package_implementation_version() {
     unimplemented!()
 }

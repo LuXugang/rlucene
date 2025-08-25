@@ -87,10 +87,9 @@ where
                 None
             };
 
-            let mut cfs_dir = if cfs_reader.is_some() {
-                Either2Directory::A(cfs_reader.as_mut().unwrap())
-            } else {
-                Either2Directory::B(&mut *dir.lock())
+            let mut cfs_dir = match cfs_reader.as_mut() {
+                Some(reader) => Either2Directory::A(reader),
+                None => Either2Directory::B(&mut *dir.lock()),
             };
 
             let segment = si.info.name.to_string();
@@ -186,7 +185,6 @@ where
     }
     pub(crate) fn dec_ref(&mut self) -> Result<()> {
         self.r#ref.load(Ordering::Acquire);
-        0;
         todo!()
     }
 }

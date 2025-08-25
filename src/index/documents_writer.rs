@@ -122,6 +122,7 @@ where
     L: LiveIndexWriterConfig,
     FN: FlushNotifications,
 {
+    #[allow(clippy::too_many_arguments)]
     fn new(
         flush_notifications: FN,
         index_created_version_major: i32,
@@ -417,7 +418,7 @@ where
                 // If it is aborted, we shouldn't allow it to be reused
                 // If the deleteQueue is advanced, this means the maximum seqNo has been set and it cannot be
                 // reused
-                let _ = self.flush_control.lock.lock();
+                let inner = self.flush_control.lock.lock();
                 if *dpwt_pending_state.get().unwrap_or(&false)
                     || dwpt_abort.load(Ordering::SeqCst)
                     || dwpt_delete_queue.is_advanced()
@@ -433,12 +434,11 @@ where
                     self.per_thread_pool
                         .mark_as_free_and_unlock(dwpt.unwrap())?;
                 }
+                drop(inner)
             }
             result
         })();
-        if result.is_err() {
-            return Err(result.unwrap_err());
-        }
+        result?;
         if self.post_update(flushing_dwpt_opt, has_events)? {
             seq_no = -seq_no;
         }
@@ -526,11 +526,13 @@ where
                     None => Err(LuceneError::illegal_state("ticket returned None")),
                 }
             })();
-            if result.is_err() && has_ticket.is_some() {
+            if result.is_err()
+                && let Some(ticket_idx) = has_ticket
+            {
                 // In the case of a failure make sure we are making progress and
                 // apply all the deletes since the segment flush failed since the flush
                 // ticket could hold global deletes see FlushTicket#canPublish()
-                let flush_ticket = &mut self.ticket_queue.inner.lock().queue[has_ticket.unwrap()];
+                let flush_ticket = &mut self.ticket_queue.inner.lock().queue[ticket_idx];
                 self.ticket_queue.mark_ticket_failed(flush_ticket);
             }
             //Now we are done and try to flush the ticket queue if the head of the
@@ -864,6 +866,7 @@ where
     Q: Query,
     L: LiveIndexWriterConfig,
 {
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         index_major_version_created: i32,
         directory_orig: Arc<Mutex<D>>,

@@ -26,7 +26,7 @@ pub struct ArrayTimSorter<'a, T, C: Comparator<T>>
 where
     T: Default + Clone + Ord,
 {
-    arr: &'a mut Vec<T>,
+    arr: &'a mut [T],
     tmp: Vec<T>,
     comparator: C,
     pivot_index: i32,
@@ -36,7 +36,7 @@ where
     T: Default + Clone + Ord,
 {
     pub fn new(
-        arr: &'a mut Vec<T>,
+        arr: &'a mut [T],
         comparator: C,
         max_temp_slots: i32,
     ) -> TimSorter<ArrayTimSorter<'a, T, C>> {

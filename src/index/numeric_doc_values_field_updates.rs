@@ -127,8 +127,8 @@ impl DocValuesFieldUpdatesBase for NumericDocValuesFieldUpdates {
 
     fn grow(&mut self, size: i32) -> Result<()> {
         let value_result = self.values.grow_with_size(size as i64)?;
-        if value_result.is_some() {
-            self.values = value_result.unwrap();
+        if let Some(values) = value_result {
+            self.values = values;
         }
         Ok(())
     }

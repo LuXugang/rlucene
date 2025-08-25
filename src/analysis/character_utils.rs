@@ -31,16 +31,16 @@ impl CharacterUtils {
         debug_assert!(buffer.len() >= limit);
         debug_assert!(offset <= buffer.len());
 
-        for i in offset..limit {
-            buffer[i] = buffer[i].to_lowercase().next().unwrap_or(buffer[i]);
+        for ch in &mut buffer[offset..limit] {
+            *ch = ch.to_lowercase().next().unwrap_or(*ch);
         }
     }
     pub fn get_upper_case(buffer: &mut [char], offset: usize, limit: usize) {
         assert!(buffer.len() >= limit);
         assert!(offset <= buffer.len());
 
-        for i in offset..limit {
-            buffer[i] = buffer[i].to_uppercase().next().unwrap_or(buffer[i]);
+        for ch in &mut buffer[offset..limit] {
+            *ch = ch.to_uppercase().next().unwrap_or(*ch);
         }
     }
     pub fn get_code_points(
@@ -76,14 +76,15 @@ impl CharacterUtils {
         dest_off: usize,
     ) -> Result<usize> {
         let mut written = 0;
-        for i in src_off..src_off + src_len {
-            let cp = u32::try_from(src[i])
+        for &cp_i64 in &src[src_off..src_off + src_len] {
+            let cp = u32::try_from(cp_i64)
                 .map_err(|_| LuceneError::illegal_argument("code point must be >= 0"))?;
             let ch = std::char::from_u32(cp)
                 .ok_or_else(|| LuceneError::illegal_argument("invalid Unicode code point"))?;
             dest[dest_off + written] = ch;
             written += 1;
         }
+
         Ok(written)
     }
     pub fn fill_with_num<R: Read>(

@@ -209,8 +209,8 @@ pub mod lucene90_csfw_util {
     ///   combine the 5 lower bits of the header with a vLong in the next bytes
     ///   (if the continuation bit is set to 1). Then
     ///   [`BitUtil::zig_zag_decode`](BitUtil::zig_zag_decode_i64) it and
-    /// finally   multiply by the multiple corresponding to the compression
-    /// scheme.
+    ///   finally multiply by the multiple corresponding to the compression
+    ///   scheme.
     ///
     /// - Bytes --> Potential additional bytes to read depending on the header.
     // T for "timestamp"
@@ -767,8 +767,8 @@ where
             vec![None; merge_state.stored_fields_readers.len()];
         let mut subs = Vec::with_capacity(merge_state.stored_fields_readers.len());
 
-        for i in 0..merge_state.stored_fields_readers.len() {
-            merge_state.stored_fields_readers[i].check_integrity()?;
+        for (i, reader) in merge_state.stored_fields_readers.iter().enumerate() {
+            reader.check_integrity()?;
             let strategy = self.get_merge_strategy(merge_state, &matching_readers, i)?;
             if strategy == MergeStrategy::Visitor {
                 visitors[i] = Some(MergeVisitor::new(merge_state, i)?);

@@ -170,7 +170,7 @@ impl DocValuesWriter for BinaryDocValuesWriter {
             None => None,
         };
 
-        let mut producer = DocValuesProducerImpl::new(
+        let producer = DocValuesProducerImpl::new(
             self.field_info.clone(),
             self.final_lengths.take().unwrap(),
             self.max_length,
@@ -178,7 +178,7 @@ impl DocValuesWriter for BinaryDocValuesWriter {
             std::mem::take(&mut self.docs_with_field),
             sorted,
         )?;
-        dv_consumer.add_binary_field(&self.field_info, &mut producer)
+        dv_consumer.add_binary_field(&self.field_info, &producer)
     }
 
     type DocIdSetIterator = BufferedBinaryDocValues<DocsWithFieldSetDISI, PagedBytesDataInput>;

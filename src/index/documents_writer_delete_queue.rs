@@ -538,7 +538,6 @@ where
 }
 
 /// A delete slice for buffered updates.
-
 pub(crate) struct DeleteSlice<Q>
 where
     Q: Query,

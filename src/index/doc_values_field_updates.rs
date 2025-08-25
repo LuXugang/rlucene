@@ -91,7 +91,6 @@ pub(crate) mod dvfu_util {
 ///
 /// # Note
 /// This is an experimental feature and may change in future versions.
-
 pub(crate) struct DocValuesFieldUpdates<D>
 where
     D: DocValuesFieldUpdatesBase,
@@ -148,8 +147,8 @@ impl DocValuesFieldInner {
     }
     pub(crate) fn grow(&mut self, size: i32) -> Result<()> {
         let result = self.docs.grow_with_size(size as i64)?;
-        if result.is_some() {
-            self.docs = result.unwrap();
+        if let Some(docs) = result {
+            self.docs = docs;
         }
         Ok(())
     }
@@ -203,7 +202,6 @@ where
     /// # Warning
     /// In Java Lucene, these two methods are executed within the same critical
     /// section.However, from a logical perspective, this is not necessary.
-
     fn add_byte_ref(&mut self, doc: i32, value: &BytesRef<Vec<u8>>) -> Result<()> {
         let index = self.add(doc)?;
         self.sub_update.add_byte_ref(doc, value, index)
@@ -223,7 +221,6 @@ where
     /// This method prevents conditional calls to [`IteratorBase::long_value`]
     /// or [`IteratorBase::binary_value`], since the implementation knows
     /// whether it is a long value iterator or a binary value iterator.
-
     fn add_iterator<T>(&mut self, doc_id: i32, iterator: &mut T) -> Result<()>
     where
         T: DocValuesFieldIterator,
@@ -478,7 +475,6 @@ impl<D> IntroSorter for IntroSorterImpl<'_, D> where D: DocValuesFieldUpdatesBas
 ///
 /// Only documents with updates are returned by this iterator, and the documents
 /// are returned in increasing order.
-
 pub trait DocValuesFieldIterator: DocValuesIterator + Default {
     /// Returns a long value for the current document if this iterator is a long
     /// iterator.
@@ -664,7 +660,6 @@ where
 }
 
 /// Wraps the given iterator as a NumericDocValues instance.
-
 pub(crate) struct NumericDocValuesDVFU<T>
 where
     T: DocValuesFieldIterator,

@@ -483,7 +483,6 @@ impl Operations {
         Ok(!reachable_from_initial.is_empty())
     }
     /// Returns true if there are dead states that reach an accept state.
-
     pub fn has_dead_states_to_accept(a: &Automaton) -> Result<bool> {
         let reachable_from_initial = Operations::get_live_states_from_initial(a);
         let mut reachable_from_accept = Operations::get_live_states_to_accept(a)?;
@@ -772,7 +771,6 @@ impl Operations {
     /// **Note:** For full performance, use the
     /// [`RunAutomaton`](crate::util::automation::run_automaton::RunAutomaton)
     /// struct.
-
     pub(crate) fn run_str(a: &Automaton, s: &str) -> bool {
         debug_assert!(a.is_deterministic());
 
@@ -1132,8 +1130,8 @@ impl Operations {
         let mut s = accept_states.next_set_bit(0);
         while s < num_states && s != -1 {
             result.add_epsilon(0, s + 1)?;
-            if initial_states.is_some() {
-                initial_states.as_mut().unwrap().insert(s + 1);
+            if let Some(states) = initial_states.as_mut() {
+                states.insert(s + 1);
             }
             s += 1;
             s = accept_states.next_set_bit(s as usize);

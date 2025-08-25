@@ -708,11 +708,10 @@ where
         let idx = self.pos_buffer_upto as usize;
         self.pos_delta_buffer[idx] = position - self.last_position;
 
-        if options.write_payloads {
-            if payload.is_none() || payload.as_ref().unwrap().length == 0 {
+        if let Some(p) = payload.as_ref() {
+            if p.length == 0 {
                 self.payload_length_buffer[idx] = 0;
             } else {
-                let p = payload.as_ref().unwrap();
                 self.payload_length_buffer[idx] = p.length as i32;
                 if self.payload_byte_upto as usize + p.length > self.payload_bytes.len() {
                     ArrayUtil::grow_with_len(
@@ -727,6 +726,8 @@ where
                 );
                 self.payload_byte_upto += p.length as i32;
             }
+        } else {
+            self.payload_length_buffer[idx] = 0;
         }
 
         if options.write_offsets {

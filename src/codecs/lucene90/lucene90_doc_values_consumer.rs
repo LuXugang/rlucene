@@ -585,17 +585,17 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     where
         D: DocValuesProducer,
     {
-        let mut producer = EmptyDocValuesProducerSub2 { values_producer };
+        let producer = EmptyDocValuesProducerSub2 { values_producer };
 
         if *field.doc_values_skip_index_type() != DocValuesSkipIndexType::None {
-            self.write_skip_index(field, &mut producer)?;
+            self.write_skip_index(field, &producer)?;
         }
 
         if add_type_byte {
             self.meta.write_byte(0)?; // multiValued (0 = singleValued)
         }
 
-        self.write_values(field, &mut producer, true)?;
+        self.write_values(field, &producer, true)?;
         let mut sorted = DocValues::singleton_sorted(values_producer.get_sorted(field)?)?;
         self.add_terms_dict(&mut sorted)?;
         Ok(())
@@ -912,15 +912,15 @@ where
         self.meta.write_int(field.number)?;
         self.meta.write_byte(Lucene90DocValuesFormat::NUMERIC)?;
 
-        let mut producer = EmptyDocValuesProducerSub1 {
+        let producer = EmptyDocValuesProducerSub1 {
             values_producer: Some(values_producer),
         };
 
         if *field.doc_values_skip_index_type() != DocValuesSkipIndexType::None {
-            self.write_skip_index(field, &mut producer)?;
+            self.write_skip_index(field, &producer)?;
         }
 
-        self.write_values(field, &mut producer, false)?;
+        self.write_values(field, &producer, false)?;
         Ok(())
     }
 
@@ -1047,13 +1047,13 @@ where
 
         let mut sorted_set = values_producer.get_sorted_set(field)?;
         if Self::is_single_valued(&mut sorted_set)? {
-            let mut producer = EmptyDocValuesProducerSub3 { values_producer };
-            self.do_add_sorted_field(field, &mut producer, true)?;
+            let producer = EmptyDocValuesProducerSub3 { values_producer };
+            self.do_add_sorted_field(field, &producer, true)?;
             return Ok(());
         }
 
-        let mut producer = EmptyDocValuesProducerSub4 { values_producer };
-        self.do_add_sorted_numeric_field(field, &mut producer, true)?;
+        let producer = EmptyDocValuesProducerSub4 { values_producer };
+        self.do_add_sorted_numeric_field(field, &producer, true)?;
         self.add_terms_dict(&mut values_producer.get_sorted_set(field)?)?;
         Ok(())
     }

@@ -172,7 +172,6 @@ impl GroupVIntUtil {
     /// The number of bytes read excluding the flag. This indicates the number
     /// of positions that should be increased for the caller. It is a
     /// non-negative number less than `MAX_LENGTH_PER_GROUP`.
-
     pub fn read_group_vint_i64_with_reader(
         data_input: &mut (impl DataInput + RandomAccessInput),
         remaining: u64,

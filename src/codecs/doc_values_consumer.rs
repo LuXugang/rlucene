@@ -77,11 +77,11 @@ pub trait DocValuesConsumer {
     where
         I: IndexInput,
     {
-        let mut producer = EmptyDocValuesProducerMerge1 {
+        let producer = EmptyDocValuesProducerMerge1 {
             merge_field_info: merge_field_info.clone(),
             merge_state,
         };
-        self.add_numeric_field(merge_field_info, &mut producer)?;
+        self.add_numeric_field(merge_field_info, &producer)?;
         Ok(())
     }
     fn merge_binary_filed<I: IndexInput>(
@@ -89,22 +89,22 @@ pub trait DocValuesConsumer {
         merge_field_info: &Arc<FieldInfo>,
         merge_state: &mut MergeState<I>,
     ) -> Result<()> {
-        let mut producer = EmptyDocValuesProducerMerge2 {
+        let producer = EmptyDocValuesProducerMerge2 {
             merge_field_info: merge_field_info.clone(),
             merge_state,
         };
-        self.add_binary_field(merge_field_info, &mut producer)
+        self.add_binary_field(merge_field_info, &producer)
     }
     fn merge_sorted_numeric_field<I: IndexInput>(
         &mut self,
         merge_field_info: &Arc<FieldInfo>,
         merge_state: &mut MergeState<I>,
     ) -> Result<()> {
-        let mut producer = EmptyDocValuesProducerMerge3 {
+        let producer = EmptyDocValuesProducerMerge3 {
             merge_field_info: merge_field_info.clone(),
             merge_state,
         };
-        self.add_sorted_numeric_field(merge_field_info, &mut producer)
+        self.add_sorted_numeric_field(merge_field_info, &producer)
     }
     fn merge_sorted_field<I: IndexInput>(
         &mut self,

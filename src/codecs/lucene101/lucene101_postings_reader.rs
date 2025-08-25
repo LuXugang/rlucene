@@ -1608,9 +1608,10 @@ pub mod lucene101_pr_util {
     }
     pub(super) fn sum_over_range(arr: &[i32], start: usize, end: usize) -> i32 {
         let mut res = 0;
-        for i in start..end {
-            res += arr[i];
+        for &v in &arr[start..end] {
+            res += v;
         }
+
         res
     }
 

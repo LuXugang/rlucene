@@ -350,7 +350,7 @@ where
                 if cfg!(feature = "test_log_verbose") {
                     println!("  do next");
                 }
-                is_done = fst_enum.next()?.is_none();
+                is_done = fst_enum.next_value()?.is_none();
             } else if upto != -1
                 && upto < (0.75 * (self.pairs.len() as f32)) as i32
                 && self.random.random_bool(0.5)
@@ -687,7 +687,7 @@ where
             );
             assert!(self.outputs_equal(&pair.output, output.as_ref().unwrap()));
 
-            let t = fst_enum.next()?;
+            let t = fst_enum.next_value()?;
             assert!(t.is_some(), "expected more terms");
             let t = t.unwrap();
             assert_eq!(
@@ -700,7 +700,10 @@ where
             assert!(self.outputs_equal(&pair.output, &t.output));
         }
 
-        assert!(fst_enum.next()?.is_none(), "expected no more terms at end");
+        assert!(
+            fst_enum.next_value()?.is_none(),
+            "expected no more terms at end"
+        );
         Ok(fst_enum)
     }
 

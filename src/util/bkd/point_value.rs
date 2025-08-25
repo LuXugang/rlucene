@@ -19,7 +19,6 @@ use crate::util::bkd::heap_point_write::HeapPointValue;
 use crate::util::bkd::offline_point_reader::OfflinePointValue;
 
 /// Represents a dimensional point value written in the BKD tree.
-
 pub(crate) trait PointValue {
     /// Sets a new value by changing the offset.
     fn set_offset(&mut self, offset: i32);

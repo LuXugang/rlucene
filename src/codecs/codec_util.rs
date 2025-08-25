@@ -554,24 +554,24 @@ impl CodecUtil {
             } else {
                 // now check the footer
                 let result = Self::check_footer(checksum_in);
-                if result.is_err() {
-                    error_message = format!(
-                        "{} cause by checksum status indeterminate: unexpected exception: {} {} ",
-                        error,
-                        checksum_in,
-                        result.unwrap_err(),
-                    );
-                } else {
-                    let checksum = result.unwrap();
-                    // If the index format is too old and no corruption, do not
-                    // add a checksum matching message since
-                    // this may tend to unnecessarily alarm people who
-                    // see "JVM bug" in their logs
-                    if !matches!(prior_error, LuceneError::IndexFormatTooOld(_)) {
+                match result {
+                    Err(e) => {
                         error_message = format!(
-                            "checksum passed ({checksum}). possibly transient resource issue, or a Lucene : {checksum_in}, cause by: {error}"
+                            "{} cause by checksum status indeterminate: unexpected exception: {} {} ",
+                            error, checksum_in, e,
                         );
-                    }
+                    },
+                    Ok(checksum) => {
+                        // If the index format is too old and no corruption, do not
+                        // add a checksum matching message since
+                        // this may tend to unnecessarily alarm people who
+                        // see "JVM bug" in their logs
+                        if !matches!(prior_error, LuceneError::IndexFormatTooOld(_)) {
+                            error_message = format!(
+                                "checksum passed ({checksum}). possibly transient resource issue, or a Lucene : {checksum_in}, cause by: {error}"
+                            );
+                        }
+                    },
                 }
             }
         }

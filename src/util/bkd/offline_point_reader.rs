@@ -213,7 +213,6 @@ where
 }
 
 /// Reusable implementation for a point value offline.
-
 pub(crate) struct OfflinePointValue {
     pub(crate) offset: i32,
     pub(crate) value: Vec<u8>,

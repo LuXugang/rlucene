@@ -77,7 +77,6 @@ use std::sync::Arc;
 ///
 /// **NOTE**: This can write at most `i32::MAX * config.max_points_in_leaf_node
 /// / config.bytes_per_dim` total points.
-
 pub struct BKDWriter<D>
 where
     D: Directory,

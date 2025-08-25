@@ -833,12 +833,12 @@ where
             &mut self.payload_lengths_buf,
         )?;
 
-        if cur_field.has_payloads && payload.is_some() {
-            let p = payload.unwrap();
+        if cur_field.has_payloads
+            && let Some(p) = payload
+        {
             self.payload_bytes
                 .write_bytes_range(&p.bytes, p.offset as i32, p.length as i32)?;
         }
-
         Ok(())
     }
 

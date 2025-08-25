@@ -28,7 +28,6 @@ use std::sync::Arc;
 /// algorithm, and only retains a better hash table that remembers about more
 /// occurrences of a previous 4-bytes sequence, and removes all the logic about
 /// handling of the case when overlapping matches are found.
-
 pub struct LZ4;
 
 impl LZ4 {

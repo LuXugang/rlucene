@@ -300,7 +300,6 @@ impl SparseFixedBitSet {
             non_zero_long_count - (current_index & index).count_ones() as i32;
     }
     /// [`or`](#method.or) implementation that works best when `it` is dense.
-
     fn or_dense(&mut self, mut it: impl DocIdSetIterator) -> Result<()> {
         bit_set_util::check_unpositioned(&it)?;
         // The goal here is to try to take advantage of the ordering of

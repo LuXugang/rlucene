@@ -57,18 +57,13 @@ impl Display for BlockTermState {
 impl TermState for BlockTermState {
     fn copy_from(&mut self, other: &TermStateEnum) -> Result<()> {
         match other {
-            TermStateEnum::Block(other) => match other {
-                BlockTermStateEnum::Block(block) => {
-                    self.doc_freq = block.doc_freq;
-                    self.total_term_freq = block.total_term_freq;
-                    self.term_block_ord = block.term_block_ord;
-                    self.block_file_pointer = block.block_file_pointer;
-                    self.ord = block.ord.clone();
-                    Ok(())
-                },
-                _ => Err(LuceneError::illegal_state(
-                    "enum other should be BlockTermState",
-                )),
+            TermStateEnum::Block(BlockTermStateEnum::Block(block)) => {
+                self.doc_freq = block.doc_freq;
+                self.total_term_freq = block.total_term_freq;
+                self.term_block_ord = block.term_block_ord;
+                self.block_file_pointer = block.block_file_pointer;
+                self.ord = block.ord.clone();
+                Ok(())
             },
             _ => Err(LuceneError::illegal_state(
                 "enum other should be BlockTermState",

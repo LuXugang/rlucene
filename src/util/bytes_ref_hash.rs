@@ -243,7 +243,6 @@ where
     }
 
     /// Closes the `BytesRefHash` and releases all internally used memory.
-
     pub fn close(&mut self) {
         self.clear_with_reset_pool(true);
         self.ids.clear();

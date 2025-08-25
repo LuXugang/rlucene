@@ -126,12 +126,13 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
 
     fn grow(&mut self, size: i32) -> Result<()> {
         let offset_result = self.offsets.grow_with_size(size as i64)?;
-        if offset_result.is_some() {
-            self.offsets = offset_result.unwrap();
+        if let Some(offsets) = offset_result {
+            self.offsets = offsets;
         }
+
         let length_result = self.lengths.grow_with_size(size as i64)?;
-        if length_result.is_some() {
-            self.lengths = length_result.unwrap();
+        if let Some(lengths) = length_result {
+            self.lengths = lengths;
         }
         Ok(())
     }

@@ -198,8 +198,8 @@ use std::sync::Arc;
 /// - It's possible that an on-disk block would contain too many terms (more than
 ///   the allowed maximum (default: 48)). When this happens, the block is
 ///   subdivided into new blocks (called "floor blocks"), and then the output
-///   in   the FST for the block's prefix encodes the leading byte of each
-/// subblock,   and its file pointer.
+///   in the FST for the block's prefix encodes the leading byte of each
+///   subblock,and its file pointer.
 ///
 /// See also [`Lucene90BlockTreeTermsReader`](crate::codecs::lucene90::terms_reader::Lucene90BlockTreeTermsReader).
 pub struct Lucene90BlockTreeTermsWriter<O, PW>
@@ -599,7 +599,7 @@ impl PendingBlock {
     ) -> Result<()> {
         let mut sub_index_enum = BytesRefFSTEnum::new(sub_index)?;
 
-        while let Some(index_ent) = sub_index_enum.next()? {
+        while let Some(index_ent) = sub_index_enum.next_value()? {
             Util::get_ints_ref(&index_ent.input, scratch_ints_ref);
             fst_compiler.add(scratch_ints_ref.get(), index_ent.output.clone())?;
         }

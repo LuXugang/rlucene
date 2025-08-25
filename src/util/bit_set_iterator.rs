@@ -126,7 +126,7 @@ pub mod bsi_util {
     /// If the provided iterator wraps a [`FixedBitSet`], returns it, otherwise
     /// returns `None`.
     pub fn get_fixed_bit_set_or_null<B: BitSet>(
-        iterator: impl DocIdSetIterator + 'static,
+        _iterator: impl DocIdSetIterator + 'static,
     ) -> Option<FixedBitSet> {
         todo!()
     }

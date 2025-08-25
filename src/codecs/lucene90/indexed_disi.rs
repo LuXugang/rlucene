@@ -171,7 +171,6 @@ pub mod indexed_disi_util {
     ///
     /// # Errors
     /// Returns an error if writing to the output fails.
-
     pub(crate) fn write_bitset<O>(it: &mut impl DocIdSetIterator, out: &mut O) -> Result<i16>
     where
         O: IndexOutput,

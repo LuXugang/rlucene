@@ -73,7 +73,7 @@ use crate::util::error::lucene_error::Result;
 ///   With this strategy, the majority of payload and offset data will be outside the `.pos` file. So for
 ///   queries that require only position data, running on a full index with payloads and offsets, this
 ///   reduces disk pre-fetches.
-/// Files and detailed format:
+///   Files and detailed format:
 ///
 /// - `.tim`: Term Dictionary
 /// - `.tip`: Term Index
@@ -156,7 +156,7 @@ use crate::util::error::lucene_error::Result;
 /// - PackedDocDeltaBlock is theoretically generated from two steps:
 ///   1. Calculate the difference between each document number and the previous one, and get a d-gaps list (for the first document, use absolute value);
 ///   2. For those d-gaps from the first one to `PackedDocBlockNum*PackedBlockSize`<sup>th</sup>, separately encode as packed blocks.
-///   If frequencies are not omitted, PackedFreqBlock will be generated without the d-gap step.
+///      If frequencies are not omitted, PackedFreqBlock will be generated without the d-gap step.
 ///
 /// - VIntBlock stores remaining d-gaps (along with frequencies when possible) with a format that encodes DocDelta and Freq:
 ///
@@ -420,19 +420,14 @@ impl Display for IntBlockTermState {
 impl TermState for IntBlockTermState {
     fn copy_from(&mut self, other: &TermStateEnum) -> Result<()> {
         match other {
-            TermStateEnum::Block(other) => match other {
-                BlockTermStateEnum::Int(other) => {
-                    self.doc_start_fp = other.doc_start_fp;
-                    self.pos_start_fp = other.pos_start_fp;
-                    self.pay_start_fp = other.pay_start_fp;
-                    self.last_pos_block_offset = other.last_pos_block_offset;
-                    self.singleton_doc_id = other.singleton_doc_id;
-                    self.base = other.base.clone();
-                    Ok(())
-                },
-                _ => Err(LuceneError::illegal_state(
-                    "enum other should be IntBlockTermState",
-                )),
+            TermStateEnum::Block(BlockTermStateEnum::Int(other)) => {
+                self.doc_start_fp = other.doc_start_fp;
+                self.pos_start_fp = other.pos_start_fp;
+                self.pay_start_fp = other.pay_start_fp;
+                self.last_pos_block_offset = other.last_pos_block_offset;
+                self.singleton_doc_id = other.singleton_doc_id;
+                self.base = other.base.clone();
+                Ok(())
             },
             _ => Err(LuceneError::illegal_state(
                 "enum other should be IntBlockTermState",

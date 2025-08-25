@@ -232,8 +232,8 @@ impl DocValuesWriter for SortedNumericDocValuesWriter {
                 std::mem::take(&mut self.docs_with_field),
                 sort_map,
             )?;
-            let mut producer = DocValuesProducerImpl1::new(single_value_producer)?;
-            dv_consumer.add_sorted_numeric_field(&self.field_info, &mut producer)?;
+            let producer = DocValuesProducerImpl1::new(single_value_producer)?;
+            dv_consumer.add_sorted_numeric_field(&self.field_info, &producer)?;
             return Ok(());
         }
 
@@ -253,14 +253,14 @@ impl DocValuesWriter for SortedNumericDocValuesWriter {
             None
         };
 
-        let mut producer = DocValuesProducerImpl2::new(
+        let producer = DocValuesProducerImpl2::new(
             self.field_info.clone(),
             std::mem::take(&mut self.docs_with_field),
             values,
             sorted,
             value_counts,
         )?;
-        dv_consumer.add_sorted_numeric_field(&self.field_info, &mut producer)
+        dv_consumer.add_sorted_numeric_field(&self.field_info, &producer)
     }
 
     type DocIdSetIterator = Either2SortedNumericDocValues<

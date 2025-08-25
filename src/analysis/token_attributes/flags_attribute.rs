@@ -22,7 +22,6 @@ use crate::util::attribute::Attribute;
 /// This is completely distinct from [`TypeAttribute`](crate::analysis::token_attributes::type_attribute::TypeAttribute), although they do share similar
 /// purposes. The flags can be used to encode information about the token for use by other
 /// `TokenFilter`s.
-
 pub trait FlagsAttribute: Attribute {
     /// Get the bitset for any bits that have been set.
     fn get_flags(&self) -> i32;

@@ -817,7 +817,7 @@ impl MessengerImpl {
     }
 }
 impl Messenger for MessengerImpl {
-    fn accept(&self, msg_type: MsgType, msg: &String) {
+    fn accept(&self, msg_type: MsgType, msg: &str) {
         if msg_type == MsgType::Ref && !self.verbose_ref_counts {
             return;
         }

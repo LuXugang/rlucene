@@ -1382,8 +1382,7 @@ where
     ///   LUCENE-2934 (node expansion based on conditions other than the fanout
     ///   size).
     pub(crate) fn new(no_output: T, depth: i32) -> Self {
-        let mut arcs = Vec::with_capacity(1);
-        arcs.push(Arc::default());
+        let arcs = vec![Arc::default()];
 
         Self {
             num_arcs: 0,

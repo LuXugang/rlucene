@@ -397,7 +397,7 @@ where
         }
     }
 }
-impl<D: Directory + ?Sized> Directory for &mut D {
+impl<D: Directory> Directory for &mut D {
     fn list_all(&self) -> Result<Vec<String>> {
         (**self).list_all()
     }

@@ -29,7 +29,7 @@ pub struct ByteBlockPoolReverseBytesReader {
     pos_delta: i64,
     pos: i64,
 }
-impl<'a> ByteBlockPoolReverseBytesReader {
+impl ByteBlockPoolReverseBytesReader {
     pub fn new(buf: ByteBlockPool<CounterEnumBorrow>) -> Self {
         Self {
             buf,

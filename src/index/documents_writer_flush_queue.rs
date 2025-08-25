@@ -192,7 +192,7 @@ where
     }
 
     pub(crate) fn mark_published(&mut self) {
-        let _ = self.lock.lock();
+        let _guard = self.lock.lock();
         debug_assert!(
             !self.published,
             "ticket was already published - can not publish twice"

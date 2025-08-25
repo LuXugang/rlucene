@@ -33,7 +33,7 @@ where
     F: FstReader,
 {
     pub(crate) current: BytesRef<Rc<RefCell<Vec<u8>>>>,
-    pub(crate) result: InputOutput<O::V, BytesRef<Rc<RefCell<Vec<u8>>>>>,
+    pub(crate) result: IOBytesRef<O>,
     pub(crate) target: BytesRef<Rc<RefCell<Vec<u8>>>>,
     base: Option<FSTEnum<O, F>>,
 }
@@ -62,11 +62,11 @@ where
         })
     }
 
-    pub fn current(&self) -> &InputOutput<O::V, BytesRef<Rc<RefCell<Vec<u8>>>>> {
+    pub fn current(&self) -> &IOBytesRef<O> {
         &self.result
     }
 
-    pub fn next(&mut self) -> Result<Option<&InputOutput<O::V, BytesRef<Rc<RefCell<Vec<u8>>>>>>> {
+    pub fn next_value(&mut self) -> Result<Option<&IOBytesRef<O>>> {
         debug_assert!(self.base.is_some());
         let mut base = self.base.take().unwrap();
         base.do_next(self)?;
@@ -77,7 +77,7 @@ where
     pub fn seek_ceil(
         &mut self,
         target: BytesRef<Rc<RefCell<Vec<u8>>>>,
-    ) -> Result<Option<&InputOutput<O::V, BytesRef<Rc<RefCell<Vec<u8>>>>>>> {
+    ) -> Result<Option<&IOBytesRef<O>>> {
         self.target = target;
         debug_assert!(self.base.is_some());
         let mut base = self.base.take().unwrap();
@@ -90,7 +90,7 @@ where
     pub fn seek_floor(
         &mut self,
         target: BytesRef<Rc<RefCell<Vec<u8>>>>,
-    ) -> Result<Option<&InputOutput<O::V, BytesRef<Rc<RefCell<Vec<u8>>>>>>> {
+    ) -> Result<Option<&IOBytesRef<O>>> {
         self.target = target;
         debug_assert!(self.base.is_some());
         let mut base = self.base.take().unwrap();
@@ -103,7 +103,7 @@ where
     pub fn seek_exact(
         &mut self,
         target: BytesRef<Rc<RefCell<Vec<u8>>>>,
-    ) -> Result<Option<&InputOutput<O::V, BytesRef<Rc<RefCell<Vec<u8>>>>>>> {
+    ) -> Result<Option<&IOBytesRef<O>>> {
         self.target = target;
         debug_assert!(self.base.is_some());
         let mut base = self.base.take().unwrap();
@@ -119,7 +119,7 @@ where
         }
     }
 
-    fn set_result(&mut self) -> Result<Option<&InputOutput<O::V, BytesRef<Rc<RefCell<Vec<u8>>>>>>> {
+    fn set_result(&mut self) -> Result<Option<&IOBytesRef<O>>> {
         self.base.take_do_return(|base| {
             if base.upto == 0 {
                 Ok(None)
@@ -159,3 +159,4 @@ where
         Ok(())
     }
 }
+type IOBytesRef<O> = InputOutput<<O as Outputs>::V, BytesRef<Rc<RefCell<Vec<u8>>>>>;

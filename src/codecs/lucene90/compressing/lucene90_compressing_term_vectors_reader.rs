@@ -434,9 +434,11 @@ where
                 for j in 0..total_freq {
                     let next_positions =
                         reader.next_batch(total_freq - j, &mut self.vectors_stream)?;
-                    for k in 0..next_positions.length as usize {
-                        field_positions[k] =
-                            next_positions.longs[next_positions.offset as usize + k] as i32;
+                    for (dst, &src) in field_positions.iter_mut().zip(
+                        &next_positions.longs[next_positions.offset as usize..]
+                            [..next_positions.length as usize],
+                    ) {
+                        *dst = src as i32;
                     }
                 }
                 positions[i] = field_positions;

@@ -41,8 +41,8 @@ impl IndexDeletionPolicy for KeepOnlyLastCommitDeletionPolicy {
         IC: IndexCommit,
     {
         let size = commits.len();
-        for i in 0..size {
-            commits[i].delete()?;
+        for commit in commits.iter_mut().take(size) {
+            commit.delete()?;
         }
         Ok(())
     }

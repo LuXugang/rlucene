@@ -463,7 +463,7 @@ where
             for i in 0..terms.bytes_ref_hash.count {
                 let index = indices[i as usize];
                 terms.bytes_ref_hash.get(index, &mut scratch.bytes);
-                consumer(&scratch, terms.values[index as usize]);
+                consumer(&scratch, terms.values[index as usize])?;
             }
         }
         Ok(())

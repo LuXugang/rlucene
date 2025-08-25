@@ -199,7 +199,7 @@ where
             .sum()
     }
 
-    pub fn release<D>(&self, _sr: &SegmentReader<LF>, info: &SegmentCommitInfo<D>) -> Result<()>
+    pub fn release<D>(&self, _sr: &SegmentReader<LF>, _info: &SegmentCommitInfo<D>) -> Result<()>
     where
         D: Directory,
     {
@@ -220,8 +220,8 @@ where
     pub fn drop_readers(&self) -> Result<()> {
         let mut inner = self.inner.lock();
 
-        if let Some(_) = inner.reader.take() {
-            // TODO
+        if let Some(reader) = inner.reader.take() {
+            // TODO: 使用 reader
         }
         self.dec_ref();
         Ok(())
@@ -264,6 +264,7 @@ where
         inner.pending_deletes.write_live_docs(dir, info)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn handle_dv_updates<D, F>(
         &self,
         infos: &FieldInfos,
@@ -351,21 +352,21 @@ where
                     .pending_deletes
                     .on_doc_values_update(&field_info, update_supplier.apply(&field_info)?);
                 if *ty == DocValuesType::Binary {
-                    let mut v = DocValuesProducerBinary::new(
+                    let v = DocValuesProducerBinary::new(
                         update_supplier,
                         field,
                         reader,
                         field_info.clone(),
                     );
-                    fields_consumer.add_binary_field(&field_info, &mut v)?
+                    fields_consumer.add_binary_field(&field_info, &v)?
                 } else {
-                    let mut v = DocValuesProducerNumeric::new(
+                    let v = DocValuesProducerNumeric::new(
                         update_supplier,
                         field,
                         reader,
                         field_info.clone(),
                     );
-                    fields_consumer.add_numeric_field(&field_info, &mut v)?;
+                    fields_consumer.add_numeric_field(&field_info, &v)?;
                 }
 
                 drop(fields_consumer);

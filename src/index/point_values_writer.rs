@@ -419,8 +419,8 @@ impl MutablePointTreeImpl {
         packed_bytes_length: usize,
     ) -> Self {
         let mut ords: Vec<i32> = vec![0; num_points];
-        for i in 0..num_points {
-            ords[i] = i as i32;
+        for (i, ord) in ords.iter_mut().take(num_points).enumerate() {
+            *ord = i as i32;
         }
         let temp: Vec<i32> = vec![0; num_points];
         Self {

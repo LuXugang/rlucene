@@ -311,7 +311,7 @@ impl RefCount {
 }
 
 pub trait Messenger {
-    fn accept(&self, msg_type: MsgType, message: &String);
+    fn accept(&self, msg_type: MsgType, message: &str);
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MsgType {

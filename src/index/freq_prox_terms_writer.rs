@@ -139,6 +139,7 @@ where
         self.next_terms_hash.as_mut().unwrap().abort()
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn flush<N, DM, Q, D1>(
         &mut self,
         fields_to_flush: HashMap<String, FreqProxTermsWriterPerField>,

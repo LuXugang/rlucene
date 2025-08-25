@@ -106,7 +106,7 @@ where
     where
         I: IndexInput;
 
-    fn get_reader<D: Directory>(
+    fn get_reader<D>(
         &mut self,
         start_point: i64,
         length: i64,

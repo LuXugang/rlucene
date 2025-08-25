@@ -129,7 +129,7 @@ where
         D: Directory,
         P: IndexDeletionPolicy,
     {
-        let wait_for: HashSet<FrozenBufferedUpdates<Q>> = {
+        let wait_for = {
             let mut inner = self.inner.lock();
             std::mem::take(&mut inner.updates)
         };

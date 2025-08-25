@@ -250,12 +250,7 @@ impl ArrayUtil {
     }
     /// Sorts the given slice using the intro sort algorithm,
     /// falling back to insertion sort for small arrays.
-    pub fn do_intro_sort<T, C>(
-        a: &mut Vec<T>,
-        from_index: i32,
-        to_index: i32,
-        comp: C,
-    ) -> Result<()>
+    pub fn do_intro_sort<T, C>(a: &mut [T], from_index: i32, to_index: i32, comp: C) -> Result<()>
     where
         T: Default + Clone + Ord,
         C: Comparator<T>,
@@ -267,7 +262,7 @@ impl ArrayUtil {
     }
     /// Sorts the given slice using the intro sort algorithm,
     /// falling back to insertion sort for small arrays.
-    pub fn intro_sort_with_comparator<T, C>(a: &mut Vec<T>, comp: C) -> Result<()>
+    pub fn intro_sort_with_comparator<T, C>(a: &mut [T], comp: C) -> Result<()>
     where
         T: Default + Clone + Ord,
         C: Comparator<T>,
@@ -276,7 +271,7 @@ impl ArrayUtil {
     }
     /// Sorts the given slice in natural order using the intro sort algorithm,
     /// falling back to insertion sort for small arrays.
-    pub fn intro_sort_with_range<T>(a: &mut Vec<T>, from_index: i32, to_index: i32) -> Result<()>
+    pub fn intro_sort_with_range<T>(a: &mut [T], from_index: i32, to_index: i32) -> Result<()>
     where
         T: Default + Clone + Ord,
     {
@@ -287,7 +282,7 @@ impl ArrayUtil {
     }
     /// Sorts the given slice in natural order using the intro sort algorithm,
     /// falling back to insertion sort for small arrays.
-    pub fn intro_sort<T>(a: &mut Vec<T>) -> Result<()>
+    pub fn intro_sort<T>(a: &mut [T]) -> Result<()>
     where
         T: Default + Clone + Ord,
     {
@@ -295,7 +290,7 @@ impl ArrayUtil {
     }
     /// Sorts the given slice using the Tim sort algorithm
     /// falling back to binary sort for small arrays.
-    pub fn do_tim_sort<T, C>(a: &mut Vec<T>, from_index: i32, to_index: i32, comp: C) -> Result<()>
+    pub fn do_tim_sort<T, C>(a: &mut [T], from_index: i32, to_index: i32, comp: C) -> Result<()>
     where
         T: Default + Clone + Ord,
         C: Comparator<T>,
@@ -309,16 +304,17 @@ impl ArrayUtil {
     }
     /// Sorts the given slice using the Tim sort algorithm,
     /// falling back to binary sort for small arrays.
-    pub fn tim_sort_with_comparator<T, C>(a: &mut Vec<T>, comp: C) -> Result<()>
+    pub fn tim_sort_with_comparator<T, C>(a: &mut [T], comp: C) -> Result<()>
     where
         T: Default + Clone + Ord,
         C: Comparator<T>,
     {
-        Self::do_tim_sort(a, 0, a.len() as i32, comp)
+        let len = a.len() as i32;
+        Self::do_tim_sort(a, 0, len, comp)
     }
     /// Sorts the given slice in natural order using the Tim sort algorithm,
     /// falling back to binary sort for small arrays.
-    pub fn tim_sort_with_range<T>(a: &mut Vec<T>, from_index: i32, to_index: i32) -> Result<()>
+    pub fn tim_sort_with_range<T>(a: &mut [T], from_index: i32, to_index: i32) -> Result<()>
     where
         T: Default + Clone + Ord,
     {
@@ -329,11 +325,12 @@ impl ArrayUtil {
     }
     /// Sorts the given slice in natural order using the Tim sort algorithm,
     /// falling back to binary sort for small arrays.
-    pub fn tim_sort<T>(a: &mut Vec<T>) -> Result<()>
+    pub fn tim_sort<T>(a: &mut [T]) -> Result<()>
     where
         T: Default + Clone + Ord,
     {
-        Self::tim_sort_with_range(a, 0, a.len() as i32)
+        let len = a.len() as i32;
+        Self::tim_sort_with_range(a, 0, len)
     }
 
     /// Reorganize the slice `arr[from..to]` so that the element at offset `k`
@@ -352,13 +349,7 @@ impl ArrayUtil {
     /// - `k`: The index of the element to sort from. Value must be less than
     ///   `to` and greater than or equal to `from`.
     /// - `comparator`: A comparator to use for sorting.
-    pub fn select<T, C>(
-        arr: &mut Vec<T>,
-        from: i32,
-        to: i32,
-        k: i32,
-        comparator: &mut C,
-    ) -> Result<()>
+    pub fn select<T, C>(arr: &mut [T], from: i32, to: i32, k: i32, comparator: &mut C) -> Result<()>
     where
         T: Default + Ord,
         C: Comparator<T>,
@@ -418,7 +409,7 @@ where
     C: Comparator<T>,
 {
     pivot: i32,
-    arr: &'a mut Vec<T>,
+    arr: &'a mut [T],
     comparator: &'a C,
 }
 impl<'a, T, C> IntroSelectorImpl<'a, T, C>
@@ -426,7 +417,7 @@ where
     T: Default + Ord,
     C: Comparator<T>,
 {
-    fn new(arr: &'a mut Vec<T>, comparator: &'a C) -> IntroSelectorImpl<'a, T, C> {
+    fn new(arr: &'a mut [T], comparator: &'a C) -> IntroSelectorImpl<'a, T, C> {
         IntroSelectorImpl {
             pivot: 0,
             arr,

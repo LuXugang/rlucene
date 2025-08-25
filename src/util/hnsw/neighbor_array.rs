@@ -164,10 +164,9 @@ impl NeighborArray {
             let inserted_index = self.insert_sorted_internal(scorer)?;
             unchecked_indexes[count] = inserted_index;
 
-            for i in 0..count {
-                if unchecked_indexes[i] >= inserted_index {
-                    // the previous inserted nodes has been shifted
-                    unchecked_indexes[i] += 1;
+            for idx in &mut unchecked_indexes[..count] {
+                if *idx >= inserted_index {
+                    *idx += 1;
                 }
             }
 

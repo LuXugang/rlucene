@@ -168,7 +168,6 @@ impl LongHeap {
         self.heap[i] = value;
     }
     /// Pushes all elements from another heap into this heap.
-
     pub fn push_all(&mut self, other: &LongHeap) {
         for i in 1..=other.size {
             self.push(other.heap[i]);

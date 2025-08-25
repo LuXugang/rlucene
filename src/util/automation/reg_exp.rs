@@ -260,6 +260,7 @@ impl RegExp {
         }
     }
     // Simplified construction of leaf nodes
+    #[allow(clippy::too_many_arguments)]
     fn new_leaf_node(
         flags: i32,
         kind: RegExpKind,

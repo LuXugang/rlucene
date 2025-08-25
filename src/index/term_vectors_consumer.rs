@@ -163,9 +163,10 @@ where
         }
 
         let mut per_fields = std::mem::take(&mut self.per_fields);
-        for i in 0..self.num_vector_fields as usize {
-            per_fields[i].finish_document(self)?;
+        for per_field in per_fields.iter_mut().take(self.num_vector_fields as usize) {
+            per_field.finish_document(self)?;
         }
+
         match self.sub {
             Some(ref mut sub) => {
                 sub.writer.as_mut().unwrap().finish_document()?;

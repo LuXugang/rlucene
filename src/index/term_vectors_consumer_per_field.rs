@@ -184,13 +184,11 @@ impl TermVectorsConsumerPerField {
                     tv.start_term(&term_vectors_consumer.flush_term, freq)?;
 
                     if self.do_vector_positions || self.do_vector_offsets {
-                        if pos_reader.is_some() {
-                            self.base
-                                .init_reader(pos_reader.as_mut().unwrap(), term_id, 0);
+                        if let Some(reader) = pos_reader.as_mut() {
+                            self.base.init_reader(reader, term_id, 0);
                         }
-                        if off_reader.is_some() {
-                            self.base
-                                .init_reader(off_reader.as_mut().unwrap(), term_id, 1);
+                        if let Some(reader) = off_reader.as_mut() {
+                            self.base.init_reader(reader, term_id, 1);
                         }
                         tv.add_prox(freq as usize, &mut pos_reader, &mut off_reader)?;
                     }
@@ -393,11 +391,11 @@ impl TermVectorsConsumerPerField {
             .unwrap();
         match postings {
             PostingsArrayEnum::TermVectors(postings) => {
-                if last_offset.is_some() {
-                    postings.last_offsets[term_id] = last_offset.unwrap();
+                if let Some(offset) = last_offset {
+                    postings.last_offsets[term_id] = offset;
                 }
-                if last_position.is_some() {
-                    postings.last_positions[term_id] = last_position.unwrap();
+                if let Some(pos) = last_position {
+                    postings.last_positions[term_id] = pos;
                 }
             },
             _ => unreachable!("should not be here"),
@@ -443,7 +441,7 @@ impl TermVectorsConsumerPerField {
 impl Eq for TermVectorsConsumerPerField {}
 
 impl PartialEq<Self> for TermVectorsConsumerPerField {
-    fn eq(&self, other: &Self) -> bool {
+    fn eq(&self, _other: &Self) -> bool {
         todo!()
     }
 }

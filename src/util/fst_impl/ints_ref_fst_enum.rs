@@ -66,7 +66,7 @@ where
         &self.result
     }
 
-    pub fn next(&mut self) -> Result<Option<&InputOutput<O::V, RcIntsRef>>> {
+    pub fn next_value(&mut self) -> Result<Option<&InputOutput<O::V, RcIntsRef>>> {
         debug_assert!(self.base.is_some());
         let mut base = self.base.take().unwrap();
         base.do_next(self)?;

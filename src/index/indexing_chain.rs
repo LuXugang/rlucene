@@ -439,7 +439,7 @@ where
             while per_field_index >= 0 {
                 let per_field = self.doc_fields[per_field_index as usize].as_mut().unwrap();
                 let field_info = per_field.field_info.as_ref().unwrap();
-                if let Some(ref writer_enum) = per_field.point_values_writer {
+                if per_field.point_values_writer.is_some() {
                     // We could have initialized pointValuesWriter, but failed to write even a single doc
                     if field_info.get_point_dimension_count() > 0 {
                         if points_writer.is_none() {
@@ -474,6 +474,7 @@ where
                 if let Some(ref mut writer) = per_field.doc_values_writer {
                     writer.finish()?;
                 }
+                per_field_index = per_field.next;
             }
         }
         Ok(())
@@ -912,7 +913,7 @@ where
             }
             self.stored_fields_consumer
                 .write_field(pf.field_info.as_ref().unwrap(), &stored_value)
-                .inspect_err(|e| {
+                .inspect_err(|_| {
                     self.has_hit_aborting_exception = true;
                 })?;
         }

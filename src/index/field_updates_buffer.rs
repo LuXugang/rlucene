@@ -228,7 +228,7 @@ impl FieldUpdatesBuffer {
                     }
                 }
                 // TODO: memory calculation not implemented
-                let bytes_used = self.bytes_used.lock().add_and_get(0);
+                self.bytes_used.lock().add_and_get(0);
             }
             self.docs_up_to[ord as usize] = doc_upto;
         }
@@ -392,7 +392,6 @@ impl FieldUpdatesBuffer {
     }
 }
 /// An iterator that iterates over all updates in insertion order.
-
 pub struct BufferedUpdateIterator<'a> {
     term_values_iterator: IndexedBytesRefIteratorImpl<'a, CounterEnumLock>,
     look_ahead_term_iterator: Option<IndexedBytesRefIteratorImpl<'a, CounterEnumLock>>,
