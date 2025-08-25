@@ -118,3 +118,67 @@ pub trait DocValuesSkipper {
         Ok(())
     }
 }
+
+macro_rules! either_docvalues_skipper {
+    ($vis:vis $name:ident { $( $Variant:ident : $T:ident ),+ $(,)? }) => {
+        $vis enum $name<$( $T ),+> {
+            $( $Variant($T), )+
+        }
+
+        impl<$( $T ),+> DocValuesSkipper for $name<$( $T ),+>
+        where
+            $( $T: DocValuesSkipper ),+
+        {
+
+            fn advance(&mut self, target: i32) -> Result<()> {
+                match self { $( Self::$Variant(inner) => inner.advance(target), )+ }
+            }
+
+
+            fn num_levels(&self) -> i32 {
+                match self { $( Self::$Variant(inner) => inner.num_levels(), )+ }
+            }
+
+
+            fn min_doc_id(&self, level: i32) -> i32 {
+                match self { $( Self::$Variant(inner) => inner.min_doc_id(level), )+ }
+            }
+
+
+            fn max_doc_id(&self, level: i32) -> i32 {
+                match self { $( Self::$Variant(inner) => inner.max_doc_id(level), )+ }
+            }
+
+
+            fn min_value(&self, level: i32) -> i64 {
+                match self { $( Self::$Variant(inner) => inner.min_value(level), )+ }
+            }
+
+
+            fn max_value(&self, level: i32) -> i64 {
+                match self { $( Self::$Variant(inner) => inner.max_value(level), )+ }
+            }
+
+
+            fn doc_count_level(&self, level: i32) -> i32 {
+                match self { $( Self::$Variant(inner) => inner.doc_count_level(level), )+ }
+            }
+
+
+            fn global_min_value(&self) -> i64 {
+                match self { $( Self::$Variant(inner) => inner.global_min_value(), )+ }
+            }
+
+
+            fn global_max_value(&self) -> i64 {
+                match self { $( Self::$Variant(inner) => inner.global_max_value(), )+ }
+            }
+
+
+            fn global_doc_count(&self) -> i32 {
+                match self { $( Self::$Variant(inner) => inner.global_doc_count(), )+ }
+            }
+        }
+    };
+}
+either_docvalues_skipper!(pub Either2DocValuesSkipper { A: A, B: B });
