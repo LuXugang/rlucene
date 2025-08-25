@@ -243,11 +243,14 @@ mod tests {
         let pq_clone = Arc::clone(&pq);
         let handle = thread::spawn(move || {
             let mut chosen_index: Option<usize> = None;
+            #[allow(unused_variables)]
+            let mut _chosen_lock;
             for (i, mutex) in pq_clone.queues.iter().enumerate() {
                 match mutex.try_lock() {
                     Some(guard) => {
                         if !guard.is_empty() {
                             chosen_index = Some(i);
+                            _chosen_lock = Some(guard);
                             break;
                         }
                     },
