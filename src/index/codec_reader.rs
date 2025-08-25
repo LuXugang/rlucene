@@ -268,6 +268,9 @@ pub trait CodecReader: LeafReader {
     }
 
     fn check_integrity(&self) -> Result<()> {
+        self.default_check_integrity()
+    }
+    fn default_check_integrity(&self) -> Result<()> {
         // terms/postings
         if let Some(v) = self.get_postings_reader()? {
             v.check_integrity()?;

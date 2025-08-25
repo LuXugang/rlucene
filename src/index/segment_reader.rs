@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::codecs::compound_directory::CompoundDirectory;
+use crate::codecs::compound_directory::{CompoundDirectory, CompoundDirectoryBase};
 use crate::codecs::doc_values_producer::{DocValuesProducer, Either2DocValuesProducer};
 use crate::codecs::field_infos_format::FieldInfosFormat;
 use crate::codecs::fields_producer::FieldsProducerEnum;
@@ -273,5 +273,13 @@ where
             Some(p) => Ok(Some(Cow::Borrowed(p))),
             None => Ok(None),
         }
+    }
+
+    fn check_integrity(&self) -> Result<()> {
+        CodecReader::default_check_integrity(self)?;
+        if let Some(dv) = &self.core.cfs_reader {
+            dv.sub_compound_dir.check_integrity()?;
+        }
+        Ok(())
     }
 }

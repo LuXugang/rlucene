@@ -31,7 +31,7 @@ pub struct CompoundDirectory<D>
 where
     D: Directory,
 {
-    sub_compound_dir: D,
+    pub(crate) sub_compound_dir: D,
 }
 
 impl<D> CompoundDirectory<D>
