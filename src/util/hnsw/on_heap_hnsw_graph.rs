@@ -225,8 +225,8 @@ impl OnHeapHnswGraph {
 
         let max_levels = self.num_levels()?;
         level_to_nodes = vec![None; max_levels];
-        for i in 1..max_levels {
-            level_to_nodes[i] = Some(Vec::new());
+        for slot in level_to_nodes.iter_mut().skip(1) {
+            *slot = Some(Vec::new());
         }
 
         let mut non_null_node = 0;
@@ -235,8 +235,13 @@ impl OnHeapHnswGraph {
                 continue;
             }
             non_null_node += 1;
-            for i in 1..levels.len() {
-                if let Some(ref mut vec) = level_to_nodes[i] {
+            for (i, maybe_vec) in level_to_nodes
+                .iter_mut()
+                .enumerate()
+                .take(levels.len())
+                .skip(1)
+            {
+                if let Some(vec) = maybe_vec {
                     vec.push(node as i32);
                 }
             }
