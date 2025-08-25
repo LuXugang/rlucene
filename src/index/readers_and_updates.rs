@@ -37,7 +37,7 @@ use crate::index::field_info::FieldInfo;
 use crate::index::field_infos::FieldInfos;
 use crate::index::leaf_reader::LeafReader;
 use crate::index::numeric_doc_values::NumericDocValues;
-use crate::index::pending_deletes::PendingDeletes;
+use crate::index::pending_deletes::{LiveDocsBits, PendingDeletes};
 use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::index::segment_reader::SegmentReader;
 use crate::index::segment_write_state::SegmentWriteState;
@@ -50,9 +50,7 @@ use crate::store::directory::Directory;
 use crate::store::flush_info::FlushInfo;
 use crate::store::tracking_directory_wrapper::TrackingDirectoryWrapper;
 use crate::util::CoreHelper;
-use crate::util::bits::Either2Bits;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::fixed_bit_set::FixedBit;
 use crate::util::function::Function;
 use crate::util::info_stream::InfoStream;
 use parking_lot::Mutex;
@@ -220,17 +218,13 @@ where
         Ok(())
     }
     /// Returns a snapshot of the live docs.
-    pub fn get_live_docs(
-        &self,
-    ) -> Option<Either2Bits<Arc<<SegmentReader<D> as LeafReader>::Bits>, Arc<FixedBit>>> {
+    pub fn get_live_docs(&self) -> Option<LiveDocsBits<D>> {
         let mut inner = self.inner.lock();
         inner.pending_deletes.get_live_docs()
     }
 
     /// Returns the live-docs bits excluding documents that are not live due to soft-deletes.
-    pub fn get_hard_live_docs(
-        &self,
-    ) -> Option<Either2Bits<Arc<<SegmentReader<D> as LeafReader>::Bits>, Arc<FixedBit>>> {
+    pub fn get_hard_live_docs(&self) -> Option<LiveDocsBits<D>> {
         let mut inner = self.inner.lock();
         inner.pending_deletes.get_hard_live_docs()
     }

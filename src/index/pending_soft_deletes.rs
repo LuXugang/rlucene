@@ -17,15 +17,12 @@
 use crate::codecs::field_infos_format::FieldInfosFormat;
 use crate::codecs::{Codec, CompoundFormat, get_default_code};
 use crate::index::field_infos::FieldInfos;
-use crate::index::leaf_reader::LeafReader;
-use crate::index::pending_deletes::PendingDeletes;
+use crate::index::pending_deletes::{LiveDocsBits, PendingDeletes};
 use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::index::segment_reader::SegmentReader;
 use crate::store::IOContext;
 use crate::store::directory::Directory;
-use crate::util::bits::Either2Bits;
 use crate::util::error::lucene_error::Result;
-use crate::util::fixed_bit_set::FixedBit;
 use num_bigint::BigInt;
 use parking_lot::Mutex;
 use std::sync::Arc;
@@ -196,9 +193,7 @@ where
         }
     }
 
-    pub(crate) fn get_hard_live_docs(
-        &mut self,
-    ) -> Option<Either2Bits<Arc<<SegmentReader<D> as LeafReader>::Bits>, Arc<FixedBit>>> {
+    pub(crate) fn get_hard_live_docs(&mut self) -> Option<LiveDocsBits<D>> {
         match self.field {
             Some(_) => self.hard_deletes.get_live_docs(),
             None => self.base.get_hard_live_docs(),

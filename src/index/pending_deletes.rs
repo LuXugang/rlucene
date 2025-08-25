@@ -147,9 +147,7 @@ where
         Ok(did_delete)
     }
     /// Returns a snapshot of the current live docs.
-    pub(crate) fn get_live_docs(
-        &mut self,
-    ) -> Option<Either2Bits<Arc<<SegmentReader<D> as LeafReader>::Bits>, Arc<FixedBit>>> {
+    pub(crate) fn get_live_docs(&mut self) -> Option<LiveDocsBits<D>> {
         // Prevent modifications to the returned live docs
         self.writeable_live_docs = false;
         match self.live_docs.take() {
@@ -173,9 +171,7 @@ where
     }
 
     /// Returns a snapshot of the hard live docs.
-    pub(crate) fn get_hard_live_docs(
-        &mut self,
-    ) -> Option<Either2Bits<Arc<<SegmentReader<D> as LeafReader>::Bits>, Arc<FixedBit>>> {
+    pub(crate) fn get_hard_live_docs(&mut self) -> Option<LiveDocsBits<D>> {
         self.get_live_docs()
     }
 
@@ -384,6 +380,8 @@ where
         false
     }
 }
+pub(crate) type LiveDocsBits<D> =
+    Either2Bits<Arc<<SegmentReader<D> as LeafReader>::Bits>, Arc<FixedBit>>;
 pub(crate) type DocBits<D> = Either2Bits<
     Arc<<SegmentReader<D> as LeafReader>::Bits>,
     Either2Bits<Arc<FixedBit>, FixedBitSet>,
