@@ -31,6 +31,7 @@ use crate::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::index::sorted_set_doc_values_writer::Either2SortedSetDocValues;
 use crate::store::IndexInput;
 use crate::util::error::lucene_error::{LuceneError, Result};
+use std::rc::Rc;
 use std::sync::Arc;
 
 /// A trait that produces numeric, binary, sorted, sorted set, and sorted
@@ -207,5 +208,55 @@ where
                 }
             },
         }
+    }
+}
+impl<T> DocValuesProducer for Rc<T>
+where
+    T: DocValuesProducer,
+{
+    type NumericDocValues = T::NumericDocValues;
+    fn get_numeric(&self, field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
+        (**self).get_numeric(field)
+    }
+    type BinaryDocValues = T::BinaryDocValues;
+    fn get_binary(&self, field: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
+        (**self).get_binary(field)
+    }
+    type SortedDocValues = T::SortedDocValues;
+    fn get_sorted(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedDocValues> {
+        (**self).get_sorted(field)
+    }
+
+    type SortedNumericDocValues = T::SortedNumericDocValues;
+
+    fn get_sorted_numeric(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedNumericDocValues> {
+        (**self).get_sorted_numeric(field)
+    }
+
+    type SortedSetDocValues = T::SortedSetDocValues;
+
+    fn get_sorted_set(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
+        (**self).get_sorted_set(field)
+    }
+
+    type DocValuesSkipper = T::DocValuesSkipper;
+
+    fn get_skipper(&self, field: &Arc<FieldInfo>) -> Result<Self::DocValuesSkipper> {
+        (**self).get_skipper(field)
+    }
+
+    fn check_integrity(&self) -> Result<()> {
+        (**self).check_integrity()
+    }
+
+    fn get_merge_instance(&self) -> Result<Option<Self>>
+    where
+        Self: Sized,
+    {
+        let v = match (**self).get_merge_instance()? {
+            Some(v) => Rc::new(v),
+            None => return Ok(None),
+        };
+        Ok(Some(v))
     }
 }
