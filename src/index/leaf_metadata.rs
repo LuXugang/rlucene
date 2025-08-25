@@ -21,6 +21,7 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::version::{LATEST, Version};
 
 #[derive(Getters)]
+#[cfg_attr(test, derive(Default))] // for test
 pub struct LeafMetaData {
     /// The major version of the Lucene format used to create this segment.
     pub created_version_major: i32,

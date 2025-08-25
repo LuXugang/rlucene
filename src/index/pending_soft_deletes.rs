@@ -31,20 +31,20 @@ use num_bigint::BigInt;
 use parking_lot::Mutex;
 use std::sync::Arc;
 
-pub(crate) struct PendingSoftDeletes<L>
+pub(crate) struct PendingSoftDeletes<D>
 where
-    L: LeafReader,
+    D: Directory,
 {
     pub(crate) field: Option<String>,
     pub(crate) dv_generation: i64,
-    pub(crate) hard_deletes: PendingDeletes<L>,
-    pub(crate) base: PendingDeletes<L>,
+    pub(crate) hard_deletes: PendingDeletes<D>,
+    pub(crate) base: PendingDeletes<D>,
 }
-impl<L> PendingSoftDeletes<L>
+impl<D> PendingSoftDeletes<D>
 where
-    L: LeafReader,
+    D: Directory,
 {
-    pub(crate) fn new<D>(field: Option<String>, info: &SegmentCommitInfo<D>) -> Result<Self>
+    pub(crate) fn new(field: Option<String>, info: &SegmentCommitInfo<D>) -> Result<Self>
     where
         D: Directory,
     {
@@ -58,15 +58,11 @@ where
         })
     }
 
-    pub(crate) fn from_reader<D, LF>(
+    pub(crate) fn from_reader(
         field: Option<String>,
-        reader: &SegmentReader<LF>,
+        reader: &SegmentReader<D>,
         info: &SegmentCommitInfo<D>,
-    ) -> Result<Self>
-    where
-        D: Directory,
-        LF: LiveDocsFormat<Bits = L::Bits>,
-    {
+    ) -> Result<Self> {
         let base = PendingDeletes::from_reader(reader, info)?;
         let hard_deletes = PendingDeletes::from_reader(reader, info)?;
         Ok(Self {
@@ -76,7 +72,7 @@ where
             base,
         })
     }
-    pub(crate) fn delete<D>(&mut self, doc_id: i32, info: &mut SegmentCommitInfo<D>) -> Result<bool>
+    pub(crate) fn delete(&mut self, doc_id: i32, info: &mut SegmentCommitInfo<D>) -> Result<bool>
     where
         D: Directory,
     {
@@ -109,7 +105,7 @@ where
         }
     }
 
-    pub(crate) fn write_live_docs<D>(
+    pub(crate) fn write_live_docs(
         &mut self,
         dir: Arc<Mutex<D>>,
         info: &mut SegmentCommitInfo<D>,
@@ -144,7 +140,7 @@ where
         }
     }
 
-    fn assert_pending_deletes<D>(&self, info: &mut SegmentCommitInfo<D>) -> Result<bool>
+    fn assert_pending_deletes(&self, info: &mut SegmentCommitInfo<D>) -> Result<bool>
     where
         D: Directory,
     {
@@ -154,22 +150,20 @@ where
         Ok(true)
     }
 
-    fn ensure_initialized<LF, F>(&self, _reader_io_supplier: F)
+    fn ensure_initialized<F>(&self, _reader_io_supplier: F)
     where
-        F: Fn() -> Arc<SegmentReader<LF>>,
-        LF: LiveDocsFormat,
+        F: Fn() -> Arc<SegmentReader<D>>,
     {
         todo!()
     }
 
-    pub(crate) fn is_fully_deleted<F, LF, D>(
+    pub(crate) fn is_fully_deleted<F>(
         &self,
         _reader_io_supplier: F,
         info: &SegmentCommitInfo<D>,
     ) -> Result<bool>
     where
-        F: Fn() -> Arc<SegmentReader<LF>>,
-        LF: LiveDocsFormat,
+        F: Fn() -> Arc<SegmentReader<D>>,
         D: Directory,
     {
         if self.field.is_none() {
@@ -180,7 +174,7 @@ where
         todo!()
     }
 
-    pub(crate) fn read_field_infos<D>(&self, info: &SegmentCommitInfo<D>) -> Result<FieldInfos>
+    pub(crate) fn read_field_infos(&self, info: &SegmentCommitInfo<D>) -> Result<FieldInfos>
     where
         D: Directory,
     {
@@ -221,7 +215,7 @@ where
 
     pub(crate) fn get_hard_live_docs(
         &mut self,
-    ) -> Option<Either2Bits<Arc<L::Bits>, Arc<FixedBit>>> {
+    ) -> Option<Either2Bits<Arc<<SegmentReader<D> as LeafReader>::Bits>, Arc<FixedBit>>> {
         match self.field {
             Some(_) => self.hard_deletes.get_live_docs(),
             None => self.base.get_hard_live_docs(),
@@ -234,9 +228,9 @@ where
         }
     }
 }
-impl<L> std::fmt::Display for PendingSoftDeletes<L>
+impl<D> std::fmt::Display for PendingSoftDeletes<D>
 where
-    L: LeafReader,
+    D: Directory,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(

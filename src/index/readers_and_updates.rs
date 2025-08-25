@@ -62,10 +62,9 @@ use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicI32, AtomicI64, Ordering};
 
-pub(crate) struct ReadersAndUpdates<L, LF>
+pub(crate) struct ReadersAndUpdates<D>
 where
-    L: LeafReader,
-    LF: LiveDocsFormat,
+    D: Directory,
 {
     // Tracks how many consumers are using this instance:
     ref_count: AtomicI32, // starts at 1
@@ -74,19 +73,18 @@ where
     // Only set if there are doc values updates against this segment, and the index is sorted:
     sort_map: Option<Rc<DocMapImpl>>,
     ram_bytes_used: AtomicI64,
-    inner: Mutex<Inner<L, LF>>,
+    inner: Mutex<Inner<D>>,
 }
 
-pub(crate) struct Inner<L, LF>
+pub(crate) struct Inner<D>
 where
-    L: LeafReader,
-    LF: LiveDocsFormat,
+    D: Directory,
 {
     // Set once (None, and then maybe set, and never set again):
-    reader: Option<SegmentReader<LF>>,
+    reader: Option<SegmentReader<D>>,
     // How many further deletions we've done against
     // liveDocs vs when we loaded it or last wrote it:
-    pending_deletes: PendingDeletes<L>,
+    pending_deletes: PendingDeletes<D>,
     // Indicates whether this segment is currently being merged. While a segment
     // is merging, all field updates are also registered in the
     // mergingDVUpdates map. Also, calls to writeFieldUpdates merge the
@@ -103,14 +101,13 @@ where
     merging_dv_updates: HashMap<String, Vec<Rc<DocValuesFieldUpdatesEnum>>>,
 }
 
-impl<L, LF> ReadersAndUpdates<L, LF>
+impl<D> ReadersAndUpdates<D>
 where
-    L: LeafReader,
-    LF: LiveDocsFormat,
+    D: Directory,
 {
     pub(crate) fn new(
         index_created_version_major: i32,
-        pending_deletes: PendingDeletes<L>,
+        pending_deletes: PendingDeletes<D>,
     ) -> Self {
         let inner = Mutex::new(Inner {
             reader: None,
@@ -142,7 +139,7 @@ where
         debug_assert!(rc >= 0);
         rc
     }
-    pub(crate) fn get_del_count<D>(&self, info: &SegmentCommitInfo<D>) -> i32
+    pub(crate) fn get_del_count(&self, info: &SegmentCommitInfo<D>) -> i32
     where
         D: Directory,
     {
@@ -199,10 +196,7 @@ where
             .sum()
     }
 
-    pub fn release<D>(&self, _sr: &SegmentReader<LF>, _info: &SegmentCommitInfo<D>) -> Result<()>
-    where
-        D: Directory,
-    {
+    pub fn release(&self, _sr: &SegmentReader<D>, _info: &SegmentCommitInfo<D>) -> Result<()> {
         // TODO
         Ok(())
     }
@@ -227,13 +221,17 @@ where
         Ok(())
     }
     /// Returns a snapshot of the live docs.
-    pub fn get_live_docs(&self) -> Option<Either2Bits<Arc<L::Bits>, Arc<FixedBit>>> {
+    pub fn get_live_docs(
+        &self,
+    ) -> Option<Either2Bits<Arc<<SegmentReader<D> as LeafReader>::Bits>, Arc<FixedBit>>> {
         let mut inner = self.inner.lock();
         inner.pending_deletes.get_live_docs()
     }
 
     /// Returns the live-docs bits excluding documents that are not live due to soft-deletes.
-    pub fn get_hard_live_docs(&self) -> Option<Either2Bits<Arc<L::Bits>, Arc<FixedBit>>> {
+    pub fn get_hard_live_docs(
+        &self,
+    ) -> Option<Either2Bits<Arc<<SegmentReader<D> as LeafReader>::Bits>, Arc<FixedBit>>> {
         let mut inner = self.inner.lock();
         inner.pending_deletes.get_hard_live_docs()
     }
@@ -252,7 +250,7 @@ where
     // Commit live docs (writes new _X_N.del files) and field updates (writes new
     // _X_N updates files) to the directory; returns true if it wrote any file
     // and false if there were no new deletes or updates to write:
-    pub fn write_live_docs<D>(
+    pub fn write_live_docs(
         &self,
         dir: Arc<Mutex<D>>,
         info: &mut SegmentCommitInfo<D>,
@@ -265,19 +263,18 @@ where
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub fn handle_dv_updates<D, F>(
+    pub fn handle_dv_updates<F>(
         &self,
         infos: &FieldInfos,
         dir: Arc<Mutex<D>>,
         dv_format: &F,
-        reader: &mut SegmentReader<LF>,
+        reader: &mut SegmentReader<D>,
         field_files: &mut HashMap<i32, HashSet<String>>,
         max_del_gen: i64,
         info_stream: &mut impl InfoStream,
         info: &mut SegmentCommitInfo<D>,
     ) -> Result<()>
     where
-        D: Directory,
         F: DocValuesFormat,
     {
         let inner = self.inner.lock();
@@ -379,7 +376,7 @@ where
         Ok(())
     }
 
-    fn write_field_infos_gen<D, F>(
+    fn write_field_infos_gen<F>(
         &self,
         field_infos: &FieldInfos,
         dir: Arc<Mutex<D>>,
@@ -387,7 +384,6 @@ where
         info: &mut SegmentCommitInfo<D>,
     ) -> Result<HashSet<String>>
     where
-        D: Directory,
         F: FieldInfosFormat,
     {
         let next_field_infos_gen = info.get_next_field_infos_gen();
@@ -414,7 +410,7 @@ where
 
     /// Drops all merging updates.
     /// Called from IndexWriter after this segment finished merging (whether successfully or not).
-    pub fn drop_merging_updates(&self, inner: Option<&mut Inner<L, LF>>) {
+    pub fn drop_merging_updates(&self, inner: Option<&mut Inner<D>>) {
         let inner = match inner {
             Some(inner) => inner,
             None => &mut *self.inner.lock(),
@@ -534,35 +530,35 @@ where
     }
 }
 
-struct BinaryDocValuesImpl<LF>
+struct BinaryDocValuesImpl<D>
 where
-    LF: LiveDocsFormat,
+    D: Directory,
 {
-    merged_doc_values: MergedDocValues<<SegmentReader<LF> as LeafReader>::BinaryDocValues>,
+    merged_doc_values: MergedDocValues<<SegmentReader<D> as LeafReader>::BinaryDocValues>,
 }
-impl<LF> BinaryDocValuesImpl<LF>
+impl<D> BinaryDocValuesImpl<D>
 where
-    LF: LiveDocsFormat,
+    D: Directory,
 {
     fn new(
-        merged_doc_values: MergedDocValues<<SegmentReader<LF> as LeafReader>::BinaryDocValues>,
+        merged_doc_values: MergedDocValues<<SegmentReader<D> as LeafReader>::BinaryDocValues>,
     ) -> Self {
         Self { merged_doc_values }
     }
 }
 
-impl<LF> DocValuesIterator for BinaryDocValuesImpl<LF>
+impl<D> DocValuesIterator for BinaryDocValuesImpl<D>
 where
-    LF: LiveDocsFormat,
+    D: Directory,
 {
     fn advance_exact(&mut self, target: i32) -> Result<bool> {
         self.merged_doc_values.advance_exact(target)
     }
 }
 
-impl<LF> DocIdSetIterator for BinaryDocValuesImpl<LF>
+impl<D> DocIdSetIterator for BinaryDocValuesImpl<D>
 where
-    LF: LiveDocsFormat,
+    D: Directory,
 {
     fn doc_id(&self) -> i32 {
         self.merged_doc_values.doc_id()
@@ -581,9 +577,9 @@ where
     }
 }
 
-impl<LF> BinaryDocValues for BinaryDocValuesImpl<LF>
+impl<D> BinaryDocValues for BinaryDocValuesImpl<D>
 where
-    LF: LiveDocsFormat,
+    D: Directory,
 {
     fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
         match self.merged_doc_values.current_values_supplier {
@@ -606,36 +602,36 @@ where
         }
     }
 }
-struct NumericDocValuesImpl<LF>
+struct NumericDocValuesImpl<D>
 where
-    LF: LiveDocsFormat,
+    D: Directory,
 {
-    merged_doc_values: MergedDocValues<<SegmentReader<LF> as LeafReader>::NumericDocValues>,
+    merged_doc_values: MergedDocValues<<SegmentReader<D> as LeafReader>::NumericDocValues>,
 }
 
-impl<LF> NumericDocValuesImpl<LF>
+impl<D> NumericDocValuesImpl<D>
 where
-    LF: LiveDocsFormat,
+    D: Directory,
 {
     fn new(
-        merged_doc_values: MergedDocValues<<SegmentReader<LF> as LeafReader>::NumericDocValues>,
+        merged_doc_values: MergedDocValues<<SegmentReader<D> as LeafReader>::NumericDocValues>,
     ) -> Self {
         Self { merged_doc_values }
     }
 }
 
-impl<LF> DocValuesIterator for NumericDocValuesImpl<LF>
+impl<D> DocValuesIterator for NumericDocValuesImpl<D>
 where
-    LF: LiveDocsFormat,
+    D: Directory,
 {
     fn advance_exact(&mut self, target: i32) -> Result<bool> {
         self.merged_doc_values.advance_exact(target)
     }
 }
 
-impl<LF> DocIdSetIterator for NumericDocValuesImpl<LF>
+impl<D> DocIdSetIterator for NumericDocValuesImpl<D>
 where
-    LF: LiveDocsFormat,
+    D: Directory,
 {
     fn doc_id(&self) -> i32 {
         self.merged_doc_values.doc_id()
@@ -654,9 +650,9 @@ where
     }
 }
 
-impl<LF> NumericDocValues for NumericDocValuesImpl<LF>
+impl<D> NumericDocValues for NumericDocValuesImpl<D>
 where
-    LF: LiveDocsFormat,
+    D: Directory,
 {
     fn long_value(&mut self) -> Result<i64> {
         match self.merged_doc_values.current_values_supplier {
@@ -680,17 +676,23 @@ where
     }
 }
 
-struct DocValuesProducerBinary<'a, LF: LiveDocsFormat> {
+struct DocValuesProducerBinary<'a, D>
+where
+    D: Directory,
+{
     update_supplier: FunctionImpl,
     field: &'a str,
-    reader: &'a mut SegmentReader<LF>,
+    reader: &'a mut SegmentReader<D>,
     field_info: Arc<FieldInfo>,
 }
-impl<'a, LF: LiveDocsFormat> DocValuesProducerBinary<'a, LF> {
+impl<'a, D> DocValuesProducerBinary<'a, D>
+where
+    D: Directory,
+{
     pub fn new(
         update_supplier: FunctionImpl,
         field: &'a str,
-        reader: &'a mut SegmentReader<LF>,
+        reader: &'a mut SegmentReader<D>,
         field_info: Arc<FieldInfo>,
     ) -> Self {
         Self {
@@ -702,7 +704,10 @@ impl<'a, LF: LiveDocsFormat> DocValuesProducerBinary<'a, LF> {
     }
 }
 
-impl<LF: LiveDocsFormat> Clone for DocValuesProducerBinary<'_, LF> {
+impl<D> Clone for DocValuesProducerBinary<'_, D>
+where
+    D: Directory,
+{
     fn clone(&self) -> Self {
         unreachable!(
             "{} {}",
@@ -712,9 +717,12 @@ impl<LF: LiveDocsFormat> Clone for DocValuesProducerBinary<'_, LF> {
     }
 }
 
-impl<'a, LF: LiveDocsFormat> DocValuesProducer for DocValuesProducerBinary<'a, LF> {
+impl<'a, D> DocValuesProducer for DocValuesProducerBinary<'a, D>
+where
+    D: Directory,
+{
     type NumericDocValues = DummyNumericDocValues;
-    type BinaryDocValues = BinaryDocValuesImpl<LF>;
+    type BinaryDocValues = BinaryDocValuesImpl<D>;
 
     fn get_binary(&self, _field: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
         let iterator = match self.update_supplier.apply(&self.field_info)? {
@@ -737,18 +745,24 @@ impl<'a, LF: LiveDocsFormat> DocValuesProducer for DocValuesProducerBinary<'a, L
     type SortedSetDocValues = DummySortedSetDocValues;
     type DocValuesSkipper = DummyDocValuesSkipper;
 }
-struct DocValuesProducerNumeric<'a, LF: LiveDocsFormat> {
+struct DocValuesProducerNumeric<'a, D>
+where
+    D: Directory,
+{
     update_supplier: FunctionImpl,
     field: &'a str,
-    reader: &'a mut SegmentReader<LF>,
+    reader: &'a mut SegmentReader<D>,
     field_info: Arc<FieldInfo>,
 }
 
-impl<'a, LF: LiveDocsFormat> DocValuesProducerNumeric<'a, LF> {
+impl<'a, D> DocValuesProducerNumeric<'a, D>
+where
+    D: Directory,
+{
     pub fn new(
         update_supplier: FunctionImpl,
         field: &'a str,
-        reader: &'a mut SegmentReader<LF>,
+        reader: &'a mut SegmentReader<D>,
         field_info: Arc<FieldInfo>,
     ) -> Self {
         Self {
@@ -760,7 +774,10 @@ impl<'a, LF: LiveDocsFormat> DocValuesProducerNumeric<'a, LF> {
     }
 }
 
-impl<LF: LiveDocsFormat> Clone for DocValuesProducerNumeric<'_, LF> {
+impl<D> Clone for DocValuesProducerNumeric<'_, D>
+where
+    D: Directory,
+{
     fn clone(&self) -> Self {
         unreachable!(
             "{} {}",
@@ -770,8 +787,11 @@ impl<LF: LiveDocsFormat> Clone for DocValuesProducerNumeric<'_, LF> {
     }
 }
 
-impl<'a, LF: LiveDocsFormat> DocValuesProducer for DocValuesProducerNumeric<'a, LF> {
-    type NumericDocValues = NumericDocValuesImpl<LF>;
+impl<'a, D> DocValuesProducer for DocValuesProducerNumeric<'a, D>
+where
+    D: Directory,
+{
+    type NumericDocValues = NumericDocValuesImpl<D>;
     fn get_numeric(&self, _field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
         let iterator = match self.update_supplier.apply(&self.field_info)? {
             Some(it) => it,
