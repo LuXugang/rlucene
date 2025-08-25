@@ -62,7 +62,9 @@ impl CharTermAttributeImpl {
     }
 
     pub fn char_at(&self, index: usize) -> Result<char> {
-        CoreHelper::check_index(index, self.term_length)?;
+        debug_assert!(index <= i32::MAX as usize);
+        debug_assert!(self.term_length <= i32::MAX as usize);
+        CoreHelper::check_index(index as i32, self.term_length as i32)?;
         Ok(self.term_buffer[index])
     }
     pub fn sub_sequence(&self, start: usize, end: usize) -> Result<&[char]> {
