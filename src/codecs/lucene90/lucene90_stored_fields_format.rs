@@ -171,7 +171,7 @@ impl StoredFieldsFormat for Lucene90StoredFieldsFormat {
 
     fn fields_writer<D1, D2>(
         &self,
-        directory: &mut D1,
+        directory: &D1,
         segment_info: &mut SegmentInfo<D2>,
         context: &IOContext,
     ) -> Result<StoredFieldsWriterEnum<D1>>

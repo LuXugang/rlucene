@@ -580,7 +580,7 @@ where
                 // We clear this here because we already resolved them (private to this segment) when writing
                 // postings:
                 self.pending_updates.clear_delete_terms();
-                let files = self.directory.lock().take_created_files();
+                let files = self.directory.lock().get_created_files();
                 self.segment_info.set_files(files)?;
 
                 let dir = self.segment_info.dir.clone();
@@ -781,10 +781,10 @@ where
         let result: Result<()> = (|| {
             if index_writer_config.get_use_compound_file() {
                 let original_files = new_segment.info.files()?.clone();
-                let mut dir = TrackingDirectoryWrapper::new(self.directory.clone());
+                let dir = TrackingDirectoryWrapper::new(self.directory.clone());
                 index_writer_util::create_compound_file(
                     &self.info_stream,
-                    &mut dir,
+                    &dir,
                     &mut new_segment.info,
                     &context,
                     IOConsumerImpl::new(flush_notifications),
@@ -1063,11 +1063,11 @@ where
         }
     }
 }
-impl<FN> IOConsumer<&HashSet<String>> for IOConsumerImpl<'_, FN>
+impl<FN> IOConsumer<HashSet<String>> for IOConsumerImpl<'_, FN>
 where
     FN: FlushNotifications,
 {
-    fn accept(&mut self, input: &HashSet<String>) -> Result<()> {
+    fn accept(&mut self, input: HashSet<String>) -> Result<()> {
         self.flush_notifications.delete_unused_files(input);
         Ok(())
     }

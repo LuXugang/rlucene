@@ -68,18 +68,18 @@ where
         self.base.file_length(name)
     }
 
-    fn delete_file(&mut self, name: &str) -> Result<()> {
+    fn delete_file(&self, name: &str) -> Result<()> {
         self.write_lock.ensure_valid()?;
         self.base.delegate.lock().delete_file(name)
     }
 
-    fn create_output(&mut self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
+    fn create_output(&self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
         self.write_lock.ensure_valid()?;
         self.base.delegate.lock().create_output(name, context)
     }
 
     fn create_temp_output(
-        &mut self,
+        &self,
         prefix: &str,
         suffix: &str,
         context: &IOContext,
@@ -115,8 +115,8 @@ where
     }
 
     fn copy_from(
-        &mut self,
-        from: &mut impl Directory,
+        &self,
+        from: &impl Directory,
         src: &str,
         dest: &str,
         context: &IOContext,
@@ -128,7 +128,7 @@ where
             .copy_from(from, src, dest, context)
     }
 
-    fn delete_files_ignoring_exceptions(&mut self, files: &[String]) {
+    fn delete_files_ignoring_exceptions(&self, files: &[String]) {
         self.base.delete_files_ignoring_exceptions(files)
     }
 

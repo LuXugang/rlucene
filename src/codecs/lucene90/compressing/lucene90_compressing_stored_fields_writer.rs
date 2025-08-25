@@ -255,7 +255,7 @@ where
 {
     #[allow(clippy::too_many_arguments)]
     pub fn new<D1>(
-        directory: &mut D,
+        directory: &D,
         si: &SegmentInfo<D1>,
         segment_suffix: &str,
         context: &IOContext,
@@ -720,7 +720,7 @@ where
         self.buffered_docs.write_string(value)?;
         Ok(())
     }
-    fn finish<D1>(&mut self, num_docs: i32, dir: &mut D1) -> Result<()>
+    fn finish<D1>(&mut self, num_docs: i32, dir: &D1) -> Result<()>
     where
         D1: Directory,
     {

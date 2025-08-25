@@ -65,7 +65,7 @@ pub trait Directory: Display + Sized {
     ///
     /// # Arguments
     /// * `name` - The name of an existing file to be removed.
-    fn delete_file(&mut self, name: &str) -> Result<()>;
+    fn delete_file(&self, name: &str) -> Result<()>;
 
     /// Returns the byte length of a file in the directory.
     ///
@@ -90,7 +90,7 @@ pub trait Directory: Display + Sized {
     ///
     /// # Arguments
     /// * `name` - The name of the file to create.
-    fn create_output(&mut self, name: &str, context: &IOContext) -> Result<Self::IndexOutput>;
+    fn create_output(&self, name: &str, context: &IOContext) -> Result<Self::IndexOutput>;
 
     /// Creates a new, empty, temporary file in the directory and returns an
     /// `IndexOutput` instance for appending data to this file.
@@ -104,7 +104,7 @@ pub trait Directory: Display + Sized {
     /// * `suffix` - The suffix for the temporary file name.
     type IndexOutput: IndexOutput;
     fn create_temp_output(
-        &mut self,
+        &self,
         prefix: &str,
         suffix: &str,
         context: &IOContext,
@@ -197,8 +197,8 @@ pub trait Directory: Display + Sized {
     /// * `dest` - The destination file in this directory.
     /// * `io_context` - The I/O context used for opening the destination file.
     fn copy_from(
-        &mut self,
-        from: &mut impl Directory,
+        &self,
+        from: &impl Directory,
         src: &str,
         dest: &str,
         context: &IOContext,
@@ -216,7 +216,7 @@ pub trait Directory: Display + Sized {
         }
         result
     }
-    fn delete_files_ignoring_exceptions(&mut self, files: &[String]) {
+    fn delete_files_ignoring_exceptions(&self, files: &[String]) {
         for name in files {
             if self.delete_file(name).is_err() {
                 // ignore
@@ -277,7 +277,7 @@ where
         }
     }
 
-    fn delete_file(&mut self, name: &str) -> Result<()> {
+    fn delete_file(&self, name: &str) -> Result<()> {
         match self {
             Either2Directory::A(f) => f.delete_file(name),
             Either2Directory::B(s) => s.delete_file(name),
@@ -291,7 +291,7 @@ where
         }
     }
 
-    fn create_output(&mut self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
+    fn create_output(&self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
         match self {
             Either2Directory::A(f) => Ok(Either2IndexOutput::A(f.create_output(name, context)?)),
             Either2Directory::B(s) => Ok(Either2IndexOutput::B(s.create_output(name, context)?)),
@@ -301,7 +301,7 @@ where
     type IndexOutput = Either2IndexOutput<A::IndexOutput, B::IndexOutput>;
 
     fn create_temp_output(
-        &mut self,
+        &self,
         prefix: &str,
         suffix: &str,
         context: &IOContext,
@@ -364,8 +364,8 @@ where
     }
 
     fn copy_from(
-        &mut self,
-        from: &mut impl Directory,
+        &self,
+        from: &impl Directory,
         src: &str,
         dest: &str,
         context: &IOContext,
@@ -376,7 +376,7 @@ where
         }
     }
 
-    fn delete_files_ignoring_exceptions(&mut self, files: &[String]) {
+    fn delete_files_ignoring_exceptions(&self, files: &[String]) {
         match self {
             Either2Directory::A(f) => f.delete_files_ignoring_exceptions(files),
             Either2Directory::B(s) => s.delete_files_ignoring_exceptions(files),
@@ -401,23 +401,18 @@ impl<D: Directory> Directory for &mut D {
     fn list_all(&self) -> Result<Vec<String>> {
         (**self).list_all()
     }
-    fn delete_file(&mut self, name: &str) -> Result<()> {
+    fn delete_file(&self, name: &str) -> Result<()> {
         (**self).delete_file(name)
     }
     fn file_length(&self, name: &str) -> Result<i64> {
         (**self).file_length(name)
     }
 
-    fn create_output(&mut self, name: &str, ctx: &IOContext) -> Result<Self::IndexOutput> {
+    fn create_output(&self, name: &str, ctx: &IOContext) -> Result<Self::IndexOutput> {
         (**self).create_output(name, ctx)
     }
     type IndexOutput = D::IndexOutput;
-    fn create_temp_output(
-        &mut self,
-        p: &str,
-        s: &str,
-        ctx: &IOContext,
-    ) -> Result<Self::IndexOutput> {
+    fn create_temp_output(&self, p: &str, s: &str, ctx: &IOContext) -> Result<Self::IndexOutput> {
         (**self).create_temp_output(p, s, ctx)
     }
     fn sync(&mut self, names: &[&str]) -> Result<()> {
@@ -438,15 +433,15 @@ impl<D: Directory> Directory for &mut D {
         (**self).obtain_lock(name)
     }
     fn copy_from(
-        &mut self,
-        from: &mut impl Directory,
+        &self,
+        from: &impl Directory,
         src: &str,
         dst: &str,
         ctx: &IOContext,
     ) -> Result<()> {
         (**self).copy_from(from, src, dst, ctx)
     }
-    fn delete_files_ignoring_exceptions(&mut self, files: &[String]) {
+    fn delete_files_ignoring_exceptions(&self, files: &[String]) {
         (**self).delete_files_ignoring_exceptions(files)
     }
     fn get_pending_deletions(&mut self) -> Result<HashSet<String>> {

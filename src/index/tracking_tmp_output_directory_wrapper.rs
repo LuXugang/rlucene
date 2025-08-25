@@ -20,6 +20,7 @@ use crate::store::filter_directory::FilterDirectory;
 use crate::store::{IOContext, IndexOutput};
 use crate::util::error::lucene_error::Result;
 use parking_lot::Mutex;
+use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
@@ -28,21 +29,27 @@ pub struct TrackingTmpOutputDirectoryWrapper<D>
 where
     D: Directory,
 {
-    file_names: HashMap<String, String>,
+    inner: RefCell<Inner>,
     base: FilterDirectory<D, Arc<Mutex<D>>>,
+}
+struct Inner {
+    file_names: HashMap<String, String>,
 }
 impl<D> TrackingTmpOutputDirectoryWrapper<D>
 where
     D: Directory,
 {
     pub fn new(input: Arc<Mutex<D>>) -> Self {
-        TrackingTmpOutputDirectoryWrapper {
+        let inner = RefCell::new(Inner {
             file_names: HashMap::new(),
+        });
+        TrackingTmpOutputDirectoryWrapper {
+            inner,
             base: FilterDirectory::new(input),
         }
     }
     pub fn get_temporary_files(&mut self) -> HashMap<String, String> {
-        std::mem::take(&mut self.file_names)
+        std::mem::take(&mut self.inner.borrow_mut().file_names)
     }
 }
 
@@ -63,7 +70,7 @@ where
         self.base.list_all()
     }
 
-    fn delete_file(&mut self, name: &str) -> Result<()> {
+    fn delete_file(&self, name: &str) -> Result<()> {
         self.base.delete_file(name)
     }
 
@@ -71,9 +78,11 @@ where
         self.base.file_length(name)
     }
 
-    fn create_output(&mut self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
+    fn create_output(&self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
         let output = self.base.create_temp_output(name, "", context)?;
-        self.file_names
+        self.inner
+            .borrow_mut()
+            .file_names
             .insert(name.to_string(), output.get_name().to_string());
         Ok(output)
     }
@@ -81,7 +90,7 @@ where
     type IndexOutput = D::IndexOutput;
 
     fn create_temp_output(
-        &mut self,
+        &self,
         prefix: &str,
         suffix: &str,
         context: &IOContext,
@@ -104,7 +113,8 @@ where
     type IndexInput = D::IndexInput;
 
     fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
-        let tmp_name = self
+        let inner = self.inner.borrow();
+        let tmp_name = inner
             .file_names
             .get(name)
             .map(|s| s.as_str())
@@ -126,8 +136,8 @@ where
     }
 
     fn copy_from(
-        &mut self,
-        from: &mut impl Directory,
+        &self,
+        from: &impl Directory,
         src: &str,
         dest: &str,
         context: &IOContext,
@@ -135,7 +145,7 @@ where
         self.base.copy_from(from, src, dest, context)
     }
 
-    fn delete_files_ignoring_exceptions(&mut self, files: &[String]) {
+    fn delete_files_ignoring_exceptions(&self, files: &[String]) {
         self.base.delete_files_ignoring_exceptions(files)
     }
 

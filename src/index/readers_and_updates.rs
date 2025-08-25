@@ -364,7 +364,7 @@ where
 
             info.advance_doc_values_gen();
             debug_assert!(!field_files.contains_key(&field_info.number));
-            field_files.insert(field_info.number, state.directory.take_created_files());
+            field_files.insert(field_info.number, state.directory.get_created_files());
         }
         Ok(())
     }
@@ -398,7 +398,7 @@ where
             &infos_context,
         )?;
         info.advance_field_infos_gen();
-        Ok(tracking_dir.take_created_files())
+        Ok(tracking_dir.get_created_files())
     }
 
     /// Drops all merging updates.

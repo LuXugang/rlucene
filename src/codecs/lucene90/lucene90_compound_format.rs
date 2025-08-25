@@ -83,7 +83,7 @@ impl Lucene90CompoundFormat {
         &self,
         entries: &mut impl IndexOutput,
         data: &mut impl IndexOutput,
-        directory: &mut impl Directory,
+        directory: &impl Directory,
         si: &SegmentInfo<D>,
     ) -> Result<()> {
         let mut pq;
@@ -151,12 +151,7 @@ impl CompoundFormat for Lucene90CompoundFormat {
         )?))
     }
 
-    fn write<D>(
-        &self,
-        dir: &mut impl Directory,
-        si: &SegmentInfo<D>,
-        context: &IOContext,
-    ) -> Result<()>
+    fn write<D>(&self, dir: &impl Directory, si: &SegmentInfo<D>, context: &IOContext) -> Result<()>
     where
         D: Directory,
     {

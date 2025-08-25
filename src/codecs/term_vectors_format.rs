@@ -39,7 +39,7 @@ pub trait TermVectorsFormat {
     /// Returns a [`TermVectorsWriter`](crate::codecs::term_vectors_writer::TermVectorsWriter) to write term vectors.
     fn vectors_writer<D1, D2>(
         &self,
-        directory: &mut D1,
+        directory: &D1,
         segment_info: &SegmentInfo<D2>,
         context: &IOContext,
     ) -> Result<TermVectorsWriterEnum<D1>>

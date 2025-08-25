@@ -35,7 +35,7 @@ pub trait LiveDocsFormat {
     /// A `Bits` implementation representing the live docs.
     fn read_live_docs<D>(
         &self,
-        dir: &mut impl Directory,
+        dir: &impl Directory,
         info: &SegmentCommitInfo<D>,
         context: &IOContext,
     ) -> Result<Self::Bits>
@@ -49,7 +49,7 @@ pub trait LiveDocsFormat {
     fn write_live_docs<D>(
         &self,
         bits: &impl Bits,
-        dir: &mut impl Directory,
+        dir: &impl Directory,
         info: &SegmentCommitInfo<D>,
         new_del_count: i32,
         context: &IOContext,

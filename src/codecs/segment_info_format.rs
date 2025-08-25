@@ -60,7 +60,7 @@ pub trait SegmentInfoFormat {
     /// I/O.
     fn write<D>(
         &self,
-        directory: &mut impl Directory,
+        directory: &impl Directory,
         info: &mut SegmentInfo<D>,
         context: &IOContext,
     ) -> Result<()>

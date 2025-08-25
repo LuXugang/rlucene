@@ -155,9 +155,9 @@ pub mod index_writer_util {
     /// generally, this may include separate norms and deletion files, this `SegmentInfo` must not
     /// reference such files when this method is called, because they are not allowed within a compound
     /// file.
-    pub(crate) fn create_compound_file<'a, D, T, D2>(
+    pub(crate) fn create_compound_file<D, T, D2>(
         info_stream: &InfoStreamLock,
-        directory: &'a mut TrackingDirectoryWrapper<D>,
+        directory: &TrackingDirectoryWrapper<D>,
         info: &mut SegmentInfo<D2>,
         context: &IOContext,
         mut delete_files: T,
@@ -165,7 +165,7 @@ pub mod index_writer_util {
     where
         D: Directory,
         D2: Directory,
-        T: IOConsumer<&'a HashSet<String>>,
+        T: IOConsumer<HashSet<String>>,
     {
         // maybe this check is not needed, but why take the risk?
         if !directory.get_created_files().is_empty() {
@@ -191,7 +191,7 @@ pub mod index_writer_util {
             delete_files.accept(directory.get_created_files())?;
         }
         // Replace all previous files with the CFS/CFE files:
-        info.set_files(directory.get_created_files().clone())?;
+        info.set_files(directory.get_created_files())?;
 
         write_result
     }
@@ -206,9 +206,9 @@ impl DocMap for DocMapIndexWriter {
 
 pub(crate) struct FlushNotificationsImpl;
 impl FlushNotifications for FlushNotificationsImpl {
-    fn delete_unused_files<'a, I>(&self, _files: I)
+    fn delete_unused_files<I>(&self, _files: I)
     where
-        I: IntoIterator<Item = &'a String>,
+        I: IntoIterator<Item = String>,
     {
         todo!()
     }

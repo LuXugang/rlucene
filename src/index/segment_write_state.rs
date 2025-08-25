@@ -33,7 +33,7 @@ where
     pub info_stream: Option<InfoStreamLock>,
 
     /// Directory where this segment will be written to.
-    pub directory: &'a mut D,
+    pub directory: &'a D,
 
     /// FieldInfos describing all fields in this segment.
     pub field_infos: Rc<FieldInfos>,
@@ -71,7 +71,7 @@ where
     /// Constructor without suffix.
     pub(crate) fn new(
         info_stream: Option<InfoStreamLock>,
-        directory: &'a mut D,
+        directory: &'a D,
         field_infos: Rc<FieldInfos>,
         context: &'a IOContext,
     ) -> Self {
@@ -81,7 +81,7 @@ where
     /// Constructor with segment suffix.
     pub(crate) fn with_suffix(
         info_stream: Option<InfoStreamLock>,
-        directory: &'a mut D,
+        directory: &'a D,
         field_infos: Rc<FieldInfos>,
         context: &'a IOContext,
         segment_suffix: &str,

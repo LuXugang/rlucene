@@ -55,7 +55,7 @@ where
 {
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
-        dir: &mut D,
+        dir: &D,
         name: &str,
         suffix: &str,
         extension: &str,
@@ -115,7 +115,7 @@ where
         num_docs: i32,
         max_pointer: i64,
         meta_out: &mut D::IndexOutput,
-        dir: &mut D1,
+        dir: &D1,
     ) -> Result<()>
     where
         D1: Directory,

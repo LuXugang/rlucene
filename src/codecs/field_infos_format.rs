@@ -27,7 +27,7 @@ pub trait FieldInfosFormat {
     /// Reads the FieldInfos previously written.
     fn read<D>(
         &self,
-        directory: &mut impl Directory,
+        directory: &impl Directory,
         segment_info: &SegmentInfo<D>,
         segment_suffix: &str,
         io_context: &IOContext,
@@ -38,7 +38,7 @@ pub trait FieldInfosFormat {
     /// Writes the provided FieldInfos.
     fn write<D>(
         &self,
-        directory: &mut impl Directory,
+        directory: &impl Directory,
         segment_info: &SegmentInfo<D>,
         segment_suffix: &str,
         infos: &FieldInfos,

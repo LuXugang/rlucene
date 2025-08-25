@@ -172,7 +172,7 @@ where
         &mut self,
         _sort_map: Option<Rc<DM>>,
         info: &SegmentInfo<D1>,
-        dir: &mut D,
+        dir: &D,
     ) -> Result<()>
     where
         DM: DocMap,

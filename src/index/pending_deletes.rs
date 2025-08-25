@@ -259,8 +259,8 @@ where
             // Delete any partially created file(s):
             for file in tracking_dir.get_created_files() {
                 IOUtils::delete_files_ignoring_exceptions(
-                    &mut *tracking_dir.base.delegate.lock(),
-                    &[file],
+                    &*tracking_dir.base.delegate.lock(),
+                    &[&file],
                 );
             }
             return Err(err);

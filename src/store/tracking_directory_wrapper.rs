@@ -29,11 +29,11 @@ pub struct TrackingDirectoryWrapper<D>
 where
     D: Directory,
 {
-    created_filenames: HashSet<String>,
     pub(crate) base: FilterDirectory<D, Arc<Mutex<D>>>,
-    lock: Mutex<()>,
-    #[cfg(debug_assertions)]
-    taken: bool,
+    lock: Mutex<Inner>,
+}
+pub struct Inner {
+    created_filenames: HashSet<String>,
 }
 impl<D> TrackingDirectoryWrapper<D>
 where
@@ -41,39 +41,32 @@ where
 {
     #[cfg(not(debug_assertions))]
     pub fn new(input: Arc<Mutex<D>>) -> Self {
-        TrackingDirectoryWrapper {
+        let lock = Mutex::new(Inner {
             created_filenames: HashSet::new(),
+        });
+        TrackingDirectoryWrapper {
             base: FilterDirectory::new(input),
+            lock,
             lock: Mutex::new(()),
         }
     }
     #[cfg(debug_assertions)]
     pub fn new(input: Arc<Mutex<D>>) -> Self {
-        TrackingDirectoryWrapper {
+        let lock = Mutex::new(Inner {
             created_filenames: HashSet::new(),
+        });
+        TrackingDirectoryWrapper {
             base: FilterDirectory::new(input),
-            lock: Mutex::new(()),
-            taken: false,
+            lock,
         }
     }
 
-    pub fn get_created_files(&self) -> &HashSet<String> {
-        &self.created_filenames
+    pub fn get_created_files(&self) -> HashSet<String> {
+        self.lock.lock().created_filenames.clone()
     }
-    pub fn take_created_files(&mut self) -> HashSet<String> {
-        #[cfg(debug_assertions)]
-        if !self.taken {
-            self.taken = true;
-        } else {
-            debug_assert!(
-                false,
-                "TrackingDirectoryWrapper::take_created_files called multiple times"
-            );
-        }
-        std::mem::take(&mut self.created_filenames)
-    }
+
     pub fn clear_created_files(&mut self) {
-        self.created_filenames.clear();
+        self.lock.lock().created_filenames.clear();
     }
 }
 
@@ -94,9 +87,9 @@ where
         self.base.list_all()
     }
 
-    fn delete_file(&mut self, name: &str) -> Result<()> {
+    fn delete_file(&self, name: &str) -> Result<()> {
         self.base.delegate.lock().delete_file(name)?;
-        self.created_filenames.remove(name);
+        self.lock.lock().created_filenames.remove(name);
         Ok(())
     }
 
@@ -104,16 +97,16 @@ where
         self.base.file_length(name)
     }
 
-    fn create_output(&mut self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
+    fn create_output(&self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
         let output = self.base.delegate.lock().create_output(name, context)?;
-        self.created_filenames.insert(name.to_string());
+        self.lock.lock().created_filenames.insert(name.to_string());
         Ok(output)
     }
 
     type IndexOutput = <FilterDirectory<D, Arc<Mutex<D>>> as Directory>::IndexOutput;
 
     fn create_temp_output(
-        &mut self,
+        &self,
         prefix: &str,
         suffix: &str,
         context: &IOContext,
@@ -131,9 +124,10 @@ where
 
     fn rename(&mut self, source: &str, dest: &str) -> Result<()> {
         self.base.delegate.lock().rename(source, dest)?;
-        let _guide = self.lock.lock();
-        self.created_filenames.insert(dest.to_string());
-        self.created_filenames.remove(&source.to_string());
+        let mut inner = self.lock.lock();
+        inner.created_filenames.insert(dest.to_string());
+        inner.created_filenames.remove(&source.to_string());
+        drop(inner);
         Ok(())
     }
 
@@ -157,8 +151,8 @@ where
     }
 
     fn copy_from(
-        &mut self,
-        from: &mut impl Directory,
+        &self,
+        from: &impl Directory,
         src: &str,
         dest: &str,
         context: &IOContext,
@@ -167,11 +161,11 @@ where
             .delegate
             .lock()
             .copy_from(from, src, dest, context)?;
-        self.created_filenames.insert(src.to_string());
+        self.lock.lock().created_filenames.insert(src.to_string());
         Ok(())
     }
 
-    fn delete_files_ignoring_exceptions(&mut self, files: &[String]) {
+    fn delete_files_ignoring_exceptions(&self, files: &[String]) {
         self.base.delete_files_ignoring_exceptions(files);
     }
 

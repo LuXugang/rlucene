@@ -28,7 +28,7 @@ where
     D: Directory,
 {
     /// Directory where this segment is read from.
-    pub directory: &'a mut D,
+    pub directory: &'a D,
 
     /// FieldInfos describing all fields in this segment.
     pub field_infos: Rc<FieldInfos>,
@@ -45,13 +45,13 @@ where
     D: Directory,
 {
     /// Creates a SegmentReadState with an empty segment suffix.
-    pub fn new(directory: &'a mut D, field_infos: Rc<FieldInfos>, context: &'a IOContext) -> Self {
+    pub fn new(directory: &'a D, field_infos: Rc<FieldInfos>, context: &'a IOContext) -> Self {
         Self::with_suffix(directory, field_infos, context, "")
     }
 
     /// Creates a SegmentReadState with a custom segment suffix.
     pub fn with_suffix(
-        directory: &'a mut D,
+        directory: &'a D,
         field_infos: Rc<FieldInfos>,
         context: &'a IOContext,
         segment_suffix: &str,

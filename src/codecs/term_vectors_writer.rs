@@ -55,7 +55,7 @@ pub trait TermVectorsWriter: Accountable {
         payload: Option<&BytesRef<Vec<u8>>>,
     ) -> Result<()>;
 
-    fn finish<D>(&mut self, num_docs: i32, dir: &mut D) -> Result<()>
+    fn finish<D>(&mut self, num_docs: i32, dir: &D) -> Result<()>
     where
         D: Directory;
 
@@ -201,7 +201,7 @@ where
         }
     }
 
-    fn finish<D1>(&mut self, num_docs: i32, dir: &mut D1) -> Result<()>
+    fn finish<D1>(&mut self, num_docs: i32, dir: &D1) -> Result<()>
     where
         D1: Directory,
     {

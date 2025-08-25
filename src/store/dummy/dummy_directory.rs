@@ -36,20 +36,20 @@ impl Directory for DummyDirectory {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn delete_file(&mut self, _name: &str) -> Result<()> {
+    fn delete_file(&self, _name: &str) -> Result<()> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn file_length(&self, _name: &str) -> Result<i64> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
-    fn create_output(&mut self, _name: &str, _context: &IOContext) -> Result<DummyIndexOutput> {
+    fn create_output(&self, _name: &str, _context: &IOContext) -> Result<DummyIndexOutput> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     type IndexOutput = DummyIndexOutput;
     fn create_temp_output(
-        &mut self,
+        &self,
         _prefix: &str,
         _suffix: &str,
         _context: &IOContext,

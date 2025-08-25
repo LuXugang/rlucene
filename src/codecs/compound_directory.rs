@@ -60,7 +60,7 @@ where
         self.sub_compound_dir.list_all()
     }
 
-    fn delete_file(&mut self, _name: &str) -> Result<()> {
+    fn delete_file(&self, _name: &str) -> Result<()> {
         Err(LuceneError::unsupported_operation(
             "delete_file".to_string(),
         ))
@@ -70,7 +70,7 @@ where
         self.sub_compound_dir.file_length(name)
     }
 
-    fn create_output(&mut self, _name: &str, _context: &IOContext) -> Result<Self::IndexOutput> {
+    fn create_output(&self, _name: &str, _context: &IOContext) -> Result<Self::IndexOutput> {
         Err(LuceneError::unsupported_operation(
             "create_output".to_string(),
         ))
@@ -78,7 +78,7 @@ where
 
     type IndexOutput = D::IndexOutput;
     fn create_temp_output(
-        &mut self,
+        &self,
         _prefix: &str,
         _suffix: &str,
         _context: &IOContext,

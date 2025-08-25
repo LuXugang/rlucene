@@ -81,7 +81,7 @@ where
         self.delegate.access(|dir| dir.list_all())
     }
 
-    fn delete_file(&mut self, name: &str) -> Result<()> {
+    fn delete_file(&self, name: &str) -> Result<()> {
         self.delegate.access_mut(|dir| dir.delete_file(name))
     }
 
@@ -89,21 +89,20 @@ where
         self.delegate.access(|dir| dir.file_length(name))
     }
 
-    fn create_output(&mut self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
-        self.delegate
-            .access_mut(|dir| dir.create_output(name, context))
+    fn create_output(&self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
+        self.delegate.access(|dir| dir.create_output(name, context))
     }
 
     type IndexOutput = D::IndexOutput;
 
     fn create_temp_output(
-        &mut self,
+        &self,
         prefix: &str,
         suffix: &str,
         context: &IOContext,
     ) -> Result<Self::IndexOutput> {
         self.delegate
-            .access_mut(|dir| dir.create_temp_output(prefix, suffix, context))
+            .access(|dir| dir.create_temp_output(prefix, suffix, context))
     }
 
     fn sync(&mut self, names: &[&str]) -> Result<()> {

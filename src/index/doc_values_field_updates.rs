@@ -1038,6 +1038,7 @@ impl DocValuesFieldUpdatesBase for SingleValueDocValuesFieldUpdates {
             self.has_no_value = Some(SparseFixedBitSet::new(self.max_doc)?);
         }
         self.has_no_value.as_mut().unwrap().set(doc);
+        drop(_guide);
         Ok(())
     }
 
@@ -1047,7 +1048,9 @@ impl DocValuesFieldUpdatesBase for SingleValueDocValuesFieldUpdates {
 
     fn any(&self, super_any: bool) -> Result<bool> {
         let _guide = self.lock.lock();
-        Ok(super_any || self.has_at_least_one_value)
+        let v = super_any || self.has_at_least_one_value;
+        drop(_guide);
+        Ok(v)
     }
 
     fn need_any(&self) -> bool {

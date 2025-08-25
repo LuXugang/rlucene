@@ -310,7 +310,7 @@ impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
 
     fn write<D>(
         &self,
-        dir: &mut impl Directory,
+        dir: &impl Directory,
         si: &mut SegmentInfo<D>,
         io_context: &IOContext,
     ) -> Result<()>

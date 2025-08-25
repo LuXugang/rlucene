@@ -102,7 +102,7 @@ impl LiveDocsFormat for Lucene90LiveDocsFormat {
 
     fn read_live_docs<D>(
         &self,
-        directory: &mut impl Directory,
+        directory: &impl Directory,
         info: &SegmentCommitInfo<D>,
         _context: &IOContext,
     ) -> Result<Self::Bits>
@@ -152,7 +152,7 @@ impl LiveDocsFormat for Lucene90LiveDocsFormat {
     fn write_live_docs<D>(
         &self,
         bits: &impl Bits,
-        directory: &mut impl Directory,
+        directory: &impl Directory,
         info: &SegmentCommitInfo<D>,
         new_del_count: i32,
         context: &IOContext,

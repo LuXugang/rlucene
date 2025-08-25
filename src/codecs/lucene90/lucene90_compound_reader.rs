@@ -175,7 +175,7 @@ where
         Ok(res)
     }
 
-    fn delete_file(&mut self, _name: &str) -> Result<()> {
+    fn delete_file(&self, _name: &str) -> Result<()> {
         Err(LuceneError::illegal_state(
             "delete_file() wrapped by CompoundDirectory, this method should never not be called"
                 .to_string(),
@@ -192,7 +192,7 @@ where
         Ok(entry.length)
     }
 
-    fn create_output(&mut self, _name: &str, _context: &IOContext) -> Result<Self::IndexOutput> {
+    fn create_output(&self, _name: &str, _context: &IOContext) -> Result<Self::IndexOutput> {
         Err(LuceneError::illegal_state(
             "create_output() wrapped by CompoundDirectory, this method should never not be called"
                 .to_string(),
@@ -201,7 +201,7 @@ where
 
     type IndexOutput = D::IndexOutput;
     fn create_temp_output(
-        &mut self,
+        &self,
         _prefix: &str,
         _suffix: &str,
         _context: &IOContext,

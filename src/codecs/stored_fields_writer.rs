@@ -94,7 +94,7 @@ pub trait StoredFieldsWriter {
      * but a Codec should check that this is the case to detect the JRE bug
      * described in LUCENE-1282.
      */
-    fn finish<D>(&mut self, num_docs: i32, dir: &mut D) -> Result<()>
+    fn finish<D>(&mut self, num_docs: i32, dir: &D) -> Result<()>
     where
         D: Directory;
     /// Merges in the stored fields from the readers in `mergeState`. The
@@ -390,7 +390,7 @@ where
         }
     }
 
-    fn finish<D1>(&mut self, num_docs: i32, dir: &mut D1) -> Result<()>
+    fn finish<D1>(&mut self, num_docs: i32, dir: &D1) -> Result<()>
     where
         D1: Directory,
     {

@@ -125,7 +125,7 @@ where
     pub fn maybe_delete_pending_files(
         directory: &Path,
         pending_deletes: &mut HashSet<String>,
-        ops_since_last_delete: &mut AtomicU32,
+        ops_since_last_delete: &AtomicU32,
     ) -> Result<()> {
         if !pending_deletes.is_empty() {
             let count = ops_since_last_delete.fetch_add(1, SeqCst) + 1;
@@ -258,7 +258,7 @@ where
         Self::list_all(&self.directory, Some(&pending_deletes))
     }
 
-    fn delete_file(&mut self, name: &str) -> Result<()> {
+    fn delete_file(&self, name: &str) -> Result<()> {
         let mut pending_deletes = self.pending_deletes.lock();
         if pending_deletes.contains(name) {
             return Err(LuceneError::not_found(format!(
@@ -271,7 +271,7 @@ where
         Self::maybe_delete_pending_files(
             &self.directory,
             &mut pending_deletes,
-            &mut self.ops_since_last_delete,
+            &self.ops_since_last_delete,
         )?;
 
         Ok(())
@@ -292,12 +292,12 @@ where
         debug_assert!(length <= i64::MAX as u64);
         Ok(length as i64)
     }
-    fn create_output(&mut self, name: &str, _context: &IOContext) -> Result<Self::IndexOutput> {
+    fn create_output(&self, name: &str, _context: &IOContext) -> Result<Self::IndexOutput> {
         let mut pending_deletes = self.pending_deletes.lock();
         Self::maybe_delete_pending_files(
             &self.directory,
             &mut pending_deletes,
-            &mut self.ops_since_last_delete,
+            &self.ops_since_last_delete,
         )?;
 
         if pending_deletes.remove(name) {
@@ -324,7 +324,7 @@ where
 
     type IndexOutput = OutputStreamIndexOutput<File>;
     fn create_temp_output(
-        &mut self,
+        &self,
         prefix: &str,
         suffix: &str,
         _context: &IOContext,
@@ -333,7 +333,7 @@ where
         Self::maybe_delete_pending_files(
             &self.directory,
             &mut pending_deletes,
-            &mut self.ops_since_last_delete,
+            &self.ops_since_last_delete,
         )?;
 
         loop {
@@ -378,7 +378,7 @@ where
         Self::maybe_delete_pending_files(
             &self.directory,
             &mut self.pending_deletes.lock(),
-            &mut self.ops_since_last_delete,
+            &self.ops_since_last_delete,
         )?;
         Ok(())
     }
@@ -390,7 +390,7 @@ where
         Self::maybe_delete_pending_files(
             &self.directory,
             &mut self.pending_deletes.lock(),
-            &mut self.ops_since_last_delete,
+            &self.ops_since_last_delete,
         )?;
         Ok(())
     }
@@ -405,7 +405,7 @@ where
         Self::maybe_delete_pending_files(
             &self.directory,
             &mut pending_deletes,
-            &mut self.ops_since_last_delete,
+            &self.ops_since_last_delete,
         )?;
 
         if pending_deletes.remove(dest) {
@@ -486,7 +486,7 @@ where
         if let Err(e) = Self::maybe_delete_pending_files(
             &self.directory,
             &mut pending_deletes,
-            &mut self.ops_since_last_delete,
+            &self.ops_since_last_delete,
         ) {
             eprintln!("Error while deleting pending files during drop, ignoring: {e:?}");
         }

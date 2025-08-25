@@ -83,9 +83,9 @@ fn test_not_enough_values() -> Result<()> {
 #[test]
 fn test_random() -> Result<()> {
     let mut random = random();
-    let mut dir = new_directory(&mut random)?;
+    let dir = new_directory(&mut random)?;
     for bpv in 1..=64 {
-        do_test_bpv(&mut random, &mut dir, bpv, 0, false)?;
+        do_test_bpv(&mut random, &dir, bpv, 0, false)?;
     }
     Ok(())
 }
@@ -93,10 +93,10 @@ fn test_random() -> Result<()> {
 #[test]
 fn test_random_with_offset() -> Result<()> {
     let mut random = random();
-    let mut dir = new_directory(&mut random)?;
+    let dir = new_directory(&mut random)?;
     let offset = TestUtil::next_int(&mut random, 1, 100);
     for bpv in 1..=64 {
-        do_test_bpv(&mut random, &mut dir, bpv, offset as i64, false)?;
+        do_test_bpv(&mut random, &dir, bpv, offset as i64, false)?;
     }
     Ok(())
 }
@@ -104,9 +104,9 @@ fn test_random_with_offset() -> Result<()> {
 #[test]
 fn test_random_merge() -> Result<()> {
     let mut random = random();
-    let mut dir = new_directory(&mut random)?;
+    let dir = new_directory(&mut random)?;
     for bpv in 1..=1 {
-        do_test_bpv(&mut random, &mut dir, bpv, 0, true)?;
+        do_test_bpv(&mut random, &dir, bpv, 0, true)?;
     }
     Ok(())
 }
@@ -114,17 +114,17 @@ fn test_random_merge() -> Result<()> {
 #[test]
 fn test_random_merge_with_offset() -> Result<()> {
     let mut random = random();
-    let mut dir = new_directory(&mut random)?;
+    let dir = new_directory(&mut random)?;
     let offset = TestUtil::next_int(&mut random, 1, 100);
     for bpv in 1..=64 {
-        do_test_bpv(&mut random, &mut dir, bpv, offset as i64, true)?;
+        do_test_bpv(&mut random, &dir, bpv, offset as i64, true)?;
     }
     Ok(())
 }
 
 fn do_test_bpv<R: Rng + ?Sized>(
     random: &mut R,
-    directory: &mut impl Directory,
+    directory: &impl Directory,
     bpv: i32,
     offset: i64,
     merge: bool,

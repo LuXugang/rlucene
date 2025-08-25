@@ -42,7 +42,7 @@ pub trait StoredFieldsFormat {
     /// Returns a [`StoredFieldsWriter`](crate::codecs::stored_fields_writer::StoredFieldsWriter) to write stored fields.
     fn fields_writer<D1, D2>(
         &self,
-        directory: &mut D1,
+        directory: &D1,
         segment_info: &mut SegmentInfo<D2>,
         context: &IOContext,
     ) -> Result<StoredFieldsWriterEnum<D1>>
@@ -75,7 +75,7 @@ impl StoredFieldsFormat for StoredFieldsFormatEnum {
 
     fn fields_writer<D1, D2>(
         &self,
-        directory: &mut D1,
+        directory: &D1,
         segment_info: &mut SegmentInfo<D2>,
         context: &IOContext,
     ) -> Result<StoredFieldsWriterEnum<D1>>

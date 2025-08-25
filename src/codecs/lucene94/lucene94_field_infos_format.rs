@@ -218,7 +218,7 @@ impl Lucene94FieldInfosFormat {
 impl FieldInfosFormat for Lucene94FieldInfosFormat {
     fn read<D>(
         &self,
-        directory: &mut impl Directory,
+        directory: &impl Directory,
         segment_info: &SegmentInfo<D>,
         segment_suffix: &str,
         _io_context: &IOContext,
@@ -349,7 +349,7 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
 
     fn write<D>(
         &self,
-        directory: &mut impl Directory,
+        directory: &impl Directory,
         segment_info: &SegmentInfo<D>,
         segment_suffix: &str,
         infos: &FieldInfos,
