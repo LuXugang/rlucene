@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::codecs::compound_directory::CompoundDirectory;
-use crate::codecs::doc_values_producer::Either2DocValuesProducer;
+use crate::codecs::doc_values_producer::{DocValuesProducer, Either2DocValuesProducer};
 use crate::codecs::dummy::dummy_binary_doc_values::DummyBinaryDocValues;
 use crate::codecs::dummy::dummy_doc_values_skipper::DummyDocValuesSkipper;
 use crate::codecs::dummy::dummy_numeric_doc_values::DummyNumericDocValues;
@@ -23,11 +23,17 @@ use crate::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNumericDocValues;
 use crate::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocValues;
 use crate::codecs::field_infos_format::FieldInfosFormat;
+use crate::codecs::fields_producer::FieldsProducerEnum;
 use crate::codecs::live_docs_format::LiveDocsFormat;
 use crate::codecs::lucene90_compound_reader::Lucene90CompoundReader;
 use crate::codecs::lucene90_doc_values_producer::Lucene90DocValuesProducer;
 use crate::codecs::lucene90_live_docs_format::Lucene90LiveDocsFormat;
+use crate::codecs::norms_producer::{NormsProducer, NormsProducerEnum};
+use crate::codecs::points_reader::PointsReaderEnum;
+use crate::codecs::stored_fields_reader::StoredFieldsReaderEnum;
+use crate::codecs::term_vectors_reader::TermVectorsReaderEnum;
 use crate::codecs::{Codec, get_default_code};
+use crate::index::codec_reader::CodecReader;
 use crate::index::field_infos::FieldInfos;
 use crate::index::index_reader::IndexReader;
 use crate::index::leaf_metadata::LeafMetaData;
@@ -36,9 +42,12 @@ use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::index::segment_core_readers::{CfsOrBaseInput, SegmentCoreReaders};
 use crate::index::segment_doc_values::SegmentDocValues;
 use crate::index::segment_doc_values_producer::SegmentDocValuesProducer;
+use crate::index::stored_field_visitor::Status::No;
 use crate::store::IOContext;
 use crate::store::directory::Directory;
 use crate::util::error::lucene_error::Result;
+use crate::util::long_values::Either16LongValues::O;
+use std::borrow::Cow;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -140,7 +149,7 @@ where
         Ok(Rc::new(infos))
     }
 }
-pub(crate) type DocValuesProducers<D> = Either2DocValuesProducer<
+pub type DocValuesProducers<D> = Either2DocValuesProducer<
     SegmentDocValuesProducer<D>,
     Rc<Lucene90DocValuesProducer<CfsOrBaseInput<D>>>,
 >;
@@ -154,65 +163,123 @@ where
     }
 
     fn num_docs(&self) -> Result<i32> {
-        todo!()
+        Ok(self.num_docs)
     }
 }
 impl<D> LeafReader for SegmentReader<D>
 where
     D: Directory,
 {
-    type NumericDocValues = DummyNumericDocValues;
+    type NumericDocValues = <DocValuesProducers<D> as DocValuesProducer>::NumericDocValues;
 
-    fn get_numeric_doc_values(&self, _field: &str) -> Result<Option<Self::NumericDocValues>> {
-        todo!()
+    fn get_numeric_doc_values(&self, field: &str) -> Result<Option<Self::NumericDocValues>> {
+        CodecReader::get_numeric_doc_values(self, field)
     }
 
-    type BinaryDocValues = DummyBinaryDocValues;
+    type BinaryDocValues = <DocValuesProducers<D> as DocValuesProducer>::BinaryDocValues;
 
-    fn get_binary_doc_values(&self, _field: &str) -> Result<Option<Self::BinaryDocValues>> {
-        todo!()
+    fn get_binary_doc_values(&self, field: &str) -> Result<Option<Self::BinaryDocValues>> {
+        CodecReader::get_binary_doc_values(self, field)
     }
 
-    type SortedDocValues = DummySortedDocValues;
+    type SortedDocValues = <DocValuesProducers<D> as DocValuesProducer>::SortedDocValues;
 
-    fn get_sorted_doc_values(&self, _field: &str) -> Result<Option<Self::SortedDocValues>> {
-        todo!()
+    fn get_sorted_doc_values(&self, field: &str) -> Result<Option<Self::SortedDocValues>> {
+        CodecReader::get_sorted_doc_values(self, field)
     }
 
-    type SortedNumericDocValues = DummySortedNumericDocValues;
+    type SortedNumericDocValues =
+        <DocValuesProducers<D> as DocValuesProducer>::SortedNumericDocValues;
 
     fn get_sorted_numeric_doc_values(
         &self,
-        _field: &str,
+        field: &str,
     ) -> Result<Option<Self::SortedNumericDocValues>> {
-        todo!()
+        CodecReader::get_sorted_numeric_doc_values(self, field)
     }
 
-    type SortedSetDocValues = DummySortedSetDocValues;
+    type SortedSetDocValues = <DocValuesProducers<D> as DocValuesProducer>::SortedSetDocValues;
 
-    fn get_sorted_set_doc_values(&self, _field: &str) -> Result<Option<Self::SortedSetDocValues>> {
-        todo!()
+    fn get_sorted_set_doc_values(&self, field: &str) -> Result<Option<Self::SortedSetDocValues>> {
+        CodecReader::get_sorted_set_doc_values(self, field)
     }
 
-    type NormNumericDocValues = DummyNumericDocValues;
+    type NormNumericDocValues =
+        <NormsProducerEnum<CfsOrBaseInput<D>> as NormsProducer>::NumericDocValues;
 
-    fn get_norm_values(&self, _field: &str) -> Result<Option<Self::NormNumericDocValues>> {
-        todo!()
+    fn get_norm_values(&self, field: &str) -> Result<Option<Self::NormNumericDocValues>> {
+        CodecReader::get_norm_values(self, field)
     }
 
-    type DocValuesSkipper = DummyDocValuesSkipper;
+    type DocValuesSkipper = <DocValuesProducers<D> as DocValuesProducer>::DocValuesSkipper;
 
-    fn get_doc_values_skipper(&self, _field: &str) -> Result<Option<Self::DocValuesSkipper>> {
-        todo!()
+    fn get_doc_values_skipper(&self, field: &str) -> Result<Option<Self::DocValuesSkipper>> {
+        CodecReader::get_doc_values_skipper(self, field)
     }
 
     fn get_field_infos(&self) -> Result<&Rc<FieldInfos>> {
-        todo!()
+        Ok(&self.field_infos)
     }
 
     type Bits = <Lucene90LiveDocsFormat as LiveDocsFormat>::Bits;
 
     fn get_live_docs(&self) -> Result<Option<Arc<Self::Bits>>> {
-        todo!()
+        Ok(self.live_docs.clone())
+    }
+}
+impl<D> CodecReader for SegmentReader<D>
+where
+    D: Directory,
+{
+    type StoredFieldsReader = StoredFieldsReaderEnum<CfsOrBaseInput<D>>;
+    type TermVectorsReader = TermVectorsReaderEnum<CfsOrBaseInput<D>>;
+    type NormsProducer = NormsProducerEnum<CfsOrBaseInput<D>>;
+    type DocValuesProducer = DocValuesProducers<D>;
+    type FieldsProducer = FieldsProducerEnum<CfsOrBaseInput<D>>;
+    type PointsReader = PointsReaderEnum<CfsOrBaseInput<D>>;
+
+    fn get_fields_reader(&self) -> Result<Cow<'_, Self::StoredFieldsReader>> {
+        self.ensure_open()?;
+        Ok(Cow::Owned(self.core.fields_reader_orig.clone()))
+    }
+
+    fn get_term_vectors_reader(&self) -> Result<Option<Cow<'_, Self::TermVectorsReader>>> {
+        self.ensure_open()?;
+        match &self.core.term_vectors_reader_orig {
+            Some(tv) => Ok(Some(Cow::Owned(tv.clone()))),
+            None => Ok(None),
+        }
+    }
+
+    fn get_norms_reader(&self) -> Result<Option<Cow<'_, Self::NormsProducer>>> {
+        self.ensure_open()?;
+        match &self.core.norms_producer {
+            Some(norms) => Ok(Some(Cow::Borrowed(norms))),
+            None => Ok(None),
+        }
+    }
+
+    fn get_doc_values_reader(&self) -> Result<Option<Cow<'_, Self::DocValuesProducer>>> {
+        self.ensure_open()?;
+        match &self.doc_values_producer {
+            Some(dv) => Ok(Some(Cow::Borrowed(dv))),
+            None => Ok(None),
+        }
+    }
+
+    fn get_postings_reader(&self) -> Result<Option<Cow<'_, Self::FieldsProducer>>> {
+        self.ensure_open()?;
+        match &self.core.fields {
+            Some(f) => Ok(Some(Cow::Borrowed(f))),
+            None => Ok(None),
+        }
+    }
+
+    fn get_points_reader(&self) -> Result<Option<Cow<'_, Self::PointsReader>>> {
+        self.ensure_open()?;
+        match &self.core.points_reader {
+            Some(p) => Ok(Some(Cow::Borrowed(p))),
+            None => Ok(None),
+        }
     }
 }

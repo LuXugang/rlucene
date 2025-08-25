@@ -39,13 +39,14 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 /// Encapsulates multiple producers when there are docvalues updates as one producer
-pub(crate) struct SegmentDocValuesProducer<D>
+pub struct SegmentDocValuesProducer<D>
 where
     D: Directory,
 {
-    pub dv_producers_by_field: HashMap<i32, Rc<Lucene90DocValuesProducer<CfsOrBaseInput<D>>>>,
-    pub dv_producers: HashSet<IdentityRc<Lucene90DocValuesProducer<CfsOrBaseInput<D>>>>,
-    pub dv_gens: Vec<i64>,
+    pub(crate) dv_producers_by_field:
+        HashMap<i32, Rc<Lucene90DocValuesProducer<CfsOrBaseInput<D>>>>,
+    pub(crate) dv_producers: HashSet<IdentityRc<Lucene90DocValuesProducer<CfsOrBaseInput<D>>>>,
+    pub(crate) dv_gens: Vec<i64>,
 }
 impl<D> SegmentDocValuesProducer<D>
 where

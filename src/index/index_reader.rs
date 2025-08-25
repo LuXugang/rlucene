@@ -23,4 +23,9 @@ pub trait IndexReader {
     fn num_deleted_docs(&self) -> Result<i32> {
         Ok(self.max_doc()? - self.num_docs()?)
     }
+
+    fn ensure_open(&self) -> Result<()> {
+        // TODO
+        Ok(())
+    }
 }
