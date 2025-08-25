@@ -14,15 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::index::doc_values::{DocValues, EmptyNumeric};
+use crate::index::doc_values::{DocValues, SortedNumericDocValuesRet};
 use crate::index::index_sorter::{
     DocComparatorEnum, DoubleSorter, FloatSorter, IndexSorter, IntSorter, LongSorter,
     NumericDocValuesProvider,
 };
 use crate::index::leaf_reader::LeafReader;
-use crate::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
 use crate::index::sort_field_provider::SortFieldProvider;
-use crate::index::sorted_numeric_doc_values::Either2SortedNumericDocValues;
 use crate::search::sort_field::{MissingValueEnum, SortField, SortFieldType, SortFiledBase};
 use crate::search::sort_field_enum::SortFieldEnum;
 use crate::search::sorted_numeric_selector::{
@@ -335,15 +333,7 @@ impl NumericDocValuesProviderImpl {
 }
 impl NumericDocValuesProvider for NumericDocValuesProviderImpl {
     type NumericDocValues<LR>
-        = NumericDocValuesImpl<
-        Either2SortedNumericDocValues<
-            LR::SortedNumericDocValues,
-            Either2SortedNumericDocValues<
-                SingletonSortedNumericDocValues<LR::NumericDocValues>,
-                SingletonSortedNumericDocValues<EmptyNumeric>,
-            >,
-        >,
-    >
+        = NumericDocValuesImpl<SortedNumericDocValuesRet<LR>>
     where
         LR: LeafReader;
 

@@ -211,15 +211,7 @@ impl DocValues {
     pub fn get_sorted_numeric<LR>(
         reader: &mut LR,
         field: &str,
-    ) -> Result<
-        Either2SortedNumericDocValues<
-            LR::SortedNumericDocValues,
-            Either2SortedNumericDocValues<
-                SingletonSortedNumericDocValues<LR::NumericDocValues>,
-                SingletonSortedNumericDocValues<EmptyNumeric>,
-            >,
-        >,
-    >
+    ) -> Result<SortedNumericDocValuesRet<LR>>
     where
         LR: LeafReader,
     {
@@ -249,18 +241,7 @@ impl DocValues {
     ///
     /// - IllegalStateException if `field` exists but was not indexed with doc values.  
     /// - IllegalStateException if `field` has doc values but the type is not [`DocValuesType::SortedSet`] or [`DocValuesType::Sorted`].  
-    pub fn get_sorted_set<LR>(
-        reader: &mut LR,
-        field: &str,
-    ) -> Result<
-        Either2SortedSetDocValues<
-            LR::SortedSetDocValues,
-            Either2SortedSetDocValues<
-                SingletonSortedSetDocValues<LR::SortedDocValues>,
-                SingletonSortedSetDocValues<EmptySorted>,
-            >,
-        >,
-    >
+    pub fn get_sorted_set<LR>(reader: &mut LR, field: &str) -> Result<SortedSetRet<LR>>
     where
         LR: LeafReader,
     {
@@ -283,7 +264,20 @@ impl DocValues {
         }
     }
 }
-
+pub type SortedNumericDocValuesRet<LR> = Either2SortedNumericDocValues<
+    <LR as LeafReader>::SortedNumericDocValues,
+    Either2SortedNumericDocValues<
+        SingletonSortedNumericDocValues<<LR as LeafReader>::NumericDocValues>,
+        SingletonSortedNumericDocValues<EmptyNumeric>,
+    >,
+>;
+pub type SortedSetRet<LR> = Either2SortedSetDocValues<
+    <LR as LeafReader>::SortedSetDocValues,
+    Either2SortedSetDocValues<
+        SingletonSortedSetDocValues<<LR as LeafReader>::SortedDocValues>,
+        SingletonSortedSetDocValues<EmptySorted>,
+    >,
+>;
 /// An empty [`BinaryDocValues`] which returns no documents  */
 pub struct EmptyBinary {
     doc: i32,

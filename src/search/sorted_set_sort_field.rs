@@ -14,12 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::index::doc_values::{DocValues, EmptySorted};
+use crate::index::doc_values::{DocValues, SortedSetRet};
 use crate::index::index_sorter::{SortedDocValuesProvider, StringSorter};
 use crate::index::leaf_reader::LeafReader;
-use crate::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
 use crate::index::sort_field_provider::SortFieldProvider;
-use crate::index::sorted_set_doc_values_writer::Either2SortedSetDocValues;
 use crate::search::sort_field::{MissingValueEnum, SortField, SortFieldType, SortFiledBase};
 use crate::search::sort_field_enum::SortFieldEnum;
 use crate::search::sorted_set_selector::{
@@ -206,15 +204,7 @@ impl SortedDocValuesProviderImpl {
 }
 impl SortedDocValuesProvider for SortedDocValuesProviderImpl {
     type SortedDocValues<LR>
-        = SortedDocValuesWrapEnum<
-        Either2SortedSetDocValues<
-            LR::SortedSetDocValues,
-            Either2SortedSetDocValues<
-                SingletonSortedSetDocValues<LR::SortedDocValues>,
-                SingletonSortedSetDocValues<EmptySorted>,
-            >,
-        >,
-    >
+        = SortedDocValuesWrapEnum<SortedSetRet<LR>>
     where
         LR: LeafReader;
 
