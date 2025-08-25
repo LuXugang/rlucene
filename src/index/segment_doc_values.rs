@@ -58,14 +58,17 @@ where
     pub(crate) fn new_doc_values_producer(
         &self,
         si: &SegmentCommitInfo<D>,
-        dir: &mut CompoundDirectory<Lucene90CompoundReader<D>>,
+        dir: &mut Option<CompoundDirectory<Lucene90CompoundReader<D>>>,
         r#gen: i64,
         infos: Rc<FieldInfos>,
     ) -> Result<RefCount<Rc<Lucene90DocValuesProducer<CfsOrBaseInput<D>>>>>
     where
         D: Directory,
     {
-        let mut dv_dir = Either2Directory::A(dir);
+        let mut dv_dir = match dir {
+            Some(d) => Either2Directory::A(d),
+            None => Either2Directory::B(&mut *si.info.dir.lock()),
+        };
         let mut segment_suffix = "".to_string();
 
         let base_dir = &mut *si.info.dir.lock();
@@ -90,7 +93,7 @@ where
         &self,
         r#gen: i64,
         si: &SegmentCommitInfo<D>,
-        dir: &mut CompoundDirectory<Lucene90CompoundReader<D>>,
+        dir: &mut Option<CompoundDirectory<Lucene90CompoundReader<D>>>,
         infos: Rc<FieldInfos>,
     ) -> Result<Rc<Lucene90DocValuesProducer<CfsOrBaseInput<D>>>> {
         let mut inner = self.inner.lock();

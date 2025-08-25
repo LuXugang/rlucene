@@ -53,7 +53,7 @@ where
 {
     pub(crate) fn new(
         si: &SegmentCommitInfo<D>,
-        dir: &mut CompoundDirectory<Lucene90CompoundReader<D>>,
+        dir: &mut Option<CompoundDirectory<Lucene90CompoundReader<D>>>,
         core_infos: Rc<FieldInfos>,
         all_infos: &FieldInfos,
         seg_doc_values: &SegmentDocValues<D>,
