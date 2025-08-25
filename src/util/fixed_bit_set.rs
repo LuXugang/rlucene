@@ -974,7 +974,7 @@ mod tests {
             let mut bb = b.clone();
             bb.flip_range(from_index, to_index);
 
-            bb = do_iterate(random, &aa, bb)?; //  a problem here is from flip or doIterate
+            do_iterate(random, &aa, bb)?; //  a problem here is from flip or doIterate
 
             from_index = random.random_range(0..(sz / 2));
             to_index = from_index + random.random_range(0..(sz - from_index));
@@ -1011,7 +1011,7 @@ mod tests {
                 a_andn.difference_with(&a0);
 
                 let mut b_and = b.clone();
-                assert!(b == b_and);
+                assert_eq!(b, b_and);
                 b_and.and(&b0);
                 let mut b_or = b.clone();
                 b_or.or(&b0);
@@ -1028,10 +1028,10 @@ mod tests {
                 assert_eq!(a_andn.len(), b_andn.cardinality() as usize);
                 assert_eq!(a_xor.len(), b_xor.cardinality() as usize);
 
-                b_and = do_iterate(random, &a_and, b_and)?;
-                b_xor = do_iterate(random, &a_xor, b_xor)?;
-                b_or = do_iterate(random, &a_or, b_or)?;
-                b_andn = do_iterate(random, &a_andn, b_andn)?;
+                do_iterate(random, &a_and, b_and)?;
+                do_iterate(random, &a_xor, b_xor)?;
+                do_iterate(random, &a_or, b_or)?;
+                do_iterate(random, &a_andn, b_andn)?;
 
                 a0 = a;
                 b0 = b;

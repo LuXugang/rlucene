@@ -144,7 +144,7 @@ pub trait BaseDocIdSetTestCaseSupperImpl {
             let mut docs = vec![];
             iter.for_each(|doc| docs.push(doc));
             let mut index = 0;
-            let mut doc = 0;
+            let mut doc;
             while index < docs.len() {
                 if random.random_bool(0.5) {
                     assert_eq!(docs[index], disi.next_doc()? as usize);
@@ -177,7 +177,7 @@ pub trait BaseDocIdSetTestCaseSupperImpl {
             let bits = bitss.unwrap();
             let mut disi = ds2.iterator()?.unwrap();
             while doc != NO_MORE_DOCS {
-                let mut i = 0;
+                let mut i;
                 doc = disi.next_doc()?;
                 let max = if doc == NO_MORE_DOCS {
                     bits.length()

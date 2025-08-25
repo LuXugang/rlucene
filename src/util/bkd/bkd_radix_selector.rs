@@ -1844,7 +1844,6 @@ mod tests {
             let points = Rc::new(RefCell::new(PointWriterEnum::<DummyIndexOutput>::Heap(
                 heap_points,
             )));
-            let dir = new_directory(&mut random)?;
             verify_sort(&mut random, config, points, 0, num_points)?;
             Ok(())
         }
@@ -1868,7 +1867,6 @@ mod tests {
             let points = Rc::new(RefCell::new(PointWriterEnum::<DummyIndexOutput>::Heap(
                 heap_points,
             )));
-            let dir = new_directory(&mut random)?;
             verify_sort(&mut random, config, points, 0, num_points)?;
             Ok(())
         }
@@ -1923,7 +1921,6 @@ mod tests {
             let points = Rc::new(RefCell::new(PointWriterEnum::<DummyIndexOutput>::Heap(
                 heap_points,
             )));
-            let dir = new_directory(&mut random)?;
             verify_sort(&mut random, config, points, 0, num_points)?;
             Ok(())
         }

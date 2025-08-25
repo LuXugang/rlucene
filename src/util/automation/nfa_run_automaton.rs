@@ -623,9 +623,7 @@ mod tests {
         let mut random = random();
         let s = AutomatonTestUtil::random_regexp(&mut random)?;
         let mut nfa = RegExp::from_str_with_flags(&s, RegExp::NONE)?.to_automaton()?;
-        let mut i = 0;
         while nfa.is_deterministic() {
-            i += 1;
             let s = AutomatonTestUtil::random_regexp(&mut random)?;
             nfa = RegExp::from_str_with_flags(&s, RegExp::NONE)?.to_automaton()?;
         }

@@ -220,7 +220,7 @@ where
     pub fn drop_readers(&self) -> Result<()> {
         let mut inner = self.inner.lock();
 
-        if let Some(reader) = inner.reader.take() {
+        if let Some(_) = inner.reader.take() {
             // TODO: 使用 reader
         }
         self.dec_ref();
