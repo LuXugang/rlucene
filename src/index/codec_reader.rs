@@ -135,12 +135,11 @@ pub trait CodecReader: LeafReader {
             Some(f) => f,
             None => return Ok(None),
         };
-        match self.get_doc_values_reader()? {
-            None => Err(LuceneError::illegal_state(
-                "doc values reader is None".to_string(),
-            )),
-            Some(v) => Ok(Some(v.get_numeric(&fi)?)),
-        }
+        let reader = self
+            .get_doc_values_reader()?
+            .ok_or_else(|| LuceneError::illegal_state("doc values reader is None"))?;
+
+        Ok(Some(reader.get_numeric(&fi)?))
     }
     fn get_binary_doc_values(
         &self,
@@ -152,12 +151,11 @@ pub trait CodecReader: LeafReader {
             None => return Ok(None),
         };
 
-        match self.get_doc_values_reader()? {
-            None => Err(LuceneError::illegal_state(
-                "doc values reader is None".to_string(),
-            )),
-            Some(v) => Ok(Some(v.get_binary(&fi)?)),
-        }
+        let reader = self
+            .get_doc_values_reader()?
+            .ok_or_else(|| LuceneError::illegal_state("doc values reader is None"))?;
+
+        Ok(Some(reader.get_binary(&fi)?))
     }
 
     fn get_sorted_doc_values(
@@ -169,12 +167,11 @@ pub trait CodecReader: LeafReader {
             Some(f) => f,
             None => return Ok(None),
         };
-        match self.get_doc_values_reader()? {
-            None => Err(LuceneError::illegal_state(
-                "doc values reader is None".to_string(),
-            )),
-            Some(v) => Ok(Some(v.get_sorted(&fi)?)),
-        }
+        let reader = self
+            .get_doc_values_reader()?
+            .ok_or_else(|| LuceneError::illegal_state("doc values reader is None"))?;
+
+        Ok(Some(reader.get_sorted(&fi)?))
     }
 
     fn get_sorted_numeric_doc_values(
@@ -188,12 +185,11 @@ pub trait CodecReader: LeafReader {
             None => return Ok(None),
         };
 
-        match self.get_doc_values_reader()? {
-            None => Err(LuceneError::illegal_state(
-                "doc values reader is None".to_string(),
-            )),
-            Some(v) => Ok(Some(v.get_sorted_numeric(&fi)?)),
-        }
+        let reader = self
+            .get_doc_values_reader()?
+            .ok_or_else(|| LuceneError::illegal_state("doc values reader is None"))?;
+
+        Ok(Some(reader.get_sorted_numeric(&fi)?))
     }
     fn get_sorted_set_doc_values(
         &self,
@@ -204,12 +200,11 @@ pub trait CodecReader: LeafReader {
             Some(f) => f,
             None => return Ok(None),
         };
-        match self.get_doc_values_reader()? {
-            None => Err(LuceneError::illegal_state(
-                "doc values reader is None".to_string(),
-            )),
-            Some(v) => Ok(Some(v.get_sorted_set(&fi)?)),
-        }
+        let reader = self
+            .get_doc_values_reader()?
+            .ok_or_else(|| LuceneError::illegal_state("doc values reader is None"))?;
+
+        Ok(Some(reader.get_sorted_set(&fi)?))
     }
     fn get_doc_values_skipper(
         &self,
@@ -222,12 +217,11 @@ pub trait CodecReader: LeafReader {
             Some(f) if *f.doc_values_skip_index_type() != DocValuesSkipIndexType::None => f,
             _ => return Ok(None),
         };
-        match self.get_doc_values_reader()? {
-            None => Err(LuceneError::illegal_state(
-                "doc values reader is None".to_string(),
-            )),
-            Some(v) => Ok(Some(v.get_skipper(&fi)?)),
-        }
+        let reader = self
+            .get_doc_values_reader()?
+            .ok_or_else(|| LuceneError::illegal_state("doc values reader is None"))?;
+
+        Ok(Some(reader.get_skipper(&fi)?))
     }
 
     fn get_norm_values(
@@ -241,12 +235,11 @@ pub trait CodecReader: LeafReader {
             Some(f) if f.has_norms() => f,
             _ => return Ok(None),
         };
-        match self.get_norms_reader()? {
-            None => Err(LuceneError::illegal_state(
-                "doc values reader is None".to_string(),
-            )),
-            Some(v) => Ok(Some(v.get_norms(&fi)?)),
-        }
+        let reader = self
+            .get_norms_reader()?
+            .ok_or_else(|| LuceneError::illegal_state("norms reader is None"))?;
+
+        Ok(Some(reader.get_norms(&fi)?))
     }
     fn get_point_values(
         &self,
@@ -259,12 +252,11 @@ pub trait CodecReader: LeafReader {
             Some(f) if f.get_point_dimension_count() > 0 => f,
             _ => return Ok(None),
         };
-        match self.get_points_reader()? {
-            None => Err(LuceneError::illegal_state(
-                "points reader is None".to_string(),
-            )),
-            Some(v) => Ok(Some(v.get_values(field)?)),
-        }
+        let reader = self
+            .get_points_reader()?
+            .ok_or_else(|| LuceneError::illegal_state("points reader is None"))?;
+
+        Ok(Some(reader.get_values(field)?))
     }
 
     fn check_integrity(&self) -> Result<()> {

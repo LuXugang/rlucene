@@ -237,42 +237,31 @@ where
 
     fn get_term_vectors_reader(&self) -> Result<Option<Cow<'_, Self::TermVectorsReader>>> {
         self.ensure_open()?;
-        match &self.core.term_vectors_reader_orig {
-            Some(tv) => Ok(Some(Cow::Owned(tv.clone()))),
-            None => Ok(None),
-        }
+        Ok(self
+            .core
+            .term_vectors_reader_orig
+            .as_ref()
+            .map(|tv| Cow::Owned(tv.clone())))
     }
 
     fn get_norms_reader(&self) -> Result<Option<Cow<'_, Self::NormsProducer>>> {
         self.ensure_open()?;
-        match &self.core.norms_producer {
-            Some(norms) => Ok(Some(Cow::Borrowed(norms))),
-            None => Ok(None),
-        }
+        Ok(self.core.norms_producer.as_ref().map(Cow::Borrowed))
     }
 
     fn get_doc_values_reader(&self) -> Result<Option<Cow<'_, Self::DocValuesProducer>>> {
         self.ensure_open()?;
-        match &self.doc_values_producer {
-            Some(dv) => Ok(Some(Cow::Borrowed(dv))),
-            None => Ok(None),
-        }
+        Ok(self.doc_values_producer.as_ref().map(Cow::Borrowed))
     }
 
     fn get_postings_reader(&self) -> Result<Option<Cow<'_, Self::FieldsProducer>>> {
         self.ensure_open()?;
-        match &self.core.fields {
-            Some(f) => Ok(Some(Cow::Borrowed(f))),
-            None => Ok(None),
-        }
+        Ok(self.core.fields.as_ref().map(Cow::Borrowed))
     }
 
     fn get_points_reader(&self) -> Result<Option<Cow<'_, Self::PointsReader>>> {
         self.ensure_open()?;
-        match &self.core.points_reader {
-            Some(p) => Ok(Some(Cow::Borrowed(p))),
-            None => Ok(None),
-        }
+        Ok(self.core.points_reader.as_ref().map(Cow::Borrowed))
     }
 
     fn check_integrity(&self) -> Result<()> {
