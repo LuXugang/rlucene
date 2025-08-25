@@ -28,7 +28,7 @@ use crate::util::error::lucene_error::Result;
 use std::rc::Rc;
 use std::sync::Arc;
 
-#[derive(Default)] // for test
+#[cfg_attr(test, derive(Default))] // for test
 pub struct SegmentReader<LF>
 where
     LF: LiveDocsFormat,

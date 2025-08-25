@@ -196,6 +196,7 @@ pub trait CodecReader: LeafReader {
         &self,
         field: &str,
     ) -> Result<Option<<Self::DocValuesProducer as DocValuesProducer>::DocValuesSkipper>> {
+        //  TODO
         // self.ensure_open()?;
 
         let fi = self.get_field_infos()?.field_info_by_name(field);
@@ -212,6 +213,7 @@ pub trait CodecReader: LeafReader {
         &self,
         field: &str,
     ) -> Result<Option<<Self::NormsProducer as NormsProducer>::NumericDocValues>> {
+        // TODO
         // self.ensure_open()?;
 
         let fi = self.get_field_infos()?.field_info_by_name(field);
@@ -227,6 +229,7 @@ pub trait CodecReader: LeafReader {
         &self,
         field: &str,
     ) -> Result<Option<PointValues<<Self::PointsReader as PointsReader>::PointValuesBase>>> {
+        // TODO
         // self.ensure_open()?;
 
         let fi = self.get_field_infos()?.field_info_by_name(field);
@@ -237,6 +240,33 @@ pub trait CodecReader: LeafReader {
 
         let values = self.get_points_reader().get_values(field)?;
         Ok(Some(values))
+    }
+
+    fn check_integrity(&self) -> Result<()> {
+        // TODO
+        // self.ensure_open()?;
+
+        // terms/postings
+        self.get_postings_reader().check_integrity()?;
+        // norms
+        self.get_norms_reader().check_integrity()?;
+        // docvalues
+        self.get_doc_values_reader().check_integrity()?;
+
+        // stored fields
+        self.get_fields_reader().check_integrity()?;
+
+        // term vectors
+        if let Some(reader) = self.get_term_vectors_reader() {
+            reader.check_integrity()?;
+        }
+
+        // points
+        self.get_points_reader().check_integrity()?;
+
+        // vectors
+        // self.get_vector_reader()?.check_integrity()
+        Ok(())
     }
 }
 
