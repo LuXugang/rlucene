@@ -407,14 +407,10 @@ mod tests {
     use crate::codecs::field_infos_format::FieldInfosFormat;
     use crate::codecs::live_docs_format::LiveDocsFormat;
     use crate::codecs::{Codec, get_default_code};
-    use crate::index::dummy::dummy_leaf_reader::DummyLeafReader;
     use crate::index::field_infos::FieldInfos;
     use crate::index::pending_deletes::PendingDeletes;
     use crate::index::segment_commit_info::SegmentCommitInfo;
     use crate::index::segment_info::SegmentInfo;
-    use crate::index::segment_reader::SegmentReader;
-
-    use crate::codecs::lucene90_live_docs_format::Lucene90LiveDocsFormat;
     use crate::store::IOContext;
     use crate::store::directory::Directory;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{new_directory, random};

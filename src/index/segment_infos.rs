@@ -1636,7 +1636,7 @@ mod tests {
             HashMap::new(),
             StringHelper::random_id(),
             HashMap::new(),
-            Some(Sort::get_index_order()?),
+            Some(Arc::new(Sort::get_index_order()?)),
         )?;
         assert_eq!(
             format!("TEST({}){}:[indexSort=<doc>]", *LATEST, ":C10000"),
@@ -1655,7 +1655,7 @@ mod tests {
             diagnostics.clone(),
             StringHelper::random_id(),
             HashMap::new(),
-            Some(Sort::get_index_order()?),
+            Some(Arc::new(Sort::get_index_order()?)),
         )?;
         assert_eq!(
             format!(
@@ -1677,7 +1677,7 @@ mod tests {
             HashMap::new(),
             StringHelper::random_id(),
             attributes.clone(),
-            Some(Sort::get_index_order()?),
+            Some(Arc::new(Sort::get_index_order()?)),
         )?;
         assert_eq!(
             format!(
@@ -1699,7 +1699,7 @@ mod tests {
             diagnostics.clone(),
             StringHelper::random_id(),
             attributes.clone(),
-            Some(Sort::get_index_order()?),
+            Some(Arc::new(Sort::get_index_order()?)),
         )?;
         assert_eq!(
             format!(
@@ -1727,7 +1727,7 @@ mod tests {
             HashMap::new(),
             StringHelper::random_id(),
             HashMap::new(),
-            Some(Sort::get_index_order()?),
+            Some(Arc::new(Sort::get_index_order()?)),
         )?;
 
         let mut commit_info = SegmentCommitInfo::new(info, 0, 0, -1, -1, -1, Some(id))?;
@@ -1920,7 +1920,7 @@ mod tests {
             diagnostics.clone(),
             StringHelper::random_id(),
             HashMap::new(),
-            Some(Sort::get_index_order()?),
+            Some(Arc::new(Sort::get_index_order()?)),
         )?;
         si.add_diagnostics(
             [("key3".to_string(), "value3".to_string())]
@@ -1950,7 +1950,7 @@ mod tests {
             diagnostics.clone(),
             StringHelper::random_id(),
             HashMap::new(),
-            Some(Sort::get_index_order()?),
+            Some(Arc::new(Sort::get_index_order()?)),
         )?;
         si.add_diagnostics(
             [("key2".to_string(), "foo".to_string())]

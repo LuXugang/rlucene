@@ -145,7 +145,7 @@ impl Lucene99SegmentInfoFormat {
                     let sort_field = for_name(&name).read_sort_field(input)?;
                     sort_fields.push(sort_field);
                 }
-                Some(Sort::with_fields(sort_fields)?)
+                Some(Arc::new(Sort::with_fields(sort_fields)?))
             },
             std::cmp::Ordering::Less => {
                 return Err(LuceneError::corrupt_index(format!(

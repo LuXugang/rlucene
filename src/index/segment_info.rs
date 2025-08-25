@@ -52,7 +52,7 @@ where
     // in the SegmentInfo. pub(crate) codec: Option<Lucene101Codec>,
     diagnostics: HashMap<String, String>,
     attributes: HashMap<String, String>,
-    pub(crate) index_sort: Option<Sort>,
+    pub(crate) index_sort: Option<Arc<Sort>>,
     /// Tracks the Lucene version this segment was created with, since 3.1.
     /// Null indicates an older than 3.0 index, and it's used to detect a
     /// too-old index. The format expected is "x.y" - "2.x" for pre-3.0
@@ -130,7 +130,7 @@ where
         diagnostics: HashMap<String, String>,
         id: [u8; StringHelper::ID_LENGTH],
         attributes: HashMap<String, String>,
-        index_sort: Option<Sort>,
+        index_sort: Option<Arc<Sort>>,
     ) -> Result<SegmentInfo<D>> {
         if id.len() != StringHelper::ID_LENGTH {
             return Err(LuceneError::illegal_argument(format!("Invalid id: {id:?}")));
@@ -421,8 +421,8 @@ where
 
     /// Returns the sort order of this segment, or None if the index has no
     /// sort.
-    pub fn get_index_sort(&self) -> Option<&Sort> {
-        self.index_sort.as_ref()
+    pub fn get_index_sort(&self) -> Option<Arc<Sort>> {
+        self.index_sort.clone()
     }
 
     pub(crate) fn dummy(dir: Arc<Mutex<D>>) -> Self {

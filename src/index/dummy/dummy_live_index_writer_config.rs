@@ -65,7 +65,7 @@ impl LiveIndexWriterConfig for DummyLiveIndexWriterConfig {
         &self.codec
     }
 
-    fn get_index_sort(&self) -> Option<Sort> {
+    fn get_index_sort(&self) -> Option<Arc<Sort>> {
         None
     }
 

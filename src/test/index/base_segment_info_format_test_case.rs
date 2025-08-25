@@ -447,7 +447,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                         sort_fields.push(sort_field);
                     }
                 }
-                Some(Sort::with_fields(sort_fields)?)
+                Some(Arc::new(Sort::with_fields(sort_fields)?))
             };
             let sort_clone = sort.clone();
             let dir = Arc::new(Mutex::new(new_directory(random)?));
@@ -475,7 +475,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                     .read(dir.clone(), "_123", &id, &io_context)?;
             if info2.get_index_sort().is_some() {
                 assert!(info2.get_index_sort().is_some());
-                assert!(sort_clone.unwrap() == *info2.get_index_sort().unwrap());
+                assert!(*sort_clone.as_ref().unwrap() == info2.get_index_sort().unwrap());
             } else {
                 assert!(sort_clone.is_none())
             }

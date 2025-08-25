@@ -20,6 +20,7 @@ use crate::index::flush_policy::FlushPolicy;
 use crate::index::sort::Sort;
 use crate::search::similarities::similarities::Similarity;
 use crate::util::info_stream::InfoStreamLock;
+use std::sync::Arc;
 
 pub trait LiveIndexWriterConfig {
     type Analyzer: Analyzer;
@@ -31,7 +32,7 @@ pub trait LiveIndexWriterConfig {
     type Codec: Codec;
     fn get_codec(&self) -> &Self::Codec;
 
-    fn get_index_sort(&self) -> Option<Sort>;
+    fn get_index_sort(&self) -> Option<Arc<Sort>>;
 
     fn get_use_compound_file(&self) -> bool;
 
