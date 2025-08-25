@@ -38,7 +38,6 @@ use crate::index::segment_doc_values::SegmentDocValues;
 use crate::index::segment_doc_values_producer::SegmentDocValuesProducer;
 use crate::store::IOContext;
 use crate::store::directory::Directory;
-use crate::util::bits::Bits;
 use crate::util::error::lucene_error::Result;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -66,21 +65,18 @@ impl<D> SegmentReader<D>
 where
     D: Directory,
 {
-    fn assert_live_docs<B>(
+    fn assert_live_docs(
         is_nrt: bool,
-        hard_live_docs: &Option<Rc<B>>,
-        live_docs: &Option<Rc<B>>,
-    ) -> bool
-    where
-        B: Bits,
-    {
+        hard_live_docs: &Option<Arc<<Lucene90LiveDocsFormat as LiveDocsFormat>::Bits>>,
+        live_docs: &Option<Arc<<Lucene90LiveDocsFormat as LiveDocsFormat>::Bits>>,
+    ) -> bool {
         match is_nrt {
             true => debug_assert!(
                 hard_live_docs.is_none() || live_docs.is_some(),
                 "liveDocs must be non-null if hardLiveDocs are non-null"
             ),
             false => debug_assert!(
-                Rc::ptr_eq(
+                Arc::ptr_eq(
                     hard_live_docs.as_ref().unwrap(),
                     live_docs.as_ref().unwrap()
                 ),

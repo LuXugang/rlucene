@@ -319,10 +319,7 @@ where
         info.get_del_count() + info.get_soft_del_count() + self.num_pending_deletes()
     }
     /// Returns the number of live documents in this segment
-    pub(crate) fn num_docs(&self, info: &SegmentCommitInfo<D>) -> Result<i32>
-    where
-        D: Directory,
-    {
+    pub(crate) fn num_docs(&self, info: &SegmentCommitInfo<D>) -> Result<i32> {
         debug_assert!(info.info.max_doc()? == self.max_doc);
         let max_doc = info.info.max_doc()?;
         Ok(max_doc - self.get_del_count(info))
@@ -333,10 +330,7 @@ where
         &mut self,
         reader: &impl CodecReader,
         info: &SegmentCommitInfo<D>,
-    ) -> Result<bool>
-    where
-        D: Directory,
-    {
+    ) -> Result<bool> {
         debug_assert!(info.info.max_doc()? == self.max_doc);
         let max_doc = info.info.max_doc()?;
         let mut count = 0;

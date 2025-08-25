@@ -44,10 +44,7 @@ impl<D> PendingSoftDeletes<D>
 where
     D: Directory,
 {
-    pub(crate) fn new(field: Option<String>, info: &SegmentCommitInfo<D>) -> Result<Self>
-    where
-        D: Directory,
-    {
+    pub(crate) fn new(field: Option<String>, info: &SegmentCommitInfo<D>) -> Result<Self> {
         let base = PendingDeletes::new(info)?;
         let hard_deletes = PendingDeletes::new(info)?;
         Ok(Self {
@@ -72,10 +69,7 @@ where
             base,
         })
     }
-    pub(crate) fn delete(&mut self, doc_id: i32, info: &mut SegmentCommitInfo<D>) -> Result<bool>
-    where
-        D: Directory,
-    {
+    pub(crate) fn delete(&mut self, doc_id: i32, info: &mut SegmentCommitInfo<D>) -> Result<bool> {
         match self.field {
             Some(_) => {
                 // we need to fetch this first it might be a shared instance with
@@ -109,10 +103,7 @@ where
         &mut self,
         dir: Arc<Mutex<D>>,
         info: &mut SegmentCommitInfo<D>,
-    ) -> Result<bool>
-    where
-        D: Directory,
-    {
+    ) -> Result<bool> {
         if self.field.is_none() {
             return self.base.write_live_docs(dir, info);
         }
@@ -140,10 +131,7 @@ where
         }
     }
 
-    fn assert_pending_deletes(&self, info: &mut SegmentCommitInfo<D>) -> Result<bool>
-    where
-        D: Directory,
-    {
+    fn assert_pending_deletes(&self, info: &mut SegmentCommitInfo<D>) -> Result<bool> {
         let sum = self.base.pending_delete_count + info.get_soft_del_count();
         debug_assert!(sum >= 0, "illegal pending delete count: {sum}");
         debug_assert!(info.info.max_doc()? >= self.base.get_del_count(info));
@@ -164,7 +152,6 @@ where
     ) -> Result<bool>
     where
         F: Fn() -> Arc<SegmentReader<D>>,
-        D: Directory,
     {
         if self.field.is_none() {
             return self.base.is_fully_deleted(_reader_io_supplier, info);
@@ -174,10 +161,7 @@ where
         todo!()
     }
 
-    pub(crate) fn read_field_infos(&self, info: &SegmentCommitInfo<D>) -> Result<FieldInfos>
-    where
-        D: Directory,
-    {
+    pub(crate) fn read_field_infos(&self, info: &SegmentCommitInfo<D>) -> Result<FieldInfos> {
         let seg_info = &info.info;
         let codec = get_default_code();
         if !info.has_field_updates() {
