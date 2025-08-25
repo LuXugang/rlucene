@@ -41,7 +41,7 @@ where
 {
     // SegmentInfo#id
     pub(crate) info_id: String,
-    live_docs: Option<Either2Bits<Arc<L::Bits>, Either2Bits<Arc<FixedBit>, FixedBitSet>>>,
+    live_docs: Option<DocBits<L>>,
     writeable_live_docs: bool,
     pub(crate) pending_delete_count: i32,
     pub(crate) live_docs_initialized: bool,
@@ -88,7 +88,7 @@ where
 
     pub(crate) fn with(
         info_id: String,
-        live_docs: Option<Either2Bits<Arc<L::Bits>, Either2Bits<Arc<FixedBit>, FixedBitSet>>>,
+        live_docs: Option<DocBits<L>>,
         live_docs_initialized: bool,
         max_doc: i32,
     ) -> Self {
@@ -406,6 +406,8 @@ where
         false
     }
 }
+pub(crate) type DocBits<L> =
+    Either2Bits<Arc<<L as LeafReader>::Bits>, Either2Bits<Arc<FixedBit>, FixedBitSet>>;
 impl<L> fmt::Display for PendingDeletes<L>
 where
     L: LeafReader,
