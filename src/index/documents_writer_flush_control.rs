@@ -554,8 +554,9 @@ where
     where
         FP: FlushPolicy,
     {
-        let _ = self.lock.lock();
-        flush_policy.on_change(self, None)
+        let _guard = self.lock.lock();
+        flush_policy.on_change(self, None);
+        drop(_guard)
     }
 
     /// Returns heap bytes currently consumed by buffered deletes/updates that would be freed if we pushed all deletes.

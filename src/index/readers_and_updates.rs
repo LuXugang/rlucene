@@ -24,7 +24,6 @@ use crate::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNumericDocValues;
 use crate::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocValues;
 use crate::codecs::field_infos_format::FieldInfosFormat;
-use crate::codecs::live_docs_format::LiveDocsFormat;
 use crate::index::BytesRef;
 use crate::index::binary_doc_values::BinaryDocValues;
 use crate::index::doc_values_field_updates::dvfu_util::merged_iterator;

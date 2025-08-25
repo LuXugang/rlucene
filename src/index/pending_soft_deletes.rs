@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::codecs::field_infos_format::FieldInfosFormat;
-use crate::codecs::live_docs_format::LiveDocsFormat;
 use crate::codecs::{Codec, CompoundFormat, get_default_code};
 use crate::index::field_infos::FieldInfos;
 use crate::index::leaf_reader::LeafReader;

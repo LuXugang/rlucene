@@ -136,11 +136,9 @@ pub trait CodecReader: LeafReader {
             None => return Ok(None),
         };
         match self.get_doc_values_reader()? {
-            None => {
-                return Err(LuceneError::illegal_state(
-                    "doc values reader is None".to_string(),
-                ));
-            },
+            None => Err(LuceneError::illegal_state(
+                "doc values reader is None".to_string(),
+            )),
             Some(v) => Ok(Some(v.get_numeric(&fi)?)),
         }
     }
@@ -155,11 +153,9 @@ pub trait CodecReader: LeafReader {
         };
 
         match self.get_doc_values_reader()? {
-            None => {
-                return Err(LuceneError::illegal_state(
-                    "doc values reader is None".to_string(),
-                ));
-            },
+            None => Err(LuceneError::illegal_state(
+                "doc values reader is None".to_string(),
+            )),
             Some(v) => Ok(Some(v.get_binary(&fi)?)),
         }
     }
@@ -174,11 +170,9 @@ pub trait CodecReader: LeafReader {
             None => return Ok(None),
         };
         match self.get_doc_values_reader()? {
-            None => {
-                return Err(LuceneError::illegal_state(
-                    "doc values reader is None".to_string(),
-                ));
-            },
+            None => Err(LuceneError::illegal_state(
+                "doc values reader is None".to_string(),
+            )),
             Some(v) => Ok(Some(v.get_sorted(&fi)?)),
         }
     }
@@ -195,11 +189,9 @@ pub trait CodecReader: LeafReader {
         };
 
         match self.get_doc_values_reader()? {
-            None => {
-                return Err(LuceneError::illegal_state(
-                    "doc values reader is None".to_string(),
-                ));
-            },
+            None => Err(LuceneError::illegal_state(
+                "doc values reader is None".to_string(),
+            )),
             Some(v) => Ok(Some(v.get_sorted_numeric(&fi)?)),
         }
     }
@@ -213,11 +205,9 @@ pub trait CodecReader: LeafReader {
             None => return Ok(None),
         };
         match self.get_doc_values_reader()? {
-            None => {
-                return Err(LuceneError::illegal_state(
-                    "doc values reader is None".to_string(),
-                ));
-            },
+            None => Err(LuceneError::illegal_state(
+                "doc values reader is None".to_string(),
+            )),
             Some(v) => Ok(Some(v.get_sorted_set(&fi)?)),
         }
     }
@@ -233,11 +223,9 @@ pub trait CodecReader: LeafReader {
             _ => return Ok(None),
         };
         match self.get_doc_values_reader()? {
-            None => {
-                return Err(LuceneError::illegal_state(
-                    "doc values reader is None".to_string(),
-                ));
-            },
+            None => Err(LuceneError::illegal_state(
+                "doc values reader is None".to_string(),
+            )),
             Some(v) => Ok(Some(v.get_skipper(&fi)?)),
         }
     }
@@ -254,11 +242,9 @@ pub trait CodecReader: LeafReader {
             _ => return Ok(None),
         };
         match self.get_norms_reader()? {
-            None => {
-                return Err(LuceneError::illegal_state(
-                    "doc values reader is None".to_string(),
-                ));
-            },
+            None => Err(LuceneError::illegal_state(
+                "doc values reader is None".to_string(),
+            )),
             Some(v) => Ok(Some(v.get_norms(&fi)?)),
         }
     }
@@ -274,11 +260,9 @@ pub trait CodecReader: LeafReader {
             _ => return Ok(None),
         };
         match self.get_points_reader()? {
-            None => {
-                return Err(LuceneError::illegal_state(
-                    "points reader is None".to_string(),
-                ));
-            },
+            None => Err(LuceneError::illegal_state(
+                "points reader is None".to_string(),
+            )),
             Some(v) => Ok(Some(v.get_values(field)?)),
         }
     }

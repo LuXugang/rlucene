@@ -16,12 +16,6 @@
  */
 use crate::codecs::compound_directory::CompoundDirectory;
 use crate::codecs::doc_values_producer::{DocValuesProducer, Either2DocValuesProducer};
-use crate::codecs::dummy::dummy_binary_doc_values::DummyBinaryDocValues;
-use crate::codecs::dummy::dummy_doc_values_skipper::DummyDocValuesSkipper;
-use crate::codecs::dummy::dummy_numeric_doc_values::DummyNumericDocValues;
-use crate::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
-use crate::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNumericDocValues;
-use crate::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocValues;
 use crate::codecs::field_infos_format::FieldInfosFormat;
 use crate::codecs::fields_producer::FieldsProducerEnum;
 use crate::codecs::live_docs_format::LiveDocsFormat;
@@ -42,11 +36,9 @@ use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::index::segment_core_readers::{CfsOrBaseInput, SegmentCoreReaders};
 use crate::index::segment_doc_values::SegmentDocValues;
 use crate::index::segment_doc_values_producer::SegmentDocValuesProducer;
-use crate::index::stored_field_visitor::Status::No;
 use crate::store::IOContext;
 use crate::store::directory::Directory;
 use crate::util::error::lucene_error::Result;
-use crate::util::long_values::Either16LongValues::O;
 use std::borrow::Cow;
 use std::rc::Rc;
 use std::sync::Arc;
