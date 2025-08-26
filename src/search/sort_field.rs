@@ -645,9 +645,9 @@ impl SortFieldType {
             ))),
         }
     }
-    pub fn read_type<D>(input: &mut D) -> Result<Self>
+    pub fn read_type<DI>(input: &mut DI) -> Result<Self>
     where
-        D: DataInput,
+        DI: DataInput,
     {
         let type_str = input.read_string()?;
         SortFieldType::value_of(&type_str)

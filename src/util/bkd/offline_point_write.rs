@@ -45,7 +45,7 @@ where
     /// Create a new writer with an unknown number of incoming points
     pub fn new<D>(
         config: Rc<BKDConfig>,
-        temp_dir: &mut D,
+        temp_dir: &D,
         temp_file_name_prefix: &str,
         desc: &str,
         expected_count: i64,
@@ -74,7 +74,7 @@ where
         start: i64,
         length: i64,
         reusable_buffer: Vec<u8>,
-        temp_dir: &mut D,
+        temp_dir: &D,
     ) -> Result<OfflinePointReader<D::IndexInput>> {
         debug_assert!(
             self.closed && self.out.is_none(),
@@ -188,7 +188,7 @@ where
         &mut self,
         start: i64,
         length: i64,
-        temp_dir: &mut D,
+        temp_dir: &D,
     ) -> Result<Self::PointReader<D::IndexInput>>
     where
         D: Directory,
@@ -201,7 +201,7 @@ where
         self.count
     }
 
-    fn destroy<D>(&mut self, dir: &mut D) -> Result<()>
+    fn destroy<D>(&mut self, dir: &D) -> Result<()>
     where
         D: Directory,
     {

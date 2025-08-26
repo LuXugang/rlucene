@@ -41,7 +41,7 @@ pub trait PointWriter {
         &mut self,
         start_point: i64,
         length: i64,
-        temp_dir: &mut D,
+        temp_dir: &D,
     ) -> Result<Self::PointReader<D::IndexInput>>
     where
         D: Directory;
@@ -50,7 +50,7 @@ pub trait PointWriter {
     fn count(&self) -> i64;
 
     /// Removes any temp files behind this writer
-    fn destroy<D>(&mut self, dir: &mut D) -> Result<()>
+    fn destroy<D>(&mut self, dir: &D) -> Result<()>
     where
         D: Directory;
 
@@ -110,7 +110,7 @@ where
         &mut self,
         start_point: i64,
         length: i64,
-        temp_dir: &mut D,
+        temp_dir: &D,
     ) -> Result<Self::PointReader<D::IndexInput>>
     where
         D: Directory,
@@ -136,7 +136,7 @@ where
         }
     }
 
-    fn destroy<D>(&mut self, dir: &mut D) -> Result<()>
+    fn destroy<D>(&mut self, dir: &D) -> Result<()>
     where
         D: Directory,
     {

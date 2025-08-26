@@ -756,7 +756,7 @@ where
         Ok(())
     }
 
-    fn merge<I, D1>(&mut self, merge_state: &mut MergeState<I>, dir: &mut D1) -> Result<i32>
+    fn merge<I, D1>(&mut self, merge_state: &mut MergeState<I>, dir: &D1) -> Result<i32>
     where
         I: IndexInput,
         D1: Directory,

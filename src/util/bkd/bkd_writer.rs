@@ -218,7 +218,7 @@ where
         if self.total_point_count > self.max_points_sort_in_heap as i64 {
             let writer = OfflinePointWriter::new(
                 self.config.clone(),
-                &mut self.temp_dir,
+                &self.temp_dir,
                 &self.temp_file_name_prefix,
                 "spill",
                 0,

@@ -500,7 +500,7 @@ mod tests {
     fn test_random() -> Result<()> {
         let mut random = random();
         let num_iters = at_least(&mut random, 100);
-        let mut dir = new_directory(&mut random)?;
+        let dir = new_directory(&mut random)?;
         for _ in 0..num_iters {
             let len = 1 + random.random_range(0..5000);
             let mut doc_ids = vec![0; len];
@@ -508,7 +508,7 @@ mod tests {
             for doc_id in doc_ids.iter_mut().take(len) {
                 *doc_id = TestUtil::next_int(&mut random, 0, (1 << bpv) - 1);
             }
-            test(&mut random, &mut dir, &doc_ids)?;
+            test(&mut random, &dir, &doc_ids)?;
         }
         Ok(())
     }
@@ -517,7 +517,7 @@ mod tests {
     fn test_sorted() -> Result<()> {
         let mut random = random();
         let num_iters = at_least(&mut random, 100);
-        let mut dir = new_directory(&mut random)?;
+        let dir = new_directory(&mut random)?;
         for _ in 0..num_iters {
             let len = 1 + random.random_range(0..5000);
             let mut doc_ids = vec![0; len];
@@ -526,7 +526,7 @@ mod tests {
                 *doc_id = TestUtil::next_int(&mut random, 0, (1 << bpv) - 1);
             }
             doc_ids.sort_unstable();
-            test(&mut random, &mut dir, &doc_ids)?;
+            test(&mut random, &dir, &doc_ids)?;
         }
         Ok(())
     }
@@ -535,7 +535,7 @@ mod tests {
     fn test_cluster() -> Result<()> {
         let mut random = random();
         let num_iters = at_least(&mut random, 100);
-        let mut dir = new_directory(&mut random)?;
+        let dir = new_directory(&mut random)?;
         for _ in 0..num_iters {
             let len = 1 + random.random_range(0..5000);
             let mut doc_ids = vec![0; len];
@@ -544,7 +544,7 @@ mod tests {
             for doc_id in doc_ids.iter_mut().take(len) {
                 *doc_id = min + TestUtil::next_int(&mut random, 0, (1 << bpv) - 1);
             }
-            test(&mut random, &mut dir, &doc_ids)?;
+            test(&mut random, &dir, &doc_ids)?;
         }
         Ok(())
     }
@@ -553,7 +553,7 @@ mod tests {
     fn test_bit_set() -> Result<()> {
         let mut random = random();
         let num_iters = at_least(&mut random, 100);
-        let mut dir = new_directory(&mut random)?;
+        let dir = new_directory(&mut random)?;
         for _ in 0..num_iters {
             let size = 1 + random.random_range(0..5000);
             let mut set = HashSet::with_capacity(size);
@@ -563,7 +563,7 @@ mod tests {
             }
             let mut doc_ids: Vec<i32> = set.into_iter().collect();
             doc_ids.sort_unstable();
-            test(&mut random, &mut dir, &doc_ids)?;
+            test(&mut random, &dir, &doc_ids)?;
         }
         Ok(())
     }
@@ -571,7 +571,7 @@ mod tests {
     fn test_continuous_ids() -> Result<()> {
         let mut random = random();
         let num_iters = at_least(&mut random, 100);
-        let mut dir = new_directory(&mut random)?;
+        let dir = new_directory(&mut random)?;
         for _ in 0..num_iters {
             let size = 1 + random.random_range(0..5000);
             let mut doc_ids = vec![0; size];
@@ -579,12 +579,12 @@ mod tests {
             for (i, doc_id) in doc_ids.iter_mut().take(size).enumerate() {
                 *doc_id = start + i as i32;
             }
-            test(&mut random, &mut dir, &doc_ids)?;
+            test(&mut random, &dir, &doc_ids)?;
         }
         Ok(())
     }
 
-    fn test<R: Rng + ?Sized>(random: &mut R, dir: &mut impl Directory, ints: &[i32]) -> Result<()> {
+    fn test<R: Rng + ?Sized>(random: &mut R, dir: &impl Directory, ints: &[i32]) -> Result<()> {
         let len: i64;
         let mut doc_ids_writer = DocIdsWriter::new(ints.len() as i32);
         {

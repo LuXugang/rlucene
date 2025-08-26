@@ -266,7 +266,7 @@ mod tests {
     fn test_random() -> Result<()> {
         let mut random = random();
         let num_iters = at_least(&mut random, 100);
-        let mut dir = new_directory(&mut random)?;
+        let dir = new_directory(&mut random)?;
 
         for _ in 0..num_iters {
             let len = random.random_range(1..=5000);
@@ -275,7 +275,7 @@ mod tests {
             for v in values.iter_mut().take(len) {
                 *v = TestUtil::next_int(&mut random, 0, (1 << bpv) - 1);
             }
-            test(&mut random, &mut dir, &values)?;
+            test(&mut random, &dir, &values)?;
         }
 
         Ok(())
@@ -284,16 +284,16 @@ mod tests {
     #[test]
     fn test_all_equals() -> Result<()> {
         let mut random = random();
-        let mut dir = new_directory(&mut random)?;
+        let dir = new_directory(&mut random)?;
         let len = random.random_range(1..=5000);
         let bpv = TestUtil::next_int(&mut random, 1, 31);
         let value = TestUtil::next_int(&mut random, 0, (1 << bpv) - 1);
         let values = vec![value; len];
-        test(&mut random, &mut dir, &values)?;
+        test(&mut random, &dir, &values)?;
         Ok(())
     }
 
-    fn test<R: Rng + ?Sized>(random: &mut R, dir: &mut impl Directory, ints: &[i32]) -> Result<()> {
+    fn test<R: Rng + ?Sized>(random: &mut R, dir: &impl Directory, ints: &[i32]) -> Result<()> {
         let len;
         {
             let mut out = dir.create_output("tmp", &IOContext::default_io_context()?)?;

@@ -51,7 +51,7 @@ where
 {
     pub fn new<D>(
         config: Rc<BKDConfig>,
-        temp_dir: &mut D,
+        temp_dir: &D,
         temp_file_name: &str,
         start: i64,
         length: i64,

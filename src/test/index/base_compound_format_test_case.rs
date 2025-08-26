@@ -42,10 +42,10 @@ pub trait BaseCompoundFormatTestCase {
         si.set_files(HashSet::new())?;
         LATEST_CODEC
             .compound_format()
-            .write(&mut *dir.lock(), &si, &IO_CONTEXT_DEFAULT)?;
+            .write(&*dir.lock(), &si, &IO_CONTEXT_DEFAULT)?;
         let cfs = LATEST_CODEC
             .compound_format()
-            .get_compound_reader(&mut *dir.lock(), &si)?;
+            .get_compound_reader(&*dir.lock(), &si)?;
         assert_eq!(0, cfs.list_all()?.len());
         Ok(())
     }
@@ -59,7 +59,7 @@ pub trait BaseCompoundFormatTestCase {
             let mut si = new_segment_info(random, dir.clone(), &format!("_{}", i))?;
             create_sequence_file(
                 random,
-                &mut *dir.lock(),
+                &*dir.lock(),
                 &test_file,
                 0,
                 size,
@@ -70,11 +70,11 @@ pub trait BaseCompoundFormatTestCase {
             si.set_files(HashSet::from([test_file.clone()]))?;
             LATEST_CODEC
                 .compound_format()
-                .write(&mut *dir.lock(), &si, &IO_CONTEXT_DEFAULT)?;
+                .write(&*dir.lock(), &si, &IO_CONTEXT_DEFAULT)?;
 
             let cfs = LATEST_CODEC
                 .compound_format()
-                .get_compound_reader(&mut *dir.lock(), &si)?;
+                .get_compound_reader(&*dir.lock(), &si)?;
 
             let mut expected = dir
                 .lock()
@@ -92,18 +92,10 @@ pub trait BaseCompoundFormatTestCase {
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let mut si = new_segment_info(random, dir.clone(), "_123")?;
 
+        create_sequence_file(random, &*dir.lock(), files[0], 0, 15, si.get_id(), "suffix")?;
         create_sequence_file(
             random,
-            &mut *dir.lock(),
-            files[0],
-            0,
-            15,
-            si.get_id(),
-            "suffix",
-        )?;
-        create_sequence_file(
-            random,
-            &mut *dir.lock(),
+            &*dir.lock(),
             files[1],
             0,
             114,
@@ -115,10 +107,10 @@ pub trait BaseCompoundFormatTestCase {
         si.set_files(files_set)?;
         LATEST_CODEC
             .compound_format()
-            .write(&mut *dir.lock(), &si, &IO_CONTEXT_DEFAULT)?;
+            .write(&*dir.lock(), &si, &IO_CONTEXT_DEFAULT)?;
         let cfs = LATEST_CODEC
             .compound_format()
-            .get_compound_reader(&mut *dir.lock(), &si)?;
+            .get_compound_reader(&*dir.lock(), &si)?;
 
         for file in files.iter() {
             let mut expected = dir.lock().open_input(file, &new_io_context(random)?)?;
@@ -158,10 +150,10 @@ pub trait BaseCompoundFormatTestCase {
         si.set_files(HashSet::new())?;
         LATEST_CODEC
             .compound_format()
-            .write(&mut *dir.lock(), &si, &IO_CONTEXT_DEFAULT)?;
+            .write(&*dir.lock(), &si, &IO_CONTEXT_DEFAULT)?;
         let mut cfs = LATEST_CODEC
             .compound_format()
-            .get_compound_reader(&mut *dir.lock(), &si)?;
+            .get_compound_reader(&*dir.lock(), &si)?;
         let io_context = IOContext::default_io_context()?;
         let result = cfs.create_output("bogus", &io_context);
         assert!(matches!(result, Err(LuceneError::UnsupportedOperation(_))));
@@ -180,10 +172,10 @@ pub trait BaseCompoundFormatTestCase {
         si.set_files(HashSet::new())?;
         LATEST_CODEC
             .compound_format()
-            .write(&mut *dir.lock(), &si, &IO_CONTEXT_DEFAULT)?;
+            .write(&*dir.lock(), &si, &IO_CONTEXT_DEFAULT)?;
         let mut cfs = LATEST_CODEC
             .compound_format()
-            .get_compound_reader(&mut *dir.lock(), &si)?;
+            .get_compound_reader(&*dir.lock(), &si)?;
         let result = cfs.delete_file(testfile);
         assert!(matches!(result, Err(LuceneError::UnsupportedOperation(_))));
         Ok(())
@@ -200,10 +192,10 @@ pub trait BaseCompoundFormatTestCase {
         si.set_files(HashSet::new())?;
         LATEST_CODEC
             .compound_format()
-            .write(&mut *dir.lock(), &si, &IO_CONTEXT_DEFAULT)?;
+            .write(&*dir.lock(), &si, &IO_CONTEXT_DEFAULT)?;
         let mut cfs = LATEST_CODEC
             .compound_format()
-            .get_compound_reader(&mut *dir.lock(), &si)?;
+            .get_compound_reader(&*dir.lock(), &si)?;
         let result = cfs.rename(testfile, "bogus");
         assert!(matches!(result, Err(LuceneError::UnsupportedOperation(_))));
         Ok(())
@@ -220,10 +212,10 @@ pub trait BaseCompoundFormatTestCase {
         si.set_files(HashSet::new())?;
         LATEST_CODEC
             .compound_format()
-            .write(&mut *dir.lock(), &si, &IO_CONTEXT_DEFAULT)?;
+            .write(&*dir.lock(), &si, &IO_CONTEXT_DEFAULT)?;
         let mut cfs = LATEST_CODEC
             .compound_format()
-            .get_compound_reader(&mut *dir.lock(), &si)?;
+            .get_compound_reader(&*dir.lock(), &si)?;
         let result = cfs.sync(&[testfile]);
         assert!(matches!(result, Err(LuceneError::UnsupportedOperation(_))));
         Ok(())
@@ -242,10 +234,10 @@ pub trait BaseCompoundFormatTestCase {
         si.set_files(HashSet::new())?;
         LATEST_CODEC
             .compound_format()
-            .write(&mut *dir.lock(), &si, &IO_CONTEXT_DEFAULT)?;
+            .write(&*dir.lock(), &si, &IO_CONTEXT_DEFAULT)?;
         let mut cfs = LATEST_CODEC
             .compound_format()
-            .get_compound_reader(&mut *dir.lock(), &si)?;
+            .get_compound_reader(&*dir.lock(), &si)?;
         let result = cfs.obtain_lock("foobar");
         assert!(matches!(result, Err(LuceneError::UnsupportedOperation(_))));
         Ok(())
@@ -264,77 +256,71 @@ pub trait BaseCompoundFormatTestCase {
         let seg_id = si.get_id();
         create_random_file(
             random,
-            &mut *dir.lock(),
+            &*dir.lock(),
             &format!("{}.zero", segment),
             0,
             seg_id,
         )?;
+        create_random_file(random, &*dir.lock(), &format!("{}.one", segment), 1, seg_id)?;
         create_random_file(
             random,
-            &mut *dir.lock(),
-            &format!("{}.one", segment),
-            1,
-            seg_id,
-        )?;
-        create_random_file(
-            random,
-            &mut *dir.lock(),
+            &*dir.lock(),
             &format!("{}.ten", segment),
             10,
             seg_id,
         )?;
         create_random_file(
             random,
-            &mut *dir.lock(),
+            &*dir.lock(),
             &format!("{}.hundred", segment),
             100,
             seg_id,
         )?;
         create_random_file(
             random,
-            &mut *dir.lock(),
+            &*dir.lock(),
             &format!("{}.big1", segment),
             chunk,
             seg_id,
         )?;
         create_random_file(
             random,
-            &mut *dir.lock(),
+            &*dir.lock(),
             &format!("{}.big2", segment),
             chunk - 1,
             seg_id,
         )?;
         create_random_file(
             random,
-            &mut *dir.lock(),
+            &*dir.lock(),
             &format!("{}.big3", segment),
             chunk + 1,
             seg_id,
         )?;
         create_random_file(
             random,
-            &mut *dir.lock(),
+            &*dir.lock(),
             &format!("{}.big4", segment),
             3 * chunk,
             seg_id,
         )?;
         create_random_file(
             random,
-            &mut *dir.lock(),
+            &*dir.lock(),
             &format!("{}.big5", segment),
             3 * chunk - 1,
             seg_id,
         )?;
         create_random_file(
             random,
-            &mut *dir.lock(),
+            &*dir.lock(),
             &format!("{}.big6", segment),
             3 * chunk + 1,
             seg_id,
         )?;
         create_random_file(
             random,
-            &mut *dir.lock(),
+            &*dir.lock(),
             &format!("{}.big7", segment),
             1000 * chunk,
             seg_id,
@@ -348,10 +334,10 @@ pub trait BaseCompoundFormatTestCase {
         si.set_files(files.iter().cloned().collect())?;
         LATEST_CODEC
             .compound_format()
-            .write(&mut *dir.lock(), &si, &IO_CONTEXT_DEFAULT)?;
+            .write(&*dir.lock(), &si, &IO_CONTEXT_DEFAULT)?;
         let cfs = LATEST_CODEC
             .compound_format()
-            .get_compound_reader(&mut *dir.lock(), &si)?;
+            .get_compound_reader(&*dir.lock(), &si)?;
 
         // Validate each file
         for file in files.iter() {
@@ -382,10 +368,10 @@ pub trait BaseCompoundFormatTestCase {
         si.set_files(file_sets)?;
         LATEST_CODEC
             .compound_format()
-            .write(&mut *dir.lock(), &si, &IO_CONTEXT_DEFAULT)?;
+            .write(&*dir.lock(), &si, &IO_CONTEXT_DEFAULT)?;
         let cfs = LATEST_CODEC
             .compound_format()
-            .get_compound_reader(&mut *dir.lock(), &si)?;
+            .get_compound_reader(&*dir.lock(), &si)?;
         let mut ins = Vec::with_capacity(file_count);
         // Open the files
         for file_idx in 0..file_count {
@@ -601,24 +587,16 @@ pub trait BaseCompoundFormatTestCase {
         let dir = Arc::new(Mutex::new(new_directory(random)?));
         let sub_file = "_123.xyz";
         let mut si = new_segment_info(random, dir.clone(), "_123")?;
-        create_sequence_file(
-            random,
-            &mut *dir.lock(),
-            sub_file,
-            0,
-            10,
-            si.get_id(),
-            "suffix",
-        )?;
+        create_sequence_file(random, &*dir.lock(), sub_file, 0, 10, si.get_id(), "suffix")?;
         let mut hash_set_file = HashSet::new();
         hash_set_file.insert(sub_file.to_string());
         si.set_files(hash_set_file)?;
         LATEST_CODEC
             .compound_format()
-            .write(&mut *dir.lock(), &si, &IO_CONTEXT_DEFAULT)?;
+            .write(&*dir.lock(), &si, &IO_CONTEXT_DEFAULT)?;
         let cfs = LATEST_CODEC
             .compound_format()
-            .get_compound_reader(&mut *dir.lock(), &si)?;
+            .get_compound_reader(&*dir.lock(), &si)?;
         let in_stream = cfs.open_input(sub_file, &new_io_context(random)?)?;
         let desc = in_stream.to_string();
         assert!(
@@ -647,10 +625,9 @@ pub trait BaseCompoundFormatTestCase {
         hash_set_file.insert(sub_file.to_string());
         si.set_files(hash_set_file)?;
 
-        let result =
-            LATEST_CODEC
-                .compound_format()
-                .write(&mut *dir.lock(), &si, &IO_CONTEXT_DEFAULT);
+        let result = LATEST_CODEC
+            .compound_format()
+            .write(&*dir.lock(), &si, &IO_CONTEXT_DEFAULT);
         assert!(matches!(result, Err(LuceneError::CorruptIndex(_))));
         match result {
             Ok(_) => unreachable!(),
@@ -687,10 +664,9 @@ pub trait BaseCompoundFormatTestCase {
         hash_set_file.insert(sub_file.to_string());
         si.set_files(hash_set_file)?;
 
-        let result =
-            LATEST_CODEC
-                .compound_format()
-                .write(&mut *dir.lock(), &si, &IO_CONTEXT_DEFAULT);
+        let result = LATEST_CODEC
+            .compound_format()
+            .write(&*dir.lock(), &si, &IO_CONTEXT_DEFAULT);
 
         assert!(matches!(result, Err(LuceneError::CorruptIndex(_))));
 
@@ -740,7 +716,7 @@ pub(crate) fn new_segment_info<D: Directory, R: Rng + ?Sized>(
 /// Creates a file of the specified size with random data.
 pub(crate) fn create_random_file<R: Rng + ?Sized>(
     random: &mut R,
-    dir: &mut impl Directory,
+    dir: &impl Directory,
     name: &str,
     size: i32,
     seg_id: &[u8; StringHelper::ID_LENGTH],
@@ -761,7 +737,7 @@ pub(crate) fn create_random_file<R: Rng + ?Sized>(
 /// start + offset where offset is the number of the byte.
 fn create_sequence_file<R: Rng + ?Sized>(
     random: &mut R,
-    dir: &mut impl Directory,
+    dir: &impl Directory,
     name: &str,
     mut start: u8,
     size: i32,
@@ -877,7 +853,7 @@ where
         let file_name = format!("_123.f{}", i);
         create_sequence_file(
             random,
-            &mut *dir.lock(),
+            &*dir.lock(),
             &file_name,
             0,
             2000,
@@ -889,9 +865,9 @@ where
     si.set_files(files)?;
     LATEST_CODEC
         .compound_format()
-        .write(&mut *dir.lock(), &si, &IO_CONTEXT_DEFAULT)?;
+        .write(&*dir.lock(), &si, &IO_CONTEXT_DEFAULT)?;
     let cfs = LATEST_CODEC
         .compound_format()
-        .get_compound_reader(&mut *dir.lock(), &si)?;
+        .get_compound_reader(&*dir.lock(), &si)?;
     Ok(cfs)
 }

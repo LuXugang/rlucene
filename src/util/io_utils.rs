@@ -34,7 +34,7 @@ impl IOUtils {
             }
         }
     }
-    pub fn delete_files(dir: &mut impl Directory, names: &[&str]) -> Result<()> {
+    pub fn delete_files(dir: &impl Directory, names: &[&str]) -> Result<()> {
         for name in names {
             dir.delete_file(name)?;
         }

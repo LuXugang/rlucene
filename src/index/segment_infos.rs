@@ -895,7 +895,7 @@ where
     }
 
     /// Rollback a pending commit.
-    pub fn rollback_commit(&mut self, directory: &mut impl Directory) {
+    pub fn rollback_commit(&mut self, directory: &impl Directory) {
         if self.pending_commit {
             self.pending_commit = false;
 

@@ -237,7 +237,7 @@ where
             writer.finish(max_doc, state.directory)?;
             let name_map: Vec<String> = tmp_dir.get_temporary_files().into_values().collect();
             let names: Vec<&str> = name_map.iter().map(String::as_str).collect();
-            IOUtils::delete_files(&mut *tmp_dir, names.as_slice())?;
+            IOUtils::delete_files(&*tmp_dir, names.as_slice())?;
         }
         Ok(())
     }
@@ -272,7 +272,7 @@ where
         let mut tmp_dir = self.tmp_directory.lock();
         let name_map: Vec<String> = tmp_dir.get_temporary_files().into_values().collect();
         let names: Vec<&str> = name_map.iter().map(String::as_str).collect();
-        IOUtils::delete_files(&mut *tmp_dir, names.as_slice())?;
+        IOUtils::delete_files(&*tmp_dir, names.as_slice())?;
         Ok(())
     }
 }

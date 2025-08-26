@@ -116,7 +116,7 @@ impl BKDRadixSelector {
         partition_point: i64,
         dim: i32,
         dim_common_prefix: i32,
-        temp_dir: &mut D,
+        temp_dir: &D,
     ) -> Result<Vec<u8>> {
         Self::check_args(from, to, partition_point)?;
         debug_assert!(partition_slices.len() <= 1,);
@@ -204,7 +204,7 @@ impl BKDRadixSelector {
         to: i64,
         dim: i32,
         dim_common_prefix: i32,
-        temp_dir: &mut D,
+        temp_dir: &D,
     ) -> Result<i32> {
         let mut common_prefix_position = self.bytes_sorted;
         let offset = dim * self.config.bytes_per_dim;
@@ -344,7 +344,7 @@ impl BKDRadixSelector {
         iteration: i32,
         base_common_prefix: i32,
         dim: i32,
-        temp_dir: &mut D,
+        temp_dir: &D,
     ) -> Result<Vec<u8>> {
         // Find common prefix from baseCommonPrefix and build histogram
         let common_prefix = self.find_common_prefix_and_histogram(
@@ -474,7 +474,7 @@ impl BKDRadixSelector {
         dim: i32,
         byte_position: i32,
         num_docs_tiebreak: i64,
-        temp_dir: &mut D,
+        temp_dir: &D,
     ) -> Result<()> {
         debug_assert!(byte_position == self.bytes_sorted - 1 || delta_points.is_some());
         let offset = dim * self.config.bytes_per_dim;
@@ -653,7 +653,7 @@ impl BKDRadixSelector {
         right: &mut PointWriterEnum<D::IndexOutput>,
         delta: i64,
         iteration: i32,
-        temp_dir: &mut D,
+        temp_dir: &D,
     ) -> Result<PointWriterEnum<D::IndexOutput>> {
         if delta >= i32::MAX as i64 {
             return Err(LuceneError::number_overflow(
@@ -697,7 +697,7 @@ impl BKDRadixSelector {
         &self,
         count: i64,
         desc: &str,
-        temp_dir: &mut D,
+        temp_dir: &D,
     ) -> Result<PointWriterEnum<D::IndexOutput>> {
         // As we recurse, we hold two on-heap point writers at any point.
         // Therefore the max size for these objects is half of the total
@@ -1390,7 +1390,7 @@ mod tests {
         fn verify<D: Directory, R: Rng + ?Sized>(
             random: &mut R,
             config: Rc<BKDConfig>,
-            dir: &mut D,
+            dir: &D,
             points: &mut PointWriterEnum<D::IndexOutput>,
             start: i64,
             end: i64,
@@ -1504,7 +1504,7 @@ mod tests {
         fn copy_points<D: Directory, R: Rng + ?Sized>(
             random: &mut R,
             config: Rc<BKDConfig>,
-            dir: &mut D,
+            dir: &D,
             points: &mut PointWriterEnum<D::IndexOutput>,
         ) -> Result<PointWriterEnum<D::IndexOutput>> {
             let mut copy = get_random_point_writer(random, config, dir, points.count())?;
@@ -1525,7 +1525,7 @@ mod tests {
             input_slice: &PathSlice<D::IndexOutput>,
             split_dim: i32,
             random: &mut R,
-            dir: &mut D,
+            dir: &D,
         ) -> Result<i32> {
             let points_max = get_max(config.clone(), input_slice, split_dim, dir)?;
             let points_min = get_min(config.clone(), input_slice, split_dim, dir)?;
@@ -1549,7 +1549,7 @@ mod tests {
         fn get_random_point_writer<D: Directory, R: Rng + ?Sized>(
             random: &mut R,
             config: Rc<BKDConfig>,
-            dir: &mut D,
+            dir: &D,
             num_points: i64,
         ) -> Result<PointWriterEnum<D::IndexOutput>> {
             assert!(num_points <= i32::MAX as i64);
@@ -1573,7 +1573,7 @@ mod tests {
             config: Rc<BKDConfig>,
             path_slice: &PathSlice<D::IndexOutput>,
             dimension: i32,
-            dir: &mut D,
+            dir: &D,
         ) -> Result<Vec<u8>> {
             let size = config.bytes_per_dim as usize;
             let mut min = vec![0xffu8; size];
@@ -1606,7 +1606,7 @@ mod tests {
             dimension: i32,
             partition_point: &[u8],
             data_dim: &[u8],
-            dir: &mut D,
+            dir: &D,
         ) -> Result<i32> {
             let mut doc_id = i32::MAX;
             let mut reader = p.writer.borrow_mut().get_reader(p.start, p.count, dir)?;
@@ -1646,7 +1646,7 @@ mod tests {
             p: &PathSlice<D::IndexOutput>,
             min_dim: &[u8],
             split_dim: i32,
-            dir: &mut D,
+            dir: &D,
         ) -> Result<Vec<u8>> {
             let num_data_dims = config.num_dims - config.num_index_dims;
             let size = (num_data_dims * config.bytes_per_dim) as usize;
@@ -1680,7 +1680,7 @@ mod tests {
             config: Rc<BKDConfig>,
             p: &PathSlice<D::IndexOutput>,
             dimension: i32,
-            dir: &mut D,
+            dir: &D,
         ) -> Result<Vec<u8>> {
             let size = config.bytes_per_dim as usize;
             let mut max = vec![0u8; size];
@@ -1705,7 +1705,7 @@ mod tests {
             p: &PathSlice<D::IndexOutput>,
             max_dim: &[u8],
             split_dim: i32,
-            dir: &mut D,
+            dir: &D,
         ) -> Result<Vec<u8>> {
             let num_data_dims = config.num_dims - config.num_index_dims;
             let size = (num_data_dims * config.bytes_per_dim) as usize;
@@ -1741,7 +1741,7 @@ mod tests {
             dimension: i32,
             partition_point: &[u8],
             data_dim: &[u8],
-            dir: &mut D,
+            dir: &D,
         ) -> Result<i32> {
             let mut doc_id = i32::MIN;
             let mut reader = p.writer.borrow_mut().get_reader(p.start, p.count, dir)?;

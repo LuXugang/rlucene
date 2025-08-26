@@ -28,7 +28,7 @@ pub trait TermVectorsFormat {
     /// Returns a [`TermVectorsReader`](crate::codecs::term_vectors_reader::TermVectorsReader) to read term vectors.
     fn vectors_reader<D1, D2>(
         &self,
-        directory: &mut D1,
+        directory: &D1,
         segment_info: &SegmentInfo<D2>,
         field_infos: Rc<FieldInfos>,
         context: &IOContext,

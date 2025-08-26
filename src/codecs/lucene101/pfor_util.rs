@@ -173,8 +173,8 @@ mod tests {
         let values = create_test_data(iterations, 31, &mut random);
 
         // TODO: ByteBuffersDirectory not Implemented
-        let mut dir = new_directory(&mut random)?;
-        let end_pointer = encode_test_data(iterations, &values, &mut dir)?;
+        let dir = new_directory(&mut random)?;
+        let end_pointer = encode_test_data(iterations, &values, &dir)?;
 
         let input = Rc::new(RefCell::new(
             dir.open_input("test.bin", &IOContext::read_once_io_context()?)?,
@@ -231,11 +231,7 @@ mod tests {
         }
         values
     }
-    fn encode_test_data(
-        iterations: usize,
-        values: &[i32],
-        dir: &mut impl Directory,
-    ) -> Result<i64> {
+    fn encode_test_data(iterations: usize, values: &[i32], dir: &impl Directory) -> Result<i64> {
         let mut out = dir.create_output("test.bin", &IOContext::default_io_context()?)?;
         let mut pfor_util = PForUtil::new();
 

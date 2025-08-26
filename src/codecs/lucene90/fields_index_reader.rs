@@ -55,7 +55,7 @@ where
 {
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn new<D>(
-        dir: &mut D,
+        dir: &D,
         name: String,
         suffix: &str,
         extension: &str,

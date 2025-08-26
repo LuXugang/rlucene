@@ -1108,8 +1108,8 @@ mod tests {
         let mut random = random();
         let max_doc = TestUtil::next_int(&mut random, 1, 100_000);
         let set = SparseFixedBitSet::new(max_doc)?;
-        let mut dir = new_directory(&mut random)?;
-        let _ = do_test(set, &mut dir, &mut random);
+        let dir = new_directory(&mut random)?;
+        let _ = do_test(set, &dir, &mut random);
         Ok(())
     }
 
@@ -1134,13 +1134,13 @@ mod tests {
             }
         }
         {
-            let mut dir = new_directory(&mut random)?;
-            set = do_test_all_single_jump(&mut random, set, &mut dir)?;
+            let dir = new_directory(&mut random)?;
+            set = do_test_all_single_jump(&mut random, set, &dir)?;
         }
         set.set(0);
         {
-            let mut dir = new_directory(&mut random)?;
-            let _ = do_test_all_single_jump(&mut random, set, &mut dir)?;
+            let dir = new_directory(&mut random)?;
+            let _ = do_test_all_single_jump(&mut random, set, &dir)?;
         }
         Ok(())
     }
@@ -1148,18 +1148,18 @@ mod tests {
     #[test]
     fn test_last_empty_blocks() -> Result<()> {
         let mut random = random();
-        let mut dir = new_directory(&mut random)?;
+        let dir = new_directory(&mut random)?;
         const B: i32 = 65536;
         let max_doc = B * 3;
         let mut set = SparseFixedBitSet::new(max_doc)?;
         for i in 0..(B * 2) {
             set.set(i);
         }
-        set = do_test_all_single_jump(&mut random, set, &mut dir)?;
-        assert_advance_beyond_end(set, &mut dir)
+        set = do_test_all_single_jump(&mut random, set, &dir)?;
+        assert_advance_beyond_end(set, &dir)
     }
 
-    fn assert_advance_beyond_end<B: BitSet>(set: B, dir: &mut impl Directory) -> Result<()> {
+    fn assert_advance_beyond_end<B: BitSet>(set: B, dir: &impl Directory) -> Result<()> {
         let set = Rc::new(set);
         let cardinality = set.cardinality();
         let dense_rank_power = 9;
@@ -1206,16 +1206,16 @@ mod tests {
     #[ignore]
     fn test_random_blocks() -> Result<()> {
         let mut random = random();
-        let mut dir = new_directory(&mut random)?;
+        let dir = new_directory(&mut random)?;
         let set = create_set_with_random_blocks(&mut random, 5)?;
-        let _ = do_test_all_single_jump(&mut random, set, &mut dir)?;
+        let _ = do_test_all_single_jump(&mut random, set, &dir)?;
         Ok(())
     }
 
     #[test]
     fn test_position_not_zero() -> Result<()> {
         let mut random = random();
-        let mut dir = new_directory(&mut random)?;
+        let dir = new_directory(&mut random)?;
         const BLOCKS: i32 = 10;
         let dense_rank_power = if rarely(&mut random) {
             -1
@@ -1308,7 +1308,7 @@ mod tests {
     fn do_test_all_single_jump<R: Rng + ?Sized, B: BitSet>(
         random: &mut R,
         set: B,
-        dir: &mut impl Directory,
+        dir: &impl Directory,
     ) -> Result<B> {
         let set = Rc::new(set);
         let cardinality = set.cardinality();
@@ -1369,8 +1369,8 @@ mod tests {
         let max_doc = TestUtil::next_int(&mut random, 1, 100_000);
         let mut set = SparseFixedBitSet::new(max_doc)?;
         set.set(random.random_range(0..max_doc));
-        let mut dir = new_directory(&mut random)?;
-        let _ = do_test(set, &mut dir, &mut random)?;
+        let dir = new_directory(&mut random)?;
+        let _ = do_test(set, &dir, &mut random)?;
         Ok(())
     }
 
@@ -1381,8 +1381,8 @@ mod tests {
         let mut set = SparseFixedBitSet::new(max_doc)?;
         set.set(random.random_range(0..max_doc));
         set.set(random.random_range(0..max_doc));
-        let mut dir = new_directory(&mut random)?;
-        let _ = do_test(set, &mut dir, &mut random)?;
+        let dir = new_directory(&mut random)?;
+        let _ = do_test(set, &dir, &mut random)?;
         Ok(())
     }
 
@@ -1392,8 +1392,8 @@ mod tests {
         let max_doc = TestUtil::next_int(&mut random, 1, 100_000);
         let mut set = FixedBitSet::new(max_doc);
         set.set_with_range(1, max_doc);
-        let mut dir = new_directory(&mut random)?;
-        let _ = do_test(set, &mut dir, &mut random)?;
+        let dir = new_directory(&mut random)?;
+        let _ = do_test(set, &dir, &mut random)?;
         Ok(())
     }
 
@@ -1407,15 +1407,15 @@ mod tests {
             set.set(i);
             i += TestUtil::next_int(&mut random, 1, 3);
         }
-        let mut dir = new_directory(&mut random)?;
-        let _ = do_test(set, &mut dir, &mut random)?;
+        let dir = new_directory(&mut random)?;
+        let _ = do_test(set, &dir, &mut random)?;
         Ok(())
     }
 
     #[test]
     fn test_doc_range() -> Result<()> {
         let mut random = random();
-        let mut dir = new_directory(&mut random)?;
+        let dir = new_directory(&mut random)?;
 
         for _ in 0..10 {
             let max_doc = TestUtil::next_int(&mut random, 1, 1_000_000);
@@ -1423,7 +1423,7 @@ mod tests {
             let start = random.random_range(0..max_doc);
             let end = TestUtil::next_int(&mut random, start + 1, max_doc);
             set.set_with_range(start, end);
-            let _ = do_test(set, &mut dir, &mut random)?;
+            let _ = do_test(set, &dir, &mut random)?;
         }
 
         Ok(())
@@ -1432,7 +1432,7 @@ mod tests {
     #[test]
     fn test_sparse_dense_boundary() -> Result<()> {
         let mut random = random();
-        let mut dir = new_directory(&mut random)?;
+        let dir = new_directory(&mut random)?;
         let mut set = FixedBitSet::new(200_000);
         let start = 65536 + random.random_range(0..100);
         let dense_rank_power = if rarely(&mut random) {
@@ -1473,7 +1473,7 @@ mod tests {
             assert_eq!(Method::Sparse, disi.method);
         }
 
-        set = do_test(set, &mut dir, &mut random)?;
+        set = do_test(set, &dir, &mut random)?;
 
         set.set(start + indexed_disi_util::MAX_ARRAY_LENGTH + random.random_range(0..100));
         let set = Rc::new(set);
@@ -1509,7 +1509,7 @@ mod tests {
             assert_eq!(Method::Dense, disi.method);
         }
 
-        let _ = do_test(set, &mut dir, &mut random)?;
+        let _ = do_test(set, &dir, &mut random)?;
         Ok(())
     }
 
@@ -1520,15 +1520,15 @@ mod tests {
         let mut set = FixedBitSet::new(max_doc);
         set.set_with_range(0, max_doc);
         set.clear_with_index(random.random_range(0..max_doc));
-        let mut dir = new_directory(&mut random)?;
-        let _ = do_test(set, &mut dir, &mut random)?;
+        let dir = new_directory(&mut random)?;
+        let _ = do_test(set, &dir, &mut random)?;
         Ok(())
     }
 
     #[test]
     fn test_few_missing_docs() -> Result<()> {
         let mut random = random();
-        let mut dir = new_directory(&mut random)?;
+        let dir = new_directory(&mut random)?;
         let num_iters = at_least(&mut random, 10);
 
         for _ in 0..num_iters {
@@ -1539,7 +1539,7 @@ mod tests {
             for _ in 0..num_missing {
                 set.clear_with_index(random.random_range(0..max_doc));
             }
-            let _ = do_test(set, &mut dir, &mut random)?;
+            let _ = do_test(set, &dir, &mut random)?;
         }
 
         Ok(())
@@ -1548,13 +1548,13 @@ mod tests {
     #[test]
     fn test_dense_multi_block() -> Result<()> {
         let mut random = random();
-        let mut dir = new_directory(&mut random)?;
+        let dir = new_directory(&mut random)?;
         let max_doc = 10 * 65536;
         let mut set = FixedBitSet::new(max_doc);
         for i in (0..max_doc).step_by(2) {
             set.set(i);
         }
-        let _ = do_test(set, &mut dir, &mut random)?;
+        let _ = do_test(set, &dir, &mut random)?;
         Ok(())
     }
 
@@ -1583,7 +1583,7 @@ mod tests {
         let mut set = FixedBitSet::new(10);
         set.set(9);
         let mut random = random();
-        let mut dir = new_directory(&mut random)?;
+        let dir = new_directory(&mut random)?;
         let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
         let set = Rc::new(set);
         let jump_count = indexed_disi_util::write_bitset_with_dense_rank_power(
@@ -1621,7 +1621,7 @@ mod tests {
         set.clear_with_index(1345);
         let cardinality = set.cardinality() as i64;
 
-        let mut dir = new_directory(&mut random)?;
+        let dir = new_directory(&mut random)?;
         let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
         let set = Rc::new(set);
         let jump_table_entry_count = indexed_disi_util::write_bitset_with_dense_rank_power(
@@ -1648,17 +1648,17 @@ mod tests {
     #[test]
     fn test_random() -> Result<()> {
         let mut random = random();
-        let mut dir = new_directory(&mut random)?;
+        let dir = new_directory(&mut random)?;
         let num_iters = at_least(&mut random, 3);
 
         for _ in 0..num_iters {
-            do_test_random(&mut dir, &mut random)?;
+            do_test_random(&dir, &mut random)?;
         }
 
         Ok(())
     }
 
-    fn do_test_random<R: Rng + ?Sized>(dir: &mut impl Directory, random: &mut R) -> Result<()> {
+    fn do_test_random<R: Rng + ?Sized>(dir: &impl Directory, random: &mut R) -> Result<()> {
         let end = TestUtil::next_int(random, 2, 20);
         let max_step = TestUtil::next_int(random, 1, 1 << end);
         let num_docs =
@@ -1685,7 +1685,7 @@ mod tests {
 
     fn do_test<R: Rng + ?Sized, B: BitSet>(
         set: B,
-        dir: &mut impl Directory,
+        dir: &impl Directory,
         random: &mut R,
     ) -> Result<B> {
         let cardinality = set.cardinality() as i64;

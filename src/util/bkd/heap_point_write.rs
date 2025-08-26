@@ -372,7 +372,7 @@ impl PointWriter for HeapPointWriter {
         &mut self,
         start: i64,
         length: i64,
-        _temp_dir: &mut D,
+        _temp_dir: &D,
     ) -> Result<Self::PointReader<D::IndexInput>>
     where
         D: Directory,
@@ -414,7 +414,7 @@ impl PointWriter for HeapPointWriter {
         self.next_write as i64
     }
 
-    fn destroy<D>(&mut self, _dir: &mut D) -> Result<()>
+    fn destroy<D>(&mut self, _dir: &D) -> Result<()>
     where
         D: Directory,
     {

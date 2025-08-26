@@ -179,7 +179,7 @@ where
     const HOUR_ENCODING: u8 = 0x80;
     const DAY_ENCODING: u8 = 0xC0;
     pub fn new<D1, D2>(
-        dir: &mut D1,
+        dir: &D1,
         si: &SegmentInfo<D2>,
         segment_suffix: &str,
         field_infos: Rc<FieldInfos>,

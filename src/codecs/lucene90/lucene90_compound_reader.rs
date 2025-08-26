@@ -53,7 +53,7 @@ impl<D> Lucene90CompoundReader<D>
 where
     D: Directory,
 {
-    pub fn new(directory: &mut D, si: &SegmentInfo<D>) -> Result<Self> {
+    pub fn new(directory: &D, si: &SegmentInfo<D>) -> Result<Self> {
         let segment_name = si.name.clone();
         let data_file_name = IndexFileNames::segment_file_name(
             &segment_name,
@@ -116,7 +116,7 @@ where
     /// Helper method that reads CFS entries from an input stream.
     fn read_entries(
         segment_id: &[u8; StringHelper::ID_LENGTH],
-        directory: &mut D,
+        directory: &D,
         entries_file_name: &str,
     ) -> Result<(i32, HashMap<String, FileEntry>)> {
         let mut entries_stream = directory.open_checksum_input(entries_file_name)?;

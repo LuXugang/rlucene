@@ -129,7 +129,7 @@ impl Lucene90TermVectorsFormat {
 impl TermVectorsFormat for Lucene90TermVectorsFormat {
     fn vectors_reader<D1, D2>(
         &self,
-        directory: &mut D1,
+        directory: &D1,
         segment_info: &SegmentInfo<D2>,
         field_infos: Rc<FieldInfos>,
         context: &IOContext,

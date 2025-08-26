@@ -60,7 +60,7 @@ fn test_validation() {
 #[test]
 pub fn test_empty() -> Result<()> {
     let mut random = random();
-    let mut dir = new_directory(&mut random)?;
+    let dir = new_directory(&mut random)?;
     let block_shift = TestUtil::next_int(
         &mut random,
         direct_monotonic_writer_util::MIN_BLOCK_SHIFT,
@@ -89,7 +89,7 @@ pub fn test_empty() -> Result<()> {
 #[test]
 pub fn test_simple() -> Result<()> {
     let mut random = random();
-    let mut dir = new_directory(&mut random)?;
+    let dir = new_directory(&mut random)?;
     let block_shift = 2;
 
     let actual_values = vec![1, 2, 5, 7, 8, 100];
@@ -129,7 +129,7 @@ pub fn test_simple() -> Result<()> {
 #[test]
 pub fn test_constant_slope() -> Result<()> {
     let mut random = random();
-    let mut dir = new_directory(&mut random)?;
+    let dir = new_directory(&mut random)?;
     let block_shift = TestUtil::next_int(
         &mut random,
         direct_monotonic_writer_util::MIN_BLOCK_SHIFT,
@@ -178,7 +178,7 @@ pub fn test_constant_slope() -> Result<()> {
 #[test]
 pub fn test_zero_values_small_blob_shift() -> Result<()> {
     let mut random = random();
-    let mut dir = new_directory(&mut random)?;
+    let dir = new_directory(&mut random)?;
     let num_values = TestUtil::next_int(&mut random, 8, 1 << 20);
     let block_shift = TestUtil::next_int(
         &mut random,
@@ -234,7 +234,7 @@ pub fn test_random_merging() -> Result<()> {
 fn do_test_random<R: Rng + ?Sized>(random: &mut R, merging: bool) -> Result<()> {
     let iters = at_least(random, 3);
     for _ in 0..iters {
-        let mut dir = new_directory(random)?;
+        let dir = new_directory(random)?;
         let block_shift = TestUtil::next_int(
             random,
             direct_monotonic_writer_util::MIN_BLOCK_SHIFT,
@@ -298,10 +298,10 @@ fn do_test_random<R: Rng + ?Sized>(random: &mut R, merging: bool) -> Result<()> 
 #[test]
 pub fn test_monotonic_binary_search() -> Result<()> {
     let mut random = random();
-    let mut dir = new_directory(&mut random)?;
+    let dir = new_directory(&mut random)?;
     do_test_monotonic_binary_search_against_long_array(
         &mut random,
-        &mut dir,
+        &dir,
         &[4, 7, 8, 10, 19, 30, 55, 78, 100],
         2,
     )
@@ -310,7 +310,7 @@ pub fn test_monotonic_binary_search() -> Result<()> {
 #[test]
 pub fn test_monotonic_binary_search_random() -> Result<()> {
     let mut random = random();
-    let mut dir = new_directory(&mut random)?;
+    let dir = new_directory(&mut random)?;
     let iters = at_least(&mut random, 100);
     for _ in 0..iters {
         let upper = 1 << random.random_range(0..14);
@@ -323,19 +323,14 @@ pub fn test_monotonic_binary_search_random() -> Result<()> {
         }
         array.sort();
         let block_shift = TestUtil::next_int(&mut random, 2, 10);
-        do_test_monotonic_binary_search_against_long_array(
-            &mut random,
-            &mut dir,
-            &array,
-            block_shift,
-        )?;
+        do_test_monotonic_binary_search_against_long_array(&mut random, &dir, &array, block_shift)?;
     }
     Ok(())
 }
 
 fn do_test_monotonic_binary_search_against_long_array<R: Rng + ?Sized>(
     random: &mut R,
-    dir: &mut impl Directory,
+    dir: &impl Directory,
     array: &[i64],
     block_shift: i32,
 ) -> Result<()> {

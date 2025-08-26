@@ -25,11 +25,7 @@ pub trait CompoundFormat {
     type Directory<D>: Directory
     where
         D: Directory;
-    fn get_compound_reader<D>(
-        &self,
-        dir: &mut D,
-        si: &SegmentInfo<D>,
-    ) -> Result<Self::Directory<D>>
+    fn get_compound_reader<D>(&self, dir: &D, si: &SegmentInfo<D>) -> Result<Self::Directory<D>>
     where
         D: Directory;
 
