@@ -107,7 +107,7 @@ impl Lucene90NormsFormat {
 impl NormsFormat for Lucene90NormsFormat {
     fn norms_consumer<D1, D2>(
         &self,
-        state: &mut SegmentWriteState<D1>,
+        state: &SegmentWriteState<D1>,
         segment_info: &SegmentInfo<D2>,
     ) -> Result<NormsConsumerEnum<D1::IndexOutput>>
     where

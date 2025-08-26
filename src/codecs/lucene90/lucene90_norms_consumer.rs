@@ -45,7 +45,7 @@ where
 }
 impl<O: IndexOutput> Lucene90NormsConsumer<O> {
     pub fn new<D1, D2>(
-        state: &mut SegmentWriteState<D1>,
+        state: &SegmentWriteState<D1>,
         data_codec: &str,
         data_extension: &str,
         meta_codec: &str,

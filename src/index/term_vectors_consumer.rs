@@ -204,7 +204,7 @@ where
     }
     pub(crate) fn flush<DM, D1>(
         &mut self,
-        state: &mut SegmentWriteState<D>,
+        state: &SegmentWriteState<D>,
         sort_map: &Option<Rc<DM>>,
         codec: &impl Codec,
         info: &SegmentInfo<D1>,
@@ -295,7 +295,7 @@ pub(crate) trait TermVectorsConsumerBase {
     type Directory: Directory;
     fn flush<DM, D1>(
         &mut self,
-        state: &mut SegmentWriteState<Self::Directory>,
+        state: &SegmentWriteState<Self::Directory>,
         sort_map: &Option<Rc<DM>>,
         codec: &impl Codec,
         info: &SegmentInfo<D1>,

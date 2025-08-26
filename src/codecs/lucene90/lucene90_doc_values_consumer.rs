@@ -74,7 +74,7 @@ where
 impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     /// expert: Creates a new writer
     pub fn new<D1, D2>(
-        state: &mut SegmentWriteState<D1>,
+        state: &SegmentWriteState<D1>,
         skip_index_interval_size: i32,
         data_codec: &str,
         data_extension: &str,

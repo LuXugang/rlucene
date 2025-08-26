@@ -31,7 +31,7 @@ pub trait DocValuesFormat: Display {
     /// Returns a [`DocValuesConsumer`] to write docvalues to the index.
     fn fields_consumer<D1, D2>(
         &self,
-        state: &mut SegmentWriteState<D1>,
+        state: &SegmentWriteState<D1>,
         segment_info: &SegmentInfo<D2>,
     ) -> Result<Self::DocValuesConsumer<D1::IndexOutput>>
     where

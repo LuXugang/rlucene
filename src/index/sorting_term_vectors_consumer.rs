@@ -198,7 +198,7 @@ where
 
     fn flush<DM, D1>(
         &mut self,
-        state: &mut SegmentWriteState<Self::Directory>,
+        state: &SegmentWriteState<Self::Directory>,
         sort_map: &Option<Rc<DM>>,
         codec: &impl Codec,
         segment_info: &SegmentInfo<D1>,

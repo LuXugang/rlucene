@@ -117,7 +117,7 @@ impl<O> Lucene101PostingsWriter<O>
 where
     O: IndexOutput,
 {
-    pub fn new<D>(state: &mut SegmentWriteState<D>, segment_info: &SegmentInfo<D>) -> Result<Self>
+    pub fn new<D>(state: &SegmentWriteState<D>, segment_info: &SegmentInfo<D>) -> Result<Self>
     where
         D: Directory<IndexOutput = O>,
     {

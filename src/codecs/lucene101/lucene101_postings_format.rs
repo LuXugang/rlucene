@@ -328,7 +328,7 @@ impl Lucene101PostingsFormat {
 impl PostingsFormat for Lucene101PostingsFormat {
     fn fields_consumer<D: Directory>(
         &self,
-        state: &mut SegmentWriteState<D>,
+        state: &SegmentWriteState<D>,
         segment_info: &SegmentInfo<D>,
     ) -> Result<FieldsConsumerEnum<D::IndexOutput>> {
         let posting_writer =

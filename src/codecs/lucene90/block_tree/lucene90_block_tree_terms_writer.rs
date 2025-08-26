@@ -227,7 +227,7 @@ where
     /// `min_items_per_block` and `max_items_per_block`, though in some cases the blocks may be smaller than the
     /// min.
     pub fn new<D>(
-        state: &mut SegmentWriteState<D>,
+        state: &SegmentWriteState<D>,
         postings_writer: PW,
         min_items_in_block: i32,
         max_items_in_block: i32,
@@ -247,7 +247,7 @@ where
     }
     /// Expert constructor that allows configuring the version, used for bw tests
     pub fn new_with_version<D>(
-        state: &mut SegmentWriteState<D>,
+        state: &SegmentWriteState<D>,
         mut postings_writer: PW,
         min_items_in_block: i32,
         max_items_in_block: i32,

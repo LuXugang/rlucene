@@ -483,7 +483,7 @@ where
     /// Writes all buffered doc values.
     fn write_doc_values<DM, D1>(
         &mut self,
-        state: &mut SegmentWriteState<D>,
+        state: &SegmentWriteState<D>,
         sort_map: Option<Rc<DM>>,
         segment_info: &SegmentInfo<D1>,
         index_writer_config: &impl LiveIndexWriterConfig,
@@ -544,7 +544,7 @@ where
 
     fn write_norms<DM, D1>(
         &mut self,
-        state: &mut SegmentWriteState<D>,
+        state: &SegmentWriteState<D>,
         sort_map: Option<Rc<DM>>,
         segment_info: &SegmentInfo<D1>,
         index_writer_config: &impl LiveIndexWriterConfig,
