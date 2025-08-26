@@ -693,7 +693,7 @@ mod tests {
         }
 
         // TODO: ByteBuffersDirectory not Implemented
-        let mut d = new_directory(&mut random)?;
+        let d = new_directory(&mut random)?;
         let end_pointer;
 
         // encode

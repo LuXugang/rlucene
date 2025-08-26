@@ -1119,7 +1119,7 @@ mod tests {
         fn test_basic() -> Result<()> {
             let mut random = random();
             let values = 4;
-            let mut dir = new_directory(&mut random)?;
+            let dir = new_directory(&mut random)?;
             let middle = 2;
             let dimensions = 1;
             let bytes_per_dimensions = BitUtil::INT_BYTES;
@@ -1130,7 +1130,7 @@ mod tests {
                 BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE,
             )?);
             let mut points =
-                get_random_point_writer(&mut random, config.clone(), &mut dir, values as i64)?;
+                get_random_point_writer(&mut random, config.clone(), &dir, values as i64)?;
             let mut value = vec![0u8; config.packed_bytes_length() as usize];
 
             NumericUtils::int_to_sortable_bytes(1, &mut value, 0);
@@ -1145,11 +1145,11 @@ mod tests {
             NumericUtils::int_to_sortable_bytes(4, &mut value, 0);
             points.append_bytes(&value, 3)?;
             points.close();
-            let mut copy = copy_points(&mut random, config.clone(), &mut dir, &mut points)?;
+            let mut copy = copy_points(&mut random, config.clone(), &dir, &mut points)?;
             verify(
                 &mut random,
                 config,
-                &mut dir,
+                &dir,
                 &mut copy,
                 0,
                 values as i64,
@@ -1182,7 +1182,7 @@ mod tests {
             let packed_bytes_length = config.packed_bytes_length();
             let config = Rc::new(config);
             let values = TestUtil::next_int(random, count, count * 2);
-            let mut dir = new_directory(random)?;
+            let dir = new_directory(random)?;
             let (start, end) = if random.random_bool(0.5) {
                 (0, values)
             } else {
@@ -1192,8 +1192,7 @@ mod tests {
             };
             let partition_point = TestUtil::next_int(random, start + 1, end - 1);
             let sorted_on_heap = random.random_range(0..5000);
-            let mut points =
-                get_random_point_writer(random, config.clone(), &mut dir, values as i64)?;
+            let mut points = get_random_point_writer(random, config.clone(), &dir, values as i64)?;
             let mut value = vec![0u8; packed_bytes_length as usize];
             for i in 0..values {
                 random.fill(&mut value[..]);
@@ -1203,7 +1202,7 @@ mod tests {
             verify(
                 random,
                 config,
-                &mut dir,
+                &dir,
                 &mut points,
                 start as i64,
                 end as i64,
@@ -1224,11 +1223,11 @@ mod tests {
                 BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE,
             )?);
             let values = TestUtil::next_int(&mut random, 15000, 20000);
-            let mut dir = new_directory(&mut random)?;
+            let dir = new_directory(&mut random)?;
             let partition_point = random.random_range(0..values);
             let sorted_on_heap = random.random_range(0..5000);
             let mut points =
-                get_random_point_writer(&mut random, config.clone(), &mut dir, values as i64)?;
+                get_random_point_writer(&mut random, config.clone(), &dir, values as i64)?;
             let mut value = vec![0u8; config.packed_bytes_length() as usize];
             random.fill(&mut value[..]);
             for i in 0..values {
@@ -1242,7 +1241,7 @@ mod tests {
             verify(
                 &mut random,
                 config.clone(),
-                &mut dir,
+                &dir,
                 &mut points,
                 0,
                 values as i64,
@@ -1256,12 +1255,12 @@ mod tests {
         fn test_random_last_byte_two_values() -> Result<()> {
             let mut random = random();
             let values = random.random_range(1..=15000);
-            let mut dir = new_directory(&mut random)?;
+            let dir = new_directory(&mut random)?;
             let partition_point = random.random_range(0..values);
             let sorted_on_heap = random.random_range(0..5000);
             let config = Rc::new(get_random_config(&mut random)?);
             let mut points =
-                get_random_point_writer(&mut random, config.clone(), &mut dir, values as i64)?;
+                get_random_point_writer(&mut random, config.clone(), &dir, values as i64)?;
             let mut value = vec![0u8; config.packed_bytes_length() as usize];
             random.fill(&mut value[..]);
             for _ in 0..values {
@@ -1275,7 +1274,7 @@ mod tests {
             verify(
                 &mut random,
                 config,
-                &mut dir,
+                &dir,
                 &mut points,
                 0,
                 values as i64,
@@ -1290,12 +1289,12 @@ mod tests {
         fn test_random_all_docs_equals() -> Result<()> {
             let mut random = random();
             let values = random.random_range(1..=15000);
-            let mut dir = new_directory(&mut random)?;
+            let dir = new_directory(&mut random)?;
             let partition_point = random.random_range(0..values);
             let sorted_on_heap = random.random_range(0..5000);
             let config = Rc::new(get_random_config(&mut random)?);
             let mut points =
-                get_random_point_writer(&mut random, config.clone(), &mut dir, values as i64)?;
+                get_random_point_writer(&mut random, config.clone(), &dir, values as i64)?;
             let mut value = vec![0u8; config.packed_bytes_length() as usize];
             random.fill(&mut value[..]);
             for _ in 0..values {
@@ -1305,7 +1304,7 @@ mod tests {
             verify(
                 &mut random,
                 config,
-                &mut dir,
+                &dir,
                 &mut points,
                 0,
                 values as i64,
@@ -1321,11 +1320,11 @@ mod tests {
             let mut random = random();
             let config = Rc::new(get_random_config(&mut random)?);
             let values = at_least(&mut random, 15000);
-            let mut dir = new_directory(&mut random)?;
+            let dir = new_directory(&mut random)?;
             let partition_point = random.random_range(0..values);
             let sorted_on_heap = random.random_range(0..5000);
             let mut points =
-                get_random_point_writer(&mut random, config.clone(), &mut dir, values as i64)?;
+                get_random_point_writer(&mut random, config.clone(), &dir, values as i64)?;
             let number_values = random.random_range(2..=9);
             let mut different_values = Vec::with_capacity(number_values as usize);
             for _ in 0..number_values {
@@ -1341,7 +1340,7 @@ mod tests {
             verify(
                 &mut random,
                 config,
-                &mut dir,
+                &dir,
                 &mut points,
                 0,
                 values as i64,
@@ -1356,11 +1355,11 @@ mod tests {
             let mut random = random();
             let config = Rc::new(get_random_config(&mut random)?);
             let values = at_least(&mut random, 15000);
-            let mut dir = new_directory(&mut random)?;
+            let dir = new_directory(&mut random)?;
             let partition_point = random.random_range(0..values);
             let sorted_on_heap = random.random_range(0..5000);
             let mut points =
-                get_random_point_writer(&mut random, config.clone(), &mut dir, values as i64)?;
+                get_random_point_writer(&mut random, config.clone(), &dir, values as i64)?;
             let mut value = vec![0u8; config.packed_bytes_length() as usize];
             let data_only_dims = config.num_dims - config.num_index_dims;
             let data_value_len = (data_only_dims * config.bytes_per_dim) as usize;
@@ -1376,7 +1375,7 @@ mod tests {
             verify(
                 &mut random,
                 config,
-                &mut dir,
+                &dir,
                 &mut points,
                 0,
                 values as i64,
@@ -1797,7 +1796,7 @@ mod tests {
 
         use crate::store::IndexOutput;
         use crate::store::dummy::dummy_index_output::DummyIndexOutput;
-        use crate::test::util::lucene_test_case::lucene_test_case_util::{new_directory, random};
+        use crate::test::util::lucene_test_case::lucene_test_case_util::random;
         use crate::test::util::test_util::TestUtil;
         use crate::util::bkd::bkd_config::BKDConfig;
         use crate::util::bkd::bkd_radix_selector::BKDRadixSelector;
@@ -1893,7 +1892,6 @@ mod tests {
             let points = Rc::new(RefCell::new(PointWriterEnum::<DummyIndexOutput>::Heap(
                 heap_points,
             )));
-            let dir = new_directory(&mut random)?;
             verify_sort(&mut random, config, points, 0, num_points)?;
             Ok(())
         }

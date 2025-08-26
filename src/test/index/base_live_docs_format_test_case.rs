@@ -121,7 +121,7 @@ pub trait BaseLiveDocsFormatTestCase {
             SegmentCommitInfo::new(si, 0, 0, 0, -1, -1, Option::from(StringHelper::random_id()))?;
         format.write_live_docs(
             &bits,
-            &mut *dir.lock(),
+            &*dir.lock(),
             &sci,
             max_doc - num_live_docs,
             &io_context,
@@ -137,8 +137,8 @@ pub trait BaseLiveDocsFormatTestCase {
             Option::from(StringHelper::random_id()),
         )?;
         let io_context = IOContext::read_once_io_context()?;
-        let mut dir = dir.lock();
-        let bits2 = format.read_live_docs(&mut *dir, &sci, &io_context)?;
+        let dir = dir.lock();
+        let bits2 = format.read_live_docs(&*dir, &sci, &io_context)?;
 
         assert_eq!(max_doc, bits2.length());
         for i in 0..max_doc {

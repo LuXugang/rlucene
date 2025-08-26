@@ -108,7 +108,7 @@ mod tests {
         doc_delta_buffer[0] = delta;
 
         // TODO: ByteBuffersDirectory not Implemented
-        let mut dir = new_directory(random)?;
+        let dir = new_directory(random)?;
         {
             let mut out = dir.create_output("test", &IOContext::default_io_context()?)?;
             PostingsUtil::write_vint_block(

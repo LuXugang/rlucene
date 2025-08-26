@@ -539,7 +539,7 @@ mod tests {
         for imp in impacts {
             acc.add(imp.freq, imp.norm);
         }
-        let mut dir = new_directory(&mut random)?;
+        let dir = new_directory(&mut random)?;
         {
             let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
             lucene101_pw_util::write_impacts(&acc.get_competitive_freq_norm_pairs(), &mut out)?;

@@ -749,7 +749,7 @@ mod tests {
         }
 
         // TODO:: 这里要换成ByteBuffersDirectory
-        let mut dir = new_directory(&mut random)?;
+        let dir = new_directory(&mut random)?;
         let end_pointer;
 
         {

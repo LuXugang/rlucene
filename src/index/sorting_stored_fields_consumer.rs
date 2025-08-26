@@ -87,7 +87,7 @@ where
             10,
         )?;
         self.writer = Some(stored_fields_format.fields_writer(
-            &mut *self.tmp_directory.lock(),
+            &*self.tmp_directory.lock(),
             info,
             &IOContext::default_io_context()?,
         )?);
@@ -108,7 +108,7 @@ where
     {
         let mut tmp_dir = self.tmp_directory.lock();
         let mut reader = self.stored_fields_format.as_ref().unwrap().fields_reader(
-            &mut *tmp_dir,
+            &*tmp_dir,
             info,
             state.field_infos.clone(),
             &IOContext::default_io_context()?,

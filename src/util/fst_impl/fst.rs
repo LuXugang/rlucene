@@ -2140,7 +2140,7 @@ mod tests {
         let fst = FST::new(metadata, fst_compiler.get_fst_reader()?);
 
         let mut random = random();
-        let mut dir = new_directory(&mut random)?;
+        let dir = new_directory(&mut random)?;
         {
             let mut out = dir.create_output("fst", &IOContext::default_io_context()?)?;
             fst.save_with_same_data_out(&mut out)?;

@@ -491,7 +491,7 @@ mod tests {
 
         for _ in 0..num_iters {
             // TODO: BaseDirectoryWrapper not implement
-            let mut dir = new_directory(&mut random)?;
+            let dir = new_directory(&mut random)?;
             let block_bits = TestUtil::next_int(&mut random, 1, 20);
             let block_size = 1 << block_bits;
             let mut paged_bytes = PagedBytes::new(block_bits as usize);
@@ -655,7 +655,7 @@ mod tests {
     fn test_overflow() -> Result<()> {
         let mut random = random();
         // TODO: BaseDirectoryWrapper not implement
-        let mut dir = new_directory(&mut random)?;
+        let dir = new_directory(&mut random)?;
         let block_bits = TestUtil::next_int(&mut random, 14, 28);
         let block_size = 1 << block_bits;
 

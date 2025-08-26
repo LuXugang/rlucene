@@ -210,7 +210,7 @@ where
         {
             let mut tmp_dir = self.tmp_directory.lock();
             let mut reader = self.stored_fields_format.as_mut().unwrap().vectors_reader(
-                &mut *tmp_dir,
+                &*tmp_dir,
                 segment_info,
                 state.field_infos.clone(),
                 &IOContext::default_io_context()?,
@@ -261,7 +261,7 @@ where
             10,
         )?;
         self.writer = Option::from(term_vectors_format.vectors_writer(
-            &mut *self.tmp_directory.lock(),
+            &*self.tmp_directory.lock(),
             info,
             &context,
         )?);

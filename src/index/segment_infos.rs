@@ -1464,7 +1464,7 @@ mod tests {
         let mut random = random();
         let directory = Arc::new(Mutex::new(new_directory(&mut random)?));
         let mut sis = SegmentInfos::new(LATEST.major)?;
-        sis.commit(&mut *directory.lock())?;
+        sis.commit(&*directory.lock())?;
         let result = SegmentInfos::read_latest_commit(directory.clone())?.into_segment_infos();
         assert!(result.is_some());
         sis = result.unwrap();
@@ -1499,13 +1499,13 @@ mod tests {
         info.set_files(HashSet::new())?;
         codec
             .segment_info_format()
-            .write(&mut *directory.lock(), &mut info, &io_context)?;
+            .write(&*directory.lock(), &mut info, &io_context)?;
 
         let commit_info =
             SegmentCommitInfo::new(info, 0, 0, -1, -1, -1, Some(StringHelper::random_id()))?;
 
         sis.add(commit_info)?;
-        sis.commit(&mut *directory.lock())?;
+        sis.commit(&*directory.lock())?;
 
         let result = SegmentInfos::read_latest_commit(directory.clone())?.into_segment_infos();
         assert!(result.is_some());
@@ -1545,7 +1545,7 @@ mod tests {
         info_0.set_files(HashSet::new())?;
         codec
             .segment_info_format()
-            .write(&mut *directory.lock(), &mut info_0, &io_context)?;
+            .write(&*directory.lock(), &mut info_0, &io_context)?;
 
         let commit_info_0 =
             SegmentCommitInfo::new(info_0, 0, 0, -1, -1, -1, Some(StringHelper::random_id()))?;
@@ -1568,12 +1568,12 @@ mod tests {
         info_1.set_files(HashSet::new())?;
         codec
             .segment_info_format()
-            .write(&mut *directory.lock(), &mut info_1, &io_context)?;
+            .write(&*directory.lock(), &mut info_1, &io_context)?;
 
         let commit_info_1 =
             SegmentCommitInfo::new(info_1, 0, 0, -1, -1, -1, Some(StringHelper::random_id()))?;
         sis.add(commit_info_1)?;
-        sis.commit(&mut *directory.lock())?;
+        sis.commit(&*directory.lock())?;
 
         let commit_info_id_0 = sis.info(0).unwrap().get_id().unwrap().clone();
         let commit_info_id_1 = sis.info(1).unwrap().get_id().unwrap().clone();
@@ -1804,7 +1804,7 @@ mod tests {
         info_0.set_files(HashSet::new())?;
         codec
             .segment_info_format()
-            .write(&mut *dir.lock(), &mut info_0, &io_context)?;
+            .write(&*dir.lock(), &mut info_0, &io_context)?;
         let commit_info_0 =
             SegmentCommitInfo::new(info_0, 0, 0, -1, -1, -1, Some(StringHelper::random_id()))?;
         sis.add(commit_info_0)?;
@@ -1826,20 +1826,20 @@ mod tests {
         info_1.set_files(HashSet::new())?;
         codec
             .segment_info_format()
-            .write(&mut *dir.lock(), &mut info_1, &io_context)?;
+            .write(&*dir.lock(), &mut info_1, &io_context)?;
         let commit_info_1 =
             SegmentCommitInfo::new(info_1, 0, 0, -1, -1, -1, Some(StringHelper::random_id()))?;
         sis.add(commit_info_1)?;
 
-        sis.commit(&mut *dir.lock())?;
+        sis.commit(&*dir.lock())?;
 
         // Create a corrupt directory
         let corrupt_dir = Arc::new(Mutex::new(new_directory(&mut random)?));
         let mut corrupt = false;
         let io_context = IOContext::read_once_io_context()?;
         {
-            let mut corrupt_directory = corrupt_dir.lock();
-            let directory = &mut *dir.lock();
+            let corrupt_directory = corrupt_dir.lock();
+            let directory = &*dir.lock();
             for file in directory.list_all()? {
                 if file.starts_with(IndexFileNames::SEGMENTS) {
                     {

@@ -163,11 +163,11 @@ where
         if !info.has_field_updates() {
             // updates always outside of CFS
             if seg_info.get_use_compound_file() {
-                let mut cfs = codec
+                let cfs = codec
                     .compound_format()
                     .get_compound_reader(&mut *seg_info.dir.lock(), seg_info)?;
                 codec.field_infos_format().read(
-                    &mut cfs,
+                    &cfs,
                     seg_info,
                     "",
                     &IOContext::read_once_io_context()?,

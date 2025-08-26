@@ -495,7 +495,7 @@ where
 
         let result = (|| -> Result<Option<FlushedSegment<D, Q>>> {
             let (mut fs, sort_map, t0) = {
-                let dir = &mut *self.directory.lock();
+                let dir = &*self.directory.lock();
                 let io_context = IOContext::with_flush(FlushInfo::new(
                     self.num_docs_in_ram,
                     self.last_committed_bytes_used.load(Ordering::SeqCst),
@@ -798,7 +798,7 @@ where
             // and 2) .si reflects useCompoundFile=true change
             // above:
             LATEST_CODEC.segment_info_format().write(
-                &mut *self.directory.lock(),
+                &*self.directory.lock(),
                 &mut new_segment.info,
                 &context,
             )?;
@@ -835,7 +835,7 @@ where
                     Some(map) => {
                         LATEST_CODEC.live_docs_format().write_live_docs(
                             &Self::sort_live_docs(live_docs, &*map),
-                            &mut *self.directory.lock(),
+                            &*self.directory.lock(),
                             new_segment,
                             del_count,
                             &context,
@@ -844,7 +844,7 @@ where
                     None => {
                         LATEST_CODEC.live_docs_format().write_live_docs(
                             live_docs,
-                            &mut *self.directory.lock(),
+                            &*self.directory.lock(),
                             new_segment,
                             del_count,
                             &context,

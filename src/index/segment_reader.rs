@@ -132,7 +132,7 @@ where
         let segment_suffix = num_bigint::BigInt::from(si.get_field_infos_gen()).to_str_radix(36);
 
         let infos = fis_format.read(
-            &mut *si.info.dir.lock(),
+            &*si.info.dir.lock(),
             &si.info,
             &segment_suffix,
             &IOContext::read_once_io_context()?,

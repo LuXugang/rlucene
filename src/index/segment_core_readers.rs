@@ -77,31 +77,30 @@ where
         let use_compound_file = si.info.get_use_compound_file();
 
         (|| {
-            let mut cfs_reader = if use_compound_file {
+            let cfs_reader = if use_compound_file {
                 Some(
                     codec
                         .compound_format()
-                        .get_compound_reader(&mut *dir.lock(), &si.info)?,
+                        .get_compound_reader(&*dir.lock(), &si.info)?,
                 )
             } else {
                 None
             };
 
-            let mut cfs_dir = match cfs_reader.as_mut() {
+            let cfs_dir = match cfs_reader.as_ref() {
                 Some(reader) => Either2Directory::A(reader),
-                None => Either2Directory::B(&mut *dir.lock()),
+                None => Either2Directory::B(&*dir.lock()),
             };
 
             let segment = si.info.name.to_string();
-            let core_field_infos = Rc::new(codec.field_infos_format().read(
-                &mut cfs_dir,
-                &si.info,
-                "",
-                context,
-            )?);
+            let core_field_infos = Rc::new(
+                codec
+                    .field_infos_format()
+                    .read(&cfs_dir, &si.info, "", context)?,
+            );
 
             let fields_reader_orig = codec.stored_fields_format().fields_reader(
-                &mut cfs_dir,
+                &cfs_dir,
                 &si.info,
                 core_field_infos.clone(),
                 context,
@@ -109,7 +108,7 @@ where
 
             let term_vectors_reader_orig = if core_field_infos.has_term_vectors() {
                 Some(codec.term_vectors_format().vectors_reader(
-                    &mut cfs_dir,
+                    &cfs_dir,
                     &si.info,
                     core_field_infos.clone(),
                     context,
@@ -118,7 +117,7 @@ where
                 None
             };
 
-            let read_state = SegmentReadState::new(&mut cfs_dir, core_field_infos.clone(), context);
+            let read_state = SegmentReadState::new(&cfs_dir, core_field_infos.clone(), context);
 
             let fields = if core_field_infos.has_postings() {
                 Some(

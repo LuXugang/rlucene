@@ -671,7 +671,7 @@ where
             Err(e) => {
                 let file_copy = self.temp_dir.get_created_files();
                 let filenames = file_copy.iter().collect::<Vec<_>>();
-                IOUtils::delete_files_ignoring_exceptions(&mut self.temp_dir, filenames.as_slice());
+                IOUtils::delete_files_ignoring_exceptions(&self.temp_dir, filenames.as_slice());
                 return Err(e);
             },
         }
@@ -1403,7 +1403,7 @@ where
     ) -> Result<PointWriterEnum<<TrackingDirectoryWrapper<D> as Directory>::IndexOutput>> {
         let source_count = source.count();
         let count = source_count.try_into()?;
-        let mut reader = source.get_reader(0, source_count, &mut self.temp_dir)?;
+        let mut reader = source.get_reader(0, source_count, &self.temp_dir)?;
         let mut writer = HeapPointWriter::new(self.config.clone(), count);
 
         let result: Result<_> = (|| {
@@ -1421,7 +1421,7 @@ where
             return Err(err);
         }
 
-        source.destroy(&mut self.temp_dir)?;
+        source.destroy(&self.temp_dir)?;
         Ok(PointWriterEnum::Heap(writer))
     }
 
@@ -1716,7 +1716,7 @@ where
             slice
                 .writer
                 .borrow_mut()
-                .get_reader(slice.start, slice.count, &mut self.temp_dir)?;
+                .get_reader(slice.start, slice.count, &self.temp_dir)?;
 
         if !reader.next()? {
             slice.writer.borrow_mut().take_data(reader.remove_points());
@@ -1938,7 +1938,7 @@ where
                 points.start + left_count,
                 split_dim,
                 common_prefix_len,
-                &mut self.temp_dir,
+                &self.temp_dir,
             )?;
 
             let right_offset = leaves_offset + num_left_leaf_nodes;

@@ -92,7 +92,7 @@ pub trait BaseDirectoryTestCase {
     }
     fn test_rename<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let temp_dir = Builder::new().prefix("testRename").tempdir()?;
-        let mut dir = self.get_directory(temp_dir.into_path())?;
+        let dir = self.get_directory(temp_dir.into_path())?;
         let num_bytes = random.random_range(0..20000);
         let mut bytes = vec![0u8; num_bytes];
         let io_context = new_io_context(random)?;
@@ -1152,7 +1152,7 @@ pub trait BaseDirectoryTestCase {
         let temp_dir = tempfile::Builder::new().prefix("nocreate").tempdir()?;
         let path = temp_dir.path().to_path_buf();
 
-        let mut fsdir = self.get_directory(path.clone())?;
+        let fsdir = self.get_directory(path.clone())?;
 
         // Ensure the directory is an FSDirectory subclass
         if !fsdir.is_fs_directory() {

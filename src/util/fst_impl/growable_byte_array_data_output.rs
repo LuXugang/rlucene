@@ -190,7 +190,7 @@ mod tests {
                 if cfg!(feature = "test_log_verbose") {
                     println!("TEST: save/load final bytes");
                 }
-                let mut dir = new_directory(&mut random)?;
+                let dir = new_directory(&mut random)?;
                 {
                     let mut out = dir.create_output("bytes", &IOContext::default_io_context()?)?;
                     bytes.write_to_data_output(&mut out)?;

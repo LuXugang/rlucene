@@ -323,11 +323,11 @@ where
 
             let field_infos = Rc::new(FieldInfos::new(vec![field_info.clone()])?);
 
-            let mut tracking_dir = TrackingDirectoryWrapper::new(dir.clone());
+            let tracking_dir = TrackingDirectoryWrapper::new(dir.clone());
 
             let mut state = SegmentWriteState::with_suffix(
                 None,
-                &mut tracking_dir,
+                &tracking_dir,
                 field_infos,
                 &updates_context,
                 &segment_suffix,
@@ -389,9 +389,9 @@ where
         let flush_info = FlushInfo::new(info.info.max_doc()?, est_infos_size);
         let infos_context = IOContext::with_flush(flush_info)?;
         // separately also track which files were created for this gen
-        let mut tracking_dir = TrackingDirectoryWrapper::new(dir);
+        let tracking_dir = TrackingDirectoryWrapper::new(dir);
         infos_format.write(
-            &mut tracking_dir,
+            &tracking_dir,
             &info.info,
             &segment_suffix,
             field_infos,

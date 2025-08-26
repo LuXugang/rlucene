@@ -38,7 +38,7 @@ pub struct TestDirectPacked;
 #[test]
 fn test_simple() -> Result<()> {
     let mut random = random();
-    let mut dir = new_directory(&mut random)?;
+    let dir = new_directory(&mut random)?;
     let bits_per_value = direct_writer_util::bits_required(2)?;
     {
         let mut output = dir.create_output("foo", &IOContext::default_io_context()?)?;
@@ -65,7 +65,7 @@ fn test_simple() -> Result<()> {
 #[test]
 fn test_not_enough_values() -> Result<()> {
     let mut random = random();
-    let mut dir = new_directory(&mut random)?;
+    let dir = new_directory(&mut random)?;
     let bits_per_value = direct_writer_util::bits_required(2)?;
     {
         let mut output = dir.create_output("foo", &IOContext::default_io_context()?)?;

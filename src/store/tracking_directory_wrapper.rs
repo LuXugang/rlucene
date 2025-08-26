@@ -126,7 +126,7 @@ where
         self.base.delegate.lock().rename(source, dest)?;
         let mut inner = self.lock.lock();
         inner.created_filenames.insert(dest.to_string());
-        inner.created_filenames.remove(&source.to_string());
+        inner.created_filenames.remove(source);
         drop(inner);
         Ok(())
     }

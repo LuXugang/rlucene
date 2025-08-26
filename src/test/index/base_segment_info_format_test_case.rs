@@ -61,7 +61,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         info.set_files(HashSet::new())?;
         LATEST_CODEC
             .segment_info_format()
-            .write(&mut *dir.lock(), &mut info, &io_context)?;
+            .write(&*dir.lock(), &mut info, &io_context)?;
         let info2 =
             LATEST_CODEC
                 .segment_info_format()
@@ -91,7 +91,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         info.set_files(HashSet::new())?;
         LATEST_CODEC
             .segment_info_format()
-            .write(&mut *dir.lock(), &mut info, &io_context)?;
+            .write(&*dir.lock(), &mut info, &io_context)?;
         let info2 =
             LATEST_CODEC
                 .segment_info_format()
@@ -123,7 +123,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         info.set_files(original_files.clone())?;
         LATEST_CODEC
             .segment_info_format()
-            .write(&mut *dir.lock(), &mut info, &io_context)?;
+            .write(&*dir.lock(), &mut info, &io_context)?;
         let modified_files = info.files()?;
         assert!(modified_files.is_superset(&original_files));
         assert!(
@@ -170,7 +170,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         info.set_files(HashSet::new())?;
         LATEST_CODEC
             .segment_info_format()
-            .write(&mut *dir.lock(), &mut info, &io_context)?;
+            .write(&*dir.lock(), &mut info, &io_context)?;
         let info2 =
             LATEST_CODEC
                 .segment_info_format()
@@ -211,7 +211,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         info.set_files(HashSet::new())?;
         LATEST_CODEC
             .segment_info_format()
-            .write(&mut *dir.lock(), &mut info, &io_context)?;
+            .write(&*dir.lock(), &mut info, &io_context)?;
         let info2 =
             LATEST_CODEC
                 .segment_info_format()
@@ -252,7 +252,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         info.set_files(HashSet::new())?;
         LATEST_CODEC
             .segment_info_format()
-            .write(&mut *dir.lock(), &mut info, &io_context)?;
+            .write(&*dir.lock(), &mut info, &io_context)?;
         let info2 =
             LATEST_CODEC
                 .segment_info_format()
@@ -283,11 +283,9 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                     None,
                 )?;
                 info.set_files(HashSet::new())?;
-                LATEST_CODEC.segment_info_format().write(
-                    &mut *dir.lock(),
-                    &mut info,
-                    &io_context,
-                )?;
+                LATEST_CODEC
+                    .segment_info_format()
+                    .write(&*dir.lock(), &mut info, &io_context)?;
                 let info2 = LATEST_CODEC.segment_info_format().read(
                     dir.clone(),
                     "_123",
@@ -468,7 +466,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             info.set_files(HashSet::new())?;
             LATEST_CODEC
                 .segment_info_format()
-                .write(&mut *dir.lock(), &mut info, &io_context)?;
+                .write(&*dir.lock(), &mut info, &io_context)?;
             let info2 =
                 LATEST_CODEC
                     .segment_info_format()
@@ -522,7 +520,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             for j in 0..num_files {
                 let file = IndexFileNames::segment_file_name(&name, "", &j.to_string());
                 files.insert(file.clone());
-                let mut directory = dir.lock();
+                let directory = dir.lock();
                 directory.create_output(&file, &io_context)?;
             }
             let mut diagnostics = HashMap::new();
@@ -559,7 +557,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             info.set_files(files.clone())?;
             LATEST_CODEC
                 .segment_info_format()
-                .write(&mut *dir.lock(), &mut info, &io_context)?;
+                .write(&*dir.lock(), &mut info, &io_context)?;
             let info2 =
                 LATEST_CODEC
                     .segment_info_format()

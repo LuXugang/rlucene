@@ -236,7 +236,7 @@ where
         // Do this so we can delete any created files on
         // exception; this saves all codecs from having to do
         // it:
-        let mut tracking_dir = TrackingDirectoryWrapper::new(dir);
+        let tracking_dir = TrackingDirectoryWrapper::new(dir);
         // We can write directly to the actual name (vs to a
         // .tmp & renaming it) because the file is not live
         // until segments file is written:
@@ -244,7 +244,7 @@ where
             let codec = get_default_code();
             codec.live_docs_format().write_live_docs(
                 live_docs,
-                &mut tracking_dir,
+                &tracking_dir,
                 info,
                 self.pending_delete_count,
                 &IOContext::default_io_context()?,
@@ -522,7 +522,7 @@ mod tests {
 
         let codec = get_default_code();
         let live_docs = codec.live_docs_format().read_live_docs(
-            &mut *dir.lock(),
+            &*dir.lock(),
             &commit_info,
             &IOContext::default_io_context()?,
         )?;
@@ -545,7 +545,7 @@ mod tests {
         assert_eq!(dir.lock().list_all()?.len(), 2);
 
         let live_docs = codec.live_docs_format().read_live_docs(
-            &mut *dir.lock(),
+            &*dir.lock(),
             &commit_info,
             &IOContext::default_io_context()?,
         )?;
@@ -591,7 +591,7 @@ mod tests {
         let codec = get_default_code();
         let field_infos = FieldInfos::new(Vec::new())?;
         codec.field_infos_format().write(
-            &mut *dir.lock(),
+            &*dir.lock(),
             &commit_info.info,
             "",
             &field_infos,

@@ -58,7 +58,7 @@ where
     pub(crate) fn new_doc_values_producer(
         &self,
         si: &SegmentCommitInfo<D>,
-        dir: &mut Option<CompoundDirectory<Lucene90CompoundReader<D>>>,
+        dir: &Option<CompoundDirectory<Lucene90CompoundReader<D>>>,
         r#gen: i64,
         infos: Rc<FieldInfos>,
     ) -> Result<RefCount<Rc<Lucene90DocValuesProducer<CfsOrBaseInput<D>>>>>
@@ -67,11 +67,11 @@ where
     {
         let mut dv_dir = match dir {
             Some(d) => Either2Directory::A(d),
-            None => Either2Directory::B(&mut *si.info.dir.lock()),
+            None => Either2Directory::B(&*si.info.dir.lock()),
         };
         let mut segment_suffix = "".to_string();
 
-        let base_dir = &mut *si.info.dir.lock();
+        let base_dir = &*si.info.dir.lock();
         if r#gen != -1 {
             // gen'd files are written outside CFS, so use SegInfo directory
             dv_dir = Either2Directory::B(base_dir);
@@ -80,7 +80,7 @@ where
 
         let io_context = IOContext::default_io_context()?;
         // set SegmentReadState to list only the fields that are relevant to that gen
-        let srs = SegmentReadState::with_suffix(&mut dv_dir, infos, &io_context, &segment_suffix);
+        let srs = SegmentReadState::with_suffix(&dv_dir, infos, &io_context, &segment_suffix);
 
         let dv_format = get_default_code().doc_values_format();
 
@@ -93,7 +93,7 @@ where
         &self,
         r#gen: i64,
         si: &SegmentCommitInfo<D>,
-        dir: &mut Option<CompoundDirectory<Lucene90CompoundReader<D>>>,
+        dir: &Option<CompoundDirectory<Lucene90CompoundReader<D>>>,
         infos: Rc<FieldInfos>,
     ) -> Result<Rc<Lucene90DocValuesProducer<CfsOrBaseInput<D>>>> {
         let mut inner = self.inner.lock();

@@ -62,14 +62,14 @@ pub trait BaseFieldInfoFormatTestCase {
             .finish()?;
 
         codec.field_infos_format().write(
-            &mut *dir.lock(),
+            &*dir.lock(),
             &segment_info,
             "",
             &infos,
             &IOContext::default_io_context()?,
         )?;
         let infos2 = codec.field_infos_format().read(
-            &mut *dir.lock(),
+            &*dir.lock(),
             &segment_info,
             "",
             &IOContext::default_io_context()?,
@@ -218,7 +218,7 @@ pub trait BaseFieldInfoFormatTestCase {
 
         // Write the FieldInfos to the directory.
         codec.field_infos_format().write(
-            &mut *dir.lock(),
+            &*dir.lock(),
             &segment_info,
             "",
             &infos,
@@ -227,7 +227,7 @@ pub trait BaseFieldInfoFormatTestCase {
 
         // Read the FieldInfos back from the directory.
         let infos2 = codec.field_infos_format().read(
-            &mut *dir.lock(),
+            &*dir.lock(),
             &segment_info,
             "",
             &IOContext::default_io_context()?,

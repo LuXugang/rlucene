@@ -151,7 +151,7 @@ pub trait BaseCompoundFormatTestCase {
         LATEST_CODEC
             .compound_format()
             .write(&*dir.lock(), &si, &IO_CONTEXT_DEFAULT)?;
-        let mut cfs = LATEST_CODEC
+        let cfs = LATEST_CODEC
             .compound_format()
             .get_compound_reader(&*dir.lock(), &si)?;
         let io_context = IOContext::default_io_context()?;
@@ -173,7 +173,7 @@ pub trait BaseCompoundFormatTestCase {
         LATEST_CODEC
             .compound_format()
             .write(&*dir.lock(), &si, &IO_CONTEXT_DEFAULT)?;
-        let mut cfs = LATEST_CODEC
+        let cfs = LATEST_CODEC
             .compound_format()
             .get_compound_reader(&*dir.lock(), &si)?;
         let result = cfs.delete_file(testfile);

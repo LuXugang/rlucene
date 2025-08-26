@@ -382,7 +382,7 @@ mod tests {
             let filename = format!("{}.{}", segment, i);
             create_random_file(
                 &mut random,
-                &mut *dir.lock(),
+                &*dir.lock(),
                 &filename,
                 random_file_size,
                 seg_id,
@@ -397,10 +397,10 @@ mod tests {
         si.set_files(files)?;
 
         {
-            let mut directory = dir.lock();
+            let directory = dir.lock();
             LATEST_CODEC
                 .compound_format()
-                .write(&mut *directory, &si, &IO_CONTEXT_DEFAULT)?;
+                .write(&*directory, &si, &IO_CONTEXT_DEFAULT)?;
         }
 
         // Entries file should contain files ordered by their size
