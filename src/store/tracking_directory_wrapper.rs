@@ -39,18 +39,6 @@ impl<D> TrackingDirectoryWrapper<D>
 where
     D: Directory,
 {
-    #[cfg(not(debug_assertions))]
-    pub fn new(input: Arc<D>) -> Self {
-        let lock = Mutex::new(Inner {
-            created_filenames: HashSet::new(),
-        });
-        TrackingDirectoryWrapper {
-            base: FilterDirectory::new(input),
-            inner: lock,
-            inner: Mutex::new(()),
-        }
-    }
-    #[cfg(debug_assertions)]
     pub fn new(input: Arc<D>) -> Self {
         let lock = Mutex::new(Inner {
             created_filenames: HashSet::new(),
