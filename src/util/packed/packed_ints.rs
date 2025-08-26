@@ -468,7 +468,8 @@ pub struct FormatAndBits {
 /// A `FormatAndBits` struct containing the selected format and bits per value.
 // `value_count` is not used in Java Lucene
 pub fn fastest_format_and_bits(
-    value_count: i32,
+    // TODO
+    _value_count: i32,
     bits_per_value: i32,
     mut acceptable_overhead_ratio: f32,
 ) -> FormatAndBits {

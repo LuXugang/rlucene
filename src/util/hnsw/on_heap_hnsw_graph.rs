@@ -221,10 +221,9 @@ impl OnHeapHnswGraph {
         if self.last_freeze_size == self.size() {
             return Ok(());
         }
-        let mut level_to_nodes = Vec::new();
 
         let max_levels = self.num_levels()?;
-        level_to_nodes = vec![None; max_levels];
+        let mut level_to_nodes = vec![None; max_levels];
         for slot in level_to_nodes.iter_mut().skip(1) {
             *slot = Some(Vec::new());
         }

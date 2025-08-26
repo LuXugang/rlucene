@@ -161,7 +161,6 @@ pub trait BaseDocIdSetTestCaseSupperImpl {
                         index = i + 1;
                         doc = target
                     } else {
-                        doc = NO_MORE_DOCS as usize;
                         break;
                     }
                     assert_eq!(doc as i32, disi.advance(target as i32)?);

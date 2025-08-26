@@ -177,6 +177,7 @@ where
         self.apply_deletes(state, fields.clone(), info, seg_updates)?;
 
         if let Some(doc_map) = &sort_map {
+            #[allow(unused)]
             let filter_fields = FilterFieldsImpl::new(
                 FilterFields::new(fields),
                 state.field_infos.clone(),

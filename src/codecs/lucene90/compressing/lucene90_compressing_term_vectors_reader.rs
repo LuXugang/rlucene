@@ -612,6 +612,7 @@ where
         // term lengths
         let mut doc_off = 0;
         let mut doc_len = 0;
+        #[allow(unused)]
         let mut total_len = 0;
         let mut field_lengths = vec![0i32; num_fields];
         let mut prefix_lengths = vec![Vec::new(); num_fields];

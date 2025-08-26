@@ -115,11 +115,7 @@ impl NeighborArray {
         node_id: i32,
         scorer_supplier: &impl RandomVectorScorerSupplier,
     ) -> Result<()> {
-        let HnswGraphEnums::OnHeap(hnsw) = hnsw else {
-            return Err(LuceneError::illegal_state(
-                "Only OnHeap variant is supported",
-            ));
-        };
+        let HnswGraphEnums::OnHeap(hnsw) = hnsw;
         let neighbor_array = hnsw.get_neighbors(level, node_id as usize);
         neighbor_array.add_out_of_order(new_node, new_score)?;
 

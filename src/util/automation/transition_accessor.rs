@@ -37,20 +37,20 @@ pub trait TransitionAccessor {
 }
 pub enum TransitionAccessorEnum {
     Byte(ByteRunAutomaton),
-    NFA(NFARunAutomaton),
+    Nfa(NFARunAutomaton),
 }
 impl TransitionAccessor for TransitionAccessorEnum {
     fn init_transition(&self, state: i32, t: &mut Transition) -> i32 {
         match self {
             TransitionAccessorEnum::Byte(byte) => byte.base.automaton.init_transition(state, t),
-            TransitionAccessorEnum::NFA(nfa) => nfa.automaton.init_transition(state, t),
+            TransitionAccessorEnum::Nfa(nfa) => nfa.automaton.init_transition(state, t),
         }
     }
 
     fn get_next_transition(&self, t: &mut Transition) {
         match self {
             TransitionAccessorEnum::Byte(byte) => byte.base.automaton.get_next_transition(t),
-            TransitionAccessorEnum::NFA(nfa) => nfa.automaton.get_next_transition(t),
+            TransitionAccessorEnum::Nfa(nfa) => nfa.automaton.get_next_transition(t),
         }
     }
 
@@ -59,7 +59,7 @@ impl TransitionAccessor for TransitionAccessorEnum {
             TransitionAccessorEnum::Byte(byte) => {
                 byte.base.automaton.get_num_transitions_with_state(state)
             },
-            TransitionAccessorEnum::NFA(nfa) => nfa.automaton.get_num_transitions_with_state(state),
+            TransitionAccessorEnum::Nfa(nfa) => nfa.automaton.get_num_transitions_with_state(state),
         }
     }
 
@@ -68,7 +68,7 @@ impl TransitionAccessor for TransitionAccessorEnum {
             TransitionAccessorEnum::Byte(byte) => {
                 byte.base.automaton.get_transition(state, index, t)
             },
-            TransitionAccessorEnum::NFA(nfa) => nfa.automaton.get_transition(state, index, t),
+            TransitionAccessorEnum::Nfa(nfa) => nfa.automaton.get_transition(state, index, t),
         }
     }
 }

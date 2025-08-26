@@ -272,11 +272,7 @@ where
     ) -> Result<Vec<bool>> {
         let mut mask = vec![false; candidates.size()];
         let mut i = candidates.size();
-        let HnswGraphEnums::OnHeap(hnsw) = &mut builder.hnsw else {
-            return Err(LuceneError::illegal_state(
-                "Only OnHeap variant is supported",
-            ));
-        };
+        let HnswGraphEnums::OnHeap(hnsw) = &mut builder.hnsw;
         let max_node_id = hnsw.max_node_id();
         let neighbors = hnsw.get_neighbors(level, node as usize);
         // Select the best maxConnOnLevel neighbors of the new node, applying the
@@ -495,11 +491,7 @@ where
         score: f32,
         not_fully_connected: &mut FixedBitSet,
     ) -> Result<()> {
-        let HnswGraphEnums::OnHeap(hnsw) = &mut self.hnsw else {
-            return Err(LuceneError::illegal_state(
-                "Only OnHeap variant is supported",
-            ));
-        };
+        let HnswGraphEnums::OnHeap(hnsw) = &mut self.hnsw;
         debug_assert!(n0 >= 0 && n1 >= 0);
         let nbr0 = hnsw.get_neighbors(level, n0 as usize);
         // must subtract 1 here since the nodes array is one larger than the configured
@@ -586,11 +578,7 @@ where
         let node_level = Self::get_random_graph_level(self.ml, &mut self.random);
 
         {
-            let HnswGraphEnums::OnHeap(hnsw) = &mut self.hnsw else {
-                return Err(LuceneError::illegal_state(
-                    "Only OnHeap variant is supported",
-                ));
-            };
+            let HnswGraphEnums::OnHeap(hnsw) = &mut self.hnsw;
             // first add nodes to all levels
             for level in (0..=node_level).rev() {
                 hnsw.add_node(level, node as usize)?;
@@ -608,11 +596,7 @@ where
         let mut cur_max_level;
         loop {
             let mut eps = {
-                let HnswGraphEnums::OnHeap(hnsw) = &mut self.hnsw else {
-                    return Err(LuceneError::illegal_state(
-                        "Only OnHeap variant is supported",
-                    ));
-                };
+                let HnswGraphEnums::OnHeap(hnsw) = &mut self.hnsw;
                 cur_max_level = hnsw.num_levels()? - 1;
                 // NOTE: the entry node and max level may not be paired, but because we get the
                 // level first we ensure that the entry node we get later will
@@ -671,11 +655,7 @@ where
             }
 
             debug_assert!(lowest_unset_level == (cur_max_level + 1) && node_level > cur_max_level);
-            let HnswGraphEnums::OnHeap(hnsw) = &mut self.hnsw else {
-                return Err(LuceneError::illegal_state(
-                    "Only OnHeap variant is supported",
-                ));
-            };
+            let HnswGraphEnums::OnHeap(hnsw) = &mut self.hnsw;
             if hnsw.try_promote_new_entry_node(node, node_level, cur_max_level) {
                 return Ok(());
             }

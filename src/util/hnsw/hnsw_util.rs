@@ -225,7 +225,7 @@ impl HnswUtil {
             hnsw_graph.seek(level, node as usize)?;
 
             let mut friend_count = 0;
-            let mut friend_ord = 0;
+            let mut friend_ord;
             while {
                 friend_ord = hnsw_graph.next_neighbor()?;
                 friend_ord != NO_MORE_DOCS

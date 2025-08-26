@@ -18,7 +18,7 @@ use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::knn_collector::KnnCollector;
 use crate::util::bit_set::BitSet;
 use crate::util::bits::Bits;
-use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::error::lucene_error::Result;
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::hnsw::hnsw_graph::{HnswGraph, HnswGraphEnums};
 use crate::util::hnsw::hnsw_graph_builder::GraphBuilderKnnCollector;
@@ -222,7 +222,7 @@ where
             let top_node = self.candidates.pop()?;
             debug_assert!(top_node >= 0);
             self.sub.graph_seek(graph, level, top_node as usize)?;
-            let mut friend_ord = 0;
+            let mut friend_ord;
             while {
                 friend_ord = self.sub.graph_next_neighbor(graph)?;
                 friend_ord != NO_MORE_DOCS
@@ -458,9 +458,6 @@ impl HnswGraphSearcherBase for OnHeapHnswGraphSearcher {
                     Ok(NO_MORE_DOCS)
                 }
             },
-            _ => Err(LuceneError::illegal_state(
-                "OnHeapHnswGraphSearcher can only be used with OnHeapHnswGraph",
-            )),
         }
     }
 }

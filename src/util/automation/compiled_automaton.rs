@@ -393,7 +393,7 @@ impl CompiledAutomaton {
         debug_assert!(self.nfa_run_automaton.is_none() || self.run_automaton.is_some());
 
         if self.nfa_run_automaton.is_some() {
-            TransitionAccessorEnum::NFA(self.nfa_run_automaton.take().unwrap())
+            TransitionAccessorEnum::Nfa(self.nfa_run_automaton.take().unwrap())
         } else {
             TransitionAccessorEnum::Byte(self.run_automaton.take().unwrap())
         }
