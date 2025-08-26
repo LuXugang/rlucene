@@ -24,21 +24,21 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
-pub struct TrackingTmpOutputDirectoryWrapper<D>
+pub(crate) struct TrackingTmpOutputDirectoryWrapper<D>
 where
     D: Directory,
 {
-    inner: RefCell<Inner>,
+    pub(crate) inner: RefCell<Inner>,
     base: FilterDirectory<D, Arc<D>>,
 }
-struct Inner {
-    file_names: HashMap<String, String>,
+pub(crate) struct Inner {
+    pub(crate) file_names: HashMap<String, String>,
 }
 impl<D> TrackingTmpOutputDirectoryWrapper<D>
 where
     D: Directory,
 {
-    pub fn new(input: Arc<D>) -> Self {
+    pub(crate) fn new(input: Arc<D>) -> Self {
         let inner = RefCell::new(Inner {
             file_names: HashMap::new(),
         });
@@ -47,8 +47,8 @@ where
             base: FilterDirectory::new(input),
         }
     }
-    pub fn get_temporary_files(&mut self) -> HashMap<String, String> {
-        std::mem::take(&mut self.inner.borrow_mut().file_names)
+    pub(crate) fn get_temporary_files(&self) -> &RefCell<Inner> {
+        &self.inner
     }
 }
 

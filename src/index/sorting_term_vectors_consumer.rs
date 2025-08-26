@@ -40,7 +40,6 @@ use crate::store::flush_info::FlushInfo;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::{IOUtils, ToInt};
-use parking_lot::Mutex;
 use std::borrow::Cow;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -50,7 +49,7 @@ where
     D: Directory,
 {
     pub(crate) writer: Option<TermVectorsWriterEnum<TrackingTmpOutputDirectoryWrapper<D>>>,
-    tmp_directory: Arc<Mutex<TrackingTmpOutputDirectoryWrapper<D>>>,
+    tmp_directory: TrackingTmpOutputDirectoryWrapper<D>,
     stored_fields_format: Option<Lucene90CompressingTermVectorsFormat>,
 }
 impl<D> SortingTermVectorsConsumer<D>
@@ -58,9 +57,7 @@ where
     D: Directory,
 {
     pub(crate) fn new(directory: Arc<D>) -> Self {
-        let tmp_directory = Arc::new(Mutex::new(TrackingTmpOutputDirectoryWrapper::new(
-            directory,
-        )));
+        let tmp_directory = TrackingTmpOutputDirectoryWrapper::new(directory);
         Self {
             writer: None,
             tmp_directory,
@@ -208,9 +205,8 @@ where
         D1: Directory,
     {
         {
-            let mut tmp_dir = self.tmp_directory.lock();
             let mut reader = self.stored_fields_format.as_mut().unwrap().vectors_reader(
-                &*tmp_dir,
+                &self.tmp_directory,
                 segment_info,
                 state.field_infos.clone(),
                 &IOContext::default_io_context()?,
@@ -235,9 +231,9 @@ where
                 Self::write_term_vectors(&mut writer, &vectors, &state.field_infos)?;
             }
             writer.finish(max_doc, state.directory)?;
-            let name_map: Vec<String> = tmp_dir.get_temporary_files().into_values().collect();
-            let names: Vec<&str> = name_map.iter().map(String::as_str).collect();
-            IOUtils::delete_files(&*tmp_dir, names.as_slice())?;
+            let name_map = &self.tmp_directory.get_temporary_files().borrow().file_names;
+            let values: Vec<&str> = name_map.values().map(|v| v.as_str()).collect();
+            IOUtils::delete_files(&self.tmp_directory, &values)?;
         }
         Ok(())
     }
@@ -261,7 +257,7 @@ where
             10,
         )?;
         self.writer = Option::from(term_vectors_format.vectors_writer(
-            &*self.tmp_directory.lock(),
+            &self.tmp_directory,
             info,
             &context,
         )?);
@@ -269,10 +265,9 @@ where
     }
 
     fn abort(&mut self) -> Result<()> {
-        let mut tmp_dir = self.tmp_directory.lock();
-        let name_map: Vec<String> = tmp_dir.get_temporary_files().into_values().collect();
-        let names: Vec<&str> = name_map.iter().map(String::as_str).collect();
-        IOUtils::delete_files(&*tmp_dir, names.as_slice())?;
+        let name_map = &self.tmp_directory.get_temporary_files().borrow().file_names;
+        let values: Vec<&str> = name_map.values().map(|v| v.as_str()).collect();
+        IOUtils::delete_files(&self.tmp_directory, &values)?;
         Ok(())
     }
 }

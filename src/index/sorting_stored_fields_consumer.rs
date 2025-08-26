@@ -40,7 +40,6 @@ use crate::store::{DataInput, DataOutput, IOContext};
 use crate::util::IOUtils;
 use crate::util::array_util::ArrayUtil;
 use crate::util::error::lucene_error::Result;
-use parking_lot::Mutex;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 use std::sync::Arc;
@@ -50,7 +49,7 @@ where
     D: Directory,
 {
     pub(crate) writer: Option<StoredFieldsWriterEnum<TrackingTmpOutputDirectoryWrapper<D>>>,
-    tmp_directory: Arc<Mutex<TrackingTmpOutputDirectoryWrapper<D>>>,
+    tmp_directory: TrackingTmpOutputDirectoryWrapper<D>,
     stored_fields_format: Option<Lucene90CompressingStoredFieldsFormat>,
 }
 impl<D> SortingStoredFieldsConsumer<D>
@@ -58,9 +57,7 @@ where
     D: Directory,
 {
     pub(crate) fn new(directory: Arc<D>) -> Self {
-        let tmp_directory = Arc::new(Mutex::new(TrackingTmpOutputDirectoryWrapper::new(
-            directory,
-        )));
+        let tmp_directory = TrackingTmpOutputDirectoryWrapper::new(directory);
         Self {
             writer: None,
             tmp_directory,
@@ -87,7 +84,7 @@ where
             10,
         )?;
         self.writer = Some(stored_fields_format.fields_writer(
-            &*self.tmp_directory.lock(),
+            &self.tmp_directory,
             info,
             &IOContext::default_io_context()?,
         )?);
@@ -106,9 +103,8 @@ where
         DM: DocMap,
         D1: Directory,
     {
-        let mut tmp_dir = self.tmp_directory.lock();
         let mut reader = self.stored_fields_format.as_ref().unwrap().fields_reader(
-            &*tmp_dir,
+            &self.tmp_directory,
             info,
             state.field_infos.clone(),
             &IOContext::default_io_context()?,
@@ -136,18 +132,17 @@ where
 
         sort_writer.finish(max_doc, state.directory)?;
 
-        let name_map: Vec<String> = tmp_dir.get_temporary_files().into_values().collect();
-        let names: Vec<&str> = name_map.iter().map(String::as_str).collect();
-        IOUtils::delete_files(&*tmp_dir, names.as_slice())?;
+        let names = &self.tmp_directory.get_temporary_files().borrow().file_names;
+        let values: Vec<&str> = names.values().map(|v| v.as_str()).collect();
+        IOUtils::delete_files(&self.tmp_directory, values.as_slice())?;
 
         Ok(())
     }
 
     fn abort(&mut self) -> Result<()> {
-        let mut tmp_dir = self.tmp_directory.lock();
-        let name_map: Vec<String> = tmp_dir.get_temporary_files().into_values().collect();
-        let names: Vec<&str> = name_map.iter().map(String::as_str).collect();
-        IOUtils::delete_files(&*tmp_dir, names.as_slice())?;
+        let name_map = &self.tmp_directory.get_temporary_files().borrow().file_names;
+        let values: Vec<&str> = name_map.values().map(|v| v.as_str()).collect();
+        IOUtils::delete_files(&self.tmp_directory, values.as_slice())?;
         Ok(())
     }
 }
