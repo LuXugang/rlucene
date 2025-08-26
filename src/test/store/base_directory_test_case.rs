@@ -1078,9 +1078,7 @@ pub trait BaseDirectoryTestCase {
             .prefix("testCopyBytesWithThreads")
             .tempdir()?;
         let dir = self.get_directory(temp_dir.path().to_path_buf())?;
-        let dir_new = Arc::new(Mutex::new(
-            self.get_directory(temp_dir.path().to_path_buf())?,
-        ));
+        let dir_new = Arc::new(self.get_directory(temp_dir.path().to_path_buf())?);
         let io_context = IOContext::default_io_context()?;
         let header_len = 3;
         let data_len = random.random_range(header_len + 1..10000);
@@ -1113,8 +1111,7 @@ pub trait BaseDirectoryTestCase {
                 let handle = thread::spawn(move || {
                     barrier_clone.wait();
                     let file_name = format!("copy{}", i);
-                    let dir_guard = dir_clone.lock();
-                    let mut dst = dir_guard.create_output(&file_name, &io_context).unwrap();
+                    let mut dst = dir_clone.create_output(&file_name, &io_context).unwrap();
                     let src_length = IndexInput::length(&src);
                     dst.copy_bytes(&mut src, src_length - header_len as i64)
                         .unwrap();
