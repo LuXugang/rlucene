@@ -310,9 +310,9 @@ mod tests {
                 directory_orig,
                 directory,
                 &dummy_config,
-                Arc::new(DocumentsWriterDeleteQueue::new(Arc::new(Mutex::new(
+                Arc::new(DocumentsWriterDeleteQueue::new(Arc::new(
                     InfoStreamEnum::NoOutput(NoOutput),
-                )))),
+                ))),
                 Builder::new(Arc::new(Mutex::new(FieldNumbers::new(None, None)?))),
                 Arc::new(AtomicI64::new(0)),
                 false,

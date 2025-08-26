@@ -34,7 +34,7 @@ use crate::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrap
 use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::error::lucene_error::Result;
-use crate::util::info_stream::{InfoStream, InfoStreamLock};
+use crate::util::info_stream::{InfoStream, InfoStreamMT};
 use crate::util::io_consumer::IOConsumer;
 use crate::util::supplier::Supplier;
 use parking_lot::Mutex;
@@ -90,7 +90,7 @@ where
     pending_num_docs: Arc<AtomicI64>,
     flush_notifications: FN,
     closed: AtomicBool,
-    info_stream: InfoStreamLock,
+    info_stream: InfoStreamMT,
     config: Arc<L>,
     num_docs_in_ram: AtomicI32,
     ticket_queue: DocumentsWriterFlushQueue<D, Q>,
@@ -100,7 +100,7 @@ where
     // #anyChanges() & #flushAllThreads
     pending_changes_in_current_full_flush: AtomicBool,
     pub(crate) per_thread_pool: DocumentsWriterPerThreadPool<D, Q>,
-    pub(crate) lock: Mutex<Inner<Q>>,
+    pub(crate) inner: Mutex<Inner<Q>>,
     flush_control: DocumentsWriterFlushControl<D, Q, L>,
     index_created_version_major: i32,
     directory: Arc<LockValidatingDirectoryWrapper<D>>,
@@ -145,7 +145,7 @@ where
             ticket_queue: DocumentsWriterFlushQueue::new(),
             pending_changes_in_current_full_flush: AtomicBool::new(false),
             per_thread_pool: DocumentsWriterPerThreadPool::new()?,
-            lock: Mutex::new(Inner {
+            inner: Mutex::new(Inner {
                 delete_queue: delete_queue.clone(),
                 current_full_flush_del_queue: None,
             }),
@@ -177,7 +177,7 @@ where
         // Check the applyAllDeletes flag first. This helps exit early most of the time without checking
         // isFullFlush(), which takes a lock and introduces contention on small documents that are quick
         // to index.
-        let inner = self.lock.lock();
+        let inner = self.inner.lock();
         let mut seq_no = func(&*inner.delete_queue)?;
         self.flush_control
             .do_on_delete(self.config.get_flush_policy());
@@ -194,7 +194,7 @@ where
         let delete_queue = {
             match inner {
                 Some(inner) => inner.delete_queue.clone(),
-                None => self.lock.lock().delete_queue.clone(),
+                None => self.inner.lock().delete_queue.clone(),
             }
         };
         if self.flush_control.get_apply_all_deletes()
@@ -238,9 +238,8 @@ where
     }
     pub(crate) fn flush_one_dwpt(&mut self) -> Result<bool> {
         {
-            let mut info_stream = self.info_stream.lock();
-            if info_stream.enabled("DW") {
-                info_stream.message("DW", "startFlushOneDWPT");
+            if self.info_stream.enabled("DW") {
+                self.info_stream.message("DW", "startFlushOneDWPT");
             }
         }
 
@@ -265,7 +264,7 @@ where
         &self,
         mut per_thread: DocumentsWriterPerThread<D, Q>,
     ) -> Result<()> {
-        debug_assert!(self.lock.is_locked());
+        debug_assert!(self.inner.is_locked());
 
         let num = per_thread.get_num_docs_in_ram();
         self.subtract_flushed_num_docs(num);
@@ -278,7 +277,7 @@ where
     }
     /// returns the maximum sequence number for all previously completed operations
     pub(crate) fn get_max_completed_sequence_number(&self) -> i64 {
-        let inner = self.lock.lock();
+        let inner = self.inner.lock();
         inner.delete_queue.get_max_completed_seq_no()
     }
     fn any_changes(&self) -> bool {
@@ -296,9 +295,8 @@ where
 
         let any = num_docs || deletions || tickets || pending_full;
 
-        let mut info = self.info_stream.lock();
-        if info.enabled("DW") && any {
-            info.message(
+        if self.info_stream.enabled("DW") && any {
+            self.info_stream.message(
                 "DW",
                 &format!(
                     "anyChanges? numDocsInRam={num_docs} deletes={deletions} hasTickets={tickets} pendingChangesInFullFlush={pending_full}"
@@ -309,11 +307,11 @@ where
         any
     }
     pub(crate) fn get_buffered_delete_terms_size(&self) -> Result<i32> {
-        let delete_queue = self.lock.lock().delete_queue.clone();
+        let delete_queue = self.inner.lock().delete_queue.clone();
         delete_queue.get_buffered_updates_terms_size()
     }
     pub(crate) fn any_deletions(&self) -> bool {
-        let delete_queue = self.lock.lock().delete_queue.clone();
+        let delete_queue = self.inner.lock().delete_queue.clone();
         delete_queue.any_changes(None)
     }
     fn close(&self) {
@@ -359,7 +357,7 @@ where
     {
         let has_events = self.pre_update()?;
 
-        let delete_queue = self.lock.lock().delete_queue.clone();
+        let delete_queue = self.inner.lock().delete_queue.clone();
         let dwpt_factory = SupplierImpl2::new(
             self.index_created_version_major,
             self.directory_orig.clone(),
@@ -418,7 +416,7 @@ where
                 // If it is aborted, we shouldn't allow it to be reused
                 // If the deleteQueue is advanced, this means the maximum seqNo has been set and it cannot be
                 // reused
-                let inner = self.flush_control.lock.lock();
+                let inner = self.flush_control.inner.lock();
                 if *dpwt_pending_state.get().unwrap_or(&false)
                     || dwpt_abort.load(Ordering::SeqCst)
                     || dwpt_delete_queue.is_advanced()
@@ -466,7 +464,7 @@ where
             assert!(!flushing_dwpt.has_flushed(),);
             {
                 let current_full_flush_del_queue =
-                    self.lock.lock().current_full_flush_del_queue.clone();
+                    self.inner.lock().current_full_flush_del_queue.clone();
                 debug_assert!(
                     current_full_flush_del_queue.is_none()
                         || Arc::ptr_eq(
@@ -567,7 +565,7 @@ where
         Ok(())
     }
     pub(crate) fn get_next_sequence_number(&self) -> i64 {
-        let delete_queue = self.lock.lock().delete_queue.clone();
+        let delete_queue = self.inner.lock().delete_queue.clone();
         delete_queue.get_next_sequence_number()
     }
 
@@ -613,7 +611,7 @@ where
         &self,
         session: Option<Arc<DocumentsWriterDeleteQueue<Q>>>,
     ) -> bool {
-        let mut inner = self.lock.lock();
+        let mut inner = self.inner.lock();
         debug_assert!(
             inner
                 .current_full_flush_del_queue
@@ -628,7 +626,7 @@ where
         &self,
         delete_queue: &Arc<DocumentsWriterDeleteQueue<Q>>,
     ) -> bool {
-        let inner = self.lock.lock();
+        let inner = self.inner.lock();
         debug_assert!(
             inner
                 .current_full_flush_del_queue
@@ -644,14 +642,13 @@ where
     // is called after this method, to release the flush lock in DWFlushControl
     fn flush_all_threads(&self) -> Result<i64> {
         {
-            let mut info_stream = self.info_stream.lock();
-            if info_stream.enabled("DW") {
-                info_stream.message("DW", "startFullFlush");
+            if self.info_stream.enabled("DW") {
+                self.info_stream.message("DW", "startFullFlush");
             }
         }
 
         let (flushing_delete_queue, seq_no) = {
-            let inner = self.lock.lock();
+            let inner = self.inner.lock();
             let pending = self.any_changes();
             self.pending_changes_in_current_full_flush
                 .store(pending, Ordering::SeqCst);
@@ -665,7 +662,7 @@ where
         };
         debug_assert!({
             let current_full_flush_del_queue =
-                self.lock.lock().current_full_flush_del_queue.clone();
+                self.inner.lock().current_full_flush_del_queue.clone();
             current_full_flush_del_queue.is_some()
                 && !Arc::ptr_eq(
                     &flushing_delete_queue,
@@ -679,11 +676,10 @@ where
         self.flush_control.wait_for_flush();
         if !anything_flushed && flushing_delete_queue.any_changes(None) {
             {
-                let mut info_stream = self.info_stream.lock();
-                if info_stream.enabled("DW") {
+                if self.info_stream.enabled("DW") {
                     let v = thread::current();
                     let name = v.name().unwrap_or("<unnamed>");
-                    info_stream
+                    self.info_stream
                         .message("DW", &format!("{name}: flush naked frozen global deletes"));
                 }
             }
@@ -697,7 +693,7 @@ where
         // concurrently if we have very small ram buffers this happens quite frequently
         debug_assert!(!flushing_delete_queue.any_changes(None));
         {
-            let inner = self.lock.lock();
+            let inner = self.inner.lock();
             debug_assert!(Arc::ptr_eq(
                 &flushing_delete_queue,
                 inner.current_full_flush_del_queue.as_ref().unwrap()
@@ -709,10 +705,9 @@ where
         Ok(if anything_flushed { -seq_no } else { seq_no })
     }
     pub(crate) fn finish_full_flush(&mut self, success: bool) -> Result<()> {
-        let mut info_stream = self.info_stream.lock();
-        if info_stream.enabled("DW") {
+        if self.info_stream.enabled("DW") {
             let thread_name = thread::current().name().unwrap_or("<unnamed>").to_string();
-            info_stream.message(
+            self.info_stream.message(
                 "DW",
                 &format!("{thread_name} finishFullFlush success={success}"),
             );
@@ -720,7 +715,7 @@ where
         debug_assert!(self.set_flushing_delete_queue(None));
 
         {
-            let delete_queue = &self.lock.lock().delete_queue;
+            let delete_queue = &self.inner.lock().delete_queue;
             if success {
                 self.flush_control.finish_full_flush(delete_queue);
             } else {
@@ -751,7 +746,7 @@ where
     FN: FlushNotifications,
 {
     fn ram_bytes_used(&self) -> Result<i64> {
-        let inner = self.lock.lock();
+        let inner = self.inner.lock();
         Ok(self
             .flush_control
             .get_delete_bytes_used(&*inner.delete_queue)?

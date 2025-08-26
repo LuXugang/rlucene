@@ -90,7 +90,7 @@ pub mod index_writer_util {
     use crate::util::array_util::ArrayUtil;
     use crate::util::constants::Constants;
     use crate::util::error::lucene_error::{LuceneError, Result};
-    use crate::util::info_stream::{InfoStream, InfoStreamLock};
+    use crate::util::info_stream::{InfoStream, InfoStreamMT};
     use crate::util::io_consumer::IOConsumer;
     use crate::util::unicode_util::UnicodeUtil;
     use crate::util::{LATEST, byte_block_pool_util};
@@ -156,7 +156,7 @@ pub mod index_writer_util {
     /// reference such files when this method is called, because they are not allowed within a compound
     /// file.
     pub(crate) fn create_compound_file<D, T, D2>(
-        info_stream: &InfoStreamLock,
+        info_stream: &InfoStreamMT,
         directory: &TrackingDirectoryWrapper<D>,
         info: &mut SegmentInfo<D2>,
         context: &IOContext,
@@ -175,9 +175,8 @@ pub mod index_writer_util {
         }
 
         {
-            let mut stream = info_stream.lock();
-            if stream.enabled("IW") {
-                stream.message("IW", "create compound file");
+            if info_stream.enabled("IW") {
+                info_stream.message("IW", "create compound file");
             }
         }
         // Now merge all added files

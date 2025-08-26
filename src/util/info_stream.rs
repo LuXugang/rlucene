@@ -14,88 +14,87 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::cell::RefCell;
 use std::sync::Arc;
 
 use once_cell::sync::Lazy;
-use parking_lot::Mutex;
 
 /// Debugging API for Lucene classes such as
 /// [`IndexWriter`](crate::index::index_writer::IndexWriter)
 /// and [`SegmentInfos`](crate::index::segment_infos::SegmentInfos).
 pub trait InfoStream: Send + Sync {
     /// Prints a message.
-    fn message(&mut self, component: &str, message: &str);
+    fn message(&self, component: &str, message: &str);
 
     /// Returns true if messages are enabled and should be posted to `message`.
-    fn enabled(&mut self, component: &str) -> bool;
+    fn enabled(&self, component: &str) -> bool;
 
     /// Closes the stream.
-    fn close(&mut self);
+    fn close(&self);
 }
 
 /// A global, thread-safe reference to a default `InfoStream`,
 /// mirroring `private static InfoStream defaultInfoStream` in Java.
-static DEFAULT_INFOSTREAM: Lazy<Arc<Mutex<InfoStreamEnum>>> =
-    Lazy::new(|| Arc::new(Mutex::new(InfoStreamEnum::NoOutput(NoOutput))));
+static DEFAULT_INFOSTREAM: Lazy<Arc<InfoStreamEnum>> =
+    Lazy::new(|| Arc::new(InfoStreamEnum::NoOutput(NoOutput)));
 
 /// Instance of InfoStream that does no logging at all.
 #[derive(Clone, Debug)]
 pub struct NoOutput;
 
 impl InfoStream for NoOutput {
-    fn message(&mut self, _component: &str, _message: &str) {
+    fn message(&self, _component: &str, _message: &str) {
         debug_assert!(
             false,
             "this method should never be called when is_enabled returns false"
         );
     }
 
-    fn enabled(&mut self, _component: &str) -> bool {
+    fn enabled(&self, _component: &str) -> bool {
         false
     }
 
-    fn close(&mut self) {
+    fn close(&self) {
         // Nothing to do.
     }
 }
 
 /// The default `InfoStream` used by a newly instantiated classes.
-pub fn get_default_info_stream() -> Arc<Mutex<InfoStreamEnum>> {
+pub fn get_default_info_stream() -> Arc<InfoStreamEnum> {
     DEFAULT_INFOSTREAM.clone()
 }
 
 /// Sets the default [`InfoStream`] used by a newly instantiated classes.
-pub fn set_default(info_stream: InfoStreamEnum) {
-    let mut lock = DEFAULT_INFOSTREAM.lock();
-    *lock = info_stream;
+pub fn set_default(_info_stream: InfoStreamEnum) {
+    todo!()
 }
 #[derive(Clone, Debug)]
 pub enum InfoStreamEnum {
     NoOutput(NoOutput),
 }
 impl InfoStream for InfoStreamEnum {
-    fn message(&mut self, component: &str, message: &str) {
+    fn message(&self, component: &str, message: &str) {
         match self {
             InfoStreamEnum::NoOutput(output) => output.message(component, message),
         }
     }
 
-    fn enabled(&mut self, component: &str) -> bool {
+    fn enabled(&self, component: &str) -> bool {
         match self {
             InfoStreamEnum::NoOutput(output) => output.enabled(component),
         }
     }
 
-    fn close(&mut self) {
+    fn close(&self) {
         match self {
             InfoStreamEnum::NoOutput(output) => output.close(),
         }
     }
 }
 /// for multi-threaded scenarios
-pub type InfoStreamLock = Arc<Mutex<InfoStreamEnum>>;
+pub type InfoStreamMT = Arc<InfoStreamEnum>;
 /// for single-threaded scenarios
-pub type InfoStreamBorrow = Arc<Mutex<InfoStreamEnum>>;
+pub type InfoStreamST = RefCell<InfoStreamEnum>;
 #[cfg(test)]
 mod tests {
     use crate::util::error::lucene_error::Result;

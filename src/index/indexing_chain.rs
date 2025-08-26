@@ -91,7 +91,7 @@ use crate::util::bit_set::{BitSet, bit_set_util};
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
-use crate::util::info_stream::{InfoStream, InfoStreamLock};
+use crate::util::info_stream::{InfoStream, InfoStreamMT};
 use crate::util::int_block_pool::{AllocatorI32, AllocatorIntEnum, ibp_util};
 use crate::util::number::Number;
 use crate::util::paged_bytes::PagedBytesDataInput;
@@ -123,7 +123,7 @@ where
     next_field_gen: i64,
     fields: Vec<i32>,
     doc_fields: Vec<Option<PerField>>,
-    info_stream: InfoStreamLock,
+    info_stream: InfoStreamMT,
     byte_block_allocator: MTAllocatorByteEnum,
     index_created_version_major: i32,
     has_hit_aborting_exception: bool,
@@ -288,8 +288,8 @@ where
         // write norms
         let t0 = Instant::now();
         self.write_norms(state, sort_map.clone(), segment_info, index_writer_config)?;
-        if self.info_stream.lock().enabled("IW") {
-            self.info_stream.lock().message(
+        if self.info_stream.enabled("IW") {
+            self.info_stream.message(
                 "IW",
                 &format!("{} ms to write norms", t0.elapsed().as_millis()),
             );
@@ -298,8 +298,8 @@ where
         // write doc-values
         let t0 = Instant::now();
         self.write_doc_values(state, sort_map.clone(), segment_info, index_writer_config)?;
-        if self.info_stream.lock().enabled("IW") {
-            self.info_stream.lock().message(
+        if self.info_stream.enabled("IW") {
+            self.info_stream.message(
                 "IW",
                 &format!("{} ms to write docValues", t0.elapsed().as_millis()),
             );
@@ -308,8 +308,8 @@ where
         // write points
         let t0 = Instant::now();
         self.write_points(state, sort_map.clone(), index_writer_config)?;
-        if self.info_stream.lock().enabled("IW") {
-            self.info_stream.lock().message(
+        if self.info_stream.enabled("IW") {
+            self.info_stream.message(
                 "IW",
                 &format!("{} ms to write points", t0.elapsed().as_millis()),
             );
@@ -318,8 +318,8 @@ where
         // write vectors
         // let t0 = Instant::now();
         // self.vector_values_consumer.flush(state, sort_map.clone(),segment_info)?;
-        // if self.info_stream.lock().enabled("IW") {
-        //     self.info_stream.lock().message("IW", &format!("{} ms to write vectors", t0.elapsed().as_millis()));
+        // if self.info_stream.enabled("IW") {
+        //     self.info_stream.message("IW", &format!("{} ms to write vectors", t0.elapsed().as_millis()));
         // }
 
         // finish & flush stored fields
@@ -331,8 +331,8 @@ where
         )?;
         self.stored_fields_consumer
             .flush(sort_map.clone(), segment_info, state.directory)?;
-        if self.info_stream.lock().enabled("IW") {
-            self.info_stream.lock().message(
+        if self.info_stream.enabled("IW") {
+            self.info_stream.message(
                 "IW",
                 &format!("{} ms to finish stored fields", t0.elapsed().as_millis()),
             );
@@ -391,8 +391,8 @@ where
             segment_info,
             seg_updates,
         )?;
-        if self.info_stream.lock().enabled("IW") {
-            self.info_stream.lock().message(
+        if self.info_stream.enabled("IW") {
+            self.info_stream.message(
                 "IW",
                 &format!(
                     "{} ms to write postings and finish vectors",
@@ -412,8 +412,8 @@ where
             &state.field_infos,
             &IOContext::default_io_context()?,
         )?;
-        if self.info_stream.lock().enabled("IW") {
-            self.info_stream.lock().message(
+        if self.info_stream.enabled("IW") {
+            self.info_stream.message(
                 "IW",
                 &format!("{} ms to write fieldInfos", t0.elapsed().as_millis()),
             );
@@ -1552,7 +1552,7 @@ impl PerField {
         })();
 
         // if !succeeded && self.info_stream.is_enabled("DW") {
-        //     self.info_stream.message(
+        //     self.self.info_stream.message(
         //         "DW",
         //         &format!("exception in invert_token_stream for {}", field.name()),
         //     );
@@ -1627,7 +1627,7 @@ impl PerField {
                 prefix
             );
             // if self.info_stream.is_enabled("IW") {
-            //     self.info_stream.message("IW", &format!("ERROR: {}", msg));
+            //     self.self.info_stream.message("IW", &format!("ERROR: {}", msg));
             // }
             return Err(LuceneError::illegal_state(format!("{msg} {e}")));
         }

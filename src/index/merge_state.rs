@@ -17,8 +17,6 @@
 use std::rc::Rc;
 use std::sync::Arc;
 
-use parking_lot::Mutex;
-
 use crate::codecs::doc_values_producer::DocValuesProducerEnum;
 use crate::codecs::norms_producer::NormsProducerEnum;
 use crate::codecs::stored_fields_reader::StoredFieldsReaderEnum;
@@ -48,7 +46,7 @@ where
     pub live_docs: Vec<Option<Rc<BitsEnum>>>,
     pub needs_index_sort: bool,
     pub max_docs: Vec<i32>,
-    pub info_stream: Arc<Mutex<InfoStreamEnum>>,
+    pub info_stream: Arc<InfoStreamEnum>,
 }
 
 /// A map of doc IDs.

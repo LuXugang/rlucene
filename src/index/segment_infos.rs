@@ -163,9 +163,8 @@ pub mod segment_infos_util {
     /// Name of the generation reference file name.
     pub(crate) const OLD_SEGMENTS_GEN: &str = "segments.gen";
     /// Sets the global INFO_STREAM to the given `OutputEnum`.
-    pub fn set_info_stream(output: OutputEnum) -> Result<()> {
-        let mut info_stream = INFO_STREAM.lock();
-        *info_stream = Some(Arc::new(Mutex::new(output)));
+    pub fn set_info_stream(_output: OutputEnum) -> Result<()> {
+        // TODO
         Ok(())
     }
 

@@ -28,7 +28,7 @@ use crate::search::query::Query;
 use crate::store::directory::Directory;
 use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::info_stream::{InfoStream, InfoStreamLock};
+use crate::util::info_stream::{InfoStream, InfoStreamMT};
 use crate::util::supplier::Supplier;
 use parking_lot::{Condvar, Mutex};
 use std::collections::VecDeque;
@@ -44,8 +44,8 @@ where
     L: LiveIndexWriterConfig,
 {
     flush_deletes: AtomicBool,
-    info_stream: InfoStreamLock,
-    pub(crate) lock: Mutex<Inner<D, Q>>,
+    info_stream: InfoStreamMT,
+    pub(crate) inner: Mutex<Inner<D, Q>>,
     config: Arc<L>,
     stall_control: DocumentsWriterStallControl,
     pausing: Condvar,
@@ -128,7 +128,7 @@ where
         DocumentsWriterFlushControl {
             flush_deletes: AtomicBool::new(false),
             info_stream: config.get_info_stream(),
-            lock: Mutex::new(inner),
+            inner: Mutex::new(inner),
             config,
             stall_control: DocumentsWriterStallControl::new(),
             pausing: Condvar::new(),
@@ -136,17 +136,17 @@ where
     }
 
     pub fn active_bytes(&self) -> i64 {
-        let guard = self.lock.lock();
+        let guard = self.inner.lock();
         guard.active_bytes
     }
 
     pub(crate) fn get_flushing_bytes(&self) -> i64 {
-        let guard = self.lock.lock();
+        let guard = self.inner.lock();
         guard.flush_bytes.load(Ordering::SeqCst)
     }
 
     pub(crate) fn net_bytes(&self) -> i64 {
-        let guard = self.lock.lock();
+        let guard = self.inner.lock();
         guard.flush_bytes.load(Ordering::SeqCst) + guard.active_bytes
     }
 
@@ -271,7 +271,7 @@ where
             // Skip accounting for now, we'll come back to it later when the delta is bigger
             return Ok((None, Some(per_thread)));
         }
-        let mut inner = self.lock.lock();
+        let mut inner = self.inner.lock();
         let result = (|| {
             // we need to commit this under lock but calculate it outside of the lock to minimize the time
             // this lock is held
@@ -360,7 +360,7 @@ where
         true
     }
     pub(crate) fn do_after_flush(&self, dwpt: DocumentsWriterPerThread<D, Q>) {
-        let mut inner = self.lock.lock();
+        let mut inner = self.inner.lock();
         let id = dwpt.id().to_string();
         debug_assert!(inner.flushing_writers.contains(&id),);
         if let Some(pos) = inner.flushing_writers.iter().position(|w| *w == id) {
@@ -381,10 +381,9 @@ where
         let flush = inner.flush_bytes.load(Ordering::SeqCst);
         let stall = (active + flush) > limit && active < limit && !inner.closed;
 
-        let mut info_stream = self.info_stream.lock();
-        if info_stream.enabled("DWFC") && stall != self.stall_control.any_stalled_threads() {
+        if self.info_stream.enabled("DWFC") && stall != self.stall_control.any_stalled_threads() {
             if stall {
-                info_stream.message(
+                self.info_stream.message(
                         "DW",
                         &format!(
                             "now stalling flushes: netBytes: {:.1} MB flushBytes: {:.1} MB fullFlush: {}",
@@ -399,7 +398,7 @@ where
                     .duration_since(inner.stall_start_ns)
                     .as_secs_f64()
                     * 1000.0;
-                info_stream.message(
+                self.info_stream.message(
                         "DW",
                         &format!(
                             "done stalling flushes for {:.1} msec: netBytes: {:.1} MB flushBytes: {:.1} MB fullFlush: {}",
@@ -417,7 +416,7 @@ where
     }
 
     pub fn wait_for_flush(&self) {
-        let mut inner = self.lock.lock();
+        let mut inner = self.inner.lock();
         while !inner.flushing_writers.is_empty() {
             self.pausing.wait(&mut inner);
         }
@@ -431,7 +430,7 @@ where
     ) -> Result<()> {
         let inner = match inner {
             Some(inner) => inner,
-            None => &mut *self.lock.lock(),
+            None => &mut *self.inner.lock(),
         };
         debug_assert!(!per_thread.is_flush_pending());
         if per_thread.get_num_docs_in_ram() > 0 {
@@ -449,7 +448,7 @@ where
         per_thread: &DocumentsWriterPerThread<D, Q>,
         per_thread_pool: &DocumentsWriterPerThreadPool<D, Q>,
     ) {
-        let mut inner = self.lock.lock();
+        let mut inner = self.inner.lock();
         {
             debug_assert!(per_thread_pool.is_registered(per_thread.id()));
             let bytes = per_thread.get_last_committed_bytes_used();
@@ -519,7 +518,7 @@ where
         let inner = if let Some(inner) = inner {
             inner
         } else {
-            &mut *self.lock.lock()
+            &mut *self.inner.lock()
         };
         if let Some(dwpt) = inner.flush_queue.pop_front() {
             // update stall state before returning
@@ -546,7 +545,7 @@ where
         Ok(None)
     }
     pub fn close(&self) {
-        let mut inner = self.lock.lock();
+        let mut inner = self.inner.lock();
         inner.closed = true;
     }
 
@@ -554,7 +553,7 @@ where
     where
         FP: FlushPolicy,
     {
-        let _guard = self.lock.lock();
+        let _guard = self.inner.lock();
         flush_policy.on_change(self, None);
         drop(_guard)
     }
@@ -569,7 +568,7 @@ where
     }
 
     pub(crate) fn num_flushing_dwpt(&self) -> usize {
-        let inner = self.lock.lock();
+        let inner = self.inner.lock();
         inner.flushing_writers.len()
     }
     pub fn get_and_reset_apply_all_deletes(&self) -> bool {
@@ -597,7 +596,7 @@ where
     {
         loop {
             {
-                let inner = self.lock.lock();
+                let inner = self.inner.lock();
                 if inner.closed {
                     return Err(LuceneError::already_closed("flush control is closed"));
                 }
@@ -617,7 +616,7 @@ where
 
             #[cfg(debug_assertions)]
             {
-                let inner = self.lock.lock();
+                let inner = self.inner.lock();
                 debug_assert!(
                     inner.full_flush && !inner.full_flush_mark_done,
                     "found a stale DWPT but full flush mark phase is already done fullFlush: {} markDone: {}",
@@ -634,7 +633,7 @@ where
     ) -> Result<i64> {
         let flushing_queue;
         let seq_no = {
-            let mut inner = self.lock.lock();
+            let mut inner = self.inner.lock();
             debug_assert!(
                 !inner.full_flush,
                 "called mark_for_full_flush while already in full flush"
@@ -645,7 +644,7 @@ where
             );
 
             inner.full_flush = true;
-            let mut documents_writer_inner = documents_writer.lock.lock();
+            let mut documents_writer_inner = documents_writer.inner.lock();
             flushing_queue = documents_writer_inner.delete_queue.clone();
             // Set a new delete queue - all subsequent DWPT will use this queue until
             // we do another full flush
@@ -674,7 +673,7 @@ where
         for next in dwpts {
             if next.get_num_docs_in_ram() > 0 {
                 let flushing_dwpt = {
-                    let mut inner = self.lock.lock();
+                    let mut inner = self.inner.lock();
                     if !next.is_flush_pending() {
                         self.set_flush_pending(&next, Some(&mut inner))?;
                     }
@@ -694,16 +693,16 @@ where
             // pending and moved to blocked are moved over to the flushQueue. There is
             // a chance that this happens since we marking DWPT for full flush without
             // blocking indexing
-            let mut inner = self.lock.lock();
+            let mut inner = self.inner.lock();
             self.prune_blocked_queue(&flushing_queue, &mut inner);
-            debug_assert!(self.assert_blocked_flushes(&documents_writer.lock.lock().delete_queue));
+            debug_assert!(self.assert_blocked_flushes(&documents_writer.inner.lock().delete_queue));
             inner.flush_queue.extend(full_flush_buffer);
             self.update_stall_state(&mut inner);
             inner.full_flush_mark_done = true;
         }
 
         debug_assert!(self.assert_active_delete_queue(
-            &documents_writer.lock.lock().delete_queue,
+            &documents_writer.inner.lock().delete_queue,
             &documents_writer.per_thread_pool
         ));
         debug_assert!(flushing_queue.get_last_sequence_number() <= flushing_queue.get_max_seq_no());
@@ -744,7 +743,7 @@ where
         }
     }
     pub(crate) fn finish_full_flush(&self, delete_queue: &Arc<DocumentsWriterDeleteQueue<Q>>) {
-        let mut inner = self.lock.lock();
+        let mut inner = self.inner.lock();
         debug_assert!(inner.full_flush);
         debug_assert!(inner.flush_queue.is_empty());
         debug_assert!(
@@ -769,7 +768,7 @@ where
         &self,
         flushing_queue: &Arc<DocumentsWriterDeleteQueue<Q>>,
     ) -> bool {
-        let inner = self.lock.lock();
+        let inner = self.inner.lock();
         for blocked in inner.blocked_flushes.iter() {
             debug_assert!(Arc::ptr_eq(&blocked.delete_queue, flushing_queue),);
         }
@@ -778,13 +777,13 @@ where
 
     /// Returns `true` if a full flush is currently running
     pub fn is_full_flush(&self) -> bool {
-        let inner = self.lock.lock();
+        let inner = self.inner.lock();
         inner.full_flush
     }
 
     /// Returns the number of flushes that are already checked out but not yet actively flushing
     pub fn num_queued_flushes(&self) -> usize {
-        let inner = self.lock.lock();
+        let inner = self.inner.lock();
         inner.flush_queue.len()
     }
 
@@ -792,7 +791,7 @@ where
     /// This only applies during a full flush if a DWPT needs flushing but must not be flushed
     /// until the full flush has finished.
     pub fn num_blocked_flushes(&self) -> i32 {
-        let inner = self.lock.lock();
+        let inner = self.inner.lock();
         inner.blocked_flushes.len() as i32
     }
 
@@ -807,12 +806,12 @@ where
     }
 
     pub(crate) fn get_peak_active_bytes(&self) -> i64 {
-        let inner = self.lock.lock();
+        let inner = self.inner.lock();
         inner.peak_active_bytes
     }
 
     pub(crate) fn get_peak_net_bytes(&self) -> i64 {
-        let inner = self.lock.lock();
+        let inner = self.inner.lock();
         inner.peak_net_bytes
     }
 }
@@ -833,7 +832,7 @@ where
     L: LiveIndexWriterConfig,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let inner = self.lock.lock();
+        let inner = self.inner.lock();
         let active = inner.active_bytes;
         let flush = inner.flush_bytes.load(Ordering::SeqCst);
         write!(

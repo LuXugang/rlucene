@@ -21,7 +21,7 @@ use crate::search::query::Query;
 use crate::store::directory::Directory;
 use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::Result;
-use crate::util::info_stream::{InfoStream, InfoStreamLock};
+use crate::util::info_stream::{InfoStream, InfoStreamMT};
 use parking_lot::Mutex;
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicI64, Ordering};
@@ -38,7 +38,7 @@ pub(crate) struct BufferedUpdatesStream<Q>
 where
     Q: Query,
 {
-    info_stream: InfoStreamLock,
+    info_stream: InfoStreamMT,
     inner: Mutex<BufferedUpdatesStreamInner<Q>>,
     bytes_used: AtomicI64,
     finished_segments: FinishedSegments,
@@ -57,7 +57,7 @@ impl<Q> BufferedUpdatesStream<Q>
 where
     Q: Query,
 {
-    pub(crate) fn new(info_stream: InfoStreamLock) -> Self {
+    pub(crate) fn new(info_stream: InfoStreamMT) -> Self {
         Self {
             info_stream: info_stream.clone(),
             inner: Mutex::new(BufferedUpdatesStreamInner {
@@ -89,11 +89,10 @@ where
         self.bytes_used
             .fetch_add(bytes_used as i64, Ordering::SeqCst);
         {
-            let mut info_stream = self.info_stream.lock();
-            if info_stream.enabled("BD") {
+            if self.info_stream.enabled("BD") {
                 let count = inner.updates.len();
                 let used_mb = self.bytes_used.load(Ordering::SeqCst) as f64 / 1024.0 / 1024.0;
-                info_stream.message(
+                self.info_stream.message(
                     "BD",
                     &format!(
                         "push new packet ({packet_msg}), packetCount={count}, bytesUsed={used_mb:.3} MB"
@@ -176,21 +175,18 @@ where
         let packet_count = wait_for.len();
 
         if wait_for.is_empty() {
-            let mut info = self.info_stream.lock();
-            if info.enabled("BD") {
-                info.message("BD", "waitApply: no deletes to apply");
+            if self.info_stream.enabled("BD") {
+                self.info_stream
+                    .message("BD", "waitApply: no deletes to apply");
             }
             return Ok(());
         }
 
-        {
-            let mut info = self.info_stream.lock();
-            if info.enabled("BD") {
-                info.message(
-                    "BD",
-                    &format!("waitApply: {packet_count:?} packets: {wait_for:?}"),
-                );
-            }
+        if self.info_stream.enabled("BD") {
+            self.info_stream.message(
+                "BD",
+                &format!("waitApply: {packet_count:?} packets: {wait_for:?}"),
+            );
         }
 
         let mut pending = Vec::new();
@@ -213,18 +209,15 @@ where
             writer.force_apply(&mut packet)?;
         }
 
-        {
-            let mut info = self.info_stream.lock();
-            if info.enabled("BD") {
-                let elapsed = start_ns.elapsed().as_secs_f64() * 1000.0;
-                let bytes = self.bytes_used.load(Ordering::SeqCst);
-                info.message(
+        if self.info_stream.enabled("BD") {
+            let elapsed = start_ns.elapsed().as_secs_f64() * 1000.0;
+            let bytes = self.bytes_used.load(Ordering::SeqCst);
+            self.info_stream.message(
                     "BD",
                     &format!(
                         "waitApply: done {packet_count} packets; totalDelCount={total_del_count}; totBytesUsed={bytes}; took {elapsed:.2} msec"
                     ),
                 );
-            }
         }
         Ok(())
     }
@@ -265,7 +258,7 @@ pub(crate) struct SegmentState;
 ///
 /// Packets are resolved concurrently, and only contiguous completed packets can be written to disk.
 pub(crate) struct FinishedSegments {
-    info_stream: InfoStreamLock,
+    info_stream: InfoStreamMT,
     inner: Mutex<Inner>,
 }
 pub(crate) struct Inner {
@@ -276,7 +269,7 @@ pub(crate) struct Inner {
     finished_del_gens: HashSet<i64>,
 }
 impl FinishedSegments {
-    pub(crate) fn new(info_stream: InfoStreamLock) -> Self {
+    pub(crate) fn new(info_stream: InfoStreamMT) -> Self {
         FinishedSegments {
             info_stream,
             inner: Mutex::new(Inner {
@@ -314,9 +307,8 @@ impl FinishedSegments {
             inner.completed_del_gen += 1;
         }
         {
-            let mut info_stream = self.info_stream.lock();
-            if info_stream.enabled("BD") {
-                info_stream.message(
+            if self.info_stream.enabled("BD") {
+                self.info_stream.message(
                     "BD",
                     &format!(
                         "finished packet delGen={} now completedDelGen={}",

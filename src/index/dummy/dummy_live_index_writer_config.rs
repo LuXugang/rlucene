@@ -20,12 +20,11 @@ use crate::index::dummy::dummy_flush_policy::DummyFlushPolicy;
 use crate::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::index::sort::Sort;
 use crate::search::dummy::dummy_similarity::DummySimilarity;
-use crate::util::info_stream::{InfoStreamEnum, InfoStreamLock, NoOutput};
-use parking_lot::Mutex;
+use crate::util::info_stream::{InfoStreamEnum, InfoStreamMT, NoOutput};
 use std::sync::Arc;
 
 pub struct DummyLiveIndexWriterConfig {
-    info_stream: InfoStreamLock,
+    info_stream: InfoStreamMT,
     codec: Lucene101Codec,
     analyzer: DummyAnalyzer,
     similarity: DummySimilarity,
@@ -39,7 +38,7 @@ impl Default for DummyLiveIndexWriterConfig {
 impl DummyLiveIndexWriterConfig {
     pub fn new() -> Self {
         DummyLiveIndexWriterConfig {
-            info_stream: Arc::new(Mutex::new(InfoStreamEnum::NoOutput(NoOutput))),
+            info_stream: Arc::new(InfoStreamEnum::NoOutput(NoOutput)),
             codec: Lucene101Codec,
             analyzer: DummyAnalyzer,
             similarity: DummySimilarity,
@@ -77,7 +76,7 @@ impl LiveIndexWriterConfig for DummyLiveIndexWriterConfig {
         None
     }
 
-    fn get_info_stream(&self) -> InfoStreamLock {
+    fn get_info_stream(&self) -> InfoStreamMT {
         self.info_stream.clone()
     }
 

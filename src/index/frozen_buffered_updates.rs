@@ -37,7 +37,7 @@ use crate::util::access::SharedAccess;
 use crate::util::accountable::Accountable;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::Result;
-use crate::util::info_stream::{InfoStream, InfoStreamLock};
+use crate::util::info_stream::{InfoStream, InfoStreamMT};
 use crate::util::{ByteBlockPool, CounterEnum, StringHelper, ToInt};
 /// Holds buffered deletes and updates by term or query, once pushed.
 ///
@@ -48,7 +48,7 @@ pub(crate) struct FrozenBufferedUpdates<Q>
 where
     Q: Query,
 {
-    info_stream: InfoStreamLock,
+    info_stream: InfoStreamMT,
     // Terms, in sorted order:
     pub delete_terms: PrefixCodedTerms,
     // Parallel array of deleted query, and the docIDUpto for each
@@ -78,7 +78,7 @@ where
     const BYTES_PER_DEL_QUERY: i32 = 0;
 
     pub fn new<C, B>(
-        info_stream: InfoStreamLock,
+        info_stream: InfoStreamMT,
         updates: &mut BufferedUpdates<Q, C, B>,
         private_segment: Option<String>,
     ) -> Result<Self>
@@ -119,14 +119,13 @@ where
 
         // TODO: memory calculation not implemented
         let bytes_used = 0;
-        let mut info_stream_lock = info_stream.lock();
-        if info_stream_lock.enabled("BD") {
+        if info_stream.enabled("BD") {
             let private_segment_msg = if private_segment.is_none() {
                 "None".to_string()
             } else {
                 format!("; private segment {}", private_segment.as_ref().unwrap())
             };
-            info_stream_lock.message(
+            info_stream.message(
                 "BD",
                 &format!(
                     "compressed {} to {} bytes ({:.2}%) for deletes/updates; private segment {}",

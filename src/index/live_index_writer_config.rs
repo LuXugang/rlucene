@@ -19,7 +19,7 @@ use crate::codecs::Codec;
 use crate::index::flush_policy::FlushPolicy;
 use crate::index::sort::Sort;
 use crate::search::similarities::similarities::Similarity;
-use crate::util::info_stream::InfoStreamLock;
+use crate::util::info_stream::InfoStreamMT;
 use std::sync::Arc;
 
 pub trait LiveIndexWriterConfig {
@@ -38,7 +38,7 @@ pub trait LiveIndexWriterConfig {
 
     fn get_soft_deletes_field(&self) -> Option<&str>;
 
-    fn get_info_stream(&self) -> InfoStreamLock;
+    fn get_info_stream(&self) -> InfoStreamMT;
 
     fn get_parent_field(&self) -> Option<&str>;
 

@@ -20,7 +20,7 @@ use crate::index::field_infos::FieldInfos;
 use crate::store::IOContext;
 use crate::store::directory::Directory;
 use crate::util::fixed_bit_set::FixedBitSet;
-use crate::util::info_stream::InfoStreamLock;
+use crate::util::info_stream::InfoStreamMT;
 
 /// Holder struct for common parameters used during write.
 ///
@@ -30,7 +30,7 @@ where
     D: Directory,
 {
     /// InfoStream used for debugging messages.
-    pub info_stream: Option<InfoStreamLock>,
+    pub info_stream: Option<InfoStreamMT>,
 
     /// Directory where this segment will be written to.
     pub directory: &'a D,
@@ -70,7 +70,7 @@ where
 {
     /// Constructor without suffix.
     pub(crate) fn new(
-        info_stream: Option<InfoStreamLock>,
+        info_stream: Option<InfoStreamMT>,
         directory: &'a D,
         field_infos: Rc<FieldInfos>,
         context: &'a IOContext,
@@ -80,7 +80,7 @@ where
 
     /// Constructor with segment suffix.
     pub(crate) fn with_suffix(
-        info_stream: Option<InfoStreamLock>,
+        info_stream: Option<InfoStreamMT>,
         directory: &'a D,
         field_infos: Rc<FieldInfos>,
         context: &'a IOContext,

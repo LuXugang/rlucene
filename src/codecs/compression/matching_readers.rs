@@ -56,15 +56,14 @@ impl MatchingReaders {
             matching_readers[i] = true;
             matched_count += 1;
         }
-        let mut info_stream = merge_state.info_stream.lock();
-        if info_stream.enabled("SM") {
-            info_stream.message(
+        if merge_state.info_stream.enabled("SM") {
+            merge_state.info_stream.message(
                 "SM",
                 &format!("merge store matched_count={matched_count} vs {num_readers}"),
             );
         }
         if matched_count as usize != num_readers {
-            info_stream.message(
+            merge_state.info_stream.message(
                 "SM",
                 &format!("{} non-bulk merges", num_readers as i32 - matched_count),
             );

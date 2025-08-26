@@ -24,7 +24,7 @@ use crate::store::directory::Directory;
 use crate::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::file_deleter::{FileDeleter, Messenger, MsgType};
-use crate::util::info_stream::{InfoStream, InfoStreamLock};
+use crate::util::info_stream::{InfoStream, InfoStreamMT};
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
@@ -71,7 +71,7 @@ where
     /// Commits that the IndexDeletionPolicy have decided to delete.
     commits_to_delete: Vec<CommitPoint<D>>,
 
-    info_stream: InfoStreamLock,
+    info_stream: InfoStreamMT,
     directory_orig: Arc<D>,
     directory: Arc<LockValidatingDirectoryWrapper<D>>,
     policy: Arc<P>,
@@ -96,7 +96,7 @@ where
         directory: Arc<LockValidatingDirectoryWrapper<D>>,
         policy: Arc<P>,
         mut segment_infos: SegmentInfos<D>,
-        info_stream: InfoStreamLock,
+        info_stream: InfoStreamMT,
         initial_index_exists: bool,
         is_reader_init: bool,
     ) -> Result<Self> {
@@ -105,8 +105,8 @@ where
         let mut last_segment_infos: Option<SegmentInfos<D>> = None;
 
         let current_segments_file = segment_infos.get_segments_file_name();
-        if info_stream.lock().enabled("IFD") {
-            info_stream.lock().message(
+        if info_stream.enabled("IFD") {
+            info_stream.message(
                 "IFD",
                 &format!(
                     "init: current segments file is \"{current_segments_file:?}\"; deletionPolicy={policy}"
@@ -150,10 +150,9 @@ where
                         // This is a commit (segments or segments_N), and
                         // it's valid (<= the max gen).  Load it, then
                         // incref all files it refers to:
-                        if index_file_deleter.info_stream.lock().enabled("IFD") {
+                        if index_file_deleter.info_stream.enabled("IFD") {
                             index_file_deleter
                                 .info_stream
-                                .lock()
                                 .message("IFD", &format!("init: load commit \"{file}\""));
                         }
                         let sis = SegmentInfos::read_commit(directory_orig.clone(), &file)?
@@ -197,8 +196,8 @@ where
                     )));
                 },
             };
-            if index_file_deleter.info_stream.lock().enabled("IFD") {
-                index_file_deleter.info_stream.lock().message(
+            if index_file_deleter.info_stream.enabled("IFD") {
+                index_file_deleter.info_stream.message(
                     "IFD",
                     &format!(
                         "forced open of current segments file {:?}",
@@ -244,8 +243,8 @@ where
             if file.starts_with(IndexFileNames::SEGMENTS) {
                 panic!("file \"{file}\" has refCount=0, which should never happen on init");
             }
-            if index_file_deleter.info_stream.lock().enabled("IFD") {
-                index_file_deleter.info_stream.lock().message(
+            if index_file_deleter.info_stream.enabled("IFD") {
+                index_file_deleter.info_stream.message(
                     "IFD",
                     &format!("init: removing unreferenced file \"{file}\""),
                 );
@@ -308,8 +307,8 @@ where
         // the now-deleted commits:
         let commits_to_delete = std::mem::take(&mut self.commits_to_delete);
         for mut commit in commits_to_delete {
-            if self.info_stream.lock().enabled("IFD") {
-                self.info_stream.lock().message(
+            if self.info_stream.enabled("IFD") {
+                self.info_stream.message(
                     "IFD",
                     &format!(
                         "deleteCommits: now decRef commit \"{}\"",
@@ -358,9 +357,8 @@ where
                 && !self.file_deleter.exists(&file_name)
                 && (is_codec_match || is_segments || is_pending_segments)
             {
-                let mut info_stream = self.info_stream.lock();
-                if info_stream.enabled("IFD") {
-                    info_stream.message(
+                if self.info_stream.enabled("IFD") {
+                    self.info_stream.message(
                         "IFD",
                         &format!(
                             "refresh: removing newly created unreferenced file \"{file_name}\""
@@ -395,9 +393,8 @@ where
     /// which will attempt to delete those unused commits again.
     pub(crate) fn revisit_policy(&mut self) -> Result<()> {
         {
-            let mut info_stream = self.info_stream.lock();
-            if info_stream.enabled("IFD") {
-                info_stream.message("IFD", "now revisitPolicy");
+            if self.info_stream.enabled("IFD") {
+                self.info_stream.message("IFD", "now revisitPolicy");
             }
         }
 
@@ -425,8 +422,7 @@ where
         let t0 = std::time::Instant::now();
 
         {
-            let mut info_stream = self.info_stream.lock();
-            if info_stream.enabled("IFD") {
+            if self.info_stream.enabled("IFD") {
                 // TODO:
             }
         }
@@ -453,10 +449,10 @@ where
         }
 
         {
-            let mut info_stream = self.info_stream.lock();
-            if info_stream.enabled("IFD") {
+            if self.info_stream.enabled("IFD") {
                 let elapsed_ms = t0.elapsed().as_millis();
-                info_stream.message("IFD", &format!("{elapsed_ms} ms to checkpoint"));
+                self.info_stream
+                    .message("IFD", &format!("{elapsed_ms} ms to checkpoint"));
             }
         }
 
@@ -506,9 +502,9 @@ where
         match v {
             Ok(_) => {},
             Err(e) => {
-                let mut info_stream = self.info_stream.lock();
-                if info_stream.enabled("IFD") {
-                    info_stream.message("IFD", &format!("Error closing IndexFileDeleter: {e}"));
+                if self.info_stream.enabled("IFD") {
+                    self.info_stream
+                        .message("IFD", &format!("Error closing IndexFileDeleter: {e}"));
                 }
             },
         }
@@ -521,7 +517,7 @@ pub mod index_file_deleter_util {
     use crate::store::directory::Directory;
     use crate::util::error::lucene_error::LuceneError;
     use crate::util::error::lucene_error::Result;
-    use crate::util::info_stream::{InfoStream, InfoStreamLock};
+    use crate::util::info_stream::{InfoStream, InfoStreamMT};
     use std::collections::HashMap;
 
     /// Set all gens beyond what we currently see in the directory, to avoid double-write in cases
@@ -530,7 +526,7 @@ pub mod index_file_deleter_util {
     pub(crate) fn inflate_gens<'a, D, I>(
         infos: &mut SegmentInfos<D>,
         files: I,
-        info_stream: &InfoStreamLock,
+        info_stream: &InfoStreamMT,
     ) -> Result<()>
     where
         D: Directory,
@@ -610,7 +606,6 @@ pub mod index_file_deleter_util {
 
         let desired = 1 + max_segment_name;
         if infos.counter < desired {
-            let mut info_stream = info_stream.lock();
             if info_stream.enabled("IFD") {
                 info_stream.message(
                     "IFD",
@@ -628,7 +623,6 @@ pub mod index_file_deleter_util {
 
             let next_del = info.get_next_write_del_gen();
             if next_del < gen_long + 1 {
-                let mut info_stream = info_stream.lock();
                 if info_stream.enabled("IFD") {
                     info_stream.message(
                         "IFD",
@@ -645,7 +639,6 @@ pub mod index_file_deleter_util {
 
             let next_fi = info.get_next_write_field_infos_gen();
             if next_fi < gen_long + 1 {
-                let mut info_stream = info_stream.lock();
                 if info_stream.enabled("IFD") {
                     info_stream.message(
                         "IFD",
@@ -662,7 +655,6 @@ pub mod index_file_deleter_util {
 
             let next_dv = info.get_next_write_doc_values_gen();
             if next_dv < gen_long + 1 {
-                let mut info_stream = info_stream.lock();
                 if info_stream.enabled("IFD") {
                     info_stream.message(
                         "IFD",
@@ -801,11 +793,11 @@ where
 }
 
 pub(crate) struct MessengerImpl {
-    info_stream: InfoStreamLock,
+    info_stream: InfoStreamMT,
     verbose_ref_counts: bool,
 }
 impl MessengerImpl {
-    pub(crate) fn new(info_stream: InfoStreamLock, verbose_ref_counts: bool) -> Self {
+    pub(crate) fn new(info_stream: InfoStreamMT, verbose_ref_counts: bool) -> Self {
         MessengerImpl {
             info_stream,
             verbose_ref_counts,
@@ -817,9 +809,8 @@ impl Messenger for MessengerImpl {
         if msg_type == MsgType::Ref && !self.verbose_ref_counts {
             return;
         }
-        let mut info_stream = self.info_stream.lock();
-        if info_stream.enabled("IFD") {
-            info_stream.message("IFD", msg);
+        if self.info_stream.enabled("IFD") {
+            self.info_stream.message("IFD", msg);
         }
     }
 }

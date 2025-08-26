@@ -16,7 +16,7 @@
  */
 use crate::util::error::lucene_error::Result;
 use crate::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph;
-use crate::util::info_stream::InfoStreamLock;
+use crate::util::info_stream::InfoStreamMT;
 
 /// Interface for building an [`OnHeapHnswGraph`].
 ///
@@ -38,7 +38,7 @@ pub trait HnswBuilder {
     fn add_graph_node(&mut self, node: i32) -> Result<()>;
 
     /// Sets the info stream for debug output.
-    fn set_info_stream(&mut self, info_stream: InfoStreamLock);
+    fn set_info_stream(&mut self, info_stream: InfoStreamMT);
 
     /// Returns a reference to the current graph under construction.
     fn get_graph(&mut self) -> &mut OnHeapHnswGraph;

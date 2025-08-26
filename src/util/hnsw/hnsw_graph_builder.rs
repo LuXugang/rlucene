@@ -17,7 +17,6 @@
 use std::sync::Arc;
 use std::time::Instant;
 
-use parking_lot::Mutex;
 use rand_chacha::ChaCha20Rng;
 use rand_chacha::rand_core::RngCore;
 
@@ -41,7 +40,7 @@ use crate::util::hnsw::neighbor_queue::NeighborQueue;
 use crate::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph;
 use crate::util::hnsw::random_vector_scorer::RandomVectorScorer;
 use crate::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSupplier;
-use crate::util::info_stream::{InfoStream, InfoStreamEnum, InfoStreamLock, NoOutput};
+use crate::util::info_stream::{InfoStream, InfoStreamEnum, InfoStreamMT, NoOutput};
 /// Builder for HNSW graph. See [`HnswGraph`] for a gloss on the algorithm and
 /// the meaning of the hyper-parameters.
 pub struct HnswGraphBuilder<S, B, H>
@@ -59,7 +58,7 @@ where
     beam_candidates: GraphBuilderKnnCollector,
     hnsw: HnswGraphEnums,
     hnsw_lock: Option<HnswLock>,
-    info_stream: InfoStreamLock,
+    info_stream: InfoStreamMT,
     frozen: bool,
 }
 impl<S> HnswGraphBuilder<S, FixedBitSet, HnswGraphSearcherBaseDefault>
@@ -160,7 +159,7 @@ where
             graph_searcher,
             entry_candidates: GraphBuilderKnnCollector::new(1)?,
             beam_candidates: GraphBuilderKnnCollector::new(beam_width as i32)?,
-            info_stream: Arc::new(Mutex::new(InfoStreamEnum::NoOutput(NoOutput))),
+            info_stream: Arc::new(InfoStreamEnum::NoOutput(NoOutput)),
             frozen: false,
         })
     }
@@ -175,15 +174,14 @@ where
         let start = Instant::now();
         let mut last_log = start;
 
-        if self.info_stream.lock().enabled(HNSW_COMPONENT) {
+        if self.info_stream.enabled(HNSW_COMPONENT) {
             self.info_stream
-                .lock()
                 .message(HNSW_COMPONENT, &format!("addVectors [{min_ord} {max_ord})"));
         }
 
         for node in min_ord..max_ord {
             self.add_graph_node(node)?;
-            if node % 10_000 == 0 && self.info_stream.lock().enabled(HNSW_COMPONENT) {
+            if node % 10_000 == 0 && self.info_stream.enabled(HNSW_COMPONENT) {
                 last_log = self.print_graph_build_status(node, start, last_log);
             }
         }
@@ -195,10 +193,10 @@ where
     }
     fn print_graph_build_status(&mut self, node: i32, start: Instant, t: Instant) -> Instant {
         let now = Instant::now();
-        if self.info_stream.lock().enabled(HNSW_COMPONENT) {
+        if self.info_stream.enabled(HNSW_COMPONENT) {
             let elapsed_t = now.duration_since(t).as_millis();
             let elapsed_start = now.duration_since(start).as_millis();
-            self.info_stream.lock().message(
+            self.info_stream.message(
                 HNSW_COMPONENT,
                 &format!("built {node} in {elapsed_t}/{elapsed_start} ms"),
             );
@@ -354,8 +352,8 @@ where
         for level in 0..self.hnsw.num_levels()? {
             match self.connect_components_with_level(level) {
                 Ok(false) => {
-                    if self.info_stream.lock().enabled(HNSW_COMPONENT) {
-                        self.info_stream.lock().message(
+                    if self.info_stream.enabled(HNSW_COMPONENT) {
+                        self.info_stream.message(
                             HNSW_COMPONENT,
                             &format!("connectComponents failed on level {level}"),
                         );
@@ -366,10 +364,9 @@ where
             }
         }
 
-        if self.info_stream.lock().enabled(HNSW_COMPONENT) {
+        if self.info_stream.enabled(HNSW_COMPONENT) {
             let elapsed = start.elapsed().as_millis();
             self.info_stream
-                .lock()
                 .message(HNSW_COMPONENT, &format!("connectComponents {elapsed} ms"));
         }
 
@@ -387,8 +384,8 @@ where
         let components =
             HnswUtil::components(&mut self.hnsw, level, &mut not_fully_connected, max_conn)?;
 
-        if self.info_stream.lock().enabled(HNSW_COMPONENT) {
-            self.info_stream.lock().message(
+        if self.info_stream.enabled(HNSW_COMPONENT) {
+            self.info_stream.message(
                 HNSW_COMPONENT,
                 &format!("connect {} components on level={}", components.len(), level),
             );
@@ -418,8 +415,8 @@ where
                     continue;
                 }
 
-                if self.info_stream.lock().enabled(HNSW_COMPONENT) {
-                    self.info_stream.lock().message(
+                if self.info_stream.enabled(HNSW_COMPONENT) {
+                    self.info_stream.message(
                         HNSW_COMPONENT,
                         &format!("connect component {c:?} to {c0:?}"),
                     );
@@ -460,8 +457,8 @@ where
 
                     linked = true;
 
-                    if self.info_stream.lock().enabled(HNSW_COMPONENT) {
-                        self.info_stream.lock().message(
+                    if self.info_stream.enabled(HNSW_COMPONENT) {
+                        self.info_stream.message(
                             HNSW_COMPONENT,
                             &format!("connected ok {} -> {}", c0node, c.start),
                         );
@@ -469,9 +466,8 @@ where
                 }
 
                 if !linked {
-                    if self.info_stream.lock().enabled(HNSW_COMPONENT) {
+                    if self.info_stream.enabled(HNSW_COMPONENT) {
                         self.info_stream
-                            .lock()
                             .message(HNSW_COMPONENT, "not connected; no free nodes found");
                     }
                     result = false;
@@ -537,8 +533,8 @@ where
             ));
         }
 
-        if self.info_stream.lock().enabled(HNSW_COMPONENT) {
-            self.info_stream.lock().message(
+        if self.info_stream.enabled(HNSW_COMPONENT) {
+            self.info_stream.message(
                 HNSW_COMPONENT,
                 &format!("build graph from {max_ord} vectors"),
             );
@@ -669,7 +665,7 @@ where
         }
     }
 
-    fn set_info_stream(&mut self, info_stream: InfoStreamLock) {
+    fn set_info_stream(&mut self, info_stream: InfoStreamMT) {
         self.info_stream = info_stream;
     }
 
