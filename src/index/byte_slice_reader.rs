@@ -207,7 +207,7 @@ mod tests {
         let mut block_pool = ByteBlockPool::new_sync(allocator);
         block_pool.next_buffer()?;
 
-        let mut slice_pool = ByteSlicePool::default();
+        let mut slice_pool = ByteSlicePool;
         let mut buffer_upto = block_pool.buffer_upto;
         let mut upto = slice_pool.new_slice(ByteSlicePool::FIRST_LEVEL_SIZE, &mut block_pool)?;
         for &random_byte in random_data.iter() {

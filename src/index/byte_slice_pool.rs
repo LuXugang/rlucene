@@ -187,7 +187,7 @@ mod tests {
         let allocator = AllocatorByteEnum::DTA(DirectTrackingAllocatorByte::new(byte_used));
         let mut block_pool = ByteBlockPool::new_sync(allocator);
         block_pool.next_buffer()?;
-        let mut slice_pool = ByteSlicePool::default();
+        let mut slice_pool = ByteSlicePool;
 
         for _ in 0..100 {
             let size: i32 = if rand::random::<bool>() {
@@ -236,7 +236,7 @@ mod tests {
     fn test_alloc_large_slice() -> Result<()> {
         let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
         let mut block_pool = ByteBlockPool::new_sync(allocator);
-        let mut slice_pool = ByteSlicePool::default();
+        let mut slice_pool = ByteSlicePool;
         assert_eq!(
             0,
             slice_pool.new_slice(byte_block_pool_util::BYTE_BLOCK_SIZE, &mut block_pool)?

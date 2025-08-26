@@ -215,7 +215,7 @@ impl DocMap for DocMapIndexWriter {
 
 pub(crate) struct FlushNotificationsImpl;
 impl FlushNotifications for FlushNotificationsImpl {
-    fn delete_unused_files<'a, I>(&self, files: I)
+    fn delete_unused_files<'a, I>(&self, _files: I)
     where
         I: IntoIterator<Item = &'a String>,
     {

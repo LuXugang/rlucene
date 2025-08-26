@@ -2150,9 +2150,9 @@ mod tests {
 
         let mut in_file = dir.open_input("fst", &IOContext::default_io_context()?)?;
         let metadata = fst_util::read_metadata(&mut in_file, outputs.clone())?;
-        let mut loaded_fst = FST::from_on_heap_store(metadata, &mut in_file)?;
+        let loaded_fst = FST::from_on_heap_store(metadata, &mut in_file)?;
 
-        check_stop_nodes(&mut loaded_fst, outputs.clone())?;
+        check_stop_nodes(&loaded_fst, outputs.clone())?;
 
         Ok(())
     }

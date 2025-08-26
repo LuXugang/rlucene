@@ -408,10 +408,9 @@ mod tests {
         pub fn await_waiter(&self) -> bool {
             let (waiter_lock, waiter_cv) = &self.waiter;
             let mut released = waiter_lock.lock();
-            let v = waiter_cv
+            waiter_cv
                 .wait_for(&mut released, Duration::from_secs(10))
-                .timed_out();
-            v
+                .timed_out()
         }
         fn count_down_update_join(&self) {
             let (uj_lock, uj_cv) = &self.update_join;
