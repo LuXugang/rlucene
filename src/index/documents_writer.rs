@@ -513,7 +513,7 @@ where
                         self.subtract_flushed_num_docs(flushing_docs_in_ram);
                         if !flushing_dwpt.pending_files_to_delete().is_empty() {
                             let files = flushing_dwpt.pending_files_to_delete().clone();
-                            self.flush_notifications.delete_unused_files(files);
+                            self.flush_notifications.delete_unused_files(&files);
                         }
                         if result.is_err() {
                             self.flush_notifications
@@ -757,10 +757,9 @@ where
 pub(crate) trait FlushNotifications {
     /// Called when files were written to disk that are not used anymore.
     /// It's the implementation's responsibility to clean these files up.
-    // TODO: 这里的files可以使用引用吗
-    fn delete_unused_files<I>(&self, files: I)
+    fn delete_unused_files<'a, I>(&self, files: I)
     where
-        I: IntoIterator<Item = String>;
+        I: IntoIterator<Item = &'a String>;
 
     /// Called when a segment failed to flush.
     fn flush_failed<D>(&self, info: &SegmentInfo<D>)

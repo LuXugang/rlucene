@@ -30,10 +30,10 @@ where
     D: Directory,
 {
     pub(crate) base: FilterDirectory<D, Arc<D>>,
-    lock: Mutex<Inner>,
+    inner: Mutex<Inner>,
 }
 pub struct Inner {
-    created_filenames: HashSet<String>,
+    pub(crate) created_filenames: HashSet<String>,
 }
 impl<D> TrackingDirectoryWrapper<D>
 where
@@ -46,8 +46,8 @@ where
         });
         TrackingDirectoryWrapper {
             base: FilterDirectory::new(input),
-            lock,
-            lock: Mutex::new(()),
+            inner: lock,
+            inner: Mutex::new(()),
         }
     }
     #[cfg(debug_assertions)]
@@ -57,16 +57,19 @@ where
         });
         TrackingDirectoryWrapper {
             base: FilterDirectory::new(input),
-            lock,
+            inner: lock,
         }
     }
 
-    pub fn get_created_files(&self) -> HashSet<String> {
-        self.lock.lock().created_filenames.clone()
+    pub fn get_created_files(&self) -> &Mutex<Inner> {
+        &self.inner
+    }
+    pub fn take_created_files(&mut self) -> HashSet<String> {
+        std::mem::take(&mut self.inner.lock().created_filenames)
     }
 
     pub fn clear_created_files(&mut self) {
-        self.lock.lock().created_filenames.clear();
+        self.inner.lock().created_filenames.clear();
     }
 }
 
@@ -89,7 +92,7 @@ where
 
     fn delete_file(&self, name: &str) -> Result<()> {
         self.base.delegate.delete_file(name)?;
-        self.lock.lock().created_filenames.remove(name);
+        self.inner.lock().created_filenames.remove(name);
         Ok(())
     }
 
@@ -99,7 +102,7 @@ where
 
     fn create_output(&self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
         let output = self.base.delegate.create_output(name, context)?;
-        self.lock.lock().created_filenames.insert(name.to_string());
+        self.inner.lock().created_filenames.insert(name.to_string());
         Ok(output)
     }
 
@@ -124,7 +127,7 @@ where
 
     fn rename(&self, source: &str, dest: &str) -> Result<()> {
         self.base.delegate.rename(source, dest)?;
-        let mut inner = self.lock.lock();
+        let mut inner = self.inner.lock();
         inner.created_filenames.insert(dest.to_string());
         inner.created_filenames.remove(source);
         drop(inner);
@@ -158,7 +161,7 @@ where
         context: &IOContext,
     ) -> Result<()> {
         self.base.delegate.copy_from(from, src, dest, context)?;
-        self.lock.lock().created_filenames.insert(src.to_string());
+        self.inner.lock().created_filenames.insert(src.to_string());
         Ok(())
     }
 

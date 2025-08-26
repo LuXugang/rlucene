@@ -660,7 +660,11 @@ where
             );
             // If no exception, we should have cleaned everything up:
             debug_assert!(
-                self.temp_dir.get_created_files().is_empty(),
+                self.temp_dir
+                    .get_created_files()
+                    .lock()
+                    .created_filenames
+                    .is_empty(),
                 "Temp directory should be empty"
             );
             Ok(())
@@ -668,8 +672,8 @@ where
         match result {
             Ok(_) => {},
             Err(e) => {
-                let file_copy = self.temp_dir.get_created_files();
-                let filenames = file_copy.iter().collect::<Vec<_>>();
+                let v = &self.temp_dir.get_created_files().lock().created_filenames;
+                let filenames = v.iter().collect::<Vec<_>>();
                 IOUtils::delete_files_ignoring_exceptions(&self.temp_dir, filenames.as_slice());
                 return Err(e);
             },
@@ -1322,7 +1326,13 @@ where
         // and would mean leaving readers (IndexInputs) open for longer:
         if let PointWriterEnum::Offline(writer) = writer {
             // We are reading from a temp file; go verify the checksum:
-            if self.temp_dir.get_created_files().contains(&writer.name) {
+            if self
+                .temp_dir
+                .get_created_files()
+                .lock()
+                .created_filenames
+                .contains(&writer.name)
+            {
                 let mut input = self.temp_dir.open_checksum_input(&writer.name)?;
                 CodecUtil::check_footer_with_error(&mut input, prior_exception);
             }

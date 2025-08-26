@@ -574,7 +574,12 @@ where
                 // We clear this here because we already resolved them (private to this segment) when writing
                 // postings:
                 self.pending_updates.clear_delete_terms();
-                let files = self.directory.get_created_files();
+                let files = self
+                    .directory
+                    .get_created_files()
+                    .lock()
+                    .created_filenames
+                    .clone();
                 self.segment_info.set_files(files)?;
 
                 let dir = self.segment_info.dir.clone();
@@ -1048,11 +1053,11 @@ where
         }
     }
 }
-impl<FN> IOConsumer<HashSet<String>> for IOConsumerImpl<'_, FN>
+impl<'a, FN> IOConsumer<&'a HashSet<String>> for IOConsumerImpl<'_, FN>
 where
     FN: FlushNotifications,
 {
-    fn accept(&mut self, input: HashSet<String>) -> Result<()> {
+    fn accept(&mut self, input: &'a HashSet<String>) -> Result<()> {
         self.flush_notifications.delete_unused_files(input);
         Ok(())
     }

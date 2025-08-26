@@ -165,10 +165,15 @@ pub mod index_writer_util {
     where
         D: Directory,
         D2: Directory,
-        T: IOConsumer<HashSet<String>>,
+        T: for<'a> IOConsumer<&'a HashSet<String>>,
     {
         // maybe this check is not needed, but why take the risk?
-        if !directory.get_created_files().is_empty() {
+        if !directory
+            .get_created_files()
+            .lock()
+            .created_filenames
+            .is_empty()
+        {
             return Err(LuceneError::illegal_state(
                 "pass a clean trackingdir for CFS creation",
             ));
@@ -186,11 +191,16 @@ pub mod index_writer_util {
                 .write(directory, info, context)?;
             Ok(())
         })();
+        let filename = directory
+            .get_created_files()
+            .lock()
+            .created_filenames
+            .clone();
         if write_result.is_err() {
-            delete_files.accept(directory.get_created_files())?;
+            delete_files.accept(&filename)?;
         }
         // Replace all previous files with the CFS/CFE files:
-        info.set_files(directory.get_created_files())?;
+        info.set_files(filename)?;
 
         write_result
     }
@@ -205,9 +215,9 @@ impl DocMap for DocMapIndexWriter {
 
 pub(crate) struct FlushNotificationsImpl;
 impl FlushNotifications for FlushNotificationsImpl {
-    fn delete_unused_files<I>(&self, _files: I)
+    fn delete_unused_files<'a, I>(&self, files: I)
     where
-        I: IntoIterator<Item = String>,
+        I: IntoIterator<Item = &'a String>,
     {
         todo!()
     }

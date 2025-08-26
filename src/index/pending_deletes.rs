@@ -256,8 +256,8 @@ where
             // attempt to write will write to a new file
             info.advance_next_write_del_gen();
             // Delete any partially created file(s):
-            for file in tracking_dir.get_created_files() {
-                IOUtils::delete_files_ignoring_exceptions(&*tracking_dir.base.delegate, &[&file]);
+            for file in &tracking_dir.get_created_files().lock().created_filenames {
+                IOUtils::delete_files_ignoring_exceptions(&*tracking_dir.base.delegate, &[file]);
             }
             return Err(err);
         }

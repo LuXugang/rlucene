@@ -360,7 +360,15 @@ where
 
             info.advance_doc_values_gen();
             debug_assert!(!field_files.contains_key(&field_info.number));
-            field_files.insert(field_info.number, state.directory.get_created_files());
+            field_files.insert(
+                field_info.number,
+                state
+                    .directory
+                    .get_created_files()
+                    .lock()
+                    .created_filenames
+                    .clone(),
+            );
         }
         Ok(())
     }
@@ -385,7 +393,7 @@ where
         let flush_info = FlushInfo::new(info.info.max_doc()?, est_infos_size);
         let infos_context = IOContext::with_flush(flush_info)?;
         // separately also track which files were created for this gen
-        let tracking_dir = TrackingDirectoryWrapper::new(dir);
+        let mut tracking_dir = TrackingDirectoryWrapper::new(dir);
         infos_format.write(
             &tracking_dir,
             &info.info,
@@ -394,7 +402,7 @@ where
             &infos_context,
         )?;
         info.advance_field_infos_gen();
-        Ok(tracking_dir.get_created_files())
+        Ok(tracking_dir.take_created_files())
     }
 
     /// Drops all merging updates.
