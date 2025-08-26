@@ -28,6 +28,11 @@ pub trait IndexReader {
         // TODO
         Ok(())
     }
+
+    fn has_deletions(&self) -> Result<bool> {
+        Ok(self.num_deleted_docs()? > 0)
+    }
+
     fn do_close(&mut self) -> Result<()>;
 
     fn check_integrity(&self) -> Result<()>;
