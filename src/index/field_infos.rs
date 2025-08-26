@@ -21,7 +21,6 @@ use crate::index::index_options::IndexOptions;
 use crate::index::vector_encoding::VectorEncoding;
 use crate::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
@@ -635,7 +634,7 @@ impl FieldNumbers {
                     dv_type,
                     DocValuesSkipIndexType::None,
                     -1,
-                    Arc::new(Mutex::new(HashMap::new())),
+                    HashMap::new(),
                     0,
                     0,
                     0,
@@ -728,7 +727,7 @@ impl FieldNumbers {
                 dv_type,
                 DocValuesSkipIndexType::None,
                 -1,
-                Arc::new(Mutex::new(HashMap::new())),
+                HashMap::new(),
                 0,
                 0,
                 0,
@@ -808,9 +807,8 @@ pub mod build {
             if let Some(cur_fi) = self.field_info(&fi.name) {
                 cur_fi.verify_same_schema(&fi)?;
 
-                let properties = fi.properties.lock();
-                let attributes_guard = properties.attributes.lock();
-                for (k, v) in attributes_guard.iter() {
+                let inner = fi.inner.lock();
+                for (k, v) in inner.attributes.iter() {
                     cur_fi.put_attribute(k.clone(), v.clone());
                 }
                 if fi.has_payloads() {
@@ -822,7 +820,7 @@ pub mod build {
             self.assert_not_finished();
 
             let field_number = self.global_field_numbers.lock().add_or_get(fi.clone())?;
-            let attributes = fi.properties.lock().attributes.clone();
+            let attributes = fi.inner.lock().attributes.clone();
             let fi_new = Arc::new(FieldInfo::new(
                 fi.name.clone(),
                 field_number,
@@ -834,7 +832,7 @@ pub mod build {
                 *fi.get_doc_values_type(),
                 *fi.doc_values_skip_index_type(),
                 dv_gen,
-                attributes.clone(),
+                attributes,
                 fi.get_point_dimension_count(),
                 fi.get_point_index_dimension_count(),
                 fi.get_point_num_bytes(),
@@ -875,7 +873,6 @@ mod tests {
 
     use std::collections::HashMap;
 
-    use parking_lot::Mutex;
     use std::sync::Arc;
 
     #[allow(dead_code)] // for quick search
@@ -922,7 +919,7 @@ mod tests {
                 DocValuesType::None,
                 DocValuesSkipIndexType::None,
                 -1,
-                Arc::new(Mutex::new(HashMap::new())),
+                HashMap::new(),
                 0,
                 0,
                 0,
@@ -944,7 +941,7 @@ mod tests {
             DocValuesType::None,
             DocValuesSkipIndexType::None,
             -1,
-            Arc::new(Mutex::new(HashMap::new())),
+            HashMap::new(),
             0,
             0,
             0,
@@ -967,7 +964,7 @@ mod tests {
             DocValuesType::None,
             DocValuesSkipIndexType::None,
             -1,
-            Arc::new(Mutex::new(HashMap::new())),
+            HashMap::new(),
             0,
             0,
             0,

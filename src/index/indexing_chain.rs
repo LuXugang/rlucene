@@ -802,7 +802,7 @@ where
             s.doc_values_type,
             s.doc_values_skip_index,
             -1,
-            Arc::new(Mutex::new(std::mem::take(&mut s.attributes))),
+            std::mem::take(&mut s.attributes),
             s.point_dimension_count,
             s.point_index_dimension_count,
             s.point_num_bytes,

@@ -24,7 +24,6 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 use parking_lot::Mutex;
 use std::cmp::Ordering;
 use std::collections::HashMap;
-use std::sync::Arc;
 use std::sync::atomic::AtomicI64;
 
 ///  Access to the Field Info file that describes document fields and whether or
@@ -45,7 +44,7 @@ pub struct FieldInfo {
     doc_values_skip_index: DocValuesSkipIndexType,
     omit_norms: bool, // omit norms associated with indexed fields
     pub(crate) index_options: IndexOptions,
-    pub(crate) properties: Arc<Mutex<Properties>>,
+    pub(crate) inner: Mutex<Inner>,
     dv_gen: AtomicI64,
     ///  If both of these are positive it means this field indexed points (see
     /// [`PointsFormat`](crate::codecs::points_format::PointsFormat)).
@@ -60,18 +59,18 @@ pub struct FieldInfo {
     soft_deletes_field: bool,
     is_parent_field: bool,
 }
-pub struct Properties {
-    pub(crate) attributes: Arc<Mutex<HashMap<String, String>>>,
+pub struct Inner {
+    pub(crate) attributes: HashMap<String, String>,
     store_payloads: bool, /* whether this field stores payloads together
                            * with term positions  */
     // True if any document indexed term vectors
     store_term_vector: bool,
 }
 /// For padding using
-impl Default for Properties {
+impl Default for Inner {
     fn default() -> Self {
-        Properties {
-            attributes: Arc::new(Mutex::new(HashMap::new())),
+        Inner {
+            attributes: HashMap::new(),
             store_payloads: false,
             store_term_vector: false,
         }
@@ -91,7 +90,7 @@ impl FieldInfo {
         doc_values: DocValuesType,
         doc_values_skip_index: DocValuesSkipIndexType,
         dv_gen: i64,
-        attributes: Arc<Mutex<HashMap<String, String>>>,
+        attributes: HashMap<String, String>,
         point_dimension_count: i32,
         point_index_dimension_count: i32,
         point_num_bytes: i32,
@@ -109,11 +108,11 @@ impl FieldInfo {
         } else {
             (false, false, false)
         };
-        let properties = Arc::new(Mutex::new(Properties {
+        let properties = Mutex::new(Inner {
             attributes,
             store_payloads,
             store_term_vector,
-        }));
+        });
 
         FieldInfo {
             name,
@@ -122,7 +121,7 @@ impl FieldInfo {
             doc_values_skip_index,
             omit_norms,
             index_options,
-            properties,
+            inner: properties,
             dv_gen: AtomicI64::new(dv_gen),
             point_dimension_count,
             point_index_dimension_count,
@@ -142,7 +141,7 @@ impl FieldInfo {
     /// Returns `IllegalArgumentException` if some options are incorrect
     pub fn check_consistency(&self) -> Result<()> {
         {
-            let properties = self.properties.lock();
+            let properties = self.inner.lock();
             if self.index_options != IndexOptions::None {
                 // Cannot store payloads unless positions are indexed
                 if self
@@ -264,8 +263,8 @@ impl FieldInfo {
             Self::verify_same_omit_norms(field_name, self.omit_norms, other.omit_norms)?;
             Self::verify_same_store_term_vectors(
                 field_name,
-                self.properties.lock().store_term_vector,
-                other.properties.lock().store_term_vector,
+                self.inner.lock().store_term_vector,
+                other.inner.lock().store_term_vector,
             )?;
         }
 
@@ -569,7 +568,7 @@ impl FieldInfo {
 
     /// Set store term vectors
     pub fn set_store_term_vectors(&self) -> Result<()> {
-        self.properties.lock().store_term_vector = true;
+        self.inner.lock().store_term_vector = true;
         self.check_consistency()?;
         Ok(())
     }
@@ -577,7 +576,7 @@ impl FieldInfo {
     /// Set store payloads
     pub fn set_store_payloads(&self) -> Result<()> {
         {
-            let mut properties = self.properties.lock();
+            let mut properties = self.inner.lock();
             if self.index_options >= IndexOptions::DocsAndFreqsAndPositions {
                 properties.store_payloads = true;
             }
@@ -610,13 +609,13 @@ impl FieldInfo {
 
     /// Returns true if any payloads exist for this field.
     pub fn has_payloads(&self) -> bool {
-        let properties = self.properties.lock();
+        let properties = self.inner.lock();
         properties.store_payloads
     }
 
     /// Returns true if any term vectors exist for this field.
     pub fn has_term_vectors(&self) -> bool {
-        self.properties.lock().store_term_vector
+        self.inner.lock().store_term_vector
     }
 
     /// Returns whether any (numeric) vector values exist for this field
@@ -626,9 +625,8 @@ impl FieldInfo {
 
     /// Get a codec attribute value, or None if it does not exist
     pub fn get_attribute(&self, key: &str) -> Option<String> {
-        let properties = self.properties.lock();
-        let attributes = properties.attributes.lock();
-        attributes.get(key).cloned()
+        let properties = self.inner.lock();
+        properties.attributes.get(key).cloned()
     }
 
     /// Puts a codec attribute value.
@@ -642,15 +640,13 @@ impl FieldInfo {
     /// field is changed between documents, the behavior after merge is
     /// undefined.
     pub fn put_attribute(&self, key: String, value: String) -> Option<String> {
-        let properties = self.properties.lock();
-        let mut attributes = properties.attributes.lock();
-        attributes.insert(key, value)
+        let mut properties = self.inner.lock();
+        properties.attributes.insert(key, value)
     }
 
     /// Returns internal codec attributes map.
-    pub fn attributes(&self) -> Arc<Mutex<HashMap<String, String>>> {
-        let properties = self.properties.lock();
-        properties.attributes.clone()
+    pub fn attributes(&self) -> &Mutex<Inner> {
+        &self.inner
     }
 
     /// Returns true if this field is configured and used as the soft-deletes

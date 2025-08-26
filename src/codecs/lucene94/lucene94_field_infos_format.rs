@@ -28,8 +28,6 @@ use crate::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::store::directory::Directory;
 use crate::store::{DataInput, DataOutput, IOContext, IndexInput};
 use crate::util::error::lucene_error::{LuceneError, Result};
-use parking_lot::Mutex;
-use std::collections::HashMap;
 use std::sync::Arc;
 
 /// Lucene 9.0 Field Infos format.
@@ -246,9 +244,6 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
             let size = input.read_vint()?;
             let mut infos = Vec::with_capacity(size as usize);
 
-            // previous field's attribute map, we share when possible:
-            let mut last_attributes = Arc::new(Mutex::new(HashMap::new()));
-
             for _ in 0..size {
                 let name = input.read_string()?;
                 let field_number = input.read_vint()?;
@@ -295,12 +290,7 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
                     DocValuesSkipIndexType::None
                 };
                 let dv_gen = input.read_long()?;
-                let mut attributes = Arc::new(Mutex::new(input.read_map_of_strings()?));
-                // just use the last field's map if it's the same:
-                if *attributes.lock() == *last_attributes.lock() {
-                    attributes = last_attributes.clone();
-                }
-                last_attributes = attributes.clone();
+                let attributes = input.read_map_of_strings()?;
                 let point_data_dimension_count = input.read_vint()?;
                 let (point_index_dimension_count, point_num_bytes) =
                     if point_data_dimension_count != 0 {
@@ -404,7 +394,7 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
             ))?;
 
             output.write_long(fi.get_doc_values_gen())?;
-            output.write_map_of_strings(&fi.attributes().lock())?;
+            output.write_map_of_strings(&fi.attributes().lock().attributes)?;
 
             output.write_vint(fi.get_point_dimension_count())?;
             if fi.get_point_dimension_count() != 0 {
