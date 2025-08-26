@@ -411,6 +411,7 @@ mod tests {
     use crate::index::pending_deletes::PendingDeletes;
     use crate::index::segment_commit_info::SegmentCommitInfo;
     use crate::index::segment_info::SegmentInfo;
+    use crate::index::segment_reader::SegmentReader;
     use crate::store::IOContext;
     use crate::store::directory::Directory;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{new_directory, random};
@@ -605,14 +606,19 @@ mod tests {
             if random.random_bool(0.5) {
                 assert!(deletes.write_live_docs(dir.clone(), &mut commit_info)?);
             }
-            // TODO
-            // assert_eq!(
-            //     i == 2,
-            //     deletes.is_fully_deleted(
-            //         || Arc::<SegmentReader<Lucene90LiveDocsFormat>>::new(SegmentReader::default()),
-            //         &commit_info
-            //     )?
-            // );
+            let io_context = IOContext::default_io_context()?;
+
+            assert_eq!(
+                i == 2,
+                deletes.is_fully_deleted(
+                    || {
+                        let sr = SegmentReader::new(&commit_info.clone(), 0, &io_context)
+                            .expect("should not failed here");
+                        Arc::new(sr)
+                    },
+                    &commit_info
+                )?
+            );
         }
 
         Ok(())
