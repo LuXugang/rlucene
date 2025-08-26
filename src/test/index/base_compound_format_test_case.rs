@@ -37,15 +37,15 @@ use crate::util::{LATEST, StringHelper};
 
 pub trait BaseCompoundFormatTestCase {
     fn test_empty<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
-        let dir = Arc::new(Mutex::new(new_directory(random)?));
+        let dir = Arc::new(new_directory(random)?);
         let mut si = new_segment_info(random, dir.clone(), "_123")?;
         si.set_files(HashSet::new())?;
         LATEST_CODEC
             .compound_format()
-            .write(&*dir.lock(), &si, &IO_CONTEXT_DEFAULT)?;
+            .write(&*dir, &si, &IO_CONTEXT_DEFAULT)?;
         let cfs = LATEST_CODEC
             .compound_format()
-            .get_compound_reader(&*dir.lock(), &si)?;
+            .get_compound_reader(&*dir, &si)?;
         assert_eq!(0, cfs.list_all()?.len());
         Ok(())
     }
@@ -55,30 +55,20 @@ pub trait BaseCompoundFormatTestCase {
         let data = [0, 1, 10, 100];
         for (i, &size) in data.iter().enumerate() {
             let test_file = format!("_{}.test", i);
-            let dir = Arc::new(Mutex::new(new_directory(random)?));
+            let dir = Arc::new(new_directory(random)?);
             let mut si = new_segment_info(random, dir.clone(), &format!("_{}", i))?;
-            create_sequence_file(
-                random,
-                &*dir.lock(),
-                &test_file,
-                0,
-                size,
-                si.get_id(),
-                "suffix",
-            )?;
+            create_sequence_file(random, &*dir, &test_file, 0, size, si.get_id(), "suffix")?;
 
             si.set_files(HashSet::from([test_file.clone()]))?;
             LATEST_CODEC
                 .compound_format()
-                .write(&*dir.lock(), &si, &IO_CONTEXT_DEFAULT)?;
+                .write(&*dir, &si, &IO_CONTEXT_DEFAULT)?;
 
             let cfs = LATEST_CODEC
                 .compound_format()
-                .get_compound_reader(&*dir.lock(), &si)?;
+                .get_compound_reader(&*dir, &si)?;
 
-            let mut expected = dir
-                .lock()
-                .open_input(&test_file, &new_io_context(random)?)?;
+            let mut expected = dir.open_input(&test_file, &new_io_context(random)?)?;
             let mut actual = cfs.open_input(&test_file, &new_io_context(random)?)?;
 
             assert_same_streams(&test_file, &mut expected, &mut actual)?;
@@ -89,31 +79,23 @@ pub trait BaseCompoundFormatTestCase {
     /// This test creates compound file based on two files.
     fn test_two_files<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let files = ["_123.d1", "_123.d2"];
-        let dir = Arc::new(Mutex::new(new_directory(random)?));
+        let dir = Arc::new(new_directory(random)?);
         let mut si = new_segment_info(random, dir.clone(), "_123")?;
 
-        create_sequence_file(random, &*dir.lock(), files[0], 0, 15, si.get_id(), "suffix")?;
-        create_sequence_file(
-            random,
-            &*dir.lock(),
-            files[1],
-            0,
-            114,
-            si.get_id(),
-            "suffix",
-        )?;
+        create_sequence_file(random, &*dir, files[0], 0, 15, si.get_id(), "suffix")?;
+        create_sequence_file(random, &*dir, files[1], 0, 114, si.get_id(), "suffix")?;
 
         let files_set: HashSet<String> = files.iter().map(|&file| file.to_string()).collect();
         si.set_files(files_set)?;
         LATEST_CODEC
             .compound_format()
-            .write(&*dir.lock(), &si, &IO_CONTEXT_DEFAULT)?;
+            .write(&*dir, &si, &IO_CONTEXT_DEFAULT)?;
         let cfs = LATEST_CODEC
             .compound_format()
-            .get_compound_reader(&*dir.lock(), &si)?;
+            .get_compound_reader(&*dir, &si)?;
 
         for file in files.iter() {
-            let mut expected = dir.lock().open_input(file, &new_io_context(random)?)?;
+            let mut expected = dir.open_input(file, &new_io_context(random)?)?;
             let mut actual = cfs.open_input(file, &new_io_context(random)?)?;
             assert_same_streams(file, &mut expected, &mut actual)?;
             assert_same_seek_behavior(file, &mut expected, &mut actual)?;
@@ -145,15 +127,15 @@ pub trait BaseCompoundFormatTestCase {
     /// Test that the compound file system (CFS) reader is read-only by
     /// attempting to create an output.
     fn test_create_output_disabled<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
-        let dir = Arc::new(Mutex::new(new_directory(random)?));
+        let dir = Arc::new(new_directory(random)?);
         let mut si = new_segment_info(random, dir.clone(), "_123")?;
         si.set_files(HashSet::new())?;
         LATEST_CODEC
             .compound_format()
-            .write(&*dir.lock(), &si, &IO_CONTEXT_DEFAULT)?;
+            .write(&*dir, &si, &IO_CONTEXT_DEFAULT)?;
         let cfs = LATEST_CODEC
             .compound_format()
-            .get_compound_reader(&*dir.lock(), &si)?;
+            .get_compound_reader(&*dir, &si)?;
         let io_context = IOContext::default_io_context()?;
         let result = cfs.create_output("bogus", &io_context);
         assert!(matches!(result, Err(LuceneError::UnsupportedOperation(_))));
@@ -163,19 +145,17 @@ pub trait BaseCompoundFormatTestCase {
     /// disabled.
     fn test_delete_file_disabled<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let testfile = "_123.test";
-        let dir = Arc::new(Mutex::new(new_directory(random)?));
-        let mut out = dir
-            .lock()
-            .create_output(testfile, &IOContext::default_io_context()?)?;
+        let dir = Arc::new(new_directory(random)?);
+        let mut out = dir.create_output(testfile, &IOContext::default_io_context()?)?;
         out.write_int(3)?;
         let mut si = new_segment_info(random, dir.clone(), "_123")?;
         si.set_files(HashSet::new())?;
         LATEST_CODEC
             .compound_format()
-            .write(&*dir.lock(), &si, &IO_CONTEXT_DEFAULT)?;
+            .write(&*dir, &si, &IO_CONTEXT_DEFAULT)?;
         let cfs = LATEST_CODEC
             .compound_format()
-            .get_compound_reader(&*dir.lock(), &si)?;
+            .get_compound_reader(&*dir, &si)?;
         let result = cfs.delete_file(testfile);
         assert!(matches!(result, Err(LuceneError::UnsupportedOperation(_))));
         Ok(())
@@ -183,19 +163,17 @@ pub trait BaseCompoundFormatTestCase {
     /// Test that the CFS reader is read-only, and that `rename` is disabled.
     fn test_rename_file_disabled<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let testfile = "_123.test";
-        let dir = Arc::new(Mutex::new(new_directory(random)?));
-        let mut out = dir
-            .lock()
-            .create_output(testfile, &IOContext::default_io_context()?)?;
+        let dir = Arc::new(new_directory(random)?);
+        let mut out = dir.create_output(testfile, &IOContext::default_io_context()?)?;
         out.write_int(3)?;
         let mut si = new_segment_info(random, dir.clone(), "_123")?;
         si.set_files(HashSet::new())?;
         LATEST_CODEC
             .compound_format()
-            .write(&*dir.lock(), &si, &IO_CONTEXT_DEFAULT)?;
+            .write(&*dir, &si, &IO_CONTEXT_DEFAULT)?;
         let cfs = LATEST_CODEC
             .compound_format()
-            .get_compound_reader(&*dir.lock(), &si)?;
+            .get_compound_reader(&*dir, &si)?;
         let result = cfs.rename(testfile, "bogus");
         assert!(matches!(result, Err(LuceneError::UnsupportedOperation(_))));
         Ok(())
@@ -203,19 +181,17 @@ pub trait BaseCompoundFormatTestCase {
     /// Test that the CFS reader is read-only, and that `sync` is disabled.
     fn test_sync_disabled<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let testfile = "_123.test";
-        let dir = Arc::new(Mutex::new(new_directory(random)?));
-        let mut out = dir
-            .lock()
-            .create_output(testfile, &IOContext::default_io_context()?)?;
+        let dir = Arc::new(new_directory(random)?);
+        let mut out = dir.create_output(testfile, &IOContext::default_io_context()?)?;
         out.write_int(3)?;
         let mut si = new_segment_info(random, dir.clone(), "_123")?;
         si.set_files(HashSet::new())?;
         LATEST_CODEC
             .compound_format()
-            .write(&*dir.lock(), &si, &IO_CONTEXT_DEFAULT)?;
+            .write(&*dir, &si, &IO_CONTEXT_DEFAULT)?;
         let cfs = LATEST_CODEC
             .compound_format()
-            .get_compound_reader(&*dir.lock(), &si)?;
+            .get_compound_reader(&*dir, &si)?;
         let result = cfs.sync(&[testfile]);
         assert!(matches!(result, Err(LuceneError::UnsupportedOperation(_))));
         Ok(())
@@ -225,19 +201,17 @@ pub trait BaseCompoundFormatTestCase {
     /// disabled.
     fn test_make_lock_disabled<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let testfile = "_123.test";
-        let dir = Arc::new(Mutex::new(new_directory(random)?));
-        let mut out = dir
-            .lock()
-            .create_output(testfile, &IOContext::default_io_context()?)?;
+        let dir = Arc::new(new_directory(random)?);
+        let mut out = dir.create_output(testfile, &IOContext::default_io_context()?)?;
         out.write_int(3)?;
         let mut si = new_segment_info(random, dir.clone(), "_123")?;
         si.set_files(HashSet::new())?;
         LATEST_CODEC
             .compound_format()
-            .write(&*dir.lock(), &si, &IO_CONTEXT_DEFAULT)?;
+            .write(&*dir, &si, &IO_CONTEXT_DEFAULT)?;
         let cfs = LATEST_CODEC
             .compound_format()
-            .get_compound_reader(&*dir.lock(), &si)?;
+            .get_compound_reader(&*dir, &si)?;
         let result = cfs.obtain_lock("foobar");
         assert!(matches!(result, Err(LuceneError::UnsupportedOperation(_))));
         Ok(())
@@ -249,84 +223,59 @@ pub trait BaseCompoundFormatTestCase {
     /// variable is set to the length of the buffer used internally by the
     /// compound file logic.
     fn test_random_files<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
-        let dir = Arc::new(Mutex::new(new_directory(random)?));
+        let dir = Arc::new(new_directory(random)?);
         let segment = "_123";
         let chunk = 1024; // internal buffer size used by the stream
         let mut si = new_segment_info(random, dir.clone(), "_123")?;
         let seg_id = si.get_id();
+        create_random_file(random, &*dir, &format!("{}.zero", segment), 0, seg_id)?;
+        create_random_file(random, &*dir, &format!("{}.one", segment), 1, seg_id)?;
+        create_random_file(random, &*dir, &format!("{}.ten", segment), 10, seg_id)?;
+        create_random_file(random, &*dir, &format!("{}.hundred", segment), 100, seg_id)?;
+        create_random_file(random, &*dir, &format!("{}.big1", segment), chunk, seg_id)?;
         create_random_file(
             random,
-            &*dir.lock(),
-            &format!("{}.zero", segment),
-            0,
-            seg_id,
-        )?;
-        create_random_file(random, &*dir.lock(), &format!("{}.one", segment), 1, seg_id)?;
-        create_random_file(
-            random,
-            &*dir.lock(),
-            &format!("{}.ten", segment),
-            10,
-            seg_id,
-        )?;
-        create_random_file(
-            random,
-            &*dir.lock(),
-            &format!("{}.hundred", segment),
-            100,
-            seg_id,
-        )?;
-        create_random_file(
-            random,
-            &*dir.lock(),
-            &format!("{}.big1", segment),
-            chunk,
-            seg_id,
-        )?;
-        create_random_file(
-            random,
-            &*dir.lock(),
+            &*dir,
             &format!("{}.big2", segment),
             chunk - 1,
             seg_id,
         )?;
         create_random_file(
             random,
-            &*dir.lock(),
+            &*dir,
             &format!("{}.big3", segment),
             chunk + 1,
             seg_id,
         )?;
         create_random_file(
             random,
-            &*dir.lock(),
+            &*dir,
             &format!("{}.big4", segment),
             3 * chunk,
             seg_id,
         )?;
         create_random_file(
             random,
-            &*dir.lock(),
+            &*dir,
             &format!("{}.big5", segment),
             3 * chunk - 1,
             seg_id,
         )?;
         create_random_file(
             random,
-            &*dir.lock(),
+            &*dir,
             &format!("{}.big6", segment),
             3 * chunk + 1,
             seg_id,
         )?;
         create_random_file(
             random,
-            &*dir.lock(),
+            &*dir,
             &format!("{}.big7", segment),
             1000 * chunk,
             seg_id,
         )?;
         let files: Vec<String> = dir
-            .lock()
             .list_all()?
             .into_iter()
             .filter(|file| file.starts_with(segment))
@@ -334,14 +283,14 @@ pub trait BaseCompoundFormatTestCase {
         si.set_files(files.iter().cloned().collect())?;
         LATEST_CODEC
             .compound_format()
-            .write(&*dir.lock(), &si, &IO_CONTEXT_DEFAULT)?;
+            .write(&*dir, &si, &IO_CONTEXT_DEFAULT)?;
         let cfs = LATEST_CODEC
             .compound_format()
-            .get_compound_reader(&*dir.lock(), &si)?;
+            .get_compound_reader(&*dir, &si)?;
 
         // Validate each file
         for file in files.iter() {
-            let mut check = dir.lock().open_input(file, &new_io_context(random)?)?;
+            let mut check = dir.open_input(file, &new_io_context(random)?)?;
             let mut test = cfs.open_input(file, &new_io_context(random)?)?;
             assert_same_streams(file, &mut check, &mut test)?;
             assert_same_seek_behavior(file, &mut check, &mut test)?;
@@ -352,14 +301,14 @@ pub trait BaseCompoundFormatTestCase {
 
     fn test_many_sub_files<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         // TODO: should enhance after implementing the newMockFSDirectory
-        let dir = Arc::new(Mutex::new(new_directory(random)?));
+        let dir = Arc::new(new_directory(random)?);
         let file_count = at_least(random, 500) as usize;
         let mut files = Vec::new();
         let mut si = new_segment_info(random, dir.clone(), "_123")?;
         for file_idx in 0..file_count {
             let file = format!("_123.{}", file_idx);
             files.push(file.clone());
-            let mut out = dir.lock().create_output(&file, &new_io_context(random)?)?;
+            let mut out = dir.create_output(&file, &new_io_context(random)?)?;
             CodecUtil::write_index_header(&mut out, "Foo", 0, si.get_id(), "suffix")?;
             out.write_byte(file_idx as u8)?;
             CodecUtil::write_footer(&mut out)?;
@@ -368,10 +317,10 @@ pub trait BaseCompoundFormatTestCase {
         si.set_files(file_sets)?;
         LATEST_CODEC
             .compound_format()
-            .write(&*dir.lock(), &si, &IO_CONTEXT_DEFAULT)?;
+            .write(&*dir, &si, &IO_CONTEXT_DEFAULT)?;
         let cfs = LATEST_CODEC
             .compound_format()
-            .get_compound_reader(&*dir.lock(), &si)?;
+            .get_compound_reader(&*dir, &si)?;
         let mut ins = Vec::with_capacity(file_count);
         // Open the files
         for file_idx in 0..file_count {
@@ -380,24 +329,22 @@ pub trait BaseCompoundFormatTestCase {
             CodecUtil::check_index_header(&mut input, "Foo", 0, 0, si.get_id(), "suffix")?;
             ins.push(input);
         }
-        // assert_eq!(dir.lock().get_file_handle_count(), 1);
+        // assert_eq!(dir.get_file_handle_count(), 1);
         for (file_idx, input) in ins.iter_mut().enumerate() {
             assert_eq!(DataInput::read_byte(input)?, file_idx as u8);
         }
         // Ensure only one file handle is used
-        // assert_eq!(dir.lock().get_file_handle_count(), 1);
+        // assert_eq!(dir.get_file_handle_count(), 1);
         // for input in ins.iter_mut() {
         //     input.close()?;
         // }
         Ok(())
     }
     fn test_cloned_streams_closing<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
-        let dir = Arc::new(Mutex::new(new_directory(random)?));
+        let dir = Arc::new(new_directory(random)?);
         let cr = create_large_cfs(random, dir.clone())?;
 
-        let mut expected = dir
-            .lock()
-            .open_input("_123.f11", &new_io_context(random)?)?;
+        let mut expected = dir.open_input("_123.f11", &new_io_context(random)?)?;
         let mut one = cr.open_input("_123.f11", &new_io_context(random)?)?;
         let mut two = one.try_clone()?;
 
@@ -409,17 +356,15 @@ pub trait BaseCompoundFormatTestCase {
     /// This test opens two files from a compound stream and verifies that their
     /// file positions are independent of each other.
     fn test_random_access<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
-        let dir = Arc::new(Mutex::new(new_directory(random)?));
+        let dir = Arc::new(new_directory(random)?);
         let cr = create_large_cfs(random, dir.clone())?;
 
         // Open two files
-        let mut e1 = dir
-            .lock()
-            .open_input("_123.f11", &new_io_context(random)?)?;
-        let mut e2 = dir.lock().open_input("_123.f3", &new_io_context(random)?)?;
+        let mut e1 = dir.open_input("_123.f11", &new_io_context(random)?)?;
+        let mut e2 = dir.open_input("_123.f3", &new_io_context(random)?)?;
 
         let mut a1 = cr.open_input("_123.f11", &new_io_context(random)?)?;
-        let mut a2 = dir.lock().open_input("_123.f3", &new_io_context(random)?)?;
+        let mut a2 = dir.open_input("_123.f3", &new_io_context(random)?)?;
 
         // Seek the first pair
         e1.seek(100)?;
@@ -482,7 +427,7 @@ pub trait BaseCompoundFormatTestCase {
     /// This test opens two files from a compound stream and verifies that their
     /// file positions are independent of each other.
     fn test_random_access_clones<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
-        let dir = Arc::new(Mutex::new(new_directory(random)?));
+        let dir = Arc::new(new_directory(random)?);
         let cr = create_large_cfs(random, dir.clone())?;
 
         // Open two files
@@ -559,7 +504,7 @@ pub trait BaseCompoundFormatTestCase {
         Ok(())
     }
     fn test_file_not_found<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
-        let dir = Arc::new(Mutex::new(new_directory(random)?));
+        let dir = Arc::new(new_directory(random)?);
         let cr = create_large_cfs(random, dir.clone())?;
 
         let result = cr.open_input("bogus", &new_io_context(random)?);
@@ -567,7 +512,7 @@ pub trait BaseCompoundFormatTestCase {
         Ok(())
     }
     fn test_read_past_eof<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
-        let dir = Arc::new(Mutex::new(new_directory(random)?));
+        let dir = Arc::new(new_directory(random)?);
         let cr = create_large_cfs(random, dir.clone())?;
         let mut is = cr.open_input("_123.f2", &new_io_context(random)?)?;
         is.seek(IndexInput::length(&is) - 10)?;
@@ -584,19 +529,19 @@ pub trait BaseCompoundFormatTestCase {
         &self,
         random: &mut R,
     ) -> Result<()> {
-        let dir = Arc::new(Mutex::new(new_directory(random)?));
+        let dir = Arc::new(new_directory(random)?);
         let sub_file = "_123.xyz";
         let mut si = new_segment_info(random, dir.clone(), "_123")?;
-        create_sequence_file(random, &*dir.lock(), sub_file, 0, 10, si.get_id(), "suffix")?;
+        create_sequence_file(random, &*dir, sub_file, 0, 10, si.get_id(), "suffix")?;
         let mut hash_set_file = HashSet::new();
         hash_set_file.insert(sub_file.to_string());
         si.set_files(hash_set_file)?;
         LATEST_CODEC
             .compound_format()
-            .write(&*dir.lock(), &si, &IO_CONTEXT_DEFAULT)?;
+            .write(&*dir, &si, &IO_CONTEXT_DEFAULT)?;
         let cfs = LATEST_CODEC
             .compound_format()
-            .get_compound_reader(&*dir.lock(), &si)?;
+            .get_compound_reader(&*dir, &si)?;
         let in_stream = cfs.open_input(sub_file, &new_io_context(random)?)?;
         let desc = in_stream.to_string();
         assert!(
@@ -607,14 +552,12 @@ pub trait BaseCompoundFormatTestCase {
         Ok(())
     }
     fn test_missing_codec_headers_are_caught<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
-        let dir = Arc::new(Mutex::new(new_directory(random)?));
+        let dir = Arc::new(new_directory(random)?);
         let sub_file = "_123.xyz";
 
         // Missing codec header
         {
-            let mut os = dir
-                .lock()
-                .create_output(sub_file, &new_io_context(random)?)?;
+            let mut os = dir.create_output(sub_file, &new_io_context(random)?)?;
             for i in 0..1024 {
                 os.write_byte(i as u8)?;
             }
@@ -627,7 +570,7 @@ pub trait BaseCompoundFormatTestCase {
 
         let result = LATEST_CODEC
             .compound_format()
-            .write(&*dir.lock(), &si, &IO_CONTEXT_DEFAULT);
+            .write(&*dir, &si, &IO_CONTEXT_DEFAULT);
         assert!(matches!(result, Err(LuceneError::CorruptIndex(_))));
         match result {
             Ok(_) => unreachable!(),
@@ -638,15 +581,13 @@ pub trait BaseCompoundFormatTestCase {
         }
     }
     fn test_corrupt_files_are_caught<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
-        let dir = Arc::new(Mutex::new(new_directory(random)?));
+        let dir = Arc::new(new_directory(random)?);
         let sub_file = "_123.xyz";
 
         // wrong checksum
         let mut si = new_segment_info(random, dir.clone(), "_123")?;
         {
-            let mut os = dir
-                .lock()
-                .create_output(sub_file, &new_io_context(random)?)?;
+            let mut os = dir.create_output(sub_file, &new_io_context(random)?)?;
             CodecUtil::write_index_header(&mut os, "Foo", 0, si.get_id(), "suffix")?;
             for i in 0..1024 {
                 os.write_byte(i as u8)?;
@@ -666,7 +607,7 @@ pub trait BaseCompoundFormatTestCase {
 
         let result = LATEST_CODEC
             .compound_format()
-            .write(&*dir.lock(), &si, &IO_CONTEXT_DEFAULT);
+            .write(&*dir, &si, &IO_CONTEXT_DEFAULT);
 
         assert!(matches!(result, Err(LuceneError::CorruptIndex(_))));
 
@@ -689,7 +630,7 @@ pub trait BaseCompoundFormatTestCase {
 
 pub(crate) fn new_segment_info<D: Directory, R: Rng + ?Sized>(
     random: &mut R,
-    dir: Arc<Mutex<D>>,
+    dir: Arc<D>,
     name: &str,
 ) -> Result<SegmentInfo<D>> {
     let min_version = if random.random_bool(0.5) {
@@ -840,7 +781,7 @@ fn assert_equal_arrays(msg: &str, expected: &[u8], test: &[u8], start: usize, le
 /// 1000 bytes.
 fn create_large_cfs<D, R: Rng + ?Sized>(
     random: &mut R,
-    dir: Arc<Mutex<D>>,
+    dir: Arc<D>,
 ) -> Result<CompoundDirectory<Lucene90CompoundReader<D>>>
 where
     D: Directory,
@@ -851,23 +792,15 @@ where
     // Create 20 sequential files
     for i in 0..20 {
         let file_name = format!("_123.f{}", i);
-        create_sequence_file(
-            random,
-            &*dir.lock(),
-            &file_name,
-            0,
-            2000,
-            si.get_id(),
-            "suffix",
-        )?;
+        create_sequence_file(random, &*dir, &file_name, 0, 2000, si.get_id(), "suffix")?;
         files.insert(file_name);
     }
     si.set_files(files)?;
     LATEST_CODEC
         .compound_format()
-        .write(&*dir.lock(), &si, &IO_CONTEXT_DEFAULT)?;
+        .write(&*dir, &si, &IO_CONTEXT_DEFAULT)?;
     let cfs = LATEST_CODEC
         .compound_format()
-        .get_compound_reader(&*dir.lock(), &si)?;
+        .get_compound_reader(&*dir, &si)?;
     Ok(cfs)
 }

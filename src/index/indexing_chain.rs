@@ -135,7 +135,7 @@ where
     pub(crate) fn new<D1>(
         index_created_version_major: i32,
         segment_info: &SegmentInfo<D1>,
-        directory: Arc<Mutex<D>>,
+        directory: Arc<D>,
         index_writer_config: &impl LiveIndexWriterConfig,
     ) -> Self
     where

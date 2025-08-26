@@ -243,11 +243,7 @@ where
     // Commit live docs (writes new _X_N.del files) and field updates (writes new
     // _X_N updates files) to the directory; returns true if it wrote any file
     // and false if there were no new deletes or updates to write:
-    pub fn write_live_docs(
-        &self,
-        dir: Arc<Mutex<D>>,
-        info: &mut SegmentCommitInfo<D>,
-    ) -> Result<bool>
+    pub fn write_live_docs(&self, dir: Arc<D>, info: &mut SegmentCommitInfo<D>) -> Result<bool>
     where
         D: Directory,
     {
@@ -259,7 +255,7 @@ where
     pub fn handle_dv_updates<F>(
         &self,
         infos: &FieldInfos,
-        dir: Arc<Mutex<D>>,
+        dir: Arc<D>,
         dv_format: &F,
         reader: &mut SegmentReader<D>,
         field_files: &mut HashMap<i32, HashSet<String>>,
@@ -372,7 +368,7 @@ where
     fn write_field_infos_gen<F>(
         &self,
         field_infos: &FieldInfos,
-        dir: Arc<Mutex<D>>,
+        dir: Arc<D>,
         infos_format: &F,
         info: &mut SegmentCommitInfo<D>,
     ) -> Result<HashSet<String>>

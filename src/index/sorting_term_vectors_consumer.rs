@@ -57,7 +57,7 @@ impl<D> SortingTermVectorsConsumer<D>
 where
     D: Directory,
 {
-    pub(crate) fn new(directory: Arc<Mutex<D>>) -> Self {
+    pub(crate) fn new(directory: Arc<D>) -> Self {
         let tmp_directory = Arc::new(Mutex::new(TrackingTmpOutputDirectoryWrapper::new(
             directory,
         )));

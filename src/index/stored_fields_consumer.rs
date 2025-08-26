@@ -26,7 +26,6 @@ use crate::index::sorting_stored_fields_consumer::SortingStoredFieldsConsumer;
 use crate::store::IOContext;
 use crate::store::directory::Directory;
 use crate::util::error::lucene_error::Result;
-use parking_lot::Mutex;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -34,7 +33,7 @@ pub(crate) struct StoredFieldsConsumer<D>
 where
     D: Directory,
 {
-    directory: Arc<Mutex<D>>,
+    directory: Arc<D>,
     pub(crate) writer: Option<StoredFieldsWriterEnum<D>>,
     last_doc: i32,
     sub: Option<SortingStoredFieldsConsumer<D>>,
@@ -43,10 +42,7 @@ impl<D> StoredFieldsConsumer<D>
 where
     D: Directory,
 {
-    pub(crate) fn new(
-        directory: Arc<Mutex<D>>,
-        sub: Option<SortingStoredFieldsConsumer<D>>,
-    ) -> Self {
+    pub(crate) fn new(directory: Arc<D>, sub: Option<SortingStoredFieldsConsumer<D>>) -> Self {
         Self {
             directory,
             writer: None,
@@ -71,7 +67,7 @@ where
             None => {
                 if self.writer.is_none() {
                     let writer = codec.stored_fields_format().fields_writer(
-                        &*self.directory.lock(),
+                        &*self.directory,
                         info,
                         &IOContext::default_io_context()?,
                     )?;

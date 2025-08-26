@@ -19,7 +19,6 @@ use crate::store::directory::Directory;
 use crate::store::filter_directory::FilterDirectory;
 use crate::store::{IOContext, IndexOutput};
 use crate::util::error::lucene_error::Result;
-use parking_lot::Mutex;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
@@ -30,7 +29,7 @@ where
     D: Directory,
 {
     inner: RefCell<Inner>,
-    base: FilterDirectory<D, Arc<Mutex<D>>>,
+    base: FilterDirectory<D, Arc<D>>,
 }
 struct Inner {
     file_names: HashMap<String, String>,
@@ -39,7 +38,7 @@ impl<D> TrackingTmpOutputDirectoryWrapper<D>
 where
     D: Directory,
 {
-    pub fn new(input: Arc<Mutex<D>>) -> Self {
+    pub fn new(input: Arc<D>) -> Self {
         let inner = RefCell::new(Inner {
             file_names: HashMap::new(),
         });

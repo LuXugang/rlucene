@@ -369,7 +369,7 @@ mod tests {
     #[test]
     fn test_file_length_ordering() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(Mutex::new(new_directory(&mut random)?));
+        let dir = Arc::new(new_directory(&mut random)?);
         let segment = "_123";
         let chunk = 1024; // internal buffer size used by the stream
         let mut si = new_segment_info(&mut random, dir.clone(), segment)?;
@@ -380,13 +380,7 @@ mod tests {
 
         for i in 0..10 {
             let filename = format!("{}.{}", segment, i);
-            create_random_file(
-                &mut random,
-                &*dir.lock(),
-                &filename,
-                random_file_size,
-                seg_id,
-            )?;
+            create_random_file(&mut random, &*dir, &filename, random_file_size, seg_id)?;
             random_file_size += random.random_range(1..100);
             ordered_files.push(filename);
         }
@@ -396,12 +390,9 @@ mod tests {
         let files = shuffled_files.into_iter().collect();
         si.set_files(files)?;
 
-        {
-            let directory = dir.lock();
-            LATEST_CODEC
-                .compound_format()
-                .write(&*directory, &si, &IO_CONTEXT_DEFAULT)?;
-        }
+        LATEST_CODEC
+            .compound_format()
+            .write(&*dir, &si, &IO_CONTEXT_DEFAULT)?;
 
         // Entries file should contain files ordered by their size
         let entries_file_name = IndexFileNames::segment_file_name(
@@ -409,7 +400,7 @@ mod tests {
             "",
             Lucene90CompoundFormat::ENTRIES_EXTENSION,
         );
-        let mut entries_stream = dir.lock().open_checksum_input(&entries_file_name)?;
+        let mut entries_stream = dir.open_checksum_input(&entries_file_name)?;
 
         let mut prior_e = None;
         let result: Result<()> = (|| {

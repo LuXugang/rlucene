@@ -29,7 +29,7 @@ pub struct TrackingDirectoryWrapper<D>
 where
     D: Directory,
 {
-    pub(crate) base: FilterDirectory<D, Arc<Mutex<D>>>,
+    pub(crate) base: FilterDirectory<D, Arc<D>>,
     lock: Mutex<Inner>,
 }
 pub struct Inner {
@@ -40,7 +40,7 @@ where
     D: Directory,
 {
     #[cfg(not(debug_assertions))]
-    pub fn new(input: Arc<Mutex<D>>) -> Self {
+    pub fn new(input: Arc<D>) -> Self {
         let lock = Mutex::new(Inner {
             created_filenames: HashSet::new(),
         });
@@ -51,7 +51,7 @@ where
         }
     }
     #[cfg(debug_assertions)]
-    pub fn new(input: Arc<Mutex<D>>) -> Self {
+    pub fn new(input: Arc<D>) -> Self {
         let lock = Mutex::new(Inner {
             created_filenames: HashSet::new(),
         });
@@ -88,7 +88,7 @@ where
     }
 
     fn delete_file(&self, name: &str) -> Result<()> {
-        self.base.delegate.lock().delete_file(name)?;
+        self.base.delegate.delete_file(name)?;
         self.lock.lock().created_filenames.remove(name);
         Ok(())
     }
@@ -98,12 +98,12 @@ where
     }
 
     fn create_output(&self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
-        let output = self.base.delegate.lock().create_output(name, context)?;
+        let output = self.base.delegate.create_output(name, context)?;
         self.lock.lock().created_filenames.insert(name.to_string());
         Ok(output)
     }
 
-    type IndexOutput = <FilterDirectory<D, Arc<Mutex<D>>> as Directory>::IndexOutput;
+    type IndexOutput = <FilterDirectory<D, Arc<D>> as Directory>::IndexOutput;
 
     fn create_temp_output(
         &self,
@@ -123,7 +123,7 @@ where
     }
 
     fn rename(&self, source: &str, dest: &str) -> Result<()> {
-        self.base.delegate.lock().rename(source, dest)?;
+        self.base.delegate.rename(source, dest)?;
         let mut inner = self.lock.lock();
         inner.created_filenames.insert(dest.to_string());
         inner.created_filenames.remove(source);
@@ -131,7 +131,7 @@ where
         Ok(())
     }
 
-    type IndexInput = <FilterDirectory<D, Arc<Mutex<D>>> as Directory>::IndexInput;
+    type IndexInput = <FilterDirectory<D, Arc<D>> as Directory>::IndexInput;
 
     fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
         self.base.open_input(name, context)
@@ -144,7 +144,7 @@ where
         self.base.open_checksum_input(name)
     }
 
-    type Lock = <FilterDirectory<D, Arc<Mutex<D>>> as Directory>::Lock;
+    type Lock = <FilterDirectory<D, Arc<D>> as Directory>::Lock;
 
     fn obtain_lock(&self, name: &str) -> Result<Self::Lock> {
         self.base.obtain_lock(name)
@@ -157,10 +157,7 @@ where
         dest: &str,
         context: &IOContext,
     ) -> Result<()> {
-        self.base
-            .delegate
-            .lock()
-            .copy_from(from, src, dest, context)?;
+        self.base.delegate.copy_from(from, src, dest, context)?;
         self.lock.lock().created_filenames.insert(src.to_string());
         Ok(())
     }

@@ -18,7 +18,6 @@ use crate::index::IndexFileNames;
 use crate::store::directory::Directory;
 use crate::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
@@ -32,7 +31,7 @@ where
     M: Messenger,
 {
     ref_counts: HashMap<String, RefCount>,
-    directory: Arc<Mutex<LockValidatingDirectoryWrapper<D>>>,
+    directory: Arc<LockValidatingDirectoryWrapper<D>>,
     ///  user specified message consumer, first argument will be message type second argument will be the actual message
     messenger: Option<M>,
 }
@@ -42,7 +41,7 @@ where
     M: Messenger,
 {
     pub(crate) fn new(
-        directory: Arc<Mutex<LockValidatingDirectoryWrapper<D>>>,
+        directory: Arc<LockValidatingDirectoryWrapper<D>>,
         messenger: Option<M>,
     ) -> FileDeleter<D, M> {
         FileDeleter {
@@ -237,7 +236,7 @@ where
     }
 
     fn delete_file(&self, file_name: &str) -> Result<()> {
-        match self.directory.lock().delete_file(file_name) {
+        match self.directory.delete_file(file_name) {
             Ok(_) => Ok(()),
             Err(e) => {
                 if cfg!(target_os = "windows") {

@@ -48,7 +48,7 @@ pub(crate) struct TermVectorsConsumer<D>
 where
     D: Directory,
 {
-    directory: Arc<Mutex<D>>,
+    directory: Arc<D>,
     pub(crate) writer: Option<TermVectorsWriterEnum<D>>,
     // Scratch term used by TermVectorsConsumerPerField.finishDocument.
     pub(crate) flush_term: BytesRef<Vec<u8>>,
@@ -68,7 +68,7 @@ impl Default for TermVectorsConsumer<DummyDirectory> {
     fn default() -> Self {
         let int_block_allocator = AllocatorIntEnum::DA(DirectAllocatorI32::new());
         let byte_block_allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
-        let directory = Arc::new(Mutex::new(DummyDirectory));
+        let directory = Arc::new(DummyDirectory);
         TermVectorsConsumer::new(int_block_allocator, byte_block_allocator, directory, None)
     }
 }
@@ -80,7 +80,7 @@ where
     pub(crate) fn new(
         int_block_allocator: AllocatorIntEnum<CounterEnumLock>,
         byte_block_allocator: AllocatorByteEnum<CounterEnumLock>,
-        directory: Arc<Mutex<D>>,
+        directory: Arc<D>,
         sub: Option<SortingTermVectorsConsumer<D>>,
     ) -> Self {
         let base = TermsHash::new(
@@ -270,7 +270,7 @@ where
                     let context = IOContext::with_flush(flush_info)?;
 
                     self.writer = Option::from(codec.term_vectors_format().vectors_writer(
-                        &*self.directory.lock(),
+                        &*self.directory,
                         info,
                         &context,
                     )?)

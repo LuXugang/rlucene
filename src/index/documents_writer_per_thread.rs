@@ -65,7 +65,7 @@ where
     D: Directory,
     Q: Query,
 {
-    pub(crate) directory: Arc<Mutex<TrackingDirectoryWrapper<LockValidatingDirectoryWrapper<D>>>>,
+    pub(crate) directory: Arc<TrackingDirectoryWrapper<LockValidatingDirectoryWrapper<D>>>,
     indexing_chain: IndexingChain<TrackingDirectoryWrapper<LockValidatingDirectoryWrapper<D>>>,
     pending_updates: MTBufferedUpdates<Q>,
     segment_info: SegmentInfo<D>,
@@ -171,8 +171,8 @@ where
     pub(crate) fn new<L: LiveIndexWriterConfig>(
         index_major_version_created: i32,
         segment_name: &str,
-        directory_orig: Arc<Mutex<D>>,
-        directory: Arc<Mutex<LockValidatingDirectoryWrapper<D>>>,
+        directory_orig: Arc<D>,
+        directory: Arc<LockValidatingDirectoryWrapper<D>>,
         index_writer_config: &L,
         delete_queue: Arc<DocumentsWriterDeleteQueue<Q>>,
         field_infos: Builder,
@@ -181,7 +181,7 @@ where
     ) -> Result<Self> {
         let info_stream = index_writer_config.get_info_stream();
         let tracking_dir = TrackingDirectoryWrapper::new(directory.clone());
-        let directory_wrapped = Arc::new(Mutex::new(tracking_dir));
+        let directory_wrapped = Arc::new(tracking_dir);
         let pending_updates = MTBufferedUpdates::new_sync(segment_name);
         let delete_slice = Some(delete_queue.new_slice());
         let random_id = StringHelper::random_id();
@@ -495,14 +495,13 @@ where
 
         let result = (|| -> Result<Option<FlushedSegment<D, Q>>> {
             let (mut fs, sort_map, t0) = {
-                let dir = &*self.directory.lock();
                 let io_context = IOContext::with_flush(FlushInfo::new(
                     self.num_docs_in_ram,
                     self.last_committed_bytes_used.load(Ordering::SeqCst),
                 ))?;
                 let mut flush_state = SegmentWriteState::new(
                     Some(self.info_stream.clone()),
-                    dir,
+                    &*self.directory,
                     Rc::new(self.field_infos.finish()?),
                     &io_context,
                 );
@@ -580,7 +579,7 @@ where
                 // We clear this here because we already resolved them (private to this segment) when writing
                 // postings:
                 self.pending_updates.clear_delete_terms();
-                let files = self.directory.lock().get_created_files();
+                let files = self.directory.get_created_files();
                 self.segment_info.set_files(files)?;
 
                 let dir = self.segment_info.dir.clone();
@@ -798,7 +797,7 @@ where
             // and 2) .si reflects useCompoundFile=true change
             // above:
             LATEST_CODEC.segment_info_format().write(
-                &*self.directory.lock(),
+                &*self.directory,
                 &mut new_segment.info,
                 &context,
             )?;
@@ -835,7 +834,7 @@ where
                     Some(map) => {
                         LATEST_CODEC.live_docs_format().write_live_docs(
                             &Self::sort_live_docs(live_docs, &*map),
-                            &*self.directory.lock(),
+                            &*self.directory,
                             new_segment,
                             del_count,
                             &context,
@@ -844,7 +843,7 @@ where
                     None => {
                         LATEST_CODEC.live_docs_format().write_live_docs(
                             live_docs,
-                            &*self.directory.lock(),
+                            &*self.directory,
                             new_segment,
                             del_count,
                             &context,

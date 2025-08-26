@@ -19,8 +19,6 @@ use std::fmt::Display;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-use parking_lot::Mutex;
-
 use crate::index::index_file_names_util::CODEC_FILE_PATTERN;
 use crate::index::sort::Sort;
 use crate::store::directory::Directory;
@@ -43,7 +41,7 @@ where
     pub name: String,
     max_doc: i32, // number of docs in seg
     /// Where this segment resides.
-    pub dir: Arc<Mutex<D>>,
+    pub dir: Arc<D>,
     is_compound_file: bool,
     /// Id that uniquely identifies this segment.
     id: [u8; StringHelper::ID_LENGTH],
@@ -76,7 +74,7 @@ impl Default for SegmentInfo<DummyDirectory> {
         SegmentInfo {
             name: String::new(),
             max_doc: -1,
-            dir: Arc::new(Mutex::new(DummyDirectory)),
+            dir: Arc::new(DummyDirectory),
             is_compound_file: false,
             id: [0; 16],
             diagnostics: HashMap::new(),
@@ -120,7 +118,7 @@ where
     /// * `index_sort` - The sort order of the index, if any.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        dir: Arc<Mutex<D>>,
+        dir: Arc<D>,
         version: Option<Version>,
         min_version: Option<Version>,
         name: &str,
@@ -425,7 +423,7 @@ where
         self.index_sort.as_ref()
     }
 
-    pub(crate) fn dummy(dir: Arc<Mutex<D>>) -> Self {
+    pub(crate) fn dummy(dir: Arc<D>) -> Self {
         SegmentInfo {
             name: String::new(),
             max_doc: 0,

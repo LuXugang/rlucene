@@ -67,11 +67,11 @@ where
     {
         let mut dv_dir = match dir {
             Some(d) => Either2Directory::A(d),
-            None => Either2Directory::B(&*si.info.dir.lock()),
+            None => Either2Directory::B(&*si.info.dir),
         };
         let mut segment_suffix = "".to_string();
 
-        let base_dir = &*si.info.dir.lock();
+        let base_dir = &*si.info.dir;
         if r#gen != -1 {
             // gen'd files are written outside CFS, so use SegInfo directory
             dv_dir = Either2Directory::B(base_dir);

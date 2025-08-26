@@ -21,7 +21,6 @@ use std::sync::Arc;
 use crate::index::standard_directory_reader::StandardDirectoryReader;
 use crate::store::directory::Directory;
 use crate::util::error::lucene_error::Result;
-use parking_lot::Mutex;
 
 pub trait IndexCommit: PartialEq + Eq + PartialOrd + Ord + Display {
     /// Returns the segments file (`segments_N`) associated with this commit point.
@@ -30,7 +29,7 @@ pub trait IndexCommit: PartialEq + Eq + PartialOrd + Ord + Display {
     fn get_file_names(&self) -> Result<&[String]>;
     type Directory: Directory;
     /// Returns the [`Directory`] for the index.
-    fn get_directory(&self) -> Arc<Mutex<Self::Directory>>;
+    fn get_directory(&self) -> Arc<Self::Directory>;
     /// Delete this commit point. This only applies when using the commit point in the context of
     /// `IndexWriter`’s `IndexDeletionPolicy`.
     ///

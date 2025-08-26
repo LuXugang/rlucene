@@ -82,7 +82,7 @@ where
         )?;
 
         let is_nrt = false;
-        let dir = &*si.info.dir.lock();
+        let dir = &*si.info.dir;
         let core = Arc::new(SegmentCoreReaders::new(dir, si, context)?);
         let seg_doc_values = Arc::new(SegmentDocValues::new());
         let num_docs = si.info.max_doc()? - si.get_del_count();
@@ -264,7 +264,7 @@ where
         let segment_suffix = num_bigint::BigInt::from(si.get_field_infos_gen()).to_str_radix(36);
 
         let infos = fis_format.read(
-            &*si.info.dir.lock(),
+            &*si.info.dir,
             &si.info,
             &segment_suffix,
             &IOContext::read_once_io_context()?,

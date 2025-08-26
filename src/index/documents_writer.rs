@@ -103,8 +103,8 @@ where
     pub(crate) lock: Mutex<Inner<Q>>,
     flush_control: DocumentsWriterFlushControl<D, Q, L>,
     index_created_version_major: i32,
-    directory: Arc<Mutex<LockValidatingDirectoryWrapper<D>>>,
-    directory_orig: Arc<Mutex<D>>,
+    directory: Arc<LockValidatingDirectoryWrapper<D>>,
+    directory_orig: Arc<D>,
     enable_test_points: bool,
     global_field_number_map: Arc<Mutex<FieldNumbers>>,
 }
@@ -151,8 +151,8 @@ where
             }),
             flush_control: DocumentsWriterFlushControl::new(config),
             index_created_version_major,
-            directory: Arc::new(Mutex::new(directory)),
-            directory_orig: Arc::new(Mutex::new(directory_orig)),
+            directory: Arc::new(directory),
+            directory_orig: Arc::new(directory_orig),
             enable_test_points,
             global_field_number_map,
         })
@@ -853,8 +853,8 @@ where
     L: LiveIndexWriterConfig,
 {
     index_major_version_created: i32,
-    directory_orig: Arc<Mutex<D>>,
-    directory: Arc<Mutex<LockValidatingDirectoryWrapper<D>>>,
+    directory_orig: Arc<D>,
+    directory: Arc<LockValidatingDirectoryWrapper<D>>,
     config: Arc<L>,
     delete_queue: Arc<DocumentsWriterDeleteQueue<Q>>,
     pending_num_docs: Arc<AtomicI64>,
@@ -870,8 +870,8 @@ where
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         index_major_version_created: i32,
-        directory_orig: Arc<Mutex<D>>,
-        directory: Arc<Mutex<LockValidatingDirectoryWrapper<D>>>,
+        directory_orig: Arc<D>,
+        directory: Arc<LockValidatingDirectoryWrapper<D>>,
         config: Arc<L>,
         delete_queue: Arc<DocumentsWriterDeleteQueue<Q>>,
         field_numbers: Arc<Mutex<FieldNumbers>>,

@@ -49,7 +49,7 @@ pub trait BaseFieldInfoFormatTestCase {
         true
     }
     fn test_one_field<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
-        let dir = Arc::new(Mutex::new(new_directory(random)?));
+        let dir = Arc::new(new_directory(random)?);
         let codec = get_default_code();
         let segment_info = Self::new_segment_info(random, dir.clone(), "_123")?;
 
@@ -62,14 +62,14 @@ pub trait BaseFieldInfoFormatTestCase {
             .finish()?;
 
         codec.field_infos_format().write(
-            &*dir.lock(),
+            &*dir,
             &segment_info,
             "",
             &infos,
             &IOContext::default_io_context()?,
         )?;
         let infos2 = codec.field_infos_format().read(
-            &*dir.lock(),
+            &*dir,
             &segment_info,
             "",
             &IOContext::default_io_context()?,
@@ -121,7 +121,7 @@ pub trait BaseFieldInfoFormatTestCase {
     }
     // Test field infos read/write with random fields, with different values.
     fn test_random<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
-        let dir = Arc::new(Mutex::new(new_directory(random)?));
+        let dir = Arc::new(new_directory(random)?);
         let codec = get_default_code();
         let segment_info = Self::new_segment_info(random, dir.clone(), "_123")?;
         let num_fields = at_least(random, 2000);
@@ -218,7 +218,7 @@ pub trait BaseFieldInfoFormatTestCase {
 
         // Write the FieldInfos to the directory.
         codec.field_infos_format().write(
-            &*dir.lock(),
+            &*dir,
             &segment_info,
             "",
             &infos,
@@ -227,7 +227,7 @@ pub trait BaseFieldInfoFormatTestCase {
 
         // Read the FieldInfos back from the directory.
         let infos2 = codec.field_infos_format().read(
-            &*dir.lock(),
+            &*dir,
             &segment_info,
             "",
             &IOContext::default_io_context()?,
@@ -355,7 +355,7 @@ pub trait BaseFieldInfoFormatTestCase {
 
     fn new_segment_info<D: Directory, R: Rng + ?Sized>(
         random: &mut R,
-        dir: Arc<Mutex<D>>,
+        dir: Arc<D>,
         name: &str,
     ) -> Result<SegmentInfo<D>> {
         let min_version = if random.random_bool(0.5) {

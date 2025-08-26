@@ -42,7 +42,7 @@ use crate::util::{StringHelper, Version};
 pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
     /// Test files map
     fn test_files<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
-        let dir = Arc::new(Mutex::new(new_directory(random)?));
+        let dir = Arc::new(new_directory(random)?);
         let id = StringHelper::random_id();
         let io_context = IOContext::default_io_context()?;
         let mut info = SegmentInfo::new(
@@ -61,7 +61,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         info.set_files(HashSet::new())?;
         LATEST_CODEC
             .segment_info_format()
-            .write(&*dir.lock(), &mut info, &io_context)?;
+            .write(&*dir, &mut info, &io_context)?;
         let info2 =
             LATEST_CODEC
                 .segment_info_format()
@@ -71,7 +71,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
     }
     fn test_has_blocks<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         assert!(self.supports_has_blocks());
-        let dir = Arc::new(Mutex::new(new_directory(random)?));
+        let dir = Arc::new(new_directory(random)?);
         let id = StringHelper::random_id();
         let has_blocks = random.random_bool(0.5);
         let io_context = IOContext::default_io_context()?;
@@ -91,7 +91,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         info.set_files(HashSet::new())?;
         LATEST_CODEC
             .segment_info_format()
-            .write(&*dir.lock(), &mut info, &io_context)?;
+            .write(&*dir, &mut info, &io_context)?;
         let info2 =
             LATEST_CODEC
                 .segment_info_format()
@@ -102,7 +102,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
 
     /// Tests SI writer adds itself to files...
     fn test_adds_self_to_files<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
-        let dir = Arc::new(Mutex::new(new_directory(random)?));
+        let dir = Arc::new(new_directory(random)?);
         let id = StringHelper::random_id();
         let io_context = IOContext::default_io_context()?;
 
@@ -123,7 +123,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         info.set_files(original_files.clone())?;
         LATEST_CODEC
             .segment_info_format()
-            .write(&*dir.lock(), &mut info, &io_context)?;
+            .write(&*dir, &mut info, &io_context)?;
         let modified_files = info.files()?;
         assert!(modified_files.is_superset(&original_files));
         assert!(
@@ -147,7 +147,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
     }
     /// Test diagnostics map
     fn test_diagnostics<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
-        let dir = Arc::new(Mutex::new(new_directory(random)?));
+        let dir = Arc::new(new_directory(random)?);
         let id = StringHelper::random_id();
         let mut diagnostics: HashMap<String, String> = HashMap::new();
         diagnostics.insert("key1".to_string(), "value1".to_string());
@@ -170,7 +170,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         info.set_files(HashSet::new())?;
         LATEST_CODEC
             .segment_info_format()
-            .write(&*dir.lock(), &mut info, &io_context)?;
+            .write(&*dir, &mut info, &io_context)?;
         let info2 =
             LATEST_CODEC
                 .segment_info_format()
@@ -188,7 +188,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
     }
     /// Test attributes map
     fn test_attributes<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
-        let dir = Arc::new(Mutex::new(new_directory(random)?));
+        let dir = Arc::new(new_directory(random)?);
         let id = StringHelper::random_id();
         let mut attributes: HashMap<String, String> = HashMap::new();
         attributes.insert("key1".to_string(), "value1".to_string());
@@ -211,7 +211,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         info.set_files(HashSet::new())?;
         LATEST_CODEC
             .segment_info_format()
-            .write(&*dir.lock(), &mut info, &io_context)?;
+            .write(&*dir, &mut info, &io_context)?;
         let info2 =
             LATEST_CODEC
                 .segment_info_format()
@@ -232,7 +232,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
 
     /// Test unique ID
     fn test_unique_id<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
-        let dir = Arc::new(Mutex::new(new_directory(random)?));
+        let dir = Arc::new(new_directory(random)?);
         let id = StringHelper::random_id();
         let io_context = IOContext::default_io_context()?;
 
@@ -252,7 +252,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         info.set_files(HashSet::new())?;
         LATEST_CODEC
             .segment_info_format()
-            .write(&*dir.lock(), &mut info, &io_context)?;
+            .write(&*dir, &mut info, &io_context)?;
         let info2 =
             LATEST_CODEC
                 .segment_info_format()
@@ -267,7 +267,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
 
         for version in self.get_versions() {
             for min_version in [Some(version.clone()), None] {
-                let dir = Arc::new(Mutex::new(new_directory(random)?));
+                let dir = Arc::new(new_directory(random)?);
                 let id = StringHelper::random_id();
                 let mut info = SegmentInfo::new(
                     dir.clone(),
@@ -285,7 +285,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                 info.set_files(HashSet::new())?;
                 LATEST_CODEC
                     .segment_info_format()
-                    .write(&*dir.lock(), &mut info, &io_context)?;
+                    .write(&*dir, &mut info, &io_context)?;
                 let info2 = LATEST_CODEC.segment_info_format().read(
                     dir.clone(),
                     "_123",
@@ -448,7 +448,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                 Some(Arc::new(Sort::with_fields(sort_fields)?))
             };
             let sort_clone = sort.clone();
-            let dir = Arc::new(Mutex::new(new_directory(random)?));
+            let dir = Arc::new(new_directory(random)?);
             let id = StringHelper::random_id();
             let mut info = SegmentInfo::new(
                 dir.clone(),
@@ -466,7 +466,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             info.set_files(HashSet::new())?;
             LATEST_CODEC
                 .segment_info_format()
-                .write(&*dir.lock(), &mut info, &io_context)?;
+                .write(&*dir, &mut info, &io_context)?;
             let info2 =
                 LATEST_CODEC
                     .segment_info_format()
@@ -504,7 +504,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         let io_context = IOContext::default_io_context()?;
 
         for _ in 0..10 {
-            let dir = Arc::new(Mutex::new(new_directory(random)?));
+            let dir = Arc::new(new_directory(random)?);
             let version = versions[random.random_range(0..versions.len())].clone();
             let random_segment_index = random.random::<i64>().abs();
             let big_int = if random_segment_index != i64::MIN {
@@ -520,8 +520,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             for j in 0..num_files {
                 let file = IndexFileNames::segment_file_name(&name, "", &j.to_string());
                 files.insert(file.clone());
-                let directory = dir.lock();
-                directory.create_output(&file, &io_context)?;
+                dir.create_output(&file, &io_context)?;
             }
             let mut diagnostics = HashMap::new();
             let num_diags = random.random_range(0..10);
@@ -557,7 +556,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
             info.set_files(files.clone())?;
             LATEST_CODEC
                 .segment_info_format()
-                .write(&*dir.lock(), &mut info, &io_context)?;
+                .write(&*dir, &mut info, &io_context)?;
             let info2 =
                 LATEST_CODEC
                     .segment_info_format()

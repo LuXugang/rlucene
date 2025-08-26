@@ -30,7 +30,6 @@ use crate::util::IOUtils;
 use crate::util::bits::{Bits, Either2Bits};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::{FixedBit, FixedBitSet};
-use parking_lot::Mutex;
 use std::fmt;
 use std::sync::Arc;
 
@@ -215,7 +214,7 @@ where
     /// Writes the live docs to disk and returns `true` if any new docs were written.
     pub(crate) fn write_live_docs(
         &mut self,
-        dir: Arc<Mutex<D>>,
+        dir: Arc<D>,
         info: &mut SegmentCommitInfo<D>,
     ) -> Result<bool> {
         if self.pending_delete_count == 0 {
@@ -258,10 +257,7 @@ where
             info.advance_next_write_del_gen();
             // Delete any partially created file(s):
             for file in tracking_dir.get_created_files() {
-                IOUtils::delete_files_ignoring_exceptions(
-                    &*tracking_dir.base.delegate.lock(),
-                    &[&file],
-                );
+                IOUtils::delete_files_ignoring_exceptions(&*tracking_dir.base.delegate, &[&file]);
             }
             return Err(err);
         }
@@ -436,7 +432,7 @@ mod tests {
     fn test_delete_doc() -> Result<()> {
         // TODO: ByteBuffersDirectory 没有实现
         let mut random = random();
-        let dir = Arc::new(Mutex::new(new_directory(&mut random)?));
+        let dir = Arc::new(new_directory(&mut random)?);
         let si = SegmentInfo::new(
             dir.clone(),
             Some((*LATEST).clone()),
@@ -484,7 +480,7 @@ mod tests {
     fn test_write_live_docs() -> Result<()> {
         // TODO: ByteBuffersDirectory 没有实现
         let mut random = random();
-        let dir = Arc::new(Mutex::new(new_directory(&mut random)?));
+        let dir = Arc::new(new_directory(&mut random)?);
         let si = SegmentInfo::new(
             dir.clone(),
             Some((*LATEST).clone()),
@@ -503,7 +499,7 @@ mod tests {
 
         let mut deletes = new_pending_deletes(&commit_info)?;
         assert!(!deletes.write_live_docs(dir.clone(), &mut commit_info)?);
-        assert_eq!(dir.lock().list_all()?.len(), 0);
+        assert_eq!(dir.list_all()?.len(), 0);
 
         let second_doc_deletes: bool = random.random_bool(0.5);
         deletes.delete(5)?;
@@ -519,11 +515,11 @@ mod tests {
         assert_eq!(deletes.num_pending_deletes(), expected_pending);
 
         assert!(deletes.write_live_docs(dir.clone(), &mut commit_info)?);
-        assert_eq!(dir.lock().list_all()?.len(), 1);
+        assert_eq!(dir.list_all()?.len(), 1);
 
         let codec = get_default_code();
         let live_docs = codec.live_docs_format().read_live_docs(
-            &*dir.lock(),
+            &*dir,
             &commit_info,
             &IOContext::default_io_context()?,
         )?;
@@ -543,10 +539,10 @@ mod tests {
 
         deletes.delete(0)?;
         assert!(deletes.write_live_docs(dir.clone(), &mut commit_info)?);
-        assert_eq!(dir.lock().list_all()?.len(), 2);
+        assert_eq!(dir.list_all()?.len(), 2);
 
         let live_docs = codec.live_docs_format().read_live_docs(
-            &*dir.lock(),
+            &*dir,
             &commit_info,
             &IOContext::default_io_context()?,
         )?;
@@ -572,7 +568,7 @@ mod tests {
     fn test_is_fully_deleted() -> Result<()> {
         // TODO: ByteBuffersDirectory 没有实现
         let mut random = random();
-        let dir = Arc::new(Mutex::new(new_directory(&mut random)?));
+        let dir = Arc::new(new_directory(&mut random)?);
         let si = SegmentInfo::new(
             dir.clone(),
             Some((*LATEST).clone()),
@@ -592,7 +588,7 @@ mod tests {
         let codec = get_default_code();
         let field_infos = FieldInfos::new(Vec::new())?;
         codec.field_infos_format().write(
-            &*dir.lock(),
+            &*dir,
             &commit_info.info,
             "",
             &field_infos,

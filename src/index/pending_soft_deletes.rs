@@ -24,7 +24,6 @@ use crate::store::IOContext;
 use crate::store::directory::Directory;
 use crate::util::error::lucene_error::Result;
 use num_bigint::BigInt;
-use parking_lot::Mutex;
 use std::sync::Arc;
 
 pub(crate) struct PendingSoftDeletes<D>
@@ -97,7 +96,7 @@ where
 
     pub(crate) fn write_live_docs(
         &mut self,
-        dir: Arc<Mutex<D>>,
+        dir: Arc<D>,
         info: &mut SegmentCommitInfo<D>,
     ) -> Result<bool> {
         if self.field.is_none() {
@@ -165,7 +164,7 @@ where
             if seg_info.get_use_compound_file() {
                 let cfs = codec
                     .compound_format()
-                    .get_compound_reader(&*seg_info.dir.lock(), seg_info)?;
+                    .get_compound_reader(&*seg_info.dir, seg_info)?;
                 codec.field_infos_format().read(
                     &cfs,
                     seg_info,
@@ -174,7 +173,7 @@ where
                 )
             } else {
                 codec.field_infos_format().read(
-                    &*seg_info.dir.lock(),
+                    &*seg_info.dir,
                     seg_info,
                     "",
                     &IOContext::read_once_io_context()?,
@@ -185,7 +184,7 @@ where
                 .to_str_radix(36)
                 .to_string();
             codec.field_infos_format().read(
-                &*seg_info.dir.lock(),
+                &*seg_info.dir,
                 seg_info,
                 &segment_suffix,
                 &IOContext::read_once_io_context()?,

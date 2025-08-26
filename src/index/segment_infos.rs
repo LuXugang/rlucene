@@ -339,10 +339,7 @@ where
     ///
     /// - Returns `LuceneError::CorruptIndex` if the index is corrupt.
     /// - Returns `LuceneError` for any low-level IO error.
-    pub fn read_commit(
-        directory: Arc<Mutex<D>>,
-        segment_file_name: &str,
-    ) -> Result<SegmentsFileEnum<D>> {
+    pub fn read_commit(directory: Arc<D>, segment_file_name: &str) -> Result<SegmentsFileEnum<D>> {
         Self::read_commit_with_file_min_version(directory, segment_file_name, *MIN_SUPPORTED_MAJOR)
     }
 
@@ -355,15 +352,14 @@ where
     /// will be thrown.
     /// Note that this may return an `Err` if a commit is in process.
     pub fn read_commit_with_file_min_version(
-        directory: Arc<Mutex<D>>,
+        directory: Arc<D>,
         segment_file_name: &str,
         min_supported_major_version: i32,
     ) -> Result<SegmentsFileEnum<D>> {
         let generation = segment_infos_util::generation_from_segments_file_name(segment_file_name)?;
         let mut input;
         {
-            let dir = directory.lock();
-            input = match dir.open_checksum_input(segment_file_name) {
+            input = match directory.open_checksum_input(segment_file_name) {
                 Ok(input) => input,
                 Err(e) => {
                     return Err(LuceneError::corrupt_index(format!(
@@ -388,7 +384,7 @@ where
 
     /// Read the commit from the provided [`ChecksumIndexInput`].
     pub fn read_commit_with_input(
-        directory: Arc<Mutex<D>>,
+        directory: Arc<D>,
         input: &mut impl ChecksumIndexInput,
         generation: i64,
     ) -> Result<Self> {
@@ -396,7 +392,7 @@ where
     }
     /// Read the commit from the provided [`ChecksumIndexInput`].
     pub fn read_commit_impl(
-        directory: Arc<Mutex<D>>,
+        directory: Arc<D>,
         input: &mut impl ChecksumIndexInput,
         generation: i64,
         min_supported_major_version: i32,
@@ -479,7 +475,7 @@ where
         Ok(infos)
     }
     pub fn parse_segment_infos(
-        directory: Arc<Mutex<D>>,
+        directory: Arc<D>,
         input: &mut impl DataInput,
         infos: &mut SegmentInfos<D>,
         format: i32,
@@ -656,14 +652,14 @@ where
     }
     /// Find the latest commit (`segments_N` file) and load all
     /// `SegmentCommitInfo`s.
-    pub fn read_latest_commit(directory: Arc<Mutex<D>>) -> Result<SegmentsFileEnum<D>> {
+    pub fn read_latest_commit(directory: Arc<D>) -> Result<SegmentsFileEnum<D>> {
         Self::read_latest_commit_with_min_version(directory, *MIN_SUPPORTED_MAJOR)
     }
 
     /// Find the latest commit (`segments_N` file) with a minimum supported
     /// major version and load all `SegmentCommitInfo`s.
     pub fn read_latest_commit_with_min_version(
-        directory: Arc<Mutex<D>>,
+        directory: Arc<D>,
         min_supported_major_version: i32,
     ) -> Result<SegmentsFileEnum<D>> {
         let sub = FindSegmentsFileImpl {
@@ -1256,7 +1252,7 @@ where
     D: Directory,
     F: FindSegmentsFileBase,
 {
-    directory: Arc<Mutex<D>>,
+    directory: Arc<D>,
     sub: F,
 }
 impl<D, F> FindSegmentsFile<D, F>
@@ -1264,7 +1260,7 @@ where
     D: Directory,
     F: FindSegmentsFileBase,
 {
-    pub fn new(directory: Arc<Mutex<D>>, sub: F) -> Self {
+    pub fn new(directory: Arc<D>, sub: F) -> Self {
         FindSegmentsFile { directory, sub }
     }
     pub fn run_with_commit<IC>(&self, commit: &IC) -> Result<SegmentsFileEnum<D>>
@@ -1295,13 +1291,8 @@ where
         // it.
         loop {
             last_gen = r#gen;
-            let mut files;
-            let mut files2;
-            {
-                let dir = self.directory.lock();
-                files = dir.list_all()?;
-                files2 = dir.list_all()?;
-            }
+            let mut files = self.directory.list_all()?;
+            let mut files2 = self.directory.list_all()?;
             files.sort();
             files2.sort();
             if files != files2 {
@@ -1314,8 +1305,7 @@ where
             if r#gen == -1 {
                 return Err(LuceneError::index_not_found(format!(
                     "No segments* file found in the {}: files: {:?}",
-                    self.directory.lock(),
-                    files
+                    self.directory, files
                 )));
             } else if r#gen > last_gen {
                 let segment_file_name =
@@ -1360,11 +1350,7 @@ where
     }
 }
 pub trait FindSegmentsFileBase {
-    fn do_body<D>(
-        &self,
-        directory: Arc<Mutex<D>>,
-        segment_file_name: &str,
-    ) -> Result<SegmentsFileEnum<D>>
+    fn do_body<D>(&self, directory: Arc<D>, segment_file_name: &str) -> Result<SegmentsFileEnum<D>>
     where
         D: Directory;
 }
@@ -1391,11 +1377,7 @@ pub struct FindSegmentsFileImpl {
     pub(crate) min_supported_major_version: i32,
 }
 impl FindSegmentsFileBase for FindSegmentsFileImpl {
-    fn do_body<D>(
-        &self,
-        directory: Arc<Mutex<D>>,
-        segment_file_name: &str,
-    ) -> Result<SegmentsFileEnum<D>>
+    fn do_body<D>(&self, directory: Arc<D>, segment_file_name: &str) -> Result<SegmentsFileEnum<D>>
     where
         D: Directory,
     {
@@ -1462,9 +1444,9 @@ mod tests {
     #[test]
     fn test_versions_no_segments() -> Result<()> {
         let mut random = random();
-        let directory = Arc::new(Mutex::new(new_directory(&mut random)?));
+        let directory = Arc::new(new_directory(&mut random)?);
         let mut sis = SegmentInfos::new(LATEST.major)?;
-        sis.commit(&*directory.lock())?;
+        sis.commit(&*directory)?;
         let result = SegmentInfos::read_latest_commit(directory.clone())?.into_segment_infos();
         assert!(result.is_some());
         sis = result.unwrap();
@@ -1478,7 +1460,7 @@ mod tests {
     fn test_versions_one_segment() -> Result<()> {
         let mut random = random();
         let dir = new_directory(&mut random)?;
-        let directory = Arc::new(Mutex::new(dir));
+        let directory = Arc::new(dir);
         let id = StringHelper::random_id();
         let codec = get_default_code();
         let io_context = IOContext::default_io_context()?;
@@ -1499,13 +1481,13 @@ mod tests {
         info.set_files(HashSet::new())?;
         codec
             .segment_info_format()
-            .write(&*directory.lock(), &mut info, &io_context)?;
+            .write(&*directory, &mut info, &io_context)?;
 
         let commit_info =
             SegmentCommitInfo::new(info, 0, 0, -1, -1, -1, Some(StringHelper::random_id()))?;
 
         sis.add(commit_info)?;
-        sis.commit(&*directory.lock())?;
+        sis.commit(&*directory)?;
 
         let result = SegmentInfos::read_latest_commit(directory.clone())?.into_segment_infos();
         assert!(result.is_some());
@@ -1523,7 +1505,7 @@ mod tests {
     fn test_versions_two_segments() -> Result<()> {
         let mut random = random();
         let dir = new_directory(&mut random)?;
-        let directory = Arc::new(Mutex::new(dir));
+        let directory = Arc::new(dir);
         let id = StringHelper::random_id();
         let codec = get_default_code();
         let mut sis = SegmentInfos::new(LATEST.major)?;
@@ -1545,7 +1527,7 @@ mod tests {
         info_0.set_files(HashSet::new())?;
         codec
             .segment_info_format()
-            .write(&*directory.lock(), &mut info_0, &io_context)?;
+            .write(&*directory, &mut info_0, &io_context)?;
 
         let commit_info_0 =
             SegmentCommitInfo::new(info_0, 0, 0, -1, -1, -1, Some(StringHelper::random_id()))?;
@@ -1568,12 +1550,12 @@ mod tests {
         info_1.set_files(HashSet::new())?;
         codec
             .segment_info_format()
-            .write(&*directory.lock(), &mut info_1, &io_context)?;
+            .write(&*directory, &mut info_1, &io_context)?;
 
         let commit_info_1 =
             SegmentCommitInfo::new(info_1, 0, 0, -1, -1, -1, Some(StringHelper::random_id()))?;
         sis.add(commit_info_1)?;
-        sis.commit(&*directory.lock())?;
+        sis.commit(&*directory)?;
 
         let commit_info_id_0 = sis.info(0).unwrap().get_id().unwrap().clone();
         let commit_info_id_1 = sis.info(1).unwrap().get_id().unwrap().clone();
@@ -1605,7 +1587,7 @@ mod tests {
     #[test]
     fn test_to_string() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(Mutex::new(new_directory(&mut random)?));
+        let dir = Arc::new(new_directory(&mut random)?);
         // Diagnostics map
         let diagnostics: HashMap<String, String> = [
             ("key1".to_string(), "value1".to_string()),
@@ -1713,7 +1695,7 @@ mod tests {
     #[test]
     fn test_id_changes_on_advance() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(Mutex::new(new_directory(&mut random)?));
+        let dir = Arc::new(new_directory(&mut random)?);
         let id = StringHelper::random_id();
 
         let info = SegmentInfo::new(
@@ -1783,7 +1765,7 @@ mod tests {
     #[test]
     fn test_bit_flipped_triggers_corrupt_index_exception() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(Mutex::new(new_directory(&mut random)?));
+        let dir = Arc::new(new_directory(&mut random)?);
         let id = StringHelper::random_id();
         let codec = get_default_code();
         let mut sis = SegmentInfos::new(LATEST.major)?;
@@ -1804,7 +1786,7 @@ mod tests {
         info_0.set_files(HashSet::new())?;
         codec
             .segment_info_format()
-            .write(&*dir.lock(), &mut info_0, &io_context)?;
+            .write(&*dir, &mut info_0, &io_context)?;
         let commit_info_0 =
             SegmentCommitInfo::new(info_0, 0, 0, -1, -1, -1, Some(StringHelper::random_id()))?;
         sis.add(commit_info_0)?;
@@ -1826,25 +1808,24 @@ mod tests {
         info_1.set_files(HashSet::new())?;
         codec
             .segment_info_format()
-            .write(&*dir.lock(), &mut info_1, &io_context)?;
+            .write(&*dir, &mut info_1, &io_context)?;
         let commit_info_1 =
             SegmentCommitInfo::new(info_1, 0, 0, -1, -1, -1, Some(StringHelper::random_id()))?;
         sis.add(commit_info_1)?;
 
-        sis.commit(&*dir.lock())?;
+        sis.commit(&*dir)?;
 
         // Create a corrupt directory
-        let corrupt_dir = Arc::new(Mutex::new(new_directory(&mut random)?));
+        let corrupt_dir = Arc::new(new_directory(&mut random)?);
         let mut corrupt = false;
         let io_context = IOContext::read_once_io_context()?;
         {
-            let corrupt_directory = corrupt_dir.lock();
-            let directory = &*dir.lock();
+            let directory = &*dir;
             for file in directory.list_all()? {
                 if file.starts_with(IndexFileNames::SEGMENTS) {
                     {
                         let mut input = directory.open_input(&file, &io_context)?;
-                        let mut output = corrupt_directory.create_output(&file, &io_context)?;
+                        let mut output = corrupt_dir.create_output(&file, &io_context)?;
 
                         let mut input_length = IndexInput::length(&input);
                         let corrupt_index = TestUtil::next_long(&mut random, 0, input_length - 1);
@@ -1858,7 +1839,7 @@ mod tests {
                         let file_pointer = input.get_file_pointer();
                         output.copy_bytes(&mut input, input_length - file_pointer)?;
                     }
-                    let input = corrupt_directory.open_input(&file, &io_context)?;
+                    let input = corrupt_dir.open_input(&file, &io_context)?;
                     match CodecUtil::checksum_entire_file(&input) {
                         Ok(_) => {
                             if cfg!(feature = "test_log_verbose") {
@@ -1875,7 +1856,7 @@ mod tests {
                     }
                     corrupt = true;
                 } else if file.eq("extra0") {
-                    corrupt_directory.copy_from(directory, &file, &file, &io_context)?;
+                    corrupt_dir.copy_from(directory, &file, &file, &io_context)?;
                 }
             }
         }
@@ -1898,7 +1879,7 @@ mod tests {
     #[test]
     fn test_add_diagnostics() -> Result<()> {
         let mut random = random();
-        let dir = Arc::new(Mutex::new(new_directory(&mut random)?));
+        let dir = Arc::new(new_directory(&mut random)?);
         // Diagnostics map
         let diagnostics: HashMap<String, String> = [
             ("key1".to_string(), "value1".to_string()),

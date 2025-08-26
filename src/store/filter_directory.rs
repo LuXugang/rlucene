@@ -16,7 +16,7 @@
  */
 use crate::store::IOContext;
 use crate::store::directory::Directory;
-use crate::util::access::SharedAccess;
+use crate::util::access::SharedReadOnly;
 use crate::util::error::lucene_error::Result;
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
@@ -37,7 +37,7 @@ use std::marker::PhantomData;
 pub struct FilterDirectory<D, A>
 where
     D: Directory,
-    A: SharedAccess<D>,
+    A: SharedReadOnly<D>,
 {
     pub(crate) delegate: A,
     phantom: PhantomData<D>,
@@ -45,7 +45,7 @@ where
 impl<D, A> FilterDirectory<D, A>
 where
     D: Directory,
-    A: SharedAccess<D>,
+    A: SharedReadOnly<D>,
 {
     pub fn new(inner: A) -> Self {
         FilterDirectory {
@@ -61,7 +61,7 @@ where
 impl<D, A> Display for FilterDirectory<D, A>
 where
     D: Directory,
-    A: SharedAccess<D>,
+    A: SharedReadOnly<D>,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
@@ -75,7 +75,7 @@ where
 impl<D, A> Directory for FilterDirectory<D, A>
 where
     D: Directory,
-    A: SharedAccess<D>,
+    A: SharedReadOnly<D>,
 {
     fn list_all(&self) -> Result<Vec<String>> {
         self.delegate.access(|dir| dir.list_all())

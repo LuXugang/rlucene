@@ -230,9 +230,8 @@ where
             return Ok(current_size);
         }
         let mut sum = 0;
-        let directory = self.info.dir.lock();
         for file_name in self.files()? {
-            sum += directory.file_length(&file_name)?;
+            sum += self.info.dir.file_length(&file_name)?;
         }
         self.size_in_bytes.store(sum, Ordering::SeqCst);
 

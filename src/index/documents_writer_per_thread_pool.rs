@@ -296,12 +296,12 @@ mod tests {
             DocumentsWriterPerThread<FSDirectory<NativeFSLockFactory, NIOFSDirectory>, DummyQuery>,
         > {
             let mut random = random_from_seed(self.seed);
-            let directory_orig = Arc::new(Mutex::new(new_directory(&mut random)?));
-            let lock = directory_orig.lock().obtain_lock("test")?;
-            let directory = Arc::new(Mutex::new(LockValidatingDirectoryWrapper::new(
+            let directory_orig = Arc::new(new_directory(&mut random)?);
+            let lock = directory_orig.obtain_lock("test")?;
+            let directory = Arc::new(LockValidatingDirectoryWrapper::new(
                 directory_orig.clone(),
                 lock,
-            )));
+            ));
             // TODO: LuceneTestCase::newIndexWriterConfig 为实现
             let dummy_config = DummyLiveIndexWriterConfig::new();
             DocumentsWriterPerThread::new(

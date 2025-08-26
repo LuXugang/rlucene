@@ -20,14 +20,13 @@ use crate::store::directory::Directory;
 use crate::store::filter_directory::FilterDirectory;
 use crate::store::lock::Lock;
 use crate::util::error::lucene_error::Result;
-use parking_lot::Mutex;
 use std::sync::Arc;
 /// This class makes a best-effort check that a provided [`Lock`] is valid before any destructive filesystem operation.
 pub struct LockValidatingDirectoryWrapper<D>
 where
     D: Directory,
 {
-    base: FilterDirectory<D, Arc<Mutex<D>>>,
+    base: FilterDirectory<D, Arc<D>>,
     write_lock: D::Lock,
 }
 
@@ -35,7 +34,7 @@ impl<D> LockValidatingDirectoryWrapper<D>
 where
     D: Directory,
 {
-    pub fn new(delegate: Arc<Mutex<D>>, write_lock: D::Lock) -> Self {
+    pub fn new(delegate: Arc<D>, write_lock: D::Lock) -> Self {
         Self {
             base: FilterDirectory::new(delegate),
             write_lock,
@@ -56,9 +55,9 @@ impl<D> Directory for LockValidatingDirectoryWrapper<D>
 where
     D: Directory,
 {
-    type IndexOutput = <FilterDirectory<D, Arc<Mutex<D>>> as Directory>::IndexOutput;
-    type IndexInput = <FilterDirectory<D, Arc<Mutex<D>>> as Directory>::IndexInput;
-    type Lock = <FilterDirectory<D, Arc<Mutex<D>>> as Directory>::Lock;
+    type IndexOutput = <FilterDirectory<D, Arc<D>> as Directory>::IndexOutput;
+    type IndexInput = <FilterDirectory<D, Arc<D>> as Directory>::IndexInput;
+    type Lock = <FilterDirectory<D, Arc<D>> as Directory>::Lock;
 
     fn list_all(&self) -> Result<Vec<String>> {
         self.base.list_all()
@@ -70,12 +69,12 @@ where
 
     fn delete_file(&self, name: &str) -> Result<()> {
         self.write_lock.ensure_valid()?;
-        self.base.delegate.lock().delete_file(name)
+        self.base.delegate.delete_file(name)
     }
 
     fn create_output(&self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
         self.write_lock.ensure_valid()?;
-        self.base.delegate.lock().create_output(name, context)
+        self.base.delegate.create_output(name, context)
     }
 
     fn create_temp_output(
@@ -87,23 +86,22 @@ where
         self.write_lock.ensure_valid()?;
         self.base
             .delegate
-            .lock()
             .create_temp_output(prefix, suffix, context)
     }
 
     fn sync(&self, names: &[&str]) -> Result<()> {
         self.write_lock.ensure_valid()?;
-        self.base.delegate.lock().sync(names)
+        self.base.delegate.sync(names)
     }
 
     fn sync_metadata(&self) -> Result<()> {
         self.write_lock.ensure_valid()?;
-        self.base.delegate.lock().sync_metadata()
+        self.base.delegate.sync_metadata()
     }
 
     fn rename(&self, source: &str, dest: &str) -> Result<()> {
         self.write_lock.ensure_valid()?;
-        self.base.delegate.lock().rename(source, dest)
+        self.base.delegate.rename(source, dest)
     }
 
     fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
@@ -122,10 +120,7 @@ where
         context: &IOContext,
     ) -> Result<()> {
         self.write_lock.ensure_valid()?;
-        self.base
-            .delegate
-            .lock()
-            .copy_from(from, src, dest, context)
+        self.base.delegate.copy_from(from, src, dest, context)
     }
 
     fn delete_files_ignoring_exceptions(&self, files: &[String]) {

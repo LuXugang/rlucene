@@ -42,7 +42,6 @@ use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::numeric_utils::NumericUtils;
 use crate::util::priority_queue::{Compare, PriorityQueue};
 use crate::util::{IOUtils, SliceCopyOps, ToInt};
-use parking_lot::Mutex;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -131,7 +130,7 @@ where
 {
     pub fn new(
         max_doc: i32,
-        temp_dir: Arc<Mutex<D>>,
+        temp_dir: Arc<D>,
         temp_file_name_prefix: &str,
         config: Rc<BKDConfig>,
         max_mb_sort_in_heap: f64,

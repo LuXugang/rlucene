@@ -25,7 +25,6 @@ use crate::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrap
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::file_deleter::{FileDeleter, Messenger, MsgType};
 use crate::util::info_stream::{InfoStream, InfoStreamLock};
-use parking_lot::Mutex;
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
@@ -73,8 +72,8 @@ where
     commits_to_delete: Vec<CommitPoint<D>>,
 
     info_stream: InfoStreamLock,
-    directory_orig: Arc<Mutex<D>>,
-    directory: Arc<Mutex<LockValidatingDirectoryWrapper<D>>>,
+    directory_orig: Arc<D>,
+    directory: Arc<LockValidatingDirectoryWrapper<D>>,
     policy: Arc<P>,
 
     /// Whether the starting commit was deleted.
@@ -93,8 +92,8 @@ where
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         files: impl IntoIterator<Item = String>,
-        directory_orig: Arc<Mutex<D>>,
-        directory: Arc<Mutex<LockValidatingDirectoryWrapper<D>>>,
+        directory_orig: Arc<D>,
+        directory: Arc<LockValidatingDirectoryWrapper<D>>,
         policy: Arc<P>,
         mut segment_infos: SegmentInfos<D>,
         info_stream: InfoStreamLock,
@@ -222,7 +221,7 @@ where
         // keep commits sorted by generation
         index_file_deleter.commits.sort_unstable();
 
-        let pending = directory_orig.lock().get_pending_deletions()?;
+        let pending = directory_orig.get_pending_deletions()?;
         let relevant_files = index_file_deleter.file_deleter.get_all_files();
         if !pending.is_empty() {
             let relevant_files = relevant_files.chain(pending.iter());
@@ -342,7 +341,7 @@ where
         // debug_assert!(self.locked());
         let mut to_delete = HashSet::new();
 
-        let files = self.directory.lock().list_all()?;
+        let files = self.directory.list_all()?;
 
         for file_name in files {
             let is_lock_file = file_name.ends_with("write.lock");
@@ -687,7 +686,7 @@ pub(crate) struct CommitPoint<D> {
     pub(crate) files: Vec<String>,
     pub(crate) segments_file_name: String,
     pub(crate) deleted: bool,
-    pub(crate) directory_orig: Arc<Mutex<D>>,
+    pub(crate) directory_orig: Arc<D>,
     pub(crate) generation: i64,
     pub(crate) user_data: HashMap<String, String>,
     pub(crate) segment_count: usize,
@@ -696,10 +695,7 @@ impl<D> CommitPoint<D>
 where
     D: Directory,
 {
-    pub(crate) fn new(
-        directory_orig: Arc<Mutex<D>>,
-        segment_infos: &SegmentInfos<D>,
-    ) -> Result<Self> {
+    pub(crate) fn new(directory_orig: Arc<D>, segment_infos: &SegmentInfos<D>) -> Result<Self> {
         // TODO：是不是只要保存segment的ID就行,避免一些拷贝
         let user_data = segment_infos.get_user_data().clone();
         let segments_file_name = segment_infos
@@ -778,7 +774,7 @@ where
 
     type Directory = D;
 
-    fn get_directory(&self) -> Arc<Mutex<Self::Directory>> {
+    fn get_directory(&self) -> Arc<Self::Directory> {
         self.directory_orig.clone()
     }
 

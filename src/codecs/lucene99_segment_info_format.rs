@@ -16,8 +16,6 @@
  */
 use std::sync::Arc;
 
-use parking_lot::Mutex;
-
 use crate::codecs::CodecUtil;
 use crate::codecs::segment_info_format::SegmentInfoFormat;
 use crate::index::IndexFileNames;
@@ -90,7 +88,7 @@ impl Lucene99SegmentInfoFormat {
     const VERSION_START: i32 = 0;
     const VERSION_CURRENT: i32 = Lucene99SegmentInfoFormat::VERSION_START;
     fn parse_segment_info<D>(
-        dir: Arc<Mutex<D>>,
+        dir: Arc<D>,
         input: &mut impl DataInput,
         segment: &str,
         segment_id: &[u8; StringHelper::ID_LENGTH],
@@ -253,7 +251,7 @@ impl Lucene99SegmentInfoFormat {
 impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
     fn read<D>(
         &self,
-        dir: Arc<Mutex<D>>,
+        dir: Arc<D>,
         segment: &str,
         segment_id: &[u8; StringHelper::ID_LENGTH],
         _context: &IOContext,
@@ -262,8 +260,7 @@ impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
         D: Directory,
     {
         let file_name = IndexFileNames::segment_file_name(segment, "", SI_EXTENSION);
-        let directory = dir.lock();
-        let mut input = directory.open_checksum_input(&file_name)?;
+        let mut input = dir.open_checksum_input(&file_name)?;
 
         let mut prior_e: Option<LuceneError> = None;
         let mut si: Option<SegmentInfo<D>> = None;

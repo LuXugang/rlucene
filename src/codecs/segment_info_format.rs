@@ -16,8 +16,6 @@
  */
 use std::sync::Arc;
 
-use parking_lot::Mutex;
-
 use crate::index::segment_info::SegmentInfo;
 use crate::store::IOContext;
 use crate::store::directory::Directory;
@@ -46,7 +44,7 @@ pub trait SegmentInfoFormat {
     /// Returns an error if an I/O error occurs.
     fn read<D>(
         &self,
-        directory: Arc<Mutex<D>>,
+        directory: Arc<D>,
         segment_name: &str,
         segment_id: &[u8; StringHelper::ID_LENGTH],
         context: &IOContext,
