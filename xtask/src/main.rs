@@ -69,8 +69,21 @@ fn check_uncommitted() {
 /// format code
 fn tidy() {
     license_check();
-    run_cargo(&["clippy", "--fix"]);
-    run_cargo(&["fix", "--allow-dirty", "--allow-staged"]);
+    run_cargo(&[
+        "clippy",
+        "--fix",
+        "--all-targets",
+        "--all-features",
+        "--allow-dirty",
+        "--allow-staged",
+    ]);
+    run_cargo(&[
+        "fix",
+        "--all-targets",
+        "--all-features",
+        "--allow-dirty",
+        "--allow-staged",
+    ]);
     run_cargo(&["fmt"]);
 }
 

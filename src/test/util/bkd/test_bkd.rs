@@ -17,7 +17,6 @@
 use bit_set::BitSet;
 use num_bigint::{BigInt, Sign};
 use num_traits::Zero;
-use parking_lot::Mutex;
 use rand::{Rng, RngCore};
 use std::cell::RefCell;
 use std::rc::Rc;

@@ -414,7 +414,7 @@ mod tests {
     use crate::util::bits::Bits;
     use crate::util::error::lucene_error::Result;
     use crate::util::{LATEST, StringHelper};
-    use parking_lot::Mutex;
+
     use rand::Rng;
     use std::collections::HashMap;
     use std::sync::Arc;

@@ -1612,13 +1612,11 @@ pub trait BaseDirectoryTestCase {
     /// This test ensures that double-closing an `IndexOutput` does not cause
     /// any issues. Rust Lucene automatically closes resources when they go
     /// out of scope, so this test is not applicable.
-
     fn test_double_close_output<R: Rng + ?Sized>(&self, _random: &mut R) -> Result<()> {
         Ok(())
     }
     /// Rust Lucene automatically closes resources when they go out of scope, so
     /// this test is not applicable.
-
     fn test_double_close_input(&self) -> Result<()> {
         Ok(())
     }

@@ -18,7 +18,6 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use num_bigint::BigInt;
-use parking_lot::Mutex;
 use rand::Rng;
 
 use crate::codecs::segment_info_format::SegmentInfoFormat;

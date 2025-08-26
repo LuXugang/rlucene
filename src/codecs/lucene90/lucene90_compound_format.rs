@@ -214,7 +214,6 @@ impl Compare<SizedFile> for SizedFileQueueCmp {
 mod tests {
     use std::sync::Arc;
 
-    use parking_lot::Mutex;
     use rand::Rng;
     use rand::prelude::SliceRandom;
 

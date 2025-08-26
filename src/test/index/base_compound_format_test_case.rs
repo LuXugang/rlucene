@@ -17,7 +17,6 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use parking_lot::Mutex;
 use rand::Rng;
 
 use crate::codecs::compound_directory::CompoundDirectory;

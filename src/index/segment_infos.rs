@@ -1395,7 +1395,6 @@ mod tests {
 
     use std::sync::Arc;
 
-    use parking_lot::Mutex;
     use rand::Rng;
 
     use crate::codecs::segment_info_format::SegmentInfoFormat;
