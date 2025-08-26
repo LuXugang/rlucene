@@ -112,13 +112,13 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
         ))
     }
     fn swap(&mut self, i: i32, j: i32) -> Result<()> {
-        let temp_offset = self.offsets.get(j as i64)?;
-        let value = self.offsets.get(i as i64)?;
+        let temp_offset = self.offsets.get_immutable(j as i64)?;
+        let value = self.offsets.get_immutable(i as i64)?;
         self.offsets.set(j as i64, value);
         self.offsets.set(i as i64, temp_offset);
 
-        let tem_length = self.lengths.get(j as i64)?;
-        let length = self.lengths.get(i as i64)?;
+        let tem_length = self.lengths.get_immutable(j as i64)?;
+        let length = self.lengths.get_immutable(i as i64)?;
         self.lengths.set(j as i64, length);
         self.lengths.set(i as i64, tem_length);
         Ok(())

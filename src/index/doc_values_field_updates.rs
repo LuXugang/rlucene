@@ -272,13 +272,13 @@ where
         Ok(())
     }
     /// Returns true if this instance contains any updates.
-    pub(crate) fn any(&self) -> Result<bool> {
+    pub(crate) fn any(&self) -> bool {
         let inner = self.inner.lock();
         let result = inner.size > 0;
         if self.sub_update.need_any() {
             self.sub_update.any(result)
         } else {
-            Ok(result)
+            result
         }
     }
     /// Adds an update that resets the document value.
@@ -372,30 +372,22 @@ pub(crate) trait DocValuesFieldUpdatesBase: Accountable {
         del_gen: i64,
     ) -> Result<DocValuesFieldIteratorEnum>;
     fn swap(&mut self, _i: i32, _j: i32) -> Result<()> {
-        Err(LuceneError::not_implemented(
-            "any must be implemented if you need to use it",
-        ))
+        unimplemented!("must be implemented if you need to use it")
     }
     fn grow(&mut self, _size: i32) -> Result<()> {
-        Err(LuceneError::not_implemented(
-            "any must be implemented if you need to use it",
-        ))
+        unimplemented!("must be implemented if you need to use it")
     }
     fn resize(&mut self, _size: i32) -> Result<()> {
         Ok(())
     }
     fn reset(&mut self, _doc: i32) -> Result<()> {
-        Err(LuceneError::not_implemented(
-            "any must be implemented if you need to use it",
-        ))
+        unimplemented!("must be implemented if you need to use it")
     }
     fn need_reset(&self) -> bool {
         false
     }
-    fn any(&self, _super_any: bool) -> Result<bool> {
-        Err(LuceneError::not_implemented(
-            "any must be implemented if you need to use it",
-        ))
+    fn any(&self, _super_any: bool) -> bool {
+        unimplemented!("must be implemented if you need to use it")
     }
     fn need_any(&self) -> bool {
         false
@@ -1046,11 +1038,11 @@ impl DocValuesFieldUpdatesBase for SingleValueDocValuesFieldUpdates {
         true
     }
 
-    fn any(&self, super_any: bool) -> Result<bool> {
+    fn any(&self, super_any: bool) -> bool {
         let _guide = self.lock.lock();
         let v = super_any || self.has_at_least_one_value;
         drop(_guide);
-        Ok(v)
+        v
     }
 
     fn need_any(&self) -> bool {
@@ -1269,17 +1261,17 @@ mod tests {
         updates1.add_value(1, 4)?;
         updates1.add_value(2, 5)?;
         updates1.add_value(4, 9)?;
-        assert!(updates1.any()?);
+        assert!(updates1.any());
 
         updates2.add_value(0, 18)?;
         updates2.add_value(1, 7)?;
         updates2.add_value(2, 19)?;
         updates2.add_value(5, 24)?;
-        assert!(updates2.any()?);
+        assert!(updates2.any());
 
         updates3.add_value(2, 42)?;
-        assert!(updates3.any()?);
-        assert!(!updates4.any()?);
+        assert!(updates3.any());
+        assert!(!updates4.any());
 
         // Finish updates
         updates1.finish()?;
@@ -1479,7 +1471,7 @@ mod tests {
         }
 
         update.finish()?;
-        assert_eq!(any, update.any()?);
+        assert_eq!(any, update.any());
         let mut iterator = update.iterator()?;
         assert_eq!(del_gen, iterator.del_gen());
 
