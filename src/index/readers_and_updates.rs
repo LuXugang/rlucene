@@ -325,7 +325,7 @@ where
 
             let tracking_dir = TrackingDirectoryWrapper::new(dir.clone());
 
-            let mut state = SegmentWriteState::with_suffix(
+            let state = SegmentWriteState::with_suffix(
                 None,
                 &tracking_dir,
                 field_infos,
@@ -334,7 +334,7 @@ where
             );
 
             {
-                let mut fields_consumer = dv_format.fields_consumer(&mut state, &info.info)?;
+                let mut fields_consumer = dv_format.fields_consumer(&state, &info.info)?;
 
                 let update_supplier = FunctionImpl::new(field_info.clone(), updates_to_apply);
 

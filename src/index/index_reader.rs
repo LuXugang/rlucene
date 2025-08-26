@@ -28,4 +28,7 @@ pub trait IndexReader {
         // TODO
         Ok(())
     }
+    fn do_close(&mut self) -> Result<()>;
+
+    fn check_integrity(&self) -> Result<()>;
 }

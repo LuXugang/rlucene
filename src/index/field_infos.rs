@@ -28,6 +28,7 @@ use std::sync::Arc;
 /// Collection of FieldInfos (accessible by number or by name).
 ///
 /// # Experimental
+#[derive(Default)]
 pub struct FieldInfos {
     pub has_freq: bool,
     pub has_postings: bool,

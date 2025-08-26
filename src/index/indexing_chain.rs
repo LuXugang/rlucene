@@ -1948,6 +1948,14 @@ where
     fn num_docs(&self) -> Result<i32> {
         self.base.num_docs()
     }
+
+    fn do_close(&mut self) -> Result<()> {
+        self.base.do_close()
+    }
+
+    fn check_integrity(&self) -> Result<()> {
+        self.base.check_integrity()
+    }
 }
 
 impl<'a, D> LeafReader for DocValuesLeafReaderImpl1<'a, D>
@@ -2149,6 +2157,14 @@ where
 
     fn num_docs(&self) -> Result<i32> {
         self.base.num_docs()
+    }
+
+    fn do_close(&mut self) -> Result<()> {
+        self.base.do_close()
+    }
+
+    fn check_integrity(&self) -> Result<()> {
+        self.base.check_integrity()
     }
 }
 

@@ -15,12 +15,13 @@
  * limitations under the License.
  */
 use derive_getters::Getters;
+use std::sync::Arc;
 
 use crate::index::sort::Sort;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::version::{LATEST, Version};
 
-#[derive(Getters)]
+#[derive(Getters, Clone)]
 #[cfg_attr(test, derive(Default))] // for test
 pub struct LeafMetaData {
     /// The major version of the Lucene format used to create this segment.
@@ -28,7 +29,7 @@ pub struct LeafMetaData {
     /// The minimum version of Lucene that contributed to this segment.
     pub min_version: Option<Version>,
     /// The sort order of documents in this segment, if any.
-    pub sort: Option<Sort>,
+    pub sort: Option<Arc<Sort>>,
     /// Indicates whether this segment contains documents written as blocks.
     pub has_blocks: bool,
 }
@@ -38,7 +39,7 @@ impl LeafMetaData {
     pub fn new(
         created_version_major: i32,
         min_version: Option<Version>,
-        sort: Option<Sort>,
+        sort: Option<Arc<Sort>>,
         has_blocks: bool,
     ) -> Result<Self> {
         if created_version_major > LATEST.major {

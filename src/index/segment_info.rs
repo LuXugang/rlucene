@@ -421,8 +421,8 @@ where
 
     /// Returns the sort order of this segment, or None if the index has no
     /// sort.
-    pub fn get_index_sort(&self) -> Option<Arc<Sort>> {
-        self.index_sort.clone()
+    pub fn get_index_sort(&self) -> Option<&Arc<Sort>> {
+        self.index_sort.as_ref()
     }
 
     pub(crate) fn dummy(dir: Arc<Mutex<D>>) -> Self {

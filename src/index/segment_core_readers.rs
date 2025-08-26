@@ -35,9 +35,7 @@ use crate::store::directory::{Directory, Either2Directory};
 use crate::store::{Either2IndexInput, IOContext, IndexInput};
 use crate::util::error::lucene_error::{LuceneError, Result};
 
-use parking_lot::Mutex;
 use std::rc::Rc;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicI32, Ordering};
 
 pub(crate) type CfsOrBaseInput<D> = Either2IndexInput<
@@ -68,28 +66,20 @@ where
     D: Directory,
 {
     #[allow(clippy::too_many_arguments)]
-    pub(crate) fn new(
-        dir: Arc<Mutex<D>>,
-        si: SegmentCommitInfo<D>,
-        context: &IOContext,
-    ) -> Result<Self> {
+    pub(crate) fn new(dir: &D, si: &SegmentCommitInfo<D>, context: &IOContext) -> Result<Self> {
         let codec = get_default_code();
         let use_compound_file = si.info.get_use_compound_file();
 
         (|| {
             let cfs_reader = if use_compound_file {
-                Some(
-                    codec
-                        .compound_format()
-                        .get_compound_reader(&*dir.lock(), &si.info)?,
-                )
+                Some(codec.compound_format().get_compound_reader(dir, &si.info)?)
             } else {
                 None
             };
 
             let cfs_dir = match cfs_reader.as_ref() {
                 Some(reader) => Either2Directory::A(reader),
-                None => Either2Directory::B(&*dir.lock()),
+                None => Either2Directory::B(dir),
             };
 
             let segment = si.info.name.to_string();
@@ -182,7 +172,7 @@ where
             }
         }
     }
-    pub(crate) fn dec_ref(&mut self) -> Result<()> {
+    pub(crate) fn dec_ref(&self) -> Result<()> {
         self.r#ref.load(Ordering::Acquire);
         todo!()
     }

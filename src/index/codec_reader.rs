@@ -259,9 +259,6 @@ pub trait CodecReader: LeafReader {
         Ok(Some(reader.get_values(field)?))
     }
 
-    fn check_integrity(&self) -> Result<()> {
-        self.default_check_integrity()
-    }
     fn default_check_integrity(&self) -> Result<()> {
         // terms/postings
         if let Some(v) = self.get_postings_reader()? {
@@ -291,6 +288,9 @@ pub trait CodecReader: LeafReader {
 
         // vectors
         // self.get_vector_reader()?.check_integrity()
+        Ok(())
+    }
+    fn default_do_close(&self) -> Result<()> {
         Ok(())
     }
 }

@@ -38,6 +38,14 @@ impl IndexReader for DummyLeafReader {
     fn num_docs(&self) -> Result<i32> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
+
+    fn do_close(&mut self) -> Result<()> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn check_integrity(&self) -> Result<()> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
 }
 
 impl LeafReader for DummyLeafReader {

@@ -59,7 +59,7 @@ fn check_uncommitted() {
         println!("✅ ✅ ✅ Working directory clean. All changes committed.");
     } else {
         eprintln!(
-            "❌ ❌ ❌ Uncommitted changes detected after code Check. Please commit your work first."
+            "❌ ❌ ❌ Uncommitted changes detected after code check. Please commit your work again."
         );
         eprintln!("{}", stdout);
         process::exit(1);

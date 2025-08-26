@@ -14,12 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::codecs::compound_directory::{CompoundDirectory, CompoundDirectoryBase};
+use crate::codecs::compound_directory::CompoundDirectoryBase;
 use crate::codecs::doc_values_producer::{DocValuesProducer, Either2DocValuesProducer};
 use crate::codecs::field_infos_format::FieldInfosFormat;
 use crate::codecs::fields_producer::FieldsProducerEnum;
 use crate::codecs::live_docs_format::LiveDocsFormat;
-use crate::codecs::lucene90_compound_reader::Lucene90CompoundReader;
 use crate::codecs::lucene90_doc_values_producer::Lucene90DocValuesProducer;
 use crate::codecs::lucene90_live_docs_format::Lucene90LiveDocsFormat;
 use crate::codecs::norms_producer::{NormsProducer, NormsProducerEnum};
@@ -38,11 +37,15 @@ use crate::index::segment_doc_values::SegmentDocValues;
 use crate::index::segment_doc_values_producer::SegmentDocValuesProducer;
 use crate::store::IOContext;
 use crate::store::directory::Directory;
-use crate::util::error::lucene_error::Result;
+use crate::util::bits::Bits;
+use crate::util::error::lucene_error::{LuceneError, Result};
+use crate::util::fixed_bit_set::FixedBit;
 use std::borrow::Cow;
 use std::rc::Rc;
 use std::sync::Arc;
 
+/// IndexReader implementation over a single segment.
+/// Instances pointing to the same segment (but with different deletes, etc) may share the same core data
 pub struct SegmentReader<D>
 where
     D: Directory,
@@ -54,8 +57,8 @@ where
     // were created as an NRT reader from IW, in which case IW
     // tells us the number of live docs:
     num_docs: i32,
-    core: SegmentCoreReaders<D>,
-    seg_doc_values: SegmentDocValues<D>,
+    core: Arc<SegmentCoreReaders<D>>,
+    seg_doc_values: Arc<SegmentDocValues<D>>,
     /// True if we are holding RAM only liveDocs or DV updates,
     /// i.e. the SegmentCommitInfo delGen doesn't match our liveDocs.
     is_nrt: bool,
@@ -66,6 +69,136 @@ impl<D> SegmentReader<D>
 where
     D: Directory,
 {
+    pub(crate) fn new(
+        si: &SegmentCommitInfo<D>,
+        created_version_major: i32,
+        context: &IOContext,
+    ) -> Result<Self> {
+        let meta_data = LeafMetaData::new(
+            created_version_major,
+            Some(si.info.get_min_version().unwrap().clone()),
+            Some(si.info.get_index_sort().unwrap().clone()),
+            si.info.get_has_blocks(),
+        )?;
+
+        let is_nrt = false;
+        let dir = &*si.info.dir.lock();
+        let core = Arc::new(SegmentCoreReaders::new(dir, si, context)?);
+        let seg_doc_values = Arc::new(SegmentDocValues::new());
+        let num_docs = si.info.max_doc()? - si.get_del_count();
+        let mut segment_reader = Self {
+            meta_data,
+            is_nrt,
+            core,
+            seg_doc_values,
+            hard_live_docs: None,
+            live_docs: None,
+            num_docs,
+            field_infos: Rc::new(FieldInfos::default()),
+            doc_values_producer: None,
+        };
+        let result = (|| {
+            let (hard_live_docs, live_docs) = if si.has_deletions() {
+                // NOTE: the bitvector is stored using the regular directory, not cfs
+                let ld = Arc::new(get_default_code().live_docs_format().read_live_docs(
+                    dir,
+                    si,
+                    &IOContext::read_once_io_context()?,
+                )?);
+                (Some(ld.clone()), Some(ld))
+            } else {
+                debug_assert_eq!(si.get_del_count(), 0);
+                (None, None)
+            };
+
+            let field_infos =
+                Self::init_field_infos(si, segment_reader.core.core_field_infos.clone())?;
+            let doc_values_producer = Self::init_doc_values_producer(
+                si,
+                field_infos.clone(),
+                &segment_reader.seg_doc_values,
+                &segment_reader.core,
+            )?;
+
+            debug_assert!(Self::assert_live_docs(is_nrt, &hard_live_docs, &live_docs));
+
+            Ok((hard_live_docs, live_docs, field_infos, doc_values_producer))
+        })();
+        match result {
+            Ok(r) => {
+                segment_reader.hard_live_docs = r.0;
+                segment_reader.live_docs = r.1;
+                segment_reader.field_infos = r.2;
+                segment_reader.doc_values_producer = r.3;
+                Ok(segment_reader)
+            },
+            Err(e) => {
+                segment_reader.do_close()?;
+                Err(e)
+            },
+        }
+    }
+    /// Create new SegmentReader sharing core from a previous SegmentReader and using the provided liveDocs,
+    /// and recording whether those liveDocs were carried in ram (isNRT=true).
+    pub(crate) fn new_from_reader(
+        si: &SegmentCommitInfo<D>,
+        sr: &SegmentReader<D>,
+        live_docs: Option<Arc<FixedBit>>,
+        hard_live_docs: Option<Arc<FixedBit>>,
+        num_docs: i32,
+        is_nrt: bool,
+    ) -> Result<Self> {
+        let max_doc = si.info.max_doc()?;
+        if num_docs > max_doc {
+            return Err(LuceneError::illegal_argument(format!(
+                "numDocs={} but maxDoc={}",
+                num_docs, max_doc
+            )));
+        }
+        if let Some(ld) = &live_docs {
+            let len = ld.length();
+            if len != max_doc {
+                return Err(LuceneError::illegal_argument(format!(
+                    "maxDoc={} but liveDocs.size()={}",
+                    max_doc, len
+                )));
+            }
+        }
+
+        let meta_data = sr.meta_data.clone();
+        let core = sr.core.clone();
+        let seg_doc_values = sr.seg_doc_values.clone();
+        core.inc_ref()?;
+        debug_assert!(Self::assert_live_docs(is_nrt, &hard_live_docs, &live_docs));
+        let mut segment_reader = Self {
+            meta_data,
+            is_nrt,
+            core: core.clone(),
+            seg_doc_values: seg_doc_values.clone(),
+            hard_live_docs,
+            live_docs,
+            num_docs,
+            field_infos: Rc::new(FieldInfos::default()),
+            doc_values_producer: None,
+        };
+        let result = (|| {
+            let field_infos = Self::init_field_infos(si, core.core_field_infos.clone())?;
+            let doc_values_producer =
+                Self::init_doc_values_producer(si, field_infos.clone(), &seg_doc_values, &core)?;
+            Ok((field_infos, doc_values_producer))
+        })();
+        match result {
+            Ok(r) => {
+                segment_reader.field_infos = r.0;
+                segment_reader.doc_values_producer = r.1;
+                Ok(segment_reader)
+            },
+            Err(e) => {
+                segment_reader.do_close()?;
+                Err(e)
+            },
+        }
+    }
     fn assert_live_docs(
         is_nrt: bool,
         hard_live_docs: &Option<Arc<<Lucene90LiveDocsFormat as LiveDocsFormat>::Bits>>,
@@ -91,19 +224,18 @@ where
         si: &SegmentCommitInfo<D>,
         field_infos: Rc<FieldInfos>,
         seg_doc_values: &SegmentDocValues<D>,
-        core_cfs_reader: &mut Option<CompoundDirectory<Lucene90CompoundReader<D>>>,
-        core_field_infos: Rc<FieldInfos>,
+        core: &SegmentCoreReaders<D>,
     ) -> Result<Option<DocValuesProducers<D>>> {
         if !field_infos.has_doc_values() {
             return Ok(None);
         }
-        let dir = core_cfs_reader;
+        let dir = &core.cfs_reader;
 
         let producer = match si.has_field_updates() {
             true => Either2DocValuesProducer::A(SegmentDocValuesProducer::new(
                 si,
                 dir,
-                Rc::clone(&core_field_infos),
+                Rc::clone(&core.core_field_infos),
                 &field_infos,
                 seg_doc_values,
             )?),
@@ -156,6 +288,29 @@ where
 
     fn num_docs(&self) -> Result<i32> {
         Ok(self.num_docs)
+    }
+
+    fn do_close(&mut self) -> Result<()> {
+        if self.core.dec_ref().is_err()
+            && let Some(dv) = &self.doc_values_producer
+        {
+            match dv {
+                Either2DocValuesProducer::A(a) => self.seg_doc_values.dec_ref(&a.dv_gens)?,
+                Either2DocValuesProducer::B(_) => {
+                    let gens = vec![-1_i64, 1];
+                    self.seg_doc_values.dec_ref(&gens)?
+                },
+            }
+        }
+        Ok(())
+    }
+
+    fn check_integrity(&self) -> Result<()> {
+        CodecReader::default_check_integrity(self)?;
+        if let Some(dv) = &self.core.cfs_reader {
+            dv.sub_compound_dir.check_integrity()?;
+        }
+        Ok(())
     }
 }
 impl<D> LeafReader for SegmentReader<D>
@@ -262,13 +417,5 @@ where
     fn get_points_reader(&self) -> Result<Option<Cow<'_, Self::PointsReader>>> {
         self.ensure_open()?;
         Ok(self.core.points_reader.as_ref().map(Cow::Borrowed))
-    }
-
-    fn check_integrity(&self) -> Result<()> {
-        CodecReader::default_check_integrity(self)?;
-        if let Some(dv) = &self.core.cfs_reader {
-            dv.sub_compound_dir.check_integrity()?;
-        }
-        Ok(())
     }
 }
