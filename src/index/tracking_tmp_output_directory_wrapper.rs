@@ -98,15 +98,15 @@ where
         self.base.create_temp_output(prefix, suffix, context)
     }
 
-    fn sync(&mut self, names: &[&str]) -> Result<()> {
+    fn sync(&self, names: &[&str]) -> Result<()> {
         self.base.sync(names)
     }
 
-    fn sync_metadata(&mut self) -> Result<()> {
+    fn sync_metadata(&self) -> Result<()> {
         self.base.sync_metadata()
     }
 
-    fn rename(&mut self, source: &str, dest: &str) -> Result<()> {
+    fn rename(&self, source: &str, dest: &str) -> Result<()> {
         self.base.rename(source, dest)
     }
 
@@ -131,7 +131,7 @@ where
 
     type Lock = D::Lock;
 
-    fn obtain_lock(&mut self, name: &str) -> Result<Self::Lock> {
+    fn obtain_lock(&self, name: &str) -> Result<Self::Lock> {
         self.base.obtain_lock(name)
     }
 
@@ -149,7 +149,7 @@ where
         self.base.delete_files_ignoring_exceptions(files)
     }
 
-    fn get_pending_deletions(&mut self) -> Result<HashSet<String>> {
+    fn get_pending_deletions(&self) -> Result<HashSet<String>> {
         self.base.get_pending_deletions()
     }
 }

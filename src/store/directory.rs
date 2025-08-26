@@ -117,13 +117,13 @@ pub trait Directory: Display + Sized {
     ///
     /// # See Also
     /// [`sync_metadata`](Directory::sync_metadata)
-    fn sync(&mut self, names: &[&str]) -> Result<()>;
+    fn sync(&self, names: &[&str]) -> Result<()>;
     /// Ensures that directory metadata, such as recent file renames, are moved
     /// to stable storage.
     ///
     /// # See Also
     /// [`sync`](Directory::sync)
-    fn sync_metadata(&mut self) -> Result<()>;
+    fn sync_metadata(&self) -> Result<()>;
     /// Renames `source` file to `dest` file where `dest` must not already exist
     /// in the directory.
     ///
@@ -139,7 +139,7 @@ pub trait Directory: Display + Sized {
     /// # Arguments
     /// * `source` - The file to rename.
     /// * `dest` - The new name for the file.
-    fn rename(&mut self, source: &str, dest: &str) -> Result<()>;
+    fn rename(&self, source: &str, dest: &str) -> Result<()>;
 
     /// Opens a stream for reading an existing file.
     ///
@@ -186,7 +186,7 @@ pub trait Directory: Display + Sized {
     ///
     /// # Arguments
     /// * `name` - The name of the lock file.
-    fn obtain_lock(&mut self, name: &str) -> Result<Self::Lock>;
+    fn obtain_lock(&self, name: &str) -> Result<Self::Lock>;
     /// Copies an existing `src` file from directory `from` to a non-existent
     /// file `dest` in this directory. The given `IOContext` is only used
     /// for opening the destination file.
@@ -227,7 +227,7 @@ pub trait Directory: Display + Sized {
     ///
     /// # Note
     /// This is an internal API.
-    fn get_pending_deletions(&mut self) -> Result<HashSet<String>>;
+    fn get_pending_deletions(&self) -> Result<HashSet<String>>;
 
     #[cfg(feature = "test_only")]
     fn is_fs_directory(&self) -> bool {
@@ -316,21 +316,21 @@ where
         }
     }
 
-    fn sync(&mut self, names: &[&str]) -> Result<()> {
+    fn sync(&self, names: &[&str]) -> Result<()> {
         match self {
             Either2Directory::A(f) => f.sync(names),
             Either2Directory::B(s) => s.sync(names),
         }
     }
 
-    fn sync_metadata(&mut self) -> Result<()> {
+    fn sync_metadata(&self) -> Result<()> {
         match self {
             Either2Directory::A(f) => f.sync_metadata(),
             Either2Directory::B(s) => s.sync_metadata(),
         }
     }
 
-    fn rename(&mut self, source: &str, dest: &str) -> Result<()> {
+    fn rename(&self, source: &str, dest: &str) -> Result<()> {
         match self {
             Either2Directory::A(f) => f.rename(source, dest),
             Either2Directory::B(s) => s.rename(source, dest),
@@ -356,7 +356,7 @@ where
 
     type Lock = Either2Lock<A::Lock, B::Lock>;
 
-    fn obtain_lock(&mut self, name: &str) -> Result<Self::Lock> {
+    fn obtain_lock(&self, name: &str) -> Result<Self::Lock> {
         match self {
             Either2Directory::A(f) => Ok(Either2Lock::A(f.obtain_lock(name)?)),
             Either2Directory::B(s) => Ok(Either2Lock::B(s.obtain_lock(name)?)),
@@ -383,7 +383,7 @@ where
         }
     }
 
-    fn get_pending_deletions(&mut self) -> Result<HashSet<String>> {
+    fn get_pending_deletions(&self) -> Result<HashSet<String>> {
         match self {
             Either2Directory::A(f) => f.get_pending_deletions(),
             Either2Directory::B(s) => s.get_pending_deletions(),
@@ -415,13 +415,13 @@ impl<D: Directory> Directory for &mut D {
     fn create_temp_output(&self, p: &str, s: &str, ctx: &IOContext) -> Result<Self::IndexOutput> {
         (**self).create_temp_output(p, s, ctx)
     }
-    fn sync(&mut self, names: &[&str]) -> Result<()> {
+    fn sync(&self, names: &[&str]) -> Result<()> {
         (**self).sync(names)
     }
-    fn sync_metadata(&mut self) -> Result<()> {
+    fn sync_metadata(&self) -> Result<()> {
         (**self).sync_metadata()
     }
-    fn rename(&mut self, src: &str, dst: &str) -> Result<()> {
+    fn rename(&self, src: &str, dst: &str) -> Result<()> {
         (**self).rename(src, dst)
     }
     type IndexInput = D::IndexInput;
@@ -429,7 +429,7 @@ impl<D: Directory> Directory for &mut D {
         (**self).open_input(name, ctx)
     }
     type Lock = D::Lock;
-    fn obtain_lock(&mut self, name: &str) -> Result<Self::Lock> {
+    fn obtain_lock(&self, name: &str) -> Result<Self::Lock> {
         (**self).obtain_lock(name)
     }
     fn copy_from(
@@ -444,7 +444,7 @@ impl<D: Directory> Directory for &mut D {
     fn delete_files_ignoring_exceptions(&self, files: &[String]) {
         (**self).delete_files_ignoring_exceptions(files)
     }
-    fn get_pending_deletions(&mut self) -> Result<HashSet<String>> {
+    fn get_pending_deletions(&self) -> Result<HashSet<String>> {
         (**self).get_pending_deletions()
     }
     #[cfg(feature = "test_only")]

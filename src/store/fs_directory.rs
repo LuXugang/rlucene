@@ -371,7 +371,7 @@ where
         }
     }
 
-    fn sync(&mut self, names: &[&str]) -> Result<()> {
+    fn sync(&self, names: &[&str]) -> Result<()> {
         for &name in names {
             self.fsync(name)?;
         }
@@ -383,7 +383,7 @@ where
         Ok(())
     }
 
-    fn sync_metadata(&mut self) -> Result<()> {
+    fn sync_metadata(&self) -> Result<()> {
         // TODO: to improve listCommits(), IndexFileDeleter could call this
         // after deleting segments_Ns
         IOUtils::fsync(&self.directory, true)?;
@@ -395,7 +395,7 @@ where
         Ok(())
     }
 
-    fn rename(&mut self, source: &str, dest: &str) -> Result<()> {
+    fn rename(&self, source: &str, dest: &str) -> Result<()> {
         let mut pending_deletes = self.pending_deletes.lock();
         if pending_deletes.contains(source) {
             return Err(LuceneError::not_found(format!(
@@ -431,11 +431,11 @@ where
 
     type Lock = D::Lock;
 
-    fn obtain_lock(&mut self, name: &str) -> Result<Self::Lock> {
+    fn obtain_lock(&self, name: &str) -> Result<Self::Lock> {
         self.lock_factory.obtain_lock(&self.directory, name)
     }
 
-    fn get_pending_deletions(&mut self) -> Result<HashSet<String>> {
+    fn get_pending_deletions(&self) -> Result<HashSet<String>> {
         let mut pending_deletes = self.pending_deletes.lock();
         Self::delete_pending_files(&self.directory, &mut pending_deletes)?;
         if pending_deletes.is_empty() {
@@ -472,7 +472,7 @@ where
     D: LockFactory,
     T: FSDirectoryBase,
 {
-    fn obtain_lock(&mut self, name: &str) -> Result<impl Lock> {
+    fn obtain_lock(&self, name: &str) -> Result<impl Lock> {
         Directory::obtain_lock(self, name)
     }
 }

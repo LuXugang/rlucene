@@ -31,5 +31,5 @@ use crate::util::error::lucene_error::Result;
 /// it is temporarily retained to maintain consistency with the structure of
 /// Java Lucene.
 pub trait BaseDirectory: Directory {
-    fn obtain_lock(&mut self, name: &str) -> Result<impl Lock>;
+    fn obtain_lock(&self, name: &str) -> Result<impl Lock>;
 }

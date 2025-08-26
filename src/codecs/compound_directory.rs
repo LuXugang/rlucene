@@ -88,15 +88,15 @@ where
         ))
     }
 
-    fn sync(&mut self, _names: &[&str]) -> Result<()> {
+    fn sync(&self, _names: &[&str]) -> Result<()> {
         Err(LuceneError::unsupported_operation("sync".to_string()))
     }
 
-    fn sync_metadata(&mut self) -> Result<()> {
+    fn sync_metadata(&self) -> Result<()> {
         Ok(())
     }
 
-    fn rename(&mut self, _source: &str, _dest: &str) -> Result<()> {
+    fn rename(&self, _source: &str, _dest: &str) -> Result<()> {
         Err(LuceneError::unsupported_operation("rename".to_string()))
     }
 
@@ -108,13 +108,13 @@ where
 
     type Lock = D::Lock;
 
-    fn obtain_lock(&mut self, _name: &str) -> Result<Self::Lock> {
+    fn obtain_lock(&self, _name: &str) -> Result<Self::Lock> {
         Err(LuceneError::unsupported_operation(
             "obtain_lock".to_string(),
         ))
     }
 
-    fn get_pending_deletions(&mut self) -> Result<HashSet<String>> {
+    fn get_pending_deletions(&self) -> Result<HashSet<String>> {
         self.sub_compound_dir.get_pending_deletions()
     }
 }

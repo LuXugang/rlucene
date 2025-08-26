@@ -673,7 +673,7 @@ where
         find_segments_file.run()
     }
 
-    fn write_with_directory(&mut self, directory: &mut impl Directory) -> Result<()> {
+    fn write_with_directory(&mut self, directory: &impl Directory) -> Result<()> {
         let next_generation = self.get_next_pending_generation();
         let segment_file_name_wrap = IndexFileNames::file_name_from_generation(
             IndexFileNames::PENDING_SEGMENTS,
@@ -923,7 +923,7 @@ where
     ///
     /// Note: [`changed()`](SegmentInfos::changed) should be called prior to
     /// this method if changes have been made to this [`SegmentInfos`] instance.
-    pub fn prepare_commit(&mut self, directory: &mut impl Directory) -> Result<()> {
+    pub fn prepare_commit(&mut self, directory: &impl Directory) -> Result<()> {
         if self.pending_commit {
             return Err(LuceneError::illegal_state(
                 "prepare_commit was already called".to_string(),
@@ -947,7 +947,7 @@ where
         Ok(files)
     }
     /// Returns the committed `segments_N` filename.
-    pub fn finish_commit(&mut self, directory: &mut impl Directory) -> Result<String> {
+    pub fn finish_commit(&mut self, directory: &impl Directory) -> Result<String> {
         if !self.pending_commit {
             return Err(LuceneError::illegal_state(
                 "prepare_commit was not called".to_string(),
@@ -1000,7 +1000,7 @@ where
     ///
     /// Note: [`changed()`](SegmentInfos::changed) should be called prior to
     /// this method if changes have been made to this [`SegmentInfos`] instance.
-    pub fn commit(&mut self, dir: &mut impl Directory) -> Result<()> {
+    pub fn commit(&mut self, dir: &impl Directory) -> Result<()> {
         self.prepare_commit(dir)?;
         self.finish_commit(dir)?;
         Ok(())

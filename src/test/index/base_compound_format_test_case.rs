@@ -193,7 +193,7 @@ pub trait BaseCompoundFormatTestCase {
         LATEST_CODEC
             .compound_format()
             .write(&*dir.lock(), &si, &IO_CONTEXT_DEFAULT)?;
-        let mut cfs = LATEST_CODEC
+        let cfs = LATEST_CODEC
             .compound_format()
             .get_compound_reader(&*dir.lock(), &si)?;
         let result = cfs.rename(testfile, "bogus");
@@ -213,7 +213,7 @@ pub trait BaseCompoundFormatTestCase {
         LATEST_CODEC
             .compound_format()
             .write(&*dir.lock(), &si, &IO_CONTEXT_DEFAULT)?;
-        let mut cfs = LATEST_CODEC
+        let cfs = LATEST_CODEC
             .compound_format()
             .get_compound_reader(&*dir.lock(), &si)?;
         let result = cfs.sync(&[testfile]);
@@ -235,7 +235,7 @@ pub trait BaseCompoundFormatTestCase {
         LATEST_CODEC
             .compound_format()
             .write(&*dir.lock(), &si, &IO_CONTEXT_DEFAULT)?;
-        let mut cfs = LATEST_CODEC
+        let cfs = LATEST_CODEC
             .compound_format()
             .get_compound_reader(&*dir.lock(), &si)?;
         let result = cfs.obtain_lock("foobar");

@@ -57,15 +57,15 @@ impl Directory for DummyDirectory {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn sync(&mut self, _names: &[&str]) -> Result<()> {
+    fn sync(&self, _names: &[&str]) -> Result<()> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn sync_metadata(&mut self) -> Result<()> {
+    fn sync_metadata(&self) -> Result<()> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn rename(&mut self, _source: &str, _dest: &str) -> Result<()> {
+    fn rename(&self, _source: &str, _dest: &str) -> Result<()> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
@@ -77,11 +77,11 @@ impl Directory for DummyDirectory {
 
     type Lock = DummyLock;
 
-    fn obtain_lock(&mut self, _name: &str) -> Result<Self::Lock> {
+    fn obtain_lock(&self, _name: &str) -> Result<Self::Lock> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn get_pending_deletions(&mut self) -> Result<HashSet<String>> {
+    fn get_pending_deletions(&self) -> Result<HashSet<String>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

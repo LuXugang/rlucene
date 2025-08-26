@@ -211,21 +211,21 @@ where
         ))
     }
 
-    fn sync(&mut self, _names: &[&str]) -> Result<()> {
+    fn sync(&self, _names: &[&str]) -> Result<()> {
         Err(LuceneError::illegal_state(
             "sync() wrapped by CompoundDirectory, this method should never not be called"
                 .to_string(),
         ))
     }
 
-    fn sync_metadata(&mut self) -> Result<()> {
+    fn sync_metadata(&self) -> Result<()> {
         Err(LuceneError::illegal_state(
             "sync_metadata() wrapped by CompoundDirectory, this method should never not be called"
                 .to_string(),
         ))
     }
 
-    fn rename(&mut self, _source: &str, _dest: &str) -> Result<()> {
+    fn rename(&self, _source: &str, _dest: &str) -> Result<()> {
         Err(LuceneError::illegal_state(
             "rename() wrapped by CompoundDirectory, this method should never not be called"
                 .to_string(),
@@ -264,14 +264,14 @@ where
 
     type Lock = D::Lock;
 
-    fn obtain_lock(&mut self, _name: &str) -> Result<Self::Lock> {
+    fn obtain_lock(&self, _name: &str) -> Result<Self::Lock> {
         Err(LuceneError::illegal_state(
             "obtain_lock() wrapped by CompoundDirectory, this method should never not be called"
                 .to_string(),
         ))
     }
 
-    fn get_pending_deletions(&mut self) -> Result<HashSet<String>> {
+    fn get_pending_deletions(&self) -> Result<HashSet<String>> {
         Ok(HashSet::new())
     }
 }

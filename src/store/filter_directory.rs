@@ -82,7 +82,7 @@ where
     }
 
     fn delete_file(&self, name: &str) -> Result<()> {
-        self.delegate.access_mut(|dir| dir.delete_file(name))
+        self.delegate.access(|dir| dir.delete_file(name))
     }
 
     fn file_length(&self, name: &str) -> Result<i64> {
@@ -105,32 +105,31 @@ where
             .access(|dir| dir.create_temp_output(prefix, suffix, context))
     }
 
-    fn sync(&mut self, names: &[&str]) -> Result<()> {
-        self.delegate.access_mut(|dir| dir.sync(names))
+    fn sync(&self, names: &[&str]) -> Result<()> {
+        self.delegate.access(|dir| dir.sync(names))
     }
 
-    fn sync_metadata(&mut self) -> Result<()> {
-        self.delegate.access_mut(|dir| dir.sync_metadata())
+    fn sync_metadata(&self) -> Result<()> {
+        self.delegate.access(|dir| dir.sync_metadata())
     }
 
-    fn rename(&mut self, source: &str, dest: &str) -> Result<()> {
-        self.delegate.access_mut(|dir| dir.rename(source, dest))
+    fn rename(&self, source: &str, dest: &str) -> Result<()> {
+        self.delegate.access(|dir| dir.rename(source, dest))
     }
 
     type IndexInput = D::IndexInput;
 
     fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
-        self.delegate
-            .access_mut(|dir| dir.open_input(name, context))
+        self.delegate.access(|dir| dir.open_input(name, context))
     }
 
     type Lock = D::Lock;
 
-    fn obtain_lock(&mut self, name: &str) -> Result<Self::Lock> {
-        self.delegate.access_mut(|dir| dir.obtain_lock(name))
+    fn obtain_lock(&self, name: &str) -> Result<Self::Lock> {
+        self.delegate.access(|dir| dir.obtain_lock(name))
     }
 
-    fn get_pending_deletions(&mut self) -> Result<HashSet<String>> {
-        self.delegate.access_mut(|dir| dir.get_pending_deletions())
+    fn get_pending_deletions(&self) -> Result<HashSet<String>> {
+        self.delegate.access(|dir| dir.get_pending_deletions())
     }
 }
