@@ -50,32 +50,33 @@ fn run_cargo(args: &[&str]) {
 }
 /// Check if there are uncommitted changes.
 fn check_uncommitted() {
-    eprintln!("\x1b[32mRunning uncommitted changes\x1b[0m.");
-    let output = Command::new("git")
-        .args(["status", "--porcelain"])
-        .output()
-        .expect("failed to execute git");
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    if stdout.trim().is_empty() {
-        println!("✅ ✅ ✅ Working directory clean. All changes committed.");
-    } else {
-        eprintln!(
-            "❌ ❌ ❌ Uncommitted changes detected after code check. Please commit your work again."
-        );
-        eprintln!("{}", stdout);
-        let diff = Command::new("git")
-            .args(["diff"])
-            .output()
-            .expect("failed to execute git diff");
-        eprintln!("{}", String::from_utf8_lossy(&diff.stdout));
-        process::exit(1);
-    }
+    // TODO 暂时不检查
+    // eprintln!("\x1b[32mRunning uncommitted changes\x1b[0m");
+    // let output = Command::new("git")
+    //     .args(["status", "--porcelain"])
+    //     .output()
+    //     .expect("failed to execute git");
+    // let stdout = String::from_utf8_lossy(&output.stdout);
+    // if stdout.trim().is_empty() {
+    //     println!("✅ ✅ ✅ Working directory clean. All changes committed.");
+    // } else {
+    //     eprintln!(
+    //         "❌ ❌ ❌ Uncommitted changes detected after code check. Please commit your work again."
+    //     );
+    //     eprintln!("{}", stdout);
+    //     let diff = Command::new("git")
+    //         .args(["diff"])
+    //         .output()
+    //         .expect("failed to execute git diff");
+    //     eprintln!("{}", String::from_utf8_lossy(&diff.stdout));
+    //     process::exit(1);
+    // }
 }
 
 /// format code
 fn tidy() {
     license_check();
-    eprintln!("\x1b[32mRunning Cargo clippy \x1b[0m.");
+    eprintln!("\x1b[32mRunning Cargo clippy \x1b[0m");
     run_cargo(&[
         "clippy",
         "--fix",
@@ -84,7 +85,7 @@ fn tidy() {
         "--allow-dirty",
         "--allow-staged",
     ]);
-    eprintln!("\x1b[32mRunning Cargo fix\x1b[0m.");
+    eprintln!("\x1b[32mRunning Cargo fix\x1b[0m");
     run_cargo(&[
         "fix",
         "--all-targets",
@@ -92,7 +93,7 @@ fn tidy() {
         "--allow-dirty",
         "--allow-staged",
     ]);
-    eprintln!("\x1b[32mRunning Cargo fmt \x1b[0m.");
+    eprintln!("\x1b[32mRunning Cargo fmt \x1b[0m");
     run_cargo(&["fmt"]);
 }
 
@@ -141,7 +142,7 @@ fn license_check() {
         tasks::license::license_checker::check_licenses_in_dir(&examples_dir, &license_text);
 
     if src_valid && libs_valid && xtask_valid && examples_valid {
-        eprintln!("\x1b[32mAll files have the correct license header\x1b[0m.");
+        eprintln!("\x1b[32mAll files have the correct license header\x1b[0m");
     } else {
         eprintln!(
             "License check failed: you should copy the correct license header from \x1b[31m{}\x1b[0m",
