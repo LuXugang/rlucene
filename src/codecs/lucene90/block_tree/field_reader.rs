@@ -208,14 +208,14 @@ where
     where
         T: TermsEnum,
     {
-        Ok(Option::from(Cow::Borrowed(&*self.min_term)))
+        Ok(Option::from(Cow::Borrowed(self.min_term.as_ref())))
     }
 
     fn get_max<'a, T>(&'a self, _iterator: &'a mut T) -> Result<Option<Cow<'a, BytesRef<Vec<u8>>>>>
     where
         T: TermsEnum,
     {
-        Ok(Option::from(Cow::Borrowed(&*self.max_term)))
+        Ok(Option::from(Cow::Borrowed(self.max_term.as_ref())))
     }
 }
 impl<I, PR> fmt::Display for FieldReader<I, PR>

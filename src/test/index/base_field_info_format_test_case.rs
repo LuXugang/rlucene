@@ -61,14 +61,14 @@ pub trait BaseFieldInfoFormatTestCase {
             .finish()?;
 
         codec.field_infos_format().write(
-            &*dir,
+            dir.as_ref(),
             &segment_info,
             "",
             &infos,
             &IOContext::default_io_context()?,
         )?;
         let infos2 = codec.field_infos_format().read(
-            &*dir,
+            dir.as_ref(),
             &segment_info,
             "",
             &IOContext::default_io_context()?,
@@ -217,7 +217,7 @@ pub trait BaseFieldInfoFormatTestCase {
 
         // Write the FieldInfos to the directory.
         codec.field_infos_format().write(
-            &*dir,
+            dir.as_ref(),
             &segment_info,
             "",
             &infos,
@@ -226,7 +226,7 @@ pub trait BaseFieldInfoFormatTestCase {
 
         // Read the FieldInfos back from the directory.
         let infos2 = codec.field_infos_format().read(
-            &*dir,
+            dir.as_ref(),
             &segment_info,
             "",
             &IOContext::default_io_context()?,

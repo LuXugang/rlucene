@@ -379,7 +379,13 @@ mod tests {
 
         for i in 0..10 {
             let filename = format!("{}.{}", segment, i);
-            create_random_file(&mut random, &*dir, &filename, random_file_size, seg_id)?;
+            create_random_file(
+                &mut random,
+                dir.as_ref(),
+                &filename,
+                random_file_size,
+                seg_id,
+            )?;
             random_file_size += random.random_range(1..100);
             ordered_files.push(filename);
         }
@@ -391,7 +397,7 @@ mod tests {
 
         LATEST_CODEC
             .compound_format()
-            .write(&*dir, &si, &IO_CONTEXT_DEFAULT)?;
+            .write(dir.as_ref(), &si, &IO_CONTEXT_DEFAULT)?;
 
         // Entries file should contain files ordered by their size
         let entries_file_name = IndexFileNames::segment_file_name(

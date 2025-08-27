@@ -285,7 +285,8 @@ pub(crate) mod ndvw_util {
                 None => return Err(LuceneError::illegal_state("DocsWithFieldSet is None")),
             };
             let mut old_values = BufferedNumericDocValues::new(values, iter);
-            let sorted = sort_doc_values(sort_map.size(), &*sort_map, &mut old_values, dense)?;
+            let sorted =
+                sort_doc_values(sort_map.size(), sort_map.as_ref(), &mut old_values, dense)?;
             Some(sorted)
         } else {
             None

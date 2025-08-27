@@ -310,7 +310,7 @@ impl PendingDeletes {
             info.advance_next_write_del_gen();
             // Delete any partially created file(s):
             IOUtils::delete_files_ignoring_exceptions(
-                &*tracking_dir.base.delegate,
+                tracking_dir.base.delegate.as_ref(),
                 &tracking_dir.get_created_files().lock().created_filenames,
             );
             return Err(err);
@@ -598,7 +598,7 @@ mod tests {
 
         let codec = get_default_code();
         let live_docs = codec.live_docs_format().read_live_docs(
-            &*dir,
+            dir.as_ref(),
             &commit_info,
             &IOContext::default_io_context()?,
         )?;
@@ -622,7 +622,7 @@ mod tests {
         assert_eq!(dir.list_all()?.len(), 3);
 
         let live_docs = codec.live_docs_format().read_live_docs(
-            &*dir,
+            dir.as_ref(),
             &commit_info,
             &IOContext::default_io_context()?,
         )?;
@@ -668,7 +668,7 @@ mod tests {
         let codec = get_default_code();
         let field_infos = FieldInfos::new(Vec::new())?;
         codec.field_infos_format().write(
-            &*dir,
+            dir.as_ref(),
             &commit_info.info,
             "",
             &field_infos,

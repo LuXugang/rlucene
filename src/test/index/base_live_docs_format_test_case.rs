@@ -118,7 +118,13 @@ pub trait BaseLiveDocsFormatTestCase {
         let si1 = si.clone();
         let mut sci =
             SegmentCommitInfo::new(si, 0, 0, 0, -1, -1, Option::from(StringHelper::random_id()))?;
-        format.write_live_docs(&bits, &*dir, &sci, max_doc - num_live_docs, &io_context)?;
+        format.write_live_docs(
+            &bits,
+            dir.as_ref(),
+            &sci,
+            max_doc - num_live_docs,
+            &io_context,
+        )?;
 
         sci = SegmentCommitInfo::new(
             si1,
@@ -131,7 +137,7 @@ pub trait BaseLiveDocsFormatTestCase {
         )?;
         let io_context = IOContext::read_once_io_context()?;
         let dir = dir;
-        let bits2 = format.read_live_docs(&*dir, &sci, &io_context)?;
+        let bits2 = format.read_live_docs(dir.as_ref(), &sci, &io_context)?;
 
         assert_eq!(max_doc, bits2.length());
         for i in 0..max_doc {

@@ -510,7 +510,7 @@ where
                 >= 0;
 
             wrap_reuse.reset(
-                &*self.doc_map,
+                self.doc_map.as_ref(),
                 in_docs_and_positions,
                 store_positions,
                 store_offsets,
@@ -524,7 +524,7 @@ where
         };
         let in_reuse = wrap_reuse.postings_enum.take();
         let in_docs = self.base.postings_with_flags(in_reuse, flags)?;
-        wrap_reuse.reset(&*self.doc_map, in_docs)?;
+        wrap_reuse.reset(self.doc_map.as_ref(), in_docs)?;
         Ok(Either2PostingsEnum::B(wrap_reuse))
     }
 

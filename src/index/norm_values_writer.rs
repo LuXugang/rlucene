@@ -112,7 +112,7 @@ impl NormValuesWriter {
                 let mut buffer_norms = BufferedNorms::new(&values, iter);
                 let sorted = ndvw_util::sort_doc_values(
                     segment_info.max_doc()?,
-                    &*sort_map,
+                    sort_map.as_ref(),
                     &mut buffer_norms,
                     dense,
                 )?;

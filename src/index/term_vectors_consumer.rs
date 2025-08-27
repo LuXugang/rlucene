@@ -270,7 +270,7 @@ where
                     let context = IOContext::with_flush(flush_info)?;
 
                     self.writer = Option::from(codec.term_vectors_format().vectors_writer(
-                        &*self.directory,
+                        self.directory.as_ref(),
                         info,
                         &context,
                     )?)

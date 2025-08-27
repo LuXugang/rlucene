@@ -497,7 +497,7 @@ where
                 ))?;
                 let mut flush_state = SegmentWriteState::new(
                     Some(self.info_stream.clone()),
-                    &*self.directory,
+                    self.directory.as_ref(),
                     Rc::new(self.field_infos.finish()?),
                     &io_context,
                 );
@@ -788,7 +788,7 @@ where
             // and 2) .si reflects useCompoundFile=true change
             // above:
             LATEST_CODEC.segment_info_format().write(
-                &*self.directory,
+                self.directory.as_ref(),
                 &mut new_segment.info,
                 &context,
             )?;
@@ -824,8 +824,8 @@ where
                 match sort_map {
                     Some(map) => {
                         LATEST_CODEC.live_docs_format().write_live_docs(
-                            &Self::sort_live_docs(live_docs, &*map),
-                            &*self.directory,
+                            &Self::sort_live_docs(live_docs, map.as_ref()),
+                            self.directory.as_ref(),
                             new_segment,
                             del_count,
                             &context,
@@ -834,7 +834,7 @@ where
                     None => {
                         LATEST_CODEC.live_docs_format().write_live_docs(
                             live_docs,
-                            &*self.directory,
+                            self.directory.as_ref(),
                             new_segment,
                             del_count,
                             &context,

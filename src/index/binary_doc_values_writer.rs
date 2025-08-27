@@ -163,7 +163,7 @@ impl DocValuesWriter for BinaryDocValuesWriter {
                 );
                 Some(BinaryDVs::new(
                     segment_info.max_doc()?,
-                    &*sort_map,
+                    sort_map.as_ref(),
                     &mut buffered_binary_doc_values,
                 )?)
             },

@@ -207,7 +207,7 @@ impl MergeVisitor {
     where
         I: IndexInput,
     {
-        for fi in &*merge_state.field_infos[reader_index] {
+        for fi in merge_state.field_infos[reader_index].as_ref() {
             if let Some(other) = merge_state
                 .merge_field_infos
                 .field_info_by_number(fi.number)?
@@ -249,7 +249,7 @@ impl StoredFieldVisitor for MergeVisitor {
         length: i32,
         writer: &mut impl StoredFieldsWriter,
     ) -> Result<()> {
-        writer.write_field_with_input(&*self.remap(field_info)?, input, length)
+        writer.write_field_with_input(self.remap(field_info)?.as_ref(), input, length)
     }
 
     fn binary_field(
@@ -258,7 +258,10 @@ impl StoredFieldVisitor for MergeVisitor {
         value: Vec<u8>,
         writer: &mut impl StoredFieldsWriter,
     ) -> Result<()> {
-        writer.write_field_bytes(&*self.remap(field_info)?, &BytesRef::from_bytes(value))
+        writer.write_field_bytes(
+            self.remap(field_info)?.as_ref(),
+            &BytesRef::from_bytes(value),
+        )
     }
 
     fn string_field(
@@ -267,7 +270,7 @@ impl StoredFieldVisitor for MergeVisitor {
         value: &str,
         writer: &mut impl StoredFieldsWriter,
     ) -> Result<()> {
-        writer.write_field_str(&*self.remap(field_info)?, value)
+        writer.write_field_str(self.remap(field_info)?.as_ref(), value)
     }
 
     fn int_field(
@@ -276,7 +279,7 @@ impl StoredFieldVisitor for MergeVisitor {
         value: i32,
         writer: &mut impl StoredFieldsWriter,
     ) -> Result<()> {
-        writer.write_field_i32(&*self.remap(field_info)?, value)
+        writer.write_field_i32(self.remap(field_info)?.as_ref(), value)
     }
 
     fn long_field(
@@ -285,7 +288,7 @@ impl StoredFieldVisitor for MergeVisitor {
         value: i64,
         writer: &mut impl StoredFieldsWriter,
     ) -> Result<()> {
-        writer.write_field_i64(&*self.remap(field_info)?, value)
+        writer.write_field_i64(self.remap(field_info)?.as_ref(), value)
     }
 
     fn float_field(
@@ -294,7 +297,7 @@ impl StoredFieldVisitor for MergeVisitor {
         value: f32,
         writer: &mut impl StoredFieldsWriter,
     ) -> Result<()> {
-        writer.write_field_f32(&*self.remap(field_info)?, value)
+        writer.write_field_f32(self.remap(field_info)?.as_ref(), value)
     }
 
     fn double_field(
@@ -303,7 +306,7 @@ impl StoredFieldVisitor for MergeVisitor {
         value: f64,
         writer: &mut impl StoredFieldsWriter,
     ) -> Result<()> {
-        writer.write_field_f64(&*self.remap(field_info)?, value)
+        writer.write_field_f64(self.remap(field_info)?.as_ref(), value)
     }
 
     fn needs_field(

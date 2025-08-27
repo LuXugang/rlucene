@@ -179,7 +179,7 @@ impl PendingSoftDeletes {
             if seg_info.get_use_compound_file() {
                 let cfs = codec
                     .compound_format()
-                    .get_compound_reader(&*seg_info.dir, seg_info)?;
+                    .get_compound_reader(seg_info.dir.as_ref(), seg_info)?;
                 codec.field_infos_format().read(
                     &cfs,
                     seg_info,
@@ -188,7 +188,7 @@ impl PendingSoftDeletes {
                 )
             } else {
                 codec.field_infos_format().read(
-                    &*seg_info.dir,
+                    seg_info.dir.as_ref(),
                     seg_info,
                     "",
                     &IOContext::read_once_io_context()?,
@@ -199,7 +199,7 @@ impl PendingSoftDeletes {
                 .to_str_radix(36)
                 .to_string();
             codec.field_infos_format().read(
-                &*seg_info.dir,
+                seg_info.dir.as_ref(),
                 seg_info,
                 &segment_suffix,
                 &IOContext::read_once_io_context()?,

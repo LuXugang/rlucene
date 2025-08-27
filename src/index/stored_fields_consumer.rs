@@ -67,7 +67,7 @@ where
             None => {
                 if self.writer.is_none() {
                     let writer = codec.stored_fields_format().fields_writer(
-                        &*self.directory,
+                        self.directory.as_ref(),
                         info,
                         &IOContext::default_io_context()?,
                     )?;

@@ -613,7 +613,7 @@ where
             info.advance_next_write_field_infos_gen();
             info.advance_next_write_doc_values_gen();
             IOUtils::delete_files_ignoring_exceptions(
-                &*dir,
+                dir.as_ref(),
                 &tracking_dir.get_created_files().lock().created_filenames,
             );
 

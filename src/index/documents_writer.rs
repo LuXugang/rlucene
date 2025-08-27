@@ -384,7 +384,7 @@ where
                     docs,
                     del_node,
                     &mut self.flush_notifications,
-                    &*self.config,
+                    self.config.as_ref(),
                     &mut self.num_docs_in_ram,
                 )?;
                 seq_no = 0;
@@ -498,8 +498,8 @@ where
                         has_ticket = Some(ticket);
                         let flushing_docs_in_ram = flushing_dwpt.get_num_docs_in_ram();
                         let result = (|| {
-                            let v =
-                                flushing_dwpt.flush(&self.flush_notifications, &*self.config)?;
+                            let v = flushing_dwpt
+                                .flush(&self.flush_notifications, self.config.as_ref())?;
                             match v {
                                 Some(new_segment) => {
                                     self.ticket_queue.add_segment(ticket, new_segment);
@@ -897,7 +897,7 @@ where
             "",
             self.directory_orig.clone(),
             self.directory.clone(),
-            &*self.config,
+            self.config.as_ref(),
             self.delete_queue.clone(),
             infos,
             self.pending_num_docs.clone(),

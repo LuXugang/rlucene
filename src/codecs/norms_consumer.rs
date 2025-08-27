@@ -75,7 +75,7 @@ pub trait NormsConsumer {
             producer.check_integrity()?;
         }
 
-        for field_info in &*merge_state.merge_field_infos.clone() {
+        for field_info in merge_state.merge_field_infos.clone().as_ref() {
             if field_info.has_norms() {
                 self.merge_norms_field(field_info, merge_state)?;
             }

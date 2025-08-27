@@ -292,7 +292,7 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
         let doc_ords = if let Some(map) = sort_map {
             Some(DocOrds::new(
                 segment_info.max_doc()?,
-                &*map,
+                map.as_ref(),
                 &mut SortedSetDocValuesWriter::get_values(
                     ord_map.clone(),
                     self.hash_rc.clone().unwrap(),
