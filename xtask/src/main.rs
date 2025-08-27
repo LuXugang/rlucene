@@ -50,6 +50,7 @@ fn run_cargo(args: &[&str]) {
 }
 /// Check if there are uncommitted changes.
 fn check_uncommitted() {
+    eprintln!("\x1b[32mRunning uncommitted changes\x1b[0m.");
     let output = Command::new("git")
         .args(["status", "--porcelain"])
         .output()
@@ -62,6 +63,11 @@ fn check_uncommitted() {
             "❌ ❌ ❌ Uncommitted changes detected after code check. Please commit your work again."
         );
         eprintln!("{}", stdout);
+        let diff = Command::new("git")
+            .args(["diff"])
+            .output()
+            .expect("failed to execute git diff");
+        eprintln!("{}", String::from_utf8_lossy(&diff.stdout));
         process::exit(1);
     }
 }
@@ -69,6 +75,7 @@ fn check_uncommitted() {
 /// format code
 fn tidy() {
     license_check();
+    eprintln!("\x1b[32mRunning Cargo clippy \x1b[0m.");
     run_cargo(&[
         "clippy",
         "--fix",
@@ -77,6 +84,7 @@ fn tidy() {
         "--allow-dirty",
         "--allow-staged",
     ]);
+    eprintln!("\x1b[32mRunning Cargo fix\x1b[0m.");
     run_cargo(&[
         "fix",
         "--all-targets",
@@ -84,6 +92,7 @@ fn tidy() {
         "--allow-dirty",
         "--allow-staged",
     ]);
+    eprintln!("\x1b[32mRunning Cargo fmt \x1b[0m.");
     run_cargo(&["fmt"]);
 }
 
