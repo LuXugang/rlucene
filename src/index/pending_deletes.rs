@@ -33,6 +33,7 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::{FixedBit, FixedBitSet};
 use std::fmt;
 use std::sync::Arc;
+use crate::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
 
 /// This class handles accounting and applying pending deletes for live segment readers
 pub(crate) struct PendingDeletes {
@@ -263,7 +264,7 @@ impl PendingDeletes {
     /// Writes the live docs to disk and returns `true` if any new docs were written.
     pub(crate) fn write_live_docs<D>(
         &mut self,
-        dir: Arc<D>,
+        dir: Arc<LockValidatingDirectoryWrapper<D>>,
         info: &mut SegmentCommitInfo<D>,
     ) -> Result<bool>
     where
@@ -491,6 +492,7 @@ mod tests {
     use rand::Rng;
     use std::collections::HashMap;
     use std::sync::Arc;
+    use crate::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
 
     #[allow(dead_code)] // for quick search
     struct TestPendingDeletes;
@@ -554,6 +556,8 @@ mod tests {
         // TODO: ByteBuffersDirectory 没有实现
         let mut random = random();
         let dir = Arc::new(new_directory(&mut random)?);
+        let lock = dir.obtain_lock("")?;
+        let lock_dir = Arc::new(LockValidatingDirectoryWrapper::new(dir.clone(), lock));
         let si = SegmentInfo::new(
             dir.clone(),
             Some((*LATEST).clone()),
@@ -571,7 +575,7 @@ mod tests {
             SegmentCommitInfo::new(si, 0, 0, -1, -1, -1, Some(StringHelper::random_id()))?;
 
         let mut deletes = new_pending_deletes(&commit_info)?;
-        assert!(!deletes.write_live_docs(dir.clone(), &mut commit_info)?);
+        assert!(!deletes.write_live_docs(lock_dir.clone(), &mut commit_info)?);
         assert_eq!(dir.list_all()?.len(), 0);
 
         let second_doc_deletes: bool = random.random_bool(0.5);
@@ -587,7 +591,7 @@ mod tests {
         let expected_pending = if second_doc_deletes { 2 } else { 1 };
         assert_eq!(deletes.num_pending_deletes(), expected_pending);
 
-        assert!(deletes.write_live_docs(dir.clone(), &mut commit_info)?);
+        assert!(deletes.write_live_docs(lock_dir.clone(), &mut commit_info)?);
         assert_eq!(dir.list_all()?.len(), 1);
 
         let codec = get_default_code();
@@ -611,7 +615,7 @@ mod tests {
         assert_eq!(commit_info.get_del_gen(), 1);
 
         deletes.delete(0)?;
-        assert!(deletes.write_live_docs(dir.clone(), &mut commit_info)?);
+        assert!(deletes.write_live_docs(lock_dir.clone(), &mut commit_info)?);
         assert_eq!(dir.list_all()?.len(), 2);
 
         let live_docs = codec.live_docs_format().read_live_docs(
@@ -669,11 +673,13 @@ mod tests {
         )?;
 
         let mut deletes = new_pending_deletes(&commit_info)?;
+        let lock = dir.obtain_lock("")?;
+        let lock_dir = Arc::new(LockValidatingDirectoryWrapper::new(dir.clone(), lock));
 
         for i in 0..3 {
             assert!(deletes.delete(i)?);
             if random.random_bool(0.5) {
-                assert!(deletes.write_live_docs(dir.clone(), &mut commit_info)?);
+                assert!(deletes.write_live_docs(lock_dir.clone(), &mut commit_info)?);
             }
             let io_context = IOContext::default_io_context()?;
 

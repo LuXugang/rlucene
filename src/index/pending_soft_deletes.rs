@@ -25,6 +25,7 @@ use crate::store::directory::Directory;
 use crate::util::error::lucene_error::Result;
 use num_bigint::BigInt;
 use std::sync::Arc;
+use crate::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
 
 pub(crate) struct PendingSoftDeletes {
     pub(crate) field: Option<String>,
@@ -99,7 +100,7 @@ impl PendingSoftDeletes {
 
     pub(crate) fn write_live_docs<D>(
         &mut self,
-        dir: Arc<D>,
+        dir: Arc<LockValidatingDirectoryWrapper<D>>,
         info: &mut SegmentCommitInfo<D>,
     ) -> Result<bool>
     where

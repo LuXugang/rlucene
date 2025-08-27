@@ -62,6 +62,8 @@ use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicI32, AtomicI64, Ordering};
+use crate::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
+
 /// Used by IndexWriter to hold open SegmentReaders (for
 /// searching or merging), plus pending deletes and updates,
 /// for a given segment
@@ -75,7 +77,7 @@ where
     index_created_version_major: i32,
     // Only set if there are doc values updates against this segment, and the index is sorted:
     sort_map: Option<Rc<DocMapImpl>>,
-    ram_bytes_used: AtomicI64,
+    pub(crate) ram_bytes_used: AtomicI64,
     inner: Mutex<Inner<D>>,
 }
 
@@ -256,11 +258,12 @@ where
     }
     pub fn drop_readers(&self) -> Result<()> {
         let mut inner = self.inner.lock();
-
-        if let Some(_) = inner.reader.take() {
-            // TODO: 使用 reader
+        // TODO: can we somehow use IOUtils here...?  problem is
+        // we are calling .decRef not .close)...
+        if let Some(reader) = &inner.reader {
+            reader.dec_ref()?;
         }
-        self.dec_ref();
+        inner.reader = None;
         Ok(())
     }
     /// Returns a ref to a clone. NOTE: you should decRef() the reader when you're done (ie do not call close()).
@@ -325,7 +328,7 @@ where
     // Commit live docs (writes new _X_N.del files) and field updates (writes new
     // _X_N updates files) to the directory; returns true if it wrote any file
     // and false if there were no new deletes or updates to write:
-    pub fn write_live_docs(&self, dir: Arc<D>, info: &mut SegmentCommitInfo<D>) -> Result<bool>
+    pub fn write_live_docs(&self, dir: Arc<LockValidatingDirectoryWrapper<D>>, info: &mut SegmentCommitInfo<D>) -> Result<bool>
     where
         D: Directory,
     {
