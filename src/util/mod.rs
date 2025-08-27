@@ -70,6 +70,7 @@ pub mod io_consumer;
 pub mod io_utils;
 pub mod long_bit_set;
 pub mod long_heap;
+pub mod long_supplier;
 pub mod long_values;
 pub mod longs_ref;
 pub mod lsb_radix_sorter;

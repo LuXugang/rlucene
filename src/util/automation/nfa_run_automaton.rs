@@ -305,7 +305,7 @@ impl NFARunAutomaton {
                     return;
                 }
             }
-            state.transition_set.sort().expect("should not failed");
+            state.transition_set.sort().expect("should not fail");
         }
         let mut states_set = self.states_set.borrow_mut();
         states_set.reset();

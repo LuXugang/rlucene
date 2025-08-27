@@ -442,7 +442,7 @@ where
             self.inner
                 .fst_node_address
                 .get_immutable(hash_slot)
-                .expect("should not failed"),
+                .expect("should not fail"),
             0
         );
         self.inner.fst_node_address.set(hash_slot, node_address);

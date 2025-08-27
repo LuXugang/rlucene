@@ -15,14 +15,20 @@
  * limitations under the License.
  */
 use crate::index::field_infos::FieldNumbers;
+use crate::index::index_writer::LongSupplierImpl;
+use crate::index::pending_deletes::PendingDeletes;
 use crate::index::readers_and_updates::ReadersAndUpdates;
 use crate::index::segment_commit_info::SegmentCommitInfo;
+use crate::index::segment_reader::SegmentReader;
+use crate::search::query::Query;
 use crate::store::directory::Directory;
 use crate::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::info_stream::InfoStreamMT;
+use crate::util::long_supplier::LongSupplier;
 use parking_lot::Mutex;
 use std::collections::HashMap;
+use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
@@ -33,9 +39,10 @@ use std::sync::atomic::AtomicBool;
 /// 3) handing out a real-time reader.
 /// This pool reuses instances of the SegmentReaders in all these places
 /// if it is in "near real-time mode" (getReader() has been called on this instance).
-pub(crate) struct ReaderPool<D>
+pub(crate) struct ReaderPool<D, Q>
 where
     D: Directory,
+    Q: Query,
 {
     directory: Arc<LockValidatingDirectoryWrapper<D>>,
     original_directory: Arc<D>,
@@ -56,18 +63,20 @@ where
     // to be needed and reused ie if IndexWriter#getReader is called.
     pool_readers: AtomicBool,
     inner: Mutex<Inner<D>>,
+    completed_del_gen_supplier: LongSupplierImpl<Q>,
 }
 pub(crate) struct Inner<D>
 where
     D: Directory,
 {
-    reader_map: HashMap<String, ReadersAndUpdates<D>>,
-    closed: bool,
+    reader_map: HashMap<String, Rc<ReadersAndUpdates<D>>>,
+    closed: AtomicBool,
 }
 
-impl<D> ReaderPool<D>
+impl<D, Q> ReaderPool<D, Q>
 where
     D: Directory,
+    Q: Query,
 {
     /// Asserts this info still exists in IW's segment infos
     pub(crate) fn assert_info_is_live(&self, _info: &SegmentCommitInfo<D>) -> bool {
@@ -113,8 +122,8 @@ where
     }
     /// Enables reader pooling for this pool. This should be called once the readers in this pool are
     /// shared with an outside resource like an NRT reader. Once reader pooling is enabled a `ReadersAndUpdates`
-    /// will be kept around in the reader pool on calling `release(ReadersAndUpdates, boolean)` until the
-    /// segment get dropped via calls to `drop(SegmentCommitInfo)` or `dropAll()` or `close()`. Reader pooling
+    /// will be kept around in the reader pool on calling [`release(ReadersAndUpdates, boolean)`](Self::release) until the
+    /// segment get dropped via calls to [`drop(SegmentCommitInfo)`](Self::drop) or `dropAll()` or `close()`. Reader pooling
     /// is disabled upon construction but can't be disabled again once it's enabled.
     pub(crate) fn enable_reader_pooling(&self) {
         self.pool_readers
@@ -124,72 +133,338 @@ where
     pub(crate) fn is_reader_pooling_enabled(&self) -> bool {
         self.pool_readers.load(std::sync::atomic::Ordering::Relaxed)
     }
+    /// Releases the `ReadersAndUpdates`. This should only be called if
+    /// [`get(SegmentCommitInfo, bool)`](Self::get) is called with the `create` parameter set to `true`.
+    ///
+    /// # Returns
+    ///
+    /// `true` if any files were written by this release call.
     pub(crate) fn release(
         &self,
         rld: ReadersAndUpdates<D>,
         assert_info_live: bool,
         info: &mut SegmentCommitInfo<D>,
+        completed_del_gen: i64,
     ) -> Result<bool> {
-        // let inner = self.inner.lock();
-        // let mut changed = false;
-        //
-        // // Matches incRef in get:
-        // rld.dec_ref();
-        // let info_id = rld.get_info_id(None);
-        // if rld.ref_count() == 0 {
-        //     // This happens if the segment was just merged away,
-        //     // while a buffered deletes packet was still applying deletes/updates to it.
-        //     debug_assert!(
-        //         !inner.reader_map.contains_key(&info_id),
-        //         "seg={} has refCount 0 but still unexpectedly exists in the reader pool",
-        //         info_id
-        //     );
-        // } else {
-        //     // Pool still holds a ref:
-        //     debug_assert!(
-        //         rld.ref_count() > 0,
-        //         "refCount={} reader={:?}",
-        //         rld.ref_count(),
-        //         info_id
-        //     );
-        //
-        //     if !self.is_reader_pooling_enabled()
-        //         && rld.ref_count() == 1
-        //         && inner.reader_map.contains_key(&info_id)
-        //     {
-        //         // This is the last ref to this RLD, and we're not
-        //         // pooling, so remove it:
-        //         if rld.write_live_docs(self.directory.clone(),info)? {
-        //             // Make sure we only write del docs for a live segment:
-        //             debug_assert!(
-        //                 !assert_info_live || self.assert_info_is_live(rld.info()),
-        //                 "assertInfoIsLive failed for {:?}",
-        //                 info_id
-        //             );
-        //             // Must checkpoint because we just created new _X_N.del and field updates files;
-        //             // don't call IW.checkpoint because that also increments SIS.version,
-        //             // which we do not want to do here.
-        //             changed = true;
-        //         }
-        //         if rld.write_field_updates(
-        //             &self.directory,
-        //             &self.field_numbers,
-        //             (self.completed_del_gen_supplier)(),
-        //             &self.info_stream,
-        //         )? {
-        //             changed = true;
-        //         }
-        //         if rld.get_num_dv_updates() == 0 {
-        //             rld.drop_readers()?;
-        //             inner.reader_map.remove(&info_id);
-        //         } else {
-        //             // We are forced to pool this segment until its deletes fully apply
-        //             // (no delGen gaps)
-        //         }
-        //     }
-        // }
-        //
-        // Ok(changed)
+        let mut inner = self.inner.lock();
+        let mut changed = false;
+
+        // Matches incRef in get:
+        rld.dec_ref();
+        let info_id = rld.get_info_id(None);
+        if rld.ref_count() == 0 {
+            // This happens if the segment was just merged away,
+            // while a buffered deletes packet was still applying deletes/updates to it.
+            debug_assert!(
+                !inner.reader_map.contains_key(&info_id),
+                "seg={} has refCount 0 but still unexpectedly exists in the reader pool",
+                info_id
+            );
+        } else {
+            // Pool still holds a ref:
+            debug_assert!(
+                rld.ref_count() > 0,
+                "refCount={} reader={:?}",
+                rld.ref_count(),
+                info_id
+            );
+
+            if !self.is_reader_pooling_enabled()
+                && rld.ref_count() == 1
+                && inner.reader_map.contains_key(&info_id)
+            {
+                // This is the last ref to this RLD, and we're not
+                // pooling, so remove it:
+                if rld.write_live_docs(self.directory.clone(), info)? {
+                    // Make sure we only write del docs for a live segment:
+                    // TODO
+                    // debug_assert!(
+                    //     !assert_info_live || self.assert_info_is_live(rld.info()),
+                    //     "assertInfoIsLive failed for {:?}",
+                    //     info_id
+                    // );
+                    // Must checkpoint because we just created new _X_N.del and field updates files;
+                    // don't call IW.checkpoint because that also increments SIS.version,
+                    // which we do not want to do here.
+                    changed = true;
+                }
+                if rld.write_field_updates(
+                    self.directory.clone(),
+                    &self.field_numbers,
+                    self.completed_del_gen_supplier.get_as_long(),
+                    self.info_stream.as_ref(),
+                    info,
+                )? {
+                    changed = true;
+                }
+                if rld.get_num_dv_updates() == 0 {
+                    rld.drop_readers()?;
+                    inner.reader_map.remove(&info_id);
+                } else {
+                    // We are forced to pool this segment until its deletes fully apply
+                    // (no delGen gaps)
+                }
+            }
+        }
+
+        Ok(changed)
+    }
+
+    pub(crate) fn close(&self) -> Result<()> {
+        // compare_and_swap 已弃用，用 compare_exchange 或 swap
+        if self
+            .inner
+            .lock()
+            .closed
+            .compare_exchange(
+                false,
+                true,
+                std::sync::atomic::Ordering::SeqCst,
+                std::sync::atomic::Ordering::SeqCst,
+            )
+            .is_ok()
+        {
+            self.drop_all()?;
+        }
+        Ok(())
+    }
+
+    /// Writes all doc values updates to disk if there are any.
+    pub(crate) fn write_all_doc_values_updates(
+        &self,
+        info: &mut SegmentCommitInfo<D>,
+    ) -> Result<bool> {
+        let copy: Vec<Rc<ReadersAndUpdates<D>>> = {
+            let inner = self.inner.lock();
+            // this needs to be protected by the reader pool lock otherwise we hit
+            // ConcurrentModificationException
+            inner.reader_map.values().cloned().collect()
+        };
+
+        let mut any = false;
+        for rld in copy {
+            any |= rld.write_field_updates(
+                self.directory.clone(),
+                self.field_numbers.as_ref(),
+                self.completed_del_gen_supplier.get_as_long(),
+                self.info_stream.as_ref(),
+                info,
+            )?;
+        }
+        Ok(any)
+    }
+    /// Writes all doc values updates to disk if there are any.
+    pub(crate) fn write_doc_values_updates_for_merge(
+        &self,
+        infos: &mut [SegmentCommitInfo<D>],
+        index_created_version_major: i32,
+    ) -> Result<bool> {
+        let mut any = false;
+        for info in infos {
+            if let Some(rld) = self.get(info, false, index_created_version_major)? {
+                any |= rld.write_field_updates(
+                    self.directory.clone(),
+                    self.field_numbers.as_ref(),
+                    self.completed_del_gen_supplier.get_as_long(),
+                    self.info_stream.as_ref(),
+                    info,
+                )?;
+                rld.set_is_merging();
+            }
+        }
+        Ok(any)
+    }
+    /// Returns a list of all currently maintained `ReadersAndUpdates` sorted by their RAM consumption
+    /// from largest to smallest. This list can also contain readers that don't consume any RAM at this
+    /// point, i.e. readers without any buffered updates.
+    pub(crate) fn get_readers_by_ram(&self) -> Vec<Rc<ReadersAndUpdates<D>>> {
+        struct RamRecordingHolder<D>
+        where
+            D: Directory,
+        {
+            updates: Rc<ReadersAndUpdates<D>>,
+            ram_bytes_used: i64,
+        }
+
+        let mut holders: Vec<RamRecordingHolder<D>> = {
+            let inner = self.inner.lock();
+            if inner.reader_map.is_empty() {
+                return Vec::new();
+            }
+            // we have to record the RAM usage once and then sort
+            // since the RAM usage can change concurrently and that will confuse the sort or hit an
+            // assertion
+            // the we can acquire here is not enough we would need to lock all ReadersAndUpdates to make
+            // sure it doesn't change
+            inner
+                .reader_map
+                .values()
+                .map(|rld| RamRecordingHolder {
+                    updates: Rc::clone(rld),
+                    ram_bytes_used: rld
+                        .ram_bytes_used
+                        .load(std::sync::atomic::Ordering::Relaxed),
+                })
+                .collect()
+        };
+        // Sort this outside of the lock by largest ramBytesUsed:
+        holders.sort_by(|a, b| b.ram_bytes_used.cmp(&a.ram_bytes_used));
+
+        holders.into_iter().map(|h| h.updates).collect()
+    }
+    /// Remove all our references to readers, and commits any pending changes.
+    pub(crate) fn drop_all(&self) -> Result<()> {
+        // TODO: IMPORT 这里需要实现LuceneError的嵌套返回
+        let mut prior_errs = vec![];
+
+        let mut inner = self.inner.lock();
+        for (_, rld) in inner.reader_map.drain() {
+            if let Err(e) = rld.drop_readers() {
+                prior_errs.push(e);
+            }
+        }
+        debug_assert!(inner.reader_map.is_empty());
+
+        if !prior_errs.is_empty() {
+            return Err(LuceneError::illegal_state(format!("{:?}", prior_errs)));
+        }
+        Ok(())
+    }
+    /// Commit live docs changes for the segment readers for the provided infos.
+    pub(crate) fn commit(&self, infos: &mut [SegmentCommitInfo<D>]) -> Result<bool> {
+        let inner = self.inner.lock();
+        let mut at_least_one_change = false;
+
+        for info in infos {
+            if let Some(rld) = inner.reader_map.get(&info.info.get_id_str()) {
+                let rld_info_id = rld.get_info_id(None);
+                debug_assert_eq!(rld_info_id, info.info.get_id_str());
+
+                let mut changed = rld.write_live_docs(self.directory.clone(), info)?;
+                changed |= rld.write_field_updates(
+                    self.directory.clone(),
+                    self.field_numbers.as_ref(),
+                    self.completed_del_gen_supplier.get_as_long(),
+                    self.info_stream.as_ref(),
+                    info,
+                )?;
+
+                if changed {
+                    // Make sure we only write del docs for a live segment:
+                    debug_assert!(self.assert_info_is_live(info));
+
+                    // Must checkpoint because we just
+                    // created new _X_N.del and field updates files;
+                    // don't call IW.checkpoint because that also
+                    // increments SIS.version, which we do not want to
+                    // do here: it was done previously (after we
+                    // invoked BDS.applyDeletes), whereas here all we
+                    // did was move the state to disk:
+                    at_least_one_change = true;
+                }
+            }
+        }
+        Ok(at_least_one_change)
+    }
+    /// Returns true iff there are any buffered doc values updates. Otherwise false .
+    pub(crate) fn any_doc_values_changes(&self) -> bool {
+        let inner = self.inner.lock();
+        for rld in inner.reader_map.values() {
+            // NOTE: we don't check for pending deletes because deletes carry over in RAM to NRT readers
+            if rld.get_num_dv_updates() != 0 {
+                return true;
+            }
+        }
+        false
+    }
+    /// Obtains a `ReadersAndLiveDocs` instance from the reader pool.
+    /// If `create` is `true`, you must later call [`release(ReadersAndUpdates, bool)`](Self::release).
+    pub(crate) fn get(
+        &self,
+        info: &SegmentCommitInfo<D>,
+        create: bool,
+        index_created_version_major: i32,
+    ) -> Result<Option<Rc<ReadersAndUpdates<D>>>> {
+        let mut inner = self.inner.lock();
+        debug_assert!(
+            Arc::ptr_eq(&info.info.dir, &self.original_directory),
+            "info.dir={} vs {}",
+            info.info.dir,
+            self.original_directory
+        );
+
+        if inner.closed.load(std::sync::atomic::Ordering::SeqCst) {
+            debug_assert!(
+                inner.reader_map.is_empty(),
+                "Reader map is not empty: {:?}",
+                inner.reader_map.keys().collect::<Vec<_>>()
+            );
+            return Err(LuceneError::already_closed("ReaderPool is already closed"));
+        }
+
+        let rld = if let Some(rld) = inner.reader_map.get(&info.info.get_id_str()) {
+            // TODO
+            debug_assert!(
+                rld.get_info_id(None) == info.info.get_id_str(),
+                "rld.info={} info={} isLive?={} ",
+                rld.get_info_id(None),
+                info,
+                // self.assert_info_is_live(&rld.get_info_id(None)),
+                self.assert_info_is_live(info),
+            );
+            rld.clone()
+        } else {
+            if !create {
+                return Ok(None);
+            }
+            let rld = Rc::new(ReadersAndUpdates::new(
+                index_created_version_major,
+                self.new_pending_deletes(info)?,
+            ));
+            // Steal initial reference: 放入 reader_map
+            inner
+                .reader_map
+                .insert(info.info.get_id_str(), Rc::clone(&rld));
+            rld
+        };
+
+        if create {
+            rld.inc_ref();
+        }
+
+        debug_assert!(self.no_dups());
+
+        Ok(Some(rld))
+    }
+    fn new_pending_deletes(&self, info: &SegmentCommitInfo<D>) -> Result<PendingDeletes> {
         todo!()
+    }
+
+    fn new_pending_deletes_with_reader(
+        &self,
+        reader: &SegmentReader<D>,
+        info: &SegmentCommitInfo<D>,
+    ) -> Result<PendingDeletes> {
+        todo!()
+    }
+    /// Make sure that every segment appears only once in the pool.
+    fn no_dups(&self) -> bool {
+        let inner = self.inner.lock();
+        let mut seen = std::collections::HashSet::new();
+
+        for rld in inner.reader_map.keys() {
+            debug_assert!(!seen.contains(rld), "seen twice: {}", rld);
+            seen.insert(rld);
+        }
+        true
+    }
+}
+impl<D, Q> Drop for ReaderPool<D, Q>
+where
+    D: Directory,
+    Q: Query,
+{
+    fn drop(&mut self) {
+        self.close().expect("should not fail")
     }
 }

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::index::buffered_updates_stream::BufferedUpdatesStream;
 use crate::index::documents_writer::FlushNotifications;
 use crate::index::frozen_buffered_updates::FrozenBufferedUpdates;
 use crate::index::index_deletion_policy::IndexDeletionPolicy;
@@ -25,7 +26,9 @@ use crate::search::query::Query;
 use crate::store::directory::Directory;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::error::lucene_error::Result;
+use crate::util::long_supplier::LongSupplier;
 use parking_lot::Mutex;
+use std::rc::Rc;
 use std::sync::Arc;
 
 pub struct IndexWriter<D, P>
@@ -243,5 +246,20 @@ impl FlushNotifications for FlushNotificationsImpl {
 
     fn on_ticket_backlog(&self) {
         todo!()
+    }
+}
+
+pub(crate) struct LongSupplierImpl<Q>
+where
+    Q: Query,
+{
+    stream: Rc<BufferedUpdatesStream<Q>>,
+}
+impl<Q> LongSupplier for LongSupplierImpl<Q>
+where
+    Q: Query,
+{
+    fn get_as_long(&self) -> i64 {
+        self.stream.get_completed_del_gen()
     }
 }

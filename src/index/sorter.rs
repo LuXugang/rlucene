@@ -249,13 +249,13 @@ impl DocMap for DocMapImpl {
     fn old_to_new(&self, doc_id: i32) -> i32 {
         self.old_to_new
             .get_immutable(doc_id as i64)
-            .expect("should not failed") as i32
+            .expect("should not fail") as i32
     }
 
     fn new_to_old(&self, doc_id: i32) -> i32 {
         self.new_to_old
             .get_immutable(doc_id as i64)
-            .expect("should not failed") as i32
+            .expect("should not fail") as i32
     }
 
     fn size(&self) -> i32 {

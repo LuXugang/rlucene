@@ -25,6 +25,7 @@ use crate::util::info_stream::{InfoStream, InfoStreamMT};
 use parking_lot::Mutex;
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicI64, Ordering};
+
 /// Tracks the stream of [`FrozenBufferedUpdates`]. When [`DocumentsWriterPerThread`](crate::index::documents_writer_per_thread::DocumentsWriterPerThread) flushes, its
 /// buffered deletes and updates are appended to this stream and immediately resolved (to actual
 /// doc IDs, per segment) using the indexing thread that triggered the flush for concurrency. When a
@@ -162,6 +163,10 @@ where
 
         self.finished_segment(packet.del_gen());
     }
+    /// All frozen packets up to and including this del gen are guaranteed to be finished.
+    pub fn get_completed_del_gen(&self) -> i64 {
+        self.finished_segments.get_completed_del_gen()
+    }
     fn wait_apply<D, P>(
         &self,
         wait_for: HashSet<FrozenBufferedUpdates<Q>>,
@@ -289,7 +294,6 @@ impl FinishedSegments {
         let inner = self.inner.lock();
         del_gen > inner.completed_del_gen && !inner.finished_del_gens.contains(&del_gen)
     }
-    /// All frozen packets up to and including this del gen are guaranteed to be finished.
     pub fn get_completed_del_gen(&self) -> i64 {
         let inner = self.inner.lock();
         inner.completed_del_gen

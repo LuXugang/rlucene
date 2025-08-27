@@ -691,7 +691,7 @@ mod tests {
                 deletes.is_fully_deleted(
                     || {
                         let sr = SegmentReader::new(&commit_info.clone(), 0, &io_context)
-                            .expect("should not failed here");
+                            .expect("should not fail here");
                         Arc::new(sr)
                     },
                     &commit_info

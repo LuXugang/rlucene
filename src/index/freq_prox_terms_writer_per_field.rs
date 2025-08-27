@@ -219,7 +219,7 @@ impl FreqProxTermsWriterPerField {
         if self.saw_payloads {
             self.field_info
                 .set_store_payloads()
-                .expect("should not failed")
+                .expect("should not fail")
         }
     }
     pub(crate) fn reset(&mut self) {

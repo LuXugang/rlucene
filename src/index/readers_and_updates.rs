@@ -344,12 +344,12 @@ where
     pub fn handle_dv_updates<F>(
         &self,
         infos: &FieldInfos,
-        dir: Arc<TrackingDirectoryWrapper<D>>,
+        dir: Arc<TrackingDirectoryWrapper<LockValidatingDirectoryWrapper<D>>>,
         dv_format: &F,
         inner: &mut Inner<D>,
         field_files: &mut HashMap<i32, HashSet<String>>,
         max_del_gen: i64,
-        info_stream: &mut impl InfoStream,
+        info_stream: &impl InfoStream,
         info: &mut SegmentCommitInfo<D>,
     ) -> Result<()>
     where
@@ -463,7 +463,7 @@ where
     fn write_field_infos_gen<F>(
         &self,
         field_infos: &FieldInfos,
-        dir: Arc<TrackingDirectoryWrapper<D>>,
+        dir: Arc<TrackingDirectoryWrapper<LockValidatingDirectoryWrapper<D>>>,
         infos_format: &F,
         info: &mut SegmentCommitInfo<D>,
     ) -> Result<HashSet<String>>
@@ -493,10 +493,10 @@ where
     }
     pub fn write_field_updates(
         &self,
-        dir: Arc<D>,
-        field_numbers: &mut FieldNumbers,
+        dir: Arc<LockValidatingDirectoryWrapper<D>>,
+        field_numbers: &FieldNumbers,
         max_del_gen: i64,
-        info_stream: &mut impl InfoStream,
+        info_stream: &impl InfoStream,
         info: &mut SegmentCommitInfo<D>,
     ) -> Result<bool> {
         let mut inner = self.inner.lock();
@@ -561,7 +561,7 @@ where
                     let field = update.field();
                     if by_name.contains_key(field) {
                         // the field already exists in this segment
-                        let fi = by_name.get(field).expect("should not failed");
+                        let fi = by_name.get(field).expect("should not fail");
                         debug_assert_eq!(*fi.get_doc_values_type(), *update.get_type());
                     } else {
                         // the field is not present in this segment so we clone the global field
