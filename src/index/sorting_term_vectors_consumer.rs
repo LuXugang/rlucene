@@ -231,9 +231,8 @@ where
                 Self::write_term_vectors(&mut writer, &vectors, &state.field_infos)?;
             }
             writer.finish(max_doc, state.directory)?;
-            let name_map = &self.tmp_directory.get_temporary_files().borrow().file_names;
-            let values: Vec<&str> = name_map.values().map(|v| v.as_str()).collect();
-            IOUtils::delete_files(&self.tmp_directory, &values)?;
+            let file_names = &self.tmp_directory.get_temporary_files().borrow().file_names;
+            IOUtils::delete_files(&self.tmp_directory, file_names.values())?;
         }
         Ok(())
     }
@@ -265,9 +264,8 @@ where
     }
 
     fn abort(&mut self) -> Result<()> {
-        let name_map = &self.tmp_directory.get_temporary_files().borrow().file_names;
-        let values: Vec<&str> = name_map.values().map(|v| v.as_str()).collect();
-        IOUtils::delete_files(&self.tmp_directory, &values)?;
+        let file_names = &self.tmp_directory.get_temporary_files().borrow().file_names;
+        IOUtils::delete_files(&self.tmp_directory, file_names.values())?;
         Ok(())
     }
 }

@@ -697,7 +697,10 @@ where
             })();
             if let Err(e) = result {
                 // Try not to leave a truncated segments_N file in the index
-                IOUtils::delete_files_ignoring_exceptions(directory, &[&segment_file_name]);
+                IOUtils::delete_files_ignoring_exceptions(
+                    directory,
+                    std::iter::once(&segment_file_name),
+                );
                 return Err(e);
             }
         }
@@ -905,7 +908,7 @@ where
             ) {
                 // Suppress, so we keep throwing the original exception in our
                 // caller
-                IOUtils::delete_files_ignoring_exceptions(directory, &[&pending]);
+                IOUtils::delete_files_ignoring_exceptions(directory, std::iter::once(&pending));
             }
         }
     }

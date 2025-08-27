@@ -672,9 +672,10 @@ where
         match result {
             Ok(_) => {},
             Err(e) => {
-                let v = &self.temp_dir.get_created_files().lock().created_filenames;
-                let filenames = v.iter().collect::<Vec<_>>();
-                IOUtils::delete_files_ignoring_exceptions(&self.temp_dir, filenames.as_slice());
+                IOUtils::delete_files_ignoring_exceptions(
+                    &self.temp_dir,
+                    &self.temp_dir.get_created_files().lock().created_filenames,
+                );
                 return Err(e);
             },
         }

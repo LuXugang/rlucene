@@ -133,16 +133,14 @@ where
         sort_writer.finish(max_doc, state.directory)?;
 
         let names = &self.tmp_directory.get_temporary_files().borrow().file_names;
-        let values: Vec<&str> = names.values().map(|v| v.as_str()).collect();
-        IOUtils::delete_files(&self.tmp_directory, values.as_slice())?;
+        IOUtils::delete_files(&self.tmp_directory, names.values())?;
 
         Ok(())
     }
 
     fn abort(&mut self) -> Result<()> {
-        let name_map = &self.tmp_directory.get_temporary_files().borrow().file_names;
-        let values: Vec<&str> = name_map.values().map(|v| v.as_str()).collect();
-        IOUtils::delete_files(&self.tmp_directory, values.as_slice())?;
+        let file_names = &self.tmp_directory.get_temporary_files().borrow().file_names;
+        IOUtils::delete_files(&self.tmp_directory, file_names.values())?;
         Ok(())
     }
 }

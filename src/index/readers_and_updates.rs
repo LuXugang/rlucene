@@ -522,10 +522,10 @@ where
         if let Err(e) = result {
             info.advance_next_write_field_infos_gen();
             info.advance_next_write_doc_values_gen();
-
-            for file_name in &tracking_dir.get_created_files().lock().created_filenames {
-                IOUtils::delete_files_ignoring_exceptions(&*dir, &[file_name]);
-            }
+            IOUtils::delete_files_ignoring_exceptions(
+                &*dir,
+                &tracking_dir.get_created_files().lock().created_filenames,
+            );
 
             return Err(e);
         }

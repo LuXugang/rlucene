@@ -27,14 +27,20 @@ impl IOUtils {
     /// Deletes all given files, suppressing all thrown errors.
     ///
     /// Note: The `files` collection should not be empty or contain `None`.
-    pub fn delete_files_ignoring_exceptions(dir: &impl Directory, files: &[&String]) {
+    pub fn delete_files_ignoring_exceptions<'a, T>(dir: &impl Directory, files: T)
+    where
+        T: IntoIterator<Item = &'a String>,
+    {
         for name in files {
             if dir.delete_file(name).is_err() {
                 // Ignore the error and continue with the next file.
             }
         }
     }
-    pub fn delete_files(dir: &impl Directory, names: &[&str]) -> Result<()> {
+    pub fn delete_files<'a, T>(dir: &impl Directory, names: T) -> Result<()>
+    where
+        T: IntoIterator<Item = &'a String>,
+    {
         for name in names {
             dir.delete_file(name)?;
         }
