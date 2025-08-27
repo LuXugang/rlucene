@@ -1555,8 +1555,8 @@ mod tests {
         sis.add(commit_info_1)?;
         sis.commit(&*directory)?;
 
-        let commit_info_id_0 = sis.info(0).unwrap().get_id().unwrap().clone();
-        let commit_info_id_1 = sis.info(1).unwrap().get_id().unwrap().clone();
+        let commit_info_id_0 = *sis.info(0).unwrap().get_id().unwrap();
+        let commit_info_id_1 = *sis.info(1).unwrap().get_id().unwrap();
 
         // Read back the latest commit
         let result = SegmentInfos::read_latest_commit(directory.clone())?.into_segment_infos();
@@ -1713,48 +1713,48 @@ mod tests {
         let mut commit_info = SegmentCommitInfo::new(info, 0, 0, -1, -1, -1, Some(id))?;
         assert_eq!(
             StringHelper::id_to_string(Some(&id)),
-            StringHelper::id_to_string(commit_info.get_id().as_deref())
+            StringHelper::id_to_string(commit_info.get_id())
         );
 
         commit_info.advance_del_gen();
         assert_ne!(
             StringHelper::id_to_string(Some(&id)),
-            StringHelper::id_to_string(commit_info.get_id().as_deref())
+            StringHelper::id_to_string(commit_info.get_id())
         );
 
         let new_id = *commit_info.get_id().unwrap();
         commit_info.advance_doc_values_gen();
         assert_ne!(
             StringHelper::id_to_string(Some(&new_id)),
-            StringHelper::id_to_string(commit_info.get_id().as_deref())
+            StringHelper::id_to_string(commit_info.get_id())
         );
 
         let new_id = *commit_info.get_id().unwrap();
         commit_info.advance_field_infos_gen();
         assert_ne!(
             StringHelper::id_to_string(Some(&new_id)),
-            StringHelper::id_to_string(commit_info.get_id().as_deref())
+            StringHelper::id_to_string(commit_info.get_id())
         );
 
         let clone = commit_info.clone();
         let current_id = *commit_info.get_id().unwrap();
         assert_eq!(
             StringHelper::id_to_string(Some(&current_id)),
-            StringHelper::id_to_string(commit_info.get_id().as_deref())
+            StringHelper::id_to_string(commit_info.get_id())
         );
         assert_eq!(
             StringHelper::id_to_string(Some(&current_id)),
-            StringHelper::id_to_string(clone.get_id().as_deref())
+            StringHelper::id_to_string(clone.get_id())
         );
 
         commit_info.advance_field_infos_gen();
         assert_ne!(
             StringHelper::id_to_string(Some(&current_id)),
-            StringHelper::id_to_string(commit_info.get_id().as_deref())
+            StringHelper::id_to_string(commit_info.get_id())
         );
         assert_eq!(
             StringHelper::id_to_string(Some(&current_id)),
-            StringHelper::id_to_string(clone.get_id().as_deref()),
+            StringHelper::id_to_string(clone.get_id()),
             "clone changed but shouldn't"
         );
 

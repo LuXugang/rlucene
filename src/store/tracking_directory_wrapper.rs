@@ -514,23 +514,16 @@ mod tests {
         Ok(())
     }
 
-    mod tests {
-        use crate::store::tracking_directory_wrapper::TrackingDirectoryWrapper;
-        use crate::test::util::lucene_test_case::lucene_test_case_util::{new_directory, random};
-        use crate::util::error::lucene_error::Result;
-        use std::collections::HashSet;
-        use std::sync::Arc;
-        #[test]
-        fn test_track_empty() -> Result<()> {
-            // TODO: ByteBuffersDirectory 没有实现
-            let mut random = random();
-            let dir = TrackingDirectoryWrapper::new(Arc::new(new_directory(&mut random)?));
-            assert_eq!(
-                dir.get_created_files().lock().created_filenames,
-                HashSet::new()
-            );
-            Ok(())
-        }
+    #[test]
+    fn test_track_empty() -> Result<()> {
+        // TODO: ByteBuffersDirectory 没有实现
+        let mut random = random();
+        let dir = TrackingDirectoryWrapper::new(Arc::new(new_directory(&mut random)?));
+        assert_eq!(
+            dir.get_created_files().lock().created_filenames,
+            HashSet::new()
+        );
+        Ok(())
     }
     #[test]
     fn test_track_create() -> Result<()> {
