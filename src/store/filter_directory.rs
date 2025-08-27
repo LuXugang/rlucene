@@ -105,7 +105,10 @@ where
             .access(|dir| dir.create_temp_output(prefix, suffix, context))
     }
 
-    fn sync(&self, names: &[&str]) -> Result<()> {
+    fn sync<'a, T>(&self, names: T) -> Result<()>
+    where
+        T: IntoIterator<Item = &'a String>,
+    {
         self.delegate.access(|dir| dir.sync(names))
     }
 

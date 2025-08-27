@@ -88,7 +88,10 @@ where
         ))
     }
 
-    fn sync(&self, _names: &[&str]) -> Result<()> {
+    fn sync<'a, T>(&self, _names: T) -> Result<()>
+    where
+        T: IntoIterator<Item = &'a String>,
+    {
         Err(LuceneError::unsupported_operation("sync".to_string()))
     }
 

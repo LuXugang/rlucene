@@ -106,7 +106,10 @@ where
         self.base.create_temp_output(prefix, suffix, context)
     }
 
-    fn sync(&self, names: &[&str]) -> Result<()> {
+    fn sync<'a, T>(&self, names: T) -> Result<()>
+    where
+        T: IntoIterator<Item = &'a String>,
+    {
         self.base.sync(names)
     }
 

@@ -1168,7 +1168,7 @@ pub trait BaseDirectoryTestCase {
 
         let file_count_before = fsdir.list_all()?.len();
 
-        let result = fsdir.sync(&["afile"]);
+        let result = fsdir.sync(std::iter::once(&"afile".to_string()));
         assert!(matches!(
             result,
             Err(LuceneError::IoWithPath { source, .. })

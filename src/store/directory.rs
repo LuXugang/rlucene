@@ -117,7 +117,9 @@ pub trait Directory: Display + Sized {
     ///
     /// # See Also
     /// [`sync_metadata`](Directory::sync_metadata)
-    fn sync(&self, names: &[&str]) -> Result<()>;
+    fn sync<'a, T>(&self, names: T) -> Result<()>
+    where
+        T: IntoIterator<Item = &'a String>;
     /// Ensures that directory metadata, such as recent file renames, are moved
     /// to stable storage.
     ///
@@ -316,7 +318,10 @@ where
         }
     }
 
-    fn sync(&self, names: &[&str]) -> Result<()> {
+    fn sync<'a, T>(&self, names: T) -> Result<()>
+    where
+        T: IntoIterator<Item = &'a String>,
+    {
         match self {
             Either2Directory::A(f) => f.sync(names),
             Either2Directory::B(s) => s.sync(names),
@@ -415,9 +420,14 @@ impl<D: Directory> Directory for &D {
     fn create_temp_output(&self, p: &str, s: &str, ctx: &IOContext) -> Result<Self::IndexOutput> {
         (**self).create_temp_output(p, s, ctx)
     }
-    fn sync(&self, names: &[&str]) -> Result<()> {
+
+    fn sync<'a, T>(&self, names: T) -> Result<()>
+    where
+        T: IntoIterator<Item = &'a String>,
+    {
         (**self).sync(names)
     }
+
     fn sync_metadata(&self) -> Result<()> {
         (**self).sync_metadata()
     }

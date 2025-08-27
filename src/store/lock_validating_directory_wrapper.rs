@@ -89,11 +89,6 @@ where
             .create_temp_output(prefix, suffix, context)
     }
 
-    fn sync(&self, names: &[&str]) -> Result<()> {
-        self.write_lock.ensure_valid()?;
-        self.base.delegate.sync(names)
-    }
-
     fn sync_metadata(&self) -> Result<()> {
         self.write_lock.ensure_valid()?;
         self.base.delegate.sync_metadata()
@@ -140,5 +135,13 @@ where
         name: &str,
     ) -> Result<BufferedChecksumIndexInput<Self::IndexInput>> {
         self.base.open_checksum_input(name)
+    }
+
+    fn sync<'a, T>(&self, names: T) -> Result<()>
+    where
+        T: IntoIterator<Item = &'a String>,
+    {
+        self.write_lock.ensure_valid()?;
+        self.base.delegate.sync(names)
     }
 }

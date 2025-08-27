@@ -371,8 +371,11 @@ where
         }
     }
 
-    fn sync(&self, names: &[&str]) -> Result<()> {
-        for &name in names {
+    fn sync<'a, T1>(&self, names: T1) -> Result<()>
+    where
+        T1: IntoIterator<Item = &'a String>,
+    {
+        for name in names {
             self.fsync(name)?;
         }
         Self::maybe_delete_pending_files(

@@ -691,7 +691,7 @@ where
                         self.write(output)?;
                     }
                 }
-                directory.sync(&[&segment_file_name])?;
+                directory.sync(std::iter::once(&segment_file_name))?;
                 success = true;
                 Ok(())
             })();
