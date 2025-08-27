@@ -245,9 +245,7 @@ where
                 if arc.flag(fst_util::BIT_ARC_HAS_FINAL_OUTPUT as i32) {
                     self.outputs.skip_final_output(input)?;
                 }
-                if arc.flag(fst_util::BIT_STOP_NODE) {
-                    // no-op
-                } else if arc.flag(fst_util::BIT_TARGET_NEXT as i32) {
+                if arc.flag(fst_util::BIT_STOP_NODE) || arc.flag(fst_util::BIT_TARGET_NEXT as i32) {
                     // no-op
                 } else {
                     self.read_unpacked_node_target(input)?;

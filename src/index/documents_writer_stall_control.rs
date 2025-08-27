@@ -318,8 +318,9 @@ mod tests {
     ) {
         let mut millis_to_sleep = 100u64;
         while ctrl.has_blocked() && ctrl.is_healthy() {
-            for n in num_releasers + num_stallers..num_releasers + num_stallers + num_waiters {
-                let tt = &threads[n];
+            for tt in
+                &threads[num_releasers + num_stallers..num_releasers + num_stallers + num_waiters]
+            {
                 let tid = tt.thread_id();
                 if ctrl.is_thread_queued(&tid) {
                     if millis_to_sleep < 60_000 {

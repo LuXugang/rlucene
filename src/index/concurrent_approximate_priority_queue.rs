@@ -246,15 +246,12 @@ mod tests {
             #[allow(unused_variables)]
             let mut _chosen_lock;
             for (i, mutex) in pq_clone.queues.iter().enumerate() {
-                match mutex.try_lock() {
-                    Some(guard) => {
-                        if !guard.is_empty() {
-                            chosen_index = Some(i);
-                            _chosen_lock = Some(guard);
-                            break;
-                        }
-                    },
-                    None => (),
+                if let Some(guard) = mutex.try_lock()
+                    && !guard.is_empty()
+                {
+                    chosen_index = Some(i);
+                    _chosen_lock = Some(guard);
+                    break;
                 }
             }
             assert!(chosen_index.is_some());

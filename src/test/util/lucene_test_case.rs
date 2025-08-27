@@ -129,13 +129,13 @@ pub mod lucene_test_case_util {
         } else if let Some(merge_info) = &old_context.merge_info {
             // Always return at least the estimatedMergeBytes of the incoming
             // IOContext
-            return IOContext::with_merge(MergeInfo::new(
+            IOContext::with_merge(MergeInfo::new(
                 random_num_docs,
                 size.max(merge_info.get_estimated_merge_bytes()),
                 random.random_bool(0.5), /* Randomly decide if it's an external
                                           * merge  */
                 random.random_range(1..=100),
-            ));
+            ))
         } else {
             // Make a totally random IOContext, except READONCE which has semantic
             // implications

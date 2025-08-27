@@ -476,16 +476,16 @@ impl AutomatonTestUtil {
             let t2 = &transitions2[p.s2 as usize];
 
             let mut b2 = 0;
-            for n1 in 0..t1.len() {
-                while b2 < t2.len() && t2[b2].max < t1[n1].min {
+            for t1n in t1.iter() {
+                while b2 < t2.len() && t2[b2].max < t1n.min {
                     b2 += 1;
                 }
 
-                let mut min1 = t1[n1].min;
-                let mut max1 = t1[n1].max;
+                let mut min1 = t1n.min;
+                let mut max1 = t1n.max;
 
                 for t2n in &t2[b2..] {
-                    if t1[n1].max < t2n.min {
+                    if t1n.max < t2n.min {
                         break;
                     }
                     if t2n.min > min1 {
@@ -499,7 +499,7 @@ impl AutomatonTestUtil {
                         max1 = char::MIN as i32;
                     }
 
-                    let q = Rc::new(StatePair::new(t1[n1].dest, t2n.dest));
+                    let q = Rc::new(StatePair::new(t1n.dest, t2n.dest));
                     if visited.insert(q.clone()) {
                         worklist.push_back(q);
                     }

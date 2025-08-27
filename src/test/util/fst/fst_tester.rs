@@ -38,6 +38,7 @@ use crate::util::fst_impl::outputs::{Outputs, OutputsBound};
 use crate::util::ints_ref::IntsRef;
 use crate::util::ints_ref_builder::IntsRefBuilder;
 /// Helper struct to test FSTs.
+#[allow(clippy::type_complexity)]
 pub struct FSTTester<D, R, O, S>
 where
     D: Directory,
@@ -62,6 +63,7 @@ where
     O: Outputs,
     S: FSTTesterBase,
 {
+    #[allow(clippy::type_complexity)]
     pub fn new(
         random: R,
         dir: Rc<RefCell<D>>,
@@ -108,18 +110,17 @@ where
 
             let find = fst.find_target_arc(label, &arc.clone(), &mut arc, &mut reader)?;
             if find.is_none() {
-                if prefix_length.is_some() {
-                    prefix_length.as_mut().unwrap()[0] = i as i32;
+                if let Some(prefix) = prefix_length.as_mut() {
+                    prefix[0] = i as i32;
                     return Ok(Some(output));
                 } else {
                     return Ok(None);
                 }
             }
-
             output = fst.outputs.add(&output, &arc.output());
         }
-        if prefix_length.is_some() {
-            prefix_length.as_mut().unwrap()[0] = term.length as i32;
+        if let Some(prefix) = prefix_length.as_mut() {
+            prefix[0] = term.length as i32;
         }
 
         Ok(Some(output))
@@ -168,6 +169,7 @@ where
     // Using the same seed to generate the same type of FST object allows the fst
     // inside IntsRefFSTEnum to be replaced using std::mem::replace. The purpose
     // of this is to remain consistent with the behavior in Java Lucene.
+    #[allow(clippy::type_complexity)]
     pub fn get_fst(&self, seed: u64) -> Result<(Option<FSTEnums<O, D>>, i64, i64)> {
         let mut random = random_from_seed(seed);
         let input_type = if self.input_mode == 0 {
@@ -305,7 +307,7 @@ where
         reuse = std::mem::replace(&mut v.base.as_mut().unwrap().fst, padding_fst);
 
         // init terms_map
-        let mut terms_map: HashMap<IntsRef<Rc<RefCell<Vec<i32>>>>, O::V> = HashMap::new();
+        let mut terms_map = HashMap::new();
         for pair in &self.pairs {
             terms_map.insert(pair.input.clone(), pair.output.clone());
         }
@@ -331,6 +333,7 @@ where
 
         Ok(())
     }
+    #[allow(clippy::type_complexity)]
     pub fn step3<F>(
         &mut self,
         input_mode: i32,
@@ -473,7 +476,7 @@ where
         }
         Ok(fst_enum)
     }
-
+    #[allow(clippy::type_complexity)]
     pub fn step2<F>(
         &mut self,
         input_mode: i32,
@@ -496,10 +499,11 @@ where
                 &mut self.random,
             )?;
             let key = scratch.get();
-            let expected = terms_map.get(key).expect(&format!(
+            let error_msg = format!(
                 "accepted word {} is not valid",
                 fst_tester_util::input_to_string(input_mode, key)?
-            ));
+            );
+            let expected = terms_map.get(key).expect(&error_msg);
             assert!(
                 self.outputs_equal(expected, &output),
                 "mismatched output for {}",
@@ -778,7 +782,7 @@ pub mod fst_tester_util {
             Ok(format!("{} {}", br.utf8_to_string()?, term))
         } else {
             term.ints.access(|ints| {
-                let s = UnicodeUtil::new_string(&ints, term.offset, term.length)?;
+                let s = UnicodeUtil::new_string(ints, term.offset, term.length)?;
                 Ok(format!("{} {}", s, term))
             })
         }

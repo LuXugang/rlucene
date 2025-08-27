@@ -1091,14 +1091,14 @@ mod tests {
 
             assert!(queue.any_changes(None));
 
-            if random.random_range(0..5) == 0 {
-                if let Some(frozen) = queue.freeze_global_buffer(&mut None)? {
-                    assert_eq!(terms_since_freeze, frozen.delete_terms.size());
-                    assert_eq!(queries_since_freeze, frozen.delete_queries.len());
-                    terms_since_freeze = 0;
-                    queries_since_freeze = 0;
-                    assert!(!queue.any_changes(None));
-                }
+            if random.random_range(0..5) == 0
+                && let Some(frozen) = queue.freeze_global_buffer(&mut None)?
+            {
+                assert_eq!(terms_since_freeze, frozen.delete_terms.size());
+                assert_eq!(queries_since_freeze, frozen.delete_queries.len());
+                terms_since_freeze = 0;
+                queries_since_freeze = 0;
+                assert!(!queue.any_changes(None));
             }
         }
         Ok(())

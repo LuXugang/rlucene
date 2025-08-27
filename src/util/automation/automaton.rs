@@ -1502,10 +1502,8 @@ mod tests {
             let bool = random.random_bool(0.5);
             let seed: u64 = random.random();
             let mut a = AutomatonTestUtil::random_automaton(&mut random)?;
-            if bool {
-                if let Cow::Owned(o) = Operations::remove_dead_states(&a)? {
-                    a = Cow::Owned(o)
-                }
+            if bool && let Cow::Owned(o) = Operations::remove_dead_states(&a)? {
+                a = Cow::Owned(o)
             }
 
             let ra = Operations::reverse(&a)?;
@@ -2020,14 +2018,14 @@ mod tests {
                     assert!(a.is_deterministic());
                 },
                 3 => {
-                    if a.get_num_states() < 100 {
-                        if let Cow::Owned(a2) = MinimizationOperations::minimize(
+                    if a.get_num_states() < 100
+                        && let Cow::Owned(a2) = MinimizationOperations::minimize(
                             &a,
                             Operations::DEFAULT_DETERMINIZE_WORK_LIMIT,
-                        )? {
-                            a = Cow::Owned(a2);
-                            assert!(a.is_deterministic());
-                        }
+                        )?
+                    {
+                        a = Cow::Owned(a2);
+                        assert!(a.is_deterministic());
                     }
                 },
                 4 => {
@@ -2162,13 +2160,13 @@ mod tests {
                         )? {
                             a2 = Cow::Owned(o);
                         }
-                    } else if random.random_bool(0.5) {
-                        if let Cow::Owned(o) = MinimizationOperations::minimize(
+                    } else if random.random_bool(0.5)
+                        && let Cow::Owned(o) = MinimizationOperations::minimize(
                             &a2,
                             Operations::DEFAULT_DETERMINIZE_WORK_LIMIT,
-                        )? {
-                            a2 = Cow::Owned(o);
-                        }
+                        )?
+                    {
+                        a2 = Cow::Owned(o);
                     }
 
                     if let Cow::Owned(o) = Operations::intersection(&a, &a2)? {

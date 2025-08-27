@@ -53,14 +53,14 @@ pub trait BaseDirectoryTestCase {
 
     fn test_copy_from<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let mut temp_dir = Builder::new().prefix("testCopy").tempdir()?;
-        let mut source = self.get_directory(temp_dir.into_path())?;
+        let source = self.get_directory(temp_dir.into_path())?;
         let dest = new_directory(random)?;
-        Self::run_copy_from(&mut source, &dest, random)?;
+        Self::run_copy_from(&source, &dest, random)?;
 
-        let mut source = new_directory(random)?;
+        let source = new_directory(random)?;
         temp_dir = Builder::new().prefix("testCopyDestination").tempdir()?;
         let dest = self.get_directory(temp_dir.into_path())?;
-        Self::run_copy_from(&mut source, &dest, random)?;
+        Self::run_copy_from(&source, &dest, random)?;
         Ok(())
     }
 

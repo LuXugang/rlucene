@@ -202,7 +202,7 @@ impl MinimizationOperations {
 
         result.create_state();
 
-        for (_, states) in partition.iter().take(k).enumerate() {
+        for states in partition.iter().take(k) {
             let is_initial = states.contains(&0);
             let new_state = if is_initial { 0 } else { result.create_state() };
             for &q in states {

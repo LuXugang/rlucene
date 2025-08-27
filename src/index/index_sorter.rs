@@ -550,6 +550,25 @@ impl DocComparator for DocComparatorEnum {
     }
 }
 
+// DocComparator
+pub enum Either2DocComparator<A, B> {
+    A(A),
+    B(B),
+}
+
+impl<A, B> DocComparator for Either2DocComparator<A, B>
+where
+    A: DocComparator,
+    B: DocComparator,
+{
+    fn compare(&self, doc_id1: i32, doc_id2: i32) -> i32 {
+        match self {
+            Either2DocComparator::A(t) => t.compare(doc_id1, doc_id2),
+            Either2DocComparator::B(s) => s.compare(doc_id1, doc_id2),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use rand::Rng;
@@ -784,23 +803,4 @@ mod tests {
         }
     }
     impl MSBRadixSorterBase for StableStringSorterTestImpl<'_> {}
-}
-
-// DocComparator
-pub enum Either2DocComparator<A, B> {
-    A(A),
-    B(B),
-}
-
-impl<A, B> DocComparator for Either2DocComparator<A, B>
-where
-    A: DocComparator,
-    B: DocComparator,
-{
-    fn compare(&self, doc_id1: i32, doc_id2: i32) -> i32 {
-        match self {
-            Either2DocComparator::A(t) => t.compare(doc_id1, doc_id2),
-            Either2DocComparator::B(s) => s.compare(doc_id1, doc_id2),
-        }
-    }
 }

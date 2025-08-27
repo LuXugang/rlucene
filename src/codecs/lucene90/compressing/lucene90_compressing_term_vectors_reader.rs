@@ -375,16 +375,15 @@ where
             term_index += term_count;
         }
         let mut term_index = term_index as usize;
-        for i in 0..num_fields {
+        for (i, slot) in position_index.iter_mut().enumerate().take(num_fields) {
             let term_count = num_terms.get(skip as i64 + i as i64)? as usize;
-            let mut arr = Vec::with_capacity(term_count + 1);
-            arr.push(0);
+            let mut arr = vec![0i32; term_count + 1];
             for j in 0..term_count {
                 let freq = term_freqs[term_index + j];
                 arr[j + 1] = arr[j] + freq;
             }
             term_index += term_count;
-            position_index[i] = arr;
+            *slot = arr;
         }
         Ok(position_index)
     }
@@ -542,8 +541,8 @@ where
                 1,
             )?;
             let mut field_nums = vec![0; total_distinct_fields as usize];
-            for i in 0..total_distinct_fields as usize {
-                field_nums[i] = it.next()? as i32;
+            for slot in field_nums.iter_mut().take(total_distinct_fields as usize) {
+                *slot = it.next()? as i32;
             }
             field_nums
         };
@@ -589,8 +588,8 @@ where
                     )));
                 },
             };
-            for i in 0..num_fields {
-                field_num_offs[i] = all_field_num_offs.get((skip + i) as i64)? as i32;
+            for (slot, off) in field_num_offs.iter_mut().zip((skip..).take(num_fields)) {
+                *slot = all_field_num_offs.get(off as i64)? as i32;
             }
             flags
         };
@@ -628,19 +627,22 @@ where
             reader.skip(to_skip as i64, &mut self.vectors_stream)?;
 
             // read prefix lengths
-            for i in 0..num_fields {
+            for (i, slot) in prefix_lengths.iter_mut().enumerate().take(num_fields) {
                 let term_count = num_terms.get((skip + i) as i64)? as usize;
                 let mut field_prefix_lengths = vec![0i32; term_count];
                 let mut j = 0;
+
                 while j < term_count {
                     let next =
                         reader.next_batch((term_count - j) as i32, &mut self.vectors_stream)?;
-                    for k in 0..next.length as usize {
-                        field_prefix_lengths[j] = next.longs[(next.offset as usize) + k] as i32;
-                        j += 1;
+                    let src = &next.longs[next.offset as usize..][..next.length as usize];
+                    for (k, &val) in src.iter().enumerate() {
+                        field_prefix_lengths[j + k] = val as i32;
                     }
+                    j += next.length as usize;
                 }
-                prefix_lengths[i] = field_prefix_lengths;
+
+                *slot = field_prefix_lengths;
             }
 
             reader.skip(total_terms - reader.ord(), &mut self.vectors_stream)?;
@@ -913,29 +915,32 @@ where
         );
 
         let mut field_flags = vec![0i32; num_fields];
-        for i in 0..num_fields {
-            field_flags[i] = flags.get((skip + i) as i64)? as i32;
-        }
-
         let mut field_num_terms = vec![0i32; num_fields];
-        for i in 0..num_fields {
-            field_num_terms[i] = num_terms.get((skip + i) as i64)? as i32;
+
+        for (i, (flag_slot, term_slot)) in field_flags
+            .iter_mut()
+            .zip(field_num_terms.iter_mut())
+            .enumerate()
+        {
+            *flag_slot = flags.get((skip + i) as i64)? as i32;
+            *term_slot = num_terms.get((skip + i) as i64)? as i32;
         }
 
         let mut field_term_freqs = vec![Vec::new(); num_fields];
         {
             let mut term_idx = 0;
-            for i in 0..skip {
-                term_idx += num_terms.get(i as i64)? as usize;
+            for n in 0..skip {
+                term_idx += num_terms.get(n as i64)? as usize;
             }
-            for i in 0..num_fields {
+
+            for (i, slot) in field_term_freqs.iter_mut().enumerate().take(num_fields) {
                 let term_count = num_terms.get((skip + i) as i64)? as usize;
-                let mut v = vec![0i32; term_count];
-                for j in 0..term_count {
-                    v[j] = term_freqs[term_idx];
+                let mut v = Vec::with_capacity(term_count);
+                for _ in 0..term_count {
+                    v.push(term_freqs[term_idx]);
                     term_idx += 1;
                 }
-                field_term_freqs[i] = v;
+                *slot = v;
             }
         }
 

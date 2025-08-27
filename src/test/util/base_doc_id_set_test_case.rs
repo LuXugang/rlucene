@@ -136,61 +136,63 @@ pub trait BaseDocIdSetTestCaseSupperImpl {
 
         // nextDoc / advance
         it2 = ds2.iterator()?;
-        if it2.is_none() {
-            assert!(ds1.is_empty())
-        } else {
-            let mut disi = it2.unwrap();
-            let iter = ds1.iter();
-            let mut docs = vec![];
-            iter.for_each(|doc| docs.push(doc));
-            let mut index = 0;
-            let mut doc;
-            while index < docs.len() {
-                if random.random_bool(0.5) {
-                    assert_eq!(docs[index], disi.next_doc()? as usize);
-                    assert_eq!(docs[index], disi.doc_id() as usize);
-                    index += 1;
-                } else {
-                    let skip_length = if random.random_bool(0.5) {
-                        64
+        match it2 {
+            None => assert!(ds1.is_empty()),
+            Some(ref mut disi) => {
+                let iter = ds1.iter();
+                let mut docs = vec![];
+                iter.for_each(|doc| docs.push(doc));
+                let mut index = 0;
+                let mut doc;
+                while index < docs.len() {
+                    if random.random_bool(0.5) {
+                        assert_eq!(docs[index], disi.next_doc()? as usize);
+                        assert_eq!(docs[index], disi.doc_id() as usize);
+                        index += 1;
                     } else {
-                        std::cmp::max(num_bits / 8, 1)
-                    };
-                    let target = docs[index] + 1 + random.random_range(0..=skip_length) as usize;
-                    if let Some(i) = docs.iter().position(|&doc| doc == target) {
-                        index = i + 1;
-                        doc = target
-                    } else {
-                        break;
+                        let skip_length = if random.random_bool(0.5) {
+                            64
+                        } else {
+                            std::cmp::max(num_bits / 8, 1)
+                        };
+                        let target =
+                            docs[index] + 1 + random.random_range(0..=skip_length) as usize;
+                        if let Some(i) = docs.iter().position(|&doc| doc == target) {
+                            index = i + 1;
+                            doc = target
+                        } else {
+                            break;
+                        }
+                        assert_eq!(doc as i32, disi.advance(target as i32)?);
+                        assert_eq!(doc as i32, disi.doc_id());
                     }
-                    assert_eq!(doc as i32, disi.advance(target as i32)?);
-                    assert_eq!(doc as i32, disi.doc_id());
                 }
-            }
+            },
         }
         // bits)
         let bitss = ds2.bits();
         let mut doc = -1;
         let mut previes_doc = -1;
-        if bitss.is_some() {
-            let bits = bitss.unwrap();
+        if let Some(bits) = bitss {
             let mut disi = ds2.iterator()?.unwrap();
             while doc != NO_MORE_DOCS {
-                let mut i;
                 doc = disi.next_doc()?;
                 let max = if doc == NO_MORE_DOCS {
                     bits.length()
                 } else {
                     doc
                 };
-                i = previes_doc + 1;
+
+                let mut i = previes_doc + 1;
                 while i < max {
                     assert!(!bits.get(i));
                     i += 1;
                 }
+
                 if doc == NO_MORE_DOCS {
                     break;
                 }
+
                 previes_doc = doc;
                 assert!(bits.get(doc));
             }
