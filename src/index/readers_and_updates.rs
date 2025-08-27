@@ -57,10 +57,14 @@ use crate::util::info_stream::InfoStream;
 use crate::util::{CoreHelper, IOUtils};
 use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
+use std::fmt;
+use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicI32, AtomicI64, Ordering};
-
+/// Used by IndexWriter to hold open SegmentReaders (for
+/// searching or merging), plus pending deletes and updates,
+/// for a given segment
 pub(crate) struct ReadersAndUpdates<D>
 where
     D: Directory,
@@ -119,6 +123,22 @@ where
             ram_bytes_used: AtomicI64::new(0),
             inner,
         }
+    }
+    /// Init from a previously opened SegmentReader.
+    pub(crate) fn new_with_reader(
+        index_created_version_major: i32,
+        reader: SegmentReader<D>,
+        info: &SegmentCommitInfo<D>,
+        pending_deletes: PendingDeletes,
+    ) -> Result<Self> {
+        debug_assert!(info.info.get_id_str() == reader.info_id);
+        let v = Self::new(index_created_version_major, pending_deletes);
+        {
+            let mut inner = v.inner.lock();
+            inner.pending_deletes.on_new_reader(&reader, info)?;
+            inner.reader = Some(reader);
+        }
+        Ok(v)
     }
     pub fn inc_ref(&self) {
         let rc = self.ref_count.fetch_add(1, Ordering::SeqCst) + 1;
@@ -191,22 +211,49 @@ where
             .map(|v| v.len() as i64)
             .sum()
     }
-
-    pub fn release(&self, _sr: &SegmentReader<D>, _info: &SegmentCommitInfo<D>) -> Result<()> {
-        // TODO
+    pub fn get_reader(
+        &self,
+        context: &IOContext,
+        info: &SegmentCommitInfo<D>,
+        inner: Option<&mut Inner<D>>,
+    ) -> Result<()> {
+        let inner = match inner {
+            Some(inner) => inner,
+            None => &mut *self.inner.lock(),
+        };
+        if inner.reader.is_none() {
+            let reader = SegmentReader::new(info, self.index_created_version_major, context)?;
+            inner.pending_deletes.on_new_reader(&reader, info)?;
+            inner.reader = Some(reader);
+        }
+        // Ref for caller
+        inner.reader.as_ref().unwrap().inc_ref()?;
         Ok(())
     }
 
-    pub fn delete(&self, doc_id: i32) -> Result<bool> {
+    pub fn get_info_id(&self, inner: Option<&Inner<D>>) -> String {
+        let inner = match inner {
+            Some(inner) => inner,
+            None => &*self.inner.lock(),
+        };
+        inner.pending_deletes.info_id.clone()
+    }
+
+    pub fn release(&self, sr: &SegmentReader<D>, _info: &SegmentCommitInfo<D>) -> Result<()> {
+        // TODO
+        sr.dec_ref()?;
+        Ok(())
+    }
+
+    pub fn delete(&self, doc_id: i32, info: &SegmentCommitInfo<D>) -> Result<bool> {
         let mut inner = self.inner.lock();
 
         if inner.reader.is_none() && inner.pending_deletes.must_init_on_delete() {
-            // TODO
+            self.get_reader(&IOContext::default_io_context()?, info, Some(&mut inner))?; // pass a reader to initialize the pending deletes
         }
 
         inner.pending_deletes.delete(doc_id)
     }
-
     pub fn drop_readers(&self) -> Result<()> {
         let mut inner = self.inner.lock();
 
@@ -216,6 +263,42 @@ where
         self.dec_ref();
         Ok(())
     }
+    /// Returns a ref to a clone. NOTE: you should decRef() the reader when you're done (ie do not call close()).
+    pub(crate) fn get_read_only_clone(
+        &self,
+        context: &IOContext,
+        info: &SegmentCommitInfo<D>,
+    ) -> Result<Option<SegmentReader<D>>> {
+        let mut inner = self.inner.lock();
+        if inner.reader.is_none() {
+            self.get_reader(context, info, Some(&mut inner))?;
+            debug_assert!(inner.reader.is_some());
+            inner.reader.as_ref().unwrap().dec_ref()?;
+        }
+
+        // force new liveDocs
+        if let Some(live_docs) = inner.pending_deletes.get_live_docs() {
+            let hard_live_docs = inner.pending_deletes.get_hard_live_docs();
+            let sr = SegmentReader::new_from_reader(
+                info,
+                inner.reader.as_ref().unwrap(),
+                Some(live_docs),
+                hard_live_docs,
+                inner.pending_deletes.num_docs(info)?,
+                true,
+            )?;
+            return Ok(Some(sr));
+        }
+        {
+            // liveDocs == null and reader != null. That can only be if there are no deletes
+            let r = inner.reader.as_ref().unwrap();
+            debug_assert!(r.get_live_docs()?.is_none());
+            r.inc_ref()?;
+            // Self.inner.reader;
+            Ok(None)
+        }
+    }
+
     /// Returns a snapshot of the live docs.
     pub fn get_live_docs(&self) -> Option<DocBits> {
         let mut inner = self.inner.lock();
@@ -402,7 +485,7 @@ where
         Ok(tracking_dir.take_created_files())
     }
     pub fn write_field_updates(
-        &mut self,
+        &self,
         dir: Arc<D>,
         field_numbers: &mut FieldNumbers,
         max_del_gen: i64,
@@ -620,7 +703,18 @@ where
         inner.reader = Some(self.create_new_reader_with_latest_live_docs(inner, &None, info)?);
         Ok(())
     }
+    pub(crate) fn set_is_merging(&self) {
+        let mut inner = self.inner.lock();
+        if !inner.is_merging {
+            inner.is_merging = true;
+            debug_assert!(inner.merging_dv_updates.is_empty());
+        }
+    }
 
+    pub(crate) fn is_merging(&self) -> bool {
+        let inner = self.inner.lock();
+        inner.is_merging
+    }
     /// Drops all merging updates.
     /// Called from IndexWriter after this segment finished merging (whether successfully or not).
     pub fn drop_merging_updates(&self, inner: Option<&mut Inner<D>>) {
@@ -630,6 +724,27 @@ where
         };
         inner.merging_dv_updates.clear();
         inner.is_merging = false;
+    }
+    pub fn take_merging_dv_updates(&self) -> HashMap<String, Vec<Rc<DocValuesFieldUpdatesEnum>>> {
+        // We must atomically (in single sync'd block) clear isMerging when we return the DV updates
+        // otherwise we can lose updates:
+        let mut inner = self.inner.lock();
+        inner.is_merging = false;
+        inner.merging_dv_updates.clone()
+    }
+}
+impl<D> Display for ReadersAndUpdates<D>
+where
+    D: Directory,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let inner = self.inner.lock();
+        write!(
+            f,
+            "ReadersAndLiveDocs(seg={}, pendingDeletes={})",
+            self.get_info_id(Some(&inner)),
+            inner.pending_deletes
+        )
     }
 }
 mod rau_util {

@@ -24,6 +24,10 @@ pub trait IndexReader {
         Ok(self.max_doc()? - self.num_docs()?)
     }
 
+    fn inc_ref(&self) -> Result<()> {
+        todo!()
+    }
+
     fn dec_ref(&self) -> Result<()> {
         todo!()
     }

@@ -49,6 +49,7 @@ pub struct SegmentReader<D>
 where
     D: Directory,
 {
+    pub(crate) info_id: String,
     meta_data: LeafMetaData,
     live_docs: Option<DocBits>,
     hard_live_docs: Option<DocBits>,
@@ -86,6 +87,7 @@ where
         let seg_doc_values = Arc::new(SegmentDocValues::new());
         let num_docs = si.info.max_doc()? - si.get_del_count();
         let mut segment_reader = Self {
+            info_id: si.info.get_id_str().clone(),
             meta_data,
             is_nrt,
             core,
@@ -170,6 +172,7 @@ where
         core.inc_ref()?;
         debug_assert!(Self::assert_live_docs(is_nrt, &hard_live_docs, &live_docs)?);
         let mut segment_reader = Self {
+            info_id: si.info.get_id_str().clone(),
             meta_data,
             is_nrt,
             core: core.clone(),
