@@ -22,10 +22,10 @@ use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::index::segment_reader::SegmentReader;
 use crate::store::IOContext;
 use crate::store::directory::Directory;
+use crate::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
 use crate::util::error::lucene_error::Result;
 use num_bigint::BigInt;
 use std::sync::Arc;
-use crate::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
 
 pub(crate) struct PendingSoftDeletes {
     pub(crate) field: Option<String>,

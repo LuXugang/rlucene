@@ -26,6 +26,7 @@ use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::index::segment_reader::SegmentReader;
 use crate::store::IOContext;
 use crate::store::directory::Directory;
+use crate::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
 use crate::store::tracking_directory_wrapper::TrackingDirectoryWrapper;
 use crate::util::IOUtils;
 use crate::util::bits::{Bits, Either2Bits};
@@ -33,7 +34,6 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::{FixedBit, FixedBitSet};
 use std::fmt;
 use std::sync::Arc;
-use crate::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
 
 /// This class handles accounting and applying pending deletes for live segment readers
 pub(crate) struct PendingDeletes {
@@ -489,10 +489,10 @@ mod tests {
     use crate::util::error::lucene_error::Result;
     use crate::util::{LATEST, StringHelper};
 
+    use crate::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
     use rand::Rng;
     use std::collections::HashMap;
     use std::sync::Arc;
-    use crate::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
 
     #[allow(dead_code)] // for quick search
     struct TestPendingDeletes;

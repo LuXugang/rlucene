@@ -50,6 +50,7 @@ use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::store::IOContext;
 use crate::store::directory::Directory;
 use crate::store::flush_info::FlushInfo;
+use crate::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
 use crate::store::tracking_directory_wrapper::TrackingDirectoryWrapper;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::function::Function;
@@ -62,7 +63,6 @@ use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicI32, AtomicI64, Ordering};
-use crate::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
 
 /// Used by IndexWriter to hold open SegmentReaders (for
 /// searching or merging), plus pending deletes and updates,
@@ -328,7 +328,11 @@ where
     // Commit live docs (writes new _X_N.del files) and field updates (writes new
     // _X_N updates files) to the directory; returns true if it wrote any file
     // and false if there were no new deletes or updates to write:
-    pub fn write_live_docs(&self, dir: Arc<LockValidatingDirectoryWrapper<D>>, info: &mut SegmentCommitInfo<D>) -> Result<bool>
+    pub fn write_live_docs(
+        &self,
+        dir: Arc<LockValidatingDirectoryWrapper<D>>,
+        info: &mut SegmentCommitInfo<D>,
+    ) -> Result<bool>
     where
         D: Directory,
     {
