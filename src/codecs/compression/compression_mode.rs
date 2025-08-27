@@ -523,7 +523,7 @@ mod tests {
 
             compressor.compress(&mut input, &mut out)?;
             let compressed_len = out.get_position();
-            let result = ArrayUtil::copy_of_sub_array(&out.bytes, 0, compressed_len as usize);
+            let result = ArrayUtil::copy_of_sub_array(&out.bytes, 0, compressed_len);
             Ok(result)
         }
 

@@ -186,17 +186,17 @@ mod tests {
         let size = out.get_position();
         assert_eq!(size, 15);
 
-        let mut buf: Cursor<&[u8]> = Cursor::new(&out.bytes[..size as usize]);
+        let mut buf: Cursor<&[u8]> = Cursor::new(&out.bytes[..size]);
 
         assert_eq!(buf.read_u8()?, 43);
         assert_eq!(buf.read_i16::<LittleEndian>()?, 12345);
         assert_eq!(buf.read_i32::<LittleEndian>()?, 1234567890);
         assert_eq!(buf.read_i64::<LittleEndian>()?, 1234567890123456789);
-        assert_eq!(buf.position() as usize, size as usize);
+        assert_eq!(buf.position() as usize, size);
         assert_eq!(buf.get_ref().len() - buf.position() as usize, 0);
 
         // read the primitives using ByteArrayDataInput:
-        let mut data_input = ByteArrayDataInput::with_range(out.bytes, 0, size as usize);
+        let mut data_input = ByteArrayDataInput::with_range(out.bytes, 0, size);
         assert_eq!(data_input.read_byte()?, 43);
         assert_eq!(data_input.read_short()?, 12345);
         assert_eq!(data_input.read_int()?, 1234567890);

@@ -329,7 +329,7 @@ mod tests {
             NumericUtils::long_to_sortable_bytes(
                 value,
                 current.bytes.as_mut_slice(),
-                current.offset as usize,
+                current.offset,
             );
             if let Some(ref prev) = previous {
                 assert!(
@@ -339,10 +339,8 @@ mod tests {
             } else {
                 previous = Some(BytesRef::from_bytes(vec![0u8; BitUtil::LONG_BYTES]));
             }
-            let decoded_value = NumericUtils::sortable_bytes_to_long(
-                current.bytes.as_slice(),
-                current.offset as usize,
-            );
+            let decoded_value =
+                NumericUtils::sortable_bytes_to_long(current.bytes.as_slice(), current.offset);
             assert_eq!(
                 decoded_value, value,
                 "Forward and backward conversion failed for value"
@@ -368,10 +366,8 @@ mod tests {
                 );
             }
 
-            let decoded_value = NumericUtils::sortable_bytes_to_int(
-                current.bytes.as_slice(),
-                current.offset as usize,
-            );
+            let decoded_value =
+                NumericUtils::sortable_bytes_to_int(current.bytes.as_slice(), current.offset);
             assert_eq!(
                 decoded_value, value,
                 "Forward and backward conversion failed for value: {}",
@@ -408,7 +404,7 @@ mod tests {
             }
             let decoded = NumericUtils::sortable_bytes_to_big_int(
                 current.bytes.as_slice(),
-                current.offset as usize,
+                current.offset,
                 size,
             )?;
             assert_eq!(
@@ -452,7 +448,7 @@ mod tests {
             .collect();
 
         for (i, &value) in values.iter().enumerate() {
-            let offset = encoded[i].offset as usize;
+            let offset = encoded[i].offset;
             NumericUtils::long_to_sortable_bytes(value, encoded[i].bytes.as_mut_slice(), offset);
 
             // Check that the value can be decoded back correctly
@@ -508,7 +504,7 @@ mod tests {
             .collect();
 
         for (i, &value) in values.iter().enumerate() {
-            let offset = encoded[i].offset as usize;
+            let offset = encoded[i].offset;
             NumericUtils::int_to_sortable_bytes(value, encoded[i].bytes.as_mut_slice(), offset);
             let decoded_value =
                 NumericUtils::sortable_bytes_to_int(encoded[i].bytes.as_slice(), offset);
@@ -561,7 +557,7 @@ mod tests {
             .map(|_| BytesRef::from_bytes(vec![0u8; BitUtil::INT_BYTES]))
             .collect();
         for (i, value) in values.iter().enumerate() {
-            let offset = encoded[i].offset as usize;
+            let offset = encoded[i].offset;
             NumericUtils::big_int_to_sortable_bytes(
                 value,
                 4, // Integer.BYTES = 4
