@@ -17,7 +17,7 @@
 use crate::codecs::field_infos_format::FieldInfosFormat;
 use crate::codecs::{Codec, CompoundFormat, get_default_code};
 use crate::index::field_infos::FieldInfos;
-use crate::index::pending_deletes::{LiveDocsBits, PendingDeletes};
+use crate::index::pending_deletes::{DocBits, PendingDeletes};
 use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::index::segment_reader::SegmentReader;
 use crate::store::IOContext;
@@ -26,20 +26,17 @@ use crate::util::error::lucene_error::Result;
 use num_bigint::BigInt;
 use std::sync::Arc;
 
-pub(crate) struct PendingSoftDeletes<D>
-where
-    D: Directory,
-{
+pub(crate) struct PendingSoftDeletes {
     pub(crate) field: Option<String>,
     pub(crate) dv_generation: i64,
-    pub(crate) hard_deletes: PendingDeletes<D>,
-    pub(crate) base: PendingDeletes<D>,
+    pub(crate) hard_deletes: PendingDeletes,
+    pub(crate) base: PendingDeletes,
 }
-impl<D> PendingSoftDeletes<D>
-where
-    D: Directory,
-{
-    pub(crate) fn new(field: Option<String>, info: &SegmentCommitInfo<D>) -> Result<Self> {
+impl PendingSoftDeletes {
+    pub(crate) fn new<D>(field: Option<String>, info: &SegmentCommitInfo<D>) -> Result<Self>
+    where
+        D: Directory,
+    {
         let base = PendingDeletes::new(info)?;
         let hard_deletes = PendingDeletes::new(info)?;
         Ok(Self {
@@ -50,11 +47,14 @@ where
         })
     }
 
-    pub(crate) fn from_reader(
+    pub(crate) fn from_reader<D>(
         field: Option<String>,
         reader: &SegmentReader<D>,
         info: &SegmentCommitInfo<D>,
-    ) -> Result<Self> {
+    ) -> Result<Self>
+    where
+        D: Directory,
+    {
         let base = PendingDeletes::from_reader(reader, info)?;
         let hard_deletes = PendingDeletes::from_reader(reader, info)?;
         Ok(Self {
@@ -64,7 +64,10 @@ where
             base,
         })
     }
-    pub(crate) fn delete(&mut self, doc_id: i32, info: &mut SegmentCommitInfo<D>) -> Result<bool> {
+    pub(crate) fn delete<D>(&mut self, doc_id: i32, info: &mut SegmentCommitInfo<D>) -> Result<bool>
+    where
+        D: Directory,
+    {
         match self.field {
             Some(_) => {
                 // we need to fetch this first it might be a shared instance with
@@ -94,11 +97,14 @@ where
         }
     }
 
-    pub(crate) fn write_live_docs(
+    pub(crate) fn write_live_docs<D>(
         &mut self,
         dir: Arc<D>,
         info: &mut SegmentCommitInfo<D>,
-    ) -> Result<bool> {
+    ) -> Result<bool>
+    where
+        D: Directory,
+    {
         if self.field.is_none() {
             return self.base.write_live_docs(dir, info);
         }
@@ -126,26 +132,31 @@ where
         }
     }
 
-    fn assert_pending_deletes(&self, info: &mut SegmentCommitInfo<D>) -> Result<bool> {
+    fn assert_pending_deletes<D>(&self, info: &mut SegmentCommitInfo<D>) -> Result<bool>
+    where
+        D: Directory,
+    {
         let sum = self.base.pending_delete_count + info.get_soft_del_count();
         debug_assert!(sum >= 0, "illegal pending delete count: {sum}");
         debug_assert!(info.info.max_doc()? >= self.base.get_del_count(info));
         Ok(true)
     }
 
-    fn ensure_initialized<F>(&self, _reader_io_supplier: F)
+    fn ensure_initialized<D, F>(&self, _reader_io_supplier: F)
     where
+        D: Directory,
         F: Fn() -> Arc<SegmentReader<D>>,
     {
         todo!()
     }
 
-    pub(crate) fn is_fully_deleted<F>(
+    pub(crate) fn is_fully_deleted<D, F>(
         &self,
         _reader_io_supplier: F,
         info: &SegmentCommitInfo<D>,
     ) -> Result<bool>
     where
+        D: Directory,
         F: Fn() -> Arc<SegmentReader<D>>,
     {
         if self.field.is_none() {
@@ -156,7 +167,10 @@ where
         todo!()
     }
 
-    pub(crate) fn read_field_infos(&self, info: &SegmentCommitInfo<D>) -> Result<FieldInfos> {
+    pub(crate) fn read_field_infos<D>(&self, info: &SegmentCommitInfo<D>) -> Result<FieldInfos>
+    where
+        D: Directory,
+    {
         let seg_info = &info.info;
         let codec = get_default_code();
         if !info.has_field_updates() {
@@ -192,7 +206,7 @@ where
         }
     }
 
-    pub(crate) fn get_hard_live_docs(&mut self) -> Option<LiveDocsBits<D>> {
+    pub(crate) fn get_hard_live_docs(&mut self) -> Option<DocBits> {
         match self.field {
             Some(_) => self.hard_deletes.get_live_docs(),
             None => self.base.get_hard_live_docs(),
@@ -205,10 +219,7 @@ where
         }
     }
 }
-impl<D> std::fmt::Display for PendingSoftDeletes<D>
-where
-    D: Directory,
-{
+impl std::fmt::Display for PendingSoftDeletes {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,

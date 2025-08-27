@@ -39,6 +39,7 @@ impl<D> TrackingDirectoryWrapper<D>
 where
     D: Directory,
 {
+    // TODO: 能否支持 在编译期间支持引用跟Arc<D>
     pub fn new(input: Arc<D>) -> Self {
         let lock = Mutex::new(Inner {
             created_filenames: HashSet::new(),

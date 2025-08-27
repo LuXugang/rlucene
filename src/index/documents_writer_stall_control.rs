@@ -426,8 +426,7 @@ mod tests {
         pub fn await_update_join(&self, timeout: Duration) -> bool {
             let (uj_lock, uj_cv) = &self.update_join;
             let mut cnt = uj_lock.lock();
-            let v = uj_cv.wait_for(&mut cnt, timeout).timed_out();
-            v
+            uj_cv.wait_for(&mut cnt, timeout).timed_out()
         }
 
         pub fn count_down_left_check_point(&self) {

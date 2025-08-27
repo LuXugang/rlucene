@@ -552,7 +552,6 @@ impl DocComparator for DocComparatorEnum {
 
 #[cfg(test)]
 mod tests {
-
     use rand::Rng;
 
     use crate::index::{BytesRef, BytesRefBuilder};

@@ -1198,6 +1198,20 @@ impl DocValuesFieldUpdatesEnum {
             DocValuesFieldUpdatesEnum::SingleValue(u) => u.iterator(),
         }
     }
+    pub(crate) fn any(&self) -> bool {
+        match self {
+            DocValuesFieldUpdatesEnum::Numeric(u) => u.any(),
+            DocValuesFieldUpdatesEnum::Binary(u) => u.any(),
+            DocValuesFieldUpdatesEnum::SingleValue(u) => u.any(),
+        }
+    }
+    pub(crate) fn get_type(&self) -> &DocValuesType {
+        match self {
+            DocValuesFieldUpdatesEnum::Numeric(u) => &u.doc_values_type,
+            DocValuesFieldUpdatesEnum::Binary(u) => &u.doc_values_type,
+            DocValuesFieldUpdatesEnum::SingleValue(u) => &u.doc_values_type,
+        }
+    }
 }
 
 #[cfg(test)]

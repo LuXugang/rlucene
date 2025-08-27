@@ -24,6 +24,7 @@ use crate::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNumericDocValues;
 use crate::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocValues;
 use crate::codecs::field_infos_format::FieldInfosFormat;
+use crate::codecs::{Codec, get_default_code};
 use crate::index::BytesRef;
 use crate::index::binary_doc_values::BinaryDocValues;
 use crate::index::doc_values_field_updates::dvfu_util::merged_iterator;
@@ -34,10 +35,11 @@ use crate::index::doc_values_field_updates::{
 use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::doc_values_type::DocValuesType;
 use crate::index::field_info::FieldInfo;
-use crate::index::field_infos::FieldInfos;
+use crate::index::field_infos::{FieldInfos, FieldNumbers};
+use crate::index::index_reader::IndexReader;
 use crate::index::leaf_reader::LeafReader;
 use crate::index::numeric_doc_values::NumericDocValues;
-use crate::index::pending_deletes::{LiveDocsBits, PendingDeletes};
+use crate::index::pending_deletes::{DocBits, PendingDeletes};
 use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::index::segment_reader::SegmentReader;
 use crate::index::segment_write_state::SegmentWriteState;
@@ -49,10 +51,10 @@ use crate::store::IOContext;
 use crate::store::directory::Directory;
 use crate::store::flush_info::FlushInfo;
 use crate::store::tracking_directory_wrapper::TrackingDirectoryWrapper;
-use crate::util::CoreHelper;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::function::Function;
 use crate::util::info_stream::InfoStream;
+use crate::util::{CoreHelper, IOUtils};
 use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
@@ -81,7 +83,7 @@ where
     reader: Option<SegmentReader<D>>,
     // How many further deletions we've done against
     // liveDocs vs when we loaded it or last wrote it:
-    pending_deletes: PendingDeletes<D>,
+    pending_deletes: PendingDeletes,
     // Indicates whether this segment is currently being merged. While a segment
     // is merging, all field updates are also registered in the
     // mergingDVUpdates map. Also, calls to writeFieldUpdates merge the
@@ -102,10 +104,7 @@ impl<D> ReadersAndUpdates<D>
 where
     D: Directory,
 {
-    pub(crate) fn new(
-        index_created_version_major: i32,
-        pending_deletes: PendingDeletes<D>,
-    ) -> Self {
+    pub(crate) fn new(index_created_version_major: i32, pending_deletes: PendingDeletes) -> Self {
         let inner = Mutex::new(Inner {
             reader: None,
             pending_deletes,
@@ -218,13 +217,13 @@ where
         Ok(())
     }
     /// Returns a snapshot of the live docs.
-    pub fn get_live_docs(&self) -> Option<LiveDocsBits<D>> {
+    pub fn get_live_docs(&self) -> Option<DocBits> {
         let mut inner = self.inner.lock();
         inner.pending_deletes.get_live_docs()
     }
 
     /// Returns the live-docs bits excluding documents that are not live due to soft-deletes.
-    pub fn get_hard_live_docs(&self) -> Option<LiveDocsBits<D>> {
+    pub fn get_hard_live_docs(&self) -> Option<DocBits> {
         let mut inner = self.inner.lock();
         inner.pending_deletes.get_hard_live_docs()
     }
@@ -255,9 +254,9 @@ where
     pub fn handle_dv_updates<F>(
         &self,
         infos: &FieldInfos,
-        dir: Arc<D>,
+        dir: Arc<TrackingDirectoryWrapper<D>>,
         dv_format: &F,
-        reader: &mut SegmentReader<D>,
+        inner: &mut Inner<D>,
         field_files: &mut HashMap<i32, HashSet<String>>,
         max_del_gen: i64,
         info_stream: &mut impl InfoStream,
@@ -266,8 +265,6 @@ where
     where
         F: DocValuesFormat,
     {
-        let inner = self.inner.lock();
-
         for (field, updates) in inner.pending_dv_updates.iter() {
             let ty = updates[0].tp();
             debug_assert!(
@@ -341,7 +338,7 @@ where
                     let v = DocValuesProducerBinary::new(
                         update_supplier,
                         field,
-                        reader,
+                        inner.reader.as_mut().unwrap(),
                         field_info.clone(),
                     );
                     fields_consumer.add_binary_field(&field_info, &v)?
@@ -349,7 +346,7 @@ where
                     let v = DocValuesProducerNumeric::new(
                         update_supplier,
                         field,
-                        reader,
+                        inner.reader.as_mut().unwrap(),
                         field_info.clone(),
                     );
                     fields_consumer.add_numeric_field(&field_info, &v)?;
@@ -376,7 +373,7 @@ where
     fn write_field_infos_gen<F>(
         &self,
         field_infos: &FieldInfos,
-        dir: Arc<D>,
+        dir: Arc<TrackingDirectoryWrapper<D>>,
         infos_format: &F,
         info: &mut SegmentCommitInfo<D>,
     ) -> Result<HashSet<String>>
@@ -404,6 +401,225 @@ where
         info.advance_field_infos_gen();
         Ok(tracking_dir.take_created_files())
     }
+    pub fn write_field_updates(
+        &mut self,
+        dir: Arc<D>,
+        field_numbers: &mut FieldNumbers,
+        max_del_gen: i64,
+        info_stream: &mut impl InfoStream,
+        info: &mut SegmentCommitInfo<D>,
+    ) -> Result<bool> {
+        let mut inner = self.inner.lock();
+        let start_time_ns = std::time::Instant::now();
+
+        let mut new_dv_files = HashMap::new();
+        let mut field_infos_files: Option<HashSet<String>> = None;
+        let mut field_infos = FieldInfos::default();
+
+        let mut any = false;
+        'outer: for updates in inner.pending_dv_updates.values() {
+            for update in updates {
+                if update.del_gen() <= max_del_gen && update.any() {
+                    any = true;
+                    break 'outer;
+                }
+            }
+        }
+        if !any {
+            // no updates
+            return Ok(false);
+        }
+
+        // Do this so we can delete any created files on
+        // exception; this saves all codecs from having to do it:
+        let tracking_dir = Arc::new(TrackingDirectoryWrapper::new(dir.clone()));
+
+        let is_reader_none = inner.reader.is_none();
+        let result = (|| -> Result<()> {
+            let codec = get_default_code();
+
+            if is_reader_none {
+                let reader = SegmentReader::new(
+                    info,
+                    self.index_created_version_major,
+                    &IOContext::read_once_io_context()?,
+                )?;
+                inner.pending_deletes.on_new_reader(&reader, info)?;
+                inner.reader = Option::from(reader);
+            }
+
+            // clone FieldInfos so that we can update their dvGen separately from
+            // the reader's infos and write them to a new fieldInfos_gen file.
+            let mut max_field_number: i32 = -1;
+            let mut by_name = HashMap::new();
+
+            for fi in inner.reader.as_ref().unwrap().get_field_infos()?.iter() {
+                // cannot use builder.add(fi) because it does not preserve
+                // the local field number. Field numbers can be different from
+                // the global ones if the segment was created externally (and added to
+                // this index with IndexWriter#addIndexes(Directory)).
+                by_name.insert(
+                    fi.name.to_string(),
+                    rau_util::clone_field_info(fi, fi.number),
+                );
+                max_field_number = max_field_number.max(fi.number);
+            }
+
+            // create new fields with the right DV type for updates whose field doesn't yet exist
+            for updates in inner.pending_dv_updates.values() {
+                if let Some(update) = updates.first() {
+                    let field = update.field();
+                    if by_name.contains_key(field) {
+                        // the field already exists in this segment
+                        let fi = by_name.get(field).expect("should not failed");
+                        debug_assert_eq!(*fi.get_doc_values_type(), *update.get_type());
+                    } else {
+                        // the field is not present in this segment so we clone the global field
+                        // (which is guaranteed to exist) and remaps its field number locally.
+                        if let Some(fi) = field_numbers.construct_field_info(
+                            field,
+                            *update.get_type(),
+                            max_field_number + 1,
+                        )? {
+                            max_field_number += 1;
+                            by_name.insert(fi.name.to_string(), fi);
+                        } else {
+                            debug_assert!(false);
+                        }
+                    }
+                }
+            }
+
+            field_infos = FieldInfos::new(by_name.into_values().map(Arc::new).collect())?;
+
+            let dv_format = codec.doc_values_format();
+
+            self.handle_dv_updates(
+                &field_infos,
+                tracking_dir.clone(),
+                &dv_format,
+                &mut inner,
+                &mut new_dv_files,
+                max_del_gen,
+                info_stream,
+                info,
+            )?;
+
+            let files = self.write_field_infos_gen(
+                &field_infos,
+                tracking_dir.clone(),
+                &codec.field_infos_format(),
+                info,
+            )?;
+            field_infos_files = Some(files);
+
+            if is_reader_none {
+                let _ = inner.reader.take();
+            }
+            Ok(())
+        })();
+
+        if let Err(e) = result {
+            info.advance_next_write_field_infos_gen();
+            info.advance_next_write_doc_values_gen();
+
+            for file_name in &tracking_dir.get_created_files().lock().created_filenames {
+                IOUtils::delete_files_ignoring_exceptions(&*dir, &[file_name]);
+            }
+
+            return Err(e);
+        }
+        // Prune the now-written DV updates:
+        let mut bytes_freed: i64 = 0;
+        inner.pending_dv_updates.retain(|_, updates| {
+            let mut keep = Vec::with_capacity(updates.len());
+            for u in updates.drain(..) {
+                if u.del_gen() > max_del_gen {
+                    keep.push(u);
+                } else {
+                    bytes_freed += u.ram_bytes_used().expect("should not fail");
+                }
+            }
+            *updates = keep;
+            !updates.is_empty()
+        });
+
+        let prev = self.ram_bytes_used.fetch_sub(bytes_freed, Ordering::SeqCst);
+        let bytes_now = prev - bytes_freed;
+        debug_assert!(bytes_now >= 0, "ram_bytes_used should not go negative");
+        // writing field updates succeeded
+        debug_assert!(field_infos_files.is_some());
+        info.set_field_infos_files(field_infos_files.take().unwrap());
+        // update the doc-values updates files. the files map each field to its set
+        // of files, hence we copy from the existing map all fields w/ updates that
+        // were not updated in this session, and add new mappings for fields that
+        // were updated now.
+        debug_assert!(!new_dv_files.is_empty());
+
+        for (field_num, files_set) in info.get_doc_values_updates_files().iter() {
+            new_dv_files
+                .entry(*field_num)
+                .or_insert_with(|| files_set.clone());
+        }
+        info.set_doc_values_updates_files(new_dv_files.clone());
+        // if there is a reader open, reopen it to reflect the updates
+        if !is_reader_none {
+            self.swap_new_reader_with_latest_live_docs(&mut inner, info)?;
+        }
+
+        if info_stream.enabled("BD") {
+            info_stream.message(
+                "BD",
+                &format!(
+                    "done write field updates for seg={}; took {:.3}s; new files: {:?}",
+                    info,
+                    start_time_ns.elapsed().as_secs_f64(),
+                    new_dv_files,
+                ),
+            );
+        }
+        Ok(true)
+    }
+    pub(crate) fn create_new_reader_with_latest_live_docs<'a>(
+        &self,
+        inner: &'a mut Inner<D>,
+        mut reader: &'a Option<SegmentReader<D>>,
+        info: &mut SegmentCommitInfo<D>,
+    ) -> Result<SegmentReader<D>> {
+        if reader.is_none() {
+            reader = &inner.reader;
+        }
+
+        let new_reader = SegmentReader::new_from_reader(
+            info,
+            reader.as_ref().unwrap(),
+            inner.pending_deletes.get_live_docs(),
+            inner.pending_deletes.get_hard_live_docs(),
+            inner.pending_deletes.num_docs(info)?,
+            true,
+        )?;
+
+        let res: Result<()> = (|| {
+            inner.pending_deletes.on_new_reader(&new_reader, info)?;
+            reader.as_ref().unwrap().dec_ref()?;
+            Ok(())
+        })();
+
+        if res.is_err() {
+            let _ = new_reader.dec_ref();
+        }
+        res?;
+        Ok(new_reader)
+    }
+
+    fn swap_new_reader_with_latest_live_docs(
+        &self,
+        inner: &mut Inner<D>,
+        info: &mut SegmentCommitInfo<D>,
+    ) -> Result<()> {
+        inner.reader = Some(self.create_new_reader_with_latest_live_docs(inner, &None, info)?);
+        Ok(())
+    }
 
     /// Drops all merging updates.
     /// Called from IndexWriter after this segment finished merging (whether successfully or not).
@@ -414,6 +630,32 @@ where
         };
         inner.merging_dv_updates.clear();
         inner.is_merging = false;
+    }
+}
+mod rau_util {
+    use crate::index::field_info::FieldInfo;
+
+    pub(super) fn clone_field_info(fi: &FieldInfo, field_number: i32) -> FieldInfo {
+        FieldInfo::new(
+            fi.name.to_string(),
+            field_number,
+            fi.has_term_vectors(),
+            fi.omits_norms(),
+            fi.has_payloads(),
+            *fi.get_index_options(),
+            *fi.get_doc_values_type(),
+            *fi.doc_values_skip_index_type(),
+            fi.get_doc_values_gen(),
+            fi.attributes().lock().attributes.clone(),
+            fi.get_point_dimension_count(),
+            fi.get_point_index_dimension_count(),
+            fi.get_point_num_bytes(),
+            fi.get_vector_dimension(),
+            *fi.get_vector_encoding(),
+            *fi.get_vector_similarity_function(),
+            fi.is_soft_deletes_field(),
+            fi.is_parent_field(),
+        )
     }
 }
 enum CurrentSource {

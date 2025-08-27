@@ -1722,14 +1722,14 @@ mod tests {
             StringHelper::id_to_string(commit_info.get_id().as_deref())
         );
 
-        let new_id = commit_info.get_id().unwrap().clone();
+        let new_id = *commit_info.get_id().unwrap();
         commit_info.advance_doc_values_gen();
         assert_ne!(
             StringHelper::id_to_string(Some(&new_id)),
             StringHelper::id_to_string(commit_info.get_id().as_deref())
         );
 
-        let new_id = commit_info.get_id().unwrap().clone();
+        let new_id = *commit_info.get_id().unwrap();
         commit_info.advance_field_infos_gen();
         assert_ne!(
             StringHelper::id_to_string(Some(&new_id)),
@@ -1737,7 +1737,7 @@ mod tests {
         );
 
         let clone = commit_info.clone();
-        let current_id = commit_info.get_id().unwrap().clone();
+        let current_id = *commit_info.get_id().unwrap();
         assert_eq!(
             StringHelper::id_to_string(Some(&current_id)),
             StringHelper::id_to_string(commit_info.get_id().as_deref())

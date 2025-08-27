@@ -2072,16 +2072,16 @@ mod tests {
         let mut meta_in = ByteArrayDataInput::with_bytes(metdata_os);
         let mut data_in = ByteArrayDataInput::with_bytes(data_os_os);
         let metadata = fst_util::read_metadata(&mut meta_in, outputs.clone())?;
-        let mut loaded_fst = FST::from_on_heap_store(metadata, &mut data_in)?;
+        let loaded_fst = FST::from_on_heap_store(metadata, &mut data_in)?;
 
         Util::get_ints_ref(&key1, &mut scratch);
-        assert_eq!(*Util::get_bytes(&mut loaded_fst, &key1)?.unwrap(), 22);
+        assert_eq!(*Util::get_bytes(&loaded_fst, &key1)?.unwrap(), 22);
 
         Util::get_ints_ref(&key2, &mut scratch);
-        assert_eq!(*Util::get_bytes(&mut loaded_fst, &key2)?.unwrap(), 7);
+        assert_eq!(*Util::get_bytes(&loaded_fst, &key2)?.unwrap(), 7);
 
         Util::get_ints_ref(&key3, &mut scratch);
-        assert_eq!(*Util::get_bytes(&mut loaded_fst, &key3)?.unwrap(), 17);
+        assert_eq!(*Util::get_bytes(&loaded_fst, &key3)?.unwrap(), 17);
 
         Ok(())
     }

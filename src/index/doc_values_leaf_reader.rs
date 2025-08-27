@@ -26,7 +26,6 @@ use crate::index::leaf_reader::LeafReader;
 use crate::util::dummy::dummy_bits::DummyBits;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use std::rc::Rc;
-use std::sync::Arc;
 
 #[derive(Default)]
 pub(crate) struct DocValuesLeafReader;
@@ -95,13 +94,13 @@ impl LeafReader for DocValuesLeafReader {
         Err(LuceneError::unsupported_operation(""))
     }
 
-    fn get_field_infos(&self) -> Result<&Rc<FieldInfos>> {
+    fn get_field_infos(&self) -> Result<Rc<FieldInfos>> {
         Err(LuceneError::unsupported_operation(""))
     }
 
     type Bits = DummyBits;
 
-    fn get_live_docs(&self) -> Result<Option<Arc<Self::Bits>>> {
+    fn get_live_docs(&self) -> Result<Option<Self::Bits>> {
         Err(LuceneError::unsupported_operation(""))
     }
 }

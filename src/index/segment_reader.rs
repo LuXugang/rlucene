@@ -20,7 +20,6 @@ use crate::codecs::field_infos_format::FieldInfosFormat;
 use crate::codecs::fields_producer::FieldsProducerEnum;
 use crate::codecs::live_docs_format::LiveDocsFormat;
 use crate::codecs::lucene90_doc_values_producer::Lucene90DocValuesProducer;
-use crate::codecs::lucene90_live_docs_format::Lucene90LiveDocsFormat;
 use crate::codecs::norms_producer::{NormsProducer, NormsProducerEnum};
 use crate::codecs::points_reader::PointsReaderEnum;
 use crate::codecs::stored_fields_reader::StoredFieldsReaderEnum;
@@ -31,15 +30,15 @@ use crate::index::field_infos::FieldInfos;
 use crate::index::index_reader::IndexReader;
 use crate::index::leaf_metadata::LeafMetaData;
 use crate::index::leaf_reader::LeafReader;
+use crate::index::pending_deletes::DocBits;
 use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::index::segment_core_readers::{CfsOrBaseInput, SegmentCoreReaders};
 use crate::index::segment_doc_values::SegmentDocValues;
 use crate::index::segment_doc_values_producer::SegmentDocValuesProducer;
 use crate::store::IOContext;
 use crate::store::directory::Directory;
-use crate::util::bits::Bits;
+use crate::util::bits::{Bits, Either2Bits};
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::fixed_bit_set::FixedBit;
 use std::borrow::Cow;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -51,8 +50,8 @@ where
     D: Directory,
 {
     meta_data: LeafMetaData,
-    live_docs: Option<Arc<<Lucene90LiveDocsFormat as LiveDocsFormat>::Bits>>,
-    hard_live_docs: Option<Arc<<Lucene90LiveDocsFormat as LiveDocsFormat>::Bits>>,
+    live_docs: Option<DocBits>,
+    hard_live_docs: Option<DocBits>,
     // Normally set to si.maxDoc - si.delDocCount, unless we
     // were created as an NRT reader from IW, in which case IW
     // tells us the number of live docs:
@@ -105,7 +104,7 @@ where
                     si,
                     &IOContext::read_once_io_context()?,
                 )?);
-                (Some(ld.clone()), Some(ld))
+                (Some(DocBits::A(ld.clone())), Some(DocBits::A(ld)))
             } else {
                 debug_assert_eq!(si.get_del_count(), 0);
                 (None, None)
@@ -120,7 +119,7 @@ where
                 &segment_reader.core,
             )?;
 
-            debug_assert!(Self::assert_live_docs(is_nrt, &hard_live_docs, &live_docs));
+            debug_assert!(Self::assert_live_docs(is_nrt, &hard_live_docs, &live_docs)?);
 
             Ok((hard_live_docs, live_docs, field_infos, doc_values_producer))
         })();
@@ -143,8 +142,8 @@ where
     pub(crate) fn new_from_reader(
         si: &SegmentCommitInfo<D>,
         sr: &SegmentReader<D>,
-        live_docs: Option<Arc<FixedBit>>,
-        hard_live_docs: Option<Arc<FixedBit>>,
+        live_docs: Option<DocBits>,
+        hard_live_docs: Option<DocBits>,
         num_docs: i32,
         is_nrt: bool,
     ) -> Result<Self> {
@@ -169,7 +168,7 @@ where
         let core = sr.core.clone();
         let seg_doc_values = sr.seg_doc_values.clone();
         core.inc_ref()?;
-        debug_assert!(Self::assert_live_docs(is_nrt, &hard_live_docs, &live_docs));
+        debug_assert!(Self::assert_live_docs(is_nrt, &hard_live_docs, &live_docs)?);
         let mut segment_reader = Self {
             meta_data,
             is_nrt,
@@ -201,23 +200,40 @@ where
     }
     fn assert_live_docs(
         is_nrt: bool,
-        hard_live_docs: &Option<Arc<<Lucene90LiveDocsFormat as LiveDocsFormat>::Bits>>,
-        live_docs: &Option<Arc<<Lucene90LiveDocsFormat as LiveDocsFormat>::Bits>>,
-    ) -> bool {
+        hard_live_docs: &Option<DocBits>,
+        live_docs: &Option<DocBits>,
+    ) -> Result<bool> {
         match is_nrt {
             true => debug_assert!(
                 hard_live_docs.is_none() || live_docs.is_some(),
                 "liveDocs must be non-null if hardLiveDocs are non-null"
             ),
             false => debug_assert!(
-                Arc::ptr_eq(
-                    hard_live_docs.as_ref().unwrap(),
-                    live_docs.as_ref().unwrap()
-                ),
+                match (hard_live_docs, live_docs) {
+                    (None, None) => true,
+                    (Some(reader_bits), Some(current_bits)) => match (reader_bits, current_bits) {
+                        (Either2Bits::A(r_bits), Either2Bits::A(c_bits)) =>
+                            Arc::ptr_eq(r_bits, c_bits),
+                        (Either2Bits::B(r_bits), Either2Bits::B(c_bits)) =>
+                            match (r_bits, c_bits) {
+                                (Either2Bits::A(r_fixed), Either2Bits::A(c_fixed)) => {
+                                    Arc::ptr_eq(r_fixed, c_fixed)
+                                },
+                                (Either2Bits::B(_), Either2Bits::B(_)) => {
+                                    return Err(LuceneError::illegal_state(
+                                        "live docs should be FixedBitSet",
+                                    ));
+                                },
+                                _ => false,
+                            },
+                        _ => false,
+                    },
+                    _ => false,
+                },
                 "non-nrt case must have identical liveDocs"
             ),
         }
-        true
+        Ok(true)
     }
     /// init most recent DocValues for the current commit
     fn init_doc_values_producer(
@@ -364,14 +380,23 @@ where
         CodecReader::get_doc_values_skipper(self, field)
     }
 
-    fn get_field_infos(&self) -> Result<&Rc<FieldInfos>> {
-        Ok(&self.field_infos)
+    fn get_field_infos(&self) -> Result<Rc<FieldInfos>> {
+        Ok(self.field_infos.clone())
     }
 
-    type Bits = <Lucene90LiveDocsFormat as LiveDocsFormat>::Bits;
+    type Bits = DocBits;
 
-    fn get_live_docs(&self) -> Result<Option<Arc<Self::Bits>>> {
-        Ok(self.live_docs.clone())
+    fn get_live_docs(&self) -> Result<Option<Self::Bits>> {
+        match &self.live_docs {
+            Some(DocBits::A(a)) => Ok(Some(DocBits::A(Arc::clone(a)))),
+            Some(DocBits::B(b)) => match b {
+                Either2Bits::A(a) => Ok(Some(DocBits::B(Either2Bits::A(Arc::clone(a))))),
+                Either2Bits::B(_) => Err(LuceneError::illegal_state(
+                    "live docs should be FixedBitSet",
+                )),
+            },
+            None => Ok(None),
+        }
     }
 }
 impl<D> CodecReader for SegmentReader<D>

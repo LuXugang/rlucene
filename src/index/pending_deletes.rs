@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::codecs::live_docs_format::LiveDocsFormat;
+use crate::codecs::lucene90_live_docs_format::Lucene90LiveDocsFormat;
 use crate::codecs::{Codec, get_default_code};
 use crate::index::codec_reader::CodecReader;
 use crate::index::doc_values_field_updates::{DocValuesFieldIteratorEnum, MergedIterator};
@@ -34,36 +35,36 @@ use std::fmt;
 use std::sync::Arc;
 
 /// This class handles accounting and applying pending deletes for live segment readers
-pub(crate) struct PendingDeletes<D>
-where
-    D: Directory,
-{
+pub(crate) struct PendingDeletes {
     // SegmentInfo#id
     pub(crate) info_id: String,
-    live_docs: Option<DocBits<D>>,
+    live_docs: Option<DocBits>,
     writeable_live_docs: bool,
     pub(crate) pending_delete_count: i32,
     pub(crate) live_docs_initialized: bool,
     max_doc: i32,
 }
-impl<D> PendingDeletes<D>
-where
-    D: Directory,
-{
-    pub(crate) fn from_reader(
+impl PendingDeletes {
+    pub(crate) fn from_reader<D>(
         reader: &SegmentReader<D>,
         info: &SegmentCommitInfo<D>,
-    ) -> Result<Self> {
+    ) -> Result<Self>
+    where
+        D: Directory,
+    {
         let mut v = Self::with(
             info.info.get_id_str(),
-            reader.get_live_docs()?.map(Either2Bits::A),
+            reader.get_live_docs()?,
             true,
             info.info.max_doc()?,
         );
         v.pending_delete_count = reader.num_deleted_docs()? - info.get_del_count();
         Ok(v)
     }
-    pub(crate) fn new(info: &SegmentCommitInfo<D>) -> Result<Self> {
+    pub(crate) fn new<D>(info: &SegmentCommitInfo<D>) -> Result<Self>
+    where
+        D: Directory,
+    {
         Ok(PendingDeletes::with(
             info.info.get_id_str(),
             None,
@@ -80,7 +81,7 @@ where
 
     pub(crate) fn with(
         info_id: String,
-        live_docs: Option<DocBits<D>>,
+        live_docs: Option<DocBits>,
         live_docs_initialized: bool,
         max_doc: i32,
     ) -> Self {
@@ -101,15 +102,29 @@ where
             "can't delete if liveDocs are not initialized"
         );
         if !self.writeable_live_docs {
-            self.live_docs = if self.live_docs.is_some() {
-                Some(Either2Bits::B(Either2Bits::B(
-                    self.live_docs.take().unwrap().copy_of(),
-                )))
-            } else {
-                let mut v = FixedBitSet::new(self.max_doc);
-                v.set_with_range(0, self.max_doc);
-                Some(Either2Bits::B(Either2Bits::B(v)))
-            };
+            self.writeable_live_docs = true;
+            self.live_docs = match &self.live_docs {
+                Some(bits) => match bits {
+                    Either2Bits::A(b) => {
+                        let v = b.copy_of();
+                        Some(Either2Bits::B(Either2Bits::B(v)))
+                    },
+                    Either2Bits::B(bs) => match bs {
+                        Either2Bits::A(fb) => {
+                            let v = fb.copy_of();
+                            Some(Either2Bits::B(Either2Bits::B(v)))
+                        },
+                        Either2Bits::B(_) => {
+                            return Err(LuceneError::illegal_state("should not here"));
+                        },
+                    },
+                },
+                None => {
+                    let mut v = FixedBitSet::new(self.max_doc);
+                    v.set_with_range(0, self.max_doc);
+                    Some(Either2Bits::B(Either2Bits::B(v)))
+                },
+            }
         }
         match self.live_docs.as_mut().unwrap() {
             Either2Bits::B(bs) => match bs {
@@ -146,23 +161,25 @@ where
         Ok(did_delete)
     }
     /// Returns a snapshot of the current live docs.
-    pub(crate) fn get_live_docs(&mut self) -> Option<LiveDocsBits<D>> {
+    pub(crate) fn get_live_docs(&mut self) -> Option<DocBits> {
         // Prevent modifications to the returned live docs
         self.writeable_live_docs = false;
         match self.live_docs.take() {
-            Some(Either2Bits::A(bits)) => {
-                self.live_docs = Some(Either2Bits::A(bits.clone()));
-                Some(Either2Bits::A(bits))
-            },
-            Some(Either2Bits::B(bits)) => match bits {
-                Either2Bits::A(fixed_bits) => {
-                    self.live_docs = Some(Either2Bits::B(Either2Bits::A(fixed_bits.clone())));
-                    Some(Either2Bits::B(fixed_bits))
+            Some(ref mut bits) => match bits {
+                Either2Bits::A(b) => {
+                    self.live_docs = Some(DocBits::A(b.clone()));
+                    Some(Either2Bits::A(b.clone()))
                 },
-                Either2Bits::B(fixed_bit_set) => {
-                    let v = Arc::new(fixed_bit_set.to_read_only_bits());
-                    self.live_docs = Some(Either2Bits::B(Either2Bits::A(v.clone())));
-                    Some(Either2Bits::B(v))
+                Either2Bits::B(b) => match b {
+                    Either2Bits::A(fb) => {
+                        self.live_docs = Some(DocBits::B(Either2Bits::A(fb.clone())));
+                        Some(Either2Bits::B(Either2Bits::A(fb.clone())))
+                    },
+                    Either2Bits::B(fbs) => {
+                        let fix_bit = Arc::new(std::mem::take(fbs).to_read_only_bits());
+                        self.live_docs = Some(DocBits::B(Either2Bits::A(fix_bit.clone())));
+                        Some(Either2Bits::B(Either2Bits::A(fix_bit)))
+                    },
                 },
             },
             None => None,
@@ -170,13 +187,45 @@ where
     }
 
     /// Returns a snapshot of the hard live docs.
-    pub(crate) fn get_hard_live_docs(&mut self) -> Option<LiveDocsBits<D>> {
+    pub(crate) fn get_hard_live_docs(&mut self) -> Option<DocBits> {
         self.get_live_docs()
     }
 
     /// Returns the number of pending deletes that are not yet flushed to disk.
     pub(crate) fn num_pending_deletes(&self) -> i32 {
         self.pending_delete_count
+    }
+    /// Called once a new reader is opened for this segment ie. when deletes or updates are applied.
+    pub(crate) fn on_new_reader<D>(
+        &mut self,
+        reader: &SegmentReader<D>,
+        info: &SegmentCommitInfo<D>,
+    ) -> Result<()>
+    where
+        D: Directory,
+    {
+        if !self.live_docs_initialized {
+            assert!(!self.writeable_live_docs);
+            if reader.has_deletions()? {
+                // we only initialize this once either in the ctor or here
+                // if we use the live docs from a reader it has to be in a situation where we don't
+                // have any existing live docs
+                debug_assert_eq!(
+                    self.pending_delete_count, 0,
+                    "pendingDeleteCount: {}",
+                    self.pending_delete_count
+                );
+                self.live_docs = reader.get_live_docs()?;
+
+                if let Some(Either2Bits::A(bits)) = &self.live_docs {
+                    let max_doc = info.info.max_doc()?;
+                    let del_count = info.get_del_count();
+                    debug_assert!(self.assert_check_live_docs(&**bits, max_doc, del_count));
+                }
+            }
+            self.live_docs_initialized = true;
+        }
+        Ok(())
     }
 
     fn assert_check_live_docs(
@@ -212,11 +261,14 @@ where
         self.pending_delete_count = 0;
     }
     /// Writes the live docs to disk and returns `true` if any new docs were written.
-    pub(crate) fn write_live_docs(
+    pub(crate) fn write_live_docs<D>(
         &mut self,
         dir: Arc<D>,
         info: &mut SegmentCommitInfo<D>,
-    ) -> Result<bool> {
+    ) -> Result<bool>
+    where
+        D: Directory,
+    {
         if self.pending_delete_count == 0 {
             return Ok(false);
         }
@@ -271,12 +323,13 @@ where
 
         Ok(true)
     }
-    pub(crate) fn is_fully_deleted<F>(
+    pub(crate) fn is_fully_deleted<D, F>(
         &self,
         _reader_io_supplier: F,
         info: &SegmentCommitInfo<D>,
     ) -> Result<bool>
     where
+        D: Directory,
         F: Fn() -> Arc<SegmentReader<D>>,
     {
         debug_assert!(info.info.max_doc()? == self.max_doc);
@@ -291,15 +344,30 @@ where
     }
 
     /// Returns true if the given reader needs to be refreshed to see the latest deletes
-    pub(crate) fn needs_refresh(
+    pub(crate) fn needs_refresh<D>(
         &mut self,
         reader: &SegmentReader<D>,
         info: &SegmentCommitInfo<D>,
-    ) -> Result<bool> {
+    ) -> Result<bool>
+    where
+        D: Directory,
+    {
         let same_live_docs = match (reader.get_live_docs()?, self.get_live_docs()) {
             (None, None) => true,
-            (Some(reader_bits), Some(Either2Bits::A(current_bits))) => {
-                Arc::ptr_eq(&reader_bits, &current_bits)
+            (Some(reader_bits), Some(current_bits)) => match (reader_bits, current_bits) {
+                (Either2Bits::A(r_bits), Either2Bits::A(c_bits)) => Arc::ptr_eq(&r_bits, &c_bits),
+                (Either2Bits::B(r_bits), Either2Bits::B(c_bits)) => match (r_bits, c_bits) {
+                    (Either2Bits::A(r_fixed), Either2Bits::A(c_fixed)) => {
+                        Arc::ptr_eq(&r_fixed, &c_fixed)
+                    },
+                    (Either2Bits::B(_), Either2Bits::B(_)) => {
+                        return Err(LuceneError::illegal_state(
+                            "live docs should be FixedBitSet",
+                        ));
+                    },
+                    _ => false,
+                },
+                _ => false,
             },
             _ => false,
         };
@@ -307,22 +375,31 @@ where
     }
 
     /// Returns the number of deleted docs in the segment.
-    pub(crate) fn get_del_count(&self, info: &SegmentCommitInfo<D>) -> i32 {
+    pub(crate) fn get_del_count<D>(&self, info: &SegmentCommitInfo<D>) -> i32
+    where
+        D: Directory,
+    {
         info.get_del_count() + info.get_soft_del_count() + self.num_pending_deletes()
     }
     /// Returns the number of live documents in this segment
-    pub(crate) fn num_docs(&self, info: &SegmentCommitInfo<D>) -> Result<i32> {
+    pub(crate) fn num_docs<D>(&self, info: &SegmentCommitInfo<D>) -> Result<i32>
+    where
+        D: Directory,
+    {
         debug_assert!(info.info.max_doc()? == self.max_doc);
         let max_doc = info.info.max_doc()?;
         Ok(max_doc - self.get_del_count(info))
     }
 
     // Call only from assert!
-    pub(crate) fn verify_doc_counts(
+    pub(crate) fn verify_doc_counts<D>(
         &mut self,
         reader: &impl CodecReader,
         info: &SegmentCommitInfo<D>,
-    ) -> Result<bool> {
+    ) -> Result<bool>
+    where
+        D: Directory,
+    {
         debug_assert!(info.info.max_doc()? == self.max_doc);
         let max_doc = info.info.max_doc()?;
         let mut count = 0;
@@ -376,16 +453,11 @@ where
         false
     }
 }
-pub(crate) type LiveDocsBits<D> =
-    Either2Bits<Arc<<SegmentReader<D> as LeafReader>::Bits>, Arc<FixedBit>>;
-pub(crate) type DocBits<D> = Either2Bits<
-    Arc<<SegmentReader<D> as LeafReader>::Bits>,
+pub(crate) type DocBits = Either2Bits<
+    Arc<<Lucene90LiveDocsFormat as LiveDocsFormat>::Bits>,
     Either2Bits<Arc<FixedBit>, FixedBitSet>,
 >;
-impl<D> fmt::Display for PendingDeletes<D>
-where
-    D: Directory,
-{
+impl fmt::Display for PendingDeletes {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -422,7 +494,7 @@ mod tests {
     #[allow(dead_code)] // for quick search
     struct TestPendingDeletes;
 
-    fn new_pending_deletes<D>(commit_info: &SegmentCommitInfo<D>) -> Result<PendingDeletes<D>>
+    fn new_pending_deletes<D>(commit_info: &SegmentCommitInfo<D>) -> Result<PendingDeletes>
     where
         D: Directory,
     {

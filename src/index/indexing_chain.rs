@@ -2113,13 +2113,13 @@ where
         self.base.get_doc_values_skipper(field)
     }
 
-    fn get_field_infos(&self) -> Result<&Rc<FieldInfos>> {
+    fn get_field_infos(&self) -> Result<Rc<FieldInfos>> {
         self.base.get_field_infos()
     }
 
     type Bits = <DocValuesLeafReader as LeafReader>::Bits;
 
-    fn get_live_docs(&self) -> Result<Option<Arc<Self::Bits>>> {
+    fn get_live_docs(&self) -> Result<Option<Self::Bits>> {
         self.base.get_live_docs()
     }
 }
@@ -2247,13 +2247,13 @@ where
         self.base.get_doc_values_skipper(field)
     }
 
-    fn get_field_infos(&self) -> Result<&Rc<FieldInfos>> {
+    fn get_field_infos(&self) -> Result<Rc<FieldInfos>> {
         self.base.get_field_infos()
     }
 
     type Bits = <DocValuesLeafReader as LeafReader>::Bits;
 
-    fn get_live_docs(&self) -> Result<Option<Arc<Self::Bits>>> {
+    fn get_live_docs(&self) -> Result<Option<Self::Bits>> {
         self.base.get_live_docs()
     }
 }

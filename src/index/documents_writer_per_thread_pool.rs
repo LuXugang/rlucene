@@ -350,7 +350,7 @@ mod tests {
 
         let v = pool.filter_and_lock(|_, _| true)?;
         for dwpt in v {
-            pool.checkout(&dwpt.id());
+            pool.checkout(dwpt.id());
             assert!(dwpt.state.is_locked());
             dwpt.unlock();
         }

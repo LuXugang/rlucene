@@ -806,32 +806,32 @@ pub(crate) mod tests {
     }
     impl MutablePointTree for DummyPointsReader {
         fn get_value(&self, i: usize, packed_value: &mut BytesRef<Vec<u8>>) {
-            let point = &self.points[i as usize].packed_value;
+            let point = &self.points[i].packed_value;
             packed_value.bytes = point.bytes.clone();
             packed_value.offset = point.offset;
             packed_value.length = point.length;
         }
 
         fn get_byte_at(&self, i: usize, k: usize) -> u8 {
-            let packed_value = &self.points[i as usize].packed_value;
-            packed_value.bytes[packed_value.offset + k as usize]
+            let packed_value = &self.points[i].packed_value;
+            packed_value.bytes[packed_value.offset + k]
         }
 
         fn get_doc_id(&self, i: usize) -> i32 {
-            self.points[i as usize].doc
+            self.points[i].doc
         }
 
         fn swap(&mut self, i: usize, j: usize) {
-            self.points.swap(i as usize, j as usize);
+            self.points.swap(i, j);
         }
 
         fn save(&mut self, i: usize, j: usize) {
-            self.temp[j as usize] = self.points[i as usize].clone();
+            self.temp[j] = self.points[i].clone();
         }
 
         fn restore(&mut self, i: usize, j: usize) {
-            let i = i as usize;
-            let j = j as usize;
+            let i = i;
+            let j = j;
             self.points[i..j].clone_from_slice(&self.temp[i..j]);
         }
     }
