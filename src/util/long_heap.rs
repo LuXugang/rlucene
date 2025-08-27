@@ -306,11 +306,11 @@ mod tests {
             pq.insert_with_overflow(new_entry);
             check_validity(&pq);
             let new_least = pq.top();
-            if let Some(last) = last_least {
-                if new_least != new_entry && new_least != last {
-                    assert!(new_least <= new_entry);
-                    assert!(new_least >= last);
-                }
+            if let Some(last) =
+                last_least.filter(|&last| new_least != new_entry && new_least != last)
+            {
+                assert!(new_least <= new_entry);
+                assert!(new_least >= last);
             }
             last_least = Some(new_least);
         }

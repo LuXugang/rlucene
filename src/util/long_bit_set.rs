@@ -677,35 +677,35 @@ mod tests {
             do_prev_set_bit(random, &aa, &bb);
 
             // bitwise ops
-            if let (Some(a0), Some(b0)) = (&a0, &b0) {
-                if b0.length() <= b.length() {
-                    assert_eq!(a.len(), b.cardinality() as usize);
+            if let (Some(a0), Some(b0)) = (&a0, &b0)
+                && b0.length() <= b.length()
+            {
+                assert_eq!(a.len(), b.cardinality() as usize);
 
-                    let mut a_and = a.clone();
-                    a_and.intersect_with(a0);
-                    let mut a_or = a.clone();
-                    a_or.union_with(a0);
-                    let mut a_xor = a.clone();
-                    a_xor.symmetric_difference_with(a0);
-                    let mut a_andn = a.clone();
-                    a_andn.difference_with(a0);
+                let mut a_and = a.clone();
+                a_and.intersect_with(a0);
+                let mut a_or = a.clone();
+                a_or.union_with(a0);
+                let mut a_xor = a.clone();
+                a_xor.symmetric_difference_with(a0);
+                let mut a_andn = a.clone();
+                a_andn.difference_with(a0);
 
-                    let mut b_and = b.clone();
-                    assert!(b == b_and);
-                    b_and.and(b0);
-                    let mut b_or = b.clone();
-                    b_or.or(b0);
-                    let mut b_xor = b.clone();
-                    b_xor.xor(b0);
-                    let mut b_andn = b.clone();
-                    b_andn.and_not(b0);
+                let mut b_and = b.clone();
+                assert!(b == b_and);
+                b_and.and(b0);
+                let mut b_or = b.clone();
+                b_or.or(b0);
+                let mut b_xor = b.clone();
+                b_xor.xor(b0);
+                let mut b_andn = b.clone();
+                b_andn.and_not(b0);
 
-                    assert_eq!(a0.len(), b0.cardinality() as usize);
-                    assert_eq!(a_or.len(), b_or.cardinality() as usize);
-                    assert_eq!(a_and.len(), b_and.cardinality() as usize);
-                    assert_eq!(a_xor.len(), b_xor.cardinality() as usize);
-                    assert_eq!(a_andn.len(), b_andn.cardinality() as usize);
-                }
+                assert_eq!(a0.len(), b0.cardinality() as usize);
+                assert_eq!(a_or.len(), b_or.cardinality() as usize);
+                assert_eq!(a_and.len(), b_and.cardinality() as usize);
+                assert_eq!(a_xor.len(), b_xor.cardinality() as usize);
+                assert_eq!(a_andn.len(), b_andn.cardinality() as usize);
             }
             a0 = Some(a);
             b0 = Some(b);

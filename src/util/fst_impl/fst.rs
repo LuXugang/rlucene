@@ -2104,8 +2104,9 @@ mod tests {
             node.is_final = true;
             fst_compiler.frontier[0] = Some(node);
             root_node.add_arc(b'a' as i32, NodeEnum::UnCompiledNode(0), no_output.clone())?;
-            let mut fronze = CompiledNode::default();
-            fronze.node = fst_compiler.add_node(0)?;
+            let fronze = CompiledNode {
+                node: fst_compiler.add_node(0)?,
+            };
 
             root_node.arcs[0].next_final_output = Rc::new(17);
             root_node.arcs[0].is_final = true;
@@ -2119,8 +2120,9 @@ mod tests {
             let node = UnCompiledNode::new(no_output.clone(), 0);
             fst_compiler.frontier[1] = Some(node);
             root_node.add_arc(b'b' as i32, NodeEnum::UnCompiledNode(1), no_output.clone())?;
-            let mut fronze = CompiledNode::default();
-            fronze.node = fst_compiler.add_node(1)?;
+            let fronze = CompiledNode {
+                node: fst_compiler.add_node(1)?,
+            };
 
             root_node.arcs[1].next_final_output = nothing.clone();
             root_node.arcs[1].output = Rc::new(42);

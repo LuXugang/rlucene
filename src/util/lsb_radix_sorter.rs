@@ -170,9 +170,9 @@ mod tests {
         expected.sort_unstable();
 
         let mut num_bits = 0;
-        for i in 0..len {
-            let v = PackedInts::bits_required(arr[i] as i64)?;
-            num_bits = std::cmp::max(num_bits, v);
+        for &val in &arr[..len] {
+            let v = PackedInts::bits_required(val as i64)?;
+            num_bits = num_bits.max(v);
         }
 
         if random.random_bool(0.5) {
@@ -219,9 +219,9 @@ mod tests {
         for _ in 0..10 {
             let mut arr = vec![0i32; 10_000];
             let mut a = 0;
-            for i in 0..arr.len() {
+            for val in arr.iter_mut() {
                 a += random.random_range(0..10);
-                arr[i] = a;
+                *val = a;
             }
 
             let len = TestUtil::next_int(&mut random, 0, arr.len() as i32) as usize;

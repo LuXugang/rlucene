@@ -483,13 +483,13 @@ pub(crate) mod tests {
         let mut prev_point: Option<&Point> = None;
         for (sorted_point, reader_point) in sorted_points.iter().zip(reader.points.iter()) {
             assert_eq!(sorted_point.packed_value, reader_point.packed_value);
-            if let Some(prev) = prev_point {
-                if reader_point.packed_value == prev.packed_value {
-                    assert!(
-                        reader_point.doc >= prev.doc,
-                        "Doc IDs not in ascending order"
-                    );
-                }
+            if let Some(prev) = prev_point
+                && reader_point.packed_value == prev.packed_value
+            {
+                assert!(
+                    reader_point.doc >= prev.doc,
+                    "Doc IDs not in ascending order"
+                );
             }
             prev_point = Some(reader_point);
         }
@@ -830,8 +830,6 @@ pub(crate) mod tests {
         }
 
         fn restore(&mut self, i: usize, j: usize) {
-            let i = i;
-            let j = j;
             self.points[i..j].clone_from_slice(&self.temp[i..j]);
         }
     }

@@ -443,14 +443,14 @@ mod tests {
                         let higher = level == num_levels - 1;
                         let not_on_above =
                             level < num_levels - 1 && nodes[level + 1][node].is_none();
-                        if (higher && node > 0) || not_on_above {
-                            if random.random::<f32>() > (-1f32 * level as f32).exp() {
-                                continue;
-                            }
+                        if ((higher && node > 0) || not_on_above)
+                            && random.random::<f32>() > (-(level as f32)).exp()
+                        {
+                            continue;
                         }
                     }
 
-                    let mut num_nbrs = random.random_range(0..((num_nodes + 7) / 8));
+                    let mut num_nbrs = random.random_range(0..num_nodes.div_ceil(8));
                     if level == 0 {
                         num_nbrs *= 2;
                     }
@@ -613,11 +613,12 @@ mod tests {
 
         fn get_nodes_on_level(&mut self, level: usize) -> Result<Self::NodeIterator> {
             let mut count = 0;
-            for (_, neighbors) in self.nodes[level].iter().enumerate() {
+            for neighbors in &self.nodes[level] {
                 if neighbors.is_some() {
                     count += 1;
                 }
             }
+
             let final_count = count;
             let v = NodeIteratorImpl::new(self.nodes.clone(), final_count, level);
             Ok(v)

@@ -1882,14 +1882,15 @@ mod tests {
         let grow_size = TestUtil::next_long(&mut random, writer.size() / 2, writer.size() * 3 / 2);
         let grow = writer.grow_with_size(grow_size)?;
         let grow_len;
-        if grow.is_some() {
-            let new_writer = grow.unwrap();
+        if let Some(new_writer) = grow {
             grow_len = new_writer.size();
-            for i in 0..grow_len {
+            for (i, val) in
+                (0..grow_len).map(|i| (i, new_writer.get_immutable(i).expect("should not fail")))
+            {
                 if i < writer.size() {
-                    assert_eq!(new_writer.get_immutable(i)?, writer.get_immutable(i)?);
+                    assert_eq!(val, writer.get_immutable(i)?);
                 } else {
-                    assert_eq!(new_writer.get_immutable(i)?, 0);
+                    assert_eq!(val, 0);
                 }
             }
         }

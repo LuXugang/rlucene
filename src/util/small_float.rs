@@ -334,12 +334,12 @@ mod tests {
     fn test_byte4() -> Result<()> {
         let mut random = random();
         let mut decoded = [0i32; 256];
-        for b in 0..256 {
-            decoded[b] = SmallFloat::byte4_to_int(b as u8)?;
-            assert_eq!(b as u8, SmallFloat::int_to_byte4(decoded[b])?,);
+        for (b, decoded_val) in decoded.iter_mut().enumerate() {
+            *decoded_val = SmallFloat::byte4_to_int(b as u8)?;
+            assert_eq!(b as u8, SmallFloat::int_to_byte4(*decoded_val)?);
         }
-        for i in 1..256 {
-            assert!(decoded[i] > decoded[i - 1]);
+        for (i, window) in decoded.windows(2).enumerate() {
+            assert!(window[1] > window[0], "failed at index {}", i + 1);
         }
 
         assert_eq!(255u8, SmallFloat::int_to_byte4(i32::MAX)?);

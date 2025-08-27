@@ -560,7 +560,7 @@ mod tests {
 
             string_list.sort_by(|a, b| TestUtil::string_codepoint_comparator(a, b));
             {
-                let mut iter1 = SortableBytesRefArray::iterator(&mut list, Natural::default())?;
+                let mut iter1 = SortableBytesRefArray::iterator(&list, Natural::default())?;
 
                 let mut i = 0;
                 while let Some(next) = iter1.next()? {
@@ -580,7 +580,7 @@ mod tests {
                 );
             }
 
-            let mut iter2 = SortableBytesRefArray::iterator(&mut list, NaturalOrder::default())?;
+            let mut iter2 = SortableBytesRefArray::iterator(&list, NaturalOrder::default())?;
             let mut i = 0;
             while let Some(next) = iter2.next()? {
                 assert_eq!(
@@ -654,11 +654,11 @@ mod tests {
                     i
                 );
 
-                if let Some(last_ref) = &last {
-                    if next == *last_ref {
-                        let ord = iter.ord();
-                        assert!(ord > last_ord, "sort not stable: {} <= {}", ord, last_ord);
-                    }
+                if let Some(last_ref) = &last
+                    && next == *last_ref
+                {
+                    let ord = iter.ord();
+                    assert!(ord > last_ord, "sort not stable: {} <= {}", ord, last_ord);
                 }
 
                 last = Some(BytesRef::deep_copy_of(&next));

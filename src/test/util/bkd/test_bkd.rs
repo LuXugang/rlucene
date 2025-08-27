@@ -1890,7 +1890,7 @@ impl MutablePointTree for MutablePointTreeMock1 {
     fn get_byte_at(&self, i: usize, k: usize) -> u8 {
         let mut b = BytesRef::new();
         self.get_value(i, &mut b);
-        b.bytes[b.offset + k as usize]
+        b.bytes[b.offset + k]
     }
 
     fn get_doc_id(&self, _i: usize) -> i32 {
@@ -1975,31 +1975,31 @@ impl Clone for MutablePointTreeMock2 {
 
 impl MutablePointTree for MutablePointTreeMock2 {
     fn get_value(&self, i: usize, packed_value: &mut BytesRef<Vec<u8>>) {
-        packed_value.bytes = self.point_values[i as usize].clone();
+        packed_value.bytes = self.point_values[i].clone();
         packed_value.offset = 0;
         packed_value.length = self.num_bytes_per_dim as usize;
     }
 
     fn get_byte_at(&self, i: usize, k: usize) -> u8 {
-        self.point_values[i as usize][k as usize]
+        self.point_values[i][k]
     }
 
     fn get_doc_id(&self, i: usize) -> i32 {
-        self.doc_id[i as usize]
+        self.doc_id[i]
     }
 
     fn swap(&mut self, i: usize, j: usize) {
-        self.point_values.swap(i as usize, j as usize);
-        self.doc_id.swap(i as usize, j as usize)
+        self.point_values.swap(i, j);
+        self.doc_id.swap(i, j)
     }
 
     fn save(&mut self, i: usize, j: usize) {
-        self.tmp_values[j as usize] = self.point_values[i as usize].clone();
-        self.tmp_docs[j as usize] = self.doc_id[i as usize];
+        self.tmp_values[j] = self.point_values[i].clone();
+        self.tmp_docs[j] = self.doc_id[i];
     }
 
     fn restore(&mut self, i: usize, j: usize) {
-        for k in i as usize..j as usize {
+        for k in i..j {
             self.point_values[k] = self.tmp_values[k].clone();
             self.doc_id[k] = self.tmp_docs[k];
         }

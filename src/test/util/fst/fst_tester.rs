@@ -496,14 +496,14 @@ where
                 &mut self.random,
             )?;
             let key = scratch.get();
-            let expected = terms_map.get(&key).expect(&format!(
+            let expected = terms_map.get(key).expect(&format!(
                 "accepted word {} is not valid",
-                fst_tester_util::input_to_string(input_mode, &key)?
+                fst_tester_util::input_to_string(input_mode, key)?
             ));
             assert!(
                 self.outputs_equal(expected, &output),
                 "mismatched output for {}",
-                fst_tester_util::input_to_string(input_mode, &key)?
+                fst_tester_util::input_to_string(input_mode, key)?
             );
         }
 
@@ -775,7 +775,7 @@ pub mod fst_tester_util {
         } else if input_mode == 0 {
             // utf8
             let br = get_bytes_ref(term);
-            return Ok(format!("{} {}", br.utf8_to_string()?, term));
+            Ok(format!("{} {}", br.utf8_to_string()?, term))
         } else {
             term.ints.access(|ints| {
                 let s = UnicodeUtil::new_string(&ints, term.offset, term.length)?;
