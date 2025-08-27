@@ -80,10 +80,10 @@ impl Operations {
         let mut state_offset = 0;
         let mut t = Transition::default();
         for i in 0..l.len() {
-            let a = &l[i];
+            let a = l[i];
             let num_states = a.get_num_states();
             let next_a = if i + 1 < l.len() {
-                Some(&l[i + 1])
+                Some(l[i + 1])
             } else {
                 None
             };
@@ -115,7 +115,7 @@ impl Operations {
                             if fa.is_accept(0) {
                                 follow_offset += fa.get_num_states();
                                 if upto + 1 < l.len() {
-                                    follow_a = Some(&l[upto + 1]);
+                                    follow_a = Some(l[upto + 1]);
                                 } else {
                                     follow_a = None;
                                 }
@@ -1773,7 +1773,7 @@ pub(crate) mod tests {
                 next_level_states.push(next_state);
             }
 
-            for &last_state in &last_level_states {
+            for last_state in last_level_states {
                 for &next_state in &next_level_states {
                     // if hasCycle is enabled, we will always add a transition, so we could make
                     // sure the generated Automaton has a cycle.
