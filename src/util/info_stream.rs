@@ -35,7 +35,7 @@ pub trait InfoStream: Send + Sync {
 
 /// A global, thread-safe reference to a default `InfoStream`,
 /// mirroring `private static InfoStream defaultInfoStream` in Java.
-static DEFAULT_INFOSTREAM: Lazy<Arc<InfoStreamEnum>> =
+static DEFAULT_INFO_STREAM: Lazy<Arc<InfoStreamEnum>> =
     Lazy::new(|| Arc::new(InfoStreamEnum::NoOutput(NoOutput)));
 
 /// Instance of InfoStream that does no logging at all.
@@ -61,7 +61,7 @@ impl InfoStream for NoOutput {
 
 /// The default `InfoStream` used by a newly instantiated classes.
 pub fn get_default_info_stream() -> Arc<InfoStreamEnum> {
-    DEFAULT_INFOSTREAM.clone()
+    DEFAULT_INFO_STREAM.clone()
 }
 
 /// Sets the default [`InfoStream`] used by a newly instantiated classes.
