@@ -115,19 +115,8 @@ impl FSLockFactory for NativeFSLockFactory {
         let file = OpenOptions::new()
             .write(true)
             .create_new(true)
-            .truncate(true)
             .open(&lock_file)
-            .or_else(|e| {
-                if e.kind() == std::io::ErrorKind::AlreadyExists {
-                    Ok(File::open(&lock_file)?)
-                } else {
-                    Err(LuceneError::io_with_path(
-                        lock_file.to_string_lossy().to_string(),
-                        e,
-                    ))
-                }
-            })?;
-
+            .map_err(|e| LuceneError::io_with_path(lock_file.to_string_lossy().to_string(), e))?;
         let real_path = lock_file
             .canonicalize()
             .map_err(|e| LuceneError::io_with_path(lock_file.to_string_lossy().to_string(), e))?;
@@ -153,7 +142,7 @@ impl FSLockFactory for NativeFSLockFactory {
             Err(_) => {
                 lock_held.remove(&real_path_str);
                 Err(LuceneError::lock_held_by_other(format!(
-                    "Lock held by this virtual machine: {real_path_str}"
+                    "Lock held by this machine: {real_path_str}"
                 )))
             },
         }
@@ -230,7 +219,7 @@ impl Lock for NativeFSLock {
             )));
         }
 
-        if self.file.try_lock_exclusive().is_ok() {
+        if self.file.try_lock_exclusive().is_err() {
             return Err(LuceneError::illegal_state(format!(
                 "File lock invalidated by an external force: {:?}",
                 self.path

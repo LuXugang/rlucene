@@ -556,7 +556,7 @@ mod tests {
         // TODO: ByteBuffersDirectory 没有实现
         let mut random = random();
         let dir = Arc::new(new_directory(&mut random)?);
-        let lock = dir.obtain_lock("")?;
+        let lock = dir.obtain_lock("writer_lock")?;
         let lock_dir = Arc::new(LockValidatingDirectoryWrapper::new(dir.clone(), lock));
         let si = SegmentInfo::new(
             dir.clone(),
@@ -576,7 +576,8 @@ mod tests {
 
         let mut deletes = new_pending_deletes(&commit_info)?;
         assert!(!deletes.write_live_docs(lock_dir.clone(), &mut commit_info)?);
-        assert_eq!(dir.list_all()?.len(), 0);
+        // contain "writer_lock"
+        assert_eq!(dir.list_all()?.len(), 1);
 
         let second_doc_deletes: bool = random.random_bool(0.5);
         deletes.delete(5)?;
@@ -592,7 +593,8 @@ mod tests {
         assert_eq!(deletes.num_pending_deletes(), expected_pending);
 
         assert!(deletes.write_live_docs(lock_dir.clone(), &mut commit_info)?);
-        assert_eq!(dir.list_all()?.len(), 1);
+        // contain "writer_lock"
+        assert_eq!(dir.list_all()?.len(), 2);
 
         let codec = get_default_code();
         let live_docs = codec.live_docs_format().read_live_docs(
@@ -616,7 +618,8 @@ mod tests {
 
         deletes.delete(0)?;
         assert!(deletes.write_live_docs(lock_dir.clone(), &mut commit_info)?);
-        assert_eq!(dir.list_all()?.len(), 2);
+        // contain "writer_lock"
+        assert_eq!(dir.list_all()?.len(), 3);
 
         let live_docs = codec.live_docs_format().read_live_docs(
             &*dir,
@@ -673,7 +676,7 @@ mod tests {
         )?;
 
         let mut deletes = new_pending_deletes(&commit_info)?;
-        let lock = dir.obtain_lock("")?;
+        let lock = dir.obtain_lock("write_lock")?;
         let lock_dir = Arc::new(LockValidatingDirectoryWrapper::new(dir.clone(), lock));
 
         for i in 0..3 {

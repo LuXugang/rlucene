@@ -83,7 +83,6 @@ where
         suffix: &str,
         context: &IOContext,
     ) -> Result<Self::IndexOutput> {
-        self.write_lock.ensure_valid()?;
         self.base
             .delegate
             .create_temp_output(prefix, suffix, context)
