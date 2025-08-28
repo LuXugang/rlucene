@@ -66,18 +66,6 @@ use std::cell::RefCell;
 use std::io::Cursor;
 use std::rc::Rc;
 
-pub mod lucene90_ctvr_util {
-    pub(super) const PREFETCH_CACHE_SIZE: usize = 1 << 4;
-    pub(crate) const PREFETCH_CACHE_MASK: usize = PREFETCH_CACHE_SIZE - 1;
-    pub(crate) fn sum(arr: &[i32]) -> i32 {
-        let mut sum = 0;
-        for &el in arr {
-            sum += el;
-        }
-        sum
-    }
-}
-
 pub struct Lucene90CompressingTermVectorsReader<I>
 where
     I: IndexInput,
@@ -104,7 +92,7 @@ where
     // Cache of recently prefetched block IDs. This helps reduce chances of prefetching the same block
     // multiple times, which is otherwise likely due to index sorting or recursive graph bisection
     // clustering similar documents together. NOTE: this cache must be small since it's fully scanned.
-    prefetched_block_id_cache: [i64; lucene90_ctvr_util::PREFETCH_CACHE_SIZE],
+    prefetched_block_id_cache: [i64; PREFETCH_CACHE_SIZE],
     prefetched_block_id_cache_index: usize,
 }
 
@@ -215,7 +203,7 @@ where
             CodecUtil::check_footer(&mut meta)?;
             meta_in = Some(meta);
 
-            let prefetched_block_id_cache = [-1i64; lucene90_ctvr_util::PREFETCH_CACHE_SIZE];
+            let prefetched_block_id_cache = [-1i64; PREFETCH_CACHE_SIZE];
 
             Ok(Self {
                 field_infos,
@@ -266,7 +254,7 @@ where
             max_pointer: reader.max_pointer,
             closed: false,
             block_state: BlockState::new(-1, -1, 0),
-            prefetched_block_id_cache: [-1; lucene90_ctvr_util::PREFETCH_CACHE_SIZE],
+            prefetched_block_id_cache: [-1; PREFETCH_CACHE_SIZE],
             prefetched_block_id_cache_index: 0,
         })
     }
@@ -465,7 +453,7 @@ where
         let block_length = self.index_reader.get_block_length(block_id)?;
         self.vectors_stream
             .prefetch(block_start_pointer, block_length)?;
-        let idx = self.prefetched_block_id_cache_index & lucene90_ctvr_util::PREFETCH_CACHE_MASK;
+        let idx = self.prefetched_block_id_cache_index & PREFETCH_CACHE_MASK;
         self.prefetched_block_id_cache[idx] = block_id;
         self.prefetched_block_id_cache_index += 1;
         Ok(())
@@ -668,8 +656,8 @@ where
                         j += 1;
                     }
                 }
-                doc_len += lucene90_ctvr_util::sum(&field_suffix_lengths);
-                field_lengths[i] = lucene90_ctvr_util::sum(&field_suffix_lengths);
+                doc_len += sum(&field_suffix_lengths);
+                field_lengths[i] = sum(&field_suffix_lengths);
                 suffix_lengths[i] = field_suffix_lengths;
             }
 
@@ -944,7 +932,7 @@ where
             }
         }
 
-        debug_assert_eq!(lucene90_ctvr_util::sum(&field_lengths), doc_len);
+        debug_assert_eq!(sum(&field_lengths), doc_len);
 
         Ok(Some(TVFields::new(
             field_nums,
@@ -1612,4 +1600,13 @@ impl PostingsEnum for TVPostingsEnum {
             Ok(Some(Cow::Owned(v)))
         }
     }
+}
+const PREFETCH_CACHE_SIZE: usize = 1 << 4;
+pub(crate) const PREFETCH_CACHE_MASK: usize = PREFETCH_CACHE_SIZE - 1;
+pub(crate) fn sum(arr: &[i32]) -> i32 {
+    let mut sum = 0;
+    for &el in arr {
+        sum += el;
+    }
+    sum
 }
