@@ -20,7 +20,7 @@ use std::sync::atomic::{AtomicI64, Ordering};
 use crate::codecs::LATEST_CODEC;
 use crate::codecs::codec::Codec;
 use crate::codecs::live_docs_format::LiveDocsFormat;
-use crate::index::segment_info::{SegmentInfo, segment_info_util};
+use crate::index::segment_info::{SegmentInfo, named_for_this_segment};
 use crate::store::directory::Directory;
 use crate::util::StringHelper;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -130,7 +130,7 @@ where
         for (key, file_set) in dv_updates_files {
             let renamed_set: HashSet<String> = file_set
                 .into_iter()
-                .map(|file| segment_info_util::named_for_this_segment(&self.info.name, file))
+                .map(|file| named_for_this_segment(&self.info.name, file))
                 .collect();
             self.dv_updates_files.insert(key, renamed_set);
         }
@@ -145,10 +145,7 @@ where
         self.field_infos_files.clear();
         for file in field_infos_files {
             self.field_infos_files
-                .insert(segment_info_util::named_for_this_segment(
-                    &self.info.name,
-                    file,
-                ));
+                .insert(named_for_this_segment(&self.info.name, file));
         }
     }
 

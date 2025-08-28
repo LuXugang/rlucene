@@ -355,7 +355,7 @@ where
         match self.set_files {
             Some(ref mut set_files) => {
                 for f in files {
-                    set_files.insert(segment_info_util::named_for_this_segment(&self.name, f));
+                    set_files.insert(named_for_this_segment(&self.name, f));
                 }
             },
             None => return Err(LuceneError::illegal_state("set_files was not initialized")),
@@ -489,12 +489,11 @@ where
         }
     }
 }
-pub mod segment_info_util {
-    use crate::index::IndexFileNames;
 
-    /// Strips any segment name from the file and renames it with this segment.
-    /// This is because "segment names" can change, e.g., by addIndexes(Dir).
-    pub fn named_for_this_segment(name: &str, file: String) -> String {
-        format!("{}{}", name, IndexFileNames::strip_segment_name(&file))
-    }
+use crate::index::IndexFileNames;
+
+/// Strips any segment name from the file and renames it with this segment.
+/// This is because "segment names" can change, e.g., by addIndexes(Dir).
+pub fn named_for_this_segment(name: &str, file: String) -> String {
+    format!("{}{}", name, IndexFileNames::strip_segment_name(&file))
 }
