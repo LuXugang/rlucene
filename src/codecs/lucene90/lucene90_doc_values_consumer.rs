@@ -55,7 +55,7 @@ use crate::util::compress::lz4::{FastCompressionHashTable, HashTableEnum, LZ4};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::math_util::MathUtil;
 use crate::util::packed::direct_monotonic_writer::DirectMonotonicWriter;
-use crate::util::packed::direct_writer::{DirectWriter, direct_writer_util};
+use crate::util::packed::direct_writer::{unsigned_bits_required, DirectWriter};
 use crate::util::{CoreHelper, StringHelper};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -390,14 +390,14 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
             self.meta.write_int(-1)?;
         } else if let Some(set) = unique_values.as_ref() {
             if set.len() > 1
-                && direct_writer_util::unsigned_bits_required(set.len() as i64 - 1)
-                    < direct_writer_util::unsigned_bits_required((max - min) / gcd)
+                && unsigned_bits_required(set.len() as i64 - 1)
+                    < unsigned_bits_required((max - min) / gcd)
             {
                 let mut sorted: Vec<i64> = set.iter().cloned().collect();
                 sorted.sort_unstable();
                 debug_assert!(sorted.len() <= i32::MAX as usize);
                 let set_len = sorted.len() as i32;
-                num_bits_per_value = direct_writer_util::unsigned_bits_required(set_len as i64 - 1);
+                num_bits_per_value = unsigned_bits_required(set_len as i64 - 1);
                 self.meta.write_int(set_len)?;
                 for v in &sorted {
                     self.meta.write_long(*v)?;
@@ -421,11 +421,11 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
                         .write_int(-2 - Lucene90DocValuesFormat::NUMERIC_BLOCK_SHIFT)?;
                 } else {
                     num_bits_per_value =
-                        direct_writer_util::unsigned_bits_required((max - min) / gcd);
+                        unsigned_bits_required((max - min) / gcd);
                     if gcd == 1
                         && min > 0
-                        && direct_writer_util::unsigned_bits_required(max)
-                            == direct_writer_util::unsigned_bits_required(max - min)
+                        && unsigned_bits_required(max)
+                            == unsigned_bits_required(max - min)
                     {
                         min = 0;
                     }
@@ -556,7 +556,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
             self.data.write_byte(0)?;
             self.data.write_long(min)?;
         } else {
-            let bits_per_value = direct_writer_util::unsigned_bits_required((max - min) / gcd);
+            let bits_per_value = unsigned_bits_required((max - min) / gcd);
 
             buffer.reset();
             assert_eq!(buffer.size(), 0);
@@ -1119,7 +1119,7 @@ impl MinMaxTracker {
     /// Update the required space
     pub fn finish(&mut self) {
         if self.max > self.min {
-            let bits = direct_writer_util::unsigned_bits_required(self.max - self.min);
+            let bits = unsigned_bits_required(self.max - self.min);
             self.space_in_bits += bits as i64 * self.num_values;
         }
     }

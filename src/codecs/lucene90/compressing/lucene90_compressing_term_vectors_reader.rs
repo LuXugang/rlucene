@@ -59,7 +59,7 @@ use crate::util::long_values::LongValues;
 use crate::util::packed::Format::Packed;
 use crate::util::packed::block_packed_reader_iterator::BlockPackedReaderIterator;
 use crate::util::packed::direct_reader::DirectReader;
-use crate::util::packed::direct_writer::{DirectWriter, direct_writer_util};
+use crate::util::packed::direct_writer::{bits_required, DirectWriter};
 use crate::util::packed::{PackedImpl, PackedInts, ReaderIterator};
 use std::borrow::Cow;
 use std::cell::RefCell;
@@ -526,7 +526,7 @@ where
         // read field numbers and flags
         let mut field_num_offs = vec![0i32; num_fields];
         let mut flags = {
-            let bits_per_off = direct_writer_util::bits_required((field_nums.len() - 1) as i64)?;
+            let bits_per_off = bits_required((field_nums.len() - 1) as i64)?;
             let mut all_field_num_offs = DirectReader::get_instance(
                 Rc::new(RefCell::new(Self::slice(&mut self.vectors_stream)?)),
                 bits_per_off,

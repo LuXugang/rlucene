@@ -204,7 +204,7 @@ where
     /// Returns an instance suitable for encoding `numValues` using
     /// `bitsPerValue`.
     pub fn get_instance(output: &'a mut D, num_values: i64, bits_per_value: i32) -> Result<Self> {
-        match direct_writer_util::SUPPORTED_BITS_PER_VALUE.binary_search(&bits_per_value) {
+        match SUPPORTED_BITS_PER_VALUE.binary_search(&bits_per_value) {
             Ok(_) => (),
             Err(_) => {
                 return Err(LuceneError::illegal_argument(format!(
@@ -215,8 +215,7 @@ where
         DirectWriter::new(output, num_values, bits_per_value)
     }
 }
-pub mod direct_writer_util {
-    use crate::util::packed::PackedInts;
+
 
     /// Round a number of bits per value to the next amount of bits per value
     /// that is supported by this writer.
@@ -263,4 +262,4 @@ pub mod direct_writer_util {
     /// `PackedInts::unsigned_bits_required(long)`
     pub(crate) const SUPPORTED_BITS_PER_VALUE: [i32; 14] =
         [1, 2, 4, 8, 12, 16, 20, 24, 28, 32, 40, 48, 56, 64];
-}
+

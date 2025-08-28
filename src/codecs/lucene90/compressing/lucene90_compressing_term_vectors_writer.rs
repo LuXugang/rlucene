@@ -32,7 +32,7 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::packed::Format::Packed;
 use crate::util::packed::abstract_block_packed_writer::AbstractBlockPackedWriter;
 use crate::util::packed::block_packed_writer::BlockPackedWriter;
-use crate::util::packed::direct_writer::{DirectWriter, direct_writer_util};
+use crate::util::packed::direct_writer::{bits_required, DirectWriter};
 use crate::util::packed::{PackedImpl, PackedInts, Writer};
 use crate::util::{SliceCopyOps, StringHelper};
 use once_cell::sync::Lazy;
@@ -337,7 +337,7 @@ where
     fn flush_fields(&mut self, total_fields: i32, field_nums: &[i32]) -> Result<()> {
         self.scratch_buffer.reset();
 
-        let bits_required = direct_writer_util::bits_required((field_nums.len() - 1) as i64)?;
+        let bits_required = bits_required((field_nums.len() - 1) as i64)?;
         let mut writer = DirectWriter::get_instance(
             &mut self.scratch_buffer,
             total_fields as i64,
@@ -446,7 +446,7 @@ where
             }
         }
 
-        let bits_required = direct_writer_util::bits_required(max_num_terms as i64)?;
+        let bits_required = bits_required(max_num_terms as i64)?;
         self.vectors_stream.write_vint(bits_required)?;
 
         self.scratch_buffer.reset();

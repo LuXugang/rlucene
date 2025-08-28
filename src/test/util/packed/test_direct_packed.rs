@@ -39,7 +39,7 @@ pub struct TestDirectPacked;
 fn test_simple() -> Result<()> {
     let mut random = random();
     let dir = new_directory(&mut random)?;
-    let bits_per_value = direct_writer_util::bits_required(2)?;
+    let bits_per_value = bits_required(2)?;
     {
         let mut output = dir.create_output("foo", &IOContext::default_io_context()?)?;
         let mut writer = DirectWriter::get_instance(&mut output, 5, bits_per_value)?;
@@ -66,7 +66,7 @@ fn test_simple() -> Result<()> {
 fn test_not_enough_values() -> Result<()> {
     let mut random = random();
     let dir = new_directory(&mut random)?;
-    let bits_per_value = direct_writer_util::bits_required(2)?;
+    let bits_per_value = bits_required(2)?;
     {
         let mut output = dir.create_output("foo", &IOContext::default_io_context()?)?;
         let mut writer = DirectWriter::get_instance(&mut output, 5, bits_per_value)?;
@@ -135,7 +135,7 @@ fn do_test_bpv<R: Rng + ?Sized>(
         let bits_required = if bpv == 64 {
             64
         } else {
-            direct_writer_util::bits_required(1i64 << (bpv - 1))?
+            bits_required(1i64 << (bpv - 1))?
         };
         let name = format!("bpv{}_{}", bpv, i);
         {

@@ -17,7 +17,7 @@
 use crate::store::IndexOutput;
 use crate::util::array_util::ArrayUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::packed::direct_writer::{DirectWriter, direct_writer_util};
+use crate::util::packed::direct_writer::{unsigned_bits_required, DirectWriter};
 /// Write monotonically-increasing sequences of integers. This writer splits
 /// data into blocks and then for each block, computes the average slope, the
 /// minimum value, and encodes only the delta from the expected value using a
@@ -131,7 +131,7 @@ where
         if max_delta == 0 {
             self.meta.write_byte(0)?;
         } else {
-            let bits_required = direct_writer_util::unsigned_bits_required(max_delta);
+            let bits_required = unsigned_bits_required(max_delta);
             let mut writer =
                 DirectWriter::get_instance(self.data, self.buffer_size as i64, bits_required)?;
             for i in 0..(self.buffer_size as usize) {
