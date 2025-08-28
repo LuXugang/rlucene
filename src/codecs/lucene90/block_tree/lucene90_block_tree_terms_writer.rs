@@ -1342,7 +1342,7 @@ pub(crate) fn write_msb_vlong(out: &mut impl DataOutput, mut l: i64) -> Result<(
 
 #[cfg(test)]
 mod tests {
-    use crate::codecs::block_tree::field_reader::field_reader_util;
+    use crate::codecs::block_tree::field_reader::read_msb_vlong;
     use crate::codecs::block_tree::lucene90_block_tree_terms_writer::write_msb_vlong;
     use crate::store::{ByteArrayDataInput, ByteArrayDataOutput};
     use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
@@ -1368,7 +1368,7 @@ mod tests {
         let buffer = output.bytes.clone();
         let len = output.get_position();
         let mut input = ByteArrayDataInput::with_range(buffer, 0, len);
-        let recovered = field_reader_util::read_msb_vlong(&mut input)?;
+        let recovered = read_msb_vlong(&mut input)?;
         assert_eq!(
             recovered, l,
             "Mismatch in MSB VLong roundtrip: {} != {}",

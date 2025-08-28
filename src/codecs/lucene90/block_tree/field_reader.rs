@@ -129,7 +129,7 @@ where
     pub(crate) fn read_vlong_output(&self, input: &mut impl DataInput) -> Result<i64> {
         let version = self.parent.version;
         if version >= VERSION_MSB_VLONG_OUTPUT {
-            field_reader_util::read_msb_vlong(input)
+            read_msb_vlong(input)
         } else {
             input.read_vlong()
         }
@@ -257,26 +257,22 @@ where
     }
 }
 
-pub(crate) mod field_reader_util {
-    use crate::store::DataInput;
-
-    /// Decodes a variable-length `byte[]` in MSB order back to a `long`,
-    /// as written by
-    /// [`Lucene90BlockTreeTermsWriter::write_msb_vlong`](crate::codecs::lucene90::lucene90_block_trree_terms_writer::Lucene90BlockTreeTermsWriter::write_msb_vlong).
-    ///
-    ///
-    /// Package-private for testing.
-    pub(crate) fn read_msb_vlong(
-        input: &mut impl DataInput,
-    ) -> crate::util::error::lucene_error::Result<i64> {
-        let mut l: i64 = 0;
-        loop {
-            let b = input.read_byte()?;
-            l = (l << 7) | (b & 0x7F) as i64;
-            if (b & 0x80) == 0 {
-                break;
-            }
+/// Decodes a variable-length `byte[]` in MSB order back to a `long`,
+/// as written by
+/// [`Lucene90BlockTreeTermsWriter::write_msb_vlong`](crate::codecs::lucene90::lucene90_block_trree_terms_writer::Lucene90BlockTreeTermsWriter::write_msb_vlong).
+///
+///
+/// Package-private for testing.
+pub(crate) fn read_msb_vlong(
+    input: &mut impl DataInput,
+) -> crate::util::error::lucene_error::Result<i64> {
+    let mut l: i64 = 0;
+    loop {
+        let b = input.read_byte()?;
+        l = (l << 7) | (b & 0x7F) as i64;
+        if (b & 0x80) == 0 {
+            break;
         }
-        Ok(l)
     }
+    Ok(l)
 }
