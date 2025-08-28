@@ -86,8 +86,8 @@ use crate::util::allocator_byte::{
 };
 use crate::util::array_util::ArrayUtil;
 use crate::util::attribute_source::{AttributeSource, EmptyAttributeSource};
-use crate::util::bit_set::Either2BitSet;
-use crate::util::bit_set::{BitSet, bit_set_util};
+use crate::util::bit_set::BitSet;
+use crate::util::bit_set::{Either2BitSet, of};
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
@@ -221,9 +221,7 @@ where
         let parent_bit_set = if use_parent {
             let parent_field = *parent_field.as_ref().unwrap();
             match doc_values_reader.get_numeric_doc_values(parent_field)? {
-                Some(ref mut reader_values) => {
-                    Some(Rc::new(bit_set_util::of(reader_values, max_doc)?))
-                },
+                Some(ref mut reader_values) => Some(Rc::new(of(reader_values, max_doc)?)),
                 None => {
                     return Err(LuceneError::corrupt_index(format!(
                         "missing doc values for parent field {parent_field} IndexingChain"

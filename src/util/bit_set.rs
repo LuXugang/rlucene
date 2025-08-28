@@ -79,7 +79,7 @@ pub trait BitSet: Bits + Accountable {
     fn or<T: DocIdSetIterator>(&mut self, iter: &mut T) -> Result<()>;
 
     fn default_or<T: DocIdSetIterator>(&mut self, iter: &mut T) -> Result<()> {
-        bit_set_util::check_unpositioned(iter)?;
+        check_unpositioned(iter)?;
         loop {
             let doc = iter.next_doc()?;
             if doc == NO_MORE_DOCS {
@@ -91,45 +91,6 @@ pub trait BitSet: Bits + Accountable {
     }
 
     fn ensure_capacity(&mut self, _num_bits: i32) {}
-}
-pub mod bit_set_util {
-    use crate::search::doc_id_set_iterator::DocIdSetIterator;
-    use crate::util::bit_set::BitSet;
-    use crate::util::bit_set::Either2BitSet;
-    use crate::util::error::lucene_error::LuceneError;
-    use crate::util::error::lucene_error::Result;
-    use crate::util::fixed_bit_set::FixedBitSet;
-    use crate::util::sparse_fixed_bit_set::SparseFixedBitSet;
-
-    /// Builds a [`BitSet`] from the content of the provided
-    /// [`DocIdSetIterator`]. **Note**: This will fully consume the
-    /// [`DocIdSetIterator`].
-    pub fn of(
-        it: &mut impl DocIdSetIterator,
-        max_doc: i32,
-    ) -> Result<Either2BitSet<SparseFixedBitSet, FixedBitSet>> {
-        let cost = it.cost()?;
-        let threshold = max_doc >> 7;
-        let mut set;
-        if cost < (threshold as i64) {
-            set = Either2BitSet::A(SparseFixedBitSet::new(max_doc)?);
-        } else {
-            let result = FixedBitSet::new(max_doc);
-            set = Either2BitSet::B(result);
-        };
-        let _ = set.or(it);
-        Ok(set)
-    }
-    ///Assert that the current doc is -1.
-    pub(crate) fn check_unpositioned(iter: &impl DocIdSetIterator) -> Result<()> {
-        if iter.doc_id() != -1 {
-            return Err(LuceneError::illegal_state(format!(
-                "This operation only works with an unpositioned iterator, got current position = {}",
-                iter.doc_id()
-            )));
-        }
-        Ok(())
-    }
 }
 
 // BitSet
@@ -266,4 +227,37 @@ where
             Either2BitSet::B(s) => s.ensure_capacity(_num_bits),
         }
     }
+}
+
+use crate::util::error::lucene_error::LuceneError;
+use crate::util::sparse_fixed_bit_set::SparseFixedBitSet;
+
+/// Builds a [`BitSet`] from the content of the provided
+/// [`DocIdSetIterator`]. **Note**: This will fully consume the
+/// [`DocIdSetIterator`].
+pub fn of(
+    it: &mut impl DocIdSetIterator,
+    max_doc: i32,
+) -> Result<Either2BitSet<SparseFixedBitSet, FixedBitSet>> {
+    let cost = it.cost()?;
+    let threshold = max_doc >> 7;
+    let mut set;
+    if cost < (threshold as i64) {
+        set = Either2BitSet::A(SparseFixedBitSet::new(max_doc)?);
+    } else {
+        let result = FixedBitSet::new(max_doc);
+        set = Either2BitSet::B(result);
+    };
+    let _ = set.or(it);
+    Ok(set)
+}
+///Assert that the current doc is -1.
+pub(crate) fn check_unpositioned(iter: &impl DocIdSetIterator) -> Result<()> {
+    if iter.doc_id() != -1 {
+        return Err(LuceneError::illegal_state(format!(
+            "This operation only works with an unpositioned iterator, got current position = {}",
+            iter.doc_id()
+        )));
+    }
+    Ok(())
 }

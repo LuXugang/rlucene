@@ -20,7 +20,7 @@ use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::util::accountable::Accountable;
 use crate::util::array_util::ArrayUtil;
-use crate::util::bit_set::{BitSet, bit_set_util};
+use crate::util::bit_set::{BitSet, check_unpositioned};
 use crate::util::bits::Bits;
 use crate::util::error::lucene_error::{LuceneError, Result};
 
@@ -630,7 +630,7 @@ impl BitSet for FixedBitSet {
     fn or<T: DocIdSetIterator>(&mut self, iter: &mut T) -> Result<()> {
         //TODO: this is a naive implementation, we can optimize it from Java
         // Lucene
-        bit_set_util::check_unpositioned(iter)?;
+        check_unpositioned(iter)?;
         loop {
             let doc = iter.next_doc()?;
             if doc == NO_MORE_DOCS {

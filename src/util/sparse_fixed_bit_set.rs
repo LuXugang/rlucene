@@ -18,7 +18,7 @@ use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::util::SliceCopyOps;
 use crate::util::accountable::Accountable;
-use crate::util::bit_set::{BitSet, bit_set_util};
+use crate::util::bit_set::{BitSet, check_unpositioned};
 use crate::util::bits::Bits;
 use crate::util::error::lucene_error::{LuceneError, Result};
 
@@ -301,7 +301,7 @@ impl SparseFixedBitSet {
     }
     /// [`or`](#method.or) implementation that works best when `it` is dense.
     fn or_dense(&mut self, mut it: impl DocIdSetIterator) -> Result<()> {
-        bit_set_util::check_unpositioned(&it)?;
+        check_unpositioned(&it)?;
         // The goal here is to try to take advantage of the ordering of
         // documents to build the data-structure more efficiently
         // NOTE: this heavily relies on the fact that shifts are mod 64
@@ -588,7 +588,7 @@ impl BitSet for SparseFixedBitSet {
     fn or<T: DocIdSetIterator>(&mut self, iter: &mut T) -> Result<()> {
         //TODO: this is a naive implementation, we can optimize it from Java
         // Lucene
-        bit_set_util::check_unpositioned(iter)?;
+        check_unpositioned(iter)?;
         let mut doc = iter.next_doc()?;
         while doc != NO_MORE_DOCS {
             self.set(doc);
