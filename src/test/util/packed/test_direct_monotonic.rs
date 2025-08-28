@@ -30,7 +30,7 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::long_values::LongValues;
 use crate::util::packed::direct_monotonic_reader::{DirectMonotonicReader, load_meta};
 use crate::util::packed::direct_monotonic_writer::{
-    DirectMonotonicWriter, direct_monotonic_writer_util,
+    DirectMonotonicWriter, MAX_BLOCK_SHIFT, MIN_BLOCK_SHIFT,
 };
 
 #[allow(dead_code)] // for quick search
@@ -59,11 +59,7 @@ fn test_validation() {
 pub fn test_empty() -> Result<()> {
     let mut random = random();
     let dir = new_directory(&mut random)?;
-    let block_shift = TestUtil::next_int(
-        &mut random,
-        direct_monotonic_writer_util::MIN_BLOCK_SHIFT,
-        direct_monotonic_writer_util::MAX_BLOCK_SHIFT,
-    );
+    let block_shift = TestUtil::next_int(&mut random, MIN_BLOCK_SHIFT, MAX_BLOCK_SHIFT);
 
     let data_length;
     {
@@ -127,11 +123,7 @@ pub fn test_simple() -> Result<()> {
 pub fn test_constant_slope() -> Result<()> {
     let mut random = random();
     let dir = new_directory(&mut random)?;
-    let block_shift = TestUtil::next_int(
-        &mut random,
-        direct_monotonic_writer_util::MIN_BLOCK_SHIFT,
-        direct_monotonic_writer_util::MAX_BLOCK_SHIFT,
-    );
+    let block_shift = TestUtil::next_int(&mut random, MIN_BLOCK_SHIFT, MAX_BLOCK_SHIFT);
     let num_values = TestUtil::next_int(&mut random, 1, 1 << 20);
     let min: i64 = random.random();
     let upper = random.random_range(0..20);
@@ -178,7 +170,7 @@ pub fn test_zero_values_small_blob_shift() -> Result<()> {
     let num_values = TestUtil::next_int(&mut random, 8, 1 << 20);
     let block_shift = TestUtil::next_int(
         &mut random,
-        direct_monotonic_writer_util::MIN_BLOCK_SHIFT,
+        MIN_BLOCK_SHIFT,
         (num_values as f64).log2() as i32 - 1,
     );
 
@@ -230,11 +222,7 @@ fn do_test_random<R: Rng + ?Sized>(random: &mut R, merging: bool) -> Result<()> 
     let iters = at_least(random, 3);
     for _ in 0..iters {
         let dir = new_directory(random)?;
-        let block_shift = TestUtil::next_int(
-            random,
-            direct_monotonic_writer_util::MIN_BLOCK_SHIFT,
-            direct_monotonic_writer_util::MAX_BLOCK_SHIFT,
-        );
+        let block_shift = TestUtil::next_int(random, MIN_BLOCK_SHIFT, MAX_BLOCK_SHIFT);
         let max_num_values = 1 << 20;
         let num_values = if random.random_bool(0.5) {
             TestUtil::next_int(random, 1, max_num_values)

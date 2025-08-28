@@ -29,7 +29,7 @@ use crate::store::IOContext;
 use crate::store::directory::Directory;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::error::lucene_error::Result;
-use crate::util::packed::direct_monotonic_writer::direct_monotonic_writer_util;
+use crate::util::packed::direct_monotonic_writer::{MAX_BLOCK_SHIFT, MIN_BLOCK_SHIFT};
 
 /// A [`StoredFieldsFormat`] that compresses documents in chunks in order to
 /// improve the compression ratio.
@@ -122,15 +122,10 @@ impl Lucene90CompressingStoredFieldsFormat {
                 "max_docs_per_chunk must be >= 1".to_string(),
             ));
         }
-        if !(direct_monotonic_writer_util::MIN_BLOCK_SHIFT
-            ..=direct_monotonic_writer_util::MAX_BLOCK_SHIFT)
-            .contains(&block_shift)
-        {
+        if !(MIN_BLOCK_SHIFT..=MAX_BLOCK_SHIFT).contains(&block_shift) {
             return Err(LuceneError::illegal_argument(format!(
                 "block_shift must be in {}-{}, got {}",
-                direct_monotonic_writer_util::MIN_BLOCK_SHIFT,
-                direct_monotonic_writer_util::MAX_BLOCK_SHIFT,
-                block_shift
+                MIN_BLOCK_SHIFT, MAX_BLOCK_SHIFT, block_shift
             )));
         }
 

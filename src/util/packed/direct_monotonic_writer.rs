@@ -42,10 +42,6 @@ where
     finished: bool,
     previous: i64,
 }
-pub mod direct_monotonic_writer_util {
-    pub const MIN_BLOCK_SHIFT: i32 = 2;
-    pub const MAX_BLOCK_SHIFT: i32 = 22;
-}
 
 impl<'a, I1, I2> DirectMonotonicWriter<'a, I1, I2>
 where
@@ -58,15 +54,10 @@ where
         num_values: i64,
         block_shift: i32,
     ) -> Result<Self> {
-        if !(direct_monotonic_writer_util::MIN_BLOCK_SHIFT
-            ..=direct_monotonic_writer_util::MAX_BLOCK_SHIFT)
-            .contains(&block_shift)
-        {
+        if !(MIN_BLOCK_SHIFT..=MAX_BLOCK_SHIFT).contains(&block_shift) {
             return Err(LuceneError::illegal_argument(format!(
                 "blockShift must be in [{}-{}], got {}",
-                direct_monotonic_writer_util::MIN_BLOCK_SHIFT,
-                direct_monotonic_writer_util::MAX_BLOCK_SHIFT,
-                block_shift
+                MIN_BLOCK_SHIFT, MAX_BLOCK_SHIFT, block_shift
             )));
         }
 
@@ -205,3 +196,6 @@ where
         Self::new(meta_out, data_out, num_values, block_shift)
     }
 }
+
+pub const MIN_BLOCK_SHIFT: i32 = 2;
+pub const MAX_BLOCK_SHIFT: i32 = 22;
