@@ -68,7 +68,7 @@ pub(crate) struct BinaryDocValuesWriter {
 
 impl BinaryDocValuesWriter {
     pub(crate) fn new(field_info: Arc<FieldInfo>, iw_bytes_used: CounterEnumLock) -> Result<Self> {
-        let bytes = PagedBytes::new(bdvw_util::BLOCK_BITS);
+        let bytes = PagedBytes::new(BLOCK_BITS);
         let bytes_out = paged_bytes_util::get_data_output(bytes)?;
         let lengths =
             PackedLongValues::delta_packed_long_values_builder_default(PackedInts::COMPACT)?;
@@ -96,11 +96,10 @@ impl BinaryDocValuesWriter {
                 self.field_info.name
             )));
         }
-        if value.length > bdvw_util::MAX_LENGTH {
+        if value.length > MAX_LENGTH {
             return Err(LuceneError::illegal_argument(format!(
                 "DocValuesField \"{}\" is too large, must be <= {}",
-                self.field_info.name,
-                bdvw_util::MAX_LENGTH
+                self.field_info.name, MAX_LENGTH
             )));
         }
 
@@ -272,14 +271,6 @@ impl DocValuesProducer for DocValuesProducerImpl {
     type SortedNumericDocValues = DummySortedNumericDocValues;
     type SortedSetDocValues = DummySortedSetDocValues;
     type DocValuesSkipper = DummyDocValuesSkipper;
-}
-
-mod bdvw_util {
-    use crate::util::array_util::ArrayUtil;
-
-    // 4 kB block sizes for PagedBytes storage:
-    pub(super) const BLOCK_BITS: usize = 12;
-    pub(super) const MAX_LENGTH: usize = ArrayUtil::MAX_ARRAY_LENGTH;
 }
 
 // iterates over the values we have in ram
@@ -460,3 +451,9 @@ impl BinaryDVs {
         })
     }
 }
+
+use crate::util::array_util::ArrayUtil;
+
+// 4 kB block sizes for PagedBytes storage:
+pub(super) const BLOCK_BITS: usize = 12;
+pub(super) const MAX_LENGTH: usize = ArrayUtil::MAX_ARRAY_LENGTH;
