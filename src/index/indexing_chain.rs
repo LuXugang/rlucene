@@ -45,7 +45,8 @@ use crate::index::index_options::IndexOptions;
 use crate::index::index_reader::IndexReader;
 use crate::index::index_sorter::Either2DocComparator;
 use crate::index::index_sorter::{DocComparator, IndexSorter};
-use crate::index::index_writer::index_writer_util;
+
+use crate::index::index_writer::{MAX_POSITION, MAX_STORED_STRING_LENGTH, MAX_TERM_LENGTH};
 use crate::index::indexable_field::IndexableField;
 use crate::index::indexable_field_type::IndexableFieldType;
 use crate::index::leaf_reader::LeafReader;
@@ -900,8 +901,7 @@ where
                 LuceneError::illegal_argument("Cannot store a null value".to_string())
             })?;
             if stored_value.get_type() == StoredValueType::String
-                && stored_value.get_string_value()?.len()
-                    > index_writer_util::MAX_STORED_STRING_LENGTH as usize
+                && stored_value.get_string_value()?.len() > MAX_STORED_STRING_LENGTH as usize
             {
                 return Err(LuceneError::illegal_argument(format!(
                     "stored field \"{}\" is too large ({} characters) to store",
@@ -1464,7 +1464,7 @@ impl PerField {
                             field.name()
                         )));
                     }
-                } else if invert_state.position > index_writer_util::MAX_POSITION {
+                } else if invert_state.position > MAX_POSITION {
                     return Err(LuceneError::illegal_argument(format!(
                         "position {} too large for field {}",
                         invert_state.position,
@@ -1528,7 +1528,7 @@ impl PerField {
                     return Err(LuceneError::illegal_argument(format!(
                         "Document contains at least one immense term in field=\"{}\" (whose UTF8 encoding is longer than the max length {}), all of which were skipped. Please correct the analyzer to not produce such terms. The prefix of the first immense term is: '{:?}...', original message: {}",
                         self.field_info.as_ref().unwrap().name,
-                        index_writer_util::MAX_TERM_LENGTH,
+                        MAX_TERM_LENGTH,
                         prefix,
                         e
                     )));
@@ -1621,7 +1621,7 @@ impl PerField {
             let msg = format!(
                 "Document contains at least one immense term in field=\"{}\" (whose length is longer than the max length {}), all of which were skipped. The prefix of the first immense term is: '{:?}...'",
                 self.field_info.as_ref().unwrap().name,
-                index_writer_util::MAX_TERM_LENGTH,
+                MAX_TERM_LENGTH,
                 prefix
             );
             // if self.info_stream.is_enabled("IW") {

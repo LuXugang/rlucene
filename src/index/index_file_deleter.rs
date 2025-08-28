@@ -512,7 +512,8 @@ where
 }
 pub mod index_file_deleter_util {
     use crate::index::IndexFileNames;
-    use crate::index::index_writer::index_writer_util;
+
+    use crate::index::index_writer::WRITE_LOCK_NAME;
     use crate::index::segment_infos::{SegmentInfos, generation_from_segments_file_name};
     use crate::store::directory::Directory;
     use crate::util::error::lucene_error::LuceneError;
@@ -542,7 +543,7 @@ pub mod index_file_deleter_util {
         let mut max_per_segment_gen = HashMap::new();
 
         for file_name in files {
-            if file_name == index_writer_util::WRITE_LOCK_NAME {
+            if file_name == WRITE_LOCK_NAME {
                 continue;
             } else if file_name.starts_with(IndexFileNames::SEGMENTS) {
                 let v = generation_from_segments_file_name(file_name);

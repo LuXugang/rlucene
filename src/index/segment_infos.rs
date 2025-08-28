@@ -26,7 +26,8 @@ use crate::codecs::segment_info_format::SegmentInfoFormat;
 use crate::codecs::{Codec, CodecUtil, LATEST_CODEC, get_default_code};
 use crate::index::IndexFileNames;
 use crate::index::index_commit::IndexCommit;
-use crate::index::index_writer::index_writer_util;
+
+use crate::index::index_writer::get_actual_max_docs;
 use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::store::check_sum_index_input::ChecksumIndexInput;
 use crate::store::directory::Directory;
@@ -506,10 +507,10 @@ where
         }
         infos.user_data = input.read_map_of_strings()?;
         // LUCENE-6299: check we are in bounds
-        if total_docs > index_writer_util::get_actual_max_docs() {
+        if total_docs > get_actual_max_docs() {
             return Err(LuceneError::corrupt_index(format!(
                 "Too many documents: an index cannot exceed {} but readers have total maxDoc={}",
-                index_writer_util::get_actual_max_docs(),
+                get_actual_max_docs(),
                 total_docs
             )));
         }
@@ -922,7 +923,7 @@ where
         }
 
         // Ensure we don't exceed the actual max document limit.
-        debug_assert!(count <= index_writer_util::get_actual_max_docs() as i64);
+        debug_assert!(count <= get_actual_max_docs() as i64);
         Ok(count)
     }
     /// Call this before committing if changes have been made to the segments.

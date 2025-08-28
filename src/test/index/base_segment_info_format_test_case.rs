@@ -23,7 +23,8 @@ use rand::Rng;
 use crate::codecs::segment_info_format::SegmentInfoFormat;
 use crate::codecs::{Codec, LATEST_CODEC};
 use crate::index::IndexFileNames;
-use crate::index::index_writer::index_writer_util;
+use crate::index::index_writer::MAX_DOCS;
+
 use crate::index::segment_info::SegmentInfo;
 use crate::index::sort::Sort;
 use crate::search::sort_field::{MissingValueEnum, SortField, SortFieldType, SortFiledBase};
@@ -512,7 +513,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
                 BigInt::from(random.random_range(0..i32::MAX) as i64)
             };
             let name = format!("_{}", big_int.to_str_radix(36));
-            let doc_count = TestUtil::next_int(random, 1, index_writer_util::MAX_DOCS);
+            let doc_count = TestUtil::next_int(random, 1, MAX_DOCS);
             let is_compound_file = random.random_bool(0.5);
             let mut files = HashSet::new();
             let num_files = random.random_range(0..10);

@@ -26,7 +26,10 @@ use crate::index::documents_writer_delete_queue::{DeleteSlice, DocumentsWriterDe
 use crate::index::field_infos::FieldInfos;
 use crate::index::field_infos::build::Builder;
 use crate::index::frozen_buffered_updates::FrozenBufferedUpdates;
-use crate::index::index_writer::index_writer_util;
+
+use crate::index::index_writer::{
+    ACTUAL_MAX_DOCS, SOURCE_FLUSH, create_compound_file, set_diagnostics,
+};
 use crate::index::indexing_chain::{IndexingChain, ReservedField};
 use crate::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::index::lockable_concurrent_approximate_priority_queue::{FlushState, Lock};
@@ -270,7 +273,7 @@ where
             .fetch_add(1, Ordering::SeqCst)
             .wrapping_add(1);
 
-        let max = index_writer_util::ACTUAL_MAX_DOCS as i64;
+        let max = ACTUAL_MAX_DOCS as i64;
         if new_count > max {
             self.pending_num_docs.fetch_sub(1, Ordering::SeqCst);
             return Err(LuceneError::illegal_argument(format!(
@@ -761,7 +764,7 @@ where
     {
         let new_segment = &mut flushed_segment.segment_info;
 
-        index_writer_util::set_diagnostics(&mut new_segment.info, index_writer_util::SOURCE_FLUSH);
+        set_diagnostics(&mut new_segment.info, SOURCE_FLUSH);
 
         let context = IOContext::with_flush(FlushInfo::new(
             new_segment.info.max_doc()?,
@@ -772,7 +775,7 @@ where
             if index_writer_config.get_use_compound_file() {
                 let original_files = new_segment.info.files()?.clone();
                 let dir = TrackingDirectoryWrapper::new(self.directory.clone());
-                index_writer_util::create_compound_file(
+                create_compound_file(
                     &self.info_stream,
                     &dir,
                     &mut new_segment.info,
