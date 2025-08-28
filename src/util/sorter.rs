@@ -329,8 +329,7 @@ pub fn check_range(from: i32, to: i32) -> Result<()> {
     }
     Ok(())
 }
-pub mod sorter_util {
-    pub(crate) const BINARY_SORT_THRESHOLD: i32 = 20;
-    // Below this size threshold, the sub-range is sorted using Insertion sort.
-    pub(crate) const INSERTION_SORT_THRESHOLD: i32 = 16;
-}
+
+pub(crate) const BINARY_SORT_THRESHOLD: i32 = 20;
+// Below this size threshold, the sub-range is sorted using Insertion sort.
+pub(crate) const INSERTION_SORT_THRESHOLD: i32 = 16;

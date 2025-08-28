@@ -14,9 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::util::INSERTION_SORT_THRESHOLD;
 use crate::util::error::lucene_error::Result;
 use crate::util::sorter::{Sorter, check_range};
-use crate::util::sorter_util;
 
 /// Below this size threshold, the partition selection is simplified to a single
 /// median.
@@ -51,7 +51,7 @@ pub trait IntroSorter: Sorter {
     /// using the Bentley-McIlroy fast 3-way algorithm (Engineering a Sort
     /// Function, Bentley-McIlroy).
     fn sort_in_intro(&mut self, mut from: i32, mut to: i32, mut max_depth: usize) -> Result<()> {
-        while to - from > sorter_util::INSERTION_SORT_THRESHOLD {
+        while to - from > INSERTION_SORT_THRESHOLD {
             if max_depth == 0 {
                 // Max recursion depth exceeded: fallback to heap sort.
                 self.heap_sort(from, to)?;

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::util::error::lucene_error::Result;
-use crate::util::{Sorter, check_range, sorter_util};
+use crate::util::{BINARY_SORT_THRESHOLD, Sorter, check_range};
 
 pub struct InPlaceMergeSorter<S>
 where
@@ -35,7 +35,7 @@ where
         }
     }
     fn merge_sort(&mut self, from: i32, to: i32) -> Result<()> {
-        if to - from < sorter_util::BINARY_SORT_THRESHOLD {
+        if to - from < BINARY_SORT_THRESHOLD {
             self.binary_sort(from, to)
         } else {
             let mid = (from + to) >> 1;
