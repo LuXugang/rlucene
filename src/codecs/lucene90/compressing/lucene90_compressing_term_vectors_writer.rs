@@ -38,13 +38,8 @@ use crate::util::{SliceCopyOps, StringHelper};
 use once_cell::sync::Lazy;
 use std::collections::{HashSet, VecDeque};
 
-pub(crate) static FLAGS_BITS: Lazy<i32> = Lazy::new(|| {
-    PackedInts::bits_required(
-        (lucene90_ctvw_util::POSITIONS | lucene90_ctvw_util::OFFSETS | lucene90_ctvw_util::PAYLOADS)
-            as i64,
-    )
-    .unwrap()
-});
+pub(crate) static FLAGS_BITS: Lazy<i32> =
+    Lazy::new(|| PackedInts::bits_required((POSITIONS | OFFSETS | PAYLOADS) as i64).unwrap());
 /// [`TermVectorsWriter`] for [`Lucene90CompressingTermVectorsFormat`](crate::codecs::lucene90::Lucene90_compressing_term_vectors_format::Lucene90CompressingTermVectorsFormat).
 pub struct Lucene90CompressingTermVectorsWriter<D>
 where
@@ -112,40 +107,32 @@ where
         let compressor = compression_mode.new_compressor();
 
         let mut meta_stream = directory.create_output(
-            &IndexFileNames::segment_file_name(
-                &segment,
-                segment_suffix,
-                lucene90_ctvw_util::VECTORS_META_EXTENSION,
-            ),
+            &IndexFileNames::segment_file_name(&segment, segment_suffix, VECTORS_META_EXTENSION),
             context,
         )?;
         CodecUtil::write_index_header(
             &mut meta_stream,
-            &format!("{}Meta", lucene90_ctvw_util::VECTORS_INDEX_CODEC_NAME),
-            lucene90_ctvw_util::VERSION_CURRENT,
+            &format!("{}Meta", VECTORS_INDEX_CODEC_NAME),
+            VERSION_CURRENT,
             si.get_id(),
             segment_suffix,
         )?;
         debug_assert_eq!(
             CodecUtil::index_header_length(
-                &format!("{}Meta", lucene90_ctvw_util::VECTORS_INDEX_CODEC_NAME),
+                &format!("{}Meta", VECTORS_INDEX_CODEC_NAME),
                 segment_suffix
             ) as i64,
             meta_stream.get_file_pointer()
         );
 
         let mut vectors_stream = directory.create_output(
-            &IndexFileNames::segment_file_name(
-                &segment,
-                segment_suffix,
-                lucene90_ctvw_util::VECTORS_EXTENSION,
-            ),
+            &IndexFileNames::segment_file_name(&segment, segment_suffix, VECTORS_EXTENSION),
             context,
         )?;
         CodecUtil::write_index_header(
             &mut vectors_stream,
             format_name,
-            lucene90_ctvw_util::VERSION_CURRENT,
+            VERSION_CURRENT,
             si.get_id(),
             segment_suffix,
         )?;
@@ -158,8 +145,8 @@ where
             directory,
             &segment,
             segment_suffix,
-            lucene90_ctvw_util::VECTORS_INDEX_EXTENSION,
-            lucene90_ctvw_util::VECTORS_INDEX_CODEC_NAME,
+            VECTORS_INDEX_EXTENSION,
+            VECTORS_INDEX_CODEC_NAME,
             *si.get_id(),
             block_shift,
             context.clone(),
@@ -190,10 +177,7 @@ where
             payload_lengths_buf: vec![0; 1024],
             term_suffixes: ByteBuffersDataOutput::new_resettable_instance(),
             payload_bytes: ByteBuffersDataOutput::new_resettable_instance(),
-            writer: AbstractBlockPackedWriter::new(
-                lucene90_ctvw_util::PACKED_BLOCK_SIZE,
-                BlockPackedWriter,
-            )?,
+            writer: AbstractBlockPackedWriter::new(PACKED_BLOCK_SIZE, BlockPackedWriter)?,
             max_docs_per_chunk,
             scratch_buffer: ByteBuffersDataOutput::new_resettable_instance(),
         })
@@ -611,7 +595,7 @@ where
 
         for doc in &self.pending_docs {
             for field in &doc.fields {
-                if field.flags & lucene90_ctvw_util::OFFSETS != 0 {
+                if field.flags & OFFSETS != 0 {
                     let field_num_off = match field_nums.binary_search(&field.field_num) {
                         Ok(idx) => idx,
                         Err(_) => {
@@ -655,7 +639,7 @@ where
 
         for doc in &self.pending_docs {
             for field in &doc.fields {
-                if field.flags & lucene90_ctvw_util::OFFSETS != 0 {
+                if field.flags & OFFSETS != 0 {
                     let mut pos = 0;
                     for i in 0..field.num_terms {
                         let prefix = field.prefix_lengths[i];
@@ -968,22 +952,6 @@ where
     }
 }
 
-pub mod lucene90_ctvw_util {
-    pub(crate) const VECTORS_EXTENSION: &str = "tvd";
-    pub(crate) const VECTORS_INDEX_EXTENSION: &str = "tvx";
-    pub(crate) const VECTORS_META_EXTENSION: &str = "tvm";
-    pub(crate) const VECTORS_INDEX_CODEC_NAME: &str = "Lucene90TermVectorsIndex";
-
-    pub(crate) const VERSION_START: i32 = 0;
-    pub(crate) const VERSION_CURRENT: i32 = VERSION_START;
-    pub(crate) const META_VERSION_START: i32 = 0;
-
-    pub(crate) const PACKED_BLOCK_SIZE: i32 = 64;
-
-    pub(crate) const POSITIONS: i32 = 0x01;
-    pub(crate) const OFFSETS: i32 = 0x02;
-    pub(crate) const PAYLOADS: i32 = 0x04;
-}
 /// a pending doc
 pub(crate) struct DocData {
     pub num_fields: i32,
@@ -1062,19 +1030,9 @@ impl FieldData {
         off_start: usize,
         pay_start: usize,
     ) -> Self {
-        let flags = (if positions {
-            lucene90_ctvw_util::POSITIONS
-        } else {
-            0
-        }) | (if offsets {
-            lucene90_ctvw_util::OFFSETS
-        } else {
-            0
-        }) | (if payloads {
-            lucene90_ctvw_util::PAYLOADS
-        } else {
-            0
-        });
+        let flags = (if positions { POSITIONS } else { 0 })
+            | (if offsets { OFFSETS } else { 0 })
+            | (if payloads { PAYLOADS } else { 0 });
 
         Self {
             has_positions: positions,
@@ -1141,3 +1099,18 @@ impl FieldData {
         Ok(())
     }
 }
+
+pub(crate) const VECTORS_EXTENSION: &str = "tvd";
+pub(crate) const VECTORS_INDEX_EXTENSION: &str = "tvx";
+pub(crate) const VECTORS_META_EXTENSION: &str = "tvm";
+pub(crate) const VECTORS_INDEX_CODEC_NAME: &str = "Lucene90TermVectorsIndex";
+
+pub(crate) const VERSION_START: i32 = 0;
+pub(crate) const VERSION_CURRENT: i32 = VERSION_START;
+pub(crate) const META_VERSION_START: i32 = 0;
+
+pub(crate) const PACKED_BLOCK_SIZE: i32 = 64;
+
+pub(crate) const POSITIONS: i32 = 0x01;
+pub(crate) const OFFSETS: i32 = 0x02;
+pub(crate) const PAYLOADS: i32 = 0x04;

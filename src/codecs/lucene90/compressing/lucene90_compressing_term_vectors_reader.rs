@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 use crate::codecs::CodecUtil;
-use crate::codecs::compressing::lucene90_compressing_term_vectors_writer::lucene90_ctvw_util::{
-    OFFSETS, PAYLOADS, POSITIONS,
-};
+use crate::codecs::compressing::lucene90_compressing_term_vectors_writer::FLAGS_BITS;
 use crate::codecs::compressing::lucene90_compressing_term_vectors_writer::{
-    FLAGS_BITS, lucene90_ctvw_util,
+    META_VERSION_START, OFFSETS, PACKED_BLOCK_SIZE, PAYLOADS, POSITIONS, VECTORS_EXTENSION,
+    VECTORS_INDEX_CODEC_NAME, VECTORS_INDEX_EXTENSION, VECTORS_META_EXTENSION, VERSION_CURRENT,
+    VERSION_START,
 };
 use crate::codecs::compression::compression_mode::{
     CompressionModeBase, CompressionModeEnum, DecompressorEnum,
@@ -118,11 +118,8 @@ where
         let mut meta_in = None;
 
         let result: Result<Self> = (|| {
-            let vectors_stream_fn = IndexFileNames::segment_file_name(
-                segment,
-                segment_suffix,
-                lucene90_ctvw_util::VECTORS_EXTENSION,
-            );
+            let vectors_stream_fn =
+                IndexFileNames::segment_file_name(segment, segment_suffix, VECTORS_EXTENSION);
             let mut vectors_stream = dir.open_input(
                 &vectors_stream_fn,
                 &context.with_read_advice(ReadAdvice::Random)?,
@@ -131,8 +128,8 @@ where
             let version = CodecUtil::check_index_header(
                 &mut vectors_stream,
                 format_name,
-                lucene90_ctvw_util::VERSION_START,
-                lucene90_ctvw_util::VERSION_CURRENT,
+                VERSION_START,
+                VERSION_CURRENT,
                 si.get_id(),
                 segment_suffix,
             )?;
@@ -141,17 +138,14 @@ where
                 vectors_stream.get_file_pointer()
             );
 
-            let meta_stream_fn = IndexFileNames::segment_file_name(
-                segment,
-                segment_suffix,
-                lucene90_ctvw_util::VECTORS_META_EXTENSION,
-            );
+            let meta_stream_fn =
+                IndexFileNames::segment_file_name(segment, segment_suffix, VECTORS_META_EXTENSION);
             let mut meta = dir.open_checksum_input(&meta_stream_fn)?;
 
             CodecUtil::check_index_header(
                 &mut meta,
-                &format!("{}Meta", lucene90_ctvw_util::VECTORS_INDEX_CODEC_NAME),
-                lucene90_ctvw_util::META_VERSION_START,
+                &format!("{}Meta", VECTORS_INDEX_CODEC_NAME),
+                META_VERSION_START,
                 version,
                 si.get_id(),
                 segment_suffix,
@@ -169,8 +163,8 @@ where
                 dir,
                 si.name.clone(),
                 segment_suffix,
-                lucene90_ctvw_util::VECTORS_INDEX_EXTENSION,
-                lucene90_ctvw_util::VECTORS_INDEX_CODEC_NAME,
+                VECTORS_INDEX_EXTENSION,
+                VECTORS_INDEX_CODEC_NAME,
                 si.get_id(),
                 &mut meta,
                 context,
@@ -287,7 +281,7 @@ where
     }
 
     pub(crate) fn num_dirty_docs(&self) -> Result<i64> {
-        if self.version != lucene90_ctvw_util::VERSION_CURRENT {
+        if self.version != VERSION_CURRENT {
             return Err(LuceneError::illegal_state(
                 "get_num_dirty_docs should only ever get called when the reader is on the current version",
             ));
@@ -297,7 +291,7 @@ where
     }
 
     pub(crate) fn num_dirty_chunks(&self) -> Result<i64> {
-        if self.version != lucene90_ctvw_util::VERSION_CURRENT {
+        if self.version != VERSION_CURRENT {
             return Err(LuceneError::illegal_state(
                 "get_num_dirty_chunks should only ever get called when the reader is on the current version",
             ));
@@ -307,7 +301,7 @@ where
     }
 
     pub(crate) fn num_chunks(&self) -> Result<i64> {
-        if self.version != lucene90_ctvw_util::VERSION_CURRENT {
+        if self.version != VERSION_CURRENT {
             return Err(LuceneError::illegal_state(
                 "get_num_chunks should only ever get called when the reader is on the current version",
             ));
@@ -390,11 +384,8 @@ where
     ) -> Result<Vec<Vec<i32>>> {
         let mut positions = vec![Vec::new(); num_fields];
         // reset reader
-        let mut reader = BlockPackedReaderIterator::new(
-            self.packed_ints_version,
-            lucene90_ctvw_util::PACKED_BLOCK_SIZE,
-            0,
-        )?;
+        let mut reader =
+            BlockPackedReaderIterator::new(self.packed_ints_version, PACKED_BLOCK_SIZE, 0)?;
         reader.reset(total_positions as i64);
 
         // skip
@@ -483,11 +474,8 @@ where
             )));
         }
         self.block_state = BlockState::new(start_pointer, doc_base, chunk_docs);
-        let mut reader = BlockPackedReaderIterator::new(
-            self.packed_ints_version,
-            lucene90_ctvw_util::PACKED_BLOCK_SIZE,
-            0,
-        )?;
+        let mut reader =
+            BlockPackedReaderIterator::new(self.packed_ints_version, PACKED_BLOCK_SIZE, 0)?;
         let (skip, num_fields, total_fields) = if chunk_docs == 1 {
             let nf = self.vectors_stream.read_vint()? as usize;
             (0, nf, nf)
