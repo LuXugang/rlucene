@@ -442,7 +442,7 @@ mod tests {
 
     use crate::codecs::competitive_impact_accumulator::CompetitiveImpactAccumulator;
     use crate::codecs::lucene101::lucene101_postings_reader::{
-        MutableImpactList, lucene101_pr_util,
+        MutableImpactList, read_impacts, read_vint15, read_vlong15,
     };
     use crate::codecs::lucene101::lucene101_postings_writer::lucene101_pw_util;
     use crate::index::impact::Impact;
@@ -464,7 +464,7 @@ mod tests {
             out.reset()?;
             lucene101_pw_util::write_vint15(&mut out, i)?;
             let mut inp = ByteArrayDataInput::with_bytes(out.bytes.clone());
-            let v = lucene101_pr_util::read_vint15(&mut inp)?;
+            let v = read_vint15(&mut inp)?;
             assert_eq!(v, i);
             assert_eq!(inp.get_position(), out.get_position());
         }
@@ -478,7 +478,7 @@ mod tests {
             out.reset()?;
             lucene101_pw_util::write_vlong15(&mut out, i)?;
             let mut inp = ByteArrayDataInput::with_bytes(out.bytes.clone());
-            let v = lucene101_pr_util::read_vlong15(&mut inp)?;
+            let v = read_vlong15(&mut inp)?;
             assert_eq!(v, i);
             assert_eq!(inp.get_position(), out.get_position());
         }
@@ -552,7 +552,7 @@ mod tests {
         let mut data_in = ByteArrayDataInput::with_bytes(buffer);
         let mut mutable_impacts_list =
             MutableImpactList::with_capacity(impacts.len() + random.random_range(0..3));
-        lucene101_pr_util::read_impacts(&mut data_in, &mut mutable_impacts_list)?;
+        read_impacts(&mut data_in, &mut mutable_impacts_list)?;
         let len = mutable_impacts_list.length;
         assert_eq!(&mutable_impacts_list.impacts[0..len], impacts);
         Ok(())

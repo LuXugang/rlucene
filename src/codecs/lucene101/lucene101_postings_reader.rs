@@ -697,7 +697,7 @@ where
                     doc_in.clone(),
                 ));
             }
-            lucene101_pr_util::prefetch_postings(&mut *self.doc_in.access_mut(), term_state)?;
+            prefetch_postings(&mut *self.doc_in.access_mut(), term_state)?;
         }
 
         if self.for_delta_util.is_none() && (self.doc_freq as usize) >= ForUtil::BLOCK_SIZE {
@@ -817,7 +817,7 @@ where
                 self.needs_freq,
             )?;
 
-            lucene101_pr_util::prefix_sum(
+            prefix_sum(
                 &mut self.doc_buffer,
                 self.doc_count_left as usize,
                 self.prev_doc_id,
@@ -910,7 +910,7 @@ where
                 self.pos_buffer_upto = ForUtil::BLOCK_SIZE as i32;
             } else {
                 debug_assert!(self.freq_fp == -1);
-                self.pos_pending_count += lucene101_pr_util::sum_over_range(
+                self.pos_pending_count += sum_over_range(
                     &self.freq_buffer,
                     self.pos_doc_buffer_upto as usize,
                     ForUtil::BLOCK_SIZE,
@@ -922,10 +922,10 @@ where
             {
                 let mut doc_in = self.doc_in.access_mut();
                 doc_in.read_vlong()?;
-                let doc_delta = lucene101_pr_util::read_vint15(&mut *doc_in)?;
+                let doc_delta = read_vint15(&mut *doc_in)?;
                 self.level0_last_doc_id += doc_delta;
 
-                let block_length = lucene101_pr_util::read_vlong15(&mut *doc_in)?;
+                let block_length = read_vlong15(&mut *doc_in)?;
                 self.level0_doc_end_fp = doc_in.get_file_pointer() + block_length;
                 if self.index_has_freq {
                     let num_impact_bytes = doc_in.read_vint()?;
@@ -1007,7 +1007,7 @@ where
             }
             self.pos_buffer_upto = ForUtil::BLOCK_SIZE as i32;
         } else {
-            self.pos_pending_count += lucene101_pr_util::sum_over_range(
+            self.pos_pending_count += sum_over_range(
                 &self.freq_buffer,
                 self.pos_doc_buffer_upto as usize,
                 ForUtil::BLOCK_SIZE,
@@ -1030,10 +1030,10 @@ where
                 if (self.doc_count_left as usize) >= ForUtil::BLOCK_SIZE {
                     let num_skip_bytes = doc_in.read_vlong()?;
                     let skip0_end = doc_in.get_file_pointer() + num_skip_bytes;
-                    let doc_delta = lucene101_pr_util::read_vint15(&mut *doc_in)?;
+                    let doc_delta = read_vint15(&mut *doc_in)?;
                     self.level0_last_doc_id += doc_delta;
                     let found = target <= self.level0_last_doc_id;
-                    let block_length = lucene101_pr_util::read_vlong15(&mut *doc_in)?;
+                    let block_length = read_vlong15(&mut *doc_in)?;
                     self.level0_doc_end_fp = doc_in.get_file_pointer() + block_length;
 
                     if self.index_has_freq {
@@ -1099,7 +1099,7 @@ where
         if to_skip < left_in_block {
             let end = self.pos_buffer_upto + to_skip;
             if self.needs_payloads {
-                self.payload_byte_upto += lucene101_pr_util::sum_over_range(
+                self.payload_byte_upto += sum_over_range(
                     &self.payload_length_buffer,
                     self.pos_buffer_upto as usize,
                     end as usize,
@@ -1136,11 +1136,8 @@ where
             self.refill_positions()?;
 
             if self.needs_payloads {
-                self.payload_byte_upto = lucene101_pr_util::sum_over_range(
-                    &self.payload_length_buffer,
-                    0,
-                    to_skip as usize,
-                );
+                self.payload_byte_upto =
+                    sum_over_range(&self.payload_length_buffer, 0, to_skip as usize);
             }
 
             self.pos_buffer_upto = to_skip;
@@ -1271,7 +1268,7 @@ where
     fn accumulate_pending_positions(&mut self) -> Result<()> {
         let freq = self.freq()?;
 
-        self.pos_pending_count += lucene101_pr_util::sum_over_range(
+        self.pos_pending_count += sum_over_range(
             &self.freq_buffer,
             self.pos_doc_buffer_upto as usize,
             self.doc_buffer_upto as usize,
@@ -1493,7 +1490,7 @@ impl ImpactsImpl {
         let len = serialized.len();
         let mut scratch = ByteArrayDataInput::with_range(serialized, 0, len);
         let mut level_impacts = MutableImpactList::with_capacity(level_impacts_len);
-        lucene101_pr_util::read_impacts(&mut scratch, &mut level_impacts)?;
+        read_impacts(&mut scratch, &mut level_impacts)?;
         Ok((level_impacts, std::mem::take(&mut scratch.bytes)))
     }
 }
@@ -1550,92 +1547,6 @@ impl Impacts for ImpactsImpl {
     }
 }
 
-pub mod lucene101_pr_util {
-    use crate::codecs::lucene101::lucene101_postings_format::IntBlockTermState;
-    use crate::codecs::lucene101::lucene101_postings_reader::MutableImpactList;
-
-    use crate::store::{ByteArrayDataInput, DataInput, IndexInput};
-    use crate::util::error::lucene_error::Result;
-    pub(super) fn prefix_sum(buffer: &mut [i32], count: usize, base: i32) {
-        buffer[0] += base;
-        for i in 1..count {
-            buffer[i] += buffer[i - 1];
-        }
-    }
-
-    /// @see [`Lucene101PostingsWriter::writeVInt15`](crate::codecs::lucene101::lucene101_postings_writer::lucene101_pw_util::write_vint15)
-    pub(crate) fn read_vint15(input: &mut impl DataInput) -> Result<i32> {
-        let s = input.read_short()?;
-        if s >= 0 {
-            Ok(s as i32)
-        } else {
-            Ok((s as i32) & 0x7FFF | (input.read_vint()? << 15))
-        }
-    }
-
-    /// @see [`Lucene101PostingsWriter::writeVLong15`](crate::codecs::lucene101::lucene101_postings_writer::lucene101_pw_util::write_vlong15)
-    pub(crate) fn read_vlong15(input: &mut impl DataInput) -> Result<i64> {
-        let s = input.read_short()?;
-        if s >= 0 {
-            Ok(s as i64)
-        } else {
-            Ok((s as i64) & 0x7FFF | (input.read_vlong()? << 15))
-        }
-    }
-    pub(crate) fn read_impacts(
-        input: &mut ByteArrayDataInput<Vec<u8>>,
-        reuse: &mut MutableImpactList,
-    ) -> Result<()> {
-        let mut freq = 0;
-        let mut norm = 0;
-        let mut length = 0;
-
-        while input.get_position() < input.length() {
-            let freq_delta = input.read_vint()?;
-            freq += 1 + (freq_delta >> 1);
-            if (freq_delta & 1) != 0 {
-                norm += 1 + input.read_zlong()?;
-            } else {
-                norm += 1;
-            }
-            let slot = &mut reuse.impacts[length];
-            slot.freq = freq;
-            slot.norm = norm;
-            length += 1;
-        }
-        reuse.length = length;
-        Ok(())
-    }
-    pub(super) fn sum_over_range(arr: &[i32], start: usize, end: usize) -> i32 {
-        let mut res = 0;
-        for &v in &arr[start..end] {
-            res += v;
-        }
-
-        res
-    }
-
-    pub(super) fn prefetch_postings(
-        doc_in: &mut impl IndexInput,
-        state: &IntBlockTermState,
-    ) -> Result<()> {
-        debug_assert!(state.base.doc_freq > 1);
-        if doc_in.get_file_pointer() != state.doc_start_fp {
-            // Don't prefetch if the input is already positioned at the right
-            // offset, which suggests that the caller is streaming
-            // the entire inverted index (e.g. for merging), let the read-ahead
-            // logic do its work instead. Note that this heuristic doesn't work
-            // for terms that have skip data, since skip data is
-            // stored after the last term, but handling all terms that have <128
-            // docs is a good start already.
-            doc_in.prefetch(state.doc_start_fp, 1)?;
-        }
-        // Note: we don't prefetch positions or offsets, which are less likely
-        // to be needed.
-        Ok(())
-    }
-}
-
 #[derive(Default)]
 pub(crate) struct MutableImpactList {
     pub(crate) length: usize,
@@ -1665,3 +1576,82 @@ impl MutableImpactList {
 // query evaluation speedup, since there's less than 128 docs left to evaluate
 // anyway.
 static DUMMY_IMPACTS: Lazy<Vec<Impact>> = Lazy::new(|| vec![Impact::new(i32::MAX, 1)]);
+
+pub(super) fn prefix_sum(buffer: &mut [i32], count: usize, base: i32) {
+    buffer[0] += base;
+    for i in 1..count {
+        buffer[i] += buffer[i - 1];
+    }
+}
+
+/// @see [`Lucene101PostingsWriter::writeVInt15`](crate::codecs::lucene101::lucene101_postings_writer::lucene101_pw_util::write_vint15)
+pub(crate) fn read_vint15(input: &mut impl DataInput) -> Result<i32> {
+    let s = input.read_short()?;
+    if s >= 0 {
+        Ok(s as i32)
+    } else {
+        Ok((s as i32) & 0x7FFF | (input.read_vint()? << 15))
+    }
+}
+
+/// @see [`Lucene101PostingsWriter::writeVLong15`](crate::codecs::lucene101::lucene101_postings_writer::lucene101_pw_util::write_vlong15)
+pub(crate) fn read_vlong15(input: &mut impl DataInput) -> Result<i64> {
+    let s = input.read_short()?;
+    if s >= 0 {
+        Ok(s as i64)
+    } else {
+        Ok((s as i64) & 0x7FFF | (input.read_vlong()? << 15))
+    }
+}
+pub(crate) fn read_impacts(
+    input: &mut ByteArrayDataInput<Vec<u8>>,
+    reuse: &mut MutableImpactList,
+) -> Result<()> {
+    let mut freq = 0;
+    let mut norm = 0;
+    let mut length = 0;
+
+    while input.get_position() < input.length() {
+        let freq_delta = input.read_vint()?;
+        freq += 1 + (freq_delta >> 1);
+        if (freq_delta & 1) != 0 {
+            norm += 1 + input.read_zlong()?;
+        } else {
+            norm += 1;
+        }
+        let slot = &mut reuse.impacts[length];
+        slot.freq = freq;
+        slot.norm = norm;
+        length += 1;
+    }
+    reuse.length = length;
+    Ok(())
+}
+pub(super) fn sum_over_range(arr: &[i32], start: usize, end: usize) -> i32 {
+    let mut res = 0;
+    for &v in &arr[start..end] {
+        res += v;
+    }
+
+    res
+}
+
+pub(super) fn prefetch_postings(
+    doc_in: &mut impl IndexInput,
+    state: &IntBlockTermState,
+) -> Result<()> {
+    debug_assert!(state.base.doc_freq > 1);
+    if doc_in.get_file_pointer() != state.doc_start_fp {
+        // Don't prefetch if the input is already positioned at the right
+        // offset, which suggests that the caller is streaming
+        // the entire inverted index (e.g. for merging), let the read-ahead
+        // logic do its work instead. Note that this heuristic doesn't work
+        // for terms that have skip data, since skip data is
+        // stored after the last term, but handling all terms that have <128
+        // docs is a good start already.
+        doc_in.prefetch(state.doc_start_fp, 1)?;
+    }
+    // Note: we don't prefetch positions or offsets, which are less likely
+    // to be needed.
+    Ok(())
+}
