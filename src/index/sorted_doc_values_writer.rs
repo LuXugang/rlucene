@@ -37,7 +37,9 @@ use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::store::directory::Directory;
 use crate::util::accountable::Accountable;
 use crate::util::bit_util::BitUtil;
-use crate::util::bytes_ref_hash::{BytesRefHash, DirectBytesStartArray, MTBytesRefHash, brh_util};
+use crate::util::bytes_ref_hash::{
+    BytesRefHash, DEFAULT_CAPACITY, DirectBytesStartArray, MTBytesRefHash,
+};
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::error::lucene_error::Result;
 use crate::util::packed::PackedInts;
@@ -76,15 +78,9 @@ impl SortedDocValuesWriter {
         iw_bytes_used: CounterEnumLock,
         pool: ByteBlockPoolLock,
     ) -> Result<Self> {
-        let bytes_start_array = DirectBytesStartArray::with_counter_sync(
-            brh_util::DEFAULT_CAPACITY,
-            iw_bytes_used.clone(),
-        );
-        let hash = BytesRefHash::from_bytes_start_array(
-            pool,
-            brh_util::DEFAULT_CAPACITY,
-            bytes_start_array,
-        );
+        let bytes_start_array =
+            DirectBytesStartArray::with_counter_sync(DEFAULT_CAPACITY, iw_bytes_used.clone());
+        let hash = BytesRefHash::from_bytes_start_array(pool, DEFAULT_CAPACITY, bytes_start_array);
         let pending =
             PackedLongValues::delta_packed_long_values_builder_default(PackedInts::COMPACT)?;
         let docs_with_field = DocsWithFieldSet::new();

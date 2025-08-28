@@ -64,9 +64,6 @@ where
     pub(crate) bytes_start_array: BSA,
     bytes_used: C,
 }
-pub mod brh_util {
-    pub const DEFAULT_CAPACITY: i32 = 16;
-}
 
 impl MTBytesRefHash {
     pub fn new_sync() -> Self {
@@ -75,7 +72,7 @@ impl MTBytesRefHash {
         BytesRefHash::from_pool_sync(pool)
     }
     pub fn from_pool_sync(pool: ByteBlockPoolLock) -> Self {
-        let bytes_start_array = DirectBytesStartArray::new_sync(brh_util::DEFAULT_CAPACITY);
+        let bytes_start_array = DirectBytesStartArray::new_sync(DEFAULT_CAPACITY);
         BytesRefHash::from_bytes_start_array(pool, 16, bytes_start_array)
     }
 }
@@ -86,7 +83,7 @@ impl STBytesRefHash {
         BytesRefHash::from_pool(pool)
     }
     pub fn from_pool(pool: ByteBlockPoolBorrow) -> Self {
-        let bytes_start_array = DirectBytesStartArray::new(brh_util::DEFAULT_CAPACITY);
+        let bytes_start_array = DirectBytesStartArray::new(DEFAULT_CAPACITY);
         BytesRefHash::from_bytes_start_array(pool, 16, bytes_start_array)
     }
     pub fn do_hash(bytes: &[u8], offset: usize, length: usize) -> i32 {
@@ -859,6 +856,8 @@ where
         self.delegate_sorter.should_fallback(from, to, l)
     }
 }
+
+pub const DEFAULT_CAPACITY: i32 = 16;
 
 #[cfg(test)]
 mod tests {
