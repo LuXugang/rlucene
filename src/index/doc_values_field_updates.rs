@@ -538,20 +538,6 @@ impl DocValuesFieldIterator for DocValuesFieldIteratorEnum {
     }
 }
 
-pub(crate) mod dvfi_util {
-    use crate::index::doc_values_field_updates::{
-        BinaryDocValuesDVFU, DocValuesFieldIterator, NumericDocValuesDVFU,
-    };
-    /// Wraps the given iterator as a BinaryDocValues instance.
-    fn get_binary_doc_values<T: DocValuesFieldIterator>(iterator: T) {
-        BinaryDocValuesDVFU::new(iterator);
-    }
-    /// Wraps the given iterator as a NumericDocValues instance.
-    fn get_numeric_doc_values<T: DocValuesFieldIterator>(iterator: T) {
-        NumericDocValuesDVFU::new(iterator);
-    }
-}
-
 /// Wraps the given iterator as a BinaryDocValues instance.
 pub(crate) struct BinaryDocValuesDVFU<T>
 where
@@ -1199,6 +1185,15 @@ where
     let value = MergedIterator::new(queue)?;
     Ok(Some(value))
 }
+/// Wraps the given iterator as a BinaryDocValues instance.
+fn get_binary_doc_values<T: DocValuesFieldIterator>(iterator: T) {
+    BinaryDocValuesDVFU::new(iterator);
+}
+/// Wraps the given iterator as a NumericDocValues instance.
+fn get_numeric_doc_values<T: DocValuesFieldIterator>(iterator: T) {
+    NumericDocValuesDVFU::new(iterator);
+}
+
 #[cfg(test)]
 mod tests {
     use rand::Rng;
