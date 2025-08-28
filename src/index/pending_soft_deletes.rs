@@ -30,20 +30,20 @@ use num_bigint::BigInt;
 use std::sync::Arc;
 
 pub(crate) struct PendingSoftDeletes {
-    pub(crate) field: Option<String>,
+    pub(crate) field: String,
     pub(crate) dv_generation: i64,
     pub(crate) hard_deletes: PendingDeletes,
     pub(crate) base: PendingDeletes,
 }
 impl PendingSoftDeletes {
-    pub(crate) fn new<D>(field: Option<String>, info: &SegmentCommitInfo<D>) -> Result<Self>
+    pub(crate) fn new<D>(field: &str, info: &SegmentCommitInfo<D>) -> Result<Self>
     where
         D: Directory,
     {
         let base = PendingDeletes::new(info)?;
         let hard_deletes = PendingDeletes::new(info)?;
         Ok(Self {
-            field,
+            field: field.to_string(),
             dv_generation: -2,
             hard_deletes,
             base,
@@ -51,7 +51,7 @@ impl PendingSoftDeletes {
     }
 
     pub(crate) fn from_reader<D>(
-        field: Option<String>,
+        field: &str,
         reader: &SegmentReader<D>,
         info: &SegmentCommitInfo<D>,
     ) -> Result<Self>
@@ -61,7 +61,7 @@ impl PendingSoftDeletes {
         let base = PendingDeletes::from_reader(reader, info)?;
         let hard_deletes = PendingDeletes::from_reader(reader, info)?;
         Ok(Self {
-            field,
+            field: field.to_string(),
             dv_generation: -2,
             hard_deletes,
             base,
@@ -176,8 +176,8 @@ impl PendingDeletesBase for PendingSoftDeletes {
 
     fn on_new_reader<D>(
         &mut self,
-        reader: &SegmentReader<D>,
-        info: &SegmentCommitInfo<D>,
+        _reader: &SegmentReader<D>,
+        _info: &SegmentCommitInfo<D>,
     ) -> Result<()>
     where
         D: Directory,
@@ -210,7 +210,7 @@ impl PendingDeletesBase for PendingSoftDeletes {
     fn is_fully_deleted<D, F>(
         &self,
         reader_io_supplier: F,
-        info: &SegmentCommitInfo<D>,
+        _info: &SegmentCommitInfo<D>,
     ) -> Result<bool>
     where
         D: Directory,
@@ -227,8 +227,8 @@ impl PendingDeletesBase for PendingSoftDeletes {
 
     fn on_doc_values_update(
         &self,
-        info: &FieldInfo,
-        iterator: Option<MergedIterator<DocValuesFieldIteratorEnum>>,
+        _info: &FieldInfo,
+        _iterator: Option<MergedIterator<DocValuesFieldIteratorEnum>>,
     ) {
         todo!()
     }
