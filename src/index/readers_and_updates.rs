@@ -548,10 +548,7 @@ where
                 // the local field number. Field numbers can be different from
                 // the global ones if the segment was created externally (and added to
                 // this index with IndexWriter#addIndexes(Directory)).
-                by_name.insert(
-                    fi.name.to_string(),
-                    rau_util::clone_field_info(fi, fi.number),
-                );
+                by_name.insert(fi.name.to_string(), clone_field_info(fi, fi.number));
                 max_field_number = max_field_number.max(fi.number);
             }
 
@@ -754,32 +751,7 @@ where
         )
     }
 }
-mod rau_util {
-    use crate::index::field_info::FieldInfo;
 
-    pub(super) fn clone_field_info(fi: &FieldInfo, field_number: i32) -> FieldInfo {
-        FieldInfo::new(
-            fi.name.to_string(),
-            field_number,
-            fi.has_term_vectors(),
-            fi.omits_norms(),
-            fi.has_payloads(),
-            *fi.get_index_options(),
-            *fi.get_doc_values_type(),
-            *fi.doc_values_skip_index_type(),
-            fi.get_doc_values_gen(),
-            fi.attributes().lock().attributes.clone(),
-            fi.get_point_dimension_count(),
-            fi.get_point_index_dimension_count(),
-            fi.get_point_num_bytes(),
-            fi.get_vector_dimension(),
-            *fi.get_vector_encoding(),
-            *fi.get_vector_similarity_function(),
-            fi.is_soft_deletes_field(),
-            fi.is_parent_field(),
-        )
-    }
-}
 enum CurrentSource {
     OnDisk,
     Update,
@@ -1211,4 +1183,27 @@ impl Function<Arc<FieldInfo>, Option<MergedIterator<DocValuesFieldIteratorEnum>>
         }
         merged_iterator(subs)
     }
+}
+
+fn clone_field_info(fi: &FieldInfo, field_number: i32) -> FieldInfo {
+    FieldInfo::new(
+        fi.name.to_string(),
+        field_number,
+        fi.has_term_vectors(),
+        fi.omits_norms(),
+        fi.has_payloads(),
+        *fi.get_index_options(),
+        *fi.get_doc_values_type(),
+        *fi.doc_values_skip_index_type(),
+        fi.get_doc_values_gen(),
+        fi.attributes().lock().attributes.clone(),
+        fi.get_point_dimension_count(),
+        fi.get_point_index_dimension_count(),
+        fi.get_point_num_bytes(),
+        fi.get_vector_dimension(),
+        *fi.get_vector_encoding(),
+        *fi.get_vector_similarity_function(),
+        fi.is_soft_deletes_field(),
+        fi.is_parent_field(),
+    )
 }
