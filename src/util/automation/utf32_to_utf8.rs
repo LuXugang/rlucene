@@ -19,7 +19,6 @@ use std::borrow::Cow;
 use crate::util::automation::automaton::{Automaton, Builder};
 use crate::util::automation::transition::Transition;
 use crate::util::automation::transition_accessor::TransitionAccessor;
-use crate::util::automation::utf32_to_utf8::utf32_to_utf8_util::MASKS;
 use crate::util::error::lucene_error::Result;
 
 /// Converts UTF-32 automata to the equivalent UTF-8 representation.
@@ -275,18 +274,6 @@ impl UTF32ToUTF8 {
     }
 }
 
-mod utf32_to_utf8_util {
-    use once_cell::sync::Lazy;
-
-    pub(super) static MASKS: Lazy<[u8; 8]> = Lazy::new(|| {
-        let mut masks = [0u8; 8];
-        for i in 0..7 {
-            masks[i + 1] = ((2 << i) - 1) as u8;
-        }
-        masks
-    });
-}
-
 /// Represents one of the N UTF-8 bytes that (in sequence)
 /// define a code point. `value` is the byte value; `bits` is
 /// how many bits are "used" by UTF-8 at that byte.
@@ -366,13 +353,22 @@ impl UTF8Sequence {
     fn set_rest(&mut self, mut code: i32, num_bytes: usize) {
         for i in 0..num_bytes {
             let idx = num_bytes - i;
-            self.bytes[idx].value =
-                (0b1000_0000 | (code & utf32_to_utf8_util::MASKS[6] as i32)) as u8;
+            self.bytes[idx].value = (0b1000_0000 | (code & MASKS[6] as i32)) as u8;
             self.bytes[idx].bits = 6;
             code >>= 6;
         }
     }
 }
+
+use once_cell::sync::Lazy;
+
+pub(super) static MASKS: Lazy<[u8; 8]> = Lazy::new(|| {
+    let mut masks = [0u8; 8];
+    for i in 0..7 {
+        masks[i + 1] = ((2 << i) - 1) as u8;
+    }
+    masks
+});
 
 #[cfg(test)]
 mod tests {
