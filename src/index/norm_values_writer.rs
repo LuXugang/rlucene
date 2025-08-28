@@ -21,7 +21,9 @@ use crate::index::docs_with_field_set::{DocsWithFieldSet, DocsWithFieldSetDISI};
 use crate::index::field_info::FieldInfo;
 use crate::index::numeric_doc_values::Either2NumericDocValues;
 use crate::index::numeric_doc_values::NumericDocValues;
-use crate::index::numeric_doc_values_writer::{NumericDVs, SortingNumericDocValues, ndvw_util};
+use crate::index::numeric_doc_values_writer::{
+    NumericDVs, SortingNumericDocValues, sort_doc_values,
+};
 use crate::index::segment_info::SegmentInfo;
 use crate::index::sorter::DocMap;
 use crate::search::doc_id_set::DocIdSet;
@@ -110,7 +112,7 @@ impl NormValuesWriter {
                     None => return Err(LuceneError::illegal_state("DocsWithFieldSet is None")),
                 };
                 let mut buffer_norms = BufferedNorms::new(&values, iter);
-                let sorted = ndvw_util::sort_doc_values(
+                let sorted = sort_doc_values(
                     segment_info.max_doc()?,
                     sort_map.as_ref(),
                     &mut buffer_norms,

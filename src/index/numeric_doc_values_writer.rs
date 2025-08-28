@@ -128,7 +128,7 @@ impl DocValuesWriter for NumericDocValuesWriter {
         if self.final_values.is_none() {
             self.final_values = Some(std::mem::take(&mut self.pending).build()?)
         }
-        let producer = ndvw_util::get_doc_values_producer(
+        let producer = get_doc_values_producer(
             self.field_info.clone(),
             self.final_values.as_ref().unwrap(),
             std::mem::take(&mut self.docs_with_field),
@@ -218,87 +218,6 @@ impl DocValuesProducer for DocValuesProducerImpl {
     type DocValuesSkipper = DummyDocValuesSkipper;
 }
 
-pub(crate) mod ndvw_util {
-    use crate::index::docs_with_field_set::DocsWithFieldSet;
-    use crate::index::field_info::FieldInfo;
-    use crate::index::numeric_doc_values::NumericDocValues;
-    use crate::index::numeric_doc_values_writer::{
-        BufferedNumericDocValues, DocValuesProducerImpl, NumericDVs,
-    };
-    use crate::index::sorter::DocMap;
-    use crate::search::doc_id_set::DocIdSet;
-    use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-    use crate::util::bit_set::BitSet;
-    use crate::util::error::lucene_error::{LuceneError, Result};
-    use crate::util::fixed_bit_set::FixedBitSet;
-    use crate::util::packed::packed_long_values::PackedLongValues;
-    use std::rc::Rc;
-    use std::sync::Arc;
-
-    pub(crate) fn sort_doc_values<DV, M>(
-        max_doc: i32,
-        sort_map: &M,
-        old_doc_values: &mut DV,
-        dense: bool,
-    ) -> Result<NumericDVs<FixedBitSet>>
-    where
-        DV: NumericDocValues,
-        M: DocMap,
-    {
-        let mut docs_with_field = if !dense {
-            Some(FixedBitSet::new(max_doc))
-        } else {
-            None
-        };
-
-        let mut values = vec![0i64; max_doc as usize];
-
-        loop {
-            let doc_id = old_doc_values.next_doc()?;
-            if doc_id == NO_MORE_DOCS {
-                break;
-            }
-
-            let new_doc_id = sort_map.old_to_new(doc_id);
-            if let Some(bits) = &mut docs_with_field {
-                bits.set(new_doc_id);
-            }
-
-            values[new_doc_id as usize] = old_doc_values.long_value()?;
-        }
-        Ok(NumericDVs::new(values, docs_with_field))
-    }
-
-    pub(crate) fn get_doc_values_producer<DM>(
-        writer_field_info: Arc<FieldInfo>,
-        values: &PackedLongValues,
-        docs_with_field: DocsWithFieldSet,
-        sort_map: Option<Rc<DM>>,
-    ) -> Result<DocValuesProducerImpl>
-    where
-        DM: DocMap,
-    {
-        let sorter = if let Some(sort_map) = sort_map {
-            let dense = sort_map.size() == docs_with_field.cardinality();
-            let iter = match docs_with_field.iterator()? {
-                Some(iter) => iter,
-                None => return Err(LuceneError::illegal_state("DocsWithFieldSet is None")),
-            };
-            let mut old_values = BufferedNumericDocValues::new(values, iter);
-            let sorted =
-                sort_doc_values(sort_map.size(), sort_map.as_ref(), &mut old_values, dense)?;
-            Some(sorted)
-        } else {
-            None
-        };
-        Ok(DocValuesProducerImpl::new(
-            sorter,
-            docs_with_field,
-            values.clone(),
-            writer_field_info,
-        ))
-    }
-}
 // iterates over the values we have in ram
 pub(crate) struct BufferedNumericDocValues {
     iter: PackedLongValuesIterator,
@@ -455,4 +374,67 @@ where
             None => self.max_doc as i64,
         }
     }
+}
+
+pub(crate) fn sort_doc_values<DV, M>(
+    max_doc: i32,
+    sort_map: &M,
+    old_doc_values: &mut DV,
+    dense: bool,
+) -> Result<NumericDVs<FixedBitSet>>
+where
+    DV: NumericDocValues,
+    M: DocMap,
+{
+    let mut docs_with_field = if !dense {
+        Some(FixedBitSet::new(max_doc))
+    } else {
+        None
+    };
+
+    let mut values = vec![0i64; max_doc as usize];
+
+    loop {
+        let doc_id = old_doc_values.next_doc()?;
+        if doc_id == NO_MORE_DOCS {
+            break;
+        }
+
+        let new_doc_id = sort_map.old_to_new(doc_id);
+        if let Some(bits) = &mut docs_with_field {
+            bits.set(new_doc_id);
+        }
+
+        values[new_doc_id as usize] = old_doc_values.long_value()?;
+    }
+    Ok(NumericDVs::new(values, docs_with_field))
+}
+
+pub(crate) fn get_doc_values_producer<DM>(
+    writer_field_info: Arc<FieldInfo>,
+    values: &PackedLongValues,
+    docs_with_field: DocsWithFieldSet,
+    sort_map: Option<Rc<DM>>,
+) -> Result<DocValuesProducerImpl>
+where
+    DM: DocMap,
+{
+    let sorter = if let Some(sort_map) = sort_map {
+        let dense = sort_map.size() == docs_with_field.cardinality();
+        let iter = match docs_with_field.iterator()? {
+            Some(iter) => iter,
+            None => return Err(LuceneError::illegal_state("DocsWithFieldSet is None")),
+        };
+        let mut old_values = BufferedNumericDocValues::new(values, iter);
+        let sorted = sort_doc_values(sort_map.size(), sort_map.as_ref(), &mut old_values, dense)?;
+        Some(sorted)
+    } else {
+        None
+    };
+    Ok(DocValuesProducerImpl::new(
+        sorter,
+        docs_with_field,
+        values.clone(),
+        writer_field_info,
+    ))
 }

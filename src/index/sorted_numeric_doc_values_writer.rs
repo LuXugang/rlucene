@@ -28,7 +28,8 @@ use crate::index::docs_with_field_set::{DocsWithFieldSet, DocsWithFieldSetDISI};
 use crate::index::field_info::FieldInfo;
 use crate::index::numeric_doc_values::Either2NumericDocValues;
 use crate::index::numeric_doc_values_writer::{
-    BufferedNumericDocValues, DocValuesProducerImpl, SortingNumericDocValues, ndvw_util,
+    BufferedNumericDocValues, DocValuesProducerImpl, SortingNumericDocValues,
+    get_doc_values_producer,
 };
 use crate::index::segment_info::SegmentInfo;
 use crate::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
@@ -226,7 +227,7 @@ impl DocValuesWriter for SortedNumericDocValuesWriter {
             )
         };
         if value_counts.is_none() {
-            let single_value_producer = ndvw_util::get_doc_values_producer(
+            let single_value_producer = get_doc_values_producer(
                 self.field_info.clone(),
                 &values,
                 std::mem::take(&mut self.docs_with_field),
