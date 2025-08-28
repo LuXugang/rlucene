@@ -14,18 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#[allow(dead_code)]
 pub struct VectorizationProvider;
-pub mod vectorization_provider_util {
-    use std::cell::RefCell;
-    use std::rc::Rc;
 
-    use crate::internal::vectorization::posting_decoding_util::PostingDecodingUtil;
-    use crate::store::IndexInput;
+use std::cell::RefCell;
+use std::rc::Rc;
 
-    pub fn new_posting_decoding_util<I: IndexInput>(
-        input: Rc<RefCell<I>>,
-    ) -> PostingDecodingUtil<I> {
-        PostingDecodingUtil::new(input)
-    }
+use crate::internal::vectorization::posting_decoding_util::PostingDecodingUtil;
+use crate::store::IndexInput;
+
+pub fn new_posting_decoding_util<I: IndexInput>(input: Rc<RefCell<I>>) -> PostingDecodingUtil<I> {
+    PostingDecodingUtil::new(input)
 }

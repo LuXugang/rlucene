@@ -35,7 +35,7 @@ use crate::index::segment_info::SegmentInfo;
 use crate::index::segment_read_state::SegmentReadState;
 use crate::index::{BytesRef, IndexFileNames};
 use crate::internal::vectorization::posting_decoding_util::PostingDecodingUtil;
-use crate::internal::vectorization::vectorization_provider::vectorization_provider_util;
+use crate::internal::vectorization::vectorization_provider::new_posting_decoding_util;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::store::directory::Directory;
@@ -547,7 +547,7 @@ where
 
         let (pos_in, pos_in_util, pos_delta_buffer) = if needs_pos {
             let pi = Rc::new(RefCell::new(reader.pos_in.as_ref().unwrap().try_clone()?));
-            let util = vectorization_provider_util::new_posting_decoding_util(pi.clone());
+            let util = new_posting_decoding_util(pi.clone());
             (Some(pi), Some(util), vec![0; ForUtil::BLOCK_SIZE])
         } else {
             (None, None, vec![])
@@ -555,7 +555,7 @@ where
 
         let (pay_in, pay_in_util) = if needs_offsets_or_payloads {
             let pi = Rc::new(RefCell::new(reader.pay_in.as_ref().unwrap().try_clone()?));
-            let util = vectorization_provider_util::new_posting_decoding_util(pi.clone());
+            let util = new_posting_decoding_util(pi.clone());
             (Some(pi), Some(util))
         } else {
             (None, None)
@@ -693,9 +693,7 @@ where
         if self.doc_freq > 1 {
             if self.doc_in.is_none() {
                 let doc_in = Rc::new(RefCell::new(reader.doc_in.try_clone()?));
-                self.doc_in_util = Some(vectorization_provider_util::new_posting_decoding_util(
-                    doc_in.clone(),
-                ));
+                self.doc_in_util = Some(new_posting_decoding_util(doc_in.clone()));
             }
             prefetch_postings(&mut *self.doc_in.access_mut(), term_state)?;
         }
