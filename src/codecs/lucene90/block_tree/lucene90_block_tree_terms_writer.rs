@@ -49,7 +49,7 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs;
 use crate::util::fst_impl::bytes_ref_fst_enum::BytesRefFSTEnum;
-use crate::util::fst_impl::fst::{FST, InputType, fst_util};
+use crate::util::fst_impl::fst::{FST, InputType, VERSION_90};
 use crate::util::fst_impl::fst_compiler::{
     Builder, DataOutputEnum, FSTCompiler, get_on_heap_reader_writer,
 };
@@ -545,9 +545,9 @@ impl PendingBlock {
 
         let outputs = ByteSequenceOutputs::get_singleton();
         let fst_version = if version >= VERSION_CURRENT {
-            fst_util::VERSION_CURRENT
+            VERSION_CURRENT
         } else {
-            fst_util::VERSION_90
+            VERSION_90
         };
 
         let mut builder = Builder::new(InputType::Byte1, outputs.clone());

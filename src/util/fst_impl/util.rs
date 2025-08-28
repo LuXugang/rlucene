@@ -21,7 +21,10 @@ use crate::index::{BytesRef, BytesRefBuilder};
 use crate::store::DataInput;
 use crate::util::access::SharedAccessVec;
 use crate::util::error::lucene_error::Result;
-use crate::util::fst_impl::fst::{Arc, BitTable, BytesReader, FST, InputType, fst_util};
+use crate::util::fst_impl::fst::{
+    ARCS_FOR_BINARY_SEARCH, ARCS_FOR_CONTINUOUS, ARCS_FOR_DIRECT_ADDRESSING, Arc, BitTable,
+    BytesReader, END_LABEL, FST, InputType, read_end_arc, target_has_arcs,
+};
 use crate::util::fst_impl::fst_reader::FstReader;
 use crate::util::fst_impl::outputs::{Outputs, OutputsBound};
 use crate::util::ints_ref::IntsRef;
@@ -154,20 +157,20 @@ impl Util {
         O: Outputs,
         F: FstReader,
     {
-        if label == fst_util::END_LABEL {
-            fst_util::read_end_arc(follow, arc);
+        if label == END_LABEL {
+            read_end_arc(follow, arc);
             return Ok(Some(()));
         }
 
-        if !fst_util::target_has_arcs(follow) {
+        if !target_has_arcs(follow) {
             return Ok(None);
         }
 
         fst.read_first_target_arc(follow, arc, in_reader)?;
 
-        if arc.bytes_per_arc() != 0 && arc.label() != fst_util::END_LABEL {
+        if arc.bytes_per_arc() != 0 && arc.label() != END_LABEL {
             match arc.node_flags() {
-                fst_util::ARCS_FOR_DIRECT_ADDRESSING => {
+                ARCS_FOR_DIRECT_ADDRESSING => {
                     let target_index = label - arc.label();
                     if target_index >= arc.num_arcs() {
                         return Ok(None);
@@ -187,7 +190,7 @@ impl Util {
                     return Ok(Some(()));
                 },
 
-                fst_util::ARCS_FOR_CONTINUOUS => {
+                ARCS_FOR_CONTINUOUS => {
                     let target_index = label - arc.label();
                     if target_index >= arc.num_arcs() {
                         return Ok(None);
@@ -234,7 +237,7 @@ impl Util {
         F: FstReader,
     {
         debug_assert!(
-            arc.node_flags() == fst_util::ARCS_FOR_BINARY_SEARCH,
+            arc.node_flags() == ARCS_FOR_BINARY_SEARCH,
             "Arc is not encoded as packed array for binary search (nodeFlags={})",
             arc.node_flags()
         );

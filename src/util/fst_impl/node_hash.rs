@@ -19,7 +19,10 @@ use crate::util::ByteBlockPool;
 use crate::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fst_impl::byte_block_pool_reverse_bytes_reader::ByteBlockPoolReverseBytesReader;
-use crate::util::fst_impl::fst::{Arc, BitTable, BytesReader, FST, fst_util};
+use crate::util::fst_impl::fst::{
+    ARCS_FOR_BINARY_SEARCH, ARCS_FOR_CONTINUOUS, ARCS_FOR_DIRECT_ADDRESSING, Arc, BitTable,
+    BytesReader, FINAL_END_NODE, FST, NON_FINAL_END_NODE,
+};
 use crate::util::fst_impl::fst_compiler::{FSTCompiler, NodeEnum, NullFSTReader, UnCompiledNode};
 use crate::util::fst_impl::fst_reader::FstReader;
 use crate::util::fst_impl::outputs::{Outputs, OutputsBound};
@@ -191,8 +194,7 @@ where
                     // we use 0 as empty marker in hash table, so it better be
                     // impossible to get a frozen node at 0:
                     debug_assert!(
-                        node_address != fst_util::FINAL_END_NODE
-                            && node_address != fst_util::NON_FINAL_END_NODE
+                        node_address != FINAL_END_NODE && node_address != NON_FINAL_END_NODE
                     );
                     let node_hash = &mut fst_compiler.dedup_hash;
                     node_hash
@@ -616,13 +618,13 @@ where
             // the frozen node uses fixed-with arc encoding (same number of
             // bytes per arc), but may be sparse or dense
             match self.scratch_arc.node_flags() {
-                fst_util::ARCS_FOR_BINARY_SEARCH => {
+                ARCS_FOR_BINARY_SEARCH => {
                     if node.num_arcs != self.scratch_arc.num_arcs() {
                         // sparse
                         return Ok(-1);
                     }
                 },
-                fst_util::ARCS_FOR_DIRECT_ADDRESSING => {
+                ARCS_FOR_DIRECT_ADDRESSING => {
                     // dense -- compare both the number of labels allocated in
                     // the array (some of which may
                     // not actually be arcs), and the number of arcs
@@ -634,7 +636,7 @@ where
                         return Ok(-1);
                     }
                 },
-                fst_util::ARCS_FOR_CONTINUOUS => {
+                ARCS_FOR_CONTINUOUS => {
                     let first_label = node.arcs[0].label;
                     let last_label = node.arcs[node.num_arcs as usize - 1].label;
                     if (last_label - first_label + 1) != self.scratch_arc.num_arcs() {

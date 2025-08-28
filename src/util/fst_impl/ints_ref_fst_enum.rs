@@ -20,7 +20,7 @@ use std::rc::Rc;
 use crate::util::OptionTakeExt;
 use crate::util::array_util::ArrayUtil;
 use crate::util::error::lucene_error::Result;
-use crate::util::fst_impl::fst::{FST, fst_util};
+use crate::util::fst_impl::fst::{END_LABEL, FST};
 use crate::util::fst_impl::fst_enum::{FSTEnum, FSTEnumBase, InputOutput};
 use crate::util::fst_impl::fst_reader::FstReader;
 use crate::util::fst_impl::outputs::Outputs;
@@ -148,7 +148,7 @@ where
 {
     fn get_target_label(&mut self, base: &mut FSTEnum<O, F>) -> Result<i32> {
         if base.upto - 1 == self.target.length {
-            Ok(fst_util::END_LABEL)
+            Ok(END_LABEL)
         } else {
             Ok(self.target.ints.borrow()[self.target.offset + base.upto - 1])
         }

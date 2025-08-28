@@ -47,13 +47,12 @@ where
 {
     /// Load a previously saved FST with a DataInput for metadata using an
     /// [`OnHeapFSTStore`] with `maxBlockBits` set to
-    /// [`DEFAULT_MAX_BLOCK_BITS`](fst_util::DEFAULT_MAX_BLOCK_BITS)
+    /// [`DEFAULT_MAX_BLOCK_BITS`](DEFAULT_MAX_BLOCK_BITS)
     pub fn from_on_heap_store(
         metadata: FSTMetadata<O>,
         input: &mut impl DataInput,
     ) -> Result<Self> {
-        let store =
-            OnHeapFSTStore::new(fst_util::DEFAULT_MAX_BLOCK_BITS, input, metadata.num_bytes)?;
+        let store = OnHeapFSTStore::new(DEFAULT_MAX_BLOCK_BITS, input, metadata.num_bytes)?;
         Ok(Self::new(metadata, store))
     }
 }
@@ -136,7 +135,7 @@ where
             InputType::Byte1 => input.read_byte()? as i32,
             InputType::Byte2 => {
                 let raw = input.read_short()?;
-                if version < fst_util::VERSION_LITTLE_ENDIAN {
+                if version < VERSION_LITTLE_ENDIAN {
                     i32::from(u16::from_be_bytes(raw.to_be_bytes()))
                 } else {
                     raw as u16 as i32
@@ -155,10 +154,10 @@ where
         reader: &mut impl BytesReader,
     ) -> Result<()> {
         debug_assert!(arc.bytes_per_arc > 0);
-        debug_assert_eq!(arc.node_flags, fst_util::ARCS_FOR_DIRECT_ADDRESSING);
+        debug_assert_eq!(arc.node_flags, ARCS_FOR_DIRECT_ADDRESSING);
 
         arc.bit_table_start = reader.get_position();
-        let skip_bytes = fst_util::get_num_presence_bytes(arc.num_arcs);
+        let skip_bytes = get_num_presence_bytes(arc.num_arcs);
         reader.skip_bytes(skip_bytes as i64)?;
         Ok(())
     }
@@ -168,13 +167,13 @@ where
         let no_output = self.outputs.get_no_output();
 
         if let Some(ref empty_output) = self.metadata.as_ref().unwrap().empty_output {
-            arc.flags = fst_util::BIT_FINAL_ARC | fst_util::BIT_LAST_ARC;
+            arc.flags = BIT_FINAL_ARC | BIT_LAST_ARC;
             arc.next_final_output = empty_output.clone();
             if *empty_output != no_output {
-                arc.flags |= fst_util::BIT_ARC_HAS_FINAL_OUTPUT;
+                arc.flags |= BIT_ARC_HAS_FINAL_OUTPUT;
             }
         } else {
-            arc.flags = fst_util::BIT_LAST_ARC;
+            arc.flags = BIT_LAST_ARC;
             arc.next_final_output = no_output.clone();
         }
 
@@ -195,12 +194,12 @@ where
         arc: &'a mut Arc<O::V>,
         input: &mut impl BytesReader,
     ) -> Result<&'a mut Arc<O::V>> {
-        if !fst_util::target_has_arcs(follow) {
+        if !target_has_arcs(follow) {
             debug_assert!(follow.is_final());
-            arc.label = fst_util::END_LABEL;
-            arc.target = fst_util::FINAL_END_NODE;
+            arc.label = END_LABEL;
+            arc.target = FINAL_END_NODE;
             arc.output = follow.next_final_output.clone();
-            arc.flags = fst_util::BIT_LAST_ARC;
+            arc.flags = BIT_LAST_ARC;
             arc.node_flags = arc.flags;
             return Ok(arc);
         }
@@ -209,21 +208,21 @@ where
         let flags = input.read_byte()?;
         arc.node_flags = flags;
 
-        if flags == fst_util::ARCS_FOR_BINARY_SEARCH
-            || flags == fst_util::ARCS_FOR_DIRECT_ADDRESSING
-            || flags == fst_util::ARCS_FOR_CONTINUOUS
+        if flags == ARCS_FOR_BINARY_SEARCH
+            || flags == ARCS_FOR_DIRECT_ADDRESSING
+            || flags == ARCS_FOR_CONTINUOUS
         {
             // Special arc which is actually a node header for fixed length
             // arcs. Jump straight to end to find the last arc.
             arc.num_arcs = input.read_vint()?;
             arc.bytes_per_arc = input.read_vint()?;
 
-            if flags == fst_util::ARCS_FOR_DIRECT_ADDRESSING {
-                fst_util::read_presence_bytes(arc, input)?;
+            if flags == ARCS_FOR_DIRECT_ADDRESSING {
+                read_presence_bytes(arc, input)?;
                 arc.first_label = self.read_label(input)?;
                 arc.pos_arcs_start = input.get_position();
                 self.read_last_arc_by_direct_addressing(arc, input)?;
-            } else if flags == fst_util::ARCS_FOR_BINARY_SEARCH {
+            } else if flags == ARCS_FOR_BINARY_SEARCH {
                 arc.arc_idx = arc.num_arcs - 2;
                 arc.pos_arcs_start = input.get_position();
                 self.read_next_real_arc(arc, input)?;
@@ -239,13 +238,13 @@ where
             // Linear scan through variable-length arcs
             while !arc.is_last() {
                 self.read_label(input)?;
-                if arc.flag(fst_util::BIT_ARC_HAS_OUTPUT as i32) {
+                if arc.flag(BIT_ARC_HAS_OUTPUT as i32) {
                     self.outputs.skip_output(input)?;
                 }
-                if arc.flag(fst_util::BIT_ARC_HAS_FINAL_OUTPUT as i32) {
+                if arc.flag(BIT_ARC_HAS_FINAL_OUTPUT as i32) {
                     self.outputs.skip_final_output(input)?;
                 }
-                if arc.flag(fst_util::BIT_STOP_NODE) || arc.flag(fst_util::BIT_TARGET_NEXT as i32) {
+                if arc.flag(BIT_STOP_NODE) || arc.flag(BIT_TARGET_NEXT as i32) {
                     // no-op
                 } else {
                     self.read_unpacked_node_target(input)?;
@@ -275,17 +274,17 @@ where
     ) -> Result<()> {
         if follow.is_final() {
             // Insert "fake" final arc to END_LABEL
-            arc.label = fst_util::END_LABEL;
+            arc.label = END_LABEL;
             arc.output = follow.next_final_output.clone();
-            arc.flags = fst_util::BIT_FINAL_ARC;
+            arc.flags = BIT_FINAL_ARC;
 
             if follow.target <= 0 {
-                arc.flags |= fst_util::BIT_LAST_ARC;
+                arc.flags |= BIT_LAST_ARC;
             } else {
                 arc.next_arc = follow.target;
             }
 
-            arc.target = fst_util::FINAL_END_NODE;
+            arc.target = FINAL_END_NODE;
             arc.node_flags = arc.flags;
             Ok(())
         } else {
@@ -303,9 +302,9 @@ where
         let flags = reader.read_byte()?;
         arc.node_flags = flags;
 
-        if flags == fst_util::ARCS_FOR_BINARY_SEARCH
-            || flags == fst_util::ARCS_FOR_DIRECT_ADDRESSING
-            || flags == fst_util::ARCS_FOR_CONTINUOUS
+        if flags == ARCS_FOR_BINARY_SEARCH
+            || flags == ARCS_FOR_DIRECT_ADDRESSING
+            || flags == ARCS_FOR_CONTINUOUS
         {
             // Special arc which is actually a node header for fixed length
             // arcs.
@@ -313,11 +312,11 @@ where
             arc.bytes_per_arc = reader.read_vint()?;
             arc.arc_idx = -1;
 
-            if flags == fst_util::ARCS_FOR_DIRECT_ADDRESSING {
+            if flags == ARCS_FOR_DIRECT_ADDRESSING {
                 self.read_presence_bytes(arc, reader)?;
                 arc.first_label = self.read_label(reader)?;
                 arc.presence_index = -1;
-            } else if flags == fst_util::ARCS_FOR_CONTINUOUS {
+            } else if flags == ARCS_FOR_CONTINUOUS {
                 arc.first_label = self.read_label(reader)?;
             }
 
@@ -345,19 +344,19 @@ where
         follow: &Arc<O::V>,
         reader: &mut impl BytesReader,
     ) -> Result<bool> {
-        if !fst_util::target_has_arcs(follow) {
+        if !target_has_arcs(follow) {
             Ok(false)
         } else {
             reader.set_position(follow.target);
             let flags = reader.read_byte()?;
-            Ok(flags == fst_util::ARCS_FOR_BINARY_SEARCH
-                || flags == fst_util::ARCS_FOR_DIRECT_ADDRESSING
-                || flags == fst_util::ARCS_FOR_CONTINUOUS)
+            Ok(flags == ARCS_FOR_BINARY_SEARCH
+                || flags == ARCS_FOR_DIRECT_ADDRESSING
+                || flags == ARCS_FOR_CONTINUOUS)
         }
     }
     /// In-place read; returns the arc.
     pub fn read_next_arc(&self, arc: &mut Arc<O::V>, input: &mut impl BytesReader) -> Result<()> {
-        if arc.label() == fst_util::END_LABEL {
+        if arc.label() == END_LABEL {
             // This was a fake inserted "final" arc
             if arc.next_arc() <= 0 {
                 return Err(LuceneError::illegal_argument(
@@ -378,36 +377,36 @@ where
     ) -> Result<i32> {
         debug_assert!(!arc.is_last());
 
-        if arc.label() == fst_util::END_LABEL {
+        if arc.label() == END_LABEL {
             // Next arc is the first arc of a node.
             // Position to read the first arc label.
             input.set_position(arc.next_arc());
             let flags = input.read_byte()?;
 
-            if flags == fst_util::ARCS_FOR_BINARY_SEARCH
-                || flags == fst_util::ARCS_FOR_DIRECT_ADDRESSING
-                || flags == fst_util::ARCS_FOR_CONTINUOUS
+            if flags == ARCS_FOR_BINARY_SEARCH
+                || flags == ARCS_FOR_DIRECT_ADDRESSING
+                || flags == ARCS_FOR_CONTINUOUS
             {
                 // Special arc which is actually a node header for fixed length
                 // arcs.
                 let num_arcs = input.read_vint()?;
                 input.read_vint()?; // Skip bytesPerArc.
-                if flags == fst_util::ARCS_FOR_BINARY_SEARCH {
+                if flags == ARCS_FOR_BINARY_SEARCH {
                     input.read_byte()?; // Skip arc flags.
-                } else if flags == fst_util::ARCS_FOR_DIRECT_ADDRESSING {
-                    input.skip_bytes(fst_util::get_num_presence_bytes(num_arcs) as i64)?;
+                } else if flags == ARCS_FOR_DIRECT_ADDRESSING {
+                    input.skip_bytes(get_num_presence_bytes(num_arcs) as i64)?;
                 } // Nothing to do for ARCS_FOR_CONTINUOUS
             }
         } else {
             match arc.node_flags() {
-                fst_util::ARCS_FOR_BINARY_SEARCH => {
+                ARCS_FOR_BINARY_SEARCH => {
                     // Point to next arc, -1 to skip arc flags.
                     let pos = arc.pos_arcs_start()
                         - (1 + arc.arc_idx()) as i64 * arc.bytes_per_arc() as i64
                         - 1;
                     input.set_position(pos);
                 },
-                fst_util::ARCS_FOR_DIRECT_ADDRESSING => {
+                ARCS_FOR_DIRECT_ADDRESSING => {
                     // Direct addressing node. The label is not stored but
                     // rather inferred based on first label
                     // and arc index in the range.
@@ -417,7 +416,7 @@ where
                     debug_assert!(next_index != -1);
                     return Ok(arc.first_label() + next_index);
                 },
-                fst_util::ARCS_FOR_CONTINUOUS => {
+                ARCS_FOR_CONTINUOUS => {
                     return Ok(arc.first_label() + arc.arc_idx() + 1);
                 },
                 _ => {
@@ -450,7 +449,7 @@ where
         idx: i32,
     ) -> Result<()> {
         debug_assert!(arc.bytes_per_arc() > 0);
-        debug_assert_eq!(arc.node_flags(), fst_util::ARCS_FOR_BINARY_SEARCH);
+        debug_assert_eq!(arc.node_flags(), ARCS_FOR_BINARY_SEARCH);
         debug_assert!(idx >= 0 && idx < arc.num_arcs());
         input.set_position(arc.pos_arcs_start() - idx as i64 * arc.bytes_per_arc() as i64);
         arc.arc_idx = idx;
@@ -562,7 +561,7 @@ where
         // TODO: can't assert this because we call from readFirstArc
         // assert !flag(arc.flags, BIT_LAST_ARC);
         match arc.node_flags {
-            fst_util::ARCS_FOR_BINARY_SEARCH | fst_util::ARCS_FOR_CONTINUOUS => {
+            ARCS_FOR_BINARY_SEARCH | ARCS_FOR_CONTINUOUS => {
                 debug_assert!(arc.bytes_per_arc > 0);
                 arc.arc_idx += 1;
                 debug_assert!(arc.arc_idx >= 0 && arc.arc_idx < arc.num_arcs);
@@ -571,7 +570,7 @@ where
                 arc.flags = reader.read_byte()?;
             },
 
-            fst_util::ARCS_FOR_DIRECT_ADDRESSING => {
+            ARCS_FOR_DIRECT_ADDRESSING => {
                 debug_assert!(BitTable::assert_is_valid(arc, reader)?);
                 debug_assert!(
                     arc.arc_idx == -1 || BitTable::is_bit_set(arc.arc_idx, arc, reader)?,
@@ -603,41 +602,39 @@ where
     /// Precondition: The arc flags byte has already been read and set;
     /// the given `BytesReader` is positioned just after the arc flags byte.
     pub fn read_arc(&self, arc: &mut Arc<O::V>, reader: &mut impl BytesReader) -> Result<()> {
-        if arc.node_flags == fst_util::ARCS_FOR_DIRECT_ADDRESSING
-            || arc.node_flags == fst_util::ARCS_FOR_CONTINUOUS
-        {
+        if arc.node_flags == ARCS_FOR_DIRECT_ADDRESSING || arc.node_flags == ARCS_FOR_CONTINUOUS {
             arc.label = arc.first_label() + arc.arc_idx();
         } else {
             arc.label = self.read_label(reader)?;
         }
 
-        if arc.flag(fst_util::BIT_ARC_HAS_OUTPUT as i32) {
+        if arc.flag(BIT_ARC_HAS_OUTPUT as i32) {
             arc.output = self.outputs.read(reader)?;
         } else {
             arc.output = self.outputs.get_no_output();
         }
 
-        if arc.flag(fst_util::BIT_ARC_HAS_FINAL_OUTPUT as i32) {
+        if arc.flag(BIT_ARC_HAS_FINAL_OUTPUT as i32) {
             arc.next_final_output = self.outputs.read_final_output(reader)?;
         } else {
             arc.next_final_output = self.outputs.get_no_output();
         }
 
-        if arc.flag(fst_util::BIT_STOP_NODE) {
-            arc.target = if arc.flag(fst_util::BIT_FINAL_ARC as i32) {
-                fst_util::FINAL_END_NODE
+        if arc.flag(BIT_STOP_NODE) {
+            arc.target = if arc.flag(BIT_FINAL_ARC as i32) {
+                FINAL_END_NODE
             } else {
-                fst_util::NON_FINAL_END_NODE
+                NON_FINAL_END_NODE
             };
             arc.next_arc = reader.get_position();
-        } else if arc.flag(fst_util::BIT_TARGET_NEXT as i32) {
+        } else if arc.flag(BIT_TARGET_NEXT as i32) {
             arc.next_arc = reader.get_position();
 
-            if !arc.flag(fst_util::BIT_LAST_ARC as i32) {
+            if !arc.flag(BIT_LAST_ARC as i32) {
                 if arc.bytes_per_arc() == 0 {
                     self.seek_to_next_node(reader)?;
                 } else {
-                    let num_arcs = if arc.node_flags == fst_util::ARCS_FOR_DIRECT_ADDRESSING {
+                    let num_arcs = if arc.node_flags == ARCS_FOR_DIRECT_ADDRESSING {
                         BitTable::count_bits(arc, reader)?
                     } else {
                         arc.num_arcs()
@@ -679,16 +676,16 @@ where
         arc: &mut Arc<O::V>,
         input: &mut impl BytesReader,
     ) -> Result<Option<()>> {
-        if label_to_match == fst_util::END_LABEL {
+        if label_to_match == END_LABEL {
             if follow.is_final() {
                 if follow.target() <= 0 {
-                    arc.flags = fst_util::BIT_LAST_ARC;
+                    arc.flags = BIT_LAST_ARC;
                 } else {
                     arc.flags = 0;
                     arc.next_arc = follow.target();
                 }
                 arc.output = follow.next_final_output();
-                arc.label = fst_util::END_LABEL;
+                arc.label = END_LABEL;
                 arc.node_flags = arc.flags;
                 return Ok(Some(()));
             } else {
@@ -696,7 +693,7 @@ where
             }
         }
 
-        if !fst_util::target_has_arcs(follow) {
+        if !target_has_arcs(follow) {
             return Ok(None);
         }
 
@@ -705,7 +702,7 @@ where
         let flags = input.read_byte()?;
         arc.node_flags = flags;
 
-        if flags == fst_util::ARCS_FOR_DIRECT_ADDRESSING {
+        if flags == ARCS_FOR_DIRECT_ADDRESSING {
             arc.num_arcs = input.read_vint()?;
             arc.bytes_per_arc = input.read_vint()?;
             self.read_presence_bytes(arc, input)?;
@@ -721,7 +718,7 @@ where
             return self
                 .read_arc_by_direct_addressing(arc, input, arc_index)
                 .map(Some);
-        } else if flags == fst_util::ARCS_FOR_BINARY_SEARCH {
+        } else if flags == ARCS_FOR_BINARY_SEARCH {
             arc.num_arcs = input.read_vint()?;
             arc.bytes_per_arc = input.read_vint()?;
             arc.pos_arcs_start = input.get_position();
@@ -742,7 +739,7 @@ where
                 }
             }
             return Ok(None);
-        } else if flags == fst_util::ARCS_FOR_CONTINUOUS {
+        } else if flags == ARCS_FOR_CONTINUOUS {
             arc.num_arcs = input.read_vint()?;
             arc.bytes_per_arc = input.read_vint()?;
             arc.first_label = self.read_label(input)?;
@@ -769,15 +766,13 @@ where
                 return Ok(None);
             } else {
                 let flag = arc.flags as i32;
-                if fst_util::flag(flag, fst_util::BIT_ARC_HAS_OUTPUT as i32) {
+                if flag_mod(flag, BIT_ARC_HAS_OUTPUT as i32) {
                     self.outputs.skip_output(input)?;
                 }
-                if fst_util::flag(flag, fst_util::BIT_ARC_HAS_FINAL_OUTPUT as i32) {
+                if flag_mod(flag, BIT_ARC_HAS_FINAL_OUTPUT as i32) {
                     self.outputs.skip_final_output(input)?;
                 }
-                if !fst_util::flag(flag, fst_util::BIT_STOP_NODE)
-                    && !fst_util::flag(flag, fst_util::BIT_TARGET_NEXT as i32)
-                {
+                if !flag_mod(flag, BIT_STOP_NODE) && !flag_mod(flag, BIT_TARGET_NEXT as i32) {
                     self.read_unpacked_node_target(input)?;
                 }
             }
@@ -790,21 +785,21 @@ where
             let flags = reader.read_byte()?;
             self.read_label(reader)?;
 
-            if flags & fst_util::BIT_ARC_HAS_OUTPUT != 0 {
+            if flags & BIT_ARC_HAS_OUTPUT != 0 {
                 self.outputs.skip_output(reader)?;
             }
 
-            if flags & fst_util::BIT_ARC_HAS_FINAL_OUTPUT != 0 {
+            if flags & BIT_ARC_HAS_FINAL_OUTPUT != 0 {
                 self.outputs.skip_final_output(reader)?;
             }
 
-            if fst_util::flag(flags as i32, fst_util::BIT_STOP_NODE)
-                && fst_util::flag(flags as i32, fst_util::BIT_TARGET_NEXT as i32)
+            if flag_mod(flags as i32, BIT_STOP_NODE)
+                && flag_mod(flags as i32, BIT_TARGET_NEXT as i32)
             {
                 self.read_unpacked_node_target(reader)?;
             }
 
-            if flags & fst_util::BIT_LAST_ARC != 0 {
+            if flags & BIT_LAST_ARC != 0 {
                 return Ok(());
             }
         }
@@ -830,201 +825,6 @@ where
             self.metadata.as_ref().unwrap().input_type,
             self.outputs
         )
-    }
-}
-pub mod fst_util {
-
-    use crate::codecs::CodecUtil;
-    use crate::store::{DataInput, DataOutput};
-    use crate::util::error::lucene_error::{LuceneError, Result};
-    use crate::util::fst_impl::fst::{Arc, BytesReader, FSTMetadata, InputType};
-    use crate::util::fst_impl::fst_compiler::get_on_heap_reader_writer;
-    use crate::util::fst_impl::fst_reader::FstReader;
-    use crate::util::fst_impl::outputs::{Outputs, OutputsBound};
-
-    pub(crate) const BIT_FINAL_ARC: u8 = 1 << 0;
-    pub(crate) const BIT_LAST_ARC: u8 = 1 << 1;
-    pub(crate) const BIT_TARGET_NEXT: u8 = 1 << 2;
-
-    // TODO: we can free up a bit if we can nuke this:
-    pub(crate) const BIT_STOP_NODE: i32 = 1 << 3;
-
-    /// This flag is set if the arc has an output.
-    pub const BIT_ARC_HAS_OUTPUT: u8 = 1 << 4;
-    pub(crate) const BIT_ARC_HAS_FINAL_OUTPUT: u8 = 1 << 5;
-
-    /// Value of the arc flags to declare a node with fixed length (sparse) arcs
-    /// designed for binary search.
-    pub const ARCS_FOR_BINARY_SEARCH: u8 = BIT_ARC_HAS_FINAL_OUTPUT;
-
-    /// Value of the arc flags to declare a node with fixed length dense arcs
-    /// and bit table designed for direct addressing.
-    pub(crate) const ARCS_FOR_DIRECT_ADDRESSING: u8 = 1 << 6;
-
-    ///  Value of the arc flags to declare a node with continuous arcs designed
-    /// for pos the arc directly  with labelToPos - firstLabel. like
-    /// [`ARCS_FOR_BINARY_SEARCH`](ARCS_FOR_BINARY_SEARCH) we use flag
-    /// combinations  that will not occur at the same time.
-    pub(crate) const ARCS_FOR_CONTINUOUS: u8 = ARCS_FOR_DIRECT_ADDRESSING + ARCS_FOR_BINARY_SEARCH;
-
-    /// Format name for the FST file.
-    pub(super) const FILE_FORMAT_NAME: &str = "FST";
-
-    /// First supported version (Lucene 7.0).
-    pub const VERSION_START: i32 = 6;
-    // Version 7 introduced direct addressing for arcs, but it's not recorded
-    // here because it doesn't need version checks on the read side, it uses
-    // new flag values on arcs instead.
-    pub(super) const VERSION_LITTLE_ENDIAN: i32 = 8;
-
-    /// Version that started storing continuous arcs.
-    pub const VERSION_CONTINUOUS_ARCS: i32 = 9;
-
-    /// Current format version.
-    pub const VERSION_CURRENT: i32 = VERSION_CONTINUOUS_ARCS;
-
-    /// Version that was used for Lucene 9.0.
-    pub const VERSION_90: i32 = VERSION_LITTLE_ENDIAN;
-
-    /// Represents a final virtual node with no arcs (never serialized).
-    pub(crate) const FINAL_END_NODE: i64 = -1;
-
-    /// Represents a non-final virtual node with no arcs (never serialized).
-    pub(crate) const NON_FINAL_END_NODE: i64 = 0;
-
-    /// If arc has this label then that arc is final/accepted.
-    pub const END_LABEL: i32 = -1;
-    #[cfg(target_pointer_width = "64")]
-    pub const DEFAULT_MAX_BLOCK_BITS: i32 = 30;
-
-    #[cfg(not(target_pointer_width = "64"))]
-    pub const DEFAULT_MAX_BLOCK_BITS: i32 = 28;
-    #[inline]
-    pub(crate) fn flag(flags: i32, bit: i32) -> bool {
-        (flags & bit) != 0
-    }
-
-    /// Read the FST metadata from DataInput
-    ///
-    /// # Type Parameters
-    ///
-    /// * `T` - the output type
-    ///
-    /// # Arguments
-    ///
-    /// * `metaIn` - the DataInput of the metadata
-    /// * `outputs` - the FST outputs
-    ///
-    /// # Returns
-    ///
-    /// the FST metadata
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if an exception occurred during parsing
-    pub fn read_metadata<O>(meta_in: &mut impl DataInput, outputs: O) -> Result<FSTMetadata<O>>
-    where
-        O: Outputs,
-    {
-        // NOTE: only reads formats VERSION_START up to VERSION_CURRENT; we
-        // don't have back-compat promise for FSTs (they are
-        // experimental), but we are sometimes able to offer it
-        let version =
-            CodecUtil::check_header(meta_in, FILE_FORMAT_NAME, VERSION_START, VERSION_CURRENT)?;
-
-        let mut empty_output: Option<O::V> = None;
-
-        if meta_in.read_byte()? == 1 {
-            // Accepts empty string
-            // 1 KB blocks:
-            let mut empty_bytes = get_on_heap_reader_writer(10)?;
-            let num_bytes = meta_in.read_vint()?;
-            empty_bytes.copy_bytes(meta_in, num_bytes as i64)?;
-            empty_bytes.freeze()?;
-            empty_bytes.init_reader();
-            // De-serialize empty-string output:
-            let mut reader = empty_bytes.get_reverse_bytes_reader()?;
-            // NoOutputs uses 0 bytes when writing its output,
-            // so we have to check here else BytesStore gets angry:
-            if num_bytes > 0 {
-                reader.set_position((num_bytes - 1) as i64);
-            }
-            empty_output = Some(outputs.read_final_output(&mut reader)?);
-        }
-        let input_type = match meta_in.read_byte()? {
-            0 => InputType::Byte1,
-            1 => InputType::Byte2,
-            2 => InputType::Byte4,
-            invalid => {
-                return Err(LuceneError::corrupt_index(format!(
-                    "invalid input type {invalid} (resource={meta_in})"
-                )));
-            },
-        };
-
-        let start_node = meta_in.read_vlong()?;
-        let num_bytes = meta_in.read_vlong()?;
-
-        Ok(FSTMetadata::new(
-            input_type,
-            outputs,
-            empty_output,
-            start_node,
-            version,
-            num_bytes,
-        ))
-    }
-
-    /// Returns `true` if the node at this address has any outgoing arcs.
-    pub fn target_has_arcs<T: OutputsBound>(arc: &Arc<T>) -> bool {
-        arc.target() > 0
-    }
-    /// Gets the number of bytes required to flag the presence of each arc in
-    /// the given label range, one bit per arc.
-    pub(crate) fn get_num_presence_bytes(label_range: i32) -> i32 {
-        debug_assert!(label_range >= 0);
-        (label_range + 7) >> 3
-    }
-    /// Reads the presence bits of a direct-addressing node. Actually we don't
-    /// read them here, we just keep the pointer to the bit-table start and
-    /// we skip them.
-    pub(crate) fn read_presence_bytes<T: OutputsBound>(
-        arc: &mut Arc<T>,
-        reader: &mut impl BytesReader,
-    ) -> Result<()> {
-        debug_assert!(arc.bytes_per_arc() > 0);
-        debug_assert_eq!(arc.node_flags(), ARCS_FOR_DIRECT_ADDRESSING);
-        arc.bit_table_start = reader.get_position();
-        let skip = get_num_presence_bytes(arc.num_arcs());
-        reader.skip_bytes(skip as i64)
-    }
-    /// Reads the end arc based on the `follow` arc.
-    /// If `follow` is final, this sets up an artificial END_LABEL arc in-place
-    /// and returns it. Otherwise, returns `None`.
-    ///
-    /// # Arguments
-    ///
-    /// * `follow` - The arc to follow
-    /// * `arc` - The arc to fill and return
-    ///
-    /// # Returns
-    ///
-    /// The updated `arc` if `follow` is final, otherwise `None`
-    pub(crate) fn read_end_arc<T: OutputsBound>(follow: &Arc<T>, arc: &mut Arc<T>) -> Option<()> {
-        if follow.is_final() {
-            if follow.target() <= 0 {
-                arc.flags = BIT_LAST_ARC;
-            } else {
-                arc.flags = 0;
-                // NOTE: nextArc is a node (not an address!) in this case:
-                arc.next_arc = follow.target();
-            }
-            arc.output = follow.next_final_output();
-            arc.label = END_LABEL;
-            Some(())
-        } else {
-            None
-        }
     }
 }
 
@@ -1073,13 +873,13 @@ where
     T: OutputsBound,
 {
     pub(crate) fn flag(&self, flag: i32) -> bool {
-        fst_util::flag(self.flags as i32, flag)
+        flag_mod(self.flags as i32, flag)
     }
     pub fn is_last(&self) -> bool {
-        self.flag(fst_util::BIT_LAST_ARC as i32)
+        self.flag(BIT_LAST_ARC as i32)
     }
     pub fn is_final(&self) -> bool {
-        self.flag(fst_util::BIT_FINAL_ARC as i32)
+        self.flag(BIT_FINAL_ARC as i32)
     }
 
     pub fn label(&self) -> i32 {
@@ -1096,7 +896,7 @@ where
 
     /// Address (into the byte[]) of the next arc - only for list of variable
     /// length arc. Or ord/address to the next node if label ==
-    /// [`END_LABEL`](fst_util::END_LABEL).
+    /// [`END_LABEL`](END_LABEL).
     pub fn next_arc(&self) -> i64 {
         self.next_arc
     }
@@ -1107,9 +907,9 @@ where
     }
 
     /// Node header flags. Only meaningful to check if the value is either
-    /// [`ARCS_FOR_BINARY_SEARCH`](fst_util::ARCS_FOR_BINARY_SEARCH) or
-    /// [`ARCS_FOR_DIRECT_ADDRESSING`](fst_util::ARCS_FOR_DIRECT_ADDRESSING)
-    /// or [`ARCS_FOR_CONTINUOUS`](fst_util::ARCS_FOR_CONTINUOUS) (other value
+    /// [`ARCS_FOR_BINARY_SEARCH`](ARCS_FOR_BINARY_SEARCH) or
+    /// [`ARCS_FOR_DIRECT_ADDRESSING`](ARCS_FOR_DIRECT_ADDRESSING)
+    /// or [`ARCS_FOR_CONTINUOUS`](ARCS_FOR_CONTINUOUS) (other value
     /// when bytesPerArc == 0).
     pub fn node_flags(&self) -> u8 {
         self.node_flags
@@ -1137,8 +937,8 @@ where
     }
 
     /// First label of a direct addressing node. Only valid if nodeFlags ==
-    /// [`ARCS_FOR_DIRECT_ADDRESSING`](fst_util::ARCS_FOR_DIRECT_ADDRESSING) or
-    /// [`ARCS_FOR_CONTINUOUS`](fst_util::ARCS_FOR_CONTINUOUS).
+    /// [`ARCS_FOR_DIRECT_ADDRESSING`](ARCS_FOR_DIRECT_ADDRESSING) or
+    /// [`ARCS_FOR_CONTINUOUS`](ARCS_FOR_CONTINUOUS).
     pub fn first_label(&self) -> i32 {
         self.first_label
     }
@@ -1185,28 +985,28 @@ where
         write!(f, " target={}", self.target)?;
         write!(f, " label=0x{:x}", self.label)?;
 
-        if self.flag(fst_util::BIT_FINAL_ARC as i32) {
+        if self.flag(BIT_FINAL_ARC as i32) {
             write!(f, " final")?;
         }
-        if self.flag(fst_util::BIT_LAST_ARC as i32) {
+        if self.flag(BIT_LAST_ARC as i32) {
             write!(f, " last")?;
         }
-        if self.flag(fst_util::BIT_TARGET_NEXT as i32) {
+        if self.flag(BIT_TARGET_NEXT as i32) {
             write!(f, " targetNext")?;
         }
-        if self.flag(fst_util::BIT_STOP_NODE) {
+        if self.flag(BIT_STOP_NODE) {
             write!(f, " stop")?;
         }
-        if self.flag(fst_util::BIT_ARC_HAS_OUTPUT as i32) {
+        if self.flag(BIT_ARC_HAS_OUTPUT as i32) {
             write!(f, " output={}", self.output.clone())?;
         }
-        if self.flag(fst_util::BIT_ARC_HAS_FINAL_OUTPUT as i32) {
+        if self.flag(BIT_ARC_HAS_FINAL_OUTPUT as i32) {
             write!(f, " nextFinalOutput={}", self.next_final_output.clone())?;
         }
         if self.bytes_per_arc() != 0 {
             let node_flag_str = match self.node_flags {
-                fst_util::ARCS_FOR_DIRECT_ADDRESSING => "da",
-                fst_util::ARCS_FOR_CONTINUOUS => "cs",
+                ARCS_FOR_DIRECT_ADDRESSING => "da",
+                ARCS_FOR_CONTINUOUS => "cs",
                 _ => "bs",
             };
             write!(
@@ -1227,7 +1027,7 @@ impl BitTable {
         arc: &Arc<T>,
         reader: &mut impl BytesReader,
     ) -> Result<bool> {
-        debug_assert_eq!(arc.node_flags(), fst_util::ARCS_FOR_DIRECT_ADDRESSING);
+        debug_assert_eq!(arc.node_flags(), ARCS_FOR_DIRECT_ADDRESSING);
         reader.set_position(arc.bit_table_start);
         BitTableUtil::is_bit_set(bit_index, reader)
     }
@@ -1238,9 +1038,9 @@ impl BitTable {
         arc: &Arc<T>,
         reader: &mut R,
     ) -> Result<i32> {
-        debug_assert_eq!(arc.node_flags(), fst_util::ARCS_FOR_DIRECT_ADDRESSING);
+        debug_assert_eq!(arc.node_flags(), ARCS_FOR_DIRECT_ADDRESSING);
         reader.set_position(arc.bit_table_start);
-        let num_presence_bytes = fst_util::get_num_presence_bytes(arc.num_arcs());
+        let num_presence_bytes = get_num_presence_bytes(arc.num_arcs());
         BitTableUtil::count_bits(num_presence_bytes, reader)
     }
     /// See [`BitTableUtil::count_bits_up_to`].
@@ -1249,7 +1049,7 @@ impl BitTable {
         arc: &Arc<T>,
         reader: &mut impl BytesReader,
     ) -> Result<i32> {
-        debug_assert_eq!(arc.node_flags(), fst_util::ARCS_FOR_DIRECT_ADDRESSING);
+        debug_assert_eq!(arc.node_flags(), ARCS_FOR_DIRECT_ADDRESSING);
         reader.set_position(arc.bit_table_start);
         BitTableUtil::count_bits_up_to(bit_index, reader)
     }
@@ -1260,9 +1060,9 @@ impl BitTable {
         arc: &Arc<T>,
         reader: &mut impl BytesReader,
     ) -> Result<i32> {
-        debug_assert_eq!(arc.node_flags(), fst_util::ARCS_FOR_DIRECT_ADDRESSING);
+        debug_assert_eq!(arc.node_flags(), ARCS_FOR_DIRECT_ADDRESSING);
         reader.set_position(arc.bit_table_start);
-        let num_bytes = fst_util::get_num_presence_bytes(arc.num_arcs());
+        let num_bytes = get_num_presence_bytes(arc.num_arcs());
         BitTableUtil::next_bit_set(bit_index, num_bytes, reader)
     }
 
@@ -1272,7 +1072,7 @@ impl BitTable {
         arc: &Arc<T>,
         reader: &mut impl BytesReader,
     ) -> Result<i32> {
-        debug_assert_eq!(arc.node_flags(), fst_util::ARCS_FOR_DIRECT_ADDRESSING);
+        debug_assert_eq!(arc.node_flags(), ARCS_FOR_DIRECT_ADDRESSING);
         reader.set_position(arc.bit_table_start);
         BitTableUtil::previous_bit_set(bit_index, reader)
     }
@@ -1283,7 +1083,7 @@ impl BitTable {
         reader: &mut impl BytesReader,
     ) -> Result<bool> {
         debug_assert!(arc.bytes_per_arc() > 0);
-        debug_assert_eq!(arc.node_flags(), fst_util::ARCS_FOR_DIRECT_ADDRESSING);
+        debug_assert_eq!(arc.node_flags(), ARCS_FOR_DIRECT_ADDRESSING);
 
         // First bit must be set
         debug_assert!(Self::is_bit_set(0, arc, reader)?);
@@ -1335,7 +1135,7 @@ impl<O: Outputs> FSTMetadata<O> {
 
     /// Returns the version constant of the binary format this FST was written
     /// in. See the static version constants in `FST` such as
-    /// [`VERSION_CONTINUOUS_ARCS`](fst_util::VERSION_CONTINUOUS_ARCS).
+    /// [`VERSION_CONTINUOUS_ARCS`](VERSION_CONTINUOUS_ARCS).
     pub fn version(&self) -> i32 {
         self.version
     }
@@ -1353,11 +1153,7 @@ impl<O: Outputs> FSTMetadata<O> {
     ///
     /// * `meta_out` - The `DataOutput` to write the metadata to.
     pub fn save(&self, meta_out: &mut impl DataOutput) -> Result<()> {
-        CodecUtil::write_header(
-            meta_out,
-            fst_util::FILE_FORMAT_NAME,
-            fst_util::VERSION_CURRENT,
-        )?;
+        CodecUtil::write_header(meta_out, FILE_FORMAT_NAME, VERSION_CURRENT)?;
 
         if let Some(ref empty_output) = self.empty_output {
             // Accepts empty string
@@ -1480,6 +1276,193 @@ where
     }
 }
 
+use crate::util::fst_impl::fst_compiler::get_on_heap_reader_writer;
+
+pub(crate) const BIT_FINAL_ARC: u8 = 1 << 0;
+pub(crate) const BIT_LAST_ARC: u8 = 1 << 1;
+pub(crate) const BIT_TARGET_NEXT: u8 = 1 << 2;
+
+// TODO: we can free up a bit if we can nuke this:
+pub(crate) const BIT_STOP_NODE: i32 = 1 << 3;
+
+/// This flag is set if the arc has an output.
+pub const BIT_ARC_HAS_OUTPUT: u8 = 1 << 4;
+pub(crate) const BIT_ARC_HAS_FINAL_OUTPUT: u8 = 1 << 5;
+
+/// Value of the arc flags to declare a node with fixed length (sparse) arcs
+/// designed for binary search.
+pub const ARCS_FOR_BINARY_SEARCH: u8 = BIT_ARC_HAS_FINAL_OUTPUT;
+
+/// Value of the arc flags to declare a node with fixed length dense arcs
+/// and bit table designed for direct addressing.
+pub(crate) const ARCS_FOR_DIRECT_ADDRESSING: u8 = 1 << 6;
+
+///  Value of the arc flags to declare a node with continuous arcs designed
+/// for pos the arc directly  with labelToPos - firstLabel. like
+/// [`ARCS_FOR_BINARY_SEARCH`](ARCS_FOR_BINARY_SEARCH) we use flag
+/// combinations  that will not occur at the same time.
+pub(crate) const ARCS_FOR_CONTINUOUS: u8 = ARCS_FOR_DIRECT_ADDRESSING + ARCS_FOR_BINARY_SEARCH;
+
+/// Format name for the FST file.
+pub(super) const FILE_FORMAT_NAME: &str = "FST";
+
+/// First supported version (Lucene 7.0).
+pub const VERSION_START: i32 = 6;
+// Version 7 introduced direct addressing for arcs, but it's not recorded
+// here because it doesn't need version checks on the read side, it uses
+// new flag values on arcs instead.
+pub(super) const VERSION_LITTLE_ENDIAN: i32 = 8;
+
+/// Version that started storing continuous arcs.
+pub const VERSION_CONTINUOUS_ARCS: i32 = 9;
+
+/// Current format version.
+pub const VERSION_CURRENT: i32 = VERSION_CONTINUOUS_ARCS;
+
+/// Version that was used for Lucene 9.0.
+pub const VERSION_90: i32 = VERSION_LITTLE_ENDIAN;
+
+/// Represents a final virtual node with no arcs (never serialized).
+pub(crate) const FINAL_END_NODE: i64 = -1;
+
+/// Represents a non-final virtual node with no arcs (never serialized).
+pub(crate) const NON_FINAL_END_NODE: i64 = 0;
+
+/// If arc has this label then that arc is final/accepted.
+pub const END_LABEL: i32 = -1;
+#[cfg(target_pointer_width = "64")]
+pub const DEFAULT_MAX_BLOCK_BITS: i32 = 30;
+
+#[cfg(not(target_pointer_width = "64"))]
+pub const DEFAULT_MAX_BLOCK_BITS: i32 = 28;
+#[inline]
+pub(crate) fn flag_mod(flags: i32, bit: i32) -> bool {
+    (flags & bit) != 0
+}
+
+/// Read the FST metadata from DataInput
+///
+/// # Type Parameters
+///
+/// * `T` - the output type
+///
+/// # Arguments
+///
+/// * `metaIn` - the DataInput of the metadata
+/// * `outputs` - the FST outputs
+///
+/// # Returns
+///
+/// the FST metadata
+///
+/// # Errors
+///
+/// Returns an error if an exception occurred during parsing
+pub fn read_metadata<O>(meta_in: &mut impl DataInput, outputs: O) -> Result<FSTMetadata<O>>
+where
+    O: Outputs,
+{
+    // NOTE: only reads formats VERSION_START up to VERSION_CURRENT; we
+    // don't have back-compat promise for FSTs (they are
+    // experimental), but we are sometimes able to offer it
+    let version =
+        CodecUtil::check_header(meta_in, FILE_FORMAT_NAME, VERSION_START, VERSION_CURRENT)?;
+
+    let mut empty_output: Option<O::V> = None;
+
+    if meta_in.read_byte()? == 1 {
+        // Accepts empty string
+        // 1 KB blocks:
+        let mut empty_bytes = get_on_heap_reader_writer(10)?;
+        let num_bytes = meta_in.read_vint()?;
+        empty_bytes.copy_bytes(meta_in, num_bytes as i64)?;
+        empty_bytes.freeze()?;
+        empty_bytes.init_reader();
+        // De-serialize empty-string output:
+        let mut reader = empty_bytes.get_reverse_bytes_reader()?;
+        // NoOutputs uses 0 bytes when writing its output,
+        // so we have to check here else BytesStore gets angry:
+        if num_bytes > 0 {
+            reader.set_position((num_bytes - 1) as i64);
+        }
+        empty_output = Some(outputs.read_final_output(&mut reader)?);
+    }
+    let input_type = match meta_in.read_byte()? {
+        0 => InputType::Byte1,
+        1 => InputType::Byte2,
+        2 => InputType::Byte4,
+        invalid => {
+            return Err(LuceneError::corrupt_index(format!(
+                "invalid input type {invalid} (resource={meta_in})"
+            )));
+        },
+    };
+
+    let start_node = meta_in.read_vlong()?;
+    let num_bytes = meta_in.read_vlong()?;
+
+    Ok(FSTMetadata::new(
+        input_type,
+        outputs,
+        empty_output,
+        start_node,
+        version,
+        num_bytes,
+    ))
+}
+
+/// Returns `true` if the node at this address has any outgoing arcs.
+pub fn target_has_arcs<T: OutputsBound>(arc: &Arc<T>) -> bool {
+    arc.target() > 0
+}
+/// Gets the number of bytes required to flag the presence of each arc in
+/// the given label range, one bit per arc.
+pub(crate) fn get_num_presence_bytes(label_range: i32) -> i32 {
+    debug_assert!(label_range >= 0);
+    (label_range + 7) >> 3
+}
+/// Reads the presence bits of a direct-addressing node. Actually we don't
+/// read them here, we just keep the pointer to the bit-table start and
+/// we skip them.
+pub(crate) fn read_presence_bytes<T: OutputsBound>(
+    arc: &mut Arc<T>,
+    reader: &mut impl BytesReader,
+) -> Result<()> {
+    debug_assert!(arc.bytes_per_arc() > 0);
+    debug_assert_eq!(arc.node_flags(), ARCS_FOR_DIRECT_ADDRESSING);
+    arc.bit_table_start = reader.get_position();
+    let skip = get_num_presence_bytes(arc.num_arcs());
+    reader.skip_bytes(skip as i64)
+}
+/// Reads the end arc based on the `follow` arc.
+/// If `follow` is final, this sets up an artificial END_LABEL arc in-place
+/// and returns it. Otherwise, returns `None`.
+///
+/// # Arguments
+///
+/// * `follow` - The arc to follow
+/// * `arc` - The arc to fill and return
+///
+/// # Returns
+///
+/// The updated `arc` if `follow` is final, otherwise `None`
+pub(crate) fn read_end_arc<T: OutputsBound>(follow: &Arc<T>, arc: &mut Arc<T>) -> Option<()> {
+    if follow.is_final() {
+        if follow.target() <= 0 {
+            arc.flags = BIT_LAST_ARC;
+        } else {
+            arc.flags = 0;
+            // NOTE: nextArc is a node (not an address!) in this case:
+            arc.next_arc = follow.target();
+        }
+        arc.output = follow.next_final_output();
+        arc.label = END_LABEL;
+        Some(())
+    } else {
+        None
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::cell::RefCell;
@@ -1504,7 +1487,7 @@ mod tests {
     use crate::util::error::lucene_error::Result;
     use crate::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs;
     use crate::util::fst_impl::bytes_ref_fst_enum::BytesRefFSTEnum;
-    use crate::util::fst_impl::fst::{FST, InputType, fst_util};
+    use crate::util::fst_impl::fst::{FST, InputType, read_metadata};
     use crate::util::fst_impl::fst_compiler::{
         Builder, CompiledNode, DataOutputEnum, NodeEnum, UnCompiledNode,
     };
@@ -2052,7 +2035,7 @@ mod tests {
         }
         // Load it back using split input (force FSTStore path)
         let mut input = ByteArrayDataInput::with_bytes(bytes);
-        let metadata = fst_util::read_metadata(&mut input, outputs.clone())?;
+        let metadata = read_metadata(&mut input, outputs.clone())?;
         let mut loaded_fst = FST::from_on_heap_store(metadata, &mut input)?;
 
         // Save again, now to separate outputs
@@ -2067,7 +2050,7 @@ mod tests {
         // Load again using split inputs
         let mut meta_in = ByteArrayDataInput::with_bytes(metdata_os);
         let mut data_in = ByteArrayDataInput::with_bytes(data_os_os);
-        let metadata = fst_util::read_metadata(&mut meta_in, outputs.clone())?;
+        let metadata = read_metadata(&mut meta_in, outputs.clone())?;
         let loaded_fst = FST::from_on_heap_store(metadata, &mut data_in)?;
 
         Util::get_ints_ref(&key1, &mut scratch);
@@ -2147,7 +2130,7 @@ mod tests {
         check_stop_nodes(&fst, outputs.clone())?;
 
         let mut in_file = dir.open_input("fst", &IOContext::default_io_context()?)?;
-        let metadata = fst_util::read_metadata(&mut in_file, outputs.clone())?;
+        let metadata = read_metadata(&mut in_file, outputs.clone())?;
         let loaded_fst = FST::from_on_heap_store(metadata, &mut in_file)?;
 
         check_stop_nodes(&loaded_fst, outputs.clone())?;

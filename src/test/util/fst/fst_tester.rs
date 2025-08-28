@@ -29,7 +29,7 @@ use crate::test::util::lucene_test_case::lucene_test_case_util::{
 use crate::util::ToInt;
 use crate::util::access::SharedAccessVec;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::fst_impl::fst::{Arc, FST, InputType, fst_util};
+use crate::util::fst_impl::fst::{Arc, END_LABEL, FST, InputType, read_metadata};
 use crate::util::fst_impl::fst_compiler::{Builder, DataOutputEnum};
 use crate::util::fst_impl::fst_reader::FstReader;
 use crate::util::fst_impl::ints_ref_fst_enum::IntsRefFSTEnum;
@@ -103,7 +103,7 @@ where
 
         for i in 0..=term.length {
             let label = if i == term.length {
-                fst_util::END_LABEL
+                END_LABEL
             } else {
                 term.ints.access(|ints| ints[term.offset + i])
             };
@@ -157,7 +157,7 @@ where
             arcs.clear();
             output = fst.outputs.add(&output, &arc.output());
 
-            if arc.label() == fst_util::END_LABEL {
+            if arc.label() == END_LABEL {
                 break;
             }
             in_builder.append(arc.label());
@@ -232,7 +232,7 @@ where
                     }
                 }
                 let mut input = self.dir.borrow_mut().open_input("fst.bin", &ctx)?;
-                let metadata = fst_util::read_metadata(&mut input, self.outputs.clone())?;
+                let metadata = read_metadata(&mut input, self.outputs.clone())?;
                 let fst = FST::from_on_heap_store(metadata, &mut input)?;
                 self.dir.borrow_mut().delete_file("fst.bin")?;
                 Some(FSTEnums::FST1(fst))

@@ -173,34 +173,6 @@ impl Accountable for PagedBytes {
         Ok(0)
     }
 }
-pub mod paged_bytes_util {
-    use crate::util::error::lucene_error::LuceneError;
-    use crate::util::error::lucene_error::Result;
-    use crate::util::paged_bytes::{PagedBytes, PagedBytesDataInput, PagedBytesDataOutput};
-
-    /// Returns a DataInput to read values from this PagedBytes instance.
-    pub fn get_data_input(paged_bytes: &PagedBytes) -> Result<PagedBytesDataInput> {
-        if !paged_bytes.frozen {
-            return Err(LuceneError::illegal_state(
-                "must call freeze() before get_data_input()".to_string(),
-            ));
-        }
-
-        Ok(PagedBytesDataInput::new(paged_bytes))
-    }
-    /// Returns a DataOutput that you may use to write into this PagedBytes
-    /// instance. If you do this,  you should not call the other writing methods
-    /// (eg, copy); results are undefined.
-    pub fn get_data_output(paged_bytes: PagedBytes) -> Result<PagedBytesDataOutput> {
-        if paged_bytes.frozen {
-            return Err(LuceneError::illegal_state(
-                "cannot get DataOutput after freeze()".to_string(),
-            ));
-        }
-
-        Ok(PagedBytesDataOutput::new(paged_bytes))
-    }
-}
 /// Provides methods to read BytesRefs from a frozen PagedBytes.
 #[derive(Clone, Default)]
 pub struct PagedBytesReader {
@@ -467,6 +439,30 @@ impl DataOutput for PagedBytesDataOutput {
         Ok(())
     }
 }
+
+/// Returns a DataInput to read values from this PagedBytes instance.
+pub fn get_data_input(paged_bytes: &PagedBytes) -> Result<PagedBytesDataInput> {
+    if !paged_bytes.frozen {
+        return Err(LuceneError::illegal_state(
+            "must call freeze() before get_data_input()".to_string(),
+        ));
+    }
+
+    Ok(PagedBytesDataInput::new(paged_bytes))
+}
+/// Returns a DataOutput that you may use to write into this PagedBytes
+/// instance. If you do this,  you should not call the other writing methods
+/// (eg, copy); results are undefined.
+pub fn get_data_output(paged_bytes: PagedBytes) -> Result<PagedBytesDataOutput> {
+    if paged_bytes.frozen {
+        return Err(LuceneError::illegal_state(
+            "cannot get DataOutput after freeze()".to_string(),
+        ));
+    }
+
+    Ok(PagedBytesDataOutput::new(paged_bytes))
+}
+
 #[cfg(test)]
 mod tests {
     use rand::Rng;
@@ -480,7 +476,7 @@ mod tests {
     use crate::test::util::test_util::TestUtil;
     use crate::util::clone::TryClone;
     use crate::util::error::lucene_error::Result;
-    use crate::util::paged_bytes::{PagedBytes, paged_bytes_util};
+    use crate::util::paged_bytes::{PagedBytes, get_data_input, get_data_output};
 
     #[allow(dead_code)] // for quick search
     struct TestPagedBytes;
@@ -577,7 +573,7 @@ mod tests {
             let block_bits = TestUtil::next_int(&mut random, 1, 20);
             let block_size = 1 << block_bits;
             let paged_bytes = PagedBytes::new(block_bits as usize);
-            let mut out = paged_bytes_util::get_data_output(paged_bytes)?;
+            let mut out = get_data_output(paged_bytes)?;
 
             let num_bytes = if is_night_mode() {
                 TestUtil::next_int(&mut random, 1, 10_000_000)
@@ -602,7 +598,7 @@ mod tests {
 
             let reader = out.paged_bytes.freeze(random.random_bool(0.5))?;
             let paged_bytes = std::mem::take(&mut out.paged_bytes);
-            let mut input = paged_bytes_util::get_data_input(&paged_bytes)?;
+            let mut input = get_data_input(&paged_bytes)?;
 
             let mut verify = vec![0u8; num_bytes];
             let mut read = 0;
@@ -635,7 +631,7 @@ mod tests {
                 }
             }
 
-            let mut input2 = paged_bytes_util::get_data_input(&paged_bytes)?;
+            let mut input2 = get_data_input(&paged_bytes)?;
             let mut curr = 0;
             let max_skip_to = num_bytes - 1;
             while curr < max_skip_to {

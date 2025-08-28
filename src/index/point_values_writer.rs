@@ -32,7 +32,7 @@ use crate::util::array_util::ArrayUtil;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::paged_bytes::{
-    PagedBytes, PagedBytesDataOutput, PagedBytesReader, paged_bytes_util,
+    PagedBytes, PagedBytesDataOutput, PagedBytesReader, get_data_output,
 };
 use crate::util::{CoreHelper, Counter, CounterEnumLock, SliceCopyOps};
 use std::cell::RefCell;
@@ -54,7 +54,7 @@ pub(crate) struct PointValuesWriter {
 impl PointValuesWriter {
     pub(crate) fn new(iw_bytes_used: CounterEnumLock, field_info: Arc<FieldInfo>) -> Result<Self> {
         let bytes = PagedBytes::new(12);
-        let bytes_out = paged_bytes_util::get_data_output(bytes)?;
+        let bytes_out = get_data_output(bytes)?;
         let doc_ids = vec![0; 16];
         iw_bytes_used
             .lock()

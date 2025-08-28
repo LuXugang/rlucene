@@ -16,7 +16,10 @@
  */
 use crate::util::array_util::ArrayUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::fst_impl::fst::{Arc, BitTable, FST, fst_util};
+use crate::util::fst_impl::fst::{
+    ARCS_FOR_BINARY_SEARCH, ARCS_FOR_CONTINUOUS, ARCS_FOR_DIRECT_ADDRESSING, Arc, BitTable,
+    END_LABEL, FST,
+};
 use crate::util::fst_impl::fst_reader::FstReader;
 use crate::util::fst_impl::outputs::Outputs;
 use crate::util::fst_impl::util::Util;
@@ -148,11 +151,11 @@ where
             let arc = self.get_arc_ownership(upto);
             let target_label = sub.get_target_label(self)?;
 
-            if arc.bytes_per_arc() != 0 && arc.label() != fst_util::END_LABEL {
+            if arc.bytes_per_arc() != 0 && arc.label() != END_LABEL {
                 let node_flags = arc.node_flags();
                 self.arcs[self.upto] = Some(arc);
                 let result = match node_flags {
-                    fst_util::ARCS_FOR_DIRECT_ADDRESSING => {
+                    ARCS_FOR_DIRECT_ADDRESSING => {
                         match self.do_seek_ceil_array_direct_addressing(
                             upto,
                             target_label,
@@ -166,7 +169,7 @@ where
                             None => None,
                         }
                     },
-                    fst_util::ARCS_FOR_BINARY_SEARCH => {
+                    ARCS_FOR_BINARY_SEARCH => {
                         match self.do_seek_ceil_array_packed(
                             upto,
                             target_label,
@@ -180,7 +183,7 @@ where
                             None => None,
                         }
                     },
-                    fst_util::ARCS_FOR_CONTINUOUS => {
+                    ARCS_FOR_CONTINUOUS => {
                         match self.do_seek_ceil_array_continuous(
                             upto,
                             target_label,
@@ -248,7 +251,7 @@ where
                 .outputs
                 .add(&self.output[self.upto - 1], &arc.output());
 
-            if target_label == fst_util::END_LABEL {
+            if target_label == END_LABEL {
                 self.arcs[arc_index] = Some(arc);
                 return Ok(None);
             }
@@ -291,7 +294,7 @@ where
                 .outputs
                 .add(&self.output[self.upto - 1], &arc.output());
 
-            if target_label == fst_util::END_LABEL {
+            if target_label == END_LABEL {
                 self.arcs[arc_index] = Some(arc);
                 return Ok(None);
             }
@@ -336,7 +339,7 @@ where
                 .outputs
                 .add(&self.output[self.upto - 1], &arc.output());
 
-            if target_label == fst_util::END_LABEL {
+            if target_label == END_LABEL {
                 self.arcs[arc_index] = Some(arc);
                 return Ok(None);
             }
@@ -404,7 +407,7 @@ where
                 .outputs
                 .add(&self.output[self.upto - 1], &arc.output());
 
-            if target_label == fst_util::END_LABEL {
+            if target_label == END_LABEL {
                 self.arcs[upto] = Some(arc);
                 return Ok(None);
             }
@@ -466,11 +469,11 @@ where
             let arc = self.get_arc_ownership(upto);
             let target_label = sub.get_target_label(self)?;
 
-            if arc.bytes_per_arc() != 0 && arc.label() != fst_util::END_LABEL {
+            if arc.bytes_per_arc() != 0 && arc.label() != END_LABEL {
                 let node_flags = arc.node_flags();
                 self.arcs[self.upto] = Some(arc);
                 let result = match node_flags {
-                    fst_util::ARCS_FOR_DIRECT_ADDRESSING => {
+                    ARCS_FOR_DIRECT_ADDRESSING => {
                         match self.do_seek_floor_array_direct_addressing(
                             upto,
                             target_label,
@@ -484,7 +487,7 @@ where
                             None => None,
                         }
                     },
-                    fst_util::ARCS_FOR_BINARY_SEARCH => {
+                    ARCS_FOR_BINARY_SEARCH => {
                         match self.do_seek_floor_array_packed(
                             upto,
                             target_label,
@@ -498,7 +501,7 @@ where
                             None => None,
                         }
                     },
-                    fst_util::ARCS_FOR_CONTINUOUS => {
+                    ARCS_FOR_CONTINUOUS => {
                         match self.do_seek_floor_continuous(
                             upto,
                             target_label,
@@ -568,7 +571,7 @@ where
                 .outputs
                 .add(&self.output[self.upto - 1], &arc.output());
 
-            if target_label == fst_util::END_LABEL {
+            if target_label == END_LABEL {
                 self.arcs[upto] = Some(arc);
                 return Ok(None);
             }
@@ -618,7 +621,7 @@ where
                     .outputs
                     .add(&self.output[self.upto - 1], &arc.output());
 
-                if target_label == fst_util::END_LABEL {
+                if target_label == END_LABEL {
                     self.arcs[upto] = Some(arc);
                     return Ok(None);
                 }
@@ -697,23 +700,23 @@ where
 
             if arc.label() < target_label {
                 if !arc.is_last() {
-                    if arc.bytes_per_arc() != 0 && arc.label() != fst_util::END_LABEL {
+                    if arc.bytes_per_arc() != 0 && arc.label() != END_LABEL {
                         match arc.node_flags() {
-                            fst_util::ARCS_FOR_BINARY_SEARCH => {
+                            ARCS_FOR_BINARY_SEARCH => {
                                 self.find_next_floor_arc_binary_search(
                                     &mut arc,
                                     target_label,
                                     reader,
                                 )?;
                             },
-                            fst_util::ARCS_FOR_DIRECT_ADDRESSING => {
+                            ARCS_FOR_DIRECT_ADDRESSING => {
                                 self.find_next_floor_arc_direct_addressing(
                                     &mut arc,
                                     target_label,
                                     reader,
                                 )?;
                             },
-                            fst_util::ARCS_FOR_CONTINUOUS => {
+                            ARCS_FOR_CONTINUOUS => {
                                 self.find_next_floor_arc_continuous(
                                     &mut arc,
                                     target_label,
@@ -764,8 +767,8 @@ where
         target_label: i32,
         reader: &mut F::FstBytesReader,
     ) -> Result<()> {
-        debug_assert_eq!(arc.node_flags(), fst_util::ARCS_FOR_DIRECT_ADDRESSING);
-        debug_assert_ne!(arc.label(), fst_util::END_LABEL);
+        debug_assert_eq!(arc.node_flags(), ARCS_FOR_DIRECT_ADDRESSING);
+        debug_assert_ne!(arc.label(), END_LABEL);
         debug_assert_eq!(arc.label(), arc.first_label());
 
         if arc.num_arcs() > 1 {
@@ -794,8 +797,8 @@ where
         target_label: i32,
         reader: &mut F::FstBytesReader,
     ) -> Result<()> {
-        debug_assert_eq!(arc.node_flags(), fst_util::ARCS_FOR_CONTINUOUS);
-        debug_assert_ne!(arc.label(), fst_util::END_LABEL);
+        debug_assert_eq!(arc.node_flags(), ARCS_FOR_CONTINUOUS);
+        debug_assert_ne!(arc.label(), END_LABEL);
         debug_assert_eq!(arc.label(), arc.first_label());
 
         if arc.num_arcs() > 1 {
@@ -820,8 +823,8 @@ where
         target_label: i32,
         reader: &mut F::FstBytesReader,
     ) -> Result<()> {
-        debug_assert_eq!(arc.node_flags(), fst_util::ARCS_FOR_BINARY_SEARCH);
-        debug_assert_ne!(arc.label(), fst_util::END_LABEL);
+        debug_assert_eq!(arc.node_flags(), ARCS_FOR_BINARY_SEARCH);
+        debug_assert_ne!(arc.label(), END_LABEL);
         debug_assert_eq!(arc.arc_idx(), 0);
 
         if arc.num_arcs() > 1 {
@@ -863,7 +866,7 @@ where
                 .outputs
                 .add(&self.output[self.upto - 1], &arc.output());
 
-            if target_label == fst_util::END_LABEL {
+            if target_label == END_LABEL {
                 self.arcs[upto] = Some(arc);
                 return Ok(None);
             }
@@ -912,7 +915,7 @@ where
                 .outputs
                 .add(&self.output[self.upto - 1], &arc.output());
 
-            if target_label == fst_util::END_LABEL {
+            if target_label == END_LABEL {
                 self.arcs[upto] = Some(arc);
                 return Ok(None);
             }
@@ -1014,7 +1017,7 @@ where
                 .outputs
                 .add(&self.output[self.upto - 1], &next_arc.output());
 
-            if target_label == fst_util::END_LABEL {
+            if target_label == END_LABEL {
                 self.arcs[upto] = Some(arc);
                 self.arcs[next_arc_index] = Some(next_arc);
                 return Ok(true);
@@ -1052,7 +1055,7 @@ where
                 .outputs
                 .add(&self.output[self.upto - 1], &arc.output());
 
-            if arc.label() == fst_util::END_LABEL {
+            if arc.label() == END_LABEL {
                 self.arcs[upto] = Some(arc);
                 break;
             }
@@ -1085,7 +1088,7 @@ where
                 .outputs
                 .add(&self.output[self.upto - 1], &arc.output());
 
-            if label == fst_util::END_LABEL {
+            if label == END_LABEL {
                 self.arcs[upto] = Some(arc);
                 break;
             }

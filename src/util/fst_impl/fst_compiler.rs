@@ -23,7 +23,13 @@ use crate::util::array_util::ArrayUtil;
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fst_impl::dummy::dummy_bytes_reader::DummyBytesReader;
-use crate::util::fst_impl::fst::{Either2BytesReader, FST, FSTMetadata, InputType, fst_util};
+use crate::util::fst_impl::fst::{
+    ARCS_FOR_BINARY_SEARCH, ARCS_FOR_CONTINUOUS, ARCS_FOR_DIRECT_ADDRESSING,
+    BIT_ARC_HAS_FINAL_OUTPUT, BIT_ARC_HAS_OUTPUT, BIT_FINAL_ARC, BIT_LAST_ARC, BIT_STOP_NODE,
+    BIT_TARGET_NEXT, Either2BytesReader, FINAL_END_NODE, FST, FSTMetadata, InputType,
+    NON_FINAL_END_NODE, VERSION_90, VERSION_CONTINUOUS_ARCS, VERSION_CURRENT,
+    get_num_presence_bytes,
+};
 use crate::util::fst_impl::fst_reader::FstReader;
 use crate::util::fst_impl::growable_byte_array_data_output::GrowableByteArrayDataOutput;
 use crate::util::fst_impl::node_hash::NodeHash;
@@ -400,9 +406,9 @@ where
         let node_in = self.frontier[node_in_idx].as_ref().unwrap();
         if node_in.num_arcs == 0 {
             return Ok(if node_in.is_final {
-                fst_util::FINAL_END_NODE
+                FINAL_END_NODE
             } else {
-                fst_util::NON_FINAL_END_NODE
+                NON_FINAL_END_NODE
             });
         }
         // reset the scratch writer to prepare for new write
@@ -433,20 +439,20 @@ where
                     let mut flags = 0;
 
                     if arc_idx == last_arc as usize {
-                        flags |= fst_util::BIT_LAST_ARC as i32;
+                        flags |= BIT_LAST_ARC as i32;
                     }
 
                     if self.last_frozen_node == target.node && !do_fixed_length_arcs {
                         // TODO: for better perf (but more RAM used) we
                         // could avoid this except when arc is "near" the
                         // last arc:
-                        flags |= fst_util::BIT_TARGET_NEXT as i32;
+                        flags |= BIT_TARGET_NEXT as i32;
                     }
 
                     if arc.is_final {
-                        flags |= fst_util::BIT_FINAL_ARC as i32;
+                        flags |= BIT_FINAL_ARC as i32;
                         if !self.no_output.is_same_reference(&arc.next_final_output) {
-                            flags |= fst_util::BIT_ARC_HAS_FINAL_OUTPUT as i32;
+                            flags |= BIT_ARC_HAS_FINAL_OUTPUT as i32;
                         }
                     } else {
                         debug_assert!(self.no_output.is_same_reference(&arc.next_final_output));
@@ -454,11 +460,11 @@ where
 
                     let target_has_arcs = target.node > 0;
                     if !target_has_arcs {
-                        flags |= fst_util::BIT_STOP_NODE;
+                        flags |= BIT_STOP_NODE;
                     }
 
                     if !self.no_output.is_same_reference(&arc.output) {
-                        flags |= fst_util::BIT_ARC_HAS_OUTPUT as i32;
+                        flags |= BIT_ARC_HAS_OUTPUT as i32;
                     }
 
                     self.scratch_bytes.write_byte(flags as u8)?;
@@ -497,7 +503,7 @@ where
                             .write_final_output(&arc.next_final_output, &mut self.scratch_bytes)?;
                     }
 
-                    if target_has_arcs && (flags & fst_util::BIT_TARGET_NEXT as i32) == 0 {
+                    if target_has_arcs && (flags & BIT_TARGET_NEXT as i32) == 0 {
                         self.scratch_bytes.write_vlong(target.node)?;
                     }
 
@@ -541,7 +547,7 @@ where
             let label_range = node_in.arcs[last_arc as usize].label - node_in.arcs[0].label + 1;
             debug_assert!(label_range > 0);
             let continuous_label = label_range == node_in.num_arcs;
-            if continuous_label && self.version >= fst_util::VERSION_CONTINUOUS_ARCS {
+            if continuous_label && self.version >= VERSION_CONTINUOUS_ARCS {
                 self.write_node_for_direct_addressing_or_continuous(
                     node_in_idx,
                     max_bytes_per_arc_without_label,
@@ -668,7 +674,7 @@ where
         // Anticipate precisely the size of the encodings.
         let node_in = self.frontier[node_in_idx].as_ref().unwrap();
         let size_for_binary_search = num_bytes_per_arc * node_in.num_arcs;
-        let size_for_direct_addressing = fst_util::get_num_presence_bytes(label_range)
+        let size_for_direct_addressing = get_num_presence_bytes(label_range)
             + self.num_label_bytes_per_arc[0]
             + max_bytes_per_arc_without_label * node_in.num_arcs;
 
@@ -712,7 +718,7 @@ where
         // self.fixed_length_arcs_buffer.reset_position();
         self.fixed_length_arcs_buffer.reset_position()?;
         self.fixed_length_arcs_buffer
-            .write_byte(fst_util::ARCS_FOR_BINARY_SEARCH)?;
+            .write_byte(ARCS_FOR_BINARY_SEARCH)?;
         let node_in = self.frontier[node_in_idx].as_ref().unwrap();
         self.fixed_length_arcs_buffer.write_vint(node_in.num_arcs)?;
         self.fixed_length_arcs_buffer
@@ -805,7 +811,7 @@ where
         let num_presence_bytes = if continuous {
             0
         } else {
-            fst_util::get_num_presence_bytes(label_range)
+            get_num_presence_bytes(label_range)
         };
 
         let mut src_pos = self.scratch_bytes.get_position();
@@ -855,9 +861,9 @@ where
         // Write header
         self.fixed_length_arcs_buffer.reset_position()?;
         self.fixed_length_arcs_buffer.write_byte(if continuous {
-            fst_util::ARCS_FOR_CONTINUOUS
+            ARCS_FOR_CONTINUOUS
         } else {
-            fst_util::ARCS_FOR_DIRECT_ADDRESSING
+            ARCS_FOR_DIRECT_ADDRESSING
         })?;
         self.fixed_length_arcs_buffer.write_vint(label_range)?; // labelRange instead of numArcs.
         self.fixed_length_arcs_buffer
@@ -962,7 +968,7 @@ where
                     return Err(LuceneError::illegal_state("already finished"));
                 }
 
-                if new_start_node == fst_util::FINAL_END_NODE && metadata.empty_output.is_some() {
+                if new_start_node == FINAL_END_NODE && metadata.empty_output.is_some() {
                     new_start_node = 0;
                 }
 
@@ -1067,7 +1073,7 @@ where
             allow_fixed_length_arcs: true,
             data_output: None,
             direct_addressing_max_oversizing_factor: DIRECT_ADDRESSING_MAX_OVERSIZING_FACTOR,
-            version: fst_util::VERSION_CURRENT,
+            version: VERSION_CURRENT,
         }
     }
     /// Sets the approximate maximum amount of RAM (in MB) to use for holding
@@ -1150,12 +1156,10 @@ where
     }
     ///  Expert: Set the codec version.
     pub fn with_version(&mut self, version: i32) -> Result<()> {
-        if (fst_util::VERSION_90..=fst_util::VERSION_CURRENT).contains(&version) {
+        if (VERSION_90..=VERSION_CURRENT).contains(&version) {
             return Err(LuceneError::illegal_argument(format!(
                 "Version must be in range [{} - {}]; got: {}",
-                fst_util::VERSION_90,
-                fst_util::VERSION_CURRENT,
-                version
+                VERSION_90, VERSION_CURRENT, version
             )));
         }
         self.version = version;

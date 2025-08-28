@@ -32,7 +32,7 @@ use crate::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::Result;
 use crate::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs;
-use crate::util::fst_impl::fst::{FST, fst_util};
+use crate::util::fst_impl::fst::{FST, read_metadata};
 use crate::util::fst_impl::off_heap_fst_store::OffHeapFSTStore;
 use std::borrow::Cow;
 use std::cell::RefCell;
@@ -81,7 +81,7 @@ where
     ) -> Result<Self> {
         assert!(num_terms > 0);
         // Read FST metadata and build the index
-        let metadata = fst_util::read_metadata(meta_in, ByteSequenceOutputs)?;
+        let metadata = read_metadata(meta_in, ByteSequenceOutputs)?;
         let store = OffHeapFSTStore::new(index_in, index_start_fp, metadata.num_bytes);
         let index = FST::from_fst_reader(Some(metadata), Some(store))
             .expect("metadata and store are some, should not return None");

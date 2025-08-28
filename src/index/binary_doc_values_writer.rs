@@ -42,7 +42,7 @@ use crate::util::packed::packed_long_values::{
     PackedLongValues, PackedLongValuesBuilder, PackedLongValuesIterator,
 };
 use crate::util::paged_bytes::{
-    PagedBytes, PagedBytesDataInput, PagedBytesDataOutput, paged_bytes_util,
+    PagedBytes, PagedBytesDataInput, PagedBytesDataOutput, get_data_input, get_data_output,
 };
 use crate::util::{
     BytesRefArray, CoreHelper, Counter, CounterEnum, CounterEnumBorrow, CounterEnumLock,
@@ -69,7 +69,7 @@ pub(crate) struct BinaryDocValuesWriter {
 impl BinaryDocValuesWriter {
     pub(crate) fn new(field_info: Arc<FieldInfo>, iw_bytes_used: CounterEnumLock) -> Result<Self> {
         let bytes = PagedBytes::new(BLOCK_BITS);
-        let bytes_out = paged_bytes_util::get_data_output(bytes)?;
+        let bytes_out = get_data_output(bytes)?;
         let lengths =
             PackedLongValues::delta_packed_long_values_builder_default(PackedInts::COMPACT)?;
         let docs_with_field = DocsWithFieldSet::new();
@@ -157,7 +157,7 @@ impl DocValuesWriter for BinaryDocValuesWriter {
                 let mut buffered_binary_doc_values = BufferedBinaryDocValues::new(
                     self.final_lengths.as_ref().unwrap(),
                     self.max_length as usize,
-                    paged_bytes_util::get_data_input(&self.bytes_out.paged_bytes)?,
+                    get_data_input(&self.bytes_out.paged_bytes)?,
                     self.docs_with_field.iterator()?.unwrap(),
                 );
                 Some(BinaryDVs::new(
@@ -191,7 +191,7 @@ impl DocValuesWriter for BinaryDocValuesWriter {
         Ok(BufferedBinaryDocValues::new(
             self.final_lengths.as_ref().unwrap(),
             self.max_length as usize,
-            paged_bytes_util::get_data_input(&self.bytes_out.paged_bytes)?,
+            get_data_input(&self.bytes_out.paged_bytes)?,
             self.docs_with_field.iterator()?.unwrap(),
         ))
     }
@@ -261,7 +261,7 @@ impl DocValuesProducer for DocValuesProducerImpl {
             None => Ok(Either2BinaryDocValues::B(BufferedBinaryDocValues::new(
                 &self.final_lengths,
                 self.max_length as usize,
-                paged_bytes_util::get_data_input(&self.paged_bytes)?,
+                get_data_input(&self.paged_bytes)?,
                 self.docs_with_field.iterator()?.unwrap(),
             ))),
         }
