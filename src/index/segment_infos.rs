@@ -34,6 +34,7 @@ use crate::store::{DataInput, IO_CONTEXT_DEFAULT, IndexOutput};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::output_enum::OutputEnum;
 use crate::util::{IOUtils, LATEST, MIN_SUPPORTED_MAJOR, StringHelper, Version};
+use std::io::Write;
 
 static INFO_STREAM: Lazy<Mutex<Option<Arc<Mutex<OutputEnum>>>>> = Lazy::new(|| Mutex::new(None));
 
@@ -144,124 +145,7 @@ where
     // before finishCommit is called
     pub(crate) pending_commit: bool,
 }
-pub mod segment_infos_util {
-    use crate::index::IndexFileNames;
-    use crate::index::segment_infos::{INFO_STREAM, segment_infos_util};
-    use crate::store::directory::Directory;
-    use crate::util::error::lucene_error::{LuceneError, Result};
-    use crate::util::output_enum::OutputEnum;
-    use parking_lot::Mutex;
-    use std::io::Write;
-    use std::sync::Arc;
 
-    /// The version at the time when 8.0 was released.
-    pub const VERSION_74: i32 = 9;
-    /// The version that recorded SegmentCommitInfo IDs.
-    pub const VERSION_86: i32 = 10;
-    /// Current version of SegmentInfos.
-    pub(crate) const VERSION_CURRENT: i32 = VERSION_86;
-    /// Name of the generation reference file name.
-    pub(crate) const OLD_SEGMENTS_GEN: &str = "segments.gen";
-    /// Sets the global INFO_STREAM to the given `OutputEnum`.
-    pub fn set_info_stream(_output: OutputEnum) -> Result<()> {
-        // TODO
-        Ok(())
-    }
-
-    /// Returns the current global INFO_STREAM as an
-    /// `Option<Arc<Mutex<OutputEnum>>>`.
-    pub fn get_info_stream() -> Result<Option<Arc<Mutex<OutputEnum>>>> {
-        let info_stream = INFO_STREAM.lock();
-        Ok(info_stream.clone())
-    }
-
-    /// Prints a message to the INFO_STREAM if it is set.
-    /// This function assumes the caller has checked whether INFO_STREAM is `Some`.
-    pub fn message(msg: &str) -> Result<()> {
-        let info_stream = INFO_STREAM.lock();
-
-        if let Some(ref stream) = *info_stream {
-            let mut stream = stream.lock();
-            writeln!(stream, "SIS: {msg}")
-                .map_err(|e| LuceneError::io_with_path("Failed to write".to_string(), e))?;
-        }
-
-        Ok(())
-    }
-    /// Get the generation of the most recent commit to the list of index files (N
-    /// in the segments_N file).
-    ///
-    /// # Arguments
-    /// - `files`: A slice of file names to check.
-    pub fn get_last_commit_generation(files: &[String]) -> Result<i64> {
-        let mut max = -1;
-        for file in files {
-            if file.starts_with(IndexFileNames::SEGMENTS)
-                // skipping this file here helps deliver the right exception when opening an old index
-                && !file.starts_with(OLD_SEGMENTS_GEN)
-            {
-                let r#gen = generation_from_segments_file_name(file)?;
-                if r#gen > max {
-                    max = r#gen;
-                }
-            }
-        }
-        Ok(max)
-    }
-
-    /// Get the generation of the most recent commit to the index in this directory.
-    pub fn get_last_commit_generation_from_directory<D: Directory>(directory: &D) -> Result<i64> {
-        let files = directory.list_all()?;
-        get_last_commit_generation(&files)
-    }
-
-    /// Get the filename of the segments_N file for the most recent commit in the
-    /// list of index files.
-    pub fn get_last_commit_segments_file_name(files: &[String]) -> Result<Option<String>> {
-        let last_gen = get_last_commit_generation(files)?;
-        Ok(IndexFileNames::file_name_from_generation(
-            IndexFileNames::SEGMENTS,
-            "",
-            last_gen,
-        ))
-    }
-
-    /// Get the filename of the segments_N file for the most recent commit to the
-    /// index in this Directory.
-    pub fn get_last_commit_segments_file_name_from_directory<D: Directory>(
-        directory: &D,
-    ) -> Result<Option<String>> {
-        let last_gen = get_last_commit_generation_from_directory(directory)?;
-        Ok(IndexFileNames::file_name_from_generation(
-            IndexFileNames::SEGMENTS,
-            "",
-            last_gen,
-        ))
-    }
-    /// Parse the generation off the segment file name and return it.
-    pub fn generation_from_segments_file_name(file_name: &str) -> Result<i64> {
-        if file_name == segment_infos_util::OLD_SEGMENTS_GEN {
-            Err(LuceneError::illegal_argument(format!(
-                "\"{}\" is not a valid segment file name since 4.0",
-                segment_infos_util::OLD_SEGMENTS_GEN
-            )))
-        } else if file_name == IndexFileNames::SEGMENTS {
-            Ok(0)
-        } else if file_name.starts_with(IndexFileNames::SEGMENTS) {
-            let generation_str = &file_name[IndexFileNames::SEGMENTS.len() + 1..];
-            match i64::from_str_radix(generation_str, 36) {
-                Ok(generation) => Ok(generation),
-                Err(_) => Err(LuceneError::number_format(format!(
-                    "Failed to parse generation from file name: \"{file_name}\""
-                ))),
-            }
-        } else {
-            Err(LuceneError::illegal_argument(format!(
-                "fileName \"{file_name}\" is not a segments file"
-            )))
-        }
-    }
-}
 impl<D> SegmentInfos<D>
 where
     D: Directory,
@@ -355,7 +239,7 @@ where
         segment_file_name: &str,
         min_supported_major_version: i32,
     ) -> Result<SegmentsFileEnum<D>> {
-        let generation = segment_infos_util::generation_from_segments_file_name(segment_file_name)?;
+        let generation = generation_from_segments_file_name(segment_file_name)?;
         let mut input;
         {
             input = match directory.open_checksum_input(segment_file_name) {
@@ -410,12 +294,8 @@ where
                 *MIN_SUPPORTED_MAJOR
             )));
         }
-        let format = CodecUtil::check_header_no_magic(
-            input,
-            "segments",
-            segment_infos_util::VERSION_74,
-            segment_infos_util::VERSION_CURRENT,
-        )?;
+        let format =
+            CodecUtil::check_header_no_magic(input, "segments", VERSION_74, VERSION_CURRENT)?;
 
         // Read the ID
         let mut id = [0u8; StringHelper::ID_LENGTH];
@@ -461,7 +341,7 @@ where
             prior_error = Some(e);
         }
 
-        if format >= segment_infos_util::VERSION_74 {
+        if format >= VERSION_74 {
             if let Some(mut e) = prior_error {
                 return Err(CodecUtil::check_footer_with_error(input, &mut e));
             } else {
@@ -545,7 +425,7 @@ where
                 )));
             }
 
-            let sci_id = if format > segment_infos_util::VERSION_74 {
+            let sci_id = if format > VERSION_74 {
                 match input.read_byte()? {
                     1 => {
                         let mut id = [0u8; StringHelper::ID_LENGTH];
@@ -721,7 +601,7 @@ where
         CodecUtil::write_index_header(
             out,
             "segments",
-            segment_infos_util::VERSION_CURRENT,
+            VERSION_CURRENT,
             &StringHelper::random_id(),
             &format!("{:x}", self.generation),
         )?;
@@ -1300,9 +1180,9 @@ where
             if files != files2 {
                 continue;
             }
-            r#gen = segment_infos_util::get_last_commit_generation(&files)?;
-            if segment_infos_util::get_info_stream()?.is_some() {
-                segment_infos_util::message(&format!("directory listing gen={gen}"))?;
+            r#gen = get_last_commit_generation(&files)?;
+            if get_info_stream()?.is_some() {
+                message(&format!("directory listing gen={gen}"))?;
             }
             if r#gen == -1 {
                 return Err(LuceneError::index_not_found(format!(
@@ -1319,9 +1199,8 @@ where
                         })?;
                 match self.sub.do_body(self.directory.clone(), &segment_file_name) {
                     Ok(result) => {
-                        if segment_infos_util::get_info_stream()?.is_some() {
-                            segment_infos_util::message(&format!("success on {segment_file_name}"))
-                                .unwrap_or_default();
+                        if get_info_stream()?.is_some() {
+                            message(&format!("success on {segment_file_name}")).unwrap_or_default();
                         }
                         return Ok(result);
                     },
@@ -1330,8 +1209,8 @@ where
                             exc = Some(err);
                         }
 
-                        if segment_infos_util::get_info_stream()?.is_some() {
-                            segment_infos_util::message(&format!(
+                        if get_info_stream()?.is_some() {
+                            message(&format!(
                                 "primary Exception on '{}': {}; will retry: gen = {}",
                                 segment_file_name,
                                 exc.as_ref().unwrap(),
@@ -1391,6 +1270,113 @@ impl FindSegmentsFileBase for FindSegmentsFileImpl {
     }
 }
 
+/// The version at the time when 8.0 was released.
+pub const VERSION_74: i32 = 9;
+/// The version that recorded SegmentCommitInfo IDs.
+pub const VERSION_86: i32 = 10;
+/// Current version of SegmentInfos.
+pub(crate) const VERSION_CURRENT: i32 = VERSION_86;
+/// Name of the generation reference file name.
+pub(crate) const OLD_SEGMENTS_GEN: &str = "segments.gen";
+/// Sets the global INFO_STREAM to the given `OutputEnum`.
+pub fn set_info_stream(_output: OutputEnum) -> Result<()> {
+    // TODO
+    Ok(())
+}
+
+/// Returns the current global INFO_STREAM as an
+/// `Option<Arc<Mutex<OutputEnum>>>`.
+pub fn get_info_stream() -> Result<Option<Arc<Mutex<OutputEnum>>>> {
+    let info_stream = INFO_STREAM.lock();
+    Ok(info_stream.clone())
+}
+
+/// Prints a message to the INFO_STREAM if it is set.
+/// This function assumes the caller has checked whether INFO_STREAM is `Some`.
+pub fn message(msg: &str) -> Result<()> {
+    let info_stream = INFO_STREAM.lock();
+
+    if let Some(ref stream) = *info_stream {
+        let mut stream = stream.lock();
+        writeln!(stream, "SIS: {msg}")
+            .map_err(|e| LuceneError::io_with_path("Failed to write".to_string(), e))?;
+    }
+
+    Ok(())
+}
+/// Get the generation of the most recent commit to the list of index files (N
+/// in the segments_N file).
+///
+/// # Arguments
+/// - `files`: A slice of file names to check.
+pub fn get_last_commit_generation(files: &[String]) -> Result<i64> {
+    let mut max = -1;
+    for file in files {
+        if file.starts_with(IndexFileNames::SEGMENTS)
+                // skipping this file here helps deliver the right exception when opening an old index
+                && !file.starts_with(OLD_SEGMENTS_GEN)
+        {
+            let r#gen = generation_from_segments_file_name(file)?;
+            if r#gen > max {
+                max = r#gen;
+            }
+        }
+    }
+    Ok(max)
+}
+
+/// Get the generation of the most recent commit to the index in this directory.
+pub fn get_last_commit_generation_from_directory<D: Directory>(directory: &D) -> Result<i64> {
+    let files = directory.list_all()?;
+    get_last_commit_generation(&files)
+}
+
+/// Get the filename of the segments_N file for the most recent commit in the
+/// list of index files.
+pub fn get_last_commit_segments_file_name(files: &[String]) -> Result<Option<String>> {
+    let last_gen = get_last_commit_generation(files)?;
+    Ok(IndexFileNames::file_name_from_generation(
+        IndexFileNames::SEGMENTS,
+        "",
+        last_gen,
+    ))
+}
+
+/// Get the filename of the segments_N file for the most recent commit to the
+/// index in this Directory.
+pub fn get_last_commit_segments_file_name_from_directory<D: Directory>(
+    directory: &D,
+) -> Result<Option<String>> {
+    let last_gen = get_last_commit_generation_from_directory(directory)?;
+    Ok(IndexFileNames::file_name_from_generation(
+        IndexFileNames::SEGMENTS,
+        "",
+        last_gen,
+    ))
+}
+/// Parse the generation off the segment file name and return it.
+pub fn generation_from_segments_file_name(file_name: &str) -> Result<i64> {
+    if file_name == OLD_SEGMENTS_GEN {
+        Err(LuceneError::illegal_argument(format!(
+            "\"{}\" is not a valid segment file name since 4.0",
+            OLD_SEGMENTS_GEN
+        )))
+    } else if file_name == IndexFileNames::SEGMENTS {
+        Ok(0)
+    } else if file_name.starts_with(IndexFileNames::SEGMENTS) {
+        let generation_str = &file_name[IndexFileNames::SEGMENTS.len() + 1..];
+        match i64::from_str_radix(generation_str, 36) {
+            Ok(generation) => Ok(generation),
+            Err(_) => Err(LuceneError::number_format(format!(
+                "Failed to parse generation from file name: \"{file_name}\""
+            ))),
+        }
+    } else {
+        Err(LuceneError::illegal_argument(format!(
+            "fileName \"{file_name}\" is not a segments file"
+        )))
+    }
+}
 #[cfg(test)]
 mod tests {
     use std::collections::{HashMap, HashSet};

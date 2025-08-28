@@ -513,7 +513,7 @@ where
 pub mod index_file_deleter_util {
     use crate::index::IndexFileNames;
     use crate::index::index_writer::index_writer_util;
-    use crate::index::segment_infos::{SegmentInfos, segment_infos_util};
+    use crate::index::segment_infos::{SegmentInfos, generation_from_segments_file_name};
     use crate::store::directory::Directory;
     use crate::util::error::lucene_error::LuceneError;
     use crate::util::error::lucene_error::Result;
@@ -545,7 +545,7 @@ pub mod index_file_deleter_util {
             if file_name == index_writer_util::WRITE_LOCK_NAME {
                 continue;
             } else if file_name.starts_with(IndexFileNames::SEGMENTS) {
-                let v = segment_infos_util::generation_from_segments_file_name(file_name);
+                let v = generation_from_segments_file_name(file_name);
                 match v {
                     Ok(r#gen) => {
                         max_segment_gen = max_segment_gen.max(r#gen);
@@ -559,7 +559,7 @@ pub mod index_file_deleter_util {
                     },
                 }
             } else if file_name.starts_with(IndexFileNames::PENDING_SEGMENTS) {
-                let v = segment_infos_util::generation_from_segments_file_name(&file_name[8..]);
+                let v = generation_from_segments_file_name(&file_name[8..]);
                 match v {
                     Ok(r#gen) => {
                         max_segment_gen = max_segment_gen.max(r#gen);
