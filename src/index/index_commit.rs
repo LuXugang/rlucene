@@ -52,23 +52,18 @@ pub trait IndexCommit: PartialEq + Eq + PartialOrd + Ord + Display {
         None
     }
 }
-pub mod index_commit_util {
-    use crate::index::index_commit::IndexCommit;
-    use std::cmp::Ordering;
-    use std::sync::Arc;
+use std::cmp::Ordering;
 
-    pub fn is_same_commit<T>(a: &T, b: &T) -> bool
-    where
-        T: IndexCommit,
-    {
-        Arc::ptr_eq(&a.get_directory(), &b.get_directory())
-            && a.get_generation() == b.get_generation()
-    }
-    pub fn cmp_commit<T>(a: &T, b: &T) -> Option<Ordering>
-    where
-        T: IndexCommit,
-    {
-        debug_assert!(Arc::ptr_eq(&a.get_directory(), &b.get_directory()));
-        Some(a.get_generation().cmp(&b.get_generation()))
-    }
+pub fn is_same_commit<T>(a: &T, b: &T) -> bool
+where
+    T: IndexCommit,
+{
+    Arc::ptr_eq(&a.get_directory(), &b.get_directory()) && a.get_generation() == b.get_generation()
+}
+pub fn cmp_commit<T>(a: &T, b: &T) -> Option<Ordering>
+where
+    T: IndexCommit,
+{
+    debug_assert!(Arc::ptr_eq(&a.get_directory(), &b.get_directory()));
+    Some(a.get_generation().cmp(&b.get_generation()))
 }

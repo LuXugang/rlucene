@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::index::index_commit::{IndexCommit, index_commit_util};
+use crate::index::index_commit::{IndexCommit, cmp_commit, is_same_commit};
 use crate::index::index_deletion_policy::IndexDeletionPolicy;
 use crate::index::index_writer::IndexWriter;
 use crate::index::segment_infos::SegmentInfos;
@@ -551,7 +551,7 @@ where
     D: Directory,
 {
     fn eq(&self, other: &Self) -> bool {
-        index_commit_util::is_same_commit(self, other)
+        is_same_commit(self, other)
     }
 }
 
@@ -562,7 +562,7 @@ where
     D: Directory,
 {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        index_commit_util::cmp_commit(self, other)
+        cmp_commit(self, other)
     }
 }
 
