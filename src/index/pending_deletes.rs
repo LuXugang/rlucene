@@ -33,7 +33,7 @@ use crate::util::bits::{Bits, Either2Bits};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::{FixedBit, FixedBitSet};
 use std::fmt;
-use std::fmt::Display;
+use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
 /// This class handles accounting and applying pending deletes for live segment readers
@@ -516,6 +516,181 @@ pub(crate) trait PendingDeletesBase: Display {
     /// otherwise it is ready to accept deletes.
     /// A `PendingDeletes` can be initialized by providing it a reader via [`on_new_reader`](Self::on_new_reader).
     fn must_init_on_delete(&self) -> bool;
+}
+
+pub enum Either2PendingDeletes<A, B> {
+    A(A),
+    B(B),
+}
+
+impl<A, B> Display for Either2PendingDeletes<A, B>
+where
+    A: PendingDeletesBase,
+    B: PendingDeletesBase,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Either2PendingDeletes::A(a) => a.fmt(f),
+            Either2PendingDeletes::B(b) => b.fmt(f),
+        }
+    }
+}
+
+impl<A, B> PendingDeletesBase for Either2PendingDeletes<A, B>
+where
+    A: PendingDeletesBase,
+    B: PendingDeletesBase,
+{
+    fn delete(&mut self, doc_id: i32) -> Result<bool> {
+        match self {
+            Either2PendingDeletes::A(a) => a.delete(doc_id),
+            Either2PendingDeletes::B(b) => b.delete(doc_id),
+        }
+    }
+
+    fn get_hard_live_docs(&mut self) -> Option<DocBits> {
+        match self {
+            Either2PendingDeletes::A(a) => a.get_hard_live_docs(),
+            Either2PendingDeletes::B(b) => b.get_hard_live_docs(),
+        }
+    }
+
+    fn get_live_docs(&mut self) -> Option<DocBits> {
+        match self {
+            Either2PendingDeletes::A(a) => a.get_live_docs(),
+            Either2PendingDeletes::B(b) => b.get_live_docs(),
+        }
+    }
+
+    fn num_pending_deletes(&self) -> i32 {
+        match self {
+            Either2PendingDeletes::A(a) => a.num_pending_deletes(),
+            Either2PendingDeletes::B(b) => b.num_pending_deletes(),
+        }
+    }
+
+    fn on_new_reader<D>(
+        &mut self,
+        reader: &SegmentReader<D>,
+        info: &SegmentCommitInfo<D>,
+    ) -> Result<()>
+    where
+        D: Directory,
+    {
+        match self {
+            Either2PendingDeletes::A(a) => a.on_new_reader(reader, info),
+            Either2PendingDeletes::B(b) => b.on_new_reader(reader, info),
+        }
+    }
+
+    fn drop_changes(&mut self) {
+        match self {
+            Either2PendingDeletes::A(a) => a.drop_changes(),
+            Either2PendingDeletes::B(b) => b.drop_changes(),
+        }
+    }
+
+    fn write_live_docs<D>(
+        &mut self,
+        dir: Arc<LockValidatingDirectoryWrapper<D>>,
+        info: &mut SegmentCommitInfo<D>,
+    ) -> Result<bool>
+    where
+        D: Directory,
+    {
+        match self {
+            Either2PendingDeletes::A(a) => a.write_live_docs(dir, info),
+            Either2PendingDeletes::B(b) => b.write_live_docs(dir, info),
+        }
+    }
+
+    fn is_fully_deleted<D, F>(
+        &self,
+        reader_io_supplier: F,
+        info: &SegmentCommitInfo<D>,
+    ) -> Result<bool>
+    where
+        D: Directory,
+        F: Fn() -> Arc<SegmentReader<D>>,
+    {
+        match self {
+            Either2PendingDeletes::A(a) => a.is_fully_deleted(reader_io_supplier, info),
+            Either2PendingDeletes::B(b) => b.is_fully_deleted(reader_io_supplier, info),
+        }
+    }
+
+    fn needs_refresh<D>(
+        &mut self,
+        reader: &SegmentReader<D>,
+        info: &SegmentCommitInfo<D>,
+    ) -> Result<bool>
+    where
+        D: Directory,
+    {
+        match self {
+            Either2PendingDeletes::A(a) => a.needs_refresh(reader, info),
+            Either2PendingDeletes::B(b) => b.needs_refresh(reader, info),
+        }
+    }
+
+    fn get_del_count<D>(&self, info: &SegmentCommitInfo<D>) -> i32
+    where
+        D: Directory,
+    {
+        match self {
+            Either2PendingDeletes::A(a) => a.get_del_count(info),
+            Either2PendingDeletes::B(b) => b.get_del_count(info),
+        }
+    }
+
+    fn num_docs<D>(&self, info: &SegmentCommitInfo<D>) -> Result<i32>
+    where
+        D: Directory,
+    {
+        match self {
+            Either2PendingDeletes::A(a) => a.num_docs(info),
+            Either2PendingDeletes::B(b) => b.num_docs(info),
+        }
+    }
+
+    fn verify_doc_counts<D>(
+        &mut self,
+        reader: &impl CodecReader,
+        info: &SegmentCommitInfo<D>,
+    ) -> Result<bool>
+    where
+        D: Directory,
+    {
+        match self {
+            Either2PendingDeletes::A(a) => a.verify_doc_counts(reader, info),
+            Either2PendingDeletes::B(b) => b.verify_doc_counts(reader, info),
+        }
+    }
+
+    fn max_doc(&self) -> i32 {
+        match self {
+            Either2PendingDeletes::A(a) => a.max_doc(),
+            Either2PendingDeletes::B(b) => b.max_doc(),
+        }
+    }
+
+    fn on_doc_values_update(
+        &self,
+        info: &FieldInfo,
+        iterator: Option<MergedIterator<DocValuesFieldIteratorEnum>>,
+    ) {
+        match self {
+            Either2PendingDeletes::A(a) => a.on_doc_values_update(info, iterator),
+            Either2PendingDeletes::B(b) => b.on_doc_values_update(info, iterator),
+        }
+    }
+
+    fn must_init_on_delete(&self) -> bool {
+        match self {
+            Either2PendingDeletes::A(a) => a.must_init_on_delete(),
+            Either2PendingDeletes::B(b) => b.must_init_on_delete(),
+        }
+    }
 }
 
 #[cfg(test)]
