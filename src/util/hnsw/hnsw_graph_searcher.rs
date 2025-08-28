@@ -126,7 +126,7 @@ where
             return Ok(current_ep);
         }
 
-        let size = hgs_util::get_graph_size(graph) as usize;
+        let size = get_graph_size(graph) as usize;
         self.prepare_scratch_state(size);
 
         let mut current_score = scorer.score(current_ep)?;
@@ -194,7 +194,7 @@ where
     where
         S: RandomVectorScorer,
     {
-        let size = hgs_util::get_graph_size(graph) as usize;
+        let size = get_graph_size(graph) as usize;
         self.prepare_scratch_state(size);
 
         for &ep in eps {
@@ -263,124 +263,6 @@ where
             self.visited.ensure_capacity(capacity as i32);
         }
         self.visited.clear();
-    }
-}
-pub mod hgs_util {
-    use crate::search::knn_collector::KnnCollector;
-    use crate::search::top_knn_collector::TopKnnCollector;
-    use crate::util::bit_set::BitSet;
-    use crate::util::bits::Bits;
-    use crate::util::error::lucene_error::Result;
-    use crate::util::hnsw::hnsw_graph::{HnswGraph, HnswGraphEnums};
-    use crate::util::hnsw::hnsw_graph_searcher::{
-        HnswGraphSearcher, HnswGraphSearcherBase, HnswGraphSearcherBaseDefault,
-        OnHeapHnswGraphSearcher,
-    };
-    use crate::util::hnsw::neighbor_queue::NeighborQueue;
-    use crate::util::hnsw::random_vector_scorer::RandomVectorScorer;
-    use crate::util::sparse_fixed_bit_set::SparseFixedBitSet;
-    /// Searches HNSW graph for the nearest neighbors of a query vector.
-    ///
-    /// # Arguments
-    ///
-    /// * `scorer` - the scorer to compare the query with the nodes
-    /// * `knn_collector` - a collector of top knn results to be returned
-    /// * `graph` - the graph values. May represent the entire graph, or a level
-    ///   in a hierarchical graph
-    /// * `accept_ords` - a [`Bits`] instance that represents the allowed
-    ///   document ordinals to match, or `None` if all are allowed to match
-    pub fn search<S>(
-        scorer: &mut S,
-        knn_collector: &mut impl KnnCollector,
-        graph: &mut HnswGraphEnums,
-        accept_ords: &mut Option<impl Bits>,
-    ) -> Result<()>
-    where
-        S: RandomVectorScorer,
-    {
-        let bitset = SparseFixedBitSet::new(get_graph_size(graph))?;
-        let top_k = knn_collector.k();
-        let neighbor_queue = NeighborQueue::new(top_k, true)?;
-        let mut graph_searcher =
-            HnswGraphSearcher::new(neighbor_queue, bitset, HnswGraphSearcherBaseDefault);
-        search_with_searcher(
-            scorer,
-            knn_collector,
-            graph,
-            &mut graph_searcher,
-            accept_ords,
-        )
-    }
-    /// Search [`OnHeapHnswGraph`], this method is thread-safe.
-    ///
-    /// # Arguments
-    ///
-    /// * `scorer` - the scorer to compare the query with the nodes
-    /// * `top_k` - the number of nodes to be returned
-    /// * `graph` - the graph values. May represent the entire graph, or a level
-    ///   in a hierarchical graph
-    /// * `accept_ords` - a [`Bits`] instance that represents the allowed
-    ///   document ordinals to match, or `None` if all are allowed to match
-    /// * `visited_limit` - the maximum number of nodes that the search is
-    ///   allowed to visit
-    ///
-    /// # Returns
-    ///
-    /// A set of collected vectors holding the nearest neighbors found
-    pub fn search_with_top_k<S>(
-        scorer: &mut S,
-        top_k: i32,
-        graph: &mut HnswGraphEnums,
-        accept_ords: &mut Option<impl Bits>,
-        visited_limit: usize,
-    ) -> Result<TopKnnCollector>
-    where
-        S: RandomVectorScorer,
-    {
-        let mut knn_collector = TopKnnCollector::new(top_k, visited_limit)?;
-        let bitset = SparseFixedBitSet::new(get_graph_size(graph))?;
-        let neighbor_queue = NeighborQueue::new(top_k, true)?;
-        let mut graph_searcher =
-            HnswGraphSearcher::new(neighbor_queue, bitset, OnHeapHnswGraphSearcher::default());
-        debug_assert!(matches!(graph, HnswGraphEnums::OnHeap(_)));
-        search_with_searcher(
-            scorer,
-            &mut knn_collector,
-            graph,
-            &mut graph_searcher,
-            accept_ords,
-        )?;
-
-        Ok(knn_collector)
-    }
-    fn search_with_searcher<H, S, B>(
-        scorer: &mut S,
-        knn_collector: &mut impl KnnCollector,
-        graph: &mut HnswGraphEnums,
-        graph_searcher: &mut HnswGraphSearcher<B, H>,
-        accept_ords: &mut Option<impl Bits>,
-    ) -> Result<()>
-    where
-        H: HnswGraphSearcherBase,
-        B: BitSet,
-        S: RandomVectorScorer,
-    {
-        let ep = graph_searcher.find_best_entry_point(scorer, graph, knn_collector)?;
-        if ep != -1 {
-            graph_searcher.search_level_with_collector(
-                knn_collector,
-                scorer,
-                0,
-                &[ep],
-                graph,
-                accept_ords,
-            )?;
-        }
-        Ok(())
-    }
-    pub(crate) fn get_graph_size<G: HnswGraph>(graph: &G) -> i32 {
-        debug_assert!((graph.max_node_id() + 1) >= 0);
-        graph.max_node_id() + 1
     }
 }
 
@@ -460,4 +342,109 @@ impl HnswGraphSearcherBase for OnHeapHnswGraphSearcher {
             },
         }
     }
+}
+use crate::search::top_knn_collector::TopKnnCollector;
+use crate::util::sparse_fixed_bit_set::SparseFixedBitSet;
+/// Searches HNSW graph for the nearest neighbors of a query vector.
+///
+/// # Arguments
+///
+/// * `scorer` - the scorer to compare the query with the nodes
+/// * `knn_collector` - a collector of top knn results to be returned
+/// * `graph` - the graph values. May represent the entire graph, or a level
+///   in a hierarchical graph
+/// * `accept_ords` - a [`Bits`] instance that represents the allowed
+///   document ordinals to match, or `None` if all are allowed to match
+pub fn search<S>(
+    scorer: &mut S,
+    knn_collector: &mut impl KnnCollector,
+    graph: &mut HnswGraphEnums,
+    accept_ords: &mut Option<impl Bits>,
+) -> Result<()>
+where
+    S: RandomVectorScorer,
+{
+    let bitset = SparseFixedBitSet::new(get_graph_size(graph))?;
+    let top_k = knn_collector.k();
+    let neighbor_queue = NeighborQueue::new(top_k, true)?;
+    let mut graph_searcher =
+        HnswGraphSearcher::new(neighbor_queue, bitset, HnswGraphSearcherBaseDefault);
+    search_with_searcher(
+        scorer,
+        knn_collector,
+        graph,
+        &mut graph_searcher,
+        accept_ords,
+    )
+}
+/// Search [`OnHeapHnswGraph`], this method is thread-safe.
+///
+/// # Arguments
+///
+/// * `scorer` - the scorer to compare the query with the nodes
+/// * `top_k` - the number of nodes to be returned
+/// * `graph` - the graph values. May represent the entire graph, or a level
+///   in a hierarchical graph
+/// * `accept_ords` - a [`Bits`] instance that represents the allowed
+///   document ordinals to match, or `None` if all are allowed to match
+/// * `visited_limit` - the maximum number of nodes that the search is
+///   allowed to visit
+///
+/// # Returns
+///
+/// A set of collected vectors holding the nearest neighbors found
+pub fn search_with_top_k<S>(
+    scorer: &mut S,
+    top_k: i32,
+    graph: &mut HnswGraphEnums,
+    accept_ords: &mut Option<impl Bits>,
+    visited_limit: usize,
+) -> Result<TopKnnCollector>
+where
+    S: RandomVectorScorer,
+{
+    let mut knn_collector = TopKnnCollector::new(top_k, visited_limit)?;
+    let bitset = SparseFixedBitSet::new(get_graph_size(graph))?;
+    let neighbor_queue = NeighborQueue::new(top_k, true)?;
+    let mut graph_searcher =
+        HnswGraphSearcher::new(neighbor_queue, bitset, OnHeapHnswGraphSearcher::default());
+    debug_assert!(matches!(graph, HnswGraphEnums::OnHeap(_)));
+    search_with_searcher(
+        scorer,
+        &mut knn_collector,
+        graph,
+        &mut graph_searcher,
+        accept_ords,
+    )?;
+
+    Ok(knn_collector)
+}
+fn search_with_searcher<H, S, B>(
+    scorer: &mut S,
+    knn_collector: &mut impl KnnCollector,
+    graph: &mut HnswGraphEnums,
+    graph_searcher: &mut HnswGraphSearcher<B, H>,
+    accept_ords: &mut Option<impl Bits>,
+) -> Result<()>
+where
+    H: HnswGraphSearcherBase,
+    B: BitSet,
+    S: RandomVectorScorer,
+{
+    let ep = graph_searcher.find_best_entry_point(scorer, graph, knn_collector)?;
+    if ep != -1 {
+        graph_searcher.search_level_with_collector(
+            knn_collector,
+            scorer,
+            0,
+            &[ep],
+            graph,
+            accept_ords,
+        )?;
+    }
+    Ok(())
+}
+pub(crate) fn get_graph_size<G: HnswGraph>(graph: &G) -> i32 {
+    debug_assert!((graph.max_node_id() + 1) >= 0);
+    graph.max_node_id() + 1
 }
