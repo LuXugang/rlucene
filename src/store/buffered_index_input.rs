@@ -41,21 +41,6 @@ where
     /// valid data length in the buffer
     length: i32,
 }
-pub mod buffered_index_input_util {
-    /// Default buffer size set to `BUFFER_SIZE`.
-    pub const BUFFER_SIZE: i32 = 1024;
-    /// Minimum buffer size allowed
-    pub const MIN_BUFFER_SIZE: i32 = 8;
-
-    /// A buffer size for merges set to `MERGE_BUFFER_SIZE`.  */
-    /// The normal read buffer size defaults to 1024, but
-    /// increasing this during merging seems to yield
-    /// performance gains.  However, we don't want to increase
-    /// it too much because there are quite a few
-    /// BufferedIndexInputs created during merging.  See
-    /// LUCENE-888 for details.
-    pub const MERGE_BUFFER_SIZE: i32 = 4096;
-}
 
 impl<T> BufferedIndexInput<T>
 where
@@ -82,11 +67,7 @@ where
         sub_index_input: T,
         resource_desc: &str,
     ) -> Result<BufferedIndexInput<T>> {
-        Self::with_buffer_size(
-            sub_index_input,
-            resource_desc,
-            buffered_index_input_util::BUFFER_SIZE,
-        )
+        Self::with_buffer_size(sub_index_input, resource_desc, BUFFER_SIZE)
     }
 
     pub fn with_io_context(
@@ -100,13 +81,13 @@ where
     /// Returns default buffer sizes for the given [`IOContext`].
     pub fn buffer_size(io_context: &IOContext) -> i32 {
         match io_context.context {
-            Context::Merge => buffered_index_input_util::MERGE_BUFFER_SIZE,
-            Context::Default | Context::Flush => buffered_index_input_util::BUFFER_SIZE,
+            Context::Merge => MERGE_BUFFER_SIZE,
+            Context::Default | Context::Flush => BUFFER_SIZE,
         }
     }
 
     fn check_buffer_size(buffer_size: i32) -> Result<()> {
-        if buffer_size < buffered_index_input_util::MIN_BUFFER_SIZE {
+        if buffer_size < MIN_BUFFER_SIZE {
             return Err(LuceneError::illegal_argument(format!(
                 "bufferSize must be at least MIN_BUFFER_SIZE (got {buffer_size})"
             )));
@@ -823,6 +804,20 @@ where
 
 struct SlicedIndexInput {}
 
+/// Default buffer size set to `BUFFER_SIZE`.
+pub const BUFFER_SIZE: i32 = 1024;
+/// Minimum buffer size allowed
+pub const MIN_BUFFER_SIZE: i32 = 8;
+
+/// A buffer size for merges set to `MERGE_BUFFER_SIZE`.  */
+/// The normal read buffer size defaults to 1024, but
+/// increasing this during merging seems to yield
+/// performance gains.  However, we don't want to increase
+/// it too much because there are quite a few
+/// BufferedIndexInputs created during merging.  See
+/// LUCENE-888 for details.
+pub const MERGE_BUFFER_SIZE: i32 = 4096;
+
 #[cfg(test)]
 mod tests {
     use std::clone::Clone;
@@ -833,9 +828,7 @@ mod tests {
 
     use crate::store::index_input::IndexInput;
     use crate::store::random_access_input::RandomAccessInput;
-    use crate::store::{
-        BufferedIndexInput, BufferedIndexInputBase, DataInput, buffered_index_input_util,
-    };
+    use crate::store::{BUFFER_SIZE, BufferedIndexInput, BufferedIndexInputBase, DataInput};
     use crate::test::util::lucene_test_case::lucene_test_case_util::random;
     use crate::util::ReadableCursorExt;
     use crate::util::bit_util::BitUtil;
@@ -858,9 +851,9 @@ mod tests {
         let mut input = BufferedIndexInput::with_buffer_size(
             sub_index_input,
             &resource_description,
-            buffered_index_input_util::BUFFER_SIZE,
+            BUFFER_SIZE,
         )?;
-        for i in 0..buffered_index_input_util::BUFFER_SIZE * 10 {
+        for i in 0..BUFFER_SIZE * 10 {
             assert_eq!(byten(i as i64), DataInput::read_byte(&mut input)?);
         }
 
@@ -875,14 +868,14 @@ mod tests {
         let mut input = BufferedIndexInput::with_buffer_size(
             sub_index_input,
             &resource_description,
-            buffered_index_input_util::BUFFER_SIZE,
+            BUFFER_SIZE,
         )?;
 
         let mut pos = 0;
 
         // Gradually increasing size
         let mut size = 1;
-        while size < buffered_index_input_util::BUFFER_SIZE * 10 {
+        while size < BUFFER_SIZE * 10 {
             let mut buffer: Vec<u8> = vec![0; 10];
             check_read_bytes(&mut input, size, pos, &mut buffer)?;
             pos += size;
@@ -899,7 +892,7 @@ mod tests {
             let size = random.random_range(1..=10000);
             let mut buffer: Vec<u8> = vec![0; 10];
             check_read_bytes(&mut input, size, pos, &mut buffer)?;
-            pos += size as i32;
+            pos += size;
             if pos as i64 >= TEST_FILE_LENGTH {
                 // Wrap around
                 pos = 0;
@@ -908,7 +901,7 @@ mod tests {
         }
 
         // Constant small size (7 bytes)
-        for _ in 0..buffered_index_input_util::BUFFER_SIZE {
+        for _ in 0..BUFFER_SIZE {
             let mut buffer: Vec<u8> = vec![0; 10];
             check_read_bytes(&mut input, 7, pos, &mut buffer)?;
             pos += 7;
@@ -986,7 +979,7 @@ mod tests {
         let mut input = BufferedIndexInput::with_buffer_size(
             sub_index_input,
             &resource_description,
-            buffered_index_input_util::BUFFER_SIZE,
+            BUFFER_SIZE,
         )?;
         let mut buffer = vec![];
 
@@ -1032,7 +1025,7 @@ mod tests {
         let mut input = BufferedIndexInput::with_buffer_size(
             sub_index_input,
             &resource_description,
-            buffered_index_input_util::BUFFER_SIZE,
+            BUFFER_SIZE,
         )?;
 
         let mut i: i64 = 2048;
@@ -1054,7 +1047,7 @@ mod tests {
         let mut input = BufferedIndexInput::with_buffer_size(
             sub_index_input,
             &resource_description,
-            buffered_index_input_util::BUFFER_SIZE,
+            BUFFER_SIZE,
         )?;
 
         let mut i = 2048;
@@ -1091,7 +1084,7 @@ mod tests {
         let mut input = BufferedIndexInput::with_buffer_size(
             sub_index_input,
             &resource_description,
-            buffered_index_input_util::BUFFER_SIZE,
+            BUFFER_SIZE,
         )?;
 
         let mut i = 2048;
@@ -1134,7 +1127,7 @@ mod tests {
         let mut input = BufferedIndexInput::with_buffer_size(
             sub_index_input.try_clone()?,
             &resource_description,
-            buffered_index_input_util::BUFFER_SIZE,
+            BUFFER_SIZE,
         )?;
         let mut float_buffer = vec![0f32; buffer_length];
 
@@ -1196,7 +1189,7 @@ mod tests {
         let mut input = BufferedIndexInput::with_buffer_size(
             sub_index_input.try_clone()?,
             &resource_description,
-            buffered_index_input_util::BUFFER_SIZE,
+            BUFFER_SIZE,
         )?;
         let mut int_buffer = vec![0i32; buffer_length];
 
@@ -1256,7 +1249,7 @@ mod tests {
         let mut input = BufferedIndexInput::with_buffer_size(
             sub_index_input.try_clone()?,
             &resource_description,
-            buffered_index_input_util::BUFFER_SIZE,
+            BUFFER_SIZE,
         )?;
         let mut bb = vec![0u8; BitUtil::LONG_BYTES];
         let mut long_buffer = vec![0i64; buffer_length];

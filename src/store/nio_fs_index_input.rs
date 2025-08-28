@@ -19,7 +19,7 @@ use std::fs::File;
 use std::io::{Cursor, Read, Seek, SeekFrom};
 
 use crate::store::index_input::get_full_slice_description;
-use crate::store::{BufferedIndexInput, BufferedIndexInputBase, buffered_index_input_util};
+use crate::store::{BUFFER_SIZE, BufferedIndexInput, BufferedIndexInputBase};
 use crate::util::ReadableCursorExt;
 use crate::util::error::lucene_error::{LuceneError, Result};
 
@@ -45,7 +45,7 @@ impl NIOFSIndexInput {
             off: 0,
             end: len as i64,
             resource_desc: resource_desc.to_string(),
-            buffer_size: buffered_index_input_util::BUFFER_SIZE,
+            buffer_size: BUFFER_SIZE,
         }
     }
     pub fn with_range(
