@@ -94,49 +94,42 @@ where
     }
 }
 
-pub mod bsi_util {
-    use crate::search::doc_id_set_iterator::DocIdSetIterator;
-    use crate::util::bit_set::BitSet;
-    use crate::util::fixed_bit_set::FixedBitSet;
-    use crate::util::sparse_fixed_bit_set::SparseFixedBitSet;
-    use std::any::TypeId;
+use crate::util::fixed_bit_set::FixedBitSet;
+use crate::util::sparse_fixed_bit_set::SparseFixedBitSet;
+use std::any::TypeId;
 
-    fn equal_disi_type<T1: DocIdSetIterator + 'static, T2: DocIdSetIterator + 'static>(
-        _it1: &T1,
-        _it2: &T2,
-    ) -> bool {
-        TypeId::of::<T1>() == TypeId::of::<T2>()
-    }
+fn equal_disi_type<T1: DocIdSetIterator + 'static, T2: DocIdSetIterator + 'static>(
+    _it1: &T1,
+    _it2: &T2,
+) -> bool {
+    TypeId::of::<T1>() == TypeId::of::<T2>()
+}
 
-    fn equal_bit_set_type<T1: BitSet + 'static, T2: BitSet + 'static>(
-        _it1: &T1,
-        _it2: &T2,
-    ) -> bool {
-        TypeId::of::<T1>() == TypeId::of::<T2>()
-    }
-    //TODO
-    pub fn try_get_bit_set<B: BitSet + 'static>(
-        _iterator: impl DocIdSetIterator + 'static,
-        _bit_set: B,
-    ) -> Option<B> {
-        todo!()
-    }
+fn equal_bit_set_type<T1: BitSet + 'static, T2: BitSet + 'static>(_it1: &T1, _it2: &T2) -> bool {
+    TypeId::of::<T1>() == TypeId::of::<T2>()
+}
+//TODO
+pub fn try_get_bit_set<B: BitSet + 'static>(
+    _iterator: impl DocIdSetIterator + 'static,
+    _bit_set: B,
+) -> Option<B> {
+    todo!()
+}
 
-    // todo
-    /// If the provided iterator wraps a [`FixedBitSet`], returns it, otherwise
-    /// returns `None`.
-    pub fn get_fixed_bit_set_or_null<B: BitSet>(
-        _iterator: impl DocIdSetIterator + 'static,
-    ) -> Option<FixedBitSet> {
-        todo!()
-    }
+// todo
+/// If the provided iterator wraps a [`FixedBitSet`], returns it, otherwise
+/// returns `None`.
+pub fn get_fixed_bit_set_or_null<B: BitSet>(
+    _iterator: impl DocIdSetIterator + 'static,
+) -> Option<FixedBitSet> {
+    todo!()
+}
 
-    // todo
-    /// If the provided iterator wraps a [`SparseFixedBitSet`] returns it,
-    /// otherwise returns `None`.
-    pub fn get_sparse_fixed_bit_set_or_null<B: BitSet>(
-        _iterator: impl DocIdSetIterator + 'static,
-    ) -> Option<SparseFixedBitSet> {
-        todo!()
-    }
+// todo
+/// If the provided iterator wraps a [`SparseFixedBitSet`] returns it,
+/// otherwise returns `None`.
+pub fn get_sparse_fixed_bit_set_or_null<B: BitSet>(
+    _iterator: impl DocIdSetIterator + 'static,
+) -> Option<SparseFixedBitSet> {
+    todo!()
 }
