@@ -18,13 +18,9 @@
 use crate::util::SliceCopyOps;
 use crate::util::array_util::ArrayUtil;
 
-mod lsb_radix_sorter_util {
-    pub(super) const INSERTION_SORT_THRESHOLD: usize = 30;
-    pub(super) const HISTOGRAM_SIZE: usize = 256;
-}
 /// A LSB Radix sorter for unsigned int values.
 pub struct LSBRadixSorter {
-    histogram: [i32; lsb_radix_sorter_util::HISTOGRAM_SIZE],
+    histogram: [i32; HISTOGRAM_SIZE],
     buffer: Vec<i32>,
 }
 impl Default for LSBRadixSorter {
@@ -36,7 +32,7 @@ impl Default for LSBRadixSorter {
 impl LSBRadixSorter {
     pub fn new() -> Self {
         LSBRadixSorter {
-            histogram: [0; lsb_radix_sorter_util::HISTOGRAM_SIZE],
+            histogram: [0; HISTOGRAM_SIZE],
             buffer: Vec::new(),
         }
     }
@@ -102,7 +98,7 @@ impl LSBRadixSorter {
     /// - `num_bits`: how many bits are required to store any of the values in
     ///   `array[0..len]`. Pass `32` if unknown.
     pub fn sort(&mut self, num_bits: usize, array: &mut [i32], len: usize) {
-        if len < lsb_radix_sorter_util::INSERTION_SORT_THRESHOLD {
+        if len < INSERTION_SORT_THRESHOLD {
             Self::insertion_sort(array, 0, len);
             return;
         }
@@ -125,6 +121,10 @@ impl LSBRadixSorter {
         }
     }
 }
+
+pub(super) const INSERTION_SORT_THRESHOLD: usize = 30;
+pub(super) const HISTOGRAM_SIZE: usize = 256;
+
 #[cfg(test)]
 mod tests {
     use rand::Rng;
