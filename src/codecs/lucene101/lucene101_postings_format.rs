@@ -444,7 +444,9 @@ mod tests {
     use crate::codecs::lucene101::lucene101_postings_reader::{
         MutableImpactList, read_impacts, read_vint15, read_vlong15,
     };
-    use crate::codecs::lucene101::lucene101_postings_writer::lucene101_pw_util;
+    use crate::codecs::lucene101::lucene101_postings_writer::{
+        write_impacts, write_vint15, write_vlong15,
+    };
     use crate::index::impact::Impact;
     use crate::store::directory::Directory;
     use crate::store::{ByteArrayDataInput, ByteArrayDataOutput, DataInput, IOContext, IndexInput};
@@ -462,7 +464,7 @@ mod tests {
         let mut out = ByteArrayDataOutput::with_bytes(buffer);
         for &i in &[0i32, 1, 127, 128, 32767, 32768, i32::MAX] {
             out.reset()?;
-            lucene101_pw_util::write_vint15(&mut out, i)?;
+            write_vint15(&mut out, i)?;
             let mut inp = ByteArrayDataInput::with_bytes(out.bytes.clone());
             let v = read_vint15(&mut inp)?;
             assert_eq!(v, i);
@@ -476,7 +478,7 @@ mod tests {
         let mut out = ByteArrayDataOutput::with_bytes(vec![0u8; 9]);
         for &i in &[0i64, 1, 127, 128, 32_767, 32_768, i32::MAX as i64, i64::MAX] {
             out.reset()?;
-            lucene101_pw_util::write_vlong15(&mut out, i)?;
+            write_vlong15(&mut out, i)?;
             let mut inp = ByteArrayDataInput::with_bytes(out.bytes.clone());
             let v = read_vlong15(&mut inp)?;
             assert_eq!(v, i);
@@ -542,7 +544,7 @@ mod tests {
         let dir = new_directory(&mut random)?;
         {
             let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
-            lucene101_pw_util::write_impacts(&acc.get_competitive_freq_norm_pairs(), &mut out)?;
+            write_impacts(&acc.get_competitive_freq_norm_pairs(), &mut out)?;
         }
         let mut input = dir.open_input("foo", &IOContext::default_io_context()?)?;
         let len = input.length();

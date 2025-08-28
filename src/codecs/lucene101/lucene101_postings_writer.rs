@@ -275,7 +275,7 @@ where
                 if n > self.max_num_impacts_at_level0 {
                     self.max_num_impacts_at_level0 = n;
                 }
-                lucene101_pw_util::write_impacts(&impacts, &mut self.scratch_output)?;
+                write_impacts(&impacts, &mut self.scratch_output)?;
                 debug_assert!(self.level0_output.size() == 0);
                 let scratch_len = self.scratch_output.size();
                 if scratch_len > self.max_impact_num_bytes_at_level0 as i64 {
@@ -313,11 +313,11 @@ where
             // single byte with a vint Even if we subtracted 128,
             // only extremely dense blocks would be eligible to a single byte
             // so let's go with 2 bytes right away
-            lucene101_pw_util::write_vint15(
+            write_vint15(
                 &mut self.scratch_output,
                 self.doc_id - self.level0_last_doc_id,
             )?;
-            lucene101_pw_util::write_vlong15(&mut self.scratch_output, self.level0_output.size())?;
+            write_vlong15(&mut self.scratch_output, self.level0_output.size())?;
             num_skip_bytes += self.scratch_output.size();
 
             self.level1_output.write_vlong(num_skip_bytes)?;
@@ -361,7 +361,7 @@ where
             if n > self.max_num_impacts_at_level1 {
                 self.max_num_impacts_at_level1 = n;
             }
-            lucene101_pw_util::write_impacts(&impacts, &mut self.scratch_output)?;
+            write_impacts(&impacts, &mut self.scratch_output)?;
             let num_impact_bytes = self.scratch_output.size();
             if num_impact_bytes > self.max_impact_num_bytes_at_level1 as i64 {
                 self.max_impact_num_bytes_at_level1 = num_impact_bytes.try_into()?;
@@ -829,49 +829,45 @@ where
     }
 }
 
-pub mod lucene101_pw_util {
-    use crate::index::impact::Impact;
-    use crate::store::DataOutput;
-    use crate::util::error::lucene_error::Result;
+use crate::index::impact::Impact;
 
-    /// Special vints that are encoded on 2 bytes if they require 15 bits or
-    /// less. VInt becomes especially slow when the number of bytes is
-    /// variable, so this special layout helps in the case when the number
-    /// likely requires 15 bits or less.
-    pub(crate) fn write_vint15(out: &mut impl DataOutput, v: i32) -> Result<()> {
-        debug_assert!(v >= 0);
-        write_vlong15(out, v as i64)
+/// Special vints that are encoded on 2 bytes if they require 15 bits or
+/// less. VInt becomes especially slow when the number of bytes is
+/// variable, so this special layout helps in the case when the number
+/// likely requires 15 bits or less.
+pub(crate) fn write_vint15(out: &mut impl DataOutput, v: i32) -> Result<()> {
+    debug_assert!(v >= 0);
+    write_vlong15(out, v as i64)
+}
+
+/// @see [`write_vint15`]
+pub(crate) fn write_vlong15(out: &mut impl DataOutput, v: i64) -> Result<()> {
+    debug_assert!(v >= 0);
+    if v & !0x7FFF == 0 {
+        out.write_short(v as i16)?;
+    } else {
+        let prefix = 0x8000 | (v & 0x7FFF);
+        out.write_short(prefix as i16)?;
+        out.write_vlong(v >> 15)?;
     }
-
-    /// @see [`write_vint15`]
-    pub(crate) fn write_vlong15(out: &mut impl DataOutput, v: i64) -> Result<()> {
-        debug_assert!(v >= 0);
-        if v & !0x7FFF == 0 {
-            out.write_short(v as i16)?;
+    Ok(())
+}
+pub(crate) fn write_impacts(impacts: &[Impact], out: &mut impl DataOutput) -> Result<()> {
+    let mut previous = Impact { freq: 0, norm: 0 };
+    for impact in impacts {
+        debug_assert!(impact.freq > previous.freq);
+        debug_assert!((impact.norm as u64) > (previous.norm as u64));
+        let freq_delta = impact.freq - previous.freq - 1;
+        let norm_delta = impact.norm - previous.norm - 1;
+        if norm_delta == 0 {
+            // most of time, norm only increases by 1, so we can fold
+            // everything in a single byte
+            out.write_vint(freq_delta << 1)?;
         } else {
-            let prefix = 0x8000 | (v & 0x7FFF);
-            out.write_short(prefix as i16)?;
-            out.write_vlong(v >> 15)?;
+            out.write_vint((freq_delta << 1) | 1)?;
+            out.write_zlong(norm_delta)?;
         }
-        Ok(())
+        previous = impact.clone();
     }
-    pub(crate) fn write_impacts(impacts: &[Impact], out: &mut impl DataOutput) -> Result<()> {
-        let mut previous = Impact { freq: 0, norm: 0 };
-        for impact in impacts {
-            debug_assert!(impact.freq > previous.freq);
-            debug_assert!((impact.norm as u64) > (previous.norm as u64));
-            let freq_delta = impact.freq - previous.freq - 1;
-            let norm_delta = impact.norm - previous.norm - 1;
-            if norm_delta == 0 {
-                // most of time, norm only increases by 1, so we can fold
-                // everything in a single byte
-                out.write_vint(freq_delta << 1)?;
-            } else {
-                out.write_vint((freq_delta << 1) | 1)?;
-                out.write_zlong(norm_delta)?;
-            }
-            previous = impact.clone();
-        }
-        Ok(())
-    }
+    Ok(())
 }

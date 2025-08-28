@@ -1584,7 +1584,7 @@ pub(super) fn prefix_sum(buffer: &mut [i32], count: usize, base: i32) {
     }
 }
 
-/// @see [`Lucene101PostingsWriter::writeVInt15`](crate::codecs::lucene101::lucene101_postings_writer::lucene101_pw_util::write_vint15)
+/// @see [`Lucene101PostingsWriter::writeVInt15`](crate::codecs::lucene101::lucene101_postings_writer::write_vint15)
 pub(crate) fn read_vint15(input: &mut impl DataInput) -> Result<i32> {
     let s = input.read_short()?;
     if s >= 0 {
@@ -1594,7 +1594,7 @@ pub(crate) fn read_vint15(input: &mut impl DataInput) -> Result<i32> {
     }
 }
 
-/// @see [`Lucene101PostingsWriter::writeVLong15`](crate::codecs::lucene101::lucene101_postings_writer::lucene101_pw_util::write_vlong15)
+/// @see [`Lucene101PostingsWriter::writeVLong15`](crate::codecs::lucene101::lucene101_postings_writer::write_vlong15)
 pub(crate) fn read_vlong15(input: &mut impl DataInput) -> Result<i64> {
     let s = input.read_short()?;
     if s >= 0 {
