@@ -32,7 +32,6 @@ pub trait TypeAttribute: Attribute {
     /// [`type`](TypeAttribute::type_value)
     fn set_type(&mut self, type_: &str);
 }
-pub mod ta_util {
-    /// The default type.
-    pub const DEFAULT_TYPE: &str = "word";
-}
+
+/// The default type.
+pub const DEFAULT_TYPE: &str = "word";

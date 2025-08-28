@@ -20,7 +20,7 @@ use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
 use crate::analysis::token_attributes::position_increment_attribute::PositionIncrementAttribute;
 use crate::analysis::token_attributes::position_length_attribute::PositionLengthAttribute;
 use crate::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
-use crate::analysis::token_attributes::type_attribute::{TypeAttribute, ta_util};
+use crate::analysis::token_attributes::type_attribute::{DEFAULT_TYPE, TypeAttribute};
 use crate::util::attribute::Attribute;
 use crate::util::attribute_impl::AttributeImpl;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -54,7 +54,7 @@ impl PackedTokenAttributeImpl {
         Self {
             start_offset: 0,
             end_offset: 0,
-            type_: ta_util::DEFAULT_TYPE.to_string(),
+            type_: DEFAULT_TYPE.to_string(),
             position_increment: 1,
             position_length: 1,
             term_frequency: 1,
@@ -219,7 +219,7 @@ impl AttributeImpl for PackedTokenAttributeImpl {
         self.base.clear();
         self.start_offset = 0;
         self.end_offset = 0;
-        self.type_ = ta_util::DEFAULT_TYPE.to_string();
+        self.type_ = DEFAULT_TYPE.to_string();
         self.position_increment = 1;
         self.position_length = 1;
         self.term_frequency = 1;
