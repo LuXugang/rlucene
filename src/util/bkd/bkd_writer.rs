@@ -108,21 +108,6 @@ where
     max_doc: i32,
     doc_ids_writer: DocIdsWriter,
 }
-pub mod bkd_writer_util {
-    pub const CODEC_NAME: &str = "BKD";
-    pub const VERSION_START: i32 = 4; // version used by Lucene 7.0
-    // pub const VERSION_CURRENT: i32 = VERSION_START;
-    pub const VERSION_LEAF_STORES_BOUNDS: i32 = 5;
-    pub const VERSION_SELECTIVE_INDEXING: i32 = 6;
-    pub const VERSION_LOW_CARDINALITY_LEAVES: i32 = 7;
-    pub const VERSION_META_FILE: i32 = 9;
-    pub const VERSION_CURRENT: i32 = VERSION_META_FILE;
-    /// Number of splits before we compute the exact bounding box of an inner
-    /// node.
-    pub(super) const SPLITS_BEFORE_EXACT_BOUNDS: i32 = 4;
-    /// Default maximum heap to use, before spilling to (slower) disk.
-    pub const DEFAULT_MAX_MB_SORT_IN_HEAP: f32 = 16.0;
-}
 
 impl<D> BKDWriter<D>
 where
@@ -952,11 +937,7 @@ where
         let packed_index_len = packed_index.len() as i32;
         {
             let mut meta_out = meta_out.borrow_mut();
-            CodecUtil::write_header(
-                &mut *meta_out,
-                bkd_writer_util::CODEC_NAME,
-                bkd_writer_util::VERSION_CURRENT,
-            )?;
+            CodecUtil::write_header(&mut *meta_out, CODEC_NAME, VERSION_CURRENT)?;
             meta_out.write_vint(self.config.num_dims)?;
             meta_out.write_vint(self.config.num_index_dims)?;
             meta_out.write_vint(data.count_per_leaf)?;
@@ -1607,9 +1588,7 @@ where
                 // by SPLITS_BEFORE_EXACT_BOUNDS.
                 if num_leaves != leaf_block_fps.len() as i32
                     && self.config.num_index_dims > 2
-                    && parent_splits.iter().sum::<i32>()
-                        % bkd_writer_util::SPLITS_BEFORE_EXACT_BOUNDS
-                        == 0
+                    && parent_splits.iter().sum::<i32>() % SPLITS_BEFORE_EXACT_BOUNDS == 0
                 {
                     let reader_ref = reader.borrow();
                     self.compute_packed_value_bounds_with_tree(
@@ -1916,9 +1895,7 @@ where
             } else {
                 if num_leaves != leaf_block_fps.len() as i32
                     && self.config.num_index_dims > 2
-                    && parent_splits.iter().sum::<i32>()
-                        % bkd_writer_util::SPLITS_BEFORE_EXACT_BOUNDS
-                        == 0
+                    && parent_splits.iter().sum::<i32>() % SPLITS_BEFORE_EXACT_BOUNDS == 0
                 {
                     self.compute_packed_value_bounds(points, min_packed_value, max_packed_value)?;
                 }
@@ -2848,3 +2825,17 @@ where
         }
     }
 }
+
+pub const CODEC_NAME: &str = "BKD";
+pub const VERSION_START: i32 = 4; // version used by Lucene 7.0
+// pub const VERSION_CURRENT: i32 = VERSION_START;
+pub const VERSION_LEAF_STORES_BOUNDS: i32 = 5;
+pub const VERSION_SELECTIVE_INDEXING: i32 = 6;
+pub const VERSION_LOW_CARDINALITY_LEAVES: i32 = 7;
+pub const VERSION_META_FILE: i32 = 9;
+pub const VERSION_CURRENT: i32 = VERSION_META_FILE;
+/// Number of splits before we compute the exact bounding box of an inner
+/// node.
+pub(super) const SPLITS_BEFORE_EXACT_BOUNDS: i32 = 4;
+/// Default maximum heap to use, before spilling to (slower) disk.
+pub const DEFAULT_MAX_MB_SORT_IN_HEAP: f32 = 16.0;

@@ -37,7 +37,7 @@ use crate::test::util::test_util::TestUtil;
 use crate::util::bit_util::BitUtil;
 use crate::util::bkd::bkd_config::BKDConfig;
 use crate::util::bkd::bkd_reader::BKDReader;
-use crate::util::bkd::bkd_writer::{BKDWriter, bkd_writer_util};
+use crate::util::bkd::bkd_writer::{BKDWriter, DEFAULT_MAX_MB_SORT_IN_HEAP};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::numeric_utils::NumericUtils;
 use crate::util::{SliceCopyOps, ToInt};
@@ -1788,7 +1788,7 @@ fn test_estimate_point_count() -> Result<()> {
         dir.clone(),
         "_temp",
         config.clone(),
-        bkd_writer_util::DEFAULT_MAX_MB_SORT_IN_HEAP as f64,
+        DEFAULT_MAX_MB_SORT_IN_HEAP as f64,
         num_values as i64,
     )?;
 
@@ -1931,7 +1931,7 @@ fn test_total_point_count_validation() -> Result<()> {
         dir.clone(),
         "_temp",
         config,
-        bkd_writer_util::DEFAULT_MAX_MB_SORT_IN_HEAP as f64,
+        DEFAULT_MAX_MB_SORT_IN_HEAP as f64,
         num_values as i64,
     )?;
     let out = Rc::new(RefCell::new(
@@ -2019,7 +2019,7 @@ fn test_too_many_points() -> Result<()> {
         Arc::clone(&dir),
         "_temp",
         Rc::new(BKDConfig::new(1, 1, num_bytes_per_dim as i32, 2)?),
-        bkd_writer_util::DEFAULT_MAX_MB_SORT_IN_HEAP as f64,
+        DEFAULT_MAX_MB_SORT_IN_HEAP as f64,
         num_values,
     )?;
 
@@ -2073,7 +2073,7 @@ fn test_too_many_points_1d() -> Result<()> {
         dir.clone(),
         "_temp",
         config,
-        bkd_writer_util::DEFAULT_MAX_MB_SORT_IN_HEAP as f64,
+        DEFAULT_MAX_MB_SORT_IN_HEAP as f64,
         num_values as i64,
     )?;
 
