@@ -224,13 +224,13 @@ where
         let relevant_files = index_file_deleter.file_deleter.get_all_files();
         if !pending.is_empty() {
             let relevant_files = relevant_files.chain(pending.iter());
-            index_file_deleter_util::inflate_gens(
+            inflate_gens(
                 &mut segment_infos,
                 relevant_files,
                 &index_file_deleter.info_stream,
             )?;
         } else {
-            index_file_deleter_util::inflate_gens(
+            inflate_gens(
                 &mut segment_infos,
                 relevant_files,
                 &index_file_deleter.info_stream,
@@ -510,169 +510,6 @@ where
         }
     }
 }
-pub mod index_file_deleter_util {
-    use crate::index::IndexFileNames;
-
-    use crate::index::index_writer::WRITE_LOCK_NAME;
-    use crate::index::segment_infos::{SegmentInfos, generation_from_segments_file_name};
-    use crate::store::directory::Directory;
-    use crate::util::error::lucene_error::LuceneError;
-    use crate::util::error::lucene_error::Result;
-    use crate::util::info_stream::{InfoStream, InfoStreamMT};
-    use std::collections::HashMap;
-
-    /// Set all gens beyond what we currently see in the directory, to avoid double-write in cases
-    /// where the previous `IndexWriter` did not gracefully close/rollback (e.g. OS/machine crashed or
-    /// lost power).
-    pub(crate) fn inflate_gens<'a, D, I>(
-        infos: &mut SegmentInfos<D>,
-        files: I,
-        info_stream: &InfoStreamMT,
-    ) -> Result<()>
-    where
-        D: Directory,
-        I: IntoIterator<Item = &'a String>,
-    {
-        let mut max_segment_gen = i64::MIN;
-        let mut max_segment_name = i64::MIN;
-        // Confusingly, this is the union of liveDocs, field infos, doc values
-        // (and maybe others, in the future) gens.  This is somewhat messy,
-        // since it means DV updates will suddenly write to the next gen after
-        // live docs' gen, for example, but we don't have the APIs to ask the
-        // codec which file is which:
-        let mut max_per_segment_gen = HashMap::new();
-
-        for file_name in files {
-            if file_name == WRITE_LOCK_NAME {
-                continue;
-            } else if file_name.starts_with(IndexFileNames::SEGMENTS) {
-                let v = generation_from_segments_file_name(file_name);
-                match v {
-                    Ok(r#gen) => {
-                        max_segment_gen = max_segment_gen.max(r#gen);
-                    },
-                    Err(e) => {
-                        // trash file: we have to handle this since we allow anything starting with 'segments'
-                        // here
-                        if !matches!(e, LuceneError::NumberFormat(_)) {
-                            return Err(e);
-                        }
-                    },
-                }
-            } else if file_name.starts_with(IndexFileNames::PENDING_SEGMENTS) {
-                let v = generation_from_segments_file_name(&file_name[8..]);
-                match v {
-                    Ok(r#gen) => {
-                        max_segment_gen = max_segment_gen.max(r#gen);
-                    },
-                    Err(e) => {
-                        // trash file: we have to handle this since we allow anything starting with
-                        // 'pending_segments' here
-                        if !matches!(e, LuceneError::NumberFormat(_)) {
-                            return Err(e);
-                        }
-                    },
-                }
-            } else {
-                let segment_name = IndexFileNames::parse_segment_name(file_name);
-                debug_assert!(segment_name.starts_with('_'), "wtf? file={file_name}");
-                if file_name.to_lowercase().ends_with(".tmp") {
-                    // A temp file: don't try to look at its gen
-                    continue;
-                }
-                max_segment_name =
-                    max_segment_name.max(i64::from_str_radix(&segment_name[1..], 36)?);
-
-                let mut cur_gen = *max_per_segment_gen.get(segment_name).unwrap_or(&0i64);
-
-                let v = IndexFileNames::parse_generation(file_name);
-                match v {
-                    Ok(r#gen) => {
-                        cur_gen = cur_gen.max(r#gen);
-                    },
-                    Err(e) => {
-                        // trash file: we have to handle this since codec regex is only so good
-                        if !matches!(e, LuceneError::NumberFormat(_)) {
-                            return Err(e);
-                        }
-                    },
-                }
-                max_per_segment_gen.insert(segment_name.to_string(), cur_gen);
-            }
-        }
-
-        // Generation is advanced before write:
-        let next_gen = infos.get_generation().max(max_segment_gen);
-        infos.set_next_write_generation(next_gen)?;
-
-        let desired = 1 + max_segment_name;
-        if infos.counter < desired {
-            if info_stream.enabled("IFD") {
-                info_stream.message(
-                    "IFD",
-                    &format!(
-                        "init: inflate infos.counter to {} vs current={}",
-                        desired, infos.counter
-                    ),
-                );
-            }
-            infos.counter = desired;
-        }
-        for info in infos.iter_mut() {
-            debug_assert!(max_per_segment_gen.contains_key(&info.info.name));
-            let gen_long = *max_per_segment_gen.get(&info.info.name).unwrap();
-
-            let next_del = info.get_next_write_del_gen();
-            if next_del < gen_long + 1 {
-                if info_stream.enabled("IFD") {
-                    info_stream.message(
-                        "IFD",
-                        &format!(
-                            "init: seg={} set nextWriteDelGen={} vs current={}",
-                            info.info.name,
-                            gen_long + 1,
-                            next_del
-                        ),
-                    );
-                }
-                info.set_next_write_del_gen(gen_long + 1);
-            }
-
-            let next_fi = info.get_next_write_field_infos_gen();
-            if next_fi < gen_long + 1 {
-                if info_stream.enabled("IFD") {
-                    info_stream.message(
-                        "IFD",
-                        &format!(
-                            "init: seg={} set nextWriteFieldInfosGen={} vs current={}",
-                            info.info.name,
-                            gen_long + 1,
-                            next_fi
-                        ),
-                    );
-                }
-                info.set_next_write_field_infos_gen(gen_long + 1);
-            }
-
-            let next_dv = info.get_next_write_doc_values_gen();
-            if next_dv < gen_long + 1 {
-                if info_stream.enabled("IFD") {
-                    info_stream.message(
-                        "IFD",
-                        &format!(
-                            "init: seg={} set nextWriteDocValuesGen={} vs current={}",
-                            info.info.name,
-                            gen_long + 1,
-                            next_dv
-                        ),
-                    );
-                }
-                info.set_next_write_doc_values_gen(gen_long + 1);
-            }
-        }
-        Ok(())
-    }
-}
 /// Holds details for each commit point. This struct is also passed to the deletion policy.
 /// Note: This struct has a natural ordering that is inconsistent with equals.
 pub(crate) struct CommitPoint<D> {
@@ -814,4 +651,158 @@ impl Messenger for MessengerImpl {
             self.info_stream.message("IFD", msg);
         }
     }
+}
+
+use crate::index::index_writer::WRITE_LOCK_NAME;
+use crate::index::segment_infos::generation_from_segments_file_name;
+
+/// Set all gens beyond what we currently see in the directory, to avoid double-write in cases
+/// where the previous `IndexWriter` did not gracefully close/rollback (e.g. OS/machine crashed or
+/// lost power).
+pub(crate) fn inflate_gens<'a, D, I>(
+    infos: &mut SegmentInfos<D>,
+    files: I,
+    info_stream: &InfoStreamMT,
+) -> Result<()>
+where
+    D: Directory,
+    I: IntoIterator<Item = &'a String>,
+{
+    let mut max_segment_gen = i64::MIN;
+    let mut max_segment_name = i64::MIN;
+    // Confusingly, this is the union of liveDocs, field infos, doc values
+    // (and maybe others, in the future) gens.  This is somewhat messy,
+    // since it means DV updates will suddenly write to the next gen after
+    // live docs' gen, for example, but we don't have the APIs to ask the
+    // codec which file is which:
+    let mut max_per_segment_gen = HashMap::new();
+
+    for file_name in files {
+        if file_name == WRITE_LOCK_NAME {
+            continue;
+        } else if file_name.starts_with(IndexFileNames::SEGMENTS) {
+            let v = generation_from_segments_file_name(file_name);
+            match v {
+                Ok(r#gen) => {
+                    max_segment_gen = max_segment_gen.max(r#gen);
+                },
+                Err(e) => {
+                    // trash file: we have to handle this since we allow anything starting with 'segments'
+                    // here
+                    if !matches!(e, LuceneError::NumberFormat(_)) {
+                        return Err(e);
+                    }
+                },
+            }
+        } else if file_name.starts_with(IndexFileNames::PENDING_SEGMENTS) {
+            let v = generation_from_segments_file_name(&file_name[8..]);
+            match v {
+                Ok(r#gen) => {
+                    max_segment_gen = max_segment_gen.max(r#gen);
+                },
+                Err(e) => {
+                    // trash file: we have to handle this since we allow anything starting with
+                    // 'pending_segments' here
+                    if !matches!(e, LuceneError::NumberFormat(_)) {
+                        return Err(e);
+                    }
+                },
+            }
+        } else {
+            let segment_name = IndexFileNames::parse_segment_name(file_name);
+            debug_assert!(segment_name.starts_with('_'), "wtf? file={file_name}");
+            if file_name.to_lowercase().ends_with(".tmp") {
+                // A temp file: don't try to look at its gen
+                continue;
+            }
+            max_segment_name = max_segment_name.max(i64::from_str_radix(&segment_name[1..], 36)?);
+
+            let mut cur_gen = *max_per_segment_gen.get(segment_name).unwrap_or(&0i64);
+
+            let v = IndexFileNames::parse_generation(file_name);
+            match v {
+                Ok(r#gen) => {
+                    cur_gen = cur_gen.max(r#gen);
+                },
+                Err(e) => {
+                    // trash file: we have to handle this since codec regex is only so good
+                    if !matches!(e, LuceneError::NumberFormat(_)) {
+                        return Err(e);
+                    }
+                },
+            }
+            max_per_segment_gen.insert(segment_name.to_string(), cur_gen);
+        }
+    }
+
+    // Generation is advanced before write:
+    let next_gen = infos.get_generation().max(max_segment_gen);
+    infos.set_next_write_generation(next_gen)?;
+
+    let desired = 1 + max_segment_name;
+    if infos.counter < desired {
+        if info_stream.enabled("IFD") {
+            info_stream.message(
+                "IFD",
+                &format!(
+                    "init: inflate infos.counter to {} vs current={}",
+                    desired, infos.counter
+                ),
+            );
+        }
+        infos.counter = desired;
+    }
+    for info in infos.iter_mut() {
+        debug_assert!(max_per_segment_gen.contains_key(&info.info.name));
+        let gen_long = *max_per_segment_gen.get(&info.info.name).unwrap();
+
+        let next_del = info.get_next_write_del_gen();
+        if next_del < gen_long + 1 {
+            if info_stream.enabled("IFD") {
+                info_stream.message(
+                    "IFD",
+                    &format!(
+                        "init: seg={} set nextWriteDelGen={} vs current={}",
+                        info.info.name,
+                        gen_long + 1,
+                        next_del
+                    ),
+                );
+            }
+            info.set_next_write_del_gen(gen_long + 1);
+        }
+
+        let next_fi = info.get_next_write_field_infos_gen();
+        if next_fi < gen_long + 1 {
+            if info_stream.enabled("IFD") {
+                info_stream.message(
+                    "IFD",
+                    &format!(
+                        "init: seg={} set nextWriteFieldInfosGen={} vs current={}",
+                        info.info.name,
+                        gen_long + 1,
+                        next_fi
+                    ),
+                );
+            }
+            info.set_next_write_field_infos_gen(gen_long + 1);
+        }
+
+        let next_dv = info.get_next_write_doc_values_gen();
+        if next_dv < gen_long + 1 {
+            if info_stream.enabled("IFD") {
+                info_stream.message(
+                    "IFD",
+                    &format!(
+                        "init: seg={} set nextWriteDocValuesGen={} vs current={}",
+                        info.info.name,
+                        gen_long + 1,
+                        next_dv
+                    ),
+                );
+            }
+            info.set_next_write_doc_values_gen(gen_long + 1);
+        }
+    }
+    Ok(())
 }
