@@ -20,7 +20,7 @@ use crate::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::search::query::Query;
 use crate::store::directory::Directory;
 
-pub(crate) trait FlushPolicy {
+pub trait FlushPolicy {
     fn on_change<D, Q, L>(
         &self,
         control: &DocumentsWriterFlushControl<D, Q, L>,

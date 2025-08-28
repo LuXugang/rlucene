@@ -143,9 +143,8 @@ where
     pub(crate) fn release(
         &self,
         rld: ReadersAndUpdates<D>,
-        assert_info_live: bool,
+        _assert_info_live: bool,
         info: &mut SegmentCommitInfo<D>,
-        completed_del_gen: i64,
     ) -> Result<bool> {
         let mut inner = self.inner.lock();
         let mut changed = false;

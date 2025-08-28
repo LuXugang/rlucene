@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::index::buffered_updates_stream::BufferedUpdatesStream;
-use crate::index::documents_writer::FlushNotifications;
+use crate::index::documents_writer::{DocumentsWriter, FlushNotifications};
 use crate::index::frozen_buffered_updates::FrozenBufferedUpdates;
 use crate::index::index_deletion_policy::IndexDeletionPolicy;
 use crate::index::index_file_deleter::IndexFileDeleter;
@@ -27,31 +27,79 @@ use crate::store::directory::Directory;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::error::lucene_error::Result;
 use crate::util::long_supplier::LongSupplier;
-use parking_lot::Mutex;
+use parking_lot::{Mutex, ReentrantMutex};
 use std::rc::Rc;
 use std::sync::Arc;
 
-pub struct IndexWriter<D, P>
+pub struct IndexWriter<D, P, Q, L>
 where
     D: Directory,
     P: IndexDeletionPolicy,
+    Q: Query,
+    L: LiveIndexWriterConfig,
 {
+    enable_test_points: bool,
+
+    // when unrecoverable disaster strikes, we populate this with the reason that we had to close
+    // IndexWriter
     tragedy: TragicException,
+    // original user directory
+    directory_orig: Arc<D>,
+    // wrapped with additional checks
+    directory: Arc<LockValidatingDirectoryWrapper<D>>,
+    // increments every time a change is completed
+    change_count: AtomicI64,
+    // last changeCount that was committed
+    last_commit_change_count: AtomicI64,
+    // list of segmentInfo we will fallback to if the commit fails
+    rollback_segments: Vec<SegmentCommitInfo<D>>,
+    pending_commit: Option<SegmentInfos<D>>,
+    pending_seq_no: AtomicI64,
+    pending_commit_change_count: AtomicI64,
+    files_to_commit: Vec<String>,
     segment_infos: SegmentInfos<D>,
+    global_field_number_map: Arc<FieldNumbers>,
+    doc_writer: DocumentsWriter<D, Q, L, FlushNotificationsImpl>,
+    write_doc_values_lock: ReentrantMutex<()>,
     deleter: IndexFileDeleter<D, P>,
-    closed: bool,
-    closing: bool,
+    // used by forceMerge to note those needing merging
+    segments_to_merge: HashMap<SegmentCommitInfo<D>, bool>,
+    merge_max_num_segments: i32,
+    write_lock: Option<D::Lock>,
+
+    closed: AtomicBool,
+    closing: AtomicBool,
+
+    maybe_merge: AtomicBool,
+    commit_user_data: Option<HashMap<String, String>>,
+    merging_segments: HashSet<SegmentCommitInfo<D>>,
+
+    merge_gen: i64,
+    did_message_state: bool,
+    flush_count: AtomicI32,
+    flush_deletes_count: AtomicI32,
+    reader_pool: ReaderPool<D, Q>,
+    buffered_updates_stream: Rc<BufferedUpdatesStream<Q>>,
+    merge_finished_gen: AtomicI64,
+    config: Arc<L>,
+    start_commit_time: i64,
+    pending_num_docs: AtomicI64,
+    soft_deletes_enabled: bool,
 }
 
-impl<D, P> IndexWriter<D, P>
+impl<D, P, Q, L> IndexWriter<D, P, Q, L>
 where
     D: Directory,
     P: IndexDeletionPolicy,
+    Q: Query,
+    L: LiveIndexWriterConfig,
 {
     pub fn set_live_commit_data(&self) {}
 
     pub fn ensure_open(&self, fail_if_closing: bool) -> Result<()> {
-        if self.closed || (fail_if_closing && self.closing) {
+        if self.closed.load(Ordering::SeqCst)
+            || (fail_if_closing && self.closing.load(Ordering::SeqCst))
+        {
             let tragedy = self.tragedy.lock();
             let error_opt = tragedy.as_ref();
             match error_opt {
@@ -69,16 +117,10 @@ where
     pub(crate) fn is_deleter_closed(&self) -> Result<bool> {
         self.deleter.is_closed(self)
     }
-    pub(crate) fn try_apply<Q>(&mut self, _updates: &mut FrozenBufferedUpdates<Q>) -> Result<bool>
-    where
-        Q: Query,
-    {
+    pub(crate) fn try_apply(&mut self, _updates: &mut FrozenBufferedUpdates<Q>) -> Result<bool> {
         todo!()
     }
-    pub(crate) fn force_apply<Q>(&mut self, _updates: &mut FrozenBufferedUpdates<Q>) -> Result<bool>
-    where
-        Q: Query,
-    {
+    pub(crate) fn force_apply(&mut self, _updates: &mut FrozenBufferedUpdates<Q>) -> Result<bool> {
         todo!()
     }
 }
@@ -141,7 +183,12 @@ where
 }
 
 use crate::codecs::{Codec, CompoundFormat, LATEST_CODEC};
+use crate::index::field_infos::FieldNumbers;
+use crate::index::live_index_writer_config::LiveIndexWriterConfig;
+use crate::index::reader_pool::ReaderPool;
+use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::store::IOContext;
+use crate::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
 use crate::store::tracking_directory_wrapper::TrackingDirectoryWrapper;
 use crate::util::array_util::ArrayUtil;
 use crate::util::constants::Constants;
@@ -150,6 +197,7 @@ use crate::util::io_consumer::IOConsumer;
 use crate::util::unicode_util::UnicodeUtil;
 use crate::util::{BYTE_BLOCK_SIZE, LATEST};
 use std::collections::{HashMap, HashSet};
+use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64, Ordering};
 
 /// Maximum number of documents. In Java Lucene, We subtract 128 to ensure
 /// it's well below the typical JVM's `ArrayUtil.MAX_ARRAY_LENGTH` and

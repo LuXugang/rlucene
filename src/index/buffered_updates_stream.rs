@@ -17,6 +17,7 @@
 use crate::index::frozen_buffered_updates::FrozenBufferedUpdates;
 use crate::index::index_deletion_policy::IndexDeletionPolicy;
 use crate::index::index_writer::IndexWriter;
+use crate::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::search::query::Query;
 use crate::store::directory::Directory;
 use crate::util::accountable::Accountable;
@@ -124,10 +125,11 @@ where
     /// Returns `true` if there were any new deletes or updates.
     ///
     /// This is called during refresh and commit.
-    pub(crate) fn wait_apply_all<D, P>(&self, writer: &mut IndexWriter<D, P>) -> Result<()>
+    pub(crate) fn wait_apply_all<D, P, L>(&self, writer: &mut IndexWriter<D, P, Q, L>) -> Result<()>
     where
         D: Directory,
         P: IndexDeletionPolicy,
+        L: LiveIndexWriterConfig,
     {
         let wait_for = {
             let mut inner = self.inner.lock();
@@ -167,14 +169,15 @@ where
     pub fn get_completed_del_gen(&self) -> i64 {
         self.finished_segments.get_completed_del_gen()
     }
-    fn wait_apply<D, P>(
+    fn wait_apply<D, P, L>(
         &self,
         wait_for: HashSet<FrozenBufferedUpdates<Q>>,
-        writer: &mut IndexWriter<D, P>,
+        writer: &mut IndexWriter<D, P, Q, L>,
     ) -> Result<()>
     where
         D: Directory,
         P: IndexDeletionPolicy,
+        L: LiveIndexWriterConfig,
     {
         let start_ns = std::time::Instant::now();
         let packet_count = wait_for.len();
