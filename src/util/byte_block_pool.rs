@@ -55,32 +55,7 @@ where
     pub(crate) byte_offset: i32,
     pub(crate) byte_upto: i32,
 }
-pub mod byte_block_pool_util {
-    //TODO
 
-    const BASE_RAM_BYTES: i64 = 0;
-    /// Finds the index of the buffer containing a byte, given an offset to that
-    /// byte.
-    ///
-    /// The calculation for `buffer_upto` is as follows:
-    ///
-    /// - `buffer_upto = global_offset >>
-    ///   byte_block_pool_util::BYTE_BLOCK_SHIFT`
-    /// - `buffer_upto = global_offset / BYTE_BLOCK_SIZE`
-    ///
-    /// # Parameters
-    /// - `global_offset`: The offset to the target byte.
-    pub const BYTE_BLOCK_SHIFT: i32 = 15;
-    /// The size of each buffer in the pool.
-    pub const BYTE_BLOCK_SIZE: i32 = 1 << BYTE_BLOCK_SHIFT;
-    /// Use this to find the position of a global offset in a particular buffer.
-    ///
-    /// # Formula
-    /// `position_in_current_buffer = global_offset & BYTE_BLOCK_MASK`
-    ///
-    /// `position_in_current_buffer = global_offset % BYTE_BLOCK_SIZE`
-    pub(crate) const BYTE_BLOCK_MASK: i32 = BYTE_BLOCK_SIZE - 1;
-}
 macro_rules! impl_byte_block_pool {
     ($enum_ty:ty, $alloc_ty:ty, $method:ident) => {
         impl ByteBlockPool<$enum_ty> {
@@ -89,8 +64,8 @@ macro_rules! impl_byte_block_pool {
                     buffers: vec![],
                     buffer_upto: -1,
                     allocator,
-                    byte_offset: -byte_block_pool_util::BYTE_BLOCK_SIZE,
-                    byte_upto: byte_block_pool_util::BYTE_BLOCK_SIZE,
+                    byte_offset: -BYTE_BLOCK_SIZE,
+                    byte_upto: BYTE_BLOCK_SIZE,
                 }
             }
         }
@@ -143,8 +118,8 @@ where
                 self.byte_offset = 0;
             } else {
                 self.buffer_upto = -1;
-                self.byte_upto = byte_block_pool_util::BYTE_BLOCK_SIZE;
-                self.byte_offset = -byte_block_pool_util::BYTE_BLOCK_SIZE;
+                self.byte_upto = BYTE_BLOCK_SIZE;
+                self.byte_offset = -BYTE_BLOCK_SIZE;
             }
         }
     }
@@ -159,10 +134,7 @@ where
         // Allocate new buffer and advance the pool to it
         self.buffer_upto += 1;
         self.byte_upto = 0;
-        match self
-            .byte_offset
-            .checked_add(byte_block_pool_util::BYTE_BLOCK_SIZE)
-        {
+        match self.byte_offset.checked_add(BYTE_BLOCK_SIZE) {
             Some(val) => self.byte_offset = val,
             None => {
                 return Err(LuceneError::number_overflow(
@@ -195,9 +167,9 @@ where
             result.bytes = AV::from_vec(vec![0; length as usize]);
         }
         result.length = length as usize;
-        let buffer_index = offset >> byte_block_pool_util::BYTE_BLOCK_SHIFT;
-        let pos = (offset & byte_block_pool_util::BYTE_BLOCK_MASK as i64) as i32;
-        if pos + length <= byte_block_pool_util::BYTE_BLOCK_SIZE {
+        let buffer_index = offset >> BYTE_BLOCK_SHIFT;
+        let pos = (offset & BYTE_BLOCK_MASK as i64) as i32;
+        if pos + length <= BYTE_BLOCK_SIZE {
             // Common case: The slice lives in a single block.
             result.bytes.copy(
                 &self.buffers[buffer_index as usize][pos as usize..(pos + length) as usize],
@@ -240,7 +212,7 @@ where
     ) -> Result<()> {
         let mut bytes_left = length;
         while bytes_left > 0 {
-            let buffer_left = byte_block_pool_util::BYTE_BLOCK_SIZE - self.byte_upto;
+            let buffer_left = BYTE_BLOCK_SIZE - self.byte_upto;
             if bytes_left < buffer_left {
                 // fits within current buffer
                 self.append_bytes_single_buffer(src_pool, src_offset, bytes_left);
@@ -263,15 +235,12 @@ where
         mut src_offset: i64,
         mut length: i32,
     ) {
-        debug_assert!(length <= byte_block_pool_util::BYTE_BLOCK_SIZE - self.byte_upto);
+        debug_assert!(length <= BYTE_BLOCK_SIZE - self.byte_upto);
         while length > 0 {
-            let src_pos = src_offset & byte_block_pool_util::BYTE_BLOCK_MASK as i64;
-            let bytes_to_copy = std::cmp::min(
-                byte_block_pool_util::BYTE_BLOCK_SIZE - src_pos as i32,
-                length,
-            );
+            let src_pos = src_offset & BYTE_BLOCK_MASK as i64;
+            let bytes_to_copy = std::cmp::min(BYTE_BLOCK_SIZE - src_pos as i32, length);
             self.buffers[self.buffer_upto as usize].copy_from(
-                &src_pool.buffers[(src_offset >> byte_block_pool_util::BYTE_BLOCK_SHIFT) as usize]
+                &src_pool.buffers[(src_offset >> BYTE_BLOCK_SHIFT) as usize]
                     [src_pos as usize..(src_pos + bytes_to_copy as i64) as usize],
                 self.byte_upto as usize,
             );
@@ -300,7 +269,7 @@ where
     pub fn append_range(&mut self, bytes: &[u8], mut offset: i32, length: i32) -> Result<()> {
         let mut bytes_left = length;
         while bytes_left > 0 {
-            let buffer_left = byte_block_pool_util::BYTE_BLOCK_SIZE - self.byte_upto;
+            let buffer_left = BYTE_BLOCK_SIZE - self.byte_upto;
             if bytes_left < buffer_left {
                 // fits within current buffer
                 self.buffers[self.buffer_upto as usize].copy_from(
@@ -338,11 +307,11 @@ where
         bytes_length: i32,
     ) -> Result<()> {
         let mut bytes_left = bytes_length;
-        let buffer_index: i32 = (offset >> byte_block_pool_util::BYTE_BLOCK_SHIFT).try_into()?;
+        let buffer_index: i32 = (offset >> BYTE_BLOCK_SHIFT).try_into()?;
         let mut buffer_index = buffer_index as usize;
-        let mut pos = (offset & byte_block_pool_util::BYTE_BLOCK_MASK as i64) as i32;
+        let mut pos = (offset & BYTE_BLOCK_MASK as i64) as i32;
         while bytes_left > 0 {
-            let chunk = std::cmp::min(byte_block_pool_util::BYTE_BLOCK_SIZE - pos, bytes_left);
+            let chunk = std::cmp::min(BYTE_BLOCK_SIZE - pos, bytes_left);
             bytes.copy_from(
                 &self.buffers[buffer_index][pos as usize..(pos + chunk) as usize],
                 bytes_offset as usize,
@@ -364,8 +333,8 @@ where
     /// The byte at the specified offset.
     pub fn read_byte(&self, offset: i64) -> u8 {
         debug_assert!(offset >= 0);
-        let buffer_index = (offset >> byte_block_pool_util::BYTE_BLOCK_SHIFT) as usize;
-        let pos = (offset & byte_block_pool_util::BYTE_BLOCK_MASK as i64) as i32;
+        let buffer_index = (offset >> BYTE_BLOCK_SHIFT) as usize;
+        let pos = (offset & BYTE_BLOCK_MASK as i64) as i32;
         self.buffers[buffer_index][pos as usize]
     }
     /// the current position (in absolute value) of this byte pool .
@@ -396,6 +365,30 @@ pub type ByteBlockPoolBorrow = Rc<RefCell<ByteBlockPool<CounterEnumBorrow>>>;
 // for multi thread
 pub type ByteBlockPoolLock = Arc<Mutex<ByteBlockPool<CounterEnumLock>>>;
 
+//TODO
+const BASE_RAM_BYTES: i64 = 0;
+/// Finds the index of the buffer containing a byte, given an offset to that
+/// byte.
+///
+/// The calculation for `buffer_upto` is as follows:
+///
+/// - `buffer_upto = global_offset >>
+///   BYTE_BLOCK_SHIFT`
+/// - `buffer_upto = global_offset / BYTE_BLOCK_SIZE`
+///
+/// # Parameters
+/// - `global_offset`: The offset to the target byte.
+pub const BYTE_BLOCK_SHIFT: i32 = 15;
+/// The size of each buffer in the pool.
+pub const BYTE_BLOCK_SIZE: i32 = 1 << BYTE_BLOCK_SHIFT;
+/// Use this to find the position of a global offset in a particular buffer.
+///
+/// # Formula
+/// `position_in_current_buffer = global_offset & BYTE_BLOCK_MASK`
+///
+/// `position_in_current_buffer = global_offset % BYTE_BLOCK_SIZE`
+pub(crate) const BYTE_BLOCK_MASK: i32 = BYTE_BLOCK_SIZE - 1;
+
 #[cfg(test)]
 mod tests {
     use std::cell::RefCell;
@@ -410,9 +403,10 @@ mod tests {
     use crate::util::allocator_byte::{
         AllocatorByteEnum, DirectAllocatorByte, DirectTrackingAllocatorByte,
     };
-    use crate::util::byte_block_pool::byte_block_pool_util;
     use crate::util::error::lucene_error::{LuceneError, Result};
-    use crate::util::{ByteBlockPool, CounterEnum, CounterEnumBorrow, SliceCopyOps};
+    use crate::util::{
+        BYTE_BLOCK_SIZE, ByteBlockPool, CounterEnum, CounterEnumBorrow, SliceCopyOps,
+    };
 
     #[allow(dead_code)] // for quick search
     struct TestByteBlockPool {}
@@ -525,10 +519,7 @@ mod tests {
             }
             pool.reset(random.random_bool(0.5), reuse_first);
             if reuse_first {
-                assert_eq!(
-                    byte_block_pool_util::BYTE_BLOCK_SIZE as i64,
-                    pool.get_bytes_used()
-                )
+                assert_eq!(BYTE_BLOCK_SIZE as i64, pool.get_bytes_used())
             } else {
                 assert_eq!(0, pool.get_bytes_used());
                 pool.next_buffer()?;
@@ -585,14 +576,14 @@ mod tests {
         pool.next_buffer()?;
 
         let result = (|| {
-            for _ in 0..(i32::MAX / byte_block_pool_util::BYTE_BLOCK_SIZE + 1) {
+            for _ in 0..(i32::MAX / BYTE_BLOCK_SIZE + 1) {
                 pool.next_buffer()?;
             }
             Ok(())
         })();
 
         assert!(matches!(result, Err(LuceneError::NumberOverflow(_))));
-        assert!(pool.byte_offset + byte_block_pool_util::BYTE_BLOCK_SIZE < pool.byte_offset);
+        assert!(pool.byte_offset + BYTE_BLOCK_SIZE < pool.byte_offset);
 
         Ok(())
     }

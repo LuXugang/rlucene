@@ -20,7 +20,7 @@ use crate::index::byte_slice_pool::ByteSlicePool;
 use crate::store::{DataInput, DataOutput};
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::{ByteBlockPoolLock, SliceCopyOps, byte_block_pool_util};
+use crate::util::{BYTE_BLOCK_MASK, BYTE_BLOCK_SIZE, ByteBlockPoolLock, SliceCopyOps};
 
 pub(crate) struct ByteSliceReader {
     pool: Option<ByteBlockPoolLock>,
@@ -52,15 +52,15 @@ impl ByteSliceReader {
         self.end_index = end_index;
 
         self.level = 0;
-        self.buffer_upto = start_index / byte_block_pool_util::BYTE_BLOCK_SIZE;
-        self.buffer_offset = self.buffer_upto * byte_block_pool_util::BYTE_BLOCK_SIZE;
-        self.upto = start_index & byte_block_pool_util::BYTE_BLOCK_MASK;
+        self.buffer_upto = start_index / BYTE_BLOCK_SIZE;
+        self.buffer_offset = self.buffer_upto * BYTE_BLOCK_SIZE;
+        self.upto = start_index & BYTE_BLOCK_MASK;
 
         let first_size = ByteSlicePool::LEVEL_SIZE_ARRAY[0];
 
         if start_index + first_size >= end_index {
             // There is only this one slice to read
-            self.limit = end_index & byte_block_pool_util::BYTE_BLOCK_MASK;
+            self.limit = end_index & BYTE_BLOCK_MASK;
         } else {
             self.limit = self.upto + first_size - 4;
         }
@@ -86,10 +86,10 @@ impl ByteSliceReader {
         self.level = ByteSlicePool::NEXT_LEVEL_ARRAY[self.level as usize];
         let new_size = ByteSlicePool::LEVEL_SIZE_ARRAY[self.level as usize];
 
-        self.buffer_upto = next_index / byte_block_pool_util::BYTE_BLOCK_SIZE;
-        self.buffer_offset = self.buffer_upto * byte_block_pool_util::BYTE_BLOCK_SIZE;
+        self.buffer_upto = next_index / BYTE_BLOCK_SIZE;
+        self.buffer_offset = self.buffer_upto * BYTE_BLOCK_SIZE;
 
-        self.upto = next_index & byte_block_pool_util::BYTE_BLOCK_MASK;
+        self.upto = next_index & BYTE_BLOCK_MASK;
 
         if next_index + new_size >= self.end_index {
             // We are advancing to the final slice

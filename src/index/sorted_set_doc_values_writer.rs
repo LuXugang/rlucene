@@ -53,7 +53,7 @@ use crate::util::packed::packed_long_values::{
     PackedLongValues, PackedLongValuesBuilder, PackedLongValuesIterator,
 };
 use crate::util::packed::{Mutable, PackedInts, Reader};
-use crate::util::{ByteBlockPoolLock, CoreHelper, Counter, CounterEnumLock, byte_block_pool_util};
+use crate::util::{BYTE_BLOCK_SIZE, ByteBlockPoolLock, CoreHelper, Counter, CounterEnumLock};
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
@@ -122,11 +122,11 @@ impl SortedSetDocValuesWriter {
 
     pub(crate) fn add_value(&mut self, doc_id: i32, value: &BytesRef<Vec<u8>>) -> Result<()> {
         debug_assert!(doc_id >= self.current_doc);
-        if value.length > (byte_block_pool_util::BYTE_BLOCK_SIZE as usize - 2) {
+        if value.length > (BYTE_BLOCK_SIZE as usize - 2) {
             return Err(LuceneError::illegal_argument(format!(
                 "DocValuesField \"{}\" is too large, must be <= {}",
                 self.field_info.name,
-                byte_block_pool_util::BYTE_BLOCK_SIZE - 2
+                BYTE_BLOCK_SIZE - 2
             )));
         }
         if doc_id != self.current_doc {

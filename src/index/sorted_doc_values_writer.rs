@@ -46,7 +46,7 @@ use crate::util::packed::PackedInts;
 use crate::util::packed::packed_long_values::{
     PackedLongValues, PackedLongValuesBuilder, PackedLongValuesIterator,
 };
-use crate::util::{ByteBlockPoolLock, CoreHelper, Counter, CounterEnumLock, byte_block_pool_util};
+use crate::util::{BYTE_BLOCK_SIZE, ByteBlockPoolLock, CoreHelper, Counter, CounterEnumLock};
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
@@ -111,11 +111,11 @@ impl SortedDocValuesWriter {
             )));
         }
 
-        if value.length > (byte_block_pool_util::BYTE_BLOCK_SIZE as usize - 2) {
+        if value.length > (BYTE_BLOCK_SIZE as usize - 2) {
             return Err(LuceneError::illegal_argument(format!(
                 "DocValuesField \"{}\" is too large, must be <= {}",
                 self.field_info.name,
-                byte_block_pool_util::BYTE_BLOCK_SIZE - 2
+                BYTE_BLOCK_SIZE - 2
             )));
         }
 

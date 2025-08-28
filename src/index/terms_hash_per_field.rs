@@ -30,8 +30,8 @@ use crate::util::int_block_pool::{
     INT_BLOCK_MASK, INT_BLOCK_SHIFT, INT_BLOCK_SIZE, IntBlockPool, IntBlockPoolLock,
 };
 use crate::util::{
-    ByteBlockPool, ByteBlockPoolLock, Counter, CounterEnum, CounterEnumLock, SliceCopyOps,
-    byte_block_pool_util,
+    BYTE_BLOCK_MASK, BYTE_BLOCK_SHIFT, BYTE_BLOCK_SIZE, ByteBlockPool, ByteBlockPoolLock, Counter,
+    CounterEnum, CounterEnumLock, SliceCopyOps,
 };
 use parking_lot::Mutex;
 use std::sync::Arc;
@@ -179,10 +179,10 @@ impl TermsHashPerField {
         let term_stream_address_buffer = int_pool.get_buffer(self.term_stream_address_buffer_index);
         let upto = term_stream_address_buffer[stream_address];
         let mut byte_pool = self.byte_pool.lock();
-        let block_index = upto >> byte_block_pool_util::BYTE_BLOCK_SHIFT;
+        let block_index = upto >> BYTE_BLOCK_SHIFT;
         debug_assert!(block_index <= byte_pool.buffer_upto);
         let bytes = byte_pool.get_buffer(block_index);
-        let offset = upto & byte_block_pool_util::BYTE_BLOCK_MASK;
+        let offset = upto & BYTE_BLOCK_MASK;
         let value = bytes[offset as usize];
         drop(byte_pool);
         let mut byte_pool;
@@ -218,10 +218,10 @@ impl TermsHashPerField {
         let upto = term_stream_address_buffer[stream_address];
         {
             let mut byte_pool = self.byte_pool.lock();
-            let mut block_index = upto >> byte_block_pool_util::BYTE_BLOCK_SHIFT;
+            let mut block_index = upto >> BYTE_BLOCK_SHIFT;
             debug_assert!(block_index <= byte_pool.buffer_upto);
             let slice = byte_pool.get_buffer_mut(block_index);
-            let mut slice_offset = (upto & byte_block_pool_util::BYTE_BLOCK_MASK) as usize;
+            let mut slice_offset = (upto & BYTE_BLOCK_MASK) as usize;
 
             while offset < end && slice[slice_offset] == 0 {
                 slice[slice_offset] = b[offset];
@@ -288,7 +288,7 @@ impl TermsHashPerField {
         let byte_offset;
         {
             let mut byte_pool = self.byte_pool.lock();
-            if byte_block_pool_util::BYTE_BLOCK_SIZE - byte_pool.byte_upto
+            if BYTE_BLOCK_SIZE - byte_pool.byte_upto
                 < 2 * self.stream_count * ByteSlicePool::FIRST_LEVEL_SIZE
             {
                 // can we fit at least one byte per stream in the current

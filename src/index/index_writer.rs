@@ -148,7 +148,7 @@ use crate::util::constants::Constants;
 use crate::util::info_stream::{InfoStream, InfoStreamMT};
 use crate::util::io_consumer::IOConsumer;
 use crate::util::unicode_util::UnicodeUtil;
-use crate::util::{LATEST, byte_block_pool_util};
+use crate::util::{BYTE_BLOCK_SIZE, LATEST};
 use std::collections::{HashMap, HashSet};
 
 /// Maximum number of documents. In Java Lucene, We subtract 128 to ensure
@@ -162,7 +162,7 @@ pub const MAX_POSITION: i32 = i32::MAX - 128;
 /// be adjusted for testing purposes.
 pub const ACTUAL_MAX_DOCS: i32 = MAX_DOCS;
 
-pub const MAX_TERM_LENGTH: i32 = byte_block_pool_util::BYTE_BLOCK_SIZE - 1;
+pub const MAX_TERM_LENGTH: i32 = BYTE_BLOCK_SIZE - 1;
 pub const WRITE_LOCK_NAME: &str = "write.lock";
 /// Key for the source of a segment in the [`SegmentInfo#get_diagnostics()`](crate::index::segment_info::SegmentInfo::get_diagnostics)
 pub const SOURCE: &str = "source";

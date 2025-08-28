@@ -16,7 +16,7 @@
  */
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::{ByteBlockPool, CounterEnumLock, byte_block_pool_util};
+use crate::util::{BYTE_BLOCK_SIZE, ByteBlockPool, CounterEnumLock};
 
 /// struct that Posting and PostingVector use to write interleaved byte streams
 /// into shared fixed-size byte[] arrays. The idea is to allocate slices of
@@ -57,15 +57,14 @@ impl ByteSlicePool {
         size: i32,
         pool: &mut ByteBlockPool<CounterEnumLock>,
     ) -> Result<i32> {
-        if size > byte_block_pool_util::BYTE_BLOCK_SIZE {
+        if size > BYTE_BLOCK_SIZE {
             return Err(LuceneError::illegal_argument(format!(
                 "Slice size {} should be less than the block size {}",
-                size,
-                byte_block_pool_util::BYTE_BLOCK_SIZE
+                size, BYTE_BLOCK_SIZE
             )));
         }
 
-        if pool.byte_upto > byte_block_pool_util::BYTE_BLOCK_SIZE - size {
+        if pool.byte_upto > BYTE_BLOCK_SIZE - size {
             pool.next_buffer()?;
         }
         let upto = pool.byte_upto;
@@ -120,7 +119,7 @@ impl ByteSlicePool {
         let new_level = Self::NEXT_LEVEL_ARRAY[level as usize];
         let new_size = Self::LEVEL_SIZE_ARRAY[new_level as usize];
         // Maybe allocate another block
-        if pool.byte_upto > byte_block_pool_util::BYTE_BLOCK_SIZE - new_size {
+        if pool.byte_upto > BYTE_BLOCK_SIZE - new_size {
             pool.next_buffer()?;
         }
 
@@ -177,7 +176,7 @@ mod tests {
     use crate::util::bit_util::BitUtil;
     use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::{
-        ByteBlockPool, ByteBlockPoolLock, CounterEnum, SliceCopyOps, byte_block_pool_util,
+        BYTE_BLOCK_SIZE, ByteBlockPool, ByteBlockPoolLock, CounterEnum, SliceCopyOps,
     };
 
     #[test]
@@ -237,10 +236,7 @@ mod tests {
         let allocator = AllocatorByteEnum::DA(DirectAllocatorByte::new());
         let mut block_pool = ByteBlockPool::new_sync(allocator);
         let mut slice_pool = ByteSlicePool;
-        assert_eq!(
-            0,
-            slice_pool.new_slice(byte_block_pool_util::BYTE_BLOCK_SIZE, &mut block_pool)?
-        );
+        assert_eq!(0, slice_pool.new_slice(BYTE_BLOCK_SIZE, &mut block_pool)?);
         {
             let buffer_upto = block_pool.buffer_upto;
             let buffer = block_pool.get_buffer_mut(buffer_upto).clone();
@@ -248,8 +244,7 @@ mod tests {
             assert_eq!(buffer, buffer_0);
             block_pool.next_buffer()?;
         }
-        let result =
-            slice_pool.new_slice(byte_block_pool_util::BYTE_BLOCK_SIZE + 1, &mut block_pool);
+        let result = slice_pool.new_slice(BYTE_BLOCK_SIZE + 1, &mut block_pool);
         assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
         Ok(())
     }
@@ -455,8 +450,8 @@ mod tests {
                 slice_buffer,
                 (self.slice_offset + self.slice_length) as usize,
             ) & 0xFFFFFF;
-            self.slice = global_slice_offset / byte_block_pool_util::BYTE_BLOCK_SIZE;
-            self.slice_offset = global_slice_offset % byte_block_pool_util::BYTE_BLOCK_SIZE;
+            self.slice = global_slice_offset / BYTE_BLOCK_SIZE;
+            self.slice_offset = global_slice_offset % BYTE_BLOCK_SIZE;
             self.slice_length = ByteSlicePool::LEVEL_SIZE_ARRAY[self.slice_size_idx] - 4;
             let read_length = if self.data_offset + self.slice_length + 3 >= self.size {
                 // Reading the last slice
