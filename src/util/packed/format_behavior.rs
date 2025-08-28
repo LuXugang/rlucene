@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::packed::{Format, p64sb_util};
+use crate::util::packed::{Format, is_supported};
 
 pub trait FormatBehavior {
     fn get_id(&self) -> u32;
@@ -101,7 +101,7 @@ impl FormatBehavior for PackedSingleBlockImpl {
     }
 
     fn is_supported(&self, bits_per_value: i32) -> bool {
-        p64sb_util::is_supported(bits_per_value)
+        is_supported(bits_per_value)
     }
 
     fn overhead_per_value(&self, bits_per_value: i32) -> f32 {

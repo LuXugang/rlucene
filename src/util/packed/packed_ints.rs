@@ -848,7 +848,7 @@ impl<C> Display for ReaderIteratorImpl<C>
 where
     C: ReaderIterator,
 {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.sub_reader)
     }
 }
@@ -979,7 +979,7 @@ impl<T> Display for MutableImpl<T>
 where
     T: Mutable + Display,
 {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.sub_reader)
     }
 }
@@ -1090,8 +1090,9 @@ mod tests {
     use crate::util::packed::paged_growable_writer::PagedGrowableWriter;
     use crate::util::packed::paged_mutable::PagedMutable;
     use crate::util::packed::{
-        Decoder, Encoder, FormatBehavior, Mutable, MutableImpl, NullReader, PackedImpl, PackedInts,
-        PackedSingleBlockImpl, Reader, ReaderIterator, Writer, create, p64sb_util,
+        Decoder, Encoder, FormatBehavior, MAX_SUPPORTED_BITS_PER_VALUE, Mutable, MutableImpl,
+        NullReader, PackedImpl, PackedInts, PackedSingleBlockImpl, Reader, ReaderIterator, Writer,
+        create, is_supported,
     };
 
     #[allow(dead_code)] // for quick search
@@ -1305,7 +1306,7 @@ mod tests {
                         continue;
                     }
 
-                    let byte_count = format.byte_count(version, value_count as i32, bpv);
+                    let byte_count = format.byte_count(version, value_count, bpv);
 
                     let msg = format!(
                         "format={:?}, version={}, value_count={}, bpv={}",
@@ -1319,7 +1320,7 @@ mod tests {
                             &mut input,
                             *format,
                             version,
-                            value_count as i32,
+                            value_count,
                             bpv,
                             random.random_range(1..=65536), /* 缓冲区大小随机  */
                         )?;
@@ -1377,10 +1378,8 @@ mod tests {
                 std::mem::swap(&mut bits1, &mut bits2);
             }
 
-            let mut packed1 =
-                PackedInts::get_mutable(value_count as i32, bits1, PackedInts::COMPACT);
-            let mut packed2 =
-                PackedInts::get_mutable(value_count as i32, bits2, PackedInts::COMPACT);
+            let mut packed1 = PackedInts::get_mutable(value_count, bits1, PackedInts::COMPACT);
+            let mut packed2 = PackedInts::get_mutable(value_count, bits2, PackedInts::COMPACT);
 
             let max_value = PackedInts::max_value(bits1);
             for i in 0..value_count {
@@ -1403,8 +1402,8 @@ mod tests {
 
                 if random.random_bool(0.5) {
                     let got = packed1.get_bulk(start, &mut buffer, offset, len);
-                    assert!(got as i32 <= len);
-                    let sot = packed2.set_bulk(start, &buffer, offset, got as i32);
+                    assert!(got <= len);
+                    let sot = packed2.set_bulk(start, &buffer, offset, got);
                     assert!(sot <= got);
                 } else {
                     PackedInts::copy(
@@ -1413,7 +1412,7 @@ mod tests {
                         &mut packed2,
                         offset,
                         len,
-                        random.random_range(1..=(10 * len)) as i32,
+                        random.random_range(1..=(10 * len)),
                     );
                 }
             }
@@ -1467,8 +1466,8 @@ mod tests {
         let mutable_impl = MutableImpl::new(packed64);
         packed_ints.push(MutablePacked64Enum::P64(mutable_impl));
 
-        for bpv in bits_per_value..=p64sb_util::MAX_SUPPORTED_BITS_PER_VALUE {
-            if p64sb_util::is_supported(bpv) {
+        for bpv in bits_per_value..=MAX_SUPPORTED_BITS_PER_VALUE {
+            if is_supported(bpv) {
                 packed_ints.push(create(value_count, bpv));
             }
         }
@@ -1608,7 +1607,7 @@ mod tests {
         let r = packed_ints.get_bulk(0, &mut arr, 0, size - 1);
         assert_eq!(
             r,
-            (size - 1),
+            size - 1,
             "The number of values read should match size - 1"
         );
         for (i, &value) in arr.iter().take(r as usize).enumerate() {
@@ -1618,7 +1617,7 @@ mod tests {
         let r = packed_ints.get_bulk(10, &mut arr, 0, size + 10);
         assert_eq!(
             r,
-            (size - 10),
+            size - 10,
             "The number of values read should match size - 10"
         );
         for i in 0..(size - 10) {
@@ -1743,11 +1742,11 @@ mod tests {
         let mem = random.random_range(0..1024);
         for bpv in 1..=64 {
             let mask = PackedInts::max_value(bpv);
-            for mut r1 in create_packed_ints(value_count as i32, bpv)? {
+            for mut r1 in create_packed_ints(value_count, bpv)? {
                 for i in 0..r1.size() {
                     r1.set(i, (31 * i as i64 - 1023) & mask);
                 }
-                for mut r2 in create_packed_ints(value_count as i32, bpv)? {
+                for mut r2 in create_packed_ints(value_count, bpv)? {
                     let msg = format!(
                         "src={}, dest={}, srcPos={}, destPos={}, len={}, mem={}",
                         r1, r2, off1, off2, len, mem
@@ -1784,7 +1783,7 @@ mod tests {
         let mut random = random();
         let value_count = 113 + random.random_range(0..1112);
 
-        let mut wrt = GrowableWriter::new(1, value_count as i32, PackedInts::DEFAULT);
+        let mut wrt = GrowableWriter::new(1, value_count, PackedInts::DEFAULT);
 
         wrt.set(4, 2);
         wrt.set(7, 10);
@@ -2327,8 +2326,7 @@ mod tests {
             let dir = new_directory(&mut random)?;
             {
                 let mut out = dir.create_output("out.bin", &IO_CONTEXT_DEFAULT)?;
-                let mut writer =
-                    AbstractBlockPackedWriter::new(block_size as i32, BlockPackedWriter)?;
+                let mut writer = AbstractBlockPackedWriter::new(block_size, BlockPackedWriter)?;
                 for (i, &value) in values.iter().enumerate() {
                     assert_eq!(i, writer.ord() as usize);
                     writer.add(value, &mut out)?;
@@ -2366,7 +2364,7 @@ mod tests {
                                 next_values.longs[j + next_values.offset as usize]
                             );
                         }
-                        i += next_values.length as i32;
+                        i += next_values.length;
                     }
                     assert_eq!(i as i64, it.ord());
                 }
@@ -2419,7 +2417,7 @@ mod tests {
                                 next_values.longs[(j + next_values.offset) as usize]
                             );
                         }
-                        i += next_values.length as i32;
+                        i += next_values.length;
                     }
                     assert_eq!(i as i64, it.ord());
                 }
@@ -2484,7 +2482,7 @@ mod tests {
             {
                 let mut out = dir.create_output("out.bin", &IO_CONTEXT_DEFAULT)?;
                 let mut writer =
-                    AbstractBlockPackedWriter::new(block_size as i32, MonotonicBlockPackedWriter)?;
+                    AbstractBlockPackedWriter::new(block_size, MonotonicBlockPackedWriter)?;
                 for (i, &value) in values.iter().enumerate().take(value_count) {
                     assert_eq!(i as i64, writer.ord());
                     writer.add(value, &mut out)?;
@@ -2553,10 +2551,10 @@ mod tests {
         let mut reader = BlockPackedReaderIterator::new(
             PackedInts::VERSION_CURRENT,
             block_size as i32,
-            value_count as i64,
+            value_count,
         )?;
 
-        reader.skip(value_offset as i64, &mut input)?;
+        reader.skip(value_offset, &mut input)?;
         assert_eq!(value, reader.next_value(&mut input,)?);
 
         Ok(())

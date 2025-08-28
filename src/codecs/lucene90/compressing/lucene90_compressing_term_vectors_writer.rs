@@ -32,7 +32,7 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::packed::Format::Packed;
 use crate::util::packed::abstract_block_packed_writer::AbstractBlockPackedWriter;
 use crate::util::packed::block_packed_writer::BlockPackedWriter;
-use crate::util::packed::direct_writer::{bits_required, DirectWriter};
+use crate::util::packed::direct_writer::{DirectWriter, bits_required};
 use crate::util::packed::{PackedImpl, PackedInts, Writer};
 use crate::util::{SliceCopyOps, StringHelper};
 use once_cell::sync::Lazy;

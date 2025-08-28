@@ -59,7 +59,7 @@ use crate::util::long_values::LongValues;
 use crate::util::packed::Format::Packed;
 use crate::util::packed::block_packed_reader_iterator::BlockPackedReaderIterator;
 use crate::util::packed::direct_reader::DirectReader;
-use crate::util::packed::direct_writer::{bits_required, DirectWriter};
+use crate::util::packed::direct_writer::{DirectWriter, bits_required};
 use crate::util::packed::{PackedImpl, PackedInts, ReaderIterator};
 use std::borrow::Cow;
 use std::cell::RefCell;

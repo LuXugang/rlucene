@@ -17,7 +17,7 @@
 use crate::store::IndexOutput;
 use crate::util::array_util::ArrayUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::packed::direct_writer::{unsigned_bits_required, DirectWriter};
+use crate::util::packed::direct_writer::{DirectWriter, unsigned_bits_required};
 /// Write monotonically-increasing sequences of integers. This writer splits
 /// data into blocks and then for each block, computes the average slope, the
 /// minimum value, and encodes only the delta from the expected value using a

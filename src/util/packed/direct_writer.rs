@@ -216,50 +216,48 @@ where
     }
 }
 
-
-    /// Round a number of bits per value to the next amount of bits per value
-    /// that is supported by this writer.
-    ///
-    /// # Parameters
-    /// - `bitsRequired`: the amount of bits required
-    ///
-    /// # Returns
-    /// The next number of bits per value that is greater than or equal to the
-    /// provided value and supported by this writer.
-    fn round_bits(bits_required: i32) -> i32 {
-        match SUPPORTED_BITS_PER_VALUE.binary_search(&bits_required) {
-            Ok(_) => bits_required,
-            Err(index) => SUPPORTED_BITS_PER_VALUE[index],
-        }
+/// Round a number of bits per value to the next amount of bits per value
+/// that is supported by this writer.
+///
+/// # Parameters
+/// - `bitsRequired`: the amount of bits required
+///
+/// # Returns
+/// The next number of bits per value that is greater than or equal to the
+/// provided value and supported by this writer.
+fn round_bits(bits_required: i32) -> i32 {
+    match SUPPORTED_BITS_PER_VALUE.binary_search(&bits_required) {
+        Ok(_) => bits_required,
+        Err(index) => SUPPORTED_BITS_PER_VALUE[index],
     }
-    /// Returns how many bits are required to hold values up to and including
-    /// `max_value`.
-    ///
-    /// # Parameters
-    /// - `max_value`: The maximum value that should be representable.
-    ///
-    /// # Returns
-    /// The amount of bits needed to represent values from 0 to `max_value`.
-    ///
-    /// # See also
-    /// `PackedInts::bits_required(long)`
-    pub fn bits_required(max_value: i64) -> crate::util::error::lucene_error::Result<i32> {
-        Ok(round_bits(PackedInts::bits_required(max_value)?))
-    }
-    pub fn unsigned_bits_required(max_value: i64) -> i32 {
-        round_bits(PackedInts::unsigned_bits_required(max_value))
-    }
-    /// Returns how many bits are required to hold values up to and including
-    /// `max_value`, interpreted as an unsigned value.
-    ///
-    /// # Parameters
-    /// - `max_value`: The maximum value that should be representable.
-    ///
-    /// # Returns
-    /// The amount of bits needed to represent values from 0 to `max_value`.
-    ///
-    /// # See also
-    /// `PackedInts::unsigned_bits_required(long)`
-    pub(crate) const SUPPORTED_BITS_PER_VALUE: [i32; 14] =
-        [1, 2, 4, 8, 12, 16, 20, 24, 28, 32, 40, 48, 56, 64];
-
+}
+/// Returns how many bits are required to hold values up to and including
+/// `max_value`.
+///
+/// # Parameters
+/// - `max_value`: The maximum value that should be representable.
+///
+/// # Returns
+/// The amount of bits needed to represent values from 0 to `max_value`.
+///
+/// # See also
+/// `PackedInts::bits_required(long)`
+pub fn bits_required(max_value: i64) -> crate::util::error::lucene_error::Result<i32> {
+    Ok(round_bits(PackedInts::bits_required(max_value)?))
+}
+pub fn unsigned_bits_required(max_value: i64) -> i32 {
+    round_bits(PackedInts::unsigned_bits_required(max_value))
+}
+/// Returns how many bits are required to hold values up to and including
+/// `max_value`, interpreted as an unsigned value.
+///
+/// # Parameters
+/// - `max_value`: The maximum value that should be representable.
+///
+/// # Returns
+/// The amount of bits needed to represent values from 0 to `max_value`.
+///
+/// # See also
+/// `PackedInts::unsigned_bits_required(long)`
+pub(crate) const SUPPORTED_BITS_PER_VALUE: [i32; 14] =
+    [1, 2, 4, 8, 12, 16, 20, 24, 28, 32, 40, 48, 56, 64];

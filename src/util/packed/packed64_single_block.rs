@@ -32,16 +32,6 @@ where
     bits_per_value: i32,
     sub_reader: T,
 }
-pub mod p64sb_util {
-    /// Checks if the given `bits_per_value` is supported.
-    const SUPPORTED_BITS_PER_VALUE: [i32; 14] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 16, 21, 32];
-    pub fn is_supported(bits_per_value: i32) -> bool {
-        SUPPORTED_BITS_PER_VALUE
-            .binary_search(&{ bits_per_value })
-            .is_ok()
-    }
-    pub const MAX_SUPPORTED_BITS_PER_VALUE: i32 = 32;
-}
 
 impl<T> Packed64SingleBlock<T>
 where
@@ -62,7 +52,7 @@ where
             "bitsPerValue must be > 0 and <= 64"
         );
         debug_assert!(
-            p64sb_util::is_supported(bits_per_value),
+            is_supported(bits_per_value),
             "Unsupported bits_per_value: {bits_per_value}"
         );
         let values_per_block = 64 / bits_per_value;
@@ -656,3 +646,12 @@ pub trait Packed64SingleBlockBase {
     fn get(&self, index: i32, blocks: &[u64]) -> i64;
     fn set(&self, index: i32, value: i64, blocks: &mut [u64]);
 }
+
+/// Checks if the given `bits_per_value` is supported.
+const SUPPORTED_BITS_PER_VALUE: [i32; 14] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 16, 21, 32];
+pub fn is_supported(bits_per_value: i32) -> bool {
+    SUPPORTED_BITS_PER_VALUE
+        .binary_search(&{ bits_per_value })
+        .is_ok()
+}
+pub const MAX_SUPPORTED_BITS_PER_VALUE: i32 = 32;

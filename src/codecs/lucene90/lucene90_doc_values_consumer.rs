@@ -55,7 +55,7 @@ use crate::util::compress::lz4::{FastCompressionHashTable, HashTableEnum, LZ4};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::math_util::MathUtil;
 use crate::util::packed::direct_monotonic_writer::DirectMonotonicWriter;
-use crate::util::packed::direct_writer::{unsigned_bits_required, DirectWriter};
+use crate::util::packed::direct_writer::{DirectWriter, unsigned_bits_required};
 use crate::util::{CoreHelper, StringHelper};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -420,12 +420,10 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
                     self.meta
                         .write_int(-2 - Lucene90DocValuesFormat::NUMERIC_BLOCK_SHIFT)?;
                 } else {
-                    num_bits_per_value =
-                        unsigned_bits_required((max - min) / gcd);
+                    num_bits_per_value = unsigned_bits_required((max - min) / gcd);
                     if gcd == 1
                         && min > 0
-                        && unsigned_bits_required(max)
-                            == unsigned_bits_required(max - min)
+                        && unsigned_bits_required(max) == unsigned_bits_required(max - min)
                     {
                         min = 0;
                     }

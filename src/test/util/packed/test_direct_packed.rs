@@ -30,7 +30,7 @@ use crate::util::error::lucene_error::Result;
 use crate::util::long_values::LongValues;
 use crate::util::packed::PackedInts;
 use crate::util::packed::direct_reader::DirectReader;
-use crate::util::packed::direct_writer::{DirectWriter, direct_writer_util};
+use crate::util::packed::direct_writer::{DirectWriter, bits_required};
 
 #[allow(dead_code)] // for quick search
 pub struct TestDirectPacked;
