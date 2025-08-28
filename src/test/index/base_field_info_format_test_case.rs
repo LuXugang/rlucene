@@ -29,7 +29,7 @@ use crate::index::field_info::FieldInfo;
 use crate::index::field_infos::FieldInfos;
 use crate::index::index_options::IndexOptions;
 use crate::index::indexable_field_type::IndexableFieldType;
-use crate::index::point_values::point_values_util;
+use crate::index::point_values::{MAX_DIMENSIONS, MAX_INDEX_DIMENSIONS, MAX_NUM_BYTES};
 use crate::index::segment_info::SegmentInfo;
 use crate::index::vector_encoding::VectorEncoding;
 use crate::index::vector_similarity_function::VectorSimilarityFunction;
@@ -291,10 +291,10 @@ pub trait BaseFieldInfoFormatTestCase {
         }
 
         if random.random_bool(0.5) {
-            let dimension = 1 + random.random_range(0..point_values_util::MAX_DIMENSIONS);
-            let index_dimension = 1 + random
-                .random_range(0..std::cmp::min(dimension, point_values_util::MAX_INDEX_DIMENSIONS));
-            let dimension_num_bytes = 1 + random.random_range(0..point_values_util::MAX_NUM_BYTES);
+            let dimension = 1 + random.random_range(0..MAX_DIMENSIONS);
+            let index_dimension =
+                1 + random.random_range(0..std::cmp::min(dimension, MAX_INDEX_DIMENSIONS));
+            let dimension_num_bytes = 1 + random.random_range(0..MAX_NUM_BYTES);
             field_type.set_dimensions_all(dimension, index_dimension, dimension_num_bytes)?;
         }
 

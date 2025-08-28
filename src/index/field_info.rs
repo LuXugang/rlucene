@@ -17,7 +17,7 @@
 use crate::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::index::doc_values_type::DocValuesType;
 use crate::index::index_options::IndexOptions;
-use crate::index::point_values::point_values_util;
+use crate::index::point_values::{MAX_INDEX_DIMENSIONS, MAX_NUM_BYTES};
 use crate::index::vector_encoding::VectorEncoding;
 use crate::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -423,12 +423,10 @@ impl FieldInfo {
                 dimension_count, self.name
             )));
         }
-        if index_dimension_count > point_values_util::MAX_INDEX_DIMENSIONS {
+        if index_dimension_count > MAX_INDEX_DIMENSIONS {
             return Err(LuceneError::illegal_argument(format!(
-                "point index dimension count must be < point_values_util::MAX_INDEX_DIMENSIONS  (= {}); got {} for field=\"{}\"",
-                point_values_util::MAX_INDEX_DIMENSIONS,
-                index_dimension_count,
-                self.name
+                "point index dimension count must be < MAX_INDEX_DIMENSIONS  (= {}); got {} for field=\"{}\"",
+                MAX_INDEX_DIMENSIONS, index_dimension_count, self.name
             )));
         }
         if index_dimension_count > dimension_count {
@@ -443,12 +441,10 @@ impl FieldInfo {
                 num_bytes, self.name
             )));
         }
-        if num_bytes > point_values_util::MAX_NUM_BYTES {
+        if num_bytes > MAX_NUM_BYTES {
             return Err(LuceneError::illegal_argument(format!(
-                "point numBytes must be <= point_values_util::MAX_NUM_BYTES  (= {}); got {} for field=\"{}\"",
-                point_values_util::MAX_NUM_BYTES,
-                num_bytes,
-                self.name
+                "point numBytes must be <= MAX_NUM_BYTES  (= {}); got {} for field=\"{}\"",
+                MAX_NUM_BYTES, num_bytes, self.name
             )));
         }
         if self.point_dimension_count != 0 && self.point_dimension_count != dimension_count {

@@ -22,7 +22,7 @@ use crate::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::index::doc_values_type::DocValuesType;
 use crate::index::index_options::IndexOptions;
 use crate::index::indexable_field_type::IndexableFieldType;
-use crate::index::point_values::point_values_util;
+use crate::index::point_values::{MAX_DIMENSIONS, MAX_INDEX_DIMENSIONS, MAX_NUM_BYTES};
 use crate::index::vector_encoding::VectorEncoding;
 use crate::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -232,11 +232,10 @@ impl FieldType {
                 "dimensionCount must be >= 0; got {dimension_count}"
             )));
         }
-        if dimension_count > point_values_util::MAX_DIMENSIONS {
+        if dimension_count > MAX_DIMENSIONS {
             return Err(LuceneError::illegal_argument(format!(
                 "dimensionCount must be <= {}; got {}",
-                point_values_util::MAX_DIMENSIONS,
-                dimension_count
+                MAX_DIMENSIONS, dimension_count
             )));
         }
         if index_dimension_count < 0 {
@@ -249,11 +248,10 @@ impl FieldType {
                 "indexDimensionCount must be <= dimensionCount: {dimension_count}; got {index_dimension_count}"
             )));
         }
-        if index_dimension_count > point_values_util::MAX_INDEX_DIMENSIONS {
+        if index_dimension_count > MAX_INDEX_DIMENSIONS {
             return Err(LuceneError::illegal_argument(format!(
                 "indexDimensionCount must be <= {}; got {}",
-                point_values_util::MAX_INDEX_DIMENSIONS,
-                index_dimension_count
+                MAX_INDEX_DIMENSIONS, index_dimension_count
             )));
         }
         if dimension_num_bytes < 0 {
@@ -261,11 +259,10 @@ impl FieldType {
                 "dimensionNumBytes must be >= 0; got {dimension_num_bytes}"
             )));
         }
-        if dimension_num_bytes > point_values_util::MAX_NUM_BYTES {
+        if dimension_num_bytes > MAX_NUM_BYTES {
             return Err(LuceneError::illegal_argument(format!(
                 "dimensionNumBytes must be <= {}; got {}",
-                point_values_util::MAX_NUM_BYTES,
-                dimension_num_bytes
+                MAX_NUM_BYTES, dimension_num_bytes
             )));
         }
         if dimension_count == 0 {
@@ -552,7 +549,7 @@ mod tests {
     use crate::document::field_type::FieldType;
     use crate::index::doc_values_type::DocValuesType;
     use crate::index::index_options::IndexOptions;
-    use crate::index::point_values::point_values_util;
+    use crate::index::point_values::{MAX_DIMENSIONS, MAX_INDEX_DIMENSIONS, MAX_NUM_BYTES};
     use crate::index::vector_encoding::VectorEncoding;
     use crate::index::vector_similarity_function::VectorSimilarityFunction;
     use crate::test::util::lucene_test_case::lucene_test_case_util::random;
@@ -607,10 +604,10 @@ mod tests {
     #[test]
     fn test_points_to_string() -> Result<()> {
         let mut ft = FieldType::new();
-        ft.set_dimensions(1, point_values_util::MAX_NUM_BYTES)?;
+        ft.set_dimensions(1, MAX_NUM_BYTES)?;
         let expected = format!(
             "pointDimensionCount=1,pointIndexDimensionCount=1,pointNumBytes={}",
-            point_values_util::MAX_NUM_BYTES
+            MAX_NUM_BYTES
         );
         let s = ft.to_string();
         assert_eq!(s, expected);
@@ -636,9 +633,9 @@ mod tests {
     // Generates a random FieldType.
     fn random_field_type<R: Rng + ?Sized>(random: &mut R) -> Result<FieldType> {
         let mut ft = FieldType::new();
-        let max_idx_dims = point_values_util::MAX_INDEX_DIMENSIONS;
-        let max_dims = point_values_util::MAX_DIMENSIONS;
-        let max_bytes = point_values_util::MAX_NUM_BYTES;
+        let max_idx_dims = MAX_INDEX_DIMENSIONS;
+        let max_dims = MAX_DIMENSIONS;
+        let max_bytes = MAX_NUM_BYTES;
         let dim = random.random_range(1..=max_dims);
         let idx_dim = random.random_range(1..=max_idx_dims.min(dim));
         let num_bytes = random.random_range(1..=max_bytes);

@@ -17,6 +17,7 @@
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::store::IndexInput;
+use crate::util::bkd::bkd_config::BKDConfig;
 use crate::util::bkd::bkd_reader::BKDPointTree;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::ints_ref::IntsRef;
@@ -27,12 +28,7 @@ where
 {
     sub_point_values: S,
 }
-pub mod point_values_util {
-    use crate::util::bkd::bkd_config::BKDConfig;
-    pub const MAX_NUM_BYTES: i32 = 16;
-    pub const MAX_DIMENSIONS: i32 = BKDConfig::MAX_DIMS;
-    pub const MAX_INDEX_DIMENSIONS: i32 = BKDConfig::MAX_INDEX_DIMS;
-}
+
 impl<S> PointValues<S>
 where
     S: PointValuesBase,
@@ -427,3 +423,7 @@ pub trait IntersectVisitor {
         Ok(())
     }
 }
+
+pub const MAX_NUM_BYTES: i32 = 16;
+pub const MAX_DIMENSIONS: i32 = BKDConfig::MAX_DIMS;
+pub const MAX_INDEX_DIMENSIONS: i32 = BKDConfig::MAX_INDEX_DIMS;
