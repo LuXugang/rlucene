@@ -16,7 +16,8 @@
  */
 use crate::index::field_infos::FieldNumbers;
 use crate::index::index_writer::LongSupplierImpl;
-use crate::index::pending_deletes::PendingDeletesEnum;
+use crate::index::pending_deletes::{PendingDeletes, PendingDeletesEnum};
+use crate::index::pending_soft_deletes::PendingSoftDeletes;
 use crate::index::readers_and_updates::ReadersAndUpdates;
 use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::index::segment_reader::SegmentReader;
@@ -437,7 +438,10 @@ where
         Ok(Some(rld))
     }
     fn new_pending_deletes(&self, info: &SegmentCommitInfo<D>) -> Result<PendingDeletesEnum> {
-        todo!()
+        match &self.soft_deletes_field {
+            Some(field) => Ok(PendingDeletesEnum::B(PendingSoftDeletes::new(field, info)?)),
+            None => Ok(PendingDeletesEnum::A(PendingDeletes::new(info)?)),
+        }
     }
 
     fn new_pending_deletes_with_reader(
@@ -445,7 +449,14 @@ where
         reader: &SegmentReader<D>,
         info: &SegmentCommitInfo<D>,
     ) -> Result<PendingDeletesEnum> {
-        todo!()
+        match &self.soft_deletes_field {
+            Some(field) => Ok(PendingDeletesEnum::B(PendingSoftDeletes::from_reader(
+                field, reader, info,
+            )?)),
+            None => Ok(PendingDeletesEnum::A(PendingDeletes::from_reader(
+                reader, info,
+            )?)),
+        }
     }
     /// Make sure that every segment appears only once in the pool.
     fn no_dups(&self) -> bool {
