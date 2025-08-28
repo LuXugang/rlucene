@@ -121,36 +121,6 @@ pub trait DocValuesConsumer {
         todo!()
     }
 }
-mod doc_values_consumer_util {
-    use std::cell::RefCell;
-    use std::rc::Rc;
-
-    use crate::codecs::doc_values_consumer::{NumericDocValuesMerge, NumericDocValuesSub};
-    use crate::index::{Sub, doc_id_merger_util};
-    use crate::search::doc_id_set_iterator::DocIdSetIterator;
-    use crate::store::IndexInput;
-    use crate::util::error::lucene_error::Result;
-
-    pub(crate) fn merge_numeric_values<I>(
-        mut subs: Vec<Rc<RefCell<Sub<NumericDocValuesSub<I>>>>>,
-        index_is_sorted: bool,
-    ) -> Result<NumericDocValuesMerge<I>>
-    where
-        I: IndexInput,
-    {
-        let mut cost = 0;
-        for sub in &mut subs {
-            cost = sub.borrow().sub.values.cost()?;
-        }
-        let doc_id_merger = doc_id_merger_util::of(subs, index_is_sorted)?;
-        Ok(NumericDocValuesMerge {
-            doc_id: -1,
-            current: None,
-            doc_id_merger,
-            final_cost: cost,
-        })
-    }
-}
 
 // 1. NumericDocValues
 /// Tracks state of one numeric sub-reader that we are merging.
@@ -314,7 +284,7 @@ where
                 )))));
             }
         }
-        doc_values_consumer_util::merge_numeric_values(subs, self.merge_state.needs_index_sort)
+        merge_numeric_values(subs, self.merge_state.needs_index_sort)
     }
 
     type BinaryDocValues = DummyBinaryDocValues;
@@ -737,10 +707,7 @@ where
                     single_valued_values,
                 )))));
             }
-            let dv = doc_values_consumer_util::merge_numeric_values(
-                single_valued_subs,
-                self.merge_state.needs_index_sort,
-            )?;
+            let dv = merge_numeric_values(single_valued_subs, self.merge_state.needs_index_sort)?;
             return Ok(Either2SortedNumericDocValues::A(
                 DocValues::singleton_numeric(dv)?,
             ));
@@ -758,4 +725,24 @@ where
 
     type SortedSetDocValues = DummySortedSetDocValues;
     type DocValuesSkipper = DummyDocValuesSkipper;
+}
+
+pub(crate) fn merge_numeric_values<I>(
+    mut subs: Vec<Rc<RefCell<Sub<NumericDocValuesSub<I>>>>>,
+    index_is_sorted: bool,
+) -> Result<NumericDocValuesMerge<I>>
+where
+    I: IndexInput,
+{
+    let mut cost = 0;
+    for sub in &mut subs {
+        cost = sub.borrow().sub.values.cost()?;
+    }
+    let doc_id_merger = doc_id_merger_util::of(subs, index_is_sorted)?;
+    Ok(NumericDocValuesMerge {
+        doc_id: -1,
+        current: None,
+        doc_id_merger,
+        final_cost: cost,
+    })
 }
