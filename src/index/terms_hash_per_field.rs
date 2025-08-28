@@ -80,11 +80,8 @@ impl Default for TermsHashPerField {
         ))));
         let byte_pool = term_byte_pool.clone();
 
-        let bytes_hash = BytesRefHash::from_bytes_start_array(
-            term_byte_pool,
-            terms_hash_per_field_util::HASH_INIT_SIZE,
-            byte_starts,
-        );
+        let bytes_hash =
+            BytesRefHash::from_bytes_start_array(term_byte_pool, HASH_INIT_SIZE, byte_starts);
         TermsHashPerField {
             int_pool: Arc::new(Mutex::new(IntBlockPool::default())),
             byte_pool,
@@ -121,11 +118,8 @@ impl TermsHashPerField {
         let slice_pool = ByteSlicePool;
         let byte_starts = PostingsBytesStartArray::new(postings_array_wrapper, bytes_used);
 
-        let bytes_hash = BytesRefHash::from_bytes_start_array(
-            term_byte_pool,
-            terms_hash_per_field_util::HASH_INIT_SIZE,
-            byte_starts,
-        );
+        let bytes_hash =
+            BytesRefHash::from_bytes_start_array(term_byte_pool, HASH_INIT_SIZE, byte_starts);
         TermsHashPerField {
             int_pool,
             byte_pool,
@@ -430,9 +424,7 @@ impl PostingsArrayWrapper {
         }
     }
 }
-pub mod terms_hash_per_field_util {
-    pub(crate) const HASH_INIT_SIZE: i32 = 4;
-}
+
 pub(crate) struct PostingsBytesStartArray {
     pub(crate) per_field: PostingsArrayWrapper,
     bytes_used: CounterEnumLock,
@@ -551,6 +543,8 @@ impl TermsHashPerFieldType {
         }
     }
 }
+
+pub(crate) const HASH_INIT_SIZE: i32 = 4;
 
 #[cfg(test)]
 pub(crate) mod tests {
