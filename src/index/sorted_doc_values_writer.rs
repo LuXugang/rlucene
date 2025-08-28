@@ -200,7 +200,7 @@ impl DocValuesWriter for SortedDocValuesWriter {
         }
         dv_consumer.add_sorted_field(
             &self.field_info,
-            &sdvw_util::get_doc_values_producer(
+            &get_doc_values_producer(
                 self.field_info.clone(),
                 self.hash_rc.clone().unwrap(),
                 self.final_ords.take().unwrap(),
@@ -249,57 +249,6 @@ impl DocValuesWriter for SortedDocValuesWriter {
             self.final_ord_map = Some(Arc::new(ord_map));
         }
         Ok(())
-    }
-}
-
-pub(crate) mod sdvw_util {
-    use crate::index::docs_with_field_set::DocsWithFieldSet;
-    use crate::index::field_info::FieldInfo;
-    use crate::index::sorted_doc_values_writer::{
-        BufferedSortedDocValues, DocValuesProducerImpl, SortedDocValuesWriter,
-    };
-    use crate::index::sorter::DocMap;
-    use crate::search::doc_id_set::DocIdSet;
-    use crate::util::bytes_ref_hash::MTBytesRefHash;
-    use crate::util::error::lucene_error::{LuceneError, Result};
-    use crate::util::packed::packed_long_values::PackedLongValues;
-    use std::rc::Rc;
-    use std::sync::Arc;
-
-    pub(crate) fn get_doc_values_producer<DM>(
-        writer_field_info: Arc<FieldInfo>,
-        hash: Arc<MTBytesRefHash>,
-        ords: PackedLongValues,
-        ord_map: Arc<Vec<i32>>,
-        docs_with_field: DocsWithFieldSet,
-        sort_map: Option<Rc<DM>>,
-    ) -> Result<DocValuesProducerImpl>
-    where
-        DM: DocMap,
-    {
-        let sorted = if let Some(sort_map) = sort_map {
-            let docs_iter = docs_with_field.iterator()?.ok_or_else(|| {
-                LuceneError::illegal_state("docsWithField.iterator() returned None")
-            })?;
-            let mut old_values =
-                BufferedSortedDocValues::new(hash.clone(), &ords, ord_map.clone(), docs_iter);
-            Some(Rc::new(SortedDocValuesWriter::sort_doc_values(
-                sort_map.size() as usize,
-                sort_map.as_ref(),
-                &mut old_values,
-            )?))
-        } else {
-            None
-        };
-
-        DocValuesProducerImpl::new(
-            hash,
-            ords,
-            ord_map,
-            docs_with_field,
-            writer_field_info,
-            sorted,
-        )
     }
 }
 
@@ -550,4 +499,40 @@ where
     }
 
     type TermsEnum = SortedDocValuesTermsEnum;
+}
+
+pub(crate) fn get_doc_values_producer<DM>(
+    writer_field_info: Arc<FieldInfo>,
+    hash: Arc<MTBytesRefHash>,
+    ords: PackedLongValues,
+    ord_map: Arc<Vec<i32>>,
+    docs_with_field: DocsWithFieldSet,
+    sort_map: Option<Rc<DM>>,
+) -> Result<DocValuesProducerImpl>
+where
+    DM: DocMap,
+{
+    let sorted = if let Some(sort_map) = sort_map {
+        let docs_iter = docs_with_field
+            .iterator()?
+            .ok_or_else(|| LuceneError::illegal_state("docsWithField.iterator() returned None"))?;
+        let mut old_values =
+            BufferedSortedDocValues::new(hash.clone(), &ords, ord_map.clone(), docs_iter);
+        Some(Rc::new(SortedDocValuesWriter::sort_doc_values(
+            sort_map.size() as usize,
+            sort_map.as_ref(),
+            &mut old_values,
+        )?))
+    } else {
+        None
+    };
+
+    DocValuesProducerImpl::new(
+        hash,
+        ords,
+        ord_map,
+        docs_with_field,
+        writer_field_info,
+        sorted,
+    )
 }

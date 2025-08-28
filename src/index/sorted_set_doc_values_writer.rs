@@ -30,7 +30,7 @@ use crate::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
 use crate::index::sorted_doc_values::Either2SortedDocValues;
 use crate::index::sorted_doc_values_terms_enum::SortedDocValuesTermsEnum;
 use crate::index::sorted_doc_values_writer::{
-    BufferedSortedDocValues, SortingSortedDocValues, sdvw_util,
+    BufferedSortedDocValues, SortingSortedDocValues, get_doc_values_producer,
 };
 use crate::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::index::sorter::DocMap;
@@ -272,7 +272,7 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
         let ord_map = self.final_ord_map.take().unwrap();
 
         if ord_counts.is_none() {
-            let single_value_producer = sdvw_util::get_doc_values_producer(
+            let single_value_producer = get_doc_values_producer(
                 self.field_info.clone(),
                 self.hash_rc.clone().unwrap(),
                 ords.clone(),
