@@ -107,35 +107,6 @@ pub trait DocIndexIterator: DocIdSetIterator {
     fn index(&self) -> Result<i32>;
 }
 
-pub(crate) mod knn_vector_values_util {
-    use crate::index::knn_vector_values::{
-        DocIndexIteratorImpl1, DocIndexIteratorImpl2, DocIndexIteratorImpl3, OrdToDoc,
-    };
-    use crate::search::doc_id_set_iterator::DocIdSetIterator;
-
-    pub(crate) fn create_dense_iterator(size: i32) -> DocIndexIteratorImpl1 {
-        DocIndexIteratorImpl1::new(size)
-    }
-
-    /// creates an iterator from a docidsetiterator indicating which docs have
-    /// values, and for which ordinals increase monotonically with docid.
-    pub(crate) fn from_disi<D>(disi: D) -> DocIndexIteratorImpl2<D>
-    where
-        D: DocIdSetIterator,
-    {
-        DocIndexIteratorImpl2::new(disi)
-    }
-
-    ///  Creates an iterator from this instance's ordinal-to-docid mapping which
-    /// must be monotonic (docid increases when ordinal does).
-    pub(crate) fn create_sparse_iterator<T>(size: i32, map: T) -> DocIndexIteratorImpl3<T>
-    where
-        T: OrdToDoc,
-    {
-        DocIndexIteratorImpl3::new(size, map)
-    }
-}
-
 pub(crate) struct DocIndexIteratorImpl1 {
     doc: i32,
     size: i32,
@@ -296,4 +267,26 @@ where
 
 pub trait OrdToDoc {
     fn ord_to_doc(&self, ord: i32) -> i32;
+}
+
+pub(crate) fn create_dense_iterator(size: i32) -> DocIndexIteratorImpl1 {
+    DocIndexIteratorImpl1::new(size)
+}
+
+/// creates an iterator from a docidsetiterator indicating which docs have
+/// values, and for which ordinals increase monotonically with docid.
+pub(crate) fn from_disi<D>(disi: D) -> DocIndexIteratorImpl2<D>
+where
+    D: DocIdSetIterator,
+{
+    DocIndexIteratorImpl2::new(disi)
+}
+
+///  Creates an iterator from this instance's ordinal-to-docid mapping which
+/// must be monotonic (docid increases when ordinal does).
+pub(crate) fn create_sparse_iterator<T>(size: i32, map: T) -> DocIndexIteratorImpl3<T>
+where
+    T: OrdToDoc,
+{
+    DocIndexIteratorImpl3::new(size, map)
 }
