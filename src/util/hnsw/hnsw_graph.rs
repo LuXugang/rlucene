@@ -266,10 +266,6 @@ impl NodesIterator for CollectionNodesIterator {
         self.size
     }
 
-    fn has_next(&self) -> bool {
-        self.index < self.size
-    }
-
     fn consume(&mut self, dest: &mut [i32]) -> Option<i32> {
         if !self.has_next() {
             return None;
@@ -280,6 +276,10 @@ impl NodesIterator for CollectionNodesIterator {
             dest_index += 1;
         }
         Some(dest_index as i32)
+    }
+
+    fn has_next(&self) -> bool {
+        self.index < self.size
     }
 }
 pub enum NodesIteratorEnums {

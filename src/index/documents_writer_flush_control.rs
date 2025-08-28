@@ -322,15 +322,13 @@ where
         if inner.full_flush {
             if *per_thread.is_flush_pending() {
                 self.checkout_and_block(per_thread, inner, per_thread_pool);
-                match self.next_pending_flush(Some(inner)) {
-                    (Some(dwpt), _, _) => return Ok((Some(dwpt), None)),
-                    (None, full_flush, num_pending) => {
-                        return Ok((
-                            self.try_get_next_pending_flush(num_pending, full_flush, Some(inner))?,
-                            None,
-                        ));
-                    },
-                }
+                return match self.next_pending_flush(Some(inner)) {
+                    (Some(dwpt), _, _) => Ok((Some(dwpt), None)),
+                    (None, full_flush, num_pending) => Ok((
+                        self.try_get_next_pending_flush(num_pending, full_flush, Some(inner))?,
+                        None,
+                    )),
+                };
             }
         } else {
             if mark_pending {
@@ -572,8 +570,7 @@ where
         inner.flushing_writers.len()
     }
     pub fn get_and_reset_apply_all_deletes(&self) -> bool {
-        self.flush_deletes
-            .swap(false, std::sync::atomic::Ordering::SeqCst)
+        self.flush_deletes.swap(false, Ordering::SeqCst)
     }
     /// Check whether deletes need to be applied. This can be used as a pre-flight check before calling
     /// [`getAndResetApplyAllDeletes()`](Self::get_and_reset_apply_all_deletes) to make sure that a single thread applies deletes.

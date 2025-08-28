@@ -2572,8 +2572,8 @@ where
     fn doc_value_count(&mut self) -> Result<i32> {
         self.ords.doc_value_count()
     }
-    type SortedDocValues = DummySortedDocValues;
     type TermsEnum = BaseTermsEnum<TermsDict<I>>;
+    type SortedDocValues = DummySortedDocValues;
 }
 
 pub struct BaseSortedSetDocValues<I>
@@ -3315,7 +3315,7 @@ pub type Lucene90SortedSetDocValuesEnum<I> = Either2SortedSetDocValues<
     BaseSortedSetDocValues<I>,
 >;
 
-pub(super) fn get_direct_reader_instance<I>(
+fn get_direct_reader_instance<I>(
     merging: bool,
     slice: Rc<RefCell<I::RandomAccessSlice>>,
     bits_per_value: i32,

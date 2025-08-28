@@ -124,7 +124,7 @@ where
     const TYPE: &'static str = "ReverseOrder";
 
     fn compare(&self, a: &T, b: &T) -> Result<i32> {
-        Ok(-(self.comparator.compare(a, b)?))
+        Ok(-self.comparator.compare(a, b)?)
     }
 }
 

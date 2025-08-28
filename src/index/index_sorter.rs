@@ -699,7 +699,7 @@ mod tests {
     #[test]
     fn test_random() -> Result<()> {
         let mut random = random();
-        let num_iters = at_least(&mut random, 3) as i32;
+        let num_iters = at_least(&mut random, 3);
         for _ in 0..num_iters {
             test_random_impl(0, 10, &mut random)?;
         }
@@ -708,7 +708,7 @@ mod tests {
     #[test]
     fn test_random_with_lots_of_duplicates() -> Result<()> {
         let mut random = random();
-        let num_iters = at_least(&mut random, 3) as i32;
+        let num_iters = at_least(&mut random, 3);
         for _ in 0..num_iters {
             test_random_impl(0, 2, &mut random)?;
         }
@@ -717,7 +717,7 @@ mod tests {
     #[test]
     fn test_random_with_shared_prefix() -> Result<()> {
         let mut random = random();
-        let num_iters = at_least(&mut random, 3) as i32;
+        let num_iters = at_least(&mut random, 3);
         for _ in 0..num_iters {
             let shared_prefix_len = TestUtil::next_int(&mut random, 1, 30) as usize;
             test_random_impl(shared_prefix_len, 10, &mut random)?;
@@ -727,7 +727,7 @@ mod tests {
     #[test]
     fn test_random_with_shared_prefix_and_lots_of_duplicates() -> Result<()> {
         let mut random = random();
-        let num_iters = at_least(&mut random, 3) as i32;
+        let num_iters = at_least(&mut random, 3);
         for _ in 0..num_iters {
             let shared_prefix_len = TestUtil::next_int(&mut random, 1, 30) as usize;
             test_random_impl(shared_prefix_len, 2, &mut random)?;

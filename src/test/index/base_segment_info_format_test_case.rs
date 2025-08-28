@@ -498,7 +498,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
     }
 
     /// Sets some otherwise hard-to-test properties: random segment names, ID
-    /// values, document count, etc and round-trips
+    /// values, document count, etc. and round-trips
     fn test_random<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let versions = self.get_versions();
         let io_context = IOContext::default_io_context()?;

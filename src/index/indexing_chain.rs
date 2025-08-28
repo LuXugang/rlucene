@@ -1443,27 +1443,27 @@ impl PerField {
                 })?;
                 invert_state.position += pos_incr;
                 if invert_state.position < invert_state.last_position {
-                    if pos_incr == 0 {
-                        return Err(LuceneError::illegal_argument(format!(
+                    return if pos_incr == 0 {
+                        Err(LuceneError::illegal_argument(format!(
                             "first position increment must be > 0 (got 0) for field '{}'",
                             field.name()
-                        )));
+                        )))
                     } else if pos_incr < 0 {
                         // position increment must be > 0
-                        return Err(LuceneError::illegal_argument(format!(
+                        Err(LuceneError::illegal_argument(format!(
                             "position increment must be > 0 (got {}) for field '{}'",
                             pos_incr,
                             field.name()
-                        )));
+                        )))
                     } else {
-                        return Err(LuceneError::illegal_argument(format!(
+                        Err(LuceneError::illegal_argument(format!(
                             "position overflowed Integer.MAX_VALUE (got posIncr={} last_position={} position={}) for field '{}'",
                             pos_incr,
                             invert_state.last_position,
                             invert_state.position,
                             field.name()
-                        )));
-                    }
+                        )))
+                    };
                 } else if invert_state.position > MAX_POSITION {
                     return Err(LuceneError::illegal_argument(format!(
                         "position {} too large for field {}",

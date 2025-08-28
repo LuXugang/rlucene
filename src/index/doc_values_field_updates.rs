@@ -402,8 +402,9 @@ where
     }
 
     fn compare_pivot(&mut self, j: i32) -> Result<i32> {
-        let mut cmp =
-            (self.pivot_doc).cmp(&((self.inner.docs.get_immutable(j as i64)? as u64 >> 1) as i64));
+        let mut cmp = self
+            .pivot_doc
+            .cmp(&((self.inner.docs.get_immutable(j as i64)? as u64 >> 1) as i64));
         if cmp == std::cmp::Ordering::Equal {
             // If docIDs are the same, compare pivot_ord with ords[j]
             cmp = (self.pivot_ord - self.ords.get(j)).cmp(&0);

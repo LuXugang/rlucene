@@ -489,7 +489,7 @@ mod tests {
                 string_list.clear();
             }
 
-            let entries = at_least(&mut random, 500) as i32;
+            let entries = at_least(&mut random, 500);
             let mut spare = BytesRefBuilder::new();
             let init_size = list.size();
 
@@ -546,7 +546,7 @@ mod tests {
                 string_list.clear();
             }
 
-            let entries = at_least(&mut random, 200) as i32;
+            let entries = at_least(&mut random, 200);
             let mut spare = BytesRefBuilder::new();
             let init_size = list.size();
 

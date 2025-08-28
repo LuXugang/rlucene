@@ -242,7 +242,7 @@ fn round_bits(bits_required: i32) -> i32 {
 ///
 /// # See also
 /// `PackedInts::bits_required(long)`
-pub fn bits_required(max_value: i64) -> crate::util::error::lucene_error::Result<i32> {
+pub fn bits_required(max_value: i64) -> Result<i32> {
     Ok(round_bits(PackedInts::bits_required(max_value)?))
 }
 pub fn unsigned_bits_required(max_value: i64) -> i32 {

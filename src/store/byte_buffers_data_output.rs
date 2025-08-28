@@ -292,7 +292,7 @@ impl ByteBuffersDataOutput {
         (self.size(), data)
     }
     /// Moves the blocks out of the current object, transferring ownership.
-    pub fn to_buffer_list_owner(&mut self) -> (i64, Vec<Cursor<Vec<u8>>>) {
+    pub fn get_buffer_list_owner(&mut self) -> (i64, Vec<Cursor<Vec<u8>>>) {
         let size = self.size();
         let old_blocks = std::mem::take(&mut self.blocks);
         let data = old_blocks.into_iter().collect();
@@ -363,7 +363,7 @@ impl ByteBuffersDataOutput {
     ///
     /// Use this when the data needs to be retained or passed independently.
     pub fn get_data_input_owner(&mut self) -> ByteBuffersDataInputOwned {
-        let (length, data) = self.to_buffer_list_owner();
+        let (length, data) = self.get_buffer_list_owner();
         ByteBuffersDataInput::new(data, length)
     }
 
@@ -569,7 +569,7 @@ mod tests {
 
         let mb = 1024 * 1024;
         let expected_size: i64 = random.random_range(mb..mb * 1024);
-        let mut o = ByteBuffersDataOutput::with_size(expected_size as i64)?;
+        let mut o = ByteBuffersDataOutput::with_size(expected_size)?;
         let _ = o.write_byte(0);
         let (_length, mut result) = o.to_buffer_list_ref();
         let cap = result.get_mut(0).unwrap().get_ref().len();

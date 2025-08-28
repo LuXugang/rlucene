@@ -55,27 +55,23 @@ impl<D> Directory for LockValidatingDirectoryWrapper<D>
 where
     D: Directory,
 {
-    type IndexOutput = <FilterDirectory<D, Arc<D>> as Directory>::IndexOutput;
-    type IndexInput = <FilterDirectory<D, Arc<D>> as Directory>::IndexInput;
-    type Lock = <FilterDirectory<D, Arc<D>> as Directory>::Lock;
-
     fn list_all(&self) -> Result<Vec<String>> {
         self.base.list_all()
     }
-
-    fn file_length(&self, name: &str) -> Result<i64> {
-        self.base.file_length(name)
-    }
-
     fn delete_file(&self, name: &str) -> Result<()> {
         self.write_lock.ensure_valid()?;
         self.base.delegate.delete_file(name)
+    }
+    fn file_length(&self, name: &str) -> Result<i64> {
+        self.base.file_length(name)
     }
 
     fn create_output(&self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
         self.write_lock.ensure_valid()?;
         self.base.delegate.create_output(name, context)
     }
+
+    type IndexOutput = <FilterDirectory<D, Arc<D>> as Directory>::IndexOutput;
 
     fn create_temp_output(
         &self,
@@ -88,6 +84,14 @@ where
             .create_temp_output(prefix, suffix, context)
     }
 
+    fn sync<'a, T>(&self, names: T) -> Result<()>
+    where
+        T: IntoIterator<Item = &'a String>,
+    {
+        self.write_lock.ensure_valid()?;
+        self.base.delegate.sync(names)
+    }
+
     fn sync_metadata(&self) -> Result<()> {
         self.write_lock.ensure_valid()?;
         self.base.delegate.sync_metadata()
@@ -98,9 +102,20 @@ where
         self.base.delegate.rename(source, dest)
     }
 
+    type IndexInput = <FilterDirectory<D, Arc<D>> as Directory>::IndexInput;
+
     fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
         self.base.open_input(name, context)
     }
+
+    fn open_checksum_input(
+        &self,
+        name: &str,
+    ) -> Result<BufferedChecksumIndexInput<Self::IndexInput>> {
+        self.base.open_checksum_input(name)
+    }
+
+    type Lock = <FilterDirectory<D, Arc<D>> as Directory>::Lock;
 
     fn obtain_lock(&self, name: &str) -> Result<Self::Lock> {
         self.base.obtain_lock(name)
@@ -127,20 +142,5 @@ where
 
     fn is_fs_directory(&self) -> bool {
         self.base.is_fs_directory()
-    }
-
-    fn open_checksum_input(
-        &self,
-        name: &str,
-    ) -> Result<BufferedChecksumIndexInput<Self::IndexInput>> {
-        self.base.open_checksum_input(name)
-    }
-
-    fn sync<'a, T>(&self, names: T) -> Result<()>
-    where
-        T: IntoIterator<Item = &'a String>,
-    {
-        self.write_lock.ensure_valid()?;
-        self.base.delegate.sync(names)
     }
 }

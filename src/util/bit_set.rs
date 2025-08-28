@@ -18,7 +18,6 @@ use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::util::accountable::Accountable;
 use crate::util::bits::Bits;
-use crate::util::error::lucene_error;
 use crate::util::error::lucene_error::Result;
 use crate::util::fixed_bit_set::FixedBitSet;
 
@@ -64,14 +63,14 @@ pub trait BitSet: Bits + Accountable {
     fn prev_set_bit(&self, index: i32) -> i32;
 
     /// Returns the index of the first set bit starting at the index specified.
-    /// [`DocIdSetIterator::NO_MORE_DOCS`](crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS) is returned if there are no more set bits.
+    /// [`DocIdSetIterator::NO_MORE_DOCS`](NO_MORE_DOCS) is returned if there are no more set bits.
     fn next_set_bit(&self, index: i32) -> i32 {
         self.next_set_bit_range(index, self.length())
     }
 
     /// Returns the index of the first set bit from start (inclusive) until end
     /// (exclusive).
-    /// [`DocIdSetIterator::NO_MORE_DOCS`](crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS) is returned if there are no more set bits.
+    /// [`DocIdSetIterator::NO_MORE_DOCS`](NO_MORE_DOCS) is returned if there are no more set bits.
     fn next_set_bit_range(&self, start: i32, end: i32) -> i32;
 
     /// Performs in-place OR of the bits provided by the iterator. The state of
@@ -131,7 +130,7 @@ where
     A: BitSet,
     B: BitSet,
 {
-    fn ram_bytes_used(&self) -> lucene_error::Result<i64> {
+    fn ram_bytes_used(&self) -> Result<i64> {
         match self {
             Either2BitSet::A(t) => t.ram_bytes_used(),
             Either2BitSet::B(s) => s.ram_bytes_used(),
@@ -214,7 +213,7 @@ where
         }
     }
 
-    fn or<T: DocIdSetIterator>(&mut self, iter: &mut T) -> lucene_error::Result<()> {
+    fn or<T: DocIdSetIterator>(&mut self, iter: &mut T) -> Result<()> {
         match self {
             Either2BitSet::A(t) => t.or(iter),
             Either2BitSet::B(s) => s.or(iter),

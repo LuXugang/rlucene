@@ -388,7 +388,7 @@ impl FieldUpdatesBuffer {
             array_length == 1 || array_length > index,
             "illegal array index length: {array_length} index: {index}"
         );
-        std::cmp::min(array_length - 1, index)
+        min(array_length - 1, index)
     }
 }
 /// An iterator that iterates over all updates in insertion order.

@@ -248,8 +248,8 @@ impl Accountable for PagedBytesReader {
         Ok(0)
     }
 }
-impl fmt::Display for PagedBytes {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for PagedBytes {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "{}(blocksize={})",

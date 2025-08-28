@@ -97,7 +97,7 @@ mod tests {
         for _ in 0..iters {
             let limit = TestUtil::next_int(&mut random, 1, 1000);
             let a = AutomatonTestUtil::random_automaton(&mut random)?;
-            let mut v = LimitedFiniteStringsIterator::new(&a, limit).unwrap();
+            let mut v = LimitedFiniteStringsIterator::new(&a, limit)?;
             // Must pass a limit because the random automaton
             // can accept MANY strings:
             let result = get_finite_strings(&mut v);

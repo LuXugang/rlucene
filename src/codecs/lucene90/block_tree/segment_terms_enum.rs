@@ -314,7 +314,7 @@ where
             } else if cmp > 0 {
                 // Uncommon case: target term
                 // is before current term; this means we can
-                // keep the currentFrame but we must rewind it
+                // keep the currentFrame, but we must rewind it
                 // (so we scan from the start)
                 self.target_before_current_length = self.stack[last_frame].ord;
                 self.current_frame_idx = last_frame;
@@ -403,11 +403,11 @@ where
                     false,
                     self,
                 )?;
-                if result == SeekStatus::Found {
-                    return Ok(Some(true));
+                return if result == SeekStatus::Found {
+                    Ok(Some(true))
                 } else {
-                    return Ok(Some(false));
-                }
+                    Ok(Some(false))
+                };
             } else {
                 arc_index = next_arc_idx;
 
@@ -748,20 +748,20 @@ where
                     false,
                     self,
                 )?;
-                if result == SeekStatus::End {
+                return if result == SeekStatus::End {
                     {
                         self.term.copy_bytes_with_ref(target);
                         self.term_exists = false;
                     }
 
                     if self.next()?.is_some() {
-                        return Ok(SeekStatus::NotFound);
+                        Ok(SeekStatus::NotFound)
                     } else {
-                        return Ok(SeekStatus::End);
+                        Ok(SeekStatus::End)
                     }
                 } else {
-                    return Ok(result);
-                }
+                    Ok(result)
+                };
             } else {
                 arc_index = next_arc_idx;
                 let arc = &self.arcs[arc_index];

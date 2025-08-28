@@ -328,7 +328,7 @@ where
     scratch_arc: Arc<T>,
 }
 pub struct Inner {
-    /// the [`FST.BytesReader`](crate::util::fst_impl::fst_reader::FstReader)
+    /// the [`FST.BytesReader`](FstReader)
     /// to read from copiedNodes. we use this when computing a frozen
     /// node hash or comparing if a frozen and unfrozen nodes are equal
     bytes_reader: ByteBlockPoolReverseBytesReader,
@@ -681,12 +681,12 @@ where
             }
 
             if self.scratch_arc.is_last() {
-                if arc_idx == (node.num_arcs as usize - 1) {
+                return if arc_idx == (node.num_arcs as usize - 1) {
                     let len = address - in_reader.get_position();
-                    return Ok(len as i32);
+                    Ok(len as i32)
                 } else {
-                    return Ok(-1);
-                }
+                    Ok(-1)
+                };
             }
 
             fst.read_next_real_arc(&mut self.scratch_arc, in_reader)?;
@@ -725,7 +725,7 @@ mod tests {
         fallback_hash_table.copy_node_bytes(fallback_hash_slot, &fallback_bytes, node_length)?;
 
         // Check that fallback bytes stored correctly
-        let stored_bytes = fallback_hash_table.get_bytes(fallback_hash_slot, node_length as i32)?;
+        let stored_bytes = fallback_hash_table.get_bytes(fallback_hash_slot, node_length)?;
         for i in 0..node_length as usize {
             assert_eq!(fallback_bytes[i], stored_bytes[i], "byte @ index={}", i);
         }
@@ -739,7 +739,7 @@ mod tests {
         )?;
 
         // Check that primary copied bytes match original
-        let copied_bytes = primary_hash_table.get_bytes(primary_hash_slot, node_length as i32)?;
+        let copied_bytes = primary_hash_table.get_bytes(primary_hash_slot, node_length)?;
         for i in 0..node_length as usize {
             assert_eq!(fallback_bytes[i], copied_bytes[i], "byte @ index={}", i);
         }

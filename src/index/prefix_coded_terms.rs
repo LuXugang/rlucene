@@ -182,7 +182,7 @@ impl PrefixCodedTermsBuilder {
     }
     /// return finalized form.
     pub fn finish(&mut self) -> PrefixCodedTerms {
-        let content = self.output.to_buffer_list_owner();
+        let content = self.output.get_buffer_list_owner();
         PrefixCodedTerms::new(content.1, content.0, self.size)
     }
 }

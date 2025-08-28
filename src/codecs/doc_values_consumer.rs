@@ -124,7 +124,7 @@ pub trait DocValuesConsumer {
 
 // 1. NumericDocValues
 /// Tracks state of one numeric sub-reader that we are merging.
-struct NumericDocValuesSub<I>
+pub(crate) struct NumericDocValuesSub<I>
 where
     I: IndexInput,
 {

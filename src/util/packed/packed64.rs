@@ -167,7 +167,7 @@ impl Reader for Packed64 {
         let block_index =
             ((index as u64 * self.bits_per_value as u64) >> Self::BLOCK_BITS) as usize;
         debug_assert_eq!(
-            ((index as u64 * self.bits_per_value as u64) & Self::MOD_MASK as u64),
+            (index as u64 * self.bits_per_value as u64) & Self::MOD_MASK as u64,
             0
         );
 
@@ -277,7 +277,7 @@ impl Mutable for Packed64 {
         let block_index =
             ((index as u64 * self.bits_per_value as u64) >> Self::BLOCK_BITS) as usize;
         debug_assert_eq!(
-            ((index as u64 * self.bits_per_value as u64) & Self::MOD_MASK as u64),
+            (index as u64 * self.bits_per_value as u64) & Self::MOD_MASK as u64,
             0
         );
 

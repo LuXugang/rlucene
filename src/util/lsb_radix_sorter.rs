@@ -122,8 +122,8 @@ impl LSBRadixSorter {
     }
 }
 
-pub(super) const INSERTION_SORT_THRESHOLD: usize = 30;
-pub(super) const HISTOGRAM_SIZE: usize = 256;
+const INSERTION_SORT_THRESHOLD: usize = 30;
+const HISTOGRAM_SIZE: usize = 256;
 
 #[cfg(test)]
 mod tests {

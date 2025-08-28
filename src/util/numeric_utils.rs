@@ -991,15 +991,11 @@ mod tests {
         for _ in 0..10_000 {
             let left_value = random.random::<i32>();
             let right_value = random.random::<i32>();
-            NumericUtils::int_to_sortable_bytes(
-                left_value,
-                left.bytes.as_mut_slice(),
-                left.offset as usize,
-            );
+            NumericUtils::int_to_sortable_bytes(left_value, left.bytes.as_mut_slice(), left.offset);
             NumericUtils::int_to_sortable_bytes(
                 right_value,
                 right.bytes.as_mut_slice(),
-                right.offset as usize,
+                right.offset,
             );
             let expected_sign = left_value.cmp(&right_value) as i32;
             let actual_sign = left.cmp(&right) as i32;
@@ -1026,12 +1022,12 @@ mod tests {
             NumericUtils::long_to_sortable_bytes(
                 left_value,
                 left.bytes.as_mut_slice(),
-                left.offset as usize,
+                left.offset,
             );
             NumericUtils::long_to_sortable_bytes(
                 right_value,
                 right.bytes.as_mut_slice(),
-                right.offset as usize,
+                right.offset,
             );
             let expected_sign = left_value.cmp(&right_value) as i32;
             let actual_sign = left.cmp(&right) as i32;
@@ -1062,12 +1058,12 @@ mod tests {
             NumericUtils::int_to_sortable_bytes(
                 NumericUtils::float_to_sortable_int(left_value),
                 left.bytes.as_mut_slice(),
-                left.offset as usize,
+                left.offset,
             );
             NumericUtils::int_to_sortable_bytes(
                 NumericUtils::float_to_sortable_int(right_value),
                 right.bytes.as_mut_slice(),
-                right.offset as usize,
+                right.offset,
             );
             let expected_order = left_value.total_cmp(&right_value);
             let actual_order = left.cmp(&right);
@@ -1107,12 +1103,12 @@ mod tests {
             NumericUtils::long_to_sortable_bytes(
                 NumericUtils::double_to_sortable_long(left_value),
                 &mut left.bytes,
-                left.offset as usize,
+                left.offset,
             );
             NumericUtils::long_to_sortable_bytes(
                 NumericUtils::double_to_sortable_long(right_value),
                 &mut right.bytes,
-                right.offset as usize,
+                right.offset,
             );
             let expected_sign = left_value.total_cmp(&right_value) as i32;
             let actual_sign = left.cmp(&right) as i32;

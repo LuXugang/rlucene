@@ -347,7 +347,7 @@ mod tests {
         for _ in 0..iters {
             let exp = TestUtil::next_int(&mut random, 5, 30) as usize;
             let bound = 1usize << exp;
-            let i = TestUtil::next_int(&mut random, 0, bound as i32) as i32;
+            let i = TestUtil::next_int(&mut random, 0, bound as i32);
 
             let idx = decoded
                 .binary_search(&i)

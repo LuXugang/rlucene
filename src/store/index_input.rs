@@ -37,7 +37,7 @@ use std::fmt::{Display, Formatter};
 /// # See Also
 /// - [`Directory`](crate::store::directory::Directory) for file-based
 ///   operations.
-pub trait IndexInput: DataInput + crate::util::clone::TryClone {
+pub trait IndexInput: DataInput + TryClone {
     /// Returns the current position in this file, where the next read will
     /// occur.
     ///

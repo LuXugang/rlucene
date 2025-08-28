@@ -1524,19 +1524,19 @@ pub(crate) const DIRECT_ADDRESSING_MAX_OVERSIZING_FACTOR: f32 = 1.0;
 /// Minimum depth at which fixed-length arcs are considered for shallow
 /// nodes.
 ///
-/// See [`FSTCompiler::should_expand_node_with_fixed_length_arcs`](crate::util::fst_impl::fst_compiler::FSTCompiler::should_expand_node_with_fixed_length_arcs)..
+/// See [`FSTCompiler::should_expand_node_with_fixed_length_arcs`](FSTCompiler::should_expand_node_with_fixed_length_arcs)..
 pub(crate) const FIXED_LENGTH_ARC_SHALLOW_DEPTH: i32 = 3;
 
 /// Minimum number of arcs required to consider fixed-length arcs at shallow
 /// depth.
 ///
-/// See [`FSTCompiler::should_expand_node_with_fixed_length_arcs`](crate::util::fst_impl::fst_compiler::FSTCompiler::should_expand_node_with_fixed_length_arcs)..
+/// See [`FSTCompiler::should_expand_node_with_fixed_length_arcs`](FSTCompiler::should_expand_node_with_fixed_length_arcs)..
 pub(crate) const FIXED_LENGTH_ARC_SHALLOW_NUM_ARCS: i32 = 5;
 
 /// Minimum number of arcs required to consider fixed-length arcs at deep
 /// depth.
 ///
-/// See [`FSTCompiler::should_expand_node_with_fixed_length_arcs`](crate::util::fst_impl::fst_compiler::FSTCompiler::should_expand_node_with_fixed_length_arcs).
+/// See [`FSTCompiler::should_expand_node_with_fixed_length_arcs`](FSTCompiler::should_expand_node_with_fixed_length_arcs).
 pub(crate) const FIXED_LENGTH_ARC_DEEP_NUM_ARCS: i32 = 10;
 
 /// Maximum oversizing factor allowed for direct addressing compared to
@@ -1544,8 +1544,8 @@ pub(crate) const FIXED_LENGTH_ARC_DEEP_NUM_ARCS: i32 = 10;
 /// factor prevents expansions that are obviously too costly even if
 /// there are sufficient credits.
 ///
-/// See [`FSTCompiler::should_expand_node_with_direct_addressing`](crate::util::fst_impl::fst_compiler::FSTCompiler::should_expand_node_with_direct_addressing).
-pub(super) const DIRECT_ADDRESSING_MAX_OVERSIZE_WITH_CREDIT_FACTOR: f32 = 1.66;
+/// See [`FSTCompiler::should_expand_node_with_direct_addressing`](FSTCompiler::should_expand_node_with_direct_addressing).
+const DIRECT_ADDRESSING_MAX_OVERSIZE_WITH_CREDIT_FACTOR: f32 = 1.66;
 pub fn get_on_heap_reader_writer(block_bits: i32) -> Result<ReadWriteDataOutput> {
     ReadWriteDataOutput::new(block_bits)
 }

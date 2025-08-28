@@ -49,7 +49,7 @@ pub trait PostingsWriterBase {
     ) -> Result<()>;
 
     /// Write all postings for one term; use the provided [`TermsEnum`] to pull
-    /// a [`PostingsEnum`](crate::index::postings_enum::PostingsEnum). This
+    /// a [`PostingsEnum`](PostingsEnum). This
     /// method should not re-position the `terms_enum`! It is already
     /// positioned on the term that should be written. This method must set the
     /// bit in the provided [`FixedBitSet`] for every docID written. If no

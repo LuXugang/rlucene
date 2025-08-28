@@ -60,7 +60,6 @@ where
     }
     /// Increments the reference count. Calls to this method must be matched with calls to #decRef().
     pub fn inc_ref(&self) {
-        self.ref_count
-            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        self.ref_count.fetch_add(1, Ordering::SeqCst);
     }
 }

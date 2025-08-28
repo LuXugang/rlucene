@@ -44,7 +44,7 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-/// Implements limited (iterators only, no stats) [`Fields`](crate::index::fields::Fields) interface over the in-RAM buffered
+/// Implements limited (iterators only, no stats) [`Fields`](Fields) interface over the in-RAM buffered
 /// fields/terms/postings, to flush postings through the PostingsFormat.
 pub(crate) struct FreqProxFields {
     fields: HashMap<String, Rc<FreqProxTermsWriterPerField>>,

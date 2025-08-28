@@ -38,7 +38,7 @@ pub struct Transition {
 }
 /// Static estimation of bytes used by a `Transition` instance.
 // TODO: memory calculation not implemented
-pub const BYTES_USED: usize = std::mem::size_of::<Transition>();
+pub const BYTES_USED: usize = size_of::<Transition>();
 
 impl Default for Transition {
     /// Creates a `Transition` with zeroed fields and `transition_upto` set to

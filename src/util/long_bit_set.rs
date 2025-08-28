@@ -692,7 +692,7 @@ mod tests {
                 a_andn.difference_with(a0);
 
                 let mut b_and = b.clone();
-                assert!(b == b_and);
+                assert_eq!(b, b_and);
                 b_and.and(b0);
                 let mut b_or = b.clone();
                 b_or.or(b0);

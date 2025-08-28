@@ -576,7 +576,7 @@ impl BitSet for FixedBitSet {
         let num = self.num_words as usize;
         while max_word + interval < num {
             for i in 0..range_length {
-                pop_count += (self.bits[max_word + i].count_ones()) as i64;
+                pop_count += self.bits[max_word + i].count_ones() as i64;
             }
             max_word += interval;
         }

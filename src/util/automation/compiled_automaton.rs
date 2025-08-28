@@ -311,12 +311,12 @@ impl CompiledAutomaton {
 
         // Special case: empty string
         if input.length == 0 {
-            if run_automaton.is_accept(state) {
+            return if run_automaton.is_accept(state) {
                 output.clear();
-                return Ok(Some(output.get_bytes_owner()));
+                Ok(Some(output.get_bytes_owner()))
             } else {
-                return Ok(None);
-            }
+                Ok(None)
+            };
         }
 
         let mut idx = 0;

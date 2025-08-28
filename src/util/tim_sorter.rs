@@ -92,7 +92,7 @@ impl<T: Sorter + TimSorterBase> TimSorter<T> {
     }
     fn push_run_len(&mut self, len: i32) {
         self.run_ends[(self.stack_size + 1) as usize] =
-            self.run_ends[(self.stack_size) as usize] + len;
+            self.run_ends[self.stack_size as usize] + len;
         self.stack_size += 1;
     }
     // Compute the length of the next run, make the run sorted and return its

@@ -1691,7 +1691,7 @@ mod tests {
                 let start_idx = (packed_value_offset + dimension * config.bytes_per_dim) as usize;
                 let end_idx = start_idx + size;
                 value.copy_from(&bytes_ref[start_idx..end_idx], 0);
-                if max.cmp(&value) == std::cmp::Ordering::Less {
+                if max.cmp(&value) == Less {
                     max.copy_from(&value, 0);
                 }
             }
@@ -1720,12 +1720,12 @@ mod tests {
                 let end_idx = start_idx + config.bytes_per_dim as usize;
                 let dim_slice = &value_vec[start_idx..end_idx];
                 let max_dim_slice = &max_dim[0..config.bytes_per_dim as usize];
-                if max_dim_slice.cmp(dim_slice) == std::cmp::Ordering::Less {
+                if max_dim_slice.cmp(dim_slice) == Less {
                     let copy_start =
                         (packed_value_offset + config.packed_index_bytes_length()) as usize;
                     let copy_end = copy_start + size;
                     value.copy_from(&value_vec[copy_start..copy_end], 0);
-                    if max.cmp(&value) == std::cmp::Ordering::Less {
+                    if max.cmp(&value) == Less {
                         max.copy_from(&value, 0);
                     }
                 }

@@ -201,8 +201,8 @@ where
             BaseSortedSetDocValuesEnum::Impl(sub) => sub.doc_value_count(),
         }
     }
-    type SortedDocValues = DummySortedDocValues;
     type TermsEnum = DummyTermsEnum;
+    type SortedDocValues = DummySortedDocValues;
 }
 
 pub enum SparseBinaryDocValuesBaseEnum<I>

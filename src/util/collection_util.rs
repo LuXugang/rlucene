@@ -39,7 +39,7 @@ impl CollectionUtil {
         if size <= 1 {
             return Ok(());
         }
-        ListIntroSorter::new(list, comp).sort(0, (size) as i32)?;
+        ListIntroSorter::new(list, comp).sort(0, size as i32)?;
         Ok(())
     }
     pub fn intro_sort<T>(list: &mut [T]) -> Result<()>
@@ -61,7 +61,7 @@ impl CollectionUtil {
         if size <= 1 {
             return Ok(());
         }
-        ListTimSorter::new(list, comp, size as i32 / 64).sort(0, (size) as i32)?;
+        ListTimSorter::new(list, comp, size as i32 / 64).sort(0, size as i32)?;
         Ok(())
     }
     pub fn tim_sort<T>(list: &mut [T]) -> Result<()>

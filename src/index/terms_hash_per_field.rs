@@ -1039,8 +1039,7 @@ pub(crate) mod tests {
             doc_id: i32,
             base: &mut TermsHashPerField,
         ) -> Result<()> {
-            self.new_called
-                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            self.new_called.fetch_add(1, Ordering::SeqCst);
             let term_id = term_id as usize;
             match base
                 .bytes_hash
@@ -1071,8 +1070,7 @@ pub(crate) mod tests {
             doc_id: i32,
             base: &mut TermsHashPerField,
         ) -> Result<()> {
-            self.add_called
-                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            self.add_called.fetch_add(1, Ordering::SeqCst);
             let term_id = term_id as usize;
             let mut v = Vec::new();
             let mut need_write = false;

@@ -196,8 +196,8 @@ pub struct PayloadError<T> {
     pub payload: T,
 }
 
-impl<T> std::fmt::Debug for PayloadError<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl<T> fmt::Debug for PayloadError<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("WithPayload")
             .field("error", &self.error)
             .field("payload", &"<omitted>")

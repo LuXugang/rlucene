@@ -584,7 +584,7 @@ where
 }
 
 // TODO: memory calculation not implemented
-pub(super) const INIT_RAM_BYTES: i64 = 0;
+const INIT_RAM_BYTES: i64 = 0;
 
 /// Rough logic: HashMap has an array with varying load factor.
 /// Entry consists of Query key, Integer value, int hash, and Entry next.

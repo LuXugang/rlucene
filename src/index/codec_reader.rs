@@ -68,7 +68,7 @@ pub trait CodecReader: LeafReader {
         debug_assert!(matches!(reader, Cow::Owned(_)));
         Ok(StoredFieldsImpl {
             reader: self.get_fields_reader()?.into_owned(),
-            max_doc: self.max_doc().unwrap(),
+            max_doc: self.max_doc()?,
         })
     }
 

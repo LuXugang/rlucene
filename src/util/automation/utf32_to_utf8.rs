@@ -362,7 +362,7 @@ impl UTF8Sequence {
 
 use once_cell::sync::Lazy;
 
-pub(super) static MASKS: Lazy<[u8; 8]> = Lazy::new(|| {
+static MASKS: Lazy<[u8; 8]> = Lazy::new(|| {
     let mut masks = [0u8; 8];
     for i in 0..7 {
         masks[i + 1] = ((2 << i) - 1) as u8;

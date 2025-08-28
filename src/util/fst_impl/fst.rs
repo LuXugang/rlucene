@@ -677,7 +677,7 @@ where
         input: &mut impl BytesReader,
     ) -> Result<Option<()>> {
         if label_to_match == END_LABEL {
-            if follow.is_final() {
+            return if follow.is_final() {
                 if follow.target() <= 0 {
                     arc.flags = BIT_LAST_ARC;
                 } else {
@@ -687,10 +687,10 @@ where
                 arc.output = follow.next_final_output();
                 arc.label = END_LABEL;
                 arc.node_flags = arc.flags;
-                return Ok(Some(()));
+                Ok(Some(()))
             } else {
-                return Ok(None);
-            }
+                Ok(None)
+            };
         }
 
         if !target_has_arcs(follow) {
@@ -1244,7 +1244,7 @@ where
     A: BytesReader,
     B: BytesReader,
 {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Either2BytesReader::A(reader) => {
                 write!(f, "EitherBytesReader(F: {})", reader.get_position())
@@ -1304,14 +1304,14 @@ pub(crate) const ARCS_FOR_DIRECT_ADDRESSING: u8 = 1 << 6;
 pub(crate) const ARCS_FOR_CONTINUOUS: u8 = ARCS_FOR_DIRECT_ADDRESSING + ARCS_FOR_BINARY_SEARCH;
 
 /// Format name for the FST file.
-pub(super) const FILE_FORMAT_NAME: &str = "FST";
+const FILE_FORMAT_NAME: &str = "FST";
 
 /// First supported version (Lucene 7.0).
 pub const VERSION_START: i32 = 6;
 // Version 7 introduced direct addressing for arcs, but it's not recorded
 // here because it doesn't need version checks on the read side, it uses
 // new flag values on arcs instead.
-pub(super) const VERSION_LITTLE_ENDIAN: i32 = 8;
+const VERSION_LITTLE_ENDIAN: i32 = 8;
 
 /// Version that started storing continuous arcs.
 pub const VERSION_CONTINUOUS_ARCS: i32 = 9;

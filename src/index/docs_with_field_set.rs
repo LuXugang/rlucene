@@ -136,7 +136,7 @@ impl DocIdSet for DocsWithFieldSet {
 }
 
 //TODO
-pub(super) const BASE_RAM_BYTES_USED: i64 = 0;
+const BASE_RAM_BYTES_USED: i64 = 0;
 
 #[cfg(test)]
 mod tests {

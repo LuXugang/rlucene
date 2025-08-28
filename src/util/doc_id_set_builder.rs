@@ -488,7 +488,7 @@ mod tests {
         builder.grow(2);
         builder.add_doc(5);
         builder.add_doc(7);
-        let mut set = builder.build().unwrap();
+        let mut set = builder.build()?;
         let enum_type1 = "BitDocIdSet<FixedBitSet>";
         let enum_type2 = "IntArrayDocIdSet";
         let doc_id_set_type = match set {
@@ -507,7 +507,7 @@ mod tests {
         builder.grow(2);
         builder.add_doc(5);
         builder.add_doc(7);
-        set = builder.build().unwrap();
+        set = builder.build()?;
         let doc_id_set_type = match set {
             DocIdSetBuilderEnum::BitDoc(_) => enum_type1,
             DocIdSetBuilderEnum::IntArray(_) => enum_type2,

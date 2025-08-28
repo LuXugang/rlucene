@@ -14,16 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::{mem, ptr};
+use std::ptr;
 
 pub struct BitUtil {}
 impl BitUtil {
-    pub const SHORT_BYTES: usize = mem::size_of::<i16>();
-    pub const INT_BYTES: usize = mem::size_of::<i32>();
-    pub const LONG_BYTES: usize = mem::size_of::<i64>();
-    pub const FLOAT_BYTES: usize = mem::size_of::<f32>();
-    pub const DOUBLE_BYTES: usize = mem::size_of::<f64>();
-    pub const USIZE_BYTES: usize = mem::size_of::<usize>();
+    pub const SHORT_BYTES: usize = size_of::<i16>();
+    pub const INT_BYTES: usize = size_of::<i32>();
+    pub const LONG_BYTES: usize = size_of::<i64>();
+    pub const FLOAT_BYTES: usize = size_of::<f32>();
+    pub const DOUBLE_BYTES: usize = size_of::<f64>();
+    pub const USIZE_BYTES: usize = size_of::<usize>();
     pub const FLOAT_NAN_BITS: u32 = 0x7fc00000;
     pub const DOUBLE_NAN_BITS: u64 = 0x7ff8000000000000;
     // i16 big_endian
@@ -34,7 +34,7 @@ impl BitUtil {
         );
 
         unsafe {
-            let raw_value = std::ptr::read_unaligned(bytes.as_ptr().add(pos) as *const i16);
+            let raw_value = ptr::read_unaligned(bytes.as_ptr().add(pos) as *const i16);
             i16::from_be(raw_value)
         }
     }
@@ -63,7 +63,7 @@ impl BitUtil {
         unsafe {
             let value_ptr = &value_be as *const i16 as *const u8;
             let dest_ptr = bytes.as_mut_ptr().add(pos);
-            std::ptr::copy_nonoverlapping(value_ptr, dest_ptr, len);
+            ptr::copy_nonoverlapping(value_ptr, dest_ptr, len);
         }
     }
     // i16 little_endian
@@ -102,7 +102,7 @@ impl BitUtil {
         unsafe {
             let value_ptr = &value_le as *const i16 as *const u8;
             let dest_ptr = bytes.as_mut_ptr().add(pos);
-            std::ptr::copy_nonoverlapping(value_ptr, dest_ptr, len);
+            ptr::copy_nonoverlapping(value_ptr, dest_ptr, len);
         }
     }
 
@@ -111,7 +111,7 @@ impl BitUtil {
         debug_assert!(pos + Self::INT_BYTES <= bytes.len(), "Index out of bounds");
 
         unsafe {
-            let raw_value = std::ptr::read_unaligned(bytes.as_ptr().add(pos) as *const i32);
+            let raw_value = ptr::read_unaligned(bytes.as_ptr().add(pos) as *const i32);
             i32::from_be(raw_value)
         }
     }
@@ -139,7 +139,7 @@ impl BitUtil {
         unsafe {
             let value_ptr = &value_be as *const i32 as *const u8;
             let dest_ptr = bytes.as_mut_ptr().add(pos);
-            std::ptr::copy_nonoverlapping(value_ptr, dest_ptr, len);
+            ptr::copy_nonoverlapping(value_ptr, dest_ptr, len);
         }
     }
     // i32 little_endian
@@ -173,7 +173,7 @@ impl BitUtil {
         unsafe {
             let value_ptr = &value_le as *const i32 as *const u8;
             let dest_ptr = bytes.as_mut_ptr().add(pos);
-            std::ptr::copy_nonoverlapping(value_ptr, dest_ptr, len);
+            ptr::copy_nonoverlapping(value_ptr, dest_ptr, len);
         }
     }
 
@@ -182,7 +182,7 @@ impl BitUtil {
         debug_assert!(pos + Self::LONG_BYTES <= bytes.len(), "Index out of bounds");
 
         unsafe {
-            let raw_value = std::ptr::read_unaligned(bytes.as_ptr().add(pos) as *const i64);
+            let raw_value = ptr::read_unaligned(bytes.as_ptr().add(pos) as *const i64);
             i64::from_be(raw_value)
         }
     }
@@ -211,7 +211,7 @@ impl BitUtil {
         unsafe {
             let value_ptr = &value_be as *const i64 as *const u8;
             let dest_ptr = bytes.as_mut_ptr().add(pos);
-            std::ptr::copy_nonoverlapping(value_ptr, dest_ptr, len);
+            ptr::copy_nonoverlapping(value_ptr, dest_ptr, len);
         }
     }
     // i64 little_endian
@@ -249,7 +249,7 @@ impl BitUtil {
         unsafe {
             let value_ptr = &value_le as *const i64 as *const u8;
             let dest_ptr = bytes.as_mut_ptr().add(pos);
-            std::ptr::copy_nonoverlapping(value_ptr, dest_ptr, len);
+            ptr::copy_nonoverlapping(value_ptr, dest_ptr, len);
         }
     }
 

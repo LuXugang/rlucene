@@ -310,12 +310,12 @@ where
                     .cmp(self.reader_term.as_ref().expect("reader_term must be set"))
                     .to_int();
 
-                if cmp < 0 {
-                    return Ok(None); // requested term does not exist in this segment
+                return if cmp < 0 {
+                    Ok(None) // requested term does not exist in this segment
                 } else if cmp == 0 {
-                    return self.get_docs().map(Some);
+                    self.get_docs().map(Some)
                 } else {
-                    return match terms_enum.seek_ceil(term)? {
+                    match terms_enum.seek_ceil(term)? {
                         SeekStatus::Found => self.get_docs().map(Some),
                         SeekStatus::NotFound => {
                             self.reader_term = Some(terms_enum.term()?.into_owned());
@@ -325,8 +325,8 @@ where
                             self.terms_enum = None;
                             Ok(None)
                         },
-                    };
-                }
+                    }
+                };
             } else if terms_enum.seek_exact(term)? {
                 return self.get_docs().map(Some);
             }

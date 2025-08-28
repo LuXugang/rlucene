@@ -44,7 +44,8 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 /// IndexReader implementation over a single segment.
-/// Instances pointing to the same segment (but with different deletes, etc) may share the same core data
+/// Instances pointing to the same segment
+/// (but with different deletes, etc.) may share the same core data
 pub struct SegmentReader<D>
 where
     D: Directory,

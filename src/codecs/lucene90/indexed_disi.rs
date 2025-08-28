@@ -20,7 +20,6 @@ use crate::store::random_access_input::RandomAccessInput;
 use crate::store::{DataInput, IndexInput, IndexOutput};
 use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use byteorder::WriteBytesExt;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -662,9 +661,9 @@ use crate::util::fixed_bit_set::FixedBitSet;
 // there will be at least one rank with 2^12 bits, so it is doubtful if
 // there is much to gain here. The number of docIDs that a single block
 // represents
-pub(super) const BLOCK_SIZE: i32 = 65536;
+const BLOCK_SIZE: i32 = 65536;
 // Long.SIZE = 64 bits
-pub(super) const DENSE_BLOCK_LONGS: i32 = BLOCK_SIZE / i64::BITS as i32;
+const DENSE_BLOCK_LONGS: i32 = BLOCK_SIZE / i64::BITS as i32;
 // Every 512 docIDs / 8 longs
 pub const DEFAULT_DENSE_RANK_POWER: i8 = 9;
 pub(crate) const MAX_ARRAY_LENGTH: i32 = (1 << 12) - 1;
@@ -1007,10 +1006,7 @@ fn flush_block_jumps<O: IndexOutput>(
 ///
 /// # Errors
 /// Returns an error if seeking in the `DISI` failed.
-pub(super) fn rank_skip<I: IndexInput>(
-    disi: &mut IndexedDISI<I>,
-    target_in_block: i32,
-) -> Result<()> {
+fn rank_skip<I: IndexInput>(disi: &mut IndexedDISI<I>, target_in_block: i32) -> Result<()> {
     debug_assert!(
         disi.dense_rank_power >= 0,
         "dense_rank_power = {}",

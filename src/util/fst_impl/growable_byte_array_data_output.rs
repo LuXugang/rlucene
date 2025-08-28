@@ -227,8 +227,8 @@ mod tests {
         o.copy_bytes(&mut input, len as i64)?;
         o.write_to(0, &mut bytes_out, 0, len as i32);
 
-        let expected = &bytes_clone[offset as usize..(offset + len) as usize];
-        let actual = &bytes_out[..len as usize];
+        let expected = &bytes_clone[offset..(offset + len)];
+        let actual = &bytes_out[..len];
 
         assert_eq!(actual, expected);
         Ok(())

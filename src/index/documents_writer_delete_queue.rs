@@ -653,7 +653,7 @@ impl<Q> Display for Node<Q>
 where
     Q: Query,
 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.item)
     }
 }

@@ -254,21 +254,21 @@ impl Automata {
             min.cmp(max_ref).to_int()
         } else {
             if min.length == 0 {
-                if min_inclusive {
-                    return Self::make_any_binary();
+                return if min_inclusive {
+                    Self::make_any_binary()
                 } else {
-                    return Self::make_non_empty_binary();
-                }
+                    Self::make_non_empty_binary()
+                };
             }
             -1
         };
 
         if cmp == 0 {
-            if !min_inclusive || !max_inclusive {
-                return Automata::make_empty();
+            return if !min_inclusive || !max_inclusive {
+                Automata::make_empty()
             } else {
-                return Automata::make_binary(min);
-            }
+                Automata::make_binary(min)
+            };
         } else if cmp > 0 {
             return Automata::make_empty();
         }
@@ -287,11 +287,11 @@ impl Automata {
             }
 
             if max_length == min.length {
-                if !min_inclusive {
-                    return Automata::make_empty();
+                return if !min_inclusive {
+                    Automata::make_empty()
                 } else {
-                    return Automata::make_binary(min);
-                }
+                    Automata::make_binary(min)
+                };
             }
 
             let mut a = Automaton::new();

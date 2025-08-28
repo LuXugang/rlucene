@@ -102,7 +102,7 @@ pub trait StoredFieldsWriter {
     /// [`startDocument()`](StoredFieldsWriter::start_document), `writeField`,
     /// and [`finish(int)`](StoredFieldsWriter::finish), returning the number of
     /// documents that were written. Implementations can override this
-    /// method for more sophisticated merging (bulk-byte copying, etc).
+    /// method for more sophisticated merging (bulk-byte copying, etc.).
     fn merge<I, D>(&mut self, merge_state: &mut MergeState<I>, dir: &D) -> Result<i32>
     where
         I: IndexInput,

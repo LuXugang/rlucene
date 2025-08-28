@@ -382,7 +382,7 @@ pub(crate) const TERMS_META_CODEC_NAME: &str = "BlockTreeTermsMeta";
 thread_local! {
     pub(crate) static NO_OUTPUT:BytesRef<Rc<Vec<u8>>> ={let v = ByteSequenceOutputs::get_singleton(); v.get_no_output()};
 }
-pub(super) fn read_bytes_ref<I: IndexInput>(input: &mut I) -> Result<BytesRef<Vec<u8>>> {
+fn read_bytes_ref<I: IndexInput>(input: &mut I) -> Result<BytesRef<Vec<u8>>> {
     let num_bytes = input.read_vint()?;
     if num_bytes < 0 {
         return Err(LuceneError::corrupt_index(format!(
@@ -393,7 +393,7 @@ pub(super) fn read_bytes_ref<I: IndexInput>(input: &mut I) -> Result<BytesRef<Ve
     input.read_bytes(&mut buffer, 0, num_bytes)?;
     Ok(BytesRef::from_slice(buffer, 0, num_bytes as usize))
 }
-pub(super) fn sort_field_names<I, PR>(
+fn sort_field_names<I, PR>(
     field_map: &HashMap<i32, FieldReader<I, PR>>,
     field_infos: &FieldInfos,
 ) -> Result<Vec<String>>

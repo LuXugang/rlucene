@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use std::cmp::Ordering;
-use std::mem;
 
 use crate::util::array_tim_sorter::ArrayTimSorter;
 use crate::util::bit_util::BitUtil;
@@ -143,7 +142,7 @@ impl ArrayUtil {
         T: Default,
     {
         let current_length = vec.len();
-        match (new_length).cmp(&current_length) {
+        match new_length.cmp(&current_length) {
             Ordering::Greater => {
                 for _ in 0..(new_length - current_length) {
                     vec.push(T::default());
@@ -182,7 +181,7 @@ impl ArrayUtil {
     where
         T: Default,
     {
-        let bytes_per_element = mem::size_of::<T>();
+        let bytes_per_element = size_of::<T>();
         Self::grow_exact(vec, Self::oversize(vec.len() + 1, bytes_per_element))
     }
     /// Returns an array whose size is at least {@code minLength}, generally
@@ -226,7 +225,7 @@ impl ArrayUtil {
     {
         let current_size = vec.len();
         if current_size < min_size {
-            let new_size = Self::oversize(min_size, std::mem::size_of::<T>());
+            let new_size = Self::oversize(min_size, size_of::<T>());
             let new_vec = vec![T::default(); new_size];
             Option::from(new_vec)
         } else {
@@ -468,7 +467,7 @@ where
 pub trait ByteArrayComparator {
     /// Compare bytes starting from the given offsets.
     ///
-    /// The return value has the same contract as [`std::cmp::Ord::cmp`].
+    /// The return value has the same contract as [`Ord::cmp`].
     fn compare(&self, a: &[u8], a_i: usize, b: &[u8], b_i: usize) -> i32;
 }
 
@@ -1074,10 +1073,7 @@ mod tests {
 
         let mut vec = vec![1, 2, 3];
         ArrayUtil::grow_in_range(&mut vec, min_length, max_length)?;
-        assert_eq!(
-            ArrayUtil::oversize(min_length, std::mem::size_of::<i32>()),
-            vec.len()
-        );
+        assert_eq!(ArrayUtil::oversize(min_length, size_of::<i32>()), vec.len());
 
         // The array grows to maxLength if maxLength is limiting
         let mut vec = vec![1, 2, 3];

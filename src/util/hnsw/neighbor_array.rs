@@ -453,7 +453,7 @@ mod tests {
         neighbors.add_in_order(0, 0.1)?;
         neighbors.add_in_order(1, 0.3)?;
 
-        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let result = catch_unwind(AssertUnwindSafe(|| {
             neighbors.add_in_order(2, 0.15).unwrap();
         }));
         assert!(result.is_err());
@@ -554,7 +554,7 @@ mod tests {
         let mut neighbors = NeighborArray::new(10, true);
 
         neighbors.add_out_of_order(1, 7.0)?;
-        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let result = catch_unwind(AssertUnwindSafe(|| {
             neighbors.add_in_order(1, 2.0).unwrap();
         }));
         assert!(result.is_err());
@@ -592,7 +592,7 @@ mod tests {
         let mut neighbors = NeighborArray::new(10, true);
         neighbors.add_out_of_order(1, f32::NAN)?;
 
-        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let result = catch_unwind(AssertUnwindSafe(|| {
             neighbors.add_in_order(1, 2.0).unwrap();
         }));
         assert!(result.is_err());
@@ -617,7 +617,7 @@ mod tests {
         let mut neighbors = NeighborArray::new(10, true);
         neighbors.add_out_of_order(11, f32::NAN)?;
 
-        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let result = catch_unwind(AssertUnwindSafe(|| {
             neighbors.add_in_order(1, 2.0).unwrap();
         }));
         assert!(result.is_err());

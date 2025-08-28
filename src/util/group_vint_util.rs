@@ -322,7 +322,7 @@ impl GroupVIntUtil {
                 values[read_pos] as i32,
                 n1_minus1 as usize,
             );
-            write_pos += (n1_minus1) as usize;
+            write_pos += n1_minus1 as usize;
 
             BitUtil::set_i32_le_with_len(
                 &mut scratch[write_pos..],
@@ -330,7 +330,7 @@ impl GroupVIntUtil {
                 values[read_pos + 1] as i32,
                 n2_minus1 as usize,
             );
-            write_pos += (n2_minus1) as usize;
+            write_pos += n2_minus1 as usize;
 
             BitUtil::set_i32_le_with_len(
                 &mut scratch[write_pos..],
@@ -338,7 +338,7 @@ impl GroupVIntUtil {
                 values[read_pos + 2] as i32,
                 n3_minus1 as usize,
             );
-            write_pos += (n3_minus1) as usize;
+            write_pos += n3_minus1 as usize;
 
             BitUtil::set_i32_le_with_len(
                 &mut scratch[write_pos..],
@@ -346,7 +346,7 @@ impl GroupVIntUtil {
                 values[read_pos + 3] as i32,
                 n4_minus1 as usize,
             );
-            write_pos += (n4_minus1) as usize;
+            write_pos += n4_minus1 as usize;
 
             debug_assert!(write_pos <= i32::MAX as usize, "write_pos exceeds u32::MAX");
             data_output.write_bytes_with_len(scratch, write_pos as i32)?;
@@ -393,7 +393,7 @@ impl GroupVIntUtil {
                 values[read_pos],
                 n1_minus1 as usize,
             );
-            write_pos += (n1_minus1) as usize;
+            write_pos += n1_minus1 as usize;
 
             BitUtil::set_i32_le_with_len(
                 &mut scratch[write_pos..],
@@ -401,7 +401,7 @@ impl GroupVIntUtil {
                 values[read_pos + 1],
                 n2_minus1 as usize,
             );
-            write_pos += (n2_minus1) as usize;
+            write_pos += n2_minus1 as usize;
 
             BitUtil::set_i32_le_with_len(
                 &mut scratch[write_pos..],
@@ -409,7 +409,7 @@ impl GroupVIntUtil {
                 values[read_pos + 2],
                 n3_minus1 as usize,
             );
-            write_pos += (n3_minus1) as usize;
+            write_pos += n3_minus1 as usize;
 
             BitUtil::set_i32_le_with_len(
                 &mut scratch[write_pos..],
@@ -417,7 +417,7 @@ impl GroupVIntUtil {
                 values[read_pos + 3],
                 n4_minus1 as usize,
             );
-            write_pos += (n4_minus1) as usize;
+            write_pos += n4_minus1 as usize;
 
             debug_assert!(write_pos <= i32::MAX as usize, "write_pos exceeds u32::MAX");
             data_output.write_bytes_with_len(scratch, write_pos as i32)?;

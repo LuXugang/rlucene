@@ -507,19 +507,19 @@ impl SegmentTermsEnumFrame {
                 frame.suffix_length,
             )?;
 
-            if (code & 1) == 0 {
+            return if (code & 1) == 0 {
                 // Normal term
                 ste.term_exists = true;
                 frame.sub_code = 0;
                 frame.state.get_block_term_state().term_block_ord += 1;
-                return Ok(false);
+                Ok(false)
             } else {
                 // A sub-block; make sub-FP absolute:
                 ste.term_exists = false;
                 frame.sub_code = frame.suffix_lengths_reader.read_vlong()?;
                 frame.last_sub_fp = frame.fp - frame.sub_code;
-                return Ok(true);
-            }
+                Ok(true)
+            };
         }
     }
     pub fn scan_to_floor_frame<I, P>(

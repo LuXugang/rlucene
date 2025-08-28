@@ -41,7 +41,7 @@ use crate::util::priority_queue::{Compare, PriorityQueue};
 /// - Compound Entry Table (.cfe) --> Header, FileCount, <FileName, DataOffset,
 ///   DataLength> <sup>FileCount</sup>
 /// - Header -->
-///   [`CodecUtil::write_index_header`](crate::codecs::codec_util::CodecUtil::write_index_header)
+///   [`CodecUtil::write_index_header`](CodecUtil::write_index_header)
 /// - FileCount -->
 ///   [`DataOutput::write_vint`](crate::store::data_output::DataOutput::write_vint)
 /// - DataOffset, DataLength, Checksum -->
@@ -50,7 +50,7 @@ use crate::util::priority_queue::{Compare, PriorityQueue};
 ///   [`DataOutput::write_string`](crate::store::data_output::DataOutput::write_string)
 /// - FileData --> Raw file data
 /// - Footer -->
-///   [`CodecUtil::write_footer`](crate::codecs::codec_util::CodecUtil::write_footer)
+///   [`CodecUtil::write_footer`](CodecUtil::write_footer)
 ///
 /// # Notes:
 ///

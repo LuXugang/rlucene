@@ -1573,7 +1573,7 @@ impl MutableImpactList {
 // anyway.
 static DUMMY_IMPACTS: Lazy<Vec<Impact>> = Lazy::new(|| vec![Impact::new(i32::MAX, 1)]);
 
-pub(super) fn prefix_sum(buffer: &mut [i32], count: usize, base: i32) {
+fn prefix_sum(buffer: &mut [i32], count: usize, base: i32) {
     buffer[0] += base;
     for i in 1..count {
         buffer[i] += buffer[i - 1];
@@ -1623,7 +1623,7 @@ pub(crate) fn read_impacts(
     reuse.length = length;
     Ok(())
 }
-pub(super) fn sum_over_range(arr: &[i32], start: usize, end: usize) -> i32 {
+fn sum_over_range(arr: &[i32], start: usize, end: usize) -> i32 {
     let mut res = 0;
     for &v in &arr[start..end] {
         res += v;
@@ -1632,10 +1632,7 @@ pub(super) fn sum_over_range(arr: &[i32], start: usize, end: usize) -> i32 {
     res
 }
 
-pub(super) fn prefetch_postings(
-    doc_in: &mut impl IndexInput,
-    state: &IntBlockTermState,
-) -> Result<()> {
+fn prefetch_postings(doc_in: &mut impl IndexInput, state: &IntBlockTermState) -> Result<()> {
     debug_assert!(state.base.doc_freq > 1);
     if doc_in.get_file_pointer() != state.doc_start_fp {
         // Don't prefetch if the input is already positioned at the right

@@ -455,5 +455,5 @@ impl BinaryDVs {
 use crate::util::array_util::ArrayUtil;
 
 // 4 kB block sizes for PagedBytes storage:
-pub(super) const BLOCK_BITS: usize = 12;
-pub(super) const MAX_LENGTH: usize = ArrayUtil::MAX_ARRAY_LENGTH;
+const BLOCK_BITS: usize = 12;
+const MAX_LENGTH: usize = ArrayUtil::MAX_ARRAY_LENGTH;

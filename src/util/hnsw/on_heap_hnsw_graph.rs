@@ -263,7 +263,7 @@ impl HnswGraph for OnHeapHnswGraph {
     }
 
     fn size(&self) -> usize {
-        self.size.load(std::sync::atomic::Ordering::Acquire)
+        self.size.load(Ordering::Acquire)
     }
 
     /// When we initialize from another graph, the max node id is different from
@@ -283,7 +283,7 @@ impl HnswGraph for OnHeapHnswGraph {
             // The graph cannot be concurrently modified (and searched) if
             // we don't know the size beforehand, so it's safe to return the
             // actual maxNodeId
-            self.max_node_id.load(std::sync::atomic::Ordering::Acquire)
+            self.max_node_id.load(Ordering::Acquire)
         }
     }
 

@@ -587,6 +587,10 @@ where
         Ok(ord)
     }
 
+    fn doc_value_count(&mut self) -> Result<i32> {
+        Ok(self.ord_count as i32)
+    }
+
     fn lookup_ord(&mut self, ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
         debug_assert!(ord >= 0 && (ord as usize) < self.ord_map.len());
         let idx: i32 = ord.try_into()?;
@@ -595,15 +599,11 @@ where
         Ok(Cow::Borrowed(&self.scratch))
     }
 
-    type TermsEnum = SortedDocValuesTermsEnum;
-
-    fn doc_value_count(&mut self) -> Result<i32> {
-        Ok(self.ord_count as i32)
-    }
-
     fn get_value_count(&mut self) -> Result<i64> {
         Ok(self.ord_map.len() as i64)
     }
+
+    type TermsEnum = SortedDocValuesTermsEnum;
 
     type SortedDocValues = DummySortedDocValues;
 }

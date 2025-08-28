@@ -27,8 +27,8 @@ use crate::util::packed::{DummyMutable, Mutable, PackedInts, Reader};
 const MIN_BLOCK_SIZE: i32 = 1 << 6;
 const MAX_BLOCK_SIZE: i32 = 1 << 30;
 /// Base implementation for
-/// [`PagedMutable`](crate::util::packed::paged_mutable::PagedMutable) and
-/// [`PagedGrowableWriter`](crate::util::packed::paged_growable_writer::PagedGrowableWriter).
+/// [`PagedMutable`](PagedMutable) and
+/// [`PagedGrowableWriter`](PagedGrowableWriter).
 ///
 ///
 /// # Lucene Internal

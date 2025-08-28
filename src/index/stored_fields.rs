@@ -37,7 +37,7 @@ pub trait StoredFields {
     /// that they could all fit in the page cache. If you plan on retrieving
     /// a very large number of documents, it may be a good idea to perform
     /// calls to [`prefetch`](StoredFields::prefetch) and
-    /// [`document`](crate::document::document::Document) in batches instead of
+    /// [`document`](Document) in batches instead of
     /// prefetching all documents up-front.
     fn prefetch(&mut self, _doc_id: i32) -> Result<()> {
         Ok(())

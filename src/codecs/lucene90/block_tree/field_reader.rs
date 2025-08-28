@@ -263,9 +263,7 @@ where
 ///
 ///
 /// Package-private for testing.
-pub(crate) fn read_msb_vlong(
-    input: &mut impl DataInput,
-) -> crate::util::error::lucene_error::Result<i64> {
+pub(crate) fn read_msb_vlong(input: &mut impl DataInput) -> Result<i64> {
     let mut l: i64 = 0;
     loop {
         let b = input.read_byte()?;

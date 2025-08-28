@@ -192,15 +192,15 @@ impl Util {
 
                 ARCS_FOR_CONTINUOUS => {
                     let target_index = label - arc.label();
-                    if target_index >= arc.num_arcs() {
-                        return Ok(None);
+                    return if target_index >= arc.num_arcs() {
+                        Ok(None)
                     } else if target_index < 0 {
-                        return Ok(Some(()));
+                        Ok(Some(()))
                     } else {
                         fst.read_arc_by_continuous(arc, in_reader, target_index)?;
                         debug_assert_eq!(arc.label(), label);
-                        return Ok(Some(()));
-                    }
+                        Ok(Some(()))
+                    };
                 },
 
                 _ => {
