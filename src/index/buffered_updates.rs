@@ -41,10 +41,6 @@ use crate::util::{
     CounterEnumLock,
 };
 
-//TODO
-
-const BYTES_PER_DEL_QUERY: i64 = 0;
-
 /// Holds buffered deletes and updates, including deletions by docID, term, or
 /// query for a single segment.
 ///
@@ -74,13 +70,6 @@ where
     r#gen: i64,
 
     segment_name: String,
-}
-pub mod buffered_updates_util {
-    /// Rough logic: HashMap has an array with varying load factor.
-    /// Entry consists of Query key, Integer value, int hash, and Entry next.
-    // TODO: memory calculation not implemented
-    pub const BYTES_PER_DEL_QUERY: i32 = 0;
-    pub const MAX_INT: i32 = i32::MAX;
 }
 
 impl<Q> MTBufferedUpdates<Q>
@@ -218,7 +207,7 @@ where
             .is_none()
         {
             self.bytes_used
-                .access_mut(|bytes_used| bytes_used.add_and_get(BYTES_PER_DEL_QUERY));
+                .access_mut(|bytes_used| bytes_used.add_and_get(BYTES_PER_DEL_QUERY as i64));
         }
     }
     pub(crate) fn clear_delete_terms(&mut self) {
@@ -596,6 +585,12 @@ where
 
 // TODO: memory calculation not implemented
 pub(super) const INIT_RAM_BYTES: i64 = 0;
+
+/// Rough logic: HashMap has an array with varying load factor.
+/// Entry consists of Query key, Integer value, int hash, and Entry next.
+// TODO: memory calculation not implemented
+pub const BYTES_PER_DEL_QUERY: i32 = 0;
+pub const MAX_INT: i32 = i32::MAX;
 
 #[cfg(test)]
 mod tests {

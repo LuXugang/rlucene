@@ -20,7 +20,7 @@ use std::sync::atomic::{AtomicI64, Ordering};
 
 use parking_lot::Mutex;
 
-use crate::index::buffered_updates::{BufferedUpdates, MTBufferedUpdates, buffered_updates_util};
+use crate::index::buffered_updates::{BufferedUpdates, MAX_INT, MTBufferedUpdates};
 use crate::index::doc_values_type::DocValuesType;
 use crate::index::doc_values_update::{DocValuesUpdate, DocValuesUpdateBase};
 use crate::index::frozen_buffered_updates::FrozenBufferedUpdates;
@@ -260,7 +260,7 @@ where
                 // global slices tail the next time we can get
                 // the lock!
                 if self.update_slice_no_seq_no(&mut global_state) {
-                    global_state.apply(buffered_updates_util::MAX_INT)?;
+                    global_state.apply(MAX_INT)?;
                 }
             },
             _ => {
@@ -319,7 +319,7 @@ where
         debug_assert!(self.inner.is_locked());
         if !Arc::ptr_eq(&global_state.global_slice.slice_tail, &current_tail) {
             global_state.global_slice.slice_tail = current_tail;
-            global_state.apply(buffered_updates_util::MAX_INT)?;
+            global_state.apply(MAX_INT)?;
         }
 
         if global_state.global_buffered_updates.any() {
@@ -423,7 +423,7 @@ where
 
         if !Arc::ptr_eq(&global_state.global_slice.slice_tail, &current_tail) {
             global_state.global_slice.slice_tail = current_tail;
-            global_state.apply(buffered_updates_util::MAX_INT)?;
+            global_state.apply(MAX_INT)?;
         }
         Ok(global_state.global_buffered_updates.delete_terms.size())
     }
@@ -937,7 +937,7 @@ mod tests {
     use rand::Rng;
 
     use crate::index::buffered_updates::{
-        BufferedUpdates, BufferedUpdatesLock, MTBufferedUpdates, buffered_updates_util,
+        BufferedUpdates, BufferedUpdatesLock, MAX_INT, MTBufferedUpdates,
     };
     use crate::index::doc_values_type::DocValuesType;
     use crate::index::doc_values_update::{
@@ -1174,9 +1174,7 @@ mod tests {
             queue.update_slice(&mut guard.slice)?;
             let deletes = guard.deletes.clone();
             let mut deletes_guard = deletes.lock();
-            guard
-                .slice
-                .apply(&mut deletes_guard, buffered_updates_util::MAX_INT)?;
+            guard.slice.apply(&mut deletes_guard, MAX_INT)?;
             assert_eq!(unique_values, deletes_guard.delete_terms.key_set());
         }
 
@@ -1223,7 +1221,7 @@ mod tests {
                 DocValuesType::Binary,
                 Term::from_text("id".to_string(), "0"),
                 "enabled".to_string(),
-                buffered_updates_util::MAX_INT,
+                MAX_INT,
                 sub_update,
             );
             let result = queue.add_doc_values_updates(vec![update]);
@@ -1293,8 +1291,7 @@ mod tests {
                 assert!(self.slice.is_tail(&term_node));
 
                 let mut guard = self.deletes.lock();
-                self.slice
-                    .apply(&mut *guard, buffered_updates_util::MAX_INT)?;
+                self.slice.apply(&mut *guard, MAX_INT)?;
 
                 i = self.index.fetch_add(1, Ordering::SeqCst) as usize;
             }

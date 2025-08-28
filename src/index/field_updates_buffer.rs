@@ -603,11 +603,8 @@ mod tests {
     use std::collections::BTreeMap;
     use std::sync::Arc;
 
-    use parking_lot::Mutex;
-    use rand::Rng;
-
     use crate::index::BytesRef;
-    use crate::index::buffered_updates::buffered_updates_util;
+    use crate::index::buffered_updates::MAX_INT;
     use crate::index::doc_values_type::DocValuesType;
     use crate::index::doc_values_update::{
         BinaryDocValuesUpdate, DocValuesUpdate, DocValuesUpdateEnum, NumericDocValuesUpdate,
@@ -618,6 +615,8 @@ mod tests {
     use crate::test::util::test_util::TestUtil;
     use crate::util::CounterEnum;
     use crate::util::error::lucene_error::Result;
+    use parking_lot::Mutex;
+    use rand::Rng;
 
     #[allow(dead_code)] // for quick search
     pub struct TestFieldUpdatesBuffer;
@@ -629,7 +628,7 @@ mod tests {
             DocValuesType::Numeric,
             Term::from_text("id".to_string(), "1"),
             "age".to_string(),
-            buffered_updates_util::MAX_INT,
+            MAX_INT,
             DocValuesUpdateEnum::Numeric(NumericDocValuesUpdate::new(Option::from(6))),
         );
         let mut buffer = FieldUpdatesBuffer::from_numeric_update(counter.clone(), &update, 15)?;
@@ -702,7 +701,7 @@ mod tests {
             DocValuesType::Numeric,
             Term::from_text("id".to_string(), "0"),
             "enabled".to_string(),
-            buffered_updates_util::MAX_INT,
+            MAX_INT,
             sub_update,
         );
         let mut buffer =
@@ -766,7 +765,7 @@ mod tests {
             DocValuesType::Binary,
             Term::from_text("id".to_string(), "0"),
             "enabled".to_string(),
-            buffered_updates_util::MAX_INT,
+            MAX_INT,
             sub_update,
         );
         let mut buffer =
@@ -846,7 +845,7 @@ mod tests {
             DocValuesType::Binary,
             Term::from_text(term_field.to_string(), &doc_id),
             "enabled".to_string(),
-            buffered_updates_util::MAX_INT,
+            MAX_INT,
             sub_update,
         );
         if rarely(random) {
@@ -874,7 +873,7 @@ mod tests {
             DocValuesType::Numeric,
             Term::from_text(term_field.to_string(), &doc_id),
             "numeric".to_string(),
-            buffered_updates_util::MAX_INT,
+            MAX_INT,
             sub_update,
         );
 
@@ -998,7 +997,7 @@ mod tests {
             DocValuesType::Numeric,
             Term::from_text("id".to_string(), "1"),
             "age".to_string(),
-            buffered_updates_util::MAX_INT,
+            MAX_INT,
             DocValuesUpdateEnum::Numeric(NumericDocValuesUpdate::new(None)),
         );
 
@@ -1029,7 +1028,7 @@ mod tests {
                 &random.random_range(0..1000).to_string(),
             ),
             "numeric".to_string(),
-            buffered_updates_util::MAX_INT,
+            MAX_INT,
             DocValuesUpdateEnum::Numeric(NumericDocValuesUpdate::new(Some(doc_value))),
         );
         if let Some(v) = random_update.prepare_for_apply(0) {
@@ -1048,7 +1047,7 @@ mod tests {
                     &random.random_range(0..1000).to_string(),
                 ),
                 "numeric".to_string(),
-                buffered_updates_util::MAX_INT,
+                MAX_INT,
                 DocValuesUpdateEnum::Numeric(NumericDocValuesUpdate::new(Some(doc_value))),
             );
             if let Some(v) = random_update.prepare_for_apply(i + 1) {
