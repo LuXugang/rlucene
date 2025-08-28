@@ -20,7 +20,7 @@ use crate::store::{DataInput, DataOutput};
 use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fst_impl::fst::Either2BytesReader;
-use crate::util::fst_impl::fst_compiler::fst_compiler_util;
+use crate::util::fst_impl::fst_compiler::get_on_heap_reader_writer;
 use crate::util::fst_impl::fst_reader::FstReader;
 use crate::util::fst_impl::read_write_data_output::{BytesReaderImpl, ReadWriteDataOutput};
 use crate::util::fst_impl::reverse_bytes_reader::ReverseBytesReader;
@@ -44,7 +44,7 @@ impl OnHeapFSTStore {
         }
 
         if num_bytes > (1_i64 << max_block_bits) {
-            let mut data_output = fst_compiler_util::get_on_heap_reader_writer(max_block_bits)?;
+            let mut data_output = get_on_heap_reader_writer(max_block_bits)?;
             data_output.copy_bytes(input, num_bytes)?;
             data_output.freeze()?;
             Ok(Self {

@@ -14,9 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::codecs::lucene90::block_tree::lucene90_block_tree_terms_reader::{
-    TermsReader, lucene90_bttr_util,
-};
+use crate::codecs::block_tree::lucene90_block_tree_terms_reader::VERSION_MSB_VLONG_OUTPUT;
+use crate::codecs::lucene90::block_tree::lucene90_block_tree_terms_reader::TermsReader;
 use crate::codecs::lucene90::block_tree::segment_terms_enum::SegmentTermsEnum;
 use crate::codecs::postings_reader_base::PostingsReaderBase;
 use crate::index::BytesRef;
@@ -129,7 +128,7 @@ where
     }
     pub(crate) fn read_vlong_output(&self, input: &mut impl DataInput) -> Result<i64> {
         let version = self.parent.version;
-        if version >= lucene90_bttr_util::VERSION_MSB_VLONG_OUTPUT {
+        if version >= VERSION_MSB_VLONG_OUTPUT {
             field_reader_util::read_msb_vlong(input)
         } else {
             input.read_vlong()

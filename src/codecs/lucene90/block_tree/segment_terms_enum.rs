@@ -19,8 +19,10 @@ use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 
 use crate::codecs::block_term_state::BlockTermStateEnum;
+use crate::codecs::block_tree::lucene90_block_tree_terms_reader::{
+    NO_OUTPUT, OUTPUT_FLAG_HAS_TERMS, OUTPUT_FLAG_IS_FLOOR, OUTPUT_FLAGS_NUM_BITS,
+};
 use crate::codecs::lucene90::block_tree::field_reader::FieldReader;
-use crate::codecs::lucene90::block_tree::lucene90_block_tree_terms_reader::lucene90_bttr_util;
 use crate::codecs::lucene90::block_tree::segment_terms_enum_frame::SegmentTermsEnumFrame;
 use crate::codecs::postings_reader_base::PostingsReaderBase;
 use crate::index::base_terms_enum::BaseTermsEnum;
@@ -157,7 +159,7 @@ where
     ) -> Result<usize> {
         self.output_accumulator.prepare_read();
         let code = self.fr.read_vlong_output(&mut self.output_accumulator)?;
-        let fp_seek = ((code as u64) >> lucene90_bttr_util::OUTPUT_FLAGS_NUM_BITS) as i64;
+        let fp_seek = ((code as u64) >> OUTPUT_FLAGS_NUM_BITS) as i64;
         let current_ord = if self.current_frame_idx == self.static_frame_idx {
             -1
         } else {
@@ -166,9 +168,9 @@ where
         let ord = (current_ord + 1) as usize;
         self.get_frame(ord)?;
         let f = &mut self.stack[ord];
-        f.has_terms = (code & lucene90_bttr_util::OUTPUT_FLAG_HAS_TERMS as i64) != 0;
+        f.has_terms = (code & OUTPUT_FLAG_HAS_TERMS as i64) != 0;
         f.has_terms_orig = f.has_terms;
-        f.is_floor = (code & lucene90_bttr_util::OUTPUT_FLAG_IS_FLOOR as i64) != 0;
+        f.is_floor = (code & OUTPUT_FLAG_IS_FLOOR as i64) != 0;
 
         if f.is_floor {
             f.set_floor_data(&self.output_accumulator)?;
@@ -943,7 +945,7 @@ impl OutputAccumulator {
         }
     }
     pub(crate) fn push(&mut self, output: BytesRef<Rc<Vec<u8>>>) {
-        if !lucene90_bttr_util::NO_OUTPUT.with(|rc| BytesRef::equals(&output, rc)) {
+        if !NO_OUTPUT.with(|rc| BytesRef::equals(&output, rc)) {
             debug_assert!(output.length > 0);
             if self.outputs.len() == self.num {
                 self.outputs.resize(self.num + 1, BytesRef::new());
@@ -954,7 +956,7 @@ impl OutputAccumulator {
     }
 
     pub(crate) fn pop(&mut self, output: &BytesRef<Rc<Vec<u8>>>) {
-        if !lucene90_bttr_util::NO_OUTPUT.with(|rc| BytesRef::equals(output, rc)) {
+        if !NO_OUTPUT.with(|rc| BytesRef::equals(output, rc)) {
             debug_assert!(self.num > 0);
             debug_assert!(&self.outputs[self.num - 1] == output);
             self.num -= 1;

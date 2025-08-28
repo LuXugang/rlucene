@@ -16,7 +16,8 @@
  */
 use crate::codecs::CodecUtil;
 use crate::codecs::doc_values_enum::norms::Lucene90NormNumericDocValuesEnum;
-use crate::codecs::indexed_disi::indexed_disi_util;
+
+use crate::codecs::indexed_disi::{create_block_slice, create_jump_table};
 use crate::codecs::lucene90::indexed_disi::IndexedDISI;
 use crate::codecs::lucene90_norms_format::Lucene90NormsFormat;
 use crate::codecs::norms_producer::NormsProducer;
@@ -263,7 +264,7 @@ where
             return Ok(Rc::clone(jump_table));
         }
 
-        let jump_table = indexed_disi_util::create_jump_table(
+        let jump_table = create_jump_table(
             &self.data,
             entry.docs_with_field_offset,
             entry.docs_with_field_length,
@@ -292,7 +293,7 @@ where
     ) -> Result<Rc<RefCell<I::Slice>>> {
         // TODO: Due to the generic constraints, following the Java Lucene
         // implementation currently makes it impossible to cache the Slice.
-        let input = indexed_disi_util::create_block_slice(
+        let input = create_block_slice(
             &self.data,
             "docs",
             entry.docs_with_field_offset,
@@ -302,7 +303,7 @@ where
         Ok(Rc::new(RefCell::new(input)))
 
         // if !self.merging {
-        //     let input = indexed_disi_util::create_block_slice(
+        //     let input = create_block_slice(
         //         &mut self.data,
         //         "docs",
         //         entry.docs_with_field_offset,
@@ -316,7 +317,7 @@ where
         //     return Ok(Rc::clone(existing));
         // }
         //
-        // let input = indexed_disi_util::create_block_slice(
+        // let input = create_block_slice(
         //     &mut self.data,
         //     "docs",
         //     entry.docs_with_field_offset,

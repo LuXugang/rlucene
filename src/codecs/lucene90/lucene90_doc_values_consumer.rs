@@ -23,7 +23,7 @@ use crate::codecs::dummy::dummy_numeric_doc_values::DummyNumericDocValues;
 use crate::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNumericDocValues;
 use crate::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocValues;
-use crate::codecs::indexed_disi::indexed_disi_util;
+use crate::codecs::indexed_disi::{DEFAULT_DENSE_RANK_POWER, write_bitset_with_dense_rank_power};
 use crate::codecs::lucene90_doc_values_format::Lucene90DocValuesFormat;
 use crate::index::binary_doc_values::BinaryDocValues;
 use crate::index::doc_values::DocValues;
@@ -366,17 +366,16 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
             self.meta.write_long(offset)?; // docsWithFieldOffset
 
             let mut values = values_producer.get_sorted_numeric(field)?;
-            let jump_table_entry_count = indexed_disi_util::write_bitset_with_dense_rank_power(
+            let jump_table_entry_count = write_bitset_with_dense_rank_power(
                 &mut values,
                 &mut self.data,
-                indexed_disi_util::DEFAULT_DENSE_RANK_POWER,
+                DEFAULT_DENSE_RANK_POWER,
             )?;
 
             self.meta
                 .write_long(self.data.get_file_pointer() - offset)?;
             self.meta.write_short(jump_table_entry_count)?;
-            self.meta
-                .write_byte(indexed_disi_util::DEFAULT_DENSE_RANK_POWER as u8)?;
+            self.meta.write_byte(DEFAULT_DENSE_RANK_POWER as u8)?;
         }
 
         self.meta.write_long(num_values)?;
@@ -966,16 +965,15 @@ where
             let offset = self.data.get_file_pointer();
             self.meta.write_long(offset)?; // docsWithFieldOffset
             let mut values = values_producer.get_binary(field)?;
-            let jump_table_entry_count = indexed_disi_util::write_bitset_with_dense_rank_power(
+            let jump_table_entry_count = write_bitset_with_dense_rank_power(
                 &mut values,
                 &mut self.data,
-                indexed_disi_util::DEFAULT_DENSE_RANK_POWER,
+                DEFAULT_DENSE_RANK_POWER,
             )?;
             self.meta
                 .write_long(self.data.get_file_pointer() - offset)?; //docsWithFieldLength
             self.meta.write_short(jump_table_entry_count)?;
-            self.meta
-                .write_byte(indexed_disi_util::DEFAULT_DENSE_RANK_POWER as u8)?;
+            self.meta.write_byte(DEFAULT_DENSE_RANK_POWER as u8)?;
         }
 
         self.meta.write_int(num_docs_with_field)?;

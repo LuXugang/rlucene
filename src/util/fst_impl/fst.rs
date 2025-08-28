@@ -838,7 +838,7 @@ pub mod fst_util {
     use crate::store::{DataInput, DataOutput};
     use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::fst_impl::fst::{Arc, BytesReader, FSTMetadata, InputType};
-    use crate::util::fst_impl::fst_compiler::fst_compiler_util;
+    use crate::util::fst_impl::fst_compiler::get_on_heap_reader_writer;
     use crate::util::fst_impl::fst_reader::FstReader;
     use crate::util::fst_impl::outputs::{Outputs, OutputsBound};
 
@@ -937,7 +937,7 @@ pub mod fst_util {
         if meta_in.read_byte()? == 1 {
             // Accepts empty string
             // 1 KB blocks:
-            let mut empty_bytes = fst_compiler_util::get_on_heap_reader_writer(10)?;
+            let mut empty_bytes = get_on_heap_reader_writer(10)?;
             let num_bytes = meta_in.read_vint()?;
             empty_bytes.copy_bytes(meta_in, num_bytes as i64)?;
             empty_bytes.freeze()?;
@@ -1495,7 +1495,7 @@ mod tests {
     use crate::store::output_stream_data_output::OutputStreamDataOutput;
     use crate::store::{ByteArrayDataInput, FSDirectory, IOContext, NativeFSLockFactory};
     use crate::test::util::fst::fst_tester::{
-        DummyFSTTesterBaseImpl, FSTTester, InputOutput, fst_tester_util,
+        DummyFSTTesterBaseImpl, FSTTester, InputOutput, get_random_string, to_ints_ref_from_string,
     };
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
         at_least, is_night_mode, new_bytes_ref_from_string, new_directory, random, random_from_seed,
@@ -1684,8 +1684,8 @@ mod tests {
                     let mut terms_set = HashSet::new();
 
                     while terms_set.len() < num_words {
-                        let term = fst_tester_util::get_random_string(random);
-                        let ints_ref = fst_tester_util::to_ints_ref_from_string(&term, input_mode);
+                        let term = get_random_string(random);
+                        let ints_ref = to_ints_ref_from_string(&term, input_mode);
                         terms_set.insert(ints_ref);
                     }
 
@@ -1724,13 +1724,11 @@ mod tests {
         for input_mode in 0..2 {
             let terms: Vec<_> = strings
                 .iter()
-                .map(|s| {
-                    fst_tester_util::to_ints_ref_from_string::<Rc<RefCell<Vec<i32>>>>(s, input_mode)
-                })
+                .map(|s| to_ints_ref_from_string::<Rc<RefCell<Vec<i32>>>>(s, input_mode))
                 .collect();
             let mut terms2: Vec<_> = strings2
                 .iter()
-                .map(|s| fst_tester_util::to_ints_ref_from_string(s, input_mode))
+                .map(|s| to_ints_ref_from_string(s, input_mode))
                 .collect();
             terms2.sort();
             let test_fsts = TestFSTs::new(&mut random)?;
@@ -1828,8 +1826,8 @@ mod tests {
                 let mut terms_set = HashSet::new();
 
                 while terms_set.len() < num_words {
-                    let term = fst_tester_util::get_random_string(random);
-                    let ints_ref = fst_tester_util::to_ints_ref_from_string(&term, input_mode);
+                    let term = get_random_string(random);
+                    let ints_ref = to_ints_ref_from_string(&term, input_mode);
                     terms_set.insert(ints_ref);
                 }
 

@@ -95,19 +95,16 @@ where
     {
         let segment = segment_info.name.clone();
 
-        let terms_name = IndexFileNames::segment_file_name(
-            &segment,
-            &state.segment_suffix,
-            lucene90_bttr_util::TERMS_EXTENSION,
-        );
+        let terms_name =
+            IndexFileNames::segment_file_name(&segment, &state.segment_suffix, TERMS_EXTENSION);
 
         let mut terms_in = state.directory.open_input(&terms_name, state.context)?;
 
         let version = CodecUtil::check_index_header(
             &mut terms_in,
-            lucene90_bttr_util::TERMS_CODEC_NAME,
-            lucene90_bttr_util::VERSION_START,
-            lucene90_bttr_util::VERSION_CURRENT,
+            TERMS_CODEC_NAME,
+            VERSION_START,
+            VERSION_CURRENT,
             segment_info.get_id(),
             &state.segment_suffix,
         )?;
@@ -115,7 +112,7 @@ where
         let index_name = IndexFileNames::segment_file_name(
             &segment,
             &state.segment_suffix,
-            lucene90_bttr_util::TERMS_INDEX_EXTENSION,
+            TERMS_INDEX_EXTENSION,
         );
 
         let mut index_in = state.directory.open_input(
@@ -125,7 +122,7 @@ where
 
         CodecUtil::check_index_header(
             &mut index_in,
-            lucene90_bttr_util::TERMS_INDEX_CODEC_NAME,
+            TERMS_INDEX_CODEC_NAME,
             version,
             version,
             segment_info.get_id(),
@@ -135,7 +132,7 @@ where
         let meta_name = IndexFileNames::segment_file_name(
             &segment,
             &state.segment_suffix,
-            lucene90_bttr_util::TERMS_META_EXTENSION,
+            TERMS_META_EXTENSION,
         );
 
         let mut field_map = HashMap::new();
@@ -156,7 +153,7 @@ where
         let result: Result<()> = (|| {
             CodecUtil::check_index_header(
                 &mut meta_in,
-                lucene90_bttr_util::TERMS_META_CODEC_NAME,
+                TERMS_META_CODEC_NAME,
                 version,
                 version,
                 segment_info.get_id(),
@@ -182,7 +179,7 @@ where
                     )));
                 }
 
-                let root_code = lucene90_bttr_util::read_bytes_ref(&mut meta_in)?;
+                let root_code = read_bytes_ref(&mut meta_in)?;
                 let field_info =
                     state
                         .field_infos
@@ -201,8 +198,8 @@ where
                 };
 
                 let doc_count = meta_in.read_vint()?;
-                let min_term = Rc::new(lucene90_bttr_util::read_bytes_ref(&mut meta_in)?);
-                let mut max_term = Rc::new(lucene90_bttr_util::read_bytes_ref(&mut meta_in)?);
+                let min_term = Rc::new(read_bytes_ref(&mut meta_in)?);
+                let mut max_term = Rc::new(read_bytes_ref(&mut meta_in)?);
 
                 if num_terms == 1 {
                     assert_eq!(max_term, min_term);
@@ -277,7 +274,7 @@ where
         // are likely correct
         CodecUtil::retrieve_checksum_with_expected(&mut *index_in.borrow_mut(), index_length)?;
 
-        let field_list = lucene90_bttr_util::sort_field_names(&field_map, &state.field_infos)?;
+        let field_list = sort_field_names(&field_map, &state.field_infos)?;
         Ok(Lucene90BlockTreeTermsReader {
             terms_reader,
             index_in,
@@ -355,78 +352,68 @@ where
     }
 }
 
-pub mod lucene90_bttr_util {
-    use std::collections::HashMap;
-    use std::rc::Rc;
+use crate::index::BytesRef;
+use crate::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs;
+use crate::util::fst_impl::outputs::Outputs;
 
-    use crate::codecs::block_tree::field_reader::FieldReader;
-    use crate::codecs::postings_reader_base::PostingsReaderBase;
-    use crate::index::BytesRef;
-    use crate::index::field_infos::FieldInfos;
-    use crate::store::IndexInput;
-    use crate::util::error::lucene_error::{LuceneError, Result};
-    use crate::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs;
-    use crate::util::fst_impl::outputs::Outputs;
+pub(crate) const OUTPUT_FLAGS_NUM_BITS: i32 = 2;
+pub(crate) const OUTPUT_FLAGS_MASK: i32 = 0x3;
+pub(crate) const OUTPUT_FLAG_IS_FLOOR: i32 = 0x1;
+pub(crate) const OUTPUT_FLAG_HAS_TERMS: i32 = 0x2;
 
-    pub(crate) const OUTPUT_FLAGS_NUM_BITS: i32 = 2;
-    pub(crate) const OUTPUT_FLAGS_MASK: i32 = 0x3;
-    pub(crate) const OUTPUT_FLAG_IS_FLOOR: i32 = 0x1;
-    pub(crate) const OUTPUT_FLAG_HAS_TERMS: i32 = 0x2;
-
-    /// Extension of terms file
-    pub(crate) const TERMS_EXTENSION: &str = "tim";
-    pub(crate) const TERMS_CODEC_NAME: &str = "BlockTreeTermsDict";
-    /// Initial terms format
-    pub const VERSION_START: i32 = 0;
-    /// Version that encodes output as MSB VLong for better FST sharing
-    /// (GITHUB#12620)
-    pub const VERSION_MSB_VLONG_OUTPUT: i32 = 1;
-    /// Version that specializes arc store for continuous label in FST
-    pub const VERSION_FST_CONTINUOUS_ARCS: i32 = 2;
-    /// Current terms format version
-    pub const VERSION_CURRENT: i32 = VERSION_FST_CONTINUOUS_ARCS;
-    /// Extension of terms index file
-    pub(crate) const TERMS_INDEX_EXTENSION: &str = "tip";
-    pub(crate) const TERMS_INDEX_CODEC_NAME: &str = "BlockTreeTermsIndex";
-    /// Extension of terms meta file
-    pub(crate) const TERMS_META_EXTENSION: &str = "tmd";
-    pub(crate) const TERMS_META_CODEC_NAME: &str = "BlockTreeTermsMeta";
-    thread_local! {
-        pub(crate) static NO_OUTPUT:BytesRef<Rc<Vec<u8>>> ={let v = ByteSequenceOutputs::get_singleton(); v.get_no_output()};
+/// Extension of terms file
+pub(crate) const TERMS_EXTENSION: &str = "tim";
+pub(crate) const TERMS_CODEC_NAME: &str = "BlockTreeTermsDict";
+/// Initial terms format
+pub const VERSION_START: i32 = 0;
+/// Version that encodes output as MSB VLong for better FST sharing
+/// (GITHUB#12620)
+pub const VERSION_MSB_VLONG_OUTPUT: i32 = 1;
+/// Version that specializes arc store for continuous label in FST
+pub const VERSION_FST_CONTINUOUS_ARCS: i32 = 2;
+/// Current terms format version
+pub const VERSION_CURRENT: i32 = VERSION_FST_CONTINUOUS_ARCS;
+/// Extension of terms index file
+pub(crate) const TERMS_INDEX_EXTENSION: &str = "tip";
+pub(crate) const TERMS_INDEX_CODEC_NAME: &str = "BlockTreeTermsIndex";
+/// Extension of terms meta file
+pub(crate) const TERMS_META_EXTENSION: &str = "tmd";
+pub(crate) const TERMS_META_CODEC_NAME: &str = "BlockTreeTermsMeta";
+thread_local! {
+    pub(crate) static NO_OUTPUT:BytesRef<Rc<Vec<u8>>> ={let v = ByteSequenceOutputs::get_singleton(); v.get_no_output()};
+}
+pub(super) fn read_bytes_ref<I: IndexInput>(input: &mut I) -> Result<BytesRef<Vec<u8>>> {
+    let num_bytes = input.read_vint()?;
+    if num_bytes < 0 {
+        return Err(LuceneError::corrupt_index(format!(
+            "invalid bytes length: {num_bytes} (resource={input})"
+        )));
     }
-    pub(super) fn read_bytes_ref<I: IndexInput>(input: &mut I) -> Result<BytesRef<Vec<u8>>> {
-        let num_bytes = input.read_vint()?;
-        if num_bytes < 0 {
-            return Err(LuceneError::corrupt_index(format!(
-                "invalid bytes length: {num_bytes} (resource={input})"
-            )));
-        }
-        let mut buffer = vec![0u8; num_bytes as usize];
-        input.read_bytes(&mut buffer, 0, num_bytes)?;
-        Ok(BytesRef::from_slice(buffer, 0, num_bytes as usize))
-    }
-    pub(super) fn sort_field_names<I, PR>(
-        field_map: &HashMap<i32, FieldReader<I, PR>>,
-        field_infos: &FieldInfos,
-    ) -> Result<Vec<String>>
-    where
-        I: IndexInput,
-        PR: PostingsReaderBase,
-    {
-        let mut field_names = Vec::with_capacity(field_map.len());
+    let mut buffer = vec![0u8; num_bytes as usize];
+    input.read_bytes(&mut buffer, 0, num_bytes)?;
+    Ok(BytesRef::from_slice(buffer, 0, num_bytes as usize))
+}
+pub(super) fn sort_field_names<I, PR>(
+    field_map: &HashMap<i32, FieldReader<I, PR>>,
+    field_infos: &FieldInfos,
+) -> Result<Vec<String>>
+where
+    I: IndexInput,
+    PR: PostingsReaderBase,
+{
+    let mut field_names = Vec::with_capacity(field_map.len());
 
-        for field_number in field_map.keys() {
-            let field_info = field_infos
-                .field_info_by_number(*field_number)?
-                .ok_or_else(|| {
-                    LuceneError::illegal_state(format!(
-                        "Missing field info for field number {field_number}"
-                    ))
-                })?;
-            field_names.push(field_info.name.clone());
-        }
-
-        field_names.sort();
-        Ok(field_names)
+    for field_number in field_map.keys() {
+        let field_info = field_infos
+            .field_info_by_number(*field_number)?
+            .ok_or_else(|| {
+                LuceneError::illegal_state(format!(
+                    "Missing field info for field number {field_number}"
+                ))
+            })?;
+        field_names.push(field_info.name.clone());
     }
+
+    field_names.sort();
+    Ok(field_names)
 }

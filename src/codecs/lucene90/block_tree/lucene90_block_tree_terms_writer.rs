@@ -17,7 +17,12 @@
 use crate::codecs::CodecUtil;
 use crate::codecs::block_term_state::BlockTermStateEnum;
 use crate::codecs::block_tree::compression_algorithm::CompressionAlgorithm;
-use crate::codecs::block_tree::lucene90_block_tree_terms_reader::lucene90_bttr_util;
+
+use crate::codecs::block_tree::lucene90_block_tree_terms_reader::{
+    TERMS_CODEC_NAME, TERMS_EXTENSION, TERMS_INDEX_CODEC_NAME, TERMS_INDEX_EXTENSION,
+    TERMS_META_CODEC_NAME, TERMS_META_EXTENSION, VERSION_CURRENT, VERSION_MSB_VLONG_OUTPUT,
+    VERSION_START,
+};
 use crate::codecs::fields_consumer::FieldsConsumer;
 use crate::codecs::norms_producer::NormsProducer;
 use crate::codecs::postings_writer_base::PostingsWriterBase;
@@ -46,7 +51,7 @@ use crate::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs;
 use crate::util::fst_impl::bytes_ref_fst_enum::BytesRefFSTEnum;
 use crate::util::fst_impl::fst::{FST, InputType, fst_util};
 use crate::util::fst_impl::fst_compiler::{
-    Builder, DataOutputEnum, FSTCompiler, fst_compiler_util,
+    Builder, DataOutputEnum, FSTCompiler, get_on_heap_reader_writer,
 };
 use crate::util::fst_impl::util::Util;
 use crate::util::ints_ref_builder::IntsRefBuilder;
@@ -241,7 +246,7 @@ where
             postings_writer,
             min_items_in_block,
             max_items_in_block,
-            lucene90_bttr_util::VERSION_CURRENT,
+            VERSION_CURRENT,
             segment_info,
         )
     }
@@ -259,14 +264,10 @@ where
     {
         Self::validate_settings(min_items_in_block, max_items_in_block)?;
 
-        if !(lucene90_bttr_util::VERSION_START..=lucene90_bttr_util::VERSION_CURRENT)
-            .contains(&version)
-        {
+        if !(VERSION_START..=VERSION_CURRENT).contains(&version) {
             return Err(LuceneError::illegal_argument(format!(
                 "Expected version in range [{}, {}], but got {}",
-                lucene90_bttr_util::VERSION_START,
-                lucene90_bttr_util::VERSION_CURRENT,
-                version
+                VERSION_START, VERSION_CURRENT, version
             )));
         }
 
@@ -276,12 +277,12 @@ where
         let terms_name = IndexFileNames::segment_file_name(
             &segment_info.name,
             &state.segment_suffix,
-            lucene90_bttr_util::TERMS_EXTENSION,
+            TERMS_EXTENSION,
         );
         let mut terms_out = state.directory.create_output(&terms_name, state.context)?;
         CodecUtil::write_index_header(
             &mut terms_out,
-            lucene90_bttr_util::TERMS_CODEC_NAME,
+            TERMS_CODEC_NAME,
             version,
             segment_info.get_id(),
             &state.segment_suffix,
@@ -289,12 +290,12 @@ where
         let index_name = IndexFileNames::segment_file_name(
             &segment_info.name,
             &state.segment_suffix,
-            lucene90_bttr_util::TERMS_INDEX_EXTENSION,
+            TERMS_INDEX_EXTENSION,
         );
         let mut index_out = state.directory.create_output(&index_name, state.context)?;
         CodecUtil::write_index_header(
             &mut index_out,
-            lucene90_bttr_util::TERMS_INDEX_CODEC_NAME,
+            TERMS_INDEX_CODEC_NAME,
             version,
             segment_info.get_id(),
             &state.segment_suffix,
@@ -302,12 +303,12 @@ where
         let meta_name = IndexFileNames::segment_file_name(
             &segment_info.name,
             &state.segment_suffix,
-            lucene90_bttr_util::TERMS_META_EXTENSION,
+            TERMS_META_EXTENSION,
         );
         let mut meta_out = state.directory.create_output(&meta_name, state.context)?;
         CodecUtil::write_index_header(
             &mut meta_out,
-            lucene90_bttr_util::TERMS_META_CODEC_NAME,
+            TERMS_META_CODEC_NAME,
             version,
             segment_info.get_id(),
             &state.segment_suffix,
@@ -507,13 +508,9 @@ impl PendingBlock {
 
         let (is_floor, fp, prefix_len) = {
             let first_block = &mut blocks[0];
-            let output = lucene90_bttw_util::encode_output(
-                first_block.fp,
-                first_block.has_terms,
-                first_block.is_floor,
-            );
-            if version >= lucene90_bttr_util::VERSION_MSB_VLONG_OUTPUT {
-                lucene90_bttw_util::write_msb_vlong(scratch_bytes, output)?;
+            let output = encode_output(first_block.fp, first_block.has_terms, first_block.is_floor);
+            if version >= VERSION_MSB_VLONG_OUTPUT {
+                write_msb_vlong(scratch_bytes, output)?;
             } else {
                 scratch_bytes.write_vlong(output)?;
             }
@@ -547,7 +544,7 @@ impl PendingBlock {
         let page_bits = estimate_bits_required.clamp(6, 15);
 
         let outputs = ByteSequenceOutputs::get_singleton();
-        let fst_version = if version >= lucene90_bttr_util::VERSION_CURRENT {
+        let fst_version = if version >= VERSION_CURRENT {
             fst_util::VERSION_CURRENT
         } else {
             fst_util::VERSION_90
@@ -557,9 +554,9 @@ impl PendingBlock {
         // Disable suffixes sharing for block tree index because suffixes are mostly
         // dropped from the FST index and left in the term blocks.
         builder.suffix_ram_limit_mb(0.0)?;
-        builder.data_output(DataOutputEnum::ReadWriter(
-            fst_compiler_util::get_on_heap_reader_writer(page_bits)?,
-        ));
+        builder.data_output(DataOutputEnum::ReadWriter(get_on_heap_reader_writer(
+            page_bits,
+        )?));
         builder.with_version(fst_version)?;
         let mut fst_compiler = builder.build()?;
 
@@ -1298,57 +1295,55 @@ where
     }
 }
 
-pub(crate) mod lucene90_bttw_util {
-    use crate::codecs::block_tree::lucene90_block_tree_terms_reader::lucene90_bttr_util;
-    use crate::store::DataOutput;
-    use crate::util::error::lucene_error::Result;
-
-    pub(crate) const DEFAULT_MIN_BLOCK_SIZE: i32 = 25;
-    pub(crate) const DEFAULT_MAX_BLOCK_SIZE: i32 = 48;
-
-    pub fn encode_output(fp: i64, has_terms: bool, is_floor: bool) -> i64 {
-        debug_assert!(fp < (1i64 << 62));
-        (fp << 2)
-            | if has_terms {
-                lucene90_bttr_util::OUTPUT_FLAG_HAS_TERMS as i64
-            } else {
-                0
-            }
-            | if is_floor {
-                lucene90_bttr_util::OUTPUT_FLAG_IS_FLOOR as i64
-            } else {
-                0
-            }
-    }
-    /// Encodes long value to variable length byte[], in MSB order.
-    pub(crate) fn write_msb_vlong(out: &mut impl DataOutput, mut l: i64) -> Result<()> {
-        debug_assert!(l >= 0);
-        // Keep zero bits on most significant byte to have more chance to get prefix
-        // bytes shared. e.g. we expect 0x7FFF stored as [0x81, 0xFF, 0x7F] but
-        // not [0xFF, 0xFF, 0x40]
-        let bits = 64 - l.leading_zeros();
-        let bytes_needed = ((bits.saturating_sub(1)) / 7 + 1) as usize;
-        l <<= 64 - bytes_needed * 7;
-        for _ in 1..bytes_needed {
-            let byte = ((l >> 57) & 0x7F) as u8 | 0x80;
-            out.write_byte(byte)?;
-            l <<= 7;
-        }
-        let last_byte = ((l >> 57) & 0x7F) as u8;
-        out.write_byte(last_byte)?;
-        Ok(())
-    }
-}
-
 enum PendingEntryEnum {
     Term(PendingTerm),
     Block(PendingBlock),
 }
 
+use crate::codecs::block_tree::lucene90_block_tree_terms_reader::{
+    OUTPUT_FLAG_HAS_TERMS, OUTPUT_FLAG_IS_FLOOR,
+};
+
+pub(crate) const DEFAULT_MIN_BLOCK_SIZE: i32 = 25;
+pub(crate) const DEFAULT_MAX_BLOCK_SIZE: i32 = 48;
+
+pub fn encode_output(fp: i64, has_terms: bool, is_floor: bool) -> i64 {
+    debug_assert!(fp < (1i64 << 62));
+    (fp << 2)
+        | if has_terms {
+            OUTPUT_FLAG_HAS_TERMS as i64
+        } else {
+            0
+        }
+        | if is_floor {
+            OUTPUT_FLAG_IS_FLOOR as i64
+        } else {
+            0
+        }
+}
+/// Encodes long value to variable length byte[], in MSB order.
+pub(crate) fn write_msb_vlong(out: &mut impl DataOutput, mut l: i64) -> Result<()> {
+    debug_assert!(l >= 0);
+    // Keep zero bits on most significant byte to have more chance to get prefix
+    // bytes shared. e.g. we expect 0x7FFF stored as [0x81, 0xFF, 0x7F] but
+    // not [0xFF, 0xFF, 0x40]
+    let bits = 64 - l.leading_zeros();
+    let bytes_needed = ((bits.saturating_sub(1)) / 7 + 1) as usize;
+    l <<= 64 - bytes_needed * 7;
+    for _ in 1..bytes_needed {
+        let byte = ((l >> 57) & 0x7F) as u8 | 0x80;
+        out.write_byte(byte)?;
+        l <<= 7;
+    }
+    let last_byte = ((l >> 57) & 0x7F) as u8;
+    out.write_byte(last_byte)?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use crate::codecs::block_tree::field_reader::field_reader_util;
-    use crate::codecs::block_tree::lucene90_block_tree_terms_writer::lucene90_bttw_util;
+    use crate::codecs::block_tree::lucene90_block_tree_terms_writer::write_msb_vlong;
     use crate::store::{ByteArrayDataInput, ByteArrayDataOutput};
     use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
     use crate::util::error::lucene_error::Result;
@@ -1369,7 +1364,7 @@ mod tests {
     fn assert_msb_vlong(l: i64) -> Result<()> {
         let buffer = vec![0u8; 10];
         let mut output = ByteArrayDataOutput::with_bytes(buffer);
-        lucene90_bttw_util::write_msb_vlong(&mut output, l)?;
+        write_msb_vlong(&mut output, l)?;
         let buffer = output.bytes.clone();
         let len = output.get_position();
         let mut input = ByteArrayDataInput::with_range(buffer, 0, len);

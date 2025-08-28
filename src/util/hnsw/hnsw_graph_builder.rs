@@ -29,7 +29,6 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::hnsw::hnsw_builder::HnswBuilder;
 use crate::util::hnsw::hnsw_graph::{HnswGraph, HnswGraphEnums};
-use crate::util::hnsw::hnsw_graph_builder::hnsw_graph_builder_util::HNSW_COMPONENT;
 use crate::util::hnsw::hnsw_graph_searcher::{
     HnswGraphSearcher, HnswGraphSearcherBase, HnswGraphSearcherBaseDefault,
 };
@@ -682,54 +681,6 @@ where
         Ok(self.get_graph())
     }
 }
-pub mod hnsw_graph_builder_util {
-    use rand_chacha::ChaCha20Rng;
-
-    use crate::util::error::lucene_error::Result;
-    use crate::util::fixed_bit_set::FixedBitSet;
-    use crate::util::hnsw::hnsw_graph_builder::HnswGraphBuilder;
-    use crate::util::hnsw::hnsw_graph_searcher::HnswGraphSearcherBaseDefault;
-    use crate::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSupplier;
-
-    /// Default number of maximum connections per node.
-    pub const DEFAULT_MAX_CONN: usize = 16;
-
-    /// Default size of the queue maintained during graph construction.
-    pub const DEFAULT_BEAM_WIDTH: usize = 100;
-
-    /// Default random seed for level generation.
-    pub const DEFAULT_RAND_SEED: u64 = 42;
-
-    /// Name for the HNSW component used in the info stream.
-    pub const HNSW_COMPONENT: &str = "HNSW";
-
-    pub fn create<S>(
-        scorer_supplier: S,
-        m: usize,
-        beam_width: usize,
-        random: ChaCha20Rng,
-    ) -> Result<HnswGraphBuilder<S, FixedBitSet, HnswGraphSearcherBaseDefault>>
-    where
-        S: RandomVectorScorerSupplier,
-    {
-        HnswGraphBuilder::from_graph_size(scorer_supplier, m, beam_width, random, -1)
-    }
-
-    /// Equivalent to `HnswGraphBuilder::create(scorerSupplier, M, beamWidth,
-    /// seed, graphSize)`
-    pub fn create_with_graph_size<S>(
-        scorer_supplier: S,
-        m: usize,
-        beam_width: usize,
-        random: ChaCha20Rng,
-        graph_size: i32,
-    ) -> Result<HnswGraphBuilder<S, FixedBitSet, HnswGraphSearcherBaseDefault>>
-    where
-        S: RandomVectorScorerSupplier,
-    {
-        HnswGraphBuilder::from_graph_size(scorer_supplier, m, beam_width, random, graph_size)
-    }
-}
 
 /// A restricted, specialized [`KnnCollector`] that can be used when building a
 /// graph.
@@ -809,4 +760,43 @@ impl KnnCollector for GraphBuilderKnnCollector {
     fn top_docs(&mut self) -> Result<TopDocs> {
         Err(LuceneError::illegal_state(""))
     }
+}
+
+/// Default number of maximum connections per node.
+pub const DEFAULT_MAX_CONN: usize = 16;
+
+/// Default size of the queue maintained during graph construction.
+pub const DEFAULT_BEAM_WIDTH: usize = 100;
+
+/// Default random seed for level generation.
+pub const DEFAULT_RAND_SEED: u64 = 42;
+
+/// Name for the HNSW component used in the info stream.
+pub const HNSW_COMPONENT: &str = "HNSW";
+
+pub fn create<S>(
+    scorer_supplier: S,
+    m: usize,
+    beam_width: usize,
+    random: ChaCha20Rng,
+) -> Result<HnswGraphBuilder<S, FixedBitSet, HnswGraphSearcherBaseDefault>>
+where
+    S: RandomVectorScorerSupplier,
+{
+    HnswGraphBuilder::from_graph_size(scorer_supplier, m, beam_width, random, -1)
+}
+
+/// Equivalent to `HnswGraphBuilder::create(scorerSupplier, M, beamWidth,
+/// seed, graphSize)`
+pub fn create_with_graph_size<S>(
+    scorer_supplier: S,
+    m: usize,
+    beam_width: usize,
+    random: ChaCha20Rng,
+    graph_size: i32,
+) -> Result<HnswGraphBuilder<S, FixedBitSet, HnswGraphSearcherBaseDefault>>
+where
+    S: RandomVectorScorerSupplier,
+{
+    HnswGraphBuilder::from_graph_size(scorer_supplier, m, beam_width, random, graph_size)
 }

@@ -19,7 +19,7 @@ use std::fmt::{Display, Formatter};
 use crate::codecs::block_term_state::{BlockTermState, BlockTermStateEnum};
 use crate::codecs::block_tree::lucene90_block_tree_terms_reader::Lucene90BlockTreeTermsReader;
 use crate::codecs::block_tree::lucene90_block_tree_terms_writer::{
-    Lucene90BlockTreeTermsWriter, lucene90_bttw_util,
+    DEFAULT_MAX_BLOCK_SIZE, DEFAULT_MIN_BLOCK_SIZE, Lucene90BlockTreeTermsWriter,
 };
 use crate::codecs::fields_consumer::FieldsConsumerEnum;
 use crate::codecs::fields_producer::FieldsProducerEnum;
@@ -286,11 +286,7 @@ impl Lucene101PostingsFormat {
     pub(crate) const VERSION_CURRENT: i32 = Self::VERSION_START;
 
     pub fn new() -> Self {
-        Self::new_with_iterm_num(
-            lucene90_bttw_util::DEFAULT_MIN_BLOCK_SIZE,
-            lucene90_bttw_util::DEFAULT_MAX_BLOCK_SIZE,
-        )
-        .unwrap()
+        Self::new_with_iterm_num(DEFAULT_MIN_BLOCK_SIZE, DEFAULT_MAX_BLOCK_SIZE).unwrap()
     }
     /// Creates a `Lucene101PostingsFormat` with custom values for `min_block_size` and `max_block_size`
     /// passed to the block terms dictionary.

@@ -360,14 +360,13 @@ where
             {
                 let mut attempt = 0;
                 while attempt < 10 {
-                    let term_str = fst_tester_util::get_random_string(&mut self.random);
+                    let term_str = get_random_string(&mut self.random);
                     let mut ir_builder = IntsRefBuilder::default();
-                    let term: IntsRef<Rc<RefCell<Vec<i32>>>> =
-                        fst_tester_util::to_ints_ref_from_string_with_builder(
-                            &term_str,
-                            input_mode,
-                            &mut ir_builder,
-                        );
+                    let term: IntsRef<Rc<RefCell<Vec<i32>>>> = to_ints_ref_from_string_with_builder(
+                        &term_str,
+                        input_mode,
+                        &mut ir_builder,
+                    );
                     if !terms_map.contains_key(&term)
                         && term.cmp(&self.pairs[upto as usize].input).to_int() > 0
                     {
@@ -383,7 +382,7 @@ where
                             if cfg!(feature = "test_log_verbose") {
                                 println!(
                                     "  do non-exist seekFloor({})",
-                                    fst_tester_util::input_to_string(input_mode, &term)?
+                                    input_to_string(input_mode, &term)?
                                 );
                             }
                             is_done = fst_enum.seek_floor(term)?.is_none();
@@ -391,7 +390,7 @@ where
                             if cfg!(feature = "test_log_verbose") {
                                 println!(
                                     "  do non-exist seekCeil({})",
-                                    fst_tester_util::input_to_string(input_mode, &term)?
+                                    input_to_string(input_mode, &term)?
                                 );
                             }
                             is_done = fst_enum.seek_ceil(term)?.is_none();
@@ -417,10 +416,7 @@ where
                     if cfg!(feature = "test_log_verbose") {
                         println!(
                             "  do seekCeil({})",
-                            fst_tester_util::input_to_string(
-                                input_mode,
-                                &self.pairs[upto as usize].input
-                            )?
+                            input_to_string(input_mode, &self.pairs[upto as usize].input)?
                         );
                     }
                     is_done = fst_enum
@@ -430,10 +426,7 @@ where
                     if cfg!(feature = "test_log_verbose") {
                         println!(
                             "  do seekFloor({})",
-                            fst_tester_util::input_to_string(
-                                input_mode,
-                                &self.pairs[upto as usize].input
-                            )?
+                            input_to_string(input_mode, &self.pairs[upto as usize].input)?
                         );
                     }
                     is_done = fst_enum
@@ -445,10 +438,7 @@ where
             if cfg!(feature = "test_log_verbose") {
                 if !is_done {
                     let current = fst_enum.current();
-                    println!(
-                        "    got {}",
-                        fst_tester_util::input_to_string(input_mode, &current.input)?
-                    );
+                    println!("    got {}", input_to_string(input_mode, &current.input)?);
                 } else {
                     println!("    got null");
                 }
@@ -464,13 +454,13 @@ where
                     &current.input,
                     &self.pairs[upto as usize].input,
                     "expected input={} but got {}",
-                    fst_tester_util::input_to_string(input_mode, &self.pairs[upto as usize].input)?,
-                    fst_tester_util::input_to_string(input_mode, &current.input)?
+                    input_to_string(input_mode, &self.pairs[upto as usize].input)?,
+                    input_to_string(input_mode, &current.input)?
                 );
                 assert!(
                     self.outputs_equal(&self.pairs[upto as usize].output, &current.output),
                     "output mismatch at input={}",
-                    fst_tester_util::input_to_string(input_mode, &self.pairs[upto as usize].input)?
+                    input_to_string(input_mode, &self.pairs[upto as usize].input)?
                 );
             }
         }
@@ -501,13 +491,13 @@ where
             let key = scratch.get();
             let error_msg = format!(
                 "accepted word {} is not valid",
-                fst_tester_util::input_to_string(input_mode, key)?
+                input_to_string(input_mode, key)?
             );
             let expected = terms_map.get(key).expect(&error_msg);
             assert!(
                 self.outputs_equal(expected, &output),
                 "mismatched output for {}",
-                fst_tester_util::input_to_string(input_mode, key)?
+                input_to_string(input_mode, key)?
             );
         }
 
@@ -525,9 +515,9 @@ where
                 // if true {
                 // seek to term that doesn't exist
                 loop {
-                    let term_str = fst_tester_util::get_random_string(&mut self.random);
+                    let term_str = get_random_string(&mut self.random);
                     let mut ir_builder = IntsRefBuilder::default();
-                    let term = fst_tester_util::to_ints_ref_from_string_with_builder(
+                    let term = to_ints_ref_from_string_with_builder(
                         &term_str,
                         input_mode,
                         &mut ir_builder,
@@ -543,7 +533,7 @@ where
                             if cfg!(feature = "test_log_verbose") {
                                 println!(
                                     "  do non-exist seekExact term={}",
-                                    fst_tester_util::input_to_string(input_mode, &term)?
+                                    input_to_string(input_mode, &term)?
                                 );
                             }
                             pos = -1;
@@ -553,7 +543,7 @@ where
                             if cfg!(feature = "test_log_verbose") {
                                 println!(
                                     "  do non-exist seekFloor term={}",
-                                    fst_tester_util::input_to_string(input_mode, &term)?
+                                    input_to_string(input_mode, &term)?
                                 );
                             }
 
@@ -563,7 +553,7 @@ where
                             if cfg!(feature = "test_log_verbose") {
                                 println!(
                                     "  do non-exist seekCeil term={}",
-                                    fst_tester_util::input_to_string(input_mode, &term)?
+                                    input_to_string(input_mode, &term)?
                                 );
                             }
 
@@ -576,39 +566,33 @@ where
                             assert!(
                                 seek_result.is_some(),
                                 "got null but expected term={}",
-                                fst_tester_util::input_to_string(input_mode, &expected.input)?
+                                input_to_string(input_mode, &expected.input)?
                             );
 
                             let actual = seek_result.unwrap();
                             if cfg!(feature = "test_log_verbose") {
-                                println!(
-                                    "    got {}",
-                                    fst_tester_util::input_to_string(input_mode, &actual.input)?
-                                );
+                                println!("    got {}", input_to_string(input_mode, &actual.input)?);
                             }
 
                             assert_eq!(
                                 &actual.input,
                                 &expected.input,
                                 "expected input={} but got {}",
-                                fst_tester_util::input_to_string(input_mode, &expected.input)?,
-                                fst_tester_util::input_to_string(input_mode, &actual.input)?
+                                input_to_string(input_mode, &expected.input)?,
+                                input_to_string(input_mode, &actual.input)?
                             );
 
                             assert!(
                                 self.outputs_equal(&expected.output, &actual.output),
                                 "output mismatch at term={}",
-                                fst_tester_util::input_to_string(input_mode, &expected.input)?
+                                input_to_string(input_mode, &expected.input)?
                             );
                         } else {
                             // seeked before start or beyond end
                             assert!(
                                 seek_result.is_none(),
                                 "expected null but got {}",
-                                fst_tester_util::input_to_string(
-                                    input_mode,
-                                    &seek_result.unwrap().input
-                                )?
+                                input_to_string(input_mode, &seek_result.unwrap().input)?
                             );
                             if cfg!(feature = "test_log_verbose") {
                                 println!("    got null");
@@ -627,7 +611,7 @@ where
                     if cfg!(feature = "test_log_verbose") {
                         println!(
                             "  do exists seekExact term={}",
-                            fst_tester_util::input_to_string(input_mode, &pair.input,)?
+                            input_to_string(input_mode, &pair.input,)?
                         );
                     }
                     fst_enum.seek_exact(pair.input.clone())?
@@ -636,7 +620,7 @@ where
                     if cfg!(feature = "test_log_verbose") {
                         println!(
                             "  do exists seekFloor term={}",
-                            fst_tester_util::input_to_string(input_mode, &pair.input,)?
+                            input_to_string(input_mode, &pair.input,)?
                         );
                     };
                     fst_enum.seek_floor(pair.input.clone())?
@@ -644,7 +628,7 @@ where
                     if cfg!(feature = "test_log_verbose") {
                         println!(
                             "  do exists seekCeil term={}",
-                            fst_tester_util::input_to_string(input_mode, &pair.input,)?
+                            input_to_string(input_mode, &pair.input,)?
                         );
                     };
                     fst_enum.seek_ceil(pair.input.clone())?
@@ -656,14 +640,14 @@ where
                     &seek_result.input,
                     &pair.input,
                     "got {} but expected {}",
-                    fst_tester_util::input_to_string(input_mode, &seek_result.input)?,
-                    fst_tester_util::input_to_string(input_mode, &pair.input)?
+                    input_to_string(input_mode, &seek_result.input)?,
+                    input_to_string(input_mode, &pair.input)?
                 );
 
                 assert!(
                     self.outputs_equal(&pair.output, &seek_result.output),
                     "output mismatch at input={}",
-                    fst_tester_util::input_to_string(input_mode, &pair.input)?
+                    input_to_string(input_mode, &pair.input)?
                 );
             }
         }
@@ -687,7 +671,7 @@ where
             assert!(
                 output.is_some(),
                 "term {} is not accepted",
-                fst_tester_util::input_to_string(input_mode, term)?
+                input_to_string(input_mode, term)?
             );
             assert!(self.outputs_equal(&pair.output, output.as_ref().unwrap()));
 
@@ -698,8 +682,8 @@ where
                 &t.input,
                 term,
                 "expected input={} but got {}",
-                fst_tester_util::input_to_string(input_mode, term,)?,
-                fst_tester_util::input_to_string(input_mode, &t.input,)?
+                input_to_string(input_mode, term,)?,
+                input_to_string(input_mode, &t.input,)?
             );
             assert!(self.outputs_equal(&pair.output, &t.output));
         }
@@ -751,143 +735,7 @@ impl FSTTesterBase for DummyFSTTesterBaseImpl {
         unreachable!()
     }
 }
-pub mod fst_tester_util {
-    use rand::Rng;
 
-    use crate::index::BytesRef;
-    use crate::test::util::test_util::TestUtil;
-    use crate::util::access::SharedAccessVec;
-    use crate::util::error::lucene_error::Result;
-    use crate::util::ints_ref::IntsRef;
-    use crate::util::ints_ref_builder::IntsRefBuilder;
-    use crate::util::unicode_util::UnicodeUtil;
-
-    pub fn input_to_string<AV: SharedAccessVec<i32>>(
-        input_mode: i32,
-        term: &IntsRef<AV>,
-    ) -> Result<String> {
-        input_to_string_with_flag(input_mode, term, true)
-    }
-
-    pub fn input_to_string_with_flag<AV: SharedAccessVec<i32>>(
-        input_mode: i32,
-        term: &IntsRef<AV>,
-        is_valid_unicode: bool,
-    ) -> Result<String> {
-        if !is_valid_unicode {
-            Ok(term.to_string())
-        } else if input_mode == 0 {
-            // utf8
-            let br = get_bytes_ref(term);
-            Ok(format!("{} {}", br.utf8_to_string()?, term))
-        } else {
-            term.ints.access(|ints| {
-                let s = UnicodeUtil::new_string(ints, term.offset, term.length)?;
-                Ok(format!("{} {}", s, term))
-            })
-        }
-    }
-
-    pub fn get_bytes_ref<AV: SharedAccessVec<i32>>(ir: &IntsRef<AV>) -> BytesRef<Vec<u8>> {
-        let len = ir.length;
-        let mut bytes = vec![0u8; len];
-
-        ir.ints.access(|ints| {
-            for i in 0..len {
-                let x = ints[ir.offset + i];
-                assert!((0..=255).contains(&x), "x={} out of range", x);
-                bytes[i] = x as u8;
-            }
-        });
-
-        BytesRef {
-            bytes,
-            offset: 0,
-            length: len,
-        }
-    }
-    pub fn get_random_string<R: Rng>(random: &mut R) -> String {
-        if random.random_bool(0.5) {
-            TestUtil::random_realistic_unicode_string(random)
-        } else {
-            simple_random_string(random)
-        }
-    }
-    pub fn simple_random_string<R: Rng>(rng: &mut R) -> String {
-        let end = rng.random_range(0..11);
-        if end == 10 {
-            // allow 0 length
-            return String::new();
-        }
-
-        let mut buffer = String::with_capacity(end);
-        for _ in 0..end {
-            let c = rng.random_range(97..=102) as u8 as char; // 'a' to 'f'
-            buffer.push(c);
-        }
-
-        buffer
-    }
-    pub fn to_ints_ref_from_string<AV: SharedAccessVec<i32>>(
-        s: &str,
-        input_mode: i32,
-    ) -> IntsRef<AV> {
-        let mut ir = IntsRefBuilder::default();
-        to_ints_ref_from_string_with_builder(s, input_mode, &mut ir)
-    }
-
-    pub fn to_ints_ref_from_string_with_builder<AV: SharedAccessVec<i32>>(
-        s: &str,
-        input_mode: i32,
-        ir: &mut IntsRefBuilder<AV>,
-    ) -> IntsRef<AV> {
-        if input_mode == 0 {
-            // utf8
-            let br: BytesRef<Vec<u8>> = BytesRef::from_string(s);
-            to_ints_ref(&br, ir)
-        } else {
-            // utf32
-            to_ints_ref_utf32(s, ir)
-        }
-    }
-
-    pub fn to_ints_ref_utf32<AV: SharedAccessVec<i32>>(
-        s: &str,
-        ir: &mut IntsRefBuilder<AV>,
-    ) -> IntsRef<AV> {
-        ir.clear();
-        for c in s.chars() {
-            ir.append(c as i32);
-        }
-        ir.get().clone()
-    }
-
-    pub fn to_ints_ref_from_bytes<AV: SharedAccessVec<i32>>(
-        br: &BytesRef<Vec<u8>>,
-        ir: &mut IntsRefBuilder<AV>,
-    ) -> IntsRef<AV> {
-        ir.clear();
-        ir.grow_no_copy(br.length);
-        for i in 0..br.length {
-            let byte = br.bytes[br.offset + i];
-            ir.append(byte as i32);
-        }
-        ir.get_owner()
-    }
-    pub fn to_ints_ref<AV1: SharedAccessVec<u8>, AV2: SharedAccessVec<i32>>(
-        br: &BytesRef<AV1>,
-        ir: &mut IntsRefBuilder<AV2>,
-    ) -> IntsRef<AV2> {
-        ir.grow_no_copy(br.length);
-        ir.clear();
-        br.bytes.access(|bytes| {
-            for i in 0..br.length {
-                ir.append(bytes[br.offset + i] as i32);
-            }
-        });
-        ir.get_owner()
-    }
-}
 #[derive(Debug, Clone)]
 pub struct InputOutput<T, AV>
 where
@@ -944,4 +792,131 @@ where
 {
     FST1(FST<O, OnHeapFSTStore>),
     FST2(FST<O, DataOutputEnum<D>>),
+}
+
+use crate::index::BytesRef;
+use crate::test::util::test_util::TestUtil;
+use crate::util::unicode_util::UnicodeUtil;
+
+pub fn input_to_string<AV: SharedAccessVec<i32>>(
+    input_mode: i32,
+    term: &IntsRef<AV>,
+) -> Result<String> {
+    input_to_string_with_flag(input_mode, term, true)
+}
+
+pub fn input_to_string_with_flag<AV: SharedAccessVec<i32>>(
+    input_mode: i32,
+    term: &IntsRef<AV>,
+    is_valid_unicode: bool,
+) -> Result<String> {
+    if !is_valid_unicode {
+        Ok(term.to_string())
+    } else if input_mode == 0 {
+        // utf8
+        let br = get_bytes_ref(term);
+        Ok(format!("{} {}", br.utf8_to_string()?, term))
+    } else {
+        term.ints.access(|ints| {
+            let s = UnicodeUtil::new_string(ints, term.offset, term.length)?;
+            Ok(format!("{} {}", s, term))
+        })
+    }
+}
+
+pub fn get_bytes_ref<AV: SharedAccessVec<i32>>(ir: &IntsRef<AV>) -> BytesRef<Vec<u8>> {
+    let len = ir.length;
+    let mut bytes = vec![0u8; len];
+
+    ir.ints.access(|ints| {
+        for i in 0..len {
+            let x = ints[ir.offset + i];
+            assert!((0..=255).contains(&x), "x={} out of range", x);
+            bytes[i] = x as u8;
+        }
+    });
+
+    BytesRef {
+        bytes,
+        offset: 0,
+        length: len,
+    }
+}
+pub fn get_random_string<R: Rng>(random: &mut R) -> String {
+    if random.random_bool(0.5) {
+        TestUtil::random_realistic_unicode_string(random)
+    } else {
+        simple_random_string(random)
+    }
+}
+pub fn simple_random_string<R: Rng>(rng: &mut R) -> String {
+    let end = rng.random_range(0..11);
+    if end == 10 {
+        // allow 0 length
+        return String::new();
+    }
+
+    let mut buffer = String::with_capacity(end);
+    for _ in 0..end {
+        let c = rng.random_range(97..=102) as u8 as char; // 'a' to 'f'
+        buffer.push(c);
+    }
+
+    buffer
+}
+pub fn to_ints_ref_from_string<AV: SharedAccessVec<i32>>(s: &str, input_mode: i32) -> IntsRef<AV> {
+    let mut ir = IntsRefBuilder::default();
+    to_ints_ref_from_string_with_builder(s, input_mode, &mut ir)
+}
+
+pub fn to_ints_ref_from_string_with_builder<AV: SharedAccessVec<i32>>(
+    s: &str,
+    input_mode: i32,
+    ir: &mut IntsRefBuilder<AV>,
+) -> IntsRef<AV> {
+    if input_mode == 0 {
+        // utf8
+        let br: BytesRef<Vec<u8>> = BytesRef::from_string(s);
+        to_ints_ref(&br, ir)
+    } else {
+        // utf32
+        to_ints_ref_utf32(s, ir)
+    }
+}
+
+pub fn to_ints_ref_utf32<AV: SharedAccessVec<i32>>(
+    s: &str,
+    ir: &mut IntsRefBuilder<AV>,
+) -> IntsRef<AV> {
+    ir.clear();
+    for c in s.chars() {
+        ir.append(c as i32);
+    }
+    ir.get().clone()
+}
+
+pub fn to_ints_ref_from_bytes<AV: SharedAccessVec<i32>>(
+    br: &BytesRef<Vec<u8>>,
+    ir: &mut IntsRefBuilder<AV>,
+) -> IntsRef<AV> {
+    ir.clear();
+    ir.grow_no_copy(br.length);
+    for i in 0..br.length {
+        let byte = br.bytes[br.offset + i];
+        ir.append(byte as i32);
+    }
+    ir.get_owner()
+}
+pub fn to_ints_ref<AV1: SharedAccessVec<u8>, AV2: SharedAccessVec<i32>>(
+    br: &BytesRef<AV1>,
+    ir: &mut IntsRefBuilder<AV2>,
+) -> IntsRef<AV2> {
+    ir.grow_no_copy(br.length);
+    ir.clear();
+    br.bytes.access(|bytes| {
+        for i in 0..br.length {
+            ir.append(bytes[br.offset + i] as i32);
+        }
+    });
+    ir.get_owner()
 }

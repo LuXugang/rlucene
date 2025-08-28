@@ -364,7 +364,7 @@ where
     /// To create the FST, you need to:
     ///
     /// - If a FSTReader DataOutput was used, such as the one returned by
-    ///   [`getOnHeapReaderWriter`](fst_compiler_util::get_on_heap_reader_writer)
+    ///   [`getOnHeapReaderWriter`](get_on_heap_reader_writer)
     ///
     /// ```text
     ///     fstMetadata = fstCompiler.compile();
@@ -583,7 +583,7 @@ where
     }
     /// Get the respective [`DataOutputEnum`]. To call this method, you need
     /// to use the default `DataOutput` or
-    /// [`get_on_heap_reader_writer`](fst_compiler_util::get_on_heap_reader_writer),
+    /// [`get_on_heap_reader_writer`](get_on_heap_reader_writer),
     /// otherwise an error will be thrown.
     pub fn get_fst_reader(&mut self) -> Result<DataOutputEnum<D>> {
         let is_fst_reader = match self.data_output {
@@ -642,9 +642,9 @@ where
     /// lookup by arc label.
     fn should_expand_node_with_fixed_length_arcs(&self, node: &UnCompiledNode<O::V>) -> bool {
         self.allow_fixed_length_arcs
-            && ((node.depth <= fst_compiler_util::FIXED_LENGTH_ARC_SHALLOW_DEPTH
-                && node.num_arcs >= fst_compiler_util::FIXED_LENGTH_ARC_SHALLOW_NUM_ARCS)
-                || node.num_arcs >= fst_compiler_util::FIXED_LENGTH_ARC_DEEP_NUM_ARCS)
+            && ((node.depth <= FIXED_LENGTH_ARC_SHALLOW_DEPTH
+                && node.num_arcs >= FIXED_LENGTH_ARC_SHALLOW_NUM_ARCS)
+                || node.num_arcs >= FIXED_LENGTH_ARC_DEEP_NUM_ARCS)
     }
     /// Returns whether the given node should be expanded with direct addressing
     /// instead of binary search.
@@ -692,8 +692,7 @@ where
         if expansion_cost == 0
             || (self.direct_addressing_expansion_credit >= expansion_cost as i64
                 && size_for_direct_addressing
-                    <= (allowed_oversize as f32
-                        * fst_compiler_util::DIRECT_ADDRESSING_MAX_OVERSIZE_WITH_CREDIT_FACTOR)
+                    <= (allowed_oversize as f32 * DIRECT_ADDRESSING_MAX_OVERSIZE_WITH_CREDIT_FACTOR)
                         as i32)
         {
             self.direct_addressing_expansion_credit -= expansion_cost as i64;
@@ -1003,42 +1002,6 @@ where
     }
 }
 
-pub mod fst_compiler_util {
-    use crate::util::error::lucene_error::Result;
-    use crate::util::fst_impl::read_write_data_output::ReadWriteDataOutput;
-    /// Maximum oversizing factor allowed for direct addressing.
-    pub(crate) const DIRECT_ADDRESSING_MAX_OVERSIZING_FACTOR: f32 = 1.0;
-
-    /// Minimum depth at which fixed-length arcs are considered for shallow
-    /// nodes.
-    ///
-    /// See [`FSTCompiler::should_expand_node_with_fixed_length_arcs`](crate::util::fst_impl::fst_compiler::FSTCompiler::should_expand_node_with_fixed_length_arcs)..
-    pub(crate) const FIXED_LENGTH_ARC_SHALLOW_DEPTH: i32 = 3;
-
-    /// Minimum number of arcs required to consider fixed-length arcs at shallow
-    /// depth.
-    ///
-    /// See [`FSTCompiler::should_expand_node_with_fixed_length_arcs`](crate::util::fst_impl::fst_compiler::FSTCompiler::should_expand_node_with_fixed_length_arcs)..
-    pub(crate) const FIXED_LENGTH_ARC_SHALLOW_NUM_ARCS: i32 = 5;
-
-    /// Minimum number of arcs required to consider fixed-length arcs at deep
-    /// depth.
-    ///
-    /// See [`FSTCompiler::should_expand_node_with_fixed_length_arcs`](crate::util::fst_impl::fst_compiler::FSTCompiler::should_expand_node_with_fixed_length_arcs).
-    pub(crate) const FIXED_LENGTH_ARC_DEEP_NUM_ARCS: i32 = 10;
-
-    /// Maximum oversizing factor allowed for direct addressing compared to
-    /// binary search when expansion credits allow the oversizing. This
-    /// factor prevents expansions that are obviously too costly even if
-    /// there are sufficient credits.
-    ///
-    /// See [`FSTCompiler::should_expand_node_with_direct_addressing`](crate::util::fst_impl::fst_compiler::FSTCompiler::should_expand_node_with_direct_addressing).
-    pub(super) const DIRECT_ADDRESSING_MAX_OVERSIZE_WITH_CREDIT_FACTOR: f32 = 1.66;
-    pub fn get_on_heap_reader_writer(block_bits: i32) -> Result<ReadWriteDataOutput> {
-        ReadWriteDataOutput::new(block_bits)
-    }
-}
-
 /// This struct is used for FST backed by non-FSTReader DataOutput. It does not
 /// allow getting the reverse BytesReader nor writing to a DataOutput.
 pub(crate) struct NullFSTReader;
@@ -1103,8 +1066,7 @@ where
             suffix_ram_limit_mb: 32.0,
             allow_fixed_length_arcs: true,
             data_output: None,
-            direct_addressing_max_oversizing_factor:
-                fst_compiler_util::DIRECT_ADDRESSING_MAX_OVERSIZING_FACTOR,
+            direct_addressing_max_oversizing_factor: DIRECT_ADDRESSING_MAX_OVERSIZING_FACTOR,
             version: fst_util::VERSION_CURRENT,
         }
     }
@@ -1150,7 +1112,7 @@ where
 
     /// Set the [`DataOutput`] which is used for low-level writing of FST. If
     /// you want the FST to be immediately readable, you need to use
-    /// [`fst_compiler_util::get_on_heap_reader_writer`].
+    /// [`get_on_heap_reader_writer`].
     ///
     /// Otherwise you need to construct the corresponding
     /// [`DataInput`](crate::store::data_input::DataInput) and use the FST
@@ -1166,7 +1128,7 @@ where
     ///
     /// # See also
     ///
-    /// [`fst_compiler_util::get_on_heap_reader_writer`]
+    /// [`get_on_heap_reader_writer`]
     pub fn data_output(&mut self, data_output: DataOutputEnum<D>) {
         self.data_output = Some(data_output);
     }
@@ -1202,9 +1164,7 @@ where
     /// Creates a new {@link FSTCompiler}
     pub fn build(mut self) -> Result<FSTCompiler<O, D>> {
         if self.data_output.is_none() {
-            self.data_output = Some(DataOutputEnum::ReadWriter(
-                fst_compiler_util::get_on_heap_reader_writer(15)?,
-            ));
+            self.data_output = Some(DataOutputEnum::ReadWriter(get_on_heap_reader_writer(15)?));
         }
         FSTCompiler::new(
             self.input_type,
@@ -1552,4 +1512,36 @@ impl FixedLengthArcsBuffer {
     pub(crate) fn get_bytes(&mut self) -> &mut [u8] {
         &mut self.bado.bytes
     }
+}
+
+/// Maximum oversizing factor allowed for direct addressing.
+pub(crate) const DIRECT_ADDRESSING_MAX_OVERSIZING_FACTOR: f32 = 1.0;
+
+/// Minimum depth at which fixed-length arcs are considered for shallow
+/// nodes.
+///
+/// See [`FSTCompiler::should_expand_node_with_fixed_length_arcs`](crate::util::fst_impl::fst_compiler::FSTCompiler::should_expand_node_with_fixed_length_arcs)..
+pub(crate) const FIXED_LENGTH_ARC_SHALLOW_DEPTH: i32 = 3;
+
+/// Minimum number of arcs required to consider fixed-length arcs at shallow
+/// depth.
+///
+/// See [`FSTCompiler::should_expand_node_with_fixed_length_arcs`](crate::util::fst_impl::fst_compiler::FSTCompiler::should_expand_node_with_fixed_length_arcs)..
+pub(crate) const FIXED_LENGTH_ARC_SHALLOW_NUM_ARCS: i32 = 5;
+
+/// Minimum number of arcs required to consider fixed-length arcs at deep
+/// depth.
+///
+/// See [`FSTCompiler::should_expand_node_with_fixed_length_arcs`](crate::util::fst_impl::fst_compiler::FSTCompiler::should_expand_node_with_fixed_length_arcs).
+pub(crate) const FIXED_LENGTH_ARC_DEEP_NUM_ARCS: i32 = 10;
+
+/// Maximum oversizing factor allowed for direct addressing compared to
+/// binary search when expansion credits allow the oversizing. This
+/// factor prevents expansions that are obviously too costly even if
+/// there are sufficient credits.
+///
+/// See [`FSTCompiler::should_expand_node_with_direct_addressing`](crate::util::fst_impl::fst_compiler::FSTCompiler::should_expand_node_with_direct_addressing).
+pub(super) const DIRECT_ADDRESSING_MAX_OVERSIZE_WITH_CREDIT_FACTOR: f32 = 1.66;
+pub fn get_on_heap_reader_writer(block_bits: i32) -> Result<ReadWriteDataOutput> {
+    ReadWriteDataOutput::new(block_bits)
 }

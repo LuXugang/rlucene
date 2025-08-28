@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 use crate::codecs::CodecUtil;
-use crate::codecs::indexed_disi::indexed_disi_util;
+
+use crate::codecs::indexed_disi::{DEFAULT_DENSE_RANK_POWER, write_bitset_with_dense_rank_power};
 use crate::codecs::lucene90_norms_format::Lucene90NormsFormat;
 use crate::codecs::norms_consumer::NormsConsumer;
 use crate::codecs::norms_producer::NormsProducer;
@@ -191,17 +192,16 @@ where
             let jump_table_entry_count;
             {
                 let mut values = norms_producer.get_norms(field)?;
-                jump_table_entry_count = indexed_disi_util::write_bitset_with_dense_rank_power(
+                jump_table_entry_count = write_bitset_with_dense_rank_power(
                     &mut values,
                     &mut self.data,
-                    indexed_disi_util::DEFAULT_DENSE_RANK_POWER,
+                    DEFAULT_DENSE_RANK_POWER,
                 )?;
             }
             self.meta
                 .write_long(self.data.get_file_pointer() - offset)?; // docsWithFieldLength
             self.meta.write_short(jump_table_entry_count)?;
-            self.meta
-                .write_byte(indexed_disi_util::DEFAULT_DENSE_RANK_POWER as u8)?;
+            self.meta.write_byte(DEFAULT_DENSE_RANK_POWER as u8)?;
         }
 
         self.meta.write_int(num_docs_with_value)?;
