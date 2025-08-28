@@ -512,10 +512,6 @@ where
     pub(crate) bytes_ref_hash: BytesRefHash<C, B, DirectBytesStartArray<C>>,
     values: Vec<i32>,
 }
-pub mod bytes_ref_int_map_util {
-    // TODO: memory calculation not implemented
-    pub(super) const INIT_RAM_BYTES: i64 = 0;
-}
 
 macro_rules! impl_bytes_ref_int_map_new {
     (
@@ -556,7 +552,7 @@ where
     fn new_impl(counter: C, bytes_ref_hash: BytesRefHash<C, B, DirectBytesStartArray<C>>) -> Self {
         let values = vec![0; brh_util::DEFAULT_CAPACITY as usize];
 
-        counter.access_mut(|c| c.add_and_get(bytes_ref_int_map_util::INIT_RAM_BYTES));
+        counter.access_mut(|c| c.add_and_get(INIT_RAM_BYTES));
 
         Self {
             counter,
@@ -597,6 +593,10 @@ where
         if e == -1 { -1 } else { self.values[e as usize] }
     }
 }
+
+// TODO: memory calculation not implemented
+pub(super) const INIT_RAM_BYTES: i64 = 0;
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
