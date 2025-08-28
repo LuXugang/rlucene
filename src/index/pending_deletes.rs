@@ -707,7 +707,9 @@ mod tests {
     use crate::codecs::live_docs_format::LiveDocsFormat;
     use crate::codecs::{Codec, get_default_code};
     use crate::index::field_infos::FieldInfos;
-    use crate::index::pending_deletes::{Either2PendingDeletes, PendingDeletes, PendingDeletesBase};
+    use crate::index::pending_deletes::{
+        Either2PendingDeletes, PendingDeletes, PendingDeletesBase,
+    };
     use crate::index::segment_commit_info::SegmentCommitInfo;
     use crate::index::segment_info::SegmentInfo;
     use crate::index::segment_reader::SegmentReader;
@@ -718,16 +720,18 @@ mod tests {
     use crate::util::error::lucene_error::Result;
     use crate::util::{LATEST, StringHelper};
 
+    use crate::index::pending_soft_deletes::PendingSoftDeletes;
     use crate::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
     use rand::Rng;
     use std::collections::HashMap;
     use std::sync::Arc;
-    use crate::index::pending_soft_deletes::PendingSoftDeletes;
 
     #[allow(dead_code)] // for quick search
     struct TestPendingDeletes;
 
-    fn new_pending_deletes<D>(commit_info: &SegmentCommitInfo<D>) -> Result<Either2PendingDeletes<PendingDeletes,PendingSoftDeletes>>
+    fn new_pending_deletes<D>(
+        commit_info: &SegmentCommitInfo<D>,
+    ) -> Result<Either2PendingDeletes<PendingDeletes, PendingSoftDeletes>>
     where
         D: Directory,
     {

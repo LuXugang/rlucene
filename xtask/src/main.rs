@@ -98,6 +98,7 @@ fn tidy() {
     eprintln!("\x1b[1;32mRunning Cargo fmt \x1b[0m");
     run_cargo(&["fmt"]);
     eprintln!("\x1b[1;32mFinished Cargo fmt \x1b[0m");
+    eprintln!("\x1b[1;32m✅ ✅ ✅ Finished Cargo tidy\x1b[0m");
 }
 
 /// Before submitting a PR, run this command to format and test the code.
@@ -107,6 +108,7 @@ fn commit() {
     eprintln!("\x1b[1;32mRunning Cargo test \x1b[0m");
     run_cargo(&["test"]);
     eprintln!("\x1b[1;32m✅ ✅ ✅ Finished Cargo test \x1b[0m");
+    eprintln!("\x1b[1;32m✅ ✅ ✅ Finished Cargo commit\x1b[0m");
 }
 /// CI task for Github actions
 fn ci() {
