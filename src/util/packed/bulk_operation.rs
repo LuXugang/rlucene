@@ -191,34 +191,30 @@ pub(crate) trait BulkOperation: Decoder + Encoder {
         }
     }
 }
-pub mod bulk_operation_util {
-    use crate::util::packed::Format;
-    use crate::util::packed::bulk_operation::{PACKED_BULK_OPS, PACKED_SINGLE_BLOCK_BULK_OPS};
-    use crate::util::packed::bulk_operation_packed_enum::BulkOperationPackedEnum;
+use crate::util::packed::Format;
 
-    pub(crate) fn of(format: Format, bits_per_value: i32) -> &'static BulkOperationPackedEnum {
-        match format {
-            Format::Packed(..) => {
-                debug_assert!(
-                    bits_per_value > 0 && bits_per_value <= 64,
-                    "bits_per_value must be between 1 and 64"
-                );
-                &PACKED_BULK_OPS[bits_per_value as usize - 1]
-            },
-            Format::PackedSingleBlock(..) => {
-                debug_assert!(
-                    bits_per_value > 0 && bits_per_value <= 32,
-                    "bits_per_value must be between 1 and 32"
-                );
+pub(crate) fn of(format: Format, bits_per_value: i32) -> &'static BulkOperationPackedEnum {
+    match format {
+        Format::Packed(..) => {
+            debug_assert!(
+                bits_per_value > 0 && bits_per_value <= 64,
+                "bits_per_value must be between 1 and 64"
+            );
+            &PACKED_BULK_OPS[bits_per_value as usize - 1]
+        },
+        Format::PackedSingleBlock(..) => {
+            debug_assert!(
+                bits_per_value > 0 && bits_per_value <= 32,
+                "bits_per_value must be between 1 and 32"
+            );
 
-                let operation = &PACKED_SINGLE_BLOCK_BULK_OPS[bits_per_value as usize - 1];
+            let operation = &PACKED_SINGLE_BLOCK_BULK_OPS[bits_per_value as usize - 1];
 
-                debug_assert!(
-                    !matches!(operation, BulkOperationPackedEnum::Dummy(_)),
-                    "BulkOperationPackedDummy is not a valid operation"
-                );
-                operation
-            },
-        }
+            debug_assert!(
+                !matches!(operation, BulkOperationPackedEnum::Dummy(_)),
+                "BulkOperationPackedDummy is not a valid operation"
+            );
+            operation
+        },
     }
 }

@@ -18,7 +18,7 @@ use std::fmt::{Display, Formatter};
 
 use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::Result;
-use crate::util::packed::bulk_operation::bulk_operation_util;
+use crate::util::packed::bulk_operation::of;
 use crate::util::packed::format_behavior::{FormatBehavior, PackedImpl};
 use crate::util::packed::{Decoder, Encoder, Format, Mutable, PackedInts, Reader};
 
@@ -142,8 +142,7 @@ impl Reader for Packed64 {
         );
 
         let original_index = index;
-        let decoder =
-            bulk_operation_util::of(Format::Packed(PackedImpl::new(0)), self.bits_per_value);
+        let decoder = of(Format::Packed(PackedImpl::new(0)), self.bits_per_value);
 
         // Go to the next block where the value does not span across two blocks
         let offset_in_blocks = index % Decoder::long_value_count(decoder);
@@ -254,8 +253,7 @@ impl Mutable for Packed64 {
         );
 
         let original_index = index;
-        let encoder =
-            bulk_operation_util::of(Format::Packed(PackedImpl::new(0)), self.bits_per_value);
+        let encoder = of(Format::Packed(PackedImpl::new(0)), self.bits_per_value);
 
         // Go to the next block where the value does not span across two blocks
         let offset_in_blocks = index % Encoder::long_value_count(encoder);

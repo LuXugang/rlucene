@@ -22,7 +22,7 @@ use crate::store::{DataInput, DataOutput};
 use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::longs_ref::LongsRef;
-use crate::util::packed::bulk_operation::bulk_operation_util;
+use crate::util::packed::bulk_operation::of;
 use crate::util::packed::bulk_operation_packed_enum::BulkOperationPackedEnum;
 use crate::util::packed::format_behavior::{PackedImpl, PackedSingleBlockImpl};
 use crate::util::packed::mutable_packed64_enum::MutablePacked64Enum;
@@ -71,7 +71,7 @@ impl PackedInts {
         bits_per_value: i32,
     ) -> Result<&'static BulkOperationPackedEnum> {
         check_version(version)?;
-        Ok(bulk_operation_util::of(format, bits_per_value))
+        Ok(of(format, bits_per_value))
     }
     /// Get an [`Encoder`].
     ///

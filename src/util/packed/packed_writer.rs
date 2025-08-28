@@ -16,7 +16,7 @@
  */
 use crate::store::DataOutput;
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::packed::bulk_operation::{BulkOperation, bulk_operation_util};
+use crate::util::packed::bulk_operation::{BulkOperation, of};
 use crate::util::packed::bulk_operation_packed_enum::BulkOperationPackedEnum;
 use crate::util::packed::format_behavior::FormatBehavior;
 use crate::util::packed::{Encoder, Format, PackedInts, Writer};
@@ -48,7 +48,7 @@ where
         bits_per_value: i32,
         mem: i32,
     ) -> Self {
-        let encoder = bulk_operation_util::of(format, bits_per_value);
+        let encoder = of(format, bits_per_value);
         debug_assert!(value_count >= 0);
         let iterations = encoder.compute_iterations(value_count, mem);
         let next_blocks = vec![0; (iterations * Encoder::byte_block_count(encoder)) as usize];
