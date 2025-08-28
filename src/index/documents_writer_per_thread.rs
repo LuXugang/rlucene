@@ -33,7 +33,7 @@ use crate::index::index_writer::{
 use crate::index::indexing_chain::{IndexingChain, ReservedField};
 use crate::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::index::lockable_concurrent_approximate_priority_queue::{FlushState, Lock};
-use crate::index::pending_soft_deletes::pending_soft_deletes_util;
+use crate::index::pending_soft_deletes::count_soft_deletes;
 use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::index::segment_info::SegmentInfo;
 use crate::index::segment_write_state::SegmentWriteState;
@@ -562,10 +562,7 @@ where
 
                 flush_state.soft_del_count_on_flush = if let Some(ref mut iter) = soft_deleted_docs
                 {
-                    let cnt = pending_soft_deletes_util::count_soft_deletes(
-                        Some(iter),
-                        flush_state.live_docs.as_ref(),
-                    )?;
+                    let cnt = count_soft_deletes(Some(iter), flush_state.live_docs.as_ref())?;
                     debug_assert!(
                         self.segment_info.max_doc()? >= (cnt + flush_state.del_count_on_flush)
                     );

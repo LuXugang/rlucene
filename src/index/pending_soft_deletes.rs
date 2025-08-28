@@ -234,27 +234,25 @@ impl std::fmt::Display for PendingSoftDeletes {
         )
     }
 }
-pub(crate) mod pending_soft_deletes_util {
-    use crate::search::doc_id_set_iterator::DocIdSetIterator;
-    use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-    use crate::util::bits::Bits;
-    use crate::util::error::lucene_error::Result;
-    pub(crate) fn count_soft_deletes(
-        soft_deleted_docs: Option<&mut impl DocIdSetIterator>,
-        hard_deletes: Option<&impl Bits>,
-    ) -> Result<i32> {
-        let mut count = 0;
-        if let Some(docs) = soft_deleted_docs {
-            loop {
-                let doc = docs.next_doc()?;
-                if doc == NO_MORE_DOCS {
-                    break;
-                }
-                if hard_deletes.is_none_or(|bits| bits.get(doc)) {
-                    count += 1;
-                }
+
+use crate::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::util::bits::Bits;
+pub(crate) fn count_soft_deletes(
+    soft_deleted_docs: Option<&mut impl DocIdSetIterator>,
+    hard_deletes: Option<&impl Bits>,
+) -> Result<i32> {
+    let mut count = 0;
+    if let Some(docs) = soft_deleted_docs {
+        loop {
+            let doc = docs.next_doc()?;
+            if doc == NO_MORE_DOCS {
+                break;
+            }
+            if hard_deletes.is_none_or(|bits| bits.get(doc)) {
+                count += 1;
             }
         }
-        Ok(count)
     }
+    Ok(count)
 }
