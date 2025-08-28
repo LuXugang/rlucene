@@ -16,7 +16,7 @@
  */
 use crate::index::field_infos::FieldNumbers;
 use crate::index::index_writer::LongSupplierImpl;
-use crate::index::pending_deletes::PendingDeletes;
+use crate::index::pending_deletes::PendingDeletesEnum;
 use crate::index::readers_and_updates::ReadersAndUpdates;
 use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::index::segment_reader::SegmentReader;
@@ -436,7 +436,7 @@ where
 
         Ok(Some(rld))
     }
-    fn new_pending_deletes(&self, info: &SegmentCommitInfo<D>) -> Result<PendingDeletes> {
+    fn new_pending_deletes(&self, info: &SegmentCommitInfo<D>) -> Result<PendingDeletesEnum> {
         todo!()
     }
 
@@ -444,7 +444,7 @@ where
         &self,
         reader: &SegmentReader<D>,
         info: &SegmentCommitInfo<D>,
-    ) -> Result<PendingDeletes> {
+    ) -> Result<PendingDeletesEnum> {
         todo!()
     }
     /// Make sure that every segment appears only once in the pool.

@@ -39,7 +39,7 @@ use crate::index::field_infos::{FieldInfos, FieldNumbers};
 use crate::index::index_reader::IndexReader;
 use crate::index::leaf_reader::LeafReader;
 use crate::index::numeric_doc_values::NumericDocValues;
-use crate::index::pending_deletes::{DocBits, PendingDeletes, PendingDeletesBase};
+use crate::index::pending_deletes::{DocBits, PendingDeletesBase, PendingDeletesEnum};
 use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::index::segment_reader::SegmentReader;
 use crate::index::segment_write_state::SegmentWriteState;
@@ -89,7 +89,7 @@ where
     reader: Option<SegmentReader<D>>,
     // How many further deletions we've done against
     // liveDocs vs when we loaded it or last wrote it:
-    pending_deletes: PendingDeletes,
+    pending_deletes: PendingDeletesEnum,
     // Indicates whether this segment is currently being merged. While a segment
     // is merging, all field updates are also registered in the
     // mergingDVUpdates map. Also, calls to writeFieldUpdates merge the
@@ -110,7 +110,10 @@ impl<D> ReadersAndUpdates<D>
 where
     D: Directory,
 {
-    pub(crate) fn new(index_created_version_major: i32, pending_deletes: PendingDeletes) -> Self {
+    pub(crate) fn new(
+        index_created_version_major: i32,
+        pending_deletes: PendingDeletesEnum,
+    ) -> Self {
         let inner = Mutex::new(Inner {
             reader: None,
             pending_deletes,
@@ -131,7 +134,7 @@ where
         index_created_version_major: i32,
         reader: SegmentReader<D>,
         info: &SegmentCommitInfo<D>,
-        pending_deletes: PendingDeletes,
+        pending_deletes: PendingDeletesEnum,
     ) -> Result<Self> {
         debug_assert!(info.info.get_id_str() == reader.info_id);
         let v = Self::new(index_created_version_major, pending_deletes);
@@ -238,7 +241,7 @@ where
             Some(inner) => inner,
             None => &*self.inner.lock(),
         };
-        inner.pending_deletes.info_id.clone()
+        inner.pending_deletes.get_info_id().to_string()
     }
 
     pub fn release(&self, sr: &SegmentReader<D>, _info: &SegmentCommitInfo<D>) -> Result<()> {
@@ -745,7 +748,7 @@ where
         let inner = self.inner.lock();
         write!(
             f,
-            "ReadersAndLiveDocs(seg={}, pendingDeletes={})",
+            "ReadersAndLiveDocs(seg={}, PendingDeletesEnum={})",
             self.get_info_id(Some(&inner)),
             inner.pending_deletes
         )

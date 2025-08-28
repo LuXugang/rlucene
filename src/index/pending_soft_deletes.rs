@@ -140,6 +140,10 @@ impl std::fmt::Display for PendingSoftDeletes {
     }
 }
 impl PendingDeletesBase for PendingSoftDeletes {
+    fn get_info_id(&self) -> &str {
+        self.base.get_info_id()
+    }
+
     fn delete<D>(&mut self, doc_id: i32, info: &mut SegmentCommitInfo<D>) -> Result<bool>
     where
         D: Directory,

@@ -22,6 +22,7 @@ use crate::index::doc_values_field_updates::{DocValuesFieldIteratorEnum, MergedI
 use crate::index::field_info::FieldInfo;
 use crate::index::index_reader::IndexReader;
 use crate::index::leaf_reader::LeafReader;
+use crate::index::pending_soft_deletes::PendingSoftDeletes;
 use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::index::segment_reader::SegmentReader;
 use crate::store::IOContext;
@@ -171,6 +172,10 @@ impl PendingDeletes {
     }
 }
 impl PendingDeletesBase for PendingDeletes {
+    fn get_info_id(&self) -> &str {
+        &self.info_id
+    }
+
     fn delete<D>(&mut self, doc_id: i32, _info: &mut SegmentCommitInfo<D>) -> Result<bool>
     where
         D: Directory,
@@ -375,6 +380,7 @@ impl fmt::Display for PendingDeletes {
 }
 
 pub(crate) trait PendingDeletesBase: Display {
+    fn get_info_id(&self) -> &str;
     /// Marks a document as deleted in this segment and return true if a document got actually deleted or if the document was already deleted.
     fn delete<D>(&mut self, doc_id: i32, info: &mut SegmentCommitInfo<D>) -> Result<bool>
     where
@@ -523,7 +529,8 @@ pub(crate) trait PendingDeletesBase: Display {
     fn must_init_on_delete(&self) -> bool;
 }
 
-pub enum Either2PendingDeletes<A, B> {
+pub(crate) type PendingDeletesEnum = Either2PendingDeletes<PendingDeletes, PendingSoftDeletes>;
+pub(crate) enum Either2PendingDeletes<A, B> {
     A(A),
     B(B),
 }
@@ -546,6 +553,13 @@ where
     A: PendingDeletesBase,
     B: PendingDeletesBase,
 {
+    fn get_info_id(&self) -> &str {
+        match self {
+            Either2PendingDeletes::A(a) => a.get_info_id(),
+            Either2PendingDeletes::B(b) => b.get_info_id(),
+        }
+    }
+
     fn delete<D>(&mut self, doc_id: i32, info: &mut SegmentCommitInfo<D>) -> Result<bool>
     where
         D: Directory,
