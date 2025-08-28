@@ -19,7 +19,6 @@ use std::fmt::Display;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-use crate::index::index_file_names_util::CODEC_FILE_PATTERN;
 use crate::index::sort::Sort;
 use crate::store::directory::Directory;
 #[cfg(test)]
@@ -490,7 +489,7 @@ where
     }
 }
 
-use crate::index::IndexFileNames;
+use crate::index::{CODEC_FILE_PATTERN, IndexFileNames};
 
 /// Strips any segment name from the file and renames it with this segment.
 /// This is because "segment names" can change, e.g., by addIndexes(Dir).

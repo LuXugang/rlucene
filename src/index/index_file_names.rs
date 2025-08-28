@@ -195,10 +195,9 @@ impl IndexFileNames {
         }
     }
 }
-pub mod index_file_names_util {
-    use once_cell::sync::Lazy;
-    use regex::Regex;
 
-    pub static CODEC_FILE_PATTERN: Lazy<Regex> =
-        Lazy::new(|| Regex::new(r"_[a-z0-9]+(_.*)?\..*").unwrap());
-}
+use once_cell::sync::Lazy;
+use regex::Regex;
+
+pub static CODEC_FILE_PATTERN: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"_[a-z0-9]+(_.*)?\..*").unwrap());
