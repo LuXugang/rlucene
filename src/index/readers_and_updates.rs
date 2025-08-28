@@ -247,14 +247,14 @@ where
         Ok(())
     }
 
-    pub fn delete(&self, doc_id: i32, info: &SegmentCommitInfo<D>) -> Result<bool> {
+    pub fn delete(&self, doc_id: i32, info: &mut SegmentCommitInfo<D>) -> Result<bool> {
         let mut inner = self.inner.lock();
 
         if inner.reader.is_none() && inner.pending_deletes.must_init_on_delete() {
             self.get_reader(&IOContext::default_io_context()?, info, Some(&mut inner))?; // pass a reader to initialize the pending deletes
         }
 
-        inner.pending_deletes.delete(doc_id)
+        inner.pending_deletes.delete(doc_id, info)
     }
     pub fn drop_readers(&self) -> Result<()> {
         let mut inner = self.inner.lock();

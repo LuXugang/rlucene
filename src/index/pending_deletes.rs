@@ -171,7 +171,10 @@ impl PendingDeletes {
     }
 }
 impl PendingDeletesBase for PendingDeletes {
-    fn delete(&mut self, doc_id: i32) -> Result<bool> {
+    fn delete<D>(&mut self, doc_id: i32, _info: &mut SegmentCommitInfo<D>) -> Result<bool>
+    where
+        D: Directory,
+    {
         debug_assert!(self.max_doc > 0);
 
         let mutable_bits = self.get_mutable_bits()?;
@@ -373,7 +376,9 @@ impl fmt::Display for PendingDeletes {
 
 pub(crate) trait PendingDeletesBase: Display {
     /// Marks a document as deleted in this segment and return true if a document got actually deleted or if the document was already deleted.
-    fn delete(&mut self, doc_id: i32) -> Result<bool>;
+    fn delete<D>(&mut self, doc_id: i32, info: &mut SegmentCommitInfo<D>) -> Result<bool>
+    where
+        D: Directory;
     /// Returns a snapshot of the hard live docs.
     fn get_hard_live_docs(&mut self) -> Option<DocBits>;
     /// Returns a snapshot of the current live docs.
@@ -541,10 +546,13 @@ where
     A: PendingDeletesBase,
     B: PendingDeletesBase,
 {
-    fn delete(&mut self, doc_id: i32) -> Result<bool> {
+    fn delete<D>(&mut self, doc_id: i32, info: &mut SegmentCommitInfo<D>) -> Result<bool>
+    where
+        D: Directory,
+    {
         match self {
-            Either2PendingDeletes::A(a) => a.delete(doc_id),
-            Either2PendingDeletes::B(b) => b.delete(doc_id),
+            Either2PendingDeletes::A(a) => a.delete(doc_id, info),
+            Either2PendingDeletes::B(b) => b.delete(doc_id, info),
         }
     }
 
@@ -742,27 +750,27 @@ mod tests {
             HashMap::new(),
             None,
         )?;
-        let commit_info =
+        let mut commit_info =
             SegmentCommitInfo::new(si, 0, 0, -1, -1, -1, Some(StringHelper::random_id()))?;
 
         let mut deletes = new_pending_deletes(&commit_info)?;
         assert!(deletes.get_live_docs().is_none());
 
         let doc_to_delete = random.random_range(0..=7);
-        assert!(deletes.delete(doc_to_delete)?);
+        assert!(deletes.delete(doc_to_delete, &mut commit_info)?);
         let mut live_docs = deletes.get_live_docs().unwrap();
         assert_eq!(deletes.num_pending_deletes(), 1);
 
         assert!(!live_docs.get(doc_to_delete));
-        assert!(!deletes.delete(doc_to_delete)?);
+        assert!(!deletes.delete(doc_to_delete, &mut commit_info)?);
 
         assert!(live_docs.get(8));
-        assert!(deletes.delete(8)?);
+        assert!(deletes.delete(8, &mut commit_info)?);
         assert!(live_docs.get(8));
         assert_eq!(deletes.num_pending_deletes(), 2);
 
         assert!(live_docs.get(9));
-        assert!(deletes.delete(9)?);
+        assert!(deletes.delete(9, &mut commit_info)?);
         assert!(live_docs.get(9));
 
         live_docs = deletes.get_live_docs().unwrap();
@@ -801,10 +809,10 @@ mod tests {
         assert_eq!(dir.list_all()?.len(), 1);
 
         let second_doc_deletes: bool = random.random_bool(0.5);
-        deletes.delete(5)?;
+        deletes.delete(5, &mut commit_info)?;
         if second_doc_deletes {
             let _ = deletes.get_live_docs();
-            deletes.delete(2)?;
+            deletes.delete(2, &mut commit_info)?;
         }
 
         assert_eq!(commit_info.get_del_gen(), -1);
@@ -837,7 +845,7 @@ mod tests {
         assert_eq!(commit_info.get_del_count(), expected_pending);
         assert_eq!(commit_info.get_del_gen(), 1);
 
-        deletes.delete(0)?;
+        deletes.delete(0, &mut commit_info)?;
         assert!(deletes.write_live_docs(lock_dir.clone(), &mut commit_info)?);
         // contain "writer_lock"
         assert_eq!(dir.list_all()?.len(), 3);
@@ -901,7 +909,7 @@ mod tests {
         let lock_dir = Arc::new(LockValidatingDirectoryWrapper::new(dir.clone(), lock));
 
         for i in 0..3 {
-            assert!(deletes.delete(i)?);
+            assert!(deletes.delete(i, &mut commit_info)?);
             if random.random_bool(0.5) {
                 assert!(deletes.write_live_docs(lock_dir.clone(), &mut commit_info)?);
             }

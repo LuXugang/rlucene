@@ -16,6 +16,8 @@
  */
 use crate::codecs::field_infos_format::FieldInfosFormat;
 use crate::codecs::{Codec, CompoundFormat, get_default_code};
+use crate::index::doc_values_field_updates::{DocValuesFieldIteratorEnum, MergedIterator};
+use crate::index::field_info::FieldInfo;
 use crate::index::field_infos::FieldInfos;
 use crate::index::pending_deletes::{DocBits, PendingDeletes, PendingDeletesBase};
 use crate::index::segment_commit_info::SegmentCommitInfo;
@@ -65,73 +67,6 @@ impl PendingSoftDeletes {
             base,
         })
     }
-    pub(crate) fn delete<D>(&mut self, doc_id: i32, info: &mut SegmentCommitInfo<D>) -> Result<bool>
-    where
-        D: Directory,
-    {
-        match self.field {
-            Some(_) => {
-                // we need to fetch this first it might be a shared instance with
-                let mutable_bits = self.base.get_mutable_bits()?;
-                // hardDeletes
-                if self.hard_deletes.delete(doc_id)? {
-                    if mutable_bits.get_and_clear(doc_id) {
-                        // delete it here too!
-                        debug_assert!(!self.hard_deletes.delete(doc_id)?);
-                    } else {
-                        // if it was deleted subtract the delCount
-                        self.base.pending_delete_count -= 1;
-                        debug_assert!(self.assert_pending_deletes(info)?);
-                    }
-                    Ok(true)
-                } else {
-                    Ok(false)
-                }
-            },
-            None => self.base.delete(doc_id),
-        }
-    }
-    pub(crate) fn num_pending_deletes(&self) -> i32 {
-        match self.field {
-            Some(_) => self.base.num_pending_deletes() + self.hard_deletes.num_pending_deletes(),
-            None => self.base.num_pending_deletes(),
-        }
-    }
-
-    pub(crate) fn write_live_docs<D>(
-        &mut self,
-        dir: Arc<LockValidatingDirectoryWrapper<D>>,
-        info: &mut SegmentCommitInfo<D>,
-    ) -> Result<bool>
-    where
-        D: Directory,
-    {
-        if self.field.is_none() {
-            return self.base.write_live_docs(dir, info);
-        }
-
-        // we need to set this here to make sure our stats in SCI are up-to-date otherwise we might hit
-        // an assertion
-        // when the hard deletes are set since we need to account for docs that used to be only
-        // soft-delete but now hard-deleted
-        info.set_soft_del_count(info.get_soft_del_count() + self.base.pending_delete_count)?;
-        self.base.drop_changes();
-        // delegate the write to the hard deletes - it will only write if somebody used it.
-        self.hard_deletes.write_live_docs(dir, info)
-    }
-    pub(crate) fn drop_changes(&mut self) {
-        match self.field {
-            Some(_) => {
-                // don't reset anything here - this is called after a merge (successful or not) to prevent
-                // rewriting the deleted docs to disk. we only pass it on and reset the number of pending
-                // deletes
-                self.hard_deletes.drop_changes();
-            },
-            None => {
-                self.base.drop_changes();
-            },
-        }
-    }
 
     fn assert_pending_deletes<D>(&self, info: &mut SegmentCommitInfo<D>) -> Result<bool>
     where
@@ -148,23 +83,6 @@ impl PendingSoftDeletes {
         D: Directory,
         F: Fn() -> Arc<SegmentReader<D>>,
     {
-        todo!()
-    }
-
-    pub(crate) fn is_fully_deleted<D, F>(
-        &self,
-        _reader_io_supplier: F,
-        info: &SegmentCommitInfo<D>,
-    ) -> Result<bool>
-    where
-        D: Directory,
-        F: Fn() -> Arc<SegmentReader<D>>,
-    {
-        if self.field.is_none() {
-            return self.base.is_fully_deleted(_reader_io_supplier, info);
-        }
-        // initialize to ensure we have accurate counts - only needed in the soft-delete case
-        self.ensure_initialized(_reader_io_supplier);
         todo!()
     }
 
@@ -206,19 +124,6 @@ impl PendingSoftDeletes {
             )
         }
     }
-
-    pub(crate) fn get_hard_live_docs(&mut self) -> Option<DocBits> {
-        match self.field {
-            Some(_) => self.hard_deletes.get_live_docs(),
-            None => self.base.get_hard_live_docs(),
-        }
-    }
-    pub(crate) fn must_init_on_delete(&self) -> bool {
-        match self.field {
-            Some(_) => !self.base.live_docs_initialized,
-            None => self.base.must_init_on_delete(),
-        }
-    }
 }
 impl std::fmt::Display for PendingSoftDeletes {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -232,6 +137,104 @@ impl std::fmt::Display for PendingSoftDeletes {
             self.dv_generation,
             self.hard_deletes
         )
+    }
+}
+impl PendingDeletesBase for PendingSoftDeletes {
+    fn delete<D>(&mut self, doc_id: i32, info: &mut SegmentCommitInfo<D>) -> Result<bool>
+    where
+        D: Directory,
+    {
+        // we need to fetch this first it might be a shared instance with
+        let mutable_bits = self.base.get_mutable_bits()?;
+        // hardDeletes
+        if self.hard_deletes.delete(doc_id, info)? {
+            if mutable_bits.get_and_clear(doc_id) {
+                // delete it here too!
+                debug_assert!(!self.hard_deletes.delete(doc_id, info)?);
+            } else {
+                // if it was deleted subtract the delCount
+                self.base.pending_delete_count -= 1;
+                debug_assert!(self.assert_pending_deletes(info)?);
+            }
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
+    fn get_hard_live_docs(&mut self) -> Option<DocBits> {
+        self.hard_deletes.get_live_docs()
+    }
+
+    fn get_live_docs(&mut self) -> Option<DocBits> {
+        self.base.get_live_docs()
+    }
+
+    fn num_pending_deletes(&self) -> i32 {
+        self.base.num_pending_deletes() + self.hard_deletes.num_pending_deletes()
+    }
+
+    fn on_new_reader<D>(
+        &mut self,
+        reader: &SegmentReader<D>,
+        info: &SegmentCommitInfo<D>,
+    ) -> Result<()>
+    where
+        D: Directory,
+    {
+        todo!()
+    }
+
+    fn drop_changes(&mut self) {
+        self.hard_deletes.drop_changes()
+    }
+
+    fn write_live_docs<D>(
+        &mut self,
+        dir: Arc<LockValidatingDirectoryWrapper<D>>,
+        info: &mut SegmentCommitInfo<D>,
+    ) -> Result<bool>
+    where
+        D: Directory,
+    {
+        // we need to set this here to make sure our stats in SCI are up-to-date otherwise we might hit
+        // an assertion
+        // when the hard deletes are set since we need to account for docs that used to be only
+        // soft-delete but now hard-deleted
+        info.set_soft_del_count(info.get_soft_del_count() + self.base.pending_delete_count)?;
+        self.base.drop_changes();
+        // delegate the write to the hard deletes - it will only write if somebody used it.
+        self.hard_deletes.write_live_docs(dir, info)
+    }
+
+    fn is_fully_deleted<D, F>(
+        &self,
+        reader_io_supplier: F,
+        info: &SegmentCommitInfo<D>,
+    ) -> Result<bool>
+    where
+        D: Directory,
+        F: Fn() -> Arc<SegmentReader<D>>,
+    {
+        // initialize to ensure we have accurate counts - only needed in the soft-delete case
+        self.ensure_initialized(reader_io_supplier);
+        todo!()
+    }
+
+    fn max_doc(&self) -> i32 {
+        self.base.max_doc()
+    }
+
+    fn on_doc_values_update(
+        &self,
+        info: &FieldInfo,
+        iterator: Option<MergedIterator<DocValuesFieldIteratorEnum>>,
+    ) {
+        todo!()
+    }
+
+    fn must_init_on_delete(&self) -> bool {
+        !self.base.live_docs_initialized
     }
 }
 
