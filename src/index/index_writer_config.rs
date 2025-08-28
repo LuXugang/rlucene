@@ -18,7 +18,6 @@ pub struct IndexWriterConfig;
 impl IndexWriterConfig {
     pub fn set_index_sort(&self) {}
 }
-pub mod iwc_util {
-    /// Denotes a flush trigger is disabled.
-    pub const DISABLE_AUTO_FLUSH: i32 = -1;
-}
+
+/// Denotes a flush trigger is disabled.
+pub const DISABLE_AUTO_FLUSH: i32 = -1;

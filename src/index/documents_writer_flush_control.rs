@@ -21,7 +21,7 @@ use crate::index::documents_writer_per_thread::DocumentsWriterPerThread;
 use crate::index::documents_writer_per_thread_pool::DocumentsWriterPerThreadPool;
 use crate::index::documents_writer_stall_control::DocumentsWriterStallControl;
 use crate::index::flush_policy::FlushPolicy;
-use crate::index::index_writer_config::iwc_util;
+use crate::index::index_writer_config::DISABLE_AUTO_FLUSH;
 use crate::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::index::lockable_concurrent_approximate_priority_queue::Lock;
 use crate::search::query::Query;
@@ -152,7 +152,7 @@ where
 
     fn stall_limit_bytes(&self) -> i64 {
         let max_ram_mb = self.config.get_ram_buffer_size_mb();
-        if max_ram_mb != iwc_util::DISABLE_AUTO_FLUSH as f64 {
+        if max_ram_mb != DISABLE_AUTO_FLUSH as f64 {
             (2.0 * (max_ram_mb * 1024.0 * 1024.0)) as i64
         } else {
             i64::MAX
@@ -164,7 +164,7 @@ where
         // false trip if e.g. the
         // flush-by-doc-count * doc size was large enough to use far more RAM than the sudden change to
         // IWC's maxRAMBufferSizeMB:
-        if max_ram_mb != iwc_util::DISABLE_AUTO_FLUSH as f64 && !inner.flush_by_ram_was_disabled {
+        if max_ram_mb != DISABLE_AUTO_FLUSH as f64 && !inner.flush_by_ram_was_disabled {
             // for this assert we must be tolerant to ram buffer changes!
             inner.max_configured_ram_buffer = inner.max_configured_ram_buffer.max(max_ram_mb);
             let flush_bytes = inner.flush_bytes.load(Ordering::SeqCst);
@@ -240,7 +240,7 @@ where
     /// Return the smallest number of bytes that we would like to make sure to not miss from the global RAM accounting.
     fn ram_buffer_granularity(&self) -> i64 {
         let mut ram_buffer_mb = self.config.get_ram_buffer_size_mb();
-        if ram_buffer_mb == iwc_util::DISABLE_AUTO_FLUSH as f64 {
+        if ram_buffer_mb == DISABLE_AUTO_FLUSH as f64 {
             ram_buffer_mb = self.config.get_ram_per_thread_hard_limit_mb() as f64;
         }
         // No more than ~0.1% of the RAM buffer size.
@@ -265,7 +265,7 @@ where
         let delta = per_thread.get_commit_last_bytes_used_delta()?;
         // in order to prevent contention in the case of many threads indexing small documents
         // we skip ram accounting unless the DWPT accumulated enough ram to be worthwhile
-        if self.config.get_max_buffered_docs() == iwc_util::DISABLE_AUTO_FLUSH
+        if self.config.get_max_buffered_docs() == DISABLE_AUTO_FLUSH
             && delta < self.ram_buffer_granularity()
         {
             // Skip accounting for now, we'll come back to it later when the delta is bigger
