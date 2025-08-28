@@ -39,7 +39,7 @@ use crate::index::field_infos::{FieldInfos, FieldNumbers};
 use crate::index::index_reader::IndexReader;
 use crate::index::leaf_reader::LeafReader;
 use crate::index::numeric_doc_values::NumericDocValues;
-use crate::index::pending_deletes::{DocBits, PendingDeletes};
+use crate::index::pending_deletes::{DocBits, PendingDeletes, PendingDeletesBase};
 use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::index::segment_reader::SegmentReader;
 use crate::index::segment_write_state::SegmentWriteState;

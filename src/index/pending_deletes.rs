@@ -33,6 +33,7 @@ use crate::util::bits::{Bits, Either2Bits};
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::{FixedBit, FixedBitSet};
 use std::fmt;
+use std::fmt::Display;
 use std::sync::Arc;
 
 /// This class handles accounting and applying pending deletes for live segment readers
@@ -139,8 +140,38 @@ impl PendingDeletes {
             )),
         }
     }
-    /// Marks a document as deleted in this segment and return true if a document got actually deleted or if the document was already deleted.
-    pub(crate) fn delete(&mut self, doc_id: i32) -> Result<bool> {
+
+    fn assert_check_live_docs(
+        &self,
+        bits: &impl Bits,
+        expected_length: i32,
+        expected_delete_count: i32,
+    ) -> bool {
+        debug_assert_eq!(
+            bits.length(),
+            expected_length,
+            "length: {} != expected: {}",
+            bits.length(),
+            expected_length
+        );
+
+        let mut deleted = 0;
+        for i in 0..bits.length() {
+            if !bits.get(i) {
+                deleted += 1;
+            }
+        }
+
+        debug_assert_eq!(
+            deleted, expected_delete_count,
+            "deleted: {deleted} != expected: {expected_delete_count}"
+        );
+
+        true
+    }
+}
+impl PendingDeletesBase for PendingDeletes {
+    fn delete(&mut self, doc_id: i32) -> Result<bool> {
         debug_assert!(self.max_doc > 0);
 
         let mutable_bits = self.get_mutable_bits()?;
@@ -161,8 +192,12 @@ impl PendingDeletes {
         }
         Ok(did_delete)
     }
-    /// Returns a snapshot of the current live docs.
-    pub(crate) fn get_live_docs(&mut self) -> Option<DocBits> {
+
+    fn get_hard_live_docs(&mut self) -> Option<DocBits> {
+        self.get_live_docs()
+    }
+
+    fn get_live_docs(&mut self) -> Option<DocBits> {
         // Prevent modifications to the returned live docs
         self.writeable_live_docs = false;
         match self.live_docs.take() {
@@ -187,17 +222,11 @@ impl PendingDeletes {
         }
     }
 
-    /// Returns a snapshot of the hard live docs.
-    pub(crate) fn get_hard_live_docs(&mut self) -> Option<DocBits> {
-        self.get_live_docs()
-    }
-
-    /// Returns the number of pending deletes that are not yet flushed to disk.
-    pub(crate) fn num_pending_deletes(&self) -> i32 {
+    fn num_pending_deletes(&self) -> i32 {
         self.pending_delete_count
     }
-    /// Called once a new reader is opened for this segment ie. when deletes or updates are applied.
-    pub(crate) fn on_new_reader<D>(
+
+    fn on_new_reader<D>(
         &mut self,
         reader: &SegmentReader<D>,
         info: &SegmentCommitInfo<D>,
@@ -228,41 +257,12 @@ impl PendingDeletes {
         }
         Ok(())
     }
-
-    fn assert_check_live_docs(
-        &self,
-        bits: &impl Bits,
-        expected_length: i32,
-        expected_delete_count: i32,
-    ) -> bool {
-        debug_assert_eq!(
-            bits.length(),
-            expected_length,
-            "length: {} != expected: {}",
-            bits.length(),
-            expected_length
-        );
-
-        let mut deleted = 0;
-        for i in 0..bits.length() {
-            if !bits.get(i) {
-                deleted += 1;
-            }
-        }
-
-        debug_assert_eq!(
-            deleted, expected_delete_count,
-            "deleted: {deleted} != expected: {expected_delete_count}"
-        );
-
-        true
-    }
     /// Resets the pending docs
-    pub(crate) fn drop_changes(&mut self) {
+    fn drop_changes(&mut self) {
         self.pending_delete_count = 0;
     }
-    /// Writes the live docs to disk and returns `true` if any new docs were written.
-    pub(crate) fn write_live_docs<D>(
+
+    fn write_live_docs<D>(
         &mut self,
         dir: Arc<LockValidatingDirectoryWrapper<D>>,
         info: &mut SegmentCommitInfo<D>,
@@ -325,7 +325,8 @@ impl PendingDeletes {
 
         Ok(true)
     }
-    pub(crate) fn is_fully_deleted<D, F>(
+
+    fn is_fully_deleted<D, F>(
         &self,
         _reader_io_supplier: F,
         info: &SegmentCommitInfo<D>,
@@ -338,15 +339,74 @@ impl PendingDeletes {
         Ok(self.get_del_count(info) == info.info.max_doc()?)
     }
 
-    pub(crate) fn on_doc_values_update(
+    fn max_doc(&self) -> i32 {
+        self.max_doc
+    }
+
+    fn on_doc_values_update(
         &self,
         _info: &FieldInfo,
         _iterator: Option<MergedIterator<DocValuesFieldIteratorEnum>>,
     ) {
     }
 
+    fn must_init_on_delete(&self) -> bool {
+        false
+    }
+}
+pub(crate) type DocBits = Either2Bits<
+    Arc<<Lucene90LiveDocsFormat as LiveDocsFormat>::Bits>,
+    Either2Bits<Arc<FixedBit>, FixedBitSet>,
+>;
+impl fmt::Display for PendingDeletes {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}(seg={} numPendingDeletes={} writeable={})",
+            std::any::type_name::<Self>(),
+            self.info_id,
+            self.pending_delete_count,
+            self.writeable_live_docs
+        )
+    }
+}
+
+pub(crate) trait PendingDeletesBase: Display {
+    /// Marks a document as deleted in this segment and return true if a document got actually deleted or if the document was already deleted.
+    fn delete(&mut self, doc_id: i32) -> Result<bool>;
+    /// Returns a snapshot of the hard live docs.
+    fn get_hard_live_docs(&mut self) -> Option<DocBits>;
+    /// Returns a snapshot of the current live docs.
+    fn get_live_docs(&mut self) -> Option<DocBits>;
+    /// Returns the number of pending deletes that are not yet flushed to disk.
+    fn num_pending_deletes(&self) -> i32;
+    /// Called once a new reader is opened for this segment ie. when deletes or updates are applied.
+    fn on_new_reader<D>(
+        &mut self,
+        reader: &SegmentReader<D>,
+        info: &SegmentCommitInfo<D>,
+    ) -> Result<()>
+    where
+        D: Directory;
+    fn drop_changes(&mut self);
+    /// Writes the live docs to disk and returns `true` if any new docs were written.
+    fn write_live_docs<D>(
+        &mut self,
+        dir: Arc<LockValidatingDirectoryWrapper<D>>,
+        info: &mut SegmentCommitInfo<D>,
+    ) -> Result<bool>
+    where
+        D: Directory;
+    fn is_fully_deleted<D, F>(
+        &self,
+        reader_io_supplier: F,
+        info: &SegmentCommitInfo<D>,
+    ) -> Result<bool>
+    where
+        D: Directory,
+        F: Fn() -> Arc<SegmentReader<D>>;
     /// Returns true if the given reader needs to be refreshed to see the latest deletes
-    pub(crate) fn needs_refresh<D>(
+    fn needs_refresh<D>(
         &mut self,
         reader: &SegmentReader<D>,
         info: &SegmentCommitInfo<D>,
@@ -375,26 +435,24 @@ impl PendingDeletes {
         };
         Ok(!same_live_docs || reader.num_deleted_docs()? != self.get_del_count(info))
     }
-
     /// Returns the number of deleted docs in the segment.
-    pub(crate) fn get_del_count<D>(&self, info: &SegmentCommitInfo<D>) -> i32
+    fn get_del_count<D>(&self, info: &SegmentCommitInfo<D>) -> i32
     where
         D: Directory,
     {
         info.get_del_count() + info.get_soft_del_count() + self.num_pending_deletes()
     }
     /// Returns the number of live documents in this segment
-    pub(crate) fn num_docs<D>(&self, info: &SegmentCommitInfo<D>) -> Result<i32>
+    fn num_docs<D>(&self, info: &SegmentCommitInfo<D>) -> Result<i32>
     where
         D: Directory,
     {
-        debug_assert!(info.info.max_doc()? == self.max_doc);
+        debug_assert!(info.info.max_doc()? == self.max_doc());
         let max_doc = info.info.max_doc()?;
         Ok(max_doc - self.get_del_count(info))
     }
-
     // Call only from assert!
-    pub(crate) fn verify_doc_counts<D>(
+    fn verify_doc_counts<D>(
         &mut self,
         reader: &impl CodecReader,
         info: &SegmentCommitInfo<D>,
@@ -402,7 +460,7 @@ impl PendingDeletes {
     where
         D: Directory,
     {
-        debug_assert!(info.info.max_doc()? == self.max_doc);
+        debug_assert!(info.info.max_doc()? == self.max_doc());
         let max_doc = info.info.max_doc()?;
         let mut count = 0;
         match self.get_live_docs() {
@@ -448,28 +506,16 @@ impl PendingDeletes {
         );
         Ok(true)
     }
+    fn max_doc(&self) -> i32;
+    fn on_doc_values_update(
+        &self,
+        info: &FieldInfo,
+        iterator: Option<MergedIterator<DocValuesFieldIteratorEnum>>,
+    );
     /// Returns `true` if this `PendingDeletes` must be initialized before [`delete`](Self::delete);
     /// otherwise it is ready to accept deletes.
     /// A `PendingDeletes` can be initialized by providing it a reader via [`on_new_reader`](Self::on_new_reader).
-    pub(crate) fn must_init_on_delete(&self) -> bool {
-        false
-    }
-}
-pub(crate) type DocBits = Either2Bits<
-    Arc<<Lucene90LiveDocsFormat as LiveDocsFormat>::Bits>,
-    Either2Bits<Arc<FixedBit>, FixedBitSet>,
->;
-impl fmt::Display for PendingDeletes {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}(seg={} numPendingDeletes={} writeable={})",
-            std::any::type_name::<Self>(),
-            self.info_id,
-            self.pending_delete_count,
-            self.writeable_live_docs
-        )
-    }
+    fn must_init_on_delete(&self) -> bool;
 }
 
 #[cfg(test)]
@@ -478,7 +524,7 @@ mod tests {
     use crate::codecs::live_docs_format::LiveDocsFormat;
     use crate::codecs::{Codec, get_default_code};
     use crate::index::field_infos::FieldInfos;
-    use crate::index::pending_deletes::PendingDeletes;
+    use crate::index::pending_deletes::{PendingDeletes, PendingDeletesBase};
     use crate::index::segment_commit_info::SegmentCommitInfo;
     use crate::index::segment_info::SegmentInfo;
     use crate::index::segment_reader::SegmentReader;

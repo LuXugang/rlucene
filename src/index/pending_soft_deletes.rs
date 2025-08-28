@@ -17,7 +17,7 @@
 use crate::codecs::field_infos_format::FieldInfosFormat;
 use crate::codecs::{Codec, CompoundFormat, get_default_code};
 use crate::index::field_infos::FieldInfos;
-use crate::index::pending_deletes::{DocBits, PendingDeletes};
+use crate::index::pending_deletes::{DocBits, PendingDeletes, PendingDeletesBase};
 use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::index::segment_reader::SegmentReader;
 use crate::store::IOContext;
