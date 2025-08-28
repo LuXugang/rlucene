@@ -27,9 +27,7 @@ use crate::util::StringHelper;
 use crate::util::error::lucene_error::Result;
 use crate::util::long_values::LongValues;
 use crate::util::packed::direct_monotonic_reader::direct_monotonic::Meta;
-use crate::util::packed::direct_monotonic_reader::{
-    DirectMonotonicReader, direct_monotonic_reader_util,
-};
+use crate::util::packed::direct_monotonic_reader::{DirectMonotonicReader, load_meta};
 
 pub(crate) struct FieldsIndexReader<I>
 where
@@ -71,12 +69,10 @@ where
         let block_shift = meta_in.read_int()?;
         let num_chunks = meta_in.read_int()?;
         let docs_start_pointer = meta_in.read_long()?;
-        let docs_meta =
-            direct_monotonic_reader_util::load_meta(meta_in, num_chunks as i64, block_shift)?;
+        let docs_meta = load_meta(meta_in, num_chunks as i64, block_shift)?;
         let docs_end_pointer = meta_in.read_long()?;
         let start_pointers_start_pointer = meta_in.read_long()?;
-        let start_pointers_meta =
-            direct_monotonic_reader_util::load_meta(meta_in, num_chunks as i64, block_shift)?;
+        let start_pointers_meta = load_meta(meta_in, num_chunks as i64, block_shift)?;
         let start_pointers_end_pointer = meta_in.read_long()?;
         let max_pointer = meta_in.read_long()?;
 

@@ -28,9 +28,7 @@ use crate::test::util::test_util::TestUtil;
 use crate::util::array_util::ArrayUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::long_values::LongValues;
-use crate::util::packed::direct_monotonic_reader::{
-    DirectMonotonicReader, direct_monotonic_reader_util,
-};
+use crate::util::packed::direct_monotonic_reader::{DirectMonotonicReader, load_meta};
 use crate::util::packed::direct_monotonic_writer::{
     DirectMonotonicWriter, direct_monotonic_writer_util,
 };
@@ -80,7 +78,7 @@ pub fn test_empty() -> Result<()> {
     {
         let mut meta_in = dir.open_input("meta", &IOContext::read_once_io_context()?)?;
         let data_in = dir.open_input("data", &IOContext::default_io_context()?)?;
-        let meta = direct_monotonic_reader_util::load_meta(&mut meta_in, 0, block_shift)?;
+        let meta = load_meta(&mut meta_in, 0, block_shift)?;
         let slice = Rc::new(RefCell::new(data_in.random_access_slice(0, data_length)?));
         DirectMonotonicReader::get_instance(&meta, slice)?;
     }
@@ -115,8 +113,7 @@ pub fn test_simple() -> Result<()> {
     {
         let mut meta_in = dir.open_input("meta", &IOContext::read_once_io_context()?)?;
         let data_in = dir.open_input("data", &IOContext::default_io_context()?)?;
-        let meta =
-            direct_monotonic_reader_util::load_meta(&mut meta_in, num_values as i64, block_shift)?;
+        let meta = load_meta(&mut meta_in, num_values as i64, block_shift)?;
         let slice = Rc::new(RefCell::new(data_in.random_access_slice(0, data_length)?));
         let values = DirectMonotonicReader::get_instance(&meta, slice)?;
         for (i, &v) in actual_values.iter().enumerate() {
@@ -162,8 +159,7 @@ pub fn test_constant_slope() -> Result<()> {
     {
         let mut meta_in = dir.open_input("meta", &IOContext::read_once_io_context()?)?;
         let data_in = dir.open_input("data", &IOContext::default_io_context()?)?;
-        let meta =
-            direct_monotonic_reader_util::load_meta(&mut meta_in, num_values as i64, block_shift)?;
+        let meta = load_meta(&mut meta_in, num_values as i64, block_shift)?;
         let slice = Rc::new(RefCell::new(data_in.random_access_slice(0, data_length)?));
         let values = DirectMonotonicReader::get_instance(&meta, slice)?;
         for (i, &v) in actual_values.iter().enumerate() {
@@ -206,8 +202,7 @@ pub fn test_zero_values_small_blob_shift() -> Result<()> {
     {
         let mut meta_in = dir.open_input("meta", &IOContext::read_once_io_context()?)?;
         let data_in = dir.open_input("data", &IOContext::default_io_context()?)?;
-        let meta =
-            direct_monotonic_reader_util::load_meta(&mut meta_in, num_values as i64, block_shift)?;
+        let meta = load_meta(&mut meta_in, num_values as i64, block_shift)?;
         assert_eq!(meta_in.length(), meta_in.get_file_pointer());
         meta_in.seek(0)?;
         let slice = Rc::new(RefCell::new(data_in.random_access_slice(0, data_length)?));
@@ -280,11 +275,7 @@ fn do_test_random<R: Rng + ?Sized>(random: &mut R, merging: bool) -> Result<()> 
         {
             let mut meta_in = dir.open_input("meta", &IOContext::read_once_io_context()?)?;
             let data_in = dir.open_input("data", &IOContext::default_io_context()?)?;
-            let meta = direct_monotonic_reader_util::load_meta(
-                &mut meta_in,
-                num_values as i64,
-                block_shift,
-            )?;
+            let meta = load_meta(&mut meta_in, num_values as i64, block_shift)?;
             let slice = Rc::new(RefCell::new(data_in.random_access_slice(0, data_length)?));
             let values = DirectMonotonicReader::get_instance_with_merging(&meta, slice, merging)?;
             for (i, &v) in actual_values.iter().enumerate() {
@@ -352,8 +343,7 @@ fn do_test_monotonic_binary_search_against_long_array<R: Rng + ?Sized>(
     {
         let mut meta_in = dir.open_input("meta", &IOContext::read_once_io_context()?)?;
         let data_in = dir.open_input("data", &IOContext::default_io_context()?)?;
-        let meta =
-            direct_monotonic_reader_util::load_meta(&mut meta_in, array.len() as i64, block_shift)?;
+        let meta = load_meta(&mut meta_in, array.len() as i64, block_shift)?;
         let slice = Rc::new(RefCell::new(
             data_in.random_access_slice(0, dir.file_length("data")?)?,
         ));

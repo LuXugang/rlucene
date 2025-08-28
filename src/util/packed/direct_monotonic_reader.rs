@@ -40,39 +40,6 @@ where
     avgs: Vec<f32>,
     bpvs: Vec<u8>,
 }
-pub mod direct_monotonic_reader_util {
-    use crate::store::IndexInput;
-    use crate::util::error::lucene_error::Result;
-    use crate::util::packed::direct_monotonic_reader::direct_monotonic::Meta;
-
-    /// Load metadata from the given [`IndexInput`].
-    ///
-    /// # See also
-    /// `DirectMonotonicReader::getInstance(Meta, RandomAccessInput)`
-    pub fn load_meta(
-        meta_in: &mut impl IndexInput,
-        num_values: i64,
-        block_shift: i32,
-    ) -> Result<Meta> {
-        let mut all_values_zero = true;
-        let mut meta = Meta::new(num_values, block_shift);
-        for i in 0..meta.num_blocks {
-            let min = meta_in.read_long()?;
-            meta.mins[i] = min;
-            let avg_int = meta_in.read_int()?;
-            meta.avgs[i] = f32::from_bits(avg_int as u32);
-            meta.offsets[i] = meta_in.read_long()?;
-            let bpv = meta_in.read_byte()?;
-            meta.bpvs[i] = bpv;
-            all_values_zero = all_values_zero && (min == 0) && (avg_int == 0) && (bpv == 0);
-        }
-        if all_values_zero {
-            Ok(Meta::single_zero_block())
-        } else {
-            Ok(meta)
-        }
-    }
-}
 
 impl<R> DirectMonotonicReader<R>
 where
@@ -237,5 +204,31 @@ pub mod direct_monotonic {
         pub fn single_zero_block() -> Self {
             Meta::new(1, 63)
         }
+    }
+}
+
+use crate::store::IndexInput;
+
+/// Load metadata from the given [`IndexInput`].
+///
+/// # See also
+/// `DirectMonotonicReader::getInstance(Meta, RandomAccessInput)`
+pub fn load_meta(meta_in: &mut impl IndexInput, num_values: i64, block_shift: i32) -> Result<Meta> {
+    let mut all_values_zero = true;
+    let mut meta = Meta::new(num_values, block_shift);
+    for i in 0..meta.num_blocks {
+        let min = meta_in.read_long()?;
+        meta.mins[i] = min;
+        let avg_int = meta_in.read_int()?;
+        meta.avgs[i] = f32::from_bits(avg_int as u32);
+        meta.offsets[i] = meta_in.read_long()?;
+        let bpv = meta_in.read_byte()?;
+        meta.bpvs[i] = bpv;
+        all_values_zero = all_values_zero && (min == 0) && (avg_int == 0) && (bpv == 0);
+    }
+    if all_values_zero {
+        Ok(Meta::single_zero_block())
+    } else {
+        Ok(meta)
     }
 }
