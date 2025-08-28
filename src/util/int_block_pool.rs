@@ -67,8 +67,8 @@ where
         IntBlockPool {
             buffers: vec![],
             buffer_upto: -1,
-            int_upto: ibp_util::INT_BLOCK_SIZE,
-            int_offset: -ibp_util::INT_BLOCK_SIZE,
+            int_upto: INT_BLOCK_SIZE,
+            int_offset: -INT_BLOCK_SIZE,
             allocator,
         }
     }
@@ -110,8 +110,8 @@ where
                 self.int_offset = 0;
             } else {
                 self.buffer_upto = -1;
-                self.int_upto = ibp_util::INT_BLOCK_SIZE;
-                self.int_offset = -ibp_util::INT_BLOCK_SIZE;
+                self.int_upto = INT_BLOCK_SIZE;
+                self.int_offset = -INT_BLOCK_SIZE;
             }
         }
     }
@@ -126,7 +126,7 @@ where
         // Allocate new buffer and advance the pool to it
         self.buffer_upto += 1;
         self.int_upto = 0;
-        match self.int_offset.checked_add(ibp_util::INT_BLOCK_SIZE) {
+        match self.int_offset.checked_add(INT_BLOCK_SIZE) {
             Some(val) => {
                 self.int_offset = val;
                 Ok(())
@@ -144,11 +144,6 @@ where
 pub type IntBlockPoolBorrow = Rc<RefCell<IntBlockPool<CounterEnumBorrow>>>;
 // for multi thread
 pub type IntBlockPoolLock = Arc<Mutex<IntBlockPool<CounterEnumLock>>>;
-pub mod ibp_util {
-    pub(crate) const INT_BLOCK_SHIFT: i32 = 13;
-    pub(crate) const INT_BLOCK_SIZE: i32 = 1 << INT_BLOCK_SHIFT;
-    pub(crate) const INT_BLOCK_MASK: i32 = INT_BLOCK_SIZE - 1;
-}
 
 /// Abstract trait for allocating and freeing byte blocks.
 pub trait AllocatorI32 {
@@ -171,7 +166,7 @@ impl Default for DirectAllocatorI32 {
 impl DirectAllocatorI32 {
     pub fn new() -> Self {
         DirectAllocatorI32 {
-            block_size: ibp_util::INT_BLOCK_SIZE as usize,
+            block_size: INT_BLOCK_SIZE as usize,
         }
     }
 }
@@ -220,6 +215,10 @@ where
     }
 }
 
+pub(crate) const INT_BLOCK_SHIFT: i32 = 13;
+pub(crate) const INT_BLOCK_SIZE: i32 = 1 << INT_BLOCK_SHIFT;
+pub(crate) const INT_BLOCK_MASK: i32 = INT_BLOCK_SIZE - 1;
+
 #[cfg(test)]
 mod tests {
 
@@ -229,7 +228,7 @@ mod tests {
     use crate::util::CounterEnumBorrow;
     use crate::util::error::lucene_error::{LuceneError, Result};
     use crate::util::int_block_pool::{
-        AllocatorIntEnum, DirectAllocatorI32, IntBlockPool, ibp_util,
+        AllocatorIntEnum, DirectAllocatorI32, INT_BLOCK_SIZE, IntBlockPool,
     };
 
     #[test]
@@ -241,9 +240,9 @@ mod tests {
 
         // Write <count> consecutive ints to the buffer, possibly allocating a
         // new buffer
-        let count = random.random_range(0..2 * ibp_util::INT_BLOCK_SIZE);
+        let count = random.random_range(0..2 * INT_BLOCK_SIZE);
         for i in 0..count {
-            if pool.int_upto == ibp_util::INT_BLOCK_SIZE {
+            if pool.int_upto == INT_BLOCK_SIZE {
                 pool.next_buffer()?;
             }
             let buffer_index = pool.buffer_upto;
@@ -256,14 +255,13 @@ mod tests {
         for i in 0..count {
             assert_eq!(
                 i,
-                pool.buffers[(i / ibp_util::INT_BLOCK_SIZE) as usize]
-                    [(i % ibp_util::INT_BLOCK_SIZE) as usize]
+                pool.buffers[(i / INT_BLOCK_SIZE) as usize][(i % INT_BLOCK_SIZE) as usize]
             );
         }
 
         // Reset without filling with zeros and check that the first buffer
         // still has the ints
-        let count = count.min(ibp_util::INT_BLOCK_SIZE);
+        let count = count.min(INT_BLOCK_SIZE);
         pool.reset(false, true);
         for i in 0..count {
             assert_eq!(i, pool.buffers[0][i as usize]);
@@ -284,14 +282,14 @@ mod tests {
         pool.next_buffer()?;
 
         let result = (|| {
-            for _ in 0..(i32::MAX / ibp_util::INT_BLOCK_SIZE + 1) {
+            for _ in 0..(i32::MAX / INT_BLOCK_SIZE + 1) {
                 pool.next_buffer()?;
             }
             Ok(())
         })();
 
         assert!(matches!(result, Err(LuceneError::NumberOverflow(_))));
-        assert!(pool.int_offset + ibp_util::INT_BLOCK_SIZE < pool.int_offset);
+        assert!(pool.int_offset + INT_BLOCK_SIZE < pool.int_offset);
 
         Ok(())
     }

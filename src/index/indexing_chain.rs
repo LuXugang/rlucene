@@ -92,7 +92,7 @@ use crate::util::bit_util::BitUtil;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::fixed_bit_set::FixedBitSet;
 use crate::util::info_stream::{InfoStream, InfoStreamMT};
-use crate::util::int_block_pool::{AllocatorI32, AllocatorIntEnum, ibp_util};
+use crate::util::int_block_pool::{AllocatorI32, AllocatorIntEnum, INT_BLOCK_SIZE};
 use crate::util::number::Number;
 use crate::util::paged_bytes::PagedBytesDataInput;
 use crate::util::sparse_fixed_bit_set::SparseFixedBitSet;
@@ -1664,7 +1664,7 @@ where
 {
     fn new(byte_used: C) -> Self {
         IntBlockAllocator {
-            block_size: ibp_util::INT_BLOCK_SIZE as usize,
+            block_size: INT_BLOCK_SIZE as usize,
             byte_used,
         }
     }
@@ -1684,9 +1684,9 @@ where
     }
 
     fn get_byte_block(&mut self) -> Vec<i32> {
-        let b = vec![0; ibp_util::INT_BLOCK_SIZE as usize];
+        let b = vec![0; INT_BLOCK_SIZE as usize];
         self.byte_used.access_mut(|byte_used| {
-            byte_used.add_and_get(ibp_util::INT_BLOCK_SIZE as i64 * BitUtil::INT_BYTES as i64);
+            byte_used.add_and_get(INT_BLOCK_SIZE as i64 * BitUtil::INT_BYTES as i64);
         });
         b
     }

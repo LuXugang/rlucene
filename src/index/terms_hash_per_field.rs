@@ -26,7 +26,9 @@ use crate::util::allocator_byte::{AllocatorByteEnum, DirectAllocatorByte};
 use crate::util::attribute_source::AttributeSource;
 use crate::util::bytes_ref_hash::{BytesRefHash, BytesStartArray};
 use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::int_block_pool::{IntBlockPool, IntBlockPoolLock, ibp_util};
+use crate::util::int_block_pool::{
+    INT_BLOCK_MASK, INT_BLOCK_SHIFT, INT_BLOCK_SIZE, IntBlockPool, IntBlockPoolLock,
+};
 use crate::util::{
     ByteBlockPool, ByteBlockPoolLock, Counter, CounterEnum, CounterEnumLock, SliceCopyOps,
     byte_block_pool_util,
@@ -147,8 +149,8 @@ impl TermsHashPerField {
             .as_ref()
             .unwrap()
             .get_address_offset()[term_id];
-        let buffer_index = stream_start_offset >> ibp_util::INT_BLOCK_SHIFT;
-        let offset_in_address_buffer = stream_start_offset & ibp_util::INT_BLOCK_MASK;
+        let buffer_index = stream_start_offset >> INT_BLOCK_SHIFT;
+        let offset_in_address_buffer = stream_start_offset & INT_BLOCK_MASK;
         let addr;
         {
             let mut int_pool = self.int_pool.lock();
@@ -303,7 +305,7 @@ impl TermsHashPerField {
         }
         {
             let mut int_pool = self.int_pool.lock();
-            if self.stream_count + int_pool.int_upto > ibp_util::INT_BLOCK_SIZE {
+            if self.stream_count + int_pool.int_upto > INT_BLOCK_SIZE {
                 int_pool.next_buffer()?;
             }
             self.term_stream_address_buffer_index = int_pool.buffer_upto;
@@ -361,8 +363,8 @@ impl TermsHashPerField {
             .as_ref()
             .unwrap()
             .get_address_offset()[term_id as usize];
-        self.term_stream_address_buffer_index = int_start >> ibp_util::INT_BLOCK_SHIFT;
-        self.stream_address_offset = int_start & ibp_util::INT_BLOCK_MASK;
+        self.term_stream_address_buffer_index = int_start >> INT_BLOCK_SHIFT;
+        self.stream_address_offset = int_start & INT_BLOCK_MASK;
         Ok(term_id)
     }
 }
