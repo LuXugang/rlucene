@@ -17,7 +17,7 @@
 use crate::index::field_invert_state::FieldInvertState;
 use crate::index::index_options::IndexOptions;
 use crate::search::collection_statistics::CollectionStatistics;
-use crate::search::explanation::{Explanation, explanation_util};
+use crate::search::explanation::{Explanation, match_};
 use crate::search::term_statistics::TermStatistics;
 use crate::util::error::lucene_error::Result;
 use crate::util::number::Number;
@@ -198,6 +198,6 @@ pub trait SimScorer {
     fn explain(&self, freq: Explanation, norm: i64) -> Explanation {
         let value = self.score(freq.get_value().to_f32().unwrap(), norm);
         let description = format!("score(freq={}), with freq of:", freq.get_value());
-        explanation_util::match_(Number::F32(value), description, vec![freq])
+        match_(Number::F32(value), description, vec![freq])
     }
 }

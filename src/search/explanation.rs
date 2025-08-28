@@ -95,21 +95,17 @@ impl fmt::Display for Explanation {
     }
 }
 
-pub mod explanation_util {
-    use crate::search::explanation::Explanation;
-    use crate::util::number::Number;
-    /// Create a new explanation for a match.
-    ///
-    /// # Arguments
-    ///
-    /// * `value` - The contribution to the score of the document.
-    /// * `description` - How `value` was computed.
-    /// * `details` - Sub explanations that contributed to this explanation.
-    pub fn match_(value: Number, description: String, details: Vec<Explanation>) -> Explanation {
-        Explanation::new(true, value, description, details)
-    }
-    /// Create a new explanation for a document which does not match.
-    pub fn no_match(description: String, details: Vec<Explanation>) -> Explanation {
-        Explanation::new(false, Number::F32(0.0), description, details)
-    }
+/// Create a new explanation for a match.
+///
+/// # Arguments
+///
+/// * `value` - The contribution to the score of the document.
+/// * `description` - How `value` was computed.
+/// * `details` - Sub explanations that contributed to this explanation.
+pub fn match_(value: Number, description: String, details: Vec<Explanation>) -> Explanation {
+    Explanation::new(true, value, description, details)
+}
+/// Create a new explanation for a document which does not match.
+pub fn no_match(description: String, details: Vec<Explanation>) -> Explanation {
+    Explanation::new(false, Number::F32(0.0), description, details)
 }
