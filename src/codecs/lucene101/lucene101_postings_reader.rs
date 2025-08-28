@@ -30,7 +30,9 @@ use crate::index::impacts::Impacts;
 use crate::index::impacts_enum::ImpactsEnum;
 use crate::index::impacts_source::ImpactsSource;
 use crate::index::index_options::IndexOptions;
-use crate::index::postings_enum::{PostingsEnum, postings_enum_util};
+use crate::index::postings_enum::{
+    FREQS, OFFSETS, PAYLOADS, POSITIONS, PostingsEnum, feature_requested,
+};
 use crate::index::segment_info::SegmentInfo;
 use crate::index::segment_read_state::SegmentReadState;
 use crate::index::{BytesRef, IndexFileNames};
@@ -504,14 +506,10 @@ where
         let index_has_payloads = field_info.has_payloads();
         let index_has_offsets_or_payloads = index_has_offsets || index_has_payloads;
 
-        let needs_freq = index_has_freq
-            && postings_enum_util::feature_requested(flags, postings_enum_util::FREQS);
-        let needs_pos = index_has_pos
-            && postings_enum_util::feature_requested(flags, postings_enum_util::POSITIONS);
-        let needs_offsets = index_has_offsets
-            && postings_enum_util::feature_requested(flags, postings_enum_util::OFFSETS);
-        let needs_payloads = index_has_payloads
-            && postings_enum_util::feature_requested(flags, postings_enum_util::PAYLOADS);
+        let needs_freq = index_has_freq && feature_requested(flags, FREQS);
+        let needs_pos = index_has_pos && feature_requested(flags, POSITIONS);
+        let needs_offsets = index_has_offsets && feature_requested(flags, OFFSETS);
+        let needs_payloads = index_has_payloads && feature_requested(flags, PAYLOADS);
         let needs_offsets_or_payloads = needs_offsets || needs_payloads;
         let needs_docs_and_freqs_only = !needs_pos && !needs_impacts;
 

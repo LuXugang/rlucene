@@ -28,7 +28,7 @@ use crate::index::buffered_updates::BufferedUpdates;
 use crate::index::buffered_updates_stream::SegmentState;
 use crate::index::field_updates_buffer::FieldUpdatesBuffer;
 use crate::index::fields::Fields;
-use crate::index::postings_enum::postings_enum_util;
+use crate::index::postings_enum::NONE;
 use crate::index::prefix_coded_terms::{PrefixCodedTerms, PrefixCodedTermsBuilder};
 use crate::index::terms::Terms;
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
@@ -358,8 +358,8 @@ where
         debug_assert!(self.terms_enum.is_some());
 
         let terms_enum = self.terms_enum.as_mut().unwrap();
-        let postings_enum = terms_enum
-            .postings_with_flags(self.postings_enum.take(), postings_enum_util::NONE as i32)?;
+        let postings_enum =
+            terms_enum.postings_with_flags(self.postings_enum.take(), NONE as i32)?;
         self.postings_enum = Some(postings_enum);
         Ok(self.postings_enum.as_mut().unwrap())
     }

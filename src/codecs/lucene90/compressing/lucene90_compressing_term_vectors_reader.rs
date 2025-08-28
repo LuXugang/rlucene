@@ -34,7 +34,7 @@ use crate::index::dummy::dummy_term_state_type::DummyTermState;
 use crate::index::field_infos::FieldInfos;
 use crate::index::fields::Fields;
 use crate::index::filtered_terms_enum::{FilteredTermsEnum, FilteredTermsEnumBase};
-use crate::index::postings_enum::{PostingsEnum, postings_enum_util};
+use crate::index::postings_enum::{FREQS, PostingsEnum};
 use crate::index::segment_info::SegmentInfo;
 use crate::index::slow_impacts_enum::SlowImpactsEnum;
 use crate::index::term_vectors::TermVectors;
@@ -1428,7 +1428,7 @@ impl TermsEnum for TVTermsEnum {
     type ImpactsEnum = SlowImpactsEnum<TVPostingsEnum>;
 
     fn impacts(&mut self, _flags: i32) -> Result<Self::ImpactsEnum> {
-        let delegate = self.postings_with_flags(None, postings_enum_util::FREQS as i32)?;
+        let delegate = self.postings_with_flags(None, FREQS as i32)?;
         Ok(SlowImpactsEnum::new(delegate))
     }
 

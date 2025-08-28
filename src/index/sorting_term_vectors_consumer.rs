@@ -22,7 +22,7 @@ use crate::codecs::term_vectors_reader::TermVectorsReader;
 use crate::codecs::term_vectors_writer::{TermVectorsWriter, TermVectorsWriterEnum};
 use crate::index::field_infos::FieldInfos;
 use crate::index::fields::Fields;
-use crate::index::postings_enum::{PostingsEnum, postings_enum_util};
+use crate::index::postings_enum::{OFFSETS, PAYLOADS, PostingsEnum};
 use crate::index::segment_info::SegmentInfo;
 use crate::index::segment_write_state::SegmentWriteState;
 use crate::index::sorter::DocMap;
@@ -147,10 +147,10 @@ where
                 writer.start_term(&*terms_enum.term()?, freq)?;
 
                 if has_positions || has_offsets {
-                    docs_and_positions = Some(terms_enum.postings_with_flags(
-                        docs_and_positions,
-                        (postings_enum_util::OFFSETS | postings_enum_util::PAYLOADS) as i32,
-                    )?);
+                    docs_and_positions = Some(
+                        terms_enum
+                            .postings_with_flags(docs_and_positions, (OFFSETS | PAYLOADS) as i32)?,
+                    );
                     match docs_and_positions {
                         Some(ref mut dap) => {
                             let doc_id = dap.next_doc()?;

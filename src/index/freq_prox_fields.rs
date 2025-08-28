@@ -24,8 +24,10 @@ use crate::index::filtered_terms_enum::FilteredTermsEnum;
 use crate::index::freq_prox_terms_writer_per_field::FreqProxTermsWriterPerField;
 use crate::index::index_options::IndexOptions;
 use crate::index::parallel_postings_array::PostingsArrayEnum;
-use crate::index::postings_enum::Either2PostingsEnum;
-use crate::index::postings_enum::{PostingsEnum, postings_enum_util};
+use crate::index::postings_enum::PostingsEnum;
+use crate::index::postings_enum::{
+    Either2PostingsEnum, FREQS, OFFSETS, POSITIONS, feature_requested,
+};
 use crate::index::terms::Terms;
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::index::{BytesRef, BytesRefBuilder};
@@ -350,15 +352,13 @@ impl TermsEnum for FreqProxTermsEnum {
                 self.terms.has_freq,
             )
         };
-        if postings_enum_util::feature_requested(flags, postings_enum_util::POSITIONS) {
+        if feature_requested(flags, POSITIONS) {
             if !has_prox {
                 // Caller wants positions but we didn't index them;
                 // don't lie:
                 return Err(LuceneError::illegal_state("did not index positions"));
             }
-            if !has_offsets
-                && postings_enum_util::feature_requested(flags, postings_enum_util::OFFSETS)
-            {
+            if !has_offsets && feature_requested(flags, OFFSETS) {
                 // Caller wants offsets but we didn't index them;
                 // don't lie:
                 return Err(LuceneError::illegal_state("did not index offsets"));
@@ -373,7 +373,7 @@ impl TermsEnum for FreqProxTermsEnum {
             return Ok(Either2PostingsEnum::A(pos_enum));
         }
 
-        if has_freq && !postings_enum_util::feature_requested(flags, postings_enum_util::FREQS) {
+        if has_freq && !feature_requested(flags, FREQS) {
             // Caller wants offsets but we didn't index them;
             // don't lie:
             return Err(LuceneError::illegal_state("did not index freq"));

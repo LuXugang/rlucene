@@ -28,8 +28,8 @@ use crate::index::freq_prox_fields::FreqProxFields;
 use crate::index::freq_prox_terms_writer_per_field::FreqProxTermsWriterPerField;
 use crate::index::frozen_buffered_updates::{TermDocsIterator, TermsProviderImpl1};
 use crate::index::index_options::IndexOptions;
-use crate::index::postings_enum::Either2PostingsEnum;
-use crate::index::postings_enum::{PostingsEnum, postings_enum_util};
+use crate::index::postings_enum::PostingsEnum;
+use crate::index::postings_enum::{Either2PostingsEnum, FREQS, feature_requested};
 use crate::index::segment_info::SegmentInfo;
 use crate::index::segment_write_state::SegmentWriteState;
 use crate::index::sorter::DocMap;
@@ -484,7 +484,7 @@ where
         reuse: Option<Self::PostingsEnum>,
         flags: i32,
     ) -> Result<Self::PostingsEnum> {
-        let feature_freqs = postings_enum_util::feature_requested(flags, postings_enum_util::FREQS);
+        let feature_freqs = feature_requested(flags, FREQS);
 
         if self.index_options >= IndexOptions::DocsAndFreqs && feature_freqs {
             let mut wrap_reuse = match reuse {

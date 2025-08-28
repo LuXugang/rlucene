@@ -18,7 +18,7 @@ use std::borrow::Cow;
 
 use crate::index::BytesRef;
 use crate::index::impacts_enum::{Either2ImpactsEnum, ImpactsEnum};
-use crate::index::postings_enum::{Either2PostingsEnum, PostingsEnum, postings_enum_util};
+use crate::index::postings_enum::{Either2PostingsEnum, FREQS, PostingsEnum};
 use crate::index::term_state::{Either2TermState, TermState, TermStateEnum};
 use crate::util::attribute_source::AttributeSource;
 use crate::util::attribute_source::Either2AttributeSource;
@@ -155,7 +155,7 @@ pub trait TermsEnum: BytesRefIterator {
     /// - `reuse`: a prior [`PostingsEnum`] for possible reuse See also:
     ///   `postings_with_flags`.
     fn postings(&mut self, reuse: Option<Self::PostingsEnum>) -> Result<Self::PostingsEnum> {
-        self.postings_with_flags(reuse, postings_enum_util::FREQS as i32)
+        self.postings_with_flags(reuse, FREQS as i32)
     }
 
     /// Get [`PostingsEnum`] for the current term, with control over whether
@@ -167,7 +167,7 @@ pub trait TermsEnum: BytesRefIterator {
     ///
     /// - `reuse`: a prior [`PostingsEnum`] for possible reuse
     /// - `flags`: specifies which optional per-document values you require (see
-    ///   [`PostingsEnum::FREQS`](postings_enum_util::FREQS))
+    ///   [`PostingsEnum::FREQS`](FREQS))
     fn postings_with_flags(
         &mut self,
         _reuse: Option<Self::PostingsEnum>,

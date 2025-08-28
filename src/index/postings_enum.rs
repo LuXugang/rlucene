@@ -52,20 +52,6 @@ pub trait PostingsEnum: DocIdSetIterator {
     fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>>;
 }
 
-pub mod postings_enum_util {
-    pub const NONE: i16 = 0;
-    pub const FREQS: i16 = 1 << 3;
-    pub const POSITIONS: i16 = FREQS | 1 << 4;
-    pub const OFFSETS: i16 = POSITIONS | 1 << 5;
-    pub const PAYLOADS: i16 = POSITIONS | 1 << 6;
-    pub const ALL: i16 = OFFSETS | PAYLOADS;
-
-    /// Returns true if the given feature is requested in the flags.
-    pub fn feature_requested(flags: i32, feature: i16) -> bool {
-        (flags & (feature as i32)) == (feature as i32)
-    }
-}
-
 // PostingsEnum
 pub enum Either2PostingsEnum<A, B> {
     A(A),
@@ -152,4 +138,16 @@ where
             Either2PostingsEnum::B(s) => s.get_payload(),
         }
     }
+}
+
+pub const NONE: i16 = 0;
+pub const FREQS: i16 = 1 << 3;
+pub const POSITIONS: i16 = FREQS | 1 << 4;
+pub const OFFSETS: i16 = POSITIONS | 1 << 5;
+pub const PAYLOADS: i16 = POSITIONS | 1 << 6;
+pub const ALL: i16 = OFFSETS | PAYLOADS;
+
+/// Returns true if the given feature is requested in the flags.
+pub fn feature_requested(flags: i32, feature: i16) -> bool {
+    (flags & (feature as i32)) == (feature as i32)
 }

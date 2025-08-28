@@ -20,7 +20,7 @@ use crate::codecs::postings_writer_base::PostingsWriterBase;
 use crate::index::BytesRef;
 use crate::index::field_info::FieldInfo;
 use crate::index::index_options::IndexOptions;
-use crate::index::postings_enum::{PostingsEnum, postings_enum_util};
+use crate::index::postings_enum::{FREQS, OFFSETS, PAYLOADS, POSITIONS, PostingsEnum};
 use crate::index::segment_info::SegmentInfo;
 use crate::index::segment_write_state::SegmentWriteState;
 use crate::index::terms_enum::TermsEnum;
@@ -208,17 +208,17 @@ where
         self.enum_flags = if !options.write_freqs {
             0
         } else if !options.write_positions {
-            postings_enum_util::FREQS as i32
+            FREQS as i32
         } else if !options.write_offsets {
             if options.write_payloads {
-                postings_enum_util::PAYLOADS as i32
+                PAYLOADS as i32
             } else {
-                postings_enum_util::POSITIONS as i32
+                POSITIONS as i32
             }
         } else if options.write_payloads {
-            (postings_enum_util::PAYLOADS | postings_enum_util::OFFSETS) as i32
+            (PAYLOADS | OFFSETS) as i32
         } else {
-            postings_enum_util::OFFSETS as i32
+            OFFSETS as i32
         };
         self.sub.set_field(field_info)
     }
