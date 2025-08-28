@@ -168,7 +168,7 @@ impl PendingSoftDeletes {
         todo!()
     }
 
-    pub(crate) fn read_field_infos<D>(&self, info: &SegmentCommitInfo<D>) -> Result<FieldInfos>
+    fn read_field_infos<D>(&self, info: &SegmentCommitInfo<D>) -> Result<FieldInfos>
     where
         D: Directory,
     {

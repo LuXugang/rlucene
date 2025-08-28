@@ -27,7 +27,7 @@ use crate::codecs::field_infos_format::FieldInfosFormat;
 use crate::codecs::{Codec, get_default_code};
 use crate::index::BytesRef;
 use crate::index::binary_doc_values::BinaryDocValues;
-use crate::index::doc_values_field_updates::dvfu_util::merged_iterator;
+use crate::index::doc_values_field_updates::merged_iterator;
 use crate::index::doc_values_field_updates::{
     BinaryDocValuesDVFU, DocValuesFieldIterator, DocValuesFieldIteratorEnum,
     DocValuesFieldUpdatesEnum, MergedIterator, NumericDocValuesDVFU,

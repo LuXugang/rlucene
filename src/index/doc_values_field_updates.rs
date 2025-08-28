@@ -46,46 +46,6 @@ use crate::util::priority_queue::{Compare, PriorityQueue};
 use crate::util::sparse_fixed_bit_set::SparseFixedBitSet;
 use crate::util::{Sorter, ToInt};
 
-pub(crate) mod dvfu_util {
-    use crate::index::doc_values_field_updates::{
-        DocValuesFieldIterator, IteratorPQCmp, MergedIterator,
-    };
-    use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-    use crate::util::priority_queue::PriorityQueue;
-
-    pub(crate) const PAGE_SIZE: i32 = 1024;
-    pub(super) const HAS_VALUE_MASK: i64 = 1;
-    pub(super) const HAS_NO_VALUE_MASK: i64 = 0;
-    // we use the first bit of each value to mark if the doc has a value or not
-    pub(super) const SHIFT: i32 = 1;
-    pub fn merged_iterator<T>(
-        subs: Vec<T>,
-    ) -> crate::util::error::lucene_error::Result<Option<MergedIterator<T>>>
-    where
-        T: DocValuesFieldIterator,
-    {
-        // Due to the characteristics of the Rust language, to reduce complexity,
-        // we add the element to the queue for processing even if there is only one
-        // element. if subs.len() == 1 {
-        //
-        // }
-
-        // Priority queue to sort iterators by doc_id and del_gen
-        let mut queue = PriorityQueue::new(subs.len() as i32, IteratorPQCmp::new())?;
-
-        for mut sub in subs {
-            if sub.next_doc()? != NO_MORE_DOCS {
-                queue.add(sub);
-            }
-        }
-
-        if queue.size() == 0 {
-            return Ok(None);
-        }
-        let value = MergedIterator::new(queue)?;
-        Ok(Some(value))
-    }
-}
 /// Holds updates for a single DocValues field, for a set of documents within
 /// one segment.
 ///
@@ -128,12 +88,9 @@ impl Default for DocValuesFieldInnerIter {
 
 impl DocValuesFieldInner {
     pub(crate) fn new(bits_per_value: i32) -> Result<Self> {
-        let sub_mutable = PagedMutable::with_overhead_ratio(
-            dvfu_util::PAGE_SIZE,
-            bits_per_value,
-            PackedInts::DEFAULT,
-        );
-        let writer = AbstractPagedMutable::new(1, dvfu_util::PAGE_SIZE, sub_mutable)?;
+        let sub_mutable =
+            PagedMutable::with_overhead_ratio(PAGE_SIZE, bits_per_value, PackedInts::DEFAULT);
+        let writer = AbstractPagedMutable::new(1, PAGE_SIZE, sub_mutable)?;
         Ok(Self {
             finished: false,
             docs: writer,
@@ -172,7 +129,7 @@ where
         doc_values_type: DocValuesType,
         sub_update: D,
     ) -> Result<Self> {
-        let bits_per_value = PackedInts::bits_required(max_doc as i64 - 1)? + dvfu_util::SHIFT;
+        let bits_per_value = PackedInts::bits_required(max_doc as i64 - 1)? + SHIFT;
         let inner = DocValuesFieldInner::new(bits_per_value)?;
         Ok(Self {
             field,
@@ -286,13 +243,12 @@ where
         if self.sub_update.need_reset() {
             self.sub_update.reset(doc)
         } else {
-            self.add_internal(doc, dvfu_util::HAS_NO_VALUE_MASK)
-                .map(|_| ())
+            self.add_internal(doc, HAS_NO_VALUE_MASK).map(|_| ())
         }
     }
 
     pub(crate) fn add(&mut self, doc: i32) -> Result<i32> {
-        self.add_internal(doc, dvfu_util::HAS_VALUE_MASK)
+        self.add_internal(doc, HAS_VALUE_MASK)
     }
     fn add_internal(&mut self, doc: i32, has_value_mask: i64) -> Result<i32> {
         let mut inner = self.inner.lock();
@@ -876,12 +832,12 @@ where
             self.idx += 1;
         }
 
-        self.has_value = (long_doc & dvfu_util::HAS_VALUE_MASK) > 0;
+        self.has_value = (long_doc & HAS_VALUE_MASK) > 0;
         if self.has_value {
             self.sub.set(self.idx - 1)?;
         }
-        debug_assert!((long_doc as u64 >> dvfu_util::SHIFT) <= i32::MAX as u64);
-        self.doc = (long_doc as u64 >> dvfu_util::SHIFT) as i32;
+        debug_assert!((long_doc as u64 >> SHIFT) <= i32::MAX as u64);
+        self.doc = (long_doc as u64 >> SHIFT) as i32;
         Ok(self.doc)
     }
 }
@@ -1213,13 +1169,42 @@ impl DocValuesFieldUpdatesEnum {
         }
     }
 }
+pub(crate) const PAGE_SIZE: i32 = 1024;
+const HAS_VALUE_MASK: i64 = 1;
+const HAS_NO_VALUE_MASK: i64 = 0;
+// we use the first bit of each value to mark if the doc has a value or not
+const SHIFT: i32 = 1;
+pub fn merged_iterator<T>(subs: Vec<T>) -> Result<Option<MergedIterator<T>>>
+where
+    T: DocValuesFieldIterator,
+{
+    // Due to the characteristics of the Rust language, to reduce complexity,
+    // we add the element to the queue for processing even if there is only one
+    // element. if subs.len() == 1 {
+    //
+    // }
 
+    // Priority queue to sort iterators by doc_id and del_gen
+    let mut queue = PriorityQueue::new(subs.len() as i32, IteratorPQCmp::new())?;
+
+    for mut sub in subs {
+        if sub.next_doc()? != NO_MORE_DOCS {
+            queue.add(sub);
+        }
+    }
+
+    if queue.size() == 0 {
+        return Ok(None);
+    }
+    let value = MergedIterator::new(queue)?;
+    Ok(Some(value))
+}
 #[cfg(test)]
 mod tests {
     use rand::Rng;
     use rand::prelude::SliceRandom;
 
-    use crate::index::doc_values_field_updates::dvfu_util::merged_iterator;
+    use crate::index::doc_values_field_updates::merged_iterator;
     use crate::index::doc_values_field_updates::{
         DocValuesFieldIterator, DocValuesFieldUpdates, DocValuesFieldUpdatesBase,
         SingleValueDocValuesFieldUpdates, SingleValueDocValuesFieldUpdatesBase,

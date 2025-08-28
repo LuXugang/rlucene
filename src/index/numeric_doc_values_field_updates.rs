@@ -21,8 +21,8 @@ use parking_lot::Mutex;
 use crate::index::BytesRef;
 use crate::index::doc_values_field_updates::{
     AbstractIterator, AbstractIteratorBase, DocValuesFieldInnerIter, DocValuesFieldIterator,
-    DocValuesFieldIteratorEnum, DocValuesFieldUpdatesBase, SingleValueDocValuesFieldUpdatesBase,
-    dvfu_util,
+    DocValuesFieldIteratorEnum, DocValuesFieldUpdatesBase, PAGE_SIZE,
+    SingleValueDocValuesFieldUpdatesBase,
 };
 use crate::index::doc_values_type::DocValuesType;
 use crate::util::accountable::Accountable;
@@ -48,7 +48,7 @@ impl NumericDocValuesFieldUpdates {
         let sub_reader = AbstractPagedMutableBaseEnum::GrowableWriter(
             PagedGrowableWriter::with_fill_page(1, PackedInts::DEFAULT),
         );
-        let values = AbstractPagedMutable::new(1, dvfu_util::PAGE_SIZE, sub_reader)?;
+        let values = AbstractPagedMutable::new(1, PAGE_SIZE, sub_reader)?;
         Ok(NumericDocValuesFieldUpdates {
             values,
             min_value: 0,
@@ -62,11 +62,11 @@ impl NumericDocValuesFieldUpdates {
     ) -> Result<NumericDocValuesFieldUpdates> {
         let bits_per_value = PackedInts::unsigned_bits_required(max_value - min_value);
         let sub_reader = AbstractPagedMutableBaseEnum::Mutable(PagedMutable::with_overhead_ratio(
-            dvfu_util::PAGE_SIZE,
+            PAGE_SIZE,
             bits_per_value,
             PackedInts::DEFAULT,
         ));
-        let values = AbstractPagedMutable::new(1, dvfu_util::PAGE_SIZE, sub_reader)?;
+        let values = AbstractPagedMutable::new(1, PAGE_SIZE, sub_reader)?;
         Ok(NumericDocValuesFieldUpdates {
             values,
             min_value,
