@@ -528,7 +528,7 @@ where
                         vbpv_reader,
                     })
                 } else {
-                    let values = lucene90_dvp_util::get_direct_reader_instance::<I>(
+                    let values = get_direct_reader_instance::<I>(
                         self.merging,
                         Rc::new(RefCell::new(slice)),
                         entry.bits_per_value as i32,
@@ -596,7 +596,7 @@ where
                         )?,
                     })
                 } else {
-                    let values = lucene90_dvp_util::get_direct_reader_instance::<I>(
+                    let values = get_direct_reader_instance::<I>(
                         self.merging,
                         Rc::new(RefCell::new(slice)),
                         entry.bits_per_value as i32,
@@ -658,7 +658,7 @@ where
                     )?,
                 })
             } else {
-                let values = lucene90_dvp_util::get_direct_reader_instance::<I>(
+                let values = get_direct_reader_instance::<I>(
                     self.merging,
                     Rc::new(RefCell::new(slice)),
                     entry.bits_per_value as i32,
@@ -707,7 +707,7 @@ where
                 slice.prefetch(0, 1)?;
             }
 
-            let values = lucene90_dvp_util::get_direct_reader_instance::<I>(
+            let values = get_direct_reader_instance::<I>(
                 self.merging,
                 Rc::new(RefCell::new(slice)),
                 ords_entry.bits_per_value as i32,
@@ -792,40 +792,6 @@ where
 
             Ok(Lucene90SortedNumericDocValuesEnum::B(
                 SpareSortedNumericDocValues::new(disi, values, addresses),
-            ))
-        }
-    }
-}
-pub mod lucene90_dvp_util {
-    use std::cell::RefCell;
-    use std::rc::Rc;
-
-    use crate::store::IndexInput;
-    use crate::util::error::lucene_error::Result;
-    use crate::util::packed::direct_reader::{DirectPackedEnum, DirectReader};
-
-    pub(super) fn get_direct_reader_instance<I>(
-        merging: bool,
-        slice: Rc<RefCell<I::RandomAccessSlice>>,
-        bits_per_value: i32,
-        offset: i64,
-        num_values: i64,
-    ) -> Result<DirectPackedEnum<I::RandomAccessSlice>>
-    where
-        I: IndexInput,
-    {
-        if merging {
-            Ok(DirectReader::get_merge_instance_with_base_offset(
-                slice,
-                bits_per_value,
-                offset,
-                num_values,
-            ))
-        } else {
-            Ok(DirectReader::get_instance_with_offset(
-                slice,
-                bits_per_value,
-                offset,
             ))
         }
     }
@@ -1604,7 +1570,7 @@ where
                     self.values = if bits_per_value == 0 {
                         Some(DirectPackedEnum::P(Zeroes))
                     } else {
-                        Some(lucene90_dvp_util::get_direct_reader_instance::<I>(
+                        Some(get_direct_reader_instance::<I>(
                             self.merging,
                             Rc::clone(&self.slice),
                             bits_per_value,
@@ -3348,3 +3314,29 @@ pub type Lucene90SortedSetDocValuesEnum<I> = Either2SortedSetDocValues<
     SingletonSortedSetDocValues<BaseSortedDocValues<I>>,
     BaseSortedSetDocValues<I>,
 >;
+
+pub(super) fn get_direct_reader_instance<I>(
+    merging: bool,
+    slice: Rc<RefCell<I::RandomAccessSlice>>,
+    bits_per_value: i32,
+    offset: i64,
+    num_values: i64,
+) -> Result<DirectPackedEnum<I::RandomAccessSlice>>
+where
+    I: IndexInput,
+{
+    if merging {
+        Ok(DirectReader::get_merge_instance_with_base_offset(
+            slice,
+            bits_per_value,
+            offset,
+            num_values,
+        ))
+    } else {
+        Ok(DirectReader::get_instance_with_offset(
+            slice,
+            bits_per_value,
+            offset,
+        ))
+    }
+}
