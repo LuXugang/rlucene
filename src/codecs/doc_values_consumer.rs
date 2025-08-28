@@ -34,7 +34,7 @@ use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
 use crate::index::sorted_numeric_doc_values::Either2SortedNumericDocValues;
 use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
-use crate::index::{BytesRef, DocIDMerger, DocIDMergerEnum, Sub, SubBase, doc_id_merger_util};
+use crate::index::{BytesRef, DocIDMerger, DocIDMergerEnum, Sub, SubBase, of};
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::store::IndexInput;
@@ -470,7 +470,7 @@ where
                 )))));
             }
         }
-        let doc_id_merger = doc_id_merger_util::of(subs, self.merge_state.needs_index_sort)?;
+        let doc_id_merger = of(subs, self.merge_state.needs_index_sort)?;
         let doc_value = BinaryDocValuesMerge {
             doc_id: -1,
             current: None,
@@ -712,7 +712,7 @@ where
                 DocValues::singleton_numeric(dv)?,
             ));
         }
-        let doc_id_merger = doc_id_merger_util::of(subs, self.merge_state.needs_index_sort)?;
+        let doc_id_merger = of(subs, self.merge_state.needs_index_sort)?;
         Ok(Either2SortedNumericDocValues::B(
             SortedNumericDocValuesMerge {
                 doc_id: -1,
@@ -738,7 +738,7 @@ where
     for sub in &mut subs {
         cost = sub.borrow().sub.values.cost()?;
     }
-    let doc_id_merger = doc_id_merger_util::of(subs, index_is_sorted)?;
+    let doc_id_merger = of(subs, index_is_sorted)?;
     Ok(NumericDocValuesMerge {
         doc_id: -1,
         current: None,

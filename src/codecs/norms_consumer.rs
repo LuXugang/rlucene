@@ -21,7 +21,7 @@ use crate::index::doc_values_iterator::DocValuesIterator;
 use crate::index::field_info::FieldInfo;
 use crate::index::merge_state::{DocMapEnum, MergeState};
 use crate::index::numeric_doc_values::NumericDocValues;
-use crate::index::{DocIDMerger, DocIDMergerEnum, Sub, SubBase, doc_id_merger_util};
+use crate::index::{DocIDMerger, DocIDMergerEnum, Sub, SubBase, of};
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::store::{IndexInput, IndexOutput};
@@ -164,7 +164,7 @@ where
             }
         }
 
-        let doc_id_merger = doc_id_merger_util::of(subs, self.merge_state.needs_index_sort)?;
+        let doc_id_merger = of(subs, self.merge_state.needs_index_sort)?;
         Ok(NumericDocValuesMerge {
             doc_id: -1,
             current: None,

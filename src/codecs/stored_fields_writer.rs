@@ -21,7 +21,7 @@ use crate::index::field_infos::FieldInfos;
 use crate::index::merge_state::{DocMapEnum, MergeState};
 use crate::index::stored_field_visitor::{Status, StoredFieldVisitor};
 use crate::index::stored_fields::StoredFields;
-use crate::index::{BytesRef, DocIDMerger, Sub, SubBase, doc_id_merger_util};
+use crate::index::{BytesRef, DocIDMerger, Sub, SubBase, of};
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::store::directory::Directory;
 use crate::store::{DataInput, IndexInput};
@@ -127,7 +127,7 @@ pub trait StoredFieldsWriter {
         }
 
         let mut doc_count = 0;
-        let mut doc_id_merger = doc_id_merger_util::of(subs, merge_state.needs_index_sort)?;
+        let mut doc_id_merger = of(subs, merge_state.needs_index_sort)?;
 
         while let Some(sub_rc) = doc_id_merger.next()? {
             let mut sub = sub_rc.borrow_mut();
