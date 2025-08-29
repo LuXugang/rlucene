@@ -97,10 +97,7 @@ where
     }
 
     /// Returns a new already locked [`DocumentsWriterPerThread`]
-    pub(crate) fn new_writer<S>(
-        &self,
-        dwpt_factory: &mut S,
-    ) -> Result<DocumentsWriterPerThread<D, Q>>
+    pub(crate) fn new_writer<S>(&self, dwpt_factory: &S) -> Result<DocumentsWriterPerThread<D, Q>>
     where
         S: Supplier<DocumentsWriterPerThread<D, Q>>,
     {
@@ -116,7 +113,7 @@ where
         // end of the world it's violating the contract that we don't release any new DWPT after this
         // pool is closed
         self.ensure_open()?;
-        let dwpt = dwpt_factory.get()?;
+        let dwpt = dwpt_factory.get_immutable()?;
         let delete_queue_gen = dwpt.delete_queue.generation;
         dwpt.lock();
         let dwpts = Dwpts {
@@ -128,10 +125,7 @@ where
     }
     /// This method is used by `DocumentsWriter`/`FlushControl` to obtain a DWPT to do an indexing
     /// operation (add/updateDocument).
-    pub(crate) fn get_and_lock<S>(
-        &self,
-        dwpt_factory: &mut S,
-    ) -> Result<DocumentsWriterPerThread<D, Q>>
+    pub(crate) fn get_and_lock<S>(&self, dwpt_factory: &S) -> Result<DocumentsWriterPerThread<D, Q>>
     where
         S: Supplier<DocumentsWriterPerThread<D, Q>>,
     {
@@ -290,8 +284,8 @@ mod tests {
             DocumentsWriterPerThread<FSDirectory<NativeFSLockFactory, NIOFSDirectory>, DummyQuery>,
         > for DwptSupplier
     {
-        fn get(
-            &mut self,
+        fn get_immutable(
+            &self,
         ) -> Result<
             DocumentsWriterPerThread<FSDirectory<NativeFSLockFactory, NIOFSDirectory>, DummyQuery>,
         > {
@@ -324,18 +318,18 @@ mod tests {
     fn test_lock_release_and_close() -> Result<()> {
         let mut random = random();
         let pool = DocumentsWriterPerThreadPool::new()?;
-        let mut supplier = DwptSupplier::new(random.random());
-        let first = pool.get_and_lock(&mut supplier)?;
+        let supplier = DwptSupplier::new(random.random());
+        let first = pool.get_and_lock(&supplier)?;
         assert_eq!(pool.size(), 1);
 
-        let second = pool.get_and_lock(&mut supplier)?;
+        let second = pool.get_and_lock(&supplier)?;
         assert_eq!(pool.size(), 2);
 
         let first_id = first.id().to_string();
         pool.mark_as_free_and_unlock(first)?;
         assert_eq!(pool.size(), 2);
 
-        let third = pool.get_and_lock(&mut supplier)?;
+        let third = pool.get_and_lock(&supplier)?;
         assert_eq!(first_id, third.id().to_string());
         assert_eq!(pool.size(), 2);
 

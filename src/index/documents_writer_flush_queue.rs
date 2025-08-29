@@ -57,7 +57,7 @@ where
             purge_lock: ReentrantMutex::new(()),
         }
     }
-    pub(crate) fn add_ticket<S>(&self, mut ticket_supplier: S) -> Result<Option<usize>>
+    pub(crate) fn add_ticket<S>(&self, ticket_supplier: S) -> Result<Option<usize>>
     where
         S: Supplier<Option<FlushTicket<D, Q>>>,
     {
@@ -65,7 +65,7 @@ where
         let mut inner = self.inner.lock();
         self.inc_tickets();
         let result: Result<Option<usize>> = (|| {
-            let ticket_opt = ticket_supplier.get()?;
+            let ticket_opt = ticket_supplier.get_immutable()?;
             if let Some(ticket) = ticket_opt {
                 inner.queue.push_back(ticket);
                 let len = inner.queue.len() - 1;

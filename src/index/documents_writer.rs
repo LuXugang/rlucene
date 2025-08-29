@@ -804,7 +804,7 @@ where
     D: Directory,
     Q: Query,
 {
-    fn get(&mut self) -> Result<Option<FlushTicket<D, Q>>> {
+    fn get_immutable(&self) -> Result<Option<FlushTicket<D, Q>>> {
         // it's maybeFreezeGlobalBuffer(DocumentsWriterDeleteQueue deleteQueue)'s logic in Java Lucene
         match self.delete_queue.maybe_freeze_global_buffer()? {
             Some(frozen_updates) => Ok(Some(FlushTicket::new(frozen_updates, false))),
@@ -890,7 +890,7 @@ where
     Q: Query,
     L: LiveIndexWriterConfig,
 {
-    fn get(&mut self) -> Result<DocumentsWriterPerThread<D, Q>> {
+    fn get_immutable(&self) -> Result<DocumentsWriterPerThread<D, Q>> {
         let infos = Builder::new(self.field_numbers.clone());
         let dwpt = DocumentsWriterPerThread::new(
             self.index_major_version_created,

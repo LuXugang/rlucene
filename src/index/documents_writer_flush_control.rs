@@ -251,7 +251,7 @@ where
         granularity
     }
     pub(crate) fn do_after_document<FP>(
-        &mut self,
+        &self,
         mut per_thread: DocumentsWriterPerThread<D, Q>,
         flush_policy: &FP,
         per_thread_pool: &DocumentsWriterPerThreadPool<D, Q>,
@@ -585,7 +585,7 @@ where
     pub fn obtain_and_lock<S>(
         &self,
         delete_queue: &Arc<DocumentsWriterDeleteQueue<Q>>,
-        mut dwpt_factory: S,
+        dwpt_factory: S,
         per_thread_pool: &DocumentsWriterPerThreadPool<D, Q>,
     ) -> Result<DocumentsWriterPerThread<D, Q>>
     where
@@ -599,7 +599,7 @@ where
                 }
             }
 
-            let per_thread = per_thread_pool.get_and_lock(&mut dwpt_factory)?;
+            let per_thread = per_thread_pool.get_and_lock(&dwpt_factory)?;
             if Arc::ptr_eq(&per_thread.delete_queue, delete_queue) {
                 // simply return the DWPT even in a flush all case since we already hold the lock and the
                 // DWPT is not stale

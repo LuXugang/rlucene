@@ -40,7 +40,7 @@ impl IndexDeletionPolicy for KeepOnlyLastCommitDeletionPolicy {
     where
         IC: IndexCommit,
     {
-        let size = commits.len();
+        let size = commits.len().saturating_sub(1);
         for commit in commits.iter_mut().take(size) {
             commit.delete()?;
         }

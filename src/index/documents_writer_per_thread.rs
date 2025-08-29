@@ -286,9 +286,9 @@ where
         &mut self,
         docs: DI,
         delete_node: Option<Arc<Node<Q>>>,
-        flush_notifications: &mut FN,
+        flush_notifications: &FN,
         index_writer_config: &L,
-        num_docs_in_ram: &mut AtomicI32,
+        num_docs_in_ram: &AtomicI32,
     ) -> Result<i64>
     where
         DI: IntoIterator<Item = DF>,

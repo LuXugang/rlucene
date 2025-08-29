@@ -65,7 +65,7 @@ where
         let count = rc.count;
         rc.inc_ref();
 
-        if let Some(messenger) = &mut self.messenger {
+        if let Some(messenger) = &self.messenger {
             messenger.accept(
                 MsgType::Ref,
                 &format!("IncRef \"{file_name}\": pre-incr count is {count}"),
