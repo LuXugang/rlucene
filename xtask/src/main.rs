@@ -16,6 +16,7 @@
  */
 mod tasks;
 
+use chrono::Local;
 use std::{
     env, fs,
     path::{Path, PathBuf},
@@ -48,9 +49,14 @@ fn run_cargo(args: &[&str]) {
         process::exit(status.code().unwrap_or(1));
     }
 }
+
+fn log(msg: &str) {
+    let now = Local::now();
+    eprintln!("[{}] {}", now.format("%Y-%m-%d %H:%M:%S"), msg);
+}
 /// Check if there are uncommitted changes.
 fn check_uncommitted() {
-    eprintln!("\x1b[1;32mRunning uncommitted changes\x1b[0m");
+    log("\x1b[1;32mRunning uncommitted changes\x1b[0m");
     let output = Command::new("git")
         .args(["status", "--porcelain"])
         .output()
@@ -59,24 +65,24 @@ fn check_uncommitted() {
     if stdout.trim().is_empty() {
         println!("✅ ✅ ✅ Working directory clean. All changes committed.");
     } else {
-        eprintln!(
-            "❌ ❌ ❌ Uncommitted changes detected after code check. Please commit your work again."
+        log(
+            "❌ ❌ ❌ Uncommitted changes detected after code check. Please commit your work again.",
         );
-        eprintln!("{}", stdout);
+        log(&stdout);
         let diff = Command::new("git")
             .args(["diff"])
             .output()
             .expect("failed to execute git diff");
-        eprintln!("{}", String::from_utf8_lossy(&diff.stdout));
+        log(&String::from_utf8_lossy(&diff.stdout));
         process::exit(1);
     }
-    eprintln!("\x1b[1;32mFinished uncommitted changes\x1b[0m");
+    log("\x1b[1;32mFinished uncommitted changes\x1b[0m");
 }
 
 /// format code
 fn tidy() {
     license_check();
-    eprintln!("\x1b[1;32mRunning Cargo clippy \x1b[0m");
+    log("\x1b[1;32mRunning Cargo clippy \x1b[0m");
     run_cargo(&[
         "clippy",
         "--fix",
@@ -85,8 +91,8 @@ fn tidy() {
         "--allow-dirty",
         "--allow-staged",
     ]);
-    eprintln!("\x1b[1;32mFinished Cargo clippy \x1b[0m");
-    eprintln!("\x1b[1;32mRunning Cargo fix\x1b[0m");
+    log("\x1b[1;32mFinished Cargo clippy \x1b[0m");
+    log("\x1b[1;32mRunning Cargo fix\x1b[0m");
     run_cargo(&[
         "fix",
         "--all-targets",
@@ -94,34 +100,34 @@ fn tidy() {
         "--allow-dirty",
         "--allow-staged",
     ]);
-    eprintln!("\x1b[1;32mFinished Cargo fix\x1b[0m");
-    eprintln!("\x1b[1;32mRunning Cargo fmt \x1b[0m");
+    log("\x1b[1;32mFinished Cargo fix\x1b[0m");
+    log("\x1b[1;32mRunning Cargo fmt \x1b[0m");
     run_cargo(&["fmt"]);
-    eprintln!("\x1b[1;32mFinished Cargo fmt \x1b[0m");
-    eprintln!("\x1b[1;32m✅ ✅ ✅ Finished Cargo tidy\x1b[0m");
+    log("\x1b[1;32mFinished Cargo fmt \x1b[0m");
+    log("\x1b[1;32m✅ ✅ ✅ Finished Cargo tidy\x1b[0m");
 }
 
 /// Before submitting a PR, run this command to format and test the code.
 fn commit() {
     tidy();
     check_uncommitted();
-    eprintln!("\x1b[1;32mRunning Cargo test \x1b[0m");
+    log("\x1b[1;32mRunning Cargo test \x1b[0m");
     run_cargo(&["test"]);
-    eprintln!("\x1b[1;32m✅ ✅ ✅ Finished Cargo test \x1b[0m");
-    eprintln!("\x1b[1;32m✅ ✅ ✅ Finished Cargo commit\x1b[0m");
+    log("\x1b[1;32m✅ ✅ ✅ Finished Cargo test \x1b[0m");
+    log("\x1b[1;32m✅ ✅ ✅ Finished Cargo commit\x1b[0m");
 }
 /// CI task for Github actions
 fn ci() {
     tidy();
     check_uncommitted();
-    eprintln!("\x1b[1;32mRunning Cargo test \x1b[0m");
+    log("\x1b[1;32mRunning Cargo test \x1b[0m");
     run_cargo(&[
         "test",
         "--verbose",
         "--features",
         "test_log_verbose,nightly",
     ]);
-    eprintln!("\x1b[1;32m✅ ✅ ✅ Finished Cargo test \x1b[0m");
+    log("\x1b[1;32m✅ ✅ ✅ Finished Cargo test \x1b[0m");
 }
 
 fn license_check() {
@@ -131,7 +137,7 @@ fn license_check() {
     let license_path = find_file(&xtask_dir, "LICENSE_HEADER");
     let license_header_path: String = license_path.as_ref().unwrap().to_str().unwrap().to_string();
     if license_path.is_none() {
-        eprintln!("LICENSE_HEADER file not found: LICENSE_HEADER");
+        log("LICENSE_HEADER file not found: LICENSE_HEADER");
         process::exit(1);
     }
 
@@ -151,12 +157,12 @@ fn license_check() {
         tasks::license::license_checker::check_licenses_in_dir(&examples_dir, &license_text);
 
     if src_valid && libs_valid && xtask_valid && examples_valid {
-        eprintln!("\x1b[1;32m✅ ✅ ✅ All files have the correct license header\x1b[0m");
+        log("\x1b[1;32m✅ ✅ ✅ All files have the correct license header\x1b[0m");
     } else {
-        eprintln!(
+        log(&format!(
             "❌ ❌ ❌ License check failed: you should copy the correct license header from \x1b[31m{}\x1b[0m",
             license_header_path
-        );
+        ));
         process::exit(1);
     }
 }
@@ -170,8 +176,8 @@ fn main() {
         Some("check-uncommitted") => check_uncommitted(),
         Some("license-check") => license_check(),
         _ => {
-            eprintln!(
-                "Available commands: tidy, commit, ci, check-uncommitted, check-rust-version, license-check"
+            log(
+                "Available commands: tidy, commit, ci, check-uncommitted, check-rust-version, license-check",
             );
             process::exit(1);
         },
