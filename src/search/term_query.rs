@@ -30,8 +30,8 @@ impl TermQuery {
 }
 
 impl PartialEq<Self> for TermQuery {
-    fn eq(&self, _other: &Self) -> bool {
-        todo!()
+    fn eq(&self, other: &Self) -> bool {
+        self.term == other.term
     }
 }
 
