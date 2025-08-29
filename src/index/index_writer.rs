@@ -17,7 +17,6 @@
 use crate::index::buffered_updates_stream::BufferedUpdatesStream;
 use crate::index::documents_writer::{DocumentsWriter, FlushNotifications};
 use crate::index::frozen_buffered_updates::FrozenBufferedUpdates;
-use crate::index::index_deletion_policy::IndexDeletionPolicy;
 use crate::index::index_file_deleter::IndexFileDeleter;
 use crate::index::merge_state::DocMap;
 use crate::index::segment_info::SegmentInfo;
@@ -31,10 +30,9 @@ use parking_lot::{Mutex, ReentrantMutex};
 use std::rc::Rc;
 use std::sync::Arc;
 
-pub struct IndexWriter<D, P, Q, L>
+pub struct IndexWriter<D, Q, L>
 where
     D: Directory,
-    P: IndexDeletionPolicy,
     Q: Query,
     L: LiveIndexWriterConfig,
 {
@@ -61,7 +59,7 @@ where
     global_field_number_map: Arc<FieldNumbers>,
     doc_writer: DocumentsWriter<D, Q, L>,
     write_doc_values_lock: ReentrantMutex<()>,
-    deleter: IndexFileDeleter<D, P>,
+    deleter: IndexFileDeleter<D, L::IndexDeletionPolicy>,
     // used by forceMerge to note those needing merging
     segments_to_merge: HashMap<SegmentCommitInfo<D>, bool>,
     merge_max_num_segments: i32,
@@ -87,10 +85,9 @@ where
     soft_deletes_enabled: bool,
 }
 
-impl<D, P, Q, L> IndexWriter<D, P, Q, L>
+impl<D, Q, L> IndexWriter<D, Q, L>
 where
     D: Directory,
-    P: IndexDeletionPolicy,
     Q: Query,
     L: LiveIndexWriterConfig,
 {

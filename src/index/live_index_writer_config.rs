@@ -17,6 +17,7 @@
 use crate::analysis::analyzer::Analyzer;
 use crate::codecs::Codec;
 use crate::index::flush_policy::FlushPolicy;
+use crate::index::index_deletion_policy::IndexDeletionPolicy;
 use crate::index::sort::Sort;
 use crate::search::similarities::similarities::Similarity;
 use crate::util::info_stream::InfoStreamMT;
@@ -52,4 +53,7 @@ pub trait LiveIndexWriterConfig {
     fn get_max_buffered_docs(&self) -> i32;
 
     fn get_check_pending_flush_on_update(&self) -> bool;
+
+    type IndexDeletionPolicy: IndexDeletionPolicy;
+    fn get_index_deletion_policy(&self) -> &Self::IndexDeletionPolicy;
 }

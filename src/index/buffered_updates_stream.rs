@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::index::frozen_buffered_updates::FrozenBufferedUpdates;
-use crate::index::index_deletion_policy::IndexDeletionPolicy;
 use crate::index::index_writer::IndexWriter;
 use crate::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::search::query::Query;
@@ -125,10 +124,9 @@ where
     /// Returns `true` if there were any new deletes or updates.
     ///
     /// This is called during refresh and commit.
-    pub(crate) fn wait_apply_all<D, P, L>(&self, writer: &mut IndexWriter<D, P, Q, L>) -> Result<()>
+    pub(crate) fn wait_apply_all<D, L>(&self, writer: &mut IndexWriter<D, Q, L>) -> Result<()>
     where
         D: Directory,
-        P: IndexDeletionPolicy,
         L: LiveIndexWriterConfig,
     {
         let wait_for = {
@@ -169,14 +167,13 @@ where
     pub fn get_completed_del_gen(&self) -> i64 {
         self.finished_segments.get_completed_del_gen()
     }
-    fn wait_apply<D, P, L>(
+    fn wait_apply<D, L>(
         &self,
         wait_for: HashSet<FrozenBufferedUpdates<Q>>,
-        writer: &mut IndexWriter<D, P, Q, L>,
+        writer: &mut IndexWriter<D, Q, L>,
     ) -> Result<()>
     where
         D: Directory,
-        P: IndexDeletionPolicy,
         L: LiveIndexWriterConfig,
     {
         let start_ns = std::time::Instant::now();

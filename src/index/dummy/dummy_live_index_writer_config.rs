@@ -17,6 +17,7 @@
 use crate::analysis::dummy::dummy_analyzer::DummyAnalyzer;
 use crate::codecs::lucene101_codec::Lucene101Codec;
 use crate::index::dummy::dummy_flush_policy::DummyFlushPolicy;
+use crate::index::keep_only_last_commit_deletion_policy::KeepOnlyLastCommitDeletionPolicy;
 use crate::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::index::sort::Sort;
 use crate::search::dummy::dummy_similarity::DummySimilarity;
@@ -103,6 +104,12 @@ impl LiveIndexWriterConfig for DummyLiveIndexWriterConfig {
     }
 
     fn get_check_pending_flush_on_update(&self) -> bool {
+        todo!()
+    }
+
+    type IndexDeletionPolicy = KeepOnlyLastCommitDeletionPolicy;
+
+    fn get_index_deletion_policy(&self) -> &Self::IndexDeletionPolicy {
         todo!()
     }
 }

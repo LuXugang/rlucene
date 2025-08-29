@@ -269,7 +269,7 @@ where
         index_file_deleter.delete_commits()?;
         Ok(index_file_deleter)
     }
-    fn ensure_open<Q, L>(&self, index_writer: &IndexWriter<D, P, Q, L>) -> Result<()>
+    fn ensure_open<Q, L>(&self, index_writer: &IndexWriter<D, Q, L>) -> Result<()>
     where
         Q: Query,
         L: LiveIndexWriterConfig,
@@ -287,7 +287,7 @@ where
 
         Ok(())
     }
-    pub(crate) fn is_closed<Q, L>(&self, index_writer: &IndexWriter<D, P, Q, L>) -> Result<bool>
+    pub(crate) fn is_closed<Q, L>(&self, index_writer: &IndexWriter<D, Q, L>) -> Result<bool>
     where
         Q: Query,
         L: LiveIndexWriterConfig,
