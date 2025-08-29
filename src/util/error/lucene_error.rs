@@ -107,9 +107,16 @@ pub enum LuceneError {
     NoSuchElement(#[from] NoSuchElementError),
 }
 macro_rules! error_ctor {
-    ($fn_name:ident, $variant:ident, $error_type:ty) => {
+    ($fn_name:ident, $fn_name_with_source:ident, $variant:ident, $error_type:ident) => {
         pub fn $fn_name(err: impl Into<$error_type>) -> Self {
             LuceneError::$variant(err.into())
+        }
+        pub fn $fn_name_with_source(msg: impl Into<String>, source: LuceneError) -> Self {
+            let err = $error_type {
+                message: msg.into(),
+                source: Some(Box::new(source)),
+            };
+            LuceneError::$variant(err)
         }
     };
 }
@@ -139,54 +146,135 @@ impl LuceneError {
         LuceneError::Utf8Error(err)
     }
 
-    error_ctor!(illegal_argument, IllegalArgument, IllegalArgumentError);
-    error_ctor!(illegal_state, IllegalState, IllegalStateError);
-    error_ctor!(eof, Eof, Eof);
-    error_ctor!(number_overflow, NumberOverflow, NumberOverflow);
-    error_ctor!(corrupt_index, CorruptIndex, CorruptIndexError);
+    error_ctor!(
+        illegal_argument,
+        illegal_argument_with_source,
+        IllegalArgument,
+        IllegalArgumentError
+    );
+    error_ctor!(
+        illegal_state,
+        illegal_state_with_source,
+        IllegalState,
+        IllegalStateError
+    );
+    error_ctor!(eof, eof_with_source, Eof, Eof);
+    error_ctor!(
+        number_overflow,
+        number_overflow_with_source,
+        NumberOverflow,
+        NumberOverflow
+    );
+    error_ctor!(
+        corrupt_index,
+        corrupt_index_with_source,
+        CorruptIndex,
+        CorruptIndexError
+    );
     error_ctor!(
         index_format_too_new,
+        index_format_too_new_with_source,
         IndexFormatTooNew,
         IndexFormatTooNewError
     );
     error_ctor!(
         index_format_too_old,
+        index_format_too_old_with_source,
         IndexFormatTooOld,
         IndexFormatTooOldError
     );
     error_ctor!(
         unsupported_operation,
+        unsupported_operation_with_source,
         UnsupportedOperation,
         UnsupportedOperationError
     );
-    error_ctor!(not_found, NotFound, NotFoundError);
-    error_ctor!(lock_already_held, LockAlreadyHeld, LockAlreadyHeldError);
-    error_ctor!(lock_held_by_other, LockHeldByOther, LockHeldByOtherError);
+    error_ctor!(not_found, not_found_with_source, NotFound, NotFoundError);
+    error_ctor!(
+        lock_already_held,
+        lock_already_held_with_source,
+        LockAlreadyHeld,
+        LockAlreadyHeldError
+    );
+    error_ctor!(
+        lock_held_by_other,
+        lock_held_by_other_with_source,
+        LockHeldByOther,
+        LockHeldByOtherError
+    );
     error_ctor!(
         array_index_out_of_bounds,
+        array_index_out_of_bounds_with_source,
         ArrayIndexOutOfBounds,
         ArrayIndexOutOfBoundsError
     );
-    error_ctor!(index_not_found, IndexNotFound, IndexNotFound);
-    error_ctor!(number_format, NumberFormat, NumberFormatError);
-    error_ctor!(need_implemented, NeedImplemented, NeedImplementedError);
+    error_ctor!(
+        index_not_found,
+        index_not_found_with_source,
+        IndexNotFound,
+        IndexNotFound
+    );
+    error_ctor!(
+        number_format,
+        number_format_with_source,
+        NumberFormat,
+        NumberFormatError
+    );
+    error_ctor!(
+        need_implemented,
+        need_implemented_with_source,
+        NeedImplemented,
+        NeedImplementedError
+    );
     error_ctor!(
         max_bytes_length_exceeded,
+        max_bytes_length_exceeded_with_source,
         MaxBytesLengthExceeded,
         MaxBytesLengthExceededError
     );
-    error_ctor!(buffer_allocation, BufferAllocation, BufferAllocationError);
-    error_ctor!(merge, Merge, MergeError);
-    error_ctor!(merge_abort, MergeAborted, MergeAbortedError);
-    error_ctor!(already_closed, AlreadyClosed, AlreadyClosedError);
-    error_ctor!(not_implemented, NotImplemented, NotImplementedError);
-    error_ctor!(unreachable, Unreachable, UnreachableError);
+    error_ctor!(
+        buffer_allocation,
+        buffer_allocation_with_source,
+        BufferAllocation,
+        BufferAllocationError
+    );
+    error_ctor!(merge, merge_with_source, Merge, MergeError);
+    error_ctor!(
+        merge_abort,
+        merge_abort_with_source,
+        MergeAborted,
+        MergeAbortedError
+    );
+    error_ctor!(
+        already_closed,
+        already_closed_with_source,
+        AlreadyClosed,
+        AlreadyClosedError
+    );
+    error_ctor!(
+        not_implemented,
+        not_implemented_with_source,
+        NotImplemented,
+        NotImplementedError
+    );
+    error_ctor!(
+        unreachable,
+        unreachable_with_source,
+        Unreachable,
+        UnreachableError
+    );
     error_ctor!(
         too_complex_to_determinize,
+        too_complex_to_determinize_with_source,
         TooComplexToDeterminize,
         TooComplexToDeterminizeError
     );
-    error_ctor!(no_such_element, NoSuchElement, NoSuchElementError);
+    error_ctor!(
+        no_such_element,
+        no_such_element_with_source,
+        NoSuchElement,
+        NoSuchElementError
+    );
 }
 
 pub type Result<T> = core::result::Result<T, LuceneError>;
@@ -236,6 +324,15 @@ mod tests {
         let inner = LuceneError::illegal_argument("inner error");
         let outer = LuceneError::illegal_state(inner);
         let source = outer.source().unwrap().to_string();
+        assert_eq!(source, "inner error");
+    }
+
+    #[test]
+    fn wrap_with_message_and_source() {
+        let inner = LuceneError::illegal_argument("inner error");
+        let outer = LuceneError::illegal_state_with_source("outer error", inner);
+        assert_eq!(outer.to_string(), "outer error");
+        let source = outer.source().unwrap().source().unwrap().to_string();
         assert_eq!(source, "inner error");
     }
 }
