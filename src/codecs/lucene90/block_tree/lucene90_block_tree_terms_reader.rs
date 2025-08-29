@@ -265,8 +265,8 @@ where
             },
         }
 
-        if let Some(mut e) = prior_error {
-            return Err(CodecUtil::check_footer_with_error(&mut meta_in, &mut e));
+        if let Some(e) = prior_error {
+            return Err(CodecUtil::check_footer_with_error(&mut meta_in, e));
         } else {
             CodecUtil::check_footer(&mut meta_in)?;
         }

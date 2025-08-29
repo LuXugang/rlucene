@@ -333,7 +333,7 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
                 CodecUtil::check_footer(&mut input)?;
                 Ok(FieldInfos::new(infos)?)
             },
-            Err(mut e) => Err(CodecUtil::check_footer_with_error(&mut input, &mut e)),
+            Err(e) => Err(CodecUtil::check_footer_with_error(&mut input, e)),
         }
     }
 

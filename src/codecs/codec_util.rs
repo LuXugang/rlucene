@@ -525,57 +525,53 @@ impl CodecUtil {
     // error#[source] to standardize error nesting.
     pub fn check_footer_with_error(
         checksum_in: &mut impl ChecksumIndexInput,
-        prior_error: &mut LuceneError,
+        mut prior_error: LuceneError,
     ) -> LuceneError {
-        // If we have evidence of corruption, then we return the corruption as
-        // the main exception and the prior exception gets suppressed.
-        // Otherwise, we return the prior exception with a suppressed
-        // exception that notifies the user that checksums matched.
-        let error = prior_error.to_string();
-        let mut error_message: String = "".to_string();
-        let remaining = checksum_in.length() - checksum_in.get_file_pointer();
-        if remaining < Self::footer_length() as i64 {
-            // corruption caused us to read into the checksum footer already: we
-            // can't proceed
-            error_message = format!(
-                "{error} cause by checksum status indeterminate: remaining={remaining}, ; please run check index for more details: {checksum_in} "
-            );
-        } else {
-            // otherwise, skip any unread bytes.
-            let result =
-                DataInput::skip_bytes(checksum_in, remaining - Self::footer_length() as i64);
-            if result.is_err() {
-                error_message = format!(
-                    "{} cause by: checksum status indeterminate: unexpected exception: {} {}",
-                    error,
-                    checksum_in,
-                    result.unwrap_err()
-                );
+        let result = (|prior_error: &mut LuceneError| -> Result<()> {
+            // If we have evidence of corruption, then we return the corruption as
+            // the main exception and the prior exception gets suppressed.
+            // Otherwise, we return the prior exception with a suppressed
+            // exception that notifies the user that checksums matched.
+            let remaining = checksum_in.length() - checksum_in.get_file_pointer();
+            if remaining < Self::footer_length() as i64 {
+                // corruption caused us to read into the checksum footer already: we
+                // can't proceed
+                return Err(LuceneError::corrupt_index(format!(
+                    "checksum status indeterminate: remaining={remaining}, ; please run check index for more details: {checksum_in} "
+                )));
             } else {
+                // otherwise, skip any unread bytes.
+                DataInput::skip_bytes(checksum_in, remaining - Self::footer_length() as i64)?;
                 // now check the footer
-                let result = Self::check_footer(checksum_in);
-                match result {
-                    Err(e) => {
-                        error_message = format!(
-                            "{} cause by checksum status indeterminate: unexpected exception: {} {} ",
-                            error, checksum_in, e,
-                        );
-                    },
-                    Ok(checksum) => {
-                        // If the index format is too old and no corruption, do not
-                        // add a checksum matching message since
-                        // this may tend to unnecessarily alarm people who
-                        // see "JVM bug" in their logs
-                        if !matches!(prior_error, LuceneError::IndexFormatTooOld(_)) {
-                            error_message = format!(
-                                "checksum passed ({checksum}). possibly transient resource issue, or a Lucene : {checksum_in}, cause by: {error}"
-                            );
-                        }
-                    },
+                let checksum = Self::check_footer(checksum_in)?;
+                if !matches!(prior_error, LuceneError::IndexFormatTooOld(_)) {
+                    let old = std::mem::replace(prior_error, LuceneError::illegal_state("dummy"));
+                    *prior_error = LuceneError::corrupt_index_with_source(
+                        format!(
+                            "checksum passed ({checksum}). possibly transient resource issue, or a Lucene bug"
+                        ),
+                        old,
+                    );
                 }
             }
+            Ok(())
+        })(&mut prior_error);
+        match result {
+            Ok(_) => prior_error,
+            Err(t) => {
+                if matches!(t, LuceneError::CorruptIndex(_)) {
+                    LuceneError::corrupt_index_with_source(t.to_string(), prior_error)
+                } else {
+                    LuceneError::corrupt_index_with_source(
+                        format!(
+                            "checksum status indeterminate: unexpected exception: {}",
+                            checksum_in,
+                        ),
+                        t,
+                    )
+                }
+            },
         }
-        LuceneError::corrupt_index(error_message)
     }
 
     /// Returns (but does not validate) the checksum previously written by
@@ -788,6 +784,7 @@ impl CodecUtil {
 
 #[cfg(test)]
 mod tests {
+    use std::error::Error;
     use std::fmt::{Display, Formatter};
     use std::sync::atomic::AtomicI64;
 
@@ -890,8 +887,8 @@ mod tests {
             out.get_data_input(),
             "temp",
         ));
-        let mut mine = LuceneError::illegal_argument("fake exception");
-        let result = CodecUtil::check_footer_with_error(&mut input, &mut mine);
+        let mine = LuceneError::illegal_argument("fake exception");
+        let result = CodecUtil::check_footer_with_error(&mut input, mine);
         assert!(result.to_string().contains("checksum passed"));
         Ok(())
     }
@@ -915,8 +912,8 @@ mod tests {
         CodecUtil::check_header(&mut input, "FooBar", 5, 5)?;
         let read_data = input.read_string()?;
         assert_eq!(read_data, "this is the data");
-        let mut mine = LuceneError::illegal_argument("fake exception");
-        let result = CodecUtil::check_footer_with_error(&mut input, &mut mine);
+        let mine = LuceneError::illegal_argument("fake exception");
+        let result = CodecUtil::check_footer_with_error(&mut input, mine);
         let err_message = result.to_string();
         assert!(err_message.contains("fake exception"));
         assert!(err_message.contains("checksum passed"));
@@ -946,8 +943,8 @@ mod tests {
         // Bogusly read a byte too far
         input.read_byte()?;
 
-        let mut mine = LuceneError::illegal_argument("fake exception");
-        let result = CodecUtil::check_footer_with_error(&mut input, &mut mine);
+        let mine = LuceneError::illegal_argument("fake exception");
+        let result = CodecUtil::check_footer_with_error(&mut input, mine);
         let err_message = result.to_string();
         assert!(err_message.contains("checksum status indeterminate"));
         assert!(err_message.contains("fake exception"));
@@ -975,8 +972,9 @@ mod tests {
         CodecUtil::check_header(&mut input, "FooBar", 5, 5)?;
         let read_data = input.read_string()?;
         assert_eq!(read_data, "this is the data");
-        let mut mine = LuceneError::illegal_argument("fake exception");
-        let result = CodecUtil::check_footer_with_error(&mut input, &mut mine);
+        let mine = LuceneError::illegal_argument("fake exception");
+        let result = CodecUtil::check_footer_with_error(&mut input, mine);
+        assert!(result.source().is_some());
         let err_message = result.to_string();
         assert!(err_message.contains("checksum failed"));
         assert!(err_message.contains("fake exception"));

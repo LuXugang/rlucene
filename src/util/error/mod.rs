@@ -54,8 +54,8 @@ macro_rules! message_error {
             }
         }
 
-        impl From<crate::util::error::lucene_error::LuceneError> for $name {
-            fn from(err: crate::util::error::lucene_error::LuceneError) -> Self {
+        impl From<$crate::util::error::lucene_error::LuceneError> for $name {
+            fn from(err: $crate::util::error::lucene_error::LuceneError) -> Self {
                 Self::from_error(err)
             }
         }

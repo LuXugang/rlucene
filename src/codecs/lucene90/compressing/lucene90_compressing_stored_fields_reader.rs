@@ -229,9 +229,9 @@ where
         })();
         match result {
             Ok(reader) => Ok(reader),
-            Err(mut e) => {
+            Err(e) => {
                 if let Some(ref mut meta) = meta_in {
-                    CodecUtil::check_footer_with_error(meta, &mut e);
+                    return Err(CodecUtil::check_footer_with_error(meta, e));
                 }
                 Err(e)
             },

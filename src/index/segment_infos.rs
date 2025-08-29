@@ -343,8 +343,8 @@ where
         }
 
         if format >= VERSION_74 {
-            if let Some(mut e) = prior_error {
-                return Err(CodecUtil::check_footer_with_error(input, &mut e));
+            if let Some(e) = prior_error {
+                return Err(CodecUtil::check_footer_with_error(input, e));
             } else {
                 CodecUtil::check_footer(input)?;
             }

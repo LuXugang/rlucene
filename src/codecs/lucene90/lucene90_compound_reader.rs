@@ -138,10 +138,7 @@ where
                 CodecUtil::check_footer(&mut entries_stream)?;
                 Ok((version, mapping))
             },
-            Err(mut e) => Err(CodecUtil::check_footer_with_error(
-                &mut entries_stream,
-                &mut e,
-            )),
+            Err(e) => Err(CodecUtil::check_footer_with_error(&mut entries_stream, e)),
         }
     }
     fn read_mapping(entries_stream: &mut impl IndexInput) -> Result<HashMap<String, FileEntry>> {

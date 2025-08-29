@@ -127,11 +127,9 @@ where
         })();
         match result {
             Ok(_) => {},
-            Err(mut e) => {
+            Err(e) => {
                 return match meta_in_opt {
-                    Some(ref mut meta_in) => {
-                        Err(CodecUtil::check_footer_with_error(meta_in, &mut e))
-                    },
+                    Some(ref mut meta_in) => Err(CodecUtil::check_footer_with_error(meta_in, e)),
                     None => Err(e),
                 };
             },

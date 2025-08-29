@@ -155,7 +155,7 @@ where
                 },
             }
 
-            if let Some(e) = prior_error.as_mut() {
+            if let Some(e) = prior_error {
                 return Err(CodecUtil::check_footer_with_error(&mut input, e));
             } else {
                 CodecUtil::check_footer(&mut input)?;

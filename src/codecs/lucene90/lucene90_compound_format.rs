@@ -437,11 +437,8 @@ mod tests {
             prior_e = Some(e);
         }
 
-        if let Some(mut e) = prior_e {
-            return Err(CodecUtil::check_footer_with_error(
-                &mut entries_stream,
-                &mut e,
-            ));
+        if let Some(e) = prior_e {
+            return Err(CodecUtil::check_footer_with_error(&mut entries_stream, e));
         } else {
             CodecUtil::check_footer(&mut entries_stream)?;
         }

@@ -192,7 +192,7 @@ where
                 prior_e = Some(e);
             }
 
-            if let Some(e) = prior_e.as_mut() {
+            if let Some(e) = prior_e {
                 return Err(CodecUtil::check_footer_with_error(&mut docs_in, e));
             } else {
                 CodecUtil::check_footer(&mut docs_in)?;
@@ -234,7 +234,7 @@ where
             if let Err(e) = result {
                 prior_e = Some(e);
             }
-            if let Some(e) = prior_e.as_mut() {
+            if let Some(e) = prior_e {
                 return Err(CodecUtil::check_footer_with_error(&mut file_pointers_in, e));
             } else {
                 CodecUtil::check_footer(&mut file_pointers_in)?;

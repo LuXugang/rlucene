@@ -294,7 +294,7 @@ impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
                 prior_e = Some(exception);
             }
         }
-        if let Some(e) = prior_e.as_mut() {
+        if let Some(e) = prior_e {
             return Err(CodecUtil::check_footer_with_error(&mut input, e));
         } else {
             CodecUtil::check_footer(&mut input)?;

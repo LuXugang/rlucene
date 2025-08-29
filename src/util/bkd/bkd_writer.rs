@@ -1299,7 +1299,7 @@ where
     /// as a suppressed exception.
     fn verify_checksum(
         &self,
-        prior_exception: &mut LuceneError,
+        prior_exception: LuceneError,
         writer: &PointWriterEnum<<TrackingDirectoryWrapper<D> as Directory>::IndexOutput>,
     ) -> Result<()> {
         // TODO: we could improve this, to always validate checksum as we recurse, if we shared left and
@@ -1316,10 +1316,13 @@ where
                 .contains(&writer.name)
             {
                 let mut input = self.temp_dir.open_checksum_input(&writer.name)?;
-                CodecUtil::check_footer_with_error(&mut input, prior_exception);
+                return Err(CodecUtil::check_footer_with_error(
+                    &mut input,
+                    prior_exception,
+                ));
             }
         }
-        Ok(())
+        Err(prior_exception)
     }
     /// Pick the next dimension to split.
     ///
@@ -1407,9 +1410,8 @@ where
             Ok(())
         })();
         source.take_data(reader.remove_points());
-        if let Err(mut err) = result {
-            self.verify_checksum(&mut err, source)?;
-            return Err(err);
+        if let Err(err) = result {
+            return Err(self.verify_checksum(err, source).unwrap_err());
         }
 
         source.destroy(&self.temp_dir)?;

@@ -112,8 +112,9 @@ macro_rules! error_ctor {
             LuceneError::$variant(err.into())
         }
         pub fn $fn_name_with_source(msg: impl Into<String>, source: LuceneError) -> Self {
+            let source_error = format!("{}:( supper error: ({}))", msg.into(), source);
             let err = $error_type {
-                message: msg.into(),
+                message: source_error,
                 source: Some(Box::new(source)),
             };
             LuceneError::$variant(err)
@@ -331,7 +332,10 @@ mod tests {
     fn wrap_with_message_and_source() {
         let inner = LuceneError::illegal_argument("inner error");
         let outer = LuceneError::illegal_state_with_source("outer error", inner);
-        assert_eq!(outer.to_string(), "outer error");
+        assert_eq!(
+            outer.to_string(),
+            "outer error:( supper error: (inner error))"
+        );
         let source = outer.source().unwrap().source().unwrap().to_string();
         assert_eq!(source, "inner error");
     }
