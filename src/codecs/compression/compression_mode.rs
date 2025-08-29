@@ -470,7 +470,7 @@ mod tests {
             };
             (Self::random_array_impl(random, length, max), length)
         }
-        fn random_array_impl<R: Rng + ?Sized>(random: &mut R, length: i32, _max: i32) -> Vec<u8> {
+        fn random_array_impl<R: Rng + ?Sized>(random: &mut R, length: i32, max: i32) -> Vec<u8> {
             let remainder = length % 1024;
             let new_length = if remainder == 0 {
                 length
@@ -482,9 +482,7 @@ mod tests {
             } else {
                 let mut arr = vec![0u8; new_length as usize];
                 for i in 0..length {
-                    // TODO: 为什么这里使用0..max就报错呢？
-                    // arr[i as usize] = random.random_range(0..=max) as u8;
-                    arr[i as usize] = random.random();
+                    arr[i as usize] = random.random_range(0..=max) as u8;
                 }
                 arr
             }
