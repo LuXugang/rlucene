@@ -726,8 +726,8 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
         debug_assert!(buffered_output.get_position() <= i32::MAX as usize);
         let uncompressed_length = buffered_output.get_position() as i32 - dict_length;
         data.write_vint(uncompressed_length)?;
-        let _ = LZ4::compress_with_dictionary(
-            CoreHelper::take_and_reset(&mut buffered_output.bytes, |old| vec![0u8; old.len()]),
+        LZ4::compress_with_dictionary(
+            buffered_output.bytes.as_slice(),
             0,
             dict_length,
             uncompressed_length,

@@ -1022,15 +1022,13 @@ where
                     self.compression_hash_table =
                         Some(HashTableEnum::High(HighCompressionHashTable::default()));
                 }
-                let bytes = LZ4::compress(
-                    std::mem::take(&mut self.suffix_writer.bytes_ref.bytes),
+                LZ4::compress(
+                    self.suffix_writer.bytes_ref.bytes.as_ref(),
                     0,
                     suffix_len.try_into()?,
                     &mut self.spare_writer,
                     self.compression_hash_table.as_mut().unwrap(),
                 )?;
-                // take ownership back
-                self.suffix_writer.bytes_ref.bytes = bytes;
 
                 if self.spare_writer.size() < (suffix_len - (suffix_len >> 2)) as i64 {
                     compression_alg = CompressionAlgorithm::Lz4;

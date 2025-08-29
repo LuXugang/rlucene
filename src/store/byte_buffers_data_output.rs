@@ -390,9 +390,9 @@ impl ByteBuffersDataOutput {
         value as i64
     }
     #[cfg(feature = "test_only")]
-    pub fn write_bytes(&mut self, b: Vec<u8>) -> Result<()> {
+    pub fn write_bytes(&mut self, b: &[u8]) -> Result<()> {
         debug_assert!(b.len() <= u32::MAX as usize);
-        self.write_bytes_range(&b, 0, b.len() as i32)
+        self.write_bytes_range(b, 0, b.len() as i32)
     }
 
     #[cfg(feature = "test_only")]

@@ -32,6 +32,7 @@ use crate::util::error::lucene_error::Result;
 /// # Note
 /// This is an experimental API.
 pub struct ByteArrayDataInput<AV>
+// TODO: 这里可以考虑改成引用bytes或者所有权
 where
     AV: SharedAccessVec<u8>,
 {

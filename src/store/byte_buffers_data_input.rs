@@ -449,16 +449,16 @@ mod tests {
         let reps = random.random_range(1..=20);
         for _i in 0..=reps {
             let mut dst = ByteBuffersDataOutput::new();
-            let prefix: Vec<u8> = vec![0; random.random_range(0..=1024 * 8)];
+            let prefix = vec![0; random.random_range(0..=1024 * 8)];
             let prefix_len = prefix.len() as i64;
-            dst.write_bytes(prefix)?;
+            dst.write_bytes(prefix.as_slice())?;
             let seed: u64 = random.random();
             let max = 10000;
             let mut random1 = Xoroshiro128Plus::seed_from_u64(seed);
             let reply = add_random_data(&mut dst, &mut random1, max);
-            let suffix: Vec<u8> = vec![0; random.random_range(0..=1024 * 8)];
+            let suffix = vec![0; random.random_range(0..=1024 * 8)];
             let suffix_len = suffix.len() as i64;
-            dst.write_bytes(suffix)?;
+            dst.write_bytes(suffix.as_slice())?;
             let size = dst.size();
             let mut src = dst
                 .get_data_input()
@@ -494,13 +494,13 @@ mod tests {
         let reps = random.random_range(1..=20);
         for _i in 0..reps {
             let mut dst = ByteBuffersDataOutput::new();
-            let prefix: Vec<u8>;
+            let prefix;
             let mut prefix_len: i64 = 0;
             if random.random_bool(0.5) {
                 let len = random.random_range(1..=1024 * 8);
                 prefix = vec![0; len];
                 prefix_len = prefix.len() as i64;
-                dst.write_bytes(prefix)?;
+                dst.write_bytes(prefix.as_slice())?;
             }
             let seed: u64 = random.random();
             let max = 1000;
@@ -549,8 +549,8 @@ mod tests {
         let mut random = random();
         let mut dst = ByteBuffersDataOutput::new();
         assert_eq!(0, dst.get_data_input().slice(0, 0)?.length());
-        let random_bytes: Vec<u8> = vec![0; random.random_range(0..=1024 * 8)];
-        dst.write_bytes(random_bytes)?;
+        let random_bytes = vec![0; random.random_range(0..=1024 * 8)];
+        dst.write_bytes(random_bytes.as_slice())?;
         let max = dst.size();
         let data_input = dst.get_data_input();
         let mut offset = 0;
@@ -569,8 +569,8 @@ mod tests {
     #[test]
     fn test_eof_on_array_read_past_buffer_size() -> Result<()> {
         let mut dst = ByteBuffersDataOutput::new();
-        let bytes: Vec<u8> = vec![0; 10];
-        dst.write_bytes(bytes)?;
+        let bytes = vec![0; 10];
+        dst.write_bytes(bytes.as_slice())?;
         let mut data_input = dst.get_data_input();
         let mut output: Vec<u8> = vec![0; 100];
         let result = DataInput::read_bytes(&mut data_input, &mut output, 0, 100);
@@ -594,7 +594,7 @@ mod tests {
                 block.truncate(remaining as usize);
             }
             let len = block.len();
-            dst.write_bytes(block)?;
+            dst.write_bytes(block.as_slice())?;
             remaining -= len as i64;
         }
         let data_input = dst.get_data_input();

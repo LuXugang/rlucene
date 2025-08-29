@@ -216,17 +216,10 @@ impl LZ4WithPresetDictCompressor {
             buffer: Vec::new(),
         }
     }
-    // TODO: 如果有必要的话，这里可以设计为归还所有权?
-    fn do_compress(
-        &mut self,
-        bytes: Vec<u8>,
-        dict_len: i32,
-        len: i32,
-        out: &mut impl DataOutput,
-    ) -> Result<()> {
+    fn do_compress(&mut self, dict_len: i32, len: i32, out: &mut impl DataOutput) -> Result<()> {
         let prev_compressed_size = self.compressed.size();
-        let _ = LZ4::compress_with_dictionary(
-            bytes,
+        LZ4::compress_with_dictionary(
+            self.buffer.as_slice(),
             0,
             dict_len,
             len,
@@ -264,18 +257,14 @@ impl Compressor for LZ4WithPresetDictCompressor {
         self.compressed.reset();
         // Compress the dictionary first
         DataInput::read_bytes(buffers_input, &mut self.buffer, 0, dict_length)?;
-        let moved_data = std::mem::take(&mut self.buffer);
-        self.do_compress(moved_data, 0, dict_length, out)?;
+        self.do_compress(0, dict_length, out)?;
 
         // And then sub blocks
         let mut start = dict_length;
         while start < len {
             let l = (len - start).min(block_length);
-            debug_assert!(self.buffer.is_empty());
-            self.buffer = vec![0; (dict_length + block_length) as usize];
             DataInput::read_bytes(buffers_input, &mut self.buffer, dict_length, l)?;
-            let moved_data = std::mem::take(&mut self.buffer);
-            self.do_compress(moved_data, dict_length, l, out)?;
+            self.do_compress(dict_length, l, out)?;
             start += block_length;
         }
         // We only wrote lengths so far, now write compressed data
