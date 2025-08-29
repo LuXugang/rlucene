@@ -17,16 +17,14 @@
 use crate::index::documents_writer_flush_control::DocumentsWriterFlushControl;
 use crate::index::documents_writer_per_thread::DocumentsWriterPerThread;
 use crate::index::live_index_writer_config::LiveIndexWriterConfig;
-use crate::search::query::Query;
 use crate::store::directory::Directory;
 
 pub trait FlushPolicy {
-    fn on_change<D, Q, L>(
+    fn on_change<D, L>(
         &self,
-        control: &DocumentsWriterFlushControl<D, Q, L>,
-        per_thread: Option<&DocumentsWriterPerThread<D, Q>>,
+        control: &DocumentsWriterFlushControl<D, L>,
+        per_thread: Option<&DocumentsWriterPerThread<D>>,
     ) where
         D: Directory,
-        Q: Query,
         L: LiveIndexWriterConfig;
 }

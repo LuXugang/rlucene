@@ -21,7 +21,6 @@ use crate::index::pending_soft_deletes::PendingSoftDeletes;
 use crate::index::readers_and_updates::ReadersAndUpdates;
 use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::index::segment_reader::SegmentReader;
-use crate::search::query::Query;
 use crate::store::directory::Directory;
 use crate::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -40,10 +39,9 @@ use std::sync::atomic::AtomicBool;
 /// 3) handing out a real-time reader.
 ///    This pool reuses instances of the SegmentReaders in all these places
 ///    if it is in "near real-time mode" (getReader() has been called on this instance).
-pub(crate) struct ReaderPool<D, Q>
+pub(crate) struct ReaderPool<D>
 where
     D: Directory,
-    Q: Query,
 {
     directory: Arc<LockValidatingDirectoryWrapper<D>>,
     original_directory: Arc<D>,
@@ -64,7 +62,7 @@ where
     // to be needed and reused ie if IndexWriter#getReader is called.
     pool_readers: AtomicBool,
     inner: Mutex<Inner<D>>,
-    completed_del_gen_supplier: LongSupplierImpl<Q>,
+    completed_del_gen_supplier: LongSupplierImpl,
 }
 pub(crate) struct Inner<D>
 where
@@ -74,10 +72,9 @@ where
     closed: AtomicBool,
 }
 
-impl<D, Q> ReaderPool<D, Q>
+impl<D> ReaderPool<D>
 where
     D: Directory,
-    Q: Query,
 {
     /// Asserts this info still exists in IW's segment infos
     pub(crate) fn assert_info_is_live(&self, _info: &SegmentCommitInfo<D>) -> bool {
@@ -469,10 +466,9 @@ where
         true
     }
 }
-impl<D, Q> Drop for ReaderPool<D, Q>
+impl<D> Drop for ReaderPool<D>
 where
     D: Directory,
-    Q: Query,
 {
     fn drop(&mut self) {
         self.close().expect("should not fail")

@@ -29,7 +29,7 @@ use crate::index::BytesRef;
 use crate::index::doc_values_update::DocValuesUpdate;
 use crate::index::field_updates_buffer::FieldUpdatesBuffer;
 use crate::index::term::Term;
-use crate::search::query::Query;
+use crate::search::query::QueryEnum;
 use crate::util::access::SharedAccess;
 use crate::util::accountable::Accountable;
 use crate::util::allocator_byte::{AllocatorByteEnum, DirectTrackingAllocatorByte};
@@ -54,15 +54,14 @@ use crate::util::{
 /// - Instances of this structure are accessed either via a private instance on
 ///   `DocumentWriterPerThread`, or through synchronized code in the
 ///   `DocumentsWriterDeleteQueue`.
-pub(crate) struct BufferedUpdates<Q, C, B>
+pub(crate) struct BufferedUpdates<C, B>
 where
-    Q: Query,
     C: SharedAccess<CounterEnum>,
     B: SharedAccess<ByteBlockPool<C>>,
 {
     pub(crate) num_field_updates: AtomicI32,
     pub delete_terms: DeletedTerms<C, B>,
-    pub(crate) delete_queries: HashMap<Arc<Q>, i32>,
+    pub(crate) delete_queries: HashMap<Arc<QueryEnum>, i32>,
     pub(crate) field_updates: HashMap<String, FieldUpdatesBuffer>,
     bytes_used: C,
     field_updates_bytes_used: C,
@@ -72,10 +71,7 @@ where
     segment_name: String,
 }
 
-impl<Q> MTBufferedUpdates<Q>
-where
-    Q: Query,
-{
+impl MTBufferedUpdates {
     /// Creates a new `BufferedUpdates` instance.
     pub(crate) fn new_sync(segment_name: &str) -> Self {
         Self {
@@ -174,10 +170,7 @@ where
     }
 }
 
-impl<Q> STBufferedUpdates<Q>
-where
-    Q: Query,
-{
+impl STBufferedUpdates {
     /// Creates a new `BufferedUpdates` instance.
     pub(crate) fn new(segment_name: String) -> Self {
         Self {
@@ -194,13 +187,12 @@ where
     }
 }
 
-impl<Q, C, B> BufferedUpdates<Q, C, B>
+impl<C, B> BufferedUpdates<C, B>
 where
-    Q: Query,
     C: SharedAccess<CounterEnum>,
     B: SharedAccess<ByteBlockPool<C>>,
 {
-    pub(crate) fn add_query(&mut self, query: Arc<Q>, doc_id_upto: i32) {
+    pub(crate) fn add_query(&mut self, query: Arc<QueryEnum>, doc_id_upto: i32) {
         if self
             .delete_queries
             .insert(query.clone(), doc_id_upto)
@@ -241,9 +233,8 @@ where
     }
 }
 
-impl<Q, C, B> Accountable for BufferedUpdates<Q, C, B>
+impl<C, B> Accountable for BufferedUpdates<C, B>
 where
-    Q: Query,
     C: SharedAccess<CounterEnum>,
     B: SharedAccess<ByteBlockPool<C>>,
 {
@@ -252,9 +243,8 @@ where
         Ok(0)
     }
 }
-impl<Q, C, B> fmt::Display for BufferedUpdates<Q, C, B>
+impl<C, B> fmt::Display for BufferedUpdates<C, B>
 where
-    Q: Query + fmt::Display,
     C: SharedAccess<CounterEnum>,
     B: SharedAccess<ByteBlockPool<C>>,
 {
@@ -300,11 +290,11 @@ where
     }
 }
 /// for multi-threaded scenarios
-pub type MTBufferedUpdates<Q> = BufferedUpdates<Q, CounterEnumLock, ByteBlockPoolLock>;
-pub type BufferedUpdatesLock<Q> = Arc<Mutex<MTBufferedUpdates<Q>>>;
+pub type MTBufferedUpdates = BufferedUpdates<CounterEnumLock, ByteBlockPoolLock>;
+pub type BufferedUpdatesLock = Arc<Mutex<MTBufferedUpdates>>;
 /// for single-threaded scenarios
-pub type STBufferedUpdates<Q> = BufferedUpdates<Q, CounterEnumBorrow, ByteBlockPoolBorrow>;
-pub type BufferedUpdatesBorrow<Q> = Rc<RefCell<STBufferedUpdates<Q>>>;
+pub type STBufferedUpdates = BufferedUpdates<CounterEnumBorrow, ByteBlockPoolBorrow>;
+pub type BufferedUpdatesBorrow = Rc<RefCell<STBufferedUpdates>>;
 
 pub(crate) struct DeletedTerms<C, B>
 where
@@ -602,6 +592,7 @@ mod tests {
     use crate::index::BytesRef;
     use crate::index::buffered_updates::{BufferedUpdates, DeletedTerms};
     use crate::index::term::Term;
+    use crate::search::query::QueryEnum;
     use crate::search::term_query::TermQuery;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
     use crate::util::accountable::Accountable;
@@ -628,7 +619,10 @@ mod tests {
             };
             let value = format!("{}", random.random_range(0..100));
             let term = Term::new("id".to_string(), BytesRef::from_string(&value));
-            bu.add_query(Arc::new(TermQuery::new(term.clone())), doc_id_upto);
+            bu.add_query(
+                Arc::new(QueryEnum::Term(TermQuery::new(term.clone()))),
+                doc_id_upto,
+            );
         }
 
         let terms = at_least(&mut random, 1);

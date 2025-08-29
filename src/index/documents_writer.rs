@@ -28,7 +28,7 @@ use crate::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::index::lockable_concurrent_approximate_priority_queue::Lock;
 use crate::index::segment_info::SegmentInfo;
 use crate::index::term::Term;
-use crate::search::query::Query;
+use crate::search::query::QueryEnum;
 use crate::store::directory::Directory;
 use crate::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
 use crate::util::accountable::Accountable;
@@ -80,10 +80,9 @@ use std::thread;
 /// structures. These updates are consistent but represent only a part of the document seen up
 /// until the exception was hit. When this happens, we immediately mark the document as deleted so
 /// that the document is always atomically (“all or none”) added to the index.
-pub(crate) struct DocumentsWriter<D, Q, L>
+pub(crate) struct DocumentsWriter<D, L>
 where
     D: Directory,
-    Q: Query,
     L: LiveIndexWriterConfig,
 {
     pending_num_docs: Arc<AtomicI64>,
@@ -91,32 +90,28 @@ where
     info_stream: InfoStreamMT,
     config: Arc<L>,
     num_docs_in_ram: AtomicI32,
-    ticket_queue: DocumentsWriterFlushQueue<D, Q>,
+    ticket_queue: DocumentsWriterFlushQueue<D>,
     // we preserve changes during a full flush since IW might not check out before
     // we release all changes. NRT Readers otherwise suddenly return true from
     // isCurrent while there are actually changes currently committed. See also
     // #anyChanges() & #flushAllThreads
     pending_changes_in_current_full_flush: AtomicBool,
-    pub(crate) per_thread_pool: DocumentsWriterPerThreadPool<D, Q>,
-    pub(crate) inner: Mutex<Inner<Q>>,
-    flush_control: DocumentsWriterFlushControl<D, Q, L>,
+    pub(crate) per_thread_pool: DocumentsWriterPerThreadPool<D>,
+    pub(crate) inner: Mutex<Inner>,
+    flush_control: DocumentsWriterFlushControl<D, L>,
     index_created_version_major: i32,
     directory: Arc<LockValidatingDirectoryWrapper<D>>,
     directory_orig: Arc<D>,
     enable_test_points: bool,
     global_field_number_map: Arc<Mutex<FieldNumbers>>,
 }
-pub(crate) struct Inner<Q>
-where
-    Q: Query,
-{
-    pub(crate) delete_queue: Arc<DocumentsWriterDeleteQueue<Q>>,
-    current_full_flush_del_queue: Option<Arc<DocumentsWriterDeleteQueue<Q>>>,
+pub(crate) struct Inner {
+    pub(crate) delete_queue: Arc<DocumentsWriterDeleteQueue>,
+    current_full_flush_del_queue: Option<Arc<DocumentsWriterDeleteQueue>>,
 }
-impl<D, Q, L> DocumentsWriter<D, Q, L>
+impl<D, L> DocumentsWriter<D, L>
 where
     D: Directory,
-    Q: Query,
     L: LiveIndexWriterConfig,
 {
     #[allow(clippy::too_many_arguments)]
@@ -154,7 +149,7 @@ where
     }
     pub(crate) fn delete_queries(
         &self,
-        queries: Vec<Q>,
+        queries: Vec<QueryEnum>,
         notifications: &mut impl FlushNotifications,
     ) -> Result<i64> {
         self.apply_delete_or_update(
@@ -184,13 +179,13 @@ where
         notifications: &mut impl FlushNotifications,
     ) -> Result<i64>
     where
-        F: FnOnce(&DocumentsWriterDeleteQueue<Q>) -> Result<i64>,
+        F: FnOnce(&DocumentsWriterDeleteQueue) -> Result<i64>,
     {
         // Check the applyAllDeletes flag first. This helps exit early most of the time without checking
         // isFullFlush(), which takes a lock and introduces contention on small documents that are quick
         // to index.
         let inner = self.inner.lock();
-        let mut seq_no = func(&*inner.delete_queue)?;
+        let mut seq_no = func(&inner.delete_queue)?;
         self.flush_control
             .do_on_delete(self.config.get_flush_policy());
         if self.apply_all_deletes(Some(&inner), notifications)? {
@@ -201,7 +196,7 @@ where
     /// If buffered deletes are using too much heap, resolve them and write disk and return true.
     fn apply_all_deletes(
         &self,
-        inner: Option<&Inner<Q>>,
+        inner: Option<&Inner>,
         notifications: &mut impl FlushNotifications,
     ) -> Result<bool> {
         // Check the applyAllDeletes flag first. This helps exit early most of the time without checking
@@ -230,7 +225,7 @@ where
     }
     pub(crate) fn purge_flush_tickets<C>(&self, forced: bool, mut consumer: C) -> Result<()>
     where
-        C: IOConsumer<FlushTicket<D, Q>>,
+        C: IOConsumer<FlushTicket<D>>,
     {
         if forced {
             self.ticket_queue.force_purge(&mut consumer)
@@ -281,7 +276,7 @@ where
     /// Returns how many documents were aborted.
     fn abort_documents_writer_per_thread(
         &self,
-        mut per_thread: DocumentsWriterPerThread<D, Q>,
+        mut per_thread: DocumentsWriterPerThread<D>,
     ) -> Result<()> {
         debug_assert!(self.inner.is_locked());
 
@@ -357,7 +352,7 @@ where
 
     fn post_update(
         &self,
-        flushing_dwpt: Option<DocumentsWriterPerThread<D, Q>>,
+        flushing_dwpt: Option<DocumentsWriterPerThread<D>>,
         mut has_events: bool,
         notifications: &mut impl FlushNotifications,
     ) -> Result<bool> {
@@ -373,7 +368,7 @@ where
     fn update_documents<DI, DF>(
         &self,
         docs: DI,
-        del_node: Option<Arc<Node<Q>>>,
+        del_node: Option<Arc<Node>>,
         notifications: &mut impl FlushNotifications,
     ) -> Result<i64>
     where
@@ -486,7 +481,7 @@ where
     }
     fn do_flush(
         &self,
-        mut flushing_dwpt: DocumentsWriterPerThread<D, Q>,
+        mut flushing_dwpt: DocumentsWriterPerThread<D>,
         notifications: &mut impl FlushNotifications,
     ) -> Result<()> {
         loop {
@@ -595,7 +590,7 @@ where
 
     pub(crate) fn reset_delete_queue(
         &self,
-        inner: &mut Inner<Q>,
+        inner: &mut Inner,
         max_num_pending_ops: i64,
     ) -> Result<i64> {
         let new_queue = inner.delete_queue.advance_queue(max_num_pending_ops)?;
@@ -631,10 +626,7 @@ where
         debug_assert!(self.num_docs_in_ram.load(Ordering::SeqCst) >= 0);
     }
 
-    fn set_flushing_delete_queue(
-        &self,
-        session: Option<Arc<DocumentsWriterDeleteQueue<Q>>>,
-    ) -> bool {
+    fn set_flushing_delete_queue(&self, session: Option<Arc<DocumentsWriterDeleteQueue>>) -> bool {
         let mut inner = self.inner.lock();
         debug_assert!(
             inner
@@ -648,7 +640,7 @@ where
     }
     fn assert_ticket_queue_modification(
         &self,
-        delete_queue: &Arc<DocumentsWriterDeleteQueue<Q>>,
+        delete_queue: &Arc<DocumentsWriterDeleteQueue>,
     ) -> bool {
         let inner = self.inner.lock();
         debug_assert!(
@@ -766,17 +758,16 @@ where
         self.flush_control.get_flushing_bytes()
     }
 }
-impl<D, Q, L> Accountable for DocumentsWriter<D, Q, L>
+impl<D, L> Accountable for DocumentsWriter<D, L>
 where
     D: Directory,
-    Q: Query,
     L: LiveIndexWriterConfig,
 {
     fn ram_bytes_used(&self) -> Result<i64> {
         let inner = self.inner.lock();
         Ok(self
             .flush_control
-            .get_delete_bytes_used(&*inner.delete_queue)?
+            .get_delete_bytes_used(&inner.delete_queue)?
             + self.flush_control.net_bytes())
     }
 }
@@ -812,26 +803,19 @@ pub(crate) trait FlushNotifications {
     fn on_ticket_backlog(&self);
 }
 
-struct SupplierImpl<Q>
-where
-    Q: Query,
-{
-    delete_queue: Arc<DocumentsWriterDeleteQueue<Q>>,
+struct SupplierImpl {
+    delete_queue: Arc<DocumentsWriterDeleteQueue>,
 }
-impl<Q> SupplierImpl<Q>
-where
-    Q: Query,
-{
-    pub(crate) fn new(delete_queue: Arc<DocumentsWriterDeleteQueue<Q>>) -> Self {
+impl SupplierImpl {
+    pub(crate) fn new(delete_queue: Arc<DocumentsWriterDeleteQueue>) -> Self {
         SupplierImpl { delete_queue }
     }
 }
-impl<D, Q> Supplier<Option<FlushTicket<D, Q>>> for SupplierImpl<Q>
+impl<D> Supplier<Option<FlushTicket<D>>> for SupplierImpl
 where
     D: Directory,
-    Q: Query,
 {
-    fn get_immutable(&self) -> Result<Option<FlushTicket<D, Q>>> {
+    fn get_immutable(&self) -> Result<Option<FlushTicket<D>>> {
         // it's maybeFreezeGlobalBuffer(DocumentsWriterDeleteQueue deleteQueue)'s logic in Java Lucene
         match self.delete_queue.maybe_freeze_global_buffer()? {
             Some(frozen_updates) => Ok(Some(FlushTicket::new(frozen_updates, false))),
@@ -840,52 +824,47 @@ where
     }
 }
 
-struct SupplierImpl1<'a, D, Q>
+struct SupplierImpl1<'a, D>
 where
     D: Directory,
-    Q: Query,
 {
-    dwpt: &'a mut DocumentsWriterPerThread<D, Q>,
+    dwpt: &'a mut DocumentsWriterPerThread<D>,
 }
-impl<'a, D, Q> SupplierImpl1<'a, D, Q>
+impl<'a, D> SupplierImpl1<'a, D>
 where
     D: Directory,
-    Q: Query,
 {
-    pub(crate) fn new(dwpt: &'a mut DocumentsWriterPerThread<D, Q>) -> Self {
+    pub(crate) fn new(dwpt: &'a mut DocumentsWriterPerThread<D>) -> Self {
         SupplierImpl1 { dwpt }
     }
 }
-impl<'a, D, Q> Supplier<Option<FlushTicket<D, Q>>> for SupplierImpl1<'a, D, Q>
+impl<'a, D> Supplier<Option<FlushTicket<D>>> for SupplierImpl1<'a, D>
 where
     D: Directory,
-    Q: Query,
 {
-    fn get(&mut self) -> Result<Option<FlushTicket<D, Q>>> {
+    fn get(&mut self) -> Result<Option<FlushTicket<D>>> {
         let frozen_buffered_updates = self.dwpt.prepare_flush()?;
         Ok(Some(FlushTicket::new(frozen_buffered_updates, false)))
     }
 }
 
-struct SupplierImpl2<D, Q, L>
+struct SupplierImpl2<D, L>
 where
     D: Directory,
-    Q: Query,
     L: LiveIndexWriterConfig,
 {
     index_major_version_created: i32,
     directory_orig: Arc<D>,
     directory: Arc<LockValidatingDirectoryWrapper<D>>,
     config: Arc<L>,
-    delete_queue: Arc<DocumentsWriterDeleteQueue<Q>>,
+    delete_queue: Arc<DocumentsWriterDeleteQueue>,
     pending_num_docs: Arc<AtomicI64>,
     enable_test_points: bool,
     field_numbers: Arc<Mutex<FieldNumbers>>,
 }
-impl<D, Q, L> SupplierImpl2<D, Q, L>
+impl<D, L> SupplierImpl2<D, L>
 where
     D: Directory,
-    Q: Query,
     L: LiveIndexWriterConfig,
 {
     #[allow(clippy::too_many_arguments)]
@@ -894,7 +873,7 @@ where
         directory_orig: Arc<D>,
         directory: Arc<LockValidatingDirectoryWrapper<D>>,
         config: Arc<L>,
-        delete_queue: Arc<DocumentsWriterDeleteQueue<Q>>,
+        delete_queue: Arc<DocumentsWriterDeleteQueue>,
         field_numbers: Arc<Mutex<FieldNumbers>>,
         pending_num_docs: Arc<AtomicI64>,
         enable_test_points: bool,
@@ -911,13 +890,12 @@ where
         }
     }
 }
-impl<D, Q, L> Supplier<DocumentsWriterPerThread<D, Q>> for SupplierImpl2<D, Q, L>
+impl<D, L> Supplier<DocumentsWriterPerThread<D>> for SupplierImpl2<D, L>
 where
     D: Directory,
-    Q: Query,
     L: LiveIndexWriterConfig,
 {
-    fn get_immutable(&self) -> Result<DocumentsWriterPerThread<D, Q>> {
+    fn get_immutable(&self) -> Result<DocumentsWriterPerThread<D>> {
         let infos = Builder::new(self.field_numbers.clone());
         let dwpt = DocumentsWriterPerThread::new(
             self.index_major_version_created,

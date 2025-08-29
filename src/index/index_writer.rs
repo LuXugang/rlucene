@@ -21,7 +21,6 @@ use crate::index::index_file_deleter::IndexFileDeleter;
 use crate::index::merge_state::DocMap;
 use crate::index::segment_info::SegmentInfo;
 use crate::index::segment_infos::SegmentInfos;
-use crate::search::query::Query;
 use crate::store::directory::Directory;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::error::lucene_error::Result;
@@ -30,10 +29,9 @@ use parking_lot::{Mutex, ReentrantMutex};
 use std::rc::Rc;
 use std::sync::Arc;
 
-pub struct IndexWriter<D, Q, L>
+pub struct IndexWriter<D, L>
 where
     D: Directory,
-    Q: Query,
     L: LiveIndexWriterConfig,
 {
     enable_test_points: bool,
@@ -57,7 +55,7 @@ where
     files_to_commit: Vec<String>,
     segment_infos: SegmentInfos<D>,
     global_field_number_map: Arc<FieldNumbers>,
-    doc_writer: DocumentsWriter<D, Q, L>,
+    doc_writer: DocumentsWriter<D, L>,
     write_doc_values_lock: ReentrantMutex<()>,
     deleter: IndexFileDeleter<D, L::IndexDeletionPolicy>,
     // used by forceMerge to note those needing merging
@@ -76,8 +74,8 @@ where
     did_message_state: bool,
     flush_count: AtomicI32,
     flush_deletes_count: AtomicI32,
-    reader_pool: ReaderPool<D, Q>,
-    buffered_updates_stream: Rc<BufferedUpdatesStream<Q>>,
+    reader_pool: ReaderPool<D>,
+    buffered_updates_stream: Rc<BufferedUpdatesStream>,
     merge_finished_gen: AtomicI64,
     config: Arc<L>,
     start_commit_time: i64,
@@ -85,10 +83,9 @@ where
     soft_deletes_enabled: bool,
 }
 
-impl<D, Q, L> IndexWriter<D, Q, L>
+impl<D, L> IndexWriter<D, L>
 where
     D: Directory,
-    Q: Query,
     L: LiveIndexWriterConfig,
 {
     pub fn set_live_commit_data(&self) {}
@@ -114,10 +111,10 @@ where
     pub(crate) fn is_deleter_closed(&self) -> Result<bool> {
         self.deleter.is_closed(self)
     }
-    pub(crate) fn try_apply(&mut self, _updates: &mut FrozenBufferedUpdates<Q>) -> Result<bool> {
+    pub(crate) fn try_apply(&mut self, _updates: &mut FrozenBufferedUpdates) -> Result<bool> {
         todo!()
     }
-    pub(crate) fn force_apply(&mut self, _updates: &mut FrozenBufferedUpdates<Q>) -> Result<bool> {
+    pub(crate) fn force_apply(&mut self, _updates: &mut FrozenBufferedUpdates) -> Result<bool> {
         todo!()
     }
 }
@@ -164,16 +161,10 @@ impl FlushNotifications for FlushNotificationsImpl {
     }
 }
 
-pub(crate) struct LongSupplierImpl<Q>
-where
-    Q: Query,
-{
-    stream: Rc<BufferedUpdatesStream<Q>>,
+pub(crate) struct LongSupplierImpl {
+    stream: Rc<BufferedUpdatesStream>,
 }
-impl<Q> LongSupplier for LongSupplierImpl<Q>
-where
-    Q: Query,
-{
+impl LongSupplier for LongSupplierImpl {
     fn get_as_long(&self) -> i64 {
         self.stream.get_completed_del_gen()
     }

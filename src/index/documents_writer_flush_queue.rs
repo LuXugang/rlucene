@@ -16,7 +16,6 @@
  */
 use crate::index::documents_writer_per_thread::FlushedSegment;
 use crate::index::frozen_buffered_updates::FrozenBufferedUpdates;
-use crate::search::query::Query;
 use crate::store::directory::Directory;
 use crate::util::error::lucene_error::Result;
 use crate::util::io_consumer::IOConsumer;
@@ -25,28 +24,25 @@ use parking_lot::{Mutex, ReentrantMutex};
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicI32, Ordering};
 
-pub(crate) struct DocumentsWriterFlushQueue<D, Q>
+pub(crate) struct DocumentsWriterFlushQueue<D>
 where
     D: Directory,
-    Q: Query,
 {
-    pub(crate) inner: Mutex<Inner<D, Q>>,
+    pub(crate) inner: Mutex<Inner<D>>,
     // we track tickets separately since count must be present even before the ticket is
     // constructed ie. queue.size would not reflect it.
     ticket_count: AtomicI32,
     purge_lock: ReentrantMutex<()>,
 }
-pub(crate) struct Inner<D, Q>
+pub(crate) struct Inner<D>
 where
     D: Directory,
-    Q: Query,
 {
-    pub(crate) queue: VecDeque<FlushTicket<D, Q>>,
+    pub(crate) queue: VecDeque<FlushTicket<D>>,
 }
-impl<D, Q> DocumentsWriterFlushQueue<D, Q>
+impl<D> DocumentsWriterFlushQueue<D>
 where
     D: Directory,
-    Q: Query,
 {
     pub(crate) fn new() -> Self {
         DocumentsWriterFlushQueue {
@@ -59,7 +55,7 @@ where
     }
     pub(crate) fn add_ticket<S>(&self, ticket_supplier: S) -> Result<Option<usize>>
     where
-        S: Supplier<Option<FlushTicket<D, Q>>>,
+        S: Supplier<Option<FlushTicket<D>>>,
     {
         // first inc the ticket count - freeze opens a window for #anyChanges to fail
         let mut inner = self.inner.lock();
@@ -89,13 +85,13 @@ where
         debug_assert!(new_count >= 0);
     }
 
-    pub(crate) fn add_segment(&self, ticket_index: usize, segment: FlushedSegment<D, Q>) {
+    pub(crate) fn add_segment(&self, ticket_index: usize, segment: FlushedSegment<D>) {
         let mut inner = self.inner.lock();
         // the actual flush is done asynchronously and once done the FlushedSegment
         // is passed to the flush ticket
         inner.queue[ticket_index].set_segment(segment)
     }
-    pub(crate) fn mark_ticket_failed(&self, ticket: &mut FlushTicket<D, Q>) {
+    pub(crate) fn mark_ticket_failed(&self, ticket: &mut FlushTicket<D>) {
         let _guard = self.inner.lock();
         // to free the queue we mark tickets as failed just to clean up the queue.
         ticket.set_failed();
@@ -108,7 +104,7 @@ where
     }
     pub(crate) fn inner_purge<C>(&self, consumer: &mut C) -> Result<()>
     where
-        C: IOConsumer<FlushTicket<D, Q>>,
+        C: IOConsumer<FlushTicket<D>>,
     {
         debug_assert!(self.purge_lock.is_locked());
         loop {
@@ -137,7 +133,7 @@ where
     }
     pub(crate) fn force_purge<C>(&self, consumer: &mut C) -> Result<()>
     where
-        C: IOConsumer<FlushTicket<D, Q>>,
+        C: IOConsumer<FlushTicket<D>>,
     {
         debug_assert!(!self.inner.is_locked());
         let _purge_guard = self.purge_lock.lock();
@@ -146,7 +142,7 @@ where
 
     pub(crate) fn try_purge<C>(&self, consumer: &mut C) -> Result<()>
     where
-        C: IOConsumer<FlushTicket<D, Q>>,
+        C: IOConsumer<FlushTicket<D>>,
     {
         debug_assert!(!self.inner.is_locked(),);
         if let Some(_purge_guard) = self.purge_lock.try_lock() {
@@ -160,24 +156,22 @@ where
     }
 }
 
-pub(crate) struct FlushTicket<D, Q>
+pub(crate) struct FlushTicket<D>
 where
-    Q: Query,
     D: Directory,
 {
-    frozen_updates: FrozenBufferedUpdates<Q>,
+    frozen_updates: FrozenBufferedUpdates,
     has_segment: bool,
-    segment: Option<FlushedSegment<D, Q>>,
+    segment: Option<FlushedSegment<D>>,
     failed: bool,
     published: bool,
     lock: Mutex<()>,
 }
-impl<D, Q> FlushTicket<D, Q>
+impl<D> FlushTicket<D>
 where
     D: Directory,
-    Q: Query,
 {
-    pub(crate) fn new(frozen_updates: FrozenBufferedUpdates<Q>, has_segment: bool) -> Self {
+    pub(crate) fn new(frozen_updates: FrozenBufferedUpdates, has_segment: bool) -> Self {
         FlushTicket {
             frozen_updates,
             has_segment,
@@ -200,7 +194,7 @@ where
         self.published = true;
     }
 
-    fn set_segment(&mut self, segment: FlushedSegment<D, Q>) {
+    fn set_segment(&mut self, segment: FlushedSegment<D>) {
         debug_assert!(!self.failed, "cannot set segment on a failed ticket");
         self.segment = Some(segment);
     }
@@ -211,11 +205,11 @@ where
     }
     /// Returns the flushed segment, or `None` if this flush ticket doesn’t have a segment.
     /// This can occur when the ticket represents a flushed global frozen updates package.
-    pub(crate) fn get_flushed_segment(&self) -> Option<&FlushedSegment<D, Q>> {
+    pub(crate) fn get_flushed_segment(&self) -> Option<&FlushedSegment<D>> {
         self.segment.as_ref()
     }
     /// Returns a frozen global deletes package.
-    pub(crate) fn get_frozen_updates(&self) -> &FrozenBufferedUpdates<Q> {
+    pub(crate) fn get_frozen_updates(&self) -> &FrozenBufferedUpdates {
         &self.frozen_updates
     }
 }

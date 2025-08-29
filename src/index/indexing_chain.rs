@@ -75,7 +75,6 @@ use crate::index::stored_fields_consumer::StoredFieldsConsumer;
 use crate::index::term_vectors_consumer::TermVectorsConsumer;
 use crate::index::vector_encoding::VectorEncoding;
 use crate::index::vector_similarity_function::VectorSimilarityFunction;
-use crate::search::query::Query;
 use crate::search::similarities::similarities::Similarity;
 use crate::search::sort_field::SortFiledBase;
 use crate::store::IOContext;
@@ -265,15 +264,14 @@ where
             None => Ok(None),
         }
     }
-    pub(crate) fn flush<Q, D1>(
+    pub(crate) fn flush<D1>(
         &mut self,
         state: &mut SegmentWriteState<D>,
         segment_info: &mut SegmentInfo<D1>,
-        seg_updates: Option<&mut MTBufferedUpdates<Q>>,
+        seg_updates: Option<&mut MTBufferedUpdates>,
         index_writer_config: &impl LiveIndexWriterConfig,
     ) -> Result<Option<Rc<DocMapImpl>>>
     where
-        Q: Query,
         D1: Directory,
     {
         // Rust-Lucene–specific method: its purpose is to make all DocValuesWriter instances call finished() first,

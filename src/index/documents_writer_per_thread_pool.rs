@@ -19,7 +19,6 @@ use crate::index::documents_writer_per_thread::{DocumentsWriterPerThread, State}
 use crate::index::lockable_concurrent_approximate_priority_queue::{
     Lock, LockableConcurrentApproximatePriorityQueue,
 };
-use crate::search::query::Query;
 use crate::store::directory::Directory;
 use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -35,13 +34,12 @@ use std::sync::atomic::{AtomicBool, Ordering};
 /// assignments might differ from document to document.
 ///
 /// Once a [`DocumentsWriterPerThread`] is selected for flush, it will be checked out of the thread pool and won’t be reused for indexing. See [`checkout`](DocumentsWriterPerThreadPool::checkout)
-pub(crate) struct DocumentsWriterPerThreadPool<D, Q>
+pub(crate) struct DocumentsWriterPerThreadPool<D>
 where
     D: Directory,
-    Q: Query,
 {
     pub(crate) inner: Mutex<Inner>,
-    free_list: LockableConcurrentApproximatePriorityQueue<DocumentsWriterPerThread<D, Q>>,
+    free_list: LockableConcurrentApproximatePriorityQueue<DocumentsWriterPerThread<D>>,
     pausing: Condvar,
     closed: AtomicBool,
 }
@@ -53,10 +51,9 @@ pub(crate) struct Dwpts {
     pub(crate) r#gen: i64,
     state: Arc<State>,
 }
-impl<D, Q> DocumentsWriterPerThreadPool<D, Q>
+impl<D> DocumentsWriterPerThreadPool<D>
 where
     D: Directory,
-    Q: Query,
 {
     pub fn new() -> Result<Self> {
         let inner = Mutex::new(Inner {
@@ -97,9 +94,9 @@ where
     }
 
     /// Returns a new already locked [`DocumentsWriterPerThread`]
-    pub(crate) fn new_writer<S>(&self, dwpt_factory: &S) -> Result<DocumentsWriterPerThread<D, Q>>
+    pub(crate) fn new_writer<S>(&self, dwpt_factory: &S) -> Result<DocumentsWriterPerThread<D>>
     where
-        S: Supplier<DocumentsWriterPerThread<D, Q>>,
+        S: Supplier<DocumentsWriterPerThread<D>>,
     {
         let mut inner = self.inner.lock();
         debug_assert!(inner.taken_writer_permits >= 0);
@@ -125,9 +122,9 @@ where
     }
     /// This method is used by `DocumentsWriter`/`FlushControl` to obtain a DWPT to do an indexing
     /// operation (add/updateDocument).
-    pub(crate) fn get_and_lock<S>(&self, dwpt_factory: &S) -> Result<DocumentsWriterPerThread<D, Q>>
+    pub(crate) fn get_and_lock<S>(&self, dwpt_factory: &S) -> Result<DocumentsWriterPerThread<D>>
     where
-        S: Supplier<DocumentsWriterPerThread<D, Q>>,
+        S: Supplier<DocumentsWriterPerThread<D>>,
     {
         self.ensure_open()?;
 
@@ -148,14 +145,11 @@ where
         Ok(())
     }
 
-    pub(crate) fn contains(&self, state: &DocumentsWriterPerThread<D, Q>) -> bool {
+    pub(crate) fn contains(&self, state: &DocumentsWriterPerThread<D>) -> bool {
         let inner = self.inner.lock();
         inner.dwpts.contains_key(state.id())
     }
-    pub(crate) fn mark_as_free_and_unlock(
-        &self,
-        state: DocumentsWriterPerThread<D, Q>,
-    ) -> Result<()> {
+    pub(crate) fn mark_as_free_and_unlock(&self, state: DocumentsWriterPerThread<D>) -> Result<()> {
         let ram_bytes_used = state.ram_bytes_used()?;
 
         debug_assert!(
@@ -179,7 +173,7 @@ where
     pub(crate) fn filter_and_lock<F1>(
         &self,
         predicate: F1,
-    ) -> Result<Vec<DocumentsWriterPerThread<D, Q>>>
+    ) -> Result<Vec<DocumentsWriterPerThread<D>>>
     where
         F1: Fn(&str, i64) -> bool,
     {
@@ -251,7 +245,7 @@ mod tests {
     use crate::index::field_infos::build::Builder;
 
     use crate::index::lockable_concurrent_approximate_priority_queue::Lock;
-    use crate::search::dummy::dummy_query::DummyQuery;
+
     use crate::store::directory::Directory;
     use crate::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
     use crate::store::nio_fs_directory::NIOFSDirectory;
@@ -279,16 +273,13 @@ mod tests {
             Self { seed }
         }
     }
-    impl
-        Supplier<
-            DocumentsWriterPerThread<FSDirectory<NativeFSLockFactory, NIOFSDirectory>, DummyQuery>,
-        > for DwptSupplier
+    impl Supplier<DocumentsWriterPerThread<FSDirectory<NativeFSLockFactory, NIOFSDirectory>>>
+        for DwptSupplier
     {
         fn get_immutable(
             &self,
-        ) -> Result<
-            DocumentsWriterPerThread<FSDirectory<NativeFSLockFactory, NIOFSDirectory>, DummyQuery>,
-        > {
+        ) -> Result<DocumentsWriterPerThread<FSDirectory<NativeFSLockFactory, NIOFSDirectory>>>
+        {
             let mut random = random_from_seed(self.seed);
             let directory_orig = Arc::new(new_directory(&mut random)?);
             let lock = directory_orig.obtain_lock("test")?;
@@ -361,10 +352,10 @@ mod tests {
         use std::time::Duration;
 
         let mut random = random();
-        let mut supplier = DwptSupplier::new(random.random());
+        let supplier = DwptSupplier::new(random.random());
         let pool = Arc::new(DocumentsWriterPerThreadPool::new()?);
 
-        let first = pool.get_and_lock(&mut supplier)?;
+        let first = pool.get_and_lock(&supplier)?;
         pool.lock_new_writers();
 
         let ready = Arc::new(AtomicBool::new(false));
@@ -373,7 +364,7 @@ mod tests {
 
         let handle = thread::spawn(move || {
             ready_clone.store(true, Ordering::SeqCst);
-            let result = pool_clone.get_and_lock(&mut supplier);
+            let result = pool_clone.get_and_lock(&supplier);
             assert!(matches!(result, Err(LuceneError::AlreadyClosed(_))));
         });
 

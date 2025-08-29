@@ -25,7 +25,7 @@ use crate::index::doc_values_type::DocValuesType;
 use crate::index::doc_values_update::{DocValuesUpdate, DocValuesUpdateBase};
 use crate::index::frozen_buffered_updates::FrozenBufferedUpdates;
 use crate::index::term::Term;
-use crate::search::query::Query;
+use crate::search::query::QueryEnum;
 use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::info_stream::InfoStreamMT;
@@ -78,11 +78,8 @@ use crate::util::info_stream::InfoStreamMT;
 /// [`BufferedUpdates`](BufferedUpdates)
 /// [`DeleteSlice`](crate::index::DeleteSlice)
 /// [`DocumentsWriterPerThread`](crate::index::documents_writer_per_thread::DocumentsWriterPerThread)
-pub(crate) struct DocumentsWriterDeleteQueue<Q>
-where
-    Q: Query,
-{
-    pub inner: Mutex<GlobalState<Q>>,
+pub(crate) struct DocumentsWriterDeleteQueue {
+    pub inner: Mutex<GlobalState>,
     pub(crate) generation: i64,
     /// Generates the sequence number that IW returns to callers changing the
     /// index, showing the effective serialization of all operations.
@@ -92,27 +89,21 @@ where
     previous_max_seq_id: i64,
     max_seq_no: AtomicI64,
 }
-pub(crate) struct GlobalState<Q>
-where
-    Q: Query,
-{
-    tail: Arc<Node<Q>>,
+pub(crate) struct GlobalState {
+    tail: Arc<Node>,
     /// Used to record deletes against all prior (already written to disk)
     /// segments. Whenever any segment flushes, we bundle up this set of
     /// deletes and insert into the buffered updates stream before the
     /// newly flushed segment(s).
-    global_slice: DeleteSlice<Q>,
+    global_slice: DeleteSlice,
 
     generation: i64,
-    global_buffered_updates: MTBufferedUpdates<Q>,
+    global_buffered_updates: MTBufferedUpdates,
     advanced: bool,
     closed: bool,
 }
-impl<Q> GlobalState<Q>
-where
-    Q: Query,
-{
-    fn new(tail: Arc<Node<Q>>, generation: i64) -> Self {
+impl GlobalState {
+    fn new(tail: Arc<Node>, generation: i64) -> Self {
         Self {
             tail: tail.clone(),
             global_slice: DeleteSlice::new(tail),
@@ -123,19 +114,13 @@ where
         }
     }
 }
-impl<Q> GlobalState<Q>
-where
-    Q: Query,
-{
+impl GlobalState {
     pub(crate) fn apply(&mut self, doc_id_upto: i32) -> Result<()> {
         self.global_slice
             .apply(&mut self.global_buffered_updates, doc_id_upto)
     }
 }
-impl<Q> DocumentsWriterDeleteQueue<Q>
-where
-    Q: Query,
-{
+impl DocumentsWriterDeleteQueue {
     pub(crate) fn new(info_stream: InfoStreamMT) -> Self {
         Self::with_params(info_stream, 0, 1, 0)
     }
@@ -163,7 +148,7 @@ where
             max_seq_no: AtomicI64::new(i64::MAX),
         }
     }
-    pub(crate) fn add_delete_query(&self, queries: Vec<Arc<Q>>) -> Result<i64> {
+    pub(crate) fn add_delete_query(&self, queries: Vec<Arc<QueryEnum>>) -> Result<i64> {
         let query_array_node = Node::new(NodeEnum::QueryNodeArray(QueryNodeArray::new(queries)));
         let seq_no = self.add_node(Arc::new(query_array_node))?;
         self.try_apply_global_slice()?;
@@ -183,15 +168,15 @@ where
         self.try_apply_global_slice()?;
         Ok(seq_no)
     }
-    pub(crate) fn new_node_with_term(term: Term) -> Node<Q> {
+    pub(crate) fn new_node_with_term(term: Term) -> Node {
         Node::new(NodeEnum::TermNode(TermNode::new(term)))
     }
 
-    pub(crate) fn new_node_with_query(query: Q) -> Node<Q> {
+    pub(crate) fn new_node_with_query(query: QueryEnum) -> Node {
         Node::new(NodeEnum::QueryNode(QueryNode::new(Arc::new(query))))
     }
 
-    pub(crate) fn new_node_with_doc_values(updates: &[DocValuesUpdate]) -> Node<Q> {
+    pub(crate) fn new_node_with_doc_values(updates: &[DocValuesUpdate]) -> Node {
         Node::new(NodeEnum::DocValuesUpdatesNode(DocValuesUpdatesNode::new(
             updates.to_vec(),
         )))
@@ -199,8 +184,8 @@ where
     /// invariant for document update
     pub(crate) fn add_with_slice(
         &self,
-        delete_node: Arc<Node<Q>>,
-        slice: &mut DeleteSlice<Q>,
+        delete_node: Arc<Node>,
+        slice: &mut DeleteSlice,
     ) -> Result<i64> {
         let seq_no = self.add_node(delete_node.clone())?;
         // This is an update request where the term is the updated documents
@@ -223,7 +208,7 @@ where
         Ok(seq_no)
     }
 
-    pub(crate) fn add_node(&self, new_node: Arc<Node<Q>>) -> Result<i64> {
+    pub(crate) fn add_node(&self, new_node: Arc<Node>) -> Result<i64> {
         let mut global_state = self.inner.lock();
         self.ensure_open(global_state.closed)?;
         {
@@ -235,7 +220,7 @@ where
         Ok(self.get_next_sequence_number())
     }
 
-    pub(crate) fn any_changes(&self, global_state: Option<&GlobalState<Q>>) -> bool {
+    pub(crate) fn any_changes(&self, global_state: Option<&GlobalState>) -> bool {
         let global_state = match global_state {
             Some(state) => state,
             None => &self.inner.lock(),
@@ -272,8 +257,8 @@ where
 
     pub(crate) fn freeze_global_buffer(
         &self,
-        caller_slice: &mut Option<DeleteSlice<Q>>,
-    ) -> Result<Option<FrozenBufferedUpdates<Q>>> {
+        caller_slice: &mut Option<DeleteSlice>,
+    ) -> Result<Option<FrozenBufferedUpdates>> {
         let mut global_state = self.inner.lock();
         self.ensure_open(global_state.closed)?;
         // Here we freeze the global buffer so we need to lock it, apply all
@@ -293,7 +278,7 @@ where
     /// This may freeze the global buffer unless the delete queue has already
     /// been closed. If the queue has been closed, this method will return
     /// `None`.
-    pub(crate) fn maybe_freeze_global_buffer(&self) -> Result<Option<FrozenBufferedUpdates<Q>>> {
+    pub(crate) fn maybe_freeze_global_buffer(&self) -> Result<Option<FrozenBufferedUpdates>> {
         let mut global_state = self.inner.lock();
 
         if !global_state.closed {
@@ -313,9 +298,9 @@ where
 
     fn freeze_global_buffer_internal(
         &self,
-        global_state: &mut GlobalState<Q>,
-        current_tail: Arc<Node<Q>>,
-    ) -> Result<Option<FrozenBufferedUpdates<Q>>> {
+        global_state: &mut GlobalState,
+        current_tail: Arc<Node>,
+    ) -> Result<Option<FrozenBufferedUpdates>> {
         debug_assert!(self.inner.is_locked());
         if !Arc::ptr_eq(&global_state.global_slice.slice_tail, &current_tail) {
             global_state.global_slice.slice_tail = current_tail;
@@ -335,12 +320,12 @@ where
             Ok(None)
         }
     }
-    pub(crate) fn new_slice(&self) -> DeleteSlice<Q> {
+    pub(crate) fn new_slice(&self) -> DeleteSlice {
         let global_state = self.inner.lock().tail.clone();
         DeleteSlice::new(global_state)
     }
     /// Negative result means there were new deletes since we last applied.
-    pub(crate) fn update_slice(&self, slice: &mut DeleteSlice<Q>) -> Result<i64> {
+    pub(crate) fn update_slice(&self, slice: &mut DeleteSlice) -> Result<i64> {
         let global_state = self.inner.lock();
         self.ensure_open(global_state.closed)?;
         let mut seq_no = self.get_next_sequence_number();
@@ -353,7 +338,7 @@ where
     }
 
     /// Just like updateSlice, but does not assign a sequence number.
-    pub(crate) fn update_slice_no_seq_no(&self, global_state: &mut GlobalState<Q>) -> bool {
+    pub(crate) fn update_slice_no_seq_no(&self, global_state: &mut GlobalState) -> bool {
         if !Arc::ptr_eq(&global_state.global_slice.slice_tail, &global_state.tail) {
             // New deletes arrived since the last check
             global_state.global_slice.slice_tail = global_state.tail.clone();
@@ -470,7 +455,7 @@ where
     pub(crate) fn advance_queue(
         &self,
         max_num_pending_ops: i64,
-    ) -> Result<DocumentsWriterDeleteQueue<Q>> {
+    ) -> Result<DocumentsWriterDeleteQueue> {
         let mut global_state = self.inner.lock();
         if global_state.advanced {
             return Err(LuceneError::illegal_state(
@@ -509,28 +494,19 @@ where
         global_state.advanced
     }
 }
-impl<Q> Drop for DocumentsWriterDeleteQueue<Q>
-where
-    Q: Query,
-{
+impl Drop for DocumentsWriterDeleteQueue {
     fn drop(&mut self) {
         if let Err(_e) = self.close() {
             // TODO:
         }
     }
 }
-impl<Q> Display for DocumentsWriterDeleteQueue<Q>
-where
-    Q: Query,
-{
+impl Display for DocumentsWriterDeleteQueue {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "DWDP: [ generation: {} ]", self.generation)
     }
 }
-impl<Q> Accountable for DocumentsWriterDeleteQueue<Q>
-where
-    Q: Query,
-{
+impl Accountable for DocumentsWriterDeleteQueue {
     fn ram_bytes_used(&self) -> Result<i64> {
         //TODO: memory calculation not implemented
         Ok(0)
@@ -538,21 +514,15 @@ where
 }
 
 /// A delete slice for buffered updates.
-pub(crate) struct DeleteSlice<Q>
-where
-    Q: Query,
-{
-    slice_head: Arc<Node<Q>>, // Head of the slice
-    slice_tail: Arc<Node<Q>>, // Tail of the slice
+pub(crate) struct DeleteSlice {
+    slice_head: Arc<Node>, // Head of the slice
+    slice_tail: Arc<Node>, // Tail of the slice
 }
 
-impl<Q> DeleteSlice<Q>
-where
-    Q: Query,
-{
+impl DeleteSlice {
     /// Creates a new delete slice with the head and tail pointing to the same
     /// node.
-    pub(crate) fn new(current_tail: Arc<Node<Q>>) -> Self {
+    pub(crate) fn new(current_tail: Arc<Node>) -> Self {
         Self {
             // Initially this is a 0 length slice pointing to the 'current' tail
             // of the queue. Once we update the slice we only need
@@ -562,7 +532,7 @@ where
         }
     }
 
-    pub(crate) fn apply(&mut self, del: &mut MTBufferedUpdates<Q>, doc_id_upto: i32) -> Result<()> {
+    pub(crate) fn apply(&mut self, del: &mut MTBufferedUpdates, doc_id_upto: i32) -> Result<()> {
         if Arc::ptr_eq(&self.slice_head, &self.slice_tail) {
             // 0 length slice
             return Ok(());
@@ -598,14 +568,14 @@ where
         self.slice_head = self.slice_tail.clone();
     }
     /// Returns `true` if the given node is the slice's tail.
-    pub(crate) fn is_tail(&self, node: &Arc<Node<Q>>) -> bool {
+    pub(crate) fn is_tail(&self, node: &Arc<Node>) -> bool {
         Arc::ptr_eq(&self.slice_tail, node)
     }
 
     /// Returns `true` if the item of the given node matches the item in the
     /// tail.
     #[cfg(feature = "test_only")]
-    pub(crate) fn is_tail_item(&self, item: &NodeEnum<Q>) -> bool {
+    pub(crate) fn is_tail_item(&self, item: &NodeEnum) -> bool {
         let node1 = NodeEnum::get_node_base(&self.slice_tail.item);
         let node2 = NodeEnum::get_node_base(item);
         debug_assert!(node1.is_some() && node2.is_some());
@@ -621,38 +591,26 @@ where
 }
 
 /// Represents a node in a linked list.
-pub(crate) struct Node<Q>
-where
-    Q: Query,
-{
+pub(crate) struct Node {
     /// The next node in the list, or `None` if this is the last node.
-    next: Mutex<Option<Arc<Node<Q>>>>,
-    item: NodeEnum<Q>,
+    next: Mutex<Option<Arc<Node>>>,
+    item: NodeEnum,
 }
 
-impl<Q> Node<Q>
-where
-    Q: Query,
-{
-    pub(crate) fn new(sub_node: NodeEnum<Q>) -> Self {
+impl Node {
+    pub(crate) fn new(sub_node: NodeEnum) -> Self {
         Self {
             next: Mutex::new(None),
             item: sub_node,
         }
     }
 }
-impl<Q> NodeBase<Q> for Node<Q>
-where
-    Q: Query,
-{
-    fn apply(&self, buffered_deletes: &mut MTBufferedUpdates<Q>, doc_id_upto: i32) -> Result<()> {
+impl NodeBase for Node {
+    fn apply(&self, buffered_deletes: &mut MTBufferedUpdates, doc_id_upto: i32) -> Result<()> {
         self.item.apply(buffered_deletes, doc_id_upto)
     }
 }
-impl<Q> Display for Node<Q>
-where
-    Q: Query,
-{
+impl Display for Node {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.item)
     }
@@ -670,11 +628,8 @@ impl EmptyNode {
         Self {}
     }
 }
-impl<Q> NodeBase<Q> for EmptyNode
-where
-    Q: Query,
-{
-    fn apply(&self, _buffered_deletes: &mut MTBufferedUpdates<Q>, _doc_id_upto: i32) -> Result<()> {
+impl NodeBase for EmptyNode {
+    fn apply(&self, _buffered_deletes: &mut MTBufferedUpdates, _doc_id_upto: i32) -> Result<()> {
         Ok(())
     }
 }
@@ -692,11 +647,8 @@ impl TermNode {
         Self { item: term }
     }
 }
-impl<Q> NodeBase<Q> for TermNode
-where
-    Q: Query,
-{
-    fn apply(&self, buffered_deletes: &mut MTBufferedUpdates<Q>, doc_id_upto: i32) -> Result<()> {
+impl NodeBase for TermNode {
+    fn apply(&self, buffered_deletes: &mut MTBufferedUpdates, doc_id_upto: i32) -> Result<()> {
         buffered_deletes.add_term(&self.item, doc_id_upto)
     }
 }
@@ -706,67 +658,43 @@ impl Display for TermNode {
     }
 }
 // query node
-pub(crate) struct QueryNode<Q>
-where
-    Q: Query,
-{
-    item: Arc<Q>,
+pub(crate) struct QueryNode {
+    item: Arc<QueryEnum>,
 }
-impl<Q> QueryNode<Q>
-where
-    Q: Query,
-{
-    pub(crate) fn new(query: Arc<Q>) -> Self {
+impl QueryNode {
+    pub(crate) fn new(query: Arc<QueryEnum>) -> Self {
         Self { item: query }
     }
 }
-impl<Q> NodeBase<Q> for QueryNode<Q>
-where
-    Q: Query,
-{
-    fn apply(&self, buffered_deletes: &mut MTBufferedUpdates<Q>, doc_id_upto: i32) -> Result<()> {
+impl NodeBase for QueryNode {
+    fn apply(&self, buffered_deletes: &mut MTBufferedUpdates, doc_id_upto: i32) -> Result<()> {
         buffered_deletes.add_query(self.item.clone(), doc_id_upto);
         Ok(())
     }
 }
-impl<Q> Display for QueryNode<Q>
-where
-    Q: Query,
-{
+impl Display for QueryNode {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "del={}", self.item)
     }
 }
 // query node array
-pub(crate) struct QueryNodeArray<Q>
-where
-    Q: Query,
-{
-    item: Vec<Arc<Q>>,
+pub(crate) struct QueryNodeArray {
+    item: Vec<Arc<QueryEnum>>,
 }
-impl<Q> QueryNodeArray<Q>
-where
-    Q: Query,
-{
-    pub(crate) fn new(nodes: Vec<Arc<Q>>) -> Self {
+impl QueryNodeArray {
+    pub(crate) fn new(nodes: Vec<Arc<QueryEnum>>) -> Self {
         Self { item: nodes }
     }
 }
-impl<Q> NodeBase<Q> for QueryNodeArray<Q>
-where
-    Q: Query,
-{
-    fn apply(&self, buffered_deletes: &mut MTBufferedUpdates<Q>, doc_id_upto: i32) -> Result<()> {
+impl NodeBase for QueryNodeArray {
+    fn apply(&self, buffered_deletes: &mut MTBufferedUpdates, doc_id_upto: i32) -> Result<()> {
         for query in &self.item {
             buffered_deletes.add_query(query.clone(), doc_id_upto);
         }
         Ok(())
     }
 }
-impl<Q> Display for QueryNodeArray<Q>
-where
-    Q: Query,
-{
+impl Display for QueryNodeArray {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "")
     }
@@ -782,11 +710,8 @@ impl TermNodeArray {
         Self { item: nodes }
     }
 }
-impl<Q> NodeBase<Q> for TermNodeArray
-where
-    Q: Query,
-{
-    fn apply(&self, buffered_deletes: &mut MTBufferedUpdates<Q>, doc_id_upto: i32) -> Result<()> {
+impl NodeBase for TermNodeArray {
+    fn apply(&self, buffered_deletes: &mut MTBufferedUpdates, doc_id_upto: i32) -> Result<()> {
         for term in &self.item {
             buffered_deletes.add_term(term, doc_id_upto)?;
         }
@@ -809,11 +734,8 @@ impl DocValuesUpdatesNode {
         Self { item: nodes }
     }
 }
-impl<Q> NodeBase<Q> for DocValuesUpdatesNode
-where
-    Q: Query,
-{
-    fn apply(&self, buffered_deletes: &mut MTBufferedUpdates<Q>, doc_id_upto: i32) -> Result<()> {
+impl NodeBase for DocValuesUpdatesNode {
+    fn apply(&self, buffered_deletes: &mut MTBufferedUpdates, doc_id_upto: i32) -> Result<()> {
         for doc_values_update in &self.item {
             match doc_values_update.doc_values_type {
                 DocValuesType::Binary => {
@@ -857,25 +779,19 @@ impl Display for DocValuesUpdatesNode {
     }
 }
 
-pub(crate) enum NodeEnum<Q>
-where
-    Q: Query,
-{
+pub(crate) enum NodeEnum {
     EmptyNode(EmptyNode),
     TermNode(TermNode),
-    QueryNode(QueryNode<Q>),
-    QueryNodeArray(QueryNodeArray<Q>),
+    QueryNode(QueryNode),
+    QueryNodeArray(QueryNodeArray),
     TermNodeArray(TermNodeArray),
     DocValuesUpdatesNode(DocValuesUpdatesNode),
 }
 
-impl<Q> NodeEnum<Q>
-where
-    Q: Query,
-{
+impl NodeEnum {
     pub(crate) fn apply(
         &self,
-        buffered_deletes: &mut MTBufferedUpdates<Q>,
+        buffered_deletes: &mut MTBufferedUpdates,
         doc_id_upto: i32,
     ) -> Result<()> {
         match self {
@@ -888,17 +804,14 @@ where
         }
     }
     #[cfg(feature = "test_only")]
-    pub(crate) fn get_node_base(node: &NodeEnum<Q>) -> Option<&TermNodeArray> {
+    pub(crate) fn get_node_base(node: &NodeEnum) -> Option<&TermNodeArray> {
         match node {
             NodeEnum::TermNodeArray(node) => Some(node),
             _ => None,
         }
     }
 }
-impl<Q> Display for NodeEnum<Q>
-where
-    Q: Query,
-{
+impl Display for NodeEnum {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             NodeEnum::EmptyNode(node) => write!(f, "{node}"),
@@ -911,11 +824,8 @@ where
     }
 }
 
-pub(crate) trait NodeBase<Q>
-where
-    Q: Query,
-{
-    fn apply(&self, _buffered_deletes: &mut MTBufferedUpdates<Q>, _doc_id_upto: i32) -> Result<()> {
+pub(crate) trait NodeBase {
+    fn apply(&self, _buffered_deletes: &mut MTBufferedUpdates, _doc_id_upto: i32) -> Result<()> {
         Err(LuceneError::illegal_argument(
             "sentinel item must never be applied".to_string(),
         ))
@@ -950,7 +860,7 @@ mod tests {
 
     use crate::index::term::Term;
     use crate::index::{BytesRef, BytesRefBuilder};
-    use crate::search::dummy::dummy_query::DummyQuery;
+
     use crate::search::query::Query;
     use crate::search::term_query::TermQuery;
 
@@ -965,8 +875,7 @@ mod tests {
     #[test]
     fn test_update_delete_slices() -> Result<()> {
         let mut random = random();
-        let queue: DocumentsWriterDeleteQueue<DummyQuery> =
-            DocumentsWriterDeleteQueue::new(get_default_info_stream());
+        let queue = DocumentsWriterDeleteQueue::new(get_default_info_stream());
         let size = 200 + random.random_range(0..500) * random_multiplier();
         let mut ids: Vec<i32> = Vec::with_capacity(size as usize);
         for _ in 0..size {
@@ -1030,15 +939,12 @@ mod tests {
         Ok(())
     }
 
-    fn test_assert_all_between<Q>(
+    fn test_assert_all_between(
         start: i32,
         end: i32,
-        deletes: &mut MTBufferedUpdates<Q>,
+        deletes: &mut MTBufferedUpdates,
         ids: &[i32],
-    ) -> Result<()>
-    where
-        Q: Query,
-    {
+    ) -> Result<()> {
         for i in start..=end {
             let term = Term::from_text("id".to_string(), &ids[i as usize].to_string());
             assert_eq!(end, deletes.delete_terms.get(&term));
@@ -1056,7 +962,8 @@ mod tests {
         for i in 0..size {
             let term = Term::from_text("id".to_string(), &i.to_string());
             if random.random_range(0..10) == 0 {
-                queue.add_delete_query(Vec::from([Arc::new(TermQuery::new(term.clone()))]))?;
+                queue
+                    .add_delete_query(Vec::from([Arc::new(TermQuery::new(term.clone()).wrap())]))?;
             } else {
                 queue.add_delete_term(vec![term.clone()])?;
             }
@@ -1082,7 +989,7 @@ mod tests {
         for i in 0..size {
             let term = Term::from_text("id".to_string(), &i.to_string());
             if random.random_range(0..10) == 0 {
-                queue.add_delete_query(vec![Arc::new(TermQuery::new(term.clone()))])?;
+                queue.add_delete_query(vec![Arc::new(TermQuery::new(term.clone()).wrap())])?;
                 queries_since_freeze += 1;
             } else {
                 queue.add_delete_term(vec![term.clone()])?;
@@ -1105,8 +1012,7 @@ mod tests {
     }
     #[test]
     fn test_partially_applied_global_slice() -> Result<()> {
-        let queue_: DocumentsWriterDeleteQueue<DummyQuery> =
-            DocumentsWriterDeleteQueue::new(get_default_info_stream());
+        let queue_ = DocumentsWriterDeleteQueue::new(get_default_info_stream());
         let queue = Arc::new(Mutex::new(queue_));
         let lock = queue.lock();
         let handle = thread::spawn({
@@ -1133,9 +1039,7 @@ mod tests {
     #[test]
     fn test_stress_delete_queue() -> Result<()> {
         let mut random = random();
-        let queue = Arc::new(DocumentsWriterDeleteQueue::<DummyQuery>::new(
-            get_default_info_stream(),
-        ));
+        let queue = Arc::new(DocumentsWriterDeleteQueue::new(get_default_info_stream()));
         let mut unique_values = HashSet::new();
         let size = 10000 + random.random_range(0..500) * random_multiplier();
         let ids: Vec<i32> = (0..size).map(|_| random.random()).collect();
@@ -1208,10 +1112,9 @@ mod tests {
             assert!(matches!(result, Err(LuceneError::AlreadyClosed(_))));
             let result = queue.freeze_global_buffer(&mut None);
             assert!(matches!(result, Err(LuceneError::AlreadyClosed(_))));
-            let result = queue.add_delete_query(vec![Arc::new(TermQuery::new(Term::from_text(
-                "foo".to_string(),
-                "bar",
-            )))]);
+            let result = queue.add_delete_query(vec![Arc::new(
+                TermQuery::new(Term::from_text("foo".to_string(), "bar")).wrap(),
+            )]);
             assert!(matches!(result, Err(LuceneError::AlreadyClosed(_))));
 
             let sub_update = DocValuesUpdateEnum::Binary(BinaryDocValuesUpdate::new(Option::from(
@@ -1231,8 +1134,7 @@ mod tests {
             assert!(!queue.is_open());
         }
         {
-            let queue: DocumentsWriterDeleteQueue<DummyQuery> =
-                DocumentsWriterDeleteQueue::new(get_default_info_stream());
+            let queue = DocumentsWriterDeleteQueue::new(get_default_info_stream());
             queue.add_delete_term(vec![Term::from_text("foo".to_string(), "bar")])?;
             let result = queue.close();
             assert!(matches!(result, Err(LuceneError::IllegalState(_))));
@@ -1246,24 +1148,18 @@ mod tests {
         Ok(())
     }
 
-    struct UpdateThread<Q>
-    where
-        Q: Query,
-    {
-        queue: Arc<DocumentsWriterDeleteQueue<Q>>,
+    struct UpdateThread {
+        queue: Arc<DocumentsWriterDeleteQueue>,
         index: Arc<AtomicI32>,
         ids: Vec<i32>,
-        slice: DeleteSlice<Q>,
-        deletes: BufferedUpdatesLock<Q>,
+        slice: DeleteSlice,
+        deletes: BufferedUpdatesLock,
         barrier: Arc<Barrier>,
     }
 
-    impl<Q> UpdateThread<Q>
-    where
-        Q: Query,
-    {
+    impl UpdateThread {
         fn new(
-            queue: Arc<DocumentsWriterDeleteQueue<Q>>,
+            queue: Arc<DocumentsWriterDeleteQueue>,
             index: Arc<AtomicI32>,
             ids: Vec<i32>,
             barrier: Arc<Barrier>,
@@ -1291,7 +1187,7 @@ mod tests {
                 assert!(self.slice.is_tail(&term_node));
 
                 let mut guard = self.deletes.lock();
-                self.slice.apply(&mut *guard, MAX_INT)?;
+                self.slice.apply(&mut guard, MAX_INT)?;
 
                 i = self.index.fetch_add(1, Ordering::SeqCst) as usize;
             }

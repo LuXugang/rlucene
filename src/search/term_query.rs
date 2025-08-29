@@ -14,12 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::fmt::Display;
-
 use crate::index::term::Term;
-use crate::search::query::Query;
+use crate::search::query::{Query, QueryEnum};
+use std::fmt::Display;
+use std::hash::{Hash, Hasher};
 
-#[derive(Eq, Hash, PartialEq, Debug)]
+#[derive(Eq, Debug)]
 pub struct TermQuery {
     term: Term,
 }
@@ -28,7 +28,25 @@ impl TermQuery {
         Self { term }
     }
 }
-impl Query for TermQuery {}
+
+impl PartialEq<Self> for TermQuery {
+    fn eq(&self, _other: &Self) -> bool {
+        todo!()
+    }
+}
+
+impl Hash for TermQuery {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        // TODO
+        self.term.hash(state);
+    }
+}
+
+impl Query for TermQuery {
+    fn wrap(self) -> QueryEnum {
+        QueryEnum::Term(self)
+    }
+}
 
 impl Display for TermQuery {
     fn fmt(&self, _f: &mut std::fmt::Formatter) -> std::fmt::Result {

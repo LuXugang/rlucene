@@ -41,7 +41,6 @@ use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::index::terms_hash::TermsHash;
 use crate::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-use crate::search::query::Query;
 use crate::store::byte_buffers_data_input::ByteBuffersDataInputOwned;
 use crate::store::directory::Directory;
 use crate::store::{ByteBuffersDataOutput, DataInput, DataOutput};
@@ -87,16 +86,15 @@ where
             base,
         }
     }
-    fn apply_deletes<Q, D1>(
+    fn apply_deletes<D1>(
         &self,
         state: &mut SegmentWriteState<D>,
         fields: FreqProxFields,
         segment_info: &SegmentInfo<D1>,
-        seg_updates: Option<&mut MTBufferedUpdates<Q>>,
+        seg_updates: Option<&mut MTBufferedUpdates>,
     ) -> Result<()>
     where
         D1: Directory,
-        Q: Query,
     {
         if let Some(seg_updates) = seg_updates {
             let seg_deletes = &mut seg_updates.delete_terms;
@@ -140,7 +138,7 @@ where
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub(crate) fn flush<N, DM, Q, D1>(
+    pub(crate) fn flush<N, DM, D1>(
         &mut self,
         fields_to_flush: HashMap<String, FreqProxTermsWriterPerField>,
         state: &mut SegmentWriteState<D>,
@@ -148,12 +146,11 @@ where
         _norms: &mut N,
         codec: &impl Codec,
         info: &SegmentInfo<D1>,
-        seg_updates: Option<&mut MTBufferedUpdates<Q>>,
+        seg_updates: Option<&mut MTBufferedUpdates>,
     ) -> Result<()>
     where
         N: NormsProducer,
         DM: DocMap,
-        Q: Query,
         D1: Directory,
     {
         if let Some(term_vector_consumer) = self.next_terms_hash.as_mut() {

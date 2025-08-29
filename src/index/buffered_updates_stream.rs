@@ -17,7 +17,6 @@
 use crate::index::frozen_buffered_updates::FrozenBufferedUpdates;
 use crate::index::index_writer::IndexWriter;
 use crate::index::live_index_writer_config::LiveIndexWriterConfig;
-use crate::search::query::Query;
 use crate::store::directory::Directory;
 use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::Result;
@@ -35,29 +34,20 @@ use std::sync::atomic::{AtomicI64, Ordering};
 ///
 /// Each packet is assigned a generation, and each flushed or merged segment is also assigned a
 /// generation, so we can track which buffered-deletes packets to apply to any given segment.
-pub(crate) struct BufferedUpdatesStream<Q>
-where
-    Q: Query,
-{
+pub(crate) struct BufferedUpdatesStream {
     info_stream: InfoStreamMT,
-    inner: Mutex<BufferedUpdatesStreamInner<Q>>,
+    inner: Mutex<BufferedUpdatesStreamInner>,
     bytes_used: AtomicI64,
     finished_segments: FinishedSegments,
 }
-pub(crate) struct BufferedUpdatesStreamInner<Q>
-where
-    Q: Query,
-{
-    updates: HashSet<FrozenBufferedUpdates<Q>>,
+pub(crate) struct BufferedUpdatesStreamInner {
+    updates: HashSet<FrozenBufferedUpdates>,
     // Starts at 1 so that SegmentInfos that have never had
     // deletes applied (whose bufferedDelGen defaults to 0)
     // will be correct:
     next_gen: i64,
 }
-impl<Q> BufferedUpdatesStream<Q>
-where
-    Q: Query,
-{
+impl BufferedUpdatesStream {
     pub(crate) fn new(info_stream: InfoStreamMT) -> Self {
         Self {
             info_stream: info_stream.clone(),
@@ -71,7 +61,7 @@ where
     }
     // Appends a new packet of buffered deletes to the stream,
     // setting its generation:
-    pub(crate) fn push(&self, mut packet: FrozenBufferedUpdates<Q>) -> i64 {
+    pub(crate) fn push(&self, mut packet: FrozenBufferedUpdates) -> i64 {
         // The insert operation must be atomic. If we let threads increment the gen
         // and push the packet afterwards we risk that packets are out of order.
         // With DWPT this is possible if two or more flushes are racing for pushing
@@ -124,7 +114,7 @@ where
     /// Returns `true` if there were any new deletes or updates.
     ///
     /// This is called during refresh and commit.
-    pub(crate) fn wait_apply_all<D, L>(&self, writer: &mut IndexWriter<D, Q, L>) -> Result<()>
+    pub(crate) fn wait_apply_all<D, L>(&self, writer: &mut IndexWriter<D, L>) -> Result<()>
     where
         D: Directory,
         L: LiveIndexWriterConfig,
@@ -146,7 +136,7 @@ where
     /// Called by indexing threads once they are fully done resolving all deletes for the provided `del_gen`.
     /// We track completed deletion generations and record the maximum `del_gen` for which all prior generations,
     /// inclusive, are completed, so that it’s safe for doc values updates to apply and write.
-    pub(crate) fn finished(&self, packet: FrozenBufferedUpdates<Q>) {
+    pub(crate) fn finished(&self, packet: FrozenBufferedUpdates) {
         // TODO: would be a bit more memory efficient to track this per-segment, so when each segment
         // writes it writes all packets finished for
         // it, rather than only recording here, across all segments.  But, more complex code, and more
@@ -169,8 +159,8 @@ where
     }
     fn wait_apply<D, L>(
         &self,
-        wait_for: HashSet<FrozenBufferedUpdates<Q>>,
-        writer: &mut IndexWriter<D, Q, L>,
+        wait_for: HashSet<FrozenBufferedUpdates>,
+        writer: &mut IndexWriter<D, L>,
     ) -> Result<()>
     where
         D: Directory,
@@ -248,10 +238,7 @@ where
         true
     }
 }
-impl<Q> Accountable for BufferedUpdatesStream<Q>
-where
-    Q: Query,
-{
+impl Accountable for BufferedUpdatesStream {
     fn ram_bytes_used(&self) -> Result<i64> {
         Ok(self.bytes_used.load(Ordering::SeqCst))
     }

@@ -269,9 +269,8 @@ where
         index_file_deleter.delete_commits()?;
         Ok(index_file_deleter)
     }
-    fn ensure_open<Q, L>(&self, index_writer: &IndexWriter<D, Q, L>) -> Result<()>
+    fn ensure_open<L>(&self, index_writer: &IndexWriter<D, L>) -> Result<()>
     where
-        Q: Query,
         L: LiveIndexWriterConfig,
     {
         index_writer.ensure_open(false)?;
@@ -287,9 +286,8 @@ where
 
         Ok(())
     }
-    pub(crate) fn is_closed<Q, L>(&self, index_writer: &IndexWriter<D, Q, L>) -> Result<bool>
+    pub(crate) fn is_closed<L>(&self, index_writer: &IndexWriter<D, L>) -> Result<bool>
     where
-        Q: Query,
         L: LiveIndexWriterConfig,
     {
         match self.ensure_open(index_writer) {
@@ -663,7 +661,6 @@ impl Messenger for MessengerImpl {
 use crate::index::index_writer::WRITE_LOCK_NAME;
 use crate::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::index::segment_infos::generation_from_segments_file_name;
-use crate::search::query::Query;
 
 /// Set all gens beyond what we currently see in the directory, to avoid double-write in cases
 /// where the previous `IndexWriter` did not gracefully close/rollback (e.g. OS/machine crashed or

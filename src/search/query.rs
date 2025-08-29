@@ -14,7 +14,56 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::fmt::{Debug, Display};
-use std::hash::Hash;
+use crate::search::term_query::TermQuery;
+use std::fmt::{Debug, Display, Formatter};
+use std::hash::{Hash, Hasher};
 
-pub trait Query: Eq + Hash + Display + Debug {}
+pub trait Query: Eq + Hash + Display + Debug {
+    fn wrap(self) -> QueryEnum;
+}
+
+pub enum QueryEnum {
+    Term(TermQuery),
+}
+
+impl Eq for QueryEnum {}
+
+impl PartialEq<Self> for QueryEnum {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (QueryEnum::Term(t1), QueryEnum::Term(t2)) => t1 == t2,
+        }
+    }
+}
+
+impl Hash for QueryEnum {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match self {
+            QueryEnum::Term(t) => t.hash(state),
+        }
+    }
+}
+
+impl Display for QueryEnum {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            QueryEnum::Term(t) => Display::fmt(&t, f),
+        }
+    }
+}
+
+impl Debug for QueryEnum {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            QueryEnum::Term(t) => Debug::fmt(&t, f),
+        }
+    }
+}
+
+impl Query for QueryEnum {
+    fn wrap(self) -> QueryEnum {
+        match self {
+            QueryEnum::Term(t) => QueryEnum::Term(t),
+        }
+    }
+}

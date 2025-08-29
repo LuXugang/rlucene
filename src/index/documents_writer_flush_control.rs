@@ -24,7 +24,6 @@ use crate::index::flush_policy::FlushPolicy;
 use crate::index::index_writer_config::DISABLE_AUTO_FLUSH;
 use crate::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::index::lockable_concurrent_approximate_priority_queue::Lock;
-use crate::search::query::Query;
 use crate::store::directory::Directory;
 use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -37,23 +36,21 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64, Ordering};
 use std::time::Instant;
 
-pub(crate) struct DocumentsWriterFlushControl<D, Q, L>
+pub(crate) struct DocumentsWriterFlushControl<D, L>
 where
     D: Directory,
-    Q: Query,
     L: LiveIndexWriterConfig,
 {
     flush_deletes: AtomicBool,
     info_stream: InfoStreamMT,
-    pub(crate) inner: Mutex<Inner<D, Q>>,
+    pub(crate) inner: Mutex<Inner<D>>,
     config: Arc<L>,
     stall_control: DocumentsWriterStallControl,
     pausing: Condvar,
 }
-pub(crate) struct Inner<D, Q>
+pub(crate) struct Inner<D>
 where
     D: Directory,
-    Q: Query,
 {
     // only with assert
     flush_by_ram_was_disabled: bool,
@@ -72,9 +69,9 @@ where
     // eligible DWPTs and
     // mark them as flushable putting them in the flushQueue ready for other threads (ie. indexing
     // threads) to help flushing
-    flush_queue: VecDeque<DocumentsWriterPerThread<D, Q>>,
+    flush_queue: VecDeque<DocumentsWriterPerThread<D>>,
     // only for safety reasons if a DWPT is close to the RAM limit
-    blocked_flushes: VecDeque<DocumentsWriterPerThread<D, Q>>,
+    blocked_flushes: VecDeque<DocumentsWriterPerThread<D>>,
     // flushingWriters holds all currently flushing writers. There might be writers in this list that
     // are also in the flushQueue which means that writers in the flushingWriters list are not
     // necessarily
@@ -95,10 +92,9 @@ where
     num_docs_since_stalled: i32,
 }
 
-impl<D, Q, L> DocumentsWriterFlushControl<D, Q, L>
+impl<D, L> DocumentsWriterFlushControl<D, L>
 where
     D: Directory,
-    Q: Query,
     L: LiveIndexWriterConfig,
 {
     pub(crate) fn new(config: Arc<L>) -> Self {
@@ -158,7 +154,7 @@ where
             i64::MAX
         }
     }
-    fn assert_memory(&self, inner: &mut Inner<D, Q>) -> bool {
+    fn assert_memory(&self, inner: &mut Inner<D>) -> bool {
         let max_ram_mb = self.config.get_ram_buffer_size_mb();
         // We can only assert if we have always been flushing by RAM usage; otherwise the assert will
         // false trip if e.g. the
@@ -225,7 +221,7 @@ where
     }
 
     // only for asserts
-    fn update_peaks(&self, delta: i64, inner: &mut Inner<D, Q>) -> bool {
+    fn update_peaks(&self, delta: i64, inner: &mut Inner<D>) -> bool {
         let net = self.net_bytes();
         let active = inner.active_bytes;
         let flush = inner.flush_bytes.load(Ordering::SeqCst);
@@ -252,12 +248,12 @@ where
     }
     pub(crate) fn do_after_document<FP>(
         &self,
-        mut per_thread: DocumentsWriterPerThread<D, Q>,
+        mut per_thread: DocumentsWriterPerThread<D>,
         flush_policy: &FP,
-        per_thread_pool: &DocumentsWriterPerThreadPool<D, Q>,
+        per_thread_pool: &DocumentsWriterPerThreadPool<D>,
     ) -> Result<(
-        Option<DocumentsWriterPerThread<D, Q>>,
-        Option<DocumentsWriterPerThread<D, Q>>,
+        Option<DocumentsWriterPerThread<D>>,
+        Option<DocumentsWriterPerThread<D>>,
     )>
     where
         FP: FlushPolicy,
@@ -311,13 +307,13 @@ where
     }
     fn checkout(
         &self,
-        inner: &mut Inner<D, Q>,
-        per_thread: DocumentsWriterPerThread<D, Q>,
+        inner: &mut Inner<D>,
+        per_thread: DocumentsWriterPerThread<D>,
         mark_pending: bool,
-        per_thread_pool: &DocumentsWriterPerThreadPool<D, Q>,
+        per_thread_pool: &DocumentsWriterPerThreadPool<D>,
     ) -> Result<(
-        Option<DocumentsWriterPerThread<D, Q>>,
-        Option<DocumentsWriterPerThread<D, Q>>,
+        Option<DocumentsWriterPerThread<D>>,
+        Option<DocumentsWriterPerThread<D>>,
     )> {
         if inner.full_flush {
             if *per_thread.is_flush_pending() {
@@ -344,7 +340,7 @@ where
         }
         Ok((None, Some(per_thread)))
     }
-    fn assert_num_docs_since_stalled(&self, stalled: bool, inner: &mut Inner<D, Q>) -> bool {
+    fn assert_num_docs_since_stalled(&self, stalled: bool, inner: &mut Inner<D>) -> bool {
         //  updates the number of documents "finished" while we are in a stalled state.
         //  this is important for asserting memory upper bounds since it corresponds
         //  to the number of threads that are in-flight and crossed the stall control
@@ -357,7 +353,7 @@ where
         }
         true
     }
-    pub(crate) fn do_after_flush(&self, dwpt: DocumentsWriterPerThread<D, Q>) {
+    pub(crate) fn do_after_flush(&self, dwpt: DocumentsWriterPerThread<D>) {
         let mut inner = self.inner.lock();
         let id = dwpt.id().to_string();
         debug_assert!(inner.flushing_writers.contains(&id),);
@@ -373,7 +369,7 @@ where
         let _ = self.update_stall_state(&mut inner);
         self.pausing.notify_all();
     }
-    fn update_stall_state(&self, inner: &mut Inner<D, Q>) -> bool {
+    fn update_stall_state(&self, inner: &mut Inner<D>) -> bool {
         let limit = self.stall_limit_bytes();
         let active = inner.active_bytes;
         let flush = inner.flush_bytes.load(Ordering::SeqCst);
@@ -423,8 +419,8 @@ where
     /// The [`DocumentsWriterPerThread`] must have indexed at least on Document and must not be already pending.
     pub fn set_flush_pending(
         &self,
-        per_thread: &DocumentsWriterPerThread<D, Q>,
-        inner: Option<&mut Inner<D, Q>>,
+        per_thread: &DocumentsWriterPerThread<D>,
+        inner: Option<&mut Inner<D>>,
     ) -> Result<()> {
         let inner = match inner {
             Some(inner) => inner,
@@ -443,8 +439,8 @@ where
     }
     pub fn do_on_abort(
         &self,
-        per_thread: &DocumentsWriterPerThread<D, Q>,
-        per_thread_pool: &DocumentsWriterPerThreadPool<D, Q>,
+        per_thread: &DocumentsWriterPerThread<D>,
+        per_thread_pool: &DocumentsWriterPerThreadPool<D>,
     ) {
         let mut inner = self.inner.lock();
         {
@@ -466,9 +462,9 @@ where
     /// To be called only by the owner of this object's monitor lock
     fn checkout_and_block(
         &self,
-        per_thread: DocumentsWriterPerThread<D, Q>,
-        inner: &mut Inner<D, Q>,
-        per_thread_pool: &DocumentsWriterPerThreadPool<D, Q>,
+        per_thread: DocumentsWriterPerThread<D>,
+        inner: &mut Inner<D>,
+        per_thread_pool: &DocumentsWriterPerThreadPool<D>,
     ) {
         let id = per_thread.id();
         debug_assert!(per_thread_pool.is_registered(id));
@@ -485,10 +481,10 @@ where
     }
     fn check_out_for_flush(
         &self,
-        per_thread: DocumentsWriterPerThread<D, Q>,
-        inner: &mut Inner<D, Q>,
-        per_thread_pool: &DocumentsWriterPerThreadPool<D, Q>,
-    ) -> DocumentsWriterPerThread<D, Q> {
+        per_thread: DocumentsWriterPerThread<D>,
+        inner: &mut Inner<D>,
+        per_thread_pool: &DocumentsWriterPerThreadPool<D>,
+    ) -> DocumentsWriterPerThread<D> {
         debug_assert!(per_thread.is_flush_pending());
         debug_assert!(per_thread_pool.is_registered(per_thread.id()));
         let result = {
@@ -501,7 +497,7 @@ where
         self.update_stall_state(inner);
         result
     }
-    fn add_flushing_dwpt(&self, per_thread_id: &str, inner: &mut Inner<D, Q>) {
+    fn add_flushing_dwpt(&self, per_thread_id: &str, inner: &mut Inner<D>) {
         let id = per_thread_id.to_string();
         debug_assert!(
             !inner.flushing_writers.contains(&id),
@@ -511,8 +507,8 @@ where
     }
     pub(crate) fn next_pending_flush(
         &self,
-        inner: Option<&mut Inner<D, Q>>,
-    ) -> (Option<DocumentsWriterPerThread<D, Q>>, bool, i32) {
+        inner: Option<&mut Inner<D>>,
+    ) -> (Option<DocumentsWriterPerThread<D>>, bool, i32) {
         let inner = if let Some(inner) = inner {
             inner
         } else {
@@ -537,8 +533,8 @@ where
         &self,
         _num_pending: i32,
         _full_flush: bool,
-        _inner: Option<&mut Inner<D, Q>>,
-    ) -> Result<Option<DocumentsWriterPerThread<D, Q>>> {
+        _inner: Option<&mut Inner<D>>,
+    ) -> Result<Option<DocumentsWriterPerThread<D>>> {
         // TODO:
         Ok(None)
     }
@@ -560,7 +556,7 @@ where
     /// This does not include bytes consumed by already pushed delete/update packets.
     pub(crate) fn get_delete_bytes_used(
         &self,
-        delete_queue: &DocumentsWriterDeleteQueue<Q>,
+        delete_queue: &DocumentsWriterDeleteQueue,
     ) -> Result<i64> {
         delete_queue.ram_bytes_used()
     }
@@ -584,12 +580,12 @@ where
 
     pub fn obtain_and_lock<S>(
         &self,
-        delete_queue: &Arc<DocumentsWriterDeleteQueue<Q>>,
+        delete_queue: &Arc<DocumentsWriterDeleteQueue>,
         dwpt_factory: S,
-        per_thread_pool: &DocumentsWriterPerThreadPool<D, Q>,
-    ) -> Result<DocumentsWriterPerThread<D, Q>>
+        per_thread_pool: &DocumentsWriterPerThreadPool<D>,
+    ) -> Result<DocumentsWriterPerThread<D>>
     where
-        S: Supplier<DocumentsWriterPerThread<D, Q>>,
+        S: Supplier<DocumentsWriterPerThread<D>>,
     {
         loop {
             {
@@ -626,7 +622,7 @@ where
     }
     pub(crate) fn mark_for_full_flush(
         &self,
-        documents_writer: &DocumentsWriter<D, Q, L>,
+        documents_writer: &DocumentsWriter<D, L>,
     ) -> Result<i64> {
         let flushing_queue;
         let seq_no = {
@@ -655,7 +651,7 @@ where
             // threads now have one operation in flight.  It's fine
             // if we have some sequence numbers that were never assigned:
             let seq_no =
-                documents_writer.reset_delete_queue(&mut *documents_writer_inner, size as i64)?;
+                documents_writer.reset_delete_queue(&mut documents_writer_inner, size as i64)?;
             documents_writer.per_thread_pool.unlock_new_writers();
             seq_no
         };
@@ -708,8 +704,8 @@ where
     }
     pub fn assert_active_delete_queue(
         &self,
-        queue: &Arc<DocumentsWriterDeleteQueue<Q>>,
-        per_thread_pool: &DocumentsWriterPerThreadPool<D, Q>,
+        queue: &Arc<DocumentsWriterDeleteQueue>,
+        per_thread_pool: &DocumentsWriterPerThreadPool<D>,
     ) -> bool {
         for next in per_thread_pool.inner.lock().dwpts.values() {
             debug_assert!(next.r#gen == queue.generation);
@@ -720,8 +716,8 @@ where
     /// Prunes the blockedQueue by removing all DWPTs that are associated with the given flush queue.
     fn prune_blocked_queue(
         &self,
-        flushing_queue: &Arc<DocumentsWriterDeleteQueue<Q>>,
-        inner: &mut Inner<D, Q>,
+        flushing_queue: &Arc<DocumentsWriterDeleteQueue>,
+        inner: &mut Inner<D>,
     ) {
         let mut idxs = Vec::new();
         for (i, dwpt) in inner.blocked_flushes.iter().enumerate() {
@@ -739,7 +735,7 @@ where
             inner.flush_queue.push_back(dwpt);
         }
     }
-    pub(crate) fn finish_full_flush(&self, delete_queue: &Arc<DocumentsWriterDeleteQueue<Q>>) {
+    pub(crate) fn finish_full_flush(&self, delete_queue: &Arc<DocumentsWriterDeleteQueue>) {
         let mut inner = self.inner.lock();
         debug_assert!(inner.full_flush);
         debug_assert!(inner.flush_queue.is_empty());
@@ -763,7 +759,7 @@ where
     }
     pub(crate) fn assert_blocked_flushes(
         &self,
-        flushing_queue: &Arc<DocumentsWriterDeleteQueue<Q>>,
+        flushing_queue: &Arc<DocumentsWriterDeleteQueue>,
     ) -> bool {
         let inner = self.inner.lock();
         for blocked in inner.blocked_flushes.iter() {
@@ -812,20 +808,18 @@ where
         inner.peak_net_bytes
     }
 }
-impl<D, Q, L> Drop for DocumentsWriterFlushControl<D, Q, L>
+impl<D, L> Drop for DocumentsWriterFlushControl<D, L>
 where
     D: Directory,
-    Q: Query,
     L: LiveIndexWriterConfig,
 {
     fn drop(&mut self) {
         self.close()
     }
 }
-impl<D, Q, L> fmt::Display for DocumentsWriterFlushControl<D, Q, L>
+impl<D, L> fmt::Display for DocumentsWriterFlushControl<D, L>
 where
     D: Directory,
-    Q: Query,
     L: LiveIndexWriterConfig,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

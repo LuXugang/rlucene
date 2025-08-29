@@ -38,7 +38,6 @@ use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::index::segment_info::SegmentInfo;
 use crate::index::segment_write_state::SegmentWriteState;
 use crate::index::sorter::{DocMap, DocMapImpl};
-use crate::search::query::Query;
 use crate::store::IOContext;
 use crate::store::directory::Directory;
 use crate::store::flush_info::FlushInfo;
@@ -63,14 +62,13 @@ use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64, Ordering};
 use std::sync::{Arc, OnceLock};
 use std::{fmt, thread};
 
-pub(crate) struct DocumentsWriterPerThread<D, Q>
+pub(crate) struct DocumentsWriterPerThread<D>
 where
     D: Directory,
-    Q: Query,
 {
     pub(crate) directory: Arc<TrackingDirectoryWrapper<LockValidatingDirectoryWrapper<D>>>,
     indexing_chain: IndexingChain<TrackingDirectoryWrapper<LockValidatingDirectoryWrapper<D>>>,
-    pending_updates: MTBufferedUpdates<Q>,
+    pending_updates: MTBufferedUpdates,
     segment_info: SegmentInfo<D>,
     pub(crate) aborted: Arc<AtomicBool>,
     pub(crate) flush_pending: Arc<OnceLock<bool>>,
@@ -79,8 +77,8 @@ where
     field_infos: Builder,
     info_stream: InfoStreamMT,
     num_docs_in_ram: i32,
-    pub(crate) delete_queue: Arc<DocumentsWriterDeleteQueue<Q>>,
-    delete_slice: Option<DeleteSlice<Q>>,
+    pub(crate) delete_queue: Arc<DocumentsWriterDeleteQueue>,
+    delete_slice: Option<DeleteSlice>,
     pending_num_docs: Arc<AtomicI64>,
     enable_test_points: bool,
     delete_doc_ids: Vec<i32>,
@@ -129,10 +127,9 @@ impl Lock for State {
     }
 }
 
-impl<D, Q> DocumentsWriterPerThread<D, Q>
+impl<D> DocumentsWriterPerThread<D>
 where
     D: Directory,
-    Q: Query,
 {
     fn on_aborting_exception(&mut self, throwable: LuceneError) {
         debug_assert!(
@@ -175,7 +172,7 @@ where
         directory_orig: Arc<D>,
         directory: Arc<LockValidatingDirectoryWrapper<D>>,
         index_writer_config: &L,
-        delete_queue: Arc<DocumentsWriterDeleteQueue<Q>>,
+        delete_queue: Arc<DocumentsWriterDeleteQueue>,
         field_infos: Builder,
         pending_num_docs: Arc<AtomicI64>,
         enable_test_points: bool,
@@ -285,7 +282,7 @@ where
     pub(crate) fn update_documents<DI, DF, FN, L>(
         &mut self,
         docs: DI,
-        delete_node: Option<Arc<Node<Q>>>,
+        delete_node: Option<Arc<Node>>,
         flush_notifications: &FN,
         index_writer_config: &L,
         num_docs_in_ram: &AtomicI32,
@@ -383,7 +380,7 @@ where
 
     fn finish_documents(
         &mut self,
-        delete_node: Option<Arc<Node<Q>>>,
+        delete_node: Option<Arc<Node>>,
         doc_id_up_to: i32,
     ) -> Result<i64> {
         // here we actually finish the document in two steps 1. push the delete into
@@ -455,7 +452,7 @@ where
         self.num_docs_in_ram
     }
     /// Prepares this DWPT for flushing. This method will freeze and return the [`DocumentsWriterDeleteQueue`]’s global buffer and apply all pending deletes to this DWPT.
-    pub(crate) fn prepare_flush(&mut self) -> Result<FrozenBufferedUpdates<Q>> {
+    pub(crate) fn prepare_flush(&mut self) -> Result<FrozenBufferedUpdates> {
         debug_assert!(self.num_docs_in_ram > 0);
 
         let global_updates = self
@@ -478,7 +475,7 @@ where
         &mut self,
         flush_notifications: &FN,
         index_writer_config: &L,
-    ) -> Result<Option<FlushedSegment<D, Q>>>
+    ) -> Result<Option<FlushedSegment<D>>>
     where
         FN: FlushNotifications,
         L: LiveIndexWriterConfig,
@@ -492,7 +489,7 @@ where
 
         self.segment_info.set_max_doc(self.num_docs_in_ram)?;
 
-        let result = (|| -> Result<Option<FlushedSegment<D, Q>>> {
+        let result = (|| -> Result<Option<FlushedSegment<D>>> {
             let (mut fs, sort_map, t0) = {
                 let io_context = IOContext::with_flush(FlushInfo::new(
                     self.num_docs_in_ram,
@@ -750,7 +747,7 @@ where
     /// Seals the `SegmentInfo` for the new flushed segment and persists the deleted documents [`FixedBitSet`].
     pub(crate) fn seal_flushed_segment<FN, DM>(
         &mut self,
-        flushed_segment: &mut FlushedSegment<D, Q>,
+        flushed_segment: &mut FlushedSegment<D>,
         sort_map: Option<Rc<DM>>,
         flush_notifications: &FN,
         index_writer_config: &impl LiveIndexWriterConfig,
@@ -913,19 +910,17 @@ where
         self.has_flushed.get().unwrap_or(&true)
     }
 }
-impl<D, Q> IdentityId for DocumentsWriterPerThread<D, Q>
+impl<D> IdentityId for DocumentsWriterPerThread<D>
 where
     D: Directory,
-    Q: Query,
 {
     fn id(&self) -> &str {
         &self.id
     }
 }
-impl<D, Q> Accountable for DocumentsWriterPerThread<D, Q>
+impl<D> Accountable for DocumentsWriterPerThread<D>
 where
     D: Directory,
-    Q: Query,
 {
     fn ram_bytes_used(&self) -> Result<i64> {
         // TODO
@@ -939,10 +934,9 @@ where
         todo!()
     }
 }
-impl<D, Q> Display for DocumentsWriterPerThread<D, Q>
+impl<D> Display for DocumentsWriterPerThread<D>
 where
     D: Directory,
-    Q: Query,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
@@ -959,20 +953,18 @@ where
     }
 }
 
-impl<D, Q> FlushState for DocumentsWriterPerThread<D, Q>
+impl<D> FlushState for DocumentsWriterPerThread<D>
 where
     D: Directory,
-    Q: Query,
 {
     fn is_flush_pending(&self) -> bool {
         *self.is_flush_pending()
     }
 }
 
-impl<D, Q> Lock for DocumentsWriterPerThread<D, Q>
+impl<D> Lock for DocumentsWriterPerThread<D>
 where
     D: Directory,
-    Q: Query,
 {
     fn lock(&self) {
         self.state.lock()
@@ -991,28 +983,26 @@ where
     }
 }
 
-pub(crate) struct FlushedSegment<D, Q>
+pub(crate) struct FlushedSegment<D>
 where
     D: Directory,
-    Q: Query,
 {
     segment_info: SegmentCommitInfo<D>,
     field_infos: Rc<FieldInfos>,
-    segment_updates: Option<FrozenBufferedUpdates<Q>>,
+    segment_updates: Option<FrozenBufferedUpdates>,
     live_docs: Option<FixedBitSet>,
     sort_map: Option<Rc<DocMapImpl>>,
     del_count: i32,
 }
-impl<D, Q> FlushedSegment<D, Q>
+impl<D> FlushedSegment<D>
 where
     D: Directory,
-    Q: Query,
 {
     fn new(
         info_stream: InfoStreamMT,
         segment_info: SegmentCommitInfo<D>,
         field_infos: Rc<FieldInfos>,
-        mut segment_updates: Option<MTBufferedUpdates<Q>>,
+        mut segment_updates: Option<MTBufferedUpdates>,
         live_docs: Option<FixedBitSet>,
         del_count: i32,
         sort_map: Option<Rc<DocMapImpl>>,

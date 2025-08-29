@@ -32,7 +32,7 @@ use crate::index::postings_enum::NONE;
 use crate::index::prefix_coded_terms::{PrefixCodedTerms, PrefixCodedTermsBuilder};
 use crate::index::terms::Terms;
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
-use crate::search::query::Query;
+use crate::search::query::QueryEnum;
 use crate::util::access::SharedAccess;
 use crate::util::accountable::Accountable;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
@@ -44,15 +44,12 @@ use crate::util::{ByteBlockPool, CounterEnum, StringHelper, ToInt};
 /// Pushed deletes/updates are write-once, so a more memory-efficient data structure is used
 /// to store them. We don’t keep document IDs because they are applied on flush.
 #[derive(Debug)]
-pub(crate) struct FrozenBufferedUpdates<Q>
-where
-    Q: Query,
-{
+pub(crate) struct FrozenBufferedUpdates {
     info_stream: InfoStreamMT,
     // Terms, in sorted order:
     pub delete_terms: PrefixCodedTerms,
     // Parallel array of deleted query, and the docIDUpto for each
-    pub delete_queries: Vec<Arc<Q>>,
+    pub delete_queries: Vec<Arc<QueryEnum>>,
     delete_query_limits: Vec<i32>,
     pub(crate) applied: AtomicBool,
     pub(crate) apply_lock: Mutex<()>,
@@ -66,10 +63,7 @@ where
     id: String,
 }
 
-impl<Q> FrozenBufferedUpdates<Q>
-where
-    Q: Query,
-{
+impl FrozenBufferedUpdates {
     // NOTE: we now apply this frozen packet immediately on creation, yet this
     // process is heavy, and runs in multiple threads, and this compression
     // is sizable (~8.3% of the original size), so it's important
@@ -79,7 +73,7 @@ where
 
     pub fn new<C, B>(
         info_stream: InfoStreamMT,
-        updates: &mut BufferedUpdates<Q, C, B>,
+        updates: &mut BufferedUpdates<C, B>,
         private_segment: Option<String>,
     ) -> Result<Self>
     where
@@ -187,10 +181,7 @@ where
             || self.field_updates_count > 0
     }
 }
-impl<Q> Display for FrozenBufferedUpdates<Q>
-where
-    Q: Query,
-{
+impl Display for FrozenBufferedUpdates {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "delGen={}", self.del_gen)?;
         if self.delete_terms.size() != 0 {
@@ -212,23 +203,17 @@ where
         Ok(())
     }
 }
-impl<Q> Hash for FrozenBufferedUpdates<Q>
-where
-    Q: Query,
-{
+impl Hash for FrozenBufferedUpdates {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.id.hash(state);
     }
 }
-impl<Q> PartialEq for FrozenBufferedUpdates<Q>
-where
-    Q: Query,
-{
+impl PartialEq for FrozenBufferedUpdates {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
     }
 }
-impl<Q> Eq for FrozenBufferedUpdates<Q> where Q: Query {}
+impl Eq for FrozenBufferedUpdates {}
 
 /// This struct helps iterating a term dictionary and consuming all the docs for each term.
 /// It accepts a (field, value) tuple and returns a [`DocIdSetIterator`](crate::search::doc_id_set_iterator::DocIdSetIterator) if the field has an entry  

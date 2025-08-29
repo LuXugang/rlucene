@@ -16,11 +16,15 @@
  */
 use std::fmt::Display;
 
-use crate::search::query::Query;
+use crate::search::query::{Query, QueryEnum};
 
 #[derive(Eq, Hash, PartialEq, Debug)]
 pub struct DummyQuery {}
-impl Query for DummyQuery {}
+impl Query for DummyQuery {
+    fn wrap(self) -> QueryEnum {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+}
 impl Display for DummyQuery {
     fn fmt(&self, _f: &mut std::fmt::Formatter) -> std::fmt::Result {
         unreachable!("Dummy implementation: this method should never be called in real usage")
