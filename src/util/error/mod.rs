@@ -23,13 +23,40 @@ macro_rules! message_error {
         #[derive(Debug)]
         pub struct $name {
             pub message: String,
+            pub source: Option<Box<$crate::util::error::lucene_error::LuceneError>>,
         }
 
         impl $name {
             pub fn new(msg: impl Into<String>) -> Self {
                 Self {
                     message: msg.into(),
+                    source: None,
                 }
+            }
+
+            pub fn from_error(err: $crate::util::error::lucene_error::LuceneError) -> Self {
+                Self {
+                    message: err.to_string(),
+                    source: Some(Box::new(err)),
+                }
+            }
+        }
+
+        impl From<String> for $name {
+            fn from(msg: String) -> Self {
+                Self::new(msg)
+            }
+        }
+
+        impl From<&str> for $name {
+            fn from(msg: &str) -> Self {
+                Self::new(msg)
+            }
+        }
+
+        impl From<$crate::util::error::lucene_error::LuceneError> for $name {
+            fn from(err: $crate::util::error::lucene_error::LuceneError) -> Self {
+                Self::from_error(err)
             }
         }
 
@@ -39,7 +66,11 @@ macro_rules! message_error {
             }
         }
 
-        impl std::error::Error for $name {}
+        impl std::error::Error for $name {
+            fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+                self.source.as_deref().map(|e| e as &dyn std::error::Error)
+            }
+        }
     };
 }
 message_error!(NeedImplementedError);

@@ -108,8 +108,8 @@ pub enum LuceneError {
 }
 macro_rules! error_ctor {
     ($fn_name:ident, $variant:ident, $error_type:ty) => {
-        pub fn $fn_name(msg: impl Into<String>) -> Self {
-            LuceneError::$variant(<$error_type>::new(msg))
+        pub fn $fn_name(err: impl Into<$error_type>) -> Self {
+            LuceneError::$variant(err.into())
         }
     };
 }
@@ -225,3 +225,17 @@ impl<T> PayloadError<T> {
 }
 
 impl<T: 'static> std::error::Error for PayloadError<T> {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::error::Error;
+
+    #[test]
+    fn wrap_lucene_error() {
+        let inner = LuceneError::illegal_argument("inner error");
+        let outer = LuceneError::illegal_state(inner);
+        let source = outer.source().unwrap().to_string();
+        assert_eq!(source, "inner error");
+    }
+}

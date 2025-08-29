@@ -322,8 +322,8 @@ where
         }
         debug_assert!(inner.reader_map.is_empty());
 
-        if !prior_errs.is_empty() {
-            return Err(LuceneError::illegal_state(format!("{:?}", prior_errs)));
+        if let Some(err) = prior_errs.into_iter().next() {
+            return Err(LuceneError::illegal_state(err));
         }
         Ok(())
     }
