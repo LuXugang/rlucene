@@ -14,8 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::{find_file, log};
-use std::{env, process};
+use crate::log;
+use std::path::{Path, PathBuf};
+use std::{env, fs, process};
 
 pub(crate) fn run() {
     let project_dir = env::current_dir().unwrap();
@@ -51,5 +52,21 @@ pub(crate) fn run() {
             license_header_path
         ));
         process::exit(1);
+    }
+    pub(crate) fn find_file(dir: &Path, file_name: &str) -> Option<PathBuf> {
+        for entry in fs::read_dir(dir).expect("Failed to read directory") {
+            let entry = entry.expect("Invalid directory entry");
+            let path = entry.path();
+
+            if path.is_file() && path.file_name().map_or(false, |name| name == file_name) {
+                return Some(path);
+            }
+            if path.is_dir() {
+                if let Some(found) = find_file(&path, file_name) {
+                    return Some(found);
+                }
+            }
+        }
+        None
     }
 }

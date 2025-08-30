@@ -18,27 +18,9 @@ mod tasks;
 
 use chrono::Local;
 use std::{
-    env, fs,
-    path::{Path, PathBuf},
+    env,
     process::{self, Command},
 };
-
-pub(crate) fn find_file(dir: &Path, file_name: &str) -> Option<PathBuf> {
-    for entry in fs::read_dir(dir).expect("Failed to read directory") {
-        let entry = entry.expect("Invalid directory entry");
-        let path = entry.path();
-
-        if path.is_file() && path.file_name().map_or(false, |name| name == file_name) {
-            return Some(path);
-        }
-        if path.is_dir() {
-            if let Some(found) = find_file(&path, file_name) {
-                return Some(found);
-            }
-        }
-    }
-    None
-}
 
 pub(crate) fn run_cargo(args: &[&str]) {
     let status = Command::new("cargo")
