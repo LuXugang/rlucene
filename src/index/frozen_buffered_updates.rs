@@ -365,13 +365,19 @@ pub(crate) trait TermsProvider {
     type Terms: Terms;
     fn terms(&mut self, field: &str) -> Result<Option<Self::Terms>>;
 }
-pub(crate) struct TermsProviderImpl1<F>
+
+pub(crate) struct TermsProviderImpl1<'a, F>
 where
     F: Fields,
 {
-    pub(crate) fields: F,
+    pub(crate) fields: &'a F,
 }
-impl<F> TermsProvider for TermsProviderImpl1<F>
+impl<'a, F> TermsProviderImpl1<'a, F> where F: Fields {
+    pub(crate) fn new(fields: &'a F) -> Self {
+        Self { fields }
+    }
+}
+impl<F> TermsProvider for TermsProviderImpl1<'_,F>
 where
     F: Fields,
 {

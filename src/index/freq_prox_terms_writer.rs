@@ -89,7 +89,7 @@ where
     fn apply_deletes<D1>(
         &self,
         state: &mut SegmentWriteState<D>,
-        fields: FreqProxFields,
+        fields: & FreqProxFields,
         segment_info: &SegmentInfo<D1>,
         seg_updates: Option<&mut MTBufferedUpdates>,
     ) -> Result<()>
@@ -103,7 +103,7 @@ where
                 return Ok(());
             }
 
-            let mut iterator = TermDocsIterator::new(TermsProviderImpl1 { fields }, true);
+            let mut iterator = TermDocsIterator::new(TermsProviderImpl1::new(fields), true);
 
             seg_deletes.for_each_ordered(&mut |term: &Term, doc_id: i32| {
                 if let Some(postings) = iterator.next_term(term.field(), &term.bytes)? {
@@ -171,7 +171,7 @@ where
         // Sort by field name
         CollectionUtil::intro_sort(&mut all_fields)?;
         let fields = FreqProxFields::new(all_fields);
-        self.apply_deletes(state, fields.clone(), info, seg_updates)?;
+        self.apply_deletes(state, &fields, info, seg_updates)?;
 
         if let Some(doc_map) = &sort_map {
             #[allow(unused)]
