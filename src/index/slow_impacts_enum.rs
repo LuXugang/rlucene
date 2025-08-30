@@ -121,7 +121,7 @@ impl Impacts for DummyImpacts {
         1
     }
 
-    fn get_doc_id_up_to(&self, _level: i32) -> i32 {
+    fn get_doc_id_upto(&self, _level: i32) -> i32 {
         NO_MORE_DOCS
     }
 

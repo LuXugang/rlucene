@@ -381,7 +381,7 @@ where
     fn finish_documents(
         &mut self,
         delete_node: Option<Arc<Node>>,
-        doc_id_up_to: i32,
+        doc_id_upto: i32,
     ) -> Result<i64> {
         // here we actually finish the document in two steps 1. push the delete into
         // the queue and update our slice. 2. increment the DWPT private document
@@ -402,13 +402,13 @@ where
                 delete_slice.is_tail(&node),
                 "expected the delete term as the tail item"
             );
-            delete_slice.apply(&mut self.pending_updates, doc_id_up_to)?;
+            delete_slice.apply(&mut self.pending_updates, doc_id_upto)?;
             seq
         } else {
             let mut seq = self.delete_queue.update_slice(delete_slice)?;
             if seq < 0 {
                 seq = -seq;
-                delete_slice.apply(&mut self.pending_updates, doc_id_up_to)?;
+                delete_slice.apply(&mut self.pending_updates, doc_id_upto)?;
             } else {
                 delete_slice.reset();
             }

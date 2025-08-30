@@ -114,12 +114,12 @@ where
         self.off = 0;
         Ok(())
     }
-    fn encode(next_values: &[i64], up_to: usize, next_blocks: &mut [u8], bits_per_value: i32) {
+    fn encode(next_values: &[i64], upto: usize, next_blocks: &mut [u8], bits_per_value: i32) {
         if bits_per_value & 7 == 0 {
             // bitsPerValue is a multiple of 8: 8, 16, 24, 32, 30, 48, 56, 64
             let bytes_per_value = bits_per_value / i8::BITS as i32;
             let mut o = 0;
-            for &l in next_values.iter().take(up_to) {
+            for &l in next_values.iter().take(upto) {
                 if bits_per_value > i32::BITS as i32 {
                     BitUtil::set_i64_le(next_blocks, o, l);
                 } else if bits_per_value > i16::BITS as i32 {
@@ -136,7 +136,7 @@ where
             let values_per_long = (u64::BITS as i32 / bits_per_value) as usize;
             let mut i = 0;
             let mut o = 0;
-            while i < up_to {
+            while i < upto {
                 let mut v = 0;
                 for j in 0..values_per_long {
                     v |= next_values[i + j] << (bits_per_value as i64 * j as i64);
@@ -151,7 +151,7 @@ where
             let num_bytes_for_2_values = ((bits_per_value * 2) as u32 / i8::BITS) as usize;
             let mut i = 0;
             let mut o = 0;
-            while i < up_to {
+            while i < upto {
                 let l1 = next_values[i];
                 let l2 = next_values[i + 1];
                 let merged = l1 | (l2 << bits_per_value);

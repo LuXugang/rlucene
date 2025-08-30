@@ -31,13 +31,13 @@ pub trait Impacts {
     /// returned by `get_impacts(level)` is valid.
     ///
     /// This is a non-decreasing function of `level`.
-    fn get_doc_id_up_to(&self, level: i32) -> i32;
+    fn get_doc_id_upto(&self, level: i32) -> i32;
 
     /// Return impacts on the given level.
     ///
     /// These impacts are sorted by increasing frequency and increasing unsigned
     /// norm, and only valid until the doc ID returned by
-    /// `get_doc_id_up_to(level)` (inclusive).
+    /// `get_doc_id_upto(level)` (inclusive).
     ///
     /// The returned list is never empty and should behave like `RandomAccess`
     /// if it contains more than one element.
@@ -70,10 +70,10 @@ where
         }
     }
 
-    fn get_doc_id_up_to(&self, level: i32) -> i32 {
+    fn get_doc_id_upto(&self, level: i32) -> i32 {
         match self {
-            Either2Impacts::A(t) => t.get_doc_id_up_to(level),
-            Either2Impacts::B(s) => s.get_doc_id_up_to(level),
+            Either2Impacts::A(t) => t.get_doc_id_upto(level),
+            Either2Impacts::B(s) => s.get_doc_id_upto(level),
         }
     }
 

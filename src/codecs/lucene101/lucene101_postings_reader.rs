@@ -1497,7 +1497,7 @@ impl Impacts for ImpactsImpl {
         }
     }
 
-    fn get_doc_id_up_to(&self, level: i32) -> i32 {
+    fn get_doc_id_upto(&self, level: i32) -> i32 {
         if !self.index_has_freq {
             NO_MORE_DOCS
         } else if level == 0 {

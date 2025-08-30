@@ -501,28 +501,28 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
         let mut offsets_index: usize = 0;
         let mut buffer = [0i64; Lucene90DocValuesFormat::NUMERIC_BLOCK_SIZE as usize];
         let mut encode_buffer = ByteBuffersDataOutput::new_resettable_instance();
-        let mut up_to = 0;
+        let mut upto = 0;
 
         let mut doc = values.next_doc()?;
         while doc != NO_MORE_DOCS {
             for _ in 0..values.doc_value_count()? {
-                buffer[up_to] = values.next_value()?;
-                up_to += 1;
+                buffer[upto] = values.next_value()?;
+                upto += 1;
 
-                if up_to == Lucene90DocValuesFormat::NUMERIC_BLOCK_SIZE as usize {
+                if upto == Lucene90DocValuesFormat::NUMERIC_BLOCK_SIZE as usize {
                     offsets.push(self.data.get_file_pointer());
                     offsets_index += 1;
                     self.write_block(&buffer, gcd, &mut encode_buffer)?;
-                    up_to = 0;
+                    upto = 0;
                 }
             }
             doc = values.next_doc()?;
         }
-        if up_to > 0 {
+        if upto > 0 {
             ArrayUtil::grow_with_len(&mut offsets, offsets_index);
             offsets[offsets_index] = self.data.get_file_pointer();
             offsets_index += 1;
-            self.write_block(&buffer[..up_to], gcd, &mut encode_buffer)?;
+            self.write_block(&buffer[..upto], gcd, &mut encode_buffer)?;
         }
         // All blocks has been written. Flush the offset jump-table
         let offsets_origo = self.data.get_file_pointer();

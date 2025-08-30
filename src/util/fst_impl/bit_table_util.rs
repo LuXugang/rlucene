@@ -56,7 +56,7 @@ impl BitTableUtil {
         }
         let num_remaining_bytes = bit_table_bytes & (BitUtil::LONG_BYTES - 1) as i32;
         if num_remaining_bytes != 0 {
-            bit_count += Self::read_up_to_8_bytes(num_remaining_bytes, reader)?.count_ones() as i32;
+            bit_count += Self::read_upto_8_bytes(num_remaining_bytes, reader)?.count_ones() as i32;
         }
         Ok(bit_count)
     }
@@ -75,7 +75,7 @@ impl BitTableUtil {
     ///   Byte::SIZE`.
     /// - `reader`: The [`FST::BytesReader`](BytesReader) used for reading. It
     ///   must be positioned at the beginning of the bit-table.
-    pub fn count_bits_up_to(bit_index: i32, reader: &mut impl BytesReader) -> Result<i32> {
+    pub fn count_bits_upto(bit_index: i32, reader: &mut impl BytesReader) -> Result<i32> {
         debug_assert!(bit_index >= 0, "bitIndex={bit_index}");
         let mut bit_count = 0;
         let num_long_blocks = bit_index >> 6;
@@ -90,7 +90,7 @@ impl BitTableUtil {
             let mask = (1u64 << bit_index) - 1; // Shifts are mod 64.
             // Count the bits set only within the mask part, so up to bitIndex
             // exclusive.
-            let l = Self::read_up_to_8_bytes(num_remaining_bytes, reader)?;
+            let l = Self::read_upto_8_bytes(num_remaining_bytes, reader)?;
             bit_count += (l & mask).count_ones() as i32;
         }
         Ok(bit_count)
@@ -187,7 +187,7 @@ impl BitTableUtil {
         Ok((b as u64) & 0xFF)
     }
 
-    fn read_up_to_8_bytes(num_bytes: i32, reader: &mut impl BytesReader) -> Result<u64> {
+    fn read_upto_8_bytes(num_bytes: i32, reader: &mut impl BytesReader) -> Result<u64> {
         debug_assert!(num_bytes > 0 && num_bytes <= 8, "numBytes={num_bytes}");
         let mut l = Self::read_byte(reader)?;
         let mut shift = 0;
@@ -229,14 +229,14 @@ mod tests {
             let num_bytes = (bits.len() - 1) as i32;
             let num_bits = num_bytes * i8::BITS as i32;
 
-            // Verify next_bit_set with count_bits_up_to for all bit indexes.
+            // Verify next_bit_set with count_bits_upto for all bit indexes.
             for bit_index in -1..num_bits {
                 let next_index =
                     BitTableUtil::next_bit_set(bit_index, num_bytes, &mut reader(&bits))?;
 
                 if next_index == -1 {
                     assert_eq!(
-                        BitTableUtil::count_bits_up_to(bit_index + 1, &mut reader(&bits))?,
+                        BitTableUtil::count_bits_upto(bit_index + 1, &mut reader(&bits))?,
                         BitTableUtil::count_bits(num_bytes, &mut reader(&bits))?,
                         "No next bit set, so expected no bit count diff (i={} bitIndex={})",
                         i,
@@ -252,8 +252,8 @@ mod tests {
                     );
 
                     assert_eq!(
-                        BitTableUtil::count_bits_up_to(bit_index + 1, &mut reader(&bits))? + 1,
-                        BitTableUtil::count_bits_up_to(next_index + 1, &mut reader(&bits))?,
+                        BitTableUtil::count_bits_upto(bit_index + 1, &mut reader(&bits))? + 1,
+                        BitTableUtil::count_bits_upto(next_index + 1, &mut reader(&bits))?,
                         "Next bit set at next_index={} so expected bit count diff of 1 (i={} bitIndex={})",
                         next_index,
                         i,
@@ -276,7 +276,7 @@ mod tests {
             let num_bytes = (bits.len() - 1) as i32;
             let num_bits = num_bytes * i8::BITS as i32;
 
-            // Verify previous_bit_set with count_bits_up_to for all bit
+            // Verify previous_bit_set with count_bits_upto for all bit
             // indexes.
             for bit_index in 0..=num_bits {
                 let previous_index = BitTableUtil::previous_bit_set(bit_index, &mut reader(&bits))?;
@@ -284,7 +284,7 @@ mod tests {
                 if previous_index == -1 {
                     assert_eq!(
                         0,
-                        BitTableUtil::count_bits_up_to(bit_index, &mut reader(&bits))?,
+                        BitTableUtil::count_bits_upto(bit_index, &mut reader(&bits))?,
                         "No previous bit set, so expected bit count 0 (i={} bitIndex={})",
                         i,
                         bit_index
@@ -298,7 +298,7 @@ mod tests {
                         bit_index
                     );
 
-                    let bit_count = BitTableUtil::count_bits_up_to(
+                    let bit_count = BitTableUtil::count_bits_upto(
                         bit_index.saturating_add(1).min(num_bits),
                         &mut reader(&bits),
                     )?;
@@ -312,7 +312,7 @@ mod tests {
 
                     assert_eq!(
                         expected_previous_bit_count,
-                        BitTableUtil::count_bits_up_to(previous_index + 1, &mut reader(&bits))?,
+                        BitTableUtil::count_bits_upto(previous_index + 1, &mut reader(&bits))?,
                         "Previous bit set at previous_index={} with current bitCount={} so expected previousBitCount={} (i={} bitIndex={})",
                         previous_index,
                         bit_count,

@@ -26,7 +26,7 @@ impl Impacts for DummyImpacts {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn get_doc_id_up_to(&self, _level: i32) -> i32 {
+    fn get_doc_id_upto(&self, _level: i32) -> i32 {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

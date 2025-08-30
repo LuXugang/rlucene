@@ -31,7 +31,7 @@ pub struct DocValuesUpdate {
     // used in BufferedDeletes to apply this update only to a slice of docs.
     // It's initialized to BufferedUpdates.MAX_INT
     // since it's safe and most often used this way we save object creations.
-    pub doc_id_up_to: i32,
+    pub doc_id_upto: i32,
     pub has_value: bool,
     pub sub_update: DocValuesUpdateEnum,
 }
@@ -41,16 +41,16 @@ impl DocValuesUpdate {
         doc_values_type: DocValuesType,
         term: Term,
         field: String,
-        doc_id_up_to: i32,
+        doc_id_upto: i32,
         sub_update: DocValuesUpdateEnum,
     ) -> Self {
-        debug_assert!(doc_id_up_to >= 0, "{doc_id_up_to} must be >= 0");
+        debug_assert!(doc_id_upto >= 0, "{doc_id_upto} must be >= 0");
         let has_value = sub_update.has_value();
         DocValuesUpdate {
             doc_values_type,
             term,
             field,
-            doc_id_up_to,
+            doc_id_upto,
             has_value,
             sub_update,
         }
@@ -64,7 +64,7 @@ impl DocValuesUpdate {
     }
     #[cfg(debug_assertions)]
     pub fn prepare_for_apply(&mut self, doc_id_upto: i32) -> Option<DocValuesUpdate> {
-        if doc_id_upto == self.doc_id_up_to {
+        if doc_id_upto == self.doc_id_upto {
             return None;
         }
         let sub_update = self.sub_update.prepare_for_apply();
@@ -85,7 +85,7 @@ impl Display for DocValuesUpdate {
             self.term,
             self.field,
             self.sub_update.value_to_string(),
-            self.doc_id_up_to
+            self.doc_id_upto
         )
     }
 }

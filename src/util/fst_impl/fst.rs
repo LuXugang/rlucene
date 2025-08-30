@@ -496,7 +496,7 @@ where
             "bit not set at index {range_index}"
         );
 
-        let presence_index = BitTable::count_bits_up_to(range_index, arc, reader)?;
+        let presence_index = BitTable::count_bits_upto(range_index, arc, reader)?;
         self.read_arc_by_direct_addressing_with_presence_index(
             arc,
             reader,
@@ -1043,15 +1043,15 @@ impl BitTable {
         let num_presence_bytes = get_num_presence_bytes(arc.num_arcs());
         BitTableUtil::count_bits(num_presence_bytes, reader)
     }
-    /// See [`BitTableUtil::count_bits_up_to`].
-    pub(crate) fn count_bits_up_to<T: OutputsBound>(
+    /// See [`BitTableUtil::count_bits_upto`].
+    pub(crate) fn count_bits_upto<T: OutputsBound>(
         bit_index: i32,
         arc: &Arc<T>,
         reader: &mut impl BytesReader,
     ) -> Result<i32> {
         debug_assert_eq!(arc.node_flags(), ARCS_FOR_DIRECT_ADDRESSING);
         reader.set_position(arc.bit_table_start);
-        BitTableUtil::count_bits_up_to(bit_index, reader)
+        BitTableUtil::count_bits_upto(bit_index, reader)
     }
 
     /// See [`BitTableUtil::next_bit_set`].
