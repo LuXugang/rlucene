@@ -23,12 +23,13 @@ use std::{
 };
 
 pub(crate) fn run_cargo(args: &[&str]) {
-    let status = Command::new("cargo")
-        .args(args)
-        .status()
-        .expect("failed to run cargo");
-    if !status.success() {
-        process::exit(status.code().unwrap_or(1));
+    let status = Command::new("cargo").args(args).status();
+    match status {
+        Err(e) => {
+            log(&format!("Failed to execute cargo: {}", e));
+            process::exit(1);
+        },
+        Ok(s) => process::exit(s.code().unwrap_or(1)),
     }
 }
 
