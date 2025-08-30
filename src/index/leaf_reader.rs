@@ -22,11 +22,14 @@ use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::sorted_doc_values::SortedDocValues;
 use crate::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::index::sorted_set_doc_values::SortedSetDocValues;
+use crate::index::terms::Terms;
 use crate::util::bits::Bits;
 use crate::util::error::lucene_error::Result;
 use std::rc::Rc;
 
 pub trait LeafReader: IndexReader {
+    type Terms: Terms;
+    fn terms(&self, field: &str) -> Result<Option<Self::Terms>>;
     type NumericDocValues: NumericDocValues;
     fn get_numeric_doc_values(&self, field: &str) -> Result<Option<Self::NumericDocValues>>;
 

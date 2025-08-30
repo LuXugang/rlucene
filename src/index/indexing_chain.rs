@@ -1958,6 +1958,12 @@ impl<'a, D> LeafReader for DocValuesLeafReaderImpl1<'a, D>
 where
     D: Directory,
 {
+    type Terms = <DocValuesLeafReader as LeafReader>::Terms;
+
+    fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
+        todo!()
+    }
+
     type NumericDocValues = BufferedNumericDocValues;
 
     fn get_numeric_doc_values(&self, field: &str) -> Result<Option<Self::NumericDocValues>> {
@@ -2168,6 +2174,12 @@ impl<SFB> LeafReader for DocValuesLeafReaderImpl2<'_, SFB>
 where
     SFB: SortFiledBase,
 {
+    type Terms = <DocValuesLeafReader as LeafReader>::Terms;
+
+    fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
+        todo!()
+    }
+
     type NumericDocValues = EmptyNumeric;
 
     fn get_numeric_doc_values(&self, field: &str) -> Result<Option<Self::NumericDocValues>> {

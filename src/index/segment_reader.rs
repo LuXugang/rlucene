@@ -27,6 +27,7 @@ use crate::codecs::term_vectors_reader::TermVectorsReaderEnum;
 use crate::codecs::{Codec, get_default_code};
 use crate::index::codec_reader::CodecReader;
 use crate::index::field_infos::FieldInfos;
+use crate::index::fields::Fields;
 use crate::index::index_reader::IndexReader;
 use crate::index::leaf_metadata::LeafMetaData;
 use crate::index::leaf_reader::LeafReader;
@@ -337,6 +338,12 @@ impl<D> LeafReader for SegmentReader<D>
 where
     D: Directory,
 {
+    type Terms = <<Self as CodecReader>::FieldsProducer as Fields>::Terms;
+
+    fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
+        CodecReader::terms(self, field)
+    }
+
     type NumericDocValues = <DocValuesProducers<D> as DocValuesProducer>::NumericDocValues;
 
     fn get_numeric_doc_values(&self, field: &str) -> Result<Option<Self::NumericDocValues>> {

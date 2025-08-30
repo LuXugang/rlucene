@@ -20,6 +20,7 @@ use crate::codecs::dummy::dummy_numeric_doc_values::DummyNumericDocValues;
 use crate::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNumericDocValues;
 use crate::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocValues;
+use crate::index::dummy::dummy_terms::DummyTerms;
 use crate::index::field_infos::FieldInfos;
 use crate::index::index_reader::IndexReader;
 use crate::index::leaf_reader::LeafReader;
@@ -49,6 +50,12 @@ impl IndexReader for DocValuesLeafReader {
 }
 
 impl LeafReader for DocValuesLeafReader {
+    type Terms = DummyTerms;
+
+    fn terms(&self, _field: &str) -> Result<Option<Self::Terms>> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
     type NumericDocValues = DummyNumericDocValues;
 
     fn get_numeric_doc_values(&self, _field: &str) -> Result<Option<Self::NumericDocValues>> {

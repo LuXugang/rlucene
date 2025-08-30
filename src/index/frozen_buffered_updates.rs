@@ -24,6 +24,7 @@ use crate::index::prefix_coded_terms::{PrefixCodedTerms, PrefixCodedTermsBuilder
 use crate::index::terms::Terms;
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::search::query::QueryEnum;
+use crate::store::directory::Directory;
 use crate::util::access::SharedAccess;
 use crate::util::accountable::Accountable;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
@@ -40,7 +41,6 @@ use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
 };
-use crate::store::directory::Directory;
 
 /// Holds buffered deletes and updates by term or query, once pushed.
 ///
@@ -166,7 +166,10 @@ impl FrozenBufferedUpdates {
         self.applied.load(Ordering::Relaxed)
     }
 
-    pub(crate) fn apply<D>(&self, _seg_states: SegmentState<D>) where D:Directory{
+    pub(crate) fn apply<D>(&self, _seg_states: SegmentState<D>)
+    where
+        D: Directory,
+    {
         unimplemented!()
     }
     pub fn set_del_gen(&mut self, del_gen: i64) {
