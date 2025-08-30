@@ -14,10 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::tasks::license::license_check;
 use crate::{log, run_cargo};
 
 pub(crate) fn run() {
-    super::license_check::run();
+    license_check::run();
     log("\x1b[1;32mRunning Cargo clippy \x1b[0m");
     run_cargo(&[
         "clippy",

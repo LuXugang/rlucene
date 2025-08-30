@@ -44,7 +44,7 @@ fn main() {
         Some("commit") => tasks::commit::run(),
         Some("ci") => tasks::ci::run(),
         Some("check-uncommitted") => tasks::check_uncommitted::run(),
-        Some("license-check") => tasks::license_check::run(),
+        Some("license-check") => tasks::license::license_check::run(),
         _ => {
             log(
                 "Available commands: tidy, commit, ci, check-uncommitted, check-rust-version, license-check",

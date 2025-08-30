@@ -29,20 +29,16 @@ pub(crate) fn run() {
         process::exit(1);
     }
 
-    let license_text =
-        super::license::license_checker::load_license_text(license_path.unwrap().as_path());
+    let license_text = load_license_text(license_path.unwrap().as_path());
 
     let src_dir = project_dir.join("src");
     let libs_dir = project_dir.join("libs");
     let examples_dir = project_dir.join("examples");
 
-    let src_valid = super::license::license_checker::check_licenses_in_dir(&src_dir, &license_text);
-    let libs_valid =
-        super::license::license_checker::check_licenses_in_dir(&libs_dir, &license_text);
-    let xtask_valid =
-        super::license::license_checker::check_licenses_in_dir(&xtask_dir, &license_text);
-    let examples_valid =
-        super::license::license_checker::check_licenses_in_dir(&examples_dir, &license_text);
+    let src_valid = check_licenses_in_dir(&src_dir, &license_text);
+    let libs_valid = check_licenses_in_dir(&libs_dir, &license_text);
+    let xtask_valid = check_licenses_in_dir(&xtask_dir, &license_text);
+    let examples_valid = check_licenses_in_dir(&examples_dir, &license_text);
 
     if src_valid && libs_valid && xtask_valid && examples_valid {
         log("\x1b[1;32m✅ ✅ ✅ All files have the correct license header\x1b[0m");
@@ -68,5 +64,35 @@ pub(crate) fn run() {
             }
         }
         None
+    }
+    pub(crate) fn load_license_text(file_path: &Path) -> String {
+        fs::read_to_string(file_path).expect("Failed to read license file")
+    }
+
+    fn check_license_in_file(file_path: &Path, license_text: &str) -> bool {
+        let content = fs::read_to_string(file_path).expect("Unable to read file");
+        content.starts_with(license_text)
+    }
+
+    pub fn check_licenses_in_dir(dir: &Path, license_text: &str) -> bool {
+        let mut all_valid = true;
+
+        for entry in fs::read_dir(dir).expect("Unable to read directory") {
+            let entry = entry.expect("Invalid entry");
+            let path = entry.path();
+
+            if path.is_dir() {
+                all_valid &= check_licenses_in_dir(&path, license_text);
+            } else if path.extension().map(|ext| ext == "rs").unwrap_or(false)
+                && !check_license_in_file(&path, license_text)
+            {
+                println!(
+                    "Missing or incorrect license in file: \x1b[31m{}\x1b[0m",
+                    path.display()
+                );
+                all_valid = false;
+            }
+        }
+        all_valid
     }
 }
