@@ -295,3 +295,18 @@ where
 
     write_result
 }
+/// Interface for internal atomic events. See [`DocumentsWriter`] for details.
+/// Events are executed concurrently and no order is guaranteed. Each event should only rely on
+/// the serializability within its `process` method. All actions that must happen before or after
+/// a certain action must be encoded inside the [`process(IndexWriter)`](Self::process) method.
+trait Event {
+    /// Processes the event. This method is called by the [`IndexWriter`] passed as the first argument.
+    ///
+    /// # Arguments
+    ///
+    /// * `writer` — the [`IndexWriter`] that executes the event.
+    fn process<D, L>(&self, writer: &IndexWriter<D, L>) -> Result<()>
+    where
+        D: Directory,
+        L: LiveIndexWriterConfig;
+}

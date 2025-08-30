@@ -19,10 +19,11 @@ use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::hash::Hash;
 use std::sync::{
-    Arc, Mutex,
+    Arc,
     atomic::{AtomicBool, Ordering},
 };
-
+use parking_lot::lock_api::ReentrantMutexGuard;
+use parking_lot::{RawMutex, RawThreadId, ReentrantMutex};
 use crate::index::BytesRef;
 use crate::index::buffered_updates::BufferedUpdates;
 use crate::index::buffered_updates_stream::SegmentState;
@@ -52,7 +53,7 @@ pub(crate) struct FrozenBufferedUpdates {
     pub delete_queries: Vec<Arc<QueryEnum>>,
     delete_query_limits: Vec<i32>,
     pub(crate) applied: AtomicBool,
-    pub(crate) apply_lock: Mutex<()>,
+    pub(crate) apply_lock: ReentrantMutex<()>,
     field_updates: HashMap<String, FieldUpdatesBuffer>,
     pub(crate) total_del_count: i64,
     field_updates_count: i32,
@@ -137,7 +138,7 @@ impl FrozenBufferedUpdates {
             delete_queries,
             delete_query_limits,
             applied: AtomicBool::new(false),
-            apply_lock: Mutex::new(()),
+            apply_lock: ReentrantMutex::new(()),
             field_updates,
             total_del_count: 0,
             bytes_used,
@@ -147,13 +148,20 @@ impl FrozenBufferedUpdates {
             id,
         })
     }
+    /// Tries to lock this buffered update instance
+    pub(crate) fn try_lock(&self) -> bool {
+        self.apply_lock.try_lock().is_some()
+    }
+    /// locks this buffered update instance
+    pub(crate) fn lock(&self) -> ReentrantMutexGuard<'_, RawMutex, RawThreadId, ()> {
+        self.apply_lock.lock()
+    }
 
     /// Returns `true` if this buffered updates instance has already been
     /// applied.
     pub(crate) fn is_applied(&self) -> bool {
         assert!(
-            self.apply_lock.try_lock().is_err(),
-            "The lock must be held by the current thread before checking applied state."
+            self.apply_lock.is_owned_by_current_thread()
         );
         self.applied.load(Ordering::Relaxed)
     }
