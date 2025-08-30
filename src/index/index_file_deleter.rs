@@ -341,7 +341,7 @@ where
     /// Writer calls this when it has hit an error and had to roll back, to tell us that there may now be unreferenced files in the filesystem.
     /// So we re-list the filesystem and delete such files.
     /// If segmentName is non-null, we will only delete files corresponding to that segment.
-    pub(crate) fn refresh(&mut self) -> Result<()> {
+    pub(crate) fn refresh(&self) -> Result<()> {
         // debug_assert!(self.locked());
         let mut to_delete = HashSet::new();
 
@@ -490,10 +490,7 @@ where
         self.file_deleter.exists(file_name)
     }
     /// Deletes the specified files, but only if they are new (have not yet been incref'd)
-    pub(crate) fn delete_new_files(
-        &mut self,
-        files: impl IntoIterator<Item = String>,
-    ) -> Result<()> {
+    pub(crate) fn delete_new_files(&self, files: impl IntoIterator<Item = String>) -> Result<()> {
         self.file_deleter.delete_files_if_no_ref(files)
     }
 }

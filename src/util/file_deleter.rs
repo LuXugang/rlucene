@@ -156,7 +156,7 @@ where
         unrefed
     }
     /// delete only files that are unref'ed
-    pub fn delete_files_if_no_ref<I>(&mut self, files: I) -> Result<()>
+    pub fn delete_files_if_no_ref<I>(&self, files: I) -> Result<()>
     where
         I: IntoIterator<Item = String>,
     {
