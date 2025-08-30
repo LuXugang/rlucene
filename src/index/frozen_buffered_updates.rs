@@ -22,7 +22,6 @@ use crate::index::doc_values_field_updates::{
     DocValuesFieldUpdates, DocValuesFieldUpdatesBase, DocValuesFieldUpdatesEnum,
     SingleValueDocValuesFieldUpdates, SingleValueDocValuesFieldUpdatesBase,
 };
-use crate::index::field_term_iterator::FieldTermIterator;
 use crate::index::field_updates_buffer::FieldUpdatesBuffer;
 use crate::index::fields::Fields;
 use crate::index::index_reader::IndexReader;
@@ -42,23 +41,23 @@ use crate::search::query::QueryEnum;
 use crate::store::directory::Directory;
 use crate::util::access::SharedAccess;
 use crate::util::accountable::Accountable;
+use crate::util::bits::Bits;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::info_stream::{InfoStream, InfoStreamMT};
+use crate::util::int_consumer::IntConsumer;
 use crate::util::{ByteBlockPool, CounterEnum, StringHelper, ToInt};
 use parking_lot::lock_api::ReentrantMutexGuard;
 use parking_lot::{RawMutex, RawThreadId, ReentrantMutex};
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Display, Formatter};
-use std::hash::{Hash, Hasher};
+use std::hash::Hash;
 use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
 };
 use std::time::Instant;
-use crate::util::bits::Bits;
-use crate::util::int_consumer::IntConsumer;
 
 // NOTE: we now apply this frozen packet immediately on creation, yet this
 // process is heavy, and runs in multiple threads, and this compression
@@ -94,8 +93,6 @@ pub(crate) struct FrozenBufferedUpdates {
 }
 
 impl FrozenBufferedUpdates {
-
-
     pub fn new<C, B>(
         info_stream: InfoStreamMT,
         updates: &mut BufferedUpdates<C, B>,
@@ -189,7 +186,11 @@ impl FrozenBufferedUpdates {
     }
     /// Applies pending delete-by-term, delete-by-query and doc values updates to all segments in the index,
     /// Returning the number of new deleted or updated documents.
-    pub(crate) fn apply<D>(&mut self, seg_states: &[SegmentState<D>],infos: HashMap<String, SegmentCommitInfo<D>>) -> Result<i64>
+    pub(crate) fn apply<D>(
+        &mut self,
+        seg_states: &[SegmentState<D>],
+        infos: HashMap<String, SegmentCommitInfo<D>>,
+    ) -> Result<i64>
     where
         D: Directory,
     {
@@ -204,12 +205,14 @@ impl FrozenBufferedUpdates {
             ));
         }
 
-        debug_assert!(
-            !self.applied.load(Ordering::Relaxed)
-        );
+        debug_assert!(!self.applied.load(Ordering::Relaxed));
 
         if let Some(ref private_segment) = self.private_segment {
-            debug_assert_eq!(seg_states.len(), 1, "private packet must target exactly one segment");
+            debug_assert_eq!(
+                seg_states.len(),
+                1,
+                "private packet must target exactly one segment"
+            );
             let seg0_id = seg_states[0].rld.get_info_id(None);
             debug_assert!(
                 private_segment.as_str() == seg0_id.as_str(),
@@ -219,7 +222,7 @@ impl FrozenBufferedUpdates {
             );
         }
 
-        self.total_del_count += self.apply_term_deletes(seg_states,infos)?;
+        self.total_del_count += self.apply_term_deletes(seg_states, infos)?;
         // totalDelCount += applyQueryDeletes(segStates);
         self.total_del_count += self.apply_doc_values_updates_all(seg_states)?;
 
@@ -336,7 +339,10 @@ impl FrozenBufferedUpdates {
                     let (long_value, binary_value) = if !buffered_update.has_value {
                         (-1, None)
                     } else {
-                        (buffered_update.numeric_value, buffered_update.get_binary_value())
+                        (
+                            buffered_update.numeric_value,
+                            buffered_update.get_binary_value(),
+                        )
                     };
 
                     if dv_updates.is_none() {
@@ -377,7 +383,13 @@ impl FrozenBufferedUpdates {
                     }
 
                     let update = resolved_updates.get_mut(dv_updates.unwrap()).unwrap();
-                    let mut doc_id_consumer = IntConsumerImpl::new(update, buffered_update.has_value, long_value, binary_value,is_numeric);
+                    let mut doc_id_consumer = IntConsumerImpl::new(
+                        update,
+                        buffered_update.has_value,
+                        long_value,
+                        binary_value,
+                        is_numeric,
+                    );
                     if seg_state.rld.sort_map.is_some() && segment_private_deletes {
                         // This segment was sorted on flush; we must apply seg-private deletes carefully in this
                         // case:
@@ -402,7 +414,7 @@ impl FrozenBufferedUpdates {
                                 break;
                             }
                             if doc >= limit {
-                                break;// no more docs that can be updated for this term
+                                break; // no more docs that can be updated for this term
                             }
                             if accept_docs.as_ref().is_none_or(|bits| bits.get(doc)) {
                                 doc_id_consumer.accept(doc)?;
@@ -735,7 +747,7 @@ where
     }
 }
 
-struct IntConsumerImpl<'a>{
+struct IntConsumerImpl<'a> {
     update: &'a mut DocValuesFieldUpdatesEnum,
     long_value: i64,
     binary_value: Option<&'a BytesRef<Vec<u8>>>,
@@ -743,18 +755,31 @@ struct IntConsumerImpl<'a>{
     is_numeric: bool,
 }
 impl<'a> IntConsumerImpl<'a> {
-    fn new(update: &'a mut DocValuesFieldUpdatesEnum, has_value: bool, long_value: i64, binary_value: Option<&'a BytesRef<Vec<u8>>>, is_numeric:bool) -> Self {
-        Self { update, has_value, long_value, binary_value,is_numeric }
+    fn new(
+        update: &'a mut DocValuesFieldUpdatesEnum,
+        has_value: bool,
+        long_value: i64,
+        binary_value: Option<&'a BytesRef<Vec<u8>>>,
+        is_numeric: bool,
+    ) -> Self {
+        Self {
+            update,
+            has_value,
+            long_value,
+            binary_value,
+            is_numeric,
+        }
     }
 }
 impl<'a> IntConsumer for IntConsumerImpl<'a> {
-    fn accept(&mut self, doc: i32) ->Result<()>{
+    fn accept(&mut self, doc: i32) -> Result<()> {
         if !self.has_value {
             self.update.reset(doc)?;
         } else if self.is_numeric {
             self.update.add_value(doc, self.long_value)?;
         } else {
-            self.update.add_binary_value(doc, self.binary_value.as_ref().unwrap())?;
+            self.update
+                .add_binary_value(doc, self.binary_value.as_ref().unwrap())?;
         }
         Ok(())
     }

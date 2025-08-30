@@ -1165,7 +1165,7 @@ impl DocValuesFieldUpdatesEnum {
     pub(crate) fn add_value(&mut self, doc: i32, value: i64) -> Result<()> {
         match self {
             DocValuesFieldUpdatesEnum::Numeric(u) => u.add_value(doc, value),
-            DocValuesFieldUpdatesEnum::Binary(u) => u.add_value(doc,value),
+            DocValuesFieldUpdatesEnum::Binary(u) => u.add_value(doc, value),
             DocValuesFieldUpdatesEnum::SingleValue(u) => u.add_value(doc, value),
         }
     }

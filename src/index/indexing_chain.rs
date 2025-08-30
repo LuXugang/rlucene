@@ -1961,7 +1961,7 @@ where
     type Terms = <DocValuesLeafReader as LeafReader>::Terms;
 
     fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
-        todo!()
+        self.base.terms(field)
     }
 
     type NumericDocValues = BufferedNumericDocValues;
@@ -2177,7 +2177,7 @@ where
     type Terms = <DocValuesLeafReader as LeafReader>::Terms;
 
     fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
-        todo!()
+        self.base.terms(field)
     }
 
     type NumericDocValues = EmptyNumeric;

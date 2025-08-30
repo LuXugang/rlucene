@@ -62,6 +62,7 @@ pub mod in_place_merge_sorter;
 pub mod info_stream;
 pub mod int_array_doc_id_set;
 pub mod int_block_pool;
+pub mod int_consumer;
 pub mod intro_selector;
 pub mod intro_sorter;
 pub mod ints_ref;
@@ -103,7 +104,6 @@ pub mod to_string_utils;
 pub mod unicode_util;
 pub mod vec_copy_ops;
 pub mod version;
-pub mod int_consumer;
 
 pub use bytes_ref_array::*;
 pub use bytes_ref_comparator::*;

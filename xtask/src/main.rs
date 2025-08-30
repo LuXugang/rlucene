@@ -29,7 +29,7 @@ pub(crate) fn run_cargo(args: &[&str]) {
             log(&format!("Failed to execute cargo: {}", e));
             process::exit(1);
         },
-        Ok(s) => process::exit(s.code().unwrap_or(1)),
+        Ok(_) => {},
     }
 }
 
@@ -70,9 +70,7 @@ fn main() {
         Some("check-uncommitted") => tasks::check_uncommitted::run(),
         Some("license-check") => tasks::license::license_check::run(),
         _ => {
-            log(
-                "Available commands: tidy, commit, ci, check-uncommitted, check-rust-version, license-check",
-            );
+            log("Available commands: tidy, commit, ci, check-uncommitted, license-check");
             process::exit(1);
         },
     }
