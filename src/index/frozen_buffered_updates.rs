@@ -14,16 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::collections::HashMap;
-use std::fmt;
-use std::fmt::{Display, Formatter};
-use std::hash::Hash;
-use std::sync::{
-    Arc,
-    atomic::{AtomicBool, Ordering},
-};
-use parking_lot::lock_api::ReentrantMutexGuard;
-use parking_lot::{RawMutex, RawThreadId, ReentrantMutex};
 use crate::index::BytesRef;
 use crate::index::buffered_updates::BufferedUpdates;
 use crate::index::buffered_updates_stream::SegmentState;
@@ -40,6 +30,18 @@ use crate::util::bytes_ref_iterator::BytesRefIterator;
 use crate::util::error::lucene_error::Result;
 use crate::util::info_stream::{InfoStream, InfoStreamMT};
 use crate::util::{ByteBlockPool, CounterEnum, StringHelper, ToInt};
+use parking_lot::lock_api::ReentrantMutexGuard;
+use parking_lot::{RawMutex, RawThreadId, ReentrantMutex};
+use std::collections::HashMap;
+use std::fmt;
+use std::fmt::{Display, Formatter};
+use std::hash::Hash;
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+};
+use crate::store::directory::Directory;
+
 /// Holds buffered deletes and updates by term or query, once pushed.
 ///
 /// Pushed deletes/updates are write-once, so a more memory-efficient data structure is used
@@ -160,13 +162,11 @@ impl FrozenBufferedUpdates {
     /// Returns `true` if this buffered updates instance has already been
     /// applied.
     pub(crate) fn is_applied(&self) -> bool {
-        assert!(
-            self.apply_lock.is_owned_by_current_thread()
-        );
+        assert!(self.apply_lock.is_owned_by_current_thread());
         self.applied.load(Ordering::Relaxed)
     }
 
-    pub(crate) fn apply(&self, _seg_states: SegmentState) {
+    pub(crate) fn apply<D>(&self, _seg_states: SegmentState<D>) where D:Directory{
         unimplemented!()
     }
     pub fn set_del_gen(&mut self, del_gen: i64) {

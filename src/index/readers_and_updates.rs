@@ -244,9 +244,9 @@ where
         inner.pending_deletes.get_info_id().to_string()
     }
 
-    pub fn release(&self, sr: &SegmentReader<D>, _info: &SegmentCommitInfo<D>) -> Result<()> {
+    pub fn release(&self) -> Result<()> {
         // TODO
-        sr.dec_ref()?;
+        self.inner.lock().reader.as_ref().unwrap().dec_ref()?;
         Ok(())
     }
 

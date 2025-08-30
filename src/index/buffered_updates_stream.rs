@@ -17,12 +17,16 @@
 use crate::index::frozen_buffered_updates::FrozenBufferedUpdates;
 use crate::index::index_writer::IndexWriter;
 use crate::index::live_index_writer_config::LiveIndexWriterConfig;
+use crate::index::readers_and_updates::ReadersAndUpdates;
+use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::store::directory::Directory;
 use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::Result;
 use crate::util::info_stream::{InfoStream, InfoStreamMT};
 use parking_lot::Mutex;
 use std::collections::HashSet;
+use std::fmt::Display;
+use std::rc::Rc;
 use std::sync::atomic::{AtomicI64, Ordering};
 
 /// Tracks the stream of [`FrozenBufferedUpdates`]. When [`DocumentsWriterPerThread`](crate::index::documents_writer_per_thread::DocumentsWriterPerThread) flushes, its
@@ -244,7 +248,47 @@ impl Accountable for BufferedUpdatesStream {
     }
 }
 
-pub(crate) struct SegmentState;
+pub(crate) struct SegmentState<D>
+where
+    D: Directory,
+{
+    pub(crate) del_gen: i64,
+    pub(crate) rld: Rc<ReadersAndUpdates<D>>,
+    pub(crate) start_del_count: i32,
+}
+impl<D> SegmentState<D>
+where
+    D: Directory,
+{
+    fn new(rld: Rc<ReadersAndUpdates<D>>, info: &SegmentCommitInfo<D>) -> Self {
+        SegmentState {
+            del_gen: info.get_buffered_deletes_gen(),
+            rld,
+            start_del_count: info.get_del_count(),
+        }
+    }
+    fn close(&self) -> Result<()> {
+        // TODO: rld未释放
+        self.rld.release()?;
+        Ok(())
+    }
+}
+impl<D> Display for SegmentState<D>
+where
+    D: Directory,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "SegmentState({})", self.rld.get_info_id(None))
+    }
+}
+impl<D> Drop for SegmentState<D>
+where
+    D: Directory,
+{
+    fn drop(&mut self) {
+        self.close().ok();
+    }
+}
 
 /// Tracks the contiguous range of packets that have finished resolving.
 ///
