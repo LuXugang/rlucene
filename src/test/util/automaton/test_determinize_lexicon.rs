@@ -24,7 +24,9 @@ mod tests {
     use rand::prelude::SliceRandom;
 
     use crate::test::util::automaton::automaton_test_util::AutomatonTestUtil;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        at_least, is_night_mode, random,
+    };
     use crate::test::util::test_util::TestUtil;
     use crate::util::automation::automata::Automata;
     use crate::util::automation::automaton::Automaton;
@@ -67,7 +69,7 @@ mod tests {
         for s in terms {
             assert!(Operations::run_str(&lex, s));
         }
-        if cfg!(feature = "nightly") {
+        if is_night_mode() {
             let lex_byte = ByteRunAutomaton::new(lex.into_owned())?;
             for s in terms {
                 let bytes = s.as_bytes();

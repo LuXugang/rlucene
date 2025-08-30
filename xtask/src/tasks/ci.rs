@@ -20,11 +20,6 @@ pub(crate) fn run() {
     super::tidy::run();
     super::check_uncommitted::run();
     log("\x1b[1;32mRunning Cargo test \x1b[0m");
-    run_cargo(&[
-        "test",
-        "--verbose",
-        "--features",
-        "test_log_verbose,nightly",
-    ]);
+    run_cargo(&["test", "--verbose", "--features", "test_log_verbose"]);
     log("\x1b[1;32m✅ ✅ ✅ Finished Cargo test \x1b[0m");
 }

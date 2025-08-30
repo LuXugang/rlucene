@@ -36,7 +36,6 @@ overflow-checks = false
 default= ["not_required_in_rust_lucene"]
 not_required_in_rust_lucene = []
 test_log_verbose = []
-nightly = []
 [workspace]
 members = [
     ".",
