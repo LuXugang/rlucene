@@ -62,7 +62,7 @@ impl DocValuesUpdate {
     fn size_in_bytes(&self) -> i32 {
         unimplemented!("Not used in Java Lucene, so we did not implement it")
     }
-    #[cfg(feature = "test_only")]
+    #[cfg(debug_assertions)]
     pub fn prepare_for_apply(&mut self, doc_id_upto: i32) -> Option<DocValuesUpdate> {
         if doc_id_upto == self.doc_id_up_to {
             return None;
@@ -100,7 +100,7 @@ pub trait DocValuesUpdateBase {
         unimplemented!("Not used in Java Lucene, so we did not implement it")
     }
     fn has_value(&self) -> bool;
-    #[cfg(feature = "test_only")]
+    #[cfg(debug_assertions)]
     fn prepare_for_apply(&mut self) -> DocValuesUpdateEnum;
 }
 /// An in-place update to a binary DocValues field.
@@ -130,7 +130,7 @@ impl DocValuesUpdateBase for BinaryDocValuesUpdate {
         self.value.is_some()
     }
 
-    #[cfg(feature = "test_only")]
+    #[cfg(debug_assertions)]
     fn prepare_for_apply(&mut self) -> DocValuesUpdateEnum {
         DocValuesUpdateEnum::Binary(BinaryDocValuesUpdate::new(self.value.clone()))
     }
@@ -163,7 +163,7 @@ impl DocValuesUpdateBase for NumericDocValuesUpdate {
         self.value.is_some()
     }
 
-    #[cfg(feature = "test_only")]
+    #[cfg(debug_assertions)]
     fn prepare_for_apply(&mut self) -> DocValuesUpdateEnum {
         DocValuesUpdateEnum::Numeric(NumericDocValuesUpdate::new(self.value))
     }
@@ -206,7 +206,7 @@ impl DocValuesUpdateBase for DocValuesUpdateEnum {
         }
     }
 
-    #[cfg(feature = "test_only")]
+    #[cfg(debug_assertions)]
     fn prepare_for_apply(&mut self) -> DocValuesUpdateEnum {
         match self {
             DocValuesUpdateEnum::Binary(b) => b.prepare_for_apply(),

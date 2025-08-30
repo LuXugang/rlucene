@@ -559,7 +559,7 @@ where
         self.refill(0, self.buffer_start)?;
         Ok(())
     }
-    #[cfg(feature = "test_only")]
+    #[cfg(debug_assertions)]
     pub fn get_sub_index_input(&self) -> &T {
         &self.sub_index_input
     }

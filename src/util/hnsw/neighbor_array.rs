@@ -208,7 +208,7 @@ impl NeighborArray {
         Ok(insertion_point)
     }
     /// This method is for test only.
-    #[cfg(feature = "test_only")]
+    #[cfg(debug_assertions)]
     pub(crate) fn insert_sorted(&mut self, new_node: i32, new_score: f32) -> Result<()> {
         self.add_out_of_order(new_node, new_score)?;
         let v = DummyRandomVectorScorer;

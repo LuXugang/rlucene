@@ -286,7 +286,7 @@ where
         }
         true
     }
-    #[cfg(feature = "test_only")]
+    #[cfg(debug_assertions)]
     pub fn get_delegate_sorter(&self) -> &T {
         &self.delegate_sorter
     }

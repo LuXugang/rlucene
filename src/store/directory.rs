@@ -231,7 +231,7 @@ pub trait Directory: Display + Sized {
     /// This is an internal API.
     fn get_pending_deletions(&self) -> Result<HashSet<String>>;
 
-    #[cfg(feature = "test_only")]
+    #[cfg(debug_assertions)]
     fn is_fs_directory(&self) -> bool {
         false
     }
@@ -394,7 +394,7 @@ where
             Either2Directory::B(s) => s.get_pending_deletions(),
         }
     }
-    #[cfg(feature = "test_only")]
+    #[cfg(debug_assertions)]
     fn is_fs_directory(&self) -> bool {
         match self {
             Either2Directory::A(f) => f.is_fs_directory(),
@@ -457,7 +457,7 @@ impl<D: Directory> Directory for &D {
     fn get_pending_deletions(&self) -> Result<HashSet<String>> {
         (**self).get_pending_deletions()
     }
-    #[cfg(feature = "test_only")]
+    #[cfg(debug_assertions)]
     fn is_fs_directory(&self) -> bool {
         (**self).is_fs_directory()
     }

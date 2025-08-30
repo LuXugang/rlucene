@@ -33,8 +33,7 @@ num-integer="0.1.46"
 overflow-checks = false
 
 [features]
-default= ["test_only", "not_required_in_rust_lucene"]
-test_only = []
+default= ["not_required_in_rust_lucene"]
 not_required_in_rust_lucene = []
 test_log_verbose = []
 nightly = []

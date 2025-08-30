@@ -447,7 +447,7 @@ where
         }
         Ok(())
     }
-    #[cfg(feature = "test_only")]
+    #[cfg(debug_assertions)]
     pub(crate) fn get_pool(&self) -> B {
         self.pool.clone()
     }
