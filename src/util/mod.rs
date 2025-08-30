@@ -103,6 +103,7 @@ pub mod to_string_utils;
 pub mod unicode_util;
 pub mod vec_copy_ops;
 pub mod version;
+pub mod int_consumer;
 
 pub use bytes_ref_array::*;
 pub use bytes_ref_comparator::*;
