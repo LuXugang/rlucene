@@ -76,9 +76,9 @@ where
     // the major version this index was created with
     index_created_version_major: i32,
     // Only set if there are doc values updates against this segment, and the index is sorted:
-    sort_map: Option<Rc<DocMapImpl>>,
+    pub(crate) sort_map: Option<Rc<DocMapImpl>>,
     pub(crate) ram_bytes_used: AtomicI64,
-    inner: Mutex<Inner<D>>,
+    pub(crate) inner: Mutex<Inner<D>>,
 }
 
 pub(crate) struct Inner<D>
@@ -86,7 +86,7 @@ where
     D: Directory,
 {
     // Set once (None, and then maybe set, and never set again):
-    reader: Option<SegmentReader<D>>,
+    pub(crate) reader: Option<SegmentReader<D>>,
     // How many further deletions we've done against
     // liveDocs vs when we loaded it or last wrote it:
     pending_deletes: PendingDeletesEnum,

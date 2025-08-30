@@ -594,6 +594,9 @@ impl BufferedUpdate {
             term_value,
         }
     }
+    pub(crate) fn get_binary_value(&self) -> Option<&BytesRef<Vec<u8>>> {
+        self.binary_value.as_ref()
+    }
 }
 
 type UpdateBits<'a> = Either2Bits<MatchAllBits, &'a FixedBitSet>;

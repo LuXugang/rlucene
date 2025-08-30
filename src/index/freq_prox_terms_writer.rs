@@ -89,7 +89,7 @@ where
     fn apply_deletes<D1>(
         &self,
         state: &mut SegmentWriteState<D>,
-        fields: & FreqProxFields,
+        fields: &FreqProxFields,
         segment_info: &SegmentInfo<D1>,
         seg_updates: Option<&mut MTBufferedUpdates>,
     ) -> Result<()>

@@ -192,7 +192,7 @@ pub struct TermIterator<'a> {
     builder: BytesRefBuilder<Vec<u8>>,
     end: i64,
     del_gen: i64,
-    field: String,
+    pub(crate) field: String,
 }
 
 impl<'a> TermIterator<'a> {

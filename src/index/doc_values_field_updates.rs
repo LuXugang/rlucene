@@ -1155,6 +1155,34 @@ impl DocValuesFieldUpdatesEnum {
             DocValuesFieldUpdatesEnum::SingleValue(u) => &u.doc_values_type,
         }
     }
+    pub(crate) fn reset(&mut self, doc: i32) -> Result<()> {
+        match self {
+            DocValuesFieldUpdatesEnum::Numeric(u) => u.reset(doc),
+            DocValuesFieldUpdatesEnum::Binary(u) => u.reset(doc),
+            DocValuesFieldUpdatesEnum::SingleValue(u) => u.reset(doc),
+        }
+    }
+    pub(crate) fn add_value(&mut self, doc: i32, value: i64) -> Result<()> {
+        match self {
+            DocValuesFieldUpdatesEnum::Numeric(u) => u.add_value(doc, value),
+            DocValuesFieldUpdatesEnum::Binary(u) => u.add_value(doc,value),
+            DocValuesFieldUpdatesEnum::SingleValue(u) => u.add_value(doc, value),
+        }
+    }
+    pub(crate) fn add_binary_value(&mut self, doc: i32, value: &BytesRef<Vec<u8>>) -> Result<()> {
+        match self {
+            DocValuesFieldUpdatesEnum::Numeric(u) => u.add_byte_ref(doc, value),
+            DocValuesFieldUpdatesEnum::Binary(u) => u.add_byte_ref(doc, value),
+            DocValuesFieldUpdatesEnum::SingleValue(u) => u.add_byte_ref(doc, value),
+        }
+    }
+    pub(crate) fn finish(&mut self) -> Result<()> {
+        match self {
+            DocValuesFieldUpdatesEnum::Numeric(u) => u.finish(),
+            DocValuesFieldUpdatesEnum::Binary(u) => u.finish(),
+            DocValuesFieldUpdatesEnum::SingleValue(u) => u.finish(),
+        }
+    }
 }
 pub(crate) const PAGE_SIZE: i32 = 1024;
 const HAS_VALUE_MASK: i64 = 1;

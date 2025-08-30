@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::util::error::lucene_error::Result;
 pub trait IntConsumer {
-    fn accept(&mut self, value: i32);
+    fn accept(&mut self, value: i32) -> Result<()>;
 }

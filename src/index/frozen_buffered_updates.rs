@@ -15,20 +15,35 @@
  * limitations under the License.
  */
 use crate::index::BytesRef;
+use crate::index::binary_doc_values_field_updates::BinaryDocValuesFieldUpdates;
 use crate::index::buffered_updates::BufferedUpdates;
 use crate::index::buffered_updates_stream::SegmentState;
+use crate::index::doc_values_field_updates::{
+    DocValuesFieldUpdates, DocValuesFieldUpdatesBase, DocValuesFieldUpdatesEnum,
+    SingleValueDocValuesFieldUpdates, SingleValueDocValuesFieldUpdatesBase,
+};
+use crate::index::field_term_iterator::FieldTermIterator;
 use crate::index::field_updates_buffer::FieldUpdatesBuffer;
 use crate::index::fields::Fields;
+use crate::index::index_reader::IndexReader;
+use crate::index::leaf_reader::LeafReader;
+use crate::index::numeric_doc_values_field_updates::{
+    NumericDocValuesFieldUpdates, SingleValueNumericDocValuesFieldUpdates,
+};
 use crate::index::postings_enum::NONE;
 use crate::index::prefix_coded_terms::{PrefixCodedTerms, PrefixCodedTermsBuilder};
+use crate::index::segment_commit_info::SegmentCommitInfo;
+use crate::index::sorter::DocMap;
 use crate::index::terms::Terms;
 use crate::index::terms_enum::{SeekStatus, TermsEnum};
+use crate::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::search::query::QueryEnum;
 use crate::store::directory::Directory;
 use crate::util::access::SharedAccess;
 use crate::util::accountable::Accountable;
 use crate::util::bytes_ref_iterator::BytesRefIterator;
-use crate::util::error::lucene_error::Result;
+use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::info_stream::{InfoStream, InfoStreamMT};
 use crate::util::{ByteBlockPool, CounterEnum, StringHelper, ToInt};
 use parking_lot::lock_api::ReentrantMutexGuard;
@@ -36,12 +51,21 @@ use parking_lot::{RawMutex, RawThreadId, ReentrantMutex};
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Display, Formatter};
-use std::hash::Hash;
+use std::hash::{Hash, Hasher};
 use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
 };
+use std::time::Instant;
+use crate::util::bits::Bits;
+use crate::util::int_consumer::IntConsumer;
 
+// NOTE: we now apply this frozen packet immediately on creation, yet this
+// process is heavy, and runs in multiple threads, and this compression
+// is sizable (~8.3% of the original size), so it's important
+// we run this before applying the deletes/updates.
+// Query we often undercount (say 24 bytes), plus int.
+const BYTES_PER_DEL_QUERY: i32 = 0;
 /// Holds buffered deletes and updates by term or query, once pushed.
 ///
 /// Pushed deletes/updates are write-once, so a more memory-efficient data structure is used
@@ -54,12 +78,15 @@ pub(crate) struct FrozenBufferedUpdates {
     // Parallel array of deleted query, and the docIDUpto for each
     pub delete_queries: Vec<Arc<QueryEnum>>,
     delete_query_limits: Vec<i32>,
+    // Counts down once all deletes/updates have been applied
     pub(crate) applied: AtomicBool,
     pub(crate) apply_lock: ReentrantMutex<()>,
     field_updates: HashMap<String, FieldUpdatesBuffer>,
+    /// How many total documents were deleted/updated.
     pub(crate) total_del_count: i64,
     field_updates_count: i32,
     pub(crate) bytes_used: i32,
+    // assigned by BufferedUpdatesStream once pushed
     del_gen: i64,
     // SegmentInfo ID in SegmentCommitInfo
     private_segment: Option<String>,
@@ -67,12 +94,7 @@ pub(crate) struct FrozenBufferedUpdates {
 }
 
 impl FrozenBufferedUpdates {
-    // NOTE: we now apply this frozen packet immediately on creation, yet this
-    // process is heavy, and runs in multiple threads, and this compression
-    // is sizable (~8.3% of the original size), so it's important
-    // we run this before applying the deletes/updates.
-    // Query we often undercount (say 24 bytes), plus int.
-    const BYTES_PER_DEL_QUERY: i32 = 0;
+
 
     pub fn new<C, B>(
         info_stream: InfoStreamMT,
@@ -165,12 +187,314 @@ impl FrozenBufferedUpdates {
         assert!(self.apply_lock.is_owned_by_current_thread());
         self.applied.load(Ordering::Relaxed)
     }
-
-    pub(crate) fn apply<D>(&self, _seg_states: SegmentState<D>)
+    /// Applies pending delete-by-term, delete-by-query and doc values updates to all segments in the index,
+    /// Returning the number of new deleted or updated documents.
+    pub(crate) fn apply<D>(&mut self, seg_states: &[SegmentState<D>],infos: HashMap<String, SegmentCommitInfo<D>>) -> Result<i64>
     where
         D: Directory,
     {
-        unimplemented!()
+        debug_assert!(
+            self.apply_lock.is_owned_by_current_thread(),
+            "apply() must be called while holding apply_lock"
+        );
+
+        if self.del_gen == -1 {
+            return Err(LuceneError::illegal_argument(
+                "gen is not yet set; call BufferedUpdatesStream.push first",
+            ));
+        }
+
+        debug_assert!(
+            !self.applied.load(Ordering::Relaxed)
+        );
+
+        if let Some(ref private_segment) = self.private_segment {
+            debug_assert_eq!(seg_states.len(), 1, "private packet must target exactly one segment");
+            let seg0_id = seg_states[0].rld.get_info_id(None);
+            debug_assert!(
+                private_segment.as_str() == seg0_id.as_str(),
+                "privateSegment={} vs seg0={}",
+                private_segment,
+                seg0_id
+            );
+        }
+
+        self.total_del_count += self.apply_term_deletes(seg_states,infos)?;
+        // totalDelCount += applyQueryDeletes(segStates);
+        self.total_del_count += self.apply_doc_values_updates_all(seg_states)?;
+
+        Ok(self.total_del_count)
+    }
+    pub(crate) fn apply_doc_values_updates_all<D>(
+        &mut self,
+        seg_states: &[SegmentState<D>],
+    ) -> Result<i64>
+    where
+        D: Directory,
+    {
+        if self.field_updates.is_empty() {
+            return Ok(0);
+        }
+
+        let start = Instant::now();
+        let mut update_count: i64 = 0;
+
+        for seg_state in seg_states {
+            if self.del_gen() < seg_state.del_gen {
+                // segment is newer than this deletes packet
+                continue;
+            }
+            if seg_state.rld.ref_count() == 1 {
+                // This means we are the only remaining reference to this segment, meaning
+                // it was merged away while we were running, so we can safely skip running
+                // because we will run on the newly merged segment next:
+                continue;
+            }
+
+            let is_segment_private_deletes = self.private_segment.is_some();
+
+            if !self.field_updates.is_empty() {
+                update_count += Self::apply_doc_values_updates(
+                    seg_state,
+                    &self.field_updates,
+                    self.del_gen,
+                    is_segment_private_deletes,
+                )?;
+            }
+        }
+
+        if self.info_stream.enabled("BD") {
+            let elapsed_ms = start.elapsed().as_secs_f64() * 1_000.0;
+            self.info_stream.message(
+                "BD",
+                &format!(
+                    "applyDocValuesUpdates {:.1} msec for {} segments, {} field updates; {} new updates",
+                    elapsed_ms,
+                    seg_states.len(),
+                    self.field_updates_count,
+                    update_count
+                ),
+            );
+        }
+
+        Ok(update_count)
+    }
+    pub(crate) fn apply_doc_values_updates<D>(
+        seg_state: &SegmentState<D>,
+        updates: &HashMap<String, FieldUpdatesBuffer>,
+        del_gen: i64,
+        segment_private_deletes: bool,
+    ) -> Result<i64>
+    where
+        D: Directory,
+    {
+        // TODO: we can process the updates per DV field, from last to first so that
+        // if multiple terms affect same document for the same field, we add an update
+        // only once (that of the last term). To do that, we can keep a bitset which
+        // marks which documents have already been updated. So e.g. if term T1
+        // updates doc 7, and then we process term T2 and it updates doc 7 as well,
+        // we don't apply the update since we know T1 came last and therefore wins
+        // the update.
+        // We can also use that bitset as 'liveDocs' to pass to TermEnum.docs(), so
+        // that these documents aren't even returned.
+        let mut update_count: i64 = 0;
+
+        let mut resolved_updates = Vec::new();
+
+        let accept_docs = seg_state.rld.get_live_docs();
+        for (update_field, value) in updates.iter() {
+            let is_numeric = value.is_numeric();
+            let mut iterator = value.iterator()?;
+            let inner = seg_state.rld.inner.lock();
+            let reader = inner.reader.as_ref().unwrap();
+            let mut term_docs_iterator =
+                TermDocsIterator::new(TermsProviderImpl2::new(reader), iterator.is_sorted_terms());
+            let mut dv_updates = None;
+
+            while let Some(buffered_update) = iterator.next_value()? {
+                // TODO: we traverse the terms in update order (not term order) so that we
+                // apply the updates in the correct order, i.e. if two terms update the
+                // same document, the last one that came in wins, irrespective of the
+                // terms lexical order.
+                // we can apply the updates in terms order if we keep an updatesGen (and
+                // increment it with every update) and attach it to each NumericUpdate. Note
+                // that we cannot rely only on docIDUpto because an app may send two updates
+                // which will get same docIDUpto, yet will still need to respect the order
+                // those updates arrived.
+                // TODO: we could at least *collate* by field?
+                if let Some(doc_id_set_iterator) = term_docs_iterator.next_term(
+                    buffered_update.term_field.as_str(),
+                    buffered_update.term_value.as_ref().unwrap(),
+                )? {
+                    let limit = if del_gen == seg_state.del_gen {
+                        debug_assert!(segment_private_deletes);
+                        buffered_update.doc_upto
+                    } else {
+                        i32::MAX
+                    };
+
+                    let (long_value, binary_value) = if !buffered_update.has_value {
+                        (-1, None)
+                    } else {
+                        (buffered_update.numeric_value, buffered_update.get_binary_value())
+                    };
+
+                    if dv_updates.is_none() {
+                        let max_doc = reader.max_doc()?;
+                        let field = update_field.clone();
+                        let v = if is_numeric {
+                            if value.has_single_value() {
+                                let sub = SingleValueNumericDocValuesFieldUpdates::new(
+                                    value.get_numeric_value(0),
+                                );
+                                let sub_type = sub.sub_type();
+                                let sub = SingleValueDocValuesFieldUpdates::new(
+                                    sub, max_doc, del_gen, sub_type,
+                                )?;
+                                let sub_type = sub.sub_type();
+                                DocValuesFieldUpdatesEnum::SingleValue(DocValuesFieldUpdates::new(
+                                    max_doc, del_gen, field, sub_type, sub,
+                                )?)
+                            } else {
+                                let sub = NumericDocValuesFieldUpdates::with_range(
+                                    value.get_min_numeric(),
+                                    value.get_max_numeric(),
+                                )?;
+                                let sub_type = sub.sub_type();
+                                DocValuesFieldUpdatesEnum::Numeric(DocValuesFieldUpdates::new(
+                                    max_doc, del_gen, field, sub_type, sub,
+                                )?)
+                            }
+                        } else {
+                            let sub = BinaryDocValuesFieldUpdates::new()?;
+                            let sub_type = sub.sub_type();
+                            DocValuesFieldUpdatesEnum::Binary(DocValuesFieldUpdates::new(
+                                max_doc, del_gen, field, sub_type, sub,
+                            )?)
+                        };
+                        resolved_updates.push(v);
+                        dv_updates = Some(resolved_updates.len() - 1);
+                    }
+
+                    let update = resolved_updates.get_mut(dv_updates.unwrap()).unwrap();
+                    let mut doc_id_consumer = IntConsumerImpl::new(update, buffered_update.has_value, long_value, binary_value,is_numeric);
+                    if seg_state.rld.sort_map.is_some() && segment_private_deletes {
+                        // This segment was sorted on flush; we must apply seg-private deletes carefully in this
+                        // case:
+                        let sort_map = seg_state.rld.sort_map.as_ref().unwrap();
+                        loop {
+                            let doc = doc_id_set_iterator.next_doc()?;
+                            if doc == NO_MORE_DOCS {
+                                break;
+                            }
+                            if accept_docs.as_ref().is_none_or(|bits| bits.get(doc)) {
+                                // The limit is in the pre-sorted doc space:
+                                if sort_map.new_to_old(doc) < limit {
+                                    doc_id_consumer.accept(doc)?;
+                                    update_count += 1;
+                                }
+                            }
+                        }
+                    } else {
+                        loop {
+                            let doc = doc_id_set_iterator.next_doc()?;
+                            if doc == NO_MORE_DOCS {
+                                break;
+                            }
+                            if doc >= limit {
+                                break;// no more docs that can be updated for this term
+                            }
+                            if accept_docs.as_ref().is_none_or(|bits| bits.get(doc)) {
+                                doc_id_consumer.accept(doc)?;
+                                update_count += 1;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // now freeze & publish:
+        for mut upd in resolved_updates {
+            if upd.any() {
+                upd.finish()?;
+                seg_state.rld.add_dv_update(upd)?;
+            }
+        }
+
+        Ok(update_count)
+    }
+    fn apply_term_deletes<D>(
+        &self,
+        seg_states: &[SegmentState<D>],
+        mut infos: HashMap<String, SegmentCommitInfo<D>>,
+    ) -> Result<i64>
+    where
+        D: Directory,
+    {
+        if self.delete_terms.size() == 0 {
+            return Ok(0);
+        }
+
+        debug_assert!(self.private_segment.is_none());
+
+        let start = Instant::now();
+        let mut del_count: i64 = 0;
+
+        for seg_state in seg_states {
+            debug_assert!(
+                seg_state.del_gen != self.del_gen(),
+                "segState.delGen={} vs this.gen={}",
+                seg_state.del_gen,
+                self.del_gen()
+            );
+            if seg_state.del_gen > self.del_gen() {
+                continue;
+            }
+
+            if seg_state.rld.ref_count() == 1 {
+                continue;
+            }
+
+            let mut iter = self.delete_terms.iterator();
+            let inner = seg_state.rld.inner.lock();
+            let mut term_docs_iter = TermDocsIterator::new(
+                TermsProviderImpl2::new(inner.reader.as_ref().unwrap()),
+                true,
+            );
+            let field = std::mem::take(&mut iter.field);
+            while let Some(del_term) = iter.next()? {
+                if let Some(it) = term_docs_iter.next_term(&field, &del_term)? {
+                    loop {
+                        let doc_id = it.next_doc()?;
+                        if doc_id == NO_MORE_DOCS {
+                            break;
+                        }
+                        let info = infos.get_mut(&seg_state.rld.get_info_id(None));
+                        debug_assert!(info.is_some());
+                        if seg_state.rld.delete(doc_id, info.unwrap())? {
+                            del_count += 1;
+                        }
+                    }
+                }
+            }
+        }
+
+        if self.info_stream.enabled("BD") {
+            let elapsed_ms = start.elapsed().as_secs_f64() * 1_000.0;
+            self.info_stream.message(
+                "BD",
+                &format!(
+                    "applyTermDeletes took {:.2} msec for {} segments and {} del terms; {} new deletions",
+                    elapsed_ms,
+                    seg_states.len(),
+                    self.delete_terms.size(),
+                    del_count
+                ),
+            );
+        }
+
+        Ok(del_count)
     }
     pub fn set_del_gen(&mut self, del_gen: i64) {
         debug_assert!(
@@ -240,8 +564,7 @@ where
     provider: P,
     field: Option<String>,
     terms_enum: Option<<<P as TermsProvider>::Terms as Terms>::TermsEnum>,
-    postings_enum:
-        Option<<<<P as TermsProvider>::Terms as Terms>::TermsEnum as TermsEnum>::PostingsEnum>,
+    postings_enum: Option<DISI<P>>,
     sorted_terms: bool,
     // TODO: we should avoid copy here
     reader_term: Option<BytesRef<Vec<u8>>>,
@@ -290,9 +613,7 @@ where
         &mut self,
         field: &str,
         term: &BytesRef<Vec<u8>>,
-    ) -> Result<
-        Option<&mut <<<P as TermsProvider>::Terms as Terms>::TermsEnum as TermsEnum>::PostingsEnum>,
-    > {
+    ) -> Result<Option<&mut DISI<P>>> {
         self.set_field(Some(field.to_string()))?;
 
         if let Some(terms_enum) = self.terms_enum.as_mut() {
@@ -347,10 +668,7 @@ where
         }
         *last_term = Some(BytesRef::deep_copy_of(term));
     }
-    fn get_docs(
-        &mut self,
-    ) -> Result<&mut <<<P as TermsProvider>::Terms as Terms>::TermsEnum as TermsEnum>::PostingsEnum>
-    {
+    fn get_docs(&mut self) -> Result<&mut DISI<P>> {
         debug_assert!(self.terms_enum.is_some());
 
         let terms_enum = self.terms_enum.as_mut().unwrap();
@@ -360,6 +678,7 @@ where
         Ok(self.postings_enum.as_mut().unwrap())
     }
 }
+type DISI<P> = <<<P as TermsProvider>::Terms as Terms>::TermsEnum as TermsEnum>::PostingsEnum;
 
 pub(crate) trait TermsProvider {
     type Terms: Terms;
@@ -372,12 +691,15 @@ where
 {
     pub(crate) fields: &'a F,
 }
-impl<'a, F> TermsProviderImpl1<'a, F> where F: Fields {
+impl<'a, F> TermsProviderImpl1<'a, F>
+where
+    F: Fields,
+{
     pub(crate) fn new(fields: &'a F) -> Self {
         Self { fields }
     }
 }
-impl<F> TermsProvider for TermsProviderImpl1<'_,F>
+impl<F> TermsProvider for TermsProviderImpl1<'_, F>
 where
     F: Fields,
 {
@@ -385,5 +707,55 @@ where
 
     fn terms(&mut self, field: &str) -> Result<Option<Self::Terms>> {
         self.fields.terms(field)
+    }
+}
+
+struct TermsProviderImpl2<'a, L>
+where
+    L: LeafReader,
+{
+    reader: &'a L,
+}
+impl<'a, L> TermsProviderImpl2<'a, L>
+where
+    L: LeafReader,
+{
+    pub(crate) fn new(reader: &'a L) -> Self {
+        Self { reader }
+    }
+}
+impl<'a, L> TermsProvider for TermsProviderImpl2<'a, L>
+where
+    L: LeafReader,
+{
+    type Terms = L::Terms;
+
+    fn terms(&mut self, field: &str) -> Result<Option<Self::Terms>> {
+        self.reader.terms(field)
+    }
+}
+
+struct IntConsumerImpl<'a>{
+    update: &'a mut DocValuesFieldUpdatesEnum,
+    long_value: i64,
+    binary_value: Option<&'a BytesRef<Vec<u8>>>,
+    has_value: bool,
+    is_numeric: bool,
+}
+impl<'a> IntConsumerImpl<'a> {
+    fn new(update: &'a mut DocValuesFieldUpdatesEnum, has_value: bool, long_value: i64, binary_value: Option<&'a BytesRef<Vec<u8>>>, is_numeric:bool) -> Self {
+        Self { update, has_value, long_value, binary_value,is_numeric }
+    }
+}
+impl<'a> IntConsumer for IntConsumerImpl<'a> {
+    fn accept(&mut self, doc: i32) ->Result<()>{
+        if !self.has_value {
+            self.update.reset(doc)?;
+        } else if self.is_numeric {
+            self.update.add_value(doc, self.long_value)?;
+        } else {
+            self.update.add_binary_value(doc, self.binary_value.as_ref().unwrap())?;
+        }
+        Ok(())
     }
 }

@@ -45,7 +45,7 @@ pub(crate) struct BinaryDocValuesFieldUpdates {
     lengths_iter: Option<Rc<AbstractPagedMutable<PagedGrowableWriter>>>,
 }
 impl BinaryDocValuesFieldUpdates {
-    fn new() -> Result<BinaryDocValuesFieldUpdates> {
+    pub(crate) fn new() -> Result<BinaryDocValuesFieldUpdates> {
         let sub_reader1 = PagedGrowableWriter::with_fill_page(1, PackedInts::FAST);
         let offsets = AbstractPagedMutable::new(1, PAGE_SIZE, sub_reader1)?;
         let sub_reader2 = PagedGrowableWriter::with_fill_page(1, PackedInts::FAST);
