@@ -537,7 +537,11 @@ where
                             notifications.delete_unused_files(&files);
                         }
                         if result.is_err() {
-                            notifications.flush_failed(flushing_dwpt.get_segment_info())
+                            let dir = flushing_dwpt.segment_info.dir.clone();
+                            notifications.flush_failed(std::mem::replace(
+                                &mut flushing_dwpt.segment_info,
+                                SegmentInfo::dummy(dir),
+                            ))
                         }
                         result
                     },
@@ -780,7 +784,7 @@ pub(crate) trait FlushNotifications {
         I: IntoIterator<Item = &'a String>;
 
     /// Called when a segment failed to flush.
-    fn flush_failed<D>(&self, info: &SegmentInfo<D>)
+    fn flush_failed<D>(&self, info: SegmentInfo<D>)
     where
         D: Directory;
 

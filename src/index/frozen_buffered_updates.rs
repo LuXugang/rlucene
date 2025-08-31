@@ -53,6 +53,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::hash::Hash;
+use std::sync::atomic::AtomicI64;
 use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
@@ -82,7 +83,7 @@ pub(crate) struct FrozenBufferedUpdates {
     pub(crate) apply_lock: ReentrantMutex<()>,
     field_updates: HashMap<String, FieldUpdatesBuffer>,
     /// How many total documents were deleted/updated.
-    pub(crate) total_del_count: i64,
+    pub(crate) total_del_count: AtomicI64,
     field_updates_count: i32,
     pub(crate) bytes_used: i32,
     // assigned by BufferedUpdatesStream once pushed
@@ -161,7 +162,7 @@ impl FrozenBufferedUpdates {
             applied: AtomicBool::new(false),
             apply_lock: ReentrantMutex::new(()),
             field_updates,
-            total_del_count: 0,
+            total_del_count: AtomicI64::new(0),
             bytes_used,
             field_updates_count,
             del_gen: 0,
@@ -187,7 +188,7 @@ impl FrozenBufferedUpdates {
     /// Applies pending delete-by-term, delete-by-query and doc values updates to all segments in the index,
     /// Returning the number of new deleted or updated documents.
     pub(crate) fn apply<D>(
-        &mut self,
+        &self,
         seg_states: &[SegmentState<D>],
         infos: HashMap<String, SegmentCommitInfo<D>>,
     ) -> Result<i64>
@@ -222,14 +223,14 @@ impl FrozenBufferedUpdates {
             );
         }
 
-        self.total_del_count += self.apply_term_deletes(seg_states, infos)?;
+        let mut count = self.apply_term_deletes(seg_states, infos)?;
         // totalDelCount += applyQueryDeletes(segStates);
-        self.total_del_count += self.apply_doc_values_updates_all(seg_states)?;
-
-        Ok(self.total_del_count)
+        count += self.apply_doc_values_updates_all(seg_states)?;
+        self.total_del_count.store(count, Ordering::Relaxed);
+        Ok(count)
     }
     pub(crate) fn apply_doc_values_updates_all<D>(
-        &mut self,
+        &self,
         seg_states: &[SegmentState<D>],
     ) -> Result<i64>
     where
@@ -782,5 +783,10 @@ impl<'a> IntConsumer for IntConsumerImpl<'a> {
                 .add_binary_value(doc, self.binary_value.as_ref().unwrap())?;
         }
         Ok(())
+    }
+}
+impl AsRef<FrozenBufferedUpdates> for FrozenBufferedUpdates {
+    fn as_ref(&self) -> &FrozenBufferedUpdates {
+        self
     }
 }

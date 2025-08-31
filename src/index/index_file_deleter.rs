@@ -251,7 +251,7 @@ where
         }
         index_file_deleter
             .file_deleter
-            .delete_files_if_no_ref(unrefed)?;
+            .delete_files_if_no_ref(&unrefed)?;
         // Finally, give policy a chance to remove things on
         // startup:
         index_file_deleter
@@ -374,7 +374,7 @@ where
             }
         }
 
-        self.file_deleter.delete_files_if_no_ref(to_delete)
+        self.file_deleter.delete_files_if_no_ref(&to_delete)
     }
     pub fn close(&mut self) -> Result<()> {
         if !self.last_files.is_empty() {
@@ -490,7 +490,10 @@ where
         self.file_deleter.exists(file_name)
     }
     /// Deletes the specified files, but only if they are new (have not yet been incref'd)
-    pub(crate) fn delete_new_files(&self, files: impl IntoIterator<Item = String>) -> Result<()> {
+    pub(crate) fn delete_new_files<'a>(
+        &self,
+        files: impl IntoIterator<Item = &'a String>,
+    ) -> Result<()> {
         self.file_deleter.delete_files_if_no_ref(files)
     }
 }

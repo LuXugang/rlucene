@@ -164,7 +164,7 @@ impl BufferedUpdatesStream {
     fn wait_apply<D, L>(
         &self,
         wait_for: HashSet<FrozenBufferedUpdates>,
-        writer: &mut IndexWriter<D, L>,
+        writer: &IndexWriter<D, L>,
     ) -> Result<()>
     where
         D: Directory,
@@ -190,16 +190,16 @@ impl BufferedUpdatesStream {
 
         let mut pending = Vec::new();
         let mut total_del_count: i64 = 0;
-        for mut packet in wait_for {
+        for packet in wait_for {
             // Frozen packets are now resolved, concurrently, by the indexing threads that
             // create them, by adding a DocumentsWriter.ResolveUpdatesEvent to the events queue,
             // but if we get here and the packet is not yet resolved, we resolve it now ourselves:
-            if !writer.try_apply(&mut packet)? {
-                total_del_count += packet.total_del_count;
+            if !writer.try_apply(&packet)? {
+                total_del_count += packet.total_del_count.load(Ordering::SeqCst);
                 // if somebody else is currently applying it - move on to the next one and force apply below
                 pending.push(packet);
             } else {
-                total_del_count += packet.total_del_count;
+                total_del_count += packet.total_del_count.load(Ordering::SeqCst);
             }
         }
         for mut packet in pending {

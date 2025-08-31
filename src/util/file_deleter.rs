@@ -86,7 +86,7 @@ where
                 to_delete.push(file_name)
             }
         }
-        self.delete_files(to_delete)
+        self.delete_files(&to_delete)
     }
     /// Returns true if the file should be deleted
     fn dec_ref_single(&mut self, file_name: &str) -> bool {
@@ -156,9 +156,9 @@ where
         unrefed
     }
     /// delete only files that are unref'ed
-    pub fn delete_files_if_no_ref<I>(&self, files: I) -> Result<()>
+    pub fn delete_files_if_no_ref<'a, I>(&self, files: I) -> Result<()>
     where
-        I: IntoIterator<Item = String>,
+        I: IntoIterator<Item = &'a String>,
     {
         let mut to_delete = HashSet::new();
 
@@ -169,7 +169,7 @@ where
             // of unref'd files, and then you add new docs / do
             // merging, and it reuses that segment name.
             // TestCrash.testCrashAfterReopen can hit this:
-            if !self.exists(&file_name) {
+            if !self.exists(file_name) {
                 if let Some(messenger) = &self.messenger {
                     messenger.accept(
                         MsgType::File,
@@ -201,8 +201,8 @@ where
         Ok(())
     }
 
-    pub fn delete_files(&self, file_names: impl IntoIterator<Item = String>) -> Result<()> {
-        let files: Vec<String> = file_names.into_iter().collect();
+    pub fn delete_files<'a>(&self, file_names: impl IntoIterator<Item = &'a String>) -> Result<()> {
+        let files: Vec<&'a String> = file_names.into_iter().collect();
 
         if let Some(messenger) = &self.messenger {
             messenger.accept(

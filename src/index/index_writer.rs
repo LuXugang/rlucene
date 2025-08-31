@@ -104,6 +104,9 @@ where
             Ok(())
         }
     }
+    fn on_tragic_event(&self, _tragedy: &LuceneError, _location: &str) -> Result<()> {
+        todo!()
+    }
 
     pub fn get_tragic_exception(&self) -> TragicException {
         self.tragedy.clone()
@@ -111,10 +114,37 @@ where
     pub(crate) fn is_deleter_closed(&self) -> Result<bool> {
         self.deleter.is_closed(self)
     }
-    pub(crate) fn try_apply(&mut self, _updates: &mut FrozenBufferedUpdates) -> Result<bool> {
+
+    fn delete_new_files<'a, I>(&self, files: I) -> Result<()>
+    where
+        I: IntoIterator<Item = &'a String>,
+    {
+        self.deleter.delete_new_files(files)
+    }
+
+    fn flush_failed(&self, info: &SegmentInfo<D>) -> Result<()> {
+        match info.files() {
+            Ok(files) => self.deleter.delete_new_files(files.iter())?,
+            Err(_) => { // no-op},
+            },
+        }
+        Ok(())
+    }
+
+    fn publish_flushed_segments(&self, _forced: bool) -> Result<()> {
         todo!()
     }
-    pub(crate) fn force_apply(&mut self, _updates: &mut FrozenBufferedUpdates) -> Result<bool> {
+
+    pub(crate) fn try_apply<U>(&self, _updates: U) -> Result<bool>
+    where
+        U: AsRef<FrozenBufferedUpdates>,
+    {
+        todo!()
+    }
+    pub(crate) fn force_apply<U>(&self, _updates: U) -> Result<bool>
+    where
+        U: AsRef<FrozenBufferedUpdates>,
+    {
         todo!()
     }
 }
@@ -137,7 +167,7 @@ impl FlushNotifications for FlushNotificationsImpl {
         todo!()
     }
 
-    fn flush_failed<D>(&self, _info: &SegmentInfo<D>)
+    fn flush_failed<D>(&self, _info: SegmentInfo<D>)
     where
         D: Directory,
     {
@@ -299,14 +329,154 @@ where
 /// Events are executed concurrently and no order is guaranteed. Each event should only rely on
 /// the serializability within its `process` method. All actions that must happen before or after
 /// a certain action must be encoded inside the [`process(IndexWriter)`](Self::process) method.
-trait Event {
+trait Event<D>
+where
+    D: Directory,
+{
     /// Processes the event. This method is called by the [`IndexWriter`] passed as the first argument.
     ///
     /// # Arguments
     ///
     /// * `writer` — the [`IndexWriter`] that executes the event.
-    fn process<D, L>(&self, writer: &IndexWriter<D, L>) -> Result<()>
+    fn process<L>(&mut self, writer: &IndexWriter<D, L>) -> Result<()>
     where
-        D: Directory,
         L: LiveIndexWriterConfig;
+}
+struct EventImpl1 {
+    files: HashSet<String>,
+}
+impl EventImpl1 {
+    pub fn new(files: HashSet<String>) -> Self {
+        Self { files }
+    }
+}
+impl<D> Event<D> for EventImpl1
+where
+    D: Directory,
+{
+    fn process<L>(&mut self, writer: &IndexWriter<D, L>) -> Result<()>
+    where
+        L: LiveIndexWriterConfig,
+    {
+        writer.delete_new_files(&self.files)
+    }
+}
+
+struct EventImpl2<D>
+where
+    D: Directory,
+{
+    info: SegmentInfo<D>,
+}
+impl<D> EventImpl2<D>
+where
+    D: Directory,
+{
+    pub fn new(info: SegmentInfo<D>) -> Self {
+        Self { info }
+    }
+}
+impl<D> Event<D> for EventImpl2<D>
+where
+    D: Directory,
+{
+    fn process<L>(&mut self, writer: &IndexWriter<D, L>) -> Result<()>
+    where
+        L: LiveIndexWriterConfig,
+    {
+        writer.flush_failed(&self.info)
+    }
+}
+
+struct EventImpl3;
+impl<D> Event<D> for EventImpl3
+where
+    D: Directory,
+{
+    fn process<L>(&mut self, writer: &IndexWriter<D, L>) -> Result<()>
+    where
+        L: LiveIndexWriterConfig,
+    {
+        let result = writer.publish_flushed_segments(true);
+        writer.flush_count.fetch_add(1, Ordering::SeqCst);
+        result
+    }
+}
+struct EventImpl4;
+impl<D> Event<D> for EventImpl4
+where
+    D: Directory,
+{
+    fn process<L>(&mut self, writer: &IndexWriter<D, L>) -> Result<()>
+    where
+        L: LiveIndexWriterConfig,
+    {
+        writer.publish_flushed_segments(true)
+    }
+}
+struct EventImpl5 {
+    packet: FrozenBufferedUpdates,
+}
+impl EventImpl5 {
+    pub fn new(packet: FrozenBufferedUpdates) -> Self {
+        Self { packet }
+    }
+}
+impl<D> Event<D> for EventImpl5
+where
+    D: Directory,
+{
+    fn process<L>(&mut self, writer: &IndexWriter<D, L>) -> Result<()>
+    where
+        L: LiveIndexWriterConfig,
+    {
+        // we call tryApply here since we don't want to block if a refresh or a flush is already
+        // applying the
+        // packet. The flush will retry this packet anyway to ensure all of them are applied
+        match writer.try_apply(&self.packet) {
+            Ok(_) => {
+                writer.flush_deletes_count.fetch_add(1, Ordering::SeqCst);
+                Ok(())
+            },
+            Err(e) => {
+                match writer.on_tragic_event(&e, "applyUpdatesPacket") {
+                    Ok(_) => Err(e),
+                    Err(err) => {
+                        // TODO 这里没有将e跟err 合并成一个合理的Error
+                        Err(LuceneError::illegal_state(format!(
+                            "{err} + supper error:{{e}}"
+                        )))
+                    },
+                }
+            },
+        }
+    }
+}
+
+enum EventEnum<D>
+where
+    D: Directory,
+{
+    A(EventImpl1),
+    B(EventImpl2<D>),
+    C(EventImpl3),
+    D(EventImpl4),
+    E(EventImpl5),
+}
+impl<D> Event<D> for EventEnum<D>
+where
+    D: Directory,
+{
+    fn process<L>(&mut self, writer: &IndexWriter<D, L>) -> Result<()>
+    where
+        L: LiveIndexWriterConfig,
+    {
+        match self {
+            EventEnum::A(e) => e.process(writer),
+            EventEnum::B(e) => e.process(writer),
+            EventEnum::C(e) => e.process(writer),
+            EventEnum::D(e) => e.process(writer),
+            EventEnum::E(e) => e.process(writer),
+        }
+    }
 }

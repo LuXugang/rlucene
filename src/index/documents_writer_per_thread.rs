@@ -69,7 +69,7 @@ where
     pub(crate) directory: Arc<TrackingDirectoryWrapper<LockValidatingDirectoryWrapper<D>>>,
     indexing_chain: IndexingChain<TrackingDirectoryWrapper<LockValidatingDirectoryWrapper<D>>>,
     pending_updates: MTBufferedUpdates,
-    segment_info: SegmentInfo<D>,
+    pub(crate) segment_info: SegmentInfo<D>,
     pub(crate) aborted: Arc<AtomicBool>,
     pub(crate) flush_pending: Arc<OnceLock<bool>>,
     last_committed_bytes_used: AtomicI64,
