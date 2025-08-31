@@ -38,6 +38,7 @@ use crate::index::field_info::FieldInfo;
 use crate::index::field_infos::{FieldInfos, FieldNumbers};
 use crate::index::index_reader::IndexReader;
 use crate::index::leaf_reader::LeafReader;
+use crate::index::merge_policy::MergePolicy;
 use crate::index::numeric_doc_values::NumericDocValues;
 use crate::index::pending_deletes::{DocBits, PendingDeletesBase, PendingDeletesEnum};
 use crate::index::segment_commit_info::SegmentCommitInfo;
@@ -775,6 +776,12 @@ where
         inner
             .pending_deletes
             .is_fully_deleted(&IOSupplierImpl::new(self, info))
+    }
+    pub(crate) fn keep_fully_deleted_segment(
+        &self,
+        _merge_policy: &impl MergePolicy,
+    ) -> Result<bool> {
+        todo!()
     }
 }
 impl<D> Display for ReadersAndUpdates<D>

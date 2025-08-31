@@ -139,7 +139,7 @@ where
     /// `true` if any files were written by this release call.
     pub(crate) fn release(
         &self,
-        rld: ReadersAndUpdates<D>,
+        rld: &ReadersAndUpdates<D>,
         _assert_info_live: bool,
         info: &mut SegmentCommitInfo<D>,
     ) -> Result<bool> {

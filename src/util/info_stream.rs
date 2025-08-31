@@ -39,7 +39,7 @@ static DEFAULT_INFO_STREAM: Lazy<Arc<InfoStreamEnum>> =
     Lazy::new(|| Arc::new(InfoStreamEnum::NoOutput(NoOutput)));
 
 /// Instance of InfoStream that does no logging at all.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct NoOutput;
 
 impl InfoStream for NoOutput {
@@ -71,6 +71,12 @@ pub fn set_default(_info_stream: InfoStreamEnum) {
 #[derive(Clone, Debug)]
 pub enum InfoStreamEnum {
     NoOutput(NoOutput),
+}
+// for std::mem::take
+impl Default for InfoStreamEnum {
+    fn default() -> Self {
+        InfoStreamEnum::NoOutput(NoOutput)
+    }
 }
 impl InfoStream for InfoStreamEnum {
     fn message(&self, component: &str, message: &str) {

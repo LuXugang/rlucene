@@ -164,7 +164,7 @@ pub(crate) struct FlushTicket<D>
 where
     D: Directory,
 {
-    frozen_updates: FrozenBufferedUpdates,
+    frozen_updates: Option<FrozenBufferedUpdates>,
     has_segment: bool,
     segment: Option<FlushedSegment<D>>,
     failed: bool,
@@ -175,7 +175,7 @@ impl<D> FlushTicket<D>
 where
     D: Directory,
 {
-    pub(crate) fn new(frozen_updates: FrozenBufferedUpdates, has_segment: bool) -> Self {
+    pub(crate) fn new(frozen_updates: Option<FrozenBufferedUpdates>, has_segment: bool) -> Self {
         FlushTicket {
             frozen_updates,
             has_segment,
@@ -209,11 +209,14 @@ where
     }
     /// Returns the flushed segment, or `None` if this flush ticket doesn’t have a segment.
     /// This can occur when the ticket represents a flushed global frozen updates package.
-    pub(crate) fn get_flushed_segment(&self) -> Option<&FlushedSegment<D>> {
-        self.segment.as_ref()
+    pub(crate) fn get_flushed_segment(&mut self) -> Option<&mut FlushedSegment<D>> {
+        self.segment.as_mut()
     }
     /// Returns a frozen global deletes package.
     pub(crate) fn get_frozen_updates(&self) -> &FrozenBufferedUpdates {
-        &self.frozen_updates
+        self.frozen_updates.as_ref().unwrap()
+    }
+    pub(crate) fn take_frozen_updates(&mut self) -> Option<FrozenBufferedUpdates> {
+        self.frozen_updates.take()
     }
 }

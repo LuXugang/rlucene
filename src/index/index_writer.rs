@@ -35,7 +35,6 @@ where
     L: LiveIndexWriterConfig,
 {
     enable_test_points: bool,
-
     // when unrecoverable disaster strikes, we populate this with the reason that we had to close
     // IndexWriter
     tragedy: TragicException,
@@ -53,9 +52,9 @@ where
     pending_seq_no: AtomicI64,
     pending_commit_change_count: AtomicI64,
     files_to_commit: Vec<String>,
-    segment_infos: SegmentInfos<D>,
     global_field_number_map: Arc<FieldNumbers>,
     doc_writer: DocumentsWriter<D, L, FlushNotificationsImpl>,
+    event_queue: Arc<EventQueue>,
     write_doc_values_lock: ReentrantMutex<()>,
     deleter: IndexFileDeleter<D, L::IndexDeletionPolicy>,
     // used by forceMerge to note those needing merging
@@ -81,6 +80,14 @@ where
     start_commit_time: i64,
     pending_num_docs: AtomicI64,
     soft_deletes_enabled: bool,
+    info_stream: InfoStreamMT,
+    inner: Mutex<Inner<D>>,
+}
+pub struct Inner<D>
+where
+    D: Directory,
+{
+    segment_infos: SegmentInfos<D>,
 }
 
 impl<D, L> IndexWriter<D, L>
@@ -88,6 +95,47 @@ where
     D: Directory,
     L: LiveIndexWriterConfig,
 {
+    /// Drops a segment that has 100% deleted documents.
+    pub(crate) fn drop_deleted_segment(&self, _info: &SegmentCommitInfo<D>) -> Result<()> {
+        todo!()
+    }
+
+    /// Checkpoints with IndexFileDeleter, so it's aware of new files, and increments changeCount,
+    /// so on close/commit we will write a new segments file, but does NOT bump segmentInfos.version.
+    fn check_point_no_sis(&mut self) -> Result<()> {
+        let inner = self.inner.lock();
+        self.change_count.fetch_add(1, Ordering::SeqCst);
+        self.deleter.checkpoint(&inner.segment_infos, false)?;
+        Ok(())
+    }
+
+    /// Called internally if any index state has changed.
+    fn changed(&self) {
+        let mut inner = self.inner.lock();
+        self.change_count.fetch_add(1, Ordering::SeqCst);
+        inner.segment_infos.changed();
+    }
+    fn publish_frozen_updates(&self, packet: FrozenBufferedUpdates) -> Result<i64> {
+        debug_assert!(packet.any());
+        let (next_gen, packet) = self.buffered_updates_stream.push(packet);
+        // Do this as an event so it applies higher in the stack when we are not holding
+        // DocumentsWriterFlushQueue.purgeLock:
+        let event: EventEnum<D> = EventEnum::E(EventImpl5::new(packet));
+        self.event_queue.add(event)?;
+        Ok(next_gen)
+    }
+    /// Atomically adds the segment private delete packet and publishes the flushed segments SegmentInfo to the index writer.
+    fn publish_flushed_segment(
+        &self,
+        new_segment: SegmentCommitInfo<D>,
+        field_infos: Rc<FieldInfos>,
+        packet: FrozenBufferedUpdates,
+        global_packet: Option<FrozenBufferedUpdates>,
+        sort_map: Option<Rc<DocMapImpl>>,
+    ) -> Result<()> {
+        todo!()
+    }
+
     pub fn set_live_commit_data(&self) {}
 
     pub fn ensure_open(&self, fail_if_closing: bool) -> Result<()> {
@@ -131,16 +179,113 @@ where
         Ok(())
     }
 
-    fn publish_flushed_segments(&self, _forced: bool) -> Result<()> {
+    fn publish_flushed_segments(&self, forced: bool) -> Result<()> {
+        let c = |mut ticket: FlushTicket<D>, writer: &IndexWriter<D, L>| {
+            let buffered_updates = ticket.take_frozen_updates();
+            ticket.mark_published();
+            let new_segment = ticket.get_flushed_segment();
+            match new_segment {
+                // this is a flushed global deletes package - not a segments
+                None => {
+                    if let Some(buffered_updates) = buffered_updates
+                        && buffered_updates.any()
+                    {
+                        if writer.info_stream.enabled("IW") {
+                            self.info_stream.message(
+                                "IW",
+                                &format!("flush: push buffered updates: {buffered_updates:?}"),
+                            );
+                        }
+                        writer.publish_frozen_updates(buffered_updates)?;
+                    }
+                },
+                Some(seg) => {
+                    if self.info_stream.enabled("IW") {
+                        self.info_stream.message(
+                            "IW",
+                            &format!(
+                                "publishFlushedSegment seg-private updates={:?}",
+                                seg.segment_updates
+                            ),
+                        );
+                    }
+                    if seg.segment_updates.is_some() && self.info_stream.enabled("DW") {
+                        self.info_stream.message(
+                            "IW",
+                            &format!(
+                                "flush: push buffered seg private updates: {:?}",
+                                seg.segment_updates
+                            ),
+                        );
+                    }
+                    self.publish_flushed_segment(
+                        seg.segment_info.take().unwrap(),
+                        seg.field_infos.clone(),
+                        seg.segment_updates.take().unwrap(),
+                        buffered_updates,
+                        seg.sort_map.take(),
+                    )?;
+                },
+            }
+            Ok(())
+        };
+        self.doc_writer.purge_flush_tickets(forced, self, c)?;
+        Ok(())
+    }
+    fn adjust_pending_num_docs(&self, num_docs: i64) -> i64 {
+        let count = self.pending_num_docs.fetch_add(num_docs, Ordering::AcqRel) + num_docs;
+        debug_assert!(count >= 0, "pendingNumDocs is negative: {}", count);
+        count
+    }
+
+    fn is_fully_deleted(
+        &self,
+        readers_and_updates: &ReadersAndUpdates<D>,
+        info: &SegmentCommitInfo<D>,
+    ) -> Result<bool> {
+        if readers_and_updates.is_fully_deleted(info)? {
+            debug_assert!(self.inner.is_locked());
+            return Ok(!(readers_and_updates
+                .keep_fully_deleted_segment(self.config.get_merge_policy())?));
+        }
+        Ok(false)
+    }
+
+    fn do_release(&self, readers_and_updates: ReadersAndUpdates<D>, assert_live_info: bool) {
         todo!()
     }
 
-    pub(crate) fn try_apply<U>(&self, _updates: U) -> Result<bool>
+    pub(crate) fn get_pooled_instance(
+        &self,
+        info: &SegmentCommitInfo<D>,
+        create: bool,
+    ) -> Result<Option<Rc<ReadersAndUpdates<D>>>> {
+        self.ensure_open(false)?;
+        let index_created_version_major = self
+            .inner
+            .lock()
+            .segment_infos
+            .get_index_created_version_major();
+        self.reader_pool
+            .get(info, create, index_created_version_major)
+    }
+    /// Translates a frozen packet of delete term/query, or doc values updates, into their actual
+    /// doc IDs in the index, and applies the change. This is a heavy operation and is done concurrently
+    /// by incoming indexing threads. This method will return immediately without blocking if another
+    /// thread is currently applying the package. To ensure the packet has been applied,
+    /// [`IndexWriter::force_apply(FrozenBufferedUpdates)`](Self::force_apply) must be called.
+    pub(crate) fn try_apply<U>(&self, updates: U) -> Result<bool>
     where
         U: AsRef<FrozenBufferedUpdates>,
     {
-        todo!()
+        if updates.as_ref().try_lock() {
+            self.force_apply(updates)?;
+        }
+        Ok(false)
     }
+    /// Translates a frozen packet of delete term/query, or doc values updates, into their actual
+    /// doc IDs in the index, and applies the change.
+    /// This is a heavy operation and is done concurrently by incoming indexing threads.
     pub(crate) fn force_apply<U>(&self, _updates: U) -> Result<bool>
     where
         U: AsRef<FrozenBufferedUpdates>,
@@ -201,10 +346,13 @@ impl LongSupplier for LongSupplierImpl {
 }
 
 use crate::codecs::{Codec, CompoundFormat, LATEST_CODEC};
-use crate::index::field_infos::FieldNumbers;
+use crate::index::documents_writer_flush_queue::FlushTicket;
+use crate::index::field_infos::{FieldInfos, FieldNumbers};
 use crate::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::index::reader_pool::ReaderPool;
+use crate::index::readers_and_updates::ReadersAndUpdates;
 use crate::index::segment_commit_info::SegmentCommitInfo;
+use crate::index::sorter::DocMapImpl;
 use crate::store::IOContext;
 use crate::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
 use crate::store::tracking_directory_wrapper::TrackingDirectoryWrapper;
@@ -325,6 +473,29 @@ where
 
     write_result
 }
+
+struct EventQueue {}
+impl EventQueue {
+    fn acquire(&self) -> Result<()> {
+        todo!()
+    }
+    fn add<D>(&self, event: EventEnum<D>) -> Result<()>
+    where
+        D: Directory,
+    {
+        todo!()
+    }
+    fn process_events(&self) -> Result<()> {
+        todo!()
+    }
+    fn process_events_internal(&self) -> Result<()> {
+        todo!()
+    }
+    fn close(&self) -> Result<()> {
+        todo!()
+    }
+}
+
 /// Interface for internal atomic events. See [`DocumentsWriter`] for details.
 /// Events are executed concurrently and no order is guaranteed. Each event should only rely on
 /// the serializability within its `process` method. All actions that must happen before or after
@@ -415,10 +586,10 @@ where
     }
 }
 struct EventImpl5 {
-    packet: FrozenBufferedUpdates,
+    packet: Rc<FrozenBufferedUpdates>,
 }
 impl EventImpl5 {
-    pub fn new(packet: FrozenBufferedUpdates) -> Self {
+    pub fn new(packet: Rc<FrozenBufferedUpdates>) -> Self {
         Self { packet }
     }
 }

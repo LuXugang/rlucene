@@ -796,7 +796,7 @@ where
     fn get_immutable(&self) -> Result<Option<FlushTicket<D>>> {
         // it's maybeFreezeGlobalBuffer(DocumentsWriterDeleteQueue deleteQueue)'s logic in Java Lucene
         match self.delete_queue.maybe_freeze_global_buffer()? {
-            Some(frozen_updates) => Ok(Some(FlushTicket::new(frozen_updates, false))),
+            Some(frozen_updates) => Ok(Some(FlushTicket::new(Some(frozen_updates), false))),
             _ => Ok(None),
         }
     }
@@ -822,7 +822,7 @@ where
 {
     fn get(&mut self) -> Result<Option<FlushTicket<D>>> {
         let frozen_buffered_updates = self.dwpt.prepare_flush()?;
-        Ok(Some(FlushTicket::new(frozen_buffered_updates, false)))
+        Ok(Some(FlushTicket::new(Some(frozen_buffered_updates), false)))
     }
 }
 

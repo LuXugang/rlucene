@@ -756,7 +756,11 @@ where
         FN: FlushNotifications,
         DM: DocMap,
     {
-        let new_segment = &mut flushed_segment.segment_info;
+        debug_assert!(
+            flushed_segment.segment_info.is_some(),
+            "segment info should be always set, wrap with Option for easier move"
+        );
+        let new_segment = flushed_segment.segment_info.as_mut().unwrap();
 
         set_diagnostics(&mut new_segment.info, SOURCE_FLUSH);
 
@@ -987,11 +991,12 @@ pub(crate) struct FlushedSegment<D>
 where
     D: Directory,
 {
-    segment_info: SegmentCommitInfo<D>,
-    field_infos: Rc<FieldInfos>,
-    segment_updates: Option<FrozenBufferedUpdates>,
+    // wrap with Option for easier move
+    pub(crate) segment_info: Option<SegmentCommitInfo<D>>,
+    pub(crate) field_infos: Rc<FieldInfos>,
+    pub(crate) segment_updates: Option<FrozenBufferedUpdates>,
     live_docs: Option<FixedBitSet>,
-    sort_map: Option<Rc<DocMapImpl>>,
+    pub(crate) sort_map: Option<Rc<DocMapImpl>>,
     del_count: i32,
 }
 impl<D> FlushedSegment<D>
@@ -1017,7 +1022,7 @@ where
         };
 
         Ok(FlushedSegment {
-            segment_info,
+            segment_info: Option::from(segment_info),
             field_infos,
             segment_updates,
             live_docs,
