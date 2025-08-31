@@ -45,7 +45,7 @@ pub(crate) struct BufferedUpdatesStream {
     finished_segments: FinishedSegments,
 }
 pub(crate) struct BufferedUpdatesStreamInner {
-    updates: HashSet<FrozenBufferedUpdates>,
+    updates: HashSet<Rc<FrozenBufferedUpdates>>,
     // Starts at 1 so that SegmentInfos that have never had
     // deletes applied (whose bufferedDelGen defaults to 0)
     // will be correct:
@@ -65,7 +65,10 @@ impl BufferedUpdatesStream {
     }
     // Appends a new packet of buffered deletes to the stream,
     // setting its generation:
-    pub(crate) fn push(&self, mut packet: FrozenBufferedUpdates) -> i64 {
+    pub(crate) fn push(
+        &self,
+        mut packet: FrozenBufferedUpdates,
+    ) -> (i64, Rc<FrozenBufferedUpdates>) {
         // The insert operation must be atomic. If we let threads increment the gen
         // and push the packet afterwards we risk that packets are out of order.
         // With DWPT this is possible if two or more flushes are racing for pushing
@@ -80,7 +83,8 @@ impl BufferedUpdatesStream {
         let bytes_used = packet.bytes_used;
         let del_gen = packet.del_gen();
         let packet_msg = packet.to_string();
-        inner.updates.insert(packet);
+        let v = Rc::new(packet);
+        inner.updates.insert(v.clone());
         self.bytes_used
             .fetch_add(bytes_used as i64, Ordering::SeqCst);
         {
@@ -96,7 +100,7 @@ impl BufferedUpdatesStream {
             }
         }
         debug_assert!(self.check_delete_stats());
-        del_gen
+        (del_gen, v)
     }
     pub(crate) fn get_pending_updates_count(&self) -> usize {
         let inner = self.inner.lock();
@@ -124,8 +128,8 @@ impl BufferedUpdatesStream {
         L: LiveIndexWriterConfig,
     {
         let wait_for = {
-            let mut inner = self.inner.lock();
-            std::mem::take(&mut inner.updates)
+            let inner = self.inner.lock();
+            inner.updates.clone()
         };
         self.wait_apply(wait_for, writer)
     }
@@ -163,7 +167,7 @@ impl BufferedUpdatesStream {
     }
     fn wait_apply<D, L>(
         &self,
-        wait_for: HashSet<FrozenBufferedUpdates>,
+        wait_for: HashSet<Rc<FrozenBufferedUpdates>>,
         writer: &IndexWriter<D, L>,
     ) -> Result<()>
     where
