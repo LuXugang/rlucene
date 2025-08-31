@@ -54,9 +54,9 @@ pub trait Terms {
     /// be accepted by the automaton.
     ///
     /// This is an expert-level, low-level API that only works for
-    /// [`AutomatonType::NORMAL`] compiled automata. To handle any type of
+    /// [`AutomatonType::NORMAL`](crate::util::automation::compiled_automaton::AutomatonType::Normal) compiled automata. To handle any type of
     /// compiled automaton, use
-    /// [`CompiledAutomaton::get_terms_enum`](crate::util::automation::compiled_automaton::CompiledAutomaton::get_terms_enum)
+    /// [`CompiledAutomaton::get_terms_enum`](CompiledAutomaton::get_byte_runnable)
     /// instead.
     ///
     /// **Note**: The returned `TermsEnum` does **not** support seeking.

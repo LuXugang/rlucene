@@ -45,7 +45,7 @@ use derive_getters::Getters;
 /// - `doc_count`: Total number of documents that have at least one term for this field, in the range `[1 .. Max_doc()]`.  
 ///   This value is always positive and never exceeds `max_doc()`. See [`Terms::doc_count()`](crate::index::terms::Terms::get_doc_count).  
 /// - `sum_total_term_freq`: Total number of tokens for this field, in the range `[sum_doc_freq() .. i64::MAX]`.  
-///   This is the “word count” for this field across all documents—the sum of [`TermStatistics::total_term_freq()`](crate::search::term_statistics::TermStatistics::get_total_term_freq) across all terms,  
+///   This is the “word count” for this field across all documents—the sum of [`TermStatistics::total_term_freq()`](crate::search::term_statistics::TermStatistics::get_total_term_freq) across all terms,
 ///   and also the sum of each document’s field length. Always positive and at least `sum_doc_freq()`.  
 ///   See [`Terms::sum_total_term_freq()`](crate::index::terms::Terms::get_sum_total_term_freq).  
 /// - `sum_doc_freq`: Total number of posting-list entries for this field, in the range `[doc_count() .. Sum_total_term_freq()]`.  

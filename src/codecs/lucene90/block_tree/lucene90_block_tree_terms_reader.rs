@@ -54,7 +54,7 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 ///
 /// See [`Lucene90BlockTreeTermsWriter`](crate::codecs::lucene90::block_tree::lucene90_block_tree_terms_writer::Lucene90BlockTreeTermsWriter).
 ///
-/// [`Lucene90BlockTreeTermsWriter`]: crate::codecs::lucene90::writer::Lucene90BlockTreeTermsWriter
+/// [`Lucene90BlockTreeTermsWriter`]: crate::codecs::lucene90::block_tree::lucene90_block_tree_terms_writer::Lucene90BlockTreeTermsWriter
 pub struct Lucene90BlockTreeTermsReader<I, PR>
 where
     I: IndexInput,

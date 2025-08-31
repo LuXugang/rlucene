@@ -17,7 +17,7 @@
 pub mod block_term_state;
 pub mod codec;
 pub mod codec_util;
-mod competitive_impact_accumulator;
+pub mod competitive_impact_accumulator;
 pub mod compound_directory;
 pub mod compound_format;
 pub mod compression;
@@ -50,7 +50,7 @@ pub mod points_reader;
 pub mod points_writer;
 pub mod postings_format;
 pub mod postings_reader_base;
-mod postings_writer_base;
+pub mod postings_writer_base;
 mod push_postings_writer_base;
 pub mod segment_info_format;
 pub mod simple_text_live_docs_format;

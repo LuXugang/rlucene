@@ -24,7 +24,7 @@ use crate::util::StringHelper;
 use crate::util::error::lucene_error::{LuceneError, Result};
 use crate::util::packed::direct_monotonic_writer::DirectMonotonicWriter;
 
-pub(crate) struct FieldsIndexWriter<D>
+pub struct FieldsIndexWriter<D>
 where
     D: Directory,
 {

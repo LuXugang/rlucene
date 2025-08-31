@@ -20,7 +20,7 @@ use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
 use crate::util::bits::Bits;
 use crate::util::error::lucene_error::{LuceneError, Result};
 /// This struct abstracts addressing of document vector values indexed as
-/// [`KnnFloatVectorField`](crate::document::knn_float_vector_field::KnnFloatVectorField) or [`KnnByteVectorField`](crate::document::knn_byte_vector_field::KnnByteVectorField).
+/// [`KnnFloatVectorField`](crate::document::knn_float_vector_field::KnnFloatVectorField) or `KnnByteVectorField`.
 pub trait KnnVectorValues {
     /// Return the dimension of the vectors
     fn dimension(&self) -> i32;

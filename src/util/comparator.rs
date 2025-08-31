@@ -30,7 +30,7 @@ pub trait Comparator<T> {
     /// will always return `Ok(result)`.
     fn compare(&self, a: &T, b: &T) -> Result<i32>;
 
-    /// Unwraps the result of [`compare`] and panics if an error occurs.
+    /// Unwraps the result of `compare` and panics if an error occurs.
     ///
     /// This is a convenience method for use cases where failure is not
     /// expected, which is the common case for most statically defined

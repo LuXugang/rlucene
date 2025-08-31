@@ -589,7 +589,7 @@ where
     }
     /// Get the respective [`DataOutputEnum`]. To call this method, you need
     /// to use the default `DataOutput` or
-    /// [`get_on_heap_reader_writer`](get_on_heap_reader_writer),
+    /// [`get_on_heap_reader_writer`],
     /// otherwise an error will be thrown.
     pub fn get_fst_reader(&mut self) -> Result<DataOutputEnum<D>> {
         let is_fst_reader = match self.data_output {

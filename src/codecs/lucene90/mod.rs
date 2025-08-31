@@ -14,13 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub(crate) mod block_tree;
+pub mod block_tree;
 pub mod compressing;
 pub mod doc_values_enum;
 pub mod dov_values_inner_enum;
 mod fields_index;
 mod fields_index_reader;
-mod fields_index_writer;
+pub mod fields_index_writer;
 pub mod indexed_disi;
 pub mod lucene90_compound_format;
 pub mod lucene90_compound_reader;

@@ -30,7 +30,7 @@ use std::borrow::Cow;
 use std::sync::Arc;
 
 /// Trait that plugs into term dictionaries, such as
-/// [`Lucene90BlockTreeTermsWriter`](crate::codecs::lucene90::lucene90_block_trree_terms_writer::Lucene90BlockTreeTermsWriter),
+/// [`Lucene90BlockTreeTermsWriter`](crate::codecs::lucene90::block_tree::lucene90_block_tree_terms_writer::Lucene90BlockTreeTermsWriter),
 /// and handles writing postings.
 ///
 /// See also:
@@ -49,7 +49,7 @@ pub trait PostingsWriterBase {
     ) -> Result<()>;
 
     /// Write all postings for one term; use the provided [`TermsEnum`] to pull
-    /// a [`PostingsEnum`](PostingsEnum). This
+    /// a [`PostingsEnum`]. This
     /// method should not re-position the `terms_enum`! It is already
     /// positioned on the term that should be written. This method must set the
     /// bit in the provided [`FixedBitSet`] for every docID written. If no

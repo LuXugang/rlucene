@@ -39,7 +39,7 @@ pub mod bits;
 pub mod bkd;
 pub mod bytes_ref_array;
 pub mod bytes_ref_block_pool;
-pub mod bytes_ref_hash;
+pub(crate) mod bytes_ref_hash;
 pub mod clone;
 pub mod close;
 pub mod collection_util;

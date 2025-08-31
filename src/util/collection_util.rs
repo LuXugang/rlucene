@@ -30,7 +30,7 @@ impl CollectionUtil {
         let capacity = ((size as f32) / 0.75f32 + 1f32) as usize;
         HashMap::with_capacity(capacity)
     }
-    /// Sorts the given random access [`List`] using the [`Comparator`].
+    /// Sorts the given random access `List` using the `Comparator`.
     pub fn intro_sort_with_comparator<T, C: Comparator<T>>(list: &mut [T], comp: C) -> Result<()>
     where
         T: Ord,

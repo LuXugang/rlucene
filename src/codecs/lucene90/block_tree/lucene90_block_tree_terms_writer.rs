@@ -206,7 +206,7 @@ use std::sync::Arc;
 ///   in the FST for the block's prefix encodes the leading byte of each
 ///   subblock,and its file pointer.
 ///
-/// See also [`Lucene90BlockTreeTermsReader`](crate::codecs::lucene90::terms_reader::Lucene90BlockTreeTermsReader).
+/// See also [`Lucene90BlockTreeTermsReader`](crate::codecs::lucene90::block_tree::lucene90_block_tree_terms_reader::Lucene90BlockTreeTermsReader).
 pub struct Lucene90BlockTreeTermsWriter<O, PW>
 where
     O: IndexOutput,

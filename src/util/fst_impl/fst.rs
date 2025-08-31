@@ -47,7 +47,7 @@ where
 {
     /// Load a previously saved FST with a DataInput for metadata using an
     /// [`OnHeapFSTStore`] with `maxBlockBits` set to
-    /// [`DEFAULT_MAX_BLOCK_BITS`](DEFAULT_MAX_BLOCK_BITS)
+    /// [`DEFAULT_MAX_BLOCK_BITS`]
     pub fn from_on_heap_store(
         metadata: FSTMetadata<O>,
         input: &mut impl DataInput,
@@ -896,7 +896,7 @@ where
 
     /// Address (into the byte[]) of the next arc - only for list of variable
     /// length arc. Or ord/address to the next node if label ==
-    /// [`END_LABEL`](END_LABEL).
+    /// [`END_LABEL`].
     pub fn next_arc(&self) -> i64 {
         self.next_arc
     }
@@ -907,9 +907,9 @@ where
     }
 
     /// Node header flags. Only meaningful to check if the value is either
-    /// [`ARCS_FOR_BINARY_SEARCH`](ARCS_FOR_BINARY_SEARCH) or
-    /// [`ARCS_FOR_DIRECT_ADDRESSING`](ARCS_FOR_DIRECT_ADDRESSING)
-    /// or [`ARCS_FOR_CONTINUOUS`](ARCS_FOR_CONTINUOUS) (other value
+    /// [`ARCS_FOR_BINARY_SEARCH`] or
+    /// [`ARCS_FOR_DIRECT_ADDRESSING`]
+    /// or [`ARCS_FOR_CONTINUOUS`] (other value
     /// when bytesPerArc == 0).
     pub fn node_flags(&self) -> u8 {
         self.node_flags
@@ -937,8 +937,8 @@ where
     }
 
     /// First label of a direct addressing node. Only valid if nodeFlags ==
-    /// [`ARCS_FOR_DIRECT_ADDRESSING`](ARCS_FOR_DIRECT_ADDRESSING) or
-    /// [`ARCS_FOR_CONTINUOUS`](ARCS_FOR_CONTINUOUS).
+    /// [`ARCS_FOR_DIRECT_ADDRESSING`] or
+    /// [`ARCS_FOR_CONTINUOUS`].
     pub fn first_label(&self) -> i32 {
         self.first_label
     }
@@ -1135,7 +1135,7 @@ impl<O: Outputs> FSTMetadata<O> {
 
     /// Returns the version constant of the binary format this FST was written
     /// in. See the static version constants in `FST` such as
-    /// [`VERSION_CONTINUOUS_ARCS`](VERSION_CONTINUOUS_ARCS).
+    /// [`VERSION_CONTINUOUS_ARCS`].
     pub fn version(&self) -> i32 {
         self.version
     }
@@ -1295,13 +1295,13 @@ pub const ARCS_FOR_BINARY_SEARCH: u8 = BIT_ARC_HAS_FINAL_OUTPUT;
 
 /// Value of the arc flags to declare a node with fixed length dense arcs
 /// and bit table designed for direct addressing.
-pub(crate) const ARCS_FOR_DIRECT_ADDRESSING: u8 = 1 << 6;
+pub const ARCS_FOR_DIRECT_ADDRESSING: u8 = 1 << 6;
 
 ///  Value of the arc flags to declare a node with continuous arcs designed
 /// for pos the arc directly  with labelToPos - firstLabel. like
-/// [`ARCS_FOR_BINARY_SEARCH`](ARCS_FOR_BINARY_SEARCH) we use flag
+/// [`ARCS_FOR_BINARY_SEARCH`] we use flag
 /// combinations  that will not occur at the same time.
-pub(crate) const ARCS_FOR_CONTINUOUS: u8 = ARCS_FOR_DIRECT_ADDRESSING + ARCS_FOR_BINARY_SEARCH;
+pub const ARCS_FOR_CONTINUOUS: u8 = ARCS_FOR_DIRECT_ADDRESSING + ARCS_FOR_BINARY_SEARCH;
 
 /// Format name for the FST file.
 const FILE_FORMAT_NAME: &str = "FST";

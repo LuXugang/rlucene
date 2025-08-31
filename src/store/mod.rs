@@ -49,7 +49,7 @@ pub mod mmap_directory;
 pub mod native_fs_lock_factory;
 pub mod nio_fs_directory;
 pub mod nio_fs_index_input;
-mod nrt_caching_directory;
+pub mod nrt_caching_directory;
 pub mod output_stream_data_output;
 pub mod output_stream_index_output;
 pub mod raf_directory;
