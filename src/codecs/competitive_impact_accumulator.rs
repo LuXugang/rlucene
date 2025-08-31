@@ -31,6 +31,12 @@ pub struct CompetitiveImpactAccumulator {
     pub other_freq_norm_pairs: BTreeSet<Impact>,
 }
 
+impl Default for CompetitiveImpactAccumulator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CompetitiveImpactAccumulator {
     /// Sole constructor.
     pub fn new() -> Self {
