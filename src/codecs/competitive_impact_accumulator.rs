@@ -70,7 +70,6 @@ impl CompetitiveImpactAccumulator {
         debug_assert!(self.assert_consistent());
     }
     /// Replace the content of this with the provided `acc`.
-    #[allow(dead_code)]
     pub fn copy_from(&mut self, acc: &Self) {
         self.max_freqs.copy_from_slice(&acc.max_freqs);
         self.other_freq_norm_pairs = acc.other_freq_norm_pairs.clone();
