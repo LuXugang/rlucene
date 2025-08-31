@@ -21,7 +21,7 @@ use std::thread::{self, ThreadId};
 use std::time::{Duration, Instant};
 
 use parking_lot::{Condvar, Mutex};
-pub struct MergePolicy;
+pub trait MergePolicy {}
 /// Reason for pausing the merge thread.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 

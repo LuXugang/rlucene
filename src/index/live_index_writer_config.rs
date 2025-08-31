@@ -18,6 +18,7 @@ use crate::analysis::analyzer::Analyzer;
 use crate::codecs::Codec;
 use crate::index::flush_policy::FlushPolicy;
 use crate::index::index_deletion_policy::IndexDeletionPolicy;
+use crate::index::merge_policy::MergePolicy;
 use crate::index::sort::Sort;
 use crate::search::similarities::similarities::Similarity;
 use crate::util::info_stream::InfoStreamMT;
@@ -42,6 +43,9 @@ pub trait LiveIndexWriterConfig {
     fn get_info_stream(&self) -> InfoStreamMT;
 
     fn get_parent_field(&self) -> Option<&str>;
+
+    type MergePolicy: MergePolicy;
+    fn get_merge_policy(&self) -> &Self::MergePolicy;
 
     type FlushPolicy: FlushPolicy;
     fn get_flush_policy(&self) -> &Self::FlushPolicy;
