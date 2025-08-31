@@ -209,7 +209,7 @@ where
     // pub fn set_codec(&mut self, codec: Lucene101Codec) -> Result<()> {
     //     if self.codec.is_some() {
     //         return Err(LuceneError::illegal_argument(
-    //             "Codec was already set".to_string(),
+    //             "Codec was already set",
     //         ));
     //     }
     //     self.codec = Some(codec);
@@ -225,9 +225,7 @@ where
     /// into account)
     pub fn max_doc(&self) -> Result<i32> {
         if self.max_doc == -1 {
-            return Err(LuceneError::illegal_argument(
-                "maxDoc isn't set yet".to_string(),
-            ));
+            return Err(LuceneError::illegal_argument("maxDoc isn't set yet"));
         }
         Ok(self.max_doc)
     }

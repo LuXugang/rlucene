@@ -79,7 +79,7 @@ use crate::util::info_stream::InfoStreamMT;
 /// [`DeleteSlice`](crate::index::DeleteSlice)
 /// [`DocumentsWriterPerThread`](crate::index::documents_writer_per_thread::DocumentsWriterPerThread)
 pub(crate) struct DocumentsWriterDeleteQueue {
-    pub inner: Mutex<GlobalState>,
+    pub(crate) inner: Mutex<GlobalState>,
     pub(crate) generation: i64,
     /// Generates the sequence number that IW returns to callers changing the
     /// index, showing the effective serialization of all operations.
@@ -350,7 +350,7 @@ impl DocumentsWriterDeleteQueue {
 
     fn ensure_open(&self, closed: bool) -> Result<()> {
         if closed {
-            return Err(LuceneError::already_closed("already closed.".to_string()));
+            return Err(LuceneError::already_closed("already closed."));
         }
         Ok(())
     }
@@ -870,7 +870,7 @@ mod tests {
     use crate::util::info_stream::get_default_info_stream;
 
     #[allow(dead_code)] // for quick search
-    pub struct TestDocumentsWriterDeleteQueue;
+    struct TestDocumentsWriterDeleteQueue;
 
     #[test]
     fn test_update_delete_slices() -> Result<()> {

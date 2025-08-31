@@ -895,9 +895,9 @@ where
 
         // Add stored fields
         if field_type.stored() {
-            let stored_value = field.stored_value()?.ok_or_else(|| {
-                LuceneError::illegal_argument("Cannot store a null value".to_string())
-            })?;
+            let stored_value = field
+                .stored_value()?
+                .ok_or_else(|| LuceneError::illegal_argument("Cannot store a null value"))?;
             if stored_value.get_type() == StoredValueType::String
                 && stored_value.get_string_value()?.len() > MAX_STORED_STRING_LENGTH as usize
             {
@@ -1418,7 +1418,7 @@ impl PerField {
 
         let mut stream = field
             .token_stream(analyzer, None)?
-            .ok_or_else(|| LuceneError::illegal_state("token_stream is None".to_string()))?;
+            .ok_or_else(|| LuceneError::illegal_state("token_stream is None"))?;
 
         let mut succeeded = false;
         let result = (|| {

@@ -268,7 +268,7 @@ where
             Ok(())
         } else {
             Err(LuceneError::illegal_state(
-                "buffered deletes gen should only be set once".to_string(),
+                "buffered deletes gen should only be set once",
             ))
         }
     }

@@ -1077,7 +1077,7 @@ where
                             self.merging,
                         )?))
                     },
-                    None => Err(LuceneError::illegal_state("ords_entry is None".to_string()))?,
+                    None => Err(LuceneError::illegal_state("ords_entry is None"))?,
                 }
             },
             None => Err(LuceneError::illegal_state(format!(
