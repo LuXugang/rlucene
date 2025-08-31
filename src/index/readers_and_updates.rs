@@ -305,6 +305,37 @@ where
         }
     }
 
+    fn get_latest_read(
+        &self,
+        info: &SegmentCommitInfo<D>,
+        inner: Option<&mut Inner<D>>,
+    ) -> Result<()> {
+        let mut inner = match inner {
+            Some(inner) => inner,
+            None => &mut *self.inner.lock(),
+        };
+        if inner.reader.is_none() {
+            // get a reader and dec the ref right away we just make sure we have a reader
+            self.get_reader(&IOContext::default_io_context()?, info, Some(&mut inner))?;
+            inner.reader.as_ref().unwrap().dec_ref()?;
+        }
+        // we should take the reader out of the struct temporarily, cause borrow check
+        // it is safe take reader under lock because we put it back right away
+        let reader = inner.reader.take();
+        if inner
+            .pending_deletes
+            .needs_refresh(reader.as_ref().unwrap(), info)?
+        {
+            // we have a reader but its live-docs are out of sync. let's create a temporary one that we
+            // never share
+            self.swap_new_reader_with_latest_live_docs(inner, info)?;
+        }
+        // put reader back
+        inner.reader = reader;
+        debug_assert!(inner.reader.is_some());
+        Ok(())
+    }
+
     /// Returns a snapshot of the live docs.
     pub fn get_live_docs(&self) -> Option<DocBits> {
         let mut inner = self.inner.lock();
@@ -674,7 +705,7 @@ where
         &self,
         inner: &'a mut Inner<D>,
         mut reader: &'a Option<SegmentReader<D>>,
-        info: &mut SegmentCommitInfo<D>,
+        info: &SegmentCommitInfo<D>,
     ) -> Result<SegmentReader<D>> {
         if reader.is_none() {
             reader = &inner.reader;
@@ -705,7 +736,7 @@ where
     fn swap_new_reader_with_latest_live_docs(
         &self,
         inner: &mut Inner<D>,
-        info: &mut SegmentCommitInfo<D>,
+        info: &SegmentCommitInfo<D>,
     ) -> Result<()> {
         inner.reader = Some(self.create_new_reader_with_latest_live_docs(inner, &None, info)?);
         Ok(())
@@ -738,6 +769,12 @@ where
         let mut inner = self.inner.lock();
         inner.is_merging = false;
         inner.merging_dv_updates.clone()
+    }
+    pub fn is_fully_deleted(&self, info: &SegmentCommitInfo<D>) -> Result<bool> {
+        let inner = self.inner.lock();
+        inner
+            .pending_deletes
+            .is_fully_deleted(&IOSupplierImpl::new(self, info))
     }
 }
 impl<D> Display for ReadersAndUpdates<D>
@@ -1209,4 +1246,23 @@ fn clone_field_info(fi: &FieldInfo, field_number: i32) -> FieldInfo {
         fi.is_soft_deletes_field(),
         fi.is_parent_field(),
     )
+}
+
+pub(crate) struct IOSupplierImpl<'a, D>
+where
+    D: Directory,
+{
+    pub(crate) rdl: &'a ReadersAndUpdates<D>,
+    pub(crate) info: &'a SegmentCommitInfo<D>,
+}
+impl<'a, D> IOSupplierImpl<'a, D>
+where
+    D: Directory,
+{
+    pub(crate) fn new(rdl: &'a ReadersAndUpdates<D>, info: &'a SegmentCommitInfo<D>) -> Self {
+        Self { rdl, info }
+    }
+    fn set(&mut self, inner: Option<&mut Inner<D>>) -> Result<()> {
+        self.rdl.get_latest_read(self.info, inner)
+    }
 }

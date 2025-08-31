@@ -20,6 +20,7 @@ use crate::index::doc_values_field_updates::{DocValuesFieldIteratorEnum, MergedI
 use crate::index::field_info::FieldInfo;
 use crate::index::field_infos::FieldInfos;
 use crate::index::pending_deletes::{DocBits, PendingDeletes, PendingDeletesBase};
+use crate::index::readers_and_updates::IOSupplierImpl;
 use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::index::segment_reader::SegmentReader;
 use crate::store::IOContext;
@@ -68,7 +69,7 @@ impl PendingSoftDeletes {
         })
     }
 
-    fn assert_pending_deletes<D>(&self, info: &mut SegmentCommitInfo<D>) -> Result<bool>
+    fn assert_pending_deletes<D>(&self, info: &SegmentCommitInfo<D>) -> Result<bool>
     where
         D: Directory,
     {
@@ -78,10 +79,9 @@ impl PendingSoftDeletes {
         Ok(true)
     }
 
-    fn ensure_initialized<D, F>(&self, _reader_io_supplier: F)
+    fn ensure_initialized<D>(&self, _reader_io_supplier: &IOSupplierImpl<D>)
     where
         D: Directory,
-        F: Fn() -> Arc<SegmentReader<D>>,
     {
         todo!()
     }
@@ -144,7 +144,7 @@ impl PendingDeletesBase for PendingSoftDeletes {
         self.base.get_info_id()
     }
 
-    fn delete<D>(&mut self, doc_id: i32, info: &mut SegmentCommitInfo<D>) -> Result<bool>
+    fn delete<D>(&mut self, doc_id: i32, info: &SegmentCommitInfo<D>) -> Result<bool>
     where
         D: Directory,
     {
@@ -211,14 +211,9 @@ impl PendingDeletesBase for PendingSoftDeletes {
         self.hard_deletes.write_live_docs(dir, info)
     }
 
-    fn is_fully_deleted<D, F>(
-        &self,
-        reader_io_supplier: F,
-        _info: &SegmentCommitInfo<D>,
-    ) -> Result<bool>
+    fn is_fully_deleted<D>(&self, reader_io_supplier: &IOSupplierImpl<D>) -> Result<bool>
     where
         D: Directory,
-        F: Fn() -> Arc<SegmentReader<D>>,
     {
         // initialize to ensure we have accurate counts - only needed in the soft-delete case
         self.ensure_initialized(reader_io_supplier);

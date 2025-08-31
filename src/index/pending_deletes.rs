@@ -23,6 +23,7 @@ use crate::index::field_info::FieldInfo;
 use crate::index::index_reader::IndexReader;
 use crate::index::leaf_reader::LeafReader;
 use crate::index::pending_soft_deletes::PendingSoftDeletes;
+use crate::index::readers_and_updates::IOSupplierImpl;
 use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::index::segment_reader::SegmentReader;
 use crate::store::IOContext;
@@ -162,7 +163,7 @@ impl PendingDeletesBase for PendingDeletes {
         &self.info_id
     }
 
-    fn delete<D>(&mut self, doc_id: i32, _info: &mut SegmentCommitInfo<D>) -> Result<bool>
+    fn delete<D>(&mut self, doc_id: i32, _info: &SegmentCommitInfo<D>) -> Result<bool>
     where
         D: Directory,
     {
@@ -315,15 +316,11 @@ impl PendingDeletesBase for PendingDeletes {
         Ok(true)
     }
 
-    fn is_fully_deleted<D, F>(
-        &self,
-        _reader_io_supplier: F,
-        info: &SegmentCommitInfo<D>,
-    ) -> Result<bool>
+    fn is_fully_deleted<D>(&self, reader_io_supplier: &IOSupplierImpl<D>) -> Result<bool>
     where
         D: Directory,
-        F: Fn() -> Arc<SegmentReader<D>>,
     {
+        let info = &reader_io_supplier.info;
         debug_assert!(info.info.max_doc()? == self.max_doc);
         Ok(self.get_del_count(info) == info.info.max_doc()?)
     }
@@ -363,7 +360,7 @@ impl fmt::Display for PendingDeletes {
 pub(crate) trait PendingDeletesBase: Display {
     fn get_info_id(&self) -> &str;
     /// Marks a document as deleted in this segment and return true if a document got actually deleted or if the document was already deleted.
-    fn delete<D>(&mut self, doc_id: i32, info: &mut SegmentCommitInfo<D>) -> Result<bool>
+    fn delete<D>(&mut self, doc_id: i32, info: &SegmentCommitInfo<D>) -> Result<bool>
     where
         D: Directory;
     /// Returns a snapshot of the hard live docs.
@@ -389,14 +386,9 @@ pub(crate) trait PendingDeletesBase: Display {
     ) -> Result<bool>
     where
         D: Directory;
-    fn is_fully_deleted<D, F>(
-        &self,
-        reader_io_supplier: F,
-        info: &SegmentCommitInfo<D>,
-    ) -> Result<bool>
+    fn is_fully_deleted<D>(&self, reader_io_supplier: &IOSupplierImpl<D>) -> Result<bool>
     where
-        D: Directory,
-        F: Fn() -> Arc<SegmentReader<D>>;
+        D: Directory;
     /// Returns true if the given reader needs to be refreshed to see the latest deletes
     fn needs_refresh<D>(
         &mut self,
@@ -541,7 +533,7 @@ where
         }
     }
 
-    fn delete<D>(&mut self, doc_id: i32, info: &mut SegmentCommitInfo<D>) -> Result<bool>
+    fn delete<D>(&mut self, doc_id: i32, info: &SegmentCommitInfo<D>) -> Result<bool>
     where
         D: Directory,
     {
@@ -607,18 +599,13 @@ where
         }
     }
 
-    fn is_fully_deleted<D, F>(
-        &self,
-        reader_io_supplier: F,
-        info: &SegmentCommitInfo<D>,
-    ) -> Result<bool>
+    fn is_fully_deleted<D>(&self, reader_io_supplier: &IOSupplierImpl<D>) -> Result<bool>
     where
         D: Directory,
-        F: Fn() -> Arc<SegmentReader<D>>,
     {
         match self {
-            Either2PendingDeletes::A(a) => a.is_fully_deleted(reader_io_supplier, info),
-            Either2PendingDeletes::B(b) => b.is_fully_deleted(reader_io_supplier, info),
+            Either2PendingDeletes::A(a) => a.is_fully_deleted(reader_io_supplier),
+            Either2PendingDeletes::B(b) => b.is_fully_deleted(reader_io_supplier),
         }
     }
 
@@ -707,7 +694,7 @@ mod tests {
     };
     use crate::index::segment_commit_info::SegmentCommitInfo;
     use crate::index::segment_info::SegmentInfo;
-    use crate::index::segment_reader::SegmentReader;
+
     use crate::store::IOContext;
     use crate::store::directory::Directory;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{new_directory, random};
@@ -716,6 +703,7 @@ mod tests {
     use crate::util::{LATEST, StringHelper};
 
     use crate::index::pending_soft_deletes::PendingSoftDeletes;
+    use crate::index::readers_and_updates::{IOSupplierImpl, ReadersAndUpdates};
     use crate::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
     use rand::Rng;
     use std::collections::HashMap;
@@ -750,27 +738,27 @@ mod tests {
             HashMap::new(),
             None,
         )?;
-        let mut commit_info =
+        let commit_info =
             SegmentCommitInfo::new(si, 0, 0, -1, -1, -1, Some(StringHelper::random_id()))?;
 
         let mut deletes = new_pending_deletes(&commit_info)?;
         assert!(deletes.get_live_docs().is_none());
 
         let doc_to_delete = random.random_range(0..=7);
-        assert!(deletes.delete(doc_to_delete, &mut commit_info)?);
+        assert!(deletes.delete(doc_to_delete, &commit_info)?);
         let mut live_docs = deletes.get_live_docs().unwrap();
         assert_eq!(deletes.num_pending_deletes(), 1);
 
         assert!(!live_docs.get(doc_to_delete));
-        assert!(!deletes.delete(doc_to_delete, &mut commit_info)?);
+        assert!(!deletes.delete(doc_to_delete, &commit_info)?);
 
         assert!(live_docs.get(8));
-        assert!(deletes.delete(8, &mut commit_info)?);
+        assert!(deletes.delete(8, &commit_info)?);
         assert!(live_docs.get(8));
         assert_eq!(deletes.num_pending_deletes(), 2);
 
         assert!(live_docs.get(9));
-        assert!(deletes.delete(9, &mut commit_info)?);
+        assert!(deletes.delete(9, &commit_info)?);
         assert!(live_docs.get(9));
 
         live_docs = deletes.get_live_docs().unwrap();
@@ -809,10 +797,10 @@ mod tests {
         assert_eq!(dir.list_all()?.len(), 1);
 
         let second_doc_deletes: bool = random.random_bool(0.5);
-        deletes.delete(5, &mut commit_info)?;
+        deletes.delete(5, &commit_info)?;
         if second_doc_deletes {
             let _ = deletes.get_live_docs();
-            deletes.delete(2, &mut commit_info)?;
+            deletes.delete(2, &commit_info)?;
         }
 
         assert_eq!(commit_info.get_del_gen(), -1);
@@ -845,7 +833,7 @@ mod tests {
         assert_eq!(commit_info.get_del_count(), expected_pending);
         assert_eq!(commit_info.get_del_gen(), 1);
 
-        deletes.delete(0, &mut commit_info)?;
+        deletes.delete(0, &commit_info)?;
         assert!(deletes.write_live_docs(lock_dir.clone(), &mut commit_info)?);
         // contain "writer_lock"
         assert_eq!(dir.list_all()?.len(), 3);
@@ -907,25 +895,14 @@ mod tests {
         let mut deletes = new_pending_deletes(&commit_info)?;
         let lock = dir.obtain_lock("write_lock")?;
         let lock_dir = Arc::new(LockValidatingDirectoryWrapper::new(dir.clone(), lock));
-
+        let rld = ReadersAndUpdates::new(0, new_pending_deletes(&commit_info)?);
         for i in 0..3 {
-            assert!(deletes.delete(i, &mut commit_info)?);
+            assert!(deletes.delete(i, &commit_info)?);
             if random.random_bool(0.5) {
                 assert!(deletes.write_live_docs(lock_dir.clone(), &mut commit_info)?);
             }
-            let io_context = IOContext::default_io_context()?;
-
-            assert_eq!(
-                i == 2,
-                deletes.is_fully_deleted(
-                    || {
-                        let sr = SegmentReader::new(&commit_info.clone(), 0, &io_context)
-                            .expect("should not fail here");
-                        Arc::new(sr)
-                    },
-                    &commit_info
-                )?
-            );
+            let padding = IOSupplierImpl::new(&rld, &commit_info);
+            assert_eq!(i == 2, deletes.is_fully_deleted(&padding)?);
         }
 
         Ok(())
