@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::index::approximate_priority_queue::IdentityId;
-use crate::index::documents_writer::DocumentsWriter;
+use crate::index::documents_writer::{DocumentsWriter, FlushNotifications};
 use crate::index::documents_writer_delete_queue::DocumentsWriterDeleteQueue;
 use crate::index::documents_writer_per_thread::DocumentsWriterPerThread;
 use crate::index::documents_writer_per_thread_pool::DocumentsWriterPerThreadPool;
@@ -620,10 +620,13 @@ where
             per_thread_pool.mark_as_free_and_unlock(per_thread)?;
         }
     }
-    pub(crate) fn mark_for_full_flush(
+    pub(crate) fn mark_for_full_flush<FN>(
         &self,
-        documents_writer: &DocumentsWriter<D, L>,
-    ) -> Result<i64> {
+        documents_writer: &DocumentsWriter<D, L, FN>,
+    ) -> Result<i64>
+    where
+        FN: FlushNotifications,
+    {
         let flushing_queue;
         let seq_no = {
             let mut inner = self.inner.lock();

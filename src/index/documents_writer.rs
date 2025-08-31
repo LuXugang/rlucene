@@ -80,10 +80,11 @@ use std::thread;
 /// structures. These updates are consistent but represent only a part of the document seen up
 /// until the exception was hit. When this happens, we immediately mark the document as deleted so
 /// that the document is always atomically (“all or none”) added to the index.
-pub(crate) struct DocumentsWriter<D, L>
+pub(crate) struct DocumentsWriter<D, L, FN>
 where
     D: Directory,
     L: LiveIndexWriterConfig,
+    FN: FlushNotifications,
 {
     pending_num_docs: Arc<AtomicI64>,
     closed: AtomicBool,
@@ -104,15 +105,17 @@ where
     directory_orig: Arc<D>,
     enable_test_points: bool,
     global_field_number_map: Arc<Mutex<FieldNumbers>>,
+    flush_notifications: FN,
 }
 pub(crate) struct Inner {
     pub(crate) delete_queue: Arc<DocumentsWriterDeleteQueue>,
     current_full_flush_del_queue: Option<Arc<DocumentsWriterDeleteQueue>>,
 }
-impl<D, L> DocumentsWriter<D, L>
+impl<D, L, FN> DocumentsWriter<D, L, FN>
 where
     D: Directory,
     L: LiveIndexWriterConfig,
+    FN: FlushNotifications,
 {
     #[allow(clippy::too_many_arguments)]
     fn new(
@@ -123,6 +126,7 @@ where
         directory_orig: D,
         directory: LockValidatingDirectoryWrapper<D>,
         global_field_number_map: Arc<Mutex<FieldNumbers>>,
+        flush_notifications: FN,
     ) -> Result<Self> {
         let info_stream = config.get_info_stream();
         let delete_queue = Arc::new(DocumentsWriterDeleteQueue::new(info_stream.clone()));
@@ -145,39 +149,23 @@ where
             directory_orig: Arc::new(directory_orig),
             enable_test_points,
             global_field_number_map,
+            flush_notifications,
         })
     }
-    pub(crate) fn delete_queries(
-        &self,
-        queries: Vec<QueryEnum>,
-        notifications: &mut impl FlushNotifications,
-    ) -> Result<i64> {
-        self.apply_delete_or_update(
-            |upd| upd.add_delete_query(queries.into_iter().map(Arc::new).collect()),
-            notifications,
-        )
+    pub(crate) fn delete_queries(&self, queries: Vec<QueryEnum>) -> Result<i64> {
+        self.apply_delete_or_update(|upd| {
+            upd.add_delete_query(queries.into_iter().map(Arc::new).collect())
+        })
     }
 
-    pub(crate) fn delete_terms(
-        &self,
-        terms: Vec<Term>,
-        notifications: &mut impl FlushNotifications,
-    ) -> Result<i64> {
-        self.apply_delete_or_update(|upd| upd.add_delete_term(terms), notifications)
+    pub(crate) fn delete_terms(&self, terms: Vec<Term>) -> Result<i64> {
+        self.apply_delete_or_update(|upd| upd.add_delete_term(terms))
     }
 
-    pub(crate) fn update_doc_values(
-        &self,
-        updates: Vec<DocValuesUpdate>,
-        notifications: &mut impl FlushNotifications,
-    ) -> Result<i64> {
-        self.apply_delete_or_update(|upd| upd.add_doc_values_updates(updates), notifications)
+    pub(crate) fn update_doc_values(&self, updates: Vec<DocValuesUpdate>) -> Result<i64> {
+        self.apply_delete_or_update(|upd| upd.add_doc_values_updates(updates))
     }
-    fn apply_delete_or_update<F>(
-        &self,
-        func: F,
-        notifications: &mut impl FlushNotifications,
-    ) -> Result<i64>
+    fn apply_delete_or_update<F>(&self, func: F) -> Result<i64>
     where
         F: FnOnce(&DocumentsWriterDeleteQueue) -> Result<i64>,
     {
@@ -188,17 +176,13 @@ where
         let mut seq_no = func(&inner.delete_queue)?;
         self.flush_control
             .do_on_delete(self.config.get_flush_policy());
-        if self.apply_all_deletes(Some(&inner), notifications)? {
+        if self.apply_all_deletes(Some(&inner))? {
             seq_no = -seq_no;
         }
         Ok(seq_no)
     }
     /// If buffered deletes are using too much heap, resolve them and write disk and return true.
-    fn apply_all_deletes(
-        &self,
-        inner: Option<&Inner>,
-        notifications: &mut impl FlushNotifications,
-    ) -> Result<bool> {
+    fn apply_all_deletes(&self, inner: Option<&Inner>) -> Result<bool> {
         // Check the applyAllDeletes flag first. This helps exit early most of the time without checking
         // isFullFlush(), which takes a lock and introduces contention on small documents that are quick
         // to index.
@@ -217,7 +201,7 @@ where
         {
             let supplier = SupplierImpl::new(delete_queue);
             if self.ticket_queue.add_ticket(supplier)?.is_some() {
-                notifications.on_deletes_applied(); // apply deletes event forces a purge
+                self.flush_notifications.on_deletes_applied(); // apply deletes event forces a purge
                 return Ok(true);
             }
         }
@@ -247,17 +231,14 @@ where
             Ok(())
         }
     }
-    pub(crate) fn flush_one_dwpt(
-        &self,
-        notifications: &mut impl FlushNotifications,
-    ) -> Result<bool> {
+    pub(crate) fn flush_one_dwpt(&self) -> Result<bool> {
         {
             if self.info_stream.enabled("DW") {
                 self.info_stream.message("DW", "startFlushOneDWPT");
             }
         }
 
-        if !self.maybe_flush(notifications)? {
+        if !self.maybe_flush()? {
             // if let Some(dwpt) = self.flush_control.checkout_largest_non_pending_writer() {
             //     self.do_flush(dwpt)?;
             //     return Ok(true);
@@ -332,7 +313,7 @@ where
         self.closed.store(true, Ordering::SeqCst);
         // TODO
     }
-    fn pre_update(&self, notifications: &mut impl FlushNotifications) -> Result<bool> {
+    fn pre_update(&self) -> Result<bool> {
         self.ensure_open()?;
         let mut has_events = false;
 
@@ -343,7 +324,7 @@ where
             // Help out flushing any queued DWPTs so we can un-stall:
             // Try pickup pending threads here if possible
             // no need to loop over the next pending flushes... doFlush will take care of this
-            has_events |= self.maybe_flush(notifications)?;
+            has_events |= self.maybe_flush()?;
             self.flush_control.wait_if_stalled();
         }
 
@@ -354,28 +335,22 @@ where
         &self,
         flushing_dwpt: Option<DocumentsWriterPerThread<D>>,
         mut has_events: bool,
-        notifications: &mut impl FlushNotifications,
     ) -> Result<bool> {
-        has_events |= self.apply_all_deletes(None, notifications)?;
+        has_events |= self.apply_all_deletes(None)?;
         if let Some(dwpt) = flushing_dwpt {
-            self.do_flush(dwpt, notifications)?;
+            self.do_flush(dwpt)?;
             has_events = true;
         } else if self.config.get_check_pending_flush_on_update() {
-            has_events |= self.maybe_flush(notifications)?;
+            has_events |= self.maybe_flush()?;
         }
         Ok(has_events)
     }
-    fn update_documents<DI, DF>(
-        &self,
-        docs: DI,
-        del_node: Option<Arc<Node>>,
-        notifications: &mut impl FlushNotifications,
-    ) -> Result<i64>
+    fn update_documents<DI, DF>(&self, docs: DI, del_node: Option<Arc<Node>>) -> Result<i64>
     where
         DI: IntoIterator<Item = DF>,
         DF: IntoIterator<Item = Fields>,
     {
-        let has_events = self.pre_update(notifications)?;
+        let has_events = self.pre_update()?;
 
         let delete_queue = self.inner.lock().delete_queue.clone();
         let dwpt_factory = SupplierImpl2::new(
@@ -403,7 +378,7 @@ where
                 dwpt.update_documents(
                     docs,
                     del_node,
-                    notifications,
+                    &self.flush_notifications,
                     self.config.as_ref(),
                     &self.num_docs_in_ram,
                 )?;
@@ -457,13 +432,13 @@ where
             result
         })();
         result?;
-        if self.post_update(flushing_dwpt_opt, has_events, notifications)? {
+        if self.post_update(flushing_dwpt_opt, has_events)? {
             seq_no = -seq_no;
         }
         Ok(seq_no)
     }
 
-    fn maybe_flush(&self, notifications: &mut impl FlushNotifications) -> Result<bool> {
+    fn maybe_flush(&self) -> Result<bool> {
         let flushing_dwpt = match self.flush_control.next_pending_flush(None) {
             (Some(dwpt), _, _) => Some(dwpt),
             (None, full_flush, num_pending) => {
@@ -473,17 +448,13 @@ where
         };
 
         if let Some(flushing_dwpt) = flushing_dwpt {
-            self.do_flush(flushing_dwpt, notifications)?;
+            self.do_flush(flushing_dwpt)?;
             Ok(true)
         } else {
             Ok(false)
         }
     }
-    fn do_flush(
-        &self,
-        mut flushing_dwpt: DocumentsWriterPerThread<D>,
-        notifications: &mut impl FlushNotifications,
-    ) -> Result<()> {
+    fn do_flush(&self, mut flushing_dwpt: DocumentsWriterPerThread<D>) -> Result<()> {
         loop {
             assert!(!flushing_dwpt.has_flushed(),);
             {
@@ -520,7 +491,8 @@ where
                         has_ticket = Some(ticket);
                         let flushing_docs_in_ram = flushing_dwpt.get_num_docs_in_ram();
                         let result = (|| {
-                            let v = flushing_dwpt.flush(notifications, self.config.as_ref())?;
+                            let v = flushing_dwpt
+                                .flush(&self.flush_notifications, self.config.as_ref())?;
                             match v {
                                 Some(new_segment) => {
                                     self.ticket_queue.add_segment(ticket, new_segment);
@@ -534,11 +506,11 @@ where
                         self.subtract_flushed_num_docs(flushing_docs_in_ram);
                         if !flushing_dwpt.pending_files_to_delete().is_empty() {
                             let files = flushing_dwpt.pending_files_to_delete().clone();
-                            notifications.delete_unused_files(&files);
+                            self.flush_notifications.delete_unused_files(&files);
                         }
                         if result.is_err() {
                             let dir = flushing_dwpt.segment_info.dir.clone();
-                            notifications.flush_failed(std::mem::replace(
+                            self.flush_notifications.flush_failed(std::mem::replace(
                                 &mut flushing_dwpt.segment_info,
                                 SegmentInfo::dummy(dir),
                             ))
@@ -564,7 +536,7 @@ where
                 // thread in innerPurge can't keep up with all
                 // other threads flushing segments.  In this case
                 // we forcefully stall the producers.
-                notifications.on_ticket_backlog();
+                self.flush_notifications.on_ticket_backlog();
             }
 
             self.flush_control.do_after_flush(flushing_dwpt);
@@ -584,7 +556,7 @@ where
                 None => break,
             }
         }
-        notifications.after_segments_flushed()?;
+        self.flush_notifications.after_segments_flushed()?;
         Ok(())
     }
     pub(crate) fn get_next_sequence_number(&self) -> i64 {
@@ -660,7 +632,7 @@ where
     // FlushAllThreads is synced by IW fullFlushLock. Flushing all threads is a
     // two stage operation; the caller must ensure (in try/finally) that finishFlush
     // is called after this method, to release the flush lock in DWFlushControl
-    fn flush_all_threads(&self, notifications: &mut impl FlushNotifications) -> Result<i64> {
+    fn flush_all_threads(&self) -> Result<i64> {
         {
             if self.info_stream.enabled("DW") {
                 self.info_stream.message("DW", "startFullFlush");
@@ -691,7 +663,7 @@ where
         });
 
         let mut anything_flushed = false;
-        anything_flushed |= self.maybe_flush(notifications)?;
+        anything_flushed |= self.maybe_flush()?;
         // If a concurrent flush is still in flight wait for it
         self.flush_control.wait_for_flush();
         if !anything_flushed && flushing_delete_queue.any_changes(None) {
@@ -724,11 +696,7 @@ where
         }
         Ok(if anything_flushed { -seq_no } else { seq_no })
     }
-    pub(crate) fn finish_full_flush(
-        &self,
-        success: bool,
-        notifications: &mut impl FlushNotifications,
-    ) -> Result<()> {
+    pub(crate) fn finish_full_flush(&self, success: bool) -> Result<()> {
         if self.info_stream.enabled("DW") {
             let thread_name = thread::current().name().unwrap_or("<unnamed>").to_string();
             self.info_stream.message(
@@ -751,7 +719,7 @@ where
             .store(false, Ordering::SeqCst);
         // make sure we do execute this since we block applying deletes during full
         // flush
-        self.apply_all_deletes(None, notifications)?;
+        self.apply_all_deletes(None)?;
 
         Ok(())
     }
@@ -762,10 +730,11 @@ where
         self.flush_control.get_flushing_bytes()
     }
 }
-impl<D, L> Accountable for DocumentsWriter<D, L>
+impl<D, L, FN> Accountable for DocumentsWriter<D, L, FN>
 where
     D: Directory,
     L: LiveIndexWriterConfig,
+    FN: FlushNotifications,
 {
     fn ram_bytes_used(&self) -> Result<i64> {
         let inner = self.inner.lock();

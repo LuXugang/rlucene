@@ -55,7 +55,7 @@ where
     files_to_commit: Vec<String>,
     segment_infos: SegmentInfos<D>,
     global_field_number_map: Arc<FieldNumbers>,
-    doc_writer: DocumentsWriter<D, L>,
+    doc_writer: DocumentsWriter<D, L, FlushNotificationsImpl>,
     write_doc_values_lock: ReentrantMutex<()>,
     deleter: IndexFileDeleter<D, L::IndexDeletionPolicy>,
     // used by forceMerge to note those needing merging
