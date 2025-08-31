@@ -24,6 +24,7 @@ use crate::index::documents_writer_per_thread::DocumentsWriterPerThread;
 use crate::index::documents_writer_per_thread_pool::DocumentsWriterPerThreadPool;
 use crate::index::field_infos::FieldNumbers;
 use crate::index::field_infos::build::Builder;
+use crate::index::index_writer::IndexWriter;
 use crate::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::index::lockable_concurrent_approximate_priority_queue::Lock;
 use crate::index::segment_info::SegmentInfo;
@@ -35,7 +36,6 @@ use crate::util::accountable::Accountable;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::error::lucene_error::Result;
 use crate::util::info_stream::{InfoStream, InfoStreamMT};
-use crate::util::io_consumer::IOConsumer;
 use crate::util::supplier::Supplier;
 use parking_lot::Mutex;
 use std::sync::Arc;
@@ -207,14 +207,19 @@ where
         }
         Ok(false)
     }
-    pub(crate) fn purge_flush_tickets<C>(&self, forced: bool, mut consumer: C) -> Result<()>
+    pub(crate) fn purge_flush_tickets<F>(
+        &self,
+        forced: bool,
+        writer: &IndexWriter<D, L>,
+        consumer: F,
+    ) -> Result<()>
     where
-        C: IOConsumer<FlushTicket<D>>,
+        F: Fn(FlushTicket<D>, &IndexWriter<D, L>) -> Result<()>,
     {
         if forced {
-            self.ticket_queue.force_purge(&mut consumer)
+            self.ticket_queue.force_purge(writer, consumer)
         } else {
-            self.ticket_queue.try_purge(&mut consumer)
+            self.ticket_queue.try_purge(writer, consumer)
         }
     }
     /// Returns how many docs are currently buffered in RAM.
