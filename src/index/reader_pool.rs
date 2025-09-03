@@ -82,10 +82,10 @@ where
         todo!()
     }
     /// Drops reader for the given SegmentCommitInfo if it's pooled
-    pub(crate) fn drop(&self, info: &SegmentCommitInfo<D>) -> Result<bool> {
+    pub(crate) fn drop(&self, info_id: &str) -> Result<bool> {
         let mut inner = self.inner.lock();
-        if let Some(rld) = inner.reader_map.remove(&info.info.get_id_str()) {
-            debug_assert_eq!(info.info.get_id_str(), rld.get_info_id(None));
+        if let Some(rld) = inner.reader_map.remove(info_id) {
+            debug_assert_eq!(info_id, rld.info_id);
             rld.drop_readers()?;
             return Ok(true);
         }
@@ -109,7 +109,7 @@ where
     ) -> Result<bool> {
         let inner = self.inner.lock();
         for rld in inner.reader_map.values() {
-            let info = match infos.get(&rld.get_info_id(None)) {
+            let info = match infos.get(&rld.info_id) {
                 Some(info) => info,
                 None => return Err(LuceneError::illegal_state("SegmentCommitInfo missing")),
             };
@@ -149,14 +149,13 @@ where
 
         // Matches incRef in get:
         rld.dec_ref();
-        let info_id = rld.get_info_id(None);
         if rld.ref_count() == 0 {
             // This happens if the segment was just merged away,
             // while a buffered deletes packet was still applying deletes/updates to it.
             debug_assert!(
-                !inner.reader_map.contains_key(&info_id),
+                !inner.reader_map.contains_key(&rld.info_id),
                 "seg={} has refCount 0 but still unexpectedly exists in the reader pool",
-                info_id
+                rld.info_id
             );
         } else {
             // Pool still holds a ref:
@@ -164,12 +163,12 @@ where
                 rld.ref_count() > 0,
                 "refCount={} reader={:?}",
                 rld.ref_count(),
-                info_id
+                rld.info_id
             );
 
             if !self.is_reader_pooling_enabled()
                 && rld.ref_count() == 1
-                && inner.reader_map.contains_key(&info_id)
+                && inner.reader_map.contains_key(&rld.info_id)
             {
                 // This is the last ref to this RLD, and we're not
                 // pooling, so remove it:
@@ -197,7 +196,7 @@ where
                 }
                 if rld.get_num_dv_updates() == 0 {
                     rld.drop_readers()?;
-                    inner.reader_map.remove(&info_id);
+                    inner.reader_map.remove(&rld.info_id);
                 } else {
                     // We are forced to pool this segment until its deletes fully apply
                     // (no delGen gaps)
@@ -335,8 +334,7 @@ where
 
         for info in infos {
             if let Some(rld) = inner.reader_map.get(&info.info.get_id_str()) {
-                let rld_info_id = rld.get_info_id(None);
-                debug_assert_eq!(rld_info_id, info.info.get_id_str());
+                debug_assert_eq!(rld.info_id, info.info.get_id_str());
 
                 let mut changed = rld.write_live_docs(self.directory.clone(), info)?;
                 changed |= rld.write_field_updates(
@@ -404,9 +402,9 @@ where
         let rld = if let Some(rld) = inner.reader_map.get(&info.info.get_id_str()) {
             // TODO
             debug_assert!(
-                rld.get_info_id(None) == info.info.get_id_str(),
+                rld.info_id == info.info.get_id_str(),
                 "rld.info={} info={} isLive?={} ",
-                rld.get_info_id(None),
+                rld.info_id,
                 info,
                 // self.assert_info_is_live(&rld.get_info_id(None)),
                 self.assert_info_is_live(info),

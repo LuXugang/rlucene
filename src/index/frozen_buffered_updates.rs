@@ -89,7 +89,7 @@ pub(crate) struct FrozenBufferedUpdates {
     // assigned by BufferedUpdatesStream once pushed
     del_gen: i64,
     // SegmentInfo ID in SegmentCommitInfo
-    private_segment: Option<String>,
+    pub(crate) private_segment: Option<String>,
     id: String,
 }
 
@@ -214,7 +214,7 @@ impl FrozenBufferedUpdates {
                 1,
                 "private packet must target exactly one segment"
             );
-            let seg0_id = seg_states[0].rld.get_info_id(None);
+            let seg0_id = &seg_states[0].rld.info_id;
             debug_assert!(
                 private_segment.as_str() == seg0_id.as_str(),
                 "privateSegment={} vs seg0={}",
@@ -483,7 +483,7 @@ impl FrozenBufferedUpdates {
                         if doc_id == NO_MORE_DOCS {
                             break;
                         }
-                        let info = infos.get_mut(&seg_state.rld.get_info_id(None));
+                        let info = infos.get_mut(&seg_state.rld.info_id);
                         debug_assert!(info.is_some());
                         if seg_state.rld.delete(doc_id, info.unwrap())? {
                             del_count += 1;

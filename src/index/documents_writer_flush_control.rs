@@ -307,7 +307,7 @@ where
     }
     fn checkout(
         &self,
-        inner: &mut Inner<D>,
+        inner: &mut Inner<D>, // Same to Java's Thread.holdsLock(this)
         per_thread: DocumentsWriterPerThread<D>,
         mark_pending: bool,
         per_thread_pool: &DocumentsWriterPerThreadPool<D>,
@@ -482,7 +482,7 @@ where
     fn check_out_for_flush(
         &self,
         per_thread: DocumentsWriterPerThread<D>,
-        inner: &mut Inner<D>,
+        inner: &mut Inner<D>, // Same to Java's Thread.holdsLock(this)
         per_thread_pool: &DocumentsWriterPerThreadPool<D>,
     ) -> DocumentsWriterPerThread<D> {
         debug_assert!(per_thread.is_flush_pending());
@@ -720,7 +720,7 @@ where
     fn prune_blocked_queue(
         &self,
         flushing_queue: &Arc<DocumentsWriterDeleteQueue>,
-        inner: &mut Inner<D>,
+        inner: &mut Inner<D>, // Same to Java's Thread.holdsLock(this)
     ) {
         let mut idxs = Vec::new();
         for (i, dwpt) in inner.blocked_flushes.iter().enumerate() {

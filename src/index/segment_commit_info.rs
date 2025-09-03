@@ -458,7 +458,7 @@ where
 }
 impl<D> PartialEq for SegmentCommitInfo<D>
 where
-    D: PartialEq + Directory,
+    D: Directory,
 {
     fn eq(&self, other: &Self) -> bool {
         std::ptr::eq(self, other)

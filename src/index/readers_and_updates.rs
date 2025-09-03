@@ -80,6 +80,7 @@ where
     pub(crate) sort_map: Option<Rc<DocMapImpl>>,
     pub(crate) ram_bytes_used: AtomicI64,
     pub(crate) inner: Mutex<Inner<D>>,
+    pub(crate) info_id: String,
 }
 
 pub(crate) struct Inner<D>
@@ -115,6 +116,7 @@ where
         index_created_version_major: i32,
         pending_deletes: PendingDeletesEnum,
     ) -> Self {
+        let info_id = pending_deletes.get_info_id().to_string();
         let inner = Mutex::new(Inner {
             reader: None,
             pending_deletes,
@@ -128,6 +130,7 @@ where
             sort_map: None,
             ram_bytes_used: AtomicI64::new(0),
             inner,
+            info_id,
         }
     }
     /// Init from a previously opened SegmentReader.
@@ -236,15 +239,6 @@ where
         inner.reader.as_ref().unwrap().inc_ref()?;
         Ok(())
     }
-
-    pub fn get_info_id(&self, inner: Option<&Inner<D>>) -> String {
-        let inner = match inner {
-            Some(inner) => inner,
-            None => &*self.inner.lock(),
-        };
-        inner.pending_deletes.get_info_id().to_string()
-    }
-
     pub fn release(&self) -> Result<()> {
         // TODO
         self.inner.lock().reader.as_ref().unwrap().dec_ref()?;
@@ -704,7 +698,7 @@ where
     }
     pub(crate) fn create_new_reader_with_latest_live_docs<'a>(
         &self,
-        inner: &'a mut Inner<D>,
+        inner: &'a mut Inner<D>, // Same to Java's Thread.holdsLock(this)
         mut reader: &'a Option<SegmentReader<D>>,
         info: &SegmentCommitInfo<D>,
     ) -> Result<SegmentReader<D>> {
@@ -793,8 +787,7 @@ where
         write!(
             f,
             "ReadersAndLiveDocs(seg={}, PendingDeletesEnum={})",
-            self.get_info_id(Some(&inner)),
-            inner.pending_deletes
+            self.info_id, inner.pending_deletes
         )
     }
 }

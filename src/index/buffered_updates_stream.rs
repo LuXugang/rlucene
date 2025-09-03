@@ -273,9 +273,17 @@ where
             start_del_count: info.get_del_count(),
         }
     }
-    fn close(&self) -> Result<()> {
-        // TODO: rld未释放
+    pub(crate) fn close<L, B>(
+        &self,
+        writer: &IndexWriter<D, L, B>,
+        inner: &mut crate::index::index_writer::Inner<D, L>,
+    ) -> Result<()>
+    where
+        L: LiveIndexWriterConfig,
+        B: IndexWriterBase,
+    {
         self.rld.release()?;
+        writer.release(self.rld.as_ref(), inner)?;
         Ok(())
     }
 }
@@ -284,15 +292,7 @@ where
     D: Directory,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "SegmentState({})", self.rld.get_info_id(None))
-    }
-}
-impl<D> Drop for SegmentState<D>
-where
-    D: Directory,
-{
-    fn drop(&mut self) {
-        self.close().ok();
+        write!(f, "SegmentState({})", self.rld.info_id)
     }
 }
 
@@ -357,6 +357,23 @@ impl FinishedSegments {
                     ),
                 );
             }
+        }
+    }
+}
+/// Result of applying deletes.
+///
+/// - `any_new_deletes`: true if any actual deletes took place
+/// - `all_deleted`: if `Some`, contains segments_id that are 100% deleted
+pub(crate) struct ApplyDeletesResult {
+    pub any_new_deletes: bool,
+    pub all_deleted: Option<Vec<String>>,
+}
+
+impl ApplyDeletesResult {
+    pub fn new(any_new_deletes: bool, all_deleted: Option<Vec<String>>) -> Self {
+        Self {
+            any_new_deletes,
+            all_deleted,
         }
     }
 }

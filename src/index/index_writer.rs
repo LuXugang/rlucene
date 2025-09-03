@@ -14,7 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::index::buffered_updates_stream::BufferedUpdatesStream;
+use crate::index::buffered_updates_stream::{
+    ApplyDeletesResult, BufferedUpdatesStream, SegmentState,
+};
 use crate::index::documents_writer::{DocumentsWriter, FlushNotifications};
 use crate::index::frozen_buffered_updates::FrozenBufferedUpdates;
 use crate::index::index_file_deleter::IndexFileDeleter;
@@ -67,7 +69,7 @@ where
 
     maybe_merge: AtomicBool,
     commit_user_data: Option<HashMap<String, String>>,
-    merging_segments: HashSet<SegmentCommitInfo<D>>,
+    merging_segments: HashSet<String>,
 
     merge_gen: i64,
     did_message_state: bool,
@@ -100,12 +102,43 @@ where
     B: IndexWriterBase,
 {
     /// Drops a segment that has 100% deleted documents.
-    pub(crate) fn drop_deleted_segment(&self, _info: &SegmentCommitInfo<D>) -> Result<()> {
-        todo!()
+    pub(crate) fn drop_deleted_segment(&self, seg_id: &str, inner: &mut Inner<D, L>) -> Result<()> {
+        // If a merge has already registered for this
+        // segment, we leave it in the readerPool; the
+        // merge will skip merging it and will then drop
+        // it once it's done:
+        if self.merging_segments.contains(seg_id) {
+            // it's possible that we invoke this method more than once for the same SCI
+            // we must only remove the docs once!
+            return Ok(());
+        }
+
+        // it's possible that we invoke this method more than once for the same SCI
+        // we must only remove the docs once!
+        let mut drop_pending_docs = inner.segment_infos.remove(seg_id);
+        let res: Result<()> = (|| {
+            // this is sneaky - we might hit an exception while dropping a reader but then we have
+            // already
+            // removed the segment for the segmentInfo and we lost the pendingDocs update due to that.
+            // therefore we execute the adjustPendingNumDocs in a finally block to account for that.
+            drop_pending_docs |= self.reader_pool.drop(seg_id)?;
+            Ok(())
+        })();
+
+        if drop_pending_docs {
+            let info = match inner.segment_infos.info(seg_id) {
+                None => Err(LuceneError::illegal_state(
+                    "could not find segment info from IndexWriter#segment_infos",
+                ))?,
+                Some(info) => info,
+            };
+            let dec = -(info.info.max_doc()? as i64);
+            self.adjust_pending_num_docs(dec);
+        }
+        res
     }
 
-    fn checkpoint(&self) -> Result<()> {
-        let mut inner = self.inner.lock();
+    fn checkpoint(&self, inner: &mut Inner<D, L>) -> Result<()> {
         self.changed();
         let (deleter, segment_infos) = {
             let v = &mut *inner;
@@ -116,8 +149,7 @@ where
     }
     /// Checkpoints with IndexFileDeleter, so it's aware of new files, and increments changeCount,
     /// so on close/commit we will write a new segments file, but does NOT bump segmentInfos.version.
-    fn check_point_no_sis(&self) -> Result<()> {
-        let mut inner = self.inner.lock();
+    fn check_point_no_sis(&self, inner: &mut Inner<D, L>) -> Result<()> {
         self.change_count.fetch_add(1, Ordering::SeqCst);
         let (deleter, segment_infos) = {
             let v = &mut *inner;
@@ -158,7 +190,7 @@ where
         let max_doc = new_segment.info.max_doc()?;
         let res: Result<()> = (|| {
             // Lock order IW -> BDS
-            self.ensure_open(false)?;
+            self.do_ensure_open(false)?;
 
             if self.info_stream.enabled("IW") {
                 self.info_stream
@@ -202,9 +234,9 @@ where
             let new_segment_id = new_segment.info.get_id_str();
             inner.segment_infos.add(new_segment)?;
             let index_created_version_major = inner.segment_infos.get_index_created_version_major();
-            let new_segment = inner.segment_infos.info_mut(&new_segment_id).unwrap();
             published = true;
-            self.checkpoint()?;
+            self.checkpoint(&mut *inner)?;
+            let new_segment = inner.segment_infos.info(&new_segment_id).unwrap();
             if packet_any {
                 let _ = self.get_pooled_instance(
                     new_segment,
@@ -247,15 +279,17 @@ where
                             ));
                         },
                         Some(ref rld) => {
-                            if self.is_fully_deleted(rld, new_segment)? {
-                                self.drop_deleted_segment(new_segment)?;
-                                self.checkpoint()?;
+                            let new_segment = inner.segment_infos.info(&new_segment_id).unwrap();
+                            let is_fully_deleted = self.is_fully_deleted(rld, new_segment)?;
+                            if is_fully_deleted {
+                                self.drop_deleted_segment(&new_segment_id, &mut *inner)?;
+                                self.checkpoint(&mut *inner)?;
                             }
                         },
                     }
                     Ok(())
                 })();
-                self.release(&rld.unwrap(), new_segment)?;
+                self.release(&rld.unwrap(), &mut *inner)?;
                 result?;
             }
             Ok(())
@@ -274,7 +308,103 @@ where
 
     pub fn set_live_commit_data(&self) {}
 
-    pub fn ensure_open(&self, fail_if_closing: bool) -> Result<()> {
+    pub(crate) fn write_some_doc_values_updates(&self) -> Result<()> {
+        if let Some(_) = self.write_doc_values_lock.try_lock() {
+            let ram_buffer_size_mb = self.config.get_ram_buffer_size_mb();
+            // If the reader pool is > 50% of our IW buffer, then write the updates:
+            if ram_buffer_size_mb != DISABLE_AUTO_FLUSH as f64 {
+                let start_ns = std::time::Instant::now();
+                let mut ram_bytes_used = self.reader_pool.ram_bytes_used();
+                let limit = (0.5 * ram_buffer_size_mb * 1024.0 * 1024.0) as i64;
+
+                if ram_bytes_used > limit {
+                    if self.info_stream.enabled("BD") {
+                        self.info_stream.message(
+                            "BD",
+                            &format!(
+                                "now write some pending DV updates: {:.2} MB used vs IWC Buffer {:.2} MB",
+                                ram_bytes_used as f64 / 1024.0 / 1024.0,
+                                ram_buffer_size_mb
+                            ),
+                        );
+                    }
+                    // Sort by largest ramBytesUsed:
+                    let readers = self.reader_pool.get_readers_by_ram();
+                    let mut count = 0;
+
+                    for rld in readers {
+                        if ram_bytes_used <= limit {
+                            break;
+                        }
+                        // We need to do before/after because not all RAM in this RAU is used by DV updates,
+                        // and
+                        // not all of those bytes can be written here:
+                        let bytes_used_before = rld.ram_bytes_used.load(Ordering::SeqCst);
+                        if bytes_used_before == 0 {
+                            continue; // nothing to do here - lets not acquire the lock
+                        }
+                        // Only acquire IW lock on each write, since this is a time consuming operation.  This
+                        // way
+                        // other threads get a chance to run in between our writes.
+                        {
+                            // It's possible that the segment of a reader returned by readerPool#getReadersByRam
+                            // is dropped before being processed here. If it happens, we need to skip that
+                            // reader.
+                            // this is also best effort to free ram, there might be some other thread writing
+                            // this rld concurrently
+                            // which wins and then if readerPooling is off this rld will be dropped.
+                            let mut inner = self.inner.lock();
+                            let index_created_version_major =
+                                inner.segment_infos.get_index_created_version_major();
+                            let info = match inner.segment_infos.info_mut(&rld.info_id) {
+                                Some(info) => info,
+                                None => Err(LuceneError::illegal_state(
+                                    "could not find segment info from IndexWriter#segment_infos",
+                                ))?,
+                            };
+                            if self
+                                .reader_pool
+                                .get(info, false, index_created_version_major, None)?
+                                .is_none()
+                            {
+                                continue;
+                            }
+
+                            if rld.write_field_updates(
+                                self.directory.clone(),
+                                &self.global_field_number_map,
+                                self.buffered_updates_stream.get_completed_del_gen(),
+                                self.info_stream.as_ref(),
+                                info,
+                            )? {
+                                self.check_point_no_sis(&mut inner)?;
+                            }
+                        }
+
+                        let bytes_used_after = rld.ram_bytes_used.load(Ordering::SeqCst);
+                        ram_bytes_used -= bytes_used_before - bytes_used_after;
+                        count += 1;
+                    }
+
+                    if self.info_stream.enabled("BD") {
+                        self.info_stream.message(
+                            "BD",
+                            &format!(
+                                "done write some DV updates for {} segments: now {:.2} MB used vs IWC Buffer {:.2} MB; took {:.2} sec",
+                                count,
+                                self.reader_pool.ram_bytes_used() as f64 / 1024.0 / 1024.0,
+                                ram_buffer_size_mb,
+                                start_ns.elapsed().as_secs_f64(),
+                            ),
+                        );
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub(crate) fn do_ensure_open(&self, fail_if_closing: bool) -> Result<()> {
         if self.closed.load(Ordering::SeqCst)
             || (fail_if_closing && self.closing.load(Ordering::SeqCst))
         {
@@ -288,6 +418,10 @@ where
             Ok(())
         }
     }
+    pub(crate) fn ensure_open(&self) -> Result<()> {
+        self.do_ensure_open(true)
+    }
+
     fn on_tragic_event(&self, _tragedy: &LuceneError, _location: &str) -> Result<()> {
         todo!()
     }
@@ -366,6 +500,55 @@ where
         self.doc_writer.purge_flush_tickets(forced, self, c)?;
         Ok(())
     }
+    /// Anything that will add N docs to the index should reserve first to make sure it's allowed.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LuceneError::IllegalArgument`] if it's not allowed.
+    fn reserve_docs(&self, added_num_docs: i64) -> Result<()> {
+        debug_assert!(added_num_docs >= 0);
+
+        if self.adjust_pending_num_docs(added_num_docs) > ACTUAL_MAX_DOCS as i64 {
+            // Reserve failed: put the docs back and throw error
+            self.adjust_pending_num_docs(-added_num_docs);
+            return self.too_many_docs(added_num_docs);
+        }
+        Ok(())
+    }
+    /// Does a best-effort check, that the current index would accept this many additional docs, but
+    /// does not actually reserve them.
+    /// # Errors
+    ///
+    /// Returns [`LuceneError::IllegalArgument`] if there would be too many docs.
+    fn test_reserve_docs(&self, added_num_docs: i64) -> Result<()> {
+        debug_assert!(added_num_docs >= 0);
+
+        if self.pending_num_docs.load(Ordering::Acquire) + added_num_docs > ACTUAL_MAX_DOCS as i64 {
+            return self.too_many_docs(added_num_docs);
+        }
+        Ok(())
+    }
+    fn too_many_docs(&self, added_num_docs: i64) -> Result<()> {
+        debug_assert!(added_num_docs >= 0);
+        Err(LuceneError::illegal_argument(format!(
+            "number of documents in the index cannot exceed {} (current document count is {}; added numDocs is {})",
+            ACTUAL_MAX_DOCS,
+            self.pending_num_docs.load(Ordering::Acquire),
+            added_num_docs
+        )))
+    }
+    /// Returns the number of documents in the index including documents are being added (i.e.,
+    /// reserved).
+    pub fn get_pending_num_docs(&self) -> i64 {
+        self.pending_num_docs.load(Ordering::Acquire)
+    }
+    /// Returns the highest sequence number across all completed operations,
+    /// or 0 if no operations have finished yet.
+    /// Still in-flight operations (in other threads) are not counted until they finish.
+    pub fn get_max_completed_sequence_number(&self) -> Result<i64> {
+        self.ensure_open()?;
+        Ok(self.doc_writer.get_max_completed_sequence_number())
+    }
     fn adjust_pending_num_docs(&self, num_docs: i64) -> i64 {
         let count = self.pending_num_docs.fetch_add(num_docs, Ordering::AcqRel) + num_docs;
         debug_assert!(count >= 0, "pendingNumDocs is negative: {}", count);
@@ -388,25 +571,31 @@ where
     pub(crate) fn release(
         &self,
         readers_and_updates: &ReadersAndUpdates<D>,
-        info: &mut SegmentCommitInfo<D>,
+        inner: &mut Inner<D, L>, // Same to Java's Thread.holdsLock(this)
     ) -> Result<()> {
-        self.do_release(readers_and_updates, true, info)
+        self.do_release(readers_and_updates, true, inner)
     }
 
     fn do_release(
         &self,
         readers_and_updates: &ReadersAndUpdates<D>,
         assert_live_info: bool,
-        info: &mut SegmentCommitInfo<D>,
+        inner: &mut Inner<D, L>, // Same to Java's Thread.holdsLock(this)
     ) -> Result<()> {
-        debug_assert!(self.inner.is_locked());
+        let info_id = &readers_and_updates.info_id;
+        let info = match inner.segment_infos.info_mut(info_id) {
+            Some(info) => info,
+            None => Err(LuceneError::illegal_state(
+                "could not find segment info from IndexWriter#segment_infos",
+            ))?,
+        };
         if self
             .reader_pool
             .release(readers_and_updates, assert_live_info, info)?
         {
             // if we write anything here we have to hold the lock otherwise IDF will delete files
             // underneath us
-            self.check_point_no_sis()?;
+            self.check_point_no_sis(inner)?;
         }
         Ok(())
     }
@@ -418,7 +607,7 @@ where
         index_created_version_major: i32,
         sort_map: Option<Rc<DocMapImpl>>,
     ) -> Result<Option<Rc<ReadersAndUpdates<D>>>> {
-        self.ensure_open(false)?;
+        self.do_ensure_open(false)?;
         self.reader_pool
             .get(info, create, index_created_version_major, sort_map)
     }
@@ -445,6 +634,140 @@ where
     {
         todo!()
     }
+
+    /// Returns the [`SegmentCommitInfo`]'s id that this packet is supposed to apply its deletes to,
+    /// or `None` if the private segment was already merged away.
+    fn get_infos_to_apply(&self, updates: &FrozenBufferedUpdates, inner: &Inner<D, L>) -> InfoFrom {
+        if let Some(private_seg) = &updates.private_segment {
+            if inner.segment_infos.contains(private_seg) {
+                InfoFrom::Updates
+            } else {
+                if self.info_stream.enabled("BD") {
+                    self.info_stream.message(
+                        "BD",
+                        "private segment already gone; skip processing updates",
+                    );
+                }
+                InfoFrom::None
+            }
+        } else {
+            InfoFrom::All
+        }
+    }
+    pub(crate) fn finish_apply(
+        &self,
+        seg_states: &mut [SegmentState<D>],
+        success: bool,
+        del_files: HashSet<String>,
+        inner: &mut Inner<D, L>, // we hold lock
+    ) -> Result<()> {
+        let close_res = self.close_segment_states(seg_states, success, inner);
+        inner.deleter.dec_ref(del_files)?;
+        let result = close_res?;
+
+        if result.any_new_deletes {
+            self.maybe_merge.store(true, Ordering::Release);
+            self.checkpoint(inner)?;
+        }
+
+        if let Some(all) = result.all_deleted.as_ref() {
+            if self.info_stream.enabled("IW") {
+                // let segs = all.join(",");
+                // self.info_stream
+                //     .message("IW", &format!("drop 100% deleted segments: {}", segs));
+            }
+            for seg_id in all {
+                self.drop_deleted_segment(seg_id, inner)?;
+            }
+            self.checkpoint(inner)?;
+        }
+
+        Ok(())
+    }
+
+    /// Close segment states previously opened with `open_segment_states`.
+    pub(crate) fn close_segment_states(
+        &self,
+        seg_states: &mut [SegmentState<D>],
+        success: bool,
+        inner: &mut Inner<D, L>, // we hold lock
+    ) -> Result<ApplyDeletesResult> {
+        let mut all_deleted = Vec::new();
+        let mut tot_del_count: i64 = 0;
+
+        let res: Result<()> = (|| {
+            for seg_state in seg_states.iter_mut() {
+                if success {
+                    let info_id = &seg_state.rld.info_id;
+                    let info = match inner.segment_infos.info(info_id) {
+                        Some(info) => info,
+                        None => Err(LuceneError::illegal_state(
+                            "could not find segment info from IndexWriter#segment_infos",
+                        ))?,
+                    };
+                    let before = seg_state.start_del_count as i64;
+                    let current = seg_state.rld.get_del_count(info) as i64;
+                    tot_del_count += current - before;
+
+                    let full_del_count = seg_state.rld.get_del_count(info);
+                    debug_assert!(
+                        full_del_count <= info.info.max_doc()?,
+                        "{} > {}",
+                        full_del_count,
+                        info.info.max_doc()?
+                    );
+
+                    // TODO: 这里没有加入MergePolic的判断
+                    if seg_state.rld.is_fully_deleted(info)? {
+                        all_deleted.push(
+                            seg_state
+                                .rld
+                                .inner
+                                .lock()
+                                .reader
+                                .as_ref()
+                                .unwrap()
+                                .info_id
+                                .clone(),
+                        );
+                    }
+                }
+            }
+            Ok(())
+        })();
+
+        for s in seg_states.iter_mut() {
+            let _ = s.close(self, inner);
+        }
+        res?;
+
+        if self.info_stream.enabled("BD") {
+            self.info_stream.message(
+                "BD",
+                &format!(
+                    "closeSegmentStates: {} new deleted documents; pool {} packets; bytesUsed={}",
+                    tot_del_count,
+                    self.buffered_updates_stream.get_pending_updates_count(),
+                    self.reader_pool.ram_bytes_used()
+                ),
+            );
+        }
+
+        let result = ApplyDeletesResult {
+            any_new_deletes: tot_del_count > 0,
+            all_deleted: if all_deleted.is_empty() {
+                None
+            } else {
+                Some(all_deleted)
+            },
+        };
+        Ok(result)
+    }
+}
+enum InfoFrom {
+    None,
+    Updates,
+    All,
 }
 pub trait IndexWriterBase {
     /// A hook for extending classes to execute operations after pending added and deleted documents have been flushed to the Directory
@@ -540,6 +863,7 @@ use crate::codecs::{Codec, CompoundFormat, LATEST_CODEC};
 use crate::index::doc_values_type::DocValuesType;
 use crate::index::documents_writer_flush_queue::FlushTicket;
 use crate::index::field_infos::{FieldInfos, FieldNumbers};
+use crate::index::index_writer_config::DISABLE_AUTO_FLUSH;
 use crate::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::index::reader_pool::ReaderPool;
 use crate::index::readers_and_updates::ReadersAndUpdates;

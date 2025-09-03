@@ -274,7 +274,7 @@ where
         L: LiveIndexWriterConfig,
         B: IndexWriterBase,
     {
-        index_writer.ensure_open(false)?;
+        index_writer.do_ensure_open(false)?;
 
         let tragic_arc = index_writer.get_tragic_exception();
         let tragic = tragic_arc.lock();

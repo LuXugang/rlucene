@@ -1023,7 +1023,6 @@ where
     pub fn as_list(&self) -> impl Iterator<Item = &SegmentCommitInfo<D>> {
         self.segments.values()
     }
-
     /// Returns the number of `SegmentCommitInfo`s.
     pub fn size(&self) -> usize {
         self.segments.len()
@@ -1055,11 +1054,8 @@ where
     }
 
     /// Removes the provided `SegmentCommitInfo`.
-    pub fn remove(&mut self, si: &SegmentCommitInfo<D>) -> bool
-    where
-        D: PartialEq,
-    {
-        self.segments.remove(&si.info.get_id_str()).is_some()
+    pub fn remove(&mut self, si_id: &str) -> bool {
+        self.segments.remove(si_id).is_some()
     }
 
     /// Removes the `SegmentCommitInfo` at the provided index.
@@ -1072,20 +1068,14 @@ where
     /// Returns true if the provided `SegmentCommitInfo` is contained.
     ///
 
-    pub fn contains(&self, si: &SegmentCommitInfo<D>) -> bool
-    where
-        D: PartialEq,
-    {
-        self.segments.contains_key(&si.info.get_id_str())
+    pub fn contains(&self, si_id: &str) -> bool {
+        self.segments.contains_key(si_id)
     }
 
     /// Returns the index of the provided `SegmentCommitInfo`.
     ///
 
-    pub fn index_of(&self, si: &SegmentCommitInfo<D>) -> bool
-    where
-        D: PartialEq,
-    {
+    pub fn index_of(&self, si: &SegmentCommitInfo<D>) -> bool {
         self.segments.contains_key(&si.info.get_id_str())
     }
 

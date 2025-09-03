@@ -148,7 +148,6 @@ where
         L: LiveIndexWriterConfig,
         B: IndexWriterBase,
     {
-        debug_assert!(!self.inner.is_locked());
         let _purge_guard = self.purge_lock.lock();
         self.inner_purge(writer, consumer)
     }
@@ -163,7 +162,6 @@ where
         L: LiveIndexWriterConfig,
         B: IndexWriterBase,
     {
-        debug_assert!(!self.inner.is_locked(),);
         if let Some(_purge_guard) = self.purge_lock.try_lock() {
             self.inner_purge(writer, consumer)?;
         }
