@@ -252,6 +252,15 @@ where
             ))),
         }
     }
+    pub fn take_files(&mut self) -> Result<HashSet<String>> {
+        match self.set_files.take() {
+            Some(files) => Ok(files),
+            None => Err(LuceneError::illegal_argument(format!(
+                "files were not set; segment={} maxDoc={}",
+                self.name, self.max_doc
+            ))),
+        }
+    }
 
     /// Sets the files written for this segment.
     pub fn set_files(&mut self, files: HashSet<String>) -> Result<()> {

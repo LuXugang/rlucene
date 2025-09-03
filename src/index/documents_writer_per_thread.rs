@@ -28,7 +28,8 @@ use crate::index::field_infos::build::Builder;
 use crate::index::frozen_buffered_updates::FrozenBufferedUpdates;
 
 use crate::index::index_writer::{
-    ACTUAL_MAX_DOCS, SOURCE_FLUSH, create_compound_file, set_diagnostics,
+    ACTUAL_MAX_DOCS, IndexWriter, IndexWriterBase, SOURCE_FLUSH, create_compound_file,
+    set_diagnostics,
 };
 use crate::index::indexing_chain::{IndexingChain, ReservedField};
 use crate::index::live_index_writer_config::LiveIndexWriterConfig;
@@ -279,19 +280,21 @@ where
         }
         Ok(())
     }
-    pub(crate) fn update_documents<DI, DF, FN, L>(
+    pub(crate) fn update_documents<DI, DF, FN, L, B>(
         &mut self,
         docs: DI,
         delete_node: Option<Arc<Node>>,
         flush_notifications: &FN,
         index_writer_config: &L,
         num_docs_in_ram: &AtomicI32,
+        writer: &IndexWriter<D, L, B>,
     ) -> Result<i64>
     where
         DI: IntoIterator<Item = DF>,
         DF: IntoIterator<Item = Fields>,
         FN: FlushNotifications,
         L: LiveIndexWriterConfig,
+        B: IndexWriterBase,
     {
         self.test_point("DocumentsWriterPerThread addDocuments start");
         debug_assert!(
@@ -374,7 +377,7 @@ where
             let to_delete = self.num_docs_in_ram - docs_in_ram_before;
             self.delete_last_docs(to_delete)?;
         }
-        self.maybe_abort("updateDocuments", flush_notifications)?;
+        self.maybe_abort("updateDocuments", flush_notifications, writer)?;
         result
     }
 
@@ -471,14 +474,16 @@ where
         }
     }
     ///  Flush all pending docs to a new segment
-    pub(crate) fn flush<FN, L>(
+    pub(crate) fn flush<FN, L, B>(
         &mut self,
         flush_notifications: &FN,
         index_writer_config: &L,
+        writer: &IndexWriter<D, L, B>,
     ) -> Result<Option<FlushedSegment<D>>>
     where
         FN: FlushNotifications,
         L: LiveIndexWriterConfig,
+        B: IndexWriterBase,
     {
         debug_assert_eq!(self.flush_pending.get(), Some(&true));
         debug_assert!(self.num_docs_in_ram > 0);
@@ -700,7 +705,7 @@ where
             Ok(Some(fs))
         })();
 
-        self.maybe_abort("flush", flush_notifications)?;
+        self.maybe_abort("flush", flush_notifications, writer)?;
         self.has_flushed
             .set(true)
             .map_err(|_| LuceneError::illegal_state("flush already called"))?;
@@ -714,16 +719,26 @@ where
         result
     }
 
-    fn maybe_abort<FN>(&mut self, location: &str, flush_notifications: &FN) -> Result<()>
+    fn maybe_abort<FN, L, B>(
+        &mut self,
+        location: &str,
+        flush_notifications: &FN,
+        writer: &IndexWriter<D, L, B>,
+    ) -> Result<()>
     where
         FN: FlushNotifications,
+        L: LiveIndexWriterConfig,
+        B: IndexWriterBase,
     {
         match self.aborting_exception {
             Some(_) if !self.aborted.load(Ordering::SeqCst) => {
                 // if we are not already aborted, we can abort
                 let result = self.abort();
-                flush_notifications
-                    .on_tragic_event(self.aborting_exception.take().unwrap(), location);
+                flush_notifications.on_tragic_event(
+                    self.aborting_exception.take().unwrap(),
+                    location,
+                    writer,
+                )?;
                 result
             },
             _ => Ok(()),
@@ -1048,13 +1063,12 @@ where
         }
     }
 }
-impl<'a, FN> IOConsumer<&'a HashSet<String>> for IOConsumerImpl<'_, FN>
+impl<'a, FN> IOConsumer<HashSet<String>> for IOConsumerImpl<'_, FN>
 where
     FN: FlushNotifications,
 {
-    fn accept(&mut self, input: &'a HashSet<String>) -> Result<()> {
-        self.flush_notifications.delete_unused_files(input);
-        Ok(())
+    fn accept(&mut self, input: HashSet<String>) -> Result<()> {
+        self.flush_notifications.delete_unused_files(input)
     }
 }
 

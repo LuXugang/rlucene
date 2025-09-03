@@ -201,7 +201,10 @@ where
         Ok(())
     }
 
-    pub fn delete_files<'a>(&self, file_names: impl IntoIterator<Item = &'a String>) -> Result<()> {
+    pub fn delete_files<'a, I>(&self, file_names: I) -> Result<()>
+    where
+        I: IntoIterator<Item = &'a String>,
+    {
         let files: Vec<&'a String> = file_names.into_iter().collect();
 
         if let Some(messenger) = &self.messenger {

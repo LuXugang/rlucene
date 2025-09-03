@@ -38,6 +38,7 @@ use crate::util::error::lucene_error::Result;
 use crate::util::info_stream::{InfoStream, InfoStreamMT};
 use crate::util::supplier::Supplier;
 use parking_lot::Mutex;
+use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64, Ordering};
 use std::thread;
@@ -201,7 +202,7 @@ where
         {
             let supplier = SupplierImpl::new(delete_queue);
             if self.ticket_queue.add_ticket(supplier)?.is_some() {
-                self.flush_notifications.on_deletes_applied(); // apply deletes event forces a purge
+                self.flush_notifications.on_deletes_applied()?; // apply deletes event forces a purge
                 return Ok(true);
             }
         }
@@ -237,14 +238,17 @@ where
             Ok(())
         }
     }
-    pub(crate) fn flush_one_dwpt(&self) -> Result<bool> {
+    pub(crate) fn flush_one_dwpt<B>(&self, writer: &IndexWriter<D, L, B>) -> Result<bool>
+    where
+        B: IndexWriterBase,
+    {
         {
             if self.info_stream.enabled("DW") {
                 self.info_stream.message("DW", "startFlushOneDWPT");
             }
         }
 
-        if !self.maybe_flush()? {
+        if !self.maybe_flush(writer)? {
             // if let Some(dwpt) = self.flush_control.checkout_largest_non_pending_writer() {
             //     self.do_flush(dwpt)?;
             //     return Ok(true);
@@ -319,7 +323,10 @@ where
         self.closed.store(true, Ordering::SeqCst);
         // TODO
     }
-    fn pre_update(&self) -> Result<bool> {
+    fn pre_update<B>(&self, writer: &IndexWriter<D, L, B>) -> Result<bool>
+    where
+        B: IndexWriterBase,
+    {
         self.ensure_open()?;
         let mut has_events = false;
 
@@ -330,33 +337,43 @@ where
             // Help out flushing any queued DWPTs so we can un-stall:
             // Try pickup pending threads here if possible
             // no need to loop over the next pending flushes... doFlush will take care of this
-            has_events |= self.maybe_flush()?;
+            has_events |= self.maybe_flush(writer)?;
             self.flush_control.wait_if_stalled();
         }
 
         Ok(has_events)
     }
 
-    fn post_update(
+    fn post_update<B>(
         &self,
         flushing_dwpt: Option<DocumentsWriterPerThread<D>>,
         mut has_events: bool,
-    ) -> Result<bool> {
+        writer: &IndexWriter<D, L, B>,
+    ) -> Result<bool>
+    where
+        B: IndexWriterBase,
+    {
         has_events |= self.apply_all_deletes(None)?;
         if let Some(dwpt) = flushing_dwpt {
-            self.do_flush(dwpt)?;
+            self.do_flush(dwpt, writer)?;
             has_events = true;
         } else if self.config.get_check_pending_flush_on_update() {
-            has_events |= self.maybe_flush()?;
+            has_events |= self.maybe_flush(writer)?;
         }
         Ok(has_events)
     }
-    fn update_documents<DI, DF>(&self, docs: DI, del_node: Option<Arc<Node>>) -> Result<i64>
+    fn update_documents<DI, DF, B>(
+        &self,
+        docs: DI,
+        del_node: Option<Arc<Node>>,
+        writer: &IndexWriter<D, L, B>,
+    ) -> Result<i64>
     where
         DI: IntoIterator<Item = DF>,
         DF: IntoIterator<Item = Fields>,
+        B: IndexWriterBase,
     {
-        let has_events = self.pre_update()?;
+        let has_events = self.pre_update(writer)?;
 
         let delete_queue = self.inner.lock().delete_queue.clone();
         let dwpt_factory = SupplierImpl2::new(
@@ -387,6 +404,7 @@ where
                     &self.flush_notifications,
                     self.config.as_ref(),
                     &self.num_docs_in_ram,
+                    writer,
                 )?;
                 seq_no = 0;
                 Ok(())
@@ -438,13 +456,16 @@ where
             result
         })();
         result?;
-        if self.post_update(flushing_dwpt_opt, has_events)? {
+        if self.post_update(flushing_dwpt_opt, has_events, writer)? {
             seq_no = -seq_no;
         }
         Ok(seq_no)
     }
 
-    fn maybe_flush(&self) -> Result<bool> {
+    fn maybe_flush<B>(&self, writer: &IndexWriter<D, L, B>) -> Result<bool>
+    where
+        B: IndexWriterBase,
+    {
         let flushing_dwpt = match self.flush_control.next_pending_flush(None) {
             (Some(dwpt), _, _) => Some(dwpt),
             (None, full_flush, num_pending) => {
@@ -454,13 +475,20 @@ where
         };
 
         if let Some(flushing_dwpt) = flushing_dwpt {
-            self.do_flush(flushing_dwpt)?;
+            self.do_flush(flushing_dwpt, writer)?;
             Ok(true)
         } else {
             Ok(false)
         }
     }
-    fn do_flush(&self, mut flushing_dwpt: DocumentsWriterPerThread<D>) -> Result<()> {
+    fn do_flush<B>(
+        &self,
+        mut flushing_dwpt: DocumentsWriterPerThread<D>,
+        writer: &IndexWriter<D, L, B>,
+    ) -> Result<()>
+    where
+        B: IndexWriterBase,
+    {
         loop {
             assert!(!flushing_dwpt.has_flushed(),);
             {
@@ -497,8 +525,11 @@ where
                         has_ticket = Some(ticket);
                         let flushing_docs_in_ram = flushing_dwpt.get_num_docs_in_ram();
                         let result = (|| {
-                            let v = flushing_dwpt
-                                .flush(&self.flush_notifications, self.config.as_ref())?;
+                            let v = flushing_dwpt.flush(
+                                &self.flush_notifications,
+                                self.config.as_ref(),
+                                writer,
+                            )?;
                             match v {
                                 Some(new_segment) => {
                                     self.ticket_queue.add_segment(ticket, new_segment);
@@ -512,14 +543,14 @@ where
                         self.subtract_flushed_num_docs(flushing_docs_in_ram);
                         if !flushing_dwpt.pending_files_to_delete().is_empty() {
                             let files = flushing_dwpt.pending_files_to_delete().clone();
-                            self.flush_notifications.delete_unused_files(&files);
+                            self.flush_notifications.delete_unused_files(files)?;
                         }
                         if result.is_err() {
                             let dir = flushing_dwpt.segment_info.dir.clone();
                             self.flush_notifications.flush_failed(std::mem::replace(
                                 &mut flushing_dwpt.segment_info,
                                 SegmentInfo::dummy(dir),
-                            ))
+                            ))?
                         }
                         result
                     },
@@ -542,7 +573,7 @@ where
                 // thread in innerPurge can't keep up with all
                 // other threads flushing segments.  In this case
                 // we forcefully stall the producers.
-                self.flush_notifications.on_ticket_backlog();
+                self.flush_notifications.on_ticket_backlog()?;
             }
 
             self.flush_control.do_after_flush(flushing_dwpt);
@@ -562,7 +593,7 @@ where
                 None => break,
             }
         }
-        self.flush_notifications.after_segments_flushed()?;
+        self.flush_notifications.after_segments_flushed(writer)?;
         Ok(())
     }
     pub(crate) fn get_next_sequence_number(&self) -> i64 {
@@ -638,7 +669,10 @@ where
     // FlushAllThreads is synced by IW fullFlushLock. Flushing all threads is a
     // two stage operation; the caller must ensure (in try/finally) that finishFlush
     // is called after this method, to release the flush lock in DWFlushControl
-    fn flush_all_threads(&self) -> Result<i64> {
+    fn flush_all_threads<B>(&self, writer: &IndexWriter<D, L, B>) -> Result<i64>
+    where
+        B: IndexWriterBase,
+    {
         {
             if self.info_stream.enabled("DW") {
                 self.info_stream.message("DW", "startFullFlush");
@@ -669,7 +703,7 @@ where
         });
 
         let mut anything_flushed = false;
-        anything_flushed |= self.maybe_flush()?;
+        anything_flushed |= self.maybe_flush(writer)?;
         // If a concurrent flush is still in flight wait for it
         self.flush_control.wait_for_flush();
         if !anything_flushed && flushing_delete_queue.any_changes(None) {
@@ -754,24 +788,35 @@ where
 pub(crate) trait FlushNotifications {
     /// Called when files were written to disk that are not used anymore.
     /// It's the implementation's responsibility to clean these files up.
-    fn delete_unused_files<'a, I>(&self, files: I)
-    where
-        I: IntoIterator<Item = &'a String>;
+    fn delete_unused_files(&self, files: HashSet<String>) -> Result<()>;
 
     /// Called when a segment failed to flush.
-    fn flush_failed<D>(&self, info: SegmentInfo<D>)
+    fn flush_failed<D>(&self, info: SegmentInfo<D>) -> Result<()>
     where
         D: Directory;
 
     /// Called after one or more segments were flushed to disk.
-    fn after_segments_flushed(&self) -> Result<()>;
+    fn after_segments_flushed<D, L, B>(&self, writer: &IndexWriter<D, L, B>) -> Result<()>
+    where
+        D: Directory,
+        L: LiveIndexWriterConfig,
+        B: IndexWriterBase;
 
     /// Should be called if a flush or an indexing operation caused
     /// a tragic / unrecoverable event.
-    fn on_tragic_event(&self, event: LuceneError, message: &str);
+    fn on_tragic_event<D, L, B>(
+        &self,
+        event: LuceneError,
+        message: &str,
+        writer: &IndexWriter<D, L, B>,
+    ) -> Result<()>
+    where
+        D: Directory,
+        L: LiveIndexWriterConfig,
+        B: IndexWriterBase;
 
     /// Called once deletes have been applied either after a flush or on a deletes call.
-    fn on_deletes_applied(&self);
+    fn on_deletes_applied(&self) -> Result<()>;
 
     /// Called once the DocumentsWriter ticket queue has a backlog. This means there is an inner
     /// thread that tries to publish flushed segments but can't keep up with the other threads
@@ -779,7 +824,7 @@ pub(crate) trait FlushNotifications {
     /// help publishing. This can't be done in-place since we might hold index writer locks when this
     /// is called. The caller must ensure that the purge happens without an index writer lock being
     /// held.
-    fn on_ticket_backlog(&self);
+    fn on_ticket_backlog(&self) -> Result<()>;
 }
 
 struct SupplierImpl {

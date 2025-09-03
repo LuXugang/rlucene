@@ -139,7 +139,7 @@ where
         let (next_gen, packet) = self.buffered_updates_stream.push(packet);
         // Do this as an event so it applies higher in the stack when we are not holding
         // DocumentsWriterFlushQueue.purgeLock:
-        let event: EventEnum<D> = EventEnum::E(EventImpl5::new(packet));
+        let event: EventEnum = EventEnum::E(EventImpl5::new(packet));
         self.event_queue.add(event)?;
         drop(_guard);
         Ok(next_gen)
@@ -188,6 +188,7 @@ where
             };
 
             if self.info_stream.enabled("IW") {
+                // TODO
                 // let segs = self.seg_string(&new_segment);
                 // self.info_stream.message(
                 //     "IW",
@@ -307,14 +308,9 @@ where
         inner.deleter.delete_new_files(files)
     }
 
-    fn flush_failed(&self, info: &SegmentInfo<D>) -> Result<()> {
+    fn flush_failed(&self, files: HashSet<String>) -> Result<()> {
         let inner = self.inner.lock();
-        match info.files() {
-            Ok(files) => inner.deleter.delete_new_files(files.iter())?,
-            Err(_) => { // no-op},
-            },
-        }
-        Ok(())
+        inner.deleter.delete_new_files(files.iter())
     }
 
     fn publish_flushed_segments(&self, forced: bool) -> Result<()> {
@@ -467,36 +463,67 @@ impl DocMap for DocMapIndexWriter {
     }
 }
 
-pub(crate) struct FlushNotificationsImpl;
+pub(crate) struct FlushNotificationsImpl {
+    event_queue: Arc<EventQueue>,
+}
+impl FlushNotificationsImpl {
+    pub fn new(event_queue: Arc<EventQueue>) -> Self {
+        Self { event_queue }
+    }
+}
 impl FlushNotifications for FlushNotificationsImpl {
-    fn delete_unused_files<'a, I>(&self, _files: I)
-    where
-        I: IntoIterator<Item = &'a String>,
-    {
-        todo!()
+    fn delete_unused_files(&self, files: HashSet<String>) -> Result<()> {
+        let event = EventEnum::A(EventImpl1::new(files));
+        self.event_queue.add(event)
     }
 
-    fn flush_failed<D>(&self, _info: SegmentInfo<D>)
+    fn flush_failed<D>(&self, mut info: SegmentInfo<D>) -> Result<()>
     where
         D: Directory,
     {
-        todo!()
+        match info.take_files() {
+            Ok(files) => {
+                let event = EventEnum::B(EventImpl2::new(files));
+                self.event_queue.add(event)
+            },
+            Err(_) => {
+                // no-op
+                Ok(())
+            },
+        }
     }
 
-    fn after_segments_flushed(&self) -> Result<()> {
-        todo!()
+    fn after_segments_flushed<D, L, B>(&self, writer: &IndexWriter<D, L, B>) -> Result<()>
+    where
+        D: Directory,
+        L: LiveIndexWriterConfig,
+        B: IndexWriterBase,
+    {
+        writer.publish_flushed_segments(false)
     }
 
-    fn on_tragic_event(&self, _event: LuceneError, _message: &str) {
-        todo!()
+    fn on_tragic_event<D, L, B>(
+        &self,
+        event: LuceneError,
+        message: &str,
+        writer: &IndexWriter<D, L, B>,
+    ) -> Result<()>
+    where
+        D: Directory,
+        L: LiveIndexWriterConfig,
+        B: IndexWriterBase,
+    {
+        writer.on_tragic_event(&event, message)
     }
 
-    fn on_deletes_applied(&self) {
-        todo!()
+    fn on_deletes_applied(&self) -> Result<()> {
+        let event = EventEnum::C(EventImpl3);
+        self.event_queue.add(event)
     }
 
-    fn on_ticket_backlog(&self) {
-        todo!()
+    fn on_ticket_backlog(&self) -> Result<()> {
+        let event = EventEnum::D(EventImpl4);
+        self.event_queue.add(event)
     }
 }
 
@@ -599,7 +626,7 @@ pub(crate) fn create_compound_file<D, T, D2>(
 where
     D: Directory,
     D2: Directory,
-    T: for<'a> IOConsumer<&'a HashSet<String>>,
+    T: IOConsumer<HashSet<String>>,
 {
     // maybe this check is not needed, but why take the risk?
     if !directory
@@ -625,29 +652,23 @@ where
             .write(directory, info, context)?;
         Ok(())
     })();
-    let filename = directory
-        .get_created_files()
-        .lock()
-        .created_filenames
-        .clone();
+    let filename = std::mem::take(&mut directory.get_created_files().lock().created_filenames);
     if write_result.is_err() {
-        delete_files.accept(&filename)?;
+        delete_files.accept(filename)?;
+        return write_result;
     }
     // Replace all previous files with the CFS/CFE files:
     info.set_files(filename)?;
 
-    write_result
+    Ok(())
 }
 
-struct EventQueue {}
+pub(crate) struct EventQueue {}
 impl EventQueue {
     fn acquire(&self) -> Result<()> {
         todo!()
     }
-    fn add<D>(&self, event: EventEnum<D>) -> Result<()>
-    where
-        D: Directory,
-    {
+    fn add(&self, _event: EventEnum) -> Result<()> {
         todo!()
     }
     fn process_events(&self) -> Result<()> {
@@ -696,25 +717,19 @@ where
         L: LiveIndexWriterConfig,
         B: IndexWriterBase,
     {
-        writer.delete_new_files(&self.files)
+        writer.delete_new_files(self.files.iter())
     }
 }
 
-struct EventImpl2<D>
-where
-    D: Directory,
-{
-    info: SegmentInfo<D>,
+struct EventImpl2 {
+    info_files: HashSet<String>,
 }
-impl<D> EventImpl2<D>
-where
-    D: Directory,
-{
-    pub fn new(info: SegmentInfo<D>) -> Self {
-        Self { info }
+impl EventImpl2 {
+    pub fn new(info_files: HashSet<String>) -> Self {
+        Self { info_files }
     }
 }
-impl<D> Event<D> for EventImpl2<D>
+impl<D> Event<D> for EventImpl2
 where
     D: Directory,
 {
@@ -723,7 +738,7 @@ where
         L: LiveIndexWriterConfig,
         B: IndexWriterBase,
     {
-        writer.flush_failed(&self.info)
+        writer.flush_failed(std::mem::take(&mut self.info_files))
     }
 }
 
@@ -796,17 +811,14 @@ where
     }
 }
 
-enum EventEnum<D>
-where
-    D: Directory,
-{
+enum EventEnum {
     A(EventImpl1),
-    B(EventImpl2<D>),
+    B(EventImpl2),
     C(EventImpl3),
     D(EventImpl4),
     E(EventImpl5),
 }
-impl<D> Event<D> for EventEnum<D>
+impl<D> Event<D> for EventEnum
 where
     D: Directory,
 {
