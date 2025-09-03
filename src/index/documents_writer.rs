@@ -24,7 +24,7 @@ use crate::index::documents_writer_per_thread::DocumentsWriterPerThread;
 use crate::index::documents_writer_per_thread_pool::DocumentsWriterPerThreadPool;
 use crate::index::field_infos::FieldNumbers;
 use crate::index::field_infos::build::Builder;
-use crate::index::index_writer::IndexWriter;
+use crate::index::index_writer::{IndexWriter, IndexWriterBase};
 use crate::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::index::lockable_concurrent_approximate_priority_queue::Lock;
 use crate::index::segment_info::SegmentInfo;
@@ -207,14 +207,15 @@ where
         }
         Ok(false)
     }
-    pub(crate) fn purge_flush_tickets<F>(
+    pub(crate) fn purge_flush_tickets<F, B>(
         &self,
         forced: bool,
-        writer: &IndexWriter<D, L>,
+        writer: &IndexWriter<D, L, B>,
         consumer: F,
     ) -> Result<()>
     where
-        F: Fn(FlushTicket<D>, &IndexWriter<D, L>) -> Result<()>,
+        F: Fn(FlushTicket<D>, &IndexWriter<D, L, B>) -> Result<()>,
+        B: IndexWriterBase,
     {
         if forced {
             self.ticket_queue.force_purge(writer, consumer)

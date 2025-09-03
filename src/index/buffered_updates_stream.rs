@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::index::frozen_buffered_updates::FrozenBufferedUpdates;
-use crate::index::index_writer::IndexWriter;
+use crate::index::index_writer::{IndexWriter, IndexWriterBase};
 use crate::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::index::readers_and_updates::ReadersAndUpdates;
 use crate::index::segment_commit_info::SegmentCommitInfo;
@@ -122,10 +122,11 @@ impl BufferedUpdatesStream {
     /// Returns `true` if there were any new deletes or updates.
     ///
     /// This is called during refresh and commit.
-    pub(crate) fn wait_apply_all<D, L>(&self, writer: &mut IndexWriter<D, L>) -> Result<()>
+    pub(crate) fn wait_apply_all<D, L, B>(&self, writer: &mut IndexWriter<D, L, B>) -> Result<()>
     where
         D: Directory,
         L: LiveIndexWriterConfig,
+        B: IndexWriterBase,
     {
         let wait_for = {
             let inner = self.inner.lock();
@@ -165,14 +166,15 @@ impl BufferedUpdatesStream {
     pub fn get_completed_del_gen(&self) -> i64 {
         self.finished_segments.get_completed_del_gen()
     }
-    fn wait_apply<D, L>(
+    fn wait_apply<D, L, B>(
         &self,
         wait_for: HashSet<Rc<FrozenBufferedUpdates>>,
-        writer: &IndexWriter<D, L>,
+        writer: &IndexWriter<D, L, B>,
     ) -> Result<()>
     where
         D: Directory,
         L: LiveIndexWriterConfig,
+        B: IndexWriterBase,
     {
         let start_ns = std::time::Instant::now();
         let packet_count = wait_for.len();

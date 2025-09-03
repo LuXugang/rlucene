@@ -16,7 +16,7 @@
  */
 use crate::index::index_commit::{IndexCommit, cmp_commit, is_same_commit};
 use crate::index::index_deletion_policy::IndexDeletionPolicy;
-use crate::index::index_writer::IndexWriter;
+use crate::index::index_writer::{IndexWriter, IndexWriterBase};
 use crate::index::segment_infos::SegmentInfos;
 use crate::index::{CODEC_FILE_PATTERN, IndexFileNames};
 use crate::store::directory::Directory;
@@ -269,9 +269,10 @@ where
         index_file_deleter.delete_commits()?;
         Ok(index_file_deleter)
     }
-    fn ensure_open<L>(&self, index_writer: &IndexWriter<D, L>) -> Result<()>
+    fn ensure_open<L, B>(&self, index_writer: &IndexWriter<D, L, B>) -> Result<()>
     where
         L: LiveIndexWriterConfig,
+        B: IndexWriterBase,
     {
         index_writer.ensure_open(false)?;
 
@@ -286,9 +287,10 @@ where
 
         Ok(())
     }
-    pub(crate) fn is_closed<L>(&self, index_writer: &IndexWriter<D, L>) -> Result<bool>
+    pub(crate) fn is_closed<L, B>(&self, index_writer: &IndexWriter<D, L, B>) -> Result<bool>
     where
         L: LiveIndexWriterConfig,
+        B: IndexWriterBase,
     {
         match self.ensure_open(index_writer) {
             Ok(_) => Ok(false),

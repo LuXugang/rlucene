@@ -21,6 +21,7 @@ use crate::index::pending_soft_deletes::PendingSoftDeletes;
 use crate::index::readers_and_updates::ReadersAndUpdates;
 use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::index::segment_reader::SegmentReader;
+use crate::index::sorter::DocMapImpl;
 use crate::store::directory::Directory;
 use crate::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
 use crate::util::error::lucene_error::{LuceneError, Result};
@@ -258,7 +259,7 @@ where
     ) -> Result<bool> {
         let mut any = false;
         for info in infos {
-            if let Some(rld) = self.get(info, false, index_created_version_major)? {
+            if let Some(rld) = self.get(info, false, index_created_version_major, None)? {
                 any |= rld.write_field_updates(
                     self.directory.clone(),
                     self.field_numbers.as_ref(),
@@ -381,6 +382,7 @@ where
         info: &SegmentCommitInfo<D>,
         create: bool,
         index_created_version_major: i32,
+        sort_map: Option<Rc<DocMapImpl>>,
     ) -> Result<Option<Rc<ReadersAndUpdates<D>>>> {
         let mut inner = self.inner.lock();
         debug_assert!(
@@ -414,11 +416,12 @@ where
             if !create {
                 return Ok(None);
             }
-            let rld = Rc::new(ReadersAndUpdates::new(
+            let mut v = ReadersAndUpdates::new(
                 index_created_version_major,
                 self.new_pending_deletes(info)?,
-            ));
-            // Steal initial reference: 放入 reader_map
+            );
+            v.sort_map = sort_map;
+            let rld = Rc::new(v);
             inner
                 .reader_map
                 .insert(info.info.get_id_str(), Rc::clone(&rld));

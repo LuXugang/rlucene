@@ -186,6 +186,9 @@ where
     pub fn info(&self, i: &str) -> Option<&SegmentCommitInfo<D>> {
         self.segments.get(i)
     }
+    pub fn info_mut(&mut self, i: &str) -> Option<&mut SegmentCommitInfo<D>> {
+        self.segments.get_mut(i)
+    }
 
     /// Get the segments_N filename in use by this segment infos.
     pub fn get_segments_file_name(&self) -> Option<String> {
