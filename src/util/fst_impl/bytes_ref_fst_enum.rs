@@ -117,7 +117,7 @@ where
 {
     type V = BytesRef<Vec<u8>>;
 
-    fn get_target_label(&mut self, base: &mut FSTEnum<O, F>, target: &Self::V) -> Result<i32> {
+    fn get_target_label(&self, base: &mut FSTEnum<O, F>, target: &Self::V) -> Result<i32> {
         if base.upto - 1 == target.length {
             Ok(END_LABEL)
         } else {
@@ -125,7 +125,7 @@ where
         }
     }
 
-    fn get_current_label(&mut self, base: &mut FSTEnum<O, F>) -> Result<i32> {
+    fn get_current_label(&self, base: &mut FSTEnum<O, F>) -> Result<i32> {
         Ok(self.result.input.bytes[base.upto] as i32 & 0xFF)
     }
 

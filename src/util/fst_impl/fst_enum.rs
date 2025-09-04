@@ -1182,8 +1182,8 @@ where
     F: FstReader,
 {
     type V;
-    fn get_target_label(&mut self, base: &mut FSTEnum<O, F>, target: &Self::V) -> Result<i32>;
-    fn get_current_label(&mut self, base: &mut FSTEnum<O, F>) -> Result<i32>;
+    fn get_target_label(&self, base: &mut FSTEnum<O, F>, target: &Self::V) -> Result<i32>;
+    fn get_current_label(&self, base: &mut FSTEnum<O, F>) -> Result<i32>;
     fn set_current_label(&mut self, label: i32, base: &mut FSTEnum<O, F>) -> Result<()>;
     fn grow(&mut self, base: &mut FSTEnum<O, F>) -> Result<()>;
 }
