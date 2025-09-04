@@ -20,7 +20,7 @@ use crate::index::flush_policy::FlushPolicy;
 use crate::index::index_deletion_policy::IndexDeletionPolicy;
 use crate::index::merge_policy::MergePolicy;
 use crate::index::sort::Sort;
-use crate::search::similarities::similarities::Similarity;
+use crate::search::similarities_impl::similarities::Similarity;
 use crate::util::info_stream::InfoStreamMT;
 use std::sync::Arc;
 

@@ -524,7 +524,7 @@ mod tests {
     }
     #[test]
     fn test_special_case() -> Result<()> {
-        let re = RegExp::from_str(".?")?;
+        let re = RegExp::from_string(".?")?;
         let automaton = re.to_automaton()?;
 
         let cra = CharacterRunAutomaton::new(automaton.clone())?;
@@ -552,7 +552,7 @@ mod tests {
             LuceneError::illegal_argument(format!("invalid UTF-16 input: {e}"))
         })?;
 
-        let re = RegExp::from_str(".+\u{0775}")?;
+        let re = RegExp::from_string(".+\u{0775}")?;
         let mut automaton = re.to_automaton()?;
         automaton =
             Operations::determinize(&automaton, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?
@@ -583,7 +583,7 @@ mod tests {
         let regex_str = String::from_utf16(&utf16_regex)
             .map_err(|e| LuceneError::illegal_argument(format!("invalid UTF-16 regex: {e}")))?;
 
-        let re = RegExp::from_str(&regex_str)?;
+        let re = RegExp::from_string(&regex_str)?;
         let mut automaton = re.to_automaton()?;
         automaton =
             Operations::determinize(&automaton, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?

@@ -3026,7 +3026,7 @@ mod tests {
     fn test_determinize_too_much_effort() {
         // make sure determinize properly aborts, relatively quickly, for this regexp:
         let result = (|| {
-            let a = RegExp::from_str("(.*a){2000}")?.to_automaton()?;
+            let a = RegExp::from_string("(.*a){2000}")?.to_automaton()?;
             Operations::determinize(&a, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
             Ok::<(), LuceneError>(())
         })();
@@ -3036,7 +3036,7 @@ mod tests {
         ));
 
         let result = (|| {
-            let a = RegExp::from_str("(.*a){2000}")?.to_automaton()?;
+            let a = RegExp::from_string("(.*a){2000}")?.to_automaton()?;
             let rev = Operations::reverse(&a)?;
             Operations::determinize(&rev, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
             Ok::<(), LuceneError>(())

@@ -29,7 +29,7 @@ use std::fmt::Display;
 ///
 /// This is a low-level API—only implement this trait if you want to provide a custom
 /// information retrieval *model*. If you merely wish to tweak Lucene’s scoring, consider
-/// using or extending [`BM25Similarity`](crate::search::similarities::bm25_similarity::BM25Similarity) or [`SimilarityBase`](crate::search::similarities::similarity_base::SimilarityBase), which simplify score computation
+/// using or extending [`BM25Similarity`](crate::search::similarities_impl::bm25_similarity::BM25Similarity) or [`SimilarityBase`](crate::search::similarities_impl::similarity_base::SimilarityBase), which simplify score computation
 /// from index statistics.
 ///
 /// Similarity determines how Lucene weights terms at both indexing-time and query-time.
@@ -56,7 +56,7 @@ use std::fmt::Display;
 ///
 /// Instead of using index-time boosts (folded into the norm byte or DocValues) for
 /// constant per-field boosts, you can simply expose a constant boost parameter `c`
-/// in your implementation and use [`PerFieldSimilarityWrapper`](crate::search::similarities::per_field_similarity_wrapper::PerFieldSimilarityWrapper) to return
+/// in your implementation and use [`PerFieldSimilarityWrapper`](crate::search::similarities_impl::per_field_similarity_wrapper::PerFieldSimilarityWrapper) to return
 /// different `Similarity` instances per field name.
 ///
 /// ## Query Time  

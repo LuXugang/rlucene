@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::search::explanation::Explanation;
-use crate::search::similarities::similarities::SimScorer;
+use crate::search::similarities_impl::similarities::SimScorer;
 
 pub struct DummySimScorer;
 impl SimScorer for DummySimScorer {

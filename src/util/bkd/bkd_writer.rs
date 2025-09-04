@@ -1187,7 +1187,9 @@ where
         Ok(())
     }
     /// Return an array that contains the min and max values for the [offset,
+    ///
     /// offset+length] interval of the given {@link BytesRef}s.
+    #[allow(clippy::type_complexity)]
     fn compute_min_max(
         &self,
         count: i32,

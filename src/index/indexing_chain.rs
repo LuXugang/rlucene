@@ -75,7 +75,7 @@ use crate::index::stored_fields_consumer::StoredFieldsConsumer;
 use crate::index::term_vectors_consumer::TermVectorsConsumer;
 use crate::index::vector_encoding::VectorEncoding;
 use crate::index::vector_similarity_function::VectorSimilarityFunction;
-use crate::search::similarities::similarities::Similarity;
+use crate::search::similarities_impl::similarities::Similarity;
 use crate::search::sort_field::SortFiledBase;
 use crate::store::IOContext;
 use crate::store::directory::Directory;
@@ -1640,7 +1640,7 @@ impl Eq for PerField {}
 
 impl PartialOrd for PerField {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.field_name.cmp(&other.field_name))
+        Some(self.cmp(other))
     }
 }
 impl Ord for PerField {

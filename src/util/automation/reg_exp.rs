@@ -135,7 +135,7 @@ impl RegExp {
     #[deprecated(note = "This flag will be removed in Lucene 11")]
     pub const DEPRECATED_COMPLEMENT: i32 = 0x10000;
     /// Equivalent to `RegExp(s)` → `RegExp::parse(s, ALL, 0)`
-    pub fn from_str(s: &str) -> Result<Self> {
+    pub fn from_string(s: &str) -> Result<Self> {
         Self::from_str_with_flags(s, Self::ALL)
     }
 
@@ -1138,12 +1138,12 @@ impl RegExp {
     }
     fn expand_predefined(&self) -> Result<RegExp> {
         match std::char::from_u32(self.from as u32) {
-            Some('d') => RegExp::from_str("[0-9]"),        // digit
-            Some('D') => RegExp::from_str("[^0-9]"),       // non-digit
-            Some('s') => RegExp::from_str("[ \t\n\r]"),    // whitespace
-            Some('S') => RegExp::from_str("[^\\s]"),       // non-whitespace
-            Some('w') => RegExp::from_str("[a-zA-Z_0-9]"), // word
-            Some('W') => RegExp::from_str("[^\\w]"),       // non-word
+            Some('d') => RegExp::from_string("[0-9]"),        // digit
+            Some('D') => RegExp::from_string("[^0-9]"),       // non-digit
+            Some('s') => RegExp::from_string("[ \t\n\r]"),    // whitespace
+            Some('S') => RegExp::from_string("[^\\s]"),       // non-whitespace
+            Some('w') => RegExp::from_string("[a-zA-Z_0-9]"), // word
+            Some('W') => RegExp::from_string("[^\\w]"),       // non-word
             Some(ch) => Err(LuceneError::illegal_argument(format!(
                 "invalid character class: \\{ch}"
             ))),
@@ -1623,7 +1623,7 @@ mod tests {
 
         for ch in illegal_chars.chars() {
             let expr = format!("\\{}", ch);
-            let err = RegExp::from_str(&expr);
+            let err = RegExp::from_string(&expr);
             assert!(
                 matches!(err, Err(LuceneError::IllegalArgument(_))),
                 "Expected IllegalArgument for `\\{}` but got: {:?}",
@@ -1644,7 +1644,7 @@ mod tests {
 
         for ch in legal_chars.chars() {
             let expr = format!("\\{}", ch);
-            RegExp::from_str(&expr)?;
+            RegExp::from_string(&expr)?;
         }
 
         Ok(())
@@ -1696,7 +1696,7 @@ mod tests {
     struct TestRegExpParsing;
     #[test]
     fn test_any_char() -> Result<()> {
-        let re = RegExp::from_str(".")?;
+        let re = RegExp::from_string(".")?;
 
         assert_eq!(".", re.to_string());
         assert_eq!("AnyChar\n", re.to_string_tree());
@@ -1726,7 +1726,7 @@ mod tests {
     }
     #[test]
     fn test_char() -> Result<()> {
-        let re = RegExp::from_str("c")?;
+        let re = RegExp::from_string("c")?;
 
         assert_eq!("\\c", re.to_string());
         assert_eq!("Char char=c\n", re.to_string_tree());
@@ -1809,7 +1809,7 @@ mod tests {
 
     #[test]
     fn test_negated_char() -> Result<()> {
-        let re = RegExp::from_str("[^c]")?;
+        let re = RegExp::from_string("[^c]")?;
 
         assert_eq!("(.&~(\\c))", re.to_string());
         assert_eq!(
@@ -1830,7 +1830,7 @@ mod tests {
     }
     #[test]
     fn test_char_range() -> Result<()> {
-        let re = RegExp::from_str("[b-d]")?;
+        let re = RegExp::from_string("[b-d]")?;
 
         assert_eq!("[\\b-\\d]", re.to_string());
         assert_eq!("CharRange from=b to=d\n", re.to_string_tree());
@@ -1846,7 +1846,7 @@ mod tests {
 
     #[test]
     fn test_negated_char_range() -> Result<()> {
-        let re = RegExp::from_str("[^b-d]")?;
+        let re = RegExp::from_string("[^b-d]")?;
         // TODO: would be nice to emit negated class rather than this
         assert_eq!("(.&~([\\b-\\d]))", re.to_string());
         assert_eq!(
@@ -1868,7 +1868,7 @@ mod tests {
     }
     #[test]
     fn test_illegal_char_range() {
-        let err = RegExp::from_str("[z-a]");
+        let err = RegExp::from_string("[z-a]");
         assert!(
             matches!(err, Err(LuceneError::IllegalArgument(_))),
             "Expected IllegalArgument but got: {:?}",
@@ -1878,7 +1878,7 @@ mod tests {
 
     #[test]
     fn test_char_class_digit() -> Result<()> {
-        let re = RegExp::from_str("[\\d]")?;
+        let re = RegExp::from_string("[\\d]")?;
 
         assert_eq!("\\d", re.to_string());
         assert_eq!("PreClass class=\\d\n", re.to_string_tree());
@@ -1894,7 +1894,7 @@ mod tests {
 
     #[test]
     fn test_char_class_non_digit() -> Result<()> {
-        let re = RegExp::from_str("[\\D]")?;
+        let re = RegExp::from_string("[\\D]")?;
 
         assert_eq!("\\D", re.to_string());
         assert_eq!("PreClass class=\\D\n", re.to_string_tree());
@@ -1913,7 +1913,7 @@ mod tests {
     }
     #[test]
     fn test_char_class_whitespace() -> Result<()> {
-        let re = RegExp::from_str("[\\s]")?;
+        let re = RegExp::from_string("[\\s]")?;
 
         assert_eq!("\\s", re.to_string());
         assert_eq!("PreClass class=\\s\n", re.to_string_tree());
@@ -1932,7 +1932,7 @@ mod tests {
 
     #[test]
     fn test_char_class_non_whitespace() -> Result<()> {
-        let re = RegExp::from_str("[\\S]")?;
+        let re = RegExp::from_string("[\\S]")?;
 
         assert_eq!("\\S", re.to_string());
         assert_eq!("PreClass class=\\S\n", re.to_string_tree());
@@ -1959,7 +1959,7 @@ mod tests {
     }
     #[test]
     fn test_char_class_word() -> Result<()> {
-        let re = RegExp::from_str("[\\w]")?;
+        let re = RegExp::from_string("[\\w]")?;
 
         assert_eq!("\\w", re.to_string());
         assert_eq!("PreClass class=\\w\n", re.to_string_tree());
@@ -1983,7 +1983,7 @@ mod tests {
     }
     #[test]
     fn test_char_class_non_word() -> Result<()> {
-        let re = RegExp::from_str("[\\W]")?;
+        let re = RegExp::from_string("[\\W]")?;
 
         assert_eq!("\\W", re.to_string());
         assert_eq!("PreClass class=\\W\n", re.to_string_tree());
@@ -2010,19 +2010,19 @@ mod tests {
     }
     #[test]
     fn test_truncated_char_class() {
-        let err = RegExp::from_str("[b-d");
+        let err = RegExp::from_string("[b-d");
         assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
     }
 
     #[test]
     fn test_bogus_char_class() {
-        let err = RegExp::from_str("[\\q]");
+        let err = RegExp::from_string("[\\q]");
         assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
     }
 
     #[test]
     fn test_escaped_not_char_class() -> Result<()> {
-        let re = RegExp::from_str("[\\?]")?;
+        let re = RegExp::from_string("[\\?]")?;
 
         assert_eq!("\\?", re.to_string());
         assert_eq!("Char char=?\n", re.to_string_tree());
@@ -2038,7 +2038,7 @@ mod tests {
 
     #[test]
     fn test_escaped_slash_not_char_class() -> Result<()> {
-        let re = RegExp::from_str("[\\\\]")?;
+        let re = RegExp::from_string("[\\\\]")?;
 
         assert_eq!("\\\\", re.to_string());
         assert_eq!("Char char=\\\n", re.to_string_tree());
@@ -2069,7 +2069,7 @@ mod tests {
 
     #[test]
     fn test_interval() -> Result<()> {
-        let re = RegExp::from_str("<5-40>")?;
+        let re = RegExp::from_string("<5-40>")?;
 
         assert_eq!("<5-40>", re.to_string());
         assert_eq!("Interval<5-40>\n", re.to_string_tree());
@@ -2083,7 +2083,7 @@ mod tests {
 
     #[test]
     fn test_backwards_interval() -> Result<()> {
-        let re = RegExp::from_str("<40-5>")?;
+        let re = RegExp::from_string("<40-5>")?;
 
         assert_eq!("<5-40>", re.to_string());
         assert_eq!("Interval<5-40>\n", re.to_string_tree());
@@ -2096,25 +2096,25 @@ mod tests {
     }
     #[test]
     fn test_truncated_interval() {
-        let err = RegExp::from_str("<1-");
+        let err = RegExp::from_string("<1-");
         assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
     }
 
     #[test]
     fn test_truncated_interval2() {
-        let err = RegExp::from_str("<1");
+        let err = RegExp::from_string("<1");
         assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
     }
 
     #[test]
     fn test_empty_interval() {
-        let err = RegExp::from_str("<->");
+        let err = RegExp::from_string("<->");
         assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
     }
 
     #[test]
     fn test_optional() -> Result<()> {
-        let re = RegExp::from_str("a?")?;
+        let re = RegExp::from_string("a?")?;
 
         assert_eq!("(\\a)?", re.to_string());
         assert_eq!("Optional\n  Char char=a\n", re.to_string_tree());
@@ -2130,7 +2130,7 @@ mod tests {
     }
     #[test]
     fn test_repeat_0() -> Result<()> {
-        let re = RegExp::from_str("a*")?;
+        let re = RegExp::from_string("a*")?;
 
         assert_eq!("(\\a)*", re.to_string());
         assert_eq!("Repeat\n  Char char=a\n", re.to_string_tree());
@@ -2147,7 +2147,7 @@ mod tests {
 
     #[test]
     fn test_repeat_1() -> Result<()> {
-        let re = RegExp::from_str("a+")?;
+        let re = RegExp::from_string("a+")?;
 
         assert_eq!("(\\a){1,}", re.to_string());
         assert_eq!("RepeatMin min=1\n  Char char=a\n", re.to_string_tree());
@@ -2163,7 +2163,7 @@ mod tests {
 
     #[test]
     fn test_repeat_n() -> Result<()> {
-        let re = RegExp::from_str("a{5}")?;
+        let re = RegExp::from_string("a{5}")?;
 
         assert_eq!("(\\a){5,5}", re.to_string());
         assert_eq!(
@@ -2181,7 +2181,7 @@ mod tests {
     }
     #[test]
     fn test_repeat_n_plus() -> Result<()> {
-        let re = RegExp::from_str("a{5,}")?;
+        let re = RegExp::from_string("a{5,}")?;
 
         assert_eq!("(\\a){5,}", re.to_string());
         assert_eq!("RepeatMin min=5\n  Char char=a\n", re.to_string_tree());
@@ -2197,7 +2197,7 @@ mod tests {
 
     #[test]
     fn test_repeat_mn() -> Result<()> {
-        let re = RegExp::from_str("a{5,8}")?;
+        let re = RegExp::from_string("a{5,8}")?;
 
         assert_eq!("(\\a){5,8}", re.to_string());
         assert_eq!(
@@ -2216,19 +2216,19 @@ mod tests {
 
     #[test]
     fn test_truncated_repeat() {
-        let err = RegExp::from_str("a{5,8");
+        let err = RegExp::from_string("a{5,8");
         assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
     }
 
     #[test]
     fn test_bogus_repeat() {
-        let err = RegExp::from_str("a{Z}");
+        let err = RegExp::from_string("a{Z}");
         assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
     }
 
     #[test]
     fn test_string() -> Result<()> {
-        let re = RegExp::from_str("boo")?;
+        let re = RegExp::from_string("boo")?;
 
         assert_eq!("\"boo\"", re.to_string());
         assert_eq!("String string=boo\n", re.to_string_tree());
@@ -2268,7 +2268,7 @@ mod tests {
     }
     #[test]
     fn test_explicit_string() -> Result<()> {
-        let re = RegExp::from_str("\"boo\"")?;
+        let re = RegExp::from_string("\"boo\"")?;
 
         assert_eq!("\"boo\"", re.to_string());
         assert_eq!("String string=boo\n", re.to_string_tree());
@@ -2283,13 +2283,13 @@ mod tests {
 
     #[test]
     fn test_not_terminated_string() {
-        let err = RegExp::from_str("\"boo");
+        let err = RegExp::from_string("\"boo");
         assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
     }
 
     #[test]
     fn test_concatenation() -> Result<()> {
-        let re = RegExp::from_str("[b-c][e-f]")?;
+        let re = RegExp::from_string("[b-c][e-f]")?;
 
         assert_eq!("[\\b-\\c][\\e-\\f]", re.to_string());
         assert_eq!(
@@ -2309,7 +2309,7 @@ mod tests {
     }
     #[test]
     fn test_intersection() -> Result<()> {
-        let re = RegExp::from_str("[b-f]&[e-f]")?;
+        let re = RegExp::from_string("[b-f]&[e-f]")?;
 
         assert_eq!("([\\b-\\f]&[\\e-\\f])", re.to_string());
         assert_eq!(
@@ -2330,19 +2330,19 @@ mod tests {
 
     #[test]
     fn test_truncated_intersection() {
-        let err = RegExp::from_str("a&");
+        let err = RegExp::from_string("a&");
         assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
     }
 
     #[test]
     fn test_truncated_intersection_parens() {
-        let err = RegExp::from_str("(a)&(");
+        let err = RegExp::from_string("(a)&(");
         assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
     }
 
     #[test]
     fn test_union() -> Result<()> {
-        let re = RegExp::from_str("[b-c]|[e-f]")?;
+        let re = RegExp::from_string("[b-c]|[e-f]")?;
 
         assert_eq!("([\\b-\\c]|[\\e-\\f])", re.to_string());
         assert_eq!(
@@ -2363,13 +2363,13 @@ mod tests {
 
     #[test]
     fn test_truncated_union() {
-        let err = RegExp::from_str("a|");
+        let err = RegExp::from_string("a|");
         assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
     }
 
     #[test]
     fn test_truncated_union_parens() {
-        let err = RegExp::from_str("(a)|(");
+        let err = RegExp::from_string("(a)|(");
         assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
     }
 

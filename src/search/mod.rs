@@ -31,7 +31,7 @@ pub mod query;
 pub mod scorable;
 pub mod score_doc;
 pub mod score_mode;
-pub mod similarities;
+pub mod similarities_impl;
 pub mod sort_field;
 pub mod sort_field_enum;
 pub mod sorted_numeric_selector;

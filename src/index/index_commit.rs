@@ -60,10 +60,10 @@ where
 {
     Arc::ptr_eq(&a.get_directory(), &b.get_directory()) && a.get_generation() == b.get_generation()
 }
-pub fn cmp_commit<T>(a: &T, b: &T) -> Option<Ordering>
+pub fn cmp_commit<T>(a: &T, b: &T) -> Ordering
 where
     T: IndexCommit,
 {
     debug_assert!(Arc::ptr_eq(&a.get_directory(), &b.get_directory()));
-    Some(a.get_generation().cmp(&b.get_generation()))
+    a.get_generation().cmp(&b.get_generation())
 }

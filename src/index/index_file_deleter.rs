@@ -574,7 +574,7 @@ where
     D: Directory,
 {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        cmp_commit(self, other)
+        Some(self.cmp(other))
     }
 }
 
@@ -583,7 +583,7 @@ where
     D: Directory,
 {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.partial_cmp(other).unwrap()
+        cmp_commit(self, other)
     }
 }
 
