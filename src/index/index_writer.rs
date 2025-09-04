@@ -315,7 +315,52 @@ where
 
         res
     }
+    /// Ensures that all changes in the reader pool are written to disk.
+    ///
+    /// # Arguments
+    ///
+    /// * `write_deletes` — if `true`, deletes should also be written to disk.
+    pub(crate) fn write_reader_pool(
+        &self,
+        write_deletes: bool,
+        inner: &mut Inner<D, L>,
+    ) -> Result<()> {
+        if write_deletes {
+            if self.reader_pool.commit(&mut inner.segment_infos)? {
+                self.check_point_no_sis(inner)?;
+            }
+        } else {
+            // only write the docValues
+            if self
+                .reader_pool
+                .write_all_doc_values_updates(&mut inner.segment_infos.segments)?
+            {
+                self.checkpoint(inner)?;
+            }
+        }
+        // now do some best effort to check if a segment is fully deleted
+        let mut to_drop = Vec::new();
+        let index_created_version_major = inner.segment_infos.get_index_created_version_major();
 
+        for info in inner.segment_infos.segments.values() {
+            if let Some(rld) =
+                self.reader_pool
+                    .get(info, false, index_created_version_major, None)?
+                && rld.is_fully_deleted(info)?
+            {
+                to_drop.push(info.info.get_id_str());
+            }
+        }
+
+        for seg_id in &to_drop {
+            self.drop_deleted_segment(seg_id, inner)?;
+        }
+        if !to_drop.is_empty() {
+            self.checkpoint(inner)?;
+        }
+
+        Ok(())
+    }
     pub fn set_live_commit_data(&self) {}
 
     pub(crate) fn write_some_doc_values_updates(&self) -> Result<()> {
@@ -432,6 +477,33 @@ where
         self.do_ensure_open(true)
     }
 
+    // The parameter inner_ indicates that the caller must already hold the lock when invoking this method
+    fn apply_all_deletes_and_updates(&self, _inner: &Inner<D, L>) -> Result<()> {
+        self.flush_deletes_count.fetch_add(1, Ordering::AcqRel);
+        if self.info_stream.enabled("IW") {
+            self.info_stream.message(
+                "IW",
+                &format!(
+                    "now apply all deletes for all segments buffered updates bytesUsed={} reader pool bytesUsed={}",
+                    self.buffered_updates_stream.ram_bytes_used()?,
+                    self.reader_pool.ram_bytes_used()
+                ),
+            );
+        }
+        self.buffered_updates_stream.wait_apply_all(self)
+    }
+    #[cfg(test)]
+    pub(crate) fn get_docs_writer(&self) -> &DocumentsWriter<D, L, FlushNotificationsImpl> {
+        &self.doc_writer
+    }
+    /// Return the number of documents currently buffered in RAM.
+    pub fn num_ram_docs(&self) -> Result<i32> {
+        let _inner = self.inner.lock();
+        self.ensure_open()?;
+        let v = self.doc_writer.get_num_docs();
+        Ok(v)
+    }
+
     fn on_tragic_event(&self, _tragedy: &LuceneError, _location: &str) -> Result<()> {
         todo!()
     }
@@ -442,6 +514,13 @@ where
     pub(crate) fn is_deleter_closed(&self) -> Result<bool> {
         let inner = self.inner.lock();
         inner.deleter.is_closed(self)
+    }
+
+    fn test_point(&self, message: &str) {
+        if self.enable_test_points {
+            debug_assert!(self.info_stream.enabled("TP"));
+            self.info_stream.message("TP", message);
+        }
     }
 
     fn delete_new_files<'a, I>(&self, files: I) -> Result<()>
@@ -1166,6 +1245,7 @@ use crate::index::sorter::DocMapImpl;
 use crate::store::IOContext;
 use crate::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
 use crate::store::tracking_directory_wrapper::TrackingDirectoryWrapper;
+use crate::util::accountable::Accountable;
 use crate::util::array_util::ArrayUtil;
 use crate::util::constants::Constants;
 use crate::util::info_stream::{InfoStream, InfoStreamMT};

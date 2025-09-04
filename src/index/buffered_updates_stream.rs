@@ -122,7 +122,7 @@ impl BufferedUpdatesStream {
     /// Returns `true` if there were any new deletes or updates.
     ///
     /// This is called during refresh and commit.
-    pub(crate) fn wait_apply_all<D, L, B>(&self, writer: &mut IndexWriter<D, L, B>) -> Result<()>
+    pub(crate) fn wait_apply_all<D, L, B>(&self, writer: &IndexWriter<D, L, B>) -> Result<()>
     where
         D: Directory,
         L: LiveIndexWriterConfig,

@@ -20,6 +20,7 @@ use crate::index::pending_deletes::{PendingDeletes, PendingDeletesEnum};
 use crate::index::pending_soft_deletes::PendingSoftDeletes;
 use crate::index::readers_and_updates::ReadersAndUpdates;
 use crate::index::segment_commit_info::SegmentCommitInfo;
+use crate::index::segment_infos::SegmentInfos;
 use crate::index::segment_reader::SegmentReader;
 use crate::index::sorter::DocMapImpl;
 use crate::store::directory::Directory;
@@ -229,7 +230,7 @@ where
     /// Writes all doc values updates to disk if there are any.
     pub(crate) fn write_all_doc_values_updates(
         &self,
-        info: &mut SegmentCommitInfo<D>,
+        infos: &mut HashMap<String, SegmentCommitInfo<D>>,
     ) -> Result<bool> {
         let copy: Vec<Rc<ReadersAndUpdates<D>>> = {
             let inner = self.inner.lock();
@@ -240,6 +241,10 @@ where
 
         let mut any = false;
         for rld in copy {
+            let info = match infos.get_mut(&rld.info_id) {
+                Some(info) => info,
+                None => return Err(LuceneError::illegal_state("SegmentCommitInfo missing")),
+            };
             any |= rld.write_field_updates(
                 self.directory.clone(),
                 self.field_numbers.as_ref(),
@@ -328,11 +333,11 @@ where
         Ok(())
     }
     /// Commit live docs changes for the segment readers for the provided infos.
-    pub(crate) fn commit(&self, infos: &mut [SegmentCommitInfo<D>]) -> Result<bool> {
+    pub(crate) fn commit(&self, infos: &mut SegmentInfos<D>) -> Result<bool> {
         let inner = self.inner.lock();
         let mut at_least_one_change = false;
 
-        for info in infos {
+        for info in infos.segments.values_mut() {
             if let Some(rld) = inner.reader_map.get(&info.info.get_id_str()) {
                 debug_assert_eq!(rld.info_id, info.info.get_id_str());
 
