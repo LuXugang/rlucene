@@ -37,8 +37,8 @@ where
 {
     pub metadata: Option<FSTMetadata<O>>,
     pub outputs: O,
-    // wrap with Rc<RefCell<>> to allow interior mutability
-    pub fst_reader: Rc<RefCell<F>>,
+    // wrap with RefCell to allow interior mutability
+    pub fst_reader: RefCell<F>,
 }
 
 impl<O> FST<O, OnHeapFSTStore>
@@ -66,7 +66,7 @@ where
         Self {
             outputs: metadata.outputs.clone(),
             metadata: Some(metadata),
-            fst_reader: Rc::new(RefCell::new(fst_reader)),
+            fst_reader: RefCell::new(fst_reader),
         }
     }
     /// Create an FST from metadata and reader. Returns `None` if the metadata
@@ -81,7 +81,7 @@ where
         Some(Self {
             outputs: metadata.outputs.clone(),
             metadata: Some(metadata),
-            fst_reader: Rc::new(RefCell::new(fst_reader)),
+            fst_reader: RefCell::new(fst_reader),
         })
     }
     pub fn num_bytes(&self) -> i64 {
