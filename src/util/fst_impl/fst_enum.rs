@@ -1110,10 +1110,6 @@ where
 
         Ok(())
     }
-
-    fn get_arc_ownership(&mut self, idx: usize) -> Arc<O::V> {
-        std::mem::take(&mut self.arcs[idx])
-    }
 }
 pub(crate) trait FSTEnumBase<O, F>
 where
@@ -1121,10 +1117,10 @@ where
     F: FstReader,
 {
     type V;
-    fn get_target_label(&self, base: &mut FSTEnum<O, F>, target: &Self::V) -> Result<i32>;
-    fn get_current_label(&self, base: &mut FSTEnum<O, F>) -> Result<i32>;
-    fn set_current_label(&mut self, label: i32, base: &mut FSTEnum<O, F>) -> Result<()>;
-    fn grow(&mut self, base: &mut FSTEnum<O, F>) -> Result<()>;
+    fn get_target_label(&self, base: &FSTEnum<O, F>, target: &Self::V) -> Result<i32>;
+    fn get_current_label(&self, base: &FSTEnum<O, F>) -> Result<i32>;
+    fn set_current_label(&mut self, label: i32, base: &FSTEnum<O, F>) -> Result<()>;
+    fn grow(&mut self, base: &FSTEnum<O, F>) -> Result<()>;
 }
 /// Holds a single input + output pair
 #[derive(Clone)]

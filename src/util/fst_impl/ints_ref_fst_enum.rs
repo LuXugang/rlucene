@@ -136,7 +136,7 @@ where
 {
     type V = IntsRef<Vec<i32>>;
 
-    fn get_target_label(&self, base: &mut FSTEnum<O, F>, target: &Self::V) -> Result<i32> {
+    fn get_target_label(&self, base: &FSTEnum<O, F>, target: &Self::V) -> Result<i32> {
         if base.upto - 1 == target.length {
             Ok(END_LABEL)
         } else {
@@ -144,16 +144,16 @@ where
         }
     }
 
-    fn get_current_label(&self, base: &mut FSTEnum<O, F>) -> Result<i32> {
+    fn get_current_label(&self, base: &FSTEnum<O, F>) -> Result<i32> {
         Ok(self.result.input.ints[base.upto])
     }
 
-    fn set_current_label(&mut self, label: i32, base: &mut FSTEnum<O, F>) -> Result<()> {
+    fn set_current_label(&mut self, label: i32, base: &FSTEnum<O, F>) -> Result<()> {
         self.result.input.ints[base.upto] = label;
         Ok(())
     }
 
-    fn grow(&mut self, base: &mut FSTEnum<O, F>) -> Result<()> {
+    fn grow(&mut self, base: &FSTEnum<O, F>) -> Result<()> {
         ArrayUtil::grow_with_len(&mut self.result.input.ints, base.upto + 1);
         Ok(())
     }
