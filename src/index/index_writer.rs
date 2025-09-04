@@ -85,6 +85,7 @@ where
     info_stream: InfoStreamMT,
     inner: Mutex<Inner<D, L>>,
     sub: Option<B>,
+    commit_lock: Mutex<()>,
 }
 pub struct Inner<D, L>
 where
@@ -136,6 +137,15 @@ where
             self.adjust_pending_num_docs(dec);
         }
         res
+    }
+
+    fn maybe_merge(
+        &self,
+        _merge_policy: &L::MergePolicy,
+        _trigger: MergeTrigger,
+        _max_num_segments: i32,
+    ) -> Result<()> {
+        todo!()
     }
 
     fn checkpoint(&self, inner: &mut Inner<D, L>) -> Result<()> {
@@ -500,6 +510,39 @@ where
         self.doc_writer.purge_flush_tickets(forced, self, c)?;
         Ok(())
     }
+    /// Processes all events and might trigger a merge if the given `seq_no` is negative.
+    ///
+    /// # Arguments
+    ///
+    /// * `seq_no` — if less than 0, this method will process events; otherwise it's a no-op.
+    ///
+    /// # Returns
+    ///
+    /// The given `seq_no` inverted if negative.
+    fn maybe_process_events(&self, mut seq_no: i64) -> Result<i64> {
+        if seq_no < 0 {
+            seq_no = -seq_no;
+            self.process_events(true)?;
+        }
+        Ok(seq_no)
+    }
+
+    fn process_events(&self, trigger_merge: bool) -> Result<()> {
+        if self.tragedy.lock().is_none() {
+            self.event_queue.process_events()?;
+        }
+
+        if trigger_merge {
+            let policy = self.config.get_merge_policy();
+            self.maybe_merge(
+                policy,
+                MergeTrigger::SegmentFlush,
+                UNBOUNDED_MAX_MERGE_SEGMENTS,
+            )?;
+        }
+        Ok(())
+    }
+
     /// Anything that will add N docs to the index should reserve first to make sure it's allowed.
     ///
     /// # Errors
@@ -616,23 +659,212 @@ where
     /// by incoming indexing threads. This method will return immediately without blocking if another
     /// thread is currently applying the package. To ensure the packet has been applied,
     /// [`IndexWriter::force_apply(FrozenBufferedUpdates)`](Self::force_apply) must be called.
-    pub(crate) fn try_apply<U>(&self, updates: U) -> Result<bool>
-    where
-        U: AsRef<FrozenBufferedUpdates>,
-    {
-        if updates.as_ref().try_lock() {
+    pub(crate) fn try_apply(&self, updates: &FrozenBufferedUpdates) -> Result<bool> {
+        let _guard = updates.as_ref().try_lock();
+        if _guard.is_some() {
             self.force_apply(updates)?;
+            return Ok(true);
         }
-        Ok(false)
+        Ok(true)
     }
     /// Translates a frozen packet of delete term/query, or doc values updates, into their actual
     /// doc IDs in the index, and applies the change.
     /// This is a heavy operation and is done concurrently by incoming indexing threads.
-    pub(crate) fn force_apply<U>(&self, _updates: U) -> Result<bool>
-    where
-        U: AsRef<FrozenBufferedUpdates>,
-    {
-        todo!()
+    pub(crate) fn force_apply(&self, updates: &FrozenBufferedUpdates) -> Result<()> {
+        let updates = updates;
+        let _guard = updates.lock();
+
+        if updates.is_applied() {
+            return Ok(());
+        }
+        let start_ns = std::time::Instant::now();
+        debug_assert!(updates.any());
+        let mut seen_segments: HashSet<String> = HashSet::new();
+        let mut iter: i32 = 0;
+        let mut total_segment_count: i32 = 0;
+        let mut total_del_count: i64 = 0;
+        let mut finished = false;
+
+        // Optimistic concurrency: assume we are free to resolve the deletes against all current
+        // segments in the index, despite that
+        // concurrent merges are running.  Once we are done, we check to see if a merge completed
+        // while we were running.  If so, we must retry
+        // resolving against the newly merged segment(s).  Eventually no merge finishes while we were
+        // running and we are done.
+        loop {
+            let message_prefix = if iter == 0 {
+                String::new()
+            } else {
+                format!("iter {iter} ")
+            };
+
+            let iter_start = Instant::now();
+            let merge_gen_start = self.merge_finished_gen.load(Ordering::Acquire);
+
+            let mut del_files: HashSet<String> = HashSet::new();
+            let mut seg_states;
+
+            {
+                let mut inner = self.inner.lock();
+                let v = self.get_infos_to_apply(updates, &inner);
+                let keys = match &v {
+                    InfoFrom::None => break,
+                    InfoFrom::Updates => {
+                        vec![updates.private_segment.as_ref().unwrap()]
+                    },
+                    InfoFrom::All => inner.segment_infos.segments.keys().collect(),
+                };
+                for id in &keys {
+                    let info = inner
+                        .segment_infos
+                        .info(id)
+                        .expect("segment info not found");
+                    del_files.extend(info.files()?);
+                }
+                let v = match v {
+                    InfoFrom::None => return Err(LuceneError::unreachable("should not be here")),
+                    InfoFrom::Updates => Some(updates.private_segment.as_ref().unwrap()),
+                    InfoFrom::All => None,
+                };
+                // Must open while holding IW lock so that e.g. segments are not merged
+                // away, dropped from 100% deletions, etc., before we can open the readers
+                seg_states =
+                    self.open_segment_states(v, &mut seen_segments, updates.del_gen(), &mut inner)?;
+
+                if seg_states.is_empty() {
+                    if self.info_stream.enabled("BD") {
+                        self.info_stream.message("BD", "packet matches no segments");
+                    }
+                    break;
+                }
+
+                if self.info_stream.enabled("BD") {
+                    self.info_stream.message(
+                        "BD",
+                        &format!(
+                            "{}now apply del packet ({}) to {} segments, mergeGen {}",
+                            message_prefix,
+                            self,
+                            seg_states.len(),
+                            merge_gen_start
+                        ),
+                    );
+                }
+
+                total_segment_count += seg_states.len() as i32;
+                // Important, else IFD may try to delete our files while we are still using them,
+                // if e.g. a merge finishes on some of the segments we are resolving on:
+                inner.deleter.inc_ref_files(&del_files);
+            }
+
+            let mut success = false;
+            let mut del_count = 0;
+            {
+                let result: Result<()> = (|| {
+                    // don't hold IW monitor lock here so threads are free concurrently resolve
+                    // deletes/updates:
+                    del_count = updates
+                        .apply(&mut seg_states, &self.inner.lock().segment_infos.segments)?;
+                    success = true;
+                    Ok(())
+                })();
+                let mut inner = self.inner.lock();
+                self.finish_apply(&mut seg_states, success, del_files, &mut inner)?;
+
+                match result {
+                    Ok(_) => {},
+                    Err(e) => {
+                        return Err(e);
+                    },
+                }
+            }
+            // Since we just resolved some more deletes/updates, now is a good time to write them:
+            self.write_some_doc_values_updates()?;
+            // It's OK to add this here, even if the while loop retries, because delCount only includes
+            // newly
+            // deleted documents, on the segments we didn't already do in previous iterations:
+            total_del_count += del_count;
+
+            if self.info_stream.enabled("BD") {
+                self.info_stream.message(
+                    "BD",
+                    &format!(
+                        "{}done inner apply del packet to {} segments; {} new deletes/updates; took {:.3} sec",
+                        message_prefix,
+                        seg_states.len(),
+                        del_count,
+                        iter_start.elapsed().as_secs_f64(),
+                    ),
+                );
+            }
+
+            if updates.private_segment.is_some() {
+                // No need to retry for a segment-private packet: the merge that folds in our private
+                // segment already waits for all deletes to
+                // be applied before it kicks off, so this private segment must already not be in the set
+                // of merging segments
+                break;
+            }
+
+            {
+                // Must sync on writer here so that IW.mergeCommit is not running concurrently, so that if
+                // we exit, we know mergeCommit will succeed
+                // in pulling all our delGens into a merge:
+                let _inner = self.inner.lock();
+                let merge_gen_cur = self.merge_finished_gen.load(Ordering::Acquire);
+
+                if merge_gen_cur == merge_gen_start {
+                    // Must do this while still holding IW lock else a merge could finish and skip carrying
+                    // over our updates:
+
+                    // Record that this packet is finished:
+                    self.buffered_updates_stream.finished(updates);
+                    finished = true;
+                    // No merge finished while we were applying, so we are done!
+                    break;
+                }
+                drop(_inner)
+            }
+
+            if self.info_stream.enabled("BD") {
+                self.info_stream.message(
+                    "BD",
+                    &format!(
+                        "{}concurrent merges finished; move to next iter",
+                        message_prefix
+                    ),
+                );
+            }
+            // A merge completed while we were running.  In this case, that merge may have picked up
+            // some of the updates we did, but not
+            // necessarily all of them, so we cycle again, re-applying all our updates to the newly
+            // merged segment.
+
+            iter += 1;
+        }
+        if !finished {
+            // Record that this packet is finished:
+            self.buffered_updates_stream.finished(updates);
+        }
+
+        if self.info_stream.enabled("BD") {
+            let mut message = format!(
+                "done apply del packet ({}) to {} segments; {} new deletes/updates; took {:.3} sec",
+                self,
+                total_segment_count,
+                total_del_count,
+                start_ns.elapsed().as_secs_f64(),
+            );
+            if iter > 0 {
+                message.push_str(&format!("; {} iters due to concurrent merges", iter + 1));
+            }
+            message.push_str(&format!(
+                "; {} packets remain",
+                self.buffered_updates_stream.get_pending_updates_count()
+            ));
+            self.info_stream.message("BD", &message);
+        }
+        Ok(())
     }
 
     /// Returns the [`SegmentCommitInfo`]'s id that this packet is supposed to apply its deletes to,
@@ -763,6 +995,67 @@ where
         };
         Ok(result)
     }
+    /// Opens SegmentReader and inits SegmentState for each segment.
+    pub(crate) fn open_segment_states(
+        &self,
+        info_from: Option<&String>,
+        already_seen: &mut HashSet<String>,
+        del_gen: i64,
+        inner: &mut Inner<D, L>, // we hold lock
+    ) -> Result<Vec<SegmentState<D>>> {
+        let mut seg_states = Vec::new();
+
+        let result: Result<()> = (|| {
+            let index_created_version_major = inner.segment_infos.get_index_created_version_major();
+            let infos = match info_from {
+                None => inner.segment_infos.segments.keys().collect(),
+                Some(it) => vec![it],
+            };
+            for info_id in infos {
+                let info = inner.segment_infos.info(info_id).unwrap();
+                if info.get_buffered_deletes_gen() <= del_gen && !already_seen.contains(info_id) {
+                    let rld = self
+                        .get_pooled_instance(info, true, index_created_version_major, None)?
+                        .expect("should always be Some");
+                    let seg_state = SegmentState::new(rld, info);
+                    seg_states.push(seg_state);
+                    already_seen.insert(info_id.clone());
+                }
+            }
+            Ok(())
+        })();
+
+        if let Err(e) = result {
+            let mut errors = Vec::new();
+            for s in seg_states.iter_mut() {
+                let res: Result<()> = s.close(self, inner);
+                match res {
+                    Ok(_) => continue,
+                    Err(se) => {
+                        errors.push(se);
+                    },
+                }
+            }
+            return if errors.is_empty() {
+                Err(e)
+            } else {
+                // TODO: IMPORTANT 这里没有正确的嵌套error
+                Err(LuceneError::illegal_state(format!("{} {:?}", e, errors)))
+            };
+        }
+
+        Ok(seg_states)
+    }
+}
+impl<D, L, B> Display for IndexWriter<D, L, B>
+where
+    D: Directory,
+    L: LiveIndexWriterConfig,
+    B: IndexWriterBase,
+{
+    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
+        todo!()
+    }
 }
 enum InfoFrom {
     None,
@@ -865,6 +1158,7 @@ use crate::index::documents_writer_flush_queue::FlushTicket;
 use crate::index::field_infos::{FieldInfos, FieldNumbers};
 use crate::index::index_writer_config::DISABLE_AUTO_FLUSH;
 use crate::index::live_index_writer_config::LiveIndexWriterConfig;
+use crate::index::merge_trigger::MergeTrigger;
 use crate::index::reader_pool::ReaderPool;
 use crate::index::readers_and_updates::ReadersAndUpdates;
 use crate::index::segment_commit_info::SegmentCommitInfo;
@@ -879,7 +1173,9 @@ use crate::util::io_consumer::IOConsumer;
 use crate::util::unicode_util::UnicodeUtil;
 use crate::util::{BYTE_BLOCK_SIZE, LATEST};
 use std::collections::{HashMap, HashSet};
+use std::fmt::{Display, Formatter};
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64, Ordering};
+use std::time::Instant;
 
 /// Maximum number of documents. In Java Lucene, We subtract 128 to ensure
 /// it's well below the typical JVM's `ArrayUtil.MAX_ARRAY_LENGTH` and
@@ -893,6 +1189,7 @@ pub const MAX_POSITION: i32 = i32::MAX - 128;
 pub const ACTUAL_MAX_DOCS: i32 = MAX_DOCS;
 
 pub const MAX_TERM_LENGTH: i32 = BYTE_BLOCK_SIZE - 1;
+const UNBOUNDED_MAX_MERGE_SEGMENTS: i32 = -1;
 pub const WRITE_LOCK_NAME: &str = "write.lock";
 /// Key for the source of a segment in the [`SegmentInfo#get_diagnostics()`](crate::index::segment_info::SegmentInfo::get_diagnostics)
 pub const SOURCE: &str = "source";

@@ -245,7 +245,7 @@ where
         Ok(())
     }
 
-    pub fn delete(&self, doc_id: i32, info: &mut SegmentCommitInfo<D>) -> Result<bool> {
+    pub fn delete(&self, doc_id: i32, info: &SegmentCommitInfo<D>) -> Result<bool> {
         let mut inner = self.inner.lock();
 
         if inner.reader.is_none() && inner.pending_deletes.must_init_on_delete() {

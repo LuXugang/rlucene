@@ -145,7 +145,7 @@ impl BufferedUpdatesStream {
     /// Called by indexing threads once they are fully done resolving all deletes for the provided `del_gen`.
     /// We track completed deletion generations and record the maximum `del_gen` for which all prior generations,
     /// inclusive, are completed, so that it’s safe for doc values updates to apply and write.
-    pub(crate) fn finished(&self, packet: FrozenBufferedUpdates) {
+    pub(crate) fn finished(&self, packet: &FrozenBufferedUpdates) {
         // TODO: would be a bit more memory efficient to track this per-segment, so when each segment
         // writes it writes all packets finished for
         // it, rather than only recording here, across all segments.  But, more complex code, and more
@@ -155,7 +155,7 @@ impl BufferedUpdatesStream {
         packet.applied.store(true, Ordering::SeqCst);
 
         let mut inner = self.inner.lock();
-        inner.updates.remove(&packet);
+        inner.updates.remove(packet);
 
         let bytes = packet.bytes_used as i64;
         self.bytes_used.fetch_sub(bytes, Ordering::SeqCst);
@@ -208,10 +208,10 @@ impl BufferedUpdatesStream {
                 total_del_count += packet.total_del_count.load(Ordering::SeqCst);
             }
         }
-        for mut packet in pending {
+        for packet in pending {
             // now block on all the packets that were concurrently applied to ensure they are due before
             // we continue.
-            writer.force_apply(&mut packet)?;
+            writer.force_apply(&packet)?;
         }
 
         if self.info_stream.enabled("BD") {
@@ -266,7 +266,7 @@ impl<D> SegmentState<D>
 where
     D: Directory,
 {
-    fn new(rld: Rc<ReadersAndUpdates<D>>, info: &SegmentCommitInfo<D>) -> Self {
+    pub(crate) fn new(rld: Rc<ReadersAndUpdates<D>>, info: &SegmentCommitInfo<D>) -> Self {
         SegmentState {
             del_gen: info.get_buffered_deletes_gen(),
             rld,

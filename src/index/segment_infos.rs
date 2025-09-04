@@ -132,7 +132,7 @@ where
     /// `IndexWriter.commit`.
     pub user_data: HashMap<String, String>,
     /// List of `SegmentCommitInfo` objects.
-    segments: HashMap<String, SegmentCommitInfo<D>>,
+    pub(crate) segments: HashMap<String, SegmentCommitInfo<D>>,
     /// ID for this commit; only written starting with Lucene 5.0.
     id: Option<[u8; StringHelper::ID_LENGTH]>,
     /// Which Lucene version wrote this commit?

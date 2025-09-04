@@ -171,8 +171,8 @@ impl FrozenBufferedUpdates {
         })
     }
     /// Tries to lock this buffered update instance
-    pub(crate) fn try_lock(&self) -> bool {
-        self.apply_lock.try_lock().is_some()
+    pub(crate) fn try_lock(&self) -> Option<ReentrantMutexGuard<'_, RawMutex, RawThreadId, ()>> {
+        self.apply_lock.try_lock()
     }
     /// locks this buffered update instance
     pub(crate) fn lock(&self) -> ReentrantMutexGuard<'_, RawMutex, RawThreadId, ()> {
@@ -190,7 +190,7 @@ impl FrozenBufferedUpdates {
     pub(crate) fn apply<D>(
         &self,
         seg_states: &[SegmentState<D>],
-        infos: HashMap<String, SegmentCommitInfo<D>>,
+        infos: &HashMap<String, SegmentCommitInfo<D>>,
     ) -> Result<i64>
     where
         D: Directory,
@@ -440,7 +440,7 @@ impl FrozenBufferedUpdates {
     fn apply_term_deletes<D>(
         &self,
         seg_states: &[SegmentState<D>],
-        mut infos: HashMap<String, SegmentCommitInfo<D>>,
+        infos: &HashMap<String, SegmentCommitInfo<D>>,
     ) -> Result<i64>
     where
         D: Directory,
@@ -483,7 +483,7 @@ impl FrozenBufferedUpdates {
                         if doc_id == NO_MORE_DOCS {
                             break;
                         }
-                        let info = infos.get_mut(&seg_state.rld.info_id);
+                        let info = infos.get(&seg_state.rld.info_id);
                         debug_assert!(info.is_some());
                         if seg_state.rld.delete(doc_id, info.unwrap())? {
                             del_count += 1;

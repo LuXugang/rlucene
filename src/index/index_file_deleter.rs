@@ -477,7 +477,11 @@ where
         Ok(())
     }
 
-    pub fn inc_ref_files(&mut self, files: impl IntoIterator<Item = String>) {
+    pub fn inc_ref_files<I, S>(&mut self, files: I)
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
         self.file_deleter.inc_ref(files);
     }
 

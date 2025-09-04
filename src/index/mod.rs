@@ -90,6 +90,7 @@ mod live_index_writer_config;
 pub(crate) mod lockable_concurrent_approximate_priority_queue;
 pub mod merge_policy;
 pub mod merge_state;
+pub mod merge_trigger;
 pub mod multi_bits;
 pub(crate) mod norm_values_writer;
 pub mod numeric_doc_values;
