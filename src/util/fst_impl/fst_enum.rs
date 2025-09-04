@@ -31,7 +31,7 @@ where
     F: FstReader,
 {
     pub fst: FST<O, F>,
-    pub(crate) arcs: Vec<Option<Arc<O::V>>>,
+    pub(crate) arcs: Vec<Arc<O::V>>,
     pub(crate) output: Vec<O::V>,
 
     pub(crate) no_output: O::V,
@@ -47,10 +47,10 @@ where
     pub(crate) fn new(fst: FST<O, F>) -> Result<Self> {
         let fst_reader = fst.get_bytes_reader()?;
         let no_output = fst.outputs.get_no_output();
-        let mut arcs = vec![None; 10];
+        let mut arcs = vec![Arc::default(); 10];
         let mut arc = Arc::default();
         fst.get_first_arc(&mut arc);
-        arcs[0] = Some(arc);
+        arcs[0] = arc;
 
         let mut output = vec![O::V::default(); 10];
         output[0] = no_output.clone();
@@ -78,8 +78,8 @@ where
             let mut arc1 = self.get_arc_ownership(1);
             self.fst
                 .read_first_target_arc(&arc0, &mut arc1, &mut self.fst_reader)?;
-            self.arcs[0] = Some(arc0);
-            self.arcs[1] = Some(arc1);
+            self.arcs[0] = arc0;
+            self.arcs[1] = arc1;
             return Ok(());
         }
 
@@ -97,8 +97,8 @@ where
                     let mut arc = self.get_arc_ownership(self.upto);
                     self.fst
                         .read_first_target_arc(&arc_prev, &mut arc, &mut self.fst_reader)?;
-                    self.arcs[self.upto - 1] = Some(arc_prev);
-                    self.arcs[self.upto] = Some(arc);
+                    self.arcs[self.upto - 1] = arc_prev;
+                    self.arcs[self.upto] = arc;
                     break;
                 }
                 self.upto += 1;
@@ -117,23 +117,19 @@ where
             let mut arc1 = self.get_arc_ownership(1);
             self.fst
                 .read_first_target_arc(&arc0, &mut arc1, &mut self.fst_reader)?;
-            self.arcs[0] = Some(arc0);
-            self.arcs[1] = Some(arc1);
+            self.arcs[0] = arc0;
+            self.arcs[1] = arc1;
         } else {
-            while let Some(ref arc) = self.arcs[self.upto] {
-                if arc.is_last() {
-                    self.upto -= 1;
-                    if self.upto == 0 {
-                        return Ok(());
-                    }
-                } else {
-                    break;
+            while self.arcs[self.upto].is_last() {
+                self.upto -= 1;
+                if self.upto == 0 {
+                    return Ok(());
                 }
             }
 
             let mut arc = self.get_arc_ownership(self.upto);
             self.fst.read_next_arc(&mut arc, &mut self.fst_reader)?;
-            self.arcs[self.upto] = Some(arc);
+            self.arcs[self.upto] = arc;
         }
         self.push_first(sub)?;
         Ok(())
@@ -162,7 +158,7 @@ where
 
             if arc.bytes_per_arc() != 0 && arc.label() != END_LABEL {
                 let node_flags = arc.node_flags();
-                self.arcs[self.upto] = Some(arc);
+                self.arcs[self.upto] = arc;
                 let result = match node_flags {
                     ARCS_FOR_DIRECT_ADDRESSING => {
                         match self.do_seek_ceil_array_direct_addressing(
@@ -214,7 +210,7 @@ where
                     None => break,
                 }
             } else {
-                self.arcs[self.upto] = Some(arc);
+                self.arcs[self.upto] = arc;
                 let result = self.do_seek_ceil_list(upto, target_label, sub)?;
                 match result {
                     Some(index) => {
@@ -238,11 +234,11 @@ where
     where
         FB: FSTEnumBase<O, F>,
     {
-        let mut arc = self.arcs[arc_index].take().unwrap();
+        let mut arc = std::mem::take(&mut self.arcs[arc_index]);
         let target_index = target_label - arc.first_label();
 
         if target_index >= arc.num_arcs() {
-            self.arcs[arc_index] = Some(arc);
+            self.arcs[arc_index] = arc;
             self.rollback_to_last_fork_then_push(sub)?;
             return Ok(None);
         }
@@ -250,7 +246,7 @@ where
         if target_index < 0 {
             self.fst.read_arc_by_continuous(&mut arc, reader, 0)?;
             debug_assert!(arc.label() > target_label);
-            self.arcs[arc_index] = Some(arc);
+            self.arcs[arc_index] = arc;
             self.push_first(sub)?;
             Ok(None)
         } else {
@@ -264,7 +260,7 @@ where
                 .add(&self.output[self.upto - 1], &arc.output());
 
             if target_label == END_LABEL {
-                self.arcs[arc_index] = Some(arc);
+                self.arcs[arc_index] = arc;
                 return Ok(None);
             }
 
@@ -273,8 +269,8 @@ where
             let mut next_arc = self.get_arc_ownership(self.upto);
             self.fst
                 .read_first_target_arc(&arc, &mut next_arc, &mut self.fst_reader)?;
-            self.arcs[arc_index] = Some(arc);
-            self.arcs[self.upto] = Some(next_arc);
+            self.arcs[arc_index] = arc;
+            self.arcs[self.upto] = next_arc;
             Ok(Some(self.upto))
         }
     }
@@ -288,11 +284,11 @@ where
     where
         FB: FSTEnumBase<O, F>,
     {
-        let mut arc = self.arcs[arc_index].take().unwrap();
+        let mut arc = std::mem::take(&mut self.arcs[arc_index]);
         let mut target_index = target_label - arc.first_label();
 
         if target_index >= arc.num_arcs() {
-            self.arcs[arc_index] = Some(arc);
+            self.arcs[arc_index] = arc;
             self.rollback_to_last_fork_then_push(sub)?;
             return Ok(None);
         }
@@ -310,7 +306,7 @@ where
                 .add(&self.output[self.upto - 1], &arc.output());
 
             if target_label == END_LABEL {
-                self.arcs[arc_index] = Some(arc);
+                self.arcs[arc_index] = arc;
                 return Ok(None);
             }
 
@@ -319,8 +315,8 @@ where
             let mut next_arc = self.get_arc_ownership(self.upto);
             self.fst
                 .read_first_target_arc(&arc, &mut next_arc, &mut self.fst_reader)?;
-            self.arcs[arc_index] = Some(arc);
-            self.arcs[self.upto] = Some(next_arc);
+            self.arcs[arc_index] = arc;
+            self.arcs[self.upto] = next_arc;
             return Ok(Some(self.upto));
         }
 
@@ -330,7 +326,7 @@ where
         self.fst
             .read_arc_by_direct_addressing(&mut arc, reader, ceil_index)?;
         debug_assert!(arc.label() > target_label);
-        self.arcs[arc_index] = Some(arc);
+        self.arcs[arc_index] = arc;
         self.push_first(sub)?;
         Ok(None)
     }
@@ -344,7 +340,7 @@ where
     where
         FB: FSTEnumBase<O, F>,
     {
-        let mut arc = self.arcs[arc_index].take().unwrap();
+        let mut arc = std::mem::take(&mut self.arcs[arc_index]);
         let mut idx = Util::binary_search(&self.fst, &arc, target_label)?;
 
         if idx >= 0 {
@@ -358,7 +354,7 @@ where
                 .add(&self.output[self.upto - 1], &arc.output());
 
             if target_label == END_LABEL {
-                self.arcs[arc_index] = Some(arc);
+                self.arcs[arc_index] = arc;
                 return Ok(None);
             }
 
@@ -367,8 +363,8 @@ where
             let mut next_arc = self.get_arc_ownership(self.upto);
             self.fst
                 .read_first_target_arc(&arc, &mut next_arc, &mut self.fst_reader)?;
-            self.arcs[arc_index] = Some(arc);
-            self.arcs[self.upto] = Some(next_arc);
+            self.arcs[arc_index] = arc;
+            self.arcs[self.upto] = next_arc;
             return Ok(Some(self.upto));
         }
 
@@ -376,7 +372,7 @@ where
         if idx == arc.num_arcs() {
             self.fst.read_arc_by_index(&mut arc, reader, idx - 1)?;
             debug_assert!(arc.is_last());
-            self.arcs[arc_index] = Some(arc);
+            self.arcs[arc_index] = arc;
 
             if self.upto == 0 {
                 return Ok(None);
@@ -395,7 +391,7 @@ where
                 if !prev_arc.is_last() {
                     self.fst
                         .read_next_arc(&mut prev_arc, &mut self.fst_reader)?;
-                    self.arcs[prev_upto] = Some(prev_arc);
+                    self.arcs[prev_upto] = prev_arc;
                     self.push_first(sub)?;
                     return Ok(None);
                 }
@@ -406,7 +402,7 @@ where
             // Ceiling - arc with least higher label
             self.fst.read_arc_by_index(&mut arc, reader, idx)?;
             debug_assert!(arc.label() > target_label);
-            self.arcs[arc_index] = Some(arc);
+            self.arcs[arc_index] = arc;
             self.push_first(sub)?;
             Ok(None)
         }
@@ -421,7 +417,7 @@ where
         FB: FSTEnumBase<O, F>,
     {
         let upto = arc_index;
-        let mut arc = self.arcs[upto].take().unwrap();
+        let mut arc = std::mem::take(&mut self.arcs[upto]);
         if arc.label() == target_label {
             self.output[self.upto] = self
                 .fst
@@ -429,7 +425,7 @@ where
                 .add(&self.output[self.upto - 1], &arc.output());
 
             if target_label == END_LABEL {
-                self.arcs[upto] = Some(arc);
+                self.arcs[upto] = arc;
                 return Ok(None);
             }
 
@@ -438,15 +434,15 @@ where
             let mut next_arc = self.get_arc_ownership(self.upto);
             self.fst
                 .read_first_target_arc(&arc, &mut next_arc, &mut self.fst_reader)?;
-            self.arcs[upto] = Some(arc);
-            self.arcs[self.upto] = Some(next_arc);
+            self.arcs[upto] = arc;
+            self.arcs[self.upto] = next_arc;
             Ok(Some(self.upto))
         } else if arc.label() > target_label {
-            self.arcs[upto] = Some(arc);
+            self.arcs[upto] = arc;
             self.push_first(sub)?;
             Ok(None)
         } else if arc.is_last() {
-            self.arcs[upto] = Some(arc);
+            self.arcs[upto] = arc;
             if self.upto == 0 {
                 return Err(LuceneError::illegal_state(
                     "upto should be greater than 0".to_string(),
@@ -459,7 +455,7 @@ where
                 if !prev_arc.is_last() {
                     self.fst
                         .read_next_arc(&mut prev_arc, &mut self.fst_reader)?;
-                    self.arcs[prev_upto] = Some(prev_arc);
+                    self.arcs[prev_upto] = prev_arc;
                     self.push_first(sub)?;
                     return Ok(None);
                 }
@@ -468,7 +464,7 @@ where
             Ok(None)
         } else {
             self.fst.read_next_arc(&mut arc, &mut self.fst_reader)?;
-            self.arcs[upto] = Some(arc);
+            self.arcs[upto] = arc;
             Ok(Some(upto))
         }
     }
@@ -495,7 +491,7 @@ where
 
             if arc.bytes_per_arc() != 0 && arc.label() != END_LABEL {
                 let node_flags = arc.node_flags();
-                self.arcs[self.upto] = Some(arc);
+                self.arcs[self.upto] = arc;
                 let result = match node_flags {
                     ARCS_FOR_DIRECT_ADDRESSING => {
                         match self.do_seek_floor_array_direct_addressing(
@@ -552,7 +548,7 @@ where
                     None => break,
                 }
             } else {
-                self.arcs[upto] = Some(arc);
+                self.arcs[upto] = arc;
                 let result = self.do_seek_floor_list(upto, target_label, sub, target)?;
                 match result {
                     Some(index) => {
@@ -577,11 +573,11 @@ where
         FB: FSTEnumBase<O, F>,
     {
         let upto = arc_index;
-        let mut arc = self.arcs[upto].take().unwrap();
+        let mut arc = std::mem::take(&mut self.arcs[upto]);
         let target_index = target_label - arc.first_label();
 
         if target_index < 0 {
-            self.arcs[upto] = Some(arc);
+            self.arcs[upto] = arc;
             let result =
                 self.backtrack_to_floor_arc(arc_index, target_label, reader, sub, target)?;
             debug_assert!(result.is_none());
@@ -590,7 +586,7 @@ where
             self.fst.read_last_arc_by_continuous(&mut arc, reader)?;
             debug_assert!(arc.label() < target_label);
             debug_assert!(arc.is_last());
-            self.arcs[upto] = Some(arc);
+            self.arcs[upto] = arc;
             self.push_last(sub)?;
             Ok(None)
         } else {
@@ -604,7 +600,7 @@ where
                 .add(&self.output[self.upto - 1], &arc.output());
 
             if target_label == END_LABEL {
-                self.arcs[upto] = Some(arc);
+                self.arcs[upto] = arc;
                 return Ok(None);
             }
 
@@ -613,8 +609,8 @@ where
             let mut next_arc = self.get_arc_ownership(self.upto);
             self.fst
                 .read_first_target_arc(&arc, &mut next_arc, &mut self.fst_reader)?;
-            self.arcs[upto] = Some(arc);
-            self.arcs[self.upto] = Some(next_arc);
+            self.arcs[upto] = arc;
+            self.arcs[self.upto] = next_arc;
             Ok(Some(self.upto))
         }
     }
@@ -630,11 +626,11 @@ where
         FB: FSTEnumBase<O, F>,
     {
         let upto = arc_index;
-        let mut arc = self.arcs[upto].take().unwrap();
+        let mut arc = std::mem::take(&mut self.arcs[upto]);
         let target_index = target_label - arc.first_label();
 
         if target_index < 0 {
-            self.arcs[upto] = Some(arc);
+            self.arcs[upto] = arc;
             let result = self.backtrack_to_floor_arc(upto, target_label, reader, sub, target)?;
             debug_assert!(result.is_none());
             Ok(None)
@@ -643,7 +639,7 @@ where
                 .read_last_arc_by_direct_addressing(&mut arc, reader)?;
             debug_assert!(arc.label() < target_label);
             debug_assert!(arc.is_last());
-            self.arcs[upto] = Some(arc);
+            self.arcs[upto] = arc;
             self.push_last(sub)?;
             Ok(None)
         } else {
@@ -658,7 +654,7 @@ where
                     .add(&self.output[self.upto - 1], &arc.output());
 
                 if target_label == END_LABEL {
-                    self.arcs[upto] = Some(arc);
+                    self.arcs[upto] = arc;
                     return Ok(None);
                 }
 
@@ -667,8 +663,8 @@ where
                 let mut next_arc = self.get_arc_ownership(self.upto);
                 self.fst
                     .read_first_target_arc(&arc, &mut next_arc, &mut self.fst_reader)?;
-                self.arcs[upto] = Some(arc);
-                self.arcs[self.upto] = Some(next_arc);
+                self.arcs[upto] = arc;
+                self.arcs[self.upto] = next_arc;
                 return Ok(Some(self.upto));
             }
             // Scan backwards to find a floor arc.
@@ -681,7 +677,7 @@ where
             debug_assert!(
                 arc.is_last() || self.fst.read_next_arc_label(&arc, reader)? > target_label
             );
-            self.arcs[upto] = Some(arc);
+            self.arcs[upto] = arc;
             self.push_last(sub)?;
             Ok(None)
         }
@@ -704,7 +700,7 @@ where
             if !prev_arc.is_last() {
                 self.fst
                     .read_next_arc(&mut prev_arc, &mut self.fst_reader)?;
-                self.arcs[upto] = Some(prev_arc);
+                self.arcs[upto] = prev_arc;
                 self.push_first(sub)?;
                 return Ok(());
             }
@@ -739,7 +735,7 @@ where
             let prev_arc = self.get_arc_ownership(self.upto - 1);
             self.fst
                 .read_first_target_arc(&prev_arc, &mut arc, &mut self.fst_reader)?;
-            self.arcs[self.upto - 1] = Some(prev_arc);
+            self.arcs[self.upto - 1] = prev_arc;
 
             if arc.label() < target_label {
                 if !arc.is_last() {
@@ -781,17 +777,17 @@ where
                 debug_assert!(
                     arc.is_last() || self.fst.read_next_arc_label(&arc, reader)? >= target_label
                 );
-                self.arcs[upto] = Some(arc);
+                self.arcs[upto] = arc;
                 self.push_last(sub)?;
                 return Ok(None);
             }
 
             self.upto -= 1;
             if self.upto == 0 {
-                self.arcs[upto] = Some(arc);
+                self.arcs[upto] = arc;
                 return Ok(None);
             }
-            self.arcs[upto] = Some(arc);
+            self.arcs[upto] = arc;
             target_label = sub.get_target_label(self, target)?;
             upto = self.upto;
             arc = self.get_arc_ownership(self.upto);
@@ -894,7 +890,7 @@ where
         FB: FSTEnumBase<O, F>,
     {
         let upto = arc_index;
-        let mut arc = self.arcs[upto].take().unwrap();
+        let mut arc = std::mem::take(&mut self.arcs[upto]);
         let idx = Util::binary_search(&self.fst, &arc, target_label)?;
 
         if idx >= 0 {
@@ -914,7 +910,7 @@ where
                 .add(&self.output[self.upto - 1], &arc.output());
 
             if target_label == END_LABEL {
-                self.arcs[upto] = Some(arc);
+                self.arcs[upto] = arc;
                 return Ok(None);
             }
 
@@ -923,11 +919,11 @@ where
             let mut next_arc = self.get_arc_ownership(self.upto);
             self.fst
                 .read_first_target_arc(&arc, &mut next_arc, &mut self.fst_reader)?;
-            self.arcs[self.upto] = Some(next_arc);
-            self.arcs[upto] = Some(arc);
+            self.arcs[self.upto] = next_arc;
+            self.arcs[upto] = arc;
             Ok(Some(self.upto))
         } else if idx == -1 {
-            self.arcs[upto] = Some(arc);
+            self.arcs[upto] = arc;
             let result = self.backtrack_to_floor_arc(upto, target_label, reader, sub, target)?;
             debug_assert!(result.is_none());
             Ok(None)
@@ -943,7 +939,7 @@ where
                 arc.label(),
                 target_label
             );
-            self.arcs[upto] = Some(arc);
+            self.arcs[upto] = arc;
             self.push_last(sub)?;
             Ok(None)
         }
@@ -959,7 +955,7 @@ where
         FB: FSTEnumBase<O, F>,
     {
         let upto = arc_index;
-        let mut arc = self.arcs[upto].take().unwrap();
+        let mut arc = std::mem::take(&mut self.arcs[upto]);
         if arc.label() == target_label {
             self.output[self.upto] = self
                 .fst
@@ -967,7 +963,7 @@ where
                 .add(&self.output[self.upto - 1], &arc.output());
 
             if target_label == END_LABEL {
-                self.arcs[upto] = Some(arc);
+                self.arcs[upto] = arc;
                 return Ok(None);
             }
 
@@ -976,8 +972,8 @@ where
             let mut next_arc = self.get_arc_ownership(self.upto);
             self.fst
                 .read_first_target_arc(&arc, &mut next_arc, &mut self.fst_reader)?;
-            self.arcs[upto] = Some(arc);
-            self.arcs[self.upto] = Some(next_arc);
+            self.arcs[upto] = arc;
+            self.arcs[self.upto] = next_arc;
             Ok(Some(self.upto))
         } else if arc.label() > target_label {
             let mut upto = upto;
@@ -1000,37 +996,37 @@ where
                     {
                         self.fst.read_next_arc(&mut arc, &mut self.fst_reader)?;
                     }
-                    self.arcs[upto] = Some(arc);
-                    self.arcs[prev_arc_index] = Some(prev_arc);
+                    self.arcs[upto] = arc;
+                    self.arcs[prev_arc_index] = prev_arc;
                     self.push_last(sub)?;
                     return Ok(None);
                 }
 
                 self.upto -= 1;
                 if self.upto == 0 {
-                    self.arcs[upto] = Some(arc);
-                    self.arcs[prev_arc_index] = Some(prev_arc);
+                    self.arcs[upto] = arc;
+                    self.arcs[prev_arc_index] = prev_arc;
                     return Ok(None);
                 }
                 target_label = sub.get_target_label(self, target)?;
-                self.arcs[upto] = Some(arc);
-                self.arcs[prev_arc_index] = Some(prev_arc);
+                self.arcs[upto] = arc;
+                self.arcs[prev_arc_index] = prev_arc;
                 upto = self.upto;
                 arc = self.get_arc_ownership(self.upto);
             }
         } else if !arc.is_last() {
             let next_label = self.fst.read_next_arc_label(&arc, &mut self.fst_reader)?;
             if next_label > target_label {
-                self.arcs[upto] = Some(arc);
+                self.arcs[upto] = arc;
                 self.push_last(sub)?;
                 Ok(None)
             } else {
                 self.fst.read_next_arc(&mut arc, &mut self.fst_reader)?;
-                self.arcs[upto] = Some(arc);
+                self.arcs[upto] = arc;
                 Ok(Some(upto))
             }
         } else {
-            self.arcs[upto] = Some(arc);
+            self.arcs[upto] = arc;
             self.push_last(sub)?;
             Ok(None)
         }
@@ -1061,8 +1057,8 @@ where
                 // fallback: reset to first arc for correct state
                 self.fst
                     .read_first_target_arc(&arc, &mut next_arc, &mut fst_reader)?;
-                self.arcs[next_arc_index] = Some(next_arc);
-                self.arcs[upto] = Some(arc);
+                self.arcs[next_arc_index] = next_arc;
+                self.arcs[upto] = arc;
                 return Ok(false);
             }
 
@@ -1072,12 +1068,12 @@ where
                 .add(&self.output[self.upto - 1], &next_arc.output());
 
             if target_label == END_LABEL {
-                self.arcs[upto] = Some(arc);
-                self.arcs[next_arc_index] = Some(next_arc);
+                self.arcs[upto] = arc;
+                self.arcs[next_arc_index] = next_arc;
                 return Ok(true);
             }
 
-            self.arcs[upto] = Some(arc);
+            self.arcs[upto] = arc;
             sub.set_current_label(target_label, self)?;
             self.incr(sub)?;
             target_label = sub.get_target_label(self, target)?;
@@ -1116,7 +1112,7 @@ where
                 .add(&self.output[self.upto - 1], &arc.output());
 
             if arc.label() == END_LABEL {
-                self.arcs[upto] = Some(arc);
+                self.arcs[upto] = arc;
                 break;
             }
 
@@ -1127,7 +1123,7 @@ where
             let next_arc_index = self.upto;
             self.fst
                 .read_first_target_arc(&arc, &mut next_arc, &mut self.fst_reader)?;
-            self.arcs[upto] = Some(arc);
+            self.arcs[upto] = arc;
             upto = next_arc_index;
             arc = next_arc;
         }
@@ -1140,7 +1136,6 @@ where
     where
         FB: FSTEnumBase<O, F>,
     {
-        debug_assert!(self.arcs[self.upto].is_some());
         let mut upto = self.upto;
         let mut arc = self.get_arc_ownership(upto);
         loop {
@@ -1152,7 +1147,7 @@ where
                 .add(&self.output[self.upto - 1], &arc.output());
 
             if label == END_LABEL {
-                self.arcs[upto] = Some(arc);
+                self.arcs[upto] = arc;
                 break;
             }
             self.incr(sub)?;
@@ -1161,7 +1156,7 @@ where
             let mut next_arc = self.get_arc_ownership(self.upto);
             self.fst
                 .read_last_target_arc(&arc, &mut next_arc, &mut self.fst_reader)?;
-            self.arcs[upto] = Some(arc);
+            self.arcs[upto] = arc;
             upto = next_arc_index;
             arc = next_arc;
         }
@@ -1170,10 +1165,7 @@ where
     }
 
     fn get_arc_ownership(&mut self, idx: usize) -> Arc<O::V> {
-        match self.arcs[idx] {
-            Some(_) => self.arcs[idx].take().unwrap(),
-            None => Arc::default(),
-        }
+        std::mem::take(&mut self.arcs[idx])
     }
 }
 pub(crate) trait FSTEnumBase<O, F>
