@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 use crate::util::OptionTakeExt;
 use crate::util::array_util::ArrayUtil;
 use crate::util::error::lucene_error::Result;
@@ -30,7 +29,7 @@ where
     O: Outputs,
     F: FstReader,
 {
-    pub(crate) result: InputOutput<O::V, IOIntsRef>,
+    pub(crate) result: IOIntRef<O>,
     pub base: Option<FSTEnum<O, F>>,
 }
 
@@ -54,11 +53,11 @@ where
         })
     }
 
-    pub fn current(&self) -> &InputOutput<O::V, IOIntsRef> {
+    pub fn current(&self) -> &IOIntRef<O> {
         &self.result
     }
 
-    pub fn next_value(&mut self) -> Result<Option<&InputOutput<O::V, IOIntsRef>>> {
+    pub fn next_value(&mut self) -> Result<Option<&IOIntRef<O>>> {
         debug_assert!(self.base.is_some());
         let mut base = self.base.take().unwrap();
         base.do_next(self)?;
@@ -66,10 +65,7 @@ where
         self.set_result()
     }
     /// Seeks to smallest term that's &gt;= target.
-    pub fn seek_ceil(
-        &mut self,
-        target: &IntsRef<Vec<i32>>,
-    ) -> Result<Option<&InputOutput<O::V, IOIntsRef>>> {
+    pub fn seek_ceil(&mut self, target: &IntsRef<Vec<i32>>) -> Result<Option<&IOIntRef<O>>> {
         debug_assert!(self.base.is_some());
         let mut base = self.base.take().unwrap();
         debug_assert!(target.length <= i32::MAX as usize);
@@ -81,10 +77,7 @@ where
     }
 
     ///  Seeks to biggest term that's &lt;= target.
-    pub fn seek_floor(
-        &mut self,
-        target: &IntsRef<Vec<i32>>,
-    ) -> Result<Option<&InputOutput<O::V, IOIntsRef>>> {
+    pub fn seek_floor(&mut self, target: &IntsRef<Vec<i32>>) -> Result<Option<&IOIntRef<O>>> {
         debug_assert!(self.base.is_some());
         let mut base = self.base.take().unwrap();
         debug_assert!(target.length <= i32::MAX as usize);
@@ -97,10 +90,7 @@ where
     /// exist. This is faster than using [`Self::seek_floor`] or
     /// [`Self::seek_ceil`] because it short-circuits as soon as a mismatch
     /// is detected.
-    pub fn seek_exact(
-        &mut self,
-        target: &IntsRef<Vec<i32>>,
-    ) -> Result<Option<&InputOutput<O::V, IOIntsRef>>> {
+    pub fn seek_exact(&mut self, target: &IntsRef<Vec<i32>>) -> Result<Option<&IOIntRef<O>>> {
         debug_assert!(self.base.is_some());
         let mut base = self.base.take().unwrap();
         debug_assert!(target.length <= i32::MAX as usize);
@@ -116,7 +106,7 @@ where
         }
     }
 
-    fn set_result(&mut self) -> Result<Option<&InputOutput<O::V, IOIntsRef>>> {
+    fn set_result(&mut self) -> Result<Option<&IOIntRef<O>>> {
         self.base.take_do_return(|base| {
             if base.upto == 0 {
                 Ok(None)
@@ -158,4 +148,4 @@ where
         Ok(())
     }
 }
-pub type IOIntsRef = IntsRef<Vec<i32>>;
+type IOIntRef<O> = InputOutput<<O as Outputs>::V, IntsRef<Vec<i32>>>;
