@@ -1059,22 +1059,16 @@ where
     }
 
     /// Removes the `SegmentCommitInfo` at the provided index.
-    ///
-
     pub fn remove_at(&mut self, index: &str) {
         let _ = self.segments.remove(index);
     }
 
     /// Returns true if the provided `SegmentCommitInfo` is contained.
-    ///
-
     pub fn contains(&self, si_id: &str) -> bool {
         self.segments.contains_key(si_id)
     }
 
     /// Returns the index of the provided `SegmentCommitInfo`.
-    ///
-
     pub fn index_of(&self, si: &SegmentCommitInfo<D>) -> bool {
         self.segments.contains_key(&si.info.get_id_str())
     }

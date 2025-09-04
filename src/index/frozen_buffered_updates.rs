@@ -577,7 +577,7 @@ where
     provider: P,
     field: Option<String>,
     terms_enum: Option<<<P as TermsProvider>::Terms as Terms>::TermsEnum>,
-    postings_enum: Option<DISI<P>>,
+    postings_enum: Option<Disi<P>>,
     sorted_terms: bool,
     // TODO: we should avoid copy here
     reader_term: Option<BytesRef<Vec<u8>>>,
@@ -626,7 +626,7 @@ where
         &mut self,
         field: &str,
         term: &BytesRef<Vec<u8>>,
-    ) -> Result<Option<&mut DISI<P>>> {
+    ) -> Result<Option<&mut Disi<P>>> {
         self.set_field(Some(field.to_string()))?;
 
         if let Some(terms_enum) = self.terms_enum.as_mut() {
@@ -681,7 +681,7 @@ where
         }
         *last_term = Some(BytesRef::deep_copy_of(term));
     }
-    fn get_docs(&mut self) -> Result<&mut DISI<P>> {
+    fn get_docs(&mut self) -> Result<&mut Disi<P>> {
         debug_assert!(self.terms_enum.is_some());
 
         let terms_enum = self.terms_enum.as_mut().unwrap();
@@ -691,7 +691,7 @@ where
         Ok(self.postings_enum.as_mut().unwrap())
     }
 }
-type DISI<P> = <<<P as TermsProvider>::Terms as Terms>::TermsEnum as TermsEnum>::PostingsEnum;
+type Disi<P> = <<<P as TermsProvider>::Terms as Terms>::TermsEnum as TermsEnum>::PostingsEnum;
 
 pub(crate) trait TermsProvider {
     type Terms: Terms;

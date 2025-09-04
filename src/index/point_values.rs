@@ -41,7 +41,7 @@ where
     /// to test whether each document is deleted, if necessary.
     pub fn intersect(&self, visitor: &mut impl IntersectVisitor) -> Result<()> {
         let mut point_tree = self.get_point_tree()?;
-        self.intersect_with_point_tree(visitor, &mut point_tree)?;
+        Self::intersect_with_point_tree(visitor, &mut point_tree)?;
         debug_assert!(!point_tree.move_to_parent()?);
         Ok(())
     }
@@ -49,7 +49,6 @@ where
     /// Recursively processes the point tree to find matching documents and
     /// points.
     fn intersect_with_point_tree(
-        &self,
         visitor: &mut impl IntersectVisitor,
         point_tree: &mut impl PointTree,
     ) -> Result<()> {
@@ -73,7 +72,7 @@ where
                 // full filtering:
                 if point_tree.move_to_child()? {
                     loop {
-                        self.intersect_with_point_tree(visitor, point_tree)?;
+                        Self::intersect_with_point_tree(visitor, point_tree)?;
                         if !point_tree.move_to_sibling()? {
                             break;
                         }

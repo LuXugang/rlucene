@@ -1063,7 +1063,7 @@ where
         }
     }
 }
-impl<'a, FN> IOConsumer<HashSet<String>> for IOConsumerImpl<'_, FN>
+impl<FN> IOConsumer<HashSet<String>> for IOConsumerImpl<'_, FN>
 where
     FN: FlushNotifications,
 {

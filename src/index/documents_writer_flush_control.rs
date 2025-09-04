@@ -251,10 +251,7 @@ where
         mut per_thread: DocumentsWriterPerThread<D>,
         flush_policy: &FP,
         per_thread_pool: &DocumentsWriterPerThreadPool<D>,
-    ) -> Result<(
-        Option<DocumentsWriterPerThread<D>>,
-        Option<DocumentsWriterPerThread<D>>,
-    )>
+    ) -> Result<EitherDWPT<D>>
     where
         FP: FlushPolicy,
     {
@@ -311,10 +308,7 @@ where
         per_thread: DocumentsWriterPerThread<D>,
         mark_pending: bool,
         per_thread_pool: &DocumentsWriterPerThreadPool<D>,
-    ) -> Result<(
-        Option<DocumentsWriterPerThread<D>>,
-        Option<DocumentsWriterPerThread<D>>,
-    )> {
+    ) -> Result<EitherDWPT<D>> {
         if inner.full_flush {
             if *per_thread.is_flush_pending() {
                 self.checkout_and_block(per_thread, inner, per_thread_pool);
@@ -811,6 +805,10 @@ where
         inner.peak_net_bytes
     }
 }
+pub(crate) type EitherDWPT<D> = (
+    Option<DocumentsWriterPerThread<D>>,
+    Option<DocumentsWriterPerThread<D>>,
+);
 impl<D, L> Drop for DocumentsWriterFlushControl<D, L>
 where
     D: Directory,

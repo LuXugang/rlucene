@@ -364,7 +364,7 @@ where
     pub fn set_live_commit_data(&self) {}
 
     pub(crate) fn write_some_doc_values_updates(&self) -> Result<()> {
-        if let Some(_) = self.write_doc_values_lock.try_lock() {
+        if let Some(_guard) = self.write_doc_values_lock.try_lock() {
             let ram_buffer_size_mb = self.config.get_ram_buffer_size_mb();
             // If the reader pool is > 50% of our IW buffer, then write the updates:
             if ram_buffer_size_mb != DISABLE_AUTO_FLUSH as f64 {
@@ -455,6 +455,7 @@ where
                     }
                 }
             }
+            drop(_guard)
         }
         Ok(())
     }
@@ -750,7 +751,6 @@ where
     /// doc IDs in the index, and applies the change.
     /// This is a heavy operation and is done concurrently by incoming indexing threads.
     pub(crate) fn force_apply(&self, updates: &FrozenBufferedUpdates) -> Result<()> {
-        let updates = updates;
         let _guard = updates.lock();
 
         if updates.is_applied() {
@@ -842,8 +842,8 @@ where
                 let result: Result<()> = (|| {
                     // don't hold IW monitor lock here so threads are free concurrently resolve
                     // deletes/updates:
-                    del_count = updates
-                        .apply(&mut seg_states, &self.inner.lock().segment_infos.segments)?;
+                    del_count =
+                        updates.apply(&seg_states, &self.inner.lock().segment_infos.segments)?;
                     success = true;
                     Ok(())
                 })();
