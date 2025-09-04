@@ -67,7 +67,10 @@ where
     }
     /// Rewinds enum state to match the shared prefix between current term and
     /// target term.
-    fn rewind_prefix(&mut self, sub: &mut impl FSTEnumBase<O, F>) -> Result<()> {
+    fn rewind_prefix<FB>(&mut self, sub: &mut FB, target: &FB::V) -> Result<()>
+    where
+        FB: FSTEnumBase<O, F>,
+    {
         // let fst = self.fst.borrow_mut();
         if self.upto == 0 {
             self.upto = 1;
@@ -86,7 +89,7 @@ where
         {
             // Borrow fst mutably once for the entire loop.
             while self.upto < current_limit && self.upto <= self.target_length as usize + 1 {
-                let cmp = sub.get_current_label(self)? - sub.get_target_label(self)?;
+                let cmp = sub.get_current_label(self)? - sub.get_target_label(self, target)?;
                 if cmp < 0 {
                     break;
                 } else if cmp > 0 {
@@ -104,7 +107,10 @@ where
 
         Ok(())
     }
-    pub(crate) fn do_next(&mut self, sub: &mut impl FSTEnumBase<O, F>) -> Result<()> {
+    pub(crate) fn do_next<FB>(&mut self, sub: &mut FB) -> Result<()>
+    where
+        FB: FSTEnumBase<O, F>,
+    {
         if self.upto == 0 {
             self.upto = 1;
             let arc0 = self.get_arc_ownership(0);
@@ -135,21 +141,24 @@ where
     // TODO: should we return a status here (SEEK_FOUND / SEEK_NOT_FOUND /
     // SEEK_END)?  saves the eq check above?
     /// Seeks to smallest term that's &gt;= target.
-    pub(crate) fn do_seek_ceil(&mut self, sub: &mut impl FSTEnumBase<O, F>) -> Result<()> {
+    pub(crate) fn do_seek_ceil<FB>(&mut self, sub: &mut FB, target: &FB::V) -> Result<()>
+    where
+        FB: FSTEnumBase<O, F>,
+    {
         // TODO: possibly caller could/should provide common
         // prefix length?  ie this work may be redundant if
         // caller is in fact intersecting against its own automaton
 
         // Save time by starting at the end of the shared prefix
         // between current term & the target:
-        self.rewind_prefix(sub)?;
+        self.rewind_prefix(sub, target)?;
         let mut upto = self.upto;
 
         let mut fst_reader = self.fst.get_bytes_reader()?;
         // Now scan forward, matching the new suffix of the target
         loop {
             let arc = self.get_arc_ownership(upto);
-            let target_label = sub.get_target_label(self)?;
+            let target_label = sub.get_target_label(self, target)?;
 
             if arc.bytes_per_arc() != 0 && arc.label() != END_LABEL {
                 let node_flags = arc.node_flags();
@@ -219,13 +228,16 @@ where
         Ok(())
     }
 
-    fn do_seek_ceil_array_continuous(
+    fn do_seek_ceil_array_continuous<FB>(
         &mut self,
         arc_index: usize,
         target_label: i32,
         reader: &mut F::FstBytesReader,
-        sub: &mut impl FSTEnumBase<O, F>,
-    ) -> Result<Option<usize>> {
+        sub: &mut FB,
+    ) -> Result<Option<usize>>
+    where
+        FB: FSTEnumBase<O, F>,
+    {
         let mut arc = self.arcs[arc_index].take().unwrap();
         let target_index = target_label - arc.first_label();
 
@@ -266,13 +278,16 @@ where
             Ok(Some(self.upto))
         }
     }
-    fn do_seek_ceil_array_direct_addressing(
+    fn do_seek_ceil_array_direct_addressing<FB>(
         &mut self,
         arc_index: usize,
         target_label: i32,
         reader: &mut F::FstBytesReader,
-        sub: &mut impl FSTEnumBase<O, F>,
-    ) -> Result<Option<usize>> {
+        sub: &mut FB,
+    ) -> Result<Option<usize>>
+    where
+        FB: FSTEnumBase<O, F>,
+    {
         let mut arc = self.arcs[arc_index].take().unwrap();
         let mut target_index = target_label - arc.first_label();
 
@@ -319,13 +334,16 @@ where
         self.push_first(sub)?;
         Ok(None)
     }
-    fn do_seek_ceil_array_packed(
+    fn do_seek_ceil_array_packed<FB>(
         &mut self,
         arc_index: usize,
         target_label: i32,
         reader: &mut F::FstBytesReader,
-        sub: &mut impl FSTEnumBase<O, F>,
-    ) -> Result<Option<usize>> {
+        sub: &mut FB,
+    ) -> Result<Option<usize>>
+    where
+        FB: FSTEnumBase<O, F>,
+    {
         let mut arc = self.arcs[arc_index].take().unwrap();
         let mut idx = Util::binary_search(&self.fst, &arc, target_label)?;
 
@@ -393,12 +411,15 @@ where
             Ok(None)
         }
     }
-    fn do_seek_ceil_list(
+    fn do_seek_ceil_list<FB>(
         &mut self,
         arc_index: usize,
         target_label: i32,
-        sub: &mut impl FSTEnumBase<O, F>,
-    ) -> Result<Option<usize>> {
+        sub: &mut FB,
+    ) -> Result<Option<usize>>
+    where
+        FB: FSTEnumBase<O, F>,
+    {
         let upto = arc_index;
         let mut arc = self.arcs[upto].take().unwrap();
         if arc.label() == target_label {
@@ -451,7 +472,10 @@ where
             Ok(Some(upto))
         }
     }
-    pub(crate) fn do_seek_floor(&mut self, sub: &mut impl FSTEnumBase<O, F>) -> Result<()> {
+    pub(crate) fn do_seek_floor<FB>(&mut self, sub: &mut FB, target: &FB::V) -> Result<()>
+    where
+        FB: FSTEnumBase<O, F>,
+    {
         // TODO: possibly caller could/should provide common
         // prefix length?  ie this work may be redundant if
         // caller is in fact intersecting against its own
@@ -460,14 +484,14 @@ where
 
         // Save CPU by starting at the end of the shared prefix
         // b/w our current term & the target:
-        self.rewind_prefix(sub)?;
+        self.rewind_prefix(sub, target)?;
         let mut upto = self.upto;
 
         let mut fst_reader = self.fst.get_bytes_reader()?;
 
         loop {
             let arc = self.get_arc_ownership(upto);
-            let target_label = sub.get_target_label(self)?;
+            let target_label = sub.get_target_label(self, target)?;
 
             if arc.bytes_per_arc() != 0 && arc.label() != END_LABEL {
                 let node_flags = arc.node_flags();
@@ -479,6 +503,7 @@ where
                             target_label,
                             &mut fst_reader,
                             sub,
+                            target,
                         )? {
                             Some(index) => {
                                 upto = index;
@@ -493,6 +518,7 @@ where
                             target_label,
                             &mut fst_reader,
                             sub,
+                            target,
                         )? {
                             Some(index) => {
                                 upto = index;
@@ -507,6 +533,7 @@ where
                             target_label,
                             &mut fst_reader,
                             sub,
+                            target,
                         )? {
                             Some(index) => {
                                 upto = index;
@@ -526,7 +553,7 @@ where
                 }
             } else {
                 self.arcs[upto] = Some(arc);
-                let result = self.do_seek_floor_list(upto, target_label, sub)?;
+                let result = self.do_seek_floor_list(upto, target_label, sub, target)?;
                 match result {
                     Some(index) => {
                         upto = index;
@@ -538,20 +565,25 @@ where
 
         Ok(())
     }
-    fn do_seek_floor_continuous(
+    fn do_seek_floor_continuous<FB>(
         &mut self,
         arc_index: usize,
         target_label: i32,
         reader: &mut F::FstBytesReader,
-        sub: &mut impl FSTEnumBase<O, F>,
-    ) -> Result<Option<usize>> {
+        sub: &mut FB,
+        target: &FB::V,
+    ) -> Result<Option<usize>>
+    where
+        FB: FSTEnumBase<O, F>,
+    {
         let upto = arc_index;
         let mut arc = self.arcs[upto].take().unwrap();
         let target_index = target_label - arc.first_label();
 
         if target_index < 0 {
             self.arcs[upto] = Some(arc);
-            let result = self.backtrack_to_floor_arc(arc_index, target_label, reader, sub)?;
+            let result =
+                self.backtrack_to_floor_arc(arc_index, target_label, reader, sub, target)?;
             debug_assert!(result.is_none());
             Ok(None)
         } else if target_index >= arc.num_arcs() {
@@ -586,20 +618,24 @@ where
             Ok(Some(self.upto))
         }
     }
-    fn do_seek_floor_array_direct_addressing(
+    fn do_seek_floor_array_direct_addressing<FB>(
         &mut self,
         arc_index: usize,
         target_label: i32,
         reader: &mut F::FstBytesReader,
-        sub: &mut impl FSTEnumBase<O, F>,
-    ) -> Result<Option<usize>> {
+        sub: &mut FB,
+        target: &FB::V,
+    ) -> Result<Option<usize>>
+    where
+        FB: FSTEnumBase<O, F>,
+    {
         let upto = arc_index;
         let mut arc = self.arcs[upto].take().unwrap();
         let target_index = target_label - arc.first_label();
 
         if target_index < 0 {
             self.arcs[upto] = Some(arc);
-            let result = self.backtrack_to_floor_arc(upto, target_label, reader, sub)?;
+            let result = self.backtrack_to_floor_arc(upto, target_label, reader, sub, target)?;
             debug_assert!(result.is_none());
             Ok(None)
         } else if target_index >= arc.num_arcs() {
@@ -652,7 +688,10 @@ where
     }
     /// Target is beyond the last arc, out of label range. Dead end (target is
     /// after the last arc); rollback to last fork then push.
-    fn rollback_to_last_fork_then_push(&mut self, sub: &mut impl FSTEnumBase<O, F>) -> Result<()> {
+    fn rollback_to_last_fork_then_push<FB>(&mut self, sub: &mut FB) -> Result<()>
+    where
+        FB: FSTEnumBase<O, F>,
+    {
         if self.upto == 0 {
             return Err(LuceneError::illegal_state(
                 "upto should be greater than 0".to_string(),
@@ -681,13 +720,17 @@ where
     /// # Returns
     ///
     /// `None` to continue the seek floor recursion loop.
-    fn backtrack_to_floor_arc(
+    fn backtrack_to_floor_arc<FB>(
         &mut self,
         arc_index: usize,
         mut target_label: i32,
         reader: &mut F::FstBytesReader,
-        sub: &mut impl FSTEnumBase<O, F>,
-    ) -> Result<Option<Arc<O::V>>> {
+        sub: &mut FB,
+        target: &FB::V,
+    ) -> Result<Option<Arc<O::V>>>
+    where
+        FB: FSTEnumBase<O, F>,
+    {
         let mut upto = arc_index;
         let mut arc = self.get_arc_ownership(upto);
         loop {
@@ -749,7 +792,7 @@ where
                 return Ok(None);
             }
             self.arcs[upto] = Some(arc);
-            target_label = sub.get_target_label(self)?;
+            target_label = sub.get_target_label(self, target)?;
             upto = self.upto;
             arc = self.get_arc_ownership(self.upto);
         }
@@ -839,13 +882,17 @@ where
 
         Ok(())
     }
-    fn do_seek_floor_array_packed(
+    fn do_seek_floor_array_packed<FB>(
         &mut self,
         arc_index: usize,
         target_label: i32,
         reader: &mut F::FstBytesReader,
-        sub: &mut impl FSTEnumBase<O, F>,
-    ) -> Result<Option<usize>> {
+        sub: &mut FB,
+        target: &FB::V,
+    ) -> Result<Option<usize>>
+    where
+        FB: FSTEnumBase<O, F>,
+    {
         let upto = arc_index;
         let mut arc = self.arcs[upto].take().unwrap();
         let idx = Util::binary_search(&self.fst, &arc, target_label)?;
@@ -881,7 +928,7 @@ where
             Ok(Some(self.upto))
         } else if idx == -1 {
             self.arcs[upto] = Some(arc);
-            let result = self.backtrack_to_floor_arc(upto, target_label, reader, sub)?;
+            let result = self.backtrack_to_floor_arc(upto, target_label, reader, sub, target)?;
             debug_assert!(result.is_none());
             Ok(None)
         } else {
@@ -901,12 +948,16 @@ where
             Ok(None)
         }
     }
-    fn do_seek_floor_list(
+    fn do_seek_floor_list<FB>(
         &mut self,
         arc_index: usize,
         mut target_label: i32,
-        sub: &mut impl FSTEnumBase<O, F>,
-    ) -> Result<Option<usize>> {
+        sub: &mut FB,
+        target: &FB::V,
+    ) -> Result<Option<usize>>
+    where
+        FB: FSTEnumBase<O, F>,
+    {
         let upto = arc_index;
         let mut arc = self.arcs[upto].take().unwrap();
         if arc.label() == target_label {
@@ -961,7 +1012,7 @@ where
                     self.arcs[prev_arc_index] = Some(prev_arc);
                     return Ok(None);
                 }
-                target_label = sub.get_target_label(self)?;
+                target_label = sub.get_target_label(self, target)?;
                 self.arcs[upto] = Some(arc);
                 self.arcs[prev_arc_index] = Some(prev_arc);
                 upto = self.upto;
@@ -984,16 +1035,19 @@ where
             Ok(None)
         }
     }
-    pub(crate) fn do_seek_exact(&mut self, sub: &mut impl FSTEnumBase<O, F>) -> Result<bool> {
+    pub(crate) fn do_seek_exact<FB>(&mut self, sub: &mut FB, target: &FB::V) -> Result<bool>
+    where
+        FB: FSTEnumBase<O, F>,
+    {
         // TODO: possibly caller could/should provide common
         // prefix length?  ie this work may be redundant if
         // caller is in fact intersecting against its own
         // automaton
         // Save time by starting at the end of the shared prefix
         // b/w our current term & the target:
-        self.rewind_prefix(sub)?;
+        self.rewind_prefix(sub, target)?;
         let mut upto = self.upto - 1;
-        let mut target_label = sub.get_target_label(self)?;
+        let mut target_label = sub.get_target_label(self, target)?;
         let mut fst_reader = self.fst.get_bytes_reader()?;
         let mut arc = self.get_arc_ownership(upto);
         loop {
@@ -1026,12 +1080,15 @@ where
             self.arcs[upto] = Some(arc);
             sub.set_current_label(target_label, self)?;
             self.incr(sub)?;
-            target_label = sub.get_target_label(self)?;
+            target_label = sub.get_target_label(self, target)?;
             upto = next_arc_index;
             arc = next_arc;
         }
     }
-    fn incr(&mut self, sub: &mut impl FSTEnumBase<O, F>) -> Result<()> {
+    fn incr<FB>(&mut self, sub: &mut FB) -> Result<()>
+    where
+        FB: FSTEnumBase<O, F>,
+    {
         self.upto += 1;
         sub.grow(self)?;
         debug_assert!(self.upto <= i32::MAX as usize);
@@ -1046,7 +1103,10 @@ where
     }
     // Appends current arc, and then recurses from its target,
     // appending first arc all the way to the final node
-    fn push_first(&mut self, sub: &mut impl FSTEnumBase<O, F>) -> Result<()> {
+    fn push_first<FB>(&mut self, sub: &mut FB) -> Result<()>
+    where
+        FB: FSTEnumBase<O, F>,
+    {
         let mut upto = self.upto;
         let mut arc = self.get_arc_ownership(upto);
         loop {
@@ -1076,7 +1136,10 @@ where
     }
     // Recurses from current arc, appending last arc all the
     // way to the first final node
-    fn push_last(&mut self, sub: &mut impl FSTEnumBase<O, F>) -> Result<()> {
+    fn push_last<FB>(&mut self, sub: &mut FB) -> Result<()>
+    where
+        FB: FSTEnumBase<O, F>,
+    {
         debug_assert!(self.arcs[self.upto].is_some());
         let mut upto = self.upto;
         let mut arc = self.get_arc_ownership(upto);
@@ -1118,7 +1181,8 @@ where
     O: Outputs,
     F: FstReader,
 {
-    fn get_target_label(&mut self, base: &mut FSTEnum<O, F>) -> Result<i32>;
+    type V;
+    fn get_target_label(&mut self, base: &mut FSTEnum<O, F>, target: &Self::V) -> Result<i32>;
     fn get_current_label(&mut self, base: &mut FSTEnum<O, F>) -> Result<i32>;
     fn set_current_label(&mut self, label: i32, base: &mut FSTEnum<O, F>) -> Result<()>;
     fn grow(&mut self, base: &mut FSTEnum<O, F>) -> Result<()>;

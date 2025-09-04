@@ -1513,7 +1513,7 @@ mod tests {
             &self,
             random: &mut R,
             input_mode: i32,
-            mut terms: Vec<IntsRef<Rc<RefCell<Vec<i32>>>>>,
+            mut terms: Vec<IntsRef<Vec<i32>>>,
         ) -> Result<()> {
             terms.sort();
             let random_seed = random.random();
@@ -1707,7 +1707,7 @@ mod tests {
         for input_mode in 0..2 {
             let terms: Vec<_> = strings
                 .iter()
-                .map(|s| to_ints_ref_from_string::<Rc<RefCell<Vec<i32>>>>(s, input_mode))
+                .map(|s| to_ints_ref_from_string::<Vec<i32>>(s, input_mode))
                 .collect();
             let mut terms2: Vec<_> = strings2
                 .iter()
@@ -1853,10 +1853,10 @@ mod tests {
 
         let mut fst_enum = BytesRefFSTEnum::new(fst)?;
 
-        let seek1 = fst_enum.seek_floor(new_bytes_ref_from_string(&mut random, "foo")?)?;
+        let seek1 = fst_enum.seek_floor(&new_bytes_ref_from_string(&mut random, "foo")?)?;
         assert!(seek1.is_none());
 
-        let seek2 = fst_enum.seek_ceil(new_bytes_ref_from_string(&mut random, "foobaz")?)?;
+        let seek2 = fst_enum.seek_ceil(&new_bytes_ref_from_string(&mut random, "foobaz")?)?;
         assert!(seek2.is_none());
 
         Ok(())
@@ -1943,18 +1943,18 @@ mod tests {
         assert_eq!(*Util::get_bytes(&fst, &a)?.unwrap(), 17);
 
         let mut fst_enum = BytesRefFSTEnum::new(fst)?;
-        let mut seek_result = fst_enum.seek_floor(a.clone())?;
+        let mut seek_result = fst_enum.seek_floor(&a)?;
         assert!(seek_result.is_some());
         assert_eq!(*seek_result.as_ref().unwrap().output, 17);
 
         // seekFloor("aa") -> goes to "a"
         let aa = new_bytes_ref_from_string(&mut random, "aa")?;
-        seek_result = fst_enum.seek_floor(aa.clone())?;
+        seek_result = fst_enum.seek_floor(&aa)?;
         assert!(seek_result.is_some());
         assert_eq!(*seek_result.as_ref().unwrap().output, 17);
 
         // seekCeil("aa") -> goes to "b"
-        seek_result = fst_enum.seek_ceil(new_bytes_ref_from_string(&mut random, "aa")?.clone())?;
+        seek_result = fst_enum.seek_ceil(&new_bytes_ref_from_string(&mut random, "aa")?.clone())?;
         assert!(seek_result.is_some());
         let result = seek_result.unwrap();
         assert_eq!(result.input, b);

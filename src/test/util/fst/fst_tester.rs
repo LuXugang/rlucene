@@ -47,7 +47,7 @@ where
     S: FSTTesterBase,
 {
     pub random: R,
-    pub pairs: Vec<InputOutput<O::V, Rc<RefCell<Vec<i32>>>>>,
+    pub pairs: Vec<InputOutput<O::V, Vec<i32>>>,
     pub input_mode: i32,
     pub outputs: O,
     pub dir: Rc<RefCell<D>>,
@@ -68,7 +68,7 @@ where
         random: R,
         dir: Rc<RefCell<D>>,
         input_mode: i32,
-        pairs: Vec<InputOutput<O::V, Rc<RefCell<Vec<i32>>>>>,
+        pairs: Vec<InputOutput<O::V, Vec<i32>>>,
         outputs: O,
     ) -> Self {
         Self {
@@ -338,7 +338,7 @@ where
         &mut self,
         input_mode: i32,
         mut fst_enum: IntsRefFSTEnum<O, F>,
-        terms_map: &HashMap<IntsRef<Rc<RefCell<Vec<i32>>>>, O::V>,
+        terms_map: &HashMap<IntsRef<Vec<i32>>, O::V>,
     ) -> Result<IntsRefFSTEnum<O, F>>
     where
         F: FstReader,
@@ -362,7 +362,7 @@ where
                 while attempt < 10 {
                     let term_str = get_random_string(&mut self.random);
                     let mut ir_builder = IntsRefBuilder::default();
-                    let term: IntsRef<Rc<RefCell<Vec<i32>>>> = to_ints_ref_from_string_with_builder(
+                    let term: IntsRef<Vec<i32>> = to_ints_ref_from_string_with_builder(
                         &term_str,
                         input_mode,
                         &mut ir_builder,
@@ -385,7 +385,7 @@ where
                                     input_to_string(input_mode, &term)?
                                 );
                             }
-                            is_done = fst_enum.seek_floor(term)?.is_none();
+                            is_done = fst_enum.seek_floor(&term)?.is_none();
                         } else {
                             if cfg!(feature = "test_log_verbose") {
                                 println!(
@@ -393,7 +393,7 @@ where
                                     input_to_string(input_mode, &term)?
                                 );
                             }
-                            is_done = fst_enum.seek_ceil(term)?.is_none();
+                            is_done = fst_enum.seek_ceil(&term)?.is_none();
                         }
                         break;
                     }
@@ -420,7 +420,7 @@ where
                         );
                     }
                     is_done = fst_enum
-                        .seek_ceil(self.pairs[upto as usize].input.clone())?
+                        .seek_ceil(&self.pairs[upto as usize].input)?
                         .is_none();
                 } else {
                     if cfg!(feature = "test_log_verbose") {
@@ -430,7 +430,7 @@ where
                         );
                     }
                     is_done = fst_enum
-                        .seek_floor(self.pairs[upto as usize].input.clone())?
+                        .seek_floor(&self.pairs[upto as usize].input)?
                         .is_none();
                 }
             }
@@ -471,7 +471,7 @@ where
         &mut self,
         input_mode: i32,
         mut fst: Option<FST<O, F>>,
-        terms_map: &HashMap<IntsRef<Rc<RefCell<Vec<i32>>>>, O::V>,
+        terms_map: &HashMap<IntsRef<Vec<i32>>, O::V>,
     ) -> Result<IntsRefFSTEnum<O, F>>
     where
         F: FstReader,
@@ -537,7 +537,7 @@ where
                                 );
                             }
                             pos = -1;
-                            fst_enum.seek_exact(term.clone())?
+                            fst_enum.seek_exact(&term)?
                         // } else if false{
                         } else if self.random.random_bool(0.5) {
                             if cfg!(feature = "test_log_verbose") {
@@ -548,7 +548,7 @@ where
                             }
 
                             pos = pos.saturating_sub(1);
-                            fst_enum.seek_floor(term.clone())?
+                            fst_enum.seek_floor(&term)?
                         } else {
                             if cfg!(feature = "test_log_verbose") {
                                 println!(
@@ -557,7 +557,7 @@ where
                                 );
                             }
 
-                            fst_enum.seek_ceil(term.clone())?
+                            fst_enum.seek_ceil(&term)?
                         };
 
                         if pos != -1 && pos < self.pairs.len() as i32 {
@@ -614,7 +614,7 @@ where
                             input_to_string(input_mode, &pair.input,)?
                         );
                     }
-                    fst_enum.seek_exact(pair.input.clone())?
+                    fst_enum.seek_exact(&pair.input)?
                 } else if self.random.random_bool(0.5) {
                     // } else if false {
                     if cfg!(feature = "test_log_verbose") {
@@ -623,7 +623,7 @@ where
                             input_to_string(input_mode, &pair.input,)?
                         );
                     };
-                    fst_enum.seek_floor(pair.input.clone())?
+                    fst_enum.seek_floor(&pair.input)?
                 } else {
                     if cfg!(feature = "test_log_verbose") {
                         println!(
@@ -631,7 +631,7 @@ where
                             input_to_string(input_mode, &pair.input,)?
                         );
                     };
-                    fst_enum.seek_ceil(pair.input.clone())?
+                    fst_enum.seek_ceil(&pair.input)?
                 };
 
                 let seek_result = seek_result.expect("expected seek result, got None");

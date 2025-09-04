@@ -14,8 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cell::RefCell;
-use std::rc::Rc;
 
 use crate::util::OptionTakeExt;
 use crate::util::array_util::ArrayUtil;
@@ -32,9 +30,7 @@ where
     O: Outputs,
     F: FstReader,
 {
-    pub(crate) current: RcIntsRef,
-    pub(crate) result: InputOutput<O::V, RcIntsRef>,
-    pub(crate) target: IntsRef<Rc<RefCell<Vec<i32>>>>,
+    pub(crate) result: InputOutput<O::V, IOIntsRef>,
     pub base: Option<FSTEnum<O, F>>,
 }
 
@@ -46,27 +42,23 @@ where
     /// `do_floor` controls the behavior of advance: if it's true,
     /// `advance` positions to the biggest term before target.
     pub fn new(fst: FST<O, F>) -> Result<Self> {
-        let mut current: IntsRef<Rc<RefCell<Vec<i32>>>> = IntsRef::with_capacity(10);
-        current.offset = 1;
-        let result_input =
-            IntsRef::from_slice(current.ints.clone(), current.offset, current.length);
+        let mut result_input: IntsRef<Vec<i32>> = IntsRef::with_capacity(10);
+        result_input.offset = 1;
         let base = FSTEnum::new(fst)?;
         Ok(Self {
-            current,
             result: InputOutput {
                 input: result_input,
                 output: O::V::default(),
             },
-            target: IntsRef::default(),
             base: Some(base),
         })
     }
 
-    pub fn current(&self) -> &InputOutput<O::V, RcIntsRef> {
+    pub fn current(&self) -> &InputOutput<O::V, IOIntsRef> {
         &self.result
     }
 
-    pub fn next_value(&mut self) -> Result<Option<&InputOutput<O::V, RcIntsRef>>> {
+    pub fn next_value(&mut self) -> Result<Option<&InputOutput<O::V, IOIntsRef>>> {
         debug_assert!(self.base.is_some());
         let mut base = self.base.take().unwrap();
         base.do_next(self)?;
@@ -76,14 +68,13 @@ where
     /// Seeks to smallest term that's &gt;= target.
     pub fn seek_ceil(
         &mut self,
-        target: IntsRef<Rc<RefCell<Vec<i32>>>>,
-    ) -> Result<Option<&InputOutput<O::V, RcIntsRef>>> {
-        self.target = target;
+        target: &IntsRef<Vec<i32>>,
+    ) -> Result<Option<&InputOutput<O::V, IOIntsRef>>> {
         debug_assert!(self.base.is_some());
         let mut base = self.base.take().unwrap();
-        debug_assert!(self.target.length <= i32::MAX as usize);
-        base.target_length = self.target.length as i32;
-        base.do_seek_ceil(self)?;
+        debug_assert!(target.length <= i32::MAX as usize);
+        base.target_length = target.length as i32;
+        base.do_seek_ceil(self, target)?;
         self.base = Some(base);
 
         self.set_result()
@@ -92,14 +83,13 @@ where
     ///  Seeks to biggest term that's &lt;= target.
     pub fn seek_floor(
         &mut self,
-        target: IntsRef<Rc<RefCell<Vec<i32>>>>,
-    ) -> Result<Option<&InputOutput<O::V, RcIntsRef>>> {
-        self.target = target;
+        target: &IntsRef<Vec<i32>>,
+    ) -> Result<Option<&InputOutput<O::V, IOIntsRef>>> {
         debug_assert!(self.base.is_some());
         let mut base = self.base.take().unwrap();
-        debug_assert!(self.target.length <= i32::MAX as usize);
-        base.target_length = self.target.length as i32;
-        base.do_seek_floor(self)?;
+        debug_assert!(target.length <= i32::MAX as usize);
+        base.target_length = target.length as i32;
+        base.do_seek_floor(self, target)?;
         self.base = Some(base);
         self.set_result()
     }
@@ -109,16 +99,15 @@ where
     /// is detected.
     pub fn seek_exact(
         &mut self,
-        target: IntsRef<Rc<RefCell<Vec<i32>>>>,
-    ) -> Result<Option<&InputOutput<O::V, RcIntsRef>>> {
-        self.target = target;
+        target: &IntsRef<Vec<i32>>,
+    ) -> Result<Option<&InputOutput<O::V, IOIntsRef>>> {
         debug_assert!(self.base.is_some());
         let mut base = self.base.take().unwrap();
-        debug_assert!(self.target.length <= i32::MAX as usize);
-        base.target_length = self.target.length as i32;
+        debug_assert!(target.length <= i32::MAX as usize);
+        base.target_length = target.length as i32;
 
-        if base.do_seek_exact(self)? {
-            debug_assert_eq!(base.upto, 1 + self.target.length);
+        if base.do_seek_exact(self, target)? {
+            debug_assert_eq!(base.upto, 1 + target.length);
             self.base = Some(base);
             self.set_result()
         } else {
@@ -127,12 +116,11 @@ where
         }
     }
 
-    fn set_result(&mut self) -> Result<Option<&InputOutput<O::V, RcIntsRef>>> {
+    fn set_result(&mut self) -> Result<Option<&InputOutput<O::V, IOIntsRef>>> {
         self.base.take_do_return(|base| {
             if base.upto == 0 {
                 Ok(None)
             } else {
-                self.current.length = base.upto - 1;
                 self.result.input.length = base.upto - 1;
                 self.result.output = base.output[base.upto].clone();
                 Ok(Some(&self.result))
@@ -146,26 +134,28 @@ where
     O: Outputs,
     F: FstReader,
 {
-    fn get_target_label(&mut self, base: &mut FSTEnum<O, F>) -> Result<i32> {
-        if base.upto - 1 == self.target.length {
+    type V = IntsRef<Vec<i32>>;
+
+    fn get_target_label(&mut self, base: &mut FSTEnum<O, F>, target: &Self::V) -> Result<i32> {
+        if base.upto - 1 == target.length {
             Ok(END_LABEL)
         } else {
-            Ok(self.target.ints.borrow()[self.target.offset + base.upto - 1])
+            Ok(target.ints[target.offset + base.upto - 1])
         }
     }
 
     fn get_current_label(&mut self, base: &mut FSTEnum<O, F>) -> Result<i32> {
-        Ok(self.current.ints.borrow()[base.upto])
+        Ok(self.result.input.ints[base.upto])
     }
 
     fn set_current_label(&mut self, label: i32, base: &mut FSTEnum<O, F>) -> Result<()> {
-        self.current.ints.borrow_mut()[base.upto] = label;
+        self.result.input.ints[base.upto] = label;
         Ok(())
     }
 
     fn grow(&mut self, base: &mut FSTEnum<O, F>) -> Result<()> {
-        ArrayUtil::grow_with_len(&mut *self.current.ints.borrow_mut(), base.upto + 1);
+        ArrayUtil::grow_with_len(&mut self.result.input.ints, base.upto + 1);
         Ok(())
     }
 }
-pub type RcIntsRef = IntsRef<Rc<RefCell<Vec<i32>>>>;
+pub type IOIntsRef = IntsRef<Vec<i32>>;

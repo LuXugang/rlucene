@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cell::RefCell;
 use std::fmt::Display;
 use std::hash::Hash;
 use std::rc::Rc;
@@ -112,7 +111,5 @@ pub trait OutputsBound:
 }
 impl OutputsBound for Rc<i64> {}
 impl OutputsBound for BytesRef<Rc<Vec<u8>>> {}
-impl OutputsBound for BytesRef<Rc<RefCell<Vec<u8>>>> {}
 impl OutputsBound for IntsRef<Rc<Vec<i32>>> {}
-impl OutputsBound for IntsRef<Rc<RefCell<Vec<i32>>>> {}
 // impl<T: Clone + PartialEq + Default + Hash + Display> OutputsBound for T {}
