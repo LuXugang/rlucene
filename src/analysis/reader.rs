@@ -14,11 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-pub mod analyzer;
-mod character_utils;
-pub mod dummy;
-mod reader;
-mod reusable_string_reader;
-pub mod token_attributes;
-pub mod token_stream;
+use crate::util::error::lucene_error::Result;
+pub trait Reader {
+    /// Reads a single character. Returns -1 on EOF
+    fn read(&mut self) -> Result<i32>;
+    /// Reads characters into the buffer, starting at `off`,
+    /// up to `len` characters. Returns the number of chars read,
+    /// or -1 on EOF.
+    fn read_range(&mut self, buf: &mut [char], off: usize, len: usize) -> Result<i32>;
+    fn close(&mut self) -> Result<()>;
+}
