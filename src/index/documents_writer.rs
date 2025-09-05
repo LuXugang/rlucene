@@ -362,7 +362,7 @@ where
         }
         Ok(has_events)
     }
-    fn update_documents<DI, DF, B>(
+    pub(crate) fn update_documents<DI, DF, B>(
         &self,
         docs: DI,
         del_node: Option<Arc<Node>>,

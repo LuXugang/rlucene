@@ -123,4 +123,8 @@ impl LiveIndexWriterConfig for DummyLiveIndexWriterConfig {
     fn get_max_full_flush_merge_wait_millis(&self) -> i64 {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
+
+    fn get_commit_on_close(&self) -> bool {
+        true
+    }
 }

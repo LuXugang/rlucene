@@ -27,7 +27,7 @@ use crate::store::directory::Directory;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::error::lucene_error::Result;
 use crate::util::long_supplier::LongSupplier;
-use parking_lot::{Mutex, ReentrantMutex};
+use parking_lot::{Condvar, Mutex, MutexGuard, ReentrantMutex};
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -49,8 +49,6 @@ where
     change_count: AtomicI64,
     // last changeCount that was committed
     last_commit_change_count: AtomicI64,
-    // list of segmentInfo we will fallback to if the commit fails
-    rollback_segments: Vec<SegmentCommitInfo<D>>,
     pending_seq_no: AtomicI64,
     pending_commit_change_count: AtomicI64,
     global_field_number_map: Arc<FieldNumbers>,
@@ -77,11 +75,11 @@ where
     buffered_updates_stream: Rc<BufferedUpdatesStream>,
     merge_finished_gen: AtomicI64,
     config: Arc<L>,
-    start_commit_time: i64,
     pending_num_docs: AtomicI64,
     soft_deletes_enabled: bool,
     info_stream: InfoStreamMT,
     inner: Mutex<Inner<D, L>>,
+    pausing: Condvar,
     sub: Option<B>,
     commit_lock: Mutex<CommitInner<D>>,
     full_flush_lock: Mutex<()>,
@@ -93,6 +91,8 @@ where
 {
     segment_infos: SegmentInfos<D>,
     deleter: IndexFileDeleter<D, L::IndexDeletionPolicy>,
+    // list of segmentInfo we will fallback to if the commit fails
+    rollback_segments: Vec<SegmentCommitInfo<D>>,
 }
 
 pub struct CommitInner<D>
@@ -100,7 +100,8 @@ where
     D: Directory,
 {
     pending_commit: Option<SegmentInfos<D>>,
-    files_to_commit: Vec<String>,
+    files_to_commit: Option<Vec<String>>,
+    start_commit_time: Instant,
 }
 
 impl<D, L, B> IndexWriter<D, L, B>
@@ -109,6 +110,208 @@ where
     L: LiveIndexWriterConfig,
     B: IndexWriterBase,
 {
+    fn shut_down(&self) -> Result<()> {
+        if self.commit_lock.lock().pending_commit.is_some() {
+            return Err(LuceneError::illegal_state(
+                "cannot close: prepareCommit was already called with no corresponding call to commit",
+            ));
+        }
+        if self.should_close(true) {
+            // TODO: 合并未实现
+        }
+        Ok(())
+    }
+    /// Closes all open resources and releases the write lock.
+    ///
+    /// If [`IndexWriterConfig::commit_on_close`](LiveIndexWriterConfig::get_commit_on_close) is `true`, this will attempt to gracefully shut down by:
+    /// writing any changes, waiting for any running merges, committing, and closing.
+    /// In this case, note that:
+    ///
+    /// - If you called `prepare_commit` but failed to call `commit`, this method will throw
+    ///   `IllegalStateException` and the `IndexWriter` will not be closed.
+    /// - If this method throws any other exception, the `IndexWriter` will be closed, but
+    ///   changes may have been lost.
+    ///
+    /// Note that this may be a costly operation, so try to re-use a single writer instead of
+    /// frequently closing and opening new ones. See [`commit()`](Self::commit) for caveats about write caching done
+    /// by some IO devices.
+    ///
+    /// **NOTE**: You must ensure no other threads are still making changes at the same time
+    /// that this method is invoked.
+    pub fn close(&self) -> Result<()> {
+        if self.config.get_commit_on_close() {
+            self.shut_down()?;
+        } else {
+            // TODO: roll back 未实现
+        }
+        Ok(())
+    }
+
+    // Returns true if this thread should attempt to close, or
+    // false if IndexWriter is now closed; else,
+    // waits until another thread finishes closing
+    fn should_close(&self, wait_for_close: bool) -> bool {
+        let mut inner = self.inner.lock();
+        loop {
+            if !self.closed.load(Ordering::SeqCst) {
+                if !self.closing.load(Ordering::SeqCst) {
+                    // We get to close
+                    self.closing.store(true, Ordering::SeqCst);
+                    return true;
+                } else if !wait_for_close {
+                    return false;
+                } else {
+                    // Another thread is presently trying to close;
+                    // wait until it finishes one way (closes
+                    // successfully) or another (fails to close)
+                    self.do_wait(&mut inner);
+                }
+            } else {
+                return false;
+            }
+        }
+    }
+    /// Adds a document to this index.
+    ///
+    /// Note that if an exception is hit (for example, disk full) then the index will remain consistent,
+    /// but this document may not have been added. Furthermore, it’s possible the index will have one
+    /// segment in non-compound format even when using compound files (when a merge has partially succeeded).
+    ///
+    /// This method periodically flushes pending documents to the `Directory` (see [flush](Self::flush), and
+    /// also periodically triggers segment merges in the index according to the [`MergePolicy`](crate::index::merge_policy::MergePolicy) in use.
+    ///
+    /// Merges temporarily consume space in the directory. The amount of space required is up to 1× the
+    /// size of all segments being merged when no readers/searchers are open against the index, and up
+    /// to 2× the size of all segments being merged when readers/searchers are open against the index
+    /// (see [`force_merge(int)`](Self::force_merge) for details). The sequence of primitive merge operations performed is
+    /// governed by the merge policy.
+    ///
+    /// Note that each term in the document can be no longer than [`MAX_TERM_LENGTH`] in bytes; otherwise
+    /// an `IllegalArgumentException` will be thrown.
+    ///
+    /// Note that it’s possible to create an invalid Unicode string in Java if a UTF-16 surrogate pair is
+    /// malformed. In this case, the invalid characters are silently replaced with the Unicode
+    /// replacement character U+FFFD.
+    ///
+    /// # Returns
+    /// The `sequence number` for this operation.
+    ///
+    /// # Errors
+    /// - Returns a `CorruptIndexException` if the index is corrupt.
+    /// - Returns an `io::Error` if there is a low-level I/O error.
+    pub fn add_document<DF>(&self, doc: DF) -> Result<i64>
+    where
+        DF: IntoIterator<Item = Fields>,
+    {
+        let docs = vec![doc];
+        self.update_documents_with_term(None, docs)
+    }
+
+    /// Atomically adds a block of documents with sequentially assigned document IDs, such that an
+    /// external reader will see all or none of the documents.
+    ///
+    /// **WARNING**: the index does not currently record which documents were added as a block.
+    /// Currently this is fine, because merging will preserve a block. The order of documents within a
+    /// segment will be preserved, even when child documents within a block are deleted. Most search
+    /// features (like result grouping and block joining) require you to mark documents; when these
+    /// documents are deleted those features will not work as expected. Adding documents to an existing
+    /// block will require you to reindex the entire block.
+    ///
+    /// However, it’s possible that in the future Lucene may merge more aggressively and re-order
+    /// documents (for example, perhaps to obtain better index compression). In that case you may need
+    /// to fully re-index your documents at that time.
+    ///
+    /// See [`add_document(Iterable)`](Self::add_document) for details on index and `IndexWriter` state after an exception,
+    /// and flushing/merging temporary free space requirements.
+    ///
+    /// **NOTE**: tools that do offline splitting of an index (for example, `IndexSplitter` in contrib)
+    /// or re-sorting of documents (for example, `IndexSorter` in contrib) are not aware of these
+    /// atomically added documents and will likely break them up. Use such tools at your own risk!
+    ///
+    /// # Returns
+    /// The `sequence number` for this operation.
+    ///
+    /// # Errors
+    /// - Returns a `CorruptIndexException` if the index is corrupt.
+    /// - Returns an `io::Error` if there is a low-level I/O error.
+    ///
+    /// @lucene.experimental
+    pub fn add_documents<DI, DF>(&self, docs: DI) -> Result<i64>
+    where
+        DI: IntoIterator<Item = DF>,
+        DF: IntoIterator<Item = Fields>,
+    {
+        self.update_documents(None, docs)
+    }
+    /// Atomically deletes documents matching the provided `del_term` and adds a block of documents with
+    /// sequentially assigned document IDs, such that an external reader will see all or none of the
+    /// documents.
+    ///
+    /// See [`add_documents(Iterable)`](Self::add_documents).
+    ///
+    /// # Returns
+    /// The `sequence number` for this operation.
+    ///
+    /// # Errors
+    /// - Returns a `CorruptIndexException` if the index is corrupt.
+    /// - Returns an `io::Error` if there is a low-level I/O error.
+    ///
+    /// @lucene.experimental
+    pub fn update_documents_with_term<DI, DF>(
+        &self,
+        del_term: Option<Term>,
+        docs: DI,
+    ) -> Result<i64>
+    where
+        DI: IntoIterator<Item = DF>,
+        DF: IntoIterator<Item = Fields>,
+    {
+        let del_node: Option<Arc<Node>> =
+            del_term.map(|t| Arc::new(DocumentsWriterDeleteQueue::new_node_with_term(t)));
+
+        self.update_documents(del_node, docs)
+    }
+
+    /// Similar to [`update_documents(Term, Iterable)`](Self::update_documents_with_term), but takes a query instead of a term to
+    /// identify the documents to be updated.
+    ///
+    /// @lucene.experimental
+    pub fn update_documents_with_query<DI, DF>(
+        &self,
+        del_query: Option<QueryEnum>,
+        docs: DI,
+    ) -> Result<i64>
+    where
+        DI: IntoIterator<Item = DF>,
+        DF: IntoIterator<Item = Fields>,
+    {
+        let del_node: Option<Arc<Node>> =
+            del_query.map(|q| Arc::new(DocumentsWriterDeleteQueue::new_node_with_query(q)));
+
+        self.update_documents(del_node, docs)
+    }
+    fn update_documents<DI, DF>(&self, del_node: Option<Arc<Node>>, docs: DI) -> Result<i64>
+    where
+        DI: IntoIterator<Item = DF>,
+        DF: IntoIterator<Item = Fields>,
+    {
+        self.do_ensure_open(true)?;
+        let res: Result<i64> = (|| {
+            let seq0 = self.doc_writer.update_documents(docs, del_node, self)?;
+            let seq = self.maybe_process_events(seq0)?;
+            Ok(seq)
+        })();
+
+        if let Err(ref e) = res {
+            self.tragic_event(e, "updateDocuments");
+            if self.info_stream.enabled("IW") {
+                self.info_stream
+                    .message("IW", "hit exception updating document");
+            }
+            self.maybe_close_on_tragic_event()?;
+        }
+        res
+    }
     /// Drops a segment that has 100% deleted documents.
     pub(crate) fn drop_deleted_segment(&self, seg_id: &str, inner: &mut Inner<D, L>) -> Result<()> {
         // If a merge has already registered for this
@@ -152,7 +355,34 @@ where
         _trigger: MergeTrigger,
         _max_num_segments: i32,
     ) -> Result<()> {
-        todo!()
+        // TODO
+        Ok(())
+    }
+    /// Waits for any currently outstanding merges to finish.
+    ///
+    /// It is guaranteed that any merges started prior to calling this method
+    /// will have completed once this method returns.
+    pub(crate) fn wait_for_merges(&self) -> Result<()> {
+        // TODO: 合并逻辑还未实现
+        // self.merge_scheduler
+        //     .merge(&self.merge_source, MergeTrigger::Closing)?;
+        let _inner = self.inner.lock();
+        self.do_ensure_open(false)?;
+        if self.info_stream.enabled("IW") {
+            self.info_stream.message("IW", "waitForMerges");
+        }
+        // while !inner.pending_merges.is_empty() || !inner.running_merges.is_empty() {
+        //     self.do_wait(&mut inner);
+        // }
+        debug_assert!(
+            self.merging_segments.is_empty(),
+            "mergingSegments should be empty here"
+        );
+        if self.info_stream.enabled("IW") {
+            self.info_stream.message("IW", "waitForMerges done");
+        }
+
+        Ok(())
     }
 
     fn checkpoint(&self, inner: &mut Inner<D, L>) -> Result<()> {
@@ -322,14 +552,39 @@ where
 
         res
     }
+    /// **Expert:** Prepares for commit. This is the first phase of a 2-phase commit.
+    /// This method performs all steps necessary to commit changes since this writer was opened:
+    /// flushes pending added and deleted docs, syncs the index files, and writes most of the next
+    /// `segments_N` file. After calling this you must then call either [`commit()`](Self::commit) to finish the commit,
+    /// or [`rollback()`](Self::rollback) to revert the commit and undo all changes made since the writer was opened.
+    ///
+    /// You can also call [`commit()`](Self::commit) directly without calling `prepare_commit` first, in which case
+    /// that method will internally call `prepare_commit`.
+    ///
+    /// # Returns
+    /// The `sequence number` of the last operation in the commit.
+    /// All sequence numbers `<=` this value will be reflected in the commit, and all others will not.
+    pub(crate) fn prepare_commit(&self) -> Result<i64> {
+        self.do_ensure_open(false)?;
+        self.pending_seq_no
+            .store(self.prepare_commit_internal(None)?, Ordering::Release);
+        // we must do this outside of the commitLock else we can deadlock:
+        if self.maybe_merge.swap(false, Ordering::AcqRel) {
+            self.maybe_merge(
+                self.config.get_merge_policy(),
+                MergeTrigger::FullFlush,
+                UNBOUNDED_MAX_MERGE_SEGMENTS,
+            )?;
+        }
+        Ok(self.pending_seq_no.load(Ordering::Acquire))
+    }
 
-    fn prepare_commit_internal(&mut self, commit_lock: Option<&mut CommitInner<D>>) -> Result<i64> {
+    fn prepare_commit_internal(&self, commit_lock: Option<&mut CommitInner<D>>) -> Result<i64> {
         let commit_lock = match commit_lock {
             Some(lock) => lock,
             None => &mut *self.commit_lock.lock(),
         };
-        // TODO
-        // self.start_commit_time = Instant::now()
+        commit_lock.start_commit_time = Instant::now();
 
         self.do_ensure_open(false)?;
         if self.info_stream.enabled("IW") {
@@ -446,7 +701,7 @@ where
         let tragic_res = match tragic_res {
             Err(e) => {
                 // TODO: IMPORTANT 这里没有处理好嵌套错误
-                let _ = self.tragic_event(&e, "prepareCommit");
+                self.tragic_event(&e, "prepareCommit");
                 Err(e)
             },
             Ok(()) => Ok(()),
@@ -458,12 +713,14 @@ where
         // do this after handling any pointInTimeMerges since the files will have changed if any
         // merges
         // did complete
-        commit_lock.files_to_commit = to_commit
-            .as_ref()
-            .unwrap()
-            .files(false)?
-            .into_iter()
-            .collect();
+        commit_lock.files_to_commit = Some(
+            to_commit
+                .as_ref()
+                .unwrap()
+                .files(false)?
+                .into_iter()
+                .collect(),
+        );
         let ret = (|| -> Result<i64> {
             if any_changes {
                 self.maybe_merge.store(true, Ordering::Release);
@@ -479,13 +736,17 @@ where
             Ok(v) => Ok(v),
             Err(t) => {
                 let mut inner = self.inner.lock();
-                let files_to_commit = std::mem::take(&mut commit_lock.files_to_commit);
-                match inner.deleter.dec_ref(files_to_commit) {
-                    Ok(()) => Err(t),
-                    Err(e) => {
-                        // TODO: IMPORTANT 这里没有处理好嵌套错误
-                        Err(LuceneError::illegal_state(format!("{}, {}", t, e)))
+                match std::mem::take(&mut commit_lock.files_to_commit) {
+                    Some(files_to_commit) => {
+                        match inner.deleter.dec_ref(files_to_commit) {
+                            Ok(()) => Err(t),
+                            Err(e) => {
+                                // TODO: IMPORTANT 这里没有处理好嵌套错误
+                                Err(LuceneError::illegal_state(format!("{}, {}", t, e)))
+                            },
+                        }
                     },
+                    None => Err(t),
                 }
             },
         }
@@ -652,6 +913,199 @@ where
     pub(crate) fn ensure_open(&self) -> Result<()> {
         self.do_ensure_open(true)
     }
+    /// Commits all pending changes (added and deleted documents, segment merges, added indexes, etc.)
+    /// to the index, and syncs all referenced index files, such that a reader will see the changes and
+    /// the index updates will survive an OS or machine crash or power loss.
+    /// Note that this does not wait for any running background merges to finish.
+    /// This may be a costly operation, so you should test the cost in your application and do it only when necessary.
+    ///
+    /// This operation calls `Directory::sync` on the index files. That call should not return until the
+    /// file contents and metadata are on stable storage. For `FSDirectory`, this calls the OS’s `fsync`.
+    /// However, beware: some hardware devices may cache writes even during `fsync` and return before the
+    /// bits are actually on stable storage, to give the appearance of faster performance.
+    /// If you have such a device, and it does not have a battery backup (for example), then on power loss
+    /// it may still lose data. Lucene cannot guarantee consistency on such devices.
+    ///
+    /// If nothing was committed, because there were no pending changes, this returns `-1`. Otherwise,
+    /// it returns the sequence number such that all indexing operations prior to this sequence will be
+    /// included in the commit point, and all other operations will not.
+    ///
+    /// # See also
+    /// [`prepare_commit`](Self::prepare_commit)
+    ///
+    /// # Returns
+    /// The `sequence number` of the last operation in the commit.
+    /// All sequence numbers `<=` this value will be reflected in the commit, and all others will not.
+    pub fn commit(&self) -> Result<i64> {
+        self.ensure_open()?;
+        self.commit_internal(self.config.get_merge_policy())
+    }
+
+    pub(crate) fn commit_internal(&self, merge_policy: &L::MergePolicy) -> Result<i64> {
+        if self.info_stream.enabled("IW") {
+            self.info_stream.message("IW", "commit: start");
+        }
+
+        let seq_no: i64;
+
+        {
+            let commit_lock = &mut *self.commit_lock.lock();
+            self.do_ensure_open(false)?;
+
+            if self.info_stream.enabled("IW") {
+                self.info_stream.message("IW", "commit: enter lock");
+            }
+
+            if commit_lock.pending_commit.is_none() {
+                if self.info_stream.enabled("IW") {
+                    self.info_stream.message("IW", "commit: now prepare");
+                }
+                seq_no = self.prepare_commit_internal(Some(commit_lock))?;
+            } else {
+                if self.info_stream.enabled("IW") {
+                    self.info_stream.message("IW", "commit: already prepared");
+                }
+                seq_no = self.pending_seq_no.load(Ordering::SeqCst);
+            }
+            self.finish_commit(commit_lock)?;
+        }
+
+        if self.maybe_merge.swap(false, Ordering::AcqRel) {
+            self.maybe_merge(
+                merge_policy,
+                MergeTrigger::FullFlush,
+                UNBOUNDED_MAX_MERGE_SEGMENTS,
+            )?;
+        }
+
+        Ok(seq_no)
+    }
+
+    pub(crate) fn finish_commit(&self, commit_lock: &mut CommitInner<D>) -> Result<()> {
+        let mut commit_completed = false;
+        let try_res: Result<()> = (|| {
+            let mut inner = self.inner.lock();
+            self.do_ensure_open(false)?;
+
+            if let Some(t) = &*self.tragedy.lock() {
+                return Err(LuceneError::illegal_state(format!(
+                    "this writer hit an unrecoverable error; cannot complete commit {}",
+                    t
+                )));
+            }
+
+            if commit_lock.pending_commit.is_some() {
+                debug_assert!(commit_lock.files_to_commit.is_some());
+                let mut body_res: Result<()> = (|| {
+                    if self.info_stream.enabled("IW") {
+                        self.info_stream
+                            .message("IW", "commit: pendingCommit != null");
+                    }
+                    let pending = commit_lock
+                        .pending_commit
+                        .as_mut()
+                        .expect("pending_commit must exist");
+                    let committed_segments_file_name =
+                        pending.finish_commit(self.directory.as_ref())?;
+                    // we committed, if anything goes wrong after this, we are screwed and it's a tragedy:
+                    commit_completed = true;
+
+                    if self.info_stream.enabled("IW") {
+                        self.info_stream.message(
+                            "IW",
+                            &format!(
+                                "commit: done writing segments file \"{}\"",
+                                committed_segments_file_name
+                            ),
+                        );
+                    }
+                    // NOTE: don't use this.checkpoint() here, because
+                    // we do not want to increment changeCount:
+                    inner
+                        .deleter
+                        .checkpoint(commit_lock.pending_commit.as_ref().unwrap(), true)?;
+
+                    // Carry over generation to our master SegmentInfos:
+                    inner
+                        .segment_infos
+                        .update_generation(commit_lock.pending_commit.as_ref().unwrap());
+
+                    self.last_commit_change_count.store(
+                        self.pending_commit_change_count.load(Ordering::Acquire),
+                        Ordering::Release,
+                    );
+
+                    inner.rollback_segments = commit_lock
+                        .pending_commit
+                        .as_ref()
+                        .unwrap()
+                        .create_backup_segment_infos()?;
+
+                    Ok(())
+                })();
+
+                {
+                    self.pausing.notify_all();
+                    commit_lock.pending_commit = None;
+                    let files = commit_lock.files_to_commit.take().unwrap();
+
+                    body_res = match inner.deleter.dec_ref(files) {
+                        Ok(()) => body_res,
+                        Err(e) => {
+                            // TODO: IMPORTANT 这里没有处理好嵌套错误
+                            Err(LuceneError::illegal_state(format!("{:?}, {}", body_res, e)))
+                        },
+                    }
+                }
+                body_res?;
+            } else {
+                debug_assert!(commit_lock.files_to_commit.is_none());
+                if self.info_stream.enabled("IW") {
+                    self.info_stream
+                        .message("IW", "commit: pendingCommit == null; skip");
+                }
+            }
+            Ok(())
+        })();
+
+        if let Err(t) = try_res {
+            if self.info_stream.enabled("IW") {
+                self.info_stream
+                    .message("IW", &format!("hit exception during finishCommit: {}", t));
+            }
+            if commit_completed {
+                self.tragic_event(&t, "finishCommit");
+            }
+            return Err(t);
+        }
+
+        if self.info_stream.enabled("IW") {
+            self.info_stream.message(
+                "IW",
+                &format!(
+                    "commit: took {:.1} msec",
+                    commit_lock.start_commit_time.elapsed().as_millis() as f64
+                ),
+            );
+            self.info_stream.message("IW", "commit: done");
+        }
+
+        Ok(())
+    }
+    /// Moves all in-memory segments to the [`Directory`], but does not commit (fsync) them
+    /// (call [`commit`](Self::commit) for that).
+    pub fn flush(&self) -> Result<()> {
+        self.do_flush(true, true)
+    }
+    /// Flushes all in-memory buffered updates (adds and deletes) to the `Directory`.
+    ///
+    /// # Arguments
+    ///
+    /// * `trigger_merge` — if `true`, segments may be merged (if deletes or docs were flushed) if necessary.
+    /// * `apply_all_deletes` — whether pending deletes should also be applied.
+    pub(crate) fn do_flush(&self, _trigger_merge: bool, _apply_all_deletes: bool) -> Result<()> {
+        todo!()
+    }
 
     fn apply_all_deletes_and_updates(&self) -> Result<()> {
         self.flush_deletes_count.fetch_add(1, Ordering::AcqRel);
@@ -677,6 +1131,16 @@ where
         self.ensure_open()?;
         let v = self.doc_writer.get_num_docs();
         Ok(v)
+    }
+    fn do_wait(&self, guard: &mut MutexGuard<Inner<D, L>>) {
+        // NOTE: the callers of this method should in theory
+        // be able to do simply wait(), but, as a defense
+        // against thread timing hazards where notifyAll()
+        // fails to be called, we wait for at most 1 second
+        // and then return so caller can check if wait
+        // conditions are satisfied:
+        // wait at most 1s
+        self.pausing.wait_for(guard, Duration::from_millis(1000));
     }
     pub(crate) fn files_exist(
         &self,
@@ -707,6 +1171,7 @@ where
         mut to_sync: Option<SegmentInfos<D>>,
         commit_lock: &mut CommitInner<D>,
     ) -> Result<()> {
+        debug_assert!(commit_lock.files_to_commit.is_some());
         // wrap with Option for easily take ownership
         debug_assert!(to_sync.is_some());
         self.test_point("startStartCommit");
@@ -750,7 +1215,7 @@ where
                     }
                     inner
                         .deleter
-                        .dec_ref(std::mem::take(&mut commit_lock.files_to_commit))?;
+                        .dec_ref(commit_lock.files_to_commit.take().unwrap())?;
                     return Ok(());
                 }
 
@@ -841,9 +1306,10 @@ where
                             self.info_stream
                                 .message("IW", "hit exception committing segments file");
                         }
-                        let files_to_commit = std::mem::take(&mut commit_lock.files_to_commit);
-
-                        match inner.deleter.dec_ref(files_to_commit) {
+                        match inner
+                            .deleter
+                            .dec_ref(commit_lock.files_to_commit.take().unwrap())
+                        {
                             Ok(()) => Err(t),
                             Err(e) => {
                                 // TODO: IMPORTANT 这里没有正确的嵌套错误
@@ -880,7 +1346,7 @@ where
         match result {
             Ok(()) => {},
             Err(e) => {
-                self.tragic_event(&e, "startCommit")?;
+                self.tragic_event(&e, "startCommit");
                 return Err(e);
             },
         }
@@ -902,12 +1368,13 @@ where
 
     /// This method set the tragic exception unless it's already set and closes the writer if necessary.
     /// Note this method will not rethrow the throwable passed to it.
-    fn tragic_event(&self, _tragedy: &LuceneError, _location: &str) -> Result<()> {
-        todo!()
+    fn tragic_event(&self, _tragedy: &LuceneError, _location: &str) {
+        // TODO
     }
 
     fn maybe_close_on_tragic_event(&self) -> Result<()> {
-        todo!()
+        // TODO
+        Ok(())
     }
 
     pub fn get_tragic_exception(&self) -> TragicException {
@@ -1633,8 +2100,10 @@ impl LongSupplier for LongSupplierImpl {
 }
 
 use crate::codecs::{Codec, CompoundFormat, LATEST_CODEC};
+use crate::document::fields::Fields;
 use crate::index::IndexFileNames;
 use crate::index::doc_values_type::DocValuesType;
+use crate::index::documents_writer_delete_queue::{DocumentsWriterDeleteQueue, Node};
 use crate::index::documents_writer_flush_queue::FlushTicket;
 use crate::index::field_infos::{FieldInfos, FieldNumbers};
 use crate::index::index_writer_config::DISABLE_AUTO_FLUSH;
@@ -1644,6 +2113,8 @@ use crate::index::reader_pool::ReaderPool;
 use crate::index::readers_and_updates::ReadersAndUpdates;
 use crate::index::segment_commit_info::SegmentCommitInfo;
 use crate::index::sorter::DocMapImpl;
+use crate::index::term::Term;
+use crate::search::query::QueryEnum;
 use crate::store::IOContext;
 use crate::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
 use crate::store::tracking_directory_wrapper::TrackingDirectoryWrapper;
@@ -1657,7 +2128,7 @@ use crate::util::{BYTE_BLOCK_SIZE, LATEST};
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64, Ordering};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 /// Maximum number of documents. In Java Lucene, We subtract 128 to ensure
 /// it's well below the typical JVM's `ArrayUtil.MAX_ARRAY_LENGTH` and
