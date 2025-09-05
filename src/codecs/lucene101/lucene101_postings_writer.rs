@@ -107,11 +107,11 @@ where
     /// Output for a single block. This is useful to be able to prepend skip
     /// data before each block, which can only be computed once the block
     /// is encoded. The content is then typically copied to
-    /// [`level1Output`].
+    /// `level1Output`.
     level0_output: ByteBuffersDataOutput,
     /// Output for groups of 32 blocks. This is useful to prepend skip data for
     /// these 32 blocks, which can only be done once we have encoded these
-    /// 32 blocks. The content is then typically copied to [`docCount`].
+    /// 32 blocks. The content is then typically copied to `docCount`.
     level1_output: ByteBuffersDataOutput,
 }
 impl<O> Lucene101PostingsWriter<O>

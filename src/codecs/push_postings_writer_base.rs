@@ -232,7 +232,7 @@ pub trait PushPostingsWriterBaseAbstract {
     /// if the term has at least one document.
     fn start_term(&mut self, options: &FieldWriteOptions) -> Result<()>;
 
-    /// Finishes the current term. The provided [`BlockTermState`] contains
+    /// Finishes the current term. The provided [`BlockTermState`](crate::codecs::block_term_state::BlockTermState) contains
     /// the term's summary statistics and will hold metadata from PBF when
     /// returned.
     fn finish_term(

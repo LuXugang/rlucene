@@ -175,8 +175,8 @@ where
     }
     /// Adds the value for the given `doc_id`.
     ///
-    /// This method prevents conditional calls to [`IteratorBase::long_value`]
-    /// or [`IteratorBase::binary_value`], since the implementation knows
+    /// This method prevents conditional calls to [`DocValuesFieldIterator::long_value`]
+    /// or [`DocValuesFieldIterator::binary_value`], since the implementation knows
     /// whether it is a long value iterator or a binary value iterator.
     fn add_iterator<T>(&mut self, doc_id: i32, iterator: &mut T) -> Result<()>
     where

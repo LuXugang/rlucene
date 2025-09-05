@@ -672,7 +672,7 @@ pub(crate) const MAX_ARRAY_LENGTH: i32 = (1 << 12) - 1;
 /// gap-less order.
 ///
 /// DENSE blocks use
-/// [`DEFAULT_DENSE_RANK_POWER`](Self::DEFAULT_DENSE_RANK_POWER) of 9,
+/// [`DEFAULT_DENSE_RANK_POWER`] of 9,
 /// meaning a rank is written every 512 doc IDs (8 longs).
 ///
 /// The caller must keep track of:

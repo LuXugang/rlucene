@@ -86,7 +86,7 @@ pub mod knn_vector_values;
 pub mod leaf_metadata;
 pub mod leaf_reader;
 pub mod leaf_reader_context;
-mod live_index_writer_config;
+pub mod live_index_writer_config;
 pub(crate) mod lockable_concurrent_approximate_priority_queue;
 pub mod merge_policy;
 pub mod merge_state;
