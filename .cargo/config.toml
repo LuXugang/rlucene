@@ -6,3 +6,7 @@ tidy  = "xtask tidy"
 commit = "xtask commit"
 # Github Actions CI
 ci = "xtask ci"
+# Check for uncommitted changes
+check-uncommitted = "xtask check-uncommitted"
+# Check License header
+license-check = "xtask license-check"
