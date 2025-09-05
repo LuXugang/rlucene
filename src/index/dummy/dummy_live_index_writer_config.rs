@@ -51,13 +51,13 @@ impl LiveIndexWriterConfig for DummyLiveIndexWriterConfig {
     type Analyzer = DummyAnalyzer;
 
     fn get_analyzer(&self) -> &Self::Analyzer {
-        &self.analyzer
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     type Similarity = DummySimilarity;
 
     fn get_similarity(&self) -> &Self::Similarity {
-        &self.similarity
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     type Codec = Lucene101Codec;
@@ -89,38 +89,38 @@ impl LiveIndexWriterConfig for DummyLiveIndexWriterConfig {
     type MergePolicy = DummyMergePolicy;
 
     fn get_merge_policy(&self) -> &Self::MergePolicy {
-        &DummyMergePolicy
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     type FlushPolicy = DummyFlushPolicy;
 
     fn get_flush_policy(&self) -> &Self::FlushPolicy {
-        &DummyFlushPolicy
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn get_ram_buffer_size_mb(&self) -> f64 {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn get_ram_per_thread_hard_limit_mb(&self) -> i32 {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn get_max_buffered_docs(&self) -> i32 {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn get_check_pending_flush_on_update(&self) -> bool {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     type IndexDeletionPolicy = KeepOnlyLastCommitDeletionPolicy;
 
     fn get_index_deletion_policy(&self) -> &Self::IndexDeletionPolicy {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
     fn get_max_full_flush_merge_wait_millis(&self) -> i64 {
-        todo!()
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
