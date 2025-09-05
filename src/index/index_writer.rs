@@ -504,8 +504,226 @@ where
         let v = self.doc_writer.get_num_docs();
         Ok(v)
     }
+    pub(crate) fn files_exist(
+        &self,
+        to_sync: &SegmentInfos<D>,
+        inner: &Inner<D, L>,
+    ) -> Result<bool> {
+        let files = to_sync.files(false)?;
 
+        for file_name in &files {
+            // If this trips it means we are missing a call to
+            // .checkpoint somewhere, because by the time we
+            // are called, deleter should know about every
+            // file referenced by the current head
+            // segmentInfos:
+            debug_assert!(
+                inner.deleter.exists(file_name),
+                "IndexFileDeleter doesn't know about file {}",
+                file_name
+            );
+        }
+
+        Ok(true)
+    }
+    /// Walk through all files referenced by the current segmentInfos and ask the Directory to sync each file,
+    /// if it wasn't already. If that succeeds, then we prepare a new segments_N file but do not fully commit it.
+    pub(crate) fn start_commit(&mut self, mut to_sync: Option<SegmentInfos<D>>) -> Result<()> {
+        // wrap with Option for easily take ownership
+        debug_assert!(to_sync.is_some());
+        self.test_point("startStartCommit");
+        debug_assert!(self.pending_commit.is_none());
+        if let Some(t) = &*self.tragedy.lock() {
+            return Err(LuceneError::illegal_state(format!(
+                "this writer hit an unrecoverable error; cannot commit {}",
+                t
+            )));
+        }
+
+        if self.tragedy.lock().is_none() {
+            return Err(LuceneError::illegal_state(
+                "this writer hit an unrecoverable error; cannot commit",
+            ));
+        }
+        // did to_sync's ownership move to pending_commit?
+        // after pending_commit has to_sync's ownership, and error happens, we have to pass to to_sync_error
+        let result: Result<()> = (|| {
+            if self.info_stream.enabled("IW") {
+                self.info_stream.message("IW", "startCommit(): start");
+            }
+
+            {
+                let mut inner = self.inner.lock();
+                let change_count = self.change_count.load(Ordering::SeqCst);
+                let last_commit_change_count = self.last_commit_change_count.load(Ordering::SeqCst);
+                if last_commit_change_count > change_count {
+                    return Err(LuceneError::illegal_state(format!(
+                        "lastCommitChangeCount={} , changeCount={}",
+                        last_commit_change_count, change_count
+                    )));
+                }
+
+                if self.pending_commit_change_count.load(Ordering::SeqCst)
+                    == self.last_commit_change_count.load(Ordering::SeqCst)
+                {
+                    if self.info_stream.enabled("IW") {
+                        self.info_stream
+                            .message("IW", "  skip startCommit(): no changes pending");
+                    }
+                    inner
+                        .deleter
+                        .dec_ref(std::mem::take(&mut self.files_to_commit))?;
+                    return Ok(());
+                }
+
+                if self.info_stream.enabled("IW") {
+                    // TODO
+                    // let segs = self.seg_string_with_infos(self.to_live_infos(to_sync, inner)?);
+                    // self.info_stream.message(
+                    //     "IW",
+                    //     &format!("startCommit index={} changeCount={}", segs, change_count),
+                    // );
+                }
+                debug_assert!(self.files_exist(to_sync.as_ref().unwrap(), &inner)?);
+            }
+
+            self.test_point("midStartCommit");
+
+            let mut pending_commit_set = false;
+
+            let res: Result<()> = (|| {
+                self.test_point("midStartCommit2");
+
+                {
+                    let inner = self.inner.lock();
+                    debug_assert!(self.pending_commit.is_none());
+                    debug_assert!(
+                        inner.segment_infos.get_generation()
+                            == to_sync.as_ref().unwrap().get_generation()
+                    );
+                    // Exception here means nothing is prepared
+                    // (this method unwinds everything it did on
+                    // an exception)
+
+                    to_sync
+                        .as_mut()
+                        .unwrap()
+                        .prepare_commit(self.directory.as_ref())?;
+                    if self.info_stream.enabled("IW") {
+                        let file_name = IndexFileNames::file_name_from_generation(
+                            IndexFileNames::PENDING_SEGMENTS,
+                            "",
+                            to_sync.as_ref().unwrap().get_generation(),
+                        );
+                        self.info_stream.message(
+                            "IW",
+                            &format!("startCommit: wrote pending segments file {:?}", file_name),
+                        );
+                    }
+
+                    pending_commit_set = true;
+                    self.pending_commit = to_sync.take();
+                }
+                // This call can take a long time -- 10s of seconds
+                // or more.  We do it without syncing on this:
+                let mut files_to_sync = HashSet::new();
+                let sync_res: Result<()> = (|| {
+                    files_to_sync = self.pending_commit.as_ref().unwrap().files(false)?;
+                    self.directory.sync(&files_to_sync)?;
+                    Ok(())
+                })();
+
+                if let Err(e) = sync_res {
+                    pending_commit_set = false;
+                    debug_assert!(self.pending_commit.is_some());
+                    self.pending_commit
+                        .as_mut()
+                        .unwrap()
+                        .rollback_commit(self.directory.as_ref());
+                    to_sync = self.pending_commit.take();
+                    return Err(e);
+                }
+
+                if self.info_stream.enabled("IW") {
+                    self.info_stream
+                        .message("IW", &format!("done all syncs: {:?}", files_to_sync));
+                }
+
+                self.test_point("midStartCommitSuccess");
+                Ok(())
+            })();
+
+            let res = match res {
+                Ok(()) => Ok(()),
+                Err(t) => {
+                    let mut inner = self.inner.lock();
+                    if !pending_commit_set {
+                        if self.info_stream.enabled("IW") {
+                            self.info_stream
+                                .message("IW", "hit exception committing segments file");
+                        }
+                        let files_to_commit = std::mem::take(&mut self.files_to_commit);
+
+                        match inner.deleter.dec_ref(files_to_commit) {
+                            Ok(()) => Err(t),
+                            Err(e) => {
+                                // TODO: IMPORTANT 这里没有正确的嵌套错误
+                                Err(LuceneError::illegal_state(format!("{} {}", e, t)))
+                            },
+                        }
+                    } else {
+                        Err(t)
+                    }
+                },
+            };
+
+            {
+                let mut inner = self.inner.lock();
+                // Have our master segmentInfos record the
+                // generations we just prepared.  We do this
+                // on error or success so we don't
+                // double-write a segments_N file.
+                match pending_commit_set {
+                    true => {
+                        inner
+                            .segment_infos
+                            .update_generation(self.pending_commit.as_ref().unwrap());
+                    },
+                    false => {
+                        inner
+                            .segment_infos
+                            .update_generation(to_sync.as_ref().unwrap());
+                    },
+                }
+            }
+            res
+        })();
+        match result {
+            Ok(()) => {},
+            Err(e) => {
+                self.tragic_event(&e, "startCommit")?;
+                return Err(e);
+            },
+        }
+
+        self.test_point("finishStartCommit");
+        Ok(())
+    }
+
+    /// This method should be called on a tragic event, i.e. if a downstream class of the writer hits
+    /// an unrecoverable exception. This method does not rethrow the tragic event exception.
+    ///
+    /// Note: This method will not close the writer, but it can be called from any location without
+    /// respecting any lock order.
+    ///
+    /// @lucene.internal
     fn on_tragic_event(&self, _tragedy: &LuceneError, _location: &str) -> Result<()> {
+        todo!()
+    }
+
+    /// This method set the tragic exception unless it's already set and closes the writer if necessary.
+    /// Note this method will not rethrow the throwable passed to it.
+    fn tragic_event(&self, _tragedy: &LuceneError, _location: &str) -> Result<()> {
         todo!()
     }
 
@@ -1232,6 +1450,7 @@ impl LongSupplier for LongSupplierImpl {
 }
 
 use crate::codecs::{Codec, CompoundFormat, LATEST_CODEC};
+use crate::index::IndexFileNames;
 use crate::index::doc_values_type::DocValuesType;
 use crate::index::documents_writer_flush_queue::FlushTicket;
 use crate::index::field_infos::{FieldInfos, FieldNumbers};
