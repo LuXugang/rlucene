@@ -375,7 +375,7 @@ where
     {
         let has_events = self.pre_update(writer)?;
 
-        let delete_queue = self.inner.lock().delete_queue.clone();
+        let delete_queue = &self.inner.lock().delete_queue;
         let dwpt_factory = SupplierImpl2::new(
             self.index_created_version_major,
             self.directory_orig.clone(),
@@ -387,7 +387,7 @@ where
             self.enable_test_points,
         );
         let mut dwpt = self.flush_control.obtain_and_lock(
-            &delete_queue,
+            delete_queue,
             dwpt_factory,
             &self.per_thread_pool,
         )?;
