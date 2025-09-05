@@ -669,7 +669,7 @@ where
     // FlushAllThreads is synced by IW fullFlushLock. Flushing all threads is a
     // two stage operation; the caller must ensure (in try/finally) that finishFlush
     // is called after this method, to release the flush lock in DWFlushControl
-    fn flush_all_threads<B>(&self, writer: &IndexWriter<D, L, B>) -> Result<i64>
+    pub(crate) fn flush_all_threads<B>(&self, writer: &IndexWriter<D, L, B>) -> Result<i64>
     where
         B: IndexWriterBase,
     {

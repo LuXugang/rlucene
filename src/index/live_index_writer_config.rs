@@ -60,4 +60,6 @@ pub trait LiveIndexWriterConfig {
 
     type IndexDeletionPolicy: IndexDeletionPolicy;
     fn get_index_deletion_policy(&self) -> &Self::IndexDeletionPolicy;
+
+    fn get_max_full_flush_merge_wait_millis(&self) -> i64;
 }

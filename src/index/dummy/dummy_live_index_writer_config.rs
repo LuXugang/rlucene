@@ -119,4 +119,8 @@ impl LiveIndexWriterConfig for DummyLiveIndexWriterConfig {
     fn get_index_deletion_policy(&self) -> &Self::IndexDeletionPolicy {
         todo!()
     }
+
+    fn get_max_full_flush_merge_wait_millis(&self) -> i64 {
+        todo!()
+    }
 }

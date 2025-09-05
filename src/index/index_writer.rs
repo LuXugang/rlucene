@@ -51,10 +51,8 @@ where
     last_commit_change_count: AtomicI64,
     // list of segmentInfo we will fallback to if the commit fails
     rollback_segments: Vec<SegmentCommitInfo<D>>,
-    pending_commit: Option<SegmentInfos<D>>,
     pending_seq_no: AtomicI64,
     pending_commit_change_count: AtomicI64,
-    files_to_commit: Vec<String>,
     global_field_number_map: Arc<FieldNumbers>,
     doc_writer: DocumentsWriter<D, L, FlushNotificationsImpl>,
     event_queue: Arc<EventQueue>,
@@ -85,7 +83,8 @@ where
     info_stream: InfoStreamMT,
     inner: Mutex<Inner<D, L>>,
     sub: Option<B>,
-    commit_lock: Mutex<()>,
+    commit_lock: Mutex<CommitInner<D>>,
+    full_flush_lock: Mutex<()>,
 }
 pub struct Inner<D, L>
 where
@@ -94,6 +93,14 @@ where
 {
     segment_infos: SegmentInfos<D>,
     deleter: IndexFileDeleter<D, L::IndexDeletionPolicy>,
+}
+
+pub struct CommitInner<D>
+where
+    D: Directory,
+{
+    pending_commit: Option<SegmentInfos<D>>,
+    files_to_commit: Vec<String>,
 }
 
 impl<D, L, B> IndexWriter<D, L, B>
@@ -315,6 +322,174 @@ where
 
         res
     }
+
+    fn prepare_commit_internal(&mut self, commit_lock: Option<&mut CommitInner<D>>) -> Result<i64> {
+        let commit_lock = match commit_lock {
+            Some(lock) => lock,
+            None => &mut *self.commit_lock.lock(),
+        };
+        // TODO
+        // self.start_commit_time = Instant::now()
+
+        self.do_ensure_open(false)?;
+        if self.info_stream.enabled("IW") {
+            // TODO
+            // self.info_stream.message("IW", "prepareCommit: flush");
+            // self.info_stream
+            //     .message("IW", &format!("  index before flush {}", self.seg_string(inner)));
+        }
+
+        if let Some(t) = &*self.tragedy.lock() {
+            return Err(LuceneError::illegal_state(format!(
+                "this writer hit an unrecoverable error; cannot commit {}",
+                t
+            )));
+        }
+
+        if commit_lock.pending_commit.is_some() {
+            return Err(LuceneError::illegal_state(
+                "prepareCommit was already called with no corresponding call to commit",
+            ));
+        }
+
+        if let Some(ref s) = self.sub {
+            s.do_before_flush()?
+        }
+        self.test_point("startDoFlush");
+
+        // locals (to be filled by the next parts)
+        let mut to_commit = None;
+        let mut any_changes = false;
+        let mut seq_no: i64 = 0;
+        // let mut point_in_time_merges: Option<MergeSpecification<D>> = None;
+        // let stop_adding_merged_segments = AtomicBool::new(false);
+        let max_commit_merge_wait_millis = self.config.get_max_full_flush_merge_wait_millis();
+        // This is copied from doFlush, except it's modified to
+        // clone & incRef the flushed SegmentInfos inside the
+        // sync block:
+        let tragic_res: Result<()> = (|| {
+            let _guard = self.full_flush_lock.lock();
+            let mut flush_success = false;
+            let body_res: Result<()> = (|| {
+                seq_no = self.doc_writer.flush_all_threads(self)?;
+                if seq_no < 0 {
+                    any_changes = true;
+                    seq_no = -seq_no;
+                }
+                if !any_changes {
+                    // prevent double increment since docWriter#doFlush increments the flushcount
+                    // if we flushed anything.
+                    self.flush_count.fetch_add(1, Ordering::AcqRel);
+                }
+
+                self.publish_flushed_segments(true)?;
+                // cannot pass triggerMerges=true here else it can lead to deadlock:
+                self.process_events(false)?;
+
+                flush_success = true;
+
+                self.apply_all_deletes_and_updates()?;
+
+                {
+                    let mut inner = self.inner.lock();
+                    self.write_reader_pool(true, &mut *inner)?;
+                    if self.change_count.load(Ordering::Acquire)
+                        != self.last_commit_change_count.load(Ordering::Acquire)
+                    {
+                        // There are changes to commit, so we will write a new segments_N in startCommit.
+                        // The act of committing is itself an NRT-visible change (an NRT reader that was
+                        // just opened before this should see it on reopen) so we increment changeCount
+                        // and segments version so a future NRT reopen will see the change:
+                        self.change_count.fetch_add(1, Ordering::AcqRel);
+                        inner.segment_infos.changed();
+                    }
+                    if let Some(commit_ud) = &self.commit_user_data {
+                        inner
+                            .segment_infos
+                            .set_user_data(Some(commit_ud.clone()), false);
+                    }
+                    // Must clone the segmentInfos while we still
+                    // hold fullFlushLock and while sync'd so that
+                    // no partial changes (eg a delete w/o
+                    // corresponding add from an updateDocument) can
+                    // sneak into the commit point:
+                    // TODO: IMPORTANT 这里的clone实现没有写对
+                    to_commit = Some(inner.segment_infos.try_clone()?);
+                    self.pending_commit_change_count
+                        .store(self.change_count.load(Ordering::Acquire), Ordering::SeqCst);
+                    // This protects the segmentInfos we are now going
+                    // to commit.  This is important in case, eg, while
+                    // we are trying to sync all referenced files, a
+                    // merge completes which would otherwise have
+                    // removed the files we are now syncing.
+                    inner
+                        .deleter
+                        .inc_ref_files(to_commit.as_ref().unwrap().files(false)?);
+
+                    if max_commit_merge_wait_millis > 0 {
+                        // TODO: 合并为实现
+                    }
+                }
+                Ok(())
+            })();
+            if body_res.is_err() && self.info_stream.enabled("IW") {
+                self.info_stream
+                    .message("IW", "hit exception during prepareCommit");
+            }
+            // Done: finish the full flush!
+            self.doc_writer.finish_full_flush(flush_success)?;
+            if let Some(ref s) = self.sub {
+                s.do_after_flush()?
+            }
+            body_res
+        })();
+        let tragic_res = match tragic_res {
+            Err(e) => {
+                // TODO: IMPORTANT 这里没有处理好嵌套错误
+                let _ = self.tragic_event(&e, "prepareCommit");
+                Err(e)
+            },
+            Ok(()) => Ok(()),
+        };
+        self.maybe_close_on_tragic_event()?;
+        tragic_res?;
+        // TODO: 这里pointInTimeMerges没有实现
+
+        // do this after handling any pointInTimeMerges since the files will have changed if any
+        // merges
+        // did complete
+        commit_lock.files_to_commit = to_commit
+            .as_ref()
+            .unwrap()
+            .files(false)?
+            .into_iter()
+            .collect();
+        let ret = (|| -> Result<i64> {
+            if any_changes {
+                self.maybe_merge.store(true, Ordering::Release);
+            }
+            self.start_commit(to_commit, commit_lock)?;
+            if commit_lock.pending_commit.is_none() {
+                Ok(-1)
+            } else {
+                Ok(seq_no)
+            }
+        })();
+        match ret {
+            Ok(v) => Ok(v),
+            Err(t) => {
+                let mut inner = self.inner.lock();
+                let files_to_commit = std::mem::take(&mut commit_lock.files_to_commit);
+                match inner.deleter.dec_ref(files_to_commit) {
+                    Ok(()) => Err(t),
+                    Err(e) => {
+                        // TODO: IMPORTANT 这里没有处理好嵌套错误
+                        Err(LuceneError::illegal_state(format!("{}, {}", t, e)))
+                    },
+                }
+            },
+        }
+    }
     /// Ensures that all changes in the reader pool are written to disk.
     ///
     /// # Arguments
@@ -478,8 +653,7 @@ where
         self.do_ensure_open(true)
     }
 
-    // The parameter inner_ indicates that the caller must already hold the lock when invoking this method
-    fn apply_all_deletes_and_updates(&self, _inner: &Inner<D, L>) -> Result<()> {
+    fn apply_all_deletes_and_updates(&self) -> Result<()> {
         self.flush_deletes_count.fetch_add(1, Ordering::AcqRel);
         if self.info_stream.enabled("IW") {
             self.info_stream.message(
@@ -528,11 +702,15 @@ where
     }
     /// Walk through all files referenced by the current segmentInfos and ask the Directory to sync each file,
     /// if it wasn't already. If that succeeds, then we prepare a new segments_N file but do not fully commit it.
-    pub(crate) fn start_commit(&mut self, mut to_sync: Option<SegmentInfos<D>>) -> Result<()> {
+    pub(crate) fn start_commit(
+        &self,
+        mut to_sync: Option<SegmentInfos<D>>,
+        commit_lock: &mut CommitInner<D>,
+    ) -> Result<()> {
         // wrap with Option for easily take ownership
         debug_assert!(to_sync.is_some());
         self.test_point("startStartCommit");
-        debug_assert!(self.pending_commit.is_none());
+        debug_assert!(commit_lock.pending_commit.is_none());
         if let Some(t) = &*self.tragedy.lock() {
             return Err(LuceneError::illegal_state(format!(
                 "this writer hit an unrecoverable error; cannot commit {}",
@@ -572,7 +750,7 @@ where
                     }
                     inner
                         .deleter
-                        .dec_ref(std::mem::take(&mut self.files_to_commit))?;
+                        .dec_ref(std::mem::take(&mut commit_lock.files_to_commit))?;
                     return Ok(());
                 }
 
@@ -596,7 +774,7 @@ where
 
                 {
                     let inner = self.inner.lock();
-                    debug_assert!(self.pending_commit.is_none());
+                    debug_assert!(commit_lock.pending_commit.is_none());
                     debug_assert!(
                         inner.segment_infos.get_generation()
                             == to_sync.as_ref().unwrap().get_generation()
@@ -622,25 +800,26 @@ where
                     }
 
                     pending_commit_set = true;
-                    self.pending_commit = to_sync.take();
+                    commit_lock.pending_commit = to_sync.take();
                 }
                 // This call can take a long time -- 10s of seconds
                 // or more.  We do it without syncing on this:
                 let mut files_to_sync = HashSet::new();
                 let sync_res: Result<()> = (|| {
-                    files_to_sync = self.pending_commit.as_ref().unwrap().files(false)?;
+                    files_to_sync = commit_lock.pending_commit.as_ref().unwrap().files(false)?;
                     self.directory.sync(&files_to_sync)?;
                     Ok(())
                 })();
 
                 if let Err(e) = sync_res {
                     pending_commit_set = false;
-                    debug_assert!(self.pending_commit.is_some());
-                    self.pending_commit
+                    debug_assert!(commit_lock.pending_commit.is_some());
+                    commit_lock
+                        .pending_commit
                         .as_mut()
                         .unwrap()
                         .rollback_commit(self.directory.as_ref());
-                    to_sync = self.pending_commit.take();
+                    to_sync = commit_lock.pending_commit.take();
                     return Err(e);
                 }
 
@@ -662,7 +841,7 @@ where
                             self.info_stream
                                 .message("IW", "hit exception committing segments file");
                         }
-                        let files_to_commit = std::mem::take(&mut self.files_to_commit);
+                        let files_to_commit = std::mem::take(&mut commit_lock.files_to_commit);
 
                         match inner.deleter.dec_ref(files_to_commit) {
                             Ok(()) => Err(t),
@@ -687,7 +866,7 @@ where
                     true => {
                         inner
                             .segment_infos
-                            .update_generation(self.pending_commit.as_ref().unwrap());
+                            .update_generation(commit_lock.pending_commit.as_ref().unwrap());
                     },
                     false => {
                         inner
@@ -724,6 +903,10 @@ where
     /// This method set the tragic exception unless it's already set and closes the writer if necessary.
     /// Note this method will not rethrow the throwable passed to it.
     fn tragic_event(&self, _tragedy: &LuceneError, _location: &str) -> Result<()> {
+        todo!()
+    }
+
+    fn maybe_close_on_tragic_event(&self) -> Result<()> {
         todo!()
     }
 
