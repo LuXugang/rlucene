@@ -17,10 +17,17 @@
 use crate::analysis::reader::Reader;
 use crate::util::error::lucene_error::{LuceneError, Result};
 /// Internal class to enable reuse of the string reader by Analyzer#tokenStream(String,String)
-pub(crate) struct ReusableStringReader {
+#[derive(Debug, Clone)]
+pub struct ReusableStringReader {
     pos: usize,
     size: usize,
     s: Option<Vec<char>>,
+}
+
+impl Default for ReusableStringReader {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ReusableStringReader {
@@ -32,7 +39,7 @@ impl ReusableStringReader {
         }
     }
 
-    pub fn set_value(&mut self, s: String) {
+    pub fn set_value(&mut self, s: &str) {
         let vec: Vec<char> = s.chars().collect();
         self.size = vec.len();
         self.pos = 0;
@@ -97,7 +104,7 @@ mod tests {
         let mut buf2 = ['\0'; 2];
         assert_eq!(reader.read_range(&mut buf2, 1, 1)?, -1);
 
-        reader.set_value("foobar".to_string());
+        reader.set_value("foobar");
         let mut buf = ['\0'; 4];
         assert_eq!(reader.read_range(&mut buf, 0, 4)?, 4);
         assert_eq!(buf.iter().collect::<String>(), "foob");
@@ -106,7 +113,7 @@ mod tests {
         assert_eq!(reader.read()?, -1);
         reader.close()?;
 
-        reader.set_value("foobar".to_string());
+        reader.set_value("foobar");
         assert_eq!(reader.read_range(&mut buf, 1, 0)?, 0);
         assert_eq!(reader.read_range(&mut buf, 1, 3)?, 3);
         assert_eq!(buf[1..4].iter().collect::<String>(), "foo");
@@ -116,7 +123,7 @@ mod tests {
         assert_eq!(reader.read()?, -1);
         reader.close()?;
 
-        reader.set_value("foobar".to_string());
+        reader.set_value("foobar");
         let mut sb = String::new();
         loop {
             let ch = reader.read()?;

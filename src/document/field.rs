@@ -661,6 +661,7 @@ mod tests {
     use std::sync::Arc;
 
     use crate::analysis::dummy::dummy_token_stream::DummyTokenStream;
+    use crate::analysis::reusable_string_reader::ReusableStringReader;
     use crate::document::double_point::DoublePoint;
     use crate::document::field::{Field, FieldBase};
     use crate::document::field_type::FieldType;
@@ -935,8 +936,9 @@ mod tests {
     }
 
     fn try_set_reader_value<F: FieldBase>(f: &mut F) -> Result<()> {
-        let cursor = Arc::new(std::io::Cursor::new("BOO!".to_string()));
-        let read = ReaderEnum::CursorStr(cursor);
+        let mut reader = ReusableStringReader::new();
+        reader.set_value("BOO!");
+        let read = ReaderEnum::Reused(reader);
         f.set_reader_value(Arc::from(read))
     }
 

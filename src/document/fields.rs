@@ -15,12 +15,12 @@
  * limitations under the License.
  */
 use std::fmt::{Display, Formatter};
-use std::io::Cursor;
 use std::rc::Rc;
 use std::sync::Arc;
 
 use crate::analysis::analyzer::Analyzer;
 use crate::analysis::dummy::dummy_token_stream::DummyTokenStream;
+use crate::analysis::reusable_string_reader::ReusableStringReader;
 use crate::document::field::Field;
 use crate::document::field_type::FieldType;
 use crate::document::invertable_field::InvertableType;
@@ -205,7 +205,7 @@ impl From<StoredField> for Fields {
 
 #[derive(Debug, Clone)]
 pub enum ReaderEnum {
-    CursorStr(Arc<Cursor<String>>),
+    Reused(ReusableStringReader),
 }
 
 #[derive(Debug, Clone)]
