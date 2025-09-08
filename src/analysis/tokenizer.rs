@@ -14,13 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::analysis::reader::Reader;
+use crate::util::error::lucene_error::{LuceneError, Result};
 
-pub mod analyzer;
-mod char_filter;
-mod character_utils;
-pub mod dummy;
-mod reader;
-pub(crate) mod reusable_string_reader;
-pub mod token_attributes;
-pub mod token_stream;
-mod tokenizer;
+pub(crate) struct IllegalStateReader;
+impl Reader for IllegalStateReader {
+    fn read_range(&mut self, _buf: &mut [char], _off: usize, _len: usize) -> Result<i32> {
+        Err(LuceneError::illegal_state(
+            "TokenStream contract violation: reset()/close() call missing, \
+reset() called multiple times, or subclass does not call super.reset(). \
+Please see Javadocs of TokenStream class for more information about the correct consuming workflow.",
+        ))
+    }
+
+    fn close(&mut self) -> Result<()> {
+        Ok(())
+    }
+}

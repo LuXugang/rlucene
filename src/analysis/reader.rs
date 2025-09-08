@@ -17,7 +17,13 @@
 use crate::util::error::lucene_error::Result;
 pub trait Reader {
     /// Reads a single character. Returns -1 on EOF
-    fn read(&mut self) -> Result<i32>;
+    fn read(&mut self) -> Result<i32> {
+        let mut cb: Vec<char> = vec![char::from(0); 1];
+        if self.read_range(&mut cb, 0, 1)? == -1 {
+            return Ok(-1);
+        }
+        Ok(cb[0] as i32)
+    }
     /// Reads characters into the buffer, starting at `off`,
     /// up to `len` characters. Returns the number of chars read,
     /// or -1 on EOF.
