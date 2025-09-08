@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::analysis::reusable_string_reader::ReusableStringReader;
+use crate::analysis::tokenizer::IllegalStateReader;
 use crate::util::error::lucene_error::Result;
 pub trait Reader {
     /// Reads a single character. Returns -1 on EOF
@@ -35,4 +36,32 @@ pub trait Reader {
 #[derive(Debug, Clone)]
 pub enum ReaderEnum {
     Reused(ReusableStringReader),
+    IllegalState(IllegalStateReader),
+}
+impl ReaderEnum {
+    pub fn correct_offset(&self, corrected: i32) -> Result<i32> {
+        todo!()
+    }
+}
+impl Reader for ReaderEnum {
+    fn read(&mut self) -> Result<i32> {
+        match self {
+            ReaderEnum::Reused(r) => r.read(),
+            ReaderEnum::IllegalState(r) => r.read(),
+        }
+    }
+
+    fn read_range(&mut self, buf: &mut [char], off: usize, len: usize) -> Result<i32> {
+        match self {
+            ReaderEnum::Reused(r) => r.read_range(buf, off, len),
+            ReaderEnum::IllegalState(r) => r.read_range(buf, off, len),
+        }
+    }
+
+    fn close(&mut self) -> Result<()> {
+        match self {
+            ReaderEnum::Reused(r) => r.close(),
+            ReaderEnum::IllegalState(r) => r.close(),
+        }
+    }
 }

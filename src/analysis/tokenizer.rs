@@ -17,7 +17,8 @@
 use crate::analysis::reader::Reader;
 use crate::util::error::lucene_error::{LuceneError, Result};
 
-pub(crate) struct IllegalStateReader;
+#[derive(Clone, Debug)]
+pub struct IllegalStateReader;
 impl Reader for IllegalStateReader {
     fn read_range(&mut self, _buf: &mut [char], _off: usize, _len: usize) -> Result<i32> {
         Err(LuceneError::illegal_state(

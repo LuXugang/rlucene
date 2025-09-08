@@ -14,3 +14,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::analysis::reader::{Reader, ReaderEnum};
+use crate::util::error::lucene_error::Result;
+/// `CharFilter` can be chained to filter a `Reader`.
+/// They can be used as a `Reader` with additional offset correction.
+/// [`Tokenizer`](crate::analysis::tokenizer::Tokenizer)s will automatically use [`correct_offset`](Self::correct_offset) if a `CharFilter` subclass is used.
+pub trait CharFilter: Reader {
+    /// The underlying character-input stream.
+    fn get_reader(&self) -> &ReaderEnum;
+    fn get_reader_mut(&mut self) -> &mut ReaderEnum;
+    /// Closes the underlying input stream.
+    fn close(&mut self) -> Result<()> {
+        self.get_reader_mut().close()
+    }
+    /// override to correct the current offset.
+    fn correct(&self, current_off: i32) -> i32;
+    /// Chains the corrected offset through the input CharFilter(s).
+    fn correct_offset(&self, current_off: i32) -> Result<i32> {
+        let corrected = self.correct(current_off);
+        let base_reader = self.get_reader();
+        base_reader.correct_offset(corrected)
+    }
+}
+pub struct CharFilterBase {
+    input: ReaderEnum,
+}
+impl CharFilterBase {
+    pub fn new(input: ReaderEnum) -> Self {
+        Self { input }
+    }
+}
