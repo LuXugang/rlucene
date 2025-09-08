@@ -940,7 +940,7 @@ mod tests {
     fn try_set_reader_value<F: FieldBase>(f: &mut F) -> Result<()> {
         let mut reader = ReusableStringReader::new();
         reader.set_value("BOO!");
-        let read = ReaderEnum::Reused(reader);
+        let read = ReaderEnum::ReusedString(reader);
         f.set_reader_value(Arc::from(read))
     }
 

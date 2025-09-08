@@ -50,7 +50,7 @@ pub(crate) mod tests {
     fn test_char_filter1() -> Result<()> {
         let mut reader = ReusableStringReader::new();
         reader.set_value("");
-        let cs = CharFilter1::new(ReaderEnum::Reused(reader));
+        let cs = CharFilter1::new(ReaderEnum::ReusedString(reader));
         assert_eq!(1, cs.correct_offset(0), "corrected offset is invalid");
         Ok(())
     }
@@ -58,7 +58,7 @@ pub(crate) mod tests {
     fn test_char_filter2() -> Result<()> {
         let mut reader = ReusableStringReader::new();
         reader.set_value("");
-        let cs = CharFilter2::new(ReaderEnum::Reused(reader));
+        let cs = CharFilter2::new(ReaderEnum::ReusedString(reader));
         assert_eq!(2, cs.correct_offset(0), "corrected offset is invalid");
         Ok(())
     }
@@ -68,7 +68,7 @@ pub(crate) mod tests {
         let mut reader = ReusableStringReader::new();
         reader.set_value("");
         let cs = CharFilter2::new(ReaderEnum::CharFilter1(CharFilter1::new(
-            ReaderEnum::Reused(reader),
+            ReaderEnum::ReusedString(reader),
         )));
         assert_eq!(3, cs.correct_offset(0), "corrected offset is invalid");
         Ok(())
@@ -79,7 +79,7 @@ pub(crate) mod tests {
         let mut reader = ReusableStringReader::new();
         reader.set_value("");
         let cs = CharFilter1::new(ReaderEnum::CharFilter1(CharFilter1::new(
-            ReaderEnum::Reused(reader),
+            ReaderEnum::ReusedString(reader),
         )));
         assert_eq!(2, cs.correct_offset(0), "corrected offset is invalid");
         Ok(())

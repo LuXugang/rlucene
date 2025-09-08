@@ -40,12 +40,18 @@ pub trait Reader {
 
 #[derive(Debug, Clone)]
 pub enum ReaderEnum {
-    Reused(ReusableStringReader),
+    ReusedString(ReusableStringReader),
     IllegalState(IllegalStateReader),
     #[cfg(test)]
     CharFilter1(CharFilter1),
     #[cfg(test)]
     CharFilter2(CharFilter2),
+}
+// for std::mem::take
+impl Default for ReaderEnum {
+    fn default() -> Self {
+        ReaderEnum::IllegalState(IllegalStateReader)
+    }
 }
 impl ReaderEnum {
     pub fn correct_offset(&self, corrected: i32) -> i32 {
@@ -62,7 +68,7 @@ impl ReaderEnum {
 impl Reader for ReaderEnum {
     fn read(&mut self) -> Result<i32> {
         match self {
-            ReaderEnum::Reused(r) => r.read(),
+            ReaderEnum::ReusedString(r) => r.read(),
             ReaderEnum::IllegalState(r) => r.read(),
             #[cfg(test)]
             ReaderEnum::CharFilter1(r) => r.read(),
@@ -73,7 +79,7 @@ impl Reader for ReaderEnum {
 
     fn read_range(&mut self, buf: &mut [char], off: usize, len: usize) -> Result<i32> {
         match self {
-            ReaderEnum::Reused(r) => r.read_range(buf, off, len),
+            ReaderEnum::ReusedString(r) => r.read_range(buf, off, len),
             ReaderEnum::IllegalState(r) => r.read_range(buf, off, len),
             #[cfg(test)]
             ReaderEnum::CharFilter1(r) => r.read_range(buf, off, len),
@@ -84,7 +90,7 @@ impl Reader for ReaderEnum {
 
     fn close(&mut self) -> Result<()> {
         match self {
-            ReaderEnum::Reused(r) => r.close(),
+            ReaderEnum::ReusedString(r) => r.close(),
             ReaderEnum::IllegalState(r) => r.close(),
             #[cfg(test)]
             ReaderEnum::CharFilter1(r) => CharFilter::close(r),
