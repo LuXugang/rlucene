@@ -20,7 +20,7 @@ use crate::util::error::lucene_error::{LuceneError, Result};
 #[derive(Debug, Clone)]
 pub struct ReusableStringReader {
     pos: usize,
-    size: usize,
+    pub(crate) size: usize,
     s: Option<Vec<char>>,
 }
 

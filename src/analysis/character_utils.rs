@@ -14,10 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::util::SliceCopyOps;
+use crate::analysis::reader::Reader;
 use crate::util::error::lucene_error::LuceneError;
 use crate::util::error::lucene_error::Result;
-use std::io::{Read, Take};
 
 pub struct CharacterUtils;
 impl CharacterUtils {
@@ -87,46 +86,49 @@ impl CharacterUtils {
 
         Ok(written)
     }
-    pub fn fill_with_num<R: Read>(
+    pub fn fill_with_num<R>(
         buffer: &mut CharacterBuffer,
         reader: &mut R,
         num_chars: usize,
-    ) -> Result<bool> {
+    ) -> Result<bool>
+    where
+        R: Reader,
+    {
         if num_chars < 1 || num_chars > buffer.buffer.len() {
             return Err(LuceneError::illegal_argument(
                 "num_chars must be >= 1 and <= buffer size",
             ));
         }
-
+        let offset = 0;
         buffer.offset = 0;
-        let read = Self::read_fully(reader, &mut buffer.buffer, 0, num_chars)?;
+        let read = Self::read_fully(reader, &mut buffer.buffer, offset, num_chars)?;
         buffer.length = read;
         Ok(read == num_chars)
     }
-    pub fn fill<R: Read>(buffer: &mut CharacterBuffer, reader: &mut R) -> Result<bool> {
+    pub fn fill<R>(buffer: &mut CharacterBuffer, reader: &mut R) -> Result<bool>
+    where
+        R: Reader,
+    {
         Self::fill_with_num(buffer, reader, buffer.buffer.len())
     }
-    pub fn read_fully<R: Read>(
+    pub fn read_fully<R>(
         reader: &mut R,
         dest: &mut [char],
         offset: usize,
         len: usize,
-    ) -> Result<usize> {
-        if offset > dest.len() {
-            return Err(LuceneError::illegal_state("offset is out of bounds"));
+    ) -> Result<usize>
+    where
+        R: Reader,
+    {
+        let mut read = 0;
+        while read < len {
+            let r = reader.read_range(dest, offset + read, len - read)?;
+            if r == -1 {
+                break;
+            }
+            read += r as usize;
         }
-        if len > dest.len().saturating_sub(offset) {
-            return Err(LuceneError::illegal_state("dest is too small"));
-        }
-
-        let mut limited: Take<&mut R> = reader.take(len as u64);
-
-        let mut s = String::new();
-        limited.read_to_string(&mut s)?;
-        let chars: Vec<char> = s.chars().take(len).collect();
-        let count = chars.len();
-        dest.copy_from(&chars[0..count], offset);
-        Ok(count)
+        Ok(read)
     }
 }
 
@@ -172,16 +174,16 @@ impl CharacterBuffer {
 #[cfg(test)]
 mod tests {
     use crate::analysis::character_utils::CharacterUtils;
+    use crate::analysis::reusable_string_reader::ReusableStringReader;
     use crate::test::util::lucene_test_case::lucene_test_case_util::random;
     use crate::test::util::test_util::TestUtil;
     use crate::util::array_util::ArrayUtil;
     use crate::util::error::lucene_error::{LuceneError, Result};
-    use std::io::Cursor;
 
     #[test]
     fn test_lower_upper() -> Result<()> {
-        let data = "ABc".to_string();
-        let mut reader = Cursor::new(data.into_bytes());
+        let mut reader = ReusableStringReader::new();
+        reader.set_value("Abc");
         let mut buffer = CharacterUtils::new_character_buffer(3)?;
         assert!(CharacterUtils::fill_with_num(&mut buffer, &mut reader, 3)?);
         assert_eq!(buffer.length, 3);
@@ -231,7 +233,8 @@ mod tests {
     }
     #[test]
     fn test_fill_no_high_surrogate() -> Result<()> {
-        let mut reader = Cursor::new("helloworld".as_bytes());
+        let mut reader = ReusableStringReader::new();
+        reader.set_value("helloworld");
         let mut buffer = CharacterUtils::new_character_buffer(6)?;
         assert!(CharacterUtils::fill_with_num(&mut buffer, &mut reader, 6)?);
         assert_eq!(buffer.offset, 0);
@@ -245,31 +248,30 @@ mod tests {
             .iter()
             .collect();
         assert_eq!(s2, "orld");
-        assert!(!CharacterUtils::fill_with_num(&mut buffer, &mut reader, 6)?);
+        assert!(!CharacterUtils::fill(&mut buffer, &mut reader)?);
 
         Ok(())
     }
     #[test]
     fn test_fill() -> Result<()> {
-        // let input = "1234𐐜789123?𐐜?";
-        // let mut reader: &[u8] = input.as_bytes();
-        // let char: Vec<char> = input.chars().collect();
-        // let mut buffer = CharacterUtils::new_character_buffer(100)?;
-        //
-        // assert!(CharacterUtils::fill(&mut buffer, &mut reader)?);
-        // assert_eq!(buffer.length, 4);
-        // assert_eq!(buffer.as_string(), "1234𐐜");
-        //
-        // assert!(CharacterUtils::fill(&mut buffer, &mut reader)?);
-        // assert_eq!(buffer.length, 5);
-        // assert_eq!(buffer.as_string(), "78912");
-        //
-        // assert!(!CharacterUtils::fill(&mut buffer, &mut reader)?);
-        // assert_eq!(buffer.length, 4);
-        // assert_eq!(buffer.as_string(), "3𝄜𝄜𝄜");
-        //
-        // assert!(!CharacterUtils::fill(&mut buffer, &mut reader)?);
-        // assert_eq!(buffer.length, 3);
+        let mut reader = ReusableStringReader::new();
+        reader.set_value("1234𐐜789123?𐐜?");
+        let mut buffer = CharacterUtils::new_character_buffer(5)?;
+
+        assert!(CharacterUtils::fill(&mut buffer, &mut reader)?);
+        assert_eq!(buffer.length, 5);
+        assert_eq!(buffer.as_string(), "1234𐐜");
+
+        assert!(CharacterUtils::fill(&mut buffer, &mut reader)?);
+        assert_eq!(buffer.length, 5);
+        assert_eq!(buffer.as_string(), "78912");
+
+        assert!(!CharacterUtils::fill(&mut buffer, &mut reader)?);
+        assert_eq!(buffer.length, 4);
+        assert_eq!(buffer.as_string(), "3?𐐜?");
+
+        assert!(!CharacterUtils::fill(&mut buffer, &mut reader)?);
+        assert_eq!(buffer.length, 0);
 
         Ok(())
     }
