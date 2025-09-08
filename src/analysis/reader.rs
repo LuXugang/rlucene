@@ -14,6 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#[cfg(test)]
+use crate::analysis::char_filter::CharFilter;
+#[cfg(test)]
+use crate::analysis::char_filter::tests::{CharFilter1, CharFilter2};
+
 use crate::analysis::reusable_string_reader::ReusableStringReader;
 use crate::analysis::tokenizer::IllegalStateReader;
 use crate::util::error::lucene_error::Result;
@@ -37,10 +42,21 @@ pub trait Reader {
 pub enum ReaderEnum {
     Reused(ReusableStringReader),
     IllegalState(IllegalStateReader),
+    #[cfg(test)]
+    CharFilter1(CharFilter1),
+    #[cfg(test)]
+    CharFilter2(CharFilter2),
 }
 impl ReaderEnum {
-    pub fn correct_offset(&self, corrected: i32) -> Result<i32> {
-        todo!()
+    pub fn correct_offset(&self, corrected: i32) -> i32 {
+        match self {
+            #[cfg(test)]
+            ReaderEnum::CharFilter1(r) => r.correct_offset(corrected),
+            #[cfg(test)]
+            ReaderEnum::CharFilter2(r) => r.correct_offset(corrected),
+            // not a CharFilter
+            _ => corrected,
+        }
     }
 }
 impl Reader for ReaderEnum {
@@ -48,6 +64,10 @@ impl Reader for ReaderEnum {
         match self {
             ReaderEnum::Reused(r) => r.read(),
             ReaderEnum::IllegalState(r) => r.read(),
+            #[cfg(test)]
+            ReaderEnum::CharFilter1(r) => r.read(),
+            #[cfg(test)]
+            ReaderEnum::CharFilter2(r) => r.read(),
         }
     }
 
@@ -55,6 +75,10 @@ impl Reader for ReaderEnum {
         match self {
             ReaderEnum::Reused(r) => r.read_range(buf, off, len),
             ReaderEnum::IllegalState(r) => r.read_range(buf, off, len),
+            #[cfg(test)]
+            ReaderEnum::CharFilter1(r) => r.read_range(buf, off, len),
+            #[cfg(test)]
+            ReaderEnum::CharFilter2(r) => r.read_range(buf, off, len),
         }
     }
 
@@ -62,6 +86,10 @@ impl Reader for ReaderEnum {
         match self {
             ReaderEnum::Reused(r) => r.close(),
             ReaderEnum::IllegalState(r) => r.close(),
+            #[cfg(test)]
+            ReaderEnum::CharFilter1(r) => CharFilter::close(r),
+            #[cfg(test)]
+            ReaderEnum::CharFilter2(r) => CharFilter::close(r),
         }
     }
 }
