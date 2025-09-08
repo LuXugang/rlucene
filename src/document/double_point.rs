@@ -18,9 +18,9 @@ use std::fmt;
 use std::rc::Rc;
 
 use crate::analysis::analyzer::Analyzer;
+use crate::analysis::reader::ReaderEnum;
 use crate::document::field::{Field, FieldBase, FieldDataEnum};
 use crate::document::field_type::FieldType;
-use crate::document::fields::ReaderEnum;
 use crate::document::invertable_field::InvertableType;
 use crate::document::stored_value::StoredValue;
 use crate::index::BytesRef;

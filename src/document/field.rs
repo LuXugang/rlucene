@@ -21,8 +21,9 @@ use std::sync::Arc;
 
 use crate::analysis::analyzer::Analyzer;
 use crate::analysis::dummy::dummy_token_stream::DummyTokenStream;
+use crate::analysis::reader::ReaderEnum;
 use crate::document::field_type::FieldType;
-use crate::document::fields::{ReaderEnum, TokenStreamEnum};
+use crate::document::fields::TokenStreamEnum;
 use crate::document::invertable_field::InvertableType;
 use crate::document::stored_value::StoredValue;
 use crate::index::BytesRef;
@@ -661,11 +662,12 @@ mod tests {
     use std::sync::Arc;
 
     use crate::analysis::dummy::dummy_token_stream::DummyTokenStream;
+    use crate::analysis::reader::ReaderEnum;
     use crate::analysis::reusable_string_reader::ReusableStringReader;
     use crate::document::double_point::DoublePoint;
     use crate::document::field::{Field, FieldBase};
     use crate::document::field_type::FieldType;
-    use crate::document::fields::{ReaderEnum, TokenStreamEnum};
+    use crate::document::fields::TokenStreamEnum;
     use crate::index::BytesRef;
     use crate::index::index_options::IndexOptions;
     use crate::index::indexable_field::IndexableField;

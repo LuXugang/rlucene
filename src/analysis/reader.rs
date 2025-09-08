@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::analysis::reusable_string_reader::ReusableStringReader;
 use crate::util::error::lucene_error::Result;
 pub trait Reader {
     /// Reads a single character. Returns -1 on EOF
@@ -29,4 +30,9 @@ pub trait Reader {
     /// or -1 on EOF.
     fn read_range(&mut self, buf: &mut [char], off: usize, len: usize) -> Result<i32>;
     fn close(&mut self) -> Result<()>;
+}
+
+#[derive(Debug, Clone)]
+pub enum ReaderEnum {
+    Reused(ReusableStringReader),
 }

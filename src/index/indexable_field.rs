@@ -17,8 +17,8 @@
 // TODO: how to handle versioning here...?
 
 use crate::analysis::analyzer::Analyzer;
+use crate::analysis::reader::ReaderEnum;
 use crate::analysis::token_stream::TokenStream;
-use crate::document::fields::ReaderEnum;
 use crate::document::invertable_field::InvertableType;
 use crate::document::stored_value::StoredValue;
 use crate::index::BytesRef;

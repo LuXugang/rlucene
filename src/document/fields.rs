@@ -20,7 +20,7 @@ use std::sync::Arc;
 
 use crate::analysis::analyzer::Analyzer;
 use crate::analysis::dummy::dummy_token_stream::DummyTokenStream;
-use crate::analysis::reusable_string_reader::ReusableStringReader;
+use crate::analysis::reader::ReaderEnum;
 use crate::document::field::Field;
 use crate::document::field_type::FieldType;
 use crate::document::invertable_field::InvertableType;
@@ -201,11 +201,6 @@ impl From<StoredField> for Fields {
     fn from(s: StoredField) -> Self {
         Fields::Stored(s)
     }
-}
-
-#[derive(Debug, Clone)]
-pub enum ReaderEnum {
-    Reused(ReusableStringReader),
 }
 
 #[derive(Debug, Clone)]

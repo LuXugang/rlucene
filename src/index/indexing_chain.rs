@@ -23,7 +23,7 @@ use crate::codecs::norms_format::NormsFormat;
 use crate::codecs::norms_producer::NormsProducer;
 use crate::codecs::points_format::PointsFormat;
 use crate::codecs::points_writer::PointsWriter;
-use crate::document::fields::{Fields, ReaderEnum};
+use crate::document::fields::Fields;
 use crate::document::invertable_field::InvertableType;
 use crate::document::stored_value::{StoredValue, StoredValueType};
 use crate::index::BytesRef;
@@ -46,6 +46,7 @@ use crate::index::index_reader::IndexReader;
 use crate::index::index_sorter::Either2DocComparator;
 use crate::index::index_sorter::{DocComparator, IndexSorter};
 
+use crate::analysis::reader::ReaderEnum;
 use crate::index::index_writer::{MAX_POSITION, MAX_STORED_STRING_LENGTH, MAX_TERM_LENGTH};
 use crate::index::indexable_field::IndexableField;
 use crate::index::indexable_field_type::IndexableFieldType;

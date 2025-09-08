@@ -19,7 +19,7 @@ pub mod analyzer;
 mod char_filter;
 mod character_utils;
 pub mod dummy;
-mod reader;
+pub mod reader;
 pub(crate) mod reusable_string_reader;
 pub mod token_attributes;
 pub mod token_stream;
