@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 #![cfg_attr(debug_assertions, allow(dead_code))]
-
 pub mod core;
 #[cfg(test)]
 pub mod test;

@@ -131,9 +131,11 @@ impl DocumentsWriterStallControl {
 mod tests {
     use crate::core::index::documents_writer_stall_control::DocumentsWriterStallControl;
     use crate::core::util::error::lucene_error::Result;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, is_night_mode};
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{
+        at_least, is_night_mode, random,
+    };
     use parking_lot::{Condvar, Mutex};
-    use rand::{Rng, thread_rng};
+    use rand::{Rng, rng};
     use std::sync::Arc;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::thread;
@@ -142,7 +144,7 @@ mod tests {
 
     #[test]
     fn test_simple_stall() {
-        let mut random = rand::thread_rng();
+        let mut random = random();
         let ctrl = Arc::new(DocumentsWriterStallControl::new());
         ctrl.update_stalled(false);
         let mut threads = wait_threads(at_least(&mut random, 3) as usize, ctrl.clone());
@@ -163,7 +165,7 @@ mod tests {
     }
     #[test]
     fn test_random() {
-        let mut rng = thread_rng();
+        let mut rng = rng();
         let ctrl = Arc::new(DocumentsWriterStallControl::new());
         ctrl.update_stalled(false);
 
@@ -172,12 +174,12 @@ mod tests {
         for _ in 0..num_threads {
             let ctrl_clone = ctrl.clone();
             let handle = TrackedThread::spawn(move || {
-                let mut local_rng = thread_rng();
+                let mut local_rng = random();
                 let iters = at_least(&mut local_rng, 100);
                 for _ in 0..iters {
-                    let stall_prob = 1 + local_rng.gen_range(0..10);
-                    ctrl_clone.update_stalled(local_rng.gen_range(0..stall_prob) == 0);
-                    if local_rng.gen_range(0..5) == 0 {
+                    let stall_prob = 1 + local_rng.random_range(0..10);
+                    ctrl_clone.update_stalled(local_rng.random_range(0..stall_prob) == 0);
+                    if local_rng.random_range(0..5) == 0 {
                         ctrl_clone.wait_if_stalled();
                     }
                 }
@@ -190,7 +192,7 @@ mod tests {
         while iterations < 100 && !all_terminated(&stall_threads) {
             iterations += 1;
             ctrl.update_stalled(false);
-            if rng.gen_bool(0.5) {
+            if rng.random_bool(0.5) {
                 thread::yield_now();
             } else {
                 thread::sleep(Duration::from_millis(1));
@@ -200,7 +202,7 @@ mod tests {
     }
     // TODO: 测试未通过
     fn test_acquire_release_race() -> Result<()> {
-        let mut rng = thread_rng();
+        let mut rng = random();
         let ctrl = Arc::new(DocumentsWriterStallControl::new());
         ctrl.update_stalled(false);
 
@@ -277,7 +279,7 @@ mod tests {
                 *lock.lock()
             });
 
-            if rng.r#gen::<f32>() <= check_point_probability {
+            if rng.random::<f32>() <= check_point_probability {
                 sync.reset(num_stallers + num_releasers, total_threads);
                 check_point.store(true, Ordering::SeqCst);
             }
@@ -358,15 +360,15 @@ mod tests {
         release: bool,
     ) -> TrackedThread {
         TrackedThread::spawn(move || {
-            let mut rng = rand::thread_rng();
+            let mut rng = rng();
             while !stop.load(Ordering::SeqCst) {
-                let internal_iters = if release && rng.gen_bool(0.5) {
+                let internal_iters = if release && rng.random_bool(0.5) {
                     at_least(&mut rng, 5) as usize
                 } else {
                     1
                 };
                 for _ in 0..internal_iters {
-                    ctrl.update_stalled(rng.gen_bool(0.5));
+                    ctrl.update_stalled(rng.random_bool(0.5));
                 }
 
                 if check_point.load(Ordering::SeqCst) {
@@ -375,7 +377,7 @@ mod tests {
                     sync.count_down_left_check_point();
                 }
 
-                if rng.gen_bool(0.5) {
+                if rng.random_bool(0.5) {
                     thread::yield_now();
                 }
             }

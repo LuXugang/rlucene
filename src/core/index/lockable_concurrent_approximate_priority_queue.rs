@@ -172,13 +172,13 @@ mod tests {
     #[test]
     fn test_never_return_none_on_non_empty_queue() {
         let mut rng = random();
-        let iters = rng.gen_range(10..=20);
+        let iters = rng.random_range(10..=20);
         for _ in 0..iters {
-            let concurrency = rng.gen_range(1..=16);
+            let concurrency = rng.random_range(1..=16);
             let queue = Arc::new(
                 LockableConcurrentApproximatePriorityQueue::with_concurrency(concurrency).unwrap(),
             );
-            let num_threads = rng.gen_range(2..=16);
+            let num_threads = rng.random_range(2..=16);
             let barrier = Arc::new(Barrier::new(num_threads + 1));
             let mut handles = Vec::with_capacity(num_threads);
 
