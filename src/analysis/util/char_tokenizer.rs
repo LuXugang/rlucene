@@ -21,11 +21,12 @@ use crate::analysis::token_attributes::offset_attribute::OffsetAttribute;
 use crate::analysis::token_attributes::packed_token_attribute_impl::PackedTokenAttributeImpl;
 use crate::analysis::token_stream::TokenStream;
 use crate::analysis::tokenizer::{Tokenizer, TokenizerBase};
-use crate::util::attribute::Attribute;
+use crate::util::attribute_source::Attributes;
 use crate::util::error::lucene_error::{LuceneError, Result};
-
+/// An trait for simple, character-oriented tokenizers.
 pub trait CharTokenizer: Tokenizer {
     fn get_char_tokenizer_base(&mut self) -> &mut CharTokenizerBase;
+    /// Returns true iff a codepoint should be included in a token.
     fn is_token_char(&self, c: &char) -> bool;
     fn end(&mut self) -> Result<()> {
         TokenStream::end(self)?;
@@ -106,6 +107,46 @@ pub trait CharTokenizer: Tokenizer {
         Ok(true)
     }
 }
+/// Creates a new instance of `CharTokenizer` using a custom predicate, supplied as a method
+/// reference or lambda expression.
+/// The predicate should return `true` for all valid token characters.
+pub fn from_token_char_predicate(
+    token_char_predicate: fn(i32) -> bool,
+) -> Result<CharTokenizerImpl> {
+    from_token_char_predicate_with_attr(
+        Attributes::PackedToken(PackedTokenAttributeImpl::new()),
+        token_char_predicate,
+    )
+}
+
+/// Creates a new instance of CharTokenizer with the supplied attribute factory using a custom predicate, supplied as method reference or lambda expression. The predicate should return true for all valid token characters.
+pub fn from_token_char_predicate_with_attr(
+    att: Attributes,
+    f: fn(i32) -> bool,
+) -> Result<CharTokenizerImpl> {
+    CharTokenizerImpl::new(att, f)
+}
+/// Creates a new instance of CharTokenizer using a custom predicate,
+/// supplied as method reference or lambda expression.
+/// The predicate should return true for all valid token separator characters.
+/// This method is provided for convenience to easily use predicates that are negated (they match the separator characters, not the token characters).
+pub fn from_separator_char_predicate(
+    separator_char_predicate: fn(i32) -> bool,
+) -> Result<CharTokenizerImpl> {
+    from_separator_char_predicate_with_attr(
+        Attributes::PackedToken(PackedTokenAttributeImpl::new()),
+        separator_char_predicate,
+    )
+}
+/// Creates a new instance of CharTokenizer with the supplied attribute factory using a custom predicate,
+/// supplied as method reference or lambda expression.
+/// The predicate should return true for all valid token separator characters.
+pub fn from_separator_char_predicate_with_attr(
+    att: Attributes,
+    separator_char_predicate: fn(i32) -> bool,
+) -> Result<CharTokenizerImpl> {
+    from_token_char_predicate_with_attr(att, separator_char_predicate)
+}
 
 pub const DEFAULT_MAX_WORD_LEN: i32 = 255;
 const I_BUFFER_SIZE: i32 = 4096;
@@ -121,9 +162,15 @@ pub struct CharTokenizerBase {
 }
 impl CharTokenizerBase {
     pub fn new() -> Result<Self> {
-        Self::with_max_token_len(DEFAULT_MAX_WORD_LEN)
+        Self::with_max_token_len(
+            Attributes::PackedToken(PackedTokenAttributeImpl::new()),
+            DEFAULT_MAX_WORD_LEN,
+        )
     }
-    pub fn with_max_token_len(max_token_len: i32) -> Result<Self> {
+    pub fn new_with_att(att: Attributes) -> Result<Self> {
+        Self::with_max_token_len(att, DEFAULT_MAX_WORD_LEN)
+    }
+    pub fn with_max_token_len(att: Attributes, max_token_len: i32) -> Result<Self> {
         if max_token_len > MAX_TOKEN_LENGTH_LIMIT || max_token_len == 0 {
             return Err(LuceneError::illegal_argument(format!(
                 "maxTokenLen must be greater than 0 and less than {}, passed: {}",
@@ -137,116 +184,65 @@ impl CharTokenizerBase {
             final_offset: 0,
             max_token_len,
             io_buffer: CharacterUtils::new_character_buffer(I_BUFFER_SIZE as usize)?,
-            att: Attributes::PackedToken(PackedTokenAttributeImpl::new()),
+            att,
             tokenizer_base: TokenizerBase::new(),
         })
     }
 }
 
-enum Attributes {
-    PackedToken(PackedTokenAttributeImpl),
+pub struct CharTokenizerImpl {
+    base: CharTokenizerBase,
+    token_char_predicate: fn(i32) -> bool,
+}
+impl CharTokenizerImpl {
+    fn new(att: Attributes, token_char_predicate: fn(i32) -> bool) -> Result<Self> {
+        Ok(CharTokenizerImpl {
+            base: CharTokenizerBase::new_with_att(att)?,
+            token_char_predicate,
+        })
+    }
 }
 
-impl Attribute for Attributes {}
-
-impl CharTermAttribute for Attributes {
-    fn length(&self) -> usize {
-        match self {
-            Attributes::PackedToken(attr) => attr.length(),
-        }
+impl Tokenizer for CharTokenizerImpl {
+    fn get_tokenizer_base_mut(&mut self) -> &mut TokenizerBase {
+        &mut self.base.tokenizer_base
     }
 
-    fn copy_buffer(&mut self, buffer: &[char], offset: usize, length: usize) {
-        match self {
-            Attributes::PackedToken(attr) => attr.copy_buffer(buffer, offset, length),
-        }
-    }
-
-    fn buffer(&mut self) -> &mut [char] {
-        match self {
-            Attributes::PackedToken(attr) => attr.buffer(),
-        }
-    }
-
-    fn resize_buffer(&mut self, new_size: usize) -> &mut [char] {
-        match self {
-            Attributes::PackedToken(attr) => attr.resize_buffer(new_size),
-        }
-    }
-
-    fn set_length(&mut self, length: usize) -> Result<&mut Self> {
-        match self {
-            Attributes::PackedToken(attr) => {
-                attr.set_length(length)?;
-                Ok(self)
-            },
-        }
-    }
-
-    fn set_empty(&mut self) -> &mut Self {
-        match self {
-            Attributes::PackedToken(attr) => {
-                attr.set_empty();
-                self
-            },
-        }
-    }
-
-    fn append_range(&mut self, csq: &str, start: usize, end: usize) -> &mut Self {
-        match self {
-            Attributes::PackedToken(attr) => {
-                attr.append_range(csq, start, end);
-                self
-            },
-        }
-    }
-
-    fn append_char(&mut self, c: char) -> &mut Self {
-        match self {
-            Attributes::PackedToken(attr) => {
-                attr.append_char(c);
-                self
-            },
-        }
-    }
-
-    fn append_str(&mut self, s: Option<&str>) -> &mut Self {
-        match self {
-            Attributes::PackedToken(attr) => {
-                attr.append_str(s);
-                self
-            },
-        }
-    }
-
-    fn append_term_attribute<C>(&mut self, term_att: Option<&mut C>) -> &mut Self
-    where
-        C: CharTermAttribute,
-    {
-        match self {
-            Attributes::PackedToken(attr) => {
-                attr.append_term_attribute(term_att);
-                self
-            },
-        }
+    fn get_tokenizer_base(&self) -> &TokenizerBase {
+        &self.base.tokenizer_base
     }
 }
-impl OffsetAttribute for Attributes {
-    fn start_offset(&self) -> i32 {
-        match self {
-            Attributes::PackedToken(attr) => attr.start_offset(),
-        }
+
+impl TokenStream for CharTokenizerImpl {
+    fn increment_token(&mut self) -> Result<bool> {
+        CharTokenizer::increment_token(self)
     }
 
-    fn set_offset(&mut self, start_offset: i32, end_offset: i32) -> Result<()> {
-        match self {
-            Attributes::PackedToken(attr) => attr.set_offset(start_offset, end_offset),
-        }
+    fn end(&mut self) -> Result<()> {
+        CharTokenizer::end(self)
     }
 
-    fn end_offset(&self) -> i32 {
-        match self {
-            Attributes::PackedToken(attr) => attr.end_offset(),
-        }
+    fn reset(&mut self) -> Result<()> {
+        CharTokenizer::reset(self)
+    }
+
+    fn close(&mut self) -> Result<()> {
+        Tokenizer::close(self)
+    }
+
+    type AttributeSource = Attributes;
+
+    fn get_attribute_source(&self) -> &Self::AttributeSource {
+        &self.base.att
+    }
+}
+
+impl CharTokenizer for CharTokenizerImpl {
+    fn get_char_tokenizer_base(&mut self) -> &mut CharTokenizerBase {
+        &mut self.base
+    }
+
+    fn is_token_char(&self, c: &char) -> bool {
+        (self.token_char_predicate)(*c as i32)
     }
 }
