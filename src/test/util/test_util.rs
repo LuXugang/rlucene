@@ -21,8 +21,8 @@ use once_cell::sync::Lazy;
 use rand::prelude::IndexedRandom;
 use rand::{Rng, random_range};
 
-use crate::index::BytesRef;
-use crate::util::access::SharedAccessVec;
+use crate::core::index::BytesRef;
+use crate::core::util::access::SharedAccessVec;
 
 pub struct TestUtil;
 const BLOCK_STARTS: &[u32] = &[

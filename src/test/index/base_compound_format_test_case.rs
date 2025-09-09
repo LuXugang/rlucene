@@ -19,20 +19,20 @@ use std::sync::Arc;
 
 use rand::Rng;
 
-use crate::codecs::compound_directory::CompoundDirectory;
-use crate::codecs::lucene90_compound_reader::Lucene90CompoundReader;
-use crate::codecs::{Codec, CodecUtil, CompoundFormat, LATEST_CODEC};
-use crate::index::segment_info::SegmentInfo;
-use crate::store::IndexOutput;
-use crate::store::directory::Directory;
-use crate::store::{DataInput, DataOutput, IOContext};
-use crate::store::{IO_CONTEXT_DEFAULT, IndexInput};
+use crate::core::codecs::compound_directory::CompoundDirectory;
+use crate::core::codecs::lucene90_compound_reader::Lucene90CompoundReader;
+use crate::core::codecs::{Codec, CodecUtil, CompoundFormat, LATEST_CODEC};
+use crate::core::index::segment_info::SegmentInfo;
+use crate::core::store::IndexOutput;
+use crate::core::store::directory::Directory;
+use crate::core::store::{DataInput, DataOutput, IOContext};
+use crate::core::store::{IO_CONTEXT_DEFAULT, IndexInput};
+use crate::core::util::clone::TryClone as OtherClone;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::{LATEST, StringHelper};
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
     at_least, new_directory, new_io_context,
 };
-use crate::util::clone::TryClone as OtherClone;
-use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::{LATEST, StringHelper};
 
 pub trait BaseCompoundFormatTestCase {
     fn test_empty<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {

@@ -18,13 +18,13 @@ use std::cmp::Ordering;
 
 use rand::Rng;
 
+use crate::core::util::error::lucene_error::Result;
+use crate::core::util::{COMPARATOR_TYPE, Comparator, Sorter, ToInt};
 use crate::test::util::base_sort_test_case::Strategy::{
     Random, RandomLowCardinality, RandomMediumCardinality,
 };
 use crate::test::util::lucene_test_case::lucene_test_case_util::rarely;
 use crate::test::util::test_util::TestUtil;
-use crate::util::error::lucene_error::Result;
-use crate::util::{COMPARATOR_TYPE, Comparator, Sorter, ToInt};
 
 pub trait BaseSortTestCase {
     fn new_sorter<R: Rng + ?Sized>(&self, random: &mut R, arr: &mut Vec<Entry>) -> impl Sorter;

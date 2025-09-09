@@ -45,18 +45,18 @@ impl fmt::Display for EnvConfig {
 }
 
 pub mod lucene_test_case_util {
-    use crate::index::BytesRef;
-    use crate::store::directory::Directory;
-    use crate::store::flush_info::FlushInfo;
-    use crate::store::merge_info::MergeInfo;
-    use crate::store::nio_fs_directory::NIOFSDirectory;
-    use crate::store::{
+    use crate::core::index::BytesRef;
+    use crate::core::store::directory::Directory;
+    use crate::core::store::flush_info::FlushInfo;
+    use crate::core::store::merge_info::MergeInfo;
+    use crate::core::store::nio_fs_directory::NIOFSDirectory;
+    use crate::core::store::{
         FSDirectory, IO_CONTEXT_DEFAULT, IO_CONTEXT_READ_ONCE, IOContext, NativeFSLockFactory,
     };
+    use crate::core::util::SliceCopyOps;
+    use crate::core::util::access::SharedAccessVec;
     use crate::test::util::lucene_test_case::EnvConfig::{Multiplier, NightMode, TestSeed};
     use crate::test::util::test_util::TestUtil;
-    use crate::util::SliceCopyOps;
-    use crate::util::access::SharedAccessVec;
     use rand::prelude::StdRng;
     use rand::{Rng, SeedableRng};
     use tempfile::TempDir;
@@ -93,8 +93,9 @@ pub mod lucene_test_case_util {
     // randomly. Currently, we choose NIOFSDirectory.
     pub(crate) fn new_directory<R: Rng + ?Sized>(
         _random: &mut R,
-    ) -> crate::util::error::lucene_error::Result<FSDirectory<NativeFSLockFactory, NIOFSDirectory>>
-    {
+    ) -> crate::core::util::error::lucene_error::Result<
+        FSDirectory<NativeFSLockFactory, NIOFSDirectory>,
+    > {
         let temp_dir = TempDir::new()?;
         let sub_directory = NIOFSDirectory::new();
         FSDirectory::new(temp_dir.into_path(), sub_directory)
@@ -102,14 +103,14 @@ pub mod lucene_test_case_util {
 
     pub(crate) fn new_io_context<R: Rng + ?Sized>(
         random: &mut R,
-    ) -> crate::util::error::lucene_error::Result<IOContext> {
+    ) -> crate::core::util::error::lucene_error::Result<IOContext> {
         new_io_context_with_default(random, &IO_CONTEXT_DEFAULT)
     }
 
     pub(crate) fn new_io_context_with_default<R: Rng + ?Sized>(
         random: &mut R,
         old_context: &IOContext,
-    ) -> crate::util::error::lucene_error::Result<IOContext> {
+    ) -> crate::core::util::error::lucene_error::Result<IOContext> {
         if *old_context == *IO_CONTEXT_READ_ONCE {
             // Don't modify the READONCE SINGLETON
             return Ok(old_context.clone());
@@ -159,7 +160,7 @@ pub mod lucene_test_case_util {
     pub(crate) fn slow_file_exists(
         dir: &impl Directory,
         name: &str,
-    ) -> crate::util::error::lucene_error::Result<bool> {
+    ) -> crate::core::util::error::lucene_error::Result<bool> {
         let result = dir.open_input(name, &IOContext::default_io_context()?);
         match result {
             Ok(_) => Ok(true),
@@ -172,7 +173,7 @@ pub mod lucene_test_case_util {
     pub(crate) fn new_bytes_ref_from_string<R: Rng + ?Sized, AV: SharedAccessVec<u8>>(
         random: &mut R,
         s: &str,
-    ) -> crate::util::error::lucene_error::Result<BytesRef<AV>> {
+    ) -> crate::core::util::error::lucene_error::Result<BytesRef<AV>> {
         let bytes = s.as_bytes();
         new_bytes_ref(random, bytes, 0, bytes.len() as i32)
     }
@@ -183,7 +184,7 @@ pub mod lucene_test_case_util {
     pub(crate) fn new_bytes_ref_from_bytes_ref<R: Rng + ?Sized, AV: SharedAccessVec<u8>>(
         random: &mut R,
         b: &BytesRef<AV>,
-    ) -> crate::util::error::lucene_error::Result<BytesRef<AV>> {
+    ) -> crate::core::util::error::lucene_error::Result<BytesRef<AV>> {
         assert!(b.is_valid()?);
         b.bytes
             .access(|bytes| new_bytes_ref(random, bytes, b.offset as i32, b.length as i32))
@@ -195,7 +196,7 @@ pub mod lucene_test_case_util {
     pub(crate) fn new_bytes_ref_from_bytes<R: Rng + ?Sized, AV: SharedAccessVec<u8>>(
         random: &mut R,
         bytes_in: &[u8],
-    ) -> crate::util::error::lucene_error::Result<BytesRef<AV>> {
+    ) -> crate::core::util::error::lucene_error::Result<BytesRef<AV>> {
         new_bytes_ref(random, bytes_in, 0, bytes_in.len() as i32)
     }
 
@@ -204,7 +205,7 @@ pub mod lucene_test_case_util {
     /// `BytesRef.offset`.
     pub(crate) fn new_bytes_ref_empty<R: Rng + ?Sized, AV: SharedAccessVec<u8>>(
         random: &mut R,
-    ) -> crate::util::error::lucene_error::Result<BytesRef<AV>> {
+    ) -> crate::core::util::error::lucene_error::Result<BytesRef<AV>> {
         // Calling the existing `new_bytes_ref` function
         new_bytes_ref(random, &[], 0, 0)
     }
@@ -215,7 +216,7 @@ pub mod lucene_test_case_util {
     pub(crate) fn new_bytes_ref_with_length<R: Rng + ?Sized, AV: SharedAccessVec<u8>>(
         byte_length: i32,
         random: &mut R,
-    ) -> crate::util::error::lucene_error::Result<BytesRef<AV>> {
+    ) -> crate::core::util::error::lucene_error::Result<BytesRef<AV>> {
         let bytes_in = vec![0u8; byte_length as usize];
         new_bytes_ref(random, &bytes_in, 0, byte_length)
     }
@@ -228,7 +229,7 @@ pub mod lucene_test_case_util {
         bytes_in: &[u8],
         offset: i32,
         length: i32,
-    ) -> crate::util::error::lucene_error::Result<BytesRef<AV>> {
+    ) -> crate::core::util::error::lucene_error::Result<BytesRef<AV>> {
         assert!(
             bytes_in.len() >= (offset + length) as usize,
             "got offset={} length={} bytesIn.length={}",

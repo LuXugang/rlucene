@@ -18,10 +18,10 @@ use rand::Rng;
 use rand_xoshiro::Xoroshiro128Plus;
 use rand_xoshiro::rand_core::SeedableRng;
 
-use crate::store::DataInput;
-use crate::store::data_output::DataOutput;
-use crate::store::output_stream_data_output::OutputStreamDataOutput;
-use crate::util::error::lucene_error::Result;
+use crate::core::store::DataInput;
+use crate::core::store::data_output::DataOutput;
+use crate::core::store::output_stream_data_output::OutputStreamDataOutput;
+use crate::core::util::error::lucene_error::Result;
 
 pub trait BaseDataOutputTestCase {
     type DO: DataOutput;

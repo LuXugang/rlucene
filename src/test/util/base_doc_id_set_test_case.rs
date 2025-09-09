@@ -16,14 +16,14 @@
  */
 use rand::Rng;
 
-use crate::search::doc_id_set::DocIdSet;
-use crate::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set::DocIdSet;
+use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::util::bits::Bits;
+use crate::core::util::error::lucene_error::Result;
 use crate::test::util::base_bit_set_test_case::random_set;
 use crate::test::util::lucene_test_case::lucene_test_case_util::is_night_mode;
 use crate::test::util::test_util::TestUtil;
-use crate::util::bits::Bits;
-use crate::util::error::lucene_error::Result;
 
 pub trait BaseDocIdSetTestCase {
     fn copy_of(&self, bs: &bit_set::BitSet, length: i32) -> impl DocIdSet;

@@ -19,19 +19,19 @@ use std::sync::Arc;
 
 use rand::Rng;
 
-use crate::codecs::live_docs_format::LiveDocsFormat;
-use crate::codecs::{Codec, LATEST_CODEC};
-use crate::index::index_writer::MAX_DOCS;
-use crate::index::segment_commit_info::SegmentCommitInfo;
-use crate::index::segment_info::SegmentInfo;
-use crate::store::IOContext;
+use crate::core::codecs::live_docs_format::LiveDocsFormat;
+use crate::core::codecs::{Codec, LATEST_CODEC};
+use crate::core::index::index_writer::MAX_DOCS;
+use crate::core::index::segment_commit_info::SegmentCommitInfo;
+use crate::core::index::segment_info::SegmentInfo;
+use crate::core::store::IOContext;
+use crate::core::util::bit_set::BitSet;
+use crate::core::util::bits::Bits;
+use crate::core::util::error::lucene_error::Result;
+use crate::core::util::fixed_bit_set::FixedBitSet;
+use crate::core::util::{LATEST, StringHelper};
 use crate::test::util::lucene_test_case::lucene_test_case_util::new_directory;
 use crate::test::util::test_util::TestUtil;
-use crate::util::bit_set::BitSet;
-use crate::util::bits::Bits;
-use crate::util::error::lucene_error::Result;
-use crate::util::fixed_bit_set::FixedBitSet;
-use crate::util::{LATEST, StringHelper};
 
 pub trait BaseLiveDocsFormatTestCase {
     fn test_dense_live_docs<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {

@@ -19,19 +19,19 @@ use std::rc::Rc;
 
 use rand::Rng;
 
-use crate::store::directory::Directory;
-use crate::store::dummy::dummy_index_output::DummyIndexOutput;
-use crate::store::index_output::IndexOutput;
-use crate::store::{IOContext, IndexInput};
-use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, new_directory, random};
-use crate::test::util::test_util::TestUtil;
-use crate::util::array_util::ArrayUtil;
-use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::long_values::LongValues;
-use crate::util::packed::direct_monotonic_reader::{DirectMonotonicReader, load_meta};
-use crate::util::packed::direct_monotonic_writer::{
+use crate::core::store::directory::Directory;
+use crate::core::store::dummy::dummy_index_output::DummyIndexOutput;
+use crate::core::store::index_output::IndexOutput;
+use crate::core::store::{IOContext, IndexInput};
+use crate::core::util::array_util::ArrayUtil;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::long_values::LongValues;
+use crate::core::util::packed::direct_monotonic_reader::{DirectMonotonicReader, load_meta};
+use crate::core::util::packed::direct_monotonic_writer::{
     DirectMonotonicWriter, MAX_BLOCK_SHIFT, MIN_BLOCK_SHIFT,
 };
+use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, new_directory, random};
+use crate::test::util::test_util::TestUtil;
 
 #[allow(dead_code)] // for quick search
 pub struct TestDirectMonotonic;

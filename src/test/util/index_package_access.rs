@@ -14,10 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::index::field_info::FieldInfo;
-use crate::index::field_infos::build::Builder;
-use crate::index::field_infos::{FieldInfos, FieldNumbers};
-use crate::util::error::lucene_error::Result;
+use crate::core::index::field_info::FieldInfo;
+use crate::core::index::field_infos::build::Builder;
+use crate::core::index::field_infos::{FieldInfos, FieldNumbers};
+use crate::core::util::error::lucene_error::Result;
 use parking_lot::lock_api::Mutex;
 use std::sync::Arc;
 

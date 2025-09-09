@@ -18,16 +18,16 @@ use std::collections::HashSet;
 
 use rand::Rng;
 
-use crate::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::util::accountable::Accountable;
+use crate::core::util::bit_set::BitSet;
+use crate::core::util::bits::Bits;
+use crate::core::util::error::lucene_error::Result;
+use crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet;
 use crate::test::util::id_set_common;
 use crate::test::util::id_set_common::clear_range;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
-use crate::util::accountable::Accountable;
-use crate::util::bit_set::BitSet;
-use crate::util::bits::Bits;
-use crate::util::error::lucene_error::Result;
-use crate::util::sparse_fixed_bit_set::SparseFixedBitSet;
 
 pub fn random_set<R: Rng + ?Sized>(
     random: &mut R,

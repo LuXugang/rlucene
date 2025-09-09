@@ -20,24 +20,24 @@ use std::sync::Arc;
 use num_bigint::BigInt;
 use rand::Rng;
 
-use crate::codecs::segment_info_format::SegmentInfoFormat;
-use crate::codecs::{Codec, LATEST_CODEC};
-use crate::index::IndexFileNames;
-use crate::index::index_writer::MAX_DOCS;
+use crate::core::codecs::segment_info_format::SegmentInfoFormat;
+use crate::core::codecs::{Codec, LATEST_CODEC};
+use crate::core::index::IndexFileNames;
+use crate::core::index::index_writer::MAX_DOCS;
 
-use crate::index::segment_info::SegmentInfo;
-use crate::index::sort::Sort;
-use crate::search::sort_field::{MissingValueEnum, SortField, SortFieldType, SortFiledBase};
-use crate::search::sort_field_enum::SortFieldEnum;
-use crate::search::sorted_numeric_sort_field::SortedNumericSortField;
-use crate::search::sorted_set_sort_field::SortedSetSortField;
-use crate::store::IOContext;
-use crate::store::directory::Directory;
+use crate::core::index::segment_info::SegmentInfo;
+use crate::core::index::sort::Sort;
+use crate::core::search::sort_field::{MissingValueEnum, SortField, SortFieldType, SortFiledBase};
+use crate::core::search::sort_field_enum::SortFieldEnum;
+use crate::core::search::sorted_numeric_sort_field::SortedNumericSortField;
+use crate::core::search::sorted_set_sort_field::SortedSetSortField;
+use crate::core::store::IOContext;
+use crate::core::store::directory::Directory;
+use crate::core::util::error::lucene_error::Result;
+use crate::core::util::{StringHelper, Version};
 use crate::test::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, new_directory};
 use crate::test::util::test_util::TestUtil;
-use crate::util::error::lucene_error::Result;
-use crate::util::{StringHelper, Version};
 
 pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
     /// Test files map

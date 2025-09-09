@@ -21,12 +21,12 @@ use std::rc::Rc;
 
 use bit_set::BitSet;
 
-use crate::util::BitSetExt;
-use crate::util::automation::automaton::Automaton;
-use crate::util::automation::operations::Operations;
-use crate::util::automation::transition::Transition;
-use crate::util::automation::transition_accessor::TransitionAccessor;
-use crate::util::error::lucene_error::Result;
+use crate::core::util::BitSetExt;
+use crate::core::util::automation::automaton::Automaton;
+use crate::core::util::automation::operations::Operations;
+use crate::core::util::automation::transition::Transition;
+use crate::core::util::automation::transition_accessor::TransitionAccessor;
+use crate::core::util::error::lucene_error::Result;
 
 /// Operations for minimizing automata.
 pub struct MinimizationOperations;
@@ -315,13 +315,13 @@ impl StateListNode {
 
 #[cfg(test)]
 mod tests {
+    use crate::core::util::automation::operations::Operations;
+    use crate::core::util::automation::reg_exp::RegExp;
+    use crate::core::util::automation::transition_accessor::TransitionAccessor;
+    use crate::core::util::error::lucene_error::Result;
     use crate::test::util::automaton::automaton_test_util::AutomatonTestUtil;
     use crate::test::util::automaton::minimization_operation::MinimizationOperations;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
-    use crate::util::automation::operations::Operations;
-    use crate::util::automation::reg_exp::RegExp;
-    use crate::util::automation::transition_accessor::TransitionAccessor;
-    use crate::util::error::lucene_error::Result;
     #[allow(dead_code)] // for quick search
     /// This test builds some randomish NFA/DFA and minimizes them.
     struct TestMinimize;

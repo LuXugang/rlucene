@@ -19,18 +19,18 @@ use std::rc::Rc;
 
 use rand::Rng;
 
-use crate::store::data_output::DataOutput;
-use crate::store::directory::Directory;
-use crate::store::{IOContext, IndexInput};
+use crate::core::store::data_output::DataOutput;
+use crate::core::store::directory::Directory;
+use crate::core::store::{IOContext, IndexInput};
+use crate::core::util::error::lucene_error::Result;
+use crate::core::util::long_values::LongValues;
+use crate::core::util::packed::PackedInts;
+use crate::core::util::packed::direct_reader::DirectReader;
+use crate::core::util::packed::direct_writer::{DirectWriter, bits_required};
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
     is_night_mode, new_directory, random,
 };
 use crate::test::util::test_util::TestUtil;
-use crate::util::error::lucene_error::Result;
-use crate::util::long_values::LongValues;
-use crate::util::packed::PackedInts;
-use crate::util::packed::direct_reader::DirectReader;
-use crate::util::packed::direct_writer::{DirectWriter, bits_required};
 
 #[allow(dead_code)] // for quick search
 pub struct TestDirectPacked;

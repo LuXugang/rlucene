@@ -15,14 +15,7 @@
  * limitations under the License.
  */
 #![cfg_attr(debug_assertions, allow(dead_code))]
-#![allow(deprecated)]
-pub mod analysis;
-pub mod codecs;
-pub mod document;
-pub mod index;
-pub mod internal;
-pub mod search;
-pub mod store;
+
+pub mod core;
 #[cfg(test)]
 pub mod test;
-pub mod util;

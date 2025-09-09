@@ -20,28 +20,28 @@ use std::sync::Arc;
 use rand::Rng;
 use strum::EnumCount;
 
-use crate::codecs::field_infos_format::FieldInfosFormat;
-use crate::codecs::{Codec, get_default_code};
-use crate::document::field_type::FieldType;
-use crate::index::doc_values_skip_index_type::DocValuesSkipIndexType;
-use crate::index::doc_values_type::DocValuesType;
-use crate::index::field_info::FieldInfo;
-use crate::index::field_infos::FieldInfos;
-use crate::index::index_options::IndexOptions;
-use crate::index::indexable_field_type::IndexableFieldType;
-use crate::index::point_values::{MAX_DIMENSIONS, MAX_INDEX_DIMENSIONS, MAX_NUM_BYTES};
-use crate::index::segment_info::SegmentInfo;
-use crate::index::vector_encoding::VectorEncoding;
-use crate::index::vector_similarity_function::VectorSimilarityFunction;
-use crate::store::IOContext;
-use crate::store::directory::Directory;
+use crate::core::codecs::field_infos_format::FieldInfosFormat;
+use crate::core::codecs::{Codec, get_default_code};
+use crate::core::document::field_type::FieldType;
+use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
+use crate::core::index::doc_values_type::DocValuesType;
+use crate::core::index::field_info::FieldInfo;
+use crate::core::index::field_infos::FieldInfos;
+use crate::core::index::index_options::IndexOptions;
+use crate::core::index::indexable_field_type::IndexableFieldType;
+use crate::core::index::point_values::{MAX_DIMENSIONS, MAX_INDEX_DIMENSIONS, MAX_NUM_BYTES};
+use crate::core::index::segment_info::SegmentInfo;
+use crate::core::index::vector_encoding::VectorEncoding;
+use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
+use crate::core::store::IOContext;
+use crate::core::store::directory::Directory;
+use crate::core::util::error::lucene_error::Result;
+use crate::core::util::{LATEST, StringHelper};
 use crate::test::util::index_package_access::{
     FieldInfosBuilder, IndexPackageAccess, IndexPackageAccessImpl,
 };
 use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, new_directory};
 use crate::test::util::test_util::TestUtil;
-use crate::util::error::lucene_error::Result;
-use crate::util::{LATEST, StringHelper};
 
 pub trait BaseFieldInfoFormatTestCase {
     fn support_doc_values_skip_index(&self) -> bool {

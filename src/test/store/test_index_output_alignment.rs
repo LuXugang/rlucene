@@ -16,11 +16,11 @@
  */
 use rand::Rng;
 
-use crate::store::data_output::DataOutput;
-use crate::store::{IndexOutput, OutputStreamIndexOutput, align_offset};
+use crate::core::store::data_output::DataOutput;
+use crate::core::store::{IndexOutput, OutputStreamIndexOutput, align_offset};
+use crate::core::util::bit_util::BitUtil;
+use crate::core::util::error::lucene_error::Result;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{random, random_multiplier};
-use crate::util::bit_util::BitUtil;
-use crate::util::error::lucene_error::Result;
 
 #[allow(dead_code)] // for quick search
 struct TestIndexOutputAlignment;

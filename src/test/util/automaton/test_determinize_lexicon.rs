@@ -23,17 +23,17 @@ mod tests {
     use rand::Rng;
     use rand::prelude::SliceRandom;
 
+    use crate::core::util::automation::automata::Automata;
+    use crate::core::util::automation::automaton::Automaton;
+    use crate::core::util::automation::byte_run_automaton::ByteRunAutomaton;
+    use crate::core::util::automation::byte_runnable::ByteRunnable;
+    use crate::core::util::automation::operations::Operations;
+    use crate::core::util::error::lucene_error::Result;
     use crate::test::util::automaton::automaton_test_util::AutomatonTestUtil;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{
         at_least, is_night_mode, random,
     };
     use crate::test::util::test_util::TestUtil;
-    use crate::util::automation::automata::Automata;
-    use crate::util::automation::automaton::Automaton;
-    use crate::util::automation::byte_run_automaton::ByteRunAutomaton;
-    use crate::util::automation::byte_runnable::ByteRunnable;
-    use crate::util::automation::operations::Operations;
-    use crate::util::error::lucene_error::Result;
     #[test]
     fn test_determinize_lexicon() -> Result<()> {
         let mut random = random();

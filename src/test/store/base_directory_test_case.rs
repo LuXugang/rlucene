@@ -26,24 +26,24 @@ use parking_lot::Mutex;
 use rand::Rng;
 use tempfile::Builder;
 
-use crate::index::IndexFileNames;
-use crate::store::DataInput;
-use crate::store::IndexInput;
-use crate::store::IndexOutput;
-use crate::store::check_sum_index_input::ChecksumIndexInput;
-use crate::store::directory::Directory;
-use crate::store::random_access_input::RandomAccessInput;
-use crate::store::{DataOutput, IOContext};
+use crate::core::index::IndexFileNames;
+use crate::core::store::DataInput;
+use crate::core::store::IndexInput;
+use crate::core::store::IndexOutput;
+use crate::core::store::check_sum_index_input::ChecksumIndexInput;
+use crate::core::store::directory::Directory;
+use crate::core::store::random_access_input::RandomAccessInput;
+use crate::core::store::{DataOutput, IOContext};
+use crate::core::util::SliceCopyOps;
+use crate::core::util::clone::TryClone as OtherClone;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::group_vint_util::GroupVIntUtil;
+use crate::core::util::packed::PackedInts;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, is_night_mode};
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
     new_directory, new_io_context, random_from_seed, slow_file_exists,
 };
 use crate::test::util::test_util::TestUtil;
-use crate::util::SliceCopyOps;
-use crate::util::clone::TryClone as OtherClone;
-use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::group_vint_util::GroupVIntUtil;
-use crate::util::packed::PackedInts;
 
 pub const EXTRA_FILE_NAME: &str = "extra0";
 pub trait BaseDirectoryTestCase {

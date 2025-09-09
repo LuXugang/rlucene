@@ -21,13 +21,13 @@ pub struct TestDeterminism;
 
 #[cfg(test)]
 mod tests {
+    use crate::core::util::automation::automata::Automata;
+    use crate::core::util::automation::automaton::Automaton;
+    use crate::core::util::automation::operations::Operations;
+    use crate::core::util::automation::reg_exp::RegExp;
+    use crate::core::util::error::lucene_error::Result;
     use crate::test::util::automaton::automaton_test_util::AutomatonTestUtil;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
-    use crate::util::automation::automata::Automata;
-    use crate::util::automation::automaton::Automaton;
-    use crate::util::automation::operations::Operations;
-    use crate::util::automation::reg_exp::RegExp;
-    use crate::util::error::lucene_error::Result;
     /// test a bunch of random regular expressions
     #[test]
     fn test_regexps() -> Result<()> {

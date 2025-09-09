@@ -23,17 +23,17 @@ use bit_set::BitSet;
 use rand::Rng;
 use rand::prelude::IndexedRandom;
 
-use crate::util::automation::automaton::{Automaton, Builder};
-use crate::util::automation::operations::Operations;
-use crate::util::automation::reg_exp::RegExp;
-use crate::util::automation::state_pair::StatePair;
-use crate::util::automation::transition::Transition;
-use crate::util::automation::transition_accessor::TransitionAccessor;
-use crate::util::error::lucene_error::LuceneError;
-use crate::util::error::lucene_error::Result;
-use crate::util::ints_ref::IntsRef;
-use crate::util::ints_ref_builder::IntsRefBuilder;
-use crate::util::unicode_util::UnicodeUtil;
+use crate::core::util::automation::automaton::{Automaton, Builder};
+use crate::core::util::automation::operations::Operations;
+use crate::core::util::automation::reg_exp::RegExp;
+use crate::core::util::automation::state_pair::StatePair;
+use crate::core::util::automation::transition::Transition;
+use crate::core::util::automation::transition_accessor::TransitionAccessor;
+use crate::core::util::error::lucene_error::LuceneError;
+use crate::core::util::error::lucene_error::Result;
+use crate::core::util::ints_ref::IntsRef;
+use crate::core::util::ints_ref_builder::IntsRefBuilder;
+use crate::core::util::unicode_util::UnicodeUtil;
 /// Utilities for testing automata.
 ///
 /// Capable of generating random regular expressions and automata,

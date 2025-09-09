@@ -21,22 +21,22 @@ use std::rc::Rc;
 
 use rand::Rng;
 
-use crate::store::IOContext;
-use crate::store::directory::Directory;
+use crate::core::store::IOContext;
+use crate::core::store::directory::Directory;
+use crate::core::util::ToInt;
+use crate::core::util::access::SharedAccessVec;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::fst_impl::fst::{Arc, END_LABEL, FST, InputType, read_metadata};
+use crate::core::util::fst_impl::fst_compiler::{Builder, DataOutputEnum};
+use crate::core::util::fst_impl::fst_reader::FstReader;
+use crate::core::util::fst_impl::ints_ref_fst_enum::IntsRefFSTEnum;
+use crate::core::util::fst_impl::on_heap_fst_store::OnHeapFSTStore;
+use crate::core::util::fst_impl::outputs::{Outputs, OutputsBound};
+use crate::core::util::ints_ref::IntsRef;
+use crate::core::util::ints_ref_builder::IntsRefBuilder;
 use crate::test::util::lucene_test_case::lucene_test_case_util::{
     at_least, new_io_context, random_from_seed,
 };
-use crate::util::ToInt;
-use crate::util::access::SharedAccessVec;
-use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::fst_impl::fst::{Arc, END_LABEL, FST, InputType, read_metadata};
-use crate::util::fst_impl::fst_compiler::{Builder, DataOutputEnum};
-use crate::util::fst_impl::fst_reader::FstReader;
-use crate::util::fst_impl::ints_ref_fst_enum::IntsRefFSTEnum;
-use crate::util::fst_impl::on_heap_fst_store::OnHeapFSTStore;
-use crate::util::fst_impl::outputs::{Outputs, OutputsBound};
-use crate::util::ints_ref::IntsRef;
-use crate::util::ints_ref_builder::IntsRefBuilder;
 /// Helper struct to test FSTs.
 #[allow(clippy::type_complexity)]
 pub struct FSTTester<D, R, O, S>
@@ -794,9 +794,9 @@ where
     FST2(FST<O, DataOutputEnum<D>>),
 }
 
-use crate::index::BytesRef;
+use crate::core::index::BytesRef;
+use crate::core::util::unicode_util::UnicodeUtil;
 use crate::test::util::test_util::TestUtil;
-use crate::util::unicode_util::UnicodeUtil;
 
 pub fn input_to_string<AV: SharedAccessVec<i32>>(
     input_mode: i32,

@@ -22,26 +22,26 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use crate::codecs::mutable_point_tree::MutablePointTree;
-use crate::index::BytesRef;
-use crate::index::merge_state::{DocMap, DocMapEnum};
-use crate::index::point_values::{
+use crate::core::codecs::mutable_point_tree::MutablePointTree;
+use crate::core::index::BytesRef;
+use crate::core::index::merge_state::{DocMap, DocMapEnum};
+use crate::core::index::point_values::{
     IntersectVisitor, MAX_DIMENSIONS, MAX_INDEX_DIMENSIONS, MAX_NUM_BYTES, PointTree, PointValues,
     PointValuesBase, Relation,
 };
-use crate::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
-use crate::store::directory::Directory;
-use crate::store::{IOContext, IndexInput, IndexOutput};
+use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::core::search::doc_id_set_iterator::disi_const::NO_MORE_DOCS;
+use crate::core::store::directory::Directory;
+use crate::core::store::{IOContext, IndexInput, IndexOutput};
+use crate::core::util::bit_util::BitUtil;
+use crate::core::util::bkd::bkd_config::BKDConfig;
+use crate::core::util::bkd::bkd_reader::BKDReader;
+use crate::core::util::bkd::bkd_writer::{BKDWriter, DEFAULT_MAX_MB_SORT_IN_HEAP};
+use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::numeric_utils::NumericUtils;
+use crate::core::util::{SliceCopyOps, ToInt};
 use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, new_directory, random};
 use crate::test::util::test_util::TestUtil;
-use crate::util::bit_util::BitUtil;
-use crate::util::bkd::bkd_config::BKDConfig;
-use crate::util::bkd::bkd_reader::BKDReader;
-use crate::util::bkd::bkd_writer::{BKDWriter, DEFAULT_MAX_MB_SORT_IN_HEAP};
-use crate::util::error::lucene_error::{LuceneError, Result};
-use crate::util::numeric_utils::NumericUtils;
-use crate::util::{SliceCopyOps, ToInt};
 
 #[allow(dead_code)] // for quick search
 struct TestBKD;
