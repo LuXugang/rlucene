@@ -158,8 +158,8 @@ impl<T> OptionTakeExt<T> for Option<T> {
 /// # Examples
 ///
 /// ```
-/// use rlucene::util::ToUsizeExact;
-/// use rlucene::util::error::lucene_error::LuceneError;
+/// use rlucene::core::util::ToUsizeExact;
+/// use rlucene::core::util::error::lucene_error::LuceneError;
 ///
 /// let x: i32 = 10;
 /// let u = x.to_usize_exact();

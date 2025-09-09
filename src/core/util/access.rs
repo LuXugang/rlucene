@@ -44,8 +44,8 @@ use crate::core::util::array_util::ArrayUtil;
 ///
 /// ### Example
 /// ```rust
-/// use rlucene::util::access::SharedAccess;
-/// use rlucene::util::error::lucene_error::{LuceneError, Result};
+/// use rlucene::core::util::access::SharedAccess;
+/// use rlucene::core::util::error::lucene_error::{LuceneError, Result};
 /// struct MyStruct;
 /// impl MyStruct{
 ///    fn do_something(&self) {

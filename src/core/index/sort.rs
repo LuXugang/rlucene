@@ -74,11 +74,11 @@ impl Sort {
     /// [`push_sort_fields`](crate::core::search::sort_field_enum::SortFieldVecExt::push_sort_fields)
     /// to init SortFieldEnum vector. # Example
     /// ```rust
-    /// use rlucene::index::sort::Sort;
-    /// use rlucene::search::sort_field::{SortField, SortFieldType};
-    /// use rlucene::search::sort_field_enum::SortFieldVecExt;
-    /// use rlucene::search::sorted_numeric_sort_field::SortedNumericSortField;
-    /// use rlucene::search::sorted_set_sort_field::SortedSetSortField;
+    /// use rlucene::core::index::sort::Sort;
+    /// use rlucene::core::search::sort_field::{SortField, SortFieldType};
+    /// use rlucene::core::search::sort_field_enum::SortFieldVecExt;
+    /// use rlucene::core::search::sorted_numeric_sort_field::SortedNumericSortField;
+    /// use rlucene::core::search::sorted_set_sort_field::SortedSetSortField;
     /// let sort_field1 = SortField::new(Some("field1".to_string()), SortFieldType::Custom).unwrap();
     /// let sort_field2 = SortedSetSortField::new("field2".to_string(), false).unwrap();
     /// let mut fileds = Vec::new();
