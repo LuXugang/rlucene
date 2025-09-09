@@ -206,7 +206,7 @@ impl TestUtil {
                 17 => {
                     sb.push_str("&#");
                     if random.random_bool(0.5) {
-                        write!(sb, "{}", random.r#gen::<u32>()).unwrap();
+                        write!(sb, "{}", random.random::<u32>()).unwrap();
                         if random.random_bool(0.5) {
                             sb.push(';');
                         }
@@ -215,7 +215,7 @@ impl TestUtil {
                 18 => {
                     sb.push_str("&#x");
                     if random.random_bool(0.5) {
-                        write!(sb, "{:x}", random.r#gen::<u32>()).unwrap();
+                        write!(sb, "{:x}", random.random::<u32>()).unwrap();
                         if random.random_bool(0.5) {
                             sb.push(';');
                         }
@@ -223,18 +223,18 @@ impl TestUtil {
                 },
                 19 => sb.push(';'),
                 20 => {
-                    write!(sb, "{}", random.r#gen::<u32>()).unwrap();
+                    write!(sb, "{}", random.random::<u32>()).unwrap();
                 },
                 21 => sb.push('\n'),
                 22 => sb.push_str(&"          "[..random.random_range(0..=10)]),
                 23 => {
                     sb.push('<');
-                    if random.gen_ratio(1, 3) {
+                    if random.random_ratio(1, 3) {
                         sb.push_str(&"          "[..random.random_range(1..=10)]);
                     }
                     if random.random_bool(0.5) {
                         sb.push('/');
-                        if random.gen_ratio(1, 3) {
+                        if random.random_ratio(1, 3) {
                             sb.push_str(&"          "[..random.random_range(1..=10)]);
                         }
                     }

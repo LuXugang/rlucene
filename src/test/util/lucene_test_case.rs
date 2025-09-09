@@ -98,7 +98,7 @@ pub mod lucene_test_case_util {
     > {
         let temp_dir = TempDir::new()?;
         let sub_directory = NIOFSDirectory::new();
-        FSDirectory::new(temp_dir.into_path(), sub_directory)
+        FSDirectory::new(temp_dir.keep(), sub_directory)
     }
 
     pub(crate) fn new_io_context<R: Rng + ?Sized>(

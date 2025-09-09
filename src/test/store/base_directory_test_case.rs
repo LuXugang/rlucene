@@ -53,13 +53,13 @@ pub trait BaseDirectoryTestCase {
 
     fn test_copy_from<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let mut temp_dir = Builder::new().prefix("testCopy").tempdir()?;
-        let source = self.get_directory(temp_dir.into_path())?;
+        let source = self.get_directory(temp_dir.keep())?;
         let dest = new_directory(random)?;
         Self::run_copy_from(&source, &dest, random)?;
 
         let source = new_directory(random)?;
         temp_dir = Builder::new().prefix("testCopyDestination").tempdir()?;
-        let dest = self.get_directory(temp_dir.into_path())?;
+        let dest = self.get_directory(temp_dir.keep())?;
         Self::run_copy_from(&source, &dest, random)?;
         Ok(())
     }
@@ -92,7 +92,7 @@ pub trait BaseDirectoryTestCase {
     }
     fn test_rename<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let temp_dir = Builder::new().prefix("testRename").tempdir()?;
-        let dir = self.get_directory(temp_dir.into_path())?;
+        let dir = self.get_directory(temp_dir.keep())?;
         let num_bytes = random.random_range(0..20000);
         let mut bytes = vec![0u8; num_bytes];
         let io_context = new_io_context(random)?;
@@ -118,7 +118,7 @@ pub trait BaseDirectoryTestCase {
 
     fn test_delete_file(&self) -> Result<()> {
         let temp_dir = Builder::new().prefix("testDeleteFile").tempdir()?;
-        let dir = self.get_directory(temp_dir.into_path())?;
+        let dir = self.get_directory(temp_dir.keep())?;
 
         let file = "foo.txt";
         let io_context = IOContext::default_io_context()?;
@@ -146,7 +146,7 @@ pub trait BaseDirectoryTestCase {
         let temp_dir = Builder::new().prefix("testByte").tempdir()?;
         let io_context = new_io_context(random)?;
 
-        let dir = self.get_directory(temp_dir.into_path())?;
+        let dir = self.get_directory(temp_dir.keep())?;
 
         {
             let mut output = dir.create_output("byte", &io_context)?;
@@ -163,7 +163,7 @@ pub trait BaseDirectoryTestCase {
     }
     fn test_short<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let temp_dir = Builder::new().prefix("testShort").tempdir()?;
-        let dir = self.get_directory(temp_dir.into_path())?;
+        let dir = self.get_directory(temp_dir.keep())?;
         let io_context = new_io_context(random)?;
 
         {
@@ -181,7 +181,7 @@ pub trait BaseDirectoryTestCase {
     }
     fn test_int<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let temp_dir = Builder::new().prefix("testInt").tempdir()?;
-        let dir = self.get_directory(temp_dir.into_path())?;
+        let dir = self.get_directory(temp_dir.keep())?;
         let io_context = new_io_context(random)?;
 
         {
@@ -199,7 +199,7 @@ pub trait BaseDirectoryTestCase {
     }
     fn test_long<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let temp_dir = Builder::new().prefix("testLong").tempdir()?;
-        let dir = self.get_directory(temp_dir.into_path())?;
+        let dir = self.get_directory(temp_dir.keep())?;
         let io_context = new_io_context(random)?;
 
         {
@@ -219,7 +219,7 @@ pub trait BaseDirectoryTestCase {
         let temp_dir = Builder::new()
             .prefix("testAlignedLittleEndianLongs")
             .tempdir()?;
-        let dir = self.get_directory(temp_dir.into_path())?;
+        let dir = self.get_directory(temp_dir.keep())?;
         let io_context = new_io_context(random)?;
 
         {
@@ -246,7 +246,7 @@ pub trait BaseDirectoryTestCase {
         let temp_dir = Builder::new()
             .prefix("testUnalignedLittleEndianLongs")
             .tempdir()?;
-        let dir = self.get_directory(temp_dir.into_path())?;
+        let dir = self.get_directory(temp_dir.keep())?;
         let io_context = new_io_context(random)?;
 
         {
@@ -273,7 +273,7 @@ pub trait BaseDirectoryTestCase {
         let temp_dir = Builder::new()
             .prefix("testLittleEndianLongsUnderflow")
             .tempdir()?;
-        let dir = self.get_directory(temp_dir.into_path())?;
+        let dir = self.get_directory(temp_dir.keep())?;
         let io_context = new_io_context(random)?;
 
         let offset = random.random_range(0..8);
@@ -300,7 +300,7 @@ pub trait BaseDirectoryTestCase {
     }
     fn test_aligned_ints<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let temp_dir = Builder::new().prefix("testAlignedInts").tempdir()?;
-        let dir = self.get_directory(temp_dir.into_path())?;
+        let dir = self.get_directory(temp_dir.keep())?;
         let io_context = new_io_context(random)?;
 
         {
@@ -323,7 +323,7 @@ pub trait BaseDirectoryTestCase {
     }
     fn test_unaligned_ints<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let temp_dir = Builder::new().prefix("testUnalignedInts").tempdir()?;
-        let dir = self.get_directory(temp_dir.into_path())?;
+        let dir = self.get_directory(temp_dir.keep())?;
         let padding = random.random_range(1..=3);
         let io_context = new_io_context(random)?;
 
@@ -353,7 +353,7 @@ pub trait BaseDirectoryTestCase {
     }
     fn test_ints_underflow<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let temp_dir = Builder::new().prefix("testIntsUnderflow").tempdir()?;
-        let dir = self.get_directory(temp_dir.into_path())?;
+        let dir = self.get_directory(temp_dir.keep())?;
         let io_context = new_io_context(random)?;
 
         let offset = random.random_range(0..4);
@@ -382,7 +382,7 @@ pub trait BaseDirectoryTestCase {
 
     fn test_aligned_floats(&self) -> Result<()> {
         let temp_dir = Builder::new().prefix("testAlignedFloats").tempdir()?;
-        let dir = self.get_directory(temp_dir.into_path())?;
+        let dir = self.get_directory(temp_dir.keep())?;
         let io_context = IOContext::default_io_context()?;
         {
             let mut out = dir.create_output("Floats", &io_context)?;
@@ -407,7 +407,7 @@ pub trait BaseDirectoryTestCase {
         let io_context = new_io_context(random)?;
 
         let temp_dir = Builder::new().prefix("testUnalignedFloats").tempdir()?;
-        let dir = self.get_directory(temp_dir.into_path())?;
+        let dir = self.get_directory(temp_dir.keep())?;
 
         {
             let mut output = dir.create_output("Floats", &io_context)?;
@@ -434,7 +434,7 @@ pub trait BaseDirectoryTestCase {
     }
     fn test_floats_underflow<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let temp_dir = Builder::new().prefix("testFloatsUnderflow").tempdir()?;
-        let dir = self.get_directory(temp_dir.into_path())?;
+        let dir = self.get_directory(temp_dir.keep())?;
         let io_context = new_io_context(random)?;
 
         let offset = random.random_range(0..4);
@@ -458,7 +458,7 @@ pub trait BaseDirectoryTestCase {
     }
     fn test_string<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let temp_dir = Builder::new().prefix("testString").tempdir()?;
-        let dir = self.get_directory(temp_dir.into_path())?;
+        let dir = self.get_directory(temp_dir.keep())?;
         let io_context = new_io_context(random)?;
 
         {
@@ -476,7 +476,7 @@ pub trait BaseDirectoryTestCase {
     }
     fn test_vint<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let temp_dir = Builder::new().prefix("testVInt").tempdir()?;
-        let dir = self.get_directory(temp_dir.into_path())?;
+        let dir = self.get_directory(temp_dir.keep())?;
         let io_context = new_io_context(random)?;
 
         {
@@ -494,7 +494,7 @@ pub trait BaseDirectoryTestCase {
     }
     fn test_vlong<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let temp_dir = Builder::new().prefix("testVLong").tempdir()?;
-        let dir = self.get_directory(temp_dir.into_path())?;
+        let dir = self.get_directory(temp_dir.keep())?;
         let io_context = new_io_context(random)?;
 
         {
@@ -534,7 +534,7 @@ pub trait BaseDirectoryTestCase {
         }
 
         let temp_dir = Builder::new().prefix("testZInt").tempdir()?;
-        let dir = self.get_directory(temp_dir.into_path())?;
+        let dir = self.get_directory(temp_dir.keep())?;
         let io_context = new_io_context(random)?;
 
         {
@@ -580,7 +580,7 @@ pub trait BaseDirectoryTestCase {
         }
 
         let temp_dir = Builder::new().prefix("testZLong").tempdir()?;
-        let dir = self.get_directory(temp_dir.into_path())?;
+        let dir = self.get_directory(temp_dir.keep())?;
 
         {
             let mut output = dir.create_output("zlong", &io_context)?;
@@ -601,7 +601,7 @@ pub trait BaseDirectoryTestCase {
     }
     fn test_set_of_strings<R: Rng + ?Sized>(&self, random: &mut R) -> Result<()> {
         let temp_dir = Builder::new().prefix("testSetOfStrings").tempdir()?;
-        let dir = self.get_directory(temp_dir.into_path())?;
+        let dir = self.get_directory(temp_dir.keep())?;
         let io_context = new_io_context(random)?;
 
         {
@@ -652,7 +652,7 @@ pub trait BaseDirectoryTestCase {
         map.insert("test2".to_string(), "value2".to_string());
 
         let temp_dir = Builder::new().prefix("testMapOfStrings").tempdir()?;
-        let dir = self.get_directory(temp_dir.into_path())?;
+        let dir = self.get_directory(temp_dir.keep())?;
         let io_context = new_io_context(random)?;
 
         {
@@ -709,7 +709,7 @@ pub trait BaseDirectoryTestCase {
         let expected_checksum = hasher.finalize();
 
         let temp_dir = Builder::new().prefix("testChecksum").tempdir()?;
-        let dir = self.get_directory(temp_dir.into_path())?;
+        let dir = self.get_directory(temp_dir.keep())?;
         let io_context = new_io_context(random)?;
 
         {
@@ -1883,7 +1883,7 @@ pub trait BaseDirectoryTestCase {
 
         values[0] = (0xFFFFFFFF_u64 + 1) as i64;
         {
-            let file_path = temp_dir.into_path();
+            let file_path = temp_dir.keep();
             std::fs::remove_file(file_path.join("test"))?;
             let mut out = dir.create_output("test", &io_context)?;
             let result = out.write_group_vints_i64(&mut values[..values_len], 4);
