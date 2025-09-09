@@ -18,8 +18,7 @@ use crate::core::analysis::character_utils::{CharacterBuffer, CharacterUtils};
 use crate::core::analysis::standard::standard_tokenizer::MAX_TOKEN_LENGTH_LIMIT;
 use crate::core::analysis::token_attributes::char_term_attribute::CharTermAttribute;
 use crate::core::analysis::token_attributes::offset_attribute::OffsetAttribute;
-use crate::core::analysis::token_attributes::packed_token_attribute_impl::PackedTokenAttributeImpl;
-use crate::core::analysis::token_stream::TokenStream;
+use crate::core::analysis::token_stream::{TokenStream, default_attribute};
 use crate::core::analysis::tokenizer::{Tokenizer, TokenizerBase};
 use crate::core::util::attribute_source::Attributes;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -113,10 +112,7 @@ pub trait CharTokenizer: Tokenizer {
 pub fn from_token_char_predicate(
     token_char_predicate: fn(i32) -> bool,
 ) -> Result<CharTokenizerImpl> {
-    from_token_char_predicate_with_attr(
-        Attributes::PackedToken(PackedTokenAttributeImpl::new()),
-        token_char_predicate,
-    )
+    from_token_char_predicate_with_attr(default_attribute(), token_char_predicate)
 }
 
 /// Creates a new instance of CharTokenizer with the supplied attribute factory using a custom predicate, supplied as method reference or lambda expression. The predicate should return true for all valid token characters.
@@ -133,10 +129,7 @@ pub fn from_token_char_predicate_with_attr(
 pub fn from_separator_char_predicate(
     separator_char_predicate: fn(i32) -> bool,
 ) -> Result<CharTokenizerImpl> {
-    from_separator_char_predicate_with_attr(
-        Attributes::PackedToken(PackedTokenAttributeImpl::new()),
-        separator_char_predicate,
-    )
+    from_separator_char_predicate_with_attr(default_attribute(), separator_char_predicate)
 }
 /// Creates a new instance of CharTokenizer with the supplied attribute factory using a custom predicate,
 /// supplied as method reference or lambda expression.
@@ -157,15 +150,12 @@ pub struct CharTokenizerBase {
     final_offset: i32,
     max_token_len: i32,
     io_buffer: CharacterBuffer,
-    att: Attributes,
-    tokenizer_base: TokenizerBase,
+    pub(crate) att: Attributes,
+    pub(crate) tokenizer_base: TokenizerBase,
 }
 impl CharTokenizerBase {
     pub fn new() -> Result<Self> {
-        Self::with_max_token_len(
-            Attributes::PackedToken(PackedTokenAttributeImpl::new()),
-            DEFAULT_MAX_WORD_LEN,
-        )
+        Self::with_max_token_len(default_attribute(), DEFAULT_MAX_WORD_LEN)
     }
     pub fn new_with_att(att: Attributes) -> Result<Self> {
         Self::with_max_token_len(att, DEFAULT_MAX_WORD_LEN)

@@ -14,8 +14,4 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#![cfg_attr(debug_assertions, allow(dead_code))]
-pub mod analysis;
-pub mod core;
-#[cfg(test)]
-pub mod test;
+pub mod analysis_impl;

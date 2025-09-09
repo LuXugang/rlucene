@@ -14,7 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::util::attribute_source::AttributeSource;
+use crate::core::analysis::token_attributes::packed_token_attribute_impl::PackedTokenAttributeImpl;
+use crate::core::util::attribute_source::{AttributeSource, Attributes};
 use crate::core::util::error::lucene_error::Result;
 pub trait TokenStream {
     fn increment_token(&mut self) -> Result<bool>;
@@ -23,4 +24,7 @@ pub trait TokenStream {
     fn close(&mut self) -> Result<()>;
     type AttributeSource: AttributeSource;
     fn get_attribute_source(&self) -> &Self::AttributeSource;
+}
+pub fn default_attribute() -> Attributes {
+    Attributes::PackedToken(PackedTokenAttributeImpl::new())
 }
