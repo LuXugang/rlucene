@@ -30,7 +30,7 @@ pub trait Tokenizer: TokenStream {
     }
     /// Return the corrected offset.
     /// If input is a CharFilter this method calls CharFilter.correctOffset else returns currentOff.
-    fn correct_offset(&mut self, current_off: i32) -> i32 {
+    fn correct_offset(&self, current_off: i32) -> i32 {
         let base = self.get_tokenizer_base();
         base.input.correct_offset(current_off)
     }
@@ -64,6 +64,12 @@ pub struct TokenizerBase {
     /// Pending reader: not actually assigned to input until reset()
     pub(crate) input_pending: ReaderEnum,
 }
+impl Default for TokenizerBase {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TokenizerBase {
     pub fn new() -> Self {
         Self {

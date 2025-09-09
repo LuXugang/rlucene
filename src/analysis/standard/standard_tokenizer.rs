@@ -15,14 +15,4 @@
  * limitations under the License.
  */
 
-pub mod analyzer;
-pub mod char_filter;
-pub mod character_utils;
-pub mod dummy;
-pub mod reader;
-pub(crate) mod reusable_string_reader;
-pub mod standard;
-pub mod token_attributes;
-pub mod token_stream;
-pub mod tokenizer;
-pub mod util;
+pub const MAX_TOKEN_LENGTH_LIMIT: i32 = 1024 * 1024; // 1MB

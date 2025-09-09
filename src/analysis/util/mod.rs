@@ -14,15 +14,4 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-pub mod analyzer;
-pub mod char_filter;
-pub mod character_utils;
-pub mod dummy;
-pub mod reader;
-pub(crate) mod reusable_string_reader;
-pub mod standard;
-pub mod token_attributes;
-pub mod token_stream;
-pub mod tokenizer;
-pub mod util;
+mod char_tokenizer;

@@ -155,7 +155,7 @@ impl CharacterBuffer {
         self.offset
     }
     /// Return the length of the data in the internal buffer starting at [`getOffset()`](Self::get_offset)
-    pub fn length(&self) -> usize {
+    pub fn get_length(&self) -> usize {
         self.length
     }
 
