@@ -65,7 +65,8 @@ impl CharArraySet {
         self.map.put_any(key, ())
     }
     pub fn get(&self, key: &[char]) -> Option<&()> {
-        self.map.get(key)
+        debug_assert!(key.len() <= i32::MAX as usize);
+        self.map.get(key, 0, key.len() as i32)
     }
     pub fn get_str(&self, key: &str) -> Option<&()> {
         self.map.get_str(key)
