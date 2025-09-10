@@ -25,13 +25,13 @@ pub struct TokenFilterBase<T>
 where
     T: TokenStream,
 {
-    input: T,
+    pub(crate) input: T,
 }
 impl<T> TokenFilterBase<T>
 where
     T: TokenStream,
 {
-    fn new(input: T) -> Self {
+    pub(crate) fn new(input: T) -> Self {
         TokenFilterBase { input }
     }
 }

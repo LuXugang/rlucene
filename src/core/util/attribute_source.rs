@@ -23,9 +23,9 @@ use crate::core::analysis::token_attributes::term_to_bytes_ref_attribute::TermTo
 use crate::core::index::BytesRef;
 use crate::core::util::attribute::Attribute;
 use crate::core::util::attribute_impl::AttributeImpl;
-use crate::core::util::error::lucene_error;
 use std::borrow::Cow;
 
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 pub trait AttributeSource {
     // OffsetAttribute
     fn start_offset(&self) -> Option<i32> {
@@ -39,6 +39,9 @@ pub trait AttributeSource {
     // PositionIncrementAttribute
     fn get_position_increment(&self) -> Option<i32> {
         None
+    }
+    fn set_position_increment(&mut self, position_increment: i32) -> Result<()> {
+        Err(LuceneError::unsupported_operation(""))
     }
 
     // PayloadAttribute;
@@ -90,7 +93,7 @@ impl CharTermAttribute for Attributes {
         }
     }
 
-    fn set_length(&mut self, length: usize) -> lucene_error::Result<&mut Self> {
+    fn set_length(&mut self, length: usize) -> Result<&mut Self> {
         match self {
             Attributes::PackedToken(attr) => {
                 attr.set_length(length)?;
@@ -147,6 +150,13 @@ impl CharTermAttribute for Attributes {
         }
     }
 }
+
+impl Default for Attributes {
+    fn default() -> Self {
+        Attributes::PackedToken(PackedTokenAttributeImpl::default())
+    }
+}
+
 impl AttributeSource for Attributes {
     fn start_offset(&self) -> Option<i32> {
         match self {
@@ -198,7 +208,7 @@ impl OffsetAttribute for Attributes {
         }
     }
 
-    fn set_offset(&mut self, start_offset: i32, end_offset: i32) -> lucene_error::Result<()> {
+    fn set_offset(&mut self, start_offset: i32, end_offset: i32) -> Result<()> {
         match self {
             Attributes::PackedToken(attr) => attr.set_offset(start_offset, end_offset),
         }
@@ -212,6 +222,13 @@ impl OffsetAttribute for Attributes {
 }
 
 pub struct EmptyAttributeSource;
+
+impl Default for EmptyAttributeSource {
+    fn default() -> Self {
+        EmptyAttributeSource
+    }
+}
+
 impl AttributeSource for EmptyAttributeSource {
     fn end_attributes(&mut self) {}
 }
