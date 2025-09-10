@@ -45,6 +45,7 @@ pub mod close;
 pub mod collection_util;
 pub mod compress;
 pub mod constants;
+pub mod consumer;
 pub mod core_helper;
 pub mod counter;
 pub mod cursor_ext;
