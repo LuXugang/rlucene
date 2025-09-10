@@ -14,11 +14,67 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::analysis::token_attributes::char_term_attribute::CharTermAttribute;
+use crate::core::analysis::token_attributes::offset_attribute::OffsetAttribute;
+use crate::core::analysis::token_stream::TokenStream;
+use crate::core::util::attribute_source::Attributes;
+use crate::core::util::error::lucene_error::Result;
+
 pub trait Analyzer {
     fn get_position_increment_gap(&self, _field_name: &str) -> i32 {
         0
     }
     fn get_offset_gap(&self, _field_name: &str) -> i32 {
         1
+    }
+}
+
+struct StringTokenStream {
+    value: String,
+    length: i32,
+    used: bool,
+    att: Attributes,
+}
+impl StringTokenStream {
+    fn new(att: Attributes, value: &str, length: i32) -> Self {
+        Self {
+            value: value.to_string(),
+            length,
+            used: true,
+            att,
+        }
+    }
+}
+impl TokenStream for StringTokenStream {
+    fn increment_token(&mut self) -> Result<bool> {
+        if self.used {
+            return Ok(true);
+        }
+        // self.clear_attributes();
+        self.att.append_str(Some(&self.value));
+        self.att.set_offset(0, self.length)?;
+        self.used = true;
+        Ok(true)
+    }
+
+    fn end(&mut self) -> Result<()> {
+        // TODO: 这里实现不对
+        // TokenStream::end(self)?;
+        self.att.set_offset(self.length, self.length)
+    }
+
+    fn reset(&mut self) -> Result<()> {
+        self.used = false;
+        Ok(())
+    }
+
+    type AttributeSource = Attributes;
+
+    fn get_attribute_source(&self) -> &Self::AttributeSource {
+        &self.att
+    }
+
+    fn get_attribute_source_mut(&mut self) -> &mut Self::AttributeSource {
+        &mut self.att
     }
 }

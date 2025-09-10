@@ -19,9 +19,16 @@ use crate::core::util::attribute_source::{AttributeSource, Attributes};
 use crate::core::util::error::lucene_error::Result;
 pub trait TokenStream {
     fn increment_token(&mut self) -> Result<bool>;
-    fn end(&mut self) -> Result<()>;
-    fn reset(&mut self) -> Result<()>;
-    fn close(&mut self) -> Result<()>;
+    fn end(&mut self) -> Result<()> {
+        // TODO
+        Ok(())
+    }
+    fn reset(&mut self) -> Result<()> {
+        Ok(())
+    }
+    fn close(&mut self) -> Result<()> {
+        Ok(())
+    }
     type AttributeSource: AttributeSource;
     fn get_attribute_source(&self) -> &Self::AttributeSource;
     fn get_attribute_source_mut(&mut self) -> &mut Self::AttributeSource;
