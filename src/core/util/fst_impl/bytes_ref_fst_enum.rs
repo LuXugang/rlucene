@@ -57,43 +57,35 @@ where
     }
 
     pub fn next_value(&mut self) -> Result<Option<&IOBytesRef<O>>> {
-        unsafe {
-            let this: *mut Self = self;
-            let base_ptr = &mut (*this).base as *mut FSTEnum<O, F>;
-            (*base_ptr).do_next(&mut *this)?;
-        }
+        let (base, result) = (&mut self.base, &mut self.result);
+        let mut ctx = BytesRefFSTEnumContext { result };
+        base.do_next(&mut ctx)?;
         self.set_result()
     }
 
     pub fn seek_ceil(&mut self, target: &BytesRef<Vec<u8>>) -> Result<Option<&IOBytesRef<O>>> {
-        unsafe {
-            let this: *mut Self = self;
-            let base_ptr = &mut (*this).base as *mut FSTEnum<O, F>;
-            (*base_ptr).target_length = target.length as i32;
-            (*base_ptr).do_seek_ceil(&mut *this, target)?;
-        }
+        let (base, result) = (&mut self.base, &mut self.result);
+        base.target_length = target.length as i32;
+        let mut ctx = BytesRefFSTEnumContext { result };
+        base.do_seek_ceil(&mut ctx, target)?;
         self.set_result()
     }
 
     pub fn seek_floor(&mut self, target: &BytesRef<Vec<u8>>) -> Result<Option<&IOBytesRef<O>>> {
-        unsafe {
-            let this: *mut Self = self;
-            let base_ptr = &mut (*this).base as *mut FSTEnum<O, F>;
-            (*base_ptr).target_length = target.length as i32;
-            (*base_ptr).do_seek_floor(&mut *this, target)?;
-        }
+        let (base, result) = (&mut self.base, &mut self.result);
+        base.target_length = target.length as i32;
+        let mut ctx = BytesRefFSTEnumContext { result };
+        base.do_seek_floor(&mut ctx, target)?;
         self.set_result()
     }
 
     pub fn seek_exact(&mut self, target: &BytesRef<Vec<u8>>) -> Result<Option<&IOBytesRef<O>>> {
-        let found = unsafe {
-            let this: *mut Self = self;
-            let base_ptr = &mut (*this).base as *mut FSTEnum<O, F>;
-            (*base_ptr).target_length = target.length as i32;
-            (*base_ptr).do_seek_exact(&mut *this, target)?
-        };
+        let (base, result) = (&mut self.base, &mut self.result);
+        base.target_length = target.length as i32;
+        let mut ctx = BytesRefFSTEnumContext { result };
+        let found = base.do_seek_exact(&mut ctx, target)?;
         if found {
-            debug_assert_eq!(self.base.upto, 1 + target.length);
+            debug_assert_eq!(base.upto, 1 + target.length);
             self.set_result()
         } else {
             Ok(None)
@@ -112,7 +104,12 @@ where
         }
     }
 }
-impl<O, F> FSTEnumBase<O, F> for BytesRefFSTEnum<O, F>
+
+struct BytesRefFSTEnumContext<'a, O: Outputs> {
+    result: &'a mut IOBytesRef<O>,
+}
+
+impl<'a, O, F> FSTEnumBase<O, F> for BytesRefFSTEnumContext<'a, O>
 where
     O: Outputs,
     F: FstReader,
@@ -141,4 +138,5 @@ where
         Ok(())
     }
 }
+
 type IOBytesRef<O> = InputOutput<<O as Outputs>::V, BytesRef<Vec<u8>>>;
