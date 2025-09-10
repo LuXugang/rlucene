@@ -232,15 +232,27 @@ impl FreqProxTermsWriterPerField {
     /// first TermsHash); postings use this API.
     pub(crate) fn add_with_bytes_ref(
         &mut self,
-        term_bytes: &BytesRef<Vec<u8>>,
+        term_bytes: Option<&BytesRef<Vec<u8>>>,
         doc_id: i32,
         field_state: &mut FieldInvertState,
-        attribute_source: &impl AttributeSource,
+        attribute_source: &mut impl AttributeSource,
     ) -> Result<()> {
         debug_assert!(self.base.assert_doc_id(doc_id));
         // We are first in the chain so we must "intern" the
         // term text into textStart address
         // Get the text & hash of this term.
+        let bytes = attribute_source.get_bytes_ref();
+        let term_bytes = match term_bytes {
+            Some(t) => t,
+            None => {
+                if bytes.is_none() {
+                    return Err(LuceneError::illegal_state(
+                        "term bytes and attribute source bytes are both None".to_string(),
+                    ));
+                }
+                bytes.as_ref().unwrap()
+            },
+        };
         let mut term_id = self.base.bytes_hash.add(term_bytes)?;
         if term_id >= 0 {
             self.base.init_stream_slices(term_id, doc_id)?;

@@ -42,4 +42,8 @@ impl TokenStream for DummyTokenStream {
     fn get_attribute_source(&self) -> &Self::AttributeSource {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
+
+    fn get_attribute_source_mut(&mut self) -> &mut Self::AttributeSource {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
 }

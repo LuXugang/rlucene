@@ -36,7 +36,7 @@ impl AttributeSource for DummyAttributeSource {
         unimplemented!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn get_bytes_ref(&'_ self) -> Option<Cow<'_, BytesRef<Vec<u8>>>> {
+    fn get_bytes_ref(&mut self) -> Option<Cow<'_, BytesRef<Vec<u8>>>> {
         unimplemented!("Dummy implementation: this method should never be called in real usage")
     }
 

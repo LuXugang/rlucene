@@ -24,6 +24,7 @@ pub trait TokenStream {
     fn close(&mut self) -> Result<()>;
     type AttributeSource: AttributeSource;
     fn get_attribute_source(&self) -> &Self::AttributeSource;
+    fn get_attribute_source_mut(&mut self) -> &mut Self::AttributeSource;
 }
 pub fn default_attribute() -> Attributes {
     Attributes::PackedToken(PackedTokenAttributeImpl::new())

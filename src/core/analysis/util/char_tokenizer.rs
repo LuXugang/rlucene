@@ -225,6 +225,10 @@ impl TokenStream for CharTokenizerImpl {
     fn get_attribute_source(&self) -> &Self::AttributeSource {
         &self.base.att
     }
+
+    fn get_attribute_source_mut(&mut self) -> &mut Self::AttributeSource {
+        &mut self.base.att
+    }
 }
 
 impl CharTokenizer for CharTokenizerImpl {

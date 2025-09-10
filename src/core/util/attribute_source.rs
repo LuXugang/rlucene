@@ -17,6 +17,9 @@
 use crate::core::analysis::token_attributes::char_term_attribute::CharTermAttribute;
 use crate::core::analysis::token_attributes::offset_attribute::OffsetAttribute;
 use crate::core::analysis::token_attributes::packed_token_attribute_impl::PackedTokenAttributeImpl;
+use crate::core::analysis::token_attributes::position_increment_attribute::PositionIncrementAttribute;
+use crate::core::analysis::token_attributes::term_frequency_attribute::TermFrequencyAttribute;
+use crate::core::analysis::token_attributes::term_to_bytes_ref_attribute::TermToBytesRefAttribute;
 use crate::core::index::BytesRef;
 use crate::core::util::attribute::Attribute;
 use crate::core::util::error::lucene_error;
@@ -43,7 +46,7 @@ pub trait AttributeSource {
     }
 
     // TermToBytesRefAttribute;
-    fn get_bytes_ref(&self) -> Option<Cow<'_, BytesRef<Vec<u8>>>> {
+    fn get_bytes_ref(&mut self) -> Option<Cow<'_, BytesRef<Vec<u8>>>> {
         None
     }
 
@@ -156,7 +159,7 @@ impl AttributeSource for Attributes {
 
     fn get_position_increment(&self) -> Option<i32> {
         match self {
-            Attributes::PackedToken(_) => None,
+            Attributes::PackedToken(attr) => Some(attr.get_position_increment()),
         }
     }
 
@@ -166,15 +169,15 @@ impl AttributeSource for Attributes {
         }
     }
 
-    fn get_bytes_ref(&self) -> Option<Cow<'_, BytesRef<Vec<u8>>>> {
+    fn get_bytes_ref(&mut self) -> Option<Cow<'_, BytesRef<Vec<u8>>>> {
         match self {
-            Attributes::PackedToken(_) => None,
+            Attributes::PackedToken(attr) => Some(attr.base.get_bytes_ref()),
         }
     }
 
     fn get_term_frequency(&self) -> Option<i32> {
         match self {
-            Attributes::PackedToken(_) => None,
+            Attributes::PackedToken(attr) => Some(attr.get_term_frequency()),
         }
     }
 }
@@ -241,7 +244,7 @@ where
         }
     }
 
-    fn get_bytes_ref(&self) -> Option<Cow<'_, BytesRef<Vec<u8>>>> {
+    fn get_bytes_ref(&mut self) -> Option<Cow<'_, BytesRef<Vec<u8>>>> {
         match self {
             Either2AttributeSource::A(t) => t.get_bytes_ref(),
             Either2AttributeSource::B(s) => s.get_bytes_ref(),

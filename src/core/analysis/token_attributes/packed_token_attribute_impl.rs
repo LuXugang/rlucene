@@ -41,7 +41,7 @@ pub struct PackedTokenAttributeImpl {
     position_increment: i32,
     position_length: i32,
     term_frequency: i32,
-    base: CharTermAttributeImpl,
+    pub(crate) base: CharTermAttributeImpl,
 }
 impl Default for PackedTokenAttributeImpl {
     fn default() -> Self {

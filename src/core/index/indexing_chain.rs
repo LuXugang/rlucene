@@ -1443,7 +1443,7 @@ impl PerField {
                 // non-aborting and (above) this one document
                 // will be marked as deleted, but still
                 // consume a docID
-                let attribute_source = stream.get_attribute_source();
+                let attribute_source = stream.get_attribute_source_mut();
                 let invert_state = self.invert_state.as_mut().unwrap();
                 let pos_incr = attribute_source.get_position_increment().ok_or_else(|| {
                     LuceneError::illegal_state("PositionIncrementAttribute is None".to_string())
@@ -1521,15 +1521,17 @@ impl PerField {
                 // internal state of the terms hash is now
                 // corrupt and should not be flushed to a
                 // new segment:
-                let bytes_ref = attribute_source.get_bytes_ref().ok_or_else(|| {
-                    LuceneError::illegal_state("BytesRef is None in attribute_source".to_string())
-                })?;
                 if let Err(e) = terms_hash_per_field.add_with_bytes_ref(
-                    &bytes_ref,
+                    None,
                     doc_id,
                     self.invert_state.as_mut().unwrap(),
                     attribute_source,
                 ) {
+                    let bytes_ref = attribute_source.get_bytes_ref().ok_or_else(|| {
+                        LuceneError::illegal_state(
+                            "BytesRef is None in attribute_source".to_string(),
+                        )
+                    })?;
                     let mut prefix = [0u8; 30];
                     prefix.copy_from(&bytes_ref.bytes[bytes_ref.offset..bytes_ref.offset + 30], 0);
                     return Err(LuceneError::illegal_argument(format!(
@@ -1616,10 +1618,13 @@ impl PerField {
                 ));
             },
         }
-        let attribute_source = EmptyAttributeSource;
-        if let Err(e) =
-            terms_hash_per_field.add_with_bytes_ref(&binary_value, doc_id, state, &attribute_source)
-        {
+        let mut attribute_source = EmptyAttributeSource;
+        if let Err(e) = terms_hash_per_field.add_with_bytes_ref(
+            Some(&binary_value),
+            doc_id,
+            state,
+            &mut attribute_source,
+        ) {
             let mut prefix = [0u8; 30];
             prefix.copy_from(
                 &binary_value.bytes[binary_value.offset..binary_value.offset + 30],
