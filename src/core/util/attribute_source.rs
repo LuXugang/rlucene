@@ -22,6 +22,7 @@ use crate::core::analysis::token_attributes::term_frequency_attribute::TermFrequ
 use crate::core::analysis::token_attributes::term_to_bytes_ref_attribute::TermToBytesRefAttribute;
 use crate::core::index::BytesRef;
 use crate::core::util::attribute::Attribute;
+use crate::core::util::attribute_impl::AttributeImpl;
 use crate::core::util::error::lucene_error;
 use std::borrow::Cow;
 
@@ -54,6 +55,8 @@ pub trait AttributeSource {
     fn get_term_frequency(&self) -> Option<i32> {
         None
     }
+
+    fn end_attributes(&mut self);
 }
 
 pub enum Attributes {
@@ -180,6 +183,12 @@ impl AttributeSource for Attributes {
             Attributes::PackedToken(attr) => Some(attr.get_term_frequency()),
         }
     }
+
+    fn end_attributes(&mut self) {
+        match self {
+            Attributes::PackedToken(attr) => attr.end(),
+        }
+    }
 }
 
 impl OffsetAttribute for Attributes {
@@ -203,7 +212,9 @@ impl OffsetAttribute for Attributes {
 }
 
 pub struct EmptyAttributeSource;
-impl AttributeSource for EmptyAttributeSource {}
+impl AttributeSource for EmptyAttributeSource {
+    fn end_attributes(&mut self) {}
+}
 
 // AttributeSource
 pub enum Either2AttributeSource<A, B> {
@@ -255,6 +266,13 @@ where
         match self {
             Either2AttributeSource::A(t) => t.get_term_frequency(),
             Either2AttributeSource::B(s) => s.get_term_frequency(),
+        }
+    }
+
+    fn end_attributes(&mut self) {
+        match self {
+            Either2AttributeSource::A(t) => t.end_attributes(),
+            Either2AttributeSource::B(s) => s.end_attributes(),
         }
     }
 }

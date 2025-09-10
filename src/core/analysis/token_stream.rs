@@ -23,7 +23,8 @@ pub trait TokenStream {
     }
     fn end(&mut self) -> Result<()>;
     fn default_end(&mut self) -> Result<()> {
-        todo!()
+        self.get_attribute_source_mut().end_attributes();
+        Ok(())
     }
     fn reset(&mut self) -> Result<()> {
         Ok(())

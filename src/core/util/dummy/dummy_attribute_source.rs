@@ -43,4 +43,8 @@ impl AttributeSource for DummyAttributeSource {
     fn get_term_frequency(&self) -> Option<i32> {
         unimplemented!("Dummy implementation: this method should never be called in real usage")
     }
+
+    fn end_attributes(&mut self) {
+        unimplemented!("Dummy implementation: this method should never be called in real usage")
+    }
 }
