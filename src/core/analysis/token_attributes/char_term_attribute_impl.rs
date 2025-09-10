@@ -96,8 +96,12 @@ impl CharTermAttribute for CharTermAttributeImpl {
         self.term_length = length
     }
 
-    fn buffer(&mut self) -> &mut [char] {
+    fn buffer_mut(&mut self) -> &mut [char] {
         &mut self.term_buffer
+    }
+
+    fn buffer(&self) -> &[char] {
+        &self.term_buffer
     }
 
     fn resize_buffer(&mut self, new_size: usize) -> &mut [char] {
