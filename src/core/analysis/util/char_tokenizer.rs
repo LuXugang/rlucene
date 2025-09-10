@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::analysis::character_utils::{CharacterBuffer, CharacterUtils};
+use crate::core::analysis::reader::Reader;
 use crate::core::analysis::standard::standard_tokenizer::MAX_TOKEN_LENGTH_LIMIT;
 use crate::core::analysis::token_attributes::char_term_attribute::CharTermAttribute;
 use crate::core::analysis::token_attributes::offset_attribute::OffsetAttribute;
@@ -24,87 +25,8 @@ use crate::core::util::attribute_source::Attributes;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// An trait for simple, character-oriented tokenizers.
 pub trait CharTokenizer: Tokenizer {
-    fn get_char_tokenizer_base(&mut self) -> &mut CharTokenizerBase;
     /// Returns true iff a codepoint should be included in a token.
     fn is_token_char(&self, c: &char) -> bool;
-    fn end(&mut self) -> Result<()> {
-        TokenStream::end(self)?;
-        // set final offset
-        let base = self.get_char_tokenizer_base();
-        let final_offset = base.final_offset;
-        self.get_char_tokenizer_base()
-            .att
-            .set_offset(final_offset, final_offset)
-    }
-    fn reset(&mut self) -> Result<()> {
-        TokenStream::reset(self)?;
-        let base = self.get_char_tokenizer_base();
-        base.buffer_index = 0;
-        base.offset = 0;
-        base.data_len = 0;
-        base.final_offset = 0;
-        base.io_buffer.reset();
-        Ok(())
-    }
-    fn increment_token(&mut self) -> Result<bool> {
-        // TODO: clear_attributes 未实现
-        // self.clear_attributes();
-        let mut length: usize = 0;
-        let mut start: i32 = 0;
-        let mut end: i32 = 0;
-        loop {
-            let base = self.get_char_tokenizer_base();
-            if base.buffer_index >= base.data_len {
-                base.offset += base.data_len;
-                // // read supplementary char aware with CharacterUtils
-                CharacterUtils::fill(&mut base.io_buffer, &mut base.tokenizer_base.input)?;
-                if base.io_buffer.get_length() == 0 {
-                    base.data_len = 0;
-                    if length > 0 {
-                        break;
-                    } else {
-                        let offset = base.offset;
-                        self.get_char_tokenizer_base().final_offset = self.correct_offset(offset);
-                        return Ok(false);
-                    }
-                }
-                base.data_len = base.io_buffer.get_length() as i32;
-                base.buffer_index = 0;
-            }
-            let c = base.io_buffer.get_buffer()[base.buffer_index as usize];
-            base.buffer_index += 1;
-            if self.is_token_char(&c) {
-                let base = self.get_char_tokenizer_base();
-                if length == 0 {
-                    // start of token
-                    debug_assert_eq!(start, -1);
-                    start = base.offset + base.buffer_index - 1;
-                    end = start;
-                } else if length >= base.att.buffer().len() - 1 {
-                    base.att.resize_buffer(2 + length);
-                }
-
-                base.att.buffer()[length] = c;
-                length += 1;
-                end += 1;
-
-                if length >= base.max_token_len as usize {
-                    break;
-                }
-            } else if length > 0 {
-                break;
-            }
-        }
-        let correct_start = self.correct_offset(start);
-        let correct_end = self.correct_offset(end);
-        let base = self.get_char_tokenizer_base();
-        base.att.set_length(length)?;
-        debug_assert_ne!(start, -1);
-        base.final_offset = correct_end;
-        base.att.set_offset(correct_start, base.final_offset)?;
-
-        Ok(true)
-    }
 }
 /// Creates a new instance of `CharTokenizer` using a custom predicate, supplied as a method
 /// reference or lambda expression.
@@ -178,6 +100,110 @@ impl CharTokenizerBase {
             tokenizer_base: TokenizerBase::new(),
         })
     }
+    pub(crate) fn increment_token_with_ct<T>(&mut self, sub: &T) -> Result<bool>
+    where
+        T: CharTokenizer,
+    {
+        // TODO: clear_attributes 未实现
+        // self.clear_attributes();
+        let mut length: usize = 0;
+        let mut start: i32 = 0;
+        let mut end: i32 = 0;
+        loop {
+            if self.buffer_index >= self.data_len {
+                self.offset += self.data_len;
+                // // read supplementary char aware with CharacterUtils
+                CharacterUtils::fill(&mut self.io_buffer, &mut self.tokenizer_base.input)?;
+                if self.io_buffer.get_length() == 0 {
+                    self.data_len = 0;
+                    if length > 0 {
+                        break;
+                    } else {
+                        let offset = self.offset;
+                        self.final_offset = self.correct_offset(offset);
+                        return Ok(false);
+                    }
+                }
+                self.data_len = self.io_buffer.get_length() as i32;
+                self.buffer_index = 0;
+            }
+            let c = self.io_buffer.get_buffer()[self.buffer_index as usize];
+            self.buffer_index += 1;
+            if sub.is_token_char(&c) {
+                if length == 0 {
+                    // start of token
+                    debug_assert_eq!(start, -1);
+                    start = self.offset + self.buffer_index - 1;
+                    end = start;
+                } else if length >= self.att.buffer().len() - 1 {
+                    self.att.resize_buffer(2 + length);
+                }
+
+                self.att.buffer()[length] = c;
+                length += 1;
+                end += 1;
+
+                if length >= self.max_token_len as usize {
+                    break;
+                }
+            } else if length > 0 {
+                break;
+            }
+        }
+        self.att.set_length(length)?;
+        debug_assert_ne!(start, -1);
+        self.final_offset = self.correct_offset(end);
+        self.att
+            .set_offset(self.correct_offset(start), self.final_offset)?;
+
+        Ok(true)
+    }
+}
+
+impl TokenStream for CharTokenizerBase {
+    fn increment_token(&mut self) -> Result<bool> {
+        unreachable!("should not be called")
+    }
+
+    fn end(&mut self) -> Result<()> {
+        self.tokenizer_base.end()?;
+        // set final offset
+        self.att.set_offset(self.final_offset, self.final_offset)
+    }
+
+    fn reset(&mut self) -> Result<()> {
+        self.tokenizer_base.reset()?;
+        self.buffer_index = 0;
+        self.offset = 0;
+        self.data_len = 0;
+        self.final_offset = 0;
+        self.io_buffer.reset();
+        Ok(())
+    }
+
+    fn close(&mut self) -> Result<()> {
+        self.tokenizer_base.input.close()
+    }
+
+    type AttributeSource = Attributes;
+
+    fn get_attribute_source(&self) -> &Self::AttributeSource {
+        &self.att
+    }
+
+    fn get_attribute_source_mut(&mut self) -> &mut Self::AttributeSource {
+        &mut self.att
+    }
+}
+
+impl Tokenizer for CharTokenizerBase {
+    fn get_tokenizer_base_mut(&mut self) -> &mut TokenizerBase {
+        &mut self.tokenizer_base
+    }
+
+    fn get_tokenizer_base(&self) -> &TokenizerBase {
+        &self.tokenizer_base
+    }
 }
 
 pub struct CharTokenizerImpl {
@@ -205,19 +231,20 @@ impl Tokenizer for CharTokenizerImpl {
 
 impl TokenStream for CharTokenizerImpl {
     fn increment_token(&mut self) -> Result<bool> {
-        CharTokenizer::increment_token(self)
+        let outer: &CharTokenizerImpl = unsafe { &*(self as *const _) };
+        self.base.increment_token_with_ct(outer)
     }
 
     fn end(&mut self) -> Result<()> {
-        CharTokenizer::end(self)
+        self.base.end()
     }
 
     fn reset(&mut self) -> Result<()> {
-        CharTokenizer::reset(self)
+        self.base.reset()
     }
 
     fn close(&mut self) -> Result<()> {
-        Tokenizer::close(self)
+        self.base.close()
     }
 
     type AttributeSource = Attributes;
@@ -232,10 +259,6 @@ impl TokenStream for CharTokenizerImpl {
 }
 
 impl CharTokenizer for CharTokenizerImpl {
-    fn get_char_tokenizer_base(&mut self) -> &mut CharTokenizerBase {
-        &mut self.base
-    }
-
     fn is_token_char(&self, c: &char) -> bool {
         (self.token_char_predicate)(*c as i32)
     }

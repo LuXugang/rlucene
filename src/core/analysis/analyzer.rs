@@ -58,8 +58,7 @@ impl TokenStream for StringTokenStream {
     }
 
     fn end(&mut self) -> Result<()> {
-        // TODO: 这里实现不对
-        // TokenStream::end(self)?;
+        self.default_end()?;
         self.att.set_offset(self.length, self.length)
     }
 

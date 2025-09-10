@@ -18,12 +18,17 @@ use crate::core::analysis::token_attributes::packed_token_attribute_impl::Packed
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
 use crate::core::util::error::lucene_error::Result;
 pub trait TokenStream {
-    fn increment_token(&mut self) -> Result<bool>;
-    fn end(&mut self) -> Result<()> {
-        // TODO
-        Ok(())
+    fn increment_token(&mut self) -> Result<bool> {
+        unreachable!("must be implemented by sub");
+    }
+    fn end(&mut self) -> Result<()>;
+    fn default_end(&mut self) -> Result<()> {
+        todo!()
     }
     fn reset(&mut self) -> Result<()> {
+        Ok(())
+    }
+    fn default_reset(&mut self) -> Result<()> {
         Ok(())
     }
     fn close(&mut self) -> Result<()> {

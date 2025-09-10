@@ -82,19 +82,20 @@ impl Tokenizer for WhitespaceTokenizer {
 
 impl TokenStream for WhitespaceTokenizer {
     fn increment_token(&mut self) -> Result<bool> {
-        CharTokenizer::increment_token(self)
+        let outer: &WhitespaceTokenizer = unsafe { &*(self as *const _) };
+        self.base.increment_token_with_ct(outer)
     }
 
     fn end(&mut self) -> Result<()> {
-        CharTokenizer::end(self)
+        self.base.end()
     }
 
     fn reset(&mut self) -> Result<()> {
-        CharTokenizer::reset(self)
+        self.base.reset()
     }
 
     fn close(&mut self) -> Result<()> {
-        Tokenizer::close(self)
+        self.base.close()
     }
 
     type AttributeSource = Attributes;
@@ -109,9 +110,6 @@ impl TokenStream for WhitespaceTokenizer {
 }
 
 impl CharTokenizer for WhitespaceTokenizer {
-    fn get_char_tokenizer_base(&mut self) -> &mut CharTokenizerBase {
-        &mut self.base
-    }
     /// Collects only characters which do not satisfy Char::is_whitespace().
     fn is_token_char(&self, c: &char) -> bool {
         !c.is_whitespace()

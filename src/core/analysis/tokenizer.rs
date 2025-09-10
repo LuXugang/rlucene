@@ -16,26 +16,19 @@
  */
 use crate::core::analysis::reader::{Reader, ReaderEnum};
 use crate::core::analysis::token_stream::TokenStream;
+use crate::core::util::attribute_source::Attributes;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// A `Tokenizer` is a `TokenStream` whose input is a `Reader`.
 pub trait Tokenizer: TokenStream {
     fn get_tokenizer_base_mut(&mut self) -> &mut TokenizerBase;
     fn get_tokenizer_base(&self) -> &TokenizerBase;
-    /// Releases resources associated with this stream.
-    fn close(&mut self) -> Result<()> {
-        let base = self.get_tokenizer_base_mut();
-        base.input.close()?;
-        base.input = ReaderEnum::IllegalState(IllegalStateReader);
-        base.input_pending = ReaderEnum::IllegalState(IllegalStateReader);
-        Ok(())
-    }
+
     /// Return the corrected offset.
     /// If input is a CharFilter this method calls CharFilter.correctOffset else returns currentOff.
     fn correct_offset(&self, current_off: i32) -> i32 {
         let base = self.get_tokenizer_base();
         base.input.correct_offset(current_off)
     }
-
     /// Expert: Set a new reader on the Tokenizer.
     /// Typically, an analyzer (in its tokenStream method) will use this to re-use a previously created tokenizer.
     fn set_reader(&mut self, input: ReaderEnum) -> Result<()> {
@@ -47,13 +40,6 @@ pub trait Tokenizer: TokenStream {
         }
         base.input_pending = input;
         self.set_reader_test_point();
-        Ok(())
-    }
-    fn reset(&mut self) -> Result<()> {
-        TokenStream::reset(self)?;
-        let base = self.get_tokenizer_base_mut();
-        base.input = std::mem::take(&mut base.input_pending);
-        base.input_pending = ReaderEnum::IllegalState(IllegalStateReader);
         Ok(())
     }
     fn set_reader_test_point(&mut self) {}
@@ -81,9 +67,35 @@ impl TokenizerBase {
     pub fn set_reader(&mut self, input: ReaderEnum) {
         self.input_pending = input;
     }
-    pub fn reset(&mut self) -> Result<()> {
-        self.input = self.input_pending.clone();
+}
+impl TokenStream for TokenizerBase {
+    fn end(&mut self) -> Result<()> {
+        self.default_end()
+    }
+
+    fn reset(&mut self) -> Result<()> {
+        self.default_reset()?;
+        self.input = std::mem::take(&mut self.input_pending);
+        self.input_pending = ReaderEnum::IllegalState(IllegalStateReader);
         Ok(())
+    }
+
+    /// Releases resources associated with this stream.
+    fn close(&mut self) -> Result<()> {
+        self.input.close()?;
+        self.input = ReaderEnum::IllegalState(IllegalStateReader);
+        self.input_pending = ReaderEnum::IllegalState(IllegalStateReader);
+        Ok(())
+    }
+
+    type AttributeSource = Attributes;
+
+    fn get_attribute_source(&self) -> &Self::AttributeSource {
+        unreachable!("should not be called")
+    }
+
+    fn get_attribute_source_mut(&mut self) -> &mut Self::AttributeSource {
+        unreachable!("should not be called")
     }
 }
 #[derive(Debug, Clone, Default)]
