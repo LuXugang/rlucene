@@ -16,6 +16,8 @@
  */
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::fmt::Display;
+
 /// A simple class that stores key Strings as char[]'s in a hash table
 pub struct CharArrayMap<T> {
     ignore: bool,
@@ -28,10 +30,8 @@ impl<T> CharArrayMap<T> {
             map: HashMap::new(),
         }
     }
-    pub fn extend(other: HashMap<Vec<char>, T>, ignore: bool) -> Self {
-        let mut v = Self::new(ignore);
-        v.map.extend(other);
-        v
+    pub fn add_all(&mut self, v: HashMap<Vec<char>, T>) {
+        self.map.extend(v)
     }
     pub fn clear(&mut self) {
         self.map.clear();
@@ -42,26 +42,39 @@ impl<T> CharArrayMap<T> {
         self.map.contains_key(&*key)
     }
     pub fn contains_key_str(&self, key: &str) -> bool {
-        let chars: Vec<char> = key.chars().collect();
-        let norm = Self::norm(self.ignore, &chars);
-        self.map.contains_key(&*norm)
+        let chars: Vec<char> = key.to_string().chars().collect();
+        debug_assert!(chars.len() <= i32::MAX as usize);
+        self.contains_key(chars.as_slice(), 0, chars.len() as i32)
+    }
+    pub fn contains_key_any<V>(&self, key: &V) -> bool
+    where
+        V: Display,
+    {
+        let chars = key.to_string();
+        self.contains_key_str(&chars)
     }
 
-    pub fn put(&mut self, key: &[char], val: T) {
-        let k = if self.ignore {
-            key.iter().flat_map(|c| c.to_lowercase()).collect()
-        } else {
-            key.to_vec()
-        };
-        self.map.insert(k, val);
-    }
-    pub fn put_str(&mut self, key: &str, val: T) {
-        let chars: Vec<char> = key.chars().collect();
+    pub fn put<'a, K>(&mut self, key: K, val: T) -> Option<T>
+    where
+        K: Into<Cow<'a, [char]>>,
+    {
+        let chars = key.into();
         let k = match Self::norm(self.ignore, &chars) {
             Cow::Borrowed(b) => b.to_vec(),
             Cow::Owned(o) => o,
         };
-        self.map.insert(k, val);
+        self.map.insert(k, val)
+    }
+    pub fn put_str(&mut self, key: &str, val: T) -> Option<T> {
+        let key: Vec<char> = key.chars().collect();
+        self.put(key, val)
+    }
+    pub fn put_any<V>(&mut self, key: &V, val: T) -> Option<T>
+    where
+        V: Display,
+    {
+        let key: Vec<char> = key.to_string().chars().collect();
+        self.put(key, val)
     }
     pub fn get(&self, key: &[char]) -> Option<&T> {
         let key = Self::norm(self.ignore, key);
@@ -69,8 +82,17 @@ impl<T> CharArrayMap<T> {
     }
     pub fn get_str(&self, key: &str) -> Option<&T> {
         let chars: Vec<char> = key.chars().collect();
-        let key = Self::norm(self.ignore, &chars);
-        self.map.get(&*key)
+        self.get(chars.as_slice())
+    }
+    pub fn get_any<V>(&self, key: &V) -> Option<&T>
+    where
+        V: Display,
+    {
+        let key = key.to_string();
+        self.get_str(&key)
+    }
+    pub fn size(&self) -> usize {
+        self.map.len()
     }
 
     fn norm(ignore: bool, s: &[char]) -> Cow<'_, [char]> {

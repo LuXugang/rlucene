@@ -40,7 +40,7 @@ pub trait AttributeSource {
     fn get_position_increment(&self) -> Option<i32> {
         None
     }
-    fn set_position_increment(&mut self, position_increment: i32) -> Result<()> {
+    fn set_position_increment(&mut self, _position_increment: i32) -> Result<()> {
         Err(LuceneError::unsupported_operation(""))
     }
 
