@@ -117,7 +117,9 @@ where
 
         let mut index_in = state.directory.open_input(
             &index_name,
-            &state.context.with_read_advice(ReadAdvice::RandomPreload)?,
+            &state
+                .context
+                .with_read_advice_self(ReadAdvice::RandomPreload)?,
         )?;
 
         CodecUtil::check_index_header(

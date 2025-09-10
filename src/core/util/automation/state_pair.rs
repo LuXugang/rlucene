@@ -27,7 +27,7 @@ pub(crate) struct StatePair {
 }
 
 impl StatePair {
-    pub(crate) fn new_with_s(s: i32, s1: i32, s2: i32) -> Self {
+    pub(crate) fn with_s(s: i32, s1: i32, s2: i32) -> Self {
         StatePair { s1, s2, s }
     }
 

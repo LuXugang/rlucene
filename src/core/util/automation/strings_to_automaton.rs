@@ -529,7 +529,7 @@ mod tests {
         a: Automaton,
         is_binary: bool,
     ) -> Result<()> {
-        let c = CompiledAutomaton::new_with_binary(a, true, false, is_binary)?;
+        let c = CompiledAutomaton::with_binary(a, true, false, is_binary)?;
         let run_automaton = c.run_automaton.as_ref().unwrap();
 
         // Make sure every expected term is accepted

@@ -54,9 +54,9 @@ impl NFARunAutomaton {
     const MISSING: i32 = -1;
     const NOT_COMPUTED: i32 = -2;
     pub fn new(automaton: Automaton) -> Self {
-        Self::new_with_alphabet_size(automaton, 0x10FFFF + 1)
+        Self::with_alphabet_size(automaton, 0x10FFFF + 1)
     }
-    pub fn new_with_alphabet_size(automaton: Automaton, alphabet_size: i32) -> Self {
+    pub fn with_alphabet_size(automaton: Automaton, alphabet_size: i32) -> Self {
         let points = automaton.get_start_points();
         let classmap_len = std::cmp::min(256, alphabet_size) as usize;
         let mut classmap = vec![0; classmap_len];

@@ -78,7 +78,7 @@ where
 
         let mut index_input = dir.open_input(
             &IndexFileNames::segment_file_name(&name, suffix, extension),
-            &context.with_read_advice(ReadAdvice::RandomPreload)?,
+            &context.with_read_advice_self(ReadAdvice::RandomPreload)?,
         )?;
 
         CodecUtil::check_index_header(
@@ -120,7 +120,7 @@ where
             start_pointers,
         })
     }
-    fn new_with_other(other: &FieldsIndexReader<I>) -> Result<Self> {
+    fn with_other(other: &FieldsIndexReader<I>) -> Result<Self> {
         let docs_meta = other.docs_meta.clone();
         let start_pointers_meta = other.start_pointers_meta.clone();
         let docs_slice = Rc::new(RefCell::new(other.index_input.random_access_slice(
@@ -163,7 +163,7 @@ where
     where
         Self: Sized,
     {
-        FieldsIndexReader::new_with_other(self)
+        FieldsIndexReader::with_other(self)
     }
 }
 

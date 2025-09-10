@@ -241,7 +241,7 @@ where
     where
         D: Directory<IndexOutput = O>,
     {
-        Self::new_with_version(
+        Self::with_version(
             state,
             postings_writer,
             min_items_in_block,
@@ -251,7 +251,7 @@ where
         )
     }
     /// Expert constructor that allows configuring the version, used for bw tests
-    pub fn new_with_version<D>(
+    pub fn with_version<D>(
         state: &SegmentWriteState<D>,
         mut postings_writer: PW,
         min_items_in_block: i32,

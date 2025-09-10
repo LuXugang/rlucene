@@ -43,7 +43,7 @@ impl ReadWriteDataOutput {
     pub(crate) fn new(block_bits: i32) -> Result<Self> {
         let block_size = 1 << block_bits;
         let block_mask = block_size - 1;
-        let data_output = ByteBuffersDataOutput::new_with_reuse(block_bits, block_bits, false)?;
+        let data_output = ByteBuffersDataOutput::with_reuse(block_bits, block_bits, false)?;
         Ok(Self {
             data_output,
             block_bits,

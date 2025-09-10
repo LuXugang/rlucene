@@ -286,14 +286,14 @@ impl Lucene101PostingsFormat {
     pub(crate) const VERSION_CURRENT: i32 = Self::VERSION_START;
 
     pub fn new() -> Self {
-        Self::new_with_iterm_num(DEFAULT_MIN_BLOCK_SIZE, DEFAULT_MAX_BLOCK_SIZE).unwrap()
+        Self::with_iterm_num(DEFAULT_MIN_BLOCK_SIZE, DEFAULT_MAX_BLOCK_SIZE).unwrap()
     }
     /// Creates a `Lucene101PostingsFormat` with custom values for `min_block_size` and `max_block_size`
     /// passed to the block terms dictionary.
     ///
     /// See [`Lucene90BlockTreeTermsWriter::new`](Lucene90BlockTreeTermsWriter)
     /// for details.
-    pub fn new_with_iterm_num(min_items_in_block: i32, max_items_in_block: i32) -> Result<Self> {
+    pub fn with_iterm_num(min_items_in_block: i32, max_items_in_block: i32) -> Result<Self> {
         Self::validate_settings(min_items_in_block, max_items_in_block)?;
         Ok(Self {
             min_term_block_size: min_items_in_block,

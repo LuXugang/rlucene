@@ -49,9 +49,9 @@ pub struct NumericDocValuesField {
 }
 impl NumericDocValuesField {
     pub fn new(name: &str, value: i64) -> Self {
-        Self::new_with_type(name, value, TYPE.clone())
+        Self::with_type(name, value, TYPE.clone())
     }
-    pub fn new_with_type(name: &str, value: i64, file_type: FieldType) -> Self {
+    pub fn with_type(name: &str, value: i64, file_type: FieldType) -> Self {
         let mut parent_field = Field::new(name, file_type);
         parent_field.fields_data = Option::from(FieldDataEnum::Number(Number::I64(value)));
         Self { parent_field }

@@ -157,7 +157,7 @@ impl CharTokenizerBase {
     pub fn new() -> Result<Self> {
         Self::with_max_token_len(default_attribute(), DEFAULT_MAX_WORD_LEN)
     }
-    pub fn new_with_att(att: Attributes) -> Result<Self> {
+    pub fn with_att(att: Attributes) -> Result<Self> {
         Self::with_max_token_len(att, DEFAULT_MAX_WORD_LEN)
     }
     pub fn with_max_token_len(att: Attributes, max_token_len: i32) -> Result<Self> {
@@ -187,7 +187,7 @@ pub struct CharTokenizerImpl {
 impl CharTokenizerImpl {
     fn new(att: Attributes, token_char_predicate: fn(i32) -> bool) -> Result<Self> {
         Ok(CharTokenizerImpl {
-            base: CharTokenizerBase::new_with_att(att)?,
+            base: CharTokenizerBase::with_att(att)?,
             token_char_predicate,
         })
     }

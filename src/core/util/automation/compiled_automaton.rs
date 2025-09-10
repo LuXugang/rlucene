@@ -72,7 +72,7 @@ impl CompiledAutomaton {
     /// Creates a `CompiledAutomaton` with `finite = false` and `simplify =
     /// true`.
     pub fn from_automaton(automaton: Automaton) -> Result<Self> {
-        Self::new_with_binary(automaton, false, true, false)
+        Self::with_binary(automaton, false, true, false)
     }
     /// Returns sink state, if present, else -1.
     fn find_sink_state(automaton: &Automaton) -> i32 {
@@ -96,7 +96,7 @@ impl CompiledAutomaton {
     /// [`AutomatonType`]. Set `finite` to `true` if the automaton is
     /// finite, otherwise set to `false` if infinite or unknown.
     pub fn new(automaton: Automaton, finite: bool, simplify: bool) -> Result<Self> {
-        Self::new_with_binary(automaton, finite, simplify, false)
+        Self::with_binary(automaton, finite, simplify, false)
     }
     /// Creates a new instance.  
     ///
@@ -104,7 +104,7 @@ impl CompiledAutomaton {
     /// to determine if the automaton is one of the cases in
     /// [`AutomatonType`]. Set `finite` to `true` if the automaton is
     /// finite, or `false` if it is infinite or unknown.
-    pub fn new_with_binary(
+    pub fn with_binary(
         mut automaton: Automaton,
         finite: bool,
         simplify: bool,
@@ -217,7 +217,7 @@ impl CompiledAutomaton {
                 term,
                 run_automaton: None,
 
-                nfa_run_automaton: Some(NFARunAutomaton::new_with_alphabet_size(binary, 0xff)),
+                nfa_run_automaton: Some(NFARunAutomaton::with_alphabet_size(binary, 0xff)),
                 common_suffix_ref,
                 finite,
                 sink_state: -1,
@@ -230,7 +230,7 @@ impl CompiledAutomaton {
                 Cow::Borrowed(_) => binary,
                 Cow::Owned(o) => o,
             };
-            let run_automaton = ByteRunAutomaton::new_with_bool(dfa, true)?;
+            let run_automaton = ByteRunAutomaton::with_bool(dfa, true)?;
             let sink_state = Self::find_sink_state(&run_automaton.base.automaton);
 
             Ok(Self {
@@ -440,7 +440,7 @@ mod tests {
 
         terms.sort();
         let a = Automata::make_string_union(&terms)?;
-        CompiledAutomaton::new_with_binary(a, true, false, false)
+        CompiledAutomaton::with_binary(a, true, false, false)
     }
     fn test_floor(c: &mut CompiledAutomaton, input: &str, expected: Option<&str>) -> Result<()> {
         let b = BytesRef::from_string(input);
@@ -563,7 +563,7 @@ mod tests {
         a.add_transition(state, state, 0, 0xff)?;
         a.finish_state()?;
 
-        let ca = CompiledAutomaton::new_with_binary(a, false, true, true)?;
+        let ca = CompiledAutomaton::with_binary(a, false, true, true)?;
 
         assert_eq!(ca.automaton_type, AutomatonType::All);
         Ok(())
@@ -577,7 +577,7 @@ mod tests {
         a.add_transition(state, state, 0, char::MAX as i32)?;
         a.finish_state()?;
 
-        let ca = CompiledAutomaton::new_with_binary(a, false, true, false)?;
+        let ca = CompiledAutomaton::with_binary(a, false, true, false)?;
         assert_eq!(ca.automaton_type, AutomatonType::All);
 
         Ok(())
@@ -586,7 +586,7 @@ mod tests {
     #[test]
     fn test_binary_singleton() -> Result<()> {
         let a = Automata::make_string("foobar")?;
-        let ca = CompiledAutomaton::new_with_binary(a, true, true, true)?;
+        let ca = CompiledAutomaton::with_binary(a, true, true, true)?;
         assert_eq!(ca.automaton_type, AutomatonType::Single);
         Ok(())
     }
@@ -596,7 +596,7 @@ mod tests {
         let mut random = random();
         let s = TestUtil::random_realistic_unicode_string(&mut random);
         let a = Automata::make_string(&s)?;
-        let ca = CompiledAutomaton::new_with_binary(a, true, true, false)?;
+        let ca = CompiledAutomaton::with_binary(a, true, true, false)?;
         assert_eq!(ca.automaton_type, AutomatonType::Single);
         Ok(())
     }

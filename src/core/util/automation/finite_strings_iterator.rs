@@ -57,12 +57,12 @@ impl<'a> FiniteStringsIterator<'a> {
     /// Constructs an iterator for all finite strings of the automaton starting
     /// from 0
     pub fn new(a: &'a Automaton) -> Self {
-        Self::new_with_start_end(a, 0, -1)
+        Self::with_start_end(a, 0, -1)
     }
 
     /// Constructs an iterator for all finite strings of the automaton starting
     /// from given state
-    pub fn new_with_start_end(a: &'a Automaton, start_state: i32, end_state: i32) -> Self {
+    pub fn with_start_end(a: &'a Automaton, start_state: i32, end_state: i32) -> Self {
         let num_states = a.get_num_states();
         let mut nodes = Vec::with_capacity(16);
         for _ in 0..16 {

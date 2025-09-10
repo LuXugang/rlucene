@@ -174,7 +174,7 @@ impl LuceneError {
     );
     error_ctor!(
         index_format_too_new,
-        index_format_too_new_with_source,
+        index_format_too_with_source,
         IndexFormatTooNew,
         IndexFormatTooNewError
     );

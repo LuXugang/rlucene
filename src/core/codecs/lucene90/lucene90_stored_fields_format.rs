@@ -114,10 +114,10 @@ impl Lucene90StoredFieldsFormat {
     const BEST_SPEED_BLOCK_LENGTH: usize = 10 * 8 * 1024;
     /// Stored fields format with default options.
     pub fn new() -> Self {
-        Self::new_with_mode(Mode::BestSpeed)
+        Self::with_mode(Mode::BestSpeed)
     }
     /// Stored fields format with specified mode.
-    pub fn new_with_mode(mode: Mode) -> Self {
+    pub fn with_mode(mode: Mode) -> Self {
         Self { mode }
     }
 

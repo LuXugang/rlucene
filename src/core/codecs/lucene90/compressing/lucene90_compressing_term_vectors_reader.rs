@@ -124,7 +124,7 @@ where
                 IndexFileNames::segment_file_name(segment, segment_suffix, VECTORS_EXTENSION);
             let mut vectors_stream = dir.open_input(
                 &vectors_stream_fn,
-                &context.with_read_advice(ReadAdvice::Random)?,
+                &context.with_read_advice_self(ReadAdvice::Random)?,
             )?;
 
             let version = CodecUtil::check_index_header(
@@ -233,7 +233,7 @@ where
         }
     }
 
-    pub fn new_with_reader(reader: &Lucene90CompressingTermVectorsReader<I>) -> Result<Self> {
+    pub fn with_reader(reader: &Lucene90CompressingTermVectorsReader<I>) -> Result<Self> {
         Ok(Self {
             field_infos: Rc::clone(&reader.field_infos),
             vectors_stream: reader.vectors_stream.try_clone()?,
@@ -950,7 +950,7 @@ where
     I: IndexInput,
 {
     fn clone(&self) -> Self {
-        Lucene90CompressingTermVectorsReader::new_with_reader(self).expect("should be ok")
+        Lucene90CompressingTermVectorsReader::with_reader(self).expect("should be ok")
     }
 }
 
@@ -968,7 +968,7 @@ where
     where
         Self: Sized,
     {
-        Ok(Some(Lucene90CompressingTermVectorsReader::new_with_reader(
+        Ok(Some(Lucene90CompressingTermVectorsReader::with_reader(
             self,
         )?))
     }

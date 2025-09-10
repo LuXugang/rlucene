@@ -173,7 +173,7 @@ where
         {
             data = state.directory.open_input(
                 &data_name,
-                &state.context.with_read_advice(ReadAdvice::Normal)?,
+                &state.context.with_read_advice_self(ReadAdvice::Normal)?,
             )?;
         }
 
@@ -212,7 +212,7 @@ where
         })
     }
     #[allow(clippy::too_many_arguments)]
-    fn new_with_merging(
+    fn with_merging(
         numerics: HashMap<i32, Rc<NumericEntry>>,
         binaries: HashMap<i32, Rc<BinaryEntry>>,
         sorted: HashMap<i32, Rc<SortedEntry>>,
@@ -1118,7 +1118,7 @@ where
     where
         Self: Sized,
     {
-        Ok(Some(Lucene90DocValuesProducer::new_with_merging(
+        Ok(Some(Lucene90DocValuesProducer::with_merging(
             self.numerics.clone(),
             self.binaries.clone(),
             self.sorted.clone(),

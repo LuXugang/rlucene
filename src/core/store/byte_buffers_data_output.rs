@@ -82,7 +82,7 @@ impl ByteBuffersDataOutput {
     pub const DEFAULT_MIN_BITS_PER_BLOCK: i32 = 10;
 
     pub fn new() -> Self {
-        let result = Self::new_with_reuse(
+        let result = Self::with_reuse(
             Self::DEFAULT_MIN_BITS_PER_BLOCK,
             Self::DEFAULT_MAX_BITS_PER_BLOCK,
             false,
@@ -92,7 +92,7 @@ impl ByteBuffersDataOutput {
     }
     ///Creates a new output with all defaults.
     pub fn new_resettable_instance() -> Self {
-        let result = Self::new_with_reuse(
+        let result = Self::with_reuse(
             Self::DEFAULT_MIN_BITS_PER_BLOCK,
             Self::DEFAULT_MAX_BITS_PER_BLOCK,
             true,
@@ -106,7 +106,7 @@ impl ByteBuffersDataOutput {
     /// * `min_bits_per_block` - Minimum bits per block.
     /// * `max_bits_per_block` - Maximum bits per block.
     /// * `reuse` - Reuse this Instance.
-    pub fn new_with_reuse(
+    pub fn with_reuse(
         min_bits_per_block: i32,
         max_bits_per_block: i32,
         reuse: bool,
@@ -152,7 +152,7 @@ impl ByteBuffersDataOutput {
     /// * `expected_size` - Estimated size of the output file.
     pub fn with_size(expected_size: i64) -> Result<Self> {
         let block_bits = compute_block_size_bits_for(expected_size);
-        Self::new_with_reuse(block_bits, Self::DEFAULT_MAX_BITS_PER_BLOCK, false)
+        Self::with_reuse(block_bits, Self::DEFAULT_MAX_BITS_PER_BLOCK, false)
     }
 
     fn append_block(&mut self) {
@@ -529,7 +529,7 @@ mod tests {
     #[test]
     fn test_reuse() -> Result<()> {
         let mut random = random();
-        let mut o = ByteBuffersDataOutput::new_with_reuse(
+        let mut o = ByteBuffersDataOutput::with_reuse(
             ByteBuffersDataOutput::DEFAULT_MIN_BITS_PER_BLOCK,
             ByteBuffersDataOutput::DEFAULT_MAX_BITS_PER_BLOCK,
             true,
@@ -597,7 +597,7 @@ mod tests {
 
     #[test]
     fn test_illegal_min_bits_per_block() {
-        let o = ByteBuffersDataOutput::new_with_reuse(
+        let o = ByteBuffersDataOutput::with_reuse(
             ByteBuffersDataOutput::LIMIT_MIN_BITS_PER_BLOCK - 1,
             ByteBuffersDataOutput::DEFAULT_MAX_BITS_PER_BLOCK,
             false,
@@ -606,7 +606,7 @@ mod tests {
     }
     #[test]
     fn test_illegal_max_bits_per_block() {
-        let o = ByteBuffersDataOutput::new_with_reuse(
+        let o = ByteBuffersDataOutput::with_reuse(
             ByteBuffersDataOutput::DEFAULT_MIN_BITS_PER_BLOCK,
             ByteBuffersDataOutput::LIMIT_MIN_BITS_PER_BLOCK + 1,
             false,
@@ -615,7 +615,7 @@ mod tests {
     }
     #[test]
     fn test_illegal_bits_per_block_range() {
-        let o = ByteBuffersDataOutput::new_with_reuse(20, 19, false);
+        let o = ByteBuffersDataOutput::with_reuse(20, 19, false);
         assert!(o.is_err());
     }
     #[test]
@@ -688,7 +688,7 @@ mod tests {
         let bytes_clone = bytes.clone();
         let mut input = ByteArrayDataInput::with_range(bytes, offset, len);
 
-        let mut o = ByteBuffersDataOutput::new_with_reuse(
+        let mut o = ByteBuffersDataOutput::with_reuse(
             ByteBuffersDataOutput::DEFAULT_MIN_BITS_PER_BLOCK,
             ByteBuffersDataOutput::DEFAULT_MAX_BITS_PER_BLOCK,
             false,
@@ -714,7 +714,7 @@ mod tests {
         let len = bytes.len() - offset;
         let bytes_clone = bytes.clone();
         let mut input = ByteArrayDataInput::with_range(bytes, offset, len);
-        let mut o = ByteBuffersDataOutput::new_with_reuse(
+        let mut o = ByteBuffersDataOutput::with_reuse(
             ByteBuffersDataOutput::DEFAULT_MIN_BITS_PER_BLOCK,
             ByteBuffersDataOutput::DEFAULT_MAX_BITS_PER_BLOCK,
             false,

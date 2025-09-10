@@ -148,7 +148,7 @@ where
         // ReadAdvice.NORMAL to perform readahead.
         let mut doc_in = state.directory.open_input(
             &doc_name,
-            &state.context.with_read_advice(ReadAdvice::Normal)?,
+            &state.context.with_read_advice_self(ReadAdvice::Normal)?,
         )?;
         CodecUtil::check_index_header(
             &mut doc_in,

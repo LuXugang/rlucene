@@ -33,9 +33,9 @@ impl WhitespaceTokenizer {
         })
     }
     /// Construct a new WhitespaceTokenizer using a given [`Attributes`]
-    pub fn new_with_att(att: Attributes) -> Result<Self> {
+    pub fn with_att(att: Attributes) -> Result<Self> {
         Ok(WhitespaceTokenizer {
-            base: CharTokenizerBase::new_with_att(att)?,
+            base: CharTokenizerBase::with_att(att)?,
         })
     }
     /// Constructs a new `WhitespaceTokenizer` using a given maximum token length.
@@ -48,7 +48,7 @@ impl WhitespaceTokenizer {
     /// # Errors
     ///
     /// Returns an `IllegalArgumentException` if `max_token_len` is invalid.
-    pub fn new_with_max_token_len(max_token_len: i32) -> Result<Self> {
+    pub fn with_max_token_len(max_token_len: i32) -> Result<Self> {
         Ok(WhitespaceTokenizer {
             base: CharTokenizerBase::with_max_token_len(default_attribute(), max_token_len)?,
         })
@@ -63,7 +63,7 @@ impl WhitespaceTokenizer {
     /// # Errors
     ///
     /// Returns an `IllegalArgumentException` if `max_token_len` is invalid.
-    pub fn new_with_max_token_len_and_att(att: Attributes, max_token_len: i32) -> Result<Self> {
+    pub fn with_max_token_len_and_att(att: Attributes, max_token_len: i32) -> Result<Self> {
         Ok(WhitespaceTokenizer {
             base: CharTokenizerBase::with_max_token_len(att, max_token_len)?,
         })

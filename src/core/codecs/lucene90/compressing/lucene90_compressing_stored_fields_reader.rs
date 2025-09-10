@@ -124,7 +124,7 @@ where
         let result: Result<Self> = (|| {
             let mut fields_stream = dir.open_input(
                 &fields_stream_fn,
-                &context.with_read_advice(ReadAdvice::Random)?,
+                &context.with_read_advice_self(ReadAdvice::Random)?,
             )?;
 
             let version = CodecUtil::check_index_header(
@@ -238,7 +238,7 @@ where
         }
     }
 
-    fn new_with_reader(
+    fn with_reader(
         reader: &Lucene90CompressingStoredFieldsReader<I>,
         merging: bool,
     ) -> Result<Lucene90CompressingStoredFieldsReader<I>> {
@@ -521,7 +521,7 @@ where
 {
     fn clone(&self) -> Self {
         self.ensure_open().expect("should be open");
-        Lucene90CompressingStoredFieldsReader::new_with_reader(self, false).expect("should be ok")
+        Lucene90CompressingStoredFieldsReader::with_reader(self, false).expect("should be ok")
     }
 }
 
@@ -540,9 +540,9 @@ where
         Self: Sized,
     {
         self.ensure_open()?;
-        Ok(Some(
-            Lucene90CompressingStoredFieldsReader::new_with_reader(self, true)?,
-        ))
+        Ok(Some(Lucene90CompressingStoredFieldsReader::with_reader(
+            self, true,
+        )?))
     }
 }
 

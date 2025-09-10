@@ -134,7 +134,7 @@ where
         }
     }
     /// Init from a previously opened SegmentReader.
-    pub(crate) fn new_with_reader(
+    pub(crate) fn with_reader(
         index_created_version_major: i32,
         reader: SegmentReader<D>,
         info: &SegmentCommitInfo<D>,

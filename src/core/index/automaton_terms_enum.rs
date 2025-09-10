@@ -67,9 +67,9 @@ pub struct AutomatonTermsEnum {
 }
 impl AutomatonTermsEnum {
     pub fn new(compiled: &mut CompiledAutomaton) -> Result<Self> {
-        Self::new_with_start_term(compiled, None)
+        Self::with_start_term(compiled, None)
     }
-    pub fn new_with_start_term(
+    pub fn with_start_term(
         compiled: &mut CompiledAutomaton,
         start_term: Option<BytesRef<Vec<u8>>>,
     ) -> Result<Self> {

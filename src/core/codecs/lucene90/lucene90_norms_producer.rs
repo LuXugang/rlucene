@@ -125,7 +125,7 @@ where
         // to perform readahead
         let mut data = state.directory.open_input(
             &data_name,
-            &state.context.with_read_advice(ReadAdvice::Normal)?,
+            &state.context.with_read_advice_self(ReadAdvice::Normal)?,
         )?;
 
         // Check header again in the data file

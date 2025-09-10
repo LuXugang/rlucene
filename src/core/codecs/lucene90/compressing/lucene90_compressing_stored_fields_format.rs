@@ -58,7 +58,7 @@ impl Lucene90CompressingStoredFieldsFormat {
         max_docs_per_chunk: i32,
         block_shift: i32,
     ) -> Result<Self> {
-        Self::new_with_suffix(
+        Self::with_suffix(
             format_name,
             "",
             compression_mode,
@@ -104,7 +104,7 @@ impl Lucene90CompressingStoredFieldsFormat {
     ///   index block
     ///
     /// See [`CompressionMode`](crate::core::codecs::compression::compression_mode::CompressionMode).
-    pub fn new_with_suffix(
+    pub fn with_suffix(
         format_name: &str,
         segment_suffix: &str,
         compression_mode: CompressionModeEnum,

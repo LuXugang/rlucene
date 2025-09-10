@@ -76,7 +76,7 @@ pub trait Terms {
     {
         let terms_enum = self.iterator()?;
         let automaton_terms_enum = if start_term.is_some() {
-            AutomatonTermsEnum::new_with_start_term(compiled, start_term)?
+            AutomatonTermsEnum::with_start_term(compiled, start_term)?
         } else {
             AutomatonTermsEnum::new(compiled)?
         };

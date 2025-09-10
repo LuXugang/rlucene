@@ -33,7 +33,7 @@ impl ByteRunAutomaton {
     ///
     /// Errors:
     /// - Returns an error if the automaton is not deterministic.
-    pub fn new_with_bool(a: Automaton, is_binary: bool) -> Result<Self> {
+    pub fn with_bool(a: Automaton, is_binary: bool) -> Result<Self> {
         let automaton = if is_binary {
             a
         } else {
@@ -53,7 +53,7 @@ impl ByteRunAutomaton {
     /// Errors:
     /// - Returns an error if the automaton is not deterministic.
     pub fn new(a: Automaton) -> Result<Self> {
-        Self::new_with_bool(a, false)
+        Self::with_bool(a, false)
     }
 
     fn convert(a: &Automaton) -> Result<Cow<'_, Automaton>> {

@@ -410,7 +410,7 @@ impl Operations {
         let mut worklist = VecDeque::new();
         let mut newstates = HashMap::new();
 
-        let p = Rc::new(StatePair::new_with_s(0, 0, 0));
+        let p = Rc::new(StatePair::with_s(0, 0, 0));
         worklist.push_back(p.clone());
         newstates.insert(p.clone(), p.clone());
 
