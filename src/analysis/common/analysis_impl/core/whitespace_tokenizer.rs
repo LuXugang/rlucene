@@ -16,7 +16,7 @@
  */
 use crate::core::analysis::token_stream::{TokenStream, default_attribute};
 use crate::core::analysis::tokenizer::{Tokenizer, TokenizerBase};
-use crate::core::analysis::util::char_tokenizer::{CharTokenizer, CharTokenizerBase};
+use crate::core::analysis::util::char_tokenizer::CharTokenizerBase;
 use crate::core::util::attribute_source::Attributes;
 use crate::core::util::error::lucene_error::Result;
 /// A tokenizer that divides text at whitespace characters as defined by
@@ -82,8 +82,7 @@ impl Tokenizer for WhitespaceTokenizer {
 
 impl TokenStream for WhitespaceTokenizer {
     fn increment_token(&mut self) -> Result<bool> {
-        let outer: &WhitespaceTokenizer = unsafe { &*(self as *const _) };
-        self.base.increment_token_with_ct(outer)
+        self.base.increment_token_with(|c| !c.is_whitespace())
     }
 
     fn end(&mut self) -> Result<()> {
@@ -106,12 +105,5 @@ impl TokenStream for WhitespaceTokenizer {
 
     fn get_attribute_source_mut(&mut self) -> &mut Self::AttributeSource {
         &mut self.base.att
-    }
-}
-
-impl CharTokenizer for WhitespaceTokenizer {
-    /// Collects only characters which do not satisfy Char::is_whitespace().
-    fn is_token_char(&self, c: &char) -> bool {
-        !c.is_whitespace()
     }
 }
