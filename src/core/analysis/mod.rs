@@ -16,6 +16,7 @@
  */
 
 pub mod analyzer;
+mod char_array_map;
 pub mod char_filter;
 pub mod character_utils;
 pub mod dummy;
