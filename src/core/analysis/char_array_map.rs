@@ -16,35 +16,29 @@
  */
 use std::borrow::Cow;
 use std::collections::HashMap;
-use std::fmt::Display;
+use std::fmt::{Debug, Display, Formatter};
 
 /// A simple class that stores key Strings as char[]'s in a hash table
 pub struct CharArrayMap<T> {
     ignore: bool,
     map: HashMap<Vec<char>, T>,
 }
-impl<T> CharArrayMap<T> {
+impl<T> CharArrayMap<T>
+where
+    T: Debug,
+{
     pub fn new(ignore: bool) -> Self {
         CharArrayMap {
             ignore,
             map: HashMap::new(),
         }
     }
-    pub fn put_all(&mut self, v: HashMap<Vec<char>, T>) {
+    fn put_all_with<K, F>(&mut self, v: HashMap<K, T>, mut key_fn: F)
+    where
+        F: FnMut(K) -> Vec<char>,
+    {
         for (k, val) in v {
-            match norm(self.ignore, &k) {
-                Cow::Borrowed(_) => {
-                    self.map.insert(k, val);
-                },
-                Cow::Owned(o) => {
-                    self.map.insert(o, val);
-                },
-            }
-        }
-    }
-    pub fn put_all_str(&mut self, v: HashMap<String, T>) {
-        for (k, val) in v {
-            let key: Vec<char> = k.chars().collect();
+            let key = key_fn(k);
             match norm(self.ignore, &key) {
                 Cow::Borrowed(_) => {
                     self.map.insert(key, val);
@@ -55,21 +49,20 @@ impl<T> CharArrayMap<T> {
             }
         }
     }
+
+    pub fn put_all(&mut self, v: HashMap<Vec<char>, T>) {
+        self.put_all_with(v, |k| k);
+    }
+
+    pub fn put_all_str(&mut self, v: HashMap<String, T>) {
+        self.put_all_with(v, |k| k.chars().collect());
+    }
+
     pub fn put_all_any<V>(&mut self, v: HashMap<V, T>)
     where
         V: Display,
     {
-        for (k, val) in v {
-            let key: Vec<char> = k.to_string().chars().collect();
-            match norm(self.ignore, &key) {
-                Cow::Borrowed(_) => {
-                    self.map.insert(key, val);
-                },
-                Cow::Owned(o) => {
-                    self.map.insert(o, val);
-                },
-            }
-        }
+        self.put_all_with(v, |k| k.to_string().chars().collect());
     }
     pub fn clear(&mut self) {
         self.map.clear();
@@ -139,6 +132,27 @@ impl<T> CharArrayMap<T> {
     pub fn entry_iter(&mut self) -> impl Iterator<Item = (&Vec<char>, &mut T)> {
         self.map.iter_mut()
     }
+    pub fn is_empty(&self) -> bool {
+        self.map.is_empty()
+    }
+}
+impl<T> Display for CharArrayMap<T>
+where
+    T: Display,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{{")?;
+        let mut first = true;
+        for (k, v) in &self.map {
+            if !first {
+                write!(f, ", ")?;
+            }
+            first = false;
+            let key_str: String = k.iter().collect();
+            write!(f, "{}={}", key_str, v)?;
+        }
+        write!(f, "}}")
+    }
 }
 fn norm(ignore: bool, s: &[char]) -> Cow<'_, [char]> {
     if ignore {
@@ -204,57 +218,41 @@ mod tests {
             do_random(&mut random, i, true);
         }
     }
-    // #[test]
-    // fn test_methods() {
-    //     let mut hm = HashMap::new();
-    //     hm.insert("foo".to_string(), 1);
-    //     hm.insert("bar".to_string(), 2);
-    //     let mut cm = CharArrayMap::new(false);
-    //     cm.put_all(hm);
-    //     assert_eq!(hm.len(), cm.size());
-    //
-    //     hm.insert("baz".to_string(), 3);
-    //     cm.put_all(&hm);
-    //     assert_eq!(hm.len(), cm.size());
-    //
-    //     // keySet
-    //     let mut cs = cm.key_set();
-    //     let mut n = 0;
-    //     for k in cs.iter() {
-    //         assert!(cm.contains_key(k, 0, k.len() as i32));
-    //         n += 1;
-    //     }
-    //     assert_eq!(hm.len(), n);
-    //     assert_eq!(hm.len(), cs.size());
-    //     assert_eq!(cm.size(), cs.size());
-    //
-    //     cs.clear();
-    //     assert_eq!(0, cs.size());
-    //     assert_eq!(0, cm.size());
-    //
-    //     // 再加回去
-    //     cm.put_all(&hm);
-    //     assert_eq!(hm.len(), cm.size());
-    //
-    //     // entrySet 迭代 + setValue
-    //     for (key, val) in cm.entry_iter() {
-    //         let expected = hm.get(&key.iter().collect::<String>()).unwrap();
-    //         assert_eq!(expected, val);
-    //         *val *= 100;
-    //         assert_eq!(*val, cm.get_chars(key).copied().unwrap());
-    //     }
-    //
-    //     cm.clear();
-    //     cm.put_all(&hm);
-    //
-    //     // 重新迭代
-    //     for (key, val) in cm.entry_iter() {
-    //         let expected = hm.get(&key.iter().collect::<String>()).unwrap();
-    //         assert_eq!(expected, val);
-    //     }
-    //
-    //     cm.clear();
-    //     assert_eq!(0, cm.size());
-    //     assert!(cm.is_empty());
-    // }
+
+    #[test]
+    fn test_put_all_variants() {
+        use std::collections::HashMap;
+        let mut cmap = CharArrayMap::new(true);
+
+        let mut v1: HashMap<Vec<char>, i32> = HashMap::new();
+        v1.insert(vec!['a'], 1);
+        cmap.put_all(v1);
+        assert!(cmap.contains_key_str("a"));
+
+        let mut v2: HashMap<String, i32> = HashMap::new();
+        v2.insert("b".to_string(), 2);
+        cmap.put_all_str(v2);
+        assert!(cmap.contains_key_str("b"));
+
+        let mut v3: HashMap<i32, i32> = HashMap::new();
+        v3.insert(3, 3);
+        cmap.put_all_any(v3);
+        assert!(cmap.contains_key_str("3"));
+    }
+    #[test]
+    fn test_methods() {
+        // TODO
+    }
+    #[test]
+    fn test_modify_on_unmodifiable() {
+        // this test is not required in Rust Lucene
+    }
+    #[test]
+    fn test_to_string() {
+        let mut cm = CharArrayMap::new(false);
+        cm.put("test".chars().collect::<Vec<char>>(), 1);
+        assert_eq!("{test=1}", cm.to_string());
+        cm.put("test2".chars().collect::<Vec<char>>(), 2);
+        assert!(cm.to_string().contains(", "));
+    }
 }
