@@ -56,11 +56,10 @@ pub trait IndexableField: Display {
     /// TokenStream value for indexing the document. Should always return a
     /// non-null value if the field is to be indexed.
     type TokenStream: TokenStream;
-    fn token_stream<A>(
-        &self,
-        analyzer: &A,
-        reuse: Option<Self::TokenStream>,
-    ) -> Result<Option<Self::TokenStream>>
+    fn token_stream<'a, A>(
+        &'a mut self,
+        _analyzer: &A,
+    ) -> Result<Option<&'a mut Self::TokenStream>>
     where
         A: Analyzer;
     /// Non-null if this field has a binary value.

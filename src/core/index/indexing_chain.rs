@@ -116,7 +116,6 @@ use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Instant;
-
 /// Default general purpose indexing chain, which handles indexing all types of fields.
 pub(crate) struct IndexingChain<D>
 where
@@ -673,7 +672,7 @@ where
         self.terms_hash.start_document()?;
         self.start_stored_fields(doc_id, info, index_writer_config)?;
 
-        let fields: Vec<Fields> = document.into_iter().collect();
+        let mut fields: Vec<Fields> = document.into_iter().collect();
         // 1st pass over doc fields – verify that doc schema matches the index schema
         // build schema for each unique doc field
         let result = (|| {
@@ -726,7 +725,7 @@ where
             // 2nd pass over doc fields – index each field
             // also count the number of unique fields indexed with postings
             doc_field_idx = 0;
-            for field in &fields {
+            for field in &mut fields {
                 if self.process_field(doc_id, field, doc_field_idx, index_writer_config)? {
                     self.fields[indexed_field_count] = doc_field_idx;
                     indexed_field_count += 1;
@@ -882,7 +881,7 @@ where
     fn process_field(
         &mut self,
         doc_id: i32,
-        field: &impl IndexableField,
+        field: &mut impl IndexableField,
         per_field_index: i32,
         index_writer_config: &impl LiveIndexWriterConfig,
     ) -> Result<bool> {
@@ -901,7 +900,7 @@ where
                 pf.invert(doc_id, field, false, index_writer_config.get_analyzer())?;
             }
         }
-
+        let field_type = field.field_type();
         // Add stored fields
         if field_type.stored() {
             let stored_value = field
@@ -1368,7 +1367,7 @@ impl PerField {
     pub(crate) fn invert<A>(
         &mut self,
         doc_id: i32,
-        field: &impl IndexableField,
+        field: &mut impl IndexableField,
         first: bool,
         analyzer: &A,
     ) -> Result<()>
@@ -1406,7 +1405,7 @@ impl PerField {
     fn invert_token_stream<A>(
         &mut self,
         doc_id: i32,
-        field: &impl IndexableField,
+        field: &mut impl IndexableField,
         first: bool,
         analyzer: &A,
     ) -> Result<()>
@@ -1420,21 +1419,17 @@ impl PerField {
          * but rather a finally that takes note of the problem.
          */
 
-        // TODO
-        // let mut stream = field
-        //     .token_stream(analyzer, self.token_stream.take())?
-        //     .ok_or_else(|| LuceneError::illegal_state("token_stream is None".to_string()))?;
+        let field_name = field.name().to_string();
+        let terms_hash_per_field = self.terms_hash_per_field.as_mut().unwrap();
+        terms_hash_per_field.start(field, first)?;
 
-        let mut stream = field
-            .token_stream(analyzer, None)?
+        let stream = field
+            .token_stream(analyzer)?
             .ok_or_else(|| LuceneError::illegal_state("token_stream is None"))?;
 
         let mut succeeded = false;
         let result = (|| {
             stream.reset()?;
-
-            let terms_hash_per_field = self.terms_hash_per_field.as_mut().unwrap();
-            terms_hash_per_field.start(field, first)?;
 
             while stream.increment_token()? {
                 // If we hit an exception in stream.next below
@@ -1453,29 +1448,24 @@ impl PerField {
                     return if pos_incr == 0 {
                         Err(LuceneError::illegal_argument(format!(
                             "first position increment must be > 0 (got 0) for field '{}'",
-                            field.name()
+                            field_name
                         )))
                     } else if pos_incr < 0 {
                         // position increment must be > 0
                         Err(LuceneError::illegal_argument(format!(
                             "position increment must be > 0 (got {}) for field '{}'",
-                            pos_incr,
-                            field.name()
+                            pos_incr, field_name
                         )))
                     } else {
                         Err(LuceneError::illegal_argument(format!(
                             "position overflowed Integer.MAX_VALUE (got posIncr={} last_position={} position={}) for field '{}'",
-                            pos_incr,
-                            invert_state.last_position,
-                            invert_state.position,
-                            field.name()
+                            pos_incr, invert_state.last_position, invert_state.position, field_name
                         )))
                     };
                 } else if invert_state.position > MAX_POSITION {
                     return Err(LuceneError::illegal_argument(format!(
                         "position {} too large for field {}",
-                        invert_state.position,
-                        field.name()
+                        invert_state.position, field_name
                     )));
                 }
                 if pos_incr == 0 {
@@ -1497,10 +1487,7 @@ impl PerField {
                 if start_offset < invert_state.last_start_offset || end_offset < start_offset {
                     return Err(LuceneError::illegal_argument(format!(
                         "startOffset must be non-negative, and endOffset must be >= startOffset, and offsets must not go backwards offsets: start={} end={} last_start={} for field {}",
-                        start_offset,
-                        end_offset,
-                        invert_state.last_start_offset,
-                        field.name()
+                        start_offset, end_offset, invert_state.last_start_offset, field_name
                     )));
                 }
                 invert_state.last_start_offset = start_offset;
@@ -1512,7 +1499,7 @@ impl PerField {
                 invert_state.length = invert_state.length.checked_add(tf).ok_or_else(|| {
                     LuceneError::number_overflow(format!(
                         "too many tokens for field {}",
-                        field.name()
+                        field_name
                     ))
                 })?;
                 // If we hit an exception in here, we abort
@@ -2354,15 +2341,11 @@ where
 
     type TokenStream = <T as IndexableField>::TokenStream;
 
-    fn token_stream<A>(
-        &self,
-        analyzer: &A,
-        reuse: Option<Self::TokenStream>,
-    ) -> Result<Option<Self::TokenStream>>
+    fn token_stream<'a, A>(&'a mut self, analyzer: &A) -> Result<Option<&'a mut Self::TokenStream>>
     where
         A: Analyzer,
     {
-        self.delegate.token_stream(analyzer, reuse)
+        self.delegate.token_stream(analyzer)
     }
 
     fn binary_value(&self) -> Result<Option<Rc<BytesRef<Vec<u8>>>>> {

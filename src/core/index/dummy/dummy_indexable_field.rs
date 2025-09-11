@@ -22,6 +22,7 @@ use crate::core::document::stored_value::StoredValue;
 use crate::core::index::BytesRef;
 use crate::core::index::dummy::dummy_indexable_field_type::DummyIndexableFieldType;
 use crate::core::index::indexable_field::IndexableField;
+use crate::core::util::error::lucene_error::Result;
 use crate::core::util::number::Number;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
@@ -47,42 +48,34 @@ impl IndexableField for DummyIndexableField {
 
     type TokenStream = DummyTokenStream;
 
-    fn token_stream<A>(
-        &self,
-        _analyzer: &A,
-        _reuse: Option<Self::TokenStream>,
-    ) -> crate::core::util::error::lucene_error::Result<Option<Self::TokenStream>>
+    fn token_stream<'a, A>(&'a mut self, _analyzer: &A) -> Result<Option<&'a mut Self::TokenStream>>
     where
         A: Analyzer,
     {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn binary_value(
-        &self,
-    ) -> crate::core::util::error::lucene_error::Result<Option<Rc<BytesRef<Vec<u8>>>>> {
+    fn binary_value(&self) -> Result<Option<Rc<BytesRef<Vec<u8>>>>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn string_value(&self) -> crate::core::util::error::lucene_error::Result<Option<Rc<String>>> {
+    fn string_value(&self) -> Result<Option<Rc<String>>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn get_char_sequence_value(
-        &self,
-    ) -> crate::core::util::error::lucene_error::Result<Option<Rc<String>>> {
+    fn get_char_sequence_value(&self) -> Result<Option<Rc<String>>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn reader_value(&self) -> crate::core::util::error::lucene_error::Result<Option<ReaderEnum>> {
+    fn reader_value(&self) -> Result<Option<ReaderEnum>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn numeric_value(&self) -> crate::core::util::error::lucene_error::Result<Option<Number>> {
+    fn numeric_value(&self) -> Result<Option<Number>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn stored_value(&self) -> crate::core::util::error::lucene_error::Result<Option<StoredValue>> {
+    fn stored_value(&self) -> Result<Option<StoredValue>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

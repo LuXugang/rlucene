@@ -81,23 +81,19 @@ impl IndexableField for Fields {
         }
     }
 
-    type TokenStream = DummyTokenStream;
+    type TokenStream = <Field as IndexableField>::TokenStream;
 
-    fn token_stream<A>(
-        &self,
-        analyzer: &A,
-        reuse: Option<Self::TokenStream>,
-    ) -> Result<Option<Self::TokenStream>>
+    fn token_stream<'a, A>(&'a mut self, analyzer: &A) -> Result<Option<&'a mut Self::TokenStream>>
     where
         A: Analyzer,
     {
         match self {
-            Fields::Field(f) => f.token_stream(analyzer, reuse),
-            Fields::Text(f) => f.token_stream(analyzer, reuse),
-            Fields::String(f) => f.token_stream(analyzer, reuse),
-            Fields::Stored(f) => f.token_stream(analyzer, reuse),
-            Fields::NumericDocValues(f) => f.token_stream(analyzer, reuse),
-            Fields::Reverse(f) => f.token_stream(analyzer, reuse),
+            Fields::Field(f) => f.token_stream(analyzer),
+            Fields::Text(f) => f.token_stream(analyzer),
+            Fields::String(f) => f.token_stream(analyzer),
+            Fields::Stored(f) => f.token_stream(analyzer),
+            Fields::NumericDocValues(f) => f.token_stream(analyzer),
+            Fields::Reverse(f) => f.token_stream(analyzer),
         }
     }
 

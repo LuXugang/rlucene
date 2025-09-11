@@ -20,7 +20,6 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use crate::core::analysis::analyzer::Analyzer;
-use crate::core::analysis::dummy::dummy_token_stream::DummyTokenStream;
 use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::token_attributes::bytes_term_attribute::BytesTermAttribute;
 use crate::core::analysis::token_attributes::bytes_term_attribute_impl::BytesTermAttributeImpl;
@@ -488,17 +487,13 @@ impl IndexableField for Field {
         &self.indexable_field_type
     }
 
-    type TokenStream = DummyTokenStream;
+    type TokenStream = Either2TokenStream<BinaryTokenStream, StringTokenStream>;
 
-    fn token_stream<A>(
-        &self,
-        _analyzer: &A,
-        _reuse: Option<Self::TokenStream>,
-    ) -> Result<Option<Self::TokenStream>>
+    fn token_stream<'a, A>(&'a mut self, _analyzer: &A) -> Result<Option<&'a mut Self::TokenStream>>
     where
         A: Analyzer,
     {
-        todo!()
+        Ok(self.token_stream.as_mut())
     }
 
     fn binary_value(&self) -> Result<Option<Rc<BytesRef<Vec<u8>>>>> {
@@ -668,7 +663,7 @@ pub enum FieldDataEnum {
     TokenStream(TokenStreamEnum),
 }
 /// Creates a new TokenStream that returns a BytesRef as single token
-pub(crate) struct BinaryTokenStream {
+pub struct BinaryTokenStream {
     att: Attributes,
     used: bool,
     value: Option<BytesRef<Vec<u8>>>,
@@ -722,18 +717,16 @@ impl TokenStream for BinaryTokenStream {
         Ok(())
     }
 
-    type AttributeSource = Attributes;
-
-    fn get_attribute_source(&self) -> &Self::AttributeSource {
+    fn get_attribute_source(&self) -> &Attributes {
         &self.att
     }
 
-    fn get_attribute_source_mut(&mut self) -> &mut Self::AttributeSource {
+    fn get_attribute_source_mut(&mut self) -> &mut Attributes {
         &mut self.att
     }
 }
 
-pub(crate) struct StringTokenStream {
+pub struct StringTokenStream {
     att: Attributes,
     used: bool,
     value: Option<String>,
@@ -788,13 +781,11 @@ impl TokenStream for StringTokenStream {
         Ok(())
     }
 
-    type AttributeSource = Attributes;
-
-    fn get_attribute_source(&self) -> &Self::AttributeSource {
+    fn get_attribute_source(&self) -> &Attributes {
         &self.att
     }
 
-    fn get_attribute_source_mut(&mut self) -> &mut Self::AttributeSource {
+    fn get_attribute_source_mut(&mut self) -> &mut Attributes {
         &mut self.att
     }
 }

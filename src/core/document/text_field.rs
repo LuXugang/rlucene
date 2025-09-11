@@ -142,15 +142,11 @@ impl IndexableField for TextField {
 
     type TokenStream = <Field as IndexableField>::TokenStream;
 
-    fn token_stream<A>(
-        &self,
-        analyzer: &A,
-        reuse: Option<Self::TokenStream>,
-    ) -> Result<Option<Self::TokenStream>>
+    fn token_stream<'a, A>(&'a mut self, analyzer: &A) -> Result<Option<&'a mut Self::TokenStream>>
     where
         A: Analyzer,
     {
-        self.parent_field.token_stream(analyzer, reuse)
+        self.parent_field.token_stream(analyzer)
     }
 
     fn binary_value(&self) -> Result<Option<Rc<BytesRef<Vec<u8>>>>> {
