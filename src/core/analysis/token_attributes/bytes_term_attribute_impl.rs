@@ -96,6 +96,10 @@ impl AttributeSource for BytesTermAttributeImpl {
     fn get_bytes_ref(&mut self) -> Option<Cow<'_, BytesRef<Vec<u8>>>> {
         self.bytes.as_ref().map(Cow::Borrowed)
     }
+
+    fn clear_attributes(&mut self) {
+        self.clear()
+    }
 }
 
 #[cfg(test)]

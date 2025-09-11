@@ -36,7 +36,7 @@ use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::indexable_field_type::IndexableFieldType;
-use crate::core::util::attribute_source::Attributes;
+use crate::core::util::attribute_source::{AttributeSource, Attributes};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
 
@@ -695,10 +695,9 @@ impl TokenStream for BinaryTokenStream {
         if self.used {
             return Ok(false);
         }
-        // TODO
-        // self.clear_attributes();
+        self.att.clear_attributes();
         let value = self.value.take();
-        self.att.set_bytes_ref(value);
+        BytesTermAttribute::set_bytes_ref(&mut self.att, value);
         self.used = true;
         Ok(true)
     }
@@ -758,7 +757,7 @@ impl TokenStream for StringTokenStream {
         if self.used {
             return Ok(true);
         }
-        // self.clear_attributes();
+        self.att.clear_attributes();
         let value = self.value.as_ref().unwrap();
         self.att.append_str(Some(value));
         debug_assert!(value.len() <= i32::MAX as usize);

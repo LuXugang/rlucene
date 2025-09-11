@@ -21,7 +21,7 @@ use crate::core::analysis::token_attributes::char_term_attribute::CharTermAttrib
 use crate::core::analysis::token_attributes::offset_attribute::OffsetAttribute;
 use crate::core::analysis::token_stream::{TokenStream, default_attribute};
 use crate::core::analysis::tokenizer::{Tokenizer, TokenizerBase};
-use crate::core::util::attribute_source::Attributes;
+use crate::core::util::attribute_source::{AttributeSource, Attributes};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 pub struct CharTokenizer<S>
@@ -83,8 +83,7 @@ where
     S: CharTokenizerBase,
 {
     fn increment_token(&mut self) -> Result<bool> {
-        // TODO: clear_attributes 未实现
-        // self.clear_attributes();
+        self.att.clear_attributes();
         let mut length: usize = 0;
         let mut start: i32 = 0;
         let mut end: i32 = 0;

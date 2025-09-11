@@ -47,4 +47,8 @@ impl AttributeSource for DummyAttributeSource {
     fn end_attributes(&mut self) {
         unimplemented!("Dummy implementation: this method should never be called in real usage")
     }
+
+    fn clear_attributes(&mut self) {
+        unimplemented!("Dummy implementation: this method should never be called in real usage")
+    }
 }

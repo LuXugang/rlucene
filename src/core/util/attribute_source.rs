@@ -67,6 +67,8 @@ pub trait AttributeSource {
     fn end_attributes(&mut self) {
         // TODO
     }
+
+    fn clear_attributes(&mut self);
 }
 
 pub enum Attributes {
@@ -218,6 +220,12 @@ impl AttributeSource for Attributes {
             Attributes::PackedToken(attr) => attr.end(),
         }
     }
+
+    fn clear_attributes(&mut self) {
+        match self {
+            Attributes::PackedToken(attr) => attr.clear(),
+        }
+    }
 }
 
 impl OffsetAttribute for Attributes {
@@ -250,6 +258,8 @@ impl Default for EmptyAttributeSource {
 
 impl AttributeSource for EmptyAttributeSource {
     fn end_attributes(&mut self) {}
+
+    fn clear_attributes(&mut self) {}
 }
 
 // AttributeSource
@@ -316,6 +326,13 @@ where
         match self {
             Either2AttributeSource::A(t) => t.end_attributes(),
             Either2AttributeSource::B(s) => s.end_attributes(),
+        }
+    }
+
+    fn clear_attributes(&mut self) {
+        match self {
+            Either2AttributeSource::A(t) => t.clear_attributes(),
+            Either2AttributeSource::B(s) => s.clear_attributes(),
         }
     }
 }
