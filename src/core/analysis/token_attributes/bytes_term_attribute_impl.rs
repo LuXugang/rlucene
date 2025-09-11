@@ -19,6 +19,8 @@ use crate::core::analysis::token_attributes::term_to_bytes_ref_attribute::TermTo
 use crate::core::index::BytesRef;
 use crate::core::util::attribute::Attribute;
 use crate::core::util::attribute_impl::AttributeImpl;
+use crate::core::util::attribute_source::AttributeSource;
+use crate::core::util::error::lucene_error::Result;
 use std::borrow::Cow;
 use std::hash::{Hash, Hasher};
 
@@ -70,8 +72,8 @@ impl TermToBytesRefAttribute for BytesTermAttributeImpl {
 }
 
 impl BytesTermAttribute for BytesTermAttributeImpl {
-    fn set_bytes_ref(&mut self, bytes: BytesRef<Vec<u8>>) {
-        self.bytes = Some(bytes);
+    fn set_bytes_ref(&mut self, bytes: Option<BytesRef<Vec<u8>>>) {
+        self.bytes = bytes;
     }
 }
 impl Hash for BytesTermAttributeImpl {
@@ -82,6 +84,17 @@ impl Hash for BytesTermAttributeImpl {
 impl PartialEq for BytesTermAttributeImpl {
     fn eq(&self, other: &Self) -> bool {
         self.bytes == other.bytes
+    }
+}
+
+impl AttributeSource for BytesTermAttributeImpl {
+    fn set_bytes_ref(&mut self, bytes: Option<BytesRef<Vec<u8>>>) -> Result<()> {
+        self.bytes = bytes;
+        Ok(())
+    }
+
+    fn get_bytes_ref(&mut self) -> Option<Cow<'_, BytesRef<Vec<u8>>>> {
+        self.bytes.as_ref().map(Cow::Borrowed)
     }
 }
 
@@ -106,7 +119,7 @@ mod tests {
         assert!(copy.get_bytes_ref().is_none());
 
         // now after setting it
-        t.set_bytes_ref(BytesRef::from_string("hello"));
+        t.set_bytes_ref(Some(BytesRef::from_string("hello")));
         copy = assert_copy_is_equal(&t)?;
         assert_eq!(t.get_bytes_ref(), copy.get_bytes_ref());
         // no need check same instance

@@ -21,5 +21,5 @@ use crate::core::index::BytesRef;
 /// if binary terms should be indexed.
 pub trait BytesTermAttribute: TermToBytesRefAttribute {
     /// Sets the BytesRef of the term
-    fn set_bytes_ref(&mut self, bytes: BytesRef<Vec<u8>>);
+    fn set_bytes_ref(&mut self, bytes: Option<BytesRef<Vec<u8>>>);
 }

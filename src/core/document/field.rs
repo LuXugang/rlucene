@@ -22,6 +22,11 @@ use std::sync::Arc;
 use crate::core::analysis::analyzer::Analyzer;
 use crate::core::analysis::dummy::dummy_token_stream::DummyTokenStream;
 use crate::core::analysis::reader::ReaderEnum;
+use crate::core::analysis::token_attributes::bytes_term_attribute::BytesTermAttribute;
+use crate::core::analysis::token_attributes::bytes_term_attribute_impl::BytesTermAttributeImpl;
+use crate::core::analysis::token_attributes::char_term_attribute::CharTermAttribute;
+use crate::core::analysis::token_attributes::offset_attribute::OffsetAttribute;
+use crate::core::analysis::token_stream::TokenStream;
 use crate::core::document::field_type::FieldType;
 use crate::core::document::fields::TokenStreamEnum;
 use crate::core::document::invertable_field::InvertableType;
@@ -31,6 +36,7 @@ use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::indexable_field_type::IndexableFieldType;
+use crate::core::util::attribute_source::Attributes;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
 
@@ -654,6 +660,125 @@ pub enum FieldDataEnum {
     String(Rc<String>),
     Reader(ReaderEnum),
     TokenStream(TokenStreamEnum),
+}
+/// Creates a new TokenStream that returns a BytesRef as single token
+pub(crate) struct BinaryTokenStream {
+    att: BytesTermAttributeImpl,
+    used: bool,
+    value: Option<BytesRef<Vec<u8>>>,
+}
+
+impl BinaryTokenStream {
+    /// Creates a new TokenStream that returns a BytesRef as single token.
+    pub(crate) fn new() -> Self {
+        Self {
+            att: BytesTermAttributeImpl::new(),
+            used: false,
+            value: None,
+        }
+    }
+
+    /// Sets the bytes value.
+    pub(crate) fn set_value(&mut self, value: BytesRef<Vec<u8>>) {
+        self.value = Some(value);
+    }
+}
+
+impl TokenStream for BinaryTokenStream {
+    fn increment_token(&mut self) -> Result<bool> {
+        if self.used {
+            return Ok(true);
+        }
+        // TODO
+        // self.clear_attributes();
+        let value = self.value.take();
+        self.att.set_bytes_ref(value);
+        self.used = true;
+        Ok(true)
+    }
+
+    fn end(&mut self) -> Result<()> {
+        self.default_end()
+    }
+
+    fn reset(&mut self) -> Result<()> {
+        self.used = false;
+        Ok(())
+    }
+
+    fn close(&mut self) -> Result<()> {
+        let _ = self.value.take();
+        Ok(())
+    }
+
+    type AttributeSource = BytesTermAttributeImpl;
+
+    fn get_attribute_source(&self) -> &Self::AttributeSource {
+        &self.att
+    }
+
+    fn get_attribute_source_mut(&mut self) -> &mut Self::AttributeSource {
+        &mut self.att
+    }
+}
+
+pub(crate) struct StringTokenStream {
+    att: Attributes,
+    used: bool,
+    value: Option<String>,
+}
+impl StringTokenStream {
+    /// Creates a new TokenStream that returns a String as single token.
+    pub(crate) fn new() -> Self {
+        Self {
+            att: Attributes::default(),
+            used: false,
+            value: None,
+        }
+    }
+    pub(crate) fn set_value(&mut self, value: String) {
+        self.value = Some(value);
+    }
+}
+impl TokenStream for StringTokenStream {
+    fn increment_token(&mut self) -> Result<bool> {
+        if self.used {
+            return Ok(true);
+        }
+        // self.clear_attributes();
+        let value = self.value.as_ref().unwrap();
+        self.att.append_str(Some(value));
+        debug_assert!(value.len() <= i32::MAX as usize);
+        self.att.set_offset(0, value.len() as i32)?;
+        self.used = true;
+        Ok(true)
+    }
+
+    fn end(&mut self) -> Result<()> {
+        self.default_end()?;
+        let final_offset = self.value.as_ref().unwrap().len() as i32;
+        self.att.set_offset(final_offset, final_offset)
+    }
+
+    fn reset(&mut self) -> Result<()> {
+        self.used = false;
+        Ok(())
+    }
+
+    fn close(&mut self) -> Result<()> {
+        let _ = self.value.take();
+        Ok(())
+    }
+
+    type AttributeSource = Attributes;
+
+    fn get_attribute_source(&self) -> &Self::AttributeSource {
+        &self.att
+    }
+
+    fn get_attribute_source_mut(&mut self) -> &mut Self::AttributeSource {
+        &mut self.att
+    }
 }
 
 #[cfg(test)]

@@ -36,6 +36,11 @@ pub trait AttributeSource {
         None
     }
 
+    // BytesTermAttribute
+    fn set_bytes_ref(&mut self, _bytes: Option<BytesRef<Vec<u8>>>) -> Result<()> {
+        Err(LuceneError::unsupported_operation(""))
+    }
+
     // PositionIncrementAttribute
     fn get_position_increment(&self) -> Option<i32> {
         None
@@ -59,7 +64,9 @@ pub trait AttributeSource {
         None
     }
 
-    fn end_attributes(&mut self);
+    fn end_attributes(&mut self) {
+        // TODO
+    }
 }
 
 pub enum Attributes {
