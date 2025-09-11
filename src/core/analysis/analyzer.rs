@@ -15,14 +15,19 @@
  * limitations under the License.
  */
 use crate::core::analysis::reader::ReaderEnum;
+use crate::core::analysis::reusable_string_reader::ReusableStringReader;
 use crate::core::analysis::token_attributes::char_term_attribute::CharTermAttribute;
 use crate::core::analysis::token_attributes::offset_attribute::OffsetAttribute;
 use crate::core::analysis::token_stream::TokenStream;
 use crate::core::util::attribute_source::Attributes;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
+use std::collections::HashMap;
+use std::marker::PhantomData;
 
 pub trait Analyzer {
-    fn create_components(&self);
+    fn create_components<TS>(&self, field: &str) -> TokenStreamComponents<TS>
+    where
+        TS: TokenStream;
 
     fn get_position_increment_gap(&self, _field_name: &str) -> i32 {
         0
@@ -30,6 +35,162 @@ pub trait Analyzer {
     fn get_offset_gap(&self, _field_name: &str) -> i32 {
         1
     }
+    fn get_analyzer_base<TS, RS>(&mut self) -> &mut AnalyzerBase<TS, RS>
+    where
+        TS: TokenStream,
+        RS: ReuseStrategy<TS>;
+    fn token_stream<'a, TS, RS>(&'a mut self, field_name: &str, text: &str) -> Result<&'a mut TS>
+    where
+        TS: TokenStream,
+        RS: ReuseStrategy<TS> + 'a,
+    {
+        // We don’t reuse ReusableStringReader here like Java Lucene does.
+        let mut str_reader = ReusableStringReader::new();
+        str_reader.set_value(text);
+        let r = self.init_reader(field_name, ReaderEnum::ReusedString(str_reader));
+        let analyzer_base: &mut AnalyzerBase<TS, RS> = self.get_analyzer_base();
+        let components = analyzer_base
+            .reuse_strategy
+            .get_reusable_components(field_name)?;
+        if components.is_none() {
+            let v: TokenStreamComponents<TS> = self.create_components(field_name);
+            let analyzer_base: &mut AnalyzerBase<TS, RS> = self.get_analyzer_base();
+            analyzer_base
+                .reuse_strategy
+                .get_reusable_components(field_name)?;
+            analyzer_base
+                .reuse_strategy
+                .set_reusable_components(field_name, v)?;
+        }
+        let analyzer_base: &mut AnalyzerBase<TS, RS> = self.get_analyzer_base();
+        let components = analyzer_base
+            .reuse_strategy
+            .get_reusable_components(field_name)?
+            .unwrap();
+        components.set_reader(r)?;
+        Ok(components.get_token_stream())
+    }
+
+    fn init_reader(&self, _filed_name: &str, reader: ReaderEnum) -> ReaderEnum {
+        reader
+    }
+}
+pub struct AnalyzerBase<TS, RS>
+where
+    TS: TokenStream,
+    RS: ReuseStrategy<TS>,
+{
+    reuse_strategy: RS,
+    _phantom: PhantomData<TS>,
+}
+impl<TS, RS> AnalyzerBase<TS, RS>
+where
+    TS: TokenStream,
+    RS: ReuseStrategy<TS>,
+{
+}
+
+pub trait ReuseStrategy<TS>
+where
+    TS: TokenStream,
+{
+    fn get_reusable_components(
+        &mut self,
+        field_name: &str,
+    ) -> Result<Option<&mut TokenStreamComponents<TS>>>;
+    fn set_reusable_components(
+        &mut self,
+        field_name: &str,
+        components: TokenStreamComponents<TS>,
+    ) -> Result<()>;
+}
+pub struct GlobalReuseStrategy<TS>
+where
+    TS: TokenStream,
+{
+    store_value: Option<StoredValue<TS>>,
+}
+impl<TS> ReuseStrategy<TS> for GlobalReuseStrategy<TS>
+where
+    TS: TokenStream,
+{
+    fn get_reusable_components(
+        &mut self,
+        _field_name: &str,
+    ) -> Result<Option<&mut TokenStreamComponents<TS>>> {
+        match self.store_value {
+            Some(ref mut v) => match v {
+                StoredValue::Global(components) => Ok(Some(components)),
+                _ => Err(LuceneError::illegal_state("should not be here")),
+            },
+            _ => Ok(None),
+        }
+    }
+
+    fn set_reusable_components(
+        &mut self,
+        _field_name: &str,
+        components: TokenStreamComponents<TS>,
+    ) -> Result<()> {
+        match self.store_value {
+            Some(ref mut v) => {
+                *v = StoredValue::Global(components);
+                Ok(())
+            },
+            None => Err(LuceneError::already_closed("this Analyzer is closed")),
+        }
+    }
+}
+pub struct PerFieldReuseStrategy<TS>
+where
+    TS: TokenStream,
+{
+    store_value: Option<StoredValue<TS>>,
+}
+impl<TS> ReuseStrategy<TS> for PerFieldReuseStrategy<TS>
+where
+    TS: TokenStream,
+{
+    fn get_reusable_components(
+        &mut self,
+        field_name: &str,
+    ) -> Result<Option<&mut TokenStreamComponents<TS>>>
+    where
+        TS: TokenStream,
+    {
+        match self.store_value {
+            Some(ref mut v) => match v {
+                StoredValue::PerField(map) => Ok(map.get_mut(field_name)),
+                _ => Err(LuceneError::illegal_state("should not be here")),
+            },
+            _ => Ok(None),
+        }
+    }
+
+    fn set_reusable_components(
+        &mut self,
+        field_name: &str,
+        components: TokenStreamComponents<TS>,
+    ) -> Result<()> {
+        match self.store_value {
+            Some(ref mut v) => match v {
+                StoredValue::PerField(map) => {
+                    map.insert(field_name.to_string(), components);
+                    Ok(())
+                },
+                _ => Err(LuceneError::illegal_state("should not be here")),
+            },
+            None => Err(LuceneError::already_closed("this Analyzer is closed")),
+        }
+    }
+}
+
+pub enum StoredValue<TS>
+where
+    TS: TokenStream,
+{
+    PerField(HashMap<String, TokenStreamComponents<TS>>),
+    Global(TokenStreamComponents<TS>),
 }
 
 pub struct TokenStreamComponents<TS>

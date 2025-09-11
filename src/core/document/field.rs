@@ -687,7 +687,7 @@ impl BinaryTokenStream {
 impl TokenStream for BinaryTokenStream {
     fn increment_token(&mut self) -> Result<bool> {
         if self.used {
-            return Ok(true);
+            return Ok(false);
         }
         // TODO
         // self.clear_attributes();
