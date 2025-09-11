@@ -19,8 +19,6 @@ use crate::core::analysis::token_attributes::term_to_bytes_ref_attribute::TermTo
 use crate::core::index::BytesRef;
 use crate::core::util::attribute::Attribute;
 use crate::core::util::attribute_impl::AttributeImpl;
-use crate::core::util::attribute_source::AttributeSource;
-use crate::core::util::error::lucene_error::Result;
 use std::borrow::Cow;
 use std::hash::{Hash, Hasher};
 
@@ -84,21 +82,6 @@ impl Hash for BytesTermAttributeImpl {
 impl PartialEq for BytesTermAttributeImpl {
     fn eq(&self, other: &Self) -> bool {
         self.bytes == other.bytes
-    }
-}
-
-impl AttributeSource for BytesTermAttributeImpl {
-    fn set_bytes_ref(&mut self, bytes: Option<BytesRef<Vec<u8>>>) -> Result<()> {
-        self.bytes = bytes;
-        Ok(())
-    }
-
-    fn get_bytes_ref(&mut self) -> Option<Cow<'_, BytesRef<Vec<u8>>>> {
-        self.bytes.as_ref().map(Cow::Borrowed)
-    }
-
-    fn clear_attributes(&mut self) {
-        self.clear()
     }
 }
 

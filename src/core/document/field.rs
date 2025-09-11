@@ -26,7 +26,7 @@ use crate::core::analysis::token_attributes::bytes_term_attribute::BytesTermAttr
 use crate::core::analysis::token_attributes::bytes_term_attribute_impl::BytesTermAttributeImpl;
 use crate::core::analysis::token_attributes::char_term_attribute::CharTermAttribute;
 use crate::core::analysis::token_attributes::offset_attribute::OffsetAttribute;
-use crate::core::analysis::token_stream::TokenStream;
+use crate::core::analysis::token_stream::{Either2TokenStream, TokenStream};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::fields::TokenStreamEnum;
 use crate::core::document::invertable_field::InvertableType;
@@ -78,6 +78,7 @@ pub struct Field {
     name: String,
     /// Field's value.
     pub(crate) fields_data: Option<FieldDataEnum>,
+    token_stream: Option<Either2TokenStream<BinaryTokenStream, StringTokenStream>>,
 }
 impl Field {
     /// Expert: creates a field with no initial value. This is intended to be
@@ -95,6 +96,7 @@ impl Field {
             indexable_field_type,
             name: name.to_string(),
             fields_data: None,
+            token_stream: None,
         }
     }
     /// Creates a field with a `Reader` value.
@@ -126,6 +128,7 @@ impl Field {
             indexable_field_type,
             name: name.to_string(),
             fields_data: Some(FieldDataEnum::Reader(reader)),
+            token_stream: None,
         })
     }
     /// Creates a field with a `TokenStream` value.
@@ -159,6 +162,7 @@ impl Field {
             indexable_field_type,
             name: name.to_string(),
             fields_data: Some(FieldDataEnum::TokenStream(token_stream)),
+            token_stream: None,
         })
     }
     /// Creates a field with a binary value.
@@ -255,6 +259,7 @@ impl Field {
             indexable_field_type,
             name: name.to_string(),
             fields_data: Some(FieldDataEnum::Binary(bytes)),
+            token_stream: None,
         })
     }
     /// Creates a field with a `String` value.
@@ -285,6 +290,7 @@ impl Field {
             indexable_field_type,
             name: name.to_string(),
             fields_data: Some(FieldDataEnum::String(value)),
+            token_stream: None,
         })
     }
     /// Returns the `TokenStream` for this field to be used when indexing, or
@@ -663,7 +669,7 @@ pub enum FieldDataEnum {
 }
 /// Creates a new TokenStream that returns a BytesRef as single token
 pub(crate) struct BinaryTokenStream {
-    att: BytesTermAttributeImpl,
+    att: Attributes,
     used: bool,
     value: Option<BytesRef<Vec<u8>>>,
 }
@@ -672,7 +678,7 @@ impl BinaryTokenStream {
     /// Creates a new TokenStream that returns a BytesRef as single token.
     pub(crate) fn new() -> Self {
         Self {
-            att: BytesTermAttributeImpl::new(),
+            att: Attributes::BytesTerm(BytesTermAttributeImpl::new()),
             used: false,
             value: None,
         }
@@ -716,7 +722,7 @@ impl TokenStream for BinaryTokenStream {
         Ok(())
     }
 
-    type AttributeSource = BytesTermAttributeImpl;
+    type AttributeSource = Attributes;
 
     fn get_attribute_source(&self) -> &Self::AttributeSource {
         &self.att

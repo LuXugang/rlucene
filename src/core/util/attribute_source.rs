@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::analysis::token_attributes::bytes_term_attribute::BytesTermAttribute;
+use crate::core::analysis::token_attributes::bytes_term_attribute_impl::BytesTermAttributeImpl;
 use crate::core::analysis::token_attributes::char_term_attribute::CharTermAttribute;
 use crate::core::analysis::token_attributes::offset_attribute::OffsetAttribute;
 use crate::core::analysis::token_attributes::packed_token_attribute_impl::PackedTokenAttributeImpl;
@@ -23,9 +25,8 @@ use crate::core::analysis::token_attributes::term_to_bytes_ref_attribute::TermTo
 use crate::core::index::BytesRef;
 use crate::core::util::attribute::Attribute;
 use crate::core::util::attribute_impl::AttributeImpl;
-use std::borrow::Cow;
-
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use std::borrow::Cow;
 pub trait AttributeSource {
     // OffsetAttribute
     fn start_offset(&self) -> Option<i32> {
@@ -73,6 +74,7 @@ pub trait AttributeSource {
 
 pub enum Attributes {
     PackedToken(PackedTokenAttributeImpl),
+    BytesTerm(BytesTermAttributeImpl),
 }
 
 impl Attribute for Attributes {}
@@ -81,30 +83,35 @@ impl CharTermAttribute for Attributes {
     fn length(&self) -> usize {
         match self {
             Attributes::PackedToken(attr) => attr.length(),
+            _ => unimplemented!("not support"),
         }
     }
 
     fn copy_buffer(&mut self, buffer: &[char], offset: usize, length: usize) {
         match self {
             Attributes::PackedToken(attr) => attr.copy_buffer(buffer, offset, length),
+            _ => unimplemented!("not support"),
         }
     }
 
     fn buffer_mut(&mut self) -> &mut [char] {
         match self {
             Attributes::PackedToken(attr) => attr.buffer_mut(),
+            _ => unimplemented!("not support"),
         }
     }
 
     fn buffer(&self) -> &[char] {
         match self {
             Attributes::PackedToken(attr) => attr.buffer(),
+            _ => unimplemented!("not support"),
         }
     }
 
     fn resize_buffer(&mut self, new_size: usize) -> &mut [char] {
         match self {
             Attributes::PackedToken(attr) => attr.resize_buffer(new_size),
+            _ => unimplemented!("not support"),
         }
     }
 
@@ -114,6 +121,7 @@ impl CharTermAttribute for Attributes {
                 attr.set_length(length)?;
                 Ok(self)
             },
+            _ => unimplemented!("not support"),
         }
     }
 
@@ -123,6 +131,7 @@ impl CharTermAttribute for Attributes {
                 attr.set_empty();
                 self
             },
+            _ => unimplemented!("not support"),
         }
     }
 
@@ -132,6 +141,7 @@ impl CharTermAttribute for Attributes {
                 attr.append_range(csq, start, end);
                 self
             },
+            _ => unimplemented!("not support"),
         }
     }
 
@@ -141,6 +151,7 @@ impl CharTermAttribute for Attributes {
                 attr.append_char(c);
                 self
             },
+            _ => unimplemented!("not support"),
         }
     }
 
@@ -150,6 +161,7 @@ impl CharTermAttribute for Attributes {
                 attr.append_str(s);
                 self
             },
+            _ => unimplemented!("not support"),
         }
     }
 
@@ -162,6 +174,7 @@ impl CharTermAttribute for Attributes {
                 attr.append_term_attribute(term_att);
                 self
             },
+            _ => unimplemented!("not support"),
         }
     }
 }
@@ -176,54 +189,73 @@ impl AttributeSource for Attributes {
     fn start_offset(&self) -> Option<i32> {
         match self {
             Attributes::PackedToken(attr) => Some(attr.start_offset()),
+            _ => unimplemented!("not support"),
         }
     }
 
     fn end_offset(&self) -> Option<i32> {
         match self {
             Attributes::PackedToken(attr) => Some(attr.end_offset()),
+            _ => unimplemented!("not support"),
+        }
+    }
+
+    fn set_bytes_ref(&mut self, bytes: Option<BytesRef<Vec<u8>>>) -> Result<()> {
+        match self {
+            Attributes::BytesTerm(attr) => {
+                let _: () = BytesTermAttribute::set_bytes_ref(attr, bytes);
+                Ok(())
+            },
+            _ => unimplemented!("not support"),
         }
     }
 
     fn get_position_increment(&self) -> Option<i32> {
         match self {
             Attributes::PackedToken(attr) => Some(attr.get_position_increment()),
+            _ => unimplemented!("not support"),
         }
     }
 
     fn set_position_increment(&mut self, position_increment: i32) -> Result<()> {
         match self {
             Attributes::PackedToken(attr) => attr.set_position_increment(position_increment),
+            _ => unimplemented!("not support"),
         }
     }
 
     fn get_payload(&self) -> Option<&BytesRef<Vec<u8>>> {
         match self {
             Attributes::PackedToken(_) => None,
+            _ => unimplemented!("not support"),
         }
     }
 
     fn get_bytes_ref(&mut self) -> Option<Cow<'_, BytesRef<Vec<u8>>>> {
         match self {
             Attributes::PackedToken(attr) => attr.base.get_bytes_ref(),
+            Attributes::BytesTerm(attr) => TermToBytesRefAttribute::get_bytes_ref(attr),
         }
     }
 
     fn get_term_frequency(&self) -> Option<i32> {
         match self {
             Attributes::PackedToken(attr) => Some(attr.get_term_frequency()),
+            _ => unimplemented!("not support"),
         }
     }
 
     fn end_attributes(&mut self) {
         match self {
             Attributes::PackedToken(attr) => attr.end(),
+            _ => unimplemented!("not support"),
         }
     }
 
     fn clear_attributes(&mut self) {
         match self {
             Attributes::PackedToken(attr) => attr.clear(),
+            Attributes::BytesTerm(attr) => attr.clear(),
         }
     }
 }
@@ -232,18 +264,39 @@ impl OffsetAttribute for Attributes {
     fn start_offset(&self) -> i32 {
         match self {
             Attributes::PackedToken(attr) => attr.start_offset(),
+            _ => unimplemented!("not support"),
         }
     }
 
     fn set_offset(&mut self, start_offset: i32, end_offset: i32) -> Result<()> {
         match self {
             Attributes::PackedToken(attr) => attr.set_offset(start_offset, end_offset),
+            _ => unimplemented!("not support"),
         }
     }
 
     fn end_offset(&self) -> i32 {
         match self {
             Attributes::PackedToken(attr) => attr.end_offset(),
+            _ => unimplemented!("not support"),
+        }
+    }
+}
+
+impl TermToBytesRefAttribute for Attributes {
+    fn get_bytes_ref(&mut self) -> Option<Cow<'_, BytesRef<Vec<u8>>>> {
+        match self {
+            Attributes::BytesTerm(attr) => TermToBytesRefAttribute::get_bytes_ref(attr),
+            _ => unimplemented!("not support"),
+        }
+    }
+}
+
+impl BytesTermAttribute for Attributes {
+    fn set_bytes_ref(&mut self, bytes: Option<BytesRef<Vec<u8>>>) {
+        match self {
+            Attributes::BytesTerm(attr) => BytesTermAttribute::set_bytes_ref(attr, bytes),
+            _ => unimplemented!("not support"),
         }
     }
 }
@@ -284,6 +337,13 @@ where
         match self {
             Either2AttributeSource::A(t) => t.end_offset(),
             Either2AttributeSource::B(s) => s.end_offset(),
+        }
+    }
+
+    fn set_bytes_ref(&mut self, _bytes: Option<BytesRef<Vec<u8>>>) -> Result<()> {
+        match self {
+            Either2AttributeSource::A(t) => t.set_bytes_ref(_bytes),
+            Either2AttributeSource::B(s) => s.set_bytes_ref(_bytes),
         }
     }
 
