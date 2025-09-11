@@ -26,9 +26,8 @@ use std::collections::HashMap;
 use std::marker::PhantomData;
 
 pub trait Analyzer {
-    fn create_components<TS>(&self, field: &str) -> TokenStreamComponents<TS>
-    where
-        TS: TokenStream;
+    type TokenStream: TokenStream;
+    fn create_components(&self, field: &str) -> Result<TokenStreamComponents<Self::TokenStream>>;
 
     fn normalize_with_ts<TS>(&self, _field_name: &str, in_: TS) -> Result<impl TokenStream>
     where
@@ -37,28 +36,25 @@ pub trait Analyzer {
         Ok(in_)
     }
 
-    fn token_stream_with_reader<'a, TS, RS>(
-        &'a mut self,
+    type ReuseStrategy: ReuseStrategy<Self::TokenStream>;
+    fn token_stream_with_reader(
+        &mut self,
         field_name: &str,
         reader: ReaderEnum,
-    ) -> Result<&'a mut TS>
-    where
-        TS: TokenStream,
-        RS: ReuseStrategy<TS> + 'a,
-    {
+    ) -> Result<&mut Self::TokenStream> {
         let r = self.init_reader(field_name, reader);
-        let analyzer_base: &mut AnalyzerBase<TS, RS> = self.get_analyzer_base();
+        let analyzer_base = self.get_analyzer_base();
         let components = analyzer_base
             .reuse_strategy
             .get_reusable_components(field_name)?;
         if components.is_none() {
-            let v: TokenStreamComponents<TS> = self.create_components(field_name);
-            let analyzer_base: &mut AnalyzerBase<TS, RS> = self.get_analyzer_base();
+            let v = self.create_components(field_name)?;
+            let analyzer_base = self.get_analyzer_base();
             analyzer_base
                 .reuse_strategy
                 .set_reusable_components(field_name, v)?;
         }
-        let analyzer_base: &mut AnalyzerBase<TS, RS> = self.get_analyzer_base();
+        let analyzer_base = self.get_analyzer_base();
         let components = analyzer_base
             .reuse_strategy
             .get_reusable_components(field_name)?
@@ -66,27 +62,19 @@ pub trait Analyzer {
         components.set_reader(r)?;
         Ok(components.get_token_stream())
     }
-
-    fn get_analyzer_base<TS, RS>(&mut self) -> &mut AnalyzerBase<TS, RS>
-    where
-        TS: TokenStream,
-        RS: ReuseStrategy<TS>;
-    fn token_stream<'a, TS, RS>(&'a mut self, field_name: &str, text: &str) -> Result<&'a mut TS>
-    where
-        TS: TokenStream,
-        RS: ReuseStrategy<TS> + 'a,
-    {
+    fn get_analyzer_base(&mut self) -> &mut AnalyzerBase<Self::TokenStream, Self::ReuseStrategy>;
+    fn token_stream(&mut self, field_name: &str, text: &str) -> Result<&mut Self::TokenStream> {
         // We don’t reuse ReusableStringReader here like Java Lucene does.
         let mut str_reader = ReusableStringReader::new();
         str_reader.set_value(text);
         let r = self.init_reader(field_name, ReaderEnum::ReusedString(str_reader));
-        let analyzer_base: &mut AnalyzerBase<TS, RS> = self.get_analyzer_base();
+        let analyzer_base = self.get_analyzer_base();
         let components = analyzer_base
             .reuse_strategy
             .get_reusable_components(field_name)?;
         if components.is_none() {
-            let v: TokenStreamComponents<TS> = self.create_components(field_name);
-            let analyzer_base: &mut AnalyzerBase<TS, RS> = self.get_analyzer_base();
+            let v = self.create_components(field_name)?;
+            let analyzer_base = self.get_analyzer_base();
             analyzer_base
                 .reuse_strategy
                 .get_reusable_components(field_name)?;
@@ -94,7 +82,7 @@ pub trait Analyzer {
                 .reuse_strategy
                 .set_reusable_components(field_name, v)?;
         }
-        let analyzer_base: &mut AnalyzerBase<TS, RS> = self.get_analyzer_base();
+        let analyzer_base = self.get_analyzer_base();
         let components = analyzer_base
             .reuse_strategy
             .get_reusable_components(field_name)?
@@ -186,7 +174,7 @@ impl<TS> AnalyzerBase<TS, GlobalReuseStrategy<TS>>
 where
     TS: TokenStream,
 {
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             reuse_strategy: GlobalReuseStrategy::default(),
             _phantom: PhantomData,
@@ -368,7 +356,7 @@ impl Drop for StringTokenStream {
 impl TokenStream for StringTokenStream {
     fn increment_token(&mut self) -> Result<bool> {
         if self.used {
-            return Ok(true);
+            return Ok(false);
         }
         // self.clear_attributes();
         self.att.append_str(Some(&self.value));
