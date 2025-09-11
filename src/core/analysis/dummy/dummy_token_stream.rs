@@ -29,7 +29,15 @@ impl TokenStream for DummyTokenStream {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
+    fn default_end(&mut self) -> crate::core::util::error::lucene_error::Result<()> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
     fn reset(&mut self) -> crate::core::util::error::lucene_error::Result<()> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn default_reset(&mut self) -> crate::core::util::error::lucene_error::Result<()> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

@@ -197,4 +197,32 @@ mod tests {
     fn test_single_high_surrogate() {
         // this test is not required in Rust Lucene
     }
+    #[test]
+    fn test_copy_char_array_set_bw_compat() {
+        // TODO
+    }
+    #[test]
+    fn test_copy_char_array_set() {
+        // TODO
+    }
+    #[test]
+    fn test_copy_jdk_set() {
+        // this test is not required in Rust Lucene
+    }
+    #[test]
+    fn test_copy_empty_set() {
+        // TODO
+    }
+    #[test]
+    fn test_empty_set() {
+        // TODO
+    }
+    #[test]
+    fn test_contains_with_null() {
+        // TODO
+    }
+    #[test]
+    fn test_to_string() {
+        // TODO
+    }
 }

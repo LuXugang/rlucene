@@ -173,6 +173,8 @@ mod tests {
     use crate::test::util::lucene_test_case::lucene_test_case_util::{random, random_multiplier};
     use rand::Rng;
     use std::collections::HashMap;
+    #[allow(dead_code)]
+    struct TestCharArrayMap;
 
     fn do_random<R: Rng + ?Sized>(random: &mut R, iter: i32, ignore_case: bool) {
         let mut cmap = CharArrayMap::new(ignore_case);
