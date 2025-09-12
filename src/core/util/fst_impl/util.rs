@@ -288,14 +288,17 @@ impl<T> FSTPath<T>
 where
     T: OutputsBound,
 {
-    pub fn new(
+    pub fn new<V>(
         output: T,
         other: &Arc<T>,
         input: IntsRefBuilder<Vec<i32>>,
         boost: f32,
-        context: String,
+        context: V,
         payload: i32,
-    ) -> Self {
+    ) -> Self
+    where
+        V: Into<String>,
+    {
         let mut arc = Arc::default();
         arc.copy_from(other);
         FSTPath {
@@ -303,7 +306,7 @@ where
             output,
             input,
             boost,
-            context,
+            context: context.into(),
             payload,
         }
     }

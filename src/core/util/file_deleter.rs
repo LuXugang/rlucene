@@ -275,9 +275,12 @@ pub struct RefCount {
     count: usize,
 }
 impl RefCount {
-    pub fn new(file_name: &str) -> Self {
+    pub fn new<T>(file_name: T) -> Self
+    where
+        T: Into<String>,
+    {
         Self {
-            file_name: file_name.to_string(),
+            file_name: file_name.into(),
             init_done: false,
             count: 0,
         }

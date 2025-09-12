@@ -103,7 +103,10 @@ impl StringField {
     ///   must not be modified until the document(s) holding it have been
     ///   indexed.
     /// - `stored`: `Store::Yes` if the content should also be stored.
-    pub fn with_bytes_ref(name: String, value: BytesRef<Vec<u8>>, store: Store) -> Result<Self> {
+    pub fn with_bytes_ref<T>(name: T, value: BytesRef<Vec<u8>>, store: Store) -> Result<Self>
+    where
+        T: Into<String>,
+    {
         let store = store.into();
         let field_type = if store {
             TYPE_STORED.clone()

@@ -325,9 +325,9 @@ where
                 index_created_version,
                 *LATEST,
                 if min_supported_major_version == *MIN_SUPPORTED_MAJOR {
-                    "the current and previous major versions"
+                    "the current and previous major versions".to_string()
                 } else {
-                    &format!("from version {min_supported_major_version} upwards")
+                    format!("from version {min_supported_major_version} upwards")
                 }
             );
             return Err(LuceneError::index_format_too_old(format!(
