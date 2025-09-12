@@ -1412,156 +1412,156 @@ impl PerField {
     where
         A: Analyzer,
     {
-        let analyzed = field.field_type().tokenized();
-        /*
-         * To assist people in tracking down problems in analysis components, we wish to write the field name to the infostream
-         * when we fail. We expect some caller to eventually deal with the real exception, so we don't want any 'catch' clauses,
-         * but rather a finally that takes note of the problem.
-         */
-
-        let field_name = field.name().to_string();
-        let terms_hash_per_field = self.terms_hash_per_field.as_mut().unwrap();
-        terms_hash_per_field.start(field, first)?;
-
-        let mut stream = field
-            .token_stream(analyzer)?
-            .ok_or_else(|| LuceneError::illegal_state("token_stream is None"))?;
-
-        let mut succeeded = false;
-        let result = (|| {
-            stream.reset()?;
-
-            while stream.increment_token()? {
-                // If we hit an exception in stream.next below
-                // (which is fairly common, e.g. if analyzer
-                // chokes on a given document), then it's
-                // non-aborting and (above) this one document
-                // will be marked as deleted, but still
-                // consume a docID
-                let attribute_source = stream.get_attribute_source_mut();
-                let invert_state = self.invert_state.as_mut().unwrap();
-                let pos_incr = attribute_source.get_position_increment().ok_or_else(|| {
-                    LuceneError::illegal_state("PositionIncrementAttribute is None".to_string())
-                })?;
-                invert_state.position += pos_incr;
-                if invert_state.position < invert_state.last_position {
-                    return if pos_incr == 0 {
-                        Err(LuceneError::illegal_argument(format!(
-                            "first position increment must be > 0 (got 0) for field '{}'",
-                            field_name
-                        )))
-                    } else if pos_incr < 0 {
-                        // position increment must be > 0
-                        Err(LuceneError::illegal_argument(format!(
-                            "position increment must be > 0 (got {}) for field '{}'",
-                            pos_incr, field_name
-                        )))
-                    } else {
-                        Err(LuceneError::illegal_argument(format!(
-                            "position overflowed Integer.MAX_VALUE (got posIncr={} last_position={} position={}) for field '{}'",
-                            pos_incr, invert_state.last_position, invert_state.position, field_name
-                        )))
-                    };
-                } else if invert_state.position > MAX_POSITION {
-                    return Err(LuceneError::illegal_argument(format!(
-                        "position {} too large for field {}",
-                        invert_state.position, field_name
-                    )));
-                }
-                if pos_incr == 0 {
-                    invert_state.num_overlap += 1;
-                }
-                invert_state.last_position = invert_state.position;
-
-                let (start, end) = attribute_source
-                    .start_offset()
-                    .zip(attribute_source.end_offset())
-                    .ok_or_else(|| {
-                        LuceneError::illegal_state(
-                            "missing start or end offset in attribute_source".to_string(),
-                        )
-                    })?;
-                let start_offset = invert_state.offset + start;
-                let end_offset = invert_state.offset + end;
-
-                if start_offset < invert_state.last_start_offset || end_offset < start_offset {
-                    return Err(LuceneError::illegal_argument(format!(
-                        "startOffset must be non-negative, and endOffset must be >= startOffset, and offsets must not go backwards offsets: start={} end={} last_start={} for field {}",
-                        start_offset, end_offset, invert_state.last_start_offset, field_name
-                    )));
-                }
-                invert_state.last_start_offset = start_offset;
-
-                // update length
-                let tf = attribute_source.get_term_frequency().ok_or_else(|| {
-                    LuceneError::illegal_argument("term frequency is None".to_string())
-                })?;
-                invert_state.length = invert_state.length.checked_add(tf).ok_or_else(|| {
-                    LuceneError::number_overflow(format!(
-                        "too many tokens for field {}",
-                        field_name
-                    ))
-                })?;
-                // If we hit an exception in here, we abort
-                // all buffered documents since the last
-                // flush, on the likelihood that the
-                // internal state of the terms hash is now
-                // corrupt and should not be flushed to a
-                // new segment:
-                if let Err(e) = terms_hash_per_field.add_with_bytes_ref(
-                    None,
-                    doc_id,
-                    self.invert_state.as_mut().unwrap(),
-                    attribute_source,
-                ) {
-                    let bytes_ref = attribute_source.get_bytes_ref().ok_or_else(|| {
-                        LuceneError::illegal_state(
-                            "BytesRef is None in attribute_source".to_string(),
-                        )
-                    })?;
-                    let mut prefix = [0u8; 30];
-                    prefix.copy_from(&bytes_ref.bytes[bytes_ref.offset..bytes_ref.offset + 30], 0);
-                    return Err(LuceneError::illegal_argument(format!(
-                        "Document contains at least one immense term in field=\"{}\" (whose UTF8 encoding is longer than the max length {}), all of which were skipped. Please correct the analyzer to not produce such terms. The prefix of the first immense term is: '{:?}...', original message: {}",
-                        self.field_info.as_ref().unwrap().name,
-                        MAX_TERM_LENGTH,
-                        prefix,
-                        e
-                    )));
-                }
-            }
-            // trigger streams to perform end-of-stream operations
-            stream.end()?;
-            // when we come back around to the field...
-            let invert_state = self.invert_state.as_mut().unwrap();
-            // TODO
-            invert_state.position += stream
-                .get_attribute_source()
-                .get_position_increment()
-                .as_ref()
-                .unwrap();
-            invert_state.offset += stream.get_attribute_source().end_offset().as_ref().unwrap();
-            succeeded = true;
-            Ok(())
-        })();
-
-        // if !succeeded && self.info_stream.is_enabled("DW") {
-        //     self.self.info_stream.message(
-        //         "DW",
-        //         &format!("exception in invert_token_stream for {}", field.name()),
-        //     );
+        // let analyzed = field.field_type().tokenized();
+        // /*
+        //  * To assist people in tracking down problems in analysis components, we wish to write the field name to the infostream
+        //  * when we fail. We expect some caller to eventually deal with the real exception, so we don't want any 'catch' clauses,
+        //  * but rather a finally that takes note of the problem.
+        //  */
+        //
+        // let field_name = field.name().to_string();
+        // let terms_hash_per_field = self.terms_hash_per_field.as_mut().unwrap();
+        // terms_hash_per_field.start(field, first)?;
+        //
+        // let mut stream = field
+        //     .token_stream(analyzer)?
+        //     .ok_or_else(|| LuceneError::illegal_state("token_stream is None"))?;
+        //
+        // let mut succeeded = false;
+        // let result = (|| {
+        //     stream.reset()?;
+        //
+        //     while stream.increment_token()? {
+        //         // If we hit an exception in stream.next below
+        //         // (which is fairly common, e.g. if analyzer
+        //         // chokes on a given document), then it's
+        //         // non-aborting and (above) this one document
+        //         // will be marked as deleted, but still
+        //         // consume a docID
+        //         let attribute_source = stream.get_attribute_source_mut();
+        //         let invert_state = self.invert_state.as_mut().unwrap();
+        //         let pos_incr = attribute_source.get_position_increment().ok_or_else(|| {
+        //             LuceneError::illegal_state("PositionIncrementAttribute is None".to_string())
+        //         })?;
+        //         invert_state.position += pos_incr;
+        //         if invert_state.position < invert_state.last_position {
+        //             return if pos_incr == 0 {
+        //                 Err(LuceneError::illegal_argument(format!(
+        //                     "first position increment must be > 0 (got 0) for field '{}'",
+        //                     field_name
+        //                 )))
+        //             } else if pos_incr < 0 {
+        //                 // position increment must be > 0
+        //                 Err(LuceneError::illegal_argument(format!(
+        //                     "position increment must be > 0 (got {}) for field '{}'",
+        //                     pos_incr, field_name
+        //                 )))
+        //             } else {
+        //                 Err(LuceneError::illegal_argument(format!(
+        //                     "position overflowed Integer.MAX_VALUE (got posIncr={} last_position={} position={}) for field '{}'",
+        //                     pos_incr, invert_state.last_position, invert_state.position, field_name
+        //                 )))
+        //             };
+        //         } else if invert_state.position > MAX_POSITION {
+        //             return Err(LuceneError::illegal_argument(format!(
+        //                 "position {} too large for field {}",
+        //                 invert_state.position, field_name
+        //             )));
+        //         }
+        //         if pos_incr == 0 {
+        //             invert_state.num_overlap += 1;
+        //         }
+        //         invert_state.last_position = invert_state.position;
+        //
+        //         let (start, end) = attribute_source
+        //             .start_offset()
+        //             .zip(attribute_source.end_offset())
+        //             .ok_or_else(|| {
+        //                 LuceneError::illegal_state(
+        //                     "missing start or end offset in attribute_source".to_string(),
+        //                 )
+        //             })?;
+        //         let start_offset = invert_state.offset + start;
+        //         let end_offset = invert_state.offset + end;
+        //
+        //         if start_offset < invert_state.last_start_offset || end_offset < start_offset {
+        //             return Err(LuceneError::illegal_argument(format!(
+        //                 "startOffset must be non-negative, and endOffset must be >= startOffset, and offsets must not go backwards offsets: start={} end={} last_start={} for field {}",
+        //                 start_offset, end_offset, invert_state.last_start_offset, field_name
+        //             )));
+        //         }
+        //         invert_state.last_start_offset = start_offset;
+        //
+        //         // update length
+        //         let tf = attribute_source.get_term_frequency().ok_or_else(|| {
+        //             LuceneError::illegal_argument("term frequency is None".to_string())
+        //         })?;
+        //         invert_state.length = invert_state.length.checked_add(tf).ok_or_else(|| {
+        //             LuceneError::number_overflow(format!(
+        //                 "too many tokens for field {}",
+        //                 field_name
+        //             ))
+        //         })?;
+        //         // If we hit an exception in here, we abort
+        //         // all buffered documents since the last
+        //         // flush, on the likelihood that the
+        //         // internal state of the terms hash is now
+        //         // corrupt and should not be flushed to a
+        //         // new segment:
+        //         if let Err(e) = terms_hash_per_field.add_with_bytes_ref(
+        //             None,
+        //             doc_id,
+        //             self.invert_state.as_mut().unwrap(),
+        //             attribute_source,
+        //         ) {
+        //             let bytes_ref = attribute_source.get_bytes_ref().ok_or_else(|| {
+        //                 LuceneError::illegal_state(
+        //                     "BytesRef is None in attribute_source".to_string(),
+        //                 )
+        //             })?;
+        //             let mut prefix = [0u8; 30];
+        //             prefix.copy_from(&bytes_ref.bytes[bytes_ref.offset..bytes_ref.offset + 30], 0);
+        //             return Err(LuceneError::illegal_argument(format!(
+        //                 "Document contains at least one immense term in field=\"{}\" (whose UTF8 encoding is longer than the max length {}), all of which were skipped. Please correct the analyzer to not produce such terms. The prefix of the first immense term is: '{:?}...', original message: {}",
+        //                 self.field_info.as_ref().unwrap().name,
+        //                 MAX_TERM_LENGTH,
+        //                 prefix,
+        //                 e
+        //             )));
+        //         }
+        //     }
+        //     // trigger streams to perform end-of-stream operations
+        //     stream.end()?;
+        //     // when we come back around to the field...
+        //     let invert_state = self.invert_state.as_mut().unwrap();
+        //     // TODO
+        //     invert_state.position += stream
+        //         .get_attribute_source()
+        //         .get_position_increment()
+        //         .as_ref()
+        //         .unwrap();
+        //     invert_state.offset += stream.get_attribute_source().end_offset().as_ref().unwrap();
+        //     succeeded = true;
+        //     Ok(())
+        // })();
+        //
+        // // if !succeeded && self.info_stream.is_enabled("DW") {
+        // //     self.self.info_stream.message(
+        // //         "DW",
+        // //         &format!("exception in invert_token_stream for {}", field.name()),
+        // //     );
+        // // }
+        //
+        // result?;
+        // // TODO
+        // // self.token_stream = Some(stream);
+        //
+        // if analyzed {
+        //     let invert_state = self.invert_state.as_mut().unwrap();
+        //     invert_state.position +=
+        //         analyzer.get_position_increment_gap(&self.field_info.as_ref().unwrap().name);
+        //     invert_state.offset += analyzer.get_offset_gap(&self.field_info.as_ref().unwrap().name);
         // }
-
-        result?;
-        // TODO
-        // self.token_stream = Some(stream);
-
-        if analyzed {
-            let invert_state = self.invert_state.as_mut().unwrap();
-            invert_state.position +=
-                analyzer.get_position_increment_gap(&self.field_info.as_ref().unwrap().name);
-            invert_state.offset += analyzer.get_offset_gap(&self.field_info.as_ref().unwrap().name);
-        }
         Ok(())
     }
 

@@ -46,86 +46,69 @@ pub trait TokenStream {
 pub fn default_attribute() -> Attributes {
     Attributes::PackedToken(PackedTokenAttributeImpl::new())
 }
+macro_rules! either_token_stream {
+    ($vis:vis $name:ident { $( $Variant:ident : $T:ident ),+ $(,)? }) => {
+        $vis enum $name<$( $T ),+> {
+            $( $Variant($T), )+
+        }
 
-pub enum Either2TokenStream<A, B> {
-    A(A),
-    B(B),
+        impl<$( $T ),+> TokenStream for $name<$( $T ),+>
+        where
+            $( $T: TokenStream ),+
+        {
+            #[inline]
+            fn increment_token(&mut self) -> Result<bool> {
+                match self { $( Self::$Variant(inner) => inner.increment_token(), )+ }
+            }
+
+            #[inline]
+            fn end(&mut self) -> Result<()> {
+                match self { $( Self::$Variant(inner) => inner.end(), )+ }
+            }
+
+            #[inline]
+            fn default_end(&mut self) -> Result<()> {
+                match self { $( Self::$Variant(inner) => TokenStream::default_end(inner), )+ }
+            }
+
+            #[inline]
+            fn reset(&mut self) -> Result<()> {
+                match self { $( Self::$Variant(inner) => inner.reset(), )+ }
+            }
+
+            #[inline]
+            fn default_reset(&mut self) -> Result<()> {
+                match self { $( Self::$Variant(inner) => TokenStream::default_reset(inner), )+ }
+            }
+
+            #[inline]
+            fn close(&mut self) -> Result<()> {
+                match self { $( Self::$Variant(inner) => inner.close(), )+ }
+            }
+
+            #[inline]
+            fn get_attribute_source(&self) -> &Attributes {
+                match self { $( Self::$Variant(inner) => inner.get_attribute_source(), )+ }
+            }
+
+            #[inline]
+            fn get_attribute_source_mut(&mut self) -> &mut Attributes {
+                match self { $( Self::$Variant(inner) => inner.get_attribute_source_mut(), )+ }
+            }
+
+            #[inline]
+            fn set_reader(&mut self, input: ReaderEnum) -> Result<()> {
+                match self { $( Self::$Variant(inner) => inner.set_reader(input), )+ }
+            }
+
+            #[inline]
+            fn set_reader_test_point(&mut self) {
+                match self { $( Self::$Variant(inner) => inner.set_reader_test_point(), )+ }
+            }
+        }
+    };
 }
-impl<A, B> TokenStream for Either2TokenStream<A, B>
-where
-    A: TokenStream,
-    B: TokenStream,
-{
-    fn increment_token(&mut self) -> Result<bool> {
-        match self {
-            Either2TokenStream::A(a) => a.increment_token(),
-            Either2TokenStream::B(b) => b.increment_token(),
-        }
-    }
-
-    fn end(&mut self) -> Result<()> {
-        match self {
-            Either2TokenStream::A(a) => a.end(),
-            Either2TokenStream::B(b) => b.end(),
-        }
-    }
-
-    fn default_end(&mut self) -> Result<()> {
-        match self {
-            Either2TokenStream::A(a) => a.default_end(),
-            Either2TokenStream::B(b) => b.default_end(),
-        }
-    }
-
-    fn reset(&mut self) -> Result<()> {
-        match self {
-            Either2TokenStream::A(a) => a.reset(),
-            Either2TokenStream::B(b) => b.reset(),
-        }
-    }
-
-    fn default_reset(&mut self) -> Result<()> {
-        match self {
-            Either2TokenStream::A(a) => a.default_reset(),
-            Either2TokenStream::B(b) => b.default_reset(),
-        }
-    }
-
-    fn close(&mut self) -> Result<()> {
-        match self {
-            Either2TokenStream::A(a) => a.close(),
-            Either2TokenStream::B(b) => b.close(),
-        }
-    }
-
-    fn get_attribute_source(&self) -> &Attributes {
-        match self {
-            Either2TokenStream::A(a) => a.get_attribute_source(),
-            Either2TokenStream::B(b) => b.get_attribute_source(),
-        }
-    }
-
-    fn get_attribute_source_mut(&mut self) -> &mut Attributes {
-        match self {
-            Either2TokenStream::A(a) => a.get_attribute_source_mut(),
-            Either2TokenStream::B(b) => b.get_attribute_source_mut(),
-        }
-    }
-
-    fn set_reader(&mut self, _input: ReaderEnum) -> Result<()> {
-        match self {
-            Either2TokenStream::A(a) => a.set_reader(_input),
-            Either2TokenStream::B(b) => b.set_reader(_input),
-        }
-    }
-
-    fn set_reader_test_point(&mut self) {
-        match self {
-            Either2TokenStream::A(a) => a.set_reader_test_point(),
-            Either2TokenStream::B(b) => b.set_reader_test_point(),
-        }
-    }
-}
+either_token_stream!(pub Either2TokenStream { A: A, B: B });
 
 impl<T> TokenStream for &mut T
 where
