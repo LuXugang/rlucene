@@ -51,7 +51,7 @@ use crate::core::index::index_sorter::Either2DocComparator;
 use crate::core::index::index_sorter::{DocComparator, IndexSorter};
 
 use crate::core::analysis::reader::ReaderEnum;
-use crate::core::index::index_writer::{MAX_POSITION, MAX_STORED_STRING_LENGTH, MAX_TERM_LENGTH};
+use crate::core::index::index_writer::{MAX_STORED_STRING_LENGTH, MAX_TERM_LENGTH};
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::indexable_field_type::IndexableFieldType;
 use crate::core::index::leaf_reader::LeafReader;
@@ -94,7 +94,7 @@ use crate::core::util::allocator_byte::{
     AllocatorByteEnum, DirectTrackingAllocatorByte, MTAllocatorByteEnum,
 };
 use crate::core::util::array_util::ArrayUtil;
-use crate::core::util::attribute_source::{AttributeSource, EmptyAttributeSource};
+use crate::core::util::attribute_source::EmptyAttributeSource;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bit_set::{Either2BitSet, of};
 use crate::core::util::bit_util::BitUtil;
@@ -1423,7 +1423,7 @@ impl PerField {
         let terms_hash_per_field = self.terms_hash_per_field.as_mut().unwrap();
         terms_hash_per_field.start(field, first)?;
 
-        let stream = field
+        let mut stream = field
             .token_stream(analyzer)?
             .ok_or_else(|| LuceneError::illegal_state("token_stream is None"))?;
 
@@ -2341,11 +2341,14 @@ where
 
     type TokenStream = <T as IndexableField>::TokenStream;
 
-    fn token_stream<'a, A>(&'a mut self, analyzer: &A) -> Result<Option<&'a mut Self::TokenStream>>
+    fn token_stream<'a, TS>(
+        &'a mut self,
+        token_stream: &'a TS,
+    ) -> Result<Option<&mut Self::TokenStream>>
     where
-        A: Analyzer,
+        TS: TokenStream,
     {
-        self.delegate.token_stream(analyzer)
+        self.delegate.token_stream(token_stream)
     }
 
     fn binary_value(&self) -> Result<Option<Rc<BytesRef<Vec<u8>>>>> {

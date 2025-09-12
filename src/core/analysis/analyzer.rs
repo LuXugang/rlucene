@@ -77,9 +77,6 @@ pub trait Analyzer {
             let analyzer_base = self.get_analyzer_base();
             analyzer_base
                 .reuse_strategy
-                .get_reusable_components(field_name)?;
-            analyzer_base
-                .reuse_strategy
                 .set_reusable_components(field_name, v)?;
         }
         let analyzer_base = self.get_analyzer_base();

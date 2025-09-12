@@ -21,6 +21,7 @@ use std::sync::Arc;
 use crate::core::analysis::analyzer::Analyzer;
 use crate::core::analysis::dummy::dummy_token_stream::DummyTokenStream;
 use crate::core::analysis::reader::ReaderEnum;
+use crate::core::analysis::token_stream::TokenStream;
 use crate::core::document::field::Field;
 use crate::core::document::field_type::FieldType;
 use crate::core::document::invertable_field::InvertableType;
@@ -82,18 +83,20 @@ impl IndexableField for Fields {
     }
 
     type TokenStream = <Field as IndexableField>::TokenStream;
-
-    fn token_stream<'a, A>(&'a mut self, analyzer: &A) -> Result<Option<&'a mut Self::TokenStream>>
+    fn token_stream<'a, TS>(
+        &'a mut self,
+        token_stream: &'a TS,
+    ) -> Result<Option<&mut Self::TokenStream>>
     where
-        A: Analyzer,
+        TS: TokenStream,
     {
         match self {
-            Fields::Field(f) => f.token_stream(analyzer),
-            Fields::Text(f) => f.token_stream(analyzer),
-            Fields::String(f) => f.token_stream(analyzer),
-            Fields::Stored(f) => f.token_stream(analyzer),
-            Fields::NumericDocValues(f) => f.token_stream(analyzer),
-            Fields::Reverse(f) => f.token_stream(analyzer),
+            Fields::Field(f) => f.token_stream(token_stream),
+            Fields::Text(f) => f.token_stream(token_stream),
+            Fields::String(f) => f.token_stream(token_stream),
+            Fields::Stored(f) => f.token_stream(token_stream),
+            Fields::NumericDocValues(f) => f.token_stream(token_stream),
+            Fields::Reverse(f) => f.token_stream(token_stream),
         }
     }
 

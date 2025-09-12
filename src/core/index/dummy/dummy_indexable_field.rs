@@ -14,9 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::analysis::analyzer::Analyzer;
 use crate::core::analysis::dummy::dummy_token_stream::DummyTokenStream;
 use crate::core::analysis::reader::ReaderEnum;
+use crate::core::analysis::token_stream::TokenStream;
 use crate::core::document::invertable_field::InvertableType;
 use crate::core::document::stored_value::StoredValue;
 use crate::core::index::BytesRef;
@@ -48,9 +48,12 @@ impl IndexableField for DummyIndexableField {
 
     type TokenStream = DummyTokenStream;
 
-    fn token_stream<'a, A>(&'a mut self, _analyzer: &A) -> Result<Option<&'a mut Self::TokenStream>>
+    fn token_stream<'a, TS>(
+        &'a mut self,
+        token_stream: &'a TS,
+    ) -> Result<Option<&mut Self::TokenStream>>
     where
-        A: Analyzer,
+        TS: TokenStream,
     {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }

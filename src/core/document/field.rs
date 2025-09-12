@@ -19,7 +19,6 @@ use std::fmt::{Debug, Display};
 use std::rc::Rc;
 use std::sync::Arc;
 
-use crate::core::analysis::analyzer::Analyzer;
 use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::token_attributes::bytes_term_attribute::BytesTermAttribute;
 use crate::core::analysis::token_attributes::bytes_term_attribute_impl::BytesTermAttributeImpl;
@@ -489,11 +488,14 @@ impl IndexableField for Field {
 
     type TokenStream = Either2TokenStream<BinaryTokenStream, StringTokenStream>;
 
-    fn token_stream<'a, A>(&'a mut self, _analyzer: &A) -> Result<Option<&'a mut Self::TokenStream>>
+    fn token_stream<'a, TS>(
+        &'a mut self,
+        token_stream: &'a TS,
+    ) -> Result<Option<&mut Self::TokenStream>>
     where
-        A: Analyzer,
+        TS: TokenStream,
     {
-        Ok(self.token_stream.as_mut())
+        todo!()
     }
 
     fn binary_value(&self) -> Result<Option<Rc<BytesRef<Vec<u8>>>>> {

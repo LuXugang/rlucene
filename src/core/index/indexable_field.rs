@@ -16,7 +16,6 @@
  */
 // TODO: how to handle versioning here...?
 
-use crate::core::analysis::analyzer::Analyzer;
 use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::token_stream::TokenStream;
 use crate::core::document::invertable_field::InvertableType;
@@ -56,12 +55,12 @@ pub trait IndexableField: Display {
     /// TokenStream value for indexing the document. Should always return a
     /// non-null value if the field is to be indexed.
     type TokenStream: TokenStream;
-    fn token_stream<'a, A>(
+    fn token_stream<'a, TS>(
         &'a mut self,
-        _analyzer: &A,
-    ) -> Result<Option<&'a mut Self::TokenStream>>
+        token_stream: &'a TS,
+    ) -> Result<Option<&mut Self::TokenStream>>
     where
-        A: Analyzer;
+        TS: TokenStream;
     /// Non-null if this field has a binary value.
     fn binary_value(&self) -> Result<Option<Rc<BytesRef<Vec<u8>>>>>;
 

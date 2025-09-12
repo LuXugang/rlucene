@@ -16,6 +16,7 @@
  */
 use crate::core::analysis::analyzer::Analyzer;
 use crate::core::analysis::reader::ReaderEnum;
+use crate::core::analysis::token_stream::TokenStream;
 use crate::core::document::field::{Field, FieldDataEnum};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::invertable_field::InvertableType;
@@ -83,11 +84,14 @@ impl IndexableField for NumericDocValuesField {
 
     type TokenStream = <Field as IndexableField>::TokenStream;
 
-    fn token_stream<'a, A>(&'a mut self, analyzer: &A) -> Result<Option<&'a mut Self::TokenStream>>
+    fn token_stream<'a, TS>(
+        &'a mut self,
+        token_stream: &'a TS,
+    ) -> Result<Option<&mut Self::TokenStream>>
     where
-        A: Analyzer,
+        TS: TokenStream,
     {
-        self.parent_field.token_stream(analyzer)
+        self.parent_field.token_stream(token_stream)
     }
 
     fn binary_value(&self) -> Result<Option<Rc<BytesRef<Vec<u8>>>>> {
