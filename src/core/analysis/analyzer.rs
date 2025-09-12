@@ -18,16 +18,19 @@ use crate::core::analysis::reader::{Reader, ReaderEnum};
 use crate::core::analysis::reusable_string_reader::ReusableStringReader;
 use crate::core::analysis::token_attributes::char_term_attribute::CharTermAttribute;
 use crate::core::analysis::token_attributes::offset_attribute::OffsetAttribute;
-use crate::core::analysis::token_stream::TokenStream;
+use crate::core::analysis::token_stream::{InnerTokenStreams, TokenStream};
 use crate::core::index::BytesRef;
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::marker::PhantomData;
+thread_local! {
+    static REUSE_STRATEGY: RefCell<Option<ReuseStrategyEnum>> = const { RefCell::new(None) };
+}
 
 pub trait Analyzer {
-    type TokenStream: TokenStream;
-    fn create_components(&self, field: &str) -> Result<TokenStreamComponents<Self::TokenStream>>;
+    fn create_components(&self, field: &str) -> Result<TokenStreamComponents<InnerTokenStreams>>;
 
     fn normalize_with_ts<TS>(&self, _field_name: &str, in_: TS) -> Result<impl TokenStream>
     where
@@ -36,56 +39,51 @@ pub trait Analyzer {
         Ok(in_)
     }
 
-    type ReuseStrategy: ReuseStrategy<Self::TokenStream>;
-    fn token_stream_with_reader(
-        &mut self,
-        field_name: &str,
-        reader: ReaderEnum,
-    ) -> Result<&mut Self::TokenStream> {
+    fn token_stream_with_reader(&self, field_name: &str, reader: ReaderEnum) -> Result<()> {
         let r = self.init_reader(field_name, reader);
-        let analyzer_base = self.get_analyzer_base();
-        let components = analyzer_base
-            .reuse_strategy
-            .get_reusable_components(field_name)?;
-        if components.is_none() {
-            let v = self.create_components(field_name)?;
-            let analyzer_base = self.get_analyzer_base();
-            analyzer_base
-                .reuse_strategy
-                .set_reusable_components(field_name, v)?;
-        }
-        let analyzer_base = self.get_analyzer_base();
-        let components = analyzer_base
-            .reuse_strategy
-            .get_reusable_components(field_name)?
-            .unwrap();
-        components.set_reader(r)?;
-        Ok(components.get_token_stream())
+        REUSE_STRATEGY.with(|reuse_strategy| {
+            (|| -> Result<()> {
+                let mut reuse_strategy = reuse_strategy.borrow_mut();
+                let reuse_strategy = reuse_strategy.as_mut().unwrap();
+
+                let mut components = reuse_strategy.get_reusable_components(field_name)?;
+                if components.is_none() {
+                    let v = self.create_components(field_name)?;
+                    reuse_strategy.set_reusable_components(field_name, v)?;
+                    components = reuse_strategy.get_reusable_components(field_name)?;
+                }
+
+                let components = components.as_mut().unwrap();
+                components.set_reader(r)?;
+                Ok(())
+            })()
+        })?;
+        Ok(())
     }
-    fn get_analyzer_base(&mut self) -> &mut AnalyzerBase<Self::TokenStream, Self::ReuseStrategy>;
-    fn token_stream(&mut self, field_name: &str, text: &str) -> Result<&mut Self::TokenStream> {
+    fn token_stream(&self, field_name: &str, text: &str) -> Result<()> {
         // We don’t reuse ReusableStringReader here like Java Lucene does.
         let mut str_reader = ReusableStringReader::new();
         str_reader.set_value(text);
         let r = self.init_reader(field_name, ReaderEnum::ReusedString(str_reader));
-        let analyzer_base = self.get_analyzer_base();
-        let components = analyzer_base
-            .reuse_strategy
-            .get_reusable_components(field_name)?;
-        if components.is_none() {
-            let v = self.create_components(field_name)?;
-            let analyzer_base = self.get_analyzer_base();
-            analyzer_base
-                .reuse_strategy
-                .set_reusable_components(field_name, v)?;
-        }
-        let analyzer_base = self.get_analyzer_base();
-        let components = analyzer_base
-            .reuse_strategy
-            .get_reusable_components(field_name)?
-            .unwrap();
-        components.set_reader(r)?;
-        Ok(components.get_token_stream())
+
+        REUSE_STRATEGY.with(|reuse_strategy| {
+            (|| -> Result<()> {
+                let mut reuse_strategy = reuse_strategy.borrow_mut();
+                let reuse_strategy = reuse_strategy.as_mut().unwrap();
+
+                let mut components = reuse_strategy.get_reusable_components(field_name)?;
+                if components.is_none() {
+                    let v = self.create_components(field_name)?;
+                    reuse_strategy.set_reusable_components(field_name, v)?;
+                    components = reuse_strategy.get_reusable_components(field_name)?;
+                }
+
+                let components = components.as_mut().unwrap();
+                components.set_reader(r)?;
+                Ok(())
+            })()
+        })?;
+        Ok(())
     }
 
     fn normalize(&self, field_name: &str, text: &str) -> Result<BytesRef<Vec<u8>>> {
@@ -157,6 +155,32 @@ pub trait Analyzer {
     }
     fn get_offset_gap(&self, _field_name: &str) -> i32 {
         1
+    }
+}
+pub enum ReuseStrategyEnum {
+    Global(GlobalReuseStrategy<InnerTokenStreams>),
+    PerField(PerFieldReuseStrategy<InnerTokenStreams>),
+}
+impl ReuseStrategy<InnerTokenStreams> for ReuseStrategyEnum {
+    fn get_reusable_components(
+        &mut self,
+        field_name: &str,
+    ) -> Result<Option<&mut TokenStreamComponents<InnerTokenStreams>>> {
+        match self {
+            ReuseStrategyEnum::Global(v) => v.get_reusable_components(field_name),
+            ReuseStrategyEnum::PerField(v) => v.get_reusable_components(field_name),
+        }
+    }
+
+    fn set_reusable_components(
+        &mut self,
+        field_name: &str,
+        components: TokenStreamComponents<InnerTokenStreams>,
+    ) -> Result<()> {
+        match self {
+            ReuseStrategyEnum::Global(v) => v.set_reusable_components(field_name, components),
+            ReuseStrategyEnum::PerField(v) => v.set_reusable_components(field_name, components),
+        }
     }
 }
 pub struct AnalyzerBase<TS, RS>

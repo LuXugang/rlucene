@@ -24,7 +24,7 @@ use crate::core::analysis::token_attributes::bytes_term_attribute::BytesTermAttr
 use crate::core::analysis::token_attributes::bytes_term_attribute_impl::BytesTermAttributeImpl;
 use crate::core::analysis::token_attributes::char_term_attribute::CharTermAttribute;
 use crate::core::analysis::token_attributes::offset_attribute::OffsetAttribute;
-use crate::core::analysis::token_stream::{Either2TokenStream, TokenStream};
+use crate::core::analysis::token_stream::{EitherTokenStream, TokenStream};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::fields::TokenStreamEnum;
 use crate::core::document::invertable_field::InvertableType;
@@ -76,7 +76,7 @@ pub struct Field {
     name: String,
     /// Field's value.
     pub(crate) fields_data: Option<FieldDataEnum>,
-    token_stream: Option<Either2TokenStream<BinaryTokenStream, StringTokenStream>>,
+    token_stream: Option<EitherTokenStream<BinaryTokenStream, StringTokenStream>>,
 }
 impl Field {
     /// Expert: creates a field with no initial value. This is intended to be
@@ -486,7 +486,7 @@ impl IndexableField for Field {
         &self.indexable_field_type
     }
 
-    type TokenStream = Either2TokenStream<BinaryTokenStream, StringTokenStream>;
+    type TokenStream = EitherTokenStream<BinaryTokenStream, StringTokenStream>;
 
     fn token_stream<'a, TS>(
         &'a mut self,

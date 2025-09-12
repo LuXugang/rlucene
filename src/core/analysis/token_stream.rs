@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::analysis::common::analysis_impl::core::whitespace_analyzer::WhitespaceAnalyzerTS;
+use crate::core::analysis::dummy::dummy_token_stream::DummyTokenStream;
 use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::token_attributes::packed_token_attribute_impl::PackedTokenAttributeImpl;
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
@@ -108,7 +110,9 @@ macro_rules! either_token_stream {
         }
     };
 }
-either_token_stream!(pub Either2TokenStream { A: A, B: B });
+either_token_stream!(pub EitherTokenStream { Whitespace: A, Dummy: B });
+
+pub type InnerTokenStreams = EitherTokenStream<WhitespaceAnalyzerTS, DummyTokenStream>;
 
 impl<T> TokenStream for &mut T
 where

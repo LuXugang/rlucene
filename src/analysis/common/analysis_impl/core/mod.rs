@@ -14,5 +14,5 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-mod whitespace_analyzer;
-mod whitespace_tokenizer;
+pub mod whitespace_analyzer;
+pub mod whitespace_tokenizer;

@@ -14,15 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::analysis::analyzer::{
-    Analyzer, AnalyzerBase, GlobalReuseStrategy, TokenStreamComponents,
-};
-use crate::core::analysis::dummy::dummy_token_stream::DummyTokenStream;
+use crate::core::analysis::analyzer::{Analyzer, TokenStreamComponents};
+use crate::core::analysis::token_stream::InnerTokenStreams;
 use crate::core::util::error::lucene_error::Result;
 
 pub struct DummyAnalyzer;
 impl Analyzer for DummyAnalyzer {
-    fn create_components(&self, _field: &str) -> Result<TokenStreamComponents<Self::TokenStream>> {
+    fn create_components(&self, _field: &str) -> Result<TokenStreamComponents<InnerTokenStreams>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
@@ -31,13 +29,6 @@ impl Analyzer for DummyAnalyzer {
     }
 
     fn get_offset_gap(&self, _field_name: &str) -> i32 {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
-    }
-
-    type TokenStream = DummyTokenStream;
-    type ReuseStrategy = GlobalReuseStrategy<Self::TokenStream>;
-
-    fn get_analyzer_base(&mut self) -> &mut AnalyzerBase<Self::TokenStream, Self::ReuseStrategy> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
