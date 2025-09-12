@@ -31,20 +31,31 @@ thread_local! {
 
 pub trait Analyzer {
     fn create_components(&self, field: &str) -> Result<TokenStreamComponents<InnerTokenStreams>>;
-
+    /// Default reuse strategy is GlobalReuseStrategy
+    fn init_reuse_strategy(&self) -> ReuseStrategyEnum {
+        ReuseStrategyEnum::Global(GlobalReuseStrategy::default())
+    }
     fn normalize_with_ts<TS>(&self, _field_name: &str, in_: TS) -> Result<impl TokenStream>
     where
         TS: TokenStream,
     {
         Ok(in_)
     }
-
+    fn ensure_reuse_strategy<'a>(
+        &'a self,
+        slot: &'a mut Option<ReuseStrategyEnum>,
+    ) -> &'a mut ReuseStrategyEnum {
+        if slot.is_none() {
+            *slot = Some(self.init_reuse_strategy());
+        }
+        slot.as_mut().unwrap()
+    }
     fn token_stream_with_reader(&self, field_name: &str, reader: ReaderEnum) -> Result<()> {
         let r = self.init_reader(field_name, reader);
         REUSE_STRATEGY.with(|reuse_strategy| {
             (|| -> Result<()> {
                 let mut reuse_strategy = reuse_strategy.borrow_mut();
-                let reuse_strategy = reuse_strategy.as_mut().unwrap();
+                let reuse_strategy = self.ensure_reuse_strategy(&mut reuse_strategy);
 
                 let mut components = reuse_strategy.get_reusable_components(field_name)?;
                 if components.is_none() {
@@ -69,7 +80,7 @@ pub trait Analyzer {
         REUSE_STRATEGY.with(|reuse_strategy| {
             (|| -> Result<()> {
                 let mut reuse_strategy = reuse_strategy.borrow_mut();
-                let reuse_strategy = reuse_strategy.as_mut().unwrap();
+                let reuse_strategy = self.ensure_reuse_strategy(&mut reuse_strategy);
 
                 let mut components = reuse_strategy.get_reusable_components(field_name)?;
                 if components.is_none() {
@@ -233,7 +244,7 @@ pub struct GlobalReuseStrategy<TS>
 where
     TS: TokenStream,
 {
-    store_value: Option<StoredValue<TS>>,
+    store_value: Option<TokenStreamComponents<TS>>,
 }
 impl<TS> Default for GlobalReuseStrategy<TS>
 where
@@ -252,10 +263,7 @@ where
         _field_name: &str,
     ) -> Result<Option<&mut TokenStreamComponents<TS>>> {
         match self.store_value {
-            Some(ref mut v) => match v {
-                StoredValue::Global(components) => Ok(Some(components)),
-                _ => Err(LuceneError::illegal_state("should not be here")),
-            },
+            Some(ref mut v) => Ok(Some(v)),
             _ => Ok(None),
         }
     }
@@ -267,7 +275,7 @@ where
     ) -> Result<()> {
         match self.store_value {
             Some(ref mut v) => {
-                *v = StoredValue::Global(components);
+                *v = components;
                 Ok(())
             },
             None => Err(LuceneError::already_closed("this Analyzer is closed")),
@@ -279,7 +287,7 @@ pub struct PerFieldReuseStrategy<TS>
 where
     TS: TokenStream,
 {
-    store_value: Option<StoredValue<TS>>,
+    store_value: Option<HashMap<String, TokenStreamComponents<TS>>>,
 }
 impl<TS> ReuseStrategy<TS> for PerFieldReuseStrategy<TS>
 where
@@ -293,10 +301,7 @@ where
         TS: TokenStream,
     {
         match self.store_value {
-            Some(ref mut v) => match v {
-                StoredValue::PerField(map) => Ok(map.get_mut(field_name)),
-                _ => Err(LuceneError::illegal_state("should not be here")),
-            },
+            Some(ref mut v) => Ok(v.get_mut(field_name)),
             _ => Ok(None),
         }
     }
@@ -307,24 +312,13 @@ where
         components: TokenStreamComponents<TS>,
     ) -> Result<()> {
         match self.store_value {
-            Some(ref mut v) => match v {
-                StoredValue::PerField(map) => {
-                    map.insert(field_name.to_string(), components);
-                    Ok(())
-                },
-                _ => Err(LuceneError::illegal_state("should not be here")),
+            Some(ref mut v) => {
+                let _ = v.insert(field_name.to_string(), components);
+                Ok(())
             },
             None => Err(LuceneError::already_closed("this Analyzer is closed")),
         }
     }
-}
-
-pub enum StoredValue<TS>
-where
-    TS: TokenStream,
-{
-    PerField(HashMap<String, TokenStreamComponents<TS>>),
-    Global(TokenStreamComponents<TS>),
 }
 
 pub struct TokenStreamComponents<TS>

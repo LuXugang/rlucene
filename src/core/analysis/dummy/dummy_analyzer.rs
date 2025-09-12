@@ -14,13 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::analysis::analyzer::{Analyzer, TokenStreamComponents};
+use crate::core::analysis::analyzer::{Analyzer, ReuseStrategyEnum, TokenStreamComponents};
 use crate::core::analysis::token_stream::InnerTokenStreams;
 use crate::core::util::error::lucene_error::Result;
 
 pub struct DummyAnalyzer;
 impl Analyzer for DummyAnalyzer {
     fn create_components(&self, _field: &str) -> Result<TokenStreamComponents<InnerTokenStreams>> {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
+    fn init_reuse_strategy(&self) -> ReuseStrategyEnum {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
