@@ -742,8 +742,8 @@ impl FieldNumbers {
         }
     }
 
-    pub fn get_field_names(&self) -> Result<HashSet<String>> {
-        Ok(self.field_properties.keys().cloned().collect())
+    pub fn get_field_names(&self) -> HashSet<String> {
+        self.field_properties.keys().cloned().collect()
     }
 
     pub fn clear(&mut self) -> Result<()> {

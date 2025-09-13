@@ -23,6 +23,7 @@ use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::index::segment_reader::SegmentReader;
 use crate::core::index::sorter::DocMapImpl;
+use crate::core::index::standard_directory_reader::StandardDirectoryReader;
 use crate::core::store::directory::Directory;
 use crate::core::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -78,6 +79,29 @@ impl<D> ReaderPool<D>
 where
     D: Directory,
 {
+    pub(crate) fn new(
+        directory: Arc<LockValidatingDirectoryWrapper<D>>,
+        original_directory: Arc<D>,
+        field_numbers: Arc<FieldNumbers>,
+        info_stream: InfoStreamMT,
+        soft_deletes_field: Option<String>,
+        completed_del_gen_supplier: LongSupplierImpl,
+        _reader: StandardDirectoryReader,
+    ) -> Self {
+        Self {
+            directory,
+            original_directory,
+            field_numbers,
+            info_stream,
+            soft_deletes_field,
+            pool_readers: AtomicBool::new(false),
+            inner: Mutex::new(Inner {
+                reader_map: HashMap::new(),
+                closed: AtomicBool::new(false),
+            }),
+            completed_del_gen_supplier,
+        }
+    }
     /// Asserts this info still exists in IW's segment infos
     pub(crate) fn assert_info_is_live(&self, _info: &SegmentCommitInfo<D>) -> bool {
         todo!()

@@ -35,6 +35,7 @@ use crate::core::store::{DataInput, IO_CONTEXT_DEFAULT, IndexOutput};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::output_enum::OutputEnum;
 use crate::core::util::{IOUtils, LATEST, MIN_SUPPORTED_MAJOR, StringHelper, Version};
+use num_bigint::BigInt;
 use std::io::Write;
 
 static INFO_STREAM: Lazy<Mutex<Option<Arc<Mutex<OutputEnum>>>>> = Lazy::new(|| Mutex::new(None));
@@ -133,6 +134,8 @@ where
     pub user_data: HashMap<String, String>,
     /// List of `SegmentCommitInfo` objects.
     pub(crate) segments: HashMap<String, SegmentCommitInfo<D>>,
+    // map segment name to SegmentCommitInfo
+    pub(crate) segments_idx: Vec<String>,
     /// ID for this commit; only written starting with Lucene 5.0.
     id: Option<[u8; StringHelper::ID_LENGTH]>,
     /// Which Lucene version wrote this commit?
@@ -180,11 +183,19 @@ where
             min_segment_lucene_version: None,
             index_created_version_major,
             pending_commit: false,
+            segments_idx: Vec::new(),
         })
     }
     /// Returns [`SegmentCommitInfo`] at the provided index.
     pub fn info(&self, i: &str) -> Option<&SegmentCommitInfo<D>> {
         self.segments.get(i)
+    }
+    pub fn info_idx(&self, i: usize) -> Option<&SegmentCommitInfo<D>> {
+        let str = self.segments_idx.get(i);
+        match str {
+            Some(s) => self.segments.get(s),
+            None => None,
+        }
     }
     pub fn info_mut(&mut self, i: &str) -> Option<&mut SegmentCommitInfo<D>> {
         self.segments.get_mut(i)
@@ -602,12 +613,13 @@ where
     /// Returns a `LuceneError` if there is an issue writing the segment
     /// information.
     pub fn write(&self, out: &mut impl IndexOutput) -> Result<()> {
+        let v = BigInt::from(self.generation).to_str_radix(36).to_string();
         CodecUtil::write_index_header(
             out,
             "segments",
             VERSION_CURRENT,
             &StringHelper::random_id(),
-            &format!("{:x}", self.generation),
+            &v,
         )?;
         out.write_vint(LATEST.major)?;
         out.write_vint(LATEST.minor)?;
@@ -728,6 +740,7 @@ where
             min_segment_lucene_version: self.min_segment_lucene_version.clone(),
             index_created_version_major: self.index_created_version_major,
             pending_commit: false,
+            segments_idx: Vec::new(),
         };
 
         for segment_commit_info in self.segments.values() {
@@ -1032,8 +1045,18 @@ where
             )));
         }
         let id = si.info.get_id_str();
-        self.segments.insert(id, si);
+        self.do_add(id, si)?;
         Ok(())
+    }
+
+    pub fn do_add(&mut self, id: String, si: SegmentCommitInfo<D>) -> Result<()> {
+        self.segments_idx.push(id.clone());
+        match self.segments.insert(id, si) {
+            Some(_) => Err(LuceneError::illegal_state(
+                "SegmentCommitInfo with the same id already exists",
+            )),
+            None => Ok(()),
+        }
     }
 
     /// Appends the provided [`SegmentCommitInfo`]s.
@@ -1047,16 +1070,23 @@ where
     /// Clears all `SegmentCommitInfo`s.
     pub fn clear(&mut self) {
         self.segments.clear();
+        self.segments_idx.clear();
     }
 
     /// Removes the provided `SegmentCommitInfo`.
     pub fn remove(&mut self, si_id: &str) -> bool {
+        if let Some(pos) = self.segments_idx.iter().position(|x| x == si_id) {
+            self.segments_idx.remove(pos);
+        }
+
         self.segments.remove(si_id).is_some()
     }
 
     /// Removes the `SegmentCommitInfo` at the provided index.
-    pub fn remove_at(&mut self, index: &str) {
-        let _ = self.segments.remove(index);
+    pub fn remove_at(&mut self, index: usize) {
+        let str = &self.segments_idx[index];
+        let _ = self.segments.remove(str);
+        self.segments_idx.remove(index);
     }
 
     /// Returns true if the provided `SegmentCommitInfo` is contained.

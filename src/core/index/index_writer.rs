@@ -348,7 +348,76 @@ where
         }
         res
     }
+    /// Return an unmodifiable set of all field names as visible from this IndexWriter, across all segments of the index.
+    pub fn get_field_names(&self) -> HashSet<String> {
+        // FieldNumbers#getFieldNames() returns an unmodifiableSet
+        self.global_field_number_map.get_field_names()
+    }
 
+    #[cfg(test)]
+    pub(crate) fn get_segment_count(&self) -> usize {
+        let inner = self.inner.lock();
+        inner.segment_infos.size()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn get_num_buffered_documents(&self) -> i32 {
+        self.doc_writer.get_num_docs()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn max_doc(&self, i: i32) -> i32 {
+        let inner = self.inner.lock();
+        if i >= 0 && (i as usize) < inner.segment_infos.size() {
+            inner
+                .segment_infos
+                .info_idx(i as usize)
+                .expect("segment info not found")
+                .info
+                .max_doc()
+                .expect("max doc failed")
+        } else {
+            -1
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn get_flush_count(&self) -> i32 {
+        self.flush_count.load(Ordering::Acquire)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn get_flush_deletes_count(&self) -> i32 {
+        self.flush_deletes_count.load(Ordering::Acquire)
+    }
+    #[cfg(test)]
+    pub fn flush_count(&self) -> i32 {
+        self.flush_count.load(Ordering::Acquire)
+    }
+
+    #[cfg(test)]
+    pub fn flush_deletes_count(&self) -> i32 {
+        self.flush_deletes_count.load(Ordering::Acquire)
+    }
+
+    fn new_segment_name(&self, inner: Option<&mut Inner<D, L>>) -> String {
+        let inner = match inner {
+            Some(i) => i,
+            None => &mut *self.inner.lock(),
+        };
+
+        // Important to increment change_count so that segment_infos
+        // is written on close. Otherwise we could close, re-open,
+        // and re-return the same segment name which can cause
+        // problems at least with ConcurrentMergeScheduler.
+        self.change_count.fetch_add(1, Ordering::AcqRel);
+        inner.segment_infos.changed();
+
+        let counter = inner.segment_infos.counter;
+        inner.segment_infos.counter += 1;
+        let s = BigInt::from(counter).to_str_radix(36);
+        format!("_{}", s)
+    }
     fn maybe_merge(
         &self,
         _merge_policy: &L::MergePolicy,
@@ -2125,6 +2194,7 @@ use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
 use crate::core::util::io_consumer::IOConsumer;
 use crate::core::util::unicode_util::UnicodeUtil;
 use crate::core::util::{BYTE_BLOCK_SIZE, LATEST};
+use num_bigint::BigInt;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64, Ordering};

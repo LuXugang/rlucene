@@ -27,9 +27,11 @@ use crate::core::store::IOContext;
 use crate::core::store::directory::{Directory, Either2Directory};
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::ref_count::RefCount;
+use num_bigint::BigInt;
 use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::rc::Rc;
+
 /// Manages the [`DocValuesProducer`](crate::core::codecs::doc_values_producer::DocValuesProducer) held by [`SegmentReader`](crate::core::index::segment_reader::SegmentReader) and keeps track of their reference counting.
 pub(crate) struct SegmentDocValues<D>
 where
@@ -74,7 +76,8 @@ where
         if r#gen != -1 {
             // gen'd files are written outside CFS, so use SegInfo directory
             dv_dir = Either2Directory::B(si.info.dir.as_ref());
-            segment_suffix = format!("{:x}", r#gen);
+            let v = BigInt::from(r#gen).to_str_radix(36);
+            segment_suffix = v.to_string();
         }
 
         let io_context = IOContext::default_io_context()?;

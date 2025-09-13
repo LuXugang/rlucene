@@ -120,14 +120,14 @@ where
 {
     #[allow(clippy::too_many_arguments)]
     fn new(
+        flush_notifications: FN,
         index_created_version_major: i32,
         pending_num_docs: Arc<AtomicI64>,
         enable_test_points: bool,
         config: Arc<L>,
-        directory_orig: D,
-        directory: LockValidatingDirectoryWrapper<D>,
+        directory_orig: Arc<D>,
+        directory: Arc<LockValidatingDirectoryWrapper<D>>,
         global_field_number_map: Arc<Mutex<FieldNumbers>>,
-        flush_notifications: FN,
     ) -> Result<Self> {
         let info_stream = config.get_info_stream();
         let delete_queue = Arc::new(DocumentsWriterDeleteQueue::new(info_stream.clone()));
@@ -146,8 +146,8 @@ where
             }),
             flush_control: DocumentsWriterFlushControl::new(config),
             index_created_version_major,
-            directory: Arc::new(directory),
-            directory_orig: Arc::new(directory_orig),
+            directory,
+            directory_orig,
             enable_test_points,
             global_field_number_map,
             flush_notifications,
@@ -376,6 +376,7 @@ where
         let has_events = self.pre_update(writer)?;
 
         let delete_queue = &self.inner.lock().delete_queue;
+        // TODO: IMPORTANT 在这里有点问题
         let dwpt_factory = SupplierImpl2::new(
             self.index_created_version_major,
             self.directory_orig.clone(),
