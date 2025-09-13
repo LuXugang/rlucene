@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::util::error::lucene_error::Result;
+use num_bigint::BigInt;
 
 /// This struct contains useful constants representing filenames and extensions
 /// used by Lucene, as well as convenience methods for querying whether a file
@@ -57,7 +58,7 @@ impl IndexFileNames {
             Option::from(IndexFileNames::segment_file_name(base, "", ext))
         } else {
             // base-36
-            let gen_str = format!("{gen:x}");
+            let gen_str = BigInt::from(r#gen).to_str_radix(36);
             let mut res = String::with_capacity(base.len() + 6 + ext.len());
             res.push_str(base);
             res.push('_');

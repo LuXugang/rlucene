@@ -14,9 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::collections::HashSet;
-use std::fmt::{Display, Formatter};
-
 use crate::core::index::IndexFileNames;
 use crate::core::store::buffered_checksum_index_input::BufferedChecksumIndexInput;
 use crate::core::store::data_output::DataOutput;
@@ -24,6 +21,9 @@ use crate::core::store::index_input::IndexInput;
 use crate::core::store::lock::{Either2Lock, Lock};
 use crate::core::store::{Either2IndexInput, Either2IndexOutput, IOContext, IndexOutput};
 use crate::core::util::error::lucene_error::Result;
+use num_bigint::BigInt;
+use std::collections::HashSet;
+use std::fmt::{Display, Formatter};
 
 /// A `Directory` provides an abstraction layer for storing a list of files.
 /// A directory contains only files (no subfolder hierarchy).
@@ -244,7 +244,7 @@ pub trait Directory: Display + Sized {
 /// [`create_temp_output`](Directory)
 pub fn get_temp_file_name(prefix: &str, suffix: &str, counter: u64) -> String {
     //base-36
-    let counter_str = format!("{counter:x}");
+    let counter_str = BigInt::from(counter).to_str_radix(36);
     let full_suffix = format!("{suffix}_{counter_str}");
     IndexFileNames::segment_file_name(prefix, &full_suffix, "tmp")
 }

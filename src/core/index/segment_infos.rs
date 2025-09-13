@@ -317,7 +317,7 @@ where
         let id_len = id.len();
         debug_assert!(id_len <= i32::MAX as usize);
         input.read_bytes(&mut id, 0, id_len as i32)?;
-        CodecUtil::check_index_header_suffix(input, &format!("{generation:x}"))?;
+        CodecUtil::check_index_header_suffix(input, &BigInt::from(generation).to_str_radix(36))?;
 
         let lucene_version =
             Version::from_bits(input.read_vint()?, input.read_vint()?, input.read_vint()?)?;
