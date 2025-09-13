@@ -1454,7 +1454,6 @@ mod tests {
         let mut random = random();
         let dir = new_directory(&mut random)?;
         let directory = Arc::new(dir);
-        let id = StringHelper::random_id();
         let codec = get_default_code();
         let io_context = IOContext::default_io_context()?;
         let mut sis = SegmentInfos::new(LATEST.major)?;
@@ -1467,7 +1466,7 @@ mod tests {
             false,
             false,
             HashMap::new(),
-            id,
+            StringHelper::random_id(),
             HashMap::new(),
             None,
         )?;
@@ -1499,7 +1498,6 @@ mod tests {
         let mut random = random();
         let dir = new_directory(&mut random)?;
         let directory = Arc::new(dir);
-        let id = StringHelper::random_id();
         let codec = get_default_code();
         let mut sis = SegmentInfos::new(LATEST.major)?;
         let io_context = IOContext::default_io_context()?;
@@ -1513,7 +1511,7 @@ mod tests {
             false,
             false,
             HashMap::new(),
-            id,
+            StringHelper::random_id(),
             HashMap::new(),
             None,
         )?;
@@ -1537,7 +1535,7 @@ mod tests {
             false,
             false,
             HashMap::new(),
-            id,
+            StringHelper::random_id(),
             HashMap::new(),
             None,
         )?;
@@ -1761,7 +1759,6 @@ mod tests {
     fn test_bit_flipped_triggers_corrupt_index_exception() -> Result<()> {
         let mut random = random();
         let dir = Arc::new(new_directory(&mut random)?);
-        let id = StringHelper::random_id();
         let codec = get_default_code();
         let mut sis = SegmentInfos::new(LATEST.major)?;
         let io_context = IOContext::default_io_context()?;
@@ -1774,7 +1771,7 @@ mod tests {
             false,
             false,
             HashMap::new(),
-            id,
+            StringHelper::random_id(),
             HashMap::new(),
             None,
         )?;
@@ -1796,7 +1793,7 @@ mod tests {
             false,
             false,
             HashMap::new(),
-            id,
+            StringHelper::random_id(),
             HashMap::new(),
             None,
         )?;
