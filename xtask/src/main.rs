@@ -29,6 +29,14 @@ pub(crate) fn run_cargo(args: &[&str]) {
             log(&format!("Failed to execute cargo: {}", e));
             process::exit(1);
         },
+        Ok(exit) if !exit.success() => {
+            log(&format!(
+                "cargo {:?} exited with status: {}",
+                args,
+                exit.code().unwrap_or_default()
+            ));
+            process::exit(1);
+        },
         Ok(_) => {},
     }
 }
