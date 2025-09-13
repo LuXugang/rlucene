@@ -32,6 +32,5 @@ pub mod sorted_doc_values_field;
 pub mod sorted_numeric_doc_values_field;
 pub mod sorted_set_doc_values_field;
 pub mod stored_field;
-pub mod stored_value;
 pub mod string_field;
 pub mod text_field;
