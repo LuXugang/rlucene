@@ -426,6 +426,8 @@ where
     /// If this is a commit, we also call the policy to give it a chance to remove other commits. If
     /// any commits are removed, we decref their files as well.
     pub fn checkpoint(&mut self, segment_infos: &SegmentInfos<D>, is_commit: bool) -> Result<()> {
+        // In Java Lucene, this method should be called while synchronized on IndexWriter instance.
+        // In Rust Lucene, IndexFileDeleter under IndexWriter's Inner Mutex, So it is similar to Java Lucene's `assert Thread.holdsLock(IndexWriter);`
         let t0 = std::time::Instant::now();
 
         {
