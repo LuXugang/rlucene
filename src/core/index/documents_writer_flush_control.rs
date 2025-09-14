@@ -47,6 +47,7 @@ where
     pub(crate) config: Arc<L>,
     stall_control: DocumentsWriterStallControl,
     pausing: Condvar,
+    pub(crate) per_thread_pool: DocumentsWriterPerThreadPool<D>,
 }
 pub(crate) struct Inner<D>
 where
@@ -97,7 +98,7 @@ where
     D: Directory,
     L: LiveIndexWriterConfig,
 {
-    pub(crate) fn new(config: Arc<L>) -> Self {
+    pub(crate) fn new(config: Arc<L>) -> Result<Self> {
         // Initialize the Inner state with defaults
         let inner = Inner {
             flush_by_ram_was_disabled: false,
@@ -121,14 +122,15 @@ where
             num_docs_since_stalled: 0,
         };
 
-        DocumentsWriterFlushControl {
+        Ok(DocumentsWriterFlushControl {
             flush_deletes: AtomicBool::new(false),
             info_stream: config.get_info_stream(),
             inner: Mutex::new(inner),
             config,
             stall_control: DocumentsWriterStallControl::new(),
             pausing: Condvar::new(),
-        }
+            per_thread_pool: DocumentsWriterPerThreadPool::new()?,
+        })
     }
 
     pub fn active_bytes(&self, inner: Option<&Inner<D>>) -> i64 {
@@ -642,25 +644,24 @@ where
             flushing_queue = documents_writer_inner.delete_queue.clone();
             // Set a new delete queue - all subsequent DWPT will use this queue until
             // we do another full flush
-            documents_writer.per_thread_pool.lock_new_writers();
+            self.per_thread_pool.lock_new_writers();
             // no new thread-states while we do a flush otherwise the seqNo
             // accounting might be off
 
-            let size = documents_writer.per_thread_pool.size();
+            let size = self.per_thread_pool.size();
             debug_assert!(size <= i64::MAX as usize);
             // Insert a gap in seqNo of current active thread count, in the worst case each of those
             // threads now have one operation in flight.  It's fine
             // if we have some sequence numbers that were never assigned:
             let seq_no =
                 documents_writer.reset_delete_queue(&mut documents_writer_inner, size as i64)?;
-            documents_writer.per_thread_pool.unlock_new_writers();
+            self.per_thread_pool.unlock_new_writers();
             seq_no
         };
 
         let mut full_flush_buffer = Vec::new();
         let dwpts = {
-            documents_writer
-                .per_thread_pool
+            self.per_thread_pool
                 .filter_and_lock(|_, r#gen| r#gen == flushing_queue.generation)?
         };
 
@@ -672,12 +673,12 @@ where
                         self.set_flush_pending(&next, Some(&mut inner))?;
                     }
                     next.unlock();
-                    self.check_out_for_flush(next, &mut inner, &documents_writer.per_thread_pool)
+                    self.check_out_for_flush(next, &mut inner, &self.per_thread_pool)
                 };
                 full_flush_buffer.push(flushing_dwpt);
             } else {
                 next.unlock();
-                let checked_out = documents_writer.per_thread_pool.checkout(next.id());
+                let checked_out = self.per_thread_pool.checkout(next.id());
                 debug_assert!(checked_out);
             }
         }
@@ -697,7 +698,7 @@ where
 
         debug_assert!(self.assert_active_delete_queue(
             &documents_writer.inner.lock().delete_queue,
-            &documents_writer.per_thread_pool
+            &self.per_thread_pool
         ));
         debug_assert!(flushing_queue.get_last_sequence_number() <= flushing_queue.get_max_seq_no());
 

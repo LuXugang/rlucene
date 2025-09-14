@@ -21,7 +21,6 @@ use crate::core::index::documents_writer_delete_queue::{DocumentsWriterDeleteQue
 use crate::core::index::documents_writer_flush_control::DocumentsWriterFlushControl;
 use crate::core::index::documents_writer_flush_queue::{DocumentsWriterFlushQueue, FlushTicket};
 use crate::core::index::documents_writer_per_thread::DocumentsWriterPerThread;
-use crate::core::index::documents_writer_per_thread_pool::DocumentsWriterPerThreadPool;
 use crate::core::index::field_infos::FieldNumbers;
 use crate::core::index::field_infos::build::Builder;
 use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
@@ -97,7 +96,6 @@ where
     // isCurrent while there are actually changes currently committed. See also
     // #anyChanges() & #flushAllThreads
     pending_changes_in_current_full_flush: AtomicBool,
-    pub(crate) per_thread_pool: DocumentsWriterPerThreadPool<D>,
     pub(crate) inner: Mutex<Inner>,
     flush_control: DocumentsWriterFlushControl<D, L>,
     index_created_version_major: i32,
@@ -136,12 +134,11 @@ where
             num_docs_in_ram: AtomicI32::new(0),
             ticket_queue: DocumentsWriterFlushQueue::new(),
             pending_changes_in_current_full_flush: AtomicBool::new(false),
-            per_thread_pool: DocumentsWriterPerThreadPool::new()?,
             inner: Mutex::new(Inner {
                 delete_queue: delete_queue.clone(),
                 current_full_flush_del_queue: None,
             }),
-            flush_control: DocumentsWriterFlushControl::new(config),
+            flush_control: DocumentsWriterFlushControl::new(config)?,
             index_created_version_major,
             directory,
             directory_orig,
@@ -273,7 +270,7 @@ where
 
         per_thread.abort()?;
         self.flush_control
-            .do_on_abort(&per_thread, &self.per_thread_pool);
+            .do_on_abort(&per_thread, &self.flush_control.per_thread_pool);
 
         Ok(())
     }
@@ -375,9 +372,11 @@ where
         let delete_queue = &self.inner.lock().delete_queue;
         // TODO: IMPORTANT 在这里有点问题
 
-        let mut dwpt =
-            self.flush_control
-                .obtain_and_lock(delete_queue, writer, &self.per_thread_pool)?;
+        let mut dwpt = self.flush_control.obtain_and_lock(
+            delete_queue,
+            writer,
+            &self.flush_control.per_thread_pool,
+        )?;
         let mut flushing_dwpt_opt = None;
         let mut seq_no = 0;
         let result = (|| {
@@ -397,7 +396,8 @@ where
                 Ok(())
             };
             if dwpt.is_aborted() {
-                self.flush_control.do_on_abort(&dwpt, &self.per_thread_pool);
+                self.flush_control
+                    .do_on_abort(&dwpt, &self.flush_control.per_thread_pool);
             }
             // TODO: 这段代码有点问题 回头用测试才能调试
             let dwpt_id = dwpt.id().to_string();
@@ -409,7 +409,7 @@ where
                 let (new_dwpt, old_dwpt) = self.flush_control.do_after_document(
                     dwpt,
                     self.config.get_flush_policy(),
-                    &self.per_thread_pool,
+                    &self.flush_control.per_thread_pool,
                     self.inner.lock().delete_queue.as_ref(),
                 )?;
                 debug_assert!(!(new_dwpt.is_some() && old_dwpt.is_some()));
@@ -436,7 +436,8 @@ where
                 } else {
                     debug_assert!(dwpt.is_some());
                     debug_assert!(dwpt.as_ref().unwrap().id() == dwpt_id);
-                    self.per_thread_pool
+                    self.flush_control
+                        .per_thread_pool
                         .mark_as_free_and_unlock(dwpt.unwrap())?;
                 }
                 drop(inner)
@@ -556,7 +557,9 @@ where
             }
             //Now we are done and try to flush the ticket queue if the head of the
             // queue has already finished the flush.
-            if self.ticket_queue.get_ticket_count() as usize >= self.per_thread_pool.size() {
+            if self.ticket_queue.get_ticket_count() as usize
+                >= self.flush_control.per_thread_pool.size()
+            {
                 // This means there is a backlog: the one
                 // thread in innerPurge can't keep up with all
                 // other threads flushing segments.  In this case
