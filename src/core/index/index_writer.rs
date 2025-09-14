@@ -78,19 +78,18 @@ where
     pending_num_docs: Arc<AtomicI64>,
     soft_deletes_enabled: bool,
     info_stream: InfoStreamMT,
-    inner: Mutex<Inner<D, L>>,
+    inner: Mutex<Inner<D>>,
     pausing: Condvar,
     sub: Option<B>,
     commit_lock: Mutex<CommitInner<D>>,
     full_flush_lock: Mutex<()>,
 }
-pub struct Inner<D, L>
+pub struct Inner<D>
 where
     D: Directory,
-    L: LiveIndexWriterConfig,
 {
     segment_infos: SegmentInfos<D>,
-    deleter: IndexFileDeleter<D, L::IndexDeletionPolicy>,
+    deleter: IndexFileDeleter<D>,
     // list of segmentInfo we will fallback to if the commit fails
     rollback_segments: Vec<SegmentCommitInfo<D>>,
     // increments every time a change is completed
@@ -516,7 +515,7 @@ where
         res
     }
     /// Drops a segment that has 100% deleted documents.
-    pub(crate) fn drop_deleted_segment(&self, seg_id: &str, inner: &mut Inner<D, L>) -> Result<()> {
+    pub(crate) fn drop_deleted_segment(&self, seg_id: &str, inner: &mut Inner<D>) -> Result<()> {
         // If a merge has already registered for this
         // segment, we leave it in the readerPool; the
         // merge will skip merging it and will then drop
@@ -603,7 +602,7 @@ where
         self.flush_deletes_count.load(Ordering::Acquire)
     }
 
-    fn new_segment_name(&self, inner: Option<&mut Inner<D, L>>) -> String {
+    fn new_segment_name(&self, inner: Option<&mut Inner<D>>) -> String {
         let inner = match inner {
             Some(i) => i,
             None => &mut *self.inner.lock(),
@@ -657,24 +656,28 @@ where
         Ok(())
     }
 
-    fn checkpoint(&self, inner: &mut Inner<D, L>) -> Result<()> {
+    fn checkpoint(&self, inner: &mut Inner<D>) -> Result<()> {
         Self::changed(&mut inner.change_count, &mut inner.segment_infos);
         let (deleter, segment_infos) = {
             let v = &mut *inner;
             (&mut v.deleter, &v.segment_infos)
         };
-        deleter.checkpoint(segment_infos, true)?;
+        deleter.checkpoint(segment_infos, true, self.config.get_index_deletion_policy())?;
         Ok(())
     }
     /// Checkpoints with IndexFileDeleter, so it's aware of new files, and increments changeCount,
     /// so on close/commit we will write a new segments file, but does NOT bump segmentInfos.version.
-    fn check_point_no_sis(&self, inner: &mut Inner<D, L>) -> Result<()> {
+    fn check_point_no_sis(&self, inner: &mut Inner<D>) -> Result<()> {
         inner.change_count += 1;
         let (deleter, segment_infos) = {
             let v = &mut *inner;
             (&mut v.deleter, &v.segment_infos)
         };
-        deleter.checkpoint(segment_infos, false)?;
+        deleter.checkpoint(
+            segment_infos,
+            false,
+            self.config.get_index_deletion_policy(),
+        )?;
         Ok(())
     }
 
@@ -1028,7 +1031,7 @@ where
     pub(crate) fn write_reader_pool(
         &self,
         write_deletes: bool,
-        inner: &mut Inner<D, L>,
+        inner: &mut Inner<D>,
     ) -> Result<()> {
         if write_deletes {
             if self.reader_pool.commit(
@@ -1293,9 +1296,11 @@ where
                     }
                     // NOTE: don't use this.checkpoint() here, because
                     // we do not want to increment changeCount:
-                    inner
-                        .deleter
-                        .checkpoint(commit_lock.pending_commit.as_ref().unwrap(), true)?;
+                    inner.deleter.checkpoint(
+                        commit_lock.pending_commit.as_ref().unwrap(),
+                        true,
+                        self.config.get_index_deletion_policy(),
+                    )?;
 
                     // Carry over generation to our master SegmentInfos:
                     inner
@@ -1404,7 +1409,7 @@ where
         let v = self.doc_writer.get_num_docs();
         Ok(v)
     }
-    fn do_wait(&self, guard: &mut MutexGuard<Inner<D, L>>) {
+    fn do_wait(&self, guard: &mut MutexGuard<Inner<D>>) {
         // NOTE: the callers of this method should in theory
         // be able to do simply wait(), but, as a defense
         // against thread timing hazards where notifyAll()
@@ -1414,11 +1419,7 @@ where
         // wait at most 1s
         self.pausing.wait_for(guard, Duration::from_millis(1000));
     }
-    pub(crate) fn files_exist(
-        &self,
-        to_sync: &SegmentInfos<D>,
-        inner: &Inner<D, L>,
-    ) -> Result<bool> {
+    pub(crate) fn files_exist(&self, to_sync: &SegmentInfos<D>, inner: &Inner<D>) -> Result<bool> {
         let files = to_sync.files(false)?;
 
         for file_name in &files {
@@ -1833,7 +1834,7 @@ where
     pub(crate) fn release(
         &self,
         readers_and_updates: &ReadersAndUpdates<D>,
-        inner: &mut Inner<D, L>, // Same to Java's Thread.holdsLock(this)
+        inner: &mut Inner<D>, // Same to Java's Thread.holdsLock(this)
     ) -> Result<()> {
         self.do_release(readers_and_updates, true, inner)
     }
@@ -1842,7 +1843,7 @@ where
         &self,
         readers_and_updates: &ReadersAndUpdates<D>,
         assert_live_info: bool,
-        inner: &mut Inner<D, L>, // Same to Java's Thread.holdsLock(this)
+        inner: &mut Inner<D>, // Same to Java's Thread.holdsLock(this)
     ) -> Result<()> {
         let info_id = &readers_and_updates.info_id;
         let info = match inner.segment_infos.info_mut(info_id) {
@@ -2089,7 +2090,7 @@ where
 
     /// Returns the [`SegmentCommitInfo`]'s id that this packet is supposed to apply its deletes to,
     /// or `None` if the private segment was already merged away.
-    fn get_infos_to_apply(&self, updates: &FrozenBufferedUpdates, inner: &Inner<D, L>) -> InfoFrom {
+    fn get_infos_to_apply(&self, updates: &FrozenBufferedUpdates, inner: &Inner<D>) -> InfoFrom {
         if let Some(private_seg) = &updates.private_segment {
             if inner.segment_infos.contains(private_seg) {
                 InfoFrom::Updates
@@ -2111,7 +2112,7 @@ where
         seg_states: &mut [SegmentState<D>],
         success: bool,
         del_files: HashSet<String>,
-        inner: &mut Inner<D, L>, // we hold lock
+        inner: &mut Inner<D>, // we hold lock
     ) -> Result<()> {
         let close_res = self.close_segment_states(seg_states, success, inner);
         inner.deleter.dec_ref(del_files)?;
@@ -2142,7 +2143,7 @@ where
         &self,
         seg_states: &mut [SegmentState<D>],
         success: bool,
-        inner: &mut Inner<D, L>, // we hold lock
+        inner: &mut Inner<D>, // we hold lock
     ) -> Result<ApplyDeletesResult> {
         let mut all_deleted = Vec::new();
         let mut tot_del_count: i64 = 0;
@@ -2221,7 +2222,7 @@ where
         info_from: Option<&String>,
         already_seen: &mut HashSet<String>,
         del_gen: i64,
-        inner: &mut Inner<D, L>, // we hold lock
+        inner: &mut Inner<D>, // we hold lock
     ) -> Result<Vec<SegmentState<D>>> {
         let mut seg_states = Vec::new();
 

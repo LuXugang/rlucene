@@ -276,7 +276,7 @@ where
     pub(crate) fn close<L, B>(
         &self,
         writer: &IndexWriter<D, L, B>,
-        inner: &mut crate::core::index::index_writer::Inner<D, L>,
+        inner: &mut crate::core::index::index_writer::Inner<D>,
     ) -> Result<()>
     where
         L: LiveIndexWriterConfig,

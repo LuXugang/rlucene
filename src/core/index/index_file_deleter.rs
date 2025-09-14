@@ -52,10 +52,9 @@ use std::sync::Arc;
 ///
 /// Note that you must hold the `write.lock` before instantiating This struct. It opens `segments_N`
 /// file(s) directly with no retry logic.
-pub struct IndexFileDeleter<D, P>
+pub struct IndexFileDeleter<D>
 where
     D: Directory,
-    P: IndexDeletionPolicy,
 {
     /// Holds all commits (segments_N) currently in the index.
     /// This will have just 1 commit if you are using the
@@ -73,7 +72,6 @@ where
     info_stream: InfoStreamMT,
     directory_orig: Arc<D>,
     directory: Arc<LockValidatingDirectoryWrapper<D>>,
-    policy: Arc<P>,
 
     /// Whether the starting commit was deleted.
     starting_commit_deleted: bool,
@@ -81,24 +79,26 @@ where
     verbose_ref_counts: bool,
     file_deleter: FileDeleter<D, MessengerImpl>,
 }
-impl<D, P> IndexFileDeleter<D, P>
+impl<D> IndexFileDeleter<D>
 where
     D: Directory,
-    P: IndexDeletionPolicy,
 {
     /// Initialize the deleter: find all previous commits in the Directory, incref the files they reference, call the policy to let it delete commits.
     /// This will remove any files not referenced by any of the commits.
     #[allow(clippy::too_many_arguments)]
-    pub fn new(
+    pub fn new<P>(
         files: impl IntoIterator<Item = String>,
         directory_orig: Arc<D>,
         directory: Arc<LockValidatingDirectoryWrapper<D>>,
-        policy: Arc<P>,
+        policy: &P,
         mut segment_infos: SegmentInfos<D>,
         info_stream: InfoStreamMT,
         initial_index_exists: bool,
         is_reader_init: bool,
-    ) -> Result<Self> {
+    ) -> Result<Self>
+    where
+        P: IndexDeletionPolicy,
+    {
         // init fields
         let commits = Vec::new();
         let mut last_segment_infos: Option<SegmentInfos<D>> = None;
@@ -126,7 +126,6 @@ where
             info_stream,
             directory_orig: directory_orig.clone(),
             directory,
-            policy,
             starting_commit_deleted: !initial_index_exists,
             verbose_ref_counts: false,
             file_deleter,
@@ -208,7 +207,7 @@ where
         if is_reader_init {
             // Incoming SegmentInfos may have NRT changes not yet visible in the latest commit, so we have
             // to protect its files from deletion too:
-            index_file_deleter.checkpoint(&segment_infos, false)?;
+            index_file_deleter.checkpoint(&segment_infos, false, policy)?;
         }
 
         // keep commits sorted by generation
@@ -249,12 +248,10 @@ where
             .delete_files_if_no_ref(&unrefed)?;
         // Finally, give policy a chance to remove things on
         // startup:
-        index_file_deleter
-            .policy
-            .on_init(&mut index_file_deleter.commits)?;
+        policy.on_init(&mut index_file_deleter.commits)?;
         // Always protect the incoming segmentInfos since
         // sometime it may not be the most recent commit
-        index_file_deleter.checkpoint(&segment_infos, false)?;
+        index_file_deleter.checkpoint(&segment_infos, false, policy)?;
 
         index_file_deleter.starting_commit_deleted = match current_commit_point {
             Some(index) => index_file_deleter.commits.get(index).unwrap().is_deleted(),
@@ -393,7 +390,10 @@ where
     /// This is useful when using a deletion policy that holds onto index commits.
     /// The application may know that some commits are no longer held by the policy and call `IndexWriter::delete_unused_files()`,
     /// which will attempt to delete those unused commits again.
-    pub(crate) fn revisit_policy(&mut self) -> Result<()> {
+    pub(crate) fn revisit_policy<P>(&mut self, policy: &P) -> Result<()>
+    where
+        P: IndexDeletionPolicy,
+    {
         {
             if self.info_stream.enabled("IFD") {
                 self.info_stream.message("IFD", "now revisitPolicy");
@@ -402,7 +402,7 @@ where
 
         if !self.commits.is_empty() {
             debug_assert!(self.assert_commits_are_not_deleted(&self.commits));
-            self.policy.on_commit(&mut self.commits)?;
+            policy.on_commit(&mut self.commits)?;
             self.delete_commits()?;
         }
 
@@ -420,7 +420,15 @@ where
     ///
     /// If this is a commit, we also call the policy to give it a chance to remove other commits. If
     /// any commits are removed, we decref their files as well.
-    pub fn checkpoint(&mut self, segment_infos: &SegmentInfos<D>, is_commit: bool) -> Result<()> {
+    pub fn checkpoint<P>(
+        &mut self,
+        segment_infos: &SegmentInfos<D>,
+        is_commit: bool,
+        policy: &P,
+    ) -> Result<()>
+    where
+        P: IndexDeletionPolicy,
+    {
         // In Java Lucene, this method should be called while synchronized on IndexWriter instance.
         // In Rust Lucene, IndexFileDeleter under IndexWriter's Inner Mutex, So it is similar to Java Lucene's `assert Thread.holdsLock(IndexWriter);`
         let t0 = std::time::Instant::now();
@@ -441,7 +449,7 @@ where
             )?);
 
             debug_assert!(self.assert_commits_are_not_deleted(&self.commits));
-            self.policy.on_commit(&mut self.commits)?;
+            policy.on_commit(&mut self.commits)?;
             // Decref files for commits that were deleted by the policy:
             self.delete_commits()?;
         } else {
@@ -500,10 +508,9 @@ where
         self.file_deleter.delete_files_if_no_ref(files)
     }
 }
-impl<D, P> Drop for IndexFileDeleter<D, P>
+impl<D> Drop for IndexFileDeleter<D>
 where
     D: Directory,
-    P: IndexDeletionPolicy,
 {
     fn drop(&mut self) {
         let v = self.close();
