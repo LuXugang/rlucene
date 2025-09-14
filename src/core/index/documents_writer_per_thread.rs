@@ -883,8 +883,8 @@ where
     }
 
     /// Returns true iff this DWPT is marked as flush pending
-    pub(crate) fn is_flush_pending(&self) -> &bool {
-        self.flush_pending.get().unwrap_or(&false)
+    pub(crate) fn is_flush_pending(&self) -> bool {
+        self.flush_pending.get().copied().unwrap_or(false)
     }
     pub(crate) fn is_queue_advanced(&self) -> bool {
         self.delete_queue.is_advanced()
@@ -978,7 +978,7 @@ where
     D: Directory,
 {
     fn is_flush_pending(&self) -> bool {
-        *self.is_flush_pending()
+        self.is_flush_pending()
     }
 }
 

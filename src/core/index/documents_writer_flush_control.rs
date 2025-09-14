@@ -278,7 +278,7 @@ where
             // We need to differentiate here if we are pending since setFlushPending
             // moves the perThread memory to the flushBytes and we could be set to
             // pending during a delete
-            if *per_thread.is_flush_pending() {
+            if per_thread.is_flush_pending() {
                 inner.flush_bytes.fetch_add(delta, Ordering::SeqCst);
                 self.update_peaks(delta, &mut inner);
             } else {
@@ -311,7 +311,7 @@ where
         per_thread_pool: &DocumentsWriterPerThreadPool<D>,
     ) -> Result<EitherDWPT<D>> {
         if inner.full_flush {
-            if *per_thread.is_flush_pending() {
+            if per_thread.is_flush_pending() {
                 self.checkout_and_block(per_thread, inner, per_thread_pool);
                 return match self.next_pending_flush(Some(inner)) {
                     (Some(dwpt), _, _) => Ok((Some(dwpt), None)),
@@ -326,7 +326,7 @@ where
                 debug_assert!(!per_thread.is_flush_pending());
                 self.set_flush_pending(&per_thread, Some(inner))?;
             }
-            if *per_thread.is_flush_pending() {
+            if per_thread.is_flush_pending() {
                 return Ok((
                     None,
                     Some(self.check_out_for_flush(per_thread, inner, per_thread_pool)),
@@ -441,7 +441,7 @@ where
         {
             debug_assert!(per_thread_pool.is_registered(per_thread.id()));
             let bytes = per_thread.get_last_committed_bytes_used();
-            if *per_thread.is_flush_pending() {
+            if per_thread.is_flush_pending() {
                 inner.flush_bytes.fetch_sub(bytes, Ordering::SeqCst);
             } else {
                 inner.active_bytes -= bytes;
