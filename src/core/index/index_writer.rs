@@ -1031,15 +1031,18 @@ where
         inner: &mut Inner<D, L>,
     ) -> Result<()> {
         if write_deletes {
-            if self.reader_pool.commit(&mut inner.segment_infos)? {
+            if self.reader_pool.commit(
+                &mut inner.segment_infos,
+                &self.global_field_number_map.lock(),
+            )? {
                 self.check_point_no_sis(inner)?;
             }
         } else {
             // only write the docValues
-            if self
-                .reader_pool
-                .write_all_doc_values_updates(&mut inner.segment_infos.segments)?
-            {
+            if self.reader_pool.write_all_doc_values_updates(
+                &mut inner.segment_infos.segments,
+                &self.global_field_number_map.lock(),
+            )? {
                 self.checkpoint(inner)?;
             }
         }
@@ -1848,10 +1851,12 @@ where
                 "could not find segment info from IndexWriter#segment_infos",
             ))?,
         };
-        if self
-            .reader_pool
-            .release(readers_and_updates, assert_live_info, info)?
-        {
+        if self.reader_pool.release(
+            readers_and_updates,
+            assert_live_info,
+            info,
+            &self.global_field_number_map.lock(),
+        )? {
             // if we write anything here we have to hold the lock otherwise IDF will delete files
             // underneath us
             self.check_point_no_sis(inner)?;

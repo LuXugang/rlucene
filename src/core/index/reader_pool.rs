@@ -48,7 +48,6 @@ where
 {
     directory: Arc<LockValidatingDirectoryWrapper<D>>,
     original_directory: Arc<D>,
-    field_numbers: Arc<FieldNumbers>,
     info_stream: InfoStreamMT,
     soft_deletes_field: Option<String>,
     // This is a "write once" variable (like the organic dye
@@ -82,7 +81,6 @@ where
     pub(crate) fn new<S>(
         directory: Arc<LockValidatingDirectoryWrapper<D>>,
         original_directory: Arc<D>,
-        field_numbers: Arc<FieldNumbers>,
         info_stream: InfoStreamMT,
         soft_deletes_field: Option<S>,
         completed_del_gen_supplier: LongSupplierImpl,
@@ -94,7 +92,6 @@ where
         Self {
             directory,
             original_directory,
-            field_numbers,
             info_stream,
             soft_deletes_field: soft_deletes_field.map(Into::into),
             pool_readers: AtomicBool::new(false),
@@ -171,6 +168,7 @@ where
         rld: &ReadersAndUpdates<D>,
         _assert_info_live: bool,
         info: &mut SegmentCommitInfo<D>,
+        global_field_number: &FieldNumbers,
     ) -> Result<bool> {
         let mut inner = self.inner.lock();
         let mut changed = false;
@@ -215,7 +213,7 @@ where
                 }
                 if rld.write_field_updates(
                     self.directory.clone(),
-                    &self.field_numbers,
+                    global_field_number,
                     self.completed_del_gen_supplier.get_as_long(),
                     self.info_stream.as_ref(),
                     info,
@@ -258,6 +256,7 @@ where
     pub(crate) fn write_all_doc_values_updates(
         &self,
         infos: &mut HashMap<String, SegmentCommitInfo<D>>,
+        global_field_number: &FieldNumbers,
     ) -> Result<bool> {
         let copy: Vec<Rc<ReadersAndUpdates<D>>> = {
             let inner = self.inner.lock();
@@ -274,7 +273,7 @@ where
             };
             any |= rld.write_field_updates(
                 self.directory.clone(),
-                self.field_numbers.as_ref(),
+                global_field_number,
                 self.completed_del_gen_supplier.get_as_long(),
                 self.info_stream.as_ref(),
                 info,
@@ -287,13 +286,14 @@ where
         &self,
         infos: &mut [SegmentCommitInfo<D>],
         index_created_version_major: i32,
+        global_field_number: &FieldNumbers,
     ) -> Result<bool> {
         let mut any = false;
         for info in infos {
             if let Some(rld) = self.get(info, false, index_created_version_major, None)? {
                 any |= rld.write_field_updates(
                     self.directory.clone(),
-                    self.field_numbers.as_ref(),
+                    global_field_number,
                     self.completed_del_gen_supplier.get_as_long(),
                     self.info_stream.as_ref(),
                     info,
@@ -360,7 +360,11 @@ where
         Ok(())
     }
     /// Commit live docs changes for the segment readers for the provided infos.
-    pub(crate) fn commit(&self, infos: &mut SegmentInfos<D>) -> Result<bool> {
+    pub(crate) fn commit(
+        &self,
+        infos: &mut SegmentInfos<D>,
+        global_field_number: &FieldNumbers,
+    ) -> Result<bool> {
         let inner = self.inner.lock();
         let mut at_least_one_change = false;
 
@@ -371,7 +375,7 @@ where
                 let mut changed = rld.write_live_docs(self.directory.clone(), info)?;
                 changed |= rld.write_field_updates(
                     self.directory.clone(),
-                    self.field_numbers.as_ref(),
+                    global_field_number,
                     self.completed_del_gen_supplier.get_as_long(),
                     self.info_stream.as_ref(),
                     info,
