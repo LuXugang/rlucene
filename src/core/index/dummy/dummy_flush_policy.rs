@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::documents_writer_delete_queue::DocumentsWriterDeleteQueue;
-use crate::core::index::documents_writer_flush_control::DocumentsWriterFlushControl;
+use crate::core::index::documents_writer_flush_control::{DocumentsWriterFlushControl, Inner};
 use crate::core::index::documents_writer_per_thread::DocumentsWriterPerThread;
 use crate::core::index::flush_policy::FlushPolicy;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
@@ -27,6 +27,7 @@ impl FlushPolicy for DummyFlushPolicy {
     fn on_change<D, L>(
         &self,
         _control: &DocumentsWriterFlushControl<D, L>,
+        _inner: &Inner<D>,
         _per_thread: Option<&DocumentsWriterPerThread<D>>,
         _delete_queue: &DocumentsWriterDeleteQueue,
     ) -> Result<()>

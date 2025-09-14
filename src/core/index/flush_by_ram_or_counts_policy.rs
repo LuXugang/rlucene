@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::documents_writer_delete_queue::DocumentsWriterDeleteQueue;
-use crate::core::index::documents_writer_flush_control::DocumentsWriterFlushControl;
+use crate::core::index::documents_writer_flush_control::{DocumentsWriterFlushControl, Inner};
 use crate::core::index::documents_writer_per_thread::DocumentsWriterPerThread;
 use crate::core::index::flush_policy::FlushPolicy;
 use crate::core::index::index_writer_config::DISABLE_AUTO_FLUSH;
@@ -56,6 +56,7 @@ impl FlushByRamOrCountsPolicy {
         control: &DocumentsWriterFlushControl<D, L>,
         per_thread: &DocumentsWriterPerThread<D>,
         delete_queue: &DocumentsWriterDeleteQueue,
+        inner: &Inner<D>,
     ) -> Result<()>
     where
         D: Directory,
@@ -66,7 +67,7 @@ impl FlushByRamOrCountsPolicy {
                 "FP",
                 &format!(
                     "trigger flush: activeBytes={} deleteBytes={} vs ramBufferMB={}",
-                    control.active_bytes(),
+                    control.active_bytes(Some(inner)),
                     control.get_delete_bytes_used(delete_queue)?,
                     control.config.get_ram_buffer_size_mb()
                 ),
@@ -108,6 +109,7 @@ impl FlushPolicy for FlushByRamOrCountsPolicy {
     fn on_change<D, L>(
         &self,
         control: &DocumentsWriterFlushControl<D, L>,
+        inner: &Inner<D>,
         per_thread: Option<&DocumentsWriterPerThread<D>>,
         delete_queue: &DocumentsWriterDeleteQueue,
     ) -> Result<()>
@@ -127,7 +129,7 @@ impl FlushPolicy for FlushByRamOrCountsPolicy {
 
         if self.flush_on_ram(index_writer_config) {
             let limit = (index_writer_config.get_ram_buffer_size_mb() * 1024.0 * 1024.0) as i64;
-            let active_ram = control.active_bytes();
+            let active_ram = control.active_bytes(Some(inner));
             let deletes_ram = control.get_delete_bytes_used(delete_queue)?;
 
             if deletes_ram >= limit
@@ -135,7 +137,7 @@ impl FlushPolicy for FlushByRamOrCountsPolicy {
                 && let Some(pt) = per_thread
             {
                 self.flush_deletes(control, index_writer_config, delete_queue)?;
-                self.flush_active_bytes(control, pt, delete_queue)?;
+                self.flush_active_bytes(control, pt, delete_queue, inner)?;
                 return Ok(());
             }
 
@@ -144,7 +146,7 @@ impl FlushPolicy for FlushByRamOrCountsPolicy {
             } else if active_ram + deletes_ram >= limit
                 && let Some(pt) = per_thread
             {
-                self.flush_active_bytes(control, pt, delete_queue)?;
+                self.flush_active_bytes(control, pt, delete_queue, inner)?;
             }
         }
         Ok(())

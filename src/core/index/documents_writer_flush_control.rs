@@ -33,7 +33,7 @@ use parking_lot::{Condvar, Mutex};
 use std::collections::VecDeque;
 use std::fmt;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 
 pub(crate) struct DocumentsWriterFlushControl<D, L>
@@ -58,8 +58,8 @@ where
     max_configured_ram_buffer: f64,
     hard_max_bytes_per_dwpt: i64,
     active_bytes: i64,
-    flush_bytes: AtomicI64,
-    num_pending: AtomicI32,
+    flush_bytes: i64,
+    num_pending: i32,
     full_flush: bool,
     // only for assertion that we don't get stale DWPTs from the pool
     full_flush_mark_done: bool,
@@ -105,8 +105,8 @@ where
             hard_max_bytes_per_dwpt: (config.get_ram_per_thread_hard_limit_mb() * 1024 * 1024)
                 as i64,
             active_bytes: 0,
-            flush_bytes: AtomicI64::new(0),
-            num_pending: AtomicI32::new(0),
+            flush_bytes: 0,
+            num_pending: 0,
             full_flush: false,
             full_flush_mark_done: false,
             flush_queue: VecDeque::new(),
@@ -131,19 +131,28 @@ where
         }
     }
 
-    pub fn active_bytes(&self) -> i64 {
-        let guard = self.inner.lock();
-        guard.active_bytes
+    pub fn active_bytes(&self, inner: Option<&Inner<D>>) -> i64 {
+        let inner = match inner {
+            Some(inner) => inner,
+            None => &mut *self.inner.lock(),
+        };
+        inner.active_bytes
     }
 
-    pub(crate) fn get_flushing_bytes(&self) -> i64 {
-        let guard = self.inner.lock();
-        guard.flush_bytes.load(Ordering::SeqCst)
+    pub(crate) fn get_flushing_bytes(&self, inner: Option<&Inner<D>>) -> i64 {
+        let inner = match inner {
+            Some(inner) => inner,
+            None => &mut *self.inner.lock(),
+        };
+        inner.flush_bytes
     }
 
-    pub(crate) fn net_bytes(&self) -> i64 {
-        let guard = self.inner.lock();
-        guard.flush_bytes.load(Ordering::SeqCst) + guard.active_bytes
+    pub(crate) fn net_bytes(&self, inner: Option<&Inner<D>>) -> i64 {
+        let inner = match inner {
+            Some(inner) => inner,
+            None => &mut *self.inner.lock(),
+        };
+        inner.flush_bytes + inner.active_bytes
     }
 
     fn stall_limit_bytes(&self) -> i64 {
@@ -163,9 +172,9 @@ where
         if max_ram_mb != DISABLE_AUTO_FLUSH as f64 && !inner.flush_by_ram_was_disabled {
             // for this assert we must be tolerant to ram buffer changes!
             inner.max_configured_ram_buffer = inner.max_configured_ram_buffer.max(max_ram_mb);
-            let flush_bytes = inner.flush_bytes.load(Ordering::SeqCst);
+            let flush_bytes = inner.flush_bytes;
             let active_bytes = inner.active_bytes;
-            let num_pending = inner.num_pending.load(Ordering::SeqCst);
+            let num_pending = inner.num_pending;
 
             let ram = flush_bytes + active_bytes;
             let ram_buffer_bytes = (inner.max_configured_ram_buffer * 1024.0 * 1024.0) as i64;
@@ -222,9 +231,9 @@ where
 
     // only for asserts
     fn update_peaks(&self, delta: i64, inner: &mut Inner<D>) -> bool {
-        let net = self.net_bytes();
+        let net = self.net_bytes(Some(inner));
         let active = inner.active_bytes;
-        let flush = inner.flush_bytes.load(Ordering::SeqCst);
+        let flush = inner.flush_bytes;
 
         inner.peak_active_bytes = inner.peak_active_bytes.max(active);
         inner.peak_flush_bytes = inner.peak_flush_bytes.max(flush);
@@ -279,12 +288,12 @@ where
             // moves the perThread memory to the flushBytes and we could be set to
             // pending during a delete
             if per_thread.is_flush_pending() {
-                inner.flush_bytes.fetch_add(delta, Ordering::SeqCst);
+                inner.flush_bytes += delta;
                 self.update_peaks(delta, &mut inner);
             } else {
                 inner.active_bytes += delta;
                 self.update_peaks(delta, &mut inner);
-                flush_policy.on_change(self, Some(&per_thread), delete_queue)?;
+                flush_policy.on_change(self, &inner, Some(&per_thread), delete_queue)?;
                 if !per_thread.is_flush_pending()
                     && per_thread.ram_bytes_used()? > inner.hard_max_bytes_per_dwpt
                 {
@@ -355,9 +364,7 @@ where
         if let Some(pos) = inner.flushing_writers.iter().position(|w| *w == id) {
             inner.flushing_writers.remove(pos);
         }
-        inner
-            .flush_bytes
-            .fetch_sub(dwpt.get_last_committed_bytes_used(), Ordering::SeqCst);
+        inner.flush_bytes += dwpt.get_last_committed_bytes_used();
 
         debug_assert!(self.assert_memory(&mut inner));
 
@@ -367,7 +374,7 @@ where
     fn update_stall_state(&self, inner: &mut Inner<D>) -> bool {
         let limit = self.stall_limit_bytes();
         let active = inner.active_bytes;
-        let flush = inner.flush_bytes.load(Ordering::SeqCst);
+        let flush = inner.flush_bytes;
         let stall = (active + flush) > limit && active < limit && !inner.closed;
 
         if self.info_stream.enabled("DWFC") && stall != self.stall_control.any_stalled_threads() {
@@ -376,8 +383,8 @@ where
                         "DW",
                         &format!(
                             "now stalling flushes: netBytes: {:.1} MB flushBytes: {:.1} MB fullFlush: {}",
-                            (self.net_bytes() as f64) / 1024.0 / 1024.0,
-                            (self.get_flushing_bytes() as f64) / 1024.0 / 1024.0,
+                            (self.net_bytes(Some(inner)) as f64) / 1024.0 / 1024.0,
+                            (self.get_flushing_bytes(Some(inner)) as f64) / 1024.0 / 1024.0,
                             inner.full_flush
                         ),
                     );
@@ -392,8 +399,8 @@ where
                         &format!(
                             "done stalling flushes for {:.1} msec: netBytes: {:.1} MB flushBytes: {:.1} MB fullFlush: {}",
                             elapsed,
-                            (self.net_bytes() as f64) / 1024.0 / 1024.0,
-                            (self.get_flushing_bytes() as f64) / 1024.0 / 1024.0,
+                            (self.net_bytes(Some(inner)) as f64) / 1024.0 / 1024.0,
+                            (self.get_flushing_bytes(Some(inner)) as f64) / 1024.0 / 1024.0,
                             inner.full_flush
                         ),
                     );
@@ -425,9 +432,9 @@ where
         if per_thread.get_num_docs_in_ram() > 0 {
             per_thread.set_flush_pending()?;
             let bytes = per_thread.get_last_committed_bytes_used();
-            inner.flush_bytes.fetch_add(bytes, Ordering::SeqCst);
+            inner.flush_bytes += bytes;
             inner.active_bytes -= bytes;
-            inner.num_pending.fetch_add(1, Ordering::SeqCst);
+            inner.num_pending += 1;
             assert!(self.assert_memory(inner));
         }
         Ok(())
@@ -442,7 +449,7 @@ where
             debug_assert!(per_thread_pool.is_registered(per_thread.id()));
             let bytes = per_thread.get_last_committed_bytes_used();
             if per_thread.is_flush_pending() {
-                inner.flush_bytes.fetch_sub(bytes, Ordering::SeqCst);
+                inner.flush_bytes -= bytes;
             } else {
                 inner.active_bytes -= bytes;
             };
@@ -469,7 +476,7 @@ where
         );
         debug_assert!(inner.full_flush, "can not block if fullFlush == false");
 
-        inner.num_pending.fetch_sub(1, Ordering::SeqCst);
+        inner.num_pending -= 1;
         let checked_out = per_thread_pool.checkout(id);
         inner.blocked_flushes.push_back(per_thread);
         debug_assert!(checked_out);
@@ -484,7 +491,7 @@ where
         debug_assert!(per_thread_pool.is_registered(per_thread.id()));
         let result = {
             self.add_flushing_dwpt(per_thread.id(), inner);
-            inner.num_pending.fetch_sub(1, Ordering::SeqCst);
+            inner.num_pending -= 1;
             let checked_out = per_thread_pool.checkout(per_thread.id());
             debug_assert!(checked_out);
             per_thread
@@ -512,17 +519,9 @@ where
         if let Some(dwpt) = inner.flush_queue.pop_front() {
             // update stall state before returning
             self.update_stall_state(inner);
-            return (
-                Some(dwpt),
-                inner.full_flush,
-                inner.num_pending.load(Ordering::SeqCst),
-            );
+            return (Some(dwpt), inner.full_flush, inner.num_pending);
         }
-        (
-            None,
-            inner.full_flush,
-            inner.num_pending.load(Ordering::SeqCst),
-        )
+        (None, inner.full_flush, inner.num_pending)
     }
     pub(crate) fn try_get_next_pending_flush(
         &self,
@@ -546,9 +545,8 @@ where
     where
         FP: FlushPolicy,
     {
-        let _guard = self.inner.lock();
-        flush_policy.on_change(self, None, delete_queue)?;
-        drop(_guard);
+        let inner = self.inner.lock();
+        flush_policy.on_change(self, &inner, None, delete_queue)?;
         Ok(())
     }
 
@@ -832,7 +830,7 @@ where
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let inner = self.inner.lock();
         let active = inner.active_bytes;
-        let flush = inner.flush_bytes.load(Ordering::SeqCst);
+        let flush = inner.flush_bytes;
         write!(
             f,
             "{} [activeBytes={active}, flushBytes={flush}]",

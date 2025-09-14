@@ -755,7 +755,7 @@ where
     /// Returns the number of bytes currently being flushed
     /// This is a subset of the value returned by ramBytesUsed()
     pub(crate) fn get_flushing_bytes(&self) -> i64 {
-        self.flush_control.get_flushing_bytes()
+        self.flush_control.get_flushing_bytes(None)
     }
 }
 impl<D, L, FN> Accountable for DocumentsWriter<D, L, FN>
@@ -769,7 +769,7 @@ where
         Ok(self
             .flush_control
             .get_delete_bytes_used(&inner.delete_queue)?
-            + self.flush_control.net_bytes())
+            + self.flush_control.net_bytes(None))
     }
 }
 
