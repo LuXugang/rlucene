@@ -44,11 +44,10 @@ use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::clone::TryClone as OtherClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{CoreHelper, SliceCopyOps};
-use std::cell::RefCell;
+use parking_lot::Mutex;
 use std::clone::Clone;
 use std::cmp::min;
 use std::fmt::{Display, Formatter};
-use std::rc::Rc;
 use std::sync::Arc;
 
 const PREFETCH_CACHE_SIZE: usize = 1 << 4;
@@ -60,10 +59,10 @@ where
     I: IndexInput,
 {
     version: i32,
-    field_infos: Rc<FieldInfos>,
+    field_infos: Arc<FieldInfos>,
     index_reader: FieldsIndexEnum<I>,
     max_pointer: i64,
-    fields_stream: Rc<RefCell<I>>,
+    fields_stream: Arc<Mutex<I>>,
     chunk_size: i32,
     compression_mode: CompressionModeEnum,
     decompressor: DecompressorEnum,
@@ -106,7 +105,7 @@ where
         dir: &D1,
         si: &SegmentInfo<D2>,
         segment_suffix: &str,
-        field_infos: Rc<FieldInfos>,
+        field_infos: Arc<FieldInfos>,
         context: &IOContext,
         format_name: &str,
         compression_mode: CompressionModeEnum,
@@ -166,10 +165,10 @@ where
             // for FOOTER_MAGIC + algorithmID. This is cheap and can detect some
             // forms of corruption such as file truncation.
             CodecUtil::retrieve_checksum(&mut fields_stream)?;
-            let fields_stream = Rc::new(RefCell::new(fields_stream));
+            let fields_stream = Arc::new(Mutex::new(fields_stream));
             let state = BlockState::new(
                 merging,
-                Rc::clone(&fields_stream),
+                Arc::clone(&fields_stream),
                 compression_mode.new_decompressor(),
                 chunk_size,
             );
@@ -242,11 +241,11 @@ where
         reader: &Lucene90CompressingStoredFieldsReader<I>,
         merging: bool,
     ) -> Result<Lucene90CompressingStoredFieldsReader<I>> {
-        let fields_stream = (*reader.fields_stream.borrow_mut()).try_clone()?;
-        let fields_stream = Rc::new(RefCell::new(fields_stream));
+        let fields_stream = (*reader.fields_stream.lock()).try_clone()?;
+        let fields_stream = Arc::new(Mutex::new(fields_stream));
         Ok(Self {
             version: reader.version,
-            field_infos: Rc::clone(&reader.field_infos),
+            field_infos: Arc::clone(&reader.field_infos),
             index_reader: reader.index_reader.try_clone()?,
             max_pointer: reader.max_pointer,
             fields_stream: fields_stream.clone(),
@@ -360,7 +359,7 @@ where
     pub(crate) fn serialized_document(&mut self, doc_id: i32) -> Result<SerializedDocument<'_, I>> {
         if !self.state.contains(doc_id) {
             let pointer = self.index_reader.get_start_pointer(doc_id)?;
-            self.fields_stream.borrow_mut().seek(pointer)?;
+            self.fields_stream.lock().seek(pointer)?;
             self.state.reset(doc_id, self.num_docs)?;
         }
 
@@ -395,8 +394,8 @@ where
     pub(crate) fn get_max_pointer(&self) -> i64 {
         self.max_pointer
     }
-    pub(crate) fn get_fields_stream(&self) -> Rc<RefCell<I>> {
-        Rc::clone(&self.fields_stream)
+    pub(crate) fn get_fields_stream(&self) -> Arc<Mutex<I>> {
+        Arc::clone(&self.fields_stream)
     }
     pub fn get_chunk_size(&self) -> i32 {
         self.chunk_size
@@ -453,7 +452,7 @@ where
         let block_length = self.index_reader.get_block_length(block_id)?;
 
         self.fields_stream
-            .borrow_mut()
+            .lock()
             .prefetch(block_start_pointer, block_length)?;
 
         self.prefetched_block_id_cache
@@ -531,7 +530,7 @@ where
 {
     fn check_integrity(&self) -> Result<()> {
         self.index_reader.check_integrity()?;
-        CodecUtil::checksum_entire_file(&*self.fields_stream.borrow())?;
+        CodecUtil::checksum_entire_file(&*self.fields_stream.lock())?;
         Ok(())
     }
 
@@ -561,7 +560,7 @@ where
     spare: Option<BytesRef<Vec<u8>>>,
     bytes: Option<BytesRef<Vec<u8>>>,
     merging: bool,
-    fields_stream: Rc<RefCell<I>>,
+    fields_stream: Arc<Mutex<I>>,
     decompressor: DecompressorEnum,
     chunk_size: i32,
 }
@@ -573,7 +572,7 @@ where
     fn new(
         merging: bool,
         // TODO: 应该不需要有这个字段
-        fields_stream: Rc<RefCell<I>>,
+        fields_stream: Arc<Mutex<I>>,
         decompressor: DecompressorEnum,
         chunk_size: i32,
     ) -> Self {
@@ -622,7 +621,7 @@ where
     }
 
     fn do_reset(&mut self, doc_id: i32, num_docs: i32) -> Result<()> {
-        let mut stream = self.fields_stream.borrow_mut();
+        let mut stream = self.fields_stream.lock();
 
         self.doc_base = stream.read_vint()?;
         let token = stream.read_vint()?;
@@ -753,7 +752,7 @@ where
                 length,
             ))
         } else {
-            let mut stream = self.fields_stream.borrow_mut();
+            let mut stream = self.fields_stream.lock();
             stream.seek(self.start_pointer)?;
 
             if self.sliced {
@@ -767,7 +766,7 @@ where
                 Either2DataInput::B(DataInputImpl::new(
                     &mut self.decompressor,
                     self.chunk_size,
-                    Rc::clone(&self.fields_stream),
+                    Arc::clone(&self.fields_stream),
                     bytes,
                     length as i32,
                 ))
@@ -834,7 +833,7 @@ where
     length: i32,
     decompressor: &'a mut DecompressorEnum,
     chunk_size: i32,
-    fields_stream: Rc<RefCell<I>>,
+    fields_stream: Arc<Mutex<I>>,
     bytes: BytesRef<Vec<u8>>,
 }
 impl<'a, I> DataInputImpl<'a, I>
@@ -844,7 +843,7 @@ where
     fn new(
         decompressor: &'a mut DecompressorEnum,
         chunk_size: i32,
-        fields_stream: Rc<RefCell<I>>,
+        fields_stream: Arc<Mutex<I>>,
         bytes: BytesRef<Vec<u8>>,
         length: i32,
     ) -> Self {
@@ -867,7 +866,7 @@ where
 
         let to_decompress = std::cmp::min(self.length - self.decompressed, self.chunk_size);
         self.decompressor.decompress(
-            &mut *self.fields_stream.borrow_mut(),
+            &mut *self.fields_stream.lock(),
             to_decompress,
             0,
             to_decompress,

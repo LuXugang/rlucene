@@ -14,15 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cmp::Ordering;
-use std::fmt::{Debug, Display};
-use std::hash::Hash;
-use std::rc::Rc;
-
 use crate::core::util::access::SharedAccessVec;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{GOOD_FAST_HASH_SEED, HashCode, StringHelper};
 use crate::with_other;
+use std::cmp::Ordering;
+use std::fmt::{Debug, Display};
+use std::hash::Hash;
+use std::sync::Arc;
 
 /// Represents a `&[u8]` as a slice (offset + length) into an existing byte
 /// array. The `bytes` member should never be `None`;
@@ -47,10 +46,10 @@ where
     pub offset: usize,
     pub length: usize,
 }
-impl BytesRef<Rc<Vec<u8>>> {
+impl BytesRef<Arc<Vec<u8>>> {
     /// compare: same bytes reference, same offset, same length
-    pub fn equals(a: &BytesRef<Rc<Vec<u8>>>, b: &BytesRef<Rc<Vec<u8>>>) -> bool {
-        let v = Rc::ptr_eq(&a.bytes, &b.bytes);
+    pub fn equals(a: &BytesRef<Arc<Vec<u8>>>, b: &BytesRef<Arc<Vec<u8>>>) -> bool {
+        let v = Arc::ptr_eq(&a.bytes, &b.bytes);
         // Simulate Java-style reference equality: if the bytes reference is the same,
         // then offset and length must also be equal.
         debug_assert!({

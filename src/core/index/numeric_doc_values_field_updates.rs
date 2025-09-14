@@ -14,9 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::rc::Rc;
-
 use parking_lot::Mutex;
+use std::sync::Arc;
 
 use crate::core::index::BytesRef;
 use crate::core::index::doc_values_field_updates::{
@@ -41,7 +40,7 @@ pub(crate) struct NumericDocValuesFieldUpdates {
     min_value: i64,
     lock: Mutex<()>,
 
-    values_iter: Option<Rc<AbstractPagedMutable<AbstractPagedMutableBaseEnum>>>,
+    values_iter: Option<Arc<AbstractPagedMutable<AbstractPagedMutableBaseEnum>>>,
 }
 impl NumericDocValuesFieldUpdates {
     pub(crate) fn new() -> Result<NumericDocValuesFieldUpdates> {
@@ -78,7 +77,7 @@ impl NumericDocValuesFieldUpdates {
 
 impl DocValuesFieldUpdatesBase for NumericDocValuesFieldUpdates {
     fn finish(&mut self) {
-        self.values_iter = Some(Rc::new(std::mem::take(&mut self.values)));
+        self.values_iter = Some(Arc::new(std::mem::take(&mut self.values)));
     }
 
     fn add_value(&mut self, _doc: i32, value: i64, index: i32) -> Result<()> {
@@ -150,13 +149,13 @@ impl Accountable for NumericDocValuesFieldUpdates {
 }
 #[derive(Default)]
 pub(crate) struct AbstractIteratorNumeric {
-    values: Rc<AbstractPagedMutable<AbstractPagedMutableBaseEnum>>,
+    values: Arc<AbstractPagedMutable<AbstractPagedMutableBaseEnum>>,
     value: i64,
     min_value: i64,
 }
 impl AbstractIteratorNumeric {
     pub(crate) fn new(
-        values: Rc<AbstractPagedMutable<AbstractPagedMutableBaseEnum>>,
+        values: Arc<AbstractPagedMutable<AbstractPagedMutableBaseEnum>>,
         value: i64,
         min_value: i64,
     ) -> Self {

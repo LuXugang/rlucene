@@ -31,7 +31,6 @@ use crate::core::util::info_stream::InfoStreamMT;
 use crate::core::util::long_supplier::LongSupplier;
 use parking_lot::Mutex;
 use std::collections::HashMap;
-use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
@@ -71,7 +70,7 @@ pub(crate) struct Inner<D>
 where
     D: Directory,
 {
-    reader_map: HashMap<String, Rc<ReadersAndUpdates<D>>>,
+    reader_map: HashMap<String, Arc<ReadersAndUpdates<D>>>,
     closed: AtomicBool,
 }
 
@@ -261,7 +260,7 @@ where
         infos: &mut HashMap<String, SegmentCommitInfo<D>>,
         global_field_number: &FieldNumbers,
     ) -> Result<bool> {
-        let copy: Vec<Rc<ReadersAndUpdates<D>>> = {
+        let copy: Vec<Arc<ReadersAndUpdates<D>>> = {
             let inner = self.inner.lock();
             // this needs to be protected by the reader pool lock otherwise we hit
             // ConcurrentModificationException
@@ -308,12 +307,12 @@ where
     /// Returns a list of all currently maintained `ReadersAndUpdates` sorted by their RAM consumption
     /// from largest to smallest. This list can also contain readers that don't consume any RAM at this
     /// point, i.e. readers without any buffered updates.
-    pub(crate) fn get_readers_by_ram(&self) -> Vec<Rc<ReadersAndUpdates<D>>> {
+    pub(crate) fn get_readers_by_ram(&self) -> Vec<Arc<ReadersAndUpdates<D>>> {
         struct RamRecordingHolder<D>
         where
             D: Directory,
         {
-            updates: Rc<ReadersAndUpdates<D>>,
+            updates: Arc<ReadersAndUpdates<D>>,
             ram_bytes_used: i64,
         }
 
@@ -331,7 +330,7 @@ where
                 .reader_map
                 .values()
                 .map(|rld| RamRecordingHolder {
-                    updates: Rc::clone(rld),
+                    updates: Arc::clone(rld),
                     ram_bytes_used: rld
                         .ram_bytes_used
                         .load(std::sync::atomic::Ordering::Relaxed),
@@ -417,8 +416,8 @@ where
         &self,
         info: &SegmentCommitInfo<D>,
         create: bool,
-        sort_map: Option<Rc<DocMapImpl>>,
-    ) -> Result<Option<Rc<ReadersAndUpdates<D>>>> {
+        sort_map: Option<Arc<DocMapImpl>>,
+    ) -> Result<Option<Arc<ReadersAndUpdates<D>>>> {
         let mut inner = self.inner.lock();
         debug_assert!(
             Arc::ptr_eq(&info.info.dir, &self.original_directory),
@@ -456,10 +455,10 @@ where
                 self.new_pending_deletes(info)?,
             );
             v.sort_map = sort_map;
-            let rld = Rc::new(v);
+            let rld = Arc::new(v);
             inner
                 .reader_map
-                .insert(info.info.get_id_str(), Rc::clone(&rld));
+                .insert(info.info.get_id_str(), Arc::clone(&rld));
             rld
         };
 

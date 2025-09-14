@@ -14,9 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cell::RefCell;
-use std::rc::Rc;
-
 use crate::core::codecs::CodecUtil;
 use crate::core::codecs::lucene90::fields_index::FieldsIndex;
 use crate::core::codecs::lucene90::fields_index_writer::fields_index_writer_const;
@@ -28,6 +25,8 @@ use crate::core::util::error::lucene_error::Result;
 use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::direct_monotonic_reader::direct_monotonic::Meta;
 use crate::core::util::packed::direct_monotonic_reader::{DirectMonotonicReader, load_meta};
+use parking_lot::Mutex;
+use std::sync::Arc;
 
 pub(crate) struct FieldsIndexReader<I>
 where
@@ -98,10 +97,10 @@ where
             start_pointers_end_pointer - start_pointers_start_pointer,
         )?;
         let docs =
-            DirectMonotonicReader::get_instance(&docs_meta, Rc::new(RefCell::new(docs_slice)))?;
+            DirectMonotonicReader::get_instance(&docs_meta, Arc::new(Mutex::new(docs_slice)))?;
         let start_pointers = DirectMonotonicReader::get_instance(
             &start_pointers_meta,
-            Rc::new(RefCell::new(start_pointers_slice)),
+            Arc::new(Mutex::new(start_pointers_slice)),
         )?;
 
         Ok(FieldsIndexReader {
@@ -123,11 +122,11 @@ where
     fn with_other(other: &FieldsIndexReader<I>) -> Result<Self> {
         let docs_meta = other.docs_meta.clone();
         let start_pointers_meta = other.start_pointers_meta.clone();
-        let docs_slice = Rc::new(RefCell::new(other.index_input.random_access_slice(
+        let docs_slice = Arc::new(Mutex::new(other.index_input.random_access_slice(
             other.docs_start_pointer,
             other.docs_end_pointer - other.docs_start_pointer,
         )?));
-        let start_pointers_slice = Rc::new(RefCell::new(other.index_input.random_access_slice(
+        let start_pointers_slice = Arc::new(Mutex::new(other.index_input.random_access_slice(
             other.start_pointers_start_pointer,
             other.start_pointers_end_pointer - other.start_pointers_start_pointer,
         )?));

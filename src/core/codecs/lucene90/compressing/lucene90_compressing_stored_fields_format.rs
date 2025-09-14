@@ -14,9 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::fmt;
-use std::rc::Rc;
-
 use crate::core::codecs::compressing::lucene90_compressing_stored_fields_reader::Lucene90CompressingStoredFieldsReader;
 use crate::core::codecs::compressing::lucene90_compressing_stored_fields_writer::Lucene90CompressingStoredFieldsWriter;
 use crate::core::codecs::compression::compression_mode::CompressionModeEnum;
@@ -30,6 +27,8 @@ use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::packed::direct_monotonic_writer::{MAX_BLOCK_SHIFT, MIN_BLOCK_SHIFT};
+use std::fmt;
+use std::sync::Arc;
 
 /// A [`StoredFieldsFormat`] that compresses documents in chunks in order to
 /// improve the compression ratio.
@@ -144,7 +143,7 @@ impl StoredFieldsFormat for Lucene90CompressingStoredFieldsFormat {
         &self,
         directory: &D1,
         segment_info: &SegmentInfo<D2>,
-        field_infos: Rc<FieldInfos>,
+        field_infos: Arc<FieldInfos>,
         context: &IOContext,
     ) -> Result<StoredFieldsReaderEnum<D1::IndexInput>>
     where

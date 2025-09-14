@@ -34,10 +34,9 @@ use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs;
 use crate::core::util::fst_impl::fst::{FST, read_metadata};
 use crate::core::util::fst_impl::off_heap_fst_store::OffHeapFSTStore;
+use parking_lot::Mutex;
 use std::borrow::Cow;
-use std::cell::RefCell;
 use std::fmt;
-use std::rc::Rc;
 use std::sync::Arc;
 
 /// BlockTree's implementation of [`Terms`].
@@ -53,11 +52,11 @@ where
     pub(crate) sum_doc_freq: i64,
     pub(crate) doc_count: i32,
     pub(crate) root_block_fp: i64,
-    pub(crate) root_code: BytesRef<Rc<Vec<u8>>>,
-    pub(crate) min_term: Rc<BytesRef<Vec<u8>>>,
-    pub(crate) max_term: Rc<BytesRef<Vec<u8>>>,
-    pub(crate) parent: Rc<TermsReader<I, PR>>,
-    pub(crate) index: Option<Rc<FST<ByteSequenceOutputs, OffHeapFSTStore<I>>>>,
+    pub(crate) root_code: BytesRef<Arc<Vec<u8>>>,
+    pub(crate) min_term: Arc<BytesRef<Vec<u8>>>,
+    pub(crate) max_term: Arc<BytesRef<Vec<u8>>>,
+    pub(crate) parent: Arc<TermsReader<I, PR>>,
+    pub(crate) index: Option<Arc<FST<ByteSequenceOutputs, OffHeapFSTStore<I>>>>,
 }
 impl<I, PR> FieldReader<I, PR>
 where
@@ -66,7 +65,7 @@ where
 {
     #[allow(clippy::too_many_arguments)]
     pub fn new<I1: IndexInput>(
-        parent: Rc<TermsReader<I, PR>>,
+        parent: Arc<TermsReader<I, PR>>,
         field_info: Arc<FieldInfo>,
         num_terms: i64,
         root_code: BytesRef<Vec<u8>>,
@@ -75,9 +74,9 @@ where
         doc_count: i32,
         index_start_fp: i64,
         meta_in: &mut I1,
-        index_in: Rc<RefCell<I>>,
-        min_term: Rc<BytesRef<Vec<u8>>>,
-        max_term: Rc<BytesRef<Vec<u8>>>,
+        index_in: Arc<Mutex<I>>,
+        min_term: Arc<BytesRef<Vec<u8>>>,
+        max_term: Arc<BytesRef<Vec<u8>>>,
     ) -> Result<Self> {
         assert!(num_terms > 0);
         // Read FST metadata and build the index
@@ -100,7 +99,7 @@ where
             root_code: BytesRef::new(),
             min_term,
             max_term,
-            index: Some(Rc::new(index)),
+            index: Some(Arc::new(index)),
         };
         // ownership to ByteArrayDataInput
         let mut input =
@@ -108,7 +107,7 @@ where
         v.root_block_fp = v.read_vlong_output(&mut input)?;
         // ownership from ByteArrayDataInput
         let root_code = BytesRef {
-            bytes: Rc::new(input.bytes),
+            bytes: Arc::new(input.bytes),
             offset: root_code.offset,
             length: root_code.length,
         };
@@ -251,8 +250,8 @@ where
             root_code: self.root_code.clone(),
             min_term: self.min_term.clone(),
             max_term: self.max_term.clone(),
-            parent: Rc::clone(&self.parent),
-            index: Some(Rc::clone(self.index.as_ref().unwrap())),
+            parent: Arc::clone(&self.parent),
+            index: Some(Arc::clone(self.index.as_ref().unwrap())),
         }
     }
 }

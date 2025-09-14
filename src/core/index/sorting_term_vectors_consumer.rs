@@ -41,7 +41,6 @@ use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{IOUtils, ToInt};
 use std::borrow::Cow;
-use std::rc::Rc;
 use std::sync::Arc;
 
 pub(crate) struct SortingTermVectorsConsumer<D>
@@ -68,7 +67,7 @@ where
     fn write_term_vectors<TVW, F>(
         writer: &mut TVW,
         vectors: &Option<F>,
-        field_infos: &Rc<FieldInfos>,
+        field_infos: &Arc<FieldInfos>,
     ) -> Result<()>
     where
         TVW: TermVectorsWriter,
@@ -196,7 +195,7 @@ where
     fn flush<DM, D1>(
         &mut self,
         state: &SegmentWriteState<Self::Directory>,
-        sort_map: &Option<Rc<DM>>,
+        sort_map: &Option<Arc<DM>>,
         codec: &impl Codec,
         segment_info: &SegmentInfo<D1>,
     ) -> Result<()>

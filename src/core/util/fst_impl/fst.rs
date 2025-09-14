@@ -14,13 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use core::fmt;
-use std::cell::RefCell;
-use std::fmt::{Display, Formatter};
-use std::fs::File;
-use std::path::{Path, PathBuf};
-use std::rc::Rc;
-
 use crate::core::codecs::CodecUtil;
 use crate::core::store::output_stream_data_output::OutputStreamDataOutput;
 use crate::core::store::{ByteBuffersDataOutput, DataInput, DataOutput};
@@ -29,6 +22,13 @@ use crate::core::util::fst_impl::bit_table_util::BitTableUtil;
 use crate::core::util::fst_impl::fst_reader::FstReader;
 use crate::core::util::fst_impl::on_heap_fst_store::OnHeapFSTStore;
 use crate::core::util::fst_impl::outputs::{Outputs, OutputsBound};
+use core::fmt;
+use parking_lot::Mutex;
+use std::cell::RefCell;
+use std::fmt::{Display, Formatter};
+use std::fs::File;
+use std::path::{Path, PathBuf};
+use std::rc::Rc;
 
 pub struct FST<O, F>
 where
@@ -38,7 +38,7 @@ where
     pub metadata: Option<FSTMetadata<O>>,
     pub outputs: O,
     // wrap with RefCell to allow interior mutability
-    pub fst_reader: RefCell<F>,
+    pub fst_reader: Mutex<F>,
 }
 
 impl<O> FST<O, OnHeapFSTStore>
@@ -66,7 +66,7 @@ where
         Self {
             outputs: metadata.outputs.clone(),
             metadata: Some(metadata),
-            fst_reader: RefCell::new(fst_reader),
+            fst_reader: Mutex::new(fst_reader),
         }
     }
     /// Create an FST from metadata and reader. Returns `None` if the metadata
@@ -81,7 +81,7 @@ where
         Some(Self {
             outputs: metadata.outputs.clone(),
             metadata: Some(metadata),
-            fst_reader: RefCell::new(fst_reader),
+            fst_reader: Mutex::new(fst_reader),
         })
     }
     pub fn num_bytes(&self) -> i64 {
@@ -108,11 +108,11 @@ where
         out: &mut impl DataOutput,
     ) -> Result<()> {
         self.metadata.as_ref().unwrap().save(meta_out)?;
-        self.fst_reader.borrow_mut().write_to(out)
+        self.fst_reader.lock().write_to(out)
     }
     pub fn save_with_same_data_out(&self, out: &mut impl DataOutput) -> Result<()> {
         self.metadata.as_ref().unwrap().save(out)?;
-        self.fst_reader.borrow_mut().write_to(out)
+        self.fst_reader.lock().write_to(out)
     }
 
     /// Writes the automaton to a file.
@@ -806,7 +806,7 @@ where
     }
     /// Returns a [`BytesReader`] for this FST, positioned at position 0.
     pub fn get_bytes_reader(&self) -> Result<F::FstBytesReader> {
-        let mut fst_reader = self.fst_reader.borrow_mut();
+        let mut fst_reader = self.fst_reader.lock();
         fst_reader.init_reader();
         fst_reader.get_reverse_bytes_reader()
     }

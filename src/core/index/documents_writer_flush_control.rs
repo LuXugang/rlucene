@@ -21,6 +21,7 @@ use crate::core::index::documents_writer_per_thread::DocumentsWriterPerThread;
 use crate::core::index::documents_writer_per_thread_pool::DocumentsWriterPerThreadPool;
 use crate::core::index::documents_writer_stall_control::DocumentsWriterStallControl;
 use crate::core::index::flush_policy::FlushPolicy;
+use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
 use crate::core::index::index_writer_config::DISABLE_AUTO_FLUSH;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::lockable_concurrent_approximate_priority_queue::Lock;
@@ -572,14 +573,14 @@ where
         self.flush_deletes.store(true, Ordering::SeqCst);
     }
 
-    pub fn obtain_and_lock<S>(
+    pub fn obtain_and_lock<B>(
         &self,
         delete_queue: &Arc<DocumentsWriterDeleteQueue>,
-        dwpt_factory: S,
+        writer: &IndexWriter<D, L, B>,
         per_thread_pool: &DocumentsWriterPerThreadPool<D>,
     ) -> Result<DocumentsWriterPerThread<D>>
     where
-        S: Supplier<DocumentsWriterPerThread<D>>,
+        B: IndexWriterBase,
     {
         loop {
             {
@@ -589,7 +590,7 @@ where
                 }
             }
 
-            let per_thread = per_thread_pool.get_and_lock(&dwpt_factory)?;
+            let per_thread = per_thread_pool.get_and_lock(writer, delete_queue.clone())?;
             if Arc::ptr_eq(&per_thread.delete_queue, delete_queue) {
                 // simply return the DWPT even in a flush all case since we already hold the lock and the
                 // DWPT is not stale

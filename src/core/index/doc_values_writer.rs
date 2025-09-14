@@ -42,12 +42,12 @@ use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::paged_bytes::PagedBytesDataInput;
 use std::fmt::Display;
-use std::rc::Rc;
+use std::sync::Arc;
 
 pub(crate) trait DocValuesWriter: Display {
     fn flush<D, DM, DC>(
         &mut self,
-        sort_map: Option<Rc<DM>>,
+        sort_map: Option<Arc<DM>>,
         dv_consumer: &mut DC,
         segment_info: &SegmentInfo<D>,
     ) -> Result<()>
@@ -82,7 +82,7 @@ impl Display for DocValuesWriterEnum {
 impl DocValuesWriter for DocValuesWriterEnum {
     fn flush<D, DM, DC>(
         &mut self,
-        sort_map: Option<Rc<DM>>,
+        sort_map: Option<Arc<DM>>,
         dv_consumer: &mut DC,
         segment_info: &SegmentInfo<D>,
     ) -> Result<()>

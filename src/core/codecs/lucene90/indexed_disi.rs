@@ -20,8 +20,9 @@ use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::store::{DataInput, IndexInput, IndexOutput};
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use std::cell::RefCell;
+use parking_lot::Mutex;
 use std::rc::Rc;
+use std::sync::Arc;
 
 /// Disk-based implementation of a [`DocIdSetIterator`] which can return the
 /// index of the current document, i.e. the ordinal of the current document
@@ -90,8 +91,8 @@ pub struct IndexedDISI<I>
 where
     I: IndexInput,
 {
-    slice: Rc<RefCell<I::Slice>>,
-    jump_table: Option<Rc<RefCell<I::RandomAccessSlice>>>,
+    slice: Arc<Mutex<I::Slice>>,
+    jump_table: Option<Arc<Mutex<I::RandomAccessSlice>>>,
     jump_table_entry_count: i32,
     dense_rank_power: i8,
     dense_rank_table: Option<Vec<u8>>,
@@ -154,11 +155,10 @@ where
             create_block_slice(index_input, "docs", offset, length, jump_table_entry_count)?;
         let jump_table_option =
             create_jump_table(index_input, offset, length, jump_table_entry_count)?;
-        let jump_table =
-            jump_table_option.map(|jump_table_rc| Rc::new(RefCell::new(jump_table_rc)));
+        let jump_table = jump_table_option.map(|jump_table_rc| Arc::new(Mutex::new(jump_table_rc)));
 
         Self::from_components(
-            Rc::new(RefCell::new(block_slice)),
+            Arc::new(Mutex::new(block_slice)),
             jump_table,
             jump_table_entry_count,
             dense_rank_power,
@@ -184,8 +184,8 @@ where
     ///   the value used in `write_bit_set`.
     /// - `cost`: Typically the number of logical doc IDs.
     pub fn from_components(
-        index_input: Rc<RefCell<I::Slice>>,
-        mut jump_table: Option<Rc<RefCell<I::RandomAccessSlice>>>,
+        index_input: Arc<Mutex<I::Slice>>,
+        mut jump_table: Option<Arc<Mutex<I::RandomAccessSlice>>>,
         jump_table_entry_count: i32,
         dense_rank_power: i8,
         cost: i64,
@@ -200,14 +200,14 @@ where
         }
 
         {
-            let mut index_input = index_input.borrow_mut();
+            let mut index_input = index_input.lock();
             if index_input.length() > 0 {
                 index_input.prefetch(0, 1)?;
             }
         }
 
         if let Some(jump_table_rc) = &mut jump_table {
-            let mut jump_table = jump_table_rc.borrow_mut();
+            let mut jump_table = jump_table_rc.lock();
             if jump_table.length() > 0 {
                 jump_table.prefetch(0, 1)?;
             }
@@ -263,19 +263,19 @@ where
             let index;
             let offset;
             {
-                let mut jump_table = jump_table_rc.borrow_mut();
+                let mut jump_table = jump_table_rc.lock();
                 index = jump_table.read_int(jump_pos)?;
                 offset = jump_table.read_int(jump_pos + BitUtil::INT_BYTES as i64)?;
             }
             // -1 to compensate for the always-added 1 in readBlockHeader
             self.next_block_index = index - 1;
-            self.slice.borrow_mut().seek(offset as i64)?;
+            self.slice.lock().seek(offset as i64)?;
             self.read_block_header()?;
             return Ok(());
         }
         // Fallback to iteration of blocks
         while self.block < target_block {
-            self.slice.borrow_mut().seek(self.block_end)?;
+            self.slice.lock().seek(self.block_end)?;
             self.read_block_header()?;
         }
 
@@ -283,7 +283,7 @@ where
     }
 
     fn read_block_header(&mut self) -> Result<()> {
-        let mut slice = self.slice.borrow_mut();
+        let mut slice = self.slice.lock();
         self.block = (slice.read_short()? as u16 as i32) << 16;
         debug_assert!(self.block >= 0);
         let num_values = 1 + slice.read_short()? as u16 as i32;
@@ -455,7 +455,7 @@ impl MethodBehavior for SparseMethod {
     ) -> Result<bool> {
         let target_in_block = target & 0xFFFF;
         // TODO: binary search
-        let mut slice = disi.slice.borrow_mut();
+        let mut slice = disi.slice.lock();
         while disi.index < disi.next_block_index {
             let doc = slice.read_short()? as u16 as i32;
             disi.index += 1;
@@ -484,7 +484,7 @@ impl MethodBehavior for SparseMethod {
         if disi.doc == target {
             return Ok(disi.exists);
         }
-        let mut slice = disi.slice.borrow_mut();
+        let mut slice = disi.slice.lock();
         while disi.index < disi.next_block_index {
             let doc = slice.read_short()? as u16 as i32;
             disi.index += 1;
@@ -522,7 +522,7 @@ impl MethodBehavior for DenseMethod {
             rank_skip(disi, target_in_block)?;
         }
 
-        let mut slice = disi.slice.borrow_mut();
+        let mut slice = disi.slice.lock();
         for _ in disi.word_index + 1..=target_word_index {
             disi.word = slice.read_long()?;
             disi.number_of_ones += disi.word.count_ones() as i32;
@@ -569,7 +569,7 @@ impl MethodBehavior for DenseMethod {
             rank_skip(disi, target_in_block)?;
         }
 
-        let mut slice = disi.slice.borrow_mut();
+        let mut slice = disi.slice.lock();
         for _ in (disi.word_index + 1)..=target_word_index {
             disi.word = slice.read_long()?;
             disi.number_of_ones += disi.word.count_ones() as i32;
@@ -1032,7 +1032,7 @@ fn rank_skip<I: IndexInput>(disi: &mut IndexedDISI<I>, target_in_block: i32) -> 
     let rank_aligned_word_index = (rank_index << disi.dense_rank_power) >> 6;
     let offset =
         disi.dense_bitmap_offset + (rank_aligned_word_index as i64) * BitUtil::LONG_BYTES as i64;
-    let mut slice = disi.slice.borrow_mut();
+    let mut slice = disi.slice.lock();
     slice.seek(offset)?;
     let rank_word = slice.read_long()?;
     let dense_noo = rank + rank_word.count_ones() as i32;
@@ -1072,9 +1072,11 @@ mod tests {
         at_least, new_directory, random, rarely,
     };
     use crate::test::util::test_util::TestUtil;
+    use parking_lot::Mutex;
     use rand::Rng;
     use std::cell::RefCell;
     use std::rc::Rc;
+    use std::sync::Arc;
 
     #[allow(dead_code)] // for quick search
     struct TestIndexedDISI;
@@ -1233,9 +1235,9 @@ mod tests {
             create_block_slice(full_input, "blocks", 0, length, jump_table_entry_count)?;
         block_data.seek(random.random_range(0..block_data.length()))?;
         let jump_table = create_jump_table(full_input, 0, length, jump_table_entry_count)?;
-        let jump_table = jump_table.map(|jump_table_rc| Rc::new(RefCell::new(jump_table_rc)));
+        let jump_table = jump_table.map(|jump_table_rc| Arc::new(Mutex::new(jump_table_rc)));
         let mut disi: IndexedDISI<I> = IndexedDISI::from_components(
-            Rc::new(RefCell::new(block_data)),
+            Arc::new(Mutex::new(block_data)),
             jump_table,
             jump_table_entry_count,
             dense_rank_power,

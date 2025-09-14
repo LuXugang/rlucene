@@ -14,10 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use once_cell::sync::Lazy;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
-
-use once_cell::sync::Lazy;
+use std::sync::Arc;
 
 use crate::core::store::{DataInput, DataOutput};
 use crate::core::util::error::lucene_error::Result;
@@ -26,7 +26,7 @@ use crate::core::util::ints_ref::IntsRef;
 use crate::core::util::{CoreHelper, SliceCopyOps};
 
 thread_local! {
-    static NO_OUTPUT: IntsRef<Rc<Vec<i32>>> = IntsRef::new();
+    static NO_OUTPUT: IntsRef<Arc<Vec<i32>>> = IntsRef::new();
 }
 
 pub static SINGLETON: Lazy<IntSequenceOutputs> = Lazy::new(|| IntSequenceOutputs);
@@ -46,7 +46,7 @@ impl IntSequenceOutputs {
 }
 
 impl Outputs for IntSequenceOutputs {
-    type V = IntsRef<Rc<Vec<i32>>>;
+    type V = IntsRef<Arc<Vec<i32>>>;
 
     fn common(&self, output1: &Self::V, output2: &Self::V) -> Self::V {
         let a = &output1.ints[output1.offset..output1.offset + output1.length];
@@ -59,7 +59,7 @@ impl Outputs for IntSequenceOutputs {
             0 => self.get_no_output(), // no common prefix
             n if n as usize == output1.length => output1.clone(),
             n if n as usize == output2.length => output2.clone(),
-            n => IntsRef::from_slice(Rc::new(a[..n as usize].to_vec()), 0, n as usize),
+            n => IntsRef::from_slice(Arc::new(a[..n as usize].to_vec()), 0, n as usize),
         }
     }
 
@@ -101,7 +101,7 @@ impl Outputs for IntSequenceOutputs {
             prefix.length,
         );
 
-        IntsRef::from_slice(Rc::new(buf), 0, prefix.length + output.length)
+        IntsRef::from_slice(Arc::new(buf), 0, prefix.length + output.length)
     }
 
     fn write(&self, output: &Self::V, out: &mut impl DataOutput) -> Result<()> {
@@ -121,7 +121,7 @@ impl Outputs for IntSequenceOutputs {
             for item in buf.iter_mut().take(len as usize) {
                 *item = input.read_vint()?;
             }
-            Ok(IntsRef::from_slice(Rc::new(buf), 0, len as usize))
+            Ok(IntsRef::from_slice(Arc::new(buf), 0, len as usize))
         }
     }
 

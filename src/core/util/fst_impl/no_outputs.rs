@@ -14,12 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::fmt::{Display, Formatter};
-use std::rc::Rc;
-
 use crate::core::store::{DataInput, DataOutput};
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fst_impl::outputs::Outputs;
+use std::fmt::{Display, Formatter};
+use std::sync::Arc;
 
 pub struct NoOutputs;
 impl NoOutputs {
@@ -42,7 +41,7 @@ impl Clone for NoOutputs {
 
 impl Outputs for NoOutputs {
     // TODO: 未完成
-    type V = Rc<i64>;
+    type V = Arc<i64>;
 
     fn common(&self, _output1: &Self::V, _output2: &Self::V) -> Self::V {
         todo!()

@@ -114,7 +114,7 @@ impl Display for NumericDocValuesWriter {
 impl DocValuesWriter for NumericDocValuesWriter {
     fn flush<D, DM, DC>(
         &mut self,
-        sort_map: Option<Rc<DM>>,
+        sort_map: Option<Arc<DM>>,
         dv_consumer: &mut DC,
         _segment_info: &SegmentInfo<D>,
     ) -> Result<()>
@@ -414,7 +414,7 @@ pub(crate) fn get_doc_values_producer<DM>(
     writer_field_info: Arc<FieldInfo>,
     values: &PackedLongValues,
     docs_with_field: DocsWithFieldSet,
-    sort_map: Option<Rc<DM>>,
+    sort_map: Option<Arc<DM>>,
 ) -> Result<DocValuesProducerImpl>
 where
     DM: DocMap,

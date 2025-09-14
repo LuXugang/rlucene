@@ -63,16 +63,17 @@ use crate::core::util::packed::block_packed_reader_iterator::BlockPackedReaderIt
 use crate::core::util::packed::direct_reader::DirectReader;
 use crate::core::util::packed::direct_writer::{DirectWriter, bits_required};
 use crate::core::util::packed::{PackedImpl, PackedInts, ReaderIterator};
+use parking_lot::Mutex;
 use std::borrow::Cow;
-use std::cell::RefCell;
 use std::io::Cursor;
 use std::rc::Rc;
+use std::sync::Arc;
 
 pub struct Lucene90CompressingTermVectorsReader<I>
 where
     I: IndexInput,
 {
-    field_infos: Rc<FieldInfos>,
+    field_infos: Arc<FieldInfos>,
     index_reader: FieldsIndexEnum<I>,
     vectors_stream: I,
     version: i32,
@@ -106,7 +107,7 @@ where
         dir: &D1,
         si: &SegmentInfo<D2>,
         segment_suffix: &str,
-        field_infos: Rc<FieldInfos>,
+        field_infos: Arc<FieldInfos>,
         context: &IOContext,
         format_name: &str,
         compression_mode: CompressionModeEnum,
@@ -235,7 +236,7 @@ where
 
     pub fn with_reader(reader: &Lucene90CompressingTermVectorsReader<I>) -> Result<Self> {
         Ok(Self {
-            field_infos: Rc::clone(&reader.field_infos),
+            field_infos: Arc::clone(&reader.field_infos),
             vectors_stream: reader.vectors_stream.try_clone()?,
             index_reader: reader.index_reader.try_clone()?,
             packed_ints_version: reader.packed_ints_version,
@@ -530,14 +531,14 @@ where
         let mut flags = {
             let bits_per_off = bits_required((field_nums.len() - 1) as i64)?;
             let mut all_field_num_offs = DirectReader::get_instance(
-                Rc::new(RefCell::new(Self::slice(&mut self.vectors_stream)?)),
+                Arc::new(Mutex::new(Self::slice(&mut self.vectors_stream)?)),
                 bits_per_off,
             );
             let v = self.vectors_stream.read_vint()?;
             let flags = match v {
                 0 => {
                     let mut field_flags = DirectReader::get_instance(
-                        Rc::new(RefCell::new(Self::slice(&mut self.vectors_stream)?)),
+                        Arc::new(Mutex::new(Self::slice(&mut self.vectors_stream)?)),
                         *FLAGS_BITS,
                     );
                     let mut out = ByteBuffersDataOutput::new();
@@ -552,12 +553,12 @@ where
                     }
                     writer.finish()?;
                     DirectReader::get_instance(
-                        Rc::new(RefCell::new(out.get_data_input_owner())),
+                        Arc::new(Mutex::new(out.get_data_input_owner())),
                         *FLAGS_BITS,
                     )
                 },
                 1 => DirectReader::get_instance(
-                    Rc::new(RefCell::new(Self::slice(&mut self.vectors_stream)?)),
+                    Arc::new(Mutex::new(Self::slice(&mut self.vectors_stream)?)),
                     *FLAGS_BITS,
                 ),
                 _ => {
@@ -576,7 +577,7 @@ where
         let (mut num_terms, total_terms) = {
             let bits_required = self.vectors_stream.read_vint()?;
             let mut num_terms = DirectReader::get_instance(
-                Rc::new(RefCell::new(Self::slice(&mut self.vectors_stream)?)),
+                Arc::new(Mutex::new(Self::slice(&mut self.vectors_stream)?)),
                 bits_required,
             );
             let mut sum = 0;
@@ -1009,7 +1010,7 @@ pub struct TVFields {
     suffix_bytes: BytesRef<Rc<Vec<u8>>>,
 
     names: Vec<String>,
-    field_infos: Rc<FieldInfos>,
+    field_infos: Arc<FieldInfos>,
 }
 impl TVFields {
     #[allow(clippy::too_many_arguments)]
@@ -1029,7 +1030,7 @@ impl TVFields {
         payload_bytes: BytesRef<Rc<Vec<u8>>>,
         payload_index: Vec<Rc<Vec<i32>>>,
         suffix_bytes: BytesRef<Rc<Vec<u8>>>,
-        field_infos: Rc<FieldInfos>,
+        field_infos: Arc<FieldInfos>,
     ) -> Result<Self> {
         let mut names = Vec::new();
         for i in 0..field_num_offs.len() {

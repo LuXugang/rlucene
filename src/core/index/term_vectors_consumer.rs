@@ -41,7 +41,6 @@ use crate::core::util::int_block_pool::AllocatorIntEnum;
 use crate::core::util::int_block_pool::DirectAllocatorI32;
 use crate::core::util::{Counter, CounterEnum, CounterEnumLock};
 use parking_lot::Mutex;
-use std::rc::Rc;
 use std::sync::Arc;
 
 pub(crate) struct TermVectorsConsumer<D>
@@ -205,7 +204,7 @@ where
     pub(crate) fn flush<DM, D1>(
         &mut self,
         state: &SegmentWriteState<D>,
-        sort_map: &Option<Rc<DM>>,
+        sort_map: &Option<Arc<DM>>,
         codec: &impl Codec,
         info: &SegmentInfo<D1>,
     ) -> Result<()>
@@ -296,7 +295,7 @@ pub(crate) trait TermVectorsConsumerBase {
     fn flush<DM, D1>(
         &mut self,
         state: &SegmentWriteState<Self::Directory>,
-        sort_map: &Option<Rc<DM>>,
+        sort_map: &Option<Arc<DM>>,
         codec: &impl Codec,
         info: &SegmentInfo<D1>,
     ) -> Result<()>

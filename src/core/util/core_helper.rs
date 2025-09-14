@@ -14,16 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cell::RefCell;
-use std::cmp::Ordering;
-use std::hash::{DefaultHasher, Hash, Hasher};
-use std::rc::Rc;
-
-use bit_set::BitSet;
-
 use crate::core::index::BytesRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::ints_ref::IntsRef;
+use bit_set::BitSet;
+use parking_lot::Mutex;
+use std::cmp::Ordering;
+use std::hash::{DefaultHasher, Hash, Hasher};
+use std::sync::Arc;
 
 pub struct CoreHelper;
 impl CoreHelper {
@@ -221,35 +219,35 @@ impl BitSetExt for BitSet {
 pub trait OutputIdentity {
     fn is_same_reference(&self, other: &Self) -> bool;
 }
-impl OutputIdentity for Rc<i64> {
+impl OutputIdentity for Arc<i64> {
     fn is_same_reference(&self, other: &Self) -> bool {
-        Rc::ptr_eq(self, other)
+        Arc::ptr_eq(self, other)
     }
 }
-impl OutputIdentity for BytesRef<Rc<Vec<u8>>> {
+impl OutputIdentity for BytesRef<Arc<Vec<u8>>> {
     fn is_same_reference(&self, other: &Self) -> bool {
-        Rc::ptr_eq(&self.bytes, &other.bytes)
+        Arc::ptr_eq(&self.bytes, &other.bytes)
             && self.offset == other.offset
             && self.length == other.length
     }
 }
-impl OutputIdentity for BytesRef<Rc<RefCell<Vec<u8>>>> {
+impl OutputIdentity for BytesRef<Arc<Mutex<Vec<u8>>>> {
     fn is_same_reference(&self, other: &Self) -> bool {
-        Rc::ptr_eq(&self.bytes, &other.bytes)
+        Arc::ptr_eq(&self.bytes, &other.bytes)
             && self.offset == other.offset
             && self.length == other.length
     }
 }
-impl OutputIdentity for IntsRef<Rc<Vec<i32>>> {
+impl OutputIdentity for IntsRef<Arc<Vec<i32>>> {
     fn is_same_reference(&self, other: &Self) -> bool {
-        Rc::ptr_eq(&self.ints, &other.ints)
+        Arc::ptr_eq(&self.ints, &other.ints)
             && self.offset == other.offset
             && self.length == other.length
     }
 }
-impl OutputIdentity for IntsRef<Rc<RefCell<Vec<i32>>>> {
+impl OutputIdentity for IntsRef<Arc<Mutex<Vec<i32>>>> {
     fn is_same_reference(&self, other: &Self) -> bool {
-        Rc::ptr_eq(&self.ints, &other.ints)
+        Arc::ptr_eq(&self.ints, &other.ints)
             && self.offset == other.offset
             && self.length == other.length
     }
@@ -273,31 +271,31 @@ impl HashCode for i64 {
         (mixed & 0xFFFF_FFFF) as i32
     }
 }
-// Rc<i64>
-impl HashCode for Rc<i64> {
+// Arc<i64>
+impl HashCode for Arc<i64> {
     fn hash_code(&self) -> i32 {
         (**self).hash_code()
     }
 }
 
 #[derive(Clone)]
-pub struct IdentityRc<T> {
-    pub object: Rc<T>,
+pub struct IdentityArc<T> {
+    pub object: Arc<T>,
 }
-impl<T> IdentityRc<T> {
-    pub fn new(object: Rc<T>) -> Self {
+impl<T> IdentityArc<T> {
+    pub fn new(object: Arc<T>) -> Self {
         Self { object }
     }
 }
-impl<T> PartialEq for IdentityRc<T> {
+impl<T> PartialEq for IdentityArc<T> {
     fn eq(&self, other: &Self) -> bool {
-        Rc::as_ptr(&self.object) == Rc::as_ptr(&other.object)
+        Arc::as_ptr(&self.object) == Arc::as_ptr(&other.object)
     }
 }
-impl<T> Eq for IdentityRc<T> {}
+impl<T> Eq for IdentityArc<T> {}
 
-impl<T> Hash for IdentityRc<T> {
+impl<T> Hash for IdentityArc<T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        Rc::as_ptr(&self.object).hash(state)
+        Arc::as_ptr(&self.object).hash(state)
     }
 }

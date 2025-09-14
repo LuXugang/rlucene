@@ -39,10 +39,9 @@ use crate::core::store::{DataInput, IndexInput, ReadAdvice};
 use crate::core::util::CoreHelper;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use std::cell::RefCell;
+use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
-use std::rc::Rc;
 use std::sync::Arc;
 
 /// Reader for [`Lucene90NormsFormat`]
@@ -56,9 +55,9 @@ where
     data: I,
     merging: bool,
 
-    disi_inputs: RefCell<HashMap<i32, Rc<RefCell<I::Slice>>>>,
-    disi_jump_tables: RefCell<HashMap<i32, Rc<RefCell<I::RandomAccessSlice>>>>,
-    data_inputs: RefCell<HashMap<i32, Rc<RefCell<I::RandomAccessSlice>>>>,
+    disi_inputs: Mutex<HashMap<i32, Arc<Mutex<I::Slice>>>>,
+    disi_jump_tables: Mutex<HashMap<i32, Arc<Mutex<I::RandomAccessSlice>>>>,
+    data_inputs: Mutex<HashMap<i32, Arc<Mutex<I::RandomAccessSlice>>>>,
 }
 
 impl<I> Lucene90NormsProducer<I>
@@ -163,7 +162,7 @@ where
     }
     fn read_fields(
         meta: &mut impl IndexInput,
-        field_infos: &Rc<FieldInfos>,
+        field_infos: &Arc<FieldInfos>,
     ) -> Result<HashMap<i32, NormsEntry>> {
         let mut norms = HashMap::new();
         loop {
@@ -230,11 +229,11 @@ where
         &self,
         field: &FieldInfo,
         entry: &NormsEntry,
-    ) -> Result<Rc<RefCell<I::RandomAccessSlice>>> {
+    ) -> Result<Arc<Mutex<I::RandomAccessSlice>>> {
         if self.merging
-            && let Some(existing) = self.data_inputs.borrow().get(&field.number)
+            && let Some(existing) = self.data_inputs.lock().get(&field.number)
         {
-            return Ok(Rc::clone(existing));
+            return Ok(Arc::clone(existing));
         }
         let length = entry.num_docs_with_field as i64 * entry.bytes_per_norm as i64;
         let mut slice = self.data.random_access_slice(entry.norms_offset, length)?;
@@ -244,11 +243,11 @@ where
             slice.prefetch(0, 1)?;
         }
 
-        let slice_rc = Rc::new(RefCell::new(slice));
+        let slice_rc = Arc::new(Mutex::new(slice));
         if self.merging {
             self.data_inputs
-                .borrow_mut()
-                .insert(field.number, Rc::clone(&slice_rc));
+                .lock()
+                .insert(field.number, Arc::clone(&slice_rc));
         }
 
         Ok(slice_rc)
@@ -257,11 +256,11 @@ where
         &self,
         field: &Arc<FieldInfo>,
         entry: &NormsEntry,
-    ) -> Result<Rc<RefCell<I::RandomAccessSlice>>> {
+    ) -> Result<Arc<Mutex<I::RandomAccessSlice>>> {
         if self.merging
-            && let Some(jump_table) = self.disi_jump_tables.borrow().get(&field.number)
+            && let Some(jump_table) = self.disi_jump_tables.lock().get(&field.number)
         {
-            return Ok(Rc::clone(jump_table));
+            return Ok(Arc::clone(jump_table));
         }
 
         let jump_table = create_jump_table(
@@ -272,11 +271,11 @@ where
         )?;
         debug_assert!(entry.jump_table_entry_count > 0);
         debug_assert!(jump_table.is_some());
-        let jump_table_rc = Rc::new(RefCell::new(jump_table.unwrap()));
+        let jump_table_rc = Arc::new(Mutex::new(jump_table.unwrap()));
         if self.merging {
             self.disi_jump_tables
-                .borrow_mut()
-                .insert(field.number, Rc::clone(&jump_table_rc));
+                .lock()
+                .insert(field.number, Arc::clone(&jump_table_rc));
         }
 
         Ok(jump_table_rc)
@@ -290,7 +289,7 @@ where
         &self,
         _field: &FieldInfo,
         entry: &NormsEntry,
-    ) -> Result<Rc<RefCell<I::Slice>>> {
+    ) -> Result<Arc<Mutex<I::Slice>>> {
         // TODO: Due to the generic constraints, following the Java Lucene
         // implementation currently makes it impossible to cache the Slice.
         let input = create_block_slice(
@@ -300,7 +299,7 @@ where
             entry.docs_with_field_length,
             entry.jump_table_entry_count as i32,
         )?;
-        Ok(Rc::new(RefCell::new(input)))
+        Ok(Arc::new(Mutex::new(input)))
 
         // if !self.merging {
         //     let input = create_block_slice(
@@ -310,11 +309,11 @@ where
         //         entry.docs_with_field_length,
         //         entry.jump_table_entry_count as i32,
         //     )?;
-        //     return Ok(Rc::new(RefCell::new(input)));
+        //     return Ok(Arc::new(Mutex::new(input)));
         // }
         //
         // if let Some(existing) = self.disi_inputs.get(&field.number) {
-        //     return Ok(Rc::clone(existing));
+        //     return Ok(Arc::clone(existing));
         // }
         //
         // let input = create_block_slice(
@@ -324,17 +323,17 @@ where
         //     entry.docs_with_field_length,
         //     entry.jump_table_entry_count as i32,
         // )?;
-        // let input = Rc::new(RefCell::new(input));
+        // let input = Arc::new(Mutex::new(input));
         // self.disi_inputs.insert(field.number, input.clone());
         // Wrap so that reads can be interleaved from the same thread if two
         // norms instances are pulled and consumed in parallel. Merging usually
         // doesn't need this feature but CheckIndex might, plus we need merge
         // instances to behave well and not be trappy.
         // let index_input = IndexInputImpl {
-        //     inf: Rc::clone(&in_f),
+        //     inf: Arc::clone(&in_f),
         //     offset: 0,
         // };
-        // Ok(Rc::new(RefCell::new(index_input)))
+        // Ok(Arc::new(Mutex::new(index_input)))
     }
 }
 impl<I> Display for Lucene90NormsProducer<I>
@@ -350,7 +349,7 @@ pub struct IndexInputImpl<I>
 where
     I: IndexInput,
 {
-    inf: Rc<RefCell<I::Slice>>,
+    inf: Arc<Mutex<I::Slice>>,
     offset: i64,
 }
 
@@ -363,7 +362,7 @@ where
     }
 
     fn read_bytes(&mut self, b: &mut [u8], off: i32, len: i32) -> Result<()> {
-        let mut inf = self.inf.borrow_mut();
+        let mut inf = self.inf.lock();
         inf.seek(self.offset)?;
         self.offset += len as i64;
         inf.read_bytes(b, off, len)?;
@@ -371,7 +370,7 @@ where
     }
 
     fn read_short(&mut self) -> Result<i16> {
-        let mut inf = self.inf.borrow_mut();
+        let mut inf = self.inf.lock();
         inf.seek(self.offset)?;
         self.offset += BitUtil::SHORT_BYTES as i64;
         inf.read_short()
@@ -417,7 +416,7 @@ where
     }
 
     fn length(&self) -> i64 {
-        self.inf.borrow().length()
+        self.inf.lock().length()
     }
 
     type Slice = DummyIndexInput;
@@ -680,14 +679,14 @@ struct DenseNormsIteratorBaseImpl1<I>
 where
     I: IndexInput,
 {
-    slice: Rc<RefCell<I::RandomAccessSlice>>,
+    slice: Arc<Mutex<I::RandomAccessSlice>>,
 }
 impl<I> DenseNormsIteratorBase for DenseNormsIteratorBaseImpl1<I>
 where
     I: IndexInput,
 {
     fn long_value(&mut self, doc: i32) -> Result<i64> {
-        Ok(self.slice.borrow_mut().read_byte(doc as i64)? as i64)
+        Ok(self.slice.lock().read_byte(doc as i64)? as i64)
     }
 }
 // case 2
@@ -695,14 +694,14 @@ struct DenseNormsIteratorBaseImpl2<I>
 where
     I: IndexInput,
 {
-    slice: Rc<RefCell<I::RandomAccessSlice>>,
+    slice: Arc<Mutex<I::RandomAccessSlice>>,
 }
 impl<I> DenseNormsIteratorBase for DenseNormsIteratorBaseImpl2<I>
 where
     I: IndexInput,
 {
     fn long_value(&mut self, doc: i32) -> Result<i64> {
-        Ok(self.slice.borrow_mut().read_short((doc as i64) << 1)? as i64)
+        Ok(self.slice.lock().read_short((doc as i64) << 1)? as i64)
     }
 }
 // case 4
@@ -710,14 +709,14 @@ struct DenseNormsIteratorBaseImpl4<I>
 where
     I: IndexInput,
 {
-    slice: Rc<RefCell<I::RandomAccessSlice>>,
+    slice: Arc<Mutex<I::RandomAccessSlice>>,
 }
 impl<I> DenseNormsIteratorBase for DenseNormsIteratorBaseImpl4<I>
 where
     I: IndexInput,
 {
     fn long_value(&mut self, doc: i32) -> Result<i64> {
-        Ok(self.slice.borrow_mut().read_int((doc as i64) << 2)? as i64)
+        Ok(self.slice.lock().read_int((doc as i64) << 2)? as i64)
     }
 }
 // case 8
@@ -725,14 +724,14 @@ struct DenseNormsIteratorBaseImpl8<I>
 where
     I: IndexInput,
 {
-    slice: Rc<RefCell<I::RandomAccessSlice>>,
+    slice: Arc<Mutex<I::RandomAccessSlice>>,
 }
 impl<I> DenseNormsIteratorBase for DenseNormsIteratorBaseImpl8<I>
 where
     I: IndexInput,
 {
     fn long_value(&mut self, doc: i32) -> Result<i64> {
-        self.slice.borrow_mut().read_long((doc as i64) << 3)
+        self.slice.lock().read_long((doc as i64) << 3)
     }
 }
 enum DenseNormsIteratorBaseEnum<I>
@@ -845,14 +844,14 @@ struct SparseNormsIteratorBaseImpl1<I>
 where
     I: IndexInput,
 {
-    slice: Rc<RefCell<I::RandomAccessSlice>>,
+    slice: Arc<Mutex<I::RandomAccessSlice>>,
 }
 impl<I> SparseNormsIteratorBase<I> for SparseNormsIteratorBaseImpl1<I>
 where
     I: IndexInput,
 {
     fn long_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<i64> {
-        Ok(self.slice.borrow_mut().read_byte(disi.index() as i64)? as i64)
+        Ok(self.slice.lock().read_byte(disi.index() as i64)? as i64)
     }
 }
 // case 2
@@ -860,17 +859,14 @@ struct SparseNormsIteratorBaseImpl2<I>
 where
     I: IndexInput,
 {
-    slice: Rc<RefCell<I::RandomAccessSlice>>,
+    slice: Arc<Mutex<I::RandomAccessSlice>>,
 }
 impl<I> SparseNormsIteratorBase<I> for SparseNormsIteratorBaseImpl2<I>
 where
     I: IndexInput,
 {
     fn long_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<i64> {
-        Ok(self
-            .slice
-            .borrow_mut()
-            .read_short((disi.index() as i64) << 1)? as i64)
+        Ok(self.slice.lock().read_short((disi.index() as i64) << 1)? as i64)
     }
 }
 // case 4
@@ -878,17 +874,14 @@ struct SparseNormsIteratorBaseImpl4<I>
 where
     I: IndexInput,
 {
-    slice: Rc<RefCell<I::RandomAccessSlice>>,
+    slice: Arc<Mutex<I::RandomAccessSlice>>,
 }
 impl<I> SparseNormsIteratorBase<I> for SparseNormsIteratorBaseImpl4<I>
 where
     I: IndexInput,
 {
     fn long_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<i64> {
-        Ok(self
-            .slice
-            .borrow_mut()
-            .read_int((disi.index() as i64) << 2)? as i64)
+        Ok(self.slice.lock().read_int((disi.index() as i64) << 2)? as i64)
     }
 }
 // case 8
@@ -896,16 +889,14 @@ struct SparseNormsIteratorBaseImpl8<I>
 where
     I: IndexInput,
 {
-    slice: Rc<RefCell<I::RandomAccessSlice>>,
+    slice: Arc<Mutex<I::RandomAccessSlice>>,
 }
 impl<I> SparseNormsIteratorBase<I> for SparseNormsIteratorBaseImpl8<I>
 where
     I: IndexInput,
 {
     fn long_value(&mut self, disi: &mut IndexedDISI<I>) -> Result<i64> {
-        self.slice
-            .borrow_mut()
-            .read_long((disi.index() as i64) << 3)
+        self.slice.lock().read_long((disi.index() as i64) << 3)
     }
 }
 enum SparseNormsIteratorBaseEnum<I>

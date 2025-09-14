@@ -220,7 +220,7 @@ where
     max_items_in_block: i32,
     version: i32,
     postings_writer: PW,
-    field_infos: Rc<FieldInfos>,
+    field_infos: Arc<FieldInfos>,
     fields: Vec<ByteBuffersDataOutput>,
 }
 impl<O, PW> Lucene90BlockTreeTermsWriter<O, PW>
@@ -272,7 +272,7 @@ where
         }
 
         let max_doc = segment_info.max_doc()?;
-        let field_infos = Rc::clone(&state.field_infos);
+        let field_infos = Arc::clone(&state.field_infos);
 
         let terms_name = IndexFileNames::segment_file_name(
             &segment_info.name,
@@ -567,7 +567,7 @@ impl PendingBlock {
         Util::get_ints_ref(&blocks[0].prefix, scratch_ints_ref);
         fst_compiler.add(
             scratch_ints_ref.get(),
-            BytesRef::from_slice(Rc::from(bytes), 0, len),
+            BytesRef::from_slice(Arc::from(bytes), 0, len),
         )?;
         scratch_bytes.reset();
 

@@ -15,14 +15,17 @@
  * limitations under the License.
  */
 use crate::core::index::approximate_priority_queue::IdentityId;
+use crate::core::index::documents_writer_delete_queue::DocumentsWriterDeleteQueue;
 use crate::core::index::documents_writer_per_thread::{DocumentsWriterPerThread, State};
+use crate::core::index::field_infos::build::Builder;
+use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
+use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::lockable_concurrent_approximate_priority_queue::{
     Lock, LockableConcurrentApproximatePriorityQueue,
 };
 use crate::core::store::directory::Directory;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::supplier::Supplier;
 use parking_lot::{Condvar, Mutex};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -92,11 +95,37 @@ where
             self.pausing.notify_all();
         }
     }
-
-    /// Returns a new already locked [`DocumentsWriterPerThread`]
-    pub(crate) fn new_writer<S>(&self, dwpt_factory: &S) -> Result<DocumentsWriterPerThread<D>>
+    pub(crate) fn new_dwpt<L, B>(
+        index_writer: &IndexWriter<D, L, B>,
+        delete_queue: Arc<DocumentsWriterDeleteQueue>,
+    ) -> Result<DocumentsWriterPerThread<D>>
     where
-        S: Supplier<DocumentsWriterPerThread<D>>,
+        L: LiveIndexWriterConfig,
+        B: IndexWriterBase,
+    {
+        let infos = Builder::new(index_writer.global_field_number_map.clone());
+        let dwpt = DocumentsWriterPerThread::new(
+            index_writer.get_index_major_version_created(),
+            "",
+            index_writer.directory_orig.clone(),
+            index_writer.directory.clone(),
+            index_writer.config.as_ref(),
+            delete_queue,
+            infos,
+            index_writer.pending_num_docs.clone(),
+            index_writer.enable_test_points,
+        )?;
+        Ok(dwpt)
+    }
+    /// Returns a new already locked [`DocumentsWriterPerThread`]
+    pub(crate) fn new_writer<L, B>(
+        &self,
+        writer: &IndexWriter<D, L, B>,
+        delete_queue: Arc<DocumentsWriterDeleteQueue>,
+    ) -> Result<DocumentsWriterPerThread<D>>
+    where
+        L: LiveIndexWriterConfig,
+        B: IndexWriterBase,
     {
         let mut inner = self.inner.lock();
         debug_assert!(inner.taken_writer_permits >= 0);
@@ -110,7 +139,7 @@ where
         // end of the world it's violating the contract that we don't release any new DWPT after this
         // pool is closed
         self.ensure_open()?;
-        let dwpt = dwpt_factory.get_immutable()?;
+        let dwpt = Self::new_dwpt(writer, delete_queue)?;
         let delete_queue_gen = dwpt.delete_queue.generation;
         dwpt.lock();
         let dwpts = Dwpts {
@@ -122,9 +151,14 @@ where
     }
     /// This method is used by `DocumentsWriter`/`FlushControl` to obtain a DWPT to do an indexing
     /// operation (add/updateDocument).
-    pub(crate) fn get_and_lock<S>(&self, dwpt_factory: &S) -> Result<DocumentsWriterPerThread<D>>
+    pub(crate) fn get_and_lock<L, B>(
+        &self,
+        writer: &IndexWriter<D, L, B>,
+        delete_queue: Arc<DocumentsWriterDeleteQueue>,
+    ) -> Result<DocumentsWriterPerThread<D>>
     where
-        S: Supplier<DocumentsWriterPerThread<D>>,
+        L: LiveIndexWriterConfig,
+        B: IndexWriterBase,
     {
         self.ensure_open()?;
 
@@ -135,7 +169,7 @@ where
         // `freeList` at this point, it will be added later on once DocumentsWriter has indexed a
         // document into this DWPT and then gives it back to the pool by calling
         // #marksAsFreeAndUnlock.
-        self.new_writer(dwpt_factory)
+        self.new_writer(writer, delete_queue)
     }
 
     fn ensure_open(&self) -> Result<()> {
@@ -246,6 +280,7 @@ mod tests {
 
     use crate::core::index::lockable_concurrent_approximate_priority_queue::Lock;
 
+    use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
     use crate::core::store::directory::Directory;
     use crate::core::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
     use crate::core::store::nio_fs_directory::NIOFSDirectory;
@@ -265,65 +300,37 @@ mod tests {
     #[allow(dead_code)] // for quick search
     struct TestDocumentsWriterPerThreadPool;
 
-    struct DwptSupplier {
-        seed: u64,
-    }
-    impl DwptSupplier {
-        pub fn new(seed: u64) -> Self {
-            Self { seed }
-        }
-    }
-    impl Supplier<DocumentsWriterPerThread<FSDirectory<NativeFSLockFactory, NIOFSDirectory>>>
-        for DwptSupplier
-    {
-        fn get_immutable(
-            &self,
-        ) -> Result<DocumentsWriterPerThread<FSDirectory<NativeFSLockFactory, NIOFSDirectory>>>
-        {
-            let mut random = random_from_seed(self.seed);
-            let directory_orig = Arc::new(new_directory(&mut random)?);
-            let lock = directory_orig.obtain_lock("test")?;
-            let directory = Arc::new(LockValidatingDirectoryWrapper::new(
-                directory_orig.clone(),
-                lock,
-            ));
-            // TODO: LuceneTestCase::newIndexWriterConfig 为实现
-            let dummy_config = DummyLiveIndexWriterConfig::new();
-            DocumentsWriterPerThread::new(
-                LATEST.major,
-                "",
-                directory_orig,
-                directory,
-                &dummy_config,
-                Arc::new(DocumentsWriterDeleteQueue::new(Arc::new(
-                    InfoStreamEnum::NoOutput(NoOutput),
-                ))),
-                Builder::new(Arc::new(Mutex::new(FieldNumbers::new(
-                    Some("padding1"),
-                    Some("padding2"),
-                )?))),
-                Arc::new(AtomicI64::new(0)),
-                false,
-            )
-        }
-    }
+    struct IndexWriterBaseImpl;
+    impl IndexWriterBase for IndexWriterBaseImpl {}
 
     #[test]
     fn test_lock_release_and_close() -> Result<()> {
         let mut random = random();
+        let directory_orig = Arc::new(new_directory(&mut random)?);
+        let lock = directory_orig.obtain_lock("test")?;
+        let directory = Arc::new(LockValidatingDirectoryWrapper::new(
+            directory_orig.clone(),
+            lock,
+        ));
+        // TODO: LuceneTestCase::newIndexWriterConfig 为实现
+        let dummy_config = DummyLiveIndexWriterConfig::new();
+        let iw = IndexWriter::new(directory_orig, dummy_config, Some(IndexWriterBaseImpl))?;
+        let queue = Arc::new(DocumentsWriterDeleteQueue::new(Arc::new(
+            InfoStreamEnum::NoOutput(NoOutput),
+        )));
+
         let pool = DocumentsWriterPerThreadPool::new()?;
-        let supplier = DwptSupplier::new(random.random());
-        let first = pool.get_and_lock(&supplier)?;
+        let first = pool.get_and_lock(&iw, queue.clone())?;
         assert_eq!(pool.size(), 1);
 
-        let second = pool.get_and_lock(&supplier)?;
+        let second = pool.get_and_lock(&iw, queue.clone())?;
         assert_eq!(pool.size(), 2);
 
         let first_id = first.id().to_string();
         pool.mark_as_free_and_unlock(first)?;
         assert_eq!(pool.size(), 2);
 
-        let third = pool.get_and_lock(&supplier)?;
+        let third = pool.get_and_lock(&iw, queue.clone())?;
         assert_eq!(first_id, third.id().to_string());
         assert_eq!(pool.size(), 2);
 
@@ -355,10 +362,22 @@ mod tests {
         use std::time::Duration;
 
         let mut random = random();
-        let supplier = DwptSupplier::new(random.random());
+        let directory_orig = Arc::new(new_directory(&mut random)?);
+        let lock = directory_orig.obtain_lock("test")?;
+        let directory = Arc::new(LockValidatingDirectoryWrapper::new(
+            directory_orig.clone(),
+            lock,
+        ));
+        // TODO: LuceneTestCase::newIndexWriterConfig 为实现
+        let dummy_config = DummyLiveIndexWriterConfig::new();
+        let iw = IndexWriter::new(directory_orig, dummy_config, Some(IndexWriterBaseImpl))?;
+        let queue = Arc::new(DocumentsWriterDeleteQueue::new(Arc::new(
+            InfoStreamEnum::NoOutput(NoOutput),
+        )));
+
         let pool = Arc::new(DocumentsWriterPerThreadPool::new()?);
 
-        let first = pool.get_and_lock(&supplier)?;
+        let first = pool.get_and_lock(&iw, queue.clone())?;
         pool.lock_new_writers();
 
         let ready = Arc::new(AtomicBool::new(false));
@@ -367,7 +386,7 @@ mod tests {
 
         let handle = thread::spawn(move || {
             ready_clone.store(true, Ordering::SeqCst);
-            let result = pool_clone.get_and_lock(&supplier);
+            let result = pool_clone.get_and_lock(&iw, queue.clone());
             assert!(matches!(result, Err(LuceneError::AlreadyClosed(_))));
         });
 

@@ -14,8 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::rc::Rc;
-
 use crate::core::codecs::block_term_state::BlockTermStateEnum;
 use crate::core::codecs::block_tree::field_reader::FieldReader;
 use crate::core::codecs::block_tree::segment_terms_enum::SegmentTermsEnum;
@@ -29,6 +27,7 @@ use crate::core::store::{ByteArrayDataInput, DataInput, IndexInput};
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::{SliceCopyOps, ToInt};
+use std::sync::Arc;
 
 pub struct SegmentTermsEnumFrame {
     /// Our index in stack[]
@@ -55,7 +54,7 @@ pub struct SegmentTermsEnumFrame {
     pub(crate) stats_reader: ByteArrayDataInput<Vec<u8>>,
 
     pub(crate) rewind_pos: i32,
-    pub(crate) floor_data_reader: ByteArrayDataInput<Rc<Vec<u8>>>,
+    pub(crate) floor_data_reader: ByteArrayDataInput<Arc<Vec<u8>>>,
 
     // Length of prefix shared by all terms in this block
     pub(crate) prefix_length: i32,

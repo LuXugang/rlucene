@@ -41,7 +41,6 @@ use crate::core::util::IOUtils;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
-use std::rc::Rc;
 use std::sync::Arc;
 
 pub(crate) struct SortingStoredFieldsConsumer<D>
@@ -95,7 +94,7 @@ where
     fn flush<DM, D1>(
         &mut self,
         state: &SegmentWriteState<Self::Directory>,
-        sort_map: Option<Rc<DM>>,
+        sort_map: Option<Arc<DM>>,
         codec: &impl Codec,
         info: &mut SegmentInfo<D1>,
     ) -> Result<()>

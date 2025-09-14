@@ -70,22 +70,21 @@ use crate::core::util::packed::direct_monotonic_reader::direct_monotonic::Meta;
 use crate::core::util::packed::direct_monotonic_reader::{DirectMonotonicReader, load_meta};
 use crate::core::util::packed::direct_reader::{DirectPackedEnum, DirectReader};
 use crate::core::util::{SliceCopyOps, ToInt};
+use parking_lot::Mutex;
 use std::borrow::Cow;
-use std::cell::RefCell;
 use std::collections::HashMap;
-use std::rc::Rc;
 use std::sync::Arc;
 
 pub struct Lucene90DocValuesProducer<I>
 where
     I: IndexInput,
 {
-    numerics: HashMap<i32, Rc<NumericEntry>>,
-    binaries: HashMap<i32, Rc<BinaryEntry>>,
-    sorted: HashMap<i32, Rc<SortedEntry>>,
-    sorted_sets: HashMap<i32, Rc<SortedSetEntry>>,
-    sorted_numerics: HashMap<i32, Rc<SortedNumericEntry>>,
-    skippers: HashMap<i32, Rc<DocValuesSkipperEntry>>,
+    numerics: HashMap<i32, Arc<NumericEntry>>,
+    binaries: HashMap<i32, Arc<BinaryEntry>>,
+    sorted: HashMap<i32, Arc<SortedEntry>>,
+    sorted_sets: HashMap<i32, Arc<SortedSetEntry>>,
+    sorted_numerics: HashMap<i32, Arc<SortedNumericEntry>>,
+    skippers: HashMap<i32, Arc<DocValuesSkipperEntry>>,
     data: I,
     max_doc: i32,
     version: i32,
@@ -213,12 +212,12 @@ where
     }
     #[allow(clippy::too_many_arguments)]
     fn with_merging(
-        numerics: HashMap<i32, Rc<NumericEntry>>,
-        binaries: HashMap<i32, Rc<BinaryEntry>>,
-        sorted: HashMap<i32, Rc<SortedEntry>>,
-        sorted_sets: HashMap<i32, Rc<SortedSetEntry>>,
-        sorted_numerics: HashMap<i32, Rc<SortedNumericEntry>>,
-        skippers: HashMap<i32, Rc<DocValuesSkipperEntry>>,
+        numerics: HashMap<i32, Arc<NumericEntry>>,
+        binaries: HashMap<i32, Arc<BinaryEntry>>,
+        sorted: HashMap<i32, Arc<SortedEntry>>,
+        sorted_sets: HashMap<i32, Arc<SortedSetEntry>>,
+        sorted_numerics: HashMap<i32, Arc<SortedNumericEntry>>,
+        skippers: HashMap<i32, Arc<DocValuesSkipperEntry>>,
         data: &I,
         max_doc: i32,
         version: i32,
@@ -240,13 +239,13 @@ where
     #[allow(clippy::too_many_arguments)]
     fn read_fields(
         meta: &mut impl IndexInput,
-        infos: &Rc<FieldInfos>,
-        numerics: &mut HashMap<i32, Rc<NumericEntry>>,
-        binaries: &mut HashMap<i32, Rc<BinaryEntry>>,
-        sorted: &mut HashMap<i32, Rc<SortedEntry>>,
-        sorted_sets: &mut HashMap<i32, Rc<SortedSetEntry>>,
-        sorted_numerics: &mut HashMap<i32, Rc<SortedNumericEntry>>,
-        skippers: &mut HashMap<i32, Rc<DocValuesSkipperEntry>>,
+        infos: &Arc<FieldInfos>,
+        numerics: &mut HashMap<i32, Arc<NumericEntry>>,
+        binaries: &mut HashMap<i32, Arc<BinaryEntry>>,
+        sorted: &mut HashMap<i32, Arc<SortedEntry>>,
+        sorted_sets: &mut HashMap<i32, Arc<SortedSetEntry>>,
+        sorted_numerics: &mut HashMap<i32, Arc<SortedNumericEntry>>,
+        skippers: &mut HashMap<i32, Arc<DocValuesSkipperEntry>>,
     ) -> Result<()> {
         loop {
             let field_number = meta.read_int()?;
@@ -259,29 +258,29 @@ where
                     let type_byte = meta.read_byte()?;
 
                     if info.doc_values_skip_index_type() != &DocValuesSkipIndexType::None {
-                        let skipper = Rc::new(Self::read_doc_value_skipper_meta(meta)?);
+                        let skipper = Arc::new(Self::read_doc_value_skipper_meta(meta)?);
                         skippers.insert(info.number, skipper);
                     }
 
                     match type_byte {
                         t if t == Lucene90DocValuesFormat::NUMERIC => {
-                            let entry = Rc::new(Self::read_numeric(meta)?);
+                            let entry = Arc::new(Self::read_numeric(meta)?);
                             numerics.insert(info.number, entry);
                         },
                         t if t == Lucene90DocValuesFormat::BINARY => {
                             let entry = Self::read_binary(meta)?;
-                            binaries.insert(info.number, Rc::new(entry));
+                            binaries.insert(info.number, Arc::new(entry));
                         },
                         t if t == Lucene90DocValuesFormat::SORTED => {
-                            let entry = Rc::new(Self::read_sorted(meta)?);
+                            let entry = Arc::new(Self::read_sorted(meta)?);
                             sorted.insert(info.number, entry);
                         },
                         t if t == Lucene90DocValuesFormat::SORTED_SET => {
-                            let entry = Rc::new(Self::read_sorted_set(meta)?);
+                            let entry = Arc::new(Self::read_sorted_set(meta)?);
                             sorted_sets.insert(info.number, entry);
                         },
                         t if t == Lucene90DocValuesFormat::SORTED_NUMERIC => {
-                            let entry = Rc::new(Self::read_sorted_numeric(meta)?);
+                            let entry = Arc::new(Self::read_sorted_numeric(meta)?);
                             sorted_numerics.insert(info.number, entry);
                         },
                         _ => {
@@ -341,9 +340,9 @@ where
             for _ in 0..table_size {
                 table.push(meta.read_long()?);
             }
-            Option::from(Rc::new(table))
+            Option::from(Arc::new(table))
         } else {
-            Some(Rc::new(Vec::new()))
+            Some(Arc::new(Vec::new()))
         };
 
         entry.block_shift = if table_size < -1 { -2 - table_size } else { -1 };
@@ -401,15 +400,15 @@ where
         let mut terms_dict_entry = TermsDictEntry::default();
         Self::read_term_dict_with_entry(meta, &mut terms_dict_entry)?;
         Ok(SortedEntry {
-            ords_entry: Rc::new(ords_entry),
-            terms_dict_entry: Rc::new(terms_dict_entry),
+            ords_entry: Arc::new(ords_entry),
+            terms_dict_entry: Arc::new(terms_dict_entry),
         })
     }
     fn read_sorted_set(meta: &mut impl IndexInput) -> Result<SortedSetEntry> {
         let multi_valued = meta.read_byte()?;
         let mut entry = match multi_valued {
             0 => {
-                let single_value_entry = Rc::new(Self::read_sorted(meta)?);
+                let single_value_entry = Arc::new(Self::read_sorted(meta)?);
                 SortedSetEntry {
                     single_value_entry: Some(single_value_entry),
                     ords_entry: None,
@@ -434,8 +433,8 @@ where
         debug_assert!(terms_dict_entry.terms_index_addresses_meta.is_some());
         Self::read_term_dict_with_entry(meta, &mut terms_dict_entry)?;
 
-        entry.ords_entry = Some(Rc::new(ords_entry));
-        entry.terms_dict_entry = Some(Rc::new(terms_dict_entry));
+        entry.ords_entry = Some(Arc::new(ords_entry));
+        entry.terms_dict_entry = Some(Arc::new(terms_dict_entry));
         Ok(entry)
     }
     fn read_term_dict_with_entry(
@@ -483,7 +482,7 @@ where
         debug_assert!(*entry.base == NumericEntry::default());
         let mut numeric_entry = NumericEntry::default();
         Self::read_numeric_with_entry(meta, &mut numeric_entry)?;
-        entry.base = Rc::new(numeric_entry);
+        entry.base = Arc::new(numeric_entry);
         entry.num_docs_with_field = meta.read_int()?;
         entry.addresses_offset = 0;
         entry.addresses_meta = None;
@@ -502,7 +501,7 @@ where
         Ok(())
     }
 
-    fn get_numeric(&self, entry: Rc<NumericEntry>) -> Result<Lucene90NumericDocValuesEnum<I>> {
+    fn get_numeric(&self, entry: Arc<NumericEntry>) -> Result<Lucene90NumericDocValuesEnum<I>> {
         if entry.docs_with_field_offset == -2 {
             // empty
             Ok(Lucene90NumericDocValuesEnum::C(DocValues::empty_numeric()))
@@ -530,7 +529,7 @@ where
                 } else {
                     let values = get_direct_reader_instance::<I>(
                         self.merging,
-                        Rc::new(RefCell::new(slice)),
+                        Arc::new(Mutex::new(slice)),
                         entry.bits_per_value as i32,
                         9,
                         entry.num_values,
@@ -598,7 +597,7 @@ where
                 } else {
                     let values = get_direct_reader_instance::<I>(
                         self.merging,
-                        Rc::new(RefCell::new(slice)),
+                        Arc::new(Mutex::new(slice)),
                         entry.bits_per_value as i32,
                         0,
                         entry.num_values,
@@ -633,7 +632,7 @@ where
             ))
         }
     }
-    fn get_numeric_values(&self, entry: &Rc<NumericEntry>) -> Result<LongValuesEnums<I>>
+    fn get_numeric_values(&self, entry: &Arc<NumericEntry>) -> Result<LongValuesEnums<I>>
     where
         I: IndexInput,
     {
@@ -660,7 +659,7 @@ where
             } else {
                 let values = get_direct_reader_instance::<I>(
                     self.merging,
-                    Rc::new(RefCell::new(slice)),
+                    Arc::new(Mutex::new(slice)),
                     entry.bits_per_value as i32,
                     9,
                     entry.num_values,
@@ -690,7 +689,7 @@ where
         Ok(long_values)
     }
 
-    fn get_sorted(&self, entry: Rc<SortedEntry>) -> Result<BaseSortedDocValues<I>> {
+    fn get_sorted(&self, entry: Arc<SortedEntry>) -> Result<BaseSortedDocValues<I>> {
         let ords_entry = &entry.ords_entry;
 
         if ords_entry.block_shift < 0 && ords_entry.bits_per_value > 0 {
@@ -709,7 +708,7 @@ where
 
             let values = get_direct_reader_instance::<I>(
                 self.merging,
-                Rc::new(RefCell::new(slice)),
+                Arc::new(Mutex::new(slice)),
                 ords_entry.bits_per_value as i32,
                 0,
                 ords_entry.num_values,
@@ -762,7 +761,7 @@ where
         let addresses = match entry.addresses_meta {
             Some(ref meta) => DirectMonotonicReader::get_instance_with_merging(
                 meta,
-                Rc::new(RefCell::new(addresses_input)),
+                Arc::new(Mutex::new(addresses_input)),
                 self.merging,
             )?,
             None => {
@@ -865,7 +864,7 @@ where
                             Some(ref meta) => {
                                 let addresses = DirectMonotonicReader::get_instance_with_merging(
                                     meta,
-                                    Rc::new(RefCell::new(addresses_data)),
+                                    Arc::new(Mutex::new(addresses_data)),
                                     self.merging,
                                 )?;
                                 let vec = vec![0u8; entry.max_length as usize];
@@ -918,7 +917,7 @@ where
                         let addresses = match entry.addresses_meta {
                             Some(ref meta) => DirectMonotonicReader::get_instance_with_merging(
                                 meta,
-                                Rc::new(RefCell::new(addresses_data)),
+                                Arc::new(Mutex::new(addresses_data)),
                                 self.merging,
                             )?,
                             None => {
@@ -1011,7 +1010,7 @@ where
                             let addresses = match ords_entry.addresses_meta {
                                 Some(ref meta) => DirectMonotonicReader::get_instance_with_merging(
                                     meta,
-                                    Rc::new(RefCell::new(addresses_input)),
+                                    Arc::new(Mutex::new(addresses_input)),
                                     self.merging,
                                 )?,
                                 None => {
@@ -1029,7 +1028,7 @@ where
                                 slice.prefetch(0, 1)?;
                             }
                             let values = DirectReader::get_instance(
-                                Rc::new(RefCell::new(slice)),
+                                Arc::new(Mutex::new(slice)),
                                 ords_entry.base.bits_per_value as i32,
                             );
 
@@ -1136,7 +1135,7 @@ pub struct DocValuesSkipperEntry {
 }
 #[derive(Debug, Clone, Default, Eq, PartialEq)]
 pub struct NumericEntry {
-    pub table: Option<Rc<Vec<i64>>>,
+    pub table: Option<Arc<Vec<i64>>>,
     pub block_shift: i32,
     pub bits_per_value: u8,
     pub docs_with_field_offset: i64,
@@ -1185,19 +1184,19 @@ pub struct TermsDictEntry {
 }
 
 pub struct SortedEntry {
-    pub ords_entry: Rc<NumericEntry>,
-    pub terms_dict_entry: Rc<TermsDictEntry>,
+    pub ords_entry: Arc<NumericEntry>,
+    pub terms_dict_entry: Arc<TermsDictEntry>,
 }
 
 #[derive(Default)]
 pub struct SortedSetEntry {
-    pub single_value_entry: Option<Rc<SortedEntry>>,
-    pub ords_entry: Option<Rc<SortedNumericEntry>>,
-    pub terms_dict_entry: Option<Rc<TermsDictEntry>>,
+    pub single_value_entry: Option<Arc<SortedEntry>>,
+    pub ords_entry: Option<Arc<SortedNumericEntry>>,
+    pub terms_dict_entry: Option<Arc<TermsDictEntry>>,
 }
 #[derive(Default)]
 pub struct SortedNumericEntry {
-    pub base: Rc<NumericEntry>,
+    pub base: Arc<NumericEntry>,
     pub num_docs_with_field: i32,
     pub addresses_meta: Option<Meta>,
     pub addresses_offset: i64,
@@ -1459,9 +1458,9 @@ where
     I: IndexInput,
 {
     // 2 slices to avoid cache thrashing when using rank
-    slice: Rc<RefCell<I::RandomAccessSlice>>,
+    slice: Arc<Mutex<I::RandomAccessSlice>>,
     rank_slice: Option<I::RandomAccessSlice>,
-    entry: Rc<NumericEntry>,
+    entry: Arc<NumericEntry>,
 
     shift: i32,
     mul: i64,
@@ -1481,7 +1480,7 @@ where
     I: IndexInput,
 {
     fn new(
-        entry: Rc<NumericEntry>,
+        entry: Arc<NumericEntry>,
         slice: I::RandomAccessSlice,
         data: &I,
         merging: bool,
@@ -1504,7 +1503,7 @@ where
         let mask = (1 << shift) - 1;
 
         Ok(Self {
-            slice: Rc::new(RefCell::new(slice)),
+            slice: Arc::new(Mutex::new(slice)),
             rank_slice,
             entry,
             shift,
@@ -1535,7 +1534,7 @@ where
                 }
 
                 {
-                    let mut slice = self.slice.borrow_mut();
+                    let mut slice = self.slice.lock();
                     self.offset = self.block_end_offset;
                     bits_per_value = slice.read_byte(self.offset)? as i32;
                     self.offset += 1;
@@ -1566,7 +1565,7 @@ where
                     } else {
                         Some(get_direct_reader_instance::<I>(
                             self.merging,
-                            Rc::clone(&self.slice),
+                            Arc::clone(&self.slice),
                             bits_per_value,
                             self.offset,
                             num_values as i64,
@@ -1597,13 +1596,13 @@ where
     doc_count: [i32; Lucene90DocValuesFormat::SKIP_INDEX_MAX_LEVEL],
     levels: i32,
     input: I::Slice,
-    entry: Rc<DocValuesSkipperEntry>,
+    entry: Arc<DocValuesSkipperEntry>,
 }
 impl<I> DocValuesSkipperImpl<I>
 where
     I: IndexInput,
 {
-    pub fn new(input: I::Slice, entry: Rc<DocValuesSkipperEntry>) -> Self {
+    pub fn new(input: I::Slice, entry: Arc<DocValuesSkipperEntry>) -> Self {
         Self {
             min_doc_id: [-1; Lucene90DocValuesFormat::SKIP_INDEX_MAX_LEVEL],
             max_doc_id: [-1; Lucene90DocValuesFormat::SKIP_INDEX_MAX_LEVEL],
@@ -1745,7 +1744,7 @@ pub struct DenseNumericDocValuesBaseImpl2<I>
 where
     I: IndexInput,
 {
-    table: Rc<Vec<i64>>,
+    table: Arc<Vec<i64>>,
     values: DirectPackedEnum<I::RandomAccessSlice>,
 }
 impl<I> DenseNumericDocValuesBase for DenseNumericDocValuesBaseImpl2<I>
@@ -1828,7 +1827,7 @@ pub struct SparseNumericDocValuesBaseImpl2<I>
 where
     I: IndexInput,
 {
-    table: Rc<Vec<i64>>,
+    table: Arc<Vec<i64>>,
     values: DirectPackedEnum<I::RandomAccessSlice>,
 }
 impl<I> SparseNumericDocValuesBase<I> for SparseNumericDocValuesBaseImpl2<I>
@@ -1905,7 +1904,7 @@ pub struct LongValuesImpl2<I>
 where
     I: IndexInput,
 {
-    table: Rc<Vec<i64>>,
+    table: Arc<Vec<i64>>,
     values: DirectPackedEnum<I::RandomAccessSlice>,
 }
 impl<I> LongValues for LongValuesImpl2<I>
@@ -2234,8 +2233,8 @@ pub struct BaseSortedDocValues<I>
 where
     I: IndexInput,
 {
-    entry: Rc<SortedEntry>,
-    // if copy is heavy, we could change `Vec<u8>` as `Rc<RefCell<Vec<u8>>>`
+    entry: Arc<SortedEntry>,
+    // if copy is heavy, we could change `Vec<u8>` as `Arc<Mutex<Vec<u8>>>`
     terms_enum: BaseTermsEnum<TermsDict<I>>,
     sub: BaseSortedDocValuesEnum<I>,
 }
@@ -2245,7 +2244,7 @@ where
     I: IndexInput,
 {
     fn new(
-        entry: Rc<SortedEntry>,
+        entry: Arc<SortedEntry>,
         data: &I,
         sub: BaseSortedDocValuesEnum<I>,
         merging: bool,
@@ -2572,8 +2571,8 @@ pub struct BaseSortedSetDocValues<I>
 where
     I: IndexInput,
 {
-    entry: Rc<SortedSetEntry>,
-    // if copy is heavy, we could change `Vec<u8>` as `Rc<RefCell<Vec<u8>>>`
+    entry: Arc<SortedSetEntry>,
+    // if copy is heavy, we could change `Vec<u8>` as `Arc<Mutex<Vec<u8>>>`
     terms_enum: BaseTermsEnum<TermsDict<I>>,
     sub: BaseSortedSetDocValuesEnum<I>,
 }
@@ -2583,7 +2582,7 @@ where
     I: IndexInput,
 {
     fn new(
-        entry: Rc<SortedSetEntry>,
+        entry: Arc<SortedSetEntry>,
         data: &I,
         sub: BaseSortedSetDocValuesEnum<I>,
         merging: bool,
@@ -2679,7 +2678,7 @@ pub struct TermsDict<I>
 where
     I: IndexInput,
 {
-    pub entry: Rc<TermsDictEntry>,
+    pub entry: Arc<TermsDictEntry>,
     pub block_addresses: DirectMonotonicReader<I::RandomAccessSlice>,
     pub bytes: I::Slice,
     pub block_mask: u64,
@@ -2699,8 +2698,8 @@ where
 {
     const LZ4_DECOMPRESSOR_PADDING: i32 = 7;
 
-    pub fn new(entry: Rc<TermsDictEntry>, data: &I, merging: bool) -> Result<BaseTermsEnum<Self>> {
-        let addresses_slice = Rc::new(RefCell::new(
+    pub fn new(entry: Arc<TermsDictEntry>, data: &I, merging: bool) -> Result<BaseTermsEnum<Self>> {
+        let addresses_slice = Arc::new(Mutex::new(
             data.random_access_slice(entry.terms_addresses_offset, entry.terms_addresses_length)?,
         ));
         let block_addresses = match entry.terms_addresses_meta {
@@ -2720,7 +2719,7 @@ where
 
         let block_mask = (1u64 << Lucene90DocValuesFormat::TERMS_DICT_BLOCK_LZ4_SHIFT) - 1;
 
-        let index_addresses_slice = Rc::new(RefCell::new(data.random_access_slice(
+        let index_addresses_slice = Arc::new(Mutex::new(data.random_access_slice(
             entry.terms_index_addresses_offset,
             entry.terms_index_addresses_length,
         )?));
@@ -3309,7 +3308,7 @@ pub type Lucene90SortedSetDocValuesEnum<I> = Either2SortedSetDocValues<
 
 fn get_direct_reader_instance<I>(
     merging: bool,
-    slice: Rc<RefCell<I::RandomAccessSlice>>,
+    slice: Arc<Mutex<I::RandomAccessSlice>>,
     bits_per_value: i32,
     offset: i64,
     num_values: i64,

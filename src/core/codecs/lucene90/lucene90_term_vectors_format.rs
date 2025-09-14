@@ -27,7 +27,8 @@ use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::Display;
-use std::rc::Rc;
+use std::sync::Arc;
+
 /// Lucene 9.0 TermVectorsFormat.
 ///
 /// Very similarly to Lucene90StoredFieldsFormat, this format is based on compressed
@@ -133,7 +134,7 @@ impl TermVectorsFormat for Lucene90TermVectorsFormat {
         &self,
         directory: &D1,
         segment_info: &SegmentInfo<D2>,
-        field_infos: Rc<FieldInfos>,
+        field_infos: Arc<FieldInfos>,
         context: &IOContext,
     ) -> Result<TermVectorsReaderEnum<D1::IndexInput>>
     where

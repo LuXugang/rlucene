@@ -21,7 +21,7 @@ use crate::core::index::segment_info::SegmentInfo;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
-use std::rc::Rc;
+use std::sync::Arc;
 
 /// Controls the format of term vectors
 pub trait TermVectorsFormat {
@@ -30,7 +30,7 @@ pub trait TermVectorsFormat {
         &self,
         directory: &D1,
         segment_info: &SegmentInfo<D2>,
-        field_infos: Rc<FieldInfos>,
+        field_infos: Arc<FieldInfos>,
         context: &IOContext,
     ) -> Result<TermVectorsReaderEnum<D1::IndexInput>>
     where

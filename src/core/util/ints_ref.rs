@@ -14,16 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cmp::Ordering;
-use std::fmt;
-use std::fmt::{Display, Formatter};
-use std::hash::{Hash, Hasher};
-use std::rc::Rc;
-
 use crate::core::util::access::SharedAccessVec;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{Comparator, HashCode, ToInt};
 use crate::with_other;
+use std::cmp::Ordering;
+use std::fmt;
+use std::fmt::{Display, Formatter};
+use std::hash::{Hash, Hasher};
+use std::sync::Arc;
 /// A generic, slice-like reference over an integer array with offset and
 /// length.
 ///
@@ -63,10 +62,10 @@ where
         Self::new()
     }
 }
-impl IntsRef<Rc<Vec<i32>>> {
+impl IntsRef<Arc<Vec<i32>>> {
     /// compare: same bytes reference, same offset, same length
-    pub fn equals(a: &IntsRef<Rc<Vec<i32>>>, b: &IntsRef<Rc<Vec<i32>>>) -> bool {
-        let v = Rc::ptr_eq(&a.ints, &b.ints);
+    pub fn equals(a: &IntsRef<Arc<Vec<i32>>>, b: &IntsRef<Arc<Vec<i32>>>) -> bool {
+        let v = Arc::ptr_eq(&a.ints, &b.ints);
         // Simulate Java-style reference equality: if the bytes reference is the same,
         // then offset and length must also be equal.
         debug_assert!({

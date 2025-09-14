@@ -14,8 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::rc::Rc;
-
 use crate::core::codecs::compressing::lucene90_compressing_stored_fields_format::Lucene90CompressingStoredFieldsFormat;
 use crate::core::codecs::stored_fields_reader::StoredFieldsReaderEnum;
 use crate::core::codecs::stored_fields_writer::StoredFieldsWriterEnum;
@@ -24,6 +22,7 @@ use crate::core::index::segment_info::SegmentInfo;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
+use std::sync::Arc;
 
 /// Controls the format of stored fields.
 pub trait StoredFieldsFormat {
@@ -32,7 +31,7 @@ pub trait StoredFieldsFormat {
         &self,
         directory: &D1,
         segment_info: &SegmentInfo<D2>,
-        field_infos: Rc<FieldInfos>,
+        field_infos: Arc<FieldInfos>,
         context: &IOContext,
     ) -> Result<StoredFieldsReaderEnum<D1::IndexInput>>
     where
@@ -59,7 +58,7 @@ impl StoredFieldsFormat for StoredFieldsFormatEnum {
         &self,
         directory: &D1,
         segment_info: &SegmentInfo<D2>,
-        field_infos: Rc<FieldInfos>,
+        field_infos: Arc<FieldInfos>,
         context: &IOContext,
     ) -> Result<StoredFieldsReaderEnum<D1::IndexInput>>
     where

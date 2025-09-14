@@ -14,9 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::rc::Rc;
-
 use parking_lot::Mutex;
+use std::sync::Arc;
 
 use crate::core::index::doc_values_field_updates::{
     AbstractIterator, AbstractIteratorBase, DocValuesFieldInnerIter, DocValuesFieldIterator,
@@ -41,8 +40,8 @@ pub(crate) struct BinaryDocValuesFieldUpdates {
     values: BytesRefBuilder<Vec<u8>>,
     lock: Mutex<()>,
 
-    offsets_iter: Option<Rc<AbstractPagedMutable<PagedGrowableWriter>>>,
-    lengths_iter: Option<Rc<AbstractPagedMutable<PagedGrowableWriter>>>,
+    offsets_iter: Option<Arc<AbstractPagedMutable<PagedGrowableWriter>>>,
+    lengths_iter: Option<Arc<AbstractPagedMutable<PagedGrowableWriter>>>,
 }
 impl BinaryDocValuesFieldUpdates {
     pub(crate) fn new() -> Result<BinaryDocValuesFieldUpdates> {
@@ -69,8 +68,8 @@ impl Accountable for BinaryDocValuesFieldUpdates {
 
 impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
     fn finish(&mut self) {
-        self.offsets_iter = Some(Rc::new(std::mem::take(&mut self.offsets)));
-        self.lengths_iter = Some(Rc::new(std::mem::take(&mut self.lengths)));
+        self.offsets_iter = Some(Arc::new(std::mem::take(&mut self.offsets)));
+        self.lengths_iter = Some(Arc::new(std::mem::take(&mut self.lengths)));
     }
 
     fn add_value(&mut self, _doc: i32, _value: i64, _index: i32) -> Result<()> {
@@ -155,17 +154,17 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
 /// PriorityQueue.
 #[derive(Default)]
 pub struct AbstractIteratorBinary {
-    offsets: Rc<AbstractPagedMutable<PagedGrowableWriter>>,
+    offsets: Arc<AbstractPagedMutable<PagedGrowableWriter>>,
     offset: i32,
-    lengths: Rc<AbstractPagedMutable<PagedGrowableWriter>>,
+    lengths: Arc<AbstractPagedMutable<PagedGrowableWriter>>,
     length: i32,
     values: BytesRef<Vec<u8>>,
 }
 
 impl AbstractIteratorBinary {
     pub fn new(
-        offsets: Rc<AbstractPagedMutable<PagedGrowableWriter>>,
-        lengths: Rc<AbstractPagedMutable<PagedGrowableWriter>>,
+        offsets: Arc<AbstractPagedMutable<PagedGrowableWriter>>,
+        lengths: Arc<AbstractPagedMutable<PagedGrowableWriter>>,
         values: BytesRef<Vec<u8>>,
     ) -> AbstractIteratorBinary {
         AbstractIteratorBinary {

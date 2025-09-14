@@ -27,7 +27,6 @@ use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
-use std::rc::Rc;
 use std::sync::Arc;
 
 pub(crate) struct StoredFieldsConsumer<D>
@@ -179,7 +178,7 @@ where
 
     pub(crate) fn flush<DM, D1>(
         &mut self,
-        _sort_map: Option<Rc<DM>>,
+        _sort_map: Option<Arc<DM>>,
         info: &SegmentInfo<D1>,
         dir: &D,
     ) -> Result<()>
@@ -217,7 +216,7 @@ pub(crate) trait StoredFieldsConsumerBase {
     fn flush<DM, D1>(
         &mut self,
         state: &SegmentWriteState<Self::Directory>,
-        sort_map: Option<Rc<DM>>,
+        sort_map: Option<Arc<DM>>,
         codec: &impl Codec,
         info: &mut SegmentInfo<D1>,
     ) -> Result<()>

@@ -38,7 +38,6 @@ use crate::core::util::packed::packed_long_values::{
     PackedLongValues, PackedLongValuesBuilder, PackedLongValuesIterator,
 };
 use crate::core::util::{CoreHelper, Counter, CounterEnumLock};
-use std::rc::Rc;
 use std::sync::Arc;
 
 /// Buffers up pending long per doc, then flushes when segment flushes.
@@ -93,7 +92,7 @@ impl NormValuesWriter {
 
     pub(crate) fn flush<D, DM, N>(
         &mut self,
-        sort_map: Option<Rc<DM>>,
+        sort_map: Option<Arc<DM>>,
         norms_consumer: &mut N,
         segment_info: &SegmentInfo<D>,
     ) -> Result<()>

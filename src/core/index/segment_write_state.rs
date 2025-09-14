@@ -14,13 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::rc::Rc;
-
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::info_stream::InfoStreamMT;
+use std::sync::Arc;
 
 /// Holder struct for common parameters used during write.
 ///
@@ -36,7 +35,7 @@ where
     pub directory: &'a D,
 
     /// FieldInfos describing all fields in this segment.
-    pub field_infos: Rc<FieldInfos>,
+    pub field_infos: Arc<FieldInfos>,
 
     /// Number of deleted documents set while flushing the segment.
     pub del_count_on_flush: i32,
@@ -72,7 +71,7 @@ where
     pub(crate) fn new(
         info_stream: Option<InfoStreamMT>,
         directory: &'a D,
-        field_infos: Rc<FieldInfos>,
+        field_infos: Arc<FieldInfos>,
         context: &'a IOContext,
     ) -> Self {
         Self::with_suffix(info_stream, directory, field_infos, context, "")
@@ -82,7 +81,7 @@ where
     pub(crate) fn with_suffix(
         info_stream: Option<InfoStreamMT>,
         directory: &'a D,
-        field_infos: Rc<FieldInfos>,
+        field_infos: Arc<FieldInfos>,
         context: &'a IOContext,
         segment_suffix: &str,
     ) -> Self {
@@ -107,7 +106,7 @@ where
         Self {
             info_stream: state.info_stream.clone(),
             directory: state.directory,
-            field_infos: Rc::clone(&state.field_infos),
+            field_infos: Arc::clone(&state.field_infos),
             context: state.context,
             segment_suffix,
             del_count_on_flush: state.del_count_on_flush,

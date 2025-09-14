@@ -14,12 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cell::RefCell;
-use std::collections::HashMap;
-use std::fmt;
-use std::fmt::Display;
-use std::rc::Rc;
-
 use crate::core::codecs::CodecUtil;
 use crate::core::codecs::fields_producer::FieldsProducer;
 use crate::core::codecs::lucene90::block_tree::field_reader::FieldReader;
@@ -34,6 +28,11 @@ use crate::core::store::directory::Directory;
 use crate::core::store::{DataInput, IndexInput, ReadAdvice};
 use crate::core::util::CoreHelper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use parking_lot::Mutex;
+use std::collections::HashMap;
+use std::fmt;
+use std::fmt::Display;
+use std::sync::Arc;
 /// A block-based terms index and dictionary that assigns terms to variable
 /// length blocks according to how they share prefixes. The terms index is a
 /// prefix trie whose leaves are term blocks. The advantage of this approach is
@@ -60,12 +59,12 @@ where
     I: IndexInput,
     PR: PostingsReaderBase,
 {
-    terms_reader: Rc<TermsReader<I, PR>>,
+    terms_reader: Arc<TermsReader<I, PR>>,
     // Open input to the terms index file (_X.tip)
-    index_in: Rc<RefCell<I>>,
+    index_in: Arc<Mutex<I>>,
     field_map: HashMap<i32, FieldReader<I, PR>>,
     field_list: Vec<String>,
-    field_infos: Rc<FieldInfos>,
+    field_infos: Arc<FieldInfos>,
 }
 pub struct TermsReader<I, PR>
 where
@@ -143,7 +142,7 @@ where
 
         let mut prior_error = None;
         let mut meta_in = state.directory.open_checksum_input(&meta_name)?;
-        let index_in = Rc::new(RefCell::new(index_in));
+        let index_in = Arc::new(Mutex::new(index_in));
         let mut terms_reader = TermsReader {
             terms_in,
             postings_reader,
@@ -151,7 +150,7 @@ where
             version,
         };
         CodecUtil::retrieve_checksum_with_expected(&mut terms_reader.terms_in, terms_length)?;
-        let terms_reader = Rc::new(terms_reader);
+        let terms_reader = Arc::new(terms_reader);
         let result: Result<()> = (|| {
             CodecUtil::check_index_header(
                 &mut meta_in,
@@ -200,8 +199,8 @@ where
                 };
 
                 let doc_count = meta_in.read_vint()?;
-                let min_term = Rc::new(read_bytes_ref(&mut meta_in)?);
-                let mut max_term = Rc::new(read_bytes_ref(&mut meta_in)?);
+                let min_term = Arc::new(read_bytes_ref(&mut meta_in)?);
+                let mut max_term = Arc::new(read_bytes_ref(&mut meta_in)?);
 
                 if num_terms == 1 {
                     assert_eq!(max_term, min_term);
@@ -274,7 +273,7 @@ where
         }
         // At this point the checksum of the meta file has been verified so the lengths
         // are likely correct
-        CodecUtil::retrieve_checksum_with_expected(&mut *index_in.borrow_mut(), index_length)?;
+        CodecUtil::retrieve_checksum_with_expected(&mut *index_in.lock(), index_length)?;
 
         let field_list = sort_field_names(&field_map, &state.field_infos)?;
         Ok(Lucene90BlockTreeTermsReader {
@@ -282,7 +281,7 @@ where
             index_in,
             field_map,
             field_list,
-            field_infos: Rc::clone(&state.field_infos),
+            field_infos: Arc::clone(&state.field_infos),
         })
     }
 }
@@ -348,7 +347,7 @@ where
     PR: PostingsReaderBase,
 {
     fn check_integrity(&self) -> Result<()> {
-        CodecUtil::checksum_entire_file(&*self.index_in.borrow())?;
+        CodecUtil::checksum_entire_file(&*self.index_in.lock())?;
         CodecUtil::checksum_entire_file(&self.terms_reader.terms_in)?;
         self.terms_reader.postings_reader.check_integrity()
     }
@@ -382,7 +381,7 @@ pub(crate) const TERMS_INDEX_CODEC_NAME: &str = "BlockTreeTermsIndex";
 pub(crate) const TERMS_META_EXTENSION: &str = "tmd";
 pub(crate) const TERMS_META_CODEC_NAME: &str = "BlockTreeTermsMeta";
 thread_local! {
-    pub(crate) static NO_OUTPUT:BytesRef<Rc<Vec<u8>>> ={let v = ByteSequenceOutputs::get_singleton(); v.get_no_output()};
+    pub(crate) static NO_OUTPUT:BytesRef<Arc<Vec<u8>>> ={let v = ByteSequenceOutputs::get_singleton(); v.get_no_output()};
 }
 fn read_bytes_ref<I: IndexInput>(input: &mut I) -> Result<BytesRef<Vec<u8>>> {
     let num_bytes = input.read_vint()?;

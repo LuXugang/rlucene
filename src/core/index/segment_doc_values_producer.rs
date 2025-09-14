@@ -32,10 +32,9 @@ use crate::core::index::segment_core_readers::CfsOrBaseInput;
 use crate::core::index::segment_doc_values::SegmentDocValues;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::{CoreHelper, IdentityRc};
+use crate::core::util::{CoreHelper, IdentityArc};
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
-use std::rc::Rc;
 use std::sync::Arc;
 
 /// Encapsulates multiple producers when there are docvalues updates as one producer
@@ -44,8 +43,8 @@ where
     D: Directory,
 {
     pub(crate) dv_producers_by_field:
-        HashMap<i32, Rc<Lucene90DocValuesProducer<CfsOrBaseInput<D>>>>,
-    pub(crate) dv_producers: HashSet<IdentityRc<Lucene90DocValuesProducer<CfsOrBaseInput<D>>>>,
+        HashMap<i32, Arc<Lucene90DocValuesProducer<CfsOrBaseInput<D>>>>,
+    pub(crate) dv_producers: HashSet<IdentityArc<Lucene90DocValuesProducer<CfsOrBaseInput<D>>>>,
     pub(crate) dv_gens: Vec<i64>,
 }
 impl<D> SegmentDocValuesProducer<D>
@@ -55,7 +54,7 @@ where
     pub(crate) fn new(
         si: &SegmentCommitInfo<D>,
         dir: &Option<CompoundDirectory<Lucene90CompoundReader<D>>>,
-        core_infos: Rc<FieldInfos>,
+        core_infos: Arc<FieldInfos>,
         all_infos: &FieldInfos,
         seg_doc_values: &SegmentDocValues<D>,
     ) -> Result<Self> {
@@ -63,7 +62,7 @@ where
         let mut dv_producers = HashSet::new();
         let mut dv_gens = Vec::new();
 
-        let mut base_producer: Option<Rc<Lucene90DocValuesProducer<CfsOrBaseInput<D>>>> = None;
+        let mut base_producer: Option<Arc<Lucene90DocValuesProducer<CfsOrBaseInput<D>>>> = None;
 
         let result: Result<()> = (|| {
             for fi in all_infos {
@@ -82,7 +81,7 @@ where
                             core_infos.clone(),
                         )?;
                         dv_gens.push(doc_values_gen);
-                        dv_producers.insert(IdentityRc::new(producer.clone()));
+                        dv_producers.insert(IdentityArc::new(producer.clone()));
                         base_producer = Some(producer);
                     }
                     dv_producers_by_field
@@ -90,7 +89,7 @@ where
                 } else {
                     assert!(!dv_gens.contains(&doc_values_gen));
                     // otherwise, producer sees only the one fieldinfo it wrote
-                    let field_infos = Rc::new(FieldInfos::new(vec![fi.clone()])?);
+                    let field_infos = Arc::new(FieldInfos::new(vec![fi.clone()])?);
                     let dvp = seg_doc_values.get_doc_values_producer(
                         doc_values_gen,
                         si,
@@ -98,7 +97,7 @@ where
                         field_infos,
                     )?;
                     dv_gens.push(doc_values_gen);
-                    dv_producers.insert(IdentityRc::new(dvp.clone()));
+                    dv_producers.insert(IdentityArc::new(dvp.clone()));
                     dv_producers_by_field.insert(fi.number, dvp);
                 }
             }

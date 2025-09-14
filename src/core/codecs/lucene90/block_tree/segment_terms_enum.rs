@@ -16,7 +16,6 @@
  */
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
-use std::rc::Rc;
 
 use crate::core::codecs::block_term_state::BlockTermStateEnum;
 use crate::core::codecs::block_tree::lucene90_block_tree_terms_reader::{
@@ -61,7 +60,7 @@ where
     eof: bool,
     pub(crate) term: BytesRefBuilder<Vec<u8>>,
     fst_reader: Option<ReverseRandomAccessReader<I::RandomAccessSlice>>,
-    arcs: Vec<Arc<BytesRef<Rc<Vec<u8>>>>>,
+    arcs: Vec<Arc<BytesRef<std::sync::Arc<Vec<u8>>>>>,
 }
 
 impl<I, P> SegmentTermsEnum<I, P>
@@ -145,7 +144,7 @@ where
     pub(crate) fn push_frame_with_data(
         &mut self,
         arc: Option<usize>,
-        frame_data: BytesRef<Rc<Vec<u8>>>,
+        frame_data: BytesRef<std::sync::Arc<Vec<u8>>>,
         length: i32,
     ) -> Result<usize> {
         self.output_accumulator.reset();
@@ -928,8 +927,8 @@ where
 }
 
 pub struct OutputAccumulator {
-    pub(crate) outputs: Vec<BytesRef<Rc<Vec<u8>>>>,
-    pub(crate) current: BytesRef<Rc<Vec<u8>>>,
+    pub(crate) outputs: Vec<BytesRef<std::sync::Arc<Vec<u8>>>>,
+    pub(crate) current: BytesRef<std::sync::Arc<Vec<u8>>>,
     pub(crate) num: usize,
     pub(crate) output_index: usize,
     pub(crate) index: usize,
@@ -944,7 +943,7 @@ impl OutputAccumulator {
             index: 0,
         }
     }
-    pub(crate) fn push(&mut self, output: BytesRef<Rc<Vec<u8>>>) {
+    pub(crate) fn push(&mut self, output: BytesRef<std::sync::Arc<Vec<u8>>>) {
         if !NO_OUTPUT.with(|rc| BytesRef::equals(&output, rc)) {
             debug_assert!(output.length > 0);
             if self.outputs.len() == self.num {
@@ -955,7 +954,7 @@ impl OutputAccumulator {
         }
     }
 
-    pub(crate) fn pop(&mut self, output: &BytesRef<Rc<Vec<u8>>>) {
+    pub(crate) fn pop(&mut self, output: &BytesRef<std::sync::Arc<Vec<u8>>>) {
         if !NO_OUTPUT.with(|rc| BytesRef::equals(output, rc)) {
             debug_assert!(self.num > 0);
             debug_assert!(&self.outputs[self.num - 1] == output);
@@ -982,7 +981,10 @@ impl OutputAccumulator {
     }
     /// Set the last arc as the source of the floorData.  
     /// This won't change the reading position of this [`OutputAccumulator`].
-    pub(crate) fn set_floor_data(&self, floor_data: &mut ByteArrayDataInput<Rc<Vec<u8>>>) {
+    pub(crate) fn set_floor_data(
+        &self,
+        floor_data: &mut ByteArrayDataInput<std::sync::Arc<Vec<u8>>>,
+    ) {
         debug_assert!(
             self.output_index == self.num - 1,
             "floor data should be stored in last arc, got output_index={}, num={}",

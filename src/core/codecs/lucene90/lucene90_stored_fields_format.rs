@@ -14,8 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::rc::Rc;
-
 use crate::core::codecs::compressing::lucene90_compressing_stored_fields_format::Lucene90CompressingStoredFieldsFormat;
 use crate::core::codecs::compression::compression_mode::{
     CompressionModeEnum, DeflateCompressionMode,
@@ -29,6 +27,7 @@ use crate::core::index::segment_info::SegmentInfo;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use std::sync::Arc;
 
 /// Lucene 9.0 stored fields format.
 ///
@@ -149,7 +148,7 @@ impl StoredFieldsFormat for Lucene90StoredFieldsFormat {
         &self,
         directory: &D1,
         segment_info: &SegmentInfo<D2>,
-        field_infos: Rc<FieldInfos>,
+        field_infos: Arc<FieldInfos>,
         context: &IOContext,
     ) -> Result<StoredFieldsReaderEnum<D1::IndexInput>>
     where

@@ -41,7 +41,6 @@ use crate::core::store::directory::Directory;
 use crate::core::util::bits::{Bits, Either2Bits};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::borrow::Cow;
-use std::rc::Rc;
 use std::sync::Arc;
 
 /// IndexReader implementation over a single segment.
@@ -65,7 +64,7 @@ where
     /// i.e. the SegmentCommitInfo delGen doesn't match our liveDocs.
     is_nrt: bool,
     doc_values_producer: Option<DocValuesProducers<D>>,
-    field_infos: Rc<FieldInfos>,
+    field_infos: Arc<FieldInfos>,
 }
 impl<D> SegmentReader<D>
 where
@@ -97,7 +96,7 @@ where
             hard_live_docs: None,
             live_docs: None,
             num_docs,
-            field_infos: Rc::new(FieldInfos::default()),
+            field_infos: Arc::new(FieldInfos::default()),
             doc_values_producer: None,
         };
         let result = (|| {
@@ -182,7 +181,7 @@ where
             hard_live_docs,
             live_docs,
             num_docs,
-            field_infos: Rc::new(FieldInfos::default()),
+            field_infos: Arc::new(FieldInfos::default()),
             doc_values_producer: None,
         };
         let result = (|| {
@@ -243,7 +242,7 @@ where
     /// init most recent DocValues for the current commit
     fn init_doc_values_producer(
         si: &SegmentCommitInfo<D>,
-        field_infos: Rc<FieldInfos>,
+        field_infos: Arc<FieldInfos>,
         seg_doc_values: &SegmentDocValues<D>,
         core: &SegmentCoreReaders<D>,
     ) -> Result<Option<DocValuesProducers<D>>> {
@@ -256,7 +255,7 @@ where
             true => Either2DocValuesProducer::A(SegmentDocValuesProducer::new(
                 si,
                 dir,
-                Rc::clone(&core.core_field_infos),
+                Arc::clone(&core.core_field_infos),
                 &field_infos,
                 seg_doc_values,
             )?),
@@ -274,8 +273,8 @@ where
     /// init most recent FieldInfos for the current commit
     fn init_field_infos(
         si: &SegmentCommitInfo<D>,
-        core_field_infos: Rc<FieldInfos>,
-    ) -> Result<Rc<FieldInfos>> {
+        core_field_infos: Arc<FieldInfos>,
+    ) -> Result<Arc<FieldInfos>> {
         if !si.has_field_updates() {
             return Ok(core_field_infos);
         }
@@ -291,12 +290,12 @@ where
             &IOContext::read_once_io_context()?,
         )?;
 
-        Ok(Rc::new(infos))
+        Ok(Arc::new(infos))
     }
 }
 pub type DocValuesProducers<D> = Either2DocValuesProducer<
     SegmentDocValuesProducer<D>,
-    Rc<Lucene90DocValuesProducer<CfsOrBaseInput<D>>>,
+    Arc<Lucene90DocValuesProducer<CfsOrBaseInput<D>>>,
 >;
 
 impl<D> IndexReader for SegmentReader<D>
@@ -391,7 +390,7 @@ where
         CodecReader::get_doc_values_skipper(self, field)
     }
 
-    fn get_field_infos(&self) -> Result<Rc<FieldInfos>> {
+    fn get_field_infos(&self) -> Result<Arc<FieldInfos>> {
         Ok(self.field_infos.clone())
     }
 

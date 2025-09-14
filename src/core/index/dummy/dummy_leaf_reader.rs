@@ -26,7 +26,7 @@ use crate::core::index::index_reader::IndexReader;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::util::dummy::dummy_bits::DummyBits;
 use crate::core::util::error::lucene_error::Result;
-use std::rc::Rc;
+use std::sync::Arc;
 
 pub struct DummyLeafReader;
 
@@ -100,7 +100,7 @@ impl LeafReader for DummyLeafReader {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 
-    fn get_field_infos(&self) -> Result<Rc<FieldInfos>> {
+    fn get_field_infos(&self) -> Result<Arc<FieldInfos>> {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 

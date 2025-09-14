@@ -14,10 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::fmt::{Display, Formatter};
-use std::rc::Rc;
-
 use once_cell::sync::Lazy;
+use std::fmt::{Display, Formatter};
+use std::sync::Arc;
 
 use crate::core::index::BytesRef;
 use crate::core::store::{DataInput, DataOutput};
@@ -26,7 +25,7 @@ use crate::core::util::fst_impl::outputs::Outputs;
 use crate::core::util::{CoreHelper, SliceCopyOps, StringHelper};
 
 thread_local! {
-    static NO_OUTPUT:BytesRef<Rc<Vec<u8>>> = BytesRef::default();
+    static NO_OUTPUT:BytesRef<Arc<Vec<u8>>> = BytesRef::default();
 }
 pub static SINGLETON: Lazy<ByteSequenceOutputs> = Lazy::new(|| ByteSequenceOutputs);
 /// An FST Outputs implementation where each output is a sequence of bytes.
@@ -46,7 +45,7 @@ impl Clone for ByteSequenceOutputs {
 }
 
 impl Outputs for ByteSequenceOutputs {
-    type V = BytesRef<Rc<Vec<u8>>>;
+    type V = BytesRef<Arc<Vec<u8>>>;
 
     fn common(&self, output1: &Self::V, output2: &Self::V) -> Self::V {
         let a = &output1.bytes[output1.offset..output1.offset + output1.length];
@@ -114,7 +113,7 @@ impl Outputs for ByteSequenceOutputs {
             &output.bytes[output.offset..(output.offset + output.length)],
             prefix.length,
         );
-        BytesRef::from_slice(Rc::new(buf), 0, prefix.length + output.length)
+        BytesRef::from_slice(Arc::new(buf), 0, prefix.length + output.length)
     }
 
     fn write(&self, output: &Self::V, out: &mut impl DataOutput) -> Result<()> {
@@ -129,7 +128,7 @@ impl Outputs for ByteSequenceOutputs {
         } else {
             let mut output = vec![0u8; len as usize];
             input.read_bytes(&mut output, 0, len)?;
-            Ok(BytesRef::from_slice(Rc::new(output), 0, len as usize))
+            Ok(BytesRef::from_slice(Arc::new(output), 0, len as usize))
         }
     }
 

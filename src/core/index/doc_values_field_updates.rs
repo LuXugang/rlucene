@@ -14,9 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::rc::Rc;
-
 use parking_lot::Mutex;
+use std::sync::Arc;
 
 use crate::core::index::BytesRef;
 use crate::core::index::binary_doc_values::BinaryDocValues;
@@ -68,20 +67,20 @@ pub(crate) struct DocValuesFieldInner {
     pub docs: AbstractPagedMutable<PagedMutable>,
     pub(crate) size: i32,
     // for reused iterator
-    pub docs_iter: Option<Rc<AbstractPagedMutable<PagedMutable>>>,
+    pub docs_iter: Option<Arc<AbstractPagedMutable<PagedMutable>>>,
 }
 
 pub(crate) struct DocValuesFieldInnerIter {
     size: i32,
     // for reused iterator
-    docs: Rc<AbstractPagedMutable<PagedMutable>>,
+    docs: Arc<AbstractPagedMutable<PagedMutable>>,
 }
 // padding Implement for sort in PriorityQueue
 impl Default for DocValuesFieldInnerIter {
     fn default() -> Self {
         DocValuesFieldInnerIter {
             size: 0,
-            docs: Rc::new(AbstractPagedMutable::default()),
+            docs: Arc::new(AbstractPagedMutable::default()),
         }
     }
 }
@@ -225,7 +224,7 @@ where
             };
             sorter.sort(0, size)?;
         }
-        inner.docs_iter = Some(Rc::new(std::mem::take(&mut inner.docs)));
+        inner.docs_iter = Some(Arc::new(std::mem::take(&mut inner.docs)));
         self.sub_update.finish();
         Ok(())
     }
@@ -860,7 +859,7 @@ pub trait AbstractIteratorBase {
 }
 
 pub(crate) struct SingleValueDocValuesFieldUpdates {
-    sub_update: Rc<SingleValueNumericDocValuesFieldUpdates>,
+    sub_update: Arc<SingleValueNumericDocValuesFieldUpdates>,
     bit_set: SparseFixedBitSet,
     has_no_value: Option<SparseFixedBitSet>,
     max_doc: i32,
@@ -870,8 +869,8 @@ pub(crate) struct SingleValueDocValuesFieldUpdates {
     dov_values_type: DocValuesType,
 
     // for reused iterators
-    bit_set_iter: Option<Rc<SparseFixedBitSet>>,
-    has_no_value_iter: Option<Rc<SparseFixedBitSet>>,
+    bit_set_iter: Option<Arc<SparseFixedBitSet>>,
+    has_no_value_iter: Option<Arc<SparseFixedBitSet>>,
 }
 
 impl SingleValueDocValuesFieldUpdates {
@@ -882,7 +881,7 @@ impl SingleValueDocValuesFieldUpdates {
         dov_values_type: DocValuesType,
     ) -> Result<Self> {
         Ok(Self {
-            sub_update: Rc::new(sub),
+            sub_update: Arc::new(sub),
             bit_set: SparseFixedBitSet::new(max_doc)?,
             has_no_value: None,
             max_doc,
@@ -910,9 +909,9 @@ impl Accountable for SingleValueDocValuesFieldUpdates {
 
 impl DocValuesFieldUpdatesBase for SingleValueDocValuesFieldUpdates {
     fn finish(&mut self) {
-        self.bit_set_iter = Some(Rc::new(std::mem::take(&mut self.bit_set)));
+        self.bit_set_iter = Some(Arc::new(std::mem::take(&mut self.bit_set)));
         if let Some(has_no_value) = self.has_no_value.take() {
-            self.has_no_value_iter = Some(Rc::new(has_no_value));
+            self.has_no_value_iter = Some(Arc::new(has_no_value));
         }
     }
 
@@ -1007,9 +1006,9 @@ pub trait SingleValueDocValuesFieldUpdatesBase {
 }
 pub struct SingleValueDocValuesFieldUpdatesIterator {
     del_gen: i64,
-    has_no_value: Option<Rc<SparseFixedBitSet>>,
-    iterator: BitSetIterator<SparseFixedBitSet, Rc<SparseFixedBitSet>>,
-    single: Rc<SingleValueNumericDocValuesFieldUpdates>,
+    has_no_value: Option<Arc<SparseFixedBitSet>>,
+    iterator: BitSetIterator<SparseFixedBitSet, Arc<SparseFixedBitSet>>,
+    single: Arc<SingleValueNumericDocValuesFieldUpdates>,
 }
 impl SingleValueDocValuesFieldUpdatesIterator {
     /// Creates a new instance of `SingleValueDocValuesFieldUpdatesIterator`.
@@ -1018,10 +1017,10 @@ impl SingleValueDocValuesFieldUpdatesIterator {
     /// Avoid using the `Default` trait. This constructor should be used
     /// instead.
     pub fn new(
-        iterator: BitSetIterator<SparseFixedBitSet, Rc<SparseFixedBitSet>>,
+        iterator: BitSetIterator<SparseFixedBitSet, Arc<SparseFixedBitSet>>,
         del_gen: i64,
-        has_no_value: Option<Rc<SparseFixedBitSet>>,
-        single: Rc<SingleValueNumericDocValuesFieldUpdates>,
+        has_no_value: Option<Arc<SparseFixedBitSet>>,
+        single: Arc<SingleValueNumericDocValuesFieldUpdates>,
     ) -> Result<Self> {
         Ok(Self {
             del_gen,
@@ -1042,9 +1041,9 @@ impl Default for SingleValueDocValuesFieldUpdatesIterator {
         Self {
             del_gen: 0,
             has_no_value: None,
-            iterator: BitSetIterator::new(Rc::new(SparseFixedBitSet::default()), 1)
+            iterator: BitSetIterator::new(Arc::new(SparseFixedBitSet::default()), 1)
                 .expect("should never fail"),
-            single: Rc::new(SingleValueNumericDocValuesFieldUpdates::default()),
+            single: Arc::new(SingleValueNumericDocValuesFieldUpdates::default()),
         }
     }
 }

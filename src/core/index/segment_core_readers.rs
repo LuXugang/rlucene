@@ -35,7 +35,7 @@ use crate::core::store::directory::{Directory, Either2Directory};
 use crate::core::store::{Either2IndexInput, IOContext, IndexInput};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
-use std::rc::Rc;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicI32, Ordering};
 
 pub(crate) type CfsOrBaseInput<D> = Either2IndexInput<
@@ -58,7 +58,7 @@ where
     pub(crate) segment: String,
     /// fieldinfos for this core: means gen=-1. this is the exact fieldinfos these codec components saw at write.
     /// in the case of DV updates, SR may hold a newer version.
-    pub(crate) core_field_infos: Rc<FieldInfos>,
+    pub(crate) core_field_infos: Arc<FieldInfos>,
 }
 
 impl<D> SegmentCoreReaders<D>
@@ -83,7 +83,7 @@ where
             };
 
             let segment = si.info.name.to_string();
-            let core_field_infos = Rc::new(
+            let core_field_infos = Arc::new(
                 codec
                     .field_infos_format()
                     .read(&cfs_dir, &si.info, "", context)?,

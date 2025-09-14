@@ -14,16 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::fmt::Display;
-use std::hash::Hash;
-use std::rc::Rc;
-
 use crate::core::index::BytesRef;
 use crate::core::store::{DataInput, DataOutput};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs;
 use crate::core::util::ints_ref::IntsRef;
 use crate::core::util::{HashCode, OutputIdentity};
+use std::fmt::Display;
+use std::hash::Hash;
+use std::sync::Arc;
 
 /// Represents the outputs for an FST, providing the basic algebra required for
 /// building and traversing the FST.
@@ -109,7 +108,7 @@ pub trait OutputsBound:
     Clone + PartialEq + Default + HashCode + Hash + Display + OutputIdentity
 {
 }
-impl OutputsBound for Rc<i64> {}
-impl OutputsBound for BytesRef<Rc<Vec<u8>>> {}
-impl OutputsBound for IntsRef<Rc<Vec<i32>>> {}
+impl OutputsBound for Arc<i64> {}
+impl OutputsBound for BytesRef<Arc<Vec<u8>>> {}
+impl OutputsBound for IntsRef<Arc<Vec<i32>>> {}
 // impl<T: Clone + PartialEq + Default + Hash + Display> OutputsBound for T {}

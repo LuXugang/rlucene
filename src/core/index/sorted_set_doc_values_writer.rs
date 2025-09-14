@@ -256,7 +256,7 @@ impl Display for SortedSetDocValuesWriter {
 impl DocValuesWriter for SortedSetDocValuesWriter {
     fn flush<D, DM, DC>(
         &mut self,
-        sort_map: Option<Rc<DM>>,
+        sort_map: Option<Arc<DM>>,
         dv_consumer: &mut DC,
         segment_info: &SegmentInfo<D>,
     ) -> Result<()>

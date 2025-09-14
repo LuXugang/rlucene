@@ -200,7 +200,7 @@ impl Display for SortedNumericDocValuesWriter {
 impl DocValuesWriter for SortedNumericDocValuesWriter {
     fn flush<D, DM, DC>(
         &mut self,
-        sort_map: Option<Rc<DM>>,
+        sort_map: Option<Arc<DM>>,
         dv_consumer: &mut DC,
         segment_info: &SegmentInfo<D>,
     ) -> Result<()>
@@ -605,7 +605,7 @@ pub(crate) struct LongValues {
 impl LongValues {
     pub(crate) fn new<DM>(
         max_doc: usize,
-        sort_map: &Rc<DM>,
+        sort_map: &Arc<DM>,
         old_values: &mut impl SortedNumericDocValues,
         acceptable_overhead_ratio: f32,
     ) -> Result<Self>

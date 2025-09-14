@@ -212,7 +212,7 @@ where
         &mut self,
         state: &SegmentWriteState<D>,
         segment_info: &SegmentInfo<D1>,
-    ) -> Result<Option<Rc<DocMapImpl>>>
+    ) -> Result<Option<Arc<DocMapImpl>>>
     where
         D: Directory,
         D1: Directory,
@@ -270,7 +270,7 @@ where
         }
         // returns null if the documents are already sorted
         match Sorter::sort(max_doc, comparators)? {
-            Some(doc_map) => Ok(Some(Rc::new(doc_map))),
+            Some(doc_map) => Ok(Some(Arc::new(doc_map))),
             None => Ok(None),
         }
     }
@@ -280,7 +280,7 @@ where
         segment_info: &mut SegmentInfo<D1>,
         seg_updates: Option<&mut MTBufferedUpdates>,
         index_writer_config: &impl LiveIndexWriterConfig,
-    ) -> Result<Option<Rc<DocMapImpl>>>
+    ) -> Result<Option<Arc<DocMapImpl>>>
     where
         D1: Directory,
     {
@@ -432,7 +432,7 @@ where
     pub fn write_points<DM>(
         &mut self,
         state: &SegmentWriteState<D>,
-        sort_map: Option<Rc<DM>>,
+        sort_map: Option<Arc<DM>>,
         index_writer_config: &impl LiveIndexWriterConfig,
     ) -> Result<()>
     where
@@ -491,7 +491,7 @@ where
     fn write_doc_values<DM, D1>(
         &mut self,
         state: &SegmentWriteState<D>,
-        sort_map: Option<Rc<DM>>,
+        sort_map: Option<Arc<DM>>,
         segment_info: &SegmentInfo<D1>,
         index_writer_config: &impl LiveIndexWriterConfig,
     ) -> Result<()>
@@ -552,7 +552,7 @@ where
     fn write_norms<DM, D1>(
         &mut self,
         state: &SegmentWriteState<D>,
-        sort_map: Option<Rc<DM>>,
+        sort_map: Option<Arc<DM>>,
         segment_info: &SegmentInfo<D1>,
         index_writer_config: &impl LiveIndexWriterConfig,
     ) -> Result<()>
@@ -2135,7 +2135,7 @@ where
         self.base.get_doc_values_skipper(field)
     }
 
-    fn get_field_infos(&self) -> Result<Rc<FieldInfos>> {
+    fn get_field_infos(&self) -> Result<Arc<FieldInfos>> {
         self.base.get_field_infos()
     }
 
@@ -2275,7 +2275,7 @@ where
         self.base.get_doc_values_skipper(field)
     }
 
-    fn get_field_infos(&self) -> Result<Rc<FieldInfos>> {
+    fn get_field_infos(&self) -> Result<Arc<FieldInfos>> {
         self.base.get_field_infos()
     }
 

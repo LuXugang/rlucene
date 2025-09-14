@@ -30,7 +30,7 @@ use crate::core::util::ref_count::RefCount;
 use num_bigint::BigInt;
 use parking_lot::Mutex;
 use std::collections::HashMap;
-use std::rc::Rc;
+use std::sync::Arc;
 
 /// Manages the [`DocValuesProducer`](crate::core::codecs::doc_values_producer::DocValuesProducer) held by [`SegmentReader`](crate::core::index::segment_reader::SegmentReader) and keeps track of their reference counting.
 pub(crate) struct SegmentDocValues<D>
@@ -43,7 +43,7 @@ pub(crate) struct Inner<D>
 where
     D: Directory,
 {
-    gen_dv_producers: HashMap<i64, RefCount<Rc<Lucene90DocValuesProducer<CfsOrBaseInput<D>>>>>,
+    gen_dv_producers: HashMap<i64, RefCount<Arc<Lucene90DocValuesProducer<CfsOrBaseInput<D>>>>>,
 }
 
 impl<D> SegmentDocValues<D>
@@ -62,8 +62,8 @@ where
         si: &SegmentCommitInfo<D>,
         dir: &Option<CompoundDirectory<Lucene90CompoundReader<D>>>,
         r#gen: i64,
-        infos: Rc<FieldInfos>,
-    ) -> Result<RefCount<Rc<Lucene90DocValuesProducer<CfsOrBaseInput<D>>>>>
+        infos: Arc<FieldInfos>,
+    ) -> Result<RefCount<Arc<Lucene90DocValuesProducer<CfsOrBaseInput<D>>>>>
     where
         D: Directory,
     {
@@ -86,7 +86,7 @@ where
 
         let dv_format = get_default_code().doc_values_format();
 
-        Ok(RefCount::new(Rc::new(
+        Ok(RefCount::new(Arc::new(
             dv_format.fields_producer(&srs, &si.info)?,
         )))
     }
@@ -96,8 +96,8 @@ where
         r#gen: i64,
         si: &SegmentCommitInfo<D>,
         dir: &Option<CompoundDirectory<Lucene90CompoundReader<D>>>,
-        infos: Rc<FieldInfos>,
-    ) -> Result<Rc<Lucene90DocValuesProducer<CfsOrBaseInput<D>>>> {
+        infos: Arc<FieldInfos>,
+    ) -> Result<Arc<Lucene90DocValuesProducer<CfsOrBaseInput<D>>>> {
         let mut inner = self.inner.lock();
 
         if let Some(dvp) = inner.gen_dv_producers.get_mut(&r#gen) {

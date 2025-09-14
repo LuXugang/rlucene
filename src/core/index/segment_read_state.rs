@@ -14,11 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::rc::Rc;
-
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
+use std::sync::Arc;
 
 /// Holder struct for common parameters used during read.
 ///
@@ -31,7 +30,7 @@ where
     pub directory: &'a D,
 
     /// FieldInfos describing all fields in this segment.
-    pub field_infos: Rc<FieldInfos>,
+    pub field_infos: Arc<FieldInfos>,
 
     /// IOContext to pass to Directory::open_input.
     pub context: &'a IOContext,
@@ -45,14 +44,14 @@ where
     D: Directory,
 {
     /// Creates a SegmentReadState with an empty segment suffix.
-    pub fn new(directory: &'a D, field_infos: Rc<FieldInfos>, context: &'a IOContext) -> Self {
+    pub fn new(directory: &'a D, field_infos: Arc<FieldInfos>, context: &'a IOContext) -> Self {
         Self::with_suffix(directory, field_infos, context, "")
     }
 
     /// Creates a SegmentReadState with a custom segment suffix.
     pub fn with_suffix(
         directory: &'a D,
-        field_infos: Rc<FieldInfos>,
+        field_infos: Arc<FieldInfos>,
         context: &'a IOContext,
         segment_suffix: &str,
     ) -> Self {

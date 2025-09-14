@@ -18,7 +18,7 @@ use crate::core::codecs::knn_field_vectors_writer::KnnFieldVectorsWriter;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::Result;
-use std::rc::Rc;
+use std::sync::Arc;
 
 pub trait KnnVectorsWriter: Accountable {
     type KnnFieldVectorsWriter<T>: KnnFieldVectorsWriter<T>;
@@ -26,7 +26,7 @@ pub trait KnnVectorsWriter: Accountable {
     fn add_field<T>(&mut self, field_info: &FieldInfo) -> Result<Self::KnnFieldVectorsWriter<T>>;
 
     /// Flushes all buffered data on disk.
-    fn flush<DM>(&mut self, max_doc: i32, sort_map: Option<Rc<DM>>) -> Result<()>;
+    fn flush<DM>(&mut self, max_doc: i32, sort_map: Option<Arc<DM>>) -> Result<()>;
 
-    fn finish<DM>(&mut self, max_doc: i32, sort_map: Option<Rc<DM>>) -> Result<()>;
+    fn finish<DM>(&mut self, max_doc: i32, sort_map: Option<Arc<DM>>) -> Result<()>;
 }

@@ -303,7 +303,7 @@ where
             doc_id += 1;
         }
         let stream = reader.get_fields_stream();
-        let mut raw_docs = stream.borrow_mut();
+        let mut raw_docs = stream.lock();
         let index = reader.get_index_reader();
 
         if doc_id >= to_doc_id {

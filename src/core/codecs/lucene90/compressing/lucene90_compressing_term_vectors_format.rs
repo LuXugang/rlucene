@@ -27,7 +27,8 @@ use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt;
-use std::rc::Rc;
+use std::sync::Arc;
+
 /// A [`TermVectorsFormat`] that compresses chunks of documents together in order to improve the compression ratio.
 pub struct Lucene90CompressingTermVectorsFormat {
     format_name: String,
@@ -98,7 +99,7 @@ impl TermVectorsFormat for Lucene90CompressingTermVectorsFormat {
         &self,
         directory: &D1,
         segment_info: &SegmentInfo<D2>,
-        field_infos: Rc<FieldInfos>,
+        field_infos: Arc<FieldInfos>,
         context: &IOContext,
     ) -> Result<TermVectorsReaderEnum<D1::IndexInput>>
     where

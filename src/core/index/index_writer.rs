@@ -28,7 +28,6 @@ use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::long_supplier::LongSupplier;
 use parking_lot::{Condvar, Mutex, MutexGuard, ReentrantMutex};
-use std::rc::Rc;
 use std::sync::Arc;
 
 pub struct IndexWriter<D, L, B>
@@ -37,20 +36,20 @@ where
     L: LiveIndexWriterConfig,
     B: IndexWriterBase,
 {
-    enable_test_points: bool,
+    pub(crate) enable_test_points: bool,
     // when unrecoverable disaster strikes, we populate this with the reason that we had to close
     // IndexWriter
     tragedy: TragicException,
     // original user directory
-    directory_orig: Arc<D>,
+    pub(crate) directory_orig: Arc<D>,
     // wrapped with additional checks
-    directory: Arc<LockValidatingDirectoryWrapper<D>>,
+    pub(crate) directory: Arc<LockValidatingDirectoryWrapper<D>>,
     // last changeCount that was committed
     last_commit_change_count: AtomicI64,
     pending_seq_no: AtomicI64,
     pending_commit_change_count: AtomicI64,
     // TODO: IMPORTANT 必须要用Mutext封装吗
-    global_field_number_map: Arc<Mutex<FieldNumbers>>,
+    pub(crate) global_field_number_map: Arc<Mutex<FieldNumbers>>,
     doc_writer: DocumentsWriter<D, L, FlushNotificationsImpl>,
     event_queue: Arc<EventQueue>,
     write_doc_values_lock: ReentrantMutex<()>,
@@ -72,9 +71,8 @@ where
     reader_pool: ReaderPool<D>,
     buffered_updates_stream: Arc<BufferedUpdatesStream>,
     merge_finished_gen: AtomicI64,
-    config: Arc<L>,
-    // TODO: IMPORTANT 等调整了DWPT的构造方式 就不要使用Arc封装了
-    pending_num_docs: Arc<AtomicI64>,
+    pub(crate) config: Arc<L>,
+    pub(crate) pending_num_docs: Arc<AtomicI64>,
     soft_deletes_enabled: bool,
     info_stream: InfoStreamMT,
     inner: Mutex<Inner<D>>,
@@ -110,8 +108,8 @@ where
     L: LiveIndexWriterConfig,
     B: IndexWriterBase,
 {
-    pub fn new(d: Arc<D>, mut conf: L, sub: B) -> Result<Self> {
-        let enable_test_points = sub.is_enable_test_points();
+    pub fn new(d: Arc<D>, mut conf: L, sub: Option<B>) -> Result<Self> {
+        let enable_test_points = sub.as_ref().unwrap().is_enable_test_points();
         let info_stream = conf.get_info_stream();
         let soft_deletes_enabled = conf.get_soft_deletes_field().is_some();
 
@@ -210,7 +208,6 @@ where
             let doc_writer = DocumentsWriter::new(
                 FlushNotificationsImpl::new(event_queue.clone()),
                 segment_infos.get_index_created_version_major(),
-                pending_num_docs.clone(),
                 enable_test_points,
                 conf.clone(),
                 directory_orig.clone(),
@@ -302,7 +299,7 @@ where
                     change_count,
                 }),
                 pausing: Condvar::new(),
-                sub: Some(sub),
+                sub,
                 commit_lock: Mutex::new(CommitInner {
                     pending_commit: None,
                     files_to_commit: None,
@@ -319,6 +316,13 @@ where
             info_stream.message("IW", msg);
         }
         result
+    }
+
+    pub(crate) fn get_index_major_version_created(&self) -> i32 {
+        self.inner
+            .lock()
+            .segment_infos
+            .get_index_created_version_major()
     }
 
     /// Confirms that the incoming index sort (if any) matches the existing index sort (if any).
@@ -805,10 +809,10 @@ where
     fn publish_flushed_segment(
         &self,
         mut new_segment: SegmentCommitInfo<D>,
-        field_infos: Rc<FieldInfos>,
+        field_infos: Arc<FieldInfos>,
         packet: Option<FrozenBufferedUpdates>,
         global_packet: Option<FrozenBufferedUpdates>,
-        sort_map: Option<Rc<DocMapImpl>>,
+        sort_map: Option<Arc<DocMapImpl>>,
     ) -> Result<()> {
         let mut inner = self.inner.lock();
         let mut published = false;
@@ -2013,8 +2017,8 @@ where
         &self,
         info: &SegmentCommitInfo<D>,
         create: bool,
-        sort_map: Option<Rc<DocMapImpl>>,
-    ) -> Result<Option<Rc<ReadersAndUpdates<D>>>> {
+        sort_map: Option<Arc<DocMapImpl>>,
+    ) -> Result<Option<Arc<ReadersAndUpdates<D>>>> {
         self.do_ensure_open(false)?;
         self.reader_pool.get(info, create, sort_map)
     }
@@ -2790,10 +2794,10 @@ where
     }
 }
 struct EventImpl5 {
-    packet: Rc<FrozenBufferedUpdates>,
+    packet: Arc<FrozenBufferedUpdates>,
 }
 impl EventImpl5 {
-    pub fn new(packet: Rc<FrozenBufferedUpdates>) -> Self {
+    pub fn new(packet: Arc<FrozenBufferedUpdates>) -> Self {
         Self { packet }
     }
 }

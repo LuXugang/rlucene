@@ -36,7 +36,6 @@ use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::index::sorted_set_doc_values_writer::Either2SortedSetDocValues;
 use crate::core::store::IndexInput;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use std::rc::Rc;
 use std::sync::Arc;
 
 /// A trait that produces numeric, binary, sorted, sorted set, and sorted
@@ -215,7 +214,7 @@ where
         }
     }
 }
-impl<T> DocValuesProducer for Rc<T>
+impl<T> DocValuesProducer for Arc<T>
 where
     T: DocValuesProducer,
 {
@@ -259,7 +258,7 @@ where
         Self: Sized,
     {
         let v = match (**self).get_merge_instance()? {
-            Some(v) => Rc::new(v),
+            Some(v) => Arc::new(v),
             None => return Ok(None),
         };
         Ok(Some(v))

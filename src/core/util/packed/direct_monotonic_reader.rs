@@ -14,14 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cell::RefCell;
-use std::rc::Rc;
-
 use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::long_values::{LongValues, Zeroes};
 use crate::core::util::packed::direct_monotonic_reader::direct_monotonic::Meta;
 use crate::core::util::packed::direct_reader::{DirectPackedEnum, DirectReader};
+use parking_lot::Mutex;
+use std::sync::Arc;
 
 /// Retrieves an instance previously written by
 /// [`DirectMonotonicWriter`](crate::core::util::packed::direct_monotonic_writer::DirectMonotonicWriter).
@@ -114,14 +113,14 @@ where
         Ok(-1 - lo)
     }
     /// Retrieves a non-merging instance from the specified slice.
-    pub fn get_instance(meta: &Meta, data: Rc<RefCell<R>>) -> Result<Self> {
+    pub fn get_instance(meta: &Meta, data: Arc<Mutex<R>>) -> Result<Self> {
         Self::get_instance_with_merging(meta, data, false)
     }
 
     /// Retrieves an instance from the specified slice.
     pub fn get_instance_with_merging(
         meta: &Meta,
-        data: Rc<RefCell<R>>,
+        data: Arc<Mutex<R>>,
         merging: bool,
     ) -> Result<Self> {
         let mut readers = Vec::with_capacity(meta.num_blocks);

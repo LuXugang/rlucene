@@ -60,7 +60,6 @@ use std::cell::OnceCell;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::iter::{Chain, Once, once};
-use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64, Ordering};
 use std::sync::{Arc, OnceLock};
 use std::{fmt, thread};
@@ -505,7 +504,7 @@ where
                 let mut flush_state = SegmentWriteState::new(
                     Some(self.info_stream.clone()),
                     self.directory.as_ref(),
-                    Rc::new(self.field_infos.finish()?),
+                    Arc::new(self.field_infos.finish()?),
                     &io_context,
                 );
 
@@ -765,7 +764,7 @@ where
     pub(crate) fn seal_flushed_segment<FN, DM>(
         &mut self,
         flushed_segment: &mut FlushedSegment<D>,
-        sort_map: Option<Rc<DM>>,
+        sort_map: Option<Arc<DM>>,
         flush_notifications: &FN,
         index_writer_config: &impl LiveIndexWriterConfig,
     ) -> Result<()>
@@ -1010,10 +1009,10 @@ where
 {
     // wrap with Option for easier move
     pub(crate) segment_info: Option<SegmentCommitInfo<D>>,
-    pub(crate) field_infos: Rc<FieldInfos>,
+    pub(crate) field_infos: Arc<FieldInfos>,
     pub(crate) segment_updates: Option<FrozenBufferedUpdates>,
     live_docs: Option<FixedBitSet>,
-    pub(crate) sort_map: Option<Rc<DocMapImpl>>,
+    pub(crate) sort_map: Option<Arc<DocMapImpl>>,
     del_count: i32,
 }
 impl<D> FlushedSegment<D>
@@ -1023,11 +1022,11 @@ where
     fn new(
         info_stream: InfoStreamMT,
         segment_info: SegmentCommitInfo<D>,
-        field_infos: Rc<FieldInfos>,
+        field_infos: Arc<FieldInfos>,
         mut segment_updates: Option<MTBufferedUpdates>,
         live_docs: Option<FixedBitSet>,
         del_count: i32,
-        sort_map: Option<Rc<DocMapImpl>>,
+        sort_map: Option<Arc<DocMapImpl>>,
     ) -> Result<Self> {
         let segment_updates = match segment_updates {
             Some(ref mut upd) if upd.any() => Some(FrozenBufferedUpdates::new(

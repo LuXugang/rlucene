@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use std::fmt::{Display, Formatter};
-use std::rc::Rc;
+use std::sync::Arc;
 use std::thread_local;
 
 use once_cell::sync::Lazy;
@@ -25,7 +25,7 @@ use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fst_impl::outputs::Outputs;
 
 thread_local! {
-    static NO_OUTPUT: Rc<i64> = Rc::new(0);
+    static NO_OUTPUT: Arc<i64> = Arc::new(0);
 }
 
 pub static SINGLETON: Lazy<PositiveIntOutputs> = Lazy::new(|| PositiveIntOutputs);
@@ -39,26 +39,27 @@ impl PositiveIntOutputs {
         &SINGLETON
     }
 
-    fn valid(&self, o: &Rc<i64>) -> bool {
-        debug_assert!(NO_OUTPUT.with(|rc| Rc::ptr_eq(o, rc)) || **o > 0, "o= {o}");
+    fn valid(&self, o: &Arc<i64>) -> bool {
+        debug_assert!(NO_OUTPUT.with(|rc| Arc::ptr_eq(o, rc)) || **o > 0, "o= {o}");
         true
     }
 }
 
 impl Outputs for PositiveIntOutputs {
-    type V = Rc<i64>;
+    type V = Arc<i64>;
 
     fn common(&self, output1: &Self::V, output2: &Self::V) -> Self::V {
         debug_assert!(self.valid(output1));
         debug_assert!(self.valid(output2));
 
-        if Rc::ptr_eq(output1, &self.get_no_output()) || Rc::ptr_eq(output2, &self.get_no_output())
+        if Arc::ptr_eq(output1, &self.get_no_output())
+            || Arc::ptr_eq(output2, &self.get_no_output())
         {
             self.get_no_output()
         } else {
             debug_assert!(**output1 > 0);
             debug_assert!(**output2 > 0);
-            Rc::new(std::cmp::min(**output1, **output2))
+            Arc::new(std::cmp::min(**output1, **output2))
         }
     }
 
@@ -67,12 +68,12 @@ impl Outputs for PositiveIntOutputs {
         debug_assert!(self.valid(inc));
         debug_assert!(**output >= **inc);
 
-        if Rc::ptr_eq(inc, &self.get_no_output()) {
+        if Arc::ptr_eq(inc, &self.get_no_output()) {
             output.clone()
         } else if **output == **inc {
             self.get_no_output()
         } else {
-            Rc::new(**output - **inc)
+            Arc::new(**output - **inc)
         }
     }
 
@@ -80,12 +81,12 @@ impl Outputs for PositiveIntOutputs {
         debug_assert!(self.valid(prefix));
         debug_assert!(self.valid(output));
 
-        if Rc::ptr_eq(prefix, &self.get_no_output()) {
+        if Arc::ptr_eq(prefix, &self.get_no_output()) {
             output.clone()
-        } else if Rc::ptr_eq(output, &self.get_no_output()) {
+        } else if Arc::ptr_eq(output, &self.get_no_output()) {
             prefix.clone()
         } else {
-            Rc::new(**prefix + **output)
+            Arc::new(**prefix + **output)
         }
     }
 
@@ -94,12 +95,12 @@ impl Outputs for PositiveIntOutputs {
         out.write_vlong(**output)
     }
 
-    fn read(&self, input: &mut impl DataInput) -> Result<Rc<i64>> {
+    fn read(&self, input: &mut impl DataInput) -> Result<Arc<i64>> {
         let v = input.read_vlong()?;
         if v == 0 {
             Ok(self.get_no_output())
         } else {
-            Ok(Rc::new(v))
+            Ok(Arc::new(v))
         }
     }
 

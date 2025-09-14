@@ -61,7 +61,6 @@ use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fmt::{Display, Formatter};
-use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicI32, AtomicI64, Ordering};
 
@@ -77,7 +76,7 @@ where
     // the major version this index was created with
     index_created_version_major: i32,
     // Only set if there are doc values updates against this segment, and the index is sorted:
-    pub(crate) sort_map: Option<Rc<DocMapImpl>>,
+    pub(crate) sort_map: Option<Arc<DocMapImpl>>,
     pub(crate) ram_bytes_used: AtomicI64,
     pub(crate) inner: Mutex<Inner<D>>,
     pub(crate) info_id: String,
@@ -101,11 +100,11 @@ where
     is_merging: bool,
     // Holds resolved (to docIDs) doc values updates that have not yet been
     // written to the index
-    pending_dv_updates: HashMap<String, Vec<Rc<DocValuesFieldUpdatesEnum>>>,
+    pending_dv_updates: HashMap<String, Vec<Arc<DocValuesFieldUpdatesEnum>>>,
     // Holds resolved (to docIDs) doc values updates that were resolved while
     // this segment was being merged; at the end of the merge we carry over
     // these updates (remapping their docIDs) to the newly merged segment
-    merging_dv_updates: HashMap<String, Vec<Rc<DocValuesFieldUpdatesEnum>>>,
+    merging_dv_updates: HashMap<String, Vec<Arc<DocValuesFieldUpdatesEnum>>>,
 }
 
 impl<D> ReadersAndUpdates<D>
@@ -173,7 +172,7 @@ where
 
     fn assert_no_dup_gen(
         &self,
-        field_updates: &[Rc<DocValuesFieldUpdatesEnum>],
+        field_updates: &[Arc<DocValuesFieldUpdatesEnum>],
         update: &DocValuesFieldUpdatesEnum,
     ) -> bool {
         let dup = field_updates
@@ -196,7 +195,7 @@ where
         let field_updates = inner.pending_dv_updates.entry(field.clone()).or_default();
 
         debug_assert!(self.assert_no_dup_gen(field_updates, &update));
-        let update = Rc::new(update);
+        let update = Arc::new(update);
         self.ram_bytes_used
             .fetch_add(update_bytes, Ordering::Relaxed);
 
@@ -433,7 +432,7 @@ where
                 .ok_or_else(|| LuceneError::illegal_argument("fieldInfo is None"))?;
             field_info.set_doc_values_gen(next_doc_values_gen)?;
 
-            let field_infos = Rc::new(FieldInfos::new(vec![field_info.clone()])?);
+            let field_infos = Arc::new(FieldInfos::new(vec![field_info.clone()])?);
 
             let tracking_dir = TrackingDirectoryWrapper::new(dir.clone());
 
@@ -758,7 +757,7 @@ where
         inner.merging_dv_updates.clear();
         inner.is_merging = false;
     }
-    pub fn take_merging_dv_updates(&self) -> HashMap<String, Vec<Rc<DocValuesFieldUpdatesEnum>>> {
+    pub fn take_merging_dv_updates(&self) -> HashMap<String, Vec<Arc<DocValuesFieldUpdatesEnum>>> {
         // We must atomically (in single sync'd block) clear isMerging when we return the DV updates
         // otherwise we can lose updates:
         let mut inner = self.inner.lock();
@@ -1192,12 +1191,12 @@ where
 
 struct FunctionImpl {
     field_info: Arc<FieldInfo>,
-    updates_to_apply: Vec<Rc<DocValuesFieldUpdatesEnum>>,
+    updates_to_apply: Vec<Arc<DocValuesFieldUpdatesEnum>>,
 }
 impl FunctionImpl {
     fn new(
         field_info: Arc<FieldInfo>,
-        updates_to_apply: Vec<Rc<DocValuesFieldUpdatesEnum>>,
+        updates_to_apply: Vec<Arc<DocValuesFieldUpdatesEnum>>,
     ) -> Self {
         Self {
             field_info,

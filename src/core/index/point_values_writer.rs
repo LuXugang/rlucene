@@ -36,7 +36,6 @@ use crate::core::util::paged_bytes::{
 };
 use crate::core::util::{CoreHelper, Counter, CounterEnumLock, SliceCopyOps};
 use std::cell::RefCell;
-use std::rc::Rc;
 use std::sync::Arc;
 
 /// Buffers up pending byte[][] value(s) per doc, then flushes when segment flushes.
@@ -117,7 +116,7 @@ impl PointValuesWriter {
     pub(crate) fn flush<D, DM, PW>(
         &mut self,
         _state: &SegmentWriteState<D>,
-        sort_map: Option<Rc<DM>>,
+        sort_map: Option<Arc<DM>>,
         writer: &mut PW,
     ) -> Result<()>
     where
@@ -293,14 +292,14 @@ where
     DM: DocMap,
 {
     input: M,
-    doc_map: Rc<DM>,
+    doc_map: Arc<DM>,
 }
 impl<M, DM> MutableSortingPointValues<M, DM>
 where
     M: MutablePointTree,
     DM: DocMap,
 {
-    pub(crate) fn new(input: M, doc_map: Rc<DM>) -> Self {
+    pub(crate) fn new(input: M, doc_map: Arc<DM>) -> Self {
         Self { input, doc_map }
     }
 }
@@ -372,14 +371,14 @@ where
     DM: DocMap,
 {
     visitor: &'a mut IV,
-    doc_map: Rc<DM>,
+    doc_map: Arc<DM>,
 }
 impl<'a, IV, DM> IntersectVisitorImpl<'a, IV, DM>
 where
     IV: IntersectVisitor,
     DM: DocMap,
 {
-    pub(crate) fn new(visitor: &'a mut IV, doc_map: Rc<DM>) -> Self {
+    pub(crate) fn new(visitor: &'a mut IV, doc_map: Arc<DM>) -> Self {
         Self { visitor, doc_map }
     }
 }

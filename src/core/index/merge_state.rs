@@ -38,11 +38,11 @@ where
     I: IndexInput,
 {
     pub doc_maps: Vec<Rc<DocMapEnum>>,
-    pub merge_field_infos: Rc<FieldInfos>,
+    pub merge_field_infos: Arc<FieldInfos>,
     pub stored_fields_readers: Vec<StoredFieldsReaderEnum<I>>,
     pub norms_producers: Vec<Option<NormsProducerEnum<I>>>,
     pub doc_values_producers: Vec<Option<DocValuesProducerEnum<I>>>,
-    pub field_infos: Vec<Rc<FieldInfos>>,
+    pub field_infos: Vec<Arc<FieldInfos>>,
     pub live_docs: Vec<Option<Rc<BitsEnum>>>,
     pub needs_index_sort: bool,
     pub max_docs: Vec<i32>,

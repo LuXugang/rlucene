@@ -87,7 +87,6 @@ where
     L: LiveIndexWriterConfig,
     FN: FlushNotifications,
 {
-    pending_num_docs: Arc<AtomicI64>,
     closed: AtomicBool,
     info_stream: InfoStreamMT,
     config: Arc<L>,
@@ -122,7 +121,6 @@ where
     pub(crate) fn new(
         flush_notifications: FN,
         index_created_version_major: i32,
-        pending_num_docs: Arc<AtomicI64>,
         enable_test_points: bool,
         config: Arc<L>,
         directory_orig: Arc<D>,
@@ -132,7 +130,6 @@ where
         let info_stream = config.get_info_stream();
         let delete_queue = Arc::new(DocumentsWriterDeleteQueue::new(info_stream.clone()));
         Ok(DocumentsWriter {
-            pending_num_docs,
             closed: AtomicBool::new(false),
             info_stream,
             config: config.clone(),
@@ -377,21 +374,10 @@ where
 
         let delete_queue = &self.inner.lock().delete_queue;
         // TODO: IMPORTANT 在这里有点问题
-        let dwpt_factory = SupplierImpl2::new(
-            self.index_created_version_major,
-            self.directory_orig.clone(),
-            self.directory.clone(),
-            self.config.clone(),
-            delete_queue.clone(),
-            self.global_field_number_map.clone(),
-            self.pending_num_docs.clone(),
-            self.enable_test_points,
-        );
-        let mut dwpt = self.flush_control.obtain_and_lock(
-            delete_queue,
-            dwpt_factory,
-            &self.per_thread_pool,
-        )?;
+
+        let mut dwpt =
+            self.flush_control
+                .obtain_and_lock(delete_queue, writer, &self.per_thread_pool)?;
         let mut flushing_dwpt_opt = None;
         let mut seq_no = 0;
         let result = (|| {

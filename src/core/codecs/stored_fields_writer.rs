@@ -200,7 +200,7 @@ impl Default for StoredFieldsMergeSub {
 /// A visitor that adds every field it sees.
 #[derive(Default, Clone)]
 pub(crate) struct MergeVisitor {
-    remapper: Option<Rc<FieldInfos>>,
+    remapper: Option<Arc<FieldInfos>>,
 }
 impl MergeVisitor {
     pub(crate) fn new<I>(merge_state: &MergeState<I>, reader_index: usize) -> Result<Self>
@@ -214,12 +214,12 @@ impl MergeVisitor {
             {
                 if other.name != fi.name {
                     return Ok(Self {
-                        remapper: Some(Rc::clone(&merge_state.merge_field_infos)),
+                        remapper: Some(Arc::clone(&merge_state.merge_field_infos)),
                     });
                 }
             } else {
                 return Ok(Self {
-                    remapper: Some(Rc::clone(&merge_state.merge_field_infos)),
+                    remapper: Some(Arc::clone(&merge_state.merge_field_infos)),
                 });
             }
         }

@@ -26,7 +26,7 @@ use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
 use parking_lot::Mutex;
 use std::collections::HashSet;
 use std::fmt::Display;
-use std::rc::Rc;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicI64, Ordering};
 
 /// Tracks the stream of [`FrozenBufferedUpdates`]. When [`DocumentsWriterPerThread`](crate::core::index::documents_writer_per_thread::DocumentsWriterPerThread) flushes, its
@@ -45,7 +45,7 @@ pub(crate) struct BufferedUpdatesStream {
     finished_segments: FinishedSegments,
 }
 pub(crate) struct BufferedUpdatesStreamInner {
-    updates: HashSet<Rc<FrozenBufferedUpdates>>,
+    updates: HashSet<Arc<FrozenBufferedUpdates>>,
     // Starts at 1 so that SegmentInfos that have never had
     // deletes applied (whose bufferedDelGen defaults to 0)
     // will be correct:
@@ -68,7 +68,7 @@ impl BufferedUpdatesStream {
     pub(crate) fn push(
         &self,
         mut packet: FrozenBufferedUpdates,
-    ) -> (i64, Rc<FrozenBufferedUpdates>) {
+    ) -> (i64, Arc<FrozenBufferedUpdates>) {
         // The insert operation must be atomic. If we let threads increment the gen
         // and push the packet afterwards we risk that packets are out of order.
         // With DWPT this is possible if two or more flushes are racing for pushing
@@ -83,7 +83,7 @@ impl BufferedUpdatesStream {
         let bytes_used = packet.bytes_used;
         let del_gen = packet.del_gen();
         let packet_msg = packet.to_string();
-        let v = Rc::new(packet);
+        let v = Arc::new(packet);
         inner.updates.insert(v.clone());
         self.bytes_used
             .fetch_add(bytes_used as i64, Ordering::SeqCst);
@@ -168,7 +168,7 @@ impl BufferedUpdatesStream {
     }
     fn wait_apply<D, L, B>(
         &self,
-        wait_for: HashSet<Rc<FrozenBufferedUpdates>>,
+        wait_for: HashSet<Arc<FrozenBufferedUpdates>>,
         writer: &IndexWriter<D, L, B>,
     ) -> Result<()>
     where
@@ -259,14 +259,14 @@ where
     D: Directory,
 {
     pub(crate) del_gen: i64,
-    pub(crate) rld: Rc<ReadersAndUpdates<D>>,
+    pub(crate) rld: Arc<ReadersAndUpdates<D>>,
     pub(crate) start_del_count: i32,
 }
 impl<D> SegmentState<D>
 where
     D: Directory,
 {
-    pub(crate) fn new(rld: Rc<ReadersAndUpdates<D>>, info: &SegmentCommitInfo<D>) -> Self {
+    pub(crate) fn new(rld: Arc<ReadersAndUpdates<D>>, info: &SegmentCommitInfo<D>) -> Self {
         SegmentState {
             del_gen: info.get_buffered_deletes_gen(),
             rld,

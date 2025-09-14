@@ -25,7 +25,7 @@ use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::index::terms::Terms;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
-use std::rc::Rc;
+use std::sync::Arc;
 
 pub trait LeafReader: IndexReader {
     type Terms: Terms;
@@ -54,7 +54,7 @@ pub trait LeafReader: IndexReader {
     type DocValuesSkipper: DocValuesSkipper;
     fn get_doc_values_skipper(&self, field: &str) -> Result<Option<Self::DocValuesSkipper>>;
 
-    fn get_field_infos(&self) -> Result<Rc<FieldInfos>>;
+    fn get_field_infos(&self) -> Result<Arc<FieldInfos>>;
 
     type Bits: Bits;
     fn get_live_docs(&self) -> Result<Option<Self::Bits>>;

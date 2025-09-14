@@ -142,7 +142,7 @@ where
         &mut self,
         fields_to_flush: HashMap<String, FreqProxTermsWriterPerField>,
         state: &mut SegmentWriteState<D>,
-        sort_map: Option<Rc<DM>>,
+        sort_map: Option<Arc<DM>>,
         _norms: &mut N,
         codec: &impl Codec,
         info: &SegmentInfo<D1>,
@@ -224,15 +224,19 @@ where
     D: DocMap,
 {
     base: FilterFields<F>,
-    field_infos: Rc<FieldInfos>,
-    doc_map: Rc<D>,
+    field_infos: Arc<FieldInfos>,
+    doc_map: Arc<D>,
 }
 impl<F, D> FilterFieldsImpl<F, D>
 where
     F: Fields,
     D: DocMap,
 {
-    pub(crate) fn new(base: FilterFields<F>, field_infos: Rc<FieldInfos>, doc_map: Rc<D>) -> Self {
+    pub(crate) fn new(
+        base: FilterFields<F>,
+        field_infos: Arc<FieldInfos>,
+        doc_map: Arc<D>,
+    ) -> Self {
         Self {
             base,
             field_infos,
@@ -290,14 +294,14 @@ where
 {
     base: FilterTerms<T>,
     index_options: IndexOptions,
-    doc_map: Rc<D>,
+    doc_map: Arc<D>,
 }
 impl<T, D> SortingTerms<T, D>
 where
     T: Terms,
     D: DocMap,
 {
-    pub(crate) fn new(base: FilterTerms<T>, index_options: IndexOptions, doc_map: Rc<D>) -> Self {
+    pub(crate) fn new(base: FilterTerms<T>, index_options: IndexOptions, doc_map: Arc<D>) -> Self {
         Self {
             base,
             index_options,
@@ -395,7 +399,7 @@ where
 {
     base: FilterTermsEnum<T>,
     index_options: IndexOptions,
-    doc_map: Rc<D>,
+    doc_map: Arc<D>,
 }
 impl<T, D> SortingTermsEnum<T, D>
 where
@@ -405,7 +409,7 @@ where
     pub(crate) fn new(
         base: FilterTermsEnum<T>,
         index_options: IndexOptions,
-        doc_map: Rc<D>,
+        doc_map: Arc<D>,
     ) -> Self {
         Self {
             base,
