@@ -22,6 +22,7 @@ use parking_lot::Mutex;
 use std::sync::Arc;
 use std::sync::atomic::AtomicI64;
 use std::sync::atomic::Ordering::SeqCst;
+
 /// Retrieves an instance previously written by `DirectWriter`.
 ///
 /// # See also
@@ -124,8 +125,8 @@ where
         num_values: i64,
         base_offset: i64,
     ) -> LongValuesImpl<R> {
-        let mut buffer = Vec::with_capacity(10);
-        for _ in 0..10 {
+        let mut buffer = Vec::with_capacity(DirectReader::MERGE_BUFFER_SIZE as usize);
+        for _ in 0..DirectReader::MERGE_BUFFER_SIZE as usize {
             buffer.push(AtomicI64::new(-1));
         }
         LongValuesImpl {

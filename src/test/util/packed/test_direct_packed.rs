@@ -14,10 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cell::RefCell;
-use std::rc::Rc;
-
+use parking_lot::Mutex;
 use rand::Rng;
+use std::sync::Arc;
 
 use crate::core::store::data_output::DataOutput;
 use crate::core::store::directory::Directory;
@@ -53,7 +52,7 @@ fn test_simple() -> Result<()> {
     let input = dir.open_input("foo", &IOContext::default_io_context()?)?;
     let slice = input.random_access_slice(0, input.length())?;
     let reader =
-        DirectReader::get_instance_with_offset(Rc::new(RefCell::new(slice)), bits_per_value, 0);
+        DirectReader::get_instance_with_offset(Arc::new(Mutex::new(slice)), bits_per_value, 0);
     assert_eq!(1, reader.get_immutable(0)?);
     assert_eq!(0, reader.get_immutable(1)?);
     assert_eq!(2, reader.get_immutable(2)?);
@@ -152,7 +151,7 @@ fn do_test_bpv<R: Rng + ?Sized>(
         }
 
         let input = directory.open_input(&name, &IOContext::default_io_context()?)?;
-        let slice = Rc::new(RefCell::new(input.random_access_slice(0, input.length())?));
+        let slice = Arc::new(Mutex::new(input.random_access_slice(0, input.length())?));
         let reader = if merge {
             DirectReader::get_merge_instance_with_base_offset(
                 slice.clone(),

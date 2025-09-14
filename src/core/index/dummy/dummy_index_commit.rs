@@ -45,7 +45,7 @@ impl Ord for DummyIndexCommit {
 }
 
 impl Display for DummyIndexCommit {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

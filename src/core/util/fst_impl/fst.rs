@@ -1465,11 +1465,11 @@ pub(crate) fn read_end_arc<T: OutputsBound>(follow: &Arc<T>, arc: &mut Arc<T>) -
 
 #[cfg(test)]
 mod tests {
+    use rand::Rng;
     use std::cell::RefCell;
     use std::collections::HashSet;
     use std::rc::Rc;
-
-    use rand::Rng;
+    use std::sync::Arc;
 
     use crate::core::index::BytesRef;
     use crate::core::store::directory::Directory;
@@ -1530,7 +1530,7 @@ mod tests {
                     .enumerate()
                     .map(|(idx, term)| InputOutput {
                         input: term,
-                        output: Rc::new(idx as i64),
+                        output: Arc::new(idx as i64),
                     })
                     .collect::<Vec<_>>();
 
@@ -1554,7 +1554,7 @@ mod tests {
                         last_output += delta;
                         InputOutput {
                             input: term.clone(),
-                            output: Rc::new(last_output),
+                            output: Arc::new(last_output),
                         }
                     })
                     .collect::<Vec<_>>();
@@ -1575,7 +1575,7 @@ mod tests {
                     .iter()
                     .map(|term| InputOutput {
                         input: term.clone(),
-                        output: Rc::new(random.random_range(0..=i64::MAX)),
+                        output: Arc::new(random.random_range(0..=i64::MAX)),
                     })
                     .collect::<Vec<_>>();
 
@@ -1603,7 +1603,7 @@ mod tests {
                             no_output.clone()
                         } else {
                             let s = idx.to_string();
-                            let v: BytesRef<Rc<Vec<u8>>> =
+                            let v: BytesRef<Arc<Vec<u8>>> =
                                 new_bytes_ref_from_string(random, &s).unwrap();
                             v
                         };
@@ -1634,7 +1634,7 @@ mod tests {
                         let vec = s.chars().map(|ch| ch as i32).collect::<Vec<_>>();
                         InputOutput {
                             input: term.clone(),
-                            output: IntsRef::from_slice(Rc::new(vec), 0, s.len()),
+                            output: IntsRef::from_slice(Arc::new(vec), 0, s.len()),
                         }
                     })
                     .collect::<Vec<_>>();
@@ -1731,7 +1731,7 @@ mod tests {
                     .enumerate()
                     .map(|(idx, term)| InputOutput {
                         input: term.clone(),
-                        output: Rc::new(idx as i64),
+                        output: Arc::new(idx as i64),
                     })
                     .collect::<Vec<_>>();
 
@@ -1926,13 +1926,13 @@ mod tests {
 
         let mut v = IntsRefBuilder::new();
         Util::get_ints_ref(&a, &mut v);
-        fst_compiler.add(v.get(), Rc::new(17))?;
+        fst_compiler.add(v.get(), Arc::new(17))?;
         let mut v = IntsRefBuilder::new();
         Util::get_ints_ref(&b, &mut v);
-        fst_compiler.add(v.get(), Rc::new(42))?;
+        fst_compiler.add(v.get(), Arc::new(42))?;
         let mut v = IntsRefBuilder::new();
         Util::get_ints_ref(&c, &mut v);
-        fst_compiler.add(v.get(), Rc::new(13824324872317238))?;
+        fst_compiler.add(v.get(), Arc::new(13824324872317238))?;
 
         let fst_metadata = fst_compiler.compile()?;
         let fst_reader: DataOutputEnum<DummyDirectory> = fst_compiler.get_fst_reader()?;
@@ -2016,11 +2016,11 @@ mod tests {
         let key3: BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, "ax")?;
 
         Util::get_ints_ref(&key1, &mut scratch);
-        fst_compiler.add(scratch.get(), Rc::new(22))?;
+        fst_compiler.add(scratch.get(), Arc::new(22))?;
         Util::get_ints_ref(&key2, &mut scratch);
-        fst_compiler.add(scratch.get(), Rc::new(7))?;
+        fst_compiler.add(scratch.get(), Arc::new(7))?;
         Util::get_ints_ref(&key3, &mut scratch);
-        fst_compiler.add(scratch.get(), Rc::new(17))?;
+        fst_compiler.add(scratch.get(), Arc::new(17))?;
 
         // Compile and load once
         let metadata = fst_compiler.compile()?;
@@ -2087,7 +2087,7 @@ mod tests {
                 node: fst_compiler.add_node(0)?,
             };
 
-            root_node.arcs[0].next_final_output = Rc::new(17);
+            root_node.arcs[0].next_final_output = Arc::new(17);
             root_node.arcs[0].is_final = true;
             root_node.arcs[0].output = no_output.clone();
             root_node.arcs[0].target = NodeEnum::CompiledNode(fronze);
@@ -2104,7 +2104,7 @@ mod tests {
             };
 
             root_node.arcs[1].next_final_output = nothing.clone();
-            root_node.arcs[1].output = Rc::new(42);
+            root_node.arcs[1].output = Arc::new(42);
             root_node.arcs[1].target = NodeEnum::CompiledNode(fronze);
         }
         // index = 2;
@@ -2148,8 +2148,8 @@ mod tests {
         let nothing = outputs.get_no_output();
         let mut start_arc = crate::core::util::fst_impl::fst::Arc::default();
         fst.get_first_arc(&mut start_arc);
-        assert!(Rc::ptr_eq(&start_arc.output, &nothing));
-        assert!(Rc::ptr_eq(&start_arc.next_final_output, &nothing));
+        assert!(Arc::ptr_eq(&start_arc.output, &nothing));
+        assert!(Arc::ptr_eq(&start_arc.next_final_output, &nothing));
 
         let mut reader = fst.get_bytes_reader()?;
         let mut arc = crate::core::util::fst_impl::fst::Arc::default();
@@ -2200,7 +2200,7 @@ mod tests {
             input.set_int_at(0, arc);
             output.bytes[0] = arc as u8;
             let v =
-                BytesRef::from_slice(Rc::new(output.bytes.clone()), output.offset, output.length);
+                BytesRef::from_slice(Arc::new(output.bytes.clone()), output.offset, output.length);
             fst_compiler.add(input.get(), v)?;
         }
 
@@ -2239,13 +2239,13 @@ mod tests {
 
         let mut builder = IntsRefBuilder::new();
         Util::get_ints_ref(&ab, &mut builder);
-        fst_compiler.add(builder.get(), Rc::new(3))?;
+        fst_compiler.add(builder.get(), Arc::new(3))?;
 
         Util::get_ints_ref(&ac, &mut builder);
-        fst_compiler.add(builder.get(), Rc::new(5))?;
+        fst_compiler.add(builder.get(), Arc::new(5))?;
 
         Util::get_ints_ref(&bd, &mut builder);
-        fst_compiler.add(builder.get(), Rc::new(7))?;
+        fst_compiler.add(builder.get(), Arc::new(7))?;
 
         let metadata = fst_compiler.compile()?;
         let reader: DataOutputEnum<DummyDirectory> = fst_compiler.get_fst_reader()?;

@@ -29,7 +29,6 @@ use crate::core::store::directory::Directory;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
-use crate::core::util::supplier::Supplier;
 use parking_lot::{Condvar, Mutex};
 use std::collections::VecDeque;
 use std::fmt;

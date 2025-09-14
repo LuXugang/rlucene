@@ -33,6 +33,9 @@ pub struct DummyLiveIndexWriterConfig {
     codec: Lucene101Codec,
     analyzer: DummyAnalyzer,
     similarity: DummySimilarity,
+    open_mode: OpenMode,
+    policy: KeepOnlyLastCommitDeletionPolicy,
+    flush_policy: DummyFlushPolicy,
 }
 impl Default for DummyLiveIndexWriterConfig {
     fn default() -> Self {
@@ -47,12 +50,15 @@ impl DummyLiveIndexWriterConfig {
             codec: Lucene101Codec,
             analyzer: DummyAnalyzer,
             similarity: DummySimilarity,
+            open_mode: OpenMode::Create,
+            policy: KeepOnlyLastCommitDeletionPolicy,
+            flush_policy: DummyFlushPolicy,
         }
     }
 }
 
 impl Display for DummyLiveIndexWriterConfig {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
         unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }
@@ -105,54 +111,54 @@ impl LiveIndexWriterConfig for DummyLiveIndexWriterConfig {
     type FlushPolicy = DummyFlushPolicy;
 
     fn get_flush_policy(&self) -> &Self::FlushPolicy {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
+        &self.flush_policy
     }
 
     fn get_ram_buffer_size_mb(&self) -> f64 {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
+        1000f64
     }
 
     fn get_ram_per_thread_hard_limit_mb(&self) -> i32 {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
+        1000
     }
 
     fn get_max_buffered_docs(&self) -> i32 {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
+        1000
     }
 
     fn get_check_pending_flush_on_update(&self) -> bool {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
+        true
     }
 
     type IndexDeletionPolicy = KeepOnlyLastCommitDeletionPolicy;
 
     fn get_index_deletion_policy(&self) -> &Self::IndexDeletionPolicy {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
+        &self.policy
     }
 
     fn get_max_full_flush_merge_wait_millis(&self) -> i64 {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
+        0
     }
 
     fn get_commit_on_close(&self) -> bool {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
+        false
     }
 
     fn get_open_mode(&self) -> &OpenMode {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
+        &self.open_mode
     }
 
     type IndexCommit = DummyIndexCommit;
 
     fn get_index_commit(&mut self) -> Option<Self::IndexCommit> {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
+        None
     }
 
     fn get_index_created_version_major(&self) -> i32 {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
+        10
     }
 
     fn get_reader_pooling(&self) -> bool {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
+        false
     }
 }

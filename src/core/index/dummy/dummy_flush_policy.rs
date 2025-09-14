@@ -30,6 +30,5 @@ impl FlushPolicy for DummyFlushPolicy {
         D: Directory,
         L: LiveIndexWriterConfig,
     {
-        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

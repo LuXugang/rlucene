@@ -143,7 +143,7 @@ where
             let reader = commit.as_ref().map(|c| c.get_reader());
             let mut change_count = 0;
             // TODO: IMPORTANT 这里的SegmentInfos 这里不需要初始哈
-            let mut segment_infos = SegmentInfos::new(1)?;
+            let mut segment_infos = SegmentInfos::new(conf.get_index_created_version_major())?;
             let is_reader_some = reader.is_some();
             let did_message_state = false;
             let rollback_segments = Vec::new();

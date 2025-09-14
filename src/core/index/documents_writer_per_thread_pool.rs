@@ -272,30 +272,20 @@ mod tests {
 
     use crate::core::index::approximate_priority_queue::IdentityId;
     use crate::core::index::documents_writer_delete_queue::DocumentsWriterDeleteQueue;
-    use crate::core::index::documents_writer_per_thread::DocumentsWriterPerThread;
+
     use crate::core::index::documents_writer_per_thread_pool::DocumentsWriterPerThreadPool;
     use crate::core::index::dummy::dummy_live_index_writer_config::DummyLiveIndexWriterConfig;
-    use crate::core::index::field_infos::FieldNumbers;
-    use crate::core::index::field_infos::build::Builder;
 
     use crate::core::index::lockable_concurrent_approximate_priority_queue::Lock;
 
     use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
-    use crate::core::store::directory::Directory;
-    use crate::core::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
-    use crate::core::store::nio_fs_directory::NIOFSDirectory;
-    use crate::core::store::{FSDirectory, NativeFSLockFactory};
-    use crate::core::util::LATEST;
+
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::core::util::info_stream::{InfoStreamEnum, NoOutput};
-    use crate::core::util::supplier::Supplier;
-    use crate::test::util::lucene_test_case::lucene_test_case_util::{
-        new_directory, random, random_from_seed,
-    };
-    use parking_lot::Mutex;
-    use rand::Rng;
+
+    use crate::test::util::lucene_test_case::lucene_test_case_util::{new_directory, random};
+
     use std::sync::Arc;
-    use std::sync::atomic::AtomicI64;
 
     #[allow(dead_code)] // for quick search
     struct TestDocumentsWriterPerThreadPool;
@@ -307,11 +297,6 @@ mod tests {
     fn test_lock_release_and_close() -> Result<()> {
         let mut random = random();
         let directory_orig = Arc::new(new_directory(&mut random)?);
-        let lock = directory_orig.obtain_lock("test")?;
-        let directory = Arc::new(LockValidatingDirectoryWrapper::new(
-            directory_orig.clone(),
-            lock,
-        ));
         // TODO: LuceneTestCase::newIndexWriterConfig 为实现
         let dummy_config = DummyLiveIndexWriterConfig::new();
         let iw = IndexWriter::new(directory_orig, dummy_config, Some(IndexWriterBaseImpl))?;
@@ -363,11 +348,6 @@ mod tests {
 
         let mut random = random();
         let directory_orig = Arc::new(new_directory(&mut random)?);
-        let lock = directory_orig.obtain_lock("test")?;
-        let directory = Arc::new(LockValidatingDirectoryWrapper::new(
-            directory_orig.clone(),
-            lock,
-        ));
         // TODO: LuceneTestCase::newIndexWriterConfig 为实现
         let dummy_config = DummyLiveIndexWriterConfig::new();
         let iw = IndexWriter::new(directory_orig, dummy_config, Some(IndexWriterBaseImpl))?;

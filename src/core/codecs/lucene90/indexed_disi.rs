@@ -1074,7 +1074,7 @@ mod tests {
     use crate::test::util::test_util::TestUtil;
     use parking_lot::Mutex;
     use rand::Rng;
-    use std::cell::RefCell;
+
     use std::rc::Rc;
     use std::sync::Arc;
 

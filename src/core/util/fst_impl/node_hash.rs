@@ -702,9 +702,8 @@ where
 #[cfg(test)]
 mod tests {
 
-    use std::rc::Rc;
-
     use rand::Rng;
+    use std::sync::Arc;
 
     use crate::core::util::error::lucene_error::Result;
     use crate::test::util::lucene_test_case::lucene_test_case_util::{at_least, random};
@@ -717,7 +716,7 @@ mod tests {
     fn test_copy_fallback_node_bytes() -> Result<()> {
         let mut random = random();
         // Create primary and fallback hash tables
-        let mut primary_hash_table: PagedGrowableHash<Rc<i64>> = PagedGrowableHash::new()?;
+        let mut primary_hash_table: PagedGrowableHash<Arc<i64>> = PagedGrowableHash::new()?;
         let mut fallback_hash_table = PagedGrowableHash::new()?;
 
         let node_length = at_least(&mut random, 500);
