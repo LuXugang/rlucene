@@ -42,9 +42,9 @@ where
     L: LiveIndexWriterConfig,
 {
     flush_deletes: AtomicBool,
-    info_stream: InfoStreamMT,
+    pub(crate) info_stream: InfoStreamMT,
     pub(crate) inner: Mutex<Inner<D>>,
-    config: Arc<L>,
+    pub(crate) config: Arc<L>,
     stall_control: DocumentsWriterStallControl,
     pausing: Condvar,
 }
@@ -251,6 +251,7 @@ where
         mut per_thread: DocumentsWriterPerThread<D>,
         flush_policy: &FP,
         per_thread_pool: &DocumentsWriterPerThreadPool<D>,
+        delete_queue: &DocumentsWriterDeleteQueue,
     ) -> Result<EitherDWPT<D>>
     where
         FP: FlushPolicy,
@@ -283,7 +284,7 @@ where
             } else {
                 inner.active_bytes += delta;
                 self.update_peaks(delta, &mut inner);
-                flush_policy.on_change(self, Some(&per_thread));
+                flush_policy.on_change(self, Some(&per_thread), delete_queue)?;
                 if !per_thread.is_flush_pending()
                     && per_thread.ram_bytes_used()? > inner.hard_max_bytes_per_dwpt
                 {
@@ -537,13 +538,18 @@ where
         inner.closed = true;
     }
 
-    pub(crate) fn do_on_delete<FP>(&self, flush_policy: &FP)
+    pub(crate) fn do_on_delete<FP>(
+        &self,
+        flush_policy: &FP,
+        delete_queue: &DocumentsWriterDeleteQueue,
+    ) -> Result<()>
     where
         FP: FlushPolicy,
     {
         let _guard = self.inner.lock();
-        flush_policy.on_change(self, None);
-        drop(_guard)
+        flush_policy.on_change(self, None, delete_queue)?;
+        drop(_guard);
+        Ok(())
     }
 
     /// Returns heap bytes currently consumed by buffered deletes/updates that would be freed if we pushed all deletes.

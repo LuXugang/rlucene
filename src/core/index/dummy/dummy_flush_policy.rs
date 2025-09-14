@@ -14,11 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::documents_writer_delete_queue::DocumentsWriterDeleteQueue;
 use crate::core::index::documents_writer_flush_control::DocumentsWriterFlushControl;
 use crate::core::index::documents_writer_per_thread::DocumentsWriterPerThread;
 use crate::core::index::flush_policy::FlushPolicy;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::store::directory::Directory;
+use crate::core::util::error::lucene_error::Result;
 
 pub struct DummyFlushPolicy;
 impl FlushPolicy for DummyFlushPolicy {
@@ -26,9 +28,12 @@ impl FlushPolicy for DummyFlushPolicy {
         &self,
         _control: &DocumentsWriterFlushControl<D, L>,
         _per_thread: Option<&DocumentsWriterPerThread<D>>,
-    ) where
+        _delete_queue: &DocumentsWriterDeleteQueue,
+    ) -> Result<()>
+    where
         D: Directory,
         L: LiveIndexWriterConfig,
     {
+        Ok(())
     }
 }

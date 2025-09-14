@@ -173,7 +173,7 @@ where
         let inner = self.inner.lock();
         let mut seq_no = func(&inner.delete_queue)?;
         self.flush_control
-            .do_on_delete(self.config.get_flush_policy());
+            .do_on_delete(self.config.get_flush_policy(), inner.delete_queue.as_ref())?;
         if self.apply_all_deletes(Some(&inner))? {
             seq_no = -seq_no;
         }
@@ -410,6 +410,7 @@ where
                     dwpt,
                     self.config.get_flush_policy(),
                     &self.per_thread_pool,
+                    self.inner.lock().delete_queue.as_ref(),
                 )?;
                 debug_assert!(!(new_dwpt.is_some() && old_dwpt.is_some()));
                 flushing_dwpt_opt = new_dwpt;
