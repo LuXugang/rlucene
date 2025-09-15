@@ -346,7 +346,7 @@ mod tests {
 
     use crate::core::index::lockable_concurrent_approximate_priority_queue::Lock;
 
-    use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
+    use crate::core::index::index_writer::IndexWriter;
 
     use crate::core::util::error::lucene_error::{LuceneError, Result};
     use crate::core::util::info_stream::{InfoStreamEnum, NoOutput};
@@ -358,16 +358,13 @@ mod tests {
     #[allow(dead_code)] // for quick search
     struct TestDocumentsWriterPerThreadPool;
 
-    struct IndexWriterBaseImpl;
-    impl IndexWriterBase for IndexWriterBaseImpl {}
-
     #[test]
     fn test_lock_release_and_close() -> Result<()> {
         let mut random = random();
         let directory_orig = Arc::new(new_directory(&mut random)?);
         // TODO: LuceneTestCase::newIndexWriterConfig 为实现
         let dummy_config = DummyLiveIndexWriterConfig::new();
-        let iw = IndexWriter::new(directory_orig, dummy_config, Some(IndexWriterBaseImpl))?;
+        let iw = IndexWriter::new(directory_orig, dummy_config)?;
         let queue = Arc::new(DocumentsWriterDeleteQueue::new(Arc::new(
             InfoStreamEnum::NoOutput(NoOutput),
         )));
@@ -418,7 +415,7 @@ mod tests {
         let directory_orig = Arc::new(new_directory(&mut random)?);
         // TODO: LuceneTestCase::newIndexWriterConfig 为实现
         let dummy_config = DummyLiveIndexWriterConfig::new();
-        let iw = IndexWriter::new(directory_orig, dummy_config, Some(IndexWriterBaseImpl))?;
+        let iw = IndexWriter::new(directory_orig, dummy_config)?;
         let queue = Arc::new(DocumentsWriterDeleteQueue::new(Arc::new(
             InfoStreamEnum::NoOutput(NoOutput),
         )));

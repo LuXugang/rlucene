@@ -51,6 +51,8 @@ pub mod lucene_test_case_util {
     use crate::core::document::text_field::text;
     use crate::core::index::BytesRef;
     use crate::core::index::index_options::IndexOptions;
+
+    use crate::core::index::index_writer_config::IndexWriterConfig;
     use crate::core::index::indexable_field_type::IndexableFieldType;
     use crate::core::store::directory::Directory;
     use crate::core::store::flush_info::FlushInfo;
@@ -101,6 +103,11 @@ pub mod lucene_test_case_util {
         random.random_range(0..100) >= min
     }
 
+    pub(crate) fn new_index_writer_config<R: Rng + ?Sized>(_random: &mut R) -> IndexWriterConfig {
+        // TODO: 这里简单返回IndexWriterConfig::default()，后续可以根据random随机生成不同的配置
+        IndexWriterConfig::new()
+    }
+
     // TODO: When we have implemented multiple directories, we need to select one
     // randomly. Currently, we choose NIOFSDirectory.
     pub(crate) fn new_directory<R: Rng + ?Sized>(
@@ -121,7 +128,7 @@ pub mod lucene_test_case_util {
             Store::No => string::TYPE_NOT_STORED.clone(),
         };
 
-        new_field(
+        new_field_with_random(
             &mut rng,
             name.into(),
             FieldDataEnum::String(value.into()),
@@ -143,7 +150,7 @@ pub mod lucene_test_case_util {
             Store::No => string::TYPE_NOT_STORED.clone(),
         };
 
-        new_field(
+        new_field_with_random(
             &mut rng,
             name.into(),
             FieldDataEnum::Binary(value),
@@ -161,7 +168,7 @@ pub mod lucene_test_case_util {
             Store::No => text::TYPE_NOT_STORED.clone(),
         };
 
-        new_field(
+        new_field_with_random(
             &mut random,
             name,
             FieldDataEnum::String(value.into()),
@@ -183,7 +190,7 @@ pub mod lucene_test_case_util {
             Store::No => string::TYPE_NOT_STORED.clone(),
         };
 
-        new_field(
+        new_field_with_random(
             random,
             name,
             FieldDataEnum::String(value.into()),
@@ -203,7 +210,7 @@ pub mod lucene_test_case_util {
             Store::Yes => string::TYPE_STORED.clone(),
             Store::No => string::TYPE_NOT_STORED.clone(),
         };
-        new_field(random, name, FieldDataEnum::Binary(value), &field_type)
+        new_field_with_random(random, name, FieldDataEnum::Binary(value), &field_type)
     }
 
     pub(crate) fn new_text_field_with_random<S1, S2, R: Rng + ?Sized>(
@@ -220,15 +227,14 @@ pub mod lucene_test_case_util {
             Store::Yes => text::TYPE_STORED.clone(),
             Store::No => text::TYPE_NOT_STORED.clone(),
         };
-        new_field(
+        new_field_with_random(
             random,
             name,
             FieldDataEnum::String(value.into()),
             &field_type,
         )
     }
-    pub(crate) fn new_field_with_random<S, R: Rng + ?Sized>(
-        random: &mut R,
+    pub(crate) fn new_field<S>(
         name: S,
         value: FieldDataEnum,
         field_type: &FieldType,
@@ -236,14 +242,15 @@ pub mod lucene_test_case_util {
     where
         S: Into<String>,
     {
-        new_field(random, name, value, field_type)
+        let mut random = random();
+        new_field_with_random(&mut random, name, value, field_type)
     }
     // TODO: if we can pull out the "make term vector options
     // consistent across all instances of the same field name"
     // write-once schema sort of helper class then we can
     // remove the sync here.  We can also fold the random
     // "enable norms" (now commented out, below) into that:
-    pub(crate) fn new_field<S, R: Rng + ?Sized>(
+    pub(crate) fn new_field_with_random<S, R: Rng + ?Sized>(
         random: &mut R,
         name: S,
         value: FieldDataEnum,

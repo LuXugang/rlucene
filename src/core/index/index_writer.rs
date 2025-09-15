@@ -117,6 +117,15 @@ where
         }
     }
 }
+impl<D, L> IndexWriter<D, L, EmptyIndexWriterBase>
+where
+    D: Directory,
+    L: LiveIndexWriterConfig,
+{
+    pub fn new(d: Arc<D>, conf: L) -> Result<Self> {
+        Self::new_with_sub(d, conf, Some(EmptyIndexWriterBase))
+    }
+}
 
 impl<D, L, B> IndexWriter<D, L, B>
 where
@@ -124,7 +133,7 @@ where
     L: LiveIndexWriterConfig,
     B: IndexWriterBase,
 {
-    pub fn new(d: Arc<D>, mut conf: L, sub: Option<B>) -> Result<Self> {
+    pub fn new_with_sub(d: Arc<D>, mut conf: L, sub: Option<B>) -> Result<Self> {
         let enable_test_points = sub.as_ref().unwrap().is_enable_test_points();
         let info_stream = conf.get_info_stream();
         let soft_deletes_enabled = conf.get_soft_deletes_field().is_some();
@@ -2515,6 +2524,9 @@ pub trait IndexWriterBase {
         false
     }
 }
+#[derive(Default)]
+pub struct EmptyIndexWriterBase;
+impl IndexWriterBase for EmptyIndexWriterBase {}
 pub(crate) type TragicException = Arc<Mutex<Option<LuceneError>>>;
 
 #[derive(Default)]
