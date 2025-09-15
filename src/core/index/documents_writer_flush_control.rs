@@ -527,8 +527,8 @@ where
         if num_pending > 0 && !full_flush {
             let dwpts = self.per_thread_pool.iterator(None);
             for (id, next) in &dwpts {
-                if next.state.is_flush_pending() && next.state.try_lock() {
-                    let result: Result<_> = (|| {
+                if next.state.is_flush_pending() && next.try_lock() {
+                    let result = (|| {
                         if self.per_thread_pool.is_registered(id) {
                             let mut inner = self.inner.lock();
                             return Ok(Some(
@@ -539,7 +539,7 @@ where
                         }
                     })();
                     next.unlock();
-                    result?;
+                    return result;
                 }
             }
         }
