@@ -14,18 +14,153 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::analysis::analyzer::Analyzer;
+use crate::analysis::common::analysis_impl::core::whitespace_analyzer::WhitespaceAnalyzer;
+use crate::core::codecs::lucene101_codec::Lucene101Codec;
+use crate::core::index::dummy::dummy_index_commit::DummyIndexCommit;
+use crate::core::index::dummy::dummy_merge_policy::DummyMergePolicy;
+use crate::core::index::flush_by_ram_or_counts_policy::FlushByRamOrCountsPolicy;
+use crate::core::index::keep_only_last_commit_deletion_policy::KeepOnlyLastCommitDeletionPolicy;
+use crate::core::index::live_index_writer_config::{
+    LiveIndexWriterConfig, LiveIndexWriterConfigBase,
+};
+use crate::core::index::sort::Sort;
+use crate::core::search::dummy::dummy_similarity::DummySimilarity;
+use crate::core::util::info_stream::InfoStreamMT;
+use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
-pub struct IndexWriterConfig<A> {
-    analyzer: Arc<A>,
+pub struct IndexWriterConfig {
+    base: LiveIndexWriterConfigBase,
 }
-impl<A> IndexWriterConfig<A>
-where
-    A: Analyzer,
-{
-    pub fn new(analyzer: Arc<A>) -> Self {
-        Self { analyzer }
+impl Default for IndexWriterConfig {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl IndexWriterConfig {
+    pub fn new() -> Self {
+        Self {
+            base: LiveIndexWriterConfigBase::new(),
+        }
+    }
+}
+
+impl Display for IndexWriterConfig {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", std::any::type_name::<Self>())
+    }
+}
+
+impl LiveIndexWriterConfig for IndexWriterConfig {
+    type Analyzer = WhitespaceAnalyzer;
+
+    fn get_analyzer(&self) -> &Self::Analyzer {
+        self.base.analyzer.as_ref()
+    }
+
+    type Similarity = DummySimilarity;
+
+    fn get_similarity(&self) -> &Self::Similarity {
+        self.base.similarity.as_ref()
+    }
+
+    type Codec = Lucene101Codec;
+
+    fn get_codec(&self) -> &Self::Codec {
+        &self.base.codec
+    }
+
+    fn get_index_sort(&self) -> Option<Arc<Sort>> {
+        self.base.sort.clone()
+    }
+
+    fn get_use_compound_file(&self) -> bool {
+        self.base.use_compound_file
+    }
+
+    fn get_soft_deletes_field(&self) -> Option<&String> {
+        self.base.parent_field.as_ref()
+    }
+
+    fn get_info_stream(&self) -> InfoStreamMT {
+        self.base.info_stream.clone()
+    }
+
+    fn get_parent_field(&self) -> Option<&String> {
+        self.base.parent_field.as_ref()
+    }
+
+    type MergePolicy = DummyMergePolicy;
+
+    fn get_merge_policy(&self) -> &Self::MergePolicy {
+        &self.base.merge_policy
+    }
+
+    type FlushPolicy = FlushByRamOrCountsPolicy;
+
+    fn get_flush_policy(&self) -> &Self::FlushPolicy {
+        &self.base.flush_policy
+    }
+
+    fn get_ram_buffer_size_mb(&self) -> f64 {
+        self.base.ram_buffer_size_mb
+    }
+
+    fn get_ram_per_thread_hard_limit_mb(&self) -> i32 {
+        self.base.per_thread_hard_limit_mb
+    }
+
+    fn get_max_buffered_docs(&self) -> i32 {
+        self.base.max_buffered_docs
+    }
+
+    fn get_check_pending_flush_on_update(&self) -> bool {
+        self.base.check_pending_flush_on_update
+    }
+
+    type IndexDeletionPolicy = KeepOnlyLastCommitDeletionPolicy;
+
+    fn get_index_deletion_policy(&self) -> &Self::IndexDeletionPolicy {
+        &self.base.index_deletion_policy
+    }
+
+    fn get_max_full_flush_merge_wait_millis(&self) -> i64 {
+        self.base.max_full_flush_merge_wait_millis
+    }
+
+    fn set_max_full_flush_merge_wait_millis(
+        &mut self,
+        max_full_flush_merge_wait_millis: i64,
+    ) -> &mut Self {
+        self.base.max_full_flush_merge_wait_millis = max_full_flush_merge_wait_millis;
+        self
+    }
+
+    fn get_commit_on_close(&self) -> bool {
+        self.base.commit_on_close
+    }
+
+    fn get_open_mode(&self) -> &OpenMode {
+        &self.base.open_mode
+    }
+
+    type IndexCommit = DummyIndexCommit;
+
+    fn get_index_commit(&mut self) -> Option<Self::IndexCommit> {
+        self.base.index_commit.take()
+    }
+
+    fn get_index_created_version_major(&self) -> i32 {
+        self.base.created_version_major
+    }
+
+    fn get_reader_pooling(&self) -> bool {
+        self.base.reader_pooling
+    }
+
+    fn get_base(&mut self) -> &mut LiveIndexWriterConfigBase {
+        todo!()
     }
 }
 

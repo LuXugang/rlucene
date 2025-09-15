@@ -21,7 +21,9 @@ use crate::core::index::dummy::dummy_index_commit::DummyIndexCommit;
 use crate::core::index::dummy::dummy_merge_policy::DummyMergePolicy;
 use crate::core::index::index_writer_config::OpenMode;
 use crate::core::index::keep_only_last_commit_deletion_policy::KeepOnlyLastCommitDeletionPolicy;
-use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+use crate::core::index::live_index_writer_config::{
+    LiveIndexWriterConfig, LiveIndexWriterConfigBase,
+};
 use crate::core::index::sort::Sort;
 use crate::core::search::dummy::dummy_similarity::DummySimilarity;
 use crate::core::util::info_stream::{InfoStreamEnum, InfoStreamMT, NoOutput};
@@ -90,7 +92,7 @@ impl LiveIndexWriterConfig for DummyLiveIndexWriterConfig {
         false
     }
 
-    fn get_soft_deletes_field(&self) -> Option<&str> {
+    fn get_soft_deletes_field(&self) -> Option<&String> {
         None
     }
 
@@ -98,7 +100,7 @@ impl LiveIndexWriterConfig for DummyLiveIndexWriterConfig {
         self.info_stream.clone()
     }
 
-    fn get_parent_field(&self) -> Option<&str> {
+    fn get_parent_field(&self) -> Option<&String> {
         None
     }
 
@@ -140,6 +142,13 @@ impl LiveIndexWriterConfig for DummyLiveIndexWriterConfig {
         0
     }
 
+    fn set_max_full_flush_merge_wait_millis(
+        &mut self,
+        max_full_flush_merge_wait_millis: i64,
+    ) -> &mut Self {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
+    }
+
     fn get_commit_on_close(&self) -> bool {
         false
     }
@@ -160,5 +169,9 @@ impl LiveIndexWriterConfig for DummyLiveIndexWriterConfig {
 
     fn get_reader_pooling(&self) -> bool {
         false
+    }
+
+    fn get_base(&mut self) -> &mut LiveIndexWriterConfigBase {
+        unreachable!("Dummy implementation: this method should never be called in real usage")
     }
 }

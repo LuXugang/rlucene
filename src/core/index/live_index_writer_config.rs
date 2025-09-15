@@ -14,16 +14,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::analysis::common::analysis_impl::core::whitespace_analyzer::WhitespaceAnalyzer;
 use crate::core::analysis::analyzer::Analyzer;
 use crate::core::codecs::Codec;
+use crate::core::codecs::lucene101_codec::Lucene101Codec;
+use crate::core::index::dummy::dummy_index_commit::DummyIndexCommit;
+use crate::core::index::dummy::dummy_merge_policy::DummyMergePolicy;
+use crate::core::index::flush_by_ram_or_counts_policy::FlushByRamOrCountsPolicy;
 use crate::core::index::flush_policy::FlushPolicy;
 use crate::core::index::index_commit::IndexCommit;
 use crate::core::index::index_deletion_policy::IndexDeletionPolicy;
-use crate::core::index::index_writer_config::OpenMode;
+use crate::core::index::index_writer_config::{
+    DEFAULT_COMMIT_ON_CLOSE, DEFAULT_MAX_BUFFERED_DOCS, DEFAULT_MAX_FULL_FLUSH_MERGE_WAIT_MILLIS,
+    DEFAULT_RAM_BUFFER_SIZE_MB, DEFAULT_RAM_PER_THREAD_HARD_LIMIT_MB, DEFAULT_READER_POOLING,
+    DEFAULT_USE_COMPOUND_FILE_SYSTEM, OpenMode,
+};
+use crate::core::index::keep_only_last_commit_deletion_policy::KeepOnlyLastCommitDeletionPolicy;
 use crate::core::index::merge_policy::MergePolicy;
 use crate::core::index::sort::Sort;
+use crate::core::search::dummy::dummy_similarity::DummySimilarity;
 use crate::core::search::similarities_impl::similarities::Similarity;
-use crate::core::util::info_stream::InfoStreamMT;
+use crate::core::util::LATEST;
+use crate::core::util::info_stream::{InfoStreamEnum, InfoStreamMT, NoOutput};
 use std::fmt::Display;
 use std::sync::Arc;
 
@@ -41,11 +53,11 @@ pub trait LiveIndexWriterConfig: Display {
 
     fn get_use_compound_file(&self) -> bool;
 
-    fn get_soft_deletes_field(&self) -> Option<&str>;
+    fn get_soft_deletes_field(&self) -> Option<&String>;
 
     fn get_info_stream(&self) -> InfoStreamMT;
 
-    fn get_parent_field(&self) -> Option<&str>;
+    fn get_parent_field(&self) -> Option<&String>;
 
     type MergePolicy: MergePolicy;
     fn get_merge_policy(&self) -> &Self::MergePolicy;
@@ -66,6 +78,11 @@ pub trait LiveIndexWriterConfig: Display {
 
     fn get_max_full_flush_merge_wait_millis(&self) -> i64;
 
+    fn set_max_full_flush_merge_wait_millis(
+        &mut self,
+        max_full_flush_merge_wait_millis: i64,
+    ) -> &mut Self;
+
     fn get_commit_on_close(&self) -> bool;
 
     fn get_open_mode(&self) -> &OpenMode;
@@ -76,4 +93,60 @@ pub trait LiveIndexWriterConfig: Display {
     fn get_index_created_version_major(&self) -> i32;
 
     fn get_reader_pooling(&self) -> bool;
+    fn get_base(&mut self) -> &mut LiveIndexWriterConfigBase;
+}
+
+pub struct LiveIndexWriterConfigBase {
+    pub analyzer: Arc<WhitespaceAnalyzer>,
+    pub ram_buffer_size_mb: f64,
+    pub max_buffered_docs: i32,
+    pub index_deletion_policy: KeepOnlyLastCommitDeletionPolicy,
+    pub index_commit: Option<DummyIndexCommit>,
+    pub use_compound_file: bool,
+    pub open_mode: OpenMode,
+    pub similarity: Arc<DummySimilarity>,
+    pub codec: Lucene101Codec,
+    pub info_stream: InfoStreamMT,
+    pub merge_policy: Arc<DummyMergePolicy>,
+    pub flush_policy: Arc<FlushByRamOrCountsPolicy>,
+    pub reader_pooling: bool,
+    pub per_thread_hard_limit_mb: i32,
+    pub created_version_major: i32,
+    pub max_full_flush_merge_wait_millis: i64,
+    pub commit_on_close: bool,
+    pub check_pending_flush_on_update: bool,
+    pub parent_field: Option<String>,
+    pub sort: Option<Arc<Sort>>,
+}
+impl Default for LiveIndexWriterConfigBase {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl LiveIndexWriterConfigBase {
+    pub fn new() -> Self {
+        Self {
+            analyzer: Arc::new(WhitespaceAnalyzer::new()),
+            ram_buffer_size_mb: DEFAULT_RAM_BUFFER_SIZE_MB,
+            max_buffered_docs: DEFAULT_MAX_BUFFERED_DOCS,
+            index_deletion_policy: KeepOnlyLastCommitDeletionPolicy,
+            index_commit: None,
+            use_compound_file: DEFAULT_USE_COMPOUND_FILE_SYSTEM,
+            open_mode: OpenMode::CreateOrAppend,
+            similarity: Arc::new(DummySimilarity),
+            codec: Lucene101Codec,
+            info_stream: Arc::new(InfoStreamEnum::NoOutput(NoOutput)),
+            merge_policy: Arc::new(DummyMergePolicy),
+            flush_policy: Arc::new(FlushByRamOrCountsPolicy::new()),
+            reader_pooling: DEFAULT_READER_POOLING,
+            per_thread_hard_limit_mb: DEFAULT_RAM_PER_THREAD_HARD_LIMIT_MB,
+            created_version_major: LATEST.major,
+            max_full_flush_merge_wait_millis: DEFAULT_MAX_FULL_FLUSH_MERGE_WAIT_MILLIS,
+            commit_on_close: DEFAULT_COMMIT_ON_CLOSE,
+            check_pending_flush_on_update: true,
+            parent_field: None,
+            sort: None,
+        }
+    }
 }

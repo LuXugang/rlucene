@@ -35,6 +35,17 @@ use parking_lot::MutexGuard;
 /// [`DocumentsWriterPerThread`] will be marked as pending **iff** the global active RAM consumption
 /// is `>=` the configured max RAM buffer.
 pub struct FlushByRamOrCountsPolicy;
+impl Default for FlushByRamOrCountsPolicy {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl FlushByRamOrCountsPolicy {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
 
 impl FlushByRamOrCountsPolicy {
     fn flush_deletes<D, L>(
