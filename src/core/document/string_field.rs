@@ -23,39 +23,44 @@ use crate::core::analysis::token_stream::{Either2TokenStream, InnerTokenStreams}
 use crate::core::document::field::{Field, FieldBase, FieldDataEnum, Store};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::invertable_field::InvertableType;
+use crate::core::document::text_field::text::{TYPE_NOT_STORED, TYPE_STORED};
 use crate::core::index::BytesRef;
-use crate::core::index::index_options::IndexOptions;
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::number::Number;
-use once_cell::sync::Lazy;
 
-/// Indexed, not tokenized, omits norms, indexes DOCS_ONLY, not stored.
-static TYPE_NOT_STORED: Lazy<FieldType> = Lazy::new(|| {
-    let mut ft = FieldType::new();
-    ft.set_omit_norms(true)
-        .expect("set_omit_norms(true) should never fail in this context");
-    ft.set_index_options(IndexOptions::Docs)
-        .expect("set_index_options should never fail in this context");
-    ft.set_tokenized(false)
-        .expect("set_tokenized(false) should never fail in this context");
-    ft.freeze();
-    ft
-});
-/// Indexed, not tokenized, omits norms, indexes DOCS_ONLY, stored.
-static TYPE_STORED: Lazy<FieldType> = Lazy::new(|| {
-    let mut ft = FieldType::new();
-    ft.set_omit_norms(true)
-        .expect("set_omit_norms(true) should never fail in this context");
-    ft.set_index_options(IndexOptions::Docs)
-        .expect("set_index_options should never fail in this context");
-    ft.set_stored(true)
-        .expect("set_stored(true) should never fail in this context");
-    ft.set_tokenized(false)
-        .expect("set_tokenized(false) should never fail in this context");
-    ft.freeze();
-    ft
-});
+pub mod string {
+    use crate::core::document::field_type::FieldType;
+    use crate::core::index::index_options::IndexOptions;
+    use once_cell::sync::Lazy;
+
+    /// Indexed, not tokenized, omits norms, indexes DOCS_ONLY, not stored.
+    pub(crate) static TYPE_NOT_STORED: Lazy<FieldType> = Lazy::new(|| {
+        let mut ft = FieldType::new();
+        ft.set_omit_norms(true)
+            .expect("set_omit_norms(true) should never fail in this context");
+        ft.set_index_options(IndexOptions::Docs)
+            .expect("set_index_options should never fail in this context");
+        ft.set_tokenized(false)
+            .expect("set_tokenized(false) should never fail in this context");
+        ft.freeze();
+        ft
+    });
+    /// Indexed, not tokenized, omits norms, indexes DOCS_ONLY, stored.
+    pub(crate) static TYPE_STORED: Lazy<FieldType> = Lazy::new(|| {
+        let mut ft = FieldType::new();
+        ft.set_omit_norms(true)
+            .expect("set_omit_norms(true) should never fail in this context");
+        ft.set_index_options(IndexOptions::Docs)
+            .expect("set_index_options should never fail in this context");
+        ft.set_stored(true)
+            .expect("set_stored(true) should never fail in this context");
+        ft.set_tokenized(false)
+            .expect("set_tokenized(false) should never fail in this context");
+        ft.freeze();
+        ft
+    });
+}
 /// A field that is indexed but not tokenized: the entire string value is
 /// indexed as a single token. For example, this might be used for a `country`
 /// field or an `id` field. If sorting on this field is required, add a
