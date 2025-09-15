@@ -2362,6 +2362,32 @@ where
         };
         Ok(result)
     }
+    /// Returns accurate [`DocStats`] for this writer.
+    /// The `num_docs` for instance can change after `max_doc` is fetched
+    /// that causes `num_docs` to be greater than `max_doc` which makes it
+    /// hard to get accurate document stats from `IndexWriter`.
+    pub fn get_doc_stats(&self) -> Result<DocStats> {
+        let inner = self.inner.lock();
+        self.ensure_open()?;
+
+        let mut num_docs = self.doc_writer.get_num_docs();
+        let mut max_doc = num_docs;
+
+        for info in inner.segment_infos.iter() {
+            let seg_max_doc = info.info.max_doc()?;
+            max_doc += seg_max_doc;
+            num_docs += seg_max_doc - self.num_deleted_docs(info)?;
+        }
+
+        debug_assert!(
+            max_doc >= num_docs,
+            "max_doc is less than num_docs: {} < {}",
+            max_doc,
+            num_docs
+        );
+
+        Ok(DocStats::new(max_doc, num_docs))
+    }
     /// Opens SegmentReader and inits SegmentState for each segment.
     pub(crate) fn open_segment_states(
         &self,
@@ -2436,6 +2462,28 @@ enum InfoFrom {
     Updates,
     All,
 }
+
+/// DocStats for this index
+#[derive(Debug, Clone, Copy)]
+pub struct DocStats {
+    /// The total number of docs in this index, counting docs not yet flushed
+    /// (still in the RAM buffer), and also counting deleted docs.
+    ///
+    /// **NOTE:** buffered deletions are not counted.
+    /// If you really need these to be counted you should call [`IndexWriter::commit`] first.
+    pub max_doc: i32,
+
+    /// The total number of docs in this index, counting docs not yet flushed
+    /// (still in the RAM buffer), but not counting deleted docs.
+    pub num_docs: i32,
+}
+
+impl DocStats {
+    pub fn new(max_doc: i32, num_docs: i32) -> Self {
+        Self { max_doc, num_docs }
+    }
+}
+
 pub trait IndexWriterBase {
     /// A hook for extending classes to execute operations after pending added and deleted documents have been flushed to the Directory
     /// but before the change is committed (new segments_N file written).
