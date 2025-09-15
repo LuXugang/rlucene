@@ -26,7 +26,7 @@ use crate::core::index::flush_policy::FlushPolicy;
 use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
 use crate::core::index::index_writer_config::DISABLE_AUTO_FLUSH;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
-use crate::core::index::lockable_concurrent_approximate_priority_queue::{FlushState, Lock};
+use crate::core::index::lockable_concurrent_approximate_priority_queue::Lock;
 use crate::core::store::directory::Directory;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -354,7 +354,6 @@ where
         let mut inner = self.inner.lock();
         debug_assert!(inner.flushing_writers.contains(&dwpt));
         {
-            let id = dwpt.id().to_string();
             if let Some(pos) = inner
                 .flushing_writers
                 .iter()
@@ -509,8 +508,8 @@ where
         &self,
         inner: Option<&mut Inner<D>>,
     ) -> Result<Option<Arc<DwptWrapper<D>>>> {
-        let mut num_pending = 0;
-        let mut full_flush = false;
+        let num_pending;
+        let full_flush;
         {
             let inner = if let Some(inner) = inner {
                 inner
@@ -528,7 +527,7 @@ where
         if num_pending > 0 && !full_flush {
             let dwpts = self.per_thread_pool.iterator(None);
             for (id, next) in &dwpts {
-                if next.is_flush_pending() && next.state.try_lock() {
+                if next.state.is_flush_pending() && next.state.try_lock() {
                     let result: Result<_> = (|| {
                         if self.per_thread_pool.is_registered(id) {
                             let mut inner = self.inner.lock();

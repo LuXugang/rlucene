@@ -25,7 +25,7 @@ use crate::core::index::field_infos::FieldNumbers;
 use crate::core::index::field_infos::build::Builder;
 use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
-use crate::core::index::lockable_concurrent_approximate_priority_queue::{FlushState, Lock};
+use crate::core::index::lockable_concurrent_approximate_priority_queue::Lock;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::term::Term;
 use crate::core::search::query::QueryEnum;
@@ -401,7 +401,7 @@ where
                 // If the deleteQueue is advanced, this means the maximum seqNo has been set and it cannot be
                 // reused
                 let inner = self.flush_control.inner.lock();
-                if dwpt_wrapper.is_flush_pending()
+                if dwpt_wrapper.state.is_flush_pending()
                     || dwpt_wrapper.state.is_aborted()
                     || dwpt_wrapper.state.delete_queue.is_advanced()
                 {

@@ -34,7 +34,7 @@ use crate::core::index::index_writer::{
 };
 use crate::core::index::indexing_chain::{IndexingChain, ReservedField};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
-use crate::core::index::lockable_concurrent_approximate_priority_queue::{FlushState, Lock};
+use crate::core::index::lockable_concurrent_approximate_priority_queue::Lock;
 use crate::core::index::pending_soft_deletes::count_soft_deletes;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_info::SegmentInfo;

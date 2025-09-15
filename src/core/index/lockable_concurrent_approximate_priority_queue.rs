@@ -22,14 +22,14 @@ use std::sync::atomic::{AtomicI32, Ordering};
 /// A `ConcurrentApproximatePriorityQueue` of [`Lock`] objects.
 pub(crate) struct LockableConcurrentApproximatePriorityQueue<T>
 where
-    T: Lock + IdentityId + FlushState,
+    T: Lock + IdentityId,
 {
     queue: ConcurrentApproximatePriorityQueue<T>,
     add_and_unlock_counter: AtomicI32,
 }
 impl<T> LockableConcurrentApproximatePriorityQueue<T>
 where
-    T: Lock + IdentityId + FlushState,
+    T: Lock + IdentityId,
 {
     pub(crate) fn with_concurrency(concurrency: usize) -> Result<Self> {
         Ok(Self {
@@ -60,7 +60,7 @@ where
     pub(crate) fn lock_and_poll_flush(&self) -> Option<T> {
         loop {
             let prev = self.add_and_unlock_counter.load(Ordering::SeqCst);
-            if let Some(entry) = self.queue.poll(|e| e.is_flush_pending() && e.try_lock()) {
+            if let Some(entry) = self.queue.poll(|e| e.try_lock()) {
                 return Some(entry);
             }
             if prev == self.add_and_unlock_counter.load(Ordering::SeqCst) {
@@ -92,17 +92,12 @@ pub(crate) trait Lock {
     fn unlock(&self);
     fn is_locked(&self) -> bool;
 }
-pub(crate) trait FlushState {
-    fn is_flush_pending(&self) -> bool {
-        false
-    }
-}
 
 #[cfg(test)]
 mod tests {
     use crate::core::index::approximate_priority_queue::IdentityId;
     use crate::core::index::lockable_concurrent_approximate_priority_queue::{
-        FlushState, Lock, LockableConcurrentApproximatePriorityQueue,
+        Lock, LockableConcurrentApproximatePriorityQueue,
     };
     use crate::test::util::lucene_test_case::lucene_test_case_util::random;
 
@@ -131,8 +126,6 @@ mod tests {
             ""
         }
     }
-
-    impl FlushState for WeightedLock {}
 
     impl Lock for WeightedLock {
         fn lock(&self) {

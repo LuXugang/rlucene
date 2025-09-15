@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::lockable_concurrent_approximate_priority_queue::{FlushState, Lock};
+use crate::core::index::lockable_concurrent_approximate_priority_queue::Lock;
 use std::collections::HashMap;
 use std::vec::Vec;
 
@@ -23,7 +23,7 @@ use std::vec::Vec;
 /// doesn't support null elements.
 pub(crate) struct ApproximatePriorityQueue<T>
 where
-    T: Lock + IdentityId + FlushState,
+    T: Lock + IdentityId,
 {
     /// Indexes between 0 and 63 are sparsely populated, and indexes that are
     /// greater than or equal to 64 are densely populated
@@ -37,7 +37,7 @@ where
 }
 impl<T> ApproximatePriorityQueue<T>
 where
-    T: Lock + IdentityId + FlushState,
+    T: Lock + IdentityId,
 {
     pub(crate) fn new() -> Self {
         let mut slots = Vec::with_capacity(i64::BITS as usize);
@@ -152,9 +152,7 @@ pub(crate) trait IdentityId {
 #[cfg(test)]
 mod tests {
     use crate::core::index::approximate_priority_queue::{ApproximatePriorityQueue, IdentityId};
-    use crate::core::index::lockable_concurrent_approximate_priority_queue::{FlushState, Lock};
-
-    impl FlushState for i64 {}
+    use crate::core::index::lockable_concurrent_approximate_priority_queue::Lock;
 
     impl Lock for i64 {
         fn lock(&self) {
@@ -170,8 +168,6 @@ mod tests {
             unreachable!()
         }
     }
-
-    impl FlushState for u64 {}
 
     impl Lock for u64 {
         fn lock(&self) {
@@ -289,7 +285,6 @@ mod tests {
                 }
             }
         }
-        impl FlushState for U64Wrapper {}
         impl Lock for U64Wrapper {
             fn lock(&self) {
                 unreachable!()

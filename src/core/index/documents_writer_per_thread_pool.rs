@@ -21,7 +21,7 @@ use crate::core::index::field_infos::build::Builder;
 use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::lockable_concurrent_approximate_priority_queue::{
-    FlushState, Lock, LockableConcurrentApproximatePriorityQueue,
+    Lock, LockableConcurrentApproximatePriorityQueue,
 };
 use crate::core::store::directory::Directory;
 use crate::core::util::accountable::Accountable;
@@ -184,11 +184,11 @@ where
         let ram_bytes_used = wrap_dwpt.dwpt.lock().ram_bytes_used()?;
 
         debug_assert!(
-            !wrap_dwpt.is_flush_pending()
+            !wrap_dwpt.state.is_flush_pending()
                 && !wrap_dwpt.state.is_aborted()
                 && !wrap_dwpt.state.is_queue_advanced(),
             "DWPT has pending flush: {}, aborted={}, queueAdvanced={}",
-            wrap_dwpt.is_flush_pending(),
+            wrap_dwpt.state.is_flush_pending(),
             wrap_dwpt.state.is_aborted(),
             wrap_dwpt.state.is_queue_advanced()
         );
@@ -298,14 +298,7 @@ where
         }
     }
 }
-impl<D> FlushState for Arc<DwptWrapper<D>>
-where
-    D: Directory,
-{
-    fn is_flush_pending(&self) -> bool {
-        self.state.is_flush_pending()
-    }
-}
+
 impl<D> Lock for Arc<DwptWrapper<D>>
 where
     D: Directory,

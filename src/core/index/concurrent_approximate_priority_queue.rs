@@ -21,7 +21,7 @@ use std::hash::{Hash, Hasher};
 use parking_lot::Mutex;
 
 use crate::core::index::approximate_priority_queue::{ApproximatePriorityQueue, IdentityId};
-use crate::core::index::lockable_concurrent_approximate_priority_queue::{FlushState, Lock};
+use crate::core::index::lockable_concurrent_approximate_priority_queue::Lock;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 const MIN_CONCURRENCY: usize = 1;
@@ -32,7 +32,7 @@ const MAX_CONCURRENCY: usize = 256;
 /// subs is computed dynamically based on hardware concurrency.
 pub struct ConcurrentApproximatePriorityQueue<T>
 where
-    T: Lock + IdentityId + FlushState,
+    T: Lock + IdentityId,
 {
     concurrency: usize,
     pub(crate) queues: Vec<Mutex<ApproximatePriorityQueue<T>>>,
@@ -40,7 +40,7 @@ where
 
 impl<T> ConcurrentApproximatePriorityQueue<T>
 where
-    T: Lock + IdentityId + FlushState,
+    T: Lock + IdentityId,
 {
     fn get_concurrency() -> usize {
         let core_count = std::thread::available_parallelism()
@@ -155,14 +155,12 @@ mod tests {
     use crate::core::index::concurrent_approximate_priority_queue::{
         ConcurrentApproximatePriorityQueue, MAX_CONCURRENCY, MIN_CONCURRENCY,
     };
-    use crate::core::index::lockable_concurrent_approximate_priority_queue::{FlushState, Lock};
+    use crate::core::index::lockable_concurrent_approximate_priority_queue::Lock;
     use crate::core::util::error::lucene_error::Result;
     use crate::test::util::lucene_test_case::lucene_test_case_util::random;
     use crate::test::util::test_util::TestUtil;
     use std::sync::{Arc, mpsc};
     use std::thread;
-
-    impl FlushState for i32 {}
 
     impl Lock for i32 {
         fn lock(&self) {
