@@ -58,7 +58,7 @@ impl NumericDocValuesField {
     where
         T: Into<String>,
     {
-        let parent_field = Field::new(name, file_type, FieldDataEnum::Number(Number::I64(value)));
+        let parent_field = Field::new(name, file_type, value);
         Self { parent_field }
     }
 }

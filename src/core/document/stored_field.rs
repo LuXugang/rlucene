@@ -157,11 +157,7 @@ impl StoredField {
     where
         T: Into<String>,
     {
-        let parent_field = Field::new(
-            name,
-            TYPE.clone(),
-            FieldDataEnum::Number(Number::I32(value)),
-        );
+        let parent_field = Field::new(name, TYPE.clone(), value);
         Ok(Self { parent_field })
     }
     /// Creates a stored-only field with the given long value.
@@ -173,11 +169,7 @@ impl StoredField {
     where
         T: Into<String>,
     {
-        let parent_field = Field::new(
-            name,
-            TYPE.clone(),
-            FieldDataEnum::Number(Number::I64(value)),
-        );
+        let parent_field = Field::new(name, TYPE.clone(), value);
         Ok(Self { parent_field })
     }
     /// Creates a stored-only field with the given f32 value.
@@ -189,11 +181,7 @@ impl StoredField {
     where
         T: Into<String>,
     {
-        let parent_field = Field::new(
-            name,
-            TYPE.clone(),
-            FieldDataEnum::Number(Number::F32(value)),
-        );
+        let parent_field = Field::new(name, TYPE.clone(), value);
         Ok(Self { parent_field })
     }
     /// Creates a stored-only field with the given f64 value.
@@ -205,11 +193,7 @@ impl StoredField {
     where
         T: Into<String>,
     {
-        let parent_field = Field::new(
-            name,
-            TYPE.clone(),
-            FieldDataEnum::Number(Number::F64(value)),
-        );
+        let parent_field = Field::new(name, TYPE.clone(), value);
         Ok(Self { parent_field })
     }
 }

@@ -88,14 +88,15 @@ impl Field {
     ///
     /// # Errors
     /// - Returns an error if either the `name` or `field_type` is `None`.
-    pub fn new<T>(name: T, indexable_field_type: FieldType, fields_data: FieldDataEnum) -> Self
+    pub fn new<T, FD>(name: T, indexable_field_type: FieldType, fields_data: FD) -> Self
     where
         T: Into<String>,
+        FD: Into<FieldDataEnum>,
     {
         Self {
             indexable_field_type,
             name: name.into(),
-            fields_data,
+            fields_data: fields_data.into(),
             ts: None,
         }
     }
@@ -432,7 +433,7 @@ impl Field {
             },
         }
 
-        self.fields_data = FieldDataEnum::Number(Number::I64(value));
+        self.fields_data = value.into();
         Ok(())
     }
     /// Expert: changes the value of this field. See
@@ -563,7 +564,7 @@ impl IndexableField for Field {
             return Ok(None);
         }
         if let FieldDataEnum::Binary(binary) =
-            std::mem::replace(&mut self.fields_data, FieldDataEnum::Dummy(String::new()))
+            std::mem::replace(&mut self.fields_data, FieldDataEnum::Dummy(()))
         {
             Ok(Some(binary))
         } else {
@@ -590,7 +591,7 @@ impl IndexableField for Field {
         {
             return Ok(None);
         }
-        match std::mem::replace(&mut self.fields_data, FieldDataEnum::Dummy(String::new())) {
+        match std::mem::replace(&mut self.fields_data, FieldDataEnum::Dummy(())) {
             FieldDataEnum::String(s) => Ok(Some(s)),
             FieldDataEnum::Number(n) => Ok(Some(n.as_string())),
             _ => Ok(None),
@@ -615,7 +616,7 @@ impl IndexableField for Field {
             return Ok(None);
         }
         if let FieldDataEnum::Reader(reader) =
-            std::mem::replace(&mut self.fields_data, FieldDataEnum::Dummy(String::new()))
+            std::mem::replace(&mut self.fields_data, FieldDataEnum::Dummy(()))
         {
             Ok(Some(reader))
         } else {
@@ -758,8 +759,71 @@ pub enum FieldDataEnum {
     Reader(ReaderEnum),
     TokenStream(TokenStreamEnum),
     // used to std::mem::replace(FieldDataEnum)
-    Dummy(String),
+    Dummy(()),
 }
+
+impl From<i32> for FieldDataEnum {
+    fn from(v: i32) -> Self {
+        FieldDataEnum::Number(Number::I32(v))
+    }
+}
+
+impl From<i64> for FieldDataEnum {
+    fn from(v: i64) -> Self {
+        FieldDataEnum::Number(Number::I64(v))
+    }
+}
+
+impl From<u8> for FieldDataEnum {
+    fn from(v: u8) -> Self {
+        FieldDataEnum::Number(Number::U8(v))
+    }
+}
+
+impl From<i16> for FieldDataEnum {
+    fn from(v: i16) -> Self {
+        FieldDataEnum::Number(Number::I16(v))
+    }
+}
+
+impl From<f32> for FieldDataEnum {
+    fn from(v: f32) -> Self {
+        FieldDataEnum::Number(Number::F32(v))
+    }
+}
+
+impl From<f64> for FieldDataEnum {
+    fn from(v: f64) -> Self {
+        FieldDataEnum::Number(Number::F64(v))
+    }
+}
+impl From<BytesRef<Vec<u8>>> for FieldDataEnum {
+    fn from(b: BytesRef<Vec<u8>>) -> Self {
+        FieldDataEnum::Binary(b)
+    }
+}
+impl From<String> for FieldDataEnum {
+    fn from(s: String) -> Self {
+        FieldDataEnum::String(s)
+    }
+}
+
+impl From<&str> for FieldDataEnum {
+    fn from(s: &str) -> Self {
+        FieldDataEnum::String(s.to_string())
+    }
+}
+impl From<ReaderEnum> for FieldDataEnum {
+    fn from(s: ReaderEnum) -> Self {
+        FieldDataEnum::Reader(s)
+    }
+}
+impl From<TokenStreamEnum> for FieldDataEnum {
+    fn from(s: TokenStreamEnum) -> Self {
+        FieldDataEnum::TokenStream(s)
+    }
+}
+
 impl Display for FieldDataEnum {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -768,7 +832,7 @@ impl Display for FieldDataEnum {
             FieldDataEnum::String(s) => write!(f, "{}", s),
             FieldDataEnum::Reader(r) => write!(f, "{:?}", r),
             FieldDataEnum::TokenStream(t) => write!(f, "{:?}", t),
-            FieldDataEnum::Dummy(s) => write!(f, "{}", s),
+            FieldDataEnum::Dummy(s) => write!(f, "{:?}", s),
         }
     }
 }
