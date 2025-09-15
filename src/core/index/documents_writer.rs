@@ -15,17 +15,17 @@
  * limitations under the License.
  */
 use crate::core::document::fields::Fields;
-use crate::core::index::approximate_priority_queue::IdentityId;
 use crate::core::index::doc_values_update::DocValuesUpdate;
 use crate::core::index::documents_writer_delete_queue::{DocumentsWriterDeleteQueue, Node};
 use crate::core::index::documents_writer_flush_control::DocumentsWriterFlushControl;
 use crate::core::index::documents_writer_flush_queue::{DocumentsWriterFlushQueue, FlushTicket};
 use crate::core::index::documents_writer_per_thread::DocumentsWriterPerThread;
+use crate::core::index::documents_writer_per_thread_pool::DwptWrapper;
 use crate::core::index::field_infos::FieldNumbers;
 use crate::core::index::field_infos::build::Builder;
 use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
-use crate::core::index::lockable_concurrent_approximate_priority_queue::Lock;
+use crate::core::index::lockable_concurrent_approximate_priority_queue::{FlushState, Lock};
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::term::Term;
 use crate::core::search::query::QueryEnum;
@@ -259,18 +259,14 @@ where
         // TODO
     }
     /// Returns how many documents were aborted.
-    fn abort_documents_writer_per_thread(
-        &self,
-        mut per_thread: DocumentsWriterPerThread<D>,
-    ) -> Result<()> {
+    fn abort_documents_writer_per_thread(&self, per_thread: Arc<DwptWrapper<D>>) -> Result<()> {
         debug_assert!(self.inner.is_locked());
-
-        let num = per_thread.get_num_docs_in_ram();
-        self.subtract_flushed_num_docs(num);
-
-        per_thread.abort()?;
-        self.flush_control
-            .do_on_abort(&per_thread, &self.flush_control.per_thread_pool);
+        {
+            let num = per_thread.state.get_num_docs_in_ram();
+            self.subtract_flushed_num_docs(num);
+            per_thread.dwpt.lock().abort()?;
+        }
+        self.flush_control.do_on_abort(&per_thread);
 
         Ok(())
     }
@@ -340,7 +336,7 @@ where
 
     fn post_update<B>(
         &self,
-        flushing_dwpt: Option<DocumentsWriterPerThread<D>>,
+        flushing_dwpt: Option<Arc<DwptWrapper<D>>>,
         mut has_events: bool,
         writer: &IndexWriter<D, L, B>,
     ) -> Result<bool>
@@ -369,14 +365,9 @@ where
     {
         let has_events = self.pre_update(writer)?;
 
-        let delete_queue = &self.inner.lock().delete_queue;
-        // TODO: IMPORTANT 在这里有点问题
-
-        let mut dwpt = self.flush_control.obtain_and_lock(
-            delete_queue,
-            writer,
-            &self.flush_control.per_thread_pool,
-        )?;
+        let dwpt_wrapper = self
+            .flush_control
+            .obtain_and_lock(&self.inner.lock().delete_queue, writer)?;
         let mut flushing_dwpt_opt = None;
         let mut seq_no = 0;
         let result = (|| {
@@ -384,7 +375,7 @@ where
             // waits for all DWPT to be released:
             self.ensure_open()?;
             let result: Result<()> = {
-                dwpt.update_documents(
+                seq_no = dwpt_wrapper.dwpt.lock().update_documents(
                     docs,
                     del_node,
                     &self.flush_notifications,
@@ -392,53 +383,33 @@ where
                     &self.num_docs_in_ram,
                     writer,
                 )?;
-                seq_no = 0;
                 Ok(())
             };
-            if dwpt.is_aborted() {
-                self.flush_control
-                    .do_on_abort(&dwpt, &self.flush_control.per_thread_pool);
+            if dwpt_wrapper.state.is_aborted() {
+                self.flush_control.do_on_abort(&dwpt_wrapper);
             }
-            // TODO: 这段代码有点问题 回头用测试才能调试
-            let dwpt_id = dwpt.id().to_string();
-            let dwpt_lock_state = dwpt.state.clone();
-            let dwpt_delete_queue = dwpt.delete_queue.clone();
-            let dwpt_abort = dwpt.aborted.clone();
-            let dpwt_pending_state = dwpt.flush_pending.clone();
-            let dwpt = if result.is_ok() {
-                let (new_dwpt, old_dwpt) = self.flush_control.do_after_document(
-                    dwpt,
+            if result.is_ok() {
+                flushing_dwpt_opt = self.flush_control.do_after_document(
+                    &dwpt_wrapper.dwpt.lock(),
                     self.config.get_flush_policy(),
-                    &self.flush_control.per_thread_pool,
                     self.inner.lock().delete_queue.as_ref(),
-                )?;
-                debug_assert!(!(new_dwpt.is_some() && old_dwpt.is_some()));
-                flushing_dwpt_opt = new_dwpt;
-                old_dwpt
-            } else {
-                Option::from(dwpt)
-            };
+                )?
+            }
             {
                 // If a flush is occurring, we don't want to allow this dwpt to be reused
                 // If it is aborted, we shouldn't allow it to be reused
                 // If the deleteQueue is advanced, this means the maximum seqNo has been set and it cannot be
                 // reused
                 let inner = self.flush_control.inner.lock();
-                if *dpwt_pending_state.get().unwrap_or(&false)
-                    || dwpt_abort.load(Ordering::SeqCst)
-                    || dwpt_delete_queue.is_advanced()
+                if dwpt_wrapper.is_flush_pending()
+                    || dwpt_wrapper.state.is_aborted()
+                    || dwpt_wrapper.state.delete_queue.is_advanced()
                 {
-                    dwpt_lock_state.unlock();
-                    if dwpt.is_some() {
-                        debug_assert!(flushing_dwpt_opt.is_none());
-                        flushing_dwpt_opt = dwpt;
-                    }
+                    dwpt_wrapper.state.unlock();
                 } else {
-                    debug_assert!(dwpt.is_some());
-                    debug_assert!(dwpt.as_ref().unwrap().id() == dwpt_id);
                     self.flush_control
                         .per_thread_pool
-                        .mark_as_free_and_unlock(dwpt.unwrap())?;
+                        .mark_as_free_and_unlock(dwpt_wrapper)?;
                 }
                 drop(inner)
             }
@@ -455,13 +426,7 @@ where
     where
         B: IndexWriterBase,
     {
-        let flushing_dwpt = match self.flush_control.next_pending_flush(None) {
-            (Some(dwpt), _, _) => Some(dwpt),
-            (None, full_flush, num_pending) => {
-                self.flush_control
-                    .try_get_next_pending_flush(num_pending, full_flush, None)?
-            },
-        };
+        let flushing_dwpt = self.flush_control.next_pending_flush(None)?;
 
         if let Some(flushing_dwpt) = flushing_dwpt {
             self.do_flush(flushing_dwpt, writer)?;
@@ -472,109 +437,116 @@ where
     }
     fn do_flush<B>(
         &self,
-        mut flushing_dwpt: DocumentsWriterPerThread<D>,
+        mut flushing_dwpt: Arc<DwptWrapper<D>>,
         writer: &IndexWriter<D, L, B>,
     ) -> Result<()>
     where
         B: IndexWriterBase,
     {
         loop {
-            assert!(!flushing_dwpt.has_flushed(),);
-            {
-                let current_full_flush_del_queue =
-                    self.inner.lock().current_full_flush_del_queue.clone();
-                debug_assert!(
-                    current_full_flush_del_queue.is_none()
-                        || Arc::ptr_eq(
-                            &flushing_dwpt.delete_queue,
-                            current_full_flush_del_queue.as_ref().unwrap()
-                        )
-                );
-            }
+            assert!(!flushing_dwpt.state.has_flushed());
 
-            // Since with DWPT the flush process is concurrent and several DWPT
-            // could flush at the same time we must maintain the order of the
-            // flushes before we can apply the flushed segment and the frozen global
-            // deletes it is buffering. The reason for this is that the global
-            // deletes mark a certain point in time where we took a DWPT out of
-            // rotation and freeze the global deletes.
-            //
-            // Example: A flush 'A' starts and freezes the global deletes, then
-            // flush 'B' starts and freezes all deletes occurred since 'A' has
-            // started. if 'B' finishes before 'A' we need to wait until 'A' is done
-            // otherwise the deletes frozen by 'B' are not applied to 'A' and we
-            // might miss to deletes documents in 'A'.
-            let mut has_ticket = None;
-            let result = (|| {
-                debug_assert!(self.assert_ticket_queue_modification(&flushing_dwpt.delete_queue));
-                let supplier = SupplierImpl1::new(&mut flushing_dwpt);
-                let ticket = self.ticket_queue.add_ticket(supplier)?;
-                match ticket {
-                    Some(ticket) => {
-                        has_ticket = Some(ticket);
-                        let flushing_docs_in_ram = flushing_dwpt.get_num_docs_in_ram();
-                        let result = (|| {
-                            let v = flushing_dwpt.flush(
-                                &self.flush_notifications,
-                                self.config.as_ref(),
-                                writer,
-                            )?;
-                            match v {
-                                Some(new_segment) => {
-                                    self.ticket_queue.add_segment(ticket, new_segment);
-                                    Ok(())
-                                },
-                                None => {
-                                    Err(LuceneError::illegal_state("flush_segment returned None"))
-                                },
-                            }
-                        })();
-                        self.subtract_flushed_num_docs(flushing_docs_in_ram);
-                        if !flushing_dwpt.pending_files_to_delete().is_empty() {
-                            let files = flushing_dwpt.pending_files_to_delete().clone();
-                            self.flush_notifications.delete_unused_files(files)?;
-                        }
-                        if result.is_err() {
-                            let dir = flushing_dwpt.segment_info.dir.clone();
-                            self.flush_notifications.flush_failed(std::mem::replace(
-                                &mut flushing_dwpt.segment_info,
-                                SegmentInfo::dummy(dir),
-                            ))?
-                        }
-                        result
-                    },
-                    None => Err(LuceneError::illegal_state("ticket returned None")),
+            let res: Result<_> = (|| {
+                {
+                    let current_full_flush_del_queue =
+                        self.inner.lock().current_full_flush_del_queue.clone();
+                    debug_assert!(
+                        current_full_flush_del_queue.is_none()
+                            || Arc::ptr_eq(
+                                &flushing_dwpt.state.delete_queue,
+                                current_full_flush_del_queue.as_ref().unwrap()
+                            )
+                    );
                 }
-            })();
-            if result.is_err()
-                && let Some(ticket_idx) = has_ticket
-            {
-                // In the case of a failure make sure we are making progress and
-                // apply all the deletes since the segment flush failed since the flush
-                // ticket could hold global deletes see FlushTicket#canPublish()
-                let flush_ticket = &mut self.ticket_queue.inner.lock().queue[ticket_idx];
-                self.ticket_queue.mark_ticket_failed(flush_ticket);
-            }
-            //Now we are done and try to flush the ticket queue if the head of the
-            // queue has already finished the flush.
-            if self.ticket_queue.get_ticket_count() as usize
-                >= self.flush_control.per_thread_pool.size()
-            {
-                // This means there is a backlog: the one
-                // thread in innerPurge can't keep up with all
-                // other threads flushing segments.  In this case
-                // we forcefully stall the producers.
-                self.flush_notifications.on_ticket_backlog()?;
-            }
 
+                // Since with DWPT the flush process is concurrent and several DWPT
+                // could flush at the same time we must maintain the order of the
+                // flushes before we can apply the flushed segment and the frozen global
+                // deletes it is buffering. The reason for this is that the global
+                // deletes mark a certain point in time where we took a DWPT out of
+                // rotation and freeze the global deletes.
+                //
+                // Example: A flush 'A' starts and freezes the global deletes, then
+                // flush 'B' starts and freezes all deletes occurred since 'A' has
+                // started. if 'B' finishes before 'A' we need to wait until 'A' is done
+                // otherwise the deletes frozen by 'B' are not applied to 'A' and we
+                // might miss to deletes documents in 'A'.
+                let mut has_ticket = None;
+                let result = (|| {
+                    debug_assert!(
+                        self.assert_ticket_queue_modification(&flushing_dwpt.state.delete_queue)
+                    );
+                    let ticket = {
+                        let mut dwpt = flushing_dwpt.dwpt.lock();
+                        let supplier = SupplierImpl1::new(&mut *dwpt);
+                        self.ticket_queue.add_ticket(supplier)?
+                    };
+                    match ticket {
+                        Some(ticket) => {
+                            has_ticket = Some(ticket);
+                            let flushing_docs_in_ram = flushing_dwpt.state.get_num_docs_in_ram();
+                            {
+                                let mut dwpt = flushing_dwpt.dwpt.lock();
+                                let result = (|| {
+                                    let v = dwpt.flush(
+                                        &self.flush_notifications,
+                                        self.config.as_ref(),
+                                        writer,
+                                    )?;
+                                    match v {
+                                        Some(new_segment) => {
+                                            self.ticket_queue.add_segment(ticket, new_segment);
+                                            Ok(())
+                                        },
+                                        None => Err(LuceneError::illegal_state(
+                                            "flush_segment returned None",
+                                        )),
+                                    }
+                                })();
+                                self.subtract_flushed_num_docs(flushing_docs_in_ram);
+                                if !dwpt.pending_files_to_delete().is_empty() {
+                                    let files = dwpt.pending_files_to_delete().clone();
+                                    self.flush_notifications.delete_unused_files(files)?;
+                                }
+                                if result.is_err() {
+                                    let dir = dwpt.segment_info.dir.clone();
+                                    self.flush_notifications.flush_failed(std::mem::replace(
+                                        &mut dwpt.segment_info,
+                                        SegmentInfo::dummy(dir),
+                                    ))?
+                                }
+                                result
+                            }
+                        },
+                        None => Err(LuceneError::illegal_state("ticket returned None")),
+                    }
+                })();
+                if result.is_err()
+                    && let Some(ticket_idx) = has_ticket
+                {
+                    // In the case of a failure make sure we are making progress and
+                    // apply all the deletes since the segment flush failed since the flush
+                    // ticket could hold global deletes see FlushTicket#canPublish()
+                    let flush_ticket = &mut self.ticket_queue.inner.lock().queue[ticket_idx];
+                    self.ticket_queue.mark_ticket_failed(flush_ticket);
+                }
+                result?;
+                //Now we are done and try to flush the ticket queue if the head of the
+                // queue has already finished the flush.
+                if self.ticket_queue.get_ticket_count() as usize
+                    >= self.flush_control.per_thread_pool.size()
+                {
+                    // This means there is a backlog: the one
+                    // thread in innerPurge can't keep up with all
+                    // other threads flushing segments.  In this case
+                    // we forcefully stall the producers.
+                    self.flush_notifications.on_ticket_backlog()?;
+                }
+                Ok(())
+            })();
             self.flush_control.do_after_flush(flushing_dwpt);
-            let v = match self.flush_control.next_pending_flush(None) {
-                (Some(dwpt), _, _) => Some(dwpt),
-                (None, full_flush, num_pending) => {
-                    self.flush_control
-                        .try_get_next_pending_flush(num_pending, full_flush, None)?
-                },
-            };
+            res?;
+            let v = self.flush_control.next_pending_flush(None)?;
 
             match v {
                 Some(next_dwpt) => {

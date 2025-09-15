@@ -21,12 +21,12 @@ use crate::core::index::field_infos::build::Builder;
 use crate::core::index::index_writer::{IndexWriter, IndexWriterBase};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::lockable_concurrent_approximate_priority_queue::{
-    Lock, LockableConcurrentApproximatePriorityQueue,
+    FlushState, Lock, LockableConcurrentApproximatePriorityQueue,
 };
 use crate::core::store::directory::Directory;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use parking_lot::{Condvar, Mutex};
+use parking_lot::{Condvar, Mutex, MutexGuard};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -41,19 +41,19 @@ pub(crate) struct DocumentsWriterPerThreadPool<D>
 where
     D: Directory,
 {
-    pub(crate) inner: Mutex<Inner>,
-    free_list: LockableConcurrentApproximatePriorityQueue<DocumentsWriterPerThread<D>>,
+    pub(crate) inner: Mutex<Inner<D>>,
+    free_list: LockableConcurrentApproximatePriorityQueue<Arc<DwptWrapper<D>>>,
     pausing: Condvar,
     closed: AtomicBool,
 }
-pub(crate) struct Inner {
-    pub(crate) dwpts: HashMap<String, Dwpts>,
+pub(crate) struct Inner<D>
+where
+    D: Directory,
+{
+    pub(crate) dwpts: HashMap<String, Arc<DwptWrapper<D>>>,
     taken_writer_permits: i32,
 }
-pub(crate) struct Dwpts {
-    pub(crate) r#gen: i64,
-    state: Arc<State>,
-}
+
 impl<D> DocumentsWriterPerThreadPool<D>
 where
     D: Directory,
@@ -98,7 +98,7 @@ where
     pub(crate) fn new_dwpt<L, B>(
         index_writer: &IndexWriter<D, L, B>,
         delete_queue: Arc<DocumentsWriterDeleteQueue>,
-    ) -> Result<DocumentsWriterPerThread<D>>
+    ) -> Result<Arc<DwptWrapper<D>>>
     where
         L: LiveIndexWriterConfig,
         B: IndexWriterBase,
@@ -115,14 +115,14 @@ where
             index_writer.pending_num_docs.clone(),
             index_writer.enable_test_points,
         )?;
-        Ok(dwpt)
+        Ok(Arc::new(DwptWrapper::new(dwpt)))
     }
     /// Returns a new already locked [`DocumentsWriterPerThread`]
     pub(crate) fn new_writer<L, B>(
         &self,
         writer: &IndexWriter<D, L, B>,
         delete_queue: Arc<DocumentsWriterDeleteQueue>,
-    ) -> Result<DocumentsWriterPerThread<D>>
+    ) -> Result<Arc<DwptWrapper<D>>>
     where
         L: LiveIndexWriterConfig,
         B: IndexWriterBase,
@@ -140,13 +140,9 @@ where
         // pool is closed
         self.ensure_open()?;
         let dwpt = Self::new_dwpt(writer, delete_queue)?;
-        let delete_queue_gen = dwpt.delete_queue.generation;
         dwpt.lock();
-        let dwpts = Dwpts {
-            r#gen: delete_queue_gen,
-            state: dwpt.state.clone(),
-        };
-        inner.dwpts.insert(dwpt.id().to_string(), dwpts);
+
+        inner.dwpts.insert(dwpt.id().to_string(), dwpt.clone());
         Ok(dwpt)
     }
     /// This method is used by `DocumentsWriter`/`FlushControl` to obtain a DWPT to do an indexing
@@ -155,7 +151,7 @@ where
         &self,
         writer: &IndexWriter<D, L, B>,
         delete_queue: Arc<DocumentsWriterDeleteQueue>,
-    ) -> Result<DocumentsWriterPerThread<D>>
+    ) -> Result<Arc<DwptWrapper<D>>>
     where
         L: LiveIndexWriterConfig,
         B: IndexWriterBase,
@@ -179,76 +175,92 @@ where
         Ok(())
     }
 
-    pub(crate) fn contains(&self, state: &DocumentsWriterPerThread<D>) -> bool {
+    pub(crate) fn contains(&self, state_id: &str) -> bool {
         let inner = self.inner.lock();
-        inner.dwpts.contains_key(state.id())
+        inner.dwpts.contains_key(state_id)
     }
-    pub(crate) fn mark_as_free_and_unlock(&self, state: DocumentsWriterPerThread<D>) -> Result<()> {
-        let ram_bytes_used = state.ram_bytes_used()?;
+    pub(crate) fn mark_as_free_and_unlock(&self, wrap_dwpt: Arc<DwptWrapper<D>>) -> Result<()> {
+        debug_assert!(wrap_dwpt.state.is_locked());
+        let ram_bytes_used = wrap_dwpt.dwpt.lock().ram_bytes_used()?;
 
         debug_assert!(
-            !state.is_flush_pending() && !state.is_aborted() && !state.is_queue_advanced(),
+            !wrap_dwpt.is_flush_pending()
+                && !wrap_dwpt.state.is_aborted()
+                && !wrap_dwpt.state.is_queue_advanced(),
             "DWPT has pending flush: {}, aborted={}, queueAdvanced={}",
-            state.is_flush_pending(),
-            state.is_aborted(),
-            state.is_queue_advanced()
+            wrap_dwpt.is_flush_pending(),
+            wrap_dwpt.state.is_aborted(),
+            wrap_dwpt.state.is_queue_advanced()
         );
 
         debug_assert!(
-            self.contains(&state),
+            self.contains(&wrap_dwpt.state.id),
             "Tried to add a DWPT back to the pool but the pool doesn't know about this DWPT"
         );
-
-        self.free_list.add_and_unlock(state, ram_bytes_used);
+        let v = match self.inner.lock().dwpts.get(&wrap_dwpt.state.id) {
+            Some(v) => v.clone(),
+            None => {
+                return Err(LuceneError::illegal_state(
+                    "Tried to add a DWPT back to the pool but the pool doesn't know about this DWPT",
+                ));
+            },
+        };
+        drop(wrap_dwpt);
+        self.free_list.add_and_unlock(v, ram_bytes_used);
         Ok(())
     }
+    pub(crate) fn iterator(
+        &self,
+        inner: Option<&Inner<D>>,
+    ) -> HashMap<String, Arc<DwptWrapper<D>>> {
+        let inner = match inner {
+            Some(s) => s,
+            None => &*self.inner.lock(),
+        };
+        inner.dwpts.clone()
+    }
+
     /// Filters all `DocumentsWriterPerThread`s that the given predicate applies to and that can be checked out of the pool via [`checkout`](Self::checkout).
     /// All returned DWPTs are already locked, and [`is_registered`](Self::is_registered) will return `true` for each one.
-    pub(crate) fn filter_and_lock<F1>(
-        &self,
-        predicate: F1,
-    ) -> Result<Vec<DocumentsWriterPerThread<D>>>
+    pub(crate) fn filter_and_lock<F1>(&self, predicate: F1) -> Result<Vec<Arc<DwptWrapper<D>>>>
     where
-        F1: Fn(&str, i64) -> bool,
+        F1: Fn(&Arc<DwptWrapper<D>>) -> bool,
     {
         let mut list = Vec::new();
         let inner = self.inner.lock();
-        for (id, state) in inner.dwpts.iter() {
-            if predicate(id, state.r#gen) {
-                state.state.lock();
+        let cloned_dwpt = self.iterator(Some(&inner));
+        for (id, state) in cloned_dwpt.iter() {
+            if predicate(state) {
+                state.lock();
                 if self.is_registered_with_state(id, Some(&inner)) {
-                    list.push(id.clone());
+                    list.push(state.clone());
                 } else {
                     state.state.unlock();
                 }
             }
         }
-        // locked dwpt are safely remove from `free_list`
-        let mut result = Vec::new();
-        for id in list {
-            let dwpt = self.free_list.remove(&id);
-            debug_assert!(
-                dwpt.is_some() && dwpt.as_ref().unwrap().is_locked(),
-                "DWPT {id} is not locked, but it was expected to be locked"
-            );
-            result.push(dwpt.unwrap());
-        }
-        Ok(result)
+        Ok(list)
     }
     /// Removes the given DWPT from the pool unless it has already been removed.
     ///
     /// # Returns
     ///
     /// `true` if the DWPT was removed; `false` otherwise.
-    pub(crate) fn checkout(&self, per_thread: &str) -> bool {
+    pub(crate) fn checkout(
+        &self,
+        per_thread: &MutexGuard<'_, DocumentsWriterPerThread<D>>,
+    ) -> Option<Arc<DwptWrapper<D>>> {
+        debug_assert!(per_thread.state.is_locked());
         let mut inner = self.inner.lock();
-
-        if inner.dwpts.remove(per_thread).is_some() {
-            self.free_list.remove(per_thread);
-            true
-        } else {
-            debug_assert!(!self.free_list.contains(per_thread));
-            false
+        match inner.dwpts.remove(&per_thread.state.id) {
+            Some(v) => {
+                self.free_list.remove(&per_thread.state.id);
+                Some(v)
+            },
+            None => {
+                debug_assert!(!self.free_list.contains(&per_thread.state.id));
+                None
+            },
         }
     }
     ///  Returns `true` if this DWPT is still part of the pool
@@ -256,7 +268,7 @@ where
         let inner = self.inner.lock();
         self.is_registered_with_state(per_thread, Some(&inner))
     }
-    fn is_registered_with_state(&self, per_thread: &str, state: Option<&Inner>) -> bool {
+    fn is_registered_with_state(&self, per_thread: &str, state: Option<&Inner<D>>) -> bool {
         let state = match state {
             Some(s) => s,
             None => &*self.inner.lock(),
@@ -265,6 +277,69 @@ where
     }
     pub fn close(&self) {
         self.closed.store(true, Ordering::SeqCst);
+    }
+}
+pub struct DwptWrapper<D>
+where
+    D: Directory,
+{
+    pub(crate) dwpt: Mutex<DocumentsWriterPerThread<D>>,
+    pub(crate) state: Arc<State>,
+}
+impl<D> DwptWrapper<D>
+where
+    D: Directory,
+{
+    pub(crate) fn new(dwpt: DocumentsWriterPerThread<D>) -> Self {
+        let state = dwpt.state.clone();
+        Self {
+            dwpt: Mutex::new(dwpt),
+            state,
+        }
+    }
+}
+impl<D> FlushState for Arc<DwptWrapper<D>>
+where
+    D: Directory,
+{
+    fn is_flush_pending(&self) -> bool {
+        self.state.is_flush_pending()
+    }
+}
+impl<D> Lock for Arc<DwptWrapper<D>>
+where
+    D: Directory,
+{
+    fn lock(&self) {
+        self.state.lock()
+    }
+
+    fn try_lock(&self) -> bool {
+        self.state.try_lock()
+    }
+
+    fn unlock(&self) {
+        self.state.unlock()
+    }
+
+    fn is_locked(&self) -> bool {
+        self.state.is_locked()
+    }
+}
+impl<D> IdentityId for Arc<DwptWrapper<D>>
+where
+    D: Directory,
+{
+    fn id(&self) -> &str {
+        &self.state.id
+    }
+}
+impl<D> PartialEq for DwptWrapper<D>
+where
+    D: Directory,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.state.id == other.state.id
     }
 }
 #[cfg(test)]
@@ -319,7 +394,7 @@ mod tests {
         assert_eq!(first_id, third.id().to_string());
         assert_eq!(pool.size(), 2);
 
-        pool.checkout(third.id());
+        pool.checkout(&third.dwpt.lock());
         assert_eq!(pool.size(), 1);
 
         pool.close();
@@ -328,9 +403,9 @@ mod tests {
         pool.mark_as_free_and_unlock(second)?;
         assert_eq!(pool.size(), 1);
 
-        let v = pool.filter_and_lock(|_, _| true)?;
+        let v = pool.filter_and_lock(|_| true)?;
         for dwpt in v {
-            pool.checkout(dwpt.id());
+            pool.checkout(&dwpt.dwpt.lock());
             assert!(dwpt.state.is_locked());
             dwpt.unlock();
         }
@@ -381,13 +456,9 @@ mod tests {
         pool.unlock_new_writers();
 
         handle.join().unwrap();
-        let ids = {
-            let inner = pool.inner.lock();
-            inner.dwpts.keys().cloned().collect::<Vec<_>>()
-        };
-        for dwpt in ids {
-            pool.checkout(&dwpt);
-            // dwpt.unlock()?;
+        for dwpt in pool.filter_and_lock(|_| true)? {
+            assert!(pool.checkout(&dwpt.dwpt.lock()).is_some());
+            dwpt.unlock();
         }
 
         assert_eq!(pool.size(), 0);

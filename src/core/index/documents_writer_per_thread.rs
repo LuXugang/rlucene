@@ -19,7 +19,6 @@ use crate::core::codecs::segment_info_format::SegmentInfoFormat;
 use crate::core::codecs::{Codec, LATEST_CODEC};
 use crate::core::document::fields::Fields;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
-use crate::core::index::approximate_priority_queue::IdentityId;
 use crate::core::index::buffered_updates::{BufferedUpdates, MTBufferedUpdates};
 use crate::core::index::documents_writer::FlushNotifications;
 use crate::core::index::documents_writer_delete_queue::{
@@ -56,10 +55,10 @@ use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
 use crate::core::util::io_consumer::IOConsumer;
 use crate::core::util::{LATEST, LUCENE_10_0_0, StringHelper};
 use parking_lot::{Condvar, Mutex};
-use std::cell::OnceCell;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::iter::{Chain, Once, once};
+use std::sync::atomic::Ordering::SeqCst;
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64, Ordering};
 use std::sync::{Arc, OnceLock};
 use std::{fmt, thread};
@@ -72,14 +71,8 @@ where
     indexing_chain: IndexingChain<TrackingDirectoryWrapper<LockValidatingDirectoryWrapper<D>>>,
     pending_updates: MTBufferedUpdates,
     pub(crate) segment_info: SegmentInfo<D>,
-    pub(crate) aborted: Arc<AtomicBool>,
-    pub(crate) flush_pending: Arc<OnceLock<bool>>,
-    last_committed_bytes_used: AtomicI64,
-    has_flushed: OnceCell<bool>,
     field_infos: Builder,
     info_stream: InfoStreamMT,
-    num_docs_in_ram: i32,
-    pub(crate) delete_queue: Arc<DocumentsWriterDeleteQueue>,
     delete_slice: Option<DeleteSlice>,
     pending_num_docs: Arc<AtomicI64>,
     enable_test_points: bool,
@@ -88,7 +81,6 @@ where
     index_major_version_created: i32,
     files_to_delete: HashSet<String>,
     aborting_exception: Option<LuceneError>,
-    id: String,
     pub(crate) state: Arc<State>,
     parent_field: Option<String>,
 }
@@ -96,6 +88,40 @@ where
 pub(crate) struct State {
     cvar: Condvar,
     available: Mutex<bool>,
+    pub(crate) flush_pending: OnceLock<bool>,
+    pub(crate) last_committed_bytes_used: AtomicI64,
+    pub(crate) num_docs_in_ram: AtomicI32,
+    pub(crate) id: String,
+    pub(crate) delete_queue: Arc<DocumentsWriterDeleteQueue>,
+    has_flushed: OnceLock<bool>,
+    pub(crate) aborted: Arc<AtomicBool>,
+}
+impl State {
+    pub(crate) fn is_flush_pending(&self) -> bool {
+        self.flush_pending.get().copied().unwrap_or(false)
+    }
+    pub(crate) fn set_flush_pending(&self) -> Result<()> {
+        if self.flush_pending.set(true).is_err() {
+            return Err(LuceneError::illegal_state("flush_pending has been set"));
+        }
+        Ok(())
+    }
+    /// Returns the last committed bytes for this DWPT. This method can be called without acquiring the DWPT’s lock.
+    pub(crate) fn get_last_committed_bytes_used(&self) -> i64 {
+        self.last_committed_bytes_used.load(Ordering::SeqCst)
+    }
+    pub(crate) fn has_flushed(&self) -> bool {
+        self.has_flushed.get().copied().unwrap_or(false)
+    }
+    pub fn get_num_docs_in_ram(&self) -> i32 {
+        self.num_docs_in_ram.load(SeqCst)
+    }
+    pub(crate) fn is_aborted(&self) -> bool {
+        self.aborted.load(Ordering::SeqCst)
+    }
+    pub(crate) fn is_queue_advanced(&self) -> bool {
+        self.delete_queue.is_advanced()
+    }
 }
 
 impl Lock for State {
@@ -119,13 +145,13 @@ impl Lock for State {
 
     fn unlock(&self) {
         let mut guard = self.available.lock();
+        debug_assert!(!*guard);
         *guard = true;
         self.cvar.notify_one();
     }
 
     fn is_locked(&self) -> bool {
-        let flag = self.available.lock();
-        !*flag
+        !self.available.is_locked()
     }
 }
 
@@ -141,12 +167,14 @@ where
         self.aborting_exception = Some(throwable);
     }
     pub(crate) fn is_aborted(&self) -> bool {
-        self.aborted.load(Ordering::SeqCst)
+        self.state.is_aborted()
     }
     pub(crate) fn abort(&mut self) -> Result<()> {
-        self.aborted.store(true, Ordering::SeqCst);
-        self.pending_num_docs
-            .fetch_add(-(self.num_docs_in_ram as i64), Ordering::SeqCst);
+        self.state.aborted.store(true, Ordering::SeqCst);
+        self.pending_num_docs.fetch_add(
+            -(self.state.num_docs_in_ram.load(SeqCst) as i64),
+            Ordering::SeqCst,
+        );
 
         {
             if self.info_stream.enabled("DWPT") {
@@ -227,6 +255,13 @@ where
         let state = State {
             cvar: Condvar::new(),
             available: Mutex::new(true),
+            flush_pending: OnceLock::new(),
+            last_committed_bytes_used: AtomicI64::new(0),
+            num_docs_in_ram: AtomicI32::new(0),
+            id: id.clone(),
+            delete_queue,
+            has_flushed: OnceLock::new(),
+            aborted: Arc::new(AtomicBool::new(false)),
         };
         let parent_field = index_writer_config
             .get_parent_field()
@@ -237,14 +272,8 @@ where
             indexing_chain,
             pending_updates,
             segment_info,
-            aborted: Arc::new(AtomicBool::new(false)),
-            flush_pending: Arc::new(OnceLock::new()),
-            last_committed_bytes_used: AtomicI64::new(0),
-            has_flushed: OnceCell::new(),
             field_infos,
             info_stream,
-            num_docs_in_ram: 0,
-            delete_queue,
             delete_slice,
             pending_num_docs,
             enable_test_points,
@@ -253,7 +282,6 @@ where
             index_major_version_created,
             files_to_delete: HashSet::new(),
             aborting_exception: None,
-            id: id.clone(),
             state: Arc::new(state),
             parent_field,
         })
@@ -314,14 +342,14 @@ where
                             Some(ref node) => node.to_string(),
                             None => "none".to_string(),
                         },
-                        self.num_docs_in_ram,
+                        self.state.num_docs_in_ram.load(SeqCst),
                         self.segment_info.name
                     ),
                 );
             }
         }
 
-        let docs_in_ram_before = self.num_docs_in_ram;
+        let docs_in_ram_before = self.state.num_docs_in_ram.load(SeqCst);
         let mut all_docs_indexed = false;
         let result = (|| -> Result<i64> {
             for doc in docs {
@@ -330,9 +358,9 @@ where
                         let doc_wrapper = DocWrapper::new(doc, parent.clone());
                         self.reserve_one_doc()?;
                         num_docs_in_ram.store(1, Ordering::SeqCst);
-                        self.num_docs_in_ram += 1;
+                        self.state.num_docs_in_ram.fetch_add(1, Ordering::SeqCst);
                         self.indexing_chain.process_document(
-                            self.num_docs_in_ram - 1,
+                            self.state.num_docs_in_ram.load(SeqCst) - 1,
                             doc_wrapper,
                             &mut self.segment_info,
                             &mut self.field_infos,
@@ -349,9 +377,9 @@ where
                         } else {
                             self.reserve_one_doc()?;
                             num_docs_in_ram.store(1, Ordering::SeqCst);
-                            self.num_docs_in_ram += 1;
+                            self.state.num_docs_in_ram.fetch_add(1, Ordering::SeqCst);
                             self.indexing_chain.process_document(
-                                self.num_docs_in_ram - 1,
+                                self.state.num_docs_in_ram.load(SeqCst) - 1,
                                 doc,
                                 &mut self.segment_info,
                                 &mut self.field_infos,
@@ -362,7 +390,7 @@ where
                 }
             }
 
-            let num_docs = self.num_docs_in_ram - docs_in_ram_before;
+            let num_docs = self.state.num_docs_in_ram.load(SeqCst) - docs_in_ram_before;
             if num_docs > 1 {
                 self.segment_info.set_has_blocks();
             }
@@ -372,10 +400,10 @@ where
             Ok(written)
         })();
 
-        if result.is_err() && !all_docs_indexed && !self.aborted.load(Ordering::SeqCst) {
+        if result.is_err() && !all_docs_indexed && !self.state.aborted.load(Ordering::SeqCst) {
             // the iterator threw an exception that is not aborting
             // go and mark all docs from this block as deleted
-            let to_delete = self.num_docs_in_ram - docs_in_ram_before;
+            let to_delete = self.state.num_docs_in_ram.load(SeqCst) - docs_in_ram_before;
             self.delete_last_docs(to_delete)?;
         }
         self.maybe_abort("updateDocuments", flush_notifications, writer)?;
@@ -400,6 +428,7 @@ where
         let delete_slice = self.delete_slice.as_mut().unwrap();
         let seq_no: i64 = if let Some(node) = delete_node {
             let seq = self
+                .state
                 .delete_queue
                 .add_with_slice(node.clone(), delete_slice)?;
             debug_assert!(
@@ -409,7 +438,7 @@ where
             delete_slice.apply(&mut self.pending_updates, doc_id_upto)?;
             seq
         } else {
-            let mut seq = self.delete_queue.update_slice(delete_slice)?;
+            let mut seq = self.state.delete_queue.update_slice(delete_slice)?;
             if seq < 0 {
                 seq = -seq;
                 delete_slice.apply(&mut self.pending_updates, doc_id_upto)?;
@@ -429,13 +458,13 @@ where
     // we only mark these docs as deleted and turn it into a livedocs
     // during flush
     fn delete_last_docs(&mut self, doc_count: i32) -> Result<()> {
-        let from = self.num_docs_in_ram - doc_count;
-        let to = self.num_docs_in_ram;
+        let from = self.state.num_docs_in_ram.load(SeqCst) - doc_count;
+        let to = self.state.num_docs_in_ram.load(SeqCst);
         let new_len = self.num_deleted_doc_ids + (to - from);
         ArrayUtil::grow_i32(&mut self.delete_doc_ids, new_len as usize)?;
 
         for doc_id in from..to {
-            self.delete_doc_ids[self.num_docs_in_ram as usize] = doc_id;
+            self.delete_doc_ids[self.state.num_docs_in_ram.load(SeqCst) as usize] = doc_id;
             self.num_deleted_doc_ids += 1;
         }
         debug_assert!(self.delete_doc_ids.len() <= i32::MAX as usize);
@@ -453,19 +482,23 @@ where
     }
     /// Returns the number of RAM resident documents in this [`DocumentsWriterPerThread`]
     pub fn get_num_docs_in_ram(&self) -> i32 {
-        self.num_docs_in_ram
+        self.state.get_num_docs_in_ram()
     }
     /// Prepares this DWPT for flushing. This method will freeze and return the [`DocumentsWriterDeleteQueue`]’s global buffer and apply all pending deletes to this DWPT.
     pub(crate) fn prepare_flush(&mut self) -> Result<FrozenBufferedUpdates> {
-        debug_assert!(self.num_docs_in_ram > 0);
+        debug_assert!(self.state.num_docs_in_ram.load(SeqCst) > 0);
 
         let global_updates = self
+            .state
             .delete_queue
             .freeze_global_buffer(&mut self.delete_slice)?;
         // deleteSlice can possibly be null if we have hit non-aborting exceptions during indexing and never succeeded adding a document
         if let Some(delete_slice) = self.delete_slice.as_mut() {
             // apply all deletes before we flush and release the delete slice
-            delete_slice.apply(&mut self.pending_updates, self.num_docs_in_ram)?;
+            delete_slice.apply(
+                &mut self.pending_updates,
+                self.state.num_docs_in_ram.load(SeqCst),
+            )?;
             debug_assert!(delete_slice.is_empty());
             delete_slice.reset();
         }
@@ -486,20 +519,21 @@ where
         L: LiveIndexWriterConfig,
         B: IndexWriterBase,
     {
-        debug_assert_eq!(self.flush_pending.get(), Some(&true));
-        debug_assert!(self.num_docs_in_ram > 0);
+        debug_assert_eq!(self.state.flush_pending.get(), Some(&true));
+        debug_assert!(self.state.num_docs_in_ram.load(SeqCst) > 0);
         debug_assert!(
             self.delete_slice.as_ref().is_none_or(|ds| ds.is_empty()),
             "all deletes must be applied in prepareFlush"
         );
 
-        self.segment_info.set_max_doc(self.num_docs_in_ram)?;
+        self.segment_info
+            .set_max_doc(self.state.num_docs_in_ram.load(SeqCst))?;
 
         let result = (|| -> Result<Option<FlushedSegment<D>>> {
             let (mut fs, sort_map, t0) = {
                 let io_context = IOContext::with_flush(FlushInfo::new(
-                    self.num_docs_in_ram,
-                    self.last_committed_bytes_used.load(Ordering::SeqCst),
+                    self.state.num_docs_in_ram.load(SeqCst),
+                    self.state.last_committed_bytes_used.load(Ordering::SeqCst),
                 ))?;
                 let mut flush_state = SegmentWriteState::new(
                     Some(self.info_stream.clone()),
@@ -508,15 +542,17 @@ where
                     &io_context,
                 );
 
-                let start_mb_used =
-                    self.last_committed_bytes_used.load(Ordering::SeqCst) as f64 / 1024.0 / 1024.0;
+                let start_mb_used = self.state.last_committed_bytes_used.load(Ordering::SeqCst)
+                    as f64
+                    / 1024.0
+                    / 1024.0;
 
                 // Apply delete-by-docID now (delete-byDocID only
                 // happens when an exception is hit processing that
                 // doc, eg if analyzer has some problem w/ the text):
                 if self.num_deleted_doc_ids > 0 {
-                    let mut live_docs = FixedBitSet::new(self.num_docs_in_ram);
-                    live_docs.set_with_range(0, self.num_docs_in_ram);
+                    let mut live_docs = FixedBitSet::new(self.state.num_docs_in_ram.load(SeqCst));
+                    live_docs.set_with_range(0, self.state.num_docs_in_ram.load(SeqCst));
 
                     for &doc_id in &self.delete_doc_ids {
                         live_docs.clear_with_index(doc_id);
@@ -528,7 +564,7 @@ where
                     self.num_deleted_doc_ids = 0;
                 }
 
-                if self.aborted.load(Ordering::SeqCst) {
+                if self.state.aborted.load(Ordering::SeqCst) {
                     if self.info_stream.enabled("DWPT") {
                         self.info_stream
                             .message("DWPT", "flush: skip because aborting is set");
@@ -544,7 +580,8 @@ where
                             "DWPT",
                             &format!(
                                 "flush postings as segment {} numDocs={}",
-                                self.segment_info.name, self.num_docs_in_ram
+                                self.segment_info.name,
+                                self.state.num_docs_in_ram.load(SeqCst)
                             ),
                         );
                     }
@@ -707,7 +744,8 @@ where
         })();
 
         self.maybe_abort("flush", flush_notifications, writer)?;
-        self.has_flushed
+        self.state
+            .has_flushed
             .set(true)
             .map_err(|_| LuceneError::illegal_state("flush already called"))?;
         match &result {
@@ -732,7 +770,7 @@ where
         B: IndexWriterBase,
     {
         match self.aborting_exception {
-            Some(_) if !self.aborted.load(Ordering::SeqCst) => {
+            Some(_) if !self.state.aborted.load(Ordering::SeqCst) => {
                 // if we are not already aborted, we can abort
                 let result = self.abort();
                 flush_notifications.on_tragic_event(
@@ -884,31 +922,27 @@ where
 
     /// Returns true iff this DWPT is marked as flush pending
     pub(crate) fn is_flush_pending(&self) -> bool {
-        self.flush_pending.get().copied().unwrap_or(false)
+        self.state.is_flush_pending()
     }
-    pub(crate) fn is_queue_advanced(&self) -> bool {
-        self.delete_queue.is_advanced()
-    }
+
     /// Sets this DWPT as flush pending. This can only be set once.
     pub(crate) fn set_flush_pending(&self) -> Result<()> {
-        if self.flush_pending.set(true).is_err() {
-            return Err(LuceneError::illegal_state("flush_pending has been set"));
-        }
-        Ok(())
+        self.state.set_flush_pending()
     }
     /// Returns the last committed bytes for this DWPT. This method can be called without acquiring the DWPT’s lock.
     pub(crate) fn get_last_committed_bytes_used(&self) -> i64 {
-        self.last_committed_bytes_used.load(Ordering::SeqCst)
+        self.state.last_committed_bytes_used.load(Ordering::SeqCst)
     }
     /// Commits the current [`ram_bytes_used()`](Self::ram_bytes_used) and stores its value for later reuse.
     /// The last committed bytes used can be retrieved via [`get_last_committed_bytes_used()`](Self::get_last_committed_bytes_used).
-    pub(crate) fn commit_last_bytes_used(&mut self, delta: i64) -> Result<()> {
+    pub(crate) fn commit_last_bytes_used(&self, delta: i64) -> Result<()> {
         debug_assert_eq!(
             self.get_commit_last_bytes_used_delta()?,
             delta,
             "delta has changed"
         );
-        self.last_committed_bytes_used
+        self.state
+            .last_committed_bytes_used
             .fetch_add(delta, Ordering::SeqCst);
         Ok(())
     }
@@ -922,22 +956,15 @@ where
     ///
     /// [`commit_last_bytes_used()`](Self::commit_last_bytes_used)
     pub(crate) fn get_commit_last_bytes_used_delta(&self) -> Result<i64> {
-        Ok(self.ram_bytes_used()? - self.last_committed_bytes_used.load(Ordering::SeqCst))
+        Ok(self.ram_bytes_used()? - self.state.last_committed_bytes_used.load(Ordering::SeqCst))
     }
 
     /// Returns `true` iff this DWPT has been flushed
-    pub(crate) fn has_flushed(&self) -> &bool {
-        self.has_flushed.get().unwrap_or(&true)
+    pub(crate) fn has_flushed(&self) -> bool {
+        self.state.has_flushed()
     }
 }
-impl<D> IdentityId for DocumentsWriterPerThread<D>
-where
-    D: Directory,
-{
-    fn id(&self) -> &str {
-        &self.id
-    }
-}
+
 impl<D> Accountable for DocumentsWriterPerThread<D>
 where
     D: Directory,
@@ -965,41 +992,11 @@ where
             std::any::type_name::<Self>(),
             self.pending_updates,
             self.segment_info.name,
-            self.aborted.load(Ordering::SeqCst),
-            self.num_docs_in_ram,
-            self.delete_queue,
+            self.state.aborted.load(Ordering::SeqCst),
+            self.state.num_docs_in_ram.load(SeqCst),
+            self.state.delete_queue,
             self.num_deleted_doc_ids,
         )
-    }
-}
-
-impl<D> FlushState for DocumentsWriterPerThread<D>
-where
-    D: Directory,
-{
-    fn is_flush_pending(&self) -> bool {
-        self.is_flush_pending()
-    }
-}
-
-impl<D> Lock for DocumentsWriterPerThread<D>
-where
-    D: Directory,
-{
-    fn lock(&self) {
-        self.state.lock()
-    }
-
-    fn try_lock(&self) -> bool {
-        self.state.try_lock()
-    }
-
-    fn unlock(&self) {
-        self.state.unlock()
-    }
-
-    fn is_locked(&self) -> bool {
-        self.state.is_locked()
     }
 }
 

@@ -21,6 +21,7 @@ use crate::core::index::flush_policy::FlushPolicy;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
+use parking_lot::MutexGuard;
 
 pub struct DummyFlushPolicy;
 impl FlushPolicy for DummyFlushPolicy {
@@ -28,7 +29,7 @@ impl FlushPolicy for DummyFlushPolicy {
         &self,
         _control: &DocumentsWriterFlushControl<D, L>,
         _inner: &Inner<D>,
-        _per_thread: Option<&DocumentsWriterPerThread<D>>,
+        _per_thread: Option<&MutexGuard<'_, DocumentsWriterPerThread<D>>>,
         _delete_queue: &DocumentsWriterDeleteQueue,
     ) -> Result<()>
     where

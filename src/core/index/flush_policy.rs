@@ -20,13 +20,14 @@ use crate::core::index::documents_writer_per_thread::DocumentsWriterPerThread;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
+use parking_lot::MutexGuard;
 
 pub trait FlushPolicy {
     fn on_change<D, L>(
         &self,
         control: &DocumentsWriterFlushControl<D, L>,
         inner: &Inner<D>,
-        per_thread: Option<&DocumentsWriterPerThread<D>>,
+        per_thread: Option<&MutexGuard<'_, DocumentsWriterPerThread<D>>>,
         delete_queue: &DocumentsWriterDeleteQueue,
     ) -> Result<()>
     where
