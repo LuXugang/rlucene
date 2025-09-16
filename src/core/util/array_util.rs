@@ -251,7 +251,7 @@ impl ArrayUtil {
     /// falling back to insertion sort for small arrays.
     pub fn do_intro_sort<T, C>(a: &mut [T], from_index: i32, to_index: i32, comp: C) -> Result<()>
     where
-        T: Default + Clone + Ord,
+        T: Ord,
         C: Comparator<T>,
     {
         if to_index - from_index <= 1 {
@@ -263,7 +263,7 @@ impl ArrayUtil {
     /// falling back to insertion sort for small arrays.
     pub fn intro_sort_with_comparator<T, C>(a: &mut [T], comp: C) -> Result<()>
     where
-        T: Default + Clone + Ord,
+        T: Ord,
         C: Comparator<T>,
     {
         Self::do_intro_sort(a, 0, a.len() as i32, comp)
@@ -272,7 +272,7 @@ impl ArrayUtil {
     /// falling back to insertion sort for small arrays.
     pub fn intro_sort_with_range<T>(a: &mut [T], from_index: i32, to_index: i32) -> Result<()>
     where
-        T: Default + Clone + Ord,
+        T: Ord,
     {
         if to_index - from_index <= 1 {
             return Ok(());
@@ -283,7 +283,7 @@ impl ArrayUtil {
     /// falling back to insertion sort for small arrays.
     pub fn intro_sort<T>(a: &mut [T]) -> Result<()>
     where
-        T: Default + Clone + Ord,
+        T: Ord,
     {
         Self::intro_sort_with_range(a, 0, a.len() as i32)
     }
