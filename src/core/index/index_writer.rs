@@ -735,7 +735,7 @@ where
         self.flush_deletes_count.load(Ordering::Acquire)
     }
 
-    fn new_segment_name(&self, inner: Option<&mut Inner<D>>) -> String {
+    pub(crate) fn new_segment_name(&self, inner: Option<&mut Inner<D>>) -> String {
         let inner = match inner {
             Some(i) => i,
             None => &mut *self.inner.lock(),

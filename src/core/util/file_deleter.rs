@@ -299,7 +299,8 @@ impl RefCount {
                 self.file_name
             );
         }
-        self.count.saturating_add(1)
+        self.count = self.count.wrapping_add(1);
+        self.count
     }
 
     pub fn dec_ref(&mut self) -> usize {
@@ -311,7 +312,8 @@ impl RefCount {
                 .unwrap_or("Thread name is None"),
             self.file_name
         );
-        self.count.saturating_sub(1)
+        self.count = self.count.wrapping_sub(1);
+        self.count
     }
 }
 

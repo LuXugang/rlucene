@@ -106,7 +106,7 @@ where
         let infos = Builder::new(index_writer.global_field_number_map.clone());
         let dwpt = DocumentsWriterPerThread::new(
             index_writer.get_index_major_version_created(),
-            "",
+            &index_writer.new_segment_name(None),
             index_writer.directory_orig.clone(),
             index_writer.directory.clone(),
             index_writer.config.as_ref(),
