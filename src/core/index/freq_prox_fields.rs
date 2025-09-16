@@ -366,8 +366,7 @@ impl TermsEnum for FreqProxTermsEnum {
 
             let mut pos_enum = match reuse {
                 Some(Either2PostingsEnum::A(p)) => p,
-                Some(Either2PostingsEnum::B(_)) => FreqProxPostingsEnum::new(self.terms.clone()),
-                None => return Err(LuceneError::illegal_state("reuse is none")),
+                _ => FreqProxPostingsEnum::new(self.terms.clone()),
             };
             pos_enum.reset(sorted_term_ids[self.ord as usize]);
             return Ok(Either2PostingsEnum::A(pos_enum));

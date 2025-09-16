@@ -72,7 +72,7 @@ where
     O: Outputs,
     D: Directory,
 {
-    pub(crate) dedup_hash: NodeHash<O::V>,
+    pub(crate) dedup_hash: Option<NodeHash<O::V>>,
     /// A temporary FST used during building for NodeHash cache.
     pub(crate) fst: FST<O, NullFSTReader>,
     pub(crate) no_output: O::V,
@@ -128,11 +128,15 @@ where
         direct_addressing_max_oversizing_factor: f32,
         version: i32,
     ) -> Result<Self> {
-        if suffix_ram_limit_mb < 0.0 {
+        let dedup_hash = if suffix_ram_limit_mb < 0.0 {
             return Err(LuceneError::illegal_argument(format!(
                 "ramLimitMB must be >= 0; got: {suffix_ram_limit_mb}"
             )));
-        }
+        } else if suffix_ram_limit_mb > 0f64 {
+            Some(NodeHash::new(suffix_ram_limit_mb)?)
+        } else {
+            None
+        };
 
         let num_bytes_written = 1; // pad 1 byte, written lazily
         let padding_byte_pending = true;
@@ -145,7 +149,6 @@ where
         for i in 0..10 {
             frontier.push(Some(UnCompiledNode::new(no_output.clone(), i)));
         }
-        let dedup_hash = NodeHash::new(suffix_ram_limit_mb)?;
         Ok(Self {
             dedup_hash,
             fst,

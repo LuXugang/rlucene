@@ -1165,7 +1165,7 @@ where
             };
             debug_assert!(
                 *self.field_info.get_index_options() == IndexOptions::Docs
-                    || total_term_freq > doc_freq as i64
+                    || total_term_freq >= doc_freq as i64
             );
 
             self.push_term(&text)?;

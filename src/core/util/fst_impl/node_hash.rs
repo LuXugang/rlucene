@@ -107,7 +107,7 @@ where
         D: Directory,
     {
         let fallback_table = {
-            let node_hash = &mut fst_compiler.dedup_hash;
+            let node_hash = fst_compiler.dedup_hash.as_mut().unwrap();
             node_hash.last_fallback_node_length = -1;
             node_hash.last_fallback_hash_slot = -1;
             &mut node_hash.fallback_table
@@ -129,7 +129,7 @@ where
                         let length =
                             fallback_table.nodes_equal(node_address, hash_slot, fst, node)?;
                         if length != -1 {
-                            let node_hash = &mut fst_compiler.dedup_hash;
+                            let node_hash = &mut fst_compiler.dedup_hash.as_mut().unwrap();
                             // store the node length for further use
                             node_hash.last_fallback_node_length = length;
                             node_hash.last_fallback_hash_slot = hash_slot;
@@ -156,7 +156,7 @@ where
         D: Directory,
     {
         let (mut hash_slot, mut c, hash) = {
-            let node_hash = &mut fst_compiler.dedup_hash;
+            let node_hash = &mut fst_compiler.dedup_hash.as_mut().unwrap();
             let hash = {
                 let node_in = fst_compiler.frontier[node_in_index].as_ref().unwrap();
                 node_hash.hash(node_in)?
@@ -166,14 +166,14 @@ where
 
         loop {
             let mut node_address = {
-                let node_hash = &mut fst_compiler.dedup_hash;
+                let node_hash = &mut fst_compiler.dedup_hash.as_mut().unwrap();
                 node_hash.primary_table.get_node_address(hash_slot)?
             };
             if node_address == 0 {
                 // not in primary, check fallback
                 node_address = NodeHash::get_fallback(node_in_index, hash, fst_compiler)?;
                 if node_address != 0 {
-                    let node_hash = &mut fst_compiler.dedup_hash;
+                    let node_hash = &mut fst_compiler.dedup_hash.as_mut().unwrap();
                     debug_assert!(
                         node_hash.last_fallback_hash_slot != -1
                             && node_hash.last_fallback_node_length != -1
@@ -198,7 +198,7 @@ where
                     debug_assert!(
                         node_address != FINAL_END_NODE && node_address != NON_FINAL_END_NODE
                     );
-                    let node_hash = &mut fst_compiler.dedup_hash;
+                    let node_hash = &mut fst_compiler.dedup_hash.as_mut().unwrap();
                     node_hash
                         .primary_table
                         .set_node_address(hash_slot, node_address);
@@ -229,7 +229,7 @@ where
                 // between 33.3% and 66.6% note that some of the
                 // copiedNodes are shared between fallback and primary tables so
                 // this computation is pessimistic
-                let node_hash = &mut fst_compiler.dedup_hash;
+                let node_hash = &mut fst_compiler.dedup_hash.as_mut().unwrap();
                 let copied_bytes = node_hash.primary_table.inner.bytes_reader.get_position();
                 let ram_bytes_used = node_hash.primary_table.count
                     * 2
@@ -273,12 +273,18 @@ where
                 }
 
                 return Ok(node_address);
-            } else if fst_compiler.dedup_hash.primary_table.nodes_equal(
-                node_address,
-                hash_slot,
-                &fst_compiler.fst,
-                fst_compiler.frontier[node_in_index].as_ref().unwrap(),
-            )? != -1
+            } else if fst_compiler
+                .dedup_hash
+                .as_mut()
+                .unwrap()
+                .primary_table
+                .nodes_equal(
+                    node_address,
+                    hash_slot,
+                    &fst_compiler.fst,
+                    fst_compiler.frontier[node_in_index].as_ref().unwrap(),
+                )?
+                != -1
             {
                 // same node (in frozen form) is already in primary table
                 return Ok(node_address);
@@ -286,7 +292,8 @@ where
 
             c += 1;
             // quadratic probe (but is it, really?)
-            hash_slot = (hash_slot + c) & fst_compiler.dedup_hash.primary_table.mask;
+            hash_slot =
+                (hash_slot + c) & fst_compiler.dedup_hash.as_mut().unwrap().primary_table.mask;
         }
     }
     fn hash(&self, node: &UnCompiledNode<T>) -> Result<i64> {
