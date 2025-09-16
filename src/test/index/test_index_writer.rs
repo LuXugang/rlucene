@@ -37,7 +37,7 @@ fn test_doc_count() -> Result<()> {
     let dir = Arc::new(new_directory(&mut random)?);
     let writer = IndexWriter::new(dir, new_index_writer_config(&mut random))?;
     // add 100 documents
-    for i in 0..1 {
+    for i in 0..2 {
         add_doc_with_index(&writer, i)?;
     }
     writer.commit()?;
@@ -70,7 +70,8 @@ where
     let mut doc = Document::new();
     doc.add(new_field(
         "content",
-        format!("aaa {}", index).into(),
+        // format!("aaa {}", index).into(),
+        "我",
         &STORED_TEXT_TYPE,
     )?);
     // doc.add(new_field(

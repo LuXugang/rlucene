@@ -300,6 +300,7 @@ where
                         info,
                         self.base.bytes_used.lock().get(),
                     )?;
+                    self.last_doc_id = 0;
                 }
             },
             None => {
@@ -312,12 +313,11 @@ where
                         self.directory.as_ref(),
                         info,
                         &context,
-                    )?)
+                    )?);
+                    self.last_doc_id = 0;
                 }
             },
         }
-
-        self.last_doc_id = 0;
         Ok(())
     }
 

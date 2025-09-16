@@ -236,16 +236,13 @@ pub mod lucene_test_case_util {
             &field_type,
         )
     }
-    pub(crate) fn new_field<S>(
-        name: S,
-        value: FieldDataEnum,
-        field_type: &FieldType,
-    ) -> Result<Field>
+    pub(crate) fn new_field<S, V>(name: S, value: V, field_type: &FieldType) -> Result<Field>
     where
         S: Into<String>,
+        V: Into<FieldDataEnum>,
     {
         let mut random = random();
-        new_field_with_random(&mut random, name, value, field_type)
+        new_field_with_random(&mut random, name, value.into(), field_type)
     }
     // TODO: if we can pull out the "make term vector options
     // consistent across all instances of the same field name"

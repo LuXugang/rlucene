@@ -508,6 +508,10 @@ impl BytesStartArray for PostingsBytesStartArray {
             .get_text_starts()
             .len()
     }
+
+    fn need_init(&self) -> bool {
+        self.per_field.postings_array.is_none()
+    }
 }
 pub(crate) enum TermsHashPerFieldType {
     TermVectors,

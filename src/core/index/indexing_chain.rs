@@ -971,6 +971,8 @@ where
             let pf_as_ref = pf.as_ref().unwrap();
             if pf_as_ref.field_name != field_name {
                 per_field_index = pf_as_ref.next;
+            } else {
+                break;
             }
         }
         if per_field_index < 0 {

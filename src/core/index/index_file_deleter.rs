@@ -625,7 +625,11 @@ where
 
     /// Called only be the deletion policy, to remove this commit point from the index.
     fn delete(&mut self) -> Result<()> {
-        todo!()
+        if !self.deleted {
+            self.deleted = true;
+            // TODO 未完成
+        }
+        Ok(())
     }
 
     fn is_deleted(&self) -> bool {

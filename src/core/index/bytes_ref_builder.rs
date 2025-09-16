@@ -161,15 +161,15 @@ where
         self.bytes_ref.offset = 0;
     }
     pub fn copy_chars_with_chars(&mut self, s: &[char], off: usize, len: usize) {
-        let len = 4 * len; // 4 bytes per char in UTF-8
         let mut bytes = Vec::with_capacity(len);
         for &c in &s[off..off + len] {
             let mut buf = [0u8; 4];
             let encoded_str = c.encode_utf8(&mut buf);
             bytes.extend_from_slice(encoded_str.as_bytes());
         }
+
+        self.bytes_ref.length = bytes.len();
         self.bytes_ref.bytes = AV::from_vec(bytes);
-        self.bytes_ref.length = len;
         self.bytes_ref.offset = 0;
     }
 
@@ -198,5 +198,40 @@ where
     /// Build a new BytesRef that has the same content as this buffer.
     pub fn get_bytes_ref_copy(&self) -> BytesRef<AV> {
         BytesRef::from_bytes(self.bytes_ref.bytes.slice_clone(0, self.bytes_ref.length))
+    }
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn assert_case(chars: &[char], expected_len: usize) {
+        let mut b: BytesRefBuilder<Vec<u8>> = BytesRefBuilder::new();
+        b.copy_chars_with_chars(chars, 0, chars.len());
+        let br = b.get_bytes_ref();
+        assert_eq!(br.length, expected_len);
+        let expected_bytes = chars.iter().collect::<String>().into_bytes();
+        br.bytes.access(|bytes| {
+            assert_eq!(&bytes[0..br.length], &expected_bytes);
+        });
+        assert_eq!(br.offset, 0);
+    }
+    /// Extra test: Rust Lucene-only, not in upstream Lucene
+    #[test]
+    fn test_copy_chars_with_chars_lengths_0_to_4() {
+        //
+        let empty: [char; 0] = [];
+        assert_case(&empty, 0);
+        // 1: one bytes ('a')
+        let one = ['a'];
+        assert_case(&one, 1);
+        // 2: two bytes ('é')
+        let two = ['é'];
+        assert_case(&two, 2);
+        // 3: three bytes ('中')
+        let han = ['中'];
+        assert_case(&han, 3);
+        // 4: four bytes ('🦀')
+        let crab = ['🦀'];
+        assert_case(&crab, 4);
     }
 }

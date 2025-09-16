@@ -449,7 +449,7 @@ where
     /// Reinitializes the [`BytesRefHash`] after a previous `clear()` call.
     /// If `clear()` has not been called previously, this method has no effect.
     pub fn reinit(&mut self) {
-        if self.bytes_start_array.len() == 0 {
+        if self.bytes_start_array.need_init() {
             self.bytes_start_array.init();
         }
 
@@ -692,6 +692,7 @@ pub trait BytesStartArray {
     fn get_value(&self, index: usize) -> i32;
     fn set_value(&mut self, index: usize, value: i32);
     fn len(&self) -> usize;
+    fn need_init(&self) -> bool;
 }
 /// A simple [`BytesStartArray`] that tracks memory allocation using a private
 /// `Counter` instance.
@@ -700,7 +701,7 @@ where
     C: SharedAccess<CounterEnum>,
 {
     init_size: i32,
-    bytes_start: Vec<i32>,
+    bytes_start: Option<Vec<i32>>,
     bytes_used: C,
 }
 impl DirectBytesStartArray<CounterEnumBorrow> {
@@ -713,7 +714,7 @@ impl DirectBytesStartArray<CounterEnumBorrow> {
     pub fn with_counter(init_size: i32, counter: CounterEnumBorrow) -> Self {
         DirectBytesStartArray {
             init_size,
-            bytes_start: vec![],
+            bytes_start: None,
             bytes_used: counter,
         }
     }
@@ -728,7 +729,7 @@ impl DirectBytesStartArray<CounterEnumLock> {
     pub fn with_counter_sync(init_size: i32, counter: CounterEnumLock) -> Self {
         DirectBytesStartArray {
             init_size,
-            bytes_start: vec![],
+            bytes_start: None,
             bytes_used: counter,
         }
     }
@@ -739,19 +740,24 @@ where
     C: SharedAccess<CounterEnum>,
 {
     fn init(&mut self) {
-        self.bytes_start =
-            vec![0; ArrayUtil::oversize(self.init_size as usize, BitUtil::INT_BYTES)];
+        self.bytes_start = Some(vec![
+            0;
+            ArrayUtil::oversize(
+                self.init_size as usize,
+                BitUtil::INT_BYTES
+            )
+        ]);
     }
 
     fn grow(&mut self) -> Result<()> {
-        debug_assert!(!self.bytes_start.is_empty());
-        let length = self.bytes_start.len() as i32;
-        ArrayUtil::grow_i32(&mut self.bytes_start, length as usize + 1)?;
+        debug_assert!(self.bytes_start.is_some());
+        let length = self.bytes_start.as_ref().unwrap().len() as i32;
+        ArrayUtil::grow_i32(self.bytes_start.as_mut().unwrap(), length as usize + 1)?;
         Ok(())
     }
 
     fn clear(&mut self) {
-        self.bytes_start.clear();
+        self.bytes_start = None;
     }
 
     type Counter = C;
@@ -761,15 +767,19 @@ where
     }
 
     fn get_value(&self, index: usize) -> i32 {
-        self.bytes_start[index]
+        self.bytes_start.as_ref().unwrap()[index]
     }
 
     fn set_value(&mut self, index: usize, value: i32) {
-        self.bytes_start[index] = value;
+        self.bytes_start.as_mut().unwrap()[index] = value;
     }
 
     fn len(&self) -> usize {
-        self.bytes_start.len()
+        self.bytes_start.as_ref().unwrap().len()
+    }
+
+    fn need_init(&self) -> bool {
+        self.bytes_start.is_none()
     }
 }
 

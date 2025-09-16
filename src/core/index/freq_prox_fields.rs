@@ -545,7 +545,7 @@ impl FreqProxPostingsEnum {
             start_offset: 0,
             end_offset: 0,
             pos_left: 0,
-            term_id: -1,
+            term_id: 0,
             ended: false,
             has_payload: false,
             payload: BytesRefBuilder::new(),

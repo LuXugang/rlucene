@@ -1626,7 +1626,7 @@ where
             )));
         }
 
-        if self.tragedy.lock().is_none() {
+        if self.tragedy.lock().is_some() {
             return Err(LuceneError::illegal_state(
                 "this writer hit an unrecoverable error; cannot commit",
             ));
