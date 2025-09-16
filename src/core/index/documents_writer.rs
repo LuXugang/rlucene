@@ -809,7 +809,7 @@ impl<D> Supplier<Option<FlushTicket<D>>> for SupplierImpl
 where
     D: Directory,
 {
-    fn get_immutable(&self) -> Result<Option<FlushTicket<D>>> {
+    fn get(&self) -> Result<Option<FlushTicket<D>>> {
         // it's maybeFreezeGlobalBuffer(DocumentsWriterDeleteQueue deleteQueue)'s logic in Java Lucene
         match self.delete_queue.maybe_freeze_global_buffer()? {
             Some(frozen_updates) => Ok(Some(FlushTicket::new(Some(frozen_updates), false))),
@@ -836,7 +836,7 @@ impl<'a, D> Supplier<Option<FlushTicket<D>>> for SupplierImpl1<'a, D>
 where
     D: Directory,
 {
-    fn get(&mut self) -> Result<Option<FlushTicket<D>>> {
+    fn get_mut(&mut self) -> Result<Option<FlushTicket<D>>> {
         let frozen_buffered_updates = self.dwpt.prepare_flush()?;
         Ok(Some(FlushTicket::new(frozen_buffered_updates, true)))
     }
@@ -889,7 +889,7 @@ where
     D: Directory,
     L: LiveIndexWriterConfig,
 {
-    fn get_immutable(&self) -> Result<DocumentsWriterPerThread<D>> {
+    fn get(&self) -> Result<DocumentsWriterPerThread<D>> {
         let infos = Builder::new(self.field_numbers.clone());
         let dwpt = DocumentsWriterPerThread::new(
             self.index_major_version_created,

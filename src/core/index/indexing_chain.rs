@@ -984,8 +984,8 @@ where
                 reserved,
             );
             pf.next = self.field_hash[hash_pos];
+            per_field_index = self.doc_fields.len() as i32;
             self.doc_fields.push(Some(pf));
-            per_field_index = self.doc_fields.len() as i32 - 1;
             self.field_hash[hash_pos] = per_field_index;
             self.total_field_count += 1;
 

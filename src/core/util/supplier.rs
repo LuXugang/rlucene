@@ -16,10 +16,10 @@
  */
 use crate::core::util::error::lucene_error::Result;
 pub trait Supplier<T> {
-    fn get(&mut self) -> Result<T> {
+    fn get_mut(&mut self) -> Result<T> {
         unimplemented!();
     }
-    fn get_immutable(&self) -> Result<T> {
+    fn get(&self) -> Result<T> {
         unimplemented!();
     }
 }

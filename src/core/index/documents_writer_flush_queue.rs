@@ -62,7 +62,7 @@ where
         let mut inner = self.inner.lock();
         self.inc_tickets();
         let result: Result<Option<usize>> = (|| {
-            let ticket_opt = ticket_supplier.get()?;
+            let ticket_opt = ticket_supplier.get_mut()?;
             if let Some(ticket) = ticket_opt {
                 inner.queue.push_back(ticket);
                 let len = inner.queue.len() - 1;
