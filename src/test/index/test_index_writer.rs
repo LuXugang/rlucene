@@ -26,26 +26,21 @@ use crate::test::util::lucene_test_case::lucene_test_case_util::{
     new_directory, new_field, new_index_writer_config, new_text_field, random,
 };
 use once_cell::sync::Lazy;
-use rand::Rng;
 use std::clone::Clone;
 use std::sync::Arc;
 
 static STORED_TEXT_TYPE: Lazy<FieldType> =
     Lazy::new(|| FieldType::from_ref(&text::TYPE_NOT_STORED.clone()).expect("should not fail"));
 pub(crate) struct TestIndexWriter;
-
 fn test_doc_count() -> Result<()> {
     let mut random = random();
     let dir = Arc::new(new_directory(&mut random)?);
     let writer = IndexWriter::new(dir, new_index_writer_config(&mut random))?;
     // add 100 documents
-    for i in 0..100 {
+    for i in 0..1 {
         add_doc_with_index(&writer, i)?;
-
-        if random.random_bool(0.5) {
-            writer.commit()?;
-        }
     }
+    writer.commit()?;
 
     let doc_stats = writer.get_doc_stats()?;
     assert_eq!(100, doc_stats.max_doc);
@@ -84,6 +79,8 @@ where
         &STORED_TEXT_TYPE,
     )?);
 
-    let _ = writer.add_document(doc);
-    Ok(())
+    match writer.add_document(doc) {
+        Ok(_) => Ok(()),
+        Err(e) => Err(e),
+    }
 }

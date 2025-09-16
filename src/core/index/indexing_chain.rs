@@ -377,7 +377,7 @@ where
         } else {
             None
         };
-        let mut norms_merge_instance = match norms {
+        let norms_merge_instance = match norms {
             // Use the merge instance in order to reuse the same IndexInput for all terms
             Some(norms) => match norms.get_merge_instance()? {
                 Some(norms_merge_instance) => Some(norms_merge_instance),
@@ -388,12 +388,11 @@ where
 
         // flush postings + vectors
         let t0 = Instant::now();
-        // TODO: IMPORTANT这里有问题 norms_merge_instance 可能为None
         self.terms_hash.flush(
             fields_to_flush,
             state,
             sort_map.clone(),
-            norms_merge_instance.as_mut().unwrap(),
+            norms_merge_instance,
             index_writer_config.get_codec(),
             segment_info,
             seg_updates,
@@ -527,7 +526,7 @@ where
                         dv_consumer.as_mut().unwrap(),
                         segment_info,
                     )?;
-                } else if *field_info.get_doc_values_type() == DocValuesType::None {
+                } else if *field_info.get_doc_values_type() != DocValuesType::None {
                     return Err(LuceneError::illegal_state(format!(
                         "segment= {segment_info}: fieldInfos has docValues but did not wrote them "
                     )));
@@ -537,9 +536,11 @@ where
             }
         }
         if !state.field_infos.has_doc_values() {
-            return Err(LuceneError::illegal_state(format!(
-                "segment= {segment_info}: fieldInfos has no docValues but wrote them "
-            )));
+            if dv_consumer.is_some() {
+                return Err(LuceneError::illegal_state(format!(
+                    "segment= {segment_info}: fieldInfos has no docValues but wrote them "
+                )));
+            }
         } else if dv_consumer.is_none() {
             return Err(LuceneError::illegal_state(format!(
                 "segment= {segment_info}: fieldInfos has docValues but did not wrote them "
@@ -984,7 +985,7 @@ where
             );
             pf.next = self.field_hash[hash_pos];
             self.doc_fields.push(Some(pf));
-            per_field_index = self.doc_fields.len() as i32;
+            per_field_index = self.doc_fields.len() as i32 - 1;
             self.field_hash[hash_pos] = per_field_index;
             self.total_field_count += 1;
 
@@ -1436,8 +1437,6 @@ impl PerField {
          */
 
         let field_name = field.name().to_string();
-        let terms_hash_per_field = self.terms_hash_per_field.as_mut().unwrap();
-        terms_hash_per_field.start(field, first)?;
 
         // try init Analyzer's TokenStream
         field.init_token_stream(analyzer)?;
@@ -1451,6 +1450,8 @@ impl PerField {
                     None => None,
                 };
 
+         let terms_hash_per_field = self.terms_hash_per_field.as_mut().unwrap();
+                terms_hash_per_field.start(field, first)?;
         let mut stream = field
             .token_stream(ts)?
             .ok_or_else(|| LuceneError::illegal_state("token_stream is None"))?;
@@ -1531,6 +1532,7 @@ impl PerField {
                 // corrupt and should not be flushed to a
                 // new segment:
                 if let Err(e) = terms_hash_per_field.add_with_bytes_ref(
+                    // TODO: 这里没有传递ByteRef
                     None,
                     doc_id,
                     self.invert_state.as_mut().unwrap(),
@@ -1563,6 +1565,7 @@ impl PerField {
                 .as_ref()
                 .unwrap();
             invert_state.offset += stream.get_attribute_source().end_offset().as_ref().unwrap();
+            stream.close()?;
             Ok(())
         })();
 
