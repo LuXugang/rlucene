@@ -19,6 +19,7 @@ mod boost_attribute;
 pub mod collection_statistics;
 pub mod doc_id_set;
 pub mod doc_id_set_iterator;
+pub mod doc_id_stream;
 pub mod dummy;
 mod explanation;
 pub mod field_comparator;
