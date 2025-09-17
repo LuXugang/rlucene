@@ -30,6 +30,7 @@ pub mod index_searcher;
 pub mod knn_collector;
 pub mod leaf_collector;
 pub mod leaf_field_comparator;
+pub mod matches;
 pub mod matches_iterator;
 pub mod pruning;
 pub mod query;
