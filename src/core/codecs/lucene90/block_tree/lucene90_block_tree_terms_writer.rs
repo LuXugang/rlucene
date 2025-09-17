@@ -1191,7 +1191,7 @@ where
             &last_bytes.bytes[..self.last_term.length()],
             &text.bytes[text.offset..text.offset + text.length],
         );
-        if prefix_length == 1 {
+        if prefix_length == -1 {
             debug_assert!(self.last_term.length() == 0);
             prefix_length = 0;
         }

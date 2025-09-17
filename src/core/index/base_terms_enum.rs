@@ -18,6 +18,7 @@ use std::borrow::Cow;
 use std::fmt::{Debug, Display, Formatter};
 
 use crate::core::index::BytesRef;
+use crate::core::index::freq_prox_fields::FreqProxTermsEnum;
 use crate::core::index::term_state::{Either2TermState, TermState, TermStateEnum};
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::core::util::attribute_source::Either2AttributeSource;
@@ -173,6 +174,11 @@ where
                 _ => Err(e),
             },
         }
+    }
+}
+impl From<FreqProxTermsEnum> for BaseTermsEnum<FreqProxTermsEnum> {
+    fn from(value: FreqProxTermsEnum) -> Self {
+        BaseTermsEnum::new(value)
     }
 }
 #[derive(Debug, Clone)]

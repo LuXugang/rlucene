@@ -103,7 +103,9 @@ impl Terms for FreqProxTerms {
     type TermsEnum = BaseTermsEnum<FreqProxTermsEnum>;
 
     fn iterator(&self) -> Result<Self::TermsEnum> {
-        Ok(FreqProxTermsEnum::new(self.terms.clone()))
+        let mut v = FreqProxTermsEnum::new(self.terms.clone());
+        v.reset();
+        Ok(v.into())
     }
 
     type IntersectIter = FilteredTermsEnum<Self::TermsEnum, AutomatonTermsEnum>;
@@ -178,20 +180,19 @@ pub(crate) struct FreqProxTermsEnum {
     ord: i32,
 }
 impl FreqProxTermsEnum {
-    fn new(terms: Rc<FreqProxTermsWriterPerField>) -> BaseTermsEnum<Self> {
+    fn new(terms: Rc<FreqProxTermsWriterPerField>) -> Self {
         let (num_terms, terms_pool) = {
             let num_terms = terms.base.get_num_terms();
             let terms_pool = BytesRefBlockPool::from_byte_block_pool(terms.base.byte_pool.clone());
             (num_terms, terms_pool)
         };
-        let sub = Self {
+        Self {
             terms,
             terms_pool,
             scratch: BytesRef::new(),
             num_terms,
             ord: 0,
-        };
-        BaseTermsEnum::new(sub)
+        }
     }
     pub fn reset(&mut self) {
         self.ord = -1;
@@ -598,7 +599,7 @@ impl DocIdSetIterator for FreqProxPostingsEnum {
                         return Err(LuceneError::illegal_state("Unexpected postings array type"));
                     };
 
-                    self.doc_id = p.last_doc_codes[self.term_id as usize];
+                    self.doc_id = p.last_doc_ids[self.term_id as usize];
                     self.freq = p.term_freqs.as_ref().unwrap()[self.term_id as usize];
                 }
             }
