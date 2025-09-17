@@ -45,5 +45,6 @@ pub mod term_statistics;
 pub mod top_docs;
 pub mod top_knn_collector;
 mod total_hits;
+pub mod two_phase_iterator;
 mod vector_scorer;
 mod vector_similarity_collector;
