@@ -54,8 +54,9 @@ pub trait Scorable {
         Ok(())
     }
 
+    type Scorable: Scorable;
     /// Returns child sub-scorers positioned on the current document.
-    fn get_children<T: Scorable>(&self) -> Result<Vec<ChildScorable<T>>> {
+    fn get_children(&self) -> Result<Vec<ChildScorable<Self::Scorable>>> {
         Ok(vec![])
     }
 }
